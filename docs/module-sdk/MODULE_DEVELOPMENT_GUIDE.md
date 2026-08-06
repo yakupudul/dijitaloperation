@@ -142,7 +142,7 @@ Tek kılavuz, 12 sözleşmeyi günlük geliştirme sırasına dizer; yeni katkı
 | Mevcut durum | Etki |
 |--------------|------|
 | Greenfield | Rehber, ilk core + module runtime implementasyon backlog’una doğrudan epik kırılım sağlar |
-| Foundation açık soruları | SDK bazılarını kilitledi (manifest formatı, prefix, lifecycle adları, event kebab-case); kalan açık sorular ilgili dosyalarda |
+| Foundation açık soruları | SDK bazılarını kilitledi (manifest formatı, prefix, lifecycle adları); event isimleri foundation ile aynı kebab-case standartta; kalan açık sorular ilgili dosyalarda |
 | current-state ile uyumsuz kod | Yok — uyumsuz implementasyon bulunmuyor; risk “sözleşmesiz kod yazmak” |
 
 ## Açık Sorular

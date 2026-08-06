@@ -40,22 +40,38 @@ Aşağıdakiler **ilke** olarak kabul edilir; altyapı seçimi yapılmamıştır
 - Dinleyici hataları yayıncı işlemini zorunlu olarak düşürmemelidir (modül hatası uygulamayı düşürmez kuralı ile uyumlu).
 - Harici API kaynaklı işlerde retry, timeout ve rate-limit uygulanır.
 
-### 6. Website Diagnosis için örnek event adayları (kesin katalog değil)
+### 6. Event isimlendirme standardı
 
-Aşağıdakiler **aday**dır; ADR seviyesinde kilitli event şeması değildir:
+Kesin standart (`docs/module-sdk/EVENT_CONTRACT.md` ile aynı):
 
-- `website_diagnosis.scan_requested`
-- `website_diagnosis.scan_completed`
-- `website_diagnosis.evidence_collected`
-- `website_diagnosis.findings_ready`
-- `website_diagnosis.recommendations_ready`
-- `task.create_requested` (çekirdek veya automation üzerinden)
+| Parça | Biçim |
+|-------|--------|
+| Modül kimliği | kebab-case |
+| Event action | kebab-case |
+| Ayırıcı | nokta (`.`) |
+| Tam type | `{moduleId}.{eventName}` |
+| Çekirdek | `core.{eventName}` |
+
+Örnek: `website-diagnosis.scan-completed`
+
+Snake_case event adları kullanılmaz.
+
+### 7. Website Diagnosis için örnek event adayları (kesin katalog değil)
+
+Aşağıdakiler **aday**dır; payload şeması ADR seviyesinde kilitli değildir. İsimler yukarıdaki standarda uyar:
+
+- `website-diagnosis.scan-requested`
+- `website-diagnosis.scan-completed`
+- `website-diagnosis.evidence-collected`
+- `website-diagnosis.findings-ready`
+- `website-diagnosis.recommendations-ready`
+- `core.task.create-requested` (çekirdek veya automation üzerinden)
 
 ## Gerekçe
 
 - Event tabanlı sınır, diagnosis / intelligence / automation katmanlarının birbirini compile-time bilmesini engeller.
 - Job + event ayrımı, crawl gibi uzun işlemleri HTTP’den ayırır.
-- Aday event isimleri dokümantasyonu hızlandırır; erken kilitleme yanlış şema riski yaratır — bu yüzden “aday” olarak işaretlenmiştir.
+- Aday event isimleri dokümantasyonu hızlandırır; isimlendirme standardı Module SDK ile tekilleştirilmiştir. Payload şeması erken kilitlenmez.
 
 ## Sınırlar
 

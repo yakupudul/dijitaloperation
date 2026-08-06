@@ -21,7 +21,7 @@ Modüllerin event yayınlama / dinleme biçimini, isimlendirmeyi ve isteğe bağ
 
 Örnek: `sample-module.note-created`, `website-diagnosis.scan-completed`.
 
-> Not: Foundation adayları `website_diagnosis.scan_completed` (snake) kullanmıştı. SDK v1 **kebab-case** kilider; foundation adayları kavramsaldir, uygulama SDK’ya uyar.
+Bu isimlendirme `docs/foundation/EVENT_ARCHITECTURE.md` ile aynıdır. Snake_case event type kullanılmaz.
 
 ### 2. Envelope (zorunlu alanlar)
 
@@ -112,8 +112,8 @@ Tek isimlendirme + envelope olmadan çapraz modül entegrasyonu kırılır. Opti
 | Mevcut durum | Etki |
 |--------------|------|
 | Event bus yok | Çekirdekte bus + envelope sıfırdan |
-| Foundation event adları snake adaydı | SDK kebab’a kilitler — uygulama foundation aday string’lerini olduğu gibi kopyalamamalı |
-| Website Diagnosis aday event’leri | Uygulama aşamasında `website-diagnosis.*` olarak yeniden yazılacak |
+| Event isimlendirme | Foundation + SDK tek standart: `{kebab-module}.{kebab-action}` |
+| Website Diagnosis aday event’leri | `website-diagnosis.*` kebab-case; uygulama bu string’leri kullanır |
 
 ## Açık Sorular
 
