@@ -6,6 +6,8 @@ Product source of truth: [`docs/MASTER_SPEC.md`](docs/MASTER_SPEC.md)
 
 Project status: [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md)
 
+Autopilot Supervisor (Cursor Automation setup): [`.automation/supervisor/`](.automation/supervisor/)
+
 ## Bootstrap
 
 See [`docs/implementation/CORE_BOOTSTRAP.md`](docs/implementation/CORE_BOOTSTRAP.md) for local setup, admin creation, queue, tests, and the sample module.

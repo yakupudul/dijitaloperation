@@ -2,6 +2,9 @@
 
 Product planning / implementation / repair is owned by **Cursor Automations**.
 
+Create / enable **DOP Supervisor**: see [`.automation/supervisor/README.md`](supervisor/README.md)  
+Prompt source of truth: [`.automation/supervisor/DOP_SUPERVISOR.md`](supervisor/DOP_SUPERVISOR.md)
+
 GitHub Actions only provides deterministic gates.
 
 ## Active workflow
