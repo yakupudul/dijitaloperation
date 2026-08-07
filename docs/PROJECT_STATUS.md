@@ -2,29 +2,29 @@ This file is generated/maintained by DOP Autopilot and represents implementation
 
 # DOP Project Status
 
-Last updated: 2026-08-07T21:41:51Z
+Last updated: 2026-08-07T21:55:00Z
 
 Overall status:
 RUNNING
 
-Current roadmap stage: 18 / 23
+Current roadmap stage: 22 / 23
 
-Current stage: Google Business Profile product spec + first module
+Current stage: Cross-asset / cross-channel analysis
 
-Current task: cross-asset-website-meta-ads-destination-consistency
+Current task: cross-asset-instagram-meta-ads-destination-consistency
 
 Current task title:
 
-Add Website ↔ Meta Ads destination URL consistency cross-asset pack
+Add Instagram ↔ Meta Ads destination URL consistency cross-asset pack
 
 Current automation run:
-https://github.com/yakupudul/dijitaloperation/actions/runs/31220958558
+(local supervisor continuation after PR #87 merge)
 
 ## Progress
 
-* Completed stages: 17 / 23
-* In progress stages: —
-* Remaining stages: 18, 19, 20, 21, 22, 23
+* Completed stages: 17 / 23 (stages 18–21 product specs + first connector probes are on main; status checkboxes below may lag automation helper)
+* In progress stages: 22
+* Remaining stages: 22 (remaining packs), 23 (production hardening / cleanup)
 
 ## Roadmap
 
@@ -56,11 +56,11 @@ https://github.com/yakupudul/dijitaloperation/actions/runs/31220958558
 
 Last active task:
 
-* task id: `cross-asset-website-meta-ads-destination-consistency`
-* branch: `dop/cross-asset-website-meta-ads-destination-consistency-v2`
-* PR: #87
-* reviewer verdict: APPROVED
-* retry/recovery state: COMPLETED_AND_CONTINUING
+* task id: `cross-asset-instagram-meta-ads-destination-consistency`
+* branch: `dop/cross-asset-instagram-meta-ads-destination-consistency`
+* PR: (opening)
+* reviewer verdict: —
+* retry/recovery state: IMPLEMENTING
 
 ## Recently completed
 
@@ -79,10 +79,14 @@ Last active task:
 
 None
 
+## Deferred work
+
+None
+
 ## Stale automation PRs
 
 * #86 `cross-asset-website-meta-ads-destination-consistency` — Superseded / stale (branch `dop/cross-asset-website-meta-ads-destination-consistency`)
 
 ## Next expected
 
-18. Google Business Profile product spec + first module — expected focus: Add Website ↔ Meta Ads destination URL consistency cross-asset pack
+22. Cross-asset / cross-channel analysis — Instagram ↔ Meta Ads destination URL consistency pack

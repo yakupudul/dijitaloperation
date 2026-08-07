@@ -4,6 +4,7 @@ namespace App\Filament\App\Resources\Customers\Resources\Brands\Resources\Digita
 
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\DigitalAssetResource;
 use App\Filament\App\Resources\Runs\RunResource;
+use App\Jobs\AnalyzeInstagramMetaAdsDestinationConsistencyJob;
 use App\Jobs\AnalyzeWebsiteGbpAddressConsistencyJob;
 use App\Jobs\AnalyzeWebsiteGbpPhoneConsistencyJob;
 use App\Jobs\AnalyzeWebsiteGbpWebsiteUrlConsistencyJob;
@@ -12,6 +13,7 @@ use App\Jobs\AnalyzeWebsiteInstagramWebsiteUrlConsistencyJob;
 use App\Jobs\AnalyzeWebsiteMetaAdsDestinationConsistencyJob;
 use App\Jobs\DiagnoseWebsiteJob;
 use App\Models\DigitalAsset;
+use App\Services\CrossAssetInstagramMetaAdsDestinationConsistencyService;
 use App\Services\CrossAssetWebsiteGbpAddressConsistencyService;
 use App\Services\CrossAssetWebsiteGbpPhoneConsistencyService;
 use App\Services\CrossAssetWebsiteGbpWebsiteUrlConsistencyService;
@@ -325,6 +327,49 @@ class ViewDigitalAsset extends ViewRecord
 
                     $this->redirect(RunResource::getUrl('view', ['record' => $run]));
                 }),
+            Action::make('runInstagramMetaAdsDestinationConsistency')
+                ->label('Run Instagram↔Meta Ads destination check')
+                ->icon(Heroicon::OutlinedPhoto)
+                ->color('gray')
+                ->visible(fn (): bool => $this->canRunInstagramMetaAdsDestinationConsistency())
+                ->requiresConfirmation()
+                ->modalHeading('Run Instagram ↔ Meta Ads destination URL consistency')
+                ->modalDescription('Compares existing Instagram account profile website Evidence with Brand Meta Ads ad destination URL Evidence. No external writes.')
+                ->modalSubmitActionLabel('Run check')
+                ->action(function (): void {
+                    /** @var DigitalAsset $asset */
+                    $asset = $this->getRecord();
+
+                    try {
+                        $run = (new AnalyzeInstagramMetaAdsDestinationConsistencyJob($asset))->handle(
+                            app(CrossAssetInstagramMetaAdsDestinationConsistencyService::class),
+                        );
+                    } catch (\Throwable $exception) {
+                        Notification::make()
+                            ->title('Instagram↔Meta Ads destination check failed')
+                            ->body($exception->getMessage())
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
+
+                    $skip = is_string($run->metadata['skip_reason'] ?? null)
+                        ? $run->metadata['skip_reason']
+                        : null;
+
+                    Notification::make()
+                        ->title($skip === null ? 'Instagram↔Meta Ads destination check completed' : 'Instagram↔Meta Ads destination check skipped')
+                        ->body(
+                            $skip === null
+                                ? 'Run #'.$run->id.' finished with status '.$run->status.'.'
+                                : 'Run #'.$run->id.' finished without comparison ('.$skip.').'
+                        )
+                        ->success()
+                        ->send();
+
+                    $this->redirect(RunResource::getUrl('view', ['record' => $run]));
+                }),
             EditAction::make(),
         ];
     }
@@ -394,6 +439,15 @@ class ViewDigitalAsset extends ViewRecord
         $asset = $this->getRecord();
 
         return $asset->type === CrossAssetWebsiteMetaAdsDestinationConsistencyService::ASSET_TYPE_WEBSITE
+            && $asset->brand_id !== null;
+    }
+
+    private function canRunInstagramMetaAdsDestinationConsistency(): bool
+    {
+        /** @var DigitalAsset $asset */
+        $asset = $this->getRecord();
+
+        return $asset->type === CrossAssetInstagramMetaAdsDestinationConsistencyService::ASSET_TYPE_INSTAGRAM
             && $asset->brand_id !== null;
     }
 }
