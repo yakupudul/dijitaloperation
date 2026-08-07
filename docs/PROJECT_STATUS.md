@@ -2,7 +2,7 @@ This file is generated/maintained by DOP Autopilot and represents implementation
 
 # DOP Project Status
 
-Last updated: 2026-08-07T19:05:49Z
+Last updated: 2026-08-07T19:18:45Z
 
 Overall status:
 RUNNING
@@ -11,14 +11,14 @@ Current roadmap stage: 18 / 23
 
 Current stage: Google Business Profile product spec + first module
 
-Current task: meta-ads-connector-read-only-probe
+Current task: instagram-product-spec
 
 Current task title:
 
-Add read-only Meta Ads ad-account access probe
+Add Instagram product blueprint
 
 Current automation run:
-https://github.com/yakupudul/dijitaloperation/actions/runs/31209856102
+https://github.com/yakupudul/dijitaloperation/actions/runs/31210845535
 
 ## Progress
 
@@ -56,14 +56,15 @@ https://github.com/yakupudul/dijitaloperation/actions/runs/31209856102
 
 Last active task:
 
-* task id: `meta-ads-connector-read-only-probe`
-* branch: `dop/meta-ads-connector-read-only-probe`
-* PR: #72
+* task id: `instagram-product-spec`
+* branch: `dop/instagram-product-spec`
+* PR: #73
 * reviewer verdict: APPROVED
 * retry/recovery state: COMPLETED_AND_CONTINUING
 
 ## Recently completed
 
+* `instagram-product-spec` — PR 73 — `885ad50de330` — 2026-08-07T19:18:42
 * `meta-ads-connector-read-only-probe` — PR 72 — `5502ba27fbf4` — 2026-08-07T19:05:46
 * `meta-ads-product-spec` — PR 71 — `c81eb7743cbe` — 2026-08-07T18:27:55
 * `google-ads-connector-read-only-probe` — PR 70 — `986c9ae22139` — 2026-08-07T18:24:27
@@ -73,7 +74,6 @@ Last active task:
 * `website-ai-insights-finding-interpretation` — PR 66 — `cb19c25b8162` — 2026-08-07T18:10:56
 * `dataforseo-connector-read-only-probe` — PR 64 — `ade600486934` — 2026-08-07T16:04:38
 * `pagespeed-connector-read-only-probe` — PR 63 — `7e4ed7e9a54c` — 2026-08-07T15:05:10
-* `ga4-connector-read-only-probe` — PR 62 — `d44a03d5de18` — 2026-08-07T14:06:47
 
 ## Blockers
 
@@ -81,4 +81,4 @@ None
 
 ## Next expected
 
-18. Google Business Profile product spec + first module — expected focus: Add read-only Meta Ads ad-account access probe
+18. Google Business Profile product spec + first module — expected focus: Add Instagram product blueprint
