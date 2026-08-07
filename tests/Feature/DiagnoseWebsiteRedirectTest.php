@@ -29,6 +29,7 @@ class DiagnoseWebsiteRedirectTest extends TestCase
     {
         Http::fake([
             'https://secure.example/robots.txt' => Http::response("User-agent: *\nDisallow:\n", 200),
+            'https://secure.example/sitemap.xml' => Http::response($this->validEmptySitemap(), 200),
             'https://secure.example' => Http::response('ok', 200),
             'http://secure.example' => Http::response('', 301, ['Location' => 'https://secure.example/']),
         ]);
@@ -77,6 +78,7 @@ class DiagnoseWebsiteRedirectTest extends TestCase
     {
         Http::fake([
             'https://plain.example/robots.txt' => Http::response("User-agent: *\nDisallow:\n", 200),
+            'https://plain.example/sitemap.xml' => Http::response($this->validEmptySitemap(), 200),
             'https://plain.example' => Http::response('ok', 200),
             'http://plain.example' => Http::response('still http', 200),
         ]);
@@ -118,6 +120,7 @@ class DiagnoseWebsiteRedirectTest extends TestCase
     {
         Http::fake([
             'https://loop.example/robots.txt' => Http::response("User-agent: *\nDisallow:\n", 200),
+            'https://loop.example/sitemap.xml' => Http::response($this->validEmptySitemap(), 200),
             'https://loop.example' => Http::response('ok', 200),
             'http://loop.example' => Http::response('', 302, ['Location' => 'http://loop.example/home']),
             'http://loop.example/home' => Http::response('home', 200),
@@ -156,6 +159,10 @@ class DiagnoseWebsiteRedirectTest extends TestCase
                 return Http::response("User-agent: *\nDisallow:\n", 200);
             }
 
+            if (str_ends_with($request->url(), '/sitemap.xml')) {
+                return Http::response($this->validEmptySitemap(), 200);
+            }
+
             if (str_starts_with($request->url(), 'http://')) {
                 throw new ConnectionException('Could not connect to HTTP entrypoint');
             }
@@ -184,6 +191,15 @@ class DiagnoseWebsiteRedirectTest extends TestCase
                 ->where('title', 'HTTP does not upgrade to HTTPS')
                 ->count(),
         );
+    }
+
+    private function validEmptySitemap(): string
+    {
+        return <<<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+</urlset>
+XML;
     }
 
     private function stubValidTlsCertificate(): void
