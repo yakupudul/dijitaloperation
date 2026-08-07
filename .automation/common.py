@@ -41,6 +41,13 @@ EXCLUDED_NEXT_TASK_BRANCH_PREFIXES = (
     "docs/",
 )
 
+# Product Autopilot PRs must not ship automation/infra changes unless Architect
+# explicitly scopes them via files_or_areas.
+PRODUCT_INFRA_PATH_PREFIXES = (
+    ".github/",
+    ".automation/",
+)
+
 PRODUCT_SPEC_PREFIX = "docs/product/"
 SAFE_PRODUCT_SPEC_RE = re.compile(r"^docs/product/(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_][A-Za-z0-9_-]*\.md$")
 
@@ -478,6 +485,67 @@ def find_secret_like_paths(paths: list[str]) -> list[str]:
         if any(pattern.search(normalized) for pattern in SECRET_PATH_PATTERNS):
             hits.append(path)
     return hits
+
+
+def find_product_infra_paths(paths: list[str]) -> list[str]:
+    """Paths that product Autopilot PRs must not change by default."""
+    hits: list[str] = []
+    for path in paths:
+        normalized = path.replace("\\", "/")
+        while normalized.startswith("./"):
+            normalized = normalized[2:]
+        for prefix in PRODUCT_INFRA_PATH_PREFIXES:
+            root = prefix.rstrip("/")
+            if normalized == root or normalized.startswith(prefix):
+                hits.append(path)
+                break
+    return hits
+
+
+def task_allows_infra_paths(task: dict[str, Any] | None, paths: list[str]) -> bool:
+    """True when Architect files_or_areas explicitly scopes every infra path."""
+    if not task or not paths:
+        return False
+
+    def _norm(value: str) -> str:
+        normalized = value.replace("\\", "/")
+        while normalized.startswith("./"):
+            normalized = normalized[2:]
+        return normalized
+
+    areas = [_norm(str(item)) for item in (task.get("files_or_areas") or []) if str(item).strip()]
+    explicit_infra_areas = [
+        area
+        for area in areas
+        if any(area == p.rstrip("/") or area.startswith(p) for p in PRODUCT_INFRA_PATH_PREFIXES)
+    ]
+    if not explicit_infra_areas:
+        return False
+    for path in paths:
+        normalized = _norm(path)
+        if not any(
+            normalized == area.rstrip("/")
+            or normalized.startswith(area if area.endswith("/") else area + "/")
+            for area in explicit_infra_areas
+        ):
+            return False
+    return True
+
+
+def assert_product_branch_diff_safe(
+    paths: list[str],
+    *,
+    task: dict[str, Any] | None = None,
+) -> list[str]:
+    """Return errors if product branch touches automation/workflow infra."""
+    infra = find_product_infra_paths(paths)
+    if not infra:
+        return []
+    if task_allows_infra_paths(task, infra):
+        return []
+    return [
+        "product branch must not change automation/infra paths: " + ", ".join(infra)
+    ]
 
 
 def is_safe_product_spec_path(path: str) -> bool:

@@ -115,6 +115,16 @@ jobs:
           echo "Hard blocker — no merge/dispatch" >> "$GITHUB_STEP_SUMMARY"
           exit 1
 
+      - name: Sync workspace to origin/main
+        if: steps.architect.outputs.status == 'TASK_READY'
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git checkout --force -B main origin/main
+          git reset --hard origin/main
+          git clean -fd -e .automation/runtime -e .env
+          echo "Implementer base: $(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Prepare implementer prompt
         if: steps.architect.outputs.status == 'TASK_READY'
         run: |
@@ -135,6 +145,7 @@ jobs:
           {specs}
 
           Do NOT git push / PR / merge. Do NOT touch secrets/.env.
+          Do NOT modify `.github/` or `.automation/` unless the Architect task files_or_areas explicitly requires it.
           """)
           PY
 
@@ -185,26 +196,11 @@ jobs:
           import json, sys
           from pathlib import Path
           sys.path.insert(0,'.automation')
-          from common import AUTOMATION_PR_MARKER, is_safe_branch_name, scan_diff_for_credential_leaks, find_secret_like_paths
-          import subprocess
+          from common import AUTOMATION_PR_MARKER, is_safe_branch_name
           task=json.loads(Path('.automation/runtime/task.json').read_text())
           branch=task['branch_name']
           if not is_safe_branch_name(branch):
               raise SystemExit(f'Unsafe branch: {branch}')
-          paths=[]
-          for line in subprocess.check_output(['git','status','--porcelain'], text=True).splitlines():
-              if not line.strip():
-                  continue
-              p=line[3:].strip()
-              if ' -> ' in p: p=p.split(' -> ',1)[1]
-              paths.append(p)
-          hits=find_secret_like_paths(paths)
-          if hits:
-              raise SystemExit('Secret-like paths: '+', '.join(hits))
-          diff=subprocess.check_output(['git','diff'], text=True)
-          leaks=scan_diff_for_credential_leaks(diff)
-          if leaks:
-              raise SystemExit('Credential-like patterns in diff')
           Path('.automation/runtime/branch.txt').write_text(branch)
           body=f"""{AUTOMATION_PR_MARKER}
 
@@ -237,11 +233,11 @@ jobs:
           TITLE="$(cat .automation/runtime/pr_title.txt)"
           git config user.name "dop-automation"
           git config user.email "dop-automation@users.noreply.github.com"
-          git checkout -B "$BRANCH"
-          git add -A
-          # never commit runtime
-          git reset -q .automation/runtime 2>/dev/null || true
+          bash .automation/scripts/prepare_product_branch.sh "$BRANCH" .automation/runtime/task.json
           git commit -m "feat: $(cat .automation/runtime/pr_title.txt | tr -d '\n')"
+          bash .automation/scripts/assert_product_branch_infra.sh .automation/runtime/task.json
+          echo "merge-base=$(git merge-base HEAD origin/main)" >> "$GITHUB_STEP_SUMMARY"
+          echo "base-sha=$(cat .automation/runtime/base_sha.txt)" >> "$GITHUB_STEP_SUMMARY"
           git push -u origin "$BRANCH"
           URL="$(gh pr create --base main --head "$BRANCH" --title "$TITLE" --body-file .automation/runtime/pr_body.md)"
           echo "pr_url=$URL" >> "$GITHUB_OUTPUT"
@@ -381,7 +377,15 @@ jobs:
             if git status --porcelain | grep -q .; then
               git add -A
               git reset -q .automation/runtime 2>/dev/null || true
-              git commit -m "fix: address automated DOP review"
+              # Re-base fix commits onto latest origin/main if main advanced.
+              git fetch origin main
+              if ! git merge-base --is-ancestor origin/main HEAD; then
+                git stash push --include-untracked --message "dop-fix" || true
+                git rebase origin/main
+                git stash pop || true
+              fi
+              git commit -m "fix: address automated DOP review" || true
+              bash .automation/scripts/assert_product_branch_infra.sh .automation/runtime/task.json
               git push origin HEAD:"$(cat .automation/runtime/branch.txt)"
             fi
           done

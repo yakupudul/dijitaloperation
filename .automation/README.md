@@ -43,7 +43,14 @@ Opsiyonel vars:
 
 Secret değerleri log/prompt/artifact’a yazılmaz. Usage metrikleri (token counts) step summary’ye yazılır.
 
-## Token economy
+## Branch isolation
+
+Product Autopilot PRs are always created from a freshly fetched `origin/main`.
+
+* `.automation/scripts/prepare_product_branch.sh` — detach/reset to `origin/main`, apply product patch
+* `.automation/scripts/assert_product_branch_infra.sh` — fail if three-dot diff touches `.github/` or `.automation/` unless Architect `files_or_areas` explicitly allows it
+
+This prevents stale-base races where a concurrent workflow commit on `main` makes GitHub reject the product branch push (`workflows` permission).
 
 * Stable prefix: `.automation/context/CORE_RULES.md` (MASTER_SPEC yerine compact rules)
 * Architect yalnız sıradaki domain candidate blueprint’lerini yükler (`docs/product/**` tamamı değil)
