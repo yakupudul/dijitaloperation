@@ -7,6 +7,7 @@ use App\Models\Evidence;
 use App\Models\Finding;
 use App\Models\Run;
 use App\Support\RobotsTxtParser;
+use App\Support\SitemapXmlParser;
 use App\Support\SslCertificateProbe;
 use App\Support\SslCertParser;
 use DateTimeImmutable;
@@ -28,11 +29,15 @@ class WebsiteDiagnosisService
 
     public const CATALOG_ROBOTS_TXT_AVAILABILITY = 'robots-txt-availability';
 
+    public const CATALOG_SITEMAP_XML_AVAILABILITY = 'sitemap-xml-availability';
+
     public const EVIDENCE_TYPE_TLS_INFO = 'tls_info';
 
     public const EVIDENCE_TYPE_REDIRECTS = 'redirects';
 
     public const EVIDENCE_TYPE_ROBOTS = 'robots';
+
+    public const EVIDENCE_TYPE_SITEMAP = 'sitemap';
 
     private const TLS_EXPIRING_SOON_DAYS = 7;
 
@@ -45,10 +50,11 @@ class WebsiteDiagnosisService
     public function __construct(
         private readonly SslCertificateProbe $sslCertificateProbe = new SslCertificateProbe,
         private readonly RobotsTxtParser $robotsTxtParser = new RobotsTxtParser,
+        private readonly SitemapXmlParser $sitemapXmlParser = new SitemapXmlParser,
     ) {}
 
     /**
-     * Deterministic Website Diagnosis slice: reachability + TLS + HTTP→HTTPS redirect + robots.txt → Evidence → Finding upsert.
+     * Deterministic Website Diagnosis slice: reachability + TLS + HTTP→HTTPS redirect + robots.txt + sitemap → Evidence → Finding upsert.
      */
     public function diagnose(DigitalAsset $asset): Run
     {
@@ -69,6 +75,7 @@ class WebsiteDiagnosisService
                     self::CATALOG_HTTPS_TLS_VALIDITY,
                     self::CATALOG_REDIRECT_HTTP_TO_HTTPS,
                     self::CATALOG_ROBOTS_TXT_AVAILABILITY,
+                    self::CATALOG_SITEMAP_XML_AVAILABILITY,
                 ],
             ],
         ]);
@@ -159,6 +166,38 @@ class WebsiteDiagnosisService
                 $asset,
                 $run,
                 $robotsCollection['robots'],
+                $observedAt,
+            );
+
+            $sitemapCollection = $this->collectSitemap(
+                $primaryUrl,
+                $robotsCollection['robots']['sitemap_urls'] ?? [],
+            );
+
+            Evidence::query()->create([
+                'run_id' => $run->id,
+                'digital_asset_id' => $asset->id,
+                'source_module' => self::MODULE_ID,
+                'type' => 'http_fetch',
+                'title' => 'sitemap HTTP fetch',
+                'payload' => $sitemapCollection['http_fetch'],
+                'observed_at' => $observedAt,
+            ]);
+
+            Evidence::query()->create([
+                'run_id' => $run->id,
+                'digital_asset_id' => $asset->id,
+                'source_module' => self::MODULE_ID,
+                'type' => self::EVIDENCE_TYPE_SITEMAP,
+                'title' => 'Sitemap XML',
+                'payload' => $sitemapCollection['sitemap'],
+                'observed_at' => $observedAt,
+            ]);
+
+            $this->evaluateSitemapXmlAvailability(
+                $asset,
+                $run,
+                $sitemapCollection['sitemap'],
                 $observedAt,
             );
 
@@ -624,6 +663,317 @@ class WebsiteDiagnosisService
         $port = isset($parts['port']) ? ':'.$parts['port'] : '';
 
         return $scheme.'://'.$host.$port.'/robots.txt';
+    }
+
+    /**
+     * Collect sitemap evidence using robots-declared Sitemap URLs when present, else default /sitemap.xml.
+     *
+     * @param  list<string>  $robotsSitemapUrls
+     * @return array{
+     *     http_fetch: array{
+     *         url: string,
+     *         status_code: int|null,
+     *         effective_url: string|null,
+     *         is_https: bool,
+     *         response_is_ok: bool,
+     *         error_class: string|null,
+     *         error_or_status: string
+     *     },
+     *     sitemap: array{
+     *         host: string,
+     *         tried_urls: list<string>,
+     *         candidates_from_robots: bool,
+     *         sitemap_url: string,
+     *         effective_url: string|null,
+     *         status_code: int|null,
+     *         present: bool,
+     *         parse_ok: bool,
+     *         root_element: string|null,
+     *         url_count: int|null,
+     *         body: string|null,
+     *         body_truncated: bool,
+     *         last_outcome: string,
+     *         error_class: string|null,
+     *         reason_code: string|null
+     *     }
+     * }
+     */
+    private function collectSitemap(string $primaryUrl, array $robotsSitemapUrls): array
+    {
+        $host = strtolower((string) parse_url($primaryUrl, PHP_URL_HOST));
+        $candidatesFromRobots = $robotsSitemapUrls !== [];
+        $triedUrls = $candidatesFromRobots
+            ? array_values(array_unique(array_filter(
+                $robotsSitemapUrls,
+                static fn (mixed $url): bool => is_string($url) && trim($url) !== '',
+            )))
+            : [$this->defaultSitemapUrlFor($primaryUrl)];
+
+        if ($triedUrls === []) {
+            $triedUrls = [$this->defaultSitemapUrlFor($primaryUrl)];
+            $candidatesFromRobots = false;
+        }
+
+        $decisiveHttpFetch = null;
+        $decisiveSitemap = null;
+
+        foreach ($triedUrls as $candidateUrl) {
+            $attempt = $this->fetchSitemapCandidate($candidateUrl, $host, $triedUrls, $candidatesFromRobots);
+
+            $decisiveHttpFetch = $attempt['http_fetch'];
+            $decisiveSitemap = $attempt['sitemap'];
+
+            if ($attempt['sitemap']['parse_ok'] === true) {
+                break;
+            }
+        }
+
+        /** @var array{http_fetch: array<string, mixed>, sitemap: array<string, mixed>} $decisive */
+        $decisive = [
+            'http_fetch' => $decisiveHttpFetch,
+            'sitemap' => $decisiveSitemap,
+        ];
+
+        return $decisive;
+    }
+
+    /**
+     * @param  list<string>  $triedUrls
+     * @return array{
+     *     http_fetch: array{
+     *         url: string,
+     *         status_code: int|null,
+     *         effective_url: string|null,
+     *         is_https: bool,
+     *         response_is_ok: bool,
+     *         error_class: string|null,
+     *         error_or_status: string
+     *     },
+     *     sitemap: array{
+     *         host: string,
+     *         tried_urls: list<string>,
+     *         candidates_from_robots: bool,
+     *         sitemap_url: string,
+     *         effective_url: string|null,
+     *         status_code: int|null,
+     *         present: bool,
+     *         parse_ok: bool,
+     *         root_element: string|null,
+     *         url_count: int|null,
+     *         body: string|null,
+     *         body_truncated: bool,
+     *         last_outcome: string,
+     *         error_class: string|null,
+     *         reason_code: string|null
+     *     }
+     * }
+     */
+    private function fetchSitemapCandidate(
+        string $candidateUrl,
+        string $host,
+        array $triedUrls,
+        bool $candidatesFromRobots,
+    ): array {
+        try {
+            /** @var Response $response */
+            $response = Http::timeout(15)
+                ->accept('application/xml,text/xml,*/*;q=0.8')
+                ->withHeaders([
+                    'User-Agent' => 'MoxDOP-WebsiteDiagnosis/1.0',
+                ])
+                ->get($candidateUrl);
+
+            $statusCode = $response->status();
+            $effectiveUrl = $this->effectiveUrl($response, $candidateUrl);
+            $rawBody = $response->body();
+            $parsed = $this->sitemapXmlParser->parse($rawBody, $statusCode);
+
+            $errorClass = null;
+            $statusOrError = (string) $statusCode;
+            $lastOutcome = $this->sitemapOutcomeFromStatus($statusCode, $parsed['malformed'], $parsed['parse_ok']);
+            $reasonCode = $this->sitemapReasonCode($lastOutcome);
+
+            $httpFetch = [
+                'url' => $candidateUrl,
+                'status_code' => $statusCode,
+                'effective_url' => $effectiveUrl,
+                'is_https' => $this->isHttps($effectiveUrl ?? $candidateUrl),
+                'response_is_ok' => $response->successful(),
+                'error_class' => $errorClass,
+                'error_or_status' => $statusOrError,
+            ];
+
+            return [
+                'http_fetch' => $httpFetch,
+                'sitemap' => [
+                    'host' => $host,
+                    'tried_urls' => $triedUrls,
+                    'candidates_from_robots' => $candidatesFromRobots,
+                    'sitemap_url' => $candidateUrl,
+                    'effective_url' => $effectiveUrl,
+                    'status_code' => $statusCode,
+                    'present' => $statusCode === 200 && is_string($parsed['body']),
+                    'parse_ok' => $parsed['parse_ok'],
+                    'root_element' => $parsed['root_element'],
+                    'url_count' => $parsed['url_count'],
+                    'body' => $parsed['body'],
+                    'body_truncated' => $parsed['body_truncated'],
+                    'last_outcome' => $lastOutcome,
+                    'error_class' => $errorClass,
+                    'reason_code' => $reasonCode,
+                ],
+            ];
+        } catch (ConnectionException $exception) {
+            $statusOrError = 'connection_error: '.$exception->getMessage();
+
+            $httpFetch = [
+                'url' => $candidateUrl,
+                'status_code' => null,
+                'effective_url' => null,
+                'is_https' => $this->isHttps($candidateUrl),
+                'response_is_ok' => false,
+                'error_class' => 'connection',
+                'error_or_status' => $statusOrError,
+            ];
+
+            return [
+                'http_fetch' => $httpFetch,
+                'sitemap' => [
+                    'host' => $host,
+                    'tried_urls' => $triedUrls,
+                    'candidates_from_robots' => $candidatesFromRobots,
+                    'sitemap_url' => $candidateUrl,
+                    'effective_url' => null,
+                    'status_code' => null,
+                    'present' => false,
+                    'parse_ok' => false,
+                    'root_element' => null,
+                    'url_count' => null,
+                    'body' => null,
+                    'body_truncated' => false,
+                    'last_outcome' => 'connection',
+                    'error_class' => 'connection',
+                    'reason_code' => 'fetch_failure',
+                ],
+            ];
+        }
+    }
+
+    private function sitemapOutcomeFromStatus(?int $statusCode, bool $malformed, bool $parseOk): string
+    {
+        if ($parseOk) {
+            return 'ok';
+        }
+
+        if ($statusCode === null) {
+            return 'connection';
+        }
+
+        if ($statusCode >= 500 && $statusCode <= 599) {
+            return 'status_5xx';
+        }
+
+        if ($statusCode === 404) {
+            return 'status_404';
+        }
+
+        if ($statusCode === 410) {
+            return 'status_410';
+        }
+
+        if ($malformed || $statusCode === 200) {
+            return 'malformed_xml';
+        }
+
+        return 'status_'.$statusCode;
+    }
+
+    private function sitemapReasonCode(string $lastOutcome): ?string
+    {
+        return match ($lastOutcome) {
+            'ok' => null,
+            'malformed_xml' => 'malformed',
+            'status_404', 'status_410' => 'not_found',
+            'connection', 'status_5xx' => 'fetch_failure',
+            default => 'fetch_failure',
+        };
+    }
+
+    /**
+     * Catalog item `sitemap-xml-availability`: every candidate missing/unreadable, or decisive body malformed.
+     *
+     * @param  array{
+     *     host: string,
+     *     tried_urls: list<string>,
+     *     candidates_from_robots: bool,
+     *     sitemap_url: string,
+     *     effective_url: string|null,
+     *     status_code: int|null,
+     *     present: bool,
+     *     parse_ok: bool,
+     *     root_element: string|null,
+     *     url_count: int|null,
+     *     body: string|null,
+     *     body_truncated: bool,
+     *     last_outcome: string,
+     *     error_class: string|null,
+     *     reason_code: string|null
+     * }  $evidence
+     */
+    private function evaluateSitemapXmlAvailability(
+        DigitalAsset $asset,
+        Run $run,
+        array $evidence,
+        DateTimeInterface $observedAt,
+    ): void {
+        if ($evidence['parse_ok'] === true) {
+            return;
+        }
+
+        $fingerprint = $this->fingerprint(self::CATALOG_SITEMAP_XML_AVAILABILITY, [
+            'host' => $evidence['host'],
+        ]);
+
+        $confidence = $evidence['candidates_from_robots']
+            ? self::CONFIDENCE_HIGH
+            : self::CONFIDENCE_MEDIUM;
+
+        $triedUrls = implode(', ', $evidence['tried_urls']);
+
+        $this->upsertFinding(
+            asset: $asset,
+            run: $run,
+            fingerprint: $fingerprint,
+            category: 'indexability',
+            severity: 'medium',
+            title: 'Sitemap missing or unreadable',
+            summary: sprintf(
+                'No usable sitemap at tried URL(s): %s; last_outcome=%s.',
+                $triedUrls,
+                $evidence['last_outcome'],
+            ),
+            confidence: $confidence,
+            observedAt: $observedAt,
+        );
+    }
+
+    private function defaultSitemapUrlFor(string $primaryUrl): string
+    {
+        $parts = parse_url($primaryUrl);
+
+        if (! is_array($parts) || ! isset($parts['host'])) {
+            throw new InvalidArgumentException('Unable to derive sitemap URL from primary_url.');
+        }
+
+        $scheme = strtolower((string) ($parts['scheme'] ?? 'https'));
+        if ($scheme !== 'http' && $scheme !== 'https') {
+            $scheme = 'https';
+        }
+
+        $host = strtolower($parts['host']);
+        $port = isset($parts['port']) ? ':'.$parts['port'] : '';
+
+        return $scheme.'://'.$host.$port.'/sitemap.xml';
     }
 
     private function httpFormOf(string $url): string
