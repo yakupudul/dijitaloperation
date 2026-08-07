@@ -2,7 +2,7 @@ This file is generated/maintained by DOP Autopilot and represents implementation
 
 # DOP Project Status
 
-Last updated: 2026-08-07T18:21:16Z
+Last updated: 2026-08-07T18:24:31Z
 
 Overall status:
 RUNNING
@@ -11,14 +11,14 @@ Current roadmap stage: 18 / 23
 
 Current stage: Google Business Profile product spec + first module
 
-Current task: google-ads-product-spec
+Current task: google-ads-connector-read-only-probe
 
 Current task title:
 
-Add Google Ads product blueprint
+Add read-only Google Ads accessible-customer probe
 
 Current automation run:
-https://github.com/yakupudul/dijitaloperation/actions/runs/31206469960
+https://github.com/yakupudul/dijitaloperation/actions/runs/31206724413
 
 ## Progress
 
@@ -56,14 +56,15 @@ https://github.com/yakupudul/dijitaloperation/actions/runs/31206469960
 
 Last active task:
 
-* task id: `google-ads-product-spec`
-* branch: `dop/google-ads-product-spec`
-* PR: #69
+* task id: `google-ads-connector-read-only-probe`
+* branch: `dop/google-ads-connector-read-only-probe`
+* PR: #70
 * reviewer verdict: APPROVED
 * retry/recovery state: COMPLETED_AND_CONTINUING
 
 ## Recently completed
 
+* `google-ads-connector-read-only-probe` — PR 70 — `986c9ae22139` — 2026-08-07T18:24:27
 * `google-ads-product-spec` — PR 69 — `9b9a348e920c` — 2026-08-07T18:21:13
 * `google-business-profile-connector-read-only-probe` — PR 68 — `45085214733f` — 2026-08-07T18:18:41
 * `google-business-profile-product-spec` — PR 67 — `5a4049d4c2d2` — 2026-08-07T18:15:10
@@ -73,7 +74,6 @@ Last active task:
 * `ga4-connector-read-only-probe` — PR 62 — `d44a03d5de18` — 2026-08-07T14:06:47
 * `search-console-connector-read-only-probe` — PR 61 — `be8bdc6887dd` — 2026-08-07T13:55:24
 * `wordpress-connector-read-only-probe` — PR 60 — `e578867055f2` — 2026-08-07T13:45:06
-* `website-diagnosis-recommendations` — PR 59 — `8a7894efbc80` — 2026-08-07T13:31:52
 
 ## Blockers
 
@@ -81,4 +81,4 @@ None
 
 ## Next expected
 
-18. Google Business Profile product spec + first module — expected focus: Add Google Ads product blueprint
+18. Google Business Profile product spec + first module — expected focus: Add read-only Google Ads accessible-customer probe
