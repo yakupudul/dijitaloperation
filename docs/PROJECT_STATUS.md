@@ -2,7 +2,7 @@ This file is generated/maintained by DOP Autopilot and represents implementation
 
 # DOP Project Status
 
-Last updated: 2026-08-07T12:20:10Z
+Last updated: 2026-08-07T12:54:51Z
 
 Overall status:
 RUNNING
@@ -11,14 +11,14 @@ Current roadmap stage: 11 / 23
 
 Current stage: Website Diagnosis implementation
 
-Current task: website-diagnosis-robots-txt-availability
+Current task: website-diagnosis-sitemap-xml-availability
 
 Current task title:
 
-Add catalog-aligned robots.txt availability diagnosis check
+Add catalog-aligned sitemap.xml availability diagnosis check
 
 Current automation run:
-https://github.com/yakupudul/dijitaloperation/actions/runs/31177675042
+https://github.com/yakupudul/dijitaloperation/actions/runs/31180135015
 
 ## Progress
 
@@ -56,14 +56,15 @@ https://github.com/yakupudul/dijitaloperation/actions/runs/31177675042
 
 Last active task:
 
-* task id: `website-diagnosis-robots-txt-availability`
-* branch: `dop/website-diagnosis-robots-txt-availability`
-* PR: #54
+* task id: `website-diagnosis-sitemap-xml-availability`
+* branch: `dop/website-diagnosis-sitemap-xml-availability-v2`
+* PR: #56
 * reviewer verdict: APPROVED
 * retry/recovery state: COMPLETED_AND_CONTINUING
 
 ## Recently completed
 
+* `website-diagnosis-sitemap-xml-availability` — PR 56 — `1594e689dc42` — 2026-08-07T12:54:47
 * `website-diagnosis-robots-txt-availability` — PR 54 — `acf9ca633e6a` — 2026-08-07T12:20:07
 * `website-diagnosis-redirect-http-to-https` — PR 53 — `4ea61ca6c41a` — 2026-08-07T12:13:17
 * ` markers, and existing PR descriptions cannot be rewritten by the repair automation token. This PR carries the same catalog-aligned TLS validity implementation with a valid task contract.
@@ -79,12 +80,15 @@ Implement a small deterministic HTTPS/TLS certificate validity check as part of 
 * `add-website-fields-to-digital-asset` — PR 36 — `fc13705346ef` — 2026-08-07T09:02:11
 * `website-module-skeleton` — PR 35 — `64d5afcfc289` — 2026-08-07T08:58:42
 * `add-runs-filament-resource` — PR 34 — `a4b1fc3d7221` — 2026-08-07T08:55:06
-* `add-findings-filament-resource` — PR 33 — `98fdaca40331` — 2026-08-07T08:50:22
 
 ## Blockers
 
 None
 
+## Stale automation PRs
+
+* #55 `website-diagnosis-sitemap-xml-availability` — Superseded / stale (branch `dop/website-diagnosis-sitemap-xml-availability`)
+
 ## Next expected
 
-11. Website Diagnosis implementation — expected focus: Add catalog-aligned robots.txt availability diagnosis check
+11. Website Diagnosis implementation — expected focus: Add catalog-aligned sitemap.xml availability diagnosis check
