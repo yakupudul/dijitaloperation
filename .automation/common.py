@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from pathlib import Path
 from typing import Any
@@ -43,9 +44,330 @@ EXCLUDED_NEXT_TASK_BRANCH_PREFIXES = (
 PRODUCT_SPEC_PREFIX = "docs/product/"
 SAFE_PRODUCT_SPEC_RE = re.compile(r"^docs/product/(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_][A-Za-z0-9_-]*\.md$")
 
+DEFAULT_ARCHITECT_MODEL = "gpt-5-mini"
+DEFAULT_REVIEWER_MODEL = "gpt-5-mini"
+DEFAULT_ESCALATION_MODEL = "gpt-5"
+DEFAULT_REASONING_EFFORT = "low"
+CORE_RULES_REL = ".automation/context/CORE_RULES.md"
+MAX_DOC_CHARS = 60_000
+MAX_DIFF_CHARS_FOR_REVIEW = 120_000
+
+# Roadmap-ordered domain → product blueprints (INDEX / IMPLEMENTATION_ROADMAP).
+# Used to load only the next relevant specs instead of all docs/product/**.
+ROADMAP_DOMAIN_SPECS: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
+    ("customer", ("customer",), ("docs/product/CUSTOMER.md",)),
+    ("brand", ("brand",), ("docs/product/BRAND.md",)),
+    (
+        "digital-asset",
+        ("digital-asset", "digital_asset", "digitalasset"),
+        ("docs/product/DIGITAL_ASSET.md",),
+    ),
+    (
+        "connection",
+        ("connection", "credential"),
+        ("docs/product/CONNECTION.md", "docs/product/DIGITAL_ASSET.md"),
+    ),
+    (
+        "module-registry",
+        ("module-registry", "module_platform", "module-platform"),
+        ("docs/product/MODULE_PLATFORM.md",),
+    ),
+    (
+        "analysis-pipeline",
+        ("analysis-pipeline", "evidence", "finding", "recommendation", "pipeline"),
+        ("docs/product/ANALYSIS_PIPELINE.md",),
+    ),
+    (
+        "website",
+        ("website-module", "website_module"),
+        ("docs/product/website/WEBSITE.md",),
+    ),
+    (
+        "diagnosis",
+        ("diagnosis",),
+        (
+            "docs/product/website/DIAGNOSIS.md",
+            "docs/product/website/WEBSITE.md",
+            "docs/product/ANALYSIS_PIPELINE.md",
+        ),
+    ),
+    (
+        "wordpress",
+        ("wordpress",),
+        ("docs/product/website/WORDPRESS.md", "docs/product/website/WEBSITE.md"),
+    ),
+    (
+        "search-console",
+        ("search-console", "search_console"),
+        ("docs/product/website/SEARCH_CONSOLE.md", "docs/product/website/WEBSITE.md"),
+    ),
+    (
+        "ga4",
+        ("ga4",),
+        ("docs/product/website/GA4.md", "docs/product/ANALYSIS_PIPELINE.md"),
+    ),
+    (
+        "pagespeed",
+        ("pagespeed", "lighthouse"),
+        ("docs/product/website/PAGESPEED_LIGHTHOUSE.md", "docs/product/website/WEBSITE.md"),
+    ),
+    (
+        "dataforseo",
+        ("dataforseo",),
+        ("docs/product/website/DATAFORSEO.md", "docs/product/website/WEBSITE.md"),
+    ),
+    (
+        "ai-insights",
+        ("ai-insights", "ai_insights"),
+        ("docs/product/website/AI_INSIGHTS.md", "docs/product/website/WEBSITE.md"),
+    ),
+    (
+        "dashboard",
+        ("dashboard",),
+        ("docs/product/DASHBOARD.md",),
+    ),
+)
+
 
 def read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
+
+
+def resolve_model(env_name: str, default: str) -> str:
+    return (os.environ.get(env_name) or "").strip() or default
+
+
+def load_core_rules(repo_root: Path) -> str:
+    path = repo_root / CORE_RULES_REL
+    if not path.is_file():
+        return f"(missing {CORE_RULES_REL})\n"
+    return path.read_text(encoding="utf-8")
+
+
+def truncate_text(text: str, max_chars: int = MAX_DOC_CHARS) -> str:
+    if len(text) <= max_chars:
+        return text
+    return text[:max_chars] + "\n\n... truncated for token budget ...\n"
+
+
+def extract_markdown_by_headings(text: str, heading_needles: list[str], max_chars: int = MAX_DOC_CHARS) -> str:
+    """Return sections whose heading line contains any needle (case-insensitive)."""
+    if not heading_needles:
+        return truncate_text(text, max_chars)
+    needles = [n.lower() for n in heading_needles if n]
+    lines = text.splitlines()
+    keep: list[str] = []
+    capturing = False
+    for line in lines:
+        if line.startswith("#"):
+            capturing = any(n in line.lower() for n in needles)
+        if capturing:
+            keep.append(line)
+        if sum(len(x) + 1 for x in keep) >= max_chars:
+            keep.append("... truncated ...")
+            break
+    return "\n".join(keep).strip() or truncate_text(text, max_chars)
+
+
+def find_adr_ids(*texts: str) -> list[str]:
+    found: list[str] = []
+    seen: set[str] = set()
+    pattern = re.compile(r"\bADR-(\d{3})\b", re.I)
+    for text in texts:
+        for match in pattern.finditer(text or ""):
+            adr = f"ADR-{match.group(1)}"
+            key = adr.upper()
+            if key not in seen:
+                seen.add(key)
+                found.append(adr)
+    return found
+
+
+def load_adr_excerpts(repo_root: Path, adr_ids: list[str], max_chars: int = 20_000) -> str:
+    if not adr_ids:
+        return "(no task-related ADRs selected)\n"
+    path = repo_root / "docs" / "foundation" / "DECISION_LOG.md"
+    if not path.is_file():
+        return "(DECISION_LOG.md missing)\n"
+    text = path.read_text(encoding="utf-8")
+    excerpts = extract_markdown_by_headings(text, adr_ids, max_chars=max_chars)
+    return excerpts or "(no matching ADR sections)\n"
+
+
+def _domain_mentioned(corpus: str, keywords: tuple[str, ...]) -> bool:
+    return any(keyword in corpus for keyword in keywords)
+
+
+def select_candidate_product_specs(
+    repo_root: Path,
+    *,
+    merged_task_ids: set[str] | None = None,
+    commit_summary: str = "",
+    max_domains: int = 2,
+) -> list[str]:
+    """Pick only the next relevant product blueprints (not the full docs/product tree)."""
+    merged_task_ids = merged_task_ids or set()
+    corpus = " ".join(sorted(merged_task_ids)).lower() + "\n" + (commit_summary or "").lower()
+
+    last_progress_idx: int | None = None
+    first_open_idx: int | None = None
+    for index, (_name, keywords, _specs) in enumerate(ROADMAP_DOMAIN_SPECS):
+        if _domain_mentioned(corpus, keywords):
+            last_progress_idx = index
+        elif first_open_idx is None:
+            first_open_idx = index
+
+    chosen_indexes: list[int] = []
+    if last_progress_idx is not None:
+        chosen_indexes.append(last_progress_idx)
+        # Include the next unfinished domain so Architect can advance when the
+        # current domain's remaining work is done.
+        nxt = last_progress_idx + 1
+        if nxt < len(ROADMAP_DOMAIN_SPECS) and len(chosen_indexes) < max_domains:
+            chosen_indexes.append(nxt)
+    elif first_open_idx is not None:
+        chosen_indexes.append(first_open_idx)
+    else:
+        chosen_indexes.append(0)
+
+    paths: list[str] = []
+    seen: set[str] = set()
+    for index in chosen_indexes[:max_domains]:
+        for rel in ROADMAP_DOMAIN_SPECS[index][2]:
+            if rel in seen:
+                continue
+            if not (repo_root / rel).is_file():
+                continue
+            if not is_safe_product_spec_path(rel):
+                continue
+            seen.add(rel)
+            paths.append(rel)
+    return paths
+
+
+def load_docs_capped(repo_root: Path, relative_paths: list[str], max_chars_each: int = MAX_DOC_CHARS) -> str:
+    chunks: list[str] = []
+    for rel in relative_paths:
+        path = repo_root / rel
+        if not path.is_file():
+            chunks.append(f"### {rel}\n(missing)\n")
+            continue
+        text = path.read_text(encoding="utf-8")
+        if rel == "AGENTS.md":
+            # Keep DOP agent rules; drop huge embedded Laravel Boost guideline dump.
+            for marker in ("<laravel-boost-guidelines>", "=== foundation rules ===", "=== boost rules ==="):
+                if marker in text:
+                    text = text.split(marker, 1)[0].rstrip() + "\n"
+                    break
+        if rel == "docs/foundation/DECISION_LOG.md" and len(text) > max_chars_each:
+            # Prefer recent accepted ADR body over ancient superseded preamble when capped.
+            text = extract_markdown_by_headings(
+                text,
+                [f"ADR-{n:03d}" for n in range(15, 39)] + ["Karar indeksi"],
+                max_chars=max_chars_each,
+            )
+        chunks.append(f"### {rel}\n{truncate_text(text, max_chars_each)}\n")
+    return "\n".join(chunks)
+
+
+def extract_usage_metrics(response: Any) -> dict[str, Any]:
+    """Pull token usage from an OpenAI Responses API object (best-effort)."""
+    usage = getattr(response, "usage", None)
+    if usage is None and isinstance(response, dict):
+        usage = response.get("usage")
+    if usage is None:
+        return {
+            "input_tokens": None,
+            "cached_input_tokens": None,
+            "output_tokens": None,
+            "total_tokens": None,
+        }
+
+    def _get(obj: Any, *names: str) -> Any:
+        for name in names:
+            if isinstance(obj, dict) and name in obj:
+                return obj[name]
+            if hasattr(obj, name):
+                return getattr(obj, name)
+        return None
+
+    input_tokens = _get(usage, "input_tokens", "prompt_tokens")
+    output_tokens = _get(usage, "output_tokens", "completion_tokens")
+    total_tokens = _get(usage, "total_tokens")
+    cached = None
+    details = _get(usage, "input_tokens_details", "prompt_tokens_details")
+    if details is not None:
+        cached = _get(details, "cached_tokens", "cached_input_tokens")
+    if cached is None:
+        cached = _get(usage, "cached_input_tokens", "cached_tokens")
+    return {
+        "input_tokens": input_tokens,
+        "cached_input_tokens": cached,
+        "output_tokens": output_tokens,
+        "total_tokens": total_tokens,
+    }
+
+
+def format_usage_summary(role: str, model: str, usage: dict[str, Any], *, request_count: int = 1) -> str:
+    return (
+        f"- **{role}** model=`{model}` requests={request_count} "
+        f"input_tokens={usage.get('input_tokens')} "
+        f"cached_input_tokens={usage.get('cached_input_tokens')} "
+        f"output_tokens={usage.get('output_tokens')}"
+    )
+
+
+def append_usage_record(repo_root: Path, role: str, model: str, usage: dict[str, Any]) -> Path:
+    runtime = repo_root / ".automation" / "runtime"
+    runtime.mkdir(parents=True, exist_ok=True)
+    path = runtime / "usage.jsonl"
+    record = {"role": role, "model": model, **usage}
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+    return path
+
+
+def openai_create_response(
+    *,
+    client: Any,
+    model: str,
+    instructions: str,
+    input_text: str,
+    reasoning_effort: str | None = None,
+    temperature: float | None = 0.2,
+) -> Any:
+    """Create a Responses API call; retry without reasoning/temperature if unsupported."""
+    effort = (reasoning_effort if reasoning_effort is not None else DEFAULT_REASONING_EFFORT) or ""
+    effort = effort.strip().lower()
+    attempts: list[dict[str, Any]] = []
+    if effort and effort not in {"none", "off", "0"}:
+        payload: dict[str, Any] = {
+            "model": model,
+            "instructions": instructions,
+            "input": input_text,
+            "reasoning": {"effort": effort},
+        }
+        attempts.append(payload)
+    base: dict[str, Any] = {
+        "model": model,
+        "instructions": instructions,
+        "input": input_text,
+    }
+    if temperature is not None:
+        base_with_temp = dict(base)
+        base_with_temp["temperature"] = temperature
+        attempts.append(base_with_temp)
+    attempts.append(base)
+
+    last_error: Exception | None = None
+    for kwargs in attempts:
+        try:
+            return client.responses.create(**kwargs)
+        except Exception as exc:  # noqa: BLE001
+            last_error = exc
+            continue
+    assert last_error is not None
+    raise last_error
 
 
 def load_prompt(prompts_dir: Path, name: str) -> str:
@@ -336,6 +658,7 @@ def summarize_repo_tree(root: Path, max_entries: int = 220) -> str:
         "public/js",
         "public/fonts",
         ".phpunit.cache",
+        "__pycache__",
     }
     allow_prefixes = (
         "app/",

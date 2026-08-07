@@ -59,6 +59,7 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_ARCHITECT_MODEL: ${{ vars.OPENAI_ARCHITECT_MODEL }}
+          OPENAI_REASONING_EFFORT: ${{ vars.OPENAI_REASONING_EFFORT }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
@@ -73,6 +74,18 @@ jobs:
           STATUS="$(python -c 'import json;print(json.load(open(".automation/runtime/task.json"))["status"])')"
           echo "status=$STATUS" >> "$GITHUB_OUTPUT"
           python -c 'import json;from pathlib import Path;d=json.loads(Path(".automation/runtime/task.json").read_text());print("## Architect\n- status:",d["status"],"\n- title:",d.get("title",""),"\n- reason:",d.get("reason",""))' >> "$GITHUB_STEP_SUMMARY"
+          if [ -f .automation/runtime/usage.jsonl ]; then
+            echo "## OpenAI usage" >> "$GITHUB_STEP_SUMMARY"
+            python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          from pathlib import Path
+          for line in Path('.automation/runtime/usage.jsonl').read_text().splitlines():
+              if not line.strip():
+                  continue
+              row=json.loads(line)
+              print(f"- **{row.get('role')}** model=`{row.get('model')}` input={row.get('input_tokens')} cached={row.get('cached_input_tokens')} output={row.get('output_tokens')}")
+          PY
+          fi
 
       - name: Handle ROADMAP_COMPLETE
         if: steps.architect.outputs.status == 'ROADMAP_COMPLETE'
@@ -242,12 +255,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_REVIEWER_MODEL: ${{ vars.OPENAI_REVIEWER_MODEL }}
+          OPENAI_ESCALATION_MODEL: ${{ vars.OPENAI_ESCALATION_MODEL }}
+          OPENAI_REASONING_EFFORT: ${{ vars.OPENAI_REASONING_EFFORT }}
           CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
           CURSOR_AGENT_MODEL: ${{ vars.CURSOR_AGENT_MODEL }}
         run: |
           set -euo pipefail
           PR_NUMBER="$(cat .automation/runtime/pr_number.txt)"
           FINAL=HUMAN_REQUIRED
+          FIX_REQUIRED_COUNT=0
+          ESCALATION_USED=0
+          : > .automation/runtime/previous_issues.txt
           for round in 1 2 3 4; do
             git fetch origin main
             git diff --name-only origin/main...HEAD > .automation/runtime/pr_files.txt
@@ -255,6 +273,10 @@ jobs:
             git log origin/main..HEAD --pretty=%s > .automation/runtime/pr_commits.txt
             MODEL_ARGS=()
             if [ -n "${OPENAI_REVIEWER_MODEL:-}" ]; then MODEL_ARGS=(--model "$OPENAI_REVIEWER_MODEL"); fi
+            PREV_ARGS=()
+            if [ -s .automation/runtime/previous_issues.txt ]; then
+              PREV_ARGS=(--previous-issues-file .automation/runtime/previous_issues.txt)
+            fi
             python .automation/reviewer.py \
               --require-automation-marker \
               --title "$(cat .automation/runtime/pr_title.txt)" \
@@ -265,12 +287,57 @@ jobs:
               --task-file .automation/runtime/task.json \
               --output .automation/runtime/review.json \
               --comment-output .automation/runtime/review_comment.md \
+              "${PREV_ARGS[@]}" \
               "${MODEL_ARGS[@]}"
-            gh pr comment "$PR_NUMBER" --body-file .automation/runtime/review_comment.md
             VERDICT="$(python -c 'import json;print(json.load(open(".automation/runtime/review.json"))["verdict"])')"
             echo "Round $round => $VERDICT" >> "$GITHUB_STEP_SUMMARY"
+
+            if [ "$VERDICT" = "FIX_REQUIRED" ]; then
+              FIX_REQUIRED_COUNT=$((FIX_REQUIRED_COUNT + 1))
+            fi
+            if [ "$ESCALATION_USED" -eq 0 ] && { [ "$VERDICT" = "HUMAN_REQUIRED" ] || [ "$FIX_REQUIRED_COUNT" -ge 2 ]; }; then
+              ESCALATION_USED=1
+              echo "Escalation review triggered ($VERDICT, fix_required=$FIX_REQUIRED_COUNT)" >> "$GITHUB_STEP_SUMMARY"
+              python .automation/reviewer.py \
+                --escalate \
+                --require-automation-marker \
+                --title "$(cat .automation/runtime/pr_title.txt)" \
+                --body-file .automation/runtime/pr_body.md \
+                --diff-file .automation/runtime/pr.diff \
+                --files-file .automation/runtime/pr_files.txt \
+                --test-notes-file .automation/runtime/test_notes.txt \
+                --task-file .automation/runtime/task.json \
+                --previous-issues-file .automation/runtime/previous_issues.txt \
+                --output .automation/runtime/review.json \
+                --comment-output .automation/runtime/review_comment.md
+              VERDICT="$(python -c 'import json;print(json.load(open(".automation/runtime/review.json"))["verdict"])')"
+              echo "Escalation => $VERDICT" >> "$GITHUB_STEP_SUMMARY"
+            fi
+
+            gh pr comment "$PR_NUMBER" --body-file .automation/runtime/review_comment.md
+            if [ -f .automation/runtime/usage.jsonl ]; then
+              echo "### OpenAI usage (after review round $round)" >> "$GITHUB_STEP_SUMMARY"
+              python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          from pathlib import Path
+          for line in Path('.automation/runtime/usage.jsonl').read_text().splitlines():
+              if not line.strip():
+                  continue
+              row=json.loads(line)
+              print(f"- **{row.get('role')}** model=`{row.get('model')}` input={row.get('input_tokens')} cached={row.get('cached_input_tokens')} output={row.get('output_tokens')}")
+          PY
+            fi
             if [ "$VERDICT" = "APPROVED" ]; then FINAL=APPROVED; break; fi
             if [ "$VERDICT" = "HUMAN_REQUIRED" ]; then FINAL=HUMAN_REQUIRED; break; fi
+            python - <<'PY'
+          import json
+          from pathlib import Path
+          review=json.loads(Path('.automation/runtime/review.json').read_text())
+          lines=[]
+          for issue in review.get('issues') or []:
+              lines.append(f"- [{issue.get('severity')}] {issue.get('file')}: {issue.get('problem')} => {issue.get('required_fix')}")
+          Path('.automation/runtime/previous_issues.txt').write_text('\n'.join(lines) or '(none)')
+          PY
             USED="$(python -c "import sys; from pathlib import Path; sys.path.insert(0,'.automation'); from common import count_fix_attempts_from_commit_messages; msgs=[l.strip() for l in Path('.automation/runtime/pr_commits.txt').read_text().splitlines() if l.strip()]; print(count_fix_attempts_from_commit_messages(msgs))")"
             if [ "$USED" -ge 3 ]; then
               python - <<'PY'

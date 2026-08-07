@@ -15,47 +15,35 @@ if str(AUTOMATION_DIR) not in sys.path:
     sys.path.insert(0, str(AUTOMATION_DIR))
 
 from common import (  # noqa: E402
+    DEFAULT_ARCHITECT_MODEL,
+    DEFAULT_REASONING_EFFORT,
+    append_usage_record,
     extract_response_text,
-    extract_task_ids_from_pr_bodies,
+    extract_usage_metrics,
+    format_usage_summary,
     is_repeated_task,
-    list_product_spec_files,
+    extract_task_ids_from_pr_bodies,
+    load_core_rules,
+    load_docs_capped,
     load_prompt,
+    openai_create_response,
     parse_json_object,
     recent_commit_summary,
+    resolve_model,
+    select_candidate_product_specs,
     summarize_repo_tree,
     validate_architect_task,
 )
 
 PROMPTS_DIR = AUTOMATION_DIR / "prompts"
-DEFAULT_MODEL = "gpt-4.1"
 
-DOC_PATHS = (
-    "docs/MASTER_SPEC.md",
+# Stable planning docs (NOT full MASTER_SPEC; NOT full docs/product/**).
+PLANNING_DOC_PATHS = (
     "docs/IMPLEMENTATION_ROADMAP.md",
     "docs/foundation/DECISION_LOG.md",
     "AGENTS.md",
     "docs/product/INDEX.md",
 )
-
-
-def _read_docs() -> str:
-    chunks: list[str] = []
-    for rel in DOC_PATHS:
-        path = ROOT / rel
-        if not path.exists():
-            chunks.append(f"### {rel}\n(missing)\n")
-            continue
-        chunks.append(f"### {rel}\n{path.read_text(encoding='utf-8')}\n")
-    return "\n".join(chunks)
-
-
-def _read_all_product_blueprints() -> str:
-    paths = list_product_spec_files(ROOT)
-    chunks: list[str] = [f"## Product blueprint catalog ({len(paths)} files)\n"]
-    for rel in paths:
-        text = (ROOT / rel).read_text(encoding="utf-8")
-        chunks.append(f"### {rel}\n{text}\n")
-    return "\n".join(chunks)
 
 
 def _merged_automation_task_ids() -> set[str]:
@@ -90,23 +78,61 @@ def _merged_automation_task_ids() -> set[str]:
         return set()
 
 
-def build_user_payload() -> str:
-    merged_ids = sorted(_merged_automation_task_ids())
+def architect_context_files(
+    *,
+    merged_task_ids: set[str] | None = None,
+    commit_summary: str | None = None,
+) -> dict[str, list[str]]:
+    """Return file lists used for Architect context (for tests / metrics)."""
+    commits = commit_summary if commit_summary is not None else recent_commit_summary(ROOT)
+    merged = merged_task_ids if merged_task_ids is not None else set()
+    candidates = select_candidate_product_specs(
+        ROOT,
+        merged_task_ids=merged,
+        commit_summary=commits,
+    )
+    return {
+        "stable": [".automation/context/CORE_RULES.md"],
+        "planning": list(PLANNING_DOC_PATHS),
+        "product_specs": candidates,
+    }
+
+
+def build_user_payload(
+    *,
+    merged_task_ids: set[str] | None = None,
+    commit_summary: str | None = None,
+) -> str:
+    """Cache-friendly order: stable rules → planning docs → candidate specs → dynamic state."""
+    commits = commit_summary if commit_summary is not None else recent_commit_summary(ROOT)
+    merged = merged_task_ids if merged_task_ids is not None else _merged_automation_task_ids()
+    files = architect_context_files(merged_task_ids=merged, commit_summary=commits)
+    core = load_core_rules(ROOT)
+    planning = load_docs_capped(ROOT, files["planning"])
+    product = load_docs_capped(ROOT, files["product_specs"])
+    merged_ids = sorted(merged)
+
     return (
-        "Analyze the current DOP repository state and return the next task JSON.\n\n"
-        "## Project documents\n"
-        f"{_read_docs()}\n\n"
-        f"{_read_all_product_blueprints()}\n\n"
+        "## CORE_RULES (stable)\n"
+        f"{core}\n\n"
+        "## Planning documents (stable-ish)\n"
+        f"{planning}\n\n"
+        "## Candidate product blueprints for the next domain(s) only\n"
+        "Do NOT assume other blueprints are in scope. Set product_spec_paths to the files "
+        "actually required for this task (usually a subset of the candidates below).\n\n"
+        f"{product if product.strip() else '(no candidate product specs resolved)'}\n\n"
         "## Compact repository file list\n"
         f"{summarize_repo_tree(ROOT)}\n\n"
         "## Recent commits\n"
-        f"{recent_commit_summary(ROOT)}\n\n"
+        f"{commits}\n\n"
         "## Previously merged automation task_ids (do not repeat)\n"
-        f"{chr(10).join(merged_ids) if merged_ids else '(none discovered)'}\n"
+        f"{chr(10).join(merged_ids) if merged_ids else '(none discovered)'}\n\n"
+        "Return the next smallest TASK_READY JSON (or ROADMAP_COMPLETE / HUMAN_REQUIRED).\n"
+        "Keep reason to a few sentences. Avoid repeating MASTER_SPEC prose.\n"
     )
 
 
-def call_architect(model: str) -> dict:
+def call_architect(model: str, *, reasoning_effort: str | None = None) -> dict:
     from openai import OpenAI
 
     api_key = os.environ.get("OPENAI_API_KEY")
@@ -115,12 +141,20 @@ def call_architect(model: str) -> dict:
 
     client = OpenAI(api_key=api_key)
     system_prompt = load_prompt(PROMPTS_DIR, "architect.md")
-    response = client.responses.create(
+    response = openai_create_response(
+        client=client,
         model=model,
         instructions=system_prompt,
-        input=build_user_payload(),
+        input_text=build_user_payload(),
+        reasoning_effort=reasoning_effort
+        if reasoning_effort is not None
+        else (os.environ.get("OPENAI_REASONING_EFFORT") or DEFAULT_REASONING_EFFORT),
         temperature=0.2,
     )
+    usage = extract_usage_metrics(response)
+    append_usage_record(ROOT, "architect", model, usage)
+    print(format_usage_summary("architect", model, usage), flush=True)
+
     raw = extract_response_text(response)
     data = parse_json_object(raw)
     errors = validate_architect_task(data, repo_root=ROOT, require_product_specs=True)
@@ -140,7 +174,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output", default="-", help="Output JSON path or - for stdout")
     parser.add_argument(
         "--model",
-        default=(os.environ.get("OPENAI_ARCHITECT_MODEL") or DEFAULT_MODEL),
+        default=resolve_model("OPENAI_ARCHITECT_MODEL", DEFAULT_ARCHITECT_MODEL),
         help="OpenAI model id",
     )
     parser.add_argument("--validate-only", help="Validate an existing JSON file and exit")
@@ -149,7 +183,17 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Require non-empty product_spec_paths when validating TASK_READY",
     )
+    parser.add_argument(
+        "--print-context-files",
+        action="store_true",
+        help="Print Architect context file lists as JSON and exit (no API call)",
+    )
     args = parser.parse_args(argv)
+
+    if args.print_context_files:
+        payload = json.dumps(architect_context_files(), ensure_ascii=False, indent=2) + "\n"
+        sys.stdout.write(payload)
+        return 0
 
     if args.validate_only:
         data = parse_json_object(Path(args.validate_only).read_text(encoding="utf-8"))

@@ -16,38 +16,30 @@ if str(AUTOMATION_DIR) not in sys.path:
 
 from common import (  # noqa: E402
     AUTOMATION_PR_MARKER,
+    DEFAULT_ESCALATION_MODEL,
+    DEFAULT_REASONING_EFFORT,
+    DEFAULT_REVIEWER_MODEL,
+    MAX_DIFF_CHARS_FOR_REVIEW,
+    append_usage_record,
     diff_is_suspiciously_large,
     extract_response_text,
+    extract_usage_metrics,
+    find_adr_ids,
+    format_usage_summary,
     has_automation_pr_marker,
+    load_adr_excerpts,
+    load_core_rules,
     load_product_specs,
     load_prompt,
+    openai_create_response,
     parse_json_object,
+    resolve_model,
     review_marker_for_verdict,
     validate_product_spec_paths,
     validate_reviewer_result,
 )
 
 PROMPTS_DIR = AUTOMATION_DIR / "prompts"
-DEFAULT_MODEL = "gpt-4.1"
-
-DOC_PATHS = (
-    "docs/MASTER_SPEC.md",
-    "docs/IMPLEMENTATION_ROADMAP.md",
-    "docs/foundation/DECISION_LOG.md",
-    "AGENTS.md",
-    "docs/product/INDEX.md",
-)
-
-
-def _read_docs() -> str:
-    chunks: list[str] = []
-    for rel in DOC_PATHS:
-        path = ROOT / rel
-        if not path.exists():
-            chunks.append(f"### {rel}\n(missing)\n")
-            continue
-        chunks.append(f"### {rel}\n{path.read_text(encoding='utf-8')}\n")
-    return "\n".join(chunks)
 
 
 def build_review_payload(
@@ -58,7 +50,9 @@ def build_review_payload(
     diff_text: str,
     test_notes: str,
     task_json: dict | None = None,
+    previous_issues_summary: str = "",
 ) -> str:
+    """Minimal reviewer context in cache-friendly order (stable → dynamic)."""
     truncated_diff = diff_text
     note = ""
     if diff_is_suspiciously_large(diff_text):
@@ -66,10 +60,19 @@ def build_review_payload(
             "\n\nWARNING: Diff is suspiciously large. "
             "Prefer HUMAN_REQUIRED unless the task clearly justifies it.\n"
         )
-        truncated_diff = diff_text[:200_000] + "\n\n... diff truncated for reviewer context ...\n"
+        truncated_diff = (
+            diff_text[:MAX_DIFF_CHARS_FOR_REVIEW]
+            + "\n\n... diff truncated for reviewer context ...\n"
+        )
+    elif len(diff_text) > MAX_DIFF_CHARS_FOR_REVIEW:
+        truncated_diff = (
+            diff_text[:MAX_DIFF_CHARS_FOR_REVIEW]
+            + "\n\n... diff truncated for reviewer context ...\n"
+        )
 
     task_section = "(no architect task file provided)\n"
     product_section = "(no product_spec_paths)\n"
+    adr_section = "(no task-related ADRs selected)\n"
     if task_json is not None:
         task_section = json.dumps(task_json, ensure_ascii=False, indent=2) + "\n"
         paths = task_json.get("product_spec_paths") or []
@@ -79,34 +82,61 @@ def build_review_payload(
                 product_section = "INVALID product_spec_paths: " + "; ".join(errors) + "\n"
             else:
                 product_section = load_product_specs(ROOT, paths)
+        adr_ids = find_adr_ids(
+            product_section,
+            json.dumps(task_json, ensure_ascii=False),
+            body,
+        )
+        # Always include core decision ADRs referenced by invariants when mentioned in specs.
+        adr_section = load_adr_excerpts(ROOT, adr_ids)
 
+    previous = previous_issues_summary.strip()
+    previous_section = (
+        f"## Previous reviewer issues (fix round)\n{previous}\n\n" if previous else ""
+    )
+
+    # Order: stable CORE_RULES → product specs → ADRs → dynamic task/diff.
     return (
-        "Review this DOP automation PR and return JSON only.\n\n"
-        f"Automation marker required in body: {AUTOMATION_PR_MARKER}\n"
-        f"Marker present: {has_automation_pr_marker(body)}\n\n"
-        "Explicitly check: does the implementation satisfy the Product Blueprint behavior "
-        "for the paths listed in product_spec_paths?\n"
-        "Do NOT block on nice-to-have features absent from the blueprint.\n"
-        "MASTER_SPEC wins on conflict.\n\n"
-        f"## PR title\n{title}\n\n"
-        f"## PR body\n{body}\n\n"
-        f"## Architect task JSON\n{task_section}\n"
+        "## CORE_RULES (stable)\n"
+        f"{load_core_rules(ROOT)}\n\n"
         f"## Product blueprints for this task\n{product_section}\n"
-        "## Project documents\n"
-        f"{_read_docs()}\n\n"
+        f"## Relevant ADR excerpts\n{adr_section}\n"
+        f"{previous_section}"
+        "Review this DOP automation PR and return JSON only.\n"
+        f"Automation marker required in body: {AUTOMATION_PR_MARKER}\n"
+        f"Marker present: {has_automation_pr_marker(body)}\n"
+        "Check Product Blueprint behavior for product_spec_paths only. "
+        "Do NOT block on nice-to-haves absent from the blueprint. "
+        "MASTER_SPEC / CORE_RULES win on conflict.\n"
+        "If APPROVED: keep summary/checks to one short sentence each; issues=[].\n\n"
+        f"## Architect task JSON\n{task_section}\n"
+        f"## PR title\n{title}\n\n"
+        f"## PR body (marker / task metadata)\n{body}\n\n"
         f"## Changed files\n{changed_files}\n\n"
         f"## Test notes\n{test_notes or '(none provided)'}\n"
         f"{note}\n"
-        f"## Git diff\n```diff\n{truncated_diff}\n```\n"
+        f"## Git diff (changed hunks only)\n```diff\n{truncated_diff}\n```\n"
     )
 
 
 def format_review_comment(data: dict) -> str:
     marker = review_marker_for_verdict(str(data["verdict"]))
+    verdict = str(data.get("verdict") or "")
+    if verdict == "APPROVED":
+        lines = [
+            marker,
+            "",
+            "## DOP automated review: APPROVED",
+            "",
+            data.get("summary", "OK"),
+            "",
+        ]
+        return "\n".join(lines)
+
     lines = [
         marker,
         "",
-        f"## DOP automated review: {data['verdict']}",
+        f"## DOP automated review: {verdict}",
         "",
         data.get("summary", ""),
         "",
@@ -140,7 +170,13 @@ def format_review_comment(data: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
-def call_reviewer(model: str, payload: str) -> dict:
+def call_reviewer(
+    model: str,
+    payload: str,
+    *,
+    role: str = "reviewer",
+    reasoning_effort: str | None = None,
+) -> dict:
     from openai import OpenAI
 
     api_key = os.environ.get("OPENAI_API_KEY")
@@ -149,12 +185,20 @@ def call_reviewer(model: str, payload: str) -> dict:
 
     client = OpenAI(api_key=api_key)
     system_prompt = load_prompt(PROMPTS_DIR, "reviewer.md")
-    response = client.responses.create(
+    response = openai_create_response(
+        client=client,
         model=model,
         instructions=system_prompt,
-        input=payload,
+        input_text=payload,
+        reasoning_effort=reasoning_effort
+        if reasoning_effort is not None
+        else (os.environ.get("OPENAI_REASONING_EFFORT") or DEFAULT_REASONING_EFFORT),
         temperature=0.1,
     )
+    usage = extract_usage_metrics(response)
+    append_usage_record(ROOT, role, model, usage)
+    print(format_usage_summary(role, model, usage), flush=True)
+
     raw = extract_response_text(response)
     data = parse_json_object(raw)
     errors = validate_reviewer_result(data)
@@ -171,11 +215,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--files-file", required=False)
     parser.add_argument("--test-notes-file", required=False)
     parser.add_argument("--task-file", required=False, help="Architect task JSON path")
+    parser.add_argument("--previous-issues-file", required=False)
     parser.add_argument("--output", default="-")
     parser.add_argument("--comment-output", default="")
     parser.add_argument(
         "--model",
-        default=(os.environ.get("OPENAI_REVIEWER_MODEL") or DEFAULT_MODEL),
+        default=resolve_model("OPENAI_REVIEWER_MODEL", DEFAULT_REVIEWER_MODEL),
+    )
+    parser.add_argument(
+        "--escalate",
+        action="store_true",
+        help="Use OPENAI_ESCALATION_MODEL for a second-opinion review",
     )
     parser.add_argument("--validate-only", help="Validate an existing reviewer JSON file")
     parser.add_argument(
@@ -204,6 +254,11 @@ def main(argv: list[str] | None = None) -> int:
     test_notes = (
         Path(args.test_notes_file).read_text(encoding="utf-8") if args.test_notes_file else ""
     )
+    previous_issues = (
+        Path(args.previous_issues_file).read_text(encoding="utf-8")
+        if args.previous_issues_file
+        else ""
+    )
     task_json = None
     if args.task_file:
         task_json = parse_json_object(Path(args.task_file).read_text(encoding="utf-8"))
@@ -225,9 +280,16 @@ def main(argv: list[str] | None = None) -> int:
             "test_check": "Deferred to human due to diff size.",
         }
     else:
+        model = args.model
+        role = "reviewer"
+        effort = os.environ.get("OPENAI_REASONING_EFFORT") or DEFAULT_REASONING_EFFORT
+        if args.escalate:
+            model = resolve_model("OPENAI_ESCALATION_MODEL", DEFAULT_ESCALATION_MODEL)
+            role = "reviewer_escalation"
+            effort = os.environ.get("OPENAI_ESCALATION_REASONING_EFFORT") or "medium"
         try:
             data = call_reviewer(
-                args.model,
+                model,
                 build_review_payload(
                     title=args.title,
                     body=body,
@@ -235,7 +297,10 @@ def main(argv: list[str] | None = None) -> int:
                     diff_text=diff_text,
                     test_notes=test_notes,
                     task_json=task_json,
+                    previous_issues_summary=previous_issues,
                 ),
+                role=role,
+                reasoning_effort=effort,
             )
         except Exception as exc:  # noqa: BLE001
             print(f"Reviewer failed: {exc}", file=sys.stderr)

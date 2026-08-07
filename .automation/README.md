@@ -33,9 +33,23 @@ Repository Actions secrets:
 * `OPENAI_API_KEY`
 * `CURSOR_API_KEY`
 
-Opsiyonel vars: `OPENAI_ARCHITECT_MODEL`, `OPENAI_REVIEWER_MODEL`, `CURSOR_AGENT_MODEL`
+Opsiyonel vars:
 
-Secret değerleri log/prompt/artifact’a yazılmaz.
+* `OPENAI_ARCHITECT_MODEL` (default **gpt-5-mini**)
+* `OPENAI_REVIEWER_MODEL` (default **gpt-5-mini**)
+* `OPENAI_ESCALATION_MODEL` (default **gpt-5**, yalnız escalation)
+* `OPENAI_REASONING_EFFORT` (default **low**)
+* `CURSOR_AGENT_MODEL`
+
+Secret değerleri log/prompt/artifact’a yazılmaz. Usage metrikleri (token counts) step summary’ye yazılır.
+
+## Token economy
+
+* Stable prefix: `.automation/context/CORE_RULES.md` (MASTER_SPEC yerine compact rules)
+* Architect yalnız sıradaki domain candidate blueprint’lerini yükler (`docs/product/**` tamamı değil)
+* Reviewer: CORE_RULES + `product_spec_paths` + ilgili ADR excerpt + diff/tests
+* Normal başarılı task hedefi: **1 Architect + 1 Reviewer** OpenAI call
+* Escalation modeli normal akışta çağrılmaz
 
 ## Manuel ilk start
 
