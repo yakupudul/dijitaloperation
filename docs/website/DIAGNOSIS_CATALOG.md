@@ -55,6 +55,7 @@ Logical evidence labels (normalized later by collectors; not API field dumps):
 2. **Deterministic rules first**; AI may later explain findings but must not invent catalog detections.
 3. **No external write**; evidence is read-only observation of the public web surface.
 4. Severity/confidence may be adjusted only by rules stated here (richer evidence → higher confidence), not by ad-hoc code.
+5. **`recommendation_logic` is runtime-consumed** by `App\Support\WebsiteDiagnosisCatalog` when Website Diagnosis upserts Recommendations for Findings (ADR-031). Do not hard-code parallel recommendation copy outside this catalog.
 
 ---
 

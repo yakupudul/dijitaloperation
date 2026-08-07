@@ -5,12 +5,14 @@ namespace App\Services;
 use App\Models\DigitalAsset;
 use App\Models\Evidence;
 use App\Models\Finding;
+use App\Models\Recommendation;
 use App\Models\Run;
 use App\Support\CanonicalLinkParser;
 use App\Support\RobotsTxtParser;
 use App\Support\SitemapXmlParser;
 use App\Support\SslCertificateProbe;
 use App\Support\SslCertParser;
+use App\Support\WebsiteDiagnosisCatalog;
 use DateTimeImmutable;
 use DateTimeInterface;
 use Illuminate\Http\Client\ConnectionException;
@@ -57,6 +59,7 @@ class WebsiteDiagnosisService
         private readonly RobotsTxtParser $robotsTxtParser = new RobotsTxtParser,
         private readonly SitemapXmlParser $sitemapXmlParser = new SitemapXmlParser,
         private readonly CanonicalLinkParser $canonicalLinkParser = new CanonicalLinkParser,
+        private readonly WebsiteDiagnosisCatalog $websiteDiagnosisCatalog = new WebsiteDiagnosisCatalog,
     ) {}
 
     /**
@@ -548,6 +551,7 @@ class WebsiteDiagnosisService
             ),
             confidence: self::CONFIDENCE_HIGH,
             observedAt: $observedAt,
+            catalogItemId: self::CATALOG_REDIRECT_HTTP_TO_HTTPS,
         );
     }
 
@@ -721,6 +725,7 @@ class WebsiteDiagnosisService
             ),
             confidence: $confidence,
             observedAt: $observedAt,
+            catalogItemId: self::CATALOG_ROBOTS_TXT_AVAILABILITY,
         );
     }
 
@@ -1032,6 +1037,7 @@ class WebsiteDiagnosisService
             ),
             confidence: $confidence,
             observedAt: $observedAt,
+            catalogItemId: self::CATALOG_SITEMAP_XML_AVAILABILITY,
         );
     }
 
@@ -1210,6 +1216,7 @@ class WebsiteDiagnosisService
             ),
             confidence: $confidence,
             observedAt: $observedAt,
+            catalogItemId: self::CATALOG_CANONICAL_LINK_CONSISTENCY,
         );
     }
 
@@ -1381,6 +1388,7 @@ class WebsiteDiagnosisService
                 ),
                 confidence: self::CONFIDENCE_HIGH,
                 observedAt: $observedAt,
+                catalogItemId: self::CATALOG_HTTPS_TLS_VALIDITY,
             );
 
             return;
@@ -1400,6 +1408,7 @@ class WebsiteDiagnosisService
                 ),
                 confidence: self::CONFIDENCE_HIGH,
                 observedAt: $observedAt,
+                catalogItemId: self::CATALOG_HTTPS_TLS_VALIDITY,
             );
 
             return;
@@ -1423,6 +1432,7 @@ class WebsiteDiagnosisService
                 ),
                 confidence: self::CONFIDENCE_HIGH,
                 observedAt: $observedAt,
+                catalogItemId: self::CATALOG_HTTPS_TLS_VALIDITY,
             );
 
             return;
@@ -1446,6 +1456,7 @@ class WebsiteDiagnosisService
                 ),
                 confidence: self::CONFIDENCE_HIGH,
                 observedAt: $observedAt,
+                catalogItemId: self::CATALOG_HTTPS_TLS_VALIDITY,
             );
         }
     }
@@ -1499,6 +1510,7 @@ class WebsiteDiagnosisService
             summary: $summary,
             confidence: self::CONFIDENCE_HIGH,
             observedAt: $observedAt,
+            catalogItemId: self::CATALOG_REACHABILITY_HTTP,
         );
     }
 
@@ -1546,6 +1558,7 @@ class WebsiteDiagnosisService
         string $summary,
         float $confidence,
         DateTimeInterface $observedAt,
+        string $catalogItemId,
     ): Finding {
         $finding = Finding::query()->firstOrNew([
             'digital_asset_id' => $asset->id,
@@ -1571,7 +1584,66 @@ class WebsiteDiagnosisService
 
         $finding->save();
 
+        $this->upsertRecommendationForFinding($finding, $catalogItemId);
+
         return $finding;
+    }
+
+    /**
+     * Deterministic Recommendation upsert using catalog recommendation_logic (ADR-031).
+     */
+    private function upsertRecommendationForFinding(Finding $finding, string $catalogItemId): void
+    {
+        $action = $this->websiteDiagnosisCatalog->recommendationLogic($catalogItemId);
+
+        if ($action === null) {
+            return;
+        }
+
+        $recommendation = Recommendation::query()->firstOrNew([
+            'finding_id' => $finding->id,
+            'source_module' => self::MODULE_ID,
+        ]);
+
+        $priority = $this->recommendationPriorityForSeverity((string) $finding->severity);
+
+        if ($recommendation->exists && ! in_array($recommendation->status, ['open', 'accepted'], true)) {
+            // Preserve terminal operator decisions (dismissed/converted); still refresh guidance text.
+            $recommendation->fill([
+                'digital_asset_id' => $finding->digital_asset_id,
+                'title' => 'Fix: '.$finding->title,
+                'action' => $action,
+                'rationale' => $finding->summary,
+                'priority' => $priority,
+            ]);
+            $recommendation->save();
+
+            return;
+        }
+
+        $recommendation->fill([
+            'digital_asset_id' => $finding->digital_asset_id,
+            'source_module' => self::MODULE_ID,
+            'title' => 'Fix: '.$finding->title,
+            'action' => $action,
+            'rationale' => $finding->summary,
+            'priority' => $priority,
+            'effort' => null,
+            'status' => $recommendation->exists ? $recommendation->status : 'open',
+        ]);
+
+        $recommendation->save();
+    }
+
+    private function recommendationPriorityForSeverity(string $severity): string
+    {
+        return match ($severity) {
+            'critical' => 'critical',
+            'high' => 'high',
+            'medium' => 'medium',
+            'low' => 'low',
+            default => 'medium',
+        };
     }
 
     private function resolvePrimaryUrl(DigitalAsset $asset): string
