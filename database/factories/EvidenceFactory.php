@@ -60,4 +60,33 @@ class EvidenceFactory extends Factory
             ],
         ]);
     }
+
+    /**
+     * @return $this
+     */
+    public function redirects(): static
+    {
+        $host = strtolower(fake()->domainName());
+        $startUrl = 'http://'.$host;
+        $finalUrl = 'https://'.$host.'/';
+
+        return $this->state(fn (): array => [
+            'type' => 'redirects',
+            'title' => 'HTTP redirect chain',
+            'payload' => [
+                'start_url' => $startUrl,
+                'final_url' => $finalUrl,
+                'hop_count' => 1,
+                'hops' => [
+                    [
+                        'url' => $startUrl,
+                        'status' => 301,
+                        'location' => $finalUrl,
+                    ],
+                ],
+                'upgraded_to_https_same_host' => true,
+                'error_class' => null,
+            ],
+        ]);
+    }
 }

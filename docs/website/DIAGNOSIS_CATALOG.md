@@ -43,7 +43,7 @@ Logical evidence labels (normalized later by collectors; not API field dumps):
 | Evidence type | Typical contents |
 | --- | --- |
 | `http_fetch` | Request URL, final URL, status code, response headers, timing, error class |
-| `redirects` | Ordered hop list (status, location) from start URL to final URL |
+| `redirects` | Ordered hop list for an HTTP(S) fetch: `start_url`, `final_url`, `hop_count`, `hops` (`url`, `status`, `location`), `upgraded_to_https_same_host`, optional `error_class`. No response bodies. |
 | `tls_info` | Normalized peer certificate observation for a host: `host`, `present`, `subject_common_name`, `issuer_common_name`, `valid_from` (ISO8601 UTC), `valid_to` (ISO8601 UTC / notAfter), `observed_at` (ISO8601 UTC), `fetch_method` (`php_stream` \| `curl`), optional `error_class`, optional `san_hosts` when available. No private keys or raw certificate dumps. |
 | `robots` | Fetched `robots.txt` body (or absence / non-200), effective URL |
 | `sitemap` | Fetched sitemap document(s) or declared sitemap URL outcome (presence, parseability, URL count signal) |
@@ -111,9 +111,10 @@ Logical evidence labels (normalized later by collectors; not API field dumps):
 | **purpose** | Ensure plain HTTP entry points upgrade to HTTPS so mixed insecure entry does not persist. |
 | **required_evidence** | `http_fetch` for the `http://` form of the primary host; `redirects` hop list for that fetch |
 | **optional_evidence** | `tls_info` (confirms HTTPS target is usable after upgrade) |
-| **detection_rule** | Given an `http://` start URL whose host matches the asset domain: fire when the final URL after redirects is still `http:` **or** when there is no redirect to an `https:` URL with the same host (or declared canonical host). Treat a single hop `301`/`308` (or `302`/`307`) to `https://` same host as pass. Redirect status meanings per [RFC 9110 §15.4](https://www.rfc-editor.org/rfc/rfc9110#name-redirection-3xx). |
+| **detection_rule** | Given an `http://` start URL whose host matches the asset domain: fire when the final URL after redirects is still `http:` **or** when there is no redirect to an `https:` URL with the same host (or declared canonical host). Treat a single hop `301`/`308` (or `302`/`307`) to `https://` same host as pass. Do **not** fire when the HTTP entrypoint fetch fails with a transport/`connection` error class (inconclusive upgrade path; reachability covers availability). Redirect status meanings per [RFC 9110 §15.4](https://www.rfc-editor.org/rfc/rfc9110#name-redirection-3xx). |
 | **severity** | `medium` |
 | **confidence** | `high` |
+| **fingerprint** | `sha256( "{id}\|host={normalized_host}" )` where `normalized_host` is the lowercased hostname from the HTTP start URL (no port). Final URL, hop count, and status codes are **not** part of the fingerprint (same host upserts across runs). |
 | **finding_output** | **title:** `HTTP does not upgrade to HTTPS` · **summary:** `Request to {start_url} ended at {final_url} without a stable HTTPS upgrade ({hop_count} redirect hop(s)).` |
 | **recommendation_logic** | Recommend configuring the origin/CDN to redirect all `http://` URLs to `https://` with a permanent redirect (`301` or `308`), preserving path and query unless a deliberate host normalization applies. If HTTPS is broken, fix `https-tls-validity` first. |
 | **source_dependency** | Confidence increases when `tls_info` shows a valid certificate on the HTTPS target (upgrade is both present and trustworthy). Without `tls_info`, the missing-upgrade finding still stands from `redirects` alone. |

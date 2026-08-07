@@ -23,9 +23,15 @@ class WebsiteDiagnosisService
 
     public const CATALOG_HTTPS_TLS_VALIDITY = 'https-tls-validity';
 
+    public const CATALOG_REDIRECT_HTTP_TO_HTTPS = 'redirect-http-to-https';
+
     public const EVIDENCE_TYPE_TLS_INFO = 'tls_info';
 
+    public const EVIDENCE_TYPE_REDIRECTS = 'redirects';
+
     private const TLS_EXPIRING_SOON_DAYS = 7;
+
+    private const MAX_REDIRECT_HOPS = 10;
 
     private const CONFIDENCE_HIGH = 0.9000;
 
@@ -34,7 +40,7 @@ class WebsiteDiagnosisService
     ) {}
 
     /**
-     * Deterministic Website Diagnosis slice: reachability + HTTPS/TLS validity → Evidence → Finding upsert.
+     * Deterministic Website Diagnosis slice: reachability + TLS + HTTP→HTTPS redirect → Evidence → Finding upsert.
      */
     public function diagnose(DigitalAsset $asset): Run
     {
@@ -50,7 +56,11 @@ class WebsiteDiagnosisService
             'metadata' => [
                 'trigger' => 'programmatic',
                 'catalog_id' => 'website-diagnosis',
-                'checks' => [self::CATALOG_REACHABILITY_HTTP, self::CATALOG_HTTPS_TLS_VALIDITY],
+                'checks' => [
+                    self::CATALOG_REACHABILITY_HTTP,
+                    self::CATALOG_HTTPS_TLS_VALIDITY,
+                    self::CATALOG_REDIRECT_HTTP_TO_HTTPS,
+                ],
             ],
         ]);
 
@@ -83,6 +93,36 @@ class WebsiteDiagnosisService
             ]);
 
             $this->evaluateHttpsTlsValidity($asset, $run, $tlsPayload, $observedAt);
+
+            $httpStartUrl = $this->httpFormOf($primaryUrl);
+            $redirectCollection = $this->collectHttpRedirectChain($httpStartUrl);
+
+            Evidence::query()->create([
+                'run_id' => $run->id,
+                'digital_asset_id' => $asset->id,
+                'source_module' => self::MODULE_ID,
+                'type' => 'http_fetch',
+                'title' => 'HTTP entrypoint fetch',
+                'payload' => $redirectCollection['http_fetch'],
+                'observed_at' => $observedAt,
+            ]);
+
+            Evidence::query()->create([
+                'run_id' => $run->id,
+                'digital_asset_id' => $asset->id,
+                'source_module' => self::MODULE_ID,
+                'type' => self::EVIDENCE_TYPE_REDIRECTS,
+                'title' => 'HTTP redirect chain',
+                'payload' => $redirectCollection['redirects'],
+                'observed_at' => $observedAt,
+            ]);
+
+            $this->evaluateRedirectHttpToHttps(
+                $asset,
+                $run,
+                $redirectCollection['redirects'],
+                $observedAt,
+            );
 
             $run->update([
                 'status' => 'completed',
@@ -176,6 +216,227 @@ class WebsiteDiagnosisService
         $port = is_int($port) ? $port : 443;
 
         return $this->sslCertificateProbe->probe($host, $observedAt, $port);
+    }
+
+    /**
+     * Follow the plaintext HTTP entrypoint without auto-redirect to capture hop evidence.
+     *
+     * @return array{
+     *     http_fetch: array{
+     *         url: string,
+     *         status_code: int|null,
+     *         effective_url: string|null,
+     *         is_https: bool,
+     *         response_is_ok: bool,
+     *         error_class: string|null,
+     *         error_or_status: string
+     *     },
+     *     redirects: array{
+     *         start_url: string,
+     *         final_url: string|null,
+     *         hop_count: int,
+     *         hops: list<array{url: string, status: int|null, location: string|null}>,
+     *         upgraded_to_https_same_host: bool,
+     *         error_class: string|null
+     *     }
+     * }
+     */
+    private function collectHttpRedirectChain(string $httpStartUrl): array
+    {
+        $startHost = strtolower((string) parse_url($httpStartUrl, PHP_URL_HOST));
+        $hops = [];
+        $currentUrl = $httpStartUrl;
+        $finalUrl = $httpStartUrl;
+        $finalStatus = null;
+        $errorClass = null;
+        $upgradedToHttpsSameHost = false;
+
+        for ($i = 0; $i < self::MAX_REDIRECT_HOPS; $i++) {
+            try {
+                /** @var Response $response */
+                $response = Http::timeout(15)
+                    ->withoutRedirecting()
+                    ->accept('text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8')
+                    ->withHeaders([
+                        'User-Agent' => 'MoxDOP-WebsiteDiagnosis/1.0',
+                    ])
+                    ->get($currentUrl);
+            } catch (ConnectionException $exception) {
+                $errorClass = 'connection';
+                $hops[] = [
+                    'url' => $currentUrl,
+                    'status' => null,
+                    'location' => null,
+                ];
+                $finalUrl = $currentUrl;
+                $finalStatus = null;
+
+                break;
+            }
+
+            $status = $response->status();
+            $locationHeader = $response->header('Location');
+            $location = is_string($locationHeader) && trim($locationHeader) !== ''
+                ? trim($locationHeader)
+                : null;
+
+            $hops[] = [
+                'url' => $currentUrl,
+                'status' => $status,
+                'location' => $location,
+            ];
+
+            $finalStatus = $status;
+            $finalUrl = $currentUrl;
+
+            if ($status >= 300 && $status < 400 && $location !== null) {
+                $nextUrl = $this->resolveRedirectTarget($currentUrl, $location);
+                $nextScheme = strtolower((string) parse_url($nextUrl, PHP_URL_SCHEME));
+                $nextHost = strtolower((string) parse_url($nextUrl, PHP_URL_HOST));
+
+                if ($nextScheme === 'https' && $nextHost !== '' && $nextHost === $startHost) {
+                    $upgradedToHttpsSameHost = true;
+                    $finalUrl = $nextUrl;
+                    break;
+                }
+
+                $currentUrl = $nextUrl;
+
+                continue;
+            }
+
+            break;
+        }
+
+        if (! $upgradedToHttpsSameHost && is_string($finalUrl)) {
+            $finalScheme = strtolower((string) parse_url($finalUrl, PHP_URL_SCHEME));
+            $finalHost = strtolower((string) parse_url($finalUrl, PHP_URL_HOST));
+            $upgradedToHttpsSameHost = $finalScheme === 'https' && $finalHost === $startHost;
+        }
+
+        $httpFetch = [
+            'url' => $httpStartUrl,
+            'status_code' => $finalStatus,
+            'effective_url' => $finalUrl,
+            'is_https' => false,
+            'response_is_ok' => is_int($finalStatus) && $finalStatus >= 200 && $finalStatus < 300,
+            'error_class' => $errorClass,
+            'error_or_status' => $errorClass !== null
+                ? 'connection_error'
+                : (string) ($finalStatus ?? 'no_response'),
+        ];
+
+        return [
+            'http_fetch' => $httpFetch,
+            'redirects' => [
+                'start_url' => $httpStartUrl,
+                'final_url' => $finalUrl,
+                'hop_count' => count(array_filter(
+                    $hops,
+                    static fn (array $hop): bool => is_int($hop['status'] ?? null)
+                        && $hop['status'] >= 300
+                        && $hop['status'] < 400
+                        && is_string($hop['location'] ?? null),
+                )),
+                'hops' => $hops,
+                'upgraded_to_https_same_host' => $upgradedToHttpsSameHost,
+                'error_class' => $errorClass,
+            ],
+        ];
+    }
+
+    /**
+     * Catalog item `redirect-http-to-https`: plaintext HTTP entry must upgrade to HTTPS on the same host.
+     *
+     * @param  array{
+     *     start_url: string,
+     *     final_url: string|null,
+     *     hop_count: int,
+     *     hops: list<array{url: string, status: int|null, location: string|null}>,
+     *     upgraded_to_https_same_host: bool,
+     *     error_class: string|null
+     * }  $evidence
+     */
+    private function evaluateRedirectHttpToHttps(
+        DigitalAsset $asset,
+        Run $run,
+        array $evidence,
+        DateTimeInterface $observedAt,
+    ): void {
+        if ($evidence['error_class'] !== null) {
+            return;
+        }
+
+        if ($evidence['upgraded_to_https_same_host'] === true) {
+            return;
+        }
+
+        $host = strtolower((string) parse_url($evidence['start_url'], PHP_URL_HOST));
+        $fingerprint = $this->fingerprint(self::CATALOG_REDIRECT_HTTP_TO_HTTPS, [
+            'host' => $host,
+        ]);
+
+        $finalUrl = $evidence['final_url'] ?? $evidence['start_url'];
+
+        $this->upsertFinding(
+            asset: $asset,
+            run: $run,
+            fingerprint: $fingerprint,
+            category: 'transport',
+            severity: 'medium',
+            title: 'HTTP does not upgrade to HTTPS',
+            summary: sprintf(
+                'Request to %s ended at %s without a stable HTTPS upgrade (%d redirect hop(s)).',
+                $evidence['start_url'],
+                $finalUrl,
+                $evidence['hop_count'],
+            ),
+            confidence: self::CONFIDENCE_HIGH,
+            observedAt: $observedAt,
+        );
+    }
+
+    private function httpFormOf(string $url): string
+    {
+        $parts = parse_url($url);
+
+        if (! is_array($parts) || ! isset($parts['host'])) {
+            throw new InvalidArgumentException('Unable to derive http:// form of primary_url.');
+        }
+
+        $host = strtolower($parts['host']);
+        $port = isset($parts['port']) ? ':'.$parts['port'] : '';
+        $path = $parts['path'] ?? '';
+        $query = isset($parts['query']) ? '?'.$parts['query'] : '';
+
+        return 'http://'.$host.$port.$path.$query;
+    }
+
+    private function resolveRedirectTarget(string $currentUrl, string $location): string
+    {
+        if (filter_var($location, FILTER_VALIDATE_URL)) {
+            return $location;
+        }
+
+        $parts = parse_url($currentUrl);
+        $scheme = $parts['scheme'] ?? 'http';
+        $host = $parts['host'] ?? '';
+        $port = isset($parts['port']) ? ':'.$parts['port'] : '';
+
+        if (str_starts_with($location, '//')) {
+            return $scheme.':'.$location;
+        }
+
+        if (str_starts_with($location, '/')) {
+            return $scheme.'://'.$host.$port.$location;
+        }
+
+        $basePath = $parts['path'] ?? '/';
+        $directory = str_contains($basePath, '/')
+            ? substr($basePath, 0, (int) strrpos($basePath, '/') + 1)
+            : '/';
+
+        return $scheme.'://'.$host.$port.$directory.$location;
     }
 
     /**
