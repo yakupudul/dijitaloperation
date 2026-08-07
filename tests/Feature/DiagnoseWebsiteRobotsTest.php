@@ -31,6 +31,7 @@ class DiagnoseWebsiteRobotsTest extends TestCase
             'https://ok.example' => Http::response('ok', 200),
             'http://ok.example' => Http::response('', 301, ['Location' => 'https://ok.example/']),
             'https://ok.example/robots.txt' => Http::response("User-agent: *\nDisallow:\n", 200),
+            'https://ok.example/sitemap.xml' => Http::response($this->validEmptySitemap(), 200),
         ]);
 
         $asset = DigitalAsset::factory()->create([
@@ -79,6 +80,7 @@ class DiagnoseWebsiteRobotsTest extends TestCase
             'https://broken.example' => Http::response('ok', 200),
             'http://broken.example' => Http::response('', 301, ['Location' => 'https://broken.example/']),
             'https://broken.example/robots.txt' => Http::response('nope', 503),
+            'https://broken.example/sitemap.xml' => Http::response($this->validEmptySitemap(), 200),
         ]);
 
         $asset = DigitalAsset::factory()->create([
@@ -128,6 +130,7 @@ class DiagnoseWebsiteRobotsTest extends TestCase
             'https://weird.example' => Http::response('ok', 200),
             'http://weird.example' => Http::response('', 301, ['Location' => 'https://weird.example/']),
             'https://weird.example/robots.txt' => Http::response("this is not a robots file\n", 200),
+            'https://weird.example/sitemap.xml' => Http::response($this->validEmptySitemap(), 200),
         ]);
 
         $asset = DigitalAsset::factory()->create([
@@ -161,6 +164,7 @@ class DiagnoseWebsiteRobotsTest extends TestCase
             'https://absent.example' => Http::response('ok', 200),
             'http://absent.example' => Http::response('', 301, ['Location' => 'https://absent.example/']),
             'https://absent.example/robots.txt' => Http::response('not found', 404),
+            'https://absent.example/sitemap.xml' => Http::response($this->validEmptySitemap(), 200),
         ]);
 
         $asset = DigitalAsset::factory()->create([
@@ -196,6 +200,10 @@ class DiagnoseWebsiteRobotsTest extends TestCase
                 throw new ConnectionException('Could not resolve robots host');
             }
 
+            if (str_ends_with($request->url(), '/sitemap.xml')) {
+                return Http::response($this->validEmptySitemap(), 200);
+            }
+
             if (str_starts_with($request->url(), 'http://')) {
                 return Http::response('', 301, ['Location' => 'https://flaky-robots.example/']);
             }
@@ -226,6 +234,15 @@ class DiagnoseWebsiteRobotsTest extends TestCase
             ->first();
         $this->assertSame('connection', $robots->payload['reason_code']);
         $this->assertSame('connection', $robots->payload['error_class']);
+    }
+
+    private function validEmptySitemap(): string
+    {
+        return <<<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+</urlset>
+XML;
     }
 
     private function stubValidTlsCertificate(): void

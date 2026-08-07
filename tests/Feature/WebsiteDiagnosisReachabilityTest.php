@@ -31,6 +31,7 @@ class WebsiteDiagnosisReachabilityTest extends TestCase
     {
         Http::fake([
             'https://acme.example/robots.txt' => Http::response("User-agent: *\nDisallow:\n", 200),
+            'https://acme.example/sitemap.xml' => Http::response($this->validEmptySitemap(), 200),
             'https://acme.example/*' => Http::response('ok', 200, ['Content-Type' => 'text/html']),
             'https://acme.example' => Http::response('ok', 200, ['Content-Type' => 'text/html']),
             'http://acme.example' => Http::response('', 301, ['Location' => 'https://acme.example/']),
@@ -53,7 +54,7 @@ class WebsiteDiagnosisReachabilityTest extends TestCase
         $this->assertNotNull($run->started_at);
         $this->assertNotNull($run->finished_at);
 
-        $this->assertDatabaseCount('evidence', 6);
+        $this->assertDatabaseCount('evidence', 8);
 
         $evidence = Evidence::query()
             ->where('run_id', $run->id)
@@ -86,6 +87,7 @@ class WebsiteDiagnosisReachabilityTest extends TestCase
     {
         Http::fake([
             'https://down.example/robots.txt' => Http::response("User-agent: *\nDisallow:\n", 200),
+            'https://down.example/sitemap.xml' => Http::response($this->validEmptySitemap(), 200),
             'https://down.example' => Http::response('upstream error', 503),
             'https://down.example/*' => Http::response('upstream error', 503),
             'http://down.example' => Http::response('', 301, ['Location' => 'https://down.example/']),
@@ -132,7 +134,7 @@ class WebsiteDiagnosisReachabilityTest extends TestCase
         $this->assertNotSame($firstRun->id, $secondRun->id);
         $this->assertDatabaseCount('findings', 1);
         $this->assertDatabaseCount('runs', 2);
-        $this->assertDatabaseCount('evidence', 12);
+        $this->assertDatabaseCount('evidence', 16);
 
         $finding = $finding->fresh();
         $this->assertNotNull($finding);
@@ -148,6 +150,10 @@ class WebsiteDiagnosisReachabilityTest extends TestCase
         Http::fake(function ($request) {
             if (str_ends_with($request->url(), '/robots.txt')) {
                 return Http::response("User-agent: *\nDisallow:\n", 200);
+            }
+
+            if (str_ends_with($request->url(), '/sitemap.xml')) {
+                return Http::response($this->validEmptySitemap(), 200);
             }
 
             throw new ConnectionException('Could not resolve host');
@@ -179,6 +185,7 @@ class WebsiteDiagnosisReachabilityTest extends TestCase
     {
         Http::fake([
             'https://gone.example/robots.txt' => Http::response("User-agent: *\nDisallow:\n", 200),
+            'https://gone.example/sitemap.xml' => Http::response($this->validEmptySitemap(), 200),
             'https://gone.example' => Http::response('not found', 404),
             'http://gone.example' => Http::response('', 301, ['Location' => 'https://gone.example/']),
         ]);
@@ -194,6 +201,15 @@ class WebsiteDiagnosisReachabilityTest extends TestCase
         $this->assertSame(404, $evidence->payload['status_code']);
         $this->assertFalse($evidence->payload['response_is_ok']);
         $this->assertSame(0, Finding::query()->where('category', 'availability')->count());
+    }
+
+    private function validEmptySitemap(): string
+    {
+        return <<<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+</urlset>
+XML;
     }
 
     private function stubValidTlsCertificate(): void

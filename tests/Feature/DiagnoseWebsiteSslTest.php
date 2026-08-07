@@ -22,6 +22,7 @@ class DiagnoseWebsiteSslTest extends TestCase
     {
         Http::fake([
             'https://secure.example/robots.txt' => Http::response("User-agent: *\nDisallow:\n", 200),
+            'https://secure.example/sitemap.xml' => Http::response($this->validEmptySitemap(), 200),
             'https://secure.example' => Http::response('ok', 200),
             'http://secure.example' => Http::response('', 301, ['Location' => 'https://secure.example/']),
         ]);
@@ -68,6 +69,7 @@ class DiagnoseWebsiteSslTest extends TestCase
     {
         Http::fake([
             'https://expired.example/robots.txt' => Http::response("User-agent: *\nDisallow:\n", 200),
+            'https://expired.example/sitemap.xml' => Http::response($this->validEmptySitemap(), 200),
             'https://expired.example' => Http::response('ok', 200),
             'http://expired.example' => Http::response('', 301, ['Location' => 'https://expired.example/']),
         ]);
@@ -119,6 +121,7 @@ class DiagnoseWebsiteSslTest extends TestCase
     {
         Http::fake([
             'https://soon.example/robots.txt' => Http::response("User-agent: *\nDisallow:\n", 200),
+            'https://soon.example/sitemap.xml' => Http::response($this->validEmptySitemap(), 200),
             'https://soon.example' => Http::response('ok', 200),
             'http://soon.example' => Http::response('', 301, ['Location' => 'https://soon.example/']),
         ]);
@@ -156,6 +159,7 @@ class DiagnoseWebsiteSslTest extends TestCase
     {
         Http::fake([
             'https://missing-cert.example/robots.txt' => Http::response("User-agent: *\nDisallow:\n", 200),
+            'https://missing-cert.example/sitemap.xml' => Http::response($this->validEmptySitemap(), 200),
             'https://missing-cert.example' => Http::response('ok', 200),
             'http://missing-cert.example' => Http::response('', 301, ['Location' => 'https://missing-cert.example/']),
         ]);
@@ -190,6 +194,15 @@ class DiagnoseWebsiteSslTest extends TestCase
         $this->assertSame(hash('sha256', 'https-tls-validity|host=missing-cert.example'), $finding->fingerprint);
         $this->assertSame($run->id, $finding->last_run_id);
         $this->assertStringContainsString('certificate_missing', (string) $finding->summary);
+    }
+
+    private function validEmptySitemap(): string
+    {
+        return <<<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+</urlset>
+XML;
     }
 
     /**
