@@ -2,29 +2,29 @@ This file is generated/maintained by DOP Autopilot and represents implementation
 
 # DOP Project Status
 
-Last updated: 2026-08-07T16:04:41Z
+Last updated: 2026-08-07T18:10:59Z
 
 Overall status:
 RUNNING
 
-Current roadmap stage: 17 / 23
+Current roadmap stage: 18 / 23
 
-Current stage: Website AI Insights
+Current stage: Google Business Profile product spec + first module
 
-Current task: dataforseo-connector-read-only-probe
+Current task: website-ai-insights-finding-interpretation
 
 Current task title:
 
-Add read-only DataForSEO account access probe
+Add grounded Website AI finding interpretation service
 
 Current automation run:
-https://github.com/yakupudul/dijitaloperation/actions/runs/31195719140
+https://github.com/yakupudul/dijitaloperation/actions/runs/31205681471
 
 ## Progress
 
-* Completed stages: 16 / 23
+* Completed stages: 17 / 23
 * In progress stages: —
-* Remaining stages: 17, 18, 19, 20, 21, 22, 23
+* Remaining stages: 18, 19, 20, 21, 22, 23
 
 ## Roadmap
 
@@ -44,7 +44,7 @@ https://github.com/yakupudul/dijitaloperation/actions/runs/31195719140
 * [x] 14. GA4 Connector
 * [x] 15. PageSpeed / Lighthouse Connector
 * [x] 16. DataForSEO Connector
-* [ ] 17. Website AI Insights
+* [x] 17. Website AI Insights
 * [ ] 18. Google Business Profile product spec + first module
 * [ ] 19. Google Ads product spec + first module
 * [ ] 20. Meta Ads product spec + first module
@@ -56,14 +56,15 @@ https://github.com/yakupudul/dijitaloperation/actions/runs/31195719140
 
 Last active task:
 
-* task id: `dataforseo-connector-read-only-probe`
-* branch: `dop/dataforseo-connector-read-only-probe`
-* PR: #64
+* task id: `website-ai-insights-finding-interpretation`
+* branch: `dop/website-ai-insights-finding-interpretation-v2`
+* PR: #66
 * reviewer verdict: APPROVED
 * retry/recovery state: COMPLETED_AND_CONTINUING
 
 ## Recently completed
 
+* `website-ai-insights-finding-interpretation` — PR 66 — `cb19c25b8162` — 2026-08-07T18:10:56
 * `dataforseo-connector-read-only-probe` — PR 64 — `ade600486934` — 2026-08-07T16:04:38
 * `pagespeed-connector-read-only-probe` — PR 63 — `7e4ed7e9a54c` — 2026-08-07T15:05:10
 * `ga4-connector-read-only-probe` — PR 62 — `d44a03d5de18` — 2026-08-07T14:06:47
@@ -73,12 +74,15 @@ Last active task:
 * `website-diagnosis-start-action` — PR 58 — `db194ed09e90` — 2026-08-07T13:19:15
 * `website-diagnosis-canonical-link-consistency` — PR 57 — `e5e2ae15e2d6` — 2026-08-07T13:08:15
 * `website-diagnosis-sitemap-xml-availability` — PR 56 — `1594e689dc42` — 2026-08-07T12:54:47
-* `website-diagnosis-robots-txt-availability` — PR 54 — `acf9ca633e6a` — 2026-08-07T12:20:07
 
 ## Blockers
 
 None
 
+## Stale automation PRs
+
+* #65 `website-ai-insights-finding-interpretation` — Superseded / stale (branch `dop/website-ai-insights-finding-interpretation`)
+
 ## Next expected
 
-17. Website AI Insights — expected focus: Add read-only DataForSEO account access probe
+18. Google Business Profile product spec + first module — expected focus: Add grounded Website AI finding interpretation service
