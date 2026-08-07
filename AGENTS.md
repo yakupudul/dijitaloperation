@@ -30,6 +30,7 @@ GitHub **DOP Autopilot** altında çalışan Implementer/Fixer:
 - final gate’te full required suite otomatik çalışır
 - dependency değişikliği yalnızca Architect task açıkça gerektiriyorsa yapılabilir
 - MASTER_SPEC / product blueprint scope’u değiştirilemez
+- Product PR merge yalnızca Actions içi verified Reviewer `APPROVED` + final gates ile yapılır; local Cursor maintenance agent Reviewer yokken product PR merge etmez
 
 ### Pratik
 

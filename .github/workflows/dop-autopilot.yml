@@ -257,16 +257,23 @@ jobs:
           CURSOR_AGENT_MODEL: ${{ vars.CURSOR_AGENT_MODEL }}
         run: |
           set -euo pipefail
+          if [ -z "${OPENAI_API_KEY:-}" ]; then
+            echo "::error::OPENAI_API_KEY missing — cannot review or merge"
+            exit 1
+          fi
           PR_NUMBER="$(cat .automation/runtime/pr_number.txt)"
           FINAL=HUMAN_REQUIRED
           FIX_REQUIRED_COUNT=0
           ESCALATION_USED=0
           : > .automation/runtime/previous_issues.txt
+          rm -f .automation/runtime/review_evidence.json
           for round in 1 2 3 4; do
             git fetch origin main
             git diff --name-only origin/main...HEAD > .automation/runtime/pr_files.txt
             git diff origin/main...HEAD > .automation/runtime/pr.diff
             git log origin/main..HEAD --pretty=%s > .automation/runtime/pr_commits.txt
+            HEAD_SHA="$(git rev-parse HEAD)"
+            echo "$HEAD_SHA" > .automation/runtime/reviewed_head_sha.txt
             MODEL_ARGS=()
             if [ -n "${OPENAI_REVIEWER_MODEL:-}" ]; then MODEL_ARGS=(--model "$OPENAI_REVIEWER_MODEL"); fi
             PREV_ARGS=()
@@ -281,12 +288,22 @@ jobs:
               --files-file .automation/runtime/pr_files.txt \
               --test-notes-file .automation/runtime/test_notes.txt \
               --task-file .automation/runtime/task.json \
+              --head-sha "$HEAD_SHA" \
+              --evidence-output .automation/runtime/review_evidence.json \
               --output .automation/runtime/review.json \
               --comment-output .automation/runtime/review_comment.md \
               "${PREV_ARGS[@]}" \
               "${MODEL_ARGS[@]}"
+            if [ ! -f .automation/runtime/review.json ]; then
+              echo "::error::Reviewer JSON missing"
+              exit 1
+            fi
             VERDICT="$(python -c 'import json;print(json.load(open(".automation/runtime/review.json"))["verdict"])')"
-            echo "Round $round => $VERDICT" >> "$GITHUB_STEP_SUMMARY"
+            if [ -z "$VERDICT" ]; then
+              echo "::error::Reviewer verdict missing"
+              exit 1
+            fi
+            echo "Round $round => $VERDICT (sha=$HEAD_SHA)" >> "$GITHUB_STEP_SUMMARY"
 
             if [ "$VERDICT" = "FIX_REQUIRED" ]; then
               FIX_REQUIRED_COUNT=$((FIX_REQUIRED_COUNT + 1))
@@ -304,13 +321,17 @@ jobs:
                 --test-notes-file .automation/runtime/test_notes.txt \
                 --task-file .automation/runtime/task.json \
                 --previous-issues-file .automation/runtime/previous_issues.txt \
+                --head-sha "$HEAD_SHA" \
+                --evidence-output .automation/runtime/review_evidence.json \
                 --output .automation/runtime/review.json \
                 --comment-output .automation/runtime/review_comment.md
               VERDICT="$(python -c 'import json;print(json.load(open(".automation/runtime/review.json"))["verdict"])')"
               echo "Escalation => $VERDICT" >> "$GITHUB_STEP_SUMMARY"
             fi
 
-            gh pr comment "$PR_NUMBER" --body-file .automation/runtime/review_comment.md
+            # Comment is best-effort; merge requires runtime evidence, not the comment.
+            gh pr comment "$PR_NUMBER" --body-file .automation/runtime/review_comment.md \
+              || echo "::warning::PR review comment failed; continuing with runtime evidence only"
             if [ -f .automation/runtime/usage.jsonl ]; then
               echo "### OpenAI usage (after review round $round)" >> "$GITHUB_STEP_SUMMARY"
               python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
@@ -323,8 +344,30 @@ jobs:
               print(f"- **{row.get('role')}** model=`{row.get('model')}` input={row.get('input_tokens')} cached={row.get('cached_input_tokens')} output={row.get('output_tokens')}")
           PY
             fi
-            if [ "$VERDICT" = "APPROVED" ]; then FINAL=APPROVED; break; fi
+            if [ "$VERDICT" = "APPROVED" ]; then
+              python - <<'PY'
+          import json, subprocess, sys
+          from pathlib import Path
+          sys.path.insert(0, '.automation')
+          from common import load_review_evidence, validate_review_evidence
+          task = json.loads(Path('.automation/runtime/task.json').read_text())
+          head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          evidence = load_review_evidence(Path('.automation/runtime/review_evidence.json'))
+          errors = validate_review_evidence(
+              evidence,
+              current_head_sha=head,
+              expected_task_id=str(task.get('task_id') or '') or None,
+          )
+          if errors:
+              raise SystemExit('Approved evidence invalid: ' + '; '.join(errors))
+          print('Review evidence OK for', head)
+          PY
+              FINAL=APPROVED
+              break
+            fi
             if [ "$VERDICT" = "HUMAN_REQUIRED" ]; then FINAL=HUMAN_REQUIRED; break; fi
+            # New commits invalidate prior approval evidence.
+            rm -f .automation/runtime/review_evidence.json
             python - <<'PY'
           import json
           from pathlib import Path
@@ -394,6 +437,10 @@ jobs:
             echo "::error::Stopped with $FINAL"
             exit 1
           fi
+          if [ ! -f .automation/runtime/review_evidence.json ]; then
+            echo "::error::APPROVED without review evidence — refuse merge"
+            exit 1
+          fi
 
       - name: Final merge gates + squash merge + dispatch
         if: steps.architect.outputs.status == 'TASK_READY' && steps.reviewloop.outputs.verdict == 'APPROVED'
@@ -403,13 +450,14 @@ jobs:
           set -euo pipefail
           bash .automation/scripts/quality_gates.sh
           PR_NUMBER="$(cat .automation/runtime/pr_number.txt)"
+          CURRENT_HEAD="$(git rev-parse HEAD)"
           python - <<'PY'
           import json, subprocess, sys
           from pathlib import Path
           sys.path.insert(0,'.automation')
           from common import (
             final_merge_gate_errors, find_secret_like_paths, diff_is_suspiciously_large,
-            scan_diff_for_credential_leaks, dispatch_eligible
+            scan_diff_for_credential_leaks, dispatch_eligible, load_review_evidence,
           )
           task=json.loads(Path('.automation/runtime/task.json').read_text())
           branch=Path('.automation/runtime/branch.txt').read_text().strip()
@@ -425,6 +473,20 @@ jobs:
               mergeable = out.upper() in {'MERGEABLE','UNKNOWN',''} or out.lower()=='mergeable'
           except Exception:
               mergeable=True
+          current_head=subprocess.check_output(['git','rev-parse','HEAD'], text=True).strip()
+          # Prefer remote PR head if available so local/runtime drift cannot bypass SHA lock.
+          try:
+              remote_head=subprocess.check_output(
+                  ['gh','pr','view',str(Path('.automation/runtime/pr_number.txt').read_text().strip()),'--json','headRefOid','-q','.headRefOid'],
+                  text=True,
+              ).strip().lower()
+              if remote_head and remote_head != current_head.lower():
+                  raise SystemExit(
+                      f'Local HEAD {current_head} != PR head {remote_head}; refuse merge'
+                  )
+          except subprocess.CalledProcessError:
+              pass
+          evidence=load_review_evidence(Path('.automation/runtime/review_evidence.json'))
           errors=final_merge_gate_errors(
             branch_name=branch,
             pr_body=body,
@@ -434,12 +496,17 @@ jobs:
             tests_passed=True,
             mergeable=mergeable,
             repo_root=Path('.').resolve(),
+            review_evidence=evidence,
+            current_head_sha=current_head,
+            require_review_approval=True,
           )
           if errors:
               raise SystemExit('Final merge gate failed: '+'; '.join(errors))
+          if evidence and evidence.get('verdict') != 'APPROVED':
+              raise SystemExit('Refuse merge: reviewer evidence verdict is not APPROVED')
           if not dispatch_eligible(merged=False, automation_pr=True, verdict_approved=True, hard_blocker=False, roadmap_complete=False):
               pass
-          print('Final merge gate OK')
+          print('Final merge gate OK with verified reviewer APPROVED for', current_head)
           PY
           gh pr merge "$PR_NUMBER" --squash --delete-branch
           echo "Merged #$PR_NUMBER" >> "$GITHUB_STEP_SUMMARY"

@@ -52,6 +52,19 @@ Product Autopilot PRs are always created from a freshly fetched `origin/main`.
 
 This prevents stale-base races where a concurrent workflow commit on `main` makes GitHub reject the product branch push (`workflows` permission).
 
+## Merge invariant (fail-closed)
+
+Product PR merge requires **both**:
+
+1. Verified runtime Reviewer evidence with `verdict == APPROVED` for the **current PR HEAD SHA**
+2. All deterministic final gates PASS
+
+Missing/invalid OpenAI key, reviewer process failure, missing review JSON, `FIX_REQUIRED`, `HUMAN_REQUIRED`, or approved-SHA ≠ HEAD **cannot merge**.
+
+Local Cursor maintenance agents must **not** bypass Autopilot by merging product PRs when Reviewer is unavailable. Review/merge stays in GitHub Actions (where `OPENAI_API_KEY` exists as a secret).
+
+## Token economy
+
 * Stable prefix: `.automation/context/CORE_RULES.md` (MASTER_SPEC yerine compact rules)
 * Architect yalnız sıradaki domain candidate blueprint’lerini yükler (`docs/product/**` tamamı değil)
 * Reviewer: CORE_RULES + `product_spec_paths` + ilgili ADR excerpt + diff/tests
