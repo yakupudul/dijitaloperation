@@ -20,7 +20,9 @@ Google Business Profile product blueprint is now detailed at
 `docs/product/google-business-profile/GOOGLE_BUSINESS_PROFILE.md` (roadmap step 18).
 Google Ads product blueprint is now detailed at
 `docs/product/google-ads/GOOGLE_ADS.md` (roadmap step 19).
-Remaining placeholders here cover Meta Ads, Instagram, and later possibles.
+Meta Ads product blueprint is now detailed at
+`docs/product/meta-ads/META_ADS.md` (roadmap step 20).
+Remaining placeholders here cover Instagram and later possibles.
 
 ## Important data / attributes
 
@@ -44,7 +46,7 @@ Cross-channel insights later (roadmap step 22).
 
 ## Later enhancements
 
-Next direction after Google Ads blueprint: Meta Ads, Instagram.  
+Next direction after Meta Ads blueprint: Instagram.  
 Later possibles: YouTube, CRM, other platforms.
 
 ## Explicit non-goals
