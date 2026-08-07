@@ -120,4 +120,30 @@ class EvidenceFactory extends Factory
             ],
         ]);
     }
+
+    /**
+     * @return $this
+     */
+    public function pageHtml(): static
+    {
+        $host = strtolower(fake()->domainName());
+        $finalUrl = 'https://'.$host.'/';
+
+        return $this->state(fn (): array => [
+            'type' => 'page_html',
+            'title' => 'Primary page HTML',
+            'payload' => [
+                'final_url' => $finalUrl,
+                'status_code' => 200,
+                'content_type' => 'text/html; charset=UTF-8',
+                'head_html' => '<link rel="canonical" href="'.$finalUrl.'">',
+                'head_truncated' => false,
+                'head_complete' => true,
+                'canonical_hrefs' => [$finalUrl],
+                'absolute_canonical_hrefs' => [$finalUrl],
+                'relative_canonical_hrefs' => [],
+                'canonical_state' => 'absolute_single',
+            ],
+        ]);
+    }
 }
