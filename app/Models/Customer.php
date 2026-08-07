@@ -34,6 +34,14 @@ class Customer extends Model
     }
 
     /**
+     * @return HasMany<Brand, $this>
+     */
+    public function brands(): HasMany
+    {
+        return $this->hasMany(Brand::class);
+    }
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array
