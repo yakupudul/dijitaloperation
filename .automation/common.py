@@ -458,7 +458,12 @@ def should_skip_next_task_for_merged_pr(
     if any(branch.startswith(prefix) for prefix in EXCLUDED_NEXT_TASK_BRANCH_PREFIXES):
         return True
 
-    if title.startswith("chore:") or title.startswith("docs:") or title.startswith("ci:"):
+    if (
+        title.startswith("chore:")
+        or title.startswith("chore(status)")
+        or title.startswith("docs:")
+        or title.startswith("ci:")
+    ):
         return True
 
     if files and all(_is_docs_or_meta_path(path) for path in files):

@@ -258,16 +258,16 @@ jobs:
 
       - name: Handle ROADMAP_COMPLETE
         if: (steps.architect.outputs.status || steps.architect_skip.outputs.status) == 'ROADMAP_COMPLETE'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           echo "Roadmap complete. No dispatch." >> "$GITHUB_STEP_SUMMARY"
-          python - <<'PY'
-          import os, sys
-          from pathlib import Path
-          sys.path.insert(0, '.automation')
-          from recovery import ROADMAP_COMPLETE, format_run_summary_markdown, write_run_summary_status
-          write_run_summary_status(Path('.automation/runtime/chain_status.txt'), ROADMAP_COMPLETE)
-          print(format_run_summary_markdown(ROADMAP_COMPLETE), file=open(os.environ['GITHUB_STEP_SUMMARY'], 'a'))
-          PY
+          python .automation/scripts/update_project_status.py \
+            --overall ROADMAP_COMPLETE \
+            --run-outcome ROADMAP_COMPLETE \
+            --commit-main || true
 
       - name: Handle HUMAN_REQUIRED hard blocker
         if: (steps.architect.outputs.status || steps.architect_skip.outputs.status) == 'HUMAN_REQUIRED'
@@ -756,14 +756,13 @@ jobs:
           echo "Merged #$PR_NUMBER" >> "$GITHUB_STEP_SUMMARY"
           gh api "repos/${{ github.repository }}/dispatches" -f event_type='dop-next-task'
           echo "Dispatched dop-next-task" >> "$GITHUB_STEP_SUMMARY"
-          python - <<'PY'
-          import os, sys
-          from pathlib import Path
-          sys.path.insert(0, '.automation')
-          from recovery import COMPLETED_AND_CONTINUING, format_run_summary_markdown, write_run_summary_status
-          write_run_summary_status(Path('.automation/runtime/chain_status.txt'), COMPLETED_AND_CONTINUING, 'merged and dispatched dop-next-task')
-          print(format_run_summary_markdown(COMPLETED_AND_CONTINUING, detail='merged and dispatched dop-next-task'), file=open(os.environ['GITHUB_STEP_SUMMARY'], 'a'))
-          PY
+          # Status commit only — must NOT dispatch again
+          DOP_RUN_OUTCOME=COMPLETED_AND_CONTINUING \
+            python .automation/scripts/update_project_status.py \
+              --overall RUNNING \
+              --run-outcome COMPLETED_AND_CONTINUING \
+              --commit-main \
+              --close-stale || true
 
       - name: Self-healing supervisor
         if: failure() && steps.mode.outputs.ignore_stale != 'true'
@@ -778,4 +777,23 @@ jobs:
             --error-file .automation/runtime/last_failure.txt \
             --repo "${{ github.repository }}" \
             --run-id "${{ github.run_id }}" || true
+          OUTCOME=RECOVERING
+          if [ -f .automation/runtime/chain_status.txt ] && grep -q HARD_BLOCKED .automation/runtime/chain_status.txt; then
+            OUTCOME=HARD_BLOCKED
+          fi
+          python .automation/scripts/update_project_status.py \
+            --overall "$OUTCOME" \
+            --run-outcome "$OUTCOME" \
+            --commit-main || true
 
+      - name: Project status summary (always)
+        if: always() && steps.mode.outputs.ignore_stale != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -f .automation/runtime/project_status_summary.md ]; then
+            cat .automation/runtime/project_status_summary.md >> "$GITHUB_STEP_SUMMARY" || true
+          elif [ -f docs/PROJECT_STATUS.md ]; then
+            echo "## docs/PROJECT_STATUS.md (checkout copy)" >> "$GITHUB_STEP_SUMMARY"
+            head -n 40 docs/PROJECT_STATUS.md >> "$GITHUB_STEP_SUMMARY" || true
+          fi

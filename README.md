@@ -4,6 +4,8 @@ Moximu agency internal digital operations platform (DOP).
 
 Product source of truth: [`docs/MASTER_SPEC.md`](docs/MASTER_SPEC.md)
 
+Project status: [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md)
+
 ## Bootstrap
 
 See [`docs/implementation/CORE_BOOTSTRAP.md`](docs/implementation/CORE_BOOTSTRAP.md) for local setup, admin creation, queue, tests, and the sample module.
