@@ -2,14 +2,14 @@ This file is generated/maintained by DOP Autopilot and represents implementation
 
 # DOP Project Status
 
-Last updated: 2026-08-07T22:00:00Z
+Last updated: 2026-08-07T21:59:45Z
 
 Overall status:
 RUNNING
 
-Current roadmap stage: 22 / 23
+Current roadmap stage: 18 / 23
 
-Current stage: Cross-asset / cross-channel analysis
+Current stage: Google Business Profile product spec + first module
 
 Current task: cross-asset-instagram-meta-ads-destination-consistency
 
@@ -18,13 +18,13 @@ Current task title:
 Add Instagram ↔ Meta Ads destination URL consistency cross-asset pack
 
 Current automation run:
-https://github.com/yakupudul/dijitaloperation/pull/88
+https://github.com/yakupudul/dijitaloperation/actions/runs/31222108259
 
 ## Progress
 
-* Completed stages: 17 / 23 (stages 18–21 product specs + first connector probes are on main; status checkboxes below may lag automation helper)
-* In progress stages: 22
-* Remaining stages: 22 (remaining packs after this PR), 23 (production hardening / cleanup)
+* Completed stages: 17 / 23
+* In progress stages: —
+* Remaining stages: 18, 19, 20, 21, 22, 23
 
 ## Roadmap
 
@@ -59,11 +59,12 @@ Last active task:
 * task id: `cross-asset-instagram-meta-ads-destination-consistency`
 * branch: `dop/cross-asset-instagram-meta-ads-destination-consistency`
 * PR: #88
-* reviewer verdict: —
-* retry/recovery state: AWAITING_REVIEW
+* reviewer verdict: APPROVED
+* retry/recovery state: COMPLETED_AND_CONTINUING
 
 ## Recently completed
 
+* `cross-asset-instagram-meta-ads-destination-consistency` — PR 88 — `d8b4b643dd98` — 2026-08-07T21:59:42
 * `cross-asset-website-meta-ads-destination-consistency` — PR 87 — `90fedcc686d2` — 2026-08-07T21:41:47
 * `cross-asset-website-instagram-website-url-consistency` — PR 85 — `d90cb90f2db9` — 2026-08-07T20:39:36
 * `cross-asset-website-google-ads-landing-consistency` — PR 84 — `cb4010dab9a0` — 2026-08-07T20:23:21
@@ -73,20 +74,11 @@ Last active task:
 * `cross-asset-website-gbp-website-url-consistency` — PR 80 — `f42c87946492` — 2026-08-07T20:01:45
 * `cross-asset-analysis-product-spec` — PR 75 — `1453adfbe059` — 2026-08-07T19:27:52
 * `instagram-connector-read-only-probe` — PR 74 — `bab09d0b1454` — 2026-08-07T19:22:50
-* `instagram-product-spec` — PR 73 — `885ad50de330` — 2026-08-07T19:18:42
 
 ## Blockers
 
 None
 
-## Deferred work
-
-None
-
-## Stale automation PRs
-
-* #86 `cross-asset-website-meta-ads-destination-consistency` — Superseded / stale (branch `dop/cross-asset-website-meta-ads-destination-consistency`)
-
 ## Next expected
 
-22. Cross-asset / cross-channel analysis — Instagram ↔ Meta Ads destination URL consistency pack
+18. Google Business Profile product spec + first module — expected focus: Add Instagram ↔ Meta Ads destination URL consistency cross-asset pack
