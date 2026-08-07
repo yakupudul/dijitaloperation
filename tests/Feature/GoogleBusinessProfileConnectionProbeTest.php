@@ -31,6 +31,13 @@ class GoogleBusinessProfileConnectionProbeTest extends TestCase
                         'displayName' => 'Coffee shop',
                     ],
                 ],
+                'storefrontAddress' => [
+                    'regionCode' => 'US',
+                    'postalCode' => '78701',
+                    'administrativeArea' => 'TX',
+                    'locality' => 'Austin',
+                    'addressLines' => ['123 Main St'],
+                ],
             ], 200),
         ]);
 
@@ -73,6 +80,13 @@ class GoogleBusinessProfileConnectionProbeTest extends TestCase
         $this->assertSame('https://acme.example', $evidence->payload['website_uri']);
         $this->assertSame('+1 555-0100', $evidence->payload['primary_phone']);
         $this->assertSame('Coffee shop', $evidence->payload['primary_category']);
+        $this->assertSame([
+            'region_code' => 'US',
+            'postal_code' => '78701',
+            'administrative_area' => 'TX',
+            'locality' => 'Austin',
+            'address_lines' => ['123 Main St'],
+        ], $evidence->payload['storefront_address']);
         $encoded = json_encode($evidence->payload);
         $this->assertStringNotContainsString('ya29.test-gbp-access-token', (string) $encoded);
 

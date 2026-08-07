@@ -248,6 +248,13 @@ class GoogleBusinessProfileConnectionProbeService
      *     website_uri: string|null,
      *     primary_phone: string|null,
      *     primary_category: string|null,
+     *     storefront_address: array{
+     *         region_code: string|null,
+     *         postal_code: string|null,
+     *         administrative_area: string|null,
+     *         locality: string|null,
+     *         address_lines: list<string>
+     *     }|null,
      *     ok: bool,
      *     status_code: int|null,
      *     status_or_error: string,
@@ -286,6 +293,10 @@ class GoogleBusinessProfileConnectionProbeService
             }
         }
 
+        $storefrontAddress = $this->normalizeStorefrontAddress(
+            is_array($body) ? ($body['storefrontAddress'] ?? null) : null,
+        );
+
         $ok = $errorClass === null && $statusCode === 200 && $locationName !== null;
 
         $statusOrError = $errorClass !== null
@@ -307,10 +318,61 @@ class GoogleBusinessProfileConnectionProbeService
             'website_uri' => $websiteUri,
             'primary_phone' => $primaryPhone,
             'primary_category' => $primaryCategory,
+            'storefront_address' => $storefrontAddress,
             'ok' => $ok,
             'status_code' => $statusCode,
             'status_or_error' => $statusOrError,
             'error_class' => $errorClass,
+        ];
+    }
+
+    /**
+     * @return array{
+     *     region_code: string|null,
+     *     postal_code: string|null,
+     *     administrative_area: string|null,
+     *     locality: string|null,
+     *     address_lines: list<string>
+     * }|null
+     */
+    private function normalizeStorefrontAddress(mixed $address): ?array
+    {
+        if (! is_array($address)) {
+            return null;
+        }
+
+        $lines = [];
+        if (isset($address['addressLines']) && is_array($address['addressLines'])) {
+            foreach ($address['addressLines'] as $line) {
+                if (is_string($line) && trim($line) !== '') {
+                    $lines[] = trim($line);
+                }
+            }
+        }
+
+        $regionCode = isset($address['regionCode']) && is_string($address['regionCode'])
+            ? trim($address['regionCode'])
+            : null;
+        $postalCode = isset($address['postalCode']) && is_string($address['postalCode'])
+            ? trim($address['postalCode'])
+            : null;
+        $adminArea = isset($address['administrativeArea']) && is_string($address['administrativeArea'])
+            ? trim($address['administrativeArea'])
+            : null;
+        $locality = isset($address['locality']) && is_string($address['locality'])
+            ? trim($address['locality'])
+            : null;
+
+        if ($lines === [] && $regionCode === null && $postalCode === null && $adminArea === null && $locality === null) {
+            return null;
+        }
+
+        return [
+            'region_code' => $regionCode === '' ? null : $regionCode,
+            'postal_code' => $postalCode === '' ? null : $postalCode,
+            'administrative_area' => $adminArea === '' ? null : $adminArea,
+            'locality' => $locality === '' ? null : $locality,
+            'address_lines' => $lines,
         ];
     }
 }

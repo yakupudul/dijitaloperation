@@ -13,6 +13,7 @@ use App\Support\SitemapXmlParser;
 use App\Support\SslCertificateProbe;
 use App\Support\SslCertParser;
 use App\Support\WebsiteDiagnosisCatalog;
+use App\Support\WebsitePostalAddressExtractor;
 use App\Support\WebsiteTelephoneExtractor;
 use DateTimeImmutable;
 use DateTimeInterface;
@@ -62,6 +63,7 @@ class WebsiteDiagnosisService
         private readonly CanonicalLinkParser $canonicalLinkParser = new CanonicalLinkParser,
         private readonly WebsiteDiagnosisCatalog $websiteDiagnosisCatalog = new WebsiteDiagnosisCatalog,
         private readonly WebsiteTelephoneExtractor $websiteTelephoneExtractor = new WebsiteTelephoneExtractor,
+        private readonly WebsitePostalAddressExtractor $websitePostalAddressExtractor = new WebsitePostalAddressExtractor,
     ) {}
 
     /**
@@ -1085,7 +1087,15 @@ class WebsiteDiagnosisService
      *     absolute_canonical_hrefs: list<string>,
      *     relative_canonical_hrefs: list<string>,
      *     canonical_state: string,
-     *     telephone_candidates: list<string>
+     *     telephone_candidates: list<string>,
+     *     postal_address_candidates: list<array{
+     *         street_address: string|null,
+     *         locality: string|null,
+     *         region: string|null,
+     *         postal_code: string|null,
+     *         country: string|null,
+     *         formatted: string
+     *     }>
      * }|null
      */
     private function collectPageHtml(array $httpFetch, ?string $body, ?string $contentType): ?array
@@ -1114,6 +1124,7 @@ class WebsiteDiagnosisService
             'relative_canonical_hrefs' => $parsed['relative_canonical_hrefs'],
             'canonical_state' => $canonicalState,
             'telephone_candidates' => $this->websiteTelephoneExtractor->extract($body),
+            'postal_address_candidates' => $this->websitePostalAddressExtractor->extract($body),
         ];
     }
 
