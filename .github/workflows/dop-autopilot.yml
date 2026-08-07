@@ -1,0 +1,383 @@
+name: DOP Autopilot
+
+# Canonical full autopilot loop (one small Architect task per run).
+# Chains to the next run via workflow_run + continue artifact (GITHUB_TOKEN-safe).
+# Optional: repository_dispatch type dop-next-task (may need PAT to chain; workflow_run is primary).
+
+on:
+  workflow_dispatch:
+  repository_dispatch:
+    types: [dop-next-task]
+  workflow_run:
+    workflows: ["DOP Autopilot"]
+    types: [completed]
+
+concurrency:
+  group: dop-autopilot
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+  checks: read
+
+jobs:
+  should-continue:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      continue: ${{ steps.decide.outputs.continue }}
+    steps:
+      - name: Default continue for manual/dispatch
+        id: bootstrap
+        if: github.event_name != 'workflow_run'
+        run: echo "continue=true" >> "$GITHUB_OUTPUT"
+
+      - name: Download continue artifact from previous Autopilot run
+        id: download
+        if: github.event_name == 'workflow_run'
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: dop-autopilot-continue
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: /tmp/dop-continue
+
+      - name: Decide continue from artifact
+        id: decide
+        run: |
+          if [ "${{ github.event_name }}" != "workflow_run" ]; then
+            echo "continue=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -f /tmp/dop-continue/continue.txt ] && [ "$(cat /tmp/dop-continue/continue.txt | tr -d '[:space:]')" = "yes" ]; then
+            echo "continue=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "continue=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  autopilot:
+    needs: should-continue
+    if: needs.should-continue.outputs.continue == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: mbstring, xml, curl, sqlite3, zip, bcmath
+          coverage: none
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Composer dependencies
+        run: |
+          composer install --no-interaction --prefer-dist
+
+      - name: Install OpenAI SDK + automation tests
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r .automation/requirements.txt
+          python -m unittest discover -s .automation/tests -v
+
+      - name: Run Architect
+        id: architect
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_ARCHITECT_MODEL: ${{ vars.OPENAI_ARCHITECT_MODEL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${OPENAI_API_KEY:-}" ]; then
+            echo "::error::OPENAI_API_KEY missing (hard blocker)"
+            echo "hard_blocker=missing_openai_secret" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+          MODEL_ARGS=()
+          if [ -n "${OPENAI_ARCHITECT_MODEL:-}" ]; then
+            MODEL_ARGS=(--model "$OPENAI_ARCHITECT_MODEL")
+          fi
+          python .automation/architect.py --output /tmp/dop-task.json "${MODEL_ARGS[@]}"
+          python .automation/architect.py --validate-only /tmp/dop-task.json
+          STATUS="$(python -c 'import json; print(json.load(open("/tmp/dop-task.json"))["status"])')"
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+          python -c 'import json;from pathlib import Path;d=json.loads(Path("/tmp/dop-task.json").read_text());Path("/tmp/architect-summary.md").write_text("## Architect\n- status: `"+d["status"]+"`\n- task: "+str(d.get("title",""))+"\n- reason: "+str(d.get("reason",""))+"\n")'
+          cat /tmp/architect-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Stop cleanly when no task
+        if: steps.architect.outputs.status != 'TASK_READY'
+        run: |
+          echo "No TASK_READY (${{ steps.architect.outputs.status }}). Autopilot stops without continue artifact."
+          mkdir -p /tmp/artifacts
+          echo "no" > /tmp/artifacts/continue.txt
+
+      - name: Prepare implementer prompt
+        if: steps.architect.outputs.status == 'TASK_READY'
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          task = json.loads(Path('/tmp/dop-task.json').read_text())
+          implementer = Path('.automation/prompts/implementer.md').read_text()
+          specs = '\n'.join(f"- {p}" for p in (task.get('product_spec_paths') or []))
+          prompt = f"""{implementer}
+
+          ## Architect task JSON
+          ```json
+          {json.dumps(task, ensure_ascii=False, indent=2)}
+          ```
+
+          ## Required product_spec_paths (MUST READ)
+          {specs or '(none)'}
+
+          IMPORTANT:
+          - Do NOT create branches, commit, push, merge, or open PRs.
+          - Do NOT touch secrets/.env.
+          - Do NOT add SaaS, external write, Result entity, or custom plugin frameworks.
+          """
+          Path('/tmp/dop-implementer-prompt.txt').write_text(prompt)
+          PY
+
+      - name: Install Cursor CLI
+        if: steps.architect.outputs.status == 'TASK_READY'
+        run: |
+          curl https://cursor.com/install -fsS | bash
+          echo "$HOME/.cursor/bin" >> "$GITHUB_PATH"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Run Cursor implementer
+        if: steps.architect.outputs.status == 'TASK_READY'
+        env:
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          CURSOR_AGENT_MODEL: ${{ vars.CURSOR_AGENT_MODEL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CURSOR_API_KEY:-}" ]; then
+            echo "::error::CURSOR_API_KEY missing (hard blocker)"
+            exit 1
+          fi
+          if command -v agent >/dev/null 2>&1; then AGENT_BIN=agent
+          elif command -v cursor-agent >/dev/null 2>&1; then AGENT_BIN=cursor-agent
+          else echo "::error::Cursor agent binary missing"; exit 1; fi
+          MODEL_ARGS=()
+          if [ -n "${CURSOR_AGENT_MODEL:-}" ]; then MODEL_ARGS=(--model "$CURSOR_AGENT_MODEL"); fi
+          "$AGENT_BIN" -p --force --output-format text "${MODEL_ARGS[@]}" "$(cat /tmp/dop-implementer-prompt.txt)"
+
+      - name: Quality gates after implementation
+        if: steps.architect.outputs.status == 'TASK_READY'
+        run: |
+          set -euo pipefail
+          if ! git status --porcelain | grep -q .; then
+            echo "::error::No implementation changes"
+            exit 1
+          fi
+          bash .automation/scripts/quality_gates.sh | tee /tmp/pr-test-notes.txt
+
+      - name: Create branch and PR
+        if: steps.architect.outputs.status == 'TASK_READY'
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, sys
+          from pathlib import Path
+          sys.path.insert(0, '.automation')
+          from common import AUTOMATION_PR_MARKER, is_safe_branch_name
+          task = json.loads(Path('/tmp/dop-task.json').read_text())
+          branch = task['branch_name']
+          if not is_safe_branch_name(branch):
+              raise SystemExit(f'Unsafe branch: {branch}')
+          Path('/tmp/dop-branch.txt').write_text(branch)
+          body = f"""{AUTOMATION_PR_MARKER}
+
+          ## Automated DOP Autopilot task
+
+          - **task_id:** `{task.get('task_id','')}`
+          - **title:** {task.get('title','')}
+
+          ### Objective
+          {task.get('objective','')}
+
+          ### Product specs
+          """
+          for p in task.get('product_spec_paths') or []:
+              body += f"- `{p}`\n"
+          body += "\n### Acceptance criteria\n"
+          for p in task.get('acceptance_criteria') or []:
+              body += f"- {p}\n"
+          body += "\n### Tests required\n"
+          for p in task.get('tests_required') or []:
+              body += f"- {p}\n"
+          body += "\n### Must not do\n"
+          for p in task.get('must_not_do') or []:
+              body += f"- {p}\n"
+          body += "\n<details><summary>Architect task JSON</summary>\n\n```json\n"
+          body += json.dumps(task, ensure_ascii=False, indent=2)
+          body += "\n```\n</details>\n"
+          Path('/tmp/dop-pr-body.md').write_text(body)
+          Path('/tmp/dop-pr-title.txt').write_text(task.get('title') or task.get('task_id') or 'DOP autopilot task')
+          PY
+          BRANCH="$(cat /tmp/dop-branch.txt)"
+          TITLE="$(cat /tmp/dop-pr-title.txt)"
+          git config user.name "dop-automation"
+          git config user.email "dop-automation@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          git add -A
+          git commit -m "feat: $(python -c 'import json;print(json.load(open("/tmp/dop-task.json")).get("title") or "autopilot task")')"
+          git push -u origin "$BRANCH"
+          URL="$(gh pr create --base main --head "$BRANCH" --title "$TITLE" --body-file /tmp/dop-pr-body.md)"
+          echo "pr_url=$URL" >> "$GITHUB_OUTPUT"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+          echo "PR: $URL" >> "$GITHUB_STEP_SUMMARY"
+          gh pr view --json number -q .number > /tmp/pr-number.txt
+
+      - name: Review / fix loop
+        if: steps.architect.outputs.status == 'TASK_READY'
+        id: reviewloop
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_REVIEWER_MODEL: ${{ vars.OPENAI_REVIEWER_MODEL }}
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          CURSOR_AGENT_MODEL: ${{ vars.CURSOR_AGENT_MODEL }}
+        run: |
+          set -euo pipefail
+          PR_NUMBER="$(cat /tmp/pr-number.txt)"
+          FINAL=HUMAN_REQUIRED
+
+          for round in 1 2 3 4; do
+            git fetch origin main
+            git diff --name-only origin/main...HEAD > /tmp/pr-files.txt
+            git diff origin/main...HEAD > /tmp/pr.diff
+            git log origin/main..HEAD --pretty=%s > /tmp/pr-commit-messages.txt
+
+            MODEL_ARGS=()
+            if [ -n "${OPENAI_REVIEWER_MODEL:-}" ]; then MODEL_ARGS=(--model "$OPENAI_REVIEWER_MODEL"); fi
+            python .automation/reviewer.py \
+              --require-automation-marker \
+              --title "$(cat /tmp/dop-pr-title.txt)" \
+              --body-file /tmp/dop-pr-body.md \
+              --diff-file /tmp/pr.diff \
+              --files-file /tmp/pr-files.txt \
+              --test-notes-file /tmp/pr-test-notes.txt \
+              --task-file /tmp/dop-task.json \
+              --output /tmp/dop-review.json \
+              --comment-output /tmp/dop-review-comment.md \
+              "${MODEL_ARGS[@]}"
+            gh pr comment "$PR_NUMBER" --body-file /tmp/dop-review-comment.md
+            VERDICT="$(python -c 'import json;print(json.load(open("/tmp/dop-review.json"))["verdict"])')"
+            echo "Round $round verdict=$VERDICT" >> "$GITHUB_STEP_SUMMARY"
+
+            if [ "$VERDICT" = "APPROVED" ]; then
+              FINAL=APPROVED
+              break
+            fi
+            if [ "$VERDICT" = "HUMAN_REQUIRED" ]; then
+              FINAL=HUMAN_REQUIRED
+              break
+            fi
+
+            # FIX_REQUIRED
+            USED="$(python -c "import sys; from pathlib import Path; sys.path.insert(0,'.automation'); from common import count_fix_attempts_from_commit_messages; msgs=[l.strip() for l in Path('/tmp/pr-commit-messages.txt').read_text().splitlines() if l.strip()]; print(count_fix_attempts_from_commit_messages(msgs))")"
+            if [ "$USED" -ge 3 ]; then
+              cat > /tmp/human-comment.md <<EOF
+          <!-- DOP_REVIEW:HUMAN_REQUIRED -->
+
+          ## DOP automated review: HUMAN_REQUIRED
+
+          Automatic fix limit (3) reached.
+          EOF
+              gh pr comment "$PR_NUMBER" --body-file /tmp/human-comment.md
+              FINAL=HUMAN_REQUIRED
+              break
+            fi
+
+            python - <<'PY'
+          import json
+          from pathlib import Path
+          review=json.loads(Path('/tmp/dop-review.json').read_text())
+          fixer=Path('.automation/prompts/fixer.md').read_text()
+          task=Path('/tmp/dop-task.json').read_text()
+          Path('/tmp/dop-fixer-prompt.txt').write_text(f"""{fixer}
+
+          ## Architect task JSON
+          ```json
+          {task}
+          ```
+
+          ## Reviewer JSON
+          ```json
+          {json.dumps(review, ensure_ascii=False, indent=2)}
+          ```
+
+          Do NOT git commit/push/PR. Fix only listed issues.
+          """)
+          PY
+            if command -v agent >/dev/null 2>&1; then AGENT_BIN=agent
+            elif command -v cursor-agent >/dev/null 2>&1; then AGENT_BIN=cursor-agent
+            else echo "::error::Cursor agent missing"; exit 1; fi
+            MODEL_ARGS=()
+            if [ -n "${CURSOR_AGENT_MODEL:-}" ]; then MODEL_ARGS=(--model "$CURSOR_AGENT_MODEL"); fi
+            "$AGENT_BIN" -p --force --output-format text "${MODEL_ARGS[@]}" "$(cat /tmp/dop-fixer-prompt.txt)"
+            bash .automation/scripts/quality_gates.sh | tee /tmp/pr-test-notes.txt
+            if git status --porcelain | grep -q .; then
+              git add -A
+              git commit -m "fix: address automated DOP review"
+              git push origin HEAD:"$(cat /tmp/dop-branch.txt)"
+            fi
+          done
+
+          echo "verdict=$FINAL" >> "$GITHUB_OUTPUT"
+          echo "Final verdict: $FINAL" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$FINAL" != "APPROVED" ]; then
+            mkdir -p /tmp/artifacts
+            echo "no" > /tmp/artifacts/continue.txt
+            echo "::error::Autopilot stopped with $FINAL (no auto-merge, no continue)"
+            exit 1
+          fi
+
+      - name: Final gates + squash merge
+        if: steps.architect.outputs.status == 'TASK_READY' && steps.reviewloop.outputs.verdict == 'APPROVED'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          bash .automation/scripts/quality_gates.sh
+          PR_NUMBER="$(cat /tmp/pr-number.txt)"
+          gh pr merge "$PR_NUMBER" --squash --delete-branch
+          echo "Merged PR #$PR_NUMBER" >> "$GITHUB_STEP_SUMMARY"
+          mkdir -p /tmp/artifacts
+          echo "yes" > /tmp/artifacts/continue.txt
+          # Best-effort repository_dispatch (may no-op under GITHUB_TOKEN recursion rules)
+          gh api "repos/${{ github.repository }}/dispatches" \
+            -f event_type='dop-next-task' || true
+
+      - name: Ensure continue artifact exists
+        if: always()
+        run: |
+          mkdir -p /tmp/artifacts
+          if [ ! -f /tmp/artifacts/continue.txt ]; then
+            echo "no" > /tmp/artifacts/continue.txt
+          fi
+
+      - name: Upload continue artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dop-autopilot-continue
+          path: /tmp/artifacts/continue.txt
+          if-no-files-found: ignore
+          retention-days: 1
