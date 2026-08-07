@@ -6,6 +6,7 @@ use App\Filament\App\Resources\Customers\CustomerResource;
 use App\Filament\App\Resources\Customers\Resources\Brands\Pages\CreateBrand;
 use App\Filament\App\Resources\Customers\Resources\Brands\Pages\EditBrand;
 use App\Filament\App\Resources\Customers\Resources\Brands\Pages\ViewBrand;
+use App\Filament\App\Resources\Customers\Resources\Brands\RelationManagers\DigitalAssetsRelationManager;
 use App\Models\Brand;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
@@ -194,7 +195,7 @@ class BrandResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            'digitalAssets' => DigitalAssetsRelationManager::class,
         ];
     }
 
