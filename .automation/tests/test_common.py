@@ -225,11 +225,130 @@ class ReviewerTaskFileTests(unittest.TestCase):
         )
         self.assertIn("docs/product/CONNECTION.md", payload)
         self.assertIn("Connection", payload)
+        self.assertIn("CORE_RULES", payload)
+        # Minimal context: no full MASTER_SPEC body / unrelated blueprints / roadmap dump.
+        self.assertNotIn("### docs/MASTER_SPEC.md", payload)
+        self.assertNotIn("### docs/product/website/GA4.md", payload)
+        self.assertNotIn("### docs/product/website/DATAFORSEO.md", payload)
+        self.assertNotIn("### docs/IMPLEMENTATION_ROADMAP.md", payload)
+
+    def test_reviewer_includes_previous_issues_on_fix_round(self) -> None:
+        from reviewer import build_review_payload
+
+        payload = build_review_payload(
+            title="feat: x",
+            body=f"{AUTOMATION_PR_MARKER}\n",
+            changed_files="a.php\n",
+            diff_text="diff\n",
+            test_notes="ok",
+            task_json=_task_ready(),
+            previous_issues_summary="- [high] a.php: missing fillable => add fillable",
+        )
+        self.assertIn("Previous reviewer issues", payload)
+        self.assertIn("missing fillable", payload)
 
 
 class SkipNextTaskTests(unittest.TestCase):
     def test_skips_chore(self) -> None:
         self.assertTrue(should_skip_next_task_for_merged_pr("chore/dop-autopilot"))
+
+
+class ModelDefaultTests(unittest.TestCase):
+    def test_defaults_are_gpt_5_mini(self) -> None:
+        from common import (
+            DEFAULT_ARCHITECT_MODEL,
+            DEFAULT_ESCALATION_MODEL,
+            DEFAULT_REVIEWER_MODEL,
+            resolve_model,
+        )
+
+        self.assertEqual(DEFAULT_ARCHITECT_MODEL, "gpt-5-mini")
+        self.assertEqual(DEFAULT_REVIEWER_MODEL, "gpt-5-mini")
+        self.assertTrue(DEFAULT_ESCALATION_MODEL)
+        self.assertNotEqual(DEFAULT_ESCALATION_MODEL, "gpt-5-nano")
+
+        import os
+
+        os.environ.pop("OPENAI_ARCHITECT_MODEL", None)
+        self.assertEqual(resolve_model("OPENAI_ARCHITECT_MODEL", DEFAULT_ARCHITECT_MODEL), "gpt-5-mini")
+        os.environ["OPENAI_ARCHITECT_MODEL"] = ""
+        self.assertEqual(resolve_model("OPENAI_ARCHITECT_MODEL", DEFAULT_ARCHITECT_MODEL), "gpt-5-mini")
+        os.environ["OPENAI_ARCHITECT_MODEL"] = "gpt-4.1"
+        self.assertEqual(resolve_model("OPENAI_ARCHITECT_MODEL", DEFAULT_ARCHITECT_MODEL), "gpt-4.1")
+        os.environ.pop("OPENAI_ARCHITECT_MODEL", None)
+
+
+class SelectiveContextTests(unittest.TestCase):
+    def test_candidate_specs_exclude_unrelated_blueprints(self) -> None:
+        from common import list_product_spec_files, select_candidate_product_specs
+
+        all_specs = list_product_spec_files(REPO_ROOT)
+        self.assertGreaterEqual(len(all_specs), 10)
+
+        selected = select_candidate_product_specs(
+            REPO_ROOT,
+            merged_task_ids={"customer-model-and-migration", "customer-contact-model-and-migration"},
+            commit_summary="feat: Customer Contact",
+        )
+        self.assertTrue(selected)
+        self.assertLess(len(selected), len(all_specs))
+        self.assertTrue(any(p.endswith("CUSTOMER.md") or p.endswith("BRAND.md") for p in selected))
+        for banned in (
+            "docs/product/website/GA4.md",
+            "docs/product/website/DATAFORSEO.md",
+            "docs/product/website/INSTAGRAM.md",
+            "docs/product/future/DIGITAL_ASSETS.md",
+        ):
+            self.assertNotIn(banned, selected)
+
+    def test_architect_payload_uses_core_rules_not_all_blueprints(self) -> None:
+        from architect import architect_context_files, build_user_payload
+
+        files = architect_context_files(
+            merged_task_ids={"brand-model-and-migration"},
+            commit_summary="feat: Brand model",
+        )
+        self.assertEqual(files["stable"], [".automation/context/CORE_RULES.md"])
+        self.assertIn("docs/product/INDEX.md", files["planning"])
+        self.assertNotIn("docs/MASTER_SPEC.md", files["planning"])
+        self.assertTrue(files["product_specs"])
+        self.assertNotIn("docs/product/website/GA4.md", files["product_specs"])
+
+        payload = build_user_payload(
+            merged_task_ids={"brand-model-and-migration"},
+            commit_summary="feat: Brand model",
+        )
+        self.assertIn("CORE_RULES", payload)
+        self.assertIn("docs/product/INDEX.md", payload)
+        self.assertNotIn("### docs/MASTER_SPEC.md", payload)
+        self.assertNotIn("### docs/product/website/GA4.md", payload)
+        self.assertNotIn("### docs/product/website/DATAFORSEO.md", payload)
+        # AGENTS should be truncated before Laravel Boost dump.
+        self.assertNotIn("Laravel Boost Guidelines", payload)
+
+
+class UsageExtractionTests(unittest.TestCase):
+    def test_extract_usage_metrics(self) -> None:
+        from types import SimpleNamespace
+
+        from common import extract_usage_metrics, format_usage_summary
+
+        response = SimpleNamespace(
+            usage=SimpleNamespace(
+                input_tokens=100,
+                output_tokens=20,
+                total_tokens=120,
+                input_tokens_details=SimpleNamespace(cached_tokens=40),
+            )
+        )
+        usage = extract_usage_metrics(response)
+        self.assertEqual(usage["input_tokens"], 100)
+        self.assertEqual(usage["cached_input_tokens"], 40)
+        self.assertEqual(usage["output_tokens"], 20)
+        line = format_usage_summary("architect", "gpt-5-mini", usage)
+        self.assertIn("gpt-5-mini", line)
+        self.assertIn("input_tokens=100", line)
+        self.assertIn("cached_input_tokens=40", line)
 
 
 class CiBootstrapTests(unittest.TestCase):
