@@ -6,6 +6,7 @@ use App\Models\DigitalAsset;
 use App\Models\Evidence;
 use App\Models\Finding;
 use App\Models\Run;
+use App\Support\CanonicalLinkParser;
 use App\Support\RobotsTxtParser;
 use App\Support\SitemapXmlParser;
 use App\Support\SslCertificateProbe;
@@ -31,6 +32,8 @@ class WebsiteDiagnosisService
 
     public const CATALOG_SITEMAP_XML_AVAILABILITY = 'sitemap-xml-availability';
 
+    public const CATALOG_CANONICAL_LINK_CONSISTENCY = 'canonical-link-consistency';
+
     public const EVIDENCE_TYPE_TLS_INFO = 'tls_info';
 
     public const EVIDENCE_TYPE_REDIRECTS = 'redirects';
@@ -38,6 +41,8 @@ class WebsiteDiagnosisService
     public const EVIDENCE_TYPE_ROBOTS = 'robots';
 
     public const EVIDENCE_TYPE_SITEMAP = 'sitemap';
+
+    public const EVIDENCE_TYPE_PAGE_HTML = 'page_html';
 
     private const TLS_EXPIRING_SOON_DAYS = 7;
 
@@ -51,10 +56,11 @@ class WebsiteDiagnosisService
         private readonly SslCertificateProbe $sslCertificateProbe = new SslCertificateProbe,
         private readonly RobotsTxtParser $robotsTxtParser = new RobotsTxtParser,
         private readonly SitemapXmlParser $sitemapXmlParser = new SitemapXmlParser,
+        private readonly CanonicalLinkParser $canonicalLinkParser = new CanonicalLinkParser,
     ) {}
 
     /**
-     * Deterministic Website Diagnosis slice: reachability + TLS + HTTP→HTTPS redirect + robots.txt + sitemap → Evidence → Finding upsert.
+     * Deterministic Website Diagnosis slice: reachability + TLS + HTTP→HTTPS redirect + robots.txt + sitemap + canonical → Evidence → Finding upsert.
      */
     public function diagnose(DigitalAsset $asset): Run
     {
@@ -76,13 +82,17 @@ class WebsiteDiagnosisService
                     self::CATALOG_REDIRECT_HTTP_TO_HTTPS,
                     self::CATALOG_ROBOTS_TXT_AVAILABILITY,
                     self::CATALOG_SITEMAP_XML_AVAILABILITY,
+                    self::CATALOG_CANONICAL_LINK_CONSISTENCY,
                 ],
             ],
         ]);
 
         try {
             $observedAt = now();
-            $normalized = $this->fetchHttp($primaryUrl);
+            $primaryFetch = $this->fetchHttp($primaryUrl);
+            $primaryBody = $primaryFetch['body'] ?? null;
+            $primaryContentType = $primaryFetch['content_type'] ?? null;
+            $normalized = $this->httpFetchEvidencePayload($primaryFetch);
 
             Evidence::query()->create([
                 'run_id' => $run->id,
@@ -201,6 +211,32 @@ class WebsiteDiagnosisService
                 $observedAt,
             );
 
+            $pageHtmlCollection = $this->collectPageHtml(
+                $normalized,
+                is_string($primaryBody) ? $primaryBody : null,
+                is_string($primaryContentType) ? $primaryContentType : null,
+            );
+
+            if ($pageHtmlCollection !== null) {
+                Evidence::query()->create([
+                    'run_id' => $run->id,
+                    'digital_asset_id' => $asset->id,
+                    'source_module' => self::MODULE_ID,
+                    'type' => self::EVIDENCE_TYPE_PAGE_HTML,
+                    'title' => 'Primary page HTML',
+                    'payload' => $pageHtmlCollection,
+                    'observed_at' => $observedAt,
+                ]);
+
+                $this->evaluateCanonicalLinkConsistency(
+                    $asset,
+                    $run,
+                    $pageHtmlCollection,
+                    $redirectCollection['redirects'],
+                    $observedAt,
+                );
+            }
+
             $run->update([
                 'status' => 'completed',
                 'finished_at' => now(),
@@ -228,7 +264,9 @@ class WebsiteDiagnosisService
      *     is_https: bool,
      *     response_is_ok: bool,
      *     error_class: string|null,
-     *     error_or_status: string
+     *     error_or_status: string,
+     *     body: string|null,
+     *     content_type: string|null
      * }
      */
     private function fetchHttp(string $url): array
@@ -245,6 +283,7 @@ class WebsiteDiagnosisService
             $effectiveUrl = $this->effectiveUrl($response, $url);
             $statusCode = $response->status();
             $responseIsOk = $response->successful();
+            $contentType = $response->header('Content-Type');
 
             return [
                 'url' => $url,
@@ -254,6 +293,8 @@ class WebsiteDiagnosisService
                 'response_is_ok' => $responseIsOk,
                 'error_class' => null,
                 'error_or_status' => (string) $statusCode,
+                'body' => $response->body(),
+                'content_type' => is_string($contentType) && $contentType !== '' ? $contentType : null,
             ];
         } catch (ConnectionException $exception) {
             return [
@@ -264,8 +305,45 @@ class WebsiteDiagnosisService
                 'response_is_ok' => false,
                 'error_class' => 'connection',
                 'error_or_status' => 'connection_error: '.$exception->getMessage(),
+                'body' => null,
+                'content_type' => null,
             ];
         }
+    }
+
+    /**
+     * @param  array{
+     *     url: string,
+     *     status_code: int|null,
+     *     effective_url: string|null,
+     *     is_https: bool,
+     *     response_is_ok: bool,
+     *     error_class: string|null,
+     *     error_or_status: string,
+     *     body?: string|null,
+     *     content_type?: string|null
+     * }  $fetch
+     * @return array{
+     *     url: string,
+     *     status_code: int|null,
+     *     effective_url: string|null,
+     *     is_https: bool,
+     *     response_is_ok: bool,
+     *     error_class: string|null,
+     *     error_or_status: string
+     * }
+     */
+    private function httpFetchEvidencePayload(array $fetch): array
+    {
+        return [
+            'url' => $fetch['url'],
+            'status_code' => $fetch['status_code'],
+            'effective_url' => $fetch['effective_url'],
+            'is_https' => $fetch['is_https'],
+            'response_is_ok' => $fetch['response_is_ok'],
+            'error_class' => $fetch['error_class'],
+            'error_or_status' => $fetch['error_or_status'],
+        ];
     }
 
     /**
@@ -974,6 +1052,245 @@ class WebsiteDiagnosisService
         $port = isset($parts['port']) ? ':'.$parts['port'] : '';
 
         return $scheme.'://'.$host.$port.'/sitemap.xml';
+    }
+
+    /**
+     * Build page_html evidence from a successful primary HTML response body.
+     *
+     * @param  array{
+     *     url: string,
+     *     status_code: int|null,
+     *     effective_url: string|null,
+     *     is_https: bool,
+     *     response_is_ok: bool,
+     *     error_class: string|null,
+     *     error_or_status: string
+     * }  $httpFetch
+     * @return array{
+     *     final_url: string,
+     *     status_code: int,
+     *     content_type: string|null,
+     *     head_html: string|null,
+     *     head_truncated: bool,
+     *     head_complete: bool,
+     *     canonical_hrefs: list<string>,
+     *     absolute_canonical_hrefs: list<string>,
+     *     relative_canonical_hrefs: list<string>,
+     *     canonical_state: string
+     * }|null
+     */
+    private function collectPageHtml(array $httpFetch, ?string $body, ?string $contentType): ?array
+    {
+        if ($httpFetch['status_code'] !== 200 || $httpFetch['error_class'] !== null) {
+            return null;
+        }
+
+        if (! $this->looksLikeHtml($body)) {
+            return null;
+        }
+
+        $finalUrl = $httpFetch['effective_url'] ?? $httpFetch['url'];
+        $parsed = $this->canonicalLinkParser->parse($body);
+        $canonicalState = $this->canonicalStateFromParsed($parsed);
+
+        return [
+            'final_url' => $finalUrl,
+            'status_code' => 200,
+            'content_type' => $contentType,
+            'head_html' => $parsed['head_html'],
+            'head_truncated' => $parsed['head_truncated'],
+            'head_complete' => $parsed['head_complete'],
+            'canonical_hrefs' => $parsed['canonical_hrefs'],
+            'absolute_canonical_hrefs' => $parsed['absolute_canonical_hrefs'],
+            'relative_canonical_hrefs' => $parsed['relative_canonical_hrefs'],
+            'canonical_state' => $canonicalState,
+        ];
+    }
+
+    private function looksLikeHtml(?string $body): bool
+    {
+        if (! is_string($body) || trim($body) === '') {
+            return false;
+        }
+
+        // Require HTML markers. Content-Type alone is insufficient — stubs/plain bodies must not invent page_html.
+        return preg_match('/<!doctype\s+html|<html\b|<head\b/i', $body) === 1;
+    }
+
+    /**
+     * @param  array{
+     *     canonical_hrefs: list<string>,
+     *     absolute_canonical_hrefs: list<string>,
+     *     relative_canonical_hrefs: list<string>
+     * }  $parsed
+     */
+    private function canonicalStateFromParsed(array $parsed): string
+    {
+        $hrefs = $parsed['canonical_hrefs'];
+        $absolute = $parsed['absolute_canonical_hrefs'];
+        $relative = $parsed['relative_canonical_hrefs'];
+
+        if ($hrefs === []) {
+            return 'missing';
+        }
+
+        if (count($absolute) > 1) {
+            return 'conflict_multiple';
+        }
+
+        if (count($absolute) === 1 && $relative === []) {
+            return 'absolute_single';
+        }
+
+        if (count($absolute) === 0 && $relative !== []) {
+            return 'relative_only';
+        }
+
+        return 'conflict_mixed';
+    }
+
+    /**
+     * Catalog item `canonical-link-consistency`: missing / relative / conflicting canonical signals.
+     *
+     * @param  array{
+     *     final_url: string,
+     *     status_code: int,
+     *     content_type: string|null,
+     *     head_html: string|null,
+     *     head_truncated: bool,
+     *     head_complete: bool,
+     *     canonical_hrefs: list<string>,
+     *     absolute_canonical_hrefs: list<string>,
+     *     relative_canonical_hrefs: list<string>,
+     *     canonical_state: string
+     * }  $evidence
+     * @param  array{
+     *     start_url: string,
+     *     final_url: string|null,
+     *     hop_count: int,
+     *     hops: list<array{url: string, status: int|null, location: string|null}>,
+     *     upgraded_to_https_same_host: bool,
+     *     error_class: string|null
+     * }  $redirects
+     */
+    private function evaluateCanonicalLinkConsistency(
+        DigitalAsset $asset,
+        Run $run,
+        array $evidence,
+        array $redirects,
+        DateTimeInterface $observedAt,
+    ): void {
+        $issue = $this->canonicalIssue($evidence, $redirects);
+
+        if ($issue === null) {
+            return;
+        }
+
+        $finalUrl = $evidence['final_url'];
+        $fingerprint = $this->fingerprint(self::CATALOG_CANONICAL_LINK_CONSISTENCY, [
+            'url' => $this->normalizeUrl($finalUrl),
+        ]);
+        $confidence = $evidence['head_complete'] ? self::CONFIDENCE_HIGH : self::CONFIDENCE_MEDIUM;
+        $hrefList = $evidence['canonical_hrefs'] === []
+            ? '(none)'
+            : implode(', ', $evidence['canonical_hrefs']);
+
+        $this->upsertFinding(
+            asset: $asset,
+            run: $run,
+            fingerprint: $fingerprint,
+            category: 'on-page',
+            severity: $issue['severity'],
+            title: 'Canonical link issue',
+            summary: sprintf(
+                'Primary page %s canonical signal: %s (values: %s).',
+                $finalUrl,
+                $issue['state'],
+                $hrefList,
+            ),
+            confidence: $confidence,
+            observedAt: $observedAt,
+        );
+    }
+
+    /**
+     * @param  array{
+     *     final_url: string,
+     *     status_code: int,
+     *     content_type: string|null,
+     *     head_html: string|null,
+     *     head_truncated: bool,
+     *     head_complete: bool,
+     *     canonical_hrefs: list<string>,
+     *     absolute_canonical_hrefs: list<string>,
+     *     relative_canonical_hrefs: list<string>,
+     *     canonical_state: string
+     * }  $evidence
+     * @param  array{
+     *     start_url: string,
+     *     final_url: string|null,
+     *     hop_count: int,
+     *     hops: list<array{url: string, status: int|null, location: string|null}>,
+     *     upgraded_to_https_same_host: bool,
+     *     error_class: string|null
+     * }  $redirects
+     * @return array{state: string, severity: string}|null
+     */
+    private function canonicalIssue(array $evidence, array $redirects): ?array
+    {
+        $state = $evidence['canonical_state'];
+
+        if ($state === 'missing') {
+            return ['state' => 'missing', 'severity' => 'medium'];
+        }
+
+        if ($state === 'conflict_multiple' || $state === 'conflict_mixed') {
+            return ['state' => $state, 'severity' => 'medium'];
+        }
+
+        if ($state === 'relative_only') {
+            return ['state' => 'relative_only', 'severity' => 'low'];
+        }
+
+        if ($state === 'absolute_single') {
+            $canonical = $evidence['absolute_canonical_hrefs'][0] ?? null;
+
+            if (! is_string($canonical)) {
+                return null;
+            }
+
+            if ($this->redirectsIndicateStableLanding($redirects, $evidence['final_url'])
+                && $this->normalizeUrl($canonical) !== $this->normalizeUrl($evidence['final_url'])) {
+                return ['state' => 'conflict_mismatch', 'severity' => 'medium'];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array{
+     *     start_url: string,
+     *     final_url: string|null,
+     *     hop_count: int,
+     *     hops: list<array{url: string, status: int|null, location: string|null}>,
+     *     upgraded_to_https_same_host: bool,
+     *     error_class: string|null
+     * }  $redirects
+     */
+    private function redirectsIndicateStableLanding(array $redirects, string $pageFinalUrl): bool
+    {
+        if ($redirects['error_class'] !== null) {
+            return false;
+        }
+
+        $redirectFinal = $redirects['final_url'];
+
+        if (! is_string($redirectFinal) || $redirectFinal === '') {
+            return false;
+        }
+
+        return $this->normalizeUrl($redirectFinal) === $this->normalizeUrl($pageFinalUrl);
     }
 
     private function httpFormOf(string $url): string
