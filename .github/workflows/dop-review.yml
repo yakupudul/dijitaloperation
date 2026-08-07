@@ -1,0 +1,257 @@
+name: DOP Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: dop-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  review:
+    if: contains(github.event.pull_request.body, '<!-- DOP_AUTOMATION_PR -->')
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies and run automation unit tests
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r .automation/requirements.txt
+          python -m unittest discover -s .automation/tests -v
+
+      - name: Collect PR context
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh pr view "${{ github.event.pull_request.number }}" --json title,body > /tmp/pr-meta.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          meta = json.loads(Path("/tmp/pr-meta.json").read_text())
+          Path("/tmp/pr-title.txt").write_text(meta.get("title") or "")
+          Path("/tmp/pr-body.md").write_text(meta.get("body") or "")
+          PY
+          git fetch origin main
+          git diff --name-only origin/main...HEAD > /tmp/pr-files.txt
+          git diff origin/main...HEAD > /tmp/pr.diff
+          git log origin/main..HEAD --pretty=%s > /tmp/pr-commit-messages.txt
+          echo "(tests will be recorded after reviewer/fix steps)" > /tmp/pr-test-notes.txt
+
+      - name: Run Reviewer
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_REVIEWER_MODEL: ${{ vars.OPENAI_REVIEWER_MODEL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${OPENAI_API_KEY:-}" ]; then
+            echo "::error::OPENAI_API_KEY secret is required"
+            exit 1
+          fi
+          MODEL_ARGS=()
+          if [ -n "${OPENAI_REVIEWER_MODEL:-}" ]; then
+            MODEL_ARGS=(--model "$OPENAI_REVIEWER_MODEL")
+          fi
+          python .automation/reviewer.py \
+            --require-automation-marker \
+            --title "$(cat /tmp/pr-title.txt)" \
+            --body-file /tmp/pr-body.md \
+            --diff-file /tmp/pr.diff \
+            --files-file /tmp/pr-files.txt \
+            --test-notes-file /tmp/pr-test-notes.txt \
+            --output /tmp/dop-review.json \
+            --comment-output /tmp/dop-review-comment.md \
+            "${MODEL_ARGS[@]}"
+          python .automation/reviewer.py --validate-only /tmp/dop-review.json
+          echo "verdict=$(python -c 'import json; print(json.load(open("/tmp/dop-review.json"))["verdict"])')" >> "$GITHUB_OUTPUT"
+        id: reviewer
+
+      - name: Publish review comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr comment "${{ github.event.pull_request.number }}" --body-file /tmp/dop-review-comment.md
+          {
+            echo "## DOP Review"
+            echo "- verdict: \`${{ steps.reviewer.outputs.verdict }}\`"
+            python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("/tmp/dop-review.json").read_text())
+          print(data.get("summary",""))
+          PY
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Stop on APPROVED
+        if: steps.reviewer.outputs.verdict == 'APPROVED'
+        run: |
+          echo "Review approved. No code changes in first automation version (no auto-merge)."
+
+      - name: Stop on HUMAN_REQUIRED
+        if: steps.reviewer.outputs.verdict == 'HUMAN_REQUIRED'
+        run: |
+          echo "Human review required. Stopping without automated fixes."
+
+      - name: Check fix attempt budget
+        id: budget
+        if: steps.reviewer.outputs.verdict == 'FIX_REQUIRED'
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import sys
+          from pathlib import Path
+          sys.path.insert(0, str(Path(".automation").resolve()))
+          from common import MAX_FIX_ATTEMPTS, count_fix_attempts_from_commit_messages, remaining_fix_attempts
+          messages = [
+              line.strip()
+              for line in Path("/tmp/pr-commit-messages.txt").read_text(encoding="utf-8").splitlines()
+              if line.strip()
+          ]
+          used = count_fix_attempts_from_commit_messages(messages)
+          remaining = remaining_fix_attempts(messages)
+          print(f"used={used}")
+          print(f"remaining={remaining}")
+          print(f"max={MAX_FIX_ATTEMPTS}")
+          PY
+
+      - name: Escalate when max fixes reached
+        if: steps.reviewer.outputs.verdict == 'FIX_REQUIRED' && steps.budget.outputs.remaining == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > /tmp/human-comment.md <<'EOF'
+          <!-- DOP_REVIEW:HUMAN_REQUIRED -->
+
+          ## DOP automated review: HUMAN_REQUIRED
+
+          Automatic fix limit (3) has been reached for this PR.
+          Please resolve the remaining reviewer issues manually.
+          EOF
+          gh pr comment "${{ github.event.pull_request.number }}" --body-file /tmp/human-comment.md
+          echo "Max automatic fixes reached" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Prepare fixer prompt
+        if: steps.reviewer.outputs.verdict == 'FIX_REQUIRED' && steps.budget.outputs.remaining != '0'
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          review = json.loads(Path("/tmp/dop-review.json").read_text())
+          fixer = Path(".automation/prompts/fixer.md").read_text()
+          prompt = f"""{fixer}
+
+          ## Reviewer JSON (fix only these issues)
+          ```json
+          {json.dumps(review, ensure_ascii=False, indent=2)}
+          ```
+
+          IMPORTANT:
+          - Do NOT create branches, commit, push, or comment on the PR.
+          - Do NOT touch secrets or .env files.
+          - Keep changes minimal.
+          """
+          Path("/tmp/dop-fixer-prompt.txt").write_text(prompt)
+          PY
+
+      - name: Install Cursor CLI
+        if: steps.reviewer.outputs.verdict == 'FIX_REQUIRED' && steps.budget.outputs.remaining != '0'
+        run: |
+          set -euo pipefail
+          curl https://cursor.com/install -fsS | bash
+          echo "$HOME/.cursor/bin" >> "$GITHUB_PATH"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Run Cursor fixer
+        if: steps.reviewer.outputs.verdict == 'FIX_REQUIRED' && steps.budget.outputs.remaining != '0'
+        env:
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          CURSOR_AGENT_MODEL: ${{ vars.CURSOR_AGENT_MODEL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CURSOR_API_KEY:-}" ]; then
+            echo "::error::CURSOR_API_KEY secret is required"
+            exit 1
+          fi
+          if command -v agent >/dev/null 2>&1; then
+            AGENT_BIN="agent"
+          elif command -v cursor-agent >/dev/null 2>&1; then
+            AGENT_BIN="cursor-agent"
+          else
+            echo "::error::Cursor CLI agent binary not found"
+            exit 1
+          fi
+          MODEL_ARGS=()
+          if [ -n "${CURSOR_AGENT_MODEL:-}" ]; then
+            MODEL_ARGS=(--model "$CURSOR_AGENT_MODEL")
+          fi
+          "$AGENT_BIN" -p --force --output-format text "${MODEL_ARGS[@]}" "$(cat /tmp/dop-fixer-prompt.txt)"
+
+      - name: Run tests after fix
+        if: steps.reviewer.outputs.verdict == 'FIX_REQUIRED' && steps.budget.outputs.remaining != '0'
+        run: |
+          set -euo pipefail
+          {
+            if [ -f composer.json ]; then
+              if ! command -v php >/dev/null 2>&1; then
+                sudo apt-get update
+                sudo apt-get install -y php-cli php-sqlite3 php-mbstring php-xml php-curl unzip
+              fi
+              if [ ! -d vendor ]; then
+                curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+                composer install --no-interaction --prefer-dist
+              fi
+              php artisan test
+            fi
+            python -m unittest discover -s .automation/tests -v
+          } | tee /tmp/pr-test-notes.txt
+
+      - name: Commit and push fixes
+        if: steps.reviewer.outputs.verdict == 'FIX_REQUIRED' && steps.budget.outputs.remaining != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if ! git status --porcelain | grep -q .; then
+            echo "No fixer changes to commit"
+            exit 0
+          fi
+
+          python - <<'PY'
+          import subprocess, sys
+          from pathlib import Path
+          sys.path.insert(0, str(Path(".automation").resolve()))
+          from common import find_secret_like_paths
+          out = subprocess.check_output(["git", "status", "--porcelain"], text=True)
+          paths = []
+          for line in out.splitlines():
+              if not line.strip():
+                  continue
+              path = line[3:].strip()
+              if " -> " in path:
+                  path = path.split(" -> ", 1)[1]
+              paths.append(path)
+          hits = find_secret_like_paths(paths)
+          if hits:
+              raise SystemExit("Secret-like paths detected: " + ", ".join(hits))
+          PY
+
+          git config user.name "dop-automation"
+          git config user.email "dop-automation@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: address automated DOP review"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
