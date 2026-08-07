@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\DigitalAsset;
 use App\Models\Evidence;
 use App\Models\Finding;
+use App\Models\Recommendation;
 use App\Models\Run;
 use App\Support\CanonicalLinkParser;
 use App\Support\RobotsTxtParser;
@@ -1571,7 +1572,79 @@ class WebsiteDiagnosisService
 
         $finding->save();
 
+        $this->upsertRecommendationForFinding($finding);
+
         return $finding;
+    }
+
+    /**
+     * Deterministic Recommendation upsert for a diagnosis Finding (catalog recommendation_logic).
+     */
+    private function upsertRecommendationForFinding(Finding $finding): void
+    {
+        $action = $this->recommendationActionForFindingTitle($finding->title);
+
+        if ($action === null) {
+            return;
+        }
+
+        $recommendation = Recommendation::query()->firstOrNew([
+            'finding_id' => $finding->id,
+            'source_module' => self::MODULE_ID,
+        ]);
+
+        $priority = $this->recommendationPriorityForSeverity((string) $finding->severity);
+
+        if ($recommendation->exists && ! in_array($recommendation->status, ['open', 'accepted'], true)) {
+            // Preserve terminal operator decisions (dismissed/converted); still refresh guidance text.
+            $recommendation->fill([
+                'digital_asset_id' => $finding->digital_asset_id,
+                'title' => 'Fix: '.$finding->title,
+                'action' => $action,
+                'rationale' => $finding->summary,
+                'priority' => $priority,
+            ]);
+            $recommendation->save();
+
+            return;
+        }
+
+        $recommendation->fill([
+            'digital_asset_id' => $finding->digital_asset_id,
+            'source_module' => self::MODULE_ID,
+            'title' => 'Fix: '.$finding->title,
+            'action' => $action,
+            'rationale' => $finding->summary,
+            'priority' => $priority,
+            'effort' => null,
+            'status' => $recommendation->exists ? $recommendation->status : 'open',
+        ]);
+
+        $recommendation->save();
+    }
+
+    private function recommendationActionForFindingTitle(?string $title): ?string
+    {
+        return match ($title) {
+            'Website not reachable' => 'Verify DNS, hosting uptime, and firewall/CDN allowlists for the fetch origin. If the final status is 5xx, check origin/CDN error logs and recent deploys.',
+            'HTTPS/TLS certificate problem' => 'Install or renew a valid TLS certificate for the host covering the next 7+ days; confirm HTTPS serves the renewed certificate without chain errors.',
+            'HTTP does not upgrade to HTTPS' => 'Configure a permanent HTTP→HTTPS redirect (301/308) on the apex host so plaintext entrypoints upgrade to HTTPS on the same host.',
+            'robots.txt problem' => 'Restore /robots.txt serving on the crawler host (avoid 5xx/transport failures). If malformed, rewrite using User-agent / Allow / Disallow / Sitemap lines per RFC 9309.',
+            'Sitemap missing or unreadable' => 'Publish a UTF-8 XML sitemap (urlset or sitemapindex) at a stable HTTPS URL; list it with a Sitemap: line in robots.txt; ensure HTTP 200 with valid XML.',
+            'Canonical link issue' => 'Emit exactly one absolute link rel=canonical in the document head pointing to the preferred indexable HTTPS URL; remove duplicates/conflicts.',
+            default => null,
+        };
+    }
+
+    private function recommendationPriorityForSeverity(string $severity): string
+    {
+        return match ($severity) {
+            'critical' => 'critical',
+            'high' => 'high',
+            'medium' => 'medium',
+            'low' => 'low',
+            default => 'medium',
+        };
     }
 
     private function resolvePrimaryUrl(DigitalAsset $asset): string
