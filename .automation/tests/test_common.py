@@ -102,6 +102,8 @@ class SecretPathTests(unittest.TestCase):
 +Password::make('secret')
 +TextInput::make('api_key')
 +'encrypted_payload' => 'encrypted:array',
++$password = 'test-password-123456';
++->fillForm(['api_key' => 'test-api-key-value-xx'])
 """
         self.assertFalse(scan_diff_for_credential_leaks(filament))
         real_leak = """diff --git a/app/x.php b/app/x.php

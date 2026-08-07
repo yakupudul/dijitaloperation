@@ -812,17 +812,23 @@ HARD_BLOCKER_ISSUE_MARKER = "<!-- DOP_HARD_BLOCKER -->"
 CREDENTIAL_DIFF_PATTERNS = (
     re.compile(r"-----BEGIN (?:RSA |OPENSSH |EC )?PRIVATE KEY-----"),
     re.compile(r"AKIA[0-9A-Z]{16}"),
-    re.compile(r"(?i)(api[_-]?key|secret|password|token)\s*[:=]\s*['\"][^'\"]{12,}['\"]"),
+    # Require a real assignment/key form — avoid `$password = 'test-...'` style locals
+    # and Filament `Password::make('secret')` field names (handled below).
+    re.compile(
+        r"(?i)(?:^|[^$\w])(['\"]?(?:api[_-]?key|secret|password|token)['\"]?)\s*[:=]\s*['\"]([^'\"]{12,})['\"]"
+    ),
 )
 
 # Obvious placeholders / UI field wiring — not literal leaked secrets.
 _CREDENTIAL_FALSE_POSITIVE = re.compile(
     r"(?i)(::make\(|fillForm\(|assertFormSet\(|->state\(|encrypted:array|"
     r"passwordConfirmation|current_password|type\(Password::class\)|"
+    r"\$password\s*=|\$secret\s*=|\$token\s*=|\$api_key\s*=|"
     r"['\"]password['\"]\s*=>\s*['\"]password['\"]|"
     r"['\"]secret['\"]\s*=>\s*['\"]secret['\"]|"
     r"['\"]token['\"]\s*=>\s*['\"]token['\"]|"
-    r"example\.com|changeme|placeholder|your[_-]?api[_-]?key)"
+    r"example\.com|changeme|placeholder|your[_-]?api[_-]?key|"
+    r"['\"](?:test|fake|dummy|sample|example|xxx)[^'\"]*['\"])"
 )
 
 
@@ -838,15 +844,32 @@ def _credential_scan_lines(diff_text: str) -> list[str]:
     return text.splitlines()
 
 
+def _looks_like_placeholder_secret(value: str) -> bool:
+    v = (value or "").strip()
+    if len(v) < 12:
+        return True
+    if re.match(r"(?i)^(test|fake|dummy|sample|example|placeholder|changeme|secret|password|token|xxx)([-_]|$)", v):
+        return True
+    if set(v) <= set("•·*xX"):
+        return True
+    return False
+
+
 def scan_diff_for_credential_leaks(diff_text: str) -> list[str]:
     hits: list[str] = []
     for line in _credential_scan_lines(diff_text):
         if _CREDENTIAL_FALSE_POSITIVE.search(line):
             continue
         for pattern in CREDENTIAL_DIFF_PATTERNS:
-            if pattern.search(line):
-                hits.append(pattern.pattern)
-                break
+            match = pattern.search(line)
+            if not match:
+                continue
+            if pattern.groups >= 2:
+                value = match.group(match.lastindex or 0)
+                if isinstance(value, str) and _looks_like_placeholder_secret(value):
+                    continue
+            hits.append(f"{pattern.pattern} :: {line.strip()[:160]}")
+            break
     return hits
 
 
