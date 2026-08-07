@@ -37,4 +37,27 @@ class EvidenceFactory extends Factory
             'observed_at' => now(),
         ];
     }
+
+    /**
+     * @return $this
+     */
+    public function tlsInfo(): static
+    {
+        $host = fake()->domainName();
+
+        return $this->state(fn (): array => [
+            'type' => 'tls_info',
+            'title' => 'TLS certificate info',
+            'payload' => [
+                'subject_common_name' => $host,
+                'issuer_common_name' => 'Example CA',
+                'valid_from' => now()->subYear()->utc()->format('Y-m-d\TH:i:s\Z'),
+                'valid_to' => now()->addYear()->utc()->format('Y-m-d\TH:i:s\Z'),
+                'observed_at' => now()->utc()->format('Y-m-d\TH:i:s\Z'),
+                'fetch_method' => 'php_stream',
+                'host' => strtolower($host),
+                'present' => true,
+            ],
+        ]);
+    }
 }

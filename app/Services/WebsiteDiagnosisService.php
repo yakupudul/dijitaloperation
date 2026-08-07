@@ -6,6 +6,10 @@ use App\Models\DigitalAsset;
 use App\Models\Evidence;
 use App\Models\Finding;
 use App\Models\Run;
+use App\Support\SslCertificateProbe;
+use App\Support\SslCertParser;
+use DateTimeImmutable;
+use DateTimeInterface;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
@@ -17,8 +21,20 @@ class WebsiteDiagnosisService
 
     public const CATALOG_REACHABILITY_HTTP = 'reachability-http';
 
+    public const CATALOG_HTTPS_TLS_VALIDITY = 'https-tls-validity';
+
+    public const EVIDENCE_TYPE_TLS_INFO = 'tls_info';
+
+    private const TLS_EXPIRING_SOON_DAYS = 7;
+
+    private const CONFIDENCE_HIGH = 0.9000;
+
+    public function __construct(
+        private readonly SslCertificateProbe $sslCertificateProbe = new SslCertificateProbe,
+    ) {}
+
     /**
-     * Deterministic Website Diagnosis slice: reachability / HTTP(S) fetch → Evidence → Finding upsert.
+     * Deterministic Website Diagnosis slice: reachability + HTTPS/TLS validity → Evidence → Finding upsert.
      */
     public function diagnose(DigitalAsset $asset): Run
     {
@@ -34,7 +50,7 @@ class WebsiteDiagnosisService
             'metadata' => [
                 'trigger' => 'programmatic',
                 'catalog_id' => 'website-diagnosis',
-                'checks' => ['reachability-http'],
+                'checks' => [self::CATALOG_REACHABILITY_HTTP, self::CATALOG_HTTPS_TLS_VALIDITY],
             ],
         ]);
 
@@ -53,6 +69,20 @@ class WebsiteDiagnosisService
             ]);
 
             $this->evaluateReachabilityHttp($asset, $run, $normalized, $observedAt);
+
+            $tlsPayload = $this->collectTlsInfo($primaryUrl, $observedAt);
+
+            Evidence::query()->create([
+                'run_id' => $run->id,
+                'digital_asset_id' => $asset->id,
+                'source_module' => self::MODULE_ID,
+                'type' => self::EVIDENCE_TYPE_TLS_INFO,
+                'title' => 'TLS certificate info',
+                'payload' => $tlsPayload,
+                'observed_at' => $observedAt,
+            ]);
+
+            $this->evaluateHttpsTlsValidity($asset, $run, $tlsPayload, $observedAt);
 
             $run->update([
                 'status' => 'completed',
@@ -122,6 +152,147 @@ class WebsiteDiagnosisService
     }
 
     /**
+     * @return array{
+     *     subject_common_name: string|null,
+     *     issuer_common_name: string|null,
+     *     valid_from: string|null,
+     *     valid_to: string|null,
+     *     observed_at: string,
+     *     fetch_method: string,
+     *     host: string,
+     *     present: bool,
+     *     error_class?: string
+     * }
+     */
+    private function collectTlsInfo(string $primaryUrl, DateTimeInterface $observedAt): array
+    {
+        $host = strtolower((string) parse_url($primaryUrl, PHP_URL_HOST));
+        $port = parse_url($primaryUrl, PHP_URL_PORT);
+
+        if ($host === '') {
+            return (new SslCertParser)->missing('', $observedAt, SslCertParser::FETCH_METHOD_PHP_STREAM, 'invalid_host');
+        }
+
+        $port = is_int($port) ? $port : 443;
+
+        return $this->sslCertificateProbe->probe($host, $observedAt, $port);
+    }
+
+    /**
+     * Catalog item `https-tls-validity`: missing, expired, or expiring within 7 days.
+     *
+     * @param  array{
+     *     subject_common_name: string|null,
+     *     issuer_common_name: string|null,
+     *     valid_from: string|null,
+     *     valid_to: string|null,
+     *     observed_at: string,
+     *     fetch_method: string,
+     *     host: string,
+     *     present: bool,
+     *     error_class?: string
+     * }  $evidence
+     */
+    private function evaluateHttpsTlsValidity(
+        DigitalAsset $asset,
+        Run $run,
+        array $evidence,
+        DateTimeInterface $observedAt,
+    ): void {
+        $host = $evidence['host'];
+        $validTo = $evidence['valid_to'];
+        $fingerprint = $this->fingerprint(self::CATALOG_HTTPS_TLS_VALIDITY, [
+            'host' => $host,
+        ]);
+
+        if (! ($evidence['present'] ?? false)) {
+            $reason = $evidence['error_class'] ?? 'certificate_missing';
+
+            $this->upsertFinding(
+                asset: $asset,
+                run: $run,
+                fingerprint: $fingerprint,
+                category: 'transport',
+                severity: 'high',
+                title: 'HTTPS/TLS certificate problem',
+                summary: sprintf(
+                    'TLS for host %s failed validation (%s); certificate notAfter=%s.',
+                    $host,
+                    $reason,
+                    $validTo ?? 'unknown',
+                ),
+                confidence: self::CONFIDENCE_HIGH,
+                observedAt: $observedAt,
+            );
+
+            return;
+        }
+
+        if ($validTo === null) {
+            $this->upsertFinding(
+                asset: $asset,
+                run: $run,
+                fingerprint: $fingerprint,
+                category: 'transport',
+                severity: 'high',
+                title: 'HTTPS/TLS certificate problem',
+                summary: sprintf(
+                    'TLS for host %s failed validation (missing_not_after); certificate notAfter=unknown.',
+                    $host,
+                ),
+                confidence: self::CONFIDENCE_HIGH,
+                observedAt: $observedAt,
+            );
+
+            return;
+        }
+
+        $expiresAt = new DateTimeImmutable($validTo);
+        $now = DateTimeImmutable::createFromInterface($observedAt);
+
+        if ($expiresAt < $now) {
+            $this->upsertFinding(
+                asset: $asset,
+                run: $run,
+                fingerprint: $fingerprint,
+                category: 'transport',
+                severity: 'high',
+                title: 'HTTPS/TLS certificate problem',
+                summary: sprintf(
+                    'TLS for host %s failed validation (expired); certificate notAfter=%s.',
+                    $host,
+                    $validTo,
+                ),
+                confidence: self::CONFIDENCE_HIGH,
+                observedAt: $observedAt,
+            );
+
+            return;
+        }
+
+        $expiringSoonThreshold = $now->modify('+'.self::TLS_EXPIRING_SOON_DAYS.' days');
+
+        if ($expiresAt <= $expiringSoonThreshold) {
+            $this->upsertFinding(
+                asset: $asset,
+                run: $run,
+                fingerprint: $fingerprint,
+                category: 'transport',
+                severity: 'medium',
+                title: 'HTTPS/TLS certificate problem',
+                summary: sprintf(
+                    'TLS for host %s failed validation (expiring_within_%d_days); certificate notAfter=%s.',
+                    $host,
+                    self::TLS_EXPIRING_SOON_DAYS,
+                    $validTo,
+                ),
+                confidence: self::CONFIDENCE_HIGH,
+                observedAt: $observedAt,
+            );
+        }
+    }
+
+    /**
      * Catalog item `reachability-http`: transport failure, missing response, or final 5xx.
      *
      * @param  array{
@@ -138,7 +309,7 @@ class WebsiteDiagnosisService
         DigitalAsset $asset,
         Run $run,
         array $evidence,
-        \DateTimeInterface $observedAt,
+        DateTimeInterface $observedAt,
     ): void {
         if (! $this->reachabilityHttpMatches($evidence)) {
             return;
@@ -168,7 +339,7 @@ class WebsiteDiagnosisService
             severity: 'critical',
             title: 'Website not reachable',
             summary: $summary,
-            confidence: 0.9000,
+            confidence: self::CONFIDENCE_HIGH,
             observedAt: $observedAt,
         );
     }
@@ -216,7 +387,7 @@ class WebsiteDiagnosisService
         string $title,
         string $summary,
         float $confidence,
-        \DateTimeInterface $observedAt,
+        DateTimeInterface $observedAt,
     ): Finding {
         $finding = Finding::query()->firstOrNew([
             'digital_asset_id' => $asset->id,
