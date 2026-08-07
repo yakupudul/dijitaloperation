@@ -6,6 +6,10 @@ use App\Models\DigitalAsset;
 use App\Models\Evidence;
 use App\Models\Finding;
 use App\Models\Run;
+use App\Support\SslCertificateProbe;
+use App\Support\SslCertParser;
+use DateTimeImmutable;
+use DateTimeInterface;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
@@ -17,8 +21,21 @@ class WebsiteDiagnosisService
 
     public const CATALOG_REACHABILITY_HTTP = 'reachability-http';
 
+    public const CHECK_SSL_CERTIFICATE = 'ssl-certificate';
+
+    public const EVIDENCE_TYPE_SSL_CERTIFICATE = 'ssl_certificate';
+
+    private const SSL_EXPIRING_SOON_DAYS = 7;
+
+    private const CONFIDENCE_HIGH = 0.9000;
+
+    public function __construct(
+        private readonly SslCertificateProbe $sslCertificateProbe = new SslCertificateProbe,
+        private readonly SslCertParser $sslCertParser = new SslCertParser,
+    ) {}
+
     /**
-     * Deterministic Website Diagnosis slice: reachability / HTTP(S) fetch → Evidence → Finding upsert.
+     * Deterministic Website Diagnosis slice: reachability + SSL certificate → Evidence → Finding upsert.
      */
     public function diagnose(DigitalAsset $asset): Run
     {
@@ -34,7 +51,7 @@ class WebsiteDiagnosisService
             'metadata' => [
                 'trigger' => 'programmatic',
                 'catalog_id' => 'website-diagnosis',
-                'checks' => ['reachability-http'],
+                'checks' => [self::CATALOG_REACHABILITY_HTTP, self::CHECK_SSL_CERTIFICATE],
             ],
         ]);
 
@@ -53,6 +70,20 @@ class WebsiteDiagnosisService
             ]);
 
             $this->evaluateReachabilityHttp($asset, $run, $normalized, $observedAt);
+
+            $sslPayload = $this->collectSslCertificate($primaryUrl, $observedAt);
+
+            Evidence::query()->create([
+                'run_id' => $run->id,
+                'digital_asset_id' => $asset->id,
+                'source_module' => self::MODULE_ID,
+                'type' => self::EVIDENCE_TYPE_SSL_CERTIFICATE,
+                'title' => 'SSL certificate',
+                'payload' => $sslPayload,
+                'observed_at' => $observedAt,
+            ]);
+
+            $this->evaluateSslCertificate($asset, $run, $sslPayload, $observedAt);
 
             $run->update([
                 'status' => 'completed',
@@ -122,6 +153,139 @@ class WebsiteDiagnosisService
     }
 
     /**
+     * @return array{
+     *     subject_common_name: string|null,
+     *     issuer_common_name: string|null,
+     *     valid_from: string|null,
+     *     valid_to: string|null,
+     *     observed_at: string,
+     *     fetch_method: string,
+     *     host: string,
+     *     present: bool,
+     *     error_class?: string
+     * }
+     */
+    private function collectSslCertificate(string $primaryUrl, DateTimeInterface $observedAt): array
+    {
+        $host = strtolower((string) parse_url($primaryUrl, PHP_URL_HOST));
+        $port = parse_url($primaryUrl, PHP_URL_PORT);
+        $port = is_int($port) ? $port : 443;
+
+        return $this->sslCertificateProbe->probe($host, $observedAt, $port);
+    }
+
+    /**
+     * Catalog-aligned SSL validity slice: missing, expired, or expiring within 7 days.
+     *
+     * @param  array{
+     *     subject_common_name: string|null,
+     *     issuer_common_name: string|null,
+     *     valid_from: string|null,
+     *     valid_to: string|null,
+     *     observed_at: string,
+     *     fetch_method: string,
+     *     host: string,
+     *     present: bool,
+     *     error_class?: string
+     * }  $evidence
+     */
+    private function evaluateSslCertificate(
+        DigitalAsset $asset,
+        Run $run,
+        array $evidence,
+        DateTimeInterface $observedAt,
+    ): void {
+        $host = $evidence['host'];
+        $validTo = $evidence['valid_to'];
+        $issuer = $evidence['issuer_common_name'];
+        $fingerprint = $this->sslCertParser->fingerprint($host, $validTo, $issuer);
+
+        if (! ($evidence['present'] ?? false)) {
+            $this->upsertFinding(
+                asset: $asset,
+                run: $run,
+                fingerprint: $fingerprint,
+                category: 'ssl',
+                severity: 'high',
+                title: 'SSL certificate missing',
+                summary: sprintf(
+                    'No TLS certificate could be obtained for host %s (outcome: %s).',
+                    $host,
+                    $evidence['error_class'] ?? 'certificate_missing',
+                ),
+                confidence: self::CONFIDENCE_HIGH,
+                observedAt: $observedAt,
+            );
+
+            return;
+        }
+
+        if ($validTo === null) {
+            $this->upsertFinding(
+                asset: $asset,
+                run: $run,
+                fingerprint: $fingerprint,
+                category: 'ssl',
+                severity: 'high',
+                title: 'SSL certificate missing',
+                summary: sprintf('TLS certificate for host %s is present but has no valid_to date.', $host),
+                confidence: self::CONFIDENCE_HIGH,
+                observedAt: $observedAt,
+            );
+
+            return;
+        }
+
+        $expiresAt = new DateTimeImmutable($validTo);
+        $now = DateTimeImmutable::createFromInterface($observedAt);
+
+        if ($expiresAt < $now) {
+            $this->upsertFinding(
+                asset: $asset,
+                run: $run,
+                fingerprint: $fingerprint,
+                category: 'ssl',
+                severity: 'high',
+                title: 'SSL certificate expired',
+                summary: sprintf(
+                    'SSL certificate for host %s expired at %s (issuer: %s, subject CN: %s).',
+                    $host,
+                    $validTo,
+                    $issuer ?? 'unknown',
+                    $evidence['subject_common_name'] ?? 'unknown',
+                ),
+                confidence: self::CONFIDENCE_HIGH,
+                observedAt: $observedAt,
+            );
+
+            return;
+        }
+
+        $expiringSoonThreshold = $now->modify('+'.self::SSL_EXPIRING_SOON_DAYS.' days');
+
+        if ($expiresAt <= $expiringSoonThreshold) {
+            $this->upsertFinding(
+                asset: $asset,
+                run: $run,
+                fingerprint: $fingerprint,
+                category: 'ssl',
+                severity: 'medium',
+                title: 'SSL certificate expiring soon',
+                summary: sprintf(
+                    'SSL certificate for host %s expires at %s (within %d days; issuer: %s, subject CN: %s).',
+                    $host,
+                    $validTo,
+                    self::SSL_EXPIRING_SOON_DAYS,
+                    $issuer ?? 'unknown',
+                    $evidence['subject_common_name'] ?? 'unknown',
+                ),
+                confidence: self::CONFIDENCE_HIGH,
+                observedAt: $observedAt,
+            );
+        }
+    }
+
+    /**
      * Catalog item `reachability-http`: transport failure, missing response, or final 5xx.
      *
      * @param  array{
@@ -138,7 +302,7 @@ class WebsiteDiagnosisService
         DigitalAsset $asset,
         Run $run,
         array $evidence,
-        \DateTimeInterface $observedAt,
+        DateTimeInterface $observedAt,
     ): void {
         if (! $this->reachabilityHttpMatches($evidence)) {
             return;
@@ -168,7 +332,7 @@ class WebsiteDiagnosisService
             severity: 'critical',
             title: 'Website not reachable',
             summary: $summary,
-            confidence: 0.9000,
+            confidence: self::CONFIDENCE_HIGH,
             observedAt: $observedAt,
         );
     }
@@ -216,7 +380,7 @@ class WebsiteDiagnosisService
         string $title,
         string $summary,
         float $confidence,
-        \DateTimeInterface $observedAt,
+        DateTimeInterface $observedAt,
     ): Finding {
         $finding = Finding::query()->firstOrNew([
             'digital_asset_id' => $asset->id,

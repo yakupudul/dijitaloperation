@@ -8,14 +8,24 @@ use App\Models\Evidence;
 use App\Models\Finding;
 use App\Models\Run;
 use App\Services\WebsiteDiagnosisService;
+use App\Support\SslCertificateProbe;
+use App\Support\SslCertParser;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
+use Mockery;
 use Tests\TestCase;
 
 class WebsiteDiagnosisReachabilityTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->stubValidSslCertificate();
+    }
 
     public function test_diagnose_website_job_creates_run_and_normalized_http_fetch_evidence_on_success(): void
     {
@@ -40,9 +50,9 @@ class WebsiteDiagnosisReachabilityTest extends TestCase
         $this->assertNotNull($run->started_at);
         $this->assertNotNull($run->finished_at);
 
-        $this->assertDatabaseCount('evidence', 1);
+        $this->assertDatabaseCount('evidence', 2);
 
-        $evidence = Evidence::query()->where('run_id', $run->id)->first();
+        $evidence = Evidence::query()->where('run_id', $run->id)->where('type', 'http_fetch')->first();
         $this->assertNotNull($evidence);
         $this->assertSame($asset->id, $evidence->digital_asset_id);
         $this->assertSame(WebsiteDiagnosisService::MODULE_ID, $evidence->source_module);
@@ -112,7 +122,7 @@ class WebsiteDiagnosisReachabilityTest extends TestCase
         $this->assertNotSame($firstRun->id, $secondRun->id);
         $this->assertDatabaseCount('findings', 1);
         $this->assertDatabaseCount('runs', 2);
-        $this->assertDatabaseCount('evidence', 2);
+        $this->assertDatabaseCount('evidence', 4);
 
         $finding = $finding->fresh();
         $this->assertNotNull($finding);
@@ -138,15 +148,15 @@ class WebsiteDiagnosisReachabilityTest extends TestCase
 
         $this->assertSame('completed', $run->status);
 
-        $evidence = Evidence::query()->where('run_id', $run->id)->first();
+        $evidence = Evidence::query()->where('run_id', $run->id)->where('type', 'http_fetch')->first();
         $this->assertNotNull($evidence);
         $this->assertNull($evidence->payload['status_code']);
         $this->assertFalse($evidence->payload['response_is_ok']);
         $this->assertSame('connection', $evidence->payload['error_class']);
         $this->assertTrue($evidence->payload['is_https']);
 
-        $this->assertDatabaseCount('findings', 1);
-        $finding = Finding::query()->first();
+        $this->assertSame(1, Finding::query()->where('category', 'availability')->count());
+        $finding = Finding::query()->where('category', 'availability')->first();
         $this->assertSame('Website not reachable', $finding->title);
         $this->assertStringContainsString('connection_error', (string) $finding->summary);
     }
@@ -164,9 +174,28 @@ class WebsiteDiagnosisReachabilityTest extends TestCase
 
         $run = app(WebsiteDiagnosisService::class)->diagnose($asset);
 
-        $evidence = Evidence::query()->where('run_id', $run->id)->first();
+        $evidence = Evidence::query()->where('run_id', $run->id)->where('type', 'http_fetch')->first();
         $this->assertSame(404, $evidence->payload['status_code']);
         $this->assertFalse($evidence->payload['response_is_ok']);
-        $this->assertDatabaseCount('findings', 0);
+        $this->assertSame(0, Finding::query()->where('category', 'availability')->count());
+    }
+
+    private function stubValidSslCertificate(): void
+    {
+        $probe = Mockery::mock(SslCertificateProbe::class);
+        $probe->shouldReceive('probe')->andReturnUsing(function (string $host): array {
+            return [
+                'subject_common_name' => $host,
+                'issuer_common_name' => 'Stub CA',
+                'valid_from' => now()->subYear()->utc()->format('Y-m-d\TH:i:s\Z'),
+                'valid_to' => now()->addYear()->utc()->format('Y-m-d\TH:i:s\Z'),
+                'observed_at' => now()->utc()->format('Y-m-d\TH:i:s\Z'),
+                'fetch_method' => SslCertParser::FETCH_METHOD_PHP_STREAM,
+                'host' => strtolower($host),
+                'present' => true,
+            ];
+        });
+
+        $this->app->instance(SslCertificateProbe::class, $probe);
     }
 }

@@ -37,4 +37,27 @@ class EvidenceFactory extends Factory
             'observed_at' => now(),
         ];
     }
+
+    /**
+     * Normalized SSL certificate evidence payload (no secrets / raw dumps).
+     */
+    public function sslCertificate(?array $payloadOverrides = null): static
+    {
+        $observedAt = now()->utc()->format('Y-m-d\TH:i:s\Z');
+
+        return $this->state(fn (): array => [
+            'type' => 'ssl_certificate',
+            'title' => 'SSL certificate',
+            'payload' => array_merge([
+                'subject_common_name' => 'example.com',
+                'issuer_common_name' => 'Example CA',
+                'valid_from' => now()->subYear()->utc()->format('Y-m-d\TH:i:s\Z'),
+                'valid_to' => now()->addYear()->utc()->format('Y-m-d\TH:i:s\Z'),
+                'observed_at' => $observedAt,
+                'fetch_method' => 'php_stream',
+                'host' => 'example.com',
+                'present' => true,
+            ], $payloadOverrides ?? []),
+        ]);
+    }
 }
