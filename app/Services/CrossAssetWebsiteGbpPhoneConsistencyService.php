@@ -7,6 +7,7 @@ use App\Models\Evidence;
 use App\Models\Finding;
 use App\Models\Recommendation;
 use App\Models\Run;
+use App\Services\GoogleBusinessProfileConnectionProbeService as GbpLocationAccessEvidence;
 use App\Support\WebsiteTelephoneExtractor;
 use DateTimeInterface;
 use Illuminate\Support\Collection;
@@ -181,7 +182,7 @@ class CrossAssetWebsiteGbpPhoneConsistencyService
     {
         return Evidence::query()
             ->where('digital_asset_id', $gbpAsset->id)
-            ->where('type', GoogleBusinessProfileConnectionProbeService::EVIDENCE_TYPE_GBP_LOCATION_ACCESS)
+            ->where('type', GbpLocationAccessEvidence::EVIDENCE_TYPE_GBP_LOCATION_ACCESS)
             ->where('payload->ok', true)
             ->orderByDesc('observed_at')
             ->orderByDesc('id')
