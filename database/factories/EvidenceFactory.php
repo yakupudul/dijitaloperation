@@ -89,4 +89,35 @@ class EvidenceFactory extends Factory
             ],
         ]);
     }
+
+    /**
+     * @return $this
+     */
+    public function sitemap(): static
+    {
+        $host = strtolower(fake()->domainName());
+        $sitemapUrl = 'https://'.$host.'/sitemap.xml';
+
+        return $this->state(fn (): array => [
+            'type' => 'sitemap',
+            'title' => 'Sitemap XML',
+            'payload' => [
+                'host' => $host,
+                'tried_urls' => [$sitemapUrl],
+                'candidates_from_robots' => false,
+                'sitemap_url' => $sitemapUrl,
+                'effective_url' => $sitemapUrl,
+                'status_code' => 200,
+                'present' => true,
+                'parse_ok' => true,
+                'root_element' => 'urlset',
+                'url_count' => 0,
+                'body' => '<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>',
+                'body_truncated' => false,
+                'last_outcome' => 'ok',
+                'error_class' => null,
+                'reason_code' => null,
+            ],
+        ]);
+    }
 }
