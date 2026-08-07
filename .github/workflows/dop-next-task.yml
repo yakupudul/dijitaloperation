@@ -265,8 +265,11 @@ jobs:
           ### Objective
           {task.get('objective','')}
 
-          ### Acceptance criteria
+          ### Product specs
           """
+          for item in task.get("product_spec_paths") or []:
+              body += f"- `{item}`\n"
+          body += "\n### Acceptance criteria\n"
           for item in task.get("acceptance_criteria") or []:
               body += f"- {item}\n"
           body += "\n### Tests required\n"
@@ -277,6 +280,9 @@ jobs:
               body += f"- {item}\n"
           body += "\n### Architect reason\n"
           body += f"{task.get('reason','')}\n"
+          body += "\n<details><summary>Architect task JSON</summary>\n\n```json\n"
+          body += json.dumps(task, ensure_ascii=False, indent=2)
+          body += "\n```\n</details>\n"
           Path("/tmp/dop-pr-body.md").write_text(body)
           Path("/tmp/dop-pr-title.txt").write_text(task.get("title") or task.get("task_id") or "DOP automated task")
           PY

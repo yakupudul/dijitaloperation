@@ -120,9 +120,12 @@ python reviewer.py --validate-only /path/to/review.json
 * Oversized diff → `HUMAN_REQUIRED`
 * Aynı anda tek next-task (concurrency)
 
-## Dosyalar
+## Product memory
 
-* `architect.py` / `reviewer.py` — OpenAI çağrıları + JSON doğrulama
-* `common.py` — marker, branch, schema, secret-path helpers
-* `prompts/*.md` — rol talimatları
-* `tests/` — unit testler (application testlerine dokunmaz)
+Architect / Reviewer / Implementer product behavior için `docs/product/**` blueprint’lerini kullanır.
+
+Architect TASK_READY JSON alanı:
+
+* `product_spec_paths`: yalnızca güvenli `docs/product/**/*.md` yolları
+
+Implementer listedeki her dosyayı okumak zorundadır.

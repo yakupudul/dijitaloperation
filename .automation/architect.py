@@ -16,6 +16,7 @@ if str(AUTOMATION_DIR) not in sys.path:
 
 from common import (  # noqa: E402
     extract_response_text,
+    list_product_spec_files,
     load_prompt,
     parse_json_object,
     recent_commit_summary,
@@ -31,6 +32,7 @@ DOC_PATHS = (
     "docs/IMPLEMENTATION_ROADMAP.md",
     "docs/foundation/DECISION_LOG.md",
     "AGENTS.md",
+    "docs/product/INDEX.md",
 )
 
 
@@ -45,11 +47,21 @@ def _read_docs() -> str:
     return "\n".join(chunks)
 
 
+def _read_all_product_blueprints() -> str:
+    paths = list_product_spec_files(ROOT)
+    chunks: list[str] = [f"## Product blueprint catalog ({len(paths)} files)\n"]
+    for rel in paths:
+        text = (ROOT / rel).read_text(encoding="utf-8")
+        chunks.append(f"### {rel}\n{text}\n")
+    return "\n".join(chunks)
+
+
 def build_user_payload() -> str:
     return (
         "Analyze the current DOP repository state and return the next task JSON.\n\n"
         "## Project documents\n"
         f"{_read_docs()}\n\n"
+        f"{_read_all_product_blueprints()}\n\n"
         "## Compact repository file list\n"
         f"{summarize_repo_tree(ROOT)}\n\n"
         "## Recent commits\n"
@@ -74,7 +86,7 @@ def call_architect(model: str) -> dict:
     )
     raw = extract_response_text(response)
     data = parse_json_object(raw)
-    errors = validate_architect_task(data)
+    errors = validate_architect_task(data, repo_root=ROOT)
     if errors:
         raise ValueError("Architect JSON failed validation: " + "; ".join(errors))
     return data
@@ -82,25 +94,27 @@ def call_architect(model: str) -> dict:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="DOP Architect")
-    parser.add_argument(
-        "--output",
-        default="-",
-        help="Output JSON path or - for stdout",
-    )
+    parser.add_argument("--output", default="-", help="Output JSON path or - for stdout")
     parser.add_argument(
         "--model",
         default=os.environ.get("OPENAI_ARCHITECT_MODEL", DEFAULT_MODEL),
         help="OpenAI model id",
     )
+    parser.add_argument("--validate-only", help="Validate an existing JSON file and exit")
     parser.add_argument(
-        "--validate-only",
-        help="Validate an existing JSON file and exit",
+        "--require-product-specs",
+        action="store_true",
+        help="Require non-empty product_spec_paths when validating TASK_READY",
     )
     args = parser.parse_args(argv)
 
     if args.validate_only:
         data = parse_json_object(Path(args.validate_only).read_text(encoding="utf-8"))
-        errors = validate_architect_task(data)
+        errors = validate_architect_task(
+            data,
+            repo_root=ROOT,
+            require_product_specs=args.require_product_specs,
+        )
         if errors:
             print("INVALID: " + "; ".join(errors), file=sys.stderr)
             return 1
@@ -109,7 +123,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         data = call_architect(args.model)
-    except Exception as exc:  # noqa: BLE001 - surfaced to CI summary
+    except Exception as exc:  # noqa: BLE001
         print(f"Architect failed: {exc}", file=sys.stderr)
         return 1
 

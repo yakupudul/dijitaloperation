@@ -2,9 +2,9 @@
 
 ## Cursor Cloud specific instructions
 
-Ürün gerçeği: `docs/MASTER_SPEC.md` (+ roadmap, foundation, module-sdk).
+Ürün gerçeği: `docs/MASTER_SPEC.md` (+ ADR’ler, `docs/product/*`, roadmap, foundation, module-sdk).
 
-**Öncelik:** DOP belgeleri (`MASTER_SPEC`, foundation, module-sdk, bu dosyanın üst bölümü) Laravel Boost guidelines ile çelişirse DOP belgelerini izle.
+**Öncelik:** MASTER_SPEC → accepted ADR → product blueprints → roadmap → diğerleri. Laravel Boost guidelines ile çelişirse DOP belgeleri kazanır.
 
 ### Kilit kararlar
 
@@ -17,12 +17,13 @@
 - Event: `{kebab-module}.{kebab-action}`
 - Prensip: framework’ün çözdüğünü tekrar yazma (ADR-033)
 - Website Diagnosis katalog: diagnosis fazı öncesi `docs/website/DIAGNOSIS_CATALOG.md` (Core blocker değil)
+- Product memory: `docs/product/*` — Architect/Reviewer/Implementer okur; blueprint’te olmayan ürün davranışı uydurulmaz
 
 ### Pratik
 
 - SaaS, Client Portal, harici write, marketplace/ZIP, custom migrator/FSM ekleme.
 - MVP Core listesi dışında Attachments/Tags/feature-flags/ağır health-audit zorunlu sayma.
-
+- Product feature task’larında `product_spec_paths` dolu olmalı.
 ===
 
 <laravel-boost-guidelines>

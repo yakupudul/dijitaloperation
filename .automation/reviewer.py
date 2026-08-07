@@ -19,9 +19,11 @@ from common import (  # noqa: E402
     diff_is_suspiciously_large,
     extract_response_text,
     has_automation_pr_marker,
+    load_product_specs,
     load_prompt,
     parse_json_object,
     review_marker_for_verdict,
+    validate_product_spec_paths,
     validate_reviewer_result,
 )
 
@@ -33,6 +35,7 @@ DOC_PATHS = (
     "docs/IMPLEMENTATION_ROADMAP.md",
     "docs/foundation/DECISION_LOG.md",
     "AGENTS.md",
+    "docs/product/INDEX.md",
 )
 
 
@@ -54,6 +57,7 @@ def build_review_payload(
     changed_files: str,
     diff_text: str,
     test_notes: str,
+    task_json: dict | None = None,
 ) -> str:
     truncated_diff = diff_text
     note = ""
@@ -64,12 +68,30 @@ def build_review_payload(
         )
         truncated_diff = diff_text[:200_000] + "\n\n... diff truncated for reviewer context ...\n"
 
+    task_section = "(no architect task file provided)\n"
+    product_section = "(no product_spec_paths)\n"
+    if task_json is not None:
+        task_section = json.dumps(task_json, ensure_ascii=False, indent=2) + "\n"
+        paths = task_json.get("product_spec_paths") or []
+        if paths:
+            errors = validate_product_spec_paths(paths, repo_root=ROOT)
+            if errors:
+                product_section = "INVALID product_spec_paths: " + "; ".join(errors) + "\n"
+            else:
+                product_section = load_product_specs(ROOT, paths)
+
     return (
         "Review this DOP automation PR and return JSON only.\n\n"
         f"Automation marker required in body: {AUTOMATION_PR_MARKER}\n"
         f"Marker present: {has_automation_pr_marker(body)}\n\n"
+        "Explicitly check: does the implementation satisfy the Product Blueprint behavior "
+        "for the paths listed in product_spec_paths?\n"
+        "Do NOT block on nice-to-have features absent from the blueprint.\n"
+        "MASTER_SPEC wins on conflict.\n\n"
         f"## PR title\n{title}\n\n"
         f"## PR body\n{body}\n\n"
+        f"## Architect task JSON\n{task_section}\n"
+        f"## Product blueprints for this task\n{product_section}\n"
         "## Project documents\n"
         f"{_read_docs()}\n\n"
         f"## Changed files\n{changed_files}\n\n"
@@ -148,6 +170,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--diff-file", required=False)
     parser.add_argument("--files-file", required=False)
     parser.add_argument("--test-notes-file", required=False)
+    parser.add_argument("--task-file", required=False, help="Architect task JSON path")
     parser.add_argument("--output", default="-")
     parser.add_argument("--comment-output", default="")
     parser.add_argument(
@@ -181,6 +204,9 @@ def main(argv: list[str] | None = None) -> int:
     test_notes = (
         Path(args.test_notes_file).read_text(encoding="utf-8") if args.test_notes_file else ""
     )
+    task_json = None
+    if args.task_file:
+        task_json = parse_json_object(Path(args.task_file).read_text(encoding="utf-8"))
 
     if diff_is_suspiciously_large(diff_text):
         data = {
@@ -208,6 +234,7 @@ def main(argv: list[str] | None = None) -> int:
                     changed_files=changed_files,
                     diff_text=diff_text,
                     test_notes=test_notes,
+                    task_json=task_json,
                 ),
             )
         except Exception as exc:  # noqa: BLE001
