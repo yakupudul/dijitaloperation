@@ -32,6 +32,8 @@ class WebsiteDiagnosisReachabilityTest extends TestCase
         Http::fake([
             'https://acme.example/*' => Http::response('ok', 200, ['Content-Type' => 'text/html']),
             'https://acme.example' => Http::response('ok', 200, ['Content-Type' => 'text/html']),
+            'http://acme.example' => Http::response('', 301, ['Location' => 'https://acme.example/']),
+            'http://acme.example/*' => Http::response('', 301, ['Location' => 'https://acme.example/']),
         ]);
 
         $asset = DigitalAsset::factory()->create([
@@ -50,9 +52,13 @@ class WebsiteDiagnosisReachabilityTest extends TestCase
         $this->assertNotNull($run->started_at);
         $this->assertNotNull($run->finished_at);
 
-        $this->assertDatabaseCount('evidence', 2);
+        $this->assertDatabaseCount('evidence', 4);
 
-        $evidence = Evidence::query()->where('run_id', $run->id)->where('type', 'http_fetch')->first();
+        $evidence = Evidence::query()
+            ->where('run_id', $run->id)
+            ->where('type', 'http_fetch')
+            ->where('title', 'Primary URL HTTP fetch')
+            ->first();
         $this->assertNotNull($evidence);
         $this->assertSame($asset->id, $evidence->digital_asset_id);
         $this->assertSame(WebsiteDiagnosisService::MODULE_ID, $evidence->source_module);
@@ -80,6 +86,8 @@ class WebsiteDiagnosisReachabilityTest extends TestCase
         Http::fake([
             'https://down.example' => Http::response('upstream error', 503),
             'https://down.example/*' => Http::response('upstream error', 503),
+            'http://down.example' => Http::response('', 301, ['Location' => 'https://down.example/']),
+            'http://down.example/*' => Http::response('', 301, ['Location' => 'https://down.example/']),
         ]);
 
         $asset = DigitalAsset::factory()->create([
@@ -122,7 +130,7 @@ class WebsiteDiagnosisReachabilityTest extends TestCase
         $this->assertNotSame($firstRun->id, $secondRun->id);
         $this->assertDatabaseCount('findings', 1);
         $this->assertDatabaseCount('runs', 2);
-        $this->assertDatabaseCount('evidence', 4);
+        $this->assertDatabaseCount('evidence', 8);
 
         $finding = $finding->fresh();
         $this->assertNotNull($finding);
@@ -165,6 +173,7 @@ class WebsiteDiagnosisReachabilityTest extends TestCase
     {
         Http::fake([
             'https://gone.example' => Http::response('not found', 404),
+            'http://gone.example' => Http::response('', 301, ['Location' => 'https://gone.example/']),
         ]);
 
         $asset = DigitalAsset::factory()->create([

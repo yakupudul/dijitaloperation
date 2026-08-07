@@ -22,6 +22,7 @@ class DiagnoseWebsiteSslTest extends TestCase
     {
         Http::fake([
             'https://secure.example' => Http::response('ok', 200),
+            'http://secure.example' => Http::response('', 301, ['Location' => 'https://secure.example/']),
         ]);
 
         $this->travelTo(new DateTimeImmutable('2026-08-07T12:00:00Z'));
@@ -66,6 +67,7 @@ class DiagnoseWebsiteSslTest extends TestCase
     {
         Http::fake([
             'https://expired.example' => Http::response('ok', 200),
+            'http://expired.example' => Http::response('', 301, ['Location' => 'https://expired.example/']),
         ]);
 
         $this->travelTo(new DateTimeImmutable('2026-08-07T12:00:00Z'));
@@ -115,6 +117,7 @@ class DiagnoseWebsiteSslTest extends TestCase
     {
         Http::fake([
             'https://soon.example' => Http::response('ok', 200),
+            'http://soon.example' => Http::response('', 301, ['Location' => 'https://soon.example/']),
         ]);
 
         $this->travelTo(new DateTimeImmutable('2026-08-07T12:00:00Z'));
@@ -150,6 +153,7 @@ class DiagnoseWebsiteSslTest extends TestCase
     {
         Http::fake([
             'https://missing-cert.example' => Http::response('ok', 200),
+            'http://missing-cert.example' => Http::response('', 301, ['Location' => 'https://missing-cert.example/']),
         ]);
 
         $this->travelTo(new DateTimeImmutable('2026-08-07T12:00:00Z'));
