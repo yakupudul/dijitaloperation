@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "b7b2e5b3a060d2d2f10016f4c81c49ed",
+    "content-hash": "402394e0cf953e9ac83124cd8bb57bb7",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -4389,6 +4389,38 @@
                     "MoxDop\\SampleModule\\Tests\\": "tests/",
                     "MoxDop\\SampleModule\\Database\\Factories\\": "database/factories/",
                     "MoxDop\\SampleModule\\Database\\Seeders\\": "database/seeders/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "moxdop/website",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/website",
+                "reference": "d6fd0ab536dd0937e5ef4de326c119d4367d107b"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "MoxDop\\Website\\Providers\\WebsiteServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "MoxDop\\Website\\": "src/",
+                    "MoxDop\\Website\\Tests\\": "tests/",
+                    "MoxDop\\Website\\Database\\Factories\\": "database/factories/",
+                    "MoxDop\\Website\\Database\\Seeders\\": "database/seeders/"
                 }
             },
             "license": [
