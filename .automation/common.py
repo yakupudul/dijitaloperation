@@ -284,7 +284,7 @@ def validate_architect_task(
                 validate_product_spec_paths(
                     data.get("product_spec_paths"),
                     repo_root=repo_root,
-                    require_non_empty=require_product_specs,
+                    require_non_empty=True if require_product_specs or status == "TASK_READY" else False,
                 )
             )
 
@@ -414,3 +414,108 @@ def diff_is_suspiciously_large(diff_text: str, max_chars: int = 250_000, max_fil
         return True
     file_headers = [line for line in diff_text.splitlines() if line.startswith("diff --git ")]
     return len(file_headers) > max_files
+
+
+HARD_BLOCKER_ISSUE_MARKER = "<!-- DOP_HARD_BLOCKER -->"
+
+CREDENTIAL_DIFF_PATTERNS = (
+    re.compile(r"-----BEGIN (?:RSA |OPENSSH |EC )?PRIVATE KEY-----"),
+    re.compile(r"AKIA[0-9A-Z]{16}"),
+    re.compile(r"(?i)(api[_-]?key|secret|password|token)\s*[:=]\s*['\"][^'\"]{12,}['\"]"),
+)
+
+
+def scan_diff_for_credential_leaks(diff_text: str) -> list[str]:
+    hits: list[str] = []
+    for pattern in CREDENTIAL_DIFF_PATTERNS:
+        if pattern.search(diff_text or ""):
+            hits.append(pattern.pattern)
+    return hits
+
+
+def extract_task_ids_from_pr_bodies(bodies: list[str]) -> set[str]:
+    found: set[str] = set()
+    pattern = re.compile(r"\*\*task_id:\*\*\s*`([^`]+)`")
+    alt = re.compile(r'"task_id"\s*:\s*"([^"]+)"')
+    for body in bodies:
+        if not body:
+            continue
+        found.update(pattern.findall(body))
+        found.update(alt.findall(body))
+    return found
+
+
+def is_repeated_task(
+    task: dict[str, Any],
+    *,
+    merged_task_ids: set[str] | None = None,
+    recent_branch_names: set[str] | None = None,
+) -> bool:
+    task_id = str(task.get("task_id") or "").strip()
+    branch = str(task.get("branch_name") or "").strip()
+    merged_task_ids = merged_task_ids or set()
+    recent_branch_names = recent_branch_names or set()
+    if task_id and task_id in merged_task_ids:
+        return True
+    if branch and branch in recent_branch_names:
+        return True
+    return False
+
+
+def should_create_hard_blocker_issue(status: str | None, reason: str | None = None) -> bool:
+    return status == "HUMAN_REQUIRED" and bool((reason or "").strip())
+
+
+def format_hard_blocker_issue_body(*, reason: str, task: dict[str, Any] | None = None) -> str:
+    payload = json.dumps(task or {}, ensure_ascii=False, indent=2)
+    return (
+        f"{HARD_BLOCKER_ISSUE_MARKER}\n\n"
+        f"## DOP hard blocker\n\n"
+        f"{reason.strip()}\n\n"
+        f"<details><summary>Task context</summary>\n\n```json\n{payload}\n```\n</details>\n"
+    )
+
+
+def final_merge_gate_errors(
+    *,
+    branch_name: str,
+    pr_body: str,
+    task: dict[str, Any],
+    secret_paths: list[str],
+    suspicious_diff: bool,
+    tests_passed: bool,
+    mergeable: bool,
+    repo_root: Path | None = None,
+) -> list[str]:
+    errors: list[str] = []
+    if branch_name in {"main", "master", "HEAD"} or not is_safe_branch_name(branch_name):
+        errors.append("branch is not a safe non-main automation branch")
+    if not has_automation_pr_marker(pr_body):
+        errors.append("PR body missing automation marker")
+    errors.extend(validate_architect_task(task, repo_root=repo_root, require_product_specs=True))
+    if secret_paths:
+        errors.append("secret-like paths present: " + ", ".join(secret_paths))
+    if suspicious_diff:
+        errors.append("diff is suspiciously large")
+    if not tests_passed:
+        errors.append("required tests/gates have not passed")
+    if not mergeable:
+        errors.append("PR is not mergeable")
+    return errors
+
+
+def dispatch_eligible(
+    *,
+    merged: bool,
+    automation_pr: bool,
+    verdict_approved: bool,
+    hard_blocker: bool,
+    roadmap_complete: bool,
+) -> bool:
+    return bool(
+        merged
+        and automation_pr
+        and verdict_approved
+        and not hard_blocker
+        and not roadmap_complete
+    )

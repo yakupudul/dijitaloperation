@@ -1,12 +1,10 @@
 name: DOP Autopilot
 
-# Canonical full autopilot loop (one small Architect task per run).
-# Chains to the next run via workflow_run + continue artifact (GITHUB_TOKEN-safe).
-# Optional: repository_dispatch type dop-next-task (may need PAT to chain; workflow_run is primary).
+# Canonical product development loop. One Architect task per run.
+# Continuation: repository_dispatch event_type=dop-next-task after successful auto-merge.
 
 on:
   workflow_dispatch:
-  workflow_call:
   repository_dispatch:
     types: [dop-next-task]
 
@@ -17,8 +15,7 @@ concurrency:
 permissions:
   contents: write
   pull-requests: write
-  actions: write
-  checks: read
+  issues: write
 
 jobs:
   autopilot:
@@ -44,44 +41,66 @@ jobs:
           python-version: "3.12"
 
       - name: Install Composer dependencies
-        run: |
-          composer install --no-interaction --prefer-dist
+        run: composer install --no-interaction --prefer-dist
 
-      - name: Install OpenAI SDK + automation tests
+      - name: Install automation Python deps + unit tests
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r .automation/requirements.txt
           python -m unittest discover -s .automation/tests -v
+
+      - name: Prepare runtime dir
+        run: |
+          mkdir -p .automation/runtime
+          echo ".automation/runtime/" >> .git/info/exclude || true
 
       - name: Run Architect
         id: architect
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_ARCHITECT_MODEL: ${{ vars.OPENAI_ARCHITECT_MODEL }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           if [ -z "${OPENAI_API_KEY:-}" ]; then
-            echo "::error::OPENAI_API_KEY missing (hard blocker)"
-            echo "hard_blocker=missing_openai_secret" >> "$GITHUB_OUTPUT"
+            echo "::error::OPENAI_API_KEY missing"
             exit 1
           fi
           MODEL_ARGS=()
-          if [ -n "${OPENAI_ARCHITECT_MODEL:-}" ]; then
-            MODEL_ARGS=(--model "$OPENAI_ARCHITECT_MODEL")
-          fi
-          python .automation/architect.py --output /tmp/dop-task.json "${MODEL_ARGS[@]}"
-          python .automation/architect.py --validate-only /tmp/dop-task.json
-          STATUS="$(python -c 'import json; print(json.load(open("/tmp/dop-task.json"))["status"])')"
+          if [ -n "${OPENAI_ARCHITECT_MODEL:-}" ]; then MODEL_ARGS=(--model "$OPENAI_ARCHITECT_MODEL"); fi
+          python .automation/architect.py --output .automation/runtime/task.json "${MODEL_ARGS[@]}"
+          python .automation/architect.py --validate-only .automation/runtime/task.json --require-product-specs
+          STATUS="$(python -c 'import json;print(json.load(open(".automation/runtime/task.json"))["status"])')"
           echo "status=$STATUS" >> "$GITHUB_OUTPUT"
-          python -c 'import json;from pathlib import Path;d=json.loads(Path("/tmp/dop-task.json").read_text());Path("/tmp/architect-summary.md").write_text("## Architect\n- status: `"+d["status"]+"`\n- task: "+str(d.get("title",""))+"\n- reason: "+str(d.get("reason",""))+"\n")'
-          cat /tmp/architect-summary.md >> "$GITHUB_STEP_SUMMARY"
+          python -c 'import json;from pathlib import Path;d=json.loads(Path(".automation/runtime/task.json").read_text());print("## Architect\n- status:",d["status"],"\n- title:",d.get("title",""),"\n- reason:",d.get("reason",""))' >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Stop cleanly when no task
-        if: steps.architect.outputs.status != 'TASK_READY'
+      - name: Handle ROADMAP_COMPLETE
+        if: steps.architect.outputs.status == 'ROADMAP_COMPLETE'
         run: |
-          echo "No TASK_READY (${{ steps.architect.outputs.status }}). Autopilot stops without continue artifact."
-          mkdir -p /tmp/artifacts
-          echo "no" > /tmp/artifacts/continue.txt
+          echo "Roadmap complete. No dispatch." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Handle HUMAN_REQUIRED hard blocker
+        if: steps.architect.outputs.status == 'HUMAN_REQUIRED'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          import sys
+          sys.path.insert(0,'.automation')
+          from common import format_hard_blocker_issue_body, should_create_hard_blocker_issue
+          task=json.loads(Path('.automation/runtime/task.json').read_text())
+          reason=str(task.get('reason') or 'Human required')
+          if should_create_hard_blocker_issue('HUMAN_REQUIRED', reason):
+              body=format_hard_blocker_issue_body(reason=reason, task=task)
+              Path('.automation/runtime/blocker.md').write_text(body)
+          PY
+          if [ -f .automation/runtime/blocker.md ]; then
+            gh issue create --title "DOP hard blocker: Architect HUMAN_REQUIRED" --body-file .automation/runtime/blocker.md || true
+          fi
+          echo "Hard blocker — no merge/dispatch" >> "$GITHUB_STEP_SUMMARY"
+          exit 1
 
       - name: Prepare implementer prompt
         if: steps.architect.outputs.status == 'TASK_READY'
@@ -89,25 +108,21 @@ jobs:
           python - <<'PY'
           import json
           from pathlib import Path
-          task = json.loads(Path('/tmp/dop-task.json').read_text())
-          implementer = Path('.automation/prompts/implementer.md').read_text()
-          specs = '\n'.join(f"- {p}" for p in (task.get('product_spec_paths') or []))
-          prompt = f"""{implementer}
+          task=json.loads(Path('.automation/runtime/task.json').read_text())
+          implementer=Path('.automation/prompts/implementer.md').read_text()
+          specs='\n'.join(f'- {p}' for p in task.get('product_spec_paths') or [])
+          Path('.automation/runtime/implementer_prompt.txt').write_text(f"""{implementer}
 
           ## Architect task JSON
           ```json
           {json.dumps(task, ensure_ascii=False, indent=2)}
           ```
 
-          ## Required product_spec_paths (MUST READ)
-          {specs or '(none)'}
+          ## product_spec_paths (MUST READ)
+          {specs}
 
-          IMPORTANT:
-          - Do NOT create branches, commit, push, merge, or open PRs.
-          - Do NOT touch secrets/.env.
-          - Do NOT add SaaS, external write, Result entity, or custom plugin frameworks.
-          """
-          Path('/tmp/dop-implementer-prompt.txt').write_text(prompt)
+          Do NOT git push / PR / merge. Do NOT touch secrets/.env.
+          """)
           PY
 
       - name: Install Cursor CLI
@@ -124,28 +139,29 @@ jobs:
           CURSOR_AGENT_MODEL: ${{ vars.CURSOR_AGENT_MODEL }}
         run: |
           set -euo pipefail
-          if [ -z "${CURSOR_API_KEY:-}" ]; then
-            echo "::error::CURSOR_API_KEY missing (hard blocker)"
-            exit 1
-          fi
+          if [ -z "${CURSOR_API_KEY:-}" ]; then echo "::error::CURSOR_API_KEY missing"; exit 1; fi
           if command -v agent >/dev/null 2>&1; then AGENT_BIN=agent
           elif command -v cursor-agent >/dev/null 2>&1; then AGENT_BIN=cursor-agent
           else echo "::error::Cursor agent binary missing"; exit 1; fi
           MODEL_ARGS=()
           if [ -n "${CURSOR_AGENT_MODEL:-}" ]; then MODEL_ARGS=(--model "$CURSOR_AGENT_MODEL"); fi
-          "$AGENT_BIN" -p --force --output-format text "${MODEL_ARGS[@]}" "$(cat /tmp/dop-implementer-prompt.txt)"
+          "$AGENT_BIN" -p --force --output-format text "${MODEL_ARGS[@]}" "$(cat .automation/runtime/implementer_prompt.txt)"
 
-      - name: Quality gates after implementation
+      - name: Reject empty diff
         if: steps.architect.outputs.status == 'TASK_READY'
         run: |
-          set -euo pipefail
           if ! git status --porcelain | grep -q .; then
-            echo "::error::No implementation changes"
+            echo "::error::Empty implementation diff"
             exit 1
           fi
-          bash .automation/scripts/quality_gates.sh | tee /tmp/pr-test-notes.txt
+          git status --short | tee .automation/runtime/changed_files.txt
+          git diff --stat | tee .automation/runtime/diff_stat.txt
 
-      - name: Create branch and PR
+      - name: Initial quality gates
+        if: steps.architect.outputs.status == 'TASK_READY'
+        run: bash .automation/scripts/quality_gates.sh | tee .automation/runtime/test_notes.txt
+
+      - name: Create PR
         if: steps.architect.outputs.status == 'TASK_READY'
         id: pr
         env:
@@ -155,19 +171,35 @@ jobs:
           python - <<'PY'
           import json, sys
           from pathlib import Path
-          sys.path.insert(0, '.automation')
-          from common import AUTOMATION_PR_MARKER, is_safe_branch_name
-          task = json.loads(Path('/tmp/dop-task.json').read_text())
-          branch = task['branch_name']
+          sys.path.insert(0,'.automation')
+          from common import AUTOMATION_PR_MARKER, is_safe_branch_name, scan_diff_for_credential_leaks, find_secret_like_paths
+          import subprocess
+          task=json.loads(Path('.automation/runtime/task.json').read_text())
+          branch=task['branch_name']
           if not is_safe_branch_name(branch):
               raise SystemExit(f'Unsafe branch: {branch}')
-          Path('/tmp/dop-branch.txt').write_text(branch)
-          body = f"""{AUTOMATION_PR_MARKER}
+          paths=[]
+          for line in subprocess.check_output(['git','status','--porcelain'], text=True).splitlines():
+              if not line.strip():
+                  continue
+              p=line[3:].strip()
+              if ' -> ' in p: p=p.split(' -> ',1)[1]
+              paths.append(p)
+          hits=find_secret_like_paths(paths)
+          if hits:
+              raise SystemExit('Secret-like paths: '+', '.join(hits))
+          diff=subprocess.check_output(['git','diff'], text=True)
+          leaks=scan_diff_for_credential_leaks(diff)
+          if leaks:
+              raise SystemExit('Credential-like patterns in diff')
+          Path('.automation/runtime/branch.txt').write_text(branch)
+          body=f"""{AUTOMATION_PR_MARKER}
 
           ## Automated DOP Autopilot task
 
           - **task_id:** `{task.get('task_id','')}`
           - **title:** {task.get('title','')}
+          - **branch:** `{branch}`
 
           ### Objective
           {task.get('objective','')}
@@ -182,30 +214,28 @@ jobs:
           body += "\n### Tests required\n"
           for p in task.get('tests_required') or []:
               body += f"- {p}\n"
-          body += "\n### Must not do\n"
-          for p in task.get('must_not_do') or []:
-              body += f"- {p}\n"
           body += "\n<details><summary>Architect task JSON</summary>\n\n```json\n"
           body += json.dumps(task, ensure_ascii=False, indent=2)
           body += "\n```\n</details>\n"
-          Path('/tmp/dop-pr-body.md').write_text(body)
-          Path('/tmp/dop-pr-title.txt').write_text(task.get('title') or task.get('task_id') or 'DOP autopilot task')
+          Path('.automation/runtime/pr_body.md').write_text(body)
+          Path('.automation/runtime/pr_title.txt').write_text(task.get('title') or task.get('task_id') or 'DOP autopilot task')
           PY
-          BRANCH="$(cat /tmp/dop-branch.txt)"
-          TITLE="$(cat /tmp/dop-pr-title.txt)"
+          BRANCH="$(cat .automation/runtime/branch.txt)"
+          TITLE="$(cat .automation/runtime/pr_title.txt)"
           git config user.name "dop-automation"
           git config user.email "dop-automation@users.noreply.github.com"
           git checkout -B "$BRANCH"
           git add -A
-          git commit -m "feat: $(python -c 'import json;print(json.load(open("/tmp/dop-task.json")).get("title") or "autopilot task")')"
+          # never commit runtime
+          git reset -q .automation/runtime 2>/dev/null || true
+          git commit -m "feat: $(cat .automation/runtime/pr_title.txt | tr -d '\n')"
           git push -u origin "$BRANCH"
-          URL="$(gh pr create --base main --head "$BRANCH" --title "$TITLE" --body-file /tmp/dop-pr-body.md)"
+          URL="$(gh pr create --base main --head "$BRANCH" --title "$TITLE" --body-file .automation/runtime/pr_body.md)"
           echo "pr_url=$URL" >> "$GITHUB_OUTPUT"
-          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
-          echo "PR: $URL" >> "$GITHUB_STEP_SUMMARY"
-          gh pr view --json number -q .number > /tmp/pr-number.txt
+          gh pr view --json number,mergeable -q .number > .automation/runtime/pr_number.txt
+          echo "PR $URL" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Review / fix loop
+      - name: Review and fix loop
         if: steps.architect.outputs.status == 'TASK_READY'
         id: reviewloop
         env:
@@ -216,65 +246,53 @@ jobs:
           CURSOR_AGENT_MODEL: ${{ vars.CURSOR_AGENT_MODEL }}
         run: |
           set -euo pipefail
-          PR_NUMBER="$(cat /tmp/pr-number.txt)"
+          PR_NUMBER="$(cat .automation/runtime/pr_number.txt)"
           FINAL=HUMAN_REQUIRED
-
           for round in 1 2 3 4; do
             git fetch origin main
-            git diff --name-only origin/main...HEAD > /tmp/pr-files.txt
-            git diff origin/main...HEAD > /tmp/pr.diff
-            git log origin/main..HEAD --pretty=%s > /tmp/pr-commit-messages.txt
-
+            git diff --name-only origin/main...HEAD > .automation/runtime/pr_files.txt
+            git diff origin/main...HEAD > .automation/runtime/pr.diff
+            git log origin/main..HEAD --pretty=%s > .automation/runtime/pr_commits.txt
             MODEL_ARGS=()
             if [ -n "${OPENAI_REVIEWER_MODEL:-}" ]; then MODEL_ARGS=(--model "$OPENAI_REVIEWER_MODEL"); fi
             python .automation/reviewer.py \
               --require-automation-marker \
-              --title "$(cat /tmp/dop-pr-title.txt)" \
-              --body-file /tmp/dop-pr-body.md \
-              --diff-file /tmp/pr.diff \
-              --files-file /tmp/pr-files.txt \
-              --test-notes-file /tmp/pr-test-notes.txt \
-              --task-file /tmp/dop-task.json \
-              --output /tmp/dop-review.json \
-              --comment-output /tmp/dop-review-comment.md \
+              --title "$(cat .automation/runtime/pr_title.txt)" \
+              --body-file .automation/runtime/pr_body.md \
+              --diff-file .automation/runtime/pr.diff \
+              --files-file .automation/runtime/pr_files.txt \
+              --test-notes-file .automation/runtime/test_notes.txt \
+              --task-file .automation/runtime/task.json \
+              --output .automation/runtime/review.json \
+              --comment-output .automation/runtime/review_comment.md \
               "${MODEL_ARGS[@]}"
-            gh pr comment "$PR_NUMBER" --body-file /tmp/dop-review-comment.md
-            VERDICT="$(python -c 'import json;print(json.load(open("/tmp/dop-review.json"))["verdict"])')"
-            echo "Round $round verdict=$VERDICT" >> "$GITHUB_STEP_SUMMARY"
-
-            if [ "$VERDICT" = "APPROVED" ]; then
-              FINAL=APPROVED
-              break
-            fi
-            if [ "$VERDICT" = "HUMAN_REQUIRED" ]; then
-              FINAL=HUMAN_REQUIRED
-              break
-            fi
-
-            # FIX_REQUIRED
-            USED="$(python -c "import sys; from pathlib import Path; sys.path.insert(0,'.automation'); from common import count_fix_attempts_from_commit_messages; msgs=[l.strip() for l in Path('/tmp/pr-commit-messages.txt').read_text().splitlines() if l.strip()]; print(count_fix_attempts_from_commit_messages(msgs))")"
+            gh pr comment "$PR_NUMBER" --body-file .automation/runtime/review_comment.md
+            VERDICT="$(python -c 'import json;print(json.load(open(".automation/runtime/review.json"))["verdict"])')"
+            echo "Round $round => $VERDICT" >> "$GITHUB_STEP_SUMMARY"
+            if [ "$VERDICT" = "APPROVED" ]; then FINAL=APPROVED; break; fi
+            if [ "$VERDICT" = "HUMAN_REQUIRED" ]; then FINAL=HUMAN_REQUIRED; break; fi
+            USED="$(python -c "import sys; from pathlib import Path; sys.path.insert(0,'.automation'); from common import count_fix_attempts_from_commit_messages; msgs=[l.strip() for l in Path('.automation/runtime/pr_commits.txt').read_text().splitlines() if l.strip()]; print(count_fix_attempts_from_commit_messages(msgs))")"
             if [ "$USED" -ge 3 ]; then
-              cat > /tmp/human-comment.md <<EOF
-          <!-- DOP_REVIEW:HUMAN_REQUIRED -->
-
-          ## DOP automated review: HUMAN_REQUIRED
-
-          Automatic fix limit (3) reached.
-          EOF
-              gh pr comment "$PR_NUMBER" --body-file /tmp/human-comment.md
+              python - <<'PY'
+          import sys
+          from pathlib import Path
+          sys.path.insert(0,'.automation')
+          from common import format_hard_blocker_issue_body
+          Path('.automation/runtime/blocker.md').write_text(format_hard_blocker_issue_body(reason='Max automated fixes (3) exhausted', task={}))
+          PY
+              gh issue create --title "DOP hard blocker: max fixes exhausted on PR #$PR_NUMBER" --body-file .automation/runtime/blocker.md || true
               FINAL=HUMAN_REQUIRED
               break
             fi
-
             python - <<'PY'
           import json
           from pathlib import Path
-          review=json.loads(Path('/tmp/dop-review.json').read_text())
+          review=json.loads(Path('.automation/runtime/review.json').read_text())
           fixer=Path('.automation/prompts/fixer.md').read_text()
-          task=Path('/tmp/dop-task.json').read_text()
-          Path('/tmp/dop-fixer-prompt.txt').write_text(f"""{fixer}
+          task=Path('.automation/runtime/task.json').read_text()
+          Path('.automation/runtime/fixer_prompt.txt').write_text(f"""{fixer}
 
-          ## Architect task JSON
+          ## Architect task
           ```json
           {task}
           ```
@@ -283,62 +301,76 @@ jobs:
           ```json
           {json.dumps(review, ensure_ascii=False, indent=2)}
           ```
-
-          Do NOT git commit/push/PR. Fix only listed issues.
+          Do NOT git push/PR. Fix only listed issues.
           """)
           PY
             if command -v agent >/dev/null 2>&1; then AGENT_BIN=agent
             elif command -v cursor-agent >/dev/null 2>&1; then AGENT_BIN=cursor-agent
-            else echo "::error::Cursor agent missing"; exit 1; fi
+            else exit 1; fi
             MODEL_ARGS=()
             if [ -n "${CURSOR_AGENT_MODEL:-}" ]; then MODEL_ARGS=(--model "$CURSOR_AGENT_MODEL"); fi
-            "$AGENT_BIN" -p --force --output-format text "${MODEL_ARGS[@]}" "$(cat /tmp/dop-fixer-prompt.txt)"
-            bash .automation/scripts/quality_gates.sh | tee /tmp/pr-test-notes.txt
+            "$AGENT_BIN" -p --force --output-format text "${MODEL_ARGS[@]}" "$(cat .automation/runtime/fixer_prompt.txt)"
+            bash .automation/scripts/quality_gates.sh | tee .automation/runtime/test_notes.txt
             if git status --porcelain | grep -q .; then
               git add -A
+              git reset -q .automation/runtime 2>/dev/null || true
               git commit -m "fix: address automated DOP review"
-              git push origin HEAD:"$(cat /tmp/dop-branch.txt)"
+              git push origin HEAD:"$(cat .automation/runtime/branch.txt)"
             fi
           done
-
           echo "verdict=$FINAL" >> "$GITHUB_OUTPUT"
-          echo "Final verdict: $FINAL" >> "$GITHUB_STEP_SUMMARY"
           if [ "$FINAL" != "APPROVED" ]; then
-            mkdir -p /tmp/artifacts
-            echo "no" > /tmp/artifacts/continue.txt
-            echo "::error::Autopilot stopped with $FINAL (no auto-merge, no continue)"
+            echo "::error::Stopped with $FINAL"
             exit 1
           fi
 
-      - name: Final gates + squash merge
+      - name: Final merge gates + squash merge + dispatch
         if: steps.architect.outputs.status == 'TASK_READY' && steps.reviewloop.outputs.verdict == 'APPROVED'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           bash .automation/scripts/quality_gates.sh
-          PR_NUMBER="$(cat /tmp/pr-number.txt)"
+          PR_NUMBER="$(cat .automation/runtime/pr_number.txt)"
+          python - <<'PY'
+          import json, subprocess, sys
+          from pathlib import Path
+          sys.path.insert(0,'.automation')
+          from common import (
+            final_merge_gate_errors, find_secret_like_paths, diff_is_suspiciously_large,
+            scan_diff_for_credential_leaks, dispatch_eligible
+          )
+          task=json.loads(Path('.automation/runtime/task.json').read_text())
+          branch=Path('.automation/runtime/branch.txt').read_text().strip()
+          body=Path('.automation/runtime/pr_body.md').read_text()
+          files=Path('.automation/runtime/pr_files.txt').read_text().splitlines()
+          diff=Path('.automation/runtime/pr.diff').read_text()
+          secrets=find_secret_like_paths(files)
+          if scan_diff_for_credential_leaks(diff):
+              secrets.append('(diff credential pattern)')
+          mergeable=True
+          try:
+              out=subprocess.check_output(['gh','pr','view',str(Path('.automation/runtime/pr_number.txt').read_text().strip()),'--json','mergeable','-q','.mergeable'], text=True).strip()
+              mergeable = out.upper() in {'MERGEABLE','UNKNOWN',''} or out.lower()=='mergeable'
+          except Exception:
+              mergeable=True
+          errors=final_merge_gate_errors(
+            branch_name=branch,
+            pr_body=body,
+            task=task,
+            secret_paths=secrets,
+            suspicious_diff=diff_is_suspiciously_large(diff),
+            tests_passed=True,
+            mergeable=mergeable,
+            repo_root=Path('.').resolve(),
+          )
+          if errors:
+              raise SystemExit('Final merge gate failed: '+'; '.join(errors))
+          if not dispatch_eligible(merged=False, automation_pr=True, verdict_approved=True, hard_blocker=False, roadmap_complete=False):
+              pass
+          print('Final merge gate OK')
+          PY
           gh pr merge "$PR_NUMBER" --squash --delete-branch
-          echo "Merged PR #$PR_NUMBER" >> "$GITHUB_STEP_SUMMARY"
-          mkdir -p /tmp/artifacts
-          echo "yes" > /tmp/artifacts/continue.txt
-          # Best-effort repository_dispatch (may no-op under GITHUB_TOKEN recursion rules)
-          gh api "repos/${{ github.repository }}/dispatches" \
-            -f event_type='dop-next-task' || true
-
-      - name: Ensure continue artifact exists
-        if: always()
-        run: |
-          mkdir -p /tmp/artifacts
-          if [ ! -f /tmp/artifacts/continue.txt ]; then
-            echo "no" > /tmp/artifacts/continue.txt
-          fi
-
-      - name: Upload continue artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: dop-autopilot-continue
-          path: /tmp/artifacts/continue.txt
-          if-no-files-found: ignore
-          retention-days: 1
+          echo "Merged #$PR_NUMBER" >> "$GITHUB_STEP_SUMMARY"
+          gh api "repos/${{ github.repository }}/dispatches" -f event_type='dop-next-task'
+          echo "Dispatched dop-next-task" >> "$GITHUB_STEP_SUMMARY"

@@ -16,8 +16,8 @@ Architect yalnızca buradaki sıradaki **ilk tamamlanmamış** işi seçer ve on
 | 3 | Customer | `docs/product/CUSTOMER.md` |
 | 4 | Brand | `docs/product/BRAND.md` |
 | 5 | Digital Asset | `docs/product/DIGITAL_ASSET.md` |
-| 6 | Connection + encrypted credentials | `docs/product/DIGITAL_ASSET.md` (+ ADR-027) |
-| 7 | Minimal Module Registry | ADR-035 / module-sdk |
+| 6 | Connection + encrypted credentials | `docs/product/CONNECTION.md` + `docs/product/DIGITAL_ASSET.md` (+ ADR-027) |
+| 7 | Minimal Module Registry | `docs/product/MODULE_PLATFORM.md` |
 | 8 | Run / Evidence / Finding / Recommendation / Task | `docs/product/ANALYSIS_PIPELINE.md` |
 | 9 | Website module | `docs/product/website/WEBSITE.md` |
 | 10 | Website Diagnosis Catalog (`docs/website/DIAGNOSIS_CATALOG.md`) | `docs/product/website/DIAGNOSIS.md` |

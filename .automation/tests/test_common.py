@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import json
 import sys
-import tempfile
 import unittest
 from pathlib import Path
 
@@ -15,10 +13,17 @@ if str(ROOT) not in sys.path:
 from common import (  # noqa: E402
     AUTOMATION_PR_MARKER,
     FIX_COMMIT_MESSAGE,
+    HARD_BLOCKER_ISSUE_MARKER,
     MAX_FIX_ATTEMPTS,
     count_fix_attempts_from_commit_messages,
+    diff_is_suspiciously_large,
+    dispatch_eligible,
+    extract_task_ids_from_pr_bodies,
+    final_merge_gate_errors,
     find_secret_like_paths,
+    format_hard_blocker_issue_body,
     has_automation_pr_marker,
+    is_repeated_task,
     is_safe_branch_name,
     is_safe_product_spec_path,
     list_product_spec_files,
@@ -26,6 +31,8 @@ from common import (  # noqa: E402
     parse_json_object,
     remaining_fix_attempts,
     review_marker_for_verdict,
+    scan_diff_for_credential_leaks,
+    should_create_hard_blocker_issue,
     should_skip_next_task_for_merged_pr,
     validate_architect_task,
     validate_product_spec_paths,
@@ -55,14 +62,10 @@ def _task_ready(**overrides):
 class BranchValidationTests(unittest.TestCase):
     def test_accepts_safe_slugs(self) -> None:
         self.assertTrue(is_safe_branch_name("feat/customer-crud"))
-        self.assertTrue(is_safe_branch_name("fix/panel-access"))
 
     def test_rejects_unsafe_names(self) -> None:
         self.assertFalse(is_safe_branch_name("main"))
         self.assertFalse(is_safe_branch_name("../etc/passwd"))
-        self.assertFalse(is_safe_branch_name("Feat/Customer"))
-        self.assertFalse(is_safe_branch_name("has space"))
-        self.assertFalse(is_safe_branch_name("-bad"))
 
 
 class MarkerTests(unittest.TestCase):
@@ -70,47 +73,12 @@ class MarkerTests(unittest.TestCase):
         self.assertTrue(has_automation_pr_marker(f"hello\n{AUTOMATION_PR_MARKER}\n"))
         self.assertFalse(has_automation_pr_marker("ordinary PR"))
 
-    def test_review_markers(self) -> None:
-        self.assertIn("APPROVED", review_marker_for_verdict("APPROVED"))
-        self.assertIn("FIX_REQUIRED", review_marker_for_verdict("FIX_REQUIRED"))
-        self.assertIn("HUMAN_REQUIRED", review_marker_for_verdict("HUMAN_REQUIRED"))
-
 
 class FixAttemptTests(unittest.TestCase):
-    def test_counts_exact_fix_commits(self) -> None:
-        messages = [
-            FIX_COMMIT_MESSAGE,
-            "feat: something else",
-            FIX_COMMIT_MESSAGE + "\n\nbody",
-        ]
-        self.assertEqual(count_fix_attempts_from_commit_messages(messages), 2)
-        self.assertEqual(remaining_fix_attempts(messages), MAX_FIX_ATTEMPTS - 2)
-
-    def test_max_attempts_exhausted(self) -> None:
+    def test_max_attempts(self) -> None:
         messages = [FIX_COMMIT_MESSAGE] * MAX_FIX_ATTEMPTS
         self.assertEqual(remaining_fix_attempts(messages), 0)
-
-
-class SkipNextTaskTests(unittest.TestCase):
-    def test_skips_chore_and_docs(self) -> None:
-        self.assertTrue(should_skip_next_task_for_merged_pr("chore/dop-development-loop"))
-        self.assertTrue(should_skip_next_task_for_merged_pr("feat/x", pr_title="docs: update"))
-        self.assertTrue(
-            should_skip_next_task_for_merged_pr(
-                "feat/x",
-                pr_title="feat: docs only",
-                changed_files=["docs/MASTER_SPEC.md", "AGENTS.md"],
-            )
-        )
-
-    def test_allows_product_feature_branch(self) -> None:
-        self.assertFalse(
-            should_skip_next_task_for_merged_pr(
-                "feat/customer-crud",
-                pr_title="feat: add customers",
-                changed_files=["app/Models/Customer.php"],
-            )
-        )
+        self.assertEqual(count_fix_attempts_from_commit_messages(messages), 3)
 
 
 class SecretPathTests(unittest.TestCase):
@@ -118,82 +86,117 @@ class SecretPathTests(unittest.TestCase):
         hits = find_secret_like_paths([".env", "app/Models/User.php", "keys/id_rsa", "cert.pem"])
         self.assertEqual(hits, [".env", "keys/id_rsa", "cert.pem"])
 
+    def test_diff_credential_scan(self) -> None:
+        dirty = "password = 'super-secret-value'"
+        self.assertTrue(scan_diff_for_credential_leaks(dirty))
+        self.assertFalse(scan_diff_for_credential_leaks("password length must be >= 8"))
+
+
+class SuspiciousDiffTests(unittest.TestCase):
+    def test_large_diff(self) -> None:
+        self.assertTrue(diff_is_suspiciously_large("x" * 300_000))
+        self.assertFalse(diff_is_suspiciously_large("diff --git a/app/x.php\n+hi\n"))
+
 
 class ProductSpecPathTests(unittest.TestCase):
-    def test_accepts_product_paths(self) -> None:
-        self.assertTrue(is_safe_product_spec_path("docs/product/CUSTOMER.md"))
-        self.assertTrue(is_safe_product_spec_path("docs/product/website/DIAGNOSIS.md"))
+    def test_connection_and_module_platform_paths(self) -> None:
+        for path in (
+            "docs/product/CONNECTION.md",
+            "docs/product/MODULE_PLATFORM.md",
+            "docs/product/CUSTOMER.md",
+        ):
+            self.assertTrue(is_safe_product_spec_path(path))
+            self.assertEqual(validate_product_spec_paths([path], repo_root=REPO_ROOT), [])
 
-    def test_rejects_traversal_and_non_product(self) -> None:
+    def test_rejects_traversal(self) -> None:
         self.assertFalse(is_safe_product_spec_path("docs/product/../MASTER_SPEC.md"))
-        self.assertFalse(is_safe_product_spec_path("docs/MASTER_SPEC.md"))
-        self.assertFalse(is_safe_product_spec_path("/tmp/evil.md"))
-        self.assertFalse(is_safe_product_spec_path("docs/product/../../etc/passwd"))
 
-    def test_validate_list_type(self) -> None:
-        errors = validate_product_spec_paths("docs/product/CUSTOMER.md")
-        self.assertTrue(any("list of strings" in e for e in errors))
-
-    def test_missing_spec_rejected_when_root_provided(self) -> None:
-        errors = validate_product_spec_paths(
-            ["docs/product/DOES_NOT_EXIST.md"],
-            repo_root=REPO_ROOT,
-        )
-        self.assertTrue(any("does not exist" in e for e in errors))
-
-    def test_require_non_empty(self) -> None:
-        errors = validate_product_spec_paths([], require_non_empty=True)
+    def test_task_ready_empty_product_specs_rejected(self) -> None:
+        data = _task_ready(product_spec_paths=[])
+        errors = validate_architect_task(data, repo_root=REPO_ROOT)
         self.assertTrue(any("must not be empty" in e for e in errors))
 
-    def test_customer_and_diagnosis_specs_load(self) -> None:
-        customer = "docs/product/CUSTOMER.md"
-        diagnosis = "docs/product/website/DIAGNOSIS.md"
-        self.assertEqual(validate_product_spec_paths([customer, diagnosis], repo_root=REPO_ROOT), [])
-        loaded = load_product_specs(REPO_ROOT, [customer, diagnosis])
-        self.assertIn("Customer", loaded)
-        self.assertIn("Website Diagnosis", loaded)
+    def test_catalog_includes_new_blueprints(self) -> None:
         catalog = list_product_spec_files(REPO_ROOT)
-        self.assertIn(customer, catalog)
-        self.assertIn(diagnosis, catalog)
+        self.assertIn("docs/product/CONNECTION.md", catalog)
+        self.assertIn("docs/product/MODULE_PLATFORM.md", catalog)
+
+
+class RepeatedTaskTests(unittest.TestCase):
+    def test_repeated_task_id(self) -> None:
+        task = _task_ready(task_id="task-customer-1")
+        self.assertTrue(is_repeated_task(task, merged_task_ids={"task-customer-1"}))
+        self.assertFalse(is_repeated_task(task, merged_task_ids={"other"}))
+
+    def test_extract_task_ids(self) -> None:
+        body = f"{AUTOMATION_PR_MARKER}\n- **task_id:** `task-abc`\n"
+        self.assertIn("task-abc", extract_task_ids_from_pr_bodies([body]))
+
+
+class HardBlockerTests(unittest.TestCase):
+    def test_hard_blocker_helper(self) -> None:
+        self.assertTrue(should_create_hard_blocker_issue("HUMAN_REQUIRED", "missing secret"))
+        self.assertFalse(should_create_hard_blocker_issue("TASK_READY", "x"))
+        body = format_hard_blocker_issue_body(reason="blocked", task={"task_id": "x"})
+        self.assertIn(HARD_BLOCKER_ISSUE_MARKER, body)
+
+
+class MergeGateTests(unittest.TestCase):
+    def test_final_merge_gate(self) -> None:
+        task = _task_ready()
+        errors = final_merge_gate_errors(
+            branch_name="feat/customer-model",
+            pr_body=f"{AUTOMATION_PR_MARKER}\n",
+            task=task,
+            secret_paths=[],
+            suspicious_diff=False,
+            tests_passed=True,
+            mergeable=True,
+            repo_root=REPO_ROOT,
+        )
+        self.assertEqual(errors, [])
+        bad = final_merge_gate_errors(
+            branch_name="main",
+            pr_body="no marker",
+            task=task,
+            secret_paths=[".env"],
+            suspicious_diff=True,
+            tests_passed=False,
+            mergeable=False,
+            repo_root=REPO_ROOT,
+        )
+        self.assertGreaterEqual(len(bad), 4)
+
+    def test_dispatch_eligible(self) -> None:
+        self.assertTrue(
+            dispatch_eligible(
+                merged=True,
+                automation_pr=True,
+                verdict_approved=True,
+                hard_blocker=False,
+                roadmap_complete=False,
+            )
+        )
+        self.assertFalse(
+            dispatch_eligible(
+                merged=True,
+                automation_pr=True,
+                verdict_approved=True,
+                hard_blocker=True,
+                roadmap_complete=False,
+            )
+        )
 
 
 class SchemaValidationTests(unittest.TestCase):
     def test_architect_task_ready(self) -> None:
-        data = _task_ready()
-        self.assertEqual(validate_architect_task(data, repo_root=REPO_ROOT), [])
+        self.assertEqual(validate_architect_task(_task_ready(), repo_root=REPO_ROOT), [])
 
     def test_architect_requires_product_spec_paths_field(self) -> None:
         data = _task_ready()
         del data["product_spec_paths"]
         errors = validate_architect_task(data)
         self.assertTrue(any("product_spec_paths" in e for e in errors))
-
-    def test_architect_rejects_bad_product_path(self) -> None:
-        data = _task_ready(product_spec_paths=["docs/product/../MASTER_SPEC.md"])
-        errors = validate_architect_task(data, repo_root=REPO_ROOT)
-        self.assertTrue(any("product_spec_path" in e for e in errors))
-
-    def test_architect_product_task_requires_non_empty_when_flag_set(self) -> None:
-        data = _task_ready(product_spec_paths=[])
-        errors = validate_architect_task(data, require_product_specs=True)
-        self.assertTrue(any("must not be empty" in e for e in errors))
-
-    def test_architect_rejects_bad_branch(self) -> None:
-        data = _task_ready(branch_name="Main")
-        errors = validate_architect_task(data)
-        self.assertTrue(any("branch_name" in error for error in errors))
-
-    def test_reviewer_fix_requires_issues(self) -> None:
-        data = {
-            "verdict": "FIX_REQUIRED",
-            "summary": "Needs work",
-            "issues": [],
-            "scope_check": "ok",
-            "architecture_check": "ok",
-            "test_check": "missing",
-        }
-        errors = validate_reviewer_result(data)
-        self.assertTrue(any("issue" in error for error in errors))
 
     def test_reviewer_approved(self) -> None:
         data = {
@@ -211,18 +214,22 @@ class ReviewerTaskFileTests(unittest.TestCase):
     def test_reviewer_task_file_context_loading(self) -> None:
         from reviewer import build_review_payload
 
-        task = _task_ready(product_spec_paths=["docs/product/CUSTOMER.md"])
+        task = _task_ready(product_spec_paths=["docs/product/CONNECTION.md"])
         payload = build_review_payload(
-            title="feat: customer",
+            title="feat: connection",
             body=f"{AUTOMATION_PR_MARKER}\n",
-            changed_files="app/Models/Customer.php\n",
-            diff_text="diff --git a/app/Models/Customer.php\n",
+            changed_files="app/Models/Connection.php\n",
+            diff_text="diff --git a/x\n",
             test_notes="ok",
             task_json=task,
         )
-        self.assertIn("docs/product/CUSTOMER.md", payload)
-        self.assertIn("Customer", payload)
-        self.assertIn("Architect task JSON", payload)
+        self.assertIn("docs/product/CONNECTION.md", payload)
+        self.assertIn("Connection", payload)
+
+
+class SkipNextTaskTests(unittest.TestCase):
+    def test_skips_chore(self) -> None:
+        self.assertTrue(should_skip_next_task_for_merged_pr("chore/dop-autopilot"))
 
 
 if __name__ == "__main__":

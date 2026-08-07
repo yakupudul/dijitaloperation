@@ -300,7 +300,7 @@ Sonra AI: bulguları açıklar → ilişkileri yorumlar → muhtemel neden → �
 | HTTP | Laravel HTTP client |
 | Secrets | Laravel encryption (encrypted cast) |
 | AI | `laravel/ai` (provider env/config) |
-| Test | Pest |
+| Test | PHPUnit (ADR-038) |
 | Modüller | `app-modules/` + `internachi/modular` |
 
 Redis, Horizon, ayrı worker ve ileri ölçekleme bileşenleri **yalnızca gerçek ihtiyaçta** eklenir.

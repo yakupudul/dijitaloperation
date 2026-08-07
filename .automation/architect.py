@@ -16,6 +16,8 @@ if str(AUTOMATION_DIR) not in sys.path:
 
 from common import (  # noqa: E402
     extract_response_text,
+    extract_task_ids_from_pr_bodies,
+    is_repeated_task,
     list_product_spec_files,
     load_prompt,
     parse_json_object,
@@ -56,7 +58,40 @@ def _read_all_product_blueprints() -> str:
     return "\n".join(chunks)
 
 
+def _merged_automation_task_ids() -> set[str]:
+    import subprocess
+
+    try:
+        result = subprocess.run(
+            [
+                "gh",
+                "pr",
+                "list",
+                "--state",
+                "merged",
+                "--base",
+                "main",
+                "--limit",
+                "40",
+                "--json",
+                "body,title,headRefName",
+            ],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0 or not result.stdout.strip():
+            return set()
+        rows = json.loads(result.stdout)
+        bodies = [str(row.get("body") or "") for row in rows]
+        return extract_task_ids_from_pr_bodies(bodies)
+    except (OSError, json.JSONDecodeError):
+        return set()
+
+
 def build_user_payload() -> str:
+    merged_ids = sorted(_merged_automation_task_ids())
     return (
         "Analyze the current DOP repository state and return the next task JSON.\n\n"
         "## Project documents\n"
@@ -65,7 +100,9 @@ def build_user_payload() -> str:
         "## Compact repository file list\n"
         f"{summarize_repo_tree(ROOT)}\n\n"
         "## Recent commits\n"
-        f"{recent_commit_summary(ROOT)}\n"
+        f"{recent_commit_summary(ROOT)}\n\n"
+        "## Previously merged automation task_ids (do not repeat)\n"
+        f"{chr(10).join(merged_ids) if merged_ids else '(none discovered)'}\n"
     )
 
 
@@ -86,9 +123,15 @@ def call_architect(model: str) -> dict:
     )
     raw = extract_response_text(response)
     data = parse_json_object(raw)
-    errors = validate_architect_task(data, repo_root=ROOT)
+    errors = validate_architect_task(data, repo_root=ROOT, require_product_specs=True)
     if errors:
         raise ValueError("Architect JSON failed validation: " + "; ".join(errors))
+    if data.get("status") == "TASK_READY" and is_repeated_task(
+        data, merged_task_ids=_merged_automation_task_ids()
+    ):
+        raise ValueError(
+            "Architect returned a repeated automation task_id/branch; failing closed"
+        )
     return data
 
 

@@ -18,12 +18,23 @@
 - Prensip: framework’ün çözdüğünü tekrar yazma (ADR-033)
 - Website Diagnosis katalog: diagnosis fazı öncesi `docs/website/DIAGNOSIS_CATALOG.md` (Core blocker değil)
 - Product memory: `docs/product/*` — Architect/Reviewer/Implementer okur; blueprint’te olmayan ürün davranışı uydurulmaz
+- Test standardı: **PHPUnit** (ADR-038); Pest eklenmez
+- Product feature task’larında `product_spec_paths` dolu olmalı
+
+### DOP Autopilot exception (overrides Boost “ask user” for CI agents)
+
+GitHub **DOP Autopilot** altında çalışan Implementer/Fixer:
+
+- routine safe local actions için kullanıcıya soru sormaz
+- task için gerekli testleri çalıştırır
+- final gate’te full required suite otomatik çalışır
+- dependency değişikliği yalnızca Architect task açıkça gerektiriyorsa yapılabilir
+- MASTER_SPEC / product blueprint scope’u değiştirilemez
 
 ### Pratik
 
 - SaaS, Client Portal, harici write, marketplace/ZIP, custom migrator/FSM ekleme.
 - MVP Core listesi dışında Attachments/Tags/feature-flags/ağır health-audit zorunlu sayma.
-- Product feature task’larında `product_spec_paths` dolu olmalı.
 ===
 
 <laravel-boost-guidelines>

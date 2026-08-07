@@ -100,7 +100,7 @@ Sözleşme ihlalleri “sonra düzeltiriz” borcuna dönüşmesin diye yayın �
 
 ## Sınırlar
 
-- Test framework: Pest; maddeler Pest/Feature testlerine map edilir.  
+- Test framework: PHPUnit (ADR-038); maddeler Feature/Unit testlerine map edilir.  
 - Arch lint yoksa ilgili maddeler review ile kapatılır ve borç olarak işaretlenir.
 
 ## Migration Impact
@@ -112,4 +112,4 @@ Sözleşme ihlalleri “sonra düzeltiriz” borcuna dönüşmesin diye yayın �
 
 ## Açık Sorular
 
-Yok. İlk günde checklist + review zorunlu; Pest arch/import testleri önerilir ama Core belgesel bloker değildir. Coverage eşiği yok.
+Yok. İlk günde checklist + review zorunlu; PHPUnit Feature/Unit testleri önerilir ama Core belgesel bloker değildir. Coverage eşiği yok.
