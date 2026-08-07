@@ -3,9 +3,11 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Support\Permissions;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class FilamentPanelTest extends TestCase
@@ -23,20 +25,53 @@ class FilamentPanelTest extends TestCase
             ->assertRedirect('/app/login');
     }
 
-    public function test_authenticated_team_member_can_access_panel(): void
+    public function test_admin_can_access_panel(): void
     {
         $this->seed(RoleAndPermissionSeeder::class);
 
         $user = User::factory()->create();
-        $user->assignRole(Roles::TEAM_MEMBER);
+        $user->assignRole(Roles::ADMIN);
 
         $this->actingAs($user)
             ->get('/app')
             ->assertOk();
     }
 
+    public function test_team_member_with_access_app_can_access_panel(): void
+    {
+        $this->seed(RoleAndPermissionSeeder::class);
+
+        $user = User::factory()->create();
+        $user->assignRole(Roles::TEAM_MEMBER);
+
+        $this->assertTrue($user->can(Permissions::ACCESS_APP));
+
+        $this->actingAs($user)
+            ->get('/app')
+            ->assertOk();
+    }
+
+    public function test_team_member_without_access_app_cannot_access_panel(): void
+    {
+        $this->seed(RoleAndPermissionSeeder::class);
+
+        Role::findByName(Roles::TEAM_MEMBER, 'web')
+            ->revokePermissionTo(Permissions::ACCESS_APP);
+
+        $user = User::factory()->create();
+        $user->assignRole(Roles::TEAM_MEMBER);
+
+        $this->assertFalse($user->can(Permissions::ACCESS_APP));
+
+        $this->actingAs($user)
+            ->get('/app')
+            ->assertForbidden();
+    }
+
     public function test_authenticated_user_without_role_cannot_access_panel(): void
     {
+        $this->seed(RoleAndPermissionSeeder::class);
+
         $user = User::factory()->create();
 
         $this->actingAs($user)
