@@ -44,7 +44,7 @@ Logical evidence labels (normalized later by collectors; not API field dumps):
 | --- | --- |
 | `http_fetch` | Request URL, final URL, status code, response headers, timing, error class |
 | `redirects` | Ordered hop list (status, location) from start URL to final URL |
-| `tls_info` | Certificate validity window, subject/SAN coverage for host, protocol/cipher summary when available |
+| `tls_info` | Normalized peer certificate observation for a host: `host`, `present`, `subject_common_name`, `issuer_common_name`, `valid_from` (ISO8601 UTC), `valid_to` (ISO8601 UTC / notAfter), `observed_at` (ISO8601 UTC), `fetch_method` (`php_stream` \| `curl`), optional `error_class`, optional `san_hosts` when available. No private keys or raw certificate dumps. |
 | `robots` | Fetched `robots.txt` body (or absence / non-200), effective URL |
 | `sitemap` | Fetched sitemap document(s) or declared sitemap URL outcome (presence, parseability, URL count signal) |
 | `page_html` | HTML document for a URL (head/body excerpt sufficient for meta/link tags) |
@@ -87,15 +87,16 @@ Logical evidence labels (normalized later by collectors; not API field dumps):
 | --- | --- |
 | **id** | `https-tls-validity` |
 | **category** | `transport` |
-| **purpose** | Detect missing or invalid TLS so visitors and crawlers are not served an insecure or untrusted HTTPS endpoint. |
-| **required_evidence** | `tls_info` for the hostname of the primary HTTPS URL; `http_fetch` attempting `https://` on that host |
-| **optional_evidence** | `redirects` (HTTP→HTTPS upgrade path) |
-| **detection_rule** | Fire when any of: (a) HTTPS fetch fails due to certificate error (expired, not yet valid, hostname/SAN mismatch, untrusted chain); (b) certificate `notAfter` is in the past relative to fetch time; (c) certificate SANs/CN do not cover the requested host. Separately, emit **info** (same id family may be split later) is out of scope here — this item covers validity failures only. Certificate identity and validity follow TLS 1.2+ practice and PKIX ([RFC 5280](https://www.rfc-editor.org/rfc/rfc5280), [RFC 9110](https://www.rfc-editor.org/rfc/rfc9110) HTTPS). |
-| **severity** | `high` |
+| **purpose** | Detect missing, expired, or soon-to-expire TLS so visitors and crawlers are not served an insecure or untrusted HTTPS endpoint. |
+| **required_evidence** | `tls_info` for the hostname of the primary URL (HTTPS port/probe for that host); `http_fetch` for the primary URL when available |
+| **optional_evidence** | `redirects` (HTTP→HTTPS upgrade path); hostname/SAN coverage details inside `tls_info` |
+| **detection_rule** | Fire when any of: (a) peer certificate cannot be obtained (`present=false` / certificate error class); (b) certificate `valid_to` (`notAfter`) is in the past relative to `observed_at`; (c) certificate `valid_to` is within **7 days** after `observed_at` (renewal risk); (d) when SAN/CN data is present, the requested host is not covered. Untrusted-chain and hostname-mismatch remain in-scope when those failure classes are observed in `tls_info.error_class`. Certificate identity and validity follow TLS 1.2+ practice and PKIX ([RFC 5280](https://www.rfc-editor.org/rfc/rfc5280), [RFC 9110](https://www.rfc-editor.org/rfc/rfc9110) HTTPS). |
+| **severity** | `high` for missing/expired/not-yet-valid/hostname mismatch/untrusted chain; `medium` when the certificate is still valid but expires within 7 days |
 | **confidence** | `high` |
+| **fingerprint** | `sha256( "{id}\|host={normalized_host}" )` where `normalized_host` is the lowercased hostname from the primary URL (no port). Validity dates, issuer, and error class are **not** part of the fingerprint (same host upserts across runs). |
 | **finding_output** | **title:** `HTTPS/TLS certificate problem` · **summary:** `TLS for host {host} failed validation ({tls_failure_reason}); certificate notAfter={not_after}.` |
-| **recommendation_logic** | If expired/not-yet-valid → renew or install the correct certificate and verify chain completeness. If hostname mismatch → install a cert whose SAN includes `{host}` (and `www` variant if used). If untrusted chain → include intermediates / use a publicly trusted CA. |
-| **source_dependency** | Requires successful collection of `tls_info`. When only plaintext HTTP is available and HTTPS never negotiates, confidence remains high for “HTTPS broken/unavailable” based on `http_fetch` TLS error class. Optional `redirects` showing no HTTP→HTTPS upgrade increases related transport completeness but is evaluated under `redirect-http-to-https`. |
+| **recommendation_logic** | If missing → install a publicly trusted certificate for `{host}`. If expired/not-yet-valid/expiring within 7 days → renew or replace the certificate before/after expiry and verify chain completeness. If hostname mismatch → install a cert whose SAN includes `{host}` (and `www` variant if used). If untrusted chain → include intermediates / use a publicly trusted CA. |
+| **source_dependency** | Requires successful collection of `tls_info`. When only plaintext HTTP is available and HTTPS never negotiates, confidence remains high for “HTTPS broken/unavailable” based on `tls_info` / `http_fetch` TLS error class. Optional `redirects` showing no HTTP→HTTPS upgrade increases related transport completeness but is evaluated under `redirect-http-to-https`. |
 
 **Authoritative sources:** [RFC 5280](https://www.rfc-editor.org/rfc/rfc5280) (PKIX); [RFC 8446](https://www.rfc-editor.org/rfc/rfc8446) (TLS 1.3); Google Search — [Secure sites with HTTPS](https://developers.google.com/search/docs/appearance/https).
 
