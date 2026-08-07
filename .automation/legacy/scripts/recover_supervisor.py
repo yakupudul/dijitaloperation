@@ -10,10 +10,13 @@ import subprocess
 import sys
 from pathlib import Path
 
-AUTOMATION_DIR = Path(__file__).resolve().parents[1]
+AUTOMATION_DIR = Path(__file__).resolve().parents[2]  # .automation/
+LEGACY_DIR = Path(__file__).resolve().parents[1]  # .automation/legacy/
 ROOT = AUTOMATION_DIR.parent
 if str(AUTOMATION_DIR) not in sys.path:
     sys.path.insert(0, str(AUTOMATION_DIR))
+if str(LEGACY_DIR) not in sys.path:
+    sys.path.insert(0, str(LEGACY_DIR))
 
 from recovery import (  # noqa: E402
     HARD_BLOCKED,

@@ -245,6 +245,11 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Fail if PR body lacks automation marker",
     )
+    parser.add_argument(
+        "--fail-on-blocking-verdict",
+        action="store_true",
+        help="Exit non-zero when verdict is FIX_REQUIRED or HUMAN_REQUIRED (CI signal)",
+    )
     args = parser.parse_args(argv)
 
     if args.validate_only:
@@ -344,6 +349,14 @@ def main(argv: list[str] | None = None) -> int:
             reviewer_role=role,
         )
         write_review_evidence(Path(args.evidence_output), evidence)
+
+    verdict = str(data.get("verdict") or "")
+    if args.fail_on_blocking_verdict and verdict in {"FIX_REQUIRED", "HUMAN_REQUIRED"}:
+        print(
+            f"Blocking reviewer verdict: {verdict} (CI failure signal for Cursor Automations)",
+            file=sys.stderr,
+        )
+        return 1
 
     return 0
 

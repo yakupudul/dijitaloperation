@@ -9,10 +9,13 @@ import os
 import sys
 from pathlib import Path
 
-AUTOMATION_DIR = Path(__file__).resolve().parent
-ROOT = AUTOMATION_DIR.parent
+AUTOMATION_DIR = Path(__file__).resolve().parents[1]  # .automation/
+LEGACY_DIR = Path(__file__).resolve().parent  # .automation/legacy/
+ROOT = AUTOMATION_DIR.parent  # repository root
 if str(AUTOMATION_DIR) not in sys.path:
     sys.path.insert(0, str(AUTOMATION_DIR))
+if str(LEGACY_DIR) not in sys.path:
+    sys.path.insert(0, str(LEGACY_DIR))
 
 from common import (  # noqa: E402
     DEFAULT_ARCHITECT_MODEL,
@@ -40,7 +43,7 @@ from recovery import (  # noqa: E402
     repair_invalid_product_spec_paths,
 )
 
-PROMPTS_DIR = AUTOMATION_DIR / "prompts"
+PROMPTS_DIR = LEGACY_DIR / "prompts"
 
 # Stable planning docs (NOT full MASTER_SPEC; NOT full docs/product/**).
 PLANNING_DOC_PATHS = (

@@ -29,3 +29,4 @@ Thumbs.db
 __pycache__/
 *.py[cod]
 .automation/runtime/
+.automation/runtime/

@@ -420,7 +420,9 @@ class SelectiveContextTests(unittest.TestCase):
             self.assertNotIn(banned, selected)
 
     def test_architect_payload_uses_core_rules_not_all_blueprints(self) -> None:
-        from architect import architect_context_files, build_user_payload
+        legacy = Path(__file__).resolve().parents[1] / "legacy"
+        sys.path.insert(0, str(legacy))
+        from architect import architect_context_files, build_user_payload  # noqa: WPS433
 
         files = architect_context_files(
             merged_task_ids={"brand-model-and-migration"},

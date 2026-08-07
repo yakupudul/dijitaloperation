@@ -1,93 +1,57 @@
-# DOP Development Autopilot
+# DOP Development Autopilot v2
 
-DOP ürün geliştirme döngüsü **kullanıcıdan routine prompt / review / merge istemeden** çalışır.
+Product planning / implementation / repair is owned by **Cursor Automations**.
 
-## Tek gerçek akış
+GitHub Actions only provides deterministic gates.
 
-**DOP Autopilot** (`.github/workflows/dop-autopilot.yml`)
+## Active workflow
 
-1. **Architect (OpenAI)** — roadmap + MASTER_SPEC + product blueprints’ten sıradaki küçük işi seçer  
-2. **Cursor Implementer** — yalnızca o işi kodlar / lokal test çalıştırır  
-3. **Quality Gates** (`.automation/scripts/quality_gates.sh`) — CI env bootstrap (`.env` from example + ephemeral `key:generate`), secret scan, composer validate, PHPUnit (sqlite/:memory: via `phpunit.xml`), Pint, automation tests  
-4. **PR** — `<!-- DOP_AUTOMATION_PR -->` marker ile açılır  
-5. **OpenAI Reviewer** — aynı workflow run içinde product specs + diff inceler  
-6. **Cursor Fixer** — en fazla 3 düzeltme turu  
-7. **Final Gates** — tekrar kalite + mergeability  
-8. **Auto Merge** — squash + branch sil  
-9. **repository_dispatch (`dop-next-task`)** — sıradaki Autopilot run  
+**DOP PR Gate** (`.github/workflows/dop-pr-gate.yml`)
 
-## Ne zaman durur?
+1. Checkout PR head  
+2. Bootstrap test env  
+3. Composer validate + PHPUnit + Pint  
+4. Secret / credential scan  
+5. Product branch infra path protection (automation PRs only)  
+6. OpenAI Reviewer (structured verdict + SHA-locked evidence)  
+7. Squash merge when all gates pass  
+8. Update `docs/PROJECT_STATUS.md`  
 
-* `ROADMAP_COMPLETE`
-* `HUMAN_REQUIRED` / hard blocker issue (`<!-- DOP_HARD_BLOCKER -->`)
-* test / secret / suspicious-diff failure
-* 3 fix sonrası çözülmeyen sorun
-* boş diff / tekrarlanan task
+**Does not** select tasks, run Architect, implement recovery loops, or emit legacy continuation/recovery repository events.
 
-Bu durumlarda **yeni dispatch yok**.
+## PR contract (Cursor Automations)
 
-## Secrets
+* Branch: `dop/<task-id>`
+* PR body includes `<!-- DOP_AUTOMATION_PR -->`
+* Structured metadata: Task ID, roadmap stage, title, product spec paths, ADRs, acceptance criteria, tests
 
-Repository Actions secrets:
+## Reviewer
 
-* `OPENAI_API_KEY`
-* `CURSOR_API_KEY`
+Verdicts: `APPROVED` | `FIX_REQUIRED` | `HUMAN_REQUIRED`
 
-Opsiyonel vars:
+* `APPROVED` + matching HEAD SHA + gates → merge  
+* `FIX_REQUIRED` / `HUMAN_REQUIRED` → **failed CI check** with readable issues (Cursor Automation repairs)  
 
-* `OPENAI_ARCHITECT_MODEL` (default **gpt-5-mini**)
-* `OPENAI_REVIEWER_MODEL` (default **gpt-5-mini**)
-* `OPENAI_ESCALATION_MODEL` (default **gpt-5**, yalnız escalation)
-* `OPENAI_REASONING_EFFORT` (default **low**)
-* `CURSOR_AGENT_MODEL`
+## Legacy Autopilot (retired)
 
-Secret değerleri log/prompt/artifact’a yazılmaz. Usage metrikleri (token counts) step summary’ye yazılır.
+* Stub: `.github/workflows/dop-autopilot.yml` — `workflow_dispatch` only; refuses to run  
+* Archive: `.automation/legacy/` (Architect, recovery, old full workflow)
 
-## Branch isolation
+## Project status
 
-Product Autopilot PRs are always created from a freshly fetched `origin/main`.
+Canonical human-readable progress: [`docs/PROJECT_STATUS.md`](../docs/PROJECT_STATUS.md)
 
-* `.automation/scripts/prepare_product_branch.sh` — detach/reset to `origin/main`, apply product patch
-* `.automation/scripts/assert_product_branch_infra.sh` — fail if three-dot diff touches `.github/` or `.automation/` unless Architect `files_or_areas` explicitly allows it
+Terminology: `RUNNING` | `RECOVERING` | `HARD_BLOCKED` | `ROADMAP_COMPLETE`
 
-This prevents stale-base races where a concurrent workflow commit on `main` makes GitHub reject the product branch push (`workflows` permission).
+Workflow run numbers are never treated as roadmap progress.
 
-## Merge invariant (fail-closed)
+## Secrets / vars
 
-Product PR merge requires **both**:
+* `OPENAI_API_KEY` (required for Reviewer)
+* Optional: `OPENAI_REVIEWER_MODEL`, `OPENAI_REASONING_EFFORT`
 
-1. Verified runtime Reviewer evidence with `verdict == APPROVED` for the **current PR HEAD SHA**
-2. All deterministic final gates PASS
-
-Missing/invalid OpenAI key, reviewer process failure, missing review JSON, `FIX_REQUIRED`, `HUMAN_REQUIRED`, or approved-SHA ≠ HEAD **cannot merge**.
-
-Local Cursor maintenance agents must **not** bypass Autopilot by merging product PRs when Reviewer is unavailable. Review/merge stays in GitHub Actions (where `OPENAI_API_KEY` exists as a secret).
-
-## Token economy
-
-* Stable prefix: `.automation/context/CORE_RULES.md` (MASTER_SPEC yerine compact rules)
-* Architect yalnız sıradaki domain candidate blueprint’lerini yükler (`docs/product/**` tamamı değil)
-* Reviewer: CORE_RULES + `product_spec_paths` + ilgili ADR excerpt + diff/tests
-* Normal başarılı task hedefi: **1 Architect + 1 Reviewer** OpenAI call
-* Escalation modeli normal akışta çağrılmaz
-
-## Manuel ilk start
-
-Actions → **DOP Autopilot** → Run workflow (bir kez).  
-Sonrası `repository_dispatch` zinciriyle devam eder.
-
-## Product memory
-
-Architect/Reviewer/Implementer `docs/product/**` blueprint’lerini kullanır.  
-`TASK_READY` için `product_spec_paths` boş olamaz.
-
-## Yerel testler (API yok)
+## Local tests
 
 ```bash
 python -m unittest discover -s .automation/tests -v
 ```
-
-## Maliyet
-
-OpenAI (architect + her review) + Cursor (implement + fix).  
-1 task / run ve max 3 fix limiti maliyeti sınırlar.

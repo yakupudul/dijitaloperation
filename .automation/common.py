@@ -1049,6 +1049,13 @@ def write_review_evidence(path: Path, evidence: dict[str, Any]) -> None:
     path.write_text(json.dumps(evidence, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+def write_run_summary_status(path: Path, status: str, detail: str = "") -> None:
+    """Write a small chain/status file for Actions summaries (no network)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = status if not detail else f"{status}\n{detail}"
+    path.write_text(payload.strip() + "\n", encoding="utf-8")
+
+
 def dispatch_eligible(
     *,
     merged: bool,
