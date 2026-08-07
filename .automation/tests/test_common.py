@@ -15,11 +15,13 @@ from common import (  # noqa: E402
     FIX_COMMIT_MESSAGE,
     HARD_BLOCKER_ISSUE_MARKER,
     MAX_FIX_ATTEMPTS,
+    assert_product_branch_diff_safe,
     count_fix_attempts_from_commit_messages,
     diff_is_suspiciously_large,
     dispatch_eligible,
     extract_task_ids_from_pr_bodies,
     final_merge_gate_errors,
+    find_product_infra_paths,
     find_secret_like_paths,
     format_hard_blocker_issue_body,
     has_automation_pr_marker,
@@ -34,6 +36,7 @@ from common import (  # noqa: E402
     scan_diff_for_credential_leaks,
     should_create_hard_blocker_issue,
     should_skip_next_task_for_merged_pr,
+    task_allows_infra_paths,
     validate_architect_task,
     validate_product_spec_paths,
     validate_reviewer_result,
@@ -349,6 +352,56 @@ class UsageExtractionTests(unittest.TestCase):
         self.assertIn("gpt-5-mini", line)
         self.assertIn("input_tokens=100", line)
         self.assertIn("cached_input_tokens=40", line)
+
+
+class ProductInfraGateTests(unittest.TestCase):
+    def test_detects_workflow_and_automation_paths(self) -> None:
+        hits = find_product_infra_paths(
+            [
+                "app/Models/DigitalAsset.php",
+                ".github/workflows/dop-autopilot.yml",
+                ".automation/common.py",
+            ]
+        )
+        self.assertEqual(
+            hits,
+            [".github/workflows/dop-autopilot.yml", ".automation/common.py"],
+        )
+
+    def test_product_diff_rejects_workflow_without_explicit_scope(self) -> None:
+        errors = assert_product_branch_diff_safe(
+            [".github/workflows/dop-autopilot.yml", "app/Models/X.php"],
+            task=_task_ready(files_or_areas=["app/", "database/"]),
+        )
+        self.assertTrue(errors)
+        self.assertIn(".github/workflows/dop-autopilot.yml", errors[0])
+
+    def test_explicit_infra_scope_allows_automation_paths(self) -> None:
+        task = _task_ready(files_or_areas=[".automation/", ".github/workflows/"])
+        self.assertTrue(
+            task_allows_infra_paths(
+                task,
+                [".automation/common.py", ".github/workflows/dop-autopilot.yml"],
+            )
+        )
+        self.assertEqual(
+            assert_product_branch_diff_safe(
+                [".automation/scripts/prepare_product_branch.sh"],
+                task=task,
+            ),
+            [],
+        )
+
+    def test_prepare_and_assert_scripts_exist(self) -> None:
+        prepare = REPO_ROOT / ".automation" / "scripts" / "prepare_product_branch.sh"
+        gate = REPO_ROOT / ".automation" / "scripts" / "assert_product_branch_infra.sh"
+        self.assertTrue(prepare.is_file())
+        self.assertTrue(gate.is_file())
+        prepare_text = prepare.read_text(encoding="utf-8")
+        self.assertIn("origin/main", prepare_text)
+        self.assertIn("checkout --detach", prepare_text)
+        gate_text = gate.read_text(encoding="utf-8")
+        self.assertIn("origin/main...HEAD", gate_text)
 
 
 class CiBootstrapTests(unittest.TestCase):

@@ -15,6 +15,7 @@ You are the implementation agent for **DOP / MoxDOP** under GitHub Autopilot.
 - Invent blueprint-absent business behavior
 - SaaS / external write / Result entity / custom plugin framework
 - Commit secrets / `.env`
+- Modify `.github/` or `.automation/` unless Architect `files_or_areas` explicitly requires it
 - Git push / PR / merge (workflow does that)
 
 ## Output
