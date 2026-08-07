@@ -2,14 +2,14 @@ This file is generated/maintained by DOP Autopilot and represents implementation
 
 # DOP Project Status
 
-Last updated: 2026-08-07T22:05:00Z
+Last updated: 2026-08-07T22:06:21Z
 
 Overall status:
 RUNNING
 
-Current roadmap stage: 23 / 23
+Current roadmap stage: 18 / 23
 
-Current stage: Action-oriented agency operations dashboard / first production hardening
+Current stage: Google Business Profile product spec + first module
 
 Current task: agency-ops-dashboard-production-hardening
 
@@ -18,13 +18,13 @@ Current task title:
 Harden agency ops dashboard with remaining MVP action signals
 
 Current automation run:
-https://github.com/yakupudul/dijitaloperation/pull/89
+https://github.com/yakupudul/dijitaloperation/actions/runs/31222534614
 
 ## Progress
 
-* Completed stages: 22 / 23 (stages 18–22 complete on main via product specs, first-module probes, and MVP cross-asset packs; status checkboxes below still lag automation evidence heuristics)
-* In progress stages: 23
-* Remaining stages: 23 (production hardening)
+* Completed stages: 17 / 23
+* In progress stages: —
+* Remaining stages: 18, 19, 20, 21, 22, 23
 
 ## Roadmap
 
@@ -45,11 +45,11 @@ https://github.com/yakupudul/dijitaloperation/pull/89
 * [x] 15. PageSpeed / Lighthouse Connector
 * [x] 16. DataForSEO Connector
 * [x] 17. Website AI Insights
-* [x] 18. Google Business Profile product spec + first module
-* [x] 19. Google Ads product spec + first module
-* [x] 20. Meta Ads product spec + first module
-* [x] 21. Instagram product spec + first module
-* [x] 22. Cross-asset / cross-channel analysis
+* [ ] 18. Google Business Profile product spec + first module
+* [ ] 19. Google Ads product spec + first module
+* [ ] 20. Meta Ads product spec + first module
+* [ ] 21. Instagram product spec + first module
+* [ ] 22. Cross-asset / cross-channel analysis
 * [ ] 23. Action-oriented agency operations dashboard / first production hardening
 
 ## Current activity
@@ -59,11 +59,12 @@ Last active task:
 * task id: `agency-ops-dashboard-production-hardening`
 * branch: `dop/agency-ops-dashboard-production-hardening`
 * PR: #89
-* reviewer verdict: —
-* retry/recovery state: RUNNING
+* reviewer verdict: APPROVED
+* retry/recovery state: COMPLETED_AND_CONTINUING
 
 ## Recently completed
 
+* `agency-ops-dashboard-production-hardening` — PR 89 — `e9b21a380c9d` — 2026-08-07T22:06:18
 * `cross-asset-instagram-meta-ads-destination-consistency` — PR 88 — `d8b4b643dd98` — 2026-08-07T21:59:42
 * `cross-asset-website-meta-ads-destination-consistency` — PR 87 — `90fedcc686d2` — 2026-08-07T21:41:47
 * `cross-asset-website-instagram-website-url-consistency` — PR 85 — `d90cb90f2db9` — 2026-08-07T20:39:36
@@ -73,11 +74,6 @@ Last active task:
 * `cross-asset-website-gbp-phone-consistency` — PR 81 — `b0eae69f9f49` — 2026-08-07T20:09:08
 * `cross-asset-website-gbp-website-url-consistency` — PR 80 — `f42c87946492` — 2026-08-07T20:01:45
 * `cross-asset-analysis-product-spec` — PR 75 — `1453adfbe059` — 2026-08-07T19:27:52
-* `instagram-connector-read-only-probe` — PR 74 — `bab09d0b1454` — 2026-08-07T19:22:50
-
-## Deferred work
-
-None
 
 ## Blockers
 
@@ -85,4 +81,4 @@ None
 
 ## Next expected
 
-23. Action-oriented agency operations dashboard / first production hardening — expected focus: Harden agency ops dashboard with remaining MVP action signals
+18. Google Business Profile product spec + first module — expected focus: Harden agency ops dashboard with remaining MVP action signals
