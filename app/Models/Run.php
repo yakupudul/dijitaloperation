@@ -40,8 +40,6 @@ class Run extends Model
     }
 
     /**
-     * Evidence model lands in a later task; relation is defined for future use.
-     *
      * @return HasMany<Evidence, $this>
      */
     public function evidence(): HasMany
