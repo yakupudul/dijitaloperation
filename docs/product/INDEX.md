@@ -65,7 +65,8 @@ Blueprint, MASTER_SPEC'i **override edemez**; yalnızca ayrıntılandırır.
 | PageSpeed / Lighthouse | `docs/product/website/PAGESPEED_LIGHTHOUSE.md` |
 | DataForSEO | `docs/product/website/DATAFORSEO.md` |
 | AI Insights | `docs/product/website/AI_INSIGHTS.md` |
-| Later assets (GBP, Ads, Instagram, …) | `docs/product/future/DIGITAL_ASSETS.md` |
+| Google Business Profile | `docs/product/google-business-profile/GOOGLE_BUSINESS_PROFILE.md` |
+| Later assets (Google Ads, Meta Ads, Instagram, …) | `docs/product/future/DIGITAL_ASSETS.md` |
 
 ## Blueprint şablonu
 
