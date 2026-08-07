@@ -2,7 +2,7 @@ This file is generated/maintained by DOP Autopilot and represents implementation
 
 # DOP Project Status
 
-Last updated: 2026-08-07T21:55:00Z
+Last updated: 2026-08-07T22:00:00Z
 
 Overall status:
 RUNNING
@@ -18,13 +18,13 @@ Current task title:
 Add Instagram ↔ Meta Ads destination URL consistency cross-asset pack
 
 Current automation run:
-(local supervisor continuation after PR #87 merge)
+https://github.com/yakupudul/dijitaloperation/pull/88
 
 ## Progress
 
 * Completed stages: 17 / 23 (stages 18–21 product specs + first connector probes are on main; status checkboxes below may lag automation helper)
 * In progress stages: 22
-* Remaining stages: 22 (remaining packs), 23 (production hardening / cleanup)
+* Remaining stages: 22 (remaining packs after this PR), 23 (production hardening / cleanup)
 
 ## Roadmap
 
@@ -58,9 +58,9 @@ Last active task:
 
 * task id: `cross-asset-instagram-meta-ads-destination-consistency`
 * branch: `dop/cross-asset-instagram-meta-ads-destination-consistency`
-* PR: (opening)
+* PR: #88
 * reviewer verdict: —
-* retry/recovery state: IMPLEMENTING
+* retry/recovery state: AWAITING_REVIEW
 
 ## Recently completed
 
