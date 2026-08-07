@@ -18,13 +18,13 @@ Current task title:
 Add Website ↔ Meta Ads destination URL consistency cross-asset pack
 
 Current automation run:
-https://github.com/yakupudul/dijitaloperation/pulls
+https://github.com/yakupudul/dijitaloperation/pull/86
 
 ## Progress
 
 * Completed stages: 17 / 23 (stages 18–21 first-module probes + stage 22 Website↔GBP/Ads/Instagram packs are on main; status checkboxes below may lag code evidence)
 * In progress stages: 22
-* Remaining stages: 18–23 (checkbox lag); active product work: stage 22 Website↔Meta Ads destination pack
+* Remaining stages: 18–23 (checkbox lag); active product work: stage 22 Website↔Meta Ads destination pack (PR #86)
 
 ## Roadmap
 
@@ -58,7 +58,7 @@ Last active task:
 
 * task id: `cross-asset-website-meta-ads-destination-consistency`
 * branch: `dop/cross-asset-website-meta-ads-destination-consistency`
-* PR: —
+* PR: #86
 * reviewer verdict: —
 * retry/recovery state: IMPLEMENTING
 
