@@ -15,6 +15,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'type',
     'status',
     'module_id',
+    'domain',
+    'primary_url',
+    'cms',
+    'languages',
+    'target_countries',
+    'site_type',
+    'hosting_context',
 ])]
 class DigitalAsset extends Model
 {
@@ -36,6 +43,8 @@ class DigitalAsset extends Model
     {
         return [
             'status' => DigitalAssetStatus::class,
+            'languages' => 'array',
+            'target_countries' => 'array',
         ];
     }
 }
