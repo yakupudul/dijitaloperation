@@ -32,7 +32,8 @@ class CrossAssetWebsiteGbpWebsiteUrlConsistencyTest extends TestCase
         $this->assertSame(CrossAssetWebsiteGbpWebsiteUrlConsistencyService::MODULE_ID, $firstRun->module_id);
         $this->assertTrue($firstRun->metadata['compared'] ?? false);
         $this->assertFalse($firstRun->metadata['hosts_match'] ?? true);
-        $this->assertNull($firstRun->metadata['skip_reason'] ?? 'x');
+        $this->assertArrayHasKey('skip_reason', $firstRun->metadata);
+        $this->assertNull($firstRun->metadata['skip_reason']);
 
         $comparison = Evidence::query()
             ->where('run_id', $firstRun->id)
