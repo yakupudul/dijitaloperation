@@ -2,14 +2,14 @@ This file is generated/maintained by DOP Autopilot and represents implementation
 
 # DOP Project Status
 
-Last updated: 2026-08-07T10:06:06Z
+Last updated: 2026-08-07T10:07:12Z
 
 Overall status:
 RUNNING
 
-Current roadmap stage: 12 / 23
+Current roadmap stage: 11 / 23
 
-Current stage: WordPress Connector
+Current stage: Website Diagnosis implementation
 
 Current task: None
 
@@ -22,8 +22,8 @@ None
 
 ## Progress
 
-* Completed stages: 11 / 23
-* In progress stages: —
+* Completed stages: 10 / 23
+* In progress stages: 11
 * Remaining stages: 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23
 
 ## Roadmap
@@ -38,7 +38,7 @@ None
 * [x] 8. Run / Evidence / Finding / Recommendation / Task
 * [x] 9. Website module
 * [x] 10. Website Diagnosis Catalog
-* [x] 11. Website Diagnosis implementation
+* [~] 11. Website Diagnosis implementation — in progress
 * [ ] 12. WordPress Connector
 * [ ] 13. Search Console Connector
 * [ ] 14. GA4 Connector
@@ -85,4 +85,4 @@ None
 
 ## Next expected
 
-12. WordPress Connector
+11. Website Diagnosis implementation
