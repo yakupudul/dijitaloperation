@@ -21,6 +21,7 @@ class DiagnoseWebsiteSslTest extends TestCase
     public function test_valid_certificate_creates_tls_info_evidence_without_finding(): void
     {
         Http::fake([
+            'https://secure.example/robots.txt' => Http::response("User-agent: *\nDisallow:\n", 200),
             'https://secure.example' => Http::response('ok', 200),
             'http://secure.example' => Http::response('', 301, ['Location' => 'https://secure.example/']),
         ]);
@@ -66,6 +67,7 @@ class DiagnoseWebsiteSslTest extends TestCase
     public function test_expired_certificate_upserts_transport_finding_with_catalog_fingerprint(): void
     {
         Http::fake([
+            'https://expired.example/robots.txt' => Http::response("User-agent: *\nDisallow:\n", 200),
             'https://expired.example' => Http::response('ok', 200),
             'http://expired.example' => Http::response('', 301, ['Location' => 'https://expired.example/']),
         ]);
@@ -116,6 +118,7 @@ class DiagnoseWebsiteSslTest extends TestCase
     public function test_expiring_soon_certificate_creates_medium_severity_finding(): void
     {
         Http::fake([
+            'https://soon.example/robots.txt' => Http::response("User-agent: *\nDisallow:\n", 200),
             'https://soon.example' => Http::response('ok', 200),
             'http://soon.example' => Http::response('', 301, ['Location' => 'https://soon.example/']),
         ]);
@@ -152,6 +155,7 @@ class DiagnoseWebsiteSslTest extends TestCase
     public function test_missing_certificate_creates_high_severity_finding(): void
     {
         Http::fake([
+            'https://missing-cert.example/robots.txt' => Http::response("User-agent: *\nDisallow:\n", 200),
             'https://missing-cert.example' => Http::response('ok', 200),
             'http://missing-cert.example' => Http::response('', 301, ['Location' => 'https://missing-cert.example/']),
         ]);

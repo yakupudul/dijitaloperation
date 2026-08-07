@@ -28,6 +28,7 @@ class DiagnoseWebsiteRedirectTest extends TestCase
     public function test_http_to_https_upgrade_creates_redirect_evidence_without_finding(): void
     {
         Http::fake([
+            'https://secure.example/robots.txt' => Http::response("User-agent: *\nDisallow:\n", 200),
             'https://secure.example' => Http::response('ok', 200),
             'http://secure.example' => Http::response('', 301, ['Location' => 'https://secure.example/']),
         ]);
@@ -75,6 +76,7 @@ class DiagnoseWebsiteRedirectTest extends TestCase
     public function test_missing_https_upgrade_upserts_transport_finding_with_catalog_fingerprint(): void
     {
         Http::fake([
+            'https://plain.example/robots.txt' => Http::response("User-agent: *\nDisallow:\n", 200),
             'https://plain.example' => Http::response('ok', 200),
             'http://plain.example' => Http::response('still http', 200),
         ]);
@@ -115,6 +117,7 @@ class DiagnoseWebsiteRedirectTest extends TestCase
     public function test_http_to_http_redirect_without_https_creates_finding(): void
     {
         Http::fake([
+            'https://loop.example/robots.txt' => Http::response("User-agent: *\nDisallow:\n", 200),
             'https://loop.example' => Http::response('ok', 200),
             'http://loop.example' => Http::response('', 302, ['Location' => 'http://loop.example/home']),
             'http://loop.example/home' => Http::response('home', 200),
@@ -149,6 +152,10 @@ class DiagnoseWebsiteRedirectTest extends TestCase
     public function test_http_entrypoint_connection_failure_does_not_create_redirect_finding(): void
     {
         Http::fake(function ($request) {
+            if (str_ends_with($request->url(), '/robots.txt')) {
+                return Http::response("User-agent: *\nDisallow:\n", 200);
+            }
+
             if (str_starts_with($request->url(), 'http://')) {
                 throw new ConnectionException('Could not connect to HTTP entrypoint');
             }
