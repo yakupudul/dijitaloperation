@@ -2,10 +2,10 @@ This file is generated/maintained by DOP Autopilot and represents implementation
 
 # DOP Project Status
 
-Last updated: 2026-08-07T20:20:00Z
+Last updated: 2026-08-07T20:25:00Z
 
 Overall status:
-RUNNING
+RECOVERING
 
 Current roadmap stage: 22 / 23
 
@@ -58,9 +58,9 @@ Last active task:
 
 * task id: `cross-asset-website-gbp-website-url-consistency`
 * branch: `dop/cross-asset-website-gbp-url-consistency-gate`
-* PR: —
-* reviewer verdict: —
-* retry/recovery state: IMPLEMENTING
+* PR: #80
+* reviewer verdict: FIX_REQUIRED
+* retry/recovery state: REPAIRING
 
 ## Recently completed
 

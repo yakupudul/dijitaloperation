@@ -14,7 +14,6 @@ use Filament\Actions\EditAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Support\Icons\Heroicon;
-use Throwable;
 
 class ViewDigitalAsset extends ViewRecord
 {
@@ -40,7 +39,7 @@ class ViewDigitalAsset extends ViewRecord
                         $run = (new DiagnoseWebsiteJob($asset))->handle(
                             app(WebsiteDiagnosisService::class),
                         );
-                    } catch (Throwable $exception) {
+                    } catch (\Throwable $exception) {
                         Notification::make()
                             ->title('Website Diagnosis failed')
                             ->body($exception->getMessage())
@@ -75,7 +74,7 @@ class ViewDigitalAsset extends ViewRecord
                         $run = (new AnalyzeWebsiteGbpWebsiteUrlConsistencyJob($asset))->handle(
                             app(CrossAssetWebsiteGbpWebsiteUrlConsistencyService::class),
                         );
-                    } catch (Throwable $exception) {
+                    } catch (\Throwable $exception) {
                         Notification::make()
                             ->title('Website↔GBP URL check failed')
                             ->body($exception->getMessage())
