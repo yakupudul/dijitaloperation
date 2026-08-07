@@ -18,7 +18,7 @@ Current task title:
 Harden agency ops dashboard with remaining MVP action signals
 
 Current automation run:
-—
+https://github.com/yakupudul/dijitaloperation/pull/89
 
 ## Progress
 
@@ -58,7 +58,7 @@ Last active task:
 
 * task id: `agency-ops-dashboard-production-hardening`
 * branch: `dop/agency-ops-dashboard-production-hardening`
-* PR: —
+* PR: #89
 * reviewer verdict: —
 * retry/recovery state: RUNNING
 
