@@ -1,6 +1,7 @@
 # PERMISSION_CONTRACT
 
-> Dayanak: ADR-006 (roles and permissions)  
+> Ana kaynak: `docs/MASTER_SPEC.md`  
+> Dayanak: ADR-019, ADR-020  
 > İlgili: `EXTENSION_POINTS.md`, `MODULE_MANIFEST_SPEC.md`
 
 ## Amaç
@@ -60,13 +61,14 @@ Modül izinlerinin nasıl adlandırılacağı, kaydedileceği ve zorunlu kılın
 | UI extension | `permission` alanı yoksa veya kullanıcıda yoksa gizle |
 | HTTP/API | Modül handler girişinde çekirdek `authorize(permission)` |
 | Job tetikleme (kullanıcı kaynaklı) | İlgili manage/view izni |
-| Event handler | Kullanıcı izni değil; workspace/modül enable kontrolü |
+| Event handler | Kullanıcı izni değil; modül enable kontrolü |
 
 ### 5. Rol modeli
 
-- Roller çekirdektedir  
-- Modül kendi rolünü oluşturmaz; permission üretir  
-- Workspace admin, permission’ları rollere atar  
+- MVP roller: **Admin**, **Team Member** (ADR-019)  
+- Roller çekirdektedir; modül kendi rolünü oluşturmaz; permission üretir  
+- Admin, permission’ları rollere atar  
+- SaaS / workspace rolü yoktur
 
 ### 6. Önerilen minimum izin çifti
 

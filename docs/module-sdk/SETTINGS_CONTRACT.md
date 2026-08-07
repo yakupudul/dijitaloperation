@@ -1,6 +1,7 @@
 # SETTINGS_CONTRACT
 
-> Dayanak: ADR-006 (Settings)  
+> Ana kaynak: `docs/MASTER_SPEC.md`  
+> Dayanak: ADR-020 (Application settings), ADR-021  
 > İlgili: `MODULE_MANIFEST_SPEC.md`, `PERMISSION_CONTRACT.md`, `DATA_OWNERSHIP.md`
 
 ## Amaç
@@ -40,7 +41,9 @@ Modül ayarlarının bildirimi, saklama kapsamı ve okuma/yazma kuralları.
 | `key` | Evet | Global unique |
 | `title` | Evet | UI etiketi |
 | `type` | Evet | `string` \| `number` \| `boolean` \| `enum` \| `json` \| `secret_ref` |
-| `scope` | Evet | `workspace` \| `customer` \| `brand` \| `digital_asset` \| `module` |
+| `scope` | Evet | `application` \| `customer` \| `brand` \| `digital_asset` \| `connection` \| `module` |
+
+`workspace` scope **MVP’de yoktur**. Kurulum geneli için `application` kullanılır.
 | `default` | Hayır | `secret` true iken default yasak |
 | `required` | Evet | boolean |
 | `secret` | Evet | true ise değer yerine credential reference |
@@ -76,7 +79,7 @@ Tek settings store, çapraz modül yapılandırma çakışmasını ve secret sı
 
 ## Sınırlar
 
-- Secret backend teknolojisi seçilmedi.  
+- Secret saklama: Laravel encryption (ADR-021); harici vault yok.  
 - Nested form builder yok; `json` tipi ileri kullanım içindir.
 
 ## Migration Impact
@@ -88,5 +91,5 @@ Tek settings store, çapraz modül yapılandırma çakışmasını ve secret sı
 
 ## Açık Sorular
 
-1. `module` scope workspace’ten bağımsız global mi?  
+1. `module` scope ile `application` scope ayrımı UI’da nasıl gösterilecek?  
 2. Enum değişikliklerinde eski değer validation fail mi, yoksa soft warn mi?

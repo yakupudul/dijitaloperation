@@ -1,6 +1,7 @@
 # DATA_OWNERSHIP
 
-> Dayanak: ADR-005, ADR-009, ADR-014  
+> Ana kaynak: `docs/MASTER_SPEC.md`  
+> Dayanak: ADR-009, ADR-014, ADR-017, ADR-021  
 > İlgili: `MODULE_LIFECYCLE.md`, `SETTINGS_CONTRACT.md`
 
 ## Amaç
@@ -13,7 +14,7 @@ Modül tablolarının sahipliği, isimlendirme, migration ve kaldırmada veri ko
 
 | Kaynak | Sahip | Kim yazar? |
 |--------|--------|------------|
-| Core tablolar (`workspaces`, `customers`, `brands`, `digital_assets`, users, roles, …) | Çekirdek | Yalnızca çekirdek |
+| Core tablolar (`customers`, `brands`, `digital_assets`, `connections`, users, roles, evidence, findings, …) | Çekirdek | Yalnızca çekirdek |
 | Modül tabloları | İlgili modül | Yalnızca o modül |
 | Settings / credentials store | Çekirdek | Çekirdek API; modül çağırır |
 | Tasks / notifications / audit | Çekirdek | Çekirdek API |
@@ -45,8 +46,9 @@ Kurallar:
 
 ### 3. Foreign key politikası
 
-- Modül tabloları core entity id’lerine **mantıksal referans** tutabilir (`brand_id`, `workspace_id`)  
-- Fiziksel FK zorunlu değildir (stack seçilmedi); kullanılıyorsa ON DELETE davranışı **core silme politikasına** bırakılır  
+- Modül tabloları core entity id’lerine **mantıksal referans** tutabilir (`brand_id`, `digital_asset_id`, `connection_id`, `customer_id`)  
+- MVP’de `workspace_id` kullanılmaz
+- Fiziksel FK zorunlu değildir; kullanılıyorsa ON DELETE davranışı **core silme politikasına** bırakılır (Eloquent/MySQL)
 - Başka modül tablosuna FK **yasaktır**
 
 ### 4. Migration nasıl çalışır?
@@ -93,17 +95,17 @@ Prefix + migrator reddi, modular monolith’te fiili şema izolasyonu sağlar; v
 
 ## Sınırlar
 
-- ORM seçilmedi.  
-- Multi-DB / schema-per-module zorunlu değil.  
+- ORM: Eloquent (Laravel).  
+- Multi-DB / schema-per-module zorunlu değil (tek MySQL 8).  
 - Online DDL politikası yok.
 
 ## Migration Impact
 
 | Mevcut durum | Etki |
 |--------------|------|
-| DB/migration yok | Migrator + prefix enforcement sıfırdan |
-| Foundation “schema mı prefix mi?” açıktı | SDK v1 **prefix** kararını kilitler |
-| Core tablolar yok | Core şema ayrıca tasarlanacak; modüller beklememeli ki core’u mutate etsin |
+| DB/migration yok | Laravel migrator + modül prefix enforcement sıfırdan |
+| Prefix | `m_{id_snake}_` |
+| Workspace tabloları | Oluşturulmaz |
 
 ## Açık Sorular
 

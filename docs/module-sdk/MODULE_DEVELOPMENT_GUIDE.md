@@ -118,14 +118,15 @@ Private import / private table → **asla**.
 
 ---
 
-## Teknoloji notu (tahmin yok)
+## Teknoloji notu
 
-`docs/current-state` incelemesine göre:
+`docs/MASTER_SPEC.md` / ADR-021:
 
-- Programlama dili, framework, ORM, queue, UI kit **seçili değil**
-- Bu kılavuzdaki API isimleri (`ModuleRegistry.isEnabled`, `Settings.get`, `enqueue`) **sözleşme düzeyindedir**; sözdizimi seçilen stack’e map edilecektir
+* Laravel 13, PHP 8.3+, Filament 5, Livewire, MySQL 8  
+* Database queue, Laravel scheduler/events/HTTP/encryption, Pest  
+* Modüller: yerel Composer package / Filament plugin  
 
-Bu nedenle örneklerde “gerçek kod” yerine JSON ve mantıksal akış kullanılır.
+Bu kılavuzdaki API adları (`ModuleRegistry.isEnabled`, `Settings.get`, `enqueue`) sözleşme düzeyindedir; Laravel/Filament sınıflarına map edilecektir. Bu PR’da kod yazılmaz.
 
 ## Gerekçe
 
@@ -141,9 +142,9 @@ Tek kılavuz, 12 sözleşmeyi günlük geliştirme sırasına dizer; yeni katkı
 
 | Mevcut durum | Etki |
 |--------------|------|
-| Greenfield | Rehber, ilk core + module runtime implementasyon backlog’una doğrudan epik kırılım sağlar |
-| Foundation açık soruları | SDK bazılarını kilitledi (manifest formatı, prefix, lifecycle adları); event isimleri foundation ile aynı kebab-case standartta; kalan açık sorular ilgili dosyalarda |
-| current-state ile uyumsuz kod | Yok — uyumsuz implementasyon bulunmuyor; risk “sözleşmesiz kod yazmak” |
+| Greenfield | `IMPLEMENTATION_ROADMAP` Faz 0–2 ile hizalı |
+| Workspace varsayımları | SDK’dan çıkarıldı |
+| Harici write | Modül geliştirmede yasak (ADR-018) |
 
 ## Açık Sorular
 

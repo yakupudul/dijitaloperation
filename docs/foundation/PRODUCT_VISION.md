@@ -1,47 +1,48 @@
 # PRODUCT_VISION
 
-> DOP — Dijital Operasyon Platformu  
-> Durum: Başlangıç kararları (uygulama kodu yok)  
-> İlgili kararlar: ADR-001, ADR-002
+> Ana kaynak: `docs/MASTER_SPEC.md`  
+> İlgili ADR: ADR-015, ADR-016, ADR-019, ADR-018
 
 ## Kararlar
 
-1. **Ürün tanımı (ADR-001)**  
-   DOP, işletmelerin dijital varlıklarının mevcut durumunu analiz eden, sorunları ve fırsatları teşhis eden, nedenlerini açıklayan ve önceliklendirilmiş yapılacaklar üreten modüler bir dijital operasyon platformudur.
+1. **Ürün tanımı (ADR-015)**  
+   DOP, Moximu dijital pazarlama ajansının kendi müşterilerini, markalarını ve bu markalara bağlı dijital varlıkları tek merkezden denetlemek için kullandığı **iç operasyon sistemidir**.
 
-2. **Dashboard değildir (ADR-001)**  
-   DOP yalnızca ham veri gösteren bir dashboard değildir. Değer; teşhis, açıklama, önceliklendirme ve eyleme dönüştürülebilir çıktıdadır.
+2. **SaaS değildir (ADR-019)**  
+   DOP başlangıçta SaaS değildir. Müşteriler sisteme giriş yapmaz. Kullanıcılar yalnızca ajans sahibi (Admin) ve ajans çalışanlarıdır (Team Member).
 
-3. **Temel akış (ADR-002)**  
-   Platformun birincil değer zinciri şudur:
+3. **Dashboard değildir**  
+   Değer; denetim, kanıt, bulgu, öneri ve iç göreve dönüştürmedir — ham metrik ekranı değildir.
+
+4. **Temel akış (ADR-016)**
 
    ```text
-   Veri → Kanıt → Teşhis → İçgörü → Öneri → Görev → Sonuç
+   Customer → Brand → Digital Asset → Connection → Run → Evidence → Finding → Recommendation → Task → Result
    ```
 
-4. **İlk gerçek ürün dilimi**  
-   İlk gerçek modül **Website Diagnosis** olacaktır. İlk sürümde zorunlu olarak GA4, Search Console veya DataForSEO istememelidir.  
-   (Ayrıntı: `MODULE_ARCHITECTURE.md`, ADR-011, ADR-012)
+5. **Harici yazma yok (ADR-018)**  
+   DOP harici sistemlerde değişiklik yapmaz. Desteklenen operasyonel zincir:
 
-5. **Hedef kullanıcı bağlamı**  
-   DOP, bir veya daha fazla müşteri / marka / dijital varlık yöneten işletme veya ajans bağlamında çalışır. Hiyerarşi `DOMAIN_MODEL.md` içinde sabittir.
+   ```text
+   Read → Collect → Analyze → Diagnose → Recommend → Create internal task → Track result
+   ```
+
+6. **İlk ürün dilimi**  
+   Website digital asset + Website Diagnosis; connector’lar isteğe bağlı genişletir. Ayrıntı: `MASTER_SPEC.md`, `MODULE_ARCHITECTURE.md`.
 
 ## Gerekçe
 
-- Ham metrik ekranı, “ne olduğunu” gösterir; DOP “ne anlama geldiğini”, “nedenini” ve “ne yapılacağını” üretmeyi hedefler.
-- Sabit akış, modüllerin ortak dilini ve çıktı türlerini hizalar: her modül bu zincirin bir veya birkaç halkasına katkı verir.
-- Website Diagnosis ile başlamak, harici reklam/analitik hesap bağlantısı olmadan da değer üretebilen bir ilk dilim sağlar.
+- Ajans içi operasyon, müşteri portalı ve multi-tenant karmaşıklığını MVP’den çıkarır.
+- Asset/Connection ayrımı entegrasyonları varlık sanmadan modellemeyi sağlar.
+- Read-only entegrasyon, müşteri hesaplarında istenmeyen değişiklik riskini ortadan kaldırır.
 
 ## Sınırlar
 
-- Bu belge teknoloji stack’i seçmez.
-- Fiyatlandırma, go-to-market ve marka konumlandırması burada kesinleştirilmez.
-- Tüm dijital varlık türleri için eşit derinlik ilk günden garanti edilmez; genişleme modüller üzerinden olur.
-- “Sonuç” halkasının ölçüm biçimi (manuel kapanış, otomatik yeniden tarama, KPI iyileşmesi vb.) henüz ürün kararı olarak kilitlenmemiştir — bkz. Açık Sorular.
+- Fiyatlandırma / dış satış modeli yok (SaaS değil).
+- Tüm asset türleri eşit derinlikle gelmez; sıra roadmap’tedir.
+- “Result” ölçüm detayı (manuel kapanış vs yeniden run) uygulama tasarımında netleşir; harici write gerektirmez.
 
 ## Açık Sorular
 
-1. Birincil kullanıcı kimdir: ajans operatörü, marka içi dijital ekip, yoksa her ikisi mi?
-2. “Sonuç” nasıl doğrulanır ve görev kapanışıyla nasıl bağlanır?
-3. İlk sürümde çok kiracılı (multi-tenant) satış modeli mi, yoksa tek işletme kurulumu mu öncelikli?
-4. Client Portal / müşteriye açık sunum ilk milestone’a dahil mi, yoksa sonraki faz mı? (`OUT_OF_SCOPE.md` ile hizalanmalı)
+1. Result kaydı Task kapanışına mı yoksa yeni Diagnosis Run karşılaştırmasına mı bağlanacak?
+2. Team Member için varsayılan permission seti nedir? (Admin süper-set midir?)

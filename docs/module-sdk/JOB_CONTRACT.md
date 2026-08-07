@@ -1,6 +1,7 @@
 # JOB_CONTRACT
 
-> Dayanak: ADR-013; `STABILITY_RULES.md` (uzun iş HTTP’de değil)  
+> Ana kaynak: `docs/MASTER_SPEC.md`  
+> Dayanak: ADR-013, ADR-021 (database queue + Laravel scheduler)  
 > İlgili: `EVENT_CONTRACT.md`, `MODULE_LIFECYCLE.md`, `ERROR_ISOLATION.md`
 
 ## Amaç
@@ -64,11 +65,12 @@ Aşağıdakiler HTTP request path’inde **çalıştırılamaz**:
 | `jobId` | Çalıştırma örneği UUID |
 | `type` | Manifest job `id` |
 | `moduleId` | Sahip modül |
-| `workspaceId` | Kapsam |
 | `requestedBy` | user id veya `system` |
 | `correlationId` | Zincir |
-| `data` | Job’a özel payload |
+| `data` | Job’a özel payload (entity id’ler burada) |
 | `attempt` | 1-based |
+
+MVP’de `workspaceId` yoktur.
 
 ### 5. Kayıt ve çalışma kuralları
 
@@ -87,7 +89,7 @@ Modüller yalnızca çekirdek API kullanır:
 - `schedule(type, cronOrDelay, data)` — cron ifadesi desteği uygulama aşamasında  
 - `cancel(jobId)`  
 
-Teknoloji (Bull, Sidekiq, Celery, …) **seçilmedi**; API yüzeyi sabittir.
+Teknoloji: Laravel queue (**database** driver başlangıç) + scheduler. Redis/Horizon yok (ihtiyaç ADR’si ile).
 
 ### 7. Log alanları
 
@@ -96,9 +98,8 @@ Her job log satırında zorunlu:
 - `module_id`  
 - `job_type`  
 - `job_id`  
-- `workspace_id`  
 - `correlation_id`  
-- `attempt`  
+- `attempt` 
 
 ## Gerekçe
 
@@ -106,8 +107,8 @@ Crawl ve connector senkronları HTTP’yi kilitlemeden ölçeklenir; retry/rate-
 
 ## Sınırlar
 
-- Queue altyapısı seçilmedi.  
-- Cron ifade standardı (unix cron vs) kilitlenmedi.  
+- Queue: Laravel database driver (Horizon yok).  
+- Zamanlama: Laravel scheduler / cron ifadeleri.  
 - Priority kuyrukları v1’de opsiyonel.
 
 ## Migration Impact
@@ -120,5 +121,5 @@ Crawl ve connector senkronları HTTP’yi kilitlemeden ölçeklenir; retry/rate-
 
 ## Açık Sorular
 
-1. Workspace başına concurrency limit global mi?  
+1. Kurulum geneli concurrency limit nasıl yapılandırılacak?  
 2. Dead letter sonrası admin UI zorunlu mu v1’de?

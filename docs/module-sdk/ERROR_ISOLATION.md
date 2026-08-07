@@ -78,9 +78,9 @@ Tüm yapılandırılmış loglarda zorunlu alanlar:
 |------|--------|
 | `module_id` | `sample-module` |
 | `source` | `module:sample-module` veya `core` |
-| `workspace_id` | varsa |
 | `correlation_id` | varsa |
 | `lifecycle_state` | relevant ise |
+| entity id’ler | `customer_id` / `brand_id` / … gerektiğinde |
 
 Kurallar:
 
@@ -121,5 +121,5 @@ Plugin ekosistemlerinde tek bozuk eklentinin siteyi düşürmesi kabul edilemez;
 
 ## Açık Sorular
 
-1. Ardışık health error eşiği workspace genelinde mi?  
+1. Ardışık health error eşiği kurulum genelinde mi?  
 2. `degraded` iken job alımı devam eder mi? (öneri: evet, aksi belirtilmedikçe)

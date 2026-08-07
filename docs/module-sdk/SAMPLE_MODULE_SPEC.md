@@ -148,12 +148,13 @@ sample-module/
 | Kolon | Tip (mantıksal) | Açıklama |
 |-------|-----------------|----------|
 | `id` | uuid | PK |
-| `workspace_id` | uuid | Core referans |
-| `brand_id` | uuid | Core referans |
+| `brand_id` | uuid | Core Brand referansı |
 | `body` | string | Not metni |
 | `created_by` | uuid | User ref |
 | `created_at` | datetime | |
 | `updated_at` | datetime | |
+
+MVP’de `workspace_id` kolonu yoktur.
 
 Migration adı: `20260806100000_create_notes`  
 Down: tabloyu drop (mümkün; örnek modül için kabul)  
@@ -179,12 +180,12 @@ UI: çekirdek Tab + Table + Form primitive’leri; global CSS yok.
   "type": "sample-module.note-created",
   "version": 1,
   "occurredAt": "2026-08-06T22:00:00.000Z",
-  "workspaceId": "ws_1",
   "moduleId": "sample-module",
   "correlationId": "corr_1",
   "payload": {
     "noteId": "note_1",
     "brandId": "brand_1",
+    "customerId": "customer_1",
     "bodyPreview": "İlk not"
   }
 }
@@ -246,9 +247,9 @@ Disable iken yeni job kabul edilmez.
   "message": "note created",
   "module_id": "sample-module",
   "source": "module:sample-module",
-  "workspace_id": "ws_1",
   "correlation_id": "corr_1",
-  "brand_id": "brand_1"
+  "brand_id": "brand_1",
+  "customer_id": "customer_1"
 }
 ```
 

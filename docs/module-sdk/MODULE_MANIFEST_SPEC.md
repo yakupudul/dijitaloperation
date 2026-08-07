@@ -28,7 +28,7 @@ Her DOP modülü, çekirdeğin domain bilmeden keşfedebileceği tek bir **manif
 | Biçim | kebab-case |
 | Regex | `^[a-z][a-z0-9]*(-[a-z0-9]+)*$` |
 | Uzunluk | 2–64 karakter |
-| Benzersizlik | Tüm workspace kurulumunda global unique |
+| Benzersizlik | Kurulumda global unique |
 | Yasak kimlikler | `core`, `dop-core`, `system`, `platform` |
 
 Örnekler: `website-diagnosis`, `sample-module`, `ga4-connector`.
@@ -150,19 +150,19 @@ Somut alan adları olmadan modül registry uygulanamaz. Foundation “alanlar ne
 
 ## Sınırlar
 
-- Paket dağıtım kanalı (npm, Composer, iç klasör) seçilmedi.
-- Manifest imzalama / yayın marketi yok.
+- Paketleme: aynı repo içinde **Composer path package / Filament plugin** (ADR-022). ZIP/marketplace yok.
+- Manifest imzalama yok.
 - `dependencies.modules` için SemVer aralığı v1’de yok.
 
 ## Migration Impact
 
-| Mevcut durum (`docs/current-state`) | Etki |
-|-------------------------------------|------|
-| Uygulama / module registry yok | Manifest parser ve registry **sıfırdan** yazılacak |
-| Teknoloji stack yok | JSON parse dili framework’ten bağımsız; runtime seçimi bu sözleşmeyi bozmaz |
-| Foundation’da format açıktı | Bu spec `module.manifest.json` + alanları **kilitler**; foundation “açık soru” maddeleri SDK lehine kapanır |
+| Mevcut durum | Etki |
+|--------------|------|
+| Uygulama / module registry yok | Laravel module registry + manifest parser sıfırdan |
+| Stack | Laravel 13 + Filament 5; manifest JSON kalır |
+| Marketplace varsayımı | Yok sayılır; yalnızca yerel paketler |
 
 ## Açık Sorular
 
-1. Modül paket kökü monorepo’da hangi dizin standardında olacak? (henüz repo yapısı yok)
-2. Pre-release sürümler (`0.1.0-beta.1`) production workspace’te enable edilebilir mi?
+1. Modül path repository kök dizini (`packages/` vs `modules/`) ne olacak?
+2. Pre-release sürümler (`0.1.0-beta.1`) Admin tarafından enable edilebilir mi?

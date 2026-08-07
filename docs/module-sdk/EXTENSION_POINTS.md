@@ -1,6 +1,7 @@
 # EXTENSION_POINTS
 
-> Dayanak: ADR-006 (navigation extension points), ADR-008  
+> Ana kaynak: `docs/MASTER_SPEC.md`  
+> Dayanak: ADR-008, ADR-020, ADR-021 (Filament panel)  
 > İlgili: `MODULE_MANIFEST_SPEC.md`, `PERMISSION_CONTRACT.md`
 
 ## Amaç
@@ -28,13 +29,15 @@ Manifest `extensions[]` dizisi. Her öğe:
 
 | `type` | Ne ekler |
 |--------|----------|
-| `navigation.menu` | Ana / workspace yan menü öğesi |
+| `navigation.menu` | Ana yan menü öğesi (Filament navigation) |
 | `navigation.tab.customer` | Müşteri detay sekmesi |
 | `navigation.tab.brand` | Marka detay sekmesi |
 | `navigation.tab.digital_asset` | Dijital varlık detay sekmesi |
-| `navigation.tab.workspace` | Workspace ayar/özet sekmesi (isteğe bağlı) |
+| `navigation.tab.connection` | Connection detay sekmesi (isteğe bağlı) |
 | `settings.page` | Modül ayar sayfası kaydı |
-| `health.panel` | Admin health panel katkısı (opsiyonel; health API ayrıdır) |
+| `health.panel` | Admin health panel katkısı (opsiyonel) |
+
+`navigation.tab.workspace` **MVP’de yoktur** (Workspace modeli yok).
 
 v1 dışında type → kayıt **yok sayılır** veya `failed` (çekirdek politikası: bilinmeyen type = uyarı + skip, process düşmez).
 
@@ -96,7 +99,7 @@ Kurallar:
 | Layout | Host container dışına fixed overlay / global sidebar eklenemez |
 | Breaking shell | Modül, çekirdek chrome’unu (topbar, nav) değiştiremez |
 
-Stack seçilmediği için bileşen kütüphanesi adı **uydurulmaz**; kural: “çekirdek design system API’si”.
+UI host: Filament 5 / Livewire. Modüller Filament theme/token ve çekirdek bileşen kalıplarını kullanır; global CSS sızıntısı yok.
 
 ### 6. Çözümleme sırası
 

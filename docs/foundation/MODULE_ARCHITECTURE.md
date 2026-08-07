@@ -1,94 +1,76 @@
 # MODULE_ARCHITECTURE
 
-> İlgili kararlar: ADR-004, ADR-005, ADR-008, ADR-010, ADR-011, ADR-012, ADR-013  
-> Sözleşme detayı: `MODULE_CONTRACT.md`  
-> Sınırlar: `STABILITY_RULES.md`, `OUT_OF_SCOPE.md`
+> Ana kaynak: `docs/MASTER_SPEC.md`  
+> Sözleşme: `docs/module-sdk/*`  
+> İlgili ADR: ADR-004, ADR-005, ADR-008, ADR-021, ADR-022, ADR-024
 
 ## Kararlar
 
-### 1. Mimari stil (ADR-004, ADR-005)
+### 1. Mimari stil
 
-Sistem **plugin tabanlı modular monolith** olarak kurulacaktır.
+Plugin-based **modular monolith**:
 
-Başlangıçta:
+* Tek repository
+* Tek uygulama
+* Tek deployment
+* Tek veritabanı
+* Net modül sınırları
+* Background jobs + scheduler
+* Yerel modüller (Composer package / Filament plugin)
+* ZIP / marketplace yok
 
-- Tek uygulama
-- Tek deployment
-- Tercihen tek veritabanı
-- Kesin modül sınırları
-- Ağır işler için background jobs (ADR-013)
-- İleride gerektiğinde ayrı worker veya servise çıkarılabilen yapı
+### 2. Teknoloji eşlemesi (ADR-021)
 
-### 2. Modül kuralları (ADR-008)
+| Konu | Seçim |
+|------|--------|
+| App | Laravel 13 / PHP 8.3+ |
+| Panel | Filament 5 / Livewire |
+| Queue | Database queue (başlangıç) |
+| Scheduler | Laravel scheduler |
+| Events | Laravel events |
+| HTTP | Laravel HTTP client |
+| Encryption | Laravel encryption |
+| Test | Pest |
+| Modül paketi | Monorepo içi Composer path repository / Filament plugin |
 
-Her modül:
+### 3. Modül kuralları
 
-- Manifest dosyasına sahip olur
-- Sürümlüdür
-- Çekirdek uyumluluk sürümünü belirtir
-- Kendi izinlerini tanımlar
-- Kendi ayarlarını tanımlar
-- Kendi migration dosyalarına sahip olur
-- Kendi tablolarını veya şemasını yönetir
-- Menü ve sekmelerini extension point üzerinden kaydeder
-- Joblarını kaydeder
-- Event yayınlayabilir
-- Event dinleyebilir
-- Health check sunar
-- Devre dışı bırakıldığında çekirdek çalışmaya devam eder
+Her modül: manifest, sürüm, bağımlılık, migration, model, servis, panel resource/sayfa, permission, setting, job, event, health check, test içerir.  
+Disable → çekirdek çalışmaya devam eder. Ayrıntı: `docs/module-sdk`.
 
-### 3. İlk modül sınıfları (ADR-010)
+### 4. Modül sınıfları
 
-| Sınıf | Örnekler |
-|-------|----------|
-| Asset modules | Website, Meta Ads, Google Ads |
-| Connector modules | GA4 Connector, Search Console Connector, Meta Connector |
-| Diagnosis modules | Website Diagnosis, Creative Fatigue, Content Decay |
-| Intelligence modules | AI Insights, Recommendation Engine |
-| Automation modules | Task Generator, Notifications, Scheduled Reports |
-| Presentation modules | Dashboard, Client Portal, Reporting |
+Asset | Connector | Diagnosis | Intelligence | Automation | Presentation  
 
-> Not: “Notifications” çekirdek yetenek listesinde de vardır. Çekirdek ortak bildirim altyapısını sağlar; Automation sınıfındaki Notifications modülü (varsa) senaryoya özel otomasyonu temsil eder. Bu ayrım uygulama tasarımında netleştirilecektir — bkz. Açık Sorular.
+MVP’de Presentation = ajans Filament paneline katkı (Client Portal yok).
 
-### 4. İlk gerçek modül (ADR-011, ADR-012)
+### 5. İlk modüller (ADR-024)
 
-- İlk gerçek modül: **Website Diagnosis** (Diagnosis sınıfı).
-- İlk sürümde zorunlu olarak **GA4, Search Console veya DataForSEO istememelidir**.
-- Temel ilk akış:
+1. Website  
+2. Website Diagnosis  
+3. WordPress Connector  
+4. Search Console Connector  
+5. GA4 Connector  
+6. PageSpeed / Lighthouse Connector  
+7. DataForSEO Connector  
+8. AI Insights  
 
-  ```text
-  Domain ekle
-  → siteyi tara
-  → erişilebilir teknik ve içerik kanıtlarını topla
-  → sorunları tespit et
-  → önem derecesi belirle
-  → öneriler üret
-  → görev oluşturulabilmesini sağla
-  ```
+### 6. Website Diagnosis
 
-### 5. Deployment ve çalışma birimi
-
-- Modüller başlangıçta aynı process / aynı deployable içinde yüklenir.
-- Ağır tarama ve analiz işleri HTTP request path’inde değil, background job olarak çalışır.
-- Worker ayrımı ileride yapılabilir; başlangıç kararı “ayrı servis zorunlu” değildir.
+* Connector zorunlu değildir (ADR-012 sürer).  
+* Connection’lar eklendikçe kapsam ve güven artar.  
+* Akış: `MASTER_SPEC` §10.
 
 ## Gerekçe
 
-- Modular monolith, erken aşamada operasyonel yükü düşük tutarken modül sınırlarını disipline eder.
-- Manifest + version + migration izolasyonu, ileride disable/enable ve kontrollü yükseltme için zemin hazırlar.
-- Website Diagnosis’in harici SEO/analytics API’siz başlaması, ilk değeri bağlantı kurulumuna bağımlı kılmaz.
+Yerel Composer/Filament plugin modeli, Laravel ekosisteminde plugin sınırlarını koruyarak tek deploy basitliğini sağlar.
 
 ## Sınırlar
 
-- Bu belge paket yöneticisi, dil veya framework seçmez.
-- Modül sınıfları organizasyonel kategoridir; her sınıfın ilk günden implemente edilmesi gerekmez.
-- “Tercihen tek veritabanı”: şema izolasyonu (prefix / schema / naming) tercih edilir ama fiziksel DB ayrımı başlangıçta zorunlu değildir.
-- Presentation modülleri çekirdek navigation extension point’lerini kullanır; ayrı bir SPA/monorepo kararı verilmemiştir.
+* Redis/Horizon yok sayılmaz; ihtiyaç ADR’si ile eklenir.
+* Modül klasör standardı (`modules/` vs `packages/`) uygulama iskeletinde kilitlenir.
 
 ## Açık Sorular
 
-1. Modüller aynı repo içinde paketler mi, yoksa ayrı paket kayıtlarından mı yüklenecek?
-2. Tek DB içinde şema ayrımı nasıl olacak: DB schema, table prefix, yoksa başka bir yöntem?
-3. Notifications: çekirdek altyapı ile Automation modülü sınırı nasıl çizilecek?
-4. Website asset modülü ile Website Diagnosis modülü ayrı paketler mi olacak, yoksa ilk sürümde birleşik mi?
-5. Background job altyapısı hangi teknoloji ile kurulacak? (Henüz seçilmedi)
+1. Modül path repository kök dizini adı ne olacak?
+2. Website asset ile Website Diagnosis ayrı Composer paketleri mi (öneri: evet)?

@@ -2,24 +2,23 @@
 
 ## Cursor Cloud specific instructions
 
-As of this writing, `dijitaloperation` (DOP — Dijital Operasyon Platformu) is a
-**documentation-only, pre-scaffold repository**. The entire tracked tree is:
+`dijitaloperation` (DOP) şu an **dokümantasyon ağırlıklı** bir depodur. Ürün gerçeğinin tek kaynağı:
 
-- `README.md` — one-line product pitch
-- `docs/current-state/*.md` — Turkish "current state" docs describing the
-  intended (not yet implemented) product
+- `docs/MASTER_SPEC.md`
+- `docs/IMPLEMENTATION_ROADMAP.md`
+- `docs/foundation/*`
+- `docs/module-sdk/*`
+- `docs/current-state/*` (tarihsel analiz; çelişirse MASTER_SPEC geçerli)
 
-There is intentionally **no** application code, package manager, manifest
-(`package.json`, `requirements.txt`, `pyproject.toml`, `go.mod`, etc.),
-`Dockerfile`/`docker-compose`, `Makefile`, `.devcontainer`, or CI workflow.
+### Ürün özeti (ajanlar için)
 
-Practical implications for future agents:
+- Moximu ajansı **iç** operasyon sistemi; SaaS / müşteri girişi / Workspace **yok**
+- Harici sistemlerde **write action yok**
+- Stack kararı: Laravel 13, PHP 8.3+, Filament 5, Livewire, MySQL 8, database queue, Pest
+- Modüller: yerel Composer / Filament plugin; marketplace yok
 
-- There are **no dependencies to install** and **no services to run**. The VM
-  startup/update script is a deliberate no-op until a real toolchain is added.
-- There are **no build/test/lint/run commands** defined. Do not assume a stack
-  (Node, Python, .NET, etc.); none has been chosen yet. See
-  `docs/current-state/RUNBOOK.md` for the explicit list of undetermined items.
-- Once real application code is added, replace the no-op update script (via the
-  environment setup flow) with the actual dependency install command(s), and
-  update this section with how to run/build/test/lint the new service(s).
+### Pratik kurallar
+
+- Bu ortamda uygulama iskeleti henüz yoksa bağımlılık kurup servis ayağa kaldırmayın; önce dokümanlara uyun.
+- Yeni özellik eklerken MASTER_SPEC dışına (SaaS, Client Portal, harici write) çıkmayın.
+- Event isimleri: `{kebab-module}.{kebab-action}` (ör. `website-diagnosis.scan-completed`).

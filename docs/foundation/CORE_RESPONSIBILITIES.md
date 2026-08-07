@@ -1,71 +1,77 @@
 # CORE_RESPONSIBILITIES
 
-> İlgili kararlar: ADR-006, ADR-007  
-> Mimari bağlam: `MODULE_ARCHITECTURE.md`
+> Ana kaynak: `docs/MASTER_SPEC.md`  
+> İlgili ADR: ADR-007, ADR-018, ADR-020
 
 ## Kararlar
 
-### Çekirdeğin yönettiği ortak yetenekler (ADR-006)
+### Çekirdeğin yönettiği ortak yetenekler (ADR-020)
 
-Çekirdek yalnızca ortak platform yeteneklerini yönetir:
+* Authentication
+* Users
+* Roles
+* Permissions
+* Customers
+* Customer contacts
+* Brands
+* Digital assets
+* Connections
+* Encrypted credentials
+* Module registry
+* Module enable/disable
+* Navigation extension points
+* Events
+* Background jobs
+* Scheduler
+* Evidence
+* Findings
+* Recommendations
+* Tasks
+* Notifications
+* Notes
+* Attachments
+* Tags
+* Audit logs
+* Run history
+* Error logs
+* Feature flags
+* Health checks
+* Application settings
 
-- Authentication
-- Users
-- Roles and permissions
-- Workspaces
-- Customers
-- Brands
-- Digital assets
-- Module registry
-- Navigation extension points
-- Settings
-- Secret and credential references
-- Events
-- Background jobs
-- Notifications
-- Tasks
-- Audit logs
-- Feature flags
-- Health checks
-- Common API contracts
-
-### Çekirdeğin bilmemesi gerekenler (ADR-007)
+### Çekirdeğin bilmemesi / yapmaması gerekenler (ADR-007, ADR-018)
 
 Çekirdek:
 
-- SEO kuralı bilmez
-- Meta Ads metriği bilmez
-- GA4 metriği bilmez
-- Website crawl işlemi yapmaz
-- AI promptlarına platforma özgü iş mantığı yerleştirmez
-- Herhangi bir harici platforma bağımlı olmaz
+* SEO kuralı bilmez
+* Meta Ads / Google Ads iş kuralı bilmez
+* GA4 iş kuralı bilmez
+* Website crawl yapmaz
+* AI promptlarına platforma özgü iş mantığı koymaz
+* Harici platforma bağımlı olmaz
+* Harici sistemlerde write action yapmaz / sunmaz
 
-### Sorumluluk ayrımı ilkesi
+### Sorumluluk ayrımı
 
 | Konu | Sahip |
 |------|--------|
-| Kimlik, erişim, hiyerarşi | Çekirdek |
-| Modül yaşam döngüsü ve kayıt | Çekirdek |
-| Domain-specific analiz / crawl / metrik | İlgili modül |
-| Platforma özgü AI prompt içeriği | İlgili intelligence / diagnosis modülü |
-| Harici API SDK ve credential kullanımı | İlgili connector / asset modülü (çekirdek yalnızca credential **referansını** tutabilir) |
+| Kimlik, roller, müşteri/marka/asset/connection | Çekirdek |
+| Modül yaşam döngüsü | Çekirdek |
+| Evidence/Finding/Recommendation ortak kaydı | Çekirdek |
+| Domain teşhis kuralları / crawl / connector API | İlgili modül |
+| AI yorum prompt’ları | AI Insights (ve ilgili) modül |
+| Credential değeri saklama | Çekirdek (Laravel encryption); kullanım connector modülünde |
 
 ## Gerekçe
 
-- Çekirdeği ince tutmak, plugin tabanlı modular monolith’te sınır ihlalini azaltır.
-- Domain bilgisinin çekirdeğe sızması, her yeni kanalda çekirdek değişikliği demektir; bu, ADR-004/ADR-008 hedeflerine aykırıdır.
-- Ortak Tasks, Events, Jobs ve Notifications; modüllerin birbirini private import etmeden işbirliği yapması için gereklidir.
+Ortak akış nesnelerini çekirdekte tutmak, modüllerin birbirinin private şemasına yazmadan Task/Finding üretmesini sağlar. Domain bilgisi modüllerde kalır.
 
 ## Sınırlar
 
-- “Secret and credential references” çekirdeğin **referans ve erişim politikasını** yönettiği anlamına gelir; secret’ların nerede saklanacağı (vault, env, encrypted column) bu belgede seçilmez.
-- Notifications ve Tasks’ın UI/UX detayı presentation modüllerine bırakılabilir; çekirdek ortak veri ve API sözleşmesini taşır.
-- Health checks: çekirdek platform sağlığını ve modüllerin kaydettiği health endpoint’lerini toplar; modül-içi sağlık mantığı modüle aittir.
-- Common API contracts, çekirdek–modül ve ortak kaynaklar içindir; her modülün tüm private API’sini çekirdek bilmez.
+* Filament resource’larının çekirdek vs modül dağılımı uygulama tasarımındadır; sorumluluk listesi değişmez.
+* “Common API contracts” ifadesi kaldırıldı; yerine Laravel/Filament + module-sdk sözleşmeleri geçerlidir.
 
 ## Açık Sorular
 
-1. Credential değerleri çekirdek şemasında mı şifreli tutulacak, yoksa dış secret store mu kullanılacak?
-2. Tasks çekirdekte generic midir, yoksa modül extension alanları zorunlu mu?
-3. Feature flags çekirdek global mi, yoksa workspace / modül bazlı mı olacak?
-4. Audit log kapsamı: yalnızca çekirdek aksiyonları mı, yoksa modül domain olayları da zorunlu mu?
+1. Finding severity enum değerleri çekirdek standardı mı?
+2. Run history tek tablo mu, yoksa diagnosis/connector run tipleri ayrılacak mı?
+3. Notes/Attachments hangi entity’lere polymorphic bağlanacak?

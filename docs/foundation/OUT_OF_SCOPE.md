@@ -1,53 +1,52 @@
 # OUT_OF_SCOPE
 
-> Bu belge “şimdilik yapılmayacak / bu fazda kararlaştırılmamış” sınırları netleştirir.  
-> Ürün vizyonu: `PRODUCT_VISION.md`  
-> İlk modül: `MODULE_ARCHITECTURE.md`
+> Ana kaynak: `docs/MASTER_SPEC.md`  
+> MVP’de yapılmayacak / bilinçli olarak dışarıda bırakılanlar
 
 ## Kararlar
 
-### Bu foundation aşamasının kapsamı dışında
+### Ürün / iş modeli (MVP dışı)
 
-1. Uygulama kodu yazmak veya mevcut kodu refactor etmek
-2. Teknoloji stack’inin kesin seçimi (dil, framework, ORM, broker, hosting)
-3. Üretim deploy pipeline ve altyapı otomasyonu
-4. Fiyatlandırma, paketleme ve faturalandırma
-5. Hukuki / KVKK süreç dokümanlarının tamamı (gerektiğinde ayrı ele alınır)
-6. Tüm dijital varlık türleri için eşzamanlı derin destek
+1. SaaS / multi-tenant satış
+2. Workspace modeli
+3. Self-service kayıt ve tenant onboarding
+4. Abonelik, faturalandırma, paket, kota
+5. Client Portal / müşteri girişi
+6. Marketplace
+7. Üçüncü taraf veya ZIP ile modül yükleme
+8. White-label müşteri sunumu
 
-### İlk Website Diagnosis sürümünün zorunlu kapsamı dışında
+### Harici aksiyon (kalıcı yasak — MVP ve sonrası için ürün kuralı)
 
-7. GA4 zorunlu bağımlılığı
-8. Search Console zorunlu bağımlılığı
-9. DataForSEO zorunlu bağımlılığı
-10. Meta Ads / Google Ads diagnosis
-11. Creative Fatigue, Content Decay vb. diğer diagnosis modülleri
-12. Tam özellikli Client Portal (presentation sınıfı örnek olarak vardır; ilk dilim zorunluluğu değildir)
-13. Çoklu modül marketplace / üçüncü parti modül ekonomisi
-14. Mikroservis ayrıştırması (ileride worker/servis çıkarılabilir; başlangıçta zorunlu değil)
+9. Meta / Google Ads / WordPress / GBP / sosyal hesaplarda write action
+10. Harici kampanya oluşturma, durdurma, içerik değiştirme, paylaşım
 
-### Bilinçli olarak ertelenen konular
+### Mimari / altyapı (ihtiyaç kanıtlanana kadar)
 
-15. Event şema registry’nin nihai formatı
-16. Secret storage teknolojisi
-17. Exactly-once messaging garantileri
-18. Modüller arası otomatik orchestration / saga motoru
+11. Redis / Horizon (başlangıç: database queue)
+12. Ayrı worker servisleri / mikroservis parçalama
+13. MCP ve karmaşık çoklu agent AI mimarisi
+
+### Erken fazda zorunlu olmayan tanı
+
+14. Website Diagnosis için GA4 / Search Console / DataForSEO zorunluluğu (isteğe bağlı connection)
+15. GBP, Google Ads, Meta Ads, Instagram asset modülleri (roadmap Faz 7)
+16. Creative Fatigue / Content Decay vb. diğer diagnosis’ler
+
+### Bu dokümantasyon PR’sinin dışında
+
+17. Uygulama kodu yazmak
+18. Paket yükleme / migration çalıştırma
 
 ## Gerekçe
 
-- Erken aşamada her kanalı ve her entegrasyonu vaat etmek, ilk değeri geciktirir.
-- Website Diagnosis’in harici API’siz başlayabilmesi, OUT OF SCOPE maddelerini ürün stratejisiyle hizalar.
-- Stack seçimini foundation kararlarından ayırmak, mimari ilkelerin teknoloji modasından bağımsız kalmasını sağlar.
+Kapsamı ajans-içi read→diagnose→internal task zincirine kilitlemek, yanlış SaaS ve write varsayımlarını engeller.
 
 ## Sınırlar
 
-- “Kapsam dışı” sonsuza dek yasak anlamına gelmez; sonraki ADR ile kapsam açılabilir.
-- OUT OF SCOPE, araştırma yapılmayacağı anlamına gelmez; sadece bu dokümantasyon setinde kararlaştırılmadığını belirtir.
-- Connector modülleri vizyonda vardır; yok sayılmazlar, ilk zorunlu dilime dahil edilmezler.
+* “Kapsam dışı” sonsuza dek yasak demek değildir (SaaS için ayrı ADR gerekir).
+* Harici write yasağı ürün kimliğidir; değiştirmek için açık ADR + güvenlik değerlendirmesi şarttır.
 
 ## Açık Sorular
 
-1. Client Portal hangi milestone’da zorunlu hale gelecek?
-2. İlk ücretli / üretim sürümüne hangi connector’lar minimum paket olarak girecek?
-3. AI Insights modülü Website Diagnosis ile aynı fazda mı, sonra mı?
-4. Ajansa özel white-label sunum kapsamına ne zaman girecek?
+1. İleride sınırlı “draft öneriyi müşteriye e-posta ile ilet” (DOP dışı kanal) ürün müdür, değil midir? (MVP’de yok)

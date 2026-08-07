@@ -1,73 +1,82 @@
 # DOMAIN_MODEL
 
-> İlgili kararlar: ADR-003  
-> Ürün vizyonu: `PRODUCT_VISION.md`
+> Ana kaynak: `docs/MASTER_SPEC.md`  
+> İlgili ADR: ADR-016, ADR-017
 
 ## Kararlar
 
-1. **Temel hiyerarşi (ADR-003)**  
-   Sistemdeki sahiplik ve kapsam hiyerarşisi sabittir:
+1. **Sahiplik hiyerarşisi (ADR-017)**
 
    ```text
-   Workspace
-   → Customer
+   Customer
    → Brand
    → Digital Asset
+   → Connection
    ```
+
+   MVP’de **Workspace yoktur.** Tek kurulum = tek ajans.
 
 2. **Katman anlamları**
 
-   | Varlık | Anlam (başlangıç) |
-   |--------|-------------------|
-   | Workspace | Platformdaki çalışma alanı / kiracı bağlamı. Kullanıcılar, roller ve üst düzey ayarlar burada toplanır. |
-   | Customer | Workspace altındaki müşteri (ajans senaryosunda hesap; tek işletmede “kendisi” olabilir). |
-   | Brand | Bir müşteriye bağlı marka / ürün yüzü. |
-   | Digital Asset | Bir markaya bağlı izlenen dijital varlık. |
+   | Varlık | Anlam |
+   |--------|--------|
+   | Customer | Ajansın müşterisi |
+   | Brand | Müşteriye bağlı marka |
+   | Digital Asset | Markaya bağlı yönetilen gerçek dijital varlık |
+   | Connection | Varlık hakkında veri sağlayan veya incelemeye yarayan bağlantı |
 
-3. **Dijital varlık örnekleri** (kapsayıcı liste değil; örnekler):
+3. **Digital Asset örnekleri**
 
-   - Website
-   - Meta Ads account
-   - Google Ads account
-   - GA4 property
-   - Search Console property
-   - Google Business Profile
-   - CRM
-   - Social media account
+   * Website  
+   * Google Business Profile  
+   * Google Ads account  
+   * Meta Ads account  
+   * Instagram account  
+   * YouTube channel  
+   * CRM  
 
-4. **Çekirdek sahipliği**  
-   Workspace, Customer, Brand ve Digital Asset kimlikleri ve ilişkileri **çekirdek** sorumluluğundadır. Domain-specific analiz alanları modüllere aittir.  
-   (Bkz. `CORE_RESPONSIBILITIES.md`)
+4. **Connection örnekleri**
 
-5. **Akış nesneleri (ürün düzeyinde)**  
-   Temel akıştaki kavramlar domain dilinin parçasıdır; fiziksel tablo tasarımı bu belgede sabitlenmez:
+   * WordPress  
+   * GA4  
+   * Search Console  
+   * DataForSEO  
+   * PageSpeed  
+   * Lighthouse  
+   * Uptime provider  
+   * Crawl provider  
+
+5. **Asset ≠ Connection**  
+   GA4, Search Console ve DataForSEO ilk kullanımda **Website digital asset’inin connection’larıdır**; ayrı Digital Asset olarak modellenmez.  
+   Bir Website’e birden fazla Connection bağlanabilir.
+
+6. **Akış nesneleri (çekirdek kavramlar)**
 
    | Kavram | Rol |
    |--------|-----|
-   | Veri | Ham veya normalize edilmiş gözlem kaynağı |
-   | Kanıt | Teşhisi destekleyen somut bulgu |
-   | Teşhis | Sorun / fırsat tespiti |
-   | İçgörü | Teşhisin yorumu / neden açıklaması |
-   | Öneri | Önceliklendirilmiş aksiyon önerisi |
-   | Görev | Öneriden türeyebilen yapılacak iş |
-   | Sonuç | Görev veya iyileştirme sonrası durum |
+   | Run | Toplama/teşhis çalıştırma birimi |
+   | Evidence | Kanıt |
+   | Finding | Sorun / fırsat bulgusu |
+   | Recommendation | Öneri |
+   | Task | Ajans içi yapılacak iş (kullanıcı Recommendation’dan manuel üretebilir) |
+   | Result | İş / iyileştirme sonucu |
+
+7. **Çekirdek sahipliği**  
+   Customer, Brand, Digital Asset, Connection ve akış nesnelerinin ortak kayıtları çekirdektedir. Domain-specific kurallar modüllerdedir.
 
 ## Gerekçe
 
-- Ajans ve tek-marka senaryolarını aynı hiyerarşiyle karşılamak için Workspace → Customer → Brand ayrımı gereklidir.
-- Digital Asset’i Brand altına bağlamak, aynı müşterinin birden fazla markasını ve marka başına çoklu kanalı destekler.
-- Analiz çıktılarını (kanıt, teşhis, …) çekirdek varlık hiyerarşisinden ayırmak, plugin modüllerinin kendi şemalarını taşımasına izin verir.
+- Connection’ı asset’ten ayırmak, “GA4 property = asset” karışıklığını önler.
+- Workspace kaldırmak MVP’yi ajans-içi gerçeğe hizalar.
 
 ## Sınırlar
 
-- Bu belge SQL şeması, PK/FK veya ORM modeli tanımlamaz.
-- Bir Digital Asset’in birden fazla Brand’e bağlanıp bağlanamayacağı **henüz kararlaştırılmamıştır**.
-- Connector hesapları (ör. GA4 property) ile “analiz edilen website” arasındaki bağ tipi (asset-to-asset link vs. connector binding) uygulama tasarımına bırakılmıştır; ürün hiyerarşisi bozulmadan çözülmelidir.
-- Görev (Task) çekirdekte ortak bir yetenek olarak listelenir (`CORE_RESPONSIBILITIES.md`); görevlerin hangi teşhis/öneriye bağlanacağı sözleşme seviyesinde `MODULE_CONTRACT.md` ve `EVENT_ARCHITECTURE.md` ile ilerletilir.
+- SQL şeması bu belgede sabitlenmez.
+- Bir Digital Asset’in birden fazla Brand’e bağlanması desteklenmez (MVP: asset tek brand altında).
+- Connection provider kimlikleri modül kaydıyla genişler.
 
 ## Açık Sorular
 
-1. Workspace ↔ Customer ilişkisi her zaman 1:N mi, yoksa Customer birden fazla Workspace’te yer alabilir mi?
-2. Digital Asset türleri çekirdekte sabit enum mu, yoksa modül kaydıyla mı genişler?
-3. Aynı website hem “Website asset” hem de bağlı “Search Console property” olarak nasıl modellenecek?
-4. Kanıt / Teşhis / Öneri kayıtları çekirdek ortak tablolarda mı, yoksa tamamen modül şemalarında mı tutulacak?
+1. Digital Asset `type` değerleri çekirdek enum + modül kaydı hibrit mi olacak?
+2. Connection’ın birden fazla asset’e bağlanması yasak mı (MVP varsayımı: tek asset)?
+3. Evidence/Finding tablolarında modül-özel JSON extension zorunlu mu?

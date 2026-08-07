@@ -46,7 +46,7 @@ Aşağıdaki maddeler **zorunlu**dur. Biri fail ise yayınlanmaz.
 ### E. Settings
 
 - [ ] Default değer okunur
-- [ ] Set + get scope doğru (`workspace`/`brand`/…)
+- [ ] Set + get scope doğru (`application`/`brand`/`connection`/…)
 - [ ] `secret: true` ise ham secret loglanmaz
 - [ ] Disable sonrası değer korunur
 
@@ -100,7 +100,7 @@ Sözleşme ihlalleri “sonra düzeltiriz” borcuna dönüşmesin diye yayın �
 
 ## Sınırlar
 
-- Test framework’ü seçilmedi; maddeler framework-agnostic.  
+- Test framework: Pest; maddeler Pest/Feature testlerine map edilir.  
 - Arch lint yoksa ilgili maddeler review ile kapatılır ve borç olarak işaretlenir.
 
 ## Migration Impact

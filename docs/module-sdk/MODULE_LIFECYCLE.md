@@ -103,11 +103,11 @@ WordPress/Perfex benzeri enable/disable modeli operatör alışkanlığına uyar
 
 | Mevcut durum | Etki |
 |--------------|------|
-| Lifecycle kodu yok | Module registry + state machine sıfırdan |
-| DB yok | State saklama tablosu çekirdekte tasarlanacak (`module_registry` veya eşdeğeri — uygulama aşaması) |
-| Foundation durum adları “isimler kesinleşebilir” diyordu | Bu belge kanonik adları kilitler: `registered`, `enabled`, `disabled`, `failed`, (+ `discovered`, `uninstalled`) |
+| Lifecycle kodu yok | Laravel module registry + state machine sıfırdan |
+| Multi-tenant enable | Yok; kurulum geneli enable/disable |
+| Durum adları | `discovered`, `registered`, `enabled`, `disabled`, `failed`, `uninstalled` |
 
 ## Açık Sorular
 
 1. `failed` modül otomatik yeniden deneme (backoff) yapsın mı?  
-2. Workspace bazlı enable mi, global mi? (multi-tenant model henüz kilitli değil)
+2. Enable/disable MVP’de kurulum geneli midir? (**Evet — tek ajans; tenant bazlı enable yok**)

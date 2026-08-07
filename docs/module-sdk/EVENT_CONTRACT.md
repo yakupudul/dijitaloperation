@@ -1,7 +1,9 @@
 # EVENT_CONTRACT
 
-> Dayanak: ADR-009, ADR-013; `docs/foundation/EVENT_ARCHITECTURE.md`  
-> İlgili: `MODULE_MANIFEST_SPEC.md`, `JOB_CONTRACT.md`, `ERROR_ISOLATION.md`
+> Ana kaynak: `docs/MASTER_SPEC.md`  
+> Dayanak: ADR-009, ADR-013, ADR-021; `docs/foundation/EVENT_ARCHITECTURE.md`  
+> İlgili: `MODULE_MANIFEST_SPEC.md`, `JOB_CONTRACT.md`, `ERROR_ISOLATION.md`  
+> Taşıyıcı (MVP): Laravel events
 
 ## Amaç
 
@@ -33,10 +35,11 @@ Her event şu zarfla taşınır:
 | `type` | string | Event type |
 | `version` | number | Payload şema sürümü (integer, 1’den başlar) |
 | `occurredAt` | string | ISO-8601 UTC |
-| `workspaceId` | string | Kapsam |
 | `moduleId` | string | Yayınlayan modül (`core` olabilir) |
 | `correlationId` | string | İstek/job zinciri |
 | `payload` | object | Type’a özel veri |
+
+MVP’de `workspaceId` **yoktur** (Workspace/SaaS modeli yok). Kapsam entity id’leri `payload` içindedir (`customerId`, `brandId`, `digitalAssetId`, `connectionId`, …).
 
 Exactly-once **vaat edilmez**. At-least-once varsayılır; dinleyiciler idempotent olmalıdır.
 
@@ -90,12 +93,15 @@ Kesin başlangıç seti (genişletilebilir):
 
 | Type | Ne zaman |
 |------|----------|
-| `core.workspace.created` | Workspace oluştu |
 | `core.customer.created` / `updated` | Customer değişti |
 | `core.brand.created` / `updated` | Brand değişti |
 | `core.digital-asset.created` / `updated` | Asset değişti |
+| `core.connection.created` / `updated` / `disabled` | Connection değişti |
 | `core.module.enabled` / `disabled` / `failed` | Lifecycle |
+| `core.run.started` / `completed` / `failed` | Run |
 | `core.task.created` / `updated` | Görev |
+
+`core.workspace.*` event’leri MVP’de **tanımlı değildir**.
 
 ## Gerekçe
 
@@ -103,17 +109,18 @@ Tek isimlendirme + envelope olmadan çapraz modül entegrasyonu kırılır. Opti
 
 ## Sınırlar
 
-- Broker teknolojisi seçilmedi (in-process bus kabul edilebilir).  
-- Schema registry ürünü yok; `version` + manifest bildirimi yeterli başlangıç.  
-- Saga/orchestration yok.
+- MVP taşıyıcı: Laravel events (database queue job’ları ayrı). Redis/broker yok.  
+- Schema registry ürünü yok; `version` + manifest bildirimi yeterli.  
+- Saga/orchestration ve MCP yok.
 
 ## Migration Impact
 
 | Mevcut durum | Etki |
 |--------------|------|
-| Event bus yok | Çekirdekte bus + envelope sıfırdan |
-| Event isimlendirme | Foundation + SDK tek standart: `{kebab-module}.{kebab-action}` |
-| Website Diagnosis aday event’leri | `website-diagnosis.*` kebab-case; uygulama bu string’leri kullanır |
+| Event bus yok | Laravel Event / Listener + envelope sıfırdan |
+| Eski `workspaceId` zarf alanı | Kaldırıldı; SaaS varsayımı yok |
+| Event isimlendirme | `{kebab-module}.{kebab-action}` |
+| Website Diagnosis adayları | `website-diagnosis.*` |
 
 ## Açık Sorular
 
