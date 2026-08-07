@@ -307,13 +307,19 @@ def stage_completion_evidence(
         _exists(root, "docs/website/DIAGNOSIS_CATALOG.md"),
         mentioned("diagnosis_catalog", "diagnosis-catalog") or _exists(root, "docs/website/DIAGNOSIS_CATALOG.md"),
     )
-    evidence[11] = (
-        _exists(root, "app/Services/WebsiteDiagnosisService.php")
-        or _exists(root, "app/Jobs/DiagnoseWebsiteJob.php"),
-        _exists(root, "app/Services/WebsiteDiagnosisService.php")
-        or _exists(root, "app/Jobs/DiagnoseWebsiteJob.php")
-        or mentioned("diagnosis-reachability", "website-diagnosis"),
+    # Diagnosis implementation is multi-task; first service/job => in_progress only.
+    # Mark completed once a later connector stage has started (WordPress+) or an
+    # explicit diagnosis-complete signal appears in merged task ids.
+    diag_impl = _exists(root, "app/Services/WebsiteDiagnosisService.php") or _exists(
+        root, "app/Jobs/DiagnoseWebsiteJob.php"
     )
+    diag_done = mentioned(
+        "wordpress-connector",
+        "wordpress_connector",
+        "diagnosis-complete",
+        "website-diagnosis-complete",
+    )
+    evidence[11] = (diag_impl and diag_done, diag_impl or mentioned("website-diagnosis", "diagnosis-reachability", "ssl"))
 
     # Connectors 12–17: only implementation under app/ or app-modules/ counts.
     for num, _key, patterns in (
