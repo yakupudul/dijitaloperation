@@ -37,8 +37,7 @@ ADR-033: paketlerin verdiğini tekrar yazmamak MVP hızını korur.
 ## Sınırlar
 
 * Diagnosis katalog içeriği bu belgede üretilmez.
-* Pest vs PHPUnit uygulama seçimine bağlıdır; ürün kapsamını değiştirmez.
-
+* PHPUnit (ADR-038; Pest vs PHPUnit ürün kapsamını değiştirmez — canonical PHPUnit)
 ## Açık Sorular
 
 Yok.

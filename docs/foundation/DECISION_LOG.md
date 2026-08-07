@@ -142,7 +142,7 @@
 - **Durum:** Accepted
 - **Tarih:** 2026-08-07
 - **Güncelleme:** 2026-08-07 (ADR-026, 030, 032 ile netleşti)
-- **Karar:** Laravel 13, PHP 8.3+, Filament 5, Livewire, MySQL 8, database queue, Laravel scheduler/events/HTTP client/encryption, Pest, `spatie/laravel-permission`, `laravel/ai`, `internachi/modular`. Redis/Horizon ihtiyaç halinde.
+- **Karar:** Laravel 13, PHP 8.3+, Filament 5, Livewire, MySQL 8, database queue, Laravel scheduler/events/HTTP client/encryption, PHPUnit (see **ADR-038**; Pest satırı superseded), `spatie/laravel-permission`, `laravel/ai`, `internachi/modular`. Redis/Horizon ihtiyaç halinde.
 - **İlgili:** `MASTER_SPEC.md`, `MODULE_ARCHITECTURE.md`
 
 ## ADR-022 — Yerel modül paketleme; marketplace yok
@@ -257,6 +257,13 @@
 - **Karar:** MVP Core zorunlu: auth/users/roles, customers/contacts, brands, digital assets, connections/credentials, minimal module registry, runs/evidence/findings/recommendations/tasks, basic settings/logs, events/queue/scheduler. Attachments, tags, feature flags, gelişmiş notification/audit/health framework’leri zorunlu değil.
 - **İlgili:** `CORE_RESPONSIBILITIES.md`, supersedes ADR-020 zorunluluk kapsamı
 
+## ADR-038 — PHPUnit implementation testing standard
+
+- **Durum:** Accepted
+- **Tarih:** 2026-08-07
+- **Karar:** DOP application test standardı **PHPUnit**’dir. Bu karar ADR-021’in yalnızca Pest kısmını supersede eder. Laravel / Filament / diğer yığın kararları değişmez. Pest eklenmez; framework-native mevcut PHPUnit yapısı korunur.
+- **İlgili:** `MASTER_SPEC.md` §12, `composer.json`, `tests/`, supersedes ADR-021 Pest satırı
+
 ---
 
 ## Karar indeksi
@@ -300,6 +307,7 @@
 | ADR-035 | MVP minimal module registry | Accepted |
 | ADR-036 | Result entity yok | Accepted |
 | ADR-037 | MVP Core sade liste | Accepted |
+| ADR-038 | PHPUnit test standardı | Accepted |
 
 ## Süpercede edilen kararlar
 
@@ -314,3 +322,4 @@
 | ADR-016 (Result) | ADR-036 |
 | ADR-020 | ADR-037 |
 | ADR-028 | ADR-034 |
+| ADR-021 (Pest satırı) | ADR-038 |

@@ -1,138 +1,59 @@
-# DOP Development Automation Loop
+# DOP Development Autopilot
 
-Bu klasör, DOP uygulama özelliklerini yazmaz.  
-Amacı: **OpenAI’nin mimar/reviewer**, **Cursor CLI’ın implementer/fixer** olduğu bir GitHub Actions döngüsü kurmak.
+DOP ürün geliştirme döngüsü **kullanıcıdan routine prompt / review / merge istemeden** çalışır.
 
-## Kim ne yapıyor?
+## Tek gerçek akış
 
-| Rol | Araç | Ne yapar? |
-|-----|------|-----------|
-| Architect | OpenAI (`architect.py`) | Roadmap + MASTER_SPEC + repo durumuna bakıp sıradaki **küçük** işi JSON olarak seçer |
-| Implementer | Cursor CLI (`agent`) | O işi kodlar ve testleri çalıştırır (branch/PR yapmaz) |
-| Git/PR | GitHub Actions | Branch, commit, push, PR oluşturur |
-| Reviewer | OpenAI (`reviewer.py`) | Sadece automation marker’lı PR’ları inceler |
-| Fixer | Cursor CLI | Reviewer’ın yazdığı sorunları aynı PR’da düzeltir (max 3 deneme) |
+**DOP Autopilot** (`.github/workflows/dop-autopilot.yml`)
 
-İlk sürümde **otomatik merge yok**. Onaylanan PR insan/sonraki süreçle birleştirilir.
+1. **Architect (OpenAI)** — roadmap + MASTER_SPEC + product blueprints’ten sıradaki küçük işi seçer  
+2. **Cursor Implementer** — yalnızca o işi kodlar / lokal test çalıştırır  
+3. **Quality Gates** — secret scan, composer validate, PHPUnit, Pint, automation tests  
+4. **PR** — `<!-- DOP_AUTOMATION_PR -->` marker ile açılır  
+5. **OpenAI Reviewer** — aynı workflow run içinde product specs + diff inceler  
+6. **Cursor Fixer** — en fazla 3 düzeltme turu  
+7. **Final Gates** — tekrar kalite + mergeability  
+8. **Auto Merge** — squash + branch sil  
+9. **repository_dispatch (`dop-next-task`)** — sıradaki Autopilot run  
 
-## Gerekli GitHub Secrets
+## Ne zaman durur?
 
-Repository → Settings → Secrets and variables → Actions:
+* `ROADMAP_COMPLETE`
+* `HUMAN_REQUIRED` / hard blocker issue (`<!-- DOP_HARD_BLOCKER -->`)
+* test / secret / suspicious-diff failure
+* 3 fix sonrası çözülmeyen sorun
+* boş diff / tekrarlanan task
 
-* `OPENAI_API_KEY` — Architect ve Reviewer için
-* `CURSOR_API_KEY` — Cursor CLI headless agent için
+Bu durumlarda **yeni dispatch yok**.
 
-Opsiyonel:
+## Secrets
 
-* `OPENAI_ARCHITECT_MODEL` (varsayılan: `gpt-4.1`)
-* `OPENAI_REVIEWER_MODEL` (varsayılan: `gpt-4.1`)
-* `CURSOR_AGENT_MODEL` (Cursor agent model; boşsa CLI varsayılanı)
+Repository Actions secrets:
 
-`GITHUB_TOKEN` Actions tarafından sağlanır; ekstra secret gerekmez.
+* `OPENAI_API_KEY`
+* `CURSOR_API_KEY`
 
-## Workflow’lar
+Opsiyonel vars: `OPENAI_ARCHITECT_MODEL`, `OPENAI_REVIEWER_MODEL`, `CURSOR_AGENT_MODEL`
 
-### 1) `dop-next-task.yml` — sıradaki işi başlat
+Secret değerleri log/prompt/artifact’a yazılmaz.
 
-**Trigger:**
+## Manuel ilk start
 
-* Manuel: Actions → **DOP Next Task** → Run workflow
-* Otomatik: bir PR `main`’e **merge** edildiğinde  
-  (ama `chore/`, `automation/`, `docs:` bakım PR’ları yeni ürün görevi başlatmaz)
+Actions → **DOP Autopilot** → Run workflow (bir kez).  
+Sonrası `repository_dispatch` zinciriyle devam eder.
 
-**Akış:**
+## Product memory
 
-1. Architect JSON üretir  
-2. `TASK_READY` değilse durur (`HUMAN_REQUIRED` / `ROADMAP_COMPLETE`)  
-3. Cursor implementer çalışır  
-4. Secret dosya kontrolü + testler  
-5. Güvenli branch adı ile branch/commit/push  
-6. `<!-- DOP_AUTOMATION_PR -->` marker’lı PR açılır (`base: main`)
+Architect/Reviewer/Implementer `docs/product/**` blueprint’lerini kullanır.  
+`TASK_READY` için `product_spec_paths` boş olamaz.
 
-### 2) `dop-review.yml` — automation PR review + fix loop
-
-**Trigger:** PR opened / synchronize / reopened  
-**Koşul:** PR body içinde `<!-- DOP_AUTOMATION_PR -->` olmalı
-
-**Akış:**
-
-1. Reviewer JSON üretir ve PR comment yazar  
-2. `APPROVED` → sadece marker comment, kod değişmez  
-3. `FIX_REQUIRED` → en fazla **3** otomatik fix; sonra `HUMAN_REQUIRED`  
-4. `HUMAN_REQUIRED` → açıklama comment, dur
-
-## HUMAN_REQUIRED ne demek?
-
-Otomasyon emin değil veya politika/çelişki/risk var.  
-Kod yazmayı bırakır; insanın bakması gerekir.
-
-Örnekler:
-
-* Roadmap belirsiz
-* Diff çok büyük
-* MASTER_SPEC ile çelişen istek
-* 3 fix denemesi bitti
-
-## Otomasyonu kapatma
-
-* Workflow dosyalarını disable edin, veya
-* Actions → ilgili workflow → Disable workflow, veya
-* Secrets’ı kaldırın / geçersizleştirin (workflow’lar başarısız olup durur)
-
-`chore/` branch merge’leri zaten yeni ürün görevi başlatmaz.
-
-## Maliyet nereden gelir?
-
-* OpenAI API: her next-task + her review çağrısı
-* Cursor API: her implementation + her fix denemesi
-
-Küçük görevler ve max 3 fix limiti maliyeti sınırlamak içindir.
-
-## Yerel yardımcı komutlar
-
-Secret değerlerini yazdırmayın.
+## Yerel testler (API yok)
 
 ```bash
-cd .automation
-python -m pip install -r requirements.txt
-python -m unittest discover -s tests -v
-
-# Örnek JSON doğrulama (API çağrısı yok)
-python architect.py --validate-only /path/to/task.json
-python reviewer.py --validate-only /path/to/review.json
+python -m unittest discover -s .automation/tests -v
 ```
 
-## Manuel test (Secrets tanımlıysa)
+## Maliyet
 
-1. `OPENAI_API_KEY` ve `CURSOR_API_KEY` secrets’larını ekleyin.  
-2. Actions → **DOP Next Task** → Run workflow.  
-3. Architect çıktısını ve oluşan PR’ı kontrol edin.  
-4. Review workflow’unun PR comment’i yazdığını doğrulayın.  
-5. Bilerek küçük bir hata bırakılmış test PR’sinde fix loop’u gözlemleyin (max 3).
-
-## Güvenlik sınırları
-
-* Workflow permission: `contents: write`, `pull-requests: write`
-* Secret değerleri echo edilmez / Cursor promptuna gömülmez
-* `.env`, private key, pem vb. commit engeli
-* Cursor’a git push/PR yetkisi verilmez; git işlemleri Actions’ta deterministiktir
-* Hiçbir workflow uygulama kodunu doğrudan `main`’e push etmez
-* Oversized diff → `HUMAN_REQUIRED`
-* Aynı anda tek next-task (concurrency)
-
-## Full Autopilot
-
-Canonical workflow: **DOP Autopilot** (`.github/workflows/dop-autopilot.yml`)
-
-1. Architect picks one small task (with `product_spec_paths`)
-2. Cursor implements
-3. Quality gates (composer/tests/pint/secret scan)
-4. PR with `<!-- DOP_AUTOMATION_PR -->`
-5. In-run Reviewer + Fixer (max 3)
-6. On APPROVED: squash merge + delete branch
-7. Continue chain via `workflow_run` + `dop-autopilot-continue` artifact (`yes`)
-8. Optional `repository_dispatch` (`dop-next-task`) best-effort
-
-Stops (no continue) on `ROADMAP_COMPLETE`, `HUMAN_REQUIRED`, failed gates, or max fixes.
-
-Manual start: Actions → **DOP Autopilot** → Run workflow.
+OpenAI (architect + her review) + Cursor (implement + fix).  
+1 task / run ve max 3 fix limiti maliyeti sınırlar.
