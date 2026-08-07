@@ -18,7 +18,7 @@ Current task title:
 Add Website ↔ Google Ads landing URL consistency cross-asset pack
 
 Current automation run:
-—
+https://github.com/yakupudul/dijitaloperation/pull/84
 
 ## Progress
 
@@ -58,7 +58,7 @@ Last active task:
 
 * task id: `cross-asset-website-google-ads-landing-consistency`
 * branch: `dop/cross-asset-website-google-ads-landing-consistency`
-* PR: —
+* PR: #84
 * reviewer verdict: —
 * retry/recovery state: IMPLEMENTING
 
