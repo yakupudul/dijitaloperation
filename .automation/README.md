@@ -8,7 +8,7 @@ DOP ürün geliştirme döngüsü **kullanıcıdan routine prompt / review / mer
 
 1. **Architect (OpenAI)** — roadmap + MASTER_SPEC + product blueprints’ten sıradaki küçük işi seçer  
 2. **Cursor Implementer** — yalnızca o işi kodlar / lokal test çalıştırır  
-3. **Quality Gates** — secret scan, composer validate, PHPUnit, Pint, automation tests  
+3. **Quality Gates** (`.automation/scripts/quality_gates.sh`) — CI env bootstrap (`.env` from example + ephemeral `key:generate`), secret scan, composer validate, PHPUnit (sqlite/:memory: via `phpunit.xml`), Pint, automation tests  
 4. **PR** — `<!-- DOP_AUTOMATION_PR -->` marker ile açılır  
 5. **OpenAI Reviewer** — aynı workflow run içinde product specs + diff inceler  
 6. **Cursor Fixer** — en fazla 3 düzeltme turu  
