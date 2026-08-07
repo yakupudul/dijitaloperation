@@ -20,3 +20,23 @@ php artisan serve
 ```
 
 Panel: `/app/login`
+
+## Website Diagnosis (reachability)
+
+Minimal deterministic check for Website assets (`primary_url`): creates a `Run`, stores normalized `http_fetch` Evidence, and upserts Findings for catalog item `reachability-http` (transport failure / 5xx).
+
+```php
+use App\Jobs\DiagnoseWebsiteJob;
+use App\Models\DigitalAsset;
+use App\Services\WebsiteDiagnosisService;
+
+$asset = DigitalAsset::query()->findOrFail($id);
+
+// Sync
+app(WebsiteDiagnosisService::class)->diagnose($asset);
+
+// Queued
+DiagnoseWebsiteJob::dispatch($asset);
+```
+
+Catalog: `docs/website/DIAGNOSIS_CATALOG.md`. Product: `docs/product/website/DIAGNOSIS.md`.
