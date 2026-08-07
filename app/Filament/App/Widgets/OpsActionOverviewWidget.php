@@ -16,6 +16,8 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
  */
 class OpsActionOverviewWidget extends StatsOverviewWidget
 {
+    protected static bool $isLazy = false;
+
     protected ?string $heading = 'What needs attention';
 
     protected ?string $description = 'Counts from open Findings, Recommendations, Connections, and Tasks. Empty means nothing queued — not a fake zero KPI.';

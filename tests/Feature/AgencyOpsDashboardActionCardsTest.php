@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Filament\Facades\Filament;
+use Filament\Pages\Dashboard;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -97,7 +98,11 @@ class AgencyOpsDashboardActionCardsTest extends TestCase
     {
         $this->get('/app')
             ->assertOk()
-            ->assertSee('What needs attention')
-            ->assertSee('MoxDOP');
+            ->assertSee('MoxDOP')
+            ->assertSeeLivewire(OpsActionOverviewWidget::class);
+
+        Livewire::test(Dashboard::class)
+            ->assertOk()
+            ->assertSeeLivewire(OpsActionOverviewWidget::class);
     }
 }
