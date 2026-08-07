@@ -2,7 +2,7 @@ This file is generated/maintained by DOP Autopilot and represents implementation
 
 # DOP Project Status
 
-Last updated: 2026-08-07T20:00:00Z
+Last updated: 2026-08-07T19:49:02Z
 
 Overall status:
 RUNNING
@@ -58,9 +58,9 @@ Last active task:
 
 * task id: `cross-asset-website-gbp-website-url-consistency`
 * branch: `dop/cross-asset-website-gbp-url-consistency`
-* PR: — (supersedes drafts #76/#77; #77 had wrong base branch)
+* PR: #78 (FAILED baseRefName=`dop/cross-asset-website-gbp-website-url-consistency`, not `main`; body parseable). #76 remains only main-base PR but body uneditable/`Task ID:` parse fail. #77/#79 also wrong base. Integration cannot retarget/create against main.
 * reviewer verdict: —
-* retry/recovery state: REOPENING_AGAINST_MAIN
+* retry/recovery state: BLOCKED_WRONG_PR_BASE
 
 ## Recently completed
 
@@ -81,7 +81,7 @@ None
 
 ## Blockers
 
-None
+* open_git_pr from this Supervisor automation run opens PRs with base=`dop/cross-asset-website-gbp-website-url-consistency` instead of `main` (#77/#78/#79). gh cannot create/retarget/patch PR body (403). #76 is against main but body lacks `- **task_id:**` / Architect JSON and cannot be edited. Need a run whose open_git_pr base is `main` (or human retarget #78/#79 / repair #76 body).
 
 ## Next expected
 
