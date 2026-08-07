@@ -8,6 +8,7 @@ use Database\Factories\CustomerFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
     'name',
@@ -23,6 +24,14 @@ class Customer extends Model
 {
     /** @use HasFactory<CustomerFactory> */
     use HasFactory;
+
+    /**
+     * @return HasMany<CustomerContact, $this>
+     */
+    public function contacts(): HasMany
+    {
+        return $this->hasMany(CustomerContact::class);
+    }
 
     /**
      * @return array<string, string>
