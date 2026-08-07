@@ -1,0 +1,384 @@
+name: DOP PR Gate
+
+# Autopilot v2: deterministic quality + OpenAI Reviewer + verified merge + project status.
+# Cursor Automations handle task selection, implementation, and repair.
+# This workflow must NEVER emit legacy continuation/recovery repository events or run Architect.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "PR number to gate (optional; defaults to pull_request context)"
+        required: false
+        type: string
+
+concurrency:
+  group: dop-pr-gate-${{ github.event.pull_request.number || inputs.pr_number || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: write
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Resolve PR number
+        id: pr
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER_INPUT: ${{ inputs.pr_number }}
+          PR_NUMBER_EVENT: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            echo "number=${PR_NUMBER_EVENT}" >> "$GITHUB_OUTPUT"
+          elif [ -n "${PR_NUMBER_INPUT:-}" ]; then
+            echo "number=${PR_NUMBER_INPUT}" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::PR number required for workflow_dispatch"
+            exit 1
+          fi
+
+      - name: Checkout PR head
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: mbstring, xml, curl, sqlite3, zip, bcmath
+          coverage: none
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install Composer dependencies
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if composer install --no-interaction --prefer-dist; then
+              exit 0
+            fi
+            echo "composer install failed (attempt $attempt); retrying..."
+            sleep $((attempt * 5))
+          done
+          exit 1
+
+      - name: Install automation Python deps + unit tests
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -r .automation/requirements.txt
+          python -m unittest discover -s .automation/tests -v
+
+      - name: Prepare runtime dir
+        run: |
+          mkdir -p .automation/runtime
+          echo ".automation/runtime/" >> .git/info/exclude || true
+
+      - name: Load PR metadata
+        id: meta
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        run: |
+          set -euo pipefail
+          gh pr view "$PR_NUMBER" --json number,title,body,headRefName,headRefOid,baseRefName,mergeable,url \
+            > .automation/runtime/pr.json
+          python - <<'PY'
+          import json, os, sys
+          from pathlib import Path
+          sys.path.insert(0, ".automation")
+          from pr_gate import is_automation_product_pr, write_task_file_from_pr_body
+
+          pr = json.loads(Path(".automation/runtime/pr.json").read_text(encoding="utf-8"))
+          body = pr.get("body") or ""
+          Path(".automation/runtime/pr_body.md").write_text(body, encoding="utf-8")
+          Path(".automation/runtime/pr_title.txt").write_text(pr.get("title") or "", encoding="utf-8")
+          Path(".automation/runtime/branch.txt").write_text(pr.get("headRefName") or "", encoding="utf-8")
+          Path(".automation/runtime/pr_number.txt").write_text(str(pr.get("number") or ""), encoding="utf-8")
+          Path(".automation/runtime/head_sha.txt").write_text(pr.get("headRefOid") or "", encoding="utf-8")
+          auto = is_automation_product_pr(body)
+          Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8").write(
+              f"automation_pr={'true' if auto else 'false'}\n"
+          )
+          if auto:
+              try:
+                  write_task_file_from_pr_body(body, Path(".automation/runtime/task.json"))
+              except Exception as exc:
+                  print(f"::error::Failed to parse DOP PR task metadata: {exc}")
+                  raise SystemExit(1)
+          print(f"automation_pr={auto} branch={pr.get('headRefName')} sha={pr.get('headRefOid')}")
+          PY
+          git fetch origin main
+          git diff --name-only "origin/main...HEAD" > .automation/runtime/pr_files.txt || true
+          git diff "origin/main...HEAD" > .automation/runtime/pr.diff || true
+
+      - name: Composer validate
+        run: composer validate --no-check-publish
+
+      - name: Bootstrap test env + PHPUnit
+        id: phpunit
+        run: |
+          set -euo pipefail
+          bash .automation/scripts/bootstrap_test_env.sh
+          php artisan test
+          echo "passed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Pint
+        id: pint
+        run: |
+          set -euo pipefail
+          vendor/bin/pint --test
+          echo "passed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Secret / credential gates
+        id: secrets
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import subprocess, sys
+          from pathlib import Path
+          sys.path.insert(0, ".automation")
+          from common import find_secret_like_paths, scan_diff_for_credential_leaks
+
+          files = Path(".automation/runtime/pr_files.txt")
+          paths = [ln.strip() for ln in files.read_text(encoding="utf-8").splitlines() if ln.strip()] if files.is_file() else []
+          hits = find_secret_like_paths(paths)
+          if hits:
+              raise SystemExit("Secret-like paths detected: " + ", ".join(hits))
+          diff = Path(".automation/runtime/pr.diff").read_text(encoding="utf-8") if Path(".automation/runtime/pr.diff").is_file() else ""
+          leaks = scan_diff_for_credential_leaks(diff)
+          if leaks:
+              raise SystemExit("Credential-like patterns detected in diff")
+          print("secret_gates: ok")
+          PY
+          echo "passed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Product branch infra path protection
+        id: infra
+        if: steps.meta.outputs.automation_pr == 'true'
+        run: |
+          set -euo pipefail
+          bash .automation/scripts/assert_product_branch_infra.sh .automation/runtime/task.json
+          echo "passed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Skip non-automation PR merge path
+        if: steps.meta.outputs.automation_pr != 'true'
+        run: |
+          set -euo pipefail
+          echo "Non-automation PR: quality gates only (no Reviewer merge)." >> "$GITHUB_STEP_SUMMARY"
+          echo "Cursor Automations product PRs must include <!-- DOP_AUTOMATION_PR -->." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: OpenAI Reviewer
+        id: review
+        if: steps.meta.outputs.automation_pr == 'true'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_REVIEWER_MODEL: ${{ vars.OPENAI_REVIEWER_MODEL }}
+          OPENAI_REASONING_EFFORT: ${{ vars.OPENAI_REASONING_EFFORT }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ -z "${OPENAI_API_KEY:-}" ]; then
+            echo "::error::OPENAI_API_KEY missing — cannot review or merge"
+            exit 1
+          fi
+          HEAD_SHA="$(cat .automation/runtime/head_sha.txt)"
+          # Ensure workspace matches reviewed SHA
+          git checkout --force "$HEAD_SHA"
+          MODEL_ARGS=()
+          if [ -n "${OPENAI_REVIEWER_MODEL:-}" ]; then MODEL_ARGS=(--model "$OPENAI_REVIEWER_MODEL"); fi
+          {
+            echo "PHPUnit: PASS"
+            echo "Pint: PASS"
+            echo "Secret gates: PASS"
+            echo "Infra path protection: PASS"
+          } > .automation/runtime/test_notes.txt
+
+          set +e
+          python .automation/reviewer.py \
+            --require-automation-marker \
+            --fail-on-blocking-verdict \
+            --title "$(cat .automation/runtime/pr_title.txt)" \
+            --body-file .automation/runtime/pr_body.md \
+            --diff-file .automation/runtime/pr.diff \
+            --files-file .automation/runtime/pr_files.txt \
+            --test-notes-file .automation/runtime/test_notes.txt \
+            --task-file .automation/runtime/task.json \
+            --head-sha "$HEAD_SHA" \
+            --evidence-output .automation/runtime/review_evidence.json \
+            --output .automation/runtime/review.json \
+            --comment-output .automation/runtime/review_comment.md \
+            "${MODEL_ARGS[@]}"
+          REVIEW_RC=$?
+          set -e
+          if [ -f .automation/runtime/review_comment.md ]; then
+            gh pr comment "$PR_NUMBER" --body-file .automation/runtime/review_comment.md || true
+          fi
+          # Surface FIX_REQUIRED / HUMAN_REQUIRED as a failed check with readable issues.
+          if [ "$REVIEW_RC" -ne 0 ]; then
+            python - <<'PY' | tee .automation/runtime/reviewer_ci_failure.txt
+          import json, os, sys
+          from pathlib import Path
+          sys.path.insert(0, ".automation")
+          from pr_gate import format_fix_required_ci_failure
+          from common import load_review_evidence
+
+          review_path = Path(".automation/runtime/review.json")
+          if not review_path.is_file():
+              print("DOP PR Gate: Reviewer failed without review.json")
+              raise SystemExit(0)
+          review = json.loads(review_path.read_text(encoding="utf-8"))
+          evidence = load_review_evidence(Path(".automation/runtime/review_evidence.json")) or {}
+          if evidence.get("reviewed_head_sha"):
+              review["reviewed_head_sha"] = evidence["reviewed_head_sha"]
+          review["model"] = str(evidence.get("model") or "")
+          text = format_fix_required_ci_failure(review)
+          print(text)
+          summary = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary:
+              with open(summary, "a", encoding="utf-8") as fh:
+                  fh.write("## Reviewer blocking issues\n\n")
+                  fh.write(text)
+                  fh.write("\n")
+          PY
+            echo "::error::OpenAI Reviewer blocked merge (see reviewer issues above)"
+            exit 1
+          fi
+          VERDICT="$(python -c 'import json;print(json.load(open(".automation/runtime/review.json"))["verdict"])')"
+          echo "verdict=$VERDICT" >> "$GITHUB_OUTPUT"
+          echo "Reviewer: $VERDICT @ $HEAD_SHA" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload reviewer failure artifact
+        if: failure() && steps.meta.outputs.automation_pr == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dop-reviewer-issues-pr-${{ steps.pr.outputs.number }}
+          path: |
+            .automation/runtime/review.json
+            .automation/runtime/review_comment.md
+            .automation/runtime/reviewer_ci_failure.txt
+            .automation/runtime/review_evidence.json
+          if-no-files-found: ignore
+
+      - name: Final merge gates + squash merge
+        id: merge
+        if: steps.meta.outputs.automation_pr == 'true' && steps.review.outputs.verdict == 'APPROVED'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        run: |
+          set -euo pipefail
+          # Refresh remote HEAD; SHA lock must still match reviewed evidence.
+          REMOTE_SHA="$(gh pr view "$PR_NUMBER" --json headRefOid --jq .headRefOid)"
+          LOCAL_SHA="$(cat .automation/runtime/head_sha.txt)"
+          if [ "$REMOTE_SHA" != "$LOCAL_SHA" ]; then
+            echo "::error::PR HEAD moved after review ($LOCAL_SHA -> $REMOTE_SHA); refusing merge"
+            exit 1
+          fi
+          python - <<'PY'
+          import json, os, subprocess, sys
+          from pathlib import Path
+          sys.path.insert(0, ".automation")
+          from pr_gate import pr_gate_may_merge
+          from common import load_review_evidence
+
+          pr_number = os.environ["PR_NUMBER"]
+          mergeable = subprocess.check_output(
+              ["gh", "pr", "view", pr_number, "--json", "mergeable", "--jq", ".mergeable"],
+              text=True,
+          ).strip()
+          task = json.loads(Path(".automation/runtime/task.json").read_text(encoding="utf-8"))
+          evidence = load_review_evidence(Path(".automation/runtime/review_evidence.json"))
+          review = json.loads(Path(".automation/runtime/review.json").read_text(encoding="utf-8"))
+          body = Path(".automation/runtime/pr_body.md").read_text(encoding="utf-8")
+          errors = pr_gate_may_merge(
+              tests_passed=True,
+              pint_passed=True,
+              secrets_passed=True,
+              infra_passed=True,
+              reviewer_verdict=str(review.get("verdict") or ""),
+              review_evidence=evidence,
+              current_head_sha=Path(".automation/runtime/head_sha.txt").read_text(encoding="utf-8").strip(),
+              task=task,
+              pr_body=body,
+              branch_name=Path(".automation/runtime/branch.txt").read_text(encoding="utf-8").strip(),
+              mergeable=mergeable == "MERGEABLE",
+              repo_root=Path("."),
+          )
+          if errors:
+              print("Merge blocked:", file=sys.stderr)
+              for err in errors:
+                  print(f"  - {err}", file=sys.stderr)
+              raise SystemExit(1)
+          print("final_merge_gates: ok")
+          PY
+          gh pr merge "$PR_NUMBER" --squash --delete-branch
+          echo "merged=true" >> "$GITHUB_OUTPUT"
+          echo "Merged #$PR_NUMBER (no continuation dispatch)" >> "$GITHUB_STEP_SUMMARY"
+          # CRITICAL: do not emit legacy continuation or recovery repository events.
+
+      - name: Update project status after merge
+        if: steps.merge.outputs.merged == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git checkout --force main
+          git pull origin main
+          python .automation/scripts/update_project_status.py \
+            --overall RUNNING \
+            --run-outcome COMPLETED_AND_CONTINUING \
+            --commit-main \
+            --close-stale || true
+
+      - name: Update project status on reviewer / gate failure
+        if: failure() && steps.meta.outputs.automation_pr == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          VERDICT=""
+          if [ -f .automation/runtime/review.json ]; then
+            VERDICT="$(python -c 'import json;print(json.load(open(".automation/runtime/review.json")).get("verdict",""))' || true)"
+          fi
+          OVERALL=RECOVERING
+          OUTCOME=RECOVERING
+          if [ "$VERDICT" = "HUMAN_REQUIRED" ]; then
+            OVERALL=HARD_BLOCKED
+            OUTCOME=HARD_BLOCKED
+          fi
+          # Best-effort status file in workspace + summary (commit may need main checkout).
+          python .automation/scripts/update_project_status.py \
+            --overall "$OVERALL" \
+            --run-outcome "$OUTCOME" || true
+          if [ -f .automation/runtime/project_status_summary.md ]; then
+            cat .automation/runtime/project_status_summary.md >> "$GITHUB_STEP_SUMMARY" || true
+          fi
+
+      - name: Project status summary (always)
+        if: always()
+        run: |
+          set -euo pipefail
+          if [ -f .automation/runtime/project_status_summary.md ]; then
+            cat .automation/runtime/project_status_summary.md >> "$GITHUB_STEP_SUMMARY" || true
+          elif [ -f docs/PROJECT_STATUS.md ]; then
+            echo "## docs/PROJECT_STATUS.md (checkout copy)" >> "$GITHUB_STEP_SUMMARY"
+            head -n 40 docs/PROJECT_STATUS.md >> "$GITHUB_STEP_SUMMARY" || true
+          fi

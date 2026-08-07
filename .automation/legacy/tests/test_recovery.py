@@ -1,4 +1,4 @@
-"""Tests for DOP Autopilot self-healing / recovery helpers."""
+"""Tests for DOP Autopilot self-healing / recovery helpers (legacy archive)."""
 
 from __future__ import annotations
 
@@ -7,9 +7,11 @@ import unittest
 from pathlib import Path
 import sys
 
-AUTOMATION = Path(__file__).resolve().parents[1]
+LEGACY = Path(__file__).resolve().parents[1]
+AUTOMATION = LEGACY.parent
 ROOT = AUTOMATION.parent
 sys.path.insert(0, str(AUTOMATION))
+sys.path.insert(0, str(LEGACY))
 
 from common import is_safe_product_spec_path  # noqa: E402
 from recovery import (  # noqa: E402

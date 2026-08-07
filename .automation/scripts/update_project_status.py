@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Generate docs/PROJECT_STATUS.md and Actions summary (deterministic, no OpenAI)."""
+"""Generate docs/PROJECT_STATUS.md and Actions summary (deterministic, no OpenAI).
+
+Autopilot v2: does not depend on legacy recovery counters / dop-recover-task state.
+"""
 
 from __future__ import annotations
 
@@ -14,7 +17,7 @@ ROOT = AUTOMATION_DIR.parent
 if str(AUTOMATION_DIR) not in sys.path:
     sys.path.insert(0, str(AUTOMATION_DIR))
 
-from common import recent_commit_summary  # noqa: E402
+from common import recent_commit_summary, write_run_summary_status  # noqa: E402
 from project_status import (  # noqa: E402
     COMPLETED_AND_CONTINUING,
     HARD_BLOCKED,
@@ -28,7 +31,6 @@ from project_status import (  # noqa: E402
     render_actions_summary,
     write_project_status_file,
 )
-from recovery import write_run_summary_status  # noqa: E402
 
 
 def _load_json(path: Path) -> dict:
@@ -78,25 +80,29 @@ def main(argv: list[str] | None = None) -> int:
     if not verdict and evidence:
         verdict = str(evidence.get("verdict") or "")
 
-    retry = _load_json(runtime / "retry_counts.json")
-    recover = _load_json(runtime / "recover_payload.json")
-    retry_state = ""
-    if recover:
-        retry_state = (
-            f"recover/{recover.get('failure_class') or 'unknown'} "
-            f"retries={json.dumps(recover.get('retry_counts') or retry or {})}"
-        )
-    elif retry:
-        retry_state = f"retries={json.dumps(retry)}"
+    # v2 activity state — inferred from PR/reviewer, not legacy retry counters.
+    activity_state = args.run_outcome
+    if verdict == "FIX_REQUIRED" and args.run_outcome not in {HARD_BLOCKED, ROADMAP_COMPLETE}:
+        activity_state = RECOVERING
+        if not args.overall:
+            args.overall = RECOVERING
+            args.run_outcome = RECOVERING
+    elif verdict == "HUMAN_REQUIRED":
+        activity_state = HARD_BLOCKED
+        if not args.overall:
+            args.overall = HARD_BLOCKED
+            args.run_outcome = HARD_BLOCKED
+    elif verdict == "APPROVED":
+        activity_state = args.run_outcome or COMPLETED_AND_CONTINUING
 
     blockers: list[dict[str, str]] = []
     if args.run_outcome == HARD_BLOCKED or args.overall == HARD_BLOCKED:
         blockers.append(
             {
-                "issue_link": "see GitHub Issues with <!-- DOP_HARD_BLOCKER -->",
+                "issue_link": "see GitHub Issues with <!-- DOP_HARD_BLOCKER --> (ignore stale/resolved)",
                 "classification": "HARD_BLOCKED",
                 "reason": _read(runtime / "last_failure.txt")[:500]
-                or str(task.get("reason") or "hard blocker"),
+                or str(task.get("reason") or verdict or "hard blocker"),
             }
         )
 
@@ -109,7 +115,6 @@ def main(argv: list[str] | None = None) -> int:
     repo = os.environ.get("GITHUB_REPOSITORY", "")
     run_url = f"https://github.com/{repo}/actions/runs/{run_id}" if repo and run_id else ""
 
-    # Architect ROADMAP_COMPLETE
     if str(task.get("status") or "") == "ROADMAP_COMPLETE":
         args.run_outcome = ROADMAP_COMPLETE
         args.overall = ROADMAP_COMPLETE
@@ -121,11 +126,11 @@ def main(argv: list[str] | None = None) -> int:
         merged_task_ids=merged_ids,
         commit_summary=commits,
         recently_completed=recent,
-        current_task=task if task.get("status") == "TASK_READY" else {},
+        current_task=task if task.get("task_id") or task.get("status") == "TASK_READY" else {},
         current_branch=branch,
         current_pr=f"#{pr_number}" if pr_number else "",
         reviewer_verdict=verdict,
-        retry_recovery_state=retry_state or args.run_outcome,
+        retry_recovery_state=activity_state,
         automation_run_id=run_id,
         automation_run_url=run_url,
         blockers=blockers,
@@ -161,7 +166,7 @@ def main(argv: list[str] | None = None) -> int:
         markdown = path.read_text(encoding="utf-8")
         ok = commit_project_status_to_main(ROOT, content=markdown, dry_run=args.dry_run)
         print("status_commit=", ok, flush=True)
-        # CRITICAL: never dispatch dop-next-task from this script.
+        # CRITICAL: never dispatch continuation events from this script.
 
     return 0
 

@@ -10,16 +10,21 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
-from recovery import (
-    COMPLETED_AND_CONTINUING,
-    HARD_BLOCKED,
-    RECOVERING,
-    ROADMAP_COMPLETE,
-    RUN_SUMMARY_STATUSES,
-)
-
-# Project-level overall status (human-facing PROJECT_STATUS.md).
+# Run / project status vocabulary (shared with Actions summaries).
+COMPLETED_AND_CONTINUING = "COMPLETED_AND_CONTINUING"
+RECOVERING = "RECOVERING"
+HARD_BLOCKED = "HARD_BLOCKED"
+ROADMAP_COMPLETE = "ROADMAP_COMPLETE"
 RUNNING = "RUNNING"
+
+RUN_SUMMARY_STATUSES = frozenset(
+    {
+        COMPLETED_AND_CONTINUING,
+        RECOVERING,
+        HARD_BLOCKED,
+        ROADMAP_COMPLETE,
+    }
+)
 
 PROJECT_OVERALL_STATUSES = (
     RUNNING,
