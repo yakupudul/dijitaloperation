@@ -23,7 +23,8 @@ Kartlar mevcut domain kayıtlarından aggregate edilir; dashboard için ayrı sa
 
 ## Relationships
 
-Dashboard → Findings / Recommendations / Tasks / Runs / Customers.
+Dashboard → Findings / Recommendations / Tasks / Runs / Customers.  
+Cross-asset / cross-channel Findings (roadmap 22; `docs/product/cross-asset/CROSS_ASSET_ANALYSIS.md`) may appear as action cards when present — dashboard does not invent channel scores.
 
 ## Main screens / workflows
 
