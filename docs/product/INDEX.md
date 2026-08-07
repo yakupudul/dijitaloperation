@@ -67,7 +67,8 @@ Blueprint, MASTER_SPEC'i **override edemez**; yalnızca ayrıntılandırır.
 | AI Insights | `docs/product/website/AI_INSIGHTS.md` |
 | Google Business Profile | `docs/product/google-business-profile/GOOGLE_BUSINESS_PROFILE.md` |
 | Google Ads | `docs/product/google-ads/GOOGLE_ADS.md` |
-| Later assets (Meta Ads, Instagram, …) | `docs/product/future/DIGITAL_ASSETS.md` |
+| Meta Ads | `docs/product/meta-ads/META_ADS.md` |
+| Later assets (Instagram, …) | `docs/product/future/DIGITAL_ASSETS.md` |
 
 ## Blueprint şablonu
 

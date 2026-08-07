@@ -30,7 +30,7 @@ Architect yalnızca buradaki sıradaki **ilk tamamlanmamış** işi seçer ve on
 | 17 | Website AI Insights | `docs/product/website/AI_INSIGHTS.md` |
 | 18 | Google Business Profile product spec + first module | `docs/product/google-business-profile/GOOGLE_BUSINESS_PROFILE.md` |
 | 19 | Google Ads product spec + first module | `docs/product/google-ads/GOOGLE_ADS.md` |
-| 20 | Meta Ads product spec + first module | `docs/product/future/DIGITAL_ASSETS.md` |
+| 20 | Meta Ads product spec + first module | `docs/product/meta-ads/META_ADS.md` |
 | 21 | Instagram product spec + first module | `docs/product/future/DIGITAL_ASSETS.md` |
 | 22 | Cross-asset / cross-channel analysis | `docs/product/DASHBOARD.md` + future assets |
 | 23 | Action-oriented agency operations dashboard / first production hardening | `docs/product/DASHBOARD.md` |
