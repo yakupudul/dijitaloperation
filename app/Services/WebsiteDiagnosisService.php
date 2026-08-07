@@ -6,6 +6,7 @@ use App\Models\DigitalAsset;
 use App\Models\Evidence;
 use App\Models\Finding;
 use App\Models\Run;
+use App\Support\RobotsTxtParser;
 use App\Support\SslCertificateProbe;
 use App\Support\SslCertParser;
 use DateTimeImmutable;
@@ -25,9 +26,13 @@ class WebsiteDiagnosisService
 
     public const CATALOG_REDIRECT_HTTP_TO_HTTPS = 'redirect-http-to-https';
 
+    public const CATALOG_ROBOTS_TXT_AVAILABILITY = 'robots-txt-availability';
+
     public const EVIDENCE_TYPE_TLS_INFO = 'tls_info';
 
     public const EVIDENCE_TYPE_REDIRECTS = 'redirects';
+
+    public const EVIDENCE_TYPE_ROBOTS = 'robots';
 
     private const TLS_EXPIRING_SOON_DAYS = 7;
 
@@ -35,12 +40,15 @@ class WebsiteDiagnosisService
 
     private const CONFIDENCE_HIGH = 0.9000;
 
+    private const CONFIDENCE_MEDIUM = 0.7000;
+
     public function __construct(
         private readonly SslCertificateProbe $sslCertificateProbe = new SslCertificateProbe,
+        private readonly RobotsTxtParser $robotsTxtParser = new RobotsTxtParser,
     ) {}
 
     /**
-     * Deterministic Website Diagnosis slice: reachability + TLS + HTTP→HTTPS redirect → Evidence → Finding upsert.
+     * Deterministic Website Diagnosis slice: reachability + TLS + HTTP→HTTPS redirect + robots.txt → Evidence → Finding upsert.
      */
     public function diagnose(DigitalAsset $asset): Run
     {
@@ -60,6 +68,7 @@ class WebsiteDiagnosisService
                     self::CATALOG_REACHABILITY_HTTP,
                     self::CATALOG_HTTPS_TLS_VALIDITY,
                     self::CATALOG_REDIRECT_HTTP_TO_HTTPS,
+                    self::CATALOG_ROBOTS_TXT_AVAILABILITY,
                 ],
             ],
         ]);
@@ -121,6 +130,35 @@ class WebsiteDiagnosisService
                 $asset,
                 $run,
                 $redirectCollection['redirects'],
+                $observedAt,
+            );
+
+            $robotsCollection = $this->collectRobotsTxt($primaryUrl);
+
+            Evidence::query()->create([
+                'run_id' => $run->id,
+                'digital_asset_id' => $asset->id,
+                'source_module' => self::MODULE_ID,
+                'type' => 'http_fetch',
+                'title' => 'robots.txt HTTP fetch',
+                'payload' => $robotsCollection['http_fetch'],
+                'observed_at' => $observedAt,
+            ]);
+
+            Evidence::query()->create([
+                'run_id' => $run->id,
+                'digital_asset_id' => $asset->id,
+                'source_module' => self::MODULE_ID,
+                'type' => self::EVIDENCE_TYPE_ROBOTS,
+                'title' => 'robots.txt',
+                'payload' => $robotsCollection['robots'],
+                'observed_at' => $observedAt,
+            ]);
+
+            $this->evaluateRobotsTxtAvailability(
+                $asset,
+                $run,
+                $robotsCollection['robots'],
                 $observedAt,
             );
 
@@ -394,6 +432,198 @@ class WebsiteDiagnosisService
             confidence: self::CONFIDENCE_HIGH,
             observedAt: $observedAt,
         );
+    }
+
+    /**
+     * Collect robots.txt evidence for the primary host (HTTPS preferred).
+     *
+     * @return array{
+     *     http_fetch: array{
+     *         url: string,
+     *         status_code: int|null,
+     *         effective_url: string|null,
+     *         is_https: bool,
+     *         response_is_ok: bool,
+     *         error_class: string|null,
+     *         error_or_status: string
+     *     },
+     *     robots: array{
+     *         robots_url: string,
+     *         effective_url: string|null,
+     *         status_code: int|null,
+     *         present: bool,
+     *         body: string|null,
+     *         body_truncated: bool,
+     *         parse_ok: bool,
+     *         has_user_agent_group: bool,
+     *         sitemap_urls: list<string>,
+     *         status_or_error: string,
+     *         error_class: string|null,
+     *         reason_code: string|null
+     *     }
+     * }
+     */
+    private function collectRobotsTxt(string $primaryUrl): array
+    {
+        $robotsUrl = $this->robotsTxtUrlFor($primaryUrl);
+
+        try {
+            /** @var Response $response */
+            $response = Http::timeout(15)
+                ->accept('text/plain,*/*;q=0.8')
+                ->withHeaders([
+                    'User-Agent' => 'MoxDOP-WebsiteDiagnosis/1.0',
+                ])
+                ->get($robotsUrl);
+
+            $statusCode = $response->status();
+            $effectiveUrl = $this->effectiveUrl($response, $robotsUrl);
+            $rawBody = $response->body();
+            $parsed = $this->robotsTxtParser->parse($rawBody, $statusCode);
+
+            $errorClass = null;
+            $statusOrError = (string) $statusCode;
+            $reasonCode = null;
+
+            if ($statusCode >= 500 && $statusCode <= 599) {
+                $reasonCode = 'fetch_5xx';
+            } elseif ($parsed['malformed']) {
+                $reasonCode = 'malformed';
+            }
+
+            $httpFetch = [
+                'url' => $robotsUrl,
+                'status_code' => $statusCode,
+                'effective_url' => $effectiveUrl,
+                'is_https' => $this->isHttps($effectiveUrl ?? $robotsUrl),
+                'response_is_ok' => $response->successful(),
+                'error_class' => $errorClass,
+                'error_or_status' => $statusOrError,
+            ];
+
+            return [
+                'http_fetch' => $httpFetch,
+                'robots' => [
+                    'robots_url' => $robotsUrl,
+                    'effective_url' => $effectiveUrl,
+                    'status_code' => $statusCode,
+                    'present' => $statusCode === 200 && is_string($parsed['body']),
+                    'body' => $parsed['body'],
+                    'body_truncated' => $parsed['body_truncated'],
+                    'parse_ok' => $parsed['parse_ok'],
+                    'has_user_agent_group' => $parsed['has_user_agent_group'],
+                    'sitemap_urls' => $parsed['sitemap_urls'],
+                    'status_or_error' => $statusOrError,
+                    'error_class' => $errorClass,
+                    'reason_code' => $reasonCode,
+                ],
+            ];
+        } catch (ConnectionException $exception) {
+            $statusOrError = 'connection_error: '.$exception->getMessage();
+
+            $httpFetch = [
+                'url' => $robotsUrl,
+                'status_code' => null,
+                'effective_url' => null,
+                'is_https' => $this->isHttps($robotsUrl),
+                'response_is_ok' => false,
+                'error_class' => 'connection',
+                'error_or_status' => $statusOrError,
+            ];
+
+            return [
+                'http_fetch' => $httpFetch,
+                'robots' => [
+                    'robots_url' => $robotsUrl,
+                    'effective_url' => null,
+                    'status_code' => null,
+                    'present' => false,
+                    'body' => null,
+                    'body_truncated' => false,
+                    'parse_ok' => false,
+                    'has_user_agent_group' => false,
+                    'sitemap_urls' => [],
+                    'status_or_error' => $statusOrError,
+                    'error_class' => 'connection',
+                    'reason_code' => 'connection',
+                ],
+            ];
+        }
+    }
+
+    /**
+     * Catalog item `robots-txt-availability`: 5xx/transport failure or malformed robots body.
+     *
+     * @param  array{
+     *     robots_url: string,
+     *     effective_url: string|null,
+     *     status_code: int|null,
+     *     present: bool,
+     *     body: string|null,
+     *     body_truncated: bool,
+     *     parse_ok: bool,
+     *     has_user_agent_group: bool,
+     *     sitemap_urls: list<string>,
+     *     status_or_error: string,
+     *     error_class: string|null,
+     *     reason_code: string|null
+     * }  $evidence
+     */
+    private function evaluateRobotsTxtAvailability(
+        DigitalAsset $asset,
+        Run $run,
+        array $evidence,
+        DateTimeInterface $observedAt,
+    ): void {
+        $reasonCode = $evidence['reason_code'];
+
+        if ($reasonCode === null) {
+            return;
+        }
+
+        $host = strtolower((string) parse_url($evidence['robots_url'], PHP_URL_HOST));
+        $fingerprint = $this->fingerprint(self::CATALOG_ROBOTS_TXT_AVAILABILITY, [
+            'host' => $host,
+        ]);
+
+        $severity = $reasonCode === 'malformed' ? 'low' : 'medium';
+        $confidence = $reasonCode === 'malformed' ? self::CONFIDENCE_MEDIUM : self::CONFIDENCE_HIGH;
+
+        $this->upsertFinding(
+            asset: $asset,
+            run: $run,
+            fingerprint: $fingerprint,
+            category: 'indexability',
+            severity: $severity,
+            title: 'robots.txt problem',
+            summary: sprintf(
+                'Fetching %s yielded %s; parse_ok=%s.',
+                $evidence['robots_url'],
+                $evidence['status_or_error'],
+                $evidence['parse_ok'] ? 'true' : 'false',
+            ),
+            confidence: $confidence,
+            observedAt: $observedAt,
+        );
+    }
+
+    private function robotsTxtUrlFor(string $primaryUrl): string
+    {
+        $parts = parse_url($primaryUrl);
+
+        if (! is_array($parts) || ! isset($parts['host'])) {
+            throw new InvalidArgumentException('Unable to derive robots.txt URL from primary_url.');
+        }
+
+        $scheme = strtolower((string) ($parts['scheme'] ?? 'https'));
+        if ($scheme !== 'http' && $scheme !== 'https') {
+            $scheme = 'https';
+        }
+
+        $host = strtolower($parts['host']);
+        $port = isset($parts['port']) ? ':'.$parts['port'] : '';
+
+        return $scheme.'://'.$host.$port.'/robots.txt';
     }
 
     private function httpFormOf(string $url): string

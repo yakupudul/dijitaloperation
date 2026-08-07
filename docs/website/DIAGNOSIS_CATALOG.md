@@ -45,7 +45,7 @@ Logical evidence labels (normalized later by collectors; not API field dumps):
 | `http_fetch` | Request URL, final URL, status code, response headers, timing, error class |
 | `redirects` | Ordered hop list for an HTTP(S) fetch: `start_url`, `final_url`, `hop_count`, `hops` (`url`, `status`, `location`), `upgraded_to_https_same_host`, optional `error_class`. No response bodies. |
 | `tls_info` | Normalized peer certificate observation for a host: `host`, `present`, `subject_common_name`, `issuer_common_name`, `valid_from` (ISO8601 UTC), `valid_to` (ISO8601 UTC / notAfter), `observed_at` (ISO8601 UTC), `fetch_method` (`php_stream` \| `curl`), optional `error_class`, optional `san_hosts` when available. No private keys or raw certificate dumps. |
-| `robots` | Fetched `robots.txt` body (or absence / non-200), effective URL |
+| `robots` | Normalized robots.txt observation: `robots_url`, `effective_url`, `status_code`, `present` (true when HTTP `200` with a body string), `body` (UTF-8 text, truncated at 64 KiB), `body_truncated`, `parse_ok`, `has_user_agent_group`, `sitemap_urls`, `status_or_error`, optional `error_class`, optional `reason_code` (`fetch_5xx` \| `connection` \| `malformed`). No unrelated page HTML. |
 | `sitemap` | Fetched sitemap document(s) or declared sitemap URL outcome (presence, parseability, URL count signal) |
 | `page_html` | HTML document for a URL (head/body excerpt sufficient for meta/link tags) |
 
@@ -135,6 +135,7 @@ Logical evidence labels (normalized later by collectors; not API field dumps):
 | **detection_rule** | Fire **medium** when fetch returns final status `5xx` or transport failure for `/robots.txt`. Fire **low** when body is present but contains no `User-agent` group yet includes non-empty non-comment text that cannot be parsed as a robots group (malformed). Do **not** fire solely because `404` — absence of robots.txt means “no robots restrictions” per common crawler practice and the Robots Exclusion Protocol. Disallow semantics follow [RFC 9309](https://www.rfc-editor.org/rfc/rfc9309). |
 | **severity** | `medium` (fetch/server failure) / `low` (malformed body) — record the matching case in evidence-derived reason code |
 | **confidence** | `high` for status/transport outcomes; `medium` for malformation (parser-definite, but site intent unclear) |
+| **fingerprint** | `sha256( "{id}\|host={normalized_host}" )` where `normalized_host` is the lowercased hostname from the robots fetch URL (no port). Status, parse outcome, and body are **not** part of the fingerprint (same host upserts across runs). |
 | **finding_output** | **title:** `robots.txt problem` · **summary:** `Fetching {robots_url} yielded {status_or_error}; parse_ok={parse_ok}.` |
 | **recommendation_logic** | On `5xx`/transport failure → restore `/robots.txt` serving on the apex host used by crawlers. On malformed file → rewrite using `User-agent` / `Allow` / `Disallow` / `Sitemap` lines per RFC 9309. On unexpected sitewide `Disallow: /` for `*` (when clearly present) → confirm intentional staging/blocking before production indexing is expected. |
 | **source_dependency** | Optional `sitemap` evidence raises confidence that `Sitemap:` lines in robots match a fetchable sitemap. GSC connection (later) can corroborate crawl-blocking but is not required for this item. |

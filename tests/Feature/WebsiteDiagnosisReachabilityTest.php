@@ -30,6 +30,7 @@ class WebsiteDiagnosisReachabilityTest extends TestCase
     public function test_diagnose_website_job_creates_run_and_normalized_http_fetch_evidence_on_success(): void
     {
         Http::fake([
+            'https://acme.example/robots.txt' => Http::response("User-agent: *\nDisallow:\n", 200),
             'https://acme.example/*' => Http::response('ok', 200, ['Content-Type' => 'text/html']),
             'https://acme.example' => Http::response('ok', 200, ['Content-Type' => 'text/html']),
             'http://acme.example' => Http::response('', 301, ['Location' => 'https://acme.example/']),
@@ -52,7 +53,7 @@ class WebsiteDiagnosisReachabilityTest extends TestCase
         $this->assertNotNull($run->started_at);
         $this->assertNotNull($run->finished_at);
 
-        $this->assertDatabaseCount('evidence', 4);
+        $this->assertDatabaseCount('evidence', 6);
 
         $evidence = Evidence::query()
             ->where('run_id', $run->id)
@@ -84,6 +85,7 @@ class WebsiteDiagnosisReachabilityTest extends TestCase
     public function test_reachability_finding_is_created_then_upserted_on_fingerprint_without_duplicates(): void
     {
         Http::fake([
+            'https://down.example/robots.txt' => Http::response("User-agent: *\nDisallow:\n", 200),
             'https://down.example' => Http::response('upstream error', 503),
             'https://down.example/*' => Http::response('upstream error', 503),
             'http://down.example' => Http::response('', 301, ['Location' => 'https://down.example/']),
@@ -130,7 +132,7 @@ class WebsiteDiagnosisReachabilityTest extends TestCase
         $this->assertNotSame($firstRun->id, $secondRun->id);
         $this->assertDatabaseCount('findings', 1);
         $this->assertDatabaseCount('runs', 2);
-        $this->assertDatabaseCount('evidence', 8);
+        $this->assertDatabaseCount('evidence', 12);
 
         $finding = $finding->fresh();
         $this->assertNotNull($finding);
@@ -143,7 +145,11 @@ class WebsiteDiagnosisReachabilityTest extends TestCase
 
     public function test_connection_failure_persists_evidence_and_reachability_finding(): void
     {
-        Http::fake(function () {
+        Http::fake(function ($request) {
+            if (str_ends_with($request->url(), '/robots.txt')) {
+                return Http::response("User-agent: *\nDisallow:\n", 200);
+            }
+
             throw new ConnectionException('Could not resolve host');
         });
 
@@ -172,6 +178,7 @@ class WebsiteDiagnosisReachabilityTest extends TestCase
     public function test_client_error_4xx_does_not_create_reachability_finding(): void
     {
         Http::fake([
+            'https://gone.example/robots.txt' => Http::response("User-agent: *\nDisallow:\n", 200),
             'https://gone.example' => Http::response('not found', 404),
             'http://gone.example' => Http::response('', 301, ['Location' => 'https://gone.example/']),
         ]);
