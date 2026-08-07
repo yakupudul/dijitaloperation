@@ -58,9 +58,9 @@ Last active task:
 
 * task id: `pagespeed-connector-read-only-probe`
 * branch: `dop/pagespeed-connector-read-only-probe`
-* PR: pending
+* PR: #63
 * reviewer verdict: —
-* retry/recovery state: IMPLEMENTING
+* retry/recovery state: AWAITING_GATE
 
 ## Recently completed
 
