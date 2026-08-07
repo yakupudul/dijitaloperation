@@ -10,6 +10,7 @@ if [[ -f composer.json ]]; then
   if [[ ! -d vendor ]]; then
     composer install --no-interaction --prefer-dist
   fi
+  bash .automation/scripts/bootstrap_test_env.sh
   php artisan test
   if [[ -x vendor/bin/pint ]]; then
     vendor/bin/pint --test

@@ -232,5 +232,36 @@ class SkipNextTaskTests(unittest.TestCase):
         self.assertTrue(should_skip_next_task_for_merged_pr("chore/dop-autopilot"))
 
 
+class CiBootstrapTests(unittest.TestCase):
+    """Fresh CI runners have no .env; quality gates must bootstrap a disposable APP_KEY."""
+
+    def test_bootstrap_script_supports_missing_env(self) -> None:
+        script = REPO_ROOT / ".automation" / "scripts" / "bootstrap_test_env.sh"
+        self.assertTrue(script.is_file(), "bootstrap_test_env.sh must exist")
+        text = script.read_text(encoding="utf-8")
+        self.assertIn("cp .env.example .env", text)
+        self.assertIn("key:generate --force", text)
+        self.assertIn(">/dev/null", text)
+        self.assertNotRegex(text, r"echo\s+.*APP_KEY")
+        self.assertNotIn("git add .env", text)
+        self.assertNotIn("gh secret", text)
+
+    def test_quality_gates_invoke_bootstrap_before_laravel_tests(self) -> None:
+        quality = (REPO_ROOT / ".automation" / "scripts" / "quality_gates.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("bootstrap_test_env.sh", quality)
+        bootstrap_at = quality.index("bootstrap_test_env.sh")
+        test_at = quality.index("php artisan test")
+        self.assertLess(bootstrap_at, test_at)
+
+    def test_phpunit_keeps_sqlite_memory_without_changing_env_example(self) -> None:
+        phpunit = (REPO_ROOT / "phpunit.xml").read_text(encoding="utf-8")
+        self.assertIn('name="DB_CONNECTION" value="sqlite"', phpunit)
+        self.assertIn('name="DB_DATABASE" value=":memory:"', phpunit)
+        example = (REPO_ROOT / ".env.example").read_text(encoding="utf-8")
+        self.assertIn("DB_CONNECTION=mysql", example)
+
+
 if __name__ == "__main__":
     unittest.main()
