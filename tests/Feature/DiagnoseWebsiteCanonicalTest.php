@@ -52,6 +52,7 @@ class DiagnoseWebsiteCanonicalTest extends TestCase
         $this->assertSame(['https://ok.example/'], $pageHtml->payload['canonical_hrefs']);
         $this->assertTrue($pageHtml->payload['head_complete']);
         $this->assertSame([], $pageHtml->payload['telephone_candidates'] ?? null);
+        $this->assertSame([], $pageHtml->payload['postal_address_candidates'] ?? null);
 
         $this->assertSame(
             0,

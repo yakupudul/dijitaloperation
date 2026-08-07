@@ -2,29 +2,29 @@ This file is generated/maintained by DOP Autopilot and represents implementation
 
 # DOP Project Status
 
-Last updated: 2026-08-07T20:09:11Z
+Last updated: 2026-08-07T20:20:00Z
 
 Overall status:
 RUNNING
 
-Current roadmap stage: 18 / 23
+Current roadmap stage: 22 / 23
 
-Current stage: Google Business Profile product spec + first module
+Current stage: Cross-asset / cross-channel analysis
 
-Current task: cross-asset-website-gbp-phone-consistency
+Current task: cross-asset-website-gbp-address-consistency
 
 Current task title:
 
-Add Website ↔ GBP phone consistency cross-asset pack
+Add Website ↔ GBP address consistency pack
 
 Current automation run:
-https://github.com/yakupudul/dijitaloperation/actions/runs/31214508743
+—
 
 ## Progress
 
-* Completed stages: 17 / 23
-* In progress stages: —
-* Remaining stages: 18, 19, 20, 21, 22, 23
+* Completed stages: 21 / 23
+* In progress stages: 22
+* Remaining stages: 22, 23
 
 ## Roadmap
 
@@ -45,10 +45,10 @@ https://github.com/yakupudul/dijitaloperation/actions/runs/31214508743
 * [x] 15. PageSpeed / Lighthouse Connector
 * [x] 16. DataForSEO Connector
 * [x] 17. Website AI Insights
-* [ ] 18. Google Business Profile product spec + first module
-* [ ] 19. Google Ads product spec + first module
-* [ ] 20. Meta Ads product spec + first module
-* [ ] 21. Instagram product spec + first module
+* [x] 18. Google Business Profile product spec + first module
+* [x] 19. Google Ads product spec + first module
+* [x] 20. Meta Ads product spec + first module
+* [x] 21. Instagram product spec + first module
 * [ ] 22. Cross-asset / cross-channel analysis
 * [ ] 23. Action-oriented agency operations dashboard / first production hardening
 
@@ -56,11 +56,11 @@ https://github.com/yakupudul/dijitaloperation/actions/runs/31214508743
 
 Last active task:
 
-* task id: `cross-asset-website-gbp-phone-consistency`
-* branch: `dop/cross-asset-website-gbp-phone-consistency`
-* PR: #81
-* reviewer verdict: APPROVED
-* retry/recovery state: COMPLETED_AND_CONTINUING
+* task id: `cross-asset-website-gbp-address-consistency`
+* branch: `dop/cross-asset-website-gbp-address-consistency`
+* PR: —
+* reviewer verdict: —
+* retry/recovery state: IMPLEMENTING
 
 ## Recently completed
 
@@ -75,10 +75,14 @@ Last active task:
 * `google-ads-product-spec` — PR 69 — `9b9a348e920c` — 2026-08-07T18:21:13
 * `google-business-profile-connector-read-only-probe` — PR 68 — `45085214733f` — 2026-08-07T18:18:41
 
+## Deferred work
+
+None
+
 ## Blockers
 
 None
 
 ## Next expected
 
-18. Google Business Profile product spec + first module — expected focus: Add Website ↔ GBP phone consistency cross-asset pack
+Merge Website ↔ GBP address consistency pack via DOP PR Gate + Reviewer; continue stage 22 (Ads/Meta/Instagram packs when Evidence exists) or stage 23 dashboard.

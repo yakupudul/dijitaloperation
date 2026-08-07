@@ -4,10 +4,12 @@ namespace App\Filament\App\Resources\Customers\Resources\Brands\Resources\Digita
 
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\DigitalAssetResource;
 use App\Filament\App\Resources\Runs\RunResource;
+use App\Jobs\AnalyzeWebsiteGbpAddressConsistencyJob;
 use App\Jobs\AnalyzeWebsiteGbpPhoneConsistencyJob;
 use App\Jobs\AnalyzeWebsiteGbpWebsiteUrlConsistencyJob;
 use App\Jobs\DiagnoseWebsiteJob;
 use App\Models\DigitalAsset;
+use App\Services\CrossAssetWebsiteGbpAddressConsistencyService;
 use App\Services\CrossAssetWebsiteGbpPhoneConsistencyService;
 use App\Services\CrossAssetWebsiteGbpWebsiteUrlConsistencyService;
 use App\Services\WebsiteDiagnosisService;
@@ -145,6 +147,49 @@ class ViewDigitalAsset extends ViewRecord
 
                     $this->redirect(RunResource::getUrl('view', ['record' => $run]));
                 }),
+            Action::make('runWebsiteGbpAddressConsistency')
+                ->label('Run Website↔GBP address check')
+                ->icon(Heroicon::OutlinedMapPin)
+                ->color('gray')
+                ->visible(fn (): bool => $this->canRunWebsiteGbpAddressConsistency())
+                ->requiresConfirmation()
+                ->modalHeading('Run Website ↔ GBP address consistency')
+                ->modalDescription('Compares existing Website page_html postal-address Evidence with Brand Google Business Profile storefront Evidence. No external writes.')
+                ->modalSubmitActionLabel('Run check')
+                ->action(function (): void {
+                    /** @var DigitalAsset $asset */
+                    $asset = $this->getRecord();
+
+                    try {
+                        $run = (new AnalyzeWebsiteGbpAddressConsistencyJob($asset))->handle(
+                            app(CrossAssetWebsiteGbpAddressConsistencyService::class),
+                        );
+                    } catch (\Throwable $exception) {
+                        Notification::make()
+                            ->title('Website↔GBP address check failed')
+                            ->body($exception->getMessage())
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
+
+                    $skip = is_string($run->metadata['skip_reason'] ?? null)
+                        ? $run->metadata['skip_reason']
+                        : null;
+
+                    Notification::make()
+                        ->title($skip === null ? 'Website↔GBP address check completed' : 'Website↔GBP address check skipped')
+                        ->body(
+                            $skip === null
+                                ? 'Run #'.$run->id.' finished with status '.$run->status.'.'
+                                : 'Run #'.$run->id.' finished without comparison ('.$skip.').'
+                        )
+                        ->success()
+                        ->send();
+
+                    $this->redirect(RunResource::getUrl('view', ['record' => $run]));
+                }),
             EditAction::make(),
         ];
     }
@@ -178,6 +223,15 @@ class ViewDigitalAsset extends ViewRecord
         $asset = $this->getRecord();
 
         return $asset->type === CrossAssetWebsiteGbpPhoneConsistencyService::ASSET_TYPE_WEBSITE
+            && $asset->brand_id !== null;
+    }
+
+    private function canRunWebsiteGbpAddressConsistency(): bool
+    {
+        /** @var DigitalAsset $asset */
+        $asset = $this->getRecord();
+
+        return $asset->type === CrossAssetWebsiteGbpAddressConsistencyService::ASSET_TYPE_WEBSITE
             && $asset->brand_id !== null;
     }
 }
