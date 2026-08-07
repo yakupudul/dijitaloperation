@@ -175,7 +175,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--comment-output", default="")
     parser.add_argument(
         "--model",
-        default=os.environ.get("OPENAI_REVIEWER_MODEL", DEFAULT_MODEL),
+        default=(os.environ.get("OPENAI_REVIEWER_MODEL") or DEFAULT_MODEL),
     )
     parser.add_argument("--validate-only", help="Validate an existing reviewer JSON file")
     parser.add_argument(

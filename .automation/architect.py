@@ -140,7 +140,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output", default="-", help="Output JSON path or - for stdout")
     parser.add_argument(
         "--model",
-        default=os.environ.get("OPENAI_ARCHITECT_MODEL", DEFAULT_MODEL),
+        default=(os.environ.get("OPENAI_ARCHITECT_MODEL") or DEFAULT_MODEL),
         help="OpenAI model id",
     )
     parser.add_argument("--validate-only", help="Validate an existing JSON file and exit")
