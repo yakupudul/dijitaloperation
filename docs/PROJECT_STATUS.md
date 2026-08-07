@@ -2,7 +2,7 @@ This file is generated/maintained by DOP Autopilot and represents implementation
 
 # DOP Project Status
 
-Last updated: 2026-08-07T11:52:22Z
+Last updated: 2026-08-07T12:13:20Z
 
 Overall status:
 RUNNING
@@ -11,14 +11,14 @@ Current roadmap stage: 11 / 23
 
 Current stage: Website Diagnosis implementation
 
-Current task: website-diagnosis-ssl-check
+Current task: website-diagnosis-redirect-http-to-https
 
 Current task title:
 
-Add deterministic SSL certificate check to Website Diagnosis
+Add catalog-aligned HTTP to HTTPS redirect diagnosis check
 
 Current automation run:
-https://github.com/yakupudul/dijitaloperation/actions/runs/31175759114
+https://github.com/yakupudul/dijitaloperation/actions/runs/31177211248
 
 ## Progress
 
@@ -56,14 +56,15 @@ https://github.com/yakupudul/dijitaloperation/actions/runs/31175759114
 
 Last active task:
 
-* task id: `website-diagnosis-ssl-check`
-* branch: `dop/website-diagnosis-ssl-check-v2`
-* PR: #52
+* task id: `website-diagnosis-redirect-http-to-https`
+* branch: `dop/website-diagnosis-redirect-http-to-https`
+* PR: #53
 * reviewer verdict: APPROVED
 * retry/recovery state: COMPLETED_AND_CONTINUING
 
 ## Recently completed
 
+* `website-diagnosis-redirect-http-to-https` — PR 53 — `4ea61ca6c41a` — 2026-08-07T12:13:17
 * ` markers, and existing PR descriptions cannot be rewritten by the repair automation token. This PR carries the same catalog-aligned TLS validity implementation with a valid task contract.
 
 ### Objective
@@ -79,17 +80,11 @@ Implement a small deterministic HTTPS/TLS certificate validity check as part of 
 * `add-runs-filament-resource` — PR 34 — `a4b1fc3d7221` — 2026-08-07T08:55:06
 * `add-findings-filament-resource` — PR 33 — `98fdaca40331` — 2026-08-07T08:50:22
 * `task-foundation-task-model` — PR 32 — `9ada21e6fb8a` — 2026-08-07T08:46:02
-* `recommendation-model-and-migration` — PR 31 — `edf4c6f36e80` — 2026-08-07T08:41:51
 
 ## Blockers
 
 None
 
-## Stale automation PRs
-
-* #44 `website-diagnosis-ssl-check` — Superseded / stale (branch `feat/website-diagnosis-ssl-check`)
-* #28 `pipeline-run-foundation` — Superseded / stale (branch `feature/pipeline-run-foundation`)
-
 ## Next expected
 
-11. Website Diagnosis implementation — expected focus: Add deterministic SSL certificate check to Website Diagnosis
+11. Website Diagnosis implementation — expected focus: Add catalog-aligned HTTP to HTTPS redirect diagnosis check
