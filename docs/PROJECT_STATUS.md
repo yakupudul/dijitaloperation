@@ -2,7 +2,7 @@ This file is generated/maintained by DOP Autopilot and represents implementation
 
 # DOP Project Status
 
-Last updated: 2026-08-07T18:24:31Z
+Last updated: 2026-08-07T18:28:00Z
 
 Overall status:
 RUNNING
@@ -11,14 +11,14 @@ Current roadmap stage: 18 / 23
 
 Current stage: Google Business Profile product spec + first module
 
-Current task: google-ads-connector-read-only-probe
+Current task: meta-ads-product-spec
 
 Current task title:
 
-Add read-only Google Ads accessible-customer probe
+Add Meta Ads product blueprint
 
 Current automation run:
-https://github.com/yakupudul/dijitaloperation/actions/runs/31206724413
+https://github.com/yakupudul/dijitaloperation/actions/runs/31206995361
 
 ## Progress
 
@@ -56,14 +56,15 @@ https://github.com/yakupudul/dijitaloperation/actions/runs/31206724413
 
 Last active task:
 
-* task id: `google-ads-connector-read-only-probe`
-* branch: `dop/google-ads-connector-read-only-probe`
-* PR: #70
+* task id: `meta-ads-product-spec`
+* branch: `dop/meta-ads-product-spec`
+* PR: #71
 * reviewer verdict: APPROVED
 * retry/recovery state: COMPLETED_AND_CONTINUING
 
 ## Recently completed
 
+* `meta-ads-product-spec` — PR 71 — `c81eb7743cbe` — 2026-08-07T18:27:55
 * `google-ads-connector-read-only-probe` — PR 70 — `986c9ae22139` — 2026-08-07T18:24:27
 * `google-ads-product-spec` — PR 69 — `9b9a348e920c` — 2026-08-07T18:21:13
 * `google-business-profile-connector-read-only-probe` — PR 68 — `45085214733f` — 2026-08-07T18:18:41
@@ -73,7 +74,6 @@ Last active task:
 * `pagespeed-connector-read-only-probe` — PR 63 — `7e4ed7e9a54c` — 2026-08-07T15:05:10
 * `ga4-connector-read-only-probe` — PR 62 — `d44a03d5de18` — 2026-08-07T14:06:47
 * `search-console-connector-read-only-probe` — PR 61 — `be8bdc6887dd` — 2026-08-07T13:55:24
-* `wordpress-connector-read-only-probe` — PR 60 — `e578867055f2` — 2026-08-07T13:45:06
 
 ## Blockers
 
@@ -81,4 +81,4 @@ None
 
 ## Next expected
 
-18. Google Business Profile product spec + first module — expected focus: Add read-only Google Ads accessible-customer probe
+18. Google Business Profile product spec + first module — expected focus: Add Meta Ads product blueprint
