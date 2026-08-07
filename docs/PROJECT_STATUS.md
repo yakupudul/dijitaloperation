@@ -2,14 +2,14 @@ This file is generated/maintained by DOP Autopilot and represents implementation
 
 # DOP Project Status
 
-Last updated: 2026-08-07T16:05:00Z
+Last updated: 2026-08-07T16:04:41Z
 
 Overall status:
 RUNNING
 
-Current roadmap stage: 16 / 23
+Current roadmap stage: 17 / 23
 
-Current stage: DataForSEO Connector
+Current stage: Website AI Insights
 
 Current task: dataforseo-connector-read-only-probe
 
@@ -18,13 +18,13 @@ Current task title:
 Add read-only DataForSEO account access probe
 
 Current automation run:
-—
+https://github.com/yakupudul/dijitaloperation/actions/runs/31195719140
 
 ## Progress
 
-* Completed stages: 15 / 23
-* In progress stages: 16
-* Remaining stages: 16, 17, 18, 19, 20, 21, 22, 23
+* Completed stages: 16 / 23
+* In progress stages: —
+* Remaining stages: 17, 18, 19, 20, 21, 22, 23
 
 ## Roadmap
 
@@ -43,7 +43,7 @@ Current automation run:
 * [x] 13. Search Console Connector
 * [x] 14. GA4 Connector
 * [x] 15. PageSpeed / Lighthouse Connector
-* [ ] 16. DataForSEO Connector
+* [x] 16. DataForSEO Connector
 * [ ] 17. Website AI Insights
 * [ ] 18. Google Business Profile product spec + first module
 * [ ] 19. Google Ads product spec + first module
@@ -59,11 +59,12 @@ Last active task:
 * task id: `dataforseo-connector-read-only-probe`
 * branch: `dop/dataforseo-connector-read-only-probe`
 * PR: #64
-* reviewer verdict: —
-* retry/recovery state: AWAITING_GATE
+* reviewer verdict: APPROVED
+* retry/recovery state: COMPLETED_AND_CONTINUING
 
 ## Recently completed
 
+* `dataforseo-connector-read-only-probe` — PR 64 — `ade600486934` — 2026-08-07T16:04:38
 * `pagespeed-connector-read-only-probe` — PR 63 — `7e4ed7e9a54c` — 2026-08-07T15:05:10
 * `ga4-connector-read-only-probe` — PR 62 — `d44a03d5de18` — 2026-08-07T14:06:47
 * `search-console-connector-read-only-probe` — PR 61 — `be8bdc6887dd` — 2026-08-07T13:55:24
@@ -73,16 +74,11 @@ Last active task:
 * `website-diagnosis-canonical-link-consistency` — PR 57 — `e5e2ae15e2d6` — 2026-08-07T13:08:15
 * `website-diagnosis-sitemap-xml-availability` — PR 56 — `1594e689dc42` — 2026-08-07T12:54:47
 * `website-diagnosis-robots-txt-availability` — PR 54 — `acf9ca633e6a` — 2026-08-07T12:20:07
-* `website-diagnosis-redirect-http-to-https` — PR 53 — `4ea61ca6c41a` — 2026-08-07T12:13:17
 
 ## Blockers
 
 None
 
-## Deferred work
-
-None
-
 ## Next expected
 
-16. DataForSEO Connector — expected focus: Add read-only DataForSEO account access probe
+17. Website AI Insights — expected focus: Add read-only DataForSEO account access probe
