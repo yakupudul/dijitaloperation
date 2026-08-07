@@ -2,29 +2,29 @@ This file is generated/maintained by DOP Autopilot and represents implementation
 
 # DOP Project Status
 
-Last updated: 2026-08-07T19:27:56Z
+Last updated: 2026-08-07T19:35:00Z
 
 Overall status:
 RUNNING
 
-Current roadmap stage: 18 / 23
+Current roadmap stage: 22 / 23
 
-Current stage: Google Business Profile product spec + first module
+Current stage: Cross-asset / cross-channel analysis
 
-Current task: cross-asset-analysis-product-spec
+Current task: cross-asset-website-gbp-website-url-consistency
 
 Current task title:
 
-Add cross-asset / cross-channel analysis product blueprint
+Add Website ↔ GBP website URL consistency pack
 
 Current automation run:
-https://github.com/yakupudul/dijitaloperation/actions/runs/31211506654
+—
 
 ## Progress
 
-* Completed stages: 17 / 23
-* In progress stages: —
-* Remaining stages: 18, 19, 20, 21, 22, 23
+* Completed stages: 21 / 23
+* In progress stages: 22
+* Remaining stages: 22, 23
 
 ## Roadmap
 
@@ -45,10 +45,10 @@ https://github.com/yakupudul/dijitaloperation/actions/runs/31211506654
 * [x] 15. PageSpeed / Lighthouse Connector
 * [x] 16. DataForSEO Connector
 * [x] 17. Website AI Insights
-* [ ] 18. Google Business Profile product spec + first module
-* [ ] 19. Google Ads product spec + first module
-* [ ] 20. Meta Ads product spec + first module
-* [ ] 21. Instagram product spec + first module
+* [x] 18. Google Business Profile product spec + first module
+* [x] 19. Google Ads product spec + first module
+* [x] 20. Meta Ads product spec + first module
+* [x] 21. Instagram product spec + first module
 * [ ] 22. Cross-asset / cross-channel analysis
 * [ ] 23. Action-oriented agency operations dashboard / first production hardening
 
@@ -56,11 +56,11 @@ https://github.com/yakupudul/dijitaloperation/actions/runs/31211506654
 
 Last active task:
 
-* task id: `cross-asset-analysis-product-spec`
-* branch: `dop/cross-asset-analysis-product-spec`
-* PR: #75
-* reviewer verdict: APPROVED
-* retry/recovery state: COMPLETED_AND_CONTINUING
+* task id: `cross-asset-website-gbp-website-url-consistency`
+* branch: `dop/cross-asset-website-gbp-website-url-consistency`
+* PR: —
+* reviewer verdict: —
+* retry/recovery state: IMPLEMENTING
 
 ## Recently completed
 
@@ -75,10 +75,14 @@ Last active task:
 * `google-business-profile-product-spec` — PR 67 — `5a4049d4c2d2` — 2026-08-07T18:15:10
 * `website-ai-insights-finding-interpretation` — PR 66 — `cb19c25b8162` — 2026-08-07T18:10:56
 
+## Deferred work
+
+None
+
 ## Blockers
 
 None
 
 ## Next expected
 
-18. Google Business Profile product spec + first module — expected focus: Add cross-asset / cross-channel analysis product blueprint
+22. Cross-asset / cross-channel analysis — Website ↔ GBP website URL consistency pack (first deterministic pack after blueprint)
