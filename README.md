@@ -6,7 +6,7 @@ Product source of truth: [`docs/MASTER_SPEC.md`](docs/MASTER_SPEC.md)
 
 Project status: [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md)
 
-Autopilot Supervisor (Cursor Automation setup): [`.automation/supervisor/`](.automation/supervisor/)
+Autopilot Automations (Supervisor + PR Repair): [`.automation/supervisor/`](.automation/supervisor/)
 
 ## Bootstrap
 
