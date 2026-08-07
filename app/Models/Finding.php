@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
     'digital_asset_id',
@@ -33,6 +34,22 @@ class Finding extends Model
     public function digitalAsset(): BelongsTo
     {
         return $this->belongsTo(DigitalAsset::class);
+    }
+
+    /**
+     * @return BelongsTo<Run, $this>
+     */
+    public function lastRun(): BelongsTo
+    {
+        return $this->belongsTo(Run::class, 'last_run_id');
+    }
+
+    /**
+     * @return HasMany<Recommendation, $this>
+     */
+    public function recommendations(): HasMany
+    {
+        return $this->hasMany(Recommendation::class);
     }
 
     /**
