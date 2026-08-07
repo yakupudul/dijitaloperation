@@ -1,12 +1,22 @@
 # MODULE_MANIFEST_SPEC
 
 > DOP Module SDK — Manifest sözleşmesi  
-> Dayanak: `docs/foundation` ADR-008, ADR-010; `MODULE_CONTRACT.md`  
-> Mevcut kod: `docs/current-state` — uygulama yok (greenfield)
+> Ana kaynak: `docs/MASTER_SPEC.md`  
+> ADR-032, ADR-033, ADR-035
+
+## MVP notu (önce oku)
+
+MVP’de zorunlu olan: Composer package + Service Provider (+ gerektiğinde Filament plugin) ve Core **minimal registry** (`module_id`, enabled/disabled).
+
+Aşağıdakiler **future / non-MVP** rehberdir; custom compatibility engine / migrator / lifecycle FSM’yi MVP’de uygulamaya zorlamaz:
+
+* `core.min` / `core.maxExclusive`
+* zorunlu health bloğu / karmaşık dependency motoru
+* “Manifest olmadan yüklenemez” katı kuralı (Laravel discovery birincildir)
 
 ## Amaç
 
-Her DOP modülü, çekirdeğin domain bilmeden keşfedebileceği tek bir **manifest** dosyası ile kendini bildirir. Manifest olmadan modül yüklenemez.
+Modülün kendini tanıtabileceği standart bir manifest sözleşmesi. Laravel package discovery birincil yükleme yoludur.
 
 ## Kararlar
 
@@ -55,7 +65,7 @@ Her DOP modülü, çekirdeğin domain bilmeden keşfedebileceği tek bir **manif
 - **MINOR:** geriye uyumlu özellik  
 - **PATCH:** geriye uyumlu düzeltme  
 
-### 5. Core sürüm uyumluluğu (`core`)
+### 5. Core sürüm uyumluluğu (`core`) — **future / non-MVP**
 
 ```json
 "core": {
@@ -64,12 +74,7 @@ Her DOP modülü, çekirdeğin domain bilmeden keşfedebileceği tek bir **manif
 }
 ```
 
-| Alan | Anlam |
-|------|--------|
-| `min` | Desteklenen en düşük çekirdek sürümü (dahil) |
-| `maxExclusive` | Desteklenmeyen ilk üst sürüm (hariç) |
-
-Çekirdek sürümü aralık dışında ise modül **yüklenmez** (`failed`); diğer modüller ve çekirdek çalışmaya devam eder.
+MVP’de custom compatibility engine **yoktur**. Alanlar ileride kullanılmak üzere şemada durabilir; uygulamayı bloke etmez.
 
 ### 6. Bağımlılıklar (`dependencies`)
 

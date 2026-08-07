@@ -44,14 +44,15 @@ Customer
 → Finding
 → Recommendation
 → Task
-→ Result
 ```
 
 Operasyonel okuma akışı (harici sistemlere yazma yok):
 
 ```text
-Read → Collect → Analyze → Diagnose → Recommend → Create internal task → Track result
+Read → Collect → Analyze → Diagnose → Recommend → Create internal task → Track via later runs / Finding lifecycle
 ```
+
+**MVP’de ayrı `Result` domain entity yoktur.** Sonuç, sonraki Run’lar ve Finding durumu (`open` / `resolved` vb.) üzerinden izlenir.
 
 ## 4. Domain hiyerarşisi
 
@@ -142,48 +143,34 @@ MVP dışında (bugünden kodlanmaz / ürünleştirilmez):
 * Marketplace
 * Üçüncü taraf / ZIP ile modül yükleme
 
-## 7. Çekirdek sorumlulukları
+## 7. Çekirdek sorumlulukları (MVP)
 
-Çekirdek ortak yetenekler:
+### MVP Core’da zorunlu
 
-* Authentication
-* Users
-* Roles
-* Permissions
-* Customers
-* Customer contacts
-* Brands
-* Digital assets
-* Connections (`core_connections`)
-* Encrypted credentials (`core_connection_credentials`)
-* Module registry
-* Module enable/disable
-* Navigation extension points
-* Events
-* Background jobs
-* Scheduler
-* Evidence
-* Findings
-* Recommendations
-* Tasks
-* Notifications
-* Notes
-* Attachments
-* Tags
-* Audit logs
-* Run history
-* Error logs
+* Authentication, Users, Roles / Permissions
+* Customers, Customer contacts, Brands
+* Digital assets, Connections, Encrypted credentials
+* Minimal Module Registry (`module id`, `enabled`/`disabled`; gerekirse bilgisel `installed_version`)
+* Runs, Evidence, Findings, Recommendations, Tasks
+* Basic application settings
+* Basic logs (önce Laravel/log kanalları)
+* Events, Queue (database), Scheduler
+
+### MVP Core’da zorunlu değil (sonra eklenebilir; mimari engel olmamalı)
+
+* Attachments, Tags
 * Feature flags
-* Health checks
-* Application settings
+* Gelişmiş Notification engine
+* Kapsamlı custom Audit Log framework
+* Kapsamlı Health Check / module health framework
+* Notes (ihtiyaç halinde)
 
 Çekirdek bilmez / yapmaz:
 
-* SEO kuralları, Meta/Google Ads metrik iş kuralları, GA4 iş kuralları
-* Website crawl
-* Platforma özgü AI prompt iş mantığı
-* Harici platforma runtime bağımlılık (connector modülleri yapar)
+* SEO / Ads / GA4 iş kuralları, crawl, platforma özgü AI prompt
+* Harici platform runtime bağımlılığı; harici write
 * Platforma özel kolonları core analysis tablolarına eklemek
+* Framework’ün zaten çözdüğü altyapıyı yeniden yazmak (ADR-033)
 
 ### 7.1 Connection ve credential (ADR-027)
 
@@ -198,15 +185,20 @@ MVP dışında (bugünden kodlanmaz / ürünleştirilmez):
 * `encrypted_payload`: Laravel encryption / encrypted cast ile TEXT kolonda şifreli
 * Credential ham değerleri Filament/Livewire model state’ine **expose edilmez**
 
-### 7.2 Core analysis modelleri (ADR-028)
+### 7.2 Core analysis modelleri (ADR-028, ADR-034)
 
-**Evidence:** `run`, `digital_asset`, `source_module`, `type`, `title`, `payload`, `observed_at`
+**Evidence** (Run’a bağlı): `run_id`, `digital_asset_id`, `source_module`, `type`, `title`, `payload`, `observed_at`
 
-**Finding:** `run`, `digital_asset`, `source_module`, `category`, `severity`, `title`, `summary`, `confidence`, `fingerprint`, `status`, `first_seen_at`, `last_seen_at`
+**Finding** (Digital Asset üzerinde kalıcı problem/fırsat; tek Run’ın geçici satırı değildir):
 
-**Recommendation:** `finding`, `digital_asset`, `source_module`, `title`, `action`, `rationale`, `priority`, `effort`, `status`
+`digital_asset_id`, `source_module`, `fingerprint`, `category`, `severity`, `title`, `summary`, `confidence`, `status`, `first_seen_at`, `last_seen_at`, `last_run_id`
 
-`fingerprint`: aynı bulgunun farklı run’larda tekrarını ilişkilendirir.  
+* Aynı `fingerprint` sonraki Run’da tekrar bulunursa mevcut Finding **güncellenir** (duplicate yok)
+* Artık görülmezse Finding `resolved` işaretlenebilir
+* Recommendation Finding’e bağlanabilir
+
+**Recommendation:** `finding_id`, `digital_asset_id`, `source_module`, `title`, `action`, `rationale`, `priority`, `effort`, `status`
+
 Platforma özel veriler core tablolara eklenmez (modül `payload` / kendi tabloları).
 
 ### 7.3 Recommendation → Task (ADR-025, ADR-029)
@@ -216,29 +208,37 @@ Platforma özel veriler core tablolara eklenmez (modül `payload` / kendi tablol
 * Assignee ve due date **otomatik uydurulmaz**
 * Task, Recommendation’ın **snapshot**’ıdır; Recommendation sonra değişse Task otomatik güncellenmez
 
-## 8. Modüler mimari
+### 7.4 Sonuç ölçümü (ayrı Result entity yok — ADR-036)
 
-Plugin-based **modular monolith**:
+Örnek: Task completed → sonraki diagnosis run → Finding devam ediyor / iyileşti / `resolved`.
 
-* Tek repository
-* Tek uygulama
-* Tek deployment
-* Tek veritabanı
-* Net modül sınırları
-* Background job desteği
-* Modül kökü: **`app-modules/`**
-* Paketleme: **`internachi/modular`** + Composer package davranışı
-* Dışarıdan ZIP yükleme veya marketplace **yok**
+## 8. Modüler mimari (MVP sade)
 
-Her modül sahip olmalıdır:
+Plugin-based **modular monolith** — paketleme temeli:
 
-* service provider
-* models, migrations, services
-* Filament resources / pages / widgets
-* config, jobs, events, tests
-* Manifest, sürüm, bağımlılıklar, permissions, settings, health checks
+* `app-modules/` + **`internachi/modular`**
+* Composer package + Laravel Service Provider + Filament Plugin yetenekleri
+* Tek repo / app / deploy / DB
+* ZIP / marketplace / runtime plugin install **yok**
 
-Modül sınırları (`docs/module-sdk/*` ve ADR-009) geçerlidir.
+### MVP Module Registry (minimum)
+
+* `module_id`
+* `enabled` / `disabled`
+* isteğe bağlı bilgisel `installed_version`
+
+Disabled iken: DOP’a özgü UI, scheduled jobs ve analysis işlemleri çalışmaz.  
+Kod Composer’da kalabilir; veri silinmez.
+
+### MVP’de yeniden yazılmayacak / ertelenen (future / non-MVP)
+
+* custom module compatibility engine (`core.min` / `core.maxExclusive`)
+* custom module migrator / migration registry
+* discovered / registered / failed / uninstalled kapsamlı lifecycle state machine
+* purge sistemi, marketplace, custom schema registry
+
+Laravel migration’ları, package discovery ve Filament plugin kayıtları **önce framework yoluyla** kullanılır (ADR-033).  
+`docs/module-sdk/*` ileri seviye maddeleri belgede kalır ancak MVP’yi bloke etmez.
 
 ## 9. İlk modüller
 
@@ -318,11 +318,16 @@ Website Diagnosis fazına başlamadan önce `docs/website/DIAGNOSIS_CATALOG.md` 
 4. `docs/module-sdk/*` — modül sözleşmeleri  
 5. `docs/current-state/*` — geçmiş durum analizi (tarihsel; MASTER_SPEC ile çelişirse MASTER_SPEC geçerli)
 
-## 14. Açık sorular
+## 14. Prensip (ADR-033)
 
-Panel/auth, connection/credential, analysis model alanları, Recommendation→Task, AI SDK/key, modül dizini kararları **kilitlenmiştir** (ADR-026…032).
+> Framework’ün veya kullandığımız güvenilir paketin zaten çözdüğü altyapıyı DOP için tekrar yazma.
 
-Core uygulamayı bloke eden ürün/mimari açık soru **kalmamıştır**.
+DOP özel kodu ürün değerine ayrılır: digital asset management, connections, diagnosis, evidence, findings, recommendations, tasks, AI analysis.
 
-Website Diagnosis fazı başlamadan önce `docs/website/DIAGNOSIS_CATALOG.md` zorunludur (Core blocker değildir).  
-Ürün kapsamını SaaS’a veya harici write’a genişleten sorular açık kabul edilmez.
+## 15. Açık sorular
+
+Önceki teknik kilitler (panel/auth, credential, Task snapshot, AI, `app-modules/`) geçerlidir.
+
+MVP sadeleştirme sonrası Core’u bloke eden ürün/mimari açık soru **kalmamıştır**.
+
+Website Diagnosis fazı başlamadan önce `docs/website/DIAGNOSIS_CATALOG.md` zorunludur (Core blocker değildir).

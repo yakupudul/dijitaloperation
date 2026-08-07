@@ -54,18 +54,16 @@ Kurallar:
 
 ### 4. Migration nasıl çalışır?
 
-| Kural | Açıklama |
-|-------|----------|
-| Konum | Modül içi `migrations/` dizini |
-| Sahiplik | Her dosya yalnızca o modüle ait |
-| Çalıştırıcı | Çekirdek Module Migrator |
-| Kayıt | Çekirdek `schema_migrations` benzeri tabloya `(module_id, migration_id, applied_at)` |
-| Enable / upgrade | Pending migration’lar uygulanmadan `enabled` olunamaz |
-| Disable | Down çalışmaz |
-| Uninstall | Drop/down çalışmaz; veri kalır |
-| Down | Mümkün olduğunca sağlanır; yoksa ADR + not |
+**MVP:** Laravel’in package/module migration keşfi (`internachi/modular` + artisan migrate).  
+Custom “Module Migrator” / ayrı migration registry **future / non-MVP** (ADR-033, ADR-035).
 
-Migration kimliği: sıralı ve benzersiz (`20260806120000_create_notes`).
+| Kural | MVP |
+|-------|-----|
+| Konum | Modül `database/migrations/` |
+| Sahiplik | Prefix `m_{module_id_snake}_` |
+| Çalıştırıcı | `php artisan migrate` (framework) |
+| Disable / remove package | Veri otomatik silinmez |
+| Purge | Future; varsayılan yok |
 
 ### 5. Kaldırmada veri koruma
 

@@ -1,54 +1,43 @@
 # MODULE_ARCHITECTURE
 
 > Ana kaynak: `docs/MASTER_SPEC.md`  
-> Sözleşme: `docs/module-sdk/*`  
-> İlgili ADR: ADR-004, ADR-008, ADR-021, ADR-022, ADR-032, ADR-024
+> İlgili ADR: ADR-004, ADR-032, ADR-033, ADR-035
 
 ## Kararlar
 
-### 1. Mimari stil
+### 1. Temel
 
-Plugin-based modular monolith: tek repo, tek app, tek deploy, tek DB, net sınırlar, background jobs.
+Modular monolith: tek repo/app/deploy/DB.  
+Paketleme: **`app-modules/`** + **`internachi/modular`** + Composer + Laravel Service Provider + Filament Plugin.
 
-### 2. Modül dizini ve paketleme (ADR-032)
+### 2. MVP Module Registry (ADR-035)
 
-| Konu | Karar |
-|------|--------|
-| Kök dizin | `app-modules/` |
-| Araç | `internachi/modular` |
-| Davranış | Her modül Composer package |
-| Yasak | ZIP upload, marketplace |
+Minimum alanlar: `module_id`, `enabled`/`disabled`, isteğe bağlı bilgisel `installed_version`.
 
-Her modül: service provider, models, migrations, services, Filament resources/pages/widgets, config, jobs, events, tests (+ manifest, permissions, settings, health).
+Disabled → DOP UI / scheduled analysis jobs kapalı; kod Composer’da kalabilir; veri silinmez.
 
-### 3. Teknoloji eşlemesi
+### 3. MVP’de yazılmayacak custom framework parçaları (future / non-MVP)
 
-| Konu | Seçim |
-|------|--------|
-| App | Laravel 13 / PHP 8.3+ |
-| Panel | Filament 5 — id `app`, path `/app` |
-| RBAC | `spatie/laravel-permission` |
-| Queue | Database queue |
-| AI | `laravel/ai` |
-| Test | Pest |
+* compatibility engine (`core.min` / `core.maxExclusive`)
+* custom module migrator / migration registry
+* discovered/registered/failed/uninstalled FSM
+* runtime plugin install, purge, marketplace, custom schema registry
 
-### 4. İlk modüller (ADR-024)
+Bunlar `docs/module-sdk` içinde belgelenebilir ancak **MVP implementasyonunu zorlamaz**.
 
-Website, Website Diagnosis, WordPress/GSC/GA4/PageSpeed-Lighthouse/DataForSEO connectors, AI Insights.
+### 4. İlk ürün modülleri
 
-### 5. Website Diagnosis
-
-* Connector zorunlu değil (ADR-012)  
-* Katalog: Faz 4 öncesi `docs/website/DIAGNOSIS_CATALOG.md` (ADR-031); Core blocker değil  
+Website → Website Diagnosis → connectors → AI Insights (sıra roadmap’te).  
+Sample module = kısa smoke test, büyük faz değil.
 
 ## Gerekçe
 
-`internachi/modular` + `app-modules/` Laravel’de yerel plugin sınırlarını standartlaştırır.
+ADR-033: paketlerin verdiğini tekrar yazmamak MVP hızını korur.
 
 ## Sınırlar
 
-* Redis/Horizon ihtiyaç ADR’si ile.
-* Katalog içeriği bu belgede üretilmez.
+* Diagnosis katalog içeriği bu belgede üretilmez.
+* Pest vs PHPUnit uygulama seçimine bağlıdır; ürün kapsamını değiştirmez.
 
 ## Açık Sorular
 

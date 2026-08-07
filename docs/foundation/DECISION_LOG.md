@@ -104,12 +104,10 @@
 
 ## ADR-016 — Operasyonel akış nesneleri
 
-- **Durum:** Accepted
+- **Durum:** Superseded by **ADR-036** (Result kaldırıldı); Finding yaşamı **ADR-034**
 - **Tarih:** 2026-08-07
-- **Karar:**  
-  `Customer → Brand → Digital Asset → Connection → Run → Evidence → Finding → Recommendation → Task → Result`  
-  Operasyon: `Read → Collect → Analyze → Diagnose → Recommend → Create internal task → Track result`
-- **İlgili:** `MASTER_SPEC.md`, `DOMAIN_MODEL.md`, `EVENT_ARCHITECTURE.md`
+- **Karar (eski):** Akışta ayrı `Result` entity vardı.
+- **İlgili:** `MASTER_SPEC.md`, ADR-034, ADR-036
 
 ## ADR-017 — Asset / Connection ayrımı; Workspace yok (MVP)
 
@@ -134,10 +132,10 @@
 
 ## ADR-020 — Güncel çekirdek sorumluluk listesi
 
-- **Durum:** Accepted
+- **Durum:** Superseded by **ADR-037** (MVP Core sade liste)
 - **Tarih:** 2026-08-07
-- **Karar:** Çekirdek: auth, users, roles, permissions, customers, customer contacts, brands, digital assets, connections, encrypted credentials, module registry, enable/disable, navigation extension points, events, background jobs, scheduler, evidence, findings, recommendations, tasks, notifications, notes, attachments, tags, audit logs, run history, error logs, feature flags, health checks, application settings. Workspace çekirdekte yoktur.
-- **İlgili:** `CORE_RESPONSIBILITIES.md`
+- **Karar (eski):** Attachments/Tags/feature flags/health/audit vb. çekirdekte zorunlu görünüyordu.
+- **İlgili:** ADR-037
 
 ## ADR-021 — Teknoloji yığını
 
@@ -191,10 +189,10 @@
 
 ## ADR-028 — Evidence / Finding / Recommendation minimum alanları
 
-- **Durum:** Accepted
+- **Durum:** Superseded by **ADR-034** (Finding kalıcı lifecycle + alanlar)
 - **Tarih:** 2026-08-07
-- **Karar:** MASTER_SPEC §7.2 alan seti. Finding.`fingerprint` run’lar arası tekrar ilişkilendirmesi içindir. Platforma özel veriler core tablolara eklenmez.
-- **İlgili:** `MASTER_SPEC.md`, `DOMAIN_MODEL.md`
+- **Karar (eski):** Finding alanlarında `run` birincil bağ gibi duruyordu.
+- **İlgili:** ADR-034
 
 ## ADR-029 — Recommendation → Task snapshot sözleşmesi
 
@@ -224,6 +222,41 @@
 - **Karar:** Modüller `app-modules/` altındadır. Laravel modüler yapı için `internachi/modular` kullanılır. Her modül Composer package gibi provider, models, migrations, services, Filament resources/pages/widgets, config, jobs, events, tests taşır.
 - **İlgili:** `MODULE_ARCHITECTURE.md`, `MODULE_MANIFEST_SPEC.md`, ADR-022
 
+## ADR-033 — Framework’ü tekrar yazmama prensibi
+
+- **Durum:** Accepted
+- **Tarih:** 2026-08-07
+- **Karar:** Framework’ün veya güvenilir paketlerin çözdüğü altyapıyı DOP için yeniden yazma. DOP özel kodu ürün değerine (asset, connection, diagnosis, evidence, finding, recommendation, task, AI) ayrılır.
+- **İlgili:** `MASTER_SPEC.md` §14, `MODULE_ARCHITECTURE.md`
+
+## ADR-034 — Finding kalıcı lifecycle
+
+- **Durum:** Accepted
+- **Tarih:** 2026-08-07
+- **Karar:** Finding, Digital Asset üzerindeki devam eden problem/fırsattır; tek Run’ın geçici sonucu değildir. Alanlar: digital_asset_id, source_module, fingerprint, category, severity, title, summary, confidence, status, first_seen_at, last_seen_at, last_run_id. Evidence Run’a bağlıdır. Aynı fingerprint → upsert; görülmezse resolved olabilir. Recommendation Finding’e bağlanabilir.
+- **İlgili:** `MASTER_SPEC.md` §7.2, `DOMAIN_MODEL.md`
+
+## ADR-035 — MVP minimal Module Registry
+
+- **Durum:** Accepted
+- **Tarih:** 2026-08-07
+- **Karar:** MVP registry yalnızca module id + enabled/disabled (+ bilgisel installed_version). Custom compatibility engine, custom migrator/registry, kapsamlı lifecycle FSM, purge, marketplace/ZIP **future/non-MVP**. Disabled → DOP UI/jobs/analysis kapalı; Composer paketi ve veri kalabilir.
+- **İlgili:** `MODULE_LIFECYCLE.md`, `MODULE_CONTRACT.md`
+
+## ADR-036 — Ayrı Result entity yok
+
+- **Durum:** Accepted
+- **Tarih:** 2026-08-07
+- **Karar:** MVP’de `Result` domain entity zorunlu değildir. Akış Task ile biter. Sonuç sonraki Run’lar ve Finding lifecycle ile izlenir.
+- **İlgili:** `MASTER_SPEC.md` §3 / §7.4, supersedes ADR-016 Result kısmı
+
+## ADR-037 — MVP Core sade liste
+
+- **Durum:** Accepted
+- **Tarih:** 2026-08-07
+- **Karar:** MVP Core zorunlu: auth/users/roles, customers/contacts, brands, digital assets, connections/credentials, minimal module registry, runs/evidence/findings/recommendations/tasks, basic settings/logs, events/queue/scheduler. Attachments, tags, feature flags, gelişmiş notification/audit/health framework’leri zorunlu değil.
+- **İlgili:** `CORE_RESPONSIBILITIES.md`, supersedes ADR-020 zorunluluk kapsamı
+
 ---
 
 ## Karar indeksi
@@ -245,11 +278,11 @@
 | ADR-013 | Background jobs | Accepted |
 | ADR-014 | Disable/veri | Accepted |
 | ADR-015 | Moximu iç sistem | Accepted |
-| ADR-016 | Yeni akış | Accepted |
+| ADR-016 | Eski akış (+Result) | Superseded → 036 / 034 |
 | ADR-017 | Asset/Connection; no Workspace | Accepted |
 | ADR-018 | Harici write yasağı | Accepted |
 | ADR-019 | MVP kullanıcı modeli | Accepted |
-| ADR-020 | Çekirdek listesi | Accepted |
+| ADR-020 | Eski çekirdek listesi | Superseded → 037 |
 | ADR-021 | Teknoloji yığını | Accepted |
 | ADR-022 | Yerel paketleme | Accepted |
 | ADR-023 | AI sınırı | Accepted |
@@ -257,19 +290,27 @@
 | ADR-025 | Manuel Task dönüşümü | Accepted |
 | ADR-026 | Panel + auth | Accepted |
 | ADR-027 | Connection/credential | Accepted |
-| ADR-028 | Analysis min alanlar | Accepted |
+| ADR-028 | Eski analysis alanları | Superseded → 034 |
 | ADR-029 | Task snapshot | Accepted |
 | ADR-030 | laravel/ai + env key | Accepted |
 | ADR-031 | Diagnosis catalog kapısı | Accepted |
 | ADR-032 | app-modules + internachi/modular | Accepted |
+| ADR-033 | Framework’ü tekrar yazma | Accepted |
+| ADR-034 | Finding kalıcı lifecycle | Accepted |
+| ADR-035 | MVP minimal module registry | Accepted |
+| ADR-036 | Result entity yok | Accepted |
+| ADR-037 | MVP Core sade liste | Accepted |
 
 ## Süpercede edilen kararlar
 
 | Eski | Yerine |
 |------|--------|
 | ADR-001 | ADR-015 |
-| ADR-002 | ADR-016 |
+| ADR-002 | ADR-016 → ADR-036/034 |
 | ADR-003 | ADR-017 |
 | ADR-005 | ADR-021, ADR-022, ADR-032 |
-| ADR-006 | ADR-020 |
+| ADR-006 | ADR-020 → ADR-037 |
 | ADR-011 | ADR-024 |
+| ADR-016 (Result) | ADR-036 |
+| ADR-020 | ADR-037 |
+| ADR-028 | ADR-034 |

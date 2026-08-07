@@ -1,54 +1,49 @@
 # CORE_RESPONSIBILITIES
 
 > Ana kaynak: `docs/MASTER_SPEC.md`  
-> İlgili ADR: ADR-007, ADR-018, ADR-020, ADR-026…029
+> İlgili ADR: ADR-020 (superseded detay), ADR-033, ADR-035, ADR-037
 
 ## Kararlar
 
-### Çekirdeğin yönettiği ortak yetenekler (ADR-020)
+### MVP Core zorunlu
 
-* Authentication (`web` guard; tek Filament panel `app` / `/app`)
-* Users (Admin oluşturur; public registration yok)
-* Roles / Permissions (`spatie/laravel-permission`; Admin, Team Member)
+* Authentication (`web`; Filament panel `app` / `/app`)
+* Users, Roles / Permissions (`spatie/laravel-permission`; Admin, Team Member)
 * Customers, Customer contacts, Brands
-* Digital assets, Connections
-* Encrypted credentials (`core_connection_credentials`)
-* Module registry, Module enable/disable
-* Navigation extension points
-* Events, Background jobs, Scheduler
-* Evidence, Findings, Recommendations, Tasks
-* Notifications, Notes, Attachments, Tags
-* Audit logs, Run history, Error logs
-* Feature flags, Health checks, Application settings
+* Digital assets, Connections, Encrypted credentials
+* Minimal Module Registry (`module_id`, enabled/disabled [, installed_version bilgisel])
+* Runs, Evidence, Findings, Recommendations, Tasks
+* Basic application settings
+* Basic logs (Laravel log kanalları önce)
+* Events, Queue (database), Scheduler
 
-### Connection / credential ayrımı (ADR-027)
+### MVP’de zorunlu değil (sonra eklenebilir)
 
-* `core_connections`: secret olmayan kimlik, `config_json`, sağlık
-* `core_connection_credentials`: `encrypted_payload` (Laravel encrypted cast); ham secret UI state’e çıkmaz
+* Attachments, Tags, Notes
+* Feature flags
+* Gelişmiş Notification engine
+* Kapsamlı custom Audit Log / Health Check framework’leri
 
-### Analysis minimum alanları (ADR-028)
+### Finding / Evidence (ADR-034)
 
-MASTER_SPEC §7.2 — Evidence / Finding / Recommendation.  
-Platforma özel kolon core’a eklenmez. `fingerprint` Finding tekrarını ilişkilendirir.
+* Evidence → Run’a bağlı  
+* Finding → Asset’te kalıcı; fingerprint ile upsert; `last_run_id`; resolved olabilir  
+* Recommendation → Finding’e bağlanabilir  
 
-### Recommendation → Task (ADR-029)
+### Çekirdek bilmez / yapmaz
 
-Manuel dönüşüm; snapshot context; assignee/due uydurma yok.
-
-### Çekirdeğin bilmemesi / yapmaması (ADR-007, ADR-018)
-
-* SEO / Ads / GA4 iş kuralları, crawl, platforma özgü AI prompt, harici platform bağımlılığı
-* Harici write action
+* Domain teşhis kuralları, crawl, harici write, platforma özgü AI prompt  
+* Framework’ün çözdüğünü yeniden yazmak (ADR-033)
 
 ## Gerekçe
 
-Ortak akış nesneleri ve credential izolasyonu modül sınırlarını korur.
+Hafif MVP: ürün değerine odak; altyapıda Laravel/Filament/Spatie/Modular.
 
 ## Sınırlar
 
-* Filament resource sınıf adları bu belgede dayatılmaz.
-* Diagnosis rule katalog içeriği Website Diagnosis fazı dokümanındadır.
+* Navigation extension points Filament plugin/navigation yoluyla; ayrı mega-framework yok.
+* Module enable/disable DOP UI/job/analysis kapar; Composer paketini silmez.
 
 ## Açık Sorular
 
-Yok (Core için kararlar kilitli).
+Yok.
