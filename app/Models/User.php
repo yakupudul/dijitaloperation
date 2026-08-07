@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Permissions;
 use App\Support\Roles;
 use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
@@ -26,10 +27,11 @@ class User extends Authenticatable implements FilamentUser
             return false;
         }
 
-        return $this->hasAnyRole([
-            Roles::ADMIN,
-            Roles::TEAM_MEMBER,
-        ]);
+        if ($this->hasRole(Roles::ADMIN)) {
+            return true;
+        }
+
+        return $this->can(Permissions::ACCESS_APP);
     }
 
     /**
