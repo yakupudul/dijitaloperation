@@ -2,7 +2,7 @@ This file is generated/maintained by DOP Autopilot and represents implementation
 
 # DOP Project Status
 
-Last updated: 2026-08-07T19:35:00Z
+Last updated: 2026-08-07T19:45:00Z
 
 Overall status:
 RUNNING
@@ -57,10 +57,10 @@ Current automation run:
 Last active task:
 
 * task id: `cross-asset-website-gbp-website-url-consistency`
-* branch: `dop/cross-asset-website-gbp-website-url-consistency`
-* PR: —
+* branch: `dop/cross-asset-website-gbp-website-url-consistency-v2`
+* PR: — (supersedes draft #76; awaiting open)
 * reviewer verdict: —
-* retry/recovery state: IMPLEMENTING
+* retry/recovery state: SUPERSEDING_PR_BODY_PARSE
 
 ## Recently completed
 
@@ -85,4 +85,4 @@ None
 
 ## Next expected
 
-22. Cross-asset / cross-channel analysis — Website ↔ GBP website URL consistency pack (first deterministic pack after blueprint)
+22. Cross-asset / cross-channel analysis — Website ↔ GBP website URL consistency pack (first deterministic pack after blueprint); PR #76 drafted after gate metadata parse failure (`Task ID:` vs `**task_id:**`), superseded by v2 with Architect JSON
