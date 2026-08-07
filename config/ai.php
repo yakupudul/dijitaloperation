@@ -125,6 +125,8 @@ return [
             'url' => env('OLLAMA_URL', 'http://localhost:11434'),
         ],
 
+        // ADR-030: AI provider keys are environment-managed only (no Filament panel key UI).
+        // Set OPENAI_API_KEY in the runtime environment; product PRs must not touch .env.example (secret-path gate).
         'openai' => [
             'driver' => 'openai',
             'key' => env('OPENAI_API_KEY'),
