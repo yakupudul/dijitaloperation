@@ -2,29 +2,29 @@ This file is generated/maintained by DOP Autopilot and represents implementation
 
 # DOP Project Status
 
-Last updated: 2026-08-07T20:25:00Z
+Last updated: 2026-08-07T20:01:48Z
 
 Overall status:
-RECOVERING
+RUNNING
 
-Current roadmap stage: 22 / 23
+Current roadmap stage: 18 / 23
 
-Current stage: Cross-asset / cross-channel analysis
+Current stage: Google Business Profile product spec + first module
 
 Current task: cross-asset-website-gbp-website-url-consistency
 
 Current task title:
 
-Add Website ↔ GBP website URL consistency pack
+Add Website ↔ GBP website URL consistency cross-asset pack
 
 Current automation run:
-—
+https://github.com/yakupudul/dijitaloperation/actions/runs/31213957186
 
 ## Progress
 
-* Completed stages: 21 / 23
-* In progress stages: 22
-* Remaining stages: 22, 23
+* Completed stages: 17 / 23
+* In progress stages: —
+* Remaining stages: 18, 19, 20, 21, 22, 23
 
 ## Roadmap
 
@@ -45,10 +45,10 @@ Current automation run:
 * [x] 15. PageSpeed / Lighthouse Connector
 * [x] 16. DataForSEO Connector
 * [x] 17. Website AI Insights
-* [x] 18. Google Business Profile product spec + first module
-* [x] 19. Google Ads product spec + first module
-* [x] 20. Meta Ads product spec + first module
-* [x] 21. Instagram product spec + first module
+* [ ] 18. Google Business Profile product spec + first module
+* [ ] 19. Google Ads product spec + first module
+* [ ] 20. Meta Ads product spec + first module
+* [ ] 21. Instagram product spec + first module
 * [ ] 22. Cross-asset / cross-channel analysis
 * [ ] 23. Action-oriented agency operations dashboard / first production hardening
 
@@ -59,11 +59,12 @@ Last active task:
 * task id: `cross-asset-website-gbp-website-url-consistency`
 * branch: `dop/cross-asset-website-gbp-url-consistency-gate`
 * PR: #80
-* reviewer verdict: FIX_REQUIRED
-* retry/recovery state: REPAIRING
+* reviewer verdict: APPROVED
+* retry/recovery state: COMPLETED_AND_CONTINUING
 
 ## Recently completed
 
+* `cross-asset-website-gbp-website-url-consistency` — PR 80 — `f42c87946492` — 2026-08-07T20:01:45
 * `cross-asset-analysis-product-spec` — PR 75 — `1453adfbe059` — 2026-08-07T19:27:52
 * `instagram-connector-read-only-probe` — PR 74 — `bab09d0b1454` — 2026-08-07T19:22:50
 * `instagram-product-spec` — PR 73 — `885ad50de330` — 2026-08-07T19:18:42
@@ -73,11 +74,6 @@ Last active task:
 * `google-ads-product-spec` — PR 69 — `9b9a348e920c` — 2026-08-07T18:21:13
 * `google-business-profile-connector-read-only-probe` — PR 68 — `45085214733f` — 2026-08-07T18:18:41
 * `google-business-profile-product-spec` — PR 67 — `5a4049d4c2d2` — 2026-08-07T18:15:10
-* `website-ai-insights-finding-interpretation` — PR 66 — `cb19c25b8162` — 2026-08-07T18:10:56
-
-## Deferred work
-
-None
 
 ## Blockers
 
@@ -85,4 +81,4 @@ None
 
 ## Next expected
 
-Merge Website ↔ GBP website URL consistency pack via DOP PR Gate + Reviewer; continue stage 22 with next deterministic cross-asset pack or stage 23 when packs/MVP criteria are met.
+18. Google Business Profile product spec + first module — expected focus: Add Website ↔ GBP website URL consistency cross-asset pack
