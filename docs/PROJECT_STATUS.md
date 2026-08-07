@@ -2,29 +2,29 @@ This file is generated/maintained by DOP Autopilot and represents implementation
 
 # DOP Project Status
 
-Last updated: 2026-08-07T13:31:56Z
+Last updated: 2026-08-07T13:45:10Z
 
 Overall status:
 RUNNING
 
-Current roadmap stage: 11 / 23
+Current roadmap stage: 13 / 23
 
-Current stage: Website Diagnosis implementation
+Current stage: Search Console Connector
 
-Current task: website-diagnosis-recommendations
+Current task: wordpress-connector-read-only-probe
 
 Current task title:
 
-Upsert deterministic recommendations for Website Diagnosis findings
+Add read-only WordPress REST connection probe
 
 Current automation run:
-https://github.com/yakupudul/dijitaloperation/actions/runs/31182979744
+https://github.com/yakupudul/dijitaloperation/actions/runs/31184051890
 
 ## Progress
 
-* Completed stages: 10 / 23
-* In progress stages: 11
-* Remaining stages: 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23
+* Completed stages: 12 / 23
+* In progress stages: —
+* Remaining stages: 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23
 
 ## Roadmap
 
@@ -38,8 +38,8 @@ https://github.com/yakupudul/dijitaloperation/actions/runs/31182979744
 * [x] 8. Run / Evidence / Finding / Recommendation / Task
 * [x] 9. Website module
 * [x] 10. Website Diagnosis Catalog
-* [~] 11. Website Diagnosis implementation — in progress
-* [ ] 12. WordPress Connector
+* [x] 11. Website Diagnosis implementation
+* [x] 12. WordPress Connector
 * [ ] 13. Search Console Connector
 * [ ] 14. GA4 Connector
 * [ ] 15. PageSpeed / Lighthouse Connector
@@ -56,14 +56,15 @@ https://github.com/yakupudul/dijitaloperation/actions/runs/31182979744
 
 Last active task:
 
-* task id: `website-diagnosis-recommendations`
-* branch: `dop/website-diagnosis-recommendations`
-* PR: #59
+* task id: `wordpress-connector-read-only-probe`
+* branch: `dop/wordpress-connector-read-only-probe`
+* PR: #60
 * reviewer verdict: APPROVED
 * retry/recovery state: COMPLETED_AND_CONTINUING
 
 ## Recently completed
 
+* `wordpress-connector-read-only-probe` — PR 60 — `e578867055f2` — 2026-08-07T13:45:06
 * `website-diagnosis-recommendations` — PR 59 — `8a7894efbc80` — 2026-08-07T13:31:52
 * `website-diagnosis-start-action` — PR 58 — `db194ed09e90` — 2026-08-07T13:19:15
 * `website-diagnosis-canonical-link-consistency` — PR 57 — `e5e2ae15e2d6` — 2026-08-07T13:08:15
@@ -79,7 +80,6 @@ Implement a small deterministic HTTPS/TLS certificate validity check as part of 
 - ` — PR 52 — `f6f5209e3082` — 2026-08-07T11:52:19
 * `implement-recommendation-to-task-conversion` — PR 43 — `28c640422548` — 2026-08-07T09:58:23
 * `implement-website-diagnosis-basic-reachability-fingerprinting` — PR 42 — `6db16d795121` — 2026-08-07T09:52:18
-* `website_diagnosis_catalog_initial` — PR 40 — `b9a81719f58b` — 2026-08-07T09:39:26
 
 ## Blockers
 
@@ -87,4 +87,4 @@ None
 
 ## Next expected
 
-11. Website Diagnosis implementation — expected focus: Upsert deterministic recommendations for Website Diagnosis findings
+13. Search Console Connector — expected focus: Add read-only WordPress REST connection probe
