@@ -69,9 +69,9 @@ class ConnectionMigrationTest extends TestCase
         $this->assertTrue(Schema::hasTable('core_connections'));
         $this->assertTrue(Schema::hasTable('core_connection_credentials'));
 
-        // Newest migrations: runs, findings, module_registries, connection credentials, connections.
-        // Roll back five steps so both connection tables are dropped.
-        $this->assertSame(0, Artisan::call('migrate:rollback', ['--step' => 5]));
+        // Newest migrations: recommendations, runs, findings, module_registries, credentials, connections.
+        // Roll back six steps so both connection tables are dropped.
+        $this->assertSame(0, Artisan::call('migrate:rollback', ['--step' => 6]));
 
         $this->assertFalse(Schema::hasTable('core_connection_credentials'));
         $this->assertFalse(Schema::hasTable('core_connections'));
