@@ -2,29 +2,29 @@ This file is generated/maintained by DOP Autopilot and represents implementation
 
 # DOP Project Status
 
-Last updated: 2026-08-07T13:45:10Z
+Last updated: 2026-08-07T13:55:28Z
 
 Overall status:
 RUNNING
 
-Current roadmap stage: 13 / 23
+Current roadmap stage: 14 / 23
 
-Current stage: Search Console Connector
+Current stage: GA4 Connector
 
-Current task: wordpress-connector-read-only-probe
+Current task: search-console-connector-read-only-probe
 
 Current task title:
 
-Add read-only WordPress REST connection probe
+Add read-only Search Console property access probe
 
 Current automation run:
-https://github.com/yakupudul/dijitaloperation/actions/runs/31184051890
+https://github.com/yakupudul/dijitaloperation/actions/runs/31184477613
 
 ## Progress
 
-* Completed stages: 12 / 23
+* Completed stages: 13 / 23
 * In progress stages: —
-* Remaining stages: 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23
+* Remaining stages: 14, 15, 16, 17, 18, 19, 20, 21, 22, 23
 
 ## Roadmap
 
@@ -40,7 +40,7 @@ https://github.com/yakupudul/dijitaloperation/actions/runs/31184051890
 * [x] 10. Website Diagnosis Catalog
 * [x] 11. Website Diagnosis implementation
 * [x] 12. WordPress Connector
-* [ ] 13. Search Console Connector
+* [x] 13. Search Console Connector
 * [ ] 14. GA4 Connector
 * [ ] 15. PageSpeed / Lighthouse Connector
 * [ ] 16. DataForSEO Connector
@@ -56,14 +56,15 @@ https://github.com/yakupudul/dijitaloperation/actions/runs/31184051890
 
 Last active task:
 
-* task id: `wordpress-connector-read-only-probe`
-* branch: `dop/wordpress-connector-read-only-probe`
-* PR: #60
+* task id: `search-console-connector-read-only-probe`
+* branch: `dop/search-console-connector-read-only-probe`
+* PR: #61
 * reviewer verdict: APPROVED
 * retry/recovery state: COMPLETED_AND_CONTINUING
 
 ## Recently completed
 
+* `search-console-connector-read-only-probe` — PR 61 — `be8bdc6887dd` — 2026-08-07T13:55:24
 * `wordpress-connector-read-only-probe` — PR 60 — `e578867055f2` — 2026-08-07T13:45:06
 * `website-diagnosis-recommendations` — PR 59 — `8a7894efbc80` — 2026-08-07T13:31:52
 * `website-diagnosis-start-action` — PR 58 — `db194ed09e90` — 2026-08-07T13:19:15
@@ -79,7 +80,6 @@ Implement a small deterministic HTTPS/TLS certificate validity check as part of 
 ### Product specs
 - ` — PR 52 — `f6f5209e3082` — 2026-08-07T11:52:19
 * `implement-recommendation-to-task-conversion` — PR 43 — `28c640422548` — 2026-08-07T09:58:23
-* `implement-website-diagnosis-basic-reachability-fingerprinting` — PR 42 — `6db16d795121` — 2026-08-07T09:52:18
 
 ## Blockers
 
@@ -87,4 +87,4 @@ None
 
 ## Next expected
 
-13. Search Console Connector — expected focus: Add read-only WordPress REST connection probe
+14. GA4 Connector — expected focus: Add read-only Search Console property access probe
