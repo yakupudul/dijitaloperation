@@ -22,6 +22,7 @@ from common import (  # noqa: E402
     extract_usage_metrics,
     format_usage_summary,
     is_repeated_task,
+    is_safe_product_spec_path,
     extract_task_ids_from_pr_bodies,
     load_core_rules,
     load_docs_capped,
@@ -33,6 +34,10 @@ from common import (  # noqa: E402
     select_candidate_product_specs,
     summarize_repo_tree,
     validate_architect_task,
+)
+from recovery import (  # noqa: E402
+    MAX_ARCHITECT_RETRY,
+    repair_invalid_product_spec_paths,
 )
 
 PROMPTS_DIR = AUTOMATION_DIR / "prompts"
@@ -157,6 +162,19 @@ def call_architect(model: str, *, reasoning_effort: str | None = None) -> dict:
 
     raw = extract_response_text(response)
     data = parse_json_object(raw)
+    if data.get("status") == "TASK_READY" and isinstance(data.get("product_spec_paths"), list):
+        repaired = repair_invalid_product_spec_paths(
+            [str(p) for p in data.get("product_spec_paths") or []],
+            repo_root=ROOT,
+            is_safe_path=is_safe_product_spec_path,
+        )
+        if repaired != list(data.get("product_spec_paths") or []):
+            print(
+                "Architect product_spec_paths repaired: "
+                f"{data.get('product_spec_paths')} -> {repaired}",
+                flush=True,
+            )
+            data["product_spec_paths"] = repaired
     errors = validate_architect_task(data, repo_root=ROOT, require_product_specs=True)
     if errors:
         raise ValueError("Architect JSON failed validation: " + "; ".join(errors))
@@ -167,6 +185,27 @@ def call_architect(model: str, *, reasoning_effort: str | None = None) -> dict:
             "Architect returned a repeated automation task_id/branch; failing closed"
         )
     return data
+
+
+def call_architect_with_retries(
+    model: str,
+    *,
+    reasoning_effort: str | None = None,
+    max_attempts: int = MAX_ARCHITECT_RETRY,
+) -> dict:
+    """Retry Architect on validation / transient failures (no new task selection between retries)."""
+    last_error: Exception | None = None
+    attempts = max(1, int(max_attempts))
+    for attempt in range(1, attempts + 1):
+        try:
+            return call_architect(model, reasoning_effort=reasoning_effort)
+        except Exception as exc:  # noqa: BLE001
+            last_error = exc
+            print(f"Architect attempt {attempt}/{attempts} failed: {exc}", flush=True)
+            if attempt >= attempts:
+                break
+    assert last_error is not None
+    raise last_error
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -209,7 +248,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     try:
-        data = call_architect(args.model)
+        data = call_architect_with_retries(args.model)
     except Exception as exc:  # noqa: BLE001
         print(f"Architect failed: {exc}", file=sys.stderr)
         return 1

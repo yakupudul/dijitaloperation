@@ -2,11 +2,13 @@ name: DOP Autopilot
 
 # Canonical product development loop. One Architect task per run.
 # Continuation: repository_dispatch event_type=dop-next-task after successful auto-merge.
+# Self-healing: repository_dispatch event_type=dop-recover-task resumes a failed task
+# without selecting a new Architect task (unless the failure was pre-task Architect).
 
 on:
   workflow_dispatch:
   repository_dispatch:
-    types: [dop-next-task]
+    types: [dop-next-task, dop-recover-task]
 
 concurrency:
   group: dop-autopilot
@@ -23,7 +25,7 @@ jobs:
     timeout-minutes: 180
     steps:
       - name: Checkout main
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: main
           fetch-depth: 0
@@ -36,17 +38,34 @@ jobs:
           coverage: none
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
       - name: Install Composer dependencies
-        run: composer install --no-interaction --prefer-dist
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if composer install --no-interaction --prefer-dist; then
+              exit 0
+            fi
+            echo "composer install failed (attempt $attempt); retrying..."
+            sleep $((attempt * 5))
+          done
+          exit 1
 
       - name: Install automation Python deps + unit tests
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r .automation/requirements.txt
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if python -m pip install --upgrade pip \
+              && python -m pip install -r .automation/requirements.txt; then
+              break
+            fi
+            echo "pip install failed (attempt $attempt); retrying..."
+            sleep $((attempt * 5))
+            if [ "$attempt" -eq 3 ]; then exit 1; fi
+          done
           python -m unittest discover -s .automation/tests -v
 
       - name: Prepare runtime dir
@@ -54,8 +73,142 @@ jobs:
           mkdir -p .automation/runtime
           echo ".automation/runtime/" >> .git/info/exclude || true
 
+      - name: Resolve run mode
+        id: mode
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_ACTION: ${{ github.event.action }}
+          CLIENT_PAYLOAD: ${{ toJson(github.event.client_payload) }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os, sys, subprocess
+          from pathlib import Path
+          sys.path.insert(0, '.automation')
+          from recovery import (
+              parse_recovery_client_payload,
+              recovery_should_run_architect,
+              should_ignore_stale_recovery,
+              format_run_summary_markdown,
+              HARD_BLOCKED,
+              write_run_summary_status,
+          )
+          from common import extract_task_ids_from_pr_bodies
+          event_name = os.environ.get('EVENT_NAME', '')
+          action = os.environ.get('EVENT_ACTION', '')
+          raw = os.environ.get('CLIENT_PAYLOAD') or '{}'
+          try:
+              payload_raw = json.loads(raw)
+          except json.JSONDecodeError:
+              payload_raw = {}
+          mode = 'next'
+          if event_name == 'repository_dispatch' and action == 'dop-recover-task':
+              mode = 'recover'
+          payload = parse_recovery_client_payload(payload_raw if mode == 'recover' else {})
+          Path('.automation/runtime/recover_payload.json').write_text(
+              json.dumps(payload, ensure_ascii=False, indent=2) + '\n', encoding='utf-8'
+          )
+          Path('.automation/runtime/retry_counts.json').write_text(
+              json.dumps(payload.get('retry_counts') or {}, indent=2) + '\n', encoding='utf-8'
+          )
+          ignore = 'false'
+          run_architect = 'true'
+          if mode == 'recover':
+              merged_ids, merged_branches, open_branches = set(), set(), set()
+              try:
+                  out = subprocess.check_output(
+                      ['gh', 'pr', 'list', '--state', 'merged', '--base', 'main', '--limit', '50', '--json', 'body,headRefName'],
+                      text=True,
+                  )
+                  rows = json.loads(out)
+                  merged_ids = extract_task_ids_from_pr_bodies([str(r.get('body') or '') for r in rows])
+                  merged_branches = {str(r.get('headRefName') or '') for r in rows}
+              except Exception:
+                  pass
+              try:
+                  out = subprocess.check_output(
+                      ['gh', 'pr', 'list', '--state', 'open', '--base', 'main', '--limit', '30', '--json', 'headRefName'],
+                      text=True,
+                  )
+                  open_branches = {str(r.get('headRefName') or '') for r in json.loads(out)}
+              except Exception:
+                  pass
+              if should_ignore_stale_recovery(
+                  task_id=payload.get('original_task_id', ''),
+                  branch=payload.get('original_branch', ''),
+                  merged_task_ids=merged_ids,
+                  merged_branches=merged_branches,
+                  open_pr_branches=open_branches,
+              ):
+                  ignore = 'true'
+                  write_run_summary_status(
+                      Path('.automation/runtime/chain_status.txt'),
+                      HARD_BLOCKED,
+                      'stale recover ignored (task already merged)',
+                  )
+                  with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as sf:
+                      sf.write(format_run_summary_markdown(
+                          HARD_BLOCKED, detail='stale recover ignored (task already merged)'
+                      ))
+              run_architect = 'true' if recovery_should_run_architect(payload) else 'false'
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as fh:
+              fh.write(f'mode={mode}\n')
+              fh.write(f'ignore_stale={ignore}\n')
+              fh.write(f'run_architect={run_architect}\n')
+          print(f'mode={mode} ignore_stale={ignore} run_architect={run_architect}')
+          PY
+
+      - name: Stop on stale recovery
+        if: steps.mode.outputs.ignore_stale == 'true'
+        run: |
+          echo "Stale dop-recover-task ignored (task already merged)." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Restore recovered task context
+        id: restore
+        if: steps.mode.outputs.mode == 'recover' && steps.mode.outputs.ignore_stale != 'true' && steps.mode.outputs.run_architect == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          payload = json.loads(Path('.automation/runtime/recover_payload.json').read_text())
+          branch = payload.get('original_branch') or ''
+          task_id = payload.get('original_task_id') or ''
+          pr_number = payload.get('pr_number') or ''
+          if not branch:
+              raise SystemExit('recover payload missing original_branch')
+          Path('.automation/runtime/branch.txt').write_text(branch)
+          task = None
+          try:
+              target = str(pr_number) if pr_number else branch
+              body = subprocess.check_output(['gh', 'pr', 'view', target, '--json', 'body', '-q', '.body'], text=True)
+              if not pr_number:
+                  pr_number = subprocess.check_output(['gh', 'pr', 'view', branch, '--json', 'number', '-q', '.number'], text=True).strip()
+              marker = '```json'
+              if marker in body and '"task_id"' in body:
+                  chunk = body.split(marker, 1)[1].split('```', 1)[0]
+                  task = json.loads(chunk)
+          except Exception as exc:
+              print('warn: could not restore task from PR body:', exc)
+          if not isinstance(task, dict):
+              raise SystemExit('Unable to restore Architect task JSON from PR for recover resume')
+          Path('.automation/runtime/task.json').write_text(json.dumps(task, indent=2) + '\n')
+          if pr_number:
+              Path('.automation/runtime/pr_number.txt').write_text(str(pr_number).strip())
+          print('Restored recover context', task.get('task_id'), branch, pr_number)
+          PY
+          echo "status=TASK_READY" >> "$GITHUB_OUTPUT"
+          BRANCH="$(cat .automation/runtime/branch.txt)"
+          git fetch origin "$BRANCH"
+          git checkout --force -B "$BRANCH" "origin/$BRANCH"
+          echo "Recover resume on $BRANCH @ $(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Run Architect
         id: architect
+        if: steps.mode.outputs.ignore_stale != 'true' && (steps.mode.outputs.mode != 'recover' || steps.mode.outputs.run_architect == 'true')
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_ARCHITECT_MODEL: ${{ vars.OPENAI_ARCHITECT_MODEL }}
@@ -65,11 +218,20 @@ jobs:
           set -euo pipefail
           if [ -z "${OPENAI_API_KEY:-}" ]; then
             echo "::error::OPENAI_API_KEY missing"
+            echo "OPENAI_API_KEY missing" > .automation/runtime/last_failure.txt
+            echo "architect" > .automation/runtime/failed_step.txt
             exit 1
           fi
           MODEL_ARGS=()
           if [ -n "${OPENAI_ARCHITECT_MODEL:-}" ]; then MODEL_ARGS=(--model "$OPENAI_ARCHITECT_MODEL"); fi
-          python .automation/architect.py --output .automation/runtime/task.json "${MODEL_ARGS[@]}"
+          set +e
+          python .automation/architect.py --output .automation/runtime/task.json "${MODEL_ARGS[@]}" 2> >(tee .automation/runtime/last_failure.txt >&2)
+          arch_rc=$?
+          set -e
+          if [ "$arch_rc" -ne 0 ]; then
+            echo "architect" > .automation/runtime/failed_step.txt
+            exit "$arch_rc"
+          fi
           python .automation/architect.py --validate-only .automation/runtime/task.json --require-product-specs
           STATUS="$(python -c 'import json;print(json.load(open(".automation/runtime/task.json"))["status"])')"
           echo "status=$STATUS" >> "$GITHUB_OUTPUT"
@@ -87,13 +249,26 @@ jobs:
           PY
           fi
 
+      - name: Mark recover status when Architect skipped
+        id: architect_skip
+        if: steps.mode.outputs.ignore_stale != 'true' && steps.mode.outputs.mode == 'recover' && steps.mode.outputs.run_architect == 'false'
+        run: echo "status=TASK_READY" >> "$GITHUB_OUTPUT"
+
       - name: Handle ROADMAP_COMPLETE
-        if: steps.architect.outputs.status == 'ROADMAP_COMPLETE'
+        if: (steps.architect.outputs.status || steps.architect_skip.outputs.status) == 'ROADMAP_COMPLETE'
         run: |
           echo "Roadmap complete. No dispatch." >> "$GITHUB_STEP_SUMMARY"
+          python - <<'PY'
+          import os, sys
+          from pathlib import Path
+          sys.path.insert(0, '.automation')
+          from recovery import ROADMAP_COMPLETE, format_run_summary_markdown, write_run_summary_status
+          write_run_summary_status(Path('.automation/runtime/chain_status.txt'), ROADMAP_COMPLETE)
+          print(format_run_summary_markdown(ROADMAP_COMPLETE), file=open(os.environ['GITHUB_STEP_SUMMARY'], 'a'))
+          PY
 
       - name: Handle HUMAN_REQUIRED hard blocker
-        if: steps.architect.outputs.status == 'HUMAN_REQUIRED'
+        if: (steps.architect.outputs.status || steps.architect_skip.outputs.status) == 'HUMAN_REQUIRED'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -116,7 +291,7 @@ jobs:
           exit 1
 
       - name: Sync workspace to origin/main
-        if: steps.architect.outputs.status == 'TASK_READY'
+        if: (steps.architect.outputs.status || steps.architect_skip.outputs.status) == 'TASK_READY' && steps.mode.outputs.run_architect != 'false'
         run: |
           set -euo pipefail
           git fetch origin main
@@ -126,7 +301,7 @@ jobs:
           echo "Implementer base: $(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Prepare implementer prompt
-        if: steps.architect.outputs.status == 'TASK_READY'
+        if: (steps.architect.outputs.status || steps.architect_skip.outputs.status) == 'TASK_READY' && steps.mode.outputs.run_architect != 'false'
         run: |
           python - <<'PY'
           import json
@@ -150,14 +325,25 @@ jobs:
           PY
 
       - name: Install Cursor CLI
-        if: steps.architect.outputs.status == 'TASK_READY'
+        if: (steps.architect.outputs.status || steps.architect_skip.outputs.status) == 'TASK_READY'
         run: |
-          curl https://cursor.com/install -fsS | bash
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if curl https://cursor.com/install -fsS | bash; then
+              break
+            fi
+            echo "Cursor CLI install failed (attempt $attempt)"
+            sleep $((attempt * 5))
+            if [ "$attempt" -eq 3 ]; then
+              echo "cursor_cli_install" > .automation/runtime/failed_step.txt
+              exit 1
+            fi
+          done
           echo "$HOME/.cursor/bin" >> "$GITHUB_PATH"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Run Cursor implementer
-        if: steps.architect.outputs.status == 'TASK_READY'
+        if: (steps.architect.outputs.status || steps.architect_skip.outputs.status) == 'TASK_READY' && steps.mode.outputs.run_architect != 'false'
         env:
           CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
           CURSOR_AGENT_MODEL: ${{ vars.CURSOR_AGENT_MODEL }}
@@ -172,7 +358,7 @@ jobs:
           "$AGENT_BIN" -p --force --output-format text "${MODEL_ARGS[@]}" "$(cat .automation/runtime/implementer_prompt.txt)"
 
       - name: Reject empty diff
-        if: steps.architect.outputs.status == 'TASK_READY'
+        if: (steps.architect.outputs.status || steps.architect_skip.outputs.status) == 'TASK_READY' && steps.mode.outputs.run_architect != 'false'
         run: |
           if ! git status --porcelain | grep -q .; then
             echo "::error::Empty implementation diff"
@@ -182,11 +368,20 @@ jobs:
           git diff --stat | tee .automation/runtime/diff_stat.txt
 
       - name: Initial quality gates
-        if: steps.architect.outputs.status == 'TASK_READY'
-        run: bash .automation/scripts/quality_gates.sh | tee .automation/runtime/test_notes.txt
+        if: (steps.architect.outputs.status || steps.architect_skip.outputs.status) == 'TASK_READY'
+        env:
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          CURSOR_AGENT_MODEL: ${{ vars.CURSOR_AGENT_MODEL }}
+          MAX_IMPLEMENTATION_FIX: "3"
+        run: |
+          set -euo pipefail
+          if ! bash .automation/scripts/quality_gates_with_fix.sh .automation/runtime/test_notes.txt 2> >(tee -a .automation/runtime/last_failure.txt >&2); then
+            echo "initial_quality_gates" > .automation/runtime/failed_step.txt
+            exit 1
+          fi
 
       - name: Create PR
-        if: steps.architect.outputs.status == 'TASK_READY'
+        if: (steps.architect.outputs.status || steps.architect_skip.outputs.status) == 'TASK_READY' && steps.mode.outputs.run_architect != 'false'
         id: pr
         env:
           GH_TOKEN: ${{ github.token }}
@@ -244,8 +439,28 @@ jobs:
           gh pr view --json number,mergeable -q .number > .automation/runtime/pr_number.txt
           echo "PR $URL" >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Ensure PR context on recover resume
+        if: (steps.architect.outputs.status || steps.architect_skip.outputs.status) == 'TASK_READY' && steps.mode.outputs.mode == 'recover' && steps.mode.outputs.run_architect == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          BRANCH="$(cat .automation/runtime/branch.txt)"
+          if [ ! -f .automation/runtime/pr_number.txt ] || [ ! -s .automation/runtime/pr_number.txt ]; then
+            gh pr view "$BRANCH" --json number -q .number > .automation/runtime/pr_number.txt
+          fi
+          if [ ! -f .automation/runtime/pr_body.md ]; then
+            gh pr view "$(cat .automation/runtime/pr_number.txt)" --json body -q .body > .automation/runtime/pr_body.md
+          fi
+          if [ ! -f .automation/runtime/pr_title.txt ]; then
+            gh pr view "$(cat .automation/runtime/pr_number.txt)" --json title -q .title > .automation/runtime/pr_title.txt
+          fi
+          git config user.name "dop-automation"
+          git config user.email "dop-automation@users.noreply.github.com"
+          echo "Recovering PR #$(cat .automation/runtime/pr_number.txt)" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Review and fix loop
-        if: steps.architect.outputs.status == 'TASK_READY'
+        if: (steps.architect.outputs.status || steps.architect_skip.outputs.status) == 'TASK_READY'
         id: reviewloop
         env:
           GH_TOKEN: ${{ github.token }}
@@ -259,6 +474,8 @@ jobs:
           set -euo pipefail
           if [ -z "${OPENAI_API_KEY:-}" ]; then
             echo "::error::OPENAI_API_KEY missing — cannot review or merge"
+            echo "OPENAI_API_KEY missing" > .automation/runtime/last_failure.txt
+            echo "review" > .automation/runtime/failed_step.txt
             exit 1
           fi
           PR_NUMBER="$(cat .automation/runtime/pr_number.txt)"
@@ -280,22 +497,44 @@ jobs:
             if [ -s .automation/runtime/previous_issues.txt ]; then
               PREV_ARGS=(--previous-issues-file .automation/runtime/previous_issues.txt)
             fi
-            python .automation/reviewer.py \
-              --require-automation-marker \
-              --title "$(cat .automation/runtime/pr_title.txt)" \
-              --body-file .automation/runtime/pr_body.md \
-              --diff-file .automation/runtime/pr.diff \
-              --files-file .automation/runtime/pr_files.txt \
-              --test-notes-file .automation/runtime/test_notes.txt \
-              --task-file .automation/runtime/task.json \
-              --head-sha "$HEAD_SHA" \
-              --evidence-output .automation/runtime/review_evidence.json \
-              --output .automation/runtime/review.json \
-              --comment-output .automation/runtime/review_comment.md \
-              "${PREV_ARGS[@]}" \
-              "${MODEL_ARGS[@]}"
-            if [ ! -f .automation/runtime/review.json ]; then
-              echo "::error::Reviewer JSON missing"
+            REVIEW_OK=0
+            : > .automation/runtime/reviewer_attempt.txt
+            for rev_try in 1 2 3; do
+              set +e
+              python .automation/reviewer.py \
+                --require-automation-marker \
+                --title "$(cat .automation/runtime/pr_title.txt)" \
+                --body-file .automation/runtime/pr_body.md \
+                --diff-file .automation/runtime/pr.diff \
+                --files-file .automation/runtime/pr_files.txt \
+                --test-notes-file .automation/runtime/test_notes.txt \
+                --task-file .automation/runtime/task.json \
+                --head-sha "$HEAD_SHA" \
+                --evidence-output .automation/runtime/review_evidence.json \
+                --output .automation/runtime/review.json \
+                --comment-output .automation/runtime/review_comment.md \
+                "${PREV_ARGS[@]}" \
+                "${MODEL_ARGS[@]}" 2> >(tee .automation/runtime/reviewer_attempt.txt >&2)
+              rev_rc=$?
+              set -e
+              cat .automation/runtime/reviewer_attempt.txt >> .automation/runtime/last_failure.txt || true
+              if [ "$rev_rc" -eq 0 ] && [ -f .automation/runtime/review.json ]; then
+                REVIEW_OK=1
+                break
+              fi
+              echo "Reviewer attempt $rev_try failed (rc=$rev_rc)" >> "$GITHUB_STEP_SUMMARY"
+              if grep -Eiq 'invalid.?api.?key|unauthorized|billing|insufficient.?quota|OPENAI_API_KEY missing|401|402' .automation/runtime/reviewer_attempt.txt; then
+                echo "review" > .automation/runtime/failed_step.txt
+                exit 1
+              fi
+              if grep -Eiq 'invalid json|JSONDecodeError|failed validation' .automation/runtime/reviewer_attempt.txt && [ "$rev_try" -ge 2 ]; then
+                break
+              fi
+              sleep $((rev_try * 5))
+            done
+            if [ "$REVIEW_OK" -ne 1 ] || [ ! -f .automation/runtime/review.json ]; then
+              echo "::error::Reviewer JSON missing or reviewer unavailable after retries"
+              echo "review" > .automation/runtime/failed_step.txt
               exit 1
             fi
             VERDICT="$(python -c 'import json;print(json.load(open(".automation/runtime/review.json"))["verdict"])')"
@@ -416,7 +655,7 @@ jobs:
             MODEL_ARGS=()
             if [ -n "${CURSOR_AGENT_MODEL:-}" ]; then MODEL_ARGS=(--model "$CURSOR_AGENT_MODEL"); fi
             "$AGENT_BIN" -p --force --output-format text "${MODEL_ARGS[@]}" "$(cat .automation/runtime/fixer_prompt.txt)"
-            bash .automation/scripts/quality_gates.sh | tee .automation/runtime/test_notes.txt
+            bash .automation/scripts/quality_gates_with_fix.sh | tee .automation/runtime/test_notes.txt
             if git status --porcelain | grep -q .; then
               git add -A
               git reset -q .automation/runtime 2>/dev/null || true
@@ -435,15 +674,17 @@ jobs:
           echo "verdict=$FINAL" >> "$GITHUB_OUTPUT"
           if [ "$FINAL" != "APPROVED" ]; then
             echo "::error::Stopped with $FINAL"
+            echo "review_loop_$FINAL" > .automation/runtime/failed_step.txt
             exit 1
           fi
           if [ ! -f .automation/runtime/review_evidence.json ]; then
             echo "::error::APPROVED without review evidence — refuse merge"
+            echo "review_evidence_missing" > .automation/runtime/failed_step.txt
             exit 1
           fi
 
       - name: Final merge gates + squash merge + dispatch
-        if: steps.architect.outputs.status == 'TASK_READY' && steps.reviewloop.outputs.verdict == 'APPROVED'
+        if: (steps.architect.outputs.status || steps.architect_skip.outputs.status) == 'TASK_READY' && steps.reviewloop.outputs.verdict == 'APPROVED'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -512,3 +753,26 @@ jobs:
           echo "Merged #$PR_NUMBER" >> "$GITHUB_STEP_SUMMARY"
           gh api "repos/${{ github.repository }}/dispatches" -f event_type='dop-next-task'
           echo "Dispatched dop-next-task" >> "$GITHUB_STEP_SUMMARY"
+          python - <<'PY'
+          import os, sys
+          from pathlib import Path
+          sys.path.insert(0, '.automation')
+          from recovery import COMPLETED_AND_CONTINUING, format_run_summary_markdown, write_run_summary_status
+          write_run_summary_status(Path('.automation/runtime/chain_status.txt'), COMPLETED_AND_CONTINUING, 'merged and dispatched dop-next-task')
+          print(format_run_summary_markdown(COMPLETED_AND_CONTINUING, detail='merged and dispatched dop-next-task'), file=open(os.environ['GITHUB_STEP_SUMMARY'], 'a'))
+          PY
+
+      - name: Self-healing supervisor
+        if: failure() && steps.mode.outputs.ignore_stale != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          STEP="$(cat .automation/runtime/failed_step.txt 2>/dev/null || echo unknown)"
+          python .automation/scripts/recover_supervisor.py \
+            --step-name "$STEP" \
+            --stage "$STEP" \
+            --error-file .automation/runtime/last_failure.txt \
+            --repo "${{ github.repository }}" \
+            --run-id "${{ github.run_id }}" || true
+
