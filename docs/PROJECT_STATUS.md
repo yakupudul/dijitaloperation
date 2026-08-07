@@ -2,23 +2,23 @@ This file is generated/maintained by DOP Autopilot and represents implementation
 
 # DOP Project Status
 
-Last updated: 2026-08-07T10:07:12Z
+Last updated: 2026-08-07T10:09:47Z
 
 Overall status:
-RUNNING
+RECOVERING
 
 Current roadmap stage: 11 / 23
 
 Current stage: Website Diagnosis implementation
 
-Current task: None
+Current task: website-diagnosis-ssl-check
 
 Current task title:
 
-None
+Add deterministic SSL certificate check to Website Diagnosis
 
 Current automation run:
-None
+https://github.com/yakupudul/dijitaloperation/actions/runs/31168760200
 
 ## Progress
 
@@ -56,11 +56,11 @@ None
 
 Last active task:
 
-* task id: `None`
-* branch: `None`
-* PR: None
-* reviewer verdict: None
-* retry/recovery state: COMPLETED_AND_CONTINUING
+* task id: `website-diagnosis-ssl-check`
+* branch: `feat/website-diagnosis-ssl-check`
+* PR: #44
+* reviewer verdict: FIX_REQUIRED
+* retry/recovery state: recover/IMPLEMENTATION_FAILURE retries={"infra": 0, "implementation": 1, "reviewer": 0, "architect": 0, "dependency": 0}
 
 ## Recently completed
 
@@ -85,4 +85,4 @@ None
 
 ## Next expected
 
-11. Website Diagnosis implementation
+11. Website Diagnosis implementation — expected focus: Add deterministic SSL certificate check to Website Diagnosis
