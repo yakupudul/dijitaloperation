@@ -2,7 +2,7 @@ This file is generated/maintained by DOP Autopilot and represents implementation
 
 # DOP Project Status
 
-Last updated: 2026-08-07T21:05:00Z
+Last updated: 2026-08-07T21:45:00Z
 
 Overall status:
 RUNNING
@@ -57,8 +57,8 @@ https://github.com/yakupudul/dijitaloperation/pulls
 Last active task:
 
 * task id: `cross-asset-website-meta-ads-destination-consistency`
-* branch: `dop/cross-asset-website-meta-ads-destination-consistency`
-* PR: —
+* branch: `dop/cross-asset-website-meta-ads-destination-consistency-v2`
+* PR: — (supersedes stalled #86; incomplete Architect JSON blocked merge and PR body is not editable by automation)
 * reviewer verdict: —
 * retry/recovery state: IMPLEMENTING
 
