@@ -2,7 +2,7 @@ This file is generated/maintained by DOP Autopilot and represents implementation
 
 # DOP Project Status
 
-Last updated: 2026-08-07T19:45:00Z
+Last updated: 2026-08-07T19:50:00Z
 
 Overall status:
 RUNNING
@@ -58,9 +58,9 @@ Last active task:
 
 * task id: `cross-asset-website-gbp-website-url-consistency`
 * branch: `dop/cross-asset-website-gbp-website-url-consistency-v2`
-* PR: — (supersedes draft #76; awaiting open)
+* PR: #77 (supersedes draft #76)
 * reviewer verdict: —
-* retry/recovery state: SUPERSEDING_PR_BODY_PARSE
+* retry/recovery state: SUPERSEDED_AND_REOPENED
 
 ## Recently completed
 
