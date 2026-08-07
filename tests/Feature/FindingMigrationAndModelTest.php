@@ -107,8 +107,8 @@ class FindingMigrationAndModelTest extends TestCase
     {
         $this->assertTrue(Schema::hasTable('findings'));
 
-        // Newest migrations may include recommendations/runs; roll back past findings.
-        $this->assertSame(0, Artisan::call('migrate:rollback', ['--step' => 3]));
+        // Newest migrations may include tasks/recommendations/runs; roll back past findings.
+        $this->assertSame(0, Artisan::call('migrate:rollback', ['--step' => 4]));
 
         $this->assertFalse(Schema::hasTable('findings'));
 

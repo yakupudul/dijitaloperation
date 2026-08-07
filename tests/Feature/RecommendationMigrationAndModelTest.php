@@ -142,7 +142,8 @@ class RecommendationMigrationAndModelTest extends TestCase
     {
         $this->assertTrue(Schema::hasTable('recommendations'));
 
-        $this->assertSame(0, Artisan::call('migrate:rollback', ['--step' => 1]));
+        // Newest migration may be tasks; roll back past recommendations.
+        $this->assertSame(0, Artisan::call('migrate:rollback', ['--step' => 2]));
 
         $this->assertFalse(Schema::hasTable('recommendations'));
 
