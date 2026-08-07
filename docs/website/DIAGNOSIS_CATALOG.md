@@ -31,6 +31,7 @@ Each catalog item is a stable diagnosis definition. Implementation must evaluate
 | `detection_rule` | Deterministic condition description (not code, not AI heuristics) |
 | `severity` | Initial severity when the rule matches: `critical` \| `high` \| `medium` \| `low` \| `info` |
 | `confidence` | Initial confidence when only required evidence is available: `high` \| `medium` \| `low` |
+| `fingerprint` | Deterministic Finding identity contract: which normalized evidence parts join with `id` (same fingerprint → upsert across runs) |
 | `finding_output` | `title` + `summary` templates; placeholders use `{name}` substitution from evidence |
 | `recommendation_logic` | Brief deterministic rule to generate recommendation text from the same evidence |
 | `source_dependency` | Which additional evidence or connection increases confidence / completeness |
@@ -71,6 +72,7 @@ Logical evidence labels (normalized later by collectors; not API field dumps):
 | **detection_rule** | Fire when the fetch ends in a transport failure (DNS failure, TCP/TLS connect failure, timeout) **or** the final HTTP status is `5xx`, **or** no HTTP response is obtained. Do **not** treat `4xx` alone as unreachable (that is a separate status-code concern). Aligns with HTTP semantics for server error vs client error ([RFC 9110](https://www.rfc-editor.org/rfc/rfc9110)). |
 | **severity** | `critical` |
 | **confidence** | `high` (when `http_fetch` records a concrete error class or final status) |
+| **fingerprint** | `sha256( "{id}\|url={normalized_start_url}" )` where `normalized_start_url` is the asset primary/start URL with lowercased scheme+host, default path `/` trimmed to empty, and query preserved. Status code, effective URL, and error class are **not** part of the fingerprint (same unreachable target upserts across runs). |
 | **finding_output** | **title:** `Website not reachable` · **summary:** `Primary URL {start_url} did not return a successful HTTP response (outcome: {error_or_status}).` |
 | **recommendation_logic** | If DNS/connect/timeout → recommend verifying DNS, hosting uptime, and firewall/CDN allowlists for the fetch origin. If final status `5xx` → recommend checking origin/CDN error logs and recent deploys. Include `{final_url}` when it differs from `{start_url}`. |
 | **source_dependency** | Confidence stays high with a single conclusive `http_fetch`. `redirects` evidence increases diagnostic completeness (which hop failed) but does not change the reachability verdict. |

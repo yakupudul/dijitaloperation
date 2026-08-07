@@ -39,13 +39,10 @@ class Evidence extends Model
     }
 
     /**
-     * @return array<string, string>
+     * @var array<string, string>
      */
-    protected function casts(): array
-    {
-        return [
-            'payload' => 'array',
-            'observed_at' => 'datetime',
-        ];
-    }
+    protected $casts = [
+        'payload' => 'array',
+        'observed_at' => 'datetime',
+    ];
 }
