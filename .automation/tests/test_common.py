@@ -96,6 +96,19 @@ class SecretPathTests(unittest.TestCase):
         dirty = "password = 'super-secret-value'"
         self.assertTrue(scan_diff_for_credential_leaks(dirty))
         self.assertFalse(scan_diff_for_credential_leaks("password length must be >= 8"))
+        # Filament Connection UI / test wiring must not false-positive.
+        filament = """diff --git a/app/Filament/X.php b/app/Filament/X.php
++++ b/app/Filament/X.php
++Password::make('secret')
++TextInput::make('api_key')
++'encrypted_payload' => 'encrypted:array',
+"""
+        self.assertFalse(scan_diff_for_credential_leaks(filament))
+        real_leak = """diff --git a/app/x.php b/app/x.php
++++ b/app/x.php
++password = 'super-secret-value'
+"""
+        self.assertTrue(scan_diff_for_credential_leaks(real_leak))
 
 
 class SuspiciousDiffTests(unittest.TestCase):
