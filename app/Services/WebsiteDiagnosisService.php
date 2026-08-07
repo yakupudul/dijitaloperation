@@ -13,6 +13,7 @@ use App\Support\SitemapXmlParser;
 use App\Support\SslCertificateProbe;
 use App\Support\SslCertParser;
 use App\Support\WebsiteDiagnosisCatalog;
+use App\Support\WebsiteTelephoneExtractor;
 use DateTimeImmutable;
 use DateTimeInterface;
 use Illuminate\Http\Client\ConnectionException;
@@ -60,6 +61,7 @@ class WebsiteDiagnosisService
         private readonly SitemapXmlParser $sitemapXmlParser = new SitemapXmlParser,
         private readonly CanonicalLinkParser $canonicalLinkParser = new CanonicalLinkParser,
         private readonly WebsiteDiagnosisCatalog $websiteDiagnosisCatalog = new WebsiteDiagnosisCatalog,
+        private readonly WebsiteTelephoneExtractor $websiteTelephoneExtractor = new WebsiteTelephoneExtractor,
     ) {}
 
     /**
@@ -1082,7 +1084,8 @@ class WebsiteDiagnosisService
      *     canonical_hrefs: list<string>,
      *     absolute_canonical_hrefs: list<string>,
      *     relative_canonical_hrefs: list<string>,
-     *     canonical_state: string
+     *     canonical_state: string,
+     *     telephone_candidates: list<string>
      * }|null
      */
     private function collectPageHtml(array $httpFetch, ?string $body, ?string $contentType): ?array
@@ -1110,6 +1113,7 @@ class WebsiteDiagnosisService
             'absolute_canonical_hrefs' => $parsed['absolute_canonical_hrefs'],
             'relative_canonical_hrefs' => $parsed['relative_canonical_hrefs'],
             'canonical_state' => $canonicalState,
+            'telephone_candidates' => $this->websiteTelephoneExtractor->extract($body),
         ];
     }
 

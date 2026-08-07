@@ -51,6 +51,7 @@ class DiagnoseWebsiteCanonicalTest extends TestCase
         $this->assertSame('absolute_single', $pageHtml->payload['canonical_state']);
         $this->assertSame(['https://ok.example/'], $pageHtml->payload['canonical_hrefs']);
         $this->assertTrue($pageHtml->payload['head_complete']);
+        $this->assertSame([], $pageHtml->payload['telephone_candidates'] ?? null);
 
         $this->assertSame(
             0,
@@ -200,6 +201,48 @@ HTML;
         $this->assertSame($run->id, $finding->last_run_id);
         $this->assertStringContainsString('conflict_mismatch', (string) $finding->summary);
         $this->assertStringContainsString('https://other.example/page', (string) $finding->summary);
+    }
+
+    public function test_page_html_includes_telephone_candidates_from_primary_html(): void
+    {
+        $html = <<<'HTML'
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Example</title>
+  <link rel="canonical" href="https://phone.example/">
+</head>
+<body>
+  <a href="tel:+1-555-0199">Call us</a>
+  <span itemprop="telephone">+1 (555) 0199</span>
+</body>
+</html>
+HTML;
+
+        Http::fake([
+            'https://phone.example' => Http::response($html, 200, [
+                'Content-Type' => 'text/html; charset=UTF-8',
+            ]),
+            'http://phone.example' => Http::response('', 301, ['Location' => 'https://phone.example/']),
+            'https://phone.example/robots.txt' => Http::response("User-agent: *\nDisallow:\n", 200),
+            'https://phone.example/sitemap.xml' => Http::response($this->validEmptySitemap(), 200),
+        ]);
+
+        $asset = DigitalAsset::factory()->create([
+            'type' => 'website',
+            'primary_url' => 'https://phone.example',
+        ]);
+
+        $run = app(WebsiteDiagnosisService::class)->diagnose($asset);
+
+        $pageHtml = Evidence::query()
+            ->where('run_id', $run->id)
+            ->where('type', WebsiteDiagnosisService::EVIDENCE_TYPE_PAGE_HTML)
+            ->first();
+
+        $this->assertNotNull($pageHtml);
+        $this->assertSame(['+1-555-0199', '+1 (555) 0199'], $pageHtml->payload['telephone_candidates']);
     }
 
     public function test_non_html_primary_body_skips_page_html_evidence(): void
