@@ -69,6 +69,7 @@ Blueprint, MASTER_SPEC'i **override edemez**; yalnızca ayrıntılandırır.
 | Google Ads | `docs/product/google-ads/GOOGLE_ADS.md` |
 | Meta Ads | `docs/product/meta-ads/META_ADS.md` |
 | Instagram | `docs/product/instagram/INSTAGRAM.md` |
+| Cross-asset / cross-channel analysis | `docs/product/cross-asset/CROSS_ASSET_ANALYSIS.md` |
 | Later assets (YouTube, CRM, …) | `docs/product/future/DIGITAL_ASSETS.md` |
 
 ## Blueprint şablonu

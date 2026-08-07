@@ -44,11 +44,14 @@ Before each platform: product blueprint detail first. Cannot change MASTER_SPEC 
 
 ## Derived information
 
-Cross-channel insights later (roadmap step 22).
+Cross-channel insights are specified at
+`docs/product/cross-asset/CROSS_ASSET_ANALYSIS.md` (roadmap step 22).
 
 ## Later enhancements
 
-Next direction after Instagram blueprint: first Instagram module (read-only access probe), then roadmap step 22 cross-asset analysis.  
+Roadmap step 22 product blueprint is detailed at
+`docs/product/cross-asset/CROSS_ASSET_ANALYSIS.md`.
+Next direction after Instagram first module: cross-asset deterministic packs per that blueprint, then roadmap step 23 dashboard / hardening.  
 Later possibles: YouTube, CRM, other platforms.
 
 ## Explicit non-goals

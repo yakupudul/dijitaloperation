@@ -32,7 +32,7 @@ Architect yalnızca buradaki sıradaki **ilk tamamlanmamış** işi seçer ve on
 | 19 | Google Ads product spec + first module | `docs/product/google-ads/GOOGLE_ADS.md` |
 | 20 | Meta Ads product spec + first module | `docs/product/meta-ads/META_ADS.md` |
 | 21 | Instagram product spec + first module | `docs/product/instagram/INSTAGRAM.md` |
-| 22 | Cross-asset / cross-channel analysis | `docs/product/DASHBOARD.md` + future assets |
+| 22 | Cross-asset / cross-channel analysis | `docs/product/cross-asset/CROSS_ASSET_ANALYSIS.md` (+ `docs/product/DASHBOARD.md` for later surfacing) |
 | 23 | Action-oriented agency operations dashboard / first production hardening | `docs/product/DASHBOARD.md` |
 
 **Sample Module:** bootstrap smoke test; ayrı ürün fazı değildir.
