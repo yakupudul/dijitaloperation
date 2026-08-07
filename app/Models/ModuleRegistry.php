@@ -2,26 +2,26 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
-#[Fillable([
-    'module_id',
-    'enabled',
-    'installed_version',
-])]
 class ModuleRegistry extends Model
 {
     /**
-     * @return array<string, string>
+     * @var list<string>
      */
-    protected function casts(): array
-    {
-        return [
-            'enabled' => 'boolean',
-        ];
-    }
+    protected $fillable = [
+        'module_id',
+        'enabled',
+        'installed_version',
+    ];
+
+    /**
+     * @var array<string, string>
+     */
+    protected $casts = [
+        'enabled' => 'boolean',
+    ];
 
     /**
      * @param  Builder<static>  $query
