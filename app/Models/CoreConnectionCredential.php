@@ -22,20 +22,17 @@ class CoreConnectionCredential extends Model
     use HasFactory;
 
     /**
+     * @var array<string, string>
+     */
+    protected $casts = [
+        'encrypted_payload' => 'encrypted:array',
+    ];
+
+    /**
      * @return BelongsTo<CoreConnection, $this>
      */
     public function connection(): BelongsTo
     {
         return $this->belongsTo(CoreConnection::class, 'connection_id');
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    protected function casts(): array
-    {
-        return [
-            'encrypted_payload' => 'encrypted:array',
-        ];
     }
 }

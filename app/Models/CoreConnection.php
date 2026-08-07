@@ -24,6 +24,15 @@ class CoreConnection extends Model
     use HasFactory;
 
     /**
+     * @var array<string, string>
+     */
+    protected $casts = [
+        'config' => 'array',
+        'enabled' => 'boolean',
+        'last_success_at' => 'datetime',
+    ];
+
+    /**
      * @return BelongsTo<DigitalAsset, $this>
      */
     public function digitalAsset(): BelongsTo
@@ -37,17 +46,5 @@ class CoreConnection extends Model
     public function credential(): HasOne
     {
         return $this->hasOne(CoreConnectionCredential::class, 'connection_id');
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    protected function casts(): array
-    {
-        return [
-            'config' => 'array',
-            'enabled' => 'boolean',
-            'last_success_at' => 'datetime',
-        ];
     }
 }
