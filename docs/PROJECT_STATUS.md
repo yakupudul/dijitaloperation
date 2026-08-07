@@ -2,10 +2,10 @@ This file is generated/maintained by DOP Autopilot and represents implementation
 
 # DOP Project Status
 
-Last updated: 2026-08-07T10:37:33Z
+Last updated: 2026-08-07T11:52:22Z
 
 Overall status:
-RECOVERING
+RUNNING
 
 Current roadmap stage: 11 / 23
 
@@ -18,7 +18,7 @@ Current task title:
 Add deterministic SSL certificate check to Website Diagnosis
 
 Current automation run:
-None
+https://github.com/yakupudul/dijitaloperation/actions/runs/31175759114
 
 ## Progress
 
@@ -57,13 +57,20 @@ None
 Last active task:
 
 * task id: `website-diagnosis-ssl-check`
-* branch: `feat/website-diagnosis-ssl-check`
-* PR: #44
-* reviewer verdict: FIX_REQUIRED
-* retry/recovery state: Autopilot v2 handoff — adopt/repair #44 or reimplement website-diagnosis-ssl-check on dop/; legacy HARD_BLOCKED counters retired
+* branch: `dop/website-diagnosis-ssl-check-v2`
+* PR: #52
+* reviewer verdict: APPROVED
+* retry/recovery state: COMPLETED_AND_CONTINUING
 
 ## Recently completed
 
+* ` markers, and existing PR descriptions cannot be rewritten by the repair automation token. This PR carries the same catalog-aligned TLS validity implementation with a valid task contract.
+
+### Objective
+Implement a small deterministic HTTPS/TLS certificate validity check as part of Website Diagnosis so Findings can include catalog-aligned transport/TLS problems with evidence and fingerprinting.
+
+### Product specs
+- ` — PR 52 — `f6f5209e3082` — 2026-08-07T11:52:19
 * `implement-recommendation-to-task-conversion` — PR 43 — `28c640422548` — 2026-08-07T09:58:23
 * `implement-website-diagnosis-basic-reachability-fingerprinting` — PR 42 — `6db16d795121` — 2026-08-07T09:52:18
 * `website_diagnosis_catalog_initial` — PR 40 — `b9a81719f58b` — 2026-08-07T09:39:26
@@ -73,16 +80,14 @@ Last active task:
 * `add-findings-filament-resource` — PR 33 — `98fdaca40331` — 2026-08-07T08:50:22
 * `task-foundation-task-model` — PR 32 — `9ada21e6fb8a` — 2026-08-07T08:46:02
 * `recommendation-model-and-migration` — PR 31 — `edf4c6f36e80` — 2026-08-07T08:41:51
-* `run-foundation-model-migration-factory-tests` — PR 30 — `a29663bf12eb` — 2026-08-07T08:38:01
 
 ## Blockers
 
 None
 
-Legacy automation blocker issues (e.g. #38 / exhausted v1 SSL retries) are **stale/resolved for Autopilot v2** and must not keep status HARD_BLOCKED.
-
 ## Stale automation PRs
 
+* #44 `website-diagnosis-ssl-check` — Superseded / stale (branch `feat/website-diagnosis-ssl-check`)
 * #28 `pipeline-run-foundation` — Superseded / stale (branch `feature/pipeline-run-foundation`)
 
 ## Next expected
