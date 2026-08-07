@@ -9,12 +9,14 @@
 - Moximu **iç** operasyon; SaaS / Workspace / müşteri girişi yok
 - Harici **write action yok**
 - Tek Filament panel: id `app`, path `/app`; `web` guard; `spatie/laravel-permission`
-- Modüller: `app-modules/` + `internachi/modular`
+- Modüller: `app-modules/` + `internachi/modular` — MVP’de custom plugin framework yok (minimal registry: id + enabled/disabled)
+- Finding kalıcı + fingerprint; Evidence Run’a bağlı; **ayrı Result entity yok**
 - AI: `laravel/ai`; key environment’ta
 - Event: `{kebab-module}.{kebab-action}`
-- Website Diagnosis katalog: Faz 4 öncesi `docs/website/DIAGNOSIS_CATALOG.md` (Core blocker değil)
+- Prensip: framework’ün çözdüğünü tekrar yazma (ADR-033)
+- Website Diagnosis katalog: diagnosis fazı öncesi `docs/website/DIAGNOSIS_CATALOG.md` (Core blocker değil)
 
 ### Pratik
 
-- Uygulama iskeleti yoksa paket kurup servis ayağa kaldırmayın; dokümana uyun.
-- SaaS, Client Portal, harici write eklemeyin.
+- SaaS, Client Portal, harici write, marketplace/ZIP, custom migrator/FSM ekleme.
+- MVP Core listesi dışında Attachments/Tags/feature-flags/ağır health-audit zorunlu sayma.
