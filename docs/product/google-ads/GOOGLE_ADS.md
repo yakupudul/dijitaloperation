@@ -34,7 +34,7 @@ Asset (non-secret): name, type=`google_ads`, brand_id, status, customer_id / res
 
 Connection: type for Google Ads API (e.g. `google_ads_api`), enabled, non-secret login-customer/MCC mapping in config, encrypted credentials, last_success_at, last_error.
 
-Evidence types (normalized, no raw dump as Finding): e.g. `google_ads_account_access`, `google_ads_account_summary`, `google_ads_campaign_performance` — exact ids implementation’da blueprint’e sadık kalınarak seçilir.
+Evidence types (normalized, no raw dump as Finding): e.g. `google_ads_account_access`, `google_ads_landing_final_urls`, `google_ads_account_summary`, `google_ads_campaign_performance` — exact ids implementation’da blueprint’e sadık kalınarak seçilir.
 
 ## Relationships
 
