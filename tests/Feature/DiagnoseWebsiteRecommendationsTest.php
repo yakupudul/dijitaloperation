@@ -59,6 +59,7 @@ class DiagnoseWebsiteRecommendationsTest extends TestCase
         $this->assertSame('medium', $recommendation->priority);
         $this->assertSame('open', $recommendation->status);
         $this->assertStringContainsString('Publish a UTF-8 XML sitemap', (string) $recommendation->action);
+        $this->assertStringContainsString('urlset', (string) $recommendation->action);
         $this->assertSame($finding->summary, $recommendation->rationale);
         $this->assertSame($firstRun->id, $finding->last_run_id);
 
@@ -103,7 +104,7 @@ class DiagnoseWebsiteRecommendationsTest extends TestCase
 
         $recommendation = $recommendation->fresh();
         $this->assertSame('converted', $recommendation->status);
-        $this->assertStringContainsString('Restore /robots.txt', (string) $recommendation->action);
+        $this->assertStringContainsStringIgnoringCase('restore `/robots.txt`', (string) $recommendation->action);
         $this->assertSame(1, Recommendation::query()->where('finding_id', $finding->id)->count());
     }
 

@@ -12,6 +12,7 @@ use App\Support\RobotsTxtParser;
 use App\Support\SitemapXmlParser;
 use App\Support\SslCertificateProbe;
 use App\Support\SslCertParser;
+use App\Support\WebsiteDiagnosisCatalog;
 use DateTimeImmutable;
 use DateTimeInterface;
 use Illuminate\Http\Client\ConnectionException;
@@ -58,6 +59,7 @@ class WebsiteDiagnosisService
         private readonly RobotsTxtParser $robotsTxtParser = new RobotsTxtParser,
         private readonly SitemapXmlParser $sitemapXmlParser = new SitemapXmlParser,
         private readonly CanonicalLinkParser $canonicalLinkParser = new CanonicalLinkParser,
+        private readonly WebsiteDiagnosisCatalog $websiteDiagnosisCatalog = new WebsiteDiagnosisCatalog,
     ) {}
 
     /**
@@ -549,6 +551,7 @@ class WebsiteDiagnosisService
             ),
             confidence: self::CONFIDENCE_HIGH,
             observedAt: $observedAt,
+            catalogItemId: self::CATALOG_REDIRECT_HTTP_TO_HTTPS,
         );
     }
 
@@ -722,6 +725,7 @@ class WebsiteDiagnosisService
             ),
             confidence: $confidence,
             observedAt: $observedAt,
+            catalogItemId: self::CATALOG_ROBOTS_TXT_AVAILABILITY,
         );
     }
 
@@ -1033,6 +1037,7 @@ class WebsiteDiagnosisService
             ),
             confidence: $confidence,
             observedAt: $observedAt,
+            catalogItemId: self::CATALOG_SITEMAP_XML_AVAILABILITY,
         );
     }
 
@@ -1211,6 +1216,7 @@ class WebsiteDiagnosisService
             ),
             confidence: $confidence,
             observedAt: $observedAt,
+            catalogItemId: self::CATALOG_CANONICAL_LINK_CONSISTENCY,
         );
     }
 
@@ -1382,6 +1388,7 @@ class WebsiteDiagnosisService
                 ),
                 confidence: self::CONFIDENCE_HIGH,
                 observedAt: $observedAt,
+                catalogItemId: self::CATALOG_HTTPS_TLS_VALIDITY,
             );
 
             return;
@@ -1401,6 +1408,7 @@ class WebsiteDiagnosisService
                 ),
                 confidence: self::CONFIDENCE_HIGH,
                 observedAt: $observedAt,
+                catalogItemId: self::CATALOG_HTTPS_TLS_VALIDITY,
             );
 
             return;
@@ -1424,6 +1432,7 @@ class WebsiteDiagnosisService
                 ),
                 confidence: self::CONFIDENCE_HIGH,
                 observedAt: $observedAt,
+                catalogItemId: self::CATALOG_HTTPS_TLS_VALIDITY,
             );
 
             return;
@@ -1447,6 +1456,7 @@ class WebsiteDiagnosisService
                 ),
                 confidence: self::CONFIDENCE_HIGH,
                 observedAt: $observedAt,
+                catalogItemId: self::CATALOG_HTTPS_TLS_VALIDITY,
             );
         }
     }
@@ -1500,6 +1510,7 @@ class WebsiteDiagnosisService
             summary: $summary,
             confidence: self::CONFIDENCE_HIGH,
             observedAt: $observedAt,
+            catalogItemId: self::CATALOG_REACHABILITY_HTTP,
         );
     }
 
@@ -1547,6 +1558,7 @@ class WebsiteDiagnosisService
         string $summary,
         float $confidence,
         DateTimeInterface $observedAt,
+        string $catalogItemId,
     ): Finding {
         $finding = Finding::query()->firstOrNew([
             'digital_asset_id' => $asset->id,
@@ -1572,17 +1584,17 @@ class WebsiteDiagnosisService
 
         $finding->save();
 
-        $this->upsertRecommendationForFinding($finding);
+        $this->upsertRecommendationForFinding($finding, $catalogItemId);
 
         return $finding;
     }
 
     /**
-     * Deterministic Recommendation upsert for a diagnosis Finding (catalog recommendation_logic).
+     * Deterministic Recommendation upsert using catalog recommendation_logic (ADR-031).
      */
-    private function upsertRecommendationForFinding(Finding $finding): void
+    private function upsertRecommendationForFinding(Finding $finding, string $catalogItemId): void
     {
-        $action = $this->recommendationActionForFindingTitle($finding->title);
+        $action = $this->websiteDiagnosisCatalog->recommendationLogic($catalogItemId);
 
         if ($action === null) {
             return;
@@ -1621,19 +1633,6 @@ class WebsiteDiagnosisService
         ]);
 
         $recommendation->save();
-    }
-
-    private function recommendationActionForFindingTitle(?string $title): ?string
-    {
-        return match ($title) {
-            'Website not reachable' => 'Verify DNS, hosting uptime, and firewall/CDN allowlists for the fetch origin. If the final status is 5xx, check origin/CDN error logs and recent deploys.',
-            'HTTPS/TLS certificate problem' => 'Install or renew a valid TLS certificate for the host covering the next 7+ days; confirm HTTPS serves the renewed certificate without chain errors.',
-            'HTTP does not upgrade to HTTPS' => 'Configure a permanent HTTP→HTTPS redirect (301/308) on the apex host so plaintext entrypoints upgrade to HTTPS on the same host.',
-            'robots.txt problem' => 'Restore /robots.txt serving on the crawler host (avoid 5xx/transport failures). If malformed, rewrite using User-agent / Allow / Disallow / Sitemap lines per RFC 9309.',
-            'Sitemap missing or unreadable' => 'Publish a UTF-8 XML sitemap (urlset or sitemapindex) at a stable HTTPS URL; list it with a Sitemap: line in robots.txt; ensure HTTP 200 with valid XML.',
-            'Canonical link issue' => 'Emit exactly one absolute link rel=canonical in the document head pointing to the preferred indexable HTTPS URL; remove duplicates/conflicts.',
-            default => null,
-        };
     }
 
     private function recommendationPriorityForSeverity(string $severity): string
