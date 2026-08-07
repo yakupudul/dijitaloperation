@@ -1,0 +1,49 @@
+name: DOP Autopilot Continue
+
+# GITHUB_TOKEN-safe chain: when DOP Autopilot succeeds with continue=yes artifact,
+# invoke the reusable DOP Autopilot workflow again for the next task.
+
+on:
+  workflow_run:
+    workflows: ["DOP Autopilot"]
+    types: [completed]
+
+concurrency:
+  group: dop-autopilot
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  gate:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      continue: ${{ steps.decide.outputs.continue }}
+    steps:
+      - name: Download continue artifact
+        id: download
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: dop-autopilot-continue
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: /tmp/dop-continue
+
+      - name: Decide
+        id: decide
+        run: |
+          if [ -f /tmp/dop-continue/continue.txt ] && [ "$(tr -d '[:space:]' < /tmp/dop-continue/continue.txt)" = "yes" ]; then
+            echo "continue=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "continue=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  next:
+    needs: gate
+    if: needs.gate.outputs.continue == 'true'
+    uses: ./.github/workflows/dop-autopilot.yml
+    secrets: inherit
