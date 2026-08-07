@@ -70,11 +70,26 @@ class StageEvidenceTests(unittest.TestCase):
         # Bootstrap + auth should be complete on this repo
         self.assertEqual(evidence[1], "completed")
         self.assertEqual(evidence[2], "completed")
+        # Diagnosis started (service/job) but connectors not yet — stay in progress
+        self.assertEqual(evidence[11], "in_progress")
         # Something not yet done (connectors / future)
         self.assertIn(evidence[12], {"remaining", "in_progress"})
         completed = [n for n, s in evidence.items() if s == "completed"]
         self.assertGreaterEqual(len(completed), 3)
         self.assertLess(len(completed), 23)
+        self.assertEqual(len(completed), 10)
+
+    def test_diagnosis_stage_completes_only_with_explicit_signal(self) -> None:
+        # Without connector/complete signal: in_progress when diagnosis files exist
+        base = stage_completion_evidence(ROOT, merged_task_ids=set(), commit_summary="")
+        self.assertEqual(base[11], "in_progress")
+        # Explicit completion signal via merged task id
+        done = stage_completion_evidence(
+            ROOT,
+            merged_task_ids={"website-diagnosis-complete"},
+            commit_summary="",
+        )
+        self.assertEqual(done[11], "completed")
 
     def test_roadmap_complete_snapshot(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
