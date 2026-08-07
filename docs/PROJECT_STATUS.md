@@ -2,7 +2,7 @@ This file is generated/maintained by DOP Autopilot and represents implementation
 
 # DOP Project Status
 
-Last updated: 2026-08-07T19:18:45Z
+Last updated: 2026-08-07T19:22:53Z
 
 Overall status:
 RUNNING
@@ -11,14 +11,14 @@ Current roadmap stage: 18 / 23
 
 Current stage: Google Business Profile product spec + first module
 
-Current task: instagram-product-spec
+Current task: instagram-connector-read-only-probe
 
 Current task title:
 
-Add Instagram product blueprint
+Add read-only Instagram account access probe
 
 Current automation run:
-https://github.com/yakupudul/dijitaloperation/actions/runs/31210845535
+https://github.com/yakupudul/dijitaloperation/actions/runs/31211141896
 
 ## Progress
 
@@ -56,14 +56,15 @@ https://github.com/yakupudul/dijitaloperation/actions/runs/31210845535
 
 Last active task:
 
-* task id: `instagram-product-spec`
-* branch: `dop/instagram-product-spec`
-* PR: #73
+* task id: `instagram-connector-read-only-probe`
+* branch: `dop/instagram-connector-read-only-probe`
+* PR: #74
 * reviewer verdict: APPROVED
 * retry/recovery state: COMPLETED_AND_CONTINUING
 
 ## Recently completed
 
+* `instagram-connector-read-only-probe` — PR 74 — `bab09d0b1454` — 2026-08-07T19:22:50
 * `instagram-product-spec` — PR 73 — `885ad50de330` — 2026-08-07T19:18:42
 * `meta-ads-connector-read-only-probe` — PR 72 — `5502ba27fbf4` — 2026-08-07T19:05:46
 * `meta-ads-product-spec` — PR 71 — `c81eb7743cbe` — 2026-08-07T18:27:55
@@ -73,7 +74,6 @@ Last active task:
 * `google-business-profile-product-spec` — PR 67 — `5a4049d4c2d2` — 2026-08-07T18:15:10
 * `website-ai-insights-finding-interpretation` — PR 66 — `cb19c25b8162` — 2026-08-07T18:10:56
 * `dataforseo-connector-read-only-probe` — PR 64 — `ade600486934` — 2026-08-07T16:04:38
-* `pagespeed-connector-read-only-probe` — PR 63 — `7e4ed7e9a54c` — 2026-08-07T15:05:10
 
 ## Blockers
 
@@ -81,4 +81,4 @@ None
 
 ## Next expected
 
-18. Google Business Profile product spec + first module — expected focus: Add Instagram product blueprint
+18. Google Business Profile product spec + first module — expected focus: Add read-only Instagram account access probe
