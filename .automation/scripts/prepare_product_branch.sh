@@ -74,7 +74,8 @@ if errors:
 diff = subprocess.check_output(["git", "diff", "--cached"], text=True)
 leaks = scan_diff_for_credential_leaks(diff)
 if leaks:
-    raise SystemExit("Credential-like patterns in product patch")
+    detail = "; ".join(leaks[:5])
+    raise SystemExit("Credential-like patterns in product patch: " + detail)
 
 base = subprocess.check_output(["git", "rev-parse", "origin/main"], text=True).strip()
 print(f"prepare_product_branch: staged {len(paths)} files on {base}")
