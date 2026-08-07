@@ -6,11 +6,9 @@ name: DOP Autopilot
 
 on:
   workflow_dispatch:
+  workflow_call:
   repository_dispatch:
     types: [dop-next-task]
-  workflow_run:
-    workflows: ["DOP Autopilot"]
-    types: [completed]
 
 concurrency:
   group: dop-autopilot
@@ -23,44 +21,7 @@ permissions:
   checks: read
 
 jobs:
-  should-continue:
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
-    runs-on: ubuntu-latest
-    outputs:
-      continue: ${{ steps.decide.outputs.continue }}
-    steps:
-      - name: Default continue for manual/dispatch
-        id: bootstrap
-        if: github.event_name != 'workflow_run'
-        run: echo "continue=true" >> "$GITHUB_OUTPUT"
-
-      - name: Download continue artifact from previous Autopilot run
-        id: download
-        if: github.event_name == 'workflow_run'
-        uses: actions/download-artifact@v4
-        continue-on-error: true
-        with:
-          name: dop-autopilot-continue
-          run-id: ${{ github.event.workflow_run.id }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          path: /tmp/dop-continue
-
-      - name: Decide continue from artifact
-        id: decide
-        run: |
-          if [ "${{ github.event_name }}" != "workflow_run" ]; then
-            echo "continue=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          if [ -f /tmp/dop-continue/continue.txt ] && [ "$(cat /tmp/dop-continue/continue.txt | tr -d '[:space:]')" = "yes" ]; then
-            echo "continue=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "continue=false" >> "$GITHUB_OUTPUT"
-          fi
-
   autopilot:
-    needs: should-continue
-    if: needs.should-continue.outputs.continue == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:
