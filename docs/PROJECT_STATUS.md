@@ -2,10 +2,10 @@ This file is generated/maintained by DOP Autopilot and represents implementation
 
 # DOP Project Status
 
-Last updated: 2026-08-07T10:12:37Z
+Last updated: 2026-08-07T10:15:12Z
 
 Overall status:
-RECOVERING
+HARD_BLOCKED
 
 Current roadmap stage: 11 / 23
 
@@ -18,7 +18,7 @@ Current task title:
 Add deterministic SSL certificate check to Website Diagnosis
 
 Current automation run:
-https://github.com/yakupudul/dijitaloperation/actions/runs/31168945580
+https://github.com/yakupudul/dijitaloperation/actions/runs/31169138542
 
 ## Progress
 
@@ -60,7 +60,7 @@ Last active task:
 * branch: `feat/website-diagnosis-ssl-check`
 * PR: #44
 * reviewer verdict: FIX_REQUIRED
-* retry/recovery state: recover/IMPLEMENTATION_FAILURE retries={"infra": 0, "implementation": 2, "reviewer": 0, "architect": 0, "dependency": 0}
+* retry/recovery state: recover/IMPLEMENTATION_FAILURE retries={"infra": 0, "implementation": 3, "reviewer": 0, "architect": 0, "dependency": 0}
 
 ## Recently completed
 
@@ -77,7 +77,7 @@ Last active task:
 
 ## Blockers
 
-None
+* see GitHub Issues with <!-- DOP_HARD_BLOCKER --> — HARD_BLOCKED — Roadmap shows Website Diagnosis implementation as the next incomplete area after the catalog and basic reachability. Adding a single deterministic SSL check is a small, reversible vertical slice that increases diagnosis value, aligns with the catalog-first rule, and follows ADR-034/ADR-031 constraints.
 
 ## Stale automation PRs
 
