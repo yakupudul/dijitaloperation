@@ -8,6 +8,7 @@ use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAsset
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\Pages\EditDigitalAsset;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\Pages\ListDigitalAssets;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\Pages\ViewDigitalAsset;
+use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\ConnectionsRelationManager;
 use App\Models\DigitalAsset;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
@@ -164,7 +165,7 @@ class DigitalAssetResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            'connections' => ConnectionsRelationManager::class,
         ];
     }
 
