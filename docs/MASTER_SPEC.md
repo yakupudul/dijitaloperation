@@ -312,11 +312,15 @@ Website Diagnosis fazına başlamadan önce `docs/website/DIAGNOSIS_CATALOG.md` 
 
 ## 13. Doküman hiyerarşisi
 
-1. `docs/MASTER_SPEC.md` — ürün gerçeği (bu dosya)  
-2. `docs/IMPLEMENTATION_ROADMAP.md` — uygulama sırası  
-3. `docs/foundation/*` — mimari ilkeler ve ADR  
-4. `docs/module-sdk/*` — modül sözleşmeleri  
-5. `docs/current-state/*` — geçmiş durum analizi (tarihsel; MASTER_SPEC ile çelişirse MASTER_SPEC geçerli)
+1. `docs/MASTER_SPEC.md` — ürün gerçeği (bu dosya; en üst kaynak)  
+2. Accepted / daha yeni ADR’ler (`docs/foundation/DECISION_LOG.md`)  
+3. `docs/product/*` — domain/modül **product blueprint** katmanı (MASTER_SPEC’i override etmez; ayrıntılandırır)  
+4. `docs/IMPLEMENTATION_ROADMAP.md` — uygulama sırası  
+5. `docs/foundation/*` — mimari ilkeler (ADR dışı)  
+6. `docs/module-sdk/*` — modül sözleşmeleri  
+7. `docs/current-state/*` — geçmiş durum analizi (tarihsel; MASTER_SPEC ile çelişirse MASTER_SPEC geçerli)
+
+Architect / Reviewer / Implementer product feature üretmeden veya review etmeden önce ilgili `docs/product/**` blueprint’ini okur. Blueprint’te olmayan önemli ürün davranışı uydurulmaz.
 
 ## 14. Prensip (ADR-033)
 

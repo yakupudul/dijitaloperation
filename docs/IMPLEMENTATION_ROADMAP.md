@@ -1,51 +1,85 @@
 # IMPLEMENTATION_ROADMAP
 
 > Ana kaynak: `docs/MASTER_SPEC.md`  
+> Product ayrıntı: `docs/product/*`  
 > Hedef: hafif, hızlı, ekonomik MVP. Framework’ü yeniden yazma (ADR-033).
 
-## İlk gerçek hedef sırası
+## Canonical ürün sırası
 
-1. Laravel / Filament bootstrap  
-2. Auth + kullanıcı / rol  
-3. Customer  
-4. Brand  
-5. Digital Asset  
-6. Connection (+ encrypted credentials)  
-7. Minimal module registry (`id`, enabled/disabled)  
-8. Run / Evidence / Finding / Recommendation / Task  
-9. Website module  
-10. Website Diagnosis  
+Architect yalnızca buradaki sıradaki **ilk tamamlanmamış** işi seçer ve onu küçük dikey task’lara bölebilir.  
+`ROADMAP_COMPLETE` yalnızca bu canonical liste gerçekten bittiğinde döner.
 
-**Sample Module:** yalnızca modüler altyapıyı doğrulayan kısa teknik smoke test; ayrı büyük ürün fazı değildir.
+| # | Adım | Product blueprint |
+|---|------|-------------------|
+| 1 | Laravel / Filament bootstrap | — (tamamlandı: Core bootstrap) |
+| 2 | Auth + users / roles / permissions | — (tamamlandı: Core bootstrap) |
+| 3 | Customer | `docs/product/CUSTOMER.md` |
+| 4 | Brand | `docs/product/BRAND.md` |
+| 5 | Digital Asset | `docs/product/DIGITAL_ASSET.md` |
+| 6 | Connection + encrypted credentials | `docs/product/DIGITAL_ASSET.md` (+ ADR-027) |
+| 7 | Minimal Module Registry | ADR-035 / module-sdk |
+| 8 | Run / Evidence / Finding / Recommendation / Task | `docs/product/ANALYSIS_PIPELINE.md` |
+| 9 | Website module | `docs/product/website/WEBSITE.md` |
+| 10 | Website Diagnosis Catalog (`docs/website/DIAGNOSIS_CATALOG.md`) | `docs/product/website/DIAGNOSIS.md` |
+| 11 | Website Diagnosis implementation | `docs/product/website/DIAGNOSIS.md` |
+| 12 | WordPress Connector | `docs/product/website/WORDPRESS.md` |
+| 13 | Search Console Connector | `docs/product/website/SEARCH_CONSOLE.md` |
+| 14 | GA4 Connector | `docs/product/website/GA4.md` |
+| 15 | PageSpeed / Lighthouse Connector | `docs/product/website/PAGESPEED_LIGHTHOUSE.md` |
+| 16 | DataForSEO Connector | `docs/product/website/DATAFORSEO.md` |
+| 17 | Website AI Insights | `docs/product/website/AI_INSIGHTS.md` |
+| 18 | Google Business Profile product spec + first module | `docs/product/future/DIGITAL_ASSETS.md` |
+| 19 | Google Ads product spec + first module | `docs/product/future/DIGITAL_ASSETS.md` |
+| 20 | Meta Ads product spec + first module | `docs/product/future/DIGITAL_ASSETS.md` |
+| 21 | Instagram product spec + first module | `docs/product/future/DIGITAL_ASSETS.md` |
+| 22 | Cross-asset / cross-channel analysis | `docs/product/DASHBOARD.md` + future assets |
+| 23 | Action-oriented agency operations dashboard / first production hardening | `docs/product/DASHBOARD.md` |
+
+**Sample Module:** bootstrap smoke test; ayrı ürün fazı değildir.
+
+## Küçük task bölme
+
+Büyük bir roadmap maddesi tek PR olmak zorunda değildir. Örnek Customer:
+
+* Customer foundation model/migration  
+* Contacts  
+* UI/detail  
+* team responsibility  
+* tests  
 
 ## Faz notları
 
 | Adım | Not |
 |------|-----|
-| 1–2 | Tek panel `app`/`/app`, `spatie/laravel-permission`, Admin / Team Member |
+| 1–2 | Tek panel `app`/`/app`, `spatie/laravel-permission`, Admin / Team Member — **done** |
 | 3–6 | Domain CRUD + Connection/credential (ADR-027) |
-| 7 | Custom plugin framework yok; `internachi/modular` + Composer/Filament |
+| 7 | Custom plugin framework yok; minimal registry |
 | 8 | Finding kalıcı + fingerprint (ADR-034); Evidence Run’a bağlı; Result entity yok |
-| 9–10 | Website asset + diagnosis; katalog `docs/website/DIAGNOSIS_CATALOG.md` diagnosis öncesi |
+| 10 | Catalog diagnosis-first; ADR-031 kapısı |
+| 12–16 | Connection’lar Website asset üzerinde; read-only |
+| 17 | `laravel/ai`; MCP/vector/multi-agent yok |
+| 18–21 | Önce product blueprint detayı, sonra first module |
 
-## Erken fazda yapılmayacaklar
+## Erken / yasaklı genişlemeler
 
 * SaaS / Workspace / Client Portal / marketplace / ZIP install  
 * Harici write  
 * Custom compatibility engine, custom migrator registry, purge, kapsamlı lifecycle FSM  
-* Attachments / Tags / feature flags / ağır notification-audit-health framework’leri (ihtiyaç + sonraki faz)  
+* Attachments / Tags / feature flags / ağır notification-audit-health framework’leri (ihtiyaç + sonraki faz; ADR-037)  
 * Redis / Horizon (ihtiyaç kanıtı olmadan)  
-* AI Insights (Website Diagnosis’ten sonra)  
+* Ayrı Result entity  
 
 ## Bloker
 
 | Konu | Durum |
 |------|--------|
-| Core bootstrap için mimari kararlar | Açık bloker yok |
-| Diagnosis catalog | Yalnızca Website Diagnosis öncesi zorunlu |
+| Core bootstrap | Tamamlandı |
+| Diagnosis catalog | Website Diagnosis **implementation** (adım 11) öncesi zorunlu; adım 10’da üretilir |
+| Product blueprints | `docs/product/*` — Architect/Reviewer okur |
 
 ## Kurallar
 
 1. Üst adım olmadan alt adımı “bitti” sayma.  
 2. Framework’ün çözdüğünü tekrar yazma (ADR-033).  
 3. Ürün kapsamını SaaS veya harici write’a genişletme.  
+4. Product task’ta ilgili blueprint `product_spec_paths` ile bağlanır.  

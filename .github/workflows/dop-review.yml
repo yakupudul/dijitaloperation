@@ -53,6 +53,17 @@ jobs:
           git diff origin/main...HEAD > /tmp/pr.diff
           git log origin/main..HEAD --pretty=%s > /tmp/pr-commit-messages.txt
           echo "(tests will be recorded after reviewer/fix steps)" > /tmp/pr-test-notes.txt
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+          body = Path("/tmp/pr-body.md").read_text(encoding="utf-8")
+          match = re.search(r"```json\n(\{.*?\})\n```", body, flags=re.S)
+          if match:
+              Path("/tmp/dop-task.json").write_text(match.group(1) + "\n", encoding="utf-8")
+          else:
+              Path("/tmp/dop-task.json").write_text("{}\n", encoding="utf-8")
+          PY
 
       - name: Run Reviewer
         env:
@@ -75,6 +86,7 @@ jobs:
             --diff-file /tmp/pr.diff \
             --files-file /tmp/pr-files.txt \
             --test-notes-file /tmp/pr-test-notes.txt \
+            --task-file /tmp/dop-task.json \
             --output /tmp/dop-review.json \
             --comment-output /tmp/dop-review-comment.md \
             "${MODEL_ARGS[@]}"

@@ -40,6 +40,9 @@ EXCLUDED_NEXT_TASK_BRANCH_PREFIXES = (
     "docs/",
 )
 
+PRODUCT_SPEC_PREFIX = "docs/product/"
+SAFE_PRODUCT_SPEC_RE = re.compile(r"^docs/product/(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_][A-Za-z0-9_-]*\.md$")
+
 
 def read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
@@ -155,7 +158,85 @@ def find_secret_like_paths(paths: list[str]) -> list[str]:
     return hits
 
 
-def validate_architect_task(data: dict[str, Any]) -> list[str]:
+def is_safe_product_spec_path(path: str) -> bool:
+    if not path or not isinstance(path, str):
+        return False
+    normalized = path.replace("\\", "/").strip()
+    if normalized.startswith("/") or normalized.startswith("~"):
+        return False
+    parts = normalized.split("/")
+    if any(part in {"", ".", ".."} for part in parts):
+        return False
+    if ".." in normalized:
+        return False
+    if not normalized.startswith(PRODUCT_SPEC_PREFIX):
+        return False
+    if not normalized.endswith(".md"):
+        return False
+    return bool(SAFE_PRODUCT_SPEC_RE.fullmatch(normalized))
+
+
+def validate_product_spec_paths(
+    paths: Any,
+    *,
+    repo_root: Path | None = None,
+    require_non_empty: bool = False,
+) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(paths, list) or not all(isinstance(item, str) for item in paths):
+        return ["product_spec_paths must be a list of strings"]
+
+    if require_non_empty and len(paths) < 1:
+        errors.append("product_spec_paths must not be empty for this product task")
+
+    seen: set[str] = set()
+    for path in paths:
+        if not is_safe_product_spec_path(path):
+            errors.append(f"unsafe or invalid product_spec_path: {path}")
+            continue
+        if path in seen:
+            errors.append(f"duplicate product_spec_path: {path}")
+            continue
+        seen.add(path)
+        if repo_root is not None:
+            candidate = (repo_root / path).resolve()
+            root = repo_root.resolve()
+            if root not in candidate.parents and candidate != root:
+                errors.append(f"product_spec_path escapes repository: {path}")
+            elif not candidate.is_file():
+                errors.append(f"product_spec_path does not exist: {path}")
+    return errors
+
+
+def list_product_spec_files(repo_root: Path) -> list[str]:
+    base = repo_root / "docs" / "product"
+    if not base.exists():
+        return []
+    files: list[str] = []
+    for path in sorted(base.rglob("*.md")):
+        rel = path.relative_to(repo_root).as_posix()
+        if is_safe_product_spec_path(rel):
+            files.append(rel)
+    return files
+
+
+def load_product_specs(repo_root: Path, paths: list[str]) -> str:
+    chunks: list[str] = []
+    for rel in paths:
+        errors = validate_product_spec_paths([rel], repo_root=repo_root)
+        if errors:
+            raise ValueError("; ".join(errors))
+        text = (repo_root / rel).read_text(encoding="utf-8")
+        chunks.append(f"### {rel}\n{text}\n")
+    return "\n".join(chunks)
+
+
+def validate_architect_task(
+    data: dict[str, Any],
+    *,
+    repo_root: Path | None = None,
+    require_product_specs: bool = False,
+) -> list[str]:
     errors: list[str] = []
     status = data.get("status")
     if status not in ARCHITECT_STATUSES:
@@ -172,6 +253,7 @@ def validate_architect_task(data: dict[str, Any]) -> list[str]:
             "files_or_areas",
             "must_not_do",
             "tests_required",
+            "product_spec_paths",
             "reason",
         ):
             if key not in data:
@@ -180,7 +262,13 @@ def validate_architect_task(data: dict[str, Any]) -> list[str]:
         if "branch_name" in data and not is_safe_branch_name(str(data["branch_name"])):
             errors.append("branch_name is not a safe slug")
 
-        for list_key in ("acceptance_criteria", "files_or_areas", "must_not_do", "tests_required"):
+        for list_key in (
+            "acceptance_criteria",
+            "files_or_areas",
+            "must_not_do",
+            "tests_required",
+            "product_spec_paths",
+        ):
             value = data.get(list_key)
             if value is not None and (
                 not isinstance(value, list) or not all(isinstance(item, str) for item in value)
@@ -190,6 +278,15 @@ def validate_architect_task(data: dict[str, Any]) -> list[str]:
         criteria = data.get("acceptance_criteria")
         if isinstance(criteria, list) and len(criteria) < 1:
             errors.append("acceptance_criteria must not be empty for TASK_READY")
+
+        if "product_spec_paths" in data:
+            errors.extend(
+                validate_product_spec_paths(
+                    data.get("product_spec_paths"),
+                    repo_root=repo_root,
+                    require_non_empty=require_product_specs,
+                )
+            )
 
     if status in {"ROADMAP_COMPLETE", "HUMAN_REQUIRED"} and not data.get("reason"):
         errors.append("reason is required")
