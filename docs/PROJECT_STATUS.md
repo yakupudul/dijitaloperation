@@ -2,7 +2,7 @@ This file is generated/maintained by DOP Autopilot and represents implementation
 
 # DOP Project Status
 
-Last updated: 2026-08-07T15:05:13Z
+Last updated: 2026-08-07T16:05:00Z
 
 Overall status:
 RUNNING
@@ -11,19 +11,19 @@ Current roadmap stage: 16 / 23
 
 Current stage: DataForSEO Connector
 
-Current task: pagespeed-connector-read-only-probe
+Current task: dataforseo-connector-read-only-probe
 
 Current task title:
 
-Add read-only PageSpeed Insights URL access probe
+Add read-only DataForSEO account access probe
 
 Current automation run:
-https://github.com/yakupudul/dijitaloperation/actions/runs/31190767306
+—
 
 ## Progress
 
 * Completed stages: 15 / 23
-* In progress stages: —
+* In progress stages: 16
 * Remaining stages: 16, 17, 18, 19, 20, 21, 22, 23
 
 ## Roadmap
@@ -56,11 +56,11 @@ https://github.com/yakupudul/dijitaloperation/actions/runs/31190767306
 
 Last active task:
 
-* task id: `pagespeed-connector-read-only-probe`
-* branch: `dop/pagespeed-connector-read-only-probe`
-* PR: #63
-* reviewer verdict: APPROVED
-* retry/recovery state: COMPLETED_AND_CONTINUING
+* task id: `dataforseo-connector-read-only-probe`
+* branch: `dop/dataforseo-connector-read-only-probe`
+* PR: —
+* reviewer verdict: —
+* retry/recovery state: IMPLEMENTING
 
 ## Recently completed
 
@@ -79,6 +79,10 @@ Last active task:
 
 None
 
+## Deferred work
+
+None
+
 ## Next expected
 
-16. DataForSEO Connector — expected focus: Add read-only PageSpeed Insights URL access probe
+16. DataForSEO Connector — expected focus: Add read-only DataForSEO account access probe
