@@ -58,9 +58,9 @@ Last active task:
 
 * task id: `dataforseo-connector-read-only-probe`
 * branch: `dop/dataforseo-connector-read-only-probe`
-* PR: —
+* PR: #64
 * reviewer verdict: —
-* retry/recovery state: IMPLEMENTING
+* retry/recovery state: AWAITING_GATE
 
 ## Recently completed
 
