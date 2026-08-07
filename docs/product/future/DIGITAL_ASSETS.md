@@ -22,7 +22,9 @@ Google Ads product blueprint is now detailed at
 `docs/product/google-ads/GOOGLE_ADS.md` (roadmap step 19).
 Meta Ads product blueprint is now detailed at
 `docs/product/meta-ads/META_ADS.md` (roadmap step 20).
-Remaining placeholders here cover Instagram and later possibles.
+Instagram product blueprint is now detailed at
+`docs/product/instagram/INSTAGRAM.md` (roadmap step 21).
+Remaining placeholders here cover YouTube, CRM, and later possibles.
 
 ## Important data / attributes
 
@@ -46,7 +48,7 @@ Cross-channel insights later (roadmap step 22).
 
 ## Later enhancements
 
-Next direction after Meta Ads blueprint: Instagram.  
+Next direction after Instagram blueprint: first Instagram module (read-only access probe), then roadmap step 22 cross-asset analysis.  
 Later possibles: YouTube, CRM, other platforms.
 
 ## Explicit non-goals
