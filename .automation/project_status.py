@@ -312,13 +312,23 @@ def stage_completion_evidence(
         _exists(root, "docs/website/DIAGNOSIS_CATALOG.md"),
         mentioned("diagnosis_catalog", "diagnosis-catalog") or _exists(root, "docs/website/DIAGNOSIS_CATALOG.md"),
     )
+    def app_impl_exists(*patterns: str) -> bool:
+        for base in (root / "app", root / "app-modules"):
+            if not base.exists():
+                continue
+            for pat in patterns:
+                if list(base.rglob(pat)):
+                    return True
+        return False
+
     # Diagnosis implementation is multi-task; first service/job => in_progress only.
     # Mark completed once a later connector stage has started (WordPress+) or an
     # explicit diagnosis-complete signal appears in merged task ids.
     diag_impl = _exists(root, "app/Services/WebsiteDiagnosisService.php") or _exists(
         root, "app/Jobs/DiagnoseWebsiteJob.php"
     )
-    diag_done = mentioned(
+    wordpress_impl = app_impl_exists("*WordPress*", "*Wordpress*")
+    diag_done = wordpress_impl or mentioned(
         "wordpress-connector",
         "wordpress_connector",
         "diagnosis-complete",
@@ -335,25 +345,56 @@ def stage_completion_evidence(
         (16, "dataforseo", ("*DataForSeo*", "*Dataforseo*")),
         (17, "ai-insights", ("*AiInsight*", "*AIInsight*", "*AiInsights*")),
     ):
-        impl = False
-        for base in (root / "app", root / "app-modules"):
-            if not base.exists():
-                continue
-            for pat in patterns:
-                if list(base.rglob(pat)):
-                    impl = True
-                    break
-            if impl:
-                break
+        impl = app_impl_exists(*patterns)
         evidence[num] = (impl, impl)
 
-    # Future digital assets (18–21): never partial from shared stubs alone.
-    for num in (18, 19, 20, 21):
-        evidence[num] = (False, False)
+    # Stages 18–21: product blueprint + first-module implementation (probe/collect).
+    gbp_spec = _exists(root, "docs/product/google-business-profile/GOOGLE_BUSINESS_PROFILE.md")
+    gbp_impl = app_impl_exists("*GoogleBusinessProfile*")
+    evidence[18] = (
+        gbp_spec and gbp_impl,
+        gbp_spec or gbp_impl or mentioned("google-business-profile", "gbp"),
+    )
 
-    dashboard_impl = bool(list((root / "app").rglob("*Dashboard*"))) if (root / "app").exists() else False
-    evidence[22] = (False, False)  # requires explicit cross-asset work beyond blueprints
-    evidence[23] = (dashboard_impl and mentioned("hardening", "production-hardening"), dashboard_impl)
+    google_ads_spec = _exists(root, "docs/product/google-ads/GOOGLE_ADS.md")
+    google_ads_impl = app_impl_exists("*GoogleAds*")
+    evidence[19] = (
+        google_ads_spec and google_ads_impl,
+        google_ads_spec or google_ads_impl or mentioned("google-ads"),
+    )
+
+    meta_ads_spec = _exists(root, "docs/product/meta-ads/META_ADS.md")
+    meta_ads_impl = app_impl_exists("*MetaAds*")
+    evidence[20] = (
+        meta_ads_spec and meta_ads_impl,
+        meta_ads_spec or meta_ads_impl or mentioned("meta-ads"),
+    )
+
+    instagram_spec = _exists(root, "docs/product/instagram/INSTAGRAM.md")
+    instagram_impl = app_impl_exists("*Instagram*")
+    evidence[21] = (
+        instagram_spec and instagram_impl,
+        instagram_spec or instagram_impl or mentioned("instagram"),
+    )
+
+    # Stage 22: cross-asset blueprint + at least one deterministic pack implementation.
+    cross_asset_spec = _exists(root, "docs/product/cross-asset/CROSS_ASSET_ANALYSIS.md")
+    cross_asset_impl = app_impl_exists("*CrossAsset*")
+    evidence[22] = (
+        cross_asset_spec and cross_asset_impl,
+        cross_asset_spec or cross_asset_impl or mentioned("cross-asset", "cross-channel"),
+    )
+
+    # Stage 23: action-oriented ops dashboard + first production hardening slice.
+    dashboard_impl = _exists(
+        root, "app/Filament/App/Widgets/OpsActionOverviewWidget.php"
+    ) or (
+        bool(list((root / "app").rglob("*Dashboard*"))) if (root / "app").exists() else False
+    )
+    hardening_impl = _exists(
+        root, "tests/Feature/AgencyOpsDashboardProductionHardeningTest.php"
+    ) or mentioned("hardening", "production-hardening")
+    evidence[23] = (dashboard_impl and hardening_impl, dashboard_impl)
 
     # Enforce sequential completion: a stage cannot be completed if a prior stage is incomplete.
     result: dict[int, str] = {}
@@ -429,8 +470,18 @@ def build_snapshot(
     roadmap_complete = len(completed) == TOTAL_STAGES and not in_progress and not remaining
     outcome = run_outcome if run_outcome in RUN_SUMMARY_STATUSES else COMPLETED_AND_CONTINUING
     if roadmap_complete:
+        # Durable completion must win over post-merge `--overall RUNNING` overrides,
+        # while still allowing explicit HARD_BLOCKED / RECOVERING surfaces.
         outcome = ROADMAP_COMPLETE
-    overall = overall_status or overall_status_from_run_outcome(outcome, roadmap_complete=roadmap_complete)
+        if overall_status in {HARD_BLOCKED, RECOVERING}:
+            overall = overall_status
+            outcome = overall_status
+        else:
+            overall = ROADMAP_COMPLETE
+    else:
+        overall = overall_status or overall_status_from_run_outcome(
+            outcome, roadmap_complete=False
+        )
     if overall not in PROJECT_OVERALL_STATUSES:
         overall = RUNNING
 

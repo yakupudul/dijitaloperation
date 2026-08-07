@@ -70,20 +70,21 @@ class StageEvidenceTests(unittest.TestCase):
         # Bootstrap + auth should be complete on this repo
         self.assertEqual(evidence[1], "completed")
         self.assertEqual(evidence[2], "completed")
-        # Diagnosis started (service/job) but connectors not yet — stay in progress
-        self.assertEqual(evidence[11], "in_progress")
-        # Something not yet done (connectors / future)
-        self.assertIn(evidence[12], {"remaining", "in_progress"})
+        # Diagnosis completes once WordPress connector implementation exists on disk
+        self.assertEqual(evidence[11], "completed")
+        self.assertEqual(evidence[12], "completed")
+        # Later asset + cross-asset + dashboard hardening are present on current main
+        self.assertEqual(evidence[18], "completed")
+        self.assertEqual(evidence[22], "completed")
+        self.assertEqual(evidence[23], "completed")
         completed = [n for n, s in evidence.items() if s == "completed"]
-        self.assertGreaterEqual(len(completed), 3)
-        self.assertLess(len(completed), 23)
-        self.assertEqual(len(completed), 10)
+        self.assertEqual(len(completed), 23)
 
-    def test_diagnosis_stage_completes_only_with_explicit_signal(self) -> None:
-        # Without connector/complete signal: in_progress when diagnosis files exist
+    def test_diagnosis_stage_completes_with_wordpress_impl_or_explicit_signal(self) -> None:
+        # Current repo has WordPress connector files → stage 11 completed from disk evidence
         base = stage_completion_evidence(ROOT, merged_task_ids=set(), commit_summary="")
-        self.assertEqual(base[11], "in_progress")
-        # Explicit completion signal via merged task id
+        self.assertEqual(base[11], "completed")
+        # Explicit completion signal remains sufficient even without relying on later stages
         done = stage_completion_evidence(
             ROOT,
             merged_task_ids={"website-diagnosis-complete"},
@@ -105,6 +106,19 @@ class StageEvidenceTests(unittest.TestCase):
             self.assertIn("Current task: None", md)
             summary = render_actions_summary(snap)
             self.assertIn("🎉 DOP canonical roadmap complete", summary)
+
+    def test_roadmap_complete_overrides_running_overall_on_real_repo(self) -> None:
+        snap = build_snapshot(
+            ROOT,
+            overall_status=RUNNING,
+            run_outcome=COMPLETED_AND_CONTINUING,
+            merged_task_ids=set(),
+            commit_summary="",
+        )
+        self.assertEqual(snap.completed_count(), 23)
+        self.assertEqual(snap.overall_status, ROADMAP_COMPLETE)
+        self.assertEqual(snap.run_outcome, ROADMAP_COMPLETE)
+        self.assertIn("ROADMAP_COMPLETE", render_project_status_markdown(snap))
 
     def test_hard_blocked_and_recovering(self) -> None:
         snap = build_snapshot(ROOT, overall_status=HARD_BLOCKED, run_outcome=HARD_BLOCKED)
