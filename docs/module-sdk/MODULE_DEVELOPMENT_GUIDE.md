@@ -16,12 +16,13 @@ Yeni bir özelliği çekirdeğe yamamak yerine **bağımsız modül** olarak nas
 Çekirdeğe sadece `CORE_RESPONSIBILITIES` listesindeki ortak yetenekler girer.  
 SEO kuralı, Meta metriği, crawl, platforma özgü AI prompt → **modül**.
 
-### Adım 1 — Kimlik ve sürüm
+### Adım 1 — Kimlik, dizin ve sürüm
 
-1. `id` seç: kebab-case, kalıcı (`website-diagnosis`)  
-2. `version` başlat: `0.1.0`  
-3. `core.min` / `core.maxExclusive` belirle  
-4. `class` seç: asset | connector | diagnosis | intelligence | automation | presentation  
+1. Dizin: `app-modules/{id}/` (`internachi/modular`)  
+2. `id` seç: kebab-case, kalıcı (`website-diagnosis`)  
+3. `version` başlat: `0.1.0`  
+4. `core.min` / `core.maxExclusive` belirle  
+5. `class` seç: asset | connector | diagnosis | intelligence | automation | presentation  
 
 Ayrıntı: `MODULE_MANIFEST_SPEC.md`.
 
@@ -122,11 +123,12 @@ Private import / private table → **asla**.
 
 `docs/MASTER_SPEC.md` / ADR-021:
 
-* Laravel 13, PHP 8.3+, Filament 5, Livewire, MySQL 8  
-* Database queue, Laravel scheduler/events/HTTP/encryption, Pest  
-* Modüller: yerel Composer package / Filament plugin  
+* Laravel 13, PHP 8.3+, Filament 5 (panel `app` / `/app`), Livewire, MySQL 8  
+* `spatie/laravel-permission`, database queue, Laravel scheduler/events/HTTP/encryption, Pest  
+* AI: `laravel/ai` (key env’de)  
+* Modüller: `app-modules/` + `internachi/modular`  
 
-Bu kılavuzdaki API adları (`ModuleRegistry.isEnabled`, `Settings.get`, `enqueue`) sözleşme düzeyindedir; Laravel/Filament sınıflarına map edilecektir. Bu PR’da kod yazılmaz.
+API adları sözleşme düzeyindedir; bu PR’da kod yazılmaz.
 
 ## Gerekçe
 
@@ -134,19 +136,18 @@ Tek kılavuz, 12 sözleşmeyi günlük geliştirme sırasına dizer; yeni katkı
 
 ## Sınırlar
 
-- Paket iskeleti üreten CLI henüz yok.  
 - Yayın marketi / imzalama yok.  
-- Website Diagnosis ürün akışı bu kılavuzun örneği değil; ilk gerçek modül olarak foundation’da sabittir — SDK örneği `sample-module`’dır.
+- Website Diagnosis kural kataloğu `docs/website/DIAGNOSIS_CATALOG.md` (Faz 4 öncesi).  
+- SDK örneği: `sample-module` (Faz 2).
 
 ## Migration Impact
 
 | Mevcut durum | Etki |
 |--------------|------|
-| Greenfield | `IMPLEMENTATION_ROADMAP` Faz 0–2 ile hizalı |
-| Workspace varsayımları | SDK’dan çıkarıldı |
-| Harici write | Modül geliştirmede yasak (ADR-018) |
+| Greenfield | Roadmap Faz 0–2 |
+| Modül kökü | `app-modules/` |
+| Harici write | Yasak (ADR-018) |
 
 ## Açık Sorular
 
-1. Resmi starter template repo içi mi olacak?  
-2. Website Diagnosis, `sample-module` checklist’ini birebir gate olarak mı kullanacak? (öneri: evet)
+Yok. Website Diagnosis, `MODULE_TEST_CHECKLIST` kapısını kullanır.

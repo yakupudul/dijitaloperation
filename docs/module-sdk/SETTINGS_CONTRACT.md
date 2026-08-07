@@ -53,7 +53,8 @@ Modül ayarlarının bildirimi, saklama kapsamı ve okuma/yazma kuralları.
 ### 3. Saklama
 
 - Değerler **çekirdek settings store** üzerindedir (modül private tablosuna ayar kopyalamak yasak değil ama önerilmez; tek kaynak çekirdek API).  
-- `secret: true` → çekirdek **credential reference** API’si; ham secret modül log’una yazılamaz.  
+- Connection secret’ları settings değil; `core_connection_credentials` (ADR-027).  
+- `secret: true` ayarlar için encrypted store; ham değer log/UI state’e yazılmaz.  
 - Modül disable → değerler silinmez.  
 - Uninstall → değerler silinmez.
 
@@ -91,5 +92,4 @@ Tek settings store, çapraz modül yapılandırma çakışmasını ve secret sı
 
 ## Açık Sorular
 
-1. `module` scope ile `application` scope ayrımı UI’da nasıl gösterilecek?  
-2. Enum değişikliklerinde eski değer validation fail mi, yoksa soft warn mi?
+Yok. `application` = kurulum geneli Filament ayarları; `module` = modül ayar sayfası. Enum değişiminde bilinmeyen eski değer soft-warn (Core bloker değil).

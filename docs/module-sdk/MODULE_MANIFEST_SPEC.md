@@ -150,19 +150,19 @@ Somut alan adları olmadan modül registry uygulanamaz. Foundation “alanlar ne
 
 ## Sınırlar
 
-- Paketleme: aynı repo içinde **Composer path package / Filament plugin** (ADR-022). ZIP/marketplace yok.
+- Paketleme: **`app-modules/`** + **`internachi/modular`** (ADR-032). ZIP/marketplace yok.
 - Manifest imzalama yok.
 - `dependencies.modules` için SemVer aralığı v1’de yok.
+- Pre-release (`0.1.0-beta.1`) enable: Admin kararıyla serbest (ürün bloker değil).
 
 ## Migration Impact
 
 | Mevcut durum | Etki |
 |--------------|------|
-| Uygulama / module registry yok | Laravel module registry + manifest parser sıfırdan |
-| Stack | Laravel 13 + Filament 5; manifest JSON kalır |
-| Marketplace varsayımı | Yok sayılır; yalnızca yerel paketler |
+| Uygulama / module registry yok | `internachi/modular` + manifest registry sıfırdan |
+| Dizin | `app-modules/{module-id}/` |
+| Stack | Laravel 13 + Filament 5 panel `app` |
 
 ## Açık Sorular
 
-1. Modül path repository kök dizini (`packages/` vs `modules/`) ne olacak?
-2. Pre-release sürümler (`0.1.0-beta.1`) Admin tarafından enable edilebilir mi?
+Yok.

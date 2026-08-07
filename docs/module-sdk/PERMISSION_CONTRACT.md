@@ -65,9 +65,11 @@ Modül izinlerinin nasıl adlandırılacağı, kaydedileceği ve zorunlu kılın
 
 ### 5. Rol modeli
 
-- MVP roller: **Admin**, **Team Member** (ADR-019)  
-- Roller çekirdektedir; modül kendi rolünü oluşturmaz; permission üretir  
-- Admin, permission’ları rollere atar  
+- MVP roller: **Admin**, **Team Member** (ADR-019, ADR-026)  
+- Motor: **`spatie/laravel-permission`**  
+- Modül kendi rolünü oluşturmaz; permission üretir; enable’da registry’ye upsert  
+- Admin kullanıcı oluşturur ve permission atar  
+- Admin, tüm modül izinlerini yönetebilir (implicit super-set uygulama seçimi; Team Member açık atama ile)  
 - SaaS / workspace rolü yoktur
 
 ### 6. Önerilen minimum izin çifti
@@ -97,5 +99,4 @@ Daha ince taneli izinler serbesttir.
 
 ## Açık Sorular
 
-1. Super-admin tüm modül izinlerini implicit mi alır?  
-2. Permission rename (id değişimi) için alias mekanizması olacak mı?
+Yok. Permission rename için alias v1’de yok (breaking = yeni id + migration notu).

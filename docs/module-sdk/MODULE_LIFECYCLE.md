@@ -109,5 +109,4 @@ WordPress/Perfex benzeri enable/disable modeli operatör alışkanlığına uyar
 
 ## Açık Sorular
 
-1. `failed` modül otomatik yeniden deneme (backoff) yapsın mı?  
-2. Enable/disable MVP’de kurulum geneli midir? (**Evet — tek ajans; tenant bazlı enable yok**)
+Yok. Enable/disable kurulum genelidir. `failed` için otomatik backoff v1’de yok (manuel Admin müdahalesi).

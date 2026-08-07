@@ -8,14 +8,15 @@
 
 | Sıra | Faz | Hedef |
 |------|-----|--------|
-| 0 | Core application | Laravel + Filament iskeleti, auth, Admin/Team Member, Customer/Brand/Asset/Connection çekirdeği |
-| 1 | Module platform | Manifest, registry, enable/disable, migrations, extension points, jobs, events |
-| 2 | Sample module | SDK’yı doğrulayan minimal yerel modül |
-| 3 | Website asset | Website digital asset kaydı ve paneli |
-| 4 | Website diagnosis | Tarama → Evidence → Finding → Recommendation (connector zorunlu değil) |
-| 5 | Website connectors | WordPress, GSC, GA4, PageSpeed/Lighthouse, DataForSEO (read-only) |
-| 6 | AI insights | Finding/Evidence üzerinde açıklama ve taslak öneri (kanıt zorunlu) |
-| 7 | Sonraki digital asset’ler | GBP, Google Ads, Meta Ads, Instagram, … |
+| 0 | Core application | Laravel + tek Filament `app` paneli, auth/RBAC, Customer/Brand/Asset/Connection/credential, analysis modelleri |
+| 1 | Module platform | `app-modules/` + `internachi/modular`, registry, enable/disable, SDK sözleşmeleri |
+| 2 | Sample module | SDK doğrulama modülü |
+| 3 | Website asset | Website digital asset + connection bağlama |
+| 3.5 | Diagnosis catalog | `docs/website/DIAGNOSIS_CATALOG.md` (Faz 4 kapısı) |
+| 4 | Website diagnosis | Run → Evidence → Finding → Recommendation; manuel Task |
+| 5 | Website connectors | Read-only connector’lar |
+| 6 | AI insights | `laravel/ai`; Evidence/Finding üzerinde yorum |
+| 7 | Sonraki digital asset’ler | GBP, Ads, Instagram, … |
 
 ---
 
@@ -23,23 +24,24 @@
 
 **Çıktılar**
 
-* Laravel 13 + PHP 8.3+ uygulama iskeleti
-* Filament 5 panel (ajans içi)
-* Auth + Users + Roles (Admin, Team Member)
-* Customers, Customer contacts, Brands
-* Digital assets + Connections (çekirdek modeller)
-* Encrypted credentials
-* Tasks, Notes, Attachments, Tags (temel)
-* Audit logs, Application settings, Health checks
+* Laravel 13 + PHP 8.3+ iskeleti
+* Tek Filament panel: id `app`, path `/app`
+* `web` session guard; public registration yok
+* Admin kullanıcı oluşturur; password reset + profile
+* Roller: Admin, Team Member (`spatie/laravel-permission`)
+* Customers, contacts, Brands, Digital assets
+* `core_connections` + `core_connection_credentials` (encrypted_payload; ham secret Livewire’a expose edilmez)
+* Evidence / Finding / Recommendation / Task minimal alanları (ADR-028 / ADR-029)
+* Notes, Attachments, Tags, Audit logs, Application settings, Health checks
 * MySQL 8, database queue, Laravel scheduler
 
 **Kabul kriterleri**
 
-* Müşteri girişi yok; yalnızca ajans kullanıcıları
-* Workspace / tenant tabloları yok
+* Müşteri girişi / tenant / ikinci panel yok
 * Harici write API yok
+* Credential ham değeri Filament form state’inde tutulmaz
 
-**Bağımlılık:** Yok (ilk faz)
+**Bağımlılık:** Yok
 
 ---
 
@@ -47,19 +49,19 @@
 
 **Çıktılar**
 
+* `app-modules/` kökü + `internachi/modular`
 * Module registry + enable/disable
-* `module.manifest.json` yükleme (yerel Composer/Filament plugin paketleri)
-* Navigation extension points
-* Module-scoped migrations
+* `module.manifest.json`
+* Navigation extension points (Filament)
+* Module-scoped migrations / providers
 * Events / Jobs kayıt yüzeyi
-* Run history + Error logs altyapısı
-* Evidence / Findings / Recommendations çekirdek kayıt modelleri (ortak)
+* Run history + Error logs
 
 **Kabul kriterleri**
 
-* `docs/module-sdk` sözleşmelerine uyum
-* Disable edilen modül paneli/job’u düşürmez
-* Marketplace / ZIP upload yok
+* `docs/module-sdk` uyumu
+* ZIP/marketplace yok
+* Disable edilen modül sistemi düşürmez
 
 ---
 
@@ -67,14 +69,9 @@
 
 **Çıktılar**
 
-* `sample-module` (veya eşdeğeri) yerel paket
-* Brand sekmesi, permission, setting, job, event, kendi tablosu, health check
-* Pest testleri + `MODULE_TEST_CHECKLIST` kapısı
-
-**Kabul kriterleri**
-
-* Enable/disable duman testi geçer
-* SDK regresyonu için referans kalır
+* `app-modules/sample-module` (veya eşdeğer)
+* Brand sekmesi, permission, setting, job, event, tablo, health
+* Pest + `MODULE_TEST_CHECKLIST`
 
 ---
 
@@ -83,98 +80,80 @@
 **Çıktılar**
 
 * Website digital asset tipi
-* Domain ve temel site bilgileri
-* Connection bağlama UI (henüz tüm connector’lar zorunlu değil)
+* Domain / temel site bilgileri
+* Connection bağlama UI (secret’sız config + ayrı credential akışı)
 
-**Kabul kriterleri**
+---
 
-* Customer → Brand → Website kaydı uçtan uca yapılır
-* Connection’lar Website’e bağlanır (GA4/GSC/DataForSEO asset değildir)
+## Faz 3.5 — Diagnosis catalog (Faz 4 kapısı)
+
+**Çıktı (dokümantasyon):** `docs/website/DIAGNOSIS_CATALOG.md`
+
+Her teşhis contract’ı:
+
+* Diagnosis id, Category, Purpose  
+* Required / Optional evidence  
+* Detection / Severity / Confidence rules  
+* Finding output, Recommendation logic  
+* Data/source dependency  
+
+Kaynak: güvenilir açık kaynak audit/crawl araçları ve resmi web standartları — tek tek tahmin değil.
+
+**Not:** Bu katalog Core (Faz 0) blocker değildir; **Website Diagnosis fazı öncesi zorunludur.**
 
 ---
 
 ## Faz 4 — Website diagnosis
 
+**Önkoşul:** Faz 3.5 katalog mevcut.
+
 **Çıktılar**
 
-* Diagnosis run başlatma (background job)
-* Evidence toplama (temel teknik/içerik, connector’suz)
-* Finding + severity
-* Recommendation üretimi
-* Kullanıcının Recommendation → Task manuel dönüşümü
-
-**Kabul kriterleri**
-
-* GA4 / GSC / DataForSEO olmadan temel teşhis çalışır
-* Uzun tarama HTTP sync değildir
-* Harici sisteme yazma yoktur
+* Diagnosis run (background job)
+* Evidence / Finding / Recommendation (connector’suz temel seviye mümkün)
+* Kullanıcı Recommendation → Task manuel dönüşüm (snapshot; assignee/due uydurma yok)
 
 ---
 
 ## Faz 5 — Website connectors
 
-Sıra önerisi (paralelize edilebilir; hepsi read-only):
+Sıra (read-only): WordPress → Search Console → GA4 → PageSpeed/Lighthouse → DataForSEO  
 
-1. WordPress Connector  
-2. Search Console Connector  
-3. GA4 Connector  
-4. PageSpeed / Lighthouse Connector  
-5. DataForSEO Connector  
-
-**Kabul kriterleri**
-
-* En düşük salt okunur yetki
-* Bağlantı eklendikçe diagnosis kapsamı/güven artışı gözlemlenir
-* Credential’lar Laravel encryption ile saklanır
+Credential’lar `core_connection_credentials.encrypted_payload` içinde.
 
 ---
 
 ## Faz 6 — AI insights
 
-**Çıktılar**
-
-* AI Insights modülü
-* Girdi: Evidence + Finding (+ normalize veri özetleri)
-* Çıktı: açıklama, ilişki, olası neden, öncelik, Recommendation/Task taslağı
-* Kanıtsız kesin hüküm engeli
-
-**Kabul kriterleri**
-
-* Ham kontrolsüz dump ile AI çağrısı yok
-* MCP / multi-agent yok
-* Kullanıcı Task’ı onaylamadan otomatik harici aksiyon yok (zaten yasak)
+* `laravel/ai` SDK  
+* Provider/model env/config ile değiştirilebilir (ilk test: OpenAI olabilir)  
+* API key panelden değil, environment’tan  
+* Girdi: Evidence + Finding; uydurma yok  
+* MCP / vector DB / multi-agent yok  
 
 ---
 
 ## Faz 7 — Sonraki digital asset modülleri
 
-Sıra:
-
-1. Google Business Profile  
-2. Google Ads  
-3. Meta Ads  
-4. Instagram  
-5. Diğerleri  
-
-Her biri: Asset modülü + ilgili read-only connector’lar + (gerekirse) diagnosis.  
-Write action eklenmez.
+GBP → Google Ads → Meta Ads → Instagram → diğerleri. Write action yok.
 
 ---
 
 ## Fazlar arası kurallar
 
-1. Üst fazın kabul kriterleri geçmeden alt faz “tamam” sayılmaz.  
-2. SaaS / Client Portal / marketplace maddeleri roadmap’e girmez.  
-3. Redis/Horizon ancak Faz 0–5 sırasında ölçülen kuyruk ihtiyacıyla ADR açılarak eklenir.  
+1. Üst faz kabul edilmeden alt faz tamam sayılmaz.  
+2. SaaS / Client Portal / marketplace roadmap’e girmez.  
+3. Redis/Horizon yalnızca ölçülen ihtiyaç + ADR ile.  
 4. Teknoloji sapması yeni ADR gerektirir.
 
-## Kodlamaya başlamadan önce zorunlu açık sorular
+## Bloker durumu
 
-1. Filament panel URL / auth guard yapısı (tek panel mi)?  
-2. Connection credential şeması: provider bazlı JSON mi, normalize kolonlar mı?  
-3. Evidence/Finding/Recommendation ortak tablolarının minimal alan seti nedir?  
-4. Recommendation → Task manuel dönüşümde hangi alanlar kopyalanır?  
-5. AI sağlayıcı seçimi ve key yönetimi (ürün write yasağını bozmadan)?  
-6. Website Diagnosis’in connector’suz “temel” kural kataloğu kapsamı nedir?
-
-Bu sorular ürünü SaaS’a çevirmeden cevaplanmalıdır.
+| Konu | Durum |
+|------|--------|
+| Panel/auth, RBAC | Kararlı (ADR-026) — Core bloker yok |
+| Connection/credential | Kararlı (ADR-027) — Core bloker yok |
+| Analysis model alanları | Kararlı (ADR-028) — Core bloker yok |
+| Recommendation→Task | Kararlı (ADR-029) — Core bloker yok |
+| AI SDK/key | Kararlı (ADR-030) — Core bloker yok |
+| Modül dizini | Kararlı (ADR-032) — Core bloker yok |
+| Diagnosis catalog | Faz 4 öncesi zorunlu; **Core’u bloke etmez** (ADR-031) |

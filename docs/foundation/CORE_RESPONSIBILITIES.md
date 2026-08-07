@@ -1,77 +1,54 @@
 # CORE_RESPONSIBILITIES
 
 > Ana kaynak: `docs/MASTER_SPEC.md`  
-> İlgili ADR: ADR-007, ADR-018, ADR-020
+> İlgili ADR: ADR-007, ADR-018, ADR-020, ADR-026…029
 
 ## Kararlar
 
 ### Çekirdeğin yönettiği ortak yetenekler (ADR-020)
 
-* Authentication
-* Users
-* Roles
-* Permissions
-* Customers
-* Customer contacts
-* Brands
-* Digital assets
-* Connections
-* Encrypted credentials
-* Module registry
-* Module enable/disable
+* Authentication (`web` guard; tek Filament panel `app` / `/app`)
+* Users (Admin oluşturur; public registration yok)
+* Roles / Permissions (`spatie/laravel-permission`; Admin, Team Member)
+* Customers, Customer contacts, Brands
+* Digital assets, Connections
+* Encrypted credentials (`core_connection_credentials`)
+* Module registry, Module enable/disable
 * Navigation extension points
-* Events
-* Background jobs
-* Scheduler
-* Evidence
-* Findings
-* Recommendations
-* Tasks
-* Notifications
-* Notes
-* Attachments
-* Tags
-* Audit logs
-* Run history
-* Error logs
-* Feature flags
-* Health checks
-* Application settings
+* Events, Background jobs, Scheduler
+* Evidence, Findings, Recommendations, Tasks
+* Notifications, Notes, Attachments, Tags
+* Audit logs, Run history, Error logs
+* Feature flags, Health checks, Application settings
 
-### Çekirdeğin bilmemesi / yapmaması gerekenler (ADR-007, ADR-018)
+### Connection / credential ayrımı (ADR-027)
 
-Çekirdek:
+* `core_connections`: secret olmayan kimlik, `config_json`, sağlık
+* `core_connection_credentials`: `encrypted_payload` (Laravel encrypted cast); ham secret UI state’e çıkmaz
 
-* SEO kuralı bilmez
-* Meta Ads / Google Ads iş kuralı bilmez
-* GA4 iş kuralı bilmez
-* Website crawl yapmaz
-* AI promptlarına platforma özgü iş mantığı koymaz
-* Harici platforma bağımlı olmaz
-* Harici sistemlerde write action yapmaz / sunmaz
+### Analysis minimum alanları (ADR-028)
 
-### Sorumluluk ayrımı
+MASTER_SPEC §7.2 — Evidence / Finding / Recommendation.  
+Platforma özel kolon core’a eklenmez. `fingerprint` Finding tekrarını ilişkilendirir.
 
-| Konu | Sahip |
-|------|--------|
-| Kimlik, roller, müşteri/marka/asset/connection | Çekirdek |
-| Modül yaşam döngüsü | Çekirdek |
-| Evidence/Finding/Recommendation ortak kaydı | Çekirdek |
-| Domain teşhis kuralları / crawl / connector API | İlgili modül |
-| AI yorum prompt’ları | AI Insights (ve ilgili) modül |
-| Credential değeri saklama | Çekirdek (Laravel encryption); kullanım connector modülünde |
+### Recommendation → Task (ADR-029)
+
+Manuel dönüşüm; snapshot context; assignee/due uydurma yok.
+
+### Çekirdeğin bilmemesi / yapmaması (ADR-007, ADR-018)
+
+* SEO / Ads / GA4 iş kuralları, crawl, platforma özgü AI prompt, harici platform bağımlılığı
+* Harici write action
 
 ## Gerekçe
 
-Ortak akış nesnelerini çekirdekte tutmak, modüllerin birbirinin private şemasına yazmadan Task/Finding üretmesini sağlar. Domain bilgisi modüllerde kalır.
+Ortak akış nesneleri ve credential izolasyonu modül sınırlarını korur.
 
 ## Sınırlar
 
-* Filament resource’larının çekirdek vs modül dağılımı uygulama tasarımındadır; sorumluluk listesi değişmez.
-* “Common API contracts” ifadesi kaldırıldı; yerine Laravel/Filament + module-sdk sözleşmeleri geçerlidir.
+* Filament resource sınıf adları bu belgede dayatılmaz.
+* Diagnosis rule katalog içeriği Website Diagnosis fazı dokümanındadır.
 
 ## Açık Sorular
 
-1. Finding severity enum değerleri çekirdek standardı mı?
-2. Run history tek tablo mu, yoksa diagnosis/connector run tipleri ayrılacak mı?
-3. Notes/Attachments hangi entity’lere polymorphic bağlanacak?
+Yok (Core için kararlar kilitli).

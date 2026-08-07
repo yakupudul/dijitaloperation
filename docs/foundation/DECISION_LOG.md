@@ -143,15 +143,16 @@
 
 - **Durum:** Accepted
 - **Tarih:** 2026-08-07
-- **Karar:** Laravel 13, PHP 8.3+, Filament 5, Livewire, MySQL 8, database queue, Laravel scheduler/events/HTTP client/encryption, Pest. Redis/Horizon ihtiyaç halinde.
+- **Güncelleme:** 2026-08-07 (ADR-026, 030, 032 ile netleşti)
+- **Karar:** Laravel 13, PHP 8.3+, Filament 5, Livewire, MySQL 8, database queue, Laravel scheduler/events/HTTP client/encryption, Pest, `spatie/laravel-permission`, `laravel/ai`, `internachi/modular`. Redis/Horizon ihtiyaç halinde.
 - **İlgili:** `MASTER_SPEC.md`, `MODULE_ARCHITECTURE.md`
 
 ## ADR-022 — Yerel modül paketleme; marketplace yok
 
-- **Durum:** Accepted
+- **Durum:** Accepted (detay **ADR-032**)
 - **Tarih:** 2026-08-07
-- **Karar:** Modüller aynı repository içinde Composer package / Filament plugin olarak yaşar. ZIP upload ve üçüncü taraf marketplace yoktur.
-- **İlgili:** `MODULE_ARCHITECTURE.md`, `docs/module-sdk/MODULE_MANIFEST_SPEC.md`
+- **Karar:** Modüller aynı repository içinde yerel Composer package olarak yaşar. ZIP upload ve marketplace yoktur.
+- **İlgili:** `MODULE_ARCHITECTURE.md`, ADR-032
 
 ## ADR-023 — AI sınırı
 
@@ -169,10 +170,59 @@
 
 ## ADR-025 — Recommendation → Task manuel
 
-- **Durum:** Accepted
+- **Durum:** Accepted (alan/snapshot detayı **ADR-029**)
 - **Tarih:** 2026-08-07
 - **Karar:** Kullanıcı Recommendation kaydını manuel olarak Task’a dönüştürür. Harici sistemde otomatik aksiyon yoktur.
-- **İlgili:** `MASTER_SPEC.md`, `PRODUCT_VISION.md`
+- **İlgili:** `MASTER_SPEC.md`, ADR-029
+
+## ADR-026 — Tek Filament panel ve auth
+
+- **Durum:** Accepted
+- **Tarih:** 2026-08-07
+- **Karar:** Tek panel id `app`, path `/app`. Laravel `web` session guard. Public registration yok; kullanıcıları Admin oluşturur. Password reset ve profile var. Roller Admin / Team Member. RBAC: `spatie/laravel-permission`. Multi-tenancy veya müşteri guard yok.
+- **İlgili:** `MASTER_SPEC.md` §6, `CORE_RESPONSIBILITIES.md`
+
+## ADR-027 — Connection ve credential şeması
+
+- **Durum:** Accepted
+- **Tarih:** 2026-08-07
+- **Karar:** `core_connections` secret’sız kimlik/ayar/sağlık tutar. Secret’lar `core_connection_credentials.encrypted_payload` içinde Laravel encryption/encrypted cast (TEXT) ile saklanır. Ham credential Filament/Livewire model state’ine expose edilmez.
+- **İlgili:** `MASTER_SPEC.md` §7.1, `DATA_OWNERSHIP.md`
+
+## ADR-028 — Evidence / Finding / Recommendation minimum alanları
+
+- **Durum:** Accepted
+- **Tarih:** 2026-08-07
+- **Karar:** MASTER_SPEC §7.2 alan seti. Finding.`fingerprint` run’lar arası tekrar ilişkilendirmesi içindir. Platforma özel veriler core tablolara eklenmez.
+- **İlgili:** `MASTER_SPEC.md`, `DOMAIN_MODEL.md`
+
+## ADR-029 — Recommendation → Task snapshot sözleşmesi
+
+- **Durum:** Accepted
+- **Tarih:** 2026-08-07
+- **Karar:** Otomatik Task yok. Manuel dönüşümde taşınan context: customer, brand, digital_asset, recommendation_id, title, action/description, priority, rationale/context. Assignee ve due date uydurulmaz. Task snapshot’tır; Recommendation sonradan değişse Task otomatik güncellenmez.
+- **İlgili:** `MASTER_SPEC.md` §7.3, ADR-025
+
+## ADR-030 — AI SDK ve anahtar yönetimi
+
+- **Durum:** Accepted
+- **Tarih:** 2026-08-07
+- **Karar:** `laravel/ai` kullanılır. Tek sağlayıcıya kilit yok; provider/model env/config ile değişir. İlk test OpenAI olabilir. MVP’de AI API key panelden yönetilmez (environment). MCP, vector DB, multi-agent yok.
+- **İlgili:** `MASTER_SPEC.md` §11, ADR-023
+
+## ADR-031 — Website Diagnosis katalog kapısı
+
+- **Durum:** Accepted
+- **Tarih:** 2026-08-07
+- **Karar:** Connector’suz rule catalog Core için blocker değildir. Website Diagnosis fazından önce `docs/website/DIAGNOSIS_CATALOG.md` oluşturulur; her teşhis tanımlı contract ile, açık kaynak/standart türevli yazılır (tahminle değil).
+- **İlgili:** `IMPLEMENTATION_ROADMAP.md` Faz 3.5 / 4
+
+## ADR-032 — Modül dizini `app-modules/` + internachi/modular
+
+- **Durum:** Accepted
+- **Tarih:** 2026-08-07
+- **Karar:** Modüller `app-modules/` altındadır. Laravel modüler yapı için `internachi/modular` kullanılır. Her modül Composer package gibi provider, models, migrations, services, Filament resources/pages/widgets, config, jobs, events, tests taşır.
+- **İlgili:** `MODULE_ARCHITECTURE.md`, `MODULE_MANIFEST_SPEC.md`, ADR-022
 
 ---
 
@@ -205,6 +255,13 @@
 | ADR-023 | AI sınırı | Accepted |
 | ADR-024 | İlk modül seti | Accepted |
 | ADR-025 | Manuel Task dönüşümü | Accepted |
+| ADR-026 | Panel + auth | Accepted |
+| ADR-027 | Connection/credential | Accepted |
+| ADR-028 | Analysis min alanlar | Accepted |
+| ADR-029 | Task snapshot | Accepted |
+| ADR-030 | laravel/ai + env key | Accepted |
+| ADR-031 | Diagnosis catalog kapısı | Accepted |
+| ADR-032 | app-modules + internachi/modular | Accepted |
 
 ## Süpercede edilen kararlar
 
@@ -213,6 +270,6 @@
 | ADR-001 | ADR-015 |
 | ADR-002 | ADR-016 |
 | ADR-003 | ADR-017 |
-| ADR-005 | ADR-021, ADR-022 |
+| ADR-005 | ADR-021, ADR-022, ADR-032 |
 | ADR-006 | ADR-020 |
 | ADR-011 | ADR-024 |

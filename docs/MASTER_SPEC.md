@@ -112,12 +112,24 @@ Harici entegrasyonlarda mümkün olan en düşük ve **salt okunur** yetkiler te
 
 DOP kendi iç verilerinde müşteri, marka, varlık, connection, bulgu, öneri, görev ve durum değişiklikleri yapabilir.
 
-## 6. MVP kullanıcı modeli
+## 6. MVP kullanıcı modeli ve panel/auth (ADR-026)
 
 | Rol | Açıklama |
 |-----|----------|
-| Admin | Ajans sahibi / yönetici |
+| Admin | Ajans sahibi / yönetici; kullanıcı oluşturur |
 | Team Member | Ajans çalışanı |
+
+| Konu | Karar |
+|------|--------|
+| Panel | Tek Filament panel |
+| Panel id | `app` |
+| Panel path | `/app` |
+| Guard | Laravel standart `web` session guard |
+| Permissions | `spatie/laravel-permission` |
+| Public registration | Yok |
+| Kullanıcı oluşturma | Yalnızca Admin |
+| Password reset / profile | Desteklenir |
+| Multi-tenancy / müşteri guard | Yok |
 
 MVP dışında (bugünden kodlanmaz / ürünleştirilmez):
 
@@ -142,8 +154,8 @@ MVP dışında (bugünden kodlanmaz / ürünleştirilmez):
 * Customer contacts
 * Brands
 * Digital assets
-* Connections
-* Encrypted credentials
+* Connections (`core_connections`)
+* Encrypted credentials (`core_connection_credentials`)
 * Module registry
 * Module enable/disable
 * Navigation extension points
@@ -171,6 +183,38 @@ MVP dışında (bugünden kodlanmaz / ürünleştirilmez):
 * Website crawl
 * Platforma özgü AI prompt iş mantığı
 * Harici platforma runtime bağımlılık (connector modülleri yapar)
+* Platforma özel kolonları core analysis tablolarına eklemek
+
+### 7.1 Connection ve credential (ADR-027)
+
+`core_connections` (secret olmayan kimlik/ayar/sağlık):
+
+`id`, `digital_asset_id`, `module_id`, `type`, `name`, `status`, `config_json`, `health_status`, `last_success_at`, `last_error_at`, `last_error_message`
+
+`core_connection_credentials` (secret):
+
+`id`, `connection_id`, `encrypted_payload`, `expires_at`, `refreshed_at`
+
+* `encrypted_payload`: Laravel encryption / encrypted cast ile TEXT kolonda şifreli
+* Credential ham değerleri Filament/Livewire model state’ine **expose edilmez**
+
+### 7.2 Core analysis modelleri (ADR-028)
+
+**Evidence:** `run`, `digital_asset`, `source_module`, `type`, `title`, `payload`, `observed_at`
+
+**Finding:** `run`, `digital_asset`, `source_module`, `category`, `severity`, `title`, `summary`, `confidence`, `fingerprint`, `status`, `first_seen_at`, `last_seen_at`
+
+**Recommendation:** `finding`, `digital_asset`, `source_module`, `title`, `action`, `rationale`, `priority`, `effort`, `status`
+
+`fingerprint`: aynı bulgunun farklı run’larda tekrarını ilişkilendirir.  
+Platforma özel veriler core tablolara eklenmez (modül `payload` / kendi tabloları).
+
+### 7.3 Recommendation → Task (ADR-025, ADR-029)
+
+* Otomatik Task yok; kullanıcı manuel dönüştürür
+* Taşınan context: `customer`, `brand`, `digital_asset`, `recommendation_id`, `title`, `action`/`description`, `priority`, `rationale`/`context`
+* Assignee ve due date **otomatik uydurulmaz**
+* Task, Recommendation’ın **snapshot**’ıdır; Recommendation sonra değişse Task otomatik güncellenmez
 
 ## 8. Modüler mimari
 
@@ -182,18 +226,19 @@ Plugin-based **modular monolith**:
 * Tek veritabanı
 * Net modül sınırları
 * Background job desteği
-* Aynı repository içinde yerel modüller
+* Modül kökü: **`app-modules/`**
+* Paketleme: **`internachi/modular`** + Composer package davranışı
 * Dışarıdan ZIP yükleme veya marketplace **yok**
 
 Her modül sahip olmalıdır:
 
-* Manifest, sürüm, bağımlılıklar
-* Migrationlar, modeller, servisler
-* Panel kaynakları ve sayfaları
-* Permissions, settings
-* Jobs, events, health checks, testler
+* service provider
+* models, migrations, services
+* Filament resources / pages / widgets
+* config, jobs, events, tests
+* Manifest, sürüm, bağımlılıklar, permissions, settings, health checks
 
-Modül sınırları (`docs/module-sdk/*` ve ADR-009) geçerlidir: private tablo/import yok; iletişim event / açık contract / çekirdek üzerinden.
+Modül sınırları (`docs/module-sdk/*` ve ADR-009) geçerlidir.
 
 ## 9. İlk modüller
 
@@ -225,7 +270,7 @@ Sonraki digital asset modülleri: Google Business Profile, Google Ads, Meta Ads,
 Website Diagnosis; GA4, Search Console veya DataForSEO bağlı **olmadan** temel seviyede çalışabilmelidir.  
 Bağlantılar eklendikçe teşhis kapsamı ve güven seviyesi artmalıdır.
 
-## 11. AI sınırı
+## 11. AI sınırı (ADR-023, ADR-030)
 
 AI doğrudan kontrolsüz ham veri üzerinde çalışmaz.
 
@@ -233,9 +278,12 @@ AI doğrudan kontrolsüz ham veri üzerinde çalışmaz.
 
 Sonra AI: bulguları açıklar → ilişkileri yorumlar → muhtemel neden → öncelik önerir → Recommendation/Task **taslağı** üretebilir.
 
-* AI veri uydurmaz  
-* Kanıtsız kesin hüküm vermez  
-* MCP ve karmaşık çoklu agent mimarisi MVP kapsamında değildir  
+* Laravel resmi **`laravel/ai`** SDK kullanılır  
+* Mimari tek AI sağlayıcısına kilitli değildir; provider/model **config/environment** ile değişir  
+* İlk test provider’ı OpenAI olabilir  
+* MVP’de AI API key **panelden yönetilmez**; environment variable kullanılır  
+* AI veri uydurmaz; kanıtsız kesin hüküm vermez  
+* MCP, vector DB, multi-agent orchestration MVP dışında  
 
 ## 12. Teknoloji yığını (başlangıç kararı)
 
@@ -243,17 +291,24 @@ Sonra AI: bulguları açıklar → ilişkileri yorumlar → muhtemel neden → �
 |--------|--------|
 | Framework | Laravel 13 |
 | Dil | PHP 8.3+ |
-| Admin UI | Filament 5 + Livewire |
+| Admin UI | Filament 5 + Livewire (panel id `app`, path `/app`) |
+| Auth / RBAC | `web` guard + `spatie/laravel-permission` |
 | DB | MySQL 8 |
 | Queue | Başlangıçta database queue |
 | Scheduler | Laravel scheduler |
 | Events | Laravel events |
 | HTTP | Laravel HTTP client |
-| Secrets | Laravel encryption |
+| Secrets | Laravel encryption (encrypted cast) |
+| AI | `laravel/ai` (provider env/config) |
 | Test | Pest |
-| Modüller | Yerel Composer package / Filament plugin |
+| Modüller | `app-modules/` + `internachi/modular` |
 
 Redis, Horizon, ayrı worker ve ileri ölçekleme bileşenleri **yalnızca gerçek ihtiyaçta** eklenir.
+
+### 12.1 Website Diagnosis katalog kapısı (ADR-031)
+
+Connector’suz rule catalog **Core (Faz 0) için blocker değildir.**  
+Website Diagnosis fazına başlamadan önce `docs/website/DIAGNOSIS_CATALOG.md` oluşturulacaktır (teşhis contract’ı ile; tahminle değil, açık kaynak/standart türevli).
 
 ## 13. Doküman hiyerarşisi
 
@@ -263,6 +318,11 @@ Redis, Horizon, ayrı worker ve ileri ölçekleme bileşenleri **yalnızca gerç
 4. `docs/module-sdk/*` — modül sözleşmeleri  
 5. `docs/current-state/*` — geçmiş durum analizi (tarihsel; MASTER_SPEC ile çelişirse MASTER_SPEC geçerli)
 
-## 14. Açık sorular (kod öncesi kritik)
+## 14. Açık sorular
 
-MASTER_SPEC’i bozmayan, uygulamadan önce netleştirilmesi gerekenler `IMPLEMENTATION_ROADMAP.md` ve foundation açık sorularında listelenir. Ürün kapsamını SaaS’a veya harici write’a genişleten sorular **açık kabul edilmez**.
+Panel/auth, connection/credential, analysis model alanları, Recommendation→Task, AI SDK/key, modül dizini kararları **kilitlenmiştir** (ADR-026…032).
+
+Core uygulamayı bloke eden ürün/mimari açık soru **kalmamıştır**.
+
+Website Diagnosis fazı başlamadan önce `docs/website/DIAGNOSIS_CATALOG.md` zorunludur (Core blocker değildir).  
+Ürün kapsamını SaaS’a veya harici write’a genişleten sorular açık kabul edilmez.

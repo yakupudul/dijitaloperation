@@ -121,5 +121,4 @@ Crawl ve connector senkronları HTTP’yi kilitlemeden ölçeklenir; retry/rate-
 
 ## Açık Sorular
 
-1. Kurulum geneli concurrency limit nasıl yapılandırılacak?  
-2. Dead letter sonrası admin UI zorunlu mu v1’de?
+Yok. Concurrency application settings / queue config ile. Dead-letter admin UI v1’de opsiyonel.

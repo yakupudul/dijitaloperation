@@ -1,82 +1,43 @@
 # DOMAIN_MODEL
 
 > Ana kaynak: `docs/MASTER_SPEC.md`  
-> İlgili ADR: ADR-016, ADR-017
+> İlgili ADR: ADR-016, ADR-017, ADR-027, ADR-028
 
 ## Kararlar
 
 1. **Sahiplik hiyerarşisi (ADR-017)**
 
    ```text
-   Customer
-   → Brand
-   → Digital Asset
-   → Connection
+   Customer → Brand → Digital Asset → Connection
    ```
 
-   MVP’de **Workspace yoktur.** Tek kurulum = tek ajans.
+   MVP’de Workspace yoktur.
 
-2. **Katman anlamları**
+2. **Digital Asset vs Connection**  
+   GA4 / Search Console / DataForSEO = Website **connection**; asset değildir. Bir Website’e çoklu Connection.
 
-   | Varlık | Anlam |
-   |--------|--------|
-   | Customer | Ajansın müşterisi |
-   | Brand | Müşteriye bağlı marka |
-   | Digital Asset | Markaya bağlı yönetilen gerçek dijital varlık |
-   | Connection | Varlık hakkında veri sağlayan veya incelemeye yarayan bağlantı |
+3. **Akış nesneleri**
 
-3. **Digital Asset örnekleri**
+   Run → Evidence → Finding → Recommendation → Task → Result  
 
-   * Website  
-   * Google Business Profile  
-   * Google Ads account  
-   * Meta Ads account  
-   * Instagram account  
-   * YouTube channel  
-   * CRM  
+   Minimal alanlar: MASTER_SPEC §7.2 (ADR-028).  
+   Finding.`fingerprint` tekrar tespiti ilişkilendirir.
 
-4. **Connection örnekleri**
+4. **Credential**  
+   Connection’dan ayrı tablo; şifreli payload (ADR-027).
 
-   * WordPress  
-   * GA4  
-   * Search Console  
-   * DataForSEO  
-   * PageSpeed  
-   * Lighthouse  
-   * Uptime provider  
-   * Crawl provider  
-
-5. **Asset ≠ Connection**  
-   GA4, Search Console ve DataForSEO ilk kullanımda **Website digital asset’inin connection’larıdır**; ayrı Digital Asset olarak modellenmez.  
-   Bir Website’e birden fazla Connection bağlanabilir.
-
-6. **Akış nesneleri (çekirdek kavramlar)**
-
-   | Kavram | Rol |
-   |--------|-----|
-   | Run | Toplama/teşhis çalıştırma birimi |
-   | Evidence | Kanıt |
-   | Finding | Sorun / fırsat bulgusu |
-   | Recommendation | Öneri |
-   | Task | Ajans içi yapılacak iş (kullanıcı Recommendation’dan manuel üretebilir) |
-   | Result | İş / iyileştirme sonucu |
-
-7. **Çekirdek sahipliği**  
-   Customer, Brand, Digital Asset, Connection ve akış nesnelerinin ortak kayıtları çekirdektedir. Domain-specific kurallar modüllerdedir.
+5. **Çekirdek sahipliği**  
+   Ortak kayıtlar çekirdekte; domain kuralları modüllerde.
 
 ## Gerekçe
 
-- Connection’ı asset’ten ayırmak, “GA4 property = asset” karışıklığını önler.
-- Workspace kaldırmak MVP’yi ajans-içi gerçeğe hizalar.
+Asset/Connection ve secret ayrımı şema sızıntısını önler.
 
 ## Sınırlar
 
-- SQL şeması bu belgede sabitlenmez.
-- Bir Digital Asset’in birden fazla Brand’e bağlanması desteklenmez (MVP: asset tek brand altında).
-- Connection provider kimlikleri modül kaydıyla genişler.
+* SQL migration sözdizimi kod fazında.
+* Asset tek Brand altında (MVP).
 
 ## Açık Sorular
 
-1. Digital Asset `type` değerleri çekirdek enum + modül kaydı hibrit mi olacak?
-2. Connection’ın birden fazla asset’e bağlanması yasak mı (MVP varsayımı: tek asset)?
-3. Evidence/Finding tablolarında modül-özel JSON extension zorunlu mu?
+Yok (Core için). Digital Asset `type` kaydı modül kayıtlarıyla genişler (uygulama detayı, ürün kararı değil).

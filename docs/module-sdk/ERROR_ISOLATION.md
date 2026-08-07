@@ -121,5 +121,4 @@ Plugin ekosistemlerinde tek bozuk eklentinin siteyi düşürmesi kabul edilemez;
 
 ## Açık Sorular
 
-1. Ardışık health error eşiği kurulum genelinde mi?  
-2. `degraded` iken job alımı devam eder mi? (öneri: evet, aksi belirtilmedikçe)
+Yok. Health error eşiği kurulum geneli (öneri: 3 ardışık). `degraded` iken job alımı devam eder.

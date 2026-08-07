@@ -99,7 +99,7 @@ Kurallar:
 | Layout | Host container dışına fixed overlay / global sidebar eklenemez |
 | Breaking shell | Modül, çekirdek chrome’unu (topbar, nav) değiştiremez |
 
-UI host: Filament 5 / Livewire. Modüller Filament theme/token ve çekirdek bileşen kalıplarını kullanır; global CSS sızıntısı yok.
+UI host: tek Filament 5 panel `app` (`/app`). Modüller Filament theme/token ve çekirdek bileşen kalıplarını kullanır; global CSS sızıntısı yok.
 
 ### 6. Çözümleme sırası
 
@@ -127,5 +127,4 @@ Sekme/menü kaydı Perfex/WordPress admin menü hook’larına benzer; çekirdek
 
 ## Açık Sorular
 
-1. Aynı `order` değerinde ikincil sıralama `moduleId` mi, `title` mi? (öneri: `moduleId` asc)  
-2. Asset tipine özel sekme filtresi (`digitalAsset.kind == website`) v1’de desteklenecek mi?
+Yok. Aynı `order` için ikincil sıra `moduleId` asc. Asset tipi filtresi v1’de opsiyonel metadata ile yapılabilir (Core bloker değil).

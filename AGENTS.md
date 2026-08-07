@@ -2,23 +2,19 @@
 
 ## Cursor Cloud specific instructions
 
-`dijitaloperation` (DOP) şu an **dokümantasyon ağırlıklı** bir depodur. Ürün gerçeğinin tek kaynağı:
+Ürün gerçeği: `docs/MASTER_SPEC.md` (+ roadmap, foundation, module-sdk).
 
-- `docs/MASTER_SPEC.md`
-- `docs/IMPLEMENTATION_ROADMAP.md`
-- `docs/foundation/*`
-- `docs/module-sdk/*`
-- `docs/current-state/*` (tarihsel analiz; çelişirse MASTER_SPEC geçerli)
+### Kilit kararlar
 
-### Ürün özeti (ajanlar için)
+- Moximu **iç** operasyon; SaaS / Workspace / müşteri girişi yok
+- Harici **write action yok**
+- Tek Filament panel: id `app`, path `/app`; `web` guard; `spatie/laravel-permission`
+- Modüller: `app-modules/` + `internachi/modular`
+- AI: `laravel/ai`; key environment’ta
+- Event: `{kebab-module}.{kebab-action}`
+- Website Diagnosis katalog: Faz 4 öncesi `docs/website/DIAGNOSIS_CATALOG.md` (Core blocker değil)
 
-- Moximu ajansı **iç** operasyon sistemi; SaaS / müşteri girişi / Workspace **yok**
-- Harici sistemlerde **write action yok**
-- Stack kararı: Laravel 13, PHP 8.3+, Filament 5, Livewire, MySQL 8, database queue, Pest
-- Modüller: yerel Composer / Filament plugin; marketplace yok
+### Pratik
 
-### Pratik kurallar
-
-- Bu ortamda uygulama iskeleti henüz yoksa bağımlılık kurup servis ayağa kaldırmayın; önce dokümanlara uyun.
-- Yeni özellik eklerken MASTER_SPEC dışına (SaaS, Client Portal, harici write) çıkmayın.
-- Event isimleri: `{kebab-module}.{kebab-action}` (ör. `website-diagnosis.scan-completed`).
+- Uygulama iskeleti yoksa paket kurup servis ayağa kaldırmayın; dokümana uyun.
+- SaaS, Client Portal, harici write eklemeyin.

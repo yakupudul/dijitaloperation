@@ -112,5 +112,4 @@ Sözleşme ihlalleri “sonra düzeltiriz” borcuna dönüşmesin diye yayın �
 
 ## Açık Sorular
 
-1. Arch test (import boundary) ilk günden zorunlu mu, yoksa checklist review yeterli mi?  
-2. Coverage eşiği konacak mı? (şimdilik yok)
+Yok. İlk günde checklist + review zorunlu; Pest arch/import testleri önerilir ama Core belgesel bloker değildir. Coverage eşiği yok.

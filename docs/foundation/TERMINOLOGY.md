@@ -6,40 +6,28 @@
 
 | Terim | Anlam |
 |-------|--------|
-| DOP | Dijital Operasyon Platformu — Moximu iç operasyon sistemi |
-| Moximu | Ajans; tek MVP organizasyonu |
-| Çekirdek (Core) | Ortak platform yetenekleri; domain iş kuralı taşımaz |
-| Modül | Manifestli, sürümlü, enable/disable edilebilir yerel plugin |
-| Modular monolith | Tek deployable içinde net modül sınırları |
-| Customer | Ajans müşterisi |
-| Brand | Müşteriye bağlı marka |
-| Digital Asset | Markaya bağlı yönetilen gerçek dijital varlık |
-| Connection | Asset’e bağlı veri/inceleme bağlantısı (GA4, GSC, …) |
-| Run | Toplama veya teşhis çalıştırma kaydı |
-| Evidence | Kanıt |
-| Finding | Bulgu (sorun/fırsat) |
-| Recommendation | Öneri |
-| Task | Ajans içi görev |
-| Result | Sonuç / kapanış durumu |
-| Admin | Ajans yönetici rolü |
-| Team Member | Ajans çalışan rolü |
-| Read-only integration | Harici sistemde değişiklik yapmayan bağlantı |
-| Asset module | Digital Asset türü modülü |
-| Connector module | Connection sağlayıcı modülü |
-| Diagnosis module | Evidence/Finding üreten teşhis modülü |
-| Intelligence module | AI yorum / öncelik modülü |
-| Manifest | `module.manifest.json` |
-| Workspace | **MVP’de kullanılmaz** (eski varsayım; SaaS için ayrılmıştır) |
+| DOP | Moximu iç Dijital Operasyon Platformu |
+| Panel `app` | Tek Filament panel; path `/app` |
+| Admin / Team Member | MVP roller (`spatie/laravel-permission`) |
+| Customer / Brand / Digital Asset / Connection | Sahiplik zinciri |
+| `core_connections` | Secret’sız bağlantı kaydı |
+| `core_connection_credentials` | Şifreli credential kaydı |
+| Run / Evidence / Finding / Recommendation / Task / Result | Analiz akışı |
+| fingerprint | Finding tekrar ilişkilendirme anahtarı |
+| snapshot Task | Recommendation’dan kopyalanmış, sonra otomatik güncellenmeyen Task |
+| `app-modules/` | Modül kök dizini |
+| `internachi/modular` | Laravel modüler paket aracı |
+| `laravel/ai` | Resmi AI SDK |
+| Workspace | MVP’de yok |
 
 ## Gerekçe
 
-Ortak dil olmadan Asset/Connection ve SaaS varsayımları yeniden karışır.
+Ortak dil Asset/Connection ve secret ayrımını korur.
 
 ## Sınırlar
 
-* İngilizce kod kimlikleri ile Türkçe UI etiketleri birlikte yaşayabilir.
-* Eski belgelerdeki “Workspace” ifadeleri geçersizdir; MASTER_SPEC üstündür.
+* UI Türkçe etiketleri uygulama temasında seçilebilir.
 
 ## Açık Sorular
 
-1. UI’da Connection için Türkçe etiket: “Bağlantı” mı, “Veri kaynağı” mı?
+Yok.

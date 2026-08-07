@@ -2,75 +2,54 @@
 
 > Ana kaynak: `docs/MASTER_SPEC.md`  
 > Sözleşme: `docs/module-sdk/*`  
-> İlgili ADR: ADR-004, ADR-005, ADR-008, ADR-021, ADR-022, ADR-024
+> İlgili ADR: ADR-004, ADR-008, ADR-021, ADR-022, ADR-032, ADR-024
 
 ## Kararlar
 
 ### 1. Mimari stil
 
-Plugin-based **modular monolith**:
+Plugin-based modular monolith: tek repo, tek app, tek deploy, tek DB, net sınırlar, background jobs.
 
-* Tek repository
-* Tek uygulama
-* Tek deployment
-* Tek veritabanı
-* Net modül sınırları
-* Background jobs + scheduler
-* Yerel modüller (Composer package / Filament plugin)
-* ZIP / marketplace yok
+### 2. Modül dizini ve paketleme (ADR-032)
 
-### 2. Teknoloji eşlemesi (ADR-021)
+| Konu | Karar |
+|------|--------|
+| Kök dizin | `app-modules/` |
+| Araç | `internachi/modular` |
+| Davranış | Her modül Composer package |
+| Yasak | ZIP upload, marketplace |
+
+Her modül: service provider, models, migrations, services, Filament resources/pages/widgets, config, jobs, events, tests (+ manifest, permissions, settings, health).
+
+### 3. Teknoloji eşlemesi
 
 | Konu | Seçim |
 |------|--------|
 | App | Laravel 13 / PHP 8.3+ |
-| Panel | Filament 5 / Livewire |
-| Queue | Database queue (başlangıç) |
-| Scheduler | Laravel scheduler |
-| Events | Laravel events |
-| HTTP | Laravel HTTP client |
-| Encryption | Laravel encryption |
+| Panel | Filament 5 — id `app`, path `/app` |
+| RBAC | `spatie/laravel-permission` |
+| Queue | Database queue |
+| AI | `laravel/ai` |
 | Test | Pest |
-| Modül paketi | Monorepo içi Composer path repository / Filament plugin |
 
-### 3. Modül kuralları
+### 4. İlk modüller (ADR-024)
 
-Her modül: manifest, sürüm, bağımlılık, migration, model, servis, panel resource/sayfa, permission, setting, job, event, health check, test içerir.  
-Disable → çekirdek çalışmaya devam eder. Ayrıntı: `docs/module-sdk`.
+Website, Website Diagnosis, WordPress/GSC/GA4/PageSpeed-Lighthouse/DataForSEO connectors, AI Insights.
 
-### 4. Modül sınıfları
+### 5. Website Diagnosis
 
-Asset | Connector | Diagnosis | Intelligence | Automation | Presentation  
-
-MVP’de Presentation = ajans Filament paneline katkı (Client Portal yok).
-
-### 5. İlk modüller (ADR-024)
-
-1. Website  
-2. Website Diagnosis  
-3. WordPress Connector  
-4. Search Console Connector  
-5. GA4 Connector  
-6. PageSpeed / Lighthouse Connector  
-7. DataForSEO Connector  
-8. AI Insights  
-
-### 6. Website Diagnosis
-
-* Connector zorunlu değildir (ADR-012 sürer).  
-* Connection’lar eklendikçe kapsam ve güven artar.  
-* Akış: `MASTER_SPEC` §10.
+* Connector zorunlu değil (ADR-012)  
+* Katalog: Faz 4 öncesi `docs/website/DIAGNOSIS_CATALOG.md` (ADR-031); Core blocker değil  
 
 ## Gerekçe
 
-Yerel Composer/Filament plugin modeli, Laravel ekosisteminde plugin sınırlarını koruyarak tek deploy basitliğini sağlar.
+`internachi/modular` + `app-modules/` Laravel’de yerel plugin sınırlarını standartlaştırır.
 
 ## Sınırlar
 
-* Redis/Horizon yok sayılmaz; ihtiyaç ADR’si ile eklenir.
-* Modül klasör standardı (`modules/` vs `packages/`) uygulama iskeletinde kilitlenir.
+* Redis/Horizon ihtiyaç ADR’si ile.
+* Katalog içeriği bu belgede üretilmez.
 
 ## Açık Sorular
 
-1. Modül path repository kök dizini adı ne olacak?
-2. Website asset ile Website Diagnosis ayrı Composer paketleri mi (öneri: evet)?
+Yok.

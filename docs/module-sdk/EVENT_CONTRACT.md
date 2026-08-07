@@ -124,5 +124,4 @@ Tek isimlendirme + envelope olmadan çapraz modül entegrasyonu kırılır. Opti
 
 ## Açık Sorular
 
-1. Subscriber timeout varsayılanı kaç ms?  
-2. Dead-letter kuyruğu v1’de zorunlu mu?
+Yok. Subscriber timeout varsayılanı uygulama config’inde (öneri 5000 ms). Dead-letter v1’de zorunlu değil.

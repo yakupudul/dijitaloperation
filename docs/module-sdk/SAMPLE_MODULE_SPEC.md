@@ -18,7 +18,7 @@
 ## 2. Klasör iskeleti (kod değil, sözleşme)
 
 ```text
-sample-module/
+app-modules/sample-module/
   module.manifest.json
   migrations/
     20260806100000_create_notes.md   # gerçekte SQL/ORM dosyası olur; burada tanım
@@ -168,7 +168,7 @@ Uninstall: bu down **otomatik çalışmaz**.
 4. Not listesi `m_sample_module_notes` üzerinden gelir  
 5. `sample-module.manage` ile yeni not eklenir → event `sample-module.note-created`  
 
-UI: çekirdek Tab + Table + Form primitive’leri; global CSS yok.
+UI: Filament panel `app` host primitive’leri; global CSS yok; harici write yok; ham credential state yok.
 
 ## 6. Event örnekleri
 

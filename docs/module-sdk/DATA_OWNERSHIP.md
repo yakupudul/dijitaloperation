@@ -14,9 +14,10 @@ Modül tablolarının sahipliği, isimlendirme, migration ve kaldırmada veri ko
 
 | Kaynak | Sahip | Kim yazar? |
 |--------|--------|------------|
-| Core tablolar (`customers`, `brands`, `digital_assets`, `connections`, users, roles, evidence, findings, …) | Çekirdek | Yalnızca çekirdek |
+| Core tablolar (`customers`, `brands`, `digital_assets`, `core_connections`, users, roles, evidence, findings, recommendations, tasks, …) | Çekirdek | Yalnızca çekirdek |
+| `core_connection_credentials` | Çekirdek | Çekirdek API; ham secret UI’ya çıkmaz |
 | Modül tabloları | İlgili modül | Yalnızca o modül |
-| Settings / credentials store | Çekirdek | Çekirdek API; modül çağırır |
+| Settings store | Çekirdek | Çekirdek API |
 | Tasks / notifications / audit | Çekirdek | Çekirdek API |
 
 **Yasaklar:**
@@ -107,7 +108,12 @@ Prefix + migrator reddi, modular monolith’te fiili şema izolasyonu sağlar; v
 | Prefix | `m_{id_snake}_` |
 | Workspace tabloları | Oluşturulmaz |
 
+### Credential notu (ADR-027)
+
+* Secret’lar `core_connection_credentials.encrypted_payload`  
+* Laravel encrypted cast / encryption  
+* Filament/Livewire model state’ine ham değer yazılmaz  
+
 ## Açık Sorular
 
-1. Purge yetkisi hangi core permission? (`core.modules.purge` adayı)  
-2. Soft-delete kolon standardı çekirdekten zorunlu kılınacak mı?
+Yok. Purge yetkisi: Admin + `core.modules.purge` (uygulama permission id’si; Core’u bloke etmez).
