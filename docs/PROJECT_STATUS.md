@@ -2,14 +2,14 @@ This file is generated/maintained by DOP Autopilot and represents implementation
 
 # DOP Project Status
 
-Last updated: 2026-08-07T20:25:00Z
+Last updated: 2026-08-07T20:16:54Z
 
 Overall status:
 RUNNING
 
-Current roadmap stage: 23 / 23
+Current roadmap stage: 18 / 23
 
-Current stage: Action-oriented agency operations dashboard / first production hardening
+Current stage: Google Business Profile product spec + first module
 
 Current task: agency-ops-dashboard-action-cards
 
@@ -18,13 +18,13 @@ Current task title:
 Add action-oriented agency ops dashboard cards
 
 Current automation run:
-—
+https://github.com/yakupudul/dijitaloperation/actions/runs/31215089676
 
 ## Progress
 
-* Completed stages: 21 / 23
-* In progress stages: 22, 23
-* Remaining stages: 22 (Ads/Meta/IG packs pending Evidence), 23
+* Completed stages: 17 / 23
+* In progress stages: —
+* Remaining stages: 18, 19, 20, 21, 22, 23
 
 ## Roadmap
 
@@ -45,10 +45,10 @@ Current automation run:
 * [x] 15. PageSpeed / Lighthouse Connector
 * [x] 16. DataForSEO Connector
 * [x] 17. Website AI Insights
-* [x] 18. Google Business Profile product spec + first module
-* [x] 19. Google Ads product spec + first module
-* [x] 20. Meta Ads product spec + first module
-* [x] 21. Instagram product spec + first module
+* [ ] 18. Google Business Profile product spec + first module
+* [ ] 19. Google Ads product spec + first module
+* [ ] 20. Meta Ads product spec + first module
+* [ ] 21. Instagram product spec + first module
 * [ ] 22. Cross-asset / cross-channel analysis
 * [ ] 23. Action-oriented agency operations dashboard / first production hardening
 
@@ -58,13 +58,14 @@ Last active task:
 
 * task id: `agency-ops-dashboard-action-cards`
 * branch: `dop/agency-ops-dashboard-action-cards`
-* PR: —
-* reviewer verdict: —
-* retry/recovery state: IMPLEMENTING
+* PR: #83
+* reviewer verdict: APPROVED
+* retry/recovery state: COMPLETED_AND_CONTINUING
 
 ## Recently completed
 
-* `cross-asset-website-gbp-address-consistency` — PR 82 — `18381eb` — 2026-08-07T20:13:16
+* `agency-ops-dashboard-action-cards` — PR 83 — `f5c4a8d996d3` — 2026-08-07T20:16:51
+* `cross-asset-website-gbp-address-consistency` — PR 82 — `18381eb0035b` — 2026-08-07T20:13:16
 * `cross-asset-website-gbp-phone-consistency` — PR 81 — `b0eae69f9f49` — 2026-08-07T20:09:08
 * `cross-asset-website-gbp-website-url-consistency` — PR 80 — `f42c87946492` — 2026-08-07T20:01:45
 * `cross-asset-analysis-product-spec` — PR 75 — `1453adfbe059` — 2026-08-07T19:27:52
@@ -73,11 +74,6 @@ Last active task:
 * `meta-ads-connector-read-only-probe` — PR 72 — `5502ba27fbf4` — 2026-08-07T19:05:46
 * `meta-ads-product-spec` — PR 71 — `c81eb7743cbe` — 2026-08-07T18:27:55
 * `google-ads-connector-read-only-probe` — PR 70 — `986c9ae22139` — 2026-08-07T18:24:27
-* `google-ads-product-spec` — PR 69 — `9b9a348e920c` — 2026-08-07T18:21:13
-
-## Deferred work
-
-None for blockers. Stage 22 Website↔Ads/Meta/Instagram packs remain incomplete until landing/identity Evidence types exist beyond account-access probes (not a human blocker; independent dashboard work proceeds).
 
 ## Blockers
 
@@ -85,4 +81,4 @@ None
 
 ## Next expected
 
-Merge agency ops dashboard action cards via DOP PR Gate + Reviewer; continue stage 23 hardening and/or Evidence-backed cross-asset packs for Ads/Meta/Instagram.
+18. Google Business Profile product spec + first module — expected focus: Add action-oriented agency ops dashboard cards
