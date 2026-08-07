@@ -15,6 +15,8 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TagsInput;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
@@ -51,6 +53,27 @@ class DigitalAssetResource extends Resource
                 TextInput::make('module_id')
                     ->label('Module ID')
                     ->maxLength(255),
+                TextInput::make('domain')
+                    ->maxLength(255),
+                TextInput::make('primary_url')
+                    ->label('Primary URL')
+                    ->url()
+                    ->maxLength(255),
+                TextInput::make('cms')
+                    ->label('CMS')
+                    ->maxLength(255),
+                TextInput::make('site_type')
+                    ->label('Site type')
+                    ->maxLength(255),
+                TagsInput::make('languages')
+                    ->placeholder('Add a language'),
+                TagsInput::make('target_countries')
+                    ->label('Target countries')
+                    ->placeholder('Add a country'),
+                Textarea::make('hosting_context')
+                    ->label('Hosting context')
+                    ->rows(3)
+                    ->columnSpanFull(),
             ]);
     }
 
@@ -67,6 +90,28 @@ class DigitalAssetResource extends Resource
                 TextEntry::make('module_id')
                     ->label('Module ID')
                     ->placeholder('-'),
+                TextEntry::make('domain')
+                    ->placeholder('-'),
+                TextEntry::make('primary_url')
+                    ->label('Primary URL')
+                    ->placeholder('-'),
+                TextEntry::make('cms')
+                    ->label('CMS')
+                    ->placeholder('-'),
+                TextEntry::make('site_type')
+                    ->label('Site type')
+                    ->placeholder('-'),
+                TextEntry::make('languages')
+                    ->badge()
+                    ->placeholder('-'),
+                TextEntry::make('target_countries')
+                    ->label('Target countries')
+                    ->badge()
+                    ->placeholder('-'),
+                TextEntry::make('hosting_context')
+                    ->label('Hosting context')
+                    ->placeholder('-')
+                    ->columnSpanFull(),
                 TextEntry::make('created_at')
                     ->dateTime()
                     ->placeholder('-'),

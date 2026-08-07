@@ -253,7 +253,8 @@ class TaskMigrationAndModelTest extends TestCase
     {
         $this->assertTrue(Schema::hasTable('tasks'));
 
-        $this->assertSame(0, Artisan::call('migrate:rollback', ['--step' => 1]));
+        // Newest migration may be website fields; roll back past tasks.
+        $this->assertSame(0, Artisan::call('migrate:rollback', ['--step' => 2]));
 
         $this->assertFalse(Schema::hasTable('tasks'));
 
