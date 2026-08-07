@@ -877,6 +877,9 @@ def final_merge_gate_errors(
     tests_passed: bool,
     mergeable: bool,
     repo_root: Path | None = None,
+    review_evidence: dict[str, Any] | None = None,
+    current_head_sha: str | None = None,
+    require_review_approval: bool = True,
 ) -> list[str]:
     errors: list[str] = []
     if branch_name in {"main", "master", "HEAD"} or not is_safe_branch_name(branch_name):
@@ -892,7 +895,104 @@ def final_merge_gate_errors(
         errors.append("required tests/gates have not passed")
     if not mergeable:
         errors.append("PR is not mergeable")
+    if require_review_approval:
+        errors.extend(
+            validate_review_evidence(
+                review_evidence,
+                current_head_sha=current_head_sha or "",
+                expected_task_id=str(task.get("task_id") or "") or None,
+            )
+        )
     return errors
+
+
+def build_review_evidence(
+    *,
+    task_id: str,
+    reviewed_head_sha: str,
+    verdict: str,
+    model: str,
+    run_id: str = "",
+    reviewer_role: str = "reviewer",
+    reviewed_at: str | None = None,
+) -> dict[str, Any]:
+    from datetime import datetime, timezone
+
+    return {
+        "task_id": task_id,
+        "reviewed_head_sha": (reviewed_head_sha or "").strip().lower(),
+        "verdict": verdict,
+        "model": model,
+        "reviewed_at": reviewed_at or datetime.now(timezone.utc).isoformat(),
+        "run_id": run_id or os.environ.get("GITHUB_RUN_ID", ""),
+        "reviewer_role": reviewer_role,
+    }
+
+
+def validate_review_evidence(
+    evidence: dict[str, Any] | None,
+    *,
+    current_head_sha: str,
+    expected_task_id: str | None = None,
+) -> list[str]:
+    """Fail-closed checks for Autopilot merge. Tests alone never satisfy this."""
+    errors: list[str] = []
+    if evidence is None:
+        errors.append("review evidence missing")
+        return errors
+    if not isinstance(evidence, dict):
+        errors.append("review evidence must be an object")
+        return errors
+
+    for key in (
+        "task_id",
+        "reviewed_head_sha",
+        "verdict",
+        "model",
+        "reviewed_at",
+        "run_id",
+    ):
+        value = evidence.get(key)
+        if not isinstance(value, str) or not value.strip():
+            errors.append(f"review evidence missing field: {key}")
+
+    verdict = evidence.get("verdict")
+    if verdict != "APPROVED":
+        errors.append(f"reviewer verdict is not APPROVED ({verdict!r})")
+
+    reviewed = str(evidence.get("reviewed_head_sha") or "").strip().lower()
+    current = (current_head_sha or "").strip().lower()
+    if not current:
+        errors.append("current HEAD SHA missing for review evidence check")
+    elif reviewed and current and reviewed != current:
+        errors.append(
+            "reviewer approved SHA does not match current HEAD; fresh review required "
+            f"(approved={reviewed}, head={current})"
+        )
+
+    if expected_task_id:
+        evidence_task = str(evidence.get("task_id") or "").strip()
+        if evidence_task and evidence_task != expected_task_id:
+            errors.append(
+                f"review evidence task_id mismatch (evidence={evidence_task}, task={expected_task_id})"
+            )
+
+    return errors
+
+
+def load_review_evidence(path: Path) -> dict[str, Any] | None:
+    if not path.is_file():
+        return None
+    try:
+        data = parse_json_object(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def write_review_evidence(path: Path, evidence: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(evidence, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 def dispatch_eligible(

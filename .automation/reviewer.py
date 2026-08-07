@@ -21,6 +21,7 @@ from common import (  # noqa: E402
     DEFAULT_REVIEWER_MODEL,
     MAX_DIFF_CHARS_FOR_REVIEW,
     append_usage_record,
+    build_review_evidence,
     diff_is_suspiciously_large,
     extract_response_text,
     extract_usage_metrics,
@@ -37,6 +38,7 @@ from common import (  # noqa: E402
     review_marker_for_verdict,
     validate_product_spec_paths,
     validate_reviewer_result,
+    write_review_evidence,
 )
 
 PROMPTS_DIR = AUTOMATION_DIR / "prompts"
@@ -219,6 +221,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output", default="-")
     parser.add_argument("--comment-output", default="")
     parser.add_argument(
+        "--head-sha",
+        default="",
+        help="Git HEAD SHA being reviewed (recorded in review evidence)",
+    )
+    parser.add_argument(
+        "--evidence-output",
+        default="",
+        help="Write fail-closed review evidence JSON for merge gates",
+    )
+    parser.add_argument(
         "--model",
         default=resolve_model("OPENAI_REVIEWER_MODEL", DEFAULT_REVIEWER_MODEL),
     )
@@ -263,6 +275,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.task_file:
         task_json = parse_json_object(Path(args.task_file).read_text(encoding="utf-8"))
 
+    model = args.model
+    role = "reviewer"
     if diff_is_suspiciously_large(diff_text):
         data = {
             "verdict": "HUMAN_REQUIRED",
@@ -279,9 +293,9 @@ def main(argv: list[str] | None = None) -> int:
             "architecture_check": "Deferred to human due to diff size.",
             "test_check": "Deferred to human due to diff size.",
         }
-    else:
-        model = args.model
+        model = "deterministic-diff-guard"
         role = "reviewer"
+    else:
         effort = os.environ.get("OPENAI_REASONING_EFFORT") or DEFAULT_REASONING_EFFORT
         if args.escalate:
             model = resolve_model("OPENAI_ESCALATION_MODEL", DEFAULT_ESCALATION_MODEL)
@@ -314,6 +328,22 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.comment_output:
         Path(args.comment_output).write_text(format_review_comment(data), encoding="utf-8")
+
+    if args.evidence_output:
+        if not args.head_sha.strip():
+            print("Reviewer evidence requires --head-sha", file=sys.stderr)
+            return 1
+        task_id = ""
+        if isinstance(task_json, dict):
+            task_id = str(task_json.get("task_id") or "")
+        evidence = build_review_evidence(
+            task_id=task_id or "unknown",
+            reviewed_head_sha=args.head_sha,
+            verdict=str(data.get("verdict") or ""),
+            model=model,
+            reviewer_role=role,
+        )
+        write_review_evidence(Path(args.evidence_output), evidence)
 
     return 0
 

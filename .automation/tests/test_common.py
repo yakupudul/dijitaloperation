@@ -16,6 +16,7 @@ from common import (  # noqa: E402
     HARD_BLOCKER_ISSUE_MARKER,
     MAX_FIX_ATTEMPTS,
     assert_product_branch_diff_safe,
+    build_review_evidence,
     count_fix_attempts_from_commit_messages,
     diff_is_suspiciously_large,
     dispatch_eligible,
@@ -30,6 +31,7 @@ from common import (  # noqa: E402
     is_safe_product_spec_path,
     list_product_spec_files,
     load_product_specs,
+    load_review_evidence,
     parse_json_object,
     remaining_fix_attempts,
     review_marker_for_verdict,
@@ -39,6 +41,7 @@ from common import (  # noqa: E402
     task_allows_infra_paths,
     validate_architect_task,
     validate_product_spec_paths,
+    validate_review_evidence,
     validate_reviewer_result,
 )
 
@@ -145,8 +148,18 @@ class HardBlockerTests(unittest.TestCase):
 
 
 class MergeGateTests(unittest.TestCase):
+    def _approved_evidence(self, sha: str = "abc123") -> dict:
+        return build_review_evidence(
+            task_id="task-customer-1",
+            reviewed_head_sha=sha,
+            verdict="APPROVED",
+            model="gpt-5-mini",
+            run_id="123",
+        )
+
     def test_final_merge_gate(self) -> None:
         task = _task_ready()
+        sha = "deadbeefcafebabe"
         errors = final_merge_gate_errors(
             branch_name="feat/customer-model",
             pr_body=f"{AUTOMATION_PR_MARKER}\n",
@@ -156,6 +169,8 @@ class MergeGateTests(unittest.TestCase):
             tests_passed=True,
             mergeable=True,
             repo_root=REPO_ROOT,
+            review_evidence=self._approved_evidence(sha),
+            current_head_sha=sha,
         )
         self.assertEqual(errors, [])
         bad = final_merge_gate_errors(
@@ -167,8 +182,10 @@ class MergeGateTests(unittest.TestCase):
             tests_passed=False,
             mergeable=False,
             repo_root=REPO_ROOT,
+            review_evidence=None,
+            current_head_sha=sha,
         )
-        self.assertGreaterEqual(len(bad), 4)
+        self.assertGreaterEqual(len(bad), 5)
 
     def test_dispatch_eligible(self) -> None:
         self.assertTrue(
@@ -189,6 +206,89 @@ class MergeGateTests(unittest.TestCase):
                 roadmap_complete=False,
             )
         )
+
+
+class ReviewerFailClosedTests(unittest.TestCase):
+    def _base_kwargs(self, **overrides):
+        sha = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        data = {
+            "branch_name": "feat/customer-model",
+            "pr_body": f"{AUTOMATION_PR_MARKER}\n",
+            "task": _task_ready(),
+            "secret_paths": [],
+            "suspicious_diff": False,
+            "tests_passed": True,
+            "mergeable": True,
+            "repo_root": REPO_ROOT,
+            "review_evidence": build_review_evidence(
+                task_id="task-customer-1",
+                reviewed_head_sha=sha,
+                verdict="APPROVED",
+                model="gpt-5-mini",
+                run_id="run-1",
+            ),
+            "current_head_sha": sha,
+            "require_review_approval": True,
+        }
+        data.update(overrides)
+        return data
+
+    def test_missing_review_evidence_cannot_merge(self) -> None:
+        errors = final_merge_gate_errors(**self._base_kwargs(review_evidence=None))
+        self.assertTrue(any("review evidence missing" in e for e in errors))
+
+    def test_missing_api_key_cannot_produce_approved_evidence(self) -> None:
+        # Simulate reviewer process failure: no evidence file / incomplete evidence.
+        incomplete = {"verdict": "APPROVED"}
+        errors = validate_review_evidence(
+            incomplete,
+            current_head_sha="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        )
+        self.assertTrue(any("missing field" in e for e in errors))
+
+    def test_reviewer_process_failure_cannot_merge(self) -> None:
+        # No evidence path / load returns None after process failure.
+        self.assertIsNone(load_review_evidence(REPO_ROOT / "does-not-exist-review.json"))
+        errors = final_merge_gate_errors(**self._base_kwargs(review_evidence=None))
+        self.assertTrue(errors)
+
+    def test_fix_required_cannot_merge(self) -> None:
+        evidence = build_review_evidence(
+            task_id="task-customer-1",
+            reviewed_head_sha="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            verdict="FIX_REQUIRED",
+            model="gpt-5-mini",
+            run_id="run-1",
+        )
+        errors = final_merge_gate_errors(**self._base_kwargs(review_evidence=evidence))
+        self.assertTrue(any("not APPROVED" in e for e in errors))
+
+    def test_human_required_cannot_merge(self) -> None:
+        evidence = build_review_evidence(
+            task_id="task-customer-1",
+            reviewed_head_sha="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            verdict="HUMAN_REQUIRED",
+            model="gpt-5-mini",
+            run_id="run-1",
+        )
+        errors = final_merge_gate_errors(**self._base_kwargs(review_evidence=evidence))
+        self.assertTrue(any("not APPROVED" in e for e in errors))
+
+    def test_approved_with_all_gates_can_merge(self) -> None:
+        errors = final_merge_gate_errors(**self._base_kwargs())
+        self.assertEqual(errors, [])
+
+    def test_approved_sha_mismatch_requires_fresh_review(self) -> None:
+        errors = final_merge_gate_errors(
+            **self._base_kwargs(current_head_sha="cccccccccccccccccccccccccccccccccccccccc")
+        )
+        self.assertTrue(any("does not match current HEAD" in e for e in errors))
+
+    def test_tests_passing_without_approval_cannot_merge(self) -> None:
+        errors = final_merge_gate_errors(
+            **self._base_kwargs(review_evidence=None, tests_passed=True)
+        )
+        self.assertTrue(any("review evidence missing" in e for e in errors))
 
 
 class SchemaValidationTests(unittest.TestCase):
