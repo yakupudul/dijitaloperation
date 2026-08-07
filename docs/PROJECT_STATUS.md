@@ -2,7 +2,7 @@ This file is generated/maintained by DOP Autopilot and represents implementation
 
 # DOP Project Status
 
-Last updated: 2026-08-07T19:35:00Z
+Last updated: 2026-08-07T20:10:00Z
 
 Overall status:
 RUNNING
@@ -58,9 +58,9 @@ Last active task:
 
 * task id: `cross-asset-website-gbp-website-url-consistency`
 * branch: `dop/cross-asset-website-gbp-website-url-consistency`
-* PR: —
+* PR: #76
 * reviewer verdict: —
-* retry/recovery state: IMPLEMENTING
+* retry/recovery state: REPAIRING_PR_BODY_VIA_OPEN_GIT_PR
 
 ## Recently completed
 
@@ -85,4 +85,4 @@ None
 
 ## Next expected
 
-22. Cross-asset / cross-channel analysis — Website ↔ GBP website URL consistency pack (first deterministic pack after blueprint)
+22. Cross-asset / cross-channel analysis — Website ↔ GBP website URL consistency pack; repairing #76 body parse failure (wrong Task ID: label) without bypassing Reviewer
