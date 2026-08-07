@@ -6,27 +6,28 @@
 
 | Terim | Anlam |
 |-------|--------|
-| DOP | Moximu iç Dijital Operasyon Platformu |
+| DOP / MoxDOP | Moximu iç Dijital Operasyon Platformu |
 | Panel `app` | Tek Filament panel; path `/app` |
-| Admin / Team Member | MVP roller (`spatie/laravel-permission`) |
+| Admin / Team Member | MVP roller |
 | Customer / Brand / Digital Asset / Connection | Sahiplik zinciri |
-| `core_connections` | Secret’sız bağlantı kaydı |
-| `core_connection_credentials` | Şifreli credential kaydı |
-| Run / Evidence / Finding / Recommendation / Task / Result | Analiz akışı |
-| fingerprint | Finding tekrar ilişkilendirme anahtarı |
-| snapshot Task | Recommendation’dan kopyalanmış, sonra otomatik güncellenmeyen Task |
-| `app-modules/` | Modül kök dizini |
-| `internachi/modular` | Laravel modüler paket aracı |
-| `laravel/ai` | Resmi AI SDK |
+| Run | Toplama/teşhis çalıştırması |
+| Evidence | Run’a bağlı kanıt |
+| Finding | Asset’te kalıcı bulgu; fingerprint ile upsert |
+| fingerprint | Finding kimliği (run’lar arası) |
+| Recommendation | Finding’e bağlı öneri |
+| Task | Manuel oluşturulmuş iç görev (snapshot) |
+| Result (entity) | **MVP’de yok**; sonuç Finding/Run ile izlenir |
+| Minimal Module Registry | id + enabled/disabled (+ bilgisel version) |
+| `app-modules/` + `internachi/modular` | Modül paketleme temeli |
 | Workspace | MVP’de yok |
 
 ## Gerekçe
 
-Ortak dil Asset/Connection ve secret ayrımını korur.
+Finding vs Run ve Result’ın kaldırılması ortak dilde netleşmeli.
 
 ## Sınırlar
 
-* UI Türkçe etiketleri uygulama temasında seçilebilir.
+* UI etiketleri uygulama temasında seçilebilir.
 
 ## Açık Sorular
 

@@ -1,11 +1,11 @@
 # DOMAIN_MODEL
 
 > Ana kaynak: `docs/MASTER_SPEC.md`  
-> İlgili ADR: ADR-016, ADR-017, ADR-027, ADR-028
+> İlgili ADR: ADR-017, ADR-027, ADR-034, ADR-036
 
 ## Kararlar
 
-1. **Sahiplik hiyerarşisi (ADR-017)**
+1. **Sahiplik hiyerarşisi**
 
    ```text
    Customer → Brand → Digital Asset → Connection
@@ -14,30 +14,34 @@
    MVP’de Workspace yoktur.
 
 2. **Digital Asset vs Connection**  
-   GA4 / Search Console / DataForSEO = Website **connection**; asset değildir. Bir Website’e çoklu Connection.
+   GA4 / Search Console / DataForSEO = Website **connection**. Bir Website’e çoklu Connection.
 
-3. **Akış nesneleri**
+3. **Analiz akışı (Result entity yok)**
 
-   Run → Evidence → Finding → Recommendation → Task → Result  
+   ```text
+   Run → Evidence → Finding → Recommendation → Task
+   ```
 
-   Minimal alanlar: MASTER_SPEC §7.2 (ADR-028).  
-   Finding.`fingerprint` tekrar tespiti ilişkilendirir.
+   | Kavram | Bağ / yaşam |
+   |--------|-------------|
+   | Run | Bir teşhis/toplama çalıştırması |
+   | Evidence | **Run’a bağlı** kanıt |
+   | Finding | Asset üzerinde **kalıcı** problem/fırsat; `fingerprint` ile run’lar arası güncellenir; `last_run_id`; `resolved` olabilir |
+   | Recommendation | Finding’e bağlanabilir |
+   | Task | Recommendation’dan manuel snapshot |
 
 4. **Credential**  
-   Connection’dan ayrı tablo; şifreli payload (ADR-027).
-
-5. **Çekirdek sahipliği**  
-   Ortak kayıtlar çekirdekte; domain kuralları modüllerde.
+   Connection’dan ayrı şifreli tablo (ADR-027).
 
 ## Gerekçe
 
-Asset/Connection ve secret ayrımı şema sızıntısını önler.
+Finding’i Run satırı sanmak duplicate ve “sorun bitti mi?” takibini bozar. Ayrı Result entity MVP’de gereksizdir.
 
 ## Sınırlar
 
 * SQL migration sözdizimi kod fazında.
-* Asset tek Brand altında (MVP).
+* Finding status enum değerleri uygulama’da netleşir (`open`, `resolved`, …).
 
 ## Açık Sorular
 
-Yok (Core için). Digital Asset `type` kaydı modül kayıtlarıyla genişler (uygulama detayı, ürün kararı değil).
+Yok (Core için).

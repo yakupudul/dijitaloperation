@@ -10,41 +10,38 @@
 2. Self-service kayıt, tenant onboarding  
 3. Abonelik, faturalandırma, paket, kota  
 4. Client Portal / müşteri girişi  
-5. Marketplace / ZIP modül yükleme  
+5. Marketplace / ZIP / runtime plugin install  
 6. White-label müşteri sunumu  
-7. Müşteriye otomatik dış kanal bildirim ürünü (e-posta ile draft iletim vb.) — MVP’de yok  
 
-### Harici aksiyon (ürün kuralı)
+### Harici aksiyon
 
-8. Her türlü harici write action (Ads, WordPress, GBP, sosyal, …)
+7. Her türlü harici write action  
+
+### Custom module platform (MVP’de yeniden yazılmaz — future)
+
+8. Compatibility engine (`core.min` / `core.maxExclusive`)  
+9. Custom module migrator / migration registry  
+10. discovered/registered/failed/uninstalled kapsamlı lifecycle FSM  
+11. Purge sistemi, custom schema registry  
+
+### Ayrı domain
+
+12. Ayrı `Result` entity  
 
 ### Altyapı (ihtiyaç kanıtlanana kadar)
 
-9. Redis / Horizon  
-10. Ayrı worker / mikroservis  
-11. MCP, vector DB, multi-agent  
-
-### AI yönetim
-
-12. AI API key’in panelden yönetimi (MVP’de env)
-
-### Erken faz zorunlu olmayan
-
-13. Website Diagnosis için connector zorunluluğu  
-14. GBP / Ads / Instagram asset’leri (Faz 7)  
-15. Diagnosis katalog dosyasının Core ile aynı anda yazılması (Faz 4 öncesi yeter)
-
-### Bu dokümantasyon çalışması dışı
-
-16. Uygulama kodu / paket kurulumu  
+13. Redis / Horizon, ayrı worker / mikroservis  
+14. MCP, vector DB, multi-agent  
+15. AI key’in panelden yönetimi  
+16. Attachments / Tags / feature flags / ağır notification-audit-health framework’leri (Core bootstrap zorunluluğu değil)
 
 ## Gerekçe
 
-Kapsamı ajans-içi read→diagnose→internal task zincirine kilitler.
+Hafif MVP + ADR-033.
 
 ## Sınırlar
 
-SaaS veya harici write için ayrı ADR şarttır.
+İleride ADR ile açılabilir; harici write için güvenlik değerlendirmesi şart.
 
 ## Açık Sorular
 

@@ -1,112 +1,47 @@
 # MODULE_LIFECYCLE
 
-> Dayanak: ADR-008, ADR-014; `MODULE_CONTRACT.md`  
-> İlgili: `MODULE_MANIFEST_SPEC.md`, `ERROR_ISOLATION.md`, `DATA_OWNERSHIP.md`
+> Ana kaynak: `docs/MASTER_SPEC.md`  
+> ADR-035 (MVP registry), ADR-033 (framework’ü tekrar yazma)
 
-## Amaç
+## MVP (zorunlu)
 
-Modülün keşiften kaldırmaya kadar geçirdiği durumları ve her durumda sistem davranışını tanımlar.
+### Durumlar
 
-## Kararlar
-
-### 1. Durumlar
+Yalnızca:
 
 | Durum | Anlam |
 |-------|--------|
-| `discovered` | Paket/manifest diskte bulundu; henüz registry’ye işlenmedi |
-| `registered` | Manifest doğrulandı; registry kaydı var; henüz aktif değil |
-| `enabled` | Extension, job, event listener ve route’lar aktif |
-| `disabled` | Kasıtlı kapalı; veri durur; çekirdek ve diğer modüller çalışır |
-| `failed` | Yükleme, uyumluluk, required bağımlılık veya tekrarlayan health hatası |
-| `uninstalled` | Registry’den çıkarıldı; **veri otomatik silinmez** |
+| `enabled` | DOP UI / schedule / analysis aktif |
+| `disabled` | DOP UI / schedule / analysis kapalı; kod Composer’da kalabilir; **veri silinmez** |
 
-Geçiş diyagramı (özet):
+Minimal registry alanları: `module_id`, `enabled`/`disabled`, isteğe bağlı bilgisel `installed_version`.
 
-```text
-discovered → registered → enabled ⇄ disabled
-                ↓            ↓
-             failed ←———————┘
-                ↓
-           uninstalled (veri korunur)
-```
+### Davranış
 
-### 2. Enable öncesi kontroller (sırayla)
+* Enable/disable kurulum genelidir (tek ajans).  
+* Disabled modül navigasyonda görünmez; analysis/scheduled DOP işleri çalışmaz.  
+* Composer package remove ≠ veri purge.  
+* Package discovery / Service Provider: **Laravel + internachi/modular**.  
+* Migrations: **Laravel migration** yolu; custom migrator yok.
 
-1. Manifest parse + şema doğrulama  
-2. `core.min` / `core.maxExclusive` uyumu  
-3. `required` modül bağımlılıkları `enabled` mi?  
-4. Pending migration’lar uygulanabilir mi? (uygula veya enable’ı reddet)  
-5. Permission / settings / extension / job / event kayıtları  
-6. İlk health check (timeout içinde)
+## Future / non-MVP (implementasyonu zorlamaz)
 
-Herhangi bir adım başarısız → durum `failed` veya enable işlemi reddedilir; **process çökmez**.
+Aşağıdakiler belgede kavramsal olarak durur; MVP’de geliştirilmez:
 
-### 3. Modül `disabled` olduğunda
-
-| Alan | Davranış |
-|------|----------|
-| HTTP route / UI extension | Kaydı gizlenir / çağrılmaz |
-| Event subscribers | Çağrılmaz |
-| Job schedule / consume | Yeni job kabul edilmez; çalışan job iptal politikası: mümkünse graceful cancel |
-| Settings UI | Okunabilir (read-only) veya gizli — varsayılan: admin’de görünür, kullanıcıda gizli |
-| Permissions | Tanımlar registry’de kalır; yeni yetki ataması önerilmez |
-| Tablolar / veri | **Korunur** |
-| Çekirdek | Çalışmaya devam eder |
-| Diğer modüller | Çalışmaya devam eder; bu modüle `optional` bağımlı olanlar degrade olur |
-
-### 4. Modül `failed` olduğunda
-
-| Alan | Davranış |
-|------|----------|
-| Sistem | Ayakta kalır |
-| UI | Admin’e “modül yüklenemedi / bozuldu” durumu gösterilir; son kullanıcı akışları kırılmaz |
-| Extension’lar | Aktif sayılmaz |
-| Log | `module_id`, `lifecycle_state=failed`, hata kodu zorunlu |
-
-### 5. Uninstall / kaldırma
-
-1. Modül önce `disabled` yapılır.  
-2. Registry kaydı `uninstalled` olur.  
-3. **Veri silinmez** (ADR-014).  
-4. Veri silme yalnızca ayrı, yetkili, onaylı “purge” operasyonudur; varsayılan uninstall purge değildir.  
-5. Purge yoksa tablolar ve settings değerleri yerinde kalır; aynı `id` ile yeniden kurulum veriyi yeniden bağlayabilir.
-
-### 6. Migration yaşam döngüsü
-
-| An | Kural |
-|----|--------|
-| Enable / upgrade | Modülün kendi migration zinciri çekirdek migrator tarafından **modül scope’unda** çalıştırılır |
-| Disable | Migration geri alınmaz |
-| Uninstall | Migration geri alınmaz; drop yok |
-| Rollback | “Mümkün olduğunda” down migration desteklenir; geri alınamaz değişiklik ADR ile kayda geçer |
-
-Ayrıntı: `DATA_OWNERSHIP.md`.
-
-### 7. Versiyon yükseltme
-
-1. Yeni paket + yeni manifest `version`  
-2. SemVer major ise public contract breaking notu zorunlu  
-3. Migration’lar uygulanır  
-4. Health check geçer  
-5. State `enabled` kalır veya kısa süreli `registered`→`enabled`
+* `discovered` / `registered` / `failed` / `uninstalled` kapsamlı FSM  
+* `core.min` / `core.maxExclusive` uyumluluk kapısı  
+* custom migration registry  
+* otomatik purge / uninstall cascade  
+* runtime ZIP/plugin install  
 
 ## Gerekçe
 
-WordPress/Perfex benzeri enable/disable modeli operatör alışkanlığına uyar; veri silmeme üretim kazalarını önler.
+Hafif MVP; framework özelliklerini yeniden yazmamak.
 
 ## Sınırlar
 
-- Hot-reload / runtime plugin inject teknolojisi seçilmedi.  
-- Multi-version side-by-side aynı `id` desteklenmez (tek aktif sürüm).
-
-## Migration Impact
-
-| Mevcut durum | Etki |
-|--------------|------|
-| Lifecycle kodu yok | Laravel module registry + state machine sıfırdan |
-| Multi-tenant enable | Yok; kurulum geneli enable/disable |
-| Durum adları | `discovered`, `registered`, `enabled`, `disabled`, `failed`, `uninstalled` |
+* “failed boot” için pratikte log + disabled bırakmak yeter; ayrı state machine şart değil.
 
 ## Açık Sorular
 
-Yok. Enable/disable kurulum genelidir. `failed` için otomatik backoff v1’de yok (manuel Admin müdahalesi).
+Yok.

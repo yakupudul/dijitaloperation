@@ -1,27 +1,31 @@
 # MODULE_CONTRACT
 
 > Ana kaynak: `docs/MASTER_SPEC.md`  
-> Detay: `docs/module-sdk/*`  
-> İlgili ADR: ADR-008, ADR-009, ADR-022, ADR-032
+> Detay: `docs/module-sdk/*` (MVP vs future ayrımı)  
+> İlgili ADR: ADR-033, ADR-035
 
-## Kararlar
+## Kararlar (MVP)
 
-1. Manifest: `module.manifest.json` (`MODULE_MANIFEST_SPEC.md`).  
-2. Paketleme: `app-modules/` + `internachi/modular`; ZIP/marketplace yok.  
-3. Yaşam döngüsü: discovered → registered → enabled ⇄ disabled → failed → uninstalled; veri otomatik silinmez.  
-4. Veri: tablo öneki `m_{module_id_snake}_`; core ALTER yok.  
-5. İletişim: events / açık contract / çekirdek. Private import/tablo ve harici write yasak.  
-6. Panel katkıları: tek Filament panel `app` üzerinde extension point’ler.  
-7. Website Diagnosis: connector’suz temel seviye; katalog Faz 4 öncesi; Recommendation→Task manuel.
+1. Paketleme: `app-modules/` + `internachi/modular` + Composer + Service Provider (+ Filament plugin gerektiğinde).  
+2. Registry: `module_id`, `enabled`/`disabled` [, bilgisel version].  
+3. Disabled → DOP UI / schedule / analysis kapalı; veri ve Composer paketi kalır.  
+4. Migration: **Laravel module/package migrations** — custom migrator/registry MVP’de yok.  
+5. İletişim: Laravel events + çekirdek modeller; private tablo/import ve harici write yasak.  
+6. Website Diagnosis: connector’suz temel seviye mümkün; Recommendation→Task manuel.
+
+## Future / non-MVP (belgede kalır, implementasyonu zorlamaz)
+
+* `core.min` / `core.maxExclusive` compatibility engine  
+* discovered/registered/failed/uninstalled FSM  
+* purge, marketplace, ZIP install, custom schema registry  
 
 ## Gerekçe
 
-Yerel modular paketler + SDK, bağımsız özellik eklemeyi disipline eder.
+ADR-033: framework özelliklerini tekrar yazmamak.
 
 ## Sınırlar
 
-* Concrete PHP interface imzaları kod fazında.
-* Diagnosis kural içerikleri katalogda.
+* Manifest dosyası faydalı olabilir; zorunlu mega-şema MVP blocker değildir.
 
 ## Açık Sorular
 

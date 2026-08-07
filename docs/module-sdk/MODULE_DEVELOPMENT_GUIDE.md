@@ -3,7 +3,7 @@
 > Pratik kılavuz: WordPress eklentisi / Perfex modülü geliştirir gibi DOP modülü eklemek  
 > Normatif sözleşmeler: diğer `docs/module-sdk/*` dosyaları  
 > Ürün/mimari dayanak: `docs/foundation/*`  
-> Mevcut kod: `docs/current-state` — uygulama yok
+> Ana kaynak: `docs/MASTER_SPEC.md` (MVP sade)
 
 ## Amaç
 
@@ -11,25 +11,26 @@ Yeni bir özelliği çekirdeğe yamamak yerine **bağımsız modül** olarak nas
 
 ## Kararlar (geliştirme akışı)
 
-### Adım 0 — Modül mü, çekirdek mi?
+### Adım 0 — Modül mü, çekirdek mi? Framework mü?
 
-Çekirdeğe sadece `CORE_RESPONSIBILITIES` listesindeki ortak yetenekler girer.  
-SEO kuralı, Meta metriği, crawl, platforma özgü AI prompt → **modül**.
+Çekirdeğe MVP Core listesi girer. Domain teşhis/crawl/connector → **modül**.  
+Laravel/Filament/Composer’ın çözdüğünü tekrar yazma (ADR-033).
 
 ### Adım 1 — Kimlik, dizin ve sürüm
 
 1. Dizin: `app-modules/{id}/` (`internachi/modular`)  
 2. `id` seç: kebab-case, kalıcı (`website-diagnosis`)  
-3. `version` başlat: `0.1.0`  
-4. `core.min` / `core.maxExclusive` belirle  
-5. `class` seç: asset | connector | diagnosis | intelligence | automation | presentation  
+3. Composer package + Service Provider  
+4. Core registry’de enabled/disabled  
+5. `class` (bilgisel): asset | connector | diagnosis | intelligence | automation | presentation  
+6. `core.min` / `maxExclusive` → **future / non-MVP** (zorunlu değil)
 
 Ayrıntı: `MODULE_MANIFEST_SPEC.md`.
 
-### Adım 2 — Manifest’i yaz
+### Adım 2 — Manifest (önerilir; mega-şema zorunlu değil)
 
-`module.manifest.json` oluştur; boş diziler bile zorunlu alanları taşımalı.  
-Referans: `SAMPLE_MODULE_SPEC.md`.
+İsteğe bağlı/basit `module.manifest.json` faydalıdır. MVP’de tüm SDK alanlarını doldurmak zorunlu değildir.  
+Referans: `SAMPLE_MODULE_SPEC.md` (örnek; ürün fazı değil).
 
 ### Adım 3 — Veri sahipliği
 
