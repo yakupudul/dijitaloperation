@@ -16,6 +16,10 @@ Same pattern: Asset → Connections → Runs → Evidence → Findings → Recom
 
 Not in current MVP build order until roadmap steps 18+.
 
+Google Business Profile product blueprint is now detailed at
+`docs/product/google-business-profile/GOOGLE_BUSINESS_PROFILE.md` (roadmap step 18).
+Remaining placeholders here cover Google Ads, Meta Ads, Instagram, and later possibles.
+
 ## Important data / attributes
 
 Defined per future blueprint before implementation.
@@ -38,7 +42,7 @@ Cross-channel insights later (roadmap step 22).
 
 ## Later enhancements
 
-Next direction: Google Business Profile, Google Ads, Meta Ads, Instagram.  
+Next direction after GBP blueprint: Google Ads, Meta Ads, Instagram.  
 Later possibles: YouTube, CRM, other platforms.
 
 ## Explicit non-goals
