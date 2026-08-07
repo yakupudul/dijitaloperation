@@ -815,12 +815,38 @@ CREDENTIAL_DIFF_PATTERNS = (
     re.compile(r"(?i)(api[_-]?key|secret|password|token)\s*[:=]\s*['\"][^'\"]{12,}['\"]"),
 )
 
+# Obvious placeholders / UI field wiring — not literal leaked secrets.
+_CREDENTIAL_FALSE_POSITIVE = re.compile(
+    r"(?i)(::make\(|fillForm\(|assertFormSet\(|->state\(|encrypted:array|"
+    r"passwordConfirmation|current_password|type\(Password::class\)|"
+    r"['\"]password['\"]\s*=>\s*['\"]password['\"]|"
+    r"['\"]secret['\"]\s*=>\s*['\"]secret['\"]|"
+    r"['\"]token['\"]\s*=>\s*['\"]token['\"]|"
+    r"example\.com|changeme|placeholder|your[_-]?api[_-]?key)"
+)
+
+
+def _credential_scan_lines(diff_text: str) -> list[str]:
+    """Prefer added lines from unified diffs; otherwise scan full text."""
+    text = diff_text or ""
+    if "\ndiff --git " in text or text.startswith("diff --git "):
+        lines: list[str] = []
+        for line in text.splitlines():
+            if line.startswith("+") and not line.startswith("+++"):
+                lines.append(line[1:])
+        return lines
+    return text.splitlines()
+
 
 def scan_diff_for_credential_leaks(diff_text: str) -> list[str]:
     hits: list[str] = []
-    for pattern in CREDENTIAL_DIFF_PATTERNS:
-        if pattern.search(diff_text or ""):
-            hits.append(pattern.pattern)
+    for line in _credential_scan_lines(diff_text):
+        if _CREDENTIAL_FALSE_POSITIVE.search(line):
+            continue
+        for pattern in CREDENTIAL_DIFF_PATTERNS:
+            if pattern.search(line):
+                hits.append(pattern.pattern)
+                break
     return hits
 
 

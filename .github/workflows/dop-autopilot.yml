@@ -151,7 +151,9 @@ jobs:
                       sf.write(format_run_summary_markdown(
                           HARD_BLOCKED, detail='stale recover ignored (task already merged)'
                       ))
-              run_architect = 'true' if recovery_should_run_architect(payload) else 'false'
+              run_architect = 'true' if recovery_should_run_architect(
+                  payload, open_pr_branches=open_branches
+              ) else 'false'
           with open(os.environ['GITHUB_OUTPUT'], 'a') as fh:
               fh.write(f'mode={mode}\n')
               fh.write(f'ignore_stale={ignore}\n')
@@ -387,6 +389,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          trap 'echo create_pr > .automation/runtime/failed_step.txt; echo "Create PR failed" >> .automation/runtime/last_failure.txt' ERR
           python - <<'PY'
           import json, sys
           from pathlib import Path

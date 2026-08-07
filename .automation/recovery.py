@@ -79,10 +79,15 @@ _DEPENDENCY_PATTERNS = (
 
 _SECURITY_PATTERNS = (
     re.compile(r"secret-like paths", re.I),
-    re.compile(r"Credential-like patterns", re.I),
+    re.compile(r"-----BEGIN (?:RSA |OPENSSH |EC )?PRIVATE KEY-----"),
+    re.compile(r"AKIA[0-9A-Z]{16}"),
     re.compile(r"SECURITY_BLOCKER", re.I),
-    re.compile(r"scan_diff_for_credential", re.I),
 )
+
+# Product-patch credential scan hits are often Connection UI false positives;
+# treat as implementation so Fixer/retry can adjust literals — real key material
+# still matches _SECURITY_PATTERNS / private-key patterns above.
+_PRODUCT_CREDENTIAL_SCAN_HIT = re.compile(r"Credential-like patterns in product patch", re.I)
 
 _REVIEW_HARD_PATTERNS = (
     re.compile(r"invalid.?api.?key|incorrect.?api.?key", re.I),
@@ -116,6 +121,9 @@ def classify_failure(
 
     if any(p.search(text) for p in _SECURITY_PATTERNS):
         return SECURITY_BLOCKER
+
+    if _PRODUCT_CREDENTIAL_SCAN_HIT.search(text):
+        return IMPLEMENTATION_FAILURE
 
     if "review" in step or "reviewer" in step:
         if any(p.search(text) for p in _REVIEW_HARD_PATTERNS):
@@ -299,12 +307,23 @@ def should_ignore_stale_recovery(
     return False
 
 
-def recovery_should_run_architect(payload: dict[str, Any]) -> bool:
-    """Recover must not pick a *new* Architect task when an original task/branch exists."""
+def recovery_should_run_architect(
+    payload: dict[str, Any],
+    *,
+    open_pr_branches: set[str] | None = None,
+) -> bool:
+    """Recover must not pick a *new* Architect task when an original task/branch exists
+    and that branch still has an open PR to resume.
+
+    If there is no open PR (e.g. Create PR failed before push), re-run Architect /
+    implement flow instead of attempting an impossible PR resume.
+    """
     task_id = str(payload.get("original_task_id") or "").strip()
     branch = str(payload.get("original_branch") or "").strip()
     stage = str(payload.get("stage") or "").strip().lower()
-    if stage in {"architect", "architect_validation"}:
+    if stage in {"architect", "architect_validation", "create_pr", "create pr"}:
+        return True
+    if open_pr_branches is not None and branch and branch not in open_pr_branches:
         return True
     if task_id or branch:
         return False

@@ -84,6 +84,15 @@ class ClassifyFailureTests(unittest.TestCase):
             SECURITY_BLOCKER,
         )
 
+    def test_product_patch_credential_scan_is_implementation(self) -> None:
+        self.assertEqual(
+            classify_failure(
+                step_name="Create PR",
+                error_text="Credential-like patterns in product patch",
+            ),
+            IMPLEMENTATION_FAILURE,
+        )
+
 
 class RetryLimitTests(unittest.TestCase):
     def test_transient_retry_budget(self) -> None:
@@ -140,6 +149,19 @@ class RecoverTaskSemanticsTests(unittest.TestCase):
             }
         )
         self.assertTrue(recovery_should_run_architect(payload))
+
+    def test_branch_without_open_pr_reruns_architect(self) -> None:
+        payload = parse_recovery_client_payload(
+            {
+                "original_task_id": "core-connections-filament",
+                "original_branch": "feat/core-connections-filament-resources",
+                "failure_class": IMPLEMENTATION_FAILURE,
+                "stage": "create_pr",
+            }
+        )
+        self.assertTrue(
+            recovery_should_run_architect(payload, open_pr_branches=set())
+        )
 
     def test_merged_task_ignores_stale_recovery(self) -> None:
         self.assertTrue(
