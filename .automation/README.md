@@ -120,12 +120,19 @@ python reviewer.py --validate-only /path/to/review.json
 * Oversized diff → `HUMAN_REQUIRED`
 * Aynı anda tek next-task (concurrency)
 
-## Product memory
+## Full Autopilot
 
-Architect / Reviewer / Implementer product behavior için `docs/product/**` blueprint’lerini kullanır.
+Canonical workflow: **DOP Autopilot** (`.github/workflows/dop-autopilot.yml`)
 
-Architect TASK_READY JSON alanı:
+1. Architect picks one small task (with `product_spec_paths`)
+2. Cursor implements
+3. Quality gates (composer/tests/pint/secret scan)
+4. PR with `<!-- DOP_AUTOMATION_PR -->`
+5. In-run Reviewer + Fixer (max 3)
+6. On APPROVED: squash merge + delete branch
+7. Continue chain via `workflow_run` + `dop-autopilot-continue` artifact (`yes`)
+8. Optional `repository_dispatch` (`dop-next-task`) best-effort
 
-* `product_spec_paths`: yalnızca güvenli `docs/product/**/*.md` yolları
+Stops (no continue) on `ROADMAP_COMPLETE`, `HUMAN_REQUIRED`, failed gates, or max fixes.
 
-Implementer listedeki her dosyayı okumak zorundadır.
+Manual start: Actions → **DOP Autopilot** → Run workflow.
