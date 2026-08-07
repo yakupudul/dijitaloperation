@@ -147,8 +147,8 @@ class RunMigrationAndModelTest extends TestCase
     {
         $this->assertTrue(Schema::hasTable('runs'));
 
-        // Newest migration may be recommendations; roll back past runs.
-        $this->assertSame(0, Artisan::call('migrate:rollback', ['--step' => 2]));
+        // Newest migrations may include tasks/recommendations; roll back past runs.
+        $this->assertSame(0, Artisan::call('migrate:rollback', ['--step' => 3]));
 
         $this->assertFalse(Schema::hasTable('runs'));
 
