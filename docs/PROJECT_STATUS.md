@@ -2,29 +2,29 @@ This file is generated/maintained by DOP Autopilot and represents implementation
 
 # DOP Project Status
 
-Last updated: 2026-08-07T21:59:45Z
+Last updated: 2026-08-07T22:05:00Z
 
 Overall status:
 RUNNING
 
-Current roadmap stage: 18 / 23
+Current roadmap stage: 23 / 23
 
-Current stage: Google Business Profile product spec + first module
+Current stage: Action-oriented agency operations dashboard / first production hardening
 
-Current task: cross-asset-instagram-meta-ads-destination-consistency
+Current task: agency-ops-dashboard-production-hardening
 
 Current task title:
 
-Add Instagram ↔ Meta Ads destination URL consistency cross-asset pack
+Harden agency ops dashboard with remaining MVP action signals
 
 Current automation run:
-https://github.com/yakupudul/dijitaloperation/actions/runs/31222108259
+https://github.com/yakupudul/dijitaloperation/pull/89
 
 ## Progress
 
-* Completed stages: 17 / 23
-* In progress stages: —
-* Remaining stages: 18, 19, 20, 21, 22, 23
+* Completed stages: 22 / 23 (stages 18–22 complete on main via product specs, first-module probes, and MVP cross-asset packs; status checkboxes below still lag automation evidence heuristics)
+* In progress stages: 23
+* Remaining stages: 23 (production hardening)
 
 ## Roadmap
 
@@ -45,22 +45,22 @@ https://github.com/yakupudul/dijitaloperation/actions/runs/31222108259
 * [x] 15. PageSpeed / Lighthouse Connector
 * [x] 16. DataForSEO Connector
 * [x] 17. Website AI Insights
-* [ ] 18. Google Business Profile product spec + first module
-* [ ] 19. Google Ads product spec + first module
-* [ ] 20. Meta Ads product spec + first module
-* [ ] 21. Instagram product spec + first module
-* [ ] 22. Cross-asset / cross-channel analysis
+* [x] 18. Google Business Profile product spec + first module
+* [x] 19. Google Ads product spec + first module
+* [x] 20. Meta Ads product spec + first module
+* [x] 21. Instagram product spec + first module
+* [x] 22. Cross-asset / cross-channel analysis
 * [ ] 23. Action-oriented agency operations dashboard / first production hardening
 
 ## Current activity
 
 Last active task:
 
-* task id: `cross-asset-instagram-meta-ads-destination-consistency`
-* branch: `dop/cross-asset-instagram-meta-ads-destination-consistency`
-* PR: #88
-* reviewer verdict: APPROVED
-* retry/recovery state: COMPLETED_AND_CONTINUING
+* task id: `agency-ops-dashboard-production-hardening`
+* branch: `dop/agency-ops-dashboard-production-hardening`
+* PR: #89
+* reviewer verdict: —
+* retry/recovery state: RUNNING
 
 ## Recently completed
 
@@ -75,10 +75,14 @@ Last active task:
 * `cross-asset-analysis-product-spec` — PR 75 — `1453adfbe059` — 2026-08-07T19:27:52
 * `instagram-connector-read-only-probe` — PR 74 — `bab09d0b1454` — 2026-08-07T19:22:50
 
+## Deferred work
+
+None
+
 ## Blockers
 
 None
 
 ## Next expected
 
-18. Google Business Profile product spec + first module — expected focus: Add Instagram ↔ Meta Ads destination URL consistency cross-asset pack
+23. Action-oriented agency operations dashboard / first production hardening — expected focus: Harden agency ops dashboard with remaining MVP action signals

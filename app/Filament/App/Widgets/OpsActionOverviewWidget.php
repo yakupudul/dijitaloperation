@@ -53,6 +53,23 @@ class OpsActionOverviewWidget extends StatsOverviewWidget
             ->whereDate('due_date', '<', now()->toDateString())
             ->count();
 
+        $openCrossChannelFindings = Finding::query()
+            ->where('status', 'open')
+            ->where('category', 'cross-channel')
+            ->count();
+
+        $openWebsiteTechnicalFindings = Finding::query()
+            ->where('status', 'open')
+            ->where('source_module', 'website')
+            ->whereIn('severity', ['critical', 'high'])
+            ->count();
+
+        $recentlyResolvedImportantFindings = Finding::query()
+            ->where('status', 'resolved')
+            ->whereIn('severity', ['critical', 'high'])
+            ->where('last_seen_at', '>=', now()->subDays(7))
+            ->count();
+
         return [
             Stat::make('Critical open Findings', (string) $criticalFindings)
                 ->description($criticalFindings === 0
@@ -78,6 +95,24 @@ class OpsActionOverviewWidget extends StatsOverviewWidget
                         ? 'No open / in-progress / blocked Tasks'
                         : 'Open, in-progress, or blocked Tasks'))
                 ->color($overdueTasks > 0 ? 'danger' : ($openTasks > 0 ? 'warning' : 'gray')),
+            Stat::make('Open cross-channel Findings', (string) $openCrossChannelFindings)
+                ->description($openCrossChannelFindings === 0
+                    ? 'No open cross-channel Findings'
+                    : 'Open Findings with category cross-channel')
+                ->color($openCrossChannelFindings > 0 ? 'warning' : 'gray')
+                ->url(FindingResource::getUrl('index')),
+            Stat::make('Website technical Findings', (string) $openWebsiteTechnicalFindings)
+                ->description($openWebsiteTechnicalFindings === 0
+                    ? 'No critical/high open Website Findings'
+                    : 'Open critical/high Findings from website module')
+                ->color($openWebsiteTechnicalFindings > 0 ? 'danger' : 'gray')
+                ->url(FindingResource::getUrl('index')),
+            Stat::make('Recently resolved important', (string) $recentlyResolvedImportantFindings)
+                ->description($recentlyResolvedImportantFindings === 0
+                    ? 'No critical/high Findings resolved in the last 7 days'
+                    : 'Critical/high Findings resolved within the last 7 days')
+                ->color($recentlyResolvedImportantFindings > 0 ? 'success' : 'gray')
+                ->url(FindingResource::getUrl('index')),
         ];
     }
 }
