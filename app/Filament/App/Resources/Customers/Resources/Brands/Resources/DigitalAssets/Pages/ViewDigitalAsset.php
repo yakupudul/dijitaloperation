@@ -7,11 +7,13 @@ use App\Filament\App\Resources\Runs\RunResource;
 use App\Jobs\AnalyzeWebsiteGbpAddressConsistencyJob;
 use App\Jobs\AnalyzeWebsiteGbpPhoneConsistencyJob;
 use App\Jobs\AnalyzeWebsiteGbpWebsiteUrlConsistencyJob;
+use App\Jobs\AnalyzeWebsiteGoogleAdsLandingConsistencyJob;
 use App\Jobs\DiagnoseWebsiteJob;
 use App\Models\DigitalAsset;
 use App\Services\CrossAssetWebsiteGbpAddressConsistencyService;
 use App\Services\CrossAssetWebsiteGbpPhoneConsistencyService;
 use App\Services\CrossAssetWebsiteGbpWebsiteUrlConsistencyService;
+use App\Services\CrossAssetWebsiteGoogleAdsLandingConsistencyService;
 use App\Services\WebsiteDiagnosisService;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
@@ -190,6 +192,49 @@ class ViewDigitalAsset extends ViewRecord
 
                     $this->redirect(RunResource::getUrl('view', ['record' => $run]));
                 }),
+            Action::make('runWebsiteGoogleAdsLandingConsistency')
+                ->label('Run Website↔Google Ads landing check')
+                ->icon(Heroicon::OutlinedCursorArrowRays)
+                ->color('gray')
+                ->visible(fn (): bool => $this->canRunWebsiteGoogleAdsLandingConsistency())
+                ->requiresConfirmation()
+                ->modalHeading('Run Website ↔ Google Ads landing URL consistency')
+                ->modalDescription('Compares existing Website HTTP Evidence with Brand Google Ads landing final URL Evidence. No external writes.')
+                ->modalSubmitActionLabel('Run check')
+                ->action(function (): void {
+                    /** @var DigitalAsset $asset */
+                    $asset = $this->getRecord();
+
+                    try {
+                        $run = (new AnalyzeWebsiteGoogleAdsLandingConsistencyJob($asset))->handle(
+                            app(CrossAssetWebsiteGoogleAdsLandingConsistencyService::class),
+                        );
+                    } catch (\Throwable $exception) {
+                        Notification::make()
+                            ->title('Website↔Google Ads landing check failed')
+                            ->body($exception->getMessage())
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
+
+                    $skip = is_string($run->metadata['skip_reason'] ?? null)
+                        ? $run->metadata['skip_reason']
+                        : null;
+
+                    Notification::make()
+                        ->title($skip === null ? 'Website↔Google Ads landing check completed' : 'Website↔Google Ads landing check skipped')
+                        ->body(
+                            $skip === null
+                                ? 'Run #'.$run->id.' finished with status '.$run->status.'.'
+                                : 'Run #'.$run->id.' finished without comparison ('.$skip.').'
+                        )
+                        ->success()
+                        ->send();
+
+                    $this->redirect(RunResource::getUrl('view', ['record' => $run]));
+                }),
             EditAction::make(),
         ];
     }
@@ -232,6 +277,15 @@ class ViewDigitalAsset extends ViewRecord
         $asset = $this->getRecord();
 
         return $asset->type === CrossAssetWebsiteGbpAddressConsistencyService::ASSET_TYPE_WEBSITE
+            && $asset->brand_id !== null;
+    }
+
+    private function canRunWebsiteGoogleAdsLandingConsistency(): bool
+    {
+        /** @var DigitalAsset $asset */
+        $asset = $this->getRecord();
+
+        return $asset->type === CrossAssetWebsiteGoogleAdsLandingConsistencyService::ASSET_TYPE_WEBSITE
             && $asset->brand_id !== null;
     }
 }
