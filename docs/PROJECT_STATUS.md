@@ -2,7 +2,7 @@ This file is generated/maintained by DOP Autopilot and represents implementation
 
 # DOP Project Status
 
-Last updated: 2026-08-07T20:23:24Z
+Last updated: 2026-08-07T20:39:39Z
 
 Overall status:
 RUNNING
@@ -11,14 +11,14 @@ Current roadmap stage: 18 / 23
 
 Current stage: Google Business Profile product spec + first module
 
-Current task: cross-asset-website-google-ads-landing-consistency
+Current task: cross-asset-website-instagram-website-url-consistency
 
 Current task title:
 
-Add Website ↔ Google Ads landing URL consistency cross-asset pack
+Add Website ↔ Instagram website URL consistency cross-asset pack
 
 Current automation run:
-https://github.com/yakupudul/dijitaloperation/actions/runs/31215565956
+https://github.com/yakupudul/dijitaloperation/actions/runs/31216731291
 
 ## Progress
 
@@ -56,14 +56,15 @@ https://github.com/yakupudul/dijitaloperation/actions/runs/31215565956
 
 Last active task:
 
-* task id: `cross-asset-website-google-ads-landing-consistency`
-* branch: `dop/cross-asset-website-google-ads-landing-consistency`
-* PR: #84
+* task id: `cross-asset-website-instagram-website-url-consistency`
+* branch: `dop/cross-asset-website-instagram-website-url-consistency`
+* PR: #85
 * reviewer verdict: APPROVED
 * retry/recovery state: COMPLETED_AND_CONTINUING
 
 ## Recently completed
 
+* `cross-asset-website-instagram-website-url-consistency` — PR 85 — `d90cb90f2db9` — 2026-08-07T20:39:36
 * `cross-asset-website-google-ads-landing-consistency` — PR 84 — `cb4010dab9a0` — 2026-08-07T20:23:21
 * `agency-ops-dashboard-action-cards` — PR 83 — `f5c4a8d996d3` — 2026-08-07T20:16:51
 * `cross-asset-website-gbp-address-consistency` — PR 82 — `18381eb0035b` — 2026-08-07T20:13:16
@@ -73,7 +74,6 @@ Last active task:
 * `instagram-connector-read-only-probe` — PR 74 — `bab09d0b1454` — 2026-08-07T19:22:50
 * `instagram-product-spec` — PR 73 — `885ad50de330` — 2026-08-07T19:18:42
 * `meta-ads-connector-read-only-probe` — PR 72 — `5502ba27fbf4` — 2026-08-07T19:05:46
-* `meta-ads-product-spec` — PR 71 — `c81eb7743cbe` — 2026-08-07T18:27:55
 
 ## Blockers
 
@@ -81,4 +81,4 @@ None
 
 ## Next expected
 
-18. Google Business Profile product spec + first module — expected focus: Add Website ↔ Google Ads landing URL consistency cross-asset pack
+18. Google Business Profile product spec + first module — expected focus: Add Website ↔ Instagram website URL consistency cross-asset pack
