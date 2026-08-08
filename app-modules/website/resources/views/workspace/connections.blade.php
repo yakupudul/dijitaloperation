@@ -63,4 +63,7 @@
     @if ($bothBound)
         <p class="mox-muted mox-footnote">GA4 and Search Console are connected. Additional Google sources are managed from agency Integrations when needed.</p>
     @endif
+
+    {{-- Custom schema content replaces EmbeddedTable; keep Filament action modal outlet. --}}
+    <x-filament-actions::modals />
 </div>

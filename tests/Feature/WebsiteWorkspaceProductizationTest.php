@@ -278,7 +278,26 @@ class WebsiteWorkspaceProductizationTest extends TestCase
             ->assertSee('GA4 and Search Console are connected')
             ->assertDontSee('Bind resource')
             ->assertDontSee('Credentials JSON')
-            ->assertDontSee('External resource');
+            ->assertDontSee('External resource')
+            ->mountAction('changeGa4')
+            ->assertActionMounted('changeGa4');
+
+        Livewire::test(WebsiteConnectionsRelationManager::class, [
+            'ownerRecord' => $this->website,
+            'pageClass' => ViewDigitalAsset::class,
+        ])
+            ->mountAction('changeSearchConsole')
+            ->assertActionMounted('changeSearchConsole');
+
+        Livewire::test(WebsiteConnectionsRelationManager::class, [
+            'ownerRecord' => $this->website,
+            'pageClass' => ViewDigitalAsset::class,
+        ])
+            ->mountAction('manageWordPress')
+            ->assertActionMounted('manageWordPress')
+            ->assertDontSee('Credentials JSON')
+            ->assertDontSee('Meta Ads')
+            ->assertDontSee('Instagram');
 
         $this->assertSame(['wordpress'], ConnectionsRelationManager::creatableConnectionTypes());
         $this->assertContains($ga4b->id, array_keys(

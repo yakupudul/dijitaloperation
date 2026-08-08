@@ -76,15 +76,18 @@ class WebsiteConnectionsRelationManager extends RelationManager
             ->where('type', 'wordpress')
             ->first();
 
+        $isActive = $existing !== null && $existing->enabled;
+
         return Action::make('manageWordPress')
-            ->label($existing ? 'Edit WordPress' : 'Connect WordPress')
-            ->modalHeading($existing ? 'Edit WordPress connection' : 'Connect WordPress')
+            ->label($isActive ? 'Edit WordPress' : 'Connect WordPress')
+            ->color('gray')
+            ->modalHeading($isActive ? 'Edit WordPress connection' : 'Connect WordPress')
             ->modalDescription('Site-scoped CMS credentials for this Website. Stored encrypted; never shown again after save.')
             ->fillForm(fn (): array => [
                 'name' => $existing?->name ?: ($asset->name.' WordPress'),
                 'base_url' => is_array($existing?->config)
                     ? ($existing->config['base_url'] ?? $asset->primary_url)
-                    : $asset->primary_url,
+                    : ($asset->primary_url ?: ''),
                 'username' => '',
                 'application_password' => '',
                 'enabled' => $existing?->enabled ?? true,
@@ -202,6 +205,7 @@ class WebsiteConnectionsRelationManager extends RelationManager
     {
         return Action::make($capability === 'ga4' ? 'changeGa4' : 'changeSearchConsole')
             ->label($label)
+            ->color('gray')
             ->modalHeading(fn (): string => ($this->existingBinding($capability) ? 'Change ' : 'Connect ').$label)
             ->modalDescription('Choose a discovered '.$label.' property from the agency Google Integration.')
             ->form([
