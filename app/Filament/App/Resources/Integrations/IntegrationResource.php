@@ -9,6 +9,7 @@ use App\Filament\App\Resources\Integrations\Pages\ListIntegrations;
 use App\Filament\App\Resources\Integrations\Pages\ViewIntegration;
 use App\Filament\App\Resources\Integrations\RelationManagers\ExternalResourcesRelationManager;
 use App\Models\CoreIntegration;
+use App\Models\CoreIntegrationCredential;
 use App\Models\User;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Roles;
@@ -108,8 +109,8 @@ class IntegrationResource extends Resource
                     ->addActionLabel('Add config key')
                     ->columnSpanFull(),
                 Textarea::make('credentials_json')
-                    ->label('Credentials JSON')
-                    ->helperText('Optional. Stored encrypted (ADR-039). Never shown after save. Leave blank on edit to keep existing credentials. Live OAuth is not wired in this foundation.')
+                    ->label('Provider credentials JSON')
+                    ->helperText('Optional application/provider secrets only (encrypted). Never shown after save. Leave blank on edit to keep existing provider credentials. Do not paste OAuth access/refresh tokens here — those are obtained via Authorize. For Google, prefer Application configuration on the integration view.')
                     ->rows(5)
                     ->columnSpanFull(),
             ]);
@@ -137,9 +138,9 @@ class IntegrationResource extends Resource
                     })
                     ->columnSpanFull(),
                 IconEntry::make('credential_present')
-                    ->label('Credentials stored')
+                    ->label('Authorization stored')
                     ->boolean()
-                    ->state(fn (CoreIntegration $record): bool => $record->credential()->exists()),
+                    ->state(fn (CoreIntegration $record): bool => $record->authorizationCredential()->exists()),
                 TextEntry::make('last_success_at')
                     ->dateTime()
                     ->placeholder('—'),
@@ -173,9 +174,9 @@ class IntegrationResource extends Resource
                     ->badge()
                     ->sortable(),
                 IconColumn::make('credential_present')
-                    ->label('Credentials')
+                    ->label('Authorized')
                     ->boolean()
-                    ->state(fn (CoreIntegration $record): bool => $record->credential()->exists()),
+                    ->state(fn (CoreIntegration $record): bool => $record->authorizationCredential()->exists()),
                 TextColumn::make('external_resources_count')
                     ->counts('externalResources')
                     ->label('Resources')
@@ -278,9 +279,17 @@ class IntegrationResource extends Resource
             ]);
         }
 
-        $record->credential()->updateOrCreate(
-            ['integration_id' => $record->id],
-            ['encrypted_payload' => $payload],
+        // Manual JSON is for provider/application secrets — never OAuth token rows.
+        $record->providerCredential()->updateOrCreate(
+            [
+                'integration_id' => $record->id,
+                'credential_type' => CoreIntegrationCredential::TYPE_PROVIDER,
+            ],
+            [
+                'encrypted_payload' => $payload,
+                'expires_at' => null,
+                'refreshed_at' => null,
+            ],
         );
     }
 

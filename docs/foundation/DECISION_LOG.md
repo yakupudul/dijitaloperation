@@ -272,7 +272,7 @@
 - **Karar:**
   1. **Authenticate once at agency level, bind many resources to Digital Assets.**
   2. **Integration (`core_integrations`)** — Moximu’nun bir external provider’a (Google, Meta, DataForSEO, OpenAI, …) yaptığı merkezi bağlantı. Credential ownership Integration’dadır; Customer/Brand/Asset başına tekrarlanmaz. Provider başına en fazla bir Integration (unique `provider`).
-  3. **Integration credentials (`core_integration_credentials`)** — Secret’lar Laravel encryption / encrypted cast ile saklanır (ADR-027 deseni). Secret resource veya binding metadata’ya kopyalanmaz; UI’da write-only; log/API/screenshot’a plaintext sızmaz.
+  3. **Integration credentials (`core_integration_credentials`)** — Secret’lar Laravel encryption / encrypted cast ile saklanır (ADR-027 deseni). Secret resource veya binding metadata’ya kopyalanmaz; UI’da write-only; log/API/screenshot’a plaintext sızmaz. Credential semantics refined by **ADR-040** (provider/application vs authorization token rows).
   4. **External Resource (`core_external_resources`)** — Integration üzerinden discover edilen provider-side gerçek kaynak (GSC property, GA4 property, Ads customer, GBP location, Meta ad account, Page, IG account, …). Kullanıcı normal akışta external ID elle yazmaz. `(integration_id, resource_type, external_id)` unique.
   5. **Binding (`core_asset_bindings`)** — Digital Asset ↔ External Resource eşlemesi. Credential taşımaz; yalnızca hangi DOP asset’inin hangi provider resource’una karşılık geldiğini söyler. `(digital_asset_id, external_resource_id)` ve `(digital_asset_id, capability)` unique.
   6. **Collector** — Credential değildir. Integration + Binding/Resource + collection config ile read-only veri çeken application service/job’dır. Kullanıcı UI’dan “collector bağlama”; Integration kurar ve resource seçerek Binding oluşturur. Bu ADR collector/scheduling implementasyonu zorunlu kılmaz.
@@ -287,7 +287,26 @@
   13. **Compatibility (non-destructive):** Mevcut provider-type `CoreConnection` satırları bu milestone’da destructive migrate edilmez. WordPress/site credentials Connection’da kalır. Provider-level Connection satırları transitional kabul edilir; güvenli migration sonraki Google/Meta Integration milestone’larında Binding + Integration’a taşınabilir. Compatibility helper hangi type’ların asset-scoped / provider-level olduğunu sınıflandırır.
   14. **Security / audit:** Integration credential yönetimi Admin-only. Unauthorized kullanıcılar policy/canAccess ile engellenir. Exception mesajları secret içermez.
   15. **Extensibility:** Küçük canonical provider/capability registry yeterlidir; marketplace/plugin engine yok.
-- **İlgili:** ADR-015, ADR-017, ADR-018, ADR-027, ADR-037; `docs/product/CONNECTION.md`; `MASTER_SPEC.md` §7.1; Settings → Integrations UI
+- **İlgili:** ADR-015, ADR-017, ADR-018, ADR-027, ADR-037, ADR-040; `docs/product/CONNECTION.md`; `MASTER_SPEC.md` §7.1; Settings → Integrations UI
+
+## ADR-040 — Integration provider vs authorization credentials (Admin-managed)
+
+- **Durum:** Accepted
+- **Tarih:** 2026-08-08
+- **Bağlam:** MoxDOP internal single-agency sistemdir. Normal provider/application credentials (OAuth Client ID/Secret, Ads developer token, API keys) Admin Panel’den yönetilmelidir; yalnızca `.env` düzenlemek operasyonel varsayılan olamaz. Mevcut tek `core_integration_credentials` satırı OAuth access/refresh token tutuyordu; Disconnect satırı sildiği için Client Secret/developer token aynı payload’a eklenemezdi.
+- **Karar:**
+  1. **Two credential categories on Integration:**
+     - **Provider / application** (`credential_type = provider`) — Admin-configured Client ID/Secret, developer tokens, API keys. Persist across Disconnect / re-authorize.
+     - **Authorization** (`credential_type = authorization`) — OAuth-generated access/refresh tokens + expiry. Never manually editable; never shown in Filament.
+  2. **Uniqueness:** `(integration_id, credential_type)`. Existing rows migrate/default to `authorization` (backwards compatible).
+  3. **Google resolution precedence** via `GoogleCredentialResolver`: (1) DB provider credential, (2) env/config fallback, (3) missing. Env secrets are not auto-copied into DB. UI may show “Configured by environment” without revealing values.
+  4. **Disconnect Google account** clears/revokes authorization tokens only; preserves provider credentials, Integration, and historical resources/bindings (ADR-039 unavailable semantics).
+  5. **Remove provider configuration** is a separate Admin-only destructive action with confirmation.
+  6. **Redirect URI** is not a secret; show/copy from Integration page; keep optional env override.
+  7. **`GOOGLE_ADS_API_VERSION`** remains deployment/system config (not an Admin secret field).
+  8. **Generic enough for Meta / DataForSEO / OpenAI provider secrets later**; this ADR does not implement those forms.
+  9. **`APP_KEY` and infrastructure secrets stay environment-managed.**
+- **İlgili:** ADR-027, ADR-039; `docs/product/GOOGLE_INTEGRATION_SETUP.md`; Settings → Integrations → Google
 
 ---
 
@@ -334,6 +353,7 @@
 | ADR-037 | MVP Core sade liste | Accepted |
 | ADR-038 | PHPUnit test standardı | Accepted |
 | ADR-039 | Central Agency Integration / External Resource / Binding | Accepted |
+| ADR-040 | Integration provider vs authorization credentials | Accepted |
 
 ## Süpercede edilen kararlar
 

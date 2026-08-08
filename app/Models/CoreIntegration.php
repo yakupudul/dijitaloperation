@@ -35,11 +35,45 @@ class CoreIntegration extends Model
     ];
 
     /**
+     * All encrypted credential rows for this integration (provider + authorization).
+     *
+     * @return HasMany<CoreIntegrationCredential, $this>
+     */
+    public function credentials(): HasMany
+    {
+        return $this->hasMany(CoreIntegrationCredential::class, 'integration_id');
+    }
+
+    /**
+     * OAuth / authorization tokens only.
+     *
+     * Kept as `credential()` for backwards-compatible eager loads and call sites.
+     *
      * @return HasOne<CoreIntegrationCredential, $this>
      */
     public function credential(): HasOne
     {
-        return $this->hasOne(CoreIntegrationCredential::class, 'integration_id');
+        return $this->authorizationCredential();
+    }
+
+    /**
+     * @return HasOne<CoreIntegrationCredential, $this>
+     */
+    public function authorizationCredential(): HasOne
+    {
+        return $this->hasOne(CoreIntegrationCredential::class, 'integration_id')
+            ->where('credential_type', CoreIntegrationCredential::TYPE_AUTHORIZATION);
+    }
+
+    /**
+     * Static provider/application secrets (Client ID/Secret, developer token, API keys).
+     *
+     * @return HasOne<CoreIntegrationCredential, $this>
+     */
+    public function providerCredential(): HasOne
+    {
+        return $this->hasOne(CoreIntegrationCredential::class, 'integration_id')
+            ->where('credential_type', CoreIntegrationCredential::TYPE_PROVIDER);
     }
 
     /**

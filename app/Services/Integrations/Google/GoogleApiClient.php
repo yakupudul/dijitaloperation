@@ -14,6 +14,7 @@ class GoogleApiClient
 {
     public function __construct(
         private readonly GoogleOAuthService $oauth,
+        private readonly GoogleCredentialResolver $credentials,
     ) {}
 
     public function get(CoreIntegration $integration, string $url, array $query = []): Response
@@ -23,9 +24,9 @@ class GoogleApiClient
 
     public function getAds(CoreIntegration $integration, string $path): Response
     {
-        $developerToken = GoogleOAuthConfig::developerToken();
+        $developerToken = $this->credentials->developerToken($integration);
         if ($developerToken === null) {
-            throw new RuntimeException('GOOGLE_ADS_DEVELOPER_TOKEN is missing.');
+            throw new RuntimeException('Google Ads developer token is missing.');
         }
 
         $url = GoogleOAuthConfig::adsApiUrl($path);

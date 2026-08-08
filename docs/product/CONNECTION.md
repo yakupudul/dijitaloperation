@@ -31,7 +31,7 @@ Ekip asset’e güvenli read-only veri kaynakları bağlar; diagnosis/confidence
 
 * Settings → Integrations
 * Provider select (finite: Google, Meta, DataForSEO, OpenAI)
-* Credential encrypted store (`core_integration_credentials`)
+* Credential encrypted store (`core_integration_credentials`) with provider vs authorization rows (ADR-040)
 * Resource discovery contract (`DiscoversProviderResources`) — live OAuth sonraki milestone
 * Disabled integration: yeni discovery/collection durur; binding/resource purge edilmez
 
@@ -61,7 +61,7 @@ Provider-type `CoreConnection` satırları (GA4, GSC, Ads, …) destructive migr
 ## Important data / attributes
 
 Integration: provider, name, status, config, health timestamps.  
-Integration credential: encrypted_payload (+ optional expires/refreshed).  
+Integration credential: `credential_type` (`provider` \| `authorization`) + encrypted_payload (+ optional expires/refreshed for authorization). Provider secrets are Admin-managed; OAuth tokens are never manually edited.  
 External Resource: integration_id, resource_type, external_id, display_name, metadata (no secrets).  
 Binding: digital_asset_id, external_resource_id, capability, status.  
 Site Connection: asset_id, type, name, status/enabled, config, credential_ref/state.

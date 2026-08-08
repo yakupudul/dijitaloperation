@@ -26,6 +26,10 @@ class GoogleOAuthService
 
     private const string STATE_CACHE_PREFIX = 'google_oauth_state:';
 
+    public function __construct(
+        private readonly GoogleCredentialResolver $credentials,
+    ) {}
+
     public function assertAdmin(User $user): void
     {
         if (! $user->hasRole(Roles::ADMIN)) {
@@ -48,10 +52,17 @@ class GoogleOAuthService
         $this->assertAdmin($user);
         $this->assertGoogleIntegration($integration);
 
-        if (! GoogleOAuthConfig::isConfigured()) {
+        if (! $this->credentials->isAppConfigured($integration)) {
+            $missing = $this->credentials->missingAppKeys($integration);
+
             return [
-                'error' => 'Google OAuth app is not configured. Set '.implode(', ', GoogleOAuthConfig::missingKeys()).' in the environment.',
+                'error' => 'Google application credentials are incomplete. Configure '.implode(', ', $missing).' under Application configuration (or set environment fallbacks).',
             ];
+        }
+
+        $clientId = $this->credentials->clientId($integration);
+        if ($clientId === null) {
+            return ['error' => 'Google OAuth Client ID is missing.'];
         }
 
         $state = Str::random(40);
@@ -61,7 +72,7 @@ class GoogleOAuthService
         ], now()->addMinutes(15));
 
         $query = http_build_query([
-            'client_id' => GoogleOAuthConfig::clientId(),
+            'client_id' => $clientId,
             'redirect_uri' => GoogleOAuthConfig::redirectUri(),
             'response_type' => 'code',
             'scope' => implode(' ', GoogleScopes::requested()),
@@ -101,13 +112,19 @@ class GoogleOAuthService
 
         $this->assertGoogleIntegration($integration);
 
+        $clientId = $this->credentials->clientId($integration);
+        $clientSecret = $this->credentials->clientSecret($integration);
+        if ($clientId === null || $clientSecret === null) {
+            return ['error' => 'Google application credentials are incomplete. Configure Client ID and Client Secret first.'];
+        }
+
         try {
             $tokenResponse = Http::asForm()
                 ->timeout(20)
                 ->post(self::TOKEN_ENDPOINT, [
                     'code' => $code,
-                    'client_id' => GoogleOAuthConfig::clientId(),
-                    'client_secret' => GoogleOAuthConfig::clientSecret(),
+                    'client_id' => $clientId,
+                    'client_secret' => $clientSecret,
                     'redirect_uri' => GoogleOAuthConfig::redirectUri(),
                     'grant_type' => 'authorization_code',
                 ]);
@@ -142,7 +159,7 @@ class GoogleOAuthService
             return ['error' => 'Google token response did not include an access token.'];
         }
 
-        $existing = $integration->credential;
+        $existing = $integration->authorizationCredential;
         $existingPayload = is_array($existing?->encrypted_payload) ? $existing->encrypted_payload : [];
         if ($refreshToken === '') {
             $refreshToken = (string) ($existingPayload['refresh_token'] ?? '');
@@ -162,7 +179,10 @@ class GoogleOAuthService
         ];
 
         CoreIntegrationCredential::query()->updateOrCreate(
-            ['integration_id' => $integration->id],
+            [
+                'integration_id' => $integration->id,
+                'credential_type' => CoreIntegrationCredential::TYPE_AUTHORIZATION,
+            ],
             [
                 'encrypted_payload' => $payload,
                 'expires_at' => now()->addSeconds(max(60, $expiresIn - 60)),
@@ -183,12 +203,12 @@ class GoogleOAuthService
             'last_error' => null,
         ])->save();
 
-        return ['integration' => $integration->fresh(['credential']) ?? $integration];
+        return ['integration' => $integration->fresh(['credential', 'providerCredential']) ?? $integration];
     }
 
     public function validAccessToken(CoreIntegration $integration): ?string
     {
-        $credential = $integration->credential;
+        $credential = $integration->authorizationCredential;
         if (! $credential instanceof CoreIntegrationCredential) {
             return null;
         }
@@ -207,7 +227,7 @@ class GoogleOAuthService
 
     public function refreshAccessToken(CoreIntegration $integration): ?string
     {
-        $credential = $integration->credential;
+        $credential = $integration->authorizationCredential;
         if (! $credential instanceof CoreIntegrationCredential) {
             return null;
         }
@@ -219,12 +239,20 @@ class GoogleOAuthService
             return null;
         }
 
+        $clientId = $this->credentials->clientId($integration);
+        $clientSecret = $this->credentials->clientSecret($integration);
+        if ($clientId === null || $clientSecret === null) {
+            $this->markAuthStatus($integration, GoogleAuthStatus::NOT_CONFIGURED, 'Google application credentials are incomplete.');
+
+            return null;
+        }
+
         try {
             $response = Http::asForm()
                 ->timeout(20)
                 ->post(self::TOKEN_ENDPOINT, [
-                    'client_id' => GoogleOAuthConfig::clientId(),
-                    'client_secret' => GoogleOAuthConfig::clientSecret(),
+                    'client_id' => $clientId,
+                    'client_secret' => $clientSecret,
                     'refresh_token' => $payload['refresh_token'],
                     'grant_type' => 'refresh_token',
                 ]);
@@ -280,10 +308,10 @@ class GoogleOAuthService
     {
         $this->assertGoogleIntegration($integration);
 
-        if (! GoogleOAuthConfig::isConfigured()) {
+        if (! $this->credentials->isAppConfigured($integration)) {
             return [
                 'ok' => false,
-                'message' => 'Setup required: '.implode(', ', GoogleOAuthConfig::missingKeys()).' missing.',
+                'message' => 'Setup required: '.implode(', ', $this->credentials->missingAppKeys($integration)).' missing.',
             ];
         }
 
@@ -359,13 +387,15 @@ class GoogleOAuthService
     }
 
     /**
+     * Clear OAuth authorization tokens only. Provider/application credentials are preserved.
+     *
      * @return array{ok: bool, message: string}
      */
     public function disconnect(CoreIntegration $integration): array
     {
         $this->assertGoogleIntegration($integration);
 
-        $credential = $integration->credential;
+        $credential = $integration->authorizationCredential;
         $tokenToRevoke = null;
         if ($credential instanceof CoreIntegrationCredential && is_array($credential->encrypted_payload)) {
             $tokenToRevoke = $credential->encrypted_payload['refresh_token']
@@ -412,7 +442,7 @@ class GoogleOAuthService
 
         return [
             'ok' => true,
-            'message' => 'Google credentials cleared. Historical resources remain as unavailable mappings.',
+            'message' => 'Google account disconnected. Authorization tokens cleared; application credentials preserved. Historical resources remain as unavailable mappings.',
         ];
     }
 
