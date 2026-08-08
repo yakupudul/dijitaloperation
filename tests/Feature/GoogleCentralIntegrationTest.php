@@ -48,7 +48,8 @@ class GoogleCentralIntegrationTest extends TestCase
         config([
             'moxdop.google.client_id' => 'test-client-id',
             'moxdop.google.client_secret' => 'test-client-secret',
-            'moxdop.google.redirect_uri' => 'http://localhost/integrations/google/callback',
+            'moxdop.google.redirect_uri' => null,
+            'app.url' => 'http://127.0.0.1:8000',
             'moxdop.google.developer_token' => 'test-dev-token',
             'moxdop.google.include_gbp_scope' => false,
             'moxdop.google.gbp_discovery_enabled' => false,

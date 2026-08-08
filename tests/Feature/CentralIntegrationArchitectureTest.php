@@ -70,11 +70,6 @@ class CentralIntegrationArchitectureTest extends TestCase
                 'provider' => ProviderRegistry::GOOGLE,
                 'name' => 'Google',
                 'status' => CoreIntegration::STATUS_ACTIVE,
-                'config' => ['account_email' => 'ops@moximu.com'],
-                'credentials_json' => json_encode([
-                    'client_id' => 'agency-client-id',
-                    'client_secret' => 'agency-client-secret',
-                ], JSON_THROW_ON_ERROR),
             ])
             ->call('create')
             ->assertHasNoFormErrors();
@@ -83,8 +78,9 @@ class CentralIntegrationArchitectureTest extends TestCase
 
         $this->assertSame('Google', $integration->name);
         $this->assertSame(CoreIntegration::STATUS_ACTIVE, $integration->status);
-        $this->assertSame(['account_email' => 'ops@moximu.com'], $integration->config);
-        $this->assertTrue($integration->providerCredential()->exists());
+        // Google app credentials are configured only via View → Configure (not create JSON/KeyValue).
+        $this->assertSame([], $integration->config ?? []);
+        $this->assertFalse($integration->providerCredential()->exists());
         $this->assertFalse($integration->authorizationCredential()->exists());
     }
 
@@ -109,16 +105,17 @@ class CentralIntegrationArchitectureTest extends TestCase
 
     public function test_integration_credentials_are_encrypted_and_never_rehydrated_plaintext(): void
     {
-        $integration = CoreIntegration::factory()->google()->create();
+        // Generic credentials JSON remains for non-Google providers; Google uses View → Configure only.
+        $integration = CoreIntegration::factory()->meta()->create();
 
         Livewire::test(EditIntegration::class, ['record' => $integration->getRouteKey()])
             ->fillForm([
-                'name' => 'Google',
+                'name' => 'Meta',
                 'status' => CoreIntegration::STATUS_ACTIVE,
                 'config' => [],
                 'credentials_json' => json_encode([
-                    'client_id' => 'super-client-id',
-                    'client_secret' => 'super-secret-client',
+                    'app_id' => 'super-app-id',
+                    'app_secret' => 'super-secret-client',
                 ], JSON_THROW_ON_ERROR),
             ])
             ->call('save')
@@ -135,7 +132,7 @@ class CentralIntegrationArchitectureTest extends TestCase
 
         $this->assertIsString($stored);
         $this->assertStringNotContainsString('super-secret-client', $stored);
-        $this->assertSame('super-secret-client', $credential->encrypted_payload['client_secret']);
+        $this->assertSame('super-secret-client', $credential->encrypted_payload['app_secret']);
         $this->assertSame(CoreIntegrationCredential::TYPE_PROVIDER, $credential->credential_type);
         $this->assertArrayNotHasKey('encrypted_payload', $credential->toArray());
 

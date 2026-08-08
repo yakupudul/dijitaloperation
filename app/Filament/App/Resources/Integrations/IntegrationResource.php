@@ -11,6 +11,7 @@ use App\Filament\App\Resources\Integrations\RelationManagers\ExternalResourcesRe
 use App\Models\CoreIntegration;
 use App\Models\CoreIntegrationCredential;
 use App\Models\User;
+use App\Support\Integrations\Google\GoogleIntegrationConfigGuard;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Roles;
 use BackedEnum;
@@ -18,6 +19,7 @@ use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\KeyValue;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -103,15 +105,22 @@ class IntegrationResource extends Resource
                     ->native(false)
                     ->default(CoreIntegration::STATUS_ACTIVE)
                     ->helperText('Disabled integrations stop new discovery/collection; existing bindings are kept.'),
+                Placeholder::make('google_setup_redirect')
+                    ->label('Google application credentials')
+                    ->content('Use Settings → Integrations → Google → Configure for OAuth Client ID, Client Secret, and Ads developer token. Do not enter secrets here.')
+                    ->visible(fn (callable $get, ?CoreIntegration $record): bool => self::isGoogleFormContext($get, $record))
+                    ->columnSpanFull(),
                 KeyValue::make('config')
                     ->label('Non-secret configuration')
-                    ->helperText('Non-secret provider settings only. Never store tokens here.')
+                    ->helperText('Non-secret provider settings only. Never store tokens or secrets here.')
                     ->addActionLabel('Add config key')
+                    ->visible(fn (callable $get, ?CoreIntegration $record): bool => ! self::isGoogleFormContext($get, $record))
                     ->columnSpanFull(),
                 Textarea::make('credentials_json')
                     ->label('Provider credentials JSON')
-                    ->helperText('Optional application/provider secrets only (encrypted). Never shown after save. Leave blank on edit to keep existing provider credentials. Do not paste OAuth access/refresh tokens here — those are obtained via Authorize. For Google, prefer Application configuration on the integration view.')
+                    ->helperText('Optional application/provider secrets only (encrypted). Never shown after save. Leave blank on edit to keep existing provider credentials. Do not paste OAuth access/refresh tokens here.')
                     ->rows(5)
+                    ->visible(fn (callable $get, ?CoreIntegration $record): bool => ! self::isGoogleFormContext($get, $record))
                     ->columnSpanFull(),
             ]);
     }
@@ -198,6 +207,7 @@ class IntegrationResource extends Resource
             ->recordActions([
                 ViewAction::make(),
                 EditAction::make()
+                    ->visible(fn (CoreIntegration $record): bool => $record->provider !== ProviderRegistry::GOOGLE)
                     ->mutateRecordDataUsing(function (array $data): array {
                         $data['credentials_json'] = null;
 
@@ -253,8 +263,34 @@ class IntegrationResource extends Resource
             $data['name'] = ProviderRegistry::defaultName($provider);
         }
 
+        if ($provider === ProviderRegistry::GOOGLE) {
+            // Google operational metadata is managed by OAuth/discovery services — not the generic KeyValue editor.
+            // Preserve existing safe config on update; never accept secrets via this form.
+            if ($updating) {
+                unset($data['config']);
+
+                return Arr::only($data, ['provider', 'name', 'status']);
+            }
+
+            $data['config'] = [];
+
+            return Arr::only($data, ['provider', 'name', 'status', 'config']);
+        }
+
         if (! array_key_exists('config', $data) || $data['config'] === null) {
             $data['config'] = [];
+        }
+
+        if (! is_array($data['config'])) {
+            throw ValidationException::withMessages([
+                'config' => 'Configuration must be a list of non-secret key/value pairs.',
+            ]);
+        }
+
+        if (GoogleIntegrationConfigGuard::containsUnsafe($data['config'])) {
+            throw ValidationException::withMessages([
+                'config' => 'Provider secrets and OAuth tokens cannot be stored in non-secret configuration.',
+            ]);
         }
 
         return Arr::only($data, ['provider', 'name', 'status', 'config']);
@@ -265,6 +301,11 @@ class IntegrationResource extends Resource
      */
     public static function persistCredentials(CoreIntegration $record, array $data): void
     {
+        if ($record->provider === ProviderRegistry::GOOGLE) {
+            // Google application credentials are configured only via View → Configure.
+            return;
+        }
+
         $credentialsJson = $data['credentials_json'] ?? null;
 
         if (! is_string($credentialsJson) || trim($credentialsJson) === '') {
@@ -301,5 +342,28 @@ class IntegrationResource extends Resource
     public static function canDelete(Model $record): bool
     {
         return static::canAccess();
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        if (! static::canAccess()) {
+            return false;
+        }
+
+        // Google metadata edit remains available via direct URL for name/status only;
+        // table/view navigation steers Admins to the Google workspace Configure action.
+        return true;
+    }
+
+    /**
+     * @param  callable(string): mixed  $get
+     */
+    private static function isGoogleFormContext(callable $get, ?CoreIntegration $record): bool
+    {
+        if ($record?->provider === ProviderRegistry::GOOGLE) {
+            return true;
+        }
+
+        return $get('provider') === ProviderRegistry::GOOGLE;
     }
 }

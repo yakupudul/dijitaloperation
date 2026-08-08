@@ -4,22 +4,23 @@ namespace App\Services\Integrations\Google\Discovery;
 
 use App\Models\CoreIntegration;
 use App\Services\Integrations\Google\GoogleApiClient;
+use App\Services\Integrations\Google\GoogleCredentialResolver;
 use App\Support\Integrations\DiscoveredExternalResource;
-use App\Support\Integrations\Google\GoogleOAuthConfig;
 use Illuminate\Support\Facades\Log;
 
 class GoogleAdsDiscoverer
 {
     public function __construct(
         private readonly GoogleApiClient $client,
+        private readonly GoogleCredentialResolver $credentials,
     ) {}
 
     public function discover(CoreIntegration $integration): CapabilityDiscoveryResult
     {
-        if (GoogleOAuthConfig::developerToken() === null) {
+        if ($this->credentials->developerToken($integration) === null) {
             return CapabilityDiscoveryResult::setupRequired(
                 'google_ads',
-                'GOOGLE_ADS_DEVELOPER_TOKEN is missing. Obtain a developer token from Google Ads API Center.',
+                'Google Ads developer token is missing. Configure it under Settings → Integrations → Google, or set GOOGLE_ADS_DEVELOPER_TOKEN as a deployment fallback.',
             );
         }
 
@@ -27,7 +28,7 @@ class GoogleAdsDiscoverer
             $response = $this->client->getAds($integration, 'customers:listAccessibleCustomers');
         } catch (\RuntimeException $e) {
             $message = $e->getMessage();
-            if (str_contains($message, 'GOOGLE_ADS_DEVELOPER_TOKEN')) {
+            if (str_contains(strtolower($message), 'developer token')) {
                 return CapabilityDiscoveryResult::setupRequired('google_ads', $message);
             }
 

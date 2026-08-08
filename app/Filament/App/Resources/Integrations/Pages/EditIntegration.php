@@ -4,8 +4,11 @@ namespace App\Filament\App\Resources\Integrations\Pages;
 
 use App\Filament\App\Resources\Integrations\IntegrationResource;
 use App\Models\CoreIntegration;
+use App\Support\Integrations\Google\GoogleIntegrationConfigGuard;
+use App\Support\Integrations\ProviderRegistry;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ViewAction;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 
 class EditIntegration extends EditRecord
@@ -30,6 +33,14 @@ class EditIntegration extends EditRecord
     {
         $data['credentials_json'] = null;
 
+        /** @var CoreIntegration $record */
+        $record = $this->getRecord();
+
+        if ($record->provider === ProviderRegistry::GOOGLE) {
+            // Never hydrate credential-like KeyValue pairs into Livewire form state for Google.
+            $data['config'] = [];
+        }
+
         return $data;
     }
 
@@ -49,6 +60,23 @@ class EditIntegration extends EditRecord
     {
         /** @var CoreIntegration $record */
         $record = $this->getRecord();
+
+        if ($record->provider === ProviderRegistry::GOOGLE) {
+            $config = is_array($record->config) ? $record->config : [];
+            if (GoogleIntegrationConfigGuard::containsUnsafe($config)) {
+                $record->forceFill([
+                    'config' => GoogleIntegrationConfigGuard::stripUnsafe($config),
+                ])->save();
+
+                Notification::make()
+                    ->title('Unsafe Google config cleared')
+                    ->body('Credential-like values were removed from Integration config. Use Configure on the Google workspace for Client ID / Secret / Ads token.')
+                    ->warning()
+                    ->send();
+            }
+
+            return;
+        }
 
         IntegrationResource::persistCredentials($record, [
             'credentials_json' => $this->pendingCredentialsJson,

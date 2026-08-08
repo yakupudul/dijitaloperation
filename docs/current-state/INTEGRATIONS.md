@@ -35,13 +35,16 @@ Site-specific credentials (WordPress) remain on `CoreConnection`.
 
 ## Google Integration
 
-Settings → Integrations → Google supports:
+Settings → Integrations → Google is the **only** Google workspace:
 
-* **Configure** application credentials (preferred over `.env` for normal ops)
+* **Configure** application credentials (only path for Client ID / Secret / Ads token)
+* Copyable **OAuth Redirect URI** derived from `APP_URL` + named callback route
 * authorize / test / refresh / disconnect (authorization tokens only)
 * optional **Remove provider configuration** (destructive; Admin-only)
 
-Credential resolution: DB provider credential → env fallback → missing.
+Generic Integration Edit KeyValue/JSON is **not** used for Google secrets.  
+Credential resolution: DB provider credential → env fallback → missing.  
+Authorize / Test / Refresh / discovery all use `GoogleCredentialResolver`.
 
 Discovery capabilities:
 

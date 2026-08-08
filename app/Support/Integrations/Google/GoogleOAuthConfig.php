@@ -2,11 +2,15 @@
 
 namespace App\Support\Integrations\Google;
 
+use App\Services\Integrations\Google\GoogleOAuthRedirectUriResolver;
+
 /**
  * Deployment/env-level Google settings (redirect URI, Ads API version, optional env fallbacks).
  *
  * Application Client ID/Secret/developer token resolution for a specific Integration
  * belongs in GoogleCredentialResolver (DB provider credential first, then env fallback).
+ *
+ * OAuth redirect URI: GoogleOAuthRedirectUriResolver (APP_URL + named callback route).
  */
 final class GoogleOAuthConfig
 {
@@ -55,26 +59,28 @@ final class GoogleOAuthConfig
         return self::envDeveloperToken();
     }
 
+    /**
+     * Canonical OAuth redirect URI used for display, authorize, and token exchange.
+     */
     public static function redirectUri(): string
     {
-        return (string) config('moxdop.google.redirect_uri');
+        return app(GoogleOAuthRedirectUriResolver::class)->uri();
     }
 
     /**
-     * Route-derived callback URL for display / Cloud Console paste.
+     * APP_URL-derived callback (ignores optional GOOGLE_REDIRECT_URI override).
      */
     public static function derivedRedirectUri(): string
     {
-        try {
-            return route('integrations.google.callback', absolute: true);
-        } catch (\Throwable) {
-            return rtrim((string) config('app.url'), '/').'/integrations/google/callback';
-        }
+        return app(GoogleOAuthRedirectUriResolver::class)->canonicalFromAppUrl();
     }
 
     public static function redirectUriMismatch(): bool
     {
-        return rtrim(self::redirectUri(), '/') !== rtrim(self::derivedRedirectUri(), '/');
+        $resolver = app(GoogleOAuthRedirectUriResolver::class);
+
+        return $resolver->mismatchesCanonicalAppUrl()
+            || $resolver->requestOriginAppearsInconsistent();
     }
 
     /**

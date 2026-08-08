@@ -5,11 +5,11 @@ namespace App\Filament\App\Resources\Integrations\Pages;
 use App\Filament\App\Resources\Integrations\IntegrationResource;
 use App\Models\CoreIntegration;
 use App\Services\Integrations\Google\GoogleCredentialResolver;
+use App\Services\Integrations\Google\GoogleOAuthRedirectUriResolver;
 use App\Services\Integrations\Google\GoogleOAuthService;
 use App\Services\Integrations\Google\GoogleProviderCredentialService;
 use App\Services\Integrations\Google\GoogleResourceRefreshService;
 use App\Support\Integrations\Google\GoogleAuthStatus;
-use App\Support\Integrations\Google\GoogleOAuthConfig;
 use App\Support\Integrations\ProviderRegistry;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
@@ -36,13 +36,14 @@ class ViewIntegration extends ViewRecord
         /** @var CoreIntegration $record */
         $record = $this->getRecord();
         $resolver = app(GoogleCredentialResolver::class);
+        $redirectResolver = app(GoogleOAuthRedirectUriResolver::class);
         $authStatus = GoogleAuthStatus::for($record);
         $capabilityHealth = data_get($record->config, 'capability_health', []);
-        $redirectUri = GoogleOAuthConfig::redirectUri();
+        $redirectUri = $redirectResolver->uri();
 
         return $schema->components([
             Section::make('Application configuration')
-                ->description('Agency OAuth app credentials. Survive Disconnect. Prefer Admin configuration; environment values remain an optional fallback.')
+                ->description('Agency OAuth app credentials. Survive Disconnect. Configure here only — not via generic Integration Edit or JSON.')
                 ->schema([
                     TextEntry::make('app_config_status')
                         ->label('Status')
@@ -74,11 +75,19 @@ class ViewIntegration extends ViewRecord
                         ->label('OAuth Redirect URI')
                         ->state($redirectUri)
                         ->copyable()
+                        ->helperText($redirectResolver->cloudConsoleHelperText())
                         ->columnSpanFull(),
                     TextEntry::make('oauth_redirect_uri_warning')
                         ->label('Redirect URI check')
-                        ->state('Configured redirect URI does not match the route-derived callback URL ('.GoogleOAuthConfig::derivedRedirectUri().'). Update GOOGLE_REDIRECT_URI or APP_URL so Google Cloud Console and MoxDOP agree.')
-                        ->visible(fn (): bool => GoogleOAuthConfig::redirectUriMismatch())
+                        ->state(function () use ($redirectResolver): string {
+                            if ($redirectResolver->mismatchesCanonicalAppUrl()) {
+                                return 'GOOGLE_REDIRECT_URI override differs from APP_URL-derived callback ('.$redirectResolver->canonicalFromAppUrl().'). Authorize and token exchange use the override; keep Google Cloud Console aligned, or clear the override for normal installs.';
+                            }
+
+                            return 'APP_URL ('.(string) config('app.url').') differs from this browser request origin. OAuth still uses APP_URL. If you opened MoxDOP on another host, update APP_URL or use the matching URL.';
+                        })
+                        ->visible(fn (): bool => $redirectResolver->mismatchesCanonicalAppUrl()
+                            || $redirectResolver->requestOriginAppearsInconsistent())
                         ->color('warning')
                         ->columnSpanFull(),
                 ])
@@ -135,26 +144,25 @@ class ViewIntegration extends ViewRecord
         $record = $this->getRecord();
         $isGoogle = $record->provider === ProviderRegistry::GOOGLE;
 
-        $actions = [
-            EditAction::make()
-                ->mutateRecordDataUsing(function (array $data): array {
-                    $data['credentials_json'] = null;
-
-                    return $data;
-                }),
-        ];
-
         if (! $isGoogle) {
-            return $actions;
+            return [
+                EditAction::make()
+                    ->mutateRecordDataUsing(function (array $data): array {
+                        $data['credentials_json'] = null;
+
+                        return $data;
+                    }),
+            ];
         }
 
+        // Google workspace: Configure is the only application-credential path. No generic Edit here.
         return [
             Action::make('configureGoogleApplication')
                 ->label('Configure')
                 ->icon(Heroicon::OutlinedCog6Tooth)
                 ->color('gray')
                 ->modalHeading('Google application configuration')
-                ->modalDescription('Store OAuth Client ID/Secret and Ads developer token encrypted in MoxDOP. Leave secret fields blank to keep existing values.')
+                ->modalDescription('Store OAuth Client ID/Secret and Ads developer token encrypted in MoxDOP. Leave secret fields blank to keep existing values. This is the only Google credential setup path.')
                 ->fillForm(function () use ($record): array {
                     $resolver = app(GoogleCredentialResolver::class);
 
@@ -301,7 +309,6 @@ class ViewIntegration extends ViewRecord
 
                     $this->record = $record->fresh(['credential', 'providerCredential', 'externalResources']);
                 }),
-            ...$actions,
         ];
     }
 

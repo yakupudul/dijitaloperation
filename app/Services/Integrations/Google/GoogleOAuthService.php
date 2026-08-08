@@ -6,7 +6,6 @@ use App\Models\CoreIntegration;
 use App\Models\CoreIntegrationCredential;
 use App\Models\User;
 use App\Support\Integrations\Google\GoogleAuthStatus;
-use App\Support\Integrations\Google\GoogleOAuthConfig;
 use App\Support\Integrations\Google\GoogleScopes;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Roles;
@@ -28,6 +27,7 @@ class GoogleOAuthService
 
     public function __construct(
         private readonly GoogleCredentialResolver $credentials,
+        private readonly GoogleOAuthRedirectUriResolver $redirectUri,
     ) {}
 
     public function assertAdmin(User $user): void
@@ -73,7 +73,7 @@ class GoogleOAuthService
 
         $query = http_build_query([
             'client_id' => $clientId,
-            'redirect_uri' => GoogleOAuthConfig::redirectUri(),
+            'redirect_uri' => $this->redirectUri->uri(),
             'response_type' => 'code',
             'scope' => implode(' ', GoogleScopes::requested()),
             'access_type' => 'offline',
@@ -125,7 +125,7 @@ class GoogleOAuthService
                     'code' => $code,
                     'client_id' => $clientId,
                     'client_secret' => $clientSecret,
-                    'redirect_uri' => GoogleOAuthConfig::redirectUri(),
+                    'redirect_uri' => $this->redirectUri->uri(),
                     'grant_type' => 'authorization_code',
                 ]);
         } catch (\Throwable $e) {

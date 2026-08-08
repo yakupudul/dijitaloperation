@@ -40,7 +40,8 @@ class IntegrationProviderCredentialsTest extends TestCase
         config([
             'moxdop.google.client_id' => null,
             'moxdop.google.client_secret' => null,
-            'moxdop.google.redirect_uri' => 'http://localhost/integrations/google/callback',
+            'moxdop.google.redirect_uri' => null,
+            'app.url' => 'http://127.0.0.1:8000',
             'moxdop.google.developer_token' => null,
             'moxdop.google.include_gbp_scope' => false,
             'moxdop.google.gbp_discovery_enabled' => false,
@@ -296,7 +297,7 @@ class IntegrationProviderCredentialsTest extends TestCase
             ->assertDontSee('never-show-secret')
             ->assertDontSee('never-show-dev')
             ->assertSee('OAuth Redirect URI')
-            ->assertSee('http://localhost/integrations/google/callback');
+            ->assertSee('http://127.0.0.1:8000/integrations/google/callback');
     }
 
     public function test_blank_secret_edit_preserves_stored_value(): void
