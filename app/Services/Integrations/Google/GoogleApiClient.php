@@ -22,8 +22,49 @@ class GoogleApiClient
         return $this->request($integration, 'get', $url, $query);
     }
 
-    public function getAds(CoreIntegration $integration, string $path): Response
+    /**
+     * @param  ?string  $loginCustomerId  Manager account ID for login-customer-id header (digits only).
+     */
+    public function getAds(CoreIntegration $integration, string $path, ?string $loginCustomerId = null): Response
     {
+        return $this->adsRequest($integration, 'get', $path, [], $loginCustomerId);
+    }
+
+    /**
+     * Read-only Google Ads GAQL search (googleAds:search).
+     *
+     * @param  ?string  $loginCustomerId  Manager account ID for login-customer-id header (digits only).
+     */
+    public function searchAds(
+        CoreIntegration $integration,
+        string $customerId,
+        string $query,
+        ?string $loginCustomerId = null,
+    ): Response {
+        $customerId = preg_replace('/\D+/', '', $customerId) ?? '';
+        if ($customerId === '') {
+            throw new RuntimeException('Google Ads customer ID is missing.');
+        }
+
+        return $this->adsRequest(
+            $integration,
+            'post',
+            'customers/'.$customerId.'/googleAds:search',
+            ['query' => $query],
+            $loginCustomerId ?? $customerId,
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $body
+     */
+    private function adsRequest(
+        CoreIntegration $integration,
+        string $method,
+        string $path,
+        array $body = [],
+        ?string $loginCustomerId = null,
+    ): Response {
         $developerToken = $this->credentials->developerToken($integration);
         if ($developerToken === null) {
             throw new RuntimeException('Google Ads developer token is missing.');
@@ -36,13 +77,43 @@ class GoogleApiClient
             throw new RuntimeException('Google authorization is missing or expired.');
         }
 
-        return Http::withToken($token)
-            ->withHeaders([
-                'developer-token' => $developerToken,
-                'Content-Type' => 'application/json',
-            ])
-            ->timeout(30)
-            ->get($url);
+        $headers = [
+            'developer-token' => $developerToken,
+            'Content-Type' => 'application/json',
+        ];
+
+        $login = $this->normalizeCustomerId($loginCustomerId);
+        if ($login !== null) {
+            $headers['login-customer-id'] = $login;
+        }
+
+        try {
+            $pending = Http::withToken($token)->withHeaders($headers)->timeout(30)->acceptJson();
+
+            /** @var Response $response */
+            $response = $method === 'post'
+                ? $pending->asJson()->post($url, $body)
+                : $pending->get($url);
+        } catch (\Throwable $e) {
+            Log::warning('Google Ads API network failure', [
+                'integration_id' => $integration->id,
+                'exception' => $e::class,
+            ]);
+
+            throw new RuntimeException('Google Ads API network failure.');
+        }
+
+        if ($response->status() === 401) {
+            $refreshed = $this->oauth->refreshAccessToken($integration);
+            if ($refreshed !== null) {
+                $pending = Http::withToken($refreshed)->withHeaders($headers)->timeout(30)->acceptJson();
+                $response = $method === 'post'
+                    ? $pending->asJson()->post($url, $body)
+                    : $pending->get($url);
+            }
+        }
+
+        return $response;
     }
 
     /**
@@ -78,5 +149,16 @@ class GoogleApiClient
         }
 
         return $response;
+    }
+
+    private function normalizeCustomerId(?string $customerId): ?string
+    {
+        if ($customerId === null) {
+            return null;
+        }
+
+        $digits = preg_replace('/\D+/', '', $customerId) ?? '';
+
+        return $digits !== '' ? $digits : null;
     }
 }

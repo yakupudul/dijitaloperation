@@ -155,6 +155,11 @@ class ViewIntegration extends ViewRecord
             ];
         }
 
+        $resolver = app(GoogleCredentialResolver::class);
+        $freshRecord = $record->fresh(['credential', 'providerCredential']) ?? $record;
+        $appConfigured = $resolver->isAppConfigured($freshRecord);
+        $hasAuthorizationTokens = $freshRecord->authorizationCredential()->exists();
+
         // Google workspace: Configure is the only application-credential path. No generic Edit here.
         return [
             Action::make('configureGoogleApplication')
@@ -162,7 +167,7 @@ class ViewIntegration extends ViewRecord
                 ->icon(Heroicon::OutlinedCog6Tooth)
                 ->color('gray')
                 ->modalHeading('Google application configuration')
-                ->modalDescription('Store OAuth Client ID/Secret and Ads developer token encrypted in MoxDOP. Leave secret fields blank to keep existing values. This is the only Google credential setup path.')
+                ->modalDescription('Store OAuth Client ID/Secret and Ads developer token encrypted in MoxDOP. Secret fields stay empty on purpose — leave them blank to keep stored values.')
                 ->fillForm(function () use ($record): array {
                     $resolver = app(GoogleCredentialResolver::class);
 
@@ -182,47 +187,57 @@ class ViewIntegration extends ViewRecord
 
                             return $source === GoogleCredentialResolver::SOURCE_ENVIRONMENT
                                 ? 'Currently supplied by environment. Saving a value here takes precedence over the environment fallback.'
-                                : 'Visible after save. Editing is Admin-only.';
+                                : 'Not a secret. Visible after save.';
                         })
                         ->maxLength(255),
                     TextInput::make('client_secret')
                         ->label('OAuth Client Secret')
                         ->password()
                         ->revealable(false)
+                        ->placeholder(fn () => app(GoogleCredentialResolver::class)->hasDatabaseClientSecret($record)
+                            ? '•••••••• (stored)'
+                            : null)
+                        ->dehydrated(fn (?string $state): bool => filled($state))
                         ->helperText(function () use ($record): string {
                             $resolver = app(GoogleCredentialResolver::class);
                             if ($resolver->hasDatabaseClientSecret($record)) {
-                                return 'Configured (write-only). Leave blank to keep the stored secret.';
+                                return 'Stored securely ✓ — leave blank to keep current value.';
                             }
                             if ($resolver->clientSecretSource($record) === GoogleCredentialResolver::SOURCE_ENVIRONMENT) {
-                                return 'Currently supplied by environment. Leave blank to keep using environment, or enter a value to store encrypted in MoxDOP (takes precedence).';
+                                return 'Configured by environment. Enter a value only to store encrypted in MoxDOP instead. Leave blank to keep using the environment secret.';
                             }
 
-                            return 'Write-only. Never shown after save.';
+                            return 'Write-only. Never shown after save. Required for Authorize Google.';
                         })
                         ->maxLength(255),
                     Toggle::make('clear_client_secret')
                         ->label('Clear stored Client Secret')
-                        ->helperText('Removes the database-stored secret only. Environment fallback is unchanged.'),
+                        ->helperText('Removes the database-stored secret only. Environment fallback is unchanged.')
+                        ->visible(fn (): bool => app(GoogleCredentialResolver::class)->hasDatabaseClientSecret($record)),
                     TextInput::make('developer_token')
                         ->label('Google Ads Developer Token')
                         ->password()
                         ->revealable(false)
+                        ->placeholder(fn () => app(GoogleCredentialResolver::class)->hasDatabaseDeveloperToken($record)
+                            ? '•••••••• (stored)'
+                            : null)
+                        ->dehydrated(fn (?string $state): bool => filled($state))
                         ->helperText(function () use ($record): string {
                             $resolver = app(GoogleCredentialResolver::class);
                             if ($resolver->hasDatabaseDeveloperToken($record)) {
-                                return 'Configured (write-only). Leave blank to keep the stored token.';
+                                return 'Stored securely ✓ — leave blank to keep current value.';
                             }
                             if ($resolver->developerTokenSource($record) === GoogleCredentialResolver::SOURCE_ENVIRONMENT) {
-                                return 'Currently supplied by environment. Leave blank to keep using environment, or enter a value to store encrypted in MoxDOP (takes precedence).';
+                                return 'Configured by environment. Enter a value only to store encrypted in MoxDOP instead. Leave blank to keep using the environment token.';
                             }
 
-                            return 'Sensitive credential. Write-only. Never shown after save.';
+                            return 'Write-only. Never shown after save. Required for Google Ads discovery.';
                         })
                         ->maxLength(255),
                     Toggle::make('clear_developer_token')
                         ->label('Clear stored Ads developer token')
-                        ->helperText('Removes the database-stored token only. Environment fallback is unchanged.'),
+                        ->helperText('Removes the database-stored token only. Environment fallback is unchanged.')
+                        ->visible(fn (): bool => app(GoogleCredentialResolver::class)->hasDatabaseDeveloperToken($record)),
                 ])
                 ->action(function (array $data, GoogleProviderCredentialService $service) use ($record): void {
                     $user = Auth::user();
@@ -241,15 +256,28 @@ class ViewIntegration extends ViewRecord
                     $this->record = $record->fresh(['credential', 'providerCredential', 'externalResources']);
                 }),
             Action::make('authorizeGoogle')
-                ->label(fn (): string => $record->authorizationCredential()->exists() ? 'Re-authorize Google' : 'Authorize Google')
+                ->label(fn (): string => $freshRecord->authorizationCredential()->exists() ? 'Re-authorize Google' : 'Authorize Google')
                 ->icon(Heroicon::OutlinedLockClosed)
                 ->color('primary')
+                // Full browser GET: panel spaUrlExceptions excludes this path from wire:navigate.
                 ->url(fn (): string => route('integrations.google.authorize', ['integration' => $record]))
                 ->openUrlInNewTab(false)
-                ->visible(fn (): bool => $record->status !== CoreIntegration::STATUS_DISABLED),
+                ->visible(fn (): bool => $record->status !== CoreIntegration::STATUS_DISABLED)
+                ->disabled(fn (): bool => ! $appConfigured)
+                ->tooltip(fn (): ?string => $appConfigured
+                    ? null
+                    : 'Complete Application configuration (Client ID + Client Secret) before Authorize Google.'),
             Action::make('testGoogle')
                 ->label('Test connection')
                 ->icon(Heroicon::OutlinedSignal)
+                ->disabled(fn (): bool => ! $appConfigured || ! $hasAuthorizationTokens)
+                ->tooltip(function () use ($appConfigured, $hasAuthorizationTokens): ?string {
+                    if (! $appConfigured) {
+                        return 'Complete Application configuration first.';
+                    }
+
+                    return $hasAuthorizationTokens ? null : 'Authorize Google first.';
+                })
                 ->action(function (GoogleOAuthService $oauth) use ($record): void {
                     $result = $oauth->testConnection($record->fresh(['credential', 'providerCredential']) ?? $record);
                     Notification::make()
@@ -262,6 +290,14 @@ class ViewIntegration extends ViewRecord
             Action::make('refreshGoogleResources')
                 ->label('Refresh resources')
                 ->icon(Heroicon::OutlinedArrowPath)
+                ->disabled(fn (): bool => ! $appConfigured || ! $hasAuthorizationTokens)
+                ->tooltip(function () use ($appConfigured, $hasAuthorizationTokens): ?string {
+                    if (! $appConfigured) {
+                        return 'Complete Application configuration first.';
+                    }
+
+                    return $hasAuthorizationTokens ? null : 'Authorize Google first.';
+                })
                 ->action(function (GoogleResourceRefreshService $refresh) use ($record): void {
                     $result = $refresh->refresh($record->fresh(['credential', 'providerCredential']) ?? $record);
                     Notification::make()
@@ -278,6 +314,7 @@ class ViewIntegration extends ViewRecord
                 ->requiresConfirmation()
                 ->modalHeading('Disconnect Google account?')
                 ->modalDescription('Authorization tokens will be revoked/cleared. Application credentials (Client ID, Client Secret, Ads developer token), the Integration record, and historical resources/bindings are preserved (resources marked unavailable).')
+                ->disabled(fn (): bool => ! $hasAuthorizationTokens)
                 ->action(function (GoogleOAuthService $oauth) use ($record): void {
                     $result = $oauth->disconnect($record->fresh(['credential', 'providerCredential']) ?? $record);
                     Notification::make()

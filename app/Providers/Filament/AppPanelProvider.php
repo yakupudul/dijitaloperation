@@ -35,6 +35,10 @@ class AppPanelProvider extends PanelProvider
             ->passwordReset()
             ->profile()
             ->spa()
+            // OAuth launch endpoints return redirect()->away() to Google and must use full browser navigation.
+            ->spaUrlExceptions([
+                '*/integrations/google/*/authorize',
+            ])
             ->maxContentWidth(Width::SevenExtraLarge)
             ->colors([
                 'primary' => Color::Orange,

@@ -18,13 +18,13 @@ use App\Services\Integrations\Google\GoogleOAuthService;
 use App\Services\Integrations\Google\GoogleResourceRefreshService;
 use App\Support\Integrations\AssetBindingCompatibility;
 use App\Support\Integrations\Google\GoogleAuthStatus;
-use App\Support\Integrations\Google\GoogleOAuthConfig;
 use App\Support\Integrations\Google\GoogleScopes;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -297,13 +297,29 @@ class GoogleCentralIntegrationTest extends TestCase
             'expires_at' => now()->addHour(),
         ]);
 
-        Http::fake([
-            'https://www.googleapis.com/webmasters/v3/sites' => Http::response(['siteEntry' => []], 200),
-            'https://analyticsadmin.googleapis.com/v1beta/accountSummaries*' => Http::response(['accountSummaries' => []], 200),
-            GoogleOAuthConfig::adsApiUrl('customers:listAccessibleCustomers') => Http::response([
-                'resourceNames' => ['customers/1234567890', 'customers/9988776655'],
-            ], 200),
-        ]);
+        Http::fake(function (Request $request) {
+            $url = $request->url();
+
+            if (str_contains($url, 'webmasters/v3/sites')) {
+                return Http::response(['siteEntry' => []], 200);
+            }
+
+            if (str_contains($url, 'analyticsadmin.googleapis.com')) {
+                return Http::response(['accountSummaries' => []], 200);
+            }
+
+            if (str_contains($url, 'customers:listAccessibleCustomers')) {
+                return Http::response([
+                    'resourceNames' => ['customers/1234567890', 'customers/9988776655'],
+                ], 200);
+            }
+
+            if (str_contains($url, 'googleAds:search')) {
+                return Http::response(['results' => []], 200);
+            }
+
+            return Http::response(['error' => 'unexpected '.$url], 500);
+        });
 
         $result = app(GoogleResourceRefreshService::class)->refresh($this->integration->fresh(['credential']));
         $this->assertSame('ok', $result['results']['google_ads']['status']);

@@ -241,6 +241,10 @@ class GoogleIntegrationConsolidationTest extends TestCase
                 return Http::response(['resourceNames' => []], 200);
             }
 
+            if (str_contains($url, 'googleAds:search')) {
+                return Http::response(['results' => []], 200);
+            }
+
             return Http::response(['error' => 'unexpected '.$url], 500);
         });
 

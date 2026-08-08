@@ -93,16 +93,16 @@ class GoogleOAuthService
         $this->assertAdmin($user);
 
         if (filled($oauthError)) {
-            return ['error' => 'Google authorization was denied or failed ('.$oauthError.').'];
+            return ['error' => $this->safeOAuthQueryError((string) $oauthError)];
         }
 
         if (! filled($code) || ! filled($state)) {
-            return ['error' => 'Google authorization callback was incomplete.'];
+            return ['error' => 'Google authorization callback was incomplete. Start again with Authorize Google.'];
         }
 
         $cached = Cache::pull(self::STATE_CACHE_PREFIX.$state);
         if (! is_array($cached) || (int) ($cached['user_id'] ?? 0) !== (int) $user->id) {
-            return ['error' => 'Invalid or expired OAuth state. Please try Authorize again.'];
+            return ['error' => 'Invalid or expired OAuth state. Click Authorize Google again to start a fresh consent flow.'];
         }
 
         $integration = CoreIntegration::query()->find($cached['integration_id'] ?? null);
@@ -138,14 +138,18 @@ class GoogleOAuthService
         }
 
         if (! $tokenResponse->successful()) {
+            $errorCode = $tokenResponse->json('error');
+            $safeError = is_string($errorCode) ? $errorCode : 'token_exchange_failed';
+
             Log::warning('Google OAuth token exchange failed', [
                 'integration_id' => $integration->id,
                 'status' => $tokenResponse->status(),
+                'error' => $safeError,
             ]);
 
             $this->markAuthStatus($integration, GoogleAuthStatus::ERROR, 'Google token exchange failed.');
 
-            return ['error' => 'Google did not accept the authorization code. Re-authorize and try again.'];
+            return ['error' => $this->safeTokenExchangeError($safeError)];
         }
 
         /** @var array<string, mixed> $json */
@@ -458,5 +462,26 @@ class GoogleOAuthService
             'config' => $config,
             'last_error' => $safeError,
         ])->save();
+    }
+
+    private function safeOAuthQueryError(string $oauthError): string
+    {
+        return match ($oauthError) {
+            'access_denied' => 'Google authorization was denied. Grant access to continue, or try Authorize Google again.',
+            'redirect_uri_mismatch' => 'Google rejected the redirect URI. Copy the OAuth Redirect URI from this page into Google Cloud → Authorized redirect URIs.',
+            'invalid_client' => 'Google rejected the OAuth client. Check Client ID / Client Secret under Configure.',
+            default => 'Google authorization failed ('.$oauthError.'). Try Authorize Google again.',
+        };
+    }
+
+    private function safeTokenExchangeError(string $errorCode): string
+    {
+        return match ($errorCode) {
+            'redirect_uri_mismatch' => 'Token exchange failed: redirect URI mismatch. The URI sent to Google must exactly match an Authorized redirect URI in Google Cloud (copy it from this page).',
+            'invalid_client' => 'Token exchange failed: invalid OAuth client. Re-check Client ID and Client Secret under Configure.',
+            'invalid_grant' => 'Token exchange failed: authorization code invalid or expired. Click Authorize Google again.',
+            'unauthorized_client' => 'Token exchange failed: this OAuth client is not authorized for this grant type.',
+            default => 'Google did not accept the authorization code ('.$errorCode.'). Re-authorize and try again.',
+        };
     }
 }
