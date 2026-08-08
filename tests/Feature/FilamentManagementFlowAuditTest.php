@@ -124,7 +124,7 @@ class FilamentManagementFlowAuditTest extends TestCase
             ->assertTableActionExists('create')
             ->assertTableActionVisible('create')
             ->assertTableActionHasLabel('create', 'Create Connection')
-            ->assertSee('No connections yet');
+            ->assertSee('No site connections yet');
     }
 
     public function test_connection_created_from_digital_asset_is_bound_and_credentials_stay_encrypted(): void

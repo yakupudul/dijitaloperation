@@ -1,52 +1,38 @@
 # INTEGRATIONS
 
-> İnceleme tarihi: 2026-08-06  
-> Sonuç: Entegrasyon kodu veya yapılandırması bulunamadı.
+> İnceleme tarihi: 2026-08-08  
+> Dayanak: ADR-039
 
-## Mevcut entegrasyonlar
+## Mimari
 
-**Yok.**
+MoxDOP SaaS değildir. Provider authentication **agency-owned / shared**’dir.
 
-Aşağıdakilere dair kanıt bulunamadı:
+```
+Agency Integration
+  → External Resources (discovered)
+    → Asset Bindings
+      → Digital Assets
+```
 
-- Üçüncü parti SDK kullanımı
-- HTTP client ile harici API çağrıları
-- OAuth / SSO sağlayıcı bağlantısı
-- Analitik, ödeme, e-posta, depolama, AI veya sosyal platform konektörleri
+Site-specific credentials (WordPress) remain on `CoreConnection`.
 
-README’deki “AI-powered” ifadesi bir entegrasyon kanıtı değildir; sağlayıcı **doğrulanamadı**.
+## Mevcut foundation
 
-## API anahtarlarının nasıl yönetildiği
+| Parça | Durum |
+|-------|--------|
+| `core_integrations` | Schema + Filament Settings → Integrations |
+| `core_integration_credentials` | Encrypted payload (Laravel cast) |
+| `core_external_resources` | Schema + read-only Integration relation |
+| `core_asset_bindings` | Schema + Digital Asset “Provider resources” UX |
+| `DiscoversProviderResources` | Contract only — no live OAuth yet |
+| `ProviderRegistry` | Google / Meta / DataForSEO / OpenAI + capabilities |
+| Collectors / scheduling | Deferred |
+| Live Google / Meta OAuth | Deferred |
 
-**Doğrulanamadı / mevcut değil.**
+## Probe / connector services
 
-- `.env`, `.env.example`, secrets manager config dosyası yok
-- CI secret kullanımı yok (workflow yok)
-- Kod içinde hard-coded credential taraması için anlamlı kaynak dosya yok
-
-Bu incelemede herhangi bir gizli anahtar belgelenmemiştir ve dosyalara yazılmamıştır.
-
-## Webhooklar
-
-**Mevcut değil.**
-
-Webhook endpoint, imza doğrulama veya inbound/outbound webhook handler bulunamadı.
-
-## Cron işlemleri
-
-**Mevcut değil.**
-
-- Uygulama içi scheduler yok
-- `crontab` / GitHub Actions schedule / cloud scheduler tanımı yok
-
-## Entegrasyonların çalışma durumu
-
-| Entegrasyon | Çalışma durumu |
-|-------------|----------------|
-| (hiçbiri) | — |
-
-Çalıştığı doğrulanabilecek bir entegrasyon yoktur. Runtime testi yapılmadı (görev kapsamında uygulama komutu çalıştırılmadı); zaten çalıştırılacak entegrasyon kodu da yok.
+Existing read-only probe services under `app/Services/*ConnectionProbeService.php` remain. They still operate against transitional `CoreConnection` rows where applicable. Future collectors will consume Integration + Binding.
 
 ## Sonuç
 
-Entegrasyon katmanı henüz başlamamıştır. API anahtarı yönetimi, webhook ve cron için depoda uygulama veya yapılandırma yoktur.
+Central Integration Architecture foundation mevcuttur. Live provider API calls and OAuth are intentionally not wired in this milestone.

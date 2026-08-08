@@ -54,6 +54,7 @@ Modül ayarlarının bildirimi, saklama kapsamı ve okuma/yazma kuralları.
 
 - Değerler **çekirdek settings store** üzerindedir (modül private tablosuna ayar kopyalamak yasak değil ama önerilmez; tek kaynak çekirdek API).  
 - Connection secret’ları settings değil; `core_connection_credentials` (ADR-027).  
+- Agency Integration secret’ları settings değil; `core_integration_credentials` (ADR-039).  
 - `secret: true` ayarlar için encrypted store; ham değer log/UI state’e yazılmaz.  
 - Modül disable → değerler silinmez.  
 - Uninstall → değerler silinmez.

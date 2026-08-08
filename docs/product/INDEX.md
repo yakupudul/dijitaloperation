@@ -53,7 +53,8 @@ Blueprint, MASTER_SPEC'i **override edemez**; yalnızca ayrıntılandırır.
 | Customer | `docs/product/CUSTOMER.md` |
 | Brand | `docs/product/BRAND.md` |
 | Digital Asset | `docs/product/DIGITAL_ASSET.md` |
-| Connection + credentials | `docs/product/CONNECTION.md` + `docs/product/DIGITAL_ASSET.md` (+ ADR-027) |
+| Connection + credentials | `docs/product/CONNECTION.md` + `docs/product/DIGITAL_ASSET.md` (+ ADR-027, ADR-039) |
+| Agency Integrations | `docs/product/CONNECTION.md` (+ ADR-039) |
 | Minimal Module Registry | `docs/product/MODULE_PLATFORM.md` |
 | Dashboard / ops UI | `docs/product/DASHBOARD.md` |
 | Run / Evidence / Finding / Recommendation / Task | `docs/product/ANALYSIS_PIPELINE.md` |
