@@ -190,6 +190,7 @@ class GoogleBoundDataCollectionTest extends TestCase
             'gsc_daily_performance',
             'gsc_page_performance',
             'gsc_performance_summary',
+            'gsc_query_page_performance',
             'gsc_query_performance',
         ], $types);
 
@@ -199,7 +200,11 @@ class GoogleBoundDataCollectionTest extends TestCase
         $this->assertNull(data_get($summary->payload, 'access_token'));
         $this->assertNull(data_get($run->metadata, 'access_token'));
         $this->assertNull(data_get($run->metadata, 'refresh_token'));
-        $this->assertSame(4, Evidence::query()->where('run_id', $run->id)->count());
+        $this->assertSame(5, Evidence::query()->where('run_id', $run->id)->count());
+
+        $queryPage = Evidence::query()->where('run_id', $run->id)->where('type', 'gsc_query_page_performance')->firstOrFail();
+        $this->assertSame(['query', 'page'], data_get($queryPage->payload, 'dimensions'));
+        $this->assertLessThanOrEqual(100, (int) data_get($queryPage->payload, 'row_limit'));
     }
 
     public function test_ga4_normalization_without_invented_events(): void

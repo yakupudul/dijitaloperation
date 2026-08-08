@@ -24,6 +24,9 @@ final class SearchConsoleBoundCollector implements CollectsBoundProviderData
 
     private const int TOP_ROW_LIMIT = 25;
 
+    /** Bounded query×page rows for opportunity intelligence (not a full export). */
+    private const int QUERY_PAGE_ROW_LIMIT = 100;
+
     public function __construct(
         private readonly BoundCollectionGuard $guard,
         private readonly GoogleApiClient $client,
@@ -81,6 +84,13 @@ final class SearchConsoleBoundCollector implements CollectsBoundProviderData
             $daily = $this->queryAnalytics($integration, $siteUrl, $periods['current'], ['date'], null);
             $queries = $this->queryAnalytics($integration, $siteUrl, $periods['current'], ['query'], self::TOP_ROW_LIMIT);
             $pages = $this->queryAnalytics($integration, $siteUrl, $periods['current'], ['page'], self::TOP_ROW_LIMIT);
+            $queryPages = $this->queryAnalytics(
+                $integration,
+                $siteUrl,
+                $periods['current'],
+                ['query', 'page'],
+                self::QUERY_PAGE_ROW_LIMIT,
+            );
 
             $baseMeta = [
                 'external_resource_id' => $resource->id,
@@ -138,7 +148,21 @@ final class SearchConsoleBoundCollector implements CollectsBoundProviderData
                 'status_code' => $pages['status_code'],
             ], $observedAt);
 
-            $allOk = $summary['ok'] && $summaryPrev['ok'] && $daily['ok'] && $queries['ok'] && $pages['ok'];
+            $this->storeEvidence($run, $asset->id, 'gsc_query_page_performance', 'Search Console query × page rows', [
+                ...$baseMeta,
+                'rows' => array_map(fn (array $row): array => [
+                    'query' => $row['keys'][0] ?? null,
+                    'page' => $row['keys'][1] ?? null,
+                    ...$this->aggregateRow($row),
+                ], array_slice($queryPages['rows'], 0, self::QUERY_PAGE_ROW_LIMIT)),
+                'row_count' => min(count($queryPages['rows']), self::QUERY_PAGE_ROW_LIMIT),
+                'response_ok' => $queryPages['ok'],
+                'status_code' => $queryPages['status_code'],
+                'dimensions' => ['query', 'page'],
+                'row_limit' => self::QUERY_PAGE_ROW_LIMIT,
+            ], $observedAt);
+
+            $allOk = $summary['ok'] && $summaryPrev['ok'] && $daily['ok'] && $queries['ok'] && $pages['ok'] && $queryPages['ok'];
             $run->update([
                 'status' => $allOk ? 'completed' : 'failed',
                 'finished_at' => now(),

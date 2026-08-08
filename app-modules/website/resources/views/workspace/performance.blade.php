@@ -15,6 +15,53 @@
         @include('website::workspace.partials.kpi-grid', ['kpis' => $data['kpis'] ?? []])
     </section>
 
+    @php $opps = $data['seo_opportunities'] ?? []; @endphp
+    <section class="mox-panel">
+        <div class="mox-panel__head">
+            <h4>SEO Opportunities</h4>
+            <span class="mox-muted">Heuristic striking distance · {{ $opps['count'] ?? 0 }} queries</span>
+        </div>
+        <p class="mox-section-sub">{{ $opps['note'] ?? 'Striking distance is a MoxDOP heuristic, not a Google-defined metric.' }}</p>
+        @if (($opps['opportunities'] ?? []) === [])
+            <div class="mox-empty mox-empty--compact">No striking-distance opportunities in the current Search Console Evidence.</div>
+        @else
+            <div class="mox-table-wrap">
+                <table class="mox-table">
+                    <thead>
+                        <tr>
+                            <th>Query</th>
+                            <th>Page</th>
+                            <th class="mox-num">Position</th>
+                            <th class="mox-num">Impressions</th>
+                            <th class="mox-num">Clicks</th>
+                            <th class="mox-num">CTR</th>
+                            <th>Opportunity</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($opps['opportunities'] as $row)
+                            <tr>
+                                <td><strong>{{ $row['query'] }}</strong></td>
+                                <td>
+                                    @if (! empty($row['page']))
+                                        <a class="mox-link" href="{{ $row['page'] }}" title="{{ $row['page'] }}" target="_blank" rel="noopener noreferrer">{{ $row['page_path'] ?? $row['page'] }}</a>
+                                    @else
+                                        <span class="mox-muted">—</span>
+                                    @endif
+                                </td>
+                                <td class="mox-num">{{ $row['position_label'] }}</td>
+                                <td class="mox-num">{{ $row['impressions_label'] }}</td>
+                                <td class="mox-num">{{ $row['clicks_label'] }}</td>
+                                <td class="mox-num">{{ $row['ctr_label'] }}</td>
+                                <td class="mox-muted">{{ \Illuminate\Support\Str::limit($row['opportunity'], 90) }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @endif
+    </section>
+
     <div class="mox-grid-2">
         <section class="mox-panel">
             <div class="mox-panel__head">

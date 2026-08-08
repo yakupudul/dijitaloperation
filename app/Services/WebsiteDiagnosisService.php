@@ -7,6 +7,7 @@ use App\Models\Evidence;
 use App\Models\Finding;
 use App\Models\Recommendation;
 use App\Models\Run;
+use App\Services\Findings\FindingLifecycleService;
 use App\Support\CanonicalLinkParser;
 use App\Support\RobotsTxtParser;
 use App\Support\SitemapXmlParser;
@@ -21,6 +22,9 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use InvalidArgumentException;
+use MoxDop\Website\Diagnosis\DocumentHeadCatalog;
+use MoxDop\Website\Diagnosis\DocumentHeadEvaluator;
+use MoxDop\Website\Diagnosis\DocumentHeadParser;
 
 class WebsiteDiagnosisService
 {
@@ -64,6 +68,9 @@ class WebsiteDiagnosisService
         private readonly WebsiteDiagnosisCatalog $websiteDiagnosisCatalog = new WebsiteDiagnosisCatalog,
         private readonly WebsiteTelephoneExtractor $websiteTelephoneExtractor = new WebsiteTelephoneExtractor,
         private readonly WebsitePostalAddressExtractor $websitePostalAddressExtractor = new WebsitePostalAddressExtractor,
+        private readonly DocumentHeadParser $documentHeadParser = new DocumentHeadParser,
+        private readonly DocumentHeadEvaluator $documentHeadEvaluator = new DocumentHeadEvaluator,
+        private readonly ?FindingLifecycleService $findingLifecycleService = null,
     ) {}
 
     /**
@@ -90,6 +97,7 @@ class WebsiteDiagnosisService
                     self::CATALOG_ROBOTS_TXT_AVAILABILITY,
                     self::CATALOG_SITEMAP_XML_AVAILABILITY,
                     self::CATALOG_CANONICAL_LINK_CONSISTENCY,
+                    ...DocumentHeadCatalog::ruleIds(),
                 ],
             ],
         ]);
@@ -244,9 +252,22 @@ class WebsiteDiagnosisService
                 );
             }
 
+            $lifecycle = $this->findingLifecycleService ?? app(FindingLifecycleService::class);
+            $lifecycle->apply(
+                $this->documentHeadEvaluator->evaluate(
+                    $asset,
+                    $run,
+                    $pageHtmlCollection,
+                    $observedAt,
+                ),
+            );
+
             $run->update([
                 'status' => 'completed',
                 'finished_at' => now(),
+                'metadata' => array_merge($run->metadata ?? [], [
+                    'document_head_rules' => DocumentHeadCatalog::ruleIds(),
+                ]),
             ]);
         } catch (\Throwable $exception) {
             $run->update([
@@ -1111,6 +1132,10 @@ class WebsiteDiagnosisService
         $finalUrl = $httpFetch['effective_url'] ?? $httpFetch['url'];
         $parsed = $this->canonicalLinkParser->parse($body);
         $canonicalState = $this->canonicalStateFromParsed($parsed);
+        $headSource = is_string($parsed['head_html'] ?? null) && $parsed['head_html'] !== ''
+            ? $parsed['head_html']
+            : $body;
+        $documentHead = $this->documentHeadParser->parse($headSource);
 
         return [
             'final_url' => $finalUrl,
@@ -1125,6 +1150,32 @@ class WebsiteDiagnosisService
             'canonical_state' => $canonicalState,
             'telephone_candidates' => $this->websiteTelephoneExtractor->extract($body),
             'postal_address_candidates' => $this->websitePostalAddressExtractor->extract($body),
+            'document' => [
+                'title' => $documentHead['title'],
+                'title_present' => $documentHead['title_present'],
+                'title_empty' => $documentHead['title_empty'],
+                'title_length' => $documentHead['title_length'],
+                'charset' => $documentHead['charset'],
+                'charset_present' => $documentHead['charset_present'],
+                'viewport' => $documentHead['viewport'],
+                'viewport_present' => $documentHead['viewport_present'],
+            ],
+            'meta' => [
+                'description' => $documentHead['meta_description'],
+                'description_present' => $documentHead['meta_description_present'],
+                'description_empty' => $documentHead['meta_description_empty'],
+                'description_length' => $documentHead['meta_description_length'],
+                'robots' => $documentHead['meta_robots'],
+                'googlebot' => $documentHead['meta_googlebot'],
+                'robots_directives' => $documentHead['robots_directives'],
+                'googlebot_directives' => $documentHead['googlebot_directives'],
+            ],
+            'links' => [
+                'hreflang' => $documentHead['hreflang'],
+            ],
+            'open_graph' => $documentHead['open_graph'],
+            'open_graph_present_count' => $documentHead['open_graph_present_count'],
+            'structured_data' => $documentHead['json_ld'],
         ];
     }
 

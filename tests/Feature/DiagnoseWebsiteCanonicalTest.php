@@ -143,6 +143,13 @@ class DiagnoseWebsiteCanonicalTest extends TestCase
         $html = <<<'HTML'
 <!DOCTYPE html>
 <html><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Example</title>
+<meta name="description" content="A solid description for the page that sits in the heuristic band.">
+<meta property="og:title" content="Example">
+<meta property="og:description" content="Example description for social sharing previews.">
+<meta property="og:image" content="https://multi.example/og.png">
 <link rel="canonical" href="https://multi.example/a">
 <link rel="canonical" href="https://multi.example/b">
 </head><body>ok</body></html>
@@ -211,7 +218,12 @@ HTML;
 <html>
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Example</title>
+  <meta name="description" content="A solid description for the page that sits in the heuristic band.">
+  <meta property="og:title" content="Example">
+  <meta property="og:description" content="Example description for social sharing previews.">
+  <meta property="og:image" content="https://phone.example/og.png">
   <link rel="canonical" href="https://phone.example/">
 </head>
 <body>
@@ -285,7 +297,12 @@ HTML;
 <html>
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Example</title>
+  <meta name="description" content="A solid description for the page that sits in the heuristic band.">
+  <meta property="og:title" content="Example">
+  <meta property="og:description" content="Example description for social sharing previews.">
+  <meta property="og:image" content="https://example.com/og.png">
   <link rel="canonical" href="{$href}">
 </head>
 <body>ok</body>
@@ -300,7 +317,12 @@ HTML;
 <html>
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Example</title>
+  <meta name="description" content="A solid description for the page that sits in the heuristic band.">
+  <meta property="og:title" content="Example">
+  <meta property="og:description" content="Example description for social sharing previews.">
+  <meta property="og:image" content="https://example.com/og.png">
 </head>
 <body>ok</body>
 </html>

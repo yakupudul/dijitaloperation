@@ -47,7 +47,7 @@ Logical evidence labels (normalized later by collectors; not API field dumps):
 | `tls_info` | Normalized peer certificate observation for a host: `host`, `present`, `subject_common_name`, `issuer_common_name`, `valid_from` (ISO8601 UTC), `valid_to` (ISO8601 UTC / notAfter), `observed_at` (ISO8601 UTC), `fetch_method` (`php_stream` \| `curl`), optional `error_class`, optional `san_hosts` when available. No private keys or raw certificate dumps. |
 | `robots` | Normalized robots.txt observation: `robots_url`, `effective_url`, `status_code`, `present` (true when HTTP `200` with a body string), `body` (UTF-8 text, truncated at 64 KiB), `body_truncated`, `parse_ok`, `has_user_agent_group`, `sitemap_urls`, `status_or_error`, optional `error_class`, optional `reason_code` (`fetch_5xx` \| `connection` \| `malformed`). No unrelated page HTML. |
 | `sitemap` | Normalized sitemap fetch outcome for candidate URL(s): `host`, `tried_urls` (deterministic candidate list), `candidates_from_robots` (bool), `sitemap_url` (decisive/last candidate), `effective_url`, `status_code`, `present` (true when HTTP `200` with a body string), `parse_ok`, `root_element` (`urlset` \| `sitemapindex` \| null), `url_count` (child `url` or `sitemap` entries when parse_ok; else null), `body_truncated`, optional truncated `body` (UTF-8, max 64 KiB, only stored for `200` responses), `last_outcome` (`ok` \| `connection` \| `status_5xx` \| `status_404` \| `status_410` \| `malformed_xml` \| other `status_{code}`), optional `error_class`, optional `reason_code` (`fetch_failure` \| `not_found` \| `malformed`). No unrelated page HTML. |
-| `page_html` | Normalized primary HTML observation: `final_url`, `status_code` (`200`), optional `content_type`, `head_html` (UTF-8 head excerpt, truncated at 64 KiB), `head_truncated`, `head_complete`, `canonical_hrefs`, `absolute_canonical_hrefs`, `relative_canonical_hrefs`, `canonical_state` (`missing` \| `absolute_single` \| `relative_only` \| `conflict_multiple` \| `conflict_mixed` \| `conflict_mismatch`), `telephone_candidates` (deduped raw strings from `tel:` hrefs, `itemprop=telephone` text, and JSON-LD `"telephone"` values; max 20), `postal_address_candidates` (structured objects from JSON-LD/`itemprop` PostalAddress fields with `street_address`, `locality`, `region`, `postal_code`, `country`, `formatted`; max 10; no full page dump). No full unrelated asset dumps. |
+| `page_html` | Normalized primary HTML observation: `final_url`, `status_code` (`200`), optional `content_type`, `head_html` (UTF-8 head excerpt, truncated at 64 KiB), `head_truncated`, `head_complete`, canonical fields (`canonical_hrefs`, `absolute_canonical_hrefs`, `relative_canonical_hrefs`, `canonical_state`), `document` (`title`, `title_present`, `title_empty`, `title_length`, `charset`, `charset_present`, `viewport`, `viewport_present`), `meta` (`description*`, `robots`, `googlebot`, directive lists), `links.hreflang`, `open_graph` (`title`/`description`/`image`/`url`/`type`), `structured_data` (`block_count`, `parse_ok_count`, `malformed_count`, `types`), plus existing `telephone_candidates` / `postal_address_candidates`. No uncontrolled full HTML dumps. |
 
 ### Evaluation invariants
 
@@ -187,18 +187,180 @@ Logical evidence labels (normalized later by collectors; not API field dumps):
 
 ---
 
+### 7. `website:head:title-missing`
+
+| Field | Value |
+| --- | --- |
+| **id** | `website:head:title-missing` |
+| **category** | `document-head` |
+| **classification** | `PRIMARY_VERIFIED` |
+| **purpose** | Detect absence of a document title on the primary HTML page. |
+| **required_evidence** | `page_html` with `document.title_present` |
+| **detection_rule** | Fire when `document.title_present` is false. |
+| **severity** | `high` |
+| **fingerprint** | `website:head:title-missing` (stable rule id; no current title value) |
+| **finding_output** | **title:** `Title missing` · **summary:** `The primary HTML document has no <title> element.` |
+| **recommendation_logic** | Add a concise descriptive `<title>` for the page that names the primary topic. Dependency: deploy/publish the HTML head change. Success signal: rendered DOM exposes the expected title. Failure signal: title still missing/empty after publish. Watch: Search Console query/page coverage after subsequent crawls. |
+| **primary_source** | [WHATWG HTML — The title element](https://html.spec.whatwg.org/multipage/semantics.html#the-title-element); Google — [Influence your title links](https://developers.google.com/search/docs/appearance/title-link) |
+
+### 8. `website:head:title-empty`
+
+| Field | Value |
+| --- | --- |
+| **id** | `website:head:title-empty` |
+| **category** | `document-head` |
+| **classification** | `PRIMARY_VERIFIED` |
+| **purpose** | Detect empty title elements. |
+| **required_evidence** | `page_html` |
+| **detection_rule** | Fire when `document.title_present` is true and `document.title_empty` is true. |
+| **severity** | `high` |
+| **fingerprint** | `website:head:title-empty` |
+| **finding_output** | **title:** `Title empty` |
+| **recommendation_logic** | Same guidance as title-missing. |
+| **primary_source** | WHATWG HTML title element; Google title links documentation |
+
+### 9. `website:head:title-length-heuristic`
+
+| Field | Value |
+| --- | --- |
+| **id** | `website:head:title-length-heuristic` |
+| **category** | `document-head` |
+| **classification** | `HEURISTIC` |
+| **purpose** | Flag unusually long titles for display readability. |
+| **detection_rule** | Fire when title length > 60 characters. **Not a Google ranking rule.** |
+| **severity** | `low` |
+| **fingerprint** | `website:head:title-length-heuristic` |
+| **primary_source** | Heuristic product default; Google does not publish a fixed title character ranking threshold |
+
+### 10. `website:head:meta-description-missing`
+
+| Field | Value |
+| --- | --- |
+| **id** | `website:head:meta-description-missing` |
+| **category** | `document-head` |
+| **classification** | `HEURISTIC` |
+| **purpose** | Note missing meta description (snippet influence, not ranking requirement). |
+| **detection_rule** | Fire when `meta.description_present` is false. |
+| **severity** | `low` |
+| **fingerprint** | `website:head:meta-description-missing` |
+| **primary_source** | [Google — meta description / special tags](https://developers.google.com/search/docs/crawling-indexing/special-tags) (supported for snippets; not a ranking requirement) |
+
+### 11. `website:head:meta-description-empty`
+
+| Field | Value |
+| --- | --- |
+| **id** | `website:head:meta-description-empty` |
+| **category** | `document-head` |
+| **classification** | `PRIMARY_VERIFIED` |
+| **purpose** | Detect empty meta description content attributes. |
+| **detection_rule** | Fire when description tag present and content empty. |
+| **severity** | `medium` |
+| **fingerprint** | `website:head:meta-description-empty` |
+| **primary_source** | Google Search Central special tags (description tag semantics) |
+
+### 12. `website:head:meta-description-length-heuristic`
+
+| Field | Value |
+| --- | --- |
+| **id** | `website:head:meta-description-length-heuristic` |
+| **category** | `document-head` |
+| **classification** | `HEURISTIC` |
+| **purpose** | Flag descriptions outside a readable ~50–160 character band. |
+| **detection_rule** | Fire when length < 50 or > 160. **Not a Google ranking rule.** |
+| **severity** | `low` |
+| **fingerprint** | `website:head:meta-description-length-heuristic` |
+| **primary_source** | Heuristic product default |
+
+### 13. `website:head:charset-missing`
+
+| Field | Value |
+| --- | --- |
+| **id** | `website:head:charset-missing` |
+| **category** | `document-head` |
+| **classification** | `PRIMARY_VERIFIED` |
+| **purpose** | Detect missing character encoding declaration. |
+| **detection_rule** | Fire when neither `meta charset` nor Content-Type http-equiv charset is present. |
+| **severity** | `medium` |
+| **fingerprint** | `website:head:charset-missing` |
+| **primary_source** | [WHATWG HTML — charset](https://html.spec.whatwg.org/multipage/semantics.html#charset) |
+
+### 14. `website:head:viewport-missing`
+
+| Field | Value |
+| --- | --- |
+| **id** | `website:head:viewport-missing` |
+| **category** | `document-head` |
+| **classification** | `PRIMARY_VERIFIED` |
+| **purpose** | Detect missing viewport meta for responsive websites. |
+| **detection_rule** | Fire when viewport meta content is absent. |
+| **severity** | `medium` |
+| **fingerprint** | `website:head:viewport-missing` |
+| **primary_source** | [MDN — viewport meta](https://developer.mozilla.org/en-US/docs/Web/HTML/Viewport_meta_tag); Google mobile-friendly guidance |
+
+### 15. `website:head:meta-robots-noindex`
+
+| Field | Value |
+| --- | --- |
+| **id** | `website:head:meta-robots-noindex` |
+| **category** | `indexability` |
+| **classification** | `PRIMARY_VERIFIED` |
+| **purpose** | Surface that the page declares `noindex` (may be intentional). |
+| **detection_rule** | Fire when meta robots or googlebot directives include `noindex`. Language: “Page declares noindex”, not “SEO is broken”. |
+| **severity** | `medium` |
+| **fingerprint** | `website:head:meta-robots-noindex` |
+| **primary_source** | [Google — robots meta tag](https://developers.google.com/search/docs/crawling-indexing/robots-meta-tag) |
+
+### 16. `website:head:jsonld-malformed`
+
+| Field | Value |
+| --- | --- |
+| **id** | `website:head:jsonld-malformed` |
+| **category** | `structured-data` |
+| **classification** | `PRIMARY_VERIFIED` |
+| **purpose** | Detect JSON parse failures in `application/ld+json` blocks. |
+| **detection_rule** | Fire when `structured_data.malformed_count > 0`. Do **not** claim Google rich-result eligibility from parse success. |
+| **severity** | `medium` |
+| **fingerprint** | `website:head:jsonld-malformed` |
+| **primary_source** | [JSON-LD](https://json-ld.org/); Google structured data intro (eligibility ≠ parse) |
+
+### 17. `website:head:open-graph-incomplete`
+
+| Field | Value |
+| --- | --- |
+| **id** | `website:head:open-graph-incomplete` |
+| **category** | `social` |
+| **classification** | `ADVISORY` |
+| **purpose** | Advisory completeness for og:title / og:description / og:image. |
+| **detection_rule** | Fire when any of the three core OG tags is missing. Severity low — social sharing quality, not critical SEO. |
+| **severity** | `low` |
+| **fingerprint** | `website:head:open-graph-incomplete` |
+| **primary_source** | [Open Graph protocol](https://ogp.me/) (not a Google ranking requirement) |
+
+---
+
 ## Starter coverage map
 
-| Catalog `id` | Primary evidence | Capability candidate (DIAGNOSIS.md) |
-| --- | --- | --- |
-| `reachability-http` | `http_fetch` | reachability, status codes |
-| `https-tls-validity` | `tls_info`, `http_fetch` | HTTP/HTTPS, SSL |
-| `redirect-http-to-https` | `redirects`, `http_fetch` | redirects |
-| `robots-txt-availability` | `robots` | robots |
-| `sitemap-xml-availability` | `sitemap` | sitemap |
-| `canonical-link-consistency` | `page_html` | canonical |
+| Catalog `id` | Primary evidence | Classification | Capability candidate (DIAGNOSIS.md) |
+| --- | --- | --- | --- |
+| `reachability-http` | `http_fetch` | PRIMARY_VERIFIED | reachability, status codes |
+| `https-tls-validity` | `tls_info`, `http_fetch` | PRIMARY_VERIFIED | HTTP/HTTPS, SSL |
+| `redirect-http-to-https` | `redirects`, `http_fetch` | PRIMARY_VERIFIED | redirects |
+| `robots-txt-availability` | `robots` | PRIMARY_VERIFIED | robots |
+| `sitemap-xml-availability` | `sitemap` | PRIMARY_VERIFIED | sitemap |
+| `canonical-link-consistency` | `page_html` | PRIMARY_VERIFIED | canonical |
+| `website:head:title-missing` | `page_html` | PRIMARY_VERIFIED | title/meta |
+| `website:head:title-empty` | `page_html` | PRIMARY_VERIFIED | title/meta |
+| `website:head:title-length-heuristic` | `page_html` | HEURISTIC | title/meta |
+| `website:head:meta-description-missing` | `page_html` | HEURISTIC | title/meta |
+| `website:head:meta-description-empty` | `page_html` | PRIMARY_VERIFIED | title/meta |
+| `website:head:meta-description-length-heuristic` | `page_html` | HEURISTIC | title/meta |
+| `website:head:charset-missing` | `page_html` | PRIMARY_VERIFIED | document head |
+| `website:head:viewport-missing` | `page_html` | PRIMARY_VERIFIED | mobile |
+| `website:head:meta-robots-noindex` | `page_html` | PRIMARY_VERIFIED | indexability |
+| `website:head:jsonld-malformed` | `page_html` | PRIMARY_VERIFIED | schema |
+| `website:head:open-graph-incomplete` | `page_html` | ADVISORY | social metadata |
 
-Further catalog items (broken links, title/meta, headings, schema, security headers, etc.) may be appended in later catalog versions without changing this contract.
+Further catalog items (broken links, headings, deep schema validation, security headers, etc.) may be appended in later catalog versions without changing this contract.
 
 ## Explicit non-goals (this file)
 

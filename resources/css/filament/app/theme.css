@@ -367,7 +367,40 @@
 .mox-sev--critical,
 .mox-sev--high { background: #fee2e2; color: var(--color-mox-danger); }
 .mox-sev--medium { background: #ffedd5; color: var(--color-mox-warning); }
-.mox-sev--low { background: #e5e7eb; color: var(--mox-text-secondary); }
+.mox-sev--low,
+.mox-sev--info { background: #e5e7eb; color: var(--mox-text-secondary); }
+
+.mox-health-groups {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+    margin-bottom: 0.85rem;
+}
+@media (max-width: 960px) {
+    .mox-health-groups { grid-template-columns: 1fr; }
+}
+.mox-rec-inline {
+    margin-top: 0.2rem;
+    font-size: 0.8rem;
+    color: var(--mox-text-secondary);
+}
+.mox-table-wrap { overflow-x: auto; }
+.mox-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+.mox-table th,
+.mox-table td {
+    padding: 0.45rem 0.55rem;
+    border-bottom: 1px solid var(--mox-border, #e5e7eb);
+    text-align: left;
+    vertical-align: top;
+}
+.mox-table th { color: var(--mox-text-secondary); font-weight: 600; }
+.mox-link { color: var(--mox-text, #1f2937); text-decoration: underline; text-underline-offset: 2px; }
+.mox-stack { display: flex; flex-direction: column; gap: 0.85rem; }
+.mox-section-head--tight { margin-top: 0.5rem; }
 
 .mox-ok { color: var(--color-mox-success); font-weight: 600; font-size: 0.78rem; }
 .mox-warn { color: var(--color-mox-warning); font-weight: 600; font-size: 0.78rem; }
