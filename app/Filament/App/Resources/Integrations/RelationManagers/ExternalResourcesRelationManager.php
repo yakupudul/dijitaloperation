@@ -8,11 +8,11 @@ use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
 /**
  * Read-only catalog of discovered provider resources.
- * Live discovery / OAuth is deferred to the provider integration milestone.
  */
 class ExternalResourcesRelationManager extends RelationManager
 {
@@ -20,7 +20,7 @@ class ExternalResourcesRelationManager extends RelationManager
 
     protected static string $relationship = 'externalResources';
 
-    protected static ?string $title = 'External resources';
+    protected static ?string $title = 'Resources';
 
     public function isReadOnly(): bool
     {
@@ -55,29 +55,44 @@ class ExternalResourcesRelationManager extends RelationManager
     {
         return $table
             ->recordTitleAttribute('display_name')
+            ->defaultSort('resource_type')
             ->columns([
-                TextColumn::make('display_name')
-                    ->searchable()
-                    ->sortable(),
                 TextColumn::make('resource_type')
-                    ->label('Type')
+                    ->label('Capability')
                     ->formatStateUsing(fn (string $state): string => ProviderRegistry::capabilityLabel($state))
                     ->badge()
+                    ->sortable()
                     ->searchable(),
-                TextColumn::make('external_id')
-                    ->label('External ID')
+                TextColumn::make('display_name')
                     ->searchable()
-                    ->toggleable(),
+                    ->sortable()
+                    ->description(fn ($record): string => (string) $record->external_id),
                 TextColumn::make('status')
-                    ->badge(),
+                    ->badge()
+                    ->sortable(),
                 TextColumn::make('last_seen_at')
                     ->dateTime()
                     ->placeholder('—')
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->sortable(),
+            ])
+            ->filters([
+                SelectFilter::make('resource_type')
+                    ->label('Capability')
+                    ->options([
+                        'search_console' => 'Search Console',
+                        'ga4' => 'GA4',
+                        'google_ads' => 'Google Ads',
+                        'google_business_profile' => 'Google Business Profile',
+                    ]),
+                SelectFilter::make('status')
+                    ->options([
+                        'available' => 'Available',
+                        'unavailable' => 'Unavailable',
+                    ]),
             ])
             ->headerActions([])
             ->recordActions([])
             ->emptyStateHeading('No external resources discovered yet')
-            ->emptyStateDescription('Resource discovery runs through this Integration once provider OAuth/API access is connected. Fake resources are not created here.');
+            ->emptyStateDescription('Authorize Google, then use Refresh resources. Fake resources are never created.');
     }
 }

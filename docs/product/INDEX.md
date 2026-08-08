@@ -55,6 +55,7 @@ Blueprint, MASTER_SPEC'i **override edemez**; yalnızca ayrıntılandırır.
 | Digital Asset | `docs/product/DIGITAL_ASSET.md` |
 | Connection + credentials | `docs/product/CONNECTION.md` + `docs/product/DIGITAL_ASSET.md` (+ ADR-027, ADR-039) |
 | Agency Integrations | `docs/product/CONNECTION.md` (+ ADR-039) |
+| Google Integration setup | `docs/product/GOOGLE_INTEGRATION_SETUP.md` |
 | Minimal Module Registry | `docs/product/MODULE_PLATFORM.md` |
 | Dashboard / ops UI | `docs/product/DASHBOARD.md` |
 | Run / Evidence / Finding / Recommendation / Task | `docs/product/ANALYSIS_PIPELINE.md` |
