@@ -5,12 +5,14 @@ namespace Tests\Feature;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
+use App\Models\CoreIntegrationCredential;
 use App\Models\DigitalAsset;
 use App\Models\Evidence;
 use App\Models\Finding;
 use App\Models\Run;
 use App\Services\Findings\FindingLifecycleService;
 use App\Services\Integrations\CollectLiveBoundDataService;
+use App\Support\Integrations\ProviderRegistry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use MoxDop\GoogleAds\Findings\GoogleAdsPerformanceBoundEvidenceEvaluator;
@@ -197,7 +199,7 @@ class GoogleAdsPerformanceFindingsTest extends TestCase
         $integration = CoreIntegration::factory()->google()->create([
             'status' => CoreIntegration::STATUS_ACTIVE,
         ]);
-        \App\Models\CoreIntegrationCredential::factory()->provider()->create([
+        CoreIntegrationCredential::factory()->provider()->create([
             'integration_id' => $integration->id,
             'encrypted_payload' => [
                 'client_id' => 'cid',
@@ -205,7 +207,7 @@ class GoogleAdsPerformanceFindingsTest extends TestCase
                 'developer_token' => 'dev-token',
             ],
         ]);
-        \App\Models\CoreIntegrationCredential::factory()->authorization()->create([
+        CoreIntegrationCredential::factory()->authorization()->create([
             'integration_id' => $integration->id,
             'encrypted_payload' => [
                 'access_token' => 'atok',
@@ -217,7 +219,7 @@ class GoogleAdsPerformanceFindingsTest extends TestCase
         $asset = DigitalAsset::factory()->create(['type' => 'google_ads']);
         $resource = CoreExternalResource::factory()->create([
             'integration_id' => $integration->id,
-            'provider' => \App\Support\Integrations\ProviderRegistry::GOOGLE,
+            'provider' => ProviderRegistry::GOOGLE,
             'resource_type' => 'google_ads',
             'external_id' => '1234567890',
             'status' => CoreExternalResource::STATUS_AVAILABLE,
