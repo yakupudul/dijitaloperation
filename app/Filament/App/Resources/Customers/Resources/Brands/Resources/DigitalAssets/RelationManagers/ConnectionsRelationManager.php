@@ -4,6 +4,7 @@ namespace App\Filament\App\Resources\Customers\Resources\Brands\Resources\Digita
 
 use App\Filament\App\Concerns\ManagesRecordsOnViewPages;
 use App\Models\CoreConnection;
+use App\Support\Integrations\ConnectionScope;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -32,21 +33,32 @@ class ConnectionsRelationManager extends RelationManager
     protected static ?string $title = 'Site connections';
 
     /**
+     * Types offered for NEW Site connections.
+     * Google provider auth/resources belong under Settings → Integrations → Google + Provider resources.
+     * Existing Google CoreConnection rows remain visible non-destructively.
+     *
+     * @return list<string>
+     */
+    public static function creatableConnectionTypes(): array
+    {
+        return [
+            'wordpress',
+            'pagespeed',
+            'dataforseo',
+            'meta_ads_api',
+            'instagram_api',
+        ];
+    }
+
+    /**
      * @return list<string>
      */
     public static function connectionTypes(): array
     {
-        return [
-            'wordpress',
-            'ga4',
-            'search_console',
-            'pagespeed',
-            'dataforseo',
-            'google_business_profile_api',
-            'google_ads_api',
-            'meta_ads_api',
-            'instagram_api',
-        ];
+        return array_values(array_unique([
+            ...static::creatableConnectionTypes(),
+            ...ConnectionScope::providerLevelTypes(),
+        ]));
     }
 
     public function form(Schema $schema): Schema
@@ -54,11 +66,25 @@ class ConnectionsRelationManager extends RelationManager
         return $schema
             ->components([
                 Select::make('type')
-                    ->options(collect(static::connectionTypes())->mapWithKeys(
-                        fn (string $type): array => [$type => str($type)->replace('_', ' ')->title()->toString()],
-                    )->all())
+                    ->options(function (?CoreConnection $record): array {
+                        $types = static::creatableConnectionTypes();
+                        if ($record !== null && filled($record->type) && ! in_array($record->type, $types, true)) {
+                            $types[] = (string) $record->type;
+                        }
+
+                        return collect($types)->mapWithKeys(
+                            fn (string $type): array => [$type => str($type)->replace('_', ' ')->title()->toString()],
+                        )->all();
+                    })
+                    ->helperText('Google Search Console, GA4, Ads, and GBP use Settings → Integrations → Google and Provider resource bindings — not Site connections.')
                     ->required()
-                    ->searchable(),
+                    ->searchable()
+                    ->disabled(fn (?CoreConnection $record): bool => $record !== null && in_array((string) $record->type, [
+                        'ga4',
+                        'search_console',
+                        'google_ads_api',
+                        'google_business_profile_api',
+                    ], true)),
                 TextInput::make('name')
                     ->required()
                     ->maxLength(255),

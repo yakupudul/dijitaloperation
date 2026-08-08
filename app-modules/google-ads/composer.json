@@ -1,0 +1,24 @@
+{
+	"name": "moxdop/google-ads",
+	"description": "Google Ads domain module — Binding-based read-only collection.",
+	"type": "library",
+	"version": "1.0",
+	"license": "proprietary",
+	"require": {},
+	"autoload": {
+		"psr-4": {
+			"MoxDop\\GoogleAds\\": "src/",
+			"MoxDop\\GoogleAds\\Tests\\": "tests/",
+			"MoxDop\\GoogleAds\\Database\\Factories\\": "database/factories/",
+			"MoxDop\\GoogleAds\\Database\\Seeders\\": "database/seeders/"
+		}
+	},
+	"minimum-stability": "stable",
+	"extra": {
+		"laravel": {
+			"providers": [
+				"MoxDop\\GoogleAds\\Providers\\GoogleAdsServiceProvider"
+			]
+		}
+	}
+}

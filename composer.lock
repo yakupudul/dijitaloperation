@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "bf3fd09a9221c70219160810095edf63",
+    "content-hash": "632bfc29e26a7c7151e9838320b9c368",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -4593,6 +4593,70 @@
                 }
             ],
             "time": "2026-01-02T08:56:05+00:00"
+        },
+        {
+            "name": "moxdop/google-ads",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/google-ads",
+                "reference": "1a8411174c2b4477b0c1175ed92a5de035978465"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "MoxDop\\GoogleAds\\Providers\\GoogleAdsServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "MoxDop\\GoogleAds\\": "src/",
+                    "MoxDop\\GoogleAds\\Tests\\": "tests/",
+                    "MoxDop\\GoogleAds\\Database\\Factories\\": "database/factories/",
+                    "MoxDop\\GoogleAds\\Database\\Seeders\\": "database/seeders/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Google Ads domain module — Binding-based read-only collection.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "moxdop/google-business-profile",
+            "version": "1.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/google-business-profile",
+                "reference": "3f6f94f9e8e7413f8e602ee64c003b96c97d6be9"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "MoxDop\\GoogleBusinessProfile\\Providers\\GoogleBusinessProfileServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "MoxDop\\GoogleBusinessProfile\\": "src/",
+                    "MoxDop\\GoogleBusinessProfile\\Tests\\": "tests/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Google Business Profile domain module — Binding-based read-only collection.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
         },
         {
             "name": "moxdop/sample-module",

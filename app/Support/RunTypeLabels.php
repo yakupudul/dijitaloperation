@@ -13,7 +13,9 @@ final class RunTypeLabels
     public static function map(): array
     {
         return [
-            'website' => 'Website',
+            'website' => 'Website live collection',
+            'google-ads' => 'Google Ads live collection',
+            'google-business-profile' => 'Google Business Profile live collection',
             'website-diagnosis' => 'Website diagnosis',
             'website-ai-insights' => 'Website AI insights',
             'website-gbp-website-url-consistency' => 'Website ↔ GBP URL',

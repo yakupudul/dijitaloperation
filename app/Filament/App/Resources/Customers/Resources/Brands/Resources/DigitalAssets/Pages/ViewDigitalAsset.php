@@ -15,6 +15,7 @@ use App\Jobs\AnalyzeWebsiteMetaAdsDestinationConsistencyJob;
 use App\Jobs\DiagnoseWebsiteJob;
 use App\Models\Brand;
 use App\Models\DigitalAsset;
+use App\Models\Run;
 use App\Services\CrossAssetInstagramMetaAdsDestinationConsistencyService;
 use App\Services\CrossAssetWebsiteGbpAddressConsistencyService;
 use App\Services\CrossAssetWebsiteGbpPhoneConsistencyService;
@@ -22,6 +23,7 @@ use App\Services\CrossAssetWebsiteGbpWebsiteUrlConsistencyService;
 use App\Services\CrossAssetWebsiteGoogleAdsLandingConsistencyService;
 use App\Services\CrossAssetWebsiteInstagramWebsiteUrlConsistencyService;
 use App\Services\CrossAssetWebsiteMetaAdsDestinationConsistencyService;
+use App\Services\Integrations\CollectLiveBoundDataService;
 use App\Services\WebsiteDiagnosisService;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -45,6 +47,30 @@ class ViewDigitalAsset extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('collectLiveData')
+                ->label('Collect live data')
+                ->icon(Heroicon::OutlinedCloudArrowDown)
+                ->color('primary')
+                ->requiresConfirmation()
+                ->modalHeading('Collect live provider data')
+                ->modalDescription('Runs Binding-based Google collectors for this asset’s active Provider resources. Uses the agency Google Integration — no credentials or external IDs entered here. Read-only.')
+                ->modalSubmitActionLabel('Collect live data')
+                ->action(function (CollectLiveBoundDataService $collector): void {
+                    /** @var DigitalAsset $asset */
+                    $asset = $this->getRecord();
+                    $result = $collector->collect($asset);
+
+                    Notification::make()
+                        ->title($result['ok'] ? 'Live data collection finished' : 'Live data collection incomplete')
+                        ->body($result['message'])
+                        ->{$result['ok'] ? 'success' : 'warning'}()
+                        ->send();
+
+                    $firstRun = $result['runs'][0] ?? null;
+                    if ($firstRun instanceof Run) {
+                        $this->redirect(RunResource::getUrl('view', ['record' => $firstRun]));
+                    }
+                }),
             ActionGroup::make([
                 Action::make('runWebsiteDiagnosis')
                     ->label('Run diagnosis')

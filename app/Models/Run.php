@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Fillable([
     'digital_asset_id',
     'core_connection_id',
+    'core_asset_binding_id',
     'module_id',
     'status',
     'started_at',
@@ -37,6 +38,16 @@ class Run extends Model
     public function coreConnection(): BelongsTo
     {
         return $this->belongsTo(CoreConnection::class);
+    }
+
+    /**
+     * Agency provider collection provenance (Integration → External Resource → Binding).
+     *
+     * @return BelongsTo<CoreAssetBinding, $this>
+     */
+    public function coreAssetBinding(): BelongsTo
+    {
+        return $this->belongsTo(CoreAssetBinding::class);
     }
 
     /**
