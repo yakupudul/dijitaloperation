@@ -4,7 +4,11 @@ return [
     'google' => [
         'client_id' => env('GOOGLE_CLIENT_ID'),
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
-        'redirect_uri' => env('GOOGLE_REDIRECT_URI', rtrim((string) env('APP_URL', 'http://localhost'), '/').'/integrations/google/callback'),
+        /*
+         * Optional deployment override only. Normal installs derive the callback from
+         * APP_URL + the named integrations.google.callback route (see GoogleOAuthRedirectUriResolver).
+         */
+        'redirect_uri' => env('GOOGLE_REDIRECT_URI'),
         'developer_token' => env('GOOGLE_ADS_DEVELOPER_TOKEN'),
         'ads_api_version' => env('GOOGLE_ADS_API_VERSION', 'v25'),
         /*

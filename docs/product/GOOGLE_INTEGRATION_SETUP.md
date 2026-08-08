@@ -41,16 +41,17 @@ Encrypted with `credential_type = authorization`.
 1. Create/select a Google Cloud project.
 2. Configure **OAuth consent screen** (Internal if Workspace-only; External + test users for personal Google).
 3. Create **OAuth client ID** type **Web application**.
-4. Authorized redirect URI — copy from the Google Integration page (**OAuth Redirect URI**), typically:
+4. Authorized redirect URI — copy the **OAuth Redirect URI** shown on Settings → Integrations → Google (copyable).  
+   It is derived automatically from `APP_URL` + the named callback route (no manual typing).
+
+Examples:
 
 ```text
-{APP_URL}/integrations/google/callback
-```
+APP_URL=http://127.0.0.1:8000
+→ http://127.0.0.1:8000/integrations/google/callback
 
-Example local:
-
-```text
-http://127.0.0.1:8000/integrations/google/callback
+APP_URL=https://dop.moximu.com
+→ https://dop.moximu.com/integrations/google/callback
 ```
 
 5. Enable APIs:
@@ -83,16 +84,17 @@ Deployment teams may still set:
 ```env
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
-GOOGLE_REDIRECT_URI="${APP_URL}/integrations/google/callback"
+# Optional override only. Normal installs derive callback from APP_URL automatically.
+# GOOGLE_REDIRECT_URI=
 GOOGLE_ADS_DEVELOPER_TOKEN=
 GOOGLE_ADS_API_VERSION=v25
 GOOGLE_INCLUDE_GBP_SCOPE=false
 GOOGLE_GBP_DISCOVERY_ENABLED=false
 ```
 
-**Resolution precedence** (per field):
+**Resolution precedence** (per Client ID / Secret / Ads token field):
 
-1. Integration encrypted **provider** credential (database)
+1. Integration encrypted **provider** credential (database) — via **Configure**
 2. Environment / `config/moxdop.php` fallback
 3. Missing → Setup required / Incomplete
 
@@ -101,7 +103,9 @@ Env secrets are **not** copied into the database automatically.
 
 `GOOGLE_ADS_API_VERSION` remains deployment/system config (default **v25**); it is not a secret input in Admin.
 
-Redirect URI is not a secret. Prefer the copyable value on the Integration page. Keep `GOOGLE_REDIRECT_URI` aligned with `APP_URL` / the route-derived callback.
+**OAuth Redirect URI** is not a secret and is not Admin-typed. Canonical resolver: `APP_URL` + `integrations.google.callback` path. Optional `GOOGLE_REDIRECT_URI` only for unusual deployments. Authorize + token exchange + Admin display always use the same resolver.
+
+**Google has one configuration path:** Settings → Integrations → Google → **Configure**. Do not use generic Integration Edit KeyValue/JSON for Google secrets.
 
 ## OAuth scopes requested
 
@@ -149,15 +153,17 @@ When approved:
 ## In-app steps
 
 1. Admin → Settings → Integrations → Add integration → **Google** (if not present).
-2. Open Google Integration.
-3. **Configure** application credentials (Client ID / Secret / Ads developer token) unless using env fallback.
-4. Confirm Application configuration = **Complete**.
-5. Copy **OAuth Redirect URI** into Google Cloud Console if needed.
+2. Open Google Integration (the workspace).
+3. Copy **OAuth Redirect URI** → Google Cloud → OAuth Web Client → Authorized redirect URIs.
+4. **Configure** → Client ID / Client Secret / Ads developer token → Save.
+5. Confirm Application configuration = **Complete**.
 6. **Authorize Google** (offline access / consent).
 7. **Test connection**.
 8. **Refresh resources**.
 9. Review Resources grouped/filtered by capability.
 10. Open a Digital Asset → Provider resources → bind compatible resources.
+
+No JSON. No generic KeyValue credential entry. No second Google settings path.
 
 ## Disconnect vs remove provider configuration
 

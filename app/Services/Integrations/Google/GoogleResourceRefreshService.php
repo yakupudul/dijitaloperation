@@ -11,7 +11,6 @@ use App\Services\Integrations\Google\Discovery\GoogleBusinessProfileDiscoverer;
 use App\Services\Integrations\Google\Discovery\SearchConsoleDiscoverer;
 use App\Support\Integrations\DiscoveredExternalResource;
 use App\Support\Integrations\Google\GoogleAuthStatus;
-use App\Support\Integrations\Google\GoogleOAuthConfig;
 use App\Support\Integrations\ProviderRegistry;
 use Illuminate\Support\Facades\DB;
 
@@ -22,6 +21,7 @@ class GoogleResourceRefreshService
         private readonly Ga4Discoverer $ga4,
         private readonly GoogleAdsDiscoverer $ads,
         private readonly GoogleBusinessProfileDiscoverer $gbp,
+        private readonly GoogleCredentialResolver $credentials,
     ) {}
 
     /**
@@ -33,10 +33,10 @@ class GoogleResourceRefreshService
             return ['ok' => false, 'message' => 'Not a Google integration.', 'results' => []];
         }
 
-        if (! GoogleOAuthConfig::isConfigured()) {
+        if (! $this->credentials->isAppConfigured($integration)) {
             return [
                 'ok' => false,
-                'message' => 'Setup required: missing '.implode(', ', GoogleOAuthConfig::missingKeys()).'.',
+                'message' => 'Setup required: '.implode(', ', $this->credentials->missingAppKeys($integration)).' missing.',
                 'results' => [],
             ];
         }
