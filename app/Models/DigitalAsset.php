@@ -46,6 +46,16 @@ class DigitalAsset extends Model
     }
 
     /**
+     * Provider External Resource bindings (agency Integration credentials are not stored here).
+     *
+     * @return HasMany<CoreAssetBinding, $this>
+     */
+    public function assetBindings(): HasMany
+    {
+        return $this->hasMany(CoreAssetBinding::class);
+    }
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array

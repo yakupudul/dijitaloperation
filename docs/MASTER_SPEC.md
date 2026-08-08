@@ -172,9 +172,18 @@ MVP dışında (bugünden kodlanmaz / ürünleştirilmez):
 * Platforma özel kolonları core analysis tablolarına eklemek
 * Framework’ün zaten çözdüğü altyapıyı yeniden yazmak (ADR-033)
 
-### 7.1 Connection ve credential (ADR-027)
+### 7.1 Connection, Integration ve credential (ADR-027, ADR-039)
 
-`core_connections` (secret olmayan kimlik/ayar/sağlık):
+**Authenticate once at agency level, bind many resources to Digital Assets.**
+
+Agency Integration (`core_integrations` + `core_integration_credentials`):
+
+* Moximu’nun Google / Meta / DataForSEO / OpenAI gibi provider’lara merkezi bağlantısı
+* Credential ownership Integration’dadır; Customer/Brand/Asset başına tekrarlanmaz
+* Discover edilen kaynaklar `core_external_resources`; Digital Asset eşlemesi `core_asset_bindings`
+* Binding ve External Resource secret taşımaz
+
+Asset-scoped Connection (`core_connections` + `core_connection_credentials`) — WordPress vb. site credential’lar:
 
 `id`, `digital_asset_id`, `module_id`, `type`, `name`, `status`, `config_json`, `health_status`, `last_success_at`, `last_error_at`, `last_error_message`
 
@@ -184,6 +193,7 @@ MVP dışında (bugünden kodlanmaz / ürünleştirilmez):
 
 * `encrypted_payload`: Laravel encryption / encrypted cast ile TEXT kolonda şifreli
 * Credential ham değerleri Filament/Livewire model state’ine **expose edilmez**
+* Provider-level Connection satırları transitional; destructive migrate zorunlu değil (ADR-039)
 
 ### 7.2 Core analysis modelleri (ADR-028, ADR-034)
 

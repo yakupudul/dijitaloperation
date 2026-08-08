@@ -29,7 +29,7 @@ class ConnectionsRelationManager extends RelationManager
 
     protected static string $relationship = 'connections';
 
-    protected static ?string $title = 'Connections';
+    protected static ?string $title = 'Site connections';
 
     /**
      * @return list<string>
@@ -157,8 +157,8 @@ class ConnectionsRelationManager extends RelationManager
                     ->using(fn (CoreConnection $record, array $data): CoreConnection => $this->persistConnection($data, $record)),
                 DeleteAction::make(),
             ])
-            ->emptyStateHeading('No connections yet')
-            ->emptyStateDescription('Add a read-only data connection for this digital asset. Secrets stay encrypted and are never displayed.')
+            ->emptyStateHeading('No site connections yet')
+            ->emptyStateDescription('Asset-scoped connections such as WordPress live here. Agency provider auth (Google, Meta, …) belongs under Settings → Integrations; bind discovered resources in Provider resources.')
             ->emptyStateActions([
                 CreateAction::make()
                     ->label('Create Connection')

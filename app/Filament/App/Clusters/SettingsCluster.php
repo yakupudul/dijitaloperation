@@ -9,8 +9,8 @@ use Filament\Support\Icons\Heroicon;
 use UnitEnum;
 
 /**
- * Settings shell for future Integrations / Team / Security pages.
- * Only register pages that have real content.
+ * Settings shell for General, Integrations, and future Team / Security pages.
+ * Only register pages/resources that have real content.
  */
 class SettingsCluster extends Cluster
 {

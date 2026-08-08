@@ -264,6 +264,31 @@
 - **Karar:** DOP application test standardı **PHPUnit**’dir. Bu karar ADR-021’in yalnızca Pest kısmını supersede eder. Laravel / Filament / diğer yığın kararları değişmez. Pest eklenmez; framework-native mevcut PHPUnit yapısı korunur.
 - **İlgili:** `MASTER_SPEC.md` §12, `composer.json`, `tests/`, supersedes ADR-021 Pest satırı
 
+## ADR-039 — Central Agency Integration, External Resource and Asset Binding Architecture
+
+- **Durum:** Accepted
+- **Tarih:** 2026-08-08
+- **Bağlam:** MoxDOP SaaS değildir; tek ajans (Moximu) kendi müşteri portföyünü yönetir. Client portal, tenant-specific OAuth ve müşteri başına tekrarlanan Google/Meta authorize akışları ürün modeline aykırıdır. Mevcut `CoreConnection` hem asset-scoped site credential’ları (WordPress) hem provider-level kimlikleri aynı tabloda tutuyordu; bu ayrım netleştirilmelidir.
+- **Karar:**
+  1. **Authenticate once at agency level, bind many resources to Digital Assets.**
+  2. **Integration (`core_integrations`)** — Moximu’nun bir external provider’a (Google, Meta, DataForSEO, OpenAI, …) yaptığı merkezi bağlantı. Credential ownership Integration’dadır; Customer/Brand/Asset başına tekrarlanmaz. Provider başına en fazla bir Integration (unique `provider`).
+  3. **Integration credentials (`core_integration_credentials`)** — Secret’lar Laravel encryption / encrypted cast ile saklanır (ADR-027 deseni). Secret resource veya binding metadata’ya kopyalanmaz; UI’da write-only; log/API/screenshot’a plaintext sızmaz.
+  4. **External Resource (`core_external_resources`)** — Integration üzerinden discover edilen provider-side gerçek kaynak (GSC property, GA4 property, Ads customer, GBP location, Meta ad account, Page, IG account, …). Kullanıcı normal akışta external ID elle yazmaz. `(integration_id, resource_type, external_id)` unique.
+  5. **Binding (`core_asset_bindings`)** — Digital Asset ↔ External Resource eşlemesi. Credential taşımaz; yalnızca hangi DOP asset’inin hangi provider resource’una karşılık geldiğini söyler. `(digital_asset_id, external_resource_id)` ve `(digital_asset_id, capability)` unique.
+  6. **Collector** — Credential değildir. Integration + Binding/Resource + collection config ile read-only veri çeken application service/job’dır. Kullanıcı UI’dan “collector bağlama”; Integration kurar ve resource seçerek Binding oluşturur. Bu ADR collector/scheduling implementasyonu zorunlu kılmaz.
+  7. **Agency-scoped vs asset-scoped auth:**
+     - Agency/provider: Google, Meta, DataForSEO, OpenAI → Integration.
+     - Asset-scoped: WordPress application password, site-specific CMS credentials → mevcut `CoreConnection` (+ `core_connection_credentials`) kalır.
+  8. **External integrations remain READ-ONLY** (ADR-018). Campaign/site/account mutation yok.
+  9. **Digital Asset hierarchy değişmez** (Customer → Brand → Digital Asset; ADR-017).
+  10. **Resource discovery** provider Integration üzerinden, test edilebilir `DiscoversProviderResources` contract’ı ile yapılır. Bu foundation ADR’si live OAuth/discovery’yi zorunlu kılmaz.
+  11. **Disabled Integration:** Yeni discovery/collection durur; mevcut External Resource ve Binding kayıtları otomatik silinmez; secret purge edilmez (ADR-014 ile uyumlu).
+  12. **Disconnect / delete Integration:** Binding’ler ve External Resource catalog cascade ile gider; Digital Asset silinmez. Asset-scoped `CoreConnection` kayıtları etkilenmez.
+  13. **Compatibility (non-destructive):** Mevcut provider-type `CoreConnection` satırları bu milestone’da destructive migrate edilmez. WordPress/site credentials Connection’da kalır. Provider-level Connection satırları transitional kabul edilir; güvenli migration sonraki Google/Meta Integration milestone’larında Binding + Integration’a taşınabilir. Compatibility helper hangi type’ların asset-scoped / provider-level olduğunu sınıflandırır.
+  14. **Security / audit:** Integration credential yönetimi Admin-only. Unauthorized kullanıcılar policy/canAccess ile engellenir. Exception mesajları secret içermez.
+  15. **Extensibility:** Küçük canonical provider/capability registry yeterlidir; marketplace/plugin engine yok.
+- **İlgili:** ADR-015, ADR-017, ADR-018, ADR-027, ADR-037; `docs/product/CONNECTION.md`; `MASTER_SPEC.md` §7.1; Settings → Integrations UI
+
 ---
 
 ## Karar indeksi
@@ -308,6 +333,7 @@
 | ADR-036 | Result entity yok | Accepted |
 | ADR-037 | MVP Core sade liste | Accepted |
 | ADR-038 | PHPUnit test standardı | Accepted |
+| ADR-039 | Central Agency Integration / External Resource / Binding | Accepted |
 
 ## Süpercede edilen kararlar
 
