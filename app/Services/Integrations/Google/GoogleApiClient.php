@@ -28,8 +28,7 @@ class GoogleApiClient
             throw new RuntimeException('GOOGLE_ADS_DEVELOPER_TOKEN is missing.');
         }
 
-        $version = (string) config('moxdop.google.ads_api_version', 'v19');
-        $url = 'https://googleads.googleapis.com/'.$version.'/'.ltrim($path, '/');
+        $url = GoogleOAuthConfig::adsApiUrl($path);
 
         $token = $this->oauth->validAccessToken($integration);
         if ($token === null) {

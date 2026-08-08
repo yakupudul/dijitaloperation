@@ -16,6 +16,7 @@ use App\Models\DigitalAsset;
 use App\Models\User;
 use App\Services\Integrations\Google\GoogleOAuthService;
 use App\Services\Integrations\Google\GoogleResourceRefreshService;
+use App\Support\Integrations\Google\GoogleOAuthConfig;
 use App\Support\Integrations\AssetBindingCompatibility;
 use App\Support\Integrations\Google\GoogleAuthStatus;
 use App\Support\Integrations\Google\GoogleScopes;
@@ -298,7 +299,7 @@ class GoogleCentralIntegrationTest extends TestCase
         Http::fake([
             'https://www.googleapis.com/webmasters/v3/sites' => Http::response(['siteEntry' => []], 200),
             'https://analyticsadmin.googleapis.com/v1beta/accountSummaries*' => Http::response(['accountSummaries' => []], 200),
-            'https://googleads.googleapis.com/v19/customers:listAccessibleCustomers' => Http::response([
+            GoogleOAuthConfig::adsApiUrl('customers:listAccessibleCustomers') => Http::response([
                 'resourceNames' => ['customers/1234567890', 'customers/9988776655'],
             ], 200),
         ]);

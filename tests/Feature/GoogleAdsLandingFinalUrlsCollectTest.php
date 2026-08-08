@@ -7,6 +7,7 @@ use App\Models\CoreConnectionCredential;
 use App\Models\DigitalAsset;
 use App\Models\Evidence;
 use App\Services\GoogleAdsLandingFinalUrlsCollectService;
+use App\Support\Integrations\Google\GoogleOAuthConfig;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
@@ -19,7 +20,7 @@ class GoogleAdsLandingFinalUrlsCollectTest extends TestCase
     public function test_successful_collect_creates_landing_final_urls_evidence(): void
     {
         Http::fake([
-            'https://googleads.googleapis.com/v18/customers/1111111111/googleAds:search' => Http::response([
+            GoogleOAuthConfig::adsApiUrl('customers/1111111111/googleAds:search') => Http::response([
                 'results' => [
                     [
                         'adGroupAd' => [
@@ -83,7 +84,7 @@ class GoogleAdsLandingFinalUrlsCollectTest extends TestCase
             $body = $request->data();
 
             return $request->method() === 'POST'
-                && $request->url() === 'https://googleads.googleapis.com/v18/customers/1111111111/googleAds:search'
+                && $request->url() === GoogleOAuthConfig::adsApiUrl('customers/1111111111/googleAds:search')
                 && $request->hasHeader('Authorization')
                 && $request->hasHeader('developer-token')
                 && $request->header('login-customer-id')[0] === '9999999999'
@@ -97,7 +98,7 @@ class GoogleAdsLandingFinalUrlsCollectTest extends TestCase
     public function test_empty_results_still_ok_with_zero_urls(): void
     {
         Http::fake([
-            'https://googleads.googleapis.com/v18/customers/2222222222/googleAds:search' => Http::response([
+            GoogleOAuthConfig::adsApiUrl('customers/2222222222/googleAds:search') => Http::response([
                 'results' => [],
             ], 200),
         ]);
@@ -122,7 +123,7 @@ class GoogleAdsLandingFinalUrlsCollectTest extends TestCase
     public function test_api_error_records_last_error_without_credentials_in_evidence(): void
     {
         Http::fake([
-            'https://googleads.googleapis.com/v18/customers/3333333333/googleAds:search' => Http::response([
+            GoogleOAuthConfig::adsApiUrl('customers/3333333333/googleAds:search') => Http::response([
                 'error' => ['message' => 'PERMISSION_DENIED'],
             ], 403),
         ]);

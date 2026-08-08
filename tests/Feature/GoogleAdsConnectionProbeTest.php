@@ -7,6 +7,7 @@ use App\Models\CoreConnectionCredential;
 use App\Models\DigitalAsset;
 use App\Models\Evidence;
 use App\Services\GoogleAdsConnectionProbeService;
+use App\Support\Integrations\Google\GoogleOAuthConfig;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
@@ -19,7 +20,7 @@ class GoogleAdsConnectionProbeTest extends TestCase
     public function test_successful_customer_access_creates_evidence_and_updates_connection(): void
     {
         Http::fake([
-            'https://googleads.googleapis.com/v18/customers:listAccessibleCustomers' => Http::response([
+            GoogleOAuthConfig::adsApiUrl('customers:listAccessibleCustomers') => Http::response([
                 'resourceNames' => [
                     'customers/1111111111',
                     'customers/2222222222',
@@ -79,7 +80,7 @@ class GoogleAdsConnectionProbeTest extends TestCase
 
         Http::assertSent(function ($request): bool {
             return $request->method() === 'GET'
-                && $request->url() === 'https://googleads.googleapis.com/v18/customers:listAccessibleCustomers'
+                && $request->url() === GoogleOAuthConfig::adsApiUrl('customers:listAccessibleCustomers')
                 && $request->hasHeader('Authorization')
                 && $request->hasHeader('developer-token')
                 && $request->header('login-customer-id')[0] === '9999999999';
@@ -89,7 +90,7 @@ class GoogleAdsConnectionProbeTest extends TestCase
     public function test_numeric_customer_id_is_accepted(): void
     {
         Http::fake([
-            'https://googleads.googleapis.com/v18/customers:listAccessibleCustomers' => Http::response([
+            GoogleOAuthConfig::adsApiUrl('customers:listAccessibleCustomers') => Http::response([
                 'resourceNames' => ['customers/3333333333'],
             ], 200),
         ]);
@@ -121,7 +122,7 @@ class GoogleAdsConnectionProbeTest extends TestCase
     public function test_customer_not_accessible_sets_last_error(): void
     {
         Http::fake([
-            'https://googleads.googleapis.com/v18/customers:listAccessibleCustomers' => Http::response([
+            GoogleOAuthConfig::adsApiUrl('customers:listAccessibleCustomers') => Http::response([
                 'resourceNames' => ['customers/9999999999'],
             ], 200),
         ]);
@@ -260,7 +261,7 @@ class GoogleAdsConnectionProbeTest extends TestCase
     public function test_probe_is_get_only(): void
     {
         Http::fake([
-            'https://googleads.googleapis.com/v18/customers:listAccessibleCustomers' => Http::response([
+            GoogleOAuthConfig::adsApiUrl('customers:listAccessibleCustomers') => Http::response([
                 'resourceNames' => ['customers/77'],
             ], 200),
         ]);
