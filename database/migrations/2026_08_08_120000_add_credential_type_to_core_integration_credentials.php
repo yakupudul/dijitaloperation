@@ -8,6 +8,9 @@ use Illuminate\Support\Facades\Schema;
 /**
  * Split Integration credentials into provider (application) vs authorization (OAuth tokens).
  * Existing rows are treated as authorization credentials (backwards compatible).
+ *
+ * Greenfield installs already create `credential_type` in 2026_08_08_100001; this migration
+ * upgrades databases that ran the original unique(integration_id)-only schema.
  */
 return new class extends Migration
 {
@@ -30,9 +33,7 @@ return new class extends Migration
             ->update(['credential_type' => 'authorization']);
 
         $this->dropUniqueIfExists('core_integration_credentials_integration_id_unique');
-        $this->dropUniqueIfExists('core_integration_credentials_integration_id_unique');
 
-        // SQLite / generic: try dropping by column list.
         try {
             Schema::table('core_integration_credentials', function (Blueprint $table): void {
                 $table->dropUnique(['integration_id']);
@@ -50,26 +51,25 @@ return new class extends Migration
 
     public function down(): void
     {
+        // Non-destructive relative to greenfield: only reverse changes this migration made.
+        // Do not drop credential_type when newer installs created it in 100001 — full table
+        // rollback is owned by that migration.
         if (! Schema::hasTable('core_integration_credentials')) {
             return;
         }
 
-        $this->dropUniqueIfExists('core_integration_credentials_integration_type_unique');
+        // If both credential types exist for one integration, collapsing uniqueness is unsafe.
+        $duplicates = DB::table('core_integration_credentials')
+            ->select('integration_id')
+            ->groupBy('integration_id')
+            ->havingRaw('COUNT(*) > 1')
+            ->exists();
 
-        if (Schema::hasColumn('core_integration_credentials', 'credential_type')) {
-            // Cannot safely collapse two rows per integration; keep column drop only when unique allows.
-            Schema::table('core_integration_credentials', function (Blueprint $table): void {
-                $table->dropColumn('credential_type');
-            });
+        if ($duplicates) {
+            return;
         }
 
-        try {
-            Schema::table('core_integration_credentials', function (Blueprint $table): void {
-                $table->unique('integration_id');
-            });
-        } catch (Throwable) {
-            // ignore
-        }
+        // Leave schema as-is for safety; rolling back further drops the table via 100001.
     }
 
     private function dropUniqueIfExists(string $indexName): void
