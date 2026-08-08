@@ -2,6 +2,7 @@
 
 namespace MoxDop\Website\Workspace;
 
+use App\Filament\App\Resources\Findings\FindingResource;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreConnection;
 use App\Models\CoreExternalResource;
@@ -13,6 +14,7 @@ use App\Models\Run;
 use App\Support\Integrations\ProviderRegistry;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
+use MoxDop\Website\Opportunities\GscStrikingDistanceOpportunities;
 
 /**
  * Website-module presenter: turns latest valid Evidence into workspace view-models.
@@ -69,6 +71,8 @@ final class WebsiteWorkspaceData
             ->first();
 
         $connections = $this->connectionCards($asset);
+        $seoOpportunities = app(GscStrikingDistanceOpportunities::class)->for($asset);
+        $healthGroups = $this->healthFindingGroups($findings->where('status', 'open')->values());
 
         return [
             'asset' => $asset,
@@ -90,11 +94,13 @@ final class WebsiteWorkspaceData
             'acquisition' => $this->boundedRows($ga4Acquisition, 12),
             'ga4_summary' => $ga4Summary?->payload,
             'gsc_summary' => $gscSummary?->payload,
+            'seo_opportunities' => $seoOpportunities,
             'findings' => [
                 'open' => $findings->where('status', 'open')->values(),
                 'acknowledged' => $findings->where('status', 'acknowledged')->values(),
                 'resolved' => $findings->where('status', 'resolved')->values(),
                 'all' => $findings,
+                'health_groups' => $healthGroups,
                 'counts' => [
                     'open' => Finding::query()->where('digital_asset_id', $asset->id)->where('status', 'open')->count(),
                     'acknowledged' => Finding::query()->where('digital_asset_id', $asset->id)->where('status', 'acknowledged')->count(),
@@ -110,6 +116,70 @@ final class WebsiteWorkspaceData
             'activity' => $this->activityRows($asset),
             'has_performance_data' => $gscSummary !== null || $ga4Summary !== null,
         ];
+    }
+
+    /**
+     * @param  Collection<int, Finding>  $openFindings
+     * @return list<array{label: string, findings: list<array<string, mixed>>}>
+     */
+    private function healthFindingGroups(Collection $openFindings): array
+    {
+        $order = [
+            'Technical' => ['availability', 'transport', 'performance'],
+            'Document Head' => ['document-head', 'on-page'],
+            'Indexability' => ['indexability'],
+            'Structured Data' => ['structured-data'],
+            'Social metadata' => ['social'],
+            'Other' => [],
+        ];
+
+        $buckets = [];
+        foreach (array_keys($order) as $label) {
+            $buckets[$label] = [];
+        }
+
+        foreach ($openFindings as $finding) {
+            $category = (string) $finding->category;
+            $label = 'Other';
+            foreach ($order as $groupLabel => $categories) {
+                if ($categories !== [] && in_array($category, $categories, true)) {
+                    $label = $groupLabel;
+                    break;
+                }
+            }
+
+            $recommendation = $finding->relationLoaded('recommendations')
+                ? $finding->recommendations->first()
+                : Recommendation::query()
+                    ->where('finding_id', $finding->id)
+                    ->whereIn('status', ['open', 'accepted'])
+                    ->first();
+
+            $buckets[$label][] = [
+                'id' => $finding->id,
+                'title' => $finding->title,
+                'summary' => $finding->summary,
+                'severity' => $finding->severity,
+                'category' => $category,
+                'source' => $label,
+                'status' => $finding->status,
+                'recommendation' => $recommendation?->action,
+                'url' => FindingResource::getUrl('view', ['record' => $finding]),
+            ];
+        }
+
+        $groups = [];
+        foreach ($buckets as $label => $items) {
+            if ($items === []) {
+                continue;
+            }
+            $groups[] = [
+                'label' => $label,
+                'findings' => $items,
+            ];
+        }
+
+        return $groups;
     }
 
     /**

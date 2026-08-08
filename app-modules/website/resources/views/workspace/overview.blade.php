@@ -82,6 +82,26 @@
         </section>
     </div>
 
+    @php $opps = $data['seo_opportunities'] ?? []; @endphp
+    @if (($opps['count'] ?? 0) > 0)
+        <section class="mox-panel">
+            <div class="mox-panel__head">
+                <h4>SEO Opportunities</h4>
+                <span class="mox-muted">{{ $opps['count'] }} queries close to stronger positions</span>
+            </div>
+            <ul class="mox-list">
+                @foreach (($opps['overview'] ?? []) as $row)
+                    <li>
+                        <div class="mox-list__row">
+                            <strong>{{ $row['query'] }}</strong>
+                            <span class="mox-muted">pos {{ $row['position_label'] }} · {{ $row['impressions_label'] }} impr.</span>
+                        </div>
+                    </li>
+                @endforeach
+            </ul>
+        </section>
+    @endif
+
     <div class="mox-grid-3">
         <section class="mox-panel">
             <div class="mox-panel__head">
