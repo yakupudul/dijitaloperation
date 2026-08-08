@@ -101,6 +101,12 @@ class GoogleLiveAuthUxTest extends TestCase
         );
         $this->assertSame(1, $matched, 'Authorize Google anchor not found in rendered HTML.');
         $this->assertStringNotContainsString('wire:navigate', $anchor[0]);
+        $this->assertStringNotContainsString('wire:click', $anchor[0]);
+        // Prefer same-origin relative launch URL so APP_URL host mismatches cannot break the session.
+        $this->assertMatchesRegularExpression(
+            '/href="'.preg_quote($authorizePath, '/').'"/',
+            $anchor[0],
+        );
     }
 
     public function test_action_states_require_configuration_then_authorization(): void
@@ -238,5 +244,13 @@ class GoogleLiveAuthUxTest extends TestCase
         $location = (string) $response->headers->get('Location');
         $this->assertStringContainsString('accounts.google.com', $location);
         $this->assertStringContainsString('redirect_uri=', $location);
+    }
+
+    public function test_guest_authorize_redirects_to_filament_login_not_missing_route(): void
+    {
+        auth()->logout();
+
+        $response = $this->get(route('integrations.google.authorize', $this->integration));
+        $response->assertRedirect('/app/login');
     }
 }

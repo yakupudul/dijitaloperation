@@ -259,8 +259,9 @@ class ViewIntegration extends ViewRecord
                 ->label(fn (): string => $freshRecord->authorizationCredential()->exists() ? 'Re-authorize Google' : 'Authorize Google')
                 ->icon(Heroicon::OutlinedLockClosed)
                 ->color('primary')
-                // Full browser GET: panel spaUrlExceptions excludes this path from wire:navigate.
-                ->url(fn (): string => route('integrations.google.authorize', ['integration' => $record]))
+                // Relative URL keeps the launch on the current browser origin (avoids APP_URL host mismatch).
+                // Panel spaUrlExceptions excludes this path from wire:navigate so redirect()->away() can run.
+                ->url(fn (): string => route('integrations.google.authorize', ['integration' => $record], absolute: false))
                 ->openUrlInNewTab(false)
                 ->visible(fn (): bool => $record->status !== CoreIntegration::STATUS_DISABLED)
                 ->disabled(fn (): bool => ! $appConfigured)
