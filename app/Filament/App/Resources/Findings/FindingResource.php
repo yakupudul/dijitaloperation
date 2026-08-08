@@ -5,6 +5,7 @@ namespace App\Filament\App\Resources\Findings;
 use App\Filament\App\Resources\Findings\Pages\ListFindings;
 use App\Filament\App\Resources\Findings\Pages\ViewFinding;
 use App\Models\Finding;
+use App\Support\MoxDopNavigation;
 use BackedEnum;
 use Filament\Actions\ViewAction;
 use Filament\Infolists\Components\RepeatableEntry;
@@ -16,6 +17,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
+use UnitEnum;
 
 class FindingResource extends Resource
 {
@@ -24,6 +26,10 @@ class FindingResource extends Resource
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedMagnifyingGlassCircle;
 
     protected static ?string $navigationLabel = 'Findings';
+
+    protected static string|UnitEnum|null $navigationGroup = MoxDopNavigation::OPERATIONS;
+
+    protected static ?int $navigationSort = 1;
 
     protected static ?string $modelLabel = 'Finding';
 

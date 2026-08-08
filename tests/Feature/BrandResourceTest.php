@@ -211,11 +211,17 @@ class BrandResourceTest extends TestCase
             'name' => 'Discoverable Brand',
         ]);
 
-        Livewire::test(ViewCustomer::class, [
+        $customerView = Livewire::test(ViewCustomer::class, [
             'record' => $this->customer->getRouteKey(),
         ])
             ->assertOk()
-            ->assertSeeLivewire(BrandsRelationManager::class);
+            ->set('activeRelationManager', 'brands');
+
+        $this->assertStringContainsString(
+            BrandsRelationManager::class,
+            $customerView->html(),
+            'Customer workspace Brands tab must mount BrandsRelationManager',
+        );
 
         Livewire::test(BrandsRelationManager::class, [
             'ownerRecord' => $this->customer,

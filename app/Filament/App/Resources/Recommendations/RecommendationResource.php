@@ -7,6 +7,7 @@ use App\Filament\App\Resources\Recommendations\Pages\ViewRecommendation;
 use App\Models\Recommendation;
 use App\Models\User;
 use App\Services\CreateTaskFromRecommendation;
+use App\Support\MoxDopNavigation;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
@@ -22,6 +23,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
+use UnitEnum;
 
 class RecommendationResource extends Resource
 {
@@ -30,6 +32,10 @@ class RecommendationResource extends Resource
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedLightBulb;
 
     protected static ?string $navigationLabel = 'Recommendations';
+
+    protected static string|UnitEnum|null $navigationGroup = MoxDopNavigation::OPERATIONS;
+
+    protected static ?int $navigationSort = 2;
 
     protected static ?string $modelLabel = 'Recommendation';
 

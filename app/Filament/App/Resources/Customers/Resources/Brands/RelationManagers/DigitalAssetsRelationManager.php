@@ -16,6 +16,8 @@ class DigitalAssetsRelationManager extends RelationManager
 
     protected static ?string $relatedResource = DigitalAssetResource::class;
 
+    protected static ?string $title = 'Digital Assets';
+
     public function table(Table $table): Table
     {
         return $table

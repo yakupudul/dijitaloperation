@@ -19,8 +19,8 @@ class SystemStatusWidget extends Widget
         $user = Auth::user();
 
         return [
-            'title' => 'MoxDOP',
-            'status' => 'System is running',
+            'title' => 'MoxDOP Agency Operations OS',
+            'status' => 'Internal workspace is online',
             'user' => $user?->name ?? 'Unknown',
             'environment' => (string) config('app.env'),
             'laravel' => app()->version(),

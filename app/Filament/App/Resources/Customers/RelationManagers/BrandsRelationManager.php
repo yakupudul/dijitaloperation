@@ -16,6 +16,8 @@ class BrandsRelationManager extends RelationManager
 
     protected static ?string $relatedResource = BrandResource::class;
 
+    protected static ?string $title = 'Brands';
+
     public function table(Table $table): Table
     {
         return $table

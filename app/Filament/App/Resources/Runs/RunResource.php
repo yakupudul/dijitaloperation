@@ -5,6 +5,7 @@ namespace App\Filament\App\Resources\Runs;
 use App\Filament\App\Resources\Runs\Pages\ListRuns;
 use App\Filament\App\Resources\Runs\Pages\ViewRun;
 use App\Models\Run;
+use App\Support\MoxDopNavigation;
 use BackedEnum;
 use Filament\Actions\ViewAction;
 use Filament\Infolists\Components\TextEntry;
@@ -15,6 +16,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
+use UnitEnum;
 
 class RunResource extends Resource
 {
@@ -23,6 +25,10 @@ class RunResource extends Resource
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedPlayCircle;
 
     protected static ?string $navigationLabel = 'Runs';
+
+    protected static string|UnitEnum|null $navigationGroup = MoxDopNavigation::OPERATIONS;
+
+    protected static ?int $navigationSort = 4;
 
     protected static ?string $modelLabel = 'Run';
 

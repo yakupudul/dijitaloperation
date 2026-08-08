@@ -200,11 +200,17 @@ class FilamentManagementFlowAuditTest extends TestCase
 
     public function test_view_digital_asset_exposes_connections_relation_manager(): void
     {
-        Livewire::test(ViewDigitalAsset::class, [
+        $assetView = Livewire::test(ViewDigitalAsset::class, [
             'record' => $this->asset->getRouteKey(),
             'parentRecord' => $this->brand,
         ])
             ->assertOk()
-            ->assertSeeLivewire(ConnectionsRelationManager::class);
+            ->set('activeRelationManager', 'connections');
+
+        $this->assertStringContainsString(
+            ConnectionsRelationManager::class,
+            $assetView->html(),
+            'Digital Asset workspace Connections tab must mount ConnectionsRelationManager',
+        );
     }
 }

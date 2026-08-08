@@ -18,8 +18,8 @@
                 <dd class="mt-1 text-sm text-gray-950 dark:text-white">{{ $environment }}</dd>
             </div>
             <div>
-                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Laravel</dt>
-                <dd class="mt-1 text-sm text-gray-950 dark:text-white">{{ $laravel }}</dd>
+                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Runtime</dt>
+                <dd class="mt-1 text-sm text-gray-950 dark:text-white">Laravel {{ $laravel }}</dd>
             </div>
         </dl>
     </x-filament::section>
