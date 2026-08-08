@@ -12,7 +12,6 @@ use App\Filament\App\Resources\Findings\FindingResource;
 use App\Filament\App\Resources\Modules\ModuleResource;
 use App\Filament\App\Resources\Recommendations\RecommendationResource;
 use App\Filament\App\Resources\Runs\RunResource;
-use App\Filament\App\Widgets\BrandWorkspaceSummaryWidget;
 use App\Models\Brand;
 use App\Models\CoreConnection;
 use App\Models\Customer;
@@ -133,9 +132,9 @@ class MoxDopUiFoundationTest extends TestCase
             ->assertOk()
             ->assertSee($this->brand->name)
             ->assertSee('Agency')
-            ->assertSeeLivewire(BrandWorkspaceSummaryWidget::class)
             ->assertSee('Digital assets')
-            ->assertSee('Open findings');
+            ->assertSee('Open findings')
+            ->assertDontSee('Logo URL');
     }
 
     public function test_digital_asset_workspace_groups_analysis_actions(): void
@@ -170,6 +169,7 @@ class MoxDopUiFoundationTest extends TestCase
             ->assertSee('Agency operations profile')
             ->assertSee('Moximu')
             ->assertDontSee('Connect Google')
-            ->assertDontSee('OAuth');
+            ->assertDontSee('OAuth')
+            ->assertDontSee('later milestone');
     }
 }

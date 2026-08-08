@@ -8,6 +8,7 @@ use App\Filament\App\Resources\Customers\Resources\Brands\Pages\EditBrand;
 use App\Filament\App\Resources\Customers\Resources\Brands\Pages\ViewBrand;
 use App\Filament\App\Resources\Customers\Resources\Brands\RelationManagers\DigitalAssetsRelationManager;
 use App\Models\Brand;
+use App\Support\BrandOperationalSummary;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -17,7 +18,9 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Infolists\Components\ImageEntry;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Infolists\Components\ViewEntry;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -99,8 +102,22 @@ class BrandResource extends Resource
     {
         return $schema
             ->components([
+                ViewEntry::make('operational_summary')
+                    ->hiddenLabel()
+                    ->view('filament.app.infolists.brand-operational-summary')
+                    ->viewData(fn (ViewEntry $entry): array => [
+                        'summary' => $entry->getRecord() instanceof Brand
+                            ? BrandOperationalSummary::for($entry->getRecord())
+                            : null,
+                    ])
+                    ->columnSpanFull(),
                 Section::make('Brand identity')
                     ->schema([
+                        ImageEntry::make('logo_url')
+                            ->label('Logo')
+                            ->height(48)
+                            ->square()
+                            ->visible(fn (?string $state): bool => filled($state) && preg_match('#^https?://#i', $state) === 1),
                         TextEntry::make('customer.name')
                             ->label('Customer'),
                         TextEntry::make('name'),
@@ -109,10 +126,6 @@ class BrandResource extends Resource
                         TextEntry::make('primary_country')
                             ->label('Primary country')
                             ->placeholder('—'),
-                        TextEntry::make('logo_url')
-                            ->label('Logo URL')
-                            ->placeholder('—')
-                            ->columnSpanFull(),
                     ])
                     ->columns(2),
                 Section::make('Markets & languages')
@@ -193,6 +206,10 @@ class BrandResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([])
+            ->recordUrl(fn (Brand $record): string => static::getUrl('view', [
+                'record' => $record,
+                'customer' => $record->customer_id,
+            ], shouldGuessMissingParameters: true))
             ->recordActions([
                 ViewAction::make(),
                 EditAction::make(),

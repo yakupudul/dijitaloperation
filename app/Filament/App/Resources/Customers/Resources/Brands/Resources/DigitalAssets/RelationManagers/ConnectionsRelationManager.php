@@ -106,7 +106,8 @@ class ConnectionsRelationManager extends RelationManager
                     ->dateTime()
                     ->placeholder('-'),
                 TextEntry::make('last_error')
-                    ->placeholder('-')
+                    ->label('Last issue')
+                    ->placeholder('—')
                     ->columnSpanFull(),
             ]);
     }
@@ -134,8 +135,9 @@ class ConnectionsRelationManager extends RelationManager
                     ->placeholder('-')
                     ->toggleable(),
                 TextColumn::make('last_error')
+                    ->label('Last issue')
                     ->limit(40)
-                    ->placeholder('-')
+                    ->placeholder('—')
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->headerActions([

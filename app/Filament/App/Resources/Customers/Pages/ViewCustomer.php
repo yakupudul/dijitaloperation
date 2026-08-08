@@ -12,6 +12,13 @@ class ViewCustomer extends ViewRecord
 {
     protected static string $resource = CustomerResource::class;
 
+    /**
+     * @var array<string, mixed>
+     */
+    protected array $extraBodyAttributes = [
+        'class' => 'mox-workspace-page',
+    ];
+
     protected function getHeaderActions(): array
     {
         return [
@@ -50,9 +57,18 @@ class ViewCustomer extends ViewRecord
         return $parts === [] ? null : implode(' · ', $parts);
     }
 
-    public function getBreadcrumb(): string
+    /**
+     * @return array<string|int, string>
+     */
+    public function getBreadcrumbs(): array
     {
-        return 'Overview';
+        /** @var Customer $customer */
+        $customer = $this->getRecord();
+
+        return [
+            CustomerResource::getUrl('index') => 'Customers',
+            $customer->name,
+        ];
     }
 
     public function hasCombinedRelationManagerTabsWithContent(): bool

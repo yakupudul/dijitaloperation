@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class BrandWorkspaceSummaryWidget extends Widget
 {
+    protected static bool $isDiscovered = false;
+
     protected static bool $isLazy = false;
 
     protected string $view = 'filament.app.widgets.brand-workspace-summary';

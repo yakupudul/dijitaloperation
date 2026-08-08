@@ -210,6 +210,10 @@ class DigitalAssetResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([])
+            ->recordUrl(fn (DigitalAsset $record): string => static::getUrl('view', [
+                'record' => $record,
+                'brand' => $record->brand_id,
+            ], shouldGuessMissingParameters: true))
             ->recordActions([
                 ViewAction::make(),
                 EditAction::make(),

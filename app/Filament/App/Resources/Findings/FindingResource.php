@@ -11,6 +11,7 @@ use Filament\Actions\ViewAction;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
@@ -68,48 +69,66 @@ class FindingResource extends Resource
     {
         return $schema
             ->components([
-                TextEntry::make('id')
-                    ->label('ID'),
-                TextEntry::make('digitalAsset.name')
-                    ->label('Digital asset')
-                    ->placeholder('-'),
-                TextEntry::make('digitalAsset.type')
-                    ->label('Asset type')
-                    ->placeholder('-'),
-                TextEntry::make('source_module')
-                    ->label('Source module'),
-                TextEntry::make('fingerprint'),
-                TextEntry::make('category'),
-                TextEntry::make('severity')
-                    ->badge()
-                    ->color(fn (?string $state): string => match ($state) {
-                        'critical' => 'danger',
-                        'high' => 'warning',
-                        'medium' => 'info',
-                        'low' => 'gray',
-                        default => 'gray',
-                    }),
-                TextEntry::make('title'),
-                TextEntry::make('summary')
-                    ->placeholder('-')
-                    ->columnSpanFull(),
-                TextEntry::make('confidence'),
-                TextEntry::make('status')
-                    ->badge()
-                    ->color(fn (?string $state): string => match ($state) {
-                        'open' => 'warning',
-                        'acknowledged' => 'info',
-                        'resolved' => 'success',
-                        default => 'gray',
-                    }),
-                TextEntry::make('first_seen_at')
-                    ->dateTime(),
-                TextEntry::make('last_seen_at')
-                    ->dateTime(),
-                TextEntry::make('last_run_id')
-                    ->label('Last run')
-                    ->formatStateUsing(fn (?int $state): string => $state !== null ? "Run #{$state}" : '-')
-                    ->placeholder('-'),
+                Section::make('Finding')
+                    ->schema([
+                        TextEntry::make('title'),
+                        TextEntry::make('digitalAsset.name')
+                            ->label('Digital asset')
+                            ->placeholder('—'),
+                        TextEntry::make('severity')
+                            ->badge()
+                            ->color(fn (?string $state): string => match ($state) {
+                                'critical' => 'danger',
+                                'high' => 'warning',
+                                'medium' => 'info',
+                                'low' => 'gray',
+                                default => 'gray',
+                            }),
+                        TextEntry::make('status')
+                            ->badge()
+                            ->color(fn (?string $state): string => match ($state) {
+                                'open' => 'warning',
+                                'acknowledged' => 'info',
+                                'resolved' => 'success',
+                                default => 'gray',
+                            }),
+                        TextEntry::make('category')
+                            ->placeholder('—'),
+                        TextEntry::make('summary')
+                            ->placeholder('—')
+                            ->columnSpanFull(),
+                        TextEntry::make('last_seen_at')
+                            ->label('Last seen')
+                            ->dateTime(),
+                        TextEntry::make('first_seen_at')
+                            ->label('First seen')
+                            ->dateTime(),
+                    ])
+                    ->columns(2),
+                Section::make('Diagnostics')
+                    ->schema([
+                        TextEntry::make('id')
+                            ->label('ID'),
+                        TextEntry::make('digitalAsset.type')
+                            ->label('Asset type')
+                            ->placeholder('—'),
+                        TextEntry::make('source_module')
+                            ->label('Source')
+                            ->formatStateUsing(fn (?string $state): string => filled($state)
+                                ? str($state)->replace(['-', '_'], ' ')->title()->toString()
+                                : '—'),
+                        TextEntry::make('fingerprint')
+                            ->placeholder('—'),
+                        TextEntry::make('confidence')
+                            ->placeholder('—'),
+                        TextEntry::make('last_run_id')
+                            ->label('Last run')
+                            ->formatStateUsing(fn (?int $state): string => $state !== null ? "Run #{$state}" : '—')
+                            ->placeholder('—'),
+                    ])
+                    ->columns(2)
+                    ->collapsed()
+                    ->compact(),
                 RepeatableEntry::make('recommendations')
                     ->label('Recommendations')
                     ->schema([
@@ -132,25 +151,17 @@ class FindingResource extends Resource
         return $table
             ->recordTitleAttribute('title')
             ->columns([
-                TextColumn::make('id')
-                    ->label('ID')
-                    ->sortable(),
+                TextColumn::make('title')
+                    ->label('Finding')
+                    ->searchable()
+                    ->sortable()
+                    ->wrap()
+                    ->limit(80),
                 TextColumn::make('digitalAsset.name')
                     ->label('Digital asset')
-                    ->description(fn (Finding $record): ?string => $record->digitalAsset?->type)
                     ->searchable()
-                    ->sortable(),
-                TextColumn::make('source_module')
-                    ->label('Source module')
-                    ->searchable()
-                    ->sortable(),
-                TextColumn::make('fingerprint')
-                    ->limit(16)
-                    ->tooltip(fn (Finding $record): string => $record->fingerprint)
+                    ->sortable()
                     ->toggleable(),
-                TextColumn::make('category')
-                    ->searchable()
-                    ->sortable(),
                 TextColumn::make('severity')
                     ->badge()
                     ->color(fn (?string $state): string => match ($state) {
@@ -161,16 +172,6 @@ class FindingResource extends Resource
                         default => 'gray',
                     })
                     ->sortable(),
-                TextColumn::make('title')
-                    ->searchable()
-                    ->sortable()
-                    ->wrap(),
-                TextColumn::make('summary')
-                    ->limit(60)
-                    ->toggleable()
-                    ->wrap(),
-                TextColumn::make('confidence')
-                    ->sortable(),
                 TextColumn::make('status')
                     ->badge()
                     ->color(fn (?string $state): string => match ($state) {
@@ -180,17 +181,44 @@ class FindingResource extends Resource
                         default => 'gray',
                     })
                     ->sortable(),
-                TextColumn::make('first_seen_at')
-                    ->dateTime()
-                    ->sortable(),
                 TextColumn::make('last_seen_at')
+                    ->label('Last seen')
                     ->dateTime()
                     ->sortable(),
+                TextColumn::make('category')
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->sortable(),
+                TextColumn::make('id')
+                    ->label('ID')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('source_module')
+                    ->label('Source')
+                    ->formatStateUsing(fn (?string $state): ?string => filled($state)
+                        ? str($state)->replace(['-', '_'], ' ')->title()->toString()
+                        : null)
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('fingerprint')
+                    ->limit(16)
+                    ->tooltip(fn (Finding $record): string => $record->fingerprint)
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('confidence')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('first_seen_at')
+                    ->label('First seen')
+                    ->dateTime()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('last_run_id')
                     ->label('Last run')
                     ->formatStateUsing(fn (?int $state): ?string => $state !== null ? "Run #{$state}" : null)
                     ->placeholder('—')
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('summary')
+                    ->limit(60)
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->wrap(),
             ])
             ->filters([
                 SelectFilter::make('digital_asset_id')
@@ -205,10 +233,14 @@ class FindingResource extends Resource
                         'resolved' => 'Resolved',
                     ]),
             ])
+            ->recordUrl(fn (Finding $record): string => static::getUrl('view', ['record' => $record]))
             ->recordActions([
                 ViewAction::make(),
             ])
-            ->toolbarActions([]);
+            ->emptyStateHeading('No findings')
+            ->emptyStateDescription('No issues currently require attention.')
+            ->toolbarActions([])
+            ->defaultSort('last_seen_at', 'desc');
     }
 
     public static function getRelations(): array

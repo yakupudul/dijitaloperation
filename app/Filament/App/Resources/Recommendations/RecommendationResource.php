@@ -84,15 +84,18 @@ class RecommendationResource extends Resource
                     ->label('Digital asset')
                     ->placeholder('-'),
                 TextEntry::make('source_module')
-                    ->label('Source module'),
+                    ->label('Source')
+                    ->formatStateUsing(fn (?string $state): string => filled($state)
+                        ? str($state)->replace(['-', '_'], ' ')->title()->toString()
+                        : '—'),
                 TextEntry::make('title'),
                 TextEntry::make('action')
-                    ->label('Action / description')
-                    ->placeholder('-')
+                    ->label('Suggested action')
+                    ->placeholder('—')
                     ->columnSpanFull(),
                 TextEntry::make('rationale')
-                    ->label('Rationale / context')
-                    ->placeholder('-')
+                    ->label('Rationale')
+                    ->placeholder('—')
                     ->columnSpanFull(),
                 TextEntry::make('priority')
                     ->badge()
@@ -122,21 +125,16 @@ class RecommendationResource extends Resource
         return $table
             ->recordTitleAttribute('title')
             ->columns([
-                TextColumn::make('id')
-                    ->label('ID')
-                    ->sortable(),
+                TextColumn::make('title')
+                    ->label('Recommendation')
+                    ->searchable()
+                    ->sortable()
+                    ->wrap()
+                    ->limit(80),
                 TextColumn::make('digitalAsset.name')
                     ->label('Digital asset')
                     ->searchable()
                     ->sortable(),
-                TextColumn::make('source_module')
-                    ->label('Source module')
-                    ->searchable()
-                    ->sortable(),
-                TextColumn::make('title')
-                    ->searchable()
-                    ->sortable()
-                    ->wrap(),
                 TextColumn::make('priority')
                     ->badge()
                     ->color(fn (?string $state): string => match ($state) {
@@ -157,6 +155,21 @@ class RecommendationResource extends Resource
                         default => 'gray',
                     })
                     ->sortable(),
+                TextColumn::make('action')
+                    ->label('Suggested action')
+                    ->limit(56)
+                    ->wrap()
+                    ->toggleable(),
+                TextColumn::make('id')
+                    ->label('ID')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('source_module')
+                    ->label('Source')
+                    ->formatStateUsing(fn (?string $state): ?string => filled($state)
+                        ? str($state)->replace(['-', '_'], ' ')->title()->toString()
+                        : null)
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('updated_at')
                     ->dateTime()
                     ->sortable()
@@ -183,10 +196,13 @@ class RecommendationResource extends Resource
                         'low' => 'Low',
                     ]),
             ])
+            ->recordUrl(fn (Recommendation $record): string => static::getUrl('view', ['record' => $record]))
             ->recordActions([
                 ViewAction::make(),
                 static::makeCreateTaskAction(),
             ])
+            ->emptyStateHeading('No recommendations')
+            ->emptyStateDescription('No recommended actions are waiting right now.')
             ->toolbarActions([]);
     }
 

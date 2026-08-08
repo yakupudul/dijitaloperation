@@ -20,7 +20,7 @@ class OpsActionOverviewWidget extends StatsOverviewWidget
 
     protected ?string $heading = 'What needs attention';
 
-    protected ?string $description = 'Counts from open Findings, Recommendations, Connections, and Tasks. Empty means nothing queued — not a fake zero KPI.';
+    protected ?string $description = null;
 
     protected int|string|array $columnSpan = 'full';
 
@@ -70,49 +70,77 @@ class OpsActionOverviewWidget extends StatsOverviewWidget
             ->where('last_seen_at', '>=', now()->subDays(7))
             ->count();
 
-        return [
-            Stat::make('Critical open Findings', (string) $criticalFindings)
-                ->description($criticalFindings === 0
-                    ? 'No critical/high open Findings'
-                    : 'Open Findings with critical or high severity')
-                ->color($criticalFindings > 0 ? 'danger' : 'gray')
-                ->url(FindingResource::getUrl('index')),
-            Stat::make('Open Recommendations', (string) $openRecommendations)
-                ->description($openRecommendations === 0
-                    ? 'No open Recommendations waiting for action'
-                    : 'Recommendations still in open status')
-                ->color($openRecommendations > 0 ? 'warning' : 'gray')
-                ->url(RecommendationResource::getUrl('index')),
-            Stat::make('Connections with errors', (string) $failedConnections)
-                ->description($failedConnections === 0
-                    ? 'No Connection last_error values recorded'
-                    : 'Enabled or disabled Connections reporting last_error')
-                ->color($failedConnections > 0 ? 'danger' : 'gray'),
-            Stat::make('Open Tasks', (string) $openTasks)
+        $attentionTotal = $criticalFindings
+            + $openRecommendations
+            + $failedConnections
+            + $openTasks
+            + $openCrossChannelFindings
+            + $openWebsiteTechnicalFindings;
+
+        if ($attentionTotal === 0) {
+            return [
+                Stat::make('All clear', '0')
+                    ->description(
+                        $recentlyResolvedImportantFindings > 0
+                            ? $recentlyResolvedImportantFindings.' important findings resolved in the last 7 days'
+                            : 'No issues currently require attention'
+                    )
+                    ->color('success')
+                    ->url(FindingResource::getUrl('index')),
+            ];
+        }
+
+        $stats = [];
+
+        if ($criticalFindings > 0) {
+            $stats[] = Stat::make('Critical open Findings', (string) $criticalFindings)
+                ->description('Open findings with critical or high severity')
+                ->color('danger')
+                ->url(FindingResource::getUrl('index'));
+        }
+
+        if ($openWebsiteTechnicalFindings > 0) {
+            $stats[] = Stat::make('Website technical Findings', (string) $openWebsiteTechnicalFindings)
+                ->description('Open critical/high findings from website checks')
+                ->color('danger')
+                ->url(FindingResource::getUrl('index'));
+        }
+
+        if ($openCrossChannelFindings > 0) {
+            $stats[] = Stat::make('Open cross-channel Findings', (string) $openCrossChannelFindings)
+                ->description('Cross-channel findings still open')
+                ->color('warning')
+                ->url(FindingResource::getUrl('index'));
+        }
+
+        if ($openRecommendations > 0) {
+            $stats[] = Stat::make('Open Recommendations', (string) $openRecommendations)
+                ->description('Recommendations waiting for action')
+                ->color('warning')
+                ->url(RecommendationResource::getUrl('index'));
+        }
+
+        if ($failedConnections > 0) {
+            $stats[] = Stat::make('Connections with errors', (string) $failedConnections)
+                ->description('Connections reporting a recent issue')
+                ->color('danger');
+        }
+
+        if ($openTasks > 0) {
+            $stats[] = Stat::make('Open Tasks', (string) $openTasks)
                 ->description($overdueTasks > 0
-                    ? $overdueTasks.' overdue (due_date before today)'
-                    : ($openTasks === 0
-                        ? 'No open / in-progress / blocked Tasks'
-                        : 'Open, in-progress, or blocked Tasks'))
-                ->color($overdueTasks > 0 ? 'danger' : ($openTasks > 0 ? 'warning' : 'gray')),
-            Stat::make('Open cross-channel Findings', (string) $openCrossChannelFindings)
-                ->description($openCrossChannelFindings === 0
-                    ? 'No open cross-channel Findings'
-                    : 'Open Findings with category cross-channel')
-                ->color($openCrossChannelFindings > 0 ? 'warning' : 'gray')
-                ->url(FindingResource::getUrl('index')),
-            Stat::make('Website technical Findings', (string) $openWebsiteTechnicalFindings)
-                ->description($openWebsiteTechnicalFindings === 0
-                    ? 'No critical/high open Website Findings'
-                    : 'Open critical/high Findings from website module')
-                ->color($openWebsiteTechnicalFindings > 0 ? 'danger' : 'gray')
-                ->url(FindingResource::getUrl('index')),
-            Stat::make('Recently resolved important', (string) $recentlyResolvedImportantFindings)
-                ->description($recentlyResolvedImportantFindings === 0
-                    ? 'No critical/high Findings resolved in the last 7 days'
-                    : 'Critical/high Findings resolved within the last 7 days')
-                ->color($recentlyResolvedImportantFindings > 0 ? 'success' : 'gray')
-                ->url(FindingResource::getUrl('index')),
-        ];
+                    ? $overdueTasks.' overdue'
+                    : 'Open, in progress, or blocked')
+                ->color($overdueTasks > 0 ? 'danger' : 'warning');
+        }
+
+        if ($recentlyResolvedImportantFindings > 0) {
+            $stats[] = Stat::make('Recently resolved important', (string) $recentlyResolvedImportantFindings)
+                ->description('Critical/high findings resolved in the last 7 days')
+                ->color('success')
+                ->url(FindingResource::getUrl('index'));
+        }
+
+        return $stats;
     }
 }

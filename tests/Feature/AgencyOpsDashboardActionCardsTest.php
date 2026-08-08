@@ -37,12 +37,10 @@ class AgencyOpsDashboardActionCardsTest extends TestCase
         Livewire::test(OpsActionOverviewWidget::class)
             ->assertOk()
             ->assertSee('What needs attention')
-            ->assertSee('Critical open Findings')
-            ->assertSee('Open Recommendations')
-            ->assertSee('Connections with errors')
-            ->assertSee('Open Tasks')
-            ->assertSee('No critical/high open Findings')
-            ->assertSee('No open Recommendations waiting for action');
+            ->assertSee('All clear')
+            ->assertSee('No issues currently require attention')
+            ->assertDontSee('Critical open Findings')
+            ->assertDontSee('Empty means nothing queued');
     }
 
     public function test_dashboard_counts_live_domain_records_without_fake_kpis(): void
@@ -91,7 +89,8 @@ class AgencyOpsDashboardActionCardsTest extends TestCase
             ->assertSee('1')
             ->assertSee('Open Recommendations')
             ->assertSee('Connections with errors')
-            ->assertSee('1 overdue (due_date before today)');
+            ->assertSee('1 overdue')
+            ->assertDontSee('All clear');
     }
 
     public function test_authenticated_dashboard_page_loads_action_widget(): void

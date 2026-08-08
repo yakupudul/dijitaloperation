@@ -5,7 +5,7 @@
         </x-slot>
 
         <x-slot name="description">
-            Internal Moximu workspace identity. Integration providers will land under Settings → Integrations in a later milestone.
+            Identity for this Moximu internal workspace.
         </x-slot>
 
         <dl class="grid gap-4 sm:grid-cols-2">

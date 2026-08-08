@@ -99,3 +99,53 @@
     color: var(--mox-text-secondary);
     font-size: 0.875rem;
 }
+
+.mox-brand-heading {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.625rem;
+}
+
+.mox-brand-logo {
+    width: 2rem;
+    height: 2rem;
+    object-fit: contain;
+    border-radius: 0.375rem;
+    border: 1px solid var(--mox-border);
+    background: var(--mox-surface);
+}
+
+.mox-brand-initial {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.375rem;
+    border: 1px solid var(--mox-border);
+    background: var(--mox-surface-subtle);
+    color: var(--mox-text-secondary);
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+/* Keep workspace tabs attached under the record header */
+.mox-workspace-page .fi-page-content > .fi-sc > .fi-grid-col:has(.fi-sc-tabs),
+.mox-workspace-page .fi-page-content .fi-sc-tabs {
+    margin-top: 0;
+}
+
+.mox-workspace-page .fi-sc-tabs > .fi-tabs {
+    border-bottom: 1px solid var(--mox-border);
+    padding-bottom: 0.125rem;
+    margin-bottom: 0.75rem;
+}
+
+.mox-workspace-page .fi-header {
+    margin-bottom: 0.75rem;
+}
+
+.mox-workspace-page .fi-header-heading {
+    font-size: 1.25rem;
+    line-height: 1.3;
+}

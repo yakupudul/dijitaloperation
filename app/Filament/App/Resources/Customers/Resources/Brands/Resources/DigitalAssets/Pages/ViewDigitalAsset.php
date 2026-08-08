@@ -2,6 +2,7 @@
 
 namespace App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\Pages;
 
+use App\Filament\App\Resources\Customers\Resources\Brands\BrandResource;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\DigitalAssetResource;
 use App\Filament\App\Resources\Runs\RunResource;
 use App\Jobs\AnalyzeInstagramMetaAdsDestinationConsistencyJob;
@@ -12,6 +13,7 @@ use App\Jobs\AnalyzeWebsiteGoogleAdsLandingConsistencyJob;
 use App\Jobs\AnalyzeWebsiteInstagramWebsiteUrlConsistencyJob;
 use App\Jobs\AnalyzeWebsiteMetaAdsDestinationConsistencyJob;
 use App\Jobs\DiagnoseWebsiteJob;
+use App\Models\Brand;
 use App\Models\DigitalAsset;
 use App\Services\CrossAssetInstagramMetaAdsDestinationConsistencyService;
 use App\Services\CrossAssetWebsiteGbpAddressConsistencyService;
@@ -32,6 +34,13 @@ use Illuminate\Contracts\Support\Htmlable;
 class ViewDigitalAsset extends ViewRecord
 {
     protected static string $resource = DigitalAssetResource::class;
+
+    /**
+     * @var array<string, mixed>
+     */
+    protected array $extraBodyAttributes = [
+        'class' => 'mox-workspace-page',
+    ];
 
     protected function getHeaderActions(): array
     {
@@ -425,9 +434,28 @@ class ViewDigitalAsset extends ViewRecord
         return $parts === [] ? null : implode(' · ', $parts);
     }
 
-    public function getBreadcrumb(): string
+    /**
+     * @return array<string|int, string>
+     */
+    public function getBreadcrumbs(): array
     {
-        return 'Workspace';
+        /** @var DigitalAsset $asset */
+        $asset = $this->getRecord();
+        /** @var Brand|null $brand */
+        $brand = $this->getParentRecord();
+
+        $crumbs = [];
+
+        if ($brand instanceof Brand) {
+            $crumbs[BrandResource::getUrl('view', [
+                'record' => $brand,
+                'customer' => $brand->customer_id,
+            ])] = $brand->name;
+        }
+
+        $crumbs[] = $asset->name;
+
+        return $crumbs;
     }
 
     public function hasCombinedRelationManagerTabsWithContent(): bool

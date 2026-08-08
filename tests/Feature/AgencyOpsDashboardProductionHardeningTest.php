@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Filament\App\Widgets\OpsActionOverviewWidget;
-use App\Filament\App\Widgets\SystemStatusWidget;
 use App\Models\Brand;
 use App\Models\CoreConnection;
 use App\Models\CoreConnectionCredential;
@@ -44,12 +43,11 @@ class AgencyOpsDashboardProductionHardeningTest extends TestCase
         Livewire::test(OpsActionOverviewWidget::class)
             ->assertOk()
             ->assertSee('What needs attention')
-            ->assertSee('Open cross-channel Findings')
-            ->assertSee('No open cross-channel Findings')
-            ->assertSee('Website technical Findings')
-            ->assertSee('No critical/high open Website Findings')
-            ->assertSee('Recently resolved important')
-            ->assertSee('No critical/high Findings resolved in the last 7 days');
+            ->assertSee('All clear')
+            ->assertSee('No issues currently require attention')
+            ->assertDontSee('Open cross-channel Findings')
+            ->assertDontSee('Website technical Findings')
+            ->assertDontSee('Recently resolved important');
     }
 
     public function test_dashboard_counts_cross_channel_website_and_recently_resolved_findings(): void
@@ -104,25 +102,26 @@ class AgencyOpsDashboardProductionHardeningTest extends TestCase
         Livewire::test(OpsActionOverviewWidget::class)
             ->assertOk()
             ->assertSee('Open cross-channel Findings')
-            ->assertSee('Open Findings with category cross-channel')
+            ->assertSee('Cross-channel findings still open')
             ->assertSee('Website technical Findings')
-            ->assertSee('Open critical/high Findings from website module')
+            ->assertSee('Open critical/high findings from website checks')
             ->assertSee('Recently resolved important')
-            ->assertSee('Critical/high Findings resolved within the last 7 days');
+            ->assertSee('Critical/high findings resolved in the last 7 days')
+            ->assertDontSee('All clear');
     }
 
-    public function test_dashboard_page_loads_ops_and_system_widgets_after_hardening(): void
+    public function test_dashboard_page_loads_ops_widget_after_hardening(): void
     {
         $this->get('/app')
             ->assertOk()
             ->assertSee('MoxDOP')
             ->assertSeeLivewire(OpsActionOverviewWidget::class)
-            ->assertSeeLivewire(SystemStatusWidget::class);
+            ->assertDontSee('Internal workspace is online')
+            ->assertDontSee('Laravel');
 
         Livewire::test(Dashboard::class)
             ->assertOk()
-            ->assertSeeLivewire(OpsActionOverviewWidget::class)
-            ->assertSeeLivewire(SystemStatusWidget::class);
+            ->assertSeeLivewire(OpsActionOverviewWidget::class);
     }
 
     public function test_production_hardening_invariants_for_core_platform_surfaces(): void
@@ -207,6 +206,6 @@ class AgencyOpsDashboardProductionHardeningTest extends TestCase
         Livewire::test(OpsActionOverviewWidget::class)
             ->assertOk()
             ->assertSee('Open cross-channel Findings')
-            ->assertSee('Open Findings with category cross-channel');
+            ->assertSee('Cross-channel findings still open');
     }
 }
