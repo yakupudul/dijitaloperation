@@ -22,11 +22,18 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'first_seen_at',
     'last_seen_at',
     'last_run_id',
+    'resolved_at',
 ])]
 class Finding extends Model
 {
     /** @use HasFactory<FindingFactory> */
     use HasFactory;
+
+    public const string STATUS_OPEN = 'open';
+
+    public const string STATUS_ACKNOWLEDGED = 'acknowledged';
+
+    public const string STATUS_RESOLVED = 'resolved';
 
     /**
      * @return BelongsTo<DigitalAsset, $this>
@@ -61,6 +68,7 @@ class Finding extends Model
             'confidence' => 'decimal:4',
             'first_seen_at' => 'datetime',
             'last_seen_at' => 'datetime',
+            'resolved_at' => 'datetime',
         ];
     }
 }

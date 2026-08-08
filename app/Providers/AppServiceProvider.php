@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Services\Findings\BoundEvidenceRuleRegistry;
 use App\Services\Integrations\BoundCollectorRegistry;
 use App\Support\Roles;
 use Illuminate\Support\Facades\Gate;
@@ -15,6 +16,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(BoundCollectorRegistry::class);
+        $this->app->singleton(BoundEvidenceRuleRegistry::class);
     }
 
     /**
