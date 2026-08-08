@@ -97,7 +97,7 @@ class WebsiteDiagnosisStartActionTest extends TestCase
             ->assertActionHidden('runWebsiteDiagnosis');
     }
 
-    public function test_run_diagnosis_action_creates_run_and_redirects_to_run_view(): void
+    public function test_run_diagnosis_action_creates_run_and_stays_on_workspace(): void
     {
         Http::fake([
             'https://ok.example' => Http::response('ok', 200),
@@ -120,7 +120,7 @@ class WebsiteDiagnosisStartActionTest extends TestCase
             ->assertOk()
             ->callAction('runWebsiteDiagnosis')
             ->assertNotified()
-            ->assertRedirect();
+            ->assertNoRedirect();
 
         $run = Run::query()->where('digital_asset_id', $asset->id)->first();
 

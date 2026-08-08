@@ -118,13 +118,11 @@ class RunResourceTest extends TestCase
             'record' => $run->getRouteKey(),
         ])
             ->assertOk()
-            ->assertSchemaStateSet([
-                'id' => $run->id,
-                'digitalAsset.name' => 'Acme Corporate Website',
-                'coreConnection.name' => 'Primary WordPress',
-                'status' => 'completed',
-                'module_id' => 'website',
-            ])
+            ->assertSee('Acme Corporate Website')
+            ->assertSee('Site connection · Primary WordPress')
+            ->assertSee('completed')
+            ->assertSee('Technical details')
+            ->assertSee('Raw evidence')
             ->assertSee('pagespeed.metrics')
             ->assertSee('lcp_ms')
             ->assertSee('4200')

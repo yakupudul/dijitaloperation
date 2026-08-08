@@ -4,6 +4,13 @@ namespace App\Filament\App\Resources\Customers\Resources\Brands\Resources\Digita
 
 use App\Filament\App\Resources\Customers\Resources\Brands\BrandResource;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\DigitalAssetResource;
+use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\AssetBindingsRelationManager;
+use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\ConnectionsRelationManager;
+use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\WebsiteActivityRelationManager;
+use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\WebsiteConnectionsRelationManager;
+use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\WebsiteHealthRelationManager;
+use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\WebsitePerformanceRelationManager;
+use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\WebsiteSettingsRelationManager;
 use App\Filament\App\Resources\Runs\RunResource;
 use App\Jobs\AnalyzeInstagramMetaAdsDestinationConsistencyJob;
 use App\Jobs\AnalyzeWebsiteGbpAddressConsistencyJob;
@@ -28,10 +35,13 @@ use App\Services\WebsiteDiagnosisService;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
+use Filament\Infolists\Components\ViewEntry;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
+use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Support\Htmlable;
+use MoxDop\Website\Workspace\WebsiteWorkspaceData;
 
 class ViewDigitalAsset extends ViewRecord
 {
@@ -47,13 +57,63 @@ class ViewDigitalAsset extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('refreshData')
+                ->label('Refresh data')
+                ->icon(Heroicon::OutlinedArrowPath)
+                ->color('primary')
+                ->requiresConfirmation()
+                ->modalHeading('Refresh website data')
+                ->modalDescription('Collects Search Console and GA4 for active connections, then updates Findings and Recommendations. Stay on this workspace after refresh.')
+                ->modalSubmitActionLabel('Refresh data')
+                ->visible(fn (): bool => $this->isWebsiteWorkspace())
+                ->action(function (CollectLiveBoundDataService $collector): void {
+                    /** @var DigitalAsset $asset */
+                    $asset = $this->getRecord();
+                    $result = $collector->collect($asset);
+
+                    $sources = collect($result['runs'])
+                        ->map(fn (Run $run): string => match (data_get($run->metadata, 'capability')) {
+                            'search_console' => 'Search Console',
+                            'ga4' => 'GA4',
+                            'google_ads' => 'Google Ads',
+                            'google_business_profile' => 'Business Profile',
+                            default => 'Source',
+                        })
+                        ->unique()
+                        ->values();
+
+                    $evidenceCount = collect($result['runs'])
+                        ->sum(fn (Run $run): int => $run->evidence()->count());
+
+                    $findings = $result['findings'] ?? [];
+                    $body = trim(implode("\n", array_filter([
+                        $sources->isNotEmpty() ? $sources->implode(' + ') : null,
+                        $evidenceCount > 0 ? $evidenceCount.' Evidence sets' : null,
+                        sprintf(
+                            '%d Findings opened · %d updated · %d resolved',
+                            (int) ($findings['opened'] ?? 0),
+                            (int) ($findings['updated'] ?? 0) + (int) ($findings['reopened'] ?? 0),
+                            (int) ($findings['resolved'] ?? 0),
+                        ),
+                        $result['skipped'] !== [] ? $result['message'] : null,
+                    ])));
+
+                    Notification::make()
+                        ->title($result['ok'] ? 'Data refreshed' : 'Data refresh incomplete')
+                        ->body($body !== '' ? $body : $result['message'])
+                        ->{$result['ok'] ? 'success' : 'warning'}()
+                        ->send();
+
+                    // Stay on the Website workspace — do not redirect to a Run.
+                }),
             Action::make('collectLiveData')
                 ->label('Collect live data')
                 ->icon(Heroicon::OutlinedCloudArrowDown)
                 ->color('primary')
+                ->visible(fn (): bool => ! $this->isWebsiteWorkspace())
                 ->requiresConfirmation()
                 ->modalHeading('Collect live provider data')
-                ->modalDescription('Runs Binding-based Google collectors for this asset’s active Provider resources. Uses the agency Google Integration — no credentials or external IDs entered here. Read-only.')
+                ->modalDescription('Runs collectors for this asset’s active provider connections. Read-only.')
                 ->modalSubmitActionLabel('Collect live data')
                 ->action(function (CollectLiveBoundDataService $collector): void {
                     /** @var DigitalAsset $asset */
@@ -65,21 +125,16 @@ class ViewDigitalAsset extends ViewRecord
                         ->body($result['message'])
                         ->{$result['ok'] ? 'success' : 'warning'}()
                         ->send();
-
-                    $firstRun = $result['runs'][0] ?? null;
-                    if ($firstRun instanceof Run) {
-                        $this->redirect(RunResource::getUrl('view', ['record' => $firstRun]));
-                    }
                 }),
             ActionGroup::make([
                 Action::make('runWebsiteDiagnosis')
-                    ->label('Run diagnosis')
+                    ->label('Run technical diagnosis')
                     ->icon(Heroicon::OutlinedMagnifyingGlassCircle)
-                    ->color('primary')
+                    ->color('gray')
                     ->visible(fn (): bool => $this->canRunWebsiteDiagnosis())
                     ->requiresConfirmation()
-                    ->modalHeading('Run Website Diagnosis')
-                    ->modalDescription('Starts a deterministic Website Diagnosis run for this asset using the catalog checks. External systems are read-only.')
+                    ->modalHeading('Run Website technical diagnosis')
+                    ->modalDescription('Starts a deterministic Website Diagnosis run using catalog checks. External systems are read-only.')
                     ->modalSubmitActionLabel('Run diagnosis')
                     ->action(function (): void {
                         /** @var DigitalAsset $asset */
@@ -101,11 +156,9 @@ class ViewDigitalAsset extends ViewRecord
 
                         Notification::make()
                             ->title('Website Diagnosis completed')
-                            ->body('Run #'.$run->id.' finished with status '.$run->status.'.')
+                            ->body('Technical check finished with status '.$run->status.'.')
                             ->success()
                             ->send();
-
-                        $this->redirect(RunResource::getUrl('view', ['record' => $run]));
                     }),
                 ActionGroup::make([
                     Action::make('runWebsiteGbpWebsiteUrlConsistency')
@@ -415,14 +468,32 @@ class ViewDigitalAsset extends ViewRecord
                         $this->redirect(RunResource::getUrl('view', ['record' => $run]));
                     }),
             ])
-                ->label('Run analysis')
-                ->icon(Heroicon::OutlinedPlayCircle)
-                ->color('primary')
+                ->label('More')
+                ->icon(Heroicon::OutlinedEllipsisHorizontal)
+                ->color('gray')
                 ->button()
                 ->dropdownPlacement('bottom-end'),
             EditAction::make()
-                ->label('Edit asset'),
+                ->label('Edit asset')
+                ->color('gray'),
         ];
+    }
+
+    public function infolist(Schema $schema): Schema
+    {
+        if (! $this->isWebsiteWorkspace()) {
+            return DigitalAssetResource::infolist($schema);
+        }
+
+        return $schema->components([
+            ViewEntry::make('website_overview')
+                ->hiddenLabel()
+                ->view('website::workspace.overview')
+                ->viewData(fn (): array => [
+                    'data' => app(WebsiteWorkspaceData::class)->for($this->getRecord()),
+                ])
+                ->columnSpanFull(),
+        ]);
     }
 
     public function getTitle(): string|Htmlable
@@ -448,6 +519,21 @@ class ViewDigitalAsset extends ViewRecord
             ? str($asset->status->value)->replace('_', ' ')->title()->toString()
             : (string) $asset->status;
 
+        if ($this->isWebsiteWorkspace()) {
+            $workspace = app(WebsiteWorkspaceData::class)->for($asset);
+            $host = filled($asset->domain)
+                ? $asset->domain
+                : (filled($asset->primary_url) ? (parse_url((string) $asset->primary_url, PHP_URL_HOST) ?: $asset->primary_url) : null);
+
+            $parts = array_values(array_filter([
+                $host ? $host.' · '.$type.' · '.$status : $type.' · '.$status,
+                ! empty($workspace['last_updated_human']) ? 'Last updated '.$workspace['last_updated_human'] : null,
+                $workspace['connection_health'] ?? null,
+            ], fn (?string $part): bool => filled($part)));
+
+            return $parts === [] ? null : implode(' · ', $parts);
+        }
+
         $identifier = filled($asset->primary_url)
             ? $asset->primary_url
             : (filled($asset->domain) ? $asset->domain : null);
@@ -458,6 +544,14 @@ class ViewDigitalAsset extends ViewRecord
         ], fn (?string $part): bool => filled($part)));
 
         return $parts === [] ? null : implode(' · ', $parts);
+    }
+
+    private function isWebsiteWorkspace(): bool
+    {
+        /** @var DigitalAsset $asset */
+        $asset = $this->getRecord();
+
+        return $asset->type === 'website';
     }
 
     /**
@@ -492,6 +586,27 @@ class ViewDigitalAsset extends ViewRecord
     public function getContentTabLabel(): ?string
     {
         return 'Overview';
+    }
+
+    /**
+     * @return array<int|string, class-string>
+     */
+    public function getRelationManagers(): array
+    {
+        if ($this->isWebsiteWorkspace()) {
+            return [
+                WebsitePerformanceRelationManager::class,
+                WebsiteHealthRelationManager::class,
+                WebsiteConnectionsRelationManager::class,
+                WebsiteActivityRelationManager::class,
+                WebsiteSettingsRelationManager::class,
+            ];
+        }
+
+        return [
+            'assetBindings' => AssetBindingsRelationManager::class,
+            'connections' => ConnectionsRelationManager::class,
+        ];
     }
 
     private function canRunWebsiteDiagnosis(): bool

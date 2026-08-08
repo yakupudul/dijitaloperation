@@ -178,17 +178,22 @@ class CentralIntegrationArchitectureTest extends TestCase
     public function test_binding_assigns_correct_asset_and_prevents_duplicates(): void
     {
         $integration = CoreIntegration::factory()->google()->create();
+        $otherAsset = DigitalAsset::factory()->create(['brand_id' => $this->brand->id]);
+        $adsAsset = DigitalAsset::factory()->create([
+            'brand_id' => $this->brand->id,
+            'type' => 'google_ads',
+        ]);
         $resource = CoreExternalResource::factory()->create([
             'integration_id' => $integration->id,
             'provider' => ProviderRegistry::GOOGLE,
-            'resource_type' => 'ga4',
-            'external_id' => 'properties/999',
-            'display_name' => 'GA4 Prop',
+            'resource_type' => 'google_ads',
+            'external_id' => '9999999999',
+            'display_name' => 'Ads Prop',
+            'status' => CoreExternalResource::STATUS_AVAILABLE,
         ]);
-        $otherAsset = DigitalAsset::factory()->create(['brand_id' => $this->brand->id]);
 
         Livewire::test(AssetBindingsRelationManager::class, [
-            'ownerRecord' => $this->asset,
+            'ownerRecord' => $adsAsset,
             'pageClass' => ViewDigitalAsset::class,
         ])
             ->callTableAction('create', data: [
@@ -199,36 +204,33 @@ class CentralIntegrationArchitectureTest extends TestCase
 
         $binding = CoreAssetBinding::query()->firstOrFail();
 
-        $this->assertSame($this->asset->id, $binding->digital_asset_id);
+        $this->assertSame($adsAsset->id, $binding->digital_asset_id);
         $this->assertNotSame($otherAsset->id, $binding->digital_asset_id);
         $this->assertSame($resource->id, $binding->external_resource_id);
-        $this->assertSame('ga4', $binding->capability);
+        $this->assertSame('google_ads', $binding->capability);
         $this->assertNull($binding->externalResource->metadata['credentials'] ?? null);
 
+        // Capability already bound — create action is hidden (no unbound compatible resources).
         Livewire::test(AssetBindingsRelationManager::class, [
-            'ownerRecord' => $this->asset,
+            'ownerRecord' => $adsAsset,
             'pageClass' => ViewDigitalAsset::class,
-        ])
-            ->callTableAction('create', data: [
-                'external_resource_id' => $resource->id,
-                'status' => CoreAssetBinding::STATUS_ACTIVE,
-            ])
-            ->assertHasTableActionErrors();
+        ])->assertTableActionHidden('create');
 
         $secondResource = CoreExternalResource::factory()->create([
             'integration_id' => $integration->id,
             'provider' => ProviderRegistry::GOOGLE,
-            'resource_type' => 'ga4',
-            'external_id' => 'properties/888',
-            'display_name' => 'Another GA4',
+            'resource_type' => 'google_ads',
+            'external_id' => '8888888888',
+            'display_name' => 'Another Ads',
+            'status' => CoreExternalResource::STATUS_AVAILABLE,
         ]);
 
         $this->expectException(QueryException::class);
 
         CoreAssetBinding::query()->create([
-            'digital_asset_id' => $this->asset->id,
+            'digital_asset_id' => $adsAsset->id,
             'external_resource_id' => $secondResource->id,
-            'capability' => 'ga4',
+            'capability' => 'google_ads',
             'status' => CoreAssetBinding::STATUS_ACTIVE,
             'configuration' => [],
         ]);
@@ -392,13 +394,31 @@ class CentralIntegrationArchitectureTest extends TestCase
         $this->assertSame(AssetBindingsRelationManager::class, $relations['assetBindings']);
         $this->assertSame(ConnectionsRelationManager::class, $relations['connections']);
 
+        // Non-website assets keep the legacy Provider resources / Site connections tabs.
+        $adsAsset = DigitalAsset::factory()->create([
+            'brand_id' => $this->brand->id,
+            'type' => 'google_ads',
+        ]);
+
         Livewire::test(ViewDigitalAsset::class, [
-            'record' => $this->asset->getRouteKey(),
+            'record' => $adsAsset->getRouteKey(),
             'parentRecord' => $this->brand,
         ])
             ->assertOk()
             ->assertSee('Provider resources')
             ->assertSee('Site connections');
+
+        // Website assets use the productized workspace tabs.
+        Livewire::test(ViewDigitalAsset::class, [
+            'record' => $this->asset->getRouteKey(),
+            'parentRecord' => $this->brand,
+        ])
+            ->assertOk()
+            ->assertSee('Overview')
+            ->assertSee('Performance')
+            ->assertSee('Connections')
+            ->assertDontSee('Provider resources')
+            ->assertDontSee('Site connections');
     }
 
     public function test_provider_registry_lists_canonical_capabilities(): void

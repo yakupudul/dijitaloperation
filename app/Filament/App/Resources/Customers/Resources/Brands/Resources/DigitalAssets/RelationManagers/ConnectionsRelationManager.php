@@ -34,8 +34,8 @@ class ConnectionsRelationManager extends RelationManager
 
     /**
      * Types offered for NEW Site connections.
-     * Google provider auth/resources belong under Settings → Integrations → Google + Provider resources.
-     * Existing Google CoreConnection rows remain visible non-destructively.
+     * Google/Meta/DataForSEO provider auth belongs under Settings → Integrations.
+     * Existing legacy CoreConnection rows remain visible non-destructively.
      *
      * @return list<string>
      */
@@ -43,10 +43,6 @@ class ConnectionsRelationManager extends RelationManager
     {
         return [
             'wordpress',
-            'pagespeed',
-            'dataforseo',
-            'meta_ads_api',
-            'instagram_api',
         ];
     }
 

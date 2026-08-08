@@ -48,10 +48,19 @@ class AssetBindingsRelationManager extends RelationManager
                             return [];
                         }
 
+                        $boundCapabilities = CoreAssetBinding::query()
+                            ->where('digital_asset_id', $asset->id)
+                            ->pluck('capability')
+                            ->all();
+
                         return CoreExternalResource::query()
                             ->with('integration')
                             ->where('status', CoreExternalResource::STATUS_AVAILABLE)
                             ->whereIn('resource_type', $allowed)
+                            ->when(
+                                $boundCapabilities !== [],
+                                fn (Builder $query) => $query->whereNotIn('resource_type', $boundCapabilities),
+                            )
                             ->whereHas('integration', fn (Builder $query) => $query->where('status', 'active'))
                             ->orderBy('provider')
                             ->orderBy('resource_type')
@@ -151,9 +160,18 @@ class AssetBindingsRelationManager extends RelationManager
             return false;
         }
 
+        $boundCapabilities = CoreAssetBinding::query()
+            ->where('digital_asset_id', $asset->id)
+            ->pluck('capability')
+            ->all();
+
         return CoreExternalResource::query()
             ->where('status', CoreExternalResource::STATUS_AVAILABLE)
             ->whereIn('resource_type', $allowed)
+            ->when(
+                $boundCapabilities !== [],
+                fn (Builder $query) => $query->whereNotIn('resource_type', $boundCapabilities),
+            )
             ->whereHas('integration', fn (Builder $query) => $query->where('status', 'active'))
             ->exists();
     }

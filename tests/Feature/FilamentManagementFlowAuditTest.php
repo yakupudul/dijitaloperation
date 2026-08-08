@@ -7,6 +7,7 @@ use App\Filament\App\Resources\Customers\Resources\Brands\Pages\ViewBrand;
 use App\Filament\App\Resources\Customers\Resources\Brands\RelationManagers\DigitalAssetsRelationManager;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\Pages\ViewDigitalAsset;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\ConnectionsRelationManager;
+use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\WebsiteConnectionsRelationManager;
 use App\Filament\App\Resources\Findings\FindingResource;
 use App\Filament\App\Resources\Modules\ModuleResource;
 use App\Filament\App\Resources\Recommendations\RecommendationResource;
@@ -203,12 +204,13 @@ class FilamentManagementFlowAuditTest extends TestCase
             'parentRecord' => $this->brand,
         ])
             ->assertOk()
-            ->set('activeRelationManager', 'connections');
+            ->assertSee('Connections')
+            ->set('activeRelationManager', '2');
 
         $this->assertStringContainsString(
-            ConnectionsRelationManager::class,
+            WebsiteConnectionsRelationManager::class,
             $assetView->html(),
-            'Digital Asset workspace Connections tab must mount ConnectionsRelationManager',
+            'Website Digital Asset workspace Connections tab must mount WebsiteConnectionsRelationManager',
         );
     }
 }

@@ -10,6 +10,11 @@ use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAsset
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\Pages\ViewDigitalAsset;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\AssetBindingsRelationManager;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\ConnectionsRelationManager;
+use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\WebsiteActivityRelationManager;
+use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\WebsiteConnectionsRelationManager;
+use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\WebsiteHealthRelationManager;
+use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\WebsitePerformanceRelationManager;
+use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\WebsiteSettingsRelationManager;
 use App\Models\DigitalAsset;
 use App\Support\DigitalAssetTypes;
 use BackedEnum;
@@ -229,6 +234,11 @@ class DigitalAssetResource extends Resource
     public static function getRelations(): array
     {
         return [
+            WebsitePerformanceRelationManager::class,
+            WebsiteHealthRelationManager::class,
+            WebsiteConnectionsRelationManager::class,
+            WebsiteActivityRelationManager::class,
+            WebsiteSettingsRelationManager::class,
             'assetBindings' => AssetBindingsRelationManager::class,
             'connections' => ConnectionsRelationManager::class,
         ];

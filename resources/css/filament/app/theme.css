@@ -2,6 +2,7 @@
 
 @source '../../../../app/Filament/App/**/*';
 @source '../../../../resources/views/filament/app/**/*';
+@source '../../../../app-modules/website/resources/views/**/*';
 
 /*
  | MoxDOP design tokens — Agency Operations OS
@@ -149,3 +150,277 @@
     font-size: 1.25rem;
     line-height: 1.3;
 }
+
+/* Website workspace productization */
+.mox-website-workspace {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.mox-section-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: flex-start;
+}
+
+.mox-section-title {
+    color: var(--mox-text);
+    font-size: 1.05rem;
+    font-weight: 650;
+    margin: 0;
+}
+
+.mox-section-sub,
+.mox-muted,
+.mox-footnote {
+    color: var(--mox-muted);
+    font-size: 0.8125rem;
+}
+
+.mox-meta-pill {
+    border: 1px solid var(--mox-border);
+    background: var(--mox-surface-subtle);
+    border-radius: 999px;
+    padding: 0.25rem 0.7rem;
+    color: var(--mox-text-secondary);
+    font-size: 0.75rem;
+    white-space: nowrap;
+}
+
+.mox-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+    gap: 0.75rem;
+}
+
+.mox-kpi-grid--compact .mox-kpi-card__value {
+    font-size: 1.35rem;
+}
+
+.mox-kpi-card,
+.mox-panel,
+.mox-conn-card {
+    border: 1px solid var(--mox-border);
+    background: var(--mox-surface);
+    border-radius: 0.625rem;
+    padding: 0.85rem 0.95rem;
+}
+
+.mox-kpi-card__label {
+    color: var(--mox-muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.mox-kpi-card__value {
+    color: var(--mox-text);
+    font-size: 1.55rem;
+    font-weight: 650;
+    line-height: 1.15;
+    margin-top: 0.3rem;
+}
+
+.mox-kpi-card__delta {
+    margin-top: 0.25rem;
+    font-size: 0.78rem;
+    font-weight: 550;
+}
+
+.mox-kpi-card__delta--up { color: var(--color-mox-success); }
+.mox-kpi-card__delta--down { color: var(--color-mox-danger); }
+.mox-kpi-card__delta--flat { color: var(--mox-muted); }
+
+.mox-kpi-card__source {
+    margin-top: 0.35rem;
+    color: var(--mox-muted);
+    font-size: 0.7rem;
+}
+
+.mox-grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.mox-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+@media (max-width: 960px) {
+    .mox-grid-2,
+    .mox-grid-3 {
+        grid-template-columns: 1fr;
+    }
+}
+
+.mox-panel__head {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    align-items: baseline;
+    margin-bottom: 0.65rem;
+}
+
+.mox-panel__head--spaced {
+    margin-top: 0.85rem;
+}
+
+.mox-panel__head h4,
+.mox-conn-card h4 {
+    margin: 0;
+    color: var(--mox-text);
+    font-size: 0.92rem;
+    font-weight: 650;
+}
+
+.mox-sparkline {
+    width: 100%;
+    height: 4rem;
+    color: var(--color-mox-info);
+}
+
+.mox-table-wrap {
+    overflow-x: auto;
+}
+
+.mox-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8125rem;
+}
+
+.mox-table th {
+    text-align: left;
+    color: var(--mox-muted);
+    font-weight: 600;
+    padding: 0.4rem 0.5rem;
+    border-bottom: 1px solid var(--mox-border);
+    white-space: nowrap;
+}
+
+.mox-table td {
+    padding: 0.45rem 0.5rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--mox-border) 70%, transparent);
+    color: var(--mox-text);
+    vertical-align: top;
+}
+
+.mox-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.mox-empty {
+    border: 1px dashed var(--mox-border);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    color: var(--mox-text-secondary);
+    background: var(--mox-surface-subtle);
+}
+
+.mox-empty--compact {
+    padding: 0.75rem;
+}
+
+.mox-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+
+.mox-list__link,
+.mox-finding-row {
+    display: flex;
+    gap: 0.55rem;
+    align-items: flex-start;
+    text-decoration: none;
+    color: var(--mox-text);
+}
+
+.mox-list__hint {
+    margin-top: 0.15rem;
+}
+
+.mox-sev {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 0.25rem;
+    padding: 0.1rem 0.35rem;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    background: var(--mox-surface-subtle);
+    color: var(--mox-text-secondary);
+    white-space: nowrap;
+}
+
+.mox-sev--critical,
+.mox-sev--high { background: #fee2e2; color: var(--color-mox-danger); }
+.mox-sev--medium { background: #ffedd5; color: var(--color-mox-warning); }
+.mox-sev--low { background: #e5e7eb; color: var(--mox-text-secondary); }
+
+.mox-ok { color: var(--color-mox-success); font-weight: 600; font-size: 0.78rem; }
+.mox-warn { color: var(--color-mox-warning); font-weight: 600; font-size: 0.78rem; }
+
+.mox-mini-status {
+    list-style: none;
+    margin: 0.5rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.mox-mini-status li,
+.mox-conn-card__top {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.mox-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.mox-conn-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: 0.75rem;
+}
+
+.mox-conn-card__name {
+    margin-top: 0.45rem;
+    font-weight: 600;
+    color: var(--mox-text);
+}
+
+.mox-conn-card__meta {
+    margin-top: 0.35rem;
+    color: var(--mox-text-secondary);
+    font-size: 0.78rem;
+}
+
+.mox-conn-card__actions {
+    margin-top: 0.85rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.mox-status--completed { color: var(--color-mox-success); font-weight: 600; }
+.mox-status--failed { color: var(--color-mox-danger); font-weight: 600; }
+.mox-status--running,
+.mox-status--pending { color: var(--color-mox-warning); font-weight: 600; }

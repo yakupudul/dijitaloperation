@@ -56,6 +56,30 @@ class DigitalAsset extends Model
     }
 
     /**
+     * @return HasMany<Run, $this>
+     */
+    public function runs(): HasMany
+    {
+        return $this->hasMany(Run::class);
+    }
+
+    /**
+     * @return HasMany<Finding, $this>
+     */
+    public function findings(): HasMany
+    {
+        return $this->hasMany(Finding::class);
+    }
+
+    /**
+     * @return HasMany<Recommendation, $this>
+     */
+    public function recommendations(): HasMany
+    {
+        return $this->hasMany(Recommendation::class);
+    }
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array

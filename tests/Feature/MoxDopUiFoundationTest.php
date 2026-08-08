@@ -145,8 +145,10 @@ class MoxDopUiFoundationTest extends TestCase
         ])
             ->assertOk()
             ->assertSee('Moximu Website')
-            ->assertSee('https://www.moximu.com/')
-            ->assertSee('Run analysis')
+            ->assertSee('www.moximu.com')
+            ->assertSee('More')
+            ->assertSee('Refresh data')
+            ->assertActionExists('refreshData')
             ->assertActionExists('runWebsiteDiagnosis')
             ->assertActionExists('runWebsiteGbpWebsiteUrlConsistency')
             ->assertActionExists('runWebsiteGoogleAdsLandingConsistency');
