@@ -74,9 +74,40 @@ class RunResource extends Resource
                 TextEntry::make('digitalAsset.name')
                     ->label('Digital asset')
                     ->placeholder('-'),
+                TextEntry::make('source_label')
+                    ->label('Source')
+                    ->state(function (Run $record): string {
+                        $record->loadMissing([
+                            'coreConnection',
+                            'coreAssetBinding.externalResource.integration',
+                        ]);
+
+                        if ($record->core_asset_binding_id !== null) {
+                            $binding = $record->coreAssetBinding;
+                            $resource = $binding?->externalResource;
+                            $integration = $resource?->integration;
+                            $capability = str((string) ($binding?->capability ?? 'provider'))
+                                ->replace('_', ' ')
+                                ->title()
+                                ->toString();
+                            $resourceName = $resource?->display_name ?: ($resource?->external_id ?: 'Bound resource');
+                            $integrationName = $integration?->name ?: 'Integration';
+
+                            return $capability.' · '.$resourceName.' · '.$integrationName;
+                        }
+
+                        if ($record->coreConnection !== null) {
+                            return 'Site connection · '.$record->coreConnection->name;
+                        }
+
+                        return '—';
+                    })
+                    ->placeholder('—')
+                    ->columnSpanFull(),
                 TextEntry::make('coreConnection.name')
-                    ->label('Connection')
-                    ->placeholder('-'),
+                    ->label('Site connection')
+                    ->placeholder('—')
+                    ->visible(fn (Run $record): bool => $record->core_connection_id !== null),
                 TextEntry::make('status')
                     ->badge()
                     ->color(fn (?string $state): string => match ($state) {
@@ -96,16 +127,16 @@ class RunResource extends Resource
                     ->placeholder('—'),
                 TextEntry::make('created_at')
                     ->dateTime(),
-                TextEntry::make('metadata')
-                    ->label('Metadata')
-                    ->formatStateUsing(fn (mixed $state): ?string => static::prettyJson($state))
-                    ->fontFamily(FontFamily::Mono)
-                    ->placeholder('No metadata')
-                    ->columnSpanFull(),
-                TextEntry::make('evidence_types')
-                    ->label('Evidence types')
+                TextEntry::make('evidence_generated')
+                    ->label('Evidence generated')
                     ->state(fn (Run $record): ?string => static::evidenceTypes($record))
                     ->placeholder('—')
+                    ->columnSpanFull(),
+                TextEntry::make('metadata')
+                    ->label('Execution context')
+                    ->formatStateUsing(fn (mixed $state): ?string => static::prettyJson(static::sanitizeMetadata($state)))
+                    ->fontFamily(FontFamily::Mono)
+                    ->placeholder('No metadata')
                     ->columnSpanFull(),
                 TextEntry::make('evidence_payloads')
                     ->label('Evidence payloads')
@@ -201,13 +232,25 @@ class RunResource extends Resource
     }
 
     /**
-     * Evidence is Run-bound via metadata until a dedicated Evidence model exists.
-     * Never reads connection credentials.
+     * Prefer Evidence model rows; fall back to legacy metadata.evidence.
+     * Never reads credentials / tokens.
      *
      * @return list<array<string, mixed>>|null
      */
     protected static function evidencePayloads(Run $record): ?array
     {
+        $record->loadMissing('evidence');
+        if ($record->evidence->isNotEmpty()) {
+            return $record->evidence
+                ->map(fn ($item): array => [
+                    'type' => $item->type,
+                    'title' => $item->title,
+                    'payload' => static::sanitizeMetadata($item->payload),
+                ])
+                ->values()
+                ->all();
+        }
+
         $evidence = data_get($record->metadata, 'evidence');
 
         if (! is_array($evidence) || $evidence === []) {
@@ -219,6 +262,13 @@ class RunResource extends Resource
 
     protected static function evidenceTypes(Run $record): ?string
     {
+        $record->loadMissing('evidence');
+        if ($record->evidence->isNotEmpty()) {
+            $types = $record->evidence->pluck('type')->filter()->unique()->values();
+
+            return $types->isEmpty() ? null : $types->implode(', ');
+        }
+
         $payloads = static::evidencePayloads($record);
 
         if ($payloads === null) {
@@ -251,5 +301,26 @@ class RunResource extends Resource
         }
 
         return json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: null;
+    }
+
+    /**
+     * @return array<string, mixed>|mixed
+     */
+    protected static function sanitizeMetadata(mixed $state): mixed
+    {
+        if (! is_array($state)) {
+            return $state;
+        }
+
+        $blocked = ['access_token', 'refresh_token', 'client_secret', 'developer_token', 'authorization', 'token'];
+        $clean = [];
+        foreach ($state as $key => $value) {
+            if (is_string($key) && in_array(strtolower($key), $blocked, true)) {
+                continue;
+            }
+            $clean[$key] = is_array($value) ? static::sanitizeMetadata($value) : $value;
+        }
+
+        return $clean;
     }
 }

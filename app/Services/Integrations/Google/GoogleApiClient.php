@@ -23,6 +23,17 @@ class GoogleApiClient
     }
 
     /**
+     * Authenticated JSON POST for Google REST APIs (Search Console, GA4 Data API, etc.).
+     * Read-only collectors only — never use for mutate endpoints.
+     *
+     * @param  array<string, mixed>  $body
+     */
+    public function post(CoreIntegration $integration, string $url, array $body = []): Response
+    {
+        return $this->request($integration, 'post', $url, $body);
+    }
+
+    /**
      * @param  ?string  $loginCustomerId  Manager account ID for login-customer-id header (digits only).
      */
     public function getAds(CoreIntegration $integration, string $path, ?string $loginCustomerId = null): Response
@@ -117,21 +128,23 @@ class GoogleApiClient
     }
 
     /**
-     * @param  array<string, mixed>  $query
+     * @param  array<string, mixed>  $payload  Query for GET, JSON body for POST.
      */
-    private function request(CoreIntegration $integration, string $method, string $url, array $query = []): Response
+    private function request(CoreIntegration $integration, string $method, string $url, array $payload = []): Response
     {
         $token = $this->oauth->validAccessToken($integration);
         if ($token === null) {
             throw new RuntimeException('Google authorization is missing or expired.');
         }
 
-        /** @var PendingRequest $pending */
-        $pending = Http::withToken($token)->timeout(30);
-
         try {
+            /** @var PendingRequest $pending */
+            $pending = Http::withToken($token)->timeout(45)->acceptJson();
+
             /** @var Response $response */
-            $response = $pending->{$method}($url, $query);
+            $response = $method === 'post'
+                ? $pending->asJson()->post($url, $payload)
+                : $pending->get($url, $payload);
         } catch (\Throwable $e) {
             Log::warning('Google API network failure', [
                 'integration_id' => $integration->id,
@@ -144,7 +157,10 @@ class GoogleApiClient
         if ($response->status() === 401) {
             $refreshed = $this->oauth->refreshAccessToken($integration);
             if ($refreshed !== null) {
-                $response = Http::withToken($refreshed)->timeout(30)->{$method}($url, $query);
+                $pending = Http::withToken($refreshed)->timeout(45)->acceptJson();
+                $response = $method === 'post'
+                    ? $pending->asJson()->post($url, $payload)
+                    : $pending->get($url, $payload);
             }
         }
 

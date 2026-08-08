@@ -12,7 +12,7 @@ MoxDOP connects **one** Moximu Google account via Settings → Integrations → 
 * Google Ads accounts
 * Google Business Profile locations (optional / setup-gated)
 
-No customer-level OAuth. No metric collection in this milestone.
+No customer-level OAuth. After binding External Resources to Digital Assets, use **Collect live data** on the asset workspace for Binding-based Google collection (Search Console / GA4 / Ads / GBP).
 
 ## Two credential categories (canonical)
 

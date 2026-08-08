@@ -2,7 +2,10 @@
 
 namespace MoxDop\Website\Providers;
 
+use App\Services\Integrations\BoundCollectorRegistry;
 use Illuminate\Support\ServiceProvider;
+use MoxDop\Website\Collection\Ga4BoundCollector;
+use MoxDop\Website\Collection\SearchConsoleBoundCollector;
 
 class WebsiteServiceProvider extends ServiceProvider
 {
@@ -13,6 +16,8 @@ class WebsiteServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        // Intentionally empty: module scaffold only. No product UI or business logic.
+        $registry = $this->app->make(BoundCollectorRegistry::class);
+        $registry->register($this->app->make(SearchConsoleBoundCollector::class));
+        $registry->register($this->app->make(Ga4BoundCollector::class));
     }
 }

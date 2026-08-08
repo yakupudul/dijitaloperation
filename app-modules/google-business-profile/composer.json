@@ -1,0 +1,22 @@
+{
+	"name": "moxdop/google-business-profile",
+	"description": "Google Business Profile domain module — Binding-based read-only collection.",
+	"type": "library",
+	"version": "1.0",
+	"license": "proprietary",
+	"require": {},
+	"autoload": {
+		"psr-4": {
+			"MoxDop\\GoogleBusinessProfile\\": "src/",
+			"MoxDop\\GoogleBusinessProfile\\Tests\\": "tests/"
+		}
+	},
+	"minimum-stability": "stable",
+	"extra": {
+		"laravel": {
+			"providers": [
+				"MoxDop\\GoogleBusinessProfile\\Providers\\GoogleBusinessProfileServiceProvider"
+			]
+		}
+	}
+}

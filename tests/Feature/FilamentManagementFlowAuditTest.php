@@ -136,24 +136,23 @@ class FilamentManagementFlowAuditTest extends TestCase
             'pageClass' => ViewDigitalAsset::class,
         ])
             ->callTableAction('create', data: [
-                'type' => 'ga4',
-                'name' => 'GA4 Read-Only',
+                'type' => 'wordpress',
+                'name' => 'WordPress Read-Only',
                 'enabled' => true,
-                'config' => ['property_id' => 'properties/123'],
+                'config' => ['base_url' => 'https://example.com'],
                 'credentials_json' => json_encode([
-                    'client_id' => 'ui-client',
-                    'client_secret' => 'ui-secret-value',
-                    'refresh_token' => 'ui-refresh',
+                    'username' => 'ui-user',
+                    'application_password' => 'ui-secret-value',
                 ], JSON_THROW_ON_ERROR),
             ])
             ->assertHasNoTableActionErrors();
 
-        $connection = CoreConnection::query()->where('name', 'GA4 Read-Only')->firstOrFail();
+        $connection = CoreConnection::query()->where('name', 'WordPress Read-Only')->firstOrFail();
 
         $this->assertSame($this->asset->id, $connection->digital_asset_id);
         $this->assertNotSame($otherAsset->id, $connection->digital_asset_id);
         $this->assertTrue($connection->enabled);
-        $this->assertSame(['property_id' => 'properties/123'], $connection->config);
+        $this->assertSame(['base_url' => 'https://example.com'], $connection->config);
 
         $credential = CoreConnectionCredential::query()
             ->where('connection_id', $connection->id)
@@ -165,8 +164,7 @@ class FilamentManagementFlowAuditTest extends TestCase
 
         $this->assertIsString($stored);
         $this->assertStringNotContainsString('ui-secret-value', $stored);
-        $this->assertStringNotContainsString('ui-refresh', $stored);
-        $this->assertSame('ui-secret-value', $credential->encrypted_payload['client_secret']);
+        $this->assertSame('ui-secret-value', $credential->encrypted_payload['application_password']);
         $this->assertArrayNotHasKey('encrypted_payload', $credential->toArray());
 
         Livewire::test(ConnectionsRelationManager::class, [
@@ -176,7 +174,7 @@ class FilamentManagementFlowAuditTest extends TestCase
             ->assertCanSeeTableRecords([$connection])
             ->mountTableAction('edit', $connection)
             ->assertSchemaStateSet([
-                'name' => 'GA4 Read-Only',
+                'name' => 'WordPress Read-Only',
                 'credentials_json' => null,
             ]);
     }
