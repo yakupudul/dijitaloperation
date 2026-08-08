@@ -15,12 +15,13 @@ return new class extends Migration
         Schema::create('core_integration_credentials', function (Blueprint $table) {
             $table->id();
             $table->foreignId('integration_id')->constrained('core_integrations')->cascadeOnDelete();
+            $table->string('credential_type', 32)->default('authorization');
             $table->text('encrypted_payload');
             $table->dateTime('expires_at')->nullable();
             $table->dateTime('refreshed_at')->nullable();
             $table->timestamps();
 
-            $table->unique('integration_id');
+            $table->unique(['integration_id', 'credential_type'], 'core_integration_credentials_integration_type_unique');
         });
     }
 

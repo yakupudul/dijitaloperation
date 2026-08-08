@@ -3,6 +3,7 @@
 namespace App\Support\Integrations\Google;
 
 use App\Models\CoreIntegration;
+use App\Services\Integrations\Google\GoogleCredentialResolver;
 use App\Support\Integrations\ProviderRegistry;
 
 final class GoogleAuthStatus
@@ -29,7 +30,7 @@ final class GoogleAuthStatus
             return self::DISABLED;
         }
 
-        if (! GoogleOAuthConfig::isConfigured()) {
+        if (! app(GoogleCredentialResolver::class)->isAppConfigured($integration)) {
             return self::NOT_CONFIGURED;
         }
 
@@ -38,11 +39,11 @@ final class GoogleAuthStatus
             return $configStatus;
         }
 
-        if (! $integration->credential()->exists()) {
+        if (! $integration->authorizationCredential()->exists()) {
             return self::AUTHORIZATION_REQUIRED;
         }
 
-        $payload = $integration->credential?->encrypted_payload ?? [];
+        $payload = $integration->authorizationCredential?->encrypted_payload ?? [];
         if (! is_array($payload) || blank($payload['refresh_token'] ?? null)) {
             return self::REFRESH_REQUIRED;
         }
@@ -54,12 +55,32 @@ final class GoogleAuthStatus
     {
         return match ($status) {
             self::NOT_CONFIGURED => 'Not configured',
-            self::AUTHORIZATION_REQUIRED => 'Authorization required',
+            self::AUTHORIZATION_REQUIRED => 'Not authorized',
             self::CONNECTED => 'Connected',
-            self::REFRESH_REQUIRED => 'Expired / Refresh required',
+            self::REFRESH_REQUIRED => 'Refresh required',
             self::ERROR => 'Error',
             self::DISABLED => 'Disabled',
             default => str($status)->replace('_', ' ')->title()->toString(),
         };
+    }
+
+    public static function applicationConfigurationLabel(CoreIntegration $integration): string
+    {
+        return app(GoogleCredentialResolver::class)->isAppConfigured($integration)
+            ? 'Complete'
+            : 'Incomplete';
+    }
+
+    public static function adsDeveloperTokenLabel(CoreIntegration $integration): string
+    {
+        $resolver = app(GoogleCredentialResolver::class);
+
+        if ($resolver->hasDeveloperToken($integration)) {
+            return $resolver->developerTokenSource($integration) === GoogleCredentialResolver::SOURCE_ENVIRONMENT
+                ? 'Developer token configured by environment'
+                : 'Developer token configured';
+        }
+
+        return 'Developer token missing';
     }
 }

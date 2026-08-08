@@ -72,8 +72,8 @@ class CentralIntegrationArchitectureTest extends TestCase
                 'status' => CoreIntegration::STATUS_ACTIVE,
                 'config' => ['account_email' => 'ops@moximu.com'],
                 'credentials_json' => json_encode([
-                    'refresh_token' => 'agency-refresh-secret',
-                    'access_token' => 'agency-access-secret',
+                    'client_id' => 'agency-client-id',
+                    'client_secret' => 'agency-client-secret',
                 ], JSON_THROW_ON_ERROR),
             ])
             ->call('create')
@@ -84,7 +84,8 @@ class CentralIntegrationArchitectureTest extends TestCase
         $this->assertSame('Google', $integration->name);
         $this->assertSame(CoreIntegration::STATUS_ACTIVE, $integration->status);
         $this->assertSame(['account_email' => 'ops@moximu.com'], $integration->config);
-        $this->assertTrue($integration->credential()->exists());
+        $this->assertTrue($integration->providerCredential()->exists());
+        $this->assertFalse($integration->authorizationCredential()->exists());
     }
 
     public function test_integration_provider_must_be_canonical_and_unique(): void
@@ -116,7 +117,7 @@ class CentralIntegrationArchitectureTest extends TestCase
                 'status' => CoreIntegration::STATUS_ACTIVE,
                 'config' => [],
                 'credentials_json' => json_encode([
-                    'refresh_token' => 'super-secret-refresh',
+                    'client_id' => 'super-client-id',
                     'client_secret' => 'super-secret-client',
                 ], JSON_THROW_ON_ERROR),
             ])
@@ -125,6 +126,7 @@ class CentralIntegrationArchitectureTest extends TestCase
 
         $credential = CoreIntegrationCredential::query()
             ->where('integration_id', $integration->id)
+            ->where('credential_type', CoreIntegrationCredential::TYPE_PROVIDER)
             ->firstOrFail();
 
         $stored = DB::table('core_integration_credentials')
@@ -132,9 +134,9 @@ class CentralIntegrationArchitectureTest extends TestCase
             ->value('encrypted_payload');
 
         $this->assertIsString($stored);
-        $this->assertStringNotContainsString('super-secret-refresh', $stored);
         $this->assertStringNotContainsString('super-secret-client', $stored);
-        $this->assertSame('super-secret-refresh', $credential->encrypted_payload['refresh_token']);
+        $this->assertSame('super-secret-client', $credential->encrypted_payload['client_secret']);
+        $this->assertSame(CoreIntegrationCredential::TYPE_PROVIDER, $credential->credential_type);
         $this->assertArrayNotHasKey('encrypted_payload', $credential->toArray());
 
         Livewire::test(EditIntegration::class, ['record' => $integration->getRouteKey()])
@@ -146,7 +148,7 @@ class CentralIntegrationArchitectureTest extends TestCase
     public function test_external_resource_belongs_to_integration_with_uniqueness_and_no_credential_leakage(): void
     {
         $integration = CoreIntegration::factory()->google()->create();
-        CoreIntegrationCredential::factory()->create([
+        CoreIntegrationCredential::factory()->authorization()->create([
             'integration_id' => $integration->id,
             'encrypted_payload' => ['refresh_token' => 'must-not-leak'],
         ]);

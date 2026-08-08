@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\CoreConnection;
 use App\Models\Evidence;
 use App\Models\Run;
+use App\Support\Integrations\Google\GoogleOAuthConfig;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
@@ -23,8 +24,6 @@ class GoogleAdsConnectionProbeService
     public const ASSET_TYPE = 'google_ads';
 
     public const EVIDENCE_TYPE_GOOGLE_ADS_ACCOUNT_ACCESS = 'google_ads_account_access';
-
-    private const LIST_ACCESSIBLE_CUSTOMERS_URL = 'https://googleads.googleapis.com/v18/customers:listAccessibleCustomers';
 
     /**
      * Verify a Google Ads connection can access the configured customer and persist Evidence.
@@ -213,7 +212,7 @@ class GoogleAdsConnectionProbeService
                 ->acceptJson()
                 ->withToken($credentials['access_token'])
                 ->withHeaders($headers)
-                ->get(self::LIST_ACCESSIBLE_CUSTOMERS_URL);
+                ->get(GoogleOAuthConfig::adsApiUrl('customers:listAccessibleCustomers'));
 
             $json = $response->json();
 

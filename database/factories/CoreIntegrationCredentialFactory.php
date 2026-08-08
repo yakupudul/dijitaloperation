@@ -20,6 +20,7 @@ class CoreIntegrationCredentialFactory extends Factory
     {
         return [
             'integration_id' => CoreIntegration::factory(),
+            'credential_type' => CoreIntegrationCredential::TYPE_AUTHORIZATION,
             'encrypted_payload' => [
                 'access_token' => 'sample-access-token',
                 'refresh_token' => 'sample-refresh-token',
@@ -27,5 +28,30 @@ class CoreIntegrationCredentialFactory extends Factory
             'expires_at' => null,
             'refreshed_at' => null,
         ];
+    }
+
+    public function authorization(): static
+    {
+        return $this->state(fn (): array => [
+            'credential_type' => CoreIntegrationCredential::TYPE_AUTHORIZATION,
+            'encrypted_payload' => [
+                'access_token' => 'sample-access-token',
+                'refresh_token' => 'sample-refresh-token',
+            ],
+        ]);
+    }
+
+    public function provider(): static
+    {
+        return $this->state(fn (): array => [
+            'credential_type' => CoreIntegrationCredential::TYPE_PROVIDER,
+            'encrypted_payload' => [
+                'client_id' => 'sample-client-id',
+                'client_secret' => 'sample-client-secret',
+                'developer_token' => 'sample-developer-token',
+            ],
+            'expires_at' => null,
+            'refreshed_at' => null,
+        ]);
     }
 }

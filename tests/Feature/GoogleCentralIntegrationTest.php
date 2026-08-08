@@ -18,6 +18,7 @@ use App\Services\Integrations\Google\GoogleOAuthService;
 use App\Services\Integrations\Google\GoogleResourceRefreshService;
 use App\Support\Integrations\AssetBindingCompatibility;
 use App\Support\Integrations\Google\GoogleAuthStatus;
+use App\Support\Integrations\Google\GoogleOAuthConfig;
 use App\Support\Integrations\Google\GoogleScopes;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Roles;
@@ -298,7 +299,7 @@ class GoogleCentralIntegrationTest extends TestCase
         Http::fake([
             'https://www.googleapis.com/webmasters/v3/sites' => Http::response(['siteEntry' => []], 200),
             'https://analyticsadmin.googleapis.com/v1beta/accountSummaries*' => Http::response(['accountSummaries' => []], 200),
-            'https://googleads.googleapis.com/v19/customers:listAccessibleCustomers' => Http::response([
+            GoogleOAuthConfig::adsApiUrl('customers:listAccessibleCustomers') => Http::response([
                 'resourceNames' => ['customers/1234567890', 'customers/9988776655'],
             ], 200),
         ]);
@@ -378,7 +379,15 @@ class GoogleCentralIntegrationTest extends TestCase
 
     public function test_disconnect_clears_credentials_and_marks_resources_unavailable(): void
     {
-        CoreIntegrationCredential::factory()->create([
+        CoreIntegrationCredential::factory()->provider()->create([
+            'integration_id' => $this->integration->id,
+            'encrypted_payload' => [
+                'client_id' => 'keep-client-id',
+                'client_secret' => 'keep-client-secret',
+                'developer_token' => 'keep-dev-token',
+            ],
+        ]);
+        CoreIntegrationCredential::factory()->authorization()->create([
             'integration_id' => $this->integration->id,
             'encrypted_payload' => [
                 'access_token' => 'access-secret',
@@ -401,9 +410,11 @@ class GoogleCentralIntegrationTest extends TestCase
             'https://oauth2.googleapis.com/revoke' => Http::response([], 200),
         ]);
 
-        $result = app(GoogleOAuthService::class)->disconnect($this->integration->fresh(['credential']));
+        $result = app(GoogleOAuthService::class)->disconnect($this->integration->fresh(['credential', 'providerCredential']));
         $this->assertTrue($result['ok']);
-        $this->assertFalse($this->integration->fresh()->credential()->exists());
+        $this->assertFalse($this->integration->fresh()->authorizationCredential()->exists());
+        $this->assertTrue($this->integration->fresh()->providerCredential()->exists());
+        $this->assertSame('keep-client-secret', $this->integration->fresh()->providerCredential->encrypted_payload['client_secret']);
         $this->assertSame('unavailable', $resource->fresh()->status);
         $this->assertSame('disabled', CoreAssetBinding::query()->first()->status);
         $this->assertDatabaseHas('digital_assets', ['id' => $asset->id]);
@@ -413,10 +424,13 @@ class GoogleCentralIntegrationTest extends TestCase
     {
         Livewire::test(ViewIntegration::class, ['record' => $this->integration->getRouteKey()])
             ->assertOk()
+            ->assertSee('Application configuration')
             ->assertSee('Authorization')
-            ->assertSee('Authorize')
+            ->assertSee('Authorize Google')
+            ->assertSee('Configure')
             ->assertSee('Test connection')
             ->assertSee('Refresh resources')
+            ->assertSee('Configured by environment')
             ->assertDontSee('test-client-secret')
             ->assertDontSee('refresh-secret');
     }
