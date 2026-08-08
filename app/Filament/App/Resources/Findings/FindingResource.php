@@ -103,6 +103,10 @@ class FindingResource extends Resource
                         TextEntry::make('first_seen_at')
                             ->label('First seen')
                             ->dateTime(),
+                        TextEntry::make('resolved_at')
+                            ->label('Resolved at')
+                            ->dateTime()
+                            ->placeholder('—'),
                     ])
                     ->columns(2),
                 Section::make('Diagnostics')
@@ -210,6 +214,12 @@ class FindingResource extends Resource
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('resolved_at')
+                    ->label('Resolved at')
+                    ->dateTime()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->placeholder('—'),
                 TextColumn::make('last_run_id')
                     ->label('Last run')
                     ->formatStateUsing(fn (?int $state): ?string => $state !== null ? "Run #{$state}" : null)
