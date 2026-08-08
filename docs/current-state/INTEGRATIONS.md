@@ -27,7 +27,21 @@ Site-specific credentials (WordPress) remain on `CoreConnection`.
 | `DiscoversProviderResources` | Contract only — no live OAuth yet |
 | `ProviderRegistry` | Google / Meta / DataForSEO / OpenAI + capabilities |
 | Collectors / scheduling | Deferred |
-| Live Google / Meta OAuth | Deferred |
+| Google OAuth + discovery | Implemented (HTTP client; CI mocked) |
+| Live Meta OAuth | Deferred |
+
+## Google Integration
+
+Settings → Integrations → Google supports authorize / test / refresh / disconnect.
+
+Discovery capabilities:
+
+* Search Console (`webmasters.readonly`)
+* GA4 Admin accountSummaries (`analytics.readonly`)
+* Google Ads listAccessibleCustomers (`adwords` + developer token)
+* GBP optional / setup-gated (`business.manage` + API access approval)
+
+See `docs/product/GOOGLE_INTEGRATION_SETUP.md`.
 
 ## Probe / connector services
 
@@ -35,4 +49,4 @@ Existing read-only probe services under `app/Services/*ConnectionProbeService.ph
 
 ## Sonuç
 
-Central Integration Architecture foundation mevcuttur. Live provider API calls and OAuth are intentionally not wired in this milestone.
+Central Integration Architecture + Google authenticate/discover/catalog/bind foundation mevcuttur. Metric collectors are deferred.

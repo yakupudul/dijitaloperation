@@ -5,6 +5,8 @@ namespace App\Filament\App\Resources\Customers\Resources\Brands\Resources\Digita
 use App\Filament\App\Concerns\ManagesRecordsOnViewPages;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
+use App\Models\DigitalAsset;
+use App\Support\Integrations\AssetBindingCompatibility;
 use App\Support\Integrations\ProviderRegistry;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
@@ -37,22 +39,33 @@ class AssetBindingsRelationManager extends RelationManager
             ->components([
                 Select::make('external_resource_id')
                     ->label('External resource')
-                    ->options(fn (): array => CoreExternalResource::query()
-                        ->with('integration')
-                        ->where('status', CoreExternalResource::STATUS_AVAILABLE)
-                        ->whereHas('integration', fn (Builder $query) => $query->where('status', 'active'))
-                        ->orderBy('provider')
-                        ->orderBy('resource_type')
-                        ->orderBy('display_name')
-                        ->get()
-                        ->mapWithKeys(fn (CoreExternalResource $resource): array => [
-                            $resource->id => $resource->optionLabel(),
-                        ])
-                        ->all())
+                    ->options(function (): array {
+                        /** @var DigitalAsset $asset */
+                        $asset = $this->getOwnerRecord();
+                        $allowed = AssetBindingCompatibility::capabilitiesForAssetType((string) $asset->type);
+
+                        if ($allowed === []) {
+                            return [];
+                        }
+
+                        return CoreExternalResource::query()
+                            ->with('integration')
+                            ->where('status', CoreExternalResource::STATUS_AVAILABLE)
+                            ->whereIn('resource_type', $allowed)
+                            ->whereHas('integration', fn (Builder $query) => $query->where('status', 'active'))
+                            ->orderBy('provider')
+                            ->orderBy('resource_type')
+                            ->orderBy('display_name')
+                            ->get()
+                            ->mapWithKeys(fn (CoreExternalResource $resource): array => [
+                                $resource->id => $resource->optionLabel(),
+                            ])
+                            ->all();
+                    })
                     ->searchable()
                     ->required()
                     ->native(false)
-                    ->helperText('Select a discovered provider resource. External IDs are not typed manually. Secrets are never shown here.'),
+                    ->helperText('Compatible discovered resources only. Agency Google auth is reused — no OAuth or secrets here.'),
                 Select::make('status')
                     ->options([
                         CoreAssetBinding::STATUS_ACTIVE => 'Active',
@@ -130,8 +143,17 @@ class AssetBindingsRelationManager extends RelationManager
 
     protected function availableExternalResourcesExist(): bool
     {
+        /** @var DigitalAsset $asset */
+        $asset = $this->getOwnerRecord();
+        $allowed = AssetBindingCompatibility::capabilitiesForAssetType((string) $asset->type);
+
+        if ($allowed === []) {
+            return false;
+        }
+
         return CoreExternalResource::query()
             ->where('status', CoreExternalResource::STATUS_AVAILABLE)
+            ->whereIn('resource_type', $allowed)
             ->whereHas('integration', fn (Builder $query) => $query->where('status', 'active'))
             ->exists();
     }
@@ -159,6 +181,14 @@ class AssetBindingsRelationManager extends RelationManager
             ]);
         }
 
+        /** @var DigitalAsset $owner */
+        $owner = $this->getOwnerRecord();
+        if (! AssetBindingCompatibility::isCompatible($owner, $resource)) {
+            throw ValidationException::withMessages([
+                'mountedTableActionsData.0.external_resource_id' => 'That resource capability is not compatible with this digital asset type.',
+            ]);
+        }
+
         $attributes = [
             'external_resource_id' => $resource->id,
             'capability' => $resource->resource_type,
@@ -166,7 +196,6 @@ class AssetBindingsRelationManager extends RelationManager
             'configuration' => [],
         ];
 
-        $owner = $this->getOwnerRecord();
         $duplicateResource = CoreAssetBinding::query()
             ->where('digital_asset_id', $owner->getKey())
             ->where('external_resource_id', $resource->id)

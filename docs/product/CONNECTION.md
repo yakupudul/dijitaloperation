@@ -96,7 +96,7 @@ Health / last success / last error Run veya connection/integration attempt kayı
 
 ## Later enhancements
 
-Live Google/Meta OAuth + resource discovery, collectors/scheduling, richer health widgets.
+Collectors/scheduling and performance metric ingestion. Google OAuth + discovery + binding: see `docs/product/GOOGLE_INTEGRATION_SETUP.md`.
 
 ## Explicit non-goals
 
