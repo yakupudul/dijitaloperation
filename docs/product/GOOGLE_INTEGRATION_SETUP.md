@@ -50,7 +50,7 @@ GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 GOOGLE_REDIRECT_URI="${APP_URL}/integrations/google/callback"
 GOOGLE_ADS_DEVELOPER_TOKEN=
-GOOGLE_ADS_API_VERSION=v19
+GOOGLE_ADS_API_VERSION=v25
 GOOGLE_INCLUDE_GBP_SCOPE=false
 GOOGLE_GBP_DISCOVERY_ENABLED=false
 ```
@@ -58,6 +58,7 @@ GOOGLE_GBP_DISCOVERY_ENABLED=false
 * Never commit real secrets.
 * Client secret is agency/system config — never stored per Digital Asset.
 * If client ID/secret missing, UI shows **Not configured / Setup required** (no exception crash).
+* `GOOGLE_ADS_API_VERSION` defaults to **v25** (current Google Ads API major as of this preflight). All active Ads REST calls — central Integration discovery and legacy CoreConnection probe/collect — read this single config value. Prefer the latest supported major from [Google Ads API deprecation & sunset](https://developers.google.com/google-ads/api/docs/sunset-dates).
 
 ## OAuth scopes requested
 

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\CoreConnection;
 use App\Models\Evidence;
 use App\Models\Run;
+use App\Support\Integrations\Google\GoogleOAuthConfig;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
@@ -23,8 +24,6 @@ class GoogleAdsLandingFinalUrlsCollectService
     public const ASSET_TYPE = 'google_ads';
 
     public const EVIDENCE_TYPE_LANDING_FINAL_URLS = 'google_ads_landing_final_urls';
-
-    private const SEARCH_URL_TEMPLATE = 'https://googleads.googleapis.com/v18/customers/%s/googleAds:search';
 
     private const FINAL_URLS_QUERY = <<<'GAQL'
 SELECT ad_group_ad.ad.final_urls
@@ -218,7 +217,7 @@ GAQL;
             $headers['login-customer-id'] = $loginCustomerId;
         }
 
-        $url = sprintf(self::SEARCH_URL_TEMPLATE, $customerId);
+        $url = GoogleOAuthConfig::adsApiUrl('customers/'.$customerId.'/googleAds:search');
 
         try {
             /** @var Response $response */
