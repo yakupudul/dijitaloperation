@@ -38,14 +38,14 @@ Discovery capabilities:
 
 * Search Console (`webmasters.readonly`)
 * GA4 Admin accountSummaries (`analytics.readonly`)
-* Google Ads listAccessibleCustomers (`adwords` + developer token)
+* Google Ads listAccessibleCustomers (`adwords` + developer token; API version from `GOOGLE_ADS_API_VERSION`, default **v25**)
 * GBP optional / setup-gated (`business.manage` + API access approval)
 
 See `docs/product/GOOGLE_INTEGRATION_SETUP.md`.
 
 ## Probe / connector services
 
-Existing read-only probe services under `app/Services/*ConnectionProbeService.php` remain. They still operate against transitional `CoreConnection` rows where applicable. Future collectors will consume Integration + Binding.
+Existing read-only probe services under `app/Services/*ConnectionProbeService.php` remain. They still operate against transitional `CoreConnection` rows where applicable. Future collectors will consume Integration + Binding. Google Ads probe/collect REST paths share the same configured Ads API version as central discovery (no hard-coded v18 endpoints).
 
 ## Sonuç
 
