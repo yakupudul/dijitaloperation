@@ -165,11 +165,17 @@ class DigitalAssetResourceTest extends TestCase
 
     public function test_brand_view_exposes_digital_assets_relation_manager(): void
     {
-        Livewire::test(ViewBrand::class, [
+        $brandView = Livewire::test(ViewBrand::class, [
             'record' => $this->brand->getRouteKey(),
             'parentRecord' => $this->customer,
         ])
             ->assertOk()
-            ->assertSeeLivewire(DigitalAssetsRelationManager::class);
+            ->set('activeRelationManager', 'digitalAssets');
+
+        $this->assertStringContainsString(
+            DigitalAssetsRelationManager::class,
+            $brandView->html(),
+            'Brand workspace Digital Assets tab must mount DigitalAssetsRelationManager',
+        );
     }
 }

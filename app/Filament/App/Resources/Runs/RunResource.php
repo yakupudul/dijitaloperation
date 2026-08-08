@@ -5,7 +5,10 @@ namespace App\Filament\App\Resources\Runs;
 use App\Filament\App\Resources\Runs\Pages\ListRuns;
 use App\Filament\App\Resources\Runs\Pages\ViewRun;
 use App\Models\Run;
+use App\Support\MoxDopNavigation;
+use App\Support\RunTypeLabels;
 use BackedEnum;
+use Carbon\CarbonInterface;
 use Filament\Actions\ViewAction;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
@@ -15,6 +18,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
+use UnitEnum;
 
 class RunResource extends Resource
 {
@@ -23,6 +27,10 @@ class RunResource extends Resource
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedPlayCircle;
 
     protected static ?string $navigationLabel = 'Runs';
+
+    protected static string|UnitEnum|null $navigationGroup = MoxDopNavigation::OPERATIONS;
+
+    protected static ?int $navigationSort = 4;
 
     protected static ?string $modelLabel = 'Run';
 
@@ -79,12 +87,13 @@ class RunResource extends Resource
                         default => 'gray',
                     }),
                 TextEntry::make('module_id')
-                    ->label('Source module'),
+                    ->label('Run type')
+                    ->formatStateUsing(fn (?string $state): string => RunTypeLabels::label($state)),
                 TextEntry::make('started_at')
                     ->dateTime(),
                 TextEntry::make('finished_at')
                     ->dateTime()
-                    ->placeholder('-'),
+                    ->placeholder('—'),
                 TextEntry::make('created_at')
                     ->dateTime(),
                 TextEntry::make('metadata')
@@ -94,12 +103,12 @@ class RunResource extends Resource
                     ->placeholder('No metadata')
                     ->columnSpanFull(),
                 TextEntry::make('evidence_types')
-                    ->label('Evidence type(s)')
+                    ->label('Evidence types')
                     ->state(fn (Run $record): ?string => static::evidenceTypes($record))
-                    ->placeholder('-')
+                    ->placeholder('—')
                     ->columnSpanFull(),
                 TextEntry::make('evidence_payloads')
-                    ->label('Evidence payload(s)')
+                    ->label('Evidence payloads')
                     ->state(fn (Run $record): ?string => static::prettyJson(static::evidencePayloads($record)))
                     ->fontFamily(FontFamily::Mono)
                     ->placeholder('No evidence')
@@ -111,16 +120,14 @@ class RunResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('id')
-                    ->label('ID')
-                    ->sortable(),
                 TextColumn::make('digitalAsset.name')
                     ->label('Digital asset')
                     ->searchable()
                     ->sortable(),
-                TextColumn::make('coreConnection.name')
-                    ->label('Connection')
-                    ->placeholder('—')
+                TextColumn::make('module_id')
+                    ->label('Run type')
+                    ->formatStateUsing(fn (?string $state): string => RunTypeLabels::label($state))
+                    ->searchable()
                     ->sortable(),
                 TextColumn::make('status')
                     ->badge()
@@ -133,24 +140,51 @@ class RunResource extends Resource
                     })
                     ->sortable(),
                 TextColumn::make('started_at')
+                    ->label('Started')
                     ->dateTime()
                     ->sortable(),
+                TextColumn::make('duration')
+                    ->label('Duration')
+                    ->state(function (Run $record): ?string {
+                        if ($record->started_at === null || $record->finished_at === null) {
+                            return null;
+                        }
+
+                        return $record->started_at->diffForHumans($record->finished_at, [
+                            'parts' => 2,
+                            'short' => true,
+                            'syntax' => CarbonInterface::DIFF_ABSOLUTE,
+                        ]);
+                    })
+                    ->placeholder('—'),
                 TextColumn::make('finished_at')
+                    ->label('Finished')
                     ->dateTime()
                     ->placeholder('—')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('coreConnection.name')
+                    ->label('Connection')
+                    ->placeholder('—')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('id')
+                    ->label('ID')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('created_at')
                     ->dateTime()
-                    ->sortable(),
-                TextColumn::make('module_id')
-                    ->label('Source module')
-                    ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->recordUrl(fn (Run $record): string => static::getUrl('view', ['record' => $record]))
             ->recordActions([
                 ViewAction::make(),
             ])
-            ->toolbarActions([]);
+            ->emptyStateHeading('No runs')
+            ->emptyStateDescription('No analysis runs have been recorded yet.')
+            ->toolbarActions([])
+            ->defaultSort('started_at', 'desc');
     }
 
     public static function getRelations(): array

@@ -10,6 +10,7 @@ use App\Filament\App\Resources\Customers\Pages\ListCustomers;
 use App\Filament\App\Resources\Customers\Pages\ViewCustomer;
 use App\Filament\App\Resources\Customers\RelationManagers\BrandsRelationManager;
 use App\Models\Customer;
+use App\Support\MoxDopNavigation;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -21,10 +22,12 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use UnitEnum;
 
 class CustomerResource extends Resource
 {
@@ -32,28 +35,56 @@ class CustomerResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBuildingOffice2;
 
+    protected static ?string $navigationLabel = 'Customers';
+
+    protected static string|UnitEnum|null $navigationGroup = MoxDopNavigation::PORTFOLIO;
+
+    protected static ?int $navigationSort = 1;
+
     protected static ?string $recordTitleAttribute = 'name';
 
     public static function form(Schema $schema): Schema
     {
         return $schema
             ->components([
-                TextInput::make('name')
-                    ->required(),
-                Select::make('type')
-                    ->options(CustomerType::class)
-                    ->required(),
-                TextInput::make('legal_name'),
-                Select::make('status')
-                    ->options(CustomerStatus::class)
-                    ->required(),
-                TextInput::make('primary_email')
-                    ->email(),
-                TextInput::make('primary_phone')
-                    ->tel(),
-                DatePicker::make('service_started_at'),
-                Textarea::make('services_received')
-                    ->columnSpanFull(),
+                Section::make('Identity')
+                    ->schema([
+                        TextInput::make('name')
+                            ->required()
+                            ->maxLength(255),
+                        Select::make('type')
+                            ->options(CustomerType::class)
+                            ->required(),
+                        TextInput::make('legal_name')
+                            ->label('Legal name')
+                            ->maxLength(255),
+                        Select::make('status')
+                            ->options(CustomerStatus::class)
+                            ->required(),
+                    ])
+                    ->columns(2),
+                Section::make('Contact')
+                    ->schema([
+                        TextInput::make('primary_email')
+                            ->label('Primary email')
+                            ->email()
+                            ->maxLength(255),
+                        TextInput::make('primary_phone')
+                            ->label('Primary phone')
+                            ->tel()
+                            ->maxLength(255),
+                    ])
+                    ->columns(2),
+                Section::make('Engagement')
+                    ->schema([
+                        DatePicker::make('service_started_at')
+                            ->label('Service started'),
+                        Textarea::make('services_received')
+                            ->label('Services received')
+                            ->rows(3)
+                            ->columnSpanFull(),
+                    ])
+                    ->columns(2),
             ]);
     }
 
@@ -61,29 +92,58 @@ class CustomerResource extends Resource
     {
         return $schema
             ->components([
-                TextEntry::make('name'),
-                TextEntry::make('type')
-                    ->badge(),
-                TextEntry::make('legal_name')
-                    ->placeholder('-'),
-                TextEntry::make('status')
-                    ->badge(),
-                TextEntry::make('primary_email')
-                    ->placeholder('-'),
-                TextEntry::make('primary_phone')
-                    ->placeholder('-'),
-                TextEntry::make('service_started_at')
-                    ->date()
-                    ->placeholder('-'),
-                TextEntry::make('services_received')
-                    ->placeholder('-')
-                    ->columnSpanFull(),
-                TextEntry::make('created_at')
-                    ->dateTime()
-                    ->placeholder('-'),
-                TextEntry::make('updated_at')
-                    ->dateTime()
-                    ->placeholder('-'),
+                Section::make('Identity')
+                    ->schema([
+                        TextEntry::make('name'),
+                        TextEntry::make('type')
+                            ->badge(),
+                        TextEntry::make('legal_name')
+                            ->label('Legal name')
+                            ->placeholder('—'),
+                        TextEntry::make('status')
+                            ->badge()
+                            ->color(fn (?CustomerStatus $state): string => match ($state) {
+                                CustomerStatus::Active => 'success',
+                                CustomerStatus::Inactive => 'warning',
+                                CustomerStatus::Archived => 'gray',
+                                default => 'gray',
+                            }),
+                    ])
+                    ->columns(2),
+                Section::make('Contact')
+                    ->schema([
+                        TextEntry::make('primary_email')
+                            ->label('Primary email')
+                            ->placeholder('—'),
+                        TextEntry::make('primary_phone')
+                            ->label('Primary phone')
+                            ->placeholder('—'),
+                    ])
+                    ->columns(2),
+                Section::make('Engagement')
+                    ->schema([
+                        TextEntry::make('service_started_at')
+                            ->label('Service started')
+                            ->date()
+                            ->placeholder('—'),
+                        TextEntry::make('services_received')
+                            ->label('Services received')
+                            ->placeholder('—')
+                            ->columnSpanFull(),
+                    ])
+                    ->columns(2),
+                Section::make('Record metadata')
+                    ->schema([
+                        TextEntry::make('created_at')
+                            ->dateTime()
+                            ->placeholder('—'),
+                        TextEntry::make('updated_at')
+                            ->dateTime()
+                            ->placeholder('—'),
+                    ])
+                    ->columns(2)
+                    ->collapsed()
+                    ->compact(),
             ]);
     }
 
@@ -93,24 +153,33 @@ class CustomerResource extends Resource
             ->recordTitleAttribute('name')
             ->columns([
                 TextColumn::make('name')
-                    ->searchable(),
+                    ->searchable()
+                    ->sortable(),
                 TextColumn::make('type')
                     ->badge()
-                    ->searchable(),
-                TextColumn::make('legal_name')
-                    ->searchable(),
+                    ->sortable(),
                 TextColumn::make('status')
                     ->badge()
-                    ->searchable(),
-                TextColumn::make('primary_email')
-                    ->searchable(),
-                TextColumn::make('primary_phone')
-                    ->searchable(),
-                TextColumn::make('service_started_at')
-                    ->date()
+                    ->color(fn (?CustomerStatus $state): string => match ($state) {
+                        CustomerStatus::Active => 'success',
+                        CustomerStatus::Inactive => 'warning',
+                        CustomerStatus::Archived => 'gray',
+                        default => 'gray',
+                    })
                     ->sortable(),
-                TextColumn::make('created_at')
-                    ->dateTime()
+                TextColumn::make('primary_email')
+                    ->label('Email')
+                    ->searchable()
+                    ->toggleable(),
+                TextColumn::make('primary_phone')
+                    ->label('Phone')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('legal_name')
+                    ->label('Legal name')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('service_started_at')
+                    ->label('Service started')
+                    ->date()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('updated_at')
@@ -118,9 +187,8 @@ class CustomerResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
-            ->filters([
-                //
-            ])
+            ->filters([])
+            ->recordUrl(fn (Customer $record): string => static::getUrl('view', ['record' => $record]))
             ->recordActions([
                 ViewAction::make(),
                 EditAction::make(),
@@ -129,7 +197,8 @@ class CustomerResource extends Resource
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                 ]),
-            ]);
+            ])
+            ->defaultSort('name');
     }
 
     public static function getRelations(): array

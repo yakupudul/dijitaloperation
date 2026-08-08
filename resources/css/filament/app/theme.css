@@ -1,0 +1,151 @@
+@import '../../../../vendor/filament/filament/resources/css/theme.css';
+
+@source '../../../../app/Filament/App/**/*';
+@source '../../../../resources/views/filament/app/**/*';
+
+/*
+ | MoxDOP design tokens — Agency Operations OS
+ | Keep noise low; prefer semantic surfaces over decorative chrome.
+ */
+
+@theme {
+    --font-sans: 'IBM Plex Sans', 'Segoe UI', ui-sans-serif, system-ui, sans-serif;
+
+    --color-mox-bg: #f4f5f7;
+    --color-mox-surface: #ffffff;
+    --color-mox-surface-subtle: #eef0f3;
+    --color-mox-border: #d8dde6;
+    --color-mox-text: #152033;
+    --color-mox-text-secondary: #4b5568;
+    --color-mox-muted: #6b7280;
+    --color-mox-accent: #ea580c;
+    --color-mox-success: #15803d;
+    --color-mox-warning: #b45309;
+    --color-mox-danger: #b91c1c;
+    --color-mox-info: #1d4ed8;
+}
+
+.fi-body {
+    --mox-bg: var(--color-mox-bg);
+    --mox-surface: var(--color-mox-surface);
+    --mox-surface-subtle: var(--color-mox-surface-subtle);
+    --mox-border: var(--color-mox-border);
+    --mox-text: var(--color-mox-text);
+    --mox-text-secondary: var(--color-mox-text-secondary);
+    --mox-muted: var(--color-mox-muted);
+    --mox-accent: var(--color-mox-accent);
+}
+
+.dark .fi-body {
+    --mox-bg: #0f141d;
+    --mox-surface: #171d29;
+    --mox-surface-subtle: #1e2635;
+    --mox-border: #2d3748;
+    --mox-text: #e8edf5;
+    --mox-text-secondary: #a8b3c5;
+    --mox-muted: #8b97a8;
+    --mox-accent: #fb923c;
+}
+
+.fi-main {
+    max-width: 88rem;
+}
+
+.fi-section-header-heading,
+.fi-wi-stats-overview-stat-label {
+    letter-spacing: 0.01em;
+}
+
+.fi-ta-header-toolbar {
+    gap: 0.5rem;
+}
+
+.mox-workspace-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+    gap: 0.75rem;
+}
+
+.mox-workspace-summary__item {
+    border: 1px solid var(--mox-border);
+    background: var(--mox-surface);
+    border-radius: 0.5rem;
+    padding: 0.75rem 0.875rem;
+}
+
+.mox-workspace-summary__label {
+    color: var(--mox-muted);
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.mox-workspace-summary__value {
+    color: var(--mox-text);
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-top: 0.25rem;
+    line-height: 1.2;
+}
+
+.mox-workspace-summary__hint {
+    color: var(--mox-text-secondary);
+    font-size: 0.75rem;
+    margin-top: 0.2rem;
+}
+
+.mox-meta-line {
+    color: var(--mox-text-secondary);
+    font-size: 0.875rem;
+}
+
+.mox-brand-heading {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.625rem;
+}
+
+.mox-brand-logo {
+    width: 2rem;
+    height: 2rem;
+    object-fit: contain;
+    border-radius: 0.375rem;
+    border: 1px solid var(--mox-border);
+    background: var(--mox-surface);
+}
+
+.mox-brand-initial {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.375rem;
+    border: 1px solid var(--mox-border);
+    background: var(--mox-surface-subtle);
+    color: var(--mox-text-secondary);
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+/* Keep workspace tabs attached under the record header */
+.mox-workspace-page .fi-page-content > .fi-sc > .fi-grid-col:has(.fi-sc-tabs),
+.mox-workspace-page .fi-page-content .fi-sc-tabs {
+    margin-top: 0;
+}
+
+.mox-workspace-page .fi-sc-tabs > .fi-tabs {
+    border-bottom: 1px solid var(--mox-border);
+    padding-bottom: 0.125rem;
+    margin-bottom: 0.75rem;
+}
+
+.mox-workspace-page .fi-header {
+    margin-bottom: 0.75rem;
+}
+
+.mox-workspace-page .fi-header-heading {
+    font-size: 1.25rem;
+    line-height: 1.3;
+}

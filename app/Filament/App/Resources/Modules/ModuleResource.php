@@ -6,6 +6,7 @@ use App\Filament\App\Resources\Modules\Pages\EditModule;
 use App\Filament\App\Resources\Modules\Pages\ListModules;
 use App\Models\ModuleRegistry;
 use App\Models\User;
+use App\Support\MoxDopNavigation;
 use App\Support\Roles;
 use BackedEnum;
 use Filament\Actions\EditAction;
@@ -18,6 +19,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
+use UnitEnum;
 
 class ModuleResource extends Resource
 {
@@ -26,6 +28,10 @@ class ModuleResource extends Resource
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedPuzzlePiece;
 
     protected static ?string $navigationLabel = 'Modules';
+
+    protected static string|UnitEnum|null $navigationGroup = MoxDopNavigation::SYSTEM;
+
+    protected static ?int $navigationSort = 80;
 
     protected static ?string $modelLabel = 'Module';
 

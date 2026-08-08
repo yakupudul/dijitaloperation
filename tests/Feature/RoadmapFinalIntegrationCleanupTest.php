@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Filament\App\Widgets\OpsActionOverviewWidget;
-use App\Filament\App\Widgets\SystemStatusWidget;
 use App\Models\Brand;
 use App\Models\CoreConnection;
 use App\Models\CoreConnectionCredential;
@@ -142,8 +141,7 @@ class RoadmapFinalIntegrationCleanupTest extends TestCase
         $this->assertTrue($this->app->isBooted());
         $this->get('/up')->assertOk();
         $this->get('/app')->assertOk()
-            ->assertSeeLivewire(OpsActionOverviewWidget::class)
-            ->assertSeeLivewire(SystemStatusWidget::class);
+            ->assertSeeLivewire(OpsActionOverviewWidget::class);
 
         $customer = Customer::factory()->create();
         $brand = Brand::factory()->create(['customer_id' => $customer->id]);
@@ -224,8 +222,8 @@ class RoadmapFinalIntegrationCleanupTest extends TestCase
             ->assertOk()
             ->assertSee('What needs attention')
             ->assertSee('Open cross-channel Findings')
-            ->assertSee('Website technical Findings')
-            ->assertSee('Recently resolved important');
+            ->assertSee('Open Recommendations')
+            ->assertSee('Open Tasks');
 
         $diagnosisReflection = new ReflectionClass(WebsiteDiagnosisService::class);
         $this->assertTrue($diagnosisReflection->hasMethod('diagnose'));

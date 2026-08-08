@@ -65,9 +65,9 @@ class RunResourceTest extends TestCase
             ->assertOk()
             ->assertCanSeeTableRecords([$run])
             ->assertSee('Acme Corporate Website')
-            ->assertSee('Primary WordPress')
+            ->assertSee('Website')
             ->assertSee('completed')
-            ->assertSee('website');
+            ->assertDontSee('Primary WordPress');
     }
 
     public function test_admin_can_access_run_view_and_see_pretty_printed_evidence_json_without_credentials(): void

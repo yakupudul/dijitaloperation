@@ -59,13 +59,11 @@ class FindingsResourceTest extends TestCase
             ->assertOk()
             ->assertCanSeeTableRecords([$finding])
             ->assertSee('Acme Corporate Website')
-            ->assertSee('website')
-            ->assertSee('fp-list-test-aaaa')
-            ->assertSee('performance')
             ->assertSee('high')
             ->assertSee('Largest Contentful Paint is poor')
-            ->assertSee('0.9100')
-            ->assertSee('open');
+            ->assertSee('open')
+            ->assertDontSee('fp-list-test-aaaa')
+            ->assertDontSee('0.9100');
     }
 
     public function test_admin_can_access_finding_view_and_see_summary_last_run_and_recommendations(): void
