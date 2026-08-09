@@ -46,6 +46,11 @@ class CoreIntegrationFactory extends Factory
         return $this->provider(ProviderRegistry::META);
     }
 
+    public function dataforseo(): static
+    {
+        return $this->provider(ProviderRegistry::DATAFORSEO);
+    }
+
     public function disabled(): static
     {
         return $this->state(fn (): array => [

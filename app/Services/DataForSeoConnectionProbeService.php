@@ -13,6 +13,10 @@ use Throwable;
 
 /**
  * Read-only DataForSEO account probe (no SERP tasks / external writes).
+ *
+ * Compatibility technical debt: site-scoped CoreConnection path.
+ * Normal new UX uses Settings → Integrations → DataForSEO (agency Integration).
+ * Do not encourage creation of new dataforseo CoreConnections.
  */
 class DataForSeoConnectionProbeService
 {

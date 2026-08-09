@@ -13,9 +13,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'digital_asset_id',
     'source_module',
     'type',
+    'request_fingerprint',
     'title',
     'payload',
     'observed_at',
+    'fresh_until',
 ])]
 class Evidence extends Model
 {
@@ -44,5 +46,6 @@ class Evidence extends Model
     protected $casts = [
         'payload' => 'array',
         'observed_at' => 'datetime',
+        'fresh_until' => 'datetime',
     ];
 }

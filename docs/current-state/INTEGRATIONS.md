@@ -76,10 +76,28 @@ Run provenance: nullable `runs.core_asset_binding_id` (agency) alongside existin
 
 No nightly scheduler yet. No Finding rules engine in this milestone.
 
+## DataForSEO Integration
+
+Settings → Integrations → DataForSEO is the **agency** DataForSEO workspace:
+
+* **Configure** API Login + API Password (encrypted provider credential; password write-only)
+* **Test connection** via free `GET /v3/appendix/user_data` (HTTP + DataForSEO `status_code=20000`)
+* Account snapshot: connection status, account login, timezone, last-fetched balance, last issue
+* Shared client + envelope normalization + safe retry policy (no blind paid POST retries)
+* Endpoint allowlist (this milestone: `appendix/user_data` only)
+* Provider-agnostic Evidence cost guard: `request_fingerprint` + `fresh_until`
+* Optional env fallback: `DATAFORSEO_API_LOGIN` / `DATAFORSEO_API_PASSWORD` (values never shown in UI)
+
+Canonical product doc: `docs/product/integrations/DATAFORSEO.md`.
+
+No keyword/SERP/backlink/OnPage product collectors in this milestone. No fake ExternalResources/AssetBindings for DataForSEO.
+
 ## Probe / connector services (legacy)
 
-Existing read-only probe services under `app/Services/*ConnectionProbeService.php` remain for transitional `CoreConnection` rows. New Google collection does **not** use CoreConnection credentials. Site connections UI no longer offers new Google provider types (WordPress remains).
+Existing read-only probe services under `app/Services/*ConnectionProbeService.php` remain for transitional `CoreConnection` rows. New Google collection does **not** use CoreConnection credentials. Site connections UI no longer offers new Google / Meta / DataForSEO provider types (WordPress remains).
+
+`DataForSeoConnectionProbeService` is retained as **compatibility technical debt** for historical site-scoped rows. Normal new UX is Settings → Integrations → DataForSEO.
 
 ## Sonuç
 
-Central Integration Architecture + Google authenticate/discover/catalog/bind + Binding-based live collection foundation mevcuttur. Performance Finding lifecycle is the next milestone.
+Central Integration Architecture + Google authenticate/discover/catalog/bind + Binding-based live collection + DataForSEO agency credentials/test/cost-guard foundation mevcuttur. SEO Intelligence (DFS Light) product collectors are next — not part of this milestone.

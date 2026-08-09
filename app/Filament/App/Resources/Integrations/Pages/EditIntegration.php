@@ -36,8 +36,8 @@ class EditIntegration extends EditRecord
         /** @var CoreIntegration $record */
         $record = $this->getRecord();
 
-        if ($record->provider === ProviderRegistry::GOOGLE) {
-            // Never hydrate credential-like KeyValue pairs into Livewire form state for Google.
+        if (in_array($record->provider, [ProviderRegistry::GOOGLE, ProviderRegistry::DATAFORSEO], true)) {
+            // Managed provider workspaces own config — never hydrate credential-like KeyValue pairs.
             $data['config'] = [];
         }
 
@@ -75,6 +75,11 @@ class EditIntegration extends EditRecord
                     ->send();
             }
 
+            return;
+        }
+
+        if ($record->provider === ProviderRegistry::DATAFORSEO) {
+            // Credentials only via DataForSEO workspace Configure action.
             return;
         }
 

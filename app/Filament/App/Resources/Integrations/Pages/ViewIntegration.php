@@ -4,11 +4,15 @@ namespace App\Filament\App\Resources\Integrations\Pages;
 
 use App\Filament\App\Resources\Integrations\IntegrationResource;
 use App\Models\CoreIntegration;
+use App\Services\Integrations\DataForSeo\DataForSeoAccountService;
+use App\Services\Integrations\DataForSeo\DataForSeoCredentialResolver;
+use App\Services\Integrations\DataForSeo\DataForSeoProviderCredentialService;
 use App\Services\Integrations\Google\GoogleCredentialResolver;
 use App\Services\Integrations\Google\GoogleOAuthRedirectUriResolver;
 use App\Services\Integrations\Google\GoogleOAuthService;
 use App\Services\Integrations\Google\GoogleProviderCredentialService;
 use App\Services\Integrations\Google\GoogleResourceRefreshService;
+use App\Support\Integrations\DataForSeo\DataForSeoAuthStatus;
 use App\Support\Integrations\Google\GoogleAuthStatus;
 use App\Support\Integrations\ProviderRegistry;
 use Filament\Actions\Action;
@@ -27,14 +31,43 @@ class ViewIntegration extends ViewRecord
 {
     protected static string $resource = IntegrationResource::class;
 
+    public function getTitle(): string
+    {
+        /** @var CoreIntegration $record */
+        $record = $this->getRecord();
+
+        if ($record->provider === ProviderRegistry::DATAFORSEO) {
+            return 'DataForSEO';
+        }
+
+        return parent::getTitle();
+    }
+
+    public function getSubheading(): ?string
+    {
+        /** @var CoreIntegration $record */
+        $record = $this->getRecord();
+
+        if ($record->provider === ProviderRegistry::DATAFORSEO) {
+            return 'SEO data provider · '.DataForSeoAuthStatus::label(DataForSeoAuthStatus::for($record));
+        }
+
+        return parent::getSubheading();
+    }
+
     public function infolist(Schema $schema): Schema
     {
-        if ($this->getRecord()->provider !== ProviderRegistry::GOOGLE) {
+        /** @var CoreIntegration $record */
+        $record = $this->getRecord();
+
+        if ($record->provider === ProviderRegistry::DATAFORSEO) {
+            return $this->dataForSeoInfolist($schema, $record);
+        }
+
+        if ($record->provider !== ProviderRegistry::GOOGLE) {
             return IntegrationResource::infolist($schema);
         }
 
-        /** @var CoreIntegration $record */
-        $record = $this->getRecord();
         $resolver = app(GoogleCredentialResolver::class);
         $redirectResolver = app(GoogleOAuthRedirectUriResolver::class);
         $authStatus = GoogleAuthStatus::for($record);
@@ -142,9 +175,12 @@ class ViewIntegration extends ViewRecord
     {
         /** @var CoreIntegration $record */
         $record = $this->getRecord();
-        $isGoogle = $record->provider === ProviderRegistry::GOOGLE;
 
-        if (! $isGoogle) {
+        if ($record->provider === ProviderRegistry::DATAFORSEO) {
+            return $this->dataForSeoHeaderActions($record);
+        }
+
+        if ($record->provider !== ProviderRegistry::GOOGLE) {
             return [
                 EditAction::make()
                     ->mutateRecordDataUsing(function (array $data): array {
@@ -365,5 +401,205 @@ class ViewIntegration extends ViewRecord
         $count = (int) ($row['count'] ?? 0);
 
         return trim(sprintf('%s · %d · %s', strtoupper($status), $count, $message));
+    }
+
+    private function dataForSeoInfolist(Schema $schema, CoreIntegration $record): Schema
+    {
+        $resolver = app(DataForSeoCredentialResolver::class);
+
+        return $schema->components([
+            Section::make('Account')
+                ->description('Agency-level DataForSEO API credentials. Shared across Website modules — not per site.')
+                ->schema([
+                    TextEntry::make('dfs_config_status')
+                        ->label('Status')
+                        ->badge()
+                        ->state(DataForSeoAuthStatus::configurationLabel($record)),
+                    TextEntry::make('dfs_api_login')
+                        ->label('API Login')
+                        ->state(function () use ($record, $resolver): string {
+                            $source = $resolver->loginSource($record);
+                            $label = $resolver->configurationLabel($source, $source !== DataForSeoCredentialResolver::SOURCE_MISSING);
+                            $dbLogin = $resolver->databaseLogin($record);
+
+                            if ($source === DataForSeoCredentialResolver::SOURCE_DATABASE && $dbLogin !== null) {
+                                return $label.' · '.$dbLogin;
+                            }
+
+                            return $label;
+                        }),
+                    TextEntry::make('dfs_api_password')
+                        ->label('API Password')
+                        ->state(function () use ($record, $resolver): string {
+                            if ($resolver->hasDatabasePassword($record)) {
+                                return 'Stored securely ✓';
+                            }
+
+                            $source = $resolver->passwordSource($record);
+
+                            return $resolver->configurationLabel(
+                                $source,
+                                $resolver->password($record) !== null,
+                            );
+                        }),
+                ])
+                ->columns(2),
+            Section::make('Connection')
+                ->description('Validated with the free DataForSEO /v3/appendix/user_data endpoint. Balance is the last successfully fetched value — pages do not call the API automatically.')
+                ->schema([
+                    TextEntry::make('dfs_connection_status')
+                        ->label('Connection')
+                        ->badge()
+                        ->state(fn (): string => DataForSeoAuthStatus::connectionLabel($record)),
+                    TextEntry::make('config.account_login')
+                        ->label('Account login')
+                        ->placeholder('—'),
+                    TextEntry::make('config.timezone')
+                        ->label('Timezone')
+                        ->placeholder('—'),
+                    TextEntry::make('dfs_balance')
+                        ->label('Balance (last fetched)')
+                        ->state(function () use ($record): string {
+                            $balance = data_get($record->config, 'balance');
+                            if (! is_numeric($balance)) {
+                                return '—';
+                            }
+
+                            $checked = data_get($record->config, 'balance_checked_at');
+
+                            return (string) $balance.' USD'.(is_string($checked) && $checked !== '' ? ' · '.$checked : '');
+                        }),
+                    TextEntry::make('config.last_tested_at')
+                        ->label('Last checked')
+                        ->placeholder('—'),
+                    TextEntry::make('last_success_at')
+                        ->label('Last successful connection')
+                        ->dateTime()
+                        ->placeholder('—'),
+                    TextEntry::make('last_error')
+                        ->label('Last issue')
+                        ->placeholder('—')
+                        ->columnSpanFull(),
+                ])
+                ->columns(2),
+        ]);
+    }
+
+    /**
+     * @return array<int, Action>
+     */
+    private function dataForSeoHeaderActions(CoreIntegration $record): array
+    {
+        $resolver = app(DataForSeoCredentialResolver::class);
+        $freshRecord = $record->fresh(['providerCredential']) ?? $record;
+        $configured = $resolver->isConfigured($freshRecord);
+
+        return [
+            Action::make('configureDataForSeo')
+                ->label('Configure')
+                ->icon(Heroicon::OutlinedCog6Tooth)
+                ->color('gray')
+                ->modalHeading('DataForSEO configuration')
+                ->modalDescription('Store API Login and API Password encrypted in MoxDOP. API Password stays empty on purpose — leave blank to keep the stored value.')
+                ->fillForm(function () use ($record): array {
+                    $resolver = app(DataForSeoCredentialResolver::class);
+
+                    return [
+                        'login' => $resolver->databaseLogin($record) ?? '',
+                        'password' => '',
+                        'clear_password' => false,
+                    ];
+                })
+                ->form([
+                    TextInput::make('login')
+                        ->label('API Login')
+                        ->helperText(function () use ($record): string {
+                            $source = app(DataForSeoCredentialResolver::class)->loginSource($record);
+
+                            return $source === DataForSeoCredentialResolver::SOURCE_ENVIRONMENT
+                                ? 'Currently supplied by environment. Saving a value here takes precedence over the environment fallback.'
+                                : 'Not a secret. Visible after save.';
+                        })
+                        ->required()
+                        ->maxLength(255),
+                    TextInput::make('password')
+                        ->label('API Password')
+                        ->password()
+                        ->revealable(false)
+                        ->placeholder(fn () => app(DataForSeoCredentialResolver::class)->hasDatabasePassword($record)
+                            ? '•••••••• (stored)'
+                            : null)
+                        ->dehydrated(fn (?string $state): bool => filled($state))
+                        ->helperText(function () use ($record): string {
+                            $resolver = app(DataForSeoCredentialResolver::class);
+                            if ($resolver->hasDatabasePassword($record)) {
+                                return 'Stored securely ✓ — leave blank to keep current value.';
+                            }
+                            if ($resolver->passwordSource($record) === DataForSeoCredentialResolver::SOURCE_ENVIRONMENT) {
+                                return 'Configured by environment. Enter a value only to store encrypted in MoxDOP instead.';
+                            }
+
+                            return 'DataForSEO API password from API Access — not your website password. Write-only; never shown after save.';
+                        })
+                        ->maxLength(255),
+                    Toggle::make('clear_password')
+                        ->label('Clear stored API Password')
+                        ->helperText('Removes the database-stored password only. Environment fallback is unchanged.')
+                        ->visible(fn (): bool => app(DataForSeoCredentialResolver::class)->hasDatabasePassword($record)),
+                ])
+                ->action(function (array $data, DataForSeoProviderCredentialService $service) use ($record): void {
+                    $user = Auth::user();
+                    if ($user === null) {
+                        return;
+                    }
+
+                    $service->save($record, $data, $user);
+
+                    Notification::make()
+                        ->title('DataForSEO configuration saved')
+                        ->body('Provider credentials stored encrypted.')
+                        ->success()
+                        ->send();
+
+                    $this->record = $record->fresh(['providerCredential']);
+                }),
+            Action::make('testDataForSeo')
+                ->label('Test connection')
+                ->icon(Heroicon::OutlinedSignal)
+                ->color('primary')
+                ->disabled(fn (): bool => ! $configured)
+                ->tooltip(fn (): ?string => $configured ? null : 'Configure API Login and API Password first.')
+                ->action(function (DataForSeoAccountService $account) use ($record): void {
+                    $result = $account->testConnection($record->fresh(['providerCredential']) ?? $record);
+                    Notification::make()
+                        ->title($result['ok'] ? 'Connection OK' : 'Connection issue')
+                        ->body($result['message'])
+                        ->{$result['ok'] ? 'success' : 'warning'}()
+                        ->send();
+                    $this->record = $record->fresh(['providerCredential']);
+                }),
+            Action::make('removeDataForSeoProviderConfiguration')
+                ->label('Remove provider configuration')
+                ->icon(Heroicon::OutlinedTrash)
+                ->color('danger')
+                ->requiresConfirmation()
+                ->modalHeading('Remove DataForSEO provider configuration?')
+                ->modalDescription('This permanently deletes encrypted API Login and API Password stored for this Integration. Environment fallbacks are unchanged. This cannot be undone from the UI.')
+                ->action(function (DataForSeoProviderCredentialService $service) use ($record): void {
+                    $user = Auth::user();
+                    if ($user === null) {
+                        return;
+                    }
+
+                    $service->remove($record, $user);
+
+                    Notification::make()
+                        ->title('Provider configuration removed')
+                        ->warning()
+                        ->send();
+
+                    $this->record = $record->fresh(['providerCredential']);
+                }),
+        ];
     }
 }

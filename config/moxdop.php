@@ -19,4 +19,16 @@ return [
         'include_gbp_scope' => (bool) env('GOOGLE_INCLUDE_GBP_SCOPE', false),
         'gbp_discovery_enabled' => (bool) env('GOOGLE_GBP_DISCOVERY_ENABLED', false),
     ],
+
+    /*
+     * Agency DataForSEO Integration (Settings → Integrations).
+     * Normal operation uses encrypted DB provider credentials.
+     * Env keys are optional bootstrap/fallback only — never shown in UI.
+     */
+    'dataforseo' => [
+        'login' => env('DATAFORSEO_API_LOGIN'),
+        'password' => env('DATAFORSEO_API_PASSWORD'),
+        'base_url' => env('DATAFORSEO_BASE_URL', 'https://api.dataforseo.com'),
+        'timeout' => (int) env('DATAFORSEO_TIMEOUT', 30),
+    ],
 ];
