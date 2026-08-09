@@ -100,4 +100,4 @@ Existing read-only probe services under `app/Services/*ConnectionProbeService.ph
 
 ## Sonuç
 
-Central Integration Architecture + Google authenticate/discover/catalog/bind + Binding-based live collection + DataForSEO agency credentials/test/cost-guard + Website SEO Intelligence Light V1 (ranked keywords + keywords-for-site + cross-source opportunities) mevcuttur. Rank tracking / backlinks / competitors are not included.
+Central Integration Architecture + Google authenticate/discover/catalog/bind + Binding-based live collection + DataForSEO agency credentials/test/cost-guard + Website SEO Intelligence Light V1 + Brand Intelligence Context V1 (operator-owned factual Brand context; no AI) mevcuttur. Rank tracking / backlinks / competitor fetching / AI Recommendations are not included.

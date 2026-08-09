@@ -39,9 +39,17 @@ Brand tek Customer'a aittir. Cross-customer brand yok. SaaS workspace yok.
 
 Asset count, open findings — related veriden derive.
 
+## Brand Intelligence Context
+
+Structured factual business context lives in `BrandIntelligenceContext` (one-to-one), not as duplicated Website fields.
+
+See `docs/product/BRAND_INTELLIGENCE.md`.
+
+Legacy Brand text fields (`description`, `audience`, `offerings`, `competitors`, simple `target_markets`) remain for identity/backward compatibility. Intelligence Context is the structured source for future analysis.
+
 ## Later enhancements
 
-Zengin brand kit, competitor intelligence, cross-channel scorecards.
+Competitor intelligence fetching, AI Recommendations using Brand Context + Evidence, cross-channel scorecards.
 
 ## Explicit non-goals
 

@@ -6,8 +6,10 @@ use App\Filament\App\Resources\Customers\CustomerResource;
 use App\Filament\App\Resources\Customers\Resources\Brands\Pages\CreateBrand;
 use App\Filament\App\Resources\Customers\Resources\Brands\Pages\EditBrand;
 use App\Filament\App\Resources\Customers\Resources\Brands\Pages\ViewBrand;
+use App\Filament\App\Resources\Customers\Resources\Brands\RelationManagers\BrandIntelligenceRelationManager;
 use App\Filament\App\Resources\Customers\Resources\Brands\RelationManagers\DigitalAssetsRelationManager;
 use App\Models\Brand;
+use App\Services\BrandIntelligence\BrandContextProvider;
 use App\Support\BrandOperationalSummary;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
@@ -108,6 +110,9 @@ class BrandResource extends Resource
                     ->viewData(fn (ViewEntry $entry): array => [
                         'summary' => $entry->getRecord() instanceof Brand
                             ? BrandOperationalSummary::for($entry->getRecord())
+                            : null,
+                        'intelligence' => $entry->getRecord() instanceof Brand
+                            ? app(BrandContextProvider::class)->for($entry->getRecord())
                             : null,
                     ])
                     ->columnSpanFull(),
@@ -225,6 +230,7 @@ class BrandResource extends Resource
     {
         return [
             'digitalAssets' => DigitalAssetsRelationManager::class,
+            'intelligence' => BrandIntelligenceRelationManager::class,
         ];
     }
 
