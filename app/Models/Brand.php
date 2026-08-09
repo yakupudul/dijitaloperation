@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable([
     'customer_id',
@@ -50,6 +51,16 @@ class Brand extends Model
     public function digitalAssets(): HasMany
     {
         return $this->hasMany(DigitalAsset::class);
+    }
+
+    /**
+     * Structured factual Brand Intelligence Context (optional one-to-one).
+     *
+     * @return HasOne<BrandIntelligenceContext, $this>
+     */
+    public function intelligenceContext(): HasOne
+    {
+        return $this->hasOne(BrandIntelligenceContext::class);
     }
 
     /**

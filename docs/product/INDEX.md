@@ -52,6 +52,7 @@ Blueprint, MASTER_SPEC'i **override edemez**; yalnızca ayrıntılandırır.
 |---------------|-------------------|
 | Customer | `docs/product/CUSTOMER.md` |
 | Brand | `docs/product/BRAND.md` |
+| Brand Intelligence Context | `docs/product/BRAND_INTELLIGENCE.md` |
 | Digital Asset | `docs/product/DIGITAL_ASSET.md` |
 | Connection + credentials | `docs/product/CONNECTION.md` + `docs/product/DIGITAL_ASSET.md` (+ ADR-027, ADR-039) |
 | Agency Integrations | `docs/product/CONNECTION.md` (+ ADR-039) |
