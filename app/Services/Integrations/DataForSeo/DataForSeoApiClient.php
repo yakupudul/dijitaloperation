@@ -40,6 +40,51 @@ class DataForSeoApiClient
     }
 
     /**
+     * GET /v3/dataforseo_labs/locations_and_languages — free Labs market directory.
+     */
+    public function getLabsLocationsAndLanguages(CoreIntegration $integration): DataForSeoResponse
+    {
+        return $this->request(
+            $integration,
+            'GET',
+            DataForSeoEndpointAllowlist::LABS_LOCATIONS_AND_LANGUAGES,
+            self::CHARGE_CLASS_SAFE_READ,
+        );
+    }
+
+    /**
+     * POST /v3/dataforseo_labs/google/ranked_keywords/live — paid.
+     *
+     * @param  list<array<string, mixed>>  $tasks
+     */
+    public function postRankedKeywordsLive(CoreIntegration $integration, array $tasks): DataForSeoResponse
+    {
+        return $this->request(
+            $integration,
+            'POST',
+            DataForSeoEndpointAllowlist::LABS_GOOGLE_RANKED_KEYWORDS_LIVE,
+            self::CHARGE_CLASS_PAID_CREATE,
+            $tasks,
+        );
+    }
+
+    /**
+     * POST /v3/dataforseo_labs/google/keywords_for_site/live — paid.
+     *
+     * @param  list<array<string, mixed>>  $tasks
+     */
+    public function postKeywordsForSiteLive(CoreIntegration $integration, array $tasks): DataForSeoResponse
+    {
+        return $this->request(
+            $integration,
+            'POST',
+            DataForSeoEndpointAllowlist::LABS_GOOGLE_KEYWORDS_FOR_SITE_LIVE,
+            self::CHARGE_CLASS_PAID_CREATE,
+            $tasks,
+        );
+    }
+
+    /**
      * Execute an allowlisted DataForSEO request.
      *
      * @param  array<string, mixed>|null  $jsonBody

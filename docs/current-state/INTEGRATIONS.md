@@ -84,13 +84,13 @@ Settings → Integrations → DataForSEO is the **agency** DataForSEO workspace:
 * **Test connection** via free `GET /v3/appendix/user_data` (HTTP + DataForSEO `status_code=20000`)
 * Account snapshot: connection status, account login, timezone, last-fetched balance, last issue
 * Shared client + envelope normalization + safe retry policy (no blind paid POST retries)
-* Endpoint allowlist (this milestone: `appendix/user_data` only)
-* Provider-agnostic Evidence cost guard: `request_fingerprint` + `fresh_until`
+* Endpoint allowlist: `appendix/user_data`, Labs `locations_and_languages` (free), `ranked_keywords/live`, `keywords_for_site/live` (paid Website SEO Intelligence)
+* Provider-agnostic Evidence cost guard: `request_fingerprint` + `fresh_until` + `PaidRequestExecutor` lock
 * Optional env fallback: `DATAFORSEO_API_LOGIN` / `DATAFORSEO_API_PASSWORD` (values never shown in UI)
 
-Canonical product doc: `docs/product/integrations/DATAFORSEO.md`.
+Canonical product docs: `docs/product/integrations/DATAFORSEO.md`, `docs/product/website/SEO_INTELLIGENCE.md`.
 
-No keyword/SERP/backlink/OnPage product collectors in this milestone. No fake ExternalResources/AssetBindings for DataForSEO.
+Website SEO Intelligence Light V1 uses agency Integration + Website Search market config. No fake ExternalResources/AssetBindings for DataForSEO. No backlink/OnPage/SERP Live collectors.
 
 ## Probe / connector services (legacy)
 
@@ -100,4 +100,4 @@ Existing read-only probe services under `app/Services/*ConnectionProbeService.ph
 
 ## Sonuç
 
-Central Integration Architecture + Google authenticate/discover/catalog/bind + Binding-based live collection + DataForSEO agency credentials/test/cost-guard foundation mevcuttur. SEO Intelligence (DFS Light) product collectors are next — not part of this milestone.
+Central Integration Architecture + Google authenticate/discover/catalog/bind + Binding-based live collection + DataForSEO agency credentials/test/cost-guard + Website SEO Intelligence Light V1 (ranked keywords + keywords-for-site + cross-source opportunities) mevcuttur. Rank tracking / backlinks / competitors are not included.

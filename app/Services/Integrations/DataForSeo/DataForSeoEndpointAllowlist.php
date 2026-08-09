@@ -10,6 +10,15 @@ final class DataForSeoEndpointAllowlist
 {
     public const string APPENDIX_USER_DATA = 'appendix/user_data';
 
+    /** Free Labs market directory (not charged). */
+    public const string LABS_LOCATIONS_AND_LANGUAGES = 'dataforseo_labs/locations_and_languages';
+
+    /** Paid — Website ranked organic keywords. */
+    public const string LABS_GOOGLE_RANKED_KEYWORDS_LIVE = 'dataforseo_labs/google/ranked_keywords/live';
+
+    /** Paid — Website keyword ideas for domain. */
+    public const string LABS_GOOGLE_KEYWORDS_FOR_SITE_LIVE = 'dataforseo_labs/google/keywords_for_site/live';
+
     /**
      * @return list<string>
      */
@@ -17,6 +26,9 @@ final class DataForSeoEndpointAllowlist
     {
         return [
             self::APPENDIX_USER_DATA,
+            self::LABS_LOCATIONS_AND_LANGUAGES,
+            self::LABS_GOOGLE_RANKED_KEYWORDS_LIVE,
+            self::LABS_GOOGLE_KEYWORDS_FOR_SITE_LIVE,
         ];
     }
 
