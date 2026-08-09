@@ -3,6 +3,7 @@
 namespace App\Filament\App\Resources\Integrations\RelationManagers;
 
 use App\Filament\App\Concerns\ManagesRecordsOnViewPages;
+use App\Models\CoreIntegration;
 use App\Support\Integrations\ProviderRegistry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\RelationManagers\RelationManager;
@@ -10,9 +11,11 @@ use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * Read-only catalog of discovered provider resources.
+ * Google-style discovery only — not applicable to OpenAI / DataForSEO API-key providers.
  */
 class ExternalResourcesRelationManager extends RelationManager
 {
@@ -21,6 +24,19 @@ class ExternalResourcesRelationManager extends RelationManager
     protected static string $relationship = 'externalResources';
 
     protected static ?string $title = 'Resources';
+
+    public static function canViewForRecord(Model $ownerRecord, string $pageClass): bool
+    {
+        if (! $ownerRecord instanceof CoreIntegration) {
+            return false;
+        }
+
+        // Agency API-key providers do not discover External Resources / bindings.
+        return ! in_array($ownerRecord->provider, [
+            ProviderRegistry::OPENAI,
+            ProviderRegistry::DATAFORSEO,
+        ], true);
+    }
 
     public function isReadOnly(): bool
     {
@@ -93,6 +109,15 @@ class ExternalResourcesRelationManager extends RelationManager
             ->headerActions([])
             ->recordActions([])
             ->emptyStateHeading('No external resources discovered yet')
-            ->emptyStateDescription('Authorize Google, then use Refresh resources. Fake resources are never created.');
+            ->emptyStateDescription(function (): string {
+                /** @var CoreIntegration $owner */
+                $owner = $this->getOwnerRecord();
+
+                if ($owner->provider === ProviderRegistry::GOOGLE) {
+                    return 'Authorize Google, then use Refresh resources. Fake resources are never created.';
+                }
+
+                return 'No discoverable external resources for this provider.';
+            });
     }
 }

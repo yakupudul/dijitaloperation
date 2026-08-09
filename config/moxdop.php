@@ -31,10 +31,11 @@ return [
         'base_url' => env('OPENAI_URL', 'https://api.openai.com/v1'),
         'timeout' => (int) env('OPENAI_TIMEOUT', 20),
         /*
-         * gpt-4.1-mini: structured-output capable, strong instruction following,
-         * moderate cost, non-deprecated. Explicit — not UseSmartest/UseCheapest.
+         * gpt-5-mini: current OpenAI cost-efficient text model with Structured Outputs
+         * + Responses API support (Laravel AI). Explicit — not UseSmartest/UseCheapest.
+         * Override via OPENAI_RECOMMENDATION_MODEL when needed.
          */
-        'recommendation_model' => env('OPENAI_RECOMMENDATION_MODEL', 'gpt-4.1-mini'),
+        'recommendation_model' => env('OPENAI_RECOMMENDATION_MODEL', 'gpt-5-mini'),
     ],
 
     /*

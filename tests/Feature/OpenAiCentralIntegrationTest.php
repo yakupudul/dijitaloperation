@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Filament\App\Resources\Integrations\Pages\ViewIntegration;
+use App\Filament\App\Resources\Integrations\RelationManagers\ExternalResourcesRelationManager;
 use App\Models\CoreIntegration;
 use App\Models\CoreIntegrationCredential;
 use App\Models\User;
@@ -197,7 +198,7 @@ class OpenAiCentralIntegrationTest extends TestCase
         $this->assertTrue($prepared['configured']);
         $this->assertSame('sk-runtime', config('ai.providers.openai.key'));
         $this->assertFalse((bool) config('ai.providers.openai.store'));
-        $this->assertSame('gpt-4.1-mini', app(OpenAiRuntimeConfig::class)->recommendationModel());
+        $this->assertSame('gpt-5-mini', app(OpenAiRuntimeConfig::class)->recommendationModel());
     }
 
     public function test_view_integration_shows_stored_securely_not_plaintext_key(): void
@@ -212,7 +213,20 @@ class OpenAiCentralIntegrationTest extends TestCase
             ->assertOk()
             ->assertSee('Stored securely ✓')
             ->assertDontSee('sk-ui-secret')
-            ->assertDontSee('Credentials JSON');
+            ->assertDontSee('Credentials JSON')
+            ->assertDontSee('Authorize Google')
+            ->assertDontSee('Refresh resources')
+            ->assertDontSee('No external resources discovered yet');
+    }
+
+    public function test_external_resources_relation_hidden_for_openai(): void
+    {
+        $this->assertFalse(
+            ExternalResourcesRelationManager::canViewForRecord(
+                $this->integration,
+                ViewIntegration::class,
+            ),
+        );
     }
 
     public function test_non_admin_cannot_save_openai_credentials(): void

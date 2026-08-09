@@ -64,6 +64,6 @@ class OpenAiRuntimeConfig
     {
         $model = config('moxdop.openai.recommendation_model');
 
-        return is_string($model) && filled($model) ? $model : 'gpt-4.1-mini';
+        return is_string($model) && filled($model) ? $model : 'gpt-5-mini';
     }
 }

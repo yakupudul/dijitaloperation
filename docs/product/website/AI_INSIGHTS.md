@@ -64,7 +64,7 @@ Settings → Integrations → OpenAI (ADR-041):
 
 * Agency API key (encrypted, write-only, DB → env fallback)
 * Test connection via non-generative models list
-* Generation uses explicit configurable model (`moxdop.openai.recommendation_model`, default `gpt-4.1-mini`)
+* Generation uses explicit configurable model (`moxdop.openai.recommendation_model`, default `gpt-5-mini`)
 * OpenAI request persistence disabled (`store = false`)
 
 ## Cost / duplicate protection

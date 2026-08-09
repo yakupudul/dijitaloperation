@@ -101,7 +101,8 @@ Settings → Integrations → OpenAI is the **agency** OpenAI workspace (ADR-041
 * Status / Stored securely / Last checked / Last successful connection / Last issue
 * Resolution: DB provider credential → env/config fallback → missing
 * Runtime prepares `laravel/ai` with resolved key and `store = false`
-* Explicit recommendation model via `moxdop.openai.recommendation_model` (default `gpt-4.1-mini`)
+* Explicit recommendation model via `moxdop.openai.recommendation_model` (default `gpt-5-mini`)
+* No External Resources / Google-style discovery section (API-key agency provider)
 
 Canonical product docs: `docs/product/website/AI_INSIGHTS.md`.
 

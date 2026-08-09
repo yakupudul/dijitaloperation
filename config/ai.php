@@ -137,7 +137,7 @@ return [
             'models' => [
                 'text' => [
                     // Explicit default — not UseSmartestModel / UseCheapestModel.
-                    'default' => env('OPENAI_RECOMMENDATION_MODEL', env('OPENAI_MODEL', 'gpt-4.1-mini')),
+                    'default' => env('OPENAI_RECOMMENDATION_MODEL', env('OPENAI_MODEL', 'gpt-5-mini')),
                 ],
             ],
         ],

@@ -37,7 +37,7 @@ class WebsiteAiInsightServiceTest extends TestCase
             'moxdop.openai.api_key' => null,
             'ai.providers.openai.key' => null,
             'ai.providers.openai.store' => false,
-            'moxdop.openai.recommendation_model' => 'gpt-4.1-mini',
+            'moxdop.openai.recommendation_model' => 'gpt-5-mini',
         ]);
 
         $integration = CoreIntegration::factory()->openai()->create([

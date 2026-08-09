@@ -44,7 +44,7 @@ class WebsiteAiRecommendationIntelligenceTest extends TestCase
             'moxdop.openai.api_key' => null,
             'ai.providers.openai.key' => null,
             'ai.providers.openai.store' => false,
-            'moxdop.openai.recommendation_model' => 'gpt-4.1-mini',
+            'moxdop.openai.recommendation_model' => 'gpt-5-mini',
         ]);
 
         $integration = CoreIntegration::factory()->openai()->create([
@@ -69,7 +69,7 @@ class WebsiteAiRecommendationIntelligenceTest extends TestCase
         $this->assertFalse($result['reused']);
         $this->assertSame('completed', $run->status);
         $this->assertSame(WebsiteAiRecommendationConfig::MODULE_ID, $run->module_id);
-        $this->assertSame('gpt-4.1-mini', $run->metadata['model']);
+        $this->assertSame('gpt-5-mini', $run->metadata['model']);
         $this->assertSame(WebsiteAiRecommendationConfig::PROMPT_VERSION, $run->metadata['prompt_version']);
         $this->assertFalse($run->metadata['openai_store']);
         $this->assertArrayNotHasKey('api_key', $run->metadata);
