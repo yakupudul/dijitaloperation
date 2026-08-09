@@ -23,7 +23,7 @@ class ExternalResourcesRelationManager extends RelationManager
 
     protected static string $relationship = 'externalResources';
 
-    protected static ?string $title = 'Resources';
+    protected static ?string $title = 'Google resources';
 
     public static function canViewForRecord(Model $ownerRecord, string $pageClass): bool
     {
@@ -108,7 +108,7 @@ class ExternalResourcesRelationManager extends RelationManager
             ])
             ->headerActions([])
             ->recordActions([])
-            ->emptyStateHeading('No external resources discovered yet')
+            ->emptyStateHeading('No Google resources discovered yet')
             ->emptyStateDescription(function (): string {
                 /** @var CoreIntegration $owner */
                 $owner = $this->getOwnerRecord();
@@ -117,7 +117,7 @@ class ExternalResourcesRelationManager extends RelationManager
                     return 'Authorize Google, then use Refresh resources. Fake resources are never created.';
                 }
 
-                return 'No discoverable external resources for this provider.';
+                return 'No discoverable Google resources for this provider.';
             });
     }
 }

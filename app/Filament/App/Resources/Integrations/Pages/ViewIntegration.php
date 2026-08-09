@@ -15,11 +15,16 @@ use App\Services\Integrations\Google\GoogleResourceRefreshService;
 use App\Services\Integrations\OpenAi\OpenAiConnectionService;
 use App\Services\Integrations\OpenAi\OpenAiCredentialResolver;
 use App\Services\Integrations\OpenAi\OpenAiProviderCredentialService;
+use App\Services\Integrations\OpenAi\OpenAiRuntimeConfig;
 use App\Support\Integrations\DataForSeo\DataForSeoAuthStatus;
 use App\Support\Integrations\Google\GoogleAuthStatus;
 use App\Support\Integrations\OpenAi\OpenAiAuthStatus;
+use App\Support\Integrations\Presentation\IntegrationHealthPresenter;
+use App\Support\Integrations\Presentation\IntegrationOperatorStatus;
+use App\Support\Integrations\Presentation\IntegrationPresentationRegistry;
 use App\Support\Integrations\ProviderRegistry;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -55,13 +60,12 @@ class ViewIntegration extends ViewRecord
     {
         /** @var CoreIntegration $record */
         $record = $this->getRecord();
+        $meta = IntegrationPresentationRegistry::for($record->provider);
+        $status = app(IntegrationHealthPresenter::class)->status($record, $record->provider);
+        $statusLabel = IntegrationOperatorStatus::label($status);
 
-        if ($record->provider === ProviderRegistry::DATAFORSEO) {
-            return 'SEO data provider · '.DataForSeoAuthStatus::label(DataForSeoAuthStatus::for($record));
-        }
-
-        if ($record->provider === ProviderRegistry::OPENAI) {
-            return 'AI provider · '.OpenAiAuthStatus::label(OpenAiAuthStatus::for($record));
+        if ($meta !== null) {
+            return $meta['description'].' · '.$statusLabel;
         }
 
         return parent::getSubheading();
@@ -145,15 +149,15 @@ class ViewIntegration extends ViewRecord
                 ->description('OAuth tokens are obtained automatically. They are never shown or editable here.')
                 ->schema([
                     TextEntry::make('auth_status')
-                        ->label('Status')
+                        ->label('Connection status')
                         ->badge()
                         ->state(GoogleAuthStatus::label($authStatus)),
                     TextEntry::make('config.account_email')
-                        ->label('Account')
+                        ->label('Authorized Google account')
                         ->placeholder('—'),
                     TextEntry::make('authorization_stored')
-                        ->label('Authorization tokens')
-                        ->state(fn (): string => $record->authorizationCredential()->exists() ? 'Stored (encrypted)' : 'None'),
+                        ->label('Authorization')
+                        ->state(fn (): string => $record->authorizationCredential()->exists() ? 'Connected tokens stored securely' : 'Not authorized'),
                     TextEntry::make('last_success_at')
                         ->label('Last success')
                         ->dateTime()
@@ -164,7 +168,7 @@ class ViewIntegration extends ViewRecord
                         ->columnSpanFull(),
                 ])
                 ->columns(2),
-            Section::make('Capabilities')
+            Section::make('Available services')
                 ->schema([
                     TextEntry::make('capability_search_console')
                         ->label('Search Console')
@@ -212,11 +216,9 @@ class ViewIntegration extends ViewRecord
         }
 
         $resolver = app(GoogleCredentialResolver::class);
-        $freshRecord = $record->fresh(['credential', 'providerCredential']) ?? $record;
-        $appConfigured = $resolver->isAppConfigured($freshRecord);
-        $hasAuthorizationTokens = $freshRecord->authorizationCredential()->exists();
 
         // Google workspace: Configure is the only application-credential path. No generic Edit here.
+        // disabled()/tooltip() must re-read fresh credential state after Configure saves (no F5).
         return [
             Action::make('configureGoogleApplication')
                 ->label('Configure')
@@ -250,7 +252,7 @@ class ViewIntegration extends ViewRecord
                         ->label('OAuth Client Secret')
                         ->password()
                         ->revealable(false)
-                        ->placeholder(fn () => app(GoogleCredentialResolver::class)->hasDatabaseClientSecret($record)
+                        ->placeholder(fn () => app(GoogleCredentialResolver::class)->hasDatabaseClientSecret($this->freshGoogleRecord())
                             ? '•••••••• (stored)'
                             : null)
                         ->dehydrated(fn (?string $state): bool => filled($state))
@@ -269,12 +271,12 @@ class ViewIntegration extends ViewRecord
                     Toggle::make('clear_client_secret')
                         ->label('Clear stored Client Secret')
                         ->helperText('Removes the database-stored secret only. Environment fallback is unchanged.')
-                        ->visible(fn (): bool => app(GoogleCredentialResolver::class)->hasDatabaseClientSecret($record)),
+                        ->visible(fn (): bool => app(GoogleCredentialResolver::class)->hasDatabaseClientSecret($this->freshGoogleRecord())),
                     TextInput::make('developer_token')
                         ->label('Google Ads Developer Token')
                         ->password()
                         ->revealable(false)
-                        ->placeholder(fn () => app(GoogleCredentialResolver::class)->hasDatabaseDeveloperToken($record)
+                        ->placeholder(fn () => app(GoogleCredentialResolver::class)->hasDatabaseDeveloperToken($this->freshGoogleRecord())
                             ? '•••••••• (stored)'
                             : null)
                         ->dehydrated(fn (?string $state): bool => filled($state))
@@ -293,7 +295,7 @@ class ViewIntegration extends ViewRecord
                     Toggle::make('clear_developer_token')
                         ->label('Clear stored Ads developer token')
                         ->helperText('Removes the database-stored token only. Environment fallback is unchanged.')
-                        ->visible(fn (): bool => app(GoogleCredentialResolver::class)->hasDatabaseDeveloperToken($record)),
+                        ->visible(fn (): bool => app(GoogleCredentialResolver::class)->hasDatabaseDeveloperToken($this->freshGoogleRecord())),
                 ])
                 ->action(function (array $data, GoogleProviderCredentialService $service) use ($record): void {
                     $user = Auth::user();
@@ -304,15 +306,14 @@ class ViewIntegration extends ViewRecord
                     $service->save($record, $data, $user);
 
                     Notification::make()
-                        ->title('Application configuration saved')
-                        ->body('Provider credentials stored encrypted. Authorization tokens were not changed.')
+                        ->title('Google settings saved')
                         ->success()
                         ->send();
 
-                    $this->record = $record->fresh(['credential', 'providerCredential', 'externalResources']);
+                    $this->refreshIntegrationRecord(['credential', 'providerCredential', 'externalResources']);
                 }),
             Action::make('authorizeGoogle')
-                ->label(fn (): string => $freshRecord->authorizationCredential()->exists() ? 'Re-authorize Google' : 'Authorize Google')
+                ->label(fn (): string => $this->freshGoogleRecord()->authorizationCredential()->exists() ? 'Re-authorize Google' : 'Authorize Google')
                 ->icon(Heroicon::OutlinedLockClosed)
                 ->color('primary')
                 // Relative URL keeps the launch on the current browser origin (avoids APP_URL host mismatch).
@@ -320,90 +321,126 @@ class ViewIntegration extends ViewRecord
                 ->url(fn (): string => route('integrations.google.authorize', ['integration' => $record], absolute: false))
                 ->openUrlInNewTab(false)
                 ->visible(fn (): bool => $record->status !== CoreIntegration::STATUS_DISABLED)
-                ->disabled(fn (): bool => ! $appConfigured)
-                ->tooltip(fn (): ?string => $appConfigured
+                ->disabled(fn (): bool => ! $this->isGoogleAppConfigured())
+                ->tooltip(fn (): ?string => $this->isGoogleAppConfigured()
                     ? null
-                    : 'Complete Application configuration (Client ID + Client Secret) before Authorize Google.'),
+                    : 'Complete application configuration (Client ID + Client Secret) before Authorize Google.'),
             Action::make('testGoogle')
                 ->label('Test connection')
                 ->icon(Heroicon::OutlinedSignal)
-                ->disabled(fn (): bool => ! $appConfigured || ! $hasAuthorizationTokens)
-                ->tooltip(function () use ($appConfigured, $hasAuthorizationTokens): ?string {
-                    if (! $appConfigured) {
-                        return 'Complete Application configuration first.';
+                ->color('gray')
+                ->disabled(fn (): bool => ! $this->isGoogleAppConfigured() || ! $this->hasGoogleAuthorizationTokens())
+                ->tooltip(function (): ?string {
+                    if (! $this->isGoogleAppConfigured()) {
+                        return 'Complete application configuration first.';
                     }
 
-                    return $hasAuthorizationTokens ? null : 'Authorize Google first.';
+                    return $this->hasGoogleAuthorizationTokens() ? null : 'Authorize Google first.';
                 })
-                ->action(function (GoogleOAuthService $oauth) use ($record): void {
-                    $result = $oauth->testConnection($record->fresh(['credential', 'providerCredential']) ?? $record);
+                ->action(function (GoogleOAuthService $oauth): void {
+                    $result = $oauth->testConnection($this->freshGoogleRecord());
                     Notification::make()
                         ->title($result['ok'] ? 'Connection OK' : 'Connection issue')
                         ->body($result['message'])
                         ->{$result['ok'] ? 'success' : 'warning'}()
                         ->send();
-                    $this->record = $record->fresh(['credential', 'providerCredential', 'externalResources']);
+                    $this->refreshIntegrationRecord(['credential', 'providerCredential', 'externalResources']);
                 }),
             Action::make('refreshGoogleResources')
                 ->label('Refresh resources')
                 ->icon(Heroicon::OutlinedArrowPath)
-                ->disabled(fn (): bool => ! $appConfigured || ! $hasAuthorizationTokens)
-                ->tooltip(function () use ($appConfigured, $hasAuthorizationTokens): ?string {
-                    if (! $appConfigured) {
-                        return 'Complete Application configuration first.';
+                ->color('gray')
+                ->disabled(fn (): bool => ! $this->isGoogleAppConfigured() || ! $this->hasGoogleAuthorizationTokens())
+                ->tooltip(function (): ?string {
+                    if (! $this->isGoogleAppConfigured()) {
+                        return 'Complete application configuration first.';
                     }
 
-                    return $hasAuthorizationTokens ? null : 'Authorize Google first.';
+                    return $this->hasGoogleAuthorizationTokens() ? null : 'Authorize Google first.';
                 })
-                ->action(function (GoogleResourceRefreshService $refresh) use ($record): void {
-                    $result = $refresh->refresh($record->fresh(['credential', 'providerCredential']) ?? $record);
+                ->action(function (GoogleResourceRefreshService $refresh): void {
+                    $result = $refresh->refresh($this->freshGoogleRecord());
                     Notification::make()
                         ->title($result['ok'] ? 'Resources refreshed' : 'Refresh incomplete')
                         ->body($result['message'])
                         ->{$result['ok'] ? 'success' : 'warning'}()
                         ->send();
-                    $this->record = $record->fresh(['credential', 'providerCredential', 'externalResources']);
+                    $this->refreshIntegrationRecord(['credential', 'providerCredential', 'externalResources']);
                 }),
-            Action::make('disconnectGoogle')
-                ->label('Disconnect Google account')
-                ->icon(Heroicon::OutlinedXCircle)
-                ->color('danger')
-                ->requiresConfirmation()
-                ->modalHeading('Disconnect Google account?')
-                ->modalDescription('Authorization tokens will be revoked/cleared. Application credentials (Client ID, Client Secret, Ads developer token), the Integration record, and historical resources/bindings are preserved (resources marked unavailable).')
-                ->disabled(fn (): bool => ! $hasAuthorizationTokens)
-                ->action(function (GoogleOAuthService $oauth) use ($record): void {
-                    $result = $oauth->disconnect($record->fresh(['credential', 'providerCredential']) ?? $record);
-                    Notification::make()
-                        ->title('Google disconnected')
-                        ->body($result['message'])
-                        ->success()
-                        ->send();
-                    $this->record = $record->fresh(['credential', 'providerCredential', 'externalResources']);
-                }),
-            Action::make('removeGoogleProviderConfiguration')
-                ->label('Remove provider configuration')
-                ->icon(Heroicon::OutlinedTrash)
-                ->color('danger')
-                ->requiresConfirmation()
-                ->modalHeading('Remove Google provider configuration?')
-                ->modalDescription('This permanently deletes encrypted Client ID, Client Secret, and Ads developer token stored for this Integration. Authorization tokens are not removed by this action. Environment fallbacks are unchanged. This cannot be undone from the UI.')
-                ->action(function (GoogleProviderCredentialService $service) use ($record): void {
-                    $user = Auth::user();
-                    if ($user === null) {
-                        return;
-                    }
+            ActionGroup::make([
+                Action::make('disconnectGoogle')
+                    ->label('Disconnect Google account')
+                    ->icon(Heroicon::OutlinedXCircle)
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->modalHeading('Disconnect Google account?')
+                    ->modalDescription('Authorization tokens will be revoked/cleared. Application credentials (Client ID, Client Secret, Ads developer token), the Integration record, and historical resources/bindings are preserved (resources marked unavailable).')
+                    ->disabled(fn (): bool => ! $this->hasGoogleAuthorizationTokens())
+                    ->action(function (GoogleOAuthService $oauth): void {
+                        $result = $oauth->disconnect($this->freshGoogleRecord());
+                        Notification::make()
+                            ->title('Google disconnected')
+                            ->body($result['message'])
+                            ->success()
+                            ->send();
+                        $this->refreshIntegrationRecord(['credential', 'providerCredential', 'externalResources']);
+                    }),
+                Action::make('removeGoogleProviderConfiguration')
+                    ->label('Remove provider configuration')
+                    ->icon(Heroicon::OutlinedTrash)
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->modalHeading('Remove Google provider configuration?')
+                    ->modalDescription('This permanently deletes encrypted Client ID, Client Secret, and Ads developer token stored for this Integration. Authorization tokens are not removed by this action. Environment fallbacks are unchanged. This cannot be undone from the UI.')
+                    ->action(function (GoogleProviderCredentialService $service) use ($record): void {
+                        $user = Auth::user();
+                        if ($user === null) {
+                            return;
+                        }
 
-                    $service->remove($record, $user);
+                        $service->remove($record, $user);
 
-                    Notification::make()
-                        ->title('Provider configuration removed')
-                        ->warning()
-                        ->send();
+                        Notification::make()
+                            ->title('Google configuration removed')
+                            ->warning()
+                            ->send();
 
-                    $this->record = $record->fresh(['credential', 'providerCredential', 'externalResources']);
-                }),
+                        $this->refreshIntegrationRecord(['credential', 'providerCredential', 'externalResources']);
+                    }),
+            ])
+                ->label('Danger zone')
+                ->icon(Heroicon::OutlinedEllipsisVertical)
+                ->color('gray')
+                ->button(),
         ];
+    }
+
+    private function freshGoogleRecord(): CoreIntegration
+    {
+        /** @var CoreIntegration $record */
+        $record = $this->getRecord();
+
+        return $record->fresh(['credential', 'providerCredential']) ?? $record;
+    }
+
+    private function isGoogleAppConfigured(): bool
+    {
+        return app(GoogleCredentialResolver::class)->isAppConfigured($this->freshGoogleRecord());
+    }
+
+    private function hasGoogleAuthorizationTokens(): bool
+    {
+        return $this->freshGoogleRecord()->authorizationCredential()->exists();
+    }
+
+    /**
+     * @param  list<string>  $with
+     */
+    private function refreshIntegrationRecord(array $with = []): void
+    {
+        /** @var CoreIntegration $record */
+        $record = $this->getRecord();
+        $this->record = $record->fresh($with) ?? $record;
     }
 
     /**
@@ -506,14 +543,10 @@ class ViewIntegration extends ViewRecord
     }
 
     /**
-     * @return array<int, Action>
+     * @return array<int, Action|ActionGroup>
      */
     private function dataForSeoHeaderActions(CoreIntegration $record): array
     {
-        $resolver = app(DataForSeoCredentialResolver::class);
-        $freshRecord = $record->fresh(['providerCredential']) ?? $record;
-        $configured = $resolver->isConfigured($freshRecord);
-
         return [
             Action::make('configureDataForSeo')
                 ->label('Configure')
@@ -546,7 +579,7 @@ class ViewIntegration extends ViewRecord
                         ->label('API Password')
                         ->password()
                         ->revealable(false)
-                        ->placeholder(fn () => app(DataForSeoCredentialResolver::class)->hasDatabasePassword($record)
+                        ->placeholder(fn () => app(DataForSeoCredentialResolver::class)->hasDatabasePassword($this->freshProviderCredentialRecord())
                             ? '•••••••• (stored)'
                             : null)
                         ->dehydrated(fn (?string $state): bool => filled($state))
@@ -565,7 +598,7 @@ class ViewIntegration extends ViewRecord
                     Toggle::make('clear_password')
                         ->label('Clear stored API Password')
                         ->helperText('Removes the database-stored password only. Environment fallback is unchanged.')
-                        ->visible(fn (): bool => app(DataForSeoCredentialResolver::class)->hasDatabasePassword($record)),
+                        ->visible(fn (): bool => app(DataForSeoCredentialResolver::class)->hasDatabasePassword($this->freshProviderCredentialRecord())),
                 ])
                 ->action(function (array $data, DataForSeoProviderCredentialService $service) use ($record): void {
                     $user = Auth::user();
@@ -576,75 +609,80 @@ class ViewIntegration extends ViewRecord
                     $service->save($record, $data, $user);
 
                     Notification::make()
-                        ->title('DataForSEO configuration saved')
-                        ->body('Provider credentials stored encrypted.')
+                        ->title('DataForSEO settings saved')
                         ->success()
                         ->send();
 
-                    $this->record = $record->fresh(['providerCredential']);
+                    $this->refreshIntegrationRecord(['providerCredential']);
                 }),
             Action::make('testDataForSeo')
                 ->label('Test connection')
                 ->icon(Heroicon::OutlinedSignal)
-                ->color('primary')
-                ->disabled(fn (): bool => ! $configured)
-                ->tooltip(fn (): ?string => $configured ? null : 'Configure API Login and API Password first.')
-                ->action(function (DataForSeoAccountService $account) use ($record): void {
-                    $result = $account->testConnection($record->fresh(['providerCredential']) ?? $record);
+                ->color('gray')
+                ->disabled(fn (): bool => ! $this->isDataForSeoConfigured())
+                ->tooltip(fn (): ?string => $this->isDataForSeoConfigured() ? null : 'Configure API Login and API Password first.')
+                ->action(function (DataForSeoAccountService $account): void {
+                    $result = $account->testConnection($this->freshProviderCredentialRecord());
                     Notification::make()
                         ->title($result['ok'] ? 'Connection OK' : 'Connection issue')
                         ->body($result['message'])
                         ->{$result['ok'] ? 'success' : 'warning'}()
                         ->send();
-                    $this->record = $record->fresh(['providerCredential']);
+                    $this->refreshIntegrationRecord(['providerCredential']);
                 }),
-            Action::make('removeDataForSeoProviderConfiguration')
-                ->label('Remove provider configuration')
-                ->icon(Heroicon::OutlinedTrash)
-                ->color('danger')
-                ->requiresConfirmation()
-                ->modalHeading('Remove DataForSEO provider configuration?')
-                ->modalDescription('This permanently deletes encrypted API Login and API Password stored for this Integration. Environment fallbacks are unchanged. This cannot be undone from the UI.')
-                ->action(function (DataForSeoProviderCredentialService $service) use ($record): void {
-                    $user = Auth::user();
-                    if ($user === null) {
-                        return;
-                    }
+            ActionGroup::make([
+                Action::make('removeDataForSeoProviderConfiguration')
+                    ->label('Remove provider configuration')
+                    ->icon(Heroicon::OutlinedTrash)
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->modalHeading('Remove DataForSEO provider configuration?')
+                    ->modalDescription('This permanently deletes encrypted API Login and API Password stored for this Integration. Environment fallbacks are unchanged. This cannot be undone from the UI.')
+                    ->action(function (DataForSeoProviderCredentialService $service) use ($record): void {
+                        $user = Auth::user();
+                        if ($user === null) {
+                            return;
+                        }
 
-                    $service->remove($record, $user);
+                        $service->remove($record, $user);
 
-                    Notification::make()
-                        ->title('Provider configuration removed')
-                        ->warning()
-                        ->send();
+                        Notification::make()
+                            ->title('DataForSEO configuration removed')
+                            ->warning()
+                            ->send();
 
-                    $this->record = $record->fresh(['providerCredential']);
-                }),
+                        $this->refreshIntegrationRecord(['providerCredential']);
+                    }),
+            ])
+                ->label('Danger zone')
+                ->icon(Heroicon::OutlinedEllipsisVertical)
+                ->color('gray')
+                ->button(),
         ];
     }
 
     private function openAiInfolist(Schema $schema, CoreIntegration $record): Schema
     {
+        $model = app(OpenAiRuntimeConfig::class)->recommendationModel();
+        $modelHuman = match ($model) {
+            'gpt-5-mini' => 'GPT-5 mini',
+            'gpt-5' => 'GPT-5',
+            'gpt-4.1-mini' => 'GPT-4.1 mini',
+            'gpt-4.1' => 'GPT-4.1',
+            default => $model,
+        };
+
         return $schema->components([
-            Section::make('Configuration')
-                ->description('Agency-level OpenAI API key. Shared across Website AI guidance — not per Brand or Website.')
-                ->schema([
-                    TextEntry::make('openai_config_status')
-                        ->label('Status')
-                        ->badge()
-                        ->state(OpenAiAuthStatus::configurationLabel($record)),
-                    TextEntry::make('openai_api_key')
-                        ->label('API Key')
-                        ->state(fn (): string => OpenAiAuthStatus::apiKeyLabel($record)),
-                ])
-                ->columns(2),
-            Section::make('Connection')
-                ->description('Validated with a non-generative OpenAI models list request. No completion tokens are spent to test authentication.')
+            Section::make('Overview')
+                ->description('Agency-level OpenAI connection for Website AI guidance — not per Brand or Website.')
                 ->schema([
                     TextEntry::make('openai_connection_status')
                         ->label('Connection')
                         ->badge()
-                        ->state(fn (): string => OpenAiAuthStatus::connectionLabel($record)),
+                        ->state(fn (): string => OpenAiAuthStatus::connectionLabel($this->freshProviderCredentialRecord())),
+                    TextEntry::make('openai_recommendation_model')
+                        ->label('Current recommendation model')
+                        ->state($modelHuman),
                     TextEntry::make('config.last_tested_at')
                         ->label('Last checked')
                         ->placeholder('—'),
@@ -658,25 +696,43 @@ class ViewIntegration extends ViewRecord
                         ->columnSpanFull(),
                 ])
                 ->columns(2),
+            Section::make('Credentials')
+                ->schema([
+                    TextEntry::make('openai_config_status')
+                        ->label('Status')
+                        ->badge()
+                        ->state(fn (): string => OpenAiAuthStatus::configurationLabel($this->freshProviderCredentialRecord())),
+                    TextEntry::make('openai_api_key')
+                        ->label('API Key')
+                        ->state(fn (): string => OpenAiAuthStatus::apiKeyLabel($this->freshProviderCredentialRecord())),
+                ])
+                ->columns(2),
+            Section::make('AI configuration')
+                ->description('Used for grounded AI guidance and recommendation drafting.')
+                ->schema([
+                    TextEntry::make('openai_model_display')
+                        ->label('Current model')
+                        ->state($modelHuman),
+                    TextEntry::make('openai_model_purpose')
+                        ->label('Purpose')
+                        ->state('Website AI guidance and recommendation drafting'),
+                ])
+                ->columns(2),
         ]);
     }
 
     /**
-     * @return array<int, Action>
+     * @return array<int, Action|ActionGroup>
      */
     private function openAiHeaderActions(CoreIntegration $record): array
     {
-        $resolver = app(OpenAiCredentialResolver::class);
-        $freshRecord = $record->fresh(['providerCredential']) ?? $record;
-        $configured = $resolver->isConfigured($freshRecord);
-
         return [
             Action::make('configureOpenAi')
                 ->label('Configure')
                 ->icon(Heroicon::OutlinedCog6Tooth)
                 ->color('gray')
                 ->modalHeading('OpenAI configuration')
-                ->modalDescription('Store the OpenAI API key encrypted in MoxDOP. Leave the field blank to keep the stored value.')
+                ->modalDescription('Store the OpenAI secret API key encrypted in MoxDOP. Leave the field blank to keep the stored value.')
                 ->fillForm([
                     'api_key' => '',
                     'clear_api_key' => false,
@@ -686,7 +742,7 @@ class ViewIntegration extends ViewRecord
                         ->label('API Key')
                         ->password()
                         ->revealable(false)
-                        ->placeholder(fn () => app(OpenAiCredentialResolver::class)->hasDatabaseApiKey($record)
+                        ->placeholder(fn () => app(OpenAiCredentialResolver::class)->hasDatabaseApiKey($this->freshProviderCredentialRecord())
                             ? '•••••••• (stored)'
                             : null)
                         ->dehydrated(fn (?string $state): bool => filled($state))
@@ -699,13 +755,13 @@ class ViewIntegration extends ViewRecord
                                 return 'Configured by environment. Enter a value only to store encrypted in MoxDOP instead.';
                             }
 
-                            return 'OpenAI API key from the OpenAI platform. Write-only; never shown after save.';
+                            return 'OpenAI secret API key from the OpenAI platform. Write-only; never shown after save.';
                         })
                         ->maxLength(512),
                     Toggle::make('clear_api_key')
                         ->label('Clear stored API Key')
                         ->helperText('Removes the database-stored API key only. Environment fallback is unchanged.')
-                        ->visible(fn (): bool => app(OpenAiCredentialResolver::class)->hasDatabaseApiKey($record)),
+                        ->visible(fn (): bool => app(OpenAiCredentialResolver::class)->hasDatabaseApiKey($this->freshProviderCredentialRecord())),
                 ])
                 ->action(function (array $data, OpenAiProviderCredentialService $service) use ($record): void {
                     $user = Auth::user();
@@ -716,50 +772,73 @@ class ViewIntegration extends ViewRecord
                     $service->save($record, $data, $user);
 
                     Notification::make()
-                        ->title('OpenAI configuration saved')
-                        ->body('Provider credentials stored encrypted.')
+                        ->title('OpenAI settings saved')
                         ->success()
                         ->send();
 
-                    $this->record = $record->fresh(['providerCredential']);
+                    $this->refreshIntegrationRecord(['providerCredential']);
                 }),
             Action::make('testOpenAi')
                 ->label('Test connection')
                 ->icon(Heroicon::OutlinedSignal)
-                ->color('primary')
-                ->disabled(fn (): bool => ! $configured)
-                ->tooltip(fn (): ?string => $configured ? null : 'Configure the OpenAI API key first.')
-                ->action(function (OpenAiConnectionService $connection) use ($record): void {
-                    $result = $connection->testConnection($record->fresh(['providerCredential']) ?? $record);
+                ->color('gray')
+                ->disabled(fn (): bool => ! $this->isOpenAiConfigured())
+                ->tooltip(fn (): ?string => $this->isOpenAiConfigured() ? null : 'Configure the OpenAI API key first.')
+                ->action(function (OpenAiConnectionService $connection): void {
+                    $result = $connection->testConnection($this->freshProviderCredentialRecord());
                     Notification::make()
                         ->title($result['ok'] ? 'Connection OK' : 'Connection issue')
                         ->body($result['message'])
                         ->{$result['ok'] ? 'success' : 'warning'}()
                         ->send();
-                    $this->record = $record->fresh(['providerCredential']);
+                    $this->refreshIntegrationRecord(['providerCredential']);
                 }),
-            Action::make('removeOpenAiProviderConfiguration')
-                ->label('Remove provider configuration')
-                ->icon(Heroicon::OutlinedTrash)
-                ->color('danger')
-                ->requiresConfirmation()
-                ->modalHeading('Remove OpenAI provider configuration?')
-                ->modalDescription('This permanently deletes the encrypted OpenAI API key stored for this Integration. Environment fallbacks are unchanged. This cannot be undone from the UI.')
-                ->action(function (OpenAiProviderCredentialService $service) use ($record): void {
-                    $user = Auth::user();
-                    if ($user === null) {
-                        return;
-                    }
+            ActionGroup::make([
+                Action::make('removeOpenAiProviderConfiguration')
+                    ->label('Remove provider configuration')
+                    ->icon(Heroicon::OutlinedTrash)
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->modalHeading('Remove OpenAI provider configuration?')
+                    ->modalDescription('This permanently deletes the encrypted OpenAI API key stored for this Integration. Environment fallbacks are unchanged. This cannot be undone from the UI.')
+                    ->action(function (OpenAiProviderCredentialService $service) use ($record): void {
+                        $user = Auth::user();
+                        if ($user === null) {
+                            return;
+                        }
 
-                    $service->remove($record, $user);
+                        $service->remove($record, $user);
 
-                    Notification::make()
-                        ->title('Provider configuration removed')
-                        ->warning()
-                        ->send();
+                        Notification::make()
+                            ->title('OpenAI configuration removed')
+                            ->warning()
+                            ->send();
 
-                    $this->record = $record->fresh(['providerCredential']);
-                }),
+                        $this->refreshIntegrationRecord(['providerCredential']);
+                    }),
+            ])
+                ->label('Danger zone')
+                ->icon(Heroicon::OutlinedEllipsisVertical)
+                ->color('gray')
+                ->button(),
         ];
+    }
+
+    private function freshProviderCredentialRecord(): CoreIntegration
+    {
+        /** @var CoreIntegration $record */
+        $record = $this->getRecord();
+
+        return $record->fresh(['providerCredential']) ?? $record;
+    }
+
+    private function isOpenAiConfigured(): bool
+    {
+        return app(OpenAiCredentialResolver::class)->isConfigured($this->freshProviderCredentialRecord());
+    }
+
+    private function isDataForSeoConfigured(): bool
+    {
+        return app(DataForSeoCredentialResolver::class)->isConfigured($this->freshProviderCredentialRecord());
     }
 }
