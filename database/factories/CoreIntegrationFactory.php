@@ -51,6 +51,11 @@ class CoreIntegrationFactory extends Factory
         return $this->provider(ProviderRegistry::DATAFORSEO);
     }
 
+    public function openai(): static
+    {
+        return $this->provider(ProviderRegistry::OPENAI);
+    }
+
     public function disabled(): static
     {
         return $this->state(fn (): array => [

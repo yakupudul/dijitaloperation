@@ -83,6 +83,12 @@ class RecommendationResource extends Resource
                 TextEntry::make('digitalAsset.name')
                     ->label('Digital asset')
                     ->placeholder('-'),
+                TextEntry::make('origin')
+                    ->label('Origin')
+                    ->badge()
+                    ->state(fn ($record): string => ($record->source_module ?? '') === 'website-ai-insights'
+                        ? 'AI-assisted'
+                        : 'Deterministic'),
                 TextEntry::make('source_module')
                     ->label('Source')
                     ->formatStateUsing(fn (?string $state): string => filled($state)
@@ -164,6 +170,13 @@ class RecommendationResource extends Resource
                     ->label('ID')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('origin')
+                    ->label('Origin')
+                    ->badge()
+                    ->state(fn ($record): string => ($record->source_module ?? '') === 'website-ai-insights'
+                        ? 'AI-assisted'
+                        : 'Deterministic')
+                    ->toggleable(),
                 TextColumn::make('source_module')
                     ->label('Source')
                     ->formatStateUsing(fn (?string $state): ?string => filled($state)

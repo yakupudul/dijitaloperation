@@ -12,8 +12,12 @@ use App\Services\Integrations\Google\GoogleOAuthRedirectUriResolver;
 use App\Services\Integrations\Google\GoogleOAuthService;
 use App\Services\Integrations\Google\GoogleProviderCredentialService;
 use App\Services\Integrations\Google\GoogleResourceRefreshService;
+use App\Services\Integrations\OpenAi\OpenAiConnectionService;
+use App\Services\Integrations\OpenAi\OpenAiCredentialResolver;
+use App\Services\Integrations\OpenAi\OpenAiProviderCredentialService;
 use App\Support\Integrations\DataForSeo\DataForSeoAuthStatus;
 use App\Support\Integrations\Google\GoogleAuthStatus;
+use App\Support\Integrations\OpenAi\OpenAiAuthStatus;
 use App\Support\Integrations\ProviderRegistry;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
@@ -40,6 +44,10 @@ class ViewIntegration extends ViewRecord
             return 'DataForSEO';
         }
 
+        if ($record->provider === ProviderRegistry::OPENAI) {
+            return 'OpenAI';
+        }
+
         return parent::getTitle();
     }
 
@@ -52,6 +60,10 @@ class ViewIntegration extends ViewRecord
             return 'SEO data provider · '.DataForSeoAuthStatus::label(DataForSeoAuthStatus::for($record));
         }
 
+        if ($record->provider === ProviderRegistry::OPENAI) {
+            return 'AI provider · '.OpenAiAuthStatus::label(OpenAiAuthStatus::for($record));
+        }
+
         return parent::getSubheading();
     }
 
@@ -62,6 +74,10 @@ class ViewIntegration extends ViewRecord
 
         if ($record->provider === ProviderRegistry::DATAFORSEO) {
             return $this->dataForSeoInfolist($schema, $record);
+        }
+
+        if ($record->provider === ProviderRegistry::OPENAI) {
+            return $this->openAiInfolist($schema, $record);
         }
 
         if ($record->provider !== ProviderRegistry::GOOGLE) {
@@ -178,6 +194,10 @@ class ViewIntegration extends ViewRecord
 
         if ($record->provider === ProviderRegistry::DATAFORSEO) {
             return $this->dataForSeoHeaderActions($record);
+        }
+
+        if ($record->provider === ProviderRegistry::OPENAI) {
+            return $this->openAiHeaderActions($record);
         }
 
         if ($record->provider !== ProviderRegistry::GOOGLE) {
@@ -586,6 +606,146 @@ class ViewIntegration extends ViewRecord
                 ->modalHeading('Remove DataForSEO provider configuration?')
                 ->modalDescription('This permanently deletes encrypted API Login and API Password stored for this Integration. Environment fallbacks are unchanged. This cannot be undone from the UI.')
                 ->action(function (DataForSeoProviderCredentialService $service) use ($record): void {
+                    $user = Auth::user();
+                    if ($user === null) {
+                        return;
+                    }
+
+                    $service->remove($record, $user);
+
+                    Notification::make()
+                        ->title('Provider configuration removed')
+                        ->warning()
+                        ->send();
+
+                    $this->record = $record->fresh(['providerCredential']);
+                }),
+        ];
+    }
+
+    private function openAiInfolist(Schema $schema, CoreIntegration $record): Schema
+    {
+        return $schema->components([
+            Section::make('Configuration')
+                ->description('Agency-level OpenAI API key. Shared across Website AI guidance — not per Brand or Website.')
+                ->schema([
+                    TextEntry::make('openai_config_status')
+                        ->label('Status')
+                        ->badge()
+                        ->state(OpenAiAuthStatus::configurationLabel($record)),
+                    TextEntry::make('openai_api_key')
+                        ->label('API Key')
+                        ->state(fn (): string => OpenAiAuthStatus::apiKeyLabel($record)),
+                ])
+                ->columns(2),
+            Section::make('Connection')
+                ->description('Validated with a non-generative OpenAI models list request. No completion tokens are spent to test authentication.')
+                ->schema([
+                    TextEntry::make('openai_connection_status')
+                        ->label('Connection')
+                        ->badge()
+                        ->state(fn (): string => OpenAiAuthStatus::connectionLabel($record)),
+                    TextEntry::make('config.last_tested_at')
+                        ->label('Last checked')
+                        ->placeholder('—'),
+                    TextEntry::make('last_success_at')
+                        ->label('Last successful connection')
+                        ->dateTime()
+                        ->placeholder('—'),
+                    TextEntry::make('last_error')
+                        ->label('Last issue')
+                        ->placeholder('—')
+                        ->columnSpanFull(),
+                ])
+                ->columns(2),
+        ]);
+    }
+
+    /**
+     * @return array<int, Action>
+     */
+    private function openAiHeaderActions(CoreIntegration $record): array
+    {
+        $resolver = app(OpenAiCredentialResolver::class);
+        $freshRecord = $record->fresh(['providerCredential']) ?? $record;
+        $configured = $resolver->isConfigured($freshRecord);
+
+        return [
+            Action::make('configureOpenAi')
+                ->label('Configure')
+                ->icon(Heroicon::OutlinedCog6Tooth)
+                ->color('gray')
+                ->modalHeading('OpenAI configuration')
+                ->modalDescription('Store the OpenAI API key encrypted in MoxDOP. Leave the field blank to keep the stored value.')
+                ->fillForm([
+                    'api_key' => '',
+                    'clear_api_key' => false,
+                ])
+                ->form([
+                    TextInput::make('api_key')
+                        ->label('API Key')
+                        ->password()
+                        ->revealable(false)
+                        ->placeholder(fn () => app(OpenAiCredentialResolver::class)->hasDatabaseApiKey($record)
+                            ? '•••••••• (stored)'
+                            : null)
+                        ->dehydrated(fn (?string $state): bool => filled($state))
+                        ->helperText(function () use ($record): string {
+                            $resolver = app(OpenAiCredentialResolver::class);
+                            if ($resolver->hasDatabaseApiKey($record)) {
+                                return 'Stored securely ✓ — leave blank to keep current value.';
+                            }
+                            if ($resolver->apiKeySource($record) === OpenAiCredentialResolver::SOURCE_ENVIRONMENT) {
+                                return 'Configured by environment. Enter a value only to store encrypted in MoxDOP instead.';
+                            }
+
+                            return 'OpenAI API key from the OpenAI platform. Write-only; never shown after save.';
+                        })
+                        ->maxLength(512),
+                    Toggle::make('clear_api_key')
+                        ->label('Clear stored API Key')
+                        ->helperText('Removes the database-stored API key only. Environment fallback is unchanged.')
+                        ->visible(fn (): bool => app(OpenAiCredentialResolver::class)->hasDatabaseApiKey($record)),
+                ])
+                ->action(function (array $data, OpenAiProviderCredentialService $service) use ($record): void {
+                    $user = Auth::user();
+                    if ($user === null) {
+                        return;
+                    }
+
+                    $service->save($record, $data, $user);
+
+                    Notification::make()
+                        ->title('OpenAI configuration saved')
+                        ->body('Provider credentials stored encrypted.')
+                        ->success()
+                        ->send();
+
+                    $this->record = $record->fresh(['providerCredential']);
+                }),
+            Action::make('testOpenAi')
+                ->label('Test connection')
+                ->icon(Heroicon::OutlinedSignal)
+                ->color('primary')
+                ->disabled(fn (): bool => ! $configured)
+                ->tooltip(fn (): ?string => $configured ? null : 'Configure the OpenAI API key first.')
+                ->action(function (OpenAiConnectionService $connection) use ($record): void {
+                    $result = $connection->testConnection($record->fresh(['providerCredential']) ?? $record);
+                    Notification::make()
+                        ->title($result['ok'] ? 'Connection OK' : 'Connection issue')
+                        ->body($result['message'])
+                        ->{$result['ok'] ? 'success' : 'warning'}()
+                        ->send();
+                    $this->record = $record->fresh(['providerCredential']);
+                }),
+            Action::make('removeOpenAiProviderConfiguration')
+                ->label('Remove provider configuration')
+                ->icon(Heroicon::OutlinedTrash)
+                ->color('danger')
+                ->requiresConfirmation()
+                ->modalHeading('Remove OpenAI provider configuration?')
+                ->modalDescription('This permanently deletes the encrypted OpenAI API key stored for this Integration. Environment fallbacks are unchanged. This cannot be undone from the UI.')
+                ->action(function (OpenAiProviderCredentialService $service) use ($record): void {
                     $user = Auth::user();
                     if ($user === null) {
                         return;

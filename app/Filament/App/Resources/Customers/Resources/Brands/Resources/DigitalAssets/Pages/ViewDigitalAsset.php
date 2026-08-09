@@ -41,6 +41,7 @@ use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Support\Htmlable;
+use MoxDop\Website\Ai\WebsiteAiRecommendationService;
 use MoxDop\Website\SeoIntelligence\SeoIntelligenceRefreshService;
 use MoxDop\Website\Workspace\WebsiteWorkspaceData;
 
@@ -159,6 +160,47 @@ class ViewDigitalAsset extends ViewRecord
                         ->title($result['ok'] ? 'SEO intelligence updated' : 'SEO intelligence refresh incomplete')
                         ->body($result['message'])
                         ->{$result['ok'] ? 'success' : 'warning'}()
+                        ->send();
+                }),
+            Action::make('generateAiGuidance')
+                ->label('Generate AI guidance')
+                ->icon(Heroicon::OutlinedSparkles)
+                ->color('gray')
+                ->visible(fn (): bool => $this->isWebsiteWorkspace())
+                ->requiresConfirmation()
+                ->modalHeading('Generate AI guidance?')
+                ->modalDescription('Uses current Findings, Evidence and Brand context. AI is advisory — it will not create Findings or Tasks, and will not overwrite deterministic Recommendations.')
+                ->modalSubmitActionLabel('Analyze issues with AI')
+                ->action(function (WebsiteAiRecommendationService $service): void {
+                    /** @var DigitalAsset $asset */
+                    $asset = $this->getRecord();
+
+                    try {
+                        $result = $service->analyze($asset);
+                    } catch (\InvalidArgumentException $exception) {
+                        Notification::make()
+                            ->title('AI guidance not ready')
+                            ->body($exception->getMessage())
+                            ->warning()
+                            ->send();
+
+                        return;
+                    } catch (\Throwable $exception) {
+                        Notification::make()
+                            ->title('AI guidance failed')
+                            ->body(class_basename($exception))
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
+
+                    Notification::make()
+                        ->title($result['reused'] ? 'AI analysis is already current' : (
+                            $result['run']->status === 'completed' ? 'AI guidance generated' : 'AI guidance failed'
+                        ))
+                        ->body($result['message'])
+                        ->{$result['run']->status === 'completed' || $result['reused'] ? 'success' : 'warning'}()
                         ->send();
                 }),
             Action::make('collectLiveData')

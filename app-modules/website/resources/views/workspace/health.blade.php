@@ -7,6 +7,7 @@
     $resolved = $data['findings']['resolved'] ?? collect();
     $recommendations = $data['recommendations'] ?? collect();
     $diagnosis = $data['diagnosis'] ?? [];
+    $ai = $data['ai_guidance'] ?? ['available' => false];
 @endphp
 
 <div class="mox-website-workspace">
@@ -86,6 +87,13 @@
                     <span>
                         <strong>{{ $recommendation->title }}</strong>
                         <div class="mox-muted">{{ \Illuminate\Support\Str::limit((string) $recommendation->action, 180) }}</div>
+                        <div class="mox-muted">
+                            @if ($recommendation->source_module === \MoxDop\Website\Ai\WebsiteAiRecommendationConfig::MODULE_ID)
+                                AI-assisted
+                            @else
+                                Deterministic
+                            @endif
+                        </div>
                     </span>
                 </div>
             @empty
@@ -118,4 +126,77 @@
             </section>
         </div>
     </div>
+
+    @if (($ai['available'] ?? false) || ($ai['failed'] ?? null) !== null)
+        <div class="mox-section-head mox-section-head--tight">
+            <div>
+                <h3 class="mox-section-title">AI Guidance</h3>
+                <p class="mox-section-sub">
+                    Advisory interpretation grounded in Findings, Evidence, and Brand context.
+                    <span class="mox-badge-ai">AI-generated</span>
+                </p>
+            </div>
+        </div>
+
+        @if (($ai['failed'] ?? null) !== null)
+            <section class="mox-panel">
+                <div class="mox-panel__head"><h4>Latest AI request failed</h4></div>
+                <p class="mox-muted">{{ $ai['failed']['message'] ?? 'AI request failed.' }}</p>
+            </section>
+        @endif
+
+        @if ($ai['available'] ?? false)
+            <section class="mox-panel">
+                <div class="mox-panel__head">
+                    <h4>Executive summary</h4>
+                    <span class="mox-muted">
+                        Generated {{ $ai['generated_human'] ?? 'recently' }}
+                        · {{ (int) ($ai['finding_count'] ?? 0) }} Findings
+                        · {{ (int) ($ai['evidence_count'] ?? 0) }} Evidence
+                        @if (is_array($ai['brand_completeness'] ?? null))
+                            · Brand context {{ $ai['brand_completeness']['completed'] ?? 0 }}/{{ $ai['brand_completeness']['total'] ?? 8 }}
+                        @endif
+                    </span>
+                </div>
+                <p>{{ $ai['executive_summary'] ?? '—' }}</p>
+                @if (is_array($ai['brand_completeness'] ?? null) && ($ai['brand_completeness']['completed'] ?? 0) < ($ai['brand_completeness']['total'] ?? 8))
+                    <p class="mox-muted">Complete Brand Intelligence for more business-specific AI guidance.</p>
+                @endif
+            </section>
+
+            @foreach ($ai['interpretations'] ?? [] as $interpretation)
+                <section class="mox-panel">
+                    <div class="mox-panel__head">
+                        <h4>
+                            <span class="mox-sev mox-sev--{{ $interpretation['severity'] ?? 'medium' }}">{{ strtoupper((string) ($interpretation['suggested_priority'] ?? $interpretation['severity'] ?? 'medium')) }}</span>
+                            {{ $interpretation['finding_title'] ?? 'Finding' }}
+                        </h4>
+                        <span class="mox-badge-ai">AI-generated</span>
+                    </div>
+                    <p><strong>AI interpretation</strong><br>{{ $interpretation['explanation'] ?? '—' }}</p>
+                    <p><strong>Why this matters</strong><br>{{ $interpretation['business_relevance'] ?? '—' }}</p>
+                    @if (! empty($interpretation['recommendation_draft']['action']))
+                        <p><strong>Suggested action</strong><br>{{ $interpretation['recommendation_draft']['action'] }}</p>
+                    @endif
+                    @if (! empty($interpretation['watch_metrics']))
+                        <p class="mox-muted"><strong>Watch</strong> · {{ implode(', ', $interpretation['watch_metrics']) }}</p>
+                    @endif
+                    @if (! empty($interpretation['evidence_ids']))
+                        <p class="mox-muted">Evidence #{{ implode(', #', $interpretation['evidence_ids']) }}</p>
+                    @endif
+                    @if (($interpretation['can_accept'] ?? false) && ! empty($interpretation['recommendation_draft']))
+                        <button
+                            type="button"
+                            class="mox-btn mox-btn--secondary"
+                            wire:click="acceptAiRecommendationDraft({{ (int) $interpretation['finding_id'] }})"
+                        >
+                            Create recommendation
+                        </button>
+                    @elseif (! empty($interpretation['existing_recommendation']))
+                        <p class="mox-muted">AI-assisted recommendation already recorded ({{ $interpretation['existing_recommendation']->status }}).</p>
+                    @endif
+                </section>
+            @endforeach
+        @endif
+    @endif
 </div>

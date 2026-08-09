@@ -2,16 +2,22 @@
 
 namespace Tests\Feature;
 
-use App\Ai\Agents\WebsiteFindingInsightAgent;
+use App\Models\CoreIntegration;
 use App\Models\DigitalAsset;
 use App\Models\Evidence;
 use App\Models\Finding;
 use App\Models\Recommendation;
 use App\Models\Run;
+use App\Models\User;
+use App\Services\Integrations\OpenAi\OpenAiProviderCredentialService;
 use App\Services\WebsiteAiInsightService;
+use App\Support\Roles;
+use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use InvalidArgumentException;
 use Laravel\Ai\Prompts\AgentPrompt;
+use MoxDop\Website\Ai\Agents\WebsiteRecommendationAgent;
+use MoxDop\Website\Ai\WebsiteAiRecommendationConfig;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -19,31 +25,35 @@ class WebsiteAiInsightServiceTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->seed(RoleAndPermissionSeeder::class);
+        $admin = User::factory()->create();
+        $admin->assignRole(Roles::ADMIN);
+
+        config([
+            'moxdop.openai.api_key' => null,
+            'ai.providers.openai.key' => null,
+            'ai.providers.openai.store' => false,
+            'moxdop.openai.recommendation_model' => 'gpt-5-mini',
+        ]);
+
+        $integration = CoreIntegration::factory()->openai()->create([
+            'status' => CoreIntegration::STATUS_ACTIVE,
+        ]);
+        app(OpenAiProviderCredentialService::class)->save($integration, [
+            'api_key' => 'sk-test-compat',
+        ], $admin);
+    }
+
     public function test_successful_interpretation_creates_run_and_ai_insight_evidence(): void
     {
         [$asset, $finding, $evidence] = $this->seedWebsiteFindingWithEvidence();
 
-        WebsiteFindingInsightAgent::fake([
-            [
-                'summary' => 'Sitemap is missing, which limits crawl discovery.',
-                'finding_interpretations' => [
-                    [
-                        'finding_id' => $finding->id,
-                        'likely_cause' => 'No readable sitemap.xml was returned for the host.',
-                        'business_impact' => 'Search engines may discover pages more slowly.',
-                        'suggested_priority' => 'medium',
-                    ],
-                ],
-                'recommendation_drafts' => [
-                    [
-                        'finding_id' => $finding->id,
-                        'title' => 'Publish a valid XML sitemap',
-                        'action' => 'Publish https://example.com/sitemap.xml as a well-formed urlset.',
-                        'rationale' => 'Evidence #'.$evidence->id.' shows sitemap availability failed.',
-                        'priority' => 'medium',
-                    ],
-                ],
-            ],
+        WebsiteRecommendationAgent::fake([
+            $this->structured($finding->id, $evidence->id),
         ])->preventStrayPrompts();
 
         $run = app(WebsiteAiInsightService::class)->interpret($asset);
@@ -69,7 +79,7 @@ class WebsiteAiInsightServiceTest extends TestCase
         $this->assertArrayNotHasKey('due_date', $insight->payload['recommendation_drafts'][0]);
         $this->assertSame(0, Recommendation::query()->count());
 
-        WebsiteFindingInsightAgent::assertPrompted(function (AgentPrompt $prompt) use ($finding, $evidence): bool {
+        WebsiteRecommendationAgent::assertPrompted(function (AgentPrompt $prompt) use ($finding, $evidence): bool {
             return $prompt->contains('CONTEXT_JSON:')
                 && $prompt->contains('"id": '.$finding->id)
                 && $prompt->contains('"id": '.$evidence->id)
@@ -80,7 +90,7 @@ class WebsiteAiInsightServiceTest extends TestCase
 
     public function test_interpret_accepts_explicit_finding_ids(): void
     {
-        [$asset, $finding] = $this->seedWebsiteFindingWithEvidence();
+        [$asset, $finding, $evidence] = $this->seedWebsiteFindingWithEvidence();
 
         Finding::factory()->create([
             'digital_asset_id' => $asset->id,
@@ -89,27 +99,8 @@ class WebsiteAiInsightServiceTest extends TestCase
             'fingerprint' => 'ignored-finding',
         ]);
 
-        WebsiteFindingInsightAgent::fake([
-            [
-                'summary' => 'Focused interpretation for one finding.',
-                'finding_interpretations' => [
-                    [
-                        'finding_id' => $finding->id,
-                        'likely_cause' => 'Sitemap endpoint unavailable.',
-                        'business_impact' => 'Lower crawl efficiency.',
-                        'suggested_priority' => 'high',
-                    ],
-                ],
-                'recommendation_drafts' => [
-                    [
-                        'finding_id' => $finding->id,
-                        'title' => 'Restore sitemap',
-                        'action' => 'Serve a valid sitemap.xml.',
-                        'rationale' => 'Based on finding '.$finding->id,
-                        'priority' => 'high',
-                    ],
-                ],
-            ],
+        WebsiteRecommendationAgent::fake([
+            $this->structured($finding->id, $evidence->id, 'Focused interpretation for one finding.'),
         ])->preventStrayPrompts();
 
         $run = app(WebsiteAiInsightService::class)->interpret($asset, [$finding->id]);
@@ -160,7 +151,7 @@ class WebsiteAiInsightServiceTest extends TestCase
     {
         [$asset] = $this->seedWebsiteFindingWithEvidence();
 
-        WebsiteFindingInsightAgent::fake(function (): never {
+        WebsiteRecommendationAgent::fake(function (): never {
             throw new RuntimeException('provider unavailable');
         })->preventStrayPrompts();
 
@@ -180,54 +171,62 @@ class WebsiteAiInsightServiceTest extends TestCase
         $this->assertSame('RuntimeException', $insight->payload['error_class']);
     }
 
-    public function test_drops_ungrounded_finding_ids_from_model_output(): void
+    public function test_rejects_ungrounded_finding_ids_from_model_output(): void
     {
-        [$asset, $finding] = $this->seedWebsiteFindingWithEvidence();
+        [$asset, $finding, $evidence] = $this->seedWebsiteFindingWithEvidence();
 
-        WebsiteFindingInsightAgent::fake([
+        WebsiteRecommendationAgent::fake([
             [
-                'summary' => 'Keep only grounded finding references.',
+                'executive_summary' => 'Keep only grounded finding references.',
+                'overall_priority' => 'medium',
+                'context_observations' => [],
                 'finding_interpretations' => [
                     [
                         'finding_id' => $finding->id,
-                        'likely_cause' => 'Valid grounded cause.',
-                        'business_impact' => 'Valid impact.',
+                        'evidence_ids' => [$evidence->id],
+                        'explanation' => 'Valid grounded cause.',
+                        'business_relevance' => 'Valid impact.',
+                        'likely_contributors' => ['Missing sitemap'],
+                        'uncertainty' => 'medium',
                         'suggested_priority' => 'medium',
+                        'recommendation_draft' => [
+                            'title' => 'Grounded draft',
+                            'action' => 'Fix the sitemap.',
+                            'rationale' => 'Matches finding '.$finding->id,
+                            'effort' => 'low',
+                        ],
+                        'dependencies' => [],
+                        'success_signal' => 'ok',
+                        'failure_signal' => 'bad',
+                        'watch_metrics' => [],
                     ],
                     [
                         'finding_id' => 999999,
-                        'likely_cause' => 'Invented finding.',
-                        'business_impact' => 'Should be dropped.',
+                        'evidence_ids' => [$evidence->id],
+                        'explanation' => 'Invented finding.',
+                        'business_relevance' => 'Should fail validation.',
+                        'likely_contributors' => [],
+                        'uncertainty' => 'high',
                         'suggested_priority' => 'critical',
+                        'recommendation_draft' => [
+                            'title' => 'Invented draft',
+                            'action' => 'Do not keep this.',
+                            'rationale' => 'Ungrounded.',
+                            'effort' => 'low',
+                        ],
+                        'dependencies' => [],
+                        'success_signal' => 'n/a',
+                        'failure_signal' => 'n/a',
+                        'watch_metrics' => [],
                     ],
                 ],
-                'recommendation_drafts' => [
-                    [
-                        'finding_id' => 999999,
-                        'title' => 'Invented draft',
-                        'action' => 'Do not keep this.',
-                        'rationale' => 'Ungrounded.',
-                        'priority' => 'critical',
-                    ],
-                    [
-                        'finding_id' => $finding->id,
-                        'title' => 'Grounded draft',
-                        'action' => 'Fix the sitemap.',
-                        'rationale' => 'Matches finding '.$finding->id,
-                        'priority' => 'medium',
-                    ],
-                ],
+                'prompt_version' => WebsiteAiRecommendationConfig::PROMPT_VERSION,
             ],
         ])->preventStrayPrompts();
 
         $run = app(WebsiteAiInsightService::class)->interpret($asset);
-        $insight = Evidence::query()->where('run_id', $run->id)->first();
-
-        $this->assertTrue($insight->payload['ok']);
-        $this->assertCount(1, $insight->payload['finding_interpretations']);
-        $this->assertSame($finding->id, $insight->payload['finding_interpretations'][0]['finding_id']);
-        $this->assertCount(1, $insight->payload['recommendation_drafts']);
-        $this->assertSame('Grounded draft', $insight->payload['recommendation_drafts'][0]['title']);
+        $this->assertSame('failed', $run->status);
+        $this->assertSame(0, Recommendation::query()->count());
     }
 
     /**
@@ -282,5 +281,39 @@ class WebsiteAiInsightServiceTest extends TestCase
         ]);
 
         return [$asset, $finding, $evidence];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function structured(int $findingId, int $evidenceId, string $summary = 'Sitemap is missing, which limits crawl discovery.'): array
+    {
+        return [
+            'executive_summary' => $summary,
+            'overall_priority' => 'medium',
+            'context_observations' => [],
+            'finding_interpretations' => [
+                [
+                    'finding_id' => $findingId,
+                    'evidence_ids' => [$evidenceId],
+                    'explanation' => 'No readable sitemap.xml was returned for the host.',
+                    'business_relevance' => 'Search engines may discover pages more slowly.',
+                    'likely_contributors' => ['Missing sitemap'],
+                    'uncertainty' => 'medium',
+                    'suggested_priority' => 'medium',
+                    'recommendation_draft' => [
+                        'title' => 'Publish a valid XML sitemap',
+                        'action' => 'Publish https://example.com/sitemap.xml as a well-formed urlset.',
+                        'rationale' => 'Evidence #'.$evidenceId.' shows sitemap availability failed.',
+                        'effort' => 'low',
+                    ],
+                    'dependencies' => [],
+                    'success_signal' => 'Sitemap returns 200',
+                    'failure_signal' => 'Still 404',
+                    'watch_metrics' => ['GSC coverage'],
+                ],
+            ],
+            'prompt_version' => WebsiteAiRecommendationConfig::PROMPT_VERSION,
+        ];
     }
 }

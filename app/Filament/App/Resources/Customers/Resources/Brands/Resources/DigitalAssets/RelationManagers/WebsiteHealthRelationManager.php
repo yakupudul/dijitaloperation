@@ -3,11 +3,14 @@
 namespace App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers;
 
 use App\Models\DigitalAsset;
+use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
+use InvalidArgumentException;
+use MoxDop\Website\Ai\WebsiteAiRecommendationAcceptance;
 use MoxDop\Website\Workspace\WebsiteWorkspaceData;
 
 class WebsiteHealthRelationManager extends RelationManager
@@ -39,5 +42,29 @@ class WebsiteHealthRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table->columns([])->paginated(false);
+    }
+
+    public function acceptAiRecommendationDraft(int $findingId): void
+    {
+        /** @var DigitalAsset $asset */
+        $asset = $this->getOwnerRecord();
+
+        try {
+            $result = app(WebsiteAiRecommendationAcceptance::class)->acceptDraft($asset, $findingId);
+        } catch (InvalidArgumentException $exception) {
+            Notification::make()
+                ->title('Could not create recommendation')
+                ->body($exception->getMessage())
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        Notification::make()
+            ->title($result['created'] ? 'Recommendation created' : ($result['updated'] ? 'Recommendation updated' : 'Recommendation unchanged'))
+            ->body($result['message'])
+            ->{$result['created'] || $result['updated'] ? 'success' : 'warning'}()
+            ->send();
     }
 }

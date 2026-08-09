@@ -351,6 +351,37 @@
     margin-top: 0.15rem;
 }
 
+.mox-badge-ai {
+    display: inline-block;
+    margin-left: 0.35rem;
+    padding: 0.1rem 0.45rem;
+    border-radius: 0.25rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    background: #e5e7eb;
+    color: var(--mox-text-secondary, #4b5563);
+}
+
+.mox-btn {
+    display: inline-flex;
+    align-items: center;
+    margin-top: 0.75rem;
+    padding: 0.4rem 0.75rem;
+    border-radius: 0.375rem;
+    border: 1px solid #d1d5db;
+    background: #fff;
+    color: var(--mox-text, #111827);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.mox-btn--secondary:hover {
+    background: #f3f4f6;
+}
+
 .mox-sev {
     display: inline-flex;
     align-items: center;

@@ -21,6 +21,24 @@ return [
     ],
 
     /*
+     * Agency OpenAI Integration (Settings → Integrations).
+     * Normal operation uses encrypted DB provider credentials (ADR-041).
+     * Env OPENAI_API_KEY is optional bootstrap/fallback only — never shown in UI.
+     * recommendation_model is deployment/application config (not a large model-picker UX).
+     */
+    'openai' => [
+        'api_key' => env('OPENAI_API_KEY'),
+        'base_url' => env('OPENAI_URL', 'https://api.openai.com/v1'),
+        'timeout' => (int) env('OPENAI_TIMEOUT', 20),
+        /*
+         * gpt-5-mini: current OpenAI cost-efficient text model with Structured Outputs
+         * + Responses API support (Laravel AI). Explicit — not UseSmartest/UseCheapest.
+         * Override via OPENAI_RECOMMENDATION_MODEL when needed.
+         */
+        'recommendation_model' => env('OPENAI_RECOMMENDATION_MODEL', 'gpt-5-mini'),
+    ],
+
+    /*
      * Agency DataForSEO Integration (Settings → Integrations).
      * Normal operation uses encrypted DB provider credentials.
      * Env keys are optional bootstrap/fallback only — never shown in UI.
