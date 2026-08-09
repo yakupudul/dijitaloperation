@@ -69,6 +69,8 @@ Blueprint, MASTER_SPEC'i **override edemez**; yalnızca ayrıntılandırır.
 | DataForSEO Integration (agency) | `docs/product/integrations/DATAFORSEO.md` |
 | DataForSEO (Website usage) | `docs/product/website/DATAFORSEO.md` |
 | AI Insights | `docs/product/website/AI_INSIGHTS.md` |
+| AI Control Plane (planned direction) | `docs/product/AI_CONTROL_PLANE.md` (**NOT IMPLEMENTED**) |
+| External intelligence research audit | `docs/research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md` |
 | Google Business Profile | `docs/product/google-business-profile/GOOGLE_BUSINESS_PROFILE.md` |
 | Google Ads | `docs/product/google-ads/GOOGLE_ADS.md` |
 | Meta Ads | `docs/product/meta-ads/META_ADS.md` |
