@@ -1,32 +1,56 @@
-This file is generated/maintained by DOP Autopilot and represents implementation progress, not product requirements.
+This file tracks implementation progress for humans and agents.
+
+> Autopilot historically marked the original 23-step foundation roadmap `ROADMAP_COMPLETE`.
+> That does **not** mean the product is finished. See **Current product track** below.
+> Product requirements remain in `docs/MASTER_SPEC.md` + `docs/product/*`.
 
 # DOP Project Status
 
-Last updated: 2026-08-07T22:14:24Z
+Last updated: 2026-08-09
+
+## Current product track
+
+| Item | Status |
+| --- | --- |
+| Original foundation roadmap (steps 1–23) | COMPLETED (historical) |
+| Google central Integration + bound collection | COMPLETED |
+| Deterministic performance Findings | COMPLETED |
+| Website Workspace Productization / Intelligence V2A | COMPLETED |
+| DataForSEO Central Integration + Cost Guard | COMPLETED |
+| SEO Intelligence DataForSEO Light | COMPLETED |
+| Brand Intelligence Context V1 | COMPLETED |
+| **AI Recommendation Intelligence V1** | **MERGED** — PR [#106](https://github.com/yakupudul/dijitaloperation/pull/106) (`094fe0a`) |
+| **Next: Integrations Workspace V2** | NEXT — card hub / provider Manage UX / health semantics |
+| AI Provider Routing & Failover V1 | PLANNED — `docs/product/AI_CONTROL_PLANE.md` (**NOT IMPLEMENTED**) |
+| Agent Profiles + Skill Library V1 | PLANNED — `docs/product/AI_CONTROL_PLANE.md` (**NOT IMPLEMENTED**) |
+
+### Uncommitted later candidates
+
+Meta Ads read-only intelligence · GBP Reputation Intelligence · GEO/AI Search Intelligence · competitor/domain · backlinks · rank tracking  
+(No fixed dates; value review required.)
+
+External reference registry: `docs/research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md`.
+
+---
+
+## Historical Autopilot snapshot (foundation 1–23)
 
 Overall status:
-ROADMAP_COMPLETE
+FOUNDATION_ROADMAP_COMPLETE
 
-Current roadmap stage: — / 23
+Current foundation stage: — / 23
 
-Current stage: None
+Current stage: None (foundation list complete; post-foundation track active)
 
-Current task: None
+Current task: None (see Current product track)
 
-Current task title:
-
-None
-
-Current automation run:
-https://github.com/yakupudul/dijitaloperation/actions/runs/31223016877
-
-## Progress
+## Progress (foundation)
 
 * Completed stages: 23 / 23
 * In progress stages: —
 * Remaining stages: —
 
-## Roadmap
+## Roadmap (foundation 1–23 — historical checklist)
 
 * [x] 1. Laravel / Filament bootstrap
 * [x] 2. Auth + users / roles / permissions
@@ -52,33 +76,18 @@ https://github.com/yakupudul/dijitaloperation/actions/runs/31223016877
 * [x] 22. Cross-asset / cross-channel analysis
 * [x] 23. Action-oriented agency operations dashboard / first production hardening
 
-## Current activity
+## Recently completed (selected)
 
-Last active task:
-
-* task id: `None`
-* branch: `dop/cleanup-final-integration-pass`
-* PR: #90
-* reviewer verdict: APPROVED
-* retry/recovery state: COMPLETED_AND_CONTINUING
-
-## Recently completed
-
-* `cleanup-final-integration-pass` — PR 90 — `3d33a4d81b67` — 2026-08-07T22:14:21
-* `agency-ops-dashboard-production-hardening` — PR 89 — `e9b21a380c9d` — 2026-08-07T22:06:18
-* `cross-asset-instagram-meta-ads-destination-consistency` — PR 88 — `d8b4b643dd98` — 2026-08-07T21:59:42
-* `cross-asset-website-meta-ads-destination-consistency` — PR 87 — `90fedcc686d2` — 2026-08-07T21:41:47
-* `cross-asset-website-instagram-website-url-consistency` — PR 85 — `d90cb90f2db9` — 2026-08-07T20:39:36
-* `cross-asset-website-google-ads-landing-consistency` — PR 84 — `cb4010dab9a0` — 2026-08-07T20:23:21
-* `agency-ops-dashboard-action-cards` — PR 83 — `f5c4a8d996d3` — 2026-08-07T20:16:51
-* `cross-asset-website-gbp-address-consistency` — PR 82 — `18381eb0035b` — 2026-08-07T20:13:16
-* `cross-asset-website-gbp-phone-consistency` — PR 81 — `b0eae69f9f49` — 2026-08-07T20:09:08
-* `cross-asset-website-gbp-website-url-consistency` — PR 80 — `f42c87946492` — 2026-08-07T20:01:45
+* `ai-recommendation-intelligence-v1` — PR 106 — `094fe0a` — 2026-08-09
+* `brand-intelligence-context-v1` — PR 105 — merged 2026-08-09
+* Earlier foundation Autopilot completions remain in git history (PRs through #90 era).
 
 ## Blockers
 
-None
+None for documentation direction. Live Integrations Workspace V2 / multi-provider AI are separate implementation milestones.
 
 ## Next expected
 
-None
+1. Integrations Workspace V2  
+2. AI Provider Routing & Failover V1  
+3. Agent Profiles + Skill Library V1  

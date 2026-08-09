@@ -9,6 +9,8 @@
 Architect yalnızca buradaki sıradaki **ilk tamamlanmamış** işi seçer ve onu küçük dikey task’lara bölebilir.  
 `ROADMAP_COMPLETE` yalnızca bu canonical liste gerçekten bittiğinde döner.
 
+> **Not (2026-08-09):** Aşağıdaki 1–23 madde **foundation / first product pass** listesidir ve Autopilot tarafından tamamlanmış sayılmıştır. Bu, ürünün “bitti” olduğu anlamına gelmez. Güncel ürün track’i için **Post-foundation product track** bölümüne bakın.
+
 | # | Adım | Product blueprint |
 |---|------|-------------------|
 | 1 | Laravel / Filament bootstrap | — (tamamlandı: Core bootstrap) |
@@ -36,6 +38,36 @@ Architect yalnızca buradaki sıradaki **ilk tamamlanmamış** işi seçer ve on
 | 23 | Action-oriented agency operations dashboard / first production hardening | `docs/product/DASHBOARD.md` |
 
 **Sample Module:** bootstrap smoke test; ayrı ürün fazı değildir.
+
+## Post-foundation product track (current)
+
+Foundation 1–23 tamamlandıktan sonra devam eden **güncel** ürün sırası. Bu liste eski 23 adımı yeniden “açık” saymaz; üzerine ekler.
+
+| Order | Milestone | Status | Notes / specs |
+|------|-----------|--------|----------------|
+| P0 | Google central Integration + bound collection + performance Findings | COMPLETED | ADR-039/040 path |
+| P1 | Website Workspace Productization + Website Intelligence V2A | COMPLETED | Website workspace tabs |
+| P2 | DataForSEO Central Integration + Cost Guard | COMPLETED | `docs/product/integrations/DATAFORSEO.md` |
+| P3 | SEO Intelligence DataForSEO Light | COMPLETED | `docs/product/website/SEO_INTELLIGENCE.md` |
+| P4 | Brand Intelligence Context | COMPLETED | `docs/product/BRAND_INTELLIGENCE.md` |
+| P5 | AI Recommendation Intelligence V1 | **COMPLETED / MERGED** (PR #106, `094fe0a`) | `docs/product/website/AI_INSIGHTS.md`, ADR-041 |
+| **N1** | **Integrations Workspace V2** | **NEXT** | Card hub / provider Manage UX / health semantics / Configure→Test refresh — separate PR track |
+| **N2** | **AI Provider Routing & Failover V1** | PLANNED | `docs/product/AI_CONTROL_PLANE.md` — **NOT IMPLEMENTED** |
+| **N3** | **Agent Profiles + Skill Library V1** | PLANNED | `docs/product/AI_CONTROL_PLANE.md` — **NOT IMPLEMENTED** |
+
+### Later candidates (UNCOMMITTED)
+
+No fixed dates. Review operational value before committing:
+
+- Meta Ads read-only intelligence
+- GBP Reputation Intelligence (official APIs; scraper rejected)
+- GEO / AI Search Intelligence
+- competitor / domain intelligence
+- backlinks
+- rank tracking
+
+External research registry: `docs/research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md`.
+
 
 ## Küçük task bölme
 
