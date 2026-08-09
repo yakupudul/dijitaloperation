@@ -21,6 +21,23 @@ return [
     ],
 
     /*
+     * Agency OpenAI Integration (Settings → Integrations).
+     * Normal operation uses encrypted DB provider credentials (ADR-041).
+     * Env OPENAI_API_KEY is optional bootstrap/fallback only — never shown in UI.
+     * recommendation_model is deployment/application config (not a large model-picker UX).
+     */
+    'openai' => [
+        'api_key' => env('OPENAI_API_KEY'),
+        'base_url' => env('OPENAI_URL', 'https://api.openai.com/v1'),
+        'timeout' => (int) env('OPENAI_TIMEOUT', 20),
+        /*
+         * gpt-4.1-mini: structured-output capable, strong instruction following,
+         * moderate cost, non-deprecated. Explicit — not UseSmartest/UseCheapest.
+         */
+        'recommendation_model' => env('OPENAI_RECOMMENDATION_MODEL', 'gpt-4.1-mini'),
+    ],
+
+    /*
      * Agency DataForSEO Integration (Settings → Integrations).
      * Normal operation uses encrypted DB provider credentials.
      * Env keys are optional bootstrap/fallback only — never shown in UI.

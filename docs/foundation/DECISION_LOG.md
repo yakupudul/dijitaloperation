@@ -308,6 +308,21 @@
   9. **`APP_KEY` and infrastructure secrets stay environment-managed.**
 - **İlgili:** ADR-027, ADR-039; `docs/product/GOOGLE_INTEGRATION_SETUP.md`; Settings → Integrations → Google
 
+## ADR-041 — OpenAI agency Integration credentials (supersedes ADR-030 key management only)
+
+- **Durum:** Accepted
+- **Tarih:** 2026-08-09
+- **Bağlam:** ADR-030 AI API key’i environment-only yönetmeyi söylemişti. ADR-039 OpenAI’yi agency Integration provider olarak tanımladı; ADR-040 Admin-managed provider credentials + DB → env fallback’i kurdu. Bu çelişki production AI kullanımından önce çözülmelidir.
+- **Karar:**
+  1. **ADR-030’un yalnızca OpenAI/API-key yönetim cümlesi supersede edilir.** ADR-030’un geri kalanı korunur: `laravel/ai` kullanılır; provider abstraction; MCP yok; vector DB yok; multi-agent orchestration yok.
+  2. **OpenAI API key resolution (canonical):** (1) encrypted Integration provider credential (`core_integration_credentials`, `credential_type = provider`), (2) optional env/config fallback (`OPENAI_API_KEY` / `moxdop.openai.api_key`), (3) missing.
+  3. Settings → Integrations → OpenAI is the Admin UX (Configure / Test connection / Remove). No per-Brand or per-Website keys. No generic Credentials JSON for OpenAI secrets.
+  4. Secret rules: encrypted at rest; write-only; blank edit preserves; explicit clear/remove only; never HTML/Livewire plaintext/logs/exceptions/Run metadata/Evidence/prompt/fingerprint.
+  5. **`APP_KEY` and infrastructure config remain environment-managed.**
+  6. Test connection uses a non-generative authentication check (OpenAI models list). Generation requests set OpenAI `store = false` where supported.
+  7. Website AI recommendation intelligence is advisory: grounded structured interpretation → draft → human acceptance → Recommendation → manual Task. No AI Finding creation, no automatic Task, no tools/MCP/web search.
+- **İlgili:** ADR-023, ADR-030 (partial supersede), ADR-039, ADR-040; `MASTER_SPEC.md` §11; `docs/product/website/AI_INSIGHTS.md`; Settings → Integrations → OpenAI
+
 ---
 
 ## Karar indeksi
@@ -343,7 +358,7 @@
 | ADR-027 | Connection/credential | Accepted |
 | ADR-028 | Eski analysis alanları | Superseded → 034 |
 | ADR-029 | Task snapshot | Accepted |
-| ADR-030 | laravel/ai + env key | Accepted |
+| ADR-030 | laravel/ai + env key | Accepted (key mgmt superseded by ADR-041) |
 | ADR-031 | Diagnosis catalog kapısı | Accepted |
 | ADR-032 | app-modules + internachi/modular | Accepted |
 | ADR-033 | Framework’ü tekrar yazma | Accepted |
@@ -354,6 +369,7 @@
 | ADR-038 | PHPUnit test standardı | Accepted |
 | ADR-039 | Central Agency Integration / External Resource / Binding | Accepted |
 | ADR-040 | Integration provider vs authorization credentials | Accepted |
+| ADR-041 | OpenAI agency Integration credentials | Accepted |
 
 ## Süpercede edilen kararlar
 
@@ -369,3 +385,4 @@
 | ADR-020 | ADR-037 |
 | ADR-028 | ADR-034 |
 | ADR-021 (Pest satırı) | ADR-038 |
+| ADR-030 (AI API key panelden yönetilmez / env-only) | ADR-041 |

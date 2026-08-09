@@ -125,13 +125,21 @@ return [
             'url' => env('OLLAMA_URL', 'http://localhost:11434'),
         ],
 
-        // ADR-030: AI provider keys are environment-managed only (no Filament panel key UI).
-        // Set OPENAI_API_KEY in the runtime environment; product PRs must not touch .env.example (secret-path gate).
+        // ADR-041: OpenAI API key is agency Integration–managed (DB → env fallback).
+        // Runtime key is prepared by OpenAiRuntimeConfig before generation.
+        // store=false: do not persist customer/brand context at OpenAI for this workflow.
+        // Product PRs must not touch .env.example (secret-path gate).
         'openai' => [
             'driver' => 'openai',
             'key' => env('OPENAI_API_KEY'),
             'url' => env('OPENAI_URL', 'https://api.openai.com/v1'),
-            'store' => env('OPENAI_STORE', true),
+            'store' => false,
+            'models' => [
+                'text' => [
+                    // Explicit default — not UseSmartestModel / UseCheapestModel.
+                    'default' => env('OPENAI_RECOMMENDATION_MODEL', env('OPENAI_MODEL', 'gpt-4.1-mini')),
+                ],
+            ],
         ],
 
         'openai-compatible' => [

@@ -92,6 +92,19 @@ Canonical product docs: `docs/product/integrations/DATAFORSEO.md`, `docs/product
 
 Website SEO Intelligence Light V1 uses agency Integration + Website Search market config. No fake ExternalResources/AssetBindings for DataForSEO. No backlink/OnPage/SERP Live collectors.
 
+## OpenAI Integration
+
+Settings → Integrations → OpenAI is the **agency** OpenAI workspace (ADR-041):
+
+* **Configure** API Key (encrypted provider credential; write-only; blank preserves; clear/remove explicit)
+* **Test connection** via non-generative `GET /v1/models` (no completion tokens)
+* Status / Stored securely / Last checked / Last successful connection / Last issue
+* Resolution: DB provider credential → env/config fallback → missing
+* Runtime prepares `laravel/ai` with resolved key and `store = false`
+* Explicit recommendation model via `moxdop.openai.recommendation_model` (default `gpt-4.1-mini`)
+
+Canonical product docs: `docs/product/website/AI_INSIGHTS.md`.
+
 ## Probe / connector services (legacy)
 
 Existing read-only probe services under `app/Services/*ConnectionProbeService.php` remain for transitional `CoreConnection` rows. New Google collection does **not** use CoreConnection credentials. Site connections UI no longer offers new Google / Meta / DataForSEO provider types (WordPress remains).
@@ -100,4 +113,4 @@ Existing read-only probe services under `app/Services/*ConnectionProbeService.ph
 
 ## Sonuç
 
-Central Integration Architecture + Google authenticate/discover/catalog/bind + Binding-based live collection + DataForSEO agency credentials/test/cost-guard + Website SEO Intelligence Light V1 + Brand Intelligence Context V1 (operator-owned factual Brand context; no AI) mevcuttur. Rank tracking / backlinks / competitor fetching / AI Recommendations are not included.
+Central Integration Architecture + Google authenticate/discover/catalog/bind + Binding-based live collection + DataForSEO agency credentials/test/cost-guard + Website SEO Intelligence Light V1 + Brand Intelligence Context V1 + OpenAI agency Integration + Website AI Recommendation Intelligence V1 (grounded advisory drafts + human acceptance) mevcuttur. Rank tracking / backlinks / competitor fetching / cross-channel AI are not included.

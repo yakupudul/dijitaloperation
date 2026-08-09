@@ -14,6 +14,8 @@ use App\Models\Run;
 use App\Support\Integrations\ProviderRegistry;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
+use MoxDop\Website\Ai\WebsiteAiRecommendationConfig;
+use MoxDop\Website\Ai\WebsiteAiRecommendationService;
 use MoxDop\Website\Opportunities\GscStrikingDistanceOpportunities;
 use MoxDop\Website\SeoIntelligence\CrossSourceKeywordOpportunities;
 use MoxDop\Website\SeoIntelligence\DataForSeoIntegrationResolver;
@@ -116,10 +118,91 @@ final class WebsiteWorkspaceData
             ],
             'recommendations' => $recommendations,
             'diagnosis' => $this->diagnosisSummary($diagnosisRun),
+            'ai_guidance' => $this->aiGuidance($asset),
             'connections' => $connections,
             'connection_health' => $this->connectionHealthLine($connections),
             'activity' => $this->activityRows($asset),
             'has_performance_data' => $gscSummary !== null || $ga4Summary !== null,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function aiGuidance(DigitalAsset $asset): array
+    {
+        $service = app(WebsiteAiRecommendationService::class);
+        $insight = $service->latestSuccessfulInsight($asset);
+        $failed = $service->latestFailedInsight($asset);
+
+        if ($insight === null && $failed === null) {
+            return [
+                'available' => false,
+                'insight' => null,
+                'failed' => null,
+            ];
+        }
+
+        $payload = is_array($insight?->payload) ? $insight->payload : [];
+        $failedPayload = is_array($failed?->payload) ? $failed->payload : [];
+        $showFailure = $failed !== null && ($insight === null || $failed->id > $insight->id);
+
+        $interpretations = [];
+        foreach ($payload['finding_interpretations'] ?? [] as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $findingId = (int) ($row['finding_id'] ?? 0);
+            $finding = $findingId > 0
+                ? Finding::query()->where('digital_asset_id', $asset->id)->find($findingId)
+                : null;
+
+            $existingAiRec = Recommendation::query()
+                ->where('digital_asset_id', $asset->id)
+                ->where('finding_id', $findingId)
+                ->where('source_module', WebsiteAiRecommendationConfig::MODULE_ID)
+                ->orderByDesc('id')
+                ->first();
+
+            $interpretations[] = [
+                'finding_id' => $findingId,
+                'finding_title' => $finding?->title ?? ('Finding #'.$findingId),
+                'severity' => $finding?->severity ?? ($row['suggested_priority'] ?? 'medium'),
+                'explanation' => (string) ($row['explanation'] ?? $row['likely_cause'] ?? ''),
+                'business_relevance' => (string) ($row['business_relevance'] ?? $row['business_impact'] ?? ''),
+                'uncertainty' => (string) ($row['uncertainty'] ?? 'medium'),
+                'suggested_priority' => (string) ($row['suggested_priority'] ?? 'medium'),
+                'evidence_ids' => array_values(array_map('intval', $row['evidence_ids'] ?? [])),
+                'watch_metrics' => is_array($row['watch_metrics'] ?? null) ? $row['watch_metrics'] : [],
+                'recommendation_draft' => is_array($row['recommendation_draft'] ?? null)
+                    ? $row['recommendation_draft']
+                    : null,
+                'existing_recommendation' => $existingAiRec,
+                'can_accept' => $existingAiRec === null
+                    || ! in_array($existingAiRec->status, ['dismissed', 'converted'], true),
+            ];
+        }
+
+        $completeness = is_array($payload['brand_completeness'] ?? null)
+            ? $payload['brand_completeness']
+            : null;
+
+        return [
+            'available' => $insight !== null,
+            'generated_at' => $insight?->observed_at,
+            'generated_human' => $insight?->observed_at?->diffForHumans(),
+            'executive_summary' => (string) ($payload['executive_summary'] ?? $payload['summary'] ?? ''),
+            'overall_priority' => (string) ($payload['overall_priority'] ?? ''),
+            'finding_count' => count($payload['finding_ids'] ?? []),
+            'evidence_count' => count($payload['evidence_ids'] ?? []),
+            'brand_completeness' => $completeness,
+            'interpretations' => $interpretations,
+            'failed' => $showFailure ? [
+                'at' => $failed?->observed_at,
+                'error_class' => (string) ($failedPayload['error_class'] ?? 'unknown'),
+                'message' => 'Latest AI request failed. Previous successful guidance is shown when available.',
+            ] : null,
+            'insight_id' => $insight?->id,
         ];
     }
 
@@ -295,6 +378,7 @@ final class WebsiteWorkspaceData
         $capability = data_get($run->metadata, 'capability');
 
         return match (true) {
+            $run->module_id === WebsiteAiRecommendationConfig::MODULE_ID => WebsiteAiRecommendationConfig::RUN_TITLE,
             $run->module_id === 'website-diagnosis' => 'Website technical check',
             $capability === 'search_console' => 'Search Console data refresh',
             $capability === 'ga4' => 'GA4 data refresh',
@@ -627,6 +711,18 @@ final class WebsiteWorkspaceData
                         $marketLabel,
                         $cacheLabel,
                         $costLabel,
+                    ]));
+                }
+
+                if ($run->module_id === WebsiteAiRecommendationConfig::MODULE_ID) {
+                    $findingCount = count(data_get($run->metadata, 'finding_ids', []) ?: []);
+                    $model = data_get($run->metadata, 'model');
+                    $tokens = data_get($run->metadata, 'usage.total_tokens');
+                    $source = implode(' · ', array_filter([
+                        'OpenAI',
+                        $findingCount > 0 ? $findingCount.' Findings' : null,
+                        is_string($model) && $model !== '' ? $model : null,
+                        is_numeric($tokens) ? $tokens.' tokens' : null,
                     ]));
                 }
 

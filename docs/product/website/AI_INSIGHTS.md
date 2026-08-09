@@ -1,52 +1,98 @@
-# Website AI Insights
+# Website AI Insights (AI Recommendation Intelligence V1)
 
 ## Purpose
 
-Normalize Evidence + Findings (+ relevant history) üzerinden yorum ve eylem taslağı üretmek.
+Turn factual Brand context + normalized Evidence + deterministic Findings (+ existing deterministic Recommendations) into **one grounded AI interpretation** and **recommendation drafts** for human acceptance.
 
 ## User value
 
-Ajans kanıtı anlaşılır öncelikli öneriye çevirir.
+Operators get business-aware, evidence-bound guidance without treating AI as source truth or an autonomous agent.
+
+## Pipeline
+
+```
+Evidence
++ Finding
++ deterministic Recommendation
++ Brand Intelligence Context
+→ AI interpretation (structured)
+→ recommendation draft
+→ human acceptance
+→ Recommendation
+→ manual Recommendation → Task
+```
 
 ## Core concepts
 
-AI yardımcı katmandır; kanıtın yerine geçmez.  
-Pipeline: Evidence + Findings + history → interpretation.  
-Stack: `laravel/ai` (ADR-030). MVP: no MCP, no vector DB, no multi-agent product orchestration.
+* AI is **derived interpretation** (`derived = true`, `generated_by_ai = true`), not provider/source Evidence.
+* Deterministic detection (Findings) remains authoritative.
+* AI must not create Findings, resolve Findings, overwrite deterministic Recommendations, or create Tasks.
+* Previous `ai_insight` Evidence is excluded from grounding inputs by default (no recursive AI-as-fact loops).
+* Stack: `laravel/ai` (ADR-030 / ADR-041). No MCP, vector DB, embeddings/RAG, tools, web search, or multi-agent orchestration.
 
-## MVP behavior
+## Input contract
 
-AI may: summarize, relate findings, explain likely causes grounded in evidence, business impact, suggest priority, draft clear work, draft Recommendation/Task text.  
-AI must not: external write, claim without evidence, invent data, auto-stop campaigns, edit WordPress, Ads write. Assignee/due date uydurma.
+Bounded snapshot only — never arbitrary DB dumps:
 
-## Important data / attributes
+* Brand Intelligence Snapshot via `BrandContextProvider` (unknown fields absent/null; no inference)
+* Digital Asset identity
+* Selected active Findings (`open` / `acknowledged`, severity-ordered, capped)
+* Normalized supporting Evidence (redacted; secrets/raw HTML/body omitted)
+* Existing deterministic Recommendations as trusted baseline
 
-Model/provider via env/config; prompt inputs = normalized evidence ids/finding ids.
+## Output contract
 
-## Relationships
+Laravel AI **structured output** (prompt/schema version `website-ai-recommendation-v1`):
 
-Findings/Evidence → AI → Recommendation drafts → human Task.
+* executive_summary, overall_priority, context_observations
+* finding_interpretations with `finding_id`, `evidence_ids`, uncertainty, recommendation_draft, watch signals
 
-## Main screens / workflows
+Server-side grounding rejects unknown `finding_id` / `evidence_id`.
 
-Request AI insight on finding set; accept/edit recommendation; create task manually.
+## Human acceptance
 
-## Rules / invariants
+AI drafts live in insight provenance until an operator chooses **Create recommendation**.
 
-Deterministic layer first when possible. MASTER_SPEC AI limits hold.
+* `source_module = website-ai-insights`
+* Never overwrite another module’s deterministic Recommendation
+* Terminal AI recommendation states (`dismissed` / `converted`) are preserved
+* Task creation remains the existing manual Recommendation → Task flow
 
-## Derived information
+## OpenAI Integration
 
-Priority suggestions are advisory.
+Settings → Integrations → OpenAI (ADR-041):
 
-## Later enhancements
+* Agency API key (encrypted, write-only, DB → env fallback)
+* Test connection via non-generative models list
+* Generation uses explicit configurable model (`moxdop.openai.recommendation_model`, default `gpt-4.1-mini`)
+* OpenAI request persistence disabled (`store = false`)
 
-Domain skills packs as future evolution (instruction/capability packages).
+## Cost / duplicate protection
+
+Stable input fingerprint (prompt/schema version + model + Brand context + Findings + Evidence + deterministic Recommendation state). Identical successful insight → reuse (“AI analysis is already current”) with **no second model call**.
+
+## Trigger
+
+Manual only from Website workspace (**Generate AI guidance**). Never auto-called after Refresh, new Finding, DataForSEO refresh, or page render.
+
+## UX
+
+Website → Health: AI Guidance section (secondary to deterministic Health). Badge **AI-generated**. Recommendation origin: Deterministic vs AI-assisted.
+
+Activity title: **AI recommendation analysis** (token usage when available; no invented USD cost).
+
+## Failure behavior
+
+Failed AI request must not alter Findings, resolve Findings, overwrite deterministic Recommendations, delete previous successful insight, or create Tasks. Show latest failure separately.
+
+## Human live acceptance
+
+Automated suite uses `laravel/ai` fakes (**0 real OpenAI calls**). Real OpenAI UAT is performed separately in the operator environment.
 
 ## Explicit non-goals
 
-Autonomous remediation; MCP/vector/multi-agent MVP.
+Multi-agent, MCP, vector DB, embeddings/RAG, AI web search, arbitrary chat/prompt UI, AI Finding creation, automatic Finding severity/status changes, automatic Task, auto AI after Refresh, cross-channel AI, Google Ads/Meta AI, scheduler, content generation, autonomous remediation.
 
-## Acceptance intent
+## Module boundary note
 
-AI only explains/acts on evidence; never writes externally.
+Website-specific orchestration lives under `app-modules/website/src/Ai/`. Core keeps OpenAI Integration infrastructure + a thin `WebsiteAiInsightService` facade for compatibility. Remaining debt: legacy Core agent class alias and any older call sites still referencing Core-only AI helpers.

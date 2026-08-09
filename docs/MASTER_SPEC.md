@@ -280,7 +280,7 @@ Sonraki digital asset modülleri: Google Business Profile, Google Ads, Meta Ads,
 Website Diagnosis; GA4, Search Console veya DataForSEO bağlı **olmadan** temel seviyede çalışabilmelidir.  
 Bağlantılar eklendikçe teşhis kapsamı ve güven seviyesi artmalıdır.
 
-## 11. AI sınırı (ADR-023, ADR-030)
+## 11. AI sınırı (ADR-023, ADR-030, ADR-041)
 
 AI doğrudan kontrolsüz ham veri üzerinde çalışmaz.
 
@@ -289,11 +289,12 @@ AI doğrudan kontrolsüz ham veri üzerinde çalışmaz.
 Sonra AI: bulguları açıklar → ilişkileri yorumlar → muhtemel neden → öncelik önerir → Recommendation/Task **taslağı** üretebilir.
 
 * Laravel resmi **`laravel/ai`** SDK kullanılır  
-* Mimari tek AI sağlayıcısına kilitli değildir; provider/model **config/environment** ile değişir  
-* İlk test provider’ı OpenAI olabilir  
-* MVP’de AI API key **panelden yönetilmez**; environment variable kullanılır  
+* Mimari tek AI sağlayıcısına kilitli değildir; provider/model **config** ile değişir  
+* İlk / V1 provider OpenAI (agency Integration)  
+* **OpenAI API key** (ADR-041; supersedes ADR-030 env-only key rule): encrypted Integration provider credential → optional env/config fallback → missing. `APP_KEY` / infrastructure env kalır.  
 * AI veri uydurmaz; kanıtsız kesin hüküm vermez  
-* MCP, vector DB, multi-agent orchestration MVP dışında  
+* AI Finding oluşturmaz; deterministic Recommendation’ı sessizce ezmez; Task otomatik açılmaz  
+* MCP, vector DB, multi-agent orchestration, tools/web search MVP dışında  
 
 ## 12. Teknoloji yığını (başlangıç kararı)
 
