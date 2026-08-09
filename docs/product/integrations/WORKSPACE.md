@@ -93,3 +93,13 @@ After Configure saves, the workspace must refresh Integration + credential state
 - `IntegrationWorkspaceCatalog` — hub assembly + bootstrap
 
 `ProviderRegistry` remains canonical provider identity.
+
+## Next milestone (out of scope here)
+
+Future AI providers (Anthropic, Gemini, OpenRouter, …), route-specific primary/fallback, and failover belong to:
+
+**AI PROVIDER ROUTING & FAILOVER V1** — see [`docs/product/AI_CONTROL_PLANE.md`](../AI_CONTROL_PLANE.md)  
+(**PLANNED / NOT IMPLEMENTED** in this workspace milestone.)
+
+Do not show fake Set up cards for providers that are not operator-ready yet.
+

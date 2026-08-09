@@ -19,6 +19,8 @@ Meta remains in `ProviderRegistry` but is not shown until an operator-ready work
 
 Index rendering never calls Google / DataForSEO / OpenAI.
 
+Future AI providers / routing / failover are **out of scope** for this workspace UX and belong to **AI PROVIDER ROUTING & FAILOVER V1** (`docs/product/AI_CONTROL_PLANE.md`, **NOT IMPLEMENTED**).
+
 ## Mimari
 
 MoxDOP SaaS değildir. Provider authentication **agency-owned / shared**’dir.
