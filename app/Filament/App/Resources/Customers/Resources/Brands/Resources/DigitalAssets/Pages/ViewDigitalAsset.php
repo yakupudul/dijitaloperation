@@ -41,6 +41,7 @@ use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Support\Htmlable;
+use MoxDop\Website\SeoIntelligence\SeoIntelligenceRefreshService;
 use MoxDop\Website\Workspace\WebsiteWorkspaceData;
 
 class ViewDigitalAsset extends ViewRecord
@@ -105,6 +106,60 @@ class ViewDigitalAsset extends ViewRecord
                         ->send();
 
                     // Stay on the Website workspace — do not redirect to a Run.
+                }),
+            Action::make('refreshSeoIntelligence')
+                ->label('Refresh SEO intelligence')
+                ->icon(Heroicon::OutlinedChartBar)
+                ->color('gray')
+                ->visible(fn (): bool => $this->isWebsiteWorkspace())
+                ->requiresConfirmation()
+                ->modalHeading('Refresh SEO intelligence?')
+                ->modalDescription(function (): string {
+                    /** @var DigitalAsset $asset */
+                    $asset = $this->getRecord();
+                    $preview = app(SeoIntelligenceRefreshService::class)->preview($asset);
+
+                    if (($preview['blocked_reason'] ?? null) !== null) {
+                        return (string) $preview['message'];
+                    }
+
+                    if (($preview['both_fresh'] ?? false) === true) {
+                        return 'SEO intelligence is already up to date. Fresh DataForSEO results will be reused. No provider request will be made.';
+                    }
+
+                    return 'MoxDOP will refresh external keyword intelligence from DataForSEO. Fresh results are reused automatically; new provider requests may consume DataForSEO credits.';
+                })
+                ->modalSubmitActionLabel('Refresh')
+                ->action(function (SeoIntelligenceRefreshService $service): void {
+                    /** @var DigitalAsset $asset */
+                    $asset = $this->getRecord();
+                    $result = $service->refresh($asset);
+
+                    if (($result['blocked_reason'] ?? null) !== null) {
+                        Notification::make()
+                            ->title('SEO intelligence not ready')
+                            ->body($result['message'])
+                            ->warning()
+                            ->send();
+
+                        return;
+                    }
+
+                    if (($result['both_fresh'] ?? false) === true && (int) ($result['provider_calls'] ?? 0) === 0) {
+                        Notification::make()
+                            ->title('SEO intelligence already fresh')
+                            ->body('0 provider requests · $0 additional provider cost')
+                            ->success()
+                            ->send();
+
+                        return;
+                    }
+
+                    Notification::make()
+                        ->title($result['ok'] ? 'SEO intelligence updated' : 'SEO intelligence refresh incomplete')
+                        ->body($result['message'])
+                        ->{$result['ok'] ? 'success' : 'warning'}()
+                        ->send();
                 }),
             Action::make('collectLiveData')
                 ->label('Collect live data')

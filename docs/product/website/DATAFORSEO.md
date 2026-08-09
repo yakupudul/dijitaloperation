@@ -2,62 +2,48 @@
 
 ## Purpose
 
-Future Website SEO evidence (SERP/keyword/backlink/etc.) powered by the **agency** DataForSEO Integration — not per-site credentials.
+Website SEO evidence powered by the **agency** DataForSEO Integration — not per-site credentials.
 
 ## Canonical credentials
 
 See `docs/product/integrations/DATAFORSEO.md`.
 
-Website collectors must resolve:
+Website collectors resolve:
 
 ```
 DigitalAsset (website)
 + active DataForSEO Integration
-+ Website-specific request configuration
++ Website SEO market configuration
 ```
 
 Do **not** create `Website → CoreConnection → DataForSEO username/password` for normal new operation.
 
+## Current product use (Light V1)
+
+See `docs/product/website/SEO_INTELLIGENCE.md`.
+
+- Ranked Keywords (organic)
+- Keywords For Site opportunities
+- Free Labs locations/languages directory for Search market UX
+- Cost guard: fingerprint + TTL + paid-request lock
+
 ## User value
 
-Görünürlük ve içerik boşluğu fırsatları ekonomik biçimde Findings'e girer.
+External keyword visibility and opportunity intelligence appear in Website → Performance (Organic Visibility), without turning MoxDOP into a full SEO suite.
 
 ## Core concepts
 
-Possible capabilities: SERP, keywords, competitors, backlinks, SERP features, content gaps, local results, brand visibility, supported AI/search visibility. Yüzlerce endpoint ≠ hepsini entegre et.
-
-## MVP behavior
-
-Önce diagnosis/use-case catalog; sonra gereken endpoint. Maliyet farkındalığı; gereksiz çağrı yok.
-
-Paid calls must use:
-
-* allowlisted DataForSEO client methods
-* request fingerprint
-* capability-specific Evidence TTL (`fresh_until`)
-* Run cost/provenance metadata
-
-## Important data / attributes
-
-Request provenance, cost-aware run metadata, normalized evidence, request fingerprint.
-
-## Relationships
-
-Agency DataForSEO Integration → shared client → Website collectors → Run/Evidence/Findings.
-
-## Main screens / workflows
-
-Provider config: Settings → Integrations → DataForSEO.  
-Website product collectors: later SEO Intelligence milestones.
+Paid allowlisted endpoints only. Normalized Evidence on Core Run/Evidence. Market-specific requests. Estimated metrics clearly labeled.
 
 ## Rules / invariants
 
-No write. No endpoint tourism. Catalog/use-case first. No blind paid POST retries.
+- No write actions
+- No endpoint tourism
+- No paid calls from page render
+- No DataForSEO in generic Refresh data
+- No credentials in fingerprints / Runs / Evidence / UI
+- Server constructs approved requests only
 
 ## Explicit non-goals
 
-Integrating every DataForSEO endpoint. Per-site DataForSEO credential JSON as normal UX.
-
-## Acceptance intent
-
-Yalnızca teşhis için gerekli DataForSEO verisi çekilir — after the agency Integration + cost-guard foundation.
+Rank tracking, backlinks, competitors, OnPage, SERP Live, AI/GEO, per-site DataForSEO credentials as normal UX.

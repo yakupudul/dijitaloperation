@@ -78,11 +78,16 @@ Provider-agnostic Evidence freshness:
 
 Only known endpoint identifiers are callable through the shared client.
 
-This milestone allowlists:
+Allowlisted:
 
-- `appendix/user_data`
+- `appendix/user_data` (free Test connection)
+- `dataforseo_labs/locations_and_languages` (free market directory)
+- `dataforseo_labs/google/ranked_keywords/live` (paid — Website SEO Intelligence)
+- `dataforseo_labs/google/keywords_for_site/live` (paid — Website SEO Intelligence)
 
-No raw API console. No keyword / SERP / backlink / OnPage product calls yet.
+No raw API console. No backlink / OnPage / SERP Live / competitor product calls.
+
+Website product collectors: `docs/product/website/SEO_INTELLIGENCE.md`.
 
 ## Legacy debt
 
@@ -96,6 +101,6 @@ Website Connections UI does not offer new `dataforseo` connection creation (`cre
 - Real Test connection (free `user_data` only) may be performed by a human operator with real credentials
 - Tests must never spend DataForSEO credits or commit credentials
 
-## Explicit non-goals (this milestone)
+## Explicit non-goals
 
-Keyword research, rank tracking, backlinks, competitor intelligence, OnPage crawling, AI/GEO, scheduler-driven paid calls, customer billing, per-site credentials.
+Full keyword research suite, rank tracking over time, backlinks, competitor intelligence, OnPage crawling, AI/GEO, scheduler-driven paid calls, customer billing, per-site credentials, force-paid prominent UI.

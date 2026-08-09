@@ -21,6 +21,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'cms',
     'languages',
     'target_countries',
+    'seo_market_location_code',
+    'seo_market_location_name',
+    'seo_market_language_code',
+    'seo_market_language_name',
     'site_type',
     'hosting_context',
 ])]
@@ -88,6 +92,13 @@ class DigitalAsset extends Model
             'status' => DigitalAssetStatus::class,
             'languages' => 'array',
             'target_countries' => 'array',
+            'seo_market_location_code' => 'integer',
         ];
+    }
+
+    public function hasSeoMarketConfigured(): bool
+    {
+        return $this->seo_market_location_code !== null
+            && filled($this->seo_market_language_code);
     }
 }

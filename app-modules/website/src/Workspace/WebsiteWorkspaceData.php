@@ -15,6 +15,9 @@ use App\Support\Integrations\ProviderRegistry;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 use MoxDop\Website\Opportunities\GscStrikingDistanceOpportunities;
+use MoxDop\Website\SeoIntelligence\CrossSourceKeywordOpportunities;
+use MoxDop\Website\SeoIntelligence\DataForSeoIntegrationResolver;
+use MoxDop\Website\SeoIntelligence\SeoIntelligenceConfig;
 
 /**
  * Website-module presenter: turns latest valid Evidence into workspace view-models.
@@ -72,6 +75,7 @@ final class WebsiteWorkspaceData
 
         $connections = $this->connectionCards($asset);
         $seoOpportunities = app(GscStrikingDistanceOpportunities::class)->for($asset);
+        $seoIntelligence = $this->seoIntelligence($asset);
         $healthGroups = $this->healthFindingGroups($findings->where('status', 'open')->values());
 
         return [
@@ -95,6 +99,7 @@ final class WebsiteWorkspaceData
             'ga4_summary' => $ga4Summary?->payload,
             'gsc_summary' => $gscSummary?->payload,
             'seo_opportunities' => $seoOpportunities,
+            'seo_intelligence' => $seoIntelligence,
             'findings' => [
                 'open' => $findings->where('status', 'open')->values(),
                 'acknowledged' => $findings->where('status', 'acknowledged')->values(),
@@ -293,6 +298,8 @@ final class WebsiteWorkspaceData
             $run->module_id === 'website-diagnosis' => 'Website technical check',
             $capability === 'search_console' => 'Search Console data refresh',
             $capability === 'ga4' => 'GA4 data refresh',
+            $capability === SeoIntelligenceConfig::CAPABILITY_RANKED => 'SEO keyword visibility refresh',
+            $capability === SeoIntelligenceConfig::CAPABILITY_KEYWORDS_FOR_SITE => 'Keyword opportunities refresh',
             $run->module_id === 'website' => 'Website data refresh',
             default => ProviderRegistry::capabilityLabel((string) ($capability ?: $run->module_id)),
         };
@@ -584,17 +591,255 @@ final class WebsiteWorkspaceData
                     ? $started->diffForHumans($finished, true)
                     : null;
 
+                $provider = data_get($run->metadata, 'provider');
+                $market = data_get($run->metadata, 'market');
+                $cacheStatus = data_get($run->metadata, 'cache_status');
+                $cost = data_get($run->metadata, 'reported_cost_usd');
+                $providerCalls = data_get($run->metadata, 'provider_calls');
+
+                $source = data_get($run->metadata, 'resource_display_name')
+                    ?: data_get($run->metadata, 'capability')
+                    ?: 'Website';
+
+                if ($provider === ProviderRegistry::DATAFORSEO) {
+                    $marketLabel = null;
+                    if (is_array($market)) {
+                        $parts = array_filter([
+                            $market['location_name'] ?? null,
+                            $market['language_name'] ?? null,
+                        ]);
+                        $marketLabel = $parts !== [] ? implode(' · ', $parts) : null;
+                    }
+                    $cacheLabel = match ($cacheStatus) {
+                        'HIT_FRESH' => 'Fresh data reused',
+                        'MISS' => 'Provider refresh',
+                        default => null,
+                    };
+                    $costLabel = null;
+                    if (is_numeric($providerCalls) && (int) $providerCalls > 0 && is_numeric($cost)) {
+                        $costLabel = '$'.number_format((float) $cost, 4);
+                    } elseif ($cacheStatus === 'HIT_FRESH') {
+                        $costLabel = '$0';
+                    }
+
+                    $source = implode(' · ', array_filter([
+                        'DataForSEO',
+                        $marketLabel,
+                        $cacheLabel,
+                        $costLabel,
+                    ]));
+                }
+
                 return [
                     'id' => $run->id,
                     'title' => $this->runTitle($run),
                     'status' => $run->status,
                     'started_at' => $started,
                     'duration' => $duration,
-                    'source' => data_get($run->metadata, 'resource_display_name')
-                        ?: data_get($run->metadata, 'capability')
-                        ?: 'Website',
+                    'source' => $source,
+                    'provider' => $provider,
+                    'cache_status' => $cacheStatus,
+                    'reported_cost_usd' => is_numeric($cost) ? (float) $cost : null,
                 ];
             })
             ->all();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function seoIntelligence(DigitalAsset $asset): array
+    {
+        $integrationStatus = app(DataForSeoIntegrationResolver::class)->status();
+        $summary = $this->latestEvidence($asset, SeoIntelligenceConfig::EVIDENCE_RANKED_SUMMARY);
+        $rowsEvidence = $this->latestEvidence($asset, SeoIntelligenceConfig::EVIDENCE_RANKED_ROWS);
+        $opportunities = app(CrossSourceKeywordOpportunities::class)->for($asset);
+
+        $state = 'ready';
+        $stateMessage = null;
+
+        if (! $integrationStatus['configured']) {
+            $state = 'dataforseo_not_configured';
+            $stateMessage = 'Connect DataForSEO in Settings → Integrations to enable market-wide keyword visibility.';
+        } elseif (! $asset->hasSeoMarketConfigured()) {
+            $state = 'seo_market_not_configured';
+            $stateMessage = 'Choose the Website\'s SEO market and language before running external keyword analysis.';
+        } elseif ($summary === null && $rowsEvidence === null) {
+            $state = 'no_data';
+            $stateMessage = 'No external SEO intelligence yet. Use Refresh SEO intelligence when you are ready to query DataForSEO.';
+        }
+
+        $payload = is_array($summary?->payload) ? $summary->payload : [];
+        $distribution = is_array($payload['organic_distribution'] ?? null) ? $payload['organic_distribution'] : [];
+        $rankedRows = $this->presentRankedRows($rowsEvidence);
+
+        $kpis = [];
+        if ($summary !== null) {
+            $kpis = array_values(array_filter([
+                [
+                    'label' => 'Ranked keywords',
+                    'value' => $this->formatCompactInt($payload['total_count'] ?? $distribution['count'] ?? null),
+                    'source' => 'dataforseo',
+                    'note' => 'External keyword database',
+                ],
+                [
+                    'label' => 'Top 10 rankings',
+                    'value' => $this->formatCompactInt($distribution['top_10'] ?? null),
+                    'source' => 'dataforseo',
+                    'note' => 'Organic position band',
+                ],
+                [
+                    'label' => 'Top 20 rankings',
+                    'value' => $this->formatCompactInt($distribution['top_20'] ?? null),
+                    'source' => 'dataforseo',
+                    'note' => 'Organic position band',
+                ],
+                [
+                    'label' => 'Estimated organic traffic',
+                    'value' => $this->formatCompactNumber($payload['estimated_organic_traffic'] ?? null),
+                    'source' => 'dataforseo_estimate',
+                    'note' => 'DataForSEO estimate — not GA4 measured traffic',
+                ],
+                [
+                    'label' => 'Estimated traffic value',
+                    'value' => isset($payload['estimated_traffic_value']) && is_numeric($payload['estimated_traffic_value'])
+                        ? '$'.number_format((float) $payload['estimated_traffic_value'], 0)
+                        : '—',
+                    'source' => 'dataforseo_estimate',
+                    'note' => 'DataForSEO estimate — not GA4 revenue',
+                ],
+            ], static fn (array $kpi): bool => ($kpi['value'] ?? '—') !== '—'));
+        }
+
+        $market = $asset->hasSeoMarketConfigured()
+            ? [
+                'location_name' => $asset->seo_market_location_name,
+                'language_name' => $asset->seo_market_language_name,
+                'label' => trim(($asset->seo_market_location_name ?: '').' · '.($asset->seo_market_language_name ?: ''), ' ·'),
+            ]
+            : null;
+
+        $noResults = $summary !== null
+            && (int) ($payload['total_count'] ?? $payload['items_count'] ?? 0) === 0
+            && $rankedRows === [];
+
+        if ($noResults && $state === 'ready') {
+            $state = 'no_results';
+            $stateMessage = 'No qualifying keyword data was returned for this market.';
+        }
+
+        return [
+            'state' => $state,
+            'state_message' => $stateMessage,
+            'market' => $market,
+            'dataforseo_configured' => $integrationStatus['configured'],
+            'kpis' => $kpis,
+            'ranked_keywords' => $rankedRows,
+            'ranked_columns' => $this->rankedColumns($rankedRows),
+            'keyword_opportunities' => $opportunities,
+            'overview' => [
+                'ranked_keywords' => $payload['total_count'] ?? $distribution['count'] ?? null,
+                'top_10' => $distribution['top_10'] ?? null,
+                'opportunity_count' => $opportunities['count'] ?? 0,
+                'top_opportunities' => $opportunities['overview'] ?? [],
+                'has_data' => $summary !== null || ($opportunities['count'] ?? 0) > 0,
+            ],
+            'fresh_until' => $summary?->fresh_until,
+            'retrieved_at' => data_get($payload, 'retrieved_at'),
+            'estimate_disclaimer' => 'Estimated DataForSEO metrics are not GA4 measured traffic.',
+        ];
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function presentRankedRows(?Evidence $evidence): array
+    {
+        $rows = is_array($evidence?->payload['rows'] ?? null) ? $evidence->payload['rows'] : [];
+        $out = [];
+
+        foreach (array_slice($rows, 0, 50) as $row) {
+            if (! is_array($row) || empty($row['keyword'])) {
+                continue;
+            }
+
+            $volume = isset($row['search_volume']) && is_numeric($row['search_volume'])
+                ? (int) $row['search_volume']
+                : null;
+            $trendMonthly = data_get($row, 'search_volume_trend.monthly');
+
+            $out[] = [
+                'keyword' => $row['keyword'],
+                'position' => $row['rank_group'] ?? null,
+                'position_label' => isset($row['rank_group']) ? (string) $row['rank_group'] : '—',
+                'page' => $row['url'] ?? null,
+                'page_path' => $row['page_path'] ?? null,
+                'search_volume' => $volume,
+                'search_volume_label' => $volume === null ? null : $this->formatCompactInt($volume),
+                'keyword_difficulty' => $row['keyword_difficulty'] ?? null,
+                'cpc' => isset($row['cpc']) && is_numeric($row['cpc']) ? (float) $row['cpc'] : null,
+                'cpc_label' => isset($row['cpc']) && is_numeric($row['cpc'])
+                    ? '$'.number_format((float) $row['cpc'], 2)
+                    : null,
+                'trend_label' => is_numeric($trendMonthly)
+                    ? (($trendMonthly > 0 ? '+' : '').(int) $trendMonthly.'%')
+                    : null,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     * @return list<string>
+     */
+    private function rankedColumns(array $rows): array
+    {
+        $columns = ['keyword', 'position_label', 'page_path'];
+        foreach (['search_volume_label', 'keyword_difficulty', 'cpc_label', 'trend_label'] as $column) {
+            foreach ($rows as $row) {
+                if (($row[$column] ?? null) !== null) {
+                    $columns[] = $column;
+                    break;
+                }
+            }
+        }
+
+        return $columns;
+    }
+
+    private function formatCompactInt(mixed $value): string
+    {
+        if (! is_numeric($value)) {
+            return '—';
+        }
+
+        $number = (int) round((float) $value);
+        if ($number >= 1000000) {
+            return rtrim(rtrim(number_format($number / 1000000, 1), '0'), '.').'M';
+        }
+        if ($number >= 1000) {
+            return rtrim(rtrim(number_format($number / 1000, 1), '0'), '.').'K';
+        }
+
+        return number_format($number);
+    }
+
+    private function formatCompactNumber(mixed $value): string
+    {
+        if (! is_numeric($value)) {
+            return '—';
+        }
+
+        $number = (float) $value;
+        if ($number >= 1000000) {
+            return rtrim(rtrim(number_format($number / 1000000, 1), '0'), '.').'M';
+        }
+        if ($number >= 1000) {
+            return rtrim(rtrim(number_format($number / 1000, 1), '0'), '.').'K';
+        }
+
+        return number_format($number, $number < 10 ? 1 : 0);
     }
 }

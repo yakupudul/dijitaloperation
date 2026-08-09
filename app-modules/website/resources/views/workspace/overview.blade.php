@@ -82,7 +82,50 @@
         </section>
     </div>
 
-    @php $opps = $data['seo_opportunities'] ?? []; @endphp
+    @php
+        $opps = $data['seo_opportunities'] ?? [];
+        $seoOverview = $data['seo_intelligence']['overview'] ?? [];
+    @endphp
+    @if (! empty($seoOverview['has_data']))
+        <section class="mox-panel">
+            <div class="mox-panel__head">
+                <h4>External SEO visibility</h4>
+                <span class="mox-muted">DataForSEO estimates · not GA4</span>
+            </div>
+            <ul class="mox-list">
+                <li>
+                    <div class="mox-list__row">
+                        <strong>Ranked keywords</strong>
+                        <span class="mox-muted">{{ $seoOverview['ranked_keywords'] ?? '—' }}</span>
+                    </div>
+                </li>
+                <li>
+                    <div class="mox-list__row">
+                        <strong>Top-10 rankings</strong>
+                        <span class="mox-muted">{{ $seoOverview['top_10'] ?? '—' }}</span>
+                    </div>
+                </li>
+                <li>
+                    <div class="mox-list__row">
+                        <strong>Keyword opportunities</strong>
+                        <span class="mox-muted">{{ $seoOverview['opportunity_count'] ?? 0 }}</span>
+                    </div>
+                </li>
+            </ul>
+            @if (($seoOverview['top_opportunities'] ?? []) !== [])
+                <ul class="mox-list">
+                    @foreach ($seoOverview['top_opportunities'] as $row)
+                        <li>
+                            <div class="mox-list__row">
+                                <strong>{{ $row['keyword'] }}</strong>
+                                <span class="mox-muted">{{ $row['priority'] }} · {{ $row['search_volume_label'] }}</span>
+                            </div>
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
+        </section>
+    @endif
     @if (($opps['count'] ?? 0) > 0)
         <section class="mox-panel">
             <div class="mox-panel__head">
