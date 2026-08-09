@@ -65,7 +65,8 @@ Blueprint, MASTER_SPEC'i **override edemez**; yalnızca ayrıntılandırır.
 | Search Console | `docs/product/website/SEARCH_CONSOLE.md` |
 | GA4 | `docs/product/website/GA4.md` |
 | PageSpeed / Lighthouse | `docs/product/website/PAGESPEED_LIGHTHOUSE.md` |
-| DataForSEO | `docs/product/website/DATAFORSEO.md` |
+| DataForSEO Integration (agency) | `docs/product/integrations/DATAFORSEO.md` |
+| DataForSEO (Website usage) | `docs/product/website/DATAFORSEO.md` |
 | AI Insights | `docs/product/website/AI_INSIGHTS.md` |
 | Google Business Profile | `docs/product/google-business-profile/GOOGLE_BUSINESS_PROFILE.md` |
 | Google Ads | `docs/product/google-ads/GOOGLE_ADS.md` |

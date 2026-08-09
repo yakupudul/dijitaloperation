@@ -110,17 +110,22 @@ class IntegrationResource extends Resource
                     ->content('Use Settings → Integrations → Google → Configure for OAuth Client ID, Client Secret, and Ads developer token. Do not enter secrets here.')
                     ->visible(fn (callable $get, ?CoreIntegration $record): bool => self::isGoogleFormContext($get, $record))
                     ->columnSpanFull(),
+                Placeholder::make('dataforseo_setup_redirect')
+                    ->label('DataForSEO credentials')
+                    ->content('Use Settings → Integrations → DataForSEO → Configure for API Login and API Password. Do not enter secrets here.')
+                    ->visible(fn (callable $get, ?CoreIntegration $record): bool => self::isDataForSeoFormContext($get, $record))
+                    ->columnSpanFull(),
                 KeyValue::make('config')
                     ->label('Non-secret configuration')
                     ->helperText('Non-secret provider settings only. Never store tokens or secrets here.')
                     ->addActionLabel('Add config key')
-                    ->visible(fn (callable $get, ?CoreIntegration $record): bool => ! self::isGoogleFormContext($get, $record))
+                    ->visible(fn (callable $get, ?CoreIntegration $record): bool => ! self::isManagedProviderFormContext($get, $record))
                     ->columnSpanFull(),
                 Textarea::make('credentials_json')
                     ->label('Provider credentials JSON')
                     ->helperText('Optional application/provider secrets only (encrypted). Never shown after save. Leave blank on edit to keep existing provider credentials. Do not paste OAuth access/refresh tokens here.')
                     ->rows(5)
-                    ->visible(fn (callable $get, ?CoreIntegration $record): bool => ! self::isGoogleFormContext($get, $record))
+                    ->visible(fn (callable $get, ?CoreIntegration $record): bool => ! self::isManagedProviderFormContext($get, $record))
                     ->columnSpanFull(),
             ]);
     }
@@ -207,7 +212,10 @@ class IntegrationResource extends Resource
             ->recordActions([
                 ViewAction::make(),
                 EditAction::make()
-                    ->visible(fn (CoreIntegration $record): bool => $record->provider !== ProviderRegistry::GOOGLE)
+                    ->visible(fn (CoreIntegration $record): bool => ! in_array($record->provider, [
+                        ProviderRegistry::GOOGLE,
+                        ProviderRegistry::DATAFORSEO,
+                    ], true))
                     ->mutateRecordDataUsing(function (array $data): array {
                         $data['credentials_json'] = null;
 
@@ -263,9 +271,8 @@ class IntegrationResource extends Resource
             $data['name'] = ProviderRegistry::defaultName($provider);
         }
 
-        if ($provider === ProviderRegistry::GOOGLE) {
-            // Google operational metadata is managed by OAuth/discovery services — not the generic KeyValue editor.
-            // Preserve existing safe config on update; never accept secrets via this form.
+        if (in_array($provider, [ProviderRegistry::GOOGLE, ProviderRegistry::DATAFORSEO], true)) {
+            // Managed provider workspaces own credentials/config — not the generic KeyValue/JSON editor.
             if ($updating) {
                 unset($data['config']);
 
@@ -301,8 +308,8 @@ class IntegrationResource extends Resource
      */
     public static function persistCredentials(CoreIntegration $record, array $data): void
     {
-        if ($record->provider === ProviderRegistry::GOOGLE) {
-            // Google application credentials are configured only via View → Configure.
+        if (in_array($record->provider, [ProviderRegistry::GOOGLE, ProviderRegistry::DATAFORSEO], true)) {
+            // Managed provider credentials are configured only via View → Configure.
             return;
         }
 
@@ -365,5 +372,25 @@ class IntegrationResource extends Resource
         }
 
         return $get('provider') === ProviderRegistry::GOOGLE;
+    }
+
+    /**
+     * @param  callable(string): mixed  $get
+     */
+    private static function isDataForSeoFormContext(callable $get, ?CoreIntegration $record): bool
+    {
+        if ($record?->provider === ProviderRegistry::DATAFORSEO) {
+            return true;
+        }
+
+        return $get('provider') === ProviderRegistry::DATAFORSEO;
+    }
+
+    /**
+     * @param  callable(string): mixed  $get
+     */
+    private static function isManagedProviderFormContext(callable $get, ?CoreIntegration $record): bool
+    {
+        return self::isGoogleFormContext($get, $record) || self::isDataForSeoFormContext($get, $record);
     }
 }

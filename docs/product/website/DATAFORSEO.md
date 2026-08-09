@@ -1,8 +1,22 @@
-# DataForSEO Connection
+# DataForSEO (Website usage)
 
 ## Purpose
 
-SERP/keyword/backlink/rekabet kanıtı sağlayan Website Connection.
+Future Website SEO evidence (SERP/keyword/backlink/etc.) powered by the **agency** DataForSEO Integration — not per-site credentials.
+
+## Canonical credentials
+
+See `docs/product/integrations/DATAFORSEO.md`.
+
+Website collectors must resolve:
+
+```
+DigitalAsset (website)
++ active DataForSEO Integration
++ Website-specific request configuration
+```
+
+Do **not** create `Website → CoreConnection → DataForSEO username/password` for normal new operation.
 
 ## User value
 
@@ -14,36 +28,36 @@ Possible capabilities: SERP, keywords, competitors, backlinks, SERP features, co
 
 ## MVP behavior
 
-Önce diagnosis/use-case catalog; sonra gereken endpoint. Maliyet farkındalığı; gereksiz çağrı yok. Caching/reuse/schedule later implementation decisions.
+Önce diagnosis/use-case catalog; sonra gereken endpoint. Maliyet farkındalığı; gereksiz çağrı yok.
+
+Paid calls must use:
+
+* allowlisted DataForSEO client methods
+* request fingerprint
+* capability-specific Evidence TTL (`fresh_until`)
+* Run cost/provenance metadata
 
 ## Important data / attributes
 
-Request provenance, cost-aware run metadata, normalized evidence.
+Request provenance, cost-aware run metadata, normalized evidence, request fingerprint.
 
 ## Relationships
 
-Website → DataForSEO → evidence/findings.
+Agency DataForSEO Integration → shared client → Website collectors → Run/Evidence/Findings.
 
 ## Main screens / workflows
 
-Configure scopes; scheduled/manual collect; findings.
+Provider config: Settings → Integrations → DataForSEO.  
+Website product collectors: later SEO Intelligence milestones.
 
 ## Rules / invariants
 
-No write. No endpoint tourism. Catalog/use-case first.
-
-## Derived information
-
-Gap/opportunity findings from selected SERP/keyword sets.
-
-## Later enhancements
-
-Broader competitor graphs.
+No write. No endpoint tourism. Catalog/use-case first. No blind paid POST retries.
 
 ## Explicit non-goals
 
-Integrating every DataForSEO endpoint.
+Integrating every DataForSEO endpoint. Per-site DataForSEO credential JSON as normal UX.
 
 ## Acceptance intent
 
-Yalnızca teşhis için gerekli DataForSEO verisi çekilir.
+Yalnızca teşhis için gerekli DataForSEO verisi çekilir — after the agency Integration + cost-guard foundation.
