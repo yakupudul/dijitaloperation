@@ -59,9 +59,9 @@ final class IntegrationHealthPresenter
         return match ($provider) {
             ProviderRegistry::GOOGLE => $this->googleSummary($integration),
             ProviderRegistry::DATAFORSEO => $this->dataForSeoSummary($integration),
-            ProviderRegistry::OPENAI => $this->openAiSummary($integration),
-            ProviderRegistry::ANTHROPIC => ['Claude reasoning and analysis'],
-            ProviderRegistry::GEMINI => ['Google AI reasoning'],
+            ProviderRegistry::OPENAI,
+            ProviderRegistry::ANTHROPIC,
+            ProviderRegistry::GEMINI => $this->aiProviderSummary($integration),
             default => [],
         };
     }
@@ -179,7 +179,7 @@ final class IntegrationHealthPresenter
     /**
      * @return list<string>
      */
-    private function openAiSummary(?CoreIntegration $integration): array
+    private function aiProviderSummary(?CoreIntegration $integration): array
     {
         return [
             'Available for AI routes',
