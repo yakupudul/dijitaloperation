@@ -19,7 +19,7 @@
         <div class="rounded-xl bg-gray-50 p-3 dark:bg-white/5">
             <dt class="text-xs font-medium text-gray-500 dark:text-gray-400">Meta Integration</dt>
             <dd class="mt-1 font-medium text-gray-950 dark:text-white">
-                {{ $integration ? 'Connected' : 'Not connected' }}
+                {{ $summary['integration_configured'] ? 'Connected' : 'Not connected' }}
             </dd>
         </div>
         <div class="rounded-xl bg-gray-50 p-3 dark:bg-white/5">

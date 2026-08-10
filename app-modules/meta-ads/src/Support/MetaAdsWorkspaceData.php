@@ -61,7 +61,7 @@ final class MetaAdsWorkspaceData
             'integration' => $integration,
             'integration_configured' => $configured,
             'bindable_resources' => $bindableResources,
-            'connection_label' => $integration !== null ? 'Connected' : 'Not connected',
+            'connection_label' => $configured ? 'Connected' : 'Not connected',
             'account_label' => $boundResource?->display_name
                 ?? ($boundResource?->external_id !== null
                     ? (string) $boundResource->external_id
