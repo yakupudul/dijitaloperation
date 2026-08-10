@@ -28,7 +28,7 @@ Evidence
 * Deterministic detection (Findings) remains authoritative.
 * AI must not create Findings, resolve Findings, overwrite deterministic Recommendations, or create Tasks.
 * Previous `ai_insight` Evidence is excluded from grounding inputs by default (no recursive AI-as-fact loops).
-* Stack: `laravel/ai` (ADR-030 / ADR-041). Provider/model selection via AI Control Plane route `website.ai_guidance` (OpenAI / Anthropic / Gemini). No MCP, vector DB, embeddings/RAG, tools, web search, or multi-agent orchestration.
+* Stack: `laravel/ai` (ADR-030 / ADR-041). **Website SEO Analyst** + eligible Skills via Agent/Skill V1; provider/model selection via AI Control Plane route `website.ai_guidance` (OpenAI / Anthropic / Gemini). No MCP, vector DB, embeddings/RAG, tools, web search, Capability Router, or multi-agent orchestration.
 
 ## Input contract
 
@@ -39,10 +39,11 @@ Bounded snapshot only — never arbitrary DB dumps:
 * Selected active Findings (`open` / `acknowledged`, severity-ordered, capped)
 * Normalized supporting Evidence (redacted; secrets/raw HTML/body omitted)
 * Existing deterministic Recommendations as trusted baseline
+* Eligible assigned Skills (missing Evidence → Skill not applicable)
 
 ## Output contract
 
-Laravel AI **structured output** (prompt/schema version `website-ai-recommendation-v1`):
+Laravel AI **structured output** (prompt/schema version `website-ai-recommendation-v2`):
 
 * executive_summary, overall_priority, context_observations
 * finding_interpretations with `finding_id`, `evidence_ids`, uncertainty, recommendation_draft, watch signals

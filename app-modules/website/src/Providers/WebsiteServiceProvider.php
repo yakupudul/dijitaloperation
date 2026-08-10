@@ -4,10 +4,13 @@ namespace MoxDop\Website\Providers;
 
 use App\Services\Findings\BoundEvidenceRuleRegistry;
 use App\Services\Integrations\BoundCollectorRegistry;
+use App\Support\Agents\AgentProfileRegistry;
 use App\Support\Ai\AiProviderCatalog;
 use App\Support\Ai\AiRouteKeys;
 use App\Support\Ai\AiRouteRegistry;
+use App\Support\Skills\SkillRegistry;
 use Illuminate\Support\ServiceProvider;
+use MoxDop\Website\Agents\WebsiteSeoAnalyst;
 use MoxDop\Website\Ai\WebsiteAiRoutes;
 use MoxDop\Website\Collection\Ga4BoundCollector;
 use MoxDop\Website\Collection\SearchConsoleBoundCollector;
@@ -43,5 +46,12 @@ class WebsiteServiceProvider extends ServiceProvider
                 ],
             ],
         ]);
+
+        $this->app->make(SkillRegistry::class)->registerRoot(
+            'website',
+            dirname(__DIR__, 2).'/resources/skills',
+        );
+
+        $this->app->make(AgentProfileRegistry::class)->register(WebsiteSeoAnalyst::definition());
     }
 }

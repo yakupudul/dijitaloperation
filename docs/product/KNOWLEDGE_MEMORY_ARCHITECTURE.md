@@ -81,22 +81,22 @@ Do **not** replace these records with embeddings or vector memory.
 
 ### C. Expert / Skill Memory
 
-Future curated, versioned Skills (analytical methodology).
+**IMPLEMENTED V1** through curated, versioned built-in Skills (Markdown under module resources + `SkillRegistry`).
 
-Preferred built-in authoring layout (**NOT IMPLEMENTED now**):
+- Skill Registry exists.
+- Vector memory does **NOT**.
+- Operator/custom persistent SkillVersion DB records do **NOT**.
+- Learned Operational Memory remains planned.
+- No self-modifying AI.
+
+Preferred built-in authoring layout (**IMPLEMENTED for Website V1**):
 
 ```text
 app-modules/website/resources/skills/
-    technical-seo/SKILL.md
+    technical-seo-analysis/SKILL.md
     search-console-analysis/SKILL.md
-    structured-data/SKILL.md
-
-app-modules/google-ads/resources/skills/
-    campaign-performance/SKILL.md
-    search-terms/SKILL.md
-
-app-modules/google-business-profile/resources/skills/
-    review-intelligence/SKILL.md
+    keyword-opportunity-analysis/SKILL.md
+    recommendation-framing/SKILL.md
 ```
 
 Markdown is preferred for authoring because it is human-readable, version-control friendly, diffable, structurally clear, and easy to supply to LLM context.  
@@ -318,10 +318,10 @@ Examples:
 ## 13. Milestone relationship
 
 1. **AI Provider Routing & Failover V1** — **IMPLEMENTED V1** (AI Router)  
-2. **Agent Profiles + Skill Library V1** — **next implementation** — curated Skills + bounded personas (Capability fields influence contracts)  
+2. **Agent Profiles + Skill Library V1** — **IMPLEMENTED V1**  
 3. **Memory / Retrieval V1** — only when knowledge volume / use cases justify it  
 
-Later candidates (UNCOMMITTED timing): Capability Registry / Routing V1 · Discovery Intelligence V1 · Meta Ads · GBP Reputation · GEO / AI Search.
+Later candidates (UNCOMMITTED — select after V1 review): Google Ads Analyst application · Capability Registry / Routing V1 · Discovery Intelligence V1 · Playbooks · Meta Ads · GBP Reputation · GEO / AI Search.
 
 Domain milestones remain separately prioritized by product value.
 

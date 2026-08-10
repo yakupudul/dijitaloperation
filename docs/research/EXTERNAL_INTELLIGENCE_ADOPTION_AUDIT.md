@@ -2,7 +2,7 @@
 
 > **Status:** Living research audit (concepts + adoption decisions)  
 > **Last reviewed:** 2026-08-10  
-> **Branch context at update:** Agent Reach + Capability Layer + Outside-in Discovery docs V1 (base `ec31bde`)  
+> **Branch context at update:** Agent Profiles + Skill Library V1 (base `1e230d9`)  
 > **Scope:** Track external reference repositories; record what MoxDOP may adapt vs reject.  
 > **Non-goals of this file:** Runtime implementation, package installs, MCP servers, migrations, or wholesale source copies.
 
@@ -42,6 +42,7 @@ Examples:
 | Google Reviews Scraper Pro | GBP Review Intelligence ideas only; scraper **REJECTED RUNTIME** |
 | GEO SEO Claude | Future Website GEO Skill reference |
 | Agent Reach | Runtime architecture + Skill/Capability reference (**PLANNED REFERENCE**; direct runtime **NO**) |
+| Agency Agents | Agent Profile + Skill methodology + Orchestration/Playbook reference (**PARTIALLY ADOPTED** concepts; direct runtime **NO**) |
 
 Do **not** create one Module per GitHub repository. Integration ≠ Module ≠ Agent ≠ Skill ≠ Capability ≠ Adapter.
 
@@ -62,6 +63,7 @@ When future work touches SEO, AI Skills, Meta, GBP reviews, GEO, structured data
 | 7 | `pipeboard-co/meta-ads-mcp` | https://github.com/pipeboard-co/meta-ads-mcp |
 | 8 | `georgekhananaev/google-reviews-scraper-pro` | https://github.com/georgekhananaev/google-reviews-scraper-pro |
 | 9 | `Panniantong/Agent-Reach` | https://github.com/Panniantong/Agent-Reach |
+| 10 | `msitarzewski/agency-agents` | https://github.com/msitarzewski/agency-agents |
 
 ### Adoption status vocabulary
 
@@ -90,15 +92,28 @@ When an external repository is re-reviewed:
 
 | Repository | Status | Category | Current MoxDOP influence | Future target |
 | --- | --- | --- | --- | --- |
-| MarketingSkills | **PARTIALLY ADOPTED** | Skill methodology | Brand Intelligence Context concepts | Agent Profiles + Skill Library (**PLANNED**) |
+| MarketingSkills | **PARTIALLY ADOPTED** | Skill methodology | Brand Intelligence Context + Website Skills | Further Skill methodology |
 | HEAD | **PARTIALLY ADOPTED** | Taxonomy | Website Document Head Diagnosis subjects | Canonical / hreflang / social / head expansion |
-| Claude SEO | **PARTIALLY ADOPTED** | Skill methodology | Recommendation methodology (observation → action → signals) | Curated Skill methodology (**PLANNED**) |
+| Claude SEO | **PARTIALLY ADOPTED** | Skill methodology | Recommendation framing Skill + Website AI methodology | Further curated Skills |
 | OpenSEO | **PARTIALLY ADOPTED** | Implementation reference | DataForSEO Integration + cost/freshness + GSC opportunities + SEO Intelligence Light | Selective domain/competitor/backlink/rank/AI visibility |
 | GEO SEO Claude | **PLANNED REFERENCE** | Skill / GEO | — | AI Search / GEO Intelligence Skill (**NOT IMPLEMENTED**) |
 | Next SEO | **RESEARCH ONLY** | Taxonomy | — | Structured Data Intelligence V2 taxonomy (**NOT IMPLEMENTED**) |
 | Meta Ads MCP | **PLANNED REFERENCE** | Module surface (MCP rejected) | — | Meta Ads **read-only** module concepts; MCP/write **REJECTED RUNTIME** |
 | Google Reviews Scraper Pro | **PRODUCT-CONCEPT REFERENCE ONLY** | Product concepts (scraper rejected) | — | GBP Reputation Intelligence via official APIs; scraper **REJECTED RUNTIME** |
-| **Agent Reach** | **PLANNED REFERENCE** | **Runtime Architecture + Skill/Capability Reference** | Conceptual only | Capability Registry/Router; Discovery Intelligence; Skill trigger/standing-rule design — **direct runtime adoption NO** |
+| **Agent Reach** | **PLANNED REFERENCE** | **Runtime Architecture + Skill/Capability Reference** | Conceptual only | Capability Registry/Router; Discovery Intelligence — **direct runtime adoption NO** |
+| **Agency Agents** | **PARTIALLY ADOPTED** (concepts) | **Agent Profile + Skill Methodology + Orchestration / Playbook Reference** | Website SEO Analyst mission/rules/deliverables/success-criteria pattern; Recommendation Framing Skill; Playbook concept documented | Google Ads Analyst; Recommendation Reviewer; Digital Operations Analyst; Playbooks — **direct runtime adoption NO** |
+
+### Agency Agents adoption summary (quick)
+
+| Field | Decision |
+| --- | --- |
+| STATUS | **PARTIALLY ADOPTED** (concepts into Agent/Skill V1) |
+| CATEGORY | Agent Profile + Skill Methodology + Orchestration / Playbook Reference |
+| VALUE | **VERY HIGH** |
+| DIRECT RUNTIME ADOPTION | **NO** |
+| ADOPT | Mission/rules/deliverable pattern; measurable success criteria; domain specialist methodology; Evidence/Reality quality-gate concept; Playbook concept; structured handoff concept; paid-media methodology candidates; AEO/GEO methodology candidates |
+| REJECT | Hundreds of Agents; direct runtime import; strong persona as reliability mechanism; uncontrolled multi-agent autonomy; external-write behavior; self-modifying learning; direct tool execution |
+| FUTURE | Google Ads Analyst; Recommendation Reviewer; Digital Operations Analyst; Playbooks; further Skills |
 
 ### Agent Reach adoption summary (quick)
 
@@ -365,6 +380,28 @@ Do **not** implement these states in this docs milestone. Prefer lightweight rea
 
 ---
 
+### 10. msitarzewski/agency-agents
+
+| Field | Record |
+| --- | --- |
+| Repository | https://github.com/msitarzewski/agency-agents |
+| Primary purpose | Large library of specialized AI “agency” agent personalities, workflows, deliverables, and playbook-style orchestration patterns |
+| License | **MIT** (verified 2026-08-10 via LICENSE) |
+| Classification | **AGENT PROFILE + SKILL METHODOLOGY + ORCHESTRATION / PLAYBOOK REFERENCE** |
+| Status | **PARTIALLY ADOPTED** (concepts) — **NOT** a runtime dependency |
+| Value | **VERY HIGH** |
+| Direct runtime adoption | **NO** |
+| Relevant concepts | Clear agent mission; critical rules; concrete deliverables; repeatable process; measurable success criteria; domain specialization; evidence-based quality gates; specialist decomposition; structured handoffs; playbook/team concepts; analyst vs reviewer distinction; paid-media and AEO/GEO methodology candidates |
+| May adapt | MoxDOP Agent Profile contracts; Skill success/failure/watch metrics; Recommendation Framing methodology; future Playbook product concept; future Google Ads Analyst Skill taxonomy; future Recommendation Reviewer concept |
+| Explicitly reject | Installing/copying the repository; hundreds of tiny Agents; personality-heavy roleplay as reliability; autonomous multi-agent teams; arbitrary agent collaboration; external-write/ad-account mutation workflows; agent-local uncontrolled memory; self-modifying methodologies; MCP/tool execution stacks |
+| Current adoption | Influenced Website SEO Analyst + Website Skill Library V1 (`docs/product/AGENT_SKILL_ARCHITECTURE.md`) |
+| Target future | Google Ads Analyst; Digital Operations Analyst; Recommendation Reviewer; Playbooks |
+| Caveats | Prefer few strong Agents + many curated Skills. Agency Agents is a **REFERENCE**, not MoxDOP architecture source-of-truth. |
+| reviewed_at | 2026-08-10 |
+| adoption decision changed? | **New entry** — first tracking of this repository |
+
+---
+
 ## Historical notes (still useful)
 
 Earlier deep dives (2026-08-08) on OpenSEO paths (`dataforseo/core|client|envelope`, GSC striking-distance), Claude SEO thinking-framework, MarketingSkills product-marketing context, and HEAD subjects remain valid as implementation footnotes. Prefer rewriting concepts into MoxDOP catalog/Evidence rather than vendoring TypeScript/Python.
@@ -384,6 +421,7 @@ Agent Reach review (2026-08-10) adds the Capability / Adapter / Discovery produc
 | meta-ads-mcp | BUSL-1.1 | **Do not adopt as runtime**; concepts only |
 | google-reviews-scraper-pro | MIT | Concepts only; scraper rejected |
 | Agent-Reach | **MIT** (verified 2026-08-10) | Concepts only; **no runtime dependency** |
+| agency-agents | **MIT** (verified 2026-08-10) | Concepts only; **no runtime dependency**; do not vendor agent files |
 
 If substantial third-party code is later adapted, add `THIRD_PARTY_NOTICES.md`. Concept-only adoption does not require that file.
 
@@ -400,6 +438,7 @@ If substantial third-party code is later adapted, add `THIRD_PARTY_NOTICES.md`. 
 - Composite GEO scores presented as industry standards without primary evidence  
 - Claiming future Skills/Agents/providers/Discovery/Capability Router are implemented today  
 - **Agent Reach CLI / Python package as MoxDOP dependency**  
+- **Agency Agents** library as MoxDOP runtime / hundreds of Agents / autonomous multi-agent teams  
 - Arbitrary shell/CLI execution and browser-cookie scraping as canonical MoxDOP access  
 - Agent-direct external data into reasoning without Run / Evidence provenance  
 

@@ -70,7 +70,8 @@ Blueprint, MASTER_SPEC'i **override edemez**; yalnızca ayrıntılandırır.
 | Integrations workspace (service hub) | `docs/product/integrations/WORKSPACE.md` |
 | DataForSEO (Website usage) | `docs/product/website/DATAFORSEO.md` |
 | AI Insights | `docs/product/website/AI_INSIGHTS.md` |
-| AI Control Plane | `docs/product/AI_CONTROL_PLANE.md` — **AI Router IMPLEMENTED V1**; Capability Router / Agents / Skills **PLANNED** |
+| AI Control Plane | `docs/product/AI_CONTROL_PLANE.md` — **AI Router + Agent/Skill V1 IMPLEMENTED**; Capability Router / Playbooks **PLANNED** |
+| Agent + Skill architecture | `docs/product/AGENT_SKILL_ARCHITECTURE.md` (**IMPLEMENTED V1**) |
 | Discovery Intelligence / Outside-in (planned) | `docs/product/DISCOVERY_INTELLIGENCE.md` (**NOT IMPLEMENTED**) |
 | Knowledge / Memory architecture (planned) | `docs/product/KNOWLEDGE_MEMORY_ARCHITECTURE.md` (vector RAG **NOT IMPLEMENTED**) |
 | Module boundary audit V1 | `docs/current-state/MODULE_BOUNDARY_AUDIT_V1.md` |

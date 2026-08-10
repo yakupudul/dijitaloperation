@@ -24,17 +24,19 @@ Last updated: 2026-08-10
 | Module Boundary + Knowledge / Memory Architecture Audit V1 | COMPLETED — PR [#109](https://github.com/yakupudul/dijitaloperation/pull/109) (`ec31bde`) |
 | Capability + Discovery product direction docs V1 | COMPLETED (docs only) — PR [#111](https://github.com/yakupudul/dijitaloperation/pull/111) (`b0bb285`) — Agent Reach tracked; `DISCOVERY_INTELLIGENCE.md` |
 | **AI Provider Routing & Failover V1** | **IMPLEMENTED V1** — OpenAI / Anthropic / Gemini + AI Control Plane + `website.ai_guidance` |
-| **Next: Agent Profiles + Skill Library V1** | PLANNED — `docs/product/AI_CONTROL_PLANE.md` (**NOT IMPLEMENTED**; Skills may declare `required_capabilities`) |
+| **Agent Profiles + Skill Library V1** | **IMPLEMENTED V1** — Website SEO Analyst + curated Website Skills; `docs/product/AGENT_SKILL_ARCHITECTURE.md` |
+| Next milestone | **TO BE SELECTED** after reviewing V1 results (candidates below — do not auto-start) |
 | Memory / Retrieval V1 | PLANNED — only when knowledge volume justifies it; vector RAG deferred |
 
-### Uncommitted later candidates
+### Next milestone candidates (UNCOMMITTED — select after V1 review)
 
-Capability Registry / Routing V1 · Discovery Intelligence V1 · Meta Ads read-only intelligence · GBP Reputation Intelligence · GEO/AI Search Intelligence · competitor/domain · backlinks · rank tracking  
-(No fixed dates; value review required. Do **not** reorder ahead of Agent Profiles + Skill Library.)
+Google Ads Intelligence / Analyst application · Capability Registry / Routing V1 · Discovery Intelligence V1 · operational Recommendation/Outcome loop · Meta Ads · GBP Reputation Intelligence  
 
-External reference registry: `docs/research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md` (includes Agent Reach as #9).  
+Do **not** automatically schedule RAG. Capability/Discovery concepts should inform Agent/Skill design without derailing product value.
+
+External reference registry: `docs/research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md` (Agent Reach #9; Agency Agents #10).  
 Outside-in Discovery direction: `docs/product/DISCOVERY_INTELLIGENCE.md` (**PLANNED / NOT IMPLEMENTED**).  
-AI Control Plane: `docs/product/AI_CONTROL_PLANE.md` — **AI Router IMPLEMENTED V1**; **Capability Router PLANNED**.
+AI Control Plane: **AI Router IMPLEMENTED V1**; **Agent Profiles + Skills IMPLEMENTED V1**; **Capability Router PLANNED**.
 
 ---
 

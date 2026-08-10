@@ -725,12 +725,17 @@ final class WebsiteWorkspaceData
                         ? AiProviderCatalog::humanModelLabel($model)
                         : null;
                     $routeName = data_get($run->metadata, 'ai_route_name') ?: 'Website AI Guidance';
+                    $agentName = data_get($run->metadata, 'agent_profile_name') ?: 'Website SEO Analyst';
+                    $activeSkills = data_get($run->metadata, 'active_skill_signatures', []);
+                    $skillCount = is_array($activeSkills) ? count($activeSkills) : 0;
                     $fallback = data_get($run->metadata, 'fallback_occurred') ? 'Fallback' : null;
                     $tokens = data_get($run->metadata, 'usage.total_tokens');
                     $source = implode(' · ', array_filter([
+                        $agentName,
                         $routeName,
                         $providerLabel,
                         $modelLabel,
+                        $skillCount > 0 ? $skillCount.' Skills' : null,
                         $fallback,
                         $findingCount > 0 ? $findingCount.' Findings' : null,
                         is_numeric($tokens) ? $tokens.' tokens' : null,
