@@ -31,9 +31,16 @@ Do not treat “add a vector database” as synonymous with “give the product 
 | **Module** | MoxDOP business/domain capability | Website, Google Ads, Google Business Profile, future Meta Ads |
 | **Agent** | Bounded AI workflow/persona within allowed domains | Website SEO Analyst, Google Ads Analyst, GBP Reputation Analyst |
 | **Skill** | Versioned analytical methodology used by an Agent | Technical SEO Audit, Search Term Analysis, Review Intelligence |
+| **Capability** | Implementation-independent ability needed by Module/Agent/Skill (**planned**) | `keyword-data.read`, `website.content.read`, `search-console.read` |
+| **Adapter** | Concrete implementation that fulfills a Capability (**planned**) | DataForSEO adapter, public-web reader, PageSpeed collector |
 
 Provider ≠ Module. Integration ≠ Module. Agent ≠ Module. Skill ≠ Module.  
+**Capability ≠ Integration ≠ Module ≠ Agent ≠ Skill.**  
 Do **not** create one Module per external GitHub repository.
+
+Capability routing is about **accessing data/functions**.  
+RAG / retrieval is about **selecting relevant knowledge/context**.  
+They are different layers — see §6.
 
 ---
 
@@ -131,8 +138,10 @@ Documented for future Agent Profiles + Skill Library V1. **Do not create Skill /
 | purpose | What the Skill analyzes |
 | required context | Brand / asset prerequisites |
 | required Evidence | Normalized Evidence contracts |
+| **required_capabilities** | Implementation-independent abilities the Skill needs (**PLANNED**) |
+| **optional_capabilities** | Enrichment abilities if available (**PLANNED**) |
 | methodology | Steps / heuristics |
-| rules / heuristics | Explicit PRIMARY vs HEURISTIC labels |
+| rules / heuristics | Explicit PRIMARY vs HEURISTIC labels; standing rules; WHEN TO USE / NOT FOR |
 | allowed conclusions | Bounded claim space |
 | forbidden claims | What must never be asserted |
 | dependencies | Human/system prerequisites |
@@ -141,8 +150,11 @@ Documented for future Agent Profiles + Skill Library V1. **Do not create Skill /
 | failure signals | How to know it failed |
 | watch metrics | What to monitor after action |
 
+Skills should declare Capabilities rather than hardcoding concrete providers where avoidable.  
 Built-in Skills may originate from module resources.  
 Future operator/custom Skills may eventually use `Skill` / `SkillVersion` records — **not now**.
+
+Capability Registry / Router and Discovery Intelligence remain separate planned layers — see [`AI_CONTROL_PLANE.md`](./AI_CONTROL_PLANE.md) and [`DISCOVERY_INTELLIGENCE.md`](./DISCOVERY_INTELLIGENCE.md).
 
 ---
 
@@ -169,7 +181,16 @@ Future learned knowledge requires:
 
 **DO NOT IMPLEMENT VECTOR RAG NOW.**
 
-Reasons:
+Agent Reach / Capability Layer review does **not** change this decision.
+
+| Layer | Question it answers |
+| --- | --- |
+| Capability routing | Which adapter supplies the required data/function? |
+| RAG / retrieval | Which knowledge/context is relevant to include for generation? |
+
+They are different layers. Capability work does **not** imply embeddings or vector stores.
+
+Reasons RAG remains deferred:
 
 - Current relevant context is still structured and bounded
 - Entity relationships already identify much of the needed context
@@ -296,11 +317,13 @@ Examples:
 
 ## 13. Milestone relationship
 
-1. **AI Provider Routing & Failover V1** — next implementation track after Integrations Workspace V2 + this architecture audit  
-2. **Agent Profiles + Skill Library V1** — curated Skills + bounded personas  
+1. **AI Provider Routing & Failover V1** — **IMPLEMENTED V1** (AI Router)  
+2. **Agent Profiles + Skill Library V1** — **next implementation** — curated Skills + bounded personas (Capability fields influence contracts)  
 3. **Memory / Retrieval V1** — only when knowledge volume / use cases justify it  
 
-Domain milestones (Meta Ads, GBP Reputation Intelligence, GEO / AI Search) remain separately prioritized by product value.
+Later candidates (UNCOMMITTED timing): Capability Registry / Routing V1 · Discovery Intelligence V1 · Meta Ads · GBP Reputation · GEO / AI Search.
+
+Domain milestones remain separately prioritized by product value.
 
 ---
 
@@ -309,5 +332,7 @@ Domain milestones (Meta Ads, GBP Reputation Intelligence, GEO / AI Search) remai
 - Implementing vector RAG / embeddings
 - Creating Skill database tables
 - Shipping Agent Profiles runtime
+- Implementing Capability Registry / Router
+- Implementing Discovery Intelligence
 - Authorizing AI self-modification
 - Changing the database engine
