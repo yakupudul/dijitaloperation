@@ -78,6 +78,7 @@ Blueprint, MASTER_SPEC'i **override edemez**; yalnızca ayrıntılandırır.
 | External intelligence research audit | `docs/research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md` (Agent Reach tracked) |
 | Google Business Profile | `docs/product/google-business-profile/GOOGLE_BUSINESS_PROFILE.md` |
 | Google Ads | `docs/product/google-ads/GOOGLE_ADS.md` |
+| Google Ads Intelligence + Analyst | `docs/product/google-ads/GOOGLE_ADS_INTELLIGENCE.md` |
 | Meta Ads | `docs/product/meta-ads/META_ADS.md` |
 | Instagram | `docs/product/instagram/INSTAGRAM.md` |
 | Cross-asset / cross-channel analysis | `docs/product/cross-asset/CROSS_ASSET_ANALYSIS.md` |

@@ -101,7 +101,7 @@ When an external repository is re-reviewed:
 | Meta Ads MCP | **PLANNED REFERENCE** | Module surface (MCP rejected) | — | Meta Ads **read-only** module concepts; MCP/write **REJECTED RUNTIME** |
 | Google Reviews Scraper Pro | **PRODUCT-CONCEPT REFERENCE ONLY** | Product concepts (scraper rejected) | — | GBP Reputation Intelligence via official APIs; scraper **REJECTED RUNTIME** |
 | **Agent Reach** | **PLANNED REFERENCE** | **Runtime Architecture + Skill/Capability Reference** | Conceptual only | Capability Registry/Router; Discovery Intelligence — **direct runtime adoption NO** |
-| **Agency Agents** | **PARTIALLY ADOPTED** (concepts) | **Agent Profile + Skill Methodology + Orchestration / Playbook Reference** | Website SEO Analyst mission/rules/deliverables/success-criteria pattern; Recommendation Framing Skill; Playbook concept documented | Google Ads Analyst; Recommendation Reviewer; Digital Operations Analyst; Playbooks — **direct runtime adoption NO** |
+| **Agency Agents** | **PARTIALLY ADOPTED** (concepts) | **Agent Profile + Skill Methodology + Orchestration / Playbook Reference** | Website SEO Analyst mission/rules/deliverables/success-criteria pattern; Recommendation Framing Skill; Playbook concept documented | Google Ads Analyst Skills methodology adapted (Paid Media Auditor / PPC / Search Query / Tracking references) — **runtime Agents from Agency Agents still NO**; Recommendation Reviewer / Playbooks still PLANNED |
 
 ### Agency Agents adoption summary (quick)
 

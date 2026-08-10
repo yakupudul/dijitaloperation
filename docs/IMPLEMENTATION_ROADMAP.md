@@ -56,13 +56,13 @@ Foundation 1–23 tamamlandıktan sonra devam eden **güncel** ürün sırası. 
 | **N0b** | **Capability + Discovery product direction docs V1** | COMPLETED (docs only; PR #111 / `b0bb285`) | Agent Reach tracked; `docs/product/DISCOVERY_INTELLIGENCE.md`; Capability / Adapter distinctions — **no runtime** |
 | **N1** | **AI Provider Routing & Failover V1** | **IMPLEMENTED V1** | `docs/product/AI_CONTROL_PLANE.md` — OpenAI / Anthropic / Gemini + `website.ai_guidance` |
 | **N2** | **Agent Profiles + Skill Library V1** | **IMPLEMENTED V1** | `docs/product/AGENT_SKILL_ARCHITECTURE.md` — Website SEO Analyst + curated Website Skills |
+| **N2b** | **Google Ads Intelligence + Analyst V1** | **IMPLEMENTED V1** | `docs/product/google-ads/GOOGLE_ADS_INTELLIGENCE.md` — Google Ads Analyst + Skills + `google_ads.ai_guidance` |
 | **N3** | **Memory / Retrieval V1** | PLANNED (deferred) | Only when knowledge volume justifies; vector RAG deferred |
 
 ### Later candidates (UNCOMMITTED — select next after V1 review)
 
 No fixed dates. Review operational value before committing. Do **not** auto-start:
 
-- Google Ads Intelligence / Agent application
 - Capability Registry / Routing V1
 - Discovery Intelligence V1 (outside-in public intelligence)
 - operational Recommendation / Outcome loop

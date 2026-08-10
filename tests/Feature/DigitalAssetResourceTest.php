@@ -91,9 +91,9 @@ class DigitalAssetResourceTest extends TestCase
         $asset = DigitalAsset::factory()->create([
             'brand_id' => $this->brand->id,
             'name' => 'Visible Asset',
-            'type' => 'google_ads',
+            'type' => 'meta_ads',
             'status' => DigitalAssetStatus::Inactive,
-            'module_id' => 'google-ads',
+            'module_id' => 'meta-ads',
         ]);
 
         Livewire::test(ViewDigitalAsset::class, [
@@ -104,10 +104,32 @@ class DigitalAssetResourceTest extends TestCase
             ->assertSchemaStateSet([
                 'brand.name' => $this->brand->name,
                 'name' => 'Visible Asset',
-                'type' => 'google_ads',
+                'type' => 'meta_ads',
                 'status' => DigitalAssetStatus::Inactive,
-                'module_id' => 'google-ads',
+                'module_id' => 'meta-ads',
             ]);
+    }
+
+    public function test_google_ads_workspace_view_shows_productized_overview(): void
+    {
+        $asset = DigitalAsset::factory()->create([
+            'brand_id' => $this->brand->id,
+            'name' => 'Ads Workspace Asset',
+            'type' => 'google_ads',
+            'status' => DigitalAssetStatus::Active,
+            'module_id' => 'google-ads',
+        ]);
+
+        Livewire::test(ViewDigitalAsset::class, [
+            'record' => $asset->getRouteKey(),
+            'parentRecord' => $this->brand,
+        ])
+            ->assertOk()
+            ->assertSee('Ads Workspace Asset')
+            ->assertSee('Account snapshot')
+            ->assertSee('Collect live data')
+            ->assertSee('Generate AI guidance')
+            ->assertDontSee('Provider resources');
     }
 
     public function test_digital_asset_mvp_fields_are_editable_via_filament(): void

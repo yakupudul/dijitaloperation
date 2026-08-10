@@ -6,6 +6,11 @@ use App\Filament\App\Resources\Customers\Resources\Brands\BrandResource;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\DigitalAssetResource;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\AssetBindingsRelationManager;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\ConnectionsRelationManager;
+use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\GoogleAdsActivityRelationManager;
+use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\GoogleAdsConnectionsRelationManager;
+use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\GoogleAdsIntelligenceRelationManager;
+use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\GoogleAdsPerformanceRelationManager;
+use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\GoogleAdsSearchTermsRelationManager;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\WebsiteActivityRelationManager;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\WebsiteConnectionsRelationManager;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\WebsiteHealthRelationManager;
@@ -41,6 +46,8 @@ use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Support\Htmlable;
+use MoxDop\GoogleAds\Ai\GoogleAdsAiGuidanceService;
+use MoxDop\GoogleAds\Workspace\GoogleAdsWorkspaceData;
 use MoxDop\Website\Ai\WebsiteAiRecommendationService;
 use MoxDop\Website\SeoIntelligence\SeoIntelligenceRefreshService;
 use MoxDop\Website\Workspace\WebsiteWorkspaceData;
@@ -172,6 +179,47 @@ class ViewDigitalAsset extends ViewRecord
                 ->modalDescription('Uses current Findings, Evidence and Brand context. AI is advisory — it will not create Findings or Tasks, and will not overwrite deterministic Recommendations.')
                 ->modalSubmitActionLabel('Analyze issues with AI')
                 ->action(function (WebsiteAiRecommendationService $service): void {
+                    /** @var DigitalAsset $asset */
+                    $asset = $this->getRecord();
+
+                    try {
+                        $result = $service->analyze($asset);
+                    } catch (\InvalidArgumentException $exception) {
+                        Notification::make()
+                            ->title('AI guidance not ready')
+                            ->body($exception->getMessage())
+                            ->warning()
+                            ->send();
+
+                        return;
+                    } catch (\Throwable $exception) {
+                        Notification::make()
+                            ->title('AI guidance failed')
+                            ->body(class_basename($exception))
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
+
+                    Notification::make()
+                        ->title($result['reused'] ? 'AI analysis is already current' : (
+                            $result['run']->status === 'completed' ? 'AI guidance generated' : 'AI guidance failed'
+                        ))
+                        ->body($result['message'])
+                        ->{$result['run']->status === 'completed' || $result['reused'] ? 'success' : 'warning'}()
+                        ->send();
+                }),
+            Action::make('generateGoogleAdsAiGuidance')
+                ->label('Generate AI guidance')
+                ->icon(Heroicon::OutlinedSparkles)
+                ->color('gray')
+                ->visible(fn (): bool => $this->isGoogleAdsWorkspace())
+                ->requiresConfirmation()
+                ->modalHeading('Generate Google Ads AI guidance?')
+                ->modalDescription('Uses current Findings, Evidence and Brand context via Google Ads Analyst. Advisory only — no Ads mutations, Findings, or Tasks.')
+                ->modalSubmitActionLabel('Analyze with AI')
+                ->action(function (GoogleAdsAiGuidanceService $service): void {
                     /** @var DigitalAsset $asset */
                     $asset = $this->getRecord();
 
@@ -578,19 +626,31 @@ class ViewDigitalAsset extends ViewRecord
 
     public function infolist(Schema $schema): Schema
     {
-        if (! $this->isWebsiteWorkspace()) {
-            return DigitalAssetResource::infolist($schema);
+        if ($this->isWebsiteWorkspace()) {
+            return $schema->components([
+                ViewEntry::make('website_overview')
+                    ->hiddenLabel()
+                    ->view('website::workspace.overview')
+                    ->viewData(fn (): array => [
+                        'data' => app(WebsiteWorkspaceData::class)->for($this->getRecord()),
+                    ])
+                    ->columnSpanFull(),
+            ]);
         }
 
-        return $schema->components([
-            ViewEntry::make('website_overview')
-                ->hiddenLabel()
-                ->view('website::workspace.overview')
-                ->viewData(fn (): array => [
-                    'data' => app(WebsiteWorkspaceData::class)->for($this->getRecord()),
-                ])
-                ->columnSpanFull(),
-        ]);
+        if ($this->isGoogleAdsWorkspace()) {
+            return $schema->components([
+                ViewEntry::make('google_ads_overview')
+                    ->hiddenLabel()
+                    ->view('google-ads::workspace.overview')
+                    ->viewData(fn (): array => [
+                        'data' => app(GoogleAdsWorkspaceData::class)->for($this->getRecord()),
+                    ])
+                    ->columnSpanFull(),
+            ]);
+        }
+
+        return DigitalAssetResource::infolist($schema);
     }
 
     public function getTitle(): string|Htmlable
@@ -631,6 +691,17 @@ class ViewDigitalAsset extends ViewRecord
             return $parts === [] ? null : implode(' · ', $parts);
         }
 
+        if ($this->isGoogleAdsWorkspace()) {
+            $workspace = app(GoogleAdsWorkspaceData::class)->for($asset);
+            $parts = array_values(array_filter([
+                $type.' · '.$status,
+                ! empty($workspace['last_updated_human']) ? 'Last updated '.$workspace['last_updated_human'] : null,
+                $workspace['connection_health'] ?? null,
+            ], fn (?string $part): bool => filled($part)));
+
+            return $parts === [] ? null : implode(' · ', $parts);
+        }
+
         $identifier = filled($asset->primary_url)
             ? $asset->primary_url
             : (filled($asset->domain) ? $asset->domain : null);
@@ -649,6 +720,14 @@ class ViewDigitalAsset extends ViewRecord
         $asset = $this->getRecord();
 
         return $asset->type === 'website';
+    }
+
+    private function isGoogleAdsWorkspace(): bool
+    {
+        /** @var DigitalAsset $asset */
+        $asset = $this->getRecord();
+
+        return $asset->type === 'google_ads';
     }
 
     /**
@@ -697,6 +776,16 @@ class ViewDigitalAsset extends ViewRecord
                 WebsiteConnectionsRelationManager::class,
                 WebsiteActivityRelationManager::class,
                 WebsiteSettingsRelationManager::class,
+            ];
+        }
+
+        if ($this->isGoogleAdsWorkspace()) {
+            return [
+                GoogleAdsPerformanceRelationManager::class,
+                GoogleAdsSearchTermsRelationManager::class,
+                GoogleAdsIntelligenceRelationManager::class,
+                GoogleAdsConnectionsRelationManager::class,
+                GoogleAdsActivityRelationManager::class,
             ];
         }
 

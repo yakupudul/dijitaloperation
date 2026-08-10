@@ -39,6 +39,20 @@ class ModuleBoundaryArchitectureTest extends TestCase
         'app/Filament/App/Resources/Runs/RunResource.php',
     ];
 
+    /**
+     * Core Filament composition surfaces allowed to import Google Ads module presenters/services.
+     *
+     * @var list<string>
+     */
+    private const CORE_GOOGLE_ADS_IMPORT_ALLOWLIST = [
+        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/Pages/ViewDigitalAsset.php',
+        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/GoogleAdsPerformanceRelationManager.php',
+        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/GoogleAdsSearchTermsRelationManager.php',
+        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/GoogleAdsIntelligenceRelationManager.php',
+        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/GoogleAdsConnectionsRelationManager.php',
+        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/GoogleAdsActivityRelationManager.php',
+    ];
+
     #[Test]
     public function core_must_not_import_module_implementation_namespaces_outside_allowlist(): void
     {
@@ -58,7 +72,9 @@ class ModuleBoundaryArchitectureTest extends TestCase
             }
 
             if (preg_match('/use\s+MoxDop\\\\GoogleAds\\\\/', $contents) === 1) {
-                $violations[] = "{$relative} imports MoxDop\\GoogleAds\\* (Core must not depend on Google Ads module implementations)";
+                if (! in_array($relative, self::CORE_GOOGLE_ADS_IMPORT_ALLOWLIST, true)) {
+                    $violations[] = "{$relative} imports MoxDop\\GoogleAds\\* (not allowlisted)";
+                }
             }
 
             if (preg_match('/use\s+MoxDop\\\\GoogleBusinessProfile\\\\/', $contents) === 1) {

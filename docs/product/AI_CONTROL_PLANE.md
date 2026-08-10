@@ -5,7 +5,7 @@
 > **Implemented in V1:**  
 > - **AI Router:** OpenAI + Anthropic + Gemini, workflow routes (`website.ai_guidance`), native failover, provenance  
 > - **Agent Profiles + Skill Library:** Website SEO Analyst, curated Website Skills, bounded context, eligibility, Agent/Skill provenance  
-> **Still PLANNED / NOT IMPLEMENTED:** Playbooks, Recommendation Reviewer AI layer, Google Ads Analyst runtime, Capability Registry / Capability Router, Discovery runtime, Memory/Retrieval, vector RAG, aggregator providers, operator-custom Skills DB  
+> **Still PLANNED / NOT IMPLEMENTED:** Playbooks, Recommendation Reviewer AI layer, Capability Registry / Capability Router, Discovery runtime, Memory/Retrieval, vector RAG, aggregator providers, operator-custom Skills DB  
 >  
 > Authority order remains: `MASTER_SPEC` → accepted ADRs → product blueprints → this direction doc.  
 > Related: [`AGENT_SKILL_ARCHITECTURE.md`](./AGENT_SKILL_ARCHITECTURE.md) · [`DISCOVERY_INTELLIGENCE.md`](./DISCOVERY_INTELLIGENCE.md) · [`KNOWLEDGE_MEMORY_ARCHITECTURE.md`](./KNOWLEDGE_MEMORY_ARCHITECTURE.md) · [`docs/research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md`](../research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md).
@@ -332,10 +332,10 @@ Agent Profile
 Operational V1 profile:
 
 - **Website SEO Analyst** (`website.seo_analyst`) — module `website`, route `website.ai_guidance`
+- **Google Ads Analyst** (`google_ads.analyst`) — module `google-ads`, route `google_ads.ai_guidance`
 
 Example future profiles (names illustrative, **NOT IMPLEMENTED**):
 
-- Google Ads Analyst
 - GBP Reputation Analyst
 - Digital Operations Analyst
 - Recommendation Reviewer
@@ -470,7 +470,6 @@ These are planning labels, not Autopilot stage IDs:
 
 Later **candidate** architecture/product work (**UNCOMMITTED** — select next after reviewing Agent/Skill V1 results):
 
-- Google Ads Intelligence / Analyst application
 - Capability Registry / Routing V1
 - Discovery Intelligence V1
 - Playbooks

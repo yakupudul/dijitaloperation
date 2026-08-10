@@ -9,4 +9,6 @@ namespace App\Support\Agents;
 final class AgentProfileKeys
 {
     public const string WEBSITE_SEO_ANALYST = 'website.seo_analyst';
+
+    public const string GOOGLE_ADS_ANALYST = 'google_ads.analyst';
 }

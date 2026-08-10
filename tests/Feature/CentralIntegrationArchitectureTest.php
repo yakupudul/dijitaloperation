@@ -387,7 +387,21 @@ class CentralIntegrationArchitectureTest extends TestCase
         $this->assertSame(AssetBindingsRelationManager::class, $relations['assetBindings']);
         $this->assertSame(ConnectionsRelationManager::class, $relations['connections']);
 
-        // Non-website assets keep the legacy Provider resources / Site connections tabs.
+        // Non-workspace assets keep the legacy Provider resources / Site connections tabs.
+        $metaAsset = DigitalAsset::factory()->create([
+            'brand_id' => $this->brand->id,
+            'type' => 'meta_ads',
+        ]);
+
+        Livewire::test(ViewDigitalAsset::class, [
+            'record' => $metaAsset->getRouteKey(),
+            'parentRecord' => $this->brand,
+        ])
+            ->assertOk()
+            ->assertSee('Provider resources')
+            ->assertSee('Site connections');
+
+        // Google Ads assets use the productized Ads workspace tabs.
         $adsAsset = DigitalAsset::factory()->create([
             'brand_id' => $this->brand->id,
             'type' => 'google_ads',
@@ -398,8 +412,14 @@ class CentralIntegrationArchitectureTest extends TestCase
             'parentRecord' => $this->brand,
         ])
             ->assertOk()
-            ->assertSee('Provider resources')
-            ->assertSee('Site connections');
+            ->assertSee('Overview')
+            ->assertSee('Performance')
+            ->assertSee('Search terms')
+            ->assertSee('Intelligence')
+            ->assertSee('Connections')
+            ->assertSee('Activity')
+            ->assertDontSee('Provider resources')
+            ->assertDontSee('Site connections');
 
         // Website assets use the productized workspace tabs.
         Livewire::test(ViewDigitalAsset::class, [

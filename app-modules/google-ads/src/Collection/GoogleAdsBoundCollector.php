@@ -16,6 +16,8 @@ use RuntimeException;
 /**
  * Binding-based Google Ads collector (API v25, read-only GAQL).
  * Uses External Resource customer ID + discovered login-customer-id metadata.
+ *
+ * Never calls mutate endpoints. Search terms are stored as untrusted Evidence text.
  */
 final class GoogleAdsBoundCollector implements CollectsBoundProviderData
 {
@@ -25,9 +27,25 @@ final class GoogleAdsBoundCollector implements CollectsBoundProviderData
 
     public const string EVIDENCE_TYPE_LANDING_FINAL_URLS = 'google_ads_landing_final_urls';
 
+    public const string EVIDENCE_TYPE_SEARCH_TERM_PERFORMANCE = 'google_ads_search_term_performance';
+
+    public const string EVIDENCE_TYPE_CONVERSION_ACTIONS = 'google_ads_conversion_actions';
+
+    public const string SOURCE_REPORT_SEARCH_TERM_VIEW = 'search_term_view';
+
+    public const string SOURCE_REPORT_CAMPAIGN_SEARCH_TERM_VIEW = 'campaign_search_term_view';
+
     private const int CAMPAIGN_LIMIT = 50;
 
     private const int FINAL_URL_LIMIT = 100;
+
+    private const int SEARCH_TERM_LIMIT = 200;
+
+    private const int CONVERSION_ACTION_LIMIT = 100;
+
+    private const int SEARCH_PAGE_SIZE = 100;
+
+    private const int MAX_SEARCH_PAGES = 5;
 
     private const string ACCOUNT_SUMMARY_QUERY = <<<'GAQL'
 SELECT
@@ -52,7 +70,8 @@ SELECT
   metrics.impressions,
   metrics.clicks,
   metrics.ctr,
-  metrics.conversions
+  metrics.conversions,
+  metrics.conversions_value
 FROM campaign
 WHERE segments.date BETWEEN '%s' AND '%s'
   AND campaign.status != 'REMOVED'
@@ -64,6 +83,68 @@ GAQL;
 SELECT ad_group_ad.ad.final_urls
 FROM ad_group_ad
 WHERE ad_group_ad.status != 'REMOVED'
+LIMIT %d
+GAQL;
+
+    /**
+     * Ad-group-level Search terms (excludes Performance Max per Google Ads API).
+     */
+    private const string SEARCH_TERM_VIEW_QUERY = <<<'GAQL'
+SELECT
+  search_term_view.search_term,
+  search_term_view.status,
+  campaign.id,
+  campaign.name,
+  campaign.advertising_channel_type,
+  ad_group.id,
+  ad_group.name,
+  metrics.impressions,
+  metrics.clicks,
+  metrics.cost_micros,
+  metrics.conversions,
+  metrics.conversions_value
+FROM search_term_view
+WHERE segments.date BETWEEN '%s' AND '%s'
+ORDER BY metrics.cost_micros DESC
+LIMIT %d
+GAQL;
+
+    /**
+     * Campaign-level search terms including Performance Max (no ad_group dimensions).
+     */
+    private const string CAMPAIGN_SEARCH_TERM_VIEW_QUERY = <<<'GAQL'
+SELECT
+  campaign_search_term_view.search_term,
+  campaign.id,
+  campaign.name,
+  campaign.advertising_channel_type,
+  metrics.impressions,
+  metrics.clicks,
+  metrics.cost_micros,
+  metrics.conversions,
+  metrics.conversions_value
+FROM campaign_search_term_view
+WHERE segments.date BETWEEN '%s' AND '%s'
+  AND campaign.advertising_channel_type = 'PERFORMANCE_MAX'
+ORDER BY metrics.cost_micros DESC
+LIMIT %d
+GAQL;
+
+    /**
+     * Conversion action configuration only — never tag_snippets / secrets.
+     */
+    private const string CONVERSION_ACTIONS_QUERY = <<<'GAQL'
+SELECT
+  conversion_action.id,
+  conversion_action.name,
+  conversion_action.status,
+  conversion_action.type,
+  conversion_action.category,
+  conversion_action.origin,
+  conversion_action.primary_for_goal,
+  conversion_action.include_in_conversions_metric
+FROM conversion_action
+WHERE conversion_action.status != 'REMOVED'
 LIMIT %d
 GAQL;
 
@@ -148,6 +229,35 @@ GAQL;
                 self::FINAL_URL_LIMIT,
             ));
 
+            $searchTermsSearch = $this->searchPaginated(
+                $integration,
+                $customerId,
+                $loginCustomerId,
+                sprintf(
+                    self::SEARCH_TERM_VIEW_QUERY,
+                    $periods['current']['start'],
+                    $periods['current']['end'],
+                    self::SEARCH_TERM_LIMIT,
+                ),
+                self::SEARCH_TERM_LIMIT,
+            );
+            $searchTermsPmax = $this->searchPaginated(
+                $integration,
+                $customerId,
+                $loginCustomerId,
+                sprintf(
+                    self::CAMPAIGN_SEARCH_TERM_VIEW_QUERY,
+                    $periods['current']['start'],
+                    $periods['current']['end'],
+                    self::SEARCH_TERM_LIMIT,
+                ),
+                self::SEARCH_TERM_LIMIT,
+            );
+            $conversionActions = $this->search($integration, $customerId, $loginCustomerId, sprintf(
+                self::CONVERSION_ACTIONS_QUERY,
+                self::CONVERSION_ACTION_LIMIT,
+            ));
+
             $currentMetrics = $this->aggregateMetrics($currentSummary['results']);
             $previousMetrics = $this->aggregateMetrics($previousSummary['results']);
 
@@ -182,7 +292,6 @@ GAQL;
                 'status_code' => $campaigns['status_code'],
             ], $observedAt);
 
-            // Backwards-compatible Evidence for existing Website↔Ads landing consistency.
             $landingPayload = $this->normalizeLandingFinalUrls($customerId, $finalUrls);
             $this->storeEvidence(
                 $run,
@@ -193,13 +302,80 @@ GAQL;
                 $observedAt,
             );
 
-            $allOk = $currentSummary['ok'] && $previousSummary['ok'] && $campaigns['ok'] && $finalUrls['ok'];
+            $searchTermRows = $this->normalizeSearchTermRows(
+                $searchTermsSearch,
+                self::SOURCE_REPORT_SEARCH_TERM_VIEW,
+            );
+            $pmaxRows = $this->normalizeSearchTermRows(
+                $searchTermsPmax,
+                self::SOURCE_REPORT_CAMPAIGN_SEARCH_TERM_VIEW,
+            );
+            $mergedSearchTerms = $this->mergeSearchTermRows([...$searchTermRows, ...$pmaxRows]);
+            $searchTermsOk = $searchTermsSearch['ok'] && $searchTermsPmax['ok'];
+
+            $this->storeEvidence($run, $asset->id, self::EVIDENCE_TYPE_SEARCH_TERM_PERFORMANCE, 'Google Ads search term performance', [
+                ...$baseMeta,
+                'rows' => $mergedSearchTerms,
+                'row_count' => count($mergedSearchTerms),
+                'row_limit' => self::SEARCH_TERM_LIMIT,
+                'sources' => [
+                    self::SOURCE_REPORT_SEARCH_TERM_VIEW => [
+                        'ok' => $searchTermsSearch['ok'],
+                        'status_code' => $searchTermsSearch['status_code'],
+                        'error' => $searchTermsSearch['error'],
+                        'raw_row_count' => count($searchTermRows),
+                        'pages_fetched' => $searchTermsSearch['pages_fetched'],
+                    ],
+                    self::SOURCE_REPORT_CAMPAIGN_SEARCH_TERM_VIEW => [
+                        'ok' => $searchTermsPmax['ok'],
+                        'status_code' => $searchTermsPmax['status_code'],
+                        'error' => $searchTermsPmax['error'],
+                        'raw_row_count' => count($pmaxRows),
+                        'pages_fetched' => $searchTermsPmax['pages_fetched'],
+                        'note' => 'Performance Max campaign-level search terms only; ad_group dimensions unavailable.',
+                    ],
+                ],
+                'response_ok' => $searchTermsOk,
+                'status_code' => $searchTermsOk
+                    ? ($searchTermsSearch['status_code'] ?? 200)
+                    : ($searchTermsSearch['status_code'] ?? $searchTermsPmax['status_code']),
+                'untrusted_text' => true,
+                'limitations' => [
+                    'search_term_view excludes Performance Max',
+                    'campaign_search_term_view for PERFORMANCE_MAX lacks ad_group and targeting status',
+                    'search terms are untrusted external user-generated text',
+                    'AI context must bound/rank rows — full history is not dumped into prompts',
+                ],
+            ], $observedAt);
+
+            $conversionPayload = $this->normalizeConversionActions($conversionActions);
+            $this->storeEvidence(
+                $run,
+                $asset->id,
+                self::EVIDENCE_TYPE_CONVERSION_ACTIONS,
+                'Google Ads conversion actions',
+                [
+                    ...$baseMeta,
+                    ...$conversionPayload,
+                ],
+                $observedAt,
+            );
+
+            $coreOk = $currentSummary['ok'] && $previousSummary['ok'] && $campaigns['ok'] && $finalUrls['ok'];
+            $optionalOk = $searchTermsOk && $conversionActions['ok'];
+            $allOk = $coreOk && $optionalOk;
+
             $run->update([
-                'status' => $allOk ? 'completed' : 'failed',
+                'status' => $coreOk ? 'completed' : 'failed',
                 'finished_at' => now(),
                 'metadata' => array_merge($run->metadata ?? [], [
-                    'ok' => $allOk,
-                    'safe_error' => $allOk ? null : ($currentSummary['error'] ?? $campaigns['error'] ?? 'Google Ads API returned an error.'),
+                    'ok' => $coreOk,
+                    'partial' => $coreOk && ! $optionalOk,
+                    'search_terms_ok' => $searchTermsOk,
+                    'conversion_actions_ok' => $conversionActions['ok'],
+                    'safe_error' => $coreOk
+                        ? ($optionalOk ? null : ($searchTermsSearch['error'] ?? $searchTermsPmax['error'] ?? $conversionActions['error'] ?? 'Optional Google Ads evidence incomplete.'))
+                        : ($currentSummary['error'] ?? $campaigns['error'] ?? 'Google Ads API returned an error.'),
                 ]),
             ]);
         } catch (\Throwable $e) {
@@ -221,37 +397,67 @@ GAQL;
     }
 
     /**
-     * @return array{ok: bool, status_code: int|null, results: list<array<string, mixed>>, error: ?string}
+     * @return array{ok: bool, status_code: int|null, results: list<array<string, mixed>>, error: ?string, pages_fetched: int}
      */
     private function search(mixed $integration, string $customerId, string $loginCustomerId, string $query): array
     {
-        $response = $this->client->searchAds($integration, $customerId, $query, $loginCustomerId);
-        if (! $response->successful()) {
-            return [
-                'ok' => false,
-                'status_code' => $response->status(),
-                'results' => [],
-                'error' => 'Google Ads search failed (HTTP '.$response->status().').',
-            ];
-        }
+        return $this->searchPaginated($integration, $customerId, $loginCustomerId, $query, null);
+    }
 
-        $results = $response->json('results') ?? [];
-        if (! is_array($results)) {
-            $results = [];
-        }
-
+    /**
+     * @return array{ok: bool, status_code: int|null, results: list<array<string, mixed>>, error: ?string, pages_fetched: int}
+     */
+    private function searchPaginated(
+        mixed $integration,
+        string $customerId,
+        string $loginCustomerId,
+        string $query,
+        ?int $hardLimit,
+    ): array {
         $normalized = [];
-        foreach ($results as $row) {
-            if (is_array($row)) {
-                $normalized[] = $row;
+        $pageToken = null;
+        $pages = 0;
+        $lastStatus = null;
+
+        do {
+            $response = $this->client->searchAds($integration, $customerId, $query, $loginCustomerId, $pageToken);
+            $pages++;
+            $lastStatus = $response->status();
+
+            if (! $response->successful()) {
+                return [
+                    'ok' => false,
+                    'status_code' => $response->status(),
+                    'results' => $normalized,
+                    'error' => 'Google Ads search failed (HTTP '.$response->status().').',
+                    'pages_fetched' => $pages,
+                ];
             }
-        }
+
+            $results = $response->json('results') ?? [];
+            if (! is_array($results)) {
+                $results = [];
+            }
+
+            foreach ($results as $row) {
+                if (is_array($row)) {
+                    $normalized[] = $row;
+                }
+                if ($hardLimit !== null && count($normalized) >= $hardLimit) {
+                    break 2;
+                }
+            }
+
+            $next = $response->json('nextPageToken');
+            $pageToken = is_string($next) && $next !== '' ? $next : null;
+        } while ($pageToken !== null && $pages < self::MAX_SEARCH_PAGES);
 
         return [
             'ok' => true,
-            'status_code' => $response->status(),
-            'results' => $normalized,
+            'status_code' => $lastStatus,
+            'results' => $hardLimit !== null ? array_slice($normalized, 0, $hardLimit) : $normalized,
             'error' => null,
+            'pages_fetched' => $pages,
         ];
     }
 
@@ -285,6 +491,7 @@ GAQL;
                     'impressions' => 0.0,
                     'clicks' => 0.0,
                     'conversions' => 0.0,
+                    'conversion_value' => 0.0,
                 ];
             }
 
@@ -292,6 +499,7 @@ GAQL;
             $byId[$id]['impressions'] = (float) $byId[$id]['impressions'] + (float) ($metrics['impressions'] ?? 0);
             $byId[$id]['clicks'] = (float) $byId[$id]['clicks'] + (float) ($metrics['clicks'] ?? 0);
             $byId[$id]['conversions'] = (float) $byId[$id]['conversions'] + (float) ($metrics['conversions'] ?? 0);
+            $byId[$id]['conversion_value'] = (float) $byId[$id]['conversion_value'] + (float) ($metrics['conversionsValue'] ?? $metrics['conversions_value'] ?? 0);
         }
 
         $rows = array_values($byId);
@@ -300,12 +508,186 @@ GAQL;
             $clicks = (float) $row['clicks'];
             $row['ctr'] = $impressions > 0 ? round($clicks / $impressions, 6) : null;
             $row['cost'] = round((float) $row['cost'], 4);
+            $row['conversion_value'] = round((float) $row['conversion_value'], 4);
         }
         unset($row);
 
         usort($rows, fn (array $a, array $b): int => ((float) $b['cost']) <=> ((float) $a['cost']));
 
         return array_slice($rows, 0, self::CAMPAIGN_LIMIT);
+    }
+
+    /**
+     * @param  array{ok: bool, status_code: int|null, results: list<array<string, mixed>>, error: ?string, pages_fetched?: int}  $fetch
+     * @return list<array<string, mixed>>
+     */
+    private function normalizeSearchTermRows(array $fetch, string $sourceReport): array
+    {
+        if ($fetch['ok'] !== true) {
+            return [];
+        }
+
+        $rows = [];
+        foreach ($fetch['results'] as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $campaign = is_array($row['campaign'] ?? null) ? $row['campaign'] : [];
+            $adGroup = is_array($row['adGroup'] ?? $row['ad_group'] ?? null)
+                ? ($row['adGroup'] ?? $row['ad_group'])
+                : [];
+            $metrics = is_array($row['metrics'] ?? null) ? $row['metrics'] : [];
+
+            $term = null;
+            $status = null;
+            if ($sourceReport === self::SOURCE_REPORT_SEARCH_TERM_VIEW) {
+                $view = is_array($row['searchTermView'] ?? $row['search_term_view'] ?? null)
+                    ? ($row['searchTermView'] ?? $row['search_term_view'])
+                    : [];
+                $term = isset($view['searchTerm']) ? (string) $view['searchTerm'] : (isset($view['search_term']) ? (string) $view['search_term'] : null);
+                $status = $view['status'] ?? null;
+            } else {
+                $view = is_array($row['campaignSearchTermView'] ?? $row['campaign_search_term_view'] ?? null)
+                    ? ($row['campaignSearchTermView'] ?? $row['campaign_search_term_view'])
+                    : [];
+                $term = isset($view['searchTerm']) ? (string) $view['searchTerm'] : (isset($view['search_term']) ? (string) $view['search_term'] : null);
+                $status = null;
+            }
+
+            if ($term === null || trim($term) === '') {
+                continue;
+            }
+
+            $impressions = (float) ($metrics['impressions'] ?? 0);
+            $clicks = (float) ($metrics['clicks'] ?? 0);
+            $cost = $this->microsToCurrency($metrics['costMicros'] ?? $metrics['cost_micros'] ?? 0) ?? 0.0;
+            $conversions = (float) ($metrics['conversions'] ?? 0);
+            $conversionValue = (float) ($metrics['conversionsValue'] ?? $metrics['conversions_value'] ?? 0);
+
+            $rows[] = [
+                'search_term' => $term,
+                'campaign_id' => isset($campaign['id']) ? (string) $campaign['id'] : null,
+                'campaign_name' => $campaign['name'] ?? null,
+                'advertising_channel_type' => $campaign['advertisingChannelType'] ?? $campaign['advertising_channel_type'] ?? null,
+                'ad_group_id' => $sourceReport === self::SOURCE_REPORT_SEARCH_TERM_VIEW && isset($adGroup['id'])
+                    ? (string) $adGroup['id']
+                    : null,
+                'ad_group_name' => $sourceReport === self::SOURCE_REPORT_SEARCH_TERM_VIEW
+                    ? ($adGroup['name'] ?? null)
+                    : null,
+                'targeting_status' => is_string($status) ? $status : null,
+                'impressions' => $impressions,
+                'clicks' => $clicks,
+                'cost' => round($cost, 4),
+                'conversions' => $conversions,
+                'conversion_value' => round($conversionValue, 4),
+                'source_report' => $sourceReport,
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     * @return list<array<string, mixed>>
+     */
+    private function mergeSearchTermRows(array $rows): array
+    {
+        /** @var array<string, array<string, mixed>> $byKey */
+        $byKey = [];
+
+        foreach ($rows as $row) {
+            $term = trim((string) ($row['search_term'] ?? ''));
+            if ($term === '') {
+                continue;
+            }
+            $campaignId = (string) ($row['campaign_id'] ?? '');
+            $adGroupId = (string) ($row['ad_group_id'] ?? '');
+            $source = (string) ($row['source_report'] ?? '');
+            $key = strtolower($term).'|'.$campaignId.'|'.$adGroupId.'|'.$source;
+
+            if (! isset($byKey[$key])) {
+                $byKey[$key] = $row;
+
+                continue;
+            }
+
+            $byKey[$key]['impressions'] = (float) $byKey[$key]['impressions'] + (float) ($row['impressions'] ?? 0);
+            $byKey[$key]['clicks'] = (float) $byKey[$key]['clicks'] + (float) ($row['clicks'] ?? 0);
+            $byKey[$key]['cost'] = round((float) $byKey[$key]['cost'] + (float) ($row['cost'] ?? 0), 4);
+            $byKey[$key]['conversions'] = (float) $byKey[$key]['conversions'] + (float) ($row['conversions'] ?? 0);
+            $byKey[$key]['conversion_value'] = round((float) $byKey[$key]['conversion_value'] + (float) ($row['conversion_value'] ?? 0), 4);
+        }
+
+        $merged = array_values($byKey);
+        usort($merged, fn (array $a, array $b): int => ((float) $b['cost']) <=> ((float) $a['cost']));
+
+        return array_slice($merged, 0, self::SEARCH_TERM_LIMIT);
+    }
+
+    /**
+     * @param  array{ok: bool, status_code: int|null, results: list<array<string, mixed>>, error: ?string}  $fetch
+     * @return array<string, mixed>
+     */
+    private function normalizeConversionActions(array $fetch): array
+    {
+        $actions = [];
+        if ($fetch['ok'] === true) {
+            foreach ($fetch['results'] as $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+                $action = is_array($row['conversionAction'] ?? $row['conversion_action'] ?? null)
+                    ? ($row['conversionAction'] ?? $row['conversion_action'])
+                    : [];
+                $id = isset($action['id']) ? (string) $action['id'] : null;
+                if ($id === null || $id === '') {
+                    continue;
+                }
+
+                $actions[] = [
+                    'conversion_action_id' => $id,
+                    'name' => $action['name'] ?? null,
+                    'status' => $action['status'] ?? null,
+                    'type' => $action['type'] ?? null,
+                    'category' => $action['category'] ?? null,
+                    'origin' => $action['origin'] ?? null,
+                    'primary_for_goal' => array_key_exists('primaryForGoal', $action)
+                        ? (bool) $action['primaryForGoal']
+                        : (array_key_exists('primary_for_goal', $action) ? (bool) $action['primary_for_goal'] : null),
+                    'include_in_conversions_metric' => array_key_exists('includeInConversionsMetric', $action)
+                        ? (bool) $action['includeInConversionsMetric']
+                        : (array_key_exists('include_in_conversions_metric', $action) ? (bool) $action['include_in_conversions_metric'] : null),
+                ];
+            }
+        }
+
+        $enabled = array_values(array_filter(
+            $actions,
+            fn (array $row): bool => strtoupper((string) ($row['status'] ?? '')) === 'ENABLED',
+        ));
+        $primaryOrIncluded = array_values(array_filter(
+            $enabled,
+            fn (array $row): bool => ($row['primary_for_goal'] === true) || ($row['include_in_conversions_metric'] === true),
+        ));
+
+        return [
+            'actions' => $actions,
+            'action_count' => count($actions),
+            'enabled_count' => count($enabled),
+            'usable_primary_or_included_count' => count($primaryOrIncluded),
+            'row_limit' => self::CONVERSION_ACTION_LIMIT,
+            'response_ok' => $fetch['ok'] === true,
+            'status_code' => $fetch['status_code'],
+            'limitations' => [
+                'Configuration Evidence only — does not prove browser tags fire correctly',
+                'Does not validate consent mode, GTM, or CRM outcomes',
+                'tag_snippets are intentionally not collected',
+                'Account/campaign custom goals may still use non-primary actions',
+            ],
+        ];
     }
 
     /**
@@ -424,6 +806,7 @@ GAQL;
             'final_url_hosts' => $hosts,
             'final_url_count' => count($finalUrls),
             'ok' => $ok,
+            'response_ok' => $ok,
             'status_code' => $fetch['status_code'],
             'status_or_error' => $ok ? (string) ($fetch['status_code'] ?? 200) : (string) ($fetch['error'] ?? 'error'),
             'error_class' => $ok ? null : 'google_ads_api_error',

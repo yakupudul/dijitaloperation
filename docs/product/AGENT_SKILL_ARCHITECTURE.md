@@ -65,7 +65,9 @@ Playbook runtime is **PLANNED / NOT IMPLEMENTED**.
 - Generic `AgentProfileDefinition` + `AgentProfileRegistry` (code-defined; **no** `agent_profiles` table)
 - Generic `SkillDefinition` + `SkillRegistry` + safe `BuiltInSkillLoader` (Markdown under module resources; **no** `skills` / `skill_versions` tables)
 - Module-owned Website Skills (`app-modules/website/resources/skills/*/SKILL.md`)
-- Operational Agent: **Website SEO Analyst** (`website.seo_analyst` @ `1.0.0`)
+- Operational Agents:
+  - **Website SEO Analyst** (`website.seo_analyst` @ `1.0.0`)
+  - **Google Ads Analyst** (`google_ads.analyst` @ `1.0.0`)
 - Skills:
   - `technical-seo-analysis`
   - `search-console-analysis`
@@ -125,11 +127,15 @@ Repeatable operational scenarios orchestrating Agent Profiles + Skills.
 
 Prefer one strong domain Analyst + many Skills over hundreds of tiny Agents.
 
-### Google Ads Analyst (**PLANNED** design only)
+### Google Ads Analyst (**IMPLEMENTED V1**)
 
-Potential future Skills (not implemented): Account Audit, Campaign Performance, Search Query Analysis, Tracking & Measurement, Budget Efficiency, Landing Page Alignment, Creative Analysis.
+- Slug `google_ads.analyst` @ `1.0.0`
+- Route `google_ads.ai_guidance`
+- Skills: account-performance-audit, campaign-performance-analysis, search-query-analysis, measurement-quality-review, landing-page-alignment
+- See `docs/product/google-ads/GOOGLE_ADS_INTELLIGENCE.md`
+- Methodology reference: Agency Agents paid-media patterns — **runtime not imported**
 
-Methodology reference: Agency Agents paid-media patterns — **no runtime in this milestone**.
+Potential later Skills (not in V1): Budget Efficiency, Creative Analysis.
 
 ### Digital Operations Analyst (**PLANNED**)
 

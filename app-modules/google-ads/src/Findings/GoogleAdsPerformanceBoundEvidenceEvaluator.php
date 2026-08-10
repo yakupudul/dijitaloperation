@@ -9,9 +9,13 @@ use App\Models\Run;
 use App\Support\Findings\RuleEvaluationResult;
 use App\Support\Findings\RuleMatch;
 use DateTimeInterface;
+use MoxDop\GoogleAds\Collection\GoogleAdsBoundCollector;
 
 /**
- * Deterministic Google Ads account + campaign performance rules from Binding Evidence.
+ * Deterministic Google Ads account + campaign + search-term + measurement rules from Binding Evidence.
+ *
+ * Search-term Findings are CANDIDATES for human investigation — never external writes.
+ * Failed/unusable search-term Evidence does not evaluate those rules (old Findings stay open).
  */
 final class GoogleAdsPerformanceBoundEvidenceEvaluator implements EvaluatesBoundEvidence
 {
@@ -44,6 +48,30 @@ final class GoogleAdsPerformanceBoundEvidenceEvaluator implements EvaluatesBound
             $anchorRun = $campaigns['run'];
             $observedAt = $campaigns['evidence']->observed_at ?? $observedAt;
             $matches = array_merge($matches, $this->evaluateCampaigns($campaigns['evidence']));
+        }
+
+        $searchTerms = $this->usableEvidence($runs, GoogleAdsBoundCollector::EVIDENCE_TYPE_SEARCH_TERM_PERFORMANCE);
+        if ($searchTerms !== null) {
+            $evaluatedRuleIds = array_merge($evaluatedRuleIds, PerformanceFindingsCatalog::SEARCH_TERM_RULE_IDS);
+            $anchorRun = $searchTerms['run'];
+            $observedAt = $searchTerms['evidence']->observed_at ?? $observedAt;
+            $matches = array_merge($matches, $this->evaluateSearchTerms($searchTerms['evidence']));
+        }
+
+        $measurement = $this->usableEvidence($runs, GoogleAdsBoundCollector::EVIDENCE_TYPE_CONVERSION_ACTIONS);
+        if ($measurement !== null) {
+            $evaluatedRuleIds = array_merge($evaluatedRuleIds, PerformanceFindingsCatalog::MEASUREMENT_RULE_IDS);
+            $anchorRun = $measurement['run'];
+            $observedAt = $measurement['evidence']->observed_at ?? $observedAt;
+            $matches = array_merge($matches, $this->evaluateMeasurement($measurement['evidence']));
+        }
+
+        $landing = $this->usableLandingEvidence($runs);
+        if ($landing !== null) {
+            $evaluatedRuleIds = array_merge($evaluatedRuleIds, PerformanceFindingsCatalog::LANDING_RULE_IDS);
+            $anchorRun = $landing['run'];
+            $observedAt = $landing['evidence']->observed_at ?? $observedAt;
+            $matches = array_merge($matches, $this->evaluateLanding($landing['evidence']));
         }
 
         $evaluationSuccessful = $evaluatedRuleIds !== [];
@@ -91,10 +119,47 @@ final class GoogleAdsPerformanceBoundEvidenceEvaluator implements EvaluatesBound
             }
 
             $run->loadMissing('evidence');
-            $evidence = $run->evidence->first(
-                fn (Evidence $row): bool => $row->type === $type
-                    && data_get($row->payload, 'response_ok') === true
-            );
+            $typed = $run->evidence->filter(fn (Evidence $row): bool => $row->type === $type)->values();
+            if ($typed->isEmpty()) {
+                continue;
+            }
+
+            $usable = $typed->first(fn (Evidence $row): bool => data_get($row->payload, 'response_ok') === true);
+            if ($usable instanceof Evidence) {
+                return ['run' => $run, 'evidence' => $usable];
+            }
+
+            // Latest completed Run attempted this Evidence type but it was not usable —
+            // do not fall back to older Runs (avoids false resolution after failed collection).
+            return null;
+        }
+
+        return null;
+    }
+
+    /**
+     * Landing Evidence historically used payload.ok (compat) — accept ok or response_ok.
+     *
+     * @param  list<Run>  $runs
+     * @return array{run: Run, evidence: Evidence}|null
+     */
+    private function usableLandingEvidence(array $runs): ?array
+    {
+        for ($i = count($runs) - 1; $i >= 0; $i--) {
+            $run = $runs[$i];
+            if ($run->status !== 'completed') {
+                continue;
+            }
+
+            $run->loadMissing('evidence');
+            $evidence = $run->evidence->first(function (Evidence $row): bool {
+                if ($row->type !== GoogleAdsBoundCollector::EVIDENCE_TYPE_LANDING_FINAL_URLS) {
+                    return false;
+                }
+
+                return data_get($row->payload, 'response_ok') === true
+                    || data_get($row->payload, 'ok') === true;
+            });
 
             if ($evidence instanceof Evidence) {
                 return ['run' => $run, 'evidence' => $evidence];
@@ -166,7 +231,7 @@ final class GoogleAdsPerformanceBoundEvidenceEvaluator implements EvaluatesBound
                     'high',
                     'Google Ads CPA deteriorated',
                     sprintf(
-                        'CPA rose from %s to %s (%s%%) with prior cost %s and conversions %s → %s.',
+                        'CPA rose from %s to %s (%s%%) with prior cost %s and conversions %s → %s. Platform CPA is not verified business profitability.',
                         $this->fmt($prevCpa),
                         $this->fmt($currCpa),
                         $this->fmt($cpaPct),
@@ -250,7 +315,7 @@ final class GoogleAdsPerformanceBoundEvidenceEvaluator implements EvaluatesBound
                 'Campaign spent with zero conversions',
                 sprintf(
                     'Campaign "%s" (%s) recorded cost %s and clicks %s with zero conversions in the current period.',
-                    $name,
+                    $this->safeLabel($name),
                     $campaignId,
                     $this->fmt($cost),
                     $this->fmt($clicks),
@@ -264,6 +329,154 @@ final class GoogleAdsPerformanceBoundEvidenceEvaluator implements EvaluatesBound
         }
 
         return $matches;
+    }
+
+    /**
+     * @return list<RuleMatch>
+     */
+    private function evaluateSearchTerms(Evidence $evidence): array
+    {
+        $rows = $evidence->payload['rows'] ?? null;
+        if (! is_array($rows) || $rows === []) {
+            return [];
+        }
+
+        $waste = [];
+        $opportunity = [];
+
+        foreach ($rows as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $term = trim((string) ($row['search_term'] ?? ''));
+            if ($term === '') {
+                continue;
+            }
+
+            $campaignId = trim((string) ($row['campaign_id'] ?? ''));
+            $adGroupId = trim((string) ($row['ad_group_id'] ?? ''));
+            $cost = $this->floatOrNull($row['cost'] ?? null) ?? 0.0;
+            $clicks = $this->floatOrNull($row['clicks'] ?? null) ?? 0.0;
+            $conversions = $this->floatOrNull($row['conversions'] ?? null) ?? 0.0;
+            $status = strtoupper(trim((string) ($row['targeting_status'] ?? '')));
+            $source = (string) ($row['source_report'] ?? '');
+            $channel = (string) ($row['advertising_channel_type'] ?? '');
+
+            $enoughWasteSample = $cost >= PerformanceFindingsCatalog::SEARCH_WASTE_COST_MIN
+                || $clicks >= PerformanceFindingsCatalog::SEARCH_WASTE_CLICKS_MIN;
+
+            if (
+                $enoughWasteSample
+                && $conversions <= 0.0001
+                && $status !== 'EXCLUDED'
+                && $status !== 'ADDED_EXCLUDED'
+                && count($waste) < PerformanceFindingsCatalog::SEARCH_WASTE_FINDINGS_MAX
+            ) {
+                $fingerprint = PerformanceFindingsCatalog::RULE_SEARCH_TERM_WASTE_CANDIDATE
+                    .':'.sha1(strtolower($term).'|'.$campaignId.'|'.$adGroupId.'|'.$source);
+                $waste[] = $this->match(
+                    PerformanceFindingsCatalog::RULE_SEARCH_TERM_WASTE_CANDIDATE,
+                    $fingerprint,
+                    'medium',
+                    'Search term waste candidate',
+                    sprintf(
+                        'Search term (untrusted text) in campaign %s consumed cost %s / clicks %s with zero observed conversions in the analyzed period (source %s%s). Candidate for investigation — not an automatic negative keyword.',
+                        $campaignId !== '' ? $campaignId : 'n/a',
+                        $this->fmt($cost),
+                        $this->fmt($clicks),
+                        $source !== '' ? $source : 'unknown',
+                        $channel !== '' ? ', channel '.$channel : '',
+                    ),
+                    'Review cited search-term Evidence for negative-keyword candidacy. Do not auto-apply negatives in Google Ads.',
+                );
+            }
+
+            $statusKnownNone = $status === 'NONE';
+            $statusUnknownPmax = $status === '' && $source === GoogleAdsBoundCollector::SOURCE_REPORT_CAMPAIGN_SEARCH_TERM_VIEW;
+
+            if (
+                $conversions >= PerformanceFindingsCatalog::SEARCH_OPP_CONVERSIONS_MIN
+                && $clicks >= PerformanceFindingsCatalog::SEARCH_OPP_CLICKS_MIN
+                && ($statusKnownNone || $statusUnknownPmax)
+                && $status !== 'ADDED'
+                && $status !== 'EXCLUDED'
+                && $status !== 'ADDED_EXCLUDED'
+                && count($opportunity) < PerformanceFindingsCatalog::SEARCH_OPP_FINDINGS_MAX
+            ) {
+                $fingerprint = PerformanceFindingsCatalog::RULE_SEARCH_TERM_OPPORTUNITY_CANDIDATE
+                    .':'.sha1(strtolower($term).'|'.$campaignId.'|'.$adGroupId.'|'.$source);
+                $opportunity[] = $this->match(
+                    PerformanceFindingsCatalog::RULE_SEARCH_TERM_OPPORTUNITY_CANDIDATE,
+                    $fingerprint,
+                    'medium',
+                    'Search term opportunity candidate',
+                    sprintf(
+                        'Search term (untrusted text) in campaign %s recorded conversions %s with clicks %s; targeting status %s (source %s). Candidate for keyword coverage review — not an automatic add.',
+                        $campaignId !== '' ? $campaignId : 'n/a',
+                        $this->fmt($conversions),
+                        $this->fmt($clicks),
+                        $status !== '' ? $status : 'unavailable',
+                        $source !== '' ? $source : 'unknown',
+                    ),
+                    'Review cited search-term Evidence for keyword coverage. Do not auto-add keywords in Google Ads.',
+                );
+            }
+        }
+
+        return [...$waste, ...$opportunity];
+    }
+
+    /**
+     * @return list<RuleMatch>
+     */
+    private function evaluateMeasurement(Evidence $evidence): array
+    {
+        $usable = (int) ($evidence->payload['usable_primary_or_included_count'] ?? 0);
+        $enabled = (int) ($evidence->payload['enabled_count'] ?? 0);
+        $actionCount = (int) ($evidence->payload['action_count'] ?? 0);
+
+        if ($actionCount === 0 || ($enabled > 0 && $usable === 0) || $enabled === 0) {
+            return [
+                $this->match(
+                    PerformanceFindingsCatalog::RULE_MEASUREMENT_CONFIG_RISK,
+                    PerformanceFindingsCatalog::RULE_MEASUREMENT_CONFIG_RISK,
+                    'high',
+                    'Measurement configuration risk',
+                    sprintf(
+                        'Collected conversion-action configuration shows %s actions (%s enabled, %s primary/included). This is configuration Evidence only — it does not prove browser tags or CRM events work.',
+                        $this->fmt($actionCount),
+                        $this->fmt($enabled),
+                        $this->fmt($usable),
+                    ),
+                    'Review Google Ads conversion action configuration and account/campaign goals. Do not claim tracking is broken without browser/CRM validation.',
+                ),
+            ];
+        }
+
+        return [];
+    }
+
+    /**
+     * @return list<RuleMatch>
+     */
+    private function evaluateLanding(Evidence $evidence): array
+    {
+        $count = (int) ($evidence->payload['final_url_count'] ?? count($evidence->payload['final_urls'] ?? []));
+        if ($count > 0) {
+            return [];
+        }
+
+        return [
+            $this->match(
+                PerformanceFindingsCatalog::RULE_LANDING_URL_COVERAGE_RISK,
+                PerformanceFindingsCatalog::RULE_LANDING_URL_COVERAGE_RISK,
+                'medium',
+                'Landing URL coverage risk',
+                'No final URLs were present in collected Google Ads landing Evidence for active ad_group_ad rows in this Run.',
+                'Confirm ads are serving with final URLs and re-collect read-only Ads Evidence before judging landing alignment.',
+            ),
+        ];
     }
 
     private function cpa(?float $cost, ?float $conversions): ?float
@@ -312,5 +525,18 @@ final class GoogleAdsPerformanceBoundEvidenceEvaluator implements EvaluatesBound
         return abs($number - round($number)) < 0.0001
             ? (string) (int) round($number)
             : number_format($number, 2, '.', '');
+    }
+
+    /**
+     * Campaign/ad names are untrusted provider text — truncate for Finding summary only.
+     */
+    private function safeLabel(string $value): string
+    {
+        $trimmed = trim($value);
+        if (mb_strlen($trimmed) <= 80) {
+            return $trimmed;
+        }
+
+        return mb_substr($trimmed, 0, 77).'...';
     }
 }
