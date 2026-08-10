@@ -6,6 +6,17 @@
 
 **Öncelik:** MASTER_SPEC → accepted ADR → product blueprints → roadmap → diğerleri. Laravel Boost guidelines ile çelişirse DOP belgeleri kazanır.
 
+### Cloud development environment
+
+- Checkout path: **`/workspace`** (expected Cursor Cloud root)
+- Reproducible config: `.cursor/environment.json` + `.cursor/Dockerfile`
+- Details: `docs/implementation/CURSOR_CLOUD_ENVIRONMENT.md`
+- Install: `bash .cursor/cloud-agent-install.sh` (`composer install`, `npm ci`, `npm run build`)
+- Start: `bash .cursor/cloud-agent-start.sh` (runtime `.env`, SQLite, migrate, seed)
+- App server terminal: `php artisan serve --host=0.0.0.0 --port=8000` (forward port 8000)
+- Admin: `php artisan dop:create-admin` (interactive; never commit passwords)
+- Provider credentials are **not** required for basic boot / PHPUnit
+
 ### Kilit kararlar
 
 - Moximu **iç** operasyon; SaaS / Workspace / müşteri girişi yok

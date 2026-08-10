@@ -6,7 +6,13 @@
 .phpactor.json
 .phpunit.result.cache
 /.codex
-/.cursor/
+# Track Cursor Cloud environment config; ignore other local Cursor IDE state.
+/.cursor/*
+!/.cursor/environment.json
+!/.cursor/Dockerfile
+!/.cursor/cloud-agent-install.sh
+!/.cursor/cloud-agent-start.sh
+!/.cursor/dotenv.cursor-cloud.example
 /.idea
 /.nova
 /.phpunit.cache
@@ -21,6 +27,8 @@
 /storage/*.key
 /storage/pail
 /vendor
+/database/*.sqlite
+/database/*.sqlite-journal
 _ide_helper.php
 Homestead.json
 Homestead.yaml
