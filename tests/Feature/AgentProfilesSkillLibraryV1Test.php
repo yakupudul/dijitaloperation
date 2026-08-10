@@ -79,6 +79,7 @@ class AgentProfilesSkillLibraryV1Test extends TestCase
         $slugs = collect($skills)->pluck('slug')->all();
 
         $this->assertEqualsCanonicalizing([
+            'brand-context-discovery',
             'technical-seo-analysis',
             'search-console-analysis',
             'keyword-opportunity-analysis',
