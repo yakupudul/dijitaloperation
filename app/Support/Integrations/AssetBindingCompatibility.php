@@ -19,6 +19,7 @@ final class AssetBindingCompatibility
             'website' => ['search_console', 'ga4'],
             'google_ads' => ['google_ads'],
             'google_business_profile' => ['google_business_profile'],
+            'meta_ads' => ['meta_ads'],
             default => [],
         };
     }

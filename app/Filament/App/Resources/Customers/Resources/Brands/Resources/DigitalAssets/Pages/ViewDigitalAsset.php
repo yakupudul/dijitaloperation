@@ -11,6 +11,7 @@ use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAsset
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\GoogleAdsIntelligenceRelationManager;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\GoogleAdsPerformanceRelationManager;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\GoogleAdsSearchTermsRelationManager;
+use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\MetaAdsConnectionsRelationManager;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\WebsiteActivityRelationManager;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\WebsiteConnectionsRelationManager;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\WebsiteDiscoveryRelationManager;
@@ -49,6 +50,7 @@ use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Support\Htmlable;
 use MoxDop\GoogleAds\Ai\GoogleAdsAiGuidanceService;
 use MoxDop\GoogleAds\Workspace\GoogleAdsWorkspaceData;
+use MoxDop\MetaAds\Support\MetaAdsWorkspaceData;
 use MoxDop\Website\Ai\WebsiteAiRecommendationService;
 use MoxDop\Website\Discovery\PublicDiscoveryService;
 use MoxDop\Website\SeoIntelligence\SeoIntelligenceRefreshService;
@@ -701,6 +703,18 @@ class ViewDigitalAsset extends ViewRecord
             ]);
         }
 
+        if ($this->isMetaAdsWorkspace()) {
+            return $schema->components([
+                ViewEntry::make('meta_ads_overview')
+                    ->hiddenLabel()
+                    ->view('meta-ads::filament.digital-assets.workspaces.meta-ads.overview')
+                    ->viewData(fn (): array => [
+                        'summary' => MetaAdsWorkspaceData::forAsset($this->getRecord()),
+                    ])
+                    ->columnSpanFull(),
+            ]);
+        }
+
         return DigitalAssetResource::infolist($schema);
     }
 
@@ -753,6 +767,16 @@ class ViewDigitalAsset extends ViewRecord
             return $parts === [] ? null : implode(' · ', $parts);
         }
 
+        if ($this->isMetaAdsWorkspace()) {
+            $workspace = MetaAdsWorkspaceData::forAsset($asset);
+            $parts = array_values(array_filter([
+                $workspace['connection_label'] ?? null,
+                $workspace['account_label'] !== 'Not bound' ? $workspace['account_label'] : null,
+            ], fn (?string $part): bool => filled($part)));
+
+            return $parts === [] ? 'Meta Ads' : implode(' · ', $parts);
+        }
+
         $identifier = filled($asset->primary_url)
             ? $asset->primary_url
             : (filled($asset->domain) ? $asset->domain : null);
@@ -779,6 +803,14 @@ class ViewDigitalAsset extends ViewRecord
         $asset = $this->getRecord();
 
         return $asset->type === 'google_ads';
+    }
+
+    private function isMetaAdsWorkspace(): bool
+    {
+        /** @var DigitalAsset $asset */
+        $asset = $this->getRecord();
+
+        return $asset->type === 'meta_ads';
     }
 
     /**
@@ -838,6 +870,12 @@ class ViewDigitalAsset extends ViewRecord
                 GoogleAdsIntelligenceRelationManager::class,
                 GoogleAdsConnectionsRelationManager::class,
                 GoogleAdsActivityRelationManager::class,
+            ];
+        }
+
+        if ($this->isMetaAdsWorkspace()) {
+            return [
+                MetaAdsConnectionsRelationManager::class,
             ];
         }
 

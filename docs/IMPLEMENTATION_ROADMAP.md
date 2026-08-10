@@ -59,13 +59,14 @@ Foundation 1–23 tamamlandıktan sonra devam eden **güncel** ürün sırası. 
 | **N2b** | **Google Ads Intelligence + Analyst V1** | **IMPLEMENTED V1** | `docs/product/google-ads/GOOGLE_ADS_INTELLIGENCE.md` — Google Ads Analyst + Skills + `google_ads.ai_guidance` |
 | **N2c** | **Operational Recommendation → Task → Outcome Loop V1** | **IMPLEMENTED V1** | `docs/product/OPERATIONAL_OUTCOME_LOOP.md` — Task lifecycle + Finding-linked Outcome signals (no Result entity) |
 | **N2d** | **Discovery Intelligence V1** | **IMPLEMENTED V1** | `docs/product/DISCOVERY_INTELLIGENCE.md` — Website public discovery + candidates + human review; optional DataForSEO competitors |
+| **N2e** | **Meta Ads Central Integration + Resource Binding V1** | **IMPLEMENTED V1** | `docs/product/meta-ads/META_ADS_INTEGRATION.md` — Meta provider + Ad Account discovery + AssetBinding (no Insights/AI yet) |
 | **N3** | **Memory / Retrieval V1** | PLANNED (deferred) | Only when knowledge volume justifies; vector RAG deferred |
 
 ### Later candidates (UNCOMMITTED — select next after V1 review)
 
 No fixed dates. Review operational value before committing. Do **not** auto-start:
 
-- Meta Ads read-only intelligence
+- Meta Ads Intelligence + Analyst V1 (Insights / Evidence / Findings / Analyst / Skills)
 - GBP Reputation Intelligence (official APIs; scraper rejected)
 - Capability Registry / Routing V1
 - Digital Operations Analyst

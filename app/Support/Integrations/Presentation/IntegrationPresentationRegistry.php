@@ -15,8 +15,7 @@ final class IntegrationPresentationRegistry
     public const string GROUP_AI = 'ai_providers';
 
     /**
-     * Operator-ready providers only. Meta stays in ProviderRegistry but is not
-     * shown until its Integration workspace exists.
+     * Operator-ready providers for Settings → Integrations.
      *
      * @return list<array{
      *     provider: string,
@@ -45,6 +44,18 @@ final class IntegrationPresentationRegistry
                     'GA4',
                     'Google Ads',
                     'GBP',
+                ],
+            ],
+            [
+                'provider' => ProviderRegistry::META,
+                'label' => ProviderRegistry::label(ProviderRegistry::META),
+                'description' => 'Meta advertising accounts (read-only)',
+                'group' => self::GROUP_DATA,
+                'group_label' => 'Data & platforms',
+                'icon' => 'meta',
+                'supports_resources' => true,
+                'capability_labels' => [
+                    'Meta Ads',
                 ],
             ],
             [

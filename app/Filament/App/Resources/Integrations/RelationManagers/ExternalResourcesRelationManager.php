@@ -14,8 +14,8 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Read-only catalog of discovered provider resources.
- * Google-style discovery only — not applicable to OpenAI / DataForSEO API-key providers.
+ * Read-only catalog of discovered provider resources (Google / Meta).
+ * Not applicable to OpenAI / DataForSEO / Anthropic / Gemini API-key providers.
  */
 class ExternalResourcesRelationManager extends RelationManager
 {
@@ -23,7 +23,20 @@ class ExternalResourcesRelationManager extends RelationManager
 
     protected static string $relationship = 'externalResources';
 
-    protected static ?string $title = 'Google resources';
+    protected static ?string $title = 'Provider resources';
+
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
+    {
+        if ($ownerRecord instanceof CoreIntegration && $ownerRecord->provider === ProviderRegistry::META) {
+            return 'Meta Ad Accounts';
+        }
+
+        if ($ownerRecord instanceof CoreIntegration && $ownerRecord->provider === ProviderRegistry::GOOGLE) {
+            return 'Google resources';
+        }
+
+        return parent::getTitle($ownerRecord, $pageClass);
+    }
 
     public static function canViewForRecord(Model $ownerRecord, string $pageClass): bool
     {
@@ -31,7 +44,7 @@ class ExternalResourcesRelationManager extends RelationManager
             return false;
         }
 
-        // Agency API-key providers do not discover External Resources / bindings.
+        // Agency API-key AI/SEO providers do not discover External Resources / bindings.
         return ! in_array($ownerRecord->provider, [
             ProviderRegistry::OPENAI,
             ProviderRegistry::DATAFORSEO,
@@ -71,6 +84,10 @@ class ExternalResourcesRelationManager extends RelationManager
 
     public function table(Table $table): Table
     {
+        /** @var CoreIntegration $owner */
+        $owner = $this->getOwnerRecord();
+        $isMeta = $owner->provider === ProviderRegistry::META;
+
         return $table
             ->recordTitleAttribute('display_name')
             ->defaultSort('resource_type')
@@ -96,12 +113,14 @@ class ExternalResourcesRelationManager extends RelationManager
             ->filters([
                 SelectFilter::make('resource_type')
                     ->label('Capability')
-                    ->options([
-                        'search_console' => 'Search Console',
-                        'ga4' => 'GA4',
-                        'google_ads' => 'Google Ads',
-                        'google_business_profile' => 'Google Business Profile',
-                    ]),
+                    ->options($isMeta
+                        ? ['meta_ads' => 'Meta Ads']
+                        : [
+                            'search_console' => 'Search Console',
+                            'ga4' => 'GA4',
+                            'google_ads' => 'Google Ads',
+                            'google_business_profile' => 'Google Business Profile',
+                        ]),
                 SelectFilter::make('status')
                     ->options([
                         'available' => 'Available',
@@ -110,8 +129,12 @@ class ExternalResourcesRelationManager extends RelationManager
             ])
             ->headerActions([])
             ->recordActions([])
-            ->emptyStateHeading('No Google resources discovered yet')
-            ->emptyStateDescription(function (): string {
+            ->emptyStateHeading($isMeta ? 'No Meta Ad Accounts discovered yet' : 'No Google resources discovered yet')
+            ->emptyStateDescription(function () use ($isMeta): string {
+                if ($isMeta) {
+                    return 'Configure a Meta access token, then use Discover resources. Fake resources are never created.';
+                }
+
                 /** @var CoreIntegration $owner */
                 $owner = $this->getOwnerRecord();
 
@@ -119,7 +142,7 @@ class ExternalResourcesRelationManager extends RelationManager
                     return 'Authorize Google, then use Refresh resources. Fake resources are never created.';
                 }
 
-                return 'No discoverable Google resources for this provider.';
+                return 'No discoverable resources for this provider.';
             });
     }
 }

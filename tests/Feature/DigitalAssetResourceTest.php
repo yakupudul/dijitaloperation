@@ -101,13 +101,10 @@ class DigitalAssetResourceTest extends TestCase
             'parentRecord' => $this->brand,
         ])
             ->assertOk()
-            ->assertSchemaStateSet([
-                'brand.name' => $this->brand->name,
-                'name' => 'Visible Asset',
-                'type' => 'meta_ads',
-                'status' => DigitalAssetStatus::Inactive,
-                'module_id' => 'meta-ads',
-            ]);
+            ->assertSee('Visible Asset')
+            ->assertSee('Meta Ads')
+            ->assertSee('Connections')
+            ->assertDontSee('Provider resources');
     }
 
     public function test_google_ads_workspace_view_shows_productized_overview(): void

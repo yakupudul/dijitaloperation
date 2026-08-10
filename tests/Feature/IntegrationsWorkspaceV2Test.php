@@ -70,11 +70,12 @@ class IntegrationsWorkspaceV2Test extends TestCase
             ->assertSee('AI reasoning and recommendation intelligence')
             ->assertSee('Anthropic')
             ->assertSee('Gemini')
+            ->assertSee('Meta')
+            ->assertSee('Meta advertising accounts (read-only)')
             ->assertSee('Set up')
             ->assertDontSee('Add integration')
             ->assertDontSee('Authorized')
-            ->assertDontSeeHtml('fi-ta-table')
-            ->assertDontSee('Meta');
+            ->assertDontSeeHtml('fi-ta-table');
 
         Http::assertNothingSent();
     }
@@ -311,10 +312,13 @@ class IntegrationsWorkspaceV2Test extends TestCase
             ->assertDontSee('dev-never-show');
     }
 
-    public function test_meta_is_not_operator_ready_in_presentation_registry(): void
+    public function test_meta_is_operator_ready_in_presentation_registry(): void
     {
         $this->assertTrue(ProviderRegistry::isValid(ProviderRegistry::META));
-        $this->assertFalse(IntegrationPresentationRegistry::isOperatorReady(ProviderRegistry::META));
+        $this->assertTrue(IntegrationPresentationRegistry::isOperatorReady(ProviderRegistry::META));
+        $meta = IntegrationPresentationRegistry::for(ProviderRegistry::META);
+        $this->assertNotNull($meta);
+        $this->assertTrue($meta['supports_resources']);
         $this->assertFalse(IntegrationResource::canCreate());
     }
 

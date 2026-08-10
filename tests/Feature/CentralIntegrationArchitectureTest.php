@@ -387,7 +387,7 @@ class CentralIntegrationArchitectureTest extends TestCase
         $this->assertSame(AssetBindingsRelationManager::class, $relations['assetBindings']);
         $this->assertSame(ConnectionsRelationManager::class, $relations['connections']);
 
-        // Non-workspace assets keep the legacy Provider resources / Site connections tabs.
+        // Meta Ads assets use the productized connection workspace tabs.
         $metaAsset = DigitalAsset::factory()->create([
             'brand_id' => $this->brand->id,
             'type' => 'meta_ads',
@@ -398,8 +398,10 @@ class CentralIntegrationArchitectureTest extends TestCase
             'parentRecord' => $this->brand,
         ])
             ->assertOk()
-            ->assertSee('Provider resources')
-            ->assertSee('Site connections');
+            ->assertSee('Overview')
+            ->assertSee('Connections')
+            ->assertDontSee('Provider resources')
+            ->assertDontSee('Site connections');
 
         // Google Ads assets use the productized Ads workspace tabs.
         $adsAsset = DigitalAsset::factory()->create([

@@ -28,12 +28,13 @@ Last updated: 2026-08-10
 | **Google Ads Intelligence + Analyst V1** | **IMPLEMENTED V1** — Google Ads Analyst + Skills + search-term/measurement Evidence + `google_ads.ai_guidance`; `docs/product/google-ads/GOOGLE_ADS_INTELLIGENCE.md` |
 | **Operational Recommendation → Task → Outcome Loop V1** | **IMPLEMENTED V1** — Finding → Recommendation → Task → human completion → observed Outcome signal; `docs/product/OPERATIONAL_OUTCOME_LOOP.md` |
 | **Discovery Intelligence V1** | **IMPLEMENTED V1** — bounded public Website discovery + Evidence + Brand candidates (fact/inference) + human Accept/Edit/Ignore + optional DataForSEO competitor candidates; `docs/product/DISCOVERY_INTELLIGENCE.md` |
-| Next milestone | **TO BE SELECTED** after reviewing Discovery V1 (candidates below — do not auto-start) |
+| **Meta Ads Central Integration + Resource Binding V1** | **IMPLEMENTED V1** — agency Meta Integration + Ad Account ExternalResources + Meta Ads Digital Asset binding; `docs/product/meta-ads/META_ADS_INTEGRATION.md` (real Meta read-only UAT: OPERATOR FOLLOW-UP) |
+| Next milestone | **TO BE SELECTED** after reviewing Meta connection V1 (candidates below — do not auto-start) |
 | Memory / Retrieval V1 | PLANNED — only when knowledge volume justifies it; vector RAG deferred |
 
 ### Next milestone candidates (UNCOMMITTED — select after V1 review)
 
-Meta Ads Integration / Intelligence · GBP Reputation Intelligence · accepted Competitor Comparison V1 · Capability Registry / Routing V1 · Digital Operations Analyst · Playbook V1 · richer metric Outcome Signals · Memory/Retrieval (deferred)
+Meta Ads Intelligence + Analyst V1 · GBP Reputation Intelligence · accepted Competitor Comparison V1 · Capability Registry / Routing V1 · Digital Operations Analyst · Playbook V1 · richer metric Outcome Signals · Memory/Retrieval (deferred)
 
 Do **not** automatically schedule RAG. Capability/Discovery concepts should inform Agent/Skill design without derailing product value.
 

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "632bfc29e26a7c7151e9838320b9c368",
+    "content-hash": "f744f421dada049c6b3acfee4f11e305",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -4653,6 +4653,41 @@
                 "proprietary"
             ],
             "description": "Google Business Profile domain module — Binding-based read-only collection.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "moxdop/meta-ads",
+            "version": "1.0.0",
+            "dist": {
+                "type": "path",
+                "url": "app-modules/meta-ads",
+                "reference": "5bf69d5987a281c7aae7d92f01e1f146529fb4ac"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "MoxDop\\MetaAds\\Providers\\MetaAdsServiceProvider"
+                    ]
+                },
+                "branch-alias": {
+                    "dev-master": "1.0.x-dev"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "MoxDop\\MetaAds\\": "src/",
+                    "MoxDop\\MetaAds\\Tests\\": "tests/",
+                    "MoxDop\\MetaAds\\Database\\Factories\\": "database/factories/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "MoxDOP Meta Ads module — Digital Asset presentation and binding domain (V1 connection layer).",
             "transport-options": {
                 "symlink": true,
                 "relative": true

@@ -53,7 +53,7 @@ Rendering the index performs **zero** provider HTTP calls.
 
 ### Provider groups
 
-- **Data & platforms** — Google, DataForSEO (Meta stays in `ProviderRegistry` but is hidden until operator-ready)
+- **Data & platforms** — Google, Meta, DataForSEO
 - **AI providers** — OpenAI, Anthropic, Gemini (Integrations ≠ Modules; route models live in AI Control Plane)
 
 ## Provider shapes
@@ -65,6 +65,15 @@ Rendering the index performs **zero** provider HTTP calls.
 - Workspace: Overview, Configuration, Available services, Google resources
 - Actions: Configure, Authorize / Re-authorize, Test connection, Refresh resources
 - Destructive: Disconnect / Remove configuration in Danger zone
+
+### Meta — resource-discovery provider (read-only)
+
+- Encrypted access token (system user / long-lived user token); DB-first
+- Discovers Meta Ad Accounts → External Resources → Asset Bindings on Meta Ads Digital Assets
+- Graph host fixed; Marketing API version centralized (`v26.0`)
+- Actions: Configure, Test connection, Discover resources
+- Destructive: Remove configuration in Danger zone
+- Spec: `docs/product/meta-ads/META_ADS_INTEGRATION.md`
 
 ### DataForSEO — credential/API provider
 

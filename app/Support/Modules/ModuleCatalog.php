@@ -19,6 +19,7 @@ final class ModuleCatalog
         'website',
         'google-ads',
         'google-business-profile',
+        'meta-ads',
     ];
 
     /**
