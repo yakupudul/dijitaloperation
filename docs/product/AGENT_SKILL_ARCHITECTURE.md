@@ -133,12 +133,9 @@ Prefer one strong domain Analyst + many Skills over hundreds of tiny Agents.
 - Route `google_ads.ai_guidance`
 - Skills: account-performance-audit, campaign-performance-analysis, search-query-analysis, measurement-quality-review, landing-page-alignment
 - See `docs/product/google-ads/GOOGLE_ADS_INTELLIGENCE.md`
+- Methodology reference: Agency Agents paid-media patterns — **runtime not imported**
 
-### Historical note — prior PLANNED design only
-
-Potential future Skills (not implemented): Account Audit, Campaign Performance, Search Query Analysis, Tracking & Measurement, Budget Efficiency, Landing Page Alignment, Creative Analysis.
-
-Methodology reference: Agency Agents paid-media patterns — **no runtime in this milestone**.
+Potential later Skills (not in V1): Budget Efficiency, Creative Analysis.
 
 ### Digital Operations Analyst (**PLANNED**)
 
