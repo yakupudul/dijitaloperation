@@ -1,4 +1,12 @@
 <x-filament-panels::page>
+    <div class="mb-6 flex flex-wrap gap-3 text-sm">
+        <span class="font-semibold text-gray-950 dark:text-white">Routes</span>
+        <span class="text-gray-400">·</span>
+        <a href="{{ \App\Filament\App\Clusters\Settings\Pages\AgentProfilesSettings::getUrl() }}" class="font-medium text-primary-600 hover:underline dark:text-primary-400">Agent Profiles</a>
+        <span class="text-gray-400">·</span>
+        <a href="{{ \App\Filament\App\Clusters\Settings\Pages\SkillLibrarySettings::getUrl() }}" class="font-medium text-primary-600 hover:underline dark:text-primary-400">Skill Library</a>
+    </div>
+
     <div class="space-y-6">
         <x-filament::section>
             <x-slot name="heading">

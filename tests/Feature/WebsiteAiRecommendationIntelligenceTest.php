@@ -88,7 +88,9 @@ class WebsiteAiRecommendationIntelligenceTest extends TestCase
         $this->assertSame($deterministic->title, Recommendation::query()->find($deterministic->id)?->title);
 
         WebsiteRecommendationAgent::assertPrompted(function (AgentPrompt $prompt) use ($finding, $evidence, $deterministic): bool {
-            return $prompt->contains('CONTEXT_JSON:')
+            return $prompt->contains('AGENT CONTRACT')
+                && $prompt->contains('Website SEO Analyst')
+                && $prompt->contains('CONTEXT_JSON:')
                 && $prompt->contains('important_constraints')
                 && $prompt->contains('Patient before/after advertising cannot be used')
                 && $prompt->contains('"id": '.$finding->id)

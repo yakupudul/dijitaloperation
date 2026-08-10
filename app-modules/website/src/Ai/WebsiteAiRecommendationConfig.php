@@ -11,11 +11,11 @@ final class WebsiteAiRecommendationConfig
 
     public const string EVIDENCE_TYPE_AI_INSIGHT = 'ai_insight';
 
-    public const string PROMPT_VERSION = 'website-ai-recommendation-v1';
+    public const string PROMPT_VERSION = 'website-ai-recommendation-v2';
 
     public const string SCHEMA_VERSION = 'website-ai-recommendation-schema-v1';
 
-    public const string RUN_TITLE = 'AI recommendation analysis';
+    public const string RUN_TITLE = 'AI Guidance';
 
     public const int MAX_FINDINGS = 12;
 

@@ -20,8 +20,9 @@
 | Minimal Module Registry | id + enabled/disabled (+ bilgisel version); operator UI = business modules only |
 | Integration | External provider/service connection (≠ Module) |
 | Module | Business/domain capability (≠ Integration/Agent/Skill/Capability) |
-| Agent | Bounded AI workflow/persona (**planned**; ≠ Module) |
-| Skill | Versioned analytical methodology (**planned**; ≠ Module) |
+| Agent | Bounded AI workflow/persona (**IMPLEMENTED V1** for Website SEO Analyst; ≠ Module) |
+| Skill | Versioned analytical methodology (**IMPLEMENTED V1** built-in Markdown Skills; ≠ Module) |
+| Playbook | Future orchestration of Agents/Skills (**planned**; ≠ runtime) |
 | Capability | Implementation-independent ability (**planned**; ≠ Integration/Module/Agent/Skill) |
 | Adapter | Concrete fulfillment of a Capability (**planned**) |
 | AI Router | Which AI provider/model reasons (**planned**; ≠ Capability Router) |

@@ -348,14 +348,16 @@ Do **not** reorder Agent Profiles behind Capability/Discovery automatically.
 
 Immediate next implementation milestone:
 
-1. **Agent Profiles + Skill Library V1**
+**TO BE SELECTED** after reviewing Agent Profiles + Skill Library V1 results.
 
-AI Provider Routing & Failover V1 is **IMPLEMENTED**.
+AI Provider Routing & Failover V1 and Agent Profiles + Skill Library V1 are **IMPLEMENTED**.
 
 Later candidate milestones (UNCOMMITTED timing):
 
+- Google Ads Intelligence / Analyst application
 - Capability Registry / Routing V1
 - Discovery Intelligence V1
+- Playbooks
 
 Do not assign calendar dates. Do not automatically put Discovery ahead of operationally more valuable work. Capability / Discovery concepts should **inform** Agent/Skill contracts.
 

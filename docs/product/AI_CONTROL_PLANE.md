@@ -2,13 +2,13 @@
 
 > **STATUS: PARTIALLY IMPLEMENTED (V1)**  
 >  
-> **Implemented in V1 (AI Router):** OpenAI + Anthropic + Gemini agency Integrations, workflow-specific AI Routes (`website.ai_guidance`), Laravel native `FailoverableException` failover, route-step persistence (`ai_route_steps`), provider/model/fallback provenance.  
-> **Still PLANNED / NOT IMPLEMENTED:** Agent Profiles, Skill Library, Capability Registry / Capability Router, Discovery runtime, Memory/Retrieval, vector RAG, aggregator providers (OpenRouter, etc.).  
+> **Implemented in V1:**  
+> - **AI Router:** OpenAI + Anthropic + Gemini, workflow routes (`website.ai_guidance`), native failover, provenance  
+> - **Agent Profiles + Skill Library:** Website SEO Analyst, curated Website Skills, bounded context, eligibility, Agent/Skill provenance  
+> **Still PLANNED / NOT IMPLEMENTED:** Playbooks, Recommendation Reviewer AI layer, Google Ads Analyst runtime, Capability Registry / Capability Router, Discovery runtime, Memory/Retrieval, vector RAG, aggregator providers, operator-custom Skills DB  
 >  
 > Authority order remains: `MASTER_SPEC` → accepted ADRs → product blueprints → this direction doc.  
-> Related research registry: [`docs/research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md`](../research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md).  
-> Related discovery direction: [`docs/product/DISCOVERY_INTELLIGENCE.md`](./DISCOVERY_INTELLIGENCE.md) (**PLANNED / NOT IMPLEMENTED**).  
-> Related knowledge architecture: [`docs/product/KNOWLEDGE_MEMORY_ARCHITECTURE.md`](./KNOWLEDGE_MEMORY_ARCHITECTURE.md).
+> Related: [`AGENT_SKILL_ARCHITECTURE.md`](./AGENT_SKILL_ARCHITECTURE.md) · [`DISCOVERY_INTELLIGENCE.md`](./DISCOVERY_INTELLIGENCE.md) · [`KNOWLEDGE_MEMORY_ARCHITECTURE.md`](./KNOWLEDGE_MEMORY_ARCHITECTURE.md) · [`docs/research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md`](../research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md).
 
 ---
 
@@ -55,12 +55,14 @@ Product rules (already canonical in MASTER_SPEC / ADR-041 path):
 | OpenAI agency Integration + Website AI Recommendation Intelligence V1 | **IMPLEMENTED** (PR #106) |
 | Multiple AI provider Integrations (OpenAI, Anthropic, Gemini) | **IMPLEMENTED V1** |
 | Route-specific primary/fallback — **AI Router** (`website.ai_guidance`) | **IMPLEMENTED V1** |
+| Agent Profiles (Website SEO Analyst) | **IMPLEMENTED V1** |
+| Skill Library (built-in Markdown Skills) | **IMPLEMENTED V1** |
 | Capability Registry / Capability Router | **PLANNED / NOT IMPLEMENTED** |
 | Outside-in Discovery Intelligence | **PLANNED / NOT IMPLEMENTED** — see `DISCOVERY_INTELLIGENCE.md` |
-| Agent Profiles | **PLANNED / NOT IMPLEMENTED** |
-| Skill Library | **PLANNED / NOT IMPLEMENTED** |
+| Playbooks | **PLANNED / NOT IMPLEMENTED** |
+| Recommendation Reviewer AI layer | **PLANNED / NOT IMPLEMENTED** (deterministic grounding remains V1 gate) |
 | Skill versioning / evaluation harness | **PLANNED / NOT IMPLEMENTED** |
-| Knowledge / Memory architecture (four layers) | **PLANNED** — partially realized via structured Brand Context / Run / Evidence / Finding data; see [`KNOWLEDGE_MEMORY_ARCHITECTURE.md`](./KNOWLEDGE_MEMORY_ARCHITECTURE.md) |
+| Knowledge / Memory architecture (four layers) | **PLANNED** — Expert/Skill Memory **IMPLEMENTED V1** via curated Markdown Skills; see [`KNOWLEDGE_MEMORY_ARCHITECTURE.md`](./KNOWLEDGE_MEMORY_ARCHITECTURE.md) |
 | Vector RAG / embeddings | **NOT IMPLEMENTED** — deferred until knowledge volume justifies it |
 | Aggregator providers (OpenRouter, DeepSeek, Groq, …) | **NOT IMPLEMENTED** (V1 proves direct providers only) |
 | MCP / unbounded agents | **REJECTED** as MoxDOP core |
@@ -301,7 +303,22 @@ AI Router Runs already record safe provenance such as: `ai_route_key`, configure
 
 ## 10. Agent Profiles
 
-**PLANNED model**
+**IMPLEMENTED V1** for Website SEO Analyst. Additional profiles remain planned.
+
+```text
+Module
+  → Agent Profiles
+    → Skills
+
+Agent / Workflow
+  → AI Route
+  → provider / model chain
+
+Skill
+  → required Capability (metadata in V1)
+  → future Capability Router
+  → Adapter
+```
 
 ```text
 Agent Profile
@@ -312,12 +329,16 @@ Agent Profile
   → structured output
 ```
 
-Example profiles (names illustrative):
+Operational V1 profile:
 
-- Website SEO Analyst
+- **Website SEO Analyst** (`website.seo_analyst`) — module `website`, route `website.ai_guidance`
+
+Example future profiles (names illustrative, **NOT IMPLEMENTED**):
+
 - Google Ads Analyst
 - GBP Reputation Analyst
 - Digital Operations Analyst
+- Recommendation Reviewer
 
 Agent Profiles are **not** autonomous employees. They are bounded product personas/workflows.
 
@@ -328,18 +349,21 @@ Constraints:
 - no secret access for agents
 - no external platform modification
 - no Agent-direct tool bypass of Capability / Evidence provenance
+- no self-modifying Agent Profiles
 
 ---
 
 ## 11. Skill Library
 
-**PLANNED concept**
+**IMPLEMENTED V1** for curated built-in Website Skills (Markdown under module resources).
 
 A MoxDOP Skill is **not** arbitrary executable third-party code.
 
 A Skill is a curated, versioned analytical methodology.
 
-Full memory/Skill layering, trust levels, provenance, context assembly, and “no self-modifying AI” rules live in [`KNOWLEDGE_MEMORY_ARCHITECTURE.md`](./KNOWLEDGE_MEMORY_ARCHITECTURE.md).
+Operator/custom Skill DB tables remain **PLANNED / NOT IMPLEMENTED**.
+
+Full memory/Skill layering, trust levels, provenance, context assembly, and “no self-modifying AI” rules live in [`KNOWLEDGE_MEMORY_ARCHITECTURE.md`](./KNOWLEDGE_MEMORY_ARCHITECTURE.md) and [`AGENT_SKILL_ARCHITECTURE.md`](./AGENT_SKILL_ARCHITECTURE.md).
 
 ### Conceptual Skill contract
 
@@ -440,14 +464,17 @@ These are planning labels, not Autopilot stage IDs:
 1. **Integrations Workspace V2** — **COMPLETED** (PR #107 / `61bbfc8`)  
 2. **Module Boundary + Knowledge / Memory Architecture Audit V1** — **COMPLETED** (PR #109 / `ec31bde`)  
 3. **Capability + Discovery product direction docs V1** — **COMPLETED** (docs only; PR #111) — **NOT** a runtime milestone  
-4. **AI Provider Routing & Failover V1** — **IMPLEMENTED V1** (OpenAI / Anthropic / Gemini + `website.ai_guidance`)  
-5. **Agent Profiles + Skill Library V1** — **NEXT IMPLEMENTATION** — bounded personas + curated versioned Skills (Capability fields influence contracts)  
+4. **AI Provider Routing & Failover V1** — **IMPLEMENTED V1**  
+5. **Agent Profiles + Skill Library V1** — **IMPLEMENTED V1** (Website SEO Analyst + curated Skills)  
 6. **Memory / Retrieval V1** — only when knowledge volume / use cases justify it (structured retrieval first; vector RAG deferred)
 
-Later **candidate** architecture/product work (**UNCOMMITTED** timing — do not reorder ahead of Agent Profiles + Skill Library automatically):
+Later **candidate** architecture/product work (**UNCOMMITTED** — select next after reviewing Agent/Skill V1 results):
 
+- Google Ads Intelligence / Analyst application
 - Capability Registry / Routing V1
 - Discovery Intelligence V1
+- Playbooks
+- Recommendation Reviewer AI layer
 - Meta Ads read-only intelligence
 - GBP Reputation Intelligence
 - GEO / AI Search Intelligence
@@ -457,4 +484,4 @@ Later **candidate** architecture/product work (**UNCOMMITTED** timing — do not
 
 No fixed calendar dates are assigned here.
 
-**Immediate next implementation milestone: Agent Profiles + Skill Library V1.**
+**Do not automatically start the next milestone from this document alone.**
