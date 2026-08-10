@@ -2,82 +2,91 @@
 
 ## Purpose
 
-Meta Ads account (Facebook/Meta advertising), Brand altında yönetilen bir Digital Asset türüdür. Ajansın Meta reklam hesabını read-only kanıtlarla operasyonel Findings’e bağlar.
+Meta Ads account (Facebook/Meta advertising), Brand altında yönetilen bir Digital Asset türüdür. Ajansın Meta reklam hesabını read-only operasyona bağlar.
+
+## Connection architecture (V1 — IMPLEMENTED)
+
+Credentials are **not** stored on the Digital Asset.
+
+```
+Agency Meta Integration (provider=meta)
+  → ExternalResource (Meta Ad Account, resource_type=meta_ads)
+    → AssetBinding
+      → Meta Ads Digital Asset
+```
+
+See `docs/product/meta-ads/META_ADS_INTEGRATION.md` for the connection milestone.
 
 ## User value
 
-Ekip, müşteri markasının Meta Ads hesabını tek asset olarak görür; kampanya/harcama/performans ve delivery sinyallerini Evidence → Finding yoluna alır ve harici yazmadan öncelikli iç iş üretir.
+Ekip, müşteri markasının Meta Ads hesabını tek asset olarak görür; bağlanan Ad Account üzerinden ileride Evidence → Finding yoluna alır ve harici yazmadan öncelikli iç iş üretir.
 
 ## Core concepts
 
-* **Digital Asset type:** `meta_ads`
-* **Meta Ads asset** = yönetilen Meta ad account
-* **Connection** = Meta Marketing API (read-only) — asset hakkında veri okur; Connection asset değildir
-* Pipeline: Connection read → Evidence → deterministic checks → Findings → AI explanation → Recommendation drafts → manual internal Tasks
-* Harici write yok (MASTER_SPEC §5): kampanya oluşturma/durdurma/düzenleme, bütçe/teklif yazma, creative publish yasak
+* **Digital Asset type:** `meta_ads` (UI: Meta Ads)
+* **Meta Ads asset** = managed Meta advertising account property in MoxDOP
+* **Integration** = agency Meta auth (not per customer)
+* **External Resource** = discovered Meta Ad Account
+* **Binding** = canonical AssetBinding (not a Meta-specific binding table)
+* Pipeline (later): Binding read → Evidence → Findings → AI explanation → Recommendation drafts → manual internal Tasks
+* Harici write yok (MASTER_SPEC §5)
 
-## MVP behavior
+## MVP behavior (connection V1)
 
-* Brand altında Meta Ads Digital Asset kaydı oluşturulabilir
-* Temel kimlik alanları: display name, ad_account_id (`act_…`), currency, timezone (non-secret)
-* Optional non-secret config: linked Brand Website asset reference, Business Manager id hint
-* Enabled read-only Meta Marketing API Connection: encrypted access token credentials (ADR-027); connection test / ad-account access probe
-* İlk dikey slice (implementation): connection access probe → Run + normalized Evidence + connection health (`last_success_at` / `last_error`) — prior connector probe pattern
-* Sonraki slice’lar: account summary Evidence, campaign/adset performance aggregates, delivery/disapproval signals (API’nin read-only sunduğu ölçüde)
-* Deterministic Findings örnek adayları (katalog/rules geldikçe): account access lost, spend spike/drop vs prior period, ads in disapproved/with_issues, learning-limited delivery — yalnızca Evidence ile
-* AI Insights mevcut Evidence/Findings üzerinde yorumlayabilir; assignee/due date uydurmaz; harici write / “pause campaign” otomasyonu önermez
-* Recommendation → Task dönüşümü manueldir
+* Brand altında Meta Ads Digital Asset oluşturulabilir
+* Settings → Integrations → Meta: configure encrypted token, test connection, discover Ad Accounts
+* Asset → Connections: bind one discovered Meta Ad Account
+* Insights / Findings / Analyst **not** in V1
 
 ## Important data / attributes
 
-Asset (non-secret): name, type=`meta_ads`, brand_id, status, ad_account_id, currency_code, timezone, optional linked_website_asset_id.
+Asset (non-secret): name, type=`meta_ads`, brand_id, status.
 
-Connection: type for Meta Marketing API (e.g. `meta_ads_api`), enabled, non-secret account mapping in config, encrypted credentials, last_success_at, last_error.
+ExternalResource metadata (safe): account id, name, currency, timezone, account status, business id/name, discovery paths.
 
-Evidence types (normalized, no raw dump as Finding): e.g. `meta_ads_account_access`, `meta_ads_account_summary`, `meta_ads_campaign_performance` — exact ids implementation’da blueprint’e sadık kalınarak seçilir.
+Integration credential: encrypted access token only (never shown after save).
 
 ## Relationships
 
-Brand → Meta Ads Digital Asset → Meta Ads API Connection → Runs → Evidence; Asset → Findings → Recommendations → Tasks.  
-Optional: Meta Ads asset ↔ Brand Website / Instagram assets (same Brand) for later cross-channel packs (roadmap 22).  
-Bu blueprint tek başına cross-asset orchestration kurmaz.
+Brand → Meta Ads Digital Asset → AssetBinding → ExternalResource → Meta Integration.
+
+Legacy per-asset `meta_ads_api` CoreConnection probe helpers may still exist for older slices; new operator UX uses central Integration + Binding.
 
 ## Main screens / workflows
 
-* Brand → Digital Assets: create Meta Ads asset
-* Asset detail: Overview, Connections, Runs, Findings, Recommendations, Tasks (Website/GBP/Ads tabs pattern)
-* Attach/test Meta Ads API connection (read-only)
-* Start collect/probe Run; review Evidence/Findings; accept Recommendation → manual Task
+* Settings → Integrations → Meta
+* Brand → Digital Assets → Meta Ads → Overview / Connections
 
 ## Rules / invariants
 
-* No Meta Ads write actions: no campaign/ad set/ad/budget/bid mutations, no creative publish, no audience writes via DOP
-* Prefer least-privilege read-only Meta permissions
-* Access tokens never appear in Evidence, logs, or UI
+* No Meta Ads write actions
+* Least-privilege read permissions (`ads_read`, `business_management`)
+* Access tokens never appear in Evidence, logs, ExternalResource metadata, or UI after save (ADR-027 encrypted credentials)
 * Do not invent spend/metrics/campaigns absent from Evidence
 * Deterministic layer before AI when checks are rule-expressible
 * No separate Result entity (ADR-036); Findings remain persistent asset-level (ADR-034)
-* No SaaS/tenant/customer portal; internal agency ops only
+* No SaaS/tenant/customer portal
 
 ## Derived information
 
-Account health, spend/performance deltas, delivery/disapproval risk — derived from Evidence + rules, not from a fake KPI store or Ads Manager clone.
+Account health and later performance deltas are derived from Evidence + rules — not from a fake KPI store or Ads Manager clone. Connection V1 only surfaces Integration / Binding health.
 
-## Later enhancements
+## Later enhancements (NOT in connection V1)
 
-* Richer Meta Ads diagnosis catalog
-* Multi-account Business Manager UX
-* Cross-asset: Website/Instagram ↔ Meta Ads consistency (roadmap 22)
-* AI packs for creative/theme summarization grounded in Evidence excerpts only
+* Account / campaign / ad-set / ad Evidence collectors
+* Deterministic Findings
+* Meta Ads Analyst + Skills + `meta_ads.ai_guidance`
+* Cross-asset Website/Instagram ↔ Meta Ads packs
 
-## Explicit non-goals
+## Explicit non-goals (connection V1)
 
 * Mutating Meta Ads entities or publishing creatives
-* Autonomous bid/budget optimization
+* Insights collection
+* Lead Ads personal data
 * Full Ads Manager / BI warehouse
-* Treating Meta Marketing API as a Website connection (Meta Ads is its own Digital Asset)
-* Building Instagram organic module in this blueprint (separate roadmap step 21)
+* Treating Meta as a Website connection
+* Building Instagram organic module here
 
 ## Acceptance intent
 
-Ajans, Brand altında typed Meta Ads Digital Asset + encrypted read-only Meta Marketing API Connection modelini product olarak tanımlı bulur; implementation bu blueprint’e göre probe → Evidence → Findings yolunu açar ve hiçbir harici write yapmaz.
+Ajans, Brand altında typed Meta Ads Digital Asset’i agency Meta Integration üzerinden keşfedilen Ad Account’a bağlayabilir; token güvenli saklanır; write yoktur; intelligence bir sonraki milestone’dadır.

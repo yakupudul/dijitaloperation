@@ -7,6 +7,7 @@ use App\Services\Integrations\Anthropic\AnthropicCredentialResolver;
 use App\Services\Integrations\DataForSeo\DataForSeoCredentialResolver;
 use App\Services\Integrations\Gemini\GeminiCredentialResolver;
 use App\Services\Integrations\Google\GoogleCredentialResolver;
+use App\Services\Integrations\Meta\MetaCredentialResolver;
 use App\Services\Integrations\OpenAi\OpenAiCredentialResolver;
 use App\Support\Ai\AiProviderCatalog;
 use App\Support\Integrations\Google\GoogleAuthStatus;
@@ -47,6 +48,10 @@ final class IntegrationHealthPresenter
                 $integration,
                 app(GeminiCredentialResolver::class)->isConfigured($integration),
             ),
+            ProviderRegistry::META => $this->apiKeyProviderStatus(
+                $integration,
+                app(MetaCredentialResolver::class)->isConfigured($integration),
+            ),
             default => IntegrationOperatorStatus::NOT_CONFIGURED,
         };
     }
@@ -59,6 +64,7 @@ final class IntegrationHealthPresenter
         return match ($provider) {
             ProviderRegistry::GOOGLE => $this->googleSummary($integration),
             ProviderRegistry::DATAFORSEO => $this->dataForSeoSummary($integration),
+            ProviderRegistry::META => $this->metaSummary($integration),
             ProviderRegistry::OPENAI,
             ProviderRegistry::ANTHROPIC,
             ProviderRegistry::GEMINI => $this->aiProviderSummary($integration),
@@ -171,6 +177,30 @@ final class IntegrationHealthPresenter
         $balance = data_get($integration->config, 'balance');
         if (is_numeric($balance)) {
             $lines[] = 'Balance '.$balance.' USD';
+        }
+
+        return $lines;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function metaSummary(?CoreIntegration $integration): array
+    {
+        $lines = ['Meta Ads Ad Accounts'];
+
+        if (! $integration instanceof CoreIntegration) {
+            return $lines;
+        }
+
+        $name = data_get($integration->config, 'meta_user_name');
+        if (is_string($name) && $name !== '') {
+            $lines[] = $name;
+        }
+
+        $count = data_get($integration->config, 'discovery_summary.count');
+        if (is_numeric($count) && (int) $count > 0) {
+            $lines[] = (int) $count.' Ad Account'.((int) $count === 1 ? '' : 's');
         }
 
         return $lines;

@@ -1,0 +1,26 @@
+{
+    "name": "moxdop/meta-ads",
+    "description": "MoxDOP Meta Ads module — Digital Asset presentation and binding domain (V1 connection layer).",
+    "type": "library",
+    "version": "1.0.0",
+    "license": "proprietary",
+    "require": {},
+    "autoload": {
+        "psr-4": {
+            "MoxDop\\MetaAds\\": "src/",
+            "MoxDop\\MetaAds\\Tests\\": "tests/",
+            "MoxDop\\MetaAds\\Database\\Factories\\": "database/factories/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "MoxDop\\MetaAds\\Providers\\MetaAdsServiceProvider"
+            ]
+        },
+        "branch-alias": {
+            "dev-master": "1.0.x-dev"
+        }
+    },
+    "minimum-stability": "dev"
+}

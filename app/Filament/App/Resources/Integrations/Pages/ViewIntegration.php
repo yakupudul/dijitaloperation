@@ -18,6 +18,10 @@ use App\Services\Integrations\Google\GoogleOAuthRedirectUriResolver;
 use App\Services\Integrations\Google\GoogleOAuthService;
 use App\Services\Integrations\Google\GoogleProviderCredentialService;
 use App\Services\Integrations\Google\GoogleResourceRefreshService;
+use App\Services\Integrations\Meta\MetaConnectionService;
+use App\Services\Integrations\Meta\MetaCredentialResolver;
+use App\Services\Integrations\Meta\MetaProviderCredentialService;
+use App\Services\Integrations\Meta\MetaResourceDiscoveryService;
 use App\Services\Integrations\OpenAi\OpenAiConnectionService;
 use App\Services\Integrations\OpenAi\OpenAiCredentialResolver;
 use App\Services\Integrations\OpenAi\OpenAiProviderCredentialService;
@@ -25,6 +29,8 @@ use App\Support\Integrations\Anthropic\AnthropicAuthStatus;
 use App\Support\Integrations\DataForSeo\DataForSeoAuthStatus;
 use App\Support\Integrations\Gemini\GeminiAuthStatus;
 use App\Support\Integrations\Google\GoogleAuthStatus;
+use App\Support\Integrations\Meta\MetaApiConfig;
+use App\Support\Integrations\Meta\MetaAuthStatus;
 use App\Support\Integrations\OpenAi\OpenAiAuthStatus;
 use App\Support\Integrations\Presentation\IntegrationHealthPresenter;
 use App\Support\Integrations\Presentation\IntegrationOperatorStatus;
@@ -68,6 +74,10 @@ class ViewIntegration extends ViewRecord
             return 'Gemini';
         }
 
+        if ($record->provider === ProviderRegistry::META) {
+            return 'Meta';
+        }
+
         return parent::getTitle();
     }
 
@@ -105,6 +115,10 @@ class ViewIntegration extends ViewRecord
 
         if ($record->provider === ProviderRegistry::GEMINI) {
             return $this->geminiInfolist($schema, $record);
+        }
+
+        if ($record->provider === ProviderRegistry::META) {
+            return $this->metaInfolist($schema, $record);
         }
 
         if ($record->provider !== ProviderRegistry::GOOGLE) {
@@ -233,6 +247,10 @@ class ViewIntegration extends ViewRecord
 
         if ($record->provider === ProviderRegistry::GEMINI) {
             return $this->geminiHeaderActions($record);
+        }
+
+        if ($record->provider === ProviderRegistry::META) {
+            return $this->metaHeaderActions($record);
         }
 
         if ($record->provider !== ProviderRegistry::GOOGLE) {
@@ -1146,6 +1164,201 @@ class ViewIntegration extends ViewRecord
 
                         Notification::make()
                             ->title('Gemini configuration removed')
+                            ->warning()
+                            ->send();
+
+                        $this->refreshIntegrationRecord(['providerCredential']);
+                    }),
+            ])
+                ->label('Danger zone')
+                ->icon(Heroicon::OutlinedEllipsisVertical)
+                ->color('gray')
+                ->button(),
+        ];
+    }
+
+    private function metaInfolist(Schema $schema, CoreIntegration $record): Schema
+    {
+        $permissions = implode(', ', MetaApiConfig::requiredReadPermissions());
+
+        return $schema->components([
+            Section::make('Overview')
+                ->description('Agency-level Meta connection for discovering Ad Accounts. Not per Brand. Read-only — no Ads writes.')
+                ->schema([
+                    TextEntry::make('meta_connection_status')
+                        ->label('Connection')
+                        ->badge()
+                        ->state(fn (): string => MetaAuthStatus::connectionLabel($this->freshProviderCredentialRecord())),
+                    TextEntry::make('config.last_tested_at')
+                        ->label('Last checked')
+                        ->placeholder('—'),
+                    TextEntry::make('last_success_at')
+                        ->label('Last successful connection')
+                        ->dateTime()
+                        ->placeholder('—'),
+                    TextEntry::make('config.meta_user_name')
+                        ->label('Authenticated identity')
+                        ->placeholder('—'),
+                    TextEntry::make('last_error')
+                        ->label('Last issue')
+                        ->placeholder('—')
+                        ->columnSpanFull(),
+                ])
+                ->columns(2),
+            Section::make('Credentials')
+                ->description('Store a long-lived user token or system-user token with least-privilege read permissions. The token is never shown after save.')
+                ->schema([
+                    TextEntry::make('meta_config_status')
+                        ->label('Status')
+                        ->badge()
+                        ->state(fn (): string => MetaAuthStatus::configurationLabel($this->freshProviderCredentialRecord())),
+                    TextEntry::make('meta_access_token')
+                        ->label('Access token')
+                        ->state(fn (): string => MetaAuthStatus::accessTokenLabel($this->freshProviderCredentialRecord())),
+                    TextEntry::make('meta_api_version')
+                        ->label('Graph / Marketing API version')
+                        ->state(fn (): string => MetaApiConfig::apiVersion()),
+                    TextEntry::make('meta_permissions')
+                        ->label('Required read permissions')
+                        ->state($permissions)
+                        ->helperText('ads_read for Ad Accounts; business_management for Business portfolio discovery. Do not grant write/ads_management for this Integration.')
+                        ->columnSpanFull(),
+                ])
+                ->columns(2),
+            Section::make('Resources')
+                ->description('Discover Meta Ad Accounts into External Resources, then bind them on Meta Ads Digital Assets.')
+                ->schema([
+                    TextEntry::make('config.last_resource_refresh_at')
+                        ->label('Last resource discovery')
+                        ->placeholder('—'),
+                    TextEntry::make('meta_discovery_count')
+                        ->label('Discovered Ad Accounts')
+                        ->state(function () use ($record): string {
+                            $count = data_get($record->config, 'discovery_summary.count');
+
+                            return is_numeric($count) ? (string) (int) $count : '—';
+                        }),
+                ])
+                ->columns(2),
+            Section::make('Setup help')
+                ->schema([
+                    TextEntry::make('meta_setup_help')
+                        ->label('Operator setup')
+                        ->state('Create or use a Meta app / Business system user with ads_read and business_management. Generate a token that can read Ad Accounts. Paste it under Configure. Test connection, then Discover resources. Bind accounts on Brand → Meta Ads → Connections.')
+                        ->columnSpanFull(),
+                ]),
+        ]);
+    }
+
+    /**
+     * @return array<int, Action|ActionGroup>
+     */
+    private function metaHeaderActions(CoreIntegration $record): array
+    {
+        return [
+            Action::make('configureMeta')
+                ->label('Configure')
+                ->icon(Heroicon::OutlinedCog6Tooth)
+                ->color('gray')
+                ->modalHeading('Meta configuration')
+                ->modalDescription('Store a read-only Meta access token encrypted in MoxDOP. Leave blank to keep the stored value. Never paste tokens into Brand or Digital Asset screens.')
+                ->fillForm([
+                    'access_token' => '',
+                    'clear_access_token' => false,
+                ])
+                ->form([
+                    TextInput::make('access_token')
+                        ->label('Access token')
+                        ->password()
+                        ->revealable(false)
+                        ->placeholder(fn () => app(MetaCredentialResolver::class)->hasDatabaseAccessToken($this->freshProviderCredentialRecord())
+                            ? '•••••••• (stored)'
+                            : null)
+                        ->dehydrated(fn (?string $state): bool => filled($state))
+                        ->helperText(function () use ($record): string {
+                            $resolver = app(MetaCredentialResolver::class);
+                            if ($resolver->hasDatabaseAccessToken($record)) {
+                                return 'Stored securely ✓ — leave blank to keep current value.';
+                            }
+                            if ($resolver->accessTokenSource($record) === MetaCredentialResolver::SOURCE_ENVIRONMENT) {
+                                return 'Configured by environment. Enter a value only to store encrypted in MoxDOP instead.';
+                            }
+
+                            return 'System-user or long-lived user token with ads_read + business_management. Write-only; never shown after save.';
+                        })
+                        ->maxLength(2048),
+                    Toggle::make('clear_access_token')
+                        ->label('Clear stored access token')
+                        ->helperText('Removes the database-stored token only. Environment fallback is unchanged.')
+                        ->visible(fn (): bool => app(MetaCredentialResolver::class)->hasDatabaseAccessToken($this->freshProviderCredentialRecord())),
+                ])
+                ->action(function (array $data, MetaProviderCredentialService $service) use ($record): void {
+                    $user = Auth::user();
+                    if ($user === null) {
+                        return;
+                    }
+
+                    $service->save($record, $data, $user);
+
+                    Notification::make()
+                        ->title('Meta settings saved')
+                        ->success()
+                        ->send();
+
+                    $this->refreshIntegrationRecord(['providerCredential']);
+                }),
+            Action::make('testMeta')
+                ->label('Test connection')
+                ->icon(Heroicon::OutlinedSignal)
+                ->color('gray')
+                ->disabled(fn (): bool => ! app(MetaCredentialResolver::class)->isConfigured($this->freshProviderCredentialRecord()))
+                ->tooltip(fn (): ?string => app(MetaCredentialResolver::class)->isConfigured($this->freshProviderCredentialRecord())
+                    ? null
+                    : 'Configure the Meta access token first.')
+                ->action(function (MetaConnectionService $connection): void {
+                    $result = $connection->testConnection($this->freshProviderCredentialRecord());
+                    Notification::make()
+                        ->title($result['ok'] ? 'Meta connection tested' : 'Needs attention')
+                        ->body($result['message'])
+                        ->{$result['ok'] ? 'success' : 'warning'}()
+                        ->send();
+                    $this->refreshIntegrationRecord(['providerCredential']);
+                }),
+            Action::make('discoverMetaResources')
+                ->label('Discover resources')
+                ->icon(Heroicon::OutlinedArrowPath)
+                ->color('gray')
+                ->disabled(fn (): bool => ! app(MetaCredentialResolver::class)->isConfigured($this->freshProviderCredentialRecord()))
+                ->tooltip(fn (): ?string => app(MetaCredentialResolver::class)->isConfigured($this->freshProviderCredentialRecord())
+                    ? null
+                    : 'Configure and preferably test the Meta token first.')
+                ->action(function (MetaResourceDiscoveryService $discovery): void {
+                    $result = $discovery->discover($this->freshProviderCredentialRecord());
+                    Notification::make()
+                        ->title($result['ok'] ? 'Meta resources discovered' : 'Discovery issue')
+                        ->body($result['message'])
+                        ->{$result['ok'] ? 'success' : 'warning'}()
+                        ->send();
+                    $this->refreshIntegrationRecord(['providerCredential', 'externalResources']);
+                }),
+            ActionGroup::make([
+                Action::make('removeMetaProviderConfiguration')
+                    ->label('Remove provider configuration')
+                    ->icon(Heroicon::OutlinedTrash)
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->modalHeading('Remove Meta provider configuration?')
+                    ->modalDescription('This permanently deletes the encrypted Meta access token stored for this Integration. Discovered resources and bindings are preserved. Environment fallbacks are unchanged.')
+                    ->action(function (MetaProviderCredentialService $service) use ($record): void {
+                        $user = Auth::user();
+                        if ($user === null) {
+                            return;
+                        }
+
+                        $service->remove($record, $user);
+
+                        Notification::make()
+                            ->title('Meta configuration removed')
                             ->warning()
                             ->send();
 

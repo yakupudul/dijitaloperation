@@ -89,15 +89,17 @@ class ModuleRegistryTest extends TestCase
         $website = ModuleRegistry::query()->where('module_id', 'website')->firstOrFail();
         $googleAds = ModuleRegistry::query()->where('module_id', 'google-ads')->firstOrFail();
         $gbp = ModuleRegistry::query()->where('module_id', 'google-business-profile')->firstOrFail();
+        $metaAds = ModuleRegistry::query()->where('module_id', 'meta-ads')->firstOrFail();
         $sample = ModuleRegistry::query()->where('module_id', 'sample-module')->firstOrFail();
 
         Livewire::test(ListModules::class)
             ->assertOk()
-            ->assertCanSeeTableRecords([$website, $googleAds, $gbp])
+            ->assertCanSeeTableRecords([$website, $googleAds, $gbp, $metaAds])
             ->assertCanNotSeeTableRecords([$sample])
             ->assertSee('website')
             ->assertSee('google-ads')
             ->assertSee('google-business-profile')
+            ->assertSee('meta-ads')
             ->assertDontSee('sample-module');
     }
 

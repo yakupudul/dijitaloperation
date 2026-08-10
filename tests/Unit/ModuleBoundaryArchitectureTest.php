@@ -54,6 +54,16 @@ class ModuleBoundaryArchitectureTest extends TestCase
         'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/GoogleAdsActivityRelationManager.php',
     ];
 
+    /**
+     * Core Filament composition surfaces allowed to import Meta Ads module presenters.
+     *
+     * @var list<string>
+     */
+    private const CORE_META_ADS_IMPORT_ALLOWLIST = [
+        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/Pages/ViewDigitalAsset.php',
+        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/MetaAdsConnectionsRelationManager.php',
+    ];
+
     #[Test]
     public function core_must_not_import_module_implementation_namespaces_outside_allowlist(): void
     {
@@ -78,6 +88,12 @@ class ModuleBoundaryArchitectureTest extends TestCase
                 }
             }
 
+            if (preg_match('/use\s+MoxDop\\\\MetaAds\\\\/', $contents) === 1) {
+                if (! in_array($relative, self::CORE_META_ADS_IMPORT_ALLOWLIST, true)) {
+                    $violations[] = "{$relative} imports MoxDop\\MetaAds\\* (not allowlisted)";
+                }
+            }
+
             if (preg_match('/use\s+MoxDop\\\\GoogleBusinessProfile\\\\/', $contents) === 1) {
                 $violations[] = "{$relative} imports MoxDop\\GoogleBusinessProfile\\* (Core must not depend on GBP module implementations)";
             }
@@ -96,10 +112,11 @@ class ModuleBoundaryArchitectureTest extends TestCase
         $violations = [];
 
         $siblingMap = [
-            'website' => ['GoogleAds', 'GoogleBusinessProfile', 'SampleModule'],
-            'google-ads' => ['Website', 'GoogleBusinessProfile', 'SampleModule'],
-            'google-business-profile' => ['Website', 'GoogleAds', 'SampleModule'],
-            'sample-module' => ['Website', 'GoogleAds', 'GoogleBusinessProfile'],
+            'website' => ['GoogleAds', 'GoogleBusinessProfile', 'MetaAds', 'SampleModule'],
+            'google-ads' => ['Website', 'GoogleBusinessProfile', 'MetaAds', 'SampleModule'],
+            'google-business-profile' => ['Website', 'GoogleAds', 'MetaAds', 'SampleModule'],
+            'meta-ads' => ['Website', 'GoogleAds', 'GoogleBusinessProfile', 'SampleModule'],
+            'sample-module' => ['Website', 'GoogleAds', 'GoogleBusinessProfile', 'MetaAds'],
         ];
 
         foreach ($siblingMap as $moduleDir => $forbiddenPackages) {
