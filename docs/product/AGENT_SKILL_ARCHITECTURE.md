@@ -67,6 +67,7 @@ Playbook runtime is **PLANNED / NOT IMPLEMENTED**.
 - Module-owned Website Skills (`app-modules/website/resources/skills/*/SKILL.md`)
 - Operational Agents:
   - **Website SEO Analyst** (`website.seo_analyst` @ `1.0.0`)
+  - **Website Brand Discovery Analyst** (`website.brand_discovery_analyst` @ `1.0.0`) — public Discovery inferences; Skill `brand-context-discovery`
   - **Google Ads Analyst** (`google_ads.analyst` @ `1.0.0`)
 - Skills:
   - `technical-seo-analysis`
@@ -160,6 +161,6 @@ Official provider docs remain authoritative for technical facts.
 - Operator-uploaded executable Skills
 - SkillVersion DB
 - Capability Router
-- Discovery runtime
+- Full Discovery beyond V1 (competitor crawl, social platforms, continuous monitoring)
 - RAG / embeddings
 - Autonomous multi-agent teams

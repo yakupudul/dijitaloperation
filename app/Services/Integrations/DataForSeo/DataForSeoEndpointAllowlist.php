@@ -19,6 +19,9 @@ final class DataForSeoEndpointAllowlist
     /** Paid — Website keyword ideas for domain. */
     public const string LABS_GOOGLE_KEYWORDS_FOR_SITE_LIVE = 'dataforseo_labs/google/keywords_for_site/live';
 
+    /** Paid — organic competitor domains for a target domain (Labs Google). */
+    public const string LABS_GOOGLE_COMPETITORS_DOMAIN_LIVE = 'dataforseo_labs/google/competitors_domain/live';
+
     /**
      * @return list<string>
      */
@@ -29,6 +32,7 @@ final class DataForSeoEndpointAllowlist
             self::LABS_LOCATIONS_AND_LANGUAGES,
             self::LABS_GOOGLE_RANKED_KEYWORDS_LIVE,
             self::LABS_GOOGLE_KEYWORDS_FOR_SITE_LIVE,
+            self::LABS_GOOGLE_COMPETITORS_DOMAIN_LIVE,
         ];
     }
 

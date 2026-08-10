@@ -10,6 +10,7 @@ use App\Support\Ai\AiRouteKeys;
 use App\Support\Ai\AiRouteRegistry;
 use App\Support\Skills\SkillRegistry;
 use Illuminate\Support\ServiceProvider;
+use MoxDop\Website\Agents\WebsiteBrandDiscoveryAnalyst;
 use MoxDop\Website\Agents\WebsiteSeoAnalyst;
 use MoxDop\Website\Ai\WebsiteAiRoutes;
 use MoxDop\Website\Collection\Ga4BoundCollector;
@@ -47,11 +48,25 @@ class WebsiteServiceProvider extends ServiceProvider
             ],
         ]);
 
+        $this->app->make(AiRouteRegistry::class)->register([
+            'key' => AiRouteKeys::WEBSITE_DISCOVERY_CONTEXT,
+            'name' => WebsiteAiRoutes::DISCOVERY_CONTEXT_NAME,
+            'module' => 'website',
+            'description' => 'Bounded Website public Discovery Brand inference proposals for human review.',
+            'default_steps' => [
+                [
+                    'provider' => AiProviderCatalog::OPENAI,
+                    'model' => AiProviderCatalog::defaultModel(AiProviderCatalog::OPENAI),
+                ],
+            ],
+        ]);
+
         $this->app->make(SkillRegistry::class)->registerRoot(
             'website',
             dirname(__DIR__, 2).'/resources/skills',
         );
 
         $this->app->make(AgentProfileRegistry::class)->register(WebsiteSeoAnalyst::definition());
+        $this->app->make(AgentProfileRegistry::class)->register(WebsiteBrandDiscoveryAnalyst::definition());
     }
 }

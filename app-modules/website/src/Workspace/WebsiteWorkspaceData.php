@@ -7,6 +7,7 @@ use App\Models\CoreAssetBinding;
 use App\Models\CoreConnection;
 use App\Models\CoreExternalResource;
 use App\Models\DigitalAsset;
+use App\Models\DiscoveryCandidate;
 use App\Models\Evidence;
 use App\Models\Finding;
 use App\Models\Recommendation;
@@ -17,6 +18,7 @@ use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 use MoxDop\Website\Ai\WebsiteAiRecommendationConfig;
 use MoxDop\Website\Ai\WebsiteAiRecommendationService;
+use MoxDop\Website\Discovery\DiscoveryConfig;
 use MoxDop\Website\Opportunities\GscStrikingDistanceOpportunities;
 use MoxDop\Website\SeoIntelligence\CrossSourceKeywordOpportunities;
 use MoxDop\Website\SeoIntelligence\DataForSeoIntegrationResolver;
@@ -124,6 +126,92 @@ final class WebsiteWorkspaceData
             'connection_health' => $this->connectionHealthLine($connections),
             'activity' => $this->activityRows($asset),
             'has_performance_data' => $gscSummary !== null || $ga4Summary !== null,
+        ];
+    }
+
+    /**
+     * Public Discovery workspace presenter.
+     *
+     * @return array<string, mixed>
+     */
+    public function discovery(DigitalAsset $asset): array
+    {
+        $lastRun = Run::query()
+            ->where('digital_asset_id', $asset->id)
+            ->where('module_id', DiscoveryConfig::MODULE_ID)
+            ->latest('id')
+            ->first();
+
+        $summary = Evidence::query()
+            ->where('digital_asset_id', $asset->id)
+            ->where('type', DiscoveryConfig::EVIDENCE_SITE_SUMMARY)
+            ->where('source_module', DiscoveryConfig::MODULE_ID)
+            ->latest('observed_at')
+            ->latest('id')
+            ->first();
+
+        $summaryPayload = is_array($summary?->payload) ? $summary->payload : null;
+
+        $candidates = DiscoveryCandidate::query()
+            ->where('digital_asset_id', $asset->id)
+            ->with('reviewedBy')
+            ->orderByRaw("CASE status WHEN 'pending' THEN 0 WHEN 'accepted' THEN 1 ELSE 2 END")
+            ->orderByDesc('id')
+            ->limit(80)
+            ->get();
+
+        $facts = $candidates
+            ->filter(fn (DiscoveryCandidate $c): bool => $c->candidate_kind === DiscoveryCandidate::KIND_FACT && $c->candidate_type !== 'competitor')
+            ->values();
+        $inferences = $candidates
+            ->filter(fn (DiscoveryCandidate $c): bool => $c->candidate_kind === DiscoveryCandidate::KIND_INFERENCE)
+            ->values();
+        $competitors = $candidates
+            ->filter(fn (DiscoveryCandidate $c): bool => $c->candidate_type === 'competitor')
+            ->values();
+
+        $status = data_get($lastRun?->metadata, 'discovery_status')
+            ?? ($summaryPayload['status'] ?? null);
+        $statusLabel = match ($status) {
+            'succeeded' => 'Succeeded',
+            'partial' => 'Partial',
+            'failed' => 'Failed',
+            default => $lastRun ? ucfirst((string) $lastRun->status) : 'Not run',
+        };
+
+        $ai = is_array(data_get($lastRun?->metadata, 'ai')) ? data_get($lastRun->metadata, 'ai') : [];
+        $aiLabel = null;
+        if (($ai['attempted'] ?? false) === true) {
+            $provider = $ai['provider'] ?? null;
+            $model = $ai['model'] ?? null;
+            $parts = array_filter([
+                is_string($provider) && $provider !== '' ? AiProviderCatalog::label($provider) : null,
+                is_string($model) && $model !== '' ? AiProviderCatalog::humanModelLabel($model) : null,
+                ($ai['ok'] ?? false) ? null : ($ai['message'] ?? 'unavailable'),
+            ]);
+            $aiLabel = implode(' / ', $parts);
+        }
+
+        $competitorEmpty = 'No competitor candidates.';
+        if (is_array($summaryPayload) && ($summaryPayload['competitor_status'] ?? null) === 'unavailable') {
+            $competitorEmpty = (string) ($summaryPayload['competitor_message'] ?? 'Unavailable — external competitor intelligence provider is not configured.');
+        }
+
+        $retrieved = $summary?->observed_at ?? $lastRun?->finished_at;
+
+        return [
+            'last_run' => $lastRun,
+            'summary' => $summaryPayload,
+            'status_label' => $statusLabel,
+            'pages_inspected' => (int) (data_get($lastRun?->metadata, 'pages_inspected') ?? ($summaryPayload['pages_inspected'] ?? 0)),
+            'fact_count' => $facts->where('status', DiscoveryCandidate::STATUS_PENDING)->count() + $facts->where('status', DiscoveryCandidate::STATUS_ACCEPTED)->count(),
+            'inference_count' => $inferences->count(),
+            'fact_candidates' => $facts,
+            'inference_candidates' => $inferences,
+            'competitor_candidates' => $competitors,
+            'competitor_empty_message' => $competitorEmpty,
+            'retrieved_human' => $retrieved instanceof CarbonInterface ? $retrieved->diffForHumans() : null,
+            'ai_label' => $aiLabel,
         ];
     }
 
@@ -380,6 +468,7 @@ final class WebsiteWorkspaceData
 
         return match (true) {
             $run->module_id === WebsiteAiRecommendationConfig::MODULE_ID => WebsiteAiRecommendationConfig::RUN_TITLE,
+            $run->module_id === DiscoveryConfig::MODULE_ID => 'Public discovery',
             $run->module_id === 'website-diagnosis' => 'Website technical check',
             $capability === 'search_console' => 'Search Console data refresh',
             $capability === 'ga4' => 'GA4 data refresh',
@@ -739,6 +828,34 @@ final class WebsiteWorkspaceData
                         $fallback,
                         $findingCount > 0 ? $findingCount.' Findings' : null,
                         is_numeric($tokens) ? $tokens.' tokens' : null,
+                    ]));
+                }
+
+                if ($run->module_id === DiscoveryConfig::MODULE_ID) {
+                    $pages = data_get($run->metadata, 'pages_inspected');
+                    $facts = data_get($run->metadata, 'fact_candidates');
+                    $inferences = data_get($run->metadata, 'inference_candidates');
+                    $competitors = data_get($run->metadata, 'competitor_candidates');
+                    $competitorStatus = data_get($run->metadata, 'competitor_status');
+                    $aiProvider = data_get($run->metadata, 'ai.provider');
+                    $aiModel = data_get($run->metadata, 'ai.model');
+                    $aiLabel = null;
+                    if (is_string($aiProvider) && $aiProvider !== '') {
+                        $aiLabel = AiProviderCatalog::label($aiProvider);
+                        if (is_string($aiModel) && $aiModel !== '') {
+                            $aiLabel .= ' / '.AiProviderCatalog::humanModelLabel($aiModel);
+                        }
+                    }
+                    $source = implode(' · ', array_filter([
+                        'Public Website',
+                        is_numeric($pages) ? $pages.' pages' : null,
+                        is_numeric($facts) ? $facts.' facts' : null,
+                        is_numeric($inferences) ? $inferences.' inferences' : null,
+                        is_numeric($competitors) ? $competitors.' competitors' : null,
+                        $competitorStatus === 'unavailable' ? 'DataForSEO not configured' : (
+                            $competitorStatus === 'succeeded' ? 'DataForSEO' : null
+                        ),
+                        $aiLabel,
                     ]));
                 }
 

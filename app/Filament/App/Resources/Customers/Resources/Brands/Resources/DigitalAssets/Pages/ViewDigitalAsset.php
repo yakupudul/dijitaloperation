@@ -13,6 +13,7 @@ use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAsset
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\GoogleAdsSearchTermsRelationManager;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\WebsiteActivityRelationManager;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\WebsiteConnectionsRelationManager;
+use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\WebsiteDiscoveryRelationManager;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\WebsiteHealthRelationManager;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\WebsitePerformanceRelationManager;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\WebsiteSettingsRelationManager;
@@ -49,6 +50,7 @@ use Illuminate\Contracts\Support\Htmlable;
 use MoxDop\GoogleAds\Ai\GoogleAdsAiGuidanceService;
 use MoxDop\GoogleAds\Workspace\GoogleAdsWorkspaceData;
 use MoxDop\Website\Ai\WebsiteAiRecommendationService;
+use MoxDop\Website\Discovery\PublicDiscoveryService;
 use MoxDop\Website\SeoIntelligence\SeoIntelligenceRefreshService;
 use MoxDop\Website\Workspace\WebsiteWorkspaceData;
 
@@ -167,6 +169,55 @@ class ViewDigitalAsset extends ViewRecord
                         ->title($result['ok'] ? 'SEO intelligence updated' : 'SEO intelligence refresh incomplete')
                         ->body($result['message'])
                         ->{$result['ok'] ? 'success' : 'warning'}()
+                        ->send();
+                }),
+            Action::make('discoverPublicContext')
+                ->label('Discover public context')
+                ->icon(Heroicon::OutlinedGlobeAlt)
+                ->color('gray')
+                ->visible(fn (): bool => $this->isWebsiteWorkspace())
+                ->requiresConfirmation()
+                ->modalHeading('Discover public context?')
+                ->modalDescription('Inspects publicly available information for this Website. Creates a Discovery Run and Evidence, then proposes Brand Context candidates for human review. Does not overwrite Brand Context and does not require GSC/GA4.')
+                ->modalSubmitActionLabel('Discover public context')
+                ->action(function (PublicDiscoveryService $service): void {
+                    /** @var DigitalAsset $asset */
+                    $asset = $this->getRecord();
+
+                    try {
+                        $result = $service->discover($asset);
+                    } catch (\InvalidArgumentException $exception) {
+                        Notification::make()
+                            ->title('Public discovery not ready')
+                            ->body($exception->getMessage())
+                            ->warning()
+                            ->send();
+
+                        return;
+                    } catch (\Throwable $exception) {
+                        Notification::make()
+                            ->title('Public discovery failed')
+                            ->body(class_basename($exception))
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
+
+                    Notification::make()
+                        ->title(match ($result['status']) {
+                            'succeeded' => 'Public discovery completed',
+                            'partial' => 'Public discovery partial',
+                            default => 'Public discovery failed',
+                        })
+                        ->body(implode(' · ', array_filter([
+                            $result['message'],
+                            $result['pages_inspected'].' pages',
+                            $result['fact_candidates'].' fact candidates',
+                            $result['inference_candidates'].' inferences',
+                            $result['competitor_candidates'].' competitor candidates',
+                        ])))
+                        ->{$result['status'] === 'failed' ? 'warning' : 'success'}()
                         ->send();
                 }),
             Action::make('generateAiGuidance')
@@ -773,6 +824,7 @@ class ViewDigitalAsset extends ViewRecord
             return [
                 WebsitePerformanceRelationManager::class,
                 WebsiteHealthRelationManager::class,
+                WebsiteDiscoveryRelationManager::class,
                 WebsiteConnectionsRelationManager::class,
                 WebsiteActivityRelationManager::class,
                 WebsiteSettingsRelationManager::class,

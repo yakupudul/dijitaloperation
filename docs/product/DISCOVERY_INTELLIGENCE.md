@@ -1,20 +1,44 @@
 # Discovery Intelligence (Outside-in)
 
-> **STATUS: PLANNED PRODUCT DIRECTION**  
-> **NOT IMPLEMENTED YET**  
+> **STATUS: DISCOVERY INTELLIGENCE V1 → IMPLEMENTED V1**  
+> Owned primarily by `app-modules/website/` (no Discovery Module).  
 >  
-> This document records long-term product direction for **Outside-in Discovery / Public Intelligence**.  
-> It does **not** authorize runtime work, scraping stacks, browser automation, MCP, migrations, or a Discovery Module.  
->  
-> Authority order: `MASTER_SPEC` → accepted ADRs → product blueprints → this direction doc.  
+> Authority order: `MASTER_SPEC` → accepted ADRs → product blueprints → this doc.  
 > Related:  
 > [`AI_CONTROL_PLANE.md`](./AI_CONTROL_PLANE.md) ·  
+> [`AGENT_SKILL_ARCHITECTURE.md`](./AGENT_SKILL_ARCHITECTURE.md) ·  
 > [`KNOWLEDGE_MEMORY_ARCHITECTURE.md`](./KNOWLEDGE_MEMORY_ARCHITECTURE.md) ·  
 > [`BRAND_INTELLIGENCE.md`](./BRAND_INTELLIGENCE.md) ·  
-> [`docs/research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md`](../research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md) (Agent Reach reference).
+> [`docs/research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md`](../research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md).
+
+## Implemented V1 scope
+
+- Bounded public Website discovery (operator-triggered **Discover public context**)
+- SSRF-safe public HTTP retrieval (no JS/browser execution, no login/cookie scraping)
+- Canonical Run provenance (`module_id`: `website-discovery`)
+- Normalized Discovery Evidence: `website_public_site_summary`, `website_public_page_snapshot`, optional `website_public_competitor_candidates`
+- Deterministic public fact extraction + Brand Context **candidates**
+- Fact vs Inference trust distinction
+- Human **Accept / Edit & Accept / Ignore** via one `discovery_candidates` table
+- Public social-profile **link** discovery from the Website only (no social platform crawl)
+- Competitor **candidate** discovery via DataForSEO Labs `competitors_domain/live` when configured (cost-guarded); never fabricated by AI; never auto-accepted
+- Website Brand Discovery Analyst (`website.brand_discovery_analyst` @ 1.0.0) + route `website.discovery_context` + Skill `brand-context-discovery`
+- Human overrides win; no silent Brand Context overwrite
+
+## Still PLANNED (not in V1)
+
+- Full competitor Website comparison / crawl
+- Social platform intelligence (posts/followers/engagement)
+- Reviews / reputation / public mentions / news monitoring
+- General web search capability
+- Continuous / scheduled Discovery monitoring
+- Capability Router / AdapterRegistry
+- Discovery Playbooks
+- Semantic retrieval / RAG / embeddings
+- Autonomous Recommendations / automatic Tasks from Discovery
+- Agent Reach runtime / browser automation
 
 ---
-
 ## 1. Why Discovery exists
 
 MoxDOP’s long-term purpose is not merely:
@@ -32,7 +56,7 @@ Discovery feeds the existing canonical pipeline. It does **not** replace Custome
 
 ---
 
-## 2. Outside-in Intelligence (**PLANNED**)
+## 2. Outside-in Intelligence (**V1 partial — Website public discovery IMPLEMENTED**)
 
 Outside-in uses public/external information available without Brand first-party access.
 
@@ -75,7 +99,7 @@ This is deeper / private performance truth.
 
 ---
 
-## 4. Combined product model (**PLANNED**)
+## 4. Combined product model (**direction; V1 feeds Evidence + candidates**)
 
 ```text
 Brand
@@ -112,7 +136,7 @@ Discovery **feeds** this model. It does **not** alter the canonical entity hiera
 
 ---
 
-## 5. Website without connection (**PLANNED** use case)
+## 5. Website without connection (**IMPLEMENTED V1**)
 
 Future operator may provide only:
 
@@ -160,7 +184,7 @@ These are **Capabilities**, not Modules and not Integrations. See Capability Lay
 
 ---
 
-## 7. Brand Context discovery (**PLANNED**)
+## 7. Brand Context discovery (**IMPLEMENTED V1 — candidates + human review**)
 
 Brand Intelligence may eventually offer:
 
@@ -203,7 +227,7 @@ Do **not** store both as equivalent truth.
 
 ---
 
-## 9. Competitor discovery (**PLANNED**)
+## 9. Competitor discovery (**IMPLEMENTED V1 — candidates only when DataForSEO configured**)
 
 Potential future workflow:
 
@@ -293,7 +317,7 @@ Explicitly **not** canonical MoxDOP infrastructure:
 
 ---
 
-## 13. Discovery Evidence (**PLANNED** direction)
+## 13. Discovery Evidence (**IMPLEMENTED V1 — Website-owned types**)
 
 Future Discovery data that affects MoxDOP analysis should enter canonical provenance where appropriate.
 
@@ -308,7 +332,7 @@ Every significant discovered observation should be attributable to:
 - normalization version
 - confidence / type if derived
 
-**Do not create these Evidence types now.**
+V1 Evidence types are created by Website Discovery. Do not invent parallel Discovery DBs.
 
 Agents must not silently place arbitrary external content into reasoning context without provenance.
 
@@ -342,32 +366,17 @@ See `AI_CONTROL_PLANE.md` § AI Router vs Capability Router.
 
 ---
 
-## 16. Roadmap position
-
-Do **not** reorder Agent Profiles behind Capability/Discovery automatically.
-
-Immediate next implementation milestone:
-
-**TO BE SELECTED** after reviewing Agent Profiles + Skill Library V1 results.
-
-AI Provider Routing & Failover V1 and Agent Profiles + Skill Library V1 are **IMPLEMENTED**.
-
-Later candidate milestones (UNCOMMITTED timing):
-
-- Google Ads Intelligence / Analyst application
-- Capability Registry / Routing V1
-- Discovery Intelligence V1
-- Playbooks
-
-Do not assign calendar dates. Do not automatically put Discovery ahead of operationally more valuable work. Capability / Discovery concepts should **inform** Agent/Skill contracts.
-
 ---
 
-## Explicit non-goals of this document
+## Explicit non-goals (remain)
 
-- Implementing Discovery runtime
-- Installing Jina / Exa / social CLIs / browser automation
-- Adding MCP
-- Creating Discovery or Agent Reach Modules
-- Creating migrations / Evidence types now
-- Claiming outside-in Discovery is current product functionality
+- Creating a Discovery Module or Agent Reach Module
+- Installing Jina / Exa / social CLIs / browser automation / MCP
+- Capability Router runtime
+- RAG / embeddings
+- Full competitor crawl or social platform scraping
+- Autonomous Brand Context overwrite
+
+## 16. Roadmap position (updated)
+
+Discovery Intelligence V1 is **IMPLEMENTED**. Next milestone remains **TO BE SELECTED** among product candidates (Meta Ads, GBP Reputation, Competitor Comparison, Capability Router, Digital Operations Analyst, richer Outcomes, Playbooks). Do **not** auto-select RAG.
