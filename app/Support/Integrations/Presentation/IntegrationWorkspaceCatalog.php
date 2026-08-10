@@ -120,4 +120,13 @@ final class IntegrationWorkspaceCatalog
             ],
         );
     }
+
+    public function find(string $provider): ?CoreIntegration
+    {
+        return CoreIntegration::query()
+            ->with(['providerCredential', 'credential'])
+            ->where('provider', $provider)
+            ->orderBy('id')
+            ->first();
+    }
 }

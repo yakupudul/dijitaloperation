@@ -16,6 +16,10 @@ final class ProviderRegistry
 
     public const string OPENAI = 'openai';
 
+    public const string ANTHROPIC = 'anthropic';
+
+    public const string GEMINI = 'gemini';
+
     /**
      * @return array<string, array{label: string, capabilities: list<string>}>
      */
@@ -46,6 +50,18 @@ final class ProviderRegistry
             ],
             self::OPENAI => [
                 'label' => 'OpenAI',
+                'capabilities' => [
+                    'ai',
+                ],
+            ],
+            self::ANTHROPIC => [
+                'label' => 'Anthropic',
+                'capabilities' => [
+                    'ai',
+                ],
+            ],
+            self::GEMINI => [
+                'label' => 'Gemini',
                 'capabilities' => [
                     'ai',
                 ],

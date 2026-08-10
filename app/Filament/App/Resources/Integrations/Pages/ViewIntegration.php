@@ -4,9 +4,15 @@ namespace App\Filament\App\Resources\Integrations\Pages;
 
 use App\Filament\App\Resources\Integrations\IntegrationResource;
 use App\Models\CoreIntegration;
+use App\Services\Integrations\Anthropic\AnthropicConnectionService;
+use App\Services\Integrations\Anthropic\AnthropicCredentialResolver;
+use App\Services\Integrations\Anthropic\AnthropicProviderCredentialService;
 use App\Services\Integrations\DataForSeo\DataForSeoAccountService;
 use App\Services\Integrations\DataForSeo\DataForSeoCredentialResolver;
 use App\Services\Integrations\DataForSeo\DataForSeoProviderCredentialService;
+use App\Services\Integrations\Gemini\GeminiConnectionService;
+use App\Services\Integrations\Gemini\GeminiCredentialResolver;
+use App\Services\Integrations\Gemini\GeminiProviderCredentialService;
 use App\Services\Integrations\Google\GoogleCredentialResolver;
 use App\Services\Integrations\Google\GoogleOAuthRedirectUriResolver;
 use App\Services\Integrations\Google\GoogleOAuthService;
@@ -15,8 +21,9 @@ use App\Services\Integrations\Google\GoogleResourceRefreshService;
 use App\Services\Integrations\OpenAi\OpenAiConnectionService;
 use App\Services\Integrations\OpenAi\OpenAiCredentialResolver;
 use App\Services\Integrations\OpenAi\OpenAiProviderCredentialService;
-use App\Services\Integrations\OpenAi\OpenAiRuntimeConfig;
+use App\Support\Integrations\Anthropic\AnthropicAuthStatus;
 use App\Support\Integrations\DataForSeo\DataForSeoAuthStatus;
+use App\Support\Integrations\Gemini\GeminiAuthStatus;
 use App\Support\Integrations\Google\GoogleAuthStatus;
 use App\Support\Integrations\OpenAi\OpenAiAuthStatus;
 use App\Support\Integrations\Presentation\IntegrationHealthPresenter;
@@ -53,6 +60,14 @@ class ViewIntegration extends ViewRecord
             return 'OpenAI';
         }
 
+        if ($record->provider === ProviderRegistry::ANTHROPIC) {
+            return 'Anthropic';
+        }
+
+        if ($record->provider === ProviderRegistry::GEMINI) {
+            return 'Gemini';
+        }
+
         return parent::getTitle();
     }
 
@@ -82,6 +97,14 @@ class ViewIntegration extends ViewRecord
 
         if ($record->provider === ProviderRegistry::OPENAI) {
             return $this->openAiInfolist($schema, $record);
+        }
+
+        if ($record->provider === ProviderRegistry::ANTHROPIC) {
+            return $this->anthropicInfolist($schema, $record);
+        }
+
+        if ($record->provider === ProviderRegistry::GEMINI) {
+            return $this->geminiInfolist($schema, $record);
         }
 
         if ($record->provider !== ProviderRegistry::GOOGLE) {
@@ -202,6 +225,14 @@ class ViewIntegration extends ViewRecord
 
         if ($record->provider === ProviderRegistry::OPENAI) {
             return $this->openAiHeaderActions($record);
+        }
+
+        if ($record->provider === ProviderRegistry::ANTHROPIC) {
+            return $this->anthropicHeaderActions($record);
+        }
+
+        if ($record->provider === ProviderRegistry::GEMINI) {
+            return $this->geminiHeaderActions($record);
         }
 
         if ($record->provider !== ProviderRegistry::GOOGLE) {
@@ -663,26 +694,14 @@ class ViewIntegration extends ViewRecord
 
     private function openAiInfolist(Schema $schema, CoreIntegration $record): Schema
     {
-        $model = app(OpenAiRuntimeConfig::class)->recommendationModel();
-        $modelHuman = match ($model) {
-            'gpt-5-mini' => 'GPT-5 mini',
-            'gpt-5' => 'GPT-5',
-            'gpt-4.1-mini' => 'GPT-4.1 mini',
-            'gpt-4.1' => 'GPT-4.1',
-            default => $model,
-        };
-
         return $schema->components([
             Section::make('Overview')
-                ->description('Agency-level OpenAI connection for Website AI guidance — not per Brand or Website.')
+                ->description('Agency-level OpenAI connection available to MoxDOP AI routes — not per Brand or Website.')
                 ->schema([
                     TextEntry::make('openai_connection_status')
                         ->label('Connection')
                         ->badge()
                         ->state(fn (): string => OpenAiAuthStatus::connectionLabel($this->freshProviderCredentialRecord())),
-                    TextEntry::make('openai_recommendation_model')
-                        ->label('Current recommendation model')
-                        ->state($modelHuman),
                     TextEntry::make('config.last_tested_at')
                         ->label('Last checked')
                         ->placeholder('—'),
@@ -707,17 +726,105 @@ class ViewIntegration extends ViewRecord
                         ->state(fn (): string => OpenAiAuthStatus::apiKeyLabel($this->freshProviderCredentialRecord())),
                 ])
                 ->columns(2),
-            Section::make('AI configuration')
-                ->description('Used for grounded AI guidance and recommendation drafting.')
+            Section::make('AI provider')
+                ->description('Provider availability only. Workflow models are chosen in Settings → AI Control Plane.')
                 ->schema([
-                    TextEntry::make('openai_model_display')
-                        ->label('Current model')
-                        ->state($modelHuman),
-                    TextEntry::make('openai_model_purpose')
+                    TextEntry::make('openai_provider_purpose')
                         ->label('Purpose')
-                        ->state('Website AI guidance and recommendation drafting'),
+                        ->state('AI reasoning and recommendation intelligence'),
+                    TextEntry::make('openai_model_ownership')
+                        ->label('Model selection')
+                        ->state('Owned by AI routes (e.g. Website AI Guidance)'),
                 ])
                 ->columns(2),
+        ]);
+    }
+
+    private function anthropicInfolist(Schema $schema, CoreIntegration $record): Schema
+    {
+        return $schema->components([
+            Section::make('Overview')
+                ->description('Agency-level Anthropic connection available to MoxDOP AI routes.')
+                ->schema([
+                    TextEntry::make('anthropic_connection_status')
+                        ->label('Connection')
+                        ->badge()
+                        ->state(fn (): string => AnthropicAuthStatus::connectionLabel($this->freshProviderCredentialRecord())),
+                    TextEntry::make('config.last_tested_at')
+                        ->label('Last checked')
+                        ->placeholder('—'),
+                    TextEntry::make('last_success_at')
+                        ->label('Last successful connection')
+                        ->dateTime()
+                        ->placeholder('—'),
+                    TextEntry::make('last_error')
+                        ->label('Last issue')
+                        ->placeholder('—')
+                        ->columnSpanFull(),
+                ])
+                ->columns(2),
+            Section::make('Credentials')
+                ->schema([
+                    TextEntry::make('anthropic_config_status')
+                        ->label('Status')
+                        ->badge()
+                        ->state(fn (): string => AnthropicAuthStatus::configurationLabel($this->freshProviderCredentialRecord())),
+                    TextEntry::make('anthropic_api_key')
+                        ->label('API Key')
+                        ->state(fn (): string => AnthropicAuthStatus::apiKeyLabel($this->freshProviderCredentialRecord())),
+                ])
+                ->columns(2),
+            Section::make('AI provider')
+                ->description('Provider availability only. Workflow models are chosen in Settings → AI Control Plane.')
+                ->schema([
+                    TextEntry::make('anthropic_purpose')
+                        ->label('Purpose')
+                        ->state('Claude reasoning and analysis'),
+                ]),
+        ]);
+    }
+
+    private function geminiInfolist(Schema $schema, CoreIntegration $record): Schema
+    {
+        return $schema->components([
+            Section::make('Overview')
+                ->description('Agency-level Gemini API key connection — separate from Google OAuth.')
+                ->schema([
+                    TextEntry::make('gemini_connection_status')
+                        ->label('Connection')
+                        ->badge()
+                        ->state(fn (): string => GeminiAuthStatus::connectionLabel($this->freshProviderCredentialRecord())),
+                    TextEntry::make('config.last_tested_at')
+                        ->label('Last checked')
+                        ->placeholder('—'),
+                    TextEntry::make('last_success_at')
+                        ->label('Last successful connection')
+                        ->dateTime()
+                        ->placeholder('—'),
+                    TextEntry::make('last_error')
+                        ->label('Last issue')
+                        ->placeholder('—')
+                        ->columnSpanFull(),
+                ])
+                ->columns(2),
+            Section::make('Credentials')
+                ->schema([
+                    TextEntry::make('gemini_config_status')
+                        ->label('Status')
+                        ->badge()
+                        ->state(fn (): string => GeminiAuthStatus::configurationLabel($this->freshProviderCredentialRecord())),
+                    TextEntry::make('gemini_api_key')
+                        ->label('API Key')
+                        ->state(fn (): string => GeminiAuthStatus::apiKeyLabel($this->freshProviderCredentialRecord())),
+                ])
+                ->columns(2),
+            Section::make('AI provider')
+                ->description('Provider availability only. Workflow models are chosen in Settings → AI Control Plane.')
+                ->schema([
+                    TextEntry::make('gemini_purpose')
+                        ->label('Purpose')
+                        ->state('Google AI reasoning and multimodal intelligence'),
+                ]),
         ]);
     }
 
@@ -840,5 +947,215 @@ class ViewIntegration extends ViewRecord
     private function isDataForSeoConfigured(): bool
     {
         return app(DataForSeoCredentialResolver::class)->isConfigured($this->freshProviderCredentialRecord());
+    }
+
+    /**
+     * @return array<int, Action|ActionGroup>
+     */
+    private function anthropicHeaderActions(CoreIntegration $record): array
+    {
+        return [
+            Action::make('configureAnthropic')
+                ->label('Configure')
+                ->icon(Heroicon::OutlinedCog6Tooth)
+                ->color('gray')
+                ->modalHeading('Anthropic configuration')
+                ->modalDescription('Store the Anthropic secret API key encrypted in MoxDOP. Leave the field blank to keep the stored value.')
+                ->fillForm([
+                    'api_key' => '',
+                    'clear_api_key' => false,
+                ])
+                ->form([
+                    TextInput::make('api_key')
+                        ->label('API Key')
+                        ->password()
+                        ->revealable(false)
+                        ->placeholder(fn () => app(AnthropicCredentialResolver::class)->hasDatabaseApiKey($this->freshProviderCredentialRecord())
+                            ? '•••••••• (stored)'
+                            : null)
+                        ->dehydrated(fn (?string $state): bool => filled($state))
+                        ->helperText(function () use ($record): string {
+                            $resolver = app(AnthropicCredentialResolver::class);
+                            if ($resolver->hasDatabaseApiKey($record)) {
+                                return 'Stored securely ✓ — leave blank to keep current value.';
+                            }
+                            if ($resolver->apiKeySource($record) === AnthropicCredentialResolver::SOURCE_ENVIRONMENT) {
+                                return 'Configured by environment. Enter a value only to store encrypted in MoxDOP instead.';
+                            }
+
+                            return 'Anthropic secret API key. Write-only; never shown after save.';
+                        })
+                        ->maxLength(512),
+                    Toggle::make('clear_api_key')
+                        ->label('Clear stored API Key')
+                        ->helperText('Removes the database-stored API key only. Environment fallback is unchanged.')
+                        ->visible(fn (): bool => app(AnthropicCredentialResolver::class)->hasDatabaseApiKey($this->freshProviderCredentialRecord())),
+                ])
+                ->action(function (array $data, AnthropicProviderCredentialService $service) use ($record): void {
+                    $user = Auth::user();
+                    if ($user === null) {
+                        return;
+                    }
+
+                    $service->save($record, $data, $user);
+
+                    Notification::make()
+                        ->title('Anthropic settings saved')
+                        ->success()
+                        ->send();
+
+                    $this->refreshIntegrationRecord(['providerCredential']);
+                }),
+            Action::make('testAnthropic')
+                ->label('Test connection')
+                ->icon(Heroicon::OutlinedSignal)
+                ->color('gray')
+                ->disabled(fn (): bool => ! app(AnthropicCredentialResolver::class)->isConfigured($this->freshProviderCredentialRecord()))
+                ->tooltip(fn (): ?string => app(AnthropicCredentialResolver::class)->isConfigured($this->freshProviderCredentialRecord())
+                    ? null
+                    : 'Configure the Anthropic API key first.')
+                ->action(function (AnthropicConnectionService $connection): void {
+                    $result = $connection->testConnection($this->freshProviderCredentialRecord());
+                    Notification::make()
+                        ->title($result['ok'] ? 'Connected' : 'Needs attention')
+                        ->body($result['message'])
+                        ->{$result['ok'] ? 'success' : 'warning'}()
+                        ->send();
+                    $this->refreshIntegrationRecord(['providerCredential']);
+                }),
+            ActionGroup::make([
+                Action::make('removeAnthropicProviderConfiguration')
+                    ->label('Remove provider configuration')
+                    ->icon(Heroicon::OutlinedTrash)
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->modalHeading('Remove Anthropic provider configuration?')
+                    ->modalDescription('This permanently deletes the encrypted Anthropic API key stored for this Integration. Environment fallbacks are unchanged.')
+                    ->action(function (AnthropicProviderCredentialService $service) use ($record): void {
+                        $user = Auth::user();
+                        if ($user === null) {
+                            return;
+                        }
+
+                        $service->remove($record, $user);
+
+                        Notification::make()
+                            ->title('Anthropic configuration removed')
+                            ->warning()
+                            ->send();
+
+                        $this->refreshIntegrationRecord(['providerCredential']);
+                    }),
+            ])
+                ->label('Danger zone')
+                ->icon(Heroicon::OutlinedEllipsisVertical)
+                ->color('gray')
+                ->button(),
+        ];
+    }
+
+    /**
+     * @return array<int, Action|ActionGroup>
+     */
+    private function geminiHeaderActions(CoreIntegration $record): array
+    {
+        return [
+            Action::make('configureGemini')
+                ->label('Configure')
+                ->icon(Heroicon::OutlinedCog6Tooth)
+                ->color('gray')
+                ->modalHeading('Gemini configuration')
+                ->modalDescription('Store the Gemini API key encrypted in MoxDOP. This is separate from Google OAuth. Leave blank to keep the stored value.')
+                ->fillForm([
+                    'api_key' => '',
+                    'clear_api_key' => false,
+                ])
+                ->form([
+                    TextInput::make('api_key')
+                        ->label('API Key')
+                        ->password()
+                        ->revealable(false)
+                        ->placeholder(fn () => app(GeminiCredentialResolver::class)->hasDatabaseApiKey($this->freshProviderCredentialRecord())
+                            ? '•••••••• (stored)'
+                            : null)
+                        ->dehydrated(fn (?string $state): bool => filled($state))
+                        ->helperText(function () use ($record): string {
+                            $resolver = app(GeminiCredentialResolver::class);
+                            if ($resolver->hasDatabaseApiKey($record)) {
+                                return 'Stored securely ✓ — leave blank to keep current value.';
+                            }
+                            if ($resolver->apiKeySource($record) === GeminiCredentialResolver::SOURCE_ENVIRONMENT) {
+                                return 'Configured by environment. Enter a value only to store encrypted in MoxDOP instead.';
+                            }
+
+                            return 'Gemini API key from Google AI Studio. Write-only; never shown after save.';
+                        })
+                        ->maxLength(512),
+                    Toggle::make('clear_api_key')
+                        ->label('Clear stored API Key')
+                        ->helperText('Removes the database-stored API key only. Environment fallback is unchanged.')
+                        ->visible(fn (): bool => app(GeminiCredentialResolver::class)->hasDatabaseApiKey($this->freshProviderCredentialRecord())),
+                ])
+                ->action(function (array $data, GeminiProviderCredentialService $service) use ($record): void {
+                    $user = Auth::user();
+                    if ($user === null) {
+                        return;
+                    }
+
+                    $service->save($record, $data, $user);
+
+                    Notification::make()
+                        ->title('Gemini settings saved')
+                        ->success()
+                        ->send();
+
+                    $this->refreshIntegrationRecord(['providerCredential']);
+                }),
+            Action::make('testGemini')
+                ->label('Test connection')
+                ->icon(Heroicon::OutlinedSignal)
+                ->color('gray')
+                ->disabled(fn (): bool => ! app(GeminiCredentialResolver::class)->isConfigured($this->freshProviderCredentialRecord()))
+                ->tooltip(fn (): ?string => app(GeminiCredentialResolver::class)->isConfigured($this->freshProviderCredentialRecord())
+                    ? null
+                    : 'Configure the Gemini API key first.')
+                ->action(function (GeminiConnectionService $connection): void {
+                    $result = $connection->testConnection($this->freshProviderCredentialRecord());
+                    Notification::make()
+                        ->title($result['ok'] ? 'Connected' : 'Needs attention')
+                        ->body($result['message'])
+                        ->{$result['ok'] ? 'success' : 'warning'}()
+                        ->send();
+                    $this->refreshIntegrationRecord(['providerCredential']);
+                }),
+            ActionGroup::make([
+                Action::make('removeGeminiProviderConfiguration')
+                    ->label('Remove provider configuration')
+                    ->icon(Heroicon::OutlinedTrash)
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->modalHeading('Remove Gemini provider configuration?')
+                    ->modalDescription('This permanently deletes the encrypted Gemini API key stored for this Integration. Environment fallbacks are unchanged.')
+                    ->action(function (GeminiProviderCredentialService $service) use ($record): void {
+                        $user = Auth::user();
+                        if ($user === null) {
+                            return;
+                        }
+
+                        $service->remove($record, $user);
+
+                        Notification::make()
+                            ->title('Gemini configuration removed')
+                            ->warning()
+                            ->send();
+
+                        $this->refreshIntegrationRecord(['providerCredential']);
+                    }),
+            ])
+                ->label('Danger zone')
+                ->icon(Heroicon::OutlinedEllipsisVertical)
+                ->color('gray')
+                ->button(),
+        ];
     }
 }

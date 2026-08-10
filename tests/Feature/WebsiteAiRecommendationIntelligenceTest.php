@@ -402,7 +402,7 @@ class WebsiteAiRecommendationIntelligenceTest extends TestCase
         WebsiteRecommendationAgent::fake([])->preventStrayPrompts();
 
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('OpenAI is not configured');
+        $this->expectExceptionMessage('No eligible AI providers');
 
         app(WebsiteAiRecommendationService::class)->analyze($asset);
     }

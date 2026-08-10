@@ -21,9 +21,9 @@ Last updated: 2026-08-10
 | Brand Intelligence Context V1 | COMPLETED |
 | AI Recommendation Intelligence V1 | COMPLETED — PR [#106](https://github.com/yakupudul/dijitaloperation/pull/106) (`094fe0a`) |
 | Integrations Workspace V2 | COMPLETED — PR [#107](https://github.com/yakupudul/dijitaloperation/pull/107) (`61bbfc8`) |
-| **Module Boundary + Knowledge / Memory Architecture Audit V1** | **COMPLETED (this PR)** — `docs/current-state/MODULE_BOUNDARY_AUDIT_V1.md`, `docs/product/KNOWLEDGE_MEMORY_ARCHITECTURE.md` |
-| **Next: AI Provider Routing & Failover V1** | PLANNED — `docs/product/AI_CONTROL_PLANE.md` (**NOT IMPLEMENTED**) |
-| Agent Profiles + Skill Library V1 | PLANNED — `docs/product/AI_CONTROL_PLANE.md` (**NOT IMPLEMENTED**) |
+| Module Boundary + Knowledge / Memory Architecture Audit V1 | COMPLETED — PR [#109](https://github.com/yakupudul/dijitaloperation/pull/109) (`ec31bde`) |
+| **AI Provider Routing & Failover V1** | **THIS TRACK** — OpenAI/Anthropic/Gemini + `website.ai_guidance` |
+| **Next: Agent Profiles + Skill Library V1** | PLANNED — `docs/product/AI_CONTROL_PLANE.md` (**NOT IMPLEMENTED**) |
 | Memory / Retrieval V1 | PLANNED — only when knowledge volume justifies it; vector RAG deferred |
 
 ### Uncommitted later candidates
@@ -91,6 +91,5 @@ None for documentation/architecture direction. Live multi-provider AI routing is
 
 ## Next expected
 
-1. AI Provider Routing & Failover V1  
-2. Agent Profiles + Skill Library V1  
-3. Memory / Retrieval V1 (only when justified; structured retrieval first)  
+1. Agent Profiles + Skill Library V1  
+2. Memory / Retrieval V1 (only when justified; structured retrieval first)  

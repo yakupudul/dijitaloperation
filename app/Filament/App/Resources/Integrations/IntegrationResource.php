@@ -119,6 +119,16 @@ class IntegrationResource extends Resource
                     ->content('Use Settings → Integrations → OpenAI → Configure for the secret API key. Do not enter secrets here.')
                     ->visible(fn (callable $get, ?CoreIntegration $record): bool => self::isOpenAiFormContext($get, $record))
                     ->columnSpanFull(),
+                Placeholder::make('anthropic_setup_redirect')
+                    ->label('Anthropic credentials')
+                    ->content('Use Settings → Integrations → Anthropic → Configure for the secret API key. Do not enter secrets here.')
+                    ->visible(fn (callable $get, ?CoreIntegration $record): bool => self::isAnthropicFormContext($get, $record))
+                    ->columnSpanFull(),
+                Placeholder::make('gemini_setup_redirect')
+                    ->label('Gemini credentials')
+                    ->content('Use Settings → Integrations → Gemini → Configure for the secret API key. Do not enter secrets here.')
+                    ->visible(fn (callable $get, ?CoreIntegration $record): bool => self::isGeminiFormContext($get, $record))
+                    ->columnSpanFull(),
                 KeyValue::make('config')
                     ->label('Non-secret configuration')
                     ->helperText('Non-secret provider settings only. Never store tokens or secrets here.')
@@ -407,10 +417,36 @@ class IntegrationResource extends Resource
     /**
      * @param  callable(string): mixed  $get
      */
+    private static function isAnthropicFormContext(callable $get, ?CoreIntegration $record): bool
+    {
+        if ($record?->provider === ProviderRegistry::ANTHROPIC) {
+            return true;
+        }
+
+        return $get('provider') === ProviderRegistry::ANTHROPIC;
+    }
+
+    /**
+     * @param  callable(string): mixed  $get
+     */
+    private static function isGeminiFormContext(callable $get, ?CoreIntegration $record): bool
+    {
+        if ($record?->provider === ProviderRegistry::GEMINI) {
+            return true;
+        }
+
+        return $get('provider') === ProviderRegistry::GEMINI;
+    }
+
+    /**
+     * @param  callable(string): mixed  $get
+     */
     private static function isManagedProviderFormContext(callable $get, ?CoreIntegration $record): bool
     {
         return self::isGoogleFormContext($get, $record)
             || self::isDataForSeoFormContext($get, $record)
-            || self::isOpenAiFormContext($get, $record);
+            || self::isOpenAiFormContext($get, $record)
+            || self::isAnthropicFormContext($get, $record)
+            || self::isGeminiFormContext($get, $record);
     }
 }

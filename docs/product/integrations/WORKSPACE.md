@@ -54,7 +54,7 @@ Rendering the index performs **zero** provider HTTP calls.
 ### Provider groups
 
 - **Data & platforms** — Google, DataForSEO (Meta stays in `ProviderRegistry` but is hidden until operator-ready)
-- **AI providers** — OpenAI (architecture ready for future AI providers; do not show fake Set up)
+- **AI providers** — OpenAI, Anthropic, Gemini (Integrations ≠ Modules; route models live in AI Control Plane)
 
 ## Provider shapes
 
@@ -73,11 +73,13 @@ Rendering the index performs **zero** provider HTTP calls.
 - Actions: Configure, Test connection
 - Destructive: Remove configuration in Danger zone
 
-### OpenAI — credential/API provider
+### OpenAI / Anthropic / Gemini — credential/API providers
 
-- Secret API key only (no Key ID / Client ID / Client Secret)
+- Secret API key only (no Key ID / Client ID / Client Secret / OAuth reuse for Gemini)
+- Gemini is separate from Google OAuth Integration
 - No resource discovery / no External Resources UI
-- Shows current recommendation model (`gpt-5-mini` by default)
+- Non-generative Test Connection (models list endpoints)
+- Integration represents provider availability — **AI route owns workflow models**
 - Actions: Configure, Test connection
 - Destructive: Remove configuration in Danger zone
 
@@ -94,12 +96,9 @@ After Configure saves, the workspace must refresh Integration + credential state
 
 `ProviderRegistry` remains canonical provider identity.
 
-## Next milestone (out of scope here)
+## Related / next
 
-Future AI providers (Anthropic, Gemini, OpenRouter, …), route-specific primary/fallback, and failover belong to:
+AI provider routing for Website AI Guidance is implemented in **AI Provider Routing & Failover V1** — see [`docs/product/AI_CONTROL_PLANE.md`](../AI_CONTROL_PLANE.md).
 
-**AI PROVIDER ROUTING & FAILOVER V1** — see [`docs/product/AI_CONTROL_PLANE.md`](../AI_CONTROL_PLANE.md)  
-(**PLANNED / NOT IMPLEMENTED** in this workspace milestone.)
-
-Do not show fake Set up cards for providers that are not operator-ready yet.
+Aggregator providers (OpenRouter, etc.) and Agent Profiles remain later.
 

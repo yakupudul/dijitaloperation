@@ -24,18 +24,49 @@ return [
      * Agency OpenAI Integration (Settings → Integrations).
      * Normal operation uses encrypted DB provider credentials (ADR-041).
      * Env OPENAI_API_KEY is optional bootstrap/fallback only — never shown in UI.
-     * recommendation_model is deployment/application config (not a large model-picker UX).
+     * Route-owned models live under AI Control Plane (not Integration ownership).
      */
     'openai' => [
         'api_key' => env('OPENAI_API_KEY'),
         'base_url' => env('OPENAI_URL', 'https://api.openai.com/v1'),
         'timeout' => (int) env('OPENAI_TIMEOUT', 20),
         /*
-         * gpt-5-mini: current OpenAI cost-efficient text model with Structured Outputs
-         * + Responses API support (Laravel AI). Explicit — not UseSmartest/UseCheapest.
-         * Override via OPENAI_RECOMMENDATION_MODEL when needed.
+         * Legacy default model for OpenAI-only bootstrap / env override.
+         * Website AI Guidance model selection is owned by the AI route.
          */
         'recommendation_model' => env('OPENAI_RECOMMENDATION_MODEL', 'gpt-5-mini'),
+    ],
+
+    /*
+     * Agency Anthropic Integration (Settings → Integrations).
+     * DB-first API key; ANTHROPIC_API_KEY is optional bootstrap/fallback only.
+     */
+    'anthropic' => [
+        'api_key' => env('ANTHROPIC_API_KEY'),
+        'base_url' => env('ANTHROPIC_URL', 'https://api.anthropic.com/v1'),
+        'timeout' => (int) env('ANTHROPIC_TIMEOUT', 20),
+        'version' => env('ANTHROPIC_VERSION', '2023-06-01'),
+    ],
+
+    /*
+     * Agency Gemini Integration (Settings → Integrations).
+     * Separate from Google OAuth Integration. DB-first API key; GEMINI_API_KEY fallback.
+     */
+    'gemini' => [
+        'api_key' => env('GEMINI_API_KEY'),
+        'base_url' => env('GEMINI_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta'),
+        'timeout' => (int) env('GEMINI_TIMEOUT', 20),
+    ],
+
+    /*
+     * AI Control Plane route defaults (workflow-specific; not a global ranking).
+     */
+    'ai' => [
+        'defaults' => [
+            'openai_model' => env('OPENAI_RECOMMENDATION_MODEL', 'gpt-5-mini'),
+            'anthropic_model' => env('ANTHROPIC_DEFAULT_MODEL', 'claude-sonnet-5'),
+            'gemini_model' => env('GEMINI_DEFAULT_MODEL', 'gemini-3.6-flash'),
+        ],
     ],
 
     /*

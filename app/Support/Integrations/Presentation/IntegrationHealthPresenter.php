@@ -3,9 +3,12 @@
 namespace App\Support\Integrations\Presentation;
 
 use App\Models\CoreIntegration;
+use App\Services\Integrations\Anthropic\AnthropicCredentialResolver;
 use App\Services\Integrations\DataForSeo\DataForSeoCredentialResolver;
+use App\Services\Integrations\Gemini\GeminiCredentialResolver;
 use App\Services\Integrations\Google\GoogleCredentialResolver;
 use App\Services\Integrations\OpenAi\OpenAiCredentialResolver;
+use App\Support\Ai\AiProviderCatalog;
 use App\Support\Integrations\Google\GoogleAuthStatus;
 use App\Support\Integrations\ProviderRegistry;
 use Illuminate\Support\Carbon;
@@ -36,6 +39,14 @@ final class IntegrationHealthPresenter
                 $integration,
                 app(OpenAiCredentialResolver::class)->isConfigured($integration),
             ),
+            ProviderRegistry::ANTHROPIC => $this->apiKeyProviderStatus(
+                $integration,
+                app(AnthropicCredentialResolver::class)->isConfigured($integration),
+            ),
+            ProviderRegistry::GEMINI => $this->apiKeyProviderStatus(
+                $integration,
+                app(GeminiCredentialResolver::class)->isConfigured($integration),
+            ),
             default => IntegrationOperatorStatus::NOT_CONFIGURED,
         };
     }
@@ -49,6 +60,8 @@ final class IntegrationHealthPresenter
             ProviderRegistry::GOOGLE => $this->googleSummary($integration),
             ProviderRegistry::DATAFORSEO => $this->dataForSeoSummary($integration),
             ProviderRegistry::OPENAI => $this->openAiSummary($integration),
+            ProviderRegistry::ANTHROPIC => ['Claude reasoning and analysis'],
+            ProviderRegistry::GEMINI => ['Google AI reasoning'],
             default => [],
         };
     }
@@ -168,22 +181,13 @@ final class IntegrationHealthPresenter
      */
     private function openAiSummary(?CoreIntegration $integration): array
     {
-        $model = config('moxdop.openai.recommendation_model');
-        $modelLabel = is_string($model) && filled($model) ? $model : 'gpt-5-mini';
-
         return [
-            'Current model: '.$this->humanModelLabel($modelLabel),
+            'Available for AI routes',
         ];
     }
 
     private function humanModelLabel(string $model): string
     {
-        return match ($model) {
-            'gpt-5-mini' => 'GPT-5 mini',
-            'gpt-5' => 'GPT-5',
-            'gpt-4.1-mini' => 'GPT-4.1 mini',
-            'gpt-4.1' => 'GPT-4.1',
-            default => $model,
-        };
+        return AiProviderCatalog::humanModelLabel($model);
     }
 }

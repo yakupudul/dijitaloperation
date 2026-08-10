@@ -1,13 +1,12 @@
 # AI Control Plane
 
-> **STATUS: PLANNED PRODUCT DIRECTION**  
-> **NOT IMPLEMENTED YET**  
+> **STATUS: PARTIALLY IMPLEMENTED (V1)**  
 >  
-> This document records long-term product direction from research and operator decisions.  
-> It is **not** an accepted implementation ADR and does **not** authorize runtime work by itself.  
+> **Implemented in V1:** OpenAI + Anthropic + Gemini agency Integrations, workflow-specific AI Routes (`website.ai_guidance`), Laravel native FailoverableException failover, route-step persistence, provider/model provenance.  
+> **Still PLANNED / NOT IMPLEMENTED:** Agent Profiles, Skill Library, Memory/Retrieval, vector RAG, aggregator providers (OpenRouter, etc.).  
 >  
 > Authority order remains: `MASTER_SPEC` → accepted ADRs → product blueprints → this direction doc.  
-> Related research registry: [`docs/research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md`](../research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md).
+> Related: [`KNOWLEDGE_MEMORY_ARCHITECTURE.md`](./KNOWLEDGE_MEMORY_ARCHITECTURE.md), Integrations workspace.
 
 ---
 
@@ -51,14 +50,14 @@ Product rules (already canonical in MASTER_SPEC / ADR-041 path):
 
 | Area | Status |
 | --- | --- |
-| OpenAI agency Integration + Website AI Recommendation Intelligence V1 | **IMPLEMENTED** (PR #106 merged) |
-| Multiple AI provider Integrations | **PLANNED / NOT IMPLEMENTED** |
-| Route-specific primary/fallback | **PLANNED / NOT IMPLEMENTED** |
+| OpenAI agency Integration + Website AI Recommendation Intelligence V1 | **IMPLEMENTED** (PR #106) |
+| Multiple AI provider Integrations (OpenAI, Anthropic, Gemini) | **IMPLEMENTED V1** |
+| Route-specific primary/fallback (`website.ai_guidance`) | **IMPLEMENTED V1** |
 | Agent Profiles | **PLANNED / NOT IMPLEMENTED** |
 | Skill Library | **PLANNED / NOT IMPLEMENTED** |
-| Skill versioning / evaluation harness | **PLANNED / NOT IMPLEMENTED** |
 | Knowledge / Memory architecture (four layers) | **PLANNED** — partially realized via structured Brand Context / Run / Evidence / Finding data; see [`KNOWLEDGE_MEMORY_ARCHITECTURE.md`](./KNOWLEDGE_MEMORY_ARCHITECTURE.md) |
 | Vector RAG / embeddings | **NOT IMPLEMENTED** — deferred until knowledge volume justifies it |
+| Aggregator providers (OpenRouter, DeepSeek, Groq, …) | **NOT IMPLEMENTED** (V1 proves direct providers only) |
 | MCP / unbounded agents | **REJECTED** as MoxDOP core |
 
 Do not describe planned rows as current product functionality.
@@ -85,9 +84,9 @@ Provider availability depends on:
 - security / credential model
 - operational value
 
-**Current implemented production provider:** OpenAI (agency Integration credential; `store=false`; recommendation model config).
+**Current implemented production providers:** OpenAI, Anthropic, Gemini (agency Integration credentials; OpenAI `store=false` on generation; route-owned models).
 
-All other providers: **PLANNED / NOT IMPLEMENTED**.
+Intentionally **not** in V1: OpenRouter, DeepSeek, Groq, xAI, Mistral, Ollama, Bedrock, Azure OpenAI, generic OpenAI-compatible endpoints.
 
 Do not permanently promise every named provider.
 
@@ -268,19 +267,20 @@ Agent/Skills are a controlled reasoning layer over Evidence / Findings / Brand C
 
 These are planning labels, not Autopilot stage IDs:
 
-1. **Integrations Workspace V2** — **COMPLETED** (PR #107 / `61bbfc8`)  
-2. **Module Boundary + Knowledge / Memory Architecture Audit V1** — architecture docs + targeted boundary repair + enforcement (this track)  
-3. **AI Provider Routing & Failover V1** — selected providers + route primary/fallback + safe failover  
-4. **Agent Profiles + Skill Library V1** — bounded personas + curated versioned Skills  
+1. **Integrations Workspace V2** — **COMPLETED** (PR #107)  
+2. **Module Boundary + Knowledge / Memory Architecture Audit V1** — **COMPLETED** (PR #109)  
+3. **AI Provider Routing & Failover V1** — **THIS MILESTONE** (OpenAI/Anthropic/Gemini + `website.ai_guidance`)  
+4. **Agent Profiles + Skill Library V1** — bounded personas + curated versioned Skills (**NOT IMPLEMENTED**)  
 5. **Memory / Retrieval V1** — only when knowledge volume / use cases justify it (structured retrieval first; vector RAG deferred)
 
-Later candidates remain **UNCOMMITTED** until operational value is reviewed:
+### Failover policy (V1)
 
-- Meta Ads read-only intelligence
-- GBP Reputation Intelligence
-- GEO / AI Search Intelligence
-- competitor/domain intelligence
-- backlinks
-- rank tracking
+Uses Laravel AI native `FailoverableException` handling only:
 
-No fixed calendar dates are assigned here.
+- rate limited
+- provider overloaded/unavailable
+- insufficient credits/quota
+
+Does **not** failover on validation errors, grounding failures, schema bugs, or ordinary application failures.
+
+Routes are workflow-specific (not one global ranking). Model selection is owned by the AI route, not by the Integration card.

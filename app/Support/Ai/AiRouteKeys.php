@@ -1,0 +1,12 @@
+<?php
+
+namespace App\Support\Ai;
+
+/**
+ * Stable AI route keys registered by modules and consumed by Control Plane UI.
+ * Keys are shared identifiers — route meaning remains owned by the registering module.
+ */
+final class AiRouteKeys
+{
+    public const string WEBSITE_AI_GUIDANCE = 'website.ai_guidance';
+}

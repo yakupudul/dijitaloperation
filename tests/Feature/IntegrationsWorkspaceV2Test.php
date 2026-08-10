@@ -67,7 +67,9 @@ class IntegrationsWorkspaceV2Test extends TestCase
             ->assertSee('OpenAI')
             ->assertSee('Analytics, search and advertising data')
             ->assertSee('External SEO and keyword intelligence')
-            ->assertSee('AI guidance and recommendation intelligence')
+            ->assertSee('AI reasoning and recommendation intelligence')
+            ->assertSee('Anthropic')
+            ->assertSee('Gemini')
             ->assertSee('Set up')
             ->assertDontSee('Add integration')
             ->assertDontSee('Authorized')
@@ -115,7 +117,7 @@ class IntegrationsWorkspaceV2Test extends TestCase
 
         $this->assertSame(IntegrationOperatorStatus::CONNECTED, $openai['status']);
         $this->assertSame('manage', $openai['action']);
-        $this->assertStringContainsString('GPT-5 mini', implode(' ', $openai['summary_lines']));
+        $this->assertStringContainsString('Available for AI routes', implode(' ', $openai['summary_lines']));
 
         Livewire::test(ListIntegrations::class)
             ->assertSee('Connected')
@@ -247,8 +249,9 @@ class IntegrationsWorkspaceV2Test extends TestCase
             ->assertOk()
             ->assertSee('API Key')
             ->assertSee('Stored securely ✓')
-            ->assertSee('Current recommendation model')
-            ->assertSee('GPT-5 mini')
+            ->assertSee('AI Control Plane')
+            ->assertSee('available to MoxDOP AI routes')
+            ->assertDontSee('Current recommendation model')
             ->assertDontSee('sk-view-secret')
             ->assertDontSee('Key ID')
             ->assertDontSee('Client ID')

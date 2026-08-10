@@ -11,6 +11,7 @@ use App\Models\Evidence;
 use App\Models\Finding;
 use App\Models\Recommendation;
 use App\Models\Run;
+use App\Support\Ai\AiProviderCatalog;
 use App\Support\Integrations\ProviderRegistry;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
@@ -716,12 +717,22 @@ final class WebsiteWorkspaceData
 
                 if ($run->module_id === WebsiteAiRecommendationConfig::MODULE_ID) {
                     $findingCount = count(data_get($run->metadata, 'finding_ids', []) ?: []);
+                    $providerLabel = is_string($provider) && $provider !== ''
+                        ? AiProviderCatalog::label($provider)
+                        : null;
                     $model = data_get($run->metadata, 'model');
+                    $modelLabel = is_string($model) && $model !== ''
+                        ? AiProviderCatalog::humanModelLabel($model)
+                        : null;
+                    $routeName = data_get($run->metadata, 'ai_route_name') ?: 'Website AI Guidance';
+                    $fallback = data_get($run->metadata, 'fallback_occurred') ? 'Fallback' : null;
                     $tokens = data_get($run->metadata, 'usage.total_tokens');
                     $source = implode(' · ', array_filter([
-                        'OpenAI',
+                        $routeName,
+                        $providerLabel,
+                        $modelLabel,
+                        $fallback,
                         $findingCount > 0 ? $findingCount.' Findings' : null,
-                        is_string($model) && $model !== '' ? $model : null,
                         is_numeric($tokens) ? $tokens.' tokens' : null,
                     ]));
                 }

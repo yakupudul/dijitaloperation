@@ -56,6 +56,16 @@ class CoreIntegrationFactory extends Factory
         return $this->provider(ProviderRegistry::OPENAI);
     }
 
+    public function anthropic(): static
+    {
+        return $this->provider(ProviderRegistry::ANTHROPIC);
+    }
+
+    public function gemini(): static
+    {
+        return $this->provider(ProviderRegistry::GEMINI);
+    }
+
     public function disabled(): static
     {
         return $this->state(fn (): array => [

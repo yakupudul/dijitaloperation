@@ -5,7 +5,9 @@ namespace MoxDop\Website\Ai;
 use App\Models\DigitalAsset;
 use App\Models\Evidence;
 use App\Models\Run;
-use App\Services\Integrations\OpenAi\OpenAiRuntimeConfig;
+use App\Services\Ai\AiProviderRuntimeConfig;
+use App\Services\Ai\AiRouteResolver;
+use App\Support\Ai\AiProviderCatalog;
 use App\Support\BrandIntelligence\BrandIntelligenceSnapshot;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
@@ -14,13 +16,15 @@ use Throwable;
 
 /**
  * Website-owned grounded AI recommendation orchestration (manual trigger only).
+ * Provider/model selection comes from the shared AI Control Plane route.
  */
 final class WebsiteAiRecommendationService
 {
     public function __construct(
         private readonly WebsiteAiRecommendationContextBuilder $contextBuilder,
         private readonly WebsiteAiGroundingValidator $grounding,
-        private readonly OpenAiRuntimeConfig $openAiRuntime,
+        private readonly AiRouteResolver $routes,
+        private readonly AiProviderRuntimeConfig $aiRuntime,
     ) {}
 
     /**
@@ -46,11 +50,18 @@ final class WebsiteAiRecommendationService
             throw new InvalidArgumentException('Website AI insights require at least one Finding to interpret.');
         }
 
-        $model = $this->openAiRuntime->recommendationModel();
+        $route = $this->routes->resolve(WebsiteAiRoutes::AI_GUIDANCE);
+
+        if ($route->isEmpty()) {
+            throw new InvalidArgumentException(
+                'No eligible AI providers for Website AI Guidance. Configure a provider in Settings → Integrations, then review Settings → AI Control Plane.'
+            );
+        }
+
         $fingerprint = WebsiteAiInputFingerprint::make(
             WebsiteAiRecommendationConfig::PROMPT_VERSION,
             WebsiteAiRecommendationConfig::SCHEMA_VERSION,
-            $model,
+            $route->signature,
             $built['context'],
         );
 
@@ -67,12 +78,14 @@ final class WebsiteAiRecommendationService
             ];
         }
 
-        $runtime = $this->openAiRuntime->prepare();
-        if (! $runtime['configured']) {
-            throw new InvalidArgumentException('OpenAI is not configured. Add an API key in Settings → Integrations → OpenAI.');
-        }
+        $this->aiRuntime->prepare(array_keys($route->providerModels));
 
         $brandHash = $this->brandContextHash($built['brand_snapshot']);
+        $configuredChain = [];
+        foreach ($route->providerModels as $provider => $model) {
+            $configuredChain[] = ['provider' => $provider, 'model' => $model];
+        }
+
         $run = Run::query()->create([
             'digital_asset_id' => $asset->id,
             'core_connection_id' => null,
@@ -83,14 +96,18 @@ final class WebsiteAiRecommendationService
             'metadata' => [
                 'trigger' => 'manual',
                 'human_title' => WebsiteAiRecommendationConfig::RUN_TITLE,
-                'provider' => 'openai',
-                'model' => $model,
+                'ai_route_key' => $route->routeKey,
+                'ai_route_name' => $route->routeName,
+                'configured_provider_chain' => $configuredChain,
+                'provider' => $route->primaryProvider(),
+                'model' => $route->primaryModel(),
                 'prompt_version' => WebsiteAiRecommendationConfig::PROMPT_VERSION,
                 'schema_version' => WebsiteAiRecommendationConfig::SCHEMA_VERSION,
                 'finding_ids' => $built['finding_ids'],
                 'evidence_ids' => $built['evidence_ids'],
                 'brand_context_hash' => $brandHash,
                 'input_fingerprint' => $fingerprint,
+                'route_signature' => $route->signature,
                 'openai_store' => false,
             ],
         ]);
@@ -100,7 +117,7 @@ final class WebsiteAiRecommendationService
         try {
             $response = (new WebsiteRecommendationAgent)->prompt(
                 $this->renderPrompt($built['context']),
-                model: $model,
+                provider: $route->providerModels,
             );
 
             /** @var array<string, mixed> $structured */
@@ -114,15 +131,36 @@ final class WebsiteAiRecommendationService
                 $built['evidence_ids'],
             );
 
+            $successfulProvider = data_get($response->meta?->toArray(), 'provider')
+                ?? $route->primaryProvider();
+            $successfulModel = data_get($response->meta?->toArray(), 'model')
+                ?? $route->primaryModel();
+
+            if (! is_string($successfulProvider) || $successfulProvider === '') {
+                $successfulProvider = $route->primaryProvider();
+            }
+            if (! is_string($successfulModel) || $successfulModel === '') {
+                $successfulModel = $route->primaryModel();
+            }
+
+            $fallbackOccurred = is_string($successfulProvider)
+                && $successfulProvider !== $route->primaryProvider();
+
             $usage = $this->extractUsage($response);
             $payload['finding_ids'] = $built['finding_ids'];
             $payload['evidence_ids'] = $built['evidence_ids'];
             $payload['input_fingerprint'] = $fingerprint;
             $payload['brand_context_hash'] = $brandHash;
             $payload['brand_completeness'] = $built['brand_snapshot']->completeness;
-            $payload['model'] = $model;
-            $payload['provider'] = 'openai';
+            $payload['model'] = $successfulModel;
+            $payload['provider'] = $successfulProvider;
+            $payload['ai_route_key'] = $route->routeKey;
+            $payload['configured_provider_chain'] = $configuredChain;
+            $payload['fallback_occurred'] = $fallbackOccurred;
             $payload['usage'] = $usage;
+            if ($successfulProvider === AiProviderCatalog::OPENAI) {
+                $payload['openai_store'] = false;
+            }
 
             $insight = Evidence::query()->create([
                 'run_id' => $run->id,
@@ -138,6 +176,9 @@ final class WebsiteAiRecommendationService
                 'status' => 'completed',
                 'finished_at' => now(),
                 'metadata' => array_merge($run->metadata ?? [], [
+                    'provider' => $successfulProvider,
+                    'model' => $successfulModel,
+                    'fallback_occurred' => $fallbackOccurred,
                     'usage' => $usage,
                     'reused' => false,
                 ]),
@@ -151,7 +192,6 @@ final class WebsiteAiRecommendationService
                 'brand_snapshot' => $built['brand_snapshot'],
             ];
         } catch (Throwable $exception) {
-            // Never log secrets or full prompts — class name + safe message only.
             Log::warning('website_ai_recommendation_failed', [
                 'digital_asset_id' => $asset->id,
                 'run_id' => $run->id,
@@ -171,6 +211,9 @@ final class WebsiteAiRecommendationService
                     'finding_ids' => $built['finding_ids'],
                     'evidence_ids' => $built['evidence_ids'],
                     'input_fingerprint' => $fingerprint,
+                    'ai_route_key' => $route->routeKey,
+                    'route_signature' => $route->signature,
+                    'configured_provider_chain' => $configuredChain,
                     'executive_summary' => null,
                     'summary' => null,
                     'finding_interpretations' => [],
