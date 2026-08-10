@@ -58,13 +58,13 @@ Foundation 1–23 tamamlandıktan sonra devam eden **güncel** ürün sırası. 
 | **N2** | **Agent Profiles + Skill Library V1** | **IMPLEMENTED V1** | `docs/product/AGENT_SKILL_ARCHITECTURE.md` — Website SEO Analyst + curated Website Skills |
 | **N2b** | **Google Ads Intelligence + Analyst V1** | **IMPLEMENTED V1** | `docs/product/google-ads/GOOGLE_ADS_INTELLIGENCE.md` — Google Ads Analyst + Skills + `google_ads.ai_guidance` |
 | **N2c** | **Operational Recommendation → Task → Outcome Loop V1** | **IMPLEMENTED V1** | `docs/product/OPERATIONAL_OUTCOME_LOOP.md` — Task lifecycle + Finding-linked Outcome signals (no Result entity) |
+| **N2d** | **Discovery Intelligence V1** | **IMPLEMENTED V1** | `docs/product/DISCOVERY_INTELLIGENCE.md` — Website public discovery + candidates + human review; optional DataForSEO competitors |
 | **N3** | **Memory / Retrieval V1** | PLANNED (deferred) | Only when knowledge volume justifies; vector RAG deferred |
 
 ### Later candidates (UNCOMMITTED — select next after V1 review)
 
 No fixed dates. Review operational value before committing. Do **not** auto-start:
 
-- Discovery Intelligence V1 (outside-in public intelligence)
 - Meta Ads read-only intelligence
 - GBP Reputation Intelligence (official APIs; scraper rejected)
 - Capability Registry / Routing V1
@@ -77,8 +77,8 @@ No fixed dates. Review operational value before committing. Do **not** auto-star
 - rank tracking
 
 External research registry: `docs/research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md` (Agent Reach = #9; Agency Agents = #10).  
-Discovery direction: `docs/product/DISCOVERY_INTELLIGENCE.md` (**PLANNED / NOT IMPLEMENTED**).  
-AI Router + Agent/Skill V1: **IMPLEMENTED**. Outcome Loop V1: **IMPLEMENTED**. Capability Router / Playbooks / Learned Memory: **PLANNED**.
+Discovery Intelligence V1: **IMPLEMENTED** (`docs/product/DISCOVERY_INTELLIGENCE.md`).  
+AI Router + Agent/Skill V1: **IMPLEMENTED**. Outcome Loop V1: **IMPLEMENTED**. Capability Router / Playbooks / Learned Memory / RAG: **PLANNED**.
 
 
 ## Küçük task bölme

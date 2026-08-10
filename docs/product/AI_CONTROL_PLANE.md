@@ -5,7 +5,7 @@
 > **Implemented in V1:**  
 > - **AI Router:** OpenAI + Anthropic + Gemini, workflow routes (`website.ai_guidance`), native failover, provenance  
 > - **Agent Profiles + Skill Library:** Website SEO Analyst, curated Website Skills, bounded context, eligibility, Agent/Skill provenance  
-> **Still PLANNED / NOT IMPLEMENTED:** Playbooks, Recommendation Reviewer AI layer, Capability Registry / Capability Router, Discovery runtime, Memory/Retrieval, vector RAG, aggregator providers, operator-custom Skills DB  
+> **Still PLANNED / NOT IMPLEMENTED:** Playbooks, Recommendation Reviewer AI layer, Capability Registry / Capability Router, Memory/Retrieval, vector RAG, aggregator providers, operator-custom Skills DB. **Discovery Intelligence V1 is IMPLEMENTED** (Website-owned; see `DISCOVERY_INTELLIGENCE.md`).  
 >  
 > Authority order remains: `MASTER_SPEC` → accepted ADRs → product blueprints → this direction doc.  
 > Related: [`AGENT_SKILL_ARCHITECTURE.md`](./AGENT_SKILL_ARCHITECTURE.md) · [`DISCOVERY_INTELLIGENCE.md`](./DISCOVERY_INTELLIGENCE.md) · [`KNOWLEDGE_MEMORY_ARCHITECTURE.md`](./KNOWLEDGE_MEMORY_ARCHITECTURE.md) · [`docs/research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md`](../research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md).
@@ -58,7 +58,7 @@ Product rules (already canonical in MASTER_SPEC / ADR-041 path):
 | Agent Profiles (Website SEO Analyst) | **IMPLEMENTED V1** |
 | Skill Library (built-in Markdown Skills) | **IMPLEMENTED V1** |
 | Capability Registry / Capability Router | **PLANNED / NOT IMPLEMENTED** |
-| Outside-in Discovery Intelligence | **PLANNED / NOT IMPLEMENTED** — see `DISCOVERY_INTELLIGENCE.md` |
+| Outside-in Discovery Intelligence | **IMPLEMENTED V1** — Website public discovery + `website.discovery_context`; see `DISCOVERY_INTELLIGENCE.md` |
 | Playbooks | **PLANNED / NOT IMPLEMENTED** |
 | Recommendation Reviewer AI layer | **PLANNED / NOT IMPLEMENTED** (deterministic grounding remains V1 gate) |
 | Skill versioning / evaluation harness | **PLANNED / NOT IMPLEMENTED** |
@@ -209,6 +209,7 @@ Do **not** model AI selection as a single universal global provider order.
 V1 operational route:
 
 - `website.ai_guidance` — Website AI Guidance (registered by Website module; shared resolver infrastructure)
+- `website.discovery_context` — Website Discovery Context (Brand inference proposals from bounded public Discovery Evidence)
 
 Future route examples (not yet operational):
 
@@ -332,6 +333,7 @@ Agent Profile
 Operational V1 profile:
 
 - **Website SEO Analyst** (`website.seo_analyst`) — module `website`, route `website.ai_guidance`
+- **Website Brand Discovery Analyst** (`website.brand_discovery_analyst`) — module `website`, route `website.discovery_context`
 - **Google Ads Analyst** (`google_ads.analyst`) — module `google-ads`, route `google_ads.ai_guidance`
 
 Example future profiles (names illustrative, **NOT IMPLEMENTED**):
@@ -471,7 +473,6 @@ These are planning labels, not Autopilot stage IDs:
 Later **candidate** architecture/product work (**UNCOMMITTED** — select next after reviewing Agent/Skill V1 results):
 
 - Capability Registry / Routing V1
-- Discovery Intelligence V1
 - Playbooks
 - Recommendation Reviewer AI layer
 - Meta Ads read-only intelligence

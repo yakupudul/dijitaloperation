@@ -32,6 +32,10 @@ class BrandIntelligenceContext extends Model
 
     public const string SOURCE_OPERATOR = 'operator';
 
+    public const string SOURCE_PUBLIC_DISCOVERY = 'public_discovery';
+
+    public const string SOURCE_PUBLIC_DISCOVERY_EDITED = 'public_discovery_edited';
+
     /**
      * @return BelongsTo<Brand, $this>
      */

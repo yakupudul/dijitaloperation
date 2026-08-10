@@ -85,6 +85,23 @@ class DataForSeoApiClient
     }
 
     /**
+     * POST /v3/dataforseo_labs/google/competitors_domain/live — paid.
+     * Official docs: https://docs.dataforseo.com/v3/dataforseo_labs-google-competitors_domain-live/
+     *
+     * @param  list<array<string, mixed>>  $tasks
+     */
+    public function postCompetitorsDomainLive(CoreIntegration $integration, array $tasks): DataForSeoResponse
+    {
+        return $this->request(
+            $integration,
+            'POST',
+            DataForSeoEndpointAllowlist::LABS_GOOGLE_COMPETITORS_DOMAIN_LIVE,
+            self::CHARGE_CLASS_PAID_CREATE,
+            $tasks,
+        );
+    }
+
+    /**
      * Execute an allowlisted DataForSEO request.
      *
      * @param  array<string, mixed>|null  $jsonBody

@@ -36,6 +36,7 @@ class ModuleBoundaryArchitectureTest extends TestCase
         'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/WebsitePerformanceRelationManager.php',
         'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/WebsiteActivityRelationManager.php',
         'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/WebsiteConnectionsRelationManager.php',
+        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/WebsiteDiscoveryRelationManager.php',
         'app/Filament/App/Resources/Runs/RunResource.php',
     ];
 
