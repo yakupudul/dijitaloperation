@@ -51,7 +51,7 @@ final class CollectLiveBoundDataService
         if ($bindings->isEmpty()) {
             return [
                 'ok' => false,
-                'message' => 'No active provider bindings. Bind External Resources under Provider resources (Settings → Integrations → Google first).',
+                'message' => 'No active provider bindings. Discover provider resources under Settings → Integrations, then bind a compatible resource from this Digital Asset\'s Connections tab.',
                 'runs' => [],
                 'skipped' => [],
                 'findings' => $emptyFindings,

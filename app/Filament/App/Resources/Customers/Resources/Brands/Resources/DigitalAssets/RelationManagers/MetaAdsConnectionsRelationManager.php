@@ -15,10 +15,13 @@ use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Select;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Schemas\Components\EmbeddedTable;
+use Filament\Schemas\Components\RenderHook;
 use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Filament\View\PanelsRenderHook;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Validation\ValidationException;
@@ -47,12 +50,17 @@ class MetaAdsConnectionsRelationManager extends RelationManager
         /** @var DigitalAsset $asset */
         $asset = $this->getOwnerRecord();
 
-        return $schema->components([
-            View::make('meta-ads::filament.digital-assets.workspaces.meta-ads.connections')
-                ->viewData([
-                    'summary' => MetaAdsWorkspaceData::forAsset($asset),
-                ]),
-        ]);
+        return $schema
+            ->components([
+                View::make('meta-ads::filament.digital-assets.workspaces.meta-ads.connections')
+                    ->viewData([
+                        'summary' => MetaAdsWorkspaceData::forAsset($asset),
+                    ]),
+                $this->getTabsContentComponent(),
+                RenderHook::make(PanelsRenderHook::RESOURCE_RELATION_MANAGER_BEFORE),
+                EmbeddedTable::make(),
+                RenderHook::make(PanelsRenderHook::RESOURCE_RELATION_MANAGER_AFTER),
+            ]);
     }
 
     public function form(Schema $schema): Schema

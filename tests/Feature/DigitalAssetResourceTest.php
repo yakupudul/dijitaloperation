@@ -104,6 +104,7 @@ class DigitalAssetResourceTest extends TestCase
             ->assertSee('Visible Asset')
             ->assertSee('Meta Ads')
             ->assertSee('Connections')
+            ->assertActionHidden('collectLiveData')
             ->assertDontSee('Provider resources');
     }
 

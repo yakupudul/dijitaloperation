@@ -37,8 +37,10 @@ use App\Services\CrossAssetWebsiteGbpWebsiteUrlConsistencyService;
 use App\Services\CrossAssetWebsiteGoogleAdsLandingConsistencyService;
 use App\Services\CrossAssetWebsiteInstagramWebsiteUrlConsistencyService;
 use App\Services\CrossAssetWebsiteMetaAdsDestinationConsistencyService;
+use App\Services\Integrations\BoundCollectorRegistry;
 use App\Services\Integrations\CollectLiveBoundDataService;
 use App\Services\WebsiteDiagnosisService;
+use App\Support\Integrations\AssetBindingCompatibility;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
@@ -308,7 +310,7 @@ class ViewDigitalAsset extends ViewRecord
                 ->label('Collect live data')
                 ->icon(Heroicon::OutlinedCloudArrowDown)
                 ->color('primary')
-                ->visible(fn (): bool => ! $this->isWebsiteWorkspace())
+                ->visible(fn (): bool => $this->canCollectLiveBoundData())
                 ->requiresConfirmation()
                 ->modalHeading('Collect live provider data')
                 ->modalDescription('Runs collectors for this asset’s active provider connections. Read-only.')
@@ -811,6 +813,30 @@ class ViewDigitalAsset extends ViewRecord
         $asset = $this->getRecord();
 
         return $asset->type === 'meta_ads';
+    }
+
+    /**
+     * Show Collect live data only when this asset type has at least one
+     * compatible capability with a registered bound collector. Website uses
+     * its dedicated Refresh data workflow instead.
+     */
+    private function canCollectLiveBoundData(): bool
+    {
+        if ($this->isWebsiteWorkspace()) {
+            return false;
+        }
+
+        /** @var DigitalAsset $asset */
+        $asset = $this->getRecord();
+        $registry = app(BoundCollectorRegistry::class);
+
+        foreach (AssetBindingCompatibility::capabilitiesForAssetType((string) $asset->type) as $capability) {
+            if ($registry->forCapability($capability) !== null) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

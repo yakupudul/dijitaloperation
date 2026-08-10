@@ -446,6 +446,8 @@ class GoogleBoundDataCollectionTest extends TestCase
         $result = app(CollectLiveBoundDataService::class)->collect($this->website);
         $this->assertFalse($result['ok']);
         $this->assertStringContainsString('No active provider bindings', $result['message']);
+        $this->assertStringContainsString('Settings → Integrations', $result['message']);
+        $this->assertStringNotContainsString('Google first', $result['message']);
 
         $resource = CoreExternalResource::factory()->searchConsole()->create([
             'integration_id' => $this->integration->id,
