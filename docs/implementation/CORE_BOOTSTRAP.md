@@ -62,9 +62,13 @@ npm run build
 php artisan queue:work
 ```
 
+Cursor Cloud: a queue worker is **not** required for basic `/app` boot. Start one only when exercising async jobs.
+
 ## Scheduler
 
 Use Laravel’s standard scheduler (cron pointing at `php artisan schedule:run`). No custom scheduler framework in bootstrap.
+
+Cursor Cloud: scheduler is **not** required for basic interactive UAT.
 
 ## First admin
 

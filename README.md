@@ -12,6 +12,8 @@ Autopilot Automations (Supervisor + PR Repair): [`.automation/supervisor/`](.aut
 
 See [`docs/implementation/CORE_BOOTSTRAP.md`](docs/implementation/CORE_BOOTSTRAP.md) for local setup, admin creation, queue, tests, and the sample module.
 
+Cursor Cloud agents: see [`docs/implementation/CURSOR_CLOUD_ENVIRONMENT.md`](docs/implementation/CURSOR_CLOUD_ENVIRONMENT.md) (`.cursor/environment.json`).
+
 Quick start:
 
 ```bash

@@ -1,0 +1,22 @@
+{
+  "name": "moxdop-cloud",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "install": "bash .cursor/cloud-agent-install.sh",
+  "start": "bash .cursor/cloud-agent-start.sh",
+  "terminals": [
+    {
+      "name": "laravel",
+      "command": "php artisan serve --host=0.0.0.0 --port=8000",
+      "description": "MoxDOP Laravel HTTP server on 0.0.0.0:8000 for Cursor port forwarding / browser UAT"
+    }
+  ],
+  "ports": [
+    {
+      "name": "laravel",
+      "port": 8000
+    }
+  ]
+}
