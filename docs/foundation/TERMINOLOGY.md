@@ -19,9 +19,14 @@
 | Result (entity) | **MVP’de yok**; sonuç Finding/Run ile izlenir |
 | Minimal Module Registry | id + enabled/disabled (+ bilgisel version); operator UI = business modules only |
 | Integration | External provider/service connection (≠ Module) |
-| Module | Business/domain capability (≠ Integration/Agent/Skill) |
+| Module | Business/domain capability (≠ Integration/Agent/Skill/Capability) |
 | Agent | Bounded AI workflow/persona (**planned**; ≠ Module) |
 | Skill | Versioned analytical methodology (**planned**; ≠ Module) |
+| Capability | Implementation-independent ability (**planned**; ≠ Integration/Module/Agent/Skill) |
+| Adapter | Concrete fulfillment of a Capability (**planned**) |
+| AI Router | Which AI provider/model reasons (**planned**; ≠ Capability Router) |
+| Capability Router | Which adapter supplies data/function (**planned**; ≠ AI Router) |
+| Discovery / Outside-in | Public intelligence before first-party connections (**planned**; see `docs/product/DISCOVERY_INTELLIGENCE.md`) |
 | Memory | Institutional + operational + Skill + learned layers — see `docs/product/KNOWLEDGE_MEMORY_ARCHITECTURE.md` |
 | RAG | Retrieval-Augmented Generation (≠ “AI memory”); vector RAG not current |
 | `app-modules/` + `internachi/modular` | Modül paketleme temeli |

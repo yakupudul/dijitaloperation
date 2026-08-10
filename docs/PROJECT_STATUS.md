@@ -21,17 +21,19 @@ Last updated: 2026-08-10
 | Brand Intelligence Context V1 | COMPLETED |
 | AI Recommendation Intelligence V1 | COMPLETED — PR [#106](https://github.com/yakupudul/dijitaloperation/pull/106) (`094fe0a`) |
 | Integrations Workspace V2 | COMPLETED — PR [#107](https://github.com/yakupudul/dijitaloperation/pull/107) (`61bbfc8`) |
-| **Module Boundary + Knowledge / Memory Architecture Audit V1** | **COMPLETED (this PR)** — `docs/current-state/MODULE_BOUNDARY_AUDIT_V1.md`, `docs/product/KNOWLEDGE_MEMORY_ARCHITECTURE.md` |
+| Module Boundary + Knowledge / Memory Architecture Audit V1 | COMPLETED — PR [#109](https://github.com/yakupudul/dijitaloperation/pull/109) (`ec31bde`) |
+| Capability + Discovery product direction docs V1 | COMPLETED (docs only) — Agent Reach tracked; `DISCOVERY_INTELLIGENCE.md`; Capability ≠ Integration distinctions |
 | **Next: AI Provider Routing & Failover V1** | PLANNED — `docs/product/AI_CONTROL_PLANE.md` (**NOT IMPLEMENTED**) |
-| Agent Profiles + Skill Library V1 | PLANNED — `docs/product/AI_CONTROL_PLANE.md` (**NOT IMPLEMENTED**) |
+| Agent Profiles + Skill Library V1 | PLANNED — `docs/product/AI_CONTROL_PLANE.md` (**NOT IMPLEMENTED**; Skills may declare `required_capabilities`) |
 | Memory / Retrieval V1 | PLANNED — only when knowledge volume justifies it; vector RAG deferred |
 
 ### Uncommitted later candidates
 
-Meta Ads read-only intelligence · GBP Reputation Intelligence · GEO/AI Search Intelligence · competitor/domain · backlinks · rank tracking  
-(No fixed dates; value review required.)
+Capability Registry / Routing V1 · Discovery Intelligence V1 · Meta Ads read-only intelligence · GBP Reputation Intelligence · GEO/AI Search Intelligence · competitor/domain · backlinks · rank tracking  
+(No fixed dates; value review required. Do **not** reorder ahead of AI Provider Routing.)
 
-External reference registry: `docs/research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md`.
+External reference registry: `docs/research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md` (includes Agent Reach as #9).
+Outside-in Discovery direction: `docs/product/DISCOVERY_INTELLIGENCE.md` (**PLANNED / NOT IMPLEMENTED**).
 
 ---
 
