@@ -26,7 +26,7 @@ Repository-managed Cursor Cloud environment:
 |------|------|
 | `.cursor/environment.json` | install / start / terminals / ports |
 | `.cursor/Dockerfile` | PHP 8.3 + extensions, Composer, Node 22 |
-| `.cursor/cloud-agent-install.sh` | `composer install`, `npm ci`, `npm run build` |
+| `.cursor/cloud-agent-install.sh` | bootstrap PHP/Composer/Node if missing; then `composer install`, `npm ci`, `npm run build` |
 | `.cursor/cloud-agent-start.sh` | runtime `.env`, SQLite file, `migrate`, safe seed |
 | `.env.cursor-cloud.example` | non-secret Cloud defaults (never commit `.env`) |
 
@@ -83,9 +83,17 @@ npm run build
 curl -I http://127.0.0.1:8000/app/login
 ```
 
+## Reproducibility evidence (draft build)
+
+Draft environment build (feature-branch ref; not promotable to default-branch active build):
+
+- Build [`bld-20260810-4bb7370c-7d20-4816-a1d5-72e02b47d5d2`](https://cursor.com/dashboard/cloud-agents/builds/bld-20260810-4bb7370c-7d20-4816-a1d5-72e02b47d5d2) — **SUCCEEDED**
+- Fresh agent booted from that build: PHP 8.3.6, Composer 2.10.2, `vendor/` + `public/build` durable, `start` auto-ran, `/app/login` HTTP 200
+
 ## Operator follow-up
 
-1. Merge this environment PR into `main` when ready
-2. Open Cloud Agents → Environments → ensure this repo uses the repository `.cursor/environment.json`
-3. Enable/create a Build from the environment [Builds](https://cursor.com/dashboard/cloud-agents) tab so new agents boot from a prebuilt snapshot
+1. Merge this environment PR into `main` when ready (do not auto-merge)
+2. Open Cloud Agents → Environments for this repo and confirm repository `.cursor/environment.json` is the config source
+3. [Enable builds](https://cursor.com/dashboard/cloud-agents/environments/e/23fad5d2-94d4-11f1-ba66-0e7d0216e441#builds) on the environment Builds tab (or the team/repo environment that owns `main` after merge) so new agents boot from a prebuilt snapshot
 4. Start a fresh Cloud agent on `main` and confirm PHP + `/app/login` without manual apt installs
+5. Create a local development admin when needed: `php artisan dop:create-admin` (interactive; no committed password)
