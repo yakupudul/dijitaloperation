@@ -2,6 +2,7 @@
 
 namespace App\Services\Findings;
 
+use App\Events\FindingEvaluationCompleted;
 use App\Models\Finding;
 use App\Models\Recommendation;
 use App\Support\Findings\RuleEvaluationResult;
@@ -51,6 +52,9 @@ final class FindingLifecycleService
                     $matchedFingerprints,
                 );
             }
+
+            // ShouldDispatchAfterCommit on the event ensures Outcome monitors read committed Finding state.
+            event(FindingEvaluationCompleted::fromResult($result, $stats));
 
             return $stats;
         });

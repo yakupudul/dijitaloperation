@@ -4,8 +4,11 @@ namespace App\Filament\App\Resources\Findings;
 
 use App\Filament\App\Resources\Findings\Pages\ListFindings;
 use App\Filament\App\Resources\Findings\Pages\ViewFinding;
+use App\Filament\App\Resources\Tasks\TaskResource;
 use App\Models\Finding;
 use App\Support\MoxDopNavigation;
+use App\Support\Tasks\TaskOutcomeStatus;
+use App\Support\Tasks\TaskStatus;
 use BackedEnum;
 use Filament\Actions\ViewAction;
 use Filament\Infolists\Components\RepeatableEntry;
@@ -147,6 +150,27 @@ class FindingResource extends Resource
                     ])
                     ->columnSpanFull()
                     ->placeholder('No recommendations'),
+                RepeatableEntry::make('tasks')
+                    ->label('Related Tasks')
+                    ->schema([
+                        TextEntry::make('id')
+                            ->label('Task')
+                            ->formatStateUsing(fn (mixed $state): string => "Task #{$state}")
+                            ->url(fn ($record): string => TaskResource::getUrl('view', ['record' => $record])),
+                        TextEntry::make('title'),
+                        TextEntry::make('status')
+                            ->label('Task status')
+                            ->badge()
+                            ->formatStateUsing(fn (?string $state): string => $state !== null ? TaskStatus::label($state) : '—'),
+                        TextEntry::make('outcome_status')
+                            ->label('Outcome')
+                            ->badge()
+                            ->formatStateUsing(fn (?string $state): string => $state !== null
+                                ? TaskOutcomeStatus::label($state)
+                                : '—'),
+                    ])
+                    ->columnSpanFull()
+                    ->placeholder('No related Tasks'),
             ]);
     }
 

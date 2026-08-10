@@ -4,16 +4,20 @@ namespace App\Filament\App\Resources\Recommendations;
 
 use App\Filament\App\Resources\Recommendations\Pages\ListRecommendations;
 use App\Filament\App\Resources\Recommendations\Pages\ViewRecommendation;
+use App\Filament\App\Resources\Tasks\TaskResource;
 use App\Models\Recommendation;
 use App\Models\User;
 use App\Services\CreateTaskFromRecommendation;
 use App\Support\MoxDopNavigation;
+use App\Support\Tasks\TaskOutcomeStatus;
+use App\Support\Tasks\TaskStatus;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
@@ -123,6 +127,26 @@ class RecommendationResource extends Resource
                         'converted' => 'success',
                         default => 'gray',
                     }),
+                RepeatableEntry::make('tasks')
+                    ->label('Tasks')
+                    ->schema([
+                        TextEntry::make('id')
+                            ->label('Task')
+                            ->formatStateUsing(fn (mixed $state): string => "Task #{$state}")
+                            ->url(fn ($record): string => TaskResource::getUrl('view', ['record' => $record])),
+                        TextEntry::make('status')
+                            ->label('Task status')
+                            ->badge()
+                            ->formatStateUsing(fn (?string $state): string => $state !== null ? TaskStatus::label($state) : '—'),
+                        TextEntry::make('outcome_status')
+                            ->label('Outcome')
+                            ->badge()
+                            ->formatStateUsing(fn (?string $state): string => $state !== null
+                                ? TaskOutcomeStatus::label($state)
+                                : '—'),
+                    ])
+                    ->columnSpanFull()
+                    ->placeholder('No Task created'),
             ]);
     }
 

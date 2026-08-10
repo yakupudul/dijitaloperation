@@ -57,17 +57,20 @@ Foundation 1–23 tamamlandıktan sonra devam eden **güncel** ürün sırası. 
 | **N1** | **AI Provider Routing & Failover V1** | **IMPLEMENTED V1** | `docs/product/AI_CONTROL_PLANE.md` — OpenAI / Anthropic / Gemini + `website.ai_guidance` |
 | **N2** | **Agent Profiles + Skill Library V1** | **IMPLEMENTED V1** | `docs/product/AGENT_SKILL_ARCHITECTURE.md` — Website SEO Analyst + curated Website Skills |
 | **N2b** | **Google Ads Intelligence + Analyst V1** | **IMPLEMENTED V1** | `docs/product/google-ads/GOOGLE_ADS_INTELLIGENCE.md` — Google Ads Analyst + Skills + `google_ads.ai_guidance` |
+| **N2c** | **Operational Recommendation → Task → Outcome Loop V1** | **IMPLEMENTED V1** | `docs/product/OPERATIONAL_OUTCOME_LOOP.md` — Task lifecycle + Finding-linked Outcome signals (no Result entity) |
 | **N3** | **Memory / Retrieval V1** | PLANNED (deferred) | Only when knowledge volume justifies; vector RAG deferred |
 
 ### Later candidates (UNCOMMITTED — select next after V1 review)
 
 No fixed dates. Review operational value before committing. Do **not** auto-start:
 
-- Capability Registry / Routing V1
 - Discovery Intelligence V1 (outside-in public intelligence)
-- operational Recommendation / Outcome loop
 - Meta Ads read-only intelligence
 - GBP Reputation Intelligence (official APIs; scraper rejected)
+- Capability Registry / Routing V1
+- Digital Operations Analyst
+- Playbook V1
+- richer metric Outcome Signals
 - GEO / AI Search Intelligence
 - competitor / domain intelligence
 - backlinks
@@ -75,7 +78,7 @@ No fixed dates. Review operational value before committing. Do **not** auto-star
 
 External research registry: `docs/research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md` (Agent Reach = #9; Agency Agents = #10).  
 Discovery direction: `docs/product/DISCOVERY_INTELLIGENCE.md` (**PLANNED / NOT IMPLEMENTED**).  
-AI Router + Agent/Skill V1: **IMPLEMENTED**. Capability Router / Playbooks: **PLANNED**.
+AI Router + Agent/Skill V1: **IMPLEMENTED**. Outcome Loop V1: **IMPLEMENTED**. Capability Router / Playbooks / Learned Memory: **PLANNED**.
 
 
 ## Küçük task bölme

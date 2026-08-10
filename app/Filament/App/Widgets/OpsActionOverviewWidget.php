@@ -4,10 +4,13 @@ namespace App\Filament\App\Widgets;
 
 use App\Filament\App\Resources\Findings\FindingResource;
 use App\Filament\App\Resources\Recommendations\RecommendationResource;
+use App\Filament\App\Resources\Tasks\TaskResource;
 use App\Models\CoreConnection;
 use App\Models\Finding;
 use App\Models\Recommendation;
 use App\Models\Task;
+use App\Support\Tasks\TaskOutcomeStatus;
+use App\Support\Tasks\TaskStatus;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 
@@ -44,13 +47,28 @@ class OpsActionOverviewWidget extends StatsOverviewWidget
             ->count();
 
         $openTasks = Task::query()
-            ->whereIn('status', ['open', 'in_progress', 'blocked'])
+            ->whereIn('status', TaskStatus::active())
             ->count();
 
         $overdueTasks = Task::query()
-            ->whereIn('status', ['open', 'in_progress', 'blocked'])
+            ->whereIn('status', TaskStatus::active())
             ->whereNotNull('due_date')
             ->whereDate('due_date', '<', now()->toDateString())
+            ->count();
+
+        $awaitingFollowUp = Task::query()
+            ->where('status', TaskStatus::COMPLETED)
+            ->where('outcome_status', TaskOutcomeStatus::AWAITING_FOLLOW_UP)
+            ->count();
+
+        $regressionObserved = Task::query()
+            ->where('status', TaskStatus::COMPLETED)
+            ->where('outcome_status', TaskOutcomeStatus::REGRESSION_OBSERVED)
+            ->count();
+
+        $improvementObserved = Task::query()
+            ->where('status', TaskStatus::COMPLETED)
+            ->where('outcome_status', TaskOutcomeStatus::IMPROVEMENT_OBSERVED)
             ->count();
 
         $openCrossChannelFindings = Finding::query()
@@ -74,6 +92,8 @@ class OpsActionOverviewWidget extends StatsOverviewWidget
             + $openRecommendations
             + $failedConnections
             + $openTasks
+            + $regressionObserved
+            + $awaitingFollowUp
             + $openCrossChannelFindings
             + $openWebsiteTechnicalFindings;
 
@@ -131,7 +151,29 @@ class OpsActionOverviewWidget extends StatsOverviewWidget
                 ->description($overdueTasks > 0
                     ? $overdueTasks.' overdue'
                     : 'Open, in progress, or blocked')
-                ->color($overdueTasks > 0 ? 'danger' : 'warning');
+                ->color($overdueTasks > 0 ? 'danger' : 'warning')
+                ->url(TaskResource::getUrl('index'));
+        }
+
+        if ($regressionObserved > 0) {
+            $stats[] = Stat::make('Regression observed', (string) $regressionObserved)
+                ->description('Linked Finding reappeared after earlier improvement')
+                ->color('danger')
+                ->url(TaskResource::getUrl('index'));
+        }
+
+        if ($awaitingFollowUp > 0) {
+            $stats[] = Stat::make('Awaiting follow-up', (string) $awaitingFollowUp)
+                ->description('Completed Tasks waiting for comparable Finding evaluation')
+                ->color('warning')
+                ->url(TaskResource::getUrl('index'));
+        }
+
+        if ($improvementObserved > 0) {
+            $stats[] = Stat::make('Improvement observed', (string) $improvementObserved)
+                ->description('Linked Finding resolved in a later successful evaluation')
+                ->color('success')
+                ->url(TaskResource::getUrl('index'));
         }
 
         if ($recentlyResolvedImportantFindings > 0) {

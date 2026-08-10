@@ -61,6 +61,8 @@ class CreateTaskFromRecommendation
         $action = $recommendation->action ?? '';
         $rationale = $recommendation->rationale;
 
+        $finding = $recommendation->finding;
+
         $snapshot = [
             'customer_id' => $brand->customer_id,
             'brand_id' => $brand->id,
@@ -70,6 +72,15 @@ class CreateTaskFromRecommendation
             'action' => $action,
             'priority' => $priority,
             'rationale' => $rationale,
+            'finding' => $finding === null ? null : [
+                'id' => $finding->id,
+                'fingerprint' => $finding->fingerprint,
+                'source_module' => $finding->source_module,
+                'status' => $finding->status,
+                'severity' => $finding->severity,
+                'last_run_id' => $finding->last_run_id,
+                'last_seen_at' => optional($finding->last_seen_at)?->toIso8601String(),
+            ],
         ];
 
         return Task::query()->create([
