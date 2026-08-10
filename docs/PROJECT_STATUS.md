@@ -28,7 +28,7 @@ Last updated: 2026-08-10
 | **Google Ads Intelligence + Analyst V1** | **IMPLEMENTED V1** — Google Ads Analyst + Skills + search-term/measurement Evidence + `google_ads.ai_guidance`; `docs/product/google-ads/GOOGLE_ADS_INTELLIGENCE.md` |
 | **Operational Recommendation → Task → Outcome Loop V1** | **IMPLEMENTED V1** — Finding → Recommendation → Task → human completion → observed Outcome signal; `docs/product/OPERATIONAL_OUTCOME_LOOP.md` |
 | **Discovery Intelligence V1** | **IMPLEMENTED V1** — bounded public Website discovery + Evidence + Brand candidates (fact/inference) + human Accept/Edit/Ignore + optional DataForSEO competitor candidates; `docs/product/DISCOVERY_INTELLIGENCE.md` |
-| **Meta Ads Central Integration + Resource Binding V1** | **IMPLEMENTED V1** — agency Meta Integration + Ad Account ExternalResources + Meta Ads Digital Asset binding; `docs/product/meta-ads/META_ADS_INTEGRATION.md` |
+| **Meta Ads Central Integration + Resource Binding V1** | **IMPLEMENTED V1** — agency Meta Integration + Ad Account ExternalResources + Meta Ads Digital Asset binding; `docs/product/meta-ads/META_ADS_INTEGRATION.md` (real Meta read-only UAT: OPERATOR FOLLOW-UP) |
 | Next milestone | **TO BE SELECTED** after reviewing Meta connection V1 (candidates below — do not auto-start) |
 | Memory / Retrieval V1 | PLANNED — only when knowledge volume justifies it; vector RAG deferred |
 

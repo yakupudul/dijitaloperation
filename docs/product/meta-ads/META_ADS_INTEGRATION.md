@@ -66,6 +66,12 @@ Official Meta documentation is authoritative for API behavior.
 - Operator setup help (permissions + token guidance)
 - Integrations Workspace Meta card status: Not configured / Configured / Healthy / Needs attention
 
+## Validation notes
+
+- Automated / fake-provider coverage: PASS
+- Browser UAT (desktop / responsive / dark): PASS
+- Real Meta read-only UAT: **OPERATOR FOLLOW-UP** (no production Meta credential in the finalization environment)
+
 ## NOT IMPLEMENTED (deliberate)
 
 - Meta Ads Insights / campaign / ad set / ad / creative collectors
