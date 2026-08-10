@@ -344,19 +344,20 @@ See `AI_CONTROL_PLANE.md` § AI Router vs Capability Router.
 
 ## 16. Roadmap position
 
-Do **not** reorder the immediate product track.
+Do **not** reorder Agent Profiles behind Capability/Discovery automatically.
 
-Immediate next implementation milestone remains:
+Immediate next implementation milestone:
 
-1. **AI Provider Routing & Failover V1**
-2. **Agent Profiles + Skill Library V1**
+1. **Agent Profiles + Skill Library V1**
+
+AI Provider Routing & Failover V1 is **IMPLEMENTED**.
 
 Later candidate milestones (UNCOMMITTED timing):
 
 - Capability Registry / Routing V1
 - Discovery Intelligence V1
 
-Do not assign calendar dates. Do not automatically put Discovery ahead of operationally more valuable work.
+Do not assign calendar dates. Do not automatically put Discovery ahead of operationally more valuable work. Capability / Discovery concepts should **inform** Agent/Skill contracts.
 
 ---
 

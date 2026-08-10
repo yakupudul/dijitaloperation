@@ -1,0 +1,16 @@
+<?php
+
+namespace MoxDop\Website\Ai;
+
+use App\Support\Ai\AiRouteKeys;
+
+/**
+ * Website module route key for AI Guidance (Control Plane consumer).
+ */
+final class WebsiteAiRoutes
+{
+    /** @deprecated Use AiRouteKeys::WEBSITE_AI_GUIDANCE */
+    public const string AI_GUIDANCE = AiRouteKeys::WEBSITE_AI_GUIDANCE;
+
+    public const string AI_GUIDANCE_NAME = 'Website AI Guidance';
+}

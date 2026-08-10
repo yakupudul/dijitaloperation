@@ -1,10 +1,9 @@
 # AI Control Plane
 
-> **STATUS: PLANNED PRODUCT DIRECTION**  
-> **NOT IMPLEMENTED YET** (except where explicitly marked IMPLEMENTED below)  
+> **STATUS: PARTIALLY IMPLEMENTED (V1)**  
 >  
-> This document records long-term product direction from research and operator decisions.  
-> It is **not** an accepted implementation ADR and does **not** authorize runtime work by itself.  
+> **Implemented in V1 (AI Router):** OpenAI + Anthropic + Gemini agency Integrations, workflow-specific AI Routes (`website.ai_guidance`), Laravel native `FailoverableException` failover, route-step persistence (`ai_route_steps`), provider/model/fallback provenance.  
+> **Still PLANNED / NOT IMPLEMENTED:** Agent Profiles, Skill Library, Capability Registry / Capability Router, Discovery runtime, Memory/Retrieval, vector RAG, aggregator providers (OpenRouter, etc.).  
 >  
 > Authority order remains: `MASTER_SPEC` → accepted ADRs → product blueprints → this direction doc.  
 > Related research registry: [`docs/research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md`](../research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md).  
@@ -53,9 +52,9 @@ Product rules (already canonical in MASTER_SPEC / ADR-041 path):
 
 | Area | Status |
 | --- | --- |
-| OpenAI agency Integration + Website AI Recommendation Intelligence V1 | **IMPLEMENTED** (PR #106 merged) |
-| Multiple AI provider Integrations | **PLANNED / NOT IMPLEMENTED** |
-| Route-specific primary/fallback (AI Router) | **PLANNED / NOT IMPLEMENTED** |
+| OpenAI agency Integration + Website AI Recommendation Intelligence V1 | **IMPLEMENTED** (PR #106) |
+| Multiple AI provider Integrations (OpenAI, Anthropic, Gemini) | **IMPLEMENTED V1** |
+| Route-specific primary/fallback — **AI Router** (`website.ai_guidance`) | **IMPLEMENTED V1** |
 | Capability Registry / Capability Router | **PLANNED / NOT IMPLEMENTED** |
 | Outside-in Discovery Intelligence | **PLANNED / NOT IMPLEMENTED** — see `DISCOVERY_INTELLIGENCE.md` |
 | Agent Profiles | **PLANNED / NOT IMPLEMENTED** |
@@ -63,6 +62,7 @@ Product rules (already canonical in MASTER_SPEC / ADR-041 path):
 | Skill versioning / evaluation harness | **PLANNED / NOT IMPLEMENTED** |
 | Knowledge / Memory architecture (four layers) | **PLANNED** — partially realized via structured Brand Context / Run / Evidence / Finding data; see [`KNOWLEDGE_MEMORY_ARCHITECTURE.md`](./KNOWLEDGE_MEMORY_ARCHITECTURE.md) |
 | Vector RAG / embeddings | **NOT IMPLEMENTED** — deferred until knowledge volume justifies it |
+| Aggregator providers (OpenRouter, DeepSeek, Groq, …) | **NOT IMPLEMENTED** (V1 proves direct providers only) |
 | MCP / unbounded agents | **REJECTED** as MoxDOP core |
 
 Do not describe planned rows as current product functionality.
@@ -73,7 +73,7 @@ Do not describe planned rows as current product functionality.
 
 | Concept | Answers | Examples |
 | --- | --- | --- |
-| **Integration** | How MoxDOP authenticates / connects to an external provider | Google OAuth, DataForSEO, OpenAI |
+| **Integration** | How MoxDOP authenticates / connects to an external provider | Google OAuth, DataForSEO, OpenAI, Anthropic, Gemini |
 | **Module** | A business / domain capability of MoxDOP | Website, Google Ads, GBP |
 | **Agent** | Bounded AI workflow / persona | Website SEO Analyst (**planned**) |
 | **Skill** | Analytical methodology | Technical SEO Audit (**planned**) |
@@ -111,22 +111,25 @@ Example Capability → Adapter mappings (**illustrative, NOT IMPLEMENTED**):
 
 These are **parallel** concepts. Do **not** collapse them into one universal router.
 
-### AI Router (reasoning providers)
+### AI Router (reasoning providers) — **IMPLEMENTED V1**
 
 Answers:
 
 > Which AI provider / model performs the reasoning?
 
-Example — Website AI Guidance (**PLANNED** routing; OpenAI path exists today without multi-provider failover Control Plane):
+Example — Website AI Guidance (`website.ai_guidance`):
 
 ```text
 Website AI Guidance
-  1. OpenAI        — PRIMARY
-  2. Anthropic     — FALLBACK
-  3. Gemini        — FALLBACK
+  1. OpenAI / gpt-5-mini     — PRIMARY (default when no custom steps)
+  2. Anthropic / claude-…    — FALLBACK (when configured & eligible)
+  3. Gemini / gemini-…       — FALLBACK (when configured & eligible)
 ```
 
-### Capability Router (data / function adapters)
+Operator-facing workspace: **Settings → AI Control Plane**.  
+Model selection is owned by the **AI route**, not by Integration cards.
+
+### Capability Router (data / function adapters) — **PLANNED / NOT IMPLEMENTED**
 
 Answers:
 
@@ -148,19 +151,36 @@ The Agent / Skill asks for **what it needs**, not **which implementation to call
 
 Capability Registry + Capability Router remain **PLANNED / NOT IMPLEMENTED**.
 
+Future Agent architecture (planned):
+
+```text
+Agent Profile
+  → Skills
+  → required_capabilities
+  → future Capability Router
+
+while AI reasoning uses:
+
+Agent / workflow
+  → AI Route
+  → provider / model chain
+```
+
+These are separate responsibilities.
+
 ---
 
 ## 5. AI providers
 
-Direction: MoxDOP should eventually support multiple AI providers using the installed **`laravel/ai`** abstraction where practical.
+Direction: MoxDOP supports multiple AI providers using the installed **`laravel/ai`** abstraction where practical.
 
-Potential providers may include (non-promise list):
+**Implemented V1 production providers:**
 
 - OpenAI
 - Anthropic
 - Google Gemini
-- OpenRouter
-- other providers safely supported by the installed Laravel AI SDK
+
+Potential later providers (non-promise list): OpenRouter and other providers safely supported by the installed Laravel AI SDK.
 
 Provider availability depends on:
 
@@ -170,23 +190,26 @@ Provider availability depends on:
 - security / credential model
 - operational value
 
-**Current implemented production provider:** OpenAI (agency Integration credential; `store=false`; recommendation model config).
+Agency Integration credentials; OpenAI `store=false` on generation; route-owned models.
 
-All other providers: **PLANNED / NOT IMPLEMENTED**.
+Intentionally **not** in V1: OpenRouter, DeepSeek, Groq, xAI, Mistral, Ollama, Bedrock, Azure OpenAI, generic OpenAI-compatible endpoints.
 
 Do not permanently promise every named provider.
 
 ---
 
-## 6. AI Routes (not one global ranking)
+## 6. AI Routes (not one global ranking) — **IMPLEMENTED V1**
 
-Do **not** model future AI selection as a single universal global provider order.
+Do **not** model AI selection as a single universal global provider order.
 
-Preferred direction: **AI Routes** — workflow-specific routing.
+**AI Routes** are workflow-specific.
 
-Examples of routes:
+V1 operational route:
 
-- Website Recommendation / Website AI Guidance
+- `website.ai_guidance` — Website AI Guidance (registered by Website module; shared resolver infrastructure)
+
+Future route examples (not yet operational):
+
 - SEO Intelligence
 - Google Ads Analysis
 - Executive Analysis
@@ -196,30 +219,31 @@ Each route may define:
 - primary provider + model
 - fallback provider/model(s)
 
-The best provider may differ by workflow. Multi-provider AI routing is **NOT IMPLEMENTED** yet (next implementation milestone).
+Default when no custom steps are persisted: OpenAI / `gpt-5-mini` (backward compatible).
+
+One provider may appear only once per route in V1.
 
 ---
 
-## 7. Failover policy
+## 7. Failover policy — **IMPLEMENTED V1** (AI Router)
 
-**PLANNED direction** (AI Router)
+Uses Laravel AI native `FailoverableException` handling only:
 
-Failover is for provider/runtime availability problems, conceptually such as:
+- rate limited
+- provider overloaded / unavailable
+- insufficient credits / quota
 
-- rate limiting
-- provider unavailable / overload
-- insufficient provider credits
-
-Do **not** blindly fail over every application error.
-
-Inappropriate automatic-fallback examples:
+Does **not** failover on:
 
 - invalid request
 - schema / application bug
 - grounding failure
 - business validation failure
+- ordinary application failures
 
-Future implementation should prefer Laravel AI native failover behavior where it matches MoxDOP requirements, rather than rebuilding provider orchestration from scratch.
+Routes are workflow-specific (not one global ranking). Model selection is owned by the AI route, not by the Integration card.
+
+Local eligibility skips unconfigured / disabled / auth-failed providers before calling Laravel AI.
 
 Capability Router may later have its own ordered adapter eligibility / health rules — still separate from AI failover.
 
@@ -240,17 +264,17 @@ Future Capability health may conceptually distinguish:
 - Timeout
 - Needs attention
 
-Do **not** implement these states now. Prefer lightweight real health checks over merely checking whether credentials/configuration exist. Reuse existing MoxDOP Integration health concepts when runtime work begins.
+Do **not** implement these Capability health states now. Prefer lightweight real health checks over merely checking whether credentials/configuration exist. Reuse existing MoxDOP Integration health concepts when runtime work begins.
 
 ---
 
-## 9. Provenance-preserving external access (**PLANNED**)
+## 9. Provenance-preserving external access (**PLANNED** for Capability layer)
 
 Agent Reach often lets an Agent directly invoke an upstream implementation.
 
 MoxDOP should **not** do that for analytical product data.
 
-Canonical future flow:
+Canonical future Capability flow:
 
 ```text
 Agent / Module
@@ -270,6 +294,8 @@ Findings / Agent analysis
 
 External results that affect analysis should become auditable MoxDOP Evidence where applicable.  
 Agents must not silently place arbitrary external content into reasoning context without provenance.
+
+AI Router Runs already record safe provenance such as: `ai_route_key`, configured provider/model chain, successful provider/model, `fallback_occurred`, token usage when available, route signature, prompt/schema versions, Finding/Evidence IDs. Never credentials.
 
 ---
 
@@ -413,12 +439,12 @@ These are planning labels, not Autopilot stage IDs:
 
 1. **Integrations Workspace V2** — **COMPLETED** (PR #107 / `61bbfc8`)  
 2. **Module Boundary + Knowledge / Memory Architecture Audit V1** — **COMPLETED** (PR #109 / `ec31bde`)  
-3. **Capability + Discovery product direction docs V1** — documentation only (this track; **NOT** a runtime milestone)  
-4. **AI Provider Routing & Failover V1** — **NEXT IMPLEMENTATION** — selected providers + route primary/fallback + safe failover  
-5. **Agent Profiles + Skill Library V1** — bounded personas + curated versioned Skills (Capability fields influence contracts)  
+3. **Capability + Discovery product direction docs V1** — **COMPLETED** (docs only; PR #111) — **NOT** a runtime milestone  
+4. **AI Provider Routing & Failover V1** — **IMPLEMENTED V1** (OpenAI / Anthropic / Gemini + `website.ai_guidance`)  
+5. **Agent Profiles + Skill Library V1** — **NEXT IMPLEMENTATION** — bounded personas + curated versioned Skills (Capability fields influence contracts)  
 6. **Memory / Retrieval V1** — only when knowledge volume / use cases justify it (structured retrieval first; vector RAG deferred)
 
-Later **candidate** architecture/product work (**UNCOMMITTED** timing — do not reorder ahead of N1/N2 automatically):
+Later **candidate** architecture/product work (**UNCOMMITTED** timing — do not reorder ahead of Agent Profiles + Skill Library automatically):
 
 - Capability Registry / Routing V1
 - Discovery Intelligence V1
@@ -431,4 +457,4 @@ Later **candidate** architecture/product work (**UNCOMMITTED** timing — do not
 
 No fixed calendar dates are assigned here.
 
-**Immediate next implementation milestone remains: AI Provider Routing & Failover V1.**
+**Immediate next implementation milestone: Agent Profiles + Skill Library V1.**

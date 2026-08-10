@@ -13,13 +13,13 @@ final class WebsiteAiInputFingerprint
     public static function make(
         string $promptVersion,
         string $schemaVersion,
-        string $model,
+        string $routeSignature,
         array $boundedContext,
     ): string {
         $canonical = [
             'prompt_version' => $promptVersion,
             'schema_version' => $schemaVersion,
-            'model' => $model,
+            'route_signature' => $routeSignature,
             'context' => $boundedContext,
         ];
 

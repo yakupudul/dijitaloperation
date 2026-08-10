@@ -117,7 +117,7 @@ class ModuleBoundaryArchitectureTest extends TestCase
         $contents = (string) file_get_contents($websiteService);
 
         $this->assertMatchesRegularExpression('/use\s+App\\\\Models\\\\/', $contents);
-        $this->assertMatchesRegularExpression('/use\s+App\\\\Services\\\\Integrations\\\\/', $contents);
+        $this->assertMatchesRegularExpression('/use\s+App\\\\Services\\\\(?:Ai|Integrations)\\\\/', $contents);
     }
 
     #[Test]

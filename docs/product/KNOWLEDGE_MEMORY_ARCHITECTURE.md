@@ -317,8 +317,8 @@ Examples:
 
 ## 13. Milestone relationship
 
-1. **AI Provider Routing & Failover V1** — **next implementation** track  
-2. **Agent Profiles + Skill Library V1** — curated Skills + bounded personas (Capability fields influence contracts)  
+1. **AI Provider Routing & Failover V1** — **IMPLEMENTED V1** (AI Router)  
+2. **Agent Profiles + Skill Library V1** — **next implementation** — curated Skills + bounded personas (Capability fields influence contracts)  
 3. **Memory / Retrieval V1** — only when knowledge volume / use cases justify it  
 
 Later candidates (UNCOMMITTED timing): Capability Registry / Routing V1 · Discovery Intelligence V1 · Meta Ads · GBP Reputation · GEO / AI Search.

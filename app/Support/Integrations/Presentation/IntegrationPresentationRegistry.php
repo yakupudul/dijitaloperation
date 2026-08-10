@@ -62,7 +62,31 @@ final class IntegrationPresentationRegistry
             [
                 'provider' => ProviderRegistry::OPENAI,
                 'label' => ProviderRegistry::label(ProviderRegistry::OPENAI),
-                'description' => 'AI guidance and recommendation intelligence',
+                'description' => 'AI reasoning and recommendation intelligence',
+                'group' => self::GROUP_AI,
+                'group_label' => 'AI providers',
+                'icon' => 'ai',
+                'supports_resources' => false,
+                'capability_labels' => [
+                    'AI guidance',
+                ],
+            ],
+            [
+                'provider' => ProviderRegistry::ANTHROPIC,
+                'label' => ProviderRegistry::label(ProviderRegistry::ANTHROPIC),
+                'description' => 'Claude reasoning and analysis',
+                'group' => self::GROUP_AI,
+                'group_label' => 'AI providers',
+                'icon' => 'ai',
+                'supports_resources' => false,
+                'capability_labels' => [
+                    'AI guidance',
+                ],
+            ],
+            [
+                'provider' => ProviderRegistry::GEMINI,
+                'label' => ProviderRegistry::label(ProviderRegistry::GEMINI),
+                'description' => 'Google AI reasoning and multimodal intelligence',
                 'group' => self::GROUP_AI,
                 'group_label' => 'AI providers',
                 'icon' => 'ai',

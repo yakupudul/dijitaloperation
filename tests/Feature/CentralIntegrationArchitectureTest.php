@@ -80,7 +80,7 @@ class CentralIntegrationArchitectureTest extends TestCase
     public function test_integration_provider_must_be_canonical_and_unique(): void
     {
         $this->assertFalse(ProviderRegistry::isValid('not-a-provider'));
-        $this->assertSame(['google', 'meta', 'dataforseo', 'openai'], array_keys(ProviderRegistry::all()));
+        $this->assertSame(['google', 'meta', 'dataforseo', 'openai', 'anthropic', 'gemini'], array_keys(ProviderRegistry::all()));
 
         $catalog = app(IntegrationWorkspaceCatalog::class);
         $first = $catalog->bootstrap(ProviderRegistry::GOOGLE);

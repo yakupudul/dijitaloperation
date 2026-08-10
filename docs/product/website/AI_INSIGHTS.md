@@ -28,7 +28,7 @@ Evidence
 * Deterministic detection (Findings) remains authoritative.
 * AI must not create Findings, resolve Findings, overwrite deterministic Recommendations, or create Tasks.
 * Previous `ai_insight` Evidence is excluded from grounding inputs by default (no recursive AI-as-fact loops).
-* Stack: `laravel/ai` (ADR-030 / ADR-041). No MCP, vector DB, embeddings/RAG, tools, web search, or multi-agent orchestration.
+* Stack: `laravel/ai` (ADR-030 / ADR-041). Provider/model selection via AI Control Plane route `website.ai_guidance` (OpenAI / Anthropic / Gemini). No MCP, vector DB, embeddings/RAG, tools, web search, or multi-agent orchestration.
 
 ## Input contract
 

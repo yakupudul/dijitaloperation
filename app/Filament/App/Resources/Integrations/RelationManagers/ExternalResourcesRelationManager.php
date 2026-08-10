@@ -35,6 +35,8 @@ class ExternalResourcesRelationManager extends RelationManager
         return ! in_array($ownerRecord->provider, [
             ProviderRegistry::OPENAI,
             ProviderRegistry::DATAFORSEO,
+            ProviderRegistry::ANTHROPIC,
+            ProviderRegistry::GEMINI,
         ], true);
     }
 
