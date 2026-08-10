@@ -8,6 +8,7 @@ use App\Filament\App\Resources\Customers\Resources\Brands\RelationManagers\Digit
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\Pages\ViewDigitalAsset;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\ConnectionsRelationManager;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\WebsiteConnectionsRelationManager;
+use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\WebsiteDiscoveryRelationManager;
 use App\Filament\App\Resources\Findings\FindingResource;
 use App\Filament\App\Resources\Modules\ModuleResource;
 use App\Filament\App\Resources\Recommendations\RecommendationResource;
@@ -204,13 +205,22 @@ class FilamentManagementFlowAuditTest extends TestCase
             'parentRecord' => $this->brand,
         ])
             ->assertOk()
+            ->assertSee('Discovery')
             ->assertSee('Connections')
-            ->set('activeRelationManager', '2');
+            // Website tabs: Performance(0), Health(1), Discovery(2), Connections(3), Activity(4), Settings(5)
+            ->set('activeRelationManager', '3');
 
         $this->assertStringContainsString(
             WebsiteConnectionsRelationManager::class,
             $assetView->html(),
             'Website Digital Asset workspace Connections tab must mount WebsiteConnectionsRelationManager',
+        );
+
+        $assetView->set('activeRelationManager', '2');
+        $this->assertStringContainsString(
+            WebsiteDiscoveryRelationManager::class,
+            $assetView->html(),
+            'Website Digital Asset workspace Discovery tab must mount WebsiteDiscoveryRelationManager',
         );
     }
 }
