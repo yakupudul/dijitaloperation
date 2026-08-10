@@ -6,6 +6,7 @@ use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\DigitalAsset;
+use App\Services\Integrations\Meta\MetaCredentialResolver;
 use App\Support\Integrations\AssetBindingCompatibility;
 use App\Support\Integrations\ProviderRegistry;
 use Illuminate\Support\Collection;
@@ -52,7 +53,7 @@ final class MetaAdsWorkspaceData
         }
 
         $configured = $integration !== null
-            && $integration->providerCredential()->exists();
+            && app(MetaCredentialResolver::class)->isConfigured($integration);
 
         return [
             'asset' => $asset,
