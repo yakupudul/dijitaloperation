@@ -3,6 +3,24 @@
 > İnceleme tarihi: 2026-08-08  
 > Dayanak: ADR-039, ADR-040
 
+## Operator workspace (V2)
+
+Settings → Integrations is a **service control center** (card hub), not a generic CRUD table.
+
+Canonical product UX: [`docs/product/integrations/WORKSPACE.md`](../product/integrations/WORKSPACE.md).
+
+| Provider | Shape | Operator status source |
+|----------|--------|-------------------------|
+| Google | OAuth + resource discovery | App config + authorization + persisted health |
+| DataForSEO | API login/password | Credential presence + last `connection_status` |
+| OpenAI | Secret API key | Credential presence + last `connection_status` |
+
+Meta remains in `ProviderRegistry` but is not shown until an operator-ready workspace exists.
+
+Index rendering never calls Google / DataForSEO / OpenAI.
+
+Future AI providers / routing / failover are **out of scope** for this workspace UX and belong to **AI PROVIDER ROUTING & FAILOVER V1** (`docs/product/AI_CONTROL_PLANE.md`, **NOT IMPLEMENTED**).
+
 ## Mimari
 
 MoxDOP SaaS değildir. Provider authentication **agency-owned / shared**’dir.

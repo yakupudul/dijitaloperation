@@ -488,3 +488,116 @@
 .mox-status--failed { color: var(--color-mox-danger); font-weight: 600; }
 .mox-status--running,
 .mox-status--pending { color: var(--color-mox-warning); font-weight: 600; }
+.mox-status-info { color: var(--color-mox-info); font-weight: 600; font-size: 0.78rem; }
+
+/* Integrations service hub */
+.mox-integrations-hub {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.mox-integrations-group__title {
+    margin: 0 0 0.65rem;
+    color: var(--mox-muted);
+    font-size: 0.72rem;
+    font-weight: 650;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.mox-integrations-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.85rem;
+}
+
+@media (max-width: 1100px) {
+    .mox-integrations-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 720px) {
+    .mox-integrations-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.mox-integration-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    min-height: 11.5rem;
+    border: 1px solid var(--mox-border);
+    background: var(--mox-surface);
+    border-radius: 0.625rem;
+    padding: 0.95rem 1rem;
+}
+
+.mox-integration-card__top {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    align-items: flex-start;
+}
+
+.mox-integration-card__identity {
+    display: flex;
+    gap: 0.7rem;
+    align-items: flex-start;
+    min-width: 0;
+}
+
+.mox-integration-card__mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    flex-shrink: 0;
+    border-radius: 0.45rem;
+    border: 1px solid var(--mox-border);
+    background: var(--mox-surface-subtle);
+    color: var(--mox-text-secondary);
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.mox-integration-card__name {
+    margin: 0;
+    color: var(--mox-text);
+    font-size: 0.98rem;
+    font-weight: 650;
+    line-height: 1.25;
+}
+
+.mox-integration-card__purpose {
+    margin: 0.2rem 0 0;
+    color: var(--mox-text-secondary);
+    font-size: 0.8125rem;
+    line-height: 1.35;
+}
+
+.mox-integration-card__summary {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    color: var(--mox-text-secondary);
+    font-size: 0.8rem;
+}
+
+.mox-integration-card__footer {
+    margin-top: auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.mox-integrations-page .fi-header-heading {
+    font-size: 1.25rem;
+}

@@ -15,7 +15,6 @@ use App\Support\Integrations\Google\GoogleIntegrationConfigGuard;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Roles;
 use BackedEnum;
-use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\KeyValue;
@@ -115,6 +114,11 @@ class IntegrationResource extends Resource
                     ->content('Use Settings → Integrations → DataForSEO → Configure for API Login and API Password. Do not enter secrets here.')
                     ->visible(fn (callable $get, ?CoreIntegration $record): bool => self::isDataForSeoFormContext($get, $record))
                     ->columnSpanFull(),
+                Placeholder::make('openai_setup_redirect')
+                    ->label('OpenAI credentials')
+                    ->content('Use Settings → Integrations → OpenAI → Configure for the secret API key. Do not enter secrets here.')
+                    ->visible(fn (callable $get, ?CoreIntegration $record): bool => self::isOpenAiFormContext($get, $record))
+                    ->columnSpanFull(),
                 KeyValue::make('config')
                     ->label('Non-secret configuration')
                     ->helperText('Non-secret provider settings only. Never store tokens or secrets here.')
@@ -206,8 +210,7 @@ class IntegrationResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->headerActions([
-                CreateAction::make()
-                    ->label('Add integration'),
+                // Integrations hub owns creation via Set up — no generic Add integration.
             ])
             ->recordActions([
                 ViewAction::make(),
@@ -215,6 +218,7 @@ class IntegrationResource extends Resource
                     ->visible(fn (CoreIntegration $record): bool => ! in_array($record->provider, [
                         ProviderRegistry::GOOGLE,
                         ProviderRegistry::DATAFORSEO,
+                        ProviderRegistry::OPENAI,
                     ], true))
                     ->mutateRecordDataUsing(function (array $data): array {
                         $data['credentials_json'] = null;
@@ -223,11 +227,7 @@ class IntegrationResource extends Resource
                     }),
             ])
             ->emptyStateHeading('No integrations configured')
-            ->emptyStateDescription('Add an agency-level provider integration once. Then discover resources and bind them to Digital Assets — without repeating OAuth per customer.')
-            ->emptyStateActions([
-                CreateAction::make()
-                    ->label('Add integration'),
-            ]);
+            ->emptyStateDescription('Use Settings → Integrations cards to set up agency providers.');
     }
 
     public static function getRelations(): array
@@ -271,7 +271,7 @@ class IntegrationResource extends Resource
             $data['name'] = ProviderRegistry::defaultName($provider);
         }
 
-        if (in_array($provider, [ProviderRegistry::GOOGLE, ProviderRegistry::DATAFORSEO], true)) {
+        if (in_array($provider, [ProviderRegistry::GOOGLE, ProviderRegistry::DATAFORSEO, ProviderRegistry::OPENAI], true)) {
             // Managed provider workspaces own credentials/config — not the generic KeyValue/JSON editor.
             if ($updating) {
                 unset($data['config']);
@@ -308,7 +308,7 @@ class IntegrationResource extends Resource
      */
     public static function persistCredentials(CoreIntegration $record, array $data): void
     {
-        if (in_array($record->provider, [ProviderRegistry::GOOGLE, ProviderRegistry::DATAFORSEO], true)) {
+        if (in_array($record->provider, [ProviderRegistry::GOOGLE, ProviderRegistry::DATAFORSEO, ProviderRegistry::OPENAI], true)) {
             // Managed provider credentials are configured only via View → Configure.
             return;
         }
@@ -339,6 +339,12 @@ class IntegrationResource extends Resource
                 'refreshed_at' => null,
             ],
         );
+    }
+
+    public static function canCreate(): bool
+    {
+        // Normal operators use Integrations hub Set up — not generic Create.
+        return false;
     }
 
     public static function getEloquentQuery(): Builder
@@ -389,8 +395,22 @@ class IntegrationResource extends Resource
     /**
      * @param  callable(string): mixed  $get
      */
+    private static function isOpenAiFormContext(callable $get, ?CoreIntegration $record): bool
+    {
+        if ($record?->provider === ProviderRegistry::OPENAI) {
+            return true;
+        }
+
+        return $get('provider') === ProviderRegistry::OPENAI;
+    }
+
+    /**
+     * @param  callable(string): mixed  $get
+     */
     private static function isManagedProviderFormContext(callable $get, ?CoreIntegration $record): bool
     {
-        return self::isGoogleFormContext($get, $record) || self::isDataForSeoFormContext($get, $record);
+        return self::isGoogleFormContext($get, $record)
+            || self::isDataForSeoFormContext($get, $record)
+            || self::isOpenAiFormContext($get, $record);
     }
 }

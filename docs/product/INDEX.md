@@ -67,6 +67,7 @@ Blueprint, MASTER_SPEC'i **override edemez**; yalnızca ayrıntılandırır.
 | GA4 | `docs/product/website/GA4.md` |
 | PageSpeed / Lighthouse | `docs/product/website/PAGESPEED_LIGHTHOUSE.md` |
 | DataForSEO Integration (agency) | `docs/product/integrations/DATAFORSEO.md` |
+| Integrations workspace (service hub) | `docs/product/integrations/WORKSPACE.md` |
 | DataForSEO (Website usage) | `docs/product/website/DATAFORSEO.md` |
 | AI Insights | `docs/product/website/AI_INSIGHTS.md` |
 | AI Control Plane (planned direction) | `docs/product/AI_CONTROL_PLANE.md` (**NOT IMPLEMENTED**) |

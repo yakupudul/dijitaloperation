@@ -8,7 +8,6 @@ use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAsset
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\AssetBindingsRelationManager;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\ConnectionsRelationManager;
 use App\Filament\App\Resources\Integrations\IntegrationResource;
-use App\Filament\App\Resources\Integrations\Pages\CreateIntegration;
 use App\Filament\App\Resources\Integrations\Pages\EditIntegration;
 use App\Filament\App\Resources\Integrations\Pages\ListIntegrations;
 use App\Models\Brand;
@@ -23,6 +22,7 @@ use App\Models\DigitalAsset;
 use App\Models\User;
 use App\Support\Integrations\ConnectionScope;
 use App\Support\Integrations\DiscoveredExternalResource;
+use App\Support\Integrations\Presentation\IntegrationWorkspaceCatalog;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -65,16 +65,8 @@ class CentralIntegrationArchitectureTest extends TestCase
 
     public function test_admin_can_create_integration_with_validated_provider_and_status(): void
     {
-        Livewire::test(CreateIntegration::class)
-            ->fillForm([
-                'provider' => ProviderRegistry::GOOGLE,
-                'name' => 'Google',
-                'status' => CoreIntegration::STATUS_ACTIVE,
-            ])
-            ->call('create')
-            ->assertHasNoFormErrors();
-
-        $integration = CoreIntegration::query()->where('provider', ProviderRegistry::GOOGLE)->firstOrFail();
+        $integration = app(IntegrationWorkspaceCatalog::class)
+            ->bootstrap(ProviderRegistry::GOOGLE);
 
         $this->assertSame('Google', $integration->name);
         $this->assertSame(CoreIntegration::STATUS_ACTIVE, $integration->status);
@@ -82,6 +74,7 @@ class CentralIntegrationArchitectureTest extends TestCase
         $this->assertSame([], $integration->config ?? []);
         $this->assertFalse($integration->providerCredential()->exists());
         $this->assertFalse($integration->authorizationCredential()->exists());
+        $this->assertFalse(IntegrationResource::canCreate());
     }
 
     public function test_integration_provider_must_be_canonical_and_unique(): void
@@ -89,17 +82,11 @@ class CentralIntegrationArchitectureTest extends TestCase
         $this->assertFalse(ProviderRegistry::isValid('not-a-provider'));
         $this->assertSame(['google', 'meta', 'dataforseo', 'openai'], array_keys(ProviderRegistry::all()));
 
-        CoreIntegration::factory()->google()->create();
+        $catalog = app(IntegrationWorkspaceCatalog::class);
+        $first = $catalog->bootstrap(ProviderRegistry::GOOGLE);
+        $second = $catalog->bootstrap(ProviderRegistry::GOOGLE);
 
-        Livewire::test(CreateIntegration::class)
-            ->fillForm([
-                'provider' => ProviderRegistry::GOOGLE,
-                'name' => 'Google again',
-                'status' => CoreIntegration::STATUS_ACTIVE,
-            ])
-            ->call('create')
-            ->assertHasFormErrors(['provider']);
-
+        $this->assertTrue($first->is($second));
         $this->assertSame(1, CoreIntegration::query()->where('provider', ProviderRegistry::GOOGLE)->count());
     }
 
@@ -281,18 +268,24 @@ class CentralIntegrationArchitectureTest extends TestCase
     {
         Livewire::test(ListIntegrations::class)
             ->assertOk()
-            ->assertSee('No integrations configured');
+            ->assertSee('Integrations')
+            ->assertSee('Google')
+            ->assertSee('DataForSEO')
+            ->assertSee('OpenAI')
+            ->assertSee('Set up')
+            ->assertDontSee('Add integration')
+            ->assertDontSeeHtml('fi-ta-table');
 
-        $integration = CoreIntegration::factory()->meta()->create([
-            'name' => 'Meta',
-            'status' => CoreIntegration::STATUS_DISABLED,
+        CoreIntegration::factory()->openai()->create([
+            'name' => 'OpenAI',
+            'status' => CoreIntegration::STATUS_ACTIVE,
         ]);
 
         Livewire::test(ListIntegrations::class)
             ->assertOk()
-            ->assertCanSeeTableRecords([$integration])
-            ->assertSee('Meta')
-            ->assertSee('disabled');
+            ->assertSee('OpenAI')
+            ->assertSee('Manage')
+            ->assertDontSee('Add integration');
     }
 
     public function test_team_member_cannot_access_integrations(): void
