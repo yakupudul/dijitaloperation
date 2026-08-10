@@ -303,6 +303,72 @@ class GoogleBoundDataCollectionTest extends TestCase
                     ], 200);
                 }
 
+                if (str_contains($query, 'from search_term_view')) {
+                    return Http::response([
+                        'results' => [[
+                            'searchTermView' => [
+                                'searchTerm' => 'brand shoes',
+                                'status' => 'NONE',
+                            ],
+                            'campaign' => [
+                                'id' => '99',
+                                'name' => 'Brand',
+                                'advertisingChannelType' => 'SEARCH',
+                            ],
+                            'adGroup' => [
+                                'id' => '11',
+                                'name' => 'Exact',
+                            ],
+                            'metrics' => [
+                                'costMicros' => '40000000',
+                                'impressions' => '800',
+                                'clicks' => '40',
+                                'conversions' => 0,
+                                'conversionsValue' => 0,
+                            ],
+                        ]],
+                    ], 200);
+                }
+
+                if (str_contains($query, 'from campaign_search_term_view')) {
+                    return Http::response([
+                        'results' => [[
+                            'campaignSearchTermView' => [
+                                'searchTerm' => 'pmax query',
+                            ],
+                            'campaign' => [
+                                'id' => '77',
+                                'name' => 'PMax',
+                                'advertisingChannelType' => 'PERFORMANCE_MAX',
+                            ],
+                            'metrics' => [
+                                'costMicros' => '10000000',
+                                'impressions' => '200',
+                                'clicks' => '10',
+                                'conversions' => 1,
+                                'conversionsValue' => 50,
+                            ],
+                        ]],
+                    ], 200);
+                }
+
+                if (str_contains($query, 'from conversion_action')) {
+                    return Http::response([
+                        'results' => [[
+                            'conversionAction' => [
+                                'id' => '55',
+                                'name' => 'Purchase',
+                                'status' => 'ENABLED',
+                                'type' => 'WEBPAGE',
+                                'category' => 'PURCHASE',
+                                'origin' => 'WEBSITE',
+                                'primaryForGoal' => true,
+                                'includeInConversionsMetric' => true,
+                            ],
+                        ]],
+                    ], 200);
+                }
+
                 if (str_contains($query, 'from campaign')) {
                     return Http::response([
                         'results' => [[
@@ -318,6 +384,7 @@ class GoogleBoundDataCollectionTest extends TestCase
                                 'clicks' => '50',
                                 'ctr' => 0.05,
                                 'conversions' => 2,
+                                'conversionsValue' => 100,
                             ],
                         ]],
                     ], 200);
@@ -353,6 +420,19 @@ class GoogleBoundDataCollectionTest extends TestCase
         $this->assertSame(['https://panorama.example/landing'], data_get($landing->payload, 'final_urls'));
         $this->assertSame('google_ads_search_gaql', data_get($landing->payload, 'fetch_method'));
         $this->assertNull(data_get($landing->payload, 'access_token'));
+
+        $searchTerms = Evidence::query()->where('run_id', $run->id)->where('type', 'google_ads_search_term_performance')->firstOrFail();
+        $this->assertTrue((bool) data_get($searchTerms->payload, 'response_ok'));
+        $this->assertTrue((bool) data_get($searchTerms->payload, 'untrusted_text'));
+        $this->assertGreaterThanOrEqual(2, (int) data_get($searchTerms->payload, 'row_count'));
+        $this->assertSame(40.0, (float) data_get($searchTerms->payload, 'rows.0.cost'));
+        $this->assertNull(data_get($searchTerms->payload, 'rows.1.ad_group_id'));
+        $this->assertSame('campaign_search_term_view', data_get($searchTerms->payload, 'rows.1.source_report'));
+
+        $conversions = Evidence::query()->where('run_id', $run->id)->where('type', 'google_ads_conversion_actions')->firstOrFail();
+        $this->assertTrue((bool) data_get($conversions->payload, 'response_ok'));
+        $this->assertSame(1, (int) data_get($conversions->payload, 'usable_primary_or_included_count'));
+        $this->assertNull(data_get($conversions->payload, 'actions.0.tag_snippets'));
     }
 
     public function test_collect_live_data_orchestrator_and_registry(): void

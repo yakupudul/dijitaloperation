@@ -3,7 +3,8 @@
 namespace MoxDop\GoogleAds\Findings;
 
 /**
- * Conservative starter thresholds for Google Ads performance Findings.
+ * Conservative Google Ads Finding thresholds (sample gates + within-account facts).
+ * No universal folklore CTR/CPC/CPA magic numbers as “bad” truth.
  * Tune only inside the google-ads module — Core stays threshold-free.
  */
 final class PerformanceFindingsCatalog
@@ -18,6 +19,14 @@ final class PerformanceFindingsCatalog
 
     public const string RULE_CAMPAIGN_SPEND_ZERO_CONVERSIONS = 'google-ads:campaign-spend-zero-conversions';
 
+    public const string RULE_SEARCH_TERM_WASTE_CANDIDATE = 'google-ads:search-term-waste-candidate';
+
+    public const string RULE_SEARCH_TERM_OPPORTUNITY_CANDIDATE = 'google-ads:search-term-opportunity-candidate';
+
+    public const string RULE_MEASUREMENT_CONFIG_RISK = 'google-ads:measurement-config-risk';
+
+    public const string RULE_LANDING_URL_COVERAGE_RISK = 'google-ads:landing-url-coverage-risk';
+
     /** @var list<string> */
     public const array ACCOUNT_RULE_IDS = [
         self::RULE_CONVERSIONS_DECLINE,
@@ -28,6 +37,22 @@ final class PerformanceFindingsCatalog
     /** @var list<string> */
     public const array CAMPAIGN_RULE_IDS = [
         self::RULE_CAMPAIGN_SPEND_ZERO_CONVERSIONS,
+    ];
+
+    /** @var list<string> */
+    public const array SEARCH_TERM_RULE_IDS = [
+        self::RULE_SEARCH_TERM_WASTE_CANDIDATE,
+        self::RULE_SEARCH_TERM_OPPORTUNITY_CANDIDATE,
+    ];
+
+    /** @var list<string> */
+    public const array MEASUREMENT_RULE_IDS = [
+        self::RULE_MEASUREMENT_CONFIG_RISK,
+    ];
+
+    /** @var list<string> */
+    public const array LANDING_RULE_IDS = [
+        self::RULE_LANDING_URL_COVERAGE_RISK,
     ];
 
     public const float CONVERSIONS_PREV_MIN = 10.0;
@@ -55,4 +80,18 @@ final class PerformanceFindingsCatalog
     public const float CAMPAIGN_CLICKS_MIN = 30.0;
 
     public const int CAMPAIGN_FINDINGS_MAX = 10;
+
+    /** Sample gate for search-term waste candidates (investigation, not auto-negate). */
+    public const float SEARCH_WASTE_COST_MIN = 25.0;
+
+    public const float SEARCH_WASTE_CLICKS_MIN = 20.0;
+
+    public const int SEARCH_WASTE_FINDINGS_MAX = 15;
+
+    /** Opportunity candidates require observed conversions and non-targeted status when available. */
+    public const float SEARCH_OPP_CONVERSIONS_MIN = 1.0;
+
+    public const float SEARCH_OPP_CLICKS_MIN = 5.0;
+
+    public const int SEARCH_OPP_FINDINGS_MAX = 10;
 }

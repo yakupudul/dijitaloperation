@@ -86,7 +86,7 @@ Discovery capabilities:
 |------------|--------|----------|
 | Search Console | `app-modules/website` | `gsc_performance_summary`, `gsc_daily_performance`, `gsc_query_performance`, `gsc_page_performance` |
 | GA4 | `app-modules/website` | `ga4_performance_summary`, `ga4_landing_page_performance`, `ga4_acquisition_summary` |
-| Google Ads | `app-modules/google-ads` | `google_ads_account_summary`, `google_ads_campaign_performance`, `google_ads_landing_final_urls` (compat) |
+| Google Ads | `app-modules/google-ads` | `google_ads_account_summary`, `google_ads_campaign_performance`, `google_ads_landing_final_urls` (compat), `google_ads_search_term_performance`, `google_ads_conversion_actions` |
 | GBP | `app-modules/google-business-profile` | `gbp_location_access` (compat) when API access works; otherwise setup_required |
 
 Operator entry: Digital Asset → **Collect live data** (active bindings only).  

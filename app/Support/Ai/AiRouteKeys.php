@@ -9,4 +9,6 @@ namespace App\Support\Ai;
 final class AiRouteKeys
 {
     public const string WEBSITE_AI_GUIDANCE = 'website.ai_guidance';
+
+    public const string GOOGLE_ADS_AI_GUIDANCE = 'google_ads.ai_guidance';
 }

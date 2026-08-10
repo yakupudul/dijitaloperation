@@ -45,23 +45,30 @@ class GoogleApiClient
      * Read-only Google Ads GAQL search (googleAds:search).
      *
      * @param  ?string  $loginCustomerId  Manager account ID for login-customer-id header (digits only).
+     * @param  ?string  $pageToken  Opaque pagination token from a previous search response.
      */
     public function searchAds(
         CoreIntegration $integration,
         string $customerId,
         string $query,
         ?string $loginCustomerId = null,
+        ?string $pageToken = null,
     ): Response {
         $customerId = preg_replace('/\D+/', '', $customerId) ?? '';
         if ($customerId === '') {
             throw new RuntimeException('Google Ads customer ID is missing.');
         }
 
+        $body = ['query' => $query];
+        if (is_string($pageToken) && $pageToken !== '') {
+            $body['pageToken'] = $pageToken;
+        }
+
         return $this->adsRequest(
             $integration,
             'post',
             'customers/'.$customerId.'/googleAds:search',
-            ['query' => $query],
+            $body,
             $loginCustomerId ?? $customerId,
         );
     }
