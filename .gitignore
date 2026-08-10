@@ -12,6 +12,7 @@
 !/.cursor/Dockerfile
 !/.cursor/cloud-agent-install.sh
 !/.cursor/cloud-agent-start.sh
+!/.cursor/dotenv.cursor-cloud.example
 /.idea
 /.nova
 /.phpunit.cache

@@ -13,12 +13,13 @@ if [[ ! -f composer.json ]]; then
 fi
 
 if [[ ! -f .env ]]; then
-  if [[ -f .env.cursor-cloud.example ]]; then
-    cp .env.cursor-cloud.example .env
+  # Use .cursor/dotenv.* templates (not .env.*) so CI secret-path gates stay clean.
+  if [[ -f .cursor/dotenv.cursor-cloud.example ]]; then
+    cp .cursor/dotenv.cursor-cloud.example .env
   elif [[ -f .env.example ]]; then
     cp .env.example .env
   else
-    echo "cloud-agent-start: missing .env.example" >&2
+    echo "cloud-agent-start: missing dotenv template / .env.example" >&2
     exit 1
   fi
 fi

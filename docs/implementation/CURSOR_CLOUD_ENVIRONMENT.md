@@ -28,7 +28,7 @@ Repository-managed Cursor Cloud environment:
 | `.cursor/Dockerfile` | PHP 8.3 + extensions, Composer, Node 22 |
 | `.cursor/cloud-agent-install.sh` | bootstrap PHP/Composer/Node if missing; then `composer install`, `npm ci`, `npm run build` |
 | `.cursor/cloud-agent-start.sh` | runtime `.env`, SQLite file, `migrate`, safe seed |
-| `.env.cursor-cloud.example` | non-secret Cloud defaults (never commit `.env`) |
+| `.cursor/dotenv.cursor-cloud.example` | non-secret Cloud defaults (never commit `.env`) |
 
 ## Stack
 
