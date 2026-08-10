@@ -373,7 +373,7 @@ Do **not** implement these states in this docs milestone. Prefer lightweight rea
 | May adapt | MoxDOP Capability Registry / Router product model; Skill `required_capabilities` / `optional_capabilities`; Discovery / outside-in public intelligence direction; lightweight capability health checks; Skill standing-rule design language |
 | Explicitly reject | Installing Agent Reach as MoxDOP dependency; Python/CLI runtime; arbitrary upstream CLI invocation; browser-cookie / session scraping as default; anti-detection / bypass stacks; MCP as Core; Agent-direct external tool execution bypassing Run/Evidence/normalization; claiming universal social-platform access |
 | Current adoption | Conceptual documentation only (`AI_CONTROL_PLANE.md`, `DISCOVERY_INTELLIGENCE.md`, `MODULE_ARCHITECTURE.md`, `KNOWLEDGE_MEMORY_ARCHITECTURE.md`) |
-| Target future | Influence Agent Profiles + Skill Library contracts; later candidate milestones: Capability Registry / Routing V1; Discovery Intelligence V1 (**UNCOMMITTED timing**) |
+| Target future | Influence Agent Profiles + Skill Library contracts; Capability Registry / Routing V1 still PLANNED. Discovery Intelligence V1 is **IMPLEMENTED** (Website-owned; no Agent Reach runtime). |
 | Caveats | Agent Reach often lets an Agent invoke upstream implementations directly — MoxDOP must keep Adapter → Normalization → Run → Evidence. Agent Reach is a **REFERENCE**, not MoxDOP architecture source-of-truth. Official provider/platform docs remain authoritative for API/security/runtime facts. |
 | reviewed_at | 2026-08-10 |
 | adoption decision changed? | **New entry** — first tracking of this repository |
@@ -448,7 +448,7 @@ If substantial third-party code is later adapted, add `THIRD_PARTY_NOTICES.md`. 
 
 - Planned AI Control Plane (providers, routes, failover, Agent Profiles, Skill Library, Capability Router distinction):  
   → [`docs/product/AI_CONTROL_PLANE.md`](../product/AI_CONTROL_PLANE.md)  
-- Outside-in Discovery / Public Intelligence (**PLANNED / NOT IMPLEMENTED**):  
+- Outside-in Discovery / Public Intelligence (**IMPLEMENTED V1** — Website module; broader Discovery still PLANNED):  
   → [`docs/product/DISCOVERY_INTELLIGENCE.md`](../product/DISCOVERY_INTELLIGENCE.md)  
 - Knowledge / Memory (RAG decision unchanged — Capability routing ≠ RAG):  
   → [`docs/product/KNOWLEDGE_MEMORY_ARCHITECTURE.md`](../product/KNOWLEDGE_MEMORY_ARCHITECTURE.md)
