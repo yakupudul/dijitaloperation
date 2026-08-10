@@ -1,8 +1,8 @@
 # DOP External Intelligence Adoption Audit
 
 > **Status:** Living research audit (concepts + adoption decisions)  
-> **Last reviewed:** 2026-08-09  
-> **Branch context at update:** `main` after PR #106 merge (`094fe0a` — AI Recommendation Intelligence V1)  
+> **Last reviewed:** 2026-08-10  
+> **Branch context at update:** Module Boundary + Knowledge/Memory Architecture Audit V1 (base `61bbfc8` after PR #107)  
 > **Scope:** Track external reference repositories; record what MoxDOP may adapt vs reject.  
 > **Non-goals of this file:** Runtime implementation, package installs, MCP servers, migrations, or wholesale source copies.
 
@@ -15,6 +15,33 @@
 | This audit | Reference registry for external repos — **not** architecture |
 
 External repositories are references. They do **not** override MASTER_SPEC, ADRs, or official provider documentation.
+
+### Classification rule (before adoption)
+
+When an external GitHub repository is reviewed, classify it first:
+
+| External kind | MoxDOP mapping |
+| --- | --- |
+| Provider / external service | **Integration** |
+| Business domain | **Module** |
+| Analytical methodology | **Skill** |
+| Reference taxonomy / rule source | Improve existing Module/Skill |
+| Runtime architecture | Selectively evaluate; never adopt automatically |
+
+Examples:
+
+| Repository / concept | Classification |
+| --- | --- |
+| OpenAI | Integration |
+| MarketingSkills | Skill methodology/reference |
+| Claude SEO | Skill methodology |
+| HEAD | Website rule/Skill taxonomy |
+| OpenSEO | Website/DataForSEO implementation reference |
+| Meta Ads MCP | Future Meta Ads Module reference (MCP/write **REJECTED RUNTIME**) |
+| Google Reviews Scraper Pro | GBP Review Intelligence ideas only; scraper **REJECTED RUNTIME** |
+| GEO SEO Claude | Future Website GEO Skill reference |
+
+Do **not** create one Module per GitHub repository. Integration ≠ Module ≠ Agent ≠ Skill.
 
 ---
 

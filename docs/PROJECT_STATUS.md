@@ -6,7 +6,7 @@ This file tracks implementation progress for humans and agents.
 
 # DOP Project Status
 
-Last updated: 2026-08-09
+Last updated: 2026-08-10
 
 ## Current product track
 
@@ -19,10 +19,12 @@ Last updated: 2026-08-09
 | DataForSEO Central Integration + Cost Guard | COMPLETED |
 | SEO Intelligence DataForSEO Light | COMPLETED |
 | Brand Intelligence Context V1 | COMPLETED |
-| **AI Recommendation Intelligence V1** | **MERGED** — PR [#106](https://github.com/yakupudul/dijitaloperation/pull/106) (`094fe0a`) |
-| **Next: Integrations Workspace V2** | NEXT — card hub / provider Manage UX / health semantics |
-| AI Provider Routing & Failover V1 | PLANNED — `docs/product/AI_CONTROL_PLANE.md` (**NOT IMPLEMENTED**) |
+| AI Recommendation Intelligence V1 | COMPLETED — PR [#106](https://github.com/yakupudul/dijitaloperation/pull/106) (`094fe0a`) |
+| Integrations Workspace V2 | COMPLETED — PR [#107](https://github.com/yakupudul/dijitaloperation/pull/107) (`61bbfc8`) |
+| **Module Boundary + Knowledge / Memory Architecture Audit V1** | **IN PROGRESS / THIS TRACK** — `docs/current-state/MODULE_BOUNDARY_AUDIT_V1.md`, `docs/product/KNOWLEDGE_MEMORY_ARCHITECTURE.md` |
+| **Next: AI Provider Routing & Failover V1** | PLANNED — `docs/product/AI_CONTROL_PLANE.md` (**NOT IMPLEMENTED**) |
 | Agent Profiles + Skill Library V1 | PLANNED — `docs/product/AI_CONTROL_PLANE.md` (**NOT IMPLEMENTED**) |
+| Memory / Retrieval V1 | PLANNED — only when knowledge volume justifies it; vector RAG deferred |
 
 ### Uncommitted later candidates
 
@@ -78,16 +80,17 @@ Current task: None (see Current product track)
 
 ## Recently completed (selected)
 
+* `integrations-workspace-v2` — PR 107 — `61bbfc8` — 2026-08-09
 * `ai-recommendation-intelligence-v1` — PR 106 — `094fe0a` — 2026-08-09
 * `brand-intelligence-context-v1` — PR 105 — merged 2026-08-09
 * Earlier foundation Autopilot completions remain in git history (PRs through #90 era).
 
 ## Blockers
 
-None for documentation direction. Live Integrations Workspace V2 / multi-provider AI are separate implementation milestones.
+None for documentation/architecture direction. Live multi-provider AI routing is a separate implementation milestone.
 
 ## Next expected
 
-1. Integrations Workspace V2  
-2. AI Provider Routing & Failover V1  
-3. Agent Profiles + Skill Library V1  
+1. AI Provider Routing & Failover V1  
+2. Agent Profiles + Skill Library V1  
+3. Memory / Retrieval V1 (only when justified; structured retrieval first)  

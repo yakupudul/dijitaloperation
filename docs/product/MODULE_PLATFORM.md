@@ -15,10 +15,14 @@ Yeni yetenekler modül olarak eklenir; disable edilince UI/analysis durur ama ve
 * `internachi/modular` + Laravel package discovery
 * Minimal Module Registry: module_id + enabled/disabled (+ optional installed_version)
 * Module code may remain installed while disabled
+* **Module ≠ Integration ≠ Agent ≠ Skill** (see `docs/foundation/MODULE_ARCHITECTURE.md`)
 
 ## MVP behavior
 
-* Registry enable/disable
+* Registry enable/disable for **business capability** modules
+* Operator Module Registry shows: Website, Google Ads, Google Business Profile
+* `sample-module` is a developer/packaging fixture — seeded for smoke tests, **hidden** from normal operator Module Registry UI
+* Provider Integrations (OpenAI, DataForSEO, …) are **not** Modules
 * Disabled → DOP UI/navigation gizli/erişilemez
 * Disabled → DOP-specific scheduled/analysis jobs çalışmaz
 * Disabled → data silinmez; Composer package kalabilir
@@ -40,7 +44,7 @@ Modules list with enable/disable; no install-from-URL.
 
 ## Rules / invariants
 
-ADR-033/035/037. Sample module is smoke test only. Custom plugin framework forbidden in MVP.
+ADR-033/035/037. Sample module is smoke/fixture only and must not appear as a normal operator capability. Custom plugin framework forbidden in MVP. Integrations are never listed as Modules.
 
 ## Derived information
 
