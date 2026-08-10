@@ -52,15 +52,18 @@ Foundation 1–23 tamamlandıktan sonra devam eden **güncel** ürün sırası. 
 | P4 | Brand Intelligence Context | COMPLETED | `docs/product/BRAND_INTELLIGENCE.md` |
 | P5 | AI Recommendation Intelligence V1 | COMPLETED / MERGED (PR #106, `094fe0a`) | `docs/product/website/AI_INSIGHTS.md`, ADR-041 |
 | P6 | Integrations Workspace V2 | COMPLETED / MERGED (PR #107, `61bbfc8`) | `docs/product/integrations/WORKSPACE.md` |
-| **N0** | **Module Boundary + Knowledge / Memory Architecture Audit V1** | **COMPLETED (PR track)** | `docs/current-state/MODULE_BOUNDARY_AUDIT_V1.md`, `docs/product/KNOWLEDGE_MEMORY_ARCHITECTURE.md` |
-| **N1** | **AI Provider Routing & Failover V1** | PLANNED / NEXT | `docs/product/AI_CONTROL_PLANE.md` — **NOT IMPLEMENTED** |
-| **N2** | **Agent Profiles + Skill Library V1** | PLANNED | `docs/product/AI_CONTROL_PLANE.md` — **NOT IMPLEMENTED** |
+| **N0** | **Module Boundary + Knowledge / Memory Architecture Audit V1** | COMPLETED (PR #109 / `ec31bde`) | `docs/current-state/MODULE_BOUNDARY_AUDIT_V1.md`, `docs/product/KNOWLEDGE_MEMORY_ARCHITECTURE.md` |
+| **N0b** | **Capability + Discovery product direction docs V1** | COMPLETED (docs only) | Agent Reach tracked in external audit; `docs/product/DISCOVERY_INTELLIGENCE.md`; Capability / Adapter distinctions — **no runtime** |
+| **N1** | **AI Provider Routing & Failover V1** | PLANNED / **NEXT IMPLEMENTATION** | `docs/product/AI_CONTROL_PLANE.md` — **NOT IMPLEMENTED** |
+| **N2** | **Agent Profiles + Skill Library V1** | PLANNED | `docs/product/AI_CONTROL_PLANE.md` — Skills may declare `required_capabilities` / `optional_capabilities` — **NOT IMPLEMENTED** |
 | **N3** | **Memory / Retrieval V1** | PLANNED (deferred) | Only when knowledge volume justifies; vector RAG deferred |
 
 ### Later candidates (UNCOMMITTED)
 
-No fixed dates. Review operational value before committing:
+No fixed dates. Review operational value before committing. Do **not** automatically reorder ahead of N1/N2:
 
+- Capability Registry / Routing V1
+- Discovery Intelligence V1 (outside-in public intelligence)
 - Meta Ads read-only intelligence
 - GBP Reputation Intelligence (official APIs; scraper rejected)
 - GEO / AI Search Intelligence
@@ -68,7 +71,8 @@ No fixed dates. Review operational value before committing:
 - backlinks
 - rank tracking
 
-External research registry: `docs/research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md`.
+External research registry: `docs/research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md` (Agent Reach = #9, **PLANNED REFERENCE**, direct runtime **NO**).  
+Discovery direction: `docs/product/DISCOVERY_INTELLIGENCE.md` (**PLANNED / NOT IMPLEMENTED**).
 
 
 ## Küçük task bölme

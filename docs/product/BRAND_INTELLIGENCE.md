@@ -96,6 +96,27 @@ AI may enrich interpretation.
 AI must **never** silently modify Brand Intelligence facts.  
 Operator remains source of truth unless a future explicit review/approval flow exists.
 
+## Future: Discover brand context (**PLANNED / NOT IMPLEMENTED**)
+
+See [`DISCOVERY_INTELLIGENCE.md`](./DISCOVERY_INTELLIGENCE.md).
+
+Outside-in Discovery may later propose **candidates** (business summary, offerings, locations, social links, positioning signals, potential competitors) from public sources.
+
+Expected UX:
+
+```text
+Discover → review candidates → provenance visible → Accept / Edit / Ignore
+```
+
+Distinguish:
+
+| Kind | Treatment |
+| --- | --- |
+| Discovered fact candidate | Attributable public observation (source URL / retrieved_at) |
+| AI-derived inference | Explicitly labeled interpretation — never equivalent to operator fact |
+
+Candidates must not silently overwrite operator-maintained Brand Context.
+
 ## MarketingSkills reference
 
 `coreyhaines31/marketingskills` `product-marketing` was used as **concept / taxonomy inspiration only**.
@@ -104,7 +125,7 @@ MoxDOP does **not** import its runtime, skills framework, files, prompts, or plu
 
 ## Explicit non-goals
 
-AI, agents, MarketingSkills runtime, competitor fetching, DataForSEO calls, CRM, personas DB, GA4 event mapping, Tasks/Scheduler/Meta, fake Brand health score.
+AI, agents, MarketingSkills runtime, competitor fetching, DataForSEO calls, CRM, personas DB, GA4 event mapping, Tasks/Scheduler/Meta, fake Brand health score, Discovery runtime (planned separately — not implemented here).
 
 ## Acceptance intent
 
