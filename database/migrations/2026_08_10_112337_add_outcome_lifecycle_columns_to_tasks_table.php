@@ -49,6 +49,10 @@ return new class extends Migration
                 $table->dropConstrainedForeignId('completed_by_id');
             }
 
+            if (Schema::hasColumn('tasks', 'outcome_status')) {
+                $table->dropIndex(['outcome_status']);
+            }
+
             $drop = [];
             foreach ([
                 'completed_at',

@@ -73,7 +73,7 @@ class ConnectionMigrationTest extends TestCase
         // integrations, agent conversations, evidence, website fields, tasks, recommendations, runs,
         // findings, module_registries, connection credentials, connections.
         // Roll back enough steps so both connection tables are dropped (includes evidence fingerprint migration).
-        $this->assertSame(0, Artisan::call('migrate:rollback', ['--step' => 21]));
+        $this->assertSame(0, Artisan::call('migrate:rollback', ['--step' => 22]));
 
         $this->assertFalse(Schema::hasTable('core_connection_credentials'));
         $this->assertFalse(Schema::hasTable('core_connections'));
