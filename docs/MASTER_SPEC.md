@@ -222,6 +222,9 @@ Platforma özel veriler core tablolara eklenmez (modül `payload` / kendi tablol
 
 Örnek: Task completed → sonraki diagnosis run → Finding devam ediyor / iyileşti / `resolved`.
 
+V1’de Outcome, Task üzerindeki **gözlemlenmiş sinyal**dir (`outcome_status` / `outcome_json`); ayrı Result/Outcome tablosu yoktur.
+Nedensel attribution iddia edilmez. Ayrıntı: `docs/product/OPERATIONAL_OUTCOME_LOOP.md`.
+
 ## 8. Modüler mimari (MVP sade)
 
 Plugin-based **modular monolith** — paketleme temeli:

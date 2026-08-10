@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 #[Fillable([
     'digital_asset_id',
@@ -57,6 +58,14 @@ class Finding extends Model
     public function recommendations(): HasMany
     {
         return $this->hasMany(Recommendation::class);
+    }
+
+    /**
+     * @return HasManyThrough<Task, Recommendation, $this>
+     */
+    public function tasks(): HasManyThrough
+    {
+        return $this->hasManyThrough(Task::class, Recommendation::class);
     }
 
     /**

@@ -21,6 +21,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'assignee_id',
     'due_date',
     'status',
+    'completed_at',
+    'completed_by_id',
+    'completion_note',
+    'outcome_review_after_at',
+    'outcome_status',
+    'outcome_checked_at',
+    'outcome_run_id',
+    'outcome_json',
 ])]
 class Task extends Model
 {
@@ -68,13 +76,33 @@ class Task extends Model
     }
 
     /**
+     * @return BelongsTo<User, $this>
+     */
+    public function completedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'completed_by_id');
+    }
+
+    /**
+     * @return BelongsTo<Run, $this>
+     */
+    public function outcomeRun(): BelongsTo
+    {
+        return $this->belongsTo(Run::class, 'outcome_run_id');
+    }
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array
     {
         return [
             'snapshot_json' => 'array',
+            'outcome_json' => 'array',
             'due_date' => 'date',
+            'completed_at' => 'datetime',
+            'outcome_review_after_at' => 'datetime',
+            'outcome_checked_at' => 'datetime',
         ];
     }
 }

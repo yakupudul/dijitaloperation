@@ -26,12 +26,13 @@ Last updated: 2026-08-10
 | **AI Provider Routing & Failover V1** | **IMPLEMENTED V1** — OpenAI / Anthropic / Gemini + AI Control Plane + `website.ai_guidance` |
 | **Agent Profiles + Skill Library V1** | **IMPLEMENTED V1** — Website SEO Analyst + curated Website Skills; `docs/product/AGENT_SKILL_ARCHITECTURE.md` |
 | **Google Ads Intelligence + Analyst V1** | **IMPLEMENTED V1** — Google Ads Analyst + Skills + search-term/measurement Evidence + `google_ads.ai_guidance`; `docs/product/google-ads/GOOGLE_ADS_INTELLIGENCE.md` |
-| Next milestone | **TO BE SELECTED** after reviewing V1 results (candidates below — do not auto-start) |
+| **Operational Recommendation → Task → Outcome Loop V1** | **IMPLEMENTED V1** — Finding → Recommendation → Task → human completion → observed Outcome signal; `docs/product/OPERATIONAL_OUTCOME_LOOP.md` |
+| Next milestone | **TO BE SELECTED** after reviewing Outcome Loop V1 (candidates below — do not auto-start) |
 | Memory / Retrieval V1 | PLANNED — only when knowledge volume justifies it; vector RAG deferred |
 
 ### Next milestone candidates (UNCOMMITTED — select after V1 review)
 
-Capability Registry / Routing V1 · Discovery Intelligence V1 · operational Recommendation/Outcome loop · Meta Ads · GBP Reputation Intelligence · Memory/Retrieval (deferred)  
+Discovery Intelligence V1 · Meta Ads Integration / Intelligence · GBP Reputation Intelligence · Capability Registry / Routing V1 · Digital Operations Analyst · Playbook V1 · richer metric Outcome Signals · Memory/Retrieval (deferred)
 
 Do **not** automatically schedule RAG. Capability/Discovery concepts should inform Agent/Skill design without derailing product value.
 

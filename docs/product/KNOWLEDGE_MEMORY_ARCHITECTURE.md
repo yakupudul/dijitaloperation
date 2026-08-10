@@ -73,11 +73,15 @@ Examples:
 - Findings
 - Recommendations
 - Tasks
-- Future measurable outcomes
+- Task completion + observed Outcome signals (`outcome_status` / `outcome_json` on Task — **IMPLEMENTED V1**; see `OPERATIONAL_OUTCOME_LOOP.md`)
 
 Purpose: *“What happened for this Brand / Digital Asset?”*
 
 Do **not** replace these records with embeddings or vector memory.
+
+**Operational Memory now includes** completed human actions and post-action observed Outcome state. This is the trustworthy prerequisite for future Learned Operational Memory.
+
+**Learned Operational Memory is NOT implemented.** Automatic Learning Candidate promotion, Skill updates, and Agent updates from Outcomes remain **PLANNED**.
 
 ### C. Expert / Skill Memory
 

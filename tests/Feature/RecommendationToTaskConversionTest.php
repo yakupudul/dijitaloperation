@@ -122,16 +122,21 @@ class RecommendationToTaskConversionTest extends TestCase
         $this->assertSame($assignee->id, $task->assignee_id);
         $this->assertTrue($task->due_date->equalTo($dueDate));
         $this->assertSame('open', $task->status);
-        $this->assertSame([
-            'customer_id' => $this->customer->id,
-            'brand_id' => $this->brand->id,
-            'digital_asset_id' => $this->asset->id,
-            'recommendation_id' => $this->recommendation->id,
-            'title' => 'Optimize LCP hero image delivery',
-            'action' => 'Compress and lazy-load the hero image.',
-            'priority' => 'high',
-            'rationale' => 'LCP is dominated by an oversized hero image.',
-        ], $task->snapshot_json);
+        $this->assertSame($this->customer->id, $task->snapshot_json['customer_id']);
+        $this->assertSame($this->brand->id, $task->snapshot_json['brand_id']);
+        $this->assertSame($this->asset->id, $task->snapshot_json['digital_asset_id']);
+        $this->assertSame($this->recommendation->id, $task->snapshot_json['recommendation_id']);
+        $this->assertSame('Optimize LCP hero image delivery', $task->snapshot_json['title']);
+        $this->assertSame('Compress and lazy-load the hero image.', $task->snapshot_json['action']);
+        $this->assertSame('high', $task->snapshot_json['priority']);
+        $this->assertSame('LCP is dominated by an oversized hero image.', $task->snapshot_json['rationale']);
+        $this->assertIsArray($task->snapshot_json['finding']);
+        $this->assertSame($this->recommendation->finding_id, $task->snapshot_json['finding']['id']);
+        $this->assertSame($this->recommendation->finding->fingerprint, $task->snapshot_json['finding']['fingerprint']);
+        $this->assertSame($this->recommendation->finding->source_module, $task->snapshot_json['finding']['source_module']);
+        $this->assertSame($this->recommendation->finding->status, $task->snapshot_json['finding']['status']);
+        $this->assertSame($this->recommendation->finding->severity, $task->snapshot_json['finding']['severity']);
+        $this->assertSame($this->recommendation->finding->last_run_id, $task->snapshot_json['finding']['last_run_id']);
     }
 
     public function test_team_member_can_create_task_from_recommendation(): void

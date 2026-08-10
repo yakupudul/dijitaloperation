@@ -60,6 +60,7 @@ Blueprint, MASTER_SPEC'i **override edemez**; yalnızca ayrıntılandırır.
 | Minimal Module Registry | `docs/product/MODULE_PLATFORM.md` |
 | Dashboard / ops UI | `docs/product/DASHBOARD.md` |
 | Run / Evidence / Finding / Recommendation / Task | `docs/product/ANALYSIS_PIPELINE.md` |
+| Operational Outcome Loop V1 | `docs/product/OPERATIONAL_OUTCOME_LOOP.md` (**IMPLEMENTED V1**) |
 | Website module | `docs/product/website/WEBSITE.md` |
 | Website Diagnosis | `docs/product/website/DIAGNOSIS.md` |
 | WordPress | `docs/product/website/WORDPRESS.md` |
