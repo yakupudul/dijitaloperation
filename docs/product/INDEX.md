@@ -71,6 +71,8 @@ Blueprint, MASTER_SPEC'i **override edemez**; yalnızca ayrıntılandırır.
 | DataForSEO (Website usage) | `docs/product/website/DATAFORSEO.md` |
 | AI Insights | `docs/product/website/AI_INSIGHTS.md` |
 | AI Control Plane (planned direction) | `docs/product/AI_CONTROL_PLANE.md` (**NOT IMPLEMENTED**) |
+| Knowledge / Memory architecture (planned) | `docs/product/KNOWLEDGE_MEMORY_ARCHITECTURE.md` (vector RAG **NOT IMPLEMENTED**) |
+| Module boundary audit V1 | `docs/current-state/MODULE_BOUNDARY_AUDIT_V1.md` |
 | External intelligence research audit | `docs/research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md` |
 | Google Business Profile | `docs/product/google-business-profile/GOOGLE_BUSINESS_PROFILE.md` |
 | Google Ads | `docs/product/google-ads/GOOGLE_ADS.md` |

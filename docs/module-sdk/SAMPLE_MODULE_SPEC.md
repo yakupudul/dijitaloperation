@@ -2,7 +2,8 @@
 
 > Gerçek uygulama kodu içermez.  
 > Amaç: SDK sözleşmelerinin uçtan uca dolu bir örneği.  
-> Modül kimliği: `sample-module`
+> Modül kimliği: `sample-module`  
+> **Operator UI:** developer/packaging fixture — Module Registry operator listesinde **gösterilmez** (`ModuleCatalog::DEVELOPER_FIXTURE_MODULE_IDS`). Composer discovery + smoke test için paket kalır.
 
 ## 1. Özet
 

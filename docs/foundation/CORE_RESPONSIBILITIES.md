@@ -32,8 +32,15 @@
 
 ### Çekirdek bilmez / yapmaz
 
-* Domain teşhis kuralları, crawl, harici write, platforma özgü AI prompt  
+* Domain teşhis kuralları, crawl semantics, harici write, platforma özgü AI prompt  
 * Framework’ün çözdüğünü yeniden yazmak (ADR-033)
+* Integration provider’ları Module gibi modellemek (OpenAI/DataForSEO ≠ Module)
+* Agent / Skill runtime’ı Core domain entity sanmak (planned; see `docs/product/AI_CONTROL_PLANE.md` + `docs/product/KNOWLEDGE_MEMORY_ARCHITECTURE.md`)
+
+Generic provider transport, credential resolution, and AI provider infrastructure **may** live in Core/shared.  
+Website/Google Ads/GBP **interpretation** must live in the owning module.
+
+Boundary audit: `docs/current-state/MODULE_BOUNDARY_AUDIT_V1.md`.
 
 ## Gerekçe
 

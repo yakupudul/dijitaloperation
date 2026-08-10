@@ -18,6 +18,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use UnitEnum;
 
@@ -61,6 +62,17 @@ class ModuleResource extends Resource
     public static function canDeleteAny(): bool
     {
         return false;
+    }
+
+    /**
+     * Module Registry UI lists business capability modules only.
+     * Developer fixtures (e.g. sample-module) remain seeded for packaging smoke tests.
+     *
+     * @return Builder<ModuleRegistry>
+     */
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->operatorVisible();
     }
 
     public static function form(Schema $schema): Schema

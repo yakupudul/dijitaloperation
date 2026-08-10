@@ -6,6 +6,7 @@ use App\Filament\App\Resources\Modules\Pages\EditModule;
 use App\Filament\App\Resources\Modules\Pages\ListModules;
 use App\Models\ModuleRegistry;
 use App\Models\User;
+use App\Support\Modules\ModuleCatalog;
 use App\Support\Roles;
 use Database\Seeders\ModuleRegistrySeeder;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -68,9 +69,13 @@ class ModuleRegistryTest extends TestCase
         $this->assertTrue(
             ModuleRegistry::query()->enabled()->where('module_id', 'sample-module')->exists()
         );
+        $this->assertTrue(ModuleCatalog::isDeveloperFixture('sample-module'));
+        $this->assertFalse(
+            ModuleRegistry::query()->operatorVisible()->where('module_id', 'sample-module')->exists()
+        );
     }
 
-    public function test_admin_can_list_modules_and_see_sample_module(): void
+    public function test_admin_module_registry_lists_product_modules_and_hides_sample_module(): void
     {
         $this->seed(RoleAndPermissionSeeder::class);
         $this->seed(ModuleRegistrySeeder::class);
@@ -81,12 +86,19 @@ class ModuleRegistryTest extends TestCase
         $this->actingAs($admin);
         Filament::setCurrentPanel('app');
 
+        $website = ModuleRegistry::query()->where('module_id', 'website')->firstOrFail();
+        $googleAds = ModuleRegistry::query()->where('module_id', 'google-ads')->firstOrFail();
+        $gbp = ModuleRegistry::query()->where('module_id', 'google-business-profile')->firstOrFail();
         $sample = ModuleRegistry::query()->where('module_id', 'sample-module')->firstOrFail();
 
         Livewire::test(ListModules::class)
             ->assertOk()
-            ->assertCanSeeTableRecords([$sample])
-            ->assertSee('sample-module');
+            ->assertCanSeeTableRecords([$website, $googleAds, $gbp])
+            ->assertCanNotSeeTableRecords([$sample])
+            ->assertSee('website')
+            ->assertSee('google-ads')
+            ->assertSee('google-business-profile')
+            ->assertDontSee('sample-module');
     }
 
     public function test_admin_can_toggle_enabled_via_filament_edit_and_it_persists(): void
@@ -94,7 +106,7 @@ class ModuleRegistryTest extends TestCase
         $this->seed(RoleAndPermissionSeeder::class);
 
         $module = ModuleRegistry::query()->create([
-            'module_id' => 'sample-module',
+            'module_id' => 'website',
             'enabled' => true,
             'installed_version' => '1.0',
         ]);
@@ -118,7 +130,7 @@ class ModuleRegistryTest extends TestCase
             ->assertNotified();
 
         $this->assertDatabaseHas('module_registries', [
-            'module_id' => 'sample-module',
+            'module_id' => 'website',
             'enabled' => false,
         ]);
     }
@@ -128,7 +140,7 @@ class ModuleRegistryTest extends TestCase
         $this->seed(RoleAndPermissionSeeder::class);
 
         $module = ModuleRegistry::query()->create([
-            'module_id' => 'sample-module',
+            'module_id' => 'website',
             'enabled' => true,
             'installed_version' => '1.0',
         ]);
@@ -144,7 +156,7 @@ class ModuleRegistryTest extends TestCase
             ->call('updateTableColumnState', 'enabled', $module->getKey(), false);
 
         $this->assertDatabaseHas('module_registries', [
-            'module_id' => 'sample-module',
+            'module_id' => 'website',
             'enabled' => false,
         ]);
     }

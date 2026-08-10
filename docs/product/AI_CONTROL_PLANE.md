@@ -57,6 +57,8 @@ Product rules (already canonical in MASTER_SPEC / ADR-041 path):
 | Agent Profiles | **PLANNED / NOT IMPLEMENTED** |
 | Skill Library | **PLANNED / NOT IMPLEMENTED** |
 | Skill versioning / evaluation harness | **PLANNED / NOT IMPLEMENTED** |
+| Knowledge / Memory architecture (four layers) | **PLANNED** — partially realized via structured Brand Context / Run / Evidence / Finding data; see [`KNOWLEDGE_MEMORY_ARCHITECTURE.md`](./KNOWLEDGE_MEMORY_ARCHITECTURE.md) |
+| Vector RAG / embeddings | **NOT IMPLEMENTED** — deferred until knowledge volume justifies it |
 | MCP / unbounded agents | **REJECTED** as MoxDOP core |
 
 Do not describe planned rows as current product functionality.
@@ -184,12 +186,16 @@ A MoxDOP Skill is **not** arbitrary executable third-party code.
 
 A Skill is a curated, versioned analytical methodology.
 
+Full memory/Skill layering, trust levels, provenance, context assembly, and “no self-modifying AI” rules live in [`KNOWLEDGE_MEMORY_ARCHITECTURE.md`](./KNOWLEDGE_MEMORY_ARCHITECTURE.md).
+
 ### Conceptual Skill contract
 
 | Field | Intent |
 | --- | --- |
 | name | Operator-facing identity |
+| slug | Stable identifier |
 | version | Immutable Skill revision id |
+| module | Owning business module |
 | purpose | What the Skill analyzes |
 | required context | Brand Intelligence / asset prerequisites |
 | required Evidence types | Normalized Evidence contracts |
@@ -262,9 +268,11 @@ Agent/Skills are a controlled reasoning layer over Evidence / Findings / Brand C
 
 These are planning labels, not Autopilot stage IDs:
 
-1. **Integrations Workspace V2** — operator service hub UX (**separate milestone**; may be in progress on another branch)  
-2. **AI Provider Routing & Failover V1** — selected providers + route primary/fallback + safe failover  
-3. **Agent Profiles + Skill Library V1** — bounded personas + curated versioned Skills  
+1. **Integrations Workspace V2** — **COMPLETED** (PR #107 / `61bbfc8`)  
+2. **Module Boundary + Knowledge / Memory Architecture Audit V1** — architecture docs + targeted boundary repair + enforcement (this track)  
+3. **AI Provider Routing & Failover V1** — selected providers + route primary/fallback + safe failover  
+4. **Agent Profiles + Skill Library V1** — bounded personas + curated versioned Skills  
+5. **Memory / Retrieval V1** — only when knowledge volume / use cases justify it (structured retrieval first; vector RAG deferred)
 
 Later candidates remain **UNCOMMITTED** until operational value is reviewed:
 

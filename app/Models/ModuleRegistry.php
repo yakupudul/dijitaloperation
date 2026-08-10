@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Modules\ModuleCatalog;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
@@ -39,6 +40,23 @@ class ModuleRegistry extends Model
     public function scopeDisabled(Builder $query): Builder
     {
         return $query->where('enabled', false);
+    }
+
+    /**
+     * Operator-facing Module Registry rows (excludes developer fixtures such as sample-module).
+     *
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
+    public function scopeOperatorVisible(Builder $query): Builder
+    {
+        $fixtures = ModuleCatalog::DEVELOPER_FIXTURE_MODULE_IDS;
+
+        if ($fixtures === []) {
+            return $query;
+        }
+
+        return $query->whereNotIn('module_id', $fixtures);
     }
 
     public static function isEnabled(string $moduleId): bool

@@ -50,10 +50,12 @@ Foundation 1–23 tamamlandıktan sonra devam eden **güncel** ürün sırası. 
 | P2 | DataForSEO Central Integration + Cost Guard | COMPLETED | `docs/product/integrations/DATAFORSEO.md` |
 | P3 | SEO Intelligence DataForSEO Light | COMPLETED | `docs/product/website/SEO_INTELLIGENCE.md` |
 | P4 | Brand Intelligence Context | COMPLETED | `docs/product/BRAND_INTELLIGENCE.md` |
-| P5 | AI Recommendation Intelligence V1 | **COMPLETED / MERGED** (PR #106, `094fe0a`) | `docs/product/website/AI_INSIGHTS.md`, ADR-041 |
-| **N1** | **Integrations Workspace V2** | **NEXT** | Card hub / provider Manage UX / health semantics / Configure→Test refresh — separate PR track |
-| **N2** | **AI Provider Routing & Failover V1** | PLANNED | `docs/product/AI_CONTROL_PLANE.md` — **NOT IMPLEMENTED** |
-| **N3** | **Agent Profiles + Skill Library V1** | PLANNED | `docs/product/AI_CONTROL_PLANE.md` — **NOT IMPLEMENTED** |
+| P5 | AI Recommendation Intelligence V1 | COMPLETED / MERGED (PR #106, `094fe0a`) | `docs/product/website/AI_INSIGHTS.md`, ADR-041 |
+| P6 | Integrations Workspace V2 | COMPLETED / MERGED (PR #107, `61bbfc8`) | `docs/product/integrations/WORKSPACE.md` |
+| **N0** | **Module Boundary + Knowledge / Memory Architecture Audit V1** | **COMPLETED (PR track)** | `docs/current-state/MODULE_BOUNDARY_AUDIT_V1.md`, `docs/product/KNOWLEDGE_MEMORY_ARCHITECTURE.md` |
+| **N1** | **AI Provider Routing & Failover V1** | PLANNED / NEXT | `docs/product/AI_CONTROL_PLANE.md` — **NOT IMPLEMENTED** |
+| **N2** | **Agent Profiles + Skill Library V1** | PLANNED | `docs/product/AI_CONTROL_PLANE.md` — **NOT IMPLEMENTED** |
+| **N3** | **Memory / Retrieval V1** | PLANNED (deferred) | Only when knowledge volume justifies; vector RAG deferred |
 
 ### Later candidates (UNCOMMITTED)
 
