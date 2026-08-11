@@ -1,5 +1,10 @@
 # DIRECTORY_STRUCTURE
 
+> **HISTORICAL SNAPSHOT**  
+> This document reflects an earlier project state and is **NOT** the canonical current product truth.  
+> For current truth consult: `docs/MASTER_SPEC.md`, accepted ADRs, `PROJECT_MEMORY.md`, `PRODUCT_CAPABILITY_LEDGER.md`, and `docs/PROJECT_STATUS.md` where current.
+
+
 > İnceleme tarihi: 2026-08-06  
 > Not: Yalnızca anlamlı / izlenen proje dosyaları listelenmiştir. `.git` içeriği ve örnek hook dosyaları “önemsiz / otomatik” kabul edilip detaylandırılmamıştır.
 
