@@ -54,7 +54,8 @@
 | Meta central Integration | YES | YES | YES | YES | NO | UAT PASS | Insights/Intelligence not on main | Agency Meta Integration; product docs claim real UAT PASS |
 | Meta resource discovery | YES | YES | YES | YES | NO | UAT PASS | Discovery sync | Ad Account ExternalResources discovered |
 | Meta binding | YES | YES | YES | YES | N/A | UAT PASS | Collect live data hidden without collector on main | Meta Ads Digital Asset ↔ AssetBinding |
-| Meta Ads Intelligence | NO (on main) | YES (on PR #119) | NO | YES (on PR #119) | NO | TESTED / UAT REQUIRED | **Available on PR #119; not canonical main.** Remaining: Ads Manager metric spot-check; sync collection = background debt (`OPERATOR_ASYNC_EXECUTION.md`); do not mark DONE | Operator correction pass on #119 (CTR semantics, binding edit, specialist UX). Code/tests on PR; real UAT still required before DONE |
+| Meta Ads Intelligence | NO (on main) | YES (on PR #119) | NO | YES (on PR #119) | NO | CODE COMPLETE / TESTED / UAT REQUIRED — **NOT DONE** | **Available on PR #119; not canonical main.** Blockers: (1) real Ads Manager metric spot-check, (2) sync collection = background debt (`OPERATOR_ASYNC_EXECUTION.md`), (3) professional operator workspace not implemented (`docs/product/META_ADS_EXPERT_WORKSPACE.md` — BLUEPRINT only) | Operator correction pass on #119 (CTR semantics, binding edit, specialist UX). Code/tests on PR; real UAT + async + expert workspace all still required before DONE |
+| Professional Operator Workspace (Meta Ads) | NO | NO | NO | NO | N/A | PLANNED / BLUEPRINTED | Blueprint only — no UI/widget/route built; depends on Historical Performance Store + `OPERATOR_ASYNC_EXECUTION.md` | See `docs/product/OPERATOR_WORKSPACE_DESIGN_STANDARD.md` (global model) + `docs/product/META_ADS_EXPERT_WORKSPACE.md` (Meta-specific); explicitly out of scope for #119 |
 | Async execution | PARTIAL | PARTIAL | NO | NO | NO | PARTIAL | Jobs exist but Filament invokes `->handle()` sync; no operator Activity Center | See `OPERATOR_ASYNC_EXECUTION.md` — current sync flows are debt |
 | Historical performance memory | PARTIAL | PARTIAL | NO | PARTIAL | NO | PARTIAL | No dedicated historical warehouse / backfill / incremental store | Run/Evidence history exists; Historical Performance Store **PLANNED** |
 | Operational Taxonomy | NO | NO | NO | NO | N/A | PLANNED | Do not invent taxonomy module yet | Direction in `PROJECT_MEMORY.md` |
@@ -86,6 +87,7 @@ Remaining blockers before DONE (Definition of Done in `PROJECT_MEMORY.md`):
 - Real Ads Manager metric spot-check (Spend / Impressions / Reach / Frequency / Result / Cost-per-result / CTR / CPC / CPM) on an identical date range + attribution context
 - Operator confirmation of binding edit UX with discovered accounts (no raw DB ids)
 - Background / async execution debt — long Meta collection still synchronous (see `OPERATOR_ASYNC_EXECUTION.md`); async foundation is **out of scope for #119**
+- Professional operator workspace (`docs/product/META_ADS_EXPERT_WORKSPACE.md`) remains **BLUEPRINT / NOT IMPLEMENTED** — current #119 specialist workspace is not that target workspace
 - Any further gaps found during live UAT
 
 Main **does** include Meta central Integration + discovery + binding (connection layer), with product-doc real UAT **PASS** for that scoped slice only.
