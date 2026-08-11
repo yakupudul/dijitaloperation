@@ -717,7 +717,8 @@ class ViewDigitalAsset extends ViewRecord
                 ->icon(Heroicon::OutlinedEllipsisHorizontal)
                 ->color('gray')
                 ->button()
-                ->dropdownPlacement('bottom-end'),
+                ->dropdownPlacement('bottom-end')
+                ->visible(fn (): bool => $this->hasAnyMoreAction()),
             EditAction::make()
                 ->label('Edit asset')
                 ->color('gray'),
@@ -816,8 +817,13 @@ class ViewDigitalAsset extends ViewRecord
 
         if ($this->isMetaAdsWorkspace()) {
             $workspace = app(MetaAdsWorkspaceData::class)->for($asset);
+            $identity = $workspace['account_identity'] ?? [];
+            $accountName = filled($identity['name'] ?? null) ? $identity['name'] : null;
+            $businessName = filled($identity['business_name'] ?? null) ? $identity['business_name'] : null;
+
             $parts = array_values(array_filter([
-                $type.' · '.$status,
+                $accountName ? 'Meta Ads · '.$accountName : 'Meta Ads · '.$status,
+                $businessName ? 'Meta Business: '.$businessName : null,
                 ! empty($workspace['last_updated_human']) ? 'Last updated '.$workspace['last_updated_human'] : null,
                 $workspace['connection_health'] ?? null,
             ], fn (?string $part): bool => filled($part)));
@@ -1035,5 +1041,23 @@ class ViewDigitalAsset extends ViewRecord
 
         return $asset->type === CrossAssetInstagramMetaAdsDestinationConsistencyService::ASSET_TYPE_INSTAGRAM
             && $asset->brand_id !== null;
+    }
+
+    /**
+     * The "More" ActionGroup only contains Website- and Instagram-scoped
+     * cross-asset checks. Hide the whole group when none apply — e.g. for
+     * Meta Ads and Google Ads asset workspaces — instead of showing an empty
+     * dropdown.
+     */
+    private function hasAnyMoreAction(): bool
+    {
+        return $this->canRunWebsiteDiagnosis()
+            || $this->canRunWebsiteGbpWebsiteUrlConsistency()
+            || $this->canRunWebsiteGbpPhoneConsistency()
+            || $this->canRunWebsiteGbpAddressConsistency()
+            || $this->canRunWebsiteGoogleAdsLandingConsistency()
+            || $this->canRunWebsiteInstagramWebsiteUrlConsistency()
+            || $this->canRunWebsiteMetaAdsDestinationConsistency()
+            || $this->canRunInstagramMetaAdsDestinationConsistency();
     }
 }

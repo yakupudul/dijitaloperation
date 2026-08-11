@@ -1,12 +1,17 @@
 @php
+    /** @var array<string, mixed> $data */
     $open = $data['findings']['open'] ?? collect();
     $acknowledged = $data['findings']['acknowledged'] ?? collect();
     $resolved = $data['findings']['resolved'] ?? collect();
+    $findingGroups = $data['finding_groups'] ?? [];
     $recommendations = $data['recommendations'] ?? collect();
     $ai = $data['ai_guidance'] ?? [];
+
+    $bySeverity = $open->groupBy('severity');
+    $severityOrder = ['critical', 'high', 'medium', 'low'];
 @endphp
 
-<div class="mox-website-workspace">
+<div class="mox-website-workspace mox-meta-workspace">
     <div class="mox-section-head">
         <div>
             <h3 class="mox-section-title">Intelligence</h3>
@@ -14,20 +19,53 @@
         </div>
     </div>
 
-    <div class="mox-grid-2">
+    <p class="mox-muted">
+        Reminder: Meta results are platform-attributed engagement/conversion signals, not verified business outcomes.
+        Treat them as directional — reconcile against your business systems before acting.
+    </p>
+
+    @if ($findingGroups !== [])
         <section class="mox-panel">
-            <div class="mox-panel__head"><h4>Open Findings ({{ $open->count() }})</h4></div>
-            @forelse ($open as $finding)
+            <div class="mox-panel__head"><h4>Measurement &amp; result-interpretation summary</h4></div>
+            @foreach ($findingGroups as $group)
                 <div class="mox-finding-row">
-                    <span class="mox-sev mox-sev--{{ $finding->severity }}">{{ strtoupper($finding->severity) }}</span>
+                    <span class="mox-sev mox-sev--{{ $group['severity'] }}">{{ strtoupper($group['severity']) }}</span>
                     <div>
-                        <div>{{ $finding->title }}</div>
-                        <div class="mox-muted">{{ \Illuminate\Support\Str::limit((string) $finding->summary, 160) }}</div>
+                        <div>
+                            {{ $group['title'] }}
+                            @if ($group['count'] > 1)
+                                <span class="mox-muted">— {{ $group['count'] }} occurrences</span>
+                            @endif
+                        </div>
+                        <div class="mox-muted">{{ \Illuminate\Support\Str::limit((string) $group['sample_summary'], 160) }}</div>
                     </div>
                 </div>
+            @endforeach
+        </section>
+    @endif
+
+    <div class="mox-grid-2">
+        <section class="mox-panel">
+            <div class="mox-panel__head"><h4>Findings by severity ({{ $open->count() }} open)</h4></div>
+            @forelse ($severityOrder as $severity)
+                @php $group = $bySeverity->get($severity, collect()); @endphp
+                @if ($group->isNotEmpty())
+                    <p class="mox-muted" style="margin-top:0.5rem;">{{ strtoupper($severity) }} ({{ $group->count() }})</p>
+                    @foreach ($group as $finding)
+                        <div class="mox-finding-row">
+                            <span class="mox-sev mox-sev--{{ $finding->severity }}">{{ strtoupper($finding->severity) }}</span>
+                            <div>
+                                <div>{{ $finding->title }}</div>
+                                <div class="mox-muted">{{ \Illuminate\Support\Str::limit((string) $finding->summary, 160) }}</div>
+                            </div>
+                        </div>
+                    @endforeach
+                @endif
             @empty
-                <div class="mox-empty mox-empty--compact">No open Findings.</div>
             @endforelse
+            @if ($open->isEmpty())
+                <div class="mox-empty mox-empty--compact">No open Findings.</div>
+            @endif
         </section>
 
         <section class="mox-panel">
@@ -89,17 +127,23 @@
                         </h4>
                         <span class="mox-badge-ai">AI-generated</span>
                     </div>
-                    <p><strong>Observation</strong><br>{{ $interpretation['explanation'] ?? '—' }}</p>
-                    <p><strong>Why it matters</strong><br>{{ $interpretation['business_relevance'] ?? '—' }}</p>
+
+                    <p><strong>WHAT</strong><br>{{ $interpretation['explanation'] ?? '—' }}</p>
+                    <p><strong>WHY</strong><br>{{ $interpretation['business_relevance'] ?? '—' }}</p>
                     @if (! empty($interpretation['recommendation_draft']['action']))
-                        <p><strong>Recommended action</strong><br>{{ $interpretation['recommendation_draft']['action'] }}</p>
-                    @endif
-                    @if (! empty($interpretation['watch_metrics']))
-                        <p class="mox-muted"><strong>Watch</strong> · {{ implode(', ', $interpretation['watch_metrics']) }}</p>
+                        <p><strong>CHECK</strong><br>{{ $interpretation['recommendation_draft']['action'] }}</p>
                     @endif
                     @if (! empty($interpretation['evidence_ids']))
-                        <p class="mox-muted">Evidence #{{ implode(', #', $interpretation['evidence_ids']) }}</p>
+                        <p class="mox-muted"><strong>EVIDENCE</strong><br>Evidence #{{ implode(', #', $interpretation['evidence_ids']) }}</p>
                     @endif
+                    <p><strong>CAVEATS</strong><br>
+                        Uncertainty: {{ ucfirst((string) ($interpretation['uncertainty'] ?? 'medium')) }}. Meta results are platform-attributed —
+                        confirm against business systems before acting.
+                    </p>
+                    @if (! empty($interpretation['watch_metrics']))
+                        <p><strong>WATCH</strong><br>{{ implode(', ', $interpretation['watch_metrics']) }}</p>
+                    @endif
+
                     @if (($interpretation['can_accept'] ?? false) && ! empty($interpretation['recommendation_draft']))
                         <button
                             type="button"

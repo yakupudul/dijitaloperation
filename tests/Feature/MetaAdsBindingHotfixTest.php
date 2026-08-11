@@ -95,7 +95,7 @@ class MetaAdsBindingHotfixTest extends TestCase
             ->assertSee('Connected')
             ->assertSee('Not bound')
             ->assertSee('2 discoverable Ad Accounts available below')
-            ->assertSee('No Meta Ad Account bound')
+            ->assertSee('No Meta Ad Account connected')
             ->assertTableActionExists('create')
             ->assertTableActionVisible('create')
             ->assertDontSee('EAAG-uat-secret-token-never-show')

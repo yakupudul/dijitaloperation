@@ -164,11 +164,28 @@ class MetaAdsIntelligenceAnalystV1Test extends TestCase
         $this->assertSame(20.0, $unresolved['cost_per_result']);
         $this->assertSame('moxdop-computed', $unresolved['cost_per_result_source']);
 
-        $mixed = MetaResultResolver::resolve([
+        $mixedFamily = MetaResultResolver::resolve([
             ['raw_action_type' => 'lead', 'normalized_result_type' => 'lead', 'count' => 5.0, 'value' => null, 'source' => 'actions'],
             ['raw_action_type' => 'onsite_conversion.lead_grouped', 'normalized_result_type' => 'lead', 'count' => 4.0, 'value' => null, 'source' => 'actions'],
         ], 'OUTCOME_LEADS', null, 100.0);
-        $this->assertSame('unresolved', $mixed['status']);
+        // Same preference family — ordered preference picks `lead` (not Mixed).
+        $this->assertSame('resolved', $mixedFamily['status']);
+        $this->assertSame('lead', $mixedFamily['raw_action_type']);
+        $this->assertSame(5.0, $mixedFamily['count']);
+        $this->assertStringContainsString('Matching attributed action=lead', $mixedFamily['reason']);
+
+        $crossFamily = MetaResultResolver::resolve([
+            ['raw_action_type' => 'lead', 'normalized_result_type' => 'lead', 'count' => 5.0, 'value' => null, 'source' => 'actions'],
+            ['raw_action_type' => 'purchase', 'normalized_result_type' => 'purchase', 'count' => 2.0, 'value' => 10.0, 'source' => 'actions'],
+        ], 'OUTCOME_LEADS', 'OUTCOME_SALES', 100.0);
+        $this->assertSame('unresolved', $crossFamily['status']);
+        $this->assertStringContainsString('Mixed', $crossFamily['reason']);
+
+        $deferred = MetaResultResolver::resolve([
+            ['raw_action_type' => 'lead', 'normalized_result_type' => 'lead', 'count' => 26.0, 'value' => null, 'source' => 'actions'],
+        ], null, null, 100.0);
+        $this->assertSame('deferred', $deferred['status']);
+        $this->assertStringContainsString('campaign or ad set', $deferred['reason']);
 
         $zero = MetaResultResolver::resolve([
             ['raw_action_type' => 'lead', 'normalized_result_type' => 'lead', 'count' => 0.0, 'value' => null, 'source' => 'actions'],

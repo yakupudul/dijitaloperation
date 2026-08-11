@@ -47,7 +47,7 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
 
     private const int MAX_PAGES = 3;
 
-    private const string INSIGHT_FIELDS = 'account_id,account_name,account_currency,campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,impressions,reach,frequency,clicks,inline_link_clicks,ctr,cpc,cpm,spend,actions,action_values,cost_per_action_type,attribution_setting,date_start,date_stop';
+    private const string INSIGHT_FIELDS = 'account_id,account_name,account_currency,campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,impressions,reach,frequency,clicks,inline_link_clicks,ctr,cpc,cpm,spend,actions,action_values,cost_per_action_type,attribution_setting,outbound_clicks,inline_link_click_ctr,outbound_clicks_ctr,cost_per_inline_link_click,date_start,date_stop';
 
     public function __construct(
         private readonly BoundCollectionGuard $guard,
@@ -137,6 +137,8 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
                 ...$baseMeta,
                 'account_id' => $actId,
                 'account_name' => $resource->display_name,
+                'business_name' => $resourceMeta['business_name'] ?? null,
+                'business_id' => $resourceMeta['business_id'] ?? null,
                 'currency' => $currentMetrics['account_currency'] ?? $resourceMeta['currency'] ?? null,
                 'timezone_name' => $resourceMeta['timezone_name'] ?? null,
                 'current' => $currentMetrics,
@@ -148,6 +150,9 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
                     null,
                     null,
                     $currentMetrics['spend'] ?? null,
+                    null,
+                    null,
+                    $currentMetrics['attribution_setting'] ?? null,
                 ),
                 'response_ok' => $accountOk,
                 'status_code' => $currentAccount['status_code'],
@@ -517,10 +522,11 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
      * @param  array<string, mixed>  $row
      * @return array<string, mixed>
      */
-    private function normalizeInsightRow(array $row, ?string $fallbackCurrency = null, ?string $objective = null, ?string $optimizationGoal = null): array
+    private function normalizeInsightRow(array $row, ?string $fallbackCurrency = null, ?string $objective = null, ?string $optimizationGoal = null, ?string $destinationType = null): array
     {
         $actions = MetaActionNormalizer::normalize($row['actions'] ?? [], $row['action_values'] ?? null);
         $spend = $this->toFloat($row['spend'] ?? null);
+        $attributionSetting = isset($row['attribution_setting']) ? (string) $row['attribution_setting'] : null;
         $providerCpa = null;
         if (is_array($row['cost_per_action_type'] ?? null)) {
             foreach ($row['cost_per_action_type'] as $cpaRow) {
@@ -532,7 +538,7 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
             }
         }
 
-        $primary = MetaResultResolver::resolve($actions, $objective, $optimizationGoal, $spend, null);
+        $primary = MetaResultResolver::resolve($actions, $objective, $optimizationGoal, $spend, $providerCpa, $destinationType, $attributionSetting);
 
         return [
             'account_currency' => isset($row['account_currency']) ? (string) $row['account_currency'] : $fallbackCurrency,
@@ -541,12 +547,16 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
             'frequency' => $this->toFloat($row['frequency'] ?? null),
             'clicks' => $this->toFloat($row['clicks'] ?? null),
             'inline_link_clicks' => $this->toFloat($row['inline_link_clicks'] ?? null),
+            'outbound_clicks' => $this->extractActionListMetric($row['outbound_clicks'] ?? null, 'outbound_click'),
             'ctr' => $this->toFloat($row['ctr'] ?? null),
+            'inline_link_click_ctr' => $this->toFloat($row['inline_link_click_ctr'] ?? null),
+            'outbound_clicks_ctr' => $this->extractActionListMetric($row['outbound_clicks_ctr'] ?? null, 'outbound_click'),
             'cpc' => $this->toFloat($row['cpc'] ?? null),
             'cpm' => $this->toFloat($row['cpm'] ?? null),
+            'cost_per_inline_link_click' => $this->toFloat($row['cost_per_inline_link_click'] ?? null),
             'spend' => $spend,
             'actions' => $actions,
-            'attribution_setting' => isset($row['attribution_setting']) ? (string) $row['attribution_setting'] : null,
+            'attribution_setting' => $attributionSetting,
             'date_start' => isset($row['date_start']) ? (string) $row['date_start'] : null,
             'date_stop' => isset($row['date_stop']) ? (string) $row['date_stop'] : null,
             'primary_result' => $primary,
@@ -604,7 +614,8 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
             $campaignId = (string) ($row['campaign_id'] ?? $meta['campaign_id'] ?? '');
             $objective = isset($campaignById[$campaignId]['objective']) ? (string) $campaignById[$campaignId]['objective'] : null;
             $optimization = isset($meta['optimization_goal']) ? (string) $meta['optimization_goal'] : null;
-            $metrics = $this->normalizeInsightRow($row, null, $objective, $optimization);
+            $destinationType = isset($meta['destination_type']) ? (string) $meta['destination_type'] : null;
+            $metrics = $this->normalizeInsightRow($row, null, $objective, $optimization, $destinationType);
             $out[] = [
                 'adset_id' => $id,
                 'adset_name' => $this->boundText($row['adset_name'] ?? $meta['name'] ?? null),
@@ -647,7 +658,8 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
             $campaignId = (string) ($row['campaign_id'] ?? $meta['campaign_id'] ?? '');
             $objective = isset($campaignById[$campaignId]['objective']) ? (string) $campaignById[$campaignId]['objective'] : null;
             $optimization = isset($adsetById[$adsetId]['optimization_goal']) ? (string) $adsetById[$adsetId]['optimization_goal'] : null;
-            $metrics = $this->normalizeInsightRow($row, null, $objective, $optimization);
+            $destinationType = isset($adsetById[$adsetId]['destination_type']) ? (string) $adsetById[$adsetId]['destination_type'] : null;
+            $metrics = $this->normalizeInsightRow($row, null, $objective, $optimization, $destinationType);
             $out[] = [
                 'ad_id' => $id,
                 'ad_name' => $this->boundText($row['ad_name'] ?? $meta['name'] ?? null),
@@ -657,6 +669,8 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
                 'campaign_name' => $this->boundText($row['campaign_name'] ?? ($campaignById[$campaignId]['name'] ?? null)),
                 'status' => isset($meta['status']) ? (string) $meta['status'] : null,
                 'effective_status' => isset($meta['effective_status']) ? (string) $meta['effective_status'] : null,
+                'optimization_goal' => $optimization,
+                'destination_type' => $destinationType,
                 'creative_id' => $meta['creative_id'] ?? null,
                 'creative_name' => $this->boundText($meta['creative_name'] ?? null),
                 ...$metrics,
@@ -675,7 +689,10 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
      */
     private function metricDeltas(array $current, array $previous): array
     {
-        $keys = ['spend', 'impressions', 'reach', 'clicks', 'inline_link_clicks', 'ctr', 'cpc', 'cpm'];
+        $keys = [
+            'spend', 'impressions', 'reach', 'frequency', 'clicks', 'inline_link_clicks', 'outbound_clicks',
+            'ctr', 'inline_link_click_ctr', 'outbound_clicks_ctr', 'cpc', 'cpm', 'cost_per_inline_link_click',
+        ];
         $out = [];
         foreach ($keys as $metric) {
             $out[$metric] = [
@@ -707,6 +724,28 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
             'payload' => $payload,
             'observed_at' => $observedAt,
         ]);
+    }
+
+    /**
+     * Meta returns some metrics (outbound_clicks, outbound_clicks_ctr) as
+     * list-of-{action_type,value} shapes identical to `actions`, not scalars.
+     */
+    private function extractActionListMetric(mixed $rows, string $actionType): ?float
+    {
+        if (! is_array($rows)) {
+            return null;
+        }
+
+        foreach ($rows as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            if (($row['action_type'] ?? null) === $actionType) {
+                return $this->toFloat($row['value'] ?? null);
+            }
+        }
+
+        return null;
     }
 
     private function toFloat(mixed $value): ?float

@@ -4,7 +4,11 @@ namespace MoxDop\MetaAds\Normalization;
 
 /**
  * Conservative primary Meta result resolution.
- * Never picks "largest action count" alone. Ambiguous → unresolved.
+ *
+ * Never picks "largest action count" alone.
+ * Within a single objective/optimization preference list, the first preferred
+ * nonzero action type wins (ordered preference).
+ * Ambiguous cross-family signals → unresolved with a human-readable reason.
  */
 final class MetaResultResolver
 {
@@ -35,14 +39,15 @@ final class MetaResultResolver
     /**
      * @param  list<array<string, mixed>>  $normalizedActions
      * @return array{
-     *     status: 'resolved'|'unresolved'|'zero'|'none',
+     *     status: 'resolved'|'unresolved'|'zero'|'none'|'deferred',
      *     raw_action_type: ?string,
      *     normalized_result_type: ?string,
      *     count: float|null,
      *     value: float|null,
      *     cost_per_result: float|null,
      *     cost_per_result_source: ?string,
-     *     reason: string
+     *     reason: string,
+     *     diagnostic: array<string, mixed>
      * }
      */
     public static function resolve(
@@ -51,12 +56,67 @@ final class MetaResultResolver
         ?string $optimizationGoal = null,
         ?float $spend = null,
         ?float $providerCostPerAction = null,
+        ?string $destinationType = null,
+        ?string $attributionSetting = null,
     ): array {
-        if ($normalizedActions === []) {
-            return self::result('none', null, null, null, null, null, null, 'No Meta actions present in Insights.');
+        $diagnostic = [
+            'objective' => $objective,
+            'optimization_goal' => $optimizationGoal,
+            'destination_type' => $destinationType,
+            'attribution_setting' => $attributionSetting,
+            'observed_action_types' => array_values(array_filter(array_map(
+                fn (array $row): ?string => isset($row['raw_action_type']) ? (string) $row['raw_action_type'] : null,
+                $normalizedActions,
+            ))),
+        ];
+
+        if ($objective === null && $optimizationGoal === null) {
+            return self::result(
+                'deferred',
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                'Account/Insights row lacks campaign objective and optimization goal — resolve primary Meta result at campaign or ad set level.',
+                $diagnostic,
+            );
         }
 
-        $candidates = self::preferredTypes($objective, $optimizationGoal);
+        if ($normalizedActions === []) {
+            return self::result('none', null, null, null, null, null, null, 'No Meta actions present in Insights.', $diagnostic);
+        }
+
+        $fromOptimization = self::preferredTypesForKey($optimizationGoal);
+        $fromObjective = self::preferredTypesForKey($objective);
+
+        if ($fromOptimization !== [] && $fromObjective !== [] && $fromOptimization !== $fromObjective) {
+            $optMatch = self::firstNonzeroPreferred($normalizedActions, $fromOptimization);
+            $objMatch = self::firstNonzeroPreferred($normalizedActions, $fromObjective);
+            if ($optMatch !== null && $objMatch !== null
+                && ($optMatch['raw_action_type'] ?? null) !== ($objMatch['raw_action_type'] ?? null)) {
+                return self::result(
+                    'unresolved',
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    'Optimization goal and campaign objective prefer different Meta action families with nonzero counts — Mixed / Unresolved.',
+                    [
+                        ...$diagnostic,
+                        'optimization_preferred' => $fromOptimization,
+                        'objective_preferred' => $fromObjective,
+                        'optimization_match' => $optMatch['raw_action_type'] ?? null,
+                        'objective_match' => $objMatch['raw_action_type'] ?? null,
+                    ],
+                );
+            }
+        }
+
+        $candidates = $fromOptimization !== [] ? $fromOptimization : $fromObjective;
         if ($candidates === []) {
             return self::result(
                 'unresolved',
@@ -67,20 +127,29 @@ final class MetaResultResolver
                 null,
                 null,
                 'Objective/optimization context insufficient for a safe primary result.',
+                $diagnostic,
             );
         }
 
-        $matches = [];
-        foreach ($candidates as $type) {
-            foreach ($normalizedActions as $row) {
-                if (($row['raw_action_type'] ?? null) === $type) {
-                    $matches[] = $row;
-                    break;
-                }
-            }
-        }
+        $diagnostic['preferred_action_types'] = $candidates;
 
-        if ($matches === []) {
+        $chosen = self::firstNonzeroPreferred($normalizedActions, $candidates);
+        if ($chosen === null) {
+            $zeroPreferred = self::firstPreferredMatch($normalizedActions, $candidates);
+            if ($zeroPreferred !== null) {
+                return self::result(
+                    'zero',
+                    (string) $zeroPreferred['raw_action_type'],
+                    isset($zeroPreferred['normalized_result_type']) ? (string) $zeroPreferred['normalized_result_type'] : null,
+                    0.0,
+                    isset($zeroPreferred['value']) ? (float) $zeroPreferred['value'] : null,
+                    null,
+                    null,
+                    'Primary Meta result type resolved with zero attributed count.',
+                    $diagnostic,
+                );
+            }
+
             return self::result(
                 'unresolved',
                 null,
@@ -90,49 +159,12 @@ final class MetaResultResolver
                 null,
                 null,
                 'Preferred action types for objective/optimization were not observed.',
+                $diagnostic,
             );
         }
 
-        if (count($matches) > 1) {
-            $nonzero = array_values(array_filter(
-                $matches,
-                fn (array $row): bool => (($row['count'] ?? 0) > 0) || (($row['value'] ?? 0) > 0),
-            ));
-            if (count($nonzero) > 1) {
-                return self::result(
-                    'unresolved',
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    'Multiple preferred Meta action types observed — Mixed / Unresolved.',
-                );
-            }
-            if (count($nonzero) === 1) {
-                $matches = $nonzero;
-            } else {
-                $matches = [$matches[0]];
-            }
-        }
-
-        $chosen = $matches[0];
         $count = isset($chosen['count']) ? (float) $chosen['count'] : null;
         $value = isset($chosen['value']) ? (float) $chosen['value'] : null;
-
-        if ($count !== null && abs($count) < 0.0000001) {
-            return self::result(
-                'zero',
-                (string) $chosen['raw_action_type'],
-                isset($chosen['normalized_result_type']) ? (string) $chosen['normalized_result_type'] : null,
-                0.0,
-                $value,
-                null,
-                null,
-                'Primary Meta result type resolved with zero attributed count.',
-            );
-        }
 
         $costPerResult = null;
         $costSource = null;
@@ -144,6 +176,13 @@ final class MetaResultResolver
             $costSource = 'moxdop-computed';
         }
 
+        $labelBits = array_values(array_filter([
+            $objective !== null ? 'Objective='.$objective : null,
+            $optimizationGoal !== null ? 'Optimization='.$optimizationGoal : null,
+            $destinationType !== null ? 'Destination='.$destinationType : null,
+            'Matching attributed action='.(string) $chosen['raw_action_type'],
+        ]));
+
         return self::result(
             'resolved',
             (string) $chosen['raw_action_type'],
@@ -152,39 +191,78 @@ final class MetaResultResolver
             $value,
             $costPerResult,
             $costSource,
-            'Primary Meta result resolved from objective/optimization preference.',
+            'Primary Meta result resolved from ordered preference. '.implode('; ', $labelBits).'.',
+            $diagnostic,
         );
     }
 
     /**
      * @return list<string>
      */
-    private static function preferredTypes(?string $objective, ?string $optimizationGoal): array
+    private static function preferredTypesForKey(?string $key): array
     {
-        $keys = array_values(array_filter([
-            $optimizationGoal !== null ? strtoupper(trim($optimizationGoal)) : null,
-            $objective !== null ? strtoupper(trim($objective)) : null,
-        ]));
-
-        foreach ($keys as $key) {
-            if (isset(self::OBJECTIVE_ACTION_PREFERENCE[$key])) {
-                return self::OBJECTIVE_ACTION_PREFERENCE[$key];
-            }
+        if ($key === null || trim($key) === '') {
+            return [];
         }
 
-        return [];
+        $normalized = strtoupper(trim($key));
+
+        return self::OBJECTIVE_ACTION_PREFERENCE[$normalized] ?? [];
     }
 
     /**
+     * @param  list<array<string, mixed>>  $normalizedActions
+     * @param  list<string>  $candidates
+     * @return array<string, mixed>|null
+     */
+    private static function firstNonzeroPreferred(array $normalizedActions, array $candidates): ?array
+    {
+        foreach ($candidates as $type) {
+            foreach ($normalizedActions as $row) {
+                if (($row['raw_action_type'] ?? null) !== $type) {
+                    continue;
+                }
+                $count = isset($row['count']) ? (float) $row['count'] : 0.0;
+                $value = isset($row['value']) ? (float) $row['value'] : 0.0;
+                if ($count > 0 || $value > 0) {
+                    return $row;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $normalizedActions
+     * @param  list<string>  $candidates
+     * @return array<string, mixed>|null
+     */
+    private static function firstPreferredMatch(array $normalizedActions, array $candidates): ?array
+    {
+        foreach ($candidates as $type) {
+            foreach ($normalizedActions as $row) {
+                if (($row['raw_action_type'] ?? null) === $type) {
+                    return $row;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $diagnostic
      * @return array{
-     *     status: 'resolved'|'unresolved'|'zero'|'none',
+     *     status: 'resolved'|'unresolved'|'zero'|'none'|'deferred',
      *     raw_action_type: ?string,
      *     normalized_result_type: ?string,
      *     count: float|null,
      *     value: float|null,
      *     cost_per_result: float|null,
      *     cost_per_result_source: ?string,
-     *     reason: string
+     *     reason: string,
+     *     diagnostic: array<string, mixed>
      * }
      */
     private static function result(
@@ -196,6 +274,7 @@ final class MetaResultResolver
         ?float $costPerResult,
         ?string $costSource,
         string $reason,
+        array $diagnostic = [],
     ): array {
         return [
             'status' => $status,
@@ -206,6 +285,7 @@ final class MetaResultResolver
             'cost_per_result' => $costPerResult,
             'cost_per_result_source' => $costSource,
             'reason' => $reason,
+            'diagnostic' => $diagnostic,
         ];
     }
 }
