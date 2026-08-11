@@ -294,16 +294,22 @@ State details: see `PRODUCT_CAPABILITY_LEDGER.md`. Product doc often labels this
 
 ### Meta Ads Intelligence
 
-**PR #119** (`Meta Ads Intelligence + Analyst V1`) remains **OPEN / unmerged** as of this memory snapshot.
+**PR #119** (`Meta Ads Intelligence + Analyst V1`) is the read-only Meta Ads Intelligence engine (collectors, Evidence, Findings, Analyst/Skills, interim specialist workspace).
 
-Therefore:
+Operator Ads Manager spot-check: **PASS**  
+Account `act_744654160596455` · Campaign `09 | Diaspora TR | Form - Mox` · Period `2026-07-14`→`2026-08-10`.
 
-- Meta Ads Intelligence exists on that PR branch
-- it is **NOT** part of canonical main yet
-- main has Meta **central Integration + resource discovery + binding** (connection layer; real UAT PASS claimed in product docs)
-- main Meta module does **not** ship Insights collectors / Analyst intelligence
+Canonical ledger state: **UAT PASS / ACCEPTED — NOT DONE**.
 
-Agents must **not** claim unmerged PR functionality is on main.
+Still explicit:
+
+- **Background-ready: NO** (sync collect/analyze debt — next milestone Async Operations + Activity Center)
+- **Professional Meta Expert Workspace: BLUEPRINTED / NOT IMPLEMENTED** (`docs/product/META_ADS_EXPERT_WORKSPACE.md` + `OPERATOR_WORKSPACE_DESIGN_STANDARD.md`)
+- Do not call Meta Ads “complete”, “finished”, or “workspace done”
+
+Main also has Meta **central Integration + resource discovery + binding** (connection layer).
+
+Details: `PRODUCT_CAPABILITY_LEDGER.md`.
 
 ---
 

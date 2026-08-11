@@ -1,7 +1,8 @@
 # META ADS INTELLIGENCE + ANALYST V1
 
-> Status: **CODE COMPLETE / TESTED on PR #119 — UAT REQUIRED — not DONE**  
-> Not canonical main until #119 merges after operator UAT.  
+> Status: **UAT PASS / ACCEPTED on PR #119 — NOT DONE**  
+> Operator Ads Manager spot-check PASS (`act_744654160596455`, campaign `09 | Diaspora TR | Form - Mox`, period `2026-07-14`→`2026-08-10`).  
+> Background-ready remains **NO**. Professional Expert Workspace remains **BLUEPRINT only**.  
 > “IMPLEMENTED V1” is a version label, not Definition-of-Done **DONE** (`PROJECT_MEMORY.md`).
 
 ## Purpose
