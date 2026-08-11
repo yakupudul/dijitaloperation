@@ -78,12 +78,13 @@ final class MetaAdsWorkspaceData
 
         $campaignRows = $this->boundedEntityRows($campaigns);
         $dataCoverage = $this->dataCoverage($account, $campaigns, $adsets, $ads, $creatives, $campaignRows);
+        $comparison = $this->comparisonAvailability($account, $comparisonPeriod);
 
         return [
             'asset' => $asset,
             'period' => $period,
             'comparison_period' => $comparisonPeriod,
-            'period_label' => $this->periodLabel($period, $comparisonPeriod),
+            'period_label' => $this->periodLabel($period, $comparisonPeriod, $comparison['available'] === true),
             'last_updated' => $lastUpdated,
             'last_updated_human' => $lastUpdated instanceof CarbonInterface
                 ? $lastUpdated->diffForHumans()
@@ -91,7 +92,7 @@ final class MetaAdsWorkspaceData
             'account_identity' => $this->accountIdentity($account, $connectionSummary),
             'data_coverage' => $dataCoverage,
             'workspace_state' => $this->workspaceState($connectionSummary, $account, $campaigns, $latestRun, $dataCoverage),
-            'kpis' => $this->accountKpis($account),
+            'kpis' => $this->accountKpis($account, $comparison['available'] === true),
             'primary_result' => $this->primaryResultSummary($account),
             'campaigns' => $campaignRows,
             'adsets' => $this->boundedEntityRows($adsets),
@@ -119,7 +120,7 @@ final class MetaAdsWorkspaceData
             'activity' => $this->activityRows($asset),
             'has_performance_data' => $account !== null || $campaigns !== null,
             'caveats' => $this->caveats($account),
-            'comparison' => $this->comparisonAvailability($account, $comparisonPeriod),
+            'comparison' => $comparison,
         ];
     }
 
@@ -173,8 +174,9 @@ final class MetaAdsWorkspaceData
             'adsets' => $this->evidenceCoverage($adsets),
             'ads' => $this->evidenceCoverage($ads),
             'creative' => $this->evidenceCoverage($creatives),
-            'attribution' => $this->attributionCoverage($account, $campaignRows),
-            'result_interpretation' => $this->resultInterpretationCoverage($campaignRows),
+            'attribution_context' => $this->attributionCoverage($account, $campaignRows),
+            'result_signal' => $this->resultSignalCoverage($campaignRows),
+            'business_validation' => $this->businessValidationCoverage($account),
         ];
     }
 
@@ -205,8 +207,10 @@ final class MetaAdsWorkspaceData
     }
 
     /**
+     * Attribution context (provider setting presence) — not business validation.
+     *
      * @param  list<array<string, mixed>>  $campaignRows
-     * @return 'Complete'|'Partial'|'Unavailable'|'Unknown'
+     * @return 'Known'|'Partial'|'Unavailable'|'Unknown'
      */
     private function attributionCoverage(?Evidence $account, array $campaignRows): string
     {
@@ -219,21 +223,23 @@ final class MetaAdsWorkspaceData
         $withAttribution = collect($campaignRows)->filter(fn (array $row): bool => filled($row['attribution_setting'] ?? null))->count();
 
         if ($total === 0) {
-            return $accountAttribution !== null ? 'Complete' : 'Unavailable';
+            return $accountAttribution !== null ? 'Known' : 'Unavailable';
         }
 
-        if ($withAttribution === $total && ($accountAttribution !== null || $total > 0)) {
-            return 'Complete';
+        if ($withAttribution === $total) {
+            return 'Known';
         }
 
         return $withAttribution > 0 ? 'Partial' : 'Unavailable';
     }
 
     /**
+     * Platform primary-result signal coverage — never implies CRM/business verified outcomes.
+     *
      * @param  list<array<string, mixed>>  $campaignRows
-     * @return 'Complete'|'Partial'|'Unavailable'|'Unknown'
+     * @return 'Resolved'|'Mixed'|'Unresolved'|'Unknown'
      */
-    private function resultInterpretationCoverage(array $campaignRows): string
+    private function resultSignalCoverage(array $campaignRows): string
     {
         if ($campaignRows === []) {
             return 'Unknown';
@@ -241,17 +247,37 @@ final class MetaAdsWorkspaceData
 
         $statuses = collect($campaignRows)->pluck('primary_result_status')->filter();
         if ($statuses->isEmpty()) {
-            return 'Unavailable';
+            return 'Unknown';
         }
 
         $resolvedLike = $statuses->filter(fn (?string $status): bool => in_array($status, ['resolved', 'zero'], true))->count();
+        $unresolved = $statuses->filter(fn (?string $status): bool => $status === 'unresolved')->count();
         $total = $statuses->count();
 
         if ($resolvedLike === $total) {
-            return 'Complete';
+            return 'Resolved';
         }
 
-        return $resolvedLike > 0 ? 'Partial' : 'Unavailable';
+        if ($unresolved === $total) {
+            return 'Unresolved';
+        }
+
+        return 'Mixed';
+    }
+
+    /**
+     * Business/CRM validation of platform results. Meta Intelligence alone cannot verify leads/profit.
+     *
+     * @return 'Verified'|'Not connected'|'Unavailable'
+     */
+    private function businessValidationCoverage(?Evidence $account): string
+    {
+        if ($account === null) {
+            return 'Unavailable';
+        }
+
+        // No CRM / business Evidence connection in Meta Ads Intelligence V1.
+        return 'Not connected';
     }
 
     /**
@@ -274,7 +300,9 @@ final class MetaAdsWorkspaceData
             return 'collection_failed';
         }
 
-        $hasGaps = collect($dataCoverage)->contains(fn (string $status): bool => in_array($status, ['Partial', 'Unavailable'], true));
+        $hasGaps = collect($dataCoverage)
+            ->except(['business_validation'])
+            ->contains(fn (string $status): bool => in_array($status, ['Partial', 'Unavailable', 'Unresolved', 'Mixed', 'Unknown'], true));
 
         return $hasGaps ? 'collection_partial' : 'data_available';
     }
@@ -282,14 +310,16 @@ final class MetaAdsWorkspaceData
     /**
      * @return list<array<string, mixed>>
      */
-    private function accountKpis(?Evidence $account): array
+    private function accountKpis(?Evidence $account, bool $comparisonAvailable = false): array
     {
         if ($account === null) {
             return [];
         }
 
         $current = is_array($account->payload['current'] ?? null) ? $account->payload['current'] : [];
-        $deltas = is_array($account->payload['deltas'] ?? null) ? $account->payload['deltas'] : [];
+        $deltas = $comparisonAvailable && is_array($account->payload['deltas'] ?? null)
+            ? $account->payload['deltas']
+            : [];
         $actions = is_array($current['actions'] ?? null) ? $current['actions'] : [];
 
         $map = [
@@ -316,7 +346,7 @@ final class MetaAdsWorkspaceData
                 'label' => $meta['label'],
                 'value' => $current[$key],
                 'type' => $meta['type'],
-                'delta_percent' => data_get($deltas, $key.'.percent'),
+                'delta_percent' => $comparisonAvailable ? data_get($deltas, $key.'.percent') : null,
             ];
         }
 
@@ -762,14 +792,14 @@ final class MetaAdsWorkspaceData
      * @param  array<string, mixed>|null  $period
      * @param  array<string, mixed>|null  $comparison
      */
-    private function periodLabel(?array $period, ?array $comparison): string
+    private function periodLabel(?array $period, ?array $comparison, bool $comparisonAvailable = false): string
     {
         if (! is_array($period) || empty($period['start']) || empty($period['end'])) {
-            return 'Last 28 complete days vs previous period';
+            return 'Last 28 complete days';
         }
 
         $label = $period['start'].' → '.$period['end'];
-        if (is_array($comparison) && ! empty($comparison['start']) && ! empty($comparison['end'])) {
+        if ($comparisonAvailable && is_array($comparison) && ! empty($comparison['start']) && ! empty($comparison['end'])) {
             $label .= ' vs '.$comparison['start'].' → '.$comparison['end'];
         }
 
@@ -781,19 +811,31 @@ final class MetaAdsWorkspaceData
      * invents a historical warehouse — only reflects what the last collector
      * Run actually fetched for the comparison window.
      *
+     * Stale/synthetic `deltas` without a populated `previous` payload must
+     * never unlock comparison.
+     *
      * @param  array<string, mixed>|null  $comparisonPeriod
-     * @return array<string, mixed>
+     * @return array{period: ?array<string, mixed>, available: bool, reason: string}
      */
     private function comparisonAvailability(?Evidence $account, ?array $comparisonPeriod): array
     {
         $hasWindow = is_array($comparisonPeriod) && ! empty($comparisonPeriod['start']) && ! empty($comparisonPeriod['end']);
         $responseOk = data_get($account?->payload, 'response_ok') === true;
-        $previousHasData = data_get($account?->payload, 'previous.spend') !== null
-            || data_get($account?->payload, 'previous.impressions') !== null;
+        $previous = data_get($account?->payload, 'previous');
+        $previousHasData = is_array($previous)
+            && (
+                (isset($previous['spend']) && is_numeric($previous['spend']))
+                || (isset($previous['impressions']) && is_numeric($previous['impressions']))
+            );
+
+        $available = $hasWindow && $responseOk && $previousHasData;
 
         return [
             'period' => $comparisonPeriod,
-            'available' => $hasWindow && $responseOk && $previousHasData,
+            'available' => $available,
+            'reason' => $available
+                ? 'Comparable prior period present in Evidence.'
+                : 'No complete prior-period Evidence — comparison deltas are suppressed.',
         ];
     }
 }

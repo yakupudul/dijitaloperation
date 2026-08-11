@@ -29,13 +29,14 @@
     };
 
     $coverageLabels = [
-        'account' => 'Account',
-        'campaigns' => 'Campaigns',
-        'adsets' => 'Ad Sets',
-        'ads' => 'Ads',
-        'creative' => 'Creative',
-        'attribution' => 'Attribution',
-        'result_interpretation' => 'Result Interpretation',
+        'account' => 'Account data',
+        'campaigns' => 'Campaign data',
+        'adsets' => 'Ad Set data',
+        'ads' => 'Ad data',
+        'creative' => 'Creative metadata',
+        'attribution_context' => 'Attribution context',
+        'result_signal' => 'Result signal',
+        'business_validation' => 'Business validation',
     ];
 
     $stateLabels = [
@@ -99,7 +100,7 @@
             <div class="mox-kpi">
                 <div class="mox-kpi__label">{{ $kpi['label'] ?? '' }}</div>
                 <div class="mox-kpi__value">{{ $formatKpi($kpi) }}</div>
-                @if (is_numeric($kpi['delta_percent'] ?? null))
+                @if (($comparison['available'] ?? false) && is_numeric($kpi['delta_percent'] ?? null))
                     <div class="mox-muted">{{ number_format((float) $kpi['delta_percent'], 1) }}% vs prior</div>
                 @endif
             </div>
@@ -108,8 +109,8 @@
         @endforelse
     </div>
 
-    @if (! $comparison['available'] && $kpis !== [])
-        <p class="mox-muted">No complete prior period is available yet — deltas above are hidden until one exists.</p>
+    @if (! ($comparison['available'] ?? false) && $kpis !== [])
+        <p class="mox-muted">{{ $comparison['reason'] ?? 'No complete prior period is available yet — comparison deltas are hidden until one exists.' }}</p>
     @endif
 
     <section class="mox-panel">

@@ -56,6 +56,16 @@ Repository-managed Cursor Cloud environment:
 - Prefer Cursor Dashboard **Secrets** for any real provider credentials needed later
 - Provider credentials are **not** required for basic boot
 
+## Development DB vs automated tests vs browser UAT
+
+| Surface | Database | Allowed synthetic Meta fixtures |
+| --- | --- | --- |
+| PHPUnit | `sqlite :memory:` via `phpunit.xml` (`RefreshDatabase`) | YES — isolated |
+| Operator real UAT | `database/database.sqlite` | **NO** — real discovered resources + explicit operator binding only |
+| Disposable browser UAT | Override `DB_DATABASE=database/browser-uat.sqlite` (gitignored) | YES — never write into operator SQLite |
+
+Agents must **not** `tinker`-seed `act_1001` / “Lead Camp A” style fixtures into the operator development SQLite. That contaminates Ads Manager spot-checks.
+
 ## Admin user
 
 Application boot does not depend on a committed admin.
