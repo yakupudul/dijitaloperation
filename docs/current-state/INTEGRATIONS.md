@@ -1,5 +1,10 @@
 # INTEGRATIONS
 
+> **HISTORICAL SNAPSHOT**  
+> This document reflects an earlier project state and is **NOT** the canonical current product truth.  
+> For current truth consult: `docs/MASTER_SPEC.md`, accepted ADRs, `PROJECT_MEMORY.md`, `PRODUCT_CAPABILITY_LEDGER.md`, and `docs/PROJECT_STATUS.md` where current.
+
+
 > İnceleme tarihi: 2026-08-08  
 > Dayanak: ADR-039, ADR-040
 

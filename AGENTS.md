@@ -2,9 +2,36 @@
 
 ## Cursor Cloud specific instructions
 
-Ürün gerçeği: `docs/MASTER_SPEC.md` (+ ADR’ler, `docs/product/*`, roadmap, foundation, module-sdk).
+Ürün gerçeği: `docs/MASTER_SPEC.md` (+ accepted ADR’ler, `PROJECT_MEMORY.md`, `docs/product/*`, `PRODUCT_CAPABILITY_LEDGER.md`, roadmap, foundation, module-sdk).
 
-**Öncelik:** MASTER_SPEC → accepted ADR → product blueprints → roadmap → diğerleri. Laravel Boost guidelines ile çelişirse DOP belgeleri kazanır.
+**Before any development task that changes behavior**, read:
+
+1. `docs/MASTER_SPEC.md`
+2. Relevant accepted ADRs (`docs/foundation/DECISION_LOG.md`)
+3. `PROJECT_MEMORY.md`
+4. `PRODUCT_CAPABILITY_LEDGER.md`
+5. Relevant module / feature docs under `docs/product/*` (and module docs as applicable)
+
+**Source priority (canonical):**
+
+1. `docs/MASTER_SPEC.md`
+2. Latest accepted ADRs
+3. `PROJECT_MEMORY.md`
+4. Relevant product / module blueprints
+5. `PRODUCT_CAPABILITY_LEDGER.md` — implementation truth (coded / tested / UAT / UX / async)
+6. `docs/IMPLEMENTATION_ROADMAP.md`
+7. `docs/PROJECT_STATUS.md`
+8. `AGENTS.md` / supporting references
+
+Laravel Boost guidelines ile çelişirse DOP belgeleri kazanır.
+
+**Completeness rule:** Before claiming a capability is complete / DONE, reconcile **code**, **tests**, **real UAT**, **operator UX**, **async requirement**, **known blockers**, and the **Capability Ledger**. Do not treat “IMPLEMENTED V1” as DONE.
+
+**Same-PR memory updates:**
+
+- When behavior or capability state changes → update `PRODUCT_CAPABILITY_LEDGER.md` in the **same PR**
+- When material product / architecture decisions change → update `PROJECT_MEMORY.md` in the **same PR**
+- Long-running operator work must follow `OPERATOR_ASYNC_EXECUTION.md`
 
 ### Cloud development environment
 
@@ -28,7 +55,10 @@
 - Event: `{kebab-module}.{kebab-action}`
 - Prensip: framework’ün çözdüğünü tekrar yazma (ADR-033)
 - Website Diagnosis katalog: diagnosis fazı öncesi `docs/website/DIAGNOSIS_CATALOG.md` (Core blocker değil)
-- Product memory: `docs/product/*` — Architect/Reviewer/Implementer okur; blueprint’te olmayan ürün davranışı uydurulmaz
+- Canonical project memory: `PROJECT_MEMORY.md` + `PRODUCT_CAPABILITY_LEDGER.md` + `OPERATOR_ASYNC_EXECUTION.md`
+- Product blueprints: `docs/product/*` — Architect/Reviewer/Implementer okur; blueprint’te olmayan ürün davranışı uydurulmaz
+- Unmerged PR functionality (ör. Meta Ads Intelligence on PR #119) is **not** canonical main until merged
+- Public Website Discovery is **limited** public website/context discovery — not “all digital web discovery”
 - Test standardı: **PHPUnit** (ADR-038); Pest eklenmez
 - Product feature task’larında `product_spec_paths` dolu olmalı
 

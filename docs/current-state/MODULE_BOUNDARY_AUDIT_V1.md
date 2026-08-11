@@ -1,5 +1,10 @@
 # Module Boundary Audit V1
 
+> **HISTORICAL SNAPSHOT**  
+> This document reflects an earlier project state and is **NOT** the canonical current product truth.  
+> For current truth consult: `docs/MASTER_SPEC.md`, accepted ADRs, `PROJECT_MEMORY.md`, `PRODUCT_CAPABILITY_LEDGER.md`, and `docs/PROJECT_STATUS.md` where current.
+
+
 > **Milestone:** MODULE BOUNDARY + KNOWLEDGE / MEMORY ARCHITECTURE AUDIT V1  
 > **Base main:** `61bbfc8` (Integrations Workspace V2 / PR #107)  
 > **Status:** Architecture audit + targeted repair + enforcement  
