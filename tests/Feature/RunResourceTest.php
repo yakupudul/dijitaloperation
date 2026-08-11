@@ -66,7 +66,7 @@ class RunResourceTest extends TestCase
             ->assertCanSeeTableRecords([$run])
             ->assertSee('Acme Corporate Website')
             ->assertSee('Website')
-            ->assertSee('completed')
+            ->assertSee('Completed')
             ->assertDontSee('Primary WordPress');
     }
 
@@ -120,7 +120,7 @@ class RunResourceTest extends TestCase
             ->assertOk()
             ->assertSee('Acme Corporate Website')
             ->assertSee('Site connection · Primary WordPress')
-            ->assertSee('completed')
+            ->assertSee('Completed')
             ->assertSee('Technical details')
             ->assertSee('Raw evidence')
             ->assertSee('pagespeed.metrics')

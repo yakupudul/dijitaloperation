@@ -20,7 +20,7 @@ class PublicDiscoveryJob implements ShouldQueue
 
     public function __construct(public int $runId) {}
 
-    public function handle(AsyncOperationService $async, PublicDiscoveryService $discovery): void
+    public function handle(AsyncOperationService $async): void
     {
         $run = Run::query()->find($this->runId);
         if ($run === null) {
@@ -30,6 +30,7 @@ class PublicDiscoveryJob implements ShouldQueue
         try {
             $async->markRunning($run, 'discovering', 'Inspecting public website context');
             $asset = DigitalAsset::query()->findOrFail($run->digital_asset_id);
+            $discovery = app(PublicDiscoveryService::class);
             $result = $discovery->discover($asset);
 
             $status = match ($result['status'] ?? 'failed') {

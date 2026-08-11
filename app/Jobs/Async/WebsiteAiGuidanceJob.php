@@ -23,7 +23,7 @@ class WebsiteAiGuidanceJob implements ShouldQueue
      */
     public function __construct(public int $runId, public ?array $findingIds = null) {}
 
-    public function handle(AsyncOperationService $async, WebsiteAiRecommendationService $service): void
+    public function handle(AsyncOperationService $async): void
     {
         $run = Run::query()->find($this->runId);
         if ($run === null) {
@@ -33,6 +33,7 @@ class WebsiteAiGuidanceJob implements ShouldQueue
         try {
             $async->markRunning($run, 'generating', 'Generating AI guidance');
             $asset = DigitalAsset::query()->findOrFail($run->digital_asset_id);
+            $service = app(WebsiteAiRecommendationService::class);
             $result = $service->analyze($asset, $this->findingIds);
 
             $child = $result['run'] ?? null;

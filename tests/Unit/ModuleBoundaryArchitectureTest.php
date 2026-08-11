@@ -38,6 +38,10 @@ class ModuleBoundaryArchitectureTest extends TestCase
         'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/WebsiteConnectionsRelationManager.php',
         'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/WebsiteDiscoveryRelationManager.php',
         'app/Filament/App/Resources/Runs/RunResource.php',
+        // Async platform jobs: thin Core orchestration that dispatches module domain services.
+        'app/Jobs/Async/PublicDiscoveryJob.php',
+        'app/Jobs/Async/SeoIntelligenceRefreshJob.php',
+        'app/Jobs/Async/WebsiteAiGuidanceJob.php',
     ];
 
     /**
@@ -52,6 +56,7 @@ class ModuleBoundaryArchitectureTest extends TestCase
         'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/GoogleAdsIntelligenceRelationManager.php',
         'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/GoogleAdsConnectionsRelationManager.php',
         'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/GoogleAdsActivityRelationManager.php',
+        'app/Jobs/Async/GoogleAdsAiGuidanceJob.php',
     ];
 
     /**
@@ -65,6 +70,7 @@ class ModuleBoundaryArchitectureTest extends TestCase
         'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/MetaAdsIntelligenceRelationManager.php',
         'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/MetaAdsConnectionsRelationManager.php',
         'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/MetaAdsActivityRelationManager.php',
+        'app/Jobs/Async/MetaAdsAiGuidanceJob.php',
     ];
 
     #[Test]
