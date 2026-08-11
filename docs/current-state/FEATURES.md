@@ -1,5 +1,10 @@
 # FEATURES
 
+> **HISTORICAL SNAPSHOT**  
+> This document reflects an earlier project state and is **NOT** the canonical current product truth.  
+> For current truth consult: `docs/MASTER_SPEC.md`, accepted ADRs, `PROJECT_MEMORY.md`, `PRODUCT_CAPABILITY_LEDGER.md`, and `docs/PROJECT_STATUS.md` where current.
+
+
 > İnceleme tarihi: 2026-08-06  
 > Sonuç: Çalışan veya kısmen çalışan uygulama özelliği tespit edilmedi.
 

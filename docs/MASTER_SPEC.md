@@ -328,13 +328,17 @@ Website Diagnosis fazına başlamadan önce `docs/website/DIAGNOSIS_CATALOG.md` 
 
 1. `docs/MASTER_SPEC.md` — ürün gerçeği (bu dosya; en üst kaynak)  
 2. Accepted / daha yeni ADR’ler (`docs/foundation/DECISION_LOG.md`)  
-3. `docs/product/*` — domain/modül **product blueprint** katmanı (MASTER_SPEC’i override etmez; ayrıntılandırır)  
-4. `docs/IMPLEMENTATION_ROADMAP.md` — uygulama sırası  
-5. `docs/foundation/*` — mimari ilkeler (ADR dışı)  
-6. `docs/module-sdk/*` — modül sözleşmeleri  
-7. `docs/current-state/*` — geçmiş durum analizi (tarihsel; MASTER_SPEC ile çelişirse MASTER_SPEC geçerli)
+3. `PROJECT_MEMORY.md` — kalıcı ürün / mimari bellek (MASTER_SPEC’i override etmez; yönü korur)  
+4. `docs/product/*` — domain/modül **product blueprint** katmanı (MASTER_SPEC’i override etmez; ayrıntılandırır)  
+5. `PRODUCT_CAPABILITY_LEDGER.md` — **implementation truth** (coded / tested / UAT / UX / async; “IMPLEMENTED V1” ≠ DONE)  
+6. `docs/IMPLEMENTATION_ROADMAP.md` — uygulama sırası  
+7. `docs/PROJECT_STATUS.md` — ilerleme takipçisi  
+8. `AGENTS.md` / supporting references (`docs/foundation/*`, `docs/module-sdk/*`, research)  
+9. `docs/current-state/*` — geçmiş durum analizi (tarihsel; yukarıdakilerle çelişirse geçersiz)
 
-Architect / Reviewer / Implementer product feature üretmeden veya review etmeden önce ilgili `docs/product/**` blueprint’ini okur. Blueprint’te olmayan önemli ürün davranışı uydurulmaz.
+Operator uzun iş standardı: `OPERATOR_ASYNC_EXECUTION.md` (uygulama gerçeği ledger’da izlenir).
+
+Architect / Reviewer / Implementer product feature üretmeden veya review etmeden önce ilgili `docs/product/**` blueprint’ini, `PROJECT_MEMORY.md` ve `PRODUCT_CAPABILITY_LEDGER.md` dosyalarını okur. Blueprint’te olmayan önemli ürün davranışı uydurulmaz. Capability tamam iddiasından önce ledger ile code / tests / UAT / UX / async / blocker mutabakatı zorunludur.
 
 ## 14. Prensip (ADR-033)
 
