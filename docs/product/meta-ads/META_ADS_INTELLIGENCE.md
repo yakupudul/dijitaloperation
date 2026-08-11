@@ -61,6 +61,7 @@ Click metrics are labeled explicitly (All Clicks / Link Clicks / Outbound Clicks
 
 ## Still planned / not in this PR
 
+- Professional operator expert workspace — see `docs/product/META_ADS_EXPERT_WORKSPACE.md` (**BLUEPRINT / NOT IMPLEMENTED**)
 - Global async / Activity Center (operator standard debt)
 - Historical Performance Store / backfill / taxonomy / Marketing Initiative / Benchmark Cohorts
 - Personal Lead Ads / CRM outcome intelligence

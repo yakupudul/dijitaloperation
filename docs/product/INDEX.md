@@ -59,6 +59,7 @@ Blueprint, MASTER_SPEC'i **override edemez**; yalnızca ayrıntılandırır.
 | Google Integration setup | `docs/product/GOOGLE_INTEGRATION_SETUP.md` |
 | Minimal Module Registry | `docs/product/MODULE_PLATFORM.md` |
 | Dashboard / ops UI | `docs/product/DASHBOARD.md` |
+| Operator workspace design standard (global, planned) | `docs/product/OPERATOR_WORKSPACE_DESIGN_STANDARD.md` (**BLUEPRINT / NOT IMPLEMENTED**) |
 | Run / Evidence / Finding / Recommendation / Task | `docs/product/ANALYSIS_PIPELINE.md` |
 | Operational Outcome Loop V1 | `docs/product/OPERATIONAL_OUTCOME_LOOP.md` (**IMPLEMENTED V1**) |
 | Website module | `docs/product/website/WEBSITE.md` |
@@ -80,7 +81,7 @@ Blueprint, MASTER_SPEC'i **override edemez**; yalnızca ayrıntılandırır.
 | Google Business Profile | `docs/product/google-business-profile/GOOGLE_BUSINESS_PROFILE.md` |
 | Google Ads | `docs/product/google-ads/GOOGLE_ADS.md` |
 | Google Ads Intelligence + Analyst | `docs/product/google-ads/GOOGLE_ADS_INTELLIGENCE.md` |
-| Meta Ads | `docs/product/meta-ads/META_ADS.md` · connection V1: `docs/product/meta-ads/META_ADS_INTEGRATION.md` · Intelligence + Analyst V1: `docs/product/meta-ads/META_ADS_INTELLIGENCE.md` |
+| Meta Ads | `docs/product/meta-ads/META_ADS.md` · connection V1: `docs/product/meta-ads/META_ADS_INTEGRATION.md` · Intelligence + Analyst V1: `docs/product/meta-ads/META_ADS_INTELLIGENCE.md` · Expert workspace (planned): `docs/product/META_ADS_EXPERT_WORKSPACE.md` (**BLUEPRINT / NOT IMPLEMENTED**) |
 | Instagram | `docs/product/instagram/INSTAGRAM.md` |
 | Cross-asset / cross-channel analysis | `docs/product/cross-asset/CROSS_ASSET_ANALYSIS.md` |
 | Later assets (YouTube, CRM, …) | `docs/product/future/DIGITAL_ASSETS.md` |
