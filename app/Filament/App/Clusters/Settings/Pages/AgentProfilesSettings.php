@@ -46,8 +46,8 @@ class AgentProfilesSettings extends Page
         foreach (app(AgentProfileRegistry::class)->all() as $profile) {
             $assigned = [];
             foreach ($profile->skillSlugs as $slug) {
-                if ($skills->has($slug)) {
-                    $skill = $skills->get($slug);
+                if ($skills->hasForModule($profile->module, $slug)) {
+                    $skill = $skills->getForModule($profile->module, $slug);
                     $assigned[] = [
                         'name' => $skill->name,
                         'slug' => $skill->slug,

@@ -94,17 +94,18 @@ class AgentProfilesSkillLibraryV1Test extends TestCase
         }
     }
 
-    public function test_duplicate_skill_slug_is_rejected(): void
+    public function test_duplicate_skill_slug_is_rejected_within_the_same_module(): void
     {
         $dir = $this->tempSkillRoot.'/dup';
         File::ensureDirectoryExists($dir);
         File::put($dir.'/SKILL.md', $this->minimalSkillMarkdown('technical-seo-analysis', 'test-module'));
 
+        $dirTwo = $this->tempSkillRoot.'/dup-two';
+        File::ensureDirectoryExists($dirTwo);
+        File::put($dirTwo.'/SKILL.md', $this->minimalSkillMarkdown('technical-seo-analysis', 'test-module'));
+
         $registry = new SkillRegistry(app(BuiltInSkillLoader::class));
         $registry->registerRoot('test-module', $this->tempSkillRoot);
-
-        // Also register website root to collide on slug.
-        $registry->registerRoot('website', base_path('app-modules/website/resources/skills'));
 
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Duplicate Skill slug');
