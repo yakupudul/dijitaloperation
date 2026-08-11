@@ -47,8 +47,8 @@ Connection | Sync | Data Health
 
 A single filter bar persists across Overview, Campaigns, Creatives, and Insights (not re-specified per tab):
 
-- **Date preset** — standard presets (e.g. Today, Last 7 days, Last 28 days, This month, Last month, Custom range), consistent with the account's reporting timezone.
-- **Compare** — toggle to a prior comparable period; hidden/disabled when no valid comparison period exists (Missing ≠ zero — never a fabricated 0% delta).
+- **Date preset** — Today, Yesterday, Last 7 days, Last 14 days, Last 30 days, This month, Last month, This year, Custom — consistent with the account's reporting timezone.
+- **Compare** — Previous period, Previous year, Custom, or Off; hidden/disabled when no valid comparison period exists (Missing ≠ zero — never a fabricated 0% delta).
 - **Account** — when a Brand has multiple Meta Ad Accounts, an account switcher (never silently mixes accounts into one aggregate without the operator choosing to).
 - **Delivery status** — Delivered / Active / Paused / Archived / All (see default below).
 - **Objective** — filter by campaign objective family.
