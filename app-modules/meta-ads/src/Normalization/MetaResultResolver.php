@@ -197,6 +197,83 @@ final class MetaResultResolver
     }
 
     /**
+     * Account-level Result Mix — distinct Meta action categories with nonzero counts.
+     * Never sums unrelated action types into one fake total.
+     *
+     * @param  list<array<string, mixed>>  $normalizedActions
+     * @return array{
+     *     mode: 'result_mix',
+     *     items: list<array{raw_action_type: string, normalized_result_type: ?string, human_label: string, count: float, value: float|null}>,
+     *     blind_action_sum: false,
+     *     note: string
+     * }
+     */
+    public static function resultMix(array $normalizedActions): array
+    {
+        $items = [];
+        foreach ($normalizedActions as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $raw = isset($row['raw_action_type']) ? (string) $row['raw_action_type'] : '';
+            if ($raw === '') {
+                continue;
+            }
+            $count = isset($row['count']) && is_numeric($row['count']) ? (float) $row['count'] : null;
+            if ($count === null || $count <= 0) {
+                continue;
+            }
+            $normalized = isset($row['normalized_result_type']) ? (string) $row['normalized_result_type'] : null;
+            if (! self::includeInAccountResultMix($raw, $normalized)) {
+                continue;
+            }
+            $items[] = [
+                'raw_action_type' => $raw,
+                'normalized_result_type' => $normalized,
+                'human_label' => self::mixLabel($raw, $normalized),
+                'count' => $count,
+                'value' => isset($row['value']) && is_numeric($row['value']) ? (float) $row['value'] : null,
+            ];
+        }
+
+        usort($items, fn (array $a, array $b): int => ($b['count'] <=> $a['count']));
+
+        return [
+            'mode' => 'result_mix',
+            'items' => $items,
+            'blind_action_sum' => false,
+            'note' => 'Distinct Meta action types are never summed into one total. Platform-attributed only — not verified business outcomes.',
+        ];
+    }
+
+    private static function includeInAccountResultMix(string $raw, ?string $normalized): bool
+    {
+        if (in_array($normalized, ['lead', 'purchase', 'messaging', 'registration', 'appointment', 'profile_visit'], true)) {
+            return true;
+        }
+
+        return in_array($raw, ['landing_page_view', 'profile_visit', 'link_click'], true);
+    }
+
+    private static function mixLabel(string $raw, ?string $normalized): string
+    {
+        return match ($normalized) {
+            'lead' => 'Meta-attributed Leads',
+            'purchase' => 'Meta-attributed Purchases',
+            'messaging' => 'Messaging Conversations',
+            'registration' => 'Meta-attributed Registrations',
+            'appointment' => 'Meta-attributed Appointments',
+            'profile_visit' => 'Profile Visits',
+            default => match ($raw) {
+                'landing_page_view' => 'Landing Page Views',
+                'link_click' => 'Link Clicks (action)',
+                'profile_visit' => 'Profile Visits',
+                default => 'Meta-attributed '.$raw,
+            },
+        };
+    }
+
+    /**
      * @return list<string>
      */
     private static function preferredTypesForKey(?string $key): array

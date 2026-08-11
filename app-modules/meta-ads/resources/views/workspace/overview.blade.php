@@ -89,6 +89,31 @@
                 </div>
             @endforeach
         </div>
+        @if (! empty($data['collection_stages']) && is_array($data['collection_stages']))
+            <details class="mox-muted" style="margin-top:0.75rem;">
+                <summary>Collection stages</summary>
+                <ul>
+                    @foreach ($data['collection_stages'] as $stage => $info)
+                        <li>
+                            {{ $stage }}:
+                            {{ is_array($info) ? ($info['status'] ?? 'unknown') : 'unknown' }}
+                            @if (is_array($info) && isset($info['record_count']))
+                                · records {{ $info['record_count'] }}
+                            @endif
+                            @if (is_array($info) && ! empty($info['truncated']))
+                                · truncated
+                            @endif
+                            @if (is_array($info) && ! empty($info['error_category']))
+                                · {{ $info['error_category'] }}
+                            @endif
+                            @if (is_array($info) && ! empty($info['error_safe']))
+                                · {{ $info['error_safe'] }}
+                            @endif
+                        </li>
+                    @endforeach
+                </ul>
+            </details>
+        @endif
     </section>
 
     @if ($caveats !== [])
@@ -114,26 +139,37 @@
     @endif
 
     <section class="mox-panel">
-        <div class="mox-panel__head"><h4>Primary result (platform)</h4></div>
-        @if ($primary === null)
+        <div class="mox-panel__head"><h4>Result mix (platform)</h4></div>
+        @php $resultMix = $data['result_mix'] ?? null; @endphp
+        @if ($resultMix === null)
             <div class="mox-empty mox-empty--compact">No account Evidence yet.</div>
-        @elseif ($primary['status'] === 'deferred')
-            <p>Deferred — account level lacks a campaign objective. See Performance for campaign/ad set level results.</p>
-        @elseif ($primary['status'] === 'unresolved')
-            <p>Mixed / Unresolved — {{ $primary['reason'] ?? 'objective and optimization goal disagree on a result type.' }}</p>
-        @elseif ($primary['status'] === 'none')
-            <p>No Meta actions observed in this period.</p>
-        @else
-            <p>
-                <strong>{{ number_format((float) ($primary['count'] ?? 0), 0) }}</strong>
-                {{ $primary['human_label'] ?? 'Meta-attributed results' }}
-                @if (is_numeric($primary['cost_per_result'] ?? null))
-                    · Cost/result {{ number_format((float) $primary['cost_per_result'], 2) }}
-                @endif
-            </p>
-            @if ($primary['status'] === 'zero')
-                <p class="mox-muted">Resolved result type observed zero count this period.</p>
+        @elseif (($resultMix['items'] ?? []) === [])
+            <p class="mox-muted">No nonzero Meta-attributed result categories observed in this period.</p>
+            @if (($primary['status'] ?? null) === 'deferred')
+                <p class="mox-muted">Account-level primary result stays deferred when campaigns have heterogeneous objectives — use Result Mix and campaign rows instead of one forced total.</p>
             @endif
+        @else
+            <div class="mox-table-wrap">
+                <table class="mox-table">
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th class="mox-num">Count</th>
+                            <th>Raw action type</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($resultMix['items'] as $item)
+                            <tr>
+                                <td>{{ $item['human_label'] ?? '—' }}</td>
+                                <td class="mox-num">{{ is_numeric($item['count'] ?? null) ? number_format((float) $item['count'], 0) : '—' }}</td>
+                                <td class="mox-muted">{{ $item['raw_action_type'] ?? '—' }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+            <p class="mox-muted">{{ $resultMix['note'] ?? 'Distinct action types are never summed into one fake total.' }}</p>
         @endif
     </section>
 

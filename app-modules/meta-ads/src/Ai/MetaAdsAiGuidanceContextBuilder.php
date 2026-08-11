@@ -40,6 +40,7 @@ final class MetaAdsAiGuidanceContextBuilder
 
         $evidence = $this->loadSupportingEvidence($asset, $findings);
         $recommendations = $this->loadDeterministicRecommendations($asset, $findings);
+        $coverage = $this->evidenceCoverageGate($evidence);
 
         $findingPayload = $findings->map(fn (Finding $finding): array => [
             'id' => $finding->id,
@@ -61,8 +62,16 @@ final class MetaAdsAiGuidanceContextBuilder
             'type' => $row->type,
             'title' => $this->boundString($row->title),
             'source_module' => $row->source_module,
-            'payload' => $this->redactPayload($row->payload ?? []),
+            'payload' => $this->isEvidenceTrustworthy($row)
+                ? $this->redactPayload($row->payload ?? [])
+                : [
+                    'response_ok' => false,
+                    'metrics_usable' => false,
+                    'ai_excluded' => true,
+                    'exclusion_reason' => 'Evidence failed coverage gate — not trustworthy for AI conclusions requiring this type.',
+                ],
             'observed_at' => optional($row->observed_at)?->toIso8601String(),
+            'ai_trustworthy' => $this->isEvidenceTrustworthy($row),
         ])->values()->all();
 
         $recommendationPayload = $recommendations->map(fn (Recommendation $row): array => [
@@ -98,6 +107,8 @@ final class MetaAdsAiGuidanceContextBuilder
                 $recommendationPayload,
                 fn (array $row): bool => ($row['origin'] ?? '') === 'deterministic',
             )),
+            'evidence_coverage' => $coverage,
+            'trustworthy_evidence_types' => $coverage['trustworthy_types'],
         ];
 
         return [
@@ -106,6 +117,7 @@ final class MetaAdsAiGuidanceContextBuilder
             'brand_snapshot' => $brandSnapshot,
             'finding_ids' => $findings->pluck('id')->map(fn ($id): int => (int) $id)->values()->all(),
             'evidence_ids' => $evidence->pluck('id')->map(fn ($id): int => (int) $id)->values()->all(),
+            'trustworthy_evidence_types' => $coverage['trustworthy_types'],
         ];
     }
 
@@ -173,7 +185,7 @@ final class MetaAdsAiGuidanceContextBuilder
         $latestCollectionRunId = Run::query()
             ->where('digital_asset_id', $asset->id)
             ->where('module_id', 'meta-ads')
-            ->where('status', 'completed')
+            ->whereIn('status', ['completed', 'partial'])
             ->latest('finished_at')
             ->value('id');
 
@@ -208,6 +220,67 @@ final class MetaAdsAiGuidanceContextBuilder
                     && ($payload['derived'] ?? false) !== true;
             })
             ->values();
+    }
+
+    /**
+     * @param  Collection<int, Evidence>  $evidence
+     * @return array{trustworthy_types: list<string>, excluded_types: list<string>, by_type: array<string, array<string, mixed>>}
+     */
+    private function evidenceCoverageGate(Collection $evidence): array
+    {
+        $byType = [];
+        $trustworthy = [];
+        $excluded = [];
+
+        foreach ($evidence as $row) {
+            $type = (string) $row->type;
+            $ok = $this->isEvidenceTrustworthy($row);
+            $byType[$type] = [
+                'trustworthy' => $ok,
+                'response_ok' => data_get($row->payload, 'response_ok'),
+                'metrics_usable' => data_get($row->payload, 'metrics_usable'),
+                'metadata_usable' => data_get($row->payload, 'metadata_usable'),
+            ];
+            if ($ok) {
+                $trustworthy[] = $type;
+            } else {
+                $excluded[] = $type;
+            }
+        }
+
+        return [
+            'trustworthy_types' => array_values(array_unique($trustworthy)),
+            'excluded_types' => array_values(array_unique($excluded)),
+            'by_type' => $byType,
+        ];
+    }
+
+    private function isEvidenceTrustworthy(Evidence $evidence): bool
+    {
+        $payload = $evidence->payload;
+        if (! is_array($payload)) {
+            return false;
+        }
+
+        if (($payload['response_ok'] ?? true) === false) {
+            return false;
+        }
+
+        // Hierarchy performance Evidence requires metrics_usable !== false.
+        if (in_array($evidence->type, [
+            'meta_ads_account_summary',
+            'meta_ads_campaign_performance',
+            'meta_ads_adset_performance',
+            'meta_ads_ad_performance',
+        ], true)) {
+            return ($payload['metrics_usable'] ?? true) === true;
+        }
+
+        if ($evidence->type === 'meta_ads_creative_metadata') {
+            return ($payload['metadata_usable'] ?? $payload['response_ok'] ?? true) === true;
+        }
+
+        return true;
     }
 
     /**

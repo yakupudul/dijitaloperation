@@ -24,6 +24,9 @@ use Throwable;
  *
  * Official docs (verified for V1): Ads Insights API on Ad Account / Campaign / Ad Set / Ad.
  * Uses centralized MetaApiConfig version. Does not download creative media.
+ *
+ * Hierarchy collection joins Insights → metadata by provider ID only.
+ * Missing metrics stay null — never coerced to zero.
  */
 final class MetaAdsBoundCollector implements CollectsBoundProviderData
 {
@@ -118,6 +121,7 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
 
         $partialReasons = [];
         $coreOk = true;
+        $collectionStages = [];
 
         try {
             $resourceMeta = is_array($resource->metadata) ? $resource->metadata : [];
@@ -126,12 +130,39 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
             $previousAccount = $this->fetchInsights($integration, $actId, 'account', $periods['previous']);
             $accountOk = $currentAccount['ok'] && $previousAccount['ok'];
             $coreOk = $coreOk && $accountOk;
+            $collectionStages['account_insights'] = $this->stageFromFetch(
+                'account_insights',
+                $currentAccount,
+                $accountOk ? 'completed' : 'failed',
+                count($currentAccount['rows']),
+            );
+            if (! $previousAccount['ok']) {
+                $collectionStages['account_insights_previous'] = $this->stageFromFetch(
+                    'account_insights_previous',
+                    $previousAccount,
+                    'failed',
+                    count($previousAccount['rows']),
+                );
+            } else {
+                $collectionStages['account_insights_previous'] = $this->stageFromFetch(
+                    'account_insights_previous',
+                    $previousAccount,
+                    'completed',
+                    count($previousAccount['rows']),
+                );
+            }
             if (! $accountOk) {
                 $partialReasons[] = 'account_insights: '.($currentAccount['error'] ?? $previousAccount['error'] ?? 'failed');
             }
 
             $currentMetrics = $this->normalizeInsightRow($currentAccount['rows'][0] ?? [], $resourceMeta['currency'] ?? null);
-            $previousMetrics = $this->normalizeInsightRow($previousAccount['rows'][0] ?? [], $resourceMeta['currency'] ?? null);
+            $previousMetrics = $previousAccount['ok']
+                ? $this->normalizeInsightRow($previousAccount['rows'][0] ?? [], $resourceMeta['currency'] ?? null)
+                : [];
+            $comparisonComplete = $previousAccount['ok'] && $previousMetrics !== [];
+
+            $actions = $currentMetrics['actions'] ?? [];
+            $resultMix = MetaResultResolver::resultMix($actions);
 
             $this->storeEvidence($run, $asset->id, self::EVIDENCE_ACCOUNT_SUMMARY, 'Meta Ads account summary', [
                 ...$baseMeta,
@@ -142,11 +173,12 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
                 'currency' => $currentMetrics['account_currency'] ?? $resourceMeta['currency'] ?? null,
                 'timezone_name' => $resourceMeta['timezone_name'] ?? null,
                 'current' => $currentMetrics,
-                'previous' => $previousMetrics,
-                'deltas' => $this->metricDeltas($currentMetrics, $previousMetrics),
-                'actions' => $currentMetrics['actions'] ?? [],
+                'previous' => $comparisonComplete ? $previousMetrics : [],
+                'deltas' => $comparisonComplete ? $this->metricDeltas($currentMetrics, $previousMetrics) : [],
+                'actions' => $actions,
+                'result_mix' => $resultMix,
                 'primary_result' => MetaResultResolver::resolve(
-                    $currentMetrics['actions'] ?? [],
+                    $actions,
                     null,
                     null,
                     $currentMetrics['spend'] ?? null,
@@ -155,88 +187,219 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
                     $currentMetrics['attribution_setting'] ?? null,
                 ),
                 'response_ok' => $accountOk,
+                'metrics_usable' => $accountOk && array_key_exists('spend', $currentAccount['rows'][0] ?? []),
                 'status_code' => $currentAccount['status_code'],
                 'truncated' => $currentAccount['truncated'] || $previousAccount['truncated'],
                 'limitations' => [
                     'Reach/frequency are non-additive — use account-level values only.',
                     'Meta actions are platform-attributed results, not verified business outcomes.',
                     'Distinct action_types are never summed into a fake total.',
+                    'Account Overview prefers Result Mix over a forced single primary result.',
                 ],
             ], $observedAt);
 
-            $campaignMeta = $this->fetchCampaignMeta($integration, $actId);
+            // Campaign: Insights first (delivered, spend-sorted) → metadata by those provider IDs.
             $campaignInsights = $this->fetchInsights($integration, $actId, 'campaign', $periods['current']);
+            $campaignIds = $this->insightIds($campaignInsights['rows'], 'campaign_id');
+            $campaignMeta = $this->fetchEntityMetaByIds(
+                $integration,
+                $actId.'/campaigns',
+                $campaignIds,
+                'id,name,status,effective_status,objective,buying_type',
+            );
             $campaignOk = $campaignInsights['ok'];
-            $coreOk = $coreOk && $campaignOk;
+            // Campaign/adset/ad failures degrade to partial — only account Insights failure fails the Run.
+            $collectionStages['campaign_insights'] = $this->stageFromFetch(
+                'campaign_insights',
+                $campaignInsights,
+                $this->stageStatus($campaignInsights, $campaignMeta),
+                count($campaignInsights['rows']),
+            );
+            $collectionStages['campaign_metadata'] = $this->stageFromMeta('campaign_metadata', $campaignMeta, count($campaignIds));
             if (! $campaignOk) {
                 $partialReasons[] = 'campaign_insights: '.($campaignInsights['error'] ?? 'failed');
             }
+            if ($campaignInsights['truncated']) {
+                $partialReasons[] = 'campaign_insights: truncated at '.self::ENTITY_LIMIT.' rows / '.self::MAX_PAGES.' pages';
+            }
+            if (($campaignMeta['missed'] ?? 0) > 0) {
+                $partialReasons[] = 'campaign_metadata: '.$campaignMeta['missed'].' provider-id join miss(es)';
+            }
+            if (! $campaignMeta['ok'] && $campaignIds !== []) {
+                $partialReasons[] = 'campaign_metadata: '.($campaignMeta['error'] ?? 'failed');
+            }
 
-            $campaignRows = $this->mergeCampaignRows($campaignInsights['rows'], $campaignMeta['by_id']);
+            $campaignRows = $campaignOk
+                ? $this->mergeCampaignRows($campaignInsights['rows'], $campaignMeta['by_id'])
+                : [];
             $this->storeEvidence($run, $asset->id, self::EVIDENCE_CAMPAIGN_PERFORMANCE, 'Meta Ads campaign performance', [
                 ...$baseMeta,
                 'rows' => $campaignRows,
                 'row_count' => count($campaignRows),
                 'row_limit' => self::ENTITY_LIMIT,
                 'response_ok' => $campaignOk,
+                'metrics_usable' => $campaignOk,
                 'status_code' => $campaignInsights['status_code'],
-                'truncated' => $campaignInsights['truncated'] || $campaignMeta['truncated'],
-                'hierarchy_note' => 'Campaign metrics must not be summed with adset/ad levels.',
+                'truncated' => $campaignInsights['truncated'] || ($campaignMeta['truncated'] ?? false),
+                'metadata_join' => [
+                    'requested_ids' => count($campaignIds),
+                    'joined' => $campaignMeta['joined'] ?? 0,
+                    'missed' => $campaignMeta['missed'] ?? 0,
+                ],
+                'hierarchy_note' => 'Campaign metrics must not be summed with adset/ad levels. Joins use campaign provider IDs only.',
+                'delivery_filter' => 'impressions GREATER_THAN 0; sort spend_descending',
             ], $observedAt);
 
-            $adsetMeta = $this->fetchAdsetMeta($integration, $actId);
+            // Ad sets
             $adsetInsights = $this->fetchInsights($integration, $actId, 'adset', $periods['current']);
+            $adsetIds = $this->insightIds($adsetInsights['rows'], 'adset_id');
+            $adsetMeta = $this->fetchEntityMetaByIds(
+                $integration,
+                $actId.'/adsets',
+                $adsetIds,
+                'id,name,campaign_id,status,effective_status,optimization_goal,billing_event,destination_type,daily_budget,lifetime_budget,attribution_spec',
+            );
             $adsetOk = $adsetInsights['ok'];
+            $collectionStages['adset_insights'] = $this->stageFromFetch(
+                'adset_insights',
+                $adsetInsights,
+                $this->stageStatus($adsetInsights, $adsetMeta),
+                count($adsetInsights['rows']),
+            );
+            $collectionStages['adset_metadata'] = $this->stageFromMeta('adset_metadata', $adsetMeta, count($adsetIds));
             if (! $adsetOk) {
                 $partialReasons[] = 'adset_insights: '.($adsetInsights['error'] ?? 'failed');
             }
-            $adsetRows = $this->mergeAdsetRows($adsetInsights['rows'], $adsetMeta['by_id'], $campaignMeta['by_id']);
+            if ($adsetInsights['truncated']) {
+                $partialReasons[] = 'adset_insights: truncated';
+            }
+            if (($adsetMeta['missed'] ?? 0) > 0) {
+                $partialReasons[] = 'adset_metadata: '.$adsetMeta['missed'].' provider-id join miss(es)';
+            }
+
+            $adsetRows = $adsetOk
+                ? $this->mergeAdsetRows($adsetInsights['rows'], $adsetMeta['by_id'], $campaignMeta['by_id'])
+                : [];
             $this->storeEvidence($run, $asset->id, self::EVIDENCE_ADSET_PERFORMANCE, 'Meta Ads ad set performance', [
                 ...$baseMeta,
                 'rows' => $adsetRows,
                 'row_count' => count($adsetRows),
                 'row_limit' => self::ENTITY_LIMIT,
                 'response_ok' => $adsetOk,
+                'metrics_usable' => $adsetOk,
                 'status_code' => $adsetInsights['status_code'],
-                'truncated' => $adsetInsights['truncated'] || $adsetMeta['truncated'],
-                'hierarchy_note' => 'Ad set metrics must not be summed with campaign/ad levels.',
+                'truncated' => $adsetInsights['truncated'] || ($adsetMeta['truncated'] ?? false),
+                'metadata_join' => [
+                    'requested_ids' => count($adsetIds),
+                    'joined' => $adsetMeta['joined'] ?? 0,
+                    'missed' => $adsetMeta['missed'] ?? 0,
+                ],
+                'hierarchy_note' => 'Ad set metrics must not be summed with campaign/ad levels. Joins use adset provider IDs only.',
+                'delivery_filter' => 'impressions GREATER_THAN 0; sort spend_descending',
             ], $observedAt);
 
-            $adMeta = $this->fetchAdMeta($integration, $actId);
+            // Ads
             $adInsights = $this->fetchInsights($integration, $actId, 'ad', $periods['current']);
+            $adIds = $this->insightIds($adInsights['rows'], 'ad_id');
+            $adMeta = $this->fetchEntityMetaByIds(
+                $integration,
+                $actId.'/ads',
+                $adIds,
+                'id,name,adset_id,campaign_id,status,effective_status,creative{id,name}',
+                true,
+            );
             $adOk = $adInsights['ok'];
+            $collectionStages['ad_insights'] = $this->stageFromFetch(
+                'ad_insights',
+                $adInsights,
+                $this->stageStatus($adInsights, $adMeta),
+                count($adInsights['rows']),
+            );
+            $collectionStages['ad_metadata'] = $this->stageFromMeta('ad_metadata', $adMeta, count($adIds));
             if (! $adOk) {
                 $partialReasons[] = 'ad_insights: '.($adInsights['error'] ?? 'failed');
             }
-            $adRows = $this->mergeAdRows($adInsights['rows'], $adMeta['by_id'], $adsetMeta['by_id'], $campaignMeta['by_id']);
+            if ($adInsights['truncated']) {
+                $partialReasons[] = 'ad_insights: truncated';
+            }
+            if (($adMeta['missed'] ?? 0) > 0) {
+                $partialReasons[] = 'ad_metadata: '.$adMeta['missed'].' provider-id join miss(es)';
+            }
+
+            $adRows = $adOk
+                ? $this->mergeAdRows($adInsights['rows'], $adMeta['by_id'], $adsetMeta['by_id'], $campaignMeta['by_id'])
+                : [];
             $this->storeEvidence($run, $asset->id, self::EVIDENCE_AD_PERFORMANCE, 'Meta Ads ad performance', [
                 ...$baseMeta,
                 'rows' => $adRows,
                 'row_count' => count($adRows),
                 'row_limit' => self::ENTITY_LIMIT,
                 'response_ok' => $adOk,
+                'metrics_usable' => $adOk,
                 'status_code' => $adInsights['status_code'],
-                'truncated' => $adInsights['truncated'] || $adMeta['truncated'],
-                'hierarchy_note' => 'Ad metrics must not be summed with campaign/adset levels. Creative identity is separate.',
+                'truncated' => $adInsights['truncated'] || ($adMeta['truncated'] ?? false),
+                'metadata_join' => [
+                    'requested_ids' => count($adIds),
+                    'joined' => $adMeta['joined'] ?? 0,
+                    'missed' => $adMeta['missed'] ?? 0,
+                ],
+                'hierarchy_note' => 'Ad metrics must not be summed with campaign/adset levels. Creative identity is separate. Joins use ad provider IDs only.',
+                'delivery_filter' => 'impressions GREATER_THAN 0; sort spend_descending',
             ], $observedAt);
 
             $creativeIds = [];
-            foreach ($adMeta['by_id'] as $ad) {
-                $cid = $ad['creative_id'] ?? null;
+            foreach ($adRows as $adRow) {
+                $cid = $adRow['creative_id'] ?? null;
                 if (is_string($cid) && $cid !== '') {
                     $creativeIds[$cid] = true;
                 }
             }
-            $creativeFetch = $this->fetchCreatives($integration, array_keys($creativeIds));
-            if (! $creativeFetch['ok']) {
-                $partialReasons[] = 'creative_metadata: '.($creativeFetch['error'] ?? 'failed');
+            if (! $adOk) {
+                $creativeFetch = [
+                    'ok' => false,
+                    'status_code' => null,
+                    'rows' => [],
+                    'truncated' => false,
+                    'error' => 'Skipped — ad stage incomplete',
+                    'error_category' => 'dependent_stage',
+                    'pages_fetched' => 0,
+                ];
+                $collectionStages['creative_metadata'] = [
+                    'status' => 'unavailable',
+                    'provider_request_stage' => 'creative_metadata',
+                    'record_count' => 0,
+                    'pages_fetched' => 0,
+                    'truncated' => false,
+                    'error_category' => 'dependent_stage',
+                    'error_safe' => 'Skipped — ad stage incomplete',
+                ];
+                $partialReasons[] = 'creative_metadata: unavailable — dependent stage incomplete';
+            } else {
+                $creativeFetch = $this->fetchCreatives($integration, array_keys($creativeIds));
+                $collectionStages['creative_metadata'] = $this->stageFromFetch(
+                    'creative_metadata',
+                    $creativeFetch,
+                    $creativeFetch['ok']
+                        ? (($creativeFetch['truncated'] ?? false) ? 'partial' : 'completed')
+                        : ($creativeFetch['rows'] !== [] ? 'partial' : 'failed'),
+                    count($creativeFetch['rows']),
+                );
+                if (! $creativeFetch['ok']) {
+                    $partialReasons[] = 'creative_metadata: '.($creativeFetch['error'] ?? 'failed');
+                }
+                if ($creativeFetch['truncated']) {
+                    $partialReasons[] = 'creative_metadata: truncated at '.self::CREATIVE_LIMIT;
+                }
             }
+
             $this->storeEvidence($run, $asset->id, self::EVIDENCE_CREATIVE_METADATA, 'Meta Ads creative metadata', [
                 ...$baseMeta,
                 'rows' => $creativeFetch['rows'],
                 'row_count' => count($creativeFetch['rows']),
                 'row_limit' => self::CREATIVE_LIMIT,
                 'response_ok' => $creativeFetch['ok'],
+                'metrics_usable' => false,
+                'metadata_usable' => $creativeFetch['ok'] && $creativeFetch['rows'] !== [],
                 'status_code' => $creativeFetch['status_code'],
                 'truncated' => $creativeFetch['truncated'],
                 'media_downloaded' => false,
@@ -260,6 +423,7 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
                 'finished_at' => now(),
                 'metadata' => array_merge($run->metadata ?? [], [
                     'partial_reasons' => $partialReasons,
+                    'collection_stages' => $collectionStages,
                     'levels' => [
                         'account' => $accountOk,
                         'campaign' => $campaignOk,
@@ -283,6 +447,7 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
                         ? $exception->getMessage()
                         : class_basename($exception),
                     'error_kind' => $exception instanceof MetaException ? $exception->kind : 'exception',
+                    'collection_stages' => $collectionStages,
                 ]),
             ]);
         }
@@ -302,14 +467,14 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
 
     /**
      * @param  array{start: string, end: string}  $period
-     * @return array{ok: bool, status_code: ?int, rows: list<array<string, mixed>>, truncated: bool, error: ?string, pages_fetched: int}
+     * @return array{ok: bool, status_code: ?int, rows: list<array<string, mixed>>, truncated: bool, error: ?string, error_category: ?string, pages_fetched: int}
      */
     private function fetchInsights(CoreIntegration $integration, string $actId, string $level, array $period): array
     {
         $query = [
             'fields' => self::INSIGHT_FIELDS,
             'level' => $level,
-            'limit' => self::ENTITY_LIMIT,
+            'limit' => $level === 'account' ? 1 : self::ENTITY_LIMIT,
             'time_range' => json_encode([
                 'since' => $period['start'],
                 'until' => $period['end'],
@@ -317,73 +482,79 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
             'use_unified_attribution_setting' => 'true',
         ];
 
-        return $this->paginate($integration, $actId.'/insights', $query, self::ENTITY_LIMIT);
+        // Delivered-in-period entities: sort by spend so the ENTITY_LIMIT cap keeps material rows.
+        // Official Insights supports sort + filtering (Marketing API Insights parameters).
+        if ($level !== 'account') {
+            $query['sort'] = json_encode(['spend_descending'], JSON_THROW_ON_ERROR);
+            $query['filtering'] = json_encode([
+                ['field' => 'impressions', 'operator' => 'GREATER_THAN', 'value' => 0],
+            ], JSON_THROW_ON_ERROR);
+        }
+
+        $result = $this->paginate(
+            $integration,
+            $actId.'/insights',
+            $query,
+            $level === 'account' ? 1 : self::ENTITY_LIMIT,
+            softCapTruncation: $level !== 'account',
+        );
+
+        // If filtering is rejected by provider, retry with sort only (still prefer material spend order).
+        if (! $result['ok'] && $level !== 'account' && ($result['error_category'] ?? null) === MetaException::KIND_PROVIDER) {
+            unset($query['filtering']);
+            $retry = $this->paginate(
+                $integration,
+                $actId.'/insights',
+                $query,
+                self::ENTITY_LIMIT,
+                softCapTruncation: true,
+            );
+            if ($retry['ok']) {
+                $retry['error'] = 'impressions filter rejected; retried with sort only';
+                $retry['error_category'] = 'filter_fallback';
+
+                return $retry;
+            }
+        }
+
+        return $result;
     }
 
     /**
-     * @return array{ok: bool, by_id: array<string, array<string, mixed>>, truncated: bool, error: ?string}
+     * Fetch entity metadata for the exact provider IDs returned by Insights.
+     * Never joins by name / row order / display label.
+     *
+     * @param  list<string>  $ids
+     * @return array{ok: bool, by_id: array<string, array<string, mixed>>, truncated: bool, error: ?string, error_category: ?string, joined: int, missed: int, pages_fetched: int}
      */
-    private function fetchCampaignMeta(CoreIntegration $integration, string $actId): array
-    {
-        $fetch = $this->paginate($integration, $actId.'/campaigns', [
-            'fields' => 'id,name,status,effective_status,objective,buying_type',
-            'limit' => self::ENTITY_LIMIT,
+    private function fetchEntityMetaByIds(
+        CoreIntegration $integration,
+        string $path,
+        array $ids,
+        string $fields,
+        bool $adsCreativeShape = false,
+    ): array {
+        $ids = array_values(array_unique(array_filter($ids, fn (string $id): bool => $id !== '')));
+        if ($ids === []) {
+            return [
+                'ok' => true,
+                'by_id' => [],
+                'truncated' => false,
+                'error' => null,
+                'error_category' => null,
+                'joined' => 0,
+                'missed' => 0,
+                'pages_fetched' => 0,
+            ];
+        }
+
+        $fetch = $this->paginate($integration, $path, [
+            'fields' => $fields,
+            'limit' => count($ids),
             'filtering' => json_encode([
-                ['field' => 'effective_status', 'operator' => 'IN', 'value' => ['ACTIVE', 'PAUSED', 'ARCHIVED', 'CAMPAIGN_PAUSED']],
+                ['field' => 'id', 'operator' => 'IN', 'value' => $ids],
             ], JSON_THROW_ON_ERROR),
-        ], self::ENTITY_LIMIT);
-
-        $byId = [];
-        foreach ($fetch['rows'] as $row) {
-            $id = (string) ($row['id'] ?? '');
-            if ($id !== '') {
-                $byId[$id] = $row;
-            }
-        }
-
-        return [
-            'ok' => $fetch['ok'],
-            'by_id' => $byId,
-            'truncated' => $fetch['truncated'],
-            'error' => $fetch['error'],
-        ];
-    }
-
-    /**
-     * @return array{ok: bool, by_id: array<string, array<string, mixed>>, truncated: bool, error: ?string}
-     */
-    private function fetchAdsetMeta(CoreIntegration $integration, string $actId): array
-    {
-        $fetch = $this->paginate($integration, $actId.'/adsets', [
-            'fields' => 'id,name,campaign_id,status,effective_status,optimization_goal,billing_event,destination_type,daily_budget,lifetime_budget,attribution_spec',
-            'limit' => self::ENTITY_LIMIT,
-        ], self::ENTITY_LIMIT);
-
-        $byId = [];
-        foreach ($fetch['rows'] as $row) {
-            $id = (string) ($row['id'] ?? '');
-            if ($id !== '') {
-                $byId[$id] = $row;
-            }
-        }
-
-        return [
-            'ok' => $fetch['ok'],
-            'by_id' => $byId,
-            'truncated' => $fetch['truncated'],
-            'error' => $fetch['error'],
-        ];
-    }
-
-    /**
-     * @return array{ok: bool, by_id: array<string, array<string, mixed>>, truncated: bool, error: ?string}
-     */
-    private function fetchAdMeta(CoreIntegration $integration, string $actId): array
-    {
-        $fetch = $this->paginate($integration, $actId.'/ads', [
-            'fields' => 'id,name,adset_id,campaign_id,status,effective_status,creative{id,name}',
-            'limit' => self::ENTITY_LIMIT,
-        ], self::ENTITY_LIMIT);
+        ], count($ids));
 
         $byId = [];
         foreach ($fetch['rows'] as $row) {
@@ -391,12 +562,26 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
             if ($id === '') {
                 continue;
             }
-            $creative = is_array($row['creative'] ?? null) ? $row['creative'] : [];
-            $byId[$id] = [
-                ...$row,
-                'creative_id' => isset($creative['id']) ? (string) $creative['id'] : null,
-                'creative_name' => isset($creative['name']) ? (string) $creative['name'] : null,
-            ];
+            if ($adsCreativeShape) {
+                $creative = is_array($row['creative'] ?? null) ? $row['creative'] : [];
+                $byId[$id] = [
+                    ...$row,
+                    'creative_id' => isset($creative['id']) ? (string) $creative['id'] : null,
+                    'creative_name' => isset($creative['name']) ? (string) $creative['name'] : null,
+                ];
+            } else {
+                $byId[$id] = $row;
+            }
+        }
+
+        $joined = 0;
+        $missed = 0;
+        foreach ($ids as $id) {
+            if (isset($byId[$id])) {
+                $joined++;
+            } else {
+                $missed++;
+            }
         }
 
         return [
@@ -404,12 +589,16 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
             'by_id' => $byId,
             'truncated' => $fetch['truncated'],
             'error' => $fetch['error'],
+            'error_category' => $fetch['error_category'] ?? null,
+            'joined' => $joined,
+            'missed' => $missed,
+            'pages_fetched' => $fetch['pages_fetched'],
         ];
     }
 
     /**
      * @param  list<string>  $creativeIds
-     * @return array{ok: bool, status_code: ?int, rows: list<array<string, mixed>>, truncated: bool, error: ?string}
+     * @return array{ok: bool, status_code: ?int, rows: list<array<string, mixed>>, truncated: bool, error: ?string, error_category: ?string, pages_fetched: int}
      */
     private function fetchCreatives(CoreIntegration $integration, array $creativeIds): array
     {
@@ -419,12 +608,15 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
         $ok = true;
         $status = 200;
         $error = null;
+        $errorCategory = null;
+        $pages = 0;
 
         foreach ($ids as $id) {
             try {
                 $payload = $this->client->get($integration, $id, [
                     'fields' => 'id,name,title,body,call_to_action_type,link_url,thumbnail_url,object_type,status',
                 ]);
+                $pages++;
                 $rows[] = [
                     'creative_id' => (string) ($payload['id'] ?? $id),
                     'creative_name' => $this->boundText($payload['name'] ?? null),
@@ -442,6 +634,7 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
                 $ok = false;
                 $status = $exception->httpStatus;
                 $error = $exception->getMessage();
+                $errorCategory = $exception->kind;
             }
         }
 
@@ -451,15 +644,22 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
             'rows' => $rows,
             'truncated' => $truncated,
             'error' => $error,
+            'error_category' => $errorCategory,
+            'pages_fetched' => $pages,
         ];
     }
 
     /**
      * @param  array<string, scalar>  $query
-     * @return array{ok: bool, status_code: ?int, rows: list<array<string, mixed>>, truncated: bool, error: ?string, pages_fetched: int}
+     * @return array{ok: bool, status_code: ?int, rows: list<array<string, mixed>>, truncated: bool, error: ?string, error_category: ?string, pages_fetched: int}
      */
-    private function paginate(CoreIntegration $integration, string $path, array $query, int $limit): array
-    {
+    private function paginate(
+        CoreIntegration $integration,
+        string $path,
+        array $query,
+        int $limit,
+        bool $softCapTruncation = false,
+    ): array {
         $rows = [];
         $pages = 0;
         $status = 200;
@@ -492,7 +692,8 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
                 $next = is_string(data_get($payload, 'paging.next')) ? (string) data_get($payload, 'paging.next') : null;
             }
 
-            if ($next !== null || count($rows) >= $limit) {
+            // Truncation: more pages remain, or soft entity cap filled (Insights list), or overflow.
+            if ($next !== null || count($rows) > $limit || ($softCapTruncation && count($rows) >= $limit)) {
                 $truncated = true;
             }
 
@@ -504,6 +705,7 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
                 'rows' => $rows,
                 'truncated' => $truncated,
                 'error' => null,
+                'error_category' => null,
                 'pages_fetched' => $pages,
             ];
         } catch (MetaException $exception) {
@@ -513,6 +715,7 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
                 'rows' => $rows,
                 'truncated' => $truncated,
                 'error' => $exception->getMessage(),
+                'error_category' => $exception->kind,
                 'pages_fetched' => $pages,
             ];
         }
@@ -524,14 +727,40 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
      */
     private function normalizeInsightRow(array $row, ?string $fallbackCurrency = null, ?string $objective = null, ?string $optimizationGoal = null, ?string $destinationType = null): array
     {
+        // Empty provider row → no fabricated zeros.
+        if ($row === []) {
+            return [
+                'account_currency' => $fallbackCurrency,
+                'impressions' => null,
+                'reach' => null,
+                'frequency' => null,
+                'clicks' => null,
+                'inline_link_clicks' => null,
+                'outbound_clicks' => null,
+                'ctr' => null,
+                'inline_link_click_ctr' => null,
+                'outbound_clicks_ctr' => null,
+                'cpc' => null,
+                'cpm' => null,
+                'cost_per_inline_link_click' => null,
+                'spend' => null,
+                'actions' => [],
+                'attribution_setting' => null,
+                'date_start' => null,
+                'date_stop' => null,
+                'primary_result' => MetaResultResolver::resolve([], $objective, $optimizationGoal, null, null, $destinationType, null),
+                'provider_cost_per_action_sample' => null,
+                'metrics_available' => false,
+            ];
+        }
+
         $actions = MetaActionNormalizer::normalize($row['actions'] ?? [], $row['action_values'] ?? null);
-        $spend = $this->toFloat($row['spend'] ?? null);
+        $spend = array_key_exists('spend', $row) ? $this->toFloat($row['spend']) : null;
         $attributionSetting = isset($row['attribution_setting']) ? (string) $row['attribution_setting'] : null;
         $providerCpa = null;
         if (is_array($row['cost_per_action_type'] ?? null)) {
             foreach ($row['cost_per_action_type'] as $cpaRow) {
                 if (is_array($cpaRow) && isset($cpaRow['value']) && is_numeric($cpaRow['value'])) {
-                    // Keep first provider CPA only as optional provenance; resolver decides usage.
                     $providerCpa = (float) $cpaRow['value'];
                     break;
                 }
@@ -542,18 +771,24 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
 
         return [
             'account_currency' => isset($row['account_currency']) ? (string) $row['account_currency'] : $fallbackCurrency,
-            'impressions' => $this->toFloat($row['impressions'] ?? null),
-            'reach' => $this->toFloat($row['reach'] ?? null),
-            'frequency' => $this->toFloat($row['frequency'] ?? null),
-            'clicks' => $this->toFloat($row['clicks'] ?? null),
-            'inline_link_clicks' => $this->toFloat($row['inline_link_clicks'] ?? null),
-            'outbound_clicks' => $this->extractActionListMetric($row['outbound_clicks'] ?? null, 'outbound_click'),
-            'ctr' => $this->toFloat($row['ctr'] ?? null),
-            'inline_link_click_ctr' => $this->toFloat($row['inline_link_click_ctr'] ?? null),
-            'outbound_clicks_ctr' => $this->extractActionListMetric($row['outbound_clicks_ctr'] ?? null, 'outbound_click'),
-            'cpc' => $this->toFloat($row['cpc'] ?? null),
-            'cpm' => $this->toFloat($row['cpm'] ?? null),
-            'cost_per_inline_link_click' => $this->toFloat($row['cost_per_inline_link_click'] ?? null),
+            'impressions' => array_key_exists('impressions', $row) ? $this->toFloat($row['impressions']) : null,
+            'reach' => array_key_exists('reach', $row) ? $this->toFloat($row['reach']) : null,
+            'frequency' => array_key_exists('frequency', $row) ? $this->toFloat($row['frequency']) : null,
+            'clicks' => array_key_exists('clicks', $row) ? $this->toFloat($row['clicks']) : null,
+            'inline_link_clicks' => array_key_exists('inline_link_clicks', $row) ? $this->toFloat($row['inline_link_clicks']) : null,
+            'outbound_clicks' => array_key_exists('outbound_clicks', $row)
+                ? $this->extractActionListMetric($row['outbound_clicks'], 'outbound_click')
+                : null,
+            'ctr' => array_key_exists('ctr', $row) ? $this->toFloat($row['ctr']) : null,
+            'inline_link_click_ctr' => array_key_exists('inline_link_click_ctr', $row) ? $this->toFloat($row['inline_link_click_ctr']) : null,
+            'outbound_clicks_ctr' => array_key_exists('outbound_clicks_ctr', $row)
+                ? $this->extractActionListMetric($row['outbound_clicks_ctr'], 'outbound_click')
+                : null,
+            'cpc' => array_key_exists('cpc', $row) ? $this->toFloat($row['cpc']) : null,
+            'cpm' => array_key_exists('cpm', $row) ? $this->toFloat($row['cpm']) : null,
+            'cost_per_inline_link_click' => array_key_exists('cost_per_inline_link_click', $row)
+                ? $this->toFloat($row['cost_per_inline_link_click'])
+                : null,
             'spend' => $spend,
             'actions' => $actions,
             'attribution_setting' => $attributionSetting,
@@ -561,6 +796,7 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
             'date_stop' => isset($row['date_stop']) ? (string) $row['date_stop'] : null,
             'primary_result' => $primary,
             'provider_cost_per_action_sample' => $providerCpa,
+            'metrics_available' => true,
         ];
     }
 
@@ -578,6 +814,7 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
                 continue;
             }
             $meta = $metaById[$id] ?? [];
+            $metadataJoined = $meta !== [];
             $objective = isset($meta['objective']) ? (string) $meta['objective'] : null;
             $metrics = $this->normalizeInsightRow($row, null, $objective, null);
             $out[] = [
@@ -587,11 +824,17 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
                 'effective_status' => isset($meta['effective_status']) ? (string) $meta['effective_status'] : null,
                 'objective' => $objective,
                 'buying_type' => isset($meta['buying_type']) ? (string) $meta['buying_type'] : null,
+                'metadata_joined' => $metadataJoined,
                 ...$metrics,
             ];
         }
 
-        usort($out, fn (array $a, array $b): int => (($b['spend'] ?? 0) <=> ($a['spend'] ?? 0)));
+        usort($out, function (array $a, array $b): int {
+            $spendA = is_numeric($a['spend'] ?? null) ? (float) $a['spend'] : -1.0;
+            $spendB = is_numeric($b['spend'] ?? null) ? (float) $b['spend'] : -1.0;
+
+            return $spendB <=> $spendA;
+        });
 
         return array_slice($out, 0, self::ENTITY_LIMIT);
     }
@@ -626,14 +869,20 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
                 'optimization_goal' => $optimization,
                 'billing_event' => isset($meta['billing_event']) ? (string) $meta['billing_event'] : null,
                 'destination_type' => isset($meta['destination_type']) ? (string) $meta['destination_type'] : null,
-                'daily_budget' => $this->toFloat($meta['daily_budget'] ?? null),
-                'lifetime_budget' => $this->toFloat($meta['lifetime_budget'] ?? null),
+                'daily_budget' => array_key_exists('daily_budget', $meta) ? $this->toFloat($meta['daily_budget']) : null,
+                'lifetime_budget' => array_key_exists('lifetime_budget', $meta) ? $this->toFloat($meta['lifetime_budget']) : null,
                 'attribution_spec' => is_array($meta['attribution_spec'] ?? null) ? $meta['attribution_spec'] : null,
+                'metadata_joined' => $meta !== [],
                 ...$metrics,
             ];
         }
 
-        usort($out, fn (array $a, array $b): int => (($b['spend'] ?? 0) <=> ($a['spend'] ?? 0)));
+        usort($out, function (array $a, array $b): int {
+            $spendA = is_numeric($a['spend'] ?? null) ? (float) $a['spend'] : -1.0;
+            $spendB = is_numeric($b['spend'] ?? null) ? (float) $b['spend'] : -1.0;
+
+            return $spendB <=> $spendA;
+        });
 
         return array_slice($out, 0, self::ENTITY_LIMIT);
     }
@@ -673,13 +922,98 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
                 'destination_type' => $destinationType,
                 'creative_id' => $meta['creative_id'] ?? null,
                 'creative_name' => $this->boundText($meta['creative_name'] ?? null),
+                'metadata_joined' => $meta !== [],
                 ...$metrics,
             ];
         }
 
-        usort($out, fn (array $a, array $b): int => (($b['spend'] ?? 0) <=> ($a['spend'] ?? 0)));
+        usort($out, function (array $a, array $b): int {
+            $spendA = is_numeric($a['spend'] ?? null) ? (float) $a['spend'] : -1.0;
+            $spendB = is_numeric($b['spend'] ?? null) ? (float) $b['spend'] : -1.0;
+
+            return $spendB <=> $spendA;
+        });
 
         return array_slice($out, 0, self::ENTITY_LIMIT);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     * @return list<string>
+     */
+    private function insightIds(array $rows, string $key): array
+    {
+        $ids = [];
+        foreach ($rows as $row) {
+            $id = (string) ($row[$key] ?? '');
+            if ($id !== '') {
+                $ids[] = $id;
+            }
+        }
+
+        return array_values(array_unique($ids));
+    }
+
+    /**
+     * @param  array{ok: bool, truncated?: bool, error?: ?string, error_category?: ?string, pages_fetched?: int}  $fetch
+     * @param  array{ok?: bool, missed?: int}|null  $meta
+     */
+    private function stageStatus(array $fetch, ?array $meta = null): string
+    {
+        if (! ($fetch['ok'] ?? false)) {
+            return ($fetch['rows'] ?? []) !== [] ? 'partial' : 'failed';
+        }
+        if (($fetch['truncated'] ?? false) || (($meta['missed'] ?? 0) > 0) || (($meta['ok'] ?? true) === false)) {
+            return 'partial';
+        }
+
+        return 'completed';
+    }
+
+    /**
+     * @param  array{ok: bool, truncated?: bool, error?: ?string, error_category?: ?string, pages_fetched?: int}  $fetch
+     * @return array<string, mixed>
+     */
+    private function stageFromFetch(string $stage, array $fetch, string $status, int $recordCount): array
+    {
+        return [
+            'status' => $status,
+            'provider_request_stage' => $stage,
+            'record_count' => $recordCount,
+            'pages_fetched' => $fetch['pages_fetched'] ?? 0,
+            'truncated' => (bool) ($fetch['truncated'] ?? false),
+            'error_category' => $fetch['error_category'] ?? null,
+            'error_safe' => $fetch['error'] ?? null,
+        ];
+    }
+
+    /**
+     * @param  array{ok: bool, joined?: int, missed?: int, truncated?: bool, error?: ?string, error_category?: ?string, pages_fetched?: int}  $meta
+     * @return array<string, mixed>
+     */
+    private function stageFromMeta(string $stage, array $meta, int $requested): array
+    {
+        $status = 'completed';
+        if (! ($meta['ok'] ?? false) && $requested > 0) {
+            $status = ($meta['joined'] ?? 0) > 0 ? 'partial' : 'failed';
+        } elseif (($meta['missed'] ?? 0) > 0 || ($meta['truncated'] ?? false)) {
+            $status = 'partial';
+        } elseif ($requested === 0) {
+            $status = 'completed';
+        }
+
+        return [
+            'status' => $status,
+            'provider_request_stage' => $stage,
+            'record_count' => $meta['joined'] ?? 0,
+            'requested_ids' => $requested,
+            'joined' => $meta['joined'] ?? 0,
+            'missed' => $meta['missed'] ?? 0,
+            'pages_fetched' => $meta['pages_fetched'] ?? 0,
+            'truncated' => (bool) ($meta['truncated'] ?? false),
+            'error_category' => $meta['error_category'] ?? null,
+            'error_safe' => $meta['error'] ?? null,
+        ];
     }
 
     /**
@@ -695,15 +1029,15 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
         ];
         $out = [];
         foreach ($keys as $metric) {
+            $currentValue = array_key_exists($metric, $current) && is_numeric($current[$metric])
+                ? (float) $current[$metric]
+                : null;
+            $previousValue = array_key_exists($metric, $previous) && is_numeric($previous[$metric])
+                ? (float) $previous[$metric]
+                : null;
             $out[$metric] = [
-                'absolute' => ComparisonPeriod::absoluteDelta(
-                    isset($current[$metric]) && is_numeric($current[$metric]) ? (float) $current[$metric] : null,
-                    isset($previous[$metric]) && is_numeric($previous[$metric]) ? (float) $previous[$metric] : null,
-                ),
-                'percent' => ComparisonPeriod::percentDelta(
-                    isset($current[$metric]) && is_numeric($current[$metric]) ? (float) $current[$metric] : null,
-                    isset($previous[$metric]) && is_numeric($previous[$metric]) ? (float) $previous[$metric] : null,
-                ),
+                'absolute' => ComparisonPeriod::absoluteDelta($currentValue, $previousValue),
+                'percent' => ComparisonPeriod::percentDelta($currentValue, $previousValue),
             ];
         }
 

@@ -64,12 +64,22 @@ final class MetaAdsAiGuidanceService
             );
         }
 
-        $evidenceTypes = collect($built['context']['evidence'] ?? [])
-            ->pluck('type')
-            ->filter(fn (mixed $type): bool => is_string($type) && $type !== '')
-            ->unique()
-            ->values()
-            ->all();
+        $evidenceTypes = $built['trustworthy_evidence_types']
+            ?? collect($built['context']['trustworthy_evidence_types'] ?? [])
+                ->filter(fn (mixed $type): bool => is_string($type) && $type !== '')
+                ->values()
+                ->all();
+
+        if ($evidenceTypes === []) {
+            // Fallback: only types that passed the coverage gate inside context.
+            $evidenceTypes = collect($built['context']['evidence'] ?? [])
+                ->filter(fn (mixed $row): bool => is_array($row) && ($row['ai_trustworthy'] ?? true) === true)
+                ->pluck('type')
+                ->filter(fn (mixed $type): bool => is_string($type) && $type !== '')
+                ->unique()
+                ->values()
+                ->all();
+        }
 
         $assembled = $this->skillAssembler->assemble($profile, $evidenceTypes, [
             'brand_context' => ! empty($built['context']['brand_intelligence']),

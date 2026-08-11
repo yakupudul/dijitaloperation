@@ -16,6 +16,7 @@ use MoxDop\MetaAds\Ai\MetaAdsAiGuidanceConfig;
 use MoxDop\MetaAds\Ai\MetaAdsAiGuidanceService;
 use MoxDop\MetaAds\Collection\MetaAdsBoundCollector;
 use MoxDop\MetaAds\Normalization\MetaActionNormalizer;
+use MoxDop\MetaAds\Normalization\MetaResultResolver;
 use MoxDop\MetaAds\Support\MetaAdsWorkspaceData as MetaAdsConnectionSummary;
 
 /**
@@ -94,6 +95,10 @@ final class MetaAdsWorkspaceData
             'workspace_state' => $this->workspaceState($connectionSummary, $account, $campaigns, $latestRun, $dataCoverage),
             'kpis' => $this->accountKpis($account, $comparison['available'] === true),
             'primary_result' => $this->primaryResultSummary($account),
+            'result_mix' => $this->resultMixSummary($account),
+            'collection_stages' => is_array($latestRun?->metadata['collection_stages'] ?? null)
+                ? $latestRun->metadata['collection_stages']
+                : [],
             'campaigns' => $campaignRows,
             'adsets' => $this->boundedEntityRows($adsets),
             'ads' => $this->boundedEntityRows($ads),
@@ -194,7 +199,17 @@ final class MetaAdsWorkspaceData
             return 'Partial';
         }
 
+        if (data_get($evidence->payload, 'metrics_usable') === false
+            && data_get($evidence->payload, 'metadata_usable') !== true) {
+            return 'Unavailable';
+        }
+
         if ((bool) data_get($evidence->payload, 'truncated')) {
+            return 'Partial';
+        }
+
+        $missed = (int) data_get($evidence->payload, 'metadata_join.missed', 0);
+        if ($missed > 0) {
             return 'Partial';
         }
 
@@ -390,6 +405,43 @@ final class MetaAdsWorkspaceData
             'reason' => $primary['reason'] ?? null,
             'diagnostic' => is_array($primary['diagnostic'] ?? null) ? $primary['diagnostic'] : [],
         ];
+    }
+
+    /**
+     * Account Overview Result Mix — never a blind sum of unrelated actions.
+     *
+     * @return array{mode: string, items: list<array<string, mixed>>, blind_action_sum: bool, note: ?string}|null
+     */
+    private function resultMixSummary(?Evidence $account): ?array
+    {
+        if ($account === null) {
+            return null;
+        }
+
+        $mix = data_get($account->payload, 'result_mix');
+        if (is_array($mix) && is_array($mix['items'] ?? null)) {
+            return [
+                'mode' => (string) ($mix['mode'] ?? 'result_mix'),
+                'items' => array_values(array_filter($mix['items'], fn (mixed $item): bool => is_array($item))),
+                'blind_action_sum' => false,
+                'note' => isset($mix['note']) ? (string) $mix['note'] : null,
+            ];
+        }
+
+        $actions = data_get($account->payload, 'actions');
+        if (! is_array($actions)) {
+            $actions = data_get($account->payload, 'current.actions');
+        }
+        if (! is_array($actions)) {
+            return [
+                'mode' => 'result_mix',
+                'items' => [],
+                'blind_action_sum' => false,
+                'note' => 'No Meta actions observed for Result Mix.',
+            ];
+        }
+
+        return MetaResultResolver::resultMix($actions);
     }
 
     /**
