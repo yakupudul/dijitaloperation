@@ -28,19 +28,20 @@ Last updated: 2026-08-10
 | **Google Ads Intelligence + Analyst V1** | **IMPLEMENTED V1** — Google Ads Analyst + Skills + search-term/measurement Evidence + `google_ads.ai_guidance`; `docs/product/google-ads/GOOGLE_ADS_INTELLIGENCE.md` |
 | **Operational Recommendation → Task → Outcome Loop V1** | **IMPLEMENTED V1** — Finding → Recommendation → Task → human completion → observed Outcome signal; `docs/product/OPERATIONAL_OUTCOME_LOOP.md` |
 | **Discovery Intelligence V1** | **IMPLEMENTED V1** — bounded public Website discovery + Evidence + Brand candidates (fact/inference) + human Accept/Edit/Ignore + optional DataForSEO competitor candidates; `docs/product/DISCOVERY_INTELLIGENCE.md` |
-| **Meta Ads Central Integration + Resource Binding V1** | **IMPLEMENTED V1** — agency Meta Integration + Ad Account ExternalResources + Meta Ads Digital Asset binding; `docs/product/meta-ads/META_ADS_INTEGRATION.md` (real Meta Integration + resource discovery + binding UAT: **PASS**; Insights not implemented) |
-| Next milestone | **TO BE SELECTED** after reviewing Meta connection V1 (candidates below — do not auto-start) |
+| **Meta Ads Central Integration + Resource Binding V1** | **IMPLEMENTED V1** — agency Meta Integration + Ad Account ExternalResources + Meta Ads Digital Asset binding; `docs/product/meta-ads/META_ADS_INTEGRATION.md` (real Meta Integration + resource discovery + binding UAT: **PASS**) |
+| **Meta Ads Intelligence + Analyst V1** | **IMPLEMENTED V1** — bound Insights collection + Evidence + Findings + Meta Ads Analyst/Skills + `meta_ads.ai_guidance`; `docs/product/meta-ads/META_ADS_INTELLIGENCE.md` |
+| Next milestone | **TO BE SELECTED** after reviewing Meta Intelligence V1 (candidates below — do not auto-start) |
 | Memory / Retrieval V1 | PLANNED — only when knowledge volume justifies it; vector RAG deferred |
 
 ### Next milestone candidates (UNCOMMITTED — select after V1 review)
 
-Meta Ads Intelligence + Analyst V1 · GBP Reputation Intelligence · accepted Competitor Comparison V1 · Capability Registry / Routing V1 · Digital Operations Analyst · Playbook V1 · richer metric Outcome Signals · Memory/Retrieval (deferred)
+Digital Operations / Cross-Asset Analyst · GBP Reputation Intelligence · accepted Competitor Comparison V1 · Capability Registry/Router · Playbook V1 · richer metric Outcome Signals · Memory/Retrieval (deferred)
 
 Do **not** automatically schedule RAG. Capability/Discovery concepts should inform Agent/Skill design without derailing product value.
 
 External reference registry: `docs/research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md` (Agent Reach #9; Agency Agents #10).  
 Outside-in Discovery: `docs/product/DISCOVERY_INTELLIGENCE.md` (**IMPLEMENTED V1** — Website-owned; Capability Router still PLANNED).  
-AI Control Plane: **AI Router IMPLEMENTED V1**; **Agent Profiles + Skills IMPLEMENTED V1** (Website + Google Ads); **Capability Router PLANNED**.
+AI Control Plane: **AI Router IMPLEMENTED V1**; **Agent Profiles + Skills IMPLEMENTED V1** (Website + Google Ads + Meta Ads); **Capability Router PLANNED**.
 
 ---
 

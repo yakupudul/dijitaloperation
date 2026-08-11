@@ -59,17 +59,17 @@ Foundation 1–23 tamamlandıktan sonra devam eden **güncel** ürün sırası. 
 | **N2b** | **Google Ads Intelligence + Analyst V1** | **IMPLEMENTED V1** | `docs/product/google-ads/GOOGLE_ADS_INTELLIGENCE.md` — Google Ads Analyst + Skills + `google_ads.ai_guidance` |
 | **N2c** | **Operational Recommendation → Task → Outcome Loop V1** | **IMPLEMENTED V1** | `docs/product/OPERATIONAL_OUTCOME_LOOP.md` — Task lifecycle + Finding-linked Outcome signals (no Result entity) |
 | **N2d** | **Discovery Intelligence V1** | **IMPLEMENTED V1** | `docs/product/DISCOVERY_INTELLIGENCE.md` — Website public discovery + candidates + human review; optional DataForSEO competitors |
-| **N2e** | **Meta Ads Central Integration + Resource Binding V1** | **IMPLEMENTED V1** | `docs/product/meta-ads/META_ADS_INTEGRATION.md` — Meta provider + Ad Account discovery + AssetBinding (no Insights/AI yet) |
+| **N2e** | **Meta Ads Central Integration + Resource Binding V1** | **IMPLEMENTED V1** | `docs/product/meta-ads/META_ADS_INTEGRATION.md` — Meta provider + Ad Account discovery + AssetBinding |
+| **N2f** | **Meta Ads Intelligence + Analyst V1** | **IMPLEMENTED V1** | `docs/product/meta-ads/META_ADS_INTELLIGENCE.md` — Insights Evidence + Findings + Analyst/Skills + `meta_ads.ai_guidance` |
 | **N3** | **Memory / Retrieval V1** | PLANNED (deferred) | Only when knowledge volume justifies; vector RAG deferred |
 
 ### Later candidates (UNCOMMITTED — select next after V1 review)
 
 No fixed dates. Review operational value before committing. Do **not** auto-start:
 
-- Meta Ads Intelligence + Analyst V1 (Insights / Evidence / Findings / Analyst / Skills)
+- Digital Operations / Cross-Asset Analyst
 - GBP Reputation Intelligence (official APIs; scraper rejected)
 - Capability Registry / Routing V1
-- Digital Operations Analyst
 - Playbook V1
 - richer metric Outcome Signals
 - GEO / AI Search Intelligence
@@ -79,6 +79,7 @@ No fixed dates. Review operational value before committing. Do **not** auto-star
 
 External research registry: `docs/research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md` (Agent Reach = #9; Agency Agents = #10).  
 Discovery Intelligence V1: **IMPLEMENTED** (`docs/product/DISCOVERY_INTELLIGENCE.md`).  
+Meta Ads Intelligence + Analyst V1: **IMPLEMENTED** (`docs/product/meta-ads/META_ADS_INTELLIGENCE.md`).  
 AI Router + Agent/Skill V1: **IMPLEMENTED**. Outcome Loop V1: **IMPLEMENTED**. Capability Router / Playbooks / Learned Memory / RAG: **PLANNED**.
 
 

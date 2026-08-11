@@ -290,16 +290,16 @@ class MetaAdsBindingHotfixTest extends TestCase
         $this->assertStringNotContainsString('EAAG-uat-secret-token-never-show', json_encode($options));
     }
 
-    public function test_collect_live_data_hidden_for_meta_without_collector(): void
+    public function test_collect_live_data_visible_for_meta_when_collector_registered(): void
     {
-        $this->assertNull(app(BoundCollectorRegistry::class)->forCapability('meta_ads'));
+        $this->assertNotNull(app(BoundCollectorRegistry::class)->forCapability('meta_ads'));
 
         Livewire::test(ViewDigitalAsset::class, [
             'record' => $this->metaAsset->getRouteKey(),
             'parentRecord' => $this->brand,
         ])
             ->assertOk()
-            ->assertActionHidden('collectLiveData');
+            ->assertActionVisible('collectLiveData');
     }
 
     public function test_collect_live_data_remains_available_for_google_ads(): void

@@ -18,7 +18,6 @@ use App\Models\User;
 use App\Services\Findings\BoundEvidenceRuleRegistry;
 use App\Services\Findings\FindingLifecycleService;
 use App\Services\Integrations\BoundCollectorRegistry;
-use App\Services\Integrations\CollectLiveBoundDataService;
 use App\Services\Integrations\Meta\MetaApiClient;
 use App\Support\Agents\AgentProfileKeys;
 use App\Support\Agents\AgentProfileRegistry;
@@ -371,8 +370,6 @@ class MetaAdsIntelligenceAnalystV1Test extends TestCase
             'observed_at' => now(),
         ]);
 
-        $result = app(CollectLiveBoundDataService::class)->collect($this->asset->fresh());
-        // Collect will try real HTTP without fake - so just evaluate findings directly
         $evaluator = collect(app(BoundEvidenceRuleRegistry::class)->all())
             ->first(fn ($e) => $e->sourceModule() === 'meta-ads');
         $this->assertNotNull($evaluator);
@@ -400,11 +397,32 @@ class MetaAdsIntelligenceAnalystV1Test extends TestCase
         $task = Task::factory()->create([
             'digital_asset_id' => $this->asset->id,
             'recommendation_id' => $recommendation->id,
-            'finding_id' => $finding->id,
-            'status' => 'done',
+            'status' => 'completed',
         ]);
-        $this->assertSame('done', $task->fresh()->status);
+        $this->assertSame('completed', $task->fresh()->status);
         $this->assertDatabaseHas('findings', ['id' => $finding->id, 'status' => 'open']);
+
+        // Failed/partial collection must not evaluate/resolve when response_ok is false.
+        $failedRun = Run::query()->create([
+            'digital_asset_id' => $this->asset->id,
+            'core_asset_binding_id' => $this->binding->id,
+            'module_id' => 'meta-ads',
+            'status' => 'failed',
+            'started_at' => now(),
+            'finished_at' => now(),
+            'metadata' => [],
+        ]);
+        Evidence::query()->create([
+            'run_id' => $failedRun->id,
+            'digital_asset_id' => $this->asset->id,
+            'source_module' => 'meta-ads',
+            'type' => MetaAdsBoundCollector::EVIDENCE_CAMPAIGN_PERFORMANCE,
+            'title' => 'failed campaigns',
+            'payload' => ['response_ok' => false, 'rows' => []],
+            'observed_at' => now(),
+        ]);
+        $failedEval = $evaluator->evaluate($this->asset, [$failedRun->load('evidence')]);
+        $this->assertFalse($failedEval->evaluationSuccessful);
     }
 
     public function test_no_mutation_methods_on_meta_client(): void
