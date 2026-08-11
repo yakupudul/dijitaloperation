@@ -80,16 +80,28 @@ php artisan dop:create-admin
 
 - Queue driver: **database** (default). `DB_QUEUE_RETRY_AFTER=900` recommended for long Meta/Google collects.
 - Cursor Cloud `environment.json` starts two terminals:
-  - `laravel` — `php artisan serve --host=0.0.0.0 --port=8000`
+  - `laravel` — `php artisan serve --host=0.0.0.0 --port=8000` (**dev only**)
   - `queue-worker` — `php artisan queue:work database --sleep=1 --tries=2 --timeout=600`
 - Scheduler: `async:mark-stale-runs` every 5 minutes (via `routes/console.php`). For long-lived Cloud/dev sessions run `php artisan schedule:work` in an extra terminal when testing stale detection.
 - Basic Filament `/app` boot does **not** require a worker for CRUD; long Collect / Discovery / SEO / AI / Diagnosis **do**.
 
-### Future persistent deployment (document only — not deployed in this milestone)
+### Persistent UAT (human acceptance — not this Cloud VM)
+
+Canonical human/operator acceptance runtime is documented in `docs/operations/PERSISTENT_UAT.md`:
+
+- MySQL 8 (not SQLite)
+- Nginx + PHP-FPM (not `artisan serve`)
+- Supervisor queue worker + cron scheduler
+- Stable `APP_KEY` across deploys
+- Target URL concept: `https://uat.dop.moximu.com`
+
+Cursor Cloud remains **development/test** only and does **not** satisfy persistent UAT acceptance.
+
+### Future production deployment (document only — not this milestone)
 
 Expect supervisor/systemd (or equivalent) to keep:
 
-1. web (php-fpm / artisan serve)
+1. web (php-fpm / nginx)
 2. `queue:work database`
 3. scheduler (`schedule:work` or cron `schedule:run`)
 

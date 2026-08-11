@@ -30,7 +30,7 @@ Last updated: 2026-08-11
 | **Discovery Intelligence V1** | **IMPLEMENTED V1** — bounded public Website discovery + Evidence + Brand candidates (fact/inference) + human Accept/Edit/Ignore + optional DataForSEO competitor candidates; `docs/product/DISCOVERY_INTELLIGENCE.md` |
 | **Meta Ads Central Integration + Resource Binding V1** | **IMPLEMENTED V1** — agency Meta Integration + Ad Account ExternalResources + Meta Ads Digital Asset binding; `docs/product/meta-ads/META_ADS_INTEGRATION.md` (real Meta Integration + resource discovery + binding UAT: **PASS**) |
 | **Meta Ads Intelligence + Analyst V1** | **IMPLEMENTED V1** — bound Insights collection + Evidence + Findings + Meta Ads Analyst/Skills + `meta_ads.ai_guidance`; `docs/product/meta-ads/META_ADS_INTELLIGENCE.md` |
-| **Async Operations + Activity Center** | **IMPLEMENTING / PR open** — database queue + Run orchestration + Activity Center; Meta/Google/Website/AI long actions queued |
+| **Async Operations + Activity Center** | **IMPLEMENTING / PR #121** — database queue + Activity Center coded; Cloud Meta async smoke PASS; **persistent UAT host BLOCKED** pending operator DNS/SSH (`docs/operations/PERSISTENT_UAT.md`) |
 | Next milestone | **Operational Data Foundation / Historical Performance Store** (after async merges) — do not auto-start Expert Workspace redesign |
 | Memory / Retrieval V1 | PLANNED — only when knowledge volume justifies it; vector RAG deferred |
 

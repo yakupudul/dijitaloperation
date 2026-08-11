@@ -313,6 +313,26 @@ Details: `PRODUCT_CAPABILITY_LEDGER.md`.
 
 ---
 
+## Environments (material)
+
+| Environment | Role |
+| --- | --- |
+| Cursor Cloud / local agent | **Development / automated test** only |
+| PHPUnit | Isolated testing (`sqlite :memory:`) |
+| Disposable browser-UAT SQLite | Synthetic browser checks only |
+| **Persistent UAT** | Canonical **human/operator acceptance** (`docs/operations/PERSISTENT_UAT.md`) |
+| Production | Future; **not** claimed by Async / UAT deployment work |
+
+Persistent UAT decisions:
+
+- Uses **MySQL 8** (not Cloud SQLite)
+- Web = **Nginx + PHP-FPM**; plus separate persistent **queue worker** and **scheduler**
+- One stable **`APP_KEY`** across deploys so encrypted provider credentials survive
+- Provider credentials and real bindings must survive deploys; never regenerate `APP_KEY` casually
+- Target hostname concept: `https://uat.dop.moximu.com` (operator DNS/host required)
+
+---
+
 ## Definition of Done
 
 A feature is **NOT** considered **DONE** merely because code exists.
