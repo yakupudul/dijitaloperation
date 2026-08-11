@@ -4,12 +4,16 @@ namespace App\Filament\App\Resources\Runs;
 
 use App\Filament\App\Resources\Runs\Pages\ListRuns;
 use App\Filament\App\Resources\Runs\Pages\ViewRun;
+use App\Models\Brand;
 use App\Models\Run;
+use App\Services\Async\AsyncOperationService;
+use App\Support\Async\AsyncOperationTypes;
 use App\Support\MoxDopNavigation;
 use App\Support\RunTypeLabels;
 use BackedEnum;
 use Carbon\CarbonInterface;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\DatePicker;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Components\ViewEntry;
 use Filament\Resources\Resource;
@@ -18,7 +22,10 @@ use Filament\Schemas\Schema;
 use Filament\Support\Enums\FontFamily;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use MoxDop\Website\Workspace\WebsiteWorkspaceData;
 use UnitEnum;
@@ -83,27 +90,103 @@ class RunResource extends Resource
                             : [],
                     ])
                     ->columnSpanFull(),
-                Section::make('Summary')
+                Section::make('Operation')
                     ->schema([
                         TextEntry::make('activity_title')
-                            ->label('Activity')
+                            ->label('Operation')
                             ->state(fn (Run $record): string => static::activityTitle($record)),
+                        TextEntry::make('digitalAsset.brand.name')
+                            ->label('Brand')
+                            ->placeholder('—'),
                         TextEntry::make('digitalAsset.name')
                             ->label('Digital asset')
                             ->placeholder('—'),
+                        TextEntry::make('provider_label')
+                            ->label('Provider / module')
+                            ->state(fn (Run $record): string => static::providerLabel($record))
+                            ->placeholder('—'),
+                        TextEntry::make('status')
+                            ->label('Status')
+                            ->badge()
+                            ->formatStateUsing(fn (?string $state, Run $record): string => static::statusLabel($record, $state))
+                            ->color(fn (?string $state, Run $record): string => static::statusColor($record, $state)),
+                        TextEntry::make('phase_label')
+                            ->label('Current step')
+                            ->state(fn (Run $record): ?string => static::phaseLabel($record))
+                            ->placeholder('—'),
+                        TextEntry::make('started_at')
+                            ->label('Started')
+                            ->dateTime(),
+                        TextEntry::make('finished_at')
+                            ->label('Finished')
+                            ->dateTime()
+                            ->placeholder('—'),
+                        TextEntry::make('duration')
+                            ->label('Duration')
+                            ->state(fn (Run $record): ?string => static::durationLabel($record))
+                            ->placeholder('—'),
+                        TextEntry::make('result_summary')
+                            ->label('Result')
+                            ->state(fn (Run $record): ?string => data_get($record->metadata, 'result_summary'))
+                            ->placeholder('—')
+                            ->columnSpanFull(),
+                        TextEntry::make('failure_summary')
+                            ->label('Issue')
+                            ->state(fn (Run $record): ?string => data_get($record->metadata, 'failure_summary'))
+                            ->visible(fn (Run $record): bool => filled(data_get($record->metadata, 'failure_summary')))
+                            ->columnSpanFull(),
+                        TextEntry::make('retry_eligibility')
+                            ->label('Retry')
+                            ->state(function (Run $record): string {
+                                if (! (bool) data_get($record->metadata, 'async')) {
+                                    return 'Not an async operation';
+                                }
+
+                                return app(AsyncOperationService::class)->canRetry($record)
+                                    ? 'Eligible — use Retry above'
+                                    : 'Not eligible (active duplicate, permanent failure, or still open)';
+                            })
+                            ->visible(fn (Run $record): bool => (bool) data_get($record->metadata, 'async')),
+                    ])
+                    ->columns(2),
+                Section::make('Steps')
+                    ->description('Phase history for this operation.')
+                    ->schema([
+                        TextEntry::make('stage_history')
+                            ->hiddenLabel()
+                            ->state(function (Run $record): string {
+                                $stages = data_get($record->metadata, 'stages');
+                                if (! is_array($stages) || $stages === []) {
+                                    return 'No steps recorded yet.';
+                                }
+
+                                return collect($stages)
+                                    ->map(function (mixed $stage): string {
+                                        if (! is_array($stage)) {
+                                            return '—';
+                                        }
+
+                                        return trim(sprintf(
+                                            '%s — %s (%s)',
+                                            (string) ($stage['label'] ?? $stage['phase'] ?? 'Step'),
+                                            (string) ($stage['status'] ?? ''),
+                                            (string) ($stage['at'] ?? ''),
+                                        ));
+                                    })
+                                    ->implode("\n");
+                            })
+                            ->columnSpanFull(),
+                    ])
+                    ->visible(fn (Run $record): bool => (bool) data_get($record->metadata, 'async')
+                        && is_array(data_get($record->metadata, 'stages'))
+                        && data_get($record->metadata, 'stages') !== [])
+                    ->collapsed(false),
+                Section::make('Source')
+                    ->schema([
                         TextEntry::make('source_label')
                             ->label('Source')
                             ->state(fn (Run $record): string => static::sourceLabel($record))
                             ->placeholder('—'),
-                        TextEntry::make('status')
-                            ->badge()
-                            ->color(fn (?string $state): string => match ($state) {
-                                'completed' => 'success',
-                                'failed' => 'danger',
-                                'running' => 'info',
-                                'pending' => 'warning',
-                                default => 'gray',
-                            }),
                         TextEntry::make('period_label')
                             ->label('Period')
                             ->state(function (Run $record): string {
@@ -114,30 +197,14 @@ class RunResource extends Resource
                                 return '—';
                             })
                             ->placeholder('—'),
-                        TextEntry::make('started_at')
-                            ->label('Started')
-                            ->dateTime(),
-                        TextEntry::make('duration')
-                            ->label('Duration')
-                            ->state(function (Run $record): ?string {
-                                if ($record->started_at === null || $record->finished_at === null) {
-                                    return null;
-                                }
-
-                                return $record->started_at->diffForHumans($record->finished_at, [
-                                    'parts' => 2,
-                                    'short' => true,
-                                    'syntax' => CarbonInterface::DIFF_ABSOLUTE,
-                                ]);
-                            })
-                            ->placeholder('—'),
                         TextEntry::make('evidence_generated')
                             ->label('Data collected')
                             ->state(fn (Run $record): ?string => static::evidenceTypes($record))
                             ->placeholder('—')
                             ->columnSpanFull(),
                     ])
-                    ->columns(2),
+                    ->columns(2)
+                    ->collapsed(),
                 Section::make('Technical details')
                     ->description('Raw metadata and Evidence payloads for debugging. Collapsed by default.')
                     ->schema([
@@ -167,6 +234,16 @@ class RunResource extends Resource
 
     public static function activityTitle(Run $record): string
     {
+        $human = data_get($record->metadata, 'human_title');
+        if (is_string($human) && $human !== '') {
+            return $human;
+        }
+
+        $operationType = data_get($record->metadata, 'operation_type');
+        if (is_string($operationType) && $operationType !== '') {
+            return AsyncOperationTypes::label($operationType);
+        }
+
         if (static::isWebsitePresentable($record)) {
             return app(WebsiteWorkspaceData::class)->runTitle($record);
         }
@@ -197,6 +274,7 @@ class RunResource extends Resource
                 'ga4' => 'GA4',
                 'google_ads' => 'Google Ads',
                 'google_business_profile' => 'Business Profile',
+                'meta_ads' => 'Meta Ads',
                 default => str((string) ($binding?->capability ?? 'Source'))->replace('_', ' ')->title()->toString(),
             };
             $resourceName = $resource?->display_name ?: ($resource?->external_id ?: 'Connected source');
@@ -211,55 +289,128 @@ class RunResource extends Resource
         return '—';
     }
 
+    public static function providerLabel(Run $record): string
+    {
+        $module = (string) ($record->module_id ?? '');
+
+        return match (true) {
+            str_contains($module, 'meta') => 'Meta Ads',
+            str_contains($module, 'google-ads') => 'Google Ads',
+            str_contains($module, 'seo') => 'SEO / DataForSEO',
+            str_contains($module, 'discovery') || str_contains($module, 'website') => 'Website',
+            str_contains($module, 'bound-collect') => 'Bound collection',
+            default => RunTypeLabels::label($module),
+        };
+    }
+
+    public static function phaseLabel(Run $record): ?string
+    {
+        $label = data_get($record->metadata, 'phase_label');
+
+        return is_string($label) && $label !== '' ? $label : null;
+    }
+
+    public static function statusLabel(Run $record, ?string $state): string
+    {
+        if (data_get($record->metadata, 'needs_attention') === 'stale') {
+            return 'Needs attention';
+        }
+
+        return match ($state) {
+            'queued' => 'Queued',
+            'running' => 'Running',
+            'completed' => 'Completed',
+            'partial' => 'Partial',
+            'failed' => 'Failed',
+            'cancelled' => 'Cancelled',
+            'pending' => 'Pending',
+            default => $state ? str($state)->title()->toString() : 'Unknown',
+        };
+    }
+
+    public static function statusColor(Run $record, ?string $state): string
+    {
+        if (data_get($record->metadata, 'needs_attention') === 'stale') {
+            return 'warning';
+        }
+
+        return match ($state) {
+            'completed' => 'success',
+            'failed' => 'danger',
+            'running', 'queued' => 'info',
+            'partial', 'pending' => 'warning',
+            'cancelled' => 'gray',
+            default => 'gray',
+        };
+    }
+
+    public static function durationLabel(Run $record): ?string
+    {
+        if ($record->started_at === null) {
+            return null;
+        }
+
+        $end = $record->finished_at ?? now();
+
+        return $record->started_at->diffForHumans($end, [
+            'parts' => 2,
+            'short' => true,
+            'syntax' => CarbonInterface::DIFF_ABSOLUTE,
+        ]);
+    }
+
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with(['digitalAsset.brand']))
             ->columns([
+                TextColumn::make('status')
+                    ->label('Status')
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state, Run $record): string => static::statusLabel($record, $state))
+                    ->color(fn (?string $state, Run $record): string => static::statusColor($record, $state))
+                    ->sortable(),
+                TextColumn::make('module_id')
+                    ->label('Operation')
+                    ->formatStateUsing(fn (?string $state, Run $record): string => static::activityTitle($record))
+                    ->searchable()
+                    ->sortable(),
+                TextColumn::make('digitalAsset.brand.name')
+                    ->label('Brand')
+                    ->placeholder('—')
+                    ->sortable()
+                    ->toggleable(),
                 TextColumn::make('digitalAsset.name')
                     ->label('Digital asset')
                     ->searchable()
                     ->sortable(),
-                TextColumn::make('module_id')
-                    ->label('Activity')
-                    ->formatStateUsing(fn (?string $state, Run $record): string => static::activityTitle($record))
-                    ->searchable()
-                    ->sortable(),
-                TextColumn::make('status')
-                    ->badge()
-                    ->color(fn (?string $state): string => match ($state) {
-                        'completed' => 'success',
-                        'failed' => 'danger',
-                        'running' => 'info',
-                        'pending' => 'warning',
-                        default => 'gray',
-                    })
-                    ->sortable(),
+                TextColumn::make('provider')
+                    ->label('Provider')
+                    ->state(fn (Run $record): string => static::providerLabel($record))
+                    ->toggleable(),
+                TextColumn::make('phase')
+                    ->label('Current step')
+                    ->state(fn (Run $record): ?string => static::phaseLabel($record))
+                    ->placeholder('—')
+                    ->wrap(),
                 TextColumn::make('started_at')
                     ->label('Started')
                     ->dateTime()
                     ->sortable(),
                 TextColumn::make('duration')
                     ->label('Duration')
-                    ->state(function (Run $record): ?string {
-                        if ($record->started_at === null || $record->finished_at === null) {
-                            return null;
-                        }
-
-                        return $record->started_at->diffForHumans($record->finished_at, [
-                            'parts' => 2,
-                            'short' => true,
-                            'syntax' => CarbonInterface::DIFF_ABSOLUTE,
-                        ]);
-                    })
+                    ->state(fn (Run $record): ?string => static::durationLabel($record))
                     ->placeholder('—'),
+                TextColumn::make('result')
+                    ->label('Result')
+                    ->state(fn (Run $record): ?string => data_get($record->metadata, 'result_summary')
+                        ?? data_get($record->metadata, 'failure_summary'))
+                    ->placeholder('—')
+                    ->limit(48)
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('finished_at')
                     ->label('Finished')
                     ->dateTime()
-                    ->placeholder('—')
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('coreConnection.name')
-                    ->label('Connection')
                     ->placeholder('—')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
@@ -267,17 +418,65 @@ class RunResource extends Resource
                     ->label('ID')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+            ])
+            ->filters([
+                SelectFilter::make('status')
+                    ->options([
+                        'queued' => 'Queued',
+                        'running' => 'Running',
+                        'completed' => 'Completed',
+                        'partial' => 'Partial',
+                        'failed' => 'Failed',
+                        'cancelled' => 'Cancelled',
+                    ]),
+                SelectFilter::make('brand_id')
+                    ->label('Brand')
+                    ->options(fn (): array => Brand::query()->orderBy('name')->pluck('name', 'id')->all())
+                    ->query(function (Builder $query, array $data): Builder {
+                        $value = $data['value'] ?? null;
+                        if (! filled($value)) {
+                            return $query;
+                        }
+
+                        return $query->whereHas('digitalAsset', fn (Builder $q): Builder => $q->where('brand_id', $value));
+                    }),
+                SelectFilter::make('operation_type')
+                    ->label('Operation type')
+                    ->options(AsyncOperationTypes::labels())
+                    ->query(function (Builder $query, array $data): Builder {
+                        $value = $data['value'] ?? null;
+                        if (! filled($value)) {
+                            return $query;
+                        }
+
+                        return $query->where('metadata->operation_type', $value);
+                    }),
+                SelectFilter::make('module_id')
+                    ->label('Provider / module')
+                    ->options(fn (): array => Run::query()
+                        ->whereNotNull('module_id')
+                        ->distinct()
+                        ->orderBy('module_id')
+                        ->pluck('module_id')
+                        ->mapWithKeys(fn (string $id): array => [$id => RunTypeLabels::label($id)])
+                        ->all()),
+                Filter::make('started_from')
+                    ->form([
+                        DatePicker::make('from')->label('Started from'),
+                        DatePicker::make('until')->label('Started until'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when($data['from'] ?? null, fn (Builder $q, $date): Builder => $q->whereDate('started_at', '>=', $date))
+                            ->when($data['until'] ?? null, fn (Builder $q, $date): Builder => $q->whereDate('started_at', '<=', $date));
+                    }),
             ])
             ->recordUrl(fn (Run $record): string => static::getUrl('view', ['record' => $record]))
             ->recordActions([
                 ViewAction::make(),
             ])
-            ->emptyStateHeading('No runs')
-            ->emptyStateDescription('No analysis runs have been recorded yet.')
+            ->emptyStateHeading('No activity yet')
+            ->emptyStateDescription('Queued and completed operations across MoxDOP appear here.')
             ->toolbarActions([])
             ->defaultSort('started_at', 'desc');
     }
@@ -376,7 +575,7 @@ class RunResource extends Resource
             return $state;
         }
 
-        $blocked = ['access_token', 'refresh_token', 'client_secret', 'developer_token', 'authorization', 'token'];
+        $blocked = ['access_token', 'refresh_token', 'client_secret', 'developer_token', 'authorization', 'token', 'api_key', 'app_secret'];
         $clean = [];
         foreach ($state as $key => $value) {
             if (is_string($key) && in_array(strtolower($key), $blocked, true)) {

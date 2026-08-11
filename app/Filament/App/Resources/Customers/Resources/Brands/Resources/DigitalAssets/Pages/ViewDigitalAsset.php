@@ -29,10 +29,11 @@ use App\Jobs\AnalyzeWebsiteGbpWebsiteUrlConsistencyJob;
 use App\Jobs\AnalyzeWebsiteGoogleAdsLandingConsistencyJob;
 use App\Jobs\AnalyzeWebsiteInstagramWebsiteUrlConsistencyJob;
 use App\Jobs\AnalyzeWebsiteMetaAdsDestinationConsistencyJob;
-use App\Jobs\DiagnoseWebsiteJob;
 use App\Models\Brand;
 use App\Models\DigitalAsset;
 use App\Models\Run;
+use App\Models\User;
+use App\Services\Async\AsyncOperationService;
 use App\Services\CrossAssetInstagramMetaAdsDestinationConsistencyService;
 use App\Services\CrossAssetWebsiteGbpAddressConsistencyService;
 use App\Services\CrossAssetWebsiteGbpPhoneConsistencyService;
@@ -41,8 +42,6 @@ use App\Services\CrossAssetWebsiteGoogleAdsLandingConsistencyService;
 use App\Services\CrossAssetWebsiteInstagramWebsiteUrlConsistencyService;
 use App\Services\CrossAssetWebsiteMetaAdsDestinationConsistencyService;
 use App\Services\Integrations\BoundCollectorRegistry;
-use App\Services\Integrations\CollectLiveBoundDataService;
-use App\Services\WebsiteDiagnosisService;
 use App\Support\Integrations\AssetBindingCompatibility;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -53,12 +52,8 @@ use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Support\Htmlable;
-use MoxDop\GoogleAds\Ai\GoogleAdsAiGuidanceService;
 use MoxDop\GoogleAds\Workspace\GoogleAdsWorkspaceData;
-use MoxDop\MetaAds\Ai\MetaAdsAiGuidanceService;
 use MoxDop\MetaAds\Workspace\MetaAdsWorkspaceData;
-use MoxDop\Website\Ai\WebsiteAiRecommendationService;
-use MoxDop\Website\Discovery\PublicDiscoveryService;
 use MoxDop\Website\SeoIntelligence\SeoIntelligenceRefreshService;
 use MoxDop\Website\Workspace\WebsiteWorkspaceData;
 
@@ -82,48 +77,16 @@ class ViewDigitalAsset extends ViewRecord
                 ->color('primary')
                 ->requiresConfirmation()
                 ->modalHeading('Refresh website data')
-                ->modalDescription('Collects Search Console and GA4 for active connections, then updates Findings and Recommendations. Stay on this workspace after refresh.')
+                ->modalDescription('Queues Search Console and GA4 collection for active connections, then Findings. You can leave this page — progress is in Activity.')
                 ->modalSubmitActionLabel('Refresh data')
                 ->visible(fn (): bool => $this->isWebsiteWorkspace())
-                ->action(function (CollectLiveBoundDataService $collector): void {
+                ->action(function (AsyncOperationService $async): void {
                     /** @var DigitalAsset $asset */
                     $asset = $this->getRecord();
-                    $result = $collector->collect($asset);
-
-                    $sources = collect($result['runs'])
-                        ->map(fn (Run $run): string => match (data_get($run->metadata, 'capability')) {
-                            'search_console' => 'Search Console',
-                            'ga4' => 'GA4',
-                            'google_ads' => 'Google Ads',
-                            'google_business_profile' => 'Business Profile',
-                            default => 'Source',
-                        })
-                        ->unique()
-                        ->values();
-
-                    $evidenceCount = collect($result['runs'])
-                        ->sum(fn (Run $run): int => $run->evidence()->count());
-
-                    $findings = $result['findings'] ?? [];
-                    $body = trim(implode("\n", array_filter([
-                        $sources->isNotEmpty() ? $sources->implode(' + ') : null,
-                        $evidenceCount > 0 ? $evidenceCount.' Evidence sets' : null,
-                        sprintf(
-                            '%d Findings opened · %d updated · %d resolved',
-                            (int) ($findings['opened'] ?? 0),
-                            (int) ($findings['updated'] ?? 0) + (int) ($findings['reopened'] ?? 0),
-                            (int) ($findings['resolved'] ?? 0),
-                        ),
-                        $result['skipped'] !== [] ? $result['message'] : null,
-                    ])));
-
-                    Notification::make()
-                        ->title($result['ok'] ? 'Data refreshed' : 'Data refresh incomplete')
-                        ->body($body !== '' ? $body : $result['message'])
-                        ->{$result['ok'] ? 'success' : 'warning'}()
-                        ->send();
-
-                    // Stay on the Website workspace — do not redirect to a Run.
+                    $this->notifyAsyncQueueResult(
+                        $async->queueBoundCollect($asset, $this->asyncOperator()),
+                        'Website data refresh queued.',
+                    );
                 }),
             Action::make('refreshSeoIntelligence')
                 ->label('Refresh SEO intelligence')
@@ -145,25 +108,25 @@ class ViewDigitalAsset extends ViewRecord
                         return 'SEO intelligence is already up to date. Fresh DataForSEO results will be reused. No provider request will be made.';
                     }
 
-                    return 'MoxDOP will refresh external keyword intelligence from DataForSEO. Fresh results are reused automatically; new provider requests may consume DataForSEO credits.';
+                    return 'Queues a DataForSEO refresh in the background. Fresh results are reused automatically; new provider requests may consume DataForSEO credits. Progress is in Activity.';
                 })
                 ->modalSubmitActionLabel('Refresh')
-                ->action(function (SeoIntelligenceRefreshService $service): void {
+                ->action(function (SeoIntelligenceRefreshService $service, AsyncOperationService $async): void {
                     /** @var DigitalAsset $asset */
                     $asset = $this->getRecord();
-                    $result = $service->refresh($asset);
+                    $preview = $service->preview($asset);
 
-                    if (($result['blocked_reason'] ?? null) !== null) {
+                    if (($preview['blocked_reason'] ?? null) !== null) {
                         Notification::make()
                             ->title('SEO intelligence not ready')
-                            ->body($result['message'])
+                            ->body($preview['message'])
                             ->warning()
                             ->send();
 
                         return;
                     }
 
-                    if (($result['both_fresh'] ?? false) === true && (int) ($result['provider_calls'] ?? 0) === 0) {
+                    if (($preview['both_fresh'] ?? false) === true) {
                         Notification::make()
                             ->title('SEO intelligence already fresh')
                             ->body('0 provider requests · $0 additional provider cost')
@@ -173,11 +136,10 @@ class ViewDigitalAsset extends ViewRecord
                         return;
                     }
 
-                    Notification::make()
-                        ->title($result['ok'] ? 'SEO intelligence updated' : 'SEO intelligence refresh incomplete')
-                        ->body($result['message'])
-                        ->{$result['ok'] ? 'success' : 'warning'}()
-                        ->send();
+                    $this->notifyAsyncQueueResult(
+                        $async->queueSeoIntelligenceRefresh($asset, $this->asyncOperator()),
+                        'SEO intelligence refresh queued.',
+                    );
                 }),
             Action::make('discoverPublicContext')
                 ->label('Discover public context')
@@ -186,47 +148,15 @@ class ViewDigitalAsset extends ViewRecord
                 ->visible(fn (): bool => $this->isWebsiteWorkspace())
                 ->requiresConfirmation()
                 ->modalHeading('Discover public context?')
-                ->modalDescription('Inspects publicly available information for this Website. Creates a Discovery Run and Evidence, then proposes Brand Context candidates for human review. Does not overwrite Brand Context and does not require GSC/GA4.')
+                ->modalDescription('Queues public website inspection. Creates Discovery Evidence and Brand Context candidates for human review. Does not overwrite Brand Context. Progress is in Activity.')
                 ->modalSubmitActionLabel('Discover public context')
-                ->action(function (PublicDiscoveryService $service): void {
+                ->action(function (AsyncOperationService $async): void {
                     /** @var DigitalAsset $asset */
                     $asset = $this->getRecord();
-
-                    try {
-                        $result = $service->discover($asset);
-                    } catch (\InvalidArgumentException $exception) {
-                        Notification::make()
-                            ->title('Public discovery not ready')
-                            ->body($exception->getMessage())
-                            ->warning()
-                            ->send();
-
-                        return;
-                    } catch (\Throwable $exception) {
-                        Notification::make()
-                            ->title('Public discovery failed')
-                            ->body(class_basename($exception))
-                            ->danger()
-                            ->send();
-
-                        return;
-                    }
-
-                    Notification::make()
-                        ->title(match ($result['status']) {
-                            'succeeded' => 'Public discovery completed',
-                            'partial' => 'Public discovery partial',
-                            default => 'Public discovery failed',
-                        })
-                        ->body(implode(' · ', array_filter([
-                            $result['message'],
-                            $result['pages_inspected'].' pages',
-                            $result['fact_candidates'].' fact candidates',
-                            $result['inference_candidates'].' inferences',
-                            $result['competitor_candidates'].' competitor candidates',
-                        ])))
-                        ->{$result['status'] === 'failed' ? 'warning' : 'success'}()
-                        ->send();
+                    $this->notifyAsyncQueueResult(
+                        $async->queuePublicDiscovery($asset, $this->asyncOperator()),
+                        'Public discovery queued.',
+                    );
                 }),
             Action::make('generateAiGuidance')
                 ->label('Generate AI guidance')
@@ -235,39 +165,15 @@ class ViewDigitalAsset extends ViewRecord
                 ->visible(fn (): bool => $this->isWebsiteWorkspace())
                 ->requiresConfirmation()
                 ->modalHeading('Generate AI guidance?')
-                ->modalDescription('Uses current Findings, Evidence and Brand context. AI is advisory — it will not create Findings or Tasks, and will not overwrite deterministic Recommendations.')
+                ->modalDescription('Queues advisory AI analysis from Findings, Evidence and Brand context. Does not create Findings or Tasks. Progress is in Activity.')
                 ->modalSubmitActionLabel('Analyze issues with AI')
-                ->action(function (WebsiteAiRecommendationService $service): void {
+                ->action(function (AsyncOperationService $async): void {
                     /** @var DigitalAsset $asset */
                     $asset = $this->getRecord();
-
-                    try {
-                        $result = $service->analyze($asset);
-                    } catch (\InvalidArgumentException $exception) {
-                        Notification::make()
-                            ->title('AI guidance not ready')
-                            ->body($exception->getMessage())
-                            ->warning()
-                            ->send();
-
-                        return;
-                    } catch (\Throwable $exception) {
-                        Notification::make()
-                            ->title('AI guidance failed')
-                            ->body(class_basename($exception))
-                            ->danger()
-                            ->send();
-
-                        return;
-                    }
-
-                    Notification::make()
-                        ->title($result['reused'] ? 'AI analysis is already current' : (
-                            $result['run']->status === 'completed' ? 'AI guidance generated' : 'AI guidance failed'
-                        ))
-                        ->body($result['message'])
-                        ->{$result['run']->status === 'completed' || $result['reused'] ? 'success' : 'warning'}()
-                        ->send();
+                    $this->notifyAsyncQueueResult(
+                        $async->queueWebsiteAiGuidance($asset, $this->asyncOperator()),
+                        'Website AI guidance queued.',
+                    );
                 }),
             Action::make('generateGoogleAdsAiGuidance')
                 ->label('Generate AI guidance')
@@ -276,39 +182,15 @@ class ViewDigitalAsset extends ViewRecord
                 ->visible(fn (): bool => $this->isGoogleAdsWorkspace())
                 ->requiresConfirmation()
                 ->modalHeading('Generate Google Ads AI guidance?')
-                ->modalDescription('Uses current Findings, Evidence and Brand context via Google Ads Analyst. Advisory only — no Ads mutations, Findings, or Tasks.')
+                ->modalDescription('Queues advisory Google Ads Analyst guidance. No Ads mutations, Findings, or Tasks. Progress is in Activity.')
                 ->modalSubmitActionLabel('Analyze with AI')
-                ->action(function (GoogleAdsAiGuidanceService $service): void {
+                ->action(function (AsyncOperationService $async): void {
                     /** @var DigitalAsset $asset */
                     $asset = $this->getRecord();
-
-                    try {
-                        $result = $service->analyze($asset);
-                    } catch (\InvalidArgumentException $exception) {
-                        Notification::make()
-                            ->title('AI guidance not ready')
-                            ->body($exception->getMessage())
-                            ->warning()
-                            ->send();
-
-                        return;
-                    } catch (\Throwable $exception) {
-                        Notification::make()
-                            ->title('AI guidance failed')
-                            ->body(class_basename($exception))
-                            ->danger()
-                            ->send();
-
-                        return;
-                    }
-
-                    Notification::make()
-                        ->title($result['reused'] ? 'AI analysis is already current' : (
-                            $result['run']->status === 'completed' ? 'AI guidance generated' : 'AI guidance failed'
-                        ))
-                        ->body($result['message'])
-                        ->{$result['run']->status === 'completed' || $result['reused'] ? 'success' : 'warning'}()
-                        ->send();
+                    $this->notifyAsyncQueueResult(
+                        $async->queueGoogleAdsAiGuidance($asset, $this->asyncOperator()),
+                        'Google Ads AI guidance queued.',
+                    );
                 }),
             Action::make('generateMetaAdsAiGuidance')
                 ->label('Generate AI guidance')
@@ -317,39 +199,15 @@ class ViewDigitalAsset extends ViewRecord
                 ->visible(fn (): bool => $this->isMetaAdsWorkspace())
                 ->requiresConfirmation()
                 ->modalHeading('Generate Meta Ads AI guidance?')
-                ->modalDescription('Uses current Findings, Evidence and Brand context via Meta Ads Analyst. Advisory only — no Meta mutations, Findings, or Tasks.')
+                ->modalDescription('Queues advisory Meta Ads Analyst guidance. No Meta mutations, Findings, or Tasks. Progress is in Activity.')
                 ->modalSubmitActionLabel('Analyze with AI')
-                ->action(function (MetaAdsAiGuidanceService $service): void {
+                ->action(function (AsyncOperationService $async): void {
                     /** @var DigitalAsset $asset */
                     $asset = $this->getRecord();
-
-                    try {
-                        $result = $service->analyze($asset);
-                    } catch (\InvalidArgumentException $exception) {
-                        Notification::make()
-                            ->title('AI guidance not ready')
-                            ->body($exception->getMessage())
-                            ->warning()
-                            ->send();
-
-                        return;
-                    } catch (\Throwable $exception) {
-                        Notification::make()
-                            ->title('AI guidance failed')
-                            ->body(class_basename($exception))
-                            ->danger()
-                            ->send();
-
-                        return;
-                    }
-
-                    Notification::make()
-                        ->title($result['reused'] ? 'AI analysis is already current' : (
-                            $result['run']->status === 'completed' ? 'AI guidance generated' : 'AI guidance failed'
-                        ))
-                        ->body($result['message'])
-                        ->{$result['run']->status === 'completed' || $result['reused'] ? 'success' : 'warning'}()
-                        ->send();
+                    $this->notifyAsyncQueueResult(
+                        $async->queueMetaAdsAiGuidance($asset, $this->asyncOperator()),
+                        'Meta Ads AI guidance queued.',
+                    );
                 }),
             Action::make('collectLiveData')
                 ->label('Collect live data')
@@ -358,18 +216,20 @@ class ViewDigitalAsset extends ViewRecord
                 ->visible(fn (): bool => $this->canCollectLiveBoundData())
                 ->requiresConfirmation()
                 ->modalHeading('Collect live provider data')
-                ->modalDescription('Runs collectors for this asset’s active provider connections. Read-only.')
+                ->modalDescription('Queues read-only collectors for this asset’s active provider connections. You can leave this page — progress is in Activity.')
                 ->modalSubmitActionLabel('Collect live data')
-                ->action(function (CollectLiveBoundDataService $collector): void {
+                ->action(function (AsyncOperationService $async): void {
                     /** @var DigitalAsset $asset */
                     $asset = $this->getRecord();
-                    $result = $collector->collect($asset);
-
-                    Notification::make()
-                        ->title($result['ok'] ? 'Live data collection finished' : 'Live data collection incomplete')
-                        ->body($result['message'])
-                        ->{$result['ok'] ? 'success' : 'warning'}()
-                        ->send();
+                    $queuedTitle = match ($asset->type) {
+                        'meta_ads' => 'Meta Ads collection queued.',
+                        'google_ads' => 'Google Ads collection queued.',
+                        default => 'Live data collection queued.',
+                    };
+                    $this->notifyAsyncQueueResult(
+                        $async->queueBoundCollect($asset, $this->asyncOperator()),
+                        $queuedTitle,
+                    );
                 }),
             ActionGroup::make([
                 Action::make('runWebsiteDiagnosis')
@@ -379,31 +239,15 @@ class ViewDigitalAsset extends ViewRecord
                     ->visible(fn (): bool => $this->canRunWebsiteDiagnosis())
                     ->requiresConfirmation()
                     ->modalHeading('Run Website technical diagnosis')
-                    ->modalDescription('Starts a deterministic Website Diagnosis run using catalog checks. External systems are read-only.')
+                    ->modalDescription('Queues deterministic Website Diagnosis catalog checks. External systems are read-only. Progress is in Activity.')
                     ->modalSubmitActionLabel('Run diagnosis')
-                    ->action(function (): void {
+                    ->action(function (AsyncOperationService $async): void {
                         /** @var DigitalAsset $asset */
                         $asset = $this->getRecord();
-
-                        try {
-                            $run = (new DiagnoseWebsiteJob($asset))->handle(
-                                app(WebsiteDiagnosisService::class),
-                            );
-                        } catch (\Throwable $exception) {
-                            Notification::make()
-                                ->title('Website Diagnosis failed')
-                                ->body($exception->getMessage())
-                                ->danger()
-                                ->send();
-
-                            return;
-                        }
-
-                        Notification::make()
-                            ->title('Website Diagnosis completed')
-                            ->body('Technical check finished with status '.$run->status.'.')
-                            ->success()
-                            ->send();
+                        $this->notifyAsyncQueueResult(
+                            $async->queueWebsiteDiagnosis($asset, $this->asyncOperator()),
+                            'Website diagnosis queued.',
+                        );
                     }),
                 ActionGroup::make([
                     Action::make('runWebsiteGbpWebsiteUrlConsistency')
@@ -841,6 +685,45 @@ class ViewDigitalAsset extends ViewRecord
         ], fn (?string $part): bool => filled($part)));
 
         return $parts === [] ? null : implode(' · ', $parts);
+    }
+
+    private function asyncOperator(): ?User
+    {
+        $user = auth()->user();
+
+        return $user instanceof User ? $user : null;
+    }
+
+    /**
+     * @param  array{ok: bool, queued: bool, message: string, run: ?Run, existing_run: ?Run}  $result
+     */
+    private function notifyAsyncQueueResult(array $result, string $queuedTitle): void
+    {
+        if (($result['queued'] ?? false) === true) {
+            Notification::make()
+                ->title($queuedTitle)
+                ->body($result['message'])
+                ->success()
+                ->send();
+
+            return;
+        }
+
+        if (($result['existing_run'] ?? null) instanceof Run) {
+            Notification::make()
+                ->title('Already in progress')
+                ->body($result['message'])
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        Notification::make()
+            ->title('Could not queue operation')
+            ->body($result['message'] ?? 'Unknown error')
+            ->danger()
+            ->send();
     }
 
     private function isWebsiteWorkspace(): bool

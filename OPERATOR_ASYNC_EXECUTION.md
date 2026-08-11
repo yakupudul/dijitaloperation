@@ -134,21 +134,34 @@ A global **Activity / Operations Center** is the intended aggregation surface fo
 
 ---
 
-## Current main reality (debt)
+## Current main reality
 
-As of canonical main (`171e5e7`):
+As of Async Operations + Activity Center:
 
-- Queue configuration and `ShouldQueue` Job classes exist
-- Many Filament actions still execute work **synchronously** in the HTTP request (inline services or `(new Job)->handle(...)`)
-- Having queue tables / Job classes alone does **NOT** mean background-ready
+- Database queue + `AsyncOperationService` orchestrate long Digital Asset actions
+- Filament Activity (`/app/runs`) is the operator Operations Center
+- Migrated flows: bound collect (Meta/Google/Website refresh), Website diagnosis, public discovery, SEO refresh (when provider work needed), Website/Google/Meta AI guidance
+- Deliberately still sync: short cross-asset consistency packs; integration resource refresh; SEO “already fresh” short-circuit
+- Cancellation: **future** — do not expose fake Cancel for in-flight provider HTTP
+- Stale running ops: `async:mark-stale-runs` (scheduler every 5 minutes) sets `needs_attention=stale` without inventing provider failure
 
-Therefore:
-
-- Current sync collect / diagnose / discover / AI analyze / cross-asset flows that can run long are **technical debt**
-- They must migrate **incrementally** to this standard
-- New long-running capabilities should ship async-first rather than adding more blocking request paths
+Having Job classes alone is still insufficient — operator actions must `dispatch`, and Activity must show durable state.
 
 Track readiness in `PRODUCT_CAPABILITY_LEDGER.md` (**Async execution** row and per-capability **Background-ready** column).
+
+---
+
+## Persistent runtime (future deploy / Cloud UAT)
+
+Required processes (no Redis/Kafka required for MVP async):
+
+| Process | Command / expectation |
+| --- | --- |
+| Web | `php artisan serve` or php-fpm / nginx |
+| Queue worker | `php artisan queue:work database --sleep=1 --tries=2 --timeout=600` under supervisor/systemd |
+| Scheduler | `php artisan schedule:work` or cron `* * * * * php artisan schedule:run` |
+
+Cursor Cloud: `.cursor/environment.json` starts **laravel** + **queue-worker** terminals. See `docs/implementation/CURSOR_CLOUD_ENVIRONMENT.md`.
 
 ---
 

@@ -6,7 +6,7 @@ This file tracks implementation progress for humans and agents.
 
 # DOP Project Status
 
-Last updated: 2026-08-10
+Last updated: 2026-08-11
 
 ## Current product track
 
@@ -30,12 +30,13 @@ Last updated: 2026-08-10
 | **Discovery Intelligence V1** | **IMPLEMENTED V1** — bounded public Website discovery + Evidence + Brand candidates (fact/inference) + human Accept/Edit/Ignore + optional DataForSEO competitor candidates; `docs/product/DISCOVERY_INTELLIGENCE.md` |
 | **Meta Ads Central Integration + Resource Binding V1** | **IMPLEMENTED V1** — agency Meta Integration + Ad Account ExternalResources + Meta Ads Digital Asset binding; `docs/product/meta-ads/META_ADS_INTEGRATION.md` (real Meta Integration + resource discovery + binding UAT: **PASS**) |
 | **Meta Ads Intelligence + Analyst V1** | **IMPLEMENTED V1** — bound Insights collection + Evidence + Findings + Meta Ads Analyst/Skills + `meta_ads.ai_guidance`; `docs/product/meta-ads/META_ADS_INTELLIGENCE.md` |
-| Next milestone | **TO BE SELECTED** after reviewing Meta Intelligence V1 (candidates below — do not auto-start) |
+| **Async Operations + Activity Center** | **IMPLEMENTING / PR open** — database queue + Run orchestration + Activity Center; Meta/Google/Website/AI long actions queued |
+| Next milestone | **Operational Data Foundation / Historical Performance Store** (after async merges) — do not auto-start Expert Workspace redesign |
 | Memory / Retrieval V1 | PLANNED — only when knowledge volume justifies it; vector RAG deferred |
 
-### Next milestone candidates (UNCOMMITTED — select after V1 review)
+### Next milestone candidates (after Async Operations)
 
-Digital Operations / Cross-Asset Analyst · GBP Reputation Intelligence · accepted Competitor Comparison V1 · Capability Registry/Router · Playbook V1 · richer metric Outcome Signals · Memory/Retrieval (deferred)
+Operational Data Foundation / Historical Performance Store · Professional Meta Expert Workspace · Digital Operations / Cross-Asset Analyst · GBP Reputation Intelligence · accepted Competitor Comparison V1 · Capability Registry/Router · Playbook V1 · richer metric Outcome Signals · Memory/Retrieval (deferred)
 
 Do **not** automatically schedule RAG. Capability/Discovery concepts should inform Agent/Skill design without derailing product value.
 

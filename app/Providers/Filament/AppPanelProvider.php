@@ -50,6 +50,7 @@ class AppPanelProvider extends PanelProvider
             ])
             ->brandName('MoxDOP')
             ->font('IBM Plex Sans')
+            ->databaseNotifications()
             ->navigationGroups([
                 NavigationGroup::make(MoxDopNavigation::PORTFOLIO)
                     ->collapsed(false),

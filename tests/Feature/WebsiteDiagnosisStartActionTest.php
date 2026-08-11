@@ -122,11 +122,15 @@ class WebsiteDiagnosisStartActionTest extends TestCase
             ->assertNotified()
             ->assertNoRedirect();
 
-        $run = Run::query()->where('digital_asset_id', $asset->id)->first();
+        $run = Run::query()
+            ->where('digital_asset_id', $asset->id)
+            ->where('metadata->async', true)
+            ->first();
 
         $this->assertNotNull($run);
         $this->assertSame('completed', $run->status);
         $this->assertSame('website-diagnosis', $run->module_id);
+        $this->assertTrue((bool) data_get($run->metadata, 'async'));
 
         $this->get(ViewRun::getUrl(['record' => $run]))->assertOk();
     }

@@ -61,12 +61,15 @@ Foundation 1–23 tamamlandıktan sonra devam eden **güncel** ürün sırası. 
 | **N2d** | **Discovery Intelligence V1** | **IMPLEMENTED V1** | `docs/product/DISCOVERY_INTELLIGENCE.md` — Website public discovery + candidates + human review; optional DataForSEO competitors |
 | **N2e** | **Meta Ads Central Integration + Resource Binding V1** | **IMPLEMENTED V1** | `docs/product/meta-ads/META_ADS_INTEGRATION.md` — Meta provider + Ad Account discovery + AssetBinding |
 | **N2f** | **Meta Ads Intelligence + Analyst V1** | **IMPLEMENTED V1** | `docs/product/meta-ads/META_ADS_INTELLIGENCE.md` — Insights Evidence + Findings + Analyst/Skills + `meta_ads.ai_guidance` |
-| **N3** | **Memory / Retrieval V1** | PLANNED (deferred) | Only when knowledge volume justifies; vector RAG deferred |
+| **N2g** | **Async Operations + Activity Center** | **IMPLEMENTING (PR)** | Database queue + Run orchestration + Filament Activity Center; migrate long collect/discovery/SEO/AI/diagnosis |
+| **N3** | **Operational Data Foundation / Historical Performance Store** | PLANNED (after N2g) | Do not start until async foundation merges |
+| **N4** | **Memory / Retrieval V1** | PLANNED (deferred) | Only when knowledge volume justifies; vector RAG deferred |
 
-### Later candidates (UNCOMMITTED — select next after V1 review)
+### Later candidates (UNCOMMITTED — select next after async)
 
 No fixed dates. Review operational value before committing. Do **not** auto-start:
 
+- Professional Meta Expert Workspace (blueprint already exists)
 - Digital Operations / Cross-Asset Analyst
 - GBP Reputation Intelligence (official APIs; scraper rejected)
 - Capability Registry / Routing V1
@@ -80,6 +83,7 @@ No fixed dates. Review operational value before committing. Do **not** auto-star
 External research registry: `docs/research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md` (Agent Reach = #9; Agency Agents = #10).  
 Discovery Intelligence V1: **IMPLEMENTED** (`docs/product/DISCOVERY_INTELLIGENCE.md`).  
 Meta Ads Intelligence + Analyst V1: **IMPLEMENTED** (`docs/product/meta-ads/META_ADS_INTELLIGENCE.md`).  
+Async Operations + Activity Center: **IMPLEMENTING**.  
 AI Router + Agent/Skill V1: **IMPLEMENTED**. Outcome Loop V1: **IMPLEMENTED**. Capability Router / Playbooks / Learned Memory / RAG: **PLANNED**.
 
 

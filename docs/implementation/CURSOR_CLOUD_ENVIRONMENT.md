@@ -46,7 +46,7 @@ Repository-managed Cursor Cloud environment:
 2. Checks out the requested revision under `/workspace`
 3. Runs `install` → dependencies + frontend build
 4. Runs `start` → `.env` + APP_KEY (dev-only, unlogged) + migrate + seed
-5. Starts terminal: `php artisan serve --host=0.0.0.0 --port=8000`
+5. Starts terminals: HTTP server **and** database queue worker
 6. Operator forwards port **8000** in Cursor Desktop (Ports / plug icon)
 
 ## Secrets
@@ -76,11 +76,24 @@ Create interactively in the Cloud terminal:
 php artisan dop:create-admin
 ```
 
-## Queue / scheduler
+## Queue / scheduler / async workers
 
-- Queue driver: database (default)
-- Basic Filament `/app` boot does **not** require a queue worker or scheduler
-- For jobs/UAT that need async work: `php artisan queue:work` in an extra terminal when needed
+- Queue driver: **database** (default). `DB_QUEUE_RETRY_AFTER=900` recommended for long Meta/Google collects.
+- Cursor Cloud `environment.json` starts two terminals:
+  - `laravel` — `php artisan serve --host=0.0.0.0 --port=8000`
+  - `queue-worker` — `php artisan queue:work database --sleep=1 --tries=2 --timeout=600`
+- Scheduler: `async:mark-stale-runs` every 5 minutes (via `routes/console.php`). For long-lived Cloud/dev sessions run `php artisan schedule:work` in an extra terminal when testing stale detection.
+- Basic Filament `/app` boot does **not** require a worker for CRUD; long Collect / Discovery / SEO / AI / Diagnosis **do**.
+
+### Future persistent deployment (document only — not deployed in this milestone)
+
+Expect supervisor/systemd (or equivalent) to keep:
+
+1. web (php-fpm / artisan serve)
+2. `queue:work database`
+3. scheduler (`schedule:work` or cron `schedule:run`)
+
+Do not require Redis/Kafka/Kubernetes solely for MVP async.
 
 ## Validation checklist
 

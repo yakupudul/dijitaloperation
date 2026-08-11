@@ -303,7 +303,7 @@ Canonical ledger state: **UAT PASS / ACCEPTED — NOT DONE**.
 
 Still explicit:
 
-- **Background-ready: NO** (sync collect/analyze debt — next milestone Async Operations + Activity Center)
+- **Background-ready: YES** for Collect live data + Generate AI guidance (database queue + Activity Center). Professional workspace still **NOT IMPLEMENTED**. Async Meta operator UAT is validated on the Async Operations PR (read-only).
 - **Professional Meta Expert Workspace: BLUEPRINTED / NOT IMPLEMENTED** (`docs/product/META_ADS_EXPERT_WORKSPACE.md` + `OPERATOR_WORKSPACE_DESIGN_STANDARD.md`)
 - Do not call Meta Ads “complete”, “finished”, or “workspace done”
 
