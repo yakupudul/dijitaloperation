@@ -2,6 +2,8 @@
 
 namespace MoxDop\MetaAds\Providers;
 
+use App\Services\Findings\BoundEvidenceRuleRegistry;
+use App\Services\Integrations\BoundCollectorRegistry;
 use App\Support\Agents\AgentProfileRegistry;
 use App\Support\Ai\AiProviderCatalog;
 use App\Support\Ai\AiRouteKeys;
@@ -10,6 +12,8 @@ use App\Support\Skills\SkillRegistry;
 use Illuminate\Support\ServiceProvider;
 use MoxDop\MetaAds\Agents\MetaAdsAnalyst;
 use MoxDop\MetaAds\Ai\MetaAdsAiRoutes;
+use MoxDop\MetaAds\Collection\MetaAdsBoundCollector;
+use MoxDop\MetaAds\Findings\MetaAdsPerformanceBoundEvidenceEvaluator;
 
 /**
  * Meta Ads module — Digital Asset domain, AI guidance, and Skills (V1).
@@ -26,6 +30,12 @@ class MetaAdsServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->loadViewsFrom(__DIR__.'/../../resources/views', 'meta-ads');
+
+        $this->app->make(BoundCollectorRegistry::class)
+            ->register($this->app->make(MetaAdsBoundCollector::class));
+
+        $this->app->make(BoundEvidenceRuleRegistry::class)
+            ->register($this->app->make(MetaAdsPerformanceBoundEvidenceEvaluator::class));
 
         $this->app->make(AiRouteRegistry::class)->register([
             'key' => AiRouteKeys::META_ADS_AI_GUIDANCE,

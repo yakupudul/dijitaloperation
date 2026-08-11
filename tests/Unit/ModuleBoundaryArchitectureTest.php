@@ -61,7 +61,10 @@ class ModuleBoundaryArchitectureTest extends TestCase
      */
     private const CORE_META_ADS_IMPORT_ALLOWLIST = [
         'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/Pages/ViewDigitalAsset.php',
+        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/MetaAdsPerformanceRelationManager.php',
+        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/MetaAdsIntelligenceRelationManager.php',
         'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/MetaAdsConnectionsRelationManager.php',
+        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/MetaAdsActivityRelationManager.php',
     ];
 
     #[Test]
