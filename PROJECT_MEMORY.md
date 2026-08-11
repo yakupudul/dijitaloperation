@@ -268,6 +268,23 @@ Canonical product doc: `docs/product/DISCOVERY_INTELLIGENCE.md`.
 
 ---
 
+## Operator workspace model — planned foundation
+
+**Status: DOCUMENTED DIRECTION ONLY — not implemented; no UI built from this yet.**
+
+`docs/product/OPERATOR_WORKSPACE_DESIGN_STANDARD.md` defines one shared operator workspace shape across channel/module workspaces (Meta Ads, Google Ads, Website, GBP): **GLANCE → EXPLORE → DECIDE → DEEP DATA**, progressive disclosure, semantic-color-only design, no decorative charts, and the **Missing ≠ zero** rule (absent/uncollected data must never render as `0`).
+
+It also codifies, as a UI-layer requirement, the existing platform-attribution-vs-verified-business-outcome distinction, and requires operator-facing workspaces to avoid internal jargon (Run/Evidence/ExternalResource/CoreAssetBinding) in favor of operator language — extending the pattern already used in `docs/product/integrations/WORKSPACE.md`.
+
+Meta-specific application: `docs/product/META_ADS_EXPERT_WORKSPACE.md` (status: **BLUEPRINT / NOT IMPLEMENTED**; explicitly out of scope for PR #119).
+
+Two decisions worth remembering from that blueprint:
+
+- **Result Mix over forced Primary Result at account level.** When an account's campaigns have heterogeneous objectives, Overview should show a labeled breakdown across result types ("Result Mix") instead of collapsing to the current "Deferred" placeholder. Campaign/ad set/ad-level primary-result resolution is unchanged.
+- **Delivered-in-selected-period is the default campaign filter**, not "Active now" — a campaign qualifies by `spend > 0 OR impressions > 0` in the selected period, sorted by material spend. Active/Paused/Archived/All remain explicit alternate filters.
+
+A professional operator workspace (real performance-over-time, reliable multi-period comparison, fatigue-adjacent signals) is **blocked** on the Historical Performance Store / Operational Data Foundation and on `OPERATOR_ASYNC_EXECUTION.md` adoption — it cannot be honestly built on single-Run Evidence snapshots or blocking sync collection alone.
+
 ## Meta / Google intelligence (main vs unmerged)
 
 ### Google Ads Intelligence
@@ -277,16 +294,22 @@ State details: see `PRODUCT_CAPABILITY_LEDGER.md`. Product doc often labels this
 
 ### Meta Ads Intelligence
 
-**PR #119** (`Meta Ads Intelligence + Analyst V1`) remains **OPEN / unmerged** as of this memory snapshot.
+**PR #119** (`Meta Ads Intelligence + Analyst V1`) is the read-only Meta Ads Intelligence engine (collectors, Evidence, Findings, Analyst/Skills, interim specialist workspace).
 
-Therefore:
+Operator Ads Manager spot-check: **PASS**  
+Account `act_744654160596455` · Campaign `09 | Diaspora TR | Form - Mox` · Period `2026-07-14`→`2026-08-10`.
 
-- Meta Ads Intelligence exists on that PR branch
-- it is **NOT** part of canonical main yet
-- main has Meta **central Integration + resource discovery + binding** (connection layer; real UAT PASS claimed in product docs)
-- main Meta module does **not** ship Insights collectors / Analyst intelligence
+Canonical ledger state: **UAT PASS / ACCEPTED — NOT DONE**.
 
-Agents must **not** claim unmerged PR functionality is on main.
+Still explicit:
+
+- **Background-ready: NO** (sync collect/analyze debt — next milestone Async Operations + Activity Center)
+- **Professional Meta Expert Workspace: BLUEPRINTED / NOT IMPLEMENTED** (`docs/product/META_ADS_EXPERT_WORKSPACE.md` + `OPERATOR_WORKSPACE_DESIGN_STANDARD.md`)
+- Do not call Meta Ads “complete”, “finished”, or “workspace done”
+
+Main also has Meta **central Integration + resource discovery + binding** (connection layer).
+
+Details: `PRODUCT_CAPABILITY_LEDGER.md`.
 
 ---
 
@@ -377,4 +400,6 @@ When material product / architecture decisions change, update `PROJECT_MEMORY.md
 | `OPERATOR_ASYNC_EXECUTION.md` | Operator async execution standard |
 | `docs/PROJECT_STATUS.md` | Human/agent progress tracker |
 | `docs/product/*` | Domain blueprints |
+| `docs/product/OPERATOR_WORKSPACE_DESIGN_STANDARD.md` | Global operator workspace model (BLUEPRINT / NOT IMPLEMENTED) |
+| `docs/product/META_ADS_EXPERT_WORKSPACE.md` | Meta-specific workspace blueprint (BLUEPRINT / NOT IMPLEMENTED) |
 | `docs/foundation/DECISION_LOG.md` | ADRs |

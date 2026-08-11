@@ -58,6 +58,10 @@ class CoreExternalResource extends Model
 
     public function optionLabel(): string
     {
+        if ($this->provider === ProviderRegistry::META && $this->resource_type === 'meta_ads') {
+            return $this->metaAdAccountOptionLabel();
+        }
+
         return sprintf(
             '%s · %s · %s (%s)',
             ProviderRegistry::label($this->provider),
@@ -65,5 +69,28 @@ class CoreExternalResource extends Model
             $this->display_name,
             $this->external_id,
         );
+    }
+
+    /**
+     * Operator-facing Meta Ad Account label with Business container context.
+     * Meta Business is provider scope — never treated as Brand.
+     */
+    public function metaAdAccountOptionLabel(): string
+    {
+        $meta = is_array($this->metadata) ? $this->metadata : [];
+        $account = trim((string) ($this->display_name ?: $this->external_id));
+        $business = trim((string) ($meta['business_name'] ?? ''));
+        if ($business === '' && filled($this->parent_external_id)) {
+            $business = 'Business '.$this->parent_external_id;
+        }
+
+        $parts = [];
+        if ($business !== '') {
+            $parts[] = 'Meta Business: '.$business;
+        }
+        $parts[] = $account !== '' ? $account : 'Ad Account';
+        $parts[] = 'ID '.$this->external_id;
+
+        return implode(' · ', $parts);
     }
 }

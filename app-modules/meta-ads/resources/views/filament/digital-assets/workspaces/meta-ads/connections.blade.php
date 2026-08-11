@@ -1,6 +1,5 @@
 @php
     /** @var array $summary */
-    $integration = $summary['integration'];
     $bound = $summary['bound_resource'];
     $resources = $summary['bindable_resources'];
     $meta = is_array($bound?->metadata) ? $bound->metadata : [];
@@ -11,7 +10,9 @@
         <p class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Connections</p>
         <h3 class="text-base font-semibold text-gray-950 dark:text-white">Meta Ad Account binding</h3>
         <p class="mt-1 text-gray-600 dark:text-gray-300">
-            Select a discovered Meta Ad Account from the agency Meta Integration. Do not paste tokens or account IDs here.
+            Select one discovered Meta Ad Account from the agency Meta Integration. This Meta Ads asset binds to exactly
+            one Ad Account — a Brand may have multiple Meta Ads assets, one per Ad Account. Do not paste tokens or
+            account IDs here.
         </p>
     </div>
 
@@ -50,7 +51,7 @@
                 @endif
                 @if (! empty($meta['business_name']) || ! empty($meta['business_id']))
                     <li>
-                        Business:
+                        Meta Business:
                         {{ $meta['business_name'] ?? '—' }}
                         @if (! empty($meta['business_id']))
                             <span class="text-gray-500">({{ $meta['business_id'] }})</span>
@@ -58,9 +59,13 @@
                     </li>
                 @endif
                 @if (! empty($meta['discovery_paths']) && is_array($meta['discovery_paths']))
-                    <li>Discovery paths: {{ implode(', ', $meta['discovery_paths']) }}</li>
+                    <li class="text-gray-500">Found via: {{ implode(', ', $meta['discovery_paths']) }}</li>
                 @endif
             </ul>
+            <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                Meta Business is selection context for finding this Ad Account — it is not a Brand and is never used
+                to group Brands.
+            </p>
         </div>
     @endif
 </div>

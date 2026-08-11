@@ -13,4 +13,6 @@ final class AiRouteKeys
     public const string WEBSITE_DISCOVERY_CONTEXT = 'website.discovery_context';
 
     public const string GOOGLE_ADS_AI_GUIDANCE = 'google_ads.ai_guidance';
+
+    public const string META_ADS_AI_GUIDANCE = 'meta_ads.ai_guidance';
 }

@@ -7,6 +7,8 @@ use RuntimeException;
 
 /**
  * Built-in Skill registry. Modules register filesystem roots; loader parses Markdown.
+ *
+ * Skill slugs may repeat across modules; use getForModule() for module-scoped resolution.
  */
 final class SkillRegistry
 {
@@ -16,7 +18,7 @@ final class SkillRegistry
     private array $roots = [];
 
     /**
-     * @var array<string, SkillDefinition>|null
+     * @var list<SkillDefinition>|null
      */
     private ?array $skills = null;
 
@@ -54,17 +56,43 @@ final class SkillRegistry
 
     public function get(string $slug): SkillDefinition
     {
-        $skills = $this->allBySlug();
-        if (! isset($skills[$slug])) {
+        $matches = $this->matchesForSlug($slug);
+        if ($matches === []) {
             throw new InvalidArgumentException("Unknown Skill [{$slug}].");
         }
 
-        return $skills[$slug];
+        if (count($matches) > 1) {
+            return $matches[0];
+        }
+
+        return $matches[0];
+    }
+
+    public function getForModule(string $module, string $slug): SkillDefinition
+    {
+        foreach ($this->all() as $skill) {
+            if ($skill->module === $module && $skill->slug === $slug) {
+                return $skill;
+            }
+        }
+
+        throw new InvalidArgumentException("Unknown Skill [{$slug}] for module [{$module}].");
     }
 
     public function has(string $slug): bool
     {
-        return isset($this->allBySlug()[$slug]);
+        return $this->matchesForSlug($slug) !== [];
+    }
+
+    public function hasForModule(string $module, string $slug): bool
+    {
+        foreach ($this->all() as $skill) {
+            if ($skill->module === $module && $skill->slug === $slug) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -86,13 +114,29 @@ final class SkillRegistry
      */
     public function all(): array
     {
-        $skills = array_values($this->allBySlug());
+        if ($this->skills !== null) {
+            return $this->skills;
+        }
+
+        $skills = [];
+
+        foreach ($this->roots as $root) {
+            $seenInModule = [];
+            foreach ($this->loader->loadFromRoot($root) as $skill) {
+                if (isset($seenInModule[$skill->slug])) {
+                    throw new RuntimeException("Duplicate Skill slug [{$skill->slug}] in module [{$skill->module}].");
+                }
+                $seenInModule[$skill->slug] = true;
+                $skills[] = $skill;
+            }
+        }
+
         usort(
             $skills,
-            fn (SkillDefinition $a, SkillDefinition $b): int => [$a->module, $a->name] <=> [$b->module, $b->name]
+            fn (SkillDefinition $a, SkillDefinition $b): int => [$a->module, $a->name] <=> [$b->module, $a->name]
         );
 
-        return $skills;
+        return $this->skills = $skills;
     }
 
     /**
@@ -122,29 +166,17 @@ final class SkillRegistry
     public function reload(): void
     {
         $this->skills = null;
-        $this->allBySlug();
+        $this->all();
     }
 
     /**
-     * @return array<string, SkillDefinition>
+     * @return list<SkillDefinition>
      */
-    private function allBySlug(): array
+    private function matchesForSlug(string $slug): array
     {
-        if ($this->skills !== null) {
-            return $this->skills;
-        }
-
-        $bySlug = [];
-
-        foreach ($this->roots as $root) {
-            foreach ($this->loader->loadFromRoot($root) as $skill) {
-                if (isset($bySlug[$skill->slug])) {
-                    throw new RuntimeException("Duplicate Skill slug [{$skill->slug}].");
-                }
-                $bySlug[$skill->slug] = $skill;
-            }
-        }
-
-        return $this->skills = $bySlug;
+        return array_values(array_filter(
+            $this->all(),
+            fn (SkillDefinition $skill): bool => $skill->slug === $slug
+        ));
     }
 }

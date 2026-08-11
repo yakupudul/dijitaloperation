@@ -1,7 +1,7 @@
 # PRODUCT_CAPABILITY_LEDGER
 
 > **Canonical product capability truth table for MoxDOP.**  
-> Inspected against **actual** `origin/main` @ `171e5e7` (2026-08-11).  
+> Updated at PR #119 acceptance (Ads Manager operator spot-check PASS).  
 > Do **not** treat “IMPLEMENTED V1” in older docs as Definition-of-Done **DONE**.  
 > Persistent product direction: `PROJECT_MEMORY.md`.  
 > Async operator standard: `OPERATOR_ASYNC_EXECUTION.md`.
@@ -30,7 +30,7 @@
 
 ---
 
-## Capability ledger (main @ `171e5e7`)
+## Capability ledger
 
 | Capability | Code | Automated Tests | Real UAT | Operator UX | Background-ready | State | Known blocker / debt | Canonical notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -54,7 +54,8 @@
 | Meta central Integration | YES | YES | YES | YES | NO | UAT PASS | Insights/Intelligence not on main | Agency Meta Integration; product docs claim real UAT PASS |
 | Meta resource discovery | YES | YES | YES | YES | NO | UAT PASS | Discovery sync | Ad Account ExternalResources discovered |
 | Meta binding | YES | YES | YES | YES | N/A | UAT PASS | Collect live data hidden without collector on main | Meta Ads Digital Asset ↔ AssetBinding |
-| Meta Ads Intelligence | NO | NO | NO | PARTIAL | NO | IMPLEMENTING | **Available on PR #119; not canonical main** | Overview/Connections only on main; Insights/Analyst on unmerged PR |
+| Meta Ads Intelligence | YES | YES | YES | YES (interim specialist UX) | NO | **UAT PASS / ACCEPTED — NOT DONE** | Background-ready **NO** (collect/analyze still sync). Professional Meta Expert Workspace **NOT IMPLEMENTED** (blueprint only). Interim Overview/Performance is UAT surface, not the target workspace. | Read-only Intelligence engine on main after PR #119. Operator Ads Manager spot-check PASS: account `act_744654160596455`, campaign `09 \| Diaspora TR \| Form - Mox`, period `2026-07-14`→`2026-08-10`. Provider-ID joins, missing≠zero, metric/result semantics accepted. |
+| Professional Operator Workspace (Meta Ads) | NO | NO | NO | NO | N/A | PLANNED / BLUEPRINTED | Blueprint only — no final dashboard/charts/filters built; depends on Async Operations + Operational Data Foundation | Canonical blueprints: `docs/product/OPERATOR_WORKSPACE_DESIGN_STANDARD.md` + `docs/product/META_ADS_EXPERT_WORKSPACE.md` |
 | Async execution | PARTIAL | PARTIAL | NO | NO | NO | PARTIAL | Jobs exist but Filament invokes `->handle()` sync; no operator Activity Center | See `OPERATOR_ASYNC_EXECUTION.md` — current sync flows are debt |
 | Historical performance memory | PARTIAL | PARTIAL | NO | PARTIAL | NO | PARTIAL | No dedicated historical warehouse / backfill / incremental store | Run/Evidence history exists; Historical Performance Store **PLANNED** |
 | Operational Taxonomy | NO | NO | NO | NO | N/A | PLANNED | Do not invent taxonomy module yet | Direction in `PROJECT_MEMORY.md` |
@@ -71,17 +72,34 @@
 
 ## Critical clarifications
 
-### Meta Ads Intelligence is not main
+### Meta Ads Intelligence — UAT PASS / ACCEPTED, not DONE
 
-PR [#119](https://github.com/yakupudul/dijitaloperation/pull/119) (*Meta Ads Intelligence + Analyst V1*) is **OPEN** (`mergedAt: null`) as of this ledger snapshot.
+PR [#119](https://github.com/yakupudul/dijitaloperation/pull/119) (*Meta Ads Intelligence + Analyst V1*) merges the **read-only Meta Ads Intelligence engine** onto main.
 
-Main capability state for Meta Ads Intelligence must **not** be recorded as DONE / UAT PASS / TESTED.
+Accurate multidimensional state:
 
-Recorded here as:
+> **UAT PASS / ACCEPTED — NOT DONE**
 
-> **IMPLEMENTING** — Available on PR #119; not canonical main.
+Accepted operator UAT (Ads Manager manual spot-check **PASS**):
 
-Main **does** include Meta central Integration + discovery + binding (connection layer), with product-doc real UAT **PASS** for that scoped slice only.
+| Field | Value |
+| --- | --- |
+| Meta Ad Account | Obezite ve Estetik (`act_744654160596455`) |
+| Campaign | `09 \| Diaspora TR \| Form - Mox` |
+| Period | `2026-07-14` → `2026-08-10` |
+| Result | DOP metrics matched Meta Ads Manager |
+
+Also accepted on this slice: hierarchy collection, provider-ID joins, missing≠zero, click/result metric semantics, synthetic UAT isolation, read-only Meta client (GET only).
+
+**Explicitly still NOT DONE / not claimable as finished Meta product:**
+
+- **Background-ready: NO** — collect/analyze remain synchronous Livewire/HTTP debt (`OPERATOR_ASYNC_EXECUTION.md`)
+- **Professional Operator Workspace: BLUEPRINTED / PLANNED, NOT IMPLEMENTED** — current Overview/Performance is an interim UAT surface; target IA is `docs/product/META_ADS_EXPERT_WORKSPACE.md` (+ global `OPERATOR_WORKSPACE_DESIGN_STANDARD.md`)
+- Historical arbitrary querying / performance warehouse: **NO**
+
+Do **not** describe this merge as “Meta Ads complete”, “Meta module finished”, or “Meta workspace done”.
+
+Main also continues to include Meta central Integration + discovery + binding (connection layer), with prior product-doc real UAT PASS for that scoped slice.
 
 ### Public Website Discovery is limited
 
@@ -143,8 +161,8 @@ When a PR changes capability behavior or readiness:
 
 | Field | Value |
 | --- | --- |
-| Base | `origin/main` |
-| Commit | `171e5e7` — Merge PR #118 (Meta Ads real UAT binding hotfix) |
-| PR #119 | OPEN — Meta Ads Intelligence + Analyst V1 (not main) |
-| Method | Code / test / Filament invocation / product-doc inspection |
+| Base | `origin/main` (updated at PR #119 acceptance) |
+| PR #119 | Ads Manager operator spot-check **PASS** — merge acceptance for Intelligence engine |
+| Accepted UAT | `act_744654160596455` / `09 \| Diaspora TR \| Form - Mox` / `2026-07-14`→`2026-08-10` |
+| Method | Code / test / Filament invocation / operator Ads Manager comparison |
 | Guessing | Forbidden — unknown real UAT recorded as **NO** unless docs claim PASS |

@@ -11,7 +11,10 @@ use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAsset
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\GoogleAdsIntelligenceRelationManager;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\GoogleAdsPerformanceRelationManager;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\GoogleAdsSearchTermsRelationManager;
+use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\MetaAdsActivityRelationManager;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\MetaAdsConnectionsRelationManager;
+use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\MetaAdsIntelligenceRelationManager;
+use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\MetaAdsPerformanceRelationManager;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\WebsiteActivityRelationManager;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\WebsiteConnectionsRelationManager;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\WebsiteDiscoveryRelationManager;
@@ -52,7 +55,8 @@ use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Support\Htmlable;
 use MoxDop\GoogleAds\Ai\GoogleAdsAiGuidanceService;
 use MoxDop\GoogleAds\Workspace\GoogleAdsWorkspaceData;
-use MoxDop\MetaAds\Support\MetaAdsWorkspaceData;
+use MoxDop\MetaAds\Ai\MetaAdsAiGuidanceService;
+use MoxDop\MetaAds\Workspace\MetaAdsWorkspaceData;
 use MoxDop\Website\Ai\WebsiteAiRecommendationService;
 use MoxDop\Website\Discovery\PublicDiscoveryService;
 use MoxDop\Website\SeoIntelligence\SeoIntelligenceRefreshService;
@@ -275,6 +279,47 @@ class ViewDigitalAsset extends ViewRecord
                 ->modalDescription('Uses current Findings, Evidence and Brand context via Google Ads Analyst. Advisory only — no Ads mutations, Findings, or Tasks.')
                 ->modalSubmitActionLabel('Analyze with AI')
                 ->action(function (GoogleAdsAiGuidanceService $service): void {
+                    /** @var DigitalAsset $asset */
+                    $asset = $this->getRecord();
+
+                    try {
+                        $result = $service->analyze($asset);
+                    } catch (\InvalidArgumentException $exception) {
+                        Notification::make()
+                            ->title('AI guidance not ready')
+                            ->body($exception->getMessage())
+                            ->warning()
+                            ->send();
+
+                        return;
+                    } catch (\Throwable $exception) {
+                        Notification::make()
+                            ->title('AI guidance failed')
+                            ->body(class_basename($exception))
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
+
+                    Notification::make()
+                        ->title($result['reused'] ? 'AI analysis is already current' : (
+                            $result['run']->status === 'completed' ? 'AI guidance generated' : 'AI guidance failed'
+                        ))
+                        ->body($result['message'])
+                        ->{$result['run']->status === 'completed' || $result['reused'] ? 'success' : 'warning'}()
+                        ->send();
+                }),
+            Action::make('generateMetaAdsAiGuidance')
+                ->label('Generate AI guidance')
+                ->icon(Heroicon::OutlinedSparkles)
+                ->color('gray')
+                ->visible(fn (): bool => $this->isMetaAdsWorkspace())
+                ->requiresConfirmation()
+                ->modalHeading('Generate Meta Ads AI guidance?')
+                ->modalDescription('Uses current Findings, Evidence and Brand context via Meta Ads Analyst. Advisory only — no Meta mutations, Findings, or Tasks.')
+                ->modalSubmitActionLabel('Analyze with AI')
+                ->action(function (MetaAdsAiGuidanceService $service): void {
                     /** @var DigitalAsset $asset */
                     $asset = $this->getRecord();
 
@@ -672,7 +717,8 @@ class ViewDigitalAsset extends ViewRecord
                 ->icon(Heroicon::OutlinedEllipsisHorizontal)
                 ->color('gray')
                 ->button()
-                ->dropdownPlacement('bottom-end'),
+                ->dropdownPlacement('bottom-end')
+                ->visible(fn (): bool => $this->hasAnyMoreAction()),
             EditAction::make()
                 ->label('Edit asset')
                 ->color('gray'),
@@ -709,9 +755,9 @@ class ViewDigitalAsset extends ViewRecord
             return $schema->components([
                 ViewEntry::make('meta_ads_overview')
                     ->hiddenLabel()
-                    ->view('meta-ads::filament.digital-assets.workspaces.meta-ads.overview')
+                    ->view('meta-ads::workspace.overview')
                     ->viewData(fn (): array => [
-                        'summary' => MetaAdsWorkspaceData::forAsset($this->getRecord()),
+                        'data' => app(MetaAdsWorkspaceData::class)->for($this->getRecord()),
                     ])
                     ->columnSpanFull(),
             ]);
@@ -770,13 +816,19 @@ class ViewDigitalAsset extends ViewRecord
         }
 
         if ($this->isMetaAdsWorkspace()) {
-            $workspace = MetaAdsWorkspaceData::forAsset($asset);
+            $workspace = app(MetaAdsWorkspaceData::class)->for($asset);
+            $identity = $workspace['account_identity'] ?? [];
+            $accountName = filled($identity['name'] ?? null) ? $identity['name'] : null;
+            $businessName = filled($identity['business_name'] ?? null) ? $identity['business_name'] : null;
+
             $parts = array_values(array_filter([
-                $workspace['connection_label'] ?? null,
-                $workspace['account_label'] !== 'Not bound' ? $workspace['account_label'] : null,
+                $accountName ? 'Meta Ads · '.$accountName : 'Meta Ads · '.$status,
+                $businessName ? 'Meta Business: '.$businessName : null,
+                ! empty($workspace['last_updated_human']) ? 'Last updated '.$workspace['last_updated_human'] : null,
+                $workspace['connection_health'] ?? null,
             ], fn (?string $part): bool => filled($part)));
 
-            return $parts === [] ? 'Meta Ads' : implode(' · ', $parts);
+            return $parts === [] ? null : implode(' · ', $parts);
         }
 
         $identifier = filled($asset->primary_url)
@@ -901,7 +953,10 @@ class ViewDigitalAsset extends ViewRecord
 
         if ($this->isMetaAdsWorkspace()) {
             return [
+                MetaAdsPerformanceRelationManager::class,
+                MetaAdsIntelligenceRelationManager::class,
                 MetaAdsConnectionsRelationManager::class,
+                MetaAdsActivityRelationManager::class,
             ];
         }
 
@@ -986,5 +1041,23 @@ class ViewDigitalAsset extends ViewRecord
 
         return $asset->type === CrossAssetInstagramMetaAdsDestinationConsistencyService::ASSET_TYPE_INSTAGRAM
             && $asset->brand_id !== null;
+    }
+
+    /**
+     * The "More" ActionGroup only contains Website- and Instagram-scoped
+     * cross-asset checks. Hide the whole group when none apply — e.g. for
+     * Meta Ads and Google Ads asset workspaces — instead of showing an empty
+     * dropdown.
+     */
+    private function hasAnyMoreAction(): bool
+    {
+        return $this->canRunWebsiteDiagnosis()
+            || $this->canRunWebsiteGbpWebsiteUrlConsistency()
+            || $this->canRunWebsiteGbpPhoneConsistency()
+            || $this->canRunWebsiteGbpAddressConsistency()
+            || $this->canRunWebsiteGoogleAdsLandingConsistency()
+            || $this->canRunWebsiteInstagramWebsiteUrlConsistency()
+            || $this->canRunWebsiteMetaAdsDestinationConsistency()
+            || $this->canRunInstagramMetaAdsDestinationConsistency();
     }
 }

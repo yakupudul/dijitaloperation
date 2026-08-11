@@ -44,6 +44,13 @@ Laravel Boost guidelines ile çelişirse DOP belgeleri kazanır.
 - Admin: `php artisan dop:create-admin` (interactive; never commit passwords)
 - Provider credentials are **not** required for basic boot / PHPUnit
 
+**DB isolation (mandatory):**
+
+- PHPUnit uses `DB_DATABASE=:memory:` (`phpunit.xml`) — never the operator SQLite file
+- Browser / agent UAT must **not** insert synthetic provider fixtures (`act_1001`, “Lead Camp A”, etc.) into `database/database.sqlite`
+- Disposable browser UAT: use a separate SQLite file (e.g. `database/browser-uat.sqlite`) via `DB_DATABASE` override, or seed only inside PHPUnit `RefreshDatabase`
+- Operator real Meta UAT: bind a **real** discovered Ad Account explicitly; never auto-pick first/random
+
 ### Kilit kararlar
 
 - Moximu **iç** operasyon; SaaS / Workspace / müşteri girişi yok

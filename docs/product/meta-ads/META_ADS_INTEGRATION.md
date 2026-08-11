@@ -70,14 +70,12 @@ Official Meta documentation is authoritative for API behavior.
 
 - Automated / fake-provider coverage: PASS
 - Browser UAT (desktop / responsive / dark): PASS
-- Real Meta Integration + resource discovery + binding UAT: **PASS** (29 Ad Accounts discovered; canonical AssetBinding verified; Insights UAT not claimed — collectors not implemented)
+- Real Meta Integration + resource discovery + binding UAT: **PASS**
+- Meta Ads Intelligence + Analyst V1: see `META_ADS_INTELLIGENCE.md` (**IMPLEMENTED V1**)
 
-## NOT IMPLEMENTED (deliberate)
+## NOT IMPLEMENTED HERE (moved to Intelligence V1 / still deferred)
 
-- Meta Ads Insights / campaign / ad set / ad / creative collectors
-- Findings, Recommendations automation, Tasks automation
-- Meta Ads Analyst / Skills / `meta_ads.ai_guidance`
-- Lead Ads personal data
+- Personal Lead Ads data / CRM outcome linkage
 - Write operations (campaign/budget/bid/audience/creative/ad)
 - Webhooks / continuous polling
 - Capability Router / Playbooks / RAG / embeddings
@@ -88,6 +86,7 @@ Official Meta documentation is authoritative for API behavior.
 2. Test connection
 3. Discover resources → Meta Ad Accounts listed
 4. Customer → Brand → Digital Assets → Meta Ads → Connections → Bind Ad Account
+5. Collect live data → Insights Evidence / Findings / Analyst (Intelligence V1)
 
 ## Future (document only)
 
