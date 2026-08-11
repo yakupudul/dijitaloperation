@@ -197,20 +197,26 @@ final class MetaResultResolver
     }
 
     /**
-     * Account-level Result Mix — distinct Meta action categories with nonzero counts.
-     * Never sums unrelated action types into one fake total.
+     * Account-level Result Mix.
+     *
+     * - raw_items: every preserved nonzero action type with a precise label
+     * - operator_items / items: human summary rows (no duplicate labels; aliases not summed)
+     *
+     * Never sums unrelated or alias action types into one fake total.
      *
      * @param  list<array<string, mixed>>  $normalizedActions
      * @return array{
      *     mode: 'result_mix',
-     *     items: list<array{raw_action_type: string, normalized_result_type: ?string, human_label: string, count: float, value: float|null}>,
+     *     items: list<array<string, mixed>>,
+     *     operator_items: list<array<string, mixed>>,
+     *     raw_items: list<array<string, mixed>>,
      *     blind_action_sum: false,
      *     note: string
      * }
      */
     public static function resultMix(array $normalizedActions): array
     {
-        $items = [];
+        $rawItems = [];
         foreach ($normalizedActions as $row) {
             if (! is_array($row)) {
                 continue;
@@ -227,22 +233,25 @@ final class MetaResultResolver
             if (! self::includeInAccountResultMix($raw, $normalized)) {
                 continue;
             }
-            $items[] = [
+            $rawItems[] = [
                 'raw_action_type' => $raw,
                 'normalized_result_type' => $normalized,
-                'human_label' => self::mixLabel($raw, $normalized),
+                'human_label' => self::preciseMixLabel($raw),
                 'count' => $count,
                 'value' => isset($row['value']) && is_numeric($row['value']) ? (float) $row['value'] : null,
             ];
         }
 
-        usort($items, fn (array $a, array $b): int => ($b['count'] <=> $a['count']));
+        usort($rawItems, fn (array $a, array $b): int => ($b['count'] <=> $a['count']));
+        $operatorItems = self::operatorResultMixFromRaw($rawItems);
 
         return [
             'mode' => 'result_mix',
-            'items' => $items,
+            'items' => $operatorItems,
+            'operator_items' => $operatorItems,
+            'raw_items' => $rawItems,
             'blind_action_sum' => false,
-            'note' => 'Distinct Meta action types are never summed into one total. Platform-attributed only — not verified business outcomes.',
+            'note' => 'Operator Result Mix uses precise labels and never sums distinct Meta action types. Raw Result Signals preserve every observed type for diagnostics.',
         ];
     }
 
@@ -255,22 +264,59 @@ final class MetaResultResolver
         return in_array($raw, ['landing_page_view', 'profile_visit', 'link_click'], true);
     }
 
-    private static function mixLabel(string $raw, ?string $normalized): string
+    /**
+     * Precise per-raw-type labels — never reuse one human label for multiple action types.
+     */
+    private static function preciseMixLabel(string $raw): string
     {
-        return match ($normalized) {
+        return match ($raw) {
             'lead' => 'Meta-attributed Leads',
+            'onsite_conversion.lead_grouped' => 'Meta-attributed Leads (grouped)',
             'purchase' => 'Meta-attributed Purchases',
-            'messaging' => 'Messaging Conversations',
-            'registration' => 'Meta-attributed Registrations',
-            'appointment' => 'Meta-attributed Appointments',
+            'omni_purchase' => 'Meta-attributed Purchases (omni)',
+            'offsite_conversion.fb_pixel_purchase' => 'Meta-attributed Purchases (pixel)',
+            'onsite_conversion.total_messaging_connection' => 'Messaging connections',
+            'onsite_conversion.messaging_conversation_started_7d' => 'Messaging conversations started',
+            'onsite_conversion.messaging_first_reply' => 'Messaging first replies',
+            'complete_registration' => 'Meta-attributed Registrations',
+            'offsite_conversion.fb_pixel_complete_registration' => 'Meta-attributed Registrations (pixel)',
+            'schedule' => 'Meta-attributed Appointments',
+            'offsite_conversion.fb_pixel_schedule' => 'Meta-attributed Appointments (pixel)',
+            'landing_page_view' => 'Landing Page Views',
+            'link_click' => 'Link Clicks (action)',
             'profile_visit' => 'Profile Visits',
-            default => match ($raw) {
-                'landing_page_view' => 'Landing Page Views',
-                'link_click' => 'Link Clicks (action)',
-                'profile_visit' => 'Profile Visits',
-                default => 'Meta-attributed '.$raw,
-            },
+            default => 'Meta-attributed '.$raw,
         };
+    }
+
+    /**
+     * Operator summary: keep precise labels; when lead aliases share the same count,
+     * show one row with alias provenance — never sum aliases.
+     *
+     * @param  list<array<string, mixed>>  $rawItems
+     * @return list<array<string, mixed>>
+     */
+    private static function operatorResultMixFromRaw(array $rawItems): array
+    {
+        $byType = [];
+        foreach ($rawItems as $item) {
+            $byType[(string) $item['raw_action_type']] = $item;
+        }
+
+        if (isset($byType['lead'], $byType['onsite_conversion.lead_grouped'])) {
+            $leadCount = (float) $byType['lead']['count'];
+            $groupedCount = (float) $byType['onsite_conversion.lead_grouped']['count'];
+            if ($leadCount === $groupedCount) {
+                $byType['lead']['aliases'] = ['onsite_conversion.lead_grouped'];
+                $byType['lead']['alias_note'] = 'Same count as onsite_conversion.lead_grouped — not summed; raw signal retained separately.';
+                unset($byType['onsite_conversion.lead_grouped']);
+            }
+        }
+
+        $items = array_values($byType);
+        usort($items, fn (array $a, array $b): int => ((float) $b['count'] <=> (float) $a['count']));
+
+        return $items;
     }
 
     /**

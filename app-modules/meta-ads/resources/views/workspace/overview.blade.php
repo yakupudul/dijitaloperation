@@ -39,11 +39,15 @@
         'business_validation' => 'Business validation',
     ];
 
+    $partialReasons = $data['partial_reasons'] ?? [];
+
     $stateLabels = [
         'no_connection' => 'No Meta Ad Account connected yet.',
         'no_data' => 'Connected — no data collected yet. Run Collect live data.',
         'collection_failed' => 'Last collection failed. Try Collect live data again.',
-        'collection_partial' => 'Latest collection is partial — some areas below are incomplete.',
+        'collection_partial' => $partialReasons !== []
+            ? 'Latest collection is partial: '.implode('; ', $partialReasons)
+            : 'Latest collection is partial — see Data coverage / collection stages for the incomplete area.',
         'data_available' => null,
     ];
 @endphp
@@ -140,7 +144,10 @@
 
     <section class="mox-panel">
         <div class="mox-panel__head"><h4>Result mix (platform)</h4></div>
-        @php $resultMix = $data['result_mix'] ?? null; @endphp
+        @php
+            $resultMix = $data['result_mix'] ?? null;
+            $rawSignals = $data['raw_result_signals'] ?? [];
+        @endphp
         @if ($resultMix === null)
             <div class="mox-empty mox-empty--compact">No account Evidence yet.</div>
         @elseif (($resultMix['items'] ?? []) === [])
@@ -161,7 +168,12 @@
                     <tbody>
                         @foreach ($resultMix['items'] as $item)
                             <tr>
-                                <td>{{ $item['human_label'] ?? '—' }}</td>
+                                <td>
+                                    {{ $item['human_label'] ?? '—' }}
+                                    @if (! empty($item['alias_note']))
+                                        <div class="mox-muted">{{ $item['alias_note'] }}</div>
+                                    @endif
+                                </td>
                                 <td class="mox-num">{{ is_numeric($item['count'] ?? null) ? number_format((float) $item['count'], 0) : '—' }}</td>
                                 <td class="mox-muted">{{ $item['raw_action_type'] ?? '—' }}</td>
                             </tr>
@@ -170,6 +182,20 @@
                 </table>
             </div>
             <p class="mox-muted">{{ $resultMix['note'] ?? 'Distinct action types are never summed into one fake total.' }}</p>
+            @if ($rawSignals !== [])
+                <details class="mox-muted" style="margin-top:0.75rem;">
+                    <summary>Raw Result Signals</summary>
+                    <ul>
+                        @foreach ($rawSignals as $signal)
+                            <li>
+                                {{ $signal['human_label'] ?? $signal['raw_action_type'] ?? '—' }}:
+                                {{ is_numeric($signal['count'] ?? null) ? number_format((float) $signal['count'], 0) : '—' }}
+                                <span>({{ $signal['raw_action_type'] ?? '—' }})</span>
+                            </li>
+                        @endforeach
+                    </ul>
+                </details>
+            @endif
         @endif
     </section>
 

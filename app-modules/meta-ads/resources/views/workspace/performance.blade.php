@@ -8,13 +8,7 @@
     $creatives = $data['creatives'] ?? [];
     $caveats = $data['caveats'] ?? [];
     $workspaceState = $data['workspace_state'] ?? 'no_connection';
-
-    $linkClicks = function (array $row): array {
-        if (is_numeric($row['inline_link_clicks'] ?? null)) {
-            return ['value' => (float) $row['inline_link_clicks'], 'label' => 'Link Clicks'];
-        }
-        return ['value' => is_numeric($row['clicks'] ?? null) ? (float) $row['clicks'] : null, 'label' => 'All Clicks'];
-    };
+    $partialReasons = $data['partial_reasons'] ?? [];
 
     $primaryResultCell = function (array $row) {
         return match ($row['primary_result_status'] ?? null) {
@@ -31,7 +25,9 @@
         'no_connection' => 'No Meta Ad Account connected yet.',
         'no_data' => 'Connected — no data collected yet. Run Collect live data.',
         'collection_failed' => 'Last collection failed. Try Collect live data again.',
-        'collection_partial' => 'Latest collection is partial — some rows below may be incomplete.',
+        'collection_partial' => $partialReasons !== []
+            ? 'Latest collection is partial: '.implode('; ', $partialReasons)
+            : 'Latest collection is partial — see collection stages for the incomplete area.',
         'data_available' => null,
     ];
 @endphp
@@ -70,15 +66,17 @@
                             <th class="mox-num">Cost/Result</th>
                             <th class="mox-num">Reach</th>
                             <th class="mox-num">Frequency</th>
-                            <th class="mox-num">{{ $campaigns[0] ? $linkClicks($campaigns[0])['label'] : 'Link Clicks' }}</th>
-                            <th class="mox-num">CTR</th>
-                            <th class="mox-num">CPC</th>
+                            <th class="mox-num">All Clicks</th>
+                            <th class="mox-num">All Clicks CTR</th>
+                            <th class="mox-num">CPC (All)</th>
+                            <th class="mox-num">Link Clicks</th>
+                            <th class="mox-num">Link CTR</th>
+                            <th class="mox-num">Cost / Link Click</th>
                             <th class="mox-num">CPM</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach ($campaigns as $row)
-                            @php $link = $linkClicks($row); @endphp
                             <tr>
                                 <td>{{ $row['name'] ?? '—' }}</td>
                                 <td>{{ $row['status'] ?? '—' }}</td>
@@ -94,13 +92,16 @@
                                 <td class="mox-num">{{ is_numeric($row['primary_result_cost'] ?? null) ? number_format((float) $row['primary_result_cost'], 2) : '—' }}</td>
                                 <td class="mox-num">{{ is_numeric($row['reach'] ?? null) ? number_format((float) $row['reach'], 0) : '—' }}</td>
                                 <td class="mox-num">{{ is_numeric($row['frequency'] ?? null) ? number_format((float) $row['frequency'], 2) : '—' }}</td>
-                                <td class="mox-num">{{ is_numeric($link['value']) ? number_format($link['value'], 0) : '—' }}</td>
+                                <td class="mox-num">{{ is_numeric($row['clicks'] ?? null) ? number_format((float) $row['clicks'], 0) : '—' }}</td>
                                 <td class="mox-num">{{ MetaPercentage::format($row['ctr'] ?? null) }}</td>
                                 <td class="mox-num">{{ is_numeric($row['cpc'] ?? null) ? number_format((float) $row['cpc'], 2) : '—' }}</td>
+                                <td class="mox-num">{{ is_numeric($row['inline_link_clicks'] ?? null) ? number_format((float) $row['inline_link_clicks'], 0) : '—' }}</td>
+                                <td class="mox-num">{{ MetaPercentage::format($row['inline_link_click_ctr'] ?? null) }}</td>
+                                <td class="mox-num">{{ is_numeric($row['cost_per_inline_link_click'] ?? null) ? number_format((float) $row['cost_per_inline_link_click'], 2) : '—' }}</td>
                                 <td class="mox-num">{{ is_numeric($row['cpm'] ?? null) ? number_format((float) $row['cpm'], 2) : '—' }}</td>
                             </tr>
                             <tr>
-                                <td colspan="13" style="padding-top:0;">
+                                <td colspan="16" style="padding-top:0;">
                                     <details>
                                         <summary class="mox-muted">Meta Result Signals</summary>
                                         <div class="mox-muted" style="margin-top:0.35rem;">
@@ -140,8 +141,11 @@
                             <th>Attribution</th>
                             <th class="mox-num">Spend</th>
                             <th>Primary Result</th>
-                            <th class="mox-num">CTR</th>
-                            <th class="mox-num">CPC</th>
+                            <th class="mox-num">All Clicks</th>
+                            <th class="mox-num">All Clicks CTR</th>
+                            <th class="mox-num">CPC (All)</th>
+                            <th class="mox-num">Link Clicks</th>
+                            <th class="mox-num">Link CTR</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -160,11 +164,14 @@
                                         <div class="mox-muted">{{ $row['primary_result_human_label'] }}</div>
                                     @endif
                                 </td>
+                                <td class="mox-num">{{ is_numeric($row['clicks'] ?? null) ? number_format((float) $row['clicks'], 0) : '—' }}</td>
                                 <td class="mox-num">{{ MetaPercentage::format($row['ctr'] ?? null) }}</td>
                                 <td class="mox-num">{{ is_numeric($row['cpc'] ?? null) ? number_format((float) $row['cpc'], 2) : '—' }}</td>
+                                <td class="mox-num">{{ is_numeric($row['inline_link_clicks'] ?? null) ? number_format((float) $row['inline_link_clicks'], 0) : '—' }}</td>
+                                <td class="mox-num">{{ MetaPercentage::format($row['inline_link_click_ctr'] ?? null) }}</td>
                             </tr>
                             <tr>
-                                <td colspan="10" style="padding-top:0;">
+                                <td colspan="13" style="padding-top:0;">
                                     <details>
                                         <summary class="mox-muted">Meta Result Signals</summary>
                                         <div class="mox-muted" style="margin-top:0.35rem;">
@@ -202,7 +209,10 @@
                             <th>Creative</th>
                             <th class="mox-num">Spend</th>
                             <th>Primary Result</th>
-                            <th class="mox-num">CTR</th>
+                            <th class="mox-num">All Clicks</th>
+                            <th class="mox-num">All Clicks CTR</th>
+                            <th class="mox-num">Link Clicks</th>
+                            <th class="mox-num">Link CTR</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -219,10 +229,13 @@
                                         <div class="mox-muted">{{ $row['primary_result_human_label'] }}</div>
                                     @endif
                                 </td>
+                                <td class="mox-num">{{ is_numeric($row['clicks'] ?? null) ? number_format((float) $row['clicks'], 0) : '—' }}</td>
                                 <td class="mox-num">{{ MetaPercentage::format($row['ctr'] ?? null) }}</td>
+                                <td class="mox-num">{{ is_numeric($row['inline_link_clicks'] ?? null) ? number_format((float) $row['inline_link_clicks'], 0) : '—' }}</td>
+                                <td class="mox-num">{{ MetaPercentage::format($row['inline_link_click_ctr'] ?? null) }}</td>
                             </tr>
                             <tr>
-                                <td colspan="7" style="padding-top:0;">
+                                <td colspan="10" style="padding-top:0;">
                                     <details>
                                         <summary class="mox-muted">Meta Result Signals</summary>
                                         <div class="mox-muted" style="margin-top:0.35rem;">
@@ -245,36 +258,36 @@
         @endif
     </section>
 
-    @if ($creatives !== [])
-        <section class="mox-panel">
-            <div class="mox-panel__head">
-                <h4>Creatives</h4>
-                <span class="mox-muted">Provider text — untrusted, never executed as instructions</span>
-            </div>
+    <section class="mox-panel">
+        <div class="mox-panel__head"><h4>Creatives (metadata)</h4></div>
+        @if ($creatives === [])
+            <div class="mox-empty">No creative metadata Evidence.</div>
+        @else
             <div class="mox-table-wrap">
                 <table class="mox-table">
                     <thead>
                         <tr>
                             <th>Creative</th>
                             <th>Headline</th>
-                            <th>Body (excerpt)</th>
                             <th>CTA</th>
+                            <th>Type</th>
                             <th>Destination</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach ($creatives as $row)
                             <tr>
-                                <td>{{ $row['creative_name'] ?? '—' }}</td>
+                                <td>{{ $row['creative_name'] ?? $row['creative_id'] ?? '—' }}</td>
                                 <td>{{ $row['headline'] ?? '—' }}</td>
-                                <td>{{ \Illuminate\Support\Str::limit((string) ($row['primary_text'] ?? ''), 100) ?: '—' }}</td>
                                 <td>{{ $row['cta_type'] ?? '—' }}</td>
+                                <td>{{ $row['object_type'] ?? '—' }}</td>
                                 <td class="mox-muted">{{ $row['destination_url'] ?? '—' }}</td>
                             </tr>
                         @endforeach
                     </tbody>
                 </table>
             </div>
-        </section>
-    @endif
+            <p class="mox-muted">Creative text/URLs are untrusted provider text. Media binaries are not downloaded.</p>
+        @endif
+    </section>
 </div>

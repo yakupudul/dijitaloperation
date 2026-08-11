@@ -93,9 +93,12 @@ final class MetaAdsWorkspaceData
             'account_identity' => $this->accountIdentity($account, $connectionSummary),
             'data_coverage' => $dataCoverage,
             'workspace_state' => $this->workspaceState($connectionSummary, $account, $campaigns, $latestRun, $dataCoverage),
+            'partial_reasons' => $this->partialReasons($latestRun),
+            'latest_run_status' => $latestRun?->status,
             'kpis' => $this->accountKpis($account, $comparison['available'] === true),
             'primary_result' => $this->primaryResultSummary($account),
             'result_mix' => $this->resultMixSummary($account),
+            'raw_result_signals' => $this->rawResultSignalsSummary($account),
             'collection_stages' => is_array($latestRun?->metadata['collection_stages'] ?? null)
                 ? $latestRun->metadata['collection_stages']
                 : [],
@@ -298,6 +301,9 @@ final class MetaAdsWorkspaceData
     /**
      * One of: no_connection | no_data | collection_failed | collection_partial | data_available.
      *
+     * Collection completeness is NOT the same as result-signal Mixed/Unresolved.
+     * Mixed primary-result semantics must not trigger a "collection is partial" banner.
+     *
      * @param  array<string, mixed>  $connectionSummary
      * @param  array<string, string>  $dataCoverage
      */
@@ -315,11 +321,33 @@ final class MetaAdsWorkspaceData
             return 'collection_failed';
         }
 
-        $hasGaps = collect($dataCoverage)
-            ->except(['business_validation'])
-            ->contains(fn (string $status): bool => in_array($status, ['Partial', 'Unavailable', 'Unresolved', 'Mixed', 'Unknown'], true));
+        if ($latestRun !== null && $latestRun->status === 'partial') {
+            return 'collection_partial';
+        }
 
-        return $hasGaps ? 'collection_partial' : 'data_available';
+        $collectionKeys = ['account', 'campaigns', 'adsets', 'ads', 'creative'];
+        $hasCollectionGaps = collect($dataCoverage)
+            ->only($collectionKeys)
+            ->contains(fn (string $status): bool => in_array($status, ['Partial', 'Unavailable', 'Unknown'], true));
+
+        return $hasCollectionGaps ? 'collection_partial' : 'data_available';
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function partialReasons(?Run $latestRun): array
+    {
+        if ($latestRun === null || $latestRun->status !== 'partial') {
+            return [];
+        }
+
+        $reasons = $latestRun->metadata['partial_reasons'] ?? [];
+        if (! is_array($reasons)) {
+            return [];
+        }
+
+        return array_values(array_filter($reasons, fn (mixed $reason): bool => is_string($reason) && $reason !== ''));
     }
 
     /**
@@ -347,7 +375,8 @@ final class MetaAdsWorkspaceData
             'outbound_clicks' => ['label' => 'Outbound Clicks', 'type' => 'count'],
             'ctr' => ['label' => 'All Clicks CTR', 'type' => 'percentage_point'],
             'inline_link_click_ctr' => ['label' => 'Link CTR', 'type' => 'percentage_point'],
-            'cpc' => ['label' => 'CPC', 'type' => 'currency'],
+            'cpc' => ['label' => 'CPC (All)', 'type' => 'currency'],
+            'cost_per_inline_link_click' => ['label' => 'Cost / Link Click', 'type' => 'currency'],
             'cpm' => ['label' => 'CPM', 'type' => 'currency'],
         ];
 
@@ -408,7 +437,7 @@ final class MetaAdsWorkspaceData
     }
 
     /**
-     * Account Overview Result Mix — never a blind sum of unrelated actions.
+     * Operator Result Mix — precise labels, no blind sums, rebuilt from actions when present.
      *
      * @return array{mode: string, items: list<array<string, mixed>>, blind_action_sum: bool, note: ?string}|null
      */
@@ -416,6 +445,21 @@ final class MetaAdsWorkspaceData
     {
         if ($account === null) {
             return null;
+        }
+
+        $actions = data_get($account->payload, 'actions');
+        if (! is_array($actions)) {
+            $actions = data_get($account->payload, 'current.actions');
+        }
+        if (is_array($actions)) {
+            $mix = MetaResultResolver::resultMix($actions);
+
+            return [
+                'mode' => 'result_mix',
+                'items' => $mix['operator_items'] ?? $mix['items'] ?? [],
+                'blind_action_sum' => false,
+                'note' => $mix['note'] ?? null,
+            ];
         }
 
         $mix = data_get($account->payload, 'result_mix');
@@ -428,20 +472,36 @@ final class MetaAdsWorkspaceData
             ];
         }
 
+        return [
+            'mode' => 'result_mix',
+            'items' => [],
+            'blind_action_sum' => false,
+            'note' => 'No Meta actions observed for Result Mix.',
+        ];
+    }
+
+    /**
+     * Raw Result Signals for diagnostics — every preserved action type, never summed.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function rawResultSignalsSummary(?Evidence $account): array
+    {
+        if ($account === null) {
+            return [];
+        }
+
         $actions = data_get($account->payload, 'actions');
         if (! is_array($actions)) {
             $actions = data_get($account->payload, 'current.actions');
         }
         if (! is_array($actions)) {
-            return [
-                'mode' => 'result_mix',
-                'items' => [],
-                'blind_action_sum' => false,
-                'note' => 'No Meta actions observed for Result Mix.',
-            ];
+            return [];
         }
 
-        return MetaResultResolver::resultMix($actions);
+        $mix = MetaResultResolver::resultMix($actions);
+
+        return array_values(array_filter($mix['raw_items'] ?? [], fn (mixed $item): bool => is_array($item)));
     }
 
     /**

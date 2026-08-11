@@ -332,6 +332,10 @@ class MetaAdsDataEngineCorrectnessTest extends TestCase
         $this->assertContains('purchase', $types);
         $this->assertContains('landing_page_view', $types);
         $this->assertNotContains('post_engagement', $types);
+        $this->assertSame(
+            collect($mix['operator_items'])->pluck('human_label')->unique()->count(),
+            collect($mix['operator_items'])->pluck('human_label')->count(),
+        );
     }
 
     public function test_ai_coverage_gate_excludes_unusable_campaign_evidence_from_skills(): void
