@@ -70,7 +70,7 @@ Official Meta documentation is authoritative for API behavior.
 
 - Automated / fake-provider coverage: PASS
 - Browser UAT (desktop / responsive / dark): PASS
-- Real Meta read-only UAT: **OPERATOR FOLLOW-UP** (no production Meta credential in the finalization environment)
+- Real Meta Integration + resource discovery + binding UAT: **PASS** (29 Ad Accounts discovered; canonical AssetBinding verified; Insights UAT not claimed — collectors not implemented)
 
 ## NOT IMPLEMENTED (deliberate)
 
