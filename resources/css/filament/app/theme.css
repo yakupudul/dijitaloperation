@@ -3,10 +3,17 @@
 @source '../../../../app/Filament/App/**/*';
 @source '../../../../resources/views/filament/app/**/*';
 @source '../../../../app-modules/website/resources/views/**/*';
+@source '../../../../resources/views/components/moxdop/**/*';
+@source '../../../../app-modules/meta-ads/resources/views/**/*';
 
 /*
  | MoxDOP design tokens — Agency Operations OS
  | Keep noise low; prefer semantic surfaces over decorative chrome.
+ |
+ | MoxDOP Design System foundation (docs/product/MOXDOP_DESIGN_SYSTEM.md):
+ | seven semantic families — primary/result/traffic/efficiency/warning/critical/neutral —
+ | plus card tokens. See that document for the rules governing how these are used
+ | (no giant saturated KPI backgrounds, semantic color only, missing != zero).
  */
 
 @theme {
@@ -24,6 +31,14 @@
     --color-mox-warning: #b45309;
     --color-mox-danger: #b91c1c;
     --color-mox-info: #1d4ed8;
+
+    /* Semantic design-system families (light values; dark values live on .dark .fi-body) */
+    --color-mox-primary: #ea580c;
+    --color-mox-result: #15803d;
+    --color-mox-traffic: #1d4ed8;
+    --color-mox-efficiency: #6d28d9;
+    --color-mox-critical: #b91c1c;
+    --color-mox-neutral: #475569;
 }
 
 .fi-body {
@@ -35,6 +50,29 @@
     --mox-text-secondary: var(--color-mox-text-secondary);
     --mox-muted: var(--color-mox-muted);
     --mox-accent: var(--color-mox-accent);
+
+    /* Semantic tokens — PRIMARY/ACTION, RESULT/POSITIVE, TRAFFIC/DELIVERY, EFFICIENCY/RATE, WARNING, CRITICAL, NEUTRAL */
+    --mox-primary: var(--color-mox-primary);
+    --mox-result: var(--color-mox-result);
+    --mox-traffic: var(--color-mox-traffic);
+    --mox-efficiency: var(--color-mox-efficiency);
+    --mox-warning: var(--color-mox-warning);
+    --mox-critical: var(--color-mox-critical);
+    --mox-neutral: var(--color-mox-neutral);
+
+    /* Soft (low-opacity) tints — for pill/badge backgrounds and thin accents only, never large fills */
+    --mox-primary-soft: color-mix(in srgb, var(--mox-primary) 12%, transparent);
+    --mox-result-soft: color-mix(in srgb, var(--mox-result) 14%, transparent);
+    --mox-traffic-soft: color-mix(in srgb, var(--mox-traffic) 14%, transparent);
+    --mox-efficiency-soft: color-mix(in srgb, var(--mox-efficiency) 14%, transparent);
+    --mox-warning-soft: color-mix(in srgb, var(--mox-warning) 16%, transparent);
+    --mox-critical-soft: color-mix(in srgb, var(--mox-critical) 14%, transparent);
+    --mox-neutral-soft: color-mix(in srgb, var(--mox-neutral) 12%, transparent);
+
+    /* Card standard (docs/product/MOXDOP_DESIGN_SYSTEM.md — "Card standard") */
+    --mox-card-radius: 0.75rem;
+    --mox-card-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 1px 1px rgba(15, 23, 42, 0.03);
+    --mox-card-padding: 1rem;
 }
 
 .dark .fi-body {
@@ -46,6 +84,24 @@
     --mox-text-secondary: #a8b3c5;
     --mox-muted: #8b97a8;
     --mox-accent: #fb923c;
+
+    --mox-primary: #fb923c;
+    --mox-result: #4ade80;
+    --mox-traffic: #60a5fa;
+    --mox-efficiency: #a78bfa;
+    --mox-warning: #fbbf24;
+    --mox-critical: #f87171;
+    --mox-neutral: #94a3b8;
+
+    --mox-primary-soft: color-mix(in srgb, var(--mox-primary) 16%, transparent);
+    --mox-result-soft: color-mix(in srgb, var(--mox-result) 16%, transparent);
+    --mox-traffic-soft: color-mix(in srgb, var(--mox-traffic) 16%, transparent);
+    --mox-efficiency-soft: color-mix(in srgb, var(--mox-efficiency) 16%, transparent);
+    --mox-warning-soft: color-mix(in srgb, var(--mox-warning) 18%, transparent);
+    --mox-critical-soft: color-mix(in srgb, var(--mox-critical) 16%, transparent);
+    --mox-neutral-soft: color-mix(in srgb, var(--mox-neutral) 16%, transparent);
+
+    --mox-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.24), 0 1px 1px rgba(0, 0, 0, 0.18);
 }
 
 .fi-main {
@@ -1066,6 +1122,15 @@
 
 .mox-status-pill--active { background: color-mix(in srgb, var(--color-mox-success) 15%, transparent); color: var(--color-mox-success); }
 .mox-status-pill--paused { background: color-mix(in srgb, var(--color-mox-warning, #b45309) 15%, transparent); color: var(--color-mox-warning, #b45309); }
+.mox-status-pill--attention { background: var(--mox-warning-soft); color: var(--mox-warning); }
+.mox-status-pill--ok { background: var(--mox-result-soft); color: var(--mox-result); }
+.mox-status-pill--primary { background: var(--mox-primary-soft); color: var(--mox-primary); }
+.mox-status-pill--result { background: var(--mox-result-soft); color: var(--mox-result); }
+.mox-status-pill--traffic { background: var(--mox-traffic-soft); color: var(--mox-traffic); }
+.mox-status-pill--efficiency { background: var(--mox-efficiency-soft); color: var(--mox-efficiency); }
+.mox-status-pill--warning { background: var(--mox-warning-soft); color: var(--mox-warning); }
+.mox-status-pill--critical { background: var(--mox-critical-soft); color: var(--mox-critical); }
+.mox-status-pill--neutral { background: var(--mox-neutral-soft); color: var(--mox-neutral); }
 
 .mox-table--interactive .mox-table-row--clickable {
     cursor: pointer;
@@ -1191,6 +1256,496 @@
     .mox-creative-detail__grid {
         grid-template-columns: 1fr;
     }
+}
+
+/*
+ | ==========================================================================
+ | MoxDOP Design System foundation — docs/product/MOXDOP_DESIGN_SYSTEM.md
+ | Additive utility layer: existing .mox-* classes above are untouched.
+ | ==========================================================================
+ */
+
+/* Card standard */
+.mox-card {
+    border: 1px solid var(--mox-border);
+    background: var(--mox-surface);
+    border-radius: var(--mox-card-radius);
+    padding: var(--mox-card-padding);
+    box-shadow: var(--mox-card-shadow);
+}
+
+/* KPI card standard — enhances the existing .mox-kpi-card surface with the design-system shadow token */
+.mox-kpi-card {
+    box-shadow: var(--mox-card-shadow);
+}
+
+.mox-kpi-card--spend { border-top: 3px solid var(--mox-primary); }
+.mox-kpi-card--result { border-top: 3px solid var(--mox-result); }
+.mox-kpi-card--traffic { border-top: 3px solid var(--mox-traffic); }
+.mox-kpi-card--efficiency { border-top: 3px solid var(--mox-efficiency); }
+
+.mox-kpi-card__hint {
+    margin-top: 0.3rem;
+    color: var(--mox-muted);
+    font-size: 0.75rem;
+}
+
+.mox-kpi-card__sparkline {
+    margin-top: 0.5rem;
+}
+
+/* Page header */
+.mox-page-header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.mox-page-header__title {
+    margin: 0;
+    color: var(--mox-text);
+    font-size: 1.15rem;
+    font-weight: 650;
+    line-height: 1.3;
+}
+
+.mox-page-header__subtitle {
+    margin: 0.25rem 0 0;
+    color: var(--mox-text-secondary);
+    font-size: 0.8125rem;
+}
+
+.mox-page-header__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: flex-end;
+}
+
+/* Workspace header (Navigation standard) */
+.mox-workspace-header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.mox-workspace-header__brand {
+    margin: 0 0 0.2rem;
+    color: var(--mox-muted);
+    font-size: 0.75rem;
+    font-weight: 650;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.mox-workspace-header__title {
+    margin: 0;
+    color: var(--mox-text);
+    font-size: 1.05rem;
+    font-weight: 650;
+    line-height: 1.3;
+}
+
+.mox-workspace-header__id {
+    margin-left: 0.4rem;
+    color: var(--mox-muted);
+    font-size: 0.78rem;
+    font-weight: 500;
+}
+
+.mox-workspace-header__meta {
+    margin: 0.3rem 0 0;
+    color: var(--mox-text-secondary);
+    font-size: 0.8125rem;
+}
+
+.mox-workspace-header__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: flex-end;
+}
+
+/* Filter standard (compact) */
+.mox-filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+    border: 1px solid var(--mox-border);
+    background: var(--mox-surface-subtle);
+    border-radius: 0.625rem;
+    padding: 0.55rem 0.75rem;
+}
+
+.mox-filter-bar__label {
+    color: var(--mox-muted);
+    font-size: 0.68rem;
+    font-weight: 650;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+/* Section card */
+.mox-section-card {
+    border: 1px solid var(--mox-border);
+    background: var(--mox-surface);
+    border-radius: var(--mox-card-radius);
+    padding: var(--mox-card-padding);
+    box-shadow: var(--mox-card-shadow);
+}
+
+.mox-section-card__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.mox-section-card__title {
+    margin: 0;
+    color: var(--mox-text);
+    font-size: 0.95rem;
+    font-weight: 650;
+}
+
+.mox-section-card__description {
+    margin: 0.2rem 0 0;
+    color: var(--mox-text-secondary);
+    font-size: 0.8125rem;
+}
+
+/* Chart card */
+.mox-chart-card {
+    border: 1px solid var(--mox-border);
+    background: var(--mox-surface);
+    border-radius: var(--mox-card-radius);
+    padding: var(--mox-card-padding);
+    box-shadow: var(--mox-card-shadow);
+}
+
+.mox-chart-card__head {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin-bottom: 0.65rem;
+}
+
+.mox-chart-card__title {
+    margin: 0;
+    color: var(--mox-text);
+    font-size: 0.92rem;
+    font-weight: 650;
+}
+
+.mox-chart-card__description {
+    margin: 0.15rem 0 0;
+    color: var(--mox-text-secondary);
+    font-size: 0.78rem;
+}
+
+.mox-chart-card__toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Metric delta */
+.mox-metric-delta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1;
+}
+
+.mox-metric-delta--up { color: var(--mox-result); }
+.mox-metric-delta--down { color: var(--mox-critical); }
+.mox-metric-delta--flat { color: var(--mox-neutral); }
+
+/* Data health badge */
+.mox-data-health-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border: 1px solid var(--mox-border);
+    background: var(--mox-surface-subtle);
+    border-radius: 999px;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--mox-text-secondary);
+}
+
+button.mox-data-health-badge {
+    cursor: pointer;
+}
+
+.mox-data-health-badge--good,
+.mox-data-health-badge--ok { color: var(--mox-result); }
+.mox-data-health-badge--warning,
+.mox-data-health-badge--attention { color: var(--mox-warning); }
+.mox-data-health-badge--critical,
+.mox-data-health-badge--danger { color: var(--mox-critical); }
+.mox-data-health-badge--neutral { color: var(--mox-text-secondary); }
+
+/* Empty state */
+.mox-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+    border: 1px dashed var(--mox-border);
+    background: var(--mox-surface-subtle);
+    border-radius: var(--mox-card-radius);
+    padding: 1.25rem;
+    color: var(--mox-text-secondary);
+}
+
+.mox-empty-state--compact {
+    padding: 0.85rem;
+    gap: 0.35rem;
+}
+
+.mox-empty-state__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 999px;
+    background: var(--mox-neutral-soft);
+    color: var(--mox-neutral);
+    font-size: 1rem;
+}
+
+.mox-empty-state__title {
+    margin: 0;
+    color: var(--mox-text);
+    font-size: 0.9rem;
+    font-weight: 650;
+}
+
+.mox-empty-state__body {
+    margin: 0;
+    font-size: 0.8125rem;
+}
+
+.mox-empty-state__action {
+    margin-top: 0.25rem;
+}
+
+/* Operation progress */
+.mox-operation-progress {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    border: 1px solid var(--mox-border);
+    background: var(--mox-surface);
+    border-radius: var(--mox-card-radius);
+    padding: var(--mox-card-padding);
+}
+
+.mox-operation-progress__head {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+
+.mox-operation-progress__title {
+    margin: 0;
+    color: var(--mox-text);
+    font-size: 0.92rem;
+    font-weight: 650;
+}
+
+.mox-operation-progress__phase {
+    margin: 0.15rem 0 0;
+    color: var(--mox-text-secondary);
+    font-size: 0.78rem;
+}
+
+.mox-operation-progress__rows {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+
+.mox-operation-progress__row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.mox-operation-progress__row-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    font-size: 0.78rem;
+    color: var(--mox-text-secondary);
+}
+
+.mox-operation-progress__bar {
+    position: relative;
+    width: 100%;
+    height: 0.4rem;
+    border-radius: 999px;
+    background: var(--mox-surface-subtle);
+    overflow: hidden;
+}
+
+.mox-operation-progress__bar-fill {
+    position: absolute;
+    inset: 0;
+    width: var(--mox-operation-progress-value, 0%);
+    background: var(--mox-primary);
+    border-radius: inherit;
+}
+
+.mox-operation-progress__foot {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    font-size: 0.72rem;
+    color: var(--mox-muted);
+}
+
+/* Entity table (Table standard — sticky header) */
+.mox-entity-table {
+    max-height: 32rem;
+    overflow: auto;
+    border: 1px solid var(--mox-border);
+    border-radius: var(--mox-card-radius);
+}
+
+.mox-entity-table table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8125rem;
+}
+
+.mox-entity-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--mox-surface-subtle);
+    text-align: left;
+    color: var(--mox-muted);
+    font-weight: 600;
+    padding: 0.5rem 0.65rem;
+    border-bottom: 1px solid var(--mox-border);
+    white-space: nowrap;
+}
+
+.mox-entity-table tbody td {
+    padding: 0.5rem 0.65rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--mox-border) 70%, transparent);
+    color: var(--mox-text);
+    vertical-align: top;
+}
+
+.mox-entity-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.mox-entity-table tbody tr:hover {
+    background: var(--mox-primary-soft);
+}
+
+/* Attention card */
+.mox-attention-card {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.65rem;
+    border: 1px solid var(--mox-border);
+    background: var(--mox-surface);
+    border-radius: var(--mox-card-radius);
+    padding: 0.85rem 0.95rem;
+}
+
+.mox-attention-card--critical,
+.mox-attention-card--high {
+    border-left: 3px solid var(--mox-critical);
+}
+
+.mox-attention-card--medium {
+    border-left: 3px solid var(--mox-warning);
+}
+
+.mox-attention-card--low {
+    border-left: 3px solid var(--mox-neutral);
+}
+
+.mox-attention-card__title {
+    margin: 0;
+    color: var(--mox-text);
+    font-size: 0.88rem;
+    font-weight: 650;
+}
+
+.mox-attention-card__body {
+    margin: 0.2rem 0 0;
+    color: var(--mox-text-secondary);
+    font-size: 0.8125rem;
+}
+
+.mox-attention-card__entity {
+    margin: 0.35rem 0 0;
+    color: var(--mox-muted);
+    font-size: 0.75rem;
+}
+
+.mox-attention-card__action {
+    margin-top: 0.55rem;
+}
+
+/* Result card */
+.mox-result-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.75rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--mox-border) 70%, transparent);
+    padding: 0.4rem 0;
+}
+
+.mox-result-card:last-child {
+    border-bottom: none;
+}
+
+.mox-result-card__label {
+    color: var(--mox-text-secondary);
+    font-size: 0.8125rem;
+}
+
+.mox-result-card__value {
+    color: var(--mox-text);
+    font-size: 0.9rem;
+    font-weight: 650;
+    white-space: nowrap;
+}
+
+.mox-result-card--contact .mox-result-card__value { color: var(--mox-result); }
+.mox-result-card--traffic .mox-result-card__value { color: var(--mox-traffic); }
+
+.mox-result-card__cost {
+    margin-left: 0.4rem;
+    color: var(--mox-muted);
+    font-size: 0.72rem;
+    font-weight: 500;
+    white-space: nowrap;
 }
 
 [x-cloak] { display: none !important; }
