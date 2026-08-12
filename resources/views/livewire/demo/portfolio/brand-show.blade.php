@@ -144,16 +144,11 @@
                     ])
                     <x-ta.button wire:click="setTab('history')" size="sm" variant="outline">Full history</x-ta.button>
                 </div>
-                <ol class="relative space-y-3 border-l border-gray-200 pl-6 dark:border-gray-800">
-                    @foreach (collect($timeline)->take(4) as $event)
-                        <li>
-                            <span class="absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full bg-brand-500"></span>
-                            <p class="text-xs text-gray-400">{{ $event['date'] }}</p>
-                            <p class="font-medium text-gray-800 dark:text-white/90">{{ $event['event'] }}</p>
-                            <p class="text-sm text-gray-500">{{ $event['detail'] }}</p>
-                        </li>
-                    @endforeach
-                </ol>
+                @include('livewire.demo.partials.decision-timeline', [
+                    'events' => $timeline,
+                    'title' => '',
+                    'limit' => 4,
+                ])
             </x-ta.card>
         </div>
     @endif
@@ -187,7 +182,7 @@
                 <x-ta.card>
                     <div class="flex items-start justify-between gap-3">
                         <div>
-                            <x-ta.badge :color="match($finding['severity']) { 'high' => 'error', 'medium' => 'warning', default => 'info' }" size="sm">{{ $finding['severity'] }}</x-ta.badge>
+                            <x-ta.badge :color="match($finding['severity']) { 'critical', 'high' => 'error', 'medium' => 'warning', default => 'info' }" size="sm">{{ $finding['severity'] }}</x-ta.badge>
                             <h3 class="mt-2 font-semibold text-gray-800 dark:text-white/90">{{ $finding['title'] }}</h3>
                             <p class="text-sm text-gray-500">{{ $finding['evidence'] }}</p>
                         </div>
@@ -243,22 +238,7 @@
 
     @if ($tab === 'history')
         <x-ta.card>
-            <h2 class="mb-4 font-semibold text-gray-800 dark:text-white/90">Decision timeline</h2>
-            <ol class="relative space-y-4 border-l border-gray-200 pl-6 dark:border-gray-800">
-                @foreach ($timeline as $event)
-                    <li>
-                        <span class="absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full bg-brand-500"></span>
-                        <p class="text-xs text-gray-400">{{ $event['date'] }} · {{ $event['actor'] ?? '' }}</p>
-                        <p class="font-medium text-gray-800 dark:text-white/90">{{ $event['event'] }}</p>
-                        <p class="text-sm text-gray-500">{{ $event['detail'] }}</p>
-                        @if (! empty($event['provenance']))
-                            <div class="mt-1">
-                                @include('livewire.demo.partials.provenance-badge', ['label' => $event['provenance']])
-                            </div>
-                        @endif
-                    </li>
-                @endforeach
-            </ol>
+            @include('livewire.demo.partials.decision-timeline', ['events' => $timeline])
         </x-ta.card>
     @endif
 

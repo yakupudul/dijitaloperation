@@ -3,9 +3,15 @@
 namespace Tests\Feature;
 
 use App\Livewire\Demo\GoogleAds\OverviewPage;
+use App\Livewire\Demo\Integrations\MetaIntegrationPage;
 use App\Livewire\Demo\Meta\CampaignsPage;
+use App\Livewire\Demo\Operations\FindingsIndex;
+use App\Livewire\Demo\Operations\RecommendationsIndex;
+use App\Livewire\Demo\Operations\TaskShow;
+use App\Livewire\Demo\Operations\TasksIndex;
 use App\Models\User;
 use App\Support\Demo\DemoCatalog;
+use App\Support\Demo\DemoState;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -62,13 +68,39 @@ class DemoProductRoutesTest extends TestCase
 
     public function test_operations_and_integrations_routes_smoke(): void
     {
-        $this->get(route('demo.findings'))->assertOk()->assertSee('Findings');
-        $this->get(route('demo.recommendations'))->assertOk()->assertSee('Recommendations');
-        $this->get(route('demo.tasks'))->assertOk()->assertSee('Tasks');
-        $this->get(route('demo.task', ['taskId' => 't-replace-creative']))->assertOk();
-        $this->get(route('demo.activity'))->assertOk()->assertSee('Activity');
-        $this->get(route('demo.integrations'))->assertOk()->assertSee('Integrations');
-        $this->get(route('demo.integrations.meta'))->assertOk()->assertSee('Meta data import');
+        $this->get(route('demo.findings'))
+            ->assertOk()
+            ->assertSee('Findings')
+            ->assertSee('Critical')
+            ->assertSee('Meta CPL deteriorated');
+        $this->get(route('demo.recommendations'))
+            ->assertOk()
+            ->assertSee('Recommendations')
+            ->assertSee('Observation');
+        $this->get(route('demo.tasks'))
+            ->assertOk()
+            ->assertSee('Tasks')
+            ->assertSee('Board');
+        $this->get(route('demo.task', ['taskId' => 't-replace-creative']))
+            ->assertOk()
+            ->assertSee('WHY')
+            ->assertSee('DO')
+            ->assertSee('MEASURE')
+            ->assertSee('FOLLOW-UP');
+        $this->get(route('demo.activity'))
+            ->assertOk()
+            ->assertSee('Activity')
+            ->assertSee('Needs attention');
+        $this->get(route('demo.integrations'))
+            ->assertOk()
+            ->assertSee('Integrations')
+            ->assertSee('Open Meta import');
+        $this->get(route('demo.integrations.meta'))
+            ->assertOk()
+            ->assertSee('Meta data import')
+            ->assertSee('Import all Meta data')
+            ->assertSee('Ready')
+            ->assertSee('Needs attention');
         $this->get(route('demo.settings'))->assertOk()->assertSee('Reset Demo Mode');
     }
 
@@ -124,5 +156,54 @@ class DemoProductRoutesTest extends TestCase
             ->call('setClassificationFilter', 'Keep')
             ->assertSee('implant ankara fiyat')
             ->assertDontSee('dişçi oyunu');
+    }
+
+    public function test_operations_filters_actions_and_meta_import_groups_work(): void
+    {
+        DemoState::reset();
+
+        Livewire::test(FindingsIndex::class)
+            ->assertSee('Critical')
+            ->assertSee('Meta CPL deteriorated')
+            ->call('setSeverity', 'critical')
+            ->assertSee('Meta CPL deteriorated')
+            ->assertDontSee('Creative frequency elevated')
+            ->call('setAssetType', 'google_ads')
+            ->assertDontSee('Meta CPL deteriorated')
+            ->call('setSeverity', 'all')
+            ->call('setAssetType', 'all')
+            ->call('expand', 'f-meta-cpl')
+            ->assertSee('Why it matters');
+
+        Livewire::test(RecommendationsIndex::class)
+            ->call('approve', 'r-replace-creative')
+            ->assertSee('approved')
+            ->call('createTask', 'r-fix-lcp')
+            ->assertSee('Task created');
+
+        Livewire::test(TasksIndex::class)
+            ->assertSee('Replace PB-Video-03 creative')
+            ->call('setStatus', 'blocked')
+            ->assertSee('Clear unanswered GBP review backlog')
+            ->assertDontSee('Replace PB-Video-03 creative')
+            ->call('setStatus', 'all')
+            ->call('setViewMode', 'board')
+            ->assertSee('In progress')
+            ->assertSee('Blocked');
+
+        Livewire::test(TaskShow::class, ['taskId' => 't-replace-creative'])
+            ->assertSee('WHY')
+            ->assertSee('FOLLOW-UP')
+            ->call('setStatus', 'completed')
+            ->assertSee('Associated improvement observed');
+
+        Livewire::test(MetaIntegrationPage::class)
+            ->assertSee('Ready')
+            ->assertSee('Importing')
+            ->assertSee('Queued')
+            ->assertSee('Needs attention')
+            ->assertSee('Import all Meta data')
+            ->call('expandAccount', 'acc-atlas')
+            ->assertSee('Daily facts');
     }
 }

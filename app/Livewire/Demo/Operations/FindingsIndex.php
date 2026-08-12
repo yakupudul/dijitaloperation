@@ -15,20 +15,58 @@ class FindingsIndex extends Component
 {
     public string $severity = 'all';
 
+    public string $assetType = 'all';
+
+    public ?string $expandedId = null;
+
+    public function mount(): void
+    {
+        $severity = DemoState::getFilter('finding_severity');
+        $assetType = DemoState::getFilter('finding_asset_type');
+
+        if (is_string($severity) && $severity !== '') {
+            $this->severity = $severity;
+        }
+
+        if (is_string($assetType) && $assetType !== '') {
+            $this->assetType = $assetType;
+        }
+    }
+
     public function setSeverity(string $severity): void
     {
         $this->severity = $severity;
+        DemoState::setFilter('finding_severity', $severity === 'all' ? null : $severity);
+    }
+
+    public function setAssetType(string $assetType): void
+    {
+        $this->assetType = $assetType;
+        DemoState::setFilter('finding_asset_type', $assetType === 'all' ? null : $assetType);
+    }
+
+    public function expand(string $id): void
+    {
+        $this->expandedId = $this->expandedId === $id ? null : $id;
     }
 
     public function render(): View
     {
-        $rows = collect(DemoCatalog::findings());
-        if ($this->severity !== 'all') {
-            $rows = $rows->where('severity', $this->severity);
-        }
+        $all = DemoCatalog::findings();
+        $findings = DemoCatalog::filterFindings(
+            $this->severity === 'all' ? null : $this->severity,
+            $this->assetType === 'all' ? null : $this->assetType,
+        );
+
+        $summary = [
+            'critical' => collect($all)->where('severity', 'critical')->count(),
+            'high' => collect($all)->where('severity', 'high')->count(),
+            'medium' => collect($all)->where('severity', 'medium')->count(),
+        ];
 
         return view('livewire.demo.operations.findings-index', [
-            'findings' => $rows->values()->all(),
+            'findings' => $findings,
+            'summary' => $summary,
             'flash' => DemoState::pullFlash(),
         ]);
     }

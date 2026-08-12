@@ -14,6 +14,7 @@
                 $severity = strtolower((string) ($item['severity'] ?? 'info'));
                 $badgeColor = match ($severity) {
                     'high' => 'error',
+                    'critical' => 'error',
                     'medium' => 'warning',
                     default => 'info',
                 };

@@ -65,6 +65,8 @@ final class DemoState
                 'meta_breakdown_dimension' => null,
                 'gads_classification' => null,
                 'finding_severity' => null,
+                'finding_asset_type' => null,
+                'task_status' => null,
                 'gbp_keyword' => null,
             ],
             'flash' => null,
