@@ -214,6 +214,11 @@ trait InteractsWithMetaExpertWorkspace
             return;
         }
 
+        $integrationId = (int) ($resource->integration_id ?? 0);
+        if ($integrationId > 0 && $async->activeRunForIntegration($integrationId, AsyncOperationTypes::META_HISTORY_IMPORT) !== null) {
+            return;
+        }
+
         $user = auth()->user();
         $async->queueMetaHistoryGapEnrich($asset, $from, $to, $user instanceof User ? $user : null);
     }

@@ -63,6 +63,12 @@ final class MetaHistoricalWorkspaceBuilder
         $adsetRows = $this->entityRows($resource, MetaAdsEntity::TYPE_ADSET, $from, $to, $entityMeta);
         $adRows = $this->entityRows($resource, MetaAdsEntity::TYPE_AD, $from, $to, $entityMeta);
 
+        // Campaign primary results inherit material delivered Ad Set consensus when homogeneous.
+        $campaignRows = array_map(
+            fn (array $campaign): array => MetaResultResolver::applyCampaignAdSetConsensus($campaign, $adsetRows),
+            $campaignRows,
+        );
+
         $kpis = $this->priorityKpis($currentFacts, $previousFacts, $resultMix['items']);
         $kpisSecondary = $this->secondaryKpis($currentFacts, $previousFacts);
         $kpisFull = $this->fullKpis($currentFacts, $previousFacts, $resultMix['items']);

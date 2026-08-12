@@ -7,7 +7,6 @@ use App\Models\CoreIntegration;
 use App\Models\Run;
 use App\Services\Async\AsyncOperationService;
 use App\Support\Async\AsyncFailureClassifier;
-use Illuminate\Bus\Batchable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use MoxDop\MetaAds\History\MetaHistoricalImportService;
@@ -19,7 +18,6 @@ use Throwable;
  */
 class MetaHistoricalAccountImportJob implements ShouldQueue
 {
-    use Batchable;
     use Queueable;
 
     public int $tries = 2;
@@ -45,10 +43,6 @@ class MetaHistoricalAccountImportJob implements ShouldQueue
 
     public function handle(AsyncOperationService $async, MetaHistoricalImportService $import): void
     {
-        if ($this->batch()?->cancelled()) {
-            return;
-        }
-
         $run = Run::query()->find($this->parentRunId);
         $resource = CoreExternalResource::query()->find($this->externalResourceId);
         if ($run === null || $resource === null) {

@@ -9,7 +9,6 @@ use App\Services\Integrations\Meta\MetaResourceDiscoveryService;
 use App\Support\Async\AsyncFailureClassifier;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Support\Facades\Bus;
 use MoxDop\MetaAds\History\MetaHistoricalImportService;
 use Throwable;
 
@@ -53,7 +52,6 @@ class MetaHistoricalImportJob implements ShouldQueue
 
             $accounts = $import->discoverAccountsForImport($integration)
                 ->sortBy(function ($resource): string {
-                    // Prioritize the known operator UAT account without hard-binding.
                     return str_contains((string) $resource->external_id, '744654160596455')
                         ? '0'
                         : '1'.mb_strtolower((string) $resource->display_name);
@@ -88,25 +86,14 @@ class MetaHistoricalImportJob implements ShouldQueue
 
             $async->setPhase($run->fresh() ?? $run, 'queued_accounts', 'Queued '.$accountsTotal.' Ad Account imports');
 
-            $jobs = $accounts->map(
-                fn ($resource): MetaHistoricalAccountImportJob => new MetaHistoricalAccountImportJob(
-                    parentRunId: $this->runId,
+            $parentRunId = $this->runId;
+            foreach ($accounts as $index => $resource) {
+                MetaHistoricalAccountImportJob::dispatch(
+                    parentRunId: $parentRunId,
                     externalResourceId: (int) $resource->id,
                     window: $window,
-                )
-            )->all();
-
-            Bus::batch($jobs)
-                ->name('Meta history import #'.$this->runId)
-                ->allowFailures()
-                ->finally(function () {
-                    $run = Run::query()->find($this->runId);
-                    if ($run === null) {
-                        return;
-                    }
-                    app(MetaHistoricalImportFinalizer::class)->finalize($run);
-                })
-                ->dispatch();
+                )->delay(now()->addSeconds($index * 2));
+            }
         } catch (Throwable $exception) {
             $async->markFailed($run->fresh() ?? $run, $exception);
         }

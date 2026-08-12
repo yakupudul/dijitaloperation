@@ -290,13 +290,19 @@ final class MetaHistoricalQueryService
         string $to,
         string $attributionWindow = '',
     ): array {
-        $rows = MetaAdsDailyAction::query()
+        $query = MetaAdsDailyAction::query()
             ->where('core_external_resource_id', $resource->id)
             ->where('entity_type', $entityType)
             ->where('provider_external_id', $entityId)
-            ->where('attribution_window', $attributionWindow)
-            ->whereBetween('date', [$from, $to])
-            ->get();
+            ->whereBetween('date', [$from, $to]);
+
+        // Empty attribution window means "all stored provenance windows" — do not
+        // silently drop rows whose attribution_setting was persisted as a label.
+        if ($attributionWindow !== '') {
+            $query->where('attribution_window', $attributionWindow);
+        }
+
+        $rows = $query->get();
 
         $byType = [];
         foreach ($rows as $row) {
@@ -354,8 +360,10 @@ final class MetaHistoricalQueryService
             'clicks' => $clicks,
             'link_clicks' => $linkClicks,
             'outbound_clicks' => $outboundClicks,
-            'ctr' => $this->ratio($clicks, $impressions),
-            'link_ctr' => $this->ratio($linkClicks, $impressions),
+            // Meta workspace CTR fields are percentage points (1.48 = 1.48%), matching
+            // Marketing API Insights semantics — never leave them as 0–1 ratios.
+            'ctr' => $this->ratio($clicks, $impressions, 100),
+            'link_ctr' => $this->ratio($linkClicks, $impressions, 100),
             'cpc' => $this->ratio($spend, $clicks),
             'cpm' => $this->ratio($spend, $impressions, 1000),
         ];

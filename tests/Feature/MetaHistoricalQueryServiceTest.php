@@ -62,10 +62,10 @@ class MetaHistoricalQueryServiceTest extends TestCase
         $this->assertSame(3000, $result['impressions']);
         $this->assertSame(150, $result['clicks']);
         $this->assertSame(90, $result['link_clicks']);
-        // CTR = sum(clicks) / sum(impressions) = 150 / 3000 = 0.05
-        $this->assertSame(0.05, $result['ctr']);
-        // Link CTR = sum(link_clicks) / sum(impressions) = 90 / 3000 = 0.03
-        $this->assertSame(0.03, $result['link_ctr']);
+        // CTR percentage points = sum(clicks) / sum(impressions) * 100 = 150 / 3000 * 100 = 5.0
+        $this->assertSame(5.0, $result['ctr']);
+        // Link CTR percentage points = sum(link_clicks) / sum(impressions) * 100 = 90 / 3000 * 100 = 3.0
+        $this->assertSame(3.0, $result['link_ctr']);
         // CPC = sum(spend) / sum(clicks) = 300 / 150 = 2.0
         $this->assertSame(2.0, $result['cpc']);
         // CPM = sum(spend) / sum(impressions) * 1000 = 300 / 3000 * 1000 = 100.0

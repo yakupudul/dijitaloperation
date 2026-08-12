@@ -396,25 +396,28 @@ final class MetaHistoricalImportService
             return ['by_id' => [], 'error' => null];
         }
 
-        try {
-            $rows = $this->paginate($integration, $path, [
-                'fields' => $fields,
-                'limit' => count($ids),
-                'filtering' => json_encode([['field' => 'id', 'operator' => 'IN', 'value' => $ids]], JSON_THROW_ON_ERROR),
-            ], MetaHistoricalConfig::historyMaxPages());
-        } catch (MetaException $exception) {
-            return ['by_id' => [], 'error' => $exception->getMessage()];
-        }
-
         $byId = [];
-        foreach ($rows as $row) {
-            $id = (string) ($row['id'] ?? '');
-            if ($id !== '') {
-                $byId[$id] = $row;
+        $errors = [];
+
+        // Account /adsets edge listing can fail for large catalogs; individual node
+        // GETs remain reliable. Prefer per-id reads for entity metadata enrichment.
+        foreach (array_chunk($ids, 25) as $chunk) {
+            foreach ($chunk as $id) {
+                try {
+                    $row = $this->client->get($integration, $id, ['fields' => $fields]);
+                    if (is_array($row) && isset($row['id'])) {
+                        $byId[(string) $row['id']] = $row;
+                    }
+                } catch (MetaException $exception) {
+                    $errors[] = $exception->getMessage();
+                }
             }
         }
 
-        return ['by_id' => $byId, 'error' => null];
+        return [
+            'by_id' => $byId,
+            'error' => $byId === [] && $errors !== [] ? implode('; ', array_slice($errors, 0, 3)) : null,
+        ];
     }
 
     /**
