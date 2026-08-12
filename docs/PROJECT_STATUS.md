@@ -31,12 +31,12 @@ Last updated: 2026-08-11
 | **Meta Ads Central Integration + Resource Binding V1** | **IMPLEMENTED V1** — agency Meta Integration + Ad Account ExternalResources + Meta Ads Digital Asset binding; `docs/product/meta-ads/META_ADS_INTEGRATION.md` (real Meta Integration + resource discovery + binding UAT: **PASS**) |
 | **Meta Ads Intelligence + Analyst V1** | **IMPLEMENTED V1** — bound Insights collection + Evidence + Findings + Meta Ads Analyst/Skills + `meta_ads.ai_guidance`; `docs/product/meta-ads/META_ADS_INTELLIGENCE.md` |
 | **Async Operations + Activity Center** | **MERGING / ACCEPTED (implementation)** — database queue + Activity Center; Cloud Meta async smoke PASS; persistent UAT **PREPARED / DEFERRED** (not a merge blocker) |
-| Next milestone | **Operational Data Foundation / Historical Performance Store** (after async merges) — do not auto-start Expert Workspace redesign |
+| Next milestone | **Meta Ads Expert Workspace** (after #121 merges) — do **not** provision persistent UAT/VPS yet |
 | Memory / Retrieval V1 | PLANNED — only when knowledge volume justifies it; vector RAG deferred |
 
-### Next milestone candidates (after Async Operations)
+### Next milestone candidates (after Meta Expert Workspace)
 
-Operational Data Foundation / Historical Performance Store · Professional Meta Expert Workspace · Digital Operations / Cross-Asset Analyst · GBP Reputation Intelligence · accepted Competitor Comparison V1 · Capability Registry/Router · Playbook V1 · richer metric Outcome Signals · Memory/Retrieval (deferred)
+Operational Data Foundation / Historical Performance Store · Persistent UAT host (deferred) · Google Ads Expert Workspace · Digital Operations / Cross-Asset Analyst · GBP Reputation Intelligence · Capability Registry/Router · Playbook V1 · richer metric Outcome Signals · Memory/Retrieval (deferred)
 
 Do **not** automatically schedule RAG. Capability/Discovery concepts should inform Agent/Skill design without derailing product value.
 
