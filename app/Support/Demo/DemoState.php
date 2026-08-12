@@ -251,20 +251,16 @@ final class DemoState
 
     public static function startPublicResearch(): void
     {
-        $steps = [
-            'Website analyzed',
-            'Search presence discovered',
-            'Google Maps listing found',
-            'Review sources found',
-            'Competitors identified',
-            'Domain / SSL information found',
-            'Public social references found',
-        ];
+        $steps = array_map(
+            static fn (array $row): string => (string) $row['step'],
+            DemoCatalog::publicDiscoverySteps()
+        );
         self::put([
             'public_research' => [
                 'running' => false,
                 'completed' => true,
                 'steps' => $steps,
+                'cards' => DemoCatalog::publicDiscoverySteps(),
             ],
         ]);
         self::flash('Public brand research completed (Demo Mode · PUBLIC DISCOVERY provenance).');
