@@ -33,6 +33,7 @@ class CustomersIndex extends Component
         $this->name = '';
         $this->industry = '';
         $this->hq = '';
+        $this->resetValidation();
     }
 
     public function saveCustomer(): void

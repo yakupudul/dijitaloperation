@@ -21,15 +21,10 @@ class Dashboard extends Component
 
     public function render(): View
     {
-        $state = DemoState::all();
+        $dashboard = DemoCatalog::dashboard();
 
         return view('livewire.demo.dashboard', [
-            'brand' => DemoCatalog::brand(),
-            'assets' => DemoCatalog::assets(),
-            'findings' => DemoCatalog::findings(),
-            'tasks' => $state['tasks'],
-            'activity' => $state['activity'],
-            'attention' => DemoCatalog::brandAttention(),
+            'dashboard' => $dashboard,
             'flash' => DemoState::pullFlash(),
         ]);
     }

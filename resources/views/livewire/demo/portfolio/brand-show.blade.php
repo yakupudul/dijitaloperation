@@ -6,27 +6,21 @@
         'recommendations' => 'Recommendations',
         'tasks' => 'Tasks',
         'history' => 'History',
+        'research' => 'Research',
+        'ai' => 'AI',
     ];
 @endphp
 
 <div class="space-y-6">
     @include('livewire.demo.partials.flash')
 
-    <div class="flex flex-wrap items-start justify-between gap-4">
-        <div>
-            <x-ta.button href="{{ route('demo.brands') }}" size="sm" variant="outline">← Brands</x-ta.button>
-            <div class="mt-3 flex flex-wrap items-center gap-2">
-                <h1 class="text-2xl font-bold text-gray-800 dark:text-white/90">{{ $brandRow['name'] }}</h1>
-                <x-ta.badge color="warning" size="sm">{{ $brandRow['health_label'] ?? 'Needs attention' }}</x-ta.badge>
-                @include('livewire.demo.partials.demo-badge')
-            </div>
-            <p class="mt-1 text-sm text-gray-500">{{ $brandRow['industry'] ?? '' }} · {{ $brandRow['location'] ?? '' }}</p>
-        </div>
-        <div class="flex flex-wrap gap-2">
-            <x-ta.button wire:click="runPublicResearch" size="sm" variant="outline">Run public research</x-ta.button>
-            <x-ta.button wire:click="runAiBrief" size="sm">Generate AI brief</x-ta.button>
-        </div>
-    </div>
+    @include('livewire.demo.partials.workspace-header', [
+        'eyebrow' => trim(($brandRow['industry'] ?? '').' · '.($brandRow['location'] ?? ''), ' ·'),
+        'title' => $brandRow['name'],
+        'subtitle' => 'Brand home — assets, attention, decisions, and analysis in one place.',
+        'badges' => '<span class="inline-flex"><span class="inline-flex items-center rounded-full bg-warning-50 px-2.5 py-0.5 text-xs font-medium text-warning-700 dark:bg-warning-500/15 dark:text-warning-400">'.e($brandRow['health_label'] ?? 'Needs attention').'</span></span>',
+        'actions' => view('livewire.demo.partials._brand-show-actions')->render(),
+    ])
 
     <div class="flex flex-wrap gap-2 border-b border-gray-200 pb-3 dark:border-gray-800">
         @foreach ($tabs as $key => $label)
@@ -40,65 +34,127 @@
     </div>
 
     @if ($tab === 'overview')
-        <div class="grid gap-4 lg:grid-cols-3">
-            <div class="space-y-4 lg:col-span-2">
-                <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-400">Needs attention</h2>
-                @foreach ($attention as $item)
-                    <x-ta.card>
-                        <div class="flex items-start justify-between gap-3">
-                            <div>
-                                <x-ta.badge :color="match($item['severity']) { 'high' => 'error', 'medium' => 'warning', default => 'info' }" size="sm">{{ $item['severity'] }}</x-ta.badge>
-                                <h3 class="mt-2 font-semibold text-gray-800 dark:text-white/90">{{ $item['asset'] }} — {{ $item['issue'] }}</h3>
-                                <p class="mt-1 text-sm text-gray-500">{{ $item['evidence'] }}</p>
+        <div class="space-y-6">
+            <div>
+                @include('livewire.demo.partials.section-question', [
+                    'question' => 'Asset status',
+                    'hint' => 'Taxonomy roles · primary managed, connected sources, infrastructure.',
+                ])
+                <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    @foreach ($assets as $asset)
+                        <a href="{{ route($asset['route']) }}" class="block rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 transition hover:bg-gray-50 dark:bg-gray-800 dark:ring-gray-700 dark:hover:bg-white/[0.03]">
+                            <div class="flex items-start justify-between gap-2">
+                                <div>
+                                    <p class="text-xs text-gray-400">{{ $asset['role_label'] ?? 'Asset' }}</p>
+                                    <p class="mt-1 text-sm font-semibold text-gray-800 dark:text-white/90">{{ $asset['type_label'] }}</p>
+                                </div>
+                                <x-ta.badge :color="match($asset['health'] ?? '') { 'healthy' => 'success', 'needs_attention' => 'warning', 'warning' => 'warning', default => 'info' }" size="sm">
+                                    {{ $asset['health_label'] }}
+                                </x-ta.badge>
                             </div>
-                            <x-ta.button :href="route($item['route'])" size="sm" variant="outline">Inspect</x-ta.button>
-                        </div>
-                    </x-ta.card>
-                @endforeach
+                            <p class="mt-2 truncate text-xs text-gray-500">{{ $asset['name'] }}</p>
+                        </a>
+                    @endforeach
+                </div>
             </div>
-            <div class="space-y-4">
+
+            <div>
+                @include('livewire.demo.partials.section-question', [
+                    'question' => 'Cross-channel summary',
+                    'hint' => 'Platform-attributed and site signals for the selected period context.',
+                ])
+                @include('livewire.demo.partials.kpi-strip', ['kpis' => $summaryKpis, 'primaryCount' => 4])
+            </div>
+
+            <div>
+                @include('livewire.demo.partials.section-question', [
+                    'question' => 'What needs attention on this brand?',
+                    'hint' => 'Highest-leverage issues first.',
+                ])
+                @include('livewire.demo.partials.attention-list', ['items' => $attention])
+            </div>
+
+            <div class="grid gap-4 lg:grid-cols-2">
                 <x-ta.card>
-                    <h3 class="font-semibold text-gray-800 dark:text-white/90">Summary</h3>
-                    <dl class="mt-3 space-y-2 text-sm">
-                        <div class="flex justify-between"><dt class="text-gray-400">Media spend</dt><dd class="font-medium">₺{{ number_format($brandRow['summary']['media_spend'] ?? 0) }}</dd></div>
-                        <div class="flex justify-between"><dt class="text-gray-400">Platform leads</dt><dd class="font-medium">{{ number_format($brandRow['summary']['platform_leads'] ?? 0) }}</dd></div>
-                        <div class="flex justify-between"><dt class="text-gray-400">Website leads</dt><dd class="font-medium">{{ number_format($brandRow['summary']['website_leads'] ?? 0) }}</dd></div>
-                        <div class="flex justify-between"><dt class="text-gray-400">Calls / messages</dt><dd class="font-medium">{{ number_format($brandRow['summary']['calls_messages'] ?? 0) }}</dd></div>
-                    </dl>
+                    @include('livewire.demo.partials.section-question', [
+                        'question' => 'Priorities',
+                        'hint' => 'Suggested next moves from current findings.',
+                    ])
+                    <ol class="mt-1 list-decimal space-y-2 pl-5 text-sm text-gray-700 dark:text-gray-300">
+                        @foreach (array_slice($priorities, 0, 4) as $priority)
+                            <li>{{ $priority }}</li>
+                        @endforeach
+                    </ol>
+                    <div class="mt-4">
+                        <x-ta.button wire:click="runAiBrief" size="sm" variant="outline">Open AI analysis</x-ta.button>
+                    </div>
                 </x-ta.card>
 
-                @if (! empty($research['completed']))
-                    <x-ta.card>
-                        <h3 class="font-semibold text-gray-800 dark:text-white/90">Public research</h3>
-                        <p class="mt-1 text-xs text-gray-400">PUBLIC DISCOVERY provenance · Demo Mode</p>
-                        <ul class="mt-3 space-y-1 text-sm text-gray-600 dark:text-gray-300">
-                            @foreach ($research['steps'] as $step)
-                                <li>✓ {{ $step }}</li>
+                <x-ta.card>
+                    @include('livewire.demo.partials.section-question', [
+                        'question' => 'Open tasks',
+                        'hint' => 'Work still in flight for this brand.',
+                    ])
+                    @if (count($openTasks) === 0)
+                        @include('livewire.demo.partials.empty-panel', [
+                            'title' => 'No open tasks',
+                            'message' => 'All brand tasks are complete.',
+                        ])
+                    @else
+                        <ul class="space-y-3">
+                            @foreach (collect($openTasks)->take(5) as $task)
+                                <li class="flex items-center justify-between gap-3">
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-800 dark:text-white/90">{{ $task['title'] }}</p>
+                                        <p class="text-xs text-gray-500">{{ $task['owner'] }} · due {{ $task['due'] }} · {{ $task['status'] }}</p>
+                                    </div>
+                                    <x-ta.button :href="route('demo.task', ['taskId' => $task['id']])" size="sm" variant="outline">Open</x-ta.button>
+                                </li>
                             @endforeach
                         </ul>
-                    </x-ta.card>
-                @endif
-
-                @if ($aiBrief)
-                    <x-ta.card>
-                        <div class="flex items-center gap-2">
-                            <h3 class="font-semibold text-gray-800 dark:text-white/90">{{ $aiBrief['headline'] }}</h3>
-                            @include('livewire.demo.partials.demo-badge', ['label' => 'AI simulated'])
-                        </div>
-                        <ul class="mt-3 list-disc space-y-1 pl-5 text-sm text-gray-600 dark:text-gray-300">
-                            @foreach ($aiBrief['points'] as $point)
-                                <li>{{ $point }}</li>
-                            @endforeach
-                        </ul>
-                        <p class="mt-3 text-xs text-gray-400">{{ $aiBrief['disclaimer'] }}</p>
-                        <div class="mt-3 flex flex-wrap gap-2">
-                            @foreach ($aiBrief['evidence_links'] as $link)
-                                <x-ta.button :href="route($link['route'])" size="sm" variant="outline">{{ $link['label'] }}</x-ta.button>
-                            @endforeach
-                        </div>
-                    </x-ta.card>
-                @endif
+                    @endif
+                </x-ta.card>
             </div>
+
+            <div>
+                @include('livewire.demo.partials.section-question', [
+                    'question' => 'Lifecycle',
+                    'hint' => 'Domain and hosting reminders.',
+                ])
+                <div class="grid gap-3 sm:grid-cols-2">
+                    @foreach ($lifecycleAssets as $life)
+                        <div class="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3 dark:bg-white/[0.02]">
+                            <div>
+                                <p class="text-sm font-medium text-gray-800 dark:text-white/90">{{ $life['type_label'] }} · {{ $life['name'] }}</p>
+                                <p class="text-xs text-gray-500">{{ $life['detail'] ?? $life['health_label'] }}</p>
+                            </div>
+                            <x-ta.badge :color="($life['health'] ?? '') === 'warning' ? 'warning' : 'success'" size="sm">
+                                {{ $life['health_label'] }}
+                            </x-ta.badge>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+
+            <x-ta.card>
+                <div class="mb-3 flex items-center justify-between gap-2">
+                    @include('livewire.demo.partials.section-question', [
+                        'question' => 'Decision history',
+                        'hint' => 'Recent finding → recommendation → task loop.',
+                    ])
+                    <x-ta.button wire:click="setTab('history')" size="sm" variant="outline">Full history</x-ta.button>
+                </div>
+                <ol class="relative space-y-3 border-l border-gray-200 pl-6 dark:border-gray-800">
+                    @foreach (collect($timeline)->take(4) as $event)
+                        <li>
+                            <span class="absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full bg-brand-500"></span>
+                            <p class="text-xs text-gray-400">{{ $event['date'] }}</p>
+                            <p class="font-medium text-gray-800 dark:text-white/90">{{ $event['event'] }}</p>
+                            <p class="text-sm text-gray-500">{{ $event['detail'] }}</p>
+                        </li>
+                    @endforeach
+                </ol>
+            </x-ta.card>
         </div>
     @endif
 
@@ -107,6 +163,7 @@
             <x-slot:head>
                 <th class="px-5 py-3 text-left text-xs font-medium uppercase text-gray-400">Asset</th>
                 <th class="px-5 py-3 text-left text-xs font-medium uppercase text-gray-400">Type</th>
+                <th class="px-5 py-3 text-left text-xs font-medium uppercase text-gray-400">Role</th>
                 <th class="px-5 py-3 text-left text-xs font-medium uppercase text-gray-400">Provenance</th>
                 <th class="px-5 py-3 text-left text-xs font-medium uppercase text-gray-400">Health</th>
                 <th class="px-5 py-3"></th>
@@ -115,6 +172,7 @@
                 <tr>
                     <td class="px-5 py-4 text-sm font-medium text-gray-800 dark:text-white/90">{{ $asset['name'] }}</td>
                     <td class="px-5 py-4 text-sm text-gray-500">{{ $asset['type_label'] }}</td>
+                    <td class="px-5 py-4 text-sm text-gray-500">{{ $asset['role_label'] ?? '—' }}</td>
                     <td class="px-5 py-4 text-sm text-gray-500">{{ $asset['provenance'] }}</td>
                     <td class="px-5 py-4"><x-ta.badge :color="($asset['health'] ?? '') === 'healthy' ? 'success' : 'warning'" size="sm">{{ $asset['health_label'] }}</x-ta.badge></td>
                     <td class="px-5 py-4 text-right"><x-ta.button :href="route($asset['route'])" size="sm" variant="outline">Open</x-ta.button></td>
@@ -125,7 +183,7 @@
 
     @if ($tab === 'findings')
         <div class="space-y-3">
-            @foreach ($findings as $finding)
+            @forelse ($findings as $finding)
                 <x-ta.card>
                     <div class="flex items-start justify-between gap-3">
                         <div>
@@ -136,7 +194,12 @@
                         <x-ta.button href="{{ route('demo.findings') }}" size="sm" variant="outline">All findings</x-ta.button>
                     </div>
                 </x-ta.card>
-            @endforeach
+            @empty
+                @include('livewire.demo.partials.empty-panel', [
+                    'title' => 'No findings',
+                    'message' => 'No open findings for this brand.',
+                ])
+            @endforelse
         </div>
     @endif
 
@@ -150,7 +213,12 @@
                             <p class="mt-1 text-sm text-gray-500">{{ $rec['observation'] }}</p>
                             <x-ta.badge class="mt-2" :color="match($rec['status']) { 'approved' => 'success', 'rejected' => 'error', default => 'warning' }" size="sm">{{ $rec['status'] }}</x-ta.badge>
                         </div>
-                        <x-ta.button href="{{ route('demo.recommendations') }}" size="sm">Review</x-ta.button>
+                        <div class="flex flex-col gap-2">
+                            <x-ta.button href="{{ route('demo.recommendations') }}" size="sm" variant="outline">Review</x-ta.button>
+                            @if (($rec['status'] ?? '') === 'pending')
+                                <x-ta.button wire:click="createTaskFromRecommendation('{{ $rec['id'] }}')" size="sm">Create task</x-ta.button>
+                            @endif
+                        </div>
                     </div>
                 </x-ta.card>
             @endforeach
@@ -180,12 +248,123 @@
                 @foreach ($timeline as $event)
                     <li>
                         <span class="absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full bg-brand-500"></span>
-                        <p class="text-xs text-gray-400">{{ $event['date'] }}</p>
+                        <p class="text-xs text-gray-400">{{ $event['date'] }} · {{ $event['actor'] ?? '' }}</p>
                         <p class="font-medium text-gray-800 dark:text-white/90">{{ $event['event'] }}</p>
                         <p class="text-sm text-gray-500">{{ $event['detail'] }}</p>
+                        @if (! empty($event['provenance']))
+                            <div class="mt-1">
+                                @include('livewire.demo.partials.provenance-badge', ['label' => $event['provenance']])
+                            </div>
+                        @endif
                     </li>
                 @endforeach
             </ol>
         </x-ta.card>
+    @endif
+
+    @if ($tab === 'research')
+        <div class="space-y-4">
+            @include('livewire.demo.partials.section-question', [
+                'question' => 'Public Discovery',
+                'hint' => 'Read-only public signals — never treated as connected provider truth.',
+            ])
+
+            <div class="flex flex-wrap items-center gap-2">
+                @include('livewire.demo.partials.provenance-badge', ['label' => 'PUBLIC DISCOVERY'])
+                <x-ta.button wire:click="runPublicResearch" size="sm">
+                    {{ ! empty($research['completed']) ? 'Re-run public research' : 'Start public research' }}
+                </x-ta.button>
+            </div>
+
+            @if (empty($research['completed']))
+                @include('livewire.demo.partials.empty-panel', [
+                    'title' => 'No discovery run yet',
+                    'message' => 'Start public research to populate discovery cards with PUBLIC DISCOVERY provenance.',
+                ])
+            @else
+                <div class="grid gap-4 lg:grid-cols-2">
+                    @foreach (($research['cards'] ?? []) as $step)
+                        <x-ta.card>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <h3 class="font-semibold text-gray-800 dark:text-white/90">{{ $step['card']['title'] ?? $step['step'] }}</h3>
+                                @include('livewire.demo.partials.provenance-badge', ['label' => $step['provenance'] ?? 'PUBLIC DISCOVERY'])
+                            </div>
+                            <p class="mt-1 text-xs text-gray-400">{{ $step['step'] }} · {{ $step['status'] ?? 'completed' }}</p>
+                            <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">{{ $step['card']['summary'] ?? '' }}</p>
+                            @if (! empty($step['card']['signals']))
+                                <div class="mt-3 flex flex-wrap gap-1.5">
+                                    @foreach ($step['card']['signals'] as $signal)
+                                        <x-ta.badge color="light" size="sm">{{ $signal }}</x-ta.badge>
+                                    @endforeach
+                                </div>
+                            @endif
+                        </x-ta.card>
+                    @endforeach
+                </div>
+            @endif
+        </div>
+    @endif
+
+    @if ($tab === 'ai')
+        <div class="space-y-4">
+            @include('livewire.demo.partials.section-question', [
+                'question' => 'Brand AI analysis',
+                'hint' => 'Structured guidance — demo simulation, no live model call, no external writes.',
+            ])
+
+            @if (! $aiBrief)
+                <x-ta.card>
+                    <p class="text-sm text-gray-600 dark:text-gray-300">Generate a structured brand analysis from current findings and channel signals.</p>
+                    <div class="mt-4">
+                        <x-ta.button wire:click="runAiBrief" size="sm">Generate analysis</x-ta.button>
+                    </div>
+                </x-ta.card>
+            @else
+                <x-ta.card>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ $aiBrief['headline'] }}</h3>
+                        @include('livewire.demo.partials.provenance-badge', ['label' => 'AI simulated'])
+                    </div>
+                    @if (! empty($aiBrief['period_context']))
+                        <p class="mt-2 text-sm text-gray-500">{{ $aiBrief['period_context'] }}</p>
+                    @endif
+
+                    <h4 class="mt-5 text-sm font-semibold text-gray-700 dark:text-gray-200">Key points</h4>
+                    <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-600 dark:text-gray-300">
+                        @foreach ($aiBrief['points'] as $point)
+                            <li>{{ $point }}</li>
+                        @endforeach
+                    </ul>
+
+                    <h4 class="mt-5 text-sm font-semibold text-gray-700 dark:text-gray-200">Priorities</h4>
+                    <ul class="mt-2 space-y-3">
+                        @foreach ($aiBrief['priorities'] as $index => $priority)
+                            <li class="flex flex-wrap items-start justify-between gap-3 rounded-xl bg-gray-50 px-4 py-3 dark:bg-white/[0.02]">
+                                <p class="text-sm text-gray-700 dark:text-gray-300">{{ $priority }}</p>
+                                <x-ta.button wire:click="createRecommendationFromPriority({{ $index }})" size="sm" variant="outline">
+                                    Create recommendation
+                                </x-ta.button>
+                            </li>
+                        @endforeach
+                    </ul>
+
+                    <h4 class="mt-5 text-sm font-semibold text-gray-700 dark:text-gray-200">Risks</h4>
+                    <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-600 dark:text-gray-300">
+                        @foreach ($aiBrief['risks'] ?? [] as $risk)
+                            <li>{{ $risk }}</li>
+                        @endforeach
+                    </ul>
+
+                    <p class="mt-4 text-xs text-gray-400">{{ $aiBrief['disclaimer'] }}</p>
+
+                    <div class="mt-4 flex flex-wrap gap-2">
+                        @foreach ($aiBrief['evidence_links'] as $link)
+                            <x-ta.button :href="route($link['route'])" size="sm" variant="outline">{{ $link['label'] }}</x-ta.button>
+                        @endforeach
+                        <x-ta.button wire:click="runAiBrief" size="sm" variant="outline">Refresh analysis</x-ta.button>
+                    </div>
+                </x-ta.card>
+            @endif
+        </div>
     @endif
 </div>

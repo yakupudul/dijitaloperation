@@ -249,8 +249,58 @@ final class DemoCatalog
         ];
 
         return array_map(static function (array $asset): array {
-            return array_merge($asset, self::assetTaxonomy((string) $asset['type']));
+            return array_merge(
+                $asset,
+                self::assetTaxonomy((string) $asset['type']),
+                self::assetPrimaryMetric($asset),
+            );
         }, $rows);
+    }
+
+    /**
+     * @param  array<string, mixed>  $asset
+     * @return array{primary_metric: string, primary_metric_label: string}
+     */
+    public static function assetPrimaryMetric(array $asset): array
+    {
+        return match ((string) ($asset['type'] ?? '')) {
+            'website' => [
+                'primary_metric' => isset($asset['score']) ? (string) $asset['score'].'/100' : '—',
+                'primary_metric_label' => 'Health score',
+            ],
+            'gbp' => [
+                'primary_metric' => isset($asset['rating']) ? number_format((float) $asset['rating'], 1).'★' : '—',
+                'primary_metric_label' => 'Rating',
+            ],
+            'meta_ads' => [
+                'primary_metric' => (string) ($asset['detail'] ?? 'CPL watch'),
+                'primary_metric_label' => 'Efficiency signal',
+            ],
+            'google_ads' => [
+                'primary_metric' => (string) ($asset['detail'] ?? 'CPA stable'),
+                'primary_metric_label' => 'Efficiency signal',
+            ],
+            'ga4' => [
+                'primary_metric' => (string) ($asset['open_findings'] ?? 0).' findings',
+                'primary_metric_label' => 'Open findings',
+            ],
+            'gsc' => [
+                'primary_metric' => (string) ($asset['open_findings'] ?? 0).' findings',
+                'primary_metric_label' => 'Open findings',
+            ],
+            'domain' => [
+                'primary_metric' => (string) ($asset['detail'] ?? 'Active'),
+                'primary_metric_label' => 'Lifecycle',
+            ],
+            'hosting' => [
+                'primary_metric' => (string) ($asset['detail'] ?? '—'),
+                'primary_metric_label' => 'Renewal window',
+            ],
+            default => [
+                'primary_metric' => (string) ($asset['health_label'] ?? '—'),
+                'primary_metric_label' => 'Status',
+            ],
+        };
     }
 
     /**
@@ -1337,22 +1387,74 @@ final class DemoCatalog
     public static function dashboard(): array
     {
         $brand = self::brand();
+        $highFindings = collect(self::findings())->where('severity', 'high')->count();
+        $openTasks = collect(self::tasksSeed())->where('status', '!=', 'completed')->count();
 
         return [
-            'needs_attention' => self::brandAttention(),
+            'needs_attention' => [
+                [
+                    'severity' => 'high',
+                    'title' => 'Critical findings open',
+                    'body' => $highFindings.' high-severity findings need review (Meta CPL, Google search-term waste).',
+                    'evidence' => 'Largest efficiency risks across paid channels.',
+                    'why' => 'Unreviewed critical findings delay corrective work.',
+                    'source' => 'Findings',
+                    'route' => 'demo.findings',
+                    'action_label' => 'Review findings',
+                ],
+                [
+                    'severity' => 'high',
+                    'title' => 'Overdue / due-soon tasks',
+                    'body' => $openTasks.' open tasks — creative replacement due Friday; negatives due tomorrow.',
+                    'evidence' => 'Owned work still in flight on Atlas Dental.',
+                    'why' => 'Due-soon tasks block the efficiency loop.',
+                    'source' => 'Tasks',
+                    'route' => 'demo.tasks',
+                    'action_label' => 'Open tasks',
+                ],
+                [
+                    'severity' => 'medium',
+                    'title' => 'Sync / import attention',
+                    'body' => 'Meta historical import 11 / 31 accounts ready; one account needs attention.',
+                    'evidence' => 'Partial coverage can hide account-level deterioration.',
+                    'why' => 'Incomplete sync weakens confidence in paid diagnostics.',
+                    'source' => 'Integrations',
+                    'route' => 'demo.integrations.meta',
+                    'action_label' => 'Inspect import',
+                ],
+                [
+                    'severity' => 'info',
+                    'title' => 'Upcoming renewals',
+                    'body' => 'Hosting renewal in 34 days · SSL in 89 days.',
+                    'evidence' => 'Lifecycle reminders — no performance blocker today.',
+                    'why' => 'Avoid last-minute infra surprises.',
+                    'source' => 'Lifecycle',
+                    'route' => 'demo.website',
+                    'route_params' => ['tab' => 'lifecycle'],
+                    'action_label' => 'View lifecycle',
+                ],
+            ],
             'brand_cards' => [
                 [
                     'id' => $brand['id'],
                     'name' => $brand['name'],
+                    'urgency' => 1,
                     'health' => $brand['health'],
                     'health_label' => $brand['health_label'],
                     'media_spend' => $brand['summary']['media_spend'],
                     'platform_leads' => $brand['summary']['platform_leads'],
                     'website_leads' => $brand['summary']['website_leads'],
+                    'calls_messages' => $brand['summary']['calls_messages'],
                     'open_tasks' => $brand['open_tasks'],
                     'open_findings' => count(self::findings()),
                     'route' => 'demo.brand',
                     'route_params' => ['brand' => self::BRAND_ID],
+                    'channels' => [
+                        ['label' => 'Meta', 'status' => 'needs_attention', 'status_label' => 'CPL ↑'],
+                        ['label' => 'Google Ads', 'status' => 'healthy', 'status_label' => 'Stable'],
+                        ['label' => 'Website', 'status' => 'needs_attention', 'status_label' => 'LCP'],
+                        ['label' => 'GBP', 'status' => 'healthy', 'status_label' => '4.8★'],
+                    ],
                 ],
             ],
             'movements' => [
@@ -1395,12 +1497,14 @@ final class DemoCatalog
                     'when' => '15 Sep 2026',
                     'detail' => 'DemoHost · 34 days',
                     'route' => 'demo.website',
+                    'route_params' => ['tab' => 'lifecycle'],
                 ],
                 [
                     'label' => 'SSL certificate',
                     'when' => '09 Nov 2026',
                     'detail' => '89 days remaining',
                     'route' => 'demo.website',
+                    'route_params' => ['tab' => 'lifecycle'],
                 ],
                 [
                     'label' => 'Creative replacement task due',
@@ -1410,6 +1514,12 @@ final class DemoCatalog
                 ],
             ],
             'recent_operations' => self::activitySeed(),
+            'secondary_counts' => [
+                ['label' => 'Open findings', 'value' => count(self::findings()), 'route' => 'demo.findings'],
+                ['label' => 'Open tasks', 'value' => $openTasks, 'route' => 'demo.tasks'],
+                ['label' => 'Pending recommendations', 'value' => collect(self::recommendationsSeed())->where('status', 'pending')->count(), 'route' => 'demo.recommendations'],
+                ['label' => 'Assets', 'value' => count(self::assets()), 'route' => 'demo.assets'],
+            ],
             'seasonality' => self::seasonalityNote('last_28'),
         ];
     }
@@ -1989,37 +2099,50 @@ final class DemoCatalog
                 'severity' => 'high',
                 'asset' => 'Meta Ads',
                 'issue' => 'Lead cost increased 31% in the last 14 days.',
+                'title' => 'Meta Ads — lead cost up 31%',
+                'body' => 'Lead cost increased 31% in the last 14 days.',
                 'evidence' => 'Main contributor: Post Bariatric — Europe campaign.',
                 'why' => 'Largest paid efficiency issue on the brand.',
                 'source' => 'Connected provider',
                 'route' => 'demo.meta.overview',
+                'action_label' => 'Inspect Meta',
             ],
             [
                 'severity' => 'medium',
                 'asset' => 'Website',
                 'issue' => 'Mobile LCP deteriorated to 4.1s on the primary landing page.',
+                'title' => 'Website — mobile LCP 4.1s',
+                'body' => 'Mobile LCP deteriorated to 4.1s on the primary landing page.',
                 'evidence' => '/implant technical check',
                 'why' => 'May amplify paid-media inefficiency.',
                 'source' => 'Public + Detected',
                 'route' => 'demo.website',
+                'action_label' => 'Inspect website',
             ],
             [
                 'severity' => 'medium',
                 'asset' => 'Google Business Profile',
                 'issue' => '"implant ankara" visibility weakened in the north-east map grid.',
+                'title' => 'GBP — map visibility weakened',
+                'body' => '"implant ankara" visibility weakened in the north-east map grid.',
                 'evidence' => 'Avg map rank 4.8 → 5.4',
                 'why' => 'Local demand keyword for implants.',
                 'source' => 'External search intelligence',
                 'route' => 'demo.gbp',
+                'action_label' => 'Inspect GBP',
             ],
             [
                 'severity' => 'info',
                 'asset' => 'Domain',
                 'issue' => 'Renewal in 221 days.',
+                'title' => 'Domain — renewal in 221 days',
+                'body' => 'Renewal in 221 days.',
                 'evidence' => 'Expiry 21 Mar 2027',
                 'why' => 'Lifecycle awareness — no immediate action.',
                 'source' => 'Detected',
                 'route' => 'demo.website',
+                'route_params' => ['tab' => 'lifecycle'],
+                'action_label' => 'View lifecycle',
             ],
         ];
     }

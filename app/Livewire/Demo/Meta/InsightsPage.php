@@ -33,6 +33,7 @@ class InsightsPage extends Component
             'assetId' => $this->assetId,
             'kpis' => $overview['kpis'],
             'campaigns' => $overview['campaigns'],
+            'seasonality' => DemoCatalog::seasonalityNote($this->period),
             'chartOptions' => [
                 'chart' => ['type' => 'line', 'height' => 300, 'toolbar' => ['show' => false]],
                 'series' => [
@@ -42,7 +43,7 @@ class InsightsPage extends Component
                 'xaxis' => ['categories' => $trend['labels']],
                 'stroke' => ['curve' => 'smooth', 'width' => 2],
                 'dataLabels' => ['enabled' => false],
-                'colors' => ['#465fff', '#12b76a'],
+                'colors' => ['#ea580c', '#12b76a'],
             ],
             'flash' => DemoState::pullFlash(),
         ]);

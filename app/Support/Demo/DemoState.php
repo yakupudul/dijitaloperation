@@ -60,6 +60,9 @@ final class DemoState
             'filters' => [
                 'meta_status' => null,
                 'meta_objective' => null,
+                'meta_adset_status' => null,
+                'meta_ad_status' => null,
+                'meta_breakdown_dimension' => null,
                 'gads_classification' => null,
                 'finding_severity' => null,
                 'gbp_keyword' => null,
@@ -270,6 +273,52 @@ final class DemoState
     {
         self::put(['ai_brief_visible' => true]);
         self::flash('Brand analysis ready (Demo Mode — no live AI call).', 'info');
+    }
+
+    /**
+     * Queue / surface a recommendation from an AI priority line (demo session only).
+     */
+    public static function createRecommendationFromAiPriority(string $priority, ?string $recommendationId = null): void
+    {
+        $state = self::all();
+        $existing = null;
+
+        if ($recommendationId !== null) {
+            $existing = collect($state['recommendations'])->firstWhere('id', $recommendationId);
+        }
+
+        if ($existing !== null) {
+            foreach ($state['recommendations'] as &$row) {
+                if ($row['id'] === $recommendationId) {
+                    $row['status'] = 'pending';
+                }
+            }
+            unset($row);
+            session()->put(self::SESSION_KEY, $state);
+            self::flash('Recommendation “'.$existing['title'].'” ready in queue (Demo Mode).');
+
+            return;
+        }
+
+        $id = 'r-ai-'.substr(md5($priority.microtime()), 0, 8);
+        $state['recommendations'][] = [
+            'id' => $id,
+            'finding_id' => null,
+            'title' => $priority,
+            'observation' => 'Created from brand AI analysis priority.',
+            'why' => 'Operator accepted an AI-suggested priority for follow-up.',
+            'evidence' => 'Brand AI analysis (demo — no live model call)',
+            'action' => $priority,
+            'dependencies' => 'Confirm with channel owner.',
+            'success' => 'Priority addressed or consciously deferred.',
+            'failure' => 'No follow-up within 14 days.',
+            'watch' => [],
+            'status' => 'pending',
+            'brand' => DemoCatalog::brand()['name'],
+            'asset' => 'Cross-channel',
+        ];
+        session()->put(self::SESSION_KEY, $state);
+        self::flash('Recommendation created from AI analysis (Demo Mode).');
     }
 
     public static function setPeriod(string $preset, ?string $start = null, ?string $end = null): void

@@ -2,36 +2,93 @@
 <div class="space-y-6">
     @include('livewire.demo.partials.flash')
 
-    <div class="flex flex-wrap items-start justify-between gap-3">
-        <div>
-            <p class="text-sm text-gray-500">Meta Ads · {{ $asset['name'] ?? 'Atlas Dental — Meta' }}</p>
-            <h1 class="text-2xl font-bold text-gray-800 dark:text-white/90">Overview</h1>
-            <p class="mt-1 text-sm text-gray-500">{{ $data['period_label'] }} · Connected provider · Demo Mode</p>
-        </div>
-        <div class="flex flex-wrap gap-2">
-            <x-ta.button href="{{ route('demo.meta.campaigns', ['assetId' => $asset['id'] ?? DemoCatalog::META_ASSET_ID]) }}" size="sm" variant="outline">Campaigns</x-ta.button>
-            <x-ta.button href="{{ route('demo.meta.creatives', ['assetId' => $asset['id'] ?? DemoCatalog::META_ASSET_ID]) }}" size="sm" variant="outline">Creatives</x-ta.button>
-            <x-ta.button href="{{ route('demo.meta.insights', ['assetId' => $asset['id'] ?? DemoCatalog::META_ASSET_ID]) }}" size="sm">Insights</x-ta.button>
-        </div>
-    </div>
+    @include('livewire.demo.partials.workspace-header', [
+        'eyebrow' => 'Meta Ads · '.($asset['name'] ?? 'Atlas Dental — Meta'),
+        'title' => 'Overview',
+        'subtitle' => ($data['period_label'] ?? '').' · Glance → Explore → Decide',
+        'badges' => ['Connected provider'],
+    ])
+
+    @include('livewire.demo.partials.meta-asset-nav', [
+        'assetId' => $asset['id'] ?? DemoCatalog::META_ASSET_ID,
+        'active' => 'overview',
+    ])
 
     @include('livewire.demo.partials.period-bar')
 
-    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        @foreach ($data['kpis'] as $kpi)
-            @include('livewire.demo.partials.kpi', ['kpi' => $kpi])
-        @endforeach
+    {{-- Glance --}}
+    @include('livewire.demo.partials.kpi-strip', [
+        'kpis' => $data['kpis'],
+        'primaryCount' => 4,
+    ])
+
+    {{-- Explore --}}
+    <x-ta.chart-card
+        title="How is paid-media efficiency changing?"
+        subtitle="Spend trend for the selected period · Demo series"
+        :options="$chartOptions"
+    />
+
+    <div class="grid gap-4 lg:grid-cols-2">
+        <x-ta.card>
+            @include('livewire.demo.partials.section-question', [
+                'question' => 'What result types is spend buying?',
+                'hint' => 'Distinct result labels are never summed into one fake total.',
+            ])
+            <div class="space-y-3">
+                @foreach ($resultMix as $mix)
+                    @php $pct = min(100, round(($mix['results'] / $maxMixResults) * 100, 1)); @endphp
+                    <div>
+                        <div class="mb-1 flex items-center justify-between gap-2 text-sm">
+                            <span class="font-medium text-gray-800 dark:text-white/90">{{ $mix['label'] }}</span>
+                            <span class="text-gray-500">{{ number_format($mix['results']) }} · ₺{{ number_format($mix['spend']) }}</span>
+                        </div>
+                        <div class="h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-white/5">
+                            <div class="h-full rounded-full bg-[#ea580c]" style="width: {{ $pct }}%"></div>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        </x-ta.card>
+
+        <x-ta.card>
+            @include('livewire.demo.partials.section-question', [
+                'question' => 'Which campaigns drive spend?',
+                'hint' => 'Contribution by spend share in this period.',
+            ])
+            <div class="space-y-3">
+                @foreach ($contribution as $row)
+                    <div>
+                        <div class="mb-1 flex items-center justify-between gap-2 text-sm">
+                            <span class="font-medium text-gray-800 dark:text-white/90">
+                                {{ $row['name'] }}
+                                @if ($row['attention'] ?? null)
+                                    <x-ta.badge color="error" size="sm" class="ml-1">Attention</x-ta.badge>
+                                @endif
+                            </span>
+                            <span class="text-gray-500">{{ $row['share'] }}% · ₺{{ number_format($row['spend']) }}</span>
+                        </div>
+                        <div class="h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-white/5">
+                            <div class="h-full rounded-full bg-[#ea580c]" style="width: {{ min(100, $row['share']) }}%"></div>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        </x-ta.card>
     </div>
 
-    @foreach ($data['attention'] as $item)
-        <x-ta.alert variant="warning" :title="$item['title']" :message="$item['body']">
-            <div class="mt-3">
-                <x-ta.button :href="route($item['route'], array_merge(['assetId' => $asset['id'] ?? DemoCatalog::META_ASSET_ID], $item['route_params'] ?? []))" size="sm">{{ $item['action'] }}</x-ta.button>
-            </div>
-        </x-ta.alert>
-    @endforeach
+    {{-- Decide --}}
+    <div>
+        @include('livewire.demo.partials.section-question', [
+            'question' => 'What needs a decision now?',
+            'hint' => 'Highest-severity attention items for this asset.',
+        ])
+        @include('livewire.demo.partials.attention-list', ['items' => $attention])
+    </div>
 
-    <x-ta.chart-card title="Spend trend" subtitle="Demo series · period-aware" :options="$chartOptions" />
+    @if ($seasonality)
+        <x-ta.alert variant="info" title="Seasonality note" :message="$seasonality" />
+    @endif
 
     <x-ta.table>
         <x-slot:head>

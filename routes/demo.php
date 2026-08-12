@@ -10,6 +10,9 @@ use App\Livewire\Demo\Integrations\IntegrationsIndex;
 use App\Livewire\Demo\Integrations\MetaIntegrationPage;
 use App\Livewire\Demo\Meta\AdDetailPage;
 use App\Livewire\Demo\Meta\AdSetDetailPage;
+use App\Livewire\Demo\Meta\AdSetsPage;
+use App\Livewire\Demo\Meta\AdsPage;
+use App\Livewire\Demo\Meta\BreakdownsPage;
 use App\Livewire\Demo\Meta\CampaignDetailPage;
 use App\Livewire\Demo\Meta\CampaignsPage;
 use App\Livewire\Demo\Meta\CreativesPage;
@@ -48,9 +51,12 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/assets/meta/{assetId?}', MetaOverviewPage::class)->name('demo.meta.overview');
         Route::livewire('/assets/meta/{assetId}/campaigns', CampaignsPage::class)->name('demo.meta.campaigns');
         Route::livewire('/assets/meta/{assetId}/campaigns/{campaignId}', CampaignDetailPage::class)->name('demo.meta.campaign');
+        Route::livewire('/assets/meta/{assetId}/adsets', AdSetsPage::class)->name('demo.meta.adsets');
         Route::livewire('/assets/meta/{assetId}/adsets/{adSetId}', AdSetDetailPage::class)->name('demo.meta.adset');
+        Route::livewire('/assets/meta/{assetId}/ads', AdsPage::class)->name('demo.meta.ads');
         Route::livewire('/assets/meta/{assetId}/ads/{adId}', AdDetailPage::class)->name('demo.meta.ad');
         Route::livewire('/assets/meta/{assetId}/creatives', CreativesPage::class)->name('demo.meta.creatives');
+        Route::livewire('/assets/meta/{assetId}/breakdowns', BreakdownsPage::class)->name('demo.meta.breakdowns');
         Route::livewire('/assets/meta/{assetId}/insights', InsightsPage::class)->name('demo.meta.insights');
 
         Route::livewire('/assets/google-ads/{assetId?}', GoogleAdsOverviewPage::class)->name('demo.google-ads.overview');

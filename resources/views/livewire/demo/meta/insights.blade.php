@@ -1,21 +1,30 @@
 <div class="space-y-6">
     @include('livewire.demo.partials.flash')
-    <div class="flex flex-wrap items-center justify-between gap-3">
-        <div>
-            <x-ta.button href="{{ route('demo.meta.overview', ['assetId' => $assetId]) }}" size="sm" variant="outline">← Overview</x-ta.button>
-            <h1 class="mt-3 text-2xl font-bold text-gray-800 dark:text-white/90">Insights</h1>
-            <p class="text-sm text-gray-500">Cross-campaign delivery & efficiency · Demo Mode</p>
-        </div>
-        @include('livewire.demo.partials.period-bar')
-    </div>
 
-    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        @foreach (array_slice($kpis, 0, 4) as $kpi)
-            @include('livewire.demo.partials.kpi', ['kpi' => $kpi])
-        @endforeach
-    </div>
+    @include('livewire.demo.partials.workspace-header', [
+        'eyebrow' => 'Meta Ads',
+        'title' => 'Insights',
+        'subtitle' => 'Cross-campaign delivery & efficiency · Connected provider',
+        'badges' => ['Connected provider'],
+    ])
 
-    <x-ta.chart-card title="Spend vs leads (scaled)" subtitle="Deterministic demo series" :options="$chartOptions" />
+    @include('livewire.demo.partials.meta-asset-nav', ['assetId' => $assetId, 'active' => 'insights'])
+    @include('livewire.demo.partials.period-bar')
+
+    @include('livewire.demo.partials.kpi-strip', [
+        'kpis' => array_slice($kpis, 0, 4),
+        'primaryCount' => 4,
+    ])
+
+    <x-ta.chart-card
+        title="Is spend translating into leads?"
+        subtitle="Spend vs leads (scaled) · Deterministic demo series"
+        :options="$chartOptions"
+    />
+
+    @if ($seasonality)
+        <x-ta.alert variant="info" title="Seasonality note" :message="$seasonality" />
+    @endif
 
     <x-ta.table>
         <x-slot:head>
