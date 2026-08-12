@@ -287,25 +287,8 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
             $campaignRows = $campaignOk
                 ? $this->mergeCampaignRows($campaignInsights['rows'], $campaignMeta['by_id'])
                 : [];
-            $this->storeEvidence($run, $asset->id, self::EVIDENCE_CAMPAIGN_PERFORMANCE, 'Meta Ads campaign performance', [
-                ...$baseMeta,
-                'rows' => $campaignRows,
-                'row_count' => count($campaignRows),
-                'row_limit' => self::ENTITY_LIMIT,
-                'response_ok' => $campaignOk,
-                'metrics_usable' => $campaignOk,
-                'status_code' => $campaignInsights['status_code'],
-                'truncated' => $campaignInsights['truncated'] || ($campaignMeta['truncated'] ?? false),
-                'metadata_join' => [
-                    'requested_ids' => count($campaignIds),
-                    'joined' => $campaignMeta['joined'] ?? 0,
-                    'missed' => $campaignMeta['missed'] ?? 0,
-                ],
-                'hierarchy_note' => 'Campaign metrics must not be summed with adset/ad levels. Joins use campaign provider IDs only.',
-                'delivery_filter' => 'impressions GREATER_THAN 0; sort spend_descending',
-            ], $observedAt);
 
-            // Ad sets
+            // Ad sets (fetch before persisting campaign rows so optimization consensus can apply)
             $adsetInsights = $this->fetchInsights($integration, $actId, 'adset', $periods['current']);
             $adsetIds = $this->insightIds($adsetInsights['rows'], 'adset_id');
             $adsetMeta = $this->fetchEntityMetaByIds(
@@ -335,6 +318,29 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
             $adsetRows = $adsetOk
                 ? $this->mergeAdsetRows($adsetInsights['rows'], $adsetMeta['by_id'], $campaignMeta['by_id'])
                 : [];
+
+            if ($campaignOk && $adsetOk) {
+                $campaignRows = $this->applyCampaignAdSetConsensus($campaignRows, $adsetRows);
+            }
+
+            $this->storeEvidence($run, $asset->id, self::EVIDENCE_CAMPAIGN_PERFORMANCE, 'Meta Ads campaign performance', [
+                ...$baseMeta,
+                'rows' => $campaignRows,
+                'row_count' => count($campaignRows),
+                'row_limit' => self::ENTITY_LIMIT,
+                'response_ok' => $campaignOk,
+                'metrics_usable' => $campaignOk,
+                'status_code' => $campaignInsights['status_code'],
+                'truncated' => $campaignInsights['truncated'] || ($campaignMeta['truncated'] ?? false),
+                'metadata_join' => [
+                    'requested_ids' => count($campaignIds),
+                    'joined' => $campaignMeta['joined'] ?? 0,
+                    'missed' => $campaignMeta['missed'] ?? 0,
+                ],
+                'hierarchy_note' => 'Campaign metrics must not be summed with adset/ad levels. Joins use campaign provider IDs only.',
+                'delivery_filter' => 'impressions GREATER_THAN 0; sort spend_descending',
+            ], $observedAt);
+
             $this->storeEvidence($run, $asset->id, self::EVIDENCE_ADSET_PERFORMANCE, 'Meta Ads ad set performance', [
                 ...$baseMeta,
                 'rows' => $adsetRows,
@@ -1173,6 +1179,19 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
             'payload' => $payload,
             'observed_at' => $observedAt,
         ]);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $campaignRows
+     * @param  list<array<string, mixed>>  $adsetRows
+     * @return list<array<string, mixed>>
+     */
+    private function applyCampaignAdSetConsensus(array $campaignRows, array $adsetRows): array
+    {
+        return array_values(array_map(
+            fn (array $row): array => MetaResultResolver::applyCampaignAdSetConsensus($row, $adsetRows),
+            $campaignRows,
+        ));
     }
 
     /**

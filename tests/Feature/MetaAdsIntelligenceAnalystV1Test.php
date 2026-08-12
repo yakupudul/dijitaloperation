@@ -178,8 +178,9 @@ class MetaAdsIntelligenceAnalystV1Test extends TestCase
             ['raw_action_type' => 'lead', 'normalized_result_type' => 'lead', 'count' => 5.0, 'value' => null, 'source' => 'actions'],
             ['raw_action_type' => 'purchase', 'normalized_result_type' => 'purchase', 'count' => 2.0, 'value' => 10.0, 'source' => 'actions'],
         ], 'OUTCOME_LEADS', 'OUTCOME_SALES', 100.0);
-        $this->assertSame('unresolved', $crossFamily['status']);
-        $this->assertStringContainsString('Mixed', $crossFamily['reason']);
+        $this->assertSame('resolved', $crossFamily['status']);
+        $this->assertSame('purchase', $crossFamily['raw_action_type']);
+        $this->assertStringContainsString('optimization_goal', $crossFamily['diagnostic']['preference_source'] ?? '');
 
         $deferred = MetaResultResolver::resolve([
             ['raw_action_type' => 'lead', 'normalized_result_type' => 'lead', 'count' => 26.0, 'value' => null, 'source' => 'actions'],

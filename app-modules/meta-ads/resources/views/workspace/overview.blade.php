@@ -2,12 +2,12 @@
     use MoxDop\MetaAds\Support\MetaPercentage;
 
     /** @var array<string, mixed> $data */
-    $data = $data ?? [];
     $identity = $data['account_identity'] ?? [];
     $health = $data['data_health'] ?? [];
     $kpis = $data['kpis'] ?? [];
-    $resultMix = $data['result_mix'] ?? null;
-    $trend = $data['trend'] ?? ['available' => false, 'values' => []];
+    $kpisSecondary = $data['kpis_secondary'] ?? [];
+    $resultGrouped = $data['result_mix_grouped'] ?? ['contact_conversion' => [], 'traffic_engagement' => []];
+    $trend = $data['trend'] ?? ['available' => false];
     $flow = $data['delivery_flow'] ?? ['stages' => []];
     $attention = $data['attention'] ?? ['items' => [], 'empty_label' => 'No high-confidence issues detected for this period.'];
     $snapshot = $data['campaign_snapshot'] ?? [];
@@ -108,11 +108,14 @@
     @endif
 
     @if ($periodMatched)
-        <section class="mox-kpi-grid mox-kpi-grid--priority">
+        <section class="mox-kpi-grid mox-kpi-grid--priority mox-kpi-grid--hero">
             @forelse ($kpis as $kpi)
-                <div class="mox-kpi-card">
+                <div class="mox-kpi-card mox-kpi-card--primary">
                     <div class="mox-kpi-card__label">{{ $kpi['label'] }}</div>
                     <div class="mox-kpi-card__value">{{ $formatKpi($kpi) }}</div>
+                    @if (is_numeric($kpi['cost_per_result'] ?? null))
+                        <div class="mox-kpi-card__sub">Cost / result {{ number_format((float) $kpi['cost_per_result'], 2) }}</div>
+                    @endif
                     @if (($comparison['available'] ?? false) && is_numeric($kpi['delta_percent'] ?? null))
                         <div class="mox-kpi-card__delta {{ $deltaClass($kpi['delta_sentiment'] ?? null) }}">
                             {{ ($kpi['delta_percent'] >= 0 ? '↑' : '↓') }}
@@ -125,77 +128,69 @@
             @endforelse
         </section>
 
+        @if ($kpisSecondary !== [])
+            <section class="mox-kpi-grid mox-kpi-grid--secondary">
+                @foreach ($kpisSecondary as $kpi)
+                    <div class="mox-kpi-card mox-kpi-card--secondary">
+                        <div class="mox-kpi-card__label">{{ $kpi['label'] }}</div>
+                        <div class="mox-kpi-card__value mox-kpi-card__value--compact">{{ $formatKpi($kpi) }}</div>
+                        @if (($comparison['available'] ?? false) && is_numeric($kpi['delta_percent'] ?? null))
+                            <div class="mox-kpi-card__delta {{ $deltaClass($kpi['delta_sentiment'] ?? null) }}">
+                                {{ ($kpi['delta_percent'] >= 0 ? '↑' : '↓') }}
+                                {{ number_format(abs((float) $kpi['delta_percent']), 1) }}%
+                            </div>
+                        @endif
+                    </div>
+                @endforeach
+            </section>
+        @endif
+
+        <section class="mox-panel mox-panel--chart">
+            <div class="mox-panel__head">
+                <h4>Performance trend</h4>
+                <label class="mox-meta-inline-select">
+                    <select wire:change="setMetaWorkspaceFilter('trend_metric', $event.target.value)">
+                        @foreach (['spend' => 'Spend', 'inline_link_clicks' => 'Link clicks', 'inline_link_click_ctr' => 'Link CTR', 'cpm' => 'CPM', 'frequency' => 'Frequency'] as $key => $label)
+                            <option value="{{ $key }}" @selected(($data['filters']['trend_metric'] ?? 'spend') === $key)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </label>
+            </div>
+            @include('meta-ads::workspace.partials.performance-chart', ['trend' => $trend])
+        </section>
+
         <div class="mox-grid-2">
             <section class="mox-panel">
                 <div class="mox-panel__head">
                     <h4>Result summary</h4>
-                    <span class="mox-muted">Platform-attributed · not summed across types</span>
+                    <span class="mox-muted">Platform-attributed · never summed across types</span>
                 </div>
-                @if (empty($resultMix['items']))
+                @if (($resultGrouped['contact_conversion'] ?? []) === [] && ($resultGrouped['traffic_engagement'] ?? []) === [])
                     <div class="mox-empty">No compatible platform results observed.</div>
                 @else
-                    <ul class="mox-result-mix">
-                        @foreach ($resultMix['items'] as $item)
-                            <li>
-                                <span class="mox-result-mix__label">{{ $item['human_label'] ?? $item['label'] ?? 'Result' }}</span>
-                                <span class="mox-result-mix__value">
-                                    @if (is_numeric($item['count'] ?? null))
-                                        {{ number_format((float) $item['count'], 0) }}
-                                    @else
-                                        —
-                                    @endif
-                                </span>
-                            </li>
-                        @endforeach
-                    </ul>
-                    @if (! empty($resultMix['note']))
-                        <p class="mox-footnote">{{ $resultMix['note'] }}</p>
+                    @if (($resultGrouped['contact_conversion'] ?? []) !== [])
+                        <p class="mox-result-family-label">Contact / conversion results</p>
+                        <ul class="mox-result-mix">
+                            @foreach ($resultGrouped['contact_conversion'] as $item)
+                                <li>
+                                    <span class="mox-result-mix__label">{{ $item['human_label'] ?? 'Result' }}</span>
+                                    <span class="mox-result-mix__value">{{ is_numeric($item['count'] ?? null) ? number_format((float) $item['count'], 0) : '—' }}</span>
+                                </li>
+                            @endforeach
+                        </ul>
+                    @endif
+                    @if (($resultGrouped['traffic_engagement'] ?? []) !== [])
+                        <p class="mox-result-family-label">Traffic / engagement signals</p>
+                        <ul class="mox-result-mix">
+                            @foreach ($resultGrouped['traffic_engagement'] as $item)
+                                <li>
+                                    <span class="mox-result-mix__label">{{ $item['human_label'] ?? 'Signal' }}</span>
+                                    <span class="mox-result-mix__value">{{ is_numeric($item['count'] ?? null) ? number_format((float) $item['count'], 0) : '—' }}</span>
+                                </li>
+                            @endforeach
+                        </ul>
                     @endif
                 @endif
-            </section>
-
-            <section class="mox-panel">
-                <div class="mox-panel__head">
-                    <h4>Performance over time</h4>
-                    <label class="mox-meta-inline-select">
-                        <select wire:change="setMetaWorkspaceFilter('trend_metric', $event.target.value)">
-                            @foreach (['spend' => 'Spend', 'inline_link_click_ctr' => 'Link CTR', 'cpm' => 'CPM', 'frequency' => 'Frequency'] as $key => $label)
-                                <option value="{{ $key }}" @selected(($data['filters']['trend_metric'] ?? 'spend') === $key)>{{ $label }}</option>
-                            @endforeach
-                        </select>
-                    </label>
-                </div>
-                @if ($trend['available'] ?? false)
-                    @include('website::workspace.partials.sparkline', [
-                        'values' => array_values(array_filter($trend['values'] ?? [], fn ($v) => $v !== null)),
-                        'label' => $trend['label'] ?? 'Trend',
-                    ])
-                @else
-                    <div class="mox-empty">{{ $trend['note'] ?? 'Trend unavailable.' }}</div>
-                @endif
-            </section>
-        </div>
-
-        <div class="mox-grid-2">
-            <section class="mox-panel">
-                <div class="mox-panel__head"><h4>Delivery flow</h4></div>
-                <ol class="mox-delivery-flow">
-                    @foreach ($flow['stages'] ?? [] as $stage)
-                        <li>
-                            <span>{{ $stage['label'] }}</span>
-                            <strong>
-                                @if (! ($stage['available'] ?? false))
-                                    Unavailable
-                                @elseif (is_numeric($stage['value'] ?? null))
-                                    {{ number_format((float) $stage['value'], 0) }}
-                                @else
-                                    Unavailable
-                                @endif
-                            </strong>
-                        </li>
-                    @endforeach
-                </ol>
-                <p class="mox-footnote">{{ $flow['note'] ?? '' }}</p>
             </section>
 
             <section class="mox-panel">
@@ -227,31 +222,23 @@
             @if ($snapshot === [])
                 <div class="mox-empty">No delivered campaigns for this period.</div>
             @else
-                <div class="mox-table-wrap">
-                    <table class="mox-table">
-                        <thead>
-                            <tr>
-                                <th>Campaign</th>
-                                <th>Status</th>
-                                <th class="mox-num">Spend</th>
-                                <th>Primary result</th>
-                                <th class="mox-num">Results</th>
-                                <th class="mox-num">Cost / result</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach ($snapshot as $row)
-                                <tr>
-                                    <td>{{ $row['name'] ?? '—' }}</td>
-                                    <td>{{ $row['effective_status'] ?? $row['status'] ?? '—' }}</td>
-                                    <td class="mox-num">{{ is_numeric($row['spend'] ?? null) ? number_format((float) $row['spend'], 2) : '—' }}</td>
-                                    <td>{{ $row['primary_result_human_label'] ?? ($row['primary_result_status'] ?? '—') }}</td>
-                                    <td class="mox-num">{{ is_numeric($row['primary_result_count'] ?? null) ? number_format((float) $row['primary_result_count'], 0) : '—' }}</td>
-                                    <td class="mox-num">{{ is_numeric($row['primary_result_cost'] ?? null) ? number_format((float) $row['primary_result_cost'], 2) : '—' }}</td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
+                <div class="mox-campaign-cards">
+                    @foreach ($snapshot as $row)
+                        <article class="mox-campaign-card">
+                            <div class="mox-campaign-card__head">
+                                <strong>{{ $row['name'] ?? '—' }}</strong>
+                                <span class="mox-status-pill mox-status-pill--{{ strtolower((string) ($row['effective_status'] ?? $row['status'] ?? 'unknown')) }}">
+                                    {{ $row['effective_status'] ?? $row['status'] ?? '—' }}
+                                </span>
+                            </div>
+                            <dl class="mox-campaign-card__metrics">
+                                <div><dt>Spend</dt><dd>{{ is_numeric($row['spend'] ?? null) ? number_format((float) $row['spend'], 2) : '—' }}</dd></div>
+                                <div><dt>Result</dt><dd>{{ $row['primary_result_human_label'] ?? ($row['primary_result_status'] ?? '—') }}</dd></div>
+                                <div><dt>Count</dt><dd>{{ is_numeric($row['primary_result_count'] ?? null) ? number_format((float) $row['primary_result_count'], 0) : '—' }}</dd></div>
+                                <div><dt>Link CTR</dt><dd>{{ is_numeric($row['inline_link_click_ctr'] ?? null) ? MetaPercentage::format($row['inline_link_click_ctr']) : '—' }}</dd></div>
+                            </dl>
+                        </article>
+                    @endforeach
                 </div>
             @endif
         </section>

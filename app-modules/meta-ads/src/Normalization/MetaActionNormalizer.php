@@ -28,6 +28,7 @@ final class MetaActionNormalizer
         'schedule' => 'appointment',
         'offsite_conversion.fb_pixel_schedule' => 'appointment',
         'profile_visit' => 'profile_visit',
+        'profile_visit_view' => 'profile_visit',
         'page_engagement' => 'engagement',
         'post_engagement' => 'engagement',
         'post_reaction' => 'engagement',

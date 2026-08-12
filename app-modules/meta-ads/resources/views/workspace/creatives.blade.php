@@ -1,7 +1,6 @@
 @php
     use MoxDop\MetaAds\Support\MetaPercentage;
 
-    /** @var array<string, mixed> $data */
     $creatives = $data['creatives'] ?? [];
     $needsAnalyze = (bool) ($data['needs_analyze'] ?? false);
     $periodMatched = (bool) ($data['period_matched'] ?? false);
@@ -14,7 +13,7 @@
     <div class="mox-section-head">
         <div>
             <h3 class="mox-section-title">Creatives</h3>
-            <p class="mox-section-sub">{{ $data['period_label'] ?? '' }} · Preview references only — no media binaries stored</p>
+            <p class="mox-section-sub">{{ $data['period_label'] ?? '' }} · Bounded previews only — no media binaries stored</p>
         </div>
     </div>
 
@@ -33,15 +32,24 @@
     @elseif ($creatives === [])
         <div class="mox-empty">No creative metadata for this period.</div>
     @else
-        <div class="mox-creative-grid">
+        <div class="mox-creative-grid mox-creative-grid--wide">
             @foreach ($creatives as $row)
-                <article class="mox-creative-card">
+                <article class="mox-creative-card mox-creative-card--media-first">
                     <div class="mox-creative-card__media">
-                        @if (! empty($row['thumbnail_url']))
-                            <img src="{{ $row['thumbnail_url'] }}" alt="" loading="lazy" referrerpolicy="no-referrer">
+                        @if (! empty($row['thumbnail_proxy_url']))
+                            <img
+                                src="{{ $row['thumbnail_proxy_url'] }}"
+                                alt=""
+                                loading="lazy"
+                                x-data
+                                x-on:error="$el.classList.add('mox-img--failed'); $el.nextElementSibling?.classList.remove('mox-hidden')"
+                            >
+                            <div class="mox-creative-placeholder mox-hidden">
+                                <span>{{ $row['object_type'] ?? 'Creative' }}</span>
+                            </div>
                         @else
                             <div class="mox-creative-placeholder">
-                                {{ $row['object_type'] ?? 'Creative' }}
+                                <span>{{ $row['object_type'] ?? 'Creative' }}</span>
                             </div>
                         @endif
                     </div>
@@ -50,19 +58,14 @@
                         @if (! empty($row['headline']))
                             <p class="mox-creative-card__headline">{{ $row['headline'] }}</p>
                         @endif
-                        @if (! empty($row['primary_text_excerpt']))
-                            <p class="mox-muted">{{ $row['primary_text_excerpt'] }}</p>
-                        @endif
                         <p class="mox-meta-line">
                             @if (! empty($row['cta_type'])) CTA {{ $row['cta_type'] }} · @endif
                             @if (! empty($row['destination_domain'])) {{ $row['destination_domain'] }} · @endif
                             @if (! empty($row['object_type'])) {{ $row['object_type'] }} @endif
                         </p>
-                        <dl class="mox-creative-metrics">
+                        <dl class="mox-creative-metrics mox-creative-metrics--inline">
                             <div><dt>Spend</dt><dd>{{ $num($row['spend'] ?? null, 2) }}</dd></div>
                             <div><dt>Result</dt><dd>{{ $row['primary_result_human_label'] ?? '—' }}</dd></div>
-                            <div><dt>Count</dt><dd>{{ $num($row['primary_result_count'] ?? null) }}</dd></div>
-                            <div><dt>Cost / result</dt><dd>{{ $num($row['primary_result_cost'] ?? null, 2) }}</dd></div>
                             <div><dt>Link CTR</dt><dd>{{ $pct($row['inline_link_click_ctr'] ?? null) }}</dd></div>
                             <div><dt>Frequency</dt><dd>{{ $num($row['frequency'] ?? null, 2) }}</dd></div>
                         </dl>

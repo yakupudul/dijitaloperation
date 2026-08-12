@@ -292,6 +292,9 @@ class MetaAdsOperatorCorrectionPassTest extends TestCase
         $this->assertStringNotContainsString('Agency Google auth', $html);
         $this->assertStringNotContainsString('CoreAssetBinding', $html);
 
+        $data = app(MetaAdsWorkspaceData::class)->for($asset);
+        $data['filters']['expert_columns'] = true;
+
         $perf = view('meta-ads::workspace.campaigns', ['data' => $data])->render();
         $this->assertStringContainsString('1.20%', $perf);
         $this->assertStringContainsString('All clicks CTR', $perf);

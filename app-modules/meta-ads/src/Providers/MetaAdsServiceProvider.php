@@ -9,11 +9,13 @@ use App\Support\Ai\AiProviderCatalog;
 use App\Support\Ai\AiRouteKeys;
 use App\Support\Ai\AiRouteRegistry;
 use App\Support\Skills\SkillRegistry;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use MoxDop\MetaAds\Agents\MetaAdsAnalyst;
 use MoxDop\MetaAds\Ai\MetaAdsAiRoutes;
 use MoxDop\MetaAds\Collection\MetaAdsBoundCollector;
 use MoxDop\MetaAds\Findings\MetaAdsPerformanceBoundEvidenceEvaluator;
+use MoxDop\MetaAds\Http\Controllers\MetaAdsCreativeThumbnailController;
 
 /**
  * Meta Ads module — Digital Asset domain, AI guidance, and Skills (V1).
@@ -30,6 +32,16 @@ class MetaAdsServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->loadViewsFrom(__DIR__.'/../../resources/views', 'meta-ads');
+
+        Route::middleware(['web', 'auth'])
+            ->prefix('app/meta-ads')
+            ->name('meta-ads.')
+            ->group(function (): void {
+                Route::get(
+                    'assets/{digitalAsset}/creatives/{creativeId}/thumbnail',
+                    MetaAdsCreativeThumbnailController::class,
+                )->name('creative-thumbnail');
+            });
 
         $this->app->make(BoundCollectorRegistry::class)
             ->register($this->app->make(MetaAdsBoundCollector::class));

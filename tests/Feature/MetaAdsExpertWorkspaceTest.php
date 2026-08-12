@@ -23,6 +23,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 use MoxDop\MetaAds\Collection\MetaAdsBoundCollector;
+use MoxDop\MetaAds\Normalization\MetaResultResolver;
 use MoxDop\MetaAds\Workspace\MetaAdsWorkspaceData;
 use MoxDop\MetaAds\Workspace\MetaWorkspaceFilters;
 use Tests\TestCase;
@@ -253,7 +254,7 @@ class MetaAdsExpertWorkspaceTest extends TestCase
         $this->seedFullEvidence($this->period['current'], $this->period['previous']);
         $data = app(MetaAdsWorkspaceData::class)->for($this->asset);
 
-        $labels = collect($data['kpis'])->pluck('label')->all();
+        $labels = collect($data['kpis_secondary'])->pluck('label')->all();
         $this->assertContains('Link CTR', $labels);
 
         $campaign = $data['campaigns'][0];
@@ -354,7 +355,7 @@ class MetaAdsExpertWorkspaceTest extends TestCase
      * @param  array{start: string, end: string}  $current
      * @param  array{start: string, end: string}  $previous
      */
-    private function seedFullEvidence(array $current, array $previous): void
+    private function seedFullEvidence(array $current, array $previous, bool $withDailyTrend = true): void
     {
         $run = Run::query()->create([
             'digital_asset_id' => $this->asset->id,
@@ -561,16 +562,118 @@ class MetaAdsExpertWorkspaceTest extends TestCase
             'type' => MetaAdsBoundCollector::EVIDENCE_ACCOUNT_DAILY_TREND,
             'title' => 'Daily',
             'observed_at' => now()->subHour(),
-            'payload' => [
+            'payload' => $withDailyTrend ? [
                 ...$base,
                 'granularity' => 'day',
                 'time_increment' => 1,
+                'response_ok' => true,
                 'points' => [
-                    ['date' => $current['start'], 'spend' => 10, 'inline_link_click_ctr' => 1.1, 'cpm' => 11, 'frequency' => 1.1, 'impressions' => 100],
-                    ['date' => $current['end'], 'spend' => 20, 'inline_link_click_ctr' => 1.4, 'cpm' => 12, 'frequency' => 1.3, 'impressions' => 200],
+                    ['date' => $current['start'], 'spend' => 10, 'inline_link_click_ctr' => 1.1, 'cpm' => 11, 'frequency' => 1.1, 'impressions' => 100, 'inline_link_clicks' => 5],
+                    ['date' => $current['end'], 'spend' => 20, 'inline_link_click_ctr' => 1.4, 'cpm' => 12, 'frequency' => 1.3, 'impressions' => 200, 'inline_link_clicks' => 8],
                 ],
                 'point_count' => 2,
+            ] : [
+                ...$base,
+                'granularity' => 'day',
+                'time_increment' => 1,
+                'response_ok' => true,
+                'points' => [],
+                'point_count' => 0,
             ],
         ]);
+    }
+
+    public function test_campaign_05_resolves_messaging_from_conversations_optimization(): void
+    {
+        $actions = [
+            ['raw_action_type' => 'onsite_conversion.messaging_conversation_started_7d', 'normalized_result_type' => 'messaging', 'count' => 1252.0, 'value' => null, 'source' => 'actions'],
+            ['raw_action_type' => 'link_click', 'normalized_result_type' => 'engagement', 'count' => 6083.0, 'value' => null, 'source' => 'actions'],
+        ];
+
+        $resolved = MetaResultResolver::resolve(
+            $actions,
+            'OUTCOME_LEADS',
+            'CONVERSATIONS',
+            5000.0,
+            null,
+            'WHATSAPP',
+            '1d_view_7d_click',
+        );
+
+        $this->assertSame('resolved', $resolved['status']);
+        $this->assertSame('onsite_conversion.messaging_conversation_started_7d', $resolved['raw_action_type']);
+        $this->assertSame('messaging', $resolved['normalized_result_type']);
+        $this->assertSame(1252.0, $resolved['count']);
+
+        $campaign = [
+            'campaign_id' => 'c05',
+            'objective' => 'OUTCOME_LEADS',
+            'spend' => 5000.0,
+            'actions' => $actions,
+            'attribution_setting' => '1d_view_7d_click',
+        ];
+        $adsets = [[
+            'campaign_id' => 'c05',
+            'optimization_goal' => 'CONVERSATIONS',
+            'destination_type' => 'WHATSAPP',
+            'spend' => 3000.0,
+            'impressions' => 1000,
+            'primary_result' => $resolved,
+            'primary_result_status' => 'resolved',
+            'actions' => $actions,
+        ]];
+
+        $inherited = MetaResultResolver::applyCampaignAdSetConsensus($campaign, $adsets);
+        $this->assertSame('resolved', $inherited['primary_result_status']);
+        $this->assertSame(
+            'Messaging conversations started',
+            MetaResultResolver::humanLabel($resolved['raw_action_type'], $resolved['normalized_result_type']),
+        );
+    }
+
+    public function test_campaign_07_resolves_profile_visits_not_generic_link_click_label(): void
+    {
+        $actions = [
+            ['raw_action_type' => 'link_click', 'normalized_result_type' => 'engagement', 'count' => 3448.0, 'value' => null, 'source' => 'actions'],
+        ];
+
+        $resolved = MetaResultResolver::resolve(
+            $actions,
+            'OUTCOME_TRAFFIC',
+            'PROFILE_VISIT',
+            1500.0,
+            null,
+            'INSTAGRAM_PROFILE',
+            '1d_click',
+        );
+
+        $this->assertSame('resolved', $resolved['status']);
+        $this->assertSame('link_click', $resolved['raw_action_type']);
+        $this->assertSame('profile_visit', $resolved['normalized_result_type']);
+
+        $label = MetaResultResolver::humanLabel(
+            $resolved['raw_action_type'],
+            $resolved['normalized_result_type'],
+        );
+        $this->assertSame('Profile visits', $label);
+    }
+
+    public function test_data_health_not_complete_when_trend_missing(): void
+    {
+        $this->seedFullEvidence($this->period['current'], $this->period['previous'], withDailyTrend: false);
+        $data = app(MetaAdsWorkspaceData::class)->for($this->asset);
+
+        $this->assertSame('Not analyzed', $data['data_health']['detail']['trend'] ?? null);
+        $this->assertStringContainsString('Partial', $data['data_health']['label']);
+        $this->assertFalse($data['trend']['available']);
+    }
+
+    public function test_data_health_complete_when_trend_present(): void
+    {
+        $this->seedFullEvidence($this->period['current'], $this->period['previous'], withDailyTrend: true);
+        $data = app(MetaAdsWorkspaceData::class)->for($this->asset);
+
+        $this->assertSame('Complete', $data['data_health']['detail']['trend'] ?? null);
+        $this->assertTrue($data['trend']['available']);
     }
 }

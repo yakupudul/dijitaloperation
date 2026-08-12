@@ -48,6 +48,7 @@ trait InteractsWithMetaExpertWorkspace
             'objective',
             'search',
             'trend_metric',
+            'expert_columns',
         ];
 
         if (! in_array($key, $allowed, true)) {
@@ -55,6 +56,10 @@ trait InteractsWithMetaExpertWorkspace
         }
 
         if ($key === 'compare') {
+            $value = filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? (bool) $value;
+        }
+
+        if ($key === 'expert_columns') {
             $value = filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? (bool) $value;
         }
 
@@ -130,6 +135,35 @@ trait InteractsWithMetaExpertWorkspace
             ->title('Could not queue analysis')
             ->body($result['message'] ?? 'Unknown error')
             ->danger()
+            ->send();
+    }
+
+    public function generateMetaAdsAiGuidanceFromWorkspace(): void
+    {
+        $asset = $this->metaExpertAsset();
+        if ($asset === null || $asset->type !== 'meta_ads') {
+            return;
+        }
+
+        $user = auth()->user();
+        $operator = $user instanceof User ? $user : null;
+
+        $result = app(AsyncOperationService::class)->queueMetaAdsAiGuidance($asset, $operator);
+
+        if (($result['queued'] ?? false) === true) {
+            Notification::make()
+                ->title('AI analysis queued')
+                ->body($result['message'] ?? 'Meta Ads AI guidance will appear in Insights when ready.')
+                ->success()
+                ->send();
+
+            return;
+        }
+
+        Notification::make()
+            ->title('Could not queue AI analysis')
+            ->body($result['message'] ?? 'Unknown error')
+            ->warning()
             ->send();
     }
 }

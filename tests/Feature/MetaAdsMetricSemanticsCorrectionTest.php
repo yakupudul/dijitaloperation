@@ -167,7 +167,7 @@ class MetaAdsMetricSemanticsCorrectionTest extends TestCase
         $this->assertSame('Cost / Link Click', $kpiByKey['cost_per_inline_link_click']['label']);
         $this->assertSame('All Clicks', $kpiByKey['clicks']['label']);
         $this->assertSame('Link Clicks', $kpiByKey['inline_link_clicks']['label']);
-        $this->assertSame('Link CTR', collect($data['kpis'])->firstWhere('key', 'inline_link_click_ctr')['label'] ?? null);
+        $this->assertSame('Link CTR', collect($data['kpis_secondary'])->firstWhere('key', 'inline_link_click_ctr')['label'] ?? null);
 
         $campaign = $data['campaigns'][0];
         $this->assertSame(2299.0, (float) $campaign['clicks']);
@@ -359,7 +359,7 @@ class MetaAdsMetricSemanticsCorrectionTest extends TestCase
         $this->assertContains('Messaging connections', $operatorLabels);
         $this->assertContains('Messaging conversations started', $operatorLabels);
         $this->assertContains('Messaging first replies', $operatorLabels);
-        $this->assertContains('Meta-attributed Leads', $operatorLabels);
+        $this->assertContains('Leads', $operatorLabels);
         $this->assertNotContains('Messaging Conversations', $operatorLabels);
 
         $lead = collect($mix['operator_items'])->firstWhere('raw_action_type', 'lead');

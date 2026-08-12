@@ -5,9 +5,8 @@ namespace MoxDop\MetaAds\Normalization;
 /**
  * Conservative primary Meta result resolution.
  *
+ * Optimization goal takes precedence over campaign objective when both are known.
  * Never picks "largest action count" alone.
- * Within a single objective/optimization preference list, the first preferred
- * nonzero action type wins (ordered preference).
  * Ambiguous cross-family signals → unresolved with a human-readable reason.
  */
 final class MetaResultResolver
@@ -28,8 +27,15 @@ final class MetaResultResolver
             'onsite_conversion.messaging_first_reply',
             'onsite_conversion.total_messaging_connection',
         ],
+        'CONVERSATIONS' => [
+            'onsite_conversion.messaging_conversation_started_7d',
+            'onsite_conversion.messaging_first_reply',
+            'onsite_conversion.total_messaging_connection',
+        ],
         'OUTCOME_TRAFFIC' => ['link_click', 'landing_page_view'],
         'LINK_CLICKS' => ['link_click', 'landing_page_view'],
+        'PROFILE_VISIT' => ['profile_visit', 'profile_visit_view', 'link_click'],
+        'VISIT_INSTAGRAM_PROFILE' => ['profile_visit', 'profile_visit_view', 'link_click'],
         'OUTCOME_AWARENESS' => ['reach', 'impressions'],
         'REACH' => ['reach', 'impressions'],
         'OUTCOME_APP_PROMOTION' => ['app_install', 'omni_app_install'],
@@ -91,31 +97,6 @@ final class MetaResultResolver
         $fromOptimization = self::preferredTypesForKey($optimizationGoal);
         $fromObjective = self::preferredTypesForKey($objective);
 
-        if ($fromOptimization !== [] && $fromObjective !== [] && $fromOptimization !== $fromObjective) {
-            $optMatch = self::firstNonzeroPreferred($normalizedActions, $fromOptimization);
-            $objMatch = self::firstNonzeroPreferred($normalizedActions, $fromObjective);
-            if ($optMatch !== null && $objMatch !== null
-                && ($optMatch['raw_action_type'] ?? null) !== ($objMatch['raw_action_type'] ?? null)) {
-                return self::result(
-                    'unresolved',
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    'Optimization goal and campaign objective prefer different Meta action families with nonzero counts — Mixed / Unresolved.',
-                    [
-                        ...$diagnostic,
-                        'optimization_preferred' => $fromOptimization,
-                        'objective_preferred' => $fromObjective,
-                        'optimization_match' => $optMatch['raw_action_type'] ?? null,
-                        'objective_match' => $objMatch['raw_action_type'] ?? null,
-                    ],
-                );
-            }
-        }
-
         $candidates = $fromOptimization !== [] ? $fromOptimization : $fromObjective;
         if ($candidates === []) {
             return self::result(
@@ -132,8 +113,30 @@ final class MetaResultResolver
         }
 
         $diagnostic['preferred_action_types'] = $candidates;
+        if ($fromOptimization !== []) {
+            $diagnostic['preference_source'] = 'optimization_goal';
+        } else {
+            $diagnostic['preference_source'] = 'objective';
+        }
 
         $chosen = self::firstNonzeroPreferred($normalizedActions, $candidates);
+        $semanticOverride = null;
+
+        if ($chosen !== null
+            && self::isInstagramProfileVisitContext($optimizationGoal, $destinationType)
+            && ($chosen['raw_action_type'] ?? null) === 'link_click'
+            && self::firstNonzeroPreferred($normalizedActions, ['profile_visit', 'profile_visit_view']) === null) {
+            $semanticOverride = 'profile_visit';
+        }
+
+        if ($chosen === null && self::isInstagramProfileVisitContext($optimizationGoal, $destinationType)) {
+            $linkClick = self::firstNonzeroPreferred($normalizedActions, ['link_click']);
+            if ($linkClick !== null) {
+                $chosen = $linkClick;
+                $semanticOverride = 'profile_visit';
+            }
+        }
+
         if ($chosen === null) {
             $zeroPreferred = self::firstPreferredMatch($normalizedActions, $candidates);
             if ($zeroPreferred !== null) {
@@ -163,6 +166,9 @@ final class MetaResultResolver
             );
         }
 
+        $rawType = (string) $chosen['raw_action_type'];
+        $normalized = $semanticOverride
+            ?? (isset($chosen['normalized_result_type']) ? (string) $chosen['normalized_result_type'] : null);
         $count = isset($chosen['count']) ? (float) $chosen['count'] : null;
         $value = isset($chosen['value']) ? (float) $chosen['value'] : null;
 
@@ -180,13 +186,14 @@ final class MetaResultResolver
             $objective !== null ? 'Objective='.$objective : null,
             $optimizationGoal !== null ? 'Optimization='.$optimizationGoal : null,
             $destinationType !== null ? 'Destination='.$destinationType : null,
-            'Matching attributed action='.(string) $chosen['raw_action_type'],
+            'Matching attributed action='.$rawType,
+            $semanticOverride !== null ? 'Semantic=profile_visit (Instagram profile optimization)' : null,
         ]));
 
         return self::result(
             'resolved',
-            (string) $chosen['raw_action_type'],
-            isset($chosen['normalized_result_type']) ? (string) $chosen['normalized_result_type'] : null,
+            $rawType,
+            $normalized,
             $count,
             $value,
             $costPerResult,
@@ -197,12 +204,137 @@ final class MetaResultResolver
     }
 
     /**
+     * When campaign Insights lack ad-set optimization context, inherit a conservative
+     * primary result from materially delivered ad sets in the same period.
+     *
+     * @param  array<string, mixed>  $campaignRow
+     * @param  list<array<string, mixed>>  $adsetRows
+     * @return array<string, mixed>
+     */
+    public static function applyCampaignAdSetConsensus(array $campaignRow, array $adsetRows): array
+    {
+        $campaignId = (string) ($campaignRow['campaign_id'] ?? $campaignRow['entity_id'] ?? '');
+        if ($campaignId === '') {
+            return $campaignRow;
+        }
+
+        $delivered = array_values(array_filter($adsetRows, function (array $row) use ($campaignId): bool {
+            if ((string) ($row['campaign_id'] ?? '') !== $campaignId) {
+                return false;
+            }
+
+            $spend = is_numeric($row['spend'] ?? null) ? (float) $row['spend'] : 0.0;
+            $impressions = is_numeric($row['impressions'] ?? null) ? (float) $row['impressions'] : 0.0;
+
+            return $spend >= 1.0 || $impressions >= 50.0;
+        }));
+
+        if ($delivered === []) {
+            return $campaignRow;
+        }
+
+        $optimizationGoals = array_values(array_unique(array_filter(array_map(
+            fn (array $row): ?string => isset($row['optimization_goal']) ? (string) $row['optimization_goal'] : null,
+            $delivered,
+        ))));
+
+        $destinationTypes = array_values(array_unique(array_filter(array_map(
+            fn (array $row): ?string => isset($row['destination_type']) ? (string) $row['destination_type'] : null,
+            $delivered,
+        ))));
+
+        if (count($optimizationGoals) !== 1) {
+            return $campaignRow;
+        }
+
+        $optimizationGoal = $optimizationGoals[0];
+        $destinationType = count($destinationTypes) === 1 ? $destinationTypes[0] : null;
+        $actions = is_array($campaignRow['actions'] ?? null) ? $campaignRow['actions'] : [];
+        $spend = is_numeric($campaignRow['spend'] ?? null) ? (float) $campaignRow['spend'] : null;
+
+        $resolved = self::resolve(
+            $actions,
+            isset($campaignRow['objective']) ? (string) $campaignRow['objective'] : null,
+            $optimizationGoal,
+            $spend,
+            null,
+            $destinationType,
+            isset($campaignRow['attribution_setting']) ? (string) $campaignRow['attribution_setting'] : null,
+        );
+
+        if ($resolved['status'] !== 'resolved' && $resolved['status'] !== 'zero') {
+            return $campaignRow;
+        }
+
+        $adsetStatuses = array_map(
+            fn (array $row): string => (string) data_get($row, 'primary_result.status', data_get($row, 'primary_result_status', '')),
+            $delivered,
+        );
+        $adsetTypes = array_values(array_unique(array_filter(array_map(
+            fn (array $row): ?string => data_get($row, 'primary_result.raw_action_type') ?? ($row['primary_result_type'] ?? null),
+            $delivered,
+        ))));
+
+        if ($adsetTypes !== [] && count($adsetTypes) > 1) {
+            return $campaignRow;
+        }
+
+        if ($adsetStatuses !== [] && ! collect($adsetStatuses)->every(fn (string $s): bool => in_array($s, ['resolved', 'zero'], true))) {
+            return $campaignRow;
+        }
+
+        $campaignRow['primary_result'] = $resolved;
+        $campaignRow['primary_result_status'] = $resolved['status'];
+        $campaignRow['primary_result_type'] = $resolved['raw_action_type'] ?? $resolved['normalized_result_type'] ?? null;
+        $campaignRow['primary_result_human_label'] = self::humanLabel(
+            $resolved['raw_action_type'] ?? null,
+            $resolved['normalized_result_type'] ?? null,
+        ) ?? ($resolved['status'] === 'unresolved' ? 'Unresolved' : null);
+        $campaignRow['primary_result_count'] = $resolved['count'] ?? null;
+        $campaignRow['primary_result_cost'] = $resolved['cost_per_result'] ?? null;
+        $campaignRow['primary_result_reason'] = $resolved['reason'] ?? null;
+        $campaignRow['primary_result_diagnostic'] = is_array($resolved['diagnostic'] ?? null) ? $resolved['diagnostic'] : [];
+        $campaignRow['result_inherited_from'] = 'delivered_ad_sets';
+
+        return $campaignRow;
+    }
+
+    /**
+     * Operator-facing human label for a resolved primary result.
+     */
+    public static function humanLabel(?string $rawActionType, ?string $normalizedResultType): ?string
+    {
+        if ($rawActionType === null && $normalizedResultType === null) {
+            return null;
+        }
+
+        return match ($normalizedResultType) {
+            'lead' => 'Leads',
+            'purchase' => 'Purchases',
+            'messaging' => 'Messaging conversations started',
+            'registration' => 'Registrations',
+            'appointment' => 'Appointments',
+            'profile_visit' => 'Profile visits',
+            'engagement' => match ($rawActionType) {
+                'link_click' => 'Link clicks',
+                'landing_page_view' => 'Landing page views',
+                default => 'Engagement',
+            },
+            default => match ($rawActionType) {
+                'onsite_conversion.messaging_conversation_started_7d' => 'Messaging conversations started',
+                'onsite_conversion.messaging_first_reply' => 'Messaging first replies',
+                'onsite_conversion.total_messaging_connection' => 'Messaging connections',
+                'profile_visit', 'profile_visit_view' => 'Profile visits',
+                'link_click' => 'Link clicks',
+                'landing_page_view' => 'Landing page views',
+                'lead' => 'Leads',
+                default => null,
+            },
+        };
+    }
+
+    /**
      * Account-level Result Mix.
-     *
-     * - raw_items: every preserved nonzero action type with a precise label
-     * - operator_items / items: human summary rows (no duplicate labels; aliases not summed)
-     *
-     * Never sums unrelated or alias action types into one fake total.
      *
      * @param  list<array<string, mixed>>  $normalizedActions
      * @return array{
@@ -237,6 +369,7 @@ final class MetaResultResolver
                 'raw_action_type' => $raw,
                 'normalized_result_type' => $normalized,
                 'human_label' => self::preciseMixLabel($raw),
+                'family' => self::resultFamily($normalized, $raw),
                 'count' => $count,
                 'value' => isset($row['value']) && is_numeric($row['value']) ? (float) $row['value'] : null,
             ];
@@ -255,44 +388,63 @@ final class MetaResultResolver
         ];
     }
 
+    /**
+     * @return 'contact_conversion'|'traffic_engagement'|'other'
+     */
+    public static function resultFamily(?string $normalized, string $raw): string
+    {
+        if (in_array($normalized, ['lead', 'purchase', 'messaging', 'registration', 'appointment'], true)) {
+            return 'contact_conversion';
+        }
+
+        if (in_array($normalized, ['profile_visit', 'engagement'], true)
+            || in_array($raw, ['landing_page_view', 'profile_visit', 'profile_visit_view', 'link_click'], true)) {
+            return 'traffic_engagement';
+        }
+
+        return 'other';
+    }
+
     private static function includeInAccountResultMix(string $raw, ?string $normalized): bool
     {
         if (in_array($normalized, ['lead', 'purchase', 'messaging', 'registration', 'appointment', 'profile_visit'], true)) {
             return true;
         }
 
-        return in_array($raw, ['landing_page_view', 'profile_visit', 'link_click'], true);
+        return in_array($raw, [
+            'landing_page_view',
+            'profile_visit',
+            'profile_visit_view',
+            'link_click',
+            'onsite_conversion.messaging_conversation_started_7d',
+            'onsite_conversion.messaging_first_reply',
+            'onsite_conversion.total_messaging_connection',
+        ], true);
     }
 
-    /**
-     * Precise per-raw-type labels — never reuse one human label for multiple action types.
-     */
     private static function preciseMixLabel(string $raw): string
     {
         return match ($raw) {
-            'lead' => 'Meta-attributed Leads',
-            'onsite_conversion.lead_grouped' => 'Meta-attributed Leads (grouped)',
-            'purchase' => 'Meta-attributed Purchases',
-            'omni_purchase' => 'Meta-attributed Purchases (omni)',
-            'offsite_conversion.fb_pixel_purchase' => 'Meta-attributed Purchases (pixel)',
+            'lead' => 'Leads',
+            'onsite_conversion.lead_grouped' => 'Leads (grouped)',
+            'purchase' => 'Purchases',
+            'omni_purchase' => 'Purchases (omni)',
+            'offsite_conversion.fb_pixel_purchase' => 'Purchases (pixel)',
             'onsite_conversion.total_messaging_connection' => 'Messaging connections',
             'onsite_conversion.messaging_conversation_started_7d' => 'Messaging conversations started',
             'onsite_conversion.messaging_first_reply' => 'Messaging first replies',
-            'complete_registration' => 'Meta-attributed Registrations',
-            'offsite_conversion.fb_pixel_complete_registration' => 'Meta-attributed Registrations (pixel)',
-            'schedule' => 'Meta-attributed Appointments',
-            'offsite_conversion.fb_pixel_schedule' => 'Meta-attributed Appointments (pixel)',
-            'landing_page_view' => 'Landing Page Views',
-            'link_click' => 'Link Clicks (action)',
-            'profile_visit' => 'Profile Visits',
-            default => 'Meta-attributed '.$raw,
+            'complete_registration' => 'Registrations',
+            'offsite_conversion.fb_pixel_complete_registration' => 'Registrations (pixel)',
+            'schedule' => 'Appointments',
+            'offsite_conversion.fb_pixel_schedule' => 'Appointments (pixel)',
+            'landing_page_view' => 'Landing page views',
+            'link_click' => 'Link clicks',
+            'profile_visit', 'profile_visit_view' => 'Profile visits',
+            default => $raw,
         };
     }
 
     /**
-     * Operator summary: keep precise labels; when lead aliases share the same count,
-     * show one row with alias provenance — never sum aliases.
-     *
      * @param  list<array<string, mixed>>  $rawItems
      * @return list<array<string, mixed>>
      */
@@ -331,6 +483,15 @@ final class MetaResultResolver
         $normalized = strtoupper(trim($key));
 
         return self::OBJECTIVE_ACTION_PREFERENCE[$normalized] ?? [];
+    }
+
+    private static function isInstagramProfileVisitContext(?string $optimizationGoal, ?string $destinationType): bool
+    {
+        $goal = strtoupper(trim((string) $optimizationGoal));
+        $dest = strtoupper(trim((string) $destinationType));
+
+        return in_array($goal, ['PROFILE_VISIT', 'VISIT_INSTAGRAM_PROFILE'], true)
+            || $dest === 'INSTAGRAM_PROFILE';
     }
 
     /**
