@@ -112,7 +112,7 @@ class AgencyOpsDashboardProductionHardeningTest extends TestCase
 
     public function test_dashboard_page_loads_ops_widget_after_hardening(): void
     {
-        $this->get('/app')
+        $this->get('/admin')
             ->assertOk()
             ->assertSee('MoxDOP')
             ->assertSeeLivewire(OpsActionOverviewWidget::class)

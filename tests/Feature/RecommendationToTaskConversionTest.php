@@ -185,7 +185,7 @@ class RecommendationToTaskConversionTest extends TestCase
             app(CreateTaskFromRecommendation::class)->userCanConvert($unauthorized)
         );
 
-        $this->get('/app/recommendations/'.$this->recommendation->getRouteKey())
+        $this->get('/admin/recommendations/'.$this->recommendation->getRouteKey())
             ->assertForbidden();
 
         Livewire::test(ViewRecommendation::class, [

@@ -76,6 +76,12 @@ class ModuleBoundaryArchitectureTest extends TestCase
         'app/Filament/App/Concerns/InteractsWithMetaExpertWorkspace.php',
         'app/Filament/App/Resources/Integrations/Pages/ViewIntegration.php',
         'app/Filament/App/Resources/Integrations/RelationManagers/ExternalResourcesRelationManager.php',
+        // TailAdmin operator app: Core composition surfaces that delegate to Meta module presenters/services.
+        'app/Livewire/Operator/Meta/IntegrationPage.php',
+        'app/Livewire/Operator/Meta/OverviewPage.php',
+        'app/Livewire/Operator/Meta/CampaignsPage.php',
+        'app/Livewire/Operator/Meta/CampaignDetailPage.php',
+        'app/Livewire/Operator/Meta/Concerns/InteractsWithMetaWorkspacePeriod.php',
         'app/Jobs/Async/MetaAdsAiGuidanceJob.php',
         'app/Jobs/Async/MetaHistoricalImportJob.php',
         'app/Jobs/Async/MetaHistoricalAccountImportJob.php',

@@ -12,8 +12,8 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // Filament serves login at /app/login; web auth middleware must not call missing route('login').
-        $middleware->redirectGuestsTo('/app/login');
+        // Filament back-office serves login at /admin/login; web auth middleware must not call missing route('login').
+        $middleware->redirectGuestsTo('/admin/login');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

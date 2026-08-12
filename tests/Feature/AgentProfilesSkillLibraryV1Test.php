@@ -295,7 +295,7 @@ class AgentProfilesSkillLibraryV1Test extends TestCase
     public function test_agent_profiles_and_skill_library_pages_are_readable(): void
     {
         $this->actingAs($this->admin)
-            ->get('/app/settings/agent-profiles')
+            ->get('/admin/settings/agent-profiles')
             ->assertOk()
             ->assertSee('Website SEO Analyst')
             ->assertSee('Assigned Skills')
@@ -303,7 +303,7 @@ class AgentProfilesSkillLibraryV1Test extends TestCase
             ->assertDontSee('sk-test-agent-skill');
 
         $this->actingAs($this->admin)
-            ->get('/app/settings/skill-library')
+            ->get('/admin/settings/skill-library')
             ->assertOk()
             ->assertSee('Technical SEO Analysis')
             ->assertSee('Required Capabilities')
