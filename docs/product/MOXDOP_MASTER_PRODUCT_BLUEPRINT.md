@@ -535,6 +535,108 @@ Build as **vertical slices**. Each slice must earn **operator acceptance** befor
 
 ---
 
+## 22. Panel Experience Spec (operator UX)
+
+This section defines what each primary panel must answer. Implementation detail lives in Demo Mode / later vertical slices; this is the product experience contract.
+
+### Shared anatomy (every analytical workspace)
+
+1. **HEADER** — identity, freshness, provenance, specialist tabs  
+2. **FILTER / PERIOD** — compact presets + Custom range picker + Compare when useful  
+3. **GLANCE** — health, primary KPIs, major trend, one attention message  
+4. **EXPLORE** — breakdowns, rankings, drilldowns  
+5. **DECIDE** — Findings / Recommendations / AI / Tasks  
+6. **DEEP DATA** — expert columns, provider IDs, diagnostics (never default)
+
+### Brand Overview
+
+| Question | Surface |
+| --- | --- |
+| How healthy is this Brand digitally? | Asset status strip with role taxonomy (Primary managed / Connected data source / Infrastructure) |
+| What is the cross-channel story? | Media spend, platform leads, website key events, calls/messages — never one fake conversion total |
+| What needs attention? | Cross-asset attention list (max 3–5) |
+| What should we do next? | Priorities + open tasks |
+| What is renewing? | Domain / SSL / hosting lifecycle |
+| What did we decide? | Decision timeline (Finding → Recommendation → Task → Outcome) |
+| Unconnected path? | Public Discovery research with PUBLIC DISCOVERY provenance |
+| AI path? | Brand analysis brief with evidence links (no external writes) |
+
+### Meta Ads
+
+| Question | Surface |
+| --- | --- |
+| What is happening to efficiency? | Spend / results / cost-per-result KPIs + trend (“How is paid-media efficiency changing?”) |
+| Where is the money and result mix? | Campaign contribution + result-family bars |
+| Where is the problem? | Attention (CPL/creative/delivery) |
+| Drill path? | Campaigns → Ad Sets → Ads → Creatives |
+| Where does spend go by cut? | Breakdowns (placement/device/age/gender/region) — one dimension at a time |
+| Expert? | Secondary columns / provider labels in Deep Data |
+
+### Google Ads
+
+| Question | Surface |
+| --- | --- |
+| Are Search economics healthy? | Spend, conversions, CPA (+ value/ROAS when valid) |
+| Where is waste vs keep? | Search Terms classification (Keep / Review / Negative candidate / Brand / Competitor / Irrelevant) — never auto-apply negatives |
+| Where do ads land? | Landing Pages → cross-link Website |
+| Structure? | Campaigns → Ad Groups → Keywords → Ads & Assets → Conversions → Insights |
+
+### Website
+
+| Question | Surface |
+| --- | --- |
+| Is the site helping the Brand? | Organic + traffic + key events Glance |
+| What is broken? | Technical grouped Critical / Warnings / Opportunities |
+| Field vs lab? | Performance tab separates FIELD vs LAB vitals |
+| What content needs work? | Content inventory states |
+| Will infrastructure fail us? | Lifecycle (domain/SSL/hosting) with Detected/Manual/Provider provenance |
+
+### Google Business Profile / Maps
+
+| Question | Surface |
+| --- | --- |
+| Are local interactions healthy? | Rating, reviews, calls, directions, website clicks |
+| Where is map visibility weak? | Visibility Map grid (External Local Rank Tracking provenance) |
+| What do people search? | Search Queries |
+| Reputation? | Reviews themes + unanswered — sentiment ≠ clinical truth |
+| Profile complete? | Profile health / NAP |
+
+### Analytics (Connected data source)
+
+Users/sessions/engagement/key events; Acquisition; Landing Pages (cross-link Website); Devices/Geo. Label as Connected data source, not a managed ad channel.
+
+### Search Console (Connected data source)
+
+Clicks/impressions/CTR/position; Queries/Pages opportunities; Indexing/Sitemaps/URL Inspection. Cross-link Website pages.
+
+### Domain (Infrastructure)
+
+Registration, expiry, DNS health, SSL, renewal owner, history. Not a marketing channel.
+
+### Hosting (Infrastructure)
+
+Provider/plan/renewal, uptime, backups, environment stack — Manual/Unknown when not connected (never invent).
+
+### Operations
+
+| Panel | Must answer |
+| --- | --- |
+| Findings | What was observed, evidence, severity, asset |
+| Recommendations | Observation → Why → Action → Success/Failure/Watch |
+| Tasks | WHY / DO / MEASURE / FOLLOW-UP |
+| Outcomes | Associated improvement / still observed / regression / insufficient evidence — **never causality** |
+| Activity | System jobs (import/crawl/analysis), not business Tasks |
+| Integrations | Connection + import progress at resource/account level |
+
+### Interaction quality bar
+
+- Custom date opens a real range picker and updates KPI/chart/table demo data  
+- Filters that do not change data must not render  
+- Cross-links: Ads landing ↔ Website; Finding ↔ Recommendation ↔ Task ↔ Outcome; Brand ↔ every asset  
+- One TailAdmin shell under `/app` only  
+
+---
+
 ## Explicit non-goals (summary)
 
 - SaaS / multi-tenant / Workspace product
@@ -545,6 +647,7 @@ Build as **vertical slices**. Each slice must earn **operator acceptance** befor
 - Separate Result entity as the Outcome model
 - Decorative dashboards and fake progress
 - Acme-style demo naming (use Atlas Health Group / Atlas Dental Ankara)
+- Automatic screenshot / visual-UAT packages for product review
 
 ---
 
