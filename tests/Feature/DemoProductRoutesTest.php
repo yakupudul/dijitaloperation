@@ -43,15 +43,21 @@ class DemoProductRoutesTest extends TestCase
     {
         $this->get('/app')
             ->assertOk()
+            ->assertSee('Agency Operations OS')
             ->assertSee('Command Center')
+            ->assertSee('What needs attention today?')
             ->assertSee('Demo Mode');
 
         $this->get(route('demo.customers'))->assertOk()->assertSee('Customers');
         $this->get(route('demo.brands'))->assertOk()->assertSee('Brands');
         $this->get(route('demo.brand', ['brand' => DemoCatalog::BRAND_ID]))
             ->assertOk()
-            ->assertSee('Atlas Dental Ankara');
-        $this->get(route('demo.assets'))->assertOk()->assertSee('Digital Assets');
+            ->assertSee('Atlas Dental Ankara')
+            ->assertSee('Cross-channel summary');
+        $this->get(route('demo.brand', ['brand' => DemoCatalog::BRAND_ID, 'tab' => 'research']))
+            ->assertOk()
+            ->assertSee('Public Discovery');
+        $this->get(route('demo.assets'))->assertOk()->assertSee('Digital Assets')->assertSee('Primary managed');
     }
 
     public function test_operations_and_integrations_routes_smoke(): void
