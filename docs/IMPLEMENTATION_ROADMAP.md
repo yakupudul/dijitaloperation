@@ -61,8 +61,8 @@ Foundation 1–23 tamamlandıktan sonra devam eden **güncel** ürün sırası. 
 | **N2d** | **Discovery Intelligence V1** | **IMPLEMENTED V1** | `docs/product/DISCOVERY_INTELLIGENCE.md` — Website public discovery + candidates + human review; optional DataForSEO competitors |
 | **N2e** | **Meta Ads Central Integration + Resource Binding V1** | **IMPLEMENTED V1** | `docs/product/meta-ads/META_ADS_INTEGRATION.md` — Meta provider + Ad Account discovery + AssetBinding |
 | **N2f** | **Meta Ads Intelligence + Analyst V1** | **IMPLEMENTED V1** | `docs/product/meta-ads/META_ADS_INTELLIGENCE.md` — Insights Evidence + Findings + Analyst/Skills + `meta_ads.ai_guidance` |
-| **N2g** | **Async Operations + Activity Center** | **ACCEPTED (implementation) / merging** | Persistent UAT prepared+deferred; Cloud Meta async smoke accepted |
-| **N2h** | **Meta Ads Expert Workspace** | **NEXT** | `docs/product/META_ADS_EXPERT_WORKSPACE.md` + `OPERATOR_WORKSPACE_DESIGN_STANDARD.md` — first reference-quality operator workspace |
+| **N2g** | **Async Operations + Activity Center** | **MERGED / ACCEPTED** | PR #121 → `main` @ `f6818f0`; persistent UAT prepared+deferred |
+| **N2h** | **Meta Ads Expert Workspace** | **IMPLEMENTING** | `docs/product/META_ADS_EXPERT_WORKSPACE.md` + `OPERATOR_WORKSPACE_DESIGN_STANDARD.md` — USER VISUAL UAT REQUIRED |
 | **N3** | **Operational Data Foundation / Historical Performance Store** | PLANNED (after Expert Workspace) | Do not start until Meta Expert Workspace merges / is accepted |
 | **N4** | **Memory / Retrieval V1** | PLANNED (deferred) | Only when knowledge volume justifies; vector RAG deferred |
 

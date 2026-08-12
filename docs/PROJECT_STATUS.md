@@ -30,8 +30,9 @@ Last updated: 2026-08-11
 | **Discovery Intelligence V1** | **IMPLEMENTED V1** — bounded public Website discovery + Evidence + Brand candidates (fact/inference) + human Accept/Edit/Ignore + optional DataForSEO competitor candidates; `docs/product/DISCOVERY_INTELLIGENCE.md` |
 | **Meta Ads Central Integration + Resource Binding V1** | **IMPLEMENTED V1** — agency Meta Integration + Ad Account ExternalResources + Meta Ads Digital Asset binding; `docs/product/meta-ads/META_ADS_INTEGRATION.md` (real Meta Integration + resource discovery + binding UAT: **PASS**) |
 | **Meta Ads Intelligence + Analyst V1** | **IMPLEMENTED V1** — bound Insights collection + Evidence + Findings + Meta Ads Analyst/Skills + `meta_ads.ai_guidance`; `docs/product/meta-ads/META_ADS_INTELLIGENCE.md` |
-| **Async Operations + Activity Center** | **MERGING / ACCEPTED (implementation)** — database queue + Activity Center; Cloud Meta async smoke PASS; persistent UAT **PREPARED / DEFERRED** (not a merge blocker) |
-| Next milestone | **Meta Ads Expert Workspace** (after #121 merges) — do **not** provision persistent UAT/VPS yet |
+| **Async Operations + Activity Center** | **MERGED / ACCEPTED (implementation)** — PR [#121](https://github.com/yakupudul/dijitaloperation/pull/121) → `main` @ `f6818f0`; Cloud Meta async smoke PASS; persistent UAT **PREPARED / DEFERRED** |
+| **Meta Ads Expert Workspace** | **IMPLEMENTING** — PR on `cursor/meta-ads-expert-workspace-ea01`; USER VISUAL UAT REQUIRED before DONE |
+| Next milestone | After Meta Expert Workspace operator visual acceptance — Operational Data Foundation (do not auto-start); persistent UAT still deferred |
 | Memory / Retrieval V1 | PLANNED — only when knowledge volume justifies it; vector RAG deferred |
 
 ### Next milestone candidates (after Meta Expert Workspace)
