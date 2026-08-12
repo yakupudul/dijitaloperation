@@ -13,7 +13,7 @@ if [[ ! -f artisan ]]; then
 fi
 
 if [[ ! -f .env ]]; then
-  echo "deploy/uat/deploy.sh: missing .env — copy .env.uat.example and set secrets first" >&2
+  echo "deploy/uat/deploy.sh: missing .env — copy .cursor/dotenv.uat.example and set secrets first" >&2
   exit 1
 fi
 

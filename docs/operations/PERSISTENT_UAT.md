@@ -1,12 +1,22 @@
 # Persistent UAT — MoxDOP
 
-> Canonical operator-facing **persistent UAT** runtime for human acceptance.  
-> Not production. Not Cursor Cloud.  
+> Deployment **templates** for a future operator-facing persistent UAT host.  
+> **Status: PREPARED / DEFERRED / NOT DEPLOYED** (operator decision: do not provision VPS until product UI is useful).  
+> Not production. Not a merge blocker for Async Operations.  
 > Related: `OPERATOR_ASYNC_EXECUTION.md`, `docs/implementation/CURSOR_CLOUD_ENVIRONMENT.md`, `PROJECT_MEMORY.md`.
+
+## Acceptance distinction (canonical)
+
+| Gate | Meaning | Async (#121) |
+| --- | --- | --- |
+| **Async implementation acceptance** | Queue, Activity Center, Meta/Google/Website/AI long actions truly backgrounded; automated suite + Cloud Meta smoke | **Required to merge** |
+| **Persistent deployment acceptance** | Public `https://uat.dop.moximu.com` (or equivalent) with Nginx/MySQL/worker/scheduler | **Deferred** — not a blocker for async merge |
+
+Cursor Cloud remains the current development/test runtime. Persistent UAT remains optional until the operator chooses to provision infrastructure.
 
 ## Purpose
 
-Give operators a normal-browser URL (target concept: `https://uat.dop.moximu.com`) that survives Cursor Cloud Agent sessions, so final human UAT for Async Operations (#121) and later milestones can run without port forwarding.
+When eventually deployed, give operators a normal-browser URL that survives Cursor Cloud Agent sessions. Until then, Cloud + PHPUnit + Cloud Meta smoke are sufficient for **async implementation** acceptance.
 
 ## Environment model
 
@@ -15,10 +25,10 @@ Give operators a normal-browser URL (target concept: `https://uat.dop.moximu.com
 | **development** | Cursor Cloud / local agent | SQLite file (`database/database.sqlite`) | Ephemeral agent VM |
 | **testing** | PHPUnit | SQLite `:memory:` | Per test |
 | **browser-UAT synthetic** | Disposable Filament browser checks | Separate SQLite (`database/browser-uat.sqlite`) | Disposable; never contaminate operator DB |
-| **persistent UAT** | Human/operator acceptance | **MySQL 8** | Linux host + durable processes |
+| **persistent UAT** | Future human/operator browser host | **MySQL 8** | Linux host + durable processes — **deferred** |
 | **future production** | Live agency ops | MySQL 8 | Separate host/secrets; **not this doc** |
 
-Cursor Cloud is **development/test only**. Persistent UAT is the **canonical human acceptance** environment.
+Cursor Cloud is **development/test** for current product UI work. Persistent UAT is **prepared but not required** for merging Async Operations.
 
 ## Architecture (required processes)
 
@@ -47,7 +57,7 @@ Changing `APP_KEY` invalidates Laravel-encrypted provider credentials (Meta/Goog
 
 ## Env template
 
-Use repo file: `.env.uat.example` → copy to server `.env` and fill secrets locally.
+Use repo file: `.cursor/dotenv.uat.example` → copy to server `.env` and fill secrets locally.
 
 Key concepts (names only):
 
@@ -69,7 +79,7 @@ No credentials in git.
 
 | Path | Role |
 | --- | --- |
-| `.env.uat.example` | Env names / safe defaults |
+| `.cursor/dotenv.uat.example` | Env names / safe defaults |
 | `deploy/uat/nginx.conf.example` | Nginx vhost → `/public` |
 | `deploy/uat/supervisor-moxdop-worker.conf.example` | Persistent queue worker |
 | `deploy/uat/deploy.sh` | Manual pull → install → migrate → restart worker |
@@ -136,9 +146,13 @@ Bind `act_744654160596455` only when the operator confirms that account for UAT.
 
 ## Operator URL
 
-Target: **https://uat.dop.moximu.com/app**
+Target concept: **https://uat.dop.moximu.com/app**
 
-Until DNS + host exist, this URL is **not live**. Cursor port forwarding is **not** a substitute for persistent UAT acceptance.
+**Not live.** Operator explicitly deferred provisioning. Cursor Cloud remains development/test for product UI work until a host is approved.
+
+## Status of this environment (honesty)
+
+Persistent host / DNS / SSH are **operator-supplied and currently deferred**. This repository keeps config and docs ready; it does **not** claim a live UAT hostname or production deployment.
 
 ## Human Async UAT checklist (#121)
 

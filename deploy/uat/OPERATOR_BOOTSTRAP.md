@@ -21,7 +21,7 @@ sudo chown deploy:www-data /var/www/moxdop-uat
 # clone repo as deploy user into /var/www/moxdop-uat
 cd /var/www/moxdop-uat
 git checkout cursor/async-operations-activity-center-ea01   # until merge
-cp .env.uat.example .env
+cp .cursor/dotenv.uat.example .env
 # edit .env: MySQL password, APP_URL, generate APP_KEY ONCE:
 php artisan key:generate --force
 # verify APP_DEBUG=false, QUEUE_CONNECTION=database, DB_CONNECTION=mysql

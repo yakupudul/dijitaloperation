@@ -320,16 +320,18 @@ Details: `PRODUCT_CAPABILITY_LEDGER.md`.
 | Cursor Cloud / local agent | **Development / automated test** only |
 | PHPUnit | Isolated testing (`sqlite :memory:`) |
 | Disposable browser-UAT SQLite | Synthetic browser checks only |
-| **Persistent UAT** | Canonical **human/operator acceptance** (`docs/operations/PERSISTENT_UAT.md`) |
-| Production | Future; **not** claimed by Async / UAT deployment work |
+| **persistent UAT** | Future browser host when operator provisions infrastructure — **PREPARED / DEFERRED** (`docs/operations/PERSISTENT_UAT.md`) |
+| Production | Future; **not** claimed by Async / UAT template work |
 
-Persistent UAT decisions:
+Persistent UAT decisions (when eventually used):
 
 - Uses **MySQL 8** (not Cloud SQLite)
 - Web = **Nginx + PHP-FPM**; plus separate persistent **queue worker** and **scheduler**
 - One stable **`APP_KEY`** across deploys so encrypted provider credentials survive
 - Provider credentials and real bindings must survive deploys; never regenerate `APP_KEY` casually
 - Target hostname concept: `https://uat.dop.moximu.com` (operator DNS/host required)
+
+**Async implementation acceptance** (queue + Activity + Cloud Meta smoke) is independent of **persistent deployment acceptance**. Operator decision (2026-08-12): do **not** provision VPS until Meta Expert Workspace UI is useful; Cursor Cloud remains development/test.
 
 ---
 
