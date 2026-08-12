@@ -110,7 +110,7 @@ class FindingMigrationAndModelTest extends TestCase
 
         // Newest migrations may include resolved_at/credential_type/agent conversations/evidence/website fields/tasks/
         // recommendations/runs/meta history schema; roll back past findings.
-        $this->assertSame(0, Artisan::call('migrate:rollback', ['--step' => 23]));
+        $this->assertSame(0, Artisan::call('migrate:rollback', ['--step' => 24]));
 
         $this->assertFalse(Schema::hasTable('findings'));
 
