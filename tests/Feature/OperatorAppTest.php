@@ -73,6 +73,45 @@ class OperatorAppTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_portfolio_and_meta_pages_render_for_operator(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole(Roles::ADMIN);
+        $this->actingAs($admin);
+
+        foreach (['/app/customers', '/app/brands', '/app/digital-assets', '/app/meta'] as $path) {
+            $this->get($path)->assertOk();
+        }
+    }
+
+    public function test_meta_overview_route_renders_for_covered_asset(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole(Roles::ADMIN);
+        $this->actingAs($admin);
+
+        [$asset] = $this->seedCoveredMetaAsset();
+
+        $this->get('/app/meta/assets/'.$asset->getRouteKey())->assertOk();
+        $this->get('/app/meta/assets/'.$asset->getRouteKey().'/campaigns')->assertOk();
+    }
+
+    public function test_non_meta_asset_overview_is_not_found(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole(Roles::ADMIN);
+        $this->actingAs($admin);
+
+        $customer = Customer::factory()->create();
+        $brand = Brand::factory()->create(['customer_id' => $customer->id]);
+        $website = DigitalAsset::factory()->create([
+            'brand_id' => $brand->id,
+            'type' => 'website',
+        ]);
+
+        $this->get('/app/meta/assets/'.$website->getRouteKey())->assertNotFound();
+    }
+
     public function test_meta_overview_covered_range_does_not_call_meta(): void
     {
         Http::preventStrayRequests();

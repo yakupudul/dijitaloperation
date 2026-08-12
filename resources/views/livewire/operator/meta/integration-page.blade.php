@@ -1,4 +1,9 @@
-<div @if ($activeImport) wire:poll.5s @endif>
+<div>
+    {{-- While an import is running, poll to refresh account states/progress. --}}
+    @if ($activeImport)
+        <div wire:poll.5s class="hidden"></div>
+    @endif
+
     <x-ta.page-breadcrumb pageTitle="Meta Integration" />
 
     @if ($flashMessage)
@@ -148,7 +153,7 @@
                                         </div>
                                         @if ($account['last_error_summary'])
                                             <div class="col-span-2 sm:col-span-4">
-                                                <span class="block text-xs uppercase text-error-500">Last error@if ($account['last_error_category']) · {{ $account['last_error_category'] }}@endif</span>
+                                                <span class="block text-xs uppercase text-error-500">Last error{{ $account['last_error_category'] ? ' · '.$account['last_error_category'] : '' }}</span>
                                                 <span class="text-sm text-error-600 dark:text-error-400">{{ $account['last_error_summary'] }}</span>
                                             </div>
                                         @endif
