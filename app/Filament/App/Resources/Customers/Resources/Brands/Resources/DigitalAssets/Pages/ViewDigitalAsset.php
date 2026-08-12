@@ -63,6 +63,7 @@ use MoxDop\Website\Workspace\WebsiteWorkspaceData;
 class ViewDigitalAsset extends ViewRecord
 {
     use InteractsWithMetaExpertWorkspace;
+
     protected static string $resource = DigitalAssetResource::class;
 
     /**
