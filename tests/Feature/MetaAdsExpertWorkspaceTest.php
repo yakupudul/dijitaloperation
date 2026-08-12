@@ -89,7 +89,7 @@ class MetaAdsExpertWorkspaceTest extends TestCase
         ]);
     }
 
-    public function test_period_mismatch_requires_analyze_and_does_not_show_stale_as_current(): void
+    public function test_period_mismatch_prepares_history_and_does_not_show_stale_as_current(): void
     {
         $this->seedAccountEvidence([
             'start' => '2020-01-01',
@@ -98,9 +98,14 @@ class MetaAdsExpertWorkspaceTest extends TestCase
 
         $data = app(MetaAdsWorkspaceData::class)->for($this->asset);
 
+        // No historical coverage and no Evidence for the selected period: we must not
+        // surface stale numbers from the other-period Evidence, and we prepare history
+        // in the background rather than forcing an "Analyze this period" gate.
         $this->assertFalse($data['period_matched']);
-        $this->assertTrue($data['needs_analyze']);
+        $this->assertFalse($data['needs_analyze']);
         $this->assertSame([], $data['kpis']);
+        $this->assertSame('preparing', $data['history']['state']);
+        $this->assertStringContainsString('Preparing missing history', (string) $data['history']['message']);
         $this->assertStringNotContainsString('active Meta binding', strtolower(json_encode($data['connection_health'])));
     }
 

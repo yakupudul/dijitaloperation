@@ -49,24 +49,18 @@
     </section>
 
     @if (($attention['items'] ?? []) !== [])
-        <section class="mox-panel">
-            <div class="mox-panel__head"><h4>Priority attention</h4></div>
-            <div class="mox-issue-cards">
+        <x-moxdop.section-card title="Priority attention">
+            <div class="mox-attention-list">
                 @foreach ($attention['items'] as $item)
-                    <article class="mox-issue-card">
-                        <span class="mox-severity mox-severity--{{ $item['severity'] }}">{{ strtoupper($item['severity']) }}</span>
-                        <div>
-                            <h5>{{ $item['title'] }}</h5>
-                            <p>{{ $item['summary'] }}</p>
-                            @if (! empty($item['campaign_name']))
-                                <p class="mox-muted">Affected: {{ $item['campaign_name'] }}</p>
-                            @endif
-                            <p class="mox-footnote">{{ $item['inspect_label'] ?? 'Review in campaign drill-down' }}</p>
-                        </div>
-                    </article>
+                    <x-moxdop.attention-card
+                        :severity="$item['severity']"
+                        :title="$item['title']"
+                        :body="$item['summary']"
+                        :entity="$item['campaign_name'] ?? null"
+                    />
                 @endforeach
             </div>
-        </section>
+        </x-moxdop.section-card>
     @endif
 
     @foreach ($themes as $theme => $groups)

@@ -3,6 +3,7 @@
 namespace MoxDop\MetaAds\Workspace;
 
 use App\Models\CoreAssetBinding;
+use App\Models\CoreExternalResource;
 use App\Models\DigitalAsset;
 use App\Models\Evidence;
 use App\Models\Finding;
@@ -11,11 +12,13 @@ use App\Models\Run;
 use App\Support\Ai\AiProviderCatalog;
 use App\Support\Integrations\ComparisonPeriod;
 use Carbon\CarbonInterface;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use MoxDop\MetaAds\Ai\MetaAdsAiGuidanceConfig;
 use MoxDop\MetaAds\Ai\MetaAdsAiGuidanceService;
 use MoxDop\MetaAds\Collection\MetaAdsBoundCollector;
+use MoxDop\MetaAds\History\MetaHistoricalQueryService;
 use MoxDop\MetaAds\Normalization\MetaActionNormalizer;
 use MoxDop\MetaAds\Normalization\MetaResultResolver;
 use MoxDop\MetaAds\Support\MetaAdsWorkspaceData as MetaAdsConnectionSummary;
@@ -98,22 +101,79 @@ final class MetaAdsWorkspaceData
         $connections = $this->connectionCards($asset);
         $connectionSummary = MetaAdsConnectionSummary::forAsset($asset);
 
-        $adsetRows = $this->boundedEntityRows($adsets);
+        // Primary path: the local historical store. Fall back to the latest Evidence
+        // snapshot for a period only while the historical warehouse is still filling.
+        $boundResource = $connectionSummary['bound_resource'] instanceof CoreExternalResource
+            ? $connectionSummary['bound_resource']
+            : null;
+        $coverageState = null;
+        $historical = null;
+        if ($boundResource !== null) {
+            $coverageState = app(MetaHistoricalQueryService::class)->isRangeCovered(
+                $boundResource,
+                $selectedPeriod['current']['start'],
+                $selectedPeriod['current']['end'],
+            );
+
+            if (in_array($coverageState, ['complete', 'partial'], true)) {
+                $historical = app(MetaHistoricalWorkspaceBuilder::class)->build(
+                    $boundResource,
+                    $selectedPeriod['current'],
+                    $selectedPeriod['previous'],
+                    $filters,
+                    $coverageState,
+                );
+            }
+        }
+
+        $useHistorical = $historical !== null;
+        $evidencePeriodMatched = $periodMatched;
+
+        $adsetRows = $useHistorical ? $historical['adset_rows'] : $this->boundedEntityRows($adsets);
         $campaignRows = $this->filterCampaignRows(
-            $this->enrichCampaignRows($this->boundedEntityRows($campaigns), $adsetRows),
+            $this->enrichCampaignRows(
+                $useHistorical ? $historical['campaign_rows'] : $this->boundedEntityRows($campaigns),
+                $adsetRows,
+            ),
             $filters,
         );
-        $dataCoverage = $this->dataCoverage($account, $campaigns, $adsets, $ads, $creatives, $daily, $campaignRows);
-        $comparison = $this->comparisonAvailability($account, $comparisonPeriod);
-        $compareOn = ($filters['compare'] ?? true) === true && $comparison['available'] === true;
+
+        $periodMatched = $useHistorical || $evidencePeriodMatched;
+        $historyState = $this->historyState($boundResource, $useHistorical, $coverageState, $evidencePeriodMatched);
+        $needsAnalyze = ! $periodMatched && $boundResource === null && $latestAnyAccount !== null;
+
+        if ($useHistorical) {
+            $period = $selectedPeriod['current'];
+            $comparisonPeriod = $selectedPeriod['previous'];
+            $historyCoverage = app(MetaHistoricalQueryService::class)->coverageForResource($boundResource);
+            $historySync = data_get($historyCoverage, 'daily_facts.last_successful_sync_at');
+            if (is_string($historySync) && $historySync !== '') {
+                $lastUpdated = Carbon::parse($historySync);
+            }
+        } else {
+            $historyCoverage = $boundResource !== null
+                ? app(MetaHistoricalQueryService::class)->coverageForResource($boundResource)
+                : [];
+        }
+
+        $dataCoverage = $useHistorical
+            ? $historical['data_coverage']
+            : $this->dataCoverage($account, $campaigns, $adsets, $ads, $creatives, $daily, $campaignRows);
+        $comparison = $useHistorical
+            ? $historical['comparison']
+            : $this->comparisonAvailability($account, $comparisonPeriod);
+        $compareOn = ($filters['compare'] ?? true) === true && ($comparison['available'] ?? false) === true;
         $attention = $this->attentionItems($findings, $campaignRows);
+        $resultMix = $useHistorical ? $historical['result_mix'] : $this->resultMixSummary($account);
+        $resultGrouped = $useHistorical ? $historical['result_mix_grouped'] : $this->groupedResultMix($account);
 
         return [
             'asset' => $asset,
             'filters' => $filters,
             'selected_period' => $selectedPeriod,
             'period_matched' => $periodMatched,
-            'needs_analyze' => ! $periodMatched && $latestAnyAccount !== null,
+            'needs_analyze' => $needsAnalyze,
+            'history' => $this->historyBlock($historyState, $selectedPeriod['current'], $coverageState, $historyCoverage),
             'period' => $period,
             'comparison_period' => $comparisonPeriod,
             'period_label' => $this->periodLabel($period, $comparisonPeriod, $compareOn),
@@ -121,7 +181,9 @@ final class MetaAdsWorkspaceData
             'last_updated_human' => $lastUpdated instanceof CarbonInterface
                 ? $lastUpdated->diffForHumans()
                 : null,
-            'account_identity' => $this->accountIdentity($account ?? $latestAnyAccount, $connectionSummary),
+            'account_identity' => $useHistorical
+                ? $historical['account_identity']
+                : $this->accountIdentity($account ?? $latestAnyAccount, $connectionSummary),
             'data_coverage' => $dataCoverage,
             'data_health' => $this->dataHealthBadge($dataCoverage, $latestRun, $asyncCollect),
             'workspace_state' => $this->workspaceState($connectionSummary, $account, $campaigns, $latestRun, $dataCoverage),
@@ -132,15 +194,23 @@ final class MetaAdsWorkspaceData
                 'phase_label' => data_get($asyncCollect->metadata, 'phase_label'),
                 'run_id' => $asyncCollect->id,
             ] : null,
-            'kpis' => $periodMatched ? $this->priorityKpis($account, $compareOn, $this->resultMixSummary($account)) : [],
-            'kpis_secondary' => $periodMatched ? $this->secondaryKpis($account, $compareOn) : [],
-            'primary_result' => $this->primaryResultSummary($account),
-            'result_mix' => $this->resultMixSummary($account),
-            'result_mix_grouped' => $this->groupedResultMix($account),
-            'kpis_full' => $periodMatched ? $this->accountKpis($account, $compareOn) : [],
+            'kpis' => $useHistorical
+                ? $historical['kpis']
+                : ($periodMatched ? $this->priorityKpis($account, $compareOn, $this->resultMixSummary($account)) : []),
+            'kpis_secondary' => $useHistorical
+                ? $historical['kpis_secondary']
+                : ($periodMatched ? $this->secondaryKpis($account, $compareOn) : []),
+            'primary_result' => $useHistorical ? $historical['primary_result'] : $this->primaryResultSummary($account),
+            'result_mix' => $resultMix,
+            'result_mix_grouped' => $resultGrouped,
+            'kpis_full' => $useHistorical
+                ? $historical['kpis_full']
+                : ($periodMatched ? $this->accountKpis($account, $compareOn) : []),
             'raw_result_signals' => $this->rawResultSignalsSummary($account),
-            'trend' => $this->trendSeries($daily, (string) ($filters['trend_metric'] ?? 'spend')),
-            'delivery_flow' => $this->deliveryFlow($account),
+            'trend' => $useHistorical
+                ? $historical['trend']
+                : $this->trendSeries($daily, (string) ($filters['trend_metric'] ?? 'spend')),
+            'delivery_flow' => $useHistorical ? $historical['delivery_flow'] : $this->deliveryFlow($account),
             'attention' => $attention,
             'collection_stages' => is_array($latestRun?->metadata['collection_stages'] ?? null)
                 ? $latestRun->metadata['collection_stages']
@@ -175,6 +245,56 @@ final class MetaAdsWorkspaceData
             'caveats' => $periodMatched ? $this->caveats($account) : [],
             'comparison' => $comparison,
             'preset_labels' => ComparisonPeriod::presetLabels(),
+        ];
+    }
+
+    /**
+     * @return 'no_connection'|'covered'|'fallback'|'preparing'|'unavailable'
+     */
+    private function historyState(?CoreExternalResource $boundResource, bool $useHistorical, ?string $coverageState, bool $evidencePeriodMatched): string
+    {
+        if ($boundResource === null) {
+            return 'no_connection';
+        }
+
+        if ($useHistorical) {
+            return 'covered';
+        }
+
+        if ($coverageState === 'outside_provider') {
+            return 'unavailable';
+        }
+
+        return $evidencePeriodMatched ? 'fallback' : 'preparing';
+    }
+
+    /**
+     * Operator-facing history readiness surface. Never invents warehouse data; only
+     * reports what local coverage confirms and what background enrichment is preparing.
+     *
+     * @param  array{start: string, end: string}  $period
+     * @param  array<string, array<string, mixed>>  $historyCoverage
+     * @return array{state: string, message: ?string, from: string, to: string, coverage_state: ?string, coverage: array<string, array<string, mixed>>}
+     */
+    private function historyBlock(string $state, array $period, ?string $coverageState, array $historyCoverage): array
+    {
+        $from = $period['start'];
+        $to = $period['end'];
+
+        $message = match ($state) {
+            'preparing' => "Preparing missing history for {$from} – {$to}",
+            'unavailable' => 'Meta history is not available for this period.',
+            'fallback' => 'Showing the last collected snapshot while updated history is prepared.',
+            default => null,
+        };
+
+        return [
+            'state' => $state,
+            'message' => $message,
+            'from' => $from,
+            'to' => $to,
+            'coverage_state' => $coverageState,
+            'coverage' => $historyCoverage,
         ];
     }
 

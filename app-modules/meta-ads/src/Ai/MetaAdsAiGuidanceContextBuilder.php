@@ -2,6 +2,8 @@
 
 namespace MoxDop\MetaAds\Ai;
 
+use App\Models\CoreAssetBinding;
+use App\Models\CoreExternalResource;
 use App\Models\DigitalAsset;
 use App\Models\Evidence;
 use App\Models\Finding;
@@ -9,7 +11,12 @@ use App\Models\Recommendation;
 use App\Models\Run;
 use App\Services\BrandIntelligence\BrandContextProvider;
 use App\Support\BrandIntelligence\BrandIntelligenceSnapshot;
+use App\Support\Integrations\ComparisonPeriod;
 use Illuminate\Support\Collection;
+use MoxDop\MetaAds\History\MetaHistoricalImportService;
+use MoxDop\MetaAds\History\MetaHistoricalQueryService;
+use MoxDop\MetaAds\Models\MetaAdsEntity;
+use MoxDop\MetaAds\Workspace\MetaWorkspaceFilters;
 
 /**
  * Builds the bounded AI Recommendation Context snapshot.
@@ -18,6 +25,7 @@ final class MetaAdsAiGuidanceContextBuilder
 {
     public function __construct(
         private readonly BrandContextProvider $brandContext,
+        private readonly MetaHistoricalQueryService $history,
     ) {}
 
     /**
@@ -111,6 +119,11 @@ final class MetaAdsAiGuidanceContextBuilder
             'trustworthy_evidence_types' => $coverage['trustworthy_types'],
         ];
 
+        $historicalPerformance = $this->historicalPerformance($asset);
+        if ($historicalPerformance !== null) {
+            $context['historical_performance'] = $historicalPerformance;
+        }
+
         return [
             'findings' => $findings,
             'context' => $context,
@@ -119,6 +132,106 @@ final class MetaAdsAiGuidanceContextBuilder
             'evidence_ids' => $evidence->pluck('id')->map(fn ($id): int => (int) $id)->values()->all(),
             'trustworthy_evidence_types' => $coverage['trustworthy_types'],
         ];
+    }
+
+    /**
+     * Bounded aggregates from the local historical store for the operator-selected
+     * period and, when available, the comparable previous period. Never a raw row
+     * dump — only account totals plus the top campaigns by spend. Returns null when
+     * the selected range is not covered locally, so the AI never sees stale numbers.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function historicalPerformance(DigitalAsset $asset): ?array
+    {
+        $resource = $this->boundMetaResource($asset);
+        if ($resource === null) {
+            return null;
+        }
+
+        $filters = MetaWorkspaceFilters::get((int) $asset->id);
+
+        try {
+            $resolved = ComparisonPeriod::forPreset(
+                (string) $filters['period_preset'],
+                $filters['period_start'] !== null ? (string) $filters['period_start'] : null,
+                $filters['period_end'] !== null ? (string) $filters['period_end'] : null,
+                (bool) ($filters['compare'] ?? true),
+            );
+        } catch (\Throwable) {
+            return null;
+        }
+
+        $current = $resolved['current'];
+        $previous = $resolved['previous'];
+
+        $coverage = $this->history->isRangeCovered($resource, $current['start'], $current['end']);
+        if (! in_array($coverage, ['complete', 'partial'], true)) {
+            return null;
+        }
+
+        $accountId = str_starts_with((string) $resource->external_id, 'act_')
+            ? (string) $resource->external_id
+            : 'act_'.$resource->external_id;
+
+        $accountCurrent = $this->history->accountFacts($resource, $current['start'], $current['end']);
+        $reachFrequency = $this->history->resolveReachFrequency($resource, 'account', $accountId, $current['start'], $current['end']);
+        $accountCurrent['reach'] = $reachFrequency['reach'];
+        $accountCurrent['frequency'] = $reachFrequency['frequency'];
+
+        $accountPrevious = null;
+        if (($filters['compare'] ?? true) === true) {
+            $prevFacts = $this->history->accountFacts($resource, $previous['start'], $previous['end']);
+            if ($prevFacts['spend'] !== null || $prevFacts['impressions'] !== null) {
+                $accountPrevious = $prevFacts;
+            }
+        }
+
+        $entityNames = MetaAdsEntity::query()
+            ->where('core_external_resource_id', $resource->id)
+            ->where('entity_type', MetaAdsEntity::TYPE_CAMPAIGN)
+            ->pluck('name', 'provider_external_id');
+
+        $topCampaigns = collect($this->history->entityFacts($resource, MetaAdsEntity::TYPE_CAMPAIGN, $current['start'], $current['end']))
+            ->sortByDesc(fn (array $row): float => is_numeric($row['spend'] ?? null) ? (float) $row['spend'] : 0.0)
+            ->take(MetaAdsAiGuidanceConfig::MAX_HIERARCHY_ROWS_IN_CONTEXT)
+            ->map(fn (array $row): array => [
+                'name' => $entityNames[$row['provider_external_id']] ?? $row['provider_external_id'],
+                'spend' => $row['spend'] ?? null,
+                'impressions' => $row['impressions'] ?? null,
+                'link_clicks' => $row['link_clicks'] ?? null,
+                'ctr' => $row['ctr'] ?? null,
+                'link_ctr' => $row['link_ctr'] ?? null,
+                'cpc' => $row['cpc'] ?? null,
+                'cpm' => $row['cpm'] ?? null,
+            ])
+            ->values()
+            ->all();
+
+        return [
+            'source' => 'local_historical_store',
+            'coverage' => $coverage,
+            'period' => $current,
+            'comparison_period' => $accountPrevious !== null ? $previous : null,
+            'account_current' => $accountCurrent,
+            'account_previous' => $accountPrevious,
+            'reach_frequency_status' => $reachFrequency['status'],
+            'top_campaigns' => $topCampaigns,
+            'note' => 'Aggregated locally. Reach/frequency come from the exact-period cache; distinct action types are never summed.',
+        ];
+    }
+
+    private function boundMetaResource(DigitalAsset $asset): ?CoreExternalResource
+    {
+        $binding = CoreAssetBinding::query()
+            ->where('digital_asset_id', $asset->id)
+            ->where('capability', MetaHistoricalImportService::RESOURCE_TYPE)
+            ->where('status', CoreAssetBinding::STATUS_ACTIVE)
+            ->with('externalResource')
+            ->latest('id')
+            ->first();
+
+        return $binding?->externalResource;
     }
 
     /**

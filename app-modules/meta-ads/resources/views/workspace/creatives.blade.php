@@ -2,8 +2,9 @@
     use MoxDop\MetaAds\Support\MetaPercentage;
 
     $creatives = $data['creatives'] ?? [];
-    $needsAnalyze = (bool) ($data['needs_analyze'] ?? false);
     $periodMatched = (bool) ($data['period_matched'] ?? false);
+    $history = $data['history'] ?? ['state' => 'no_connection', 'message' => null];
+    $historyState = $history['state'] ?? 'no_connection';
     $async = $data['async_collection'] ?? null;
     $num = fn ($v, int $d = 0) => is_numeric($v) ? number_format((float) $v, $d) : '—';
     $pct = fn ($v) => is_numeric($v) ? MetaPercentage::format($v) : '—';
@@ -19,16 +20,24 @@
 
     @include('meta-ads::workspace.partials.filter-bar', ['data' => $data])
 
-    @if ($needsAnalyze || ! $periodMatched)
-        <div class="mox-meta-analyze">
-            <div>
-                <h4>Creative performance for this period is not loaded</h4>
-                <p class="mox-muted">Analyze the selected period to associate creatives with delivery metrics.</p>
-            </div>
-            @if (! $async)
-                <button type="button" class="mox-btn mox-btn--primary" wire:click="analyzeMetaSelectedPeriod">Analyze this period</button>
-            @endif
-        </div>
+    @if (! $periodMatched)
+        @if ($historyState === 'unavailable')
+            <x-moxdop.empty-state
+                title="Meta history is not available for this period"
+                body="The selected range is older than the provider makes available. Choose a more recent period."
+            />
+        @elseif ($historyState === 'no_connection')
+            <x-moxdop.empty-state
+                title="No Meta Ad Account connected"
+                body="Connect a Meta Ads account from the Connection tab to load creatives."
+            />
+        @else
+            <x-moxdop.operation-progress
+                :title="$history['message'] ?? 'Preparing missing history'"
+                phase="Creatives will appear here once the selected range is prepared"
+                :status="$async ? 'running' : 'queued'"
+            />
+        @endif
     @elseif ($creatives === [])
         <div class="mox-empty">No creative metadata for this period.</div>
     @else

@@ -5,8 +5,9 @@
     $adsets = $data['adsets'] ?? [];
     $ads = $data['ads'] ?? [];
     $creatives = $data['creatives'] ?? [];
-    $needsAnalyze = (bool) ($data['needs_analyze'] ?? false);
     $periodMatched = (bool) ($data['period_matched'] ?? false);
+    $history = $data['history'] ?? ['state' => 'no_connection', 'message' => null];
+    $historyState = $history['state'] ?? 'no_connection';
     $async = $data['async_collection'] ?? null;
     $showExpert = (bool) ($data['filters']['expert_columns'] ?? false);
 
@@ -46,16 +47,24 @@
 
     @include('meta-ads::workspace.partials.filter-bar', ['data' => $data])
 
-    @if ($needsAnalyze || ! $periodMatched)
-        <div class="mox-meta-analyze">
-            <div>
-                <h4>Campaign metrics for this period are not loaded</h4>
-                <p class="mox-muted">Avoiding stale numbers from another date range.</p>
-            </div>
-            @if (! $async)
-                <button type="button" class="mox-btn mox-btn--primary" wire:click="analyzeMetaSelectedPeriod">Analyze this period</button>
-            @endif
-        </div>
+    @if (! $periodMatched)
+        @if ($historyState === 'unavailable')
+            <x-moxdop.empty-state
+                title="Meta history is not available for this period"
+                body="The selected range is older than the provider makes available. Choose a more recent period."
+            />
+        @elseif ($historyState === 'no_connection')
+            <x-moxdop.empty-state
+                title="No Meta Ad Account connected"
+                body="Connect a Meta Ads account from the Connection tab to load campaigns."
+            />
+        @else
+            <x-moxdop.operation-progress
+                :title="$history['message'] ?? 'Preparing missing history'"
+                phase="Campaigns will appear here once the selected range is prepared"
+                :status="$async ? 'running' : 'queued'"
+            />
+        @endif
     @elseif ($campaigns === [])
         <div class="mox-empty">No delivered campaigns match the current filters.</div>
     @else
