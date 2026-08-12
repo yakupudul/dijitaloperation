@@ -118,6 +118,7 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
             'resource_display_name' => $resource->display_name,
             'requested_period' => $periods['current'],
             'comparison_period' => $periods['previous'],
+            'period_preset' => $periods['preset'] ?? BoundCollectionOptions::get('period_preset') ?? ComparisonPeriod::PRESET_LAST_28,
             'date_start' => $periods['current']['start'],
             'date_stop' => $periods['current']['end'],
             'collected_at' => $observedAt->toIso8601String(),

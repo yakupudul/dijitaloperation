@@ -159,7 +159,7 @@ class MetaAdsMetricSemanticsCorrectionTest extends TestCase
         }
 
         $data = app(MetaAdsWorkspaceData::class)->for($this->asset->fresh());
-        $kpiByKey = collect($data['kpis'])->keyBy('key');
+        $kpiByKey = collect($data['kpis_full'])->keyBy('key');
 
         $this->assertSame('All Clicks CTR', $kpiByKey['ctr']['label']);
         $this->assertSame('Link CTR', $kpiByKey['inline_link_click_ctr']['label']);
@@ -167,6 +167,7 @@ class MetaAdsMetricSemanticsCorrectionTest extends TestCase
         $this->assertSame('Cost / Link Click', $kpiByKey['cost_per_inline_link_click']['label']);
         $this->assertSame('All Clicks', $kpiByKey['clicks']['label']);
         $this->assertSame('Link Clicks', $kpiByKey['inline_link_clicks']['label']);
+        $this->assertSame('Link CTR', collect($data['kpis'])->firstWhere('key', 'inline_link_click_ctr')['label'] ?? null);
 
         $campaign = $data['campaigns'][0];
         $this->assertSame(2299.0, (float) $campaign['clicks']);

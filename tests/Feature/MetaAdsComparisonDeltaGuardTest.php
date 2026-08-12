@@ -122,7 +122,8 @@ class MetaAdsComparisonDeltaGuardTest extends TestCase
         $html = view('meta-ads::workspace.overview', ['data' => $data])->render();
         $this->assertStringNotContainsString('8.2% vs prior', $html);
         $this->assertStringNotContainsString('-3.1% vs prior', $html);
-        $this->assertStringContainsString('comparison deltas are suppressed', $html);
+        $this->assertStringNotContainsString('vs previous period', $html);
+        $this->assertStringContainsString('comparison deltas are suppressed', $data['comparison']['reason']);
 
         $this->assertSame('Not connected', $data['data_coverage']['business_validation']);
         $this->assertArrayHasKey('attribution_context', $data['data_coverage']);

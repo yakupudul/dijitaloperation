@@ -4,8 +4,8 @@
 
     /** @var array<string, mixed> $data */
     $filters = $data['filters'] ?? MetaWorkspaceFilters::get(0);
+    unset($presets); // keep all presets including last 28 (collector default)
     $presets = $data['preset_labels'] ?? ComparisonPeriod::presetLabels();
-    unset($presets[ComparisonPeriod::PRESET_LAST_28]); // keep last 28 as engine default, not primary operator preset
     $objectives = collect($data['campaigns'] ?? [])
         ->pluck('objective')
         ->filter()

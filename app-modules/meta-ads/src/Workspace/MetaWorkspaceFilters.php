@@ -35,7 +35,7 @@ final class MetaWorkspaceFilters
         $stored = Session::get(self::key($assetId), []);
 
         return [
-            'period_preset' => (string) ($stored['period_preset'] ?? ComparisonPeriod::PRESET_LAST_30),
+            'period_preset' => (string) ($stored['period_preset'] ?? ComparisonPeriod::PRESET_LAST_28),
             'period_start' => isset($stored['period_start']) ? (string) $stored['period_start'] : null,
             'period_end' => isset($stored['period_end']) ? (string) $stored['period_end'] : null,
             'compare' => (bool) ($stored['compare'] ?? true),

@@ -62,7 +62,7 @@ Foundation 1–23 tamamlandıktan sonra devam eden **güncel** ürün sırası. 
 | **N2e** | **Meta Ads Central Integration + Resource Binding V1** | **IMPLEMENTED V1** | `docs/product/meta-ads/META_ADS_INTEGRATION.md` — Meta provider + Ad Account discovery + AssetBinding |
 | **N2f** | **Meta Ads Intelligence + Analyst V1** | **IMPLEMENTED V1** | `docs/product/meta-ads/META_ADS_INTELLIGENCE.md` — Insights Evidence + Findings + Analyst/Skills + `meta_ads.ai_guidance` |
 | **N2g** | **Async Operations + Activity Center** | **MERGED / ACCEPTED** | PR #121 → `main` @ `f6818f0`; persistent UAT prepared+deferred |
-| **N2h** | **Meta Ads Expert Workspace** | **IMPLEMENTING** | `docs/product/META_ADS_EXPERT_WORKSPACE.md` + `OPERATOR_WORKSPACE_DESIGN_STANDARD.md` — USER VISUAL UAT REQUIRED |
+| **N2h** | **Meta Ads Expert Workspace** | **IMPLEMENTED / TESTED / USER UAT REQUIRED** | Not DONE until operator visual acceptance; do not merge without approval |
 | **N3** | **Operational Data Foundation / Historical Performance Store** | PLANNED (after Expert Workspace) | Do not start until Meta Expert Workspace merges / is accepted |
 | **N4** | **Memory / Retrieval V1** | PLANNED (deferred) | Only when knowledge volume justifies; vector RAG deferred |
 
@@ -86,7 +86,7 @@ External research registry: `docs/research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.
 Discovery Intelligence V1: **IMPLEMENTED** (`docs/product/DISCOVERY_INTELLIGENCE.md`).  
 Meta Ads Intelligence + Analyst V1: **IMPLEMENTED** (`docs/product/meta-ads/META_ADS_INTELLIGENCE.md`).  
 Async Operations + Activity Center: **ACCEPTED (implementation)**; persistent UAT **DEFERRED**.  
-Meta Ads Expert Workspace: **IMPLEMENTING**.  
+Meta Ads Expert Workspace: **IMPLEMENTED / TESTED / USER UAT REQUIRED** (not DONE).  
 AI Router + Agent/Skill V1: **IMPLEMENTED**. Outcome Loop V1: **IMPLEMENTED**. Capability Router / Playbooks / Learned Memory / RAG: **PLANNED**.
 
 

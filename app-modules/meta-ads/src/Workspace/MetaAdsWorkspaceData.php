@@ -40,12 +40,13 @@ final class MetaAdsWorkspaceData
         $filters = $filters ?? MetaWorkspaceFilters::get((int) $asset->id);
         $selectedPeriod = $this->resolveSelectedPeriod($filters);
 
-        $account = $this->evidenceForPeriod($asset, MetaAdsBoundCollector::EVIDENCE_ACCOUNT_SUMMARY, $selectedPeriod['current']);
-        $campaigns = $this->evidenceForPeriod($asset, MetaAdsBoundCollector::EVIDENCE_CAMPAIGN_PERFORMANCE, $selectedPeriod['current']);
-        $adsets = $this->evidenceForPeriod($asset, MetaAdsBoundCollector::EVIDENCE_ADSET_PERFORMANCE, $selectedPeriod['current']);
-        $ads = $this->evidenceForPeriod($asset, MetaAdsBoundCollector::EVIDENCE_AD_PERFORMANCE, $selectedPeriod['current']);
-        $creatives = $this->evidenceForPeriod($asset, MetaAdsBoundCollector::EVIDENCE_CREATIVE_METADATA, $selectedPeriod['current']);
-        $daily = $this->evidenceForPeriod($asset, MetaAdsBoundCollector::EVIDENCE_ACCOUNT_DAILY_TREND, $selectedPeriod['current']);
+        $preset = (string) ($filters['period_preset'] ?? ComparisonPeriod::PRESET_LAST_28);
+        $account = $this->evidenceForPeriod($asset, MetaAdsBoundCollector::EVIDENCE_ACCOUNT_SUMMARY, $selectedPeriod['current'], $preset);
+        $campaigns = $this->evidenceForPeriod($asset, MetaAdsBoundCollector::EVIDENCE_CAMPAIGN_PERFORMANCE, $selectedPeriod['current'], $preset);
+        $adsets = $this->evidenceForPeriod($asset, MetaAdsBoundCollector::EVIDENCE_ADSET_PERFORMANCE, $selectedPeriod['current'], $preset);
+        $ads = $this->evidenceForPeriod($asset, MetaAdsBoundCollector::EVIDENCE_AD_PERFORMANCE, $selectedPeriod['current'], $preset);
+        $creatives = $this->evidenceForPeriod($asset, MetaAdsBoundCollector::EVIDENCE_CREATIVE_METADATA, $selectedPeriod['current'], $preset);
+        $daily = $this->evidenceForPeriod($asset, MetaAdsBoundCollector::EVIDENCE_ACCOUNT_DAILY_TREND, $selectedPeriod['current'], $preset);
 
         $periodMatched = $account !== null || $campaigns !== null;
         $latestAnyAccount = $this->latestEvidence($asset, MetaAdsBoundCollector::EVIDENCE_ACCOUNT_SUMMARY);
@@ -182,7 +183,7 @@ final class MetaAdsWorkspaceData
     /**
      * @param  array{start: string, end: string}  $period
      */
-    private function evidenceForPeriod(DigitalAsset $asset, string $type, array $period): ?Evidence
+    private function evidenceForPeriod(DigitalAsset $asset, string $type, array $period, ?string $preset = null): ?Evidence
     {
         $exact = Evidence::query()
             ->where('digital_asset_id', $asset->id)
@@ -197,7 +198,30 @@ final class MetaAdsWorkspaceData
             return $exact;
         }
 
-        // Transitional: if filters request default last_30 and only legacy 28-day Evidence exists, do not pretend match.
+        // Rolling presets: latest Evidence tagged with the same preset (actual
+        // date window is shown from Evidence — never relabeled as a different period).
+        if (is_string($preset) && $preset !== '' && $preset !== ComparisonPeriod::PRESET_CUSTOM) {
+            $byPreset = Evidence::query()
+                ->where('digital_asset_id', $asset->id)
+                ->where('type', $type)
+                ->where('source_module', MetaAdsBoundCollector::MODULE_ID)
+                ->where('payload->period_preset', $preset)
+                ->orderByDesc('id')
+                ->first();
+
+            if ($byPreset !== null) {
+                return $byPreset;
+            }
+        }
+
+        // Legacy #119 Evidence (no period_preset): only for the collector-default last-28 window.
+        if ($preset === ComparisonPeriod::PRESET_LAST_28 || $preset === null || $preset === '') {
+            $legacy = $this->latestEvidence($asset, $type);
+            if ($legacy !== null && data_get($legacy->payload, 'period_preset') === null) {
+                return $legacy;
+            }
+        }
+
         return null;
     }
 
@@ -213,7 +237,7 @@ final class MetaAdsWorkspaceData
      */
     private function resolveSelectedPeriod(array $filters): array
     {
-        $preset = (string) ($filters['period_preset'] ?? ComparisonPeriod::PRESET_LAST_30);
+        $preset = (string) ($filters['period_preset'] ?? ComparisonPeriod::PRESET_LAST_28);
 
         try {
             return ComparisonPeriod::forPreset(
@@ -223,7 +247,7 @@ final class MetaAdsWorkspaceData
                 (bool) ($filters['compare'] ?? true),
             );
         } catch (\Throwable) {
-            return ComparisonPeriod::forPreset(ComparisonPeriod::PRESET_LAST_30);
+            return ComparisonPeriod::forPreset(ComparisonPeriod::PRESET_LAST_28);
         }
     }
 

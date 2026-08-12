@@ -87,6 +87,9 @@ final class ComparisonPeriod
             ],
             'timezone' => 'UTC',
             'complete_days' => 28,
+            'preset' => self::PRESET_LAST_28,
+            'compare' => true,
+            'label' => self::presetLabels()[self::PRESET_LAST_28],
         ];
     }
 

@@ -273,7 +273,7 @@ class MetaAdsOperatorCorrectionPassTest extends TestCase
         $this->assertContains($data['workspace_state'], ['data_available', 'collection_partial']);
         $this->assertSame('CTR Check Account', $data['account_identity']['name'] ?? null);
 
-        $ctrKpi = collect($data['kpis'])->firstWhere('key', 'ctr');
+        $ctrKpi = collect($data['kpis_full'])->firstWhere('key', 'ctr');
         $this->assertNotNull($ctrKpi);
         $this->assertSame(1.48, (float) $ctrKpi['value']);
         $this->assertSame('1.48%', MetaPercentage::format($ctrKpi['value']));
@@ -285,16 +285,16 @@ class MetaAdsOperatorCorrectionPassTest extends TestCase
         $this->assertNotEmpty($campaign['actions']);
 
         $html = view('meta-ads::workspace.overview', ['data' => $data])->render();
-        $this->assertStringContainsString('1.48%', $html);
+        $this->assertStringContainsString('Link CTR', $html);
         $this->assertStringNotContainsString('148.46%', $html);
         $this->assertStringNotContainsString('Website details', $html);
         $this->assertStringNotContainsString('Site connections', $html);
         $this->assertStringNotContainsString('Agency Google auth', $html);
         $this->assertStringNotContainsString('CoreAssetBinding', $html);
 
-        $perf = view('meta-ads::workspace.performance', ['data' => $data])->render();
+        $perf = view('meta-ads::workspace.campaigns', ['data' => $data])->render();
         $this->assertStringContainsString('1.20%', $perf);
-        $this->assertStringContainsString('Meta Result Signals', $perf);
+        $this->assertStringContainsString('All clicks CTR', $perf);
         $this->assertStringNotContainsString('120.00%', $perf);
 
         $builder = app(MetaAdsAiGuidanceContextBuilder::class);
