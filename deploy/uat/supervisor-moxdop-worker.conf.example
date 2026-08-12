@@ -1,0 +1,20 @@
+; Supervisor program for MoxDOP persistent UAT database queue worker.
+; Copy to e.g. /etc/supervisor/conf.d/moxdop-uat-worker.conf and adjust user/paths.
+;
+; sudo supervisorctl reread && sudo supervisorctl update
+; sudo supervisorctl status moxdop-uat-worker:*
+
+[program:moxdop-uat-worker]
+process_name=%(program_name)s_%(process_num)02d
+command=php /var/www/moxdop-uat/artisan queue:work database --sleep=1 --tries=2 --timeout=600 --max-time=3600 --memory=256
+autostart=true
+autorestart=true
+stopasgroup=true
+killasgroup=true
+user=www-data
+numprocs=1
+redirect_stderr=true
+stdout_logfile=/var/log/moxdop-uat-worker.log
+stdout_logfile_maxbytes=10MB
+stdout_logfile_backups=5
+stopwaitsecs=3600

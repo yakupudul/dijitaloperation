@@ -1,8 +1,8 @@
 APP_NAME=MoxDOP
-APP_ENV=local
+APP_ENV=uat
 APP_KEY=
-APP_DEBUG=true
-APP_URL=http://127.0.0.1:8000
+APP_DEBUG=false
+APP_URL=https://uat.dop.moximu.com
 
 APP_LOCALE=en
 APP_FALLBACK_LOCALE=en
@@ -15,18 +15,23 @@ BCRYPT_ROUNDS=12
 LOG_CHANNEL=stack
 LOG_STACK=single
 LOG_DEPRECATIONS_CHANNEL=null
-LOG_LEVEL=debug
+LOG_LEVEL=warning
 
-# Cursor Cloud development uses SQLite (aligned with phpunit / CI smoke).
-# Production target remains MySQL 8 — never point Cloud agents at production DBs.
-DB_CONNECTION=sqlite
-# DB_DATABASE defaults to database/database.sqlite via config/database.php
+# Persistent UAT canonical DB is MySQL 8 — never use database/database.sqlite here.
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=moxdop_uat
+DB_USERNAME=moxdop_uat
+DB_PASSWORD=
 
 SESSION_DRIVER=database
 SESSION_LIFETIME=120
 SESSION_ENCRYPT=false
 SESSION_PATH=/
 SESSION_DOMAIN=null
+SESSION_SECURE_COOKIE=true
+SESSION_SAME_SITE=lax
 
 BROADCAST_CONNECTION=log
 FILESYSTEM_DISK=local
@@ -36,13 +41,13 @@ DB_QUEUE_RETRY_AFTER=900
 CACHE_STORE=database
 
 MAIL_MAILER=log
-MAIL_FROM_ADDRESS="hello@example.com"
+MAIL_FROM_ADDRESS="noreply@moximu.com"
 MAIL_FROM_NAME="${APP_NAME}"
 
 VITE_APP_NAME="${APP_NAME}"
 
-# Provider credentials intentionally empty for Cloud boot.
-# Configure later via Settings → Integrations (DB-encrypted) when doing real UAT.
+# Provider credentials: prefer Admin → Integrations (encrypted). Leave empty here.
+# Never commit real tokens. Regenerating APP_KEY invalidates encrypted credentials.
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 GOOGLE_REDIRECT_URI="${APP_URL}/integrations/google/callback"

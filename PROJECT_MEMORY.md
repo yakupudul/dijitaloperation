@@ -303,13 +303,35 @@ Canonical ledger state: **UAT PASS / ACCEPTED — NOT DONE**.
 
 Still explicit:
 
-- **Background-ready: NO** (sync collect/analyze debt — next milestone Async Operations + Activity Center)
+- **Background-ready: YES** for Collect live data + Generate AI guidance (database queue + Activity Center). Professional workspace still **NOT IMPLEMENTED**. Async Meta operator UAT is validated on the Async Operations PR (read-only).
 - **Professional Meta Expert Workspace: BLUEPRINTED / NOT IMPLEMENTED** (`docs/product/META_ADS_EXPERT_WORKSPACE.md` + `OPERATOR_WORKSPACE_DESIGN_STANDARD.md`)
 - Do not call Meta Ads “complete”, “finished”, or “workspace done”
 
 Main also has Meta **central Integration + resource discovery + binding** (connection layer).
 
 Details: `PRODUCT_CAPABILITY_LEDGER.md`.
+
+---
+
+## Environments (material)
+
+| Environment | Role |
+| --- | --- |
+| Cursor Cloud / local agent | **Development / automated test** only |
+| PHPUnit | Isolated testing (`sqlite :memory:`) |
+| Disposable browser-UAT SQLite | Synthetic browser checks only |
+| **persistent UAT** | Future browser host when operator provisions infrastructure — **PREPARED / DEFERRED** (`docs/operations/PERSISTENT_UAT.md`) |
+| Production | Future; **not** claimed by Async / UAT template work |
+
+Persistent UAT decisions (when eventually used):
+
+- Uses **MySQL 8** (not Cloud SQLite)
+- Web = **Nginx + PHP-FPM**; plus separate persistent **queue worker** and **scheduler**
+- One stable **`APP_KEY`** across deploys so encrypted provider credentials survive
+- Provider credentials and real bindings must survive deploys; never regenerate `APP_KEY` casually
+- Target hostname concept: `https://uat.dop.moximu.com` (operator DNS/host required)
+
+**Async implementation acceptance** (queue + Activity + Cloud Meta smoke) is independent of **persistent deployment acceptance**. Operator decision (2026-08-12): do **not** provision VPS until Meta Expert Workspace UI is useful; Cursor Cloud remains development/test.
 
 ---
 

@@ -1,7 +1,7 @@
 # PRODUCT_CAPABILITY_LEDGER
 
 > **Canonical product capability truth table for MoxDOP.**  
-> Updated at PR #119 acceptance (Ads Manager operator spot-check PASS).  
+> Updated for Async Operations + Activity Center milestone (branch work; merge pending).  
 > Do **not** treat “IMPLEMENTED V1” in older docs as Definition-of-Done **DONE**.  
 > Persistent product direction: `PROJECT_MEMORY.md`.  
 > Async operator standard: `OPERATOR_ASYNC_EXECUTION.md`.
@@ -35,28 +35,28 @@
 | Capability | Code | Automated Tests | Real UAT | Operator UX | Background-ready | State | Known blocker / debt | Canonical notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Customer / Brand management | YES | YES | NO | YES | N/A | TESTED | Formal real-operator UAT not recorded as PASS | Core Filament Customer → Brand CRUD / portfolio |
-| Digital Assets | YES | YES | NO | YES | NO | TESTED | Collect/diagnose actions on view page are sync | Types include website, google_ads, gbp, meta_ads, instagram |
+| Digital Assets | YES | YES | NO | YES | PARTIAL | TESTED | Long actions migrated to queue; short cross-asset checks still sync | Types include website, google_ads, gbp, meta_ads, instagram |
 | Google central Integration | YES | YES | NO | YES | NO | TESTED | Live OAuth/env operator-dependent; resource refresh sync | Agency Google Integration; ADR-039/040 |
 | Google resource discovery / binding | YES | YES | NO | YES | NO | TESTED | Refresh resources runs in-request | ExternalResources + AssetBinding |
-| Google live collection | YES | YES | NO | YES | NO | TESTED | Long collects block HTTP; ADR-013 debt | GSC/GA4/Ads/GBP bound collectors via `CollectLiveBoundDataService` |
-| Google Ads Intelligence | YES | YES | NO | YES | NO | TESTED | UAT REQUIRED; analyze/collect sync | Module Findings + Analyst + Skills; docs say IMPLEMENTED V1 |
-| Website collection | YES | YES | NO | YES | NO | TESTED | Diagnosis/collect sync | GSC/GA4 + diagnosis probes; distinct from public Discovery |
-| Website Intelligence | YES | YES | NO | YES | NO | TESTED | Core diagnosis island; paid SEO refresh sync | Workspace V2A, SEO Light, AI guidance |
-| Public Website Discovery | YES | YES | NO | YES | NO | TESTED | **Limited scope only**; discovery sync | Bounded public website/context + optional competitor candidates — **not** full web intelligence |
+| Google live collection | YES | YES | NO | YES | YES | TESTED | Async via Activity Center / database queue; real Ads UAT not re-run here | GSC/GA4/Ads/GBP bound collectors via queued `CollectLiveBoundDataJob` |
+| Google Ads Intelligence | YES | YES | NO | YES | YES | TESTED | Collect + AI guidance queued; Expert Workspace not redesigned | Module Findings + Analyst + Skills; docs say IMPLEMENTED V1 |
+| Website collection | YES | YES | NO | YES | YES | TESTED | Refresh data + diagnosis queued | GSC/GA4 + diagnosis probes; distinct from public Discovery |
+| Website Intelligence | YES | YES | NO | YES | YES | TESTED | SEO refresh queued when provider work needed; fresh cache stays sync | Workspace V2A, SEO Light, AI guidance |
+| Public Website Discovery | YES | YES | NO | YES | YES | TESTED | **Limited scope only**; discovery queued | Bounded public website/context + optional competitor candidates — **not** full web intelligence |
 | Brand Context | YES | YES | NO | YES | N/A | TESTED | Discovery proposes candidates; humans approve | `BrandIntelligenceContext` operator-owned facts |
-| DataForSEO | YES | YES | NO | YES | NO | TESTED | Paid refresh in-request; cost/freshness guards matter | Central Integration + Website SEO collectors |
-| AI Control Plane | PARTIAL | YES | NO | YES | NO | PARTIAL | Capability Router / Playbooks / RAG still PLANNED; AI calls sync | AI Router + Agent Profiles + Skill Library V1 present |
-| Website Analyst | YES | YES | NO | YES | NO | TESTED | No tools/MCP/Capability Router; analyze sync | Website SEO Analyst + Brand Discovery Analyst |
-| Google Ads Analyst | YES | YES | NO | YES | NO | TESTED | Analyze sync; real Ads UAT not claimed PASS | Second operational Agent after Website |
+| DataForSEO | YES | YES | NO | YES | YES | TESTED | Paid refresh queued when not fresh; cost/freshness guards remain | Central Integration + Website SEO collectors |
+| AI Control Plane | PARTIAL | YES | NO | YES | PARTIAL | PARTIAL | Capability Router / Playbooks / RAG still PLANNED; long AI guidance queued | AI Router + Agent Profiles + Skill Library V1 present |
+| Website Analyst | YES | YES | NO | YES | YES | TESTED | Guidance generation queued; no tools/MCP/Capability Router | Website SEO Analyst + Brand Discovery Analyst |
+| Google Ads Analyst | YES | YES | NO | YES | YES | TESTED | Guidance generation queued; real Ads UAT not claimed PASS | Second operational Agent after Website |
 | Recommendation | YES | YES | NO | YES | N/A | TESTED | AI drafts only; humans create Recommendations | Finding → Recommendation gate |
 | Tasks | YES | YES | NO | YES | N/A | TESTED | Snapshot immutability (ADR-029) | Manual Recommendation → Task |
 | Outcome Loop | YES | YES | NO | YES | N/A | TESTED | Metric Outcomes / Learning Candidates not in V1 | Task outcome signals + Finding re-eval; no Result entity |
-| Meta central Integration | YES | YES | YES | YES | NO | UAT PASS | Insights/Intelligence not on main | Agency Meta Integration; product docs claim real UAT PASS |
+| Meta central Integration | YES | YES | YES | YES | NO | UAT PASS | Resource refresh still sync | Agency Meta Integration; product docs claim real UAT PASS |
 | Meta resource discovery | YES | YES | YES | YES | NO | UAT PASS | Discovery sync | Ad Account ExternalResources discovered |
-| Meta binding | YES | YES | YES | YES | N/A | UAT PASS | Collect live data hidden without collector on main | Meta Ads Digital Asset ↔ AssetBinding |
-| Meta Ads Intelligence | YES | YES | YES | YES (interim specialist UX) | NO | **UAT PASS / ACCEPTED — NOT DONE** | Background-ready **NO** (collect/analyze still sync). Professional Meta Expert Workspace **NOT IMPLEMENTED** (blueprint only). Interim Overview/Performance is UAT surface, not the target workspace. | Read-only Intelligence engine on main after PR #119. Operator Ads Manager spot-check PASS: account `act_744654160596455`, campaign `09 \| Diaspora TR \| Form - Mox`, period `2026-07-14`→`2026-08-10`. Provider-ID joins, missing≠zero, metric/result semantics accepted. |
-| Professional Operator Workspace (Meta Ads) | NO | NO | NO | NO | N/A | PLANNED / BLUEPRINTED | Blueprint only — no final dashboard/charts/filters built; depends on Async Operations + Operational Data Foundation | Canonical blueprints: `docs/product/OPERATOR_WORKSPACE_DESIGN_STANDARD.md` + `docs/product/META_ADS_EXPERT_WORKSPACE.md` |
-| Async execution | PARTIAL | PARTIAL | NO | NO | NO | PARTIAL | Jobs exist but Filament invokes `->handle()` sync; no operator Activity Center | See `OPERATOR_ASYNC_EXECUTION.md` — current sync flows are debt |
+| Meta binding | YES | YES | YES | YES | N/A | UAT PASS | Collect live data hidden without collector | Meta Ads Digital Asset ↔ AssetBinding |
+| Meta Ads Intelligence | YES | YES | YES | YES (interim specialist UX) | YES | **UAT PASS / ACCEPTED — NOT DONE** | Collect + AI guidance **queued** (async foundation). Professional Meta Expert Workspace **NOT IMPLEMENTED**. Real async Meta collect UAT tracked on Async Operations PR. | Read-only Intelligence engine on main after PR #119. Ads Manager spot-check PASS retained. |
+| Professional Operator Workspace (Meta Ads) | NO | NO | NO | NO | N/A | PLANNED / BLUEPRINTED | Blueprint only — no final dashboard/charts/filters built; depends on Operational Data Foundation after async | Canonical blueprints: `docs/product/OPERATOR_WORKSPACE_DESIGN_STANDARD.md` + `docs/product/META_ADS_EXPERT_WORKSPACE.md` |
+| Async execution | YES | YES | YES (Cloud Meta async smoke) | YES | YES | **TESTED / ACCEPTED** | Cancellation future; cross-asset still sync; persistent public host **deferred** (templates only) | Async implementation accepted on #121 (queue + Activity + Cloud Meta smoke). Persistent deployment ≠ required for this acceptance. |
 | Historical performance memory | PARTIAL | PARTIAL | NO | PARTIAL | NO | PARTIAL | No dedicated historical warehouse / backfill / incremental store | Run/Evidence history exists; Historical Performance Store **PLANNED** |
 | Operational Taxonomy | NO | NO | NO | NO | N/A | PLANNED | Do not invent taxonomy module yet | Direction in `PROJECT_MEMORY.md` |
 | Marketing Initiative | NO | NO | NO | NO | N/A | PLANNED | No model/service on main | Brand-level commercial effort grouping — future |
@@ -93,7 +93,7 @@ Also accepted on this slice: hierarchy collection, provider-ID joins, missing≠
 
 **Explicitly still NOT DONE / not claimable as finished Meta product:**
 
-- **Background-ready: NO** — collect/analyze remain synchronous Livewire/HTTP debt (`OPERATOR_ASYNC_EXECUTION.md`)
+- **Background-ready: YES** for collect + AI guidance (queued) — Activity Center persists progress. Real async Meta collect UAT is on the Async Operations PR.
 - **Professional Operator Workspace: BLUEPRINTED / PLANNED, NOT IMPLEMENTED** — current Overview/Performance is an interim UAT surface; target IA is `docs/product/META_ADS_EXPERT_WORKSPACE.md` (+ global `OPERATOR_WORKSPACE_DESIGN_STANDARD.md`)
 - Historical arbitrary querying / performance warehouse: **NO**
 
@@ -111,16 +111,20 @@ Current Discovery is **Website-owned bounded public discovery**:
 
 It is **not** full digital web discovery, social intelligence, review/news monitoring, or continuous monitoring.
 
-### Async is not background-ready
+### Async foundation (material)
 
-On main:
+Long operator actions (bound collect, Website diagnosis, public discovery, SEO refresh when not fresh, Website/Google/Meta AI guidance) queue via `AsyncOperationService` onto Laravel **database** queue. Canonical execution record remains **Run** (`queued|running|completed|partial|failed`; `cancelled` reserved). Activity Center is Filament `RunResource` (`/app/runs`) with phase progress, duplicate guards, stale detection, retry for safe failures, and in-app database notifications. **Cancellation** is intentionally **not** shipped (fragile with current job architecture). Cross-asset consistency packs and integration resource refresh remain synchronous by design for now.
 
-- `ShouldQueue` Job classes exist under `app/Jobs/`
-- Filament Digital Asset actions construct jobs and call `->handle(...)` **in-request**
-- Collect / SEO refresh / Discovery / AI analyze call services **inline**
-- No production `::dispatch(` / `Bus::dispatch` usage found in app PHP
+### Async is not fully universal
 
-Therefore **Background-ready = NO** for long operator flows, despite queue tables / Job classes.
+On main after Async Operations merge:
+
+- Migrated Digital Asset long actions **dispatch** queue jobs (not `(new Job)->handle()`)
+- Cross-asset consistency checks may still call `->handle()` in-request (short/safe)
+- Integration resource discovery refresh may still be sync
+- Cancellation of in-flight provider work is **future**
+
+Track readiness per capability in this ledger’s **Background-ready** column — do not mark Historical Store / Expert Workspace DONE because async landed.
 
 ### “IMPLEMENTED V1” ≠ DONE
 
@@ -140,7 +144,7 @@ Most coded capabilities on main are **TESTED** or **UAT PASS** (Meta connection 
 | `website` | YES | Collection, intelligence, Discovery, analysts, skills |
 | `google-ads` | YES | Collector, Findings, Analyst, skills, workspace |
 | `google-business-profile` | YES | First-module collector; Reputation not present |
-| `meta-ads` | YES (connection UX only) | No Insights/collector/AI intelligence on main |
+| `meta-ads` | YES | Insights collector + Intelligence + Analyst on main after #119; async collect/AI via Core queue jobs |
 | `sample-module` | YES (fixture) | Not an operator product capability |
 
 Core owns Customer/Brand/DigitalAsset, Integrations, Run/Evidence/Finding/Recommendation/Task, and cross-asset packs.

@@ -11,6 +11,11 @@
       "name": "laravel",
       "command": "php artisan serve --host=0.0.0.0 --port=8000",
       "description": "MoxDOP Laravel HTTP server on 0.0.0.0:8000 for Cursor port forwarding / browser UAT"
+    },
+    {
+      "name": "queue-worker",
+      "command": "php artisan queue:work database --sleep=1 --tries=2 --timeout=600",
+      "description": "Database queue worker for async Collect / Discovery / SEO / AI / Diagnosis operations"
     }
   ],
   "ports": [

@@ -1,0 +1,61 @@
+# Example Nginx site for MoxDOP persistent UAT.
+# Replace paths/server_name/certificates. Document root MUST be Laravel /public.
+#
+# Suggested paths:
+#   root /var/www/moxdop-uat/public;
+#   TLS via Let's Encrypt (certbot) or existing host certs.
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name uat.dop.moximu.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name uat.dop.moximu.com;
+
+    # ssl_certificate     /etc/letsencrypt/live/uat.dop.moximu.com/fullchain.pem;
+    # ssl_certificate_key /etc/letsencrypt/live/uat.dop.moximu.com/privkey.pem;
+
+    root /var/www/moxdop-uat/public;
+    index index.php;
+
+    charset utf-8;
+    client_max_body_size 32M;
+
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer-when-downgrade" always;
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location = /favicon.ico { access_log off; log_not_found off; }
+    location = /robots.txt  { access_log off; log_not_found off; }
+
+    location ~ /\.(?!well-known).* {
+        deny all;
+    }
+
+    location ~ ^/(storage|database|\.env) {
+        deny all;
+    }
+
+    location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        # Adjust socket to match PHP 8.3 FPM on the host:
+        fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        include fastcgi_params;
+    }
+
+    location ~* \.(css|js|jpg|jpeg|png|gif|ico|svg|woff|woff2)$ {
+        expires 7d;
+        access_log off;
+        try_files $uri =404;
+    }
+}
