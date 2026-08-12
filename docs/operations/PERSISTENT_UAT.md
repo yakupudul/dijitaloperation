@@ -171,7 +171,3 @@ When persistent UAT is live:
 
 - Backup: MySQL dump + preserve server `.env` (especially `APP_KEY`) + `storage/app` if used
 - Rollback: `git checkout <previous-sha>` + `bash deploy/uat/deploy.sh` (migrations: prefer forward-fix; do not casual `migrate:rollback` on UAT with real bindings)
-
-## Status of this environment (honesty)
-
-Persistent host / DNS / SSH access are **operator-supplied**. This repository prepares config and docs; it does **not** claim production or a live UAT hostname until those steps are completed and recorded.
