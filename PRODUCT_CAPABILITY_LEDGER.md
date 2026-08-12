@@ -1,7 +1,8 @@
 # PRODUCT_CAPABILITY_LEDGER
 
 > **Canonical product capability truth table for MoxDOP.**  
-> Updated after Async Operations #121 merge + Meta Ads Expert Workspace implementation (operator visual UAT required).  
+> Updated for Meta Ads Expert Workspace + Design System + Meta historical foundation (PR #122 / `cursor/meta-ads-expert-workspace-ea01`).  
+> State for that milestone: **IMPLEMENTED / TESTED / USER VISUAL UAT REQUIRED** — **not DONE**.  
 > Do **not** treat “IMPLEMENTED V1” in older docs as Definition-of-Done **DONE**.  
 > Persistent product direction: `PROJECT_MEMORY.md`.  
 > Async operator standard: `OPERATOR_ASYNC_EXECUTION.md`.
@@ -55,9 +56,10 @@
 | Meta resource discovery | YES | YES | YES | YES | NO | UAT PASS | Discovery sync | Ad Account ExternalResources discovered |
 | Meta binding | YES | YES | YES | YES | N/A | UAT PASS | Collect live data hidden without collector | Meta Ads Digital Asset ↔ AssetBinding |
 | Meta Ads Intelligence | YES | YES | YES | YES (interim specialist UX → Expert Workspace PR) | YES | **UAT PASS / ACCEPTED — NOT DONE** | Collect + AI guidance **queued**. Professional Meta Expert Workspace is separate capability below. | Read-only Intelligence engine on main after PR #119. Ads Manager spot-check PASS retained. |
-| Professional Operator Workspace (Meta Ads) | YES | YES | NO | YES | YES | **IMPLEMENTED / TESTED / USER UAT REQUIRED** | **Not DONE** until explicit operator visual acceptance. No Historical Store. Persistent UAT host not deployed. | Primary nav Overview / Campaigns / Creatives / Insights; Connection + Sync history secondary. Honest selected-period + async analyze. Bounded daily trend Evidence only. |
+| Professional Operator Workspace (Meta Ads) | YES | YES | NO | YES | YES | **IMPLEMENTED / TESTED / USER VISUAL UAT REQUIRED** | **Not DONE** until explicit operator visual acceptance. Synthetic visual UAT does not satisfy. Persistent UAT host not deployed. | Primary nav Overview / Campaigns / Creatives / Insights; Connection + Sync secondary. Design System consumer. Reads local historical store when coverage exists (no Analyze-per-date). Exact-period Reach/Frequency. Incremental Manual Refresh. |
 | Async execution | YES | YES | YES (Cloud Meta async smoke) | YES | YES | **DONE (implementation) / MERGED** | Cancellation future; cross-asset still sync; persistent public host **deferred** (templates only — not deployed) | PR #121 merged to main (`f6818f0`). Async implementation acceptance ≠ persistent deployment acceptance. |
-| Historical performance memory | PARTIAL | PARTIAL | NO | PARTIAL | NO | PARTIAL | No dedicated historical warehouse / backfill / incremental store | Run/Evidence history exists; Historical Performance Store **PLANNED** |
+| Historical performance memory (Meta) | YES | YES | NO | YES | YES | **IMPLEMENTED / TESTED / USER VISUAL UAT REQUIRED** | **Not DONE** — operator visual UAT required. Google Ads warehouse still PLANNED. Taxonomy/Initiative/Cohort still PLANNED. | Integration/ExternalResource-scoped initial import (all discovered accessible Ad Accounts, pre-Brand binding). Local normalized daily facts + exact-period non-additive Reach/Frequency cache. Manual Refresh incremental. See `META_FOUNDATION_PASS_AUDIT.md`. |
+| Historical performance memory (Google Ads / cross-provider) | NO | NO | NO | NO | NO | PLANNED | Meta slice only so far | Google Ads warehouse + shared Provider Entity Catalog remain future |
 | Operational Taxonomy | NO | NO | NO | NO | N/A | PLANNED | Do not invent taxonomy module yet | Direction in `PROJECT_MEMORY.md` |
 | Marketing Initiative | NO | NO | NO | NO | N/A | PLANNED | No model/service on main | Brand-level commercial effort grouping — future |
 | Benchmark Cohorts | NO | NO | NO | NO | N/A | PLANNED | No cohort objects on main | Compatible taxonomy dimensions required first |
@@ -93,11 +95,26 @@ Also accepted on this slice: hierarchy collection, provider-ID joins, missing≠
 
 **Explicitly still NOT DONE / not claimable as finished Meta product:**
 
-- **Background-ready: YES** for collect + AI guidance (queued) — Activity Center persists progress. Real async Meta collect UAT is on the Async Operations PR.
-- **Professional Operator Workspace: BLUEPRINTED / PLANNED, NOT IMPLEMENTED** — current Overview/Performance is an interim UAT surface; target IA is `docs/product/META_ADS_EXPERT_WORKSPACE.md` (+ global `OPERATOR_WORKSPACE_DESIGN_STANDARD.md`)
-- Historical arbitrary querying / performance warehouse: **NO**
+- **Background-ready: YES** for collect + AI guidance (queued) — Activity Center persists progress. Real async Meta collect UAT is on the Async Operations PR (#121).
+- **Professional Operator Workspace: IMPLEMENTED / TESTED / USER VISUAL UAT REQUIRED** — target IA in `docs/product/META_ADS_EXPERT_WORKSPACE.md` (+ global `OPERATOR_WORKSPACE_DESIGN_STANDARD.md` + `MOXDOP_DESIGN_SYSTEM.md`). **Not DONE** until explicit operator visual acceptance. Synthetic visual UAT does not satisfy.
+- **Meta Historical Performance Store: IMPLEMENTED / TESTED / USER VISUAL UAT REQUIRED** — Integration/ExternalResource-scoped import, local normalized history, exact-period Reach/Frequency, incremental Manual Refresh. Google Ads warehouse still **PLANNED**.
 
 Do **not** describe this merge as “Meta Ads complete”, “Meta module finished”, or “Meta workspace done”.
+
+### Meta Ads Expert Workspace + historical foundation (PR #122 track)
+
+Branch `cursor/meta-ads-expert-workspace-ea01` / PR [#122](https://github.com/yakupudul/dijitaloperation/pull/122):
+
+| Dimension | Claim |
+| --- | --- |
+| Code | YES — Expert Workspace UI, Design System tokens/Blade, Meta historical schema/import/query |
+| Automated tests | YES — PHPUnit for schema, upserter, query, import async, historical workspace |
+| Real / operator visual UAT | **REQUIRED** — not yet accepted; synthetic checks insufficient |
+| Operator UX | YES — Overview / Campaigns / Creatives / Insights; history import on Integration; Manual Refresh incremental |
+| Background-ready | YES — history import, gap enrich, Manual Refresh via Activity Center |
+| State | **IMPLEMENTED / TESTED / USER VISUAL UAT REQUIRED — NOT DONE** |
+
+Material product decisions recorded in `PROJECT_MEMORY.md` (Design System singleton, pre-binding Integration import, local date queries, exact-period Reach/Frequency, all-account initial import, incremental Refresh).
 
 Main also continues to include Meta central Integration + discovery + binding (connection layer), with prior product-doc real UAT PASS for that scoped slice.
 
@@ -144,7 +161,7 @@ Most coded capabilities on main are **TESTED** or **UAT PASS** (Meta connection 
 | `website` | YES | Collection, intelligence, Discovery, analysts, skills |
 | `google-ads` | YES | Collector, Findings, Analyst, skills, workspace |
 | `google-business-profile` | YES | First-module collector; Reputation not present |
-| `meta-ads` | YES | Insights collector + Intelligence + Analyst on main after #119; async collect/AI via Core queue jobs |
+| `meta-ads` | YES | Insights collector + Intelligence + Analyst on main after #119; Expert Workspace + historical store on #122 track (UAT required); async collect/AI/history via Core queue jobs |
 | `sample-module` | YES (fixture) | Not an operator product capability |
 
 Core owns Customer/Brand/DigitalAsset, Integrations, Run/Evidence/Finding/Recommendation/Task, and cross-asset packs.
@@ -165,8 +182,9 @@ When a PR changes capability behavior or readiness:
 
 | Field | Value |
 | --- | --- |
-| Base | `origin/main` (updated at PR #119 acceptance) |
+| Base | `origin/main` + PR #122 branch `cursor/meta-ads-expert-workspace-ea01` |
 | PR #119 | Ads Manager operator spot-check **PASS** — merge acceptance for Intelligence engine |
-| Accepted UAT | `act_744654160596455` / `09 \| Diaspora TR \| Form - Mox` / `2026-07-14`→`2026-08-10` |
-| Method | Code / test / Filament invocation / operator Ads Manager comparison |
+| PR #122 | Expert Workspace + Design System + Meta historical foundation — **USER VISUAL UAT REQUIRED** |
+| Accepted UAT (#119) | `act_744654160596455` / `09 \| Diaspora TR \| Form - Mox` / `2026-07-14`→`2026-08-10` |
+| Method | Code / test / Filament invocation / operator Ads Manager comparison (#119); operator visual acceptance pending (#122) |
 | Guessing | Forbidden — unknown real UAT recorded as **NO** unless docs claim PASS |

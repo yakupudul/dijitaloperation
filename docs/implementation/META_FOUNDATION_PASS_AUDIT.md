@@ -13,7 +13,7 @@ Written before code changes for this milestone. Continue **existing** PR #122 on
 | Competing Meta Workspace PR | **NONE** — continue #122 |
 | Behind main? | **NO** |
 
-## Current capability
+## Current capability (pre-pass snapshot)
 
 | Area | State |
 |------|-------|
@@ -42,3 +42,22 @@ Written before code changes for this milestone. Continue **existing** PR #122 on
 4. Local date queries; no Analyze-per-date for covered ranges
 5. Exact-period cache for Reach/Frequency
 6. Operator visual acceptance required — **DO NOT MERGE**
+
+## Post-pass status (2026-08-12)
+
+Code for the design intent above landed on the same PR #122 branch. Canonical state:
+
+> **IMPLEMENTED / TESTED / USER VISUAL UAT REQUIRED — NOT DONE**
+
+| Area | Post-pass state |
+|------|-----------------|
+| Design System | One global system (`docs/product/MOXDOP_DESIGN_SYSTEM.md`); Meta first full consumer |
+| Historical storage | Meta normalized store (entities, daily facts/actions, coverage, exact-period aggregates) |
+| Import scope | Integration + ExternalResource; initial import may cover **all** discovered accessible Ad Accounts before Brand binding |
+| Workspace reads | Local historical query when coverage exists; Analyze/gap enrich only when needed |
+| Reach / Frequency | Exact-period non-additive cache (not summed from daily rows) |
+| Manual Refresh | Incremental trailing correction window |
+| Operator visual UAT | **Still required** — synthetic visual UAT cannot satisfy acceptance |
+| Google Ads warehouse | **Still PLANNED** |
+
+Keep this audit as the foundation-pass record. Do not mark Meta Workspace DONE in memory/ledger/status until operator visual acceptance.

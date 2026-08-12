@@ -31,13 +31,13 @@ Last updated: 2026-08-12
 | **Meta Ads Central Integration + Resource Binding V1** | **IMPLEMENTED V1** — agency Meta Integration + Ad Account ExternalResources + Meta Ads Digital Asset binding; `docs/product/meta-ads/META_ADS_INTEGRATION.md` (real Meta Integration + resource discovery + binding UAT: **PASS**) |
 | **Meta Ads Intelligence + Analyst V1** | **IMPLEMENTED V1** — bound Insights collection + Evidence + Findings + Meta Ads Analyst/Skills + `meta_ads.ai_guidance`; `docs/product/meta-ads/META_ADS_INTELLIGENCE.md` |
 | **Async Operations + Activity Center** | **MERGED / ACCEPTED (implementation)** — PR [#121](https://github.com/yakupudul/dijitaloperation/pull/121) → `main` @ `f6818f0`; Cloud Meta async smoke PASS; persistent UAT **PREPARED / DEFERRED** |
-| **Meta Ads Expert Workspace** | **IMPLEMENTED / TESTED / USER UAT REQUIRED** — Overview / Campaigns / Creatives / Insights; Connection + Sync history secondary; honest selected-period + async analyze; **not DONE** until operator visual acceptance |
-| Next milestone | After Meta Expert Workspace operator visual acceptance — Operational Data Foundation (do not auto-start); persistent UAT still deferred |
+| **Meta Ads Expert Workspace + Design System + Meta historical foundation** | **CURRENT TRACK — IMPLEMENTED / TESTED / USER VISUAL UAT REQUIRED** — PR [#122](https://github.com/yakupudul/dijitaloperation/pull/122) / `cursor/meta-ads-expert-workspace-ea01`. Overview / Campaigns / Creatives / Insights; Integration-scoped history import; local date queries; exact-period Reach/Frequency; incremental Manual Refresh. **Not DONE** until operator visual acceptance. Synthetic UAT insufficient. |
+| Next milestone | **After** operator visual acceptance of Meta Expert Workspace (+ historical foundation) — do not auto-start further product work; persistent UAT still deferred |
 | Memory / Retrieval V1 | PLANNED — only when knowledge volume justifies it; vector RAG deferred |
 
-### Next milestone candidates (after Meta Expert Workspace)
+### Next milestone candidates (after Meta Expert Workspace operator visual acceptance)
 
-Operational Data Foundation / Historical Performance Store · Persistent UAT host (deferred) · Google Ads Expert Workspace · Digital Operations / Cross-Asset Analyst · GBP Reputation Intelligence · Capability Registry/Router · Playbook V1 · richer metric Outcome Signals · Memory/Retrieval (deferred)
+Google Ads Historical Performance Store · Google Ads Expert Workspace · Persistent UAT host (deferred) · Digital Operations / Cross-Asset Analyst · GBP Reputation Intelligence · Capability Registry/Router · Playbook V1 · richer metric Outcome Signals · Memory/Retrieval (deferred)
 
 Do **not** automatically schedule RAG. Capability/Discovery concepts should inform Agent/Skill design without derailing product value.
 
@@ -103,5 +103,6 @@ None for documentation/architecture direction. Live multi-provider AI routing is
 
 ## Next expected
 
-1. Agent Profiles + Skill Library V1  
-2. Memory / Retrieval V1 (only when justified; structured retrieval first)  
+1. Operator visual acceptance of Meta Expert Workspace + Meta historical foundation (PR #122) — **required before DONE**  
+2. After acceptance: Google Ads historical warehouse / Expert Workspace candidates (do not auto-start)  
+3. Memory / Retrieval V1 (only when justified; structured retrieval first)  

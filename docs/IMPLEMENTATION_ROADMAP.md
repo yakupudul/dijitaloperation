@@ -62,16 +62,16 @@ Foundation 1–23 tamamlandıktan sonra devam eden **güncel** ürün sırası. 
 | **N2e** | **Meta Ads Central Integration + Resource Binding V1** | **IMPLEMENTED V1** | `docs/product/meta-ads/META_ADS_INTEGRATION.md` — Meta provider + Ad Account discovery + AssetBinding |
 | **N2f** | **Meta Ads Intelligence + Analyst V1** | **IMPLEMENTED V1** | `docs/product/meta-ads/META_ADS_INTELLIGENCE.md` — Insights Evidence + Findings + Analyst/Skills + `meta_ads.ai_guidance` |
 | **N2g** | **Async Operations + Activity Center** | **MERGED / ACCEPTED** | PR #121 → `main` @ `f6818f0`; persistent UAT prepared+deferred |
-| **N2h** | **Meta Ads Expert Workspace** | **IMPLEMENTED / TESTED / USER UAT REQUIRED** | Not DONE until operator visual acceptance; do not merge without approval |
-| **N3** | **Operational Data Foundation / Historical Performance Store** | PLANNED (after Expert Workspace) | Do not start until Meta Expert Workspace merges / is accepted |
+| **N2h** | **Meta Ads Expert Workspace** | **IMPLEMENTED / TESTED / USER VISUAL UAT REQUIRED** | Not DONE until operator visual acceptance; Design System first consumer; do not merge without approval |
+| **N3** | **Operational Data Foundation / Historical Performance Store** | **Meta slice: IMPLEMENTED / TESTED / USER VISUAL UAT REQUIRED** · Google Ads warehouse: **PLANNED** | First Meta historical store on PR #122 (Integration/ExternalResource import, local queries, exact-period Reach/Frequency, incremental Refresh). Expert Workspace UAT still required. Google Ads warehouse not started. |
 | **N4** | **Memory / Retrieval V1** | PLANNED (deferred) | Only when knowledge volume justifies; vector RAG deferred |
 
-### Later candidates (UNCOMMITTED — after Meta Expert Workspace)
+### Later candidates (UNCOMMITTED — after Meta Expert Workspace operator visual acceptance)
 
 No fixed dates. Review operational value before committing. Do **not** auto-start:
 
 - Persistent UAT host provisioning (deferred by operator until UI is useful)
-- Professional Meta Expert Workspace is **NEXT**, not later
+- Google Ads Historical Performance Store / Google Ads Expert Workspace
 - Digital Operations / Cross-Asset Analyst
 - GBP Reputation Intelligence (official APIs; scraper rejected)
 - Capability Registry / Routing V1
@@ -86,7 +86,8 @@ External research registry: `docs/research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.
 Discovery Intelligence V1: **IMPLEMENTED** (`docs/product/DISCOVERY_INTELLIGENCE.md`).  
 Meta Ads Intelligence + Analyst V1: **IMPLEMENTED** (`docs/product/meta-ads/META_ADS_INTELLIGENCE.md`).  
 Async Operations + Activity Center: **ACCEPTED (implementation)**; persistent UAT **DEFERRED**.  
-Meta Ads Expert Workspace: **IMPLEMENTED / TESTED / USER UAT REQUIRED** (not DONE).  
+Meta Ads Expert Workspace + Meta historical foundation: **IMPLEMENTED / TESTED / USER VISUAL UAT REQUIRED** (not DONE).  
+MoxDOP Design System: **IMPLEMENTED** (foundation; Meta first consumer).  
 AI Router + Agent/Skill V1: **IMPLEMENTED**. Outcome Loop V1: **IMPLEMENTED**. Capability Router / Playbooks / Learned Memory / RAG: **PLANNED**.
 
 

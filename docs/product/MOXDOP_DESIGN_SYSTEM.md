@@ -1,30 +1,30 @@
 # MoxDOP Design System
 
-> **Status: IMPLEMENTED (foundation).**
-> This document defines the MoxDOP visual system: semantic color tokens, card/table/filter/navigation standards, and a reusable Blade component inventory under `resources/views/components/moxdop/`.
-> **Meta Ads is the first full consumer** of this system (`docs/product/META_ADS_EXPERT_WORKSPACE.md`). Other modules (Brand, Google Ads, Website, GBP, Findings/Recommendations/Tasks, Activity) are **NOT redesigned in this milestone** — they continue to render with their current markup until each is migrated in its own scoped follow-up.
-> Governed by `docs/product/OPERATOR_WORKSPACE_DESIGN_STANDARD.md` (information architecture, GLANCE→EXPLORE→DECIDE→DEEP DATA, Missing ≠ zero, platform-vs-outcome). This document is the **visual/token layer** underneath that standard — it does not change navigation, data, or product behavior.
+> **Status: IMPLEMENTED (foundation) — Meta Ads is the first full consumer.**  
+> This document defines the MoxDOP visual system: semantic color tokens, card/table/filter/navigation standards, and a reusable Blade component inventory under `resources/views/components/moxdop/`.  
+> **MoxDOP has one global Design System** — modules must not invent parallel token sets.  
+> **Meta Ads Expert Workspace** (`docs/product/META_ADS_EXPERT_WORKSPACE.md`) consumes this system on PR #122 (**IMPLEMENTED / TESTED / USER VISUAL UAT REQUIRED**). Other modules (Brand, Google Ads, Website, GBP, Findings/Recommendations/Tasks, Activity) are **NOT redesigned in this milestone** — they migrate in scoped follow-ups.  
+> Governed by `docs/product/OPERATOR_WORKSPACE_DESIGN_STANDARD.md` (information architecture, GLANCE→EXPLORE→DECIDE→DEEP DATA, Missing ≠ zero, platform-vs-outcome). This document is the **visual/token layer** underneath that standard — it does not change navigation, data, or product behavior.  
 > Related: `docs/product/META_ADS_EXPERT_WORKSPACE.md`, `resources/css/filament/app/theme.css`.
 
 ## Purpose
 
 MoxDOP today renders Brand, Meta Ads, Google Ads, Website, GBP, Findings, Recommendations, Tasks, and Activity as separate surfaces that grew organically (Filament defaults plus ad hoc `.mox-*` classes added per feature). This document defines **one coherent visual system** — semantic tokens, card/table/filter/navigation standards, dark mode, empty states, and operation-progress patterns — so every module can converge on the same look and feel without re-deriving component design per surface.
 
-This is a **foundation** milestone: tokens, utility classes, and reusable Blade primitives. It does not redesign existing Meta, Google, Website, or GBP pages. Those adopt the system incrementally, screen by screen, in later scoped PRs.
+This is a **foundation** milestone: tokens, utility classes, and reusable Blade primitives, proven first on Meta. It does not redesign Google, Website, or GBP pages in this PR.
 
 ## Status
 
-**IMPLEMENTED (foundation only):**
+**IMPLEMENTED (foundation + Meta consumer):**
 
 - Semantic CSS tokens in `resources/css/filament/app/theme.css` (`--mox-primary`, `--mox-result`, `--mox-traffic`, `--mox-efficiency`, `--mox-warning`, `--mox-critical`, `--mox-neutral`, soft variants, card tokens).
 - Reusable utility classes (`.mox-card`, `.mox-kpi-card`, `.mox-status-pill`, `.mox-section-card`, `.mox-filter-bar`, `.mox-empty-state`, `.mox-operation-progress`, `.mox-entity-table`, `.mox-attention-card`, `.mox-chart-card`).
 - Anonymous Blade component library under `resources/views/components/moxdop/`.
-- **Meta Ads is the first full consumer** — its expert workspace (`docs/product/META_ADS_EXPERT_WORKSPACE.md`) is the intended proving ground when that workspace is implemented/refreshed.
+- **Meta Ads Expert Workspace** uses this system as the first full consumer (operator visual UAT still required before Meta Workspace DONE).
 
 **NOT implemented in this milestone:**
 
 - No existing Brand, Google Ads, Website, GBP, Findings, Recommendations, Tasks, or Activity view has been rewritten to use these components.
-- No existing Meta Ads workspace view (`app-modules/meta-ads/resources/views/workspace/*`) has been rewritten — the current `.mox-meta-*`, `.mox-kpi-grid`, `.mox-panel`, `.mox-table` classes it already uses remain untouched and functional. This document's utility classes are additive.
 - No new frontend package, chart library, or build tool. Everything is Tailwind CSS v4 (`@theme`) + plain CSS custom properties + Blade, consistent with `docs/product/OPERATOR_WORKSPACE_DESIGN_STANDARD.md`'s "no new design system package" posture.
 
 ## Design direction

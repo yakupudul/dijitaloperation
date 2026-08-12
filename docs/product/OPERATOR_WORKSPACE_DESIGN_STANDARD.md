@@ -1,17 +1,24 @@
 # OPERATOR WORKSPACE DESIGN STANDARD
 
-> **Status: BLUEPRINT / NOT IMPLEMENTED.**
-> Canonical global operator workspace model for MoxDOP modules — governance/design doc, not a build ticket.
-> Applies to per-Digital-Asset intelligence workspaces (Meta Ads, Google Ads, Website, Google Business Profile) and any future paid-media / channel workspace.
-> Does not override `docs/MASTER_SPEC.md`. See **Source priority** in `PROJECT_MEMORY.md`.
-> Depends on `OPERATOR_ASYNC_EXECUTION.md` and the future **Operational Data Foundation / Historical Performance Store** (`PROJECT_MEMORY.md`).
-> First concrete application: `docs/product/meta-ads/META_ADS_EXPERT_WORKSPACE.md`.
+> **Status: ACCEPTED STANDARD — Meta application IMPLEMENTED / TESTED / USER VISUAL UAT REQUIRED; other modules not migrated.**  
+> Canonical global operator workspace model for MoxDOP modules — information-architecture governance.  
+> Applies to per-Digital-Asset intelligence workspaces (Meta Ads, Google Ads, Website, Google Business Profile) and any future paid-media / channel workspace.  
+> Does not override `docs/MASTER_SPEC.md`. See **Source priority** in `PROJECT_MEMORY.md`.  
+> Visual/token companion: `docs/product/MOXDOP_DESIGN_SYSTEM.md` (one global Design System).  
+> Async: `OPERATOR_ASYNC_EXECUTION.md`. Historical data: Meta slice implemented on PR #122; Google Ads warehouse still PLANNED (`PROJECT_MEMORY.md`).  
+> First concrete application: `docs/product/META_ADS_EXPERT_WORKSPACE.md` (**IMPLEMENTED / TESTED / USER VISUAL UAT REQUIRED — not DONE**).
 
 ## Purpose
 
 Give every channel/module workspace one shared operator mental model instead of each module inventing its own information architecture. Operators move between Website, Google Ads, Meta Ads, and GBP workspaces daily; the **shape** of the screen (where to glance, where to explore, where to decide, where to dig) should feel identical even though the metrics underneath are channel-specific.
 
-This document defines the **model**. It does not implement UI, does not add packages, and does not specify per-channel content — that lives in per-module blueprints (e.g. `META_ADS_EXPERT_WORKSPACE.md`).
+This document defines the **model**. Per-channel content and screens live in module blueprints (e.g. `META_ADS_EXPERT_WORKSPACE.md`). The Design System owns tokens and Blade primitives.
+
+## Status notes (2026-08-12)
+
+- **Design System + Meta Expert Workspace + Meta historical store:** implemented and PHPUnit-tested on PR #122; **operator visual UAT required** before DONE.
+- **Google Ads / Website / GBP Expert Workspace redesigns:** not claimed; continue existing surfaces until each module adopts this standard + Design System in its own milestone.
+- Synthetic visual UAT cannot satisfy real operator acceptance for Meta.
 
 ## Core architecture: GLANCE → EXPLORE → DECIDE → DEEP DATA
 
@@ -143,24 +150,25 @@ This standard defines **shape**, not shared metrics:
 
 | Dependency | Why this standard needs it | Current state |
 | --- | --- | --- |
-| `OPERATOR_ASYNC_EXECUTION.md` | GLANCE freshness ("last sync"), sync/refresh actions, and any long collection triggered from a workspace must follow the async standard (queued, non-blocking, visible status) rather than blocking the operator's browser tab | Standard documented; current sync flows are tracked debt (`PRODUCT_CAPABILITY_LEDGER.md`) |
-| Operational Data Foundation / Historical Performance Store | EXPLORE-level performance-over-time, multi-period comparison, and any real trend chart require normalized historical facts, not single-Run Evidence snapshots | **PLANNED** direction only (`PROJECT_MEMORY.md`); not implemented |
+| `OPERATOR_ASYNC_EXECUTION.md` | GLANCE freshness ("last sync"), sync/refresh actions, and any long collection triggered from a workspace must follow the async standard (queued, non-blocking, visible status) rather than blocking the operator's browser tab | **IMPLEMENTED** (#121); Meta history import / Refresh use Activity Center |
+| `MOXDOP_DESIGN_SYSTEM.md` | Shared semantic tokens and Blade primitives for workspace chrome | **IMPLEMENTED** (foundation); Meta first full consumer |
+| Operational Data Foundation / Historical Performance Store | EXPLORE-level performance-over-time, multi-period comparison, and any real trend chart require normalized historical facts, not single-Run Evidence snapshots | **Meta slice IMPLEMENTED / TESTED / USER VISUAL UAT REQUIRED**; Google Ads warehouse **PLANNED** |
 | Operational Taxonomy / Marketing Initiative (future) | Cross-campaign / cross-channel grouping views referenced as future EXPLORE breakdowns | **PLANNED**; not implemented |
 
-Until the Historical Performance Store exists, per-module workspaces built against this standard render performance-over-time and comparisons only where a valid multi-Run/Evidence history already exists, and show an honest "not enough history yet" state otherwise — never a fabricated trend.
+For Meta, covered date ranges read the local historical store (Analyze not required when coverage exists). Reach/Frequency use exact-period non-additive cache. Until a module has a historical store, it must show an honest "not enough history yet" state — never a fabricated trend.
 
-## Implementation posture (this milestone)
+## Implementation posture
 
-- **No new frontend/JS packages, chart libraries, or design systems.** Prefer Filament 5 native widgets, tables, infolists, and drawers when implementation begins.
-- This document and its per-module counterparts are **design standards**, not sprint tickets. They do not authorize building the final dashboard now.
-- When implementation does begin for a given module, it should be scoped and sequenced explicitly (own PR/roadmap item), not silently bundled into an unrelated intelligence PR.
+- **No new frontend/JS packages or chart libraries.** Prefer Filament 5 native widgets, tables, infolists, drawers, plus `MOXDOP_DESIGN_SYSTEM.md` Blade primitives.
+- Meta Expert Workspace is the first full application of this standard + Design System; other modules migrate in scoped follow-ups.
+- Do not mark Meta Workspace **DONE** without operator visual acceptance.
 
 ## Explicit non-goals
 
-- Does not implement any UI, widget, or Blade/Livewire component.
-- Does not add any new package, chart library, or design token system.
+- Does not force Google Ads / Website / GBP redesign in the Meta milestone.
+- Does not add a second design-token system per module.
 - Does not define per-channel metrics, KPI names, or Evidence shapes — those live in module blueprints.
-- Does not build the Historical Performance Store, Operational Taxonomy, or Cross-Asset comparison layer.
+- Does not build Operational Taxonomy or Cross-Asset comparison layer in this standard.
 - Does not change any existing Filament panel, guard, or module registry decision.
 - Is not a BI/analytics-platform clone (Looker/Databox-style); see `docs/product/DASHBOARD.md`'s existing "no chart theater" principle, generalized here to per-asset workspaces.
 

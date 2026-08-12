@@ -1,7 +1,7 @@
 # PROJECT_MEMORY
 
 > **Canonical persistent product / architecture memory for MoxDOP.**  
-> Inspected against `origin/main` @ `171e5e7` (2026-08-11).  
+> Updated on branch `cursor/meta-ads-expert-workspace-ea01` (Meta historical foundation + Design System + Expert Workspace milestone; **operator visual UAT required**).  
 > Does **not** override `docs/MASTER_SPEC.md`. See **Source priority** below.  
 > Implementation truth (coded / tested / UAT / UX / async) lives in `PRODUCT_CAPABILITY_LEDGER.md`.  
 > Operator long-running execution standard: `OPERATOR_ASYNC_EXECUTION.md`.
@@ -186,38 +186,51 @@ Example: Meta CTR and Google Search CTR are **not** automatically equivalent ben
 
 ---
 
-## Operational Data Foundation — next foundation direction
+## Operational Data Foundation — Meta historical slice (first)
 
-**Status: DOCUMENTED DIRECTION ONLY — do not implement in this milestone.**
+**Status: Meta Ads historical store — IMPLEMENTED / TESTED / USER VISUAL UAT REQUIRED (not DONE).**  
+Google Ads warehouse and remaining foundation blocks remain **PLANNED**.
 
-Planned building blocks:
+### Material decisions (Meta slice)
 
-- Provider Entity Catalog
-- Historical Performance Store
-- Historical backfill
-- Incremental sync
-- Operational Taxonomy
-- Classification assignments
-- Marketing Initiative foundations
-- Benchmark Cohort foundations
+- **One global Design System.** MoxDOP has a single visual/token system: `docs/product/MOXDOP_DESIGN_SYSTEM.md` (tokens + Blade primitives under `resources/views/components/moxdop/`). Meta Ads Expert Workspace is the first full consumer; other modules migrate later.
+- **Initial history imports at Integration / ExternalResource scope before Brand binding.** Meta history backfill is anchored on the central Meta Integration and discovered Ad Account ExternalResources — not on a Brand Digital Asset. Binding may happen later; history does not wait for it.
+- **Initial Meta import may cover all discovered accessible Ad Accounts** for that Integration (provider-available history within Marketing API retention windows).
+- **Historical dashboards read local normalized history.** Expert Workspace Overview / Campaigns / Creatives / Insights prefer the Meta historical store (daily facts, entities, exact-period aggregates) over re-fetching Insights for every date change.
+- **Date selection does not require Analyze when coverage exists.** If local coverage already spans the selected range, the workspace serves from the store; Analyze / gap enrich is only for uncovered or outside-provider ranges.
+- **Reach / Frequency use exact-period non-additive cache.** These metrics must not be summed from daily rows; they resolve from an exact-period aggregate cache (fetched/enriched for the precise selected window).
+- **Manual Refresh is incremental.** Operator Refresh re-fetches a trailing correction window for the bound account — not a full 37-month re-import.
+- **Synthetic visual UAT cannot satisfy real operator acceptance.** Disposable/browser synthetic checks and Cloud screenshots are useful for development only; Definition-of-Done for the Expert Workspace requires explicit operator visual acceptance against real Meta data.
 
-Desired future behavior:
+Building blocks:
+
+| Block | State |
+| --- | --- |
+| Meta Historical Performance Store (schema, import, query, exact-period cache) | **IMPLEMENTED / TESTED / USER VISUAL UAT REQUIRED** |
+| Meta historical backfill (Integration-scoped, all accessible Ad Accounts) | **IMPLEMENTED / TESTED / USER VISUAL UAT REQUIRED** |
+| Meta incremental Manual Refresh | **IMPLEMENTED / TESTED / USER VISUAL UAT REQUIRED** |
+| Google Ads Historical Performance Store | **PLANNED** |
+| Provider Entity Catalog (cross-provider) | **PLANNED** |
+| Operational Taxonomy / Classification / Marketing Initiative / Benchmark Cohort | **PLANNED** |
+
+Desired behavior (Meta path now coded):
 
 ```text
-Brand connects provider account
-→ available provider history backfilled in resumable chunks
-→ normalized daily facts retained
-→ incremental updates continue
-→ campaigns / entities are classifiable
-→ historical filtering / comparison becomes possible
-→ Evidence / Findings / Outcome / learning can use the history
+Agency Meta Integration authenticates
+→ discover accessible Ad Accounts (ExternalResources)
+→ Import Meta history (Integration-scoped, resumable, all available accounts)
+→ normalized daily facts + entity metadata + exact-period aggregates retained
+→ Brand binds selected Ad Account(s) when ready
+→ Expert Workspace reads local history for covered date ranges
+→ Manual Refresh continues incrementally
 ```
 
-Constraints:
+Constraints (unchanged):
 
 - Historical store is **NOT RAG**.
 - Do **not** use giant Evidence JSON dumps as the primary historical warehouse.
 - Prefer normalized daily / entity facts with provenance.
+- Audit notes: `docs/implementation/META_FOUNDATION_PASS_AUDIT.md`.
 
 ---
 
@@ -268,22 +281,23 @@ Canonical product doc: `docs/product/DISCOVERY_INTELLIGENCE.md`.
 
 ---
 
-## Operator workspace model — planned foundation
+## Operator workspace model + Design System
 
-**Status: DOCUMENTED DIRECTION ONLY — not implemented; no UI built from this yet.**
+**Status: Meta Expert Workspace + Design System — IMPLEMENTED / TESTED / USER VISUAL UAT REQUIRED (not DONE).**  
+Global IA standard remains the governing shape; Google Ads / Website / GBP Expert Workspace redesigns are **not** claimed here.
 
 `docs/product/OPERATOR_WORKSPACE_DESIGN_STANDARD.md` defines one shared operator workspace shape across channel/module workspaces (Meta Ads, Google Ads, Website, GBP): **GLANCE → EXPLORE → DECIDE → DEEP DATA**, progressive disclosure, semantic-color-only design, no decorative charts, and the **Missing ≠ zero** rule (absent/uncollected data must never render as `0`).
 
+`docs/product/MOXDOP_DESIGN_SYSTEM.md` is the **one global visual/token layer** underneath that standard (semantic CSS tokens, card/table/filter primitives, Blade components). Meta is the first full consumer.
+
 It also codifies, as a UI-layer requirement, the existing platform-attribution-vs-verified-business-outcome distinction, and requires operator-facing workspaces to avoid internal jargon (Run/Evidence/ExternalResource/CoreAssetBinding) in favor of operator language — extending the pattern already used in `docs/product/integrations/WORKSPACE.md`.
 
-Meta-specific application: `docs/product/META_ADS_EXPERT_WORKSPACE.md` (status: **BLUEPRINT / NOT IMPLEMENTED**; explicitly out of scope for PR #119).
+Meta-specific application: `docs/product/META_ADS_EXPERT_WORKSPACE.md` — **IMPLEMENTED / TESTED / USER VISUAL UAT REQUIRED** on PR track `#122` / branch `cursor/meta-ads-expert-workspace-ea01`. Powered by the Meta historical store for covered periods; async via Activity Center. **Not DONE** until explicit operator visual acceptance. Synthetic/browser UAT does **not** count.
 
-Two decisions worth remembering from that blueprint:
+Two decisions retained from the blueprint:
 
-- **Result Mix over forced Primary Result at account level.** When an account's campaigns have heterogeneous objectives, Overview should show a labeled breakdown across result types ("Result Mix") instead of collapsing to the current "Deferred" placeholder. Campaign/ad set/ad-level primary-result resolution is unchanged.
+- **Result Mix over forced Primary Result at account level.** When an account's campaigns have heterogeneous objectives, Overview shows a labeled breakdown across result types ("Result Mix") instead of collapsing to a single "Deferred" placeholder. Campaign/ad set/ad-level primary-result resolution is unchanged.
 - **Delivered-in-selected-period is the default campaign filter**, not "Active now" — a campaign qualifies by `spend > 0 OR impressions > 0` in the selected period, sorted by material spend. Active/Paused/Archived/All remain explicit alternate filters.
-
-A professional operator workspace (real performance-over-time, reliable multi-period comparison, fatigue-adjacent signals) is **blocked** on the Historical Performance Store / Operational Data Foundation and on `OPERATOR_ASYNC_EXECUTION.md` adoption — it cannot be honestly built on single-Run Evidence snapshots or blocking sync collection alone.
 
 ## Meta / Google intelligence (main vs unmerged)
 
@@ -292,20 +306,24 @@ A professional operator workspace (real performance-over-time, reliable multi-pe
 Present on **canonical main** (module collectors, Findings, Google Ads Analyst + Skills, workspace UX).  
 State details: see `PRODUCT_CAPABILITY_LEDGER.md`. Product doc often labels this “IMPLEMENTED V1” — that means a technical version slice, **not** automatically Definition-of-Done **DONE**.
 
-### Meta Ads Intelligence
+### Meta Ads Intelligence + Expert Workspace + Historical foundation
 
-**PR #119** (`Meta Ads Intelligence + Analyst V1`) is the read-only Meta Ads Intelligence engine (collectors, Evidence, Findings, Analyst/Skills, interim specialist workspace).
+**PR #119** (`Meta Ads Intelligence + Analyst V1`) is the read-only Meta Ads Intelligence engine (collectors, Evidence, Findings, Analyst/Skills). Operator Ads Manager spot-check: **PASS** (`act_744654160596455` · Campaign `09 | Diaspora TR | Form - Mox` · `2026-07-14`→`2026-08-10`). Ledger: **UAT PASS / ACCEPTED — NOT DONE**.
 
-Operator Ads Manager spot-check: **PASS**  
-Account `act_744654160596455` · Campaign `09 | Diaspora TR | Form - Mox` · Period `2026-07-14`→`2026-08-10`.
+**PR #122** / branch `cursor/meta-ads-expert-workspace-ea01` adds:
 
-Canonical ledger state: **UAT PASS / ACCEPTED — NOT DONE**.
+- Professional Meta Expert Workspace (Overview / Campaigns / Creatives / Insights; Connection + Sync secondary)
+- Global MoxDOP Design System (first consumer: Meta)
+- Meta Historical Performance Store (Integration/ExternalResource-scoped import, local query, exact-period Reach/Frequency, incremental Manual Refresh)
+
+Canonical ledger state for Expert Workspace + Meta historical slice: **IMPLEMENTED / TESTED / USER VISUAL UAT REQUIRED — NOT DONE**.
 
 Still explicit:
 
-- **Background-ready: YES** for Collect live data + Generate AI guidance (database queue + Activity Center). Async Meta operator UAT validated on #121 (read-only).
-- **Professional Meta Expert Workspace: IMPLEMENTED / TESTED / USER UAT REQUIRED** (`docs/product/META_ADS_EXPERT_WORKSPACE.md` + `OPERATOR_WORKSPACE_DESIGN_STANDARD.md`) — **not DONE** until explicit operator visual acceptance. No Historical Store; bounded selected-period daily trend Evidence only.
-- Do not call Meta Ads “complete”, “finished”, or “workspace done”
+- **Background-ready: YES** for Collect live data, Generate AI guidance, Meta history import, gap enrich, and Manual Refresh (database queue + Activity Center). Async Meta operator UAT validated on #121 (read-only collect/AI).
+- Do **not** mark Meta Ads Expert Workspace **DONE** until explicit operator visual acceptance against real Meta data.
+- Synthetic visual UAT / disposable SQLite browser checks **cannot** satisfy that acceptance.
+- Do not call Meta Ads “complete”, “finished”, or “workspace done”.
 
 Main also has Meta **central Integration + resource discovery + binding** (connection layer).
 
@@ -422,6 +440,8 @@ When material product / architecture decisions change, update `PROJECT_MEMORY.md
 | `OPERATOR_ASYNC_EXECUTION.md` | Operator async execution standard |
 | `docs/PROJECT_STATUS.md` | Human/agent progress tracker |
 | `docs/product/*` | Domain blueprints |
-| `docs/product/OPERATOR_WORKSPACE_DESIGN_STANDARD.md` | Global operator workspace model (BLUEPRINT / NOT IMPLEMENTED) |
-| `docs/product/META_ADS_EXPERT_WORKSPACE.md` | Meta-specific workspace blueprint (BLUEPRINT / NOT IMPLEMENTED) |
+| `docs/product/OPERATOR_WORKSPACE_DESIGN_STANDARD.md` | Global operator workspace IA (Meta applied; other modules later) |
+| `docs/product/MOXDOP_DESIGN_SYSTEM.md` | One global Design System (tokens + Blade primitives) |
+| `docs/product/META_ADS_EXPERT_WORKSPACE.md` | Meta Expert Workspace — IMPLEMENTED / TESTED / USER VISUAL UAT REQUIRED |
+| `docs/implementation/META_FOUNDATION_PASS_AUDIT.md` | Pre/post Meta historical foundation audit notes |
 | `docs/foundation/DECISION_LOG.md` | ADRs |

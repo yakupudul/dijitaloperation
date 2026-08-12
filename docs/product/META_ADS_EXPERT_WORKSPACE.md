@@ -1,29 +1,46 @@
 # META ADS EXPERT WORKSPACE
 
-> **Status: IMPLEMENTING / USER VISUAL ACCEPTANCE REQUIRED.**  
+> **Status: IMPLEMENTED / TESTED / USER VISUAL UAT REQUIRED — NOT DONE.**  
 > Meta-specific application of `docs/product/OPERATOR_WORKSPACE_DESIGN_STANDARD.md`.  
-> Implementation lives on the Meta Ads Expert Workspace PR — **not DONE** until the operator explicitly accepts screenshots.  
-> **Explicitly out of scope for PR #119** (`docs/product/meta-ads/META_ADS_INTELLIGENCE.md`) — #119 shipped the intelligence engine; this workspace is the next milestone.  
-> Related: `docs/product/meta-ads/META_ADS_INTELLIGENCE.md`, `docs/product/meta-ads/META_ADS.md`, `docs/product/meta-ads/META_ADS_INTEGRATION.md`, `OPERATOR_ASYNC_EXECUTION.md`, `PROJECT_MEMORY.md`, `PRODUCT_CAPABILITY_LEDGER.md`.
+> Visual/token layer: `docs/product/MOXDOP_DESIGN_SYSTEM.md` (Meta is the first full consumer).  
+> Historical data: Meta Historical Performance Store (Integration/ExternalResource-scoped) — dashboards read local normalized history when coverage exists; date selection does not require Analyze for covered ranges; Reach/Frequency use exact-period non-additive cache; Manual Refresh is incremental.  
+> Implementation lives on PR [#122](https://github.com/yakupudul/dijitaloperation/pull/122) / `cursor/meta-ads-expert-workspace-ea01`.  
+> **Not DONE** until the operator explicitly accepts real-data screenshots. Synthetic visual UAT cannot satisfy acceptance.  
+> **Explicitly out of scope for PR #119** (`docs/product/meta-ads/META_ADS_INTELLIGENCE.md`) — #119 shipped the intelligence engine; this workspace (+ historical foundation) is the follow-on milestone.  
+> Related: `docs/product/meta-ads/META_ADS_INTELLIGENCE.md`, `docs/product/meta-ads/META_ADS.md`, `docs/product/meta-ads/META_ADS_INTEGRATION.md`, `docs/implementation/META_FOUNDATION_PASS_AUDIT.md`, `OPERATOR_ASYNC_EXECUTION.md`, `PROJECT_MEMORY.md`, `PRODUCT_CAPABILITY_LEDGER.md`.
 
 ## Purpose
 
-Define what a genuinely expert, trustworthy Meta Ads operator workspace looks like once the intelligence engine (Evidence, Findings, Analyst) has matured — as a target to build **toward**, not a spec to build **now**. It replaces ad hoc workspace decisions with one documented target so future PRs converge instead of re-litigating navigation and default views each time.
+Define what a genuinely expert, trustworthy Meta Ads operator workspace looks like once the intelligence engine (Evidence, Findings, Analyst) has matured — and record the target that the Expert Workspace PR implements toward. It replaces ad hoc workspace decisions with one documented target so future PRs converge instead of re-litigating navigation and default views each time.
 
 This blueprint follows the four-layer model from `OPERATOR_WORKSPACE_DESIGN_STANDARD.md` (GLANCE → EXPLORE → DECIDE → DEEP DATA) and inherits its rules (Missing ≠ zero, platform-vs-outcome, no decorative charts, no internal jargon, semantic color only).
 
+## Implementation status notes (2026-08-12)
+
+| Area | State |
+| --- | --- |
+| Primary nav Overview / Campaigns / Creatives / Insights | **IMPLEMENTED** (code + PHPUnit) |
+| Design System adoption (tokens / Blade primitives) | **IMPLEMENTED** (first consumer) |
+| Meta historical store powering workspace reads | **IMPLEMENTED** (covered ranges; Evidence fallback when unbound/uncovered) |
+| Date selection without Analyze when coverage exists | **IMPLEMENTED** |
+| Exact-period Reach/Frequency cache | **IMPLEMENTED** |
+| Integration-scoped initial history import (all accessible Ad Accounts, pre-Brand binding) | **IMPLEMENTED** |
+| Incremental Manual Refresh | **IMPLEMENTED** |
+| Operator visual UAT | **REQUIRED** — not accepted; **not DONE** |
+| Google Ads / other module Expert Workspaces | **Not in this milestone** |
+
 ## Current state vs this blueprint
 
-| | Current (PR #119) | This blueprint |
+| | Pre-#122 (PR #119 engine UX) | This blueprint / #122 track |
 | --- | --- | --- |
 | Nav | Overview / Performance / Intelligence / Connections / Activity | Overview / Campaigns / Creatives / Insights (primary) + Connection / Sync / Data Health (secondary) |
 | Campaign default filter | Not explicitly "delivered in period" | **Delivered in selected period** by default |
 | Account-level result | Forced single Primary Result, shows "Deferred" when objectives differ per campaign | **Result Mix** — a labeled breakdown across result types, no forced single number |
 | Data freshness | "Updated `<time>`" pill | Compact **Data Health badge** → drawer with detail |
-| Async | Collection is synchronous (blocking) | Depends on `OPERATOR_ASYNC_EXECUTION.md` adoption |
-| History/trend | Single-Run KPI + prior-period delta only | Depends on Historical Performance Store |
+| Async | Collection later queued (#121) | History import / gap enrich / Manual Refresh via Activity Center |
+| History/trend | Single-Run KPI + prior-period delta only | Local Meta historical store for covered ranges; exact-period Reach/Frequency |
 
-Nothing in this table is implemented by writing this document. It records the gap so implementation work can be scoped honestly.
+Do not treat code-complete as DONE: **USER VISUAL UAT REQUIRED**.
 
 ## Preferred navigation
 
@@ -185,7 +202,7 @@ The DEEP DATA layer for Meta Ads is explicitly expert-facing:
 | Long collection / large-account Insights jobs not blocking the operator | — | **Yes — required** | No |
 | Cross-campaign benchmark/comparison beyond current period | **Yes — required** | — | No |
 
-Rows marked "Yes" in the last column can, in principle, be built against today's single-Run Evidence model once prioritized. Rows requiring the Historical Foundation or Async standard are blocked on those foundations landing first (both currently **PLANNED** / documented direction only per `PROJECT_MEMORY.md` and `PRODUCT_CAPABILITY_LEDGER.md`).
+Rows marked "Yes" in the last column could be built against the single-Run Evidence model. On the #122 track, Meta historical foundation + Async (#121) remove those blockers for Meta: performance-over-time and covered-range date queries read the local store; Sync/Refresh use Activity Center. Fatigue modeling beyond honest current-period signals remains future work. **Operator visual UAT is still required before DONE.**
 
 ## Relationship to PR #119
 
@@ -193,14 +210,14 @@ This blueprint does **not** change the scope, status, or Definition-of-Done of P
 
 ## Explicit non-goals (this document)
 
-- Does not implement any UI, widget, route, or Blade/Livewire component.
-- Does not change the current PR #119 workspace, its tabs, or its Primary Result resolver logic at campaign/ad set/ad level.
-- Does not build the Historical Performance Store, Operational Taxonomy, or async execution — those remain tracked separately.
+- Does not redesign Google Ads / Website / GBP workspaces.
+- Does not change the PR #119 Intelligence engine scope or Ads Manager spot-check acceptance.
+- Does not build Operational Taxonomy, Marketing Initiative, or Benchmark Cohorts.
 - Does not add creative media storage/download.
-- Does not claim or implement fatigue modeling beyond what current-period Evidence honestly supports.
+- Does not claim fatigue modeling beyond what current Evidence / history honestly supports.
 - Does not introduce combinatorial breakdown pivoting.
-- Does not add any new frontend package; prefers Filament 5 native widgets/tables/drawers when implementation eventually begins.
+- Does not add any new frontend package; prefers Filament 5 native widgets/tables/drawers + `MOXDOP_DESIGN_SYSTEM.md` Blade primitives.
 
 ## Acceptance intent
 
-When Meta Ads workspace implementation is scoped as its own milestone (after #119 UAT and informed by Historical Foundation / Async progress), it can point to this document for navigation shape, default campaign visibility, Result Mix behavior, and the Deep Data boundary, without re-deriving these decisions from scratch or drifting from `OPERATOR_WORKSPACE_DESIGN_STANDARD.md`.
+Expert Workspace + Meta historical foundation code on PR #122 is **IMPLEMENTED / TESTED**. Definition-of-Done **DONE** requires explicit operator visual acceptance against real Meta data. Synthetic visual UAT / disposable SQLite browser checks **do not** satisfy that gate.
