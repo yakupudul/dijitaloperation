@@ -4,13 +4,19 @@ Bu klasör DOP'un **normatif product blueprint** katmanıdır.
 
 Kod dokümantasyonu değildir. Cursor / Architect / Reviewer / Implementer dahil bütün geliştirme agent'ları, ürünün **ne yapması gerektiğini** buradan okur.
 
+## Canonical product overview
+
+| Document | Role |
+|----------|------|
+| [`MOXDOP_MASTER_PRODUCT_BLUEPRINT.md`](./MOXDOP_MASTER_PRODUCT_BLUEPRINT.md) | **Canonical operator-facing product overview** — what MoxDOP is, agency workflow, IA/navigation, asset workspaces, provenance, Demo Mode, and master capability backlog. Read this first for product intent. Domain/module detail remains in the sibling blueprints below. |
+
 ## Üç bilgi katmanı
 
 1. **MASTER_SPEC** (`docs/MASTER_SPEC.md`)  
    Değişmez üst ürün kuralları. Çelişkide her zaman kazanır.
 
 2. **PRODUCT BLUEPRINTS** (`docs/product/**`)  
-   Domain ve modüllerin ayrıntılı ürün davranışı.
+   Domain ve modüllerin ayrıntılı ürün davranışı. Start with [`MOXDOP_MASTER_PRODUCT_BLUEPRINT.md`](./MOXDOP_MASTER_PRODUCT_BLUEPRINT.md) for the whole-product operator view.
 
 3. **IMPLEMENTATION ROADMAP** (`docs/IMPLEMENTATION_ROADMAP.md`)  
    Hangi sırada geliştirileceği.
@@ -50,6 +56,7 @@ Blueprint, MASTER_SPEC'i **override edemez**; yalnızca ayrıntılandırır.
 
 | Roadmap alanı | Product blueprint |
 |---------------|-------------------|
+| **Whole-product / operator overview** | **`docs/product/MOXDOP_MASTER_PRODUCT_BLUEPRINT.md`** (canonical) |
 | Customer | `docs/product/CUSTOMER.md` |
 | Brand | `docs/product/BRAND.md` |
 | Brand Intelligence Context | `docs/product/BRAND_INTELLIGENCE.md` |

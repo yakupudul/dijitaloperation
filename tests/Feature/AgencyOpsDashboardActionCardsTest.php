@@ -95,7 +95,7 @@ class AgencyOpsDashboardActionCardsTest extends TestCase
 
     public function test_authenticated_dashboard_page_loads_action_widget(): void
     {
-        $this->get('/app')
+        $this->get('/system')
             ->assertOk()
             ->assertSee('MoxDOP')
             ->assertSeeLivewire(OpsActionOverviewWidget::class);

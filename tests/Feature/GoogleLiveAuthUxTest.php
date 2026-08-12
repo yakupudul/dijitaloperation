@@ -251,6 +251,6 @@ class GoogleLiveAuthUxTest extends TestCase
         auth()->logout();
 
         $response = $this->get(route('integrations.google.authorize', $this->integration));
-        $response->assertRedirect('/app/login');
+        $response->assertRedirect('/system/login');
     }
 }

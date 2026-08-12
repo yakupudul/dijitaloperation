@@ -16,13 +16,13 @@ class FilamentPanelTest extends TestCase
 
     public function test_login_page_is_accessible(): void
     {
-        $this->get('/app/login')->assertOk();
+        $this->get('/system/login')->assertOk();
     }
 
     public function test_guests_cannot_access_panel(): void
     {
-        $this->get('/app')
-            ->assertRedirect('/app/login');
+        $this->get('/system')
+            ->assertRedirect('/system/login');
     }
 
     public function test_admin_can_access_panel(): void
@@ -33,7 +33,7 @@ class FilamentPanelTest extends TestCase
         $user->assignRole(Roles::ADMIN);
 
         $this->actingAs($user)
-            ->get('/app')
+            ->get('/system')
             ->assertOk();
     }
 
@@ -47,7 +47,7 @@ class FilamentPanelTest extends TestCase
         $this->assertTrue($user->can(Permissions::ACCESS_APP));
 
         $this->actingAs($user)
-            ->get('/app')
+            ->get('/system')
             ->assertOk();
     }
 
@@ -64,7 +64,7 @@ class FilamentPanelTest extends TestCase
         $this->assertFalse($user->can(Permissions::ACCESS_APP));
 
         $this->actingAs($user)
-            ->get('/app')
+            ->get('/system')
             ->assertForbidden();
     }
 
@@ -75,12 +75,17 @@ class FilamentPanelTest extends TestCase
         $user = User::factory()->create();
 
         $this->actingAs($user)
-            ->get('/app')
+            ->get('/system')
             ->assertForbidden();
     }
 
     public function test_registration_is_not_available(): void
     {
-        $this->get('/app/register')->assertNotFound();
+        $this->get('/system/register')->assertNotFound();
+    }
+
+    public function test_legacy_app_login_redirects_to_system_login(): void
+    {
+        $this->get('/app/login')->assertRedirect('/system/login');
     }
 }
