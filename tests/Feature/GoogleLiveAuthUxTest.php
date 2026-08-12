@@ -66,7 +66,7 @@ class GoogleLiveAuthUxTest extends TestCase
         );
 
         $authorizeUrl = url('/integrations/google/'.$this->integration->id.'/authorize');
-        $appUrl = url('/app/integrations');
+        $appUrl = url('/system/integrations');
 
         $this->assertFalse(
             FilamentView::hasSpaMode($authorizeUrl),

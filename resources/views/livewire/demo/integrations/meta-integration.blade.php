@@ -10,7 +10,7 @@
         <div class="flex gap-2">
             @include('livewire.demo.partials.demo-badge', ['label' => 'Import simulation'])
             <x-ta.button wire:click="startImport" size="sm" :disabled="! empty($import['running'])">
-                {{ ! empty($import['running']) ? 'Import running…' : 'Start import' }}
+                {{ ! empty($import['running']) ? 'Import running…' : 'Import all Meta data' }}
             </x-ta.button>
         </div>
     </div>

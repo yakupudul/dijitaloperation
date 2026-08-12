@@ -38,7 +38,7 @@ class OverviewPage extends Component
                 'xaxis' => ['categories' => $trend['labels']],
                 'stroke' => ['curve' => 'smooth', 'width' => 2],
                 'dataLabels' => ['enabled' => false],
-                'colors' => ['#465fff'],
+                'colors' => ['#ea580c'],
             ],
             'flash' => DemoState::pullFlash(),
         ]);
