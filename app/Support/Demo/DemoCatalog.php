@@ -52,12 +52,83 @@ final class DemoCatalog
         return [
             'id' => self::CUSTOMER_ID,
             'name' => 'Atlas Health Group',
-            'industry' => 'Healthcare',
-            'hq' => 'Ankara, Türkiye',
-            'brands_count' => 1,
-            'open_issues' => 4,
-            'open_tasks' => 3,
+            'legal_name' => 'Atlas Health Group Sağlık Hizmetleri A.Ş.',
+            'type' => 'company',
             'status' => 'active',
+            'industry' => 'healthcare',
+            'industry_other' => null,
+            'hq_country' => 'TR',
+            'hq_city' => 'Ankara',
+            'hq' => 'Ankara, Türkiye',
+            'primary_email' => 'ops@atlashealth.example',
+            'primary_phone' => '+90 312 000 00 00',
+            'service_started_at' => '2024-03-01',
+            'services' => ['meta_ads', 'google_ads', 'seo', 'local_seo', 'website_maintenance'],
+            'responsible_user_ids' => ['u-ayse', 'u-mert'],
+            'brands_count' => 1,
+            'digital_assets_count' => 8,
+            'open_findings' => 4,
+            'open_tasks' => 3,
+            'overdue_tasks' => 1,
+            // Backward-compatible aliases used by older demo surfaces
+            'open_issues' => 4,
+        ];
+    }
+
+    /**
+     * Demo internal team members (session-only; not operator DB users).
+     *
+     * @return list<array{id: string, name: string, initials: string, email: string}>
+     */
+    public static function teamMembers(): array
+    {
+        return [
+            ['id' => 'u-ayse', 'name' => 'Ayşe Demir', 'initials' => 'AD', 'email' => 'ayse@moximu.example'],
+            ['id' => 'u-mert', 'name' => 'Mert Yılmaz', 'initials' => 'MY', 'email' => 'mert@moximu.example'],
+            ['id' => 'u-selin', 'name' => 'Selin Kaya', 'initials' => 'SK', 'email' => 'selin@moximu.example'],
+            ['id' => 'u-can', 'name' => 'Can Öztürk', 'initials' => 'CÖ', 'email' => 'can@moximu.example'],
+        ];
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public static function customerContacts(): array
+    {
+        return [
+            [
+                'id' => 'cc-1',
+                'customer_id' => self::CUSTOMER_ID,
+                'name' => 'Dr. Elif Arslan',
+                'role' => 'owner',
+                'title' => 'Owner / Founder',
+                'email' => 'elif@atlashealth.example',
+                'phone' => '+90 532 000 11 22',
+            ],
+            [
+                'id' => 'cc-2',
+                'customer_id' => self::CUSTOMER_ID,
+                'name' => 'Burak Şen',
+                'role' => 'marketing',
+                'title' => 'Marketing',
+                'email' => 'burak@atlashealth.example',
+                'phone' => '+90 532 000 33 44',
+            ],
+        ];
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public static function customerActivity(): array
+    {
+        return [
+            ['id' => 'ca1', 'customer_id' => self::CUSTOMER_ID, 'category' => 'findings', 'title' => 'Finding opened — Meta CPL deteriorated', 'when' => '2 days ago'],
+            ['id' => 'ca2', 'customer_id' => self::CUSTOMER_ID, 'category' => 'tasks', 'title' => 'Task created — Replace Meta creative', 'when' => '2 days ago'],
+            ['id' => 'ca3', 'customer_id' => self::CUSTOMER_ID, 'category' => 'portfolio', 'title' => 'Digital Asset refresh — Website crawl complete', 'when' => '3 days ago'],
+            ['id' => 'ca4', 'customer_id' => self::CUSTOMER_ID, 'category' => 'recommendations', 'title' => 'Recommendation approved — Fix mobile LCP', 'when' => '5 days ago'],
+            ['id' => 'ca5', 'customer_id' => self::CUSTOMER_ID, 'category' => 'connections', 'title' => 'Meta import completed for Atlas Dental', 'when' => '1 week ago'],
+            ['id' => 'ca6', 'customer_id' => self::CUSTOMER_ID, 'category' => 'portfolio', 'title' => 'Brand updated — Atlas Dental Ankara', 'when' => '2 weeks ago'],
         ];
     }
 
@@ -70,12 +141,22 @@ final class DemoCatalog
             'id' => self::BRAND_ID,
             'customer_id' => self::CUSTOMER_ID,
             'name' => 'Atlas Dental Ankara',
-            'industry' => 'Dental / Healthcare',
+            'sector' => 'dental',
+            'industry' => 'dental',
+            'primary_country' => 'TR',
+            'target_markets' => ['TR', 'DE', 'GB'],
+            'languages' => ['tr', 'en', 'de'],
             'location' => 'Ankara, Türkiye',
+            'description' => 'Dental clinic brand focused on implant and post-bariatric dental care.',
+            'audience' => 'Adults seeking implant and aesthetic dental treatments in Ankara and EU medical travel.',
+            'offerings' => "Dental implants\nPost-bariatric dentistry\nSmile design",
+            'competitors' => "Ankara Implant Center\nSmile Ankara Clinic",
+            'responsible_user_ids' => ['u-ayse', 'u-selin'],
             'website' => 'https://atlasdental.example',
             'health' => 'needs_attention',
             'health_label' => 'Needs attention',
             'assets_count' => 8,
+            'open_findings' => 4,
             'open_tasks' => 3,
             'summary' => [
                 'media_spend' => 280800,

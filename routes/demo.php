@@ -5,9 +5,9 @@ use App\Livewire\Demo\Assets\AnalyticsPage;
 use App\Livewire\Demo\Assets\SearchConsolePage;
 use App\Livewire\Demo\Dashboard;
 use App\Livewire\Demo\Gbp\OverviewPage as GbpOverviewPage;
+use App\Livewire\Demo\GoogleAds\OverviewPage as GoogleAdsOverviewPage;
 use App\Livewire\Demo\Infrastructure\DomainPage;
 use App\Livewire\Demo\Infrastructure\HostingPage;
-use App\Livewire\Demo\GoogleAds\OverviewPage as GoogleAdsOverviewPage;
 use App\Livewire\Demo\Integrations\IntegrationsIndex;
 use App\Livewire\Demo\Integrations\MetaIntegrationPage;
 use App\Livewire\Demo\Meta\AdDetailPage;
@@ -25,10 +25,15 @@ use App\Livewire\Demo\Operations\FindingsIndex;
 use App\Livewire\Demo\Operations\RecommendationsIndex;
 use App\Livewire\Demo\Operations\TaskShow;
 use App\Livewire\Demo\Operations\TasksIndex;
+use App\Livewire\Demo\Portfolio\AssetCreate;
 use App\Livewire\Demo\Portfolio\AssetsIndex;
+use App\Livewire\Demo\Portfolio\BrandCreate;
+use App\Livewire\Demo\Portfolio\BrandEdit;
 use App\Livewire\Demo\Portfolio\BrandShow;
 use App\Livewire\Demo\Portfolio\BrandsIndex;
+use App\Livewire\Demo\Portfolio\CustomerCreate;
 use App\Livewire\Demo\Portfolio\CustomerDetail;
+use App\Livewire\Demo\Portfolio\CustomerEdit;
 use App\Livewire\Demo\Portfolio\CustomersIndex;
 use App\Livewire\Demo\SettingsPage;
 use App\Livewire\Demo\Website\OverviewPage as WebsiteOverviewPage;
@@ -40,12 +45,17 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/', Dashboard::class)->name('demo.dashboard');
 
         Route::livewire('/customers', CustomersIndex::class)->name('demo.customers');
+        Route::livewire('/customers/create', CustomerCreate::class)->name('demo.customer.create');
+        Route::livewire('/customers/{customerId}/edit', CustomerEdit::class)->name('demo.customer.edit');
         Route::livewire('/customers/{customerId}', CustomerDetail::class)->name('demo.customer');
 
         Route::livewire('/brands', BrandsIndex::class)->name('demo.brands');
+        Route::livewire('/brands/create', BrandCreate::class)->name('demo.brand.create');
+        Route::livewire('/brands/{brandId}/edit', BrandEdit::class)->name('demo.brand.edit');
         Route::livewire('/brands/{brand}', BrandShow::class)->name('demo.brand');
 
         Route::livewire('/assets', AssetsIndex::class)->name('demo.assets');
+        Route::livewire('/assets/create', AssetCreate::class)->name('demo.asset.create');
 
         Route::livewire('/integrations', IntegrationsIndex::class)->name('demo.integrations');
         Route::livewire('/integrations/meta', MetaIntegrationPage::class)->name('demo.integrations.meta');

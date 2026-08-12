@@ -2,6 +2,8 @@
 
 namespace App\Support\Demo;
 
+use App\Support\Options\CountryOptions;
+
 /**
  * Session-backed mutable Demo Mode state. Isolated from the operator database.
  */
@@ -18,6 +20,15 @@ final class DemoState
         if (! is_array($state)) {
             $state = self::defaults();
             session()->put(self::SESSION_KEY, $state);
+
+            return $state;
+        }
+
+        $defaults = self::defaults();
+        foreach (['contacts', 'customer_activity', 'demo_assets'] as $key) {
+            if (! array_key_exists($key, $state)) {
+                $state[$key] = $defaults[$key];
+            }
         }
 
         return $state;
@@ -36,9 +47,12 @@ final class DemoState
         return [
             'customers' => [DemoCatalog::customer()],
             'brands' => [DemoCatalog::brand()],
+            'contacts' => DemoCatalog::customerContacts(),
+            'customer_activity' => DemoCatalog::customerActivity(),
             'recommendations' => DemoCatalog::recommendationsSeed(),
             'tasks' => DemoCatalog::tasksSeed(),
             'activity' => DemoCatalog::activitySeed(),
+            'demo_assets' => [],
             'import' => [
                 'running' => false,
                 'started_at' => null,
@@ -126,9 +140,73 @@ final class DemoState
     public static function addCustomer(array $customer): void
     {
         $state = self::all();
-        $state['customers'][] = $customer;
+        $state['customers'][] = self::normalizeCustomer($customer);
         session()->put(self::SESSION_KEY, $state);
-        self::flash('Customer “'.$customer['name'].'” added (Demo Mode).');
+        self::flash('Customer “'.$customer['name'].'” saved (Demo Mode).');
+    }
+
+    /**
+     * @param  array<string, mixed>  $customer
+     */
+    public static function updateCustomer(string $id, array $customer): void
+    {
+        $state = self::all();
+        foreach ($state['customers'] as &$row) {
+            if (($row['id'] ?? '') !== $id) {
+                continue;
+            }
+            $row = self::normalizeCustomer(array_merge($row, $customer, ['id' => $id]));
+        }
+        unset($row);
+        session()->put(self::SESSION_KEY, $state);
+        self::flash('Customer changes saved (Demo Mode).');
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public static function findCustomer(string $id): ?array
+    {
+        $customer = collect(self::all()['customers'] ?? [])->firstWhere('id', $id);
+
+        return is_array($customer) ? self::normalizeCustomer($customer) : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $customer
+     * @return array<string, mixed>
+     */
+    public static function normalizeCustomer(array $customer): array
+    {
+        $hqCountry = $customer['hq_country'] ?? null;
+        $hqCity = $customer['hq_city'] ?? null;
+        $services = $customer['services'] ?? [];
+        if (! is_array($services)) {
+            $services = [];
+        }
+
+        $customer['type'] = $customer['type'] ?? 'company';
+        $customer['status'] = $customer['status'] ?? 'active';
+        $customer['services'] = array_values($services);
+        $customer['responsible_user_ids'] = array_values($customer['responsible_user_ids'] ?? []);
+        $customer['hq'] = CountryOptions::formatHq(
+            is_string($hqCity) ? $hqCity : null,
+            is_string($hqCountry) ? $hqCountry : null
+        );
+        $customer['brands_count'] = $customer['brands_count'] ?? 0;
+        $customer['digital_assets_count'] = $customer['digital_assets_count'] ?? 0;
+        $customer['open_findings'] = $customer['open_findings'] ?? ($customer['open_issues'] ?? 0);
+        $customer['open_issues'] = $customer['open_findings'];
+        $customer['open_tasks'] = $customer['open_tasks'] ?? 0;
+        $customer['overdue_tasks'] = $customer['overdue_tasks'] ?? 0;
+
+        return $customer;
+    }
+
+    public static function setCustomerStatus(string $id, string $status): void
+    {
+        self::updateCustomer($id, ['status' => $status]);
+        self::flash($status === 'archived' ? 'Customer archived (Demo Mode).' : 'Customer restored (Demo Mode).');
     }
 
     /**
@@ -137,9 +215,142 @@ final class DemoState
     public static function addBrand(array $brand): void
     {
         $state = self::all();
-        $state['brands'][] = $brand;
+        $state['brands'][] = self::normalizeBrand($brand);
+        $customerId = $brand['customer_id'] ?? null;
+        if (is_string($customerId)) {
+            foreach ($state['customers'] as &$customer) {
+                if (($customer['id'] ?? '') === $customerId) {
+                    $customer['brands_count'] = (int) ($customer['brands_count'] ?? 0) + 1;
+                }
+            }
+            unset($customer);
+        }
         session()->put(self::SESSION_KEY, $state);
         self::flash('Brand “'.$brand['name'].'” added (Demo Mode).');
+    }
+
+    /**
+     * @param  array<string, mixed>  $brand
+     */
+    public static function updateBrand(string $id, array $brand): void
+    {
+        $state = self::all();
+        foreach ($state['brands'] as &$row) {
+            if (($row['id'] ?? '') !== $id) {
+                continue;
+            }
+            $row = self::normalizeBrand(array_merge($row, $brand, ['id' => $id]));
+        }
+        unset($row);
+        session()->put(self::SESSION_KEY, $state);
+        self::flash('Brand changes saved (Demo Mode).');
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public static function findBrand(string $id): ?array
+    {
+        $brand = collect(self::all()['brands'] ?? [])->firstWhere('id', $id);
+
+        return is_array($brand) ? self::normalizeBrand($brand) : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $brand
+     * @return array<string, mixed>
+     */
+    public static function normalizeBrand(array $brand): array
+    {
+        $country = $brand['primary_country'] ?? null;
+        $city = $brand['hq_city'] ?? null;
+        $brand['sector'] = $brand['sector'] ?? ($brand['industry'] ?? null);
+        $brand['industry'] = $brand['sector'];
+        $brand['target_markets'] = array_values($brand['target_markets'] ?? []);
+        $brand['languages'] = array_values($brand['languages'] ?? []);
+        $brand['responsible_user_ids'] = array_values($brand['responsible_user_ids'] ?? []);
+        $brand['location'] = CountryOptions::formatHq(
+            is_string($city) ? $city : null,
+            is_string($country) ? $country : null
+        );
+        if (($brand['location'] ?? '—') === '—' && is_string($country) && $country !== '') {
+            $brand['location'] = CountryOptions::label($country);
+        }
+        $brand['open_findings'] = $brand['open_findings'] ?? 0;
+        $brand['open_tasks'] = $brand['open_tasks'] ?? 0;
+        $brand['assets_count'] = $brand['assets_count'] ?? 0;
+
+        return $brand;
+    }
+
+    /**
+     * @param  array<string, mixed>  $contact
+     */
+    public static function addContact(array $contact): void
+    {
+        $state = self::all();
+        $state['contacts'] = $state['contacts'] ?? [];
+        $state['contacts'][] = $contact;
+        session()->put(self::SESSION_KEY, $state);
+        self::flash('Contact “'.$contact['name'].'” saved (Demo Mode).');
+    }
+
+    /**
+     * @param  array<string, mixed>  $contact
+     */
+    public static function updateContact(string $id, array $contact): void
+    {
+        $state = self::all();
+        foreach ($state['contacts'] as &$row) {
+            if (($row['id'] ?? '') !== $id) {
+                continue;
+            }
+            $row = array_merge($row, $contact, ['id' => $id]);
+        }
+        unset($row);
+        session()->put(self::SESSION_KEY, $state);
+        self::flash('Contact updated (Demo Mode).');
+    }
+
+    public static function deleteContact(string $id): void
+    {
+        $state = self::all();
+        $state['contacts'] = array_values(array_filter(
+            $state['contacts'] ?? [],
+            static fn (array $row): bool => ($row['id'] ?? '') !== $id
+        ));
+        session()->put(self::SESSION_KEY, $state);
+        self::flash('Contact removed (Demo Mode).');
+    }
+
+    /**
+     * @param  array<string, mixed>  $asset
+     */
+    public static function addDemoAsset(array $asset): void
+    {
+        $state = self::all();
+        $state['demo_assets'] = $state['demo_assets'] ?? [];
+        $state['demo_assets'][] = $asset;
+        $brandId = $asset['brand_id'] ?? null;
+        if (is_string($brandId)) {
+            foreach ($state['brands'] as &$brand) {
+                if (($brand['id'] ?? '') === $brandId) {
+                    $brand['assets_count'] = (int) ($brand['assets_count'] ?? 0) + 1;
+                }
+            }
+            unset($brand);
+            $customerId = collect($state['brands'])->firstWhere('id', $brandId)['customer_id'] ?? null;
+            if (is_string($customerId)) {
+                foreach ($state['customers'] as &$customer) {
+                    if (($customer['id'] ?? '') === $customerId) {
+                        $customer['digital_assets_count'] = (int) ($customer['digital_assets_count'] ?? 0) + 1;
+                    }
+                }
+                unset($customer);
+            }
+        }
+        session()->put(self::SESSION_KEY, $state);
+        self::flash('Digital Asset “'.$asset['name'].'” added (Demo Mode).');
     }
 
     public static function setRecommendationStatus(string $id, string $status): void

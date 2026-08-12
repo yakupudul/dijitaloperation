@@ -11,13 +11,15 @@ use App\Filament\App\Resources\Customers\Resources\Brands\RelationManagers\Digit
 use App\Models\Brand;
 use App\Services\BrandIntelligence\BrandContextProvider;
 use App\Support\BrandOperationalSummary;
+use App\Support\Options\CountryOptions;
+use App\Support\Options\IndustryOptions;
+use App\Support\Options\LanguageOptions;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\ImageEntry;
@@ -51,11 +53,13 @@ class BrandResource extends Resource
                         TextInput::make('name')
                             ->required()
                             ->maxLength(255),
-                        TextInput::make('sector')
-                            ->maxLength(255),
-                        TextInput::make('primary_country')
+                        Select::make('sector')
+                            ->options(IndustryOptions::options())
+                            ->searchable(),
+                        Select::make('primary_country')
                             ->label('Primary country')
-                            ->maxLength(255),
+                            ->options(CountryOptions::options())
+                            ->searchable(),
                         TextInput::make('logo_url')
                             ->label('Logo URL')
                             ->url()
@@ -64,11 +68,15 @@ class BrandResource extends Resource
                     ->columns(2),
                 Section::make('Markets & languages')
                     ->schema([
-                        TagsInput::make('target_markets')
+                        Select::make('target_markets')
                             ->label('Target markets')
-                            ->placeholder('Add a market or country'),
-                        TagsInput::make('languages')
-                            ->placeholder('Add a language'),
+                            ->options(CountryOptions::options())
+                            ->multiple()
+                            ->searchable(),
+                        Select::make('languages')
+                            ->options(LanguageOptions::options())
+                            ->multiple()
+                            ->searchable(),
                     ])
                     ->columns(2),
                 Section::make('Positioning')

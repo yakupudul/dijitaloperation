@@ -11,6 +11,9 @@ use App\Filament\App\Resources\Customers\Pages\ViewCustomer;
 use App\Filament\App\Resources\Customers\RelationManagers\BrandsRelationManager;
 use App\Models\Customer;
 use App\Support\MoxDopNavigation;
+use App\Support\Options\AgencyServiceOptions;
+use App\Support\Options\CountryOptions;
+use App\Support\Options\IndustryOptions;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -18,7 +21,6 @@ use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
@@ -50,6 +52,8 @@ class CustomerResource extends Resource
                 Section::make('Identity')
                     ->schema([
                         TextInput::make('name')
+                            ->label('Customer name')
+                            ->helperText('The name your team uses internally.')
                             ->required()
                             ->maxLength(255),
                         Select::make('type')
@@ -60,9 +64,24 @@ class CustomerResource extends Resource
                             ->maxLength(255),
                         Select::make('status')
                             ->options(CustomerStatus::class)
-                            ->required(),
+                            ->required()
+                            ->default(CustomerStatus::Active),
                     ])
                     ->columns(2),
+                Section::make('Business profile')
+                    ->schema([
+                        Select::make('industry')
+                            ->options(IndustryOptions::options())
+                            ->searchable(),
+                        Select::make('hq_country')
+                            ->label('HQ country')
+                            ->options(CountryOptions::options())
+                            ->searchable(),
+                        TextInput::make('hq_city')
+                            ->label('HQ city')
+                            ->maxLength(255),
+                    ])
+                    ->columns(3),
                 Section::make('Contact')
                     ->schema([
                         TextInput::make('primary_email')
@@ -79,9 +98,19 @@ class CustomerResource extends Resource
                     ->schema([
                         DatePicker::make('service_started_at')
                             ->label('Service started'),
-                        Textarea::make('services_received')
+                        Select::make('services')
                             ->label('Services received')
-                            ->rows(3)
+                            ->options(AgencyServiceOptions::options())
+                            ->multiple()
+                            ->searchable()
+                            ->columnSpanFull(),
+                        Select::make('responsibleUsers')
+                            ->label('Responsible team')
+                            ->relationship('responsibleUsers', 'name')
+                            ->multiple()
+                            ->searchable()
+                            ->preload()
+                            ->helperText('Moximu team members responsible for this customer.')
                             ->columnSpanFull(),
                     ])
                     ->columns(2),

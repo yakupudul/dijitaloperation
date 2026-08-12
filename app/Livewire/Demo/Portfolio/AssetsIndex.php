@@ -13,16 +13,6 @@ use Livewire\Component;
 #[Title('Digital Assets')]
 class AssetsIndex extends Component
 {
-    public bool $showWizard = false;
-
-    public int $step = 1;
-
-    public string $assetType = 'website';
-
-    public string $assetName = '';
-
-    public string $connectionMode = 'public';
-
     public string $filterBrand = '';
 
     public string $filterType = '';
@@ -32,45 +22,6 @@ class AssetsIndex extends Component
     public string $filterRole = '';
 
     public string $viewMode = 'cards';
-
-    public function openWizard(): void
-    {
-        $this->showWizard = true;
-        $this->step = 1;
-        $this->assetType = 'website';
-        $this->assetName = '';
-        $this->connectionMode = 'public';
-    }
-
-    public function closeWizard(): void
-    {
-        $this->showWizard = false;
-    }
-
-    public function nextStep(): void
-    {
-        if ($this->step === 1) {
-            $this->validate(['assetType' => 'required|string']);
-            $this->step = 2;
-
-            return;
-        }
-
-        if ($this->step === 2) {
-            $this->validate(['assetName' => 'required|string|min:2|max:120']);
-            $this->step = 3;
-
-            return;
-        }
-
-        DemoState::flash('Asset “'.$this->assetName.'” added in Demo Mode (session only — not written to operator DB).');
-        $this->closeWizard();
-    }
-
-    public function prevStep(): void
-    {
-        $this->step = max(1, $this->step - 1);
-    }
 
     public function clearFilters(): void
     {
@@ -88,11 +39,11 @@ class AssetsIndex extends Component
     public function render(): View
     {
         $brand = DemoCatalog::brand();
-        $allAssets = DemoCatalog::assets();
+        $allAssets = array_merge(DemoCatalog::assets(), DemoState::all()['demo_assets'] ?? []);
         $assets = collect($allAssets);
 
         if ($this->filterBrand !== '') {
-            $assets = $assets->filter(fn (array $asset): bool => ($asset['brand_id'] ?? '') === $this->filterBrand);
+            $assets = $assets->filter(fn (array $asset): bool => ($asset['brand_id'] ?? DemoCatalog::BRAND_ID) === $this->filterBrand);
         }
 
         if ($this->filterType !== '') {
@@ -113,20 +64,16 @@ class AssetsIndex extends Component
             ->unique()
             ->all();
 
-        $wizardTypes = [
-            'website' => 'Website',
-            'meta_ads' => 'Meta Ads',
-            'google_ads' => 'Google Ads',
-            'gbp' => 'Google Business Profile',
-            'ga4' => 'Google Analytics',
-            'gsc' => 'Search Console',
-        ];
+        $brandOptions = collect(DemoState::all()['brands'] ?? [])
+            ->mapWithKeys(fn (array $b): array => [($b['id'] ?? '') => ($b['name'] ?? '')])
+            ->all();
+        if ($brandOptions === []) {
+            $brandOptions = [DemoCatalog::BRAND_ID => $brand['name']];
+        }
 
         return view('livewire.demo.portfolio.assets-index', [
             'assets' => $assets->values()->all(),
-            'brandOptions' => [
-                DemoCatalog::BRAND_ID => $brand['name'],
-            ],
+            'brandOptions' => $brandOptions,
             'typeOptions' => $typeOptions,
             'healthOptions' => [
                 'healthy' => 'Healthy',
@@ -138,7 +85,6 @@ class AssetsIndex extends Component
                 'connected_source' => 'Connected data source',
                 'infrastructure' => 'Infrastructure / lifecycle',
             ],
-            'wizardTypes' => $wizardTypes,
             'flash' => DemoState::pullFlash(),
         ]);
     }

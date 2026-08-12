@@ -18,18 +18,23 @@ use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAsset
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\WebsiteSettingsRelationManager;
 use App\Models\DigitalAsset;
 use App\Support\DigitalAssetTypes;
+use App\Support\Options\CmsOptions;
+use App\Support\Options\CountryOptions;
+use App\Support\Options\LanguageOptions;
+use App\Support\Options\WebsiteTypeOptions;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
@@ -59,15 +64,25 @@ class DigitalAssetResource extends Resource
                         Select::make('type')
                             ->options(DigitalAssetTypes::options())
                             ->required()
-                            ->searchable(),
+                            ->searchable()
+                            ->live(),
                         Select::make('status')
                             ->options(DigitalAssetStatus::class)
                             ->required()
                             ->default(DigitalAssetStatus::Active),
+                        Hidden::make('module_id')
+                            ->dehydrated()
+                            ->dehydrateStateUsing(fn (?string $state, Get $get): ?string => $state ?: match ($get('type')) {
+                                'website' => 'website',
+                                'meta_ads' => 'meta-ads',
+                                'google_ads' => 'google-ads',
+                                'google_business_profile' => 'google-business-profile',
+                                default => $state,
+                            }),
                     ])
                     ->columns(2),
                 Section::make('Website details')
-                    ->description('Used for website assets. Leave blank for non-website types.')
+                    ->description('Shown for Website assets. Provider connections happen separately.')
                     ->schema([
                         TextInput::make('domain')
                             ->maxLength(255),
@@ -75,35 +90,30 @@ class DigitalAssetResource extends Resource
                             ->label('Primary URL')
                             ->url()
                             ->maxLength(255),
-                        TextInput::make('cms')
+                        Select::make('cms')
                             ->label('CMS')
-                            ->maxLength(255)
-                            ->helperText('Free-form until a CMS catalog is productized.'),
-                        TextInput::make('site_type')
-                            ->label('Site type')
-                            ->maxLength(255)
-                            ->helperText('Free-form until site types are productized.'),
-                        TagsInput::make('languages')
-                            ->placeholder('Add a language'),
-                        TagsInput::make('target_countries')
+                            ->options(CmsOptions::options())
+                            ->searchable(),
+                        Select::make('site_type')
+                            ->label('Website type')
+                            ->options(WebsiteTypeOptions::options())
+                            ->searchable(),
+                        Select::make('languages')
+                            ->options(LanguageOptions::options())
+                            ->multiple()
+                            ->searchable(),
+                        Select::make('target_countries')
                             ->label('Target countries')
-                            ->placeholder('Add a country'),
+                            ->options(CountryOptions::options())
+                            ->multiple()
+                            ->searchable(),
                         Textarea::make('hosting_context')
                             ->label('Hosting context')
                             ->rows(3)
                             ->columnSpanFull(),
                     ])
                     ->columns(2)
-                    ->collapsed(),
-                Section::make('Advanced')
-                    ->schema([
-                        TextInput::make('module_id')
-                            ->label('Linked module')
-                            ->maxLength(255)
-                            ->helperText('Internal module key when known. Not required for day-to-day portfolio setup.'),
-                    ])
-                    ->collapsed()
-                    ->compact(),
+                    ->visible(fn (Get $get): bool => $get('type') === 'website'),
             ]);
     }
 

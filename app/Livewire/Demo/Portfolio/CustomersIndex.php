@@ -2,69 +2,209 @@
 
 namespace App\Livewire\Demo\Portfolio;
 
+use App\Enums\CustomerStatus;
+use App\Enums\CustomerType;
 use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
+use App\Support\Options\AgencyServiceOptions;
+use App\Support\Options\CountryOptions;
+use App\Support\Options\IndustryOptions;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 
 #[Layout('operator.layouts.app')]
 #[Title('Customers')]
 class CustomersIndex extends Component
 {
-    public bool $showAdd = false;
+    #[Url(as: 'q', history: true)]
+    public string $search = '';
 
-    public string $name = '';
+    #[Url(history: true)]
+    public string $status = '';
 
+    #[Url(history: true)]
+    public string $type = '';
+
+    #[Url(history: true)]
     public string $industry = '';
 
-    public string $hq = '';
+    #[Url(history: true)]
+    public string $hq_country = '';
 
-    public function openAdd(): void
-    {
-        $this->showAdd = true;
-        $this->resetValidation();
-    }
+    #[Url(history: true)]
+    public string $responsible = '';
 
-    public function closeAdd(): void
+    #[Url(history: true)]
+    public string $service = '';
+
+    #[Url(history: true)]
+    public string $attention = '';
+
+    #[Url(history: true)]
+    public string $sort = 'name';
+
+    #[Url(history: true)]
+    public string $dir = 'asc';
+
+    public bool $showOptionalColumns = false;
+
+    public function clearFilters(): void
     {
-        $this->showAdd = false;
-        $this->name = '';
+        $this->search = '';
+        $this->status = '';
+        $this->type = '';
         $this->industry = '';
-        $this->hq = '';
-        $this->resetValidation();
+        $this->hq_country = '';
+        $this->responsible = '';
+        $this->service = '';
+        $this->attention = '';
     }
 
-    public function saveCustomer(): void
+    public function sortBy(string $column): void
     {
-        $this->validate([
-            'name' => 'required|string|min:2|max:120',
-            'industry' => 'nullable|string|max:80',
-            'hq' => 'nullable|string|max:120',
-        ]);
+        if ($this->sort === $column) {
+            $this->dir = $this->dir === 'asc' ? 'desc' : 'asc';
 
-        DemoState::addCustomer([
-            'id' => 'c-demo-'.substr(md5($this->name.microtime()), 0, 8),
-            'name' => $this->name,
-            'industry' => $this->industry !== '' ? $this->industry : 'General',
-            'hq' => $this->hq !== '' ? $this->hq : '—',
-            'brands_count' => 0,
-            'open_issues' => 0,
-            'open_tasks' => 0,
-            'status' => 'active',
-        ]);
+            return;
+        }
 
-        $this->closeAdd();
+        $this->sort = $column;
+        $this->dir = 'asc';
+    }
+
+    public function hasActiveFilters(): bool
+    {
+        return $this->search !== ''
+            || $this->status !== ''
+            || $this->type !== ''
+            || $this->industry !== ''
+            || $this->hq_country !== ''
+            || $this->responsible !== ''
+            || $this->service !== ''
+            || $this->attention !== '';
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    protected function filteredCustomers(): array
+    {
+        $team = collect(DemoCatalog::teamMembers())->keyBy('id');
+        $brands = collect(DemoState::all()['brands'] ?? []);
+
+        $rows = collect(DemoState::all()['customers'] ?? [])
+            ->map(function (array $customer) use ($brands, $team): array {
+                $customer = DemoState::normalizeCustomer($customer);
+                $customerBrands = $brands->where('customer_id', $customer['id']);
+                $customer['brands_count'] = $customerBrands->count();
+                $customer['digital_assets_count'] = (int) $customerBrands->sum(fn (array $b): int => (int) ($b['assets_count'] ?? 0));
+                if (($customer['digital_assets_count'] ?? 0) === 0 && ($customer['id'] ?? '') === DemoCatalog::CUSTOMER_ID) {
+                    $customer['digital_assets_count'] = count(DemoCatalog::assets());
+                }
+                $customer['open_findings'] = (int) ($customer['open_findings'] ?? $customerBrands->sum(fn (array $b): int => (int) ($b['open_findings'] ?? 0)));
+                $customer['open_tasks'] = (int) ($customer['open_tasks'] ?? $customerBrands->sum(fn (array $b): int => (int) ($b['open_tasks'] ?? 0)));
+                $customer['industry_label'] = IndustryOptions::label($customer['industry'] ?? null);
+                if (($customer['industry'] ?? '') === IndustryOptions::OTHER && ! empty($customer['industry_other'])) {
+                    $customer['industry_label'] = (string) $customer['industry_other'];
+                }
+                $customer['hq_display'] = CountryOptions::formatHq($customer['hq_city'] ?? null, $customer['hq_country'] ?? null);
+                $customer['type_label'] = match ($customer['type'] ?? '') {
+                    'company' => 'Company',
+                    'individual' => 'Individual',
+                    default => (string) ($customer['type'] ?? '—'),
+                };
+                $customer['status_label'] = match ($customer['status'] ?? '') {
+                    'active' => 'Active',
+                    'inactive' => 'Inactive',
+                    'archived' => 'Archived',
+                    default => ucfirst((string) ($customer['status'] ?? '')),
+                };
+                $customer['responsible_labels'] = collect($customer['responsible_user_ids'] ?? [])
+                    ->map(fn (string $id): string => $team[$id]['name'] ?? $id)
+                    ->values()
+                    ->all();
+                $customer['needs_attention'] = ((int) $customer['open_findings'] > 0)
+                    || ((int) ($customer['overdue_tasks'] ?? 0) > 0);
+
+                return $customer;
+            });
+
+        if ($this->search !== '') {
+            $q = mb_strtolower($this->search);
+            $rows = $rows->filter(function (array $customer) use ($q): bool {
+                $hay = mb_strtolower(implode(' ', array_filter([
+                    $customer['name'] ?? '',
+                    $customer['legal_name'] ?? '',
+                    $customer['primary_email'] ?? '',
+                ])));
+
+                return str_contains($hay, $q);
+            });
+        }
+
+        if ($this->status !== '') {
+            $rows = $rows->filter(fn (array $c): bool => ($c['status'] ?? '') === $this->status);
+        }
+        if ($this->type !== '') {
+            $rows = $rows->filter(fn (array $c): bool => ($c['type'] ?? '') === $this->type);
+        }
+        if ($this->industry !== '') {
+            $rows = $rows->filter(fn (array $c): bool => ($c['industry'] ?? '') === $this->industry);
+        }
+        if ($this->hq_country !== '') {
+            $rows = $rows->filter(fn (array $c): bool => ($c['hq_country'] ?? '') === $this->hq_country);
+        }
+        if ($this->responsible !== '') {
+            $rows = $rows->filter(fn (array $c): bool => in_array($this->responsible, $c['responsible_user_ids'] ?? [], true));
+        }
+        if ($this->service !== '') {
+            $rows = $rows->filter(fn (array $c): bool => in_array($this->service, $c['services'] ?? [], true));
+        }
+        if ($this->attention === 'needs_attention') {
+            $rows = $rows->filter(fn (array $c): bool => (bool) ($c['needs_attention'] ?? false));
+        } elseif ($this->attention === 'clear') {
+            $rows = $rows->filter(fn (array $c): bool => ! ($c['needs_attention'] ?? false));
+        }
+
+        $sort = $this->sort;
+        $dir = $this->dir === 'desc' ? 'desc' : 'asc';
+        $rows = $rows->sortBy(function (array $c) use ($sort) {
+            return match ($sort) {
+                'industry' => $c['industry_label'] ?? '',
+                'brands' => (int) ($c['brands_count'] ?? 0),
+                'findings' => (int) ($c['open_findings'] ?? 0),
+                'tasks' => (int) ($c['open_tasks'] ?? 0),
+                'service_started' => $c['service_started_at'] ?? '',
+                'updated' => $c['updated_at'] ?? $c['name'] ?? '',
+                default => mb_strtolower((string) ($c['name'] ?? '')),
+            };
+        }, SORT_REGULAR, $dir === 'desc');
+
+        return $rows->values()->all();
     }
 
     public function render(): View
     {
-        $state = DemoState::all();
+        $customers = $this->filteredCustomers();
+        $allCount = count(DemoState::all()['customers'] ?? []);
+
+        $typeOptions = collect(CustomerType::cases())->mapWithKeys(fn ($c) => [$c->value => $c->name])->all();
+        $statusOptions = collect(CustomerStatus::cases())->mapWithKeys(fn ($c) => [$c->value => $c->name])->all();
+        $teamOptions = collect(DemoCatalog::teamMembers())->mapWithKeys(fn ($m) => [$m['id'] => $m['name']])->all();
 
         return view('livewire.demo.portfolio.customers-index', [
-            'customers' => $state['customers'],
-            'seed' => DemoCatalog::customer(),
+            'customers' => $customers,
+            'allCount' => $allCount,
+            'hasFilters' => $this->hasActiveFilters(),
+            'typeOptions' => $typeOptions,
+            'statusOptions' => $statusOptions,
+            'industryOptions' => IndustryOptions::options(),
+            'countryOptions' => CountryOptions::options(),
+            'serviceOptions' => AgencyServiceOptions::options(),
+            'teamOptions' => $teamOptions,
             'flash' => DemoState::pullFlash(),
         ]);
     }

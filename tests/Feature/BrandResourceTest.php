@@ -55,7 +55,7 @@ class BrandResourceTest extends TestCase
             ->assertOk()
             ->fillForm([
                 'name' => 'Acme Brand',
-                'sector' => 'Retail',
+                'sector' => 'retail',
                 'primary_country' => 'TR',
                 'target_markets' => ['TR', 'DE'],
                 'languages' => ['tr', 'en'],
@@ -73,7 +73,7 @@ class BrandResourceTest extends TestCase
         $this->assertDatabaseHas('brands', [
             'customer_id' => $this->customer->id,
             'name' => 'Acme Brand',
-            'sector' => 'Retail',
+            'sector' => 'retail',
             'primary_country' => 'TR',
             'description' => 'A retail brand',
             'audience' => 'Urban shoppers',
@@ -95,7 +95,7 @@ class BrandResourceTest extends TestCase
 
         Brand::query()->create([
             'name' => 'Orphan Brand',
-            'sector' => 'Retail',
+            'sector' => 'retail',
         ]);
     }
 
@@ -106,7 +106,7 @@ class BrandResourceTest extends TestCase
         $brand = Brand::factory()->create([
             'customer_id' => $this->customer->id,
             'name' => 'Visible Brand',
-            'sector' => 'SaaS',
+            'sector' => 'technology',
             'primary_country' => 'US',
             'target_markets' => ['US', 'CA'],
             'languages' => ['en'],
@@ -126,7 +126,7 @@ class BrandResourceTest extends TestCase
             ->assertSchemaStateSet([
                 'customer.name' => $this->customer->name,
                 'name' => 'Visible Brand',
-                'sector' => 'SaaS',
+                'sector' => 'technology',
                 'primary_country' => 'US',
                 'target_markets' => ['US', 'CA'],
                 'languages' => ['en'],
@@ -155,7 +155,7 @@ class BrandResourceTest extends TestCase
             ->assertOk()
             ->fillForm([
                 'name' => 'Updated Brand',
-                'sector' => 'Finance',
+                'sector' => 'finance',
                 'primary_country' => 'DE',
                 'target_markets' => ['DE', 'AT'],
                 'languages' => ['de'],
@@ -173,7 +173,7 @@ class BrandResourceTest extends TestCase
         $brand->refresh();
 
         $this->assertSame('Updated Brand', $brand->name);
-        $this->assertSame('Finance', $brand->sector);
+        $this->assertSame('finance', $brand->sector);
         $this->assertSame('DE', $brand->primary_country);
         $this->assertSame(['DE', 'AT'], $brand->target_markets);
         $this->assertSame(['de'], $brand->languages);
@@ -264,7 +264,7 @@ class BrandResourceTest extends TestCase
         ])
             ->callTableAction('create', data: [
                 'name' => 'Bound Brand',
-                'sector' => 'Retail',
+                'sector' => 'retail',
             ])
             ->assertHasNoTableActionErrors();
 

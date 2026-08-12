@@ -19,7 +19,7 @@
         'title' => $brandRow['name'],
         'subtitle' => 'Brand home — assets, attention, decisions, and analysis in one place.',
         'badges' => '<span class="inline-flex"><span class="inline-flex items-center rounded-full bg-warning-50 px-2.5 py-0.5 text-xs font-medium text-warning-700 dark:bg-warning-500/15 dark:text-warning-400">'.e($brandRow['health_label'] ?? 'Needs attention').'</span></span>',
-        'actions' => view('livewire.demo.partials._brand-show-actions')->render(),
+        'actions' => view('livewire.demo.partials._brand-show-actions', ['brandId' => $brandRow['id']])->render(),
     ])
 
     <div class="flex flex-wrap gap-2 border-b border-gray-200 pb-3 dark:border-gray-800">

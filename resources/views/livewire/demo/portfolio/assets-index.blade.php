@@ -5,7 +5,7 @@
         'eyebrow' => 'Portfolio',
         'title' => 'Digital Assets',
         'subtitle' => 'Connected, detected, and infrastructure assets — filter by role and health.',
-        'actions' => '<button type="button" wire:click="openWizard" class="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600">Add asset</button>',
+        'actions' => '<a href="'.route('demo.asset.create').'" wire:navigate class="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600">Add asset</a>',
     ])
 
     <div class="flex flex-wrap items-end gap-3 rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
@@ -135,61 +135,4 @@
             @endforeach
         </x-ta.table>
     @endif
-
-    <div x-data="{ open: @entangle('showWizard') }">
-        <x-ta.modal>
-            <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Add asset wizard</h3>
-            <p class="mt-1 text-sm text-gray-500">Demo Mode · step {{ $step }} of 3 · no provider API calls</p>
-
-            <div class="mt-4">
-                <x-ta.progress-bar :value="$step" :max="3" label="Wizard progress" />
-            </div>
-
-            @if ($step === 1)
-                <div class="mt-4 space-y-2">
-                    <p class="text-sm font-medium text-gray-700 dark:text-gray-300">Choose asset type</p>
-                    @foreach ($wizardTypes as $key => $label)
-                        <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 px-4 py-3 dark:border-gray-700">
-                            <input type="radio" wire:model="assetType" value="{{ $key }}" />
-                            <span class="text-sm text-gray-800 dark:text-white/90">{{ $label }}</span>
-                        </label>
-                    @endforeach
-                </div>
-            @elseif ($step === 2)
-                <div class="mt-4 space-y-3">
-                    <div>
-                        <label class="mb-1 block text-sm text-gray-600">Asset name / URL</label>
-                        <input wire:model="assetName" type="text" class="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm dark:border-gray-700" />
-                        @error('assetName') <p class="mt-1 text-xs text-error-500">{{ $message }}</p> @enderror
-                    </div>
-                    <div>
-                        <label class="mb-1 block text-sm text-gray-600">Connection mode</label>
-                        <select wire:model="connectionMode" class="w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm dark:border-gray-700">
-                            <option value="public">Public / Detected</option>
-                            <option value="connected">Connected provider (simulated)</option>
-                            <option value="manual">Manual</option>
-                        </select>
-                    </div>
-                </div>
-            @else
-                <div class="mt-4 rounded-xl bg-gray-50 p-4 text-sm dark:bg-white/[0.02]">
-                    <p><span class="text-gray-400">Type:</span> {{ $wizardTypes[$assetType] ?? $assetType }}</p>
-                    <p class="mt-1"><span class="text-gray-400">Name:</span> {{ $assetName }}</p>
-                    <p class="mt-1"><span class="text-gray-400">Connection:</span> {{ $connectionMode }}</p>
-                    <p class="mt-3 text-xs text-gray-400">Confirming stores nothing in the operator DB — Demo Mode session flash only.</p>
-                </div>
-            @endif
-
-            <div class="mt-6 flex justify-between gap-2">
-                <div>
-                    @if ($step > 1)
-                        <x-ta.button wire:click="prevStep" variant="outline" size="sm">Back</x-ta.button>
-                    @else
-                        <x-ta.button wire:click="closeWizard" variant="outline" size="sm">Cancel</x-ta.button>
-                    @endif
-                </div>
-                <x-ta.button wire:click="nextStep" size="sm">{{ $step === 3 ? 'Confirm add' : 'Continue' }}</x-ta.button>
-            </div>
-        </x-ta.modal>
-    </div>
 </div>
