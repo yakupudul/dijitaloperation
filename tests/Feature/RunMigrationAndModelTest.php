@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\CoreConnection;
+use App\Models\CoreIntegration;
 use App\Models\DigitalAsset;
 use App\Models\Run;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -22,6 +23,8 @@ class RunMigrationAndModelTest extends TestCase
             'id',
             'digital_asset_id',
             'core_connection_id',
+            'core_asset_binding_id',
+            'core_integration_id',
             'module_id',
             'status',
             'started_at',
@@ -51,6 +54,15 @@ class RunMigrationAndModelTest extends TestCase
         $this->assertNotNull($coreConnectionForeignKey);
         $this->assertSame('set null', $coreConnectionForeignKey['on_delete']);
 
+        $coreIntegrationForeignKey = collect($foreignKeys)->first(
+            fn (array $foreignKey): bool => $foreignKey['columns'] === ['core_integration_id']
+                && $foreignKey['foreign_table'] === 'core_integrations'
+                && $foreignKey['foreign_columns'] === ['id']
+        );
+
+        $this->assertNotNull($coreIntegrationForeignKey);
+        $this->assertSame('set null', $coreIntegrationForeignKey['on_delete']);
+
         $indexes = Schema::getIndexes('runs');
 
         $statusIndex = collect($indexes)->first(
@@ -64,6 +76,47 @@ class RunMigrationAndModelTest extends TestCase
         );
 
         $this->assertNotNull($assetStartedIndex);
+
+        $integrationStartedIndex = collect($indexes)->first(
+            fn (array $index): bool => $index['columns'] === ['core_integration_id', 'started_at']
+        );
+
+        $this->assertNotNull($integrationStartedIndex);
+    }
+
+    public function test_digital_asset_id_is_nullable_for_integration_scoped_runs(): void
+    {
+        $columns = collect(Schema::getColumns('runs'));
+
+        $digitalAssetColumn = $columns->firstWhere('name', 'digital_asset_id');
+        $this->assertNotNull($digitalAssetColumn);
+        $this->assertTrue($digitalAssetColumn['nullable']);
+    }
+
+    public function test_integration_scoped_run_can_be_created_without_digital_asset(): void
+    {
+        $integration = CoreIntegration::factory()->meta()->create();
+
+        $run = Run::factory()->create([
+            'digital_asset_id' => null,
+            'core_integration_id' => $integration->id,
+            'module_id' => 'meta-ads-history-import',
+            'status' => 'running',
+        ]);
+
+        $run = $run->fresh();
+
+        $this->assertNull($run->digital_asset_id);
+        $this->assertNull($run->digitalAsset);
+        $this->assertTrue($run->coreIntegration->is($integration));
+        $this->assertTrue($run->isIntegrationScoped());
+        $this->assertFalse($run->isAssetScoped());
+
+        $this->assertDatabaseHas('runs', [
+            'id' => $run->id,
+            'digital_asset_id' => null,
+            'core_integration_id' => $integration->id,
+        ]);
     }
 
     public function test_run_can_be_created_via_factory_with_relations_and_metadata_cast(): void
@@ -117,6 +170,9 @@ class RunMigrationAndModelTest extends TestCase
         $this->assertNotNull($run->created_at);
         $this->assertNotNull($run->updated_at);
         $this->assertTrue(method_exists($run, 'evidence'));
+        $this->assertTrue($run->isAssetScoped());
+        $this->assertFalse($run->isIntegrationScoped());
+        $this->assertNull($run->coreIntegration);
     }
 
     public function test_run_allows_nullable_core_connection_and_metadata(): void
@@ -147,8 +203,9 @@ class RunMigrationAndModelTest extends TestCase
     {
         $this->assertTrue(Schema::hasTable('runs'));
 
-        // Newest migrations may include credential_type/agent conversations/evidence/website fields/tasks/recommendations; roll back past runs.
-        $this->assertSame(0, Artisan::call('migrate:rollback', ['--step' => 20]));
+        // Newest migrations may include credential_type/agent conversations/evidence/website fields/tasks/
+        // recommendations/meta history schema; roll back past runs.
+        $this->assertSame(0, Artisan::call('migrate:rollback', ['--step' => 22]));
 
         $this->assertFalse(Schema::hasTable('runs'));
 

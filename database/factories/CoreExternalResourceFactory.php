@@ -41,4 +41,16 @@ class CoreExternalResourceFactory extends Factory
             'display_name' => 'Search Console property',
         ]);
     }
+
+    public function metaAds(): static
+    {
+        return $this->state(fn (): array => [
+            'integration_id' => CoreIntegration::factory()->meta(),
+            'provider' => ProviderRegistry::META,
+            'resource_type' => 'meta_ads',
+            'external_id' => 'act_'.fake()->numerify('##########'),
+            'display_name' => fake()->company().' Ad Account',
+            'metadata' => ['currency' => 'USD'],
+        ]);
+    }
 }

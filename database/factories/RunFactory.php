@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\CoreIntegration;
 use App\Models\DigitalAsset;
 use App\Models\Run;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -24,6 +25,7 @@ class RunFactory extends Factory
         return [
             'digital_asset_id' => DigitalAsset::factory(),
             'core_connection_id' => null,
+            'core_integration_id' => null,
             'module_id' => fake()->randomElement(['website', 'search-console', 'pagespeed']),
             'status' => $finishedAt === null
                 ? fake()->randomElement(['pending', 'running'])
@@ -35,5 +37,16 @@ class RunFactory extends Factory
                 'attempt' => fake()->numberBetween(1, 3),
             ],
         ];
+    }
+
+    /**
+     * Pre-binding, Integration-scoped Run (no Digital Asset yet).
+     */
+    public function integrationScoped(): static
+    {
+        return $this->state(fn (): array => [
+            'digital_asset_id' => null,
+            'core_integration_id' => CoreIntegration::factory(),
+        ]);
     }
 }

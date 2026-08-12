@@ -80,6 +80,12 @@ return [
         'api_version' => env('META_API_VERSION', 'v26.0'),
         'timeout' => (int) env('META_TIMEOUT', 20),
         'max_pagination_pages' => (int) env('META_MAX_PAGINATION_PAGES', 20),
+        /*
+         * Historical store (MoxDop\MetaAds\History) — provider-corrected data window.
+         * Meta may still amend attribution-window conversions after the fact; re-fetching
+         * the trailing N days on each import keeps stored facts fresh without a full re-import.
+         */
+        'history_correction_window_days' => (int) env('META_HISTORY_CORRECTION_WINDOW_DAYS', 7),
     ],
 
     /*
