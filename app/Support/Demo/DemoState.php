@@ -56,8 +56,36 @@ final class DemoState
             'period_preset' => 'last_28',
             'period_start' => null,
             'period_end' => null,
+            'compare' => true,
+            'filters' => [
+                'meta_status' => null,
+                'meta_objective' => null,
+                'gads_classification' => null,
+                'finding_severity' => null,
+                'gbp_keyword' => null,
+            ],
             'flash' => null,
         ];
+    }
+
+    public static function setFilter(string $key, mixed $value): void
+    {
+        $state = self::all();
+        $filters = is_array($state['filters'] ?? null) ? $state['filters'] : self::defaults()['filters'];
+        $filters[$key] = $value;
+        $state['filters'] = $filters;
+        session()->put(self::SESSION_KEY, $state);
+    }
+
+    public static function getFilter(string $key, mixed $default = null): mixed
+    {
+        $filters = self::all()['filters'] ?? [];
+
+        if (! is_array($filters) || ! array_key_exists($key, $filters)) {
+            return $default;
+        }
+
+        return $filters[$key] ?? $default;
     }
 
     /**
@@ -250,10 +278,14 @@ final class DemoState
 
     public static function setPeriod(string $preset, ?string $start = null, ?string $end = null): void
     {
+        $state = self::all();
+        $compare = array_key_exists('compare', $state) ? (bool) $state['compare'] : true;
+
         self::put([
             'period_preset' => $preset,
             'period_start' => $start,
             'period_end' => $end,
+            'compare' => $compare,
         ]);
     }
 }

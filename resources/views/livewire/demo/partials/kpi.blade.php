@@ -1,6 +1,7 @@
 @php
     $tone = $kpi['tone'] ?? 'neutral';
     $family = $kpi['family'] ?? 'delivery';
+    $large = (bool) ($large ?? false);
     $iconBg = match ($family) {
         'spend' => 'bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400',
         'result' => 'bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-400',
@@ -24,16 +25,23 @@
         'pct' => is_numeric($value) ? number_format((float) $value, 2).'%' : $value,
         default => $value,
     };
+    $spark = $kpi['spark'] ?? null;
+    $valueClass = $large ? 'text-title-md' : 'text-title-sm';
 @endphp
 
 <x-ta.card>
-    <div class="flex items-center justify-between">
+    <div class="flex items-center justify-between gap-2">
         <span class="text-sm text-gray-500 dark:text-gray-400">{{ $kpi['label'] ?? '' }}</span>
         <span class="flex h-8 w-8 items-center justify-center rounded-lg {{ $iconBg }}">
             <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>
         </span>
     </div>
-    <h4 class="mt-3 text-title-sm font-bold text-gray-800 dark:text-white/90">{{ $display }}</h4>
+    <div class="mt-3 flex items-end justify-between gap-3">
+        <h4 class="font-bold text-gray-800 {{ $valueClass }} dark:text-white/90">{{ $display }}</h4>
+        @if (is_array($spark) && count($spark) >= 2)
+            <x-ta.sparkline :values="$spark" />
+        @endif
+    </div>
     @if ($delta !== null)
         <span class="mt-2 inline-flex rounded-full px-2 py-0.5 text-xs font-medium {{ $deltaClass }}">
             {{ $delta > 0 ? '+' : '' }}{{ number_format((float) $delta, 1) }}%

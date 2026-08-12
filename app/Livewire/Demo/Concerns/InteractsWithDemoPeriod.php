@@ -14,12 +14,15 @@ trait InteractsWithDemoPeriod
 
     public bool $showCustomPicker = false;
 
+    public bool $compare = true;
+
     public function mountPeriod(): void
     {
         $state = DemoState::all();
         $this->period = (string) ($state['period_preset'] ?? 'last_28');
         $this->periodStart = $state['period_start'] ?? null;
         $this->periodEnd = $state['period_end'] ?? null;
+        $this->compare = (bool) ($state['compare'] ?? true);
     }
 
     public function setPeriod(string $preset): void
@@ -42,5 +45,11 @@ trait InteractsWithDemoPeriod
     {
         $this->period = 'custom';
         $this->showCustomPicker = true;
+    }
+
+    public function toggleCompare(): void
+    {
+        $this->compare = ! $this->compare;
+        DemoState::put(['compare' => $this->compare]);
     }
 }
