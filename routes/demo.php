@@ -5,6 +5,8 @@ use App\Livewire\Demo\Assets\AnalyticsPage;
 use App\Livewire\Demo\Assets\SearchConsolePage;
 use App\Livewire\Demo\Dashboard;
 use App\Livewire\Demo\Gbp\OverviewPage as GbpOverviewPage;
+use App\Livewire\Demo\Infrastructure\DomainPage;
+use App\Livewire\Demo\Infrastructure\HostingPage;
 use App\Livewire\Demo\GoogleAds\OverviewPage as GoogleAdsOverviewPage;
 use App\Livewire\Demo\Integrations\IntegrationsIndex;
 use App\Livewire\Demo\Integrations\MetaIntegrationPage;
@@ -64,6 +66,8 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/assets/gbp/{assetId?}', GbpOverviewPage::class)->name('demo.gbp');
         Route::livewire('/assets/analytics/{assetId?}', AnalyticsPage::class)->name('demo.analytics');
         Route::livewire('/assets/search-console/{assetId?}', SearchConsolePage::class)->name('demo.search-console');
+        Route::livewire('/assets/domain/{assetId?}', DomainPage::class)->name('demo.domain');
+        Route::livewire('/assets/hosting/{assetId?}', HostingPage::class)->name('demo.hosting');
 
         Route::livewire('/findings', FindingsIndex::class)->name('demo.findings');
         Route::livewire('/recommendations', RecommendationsIndex::class)->name('demo.recommendations');

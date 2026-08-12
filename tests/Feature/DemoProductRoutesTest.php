@@ -136,10 +136,40 @@ class DemoProductRoutesTest extends TestCase
             ->assertOk()
             ->assertSee('Google Ads')
             ->assertSee('Search terms');
-        $this->get(route('demo.website'))->assertOk()->assertSee('Website');
-        $this->get(route('demo.gbp'))->assertOk()->assertSee('Google Business Profile');
-        $this->get(route('demo.analytics'))->assertOk()->assertSee('Google Analytics');
-        $this->get(route('demo.search-console'))->assertOk()->assertSee('Search Console');
+        $this->get(route('demo.website'))
+            ->assertOk()
+            ->assertSee('Website')
+            ->assertSee('How is organic search demand moving?');
+        $this->get(route('demo.website', ['tab' => 'technical']))
+            ->assertOk()
+            ->assertSee('Critical')
+            ->assertSee('Warnings');
+        $this->get(route('demo.website', ['tab' => 'performance']))
+            ->assertOk()
+            ->assertSee('FIELD vitals')
+            ->assertSee('LAB vitals');
+        $this->get(route('demo.gbp'))
+            ->assertOk()
+            ->assertSee('Google Business Profile');
+        $this->get(route('demo.gbp', ['tab' => 'visibility']))
+            ->assertOk()
+            ->assertSee('External Local Rank Tracking');
+        $this->get(route('demo.analytics'))
+            ->assertOk()
+            ->assertSee('Google Analytics')
+            ->assertSee('Connected data source');
+        $this->get(route('demo.search-console'))
+            ->assertOk()
+            ->assertSee('Search Console')
+            ->assertSee('Connected data source');
+        $this->get(route('demo.domain'))
+            ->assertOk()
+            ->assertSee('Domain')
+            ->assertSee('atlasdental.example');
+        $this->get(route('demo.hosting'))
+            ->assertOk()
+            ->assertSee('Hosting')
+            ->assertSee('DemoHost');
     }
 
     public function test_meta_campaign_filters_and_google_search_term_filter_work(): void

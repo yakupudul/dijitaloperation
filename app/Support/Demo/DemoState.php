@@ -68,6 +68,7 @@ final class DemoState
                 'finding_asset_type' => null,
                 'task_status' => null,
                 'gbp_keyword' => null,
+                'website_issue_severity' => null,
             ],
             'flash' => null,
         ];

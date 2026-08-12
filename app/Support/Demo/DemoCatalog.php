@@ -228,7 +228,7 @@ final class DemoCatalog
                 'open_findings' => 0,
                 'open_tasks' => 0,
                 'last_update' => 'Detected',
-                'route' => 'demo.website',
+                'route' => 'demo.domain',
             ],
             [
                 'id' => self::HOSTING_ASSET_ID,
@@ -244,7 +244,7 @@ final class DemoCatalog
                 'open_findings' => 1,
                 'open_tasks' => 0,
                 'last_update' => 'Manual',
-                'route' => 'demo.website',
+                'route' => 'demo.hosting',
             ],
         ];
 
@@ -1182,11 +1182,103 @@ final class DemoCatalog
                 ['label' => 'Indexed Pages', 'value' => '184 / 197', 'format' => 'text', 'delta' => null, 'tone' => 'neutral', 'family' => 'delivery'],
                 ['label' => 'Technical Health', 'value' => 'Needs attention', 'format' => 'text', 'delta' => null, 'tone' => 'warn', 'family' => 'efficiency'],
             ],
+            'attention' => [
+                [
+                    'severity' => 'high',
+                    'title' => 'Mobile LCP on /implant',
+                    'body' => 'Lab LCP 4.1s on the primary paid landing page.',
+                    'evidence' => 'Field LCP 3.6s · Lab LCP 4.1s (mobile)',
+                    'why' => 'Paid and organic traffic land on a slow page.',
+                    'source' => 'Performance',
+                    'route' => 'demo.website',
+                    'route_params' => ['tab' => 'performance'],
+                    'action_label' => 'Open performance',
+                ],
+                [
+                    'severity' => 'medium',
+                    'title' => 'Broken internal links',
+                    'body' => '12 broken internal links across service pages.',
+                    'evidence' => 'Crawl · Public + Detected',
+                    'why' => 'Crawl waste and thin UX on key paths.',
+                    'source' => 'Technical',
+                    'route' => 'demo.website',
+                    'route_params' => ['tab' => 'technical'],
+                    'action_label' => 'Open technical',
+                ],
+                [
+                    'severity' => 'medium',
+                    'title' => 'Hosting renewal due',
+                    'body' => 'DemoHost renewal in 34 days.',
+                    'evidence' => 'Manual hosting record',
+                    'why' => 'Continuity risk if renewal is missed.',
+                    'source' => 'Lifecycle',
+                    'route' => 'demo.hosting',
+                    'route_params' => [],
+                    'action_label' => 'Open hosting',
+                ],
+            ],
+            'organic_trend' => self::trendSeries('website_organic', (int) round(14 * $f['results_factor']), 180, 420),
+            'traffic_trend' => self::trendSeries('website_sessions', (int) round(14 * $f['results_factor']), 520, 980),
             'technical' => [
-                ['severity' => 'high', 'title' => 'Primary landing page mobile LCP', 'detail' => '4.1s on /implant'],
-                ['severity' => 'medium', 'title' => 'Missing canonical', 'detail' => '7 pages'],
-                ['severity' => 'medium', 'title' => 'Broken internal links', 'detail' => '12 links'],
-                ['severity' => 'info', 'title' => 'Schema opportunities', 'detail' => '3 pages'],
+                ['severity' => 'high', 'group' => 'critical', 'title' => 'Primary landing page mobile LCP', 'detail' => '4.1s on /implant', 'impact' => 'Paid + organic'],
+                ['severity' => 'high', 'group' => 'critical', 'title' => 'Render-blocking hero media', 'detail' => '/implant hero 1.8MB unoptimized', 'impact' => 'Mobile LCP'],
+                ['severity' => 'medium', 'group' => 'warnings', 'title' => 'Missing canonical', 'detail' => '7 pages', 'impact' => 'Indexation'],
+                ['severity' => 'medium', 'group' => 'warnings', 'title' => 'Broken internal links', 'detail' => '12 links', 'impact' => 'Crawl'],
+                ['severity' => 'medium', 'group' => 'warnings', 'title' => 'Orphan blog drafts', 'detail' => '3 drafts not in sitemap', 'impact' => 'Content'],
+                ['severity' => 'info', 'group' => 'opportunities', 'title' => 'Schema opportunities', 'detail' => '3 pages missing LocalBusiness / FAQ', 'impact' => 'Rich results'],
+                ['severity' => 'info', 'group' => 'opportunities', 'title' => 'Compress chat widget', 'detail' => 'Third-party script adds ~280ms TBT', 'impact' => 'INP / TBT'],
+            ],
+            'search' => [
+                'kpis' => [
+                    ['label' => 'Organic Clicks', 'value' => (int) round(8420 * $f['results_factor']), 'format' => 'int', 'delta' => self::compareDelta($preset, 'clicks'), 'tone' => 'good', 'family' => 'delivery'],
+                    ['label' => 'Impressions', 'value' => (int) round(186000 * $f['results_factor']), 'format' => 'int', 'delta' => 4.2, 'tone' => 'good', 'family' => 'delivery'],
+                    ['label' => 'Avg Position', 'value' => 12.4, 'format' => 'float', 'delta' => -1.1, 'tone' => 'warn', 'family' => 'efficiency'],
+                    ['label' => 'Indexed', 'value' => '184 / 197', 'format' => 'text', 'delta' => null, 'tone' => 'neutral', 'family' => 'delivery'],
+                ],
+                'top_queries' => [
+                    ['query' => 'implant ankara', 'clicks' => (int) round(920 * $f['results_factor']), 'position' => 8.2],
+                    ['query' => 'diş implantı fiyat', 'clicks' => (int) round(410 * $f['results_factor']), 'position' => 18.0],
+                    ['query' => 'atlas dental', 'clicks' => (int) round(380 * $f['results_factor']), 'position' => 1.4],
+                ],
+            ],
+            'conversions' => [
+                'events' => [
+                    ['event' => 'generate_lead', 'count' => (int) round(148 * $f['results_factor']), 'share' => 73],
+                    ['event' => 'whatsapp_click', 'count' => (int) round(36 * $f['results_factor']), 'share' => 18],
+                    ['event' => 'phone_click', 'count' => (int) round(18 * $f['results_factor']), 'share' => 9],
+                ],
+                'by_landing' => [
+                    ['path' => '/implant', 'leads' => (int) round(88 * $f['results_factor']), 'rate' => 1.42],
+                    ['path' => '/post-bariatric', 'leads' => (int) round(54 * $f['results_factor']), 'rate' => 1.32],
+                    ['path' => '/contact', 'leads' => (int) round(31 * $f['results_factor']), 'rate' => 1.48],
+                    ['path' => '/', 'leads' => (int) round(22 * $f['results_factor']), 'rate' => 0.58],
+                ],
+            ],
+            'insights' => [
+                [
+                    'theme' => 'Performance',
+                    'title' => 'Paid landing speed is the conversion bottleneck',
+                    'body' => 'Field vitals are healthier than lab on homepage, but /implant lab LCP remains the paid-landing risk.',
+                    'action' => 'Prioritize hero media + chat widget on /implant.',
+                ],
+                [
+                    'theme' => 'Content',
+                    'title' => 'Informational queries leak to paid search',
+                    'body' => 'Implant care draft is unpublished while “implant bakımı” intent appears in paid terms.',
+                    'action' => 'Publish and index the care guide.',
+                ],
+                [
+                    'theme' => 'Search',
+                    'title' => 'High-impression low-CTR query cluster',
+                    'body' => '“diş implantı fiyat” sits at position ~18 with weak CTR versus branded terms.',
+                    'action' => 'Review title/meta and content match on /implant.',
+                ],
+                [
+                    'theme' => 'Lifecycle',
+                    'title' => 'Hosting renewal window is open',
+                    'body' => 'DemoHost renews in 34 days; domain/SSL remain comfortable.',
+                    'action' => 'Confirm renewal owner on the hosting workspace.',
+                ],
             ],
             'lifecycle' => [
                 ['label' => 'Domain', 'value' => 'atlasdental.example', 'provenance' => 'Detected'],
@@ -1211,9 +1303,6 @@ final class DemoCatalog
         ];
     }
 
-    /**
-     * @return array<string, mixed>
-     */
     public static function websiteContent(string $preset = 'last_28'): array
     {
         $f = self::periodFactors($preset);
@@ -1225,6 +1314,7 @@ final class DemoCatalog
                     'path' => '/implant',
                     'title' => 'Dental Implants in Ankara',
                     'status' => 'published',
+                    'inventory_state' => 'Needs refresh',
                     'word_count' => 1480,
                     'last_updated' => '12 Jun 2026',
                     'indexed' => true,
@@ -1235,6 +1325,7 @@ final class DemoCatalog
                     'path' => '/post-bariatric',
                     'title' => 'Post-Bariatric Contouring',
                     'status' => 'published',
+                    'inventory_state' => 'Strong',
                     'word_count' => 980,
                     'last_updated' => '02 May 2026',
                     'indexed' => true,
@@ -1245,6 +1336,7 @@ final class DemoCatalog
                     'path' => '/blog/implant-bakimi',
                     'title' => 'Implant care guide',
                     'status' => 'draft',
+                    'inventory_state' => 'Opportunity',
                     'word_count' => 640,
                     'last_updated' => '28 Jul 2026',
                     'indexed' => false,
@@ -1255,10 +1347,11 @@ final class DemoCatalog
                     'path' => '/team',
                     'title' => 'Our specialists',
                     'status' => 'published',
+                    'inventory_state' => 'Thin',
                     'word_count' => 720,
                     'last_updated' => '18 Mar 2026',
                     'indexed' => true,
-                    'issues' => [],
+                    'issues' => ['Short bios', 'No credentials schema'],
                     'organic_clicks' => (int) round(410 * $f['results_factor']),
                 ],
             ],
@@ -1624,6 +1717,99 @@ final class DemoCatalog
                 ['label' => 'Directions', 'value' => (int) round(556 * $f['results_factor']), 'format' => 'int', 'delta' => 2.0, 'tone' => 'good', 'family' => 'delivery'],
                 ['label' => 'Profile Views', 'value' => (int) round(12840 * $f['results_factor']), 'format' => 'int', 'delta' => 4.0, 'tone' => 'good', 'family' => 'delivery'],
             ],
+            'attention' => [
+                [
+                    'severity' => 'medium',
+                    'title' => 'Local pack rank slipped for “implant ankara”',
+                    'body' => 'Average map rank 5.4 (was 4.8).',
+                    'evidence' => 'External Local Rank Tracking',
+                    'why' => 'Primary commercial keyword lost top-3 coverage in NE cells.',
+                    'source' => 'Visibility',
+                    'route' => 'demo.gbp',
+                    'route_params' => ['tab' => 'visibility'],
+                    'action_label' => 'Open map',
+                ],
+                [
+                    'severity' => 'medium',
+                    'title' => '12 unanswered reviews',
+                    'body' => 'Waiting-time theme recurring in recent 3★ reviews.',
+                    'evidence' => 'Connected provider reviews',
+                    'why' => 'Unanswered friction themes hurt conversion trust.',
+                    'source' => 'Reviews',
+                    'route' => 'demo.gbp',
+                    'route_params' => ['tab' => 'reviews'],
+                    'action_label' => 'Open reviews',
+                ],
+            ],
+            'interaction_trend' => self::trendSeries('gbp_interactions', (int) round(14 * $f['results_factor']), 80, 160),
+            'keywords' => [
+                'implant ankara',
+                'diş kliniği ankara',
+                'zirkonyum ankara',
+                'çankaya diş kliniği',
+            ],
+            'maps' => [
+                'implant ankara' => [
+                    'keyword' => 'implant ankara',
+                    'average_rank' => 5.4,
+                    'top3' => 42,
+                    'top10' => 81,
+                    'previous_average' => 4.8,
+                    'grid' => [
+                        [3, 2, 1, 2, 4],
+                        [5, 3, 1, 2, 5],
+                        [7, 4, 2, 3, 7],
+                        [12, 8, 5, 6, 12],
+                        [18, 14, 9, 11, 18],
+                    ],
+                    'provenance' => 'External Local Rank Tracking',
+                ],
+                'diş kliniği ankara' => [
+                    'keyword' => 'diş kliniği ankara',
+                    'average_rank' => 8.1,
+                    'top3' => 28,
+                    'top10' => 72,
+                    'previous_average' => 7.9,
+                    'grid' => [
+                        [6, 5, 4, 5, 7],
+                        [8, 6, 4, 5, 8],
+                        [10, 7, 5, 6, 9],
+                        [14, 11, 8, 9, 13],
+                        [19, 16, 12, 14, 20],
+                    ],
+                    'provenance' => 'External Local Rank Tracking',
+                ],
+                'zirkonyum ankara' => [
+                    'keyword' => 'zirkonyum ankara',
+                    'average_rank' => 11.0,
+                    'top3' => 12,
+                    'top10' => 48,
+                    'previous_average' => 12.2,
+                    'grid' => [
+                        [9, 8, 7, 8, 10],
+                        [11, 9, 7, 8, 11],
+                        [13, 10, 8, 9, 12],
+                        [16, 13, 11, 12, 15],
+                        [21, 18, 14, 16, 22],
+                    ],
+                    'provenance' => 'External Local Rank Tracking',
+                ],
+                'çankaya diş kliniği' => [
+                    'keyword' => 'çankaya diş kliniği',
+                    'average_rank' => 3.2,
+                    'top3' => 68,
+                    'top10' => 96,
+                    'previous_average' => 3.5,
+                    'grid' => [
+                        [2, 1, 1, 2, 3],
+                        [3, 2, 1, 2, 3],
+                        [4, 3, 2, 2, 4],
+                        [6, 4, 3, 3, 5],
+                        [9, 7, 5, 6, 8],
+                    ],
+                    'provenance' => 'External Local Rank Tracking',
+                ],
+            ],
             'map' => [
                 'keyword' => 'implant ankara',
                 'average_rank' => 5.4,
@@ -1637,13 +1823,14 @@ final class DemoCatalog
                     [12, 8, 5, 6, 12],
                     [18, 14, 9, 11, 18],
                 ],
-                'provenance' => 'External search intelligence',
+                'provenance' => 'External Local Rank Tracking',
             ],
             'reviews' => [
                 'distribution' => [5 => 920, 4 => 240, 3 => 70, 2 => 22, 1 => 12],
                 'themes_positive' => ['staff', 'cleanliness', 'communication'],
                 'themes_negative' => ['waiting time', 'parking'],
                 'ai_summary' => 'Patients praise staff and communication. Recurring friction: waiting time and parking near Çankaya clinic.',
+                'disclaimer' => 'Demo Mode AI summary — grounded in seeded review themes only. No live model call. AI does not reply to reviews.',
                 'recent' => [
                     ['rating' => 5, 'text' => 'Excellent implant consultation — clear plan.', 'when' => '2 days ago'],
                     ['rating' => 3, 'text' => 'Good care but waited 40 minutes.', 'when' => '5 days ago'],
@@ -1656,62 +1843,138 @@ final class DemoCatalog
                 ['query' => 'zirkonyum ankara', 'visibility' => 'Emerging', 'map_rank' => 11.0, 'trend' => 'up'],
                 ['query' => 'çankaya diş kliniği', 'visibility' => 'Strong', 'map_rank' => 3.2, 'trend' => 'up'],
             ],
+            'profile' => [
+                ['label' => 'Display name', 'value' => 'Atlas Dental Ankara', 'provenance' => 'Connected provider'],
+                ['label' => 'Primary category', 'value' => 'Dental clinic', 'provenance' => 'Connected provider'],
+                ['label' => 'Phone', 'value' => '+90 312 000 00 00', 'provenance' => 'Connected provider'],
+                ['label' => 'Website', 'value' => 'https://atlasdental.example', 'provenance' => 'Connected provider'],
+                ['label' => 'Address', 'value' => 'Çankaya, Ankara', 'provenance' => 'Connected provider'],
+                ['label' => 'Hours', 'value' => 'Mon–Sat 09:00–19:00', 'provenance' => 'Connected provider'],
+                ['label' => 'Attributes', 'value' => 'Wheelchair accessible · Appointment required', 'provenance' => 'Connected provider'],
+            ],
             'competitors' => [
-                ['name' => 'Demo Smile Clinic', 'rating' => 4.6, 'reviews' => 890],
-                ['name' => 'Ankara Implant Center (demo)', 'rating' => 4.7, 'reviews' => 1102],
+                ['name' => 'Demo Smile Clinic', 'rating' => 4.6, 'reviews' => 890, 'map_rank' => 4.1],
+                ['name' => 'Ankara Implant Center (demo)', 'rating' => 4.7, 'reviews' => 1102, 'map_rank' => 3.8],
+                ['name' => 'Çankaya Dental Hub (demo)', 'rating' => 4.5, 'reviews' => 640, 'map_rank' => 6.2],
+            ],
+            'insights' => [
+                [
+                    'theme' => 'Visibility',
+                    'title' => 'NE grid cells lost top-3 coverage',
+                    'body' => '“implant ankara” deteriorated from 4.8 → 5.4 average rank, concentrated in north-east cells.',
+                ],
+                [
+                    'theme' => 'Reviews',
+                    'title' => 'Waiting-time theme needs an ops reply playbook',
+                    'body' => '3★ cluster cites wait times; 12 reviews remain unanswered.',
+                ],
+                [
+                    'theme' => 'Queries',
+                    'title' => 'Neighborhood query outperforms commercial head term',
+                    'body' => '“çankaya diş kliniği” holds stronger pack ranks than “implant ankara”.',
+                ],
             ],
         ];
     }
 
-    /**
-     * @return array<string, mixed>
-     */
     public static function analyticsOverview(string $preset = 'last_28'): array
     {
         $f = self::periodFactors($preset);
 
         return [
             'period_label' => $f['label'],
+            'provenance' => 'Connected data source',
             'kpis' => [
-                ['label' => 'Users', 'value' => (int) round(18420 * $f['results_factor']), 'format' => 'int'],
-                ['label' => 'New Users', 'value' => (int) round(12100 * $f['results_factor']), 'format' => 'int'],
-                ['label' => 'Sessions', 'value' => (int) round(23840 * $f['results_factor']), 'format' => 'int'],
-                ['label' => 'Engaged Sessions', 'value' => (int) round(14200 * $f['results_factor']), 'format' => 'int'],
-                ['label' => 'Conversions', 'value' => (int) round(202 * $f['results_factor']), 'format' => 'int'],
+                ['label' => 'Users', 'value' => (int) round(18420 * $f['results_factor']), 'format' => 'int', 'delta' => 6.2, 'tone' => 'good', 'family' => 'delivery'],
+                ['label' => 'New Users', 'value' => (int) round(12100 * $f['results_factor']), 'format' => 'int', 'delta' => 4.8, 'tone' => 'good', 'family' => 'delivery'],
+                ['label' => 'Sessions', 'value' => (int) round(23840 * $f['results_factor']), 'format' => 'int', 'delta' => self::compareDelta($preset, 'sessions'), 'tone' => 'good', 'family' => 'delivery'],
+                ['label' => 'Engaged Sessions', 'value' => (int) round(14200 * $f['results_factor']), 'format' => 'int', 'delta' => 3.1, 'tone' => 'good', 'family' => 'delivery'],
+                ['label' => 'Conversions', 'value' => (int) round(202 * $f['results_factor']), 'format' => 'int', 'delta' => self::compareDelta($preset, 'leads'), 'tone' => 'bad', 'family' => 'result'],
             ],
             'sources' => [
-                ['source' => 'Organic Search', 'sessions' => 9200],
-                ['source' => 'Paid Social', 'sessions' => 6100],
-                ['source' => 'Paid Search', 'sessions' => 4800],
-                ['source' => 'Direct', 'sessions' => 2740],
+                ['source' => 'Organic Search', 'sessions' => (int) round(9200 * $f['results_factor']), 'engaged' => 62],
+                ['source' => 'Paid Social', 'sessions' => (int) round(6100 * $f['results_factor']), 'engaged' => 48],
+                ['source' => 'Paid Search', 'sessions' => (int) round(4800 * $f['results_factor']), 'engaged' => 55],
+                ['source' => 'Direct', 'sessions' => (int) round(2740 * $f['results_factor']), 'engaged' => 58],
+            ],
+            'landing_pages' => [
+                ['path' => '/implant', 'sessions' => (int) round(6200 * $f['results_factor']), 'engaged_rate' => 54, 'conversions' => (int) round(88 * $f['results_factor'])],
+                ['path' => '/post-bariatric', 'sessions' => (int) round(4100 * $f['results_factor']), 'engaged_rate' => 61, 'conversions' => (int) round(54 * $f['results_factor'])],
+                ['path' => '/', 'sessions' => (int) round(3800 * $f['results_factor']), 'engaged_rate' => 49, 'conversions' => (int) round(22 * $f['results_factor'])],
+                ['path' => '/contact', 'sessions' => (int) round(2100 * $f['results_factor']), 'engaged_rate' => 72, 'conversions' => (int) round(31 * $f['results_factor'])],
+            ],
+            'engagement' => [
+                ['metric' => 'Engagement rate', 'value' => '59.6%'],
+                ['metric' => 'Avg engagement time', 'value' => '1m 42s'],
+                ['metric' => 'Views / session', 'value' => '2.4'],
+                ['metric' => 'Bounce (approx)', 'value' => '40.4%'],
+            ],
+            'key_events' => [
+                ['event' => 'generate_lead', 'count' => (int) round(148 * $f['results_factor'])],
+                ['event' => 'whatsapp_click', 'count' => (int) round(36 * $f['results_factor'])],
+                ['event' => 'phone_click', 'count' => (int) round(18 * $f['results_factor'])],
+                ['event' => 'form_start', 'count' => (int) round(410 * $f['results_factor'])],
             ],
             'devices' => ['mobile' => 68, 'desktop' => 28, 'tablet' => 4],
+            'sessions_trend' => self::trendSeries('ga4_sessions', (int) round(14 * $f['results_factor']), 520, 980),
         ];
     }
 
-    /**
-     * @return array<string, mixed>
-     */
     public static function searchConsoleOverview(string $preset = 'last_28'): array
     {
         $f = self::periodFactors($preset);
 
         return [
             'period_label' => $f['label'],
+            'provenance' => 'Connected data source',
             'kpis' => [
-                ['label' => 'Clicks', 'value' => (int) round(8420 * $f['results_factor']), 'format' => 'int'],
-                ['label' => 'Impressions', 'value' => (int) round(186000 * $f['results_factor']), 'format' => 'int'],
-                ['label' => 'CTR', 'value' => 4.5, 'format' => 'pct'],
-                ['label' => 'Average Position', 'value' => 12.4, 'format' => 'float'],
+                ['label' => 'Clicks', 'value' => (int) round(8420 * $f['results_factor']), 'format' => 'int', 'delta' => self::compareDelta($preset, 'clicks'), 'tone' => 'good', 'family' => 'delivery'],
+                ['label' => 'Impressions', 'value' => (int) round(186000 * $f['results_factor']), 'format' => 'int', 'delta' => 4.2, 'tone' => 'good', 'family' => 'delivery'],
+                ['label' => 'CTR', 'value' => 4.5, 'format' => 'pct', 'delta' => -0.3, 'tone' => 'warn', 'family' => 'efficiency'],
+                ['label' => 'Average Position', 'value' => 12.4, 'format' => 'float', 'delta' => -1.1, 'tone' => 'warn', 'family' => 'efficiency'],
             ],
             'queries' => [
-                ['query' => 'implant ankara', 'clicks' => 920, 'impressions' => 18000, 'ctr' => 5.1, 'position' => 8.2, 'trend' => 'growing'],
-                ['query' => 'diş implantı fiyat', 'clicks' => 410, 'impressions' => 22000, 'ctr' => 1.9, 'position' => 18.0, 'trend' => 'declining'],
-                ['query' => 'atlas dental', 'clicks' => 380, 'impressions' => 2100, 'ctr' => 18.1, 'position' => 1.4, 'trend' => 'stable'],
+                ['query' => 'implant ankara', 'clicks' => (int) round(920 * $f['results_factor']), 'impressions' => (int) round(18000 * $f['results_factor']), 'ctr' => 5.1, 'position' => 8.2, 'trend' => 'growing'],
+                ['query' => 'diş implantı fiyat', 'clicks' => (int) round(410 * $f['results_factor']), 'impressions' => (int) round(22000 * $f['results_factor']), 'ctr' => 1.9, 'position' => 18.0, 'trend' => 'declining'],
+                ['query' => 'atlas dental', 'clicks' => (int) round(380 * $f['results_factor']), 'impressions' => (int) round(2100 * $f['results_factor']), 'ctr' => 18.1, 'position' => 1.4, 'trend' => 'stable'],
+                ['query' => 'çankaya diş kliniği', 'clicks' => (int) round(290 * $f['results_factor']), 'impressions' => (int) round(6400 * $f['results_factor']), 'ctr' => 4.5, 'position' => 9.1, 'trend' => 'growing'],
             ],
             'pages' => [
-                ['page' => '/implant', 'clicks' => 2100, 'impressions' => 42000],
-                ['page' => '/', 'clicks' => 1600, 'impressions' => 38000],
+                ['page' => '/implant', 'clicks' => (int) round(2100 * $f['results_factor']), 'impressions' => (int) round(42000 * $f['results_factor']), 'ctr' => 5.0, 'position' => 9.4],
+                ['page' => '/', 'clicks' => (int) round(1600 * $f['results_factor']), 'impressions' => (int) round(38000 * $f['results_factor']), 'ctr' => 4.2, 'position' => 11.2],
+                ['page' => '/post-bariatric', 'clicks' => (int) round(980 * $f['results_factor']), 'impressions' => (int) round(21000 * $f['results_factor']), 'ctr' => 4.7, 'position' => 10.1],
+                ['page' => '/contact', 'clicks' => (int) round(420 * $f['results_factor']), 'impressions' => (int) round(8200 * $f['results_factor']), 'ctr' => 5.1, 'position' => 7.8],
+            ],
+            'countries' => [
+                ['country' => 'Türkiye', 'clicks' => (int) round(7100 * $f['results_factor']), 'impressions' => (int) round(152000 * $f['results_factor'])],
+                ['country' => 'Germany', 'clicks' => (int) round(620 * $f['results_factor']), 'impressions' => (int) round(14000 * $f['results_factor'])],
+                ['country' => 'United Kingdom', 'clicks' => (int) round(310 * $f['results_factor']), 'impressions' => (int) round(8200 * $f['results_factor'])],
+                ['country' => 'Netherlands', 'clicks' => (int) round(180 * $f['results_factor']), 'impressions' => (int) round(4100 * $f['results_factor'])],
+            ],
+            'devices' => [
+                ['device' => 'Mobile', 'clicks' => (int) round(5800 * $f['results_factor']), 'ctr' => 4.1, 'position' => 13.2],
+                ['device' => 'Desktop', 'clicks' => (int) round(2400 * $f['results_factor']), 'ctr' => 5.6, 'position' => 10.1],
+                ['device' => 'Tablet', 'clicks' => (int) round(220 * $f['results_factor']), 'ctr' => 3.8, 'position' => 14.0],
+            ],
+            'indexing' => [
+                'indexed' => 184,
+                'discovered_not_indexed' => 9,
+                'crawled_not_indexed' => 4,
+                'excluded' => 13,
+                'issues' => [
+                    ['title' => 'Discovered – currently not indexed', 'count' => 9, 'severity' => 'medium'],
+                    ['title' => 'Crawled – currently not indexed', 'count' => 4, 'severity' => 'medium'],
+                    ['title' => 'Excluded by noindex', 'count' => 3, 'severity' => 'info'],
+                ],
+            ],
+            'sitemaps' => [
+                ['path' => '/sitemap.xml', 'submitted' => '01 Aug 2026', 'discovered' => 197, 'status' => 'Success'],
+                ['path' => '/sitemap-blog.xml', 'submitted' => '01 Aug 2026', 'discovered' => 42, 'status' => 'Success'],
+            ],
+            'url_inspection' => [
+                ['url' => 'https://atlasdental.example/implant', 'coverage' => 'Indexed', 'last_crawl' => '10 Aug 2026', 'mobile' => 'Valid'],
+                ['url' => 'https://atlasdental.example/blog/implant-bakimi', 'coverage' => 'URL is unknown to Google', 'last_crawl' => '—', 'mobile' => '—'],
+                ['url' => 'https://atlasdental.example/team', 'coverage' => 'Indexed', 'last_crawl' => '08 Aug 2026', 'mobile' => 'Valid'],
             ],
         ];
     }
