@@ -264,7 +264,13 @@ class RunResource extends Resource
         $record->loadMissing([
             'coreConnection',
             'coreAssetBinding.externalResource.integration',
+            'coreIntegration',
         ]);
+
+        // Integration-scoped runs (e.g. Meta history import) are not tied to a Digital Asset.
+        if ($record->digital_asset_id === null && $record->coreIntegration !== null) {
+            return 'Integration · '.($record->coreIntegration->name ?: 'Meta');
+        }
 
         if ($record->core_asset_binding_id !== null) {
             $binding = $record->coreAssetBinding;

@@ -3,6 +3,7 @@
 namespace App\Filament\App\Resources\Integrations\RelationManagers;
 
 use App\Filament\App\Concerns\ManagesRecordsOnViewPages;
+use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Support\Integrations\ProviderRegistry;
 use Filament\Infolists\Components\TextEntry;
@@ -12,6 +13,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
+use MoxDop\MetaAds\Models\MetaAdsHistoryCoverage;
 
 /**
  * Read-only catalog of discovered provider resources (Google / Meta).
@@ -91,7 +93,7 @@ class ExternalResourcesRelationManager extends RelationManager
         return $table
             ->recordTitleAttribute('display_name')
             ->defaultSort('resource_type')
-            ->columns([
+            ->columns(array_values(array_filter([
                 TextColumn::make('resource_type')
                     ->label('Capability')
                     ->formatStateUsing(fn (string $state): string => ProviderRegistry::capabilityLabel($state))
@@ -105,11 +107,18 @@ class ExternalResourcesRelationManager extends RelationManager
                 TextColumn::make('status')
                     ->badge()
                     ->sortable(),
+                $isMeta
+                    ? TextColumn::make('history_status')
+                        ->label('Historical data')
+                        ->badge()
+                        ->state(fn (CoreExternalResource $record): string => $this->historyStatusLabel($record))
+                        ->color(fn (CoreExternalResource $record): string => $this->historyStatusColor($record))
+                    : null,
                 TextColumn::make('last_seen_at')
                     ->dateTime()
                     ->placeholder('—')
                     ->sortable(),
-            ])
+            ])))
             ->filters([
                 SelectFilter::make('resource_type')
                     ->label('Capability')
@@ -144,5 +153,38 @@ class ExternalResourcesRelationManager extends RelationManager
 
                 return 'No discoverable resources for this provider.';
             });
+    }
+
+    private function historyCoverageFor(CoreExternalResource $resource): ?MetaAdsHistoryCoverage
+    {
+        return MetaAdsHistoryCoverage::query()
+            ->where('core_external_resource_id', $resource->id)
+            ->where('data_layer', MetaAdsHistoryCoverage::LAYER_DAILY_FACTS)
+            ->first();
+    }
+
+    private function historyStatusLabel(CoreExternalResource $resource): string
+    {
+        $status = $this->historyCoverageFor($resource)?->status ?? MetaAdsHistoryCoverage::STATUS_NOT_IMPORTED;
+
+        return match ($status) {
+            MetaAdsHistoryCoverage::STATUS_COMPLETE => 'Ready',
+            MetaAdsHistoryCoverage::STATUS_PARTIAL => 'Partial',
+            MetaAdsHistoryCoverage::STATUS_IMPORTING => 'Importing',
+            MetaAdsHistoryCoverage::STATUS_OUTSIDE_PROVIDER => 'Outside window',
+            default => 'Not imported',
+        };
+    }
+
+    private function historyStatusColor(CoreExternalResource $resource): string
+    {
+        $status = $this->historyCoverageFor($resource)?->status ?? MetaAdsHistoryCoverage::STATUS_NOT_IMPORTED;
+
+        return match ($status) {
+            MetaAdsHistoryCoverage::STATUS_COMPLETE => 'success',
+            MetaAdsHistoryCoverage::STATUS_PARTIAL => 'warning',
+            MetaAdsHistoryCoverage::STATUS_IMPORTING => 'info',
+            default => 'gray',
+        };
     }
 }

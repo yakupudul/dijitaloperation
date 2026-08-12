@@ -21,6 +21,12 @@ final class AsyncOperationTypes
 
     public const string META_ADS_AI_GUIDANCE = 'meta_ads_ai_guidance';
 
+    public const string META_HISTORY_IMPORT = 'meta_history_import';
+
+    public const string META_HISTORY_REFRESH = 'meta_history_refresh';
+
+    public const string META_HISTORY_GAP_ENRICH = 'meta_history_gap_enrich';
+
     /**
      * Orchestration module_id for Activity Center Runs that wrap background work.
      */
@@ -29,6 +35,8 @@ final class AsyncOperationTypes
     public const string MODULE_PUBLIC_DISCOVERY = 'public-discovery';
 
     public const string MODULE_SEO_REFRESH = 'seo-intelligence-refresh';
+
+    public const string MODULE_META_HISTORY = 'meta-history';
 
     /**
      * @return array<string, string>
@@ -43,6 +51,9 @@ final class AsyncOperationTypes
             self::WEBSITE_AI_GUIDANCE => 'Website AI guidance',
             self::GOOGLE_ADS_AI_GUIDANCE => 'Google Ads AI guidance',
             self::META_ADS_AI_GUIDANCE => 'Meta Ads AI guidance',
+            self::META_HISTORY_IMPORT => 'Meta history import',
+            self::META_HISTORY_REFRESH => 'Refresh Meta data',
+            self::META_HISTORY_GAP_ENRICH => 'Preparing Meta history',
         ];
     }
 

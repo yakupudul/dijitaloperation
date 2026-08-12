@@ -214,10 +214,20 @@ class ViewDigitalAsset extends ViewRecord
                         'Meta Ads AI guidance queued.',
                     );
                 }),
+            Action::make('refreshMetaData')
+                ->label('Refresh data')
+                ->icon(Heroicon::OutlinedArrowPath)
+                ->color('primary')
+                ->visible(fn (): bool => $this->isMetaAdsWorkspace())
+                ->requiresConfirmation()
+                ->modalHeading('Refresh Meta historical data')
+                ->modalDescription('Incrementally refreshes the bound Meta Ad Account (recent correction window through today) into the read-only historical store. Older history is preserved. Progress is in Activity.')
+                ->modalSubmitActionLabel('Refresh data')
+                ->action(fn (): mixed => $this->refreshMetaWorkspaceData()),
             Action::make('collectLiveData')
                 ->label('Collect live data')
                 ->icon(Heroicon::OutlinedCloudArrowDown)
-                ->color('primary')
+                ->color(fn (): string => $this->isMetaAdsWorkspace() ? 'gray' : 'primary')
                 ->visible(fn (): bool => $this->canCollectLiveBoundData())
                 ->requiresConfirmation()
                 ->modalHeading('Collect live provider data')

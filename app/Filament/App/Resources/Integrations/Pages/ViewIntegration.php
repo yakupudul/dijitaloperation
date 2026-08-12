@@ -3,7 +3,11 @@
 namespace App\Filament\App\Resources\Integrations\Pages;
 
 use App\Filament\App\Resources\Integrations\IntegrationResource;
+use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
+use App\Models\Run;
+use App\Models\User;
+use App\Services\Async\AsyncOperationService;
 use App\Services\Integrations\Anthropic\AnthropicConnectionService;
 use App\Services\Integrations\Anthropic\AnthropicCredentialResolver;
 use App\Services\Integrations\Anthropic\AnthropicProviderCredentialService;
@@ -25,6 +29,7 @@ use App\Services\Integrations\Meta\MetaResourceDiscoveryService;
 use App\Services\Integrations\OpenAi\OpenAiConnectionService;
 use App\Services\Integrations\OpenAi\OpenAiCredentialResolver;
 use App\Services\Integrations\OpenAi\OpenAiProviderCredentialService;
+use App\Support\Async\AsyncOperationTypes;
 use App\Support\Integrations\Anthropic\AnthropicAuthStatus;
 use App\Support\Integrations\DataForSeo\DataForSeoAuthStatus;
 use App\Support\Integrations\Gemini\GeminiAuthStatus;
@@ -42,12 +47,15 @@ use Filament\Actions\EditAction;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Infolists\Components\ViewEntry;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\Auth;
+use MoxDop\MetaAds\History\MetaHistoricalImportService;
+use MoxDop\MetaAds\Models\MetaAdsHistoryCoverage;
 
 class ViewIntegration extends ViewRecord
 {
@@ -967,6 +975,132 @@ class ViewIntegration extends ViewRecord
         return app(DataForSeoCredentialResolver::class)->isConfigured($this->freshProviderCredentialRecord());
     }
 
+    private function metaAvailableAdAccountCount(): int
+    {
+        /** @var CoreIntegration $record */
+        $record = $this->getRecord();
+
+        return CoreExternalResource::query()
+            ->where('integration_id', $record->id)
+            ->where('resource_type', MetaHistoricalImportService::RESOURCE_TYPE)
+            ->where('status', CoreExternalResource::STATUS_AVAILABLE)
+            ->count();
+    }
+
+    private function canImportMetaHistory(): bool
+    {
+        return app(MetaCredentialResolver::class)->isConfigured($this->freshProviderCredentialRecord())
+            && $this->metaAvailableAdAccountCount() > 0
+            && $this->activeMetaHistoryImportRun() === null;
+    }
+
+    private function activeMetaHistoryImportRun(): ?Run
+    {
+        /** @var CoreIntegration $record */
+        $record = $this->getRecord();
+
+        return app(AsyncOperationService::class)->activeRunForIntegration(
+            (int) $record->id,
+            AsyncOperationTypes::META_HISTORY_IMPORT,
+        );
+    }
+
+    /**
+     * Aggregate historical-data readiness across this Integration's Ad Accounts.
+     *
+     * @return array{label: string, color: string, from: ?string, through: ?string, imported_accounts: int, total_accounts: int}
+     */
+    private function metaHistoryStatus(): array
+    {
+        /** @var CoreIntegration $record */
+        $record = $this->getRecord();
+
+        $total = $this->metaAvailableAdAccountCount();
+
+        if ($this->activeMetaHistoryImportRun() !== null) {
+            return [
+                'label' => 'Importing',
+                'color' => 'info',
+                'from' => null,
+                'through' => null,
+                'imported_accounts' => 0,
+                'total_accounts' => $total,
+            ];
+        }
+
+        $resourceIds = CoreExternalResource::query()
+            ->where('integration_id', $record->id)
+            ->where('resource_type', MetaHistoricalImportService::RESOURCE_TYPE)
+            ->where('status', CoreExternalResource::STATUS_AVAILABLE)
+            ->pluck('id')
+            ->all();
+
+        if ($resourceIds === []) {
+            return [
+                'label' => 'Not imported',
+                'color' => 'gray',
+                'from' => null,
+                'through' => null,
+                'imported_accounts' => 0,
+                'total_accounts' => 0,
+            ];
+        }
+
+        $coverage = MetaAdsHistoryCoverage::query()
+            ->whereIn('core_external_resource_id', $resourceIds)
+            ->where('data_layer', MetaAdsHistoryCoverage::LAYER_DAILY_FACTS)
+            ->get();
+
+        if ($coverage->contains(fn (MetaAdsHistoryCoverage $row): bool => $row->status === MetaAdsHistoryCoverage::STATUS_IMPORTING)) {
+            return [
+                'label' => 'Importing',
+                'color' => 'info',
+                'from' => null,
+                'through' => null,
+                'imported_accounts' => 0,
+                'total_accounts' => $total,
+            ];
+        }
+
+        $importedRows = $coverage->filter(fn (MetaAdsHistoryCoverage $row): bool => in_array(
+            $row->status,
+            [MetaAdsHistoryCoverage::STATUS_COMPLETE, MetaAdsHistoryCoverage::STATUS_PARTIAL],
+            true,
+        ));
+
+        $importedAccounts = $importedRows->count();
+
+        if ($importedAccounts === 0) {
+            return [
+                'label' => 'Not imported',
+                'color' => 'gray',
+                'from' => null,
+                'through' => null,
+                'imported_accounts' => 0,
+                'total_accounts' => $total,
+            ];
+        }
+
+        $from = $importedRows->map(fn (MetaAdsHistoryCoverage $row): ?string => $row->start_date?->toDateString())
+            ->filter()
+            ->min();
+        $through = $importedRows->map(fn (MetaAdsHistoryCoverage $row): ?string => $row->end_date?->toDateString())
+            ->filter()
+            ->max();
+
+        $allComplete = $importedAccounts === $total
+            && $importedRows->every(fn (MetaAdsHistoryCoverage $row): bool => $row->status === MetaAdsHistoryCoverage::STATUS_COMPLETE);
+
+        return [
+            'label' => $allComplete ? 'Ready' : 'Partial',
+            'color' => $allComplete ? 'success' : 'warning',
+            'from' => $from,
+            'through' => $through,
+            'imported_accounts' => $importedAccounts,
+            'total_accounts' => $total,
+        ];
+    }
+
     /**
      * @return array<int, Action|ActionGroup>
      */
@@ -1231,6 +1365,13 @@ class ViewIntegration extends ViewRecord
                     TextEntry::make('config.last_resource_refresh_at')
                         ->label('Last resource discovery')
                         ->placeholder('—'),
+                    TextEntry::make('meta_business_count')
+                        ->label('Businesses discovered')
+                        ->state(function () use ($record): string {
+                            $count = data_get($record->config, 'discovery_summary.paths.me_businesses.count');
+
+                            return is_numeric($count) ? (string) (int) $count : '—';
+                        }),
                     TextEntry::make('meta_discovery_count')
                         ->label('Discovered Ad Accounts')
                         ->state(function () use ($record): string {
@@ -1238,6 +1379,37 @@ class ViewIntegration extends ViewRecord
 
                             return is_numeric($count) ? (string) (int) $count : '—';
                         }),
+                ])
+                ->columns(2),
+            Section::make('Historical data')
+                ->description('Imports all discovered Ad Accounts into the read-only historical store. Does not bind brands. Progress appears in Activity.')
+                ->schema([
+                    ViewEntry::make('meta_history_progress')
+                        ->hiddenLabel()
+                        ->view('filament.app.integrations.meta-history-progress')
+                        ->viewData(fn (): array => ['run' => $this->activeMetaHistoryImportRun()])
+                        ->visible(fn (): bool => $this->activeMetaHistoryImportRun() !== null)
+                        ->columnSpanFull(),
+                    TextEntry::make('meta_history_status')
+                        ->label('Historical data status')
+                        ->badge()
+                        ->state(fn (): string => $this->metaHistoryStatus()['label'])
+                        ->color(fn (): string => $this->metaHistoryStatus()['color']),
+                    TextEntry::make('meta_history_accounts')
+                        ->label('Accounts imported')
+                        ->state(function (): string {
+                            $summary = $this->metaHistoryStatus();
+
+                            return $summary['imported_accounts'].' / '.$summary['total_accounts'];
+                        }),
+                    TextEntry::make('meta_history_from')
+                        ->label('History available from')
+                        ->state(fn (): ?string => $this->metaHistoryStatus()['from'])
+                        ->placeholder('—'),
+                    TextEntry::make('meta_history_through')
+                        ->label('History available through')
+                        ->state(fn (): ?string => $this->metaHistoryStatus()['through'])
+                        ->placeholder('—'),
                 ])
                 ->columns(2),
             Section::make('Setup help')
@@ -1338,6 +1510,41 @@ class ViewIntegration extends ViewRecord
                         ->title($result['ok'] ? 'Meta resources discovered' : 'Discovery issue')
                         ->body($result['message'])
                         ->{$result['ok'] ? 'success' : 'warning'}()
+                        ->send();
+                    $this->refreshIntegrationRecord(['providerCredential', 'externalResources']);
+                }),
+            Action::make('importMetaHistory')
+                ->label('Import Meta history')
+                ->icon(Heroicon::OutlinedCircleStack)
+                ->color('primary')
+                ->requiresConfirmation()
+                ->modalHeading('Import Meta history')
+                ->modalDescription('Imports history for all discovered Meta Ad Accounts into the read-only historical store. This does not bind any brand or Digital Asset, performs no Meta writes, and may take a while for large accounts. Progress appears in Activity.')
+                ->modalSubmitActionLabel('Import history')
+                ->disabled(fn (): bool => ! $this->canImportMetaHistory())
+                ->tooltip(function (): ?string {
+                    if (! app(MetaCredentialResolver::class)->isConfigured($this->freshProviderCredentialRecord())) {
+                        return 'Configure a Meta access token and discover Ad Accounts first.';
+                    }
+                    if ($this->metaAvailableAdAccountCount() === 0) {
+                        return 'Discover Meta Ad Accounts before importing history.';
+                    }
+                    if ($this->activeMetaHistoryImportRun() !== null) {
+                        return 'A Meta history import is already running. Follow it in Activity.';
+                    }
+
+                    return null;
+                })
+                ->action(function () use ($record): void {
+                    $user = Auth::user();
+                    $result = app(AsyncOperationService::class)->queueMetaHistoryImport(
+                        $record,
+                        $user instanceof User ? $user : null,
+                    );
+                    Notification::make()
+                        ->title(($result['queued'] ?? false) ? 'Meta history import queued' : 'Import not started')
+                        ->body($result['message'] ?? 'Unable to queue import.')
+                        ->{($result['queued'] ?? false) ? 'success' : 'warning'}()
                         ->send();
                     $this->refreshIntegrationRecord(['providerCredential', 'externalResources']);
                 }),

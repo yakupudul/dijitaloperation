@@ -9,3 +9,4 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('async:mark-stale-runs')->everyFiveMinutes();
+Schedule::command('meta-ads:incremental-sync')->hourly();
