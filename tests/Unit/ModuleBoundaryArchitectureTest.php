@@ -74,7 +74,15 @@ class ModuleBoundaryArchitectureTest extends TestCase
         'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/MetaAdsConnectionsRelationManager.php',
         'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/MetaAdsActivityRelationManager.php',
         'app/Filament/App/Concerns/InteractsWithMetaExpertWorkspace.php',
+        'app/Filament/App/Resources/Integrations/Pages/ViewIntegration.php',
+        'app/Filament/App/Resources/Integrations/RelationManagers/ExternalResourcesRelationManager.php',
         'app/Jobs/Async/MetaAdsAiGuidanceJob.php',
+        'app/Jobs/Async/MetaHistoricalImportJob.php',
+        'app/Jobs/Async/MetaHistoricalAccountImportJob.php',
+        'app/Jobs/Async/MetaHistoricalImportFinalizer.php',
+        'app/Jobs/Async/MetaHistoricalRefreshJob.php',
+        'app/Jobs/Async/MetaHistoricalGapEnrichJob.php',
+        'app/Console/Commands/MetaAdsIncrementalSyncCommand.php',
     ];
 
     #[Test]
