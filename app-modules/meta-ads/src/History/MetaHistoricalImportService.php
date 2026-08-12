@@ -290,6 +290,18 @@ final class MetaHistoricalImportService
     /**
      * @param  array{start: string, end: string}  $chunk
      * @return list<array<string, mixed>>
+     *
+     * TODO(meta-async-insights): For very large daily-insight windows Meta recommends
+     * the asynchronous Insights report flow — POST /{ad-account}/insights to create a
+     * report_run, poll GET /{report_run_id} until `async_status` is
+     * "Job Completed", then page GET /{report_run_id}/insights. That path avoids the
+     * synchronous timeout/#100 pagination limits on huge accounts. It is intentionally
+     * NOT implemented here because it requires a POST (write verb): MetaApiClient is
+     * GET-only by design (ADR — no external write actions), and enabling POST would
+     * expand the surface and permissions beyond the read-only import contract. The
+     * per-account chunking + retry below keeps synchronous GET pagination correct for
+     * the supported history window. Revisit only if we introduce a vetted, read-scoped
+     * async-report client that still honors the no-write constraint.
      */
     private function fetchDailyInsights(CoreIntegration $integration, string $actId, string $level, array $chunk): array
     {

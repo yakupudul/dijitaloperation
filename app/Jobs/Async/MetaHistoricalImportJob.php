@@ -9,6 +9,7 @@ use App\Services\Integrations\Meta\MetaResourceDiscoveryService;
 use App\Support\Async\AsyncFailureClassifier;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use MoxDop\MetaAds\History\MetaHistoricalImportProgress;
 use MoxDop\MetaAds\History\MetaHistoricalImportService;
 use Throwable;
 
@@ -32,6 +33,7 @@ class MetaHistoricalImportJob implements ShouldQueue
         AsyncOperationService $async,
         MetaHistoricalImportService $import,
         MetaResourceDiscoveryService $discovery,
+        MetaHistoricalImportProgress $progress,
     ): void {
         $run = Run::query()->find($this->runId);
         if ($run === null) {
@@ -58,7 +60,11 @@ class MetaHistoricalImportJob implements ShouldQueue
                 })
                 ->values();
 
-            $accountsTotal = $accounts->count();
+            // Authoritative denominator: available meta_ads resources for THIS
+            // Integration. accounts_total MUST equal this so operator-facing
+            // "N / M accounts" claims can never contradict the discovered set.
+            $progress->ensureStatesForDiscovered($integration, $run->fresh() ?? $run);
+            $accountsTotal = $progress->authoritativeDiscoveredCount($integration);
 
             $window = array_filter([
                 'from' => data_get($run->metadata, 'import_from'),
@@ -88,6 +94,10 @@ class MetaHistoricalImportJob implements ShouldQueue
 
             $parentRunId = $this->runId;
             foreach ($accounts as $index => $resource) {
+                // Reset every discovered account to `queued` for this run so the
+                // authoritative state table reflects the fresh orchestration.
+                $progress->markQueued($resource, $run->fresh() ?? $run);
+
                 MetaHistoricalAccountImportJob::dispatch(
                     parentRunId: $parentRunId,
                     externalResourceId: (int) $resource->id,

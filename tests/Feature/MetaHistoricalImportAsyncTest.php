@@ -25,6 +25,7 @@ use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Sleep;
+use MoxDop\MetaAds\History\MetaHistoricalImportProgress;
 use MoxDop\MetaAds\History\MetaHistoricalImportService;
 use MoxDop\MetaAds\History\MetaHistoricalRetry;
 use MoxDop\MetaAds\Models\MetaAdsDailyFact;
@@ -309,6 +310,7 @@ class MetaHistoricalImportAsyncTest extends TestCase
             app(AsyncOperationService::class),
             app(MetaHistoricalImportService::class),
             app(MetaResourceDiscoveryService::class),
+            app(MetaHistoricalImportProgress::class),
         );
 
         // Orchestrator dispatches per-account jobs via Bus::batch (sync in tests).
@@ -329,6 +331,7 @@ class MetaHistoricalImportAsyncTest extends TestCase
                 ])->handle(
                     app(AsyncOperationService::class),
                     app(MetaHistoricalImportService::class),
+                    app(MetaHistoricalImportProgress::class),
                 );
             }
         }

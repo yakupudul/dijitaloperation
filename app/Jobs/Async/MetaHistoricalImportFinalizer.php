@@ -7,16 +7,26 @@ use App\Models\CoreIntegration;
 use App\Models\Run;
 use App\Services\Async\AsyncOperationService;
 use App\Support\Async\AsyncFailureClassifier;
+use MoxDop\MetaAds\History\MetaHistoricalImportProgress;
+use MoxDop\MetaAds\Models\MetaAdsAccountImportState;
 use MoxDop\MetaAds\Models\MetaAdsDailyAction;
 use MoxDop\MetaAds\Models\MetaAdsDailyFact;
 use MoxDop\MetaAds\Models\MetaAdsEntity;
 
 /**
  * Finalizes a parent Meta history import Run after per-account jobs finish.
+ *
+ * The overall outcome and the "N / M accounts ready" claim are derived from the
+ * authoritative {@see MetaAdsAccountImportState} rows, not
+ * from potentially-drifted Run metadata — so ready count / discovered count always
+ * match the DB.
  */
 final class MetaHistoricalImportFinalizer
 {
-    public function __construct(private readonly AsyncOperationService $async) {}
+    public function __construct(
+        private readonly AsyncOperationService $async,
+        private readonly MetaHistoricalImportProgress $progress,
+    ) {}
 
     public function finalize(Run $run): void
     {
@@ -24,52 +34,51 @@ final class MetaHistoricalImportFinalizer
             return;
         }
 
-        $meta = $run->metadata ?? [];
-        $accountResults = is_array($meta['account_results'] ?? null) ? $meta['account_results'] : [];
-        $accountsTotal = (int) ($meta['accounts_total'] ?? count($accountResults));
-
-        if ($accountResults === [] || count($accountResults) < $accountsTotal) {
+        $integration = CoreIntegration::query()->find($run->core_integration_id);
+        if ($integration === null) {
             return;
         }
 
-        $statuses = collect($accountResults)->map(fn (array $r): string => (string) ($r['status'] ?? 'failed'));
-        $anyFailed = $statuses->contains('failed');
-        $anyPartial = $statuses->contains('partial');
-        $successCount = $statuses->filter(fn (string $s): bool => in_array($s, ['complete', 'completed', 'partial'], true))->count();
-        $hardSuccess = $statuses->filter(fn (string $s): bool => in_array($s, ['complete', 'completed'], true))->count();
+        // Only finalize once every discovered account has reached a terminal state.
+        if (! $this->progress->allAccountsTerminal($integration)) {
+            return;
+        }
 
-        [$final, $label] = match (true) {
-            $hardSuccess === 0 && $successCount === 0 => ['failed', 'Meta history import failed'],
-            $anyFailed || $anyPartial || $hardSuccess < $accountsTotal => ['partial', 'Meta history import finished with gaps'],
-            default => ['completed', 'Meta history import complete'],
-        };
+        $meta = $run->metadata ?? [];
+        $accountResults = is_array($meta['account_results'] ?? null) ? $meta['account_results'] : [];
 
-        $integration = CoreIntegration::query()->find($run->core_integration_id);
-        $resourceIds = collect($accountResults)
-            ->keys()
-            ->map(function (string $externalId) use ($run): ?int {
-                return CoreExternalResource::query()
-                    ->where('integration_id', $run->core_integration_id)
-                    ->where('external_id', $externalId)
-                    ->value('id');
-            })
-            ->filter()
-            ->values()
+        $outcome = $this->progress->deriveRunOutcome($integration);
+        $final = $outcome['status'];
+        $label = $outcome['label'];
+        $discovered = $outcome['discovered'];
+        $summaryRows = $this->progress->overallSummary($integration);
+
+        $resourceIds = CoreExternalResource::query()
+            ->where('integration_id', $integration->id)
+            ->where('resource_type', MetaHistoricalImportProgress::RESOURCE_TYPE)
+            ->where('status', CoreExternalResource::STATUS_AVAILABLE)
+            ->pluck('id')
+            ->map(fn (mixed $id): int => (int) $id)
             ->all();
 
         $summary = $this->buildSummary($resourceIds);
+        $importedCount = $summaryRows['ready'] + $summaryRows['partial'];
 
         $this->async->markFinished($run, $final, $label, [
             'result_summary' => sprintf(
                 '%d of %d Ad Account%s imported (%s daily facts, %s entities). History from %s through %s.',
-                $successCount,
-                $accountsTotal,
-                $accountsTotal === 1 ? '' : 's',
+                $importedCount,
+                $discovered,
+                $discovered === 1 ? '' : 's',
                 number_format((float) $summary['daily_facts']),
                 number_format((float) $summary['entities']),
                 $summary['earliest'] ?? '—',
                 $summary['latest'] ?? '—',
             ),
+            'accounts_total' => $discovered,
+            'accounts_done' => $this->progress->terminalCount($integration),
+            'accounts_ready' => $summaryRows['ready'],
+            'accounts_ready_label' => $summaryRows['accounts_ready_label'],
             'account_results' => $accountResults,
             'history_summary' => $summary,
             'failure_category' => $final === 'failed' ? AsyncFailureClassifier::VALIDATION : null,
