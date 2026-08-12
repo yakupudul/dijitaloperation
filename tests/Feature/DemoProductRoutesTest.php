@@ -144,16 +144,19 @@ class DemoProductRoutesTest extends TestCase
             ->assertSee('Search terms');
         $this->get(route('demo.website'))
             ->assertOk()
-            ->assertSee('Website')
-            ->assertSee('How is organic search demand moving?');
-        $this->get(route('demo.website', ['tab' => 'technical']))
+            ->assertSee('Atlas Dental Website')
+            ->assertSee('Needs attention');
+        $this->get(route('demo.website', ['tab' => 'health']))
             ->assertOk()
-            ->assertSee('Critical')
-            ->assertSee('Warnings');
+            ->assertSee('Website health')
+            ->assertSee('checks evaluated');
         $this->get(route('demo.website', ['tab' => 'performance']))
             ->assertOk()
             ->assertSee('FIELD vitals')
             ->assertSee('LAB vitals');
+        $this->get(route('demo.website', ['tab' => 'technical']))
+            ->assertOk()
+            ->assertSee('Website health');
         $this->get(route('demo.gbp'))
             ->assertOk()
             ->assertSee('Google Business Profile');
@@ -246,10 +249,10 @@ class DemoProductRoutesTest extends TestCase
     public function test_website_severity_and_gbp_keyword_filters_work(): void
     {
         Livewire::test(WebsiteOverviewPage::class)
-            ->set('tab', 'technical')
+            ->set('tab', 'health')
             ->call('setSeverity', 'high')
-            ->assertSee('Primary landing page mobile LCP')
-            ->assertDontSee('Schema opportunities');
+            ->assertSee('27 service pages have no self-referencing canonical')
+            ->assertDontSee('Missing Content-Security-Policy header');
 
         Livewire::test(GbpOverviewPage::class)
             ->set('tab', 'queries')
