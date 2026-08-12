@@ -68,8 +68,12 @@ class ModuleBoundaryArchitectureTest extends TestCase
         'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/Pages/ViewDigitalAsset.php',
         'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/MetaAdsPerformanceRelationManager.php',
         'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/MetaAdsIntelligenceRelationManager.php',
+        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/MetaAdsCampaignsRelationManager.php',
+        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/MetaAdsCreativesRelationManager.php',
+        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/MetaAdsInsightsRelationManager.php',
         'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/MetaAdsConnectionsRelationManager.php',
         'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/MetaAdsActivityRelationManager.php',
+        'app/Filament/App/Concerns/InteractsWithMetaExpertWorkspace.php',
         'app/Jobs/Async/MetaAdsAiGuidanceJob.php',
     ];
 

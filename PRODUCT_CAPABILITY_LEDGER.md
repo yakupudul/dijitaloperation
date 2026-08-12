@@ -1,7 +1,7 @@
 # PRODUCT_CAPABILITY_LEDGER
 
 > **Canonical product capability truth table for MoxDOP.**  
-> Updated for Async Operations + Activity Center milestone (branch work; merge pending).  
+> Updated after Async Operations #121 merge + Meta Ads Expert Workspace implementation (operator visual UAT required).  
 > Do **not** treat “IMPLEMENTED V1” in older docs as Definition-of-Done **DONE**.  
 > Persistent product direction: `PROJECT_MEMORY.md`.  
 > Async operator standard: `OPERATOR_ASYNC_EXECUTION.md`.
@@ -54,9 +54,9 @@
 | Meta central Integration | YES | YES | YES | YES | NO | UAT PASS | Resource refresh still sync | Agency Meta Integration; product docs claim real UAT PASS |
 | Meta resource discovery | YES | YES | YES | YES | NO | UAT PASS | Discovery sync | Ad Account ExternalResources discovered |
 | Meta binding | YES | YES | YES | YES | N/A | UAT PASS | Collect live data hidden without collector | Meta Ads Digital Asset ↔ AssetBinding |
-| Meta Ads Intelligence | YES | YES | YES | YES (interim specialist UX) | YES | **UAT PASS / ACCEPTED — NOT DONE** | Collect + AI guidance **queued** (async foundation). Professional Meta Expert Workspace **NOT IMPLEMENTED**. Real async Meta collect UAT tracked on Async Operations PR. | Read-only Intelligence engine on main after PR #119. Ads Manager spot-check PASS retained. |
-| Professional Operator Workspace (Meta Ads) | NO | NO | NO | NO | N/A | PLANNED / BLUEPRINTED | Blueprint only — no final dashboard/charts/filters built; depends on Operational Data Foundation after async | Canonical blueprints: `docs/product/OPERATOR_WORKSPACE_DESIGN_STANDARD.md` + `docs/product/META_ADS_EXPERT_WORKSPACE.md` |
-| Async execution | YES | YES | YES (Cloud Meta async smoke) | YES | YES | **TESTED / ACCEPTED** | Cancellation future; cross-asset still sync; persistent public host **deferred** (templates only) | Async implementation accepted on #121 (queue + Activity + Cloud Meta smoke). Persistent deployment ≠ required for this acceptance. |
+| Meta Ads Intelligence | YES | YES | YES | YES (interim specialist UX → Expert Workspace PR) | YES | **UAT PASS / ACCEPTED — NOT DONE** | Collect + AI guidance **queued**. Professional Meta Expert Workspace is separate capability below. | Read-only Intelligence engine on main after PR #119. Ads Manager spot-check PASS retained. |
+| Professional Operator Workspace (Meta Ads) | YES | YES | NO | YES | YES | **IMPLEMENTED / TESTED / USER UAT REQUIRED** | **Not DONE** until explicit operator visual acceptance. No Historical Store. Persistent UAT host not deployed. | Primary nav Overview / Campaigns / Creatives / Insights; Connection + Sync history secondary. Honest selected-period + async analyze. Bounded daily trend Evidence only. |
+| Async execution | YES | YES | YES (Cloud Meta async smoke) | YES | YES | **DONE (implementation) / MERGED** | Cancellation future; cross-asset still sync; persistent public host **deferred** (templates only — not deployed) | PR #121 merged to main (`f6818f0`). Async implementation acceptance ≠ persistent deployment acceptance. |
 | Historical performance memory | PARTIAL | PARTIAL | NO | PARTIAL | NO | PARTIAL | No dedicated historical warehouse / backfill / incremental store | Run/Evidence history exists; Historical Performance Store **PLANNED** |
 | Operational Taxonomy | NO | NO | NO | NO | N/A | PLANNED | Do not invent taxonomy module yet | Direction in `PROJECT_MEMORY.md` |
 | Marketing Initiative | NO | NO | NO | NO | N/A | PLANNED | No model/service on main | Brand-level commercial effort grouping — future |

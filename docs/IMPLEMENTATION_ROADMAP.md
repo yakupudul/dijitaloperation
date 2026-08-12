@@ -86,7 +86,7 @@ External research registry: `docs/research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.
 Discovery Intelligence V1: **IMPLEMENTED** (`docs/product/DISCOVERY_INTELLIGENCE.md`).  
 Meta Ads Intelligence + Analyst V1: **IMPLEMENTED** (`docs/product/meta-ads/META_ADS_INTELLIGENCE.md`).  
 Async Operations + Activity Center: **ACCEPTED (implementation)**; persistent UAT **DEFERRED**.  
-Meta Ads Expert Workspace: **NEXT**.  
+Meta Ads Expert Workspace: **IMPLEMENTING**.  
 AI Router + Agent/Skill V1: **IMPLEMENTED**. Outcome Loop V1: **IMPLEMENTED**. Capability Router / Playbooks / Learned Memory / RAG: **PLANNED**.
 
 

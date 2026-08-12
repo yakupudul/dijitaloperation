@@ -15,5 +15,8 @@ interface CollectsBoundProviderData
 
     public function moduleId(): string;
 
-    public function collect(CoreAssetBinding $binding): Run;
+    /**
+     * @param  array<string, mixed>  $options  Optional collection overrides (e.g. selected period)
+     */
+    public function collect(CoreAssetBinding $binding, array $options = []): Run;
 }

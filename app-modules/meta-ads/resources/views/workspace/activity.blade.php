@@ -5,8 +5,12 @@
 <div class="mox-website-workspace">
     <div class="mox-section-head">
         <div>
-            <h3 class="mox-section-title">Activity</h3>
-            <p class="mox-section-sub">Collections and Meta Ads AI Guidance provenance (Core Run remains canonical).</p>
+            <h3 class="mox-section-title">Sync history</h3>
+            <p class="mox-section-sub">
+                Local Meta collection / AI history for this account.
+                Global progress lives in
+                <a href="{{ \App\Filament\App\Resources\Runs\RunResource::getUrl('index') }}">Activity</a>.
+            </p>
         </div>
     </div>
 

@@ -51,7 +51,7 @@ final class Ga4BoundCollector implements CollectsBoundProviderData
         return self::MODULE_ID;
     }
 
-    public function collect(CoreAssetBinding $binding): Run
+    public function collect(CoreAssetBinding $binding, array $options = []): Run
     {
         $ctx = $this->guard->assertCollectable($binding, self::CAPABILITY);
         $asset = $ctx['asset'];

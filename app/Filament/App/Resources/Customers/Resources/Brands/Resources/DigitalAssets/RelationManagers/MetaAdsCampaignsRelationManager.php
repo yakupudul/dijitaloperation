@@ -2,6 +2,7 @@
 
 namespace App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers;
 
+use App\Filament\App\Concerns\InteractsWithMetaExpertWorkspace;
 use App\Models\DigitalAsset;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\View;
@@ -10,11 +11,13 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
 use MoxDop\MetaAds\Workspace\MetaAdsWorkspaceData;
 
-class MetaAdsActivityRelationManager extends RelationManager
+class MetaAdsCampaignsRelationManager extends RelationManager
 {
+    use InteractsWithMetaExpertWorkspace;
+
     protected static string $relationship = 'runs';
 
-    protected static ?string $title = 'Sync history';
+    protected static ?string $title = 'Campaigns';
 
     protected static bool $isLazy = false;
 
@@ -29,7 +32,7 @@ class MetaAdsActivityRelationManager extends RelationManager
         $asset = $this->getOwnerRecord();
 
         return $schema->components([
-            View::make('meta-ads::workspace.activity')
+            View::make('meta-ads::workspace.campaigns')
                 ->viewData([
                     'data' => app(MetaAdsWorkspaceData::class)->for($asset),
                 ]),

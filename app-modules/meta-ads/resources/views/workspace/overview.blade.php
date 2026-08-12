@@ -4,22 +4,26 @@
     /** @var array<string, mixed> $data */
     $data = $data ?? [];
     $identity = $data['account_identity'] ?? [];
-    $coverage = $data['data_coverage'] ?? [];
-    $workspaceState = $data['workspace_state'] ?? 'no_connection';
+    $health = $data['data_health'] ?? [];
     $kpis = $data['kpis'] ?? [];
-    $primary = $data['primary_result'] ?? null;
-    $findingsOpen = $data['findings']['open'] ?? collect();
-    $findingGroups = $data['finding_groups'] ?? [];
-    $recommendations = $data['recommendations'] ?? collect();
-    $campaigns = $data['campaigns'] ?? [];
-    $caveats = $data['caveats'] ?? [];
+    $resultMix = $data['result_mix'] ?? null;
+    $trend = $data['trend'] ?? ['available' => false, 'values' => []];
+    $flow = $data['delivery_flow'] ?? ['stages' => []];
+    $attention = $data['attention'] ?? ['items' => [], 'empty_label' => 'No high-confidence issues detected for this period.'];
+    $snapshot = $data['campaign_snapshot'] ?? [];
     $comparison = $data['comparison'] ?? ['available' => false];
+    $needsAnalyze = (bool) ($data['needs_analyze'] ?? false);
+    $periodMatched = (bool) ($data['period_matched'] ?? false);
+    $async = $data['async_collection'] ?? null;
+    $workspaceState = $data['workspace_state'] ?? 'no_connection';
+    $brandName = $data['asset']->brand->name ?? null;
 
     $formatKpi = function (array $kpi) {
         $value = $kpi['value'] ?? null;
         if (! is_numeric($value)) {
             return '—';
         }
+
         return match ($kpi['type'] ?? 'count') {
             'percentage_point' => MetaPercentage::format($value),
             'currency' => number_format((float) $value, 2),
@@ -28,211 +32,222 @@
         };
     };
 
-    $coverageLabels = [
-        'account' => 'Account data',
-        'campaigns' => 'Campaign data',
-        'adsets' => 'Ad Set data',
-        'ads' => 'Ad data',
-        'creative' => 'Creative metadata',
-        'attribution_context' => 'Attribution context',
-        'result_signal' => 'Result signal',
-        'business_validation' => 'Business validation',
-    ];
-
-    $partialReasons = $data['partial_reasons'] ?? [];
-
-    $stateLabels = [
-        'no_connection' => 'No Meta Ad Account connected yet.',
-        'no_data' => 'Connected — no data collected yet. Run Collect live data.',
-        'collection_failed' => 'Last collection failed. Try Collect live data again.',
-        'collection_partial' => $partialReasons !== []
-            ? 'Latest collection is partial: '.implode('; ', $partialReasons)
-            : 'Latest collection is partial — see Data coverage / collection stages for the incomplete area.',
-        'data_available' => null,
-    ];
+    $deltaClass = function (?string $sentiment): string {
+        return match ($sentiment) {
+            'positive' => 'mox-kpi-card__delta--up',
+            'negative' => 'mox-kpi-card__delta--down',
+            'neutral', 'flat' => 'mox-kpi-card__delta--flat',
+            default => 'mox-kpi-card__delta--flat',
+        };
+    };
 @endphp
 
-<div class="mox-website-workspace mox-meta-workspace">
-    <div class="mox-section-head">
+<div class="mox-website-workspace mox-meta-workspace mox-meta-expert">
+    <div class="mox-meta-context">
         <div>
+            <p class="mox-meta-context__brand">{{ $brandName ?? 'Brand' }}</p>
             <h3 class="mox-section-title">
                 {{ $identity['name'] ?? 'Meta Ad Account' }}
                 @if (! empty($identity['external_id']))
-                    <span class="mox-muted">({{ $identity['external_id'] }})</span>
+                    <span class="mox-meta-id">{{ $identity['external_id'] }}</span>
                 @endif
             </h3>
             <p class="mox-section-sub">
                 @if (! empty($identity['business_name']))
-                    Meta Business: {{ $identity['business_name'] }} ·
+                    Meta Business {{ $identity['business_name'] }} ·
                 @endif
                 @if (! empty($identity['currency']))
-                    Currency {{ $identity['currency'] }} ·
+                    {{ $identity['currency'] }} ·
                 @endif
-                @if (! empty($identity['timezone']))
-                    Timezone {{ $identity['timezone'] }} ·
+                {{ $data['period_label'] ?? '' }}
+                @if (! empty($data['last_updated_human']))
+                    · Updated {{ $data['last_updated_human'] }}
                 @endif
-                {{ $data['period_label'] ?? 'Last 28 complete days vs previous period' }}
             </p>
         </div>
-        @if (! empty($data['last_updated_human']))
-            <div class="mox-meta-pill">Updated {{ $data['last_updated_human'] }}</div>
-        @endif
-    </div>
-
-    @if (($stateLabels[$workspaceState] ?? null) !== null)
-        <div class="mox-empty">{{ $stateLabels[$workspaceState] }}</div>
-    @endif
-
-    <section class="mox-panel">
-        <div class="mox-panel__head"><h4>Data coverage</h4></div>
-        <div class="mox-kpi-grid">
-            @foreach ($coverageLabels as $key => $label)
-                <div class="mox-kpi">
-                    <div class="mox-kpi__label">{{ $label }}</div>
-                    <div class="mox-kpi__value">{{ $coverage[$key] ?? 'Unknown' }}</div>
-                </div>
-            @endforeach
-        </div>
-        @if (! empty($data['collection_stages']) && is_array($data['collection_stages']))
-            <details class="mox-muted" style="margin-top:0.75rem;">
-                <summary>Collection stages</summary>
-                <ul>
-                    @foreach ($data['collection_stages'] as $stage => $info)
-                        <li>
-                            {{ $stage }}:
-                            {{ is_array($info) ? ($info['status'] ?? 'unknown') : 'unknown' }}
-                            @if (is_array($info) && isset($info['record_count']))
-                                · records {{ $info['record_count'] }}
-                            @endif
-                            @if (is_array($info) && ! empty($info['truncated']))
-                                · truncated
-                            @endif
-                            @if (is_array($info) && ! empty($info['error_category']))
-                                · {{ $info['error_category'] }}
-                            @endif
-                            @if (is_array($info) && ! empty($info['error_safe']))
-                                · {{ $info['error_safe'] }}
-                            @endif
-                        </li>
-                    @endforeach
-                </ul>
-            </details>
-        @endif
-    </section>
-
-    @if ($caveats !== [])
-        <p class="mox-muted">{{ implode(' · ', $caveats) }}</p>
-    @endif
-
-    <div class="mox-kpi-grid">
-        @forelse ($kpis as $kpi)
-            <div class="mox-kpi">
-                <div class="mox-kpi__label">{{ $kpi['label'] ?? '' }}</div>
-                <div class="mox-kpi__value">{{ $formatKpi($kpi) }}</div>
-                @if (($comparison['available'] ?? false) && is_numeric($kpi['delta_percent'] ?? null))
-                    <div class="mox-muted">{{ number_format((float) $kpi['delta_percent'], 1) }}% vs prior</div>
-                @endif
-            </div>
-        @empty
-            <div class="mox-empty">No Meta Ads performance Evidence yet. Collect live data (read-only).</div>
-        @endforelse
-    </div>
-
-    @if (! ($comparison['available'] ?? false) && $kpis !== [])
-        <p class="mox-muted">{{ $comparison['reason'] ?? 'No complete prior period is available yet — comparison deltas are hidden until one exists.' }}</p>
-    @endif
-
-    <section class="mox-panel">
-        <div class="mox-panel__head"><h4>Result mix (platform)</h4></div>
-        @php
-            $resultMix = $data['result_mix'] ?? null;
-            $rawSignals = $data['raw_result_signals'] ?? [];
-        @endphp
-        @if ($resultMix === null)
-            <div class="mox-empty mox-empty--compact">No account Evidence yet.</div>
-        @elseif (($resultMix['items'] ?? []) === [])
-            <p class="mox-muted">No nonzero Meta-attributed result categories observed in this period.</p>
-            @if (($primary['status'] ?? null) === 'deferred')
-                <p class="mox-muted">Account-level primary result stays deferred when campaigns have heterogeneous objectives — use Result Mix and campaign rows instead of one forced total.</p>
+        <div class="mox-meta-context__actions">
+            <button
+                type="button"
+                class="mox-meta-health mox-meta-health--{{ $health['tone'] ?? 'muted' }}"
+                x-data
+                x-on:click="$dispatch('open-modal', { id: 'meta-data-health' })"
+            >
+                {{ $health['label'] ?? 'Data Health' }}
+            </button>
+            @if ($async)
+                <a href="{{ \App\Filament\App\Resources\Runs\RunResource::getUrl('index') }}" class="mox-meta-pill mox-meta-pill--link">
+                    Collection running · View activity
+                </a>
             @endif
-        @else
-            <div class="mox-table-wrap">
-                <table class="mox-table">
-                    <thead>
-                        <tr>
-                            <th>Category</th>
-                            <th class="mox-num">Count</th>
-                            <th>Raw action type</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach ($resultMix['items'] as $item)
-                            <tr>
-                                <td>
-                                    {{ $item['human_label'] ?? '—' }}
-                                    @if (! empty($item['alias_note']))
-                                        <div class="mox-muted">{{ $item['alias_note'] }}</div>
-                                    @endif
-                                </td>
-                                <td class="mox-num">{{ is_numeric($item['count'] ?? null) ? number_format((float) $item['count'], 0) : '—' }}</td>
-                                <td class="mox-muted">{{ $item['raw_action_type'] ?? '—' }}</td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+        </div>
+    </div>
+
+    @include('meta-ads::workspace.partials.filter-bar', ['data' => $data])
+
+    @if ($workspaceState === 'no_connection')
+        <div class="mox-empty">Connect a Meta Ads account from Connection to start.</div>
+    @elseif ($needsAnalyze || ! $periodMatched)
+        <div class="mox-meta-analyze">
+            <div>
+                <h4>No trustworthy data for this period yet</h4>
+                <p class="mox-muted">
+                    Selected period metrics are not shown from a different window.
+                    @if ($async)
+                        Analysis is already running — you can keep working.
+                    @else
+                        Queue a read-only collection for this period.
+                    @endif
+                </p>
             </div>
-            <p class="mox-muted">{{ $resultMix['note'] ?? 'Distinct action types are never summed into one fake total.' }}</p>
-            @if ($rawSignals !== [])
-                <details class="mox-muted" style="margin-top:0.75rem;">
-                    <summary>Raw Result Signals</summary>
-                    <ul>
-                        @foreach ($rawSignals as $signal)
+            @if (! $async)
+                <button type="button" class="mox-btn mox-btn--primary" wire:click="analyzeMetaSelectedPeriod">
+                    Analyze this period
+                </button>
+            @endif
+        </div>
+    @endif
+
+    @if ($periodMatched)
+        <section class="mox-kpi-grid mox-kpi-grid--priority">
+            @forelse ($kpis as $kpi)
+                <div class="mox-kpi-card">
+                    <div class="mox-kpi-card__label">{{ $kpi['label'] }}</div>
+                    <div class="mox-kpi-card__value">{{ $formatKpi($kpi) }}</div>
+                    @if (($comparison['available'] ?? false) && is_numeric($kpi['delta_percent'] ?? null))
+                        <div class="mox-kpi-card__delta {{ $deltaClass($kpi['delta_sentiment'] ?? null) }}">
+                            {{ ($kpi['delta_percent'] >= 0 ? '↑' : '↓') }}
+                            {{ number_format(abs((float) $kpi['delta_percent']), 1) }}% vs previous period
+                        </div>
+                    @endif
+                </div>
+            @empty
+                <div class="mox-empty">Priority metrics unavailable for this period.</div>
+            @endforelse
+        </section>
+
+        <div class="mox-grid-2">
+            <section class="mox-panel">
+                <div class="mox-panel__head">
+                    <h4>Result summary</h4>
+                    <span class="mox-muted">Platform-attributed · not summed across types</span>
+                </div>
+                @if (empty($resultMix['items']))
+                    <div class="mox-empty">No compatible platform results observed.</div>
+                @else
+                    <ul class="mox-result-mix">
+                        @foreach ($resultMix['items'] as $item)
                             <li>
-                                {{ $signal['human_label'] ?? $signal['raw_action_type'] ?? '—' }}:
-                                {{ is_numeric($signal['count'] ?? null) ? number_format((float) $signal['count'], 0) : '—' }}
-                                <span>({{ $signal['raw_action_type'] ?? '—' }})</span>
+                                <span class="mox-result-mix__label">{{ $item['human_label'] ?? $item['label'] ?? 'Result' }}</span>
+                                <span class="mox-result-mix__value">
+                                    @if (is_numeric($item['count'] ?? null))
+                                        {{ number_format((float) $item['count'], 0) }}
+                                    @else
+                                        —
+                                    @endif
+                                </span>
                             </li>
                         @endforeach
                     </ul>
-                </details>
-            @endif
-        @endif
-    </section>
+                    @if (! empty($resultMix['note']))
+                        <p class="mox-footnote">{{ $resultMix['note'] }}</p>
+                    @endif
+                @endif
+            </section>
 
-    <div class="mox-grid-2">
+            <section class="mox-panel">
+                <div class="mox-panel__head">
+                    <h4>Performance over time</h4>
+                    <label class="mox-meta-inline-select">
+                        <select wire:change="setMetaWorkspaceFilter('trend_metric', $event.target.value)">
+                            @foreach (['spend' => 'Spend', 'inline_link_click_ctr' => 'Link CTR', 'cpm' => 'CPM', 'frequency' => 'Frequency'] as $key => $label)
+                                <option value="{{ $key }}" @selected(($data['filters']['trend_metric'] ?? 'spend') === $key)>{{ $label }}</option>
+                            @endforeach
+                        </select>
+                    </label>
+                </div>
+                @if ($trend['available'] ?? false)
+                    @include('website::workspace.partials.sparkline', [
+                        'values' => array_values(array_filter($trend['values'] ?? [], fn ($v) => $v !== null)),
+                        'label' => $trend['label'] ?? 'Trend',
+                    ])
+                @else
+                    <div class="mox-empty">{{ $trend['note'] ?? 'Trend unavailable.' }}</div>
+                @endif
+            </section>
+        </div>
+
+        <div class="mox-grid-2">
+            <section class="mox-panel">
+                <div class="mox-panel__head"><h4>Delivery flow</h4></div>
+                <ol class="mox-delivery-flow">
+                    @foreach ($flow['stages'] ?? [] as $stage)
+                        <li>
+                            <span>{{ $stage['label'] }}</span>
+                            <strong>
+                                @if (! ($stage['available'] ?? false))
+                                    Unavailable
+                                @elseif (is_numeric($stage['value'] ?? null))
+                                    {{ number_format((float) $stage['value'], 0) }}
+                                @else
+                                    Unavailable
+                                @endif
+                            </strong>
+                        </li>
+                    @endforeach
+                </ol>
+                <p class="mox-footnote">{{ $flow['note'] ?? '' }}</p>
+            </section>
+
+            <section class="mox-panel">
+                <div class="mox-panel__head"><h4>What needs attention</h4></div>
+                @if (($attention['items'] ?? []) === [])
+                    <div class="mox-empty mox-empty--calm">{{ $attention['empty_label'] ?? 'No high-confidence issues detected for this period.' }}</div>
+                @else
+                    <ul class="mox-attention-list">
+                        @foreach ($attention['items'] as $item)
+                            <li>
+                                <span class="mox-severity mox-severity--{{ $item['severity'] }}">{{ strtoupper($item['severity']) }}</span>
+                                <div>
+                                    <strong>{{ $item['title'] }}</strong>
+                                    <p class="mox-muted">{{ $item['summary'] }}</p>
+                                    <span class="mox-muted">{{ $item['inspect_label'] }}</span>
+                                </div>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+            </section>
+        </div>
+
         <section class="mox-panel">
-            <div class="mox-panel__head"><h4>Top campaigns by spend</h4></div>
-            @if ($campaigns === [])
-                <div class="mox-empty mox-empty--compact">No campaign Evidence.</div>
+            <div class="mox-panel__head">
+                <h4>Campaign snapshot</h4>
+                <span class="mox-muted">Delivered in selected period · by spend</span>
+            </div>
+            @if ($snapshot === [])
+                <div class="mox-empty">No delivered campaigns for this period.</div>
             @else
                 <div class="mox-table-wrap">
                     <table class="mox-table">
                         <thead>
                             <tr>
                                 <th>Campaign</th>
+                                <th>Status</th>
                                 <th class="mox-num">Spend</th>
                                 <th>Primary result</th>
+                                <th class="mox-num">Results</th>
+                                <th class="mox-num">Cost / result</th>
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (array_slice($campaigns, 0, 8) as $row)
+                            @foreach ($snapshot as $row)
                                 <tr>
                                     <td>{{ $row['name'] ?? '—' }}</td>
+                                    <td>{{ $row['effective_status'] ?? $row['status'] ?? '—' }}</td>
                                     <td class="mox-num">{{ is_numeric($row['spend'] ?? null) ? number_format((float) $row['spend'], 2) : '—' }}</td>
-                                    <td>
-                                        @if (($row['primary_result_status'] ?? '') === 'unresolved')
-                                            Mixed / Unresolved
-                                        @elseif (($row['primary_result_status'] ?? '') === 'deferred')
-                                            Deferred
-                                        @elseif (is_numeric($row['primary_result_count'] ?? null))
-                                            {{ number_format((float) $row['primary_result_count'], 0) }}
-                                            @if (! empty($row['primary_result_human_label']))
-                                                <span class="mox-muted">({{ $row['primary_result_human_label'] }})</span>
-                                            @endif
-                                        @else
-                                            —
-                                        @endif
-                                    </td>
+                                    <td>{{ $row['primary_result_human_label'] ?? ($row['primary_result_status'] ?? '—') }}</td>
+                                    <td class="mox-num">{{ is_numeric($row['primary_result_count'] ?? null) ? number_format((float) $row['primary_result_count'], 0) : '—' }}</td>
+                                    <td class="mox-num">{{ is_numeric($row['primary_result_cost'] ?? null) ? number_format((float) $row['primary_result_cost'], 2) : '—' }}</td>
                                 </tr>
                             @endforeach
                         </tbody>
@@ -240,32 +255,25 @@
                 </div>
             @endif
         </section>
+    @endif
 
-        <section class="mox-panel">
-            <div class="mox-panel__head"><h4>Attention</h4></div>
-            @if ($findingGroups !== [])
-                @foreach (array_slice($findingGroups, 0, 6) as $group)
-                    <div class="mox-finding-row">
-                        <span class="mox-sev mox-sev--{{ $group['severity'] }}">{{ strtoupper($group['severity']) }}</span>
-                        <span>
-                            {{ $group['title'] }}
-                            @if ($group['count'] > 1)
-                                <span class="mox-muted">× {{ $group['count'] }}</span>
-                            @endif
-                        </span>
-                    </div>
-                @endforeach
-            @else
-                @forelse ($findingsOpen->take(6) as $finding)
-                    <div class="mox-finding-row">
-                        <span class="mox-sev mox-sev--{{ $finding->severity }}">{{ strtoupper($finding->severity) }}</span>
-                        <span>{{ $finding->title }}</span>
-                    </div>
-                @empty
-                    <div class="mox-empty mox-empty--compact">No open Findings.</div>
-                @endforelse
+    <x-filament::modal id="meta-data-health" width="lg">
+        <x-slot name="heading">Data health</x-slot>
+        <div class="mox-data-health-detail">
+            @foreach (($health['detail'] ?? []) as $key => $status)
+                <div class="mox-data-health-detail__row">
+                    <span>{{ str_replace('_', ' ', ucfirst($key)) }}</span>
+                    <strong>{{ $status }}</strong>
+                </div>
+            @endforeach
+            @if (! empty($data['partial_reasons']))
+                <p class="mox-footnote" style="margin-top:0.75rem;">
+                    Partial reasons: {{ implode('; ', $data['partial_reasons']) }}
+                </p>
             @endif
-            <p class="mox-muted" style="margin-top:0.75rem;">Open Recommendations: {{ $recommendations->count() }} · Read-only — no Meta mutations.</p>
-        </section>
-    </div>
+            @if (! empty($health['sync_label']))
+                <p class="mox-muted" style="margin-top:0.5rem;">Last sync: {{ $health['sync_label'] }}</p>
+            @endif
+        </div>
+    </x-filament::modal>
 </div>

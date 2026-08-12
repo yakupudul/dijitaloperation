@@ -399,7 +399,10 @@ class CentralIntegrationArchitectureTest extends TestCase
         ])
             ->assertOk()
             ->assertSee('Overview')
-            ->assertSee('Connections')
+            ->assertSee('Campaigns')
+            ->assertSee('Creatives')
+            ->assertSee('Insights')
+            ->assertSee('Connection')
             ->assertDontSee('Provider resources')
             ->assertDontSee('Site connections');
 

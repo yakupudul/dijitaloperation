@@ -1,9 +1,9 @@
 # META ADS EXPERT WORKSPACE
 
-> **Status: BLUEPRINT / NOT IMPLEMENTED.**
-> Meta-specific application of `docs/product/OPERATOR_WORKSPACE_DESIGN_STANDARD.md`.
-> Describes the target operator workspace for the Meta Ads Digital Asset. Does **not** authorize implementing the final dashboard now.
-> **Explicitly out of scope for PR #119** (`docs/product/meta-ads/META_ADS_INTELLIGENCE.md`) — #119 ships the intelligence engine (collectors, Findings, Analyst, current specialist workspace); this blueprint is the next milestone, sequenced after #119's operator UAT.
+> **Status: IMPLEMENTING / USER VISUAL ACCEPTANCE REQUIRED.**  
+> Meta-specific application of `docs/product/OPERATOR_WORKSPACE_DESIGN_STANDARD.md`.  
+> Implementation lives on the Meta Ads Expert Workspace PR — **not DONE** until the operator explicitly accepts screenshots.  
+> **Explicitly out of scope for PR #119** (`docs/product/meta-ads/META_ADS_INTELLIGENCE.md`) — #119 shipped the intelligence engine; this workspace is the next milestone.  
 > Related: `docs/product/meta-ads/META_ADS_INTELLIGENCE.md`, `docs/product/meta-ads/META_ADS.md`, `docs/product/meta-ads/META_ADS_INTEGRATION.md`, `OPERATOR_ASYNC_EXECUTION.md`, `PROJECT_MEMORY.md`, `PRODUCT_CAPABILITY_LEDGER.md`.
 
 ## Purpose

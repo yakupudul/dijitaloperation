@@ -10,6 +10,7 @@ use App\Models\Run;
 use App\Services\Integrations\BoundCollectionGuard;
 use App\Services\Integrations\Meta\MetaApiClient;
 use App\Services\Integrations\Meta\MetaException;
+use App\Support\Integrations\BoundCollectionOptions;
 use App\Support\Integrations\ComparisonPeriod;
 use App\Support\Integrations\Meta\MetaApiConfig;
 use App\Support\Integrations\ProviderRegistry;
@@ -44,6 +45,8 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
 
     public const string EVIDENCE_CREATIVE_METADATA = 'meta_ads_creative_metadata';
 
+    public const string EVIDENCE_ACCOUNT_DAILY_TREND = 'meta_ads_account_daily_trend';
+
     private const int ENTITY_LIMIT = 50;
 
     private const int CREATIVE_LIMIT = 40;
@@ -67,8 +70,12 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
         return self::MODULE_ID;
     }
 
-    public function collect(CoreAssetBinding $binding): Run
+    public function collect(CoreAssetBinding $binding, array $options = []): Run
     {
+        if ($options !== []) {
+            BoundCollectionOptions::set([...BoundCollectionOptions::all(), ...$options]);
+        }
+
         $ctx = $this->guard->assertCollectable($binding, self::CAPABILITY);
         $asset = $ctx['asset'];
         $resource = $ctx['resource'];
@@ -79,7 +86,7 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
         }
 
         $actId = $this->normalizeActId((string) $resource->external_id);
-        $periods = ComparisonPeriod::lastTwentyEightCompleteDays();
+        $periods = $this->resolvePeriods();
         $observedAt = now();
 
         $run = Run::query()->create([
@@ -197,6 +204,53 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
                     'Account Overview prefers Result Mix over a forced single primary result.',
                 ],
             ], $observedAt);
+
+            // Bounded selected-period daily trend (NOT Historical Performance Store).
+            $daily = $this->fetchDailyAccountInsights($integration, $actId, $periods['current']);
+            $collectionStages['account_daily_trend'] = $this->stageFromFetch(
+                'account_daily_trend',
+                $daily,
+                $daily['ok'] ? 'completed' : 'failed',
+                count($daily['rows']),
+            );
+            if ($daily['ok']) {
+                $dailyPoints = [];
+                foreach ($daily['rows'] as $row) {
+                    $normalized = $this->normalizeInsightRow($row, $resourceMeta['currency'] ?? null);
+                    $dailyPoints[] = [
+                        'date' => $normalized['date_start'] ?? ($row['date_start'] ?? null),
+                        'spend' => $normalized['spend'] ?? null,
+                        'impressions' => $normalized['impressions'] ?? null,
+                        'reach' => $normalized['reach'] ?? null,
+                        'frequency' => $normalized['frequency'] ?? null,
+                        'inline_link_clicks' => $normalized['inline_link_clicks'] ?? null,
+                        'inline_link_click_ctr' => $normalized['inline_link_click_ctr'] ?? null,
+                        'cpm' => $normalized['cpm'] ?? null,
+                        'actions' => $normalized['actions'] ?? [],
+                        'result_mix' => MetaResultResolver::resultMix($normalized['actions'] ?? []),
+                    ];
+                }
+                usort($dailyPoints, fn (array $a, array $b): int => strcmp((string) ($a['date'] ?? ''), (string) ($b['date'] ?? '')));
+
+                $this->storeEvidence($run, $asset->id, self::EVIDENCE_ACCOUNT_DAILY_TREND, 'Meta Ads account daily trend', [
+                    ...$baseMeta,
+                    'account_id' => $actId,
+                    'granularity' => 'day',
+                    'time_increment' => 1,
+                    'points' => $dailyPoints,
+                    'point_count' => count($dailyPoints),
+                    'response_ok' => true,
+                    'metrics_usable' => $dailyPoints !== [],
+                    'status_code' => $daily['status_code'],
+                    'truncated' => $daily['truncated'],
+                    'limitations' => [
+                        'Selected-period daily points only — not a historical warehouse.',
+                        'Reach/frequency are non-additive across days.',
+                    ],
+                ], $observedAt);
+            } else {
+                $partialReasons[] = 'account_daily_trend: '.($daily['error'] ?? 'failed');
+            }
 
             // Campaign: Insights first (delivered, spend-sorted) → metadata by those provider IDs.
             $campaignInsights = $this->fetchInsights($integration, $actId, 'campaign', $periods['current']);
@@ -463,6 +517,66 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
         }
 
         return str_starts_with($externalId, 'act_') ? $externalId : 'act_'.$externalId;
+    }
+
+    /**
+     * @return array{
+     *     current: array{start: string, end: string},
+     *     previous: array{start: string, end: string},
+     *     timezone: string,
+     *     complete_days: int,
+     *     preset: string
+     * }
+     */
+    private function resolvePeriods(): array
+    {
+        $preset = BoundCollectionOptions::get('period_preset');
+        $start = BoundCollectionOptions::get('period_start');
+        $end = BoundCollectionOptions::get('period_end');
+        $compare = BoundCollectionOptions::get('compare');
+        $compareOn = $compare === null ? true : (bool) $compare;
+
+        if (is_string($preset) && $preset !== '') {
+            return ComparisonPeriod::forPreset(
+                $preset,
+                is_string($start) ? $start : null,
+                is_string($end) ? $end : null,
+                $compareOn,
+            );
+        }
+
+        if (is_string($start) && is_string($end) && $start !== '' && $end !== '') {
+            return ComparisonPeriod::forPreset(ComparisonPeriod::PRESET_CUSTOM, $start, $end, $compareOn);
+        }
+
+        return ComparisonPeriod::lastTwentyEightCompleteDays();
+    }
+
+    /**
+     * @param  array{start: string, end: string}  $period
+     * @return array{ok: bool, status_code: ?int, rows: list<array<string, mixed>>, truncated: bool, error: ?string, error_category: ?string, pages_fetched: int}
+     */
+    private function fetchDailyAccountInsights(CoreIntegration $integration, string $actId, array $period): array
+    {
+        $query = [
+            'fields' => 'impressions,reach,frequency,clicks,inline_link_clicks,ctr,cpc,cpm,spend,actions,inline_link_click_ctr,date_start,date_stop',
+            'level' => 'account',
+            'limit' => 100,
+            'time_increment' => 1,
+            'time_range' => json_encode([
+                'since' => $period['start'],
+                'until' => $period['end'],
+            ], JSON_THROW_ON_ERROR),
+            'use_unified_attribution_setting' => 'true',
+        ];
+
+        return $this->paginate(
+            $integration,
+            $actId.'/insights',
+            $query,
+            93,
+            softCapTruncation: true,
+        );
     }
 
     /**

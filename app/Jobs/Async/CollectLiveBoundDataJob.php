@@ -41,7 +41,15 @@ class CollectLiveBoundDataJob implements ShouldQueue
             $asset = DigitalAsset::query()->findOrFail($run->digital_asset_id);
 
             $async->setPhase($run->fresh() ?? $run, 'collecting_bindings', 'Collecting connected sources');
-            $result = $collector->collect($asset);
+
+            $periodOptions = array_filter([
+                'period_preset' => data_get($run->metadata, 'period_preset'),
+                'period_start' => data_get($run->metadata, 'period_start'),
+                'period_end' => data_get($run->metadata, 'period_end'),
+                'compare' => data_get($run->metadata, 'compare'),
+            ], fn (mixed $v): bool => $v !== null && $v !== '');
+
+            $result = $collector->collect($asset, $periodOptions);
 
             $childIds = collect($result['runs'] ?? [])
                 ->map(fn (Run $child): int => (int) $child->id)

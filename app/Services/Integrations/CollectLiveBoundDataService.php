@@ -7,6 +7,7 @@ use App\Models\DigitalAsset;
 use App\Models\Run;
 use App\Services\Findings\BoundEvidenceRuleRegistry;
 use App\Services\Findings\FindingLifecycleService;
+use App\Support\Integrations\BoundCollectionOptions;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -23,6 +24,7 @@ final class CollectLiveBoundDataService
     ) {}
 
     /**
+     * @param  array<string, mixed>  $options
      * @return array{
      *     ok: bool,
      *     message: string,
@@ -31,7 +33,27 @@ final class CollectLiveBoundDataService
      *     findings: array{opened: int, updated: int, reopened: int, resolved: int, recommendations: int}
      * }
      */
-    public function collect(DigitalAsset $asset): array
+    public function collect(DigitalAsset $asset, array $options = []): array
+    {
+        BoundCollectionOptions::set($options);
+
+        try {
+            return $this->runCollection($asset, $options);
+        } finally {
+            BoundCollectionOptions::clear();
+        }
+    }
+
+    /**
+     * @return array{
+     *     ok: bool,
+     *     message: string,
+     *     runs: list<Run>,
+     *     skipped: list<array{capability: string, reason: string}>,
+     *     findings: array{opened: int, updated: int, reopened: int, resolved: int, recommendations: int}
+     * }
+     */
+    private function runCollection(DigitalAsset $asset, array $options = []): array
     {
         $emptyFindings = [
             'opened' => 0,
@@ -74,7 +96,7 @@ final class CollectLiveBoundDataService
             }
 
             try {
-                $run = $collector->collect($binding);
+                $run = $collector->collect($binding, $options);
                 $runs[] = $run->loadMissing('evidence');
             } catch (\Throwable $e) {
                 $failures++;

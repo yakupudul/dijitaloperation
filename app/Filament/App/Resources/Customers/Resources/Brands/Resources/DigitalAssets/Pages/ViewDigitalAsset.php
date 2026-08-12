@@ -2,6 +2,7 @@
 
 namespace App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\Pages;
 
+use App\Filament\App\Concerns\InteractsWithMetaExpertWorkspace;
 use App\Filament\App\Resources\Customers\Resources\Brands\BrandResource;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\DigitalAssetResource;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\AssetBindingsRelationManager;
@@ -12,9 +13,10 @@ use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAsset
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\GoogleAdsPerformanceRelationManager;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\GoogleAdsSearchTermsRelationManager;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\MetaAdsActivityRelationManager;
+use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\MetaAdsCampaignsRelationManager;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\MetaAdsConnectionsRelationManager;
-use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\MetaAdsIntelligenceRelationManager;
-use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\MetaAdsPerformanceRelationManager;
+use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\MetaAdsCreativesRelationManager;
+use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\MetaAdsInsightsRelationManager;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\WebsiteActivityRelationManager;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\WebsiteConnectionsRelationManager;
 use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\WebsiteDiscoveryRelationManager;
@@ -54,11 +56,13 @@ use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Support\Htmlable;
 use MoxDop\GoogleAds\Workspace\GoogleAdsWorkspaceData;
 use MoxDop\MetaAds\Workspace\MetaAdsWorkspaceData;
+use MoxDop\MetaAds\Workspace\MetaWorkspaceFilters;
 use MoxDop\Website\SeoIntelligence\SeoIntelligenceRefreshService;
 use MoxDop\Website\Workspace\WebsiteWorkspaceData;
 
 class ViewDigitalAsset extends ViewRecord
 {
+    use InteractsWithMetaExpertWorkspace;
     protected static string $resource = DigitalAssetResource::class;
 
     /**
@@ -226,8 +230,19 @@ class ViewDigitalAsset extends ViewRecord
                         'google_ads' => 'Google Ads collection queued.',
                         default => 'Live data collection queued.',
                     };
+                    $extra = [];
+                    if ($asset->type === 'meta_ads') {
+                        $filters = MetaWorkspaceFilters::get((int) $asset->id);
+                        $extra = [
+                            'period_preset' => $filters['period_preset'],
+                            'period_start' => $filters['period_start'],
+                            'period_end' => $filters['period_end'],
+                            'compare' => $filters['compare'],
+                            'human_title' => 'Collect live data',
+                        ];
+                    }
                     $this->notifyAsyncQueueResult(
-                        $async->queueBoundCollect($asset, $this->asyncOperator()),
+                        $async->queueBoundCollect($asset, $this->asyncOperator(), $extra),
                         $queuedTitle,
                     );
                 }),
@@ -836,8 +851,9 @@ class ViewDigitalAsset extends ViewRecord
 
         if ($this->isMetaAdsWorkspace()) {
             return [
-                MetaAdsPerformanceRelationManager::class,
-                MetaAdsIntelligenceRelationManager::class,
+                MetaAdsCampaignsRelationManager::class,
+                MetaAdsCreativesRelationManager::class,
+                MetaAdsInsightsRelationManager::class,
                 MetaAdsConnectionsRelationManager::class,
                 MetaAdsActivityRelationManager::class,
             ];

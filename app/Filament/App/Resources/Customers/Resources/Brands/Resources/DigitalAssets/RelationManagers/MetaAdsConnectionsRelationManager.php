@@ -39,7 +39,7 @@ class MetaAdsConnectionsRelationManager extends RelationManager
 
     protected static string $relationship = 'assetBindings';
 
-    protected static ?string $title = 'Connections';
+    protected static ?string $title = 'Connection';
 
     protected static bool $isLazy = false;
 

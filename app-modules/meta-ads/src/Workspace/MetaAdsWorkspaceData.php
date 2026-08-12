@@ -9,6 +9,7 @@ use App\Models\Finding;
 use App\Models\Recommendation;
 use App\Models\Run;
 use App\Support\Ai\AiProviderCatalog;
+use App\Support\Integrations\ComparisonPeriod;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -30,20 +31,31 @@ final class MetaAdsWorkspaceData
     private const array SEVERITY_WEIGHT = ['critical' => 0, 'high' => 1, 'medium' => 2, 'low' => 3];
 
     /**
+     * @param  array<string, mixed>|null  $filters
      * @return array<string, mixed>
      */
-    public function for(DigitalAsset $asset): array
+    public function for(DigitalAsset $asset, ?array $filters = null): array
     {
-        $account = $this->latestEvidence($asset, MetaAdsBoundCollector::EVIDENCE_ACCOUNT_SUMMARY);
-        $campaigns = $this->latestEvidence($asset, MetaAdsBoundCollector::EVIDENCE_CAMPAIGN_PERFORMANCE);
-        $adsets = $this->latestEvidence($asset, MetaAdsBoundCollector::EVIDENCE_ADSET_PERFORMANCE);
-        $ads = $this->latestEvidence($asset, MetaAdsBoundCollector::EVIDENCE_AD_PERFORMANCE);
-        $creatives = $this->latestEvidence($asset, MetaAdsBoundCollector::EVIDENCE_CREATIVE_METADATA);
+        $asset->loadMissing('brand');
+        $filters = $filters ?? MetaWorkspaceFilters::get((int) $asset->id);
+        $selectedPeriod = $this->resolveSelectedPeriod($filters);
+
+        $account = $this->evidenceForPeriod($asset, MetaAdsBoundCollector::EVIDENCE_ACCOUNT_SUMMARY, $selectedPeriod['current']);
+        $campaigns = $this->evidenceForPeriod($asset, MetaAdsBoundCollector::EVIDENCE_CAMPAIGN_PERFORMANCE, $selectedPeriod['current']);
+        $adsets = $this->evidenceForPeriod($asset, MetaAdsBoundCollector::EVIDENCE_ADSET_PERFORMANCE, $selectedPeriod['current']);
+        $ads = $this->evidenceForPeriod($asset, MetaAdsBoundCollector::EVIDENCE_AD_PERFORMANCE, $selectedPeriod['current']);
+        $creatives = $this->evidenceForPeriod($asset, MetaAdsBoundCollector::EVIDENCE_CREATIVE_METADATA, $selectedPeriod['current']);
+        $daily = $this->evidenceForPeriod($asset, MetaAdsBoundCollector::EVIDENCE_ACCOUNT_DAILY_TREND, $selectedPeriod['current']);
+
+        $periodMatched = $account !== null || $campaigns !== null;
+        $latestAnyAccount = $this->latestEvidence($asset, MetaAdsBoundCollector::EVIDENCE_ACCOUNT_SUMMARY);
 
         $period = data_get($account?->payload, 'requested_period')
-            ?? data_get($campaigns?->payload, 'requested_period');
+            ?? data_get($campaigns?->payload, 'requested_period')
+            ?? $selectedPeriod['current'];
         $comparisonPeriod = data_get($account?->payload, 'comparison_period')
-            ?? data_get($campaigns?->payload, 'comparison_period');
+            ?? data_get($campaigns?->payload, 'comparison_period')
+            ?? $selectedPeriod['previous'];
 
         $lastUpdated = collect([$account, $campaigns, $adsets, $ads, $creatives])
             ->filter()
@@ -56,6 +68,14 @@ final class MetaAdsWorkspaceData
             ->where('digital_asset_id', $asset->id)
             ->where('module_id', MetaAdsBoundCollector::MODULE_ID)
             ->latest('started_at')
+            ->first();
+
+        $asyncCollect = Run::query()
+            ->where('digital_asset_id', $asset->id)
+            ->where('metadata->async', true)
+            ->where('metadata->operation_type', 'bound_collect')
+            ->whereIn('status', ['queued', 'running'])
+            ->latest('id')
             ->first();
 
         $findings = Finding::query()
@@ -77,35 +97,51 @@ final class MetaAdsWorkspaceData
         $connections = $this->connectionCards($asset);
         $connectionSummary = MetaAdsConnectionSummary::forAsset($asset);
 
-        $campaignRows = $this->boundedEntityRows($campaigns);
+        $campaignRows = $this->filterCampaignRows($this->boundedEntityRows($campaigns), $filters);
         $dataCoverage = $this->dataCoverage($account, $campaigns, $adsets, $ads, $creatives, $campaignRows);
         $comparison = $this->comparisonAvailability($account, $comparisonPeriod);
+        $compareOn = ($filters['compare'] ?? true) === true && $comparison['available'] === true;
 
         return [
             'asset' => $asset,
+            'filters' => $filters,
+            'selected_period' => $selectedPeriod,
+            'period_matched' => $periodMatched,
+            'needs_analyze' => ! $periodMatched && $latestAnyAccount !== null,
             'period' => $period,
             'comparison_period' => $comparisonPeriod,
-            'period_label' => $this->periodLabel($period, $comparisonPeriod, $comparison['available'] === true),
+            'period_label' => $this->periodLabel($period, $comparisonPeriod, $compareOn),
             'last_updated' => $lastUpdated,
             'last_updated_human' => $lastUpdated instanceof CarbonInterface
                 ? $lastUpdated->diffForHumans()
                 : null,
-            'account_identity' => $this->accountIdentity($account, $connectionSummary),
+            'account_identity' => $this->accountIdentity($account ?? $latestAnyAccount, $connectionSummary),
             'data_coverage' => $dataCoverage,
+            'data_health' => $this->dataHealthBadge($dataCoverage, $latestRun, $asyncCollect),
             'workspace_state' => $this->workspaceState($connectionSummary, $account, $campaigns, $latestRun, $dataCoverage),
             'partial_reasons' => $this->partialReasons($latestRun),
             'latest_run_status' => $latestRun?->status,
-            'kpis' => $this->accountKpis($account, $comparison['available'] === true),
+            'async_collection' => $asyncCollect ? [
+                'status' => $asyncCollect->status,
+                'phase_label' => data_get($asyncCollect->metadata, 'phase_label'),
+                'run_id' => $asyncCollect->id,
+            ] : null,
+            'kpis' => $periodMatched ? $this->priorityKpis($account, $compareOn) : [],
+            'kpis_full' => $periodMatched ? $this->accountKpis($account, $compareOn) : [],
             'primary_result' => $this->primaryResultSummary($account),
             'result_mix' => $this->resultMixSummary($account),
             'raw_result_signals' => $this->rawResultSignalsSummary($account),
+            'trend' => $this->trendSeries($daily, (string) ($filters['trend_metric'] ?? 'spend')),
+            'delivery_flow' => $this->deliveryFlow($account),
+            'attention' => $this->attentionItems($findings, $campaignRows),
             'collection_stages' => is_array($latestRun?->metadata['collection_stages'] ?? null)
                 ? $latestRun->metadata['collection_stages']
                 : [],
             'campaigns' => $campaignRows,
+            'campaign_snapshot' => array_slice($campaignRows, 0, 8),
             'adsets' => $this->boundedEntityRows($adsets),
             'ads' => $this->boundedEntityRows($ads),
-            'creatives' => $this->boundedCreativeRows($creatives),
+            'creatives' => $this->boundedCreativeRows($creatives, $ads),
             'actions_note' => $this->actionsNote($account),
             'findings' => [
                 'open' => $findings->where('status', 'open')->values(),
@@ -126,9 +162,10 @@ final class MetaAdsWorkspaceData
             'connection_summary' => $connectionSummary,
             'connection_health' => $this->connectionHealthLine($connections, $connectionSummary),
             'activity' => $this->activityRows($asset),
-            'has_performance_data' => $account !== null || $campaigns !== null,
-            'caveats' => $this->caveats($account),
+            'has_performance_data' => $periodMatched,
+            'caveats' => $periodMatched ? $this->caveats($account) : [],
             'comparison' => $comparison,
+            'preset_labels' => ComparisonPeriod::presetLabels(),
         ];
     }
 
@@ -140,6 +177,54 @@ final class MetaAdsWorkspaceData
             ->where('source_module', MetaAdsBoundCollector::MODULE_ID)
             ->orderByDesc('id')
             ->first();
+    }
+
+    /**
+     * @param  array{start: string, end: string}  $period
+     */
+    private function evidenceForPeriod(DigitalAsset $asset, string $type, array $period): ?Evidence
+    {
+        $exact = Evidence::query()
+            ->where('digital_asset_id', $asset->id)
+            ->where('type', $type)
+            ->where('source_module', MetaAdsBoundCollector::MODULE_ID)
+            ->where('payload->requested_period->start', $period['start'])
+            ->where('payload->requested_period->end', $period['end'])
+            ->orderByDesc('id')
+            ->first();
+
+        if ($exact !== null) {
+            return $exact;
+        }
+
+        // Transitional: if filters request default last_30 and only legacy 28-day Evidence exists, do not pretend match.
+        return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return array{
+     *     current: array{start: string, end: string},
+     *     previous: array{start: string, end: string},
+     *     timezone: string,
+     *     complete_days: int,
+     *     preset: string
+     * }
+     */
+    private function resolveSelectedPeriod(array $filters): array
+    {
+        $preset = (string) ($filters['period_preset'] ?? ComparisonPeriod::PRESET_LAST_30);
+
+        try {
+            return ComparisonPeriod::forPreset(
+                $preset,
+                isset($filters['period_start']) ? (string) $filters['period_start'] : null,
+                isset($filters['period_end']) ? (string) $filters['period_end'] : null,
+                (bool) ($filters['compare'] ?? true),
+            );
+        } catch (\Throwable) {
+            return ComparisonPeriod::forPreset(ComparisonPeriod::PRESET_LAST_30);
+        }
     }
 
     /**
@@ -547,10 +632,14 @@ final class MetaAdsWorkspaceData
 
             return [
                 'entity_id' => $row['campaign_id'] ?? $row['adset_id'] ?? $row['ad_id'] ?? null,
+                'campaign_id' => $row['campaign_id'] ?? null,
+                'adset_id' => $row['adset_id'] ?? null,
+                'ad_id' => $row['ad_id'] ?? null,
                 'name' => $row['campaign_name'] ?? $row['adset_name'] ?? $row['ad_name'] ?? '—',
                 'campaign_name' => $row['campaign_name'] ?? null,
                 'adset_name' => $row['adset_name'] ?? null,
                 'status' => $row['status'] ?? $row['effective_status'] ?? null,
+                'effective_status' => $row['effective_status'] ?? $row['status'] ?? null,
                 'objective' => $row['objective'] ?? null,
                 'optimization_goal' => $row['optimization_goal'] ?? null,
                 'destination_type' => $row['destination_type'] ?? null,
@@ -582,7 +671,7 @@ final class MetaAdsWorkspaceData
                 'creative_id' => $row['creative_id'] ?? null,
                 'creative_name' => $row['creative_name'] ?? null,
             ];
-        }, array_slice($rows, 0, 25))));
+        }, array_slice($rows, 0, 50))));
     }
 
     /**
@@ -609,30 +698,80 @@ final class MetaAdsWorkspaceData
     /**
      * @return list<array<string, mixed>>
      */
-    private function boundedCreativeRows(?Evidence $creatives): array
+    private function boundedCreativeRows(?Evidence $creatives, ?Evidence $ads = null): array
     {
         $rows = data_get($creatives?->payload, 'rows');
         if (! is_array($rows)) {
             return [];
         }
 
-        return array_values(array_filter(array_map(function (mixed $row): ?array {
+        $adsByCreative = [];
+        foreach ($this->boundedEntityRows($ads) as $ad) {
+            $cid = $ad['creative_id'] ?? null;
+            if (! is_string($cid) || $cid === '') {
+                continue;
+            }
+            if (! isset($adsByCreative[$cid])) {
+                $adsByCreative[$cid] = $ad;
+            } else {
+                $prevSpend = is_numeric($adsByCreative[$cid]['spend'] ?? null) ? (float) $adsByCreative[$cid]['spend'] : 0.0;
+                $nextSpend = is_numeric($ad['spend'] ?? null) ? (float) $ad['spend'] : 0.0;
+                if ($nextSpend > $prevSpend) {
+                    $adsByCreative[$cid] = $ad;
+                }
+            }
+        }
+
+        return array_values(array_filter(array_map(function (mixed $row) use ($adsByCreative): ?array {
             if (! is_array($row)) {
                 return null;
             }
 
+            $creativeId = isset($row['creative_id']) ? (string) $row['creative_id'] : null;
+            $perf = ($creativeId !== null && isset($adsByCreative[$creativeId]))
+                ? $adsByCreative[$creativeId]
+                : null;
+
+            $primaryText = $row['primary_text'] ?? $row['body'] ?? null;
+            $excerpt = is_string($primaryText) && $primaryText !== ''
+                ? Str::limit($primaryText, 120)
+                : null;
+
             return [
-                'creative_id' => $row['creative_id'] ?? null,
-                'creative_name' => $row['creative_name'] ?? $row['creative_id'] ?? '—',
-                'headline' => $row['headline'] ?? null,
-                'primary_text' => $row['primary_text'] ?? null,
-                'cta_type' => $row['cta_type'] ?? null,
-                'destination_url' => $row['destination_url'] ?? null,
+                'creative_id' => $creativeId,
+                'creative_name' => $row['creative_name'] ?? $row['name'] ?? $creativeId ?? '—',
+                'headline' => $row['headline'] ?? $row['title'] ?? null,
+                'primary_text' => $primaryText,
+                'primary_text_excerpt' => $excerpt,
+                'cta_type' => $row['cta_type'] ?? $row['call_to_action_type'] ?? null,
+                'destination_url' => $row['destination_url'] ?? $row['link_url'] ?? null,
+                'destination_domain' => $this->destinationDomain($row['destination_url'] ?? $row['link_url'] ?? null),
                 'object_type' => $row['object_type'] ?? null,
+                'thumbnail_url' => $row['thumbnail_url'] ?? null,
                 'status' => $row['status'] ?? null,
                 'untrusted_text' => (bool) ($row['untrusted_text'] ?? true),
+                'spend' => $perf['spend'] ?? null,
+                'frequency' => $perf['frequency'] ?? null,
+                'inline_link_click_ctr' => $perf['inline_link_click_ctr'] ?? null,
+                'primary_result_human_label' => $perf['primary_result_human_label'] ?? null,
+                'primary_result_count' => $perf['primary_result_count'] ?? null,
+                'primary_result_cost' => $perf['primary_result_cost'] ?? null,
+                'primary_result_status' => $perf['primary_result_status'] ?? null,
+                'ad_name' => $perf['name'] ?? null,
+                'campaign_name' => $perf['campaign_name'] ?? null,
             ];
-        }, array_slice($rows, 0, 25))));
+        }, array_slice($rows, 0, 40))));
+    }
+
+    private function destinationDomain(mixed $url): ?string
+    {
+        if (! is_string($url) || $url === '') {
+            return null;
+        }
+
+        $host = parse_url($url, PHP_URL_HOST);
+
+        return is_string($host) && $host !== '' ? $host : null;
     }
 
     private function actionsNote(?Evidence $account): string
@@ -825,15 +964,14 @@ final class MetaAdsWorkspaceData
         $account = $connectionSummary['account_label'] ?? null;
 
         if ($active > 0) {
-            $line = $active.' active Meta binding'.($active === 1 ? '' : 's');
             if (is_string($account) && $account !== '' && $account !== 'Not bound') {
-                $line .= ' · '.$account;
+                return 'Connected · '.$account;
             }
 
-            return $line;
+            return 'Meta Ads account connected';
         }
 
-        return 'No active Meta Ads binding';
+        return 'No Meta Ads account connected';
     }
 
     /**
@@ -948,6 +1086,291 @@ final class MetaAdsWorkspaceData
             'reason' => $available
                 ? 'Comparable prior period present in Evidence.'
                 : 'No complete prior-period Evidence — comparison deltas are suppressed.',
+        ];
+    }
+
+    /**
+     * Compact priority KPI strip for Overview GLANCE — not the full metric wall.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function priorityKpis(?Evidence $account, bool $comparisonAvailable = false): array
+    {
+        $all = $this->accountKpis($account, $comparisonAvailable);
+        if ($all === []) {
+            return [];
+        }
+
+        $priorityKeys = ['spend', 'reach', 'frequency', 'inline_link_click_ctr'];
+        $byKey = collect($all)->keyBy('key');
+        $out = [];
+        foreach ($priorityKeys as $key) {
+            if ($byKey->has($key)) {
+                $kpi = $byKey->get($key);
+                $kpi['delta_sentiment'] = $this->deltaSentiment($key, $kpi['delta_percent'] ?? null);
+                $out[] = $kpi;
+            }
+        }
+
+        return $out;
+    }
+
+    private function deltaSentiment(string $metricKey, mixed $deltaPercent): ?string
+    {
+        if (! is_numeric($deltaPercent)) {
+            return null;
+        }
+
+        $delta = (float) $deltaPercent;
+        if (abs($delta) < 0.05) {
+            return 'flat';
+        }
+
+        $upIsBad = in_array($metricKey, ['cpc', 'cpm', 'cost_per_inline_link_click', 'frequency'], true);
+
+        if ($delta > 0) {
+            return $upIsBad ? 'negative' : ($metricKey === 'spend' ? 'neutral' : 'positive');
+        }
+
+        return $upIsBad ? 'positive' : ($metricKey === 'spend' ? 'neutral' : 'negative');
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     * @param  array<string, mixed>  $filters
+     * @return list<array<string, mixed>>
+     */
+    private function filterCampaignRows(array $rows, array $filters): array
+    {
+        $delivery = (string) ($filters['delivery'] ?? MetaWorkspaceFilters::DELIVERY_DELIVERED);
+        $objective = strtoupper(trim((string) ($filters['objective'] ?? '')));
+        $search = mb_strtolower(trim((string) ($filters['search'] ?? '')));
+
+        $filtered = array_values(array_filter($rows, function (array $row) use ($delivery, $objective, $search): bool {
+            $spend = is_numeric($row['spend'] ?? null) ? (float) $row['spend'] : 0.0;
+            $impressions = is_numeric($row['impressions'] ?? null) ? (float) $row['impressions'] : 0.0;
+            $status = strtoupper((string) ($row['effective_status'] ?? $row['status'] ?? ''));
+
+            $deliveryOk = match ($delivery) {
+                MetaWorkspaceFilters::DELIVERY_ACTIVE => in_array($status, ['ACTIVE', 'WITH_ISSUES'], true),
+                MetaWorkspaceFilters::DELIVERY_PAUSED => in_array($status, ['PAUSED', 'CAMPAIGN_PAUSED', 'ADSET_PAUSED'], true)
+                    || str_contains($status, 'PAUSED'),
+                MetaWorkspaceFilters::DELIVERY_ALL => true,
+                default => $spend > 0.0 || $impressions > 0.0,
+            };
+
+            if (! $deliveryOk) {
+                return false;
+            }
+
+            if ($objective !== '') {
+                $rowObjective = strtoupper((string) ($row['objective'] ?? ''));
+                if ($rowObjective === '' || ! str_contains($rowObjective, $objective)) {
+                    return false;
+                }
+            }
+
+            if ($search !== '') {
+                $haystack = mb_strtolower(implode(' ', array_filter([
+                    (string) ($row['name'] ?? ''),
+                    (string) ($row['entity_id'] ?? ''),
+                    (string) ($row['objective'] ?? ''),
+                ])));
+                if (! str_contains($haystack, $search)) {
+                    return false;
+                }
+            }
+
+            return true;
+        }));
+
+        usort($filtered, function (array $a, array $b): int {
+            $spendA = is_numeric($a['spend'] ?? null) ? (float) $a['spend'] : -1.0;
+            $spendB = is_numeric($b['spend'] ?? null) ? (float) $b['spend'] : -1.0;
+
+            return $spendB <=> $spendA;
+        });
+
+        return $filtered;
+    }
+
+    /**
+     * @return array{metric: string, label: string, values: list<float|null>, labels: list<string>, available: bool, note: ?string}
+     */
+    private function trendSeries(?Evidence $daily, string $metric): array
+    {
+        $allowed = [
+            'spend' => 'Spend',
+            'inline_link_click_ctr' => 'Link CTR',
+            'cpm' => 'CPM',
+            'frequency' => 'Frequency',
+            'impressions' => 'Impressions',
+        ];
+        if (! array_key_exists($metric, $allowed)) {
+            $metric = 'spend';
+        }
+
+        $points = data_get($daily?->payload, 'points');
+        if (! is_array($points) || $points === []) {
+            return [
+                'metric' => $metric,
+                'label' => $allowed[$metric],
+                'values' => [],
+                'labels' => [],
+                'available' => false,
+                'note' => $daily === null
+                    ? 'Daily trend not available for this period yet. Analyze this period to collect bounded daily Insights.'
+                    : 'Daily trend Evidence has no points for this period.',
+            ];
+        }
+
+        $values = [];
+        $labels = [];
+        foreach ($points as $point) {
+            if (! is_array($point)) {
+                continue;
+            }
+            $labels[] = (string) ($point['date'] ?? '');
+            $values[] = isset($point[$metric]) && is_numeric($point[$metric]) ? (float) $point[$metric] : null;
+        }
+
+        $usable = array_values(array_filter($values, fn ($v): bool => $v !== null));
+
+        return [
+            'metric' => $metric,
+            'label' => $allowed[$metric],
+            'values' => $values,
+            'labels' => $labels,
+            'available' => count($usable) >= 2,
+            'note' => count($usable) >= 2 ? null : 'Not enough daily points for a trend.',
+        ];
+    }
+
+    /**
+     * Platform delivery flow only — never invents CRM/business outcome stages.
+     *
+     * @return array{stages: list<array<string, mixed>>, note: string}
+     */
+    private function deliveryFlow(?Evidence $account): array
+    {
+        $current = is_array($account?->payload['current'] ?? null) ? $account->payload['current'] : [];
+        $actions = is_array($current['actions'] ?? null) ? $current['actions'] : [];
+
+        $impressions = array_key_exists('impressions', $current) && is_numeric($current['impressions'])
+            ? (float) $current['impressions']
+            : null;
+        $linkClicks = array_key_exists('inline_link_clicks', $current) && is_numeric($current['inline_link_clicks'])
+            ? (float) $current['inline_link_clicks']
+            : null;
+        $lpv = MetaActionNormalizer::countForType($actions, 'landing_page_view');
+
+        return [
+            'stages' => [
+                [
+                    'key' => 'impressions',
+                    'label' => 'Impressions',
+                    'value' => $impressions,
+                    'available' => $impressions !== null,
+                ],
+                [
+                    'key' => 'inline_link_clicks',
+                    'label' => 'Link Clicks',
+                    'value' => $linkClicks,
+                    'available' => $linkClicks !== null,
+                ],
+                [
+                    'key' => 'landing_page_view',
+                    'label' => 'Landing Page Views',
+                    'value' => $lpv,
+                    'available' => $lpv !== null,
+                ],
+            ],
+            'note' => 'Platform delivery path only. Business outcomes require CRM Evidence.',
+        ];
+    }
+
+    /**
+     * High-signal attention list for Overview — bounded, severity-ordered.
+     *
+     * @param  Collection<int, Finding>  $findings
+     * @param  list<array<string, mixed>>  $campaignRows
+     * @return array{items: list<array<string, mixed>>, empty_label: string}
+     */
+    private function attentionItems(Collection $findings, array $campaignRows): array
+    {
+        $items = [];
+        $openHigh = $findings
+            ->where('status', 'open')
+            ->filter(fn (Finding $f): bool => in_array($f->severity, ['critical', 'high'], true))
+            ->sortBy(fn (Finding $f): int => self::SEVERITY_WEIGHT[$f->severity] ?? 4)
+            ->take(5);
+
+        foreach ($openHigh as $finding) {
+            $campaignHint = null;
+            $titleLower = mb_strtolower($finding->title.' '.$finding->summary);
+            foreach ($campaignRows as $row) {
+                $name = (string) ($row['name'] ?? '');
+                if ($name !== '' && str_contains($titleLower, mb_strtolower($name))) {
+                    $campaignHint = $name;
+                    break;
+                }
+            }
+
+            $items[] = [
+                'severity' => $finding->severity,
+                'title' => $finding->title,
+                'summary' => $finding->summary,
+                'finding_id' => $finding->id,
+                'inspect_label' => $campaignHint !== null ? 'Inspect '.$campaignHint : 'Inspect in Insights',
+                'campaign_name' => $campaignHint,
+            ];
+        }
+
+        return [
+            'items' => $items,
+            'empty_label' => 'No high-confidence issues detected for this period.',
+        ];
+    }
+
+    /**
+     * @param  array<string, string>  $dataCoverage
+     * @return array{label: string, tone: string, detail: array<string, string>}
+     */
+    private function dataHealthBadge(array $dataCoverage, ?Run $latestRun, ?Run $asyncCollect): array
+    {
+        if ($asyncCollect !== null) {
+            return [
+                'label' => 'Data Health · Updating',
+                'tone' => 'info',
+                'detail' => $dataCoverage,
+                'sync_status' => $asyncCollect->status,
+                'sync_label' => (string) (data_get($asyncCollect->metadata, 'phase_label') ?: 'Collection running'),
+            ];
+        }
+
+        $collectionKeys = ['account', 'campaigns', 'adsets', 'ads', 'creative'];
+        $states = collect($dataCoverage)->only($collectionKeys)->values();
+
+        if ($states->contains('Unavailable') || ($latestRun?->status === 'failed')) {
+            $label = 'Data Health · Degraded';
+            $tone = 'danger';
+        } elseif ($states->contains('Partial') || $states->contains('Unknown') || ($latestRun?->status === 'partial')) {
+            $label = 'Data Health · Partial';
+            $tone = 'warning';
+        } elseif ($states->every(fn (string $s): bool => $s === 'Complete')) {
+            $label = 'Data Health · Complete';
+            $tone = 'success';
+        } else {
+            $label = 'Data Health · Unknown';
+            $tone = 'muted';
+        }
+
+        return [
+            'label' => $label,
+            'tone' => $tone,
+            'detail' => $dataCoverage,
+            'sync_status' => $latestRun?->status,
+            'sync_label' => $latestRun?->finished_at?->diffForHumans() ?? ($latestRun?->status ?? null),
         ];
     }
 }
