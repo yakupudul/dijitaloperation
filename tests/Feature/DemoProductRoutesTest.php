@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Livewire\Demo\Gbp\OverviewPage as GbpOverviewPage;
 use App\Livewire\Demo\GoogleAds\OverviewPage;
 use App\Livewire\Demo\Integrations\MetaIntegrationPage;
 use App\Livewire\Demo\Meta\CampaignsPage;
@@ -9,6 +10,7 @@ use App\Livewire\Demo\Operations\FindingsIndex;
 use App\Livewire\Demo\Operations\RecommendationsIndex;
 use App\Livewire\Demo\Operations\TaskShow;
 use App\Livewire\Demo\Operations\TasksIndex;
+use App\Livewire\Demo\Website\OverviewPage as WebsiteOverviewPage;
 use App\Models\User;
 use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
@@ -235,5 +237,21 @@ class DemoProductRoutesTest extends TestCase
             ->assertSee('Import all Meta data')
             ->call('expandAccount', 'acc-atlas')
             ->assertSee('Daily facts');
+    }
+
+    public function test_website_severity_and_gbp_keyword_filters_work(): void
+    {
+        Livewire::test(WebsiteOverviewPage::class)
+            ->set('tab', 'technical')
+            ->call('setSeverity', 'high')
+            ->assertSee('Primary landing page mobile LCP')
+            ->assertDontSee('Schema opportunities');
+
+        Livewire::test(GbpOverviewPage::class)
+            ->set('tab', 'queries')
+            ->set('keyword', 'çankaya diş kliniği')
+            ->assertSee('çankaya diş kliniği')
+            ->assertSeeHtml('>çankaya diş kliniği</td>')
+            ->assertDontSeeHtml('>zirkonyum ankara</td>');
     }
 }
