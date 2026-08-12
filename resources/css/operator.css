@@ -192,3 +192,68 @@
 [x-cloak] {
   display: none !important;
 }
+
+/* GBP local rank map (MapLibre + OpenFreeMap) */
+.gbp-map-shell {
+  @apply relative overflow-hidden rounded-xl ring-1 ring-inset ring-gray-200 dark:ring-gray-700;
+  min-height: 22rem;
+  height: min(70vh, 36rem);
+  background: linear-gradient(180deg, rgb(243 244 246) 0%, rgb(229 231 235) 100%);
+}
+.dark .gbp-map-shell {
+  background: linear-gradient(180deg, rgb(31 41 55) 0%, rgb(17 24 39) 100%);
+}
+.gbp-map-shell[data-map-status='loading']::before {
+  content: 'Loading map…';
+  @apply absolute inset-0 z-10 flex items-center justify-center text-sm text-gray-500 dark:text-gray-400;
+  pointer-events: none;
+}
+.gbp-map-fallback {
+  @apply flex h-full min-h-[22rem] items-center justify-center px-4 text-center text-sm text-gray-600 dark:text-gray-300;
+}
+.gbp-business-marker {
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px 9999px 9999px 2px;
+  transform: rotate(45deg);
+  background: #ea580c;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
+}
+.gbp-rank-marker {
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--marker-color, #64748b);
+  color: #fff;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
+  cursor: pointer;
+  position: relative;
+  padding: 0;
+  font: inherit;
+}
+.gbp-rank-marker__rank {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+.gbp-rank-marker__delta {
+  position: absolute;
+  top: -8px;
+  right: -10px;
+  background: #111827;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 600;
+  border-radius: 9999px;
+  padding: 1px 4px;
+  line-height: 1.2;
+}
+.gbp-map-mini {
+  min-height: 12rem;
+  height: 12rem;
+}

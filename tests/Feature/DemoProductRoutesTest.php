@@ -162,7 +162,8 @@ class DemoProductRoutesTest extends TestCase
             ->assertSee('Google Business Profile');
         $this->get(route('demo.gbp', ['tab' => 'visibility']))
             ->assertOk()
-            ->assertSee('External Local Rank Tracking');
+            ->assertSee('Local visibility')
+            ->assertSee('Demo local rank tracking');
         $this->get(route('demo.analytics'))
             ->assertOk()
             ->assertSee('Google Analytics')
@@ -255,10 +256,12 @@ class DemoProductRoutesTest extends TestCase
             ->assertDontSee('Missing Content-Security-Policy header');
 
         Livewire::test(GbpOverviewPage::class)
-            ->set('tab', 'queries')
-            ->set('keyword', 'çankaya diş kliniği')
+            ->call('setPerfSub', 'queries')
+            ->assertSee('Search queries')
             ->assertSee('çankaya diş kliniği')
-            ->assertSeeHtml('>çankaya diş kliniği</td>')
-            ->assertDontSeeHtml('>zirkonyum ankara</td>');
+            ->call('setKeyword', 'çankaya diş kliniği')
+            ->assertSet('tab', 'visibility')
+            ->assertSee('Local visibility')
+            ->assertDontSee('zirkonyum ankara');
     }
 }
