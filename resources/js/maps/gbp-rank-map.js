@@ -1,4 +1,4 @@
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import { mapConfig, resolveMapStyle } from './config';
 
 const instances = new WeakMap();
