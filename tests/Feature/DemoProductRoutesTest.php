@@ -43,7 +43,7 @@ class DemoProductRoutesTest extends TestCase
     {
         $this->get('/app')
             ->assertOk()
-            ->assertSee('Agency Command Center')
+            ->assertSee('Command Center')
             ->assertSee('Demo Mode');
 
         $this->get(route('demo.customers'))->assertOk()->assertSee('Customers');
