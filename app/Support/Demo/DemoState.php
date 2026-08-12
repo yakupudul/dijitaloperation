@@ -25,9 +25,9 @@ final class DemoState
         }
 
         $defaults = self::defaults();
-        foreach (['contacts', 'customer_activity', 'demo_assets'] as $key) {
+        foreach (['contacts', 'customer_activity', 'demo_assets', 'discovery_candidates'] as $key) {
             if (! array_key_exists($key, $state)) {
-                $state[$key] = $defaults[$key];
+                $state[$key] = $defaults[$key] ?? [];
             }
         }
 
@@ -66,6 +66,7 @@ final class DemoState
                 'completed' => false,
                 'steps' => [],
             ],
+            'discovery_candidates' => DemoCatalog::brandDiscoveryCandidates(),
             'ai_brief_visible' => false,
             'period_preset' => 'last_28',
             'period_start' => null,
@@ -478,9 +479,35 @@ final class DemoState
                 'completed' => true,
                 'steps' => $steps,
                 'cards' => DemoCatalog::publicDiscoverySteps(),
+                'website' => 'atlasdental.example',
+                'pages_inspected' => 8,
+                'completed_at' => 'Today at 11:42',
             ],
+            'discovery_candidates' => DemoCatalog::brandDiscoveryCandidates(),
         ]);
         self::flash('Public brand research completed (Demo Mode · PUBLIC DISCOVERY provenance).');
+    }
+
+    public static function setDiscoveryCandidateStatus(string $id, string $status): void
+    {
+        $state = self::all();
+        $candidates = $state['discovery_candidates'] ?? DemoCatalog::brandDiscoveryCandidates();
+        foreach ($candidates as &$row) {
+            if (($row['id'] ?? '') === $id) {
+                $row['status'] = $status;
+            }
+        }
+        unset($row);
+        $state['discovery_candidates'] = $candidates;
+        session()->put(self::SESSION_KEY, $state);
+
+        $label = match ($status) {
+            'accepted' => 'accepted into Business Context review queue',
+            'ignored' => 'ignored',
+            'edited' => 'edited & accepted for review',
+            default => 'updated',
+        };
+        self::flash('Discovery candidate '.$label.' (Demo Mode — does not silently overwrite Business Context).');
     }
 
     public static function showAiBrief(): void

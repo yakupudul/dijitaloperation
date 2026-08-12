@@ -33,17 +33,19 @@ class DemoPortfolioUxTest extends TestCase
     public function test_brand_show_research_and_ai_actions_work(): void
     {
         Livewire::test(BrandShow::class, ['brand' => DemoCatalog::BRAND_ID])
-            ->assertSee('Cross-channel summary')
+            ->assertSee('Needs attention')
+            ->assertSee('Digital estate')
             ->call('runPublicResearch')
-            ->assertSet('tab', 'research')
-            ->assertSee('PUBLIC DISCOVERY')
+            ->assertSet('tab', 'discovery')
+            ->assertSee('Public Discovery')
             ->assertSee('atlasdental.example')
             ->call('runAiBrief')
             ->assertSet('tab', 'ai')
             ->assertSee('Brand analysis')
             ->assertSee('Create recommendation')
             ->call('createRecommendationFromPriority', 0)
-            ->assertSet('tab', 'recommendations')
+            ->assertSet('tab', 'operations')
+            ->assertSet('ops', 'recommendations')
             ->assertSee('Replace underperforming Meta creative');
     }
 

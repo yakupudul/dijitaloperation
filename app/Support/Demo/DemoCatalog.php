@@ -156,8 +156,13 @@ final class DemoCatalog
             'health' => 'needs_attention',
             'health_label' => 'Needs attention',
             'assets_count' => 8,
+            'connected_assets' => 7,
             'open_findings' => 4,
+            'open_recommendations' => 3,
             'open_tasks' => 3,
+            'overdue_tasks' => 1,
+            'context_completed' => 6,
+            'context_total' => 8,
             'summary' => [
                 'media_spend' => 280800,
                 'platform_leads' => 438,
@@ -165,6 +170,256 @@ final class DemoCatalog
                 'calls_messages' => 1146,
                 'currency' => 'TRY',
             ],
+        ];
+    }
+
+    /**
+     * Operator-owned Business Context snapshot (demo — factual, not AI).
+     *
+     * @return array<string, mixed>
+     */
+    public static function brandBusinessContext(): array
+    {
+        return [
+            'brand_id' => self::BRAND_ID,
+            'completed' => 6,
+            'total' => 8,
+            'updated_at' => 'Today at 14:20',
+            'updated_by' => 'Ayşe Demir',
+            'source' => 'Operator maintained',
+            'business_summary' => 'Atlas Dental Ankara is a private dental clinic focused on implantology and post-bariatric dental rehabilitation for local and medical-travel patients.',
+            'business_model' => 'Clinic / appointment-led healthcare services',
+            'products_services' => ['Dental implants', 'Post-bariatric dentistry', 'Smile design', 'General dentistry'],
+            'priority_offerings' => ['Dental implants', 'Post-bariatric dentistry', 'Smile design'],
+            'target_audiences' => ['Adults seeking implants in Ankara', 'EU medical-travel patients for complex implant cases'],
+            'target_markets' => ['TR', 'DE', 'GB'],
+            'business_goals' => ['Increase qualified implant consultations', 'Improve local map visibility for implant demand', 'Stabilize paid lead efficiency'],
+            'conversion_goals' => ['Consultation booking', 'WhatsApp / phone inquiry', 'Form lead'],
+            'positioning' => 'Specialist implant and post-bariatric dental care with multilingual support for medical travel.',
+            'differentiators' => ['Post-bariatric specialty pathway', 'Multilingual care coordination', 'Local + EU demand coverage'],
+            'known_competitors' => [
+                ['name' => 'Ankara Implant Center', 'url' => null, 'note' => 'Local implant competitor'],
+                ['name' => 'Smile Ankara Clinic', 'url' => null, 'note' => 'Aesthetic / smile design overlap'],
+            ],
+            'important_constraints' => ['No medical claims beyond licensed practice', 'No patient testimonials fabricated for ads'],
+            'unknown_areas' => ['Detailed compliance constraints not fully documented', 'Competitor URLs not verified'],
+        ];
+    }
+
+    /**
+     * Cross-channel consistency coverage (demo — no fake score).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public static function brandCrossChannel(): array
+    {
+        return [
+            [
+                'id' => 'xc-web-gads',
+                'check' => 'Website ↔ Google Ads',
+                'assets' => ['Website · atlasdental.example', 'Google Ads · Atlas Dental'],
+                'state' => 'needs_attention',
+                'state_label' => 'Needs attention',
+                'last_checked' => '3 hours ago',
+                'open_findings' => 1,
+                'summary' => 'Landing-page message differs from active Google Ads campaign intent on implant demand.',
+                'finding_title' => 'Landing page message mismatch',
+                'route' => 'demo.google-ads.overview',
+            ],
+            [
+                'id' => 'xc-web-meta',
+                'check' => 'Website ↔ Meta Ads',
+                'assets' => ['Website · atlasdental.example', 'Meta Ads · Atlas Dental'],
+                'state' => 'needs_attention',
+                'state_label' => 'Needs attention',
+                'last_checked' => 'Yesterday',
+                'open_findings' => 1,
+                'summary' => 'Primary Meta landing page also shows weak mobile LCP — inspect together with Meta efficiency.',
+                'finding_title' => 'Paid landing page performance risk',
+                'route' => 'demo.website',
+            ],
+            [
+                'id' => 'xc-web-gbp',
+                'check' => 'Website ↔ Google Business Profile',
+                'assets' => ['Website · atlasdental.example', 'GBP · Atlas Dental Ankara'],
+                'state' => 'ok',
+                'state_label' => 'No mismatch detected',
+                'last_checked' => 'Today',
+                'open_findings' => 0,
+                'summary' => 'NAP and website URL align with the public Maps listing in demo data.',
+                'finding_title' => null,
+                'route' => 'demo.gbp',
+            ],
+            [
+                'id' => 'xc-web-ig',
+                'check' => 'Website ↔ Instagram',
+                'assets' => ['Website · atlasdental.example'],
+                'state' => 'not_configured',
+                'state_label' => 'Not configured',
+                'last_checked' => '—',
+                'open_findings' => 0,
+                'summary' => 'Instagram asset is not available under this brand.',
+                'finding_title' => null,
+                'route' => null,
+            ],
+        ];
+    }
+
+    /**
+     * Discovery candidates for human review (demo).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public static function brandDiscoveryCandidates(): array
+    {
+        return [
+            [
+                'id' => 'dc-service-implant',
+                'kind' => 'fact',
+                'kind_label' => 'Discovered fact',
+                'value' => 'Dental implants listed as a primary service',
+                'type' => 'Listed service',
+                'source' => '/treatments/implant',
+                'retrieved' => 'Today',
+                'status' => 'pending',
+                'confidence' => null,
+            ],
+            [
+                'id' => 'dc-location',
+                'kind' => 'fact',
+                'kind_label' => 'Discovered fact',
+                'value' => 'Çankaya, Ankara location visible on contact page',
+                'type' => 'Visible location',
+                'source' => '/contact',
+                'retrieved' => 'Today',
+                'status' => 'pending',
+                'confidence' => null,
+            ],
+            [
+                'id' => 'dc-lang',
+                'kind' => 'fact',
+                'kind_label' => 'Discovered fact',
+                'value' => 'Turkish + English language switcher detected',
+                'type' => 'Website language',
+                'source' => 'Site header',
+                'retrieved' => 'Today',
+                'status' => 'pending',
+                'confidence' => null,
+            ],
+            [
+                'id' => 'dc-positioning',
+                'kind' => 'inference',
+                'kind_label' => 'AI-derived interpretation',
+                'value' => 'Likely positioning as specialist implant / post-bariatric dental care',
+                'type' => 'Positioning interpretation',
+                'source' => 'Homepage + /post-bariatric',
+                'retrieved' => 'Today',
+                'status' => 'pending',
+                'confidence' => 'Medium',
+            ],
+            [
+                'id' => 'dc-audience',
+                'kind' => 'inference',
+                'kind_label' => 'AI-derived interpretation',
+                'value' => 'Probable audience includes medical-travel implant seekers',
+                'type' => 'Audience interpretation',
+                'source' => 'EU language pages + CTA copy',
+                'retrieved' => 'Today',
+                'status' => 'pending',
+                'confidence' => 'Low',
+            ],
+            [
+                'id' => 'dc-comp-1',
+                'kind' => 'competitor',
+                'kind_label' => 'Competitor candidate',
+                'value' => 'Ankara Implant Center',
+                'type' => 'Competitor candidate',
+                'source' => 'Public local SERP sample',
+                'retrieved' => 'Today',
+                'status' => 'pending',
+                'confidence' => null,
+            ],
+        ];
+    }
+
+    /**
+     * Decision chains for Decision History (not raw sync activity).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public static function brandDecisionChains(): array
+    {
+        return [
+            [
+                'id' => 'dh-1',
+                'date' => '12 Aug 2026',
+                'asset' => 'Meta Ads',
+                'finding' => 'Meta CPL deterioration on Post Bariatric — Europe',
+                'recommendation' => 'Replace underperforming Meta creative PB-Video-03',
+                'decision' => 'Accepted by Ayşe Demir',
+                'task' => 'Replace Meta creative PB-Video-03',
+                'assignee' => 'Ayşe Demir',
+                'completed' => '13 Aug 2026',
+                'outcome' => 'Improvement observed',
+                'outcome_note' => 'Associated improvement observed in follow-up window — not claiming causality.',
+                'outcome_date' => '17 Aug 2026',
+            ],
+            [
+                'id' => 'dh-2',
+                'date' => '10 Aug 2026',
+                'asset' => 'Website',
+                'finding' => 'Mobile LCP deteriorated on /implant',
+                'recommendation' => 'Fix landing-page mobile LCP',
+                'decision' => 'Accepted',
+                'task' => 'Fix appointment-form / implant page performance',
+                'assignee' => 'Mert Yılmaz',
+                'completed' => null,
+                'outcome' => 'In progress',
+                'outcome_note' => 'Task still open — no outcome yet.',
+                'outcome_date' => null,
+            ],
+            [
+                'id' => 'dh-3',
+                'date' => '08 Aug 2026',
+                'asset' => 'Google Ads',
+                'finding' => 'Search-term waste candidates detected',
+                'recommendation' => 'Add negatives for Irrelevant / Negative-candidate terms',
+                'decision' => 'Pending review',
+                'task' => null,
+                'assignee' => null,
+                'completed' => null,
+                'outcome' => null,
+                'outcome_note' => 'Recommendation exists without a Task — incomplete chain is valid.',
+                'outcome_date' => null,
+            ],
+            [
+                'id' => 'dh-4',
+                'date' => '05 Aug 2026',
+                'asset' => 'GBP',
+                'finding' => 'Unanswered reviews stacking',
+                'recommendation' => null,
+                'decision' => null,
+                'task' => null,
+                'assignee' => null,
+                'completed' => null,
+                'outcome' => null,
+                'outcome_note' => 'Finding only — no Recommendation yet.',
+                'outcome_date' => null,
+            ],
+        ];
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public static function brandRecentActivity(): array
+    {
+        return [
+            ['title' => 'Website technical scan completed', 'when' => 'Today', 'category' => 'sync'],
+            ['title' => 'Meta data import refreshed', 'when' => '2 hours ago', 'category' => 'sync'],
+            ['title' => 'Public Discovery completed', 'when' => 'Today', 'category' => 'discovery'],
+            ['title' => 'Brand AI analysis ready (demo)', 'when' => 'Yesterday', 'category' => 'analysis'],
+            ['title' => 'GBP map grid refresh', 'when' => 'Yesterday', 'category' => 'sync'],
         ];
     }
 
@@ -2805,12 +3060,39 @@ final class DemoCatalog
                 'Add negatives for Irrelevant / Negative-candidate search terms.',
                 'Review local relevance for “implant ankara” and clear review backlog.',
             ],
+            'attention' => [
+                'Meta CPL deteriorated while spend remained material on Post Bariatric — Europe.',
+                'Website mobile LCP on /implant may amplify paid inefficiency.',
+                'GBP north-east map visibility weakened for “implant ankara”.',
+            ],
+            'opportunities' => [
+                'Google Ads remains comparatively stable — protect while fixing Meta/Website friction.',
+                'GBP review velocity is healthy if unanswered reviews are cleared.',
+            ],
+            'cross_channel' => [
+                'Website ↔ Google Ads landing-page message mismatch should be inspected together with Meta landing-page LCP.',
+                'Do not treat Meta CPL recovery as independent from Website mobile performance.',
+            ],
+            'unknowns' => [
+                'Instagram asset not configured — social consistency not evaluated.',
+                'GA4 key-event verification depth is limited in demo data.',
+            ],
+            'sources_available' => [
+                ['label' => 'Business Context', 'state' => 'available'],
+                ['label' => 'Website', 'state' => 'available'],
+                ['label' => 'Google Ads', 'state' => 'available'],
+                ['label' => 'Meta Ads', 'state' => 'available'],
+                ['label' => 'Google Business', 'state' => 'available'],
+                ['label' => 'GA4', 'state' => 'available'],
+                ['label' => 'Instagram', 'state' => 'not_connected'],
+            ],
+            'as_of' => 'Today 14:20',
             'risks' => [
                 'Continuing spend on fatigued Meta creative without replacement.',
                 'Paid traffic landing on a slow mobile page.',
                 'Waste share remaining above 10% of Google Ads spend.',
             ],
-            'disclaimer' => 'Demo guidance — no live model call. AI does not write to external systems.',
+            'disclaimer' => 'Demo guidance — no live model call. AI does not write to external systems. Interpretation is advisory, not automatic Recommendations.',
         ];
     }
 

@@ -61,7 +61,11 @@ class DemoProductRoutesTest extends TestCase
         $this->get(route('demo.brand', ['brand' => DemoCatalog::BRAND_ID]))
             ->assertOk()
             ->assertSee('Atlas Dental Ankara')
-            ->assertSee('Cross-channel summary');
+            ->assertSee('Needs attention')
+            ->assertSee('Digital estate');
+        $this->get(route('demo.brand', ['brand' => DemoCatalog::BRAND_ID, 'tab' => 'discovery']))
+            ->assertOk()
+            ->assertSee('Public Discovery');
         $this->get(route('demo.brand', ['brand' => DemoCatalog::BRAND_ID, 'tab' => 'research']))
             ->assertOk()
             ->assertSee('Public Discovery');
