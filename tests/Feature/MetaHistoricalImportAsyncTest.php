@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\Async\MetaHistoricalAccountImportJob;
 use App\Jobs\Async\MetaHistoricalImportJob;
 use App\Jobs\Async\MetaHistoricalRefreshJob;
 use App\Models\Brand;
@@ -296,11 +297,41 @@ class MetaHistoricalImportAsyncTest extends TestCase
 
     private function runImportJob(Run $run): void
     {
+        // Bound window so tests do not walk the full 37-month provider range.
+        $run->update([
+            'metadata' => array_merge($run->metadata ?? [], [
+                'import_from' => $this->historyDate,
+                'import_to' => $this->historyDate,
+            ]),
+        ]);
+
         app(MetaHistoricalImportJob::class, ['runId' => $run->id])->handle(
             app(AsyncOperationService::class),
             app(MetaHistoricalImportService::class),
             app(MetaResourceDiscoveryService::class),
         );
+
+        // Orchestrator dispatches per-account jobs via Bus::batch (sync in tests).
+        // If the queue driver did not drain them, run each account job explicitly.
+        $run->refresh();
+        if (! in_array($run->status, ['completed', 'partial', 'failed'], true)) {
+            foreach ([$this->accountOne, $this->accountTwo] as $account) {
+                if ($account->status !== CoreExternalResource::STATUS_AVAILABLE) {
+                    continue;
+                }
+                app(MetaHistoricalAccountImportJob::class, [
+                    'parentRunId' => $run->id,
+                    'externalResourceId' => $account->id,
+                    'window' => [
+                        'from' => $this->historyDate,
+                        'to' => $this->historyDate,
+                    ],
+                ])->handle(
+                    app(AsyncOperationService::class),
+                    app(MetaHistoricalImportService::class),
+                );
+            }
+        }
     }
 
     private function fakeMetaGraph(?string $forbidAccount = null): void
