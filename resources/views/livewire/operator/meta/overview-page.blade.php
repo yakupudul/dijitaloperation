@@ -46,7 +46,7 @@
         </x-ta.empty-state>
     @else
         {{-- Priority KPIs --}}
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 md:gap-6">
+        <div class="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4 md:gap-6">
             @foreach ($workspace['kpis'] ?? [] as $kpi)
                 @include('livewire.operator.meta.partials.kpi', ['kpi' => $kpi])
             @endforeach
@@ -54,7 +54,7 @@
 
         {{-- Secondary KPIs --}}
         @if (! empty($workspace['kpis_secondary']))
-            <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 md:gap-6">
+            <div class="mt-4 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4 md:gap-6">
                 @foreach ($workspace['kpis_secondary'] as $kpi)
                     @include('livewire.operator.meta.partials.kpi', ['kpi' => $kpi])
                 @endforeach

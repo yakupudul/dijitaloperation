@@ -98,19 +98,21 @@ final class MetaHistoricalQueryService
         $covers = $coverage->start_date->lessThanOrEqualTo(CarbonImmutable::parse($from))
             && $coverage->end_date->greaterThanOrEqualTo(CarbonImmutable::parse($to));
 
-        if ($covers && $coverage->status === MetaAdsHistoryCoverage::STATUS_COMPLETE) {
-            return 'complete';
+        // Date-bounded coverage wins over the row's lifecycle flag. A re-import may
+        // mark the coverage row `importing` while earlier facts already cover the
+        // operator's selected period — those periods must still query the local store
+        // (never blank the Overview / force Analyze).
+        if ($covers) {
+            return $coverage->status === MetaAdsHistoryCoverage::STATUS_COMPLETE
+                ? 'complete'
+                : 'partial';
         }
 
         if ($coverage->status === MetaAdsHistoryCoverage::STATUS_IMPORTING) {
             return 'importing';
         }
 
-        if ($covers && $coverage->status === MetaAdsHistoryCoverage::STATUS_PARTIAL) {
-            return 'partial';
-        }
-
-        return $covers ? 'partial' : 'not_imported';
+        return 'not_imported';
     }
 
     /**

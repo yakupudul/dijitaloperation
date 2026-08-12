@@ -1,14 +1,14 @@
 /*
  * MoxDOP operator front-end bootstrap.
- * Alpine start + global ApexCharts, adapted from TailAdmin Laravel (MIT) resources/js/app.js.
+ *
+ * ApexCharts global + chart helpers adapted from TailAdmin Laravel (MIT).
+ * Do NOT Alpine.start() here — Livewire 3 ships Alpine and starts it. Starting a
+ * second Alpine instance breaks wire:click / Livewire updates on operator pages.
+ * Theme + sidebar Alpine stores are registered via alpine:init in the layout.
  */
-import Alpine from 'alpinejs';
 import ApexCharts from 'apexcharts';
 
-window.Alpine = Alpine;
 window.ApexCharts = ApexCharts;
-
-Alpine.start();
 
 /**
  * Render (or re-render) an ApexChart into an element carrying a JSON `data-chart`
@@ -33,4 +33,10 @@ function renderOperatorCharts(root = document) {
 
 document.addEventListener('DOMContentLoaded', () => renderOperatorCharts());
 document.addEventListener('livewire:navigated', () => renderOperatorCharts());
-document.addEventListener('livewire:update', () => renderOperatorCharts());
+document.addEventListener('livewire:init', () => {
+    if (window.Livewire?.hook) {
+        window.Livewire.hook('morph.updated', ({ el }) => {
+            renderOperatorCharts(el);
+        });
+    }
+});

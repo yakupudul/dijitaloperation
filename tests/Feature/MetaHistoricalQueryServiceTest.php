@@ -296,6 +296,20 @@ class MetaHistoricalQueryServiceTest extends TestCase
         $this->assertSame('not_imported', $this->query->isRangeCovered($this->resource, '2026-01-05', '2026-01-10', MetaAdsHistoryCoverage::LAYER_ENTITIES));
     }
 
+    public function test_is_range_covered_serves_local_data_while_reimport_is_in_flight(): void
+    {
+        $this->upserter->updateCoverage($this->integration, $this->resource, MetaAdsHistoryCoverage::LAYER_DAILY_FACTS, [
+            'status' => MetaAdsHistoryCoverage::STATUS_IMPORTING,
+            'start_date' => '2026-01-01',
+            'end_date' => '2026-01-31',
+        ]);
+
+        // Dates already cover the operator period — return partial so Overview queries local facts.
+        $this->assertSame('partial', $this->query->isRangeCovered($this->resource, '2026-01-05', '2026-01-10'));
+        // Outside the imported bounds while importing → still importing (gap may fill).
+        $this->assertSame('importing', $this->query->isRangeCovered($this->resource, '2026-02-01', '2026-02-10'));
+    }
+
     public function test_is_range_covered_outside_provider_history_window(): void
     {
         $status = $this->query->isRangeCovered($this->resource, '2000-01-01', '2000-01-31');

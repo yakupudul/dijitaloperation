@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Livewire\Operator\Meta\IntegrationPage;
 use App\Livewire\Operator\Meta\OverviewPage;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
@@ -137,6 +138,42 @@ class OperatorAppTest extends TestCase
                 ->where('metadata->operation_type', AsyncOperationTypes::META_HISTORY_GAP_ENRICH)
                 ->first(),
         );
+    }
+
+    public function test_meta_integration_import_history_queues_async_run(): void
+    {
+        Queue::fake();
+
+        $admin = User::factory()->create();
+        $admin->assignRole(Roles::ADMIN);
+        $this->actingAs($admin);
+
+        CoreIntegration::factory()->meta()->create([
+            'status' => CoreIntegration::STATUS_ACTIVE,
+            'config' => ['connection_status' => 'connected'],
+        ]);
+
+        Livewire::test(IntegrationPage::class)
+            ->assertOk()
+            ->call('importHistory')
+            ->assertSet('flashTone', 'success');
+
+        $this->assertTrue(
+            Run::query()
+                ->where('metadata->operation_type', AsyncOperationTypes::META_HISTORY_IMPORT)
+                ->whereIn('status', ['queued', 'running'])
+                ->exists(),
+        );
+    }
+
+    public function test_filament_back_office_remains_at_admin(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole(Roles::ADMIN);
+
+        $this->actingAs($admin)
+            ->get('/admin')
+            ->assertOk();
     }
 
     /**
