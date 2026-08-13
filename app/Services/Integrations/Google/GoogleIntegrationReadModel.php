@@ -29,6 +29,8 @@ final class GoogleIntegrationReadModel
     public function __construct(
         private readonly IntegrationHealthPresenter $health = new IntegrationHealthPresenter,
         private readonly GoogleCredentialResolver $credentials = new GoogleCredentialResolver,
+        private readonly GoogleScopeCoverageService $coverage = new GoogleScopeCoverageService,
+        private readonly GoogleOAuthConfigurationHealth $configHealth = new GoogleOAuthConfigurationHealth,
     ) {}
 
     public function findIntegration(): ?CoreIntegration
@@ -130,7 +132,11 @@ final class GoogleIntegrationReadModel
             'next_action' => $this->nextAction($operatorStatus, $authStatus, $counts),
             'next_action_label' => $this->nextActionLabel($operatorStatus, $authStatus, $counts),
             'actions' => $this->availableActions($integration, $operatorStatus, $authStatus),
-            'connectors' => $this->connectorSummaries($counts['by_type']),
+            'connectors' => $this->connectorSummaries($counts['by_type'], $integration),
+            'connector_auth' => $this->coverage->connectorStatuses($integration),
+            'config_health_ok' => $this->configHealth->check($integration)['ok'],
+            'authorize_url' => $this->authorizeUrl($integration),
+            'reauthorize_url' => $this->authorizeUrl($integration, forceConsent: true),
             'hub_note' => null,
             'provenance' => 'real',
             'write_actions' => 'Disabled — MoxDOP is read / bind only',
@@ -197,6 +203,10 @@ final class GoogleIntegrationReadModel
                 'disconnect' => false,
             ],
             'connectors' => $this->connectorSummaries([]),
+            'connector_auth' => [],
+            'config_health_ok' => false,
+            'authorize_url' => null,
+            'reauthorize_url' => null,
             'hub_note' => $hubNote,
             'provenance' => 'real',
             'write_actions' => 'Disabled — MoxDOP is read / bind only',
@@ -305,12 +315,17 @@ final class GoogleIntegrationReadModel
      * @param  array<string, array{discovered: int, bound: int, available: int}>  $byType
      * @return list<array<string, mixed>>
      */
-    private function connectorSummaries(array $byType): array
+    private function connectorSummaries(array $byType, ?CoreIntegration $integration = null): array
     {
+        $authStatuses = $integration instanceof CoreIntegration
+            ? collect($this->coverage->connectorStatuses($integration))->keyBy('capability')
+            : collect();
+
         $out = [];
 
         foreach (GoogleConnectorRegistry::all() as $id => $connector) {
             $counts = $byType[$connector['resource_type']] ?? ['discovered' => 0, 'bound' => 0, 'available' => 0];
+            $auth = $authStatuses->get($connector['capability']);
             $out[] = [
                 'id' => $id,
                 'label' => $connector['label'],
@@ -320,10 +335,24 @@ final class GoogleIntegrationReadModel
                 'bound' => $counts['bound'],
                 'available' => $counts['available'],
                 'shares_credential' => GoogleConnectorRegistry::sharesAuthorizationCredential(),
+                'auth_status' => $auth['status'] ?? 'not_authorized',
+                'auth_status_label' => $auth['status_label'] ?? 'Not authorized',
             ];
         }
 
         return $out;
+    }
+
+    private function authorizeUrl(?CoreIntegration $integration, bool $forceConsent = false): ?string
+    {
+        if (! $integration instanceof CoreIntegration) {
+            return null;
+        }
+
+        return route('integrations.google.authorize', [
+            'integration' => $integration,
+            'force_consent' => $forceConsent ? 1 : null,
+        ], absolute: false);
     }
 
     /**
@@ -691,15 +720,23 @@ final class GoogleIntegrationReadModel
             && $operatorStatus !== IntegrationOperatorStatus::DISABLED
             && $authStatus !== GoogleAuthStatus::DISABLED;
 
+        $authUsable = in_array($authStatus, [
+            GoogleAuthStatus::CONNECTED,
+            GoogleAuthStatus::REFRESH_REQUIRED,
+            GoogleAuthStatus::REVOKED,
+            GoogleAuthStatus::AUTHORIZATION_REQUIRED,
+        ], true);
+
         return [
             'configure' => true,
-            // Authorize URL exists, but full lifecycle is Prompt 14 — expose only when configured.
             'authorize' => $canAuthorize,
+            'reauthorize' => $canAuthorize && $authUsable,
             // Discovery / bind / collect production UX owned by later prompts.
             'discover' => false,
             'bind' => false,
             'collect' => false,
-            'disconnect' => false,
+            // Explicit Google grant revocation (not per-Connector disable).
+            'disconnect' => $canAuthorize && $integration->authorizationCredential()->exists(),
         ];
     }
 

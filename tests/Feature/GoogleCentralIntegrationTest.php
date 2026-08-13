@@ -398,7 +398,7 @@ class GoogleCentralIntegrationTest extends TestCase
         $this->assertFalse(IntegrationResource::canAccess());
     }
 
-    public function test_disconnect_clears_credentials_and_marks_resources_unavailable(): void
+    public function test_disconnect_clears_credentials_and_preserves_resources_bindings(): void
     {
         CoreIntegrationCredential::factory()->provider()->create([
             'integration_id' => $this->integration->id,
@@ -436,9 +436,10 @@ class GoogleCentralIntegrationTest extends TestCase
         $this->assertFalse($this->integration->fresh()->authorizationCredential()->exists());
         $this->assertTrue($this->integration->fresh()->providerCredential()->exists());
         $this->assertSame('keep-client-secret', $this->integration->fresh()->providerCredential->encrypted_payload['client_secret']);
-        $this->assertSame('unavailable', $resource->fresh()->status);
-        $this->assertSame('disabled', CoreAssetBinding::query()->first()->status);
+        $this->assertSame('available', $resource->fresh()->status);
+        $this->assertSame('active', CoreAssetBinding::query()->first()->status);
         $this->assertDatabaseHas('digital_assets', ['id' => $asset->id]);
+        $this->assertSame(GoogleAuthStatus::REVOKED, GoogleAuthStatus::for($this->integration->fresh(['credential'])));
     }
 
     public function test_google_integration_view_shows_setup_and_actions_without_secrets(): void

@@ -16,6 +16,11 @@ final class GoogleAuthStatus
 
     public const string REFRESH_REQUIRED = 'refresh_required';
 
+    /** Alias stored value for reauthorization / action-required. */
+    public const string REAUTH_REQUIRED = self::REFRESH_REQUIRED;
+
+    public const string REVOKED = 'revoked';
+
     public const string ERROR = 'error';
 
     public const string DISABLED = 'disabled';
@@ -35,7 +40,7 @@ final class GoogleAuthStatus
         }
 
         $configStatus = (string) data_get($integration->config, 'auth_status', '');
-        if (in_array($configStatus, [self::REFRESH_REQUIRED, self::ERROR], true)) {
+        if (in_array($configStatus, [self::REFRESH_REQUIRED, self::ERROR, self::REVOKED], true)) {
             return $configStatus;
         }
 
@@ -57,7 +62,8 @@ final class GoogleAuthStatus
             self::NOT_CONFIGURED => 'Not configured',
             self::AUTHORIZATION_REQUIRED => 'Not authorized',
             self::CONNECTED => 'Connected',
-            self::REFRESH_REQUIRED => 'Refresh required',
+            self::REFRESH_REQUIRED => 'Reauthorization required',
+            self::REVOKED => 'Revoked',
             self::ERROR => 'Error',
             self::DISABLED => 'Disabled',
             default => str($status)->replace('_', ' ')->title()->toString(),

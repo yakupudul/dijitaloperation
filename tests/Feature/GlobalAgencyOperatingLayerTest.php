@@ -100,11 +100,7 @@ class GlobalAgencyOperatingLayerTest extends TestCase
             ->assertSee('No resources discovered yet')
             ->call('bindResource', '1')
             ->assertSee('Prompt 16')
-            ->call('openDisconnect')
-            ->assertSee('Disconnect Google?')
-            ->assertSee('Total dependent Digital Assets')
-            ->call('confirmDisconnectAction')
-            ->assertSee('not executed');
+            ->assertDontSee('Revoke Google access…');
     }
 
     public function test_recommendation_accept_and_create_task_remain_internal(): void

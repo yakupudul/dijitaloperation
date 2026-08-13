@@ -20,7 +20,22 @@ class GoogleOAuthController extends Controller
             abort(403);
         }
 
-        $result = $oauth->beginAuthorization($integration, $user);
+        $capabilities = null;
+        $capability = $request->query('capability');
+        if (is_string($capability) && $capability !== '') {
+            $capabilities = [$capability];
+        }
+
+        $forceConsent = $request->boolean('force_consent');
+
+        $result = $oauth->beginAuthorization(
+            integration: $integration,
+            user: $user,
+            capabilities: $capabilities,
+            forceConsent: $forceConsent,
+            capabilityContext: is_string($capability) ? $capability : null,
+        );
+
         if (isset($result['error'])) {
             Notification::make()
                 ->title('Google authorization unavailable')
@@ -48,7 +63,15 @@ class GoogleOAuthController extends Controller
             user: $user,
         );
 
-        // Never keep code/tokens in the browser URL after handling.
+        $returnRoute = is_string($result['return_route'] ?? null)
+            ? $result['return_route']
+            : 'demo.integrations.google';
+
+        if (! in_array($returnRoute, ['demo.integrations.google', 'demo.integrations'], true)) {
+            $returnRoute = 'demo.integrations.google';
+        }
+
+        // Never keep code/tokens/state secrets in the browser URL after handling.
         if (isset($result['error'])) {
             Notification::make()
                 ->title('Google authorization failed')
@@ -56,12 +79,12 @@ class GoogleOAuthController extends Controller
                 ->danger()
                 ->send();
 
-            return redirect()->route('demo.integrations');
+            return redirect()->route($returnRoute);
         }
 
         Notification::make()
             ->title('Google connected')
-            ->body('Agency Google Integration authorized. You can refresh resources next.')
+            ->body('Agency Google Integration authorized. Resource discovery is a separate step.')
             ->success()
             ->send();
 

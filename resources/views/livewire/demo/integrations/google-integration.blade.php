@@ -26,7 +26,16 @@
         </div>
         <div class="flex flex-wrap gap-2">
             <x-ta.button href="{{ route('demo.integrations') }}" size="sm" variant="outline">All Integrations</x-ta.button>
-            <x-ta.button wire:click="openDisconnect" size="sm" variant="danger">Disconnect…</x-ta.button>
+            @if (($integration['actions']['authorize'] ?? false) && ! empty($integration['authorize_url']) && ($integration['auth_status'] ?? '') !== 'connected')
+                <x-ta.button :href="$integration['authorize_url']" size="sm">Connect Google</x-ta.button>
+            @elseif (($integration['actions']['authorize'] ?? false) && empty($integration['integration_id']))
+                <x-ta.button wire:click="bootstrapAndConnect" size="sm">Configure & Connect</x-ta.button>
+            @elseif (($integration['actions']['reauthorize'] ?? false) && ! empty($integration['reauthorize_url']))
+                <x-ta.button :href="$integration['reauthorize_url']" size="sm" variant="outline">Re-authorize</x-ta.button>
+            @endif
+            @if ($integration['actions']['disconnect'] ?? false)
+                <x-ta.button wire:click="openDisconnect" size="sm" variant="danger">Revoke Google access…</x-ta.button>
+            @endif
         </div>
     </div>
 
@@ -97,13 +106,13 @@
     @elseif ($tab === 'connectors')
         <p class="text-sm text-gray-500 dark:text-gray-400">One Google Integration authorization. Product-specific Connectors manage discovery, binding, data freshness and sync — not specialist analytics.</p>
         <div class="grid gap-4 md:grid-cols-2">
-            @foreach ($integration['resource_groups'] as $group)
-                <a href="{{ route('demo.integrations.connector', ['connector' => $group['connector']]) }}" wire:navigate class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 transition hover:bg-gray-50 dark:bg-gray-900 dark:ring-gray-800 dark:hover:bg-white/[0.03]">
+            @foreach ($integration['connectors'] as $connector)
+                <a href="{{ route('demo.integrations.connector', ['connector' => $connector['ui_slug']]) }}" wire:navigate class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 transition hover:bg-gray-50 dark:bg-gray-900 dark:ring-gray-800 dark:hover:bg-white/[0.03]">
                     <div class="flex items-center gap-2">
-                        <x-demo.digital-asset-mark :type="$group['type']" size="md" />
+                        <x-demo.digital-asset-mark :type="$connector['ui_slug'] === 'google-ads' ? 'google_ads' : $connector['ui_slug']" size="md" />
                         <div>
-                            <h3 class="font-semibold text-gray-900 dark:text-white">{{ $group['label'] }} Connector</h3>
-                            <p class="text-xs text-gray-500">{{ $group['accounts'] }} resources · {{ $group['bound'] }} bound · {{ $group['available'] }} available</p>
+                            <h3 class="font-semibold text-gray-900 dark:text-white">{{ $connector['label'] }} Connector</h3>
+                            <p class="text-xs text-gray-500">{{ $connector['auth_status_label'] ?? 'Not authorized' }} · {{ $connector['discovered'] }} resources · {{ $connector['bound'] }} bound · {{ $connector['available'] }} available</p>
                         </div>
                     </div>
                 </a>
@@ -218,17 +227,16 @@
     @if ($confirmDisconnect)
         <div class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 p-4" role="dialog" aria-modal="true" aria-labelledby="disconnect-title">
             <div class="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl dark:bg-gray-900">
-                <h2 id="disconnect-title" class="text-lg font-semibold text-gray-800 dark:text-white/90">Disconnect Google?</h2>
-                <p class="mt-2 text-sm text-gray-500">This Integration currently provides access to:</p>
+                <h2 id="disconnect-title" class="text-lg font-semibold text-gray-800 dark:text-white/90">Revoke Google access?</h2>
+                <p class="mt-2 text-sm text-gray-500">This revokes the entire Google OAuth grant for MoxDOP — not a single Connector. Historical resources, bindings, and collected data are preserved.</p>
                 <ul class="mt-3 list-disc space-y-1 pl-5 text-sm text-gray-700 dark:text-gray-300">
                     @foreach ($integration['disconnect_impact'] as $label => $count)
                         <li>{{ $count }} {{ $label }}</li>
                     @endforeach
                 </ul>
-                <p class="mt-3 text-sm text-gray-500">Disconnect / revocation is not executed here (Prompt 14 owns OAuth lifecycle).</p>
                 <div class="mt-5 flex flex-wrap justify-end gap-2">
                     <x-ta.button wire:click="cancelDisconnect" size="sm" variant="outline">Cancel</x-ta.button>
-                    <x-ta.button wire:click="confirmDisconnectAction" size="sm" variant="danger">Acknowledge</x-ta.button>
+                    <x-ta.button wire:click="confirmDisconnectAction" size="sm" variant="danger">Revoke Google access</x-ta.button>
                 </div>
             </div>
         </div>

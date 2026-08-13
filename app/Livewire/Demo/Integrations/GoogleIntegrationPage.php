@@ -2,8 +2,13 @@
 
 namespace App\Livewire\Demo\Integrations;
 
+use App\Models\CoreIntegration;
 use App\Services\Integrations\Google\GoogleIntegrationReadModel;
+use App\Services\Integrations\Google\GoogleOAuthService;
 use App\Support\Demo\DemoState;
+use App\Support\Integrations\Presentation\IntegrationWorkspaceCatalog;
+use App\Support\Integrations\ProviderRegistry;
+use App\Support\Roles;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -35,11 +40,29 @@ class GoogleIntegrationPage extends Component
 
     public function bindResource(string $resourceId): void
     {
-        // Production binding workflow is Prompt 16 — do not fake binds as real.
         DemoState::flash(
             'Resource selection and binding is not productionized yet (Prompt 16). Discovered resources are shown read-only.',
             'info',
         );
+    }
+
+    public function bootstrapAndConnect(): void
+    {
+        $user = auth()->user();
+        if ($user === null || ! $user->hasRole(Roles::ADMIN)) {
+            abort(403);
+        }
+
+        $integration = app(IntegrationWorkspaceCatalog::class)->bootstrap(ProviderRegistry::GOOGLE);
+        $result = app(GoogleOAuthService::class)->beginAuthorization($integration, $user);
+
+        if (isset($result['error'])) {
+            DemoState::flash($result['error'], 'info');
+
+            return;
+        }
+
+        $this->redirect($result['url']);
     }
 
     public function openDisconnect(): void
@@ -55,11 +78,27 @@ class GoogleIntegrationPage extends Component
     public function confirmDisconnectAction(): void
     {
         $this->confirmDisconnect = false;
-        // OAuth revocation / credential lifecycle is Prompt 14.
-        DemoState::flash(
-            'Disconnect was not executed. Google OAuth revocation is owned by Prompt 14.',
-            'info',
+
+        $user = auth()->user();
+        if ($user === null || ! $user->hasRole(Roles::ADMIN)) {
+            abort(403);
+        }
+
+        $integration = CoreIntegration::query()
+            ->where('provider', ProviderRegistry::GOOGLE)
+            ->first();
+
+        if (! $integration instanceof CoreIntegration) {
+            DemoState::flash('No Google Integration is configured.', 'info');
+
+            return;
+        }
+
+        $result = app(GoogleOAuthService::class)->revokeAuthorization(
+            $integration->fresh(['authorizationCredential', 'providerCredential']) ?? $integration,
         );
+
+        DemoState::flash($result['message'], $result['ok'] ? 'info' : 'info');
     }
 
     public function render(GoogleIntegrationReadModel $readModel): View

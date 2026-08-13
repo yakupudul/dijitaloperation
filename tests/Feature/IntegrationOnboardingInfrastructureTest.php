@@ -128,14 +128,12 @@ class IntegrationOnboardingInfrastructureTest extends TestCase
     public function test_google_integration_links_connectors_and_keeps_disconnect_impact(): void
     {
         Livewire::test(GoogleIntegrationPage::class)
+            ->assertSee('Dependent Digital Assets')
             ->call('setTab', 'connectors')
             ->assertSee('Google Ads Connector')
             ->assertSee('Google Analytics Connector')
             ->assertSee('Search Console Connector')
-            ->assertSee('Google Business Profile Connector')
-            ->call('openDisconnect')
-            ->assertSee('Disconnect Google?')
-            ->assertSee('Total dependent Digital Assets');
+            ->assertSee('Google Business Profile Connector');
     }
 
     public function test_portfolio_setup_wizard_entry_points_and_flow(): void

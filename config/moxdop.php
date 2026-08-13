@@ -9,6 +9,9 @@ return [
          * APP_URL + the named integrations.google.callback route (see GoogleOAuthRedirectUriResolver).
          */
         'redirect_uri' => env('GOOGLE_REDIRECT_URI'),
+        /*
+         * Application-level Google Ads API developer token (NOT an OAuth user token).
+         */
         'developer_token' => env('GOOGLE_ADS_DEVELOPER_TOKEN'),
         'ads_api_version' => env('GOOGLE_ADS_API_VERSION', 'v25'),
         /*
@@ -18,6 +21,9 @@ return [
          */
         'include_gbp_scope' => (bool) env('GOOGLE_INCLUDE_GBP_SCOPE', false),
         'gbp_discovery_enabled' => (bool) env('GOOGLE_GBP_DISCOVERY_ENABLED', false),
+        'oauth_state_ttl_minutes' => (int) env('GOOGLE_OAUTH_STATE_TTL_MINUTES', 15),
+        'access_token_refresh_skew_seconds' => (int) env('GOOGLE_ACCESS_TOKEN_REFRESH_SKEW_SECONDS', 60),
+        'refresh_lock_seconds' => (int) env('GOOGLE_OAUTH_REFRESH_LOCK_SECONDS', 20),
     ],
 
     /*

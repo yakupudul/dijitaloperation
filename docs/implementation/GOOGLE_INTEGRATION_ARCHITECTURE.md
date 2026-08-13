@@ -226,7 +226,7 @@ No dual-write. No destructive credential/resource/binding deletion.
 | Connector architecture | REAL |
 | ExternalResource architecture | REAL |
 | Binding architecture | REAL foundation |
-| Google OAuth lifecycle | PARTIAL / NEXT (Prompt 14) |
+| Google OAuth lifecycle | REAL (Prompt 14) — see `GOOGLE_OAUTH_CREDENTIAL_LIFECYCLE.md` |
 | Google live resource discovery | PARTIAL / NEXT (Prompt 15) |
 | Resource selection/binding workflow | PARTIAL / NEXT (Prompt 16) |
 | GSC / GA4 / Ads / GBP production collectors | NOT YET |
@@ -259,11 +259,11 @@ state, no production collectors, no IA redesign.
 | Concept | Canonical model/service | Legacy source | Legacy writes after Prompt 13? | Read compatibility? | Removal milestone |
 | --- | --- | --- | --- | --- | --- |
 | Integration | `CoreIntegration` | Demo fixtures | No (Demo narrative only) | Demo helpers may remain | Fixture retire after Meta/etc. convergence |
-| Credential | `CoreIntegrationCredential` + resolvers | env fallback | Env fallback OK | Status-only UI | Prompt 14 harden |
+| Credential | `CoreIntegrationCredential` + resolvers + `GoogleCredentialBroker` | env fallback for app secrets | Env app secrets OK; user tokens only in authorization credential | Status-only UI | Prompt 14 DONE |
 | Connector | `GoogleConnectorRegistry` | Demo connector IDs | No | UI slug mapping | — |
 | ExternalResource | `CoreExternalResource` | Demo unbound lists | No | Connector pages still Demo | Prompt 15 |
 | Binding | `CoreAssetBinding` | Demo bind session | No | Connector pages still Demo | Prompt 16 |
-| OAuth state | Integration config + auth credential | — | Canonical only | — | Prompt 14 |
+| OAuth state | `GoogleOAuthAuthorizationAttempt` (hashed) + credential lifecycle | Cache-only state | Canonical attempt + service | Compat cache read | Prompt 14 DONE |
 | Collection state | Collection Engine / materializations | Integration `last_*` metadata | No duplicate collection state on Integration | Read model projects | Prompts 17–19 |
 
 ## Google Connector Matrix
