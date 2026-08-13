@@ -2,12 +2,13 @@
 
 namespace App\Services\Collection\Contracts;
 
-use App\Models\Collection\CollectionDatasetRun;
+use App\Services\DataPool\Support\NormalizedDatasetBatch;
+use App\Services\DataPool\Support\WriteReceipt;
 
+/**
+ * Provider-neutral normalized write port (Prompt 9 boundary; Prompt 10 WarehouseWriter).
+ */
 interface NormalizedDatasetWriter
 {
-    /**
-     * @param  list<array<string, mixed>>  $records
-     */
-    public function write(CollectionDatasetRun $datasetRun, array $records): int;
+    public function write(NormalizedDatasetBatch $batch): WriteReceipt;
 }

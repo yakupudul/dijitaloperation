@@ -1,0 +1,51 @@
+name: Data Pool PostgreSQL
+
+# Focused Prompt 10 proof for native partitions / upserts.
+# Does not replace the main DOP PR gate SQLite suite.
+
+on:
+  pull_request:
+    paths:
+      - "app/Services/DataPool/**"
+      - "database/migrations/*data_pool*"
+      - "docs/data-contracts/MOXDOP_DATA_POOL_STORAGE_V1*"
+      - "tests/Integration/DataPool/**"
+      - "tests/Feature/DataPool/**"
+      - ".github/workflows/data-pool-postgres.yml"
+  workflow_dispatch:
+
+jobs:
+  postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: moxdop
+          POSTGRES_PASSWORD: moxdop
+          POSTGRES_DB: moxdop_pool_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U moxdop -d moxdop_pool_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: mbstring, xml, curl, sqlite3, zip, bcmath, pgsql, pdo_pgsql
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist
+      - name: Run PostgreSQL integration tests
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: moxdop_pool_test
+          DB_USERNAME: moxdop
+          DB_PASSWORD: moxdop
+        run: php artisan test --compact --group=postgres

@@ -66,14 +66,17 @@ flowchart TD
   H --> Job[ExecuteDatasetRunJob]
   Job --> Res[DatasetExecutorResolver]
   Res --> Exec[DatasetExecutor later]
-  Exec --> Raw[RawPayloadWriter later]
-  Exec --> Norm[NormalizedDatasetWriter later]
+  Exec --> Raw[RawPayloadWriter / FilesystemRawPayloadWriter]
+  Exec --> Norm[WarehouseWriter / PostgresWarehouseWriter]
   Job --> CP[Checkpoint / Progress / Retry]
   CP --> DB
+  Raw --> Obj[(Private object storage)]
+  Norm --> Pool[(Normalized data pool)]
   DB --> Ev[Domain events]
   Ev -.-> UI[Operator UI later / Reverb later]
 ```
 
+Prompt 10 implements physical raw + warehouse writers. Provider DatasetExecutors remain later.
 ## 5. Lifecycle states
 
 `queued` → `running` → (`retrying` | `completed` | `failed` | `partial` | `cancellation_requested` → `cancelled`)
