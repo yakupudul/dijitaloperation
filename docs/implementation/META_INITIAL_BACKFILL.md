@@ -207,7 +207,7 @@ See Milestone 5 Capability Reality Matrix (Prompt 25 rows) and matrices below.
 
 ## 33. Next Phase Handoff
 
-- Prompt 26: Data Pool Integrity & Reconciliation
+- Prompt 26: Data Pool Integrity & Reconciliation (`docs/implementation/DATA_POOL_INTEGRITY_RECONCILIATION.md`)
 - Prompt 27: recurring / incremental freshness (not this milestone)
 - Specialist real-data UI migration (not this milestone)
 

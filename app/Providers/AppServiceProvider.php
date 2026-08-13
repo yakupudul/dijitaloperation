@@ -23,6 +23,9 @@ use App\Services\Collection\Providers\SearchConsole\SearchConsoleDatasetExecutor
 use App\Services\DataPool\Contracts\WarehouseWriter;
 use App\Services\DataPool\DataPoolStorageRegistry;
 use App\Services\DataPool\FilesystemRawPayloadWriter;
+use App\Services\DataPool\Integrity\DataIntegrityRegistryLoader;
+use App\Services\DataPool\Integrity\DataPoolIntegrityAuditor;
+use App\Services\DataPool\Integrity\RealDataMigrationReadinessService;
 use App\Services\DataPool\MaterializationService;
 use App\Services\DataPool\PartitionManager;
 use App\Services\DataPool\PostgresWarehouseWriter;
@@ -57,6 +60,9 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(StorageContractValidator::class);
         $this->app->singleton(PartitionManager::class);
         $this->app->singleton(MaterializationService::class);
+        $this->app->singleton(DataIntegrityRegistryLoader::class);
+        $this->app->singleton(RealDataMigrationReadinessService::class);
+        $this->app->singleton(DataPoolIntegrityAuditor::class);
         $this->app->singleton(RawPayloadWriter::class, FilesystemRawPayloadWriter::class);
         $this->app->singleton(PostgresWarehouseWriter::class);
         $this->app->singleton(WarehouseWriter::class, PostgresWarehouseWriter::class);

@@ -43,6 +43,17 @@ Status reference for the frozen `/app` operator panel. UI work after this docume
 | Meta Initial Backfill | REAL | Prompt 25 |
 | Recurring Meta collection | NOT YET | Prompt 27 |
 | Meta incremental freshness | NOT YET | Prompt 27 |
+| Data Pool Integrity Framework | REAL | Prompt 26: Integrity Registry + auditor + audit persistence + readiness gate |
+| Natural-Key / Duplicate Detection | REAL | SQL grouped NK scans; no auto-delete |
+| Coverage / Gap / Zero-row Semantics | REAL | CoverageIntervalSet; not fact-row presence; not min/max-only |
+| Pagination Completeness Verification | REAL | GSC/GA4/Ads/Meta sync+async rules; async 100% ≠ complete |
+| Raw→Normalized / WriteReceipt Accounting | REAL | ONE_TO_ONE + typed-action expansion; unexplained loss FAIL |
+| Timezone / Currency Validation | REAL | resource provenance; no FX; no rebucket |
+| Non-Additive Metric Protection | REAL | Reach/Frequency/GA4 users cannot be sum-reconciled |
+| Migration Readiness Gate | REAL | READY_* / BLOCKED_* / UNVERIFIED; no score |
+| Actual Real-Pool Verification | NOT EXECUTED | Framework real; populated pool audit pending in this env |
+| Recurring / incremental collection | NOT YET | Prompt 27 |
+| GA4/GSC/Ads/Meta real-data UI | NOT YET | Prompts 28–31 |
 | GA4 | DEMO / PARTIAL | Specialist panels remain Demo (Prompt 28); Prompt 18 production collector writes real GA4 pool facts |
 | Search Console | DEMO / PARTIAL | Specialist panels remain Demo (Prompt 29); Prompt 17 production collector writes real GSC pool facts |
 | Instagram | DEMO | Lightweight Overview/Profile/Operations/Setup |

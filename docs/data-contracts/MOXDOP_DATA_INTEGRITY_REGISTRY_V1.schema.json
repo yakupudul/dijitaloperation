@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://moxdop.local/schemas/MOXDOP_DATA_INTEGRITY_REGISTRY_V1.schema.json",
+  "title": "MOXDOP Data Integrity Registry V1",
+  "type": "object",
+  "required": ["metadata", "enums", "global_policies", "dataset_profiles"],
+  "additionalProperties": false,
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": [
+        "integrity_registry_id",
+        "version",
+        "data_contract_registry_id",
+        "storage_contract_id",
+        "formula_registry_id"
+      ],
+      "properties": {
+        "integrity_registry_id": { "const": "MOXDOP_DATA_INTEGRITY_REGISTRY" },
+        "version": { "type": "integer", "minimum": 1 },
+        "status": { "type": "string" },
+        "created_at": { "type": "string" },
+        "data_contract_registry_id": { "type": "string" },
+        "data_contract_registry_version": { "type": "integer" },
+        "storage_contract_id": { "type": "string" },
+        "storage_contract_version": { "type": "integer" },
+        "formula_registry_id": { "type": "string" },
+        "formula_registry_version": { "type": "integer" },
+        "description": { "type": "string" },
+        "invariants": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    },
+    "enums": { "type": "object" },
+    "global_policies": {
+      "type": "object",
+      "required": ["default_audit_mode", "automatic_repair", "numeric_quality_score"],
+      "properties": {
+        "default_audit_mode": { "type": "string" },
+        "provider_reconciliation_opt_in": { "type": "boolean" },
+        "page_render_provider_calls": { "const": false },
+        "automatic_repair": { "const": false },
+        "numeric_quality_score": { "const": false },
+        "zero_fill_missing_dates": { "const": false },
+        "cross_currency_aggregation": { "const": false },
+        "ingestion_time_fx": { "const": false },
+        "timezone_rebucket": { "const": false }
+      },
+      "additionalProperties": true
+    },
+    "dataset_profiles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "dataset_id",
+          "provider_or_source",
+          "storage_disposition",
+          "history_mode",
+          "coverage_mode",
+          "row_accounting_mode",
+          "required_checks",
+          "migration_blocking_checks"
+        ],
+        "properties": {
+          "dataset_id": { "type": "string", "minLength": 1 },
+          "provider_or_source": { "type": "string" },
+          "storage_disposition": { "type": "string" },
+          "physical_table": { "type": ["string", "null"] },
+          "grain": { "type": "array", "items": { "type": "string" } },
+          "natural_key": { "type": "array", "items": { "type": "string" } },
+          "collection_run_in_natural_key": { "const": false },
+          "history_mode": { "enum": ["snapshot", "historical"] },
+          "coverage_mode": { "type": "string" },
+          "pagination_mode": { "type": "string" },
+          "row_accounting_mode": { "type": "string" },
+          "timezone_source": { "type": "string" },
+          "currency_source": { "type": "string" },
+          "raw_required": { "type": "boolean" },
+          "request_family_ids": { "type": "array", "items": { "type": "string" } },
+          "additive_metrics": { "type": "array", "items": { "type": "string" } },
+          "non_additive_metrics": { "type": "array", "items": { "type": "string" } },
+          "freshness_sla_hours": { "type": "integer", "minimum": 1 },
+          "required_checks": { "type": "array", "items": { "type": "string" } },
+          "migration_blocking_checks": { "type": "array", "items": { "type": "string" } },
+          "provider_total_reconciliation": { "type": "object" }
+        },
+        "additionalProperties": true
+      }
+    }
+  }
+}
