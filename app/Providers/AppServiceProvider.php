@@ -37,11 +37,16 @@ use App\Services\DataPool\StorageContractValidator;
 use App\Services\Findings\BoundEvidenceRuleRegistry;
 use App\Services\Formulas\FormulaRegistryLoader;
 use App\Services\Formulas\Ga4FormulaCalculator;
+use App\Services\Formulas\GoogleAdsFormulaCalculator;
 use App\Services\Formulas\GscFormulaCalculator;
 use App\Services\Ga4\Ga4PoolReadRepository;
 use App\Services\Ga4\Ga4SpecialistBindingResolver;
 use App\Services\Ga4\Ga4SpecialistReadService;
 use App\Services\Ga4\Ga4UiDatasetGate;
+use App\Services\GoogleAds\GoogleAdsPoolReadRepository;
+use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
+use App\Services\GoogleAds\GoogleAdsSpecialistReadService;
+use App\Services\GoogleAds\GoogleAdsUiDatasetGate;
 use App\Services\Gsc\GscPoolReadRepository;
 use App\Services\Gsc\GscSpecialistBindingResolver;
 use App\Services\Gsc\GscSpecialistReadService;
@@ -95,6 +100,12 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(GscPoolReadRepository::class);
         $this->app->singleton(GscUiDatasetGate::class);
         $this->app->singleton(GscSpecialistReadService::class);
+
+        $this->app->singleton(GoogleAdsFormulaCalculator::class);
+        $this->app->singleton(GoogleAdsSpecialistBindingResolver::class);
+        $this->app->singleton(GoogleAdsPoolReadRepository::class);
+        $this->app->singleton(GoogleAdsUiDatasetGate::class);
+        $this->app->singleton(GoogleAdsSpecialistReadService::class);
 
         $this->app->singleton(RawPayloadWriter::class, FilesystemRawPayloadWriter::class);
         $this->app->singleton(PostgresWarehouseWriter::class);
