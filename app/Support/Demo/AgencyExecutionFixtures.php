@@ -7,7 +7,19 @@ use Illuminate\Support\Collection;
 /**
  * Deterministic Atlas agency execution fixtures — playbooks, requests, reviews, work queue.
  *
- * Session mutations via {@see DemoState}; no production persistence.
+ * Session mutations via {@see DemoState}; no production persistence in Milestone 3.
+ *
+ * Future persistence contracts (not implemented here):
+ * - ClientRequest: title, description, customer/brand/asset refs, source channel, status
+ *   lifecycle (new→triaged→planned→waiting_on_client→done|declined), owner, due, related Task id
+ * - Playbook: name, purpose, service/asset applicability, cadence, default owner, checklist,
+ *   instructions, references, expected outputs, active flag — distinct from AI Skill
+ * - RecurringReview: playbook instance per brand/asset, due window, owner, status
+ *   (upcoming→due→overdue→in_review→completed|skipped), result (no_issue|finding|opportunity|task)
+ * - Approval: client|internal, subject work ref, requester, expected approver, state, notes/files
+ * - QA Review: work ref, required flag, reviewer, approve|changes_requested — ≠ Outcome
+ * - Capacity: derived from Work assignments + effort estimates; no utilization billing tables
+ * - Work workspace remains an aggregation view over Task + the above; not a separate Work entity
  */
 final class AgencyExecutionFixtures
 {
