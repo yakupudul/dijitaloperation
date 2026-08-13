@@ -3,6 +3,7 @@
 namespace App\Livewire\Demo\Operations;
 
 use App\Support\Demo\AgencyExecutionFixtures;
+use App\Support\Demo\ClientValueFixtures;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
@@ -76,10 +77,15 @@ class WorkShow extends Component
     public function render(): View
     {
         $item = $this->resolveItem();
+        $playbookId = 'pb-weekly-gads';
+        if ($this->type === 'recurring_review' && is_array($item) && ! empty($item['playbook_id'])) {
+            $playbookId = (string) $item['playbook_id'];
+        }
 
         return view('livewire.demo.operations.work-show', [
             'item' => $item,
             'type' => $this->type,
+            'knowledgeContext' => ClientValueFixtures::workKnowledgeContext($playbookId),
             'flash' => DemoState::pullFlash(),
         ]);
     }

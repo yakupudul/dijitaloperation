@@ -2,9 +2,11 @@
 
 namespace App\Livewire\Demo\Portfolio;
 
+use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
 use App\Support\Demo\AgencyExecutionFixtures;
 use App\Support\Demo\BrandPublicDiscoveryFixtures;
 use App\Support\Demo\BusinessOutcomeFixtures;
+use App\Support\Demo\ClientValueFixtures;
 use App\Support\Demo\CommercialContextFixtures;
 use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
@@ -22,6 +24,8 @@ use Livewire\Component;
 #[Title('Brand')]
 class BrandShow extends Component
 {
+    use InteractsWithDemoPeriod;
+
     public string $brand = DemoCatalog::BRAND_ID;
 
     #[Url]
@@ -37,6 +41,10 @@ class BrandShow extends Component
     /** Digital Estate internal segment: assets | cross_channel */
     #[Url(as: 'estate')]
     public string $estateSection = 'assets';
+
+    /** Value internal segment: overview | story | outcomes | decisions | reports */
+    #[Url(as: 'value')]
+    public string $valueSection = 'overview';
 
     #[Url]
     public string $ops = 'findings';
@@ -100,6 +108,15 @@ class BrandShow extends Component
 
     public bool $showOutcomeForm = false;
 
+    public string $reportLanguage = 'en';
+
+    public string $reportTone = 'client';
+
+    public string $reportOperatorNote = '';
+
+    /** @var array<string, bool> */
+    public array $reportSections = [];
+
     /**
      * @var list<string>
      */
@@ -144,7 +161,69 @@ class BrandShow extends Component
     {
         $this->brand = $brand;
         $this->normalizeTab();
+        $this->mountPeriod();
         $this->hydrateOutcomeForm();
+        $this->hydrateReportComposer();
+    }
+
+    public function setValueSection(string $section): void
+    {
+        if (in_array($section, ClientValueFixtures::valueSections(), true)) {
+            $this->valueSection = $section;
+        }
+        $this->tab = 'value';
+    }
+
+    public function hydrateReportComposer(): void
+    {
+        $saved = DemoState::reportConfig();
+        $this->reportLanguage = (string) ($saved['language'] ?? 'en');
+        $this->reportTone = (string) ($saved['tone'] ?? 'client');
+        $this->reportOperatorNote = (string) ($saved['operator_note'] ?? '');
+        $defaults = array_fill_keys(ClientValueFixtures::reportSectionKeys(), true);
+        $sections = is_array($saved['sections'] ?? null) ? $saved['sections'] : [];
+        $this->reportSections = array_merge($defaults, array_map('boolval', $sections));
+    }
+
+    public function toggleReportSection(string $key): void
+    {
+        if (! array_key_exists($key, $this->reportSections)) {
+            return;
+        }
+        $this->reportSections[$key] = ! $this->reportSections[$key];
+        $this->persistReportComposer();
+    }
+
+    public function setReportLanguage(string $language): void
+    {
+        if (in_array($language, ['en', 'tr'], true)) {
+            $this->reportLanguage = $language;
+            $this->persistReportComposer();
+        }
+    }
+
+    public function setReportTone(string $tone): void
+    {
+        if (in_array($tone, ['client', 'internal'], true)) {
+            $this->reportTone = $tone;
+            $this->persistReportComposer();
+        }
+    }
+
+    public function refreshReportPreview(): void
+    {
+        $this->persistReportComposer();
+    }
+
+    private function persistReportComposer(): void
+    {
+        DemoState::setReportConfig([
+            'period' => $this->period,
+            'language' => $this->reportLanguage,
+            'tone' => $this->reportTone,
+            'operator_note' => $this->reportOperatorNote,
+            'sections' => $this->reportSections,
+        ]);
     }
 
     private function hydrateOutcomeForm(): void
@@ -285,6 +364,9 @@ class BrandShow extends Component
 
         if (! in_array($this->estateSection, ['assets', 'cross_channel'], true)) {
             $this->estateSection = 'assets';
+        }
+        if (! in_array($this->valueSection, ClientValueFixtures::valueSections(), true)) {
+            $this->valueSection = 'overview';
         }
     }
 
@@ -879,7 +961,7 @@ class BrandShow extends Component
             ->filter()
             ->all();
 
-        $period = (string) ($state['period_preset'] ?? 'last_28');
+        $period = (string) ($this->period ?: ($state['period_preset'] ?? 'last_28'));
         $serviceScope = CommercialContextFixtures::effectiveScopeForBrand((string) ($brandRow['id'] ?? ''));
         $structuredGoals = CommercialContextFixtures::structuredGoalsForBrand((string) ($brandRow['id'] ?? ''));
         $brandOpportunities = collect(DemoState::opportunitiesWithStatus())
@@ -891,6 +973,27 @@ class BrandShow extends Component
         $operationalOutcomes = ($brandRow['id'] ?? '') === DemoCatalog::BRAND_ID
             ? BusinessOutcomeFixtures::operationalOutcomes()
             : [];
+
+        $valueSummary = ($brandRow['id'] ?? '') === DemoCatalog::BRAND_ID
+            ? ClientValueFixtures::valueSummary($period)
+            : null;
+        $valueStory = ($brandRow['id'] ?? '') === DemoCatalog::BRAND_ID
+            ? ClientValueFixtures::valueStory($period, $this->reportLanguage)
+            : null;
+        $valueDecisions = ($brandRow['id'] ?? '') === DemoCatalog::BRAND_ID
+            ? ClientValueFixtures::meaningfulDecisions($this->reportLanguage)
+            : [];
+        $reportPreview = ($brandRow['id'] ?? '') === DemoCatalog::BRAND_ID
+            ? ClientValueFixtures::reportPreview([
+                'period' => $period,
+                'language' => $this->reportLanguage,
+                'tone' => $this->reportTone,
+                'operator_note' => $this->reportOperatorNote,
+                'sections' => $this->reportSections !== []
+                    ? $this->reportSections
+                    : array_fill_keys(ClientValueFixtures::reportSectionKeys(), true),
+            ])
+            : null;
 
         $brandName = (string) ($brandRow['name'] ?? '');
         $brandWorkItems = collect(AgencyExecutionFixtures::workItems())
@@ -963,6 +1066,10 @@ class BrandShow extends Component
             'businessOutcomes' => $businessOutcomes,
             'operationalOutcomes' => $operationalOutcomes,
             'outcomePeriod' => $period,
+            'valueSummary' => $valueSummary,
+            'valueStory' => $valueStory,
+            'valueDecisions' => $valueDecisions,
+            'reportPreview' => $reportPreview,
             'brandWorkItems' => $brandWorkItems,
             'brandRequests' => $brandRequests,
             'brandReviews' => $brandReviews,

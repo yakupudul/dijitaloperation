@@ -2,6 +2,8 @@
 
 namespace App\Livewire\Demo;
 
+use App\Support\Demo\AgencyExecutionFixtures;
+use App\Support\Demo\ClientValueFixtures;
 use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
@@ -95,6 +97,32 @@ class GlobalSearch extends Component
                         'label' => $title,
                         'meta' => __('operator.nav.tasks').' · '.($task['brand'] ?? ''),
                         'url' => route('demo.task', ['taskId' => $task['id']]),
+                    ];
+                }
+            }
+
+            foreach (AgencyExecutionFixtures::playbooks() as $playbook) {
+                $name = (string) ($playbook['name'] ?? '');
+                if ($name !== '' && str_contains(mb_strtolower($name), $needle)) {
+                    $results[] = [
+                        'label' => $name,
+                        'meta' => 'Playbook',
+                        'url' => route('demo.settings.playbook', ['playbookId' => $playbook['id']]),
+                    ];
+                }
+            }
+
+            foreach (ClientValueFixtures::meaningfulDecisions() as $decision) {
+                $title = (string) ($decision['title'] ?? '');
+                if ($title !== '' && str_contains(mb_strtolower($title), $needle)) {
+                    $results[] = [
+                        'label' => $title,
+                        'meta' => 'Decision',
+                        'url' => route('demo.brand', [
+                            'brand' => DemoCatalog::BRAND_ID,
+                            'tab' => 'value',
+                            'value' => 'decisions',
+                        ]),
                     ];
                 }
             }

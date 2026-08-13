@@ -3,6 +3,7 @@
 namespace App\Livewire\Demo;
 
 use App\Support\Demo\AgencyExecutionFixtures;
+use App\Support\Demo\ClientValueFixtures;
 use App\Support\Demo\DemoState;
 use App\Support\Demo\OpportunityFixtures;
 use Illuminate\Contracts\View\View;
@@ -47,6 +48,7 @@ class Dashboard extends Component
                 ->take(3)
                 ->values()
                 ->all(),
+            'recentValue' => ClientValueFixtures::recentValue(),
             'flash' => DemoState::pullFlash(),
         ]);
     }

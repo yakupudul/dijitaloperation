@@ -25,7 +25,7 @@ final class DemoState
         }
 
         $defaults = self::defaults();
-        foreach (['contacts', 'customer_activity', 'demo_assets', 'discovery_candidates', 'discovery_history', 'discovery_conflict_resolutions', 'connector_bindings', 'wizard_state', 'finding_statuses', 'settings_overrides', 'brand_business_context', 'activity_events', 'opportunity_statuses', 'business_outcome_overrides', 'client_requests', 'playbook_states', 'recurring_review_states', 'approval_states', 'qa_states', 'capture_notes', 'execution_overrides', 'hypotheses'] as $key) {
+        foreach (['contacts', 'customer_activity', 'demo_assets', 'discovery_candidates', 'discovery_history', 'discovery_conflict_resolutions', 'connector_bindings', 'wizard_state', 'finding_statuses', 'settings_overrides', 'brand_business_context', 'activity_events', 'opportunity_statuses', 'business_outcome_overrides', 'client_requests', 'playbook_states', 'recurring_review_states', 'approval_states', 'qa_states', 'capture_notes', 'execution_overrides', 'hypotheses', 'report_config'] as $key) {
             if (! array_key_exists($key, $state)) {
                 $state[$key] = $defaults[$key] ?? [];
             }
@@ -83,6 +83,7 @@ final class DemoState
             'approval_states' => [],
             'qa_states' => [],
             'capture_notes' => [],
+            'report_config' => [],
             'execution_overrides' => [],
             'hypotheses' => [],
             'ai_brief_visible' => false,
@@ -1597,10 +1598,12 @@ final class DemoState
         $state = self::all();
         $notes = is_array($state['capture_notes'] ?? null) ? $state['capture_notes'] : [];
         $id = 'note-'.substr(md5(($payload['title'] ?? '').microtime()), 0, 8);
+        $kind = ($payload['kind'] ?? 'note') === 'decision' ? 'decision' : 'note';
 
         $notes[] = [
             'id' => $id,
-            'title' => trim((string) ($payload['title'] ?? 'Note')),
+            'kind' => $kind,
+            'title' => trim((string) ($payload['title'] ?? ($kind === 'decision' ? 'Decision' : 'Note'))),
             'body' => trim((string) ($payload['body'] ?? '')),
             'scope' => $payload['scope'] ?? 'Operations',
             'brand_id' => $payload['brand_id'] ?? null,
@@ -1611,7 +1614,7 @@ final class DemoState
         session()->put(self::SESSION_KEY, $state);
 
         self::recordActivityEvent([
-            'title' => 'Decision note captured',
+            'title' => $kind === 'decision' ? 'Decision captured' : 'Note captured',
             'scope' => (string) ($payload['scope'] ?? 'Operations'),
             'detail' => $payload['title'] ?? $id,
             'actor' => 'Demo Operator',
@@ -1619,9 +1622,59 @@ final class DemoState
             'status' => 'success',
             'route' => 'demo.activity',
         ]);
-        self::flash(__('operator.capture.saved_note').' (Demo Mode).');
+        self::flash(
+            ($kind === 'decision'
+                ? __('operator.capture.saved_decision')
+                : __('operator.capture.saved_note')).' (Demo Mode).'
+        );
 
         return $id;
+    }
+
+    /**
+     * Captured notes/decisions from Global Capture (session only).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public static function captureNotes(): array
+    {
+        $notes = self::all()['capture_notes'] ?? [];
+
+        return is_array($notes) ? array_values($notes) : [];
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public static function captureDecisions(): array
+    {
+        return array_values(array_filter(
+            self::captureNotes(),
+            fn (array $row): bool => ($row['kind'] ?? '') === 'decision'
+        ));
+    }
+
+    /**
+     * Demo report composer state (session only — no report table).
+     *
+     * @param  array<string, mixed>  $config
+     */
+    public static function setReportConfig(array $config): void
+    {
+        $state = self::all();
+        $current = is_array($state['report_config'] ?? null) ? $state['report_config'] : [];
+        $state['report_config'] = array_merge($current, $config);
+        session()->put(self::SESSION_KEY, $state);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function reportConfig(): array
+    {
+        $config = self::all()['report_config'] ?? [];
+
+        return is_array($config) ? $config : [];
     }
 
     /**

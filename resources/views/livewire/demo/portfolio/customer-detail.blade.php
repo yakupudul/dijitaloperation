@@ -54,7 +54,7 @@
     </div>
 
     <div class="flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800">
-        @foreach (['overview' => __('operator.customer.tabs.overview'), 'brands' => __('operator.customer.tabs.brands'), 'relationship' => __('operator.customer.tabs.relationship'), 'requests' => __('operator.customer.tabs.requests')] as $key => $label)
+        @foreach (['overview' => __('operator.customer.tabs.overview'), 'brands' => __('operator.customer.tabs.brands'), 'relationship' => __('operator.customer.tabs.relationship'), 'requests' => __('operator.customer.tabs.requests'), 'reports' => __('operator.customer.tabs.reports')] as $key => $label)
             <button type="button" wire:click="setTab('{{ $key }}')"
                 @class([
                     'shrink-0 border-b-2 px-3 py-2.5 text-sm font-medium',
@@ -455,6 +455,32 @@
                         @endforelse
                     </tbody>
                 </table>
+            </div>
+        </div>
+    @endif
+
+    @if ($tab === 'reports')
+        <div class="space-y-4">
+            <div>
+                <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">{{ __('operator.reports.customer_title') }}</h2>
+                <p class="mt-1 text-sm text-gray-500">{{ __('operator.reports.customer_subtitle') }}</p>
+            </div>
+            <p class="text-xs text-gray-400">{{ $customerReports['aggregation_note'] ?? '' }}</p>
+            <div class="grid gap-3 sm:grid-cols-2">
+                @foreach ($customerReports['brands'] ?? [] as $card)
+                    <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                        <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ $card['brand_name'] }}</h3>
+                        <ul class="mt-3 space-y-1 text-sm text-gray-600 dark:text-gray-300">
+                            <li>{{ $card['completed_work'] }} {{ __('operator.reports.completed_work') }}</li>
+                            <li>{{ $card['improvements'] }} {{ __('operator.reports.improvements') }}</li>
+                            <li>{{ $card['opportunities'] }} {{ __('operator.reports.growth_opportunities') }}</li>
+                        </ul>
+                        <div class="mt-3 flex flex-wrap gap-3 text-sm">
+                            <a href="{{ $card['report_url'] }}" wire:navigate class="font-medium text-brand-600 hover:underline">{{ __('operator.reports.open_brand_report') }}</a>
+                            <a href="{{ $card['value_url'] }}" wire:navigate class="font-medium text-brand-600 hover:underline">{{ __('operator.dashboard_exec.open_value') }}</a>
+                        </div>
+                    </div>
+                @endforeach
             </div>
         </div>
     @endif
