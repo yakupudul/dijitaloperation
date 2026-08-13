@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="Digital Asset">
+  <rect width="48" height="48" rx="10" fill="#E2E8F0"/>
+  <circle cx="24" cy="24" r="11" fill="none" stroke="#475569" stroke-width="2.4"/>
+  <ellipse cx="24" cy="24" rx="5" ry="11" fill="none" stroke="#475569" stroke-width="2"/>
+  <path d="M13 24h22M24 13c3 3.5 3 14.5 0 22M24 13c-3 3.5-3 14.5 0 22" fill="none" stroke="#64748B" stroke-width="1.6"/>
+</svg>

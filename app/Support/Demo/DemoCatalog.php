@@ -429,11 +429,12 @@ final class DemoCatalog
     public static function assetTaxonomy(string $type): array
     {
         return match ($type) {
-            'website', 'meta_ads', 'google_ads', 'gbp' => [
+            // GA4 is a first-class managed Digital Asset that can also provide Evidence to siblings.
+            'website', 'meta_ads', 'google_ads', 'gbp', 'ga4' => [
                 'role' => 'primary_managed',
                 'role_label' => 'Primary managed asset',
             ],
-            'ga4', 'gsc' => [
+            'gsc' => [
                 'role' => 'connected_source',
                 'role_label' => 'Connected data source',
             ],
@@ -524,16 +525,17 @@ final class DemoCatalog
                 'id' => self::GA4_ASSET_ID,
                 'type' => 'ga4',
                 'type_label' => 'Google Analytics',
-                'name' => 'Atlas Dental GA4',
+                'name' => 'Atlas Dental — GA4',
                 'brand_id' => self::BRAND_ID,
                 'connection' => 'connected',
                 'provenance' => 'Connected provider',
-                'health' => 'healthy',
-                'health_label' => 'Connected',
-                'open_findings' => 0,
-                'open_tasks' => 0,
+                'health' => 'needs_attention',
+                'health_label' => 'Needs attention',
+                'open_findings' => 3,
+                'open_tasks' => 2,
                 'last_update' => 'Today',
                 'route' => 'demo.analytics',
+                'relationship_summary' => 'Measures Website · Evidence for Ads',
             ],
             [
                 'id' => self::GSC_ASSET_ID,

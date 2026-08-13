@@ -172,9 +172,12 @@
                     @foreach ($assets as $asset)
                         <a href="{{ route($asset['route']) }}" wire:navigate class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 transition hover:bg-gray-50 dark:bg-gray-800 dark:ring-gray-700 dark:hover:bg-white/[0.03]">
                             <div class="flex items-start justify-between gap-2">
-                                <div class="min-w-0">
-                                    <p class="text-xs text-gray-400">{{ $asset['type_label'] }}</p>
-                                    <p class="mt-0.5 truncate text-sm font-semibold text-gray-900 dark:text-white">{{ $asset['name'] }}</p>
+                                <div class="flex min-w-0 items-start gap-2.5">
+                                    <x-demo.digital-asset-mark :type="$asset['type']" :asset="$asset" size="sm" />
+                                    <div class="min-w-0">
+                                        <p class="text-xs text-gray-400">{{ $asset['type_label'] }}</p>
+                                        <p class="mt-0.5 truncate text-sm font-semibold text-gray-900 dark:text-white">{{ $asset['name'] }}</p>
+                                    </div>
                                 </div>
                                 <span class="shrink-0 text-xs text-gray-500">{{ $asset['connection_label'] }}</span>
                             </div>
@@ -333,7 +336,12 @@
                     <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                         @forelse ($filteredAssets as $asset)
                             <tr wire:key="asset-{{ $asset['id'] }}">
-                                <td class="px-4 py-3 text-sm font-medium text-gray-800 dark:text-white/90">{{ $asset['name'] }}</td>
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center gap-2.5">
+                                        <x-demo.digital-asset-mark :asset="$asset" size="sm" />
+                                        <span class="text-sm font-medium text-gray-800 dark:text-white/90">{{ $asset['name'] }}</span>
+                                    </div>
+                                </td>
                                 <td class="px-4 py-3 text-sm text-gray-500">{{ $asset['type_label'] }}</td>
                                 <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">{{ $asset['connection_label'] }}</td>
                                 <td class="px-4 py-3 text-sm text-gray-500">{{ $asset['freshness_label'] }}</td>

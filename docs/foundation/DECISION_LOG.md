@@ -325,6 +325,23 @@
 
 ---
 
+## ADR-042 — Google Analytics as first-class Digital Asset (Evidence-provider role retained)
+
+- **Durum:** Accepted
+- **Tarih:** 2026-08-13
+- **Bağlam:** Earlier product docs (ADR-017 lineage / MASTER_SPEC §4 / `DIGITAL_ASSET.md` / `website/GA4.md`) treated GA4 primarily as a **Website Connection** — useful for Evidence, but not as a managed Digital Asset with its own workspace. Operators need a Measurement Intelligence workspace (Property identity, Data Streams, business-action mapping, acquisition hygiene, journeys, Findings → Outcomes) while GA4 continues to supply measurement Evidence to Website and Ads analysis.
+- **Karar:**
+  1. **Ontology split (keep separate):** Digital Asset = *what managed system/property*; Relationship = *role relative to another Asset*; Connection = *how MoxDOP technically accesses the provider*; Capability = *what analysis MoxDOP performs on Evidence*.
+  2. **Google Analytics (GA4) is a first-class Digital Asset type** in the product/Demo registry. Canonical type key remains **`ga4`** (UI label: Google Analytics; secondary: GA4). Do **not** introduce parallel keys (`google_analytics`, `analytics`) for the same concept.
+  3. **Evidence-provider role is complementary, not exclusive.** GA4 may *measure* Website (and future App streams) and *provide measurement / post-click Evidence* to Google Ads / Meta Ads without becoming a child of those Assets. Sibling Brand Digital Assets remain the ownership model.
+  4. **Technical Connection ≠ relationship.** Google OAuth / Analytics API connectivity is separate from “measures Website” / “provides Evidence to Ads.”
+  5. **Capability truth / migration honesty:** Demo Mode and product IA treat GA4 as first-class. **Existing real Website-scoped GA4 collection/provider architecture is not rewritten by this decision.** Do not duplicate provider collection or create competing GA4 data stores. Full Binding migration of live collectors is a later concern when explicitly tasked.
+  6. **Read-only externally.** No GA4 write (Key Events, streams, attribution, cross-domain, Ads linking, Consent Mode, GTM). Internal MoxDOP business-action mapping is allowed and does not edit the GA4 property.
+  7. **Visual identity:** Provider marks for Digital Assets are centralized (`DigitalAssetVisualCatalog` + local SVG assets). Website prefers Brand/site identity; provider-owned systems use recognizable local marks — no remote logo CDN for core UI.
+- **İlgili:** ADR-017, ADR-018, ADR-039; `MASTER_SPEC.md` §4; `docs/product/DIGITAL_ASSET.md`; `docs/product/website/GA4.md`; Demo GA4 Measurement Intelligence workspace
+
+---
+
 ## Karar indeksi
 
 | ID | Başlık | Durum |
@@ -370,6 +387,7 @@
 | ADR-039 | Central Agency Integration / External Resource / Binding | Accepted |
 | ADR-040 | Integration provider vs authorization credentials | Accepted |
 | ADR-041 | OpenAI agency Integration credentials | Accepted |
+| ADR-042 | GA4 first-class Digital Asset + Evidence role | Accepted |
 
 ## Süpercede edilen kararlar
 

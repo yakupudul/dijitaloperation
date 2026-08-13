@@ -74,10 +74,13 @@
             @foreach ($assets as $asset)
                 <x-ta.card>
                     <div class="flex items-start justify-between gap-2">
-                        <div>
-                            <p class="text-xs text-gray-400">{{ $asset['role_label'] ?? 'Asset' }}</p>
-                            <h3 class="mt-1 font-semibold text-gray-800 dark:text-white/90">{{ $asset['name'] }}</h3>
-                            <p class="text-sm text-gray-500">{{ $asset['type_label'] }}</p>
+                        <div class="flex min-w-0 items-start gap-3">
+                            <x-demo.digital-asset-mark :type="$asset['type']" :asset="$asset" size="md" />
+                            <div class="min-w-0">
+                                <p class="text-xs text-gray-400">{{ $asset['role_label'] ?? 'Asset' }}</p>
+                                <h3 class="mt-1 font-semibold text-gray-800 dark:text-white/90">{{ $asset['name'] }}</h3>
+                                <p class="text-sm text-gray-500">{{ $asset['type_label'] }}</p>
+                            </div>
                         </div>
                         <x-ta.badge :color="match($asset['health'] ?? '') { 'healthy' => 'success', 'needs_attention' => 'warning', 'warning' => 'warning', default => 'info' }" size="sm">
                             {{ $asset['health_label'] }}
@@ -115,7 +118,12 @@
             </x-slot:head>
             @foreach ($assets as $asset)
                 <tr>
-                    <td class="px-5 py-4 text-sm font-medium text-gray-800 dark:text-white/90">{{ $asset['name'] }}</td>
+                    <td class="px-5 py-4">
+                        <div class="flex items-center gap-2.5">
+                            <x-demo.digital-asset-mark :type="$asset['type']" :asset="$asset" size="sm" />
+                            <span class="text-sm font-medium text-gray-800 dark:text-white/90">{{ $asset['name'] }}</span>
+                        </div>
+                    </td>
                     <td class="px-5 py-4 text-sm text-gray-500">{{ $asset['type_label'] }}</td>
                     <td class="px-5 py-4 text-sm text-gray-500">{{ $asset['role_label'] ?? '—' }}</td>
                     <td class="px-5 py-4 text-sm text-gray-500">

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Livewire\Demo\Assets\AnalyticsPage;
 use App\Livewire\Demo\GoogleAds\OverviewPage as GoogleAdsOverviewPage;
 use App\Livewire\Demo\Meta\OverviewPage as MetaOverviewPage;
 use App\Livewire\Demo\Website\OverviewPage as WebsiteOverviewPage;
@@ -9,6 +10,7 @@ use App\Models\User;
 use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoPeriod;
 use App\Support\Demo\DemoState;
+use App\Support\Demo\Ga4WorkspaceFixtures;
 use App\Support\Demo\MetaAdsWorkspaceFixtures;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -113,6 +115,30 @@ class DemoSharedPeriodFilterTest extends TestCase
             ->call('setPeriod', 'last_7')
             ->assertSet('period', 'last_7')
             ->assertSee('Google Ads');
+    }
+
+    public function test_ga4_custom_period_recalculates_and_persists_across_tabs(): void
+    {
+        $baseline = Ga4WorkspaceFixtures::workspace('last_28');
+        $baselineSessions = (int) $baseline['glance']['sessions']['raw'];
+
+        Livewire::test(AnalyticsPage::class, ['assetId' => DemoCatalog::GA4_ASSET_ID])
+            ->call('openCustomPicker')
+            ->set('draftPeriodStart', '2026-07-06')
+            ->set('draftPeriodEnd', '2026-08-12')
+            ->call('applyCustomPeriod')
+            ->assertSet('period', 'custom')
+            ->assertSet('periodStart', '2026-07-06')
+            ->assertSet('periodEnd', '2026-08-12')
+            ->call('setTab', 'measurement')
+            ->assertSet('period', 'custom')
+            ->call('setTab', 'acquisition')
+            ->assertSet('period', 'custom')
+            ->assertSet('compare', true)
+            ->assertSee('vs');
+
+        $custom = Ga4WorkspaceFixtures::workspace('custom', '2026-07-06', '2026-08-12');
+        $this->assertNotSame($baselineSessions, (int) $custom['glance']['sessions']['raw']);
     }
 
     public function test_custom_factors_change_with_day_span(): void

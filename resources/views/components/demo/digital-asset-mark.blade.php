@@ -1,37 +1,55 @@
 @props([
     'type' => 'ga4',
     'size' => 'md',
+    'asset' => null,
+    'decorative' => true,
 ])
 
 @php
+    use App\Support\DigitalAssetVisualCatalog;
+
+    $visual = is_array($asset)
+        ? DigitalAssetVisualCatalog::resolve($asset)
+        : DigitalAssetVisualCatalog::forType((string) $type);
+
     $sizeClass = match ($size) {
-        'sm' => 'h-7 w-7 text-[10px]',
-        'lg' => 'h-11 w-11 text-sm',
-        default => 'h-8 w-8 text-xs',
+        'xs' => 'h-6 w-6',
+        'sm' => 'h-7 w-7',
+        'lg' => 'h-11 w-11',
+        'xl' => 'h-12 w-12',
+        default => 'h-8 w-8',
     };
 
-    $palette = match ($type) {
-        'website' => 'bg-sky-500/10 text-sky-700 ring-sky-500/20 dark:text-sky-300',
-        'google_ads', 'gads' => 'bg-amber-500/10 text-amber-800 ring-amber-500/20 dark:text-amber-300',
-        'meta_ads', 'meta' => 'bg-blue-500/10 text-blue-700 ring-blue-500/20 dark:text-blue-300',
-        'gbp' => 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300',
-        'gsc' => 'bg-indigo-500/10 text-indigo-700 ring-indigo-500/20 dark:text-indigo-300',
-        default => 'bg-orange-500/10 text-orange-800 ring-orange-500/20 dark:text-orange-300',
+    $imgClass = match ($size) {
+        'xs' => 'h-4 w-4',
+        'sm' => 'h-4.5 w-4.5',
+        'lg' => 'h-7 w-7',
+        'xl' => 'h-8 w-8',
+        default => 'h-5 w-5',
     };
 
-    $label = match ($type) {
-        'website' => 'WEB',
-        'google_ads', 'gads' => 'GAds',
-        'meta_ads', 'meta' => 'Meta',
-        'gbp' => 'GBP',
-        'gsc' => 'GSC',
-        'ga4', 'analytics' => 'GA4',
-        default => strtoupper(mb_substr((string) $type, 0, 3)),
-    };
+    $a11y = $visual['a11y'] ?? 'Digital Asset';
 @endphp
 
-<span {{ $attributes->class([
-    'inline-flex shrink-0 items-center justify-center rounded-xl font-semibold ring-1 ring-inset',
-    $sizeClass,
-    $palette,
-]) }} title="{{ $label }}" aria-hidden="true">{{ $label }}</span>
+<span
+    {{ $attributes->class([
+        'inline-flex shrink-0 items-center justify-center overflow-hidden rounded-xl ring-1 ring-inset ring-gray-200 dark:ring-white/10',
+        $sizeClass,
+        $visual['container'] ?? 'bg-white dark:bg-white/95',
+    ]) }}
+    @if ($decorative) aria-hidden="true" @else role="img" aria-label="{{ $a11y }}" @endif
+    data-asset-mark="{{ $visual['type'] }}"
+    data-mark-source="{{ $visual['source'] ?? 'provider_mark' }}"
+>
+    <img
+        src="{{ $visual['asset_path'] }}"
+        alt=""
+        width="32"
+        height="32"
+        class="{{ $imgClass }} object-contain"
+        loading="lazy"
+        decoding="async"
+        onerror="this.classList.add('hidden'); this.nextElementSibling?.classList.remove('hidden');"
+    />
+    <span class="hidden text-[10px] font-semibold text-slate-600 dark:text-slate-200">{{ $visual['fallback_initials'] }}</span>
+</span>

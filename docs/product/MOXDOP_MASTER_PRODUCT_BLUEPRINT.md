@@ -80,7 +80,7 @@ Customer
 | **Customer** | The real organization Moximu serves (e.g. Atlas Health Group). Root of the portfolio. Holds contacts and responsible team members. Not a SaaS tenant. |
 | **Brand** | A market-facing brand under that customer (e.g. Atlas Dental Ankara). Shared business context for every channel: sector, geography, languages, audience, offerings. Brand is **context**, not a channel. |
 | **Digital Asset** | A concrete thing the agency manages for that brand: Meta Ads account, Google Ads account, Website, GBP location, Domain, Hosting, etc. |
-| **Connection / Binding** | How MoxDOP reads data *about* an asset. Connections are not assets. GA4 and Search Console attach to the Website asset; they are not separate Digital Assets. |
+| **Connection / Binding** | How MoxDOP reads data *about* an asset. Connections are not assets. **ADR-042:** Google Analytics (GA4) is a first-class Digital Asset that can also *provide Evidence* to Website/Ads; Google API/OAuth remains the technical Connection. Search Console remains Website-oriented Connection unless explicitly elevated later. |
 
 **Invariants operators must feel in the UI:**
 
@@ -339,16 +339,17 @@ No WordPress content writes.
 
 No review replies or profile edits via MoxDOP.
 
-### 13.5 Analytics (GA4)
+### 13.5 Analytics (GA4) — first-class Digital Asset (ADR-042)
 
-**Must answer (as Website-attached capability):**
+**Must answer (as first-class Measurement Intelligence Asset):**
 
-- Which GA4 property is bound?
-- Traffic / engagement / conversion signals available for the period?
-- Collection freshness and property access health?
-- How Analytics evidence supports Website (and later cross-asset) Findings?
+- Which GA4 property / Digital Asset am I looking at?
+- What Website (or future App) does it measure?
+- Is data arriving; are primary business actions mapped and healthy?
+- Traffic / engagement / acquisition hygiene for the period?
+- How Analytics Evidence supports Website and Ads Findings without implying GA4 is owned by those Assets?
 
-GA4 is **not** a separate Digital Asset type in the core model.
+GA4 **is** a first-class Digital Asset type (`ga4`) that can simultaneously provide Evidence to related Assets (ADR-042). Live Website-scoped collectors may remain unchanged until an explicit migration task — no duplicate provider stores.
 
 ### 13.6 Search Console
 
@@ -525,7 +526,7 @@ Build as **vertical slices**. Each slice must earn **operator acceptance** befor
 | **3** | **Google Ads end-to-end real** | Same pattern for Google Ads account: connect, import, attach, collect, analyze, operate internally without writes. |
 | **4** | **Website end-to-end real** | Website asset with diagnosis/connectors path, Evidence → Findings → Recommendations → Tasks, honest Data Health. |
 | **5** | **Google Business / Maps end-to-end real** | GBP asset read-only collect and operational loop for local presence. |
-| **6** | **Analytics / Search Console** | GA4 + GSC bound to Website; operator sees analytics/search evidence in Website (and brand) workflows with provenance. |
+| **6** | **Analytics / Search Console** | GA4 as first-class Digital Asset workspace (Demo Measurement Intelligence) + Evidence to Website/Ads; GSC remains Website-oriented Connection unless elevated later. Honest capability truth on live collector scope (ADR-042). |
 | **7** | **Public Brand Discovery** | Outside-in discovery with Accept/Edit/Ignore, clear provenance, feeding Brand context without silent overwrite. |
 | **8** | **Cross-Asset Brand Intelligence** | Deterministic cross-channel packs (e.g. Ads landing vs Website, NAP vs GBP) producing Evidence-backed Findings across assets. |
 | **9** | **Digital Asset Lifecycle** | Domain / SSL / hosting / renewals visibility and continuity for operators. |

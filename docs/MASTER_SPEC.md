@@ -93,8 +93,13 @@ Customer
 * Uptime provider
 * Crawl provider
 
-Bir Website digital asset kaydına **birden fazla** connection bağlanabilir.  
-GA4, Search Console ve DataForSEO ilk kullanımda **Website varlığının bağlantıları** olarak ele alınır (ayrı Digital Asset değildir).
+Bir Website digital asset kaydına **birden fazla** connection bağlanabilir.
+
+**Ontology (ADR-042):** A managed platform/property may be a first-class **Digital Asset** while simultaneously serving an **Evidence-provider** role for related Assets. These are not mutually exclusive.
+
+* **Google Analytics (GA4)** is a first-class Digital Asset (canonical type `ga4`) that can *measure* Website (and future App streams) and *provide measurement Evidence* to Ads analysis. Google API / OAuth is its technical **Connection** — not the Asset itself, and not “ownership” under Website.
+* **Search Console** and **DataForSEO** remain Website-oriented Connections in current product scope unless explicitly elevated later.
+* Capability truth: Demo/product registry treats GA4 as first-class; **existing real Website-scoped GA4 collectors are not assumed fully migrated** by this ontology decision (no duplicate provider stores).
 
 ## 5. Harici sistemlerde değişiklik yasağı
 

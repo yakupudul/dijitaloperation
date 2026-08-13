@@ -195,7 +195,9 @@ class DemoProductRoutesTest extends TestCase
         $this->get(route('demo.analytics'))
             ->assertOk()
             ->assertSee('Google Analytics')
-            ->assertSee('Connected data source');
+            ->assertSee('Atlas Dental — GA4')
+            ->assertSee('Measurement')
+            ->assertSee('Relationships');
         $this->get(route('demo.search-console'))
             ->assertOk()
             ->assertSee('Search Console')
