@@ -159,7 +159,7 @@ final class MetaIntegrationReadModel
             'reauthorize_url' => $authorizeUrl,
             'milestones' => [
                 'authorization_discovery' => 'REAL (Prompt 22)',
-                'resource_selection_binding' => 'Prompt 23',
+                'resource_selection_binding' => 'REAL (Prompt 23)',
                 'production_collector' => 'Prompt 24',
                 'initial_backfill' => 'Prompt 25',
             ],
@@ -280,13 +280,14 @@ final class MetaIntegrationReadModel
                 'discover' => false,
                 'disconnect' => false,
                 'bind' => false,
+                'unbind' => false,
                 'collect' => false,
             ],
             'authorize_url' => null,
             'reauthorize_url' => null,
             'milestones' => [
                 'authorization_discovery' => 'REAL (Prompt 22)',
-                'resource_selection_binding' => 'Prompt 23',
+                'resource_selection_binding' => 'REAL (Prompt 23)',
                 'production_collector' => 'Prompt 24',
                 'initial_backfill' => 'Prompt 25',
             ],
@@ -442,18 +443,26 @@ final class MetaIntegrationReadModel
             ->where('status', CoreExternalResource::STATUS_AVAILABLE)
             ->when($boundIds !== [], fn ($q) => $q->whereNotIn('id', $boundIds))
             ->orderBy('display_name')
-            ->limit(50)
+            ->limit(100)
             ->get()
-            ->map(fn (CoreExternalResource $resource): array => [
-                'id' => (string) $resource->id,
-                'type' => 'meta_ads',
-                'type_label' => MetaResourceType::label(MetaResourceType::META_AD_ACCOUNT),
-                'name' => $resource->display_name,
-                'external_id' => $resource->external_id,
-                'business' => $resource->metadata['business_name'] ?? $resource->parent_external_id,
-                'status_label' => 'Discovered — not bound',
-                'bindable' => true,
-            ])
+            ->map(function (CoreExternalResource $resource): array {
+                $meta = is_array($resource->metadata) ? $resource->metadata : [];
+
+                return [
+                    'id' => (string) $resource->id,
+                    'type' => 'meta_ads',
+                    'type_label' => MetaResourceType::label(MetaResourceType::META_AD_ACCOUNT),
+                    'name' => $resource->display_name,
+                    'external_id' => $resource->external_id,
+                    'external_id_masked' => $this->maskExternalId((string) $resource->external_id),
+                    'business' => $meta['business_name'] ?? $resource->parent_external_id,
+                    'currency' => $meta['currency'] ?? null,
+                    'timezone' => $meta['timezone_name'] ?? null,
+                    'access_label' => $this->accessContextLabel($meta),
+                    'status_label' => 'Discovered — not bound',
+                    'bindable' => true,
+                ];
+            })
             ->all();
     }
 
@@ -463,21 +472,42 @@ final class MetaIntegrationReadModel
     private function bindingRows(CoreIntegration $integration): array
     {
         return CoreAssetBinding::query()
-            ->with(['digitalAsset:id,name,type', 'externalResource:id,display_name,external_id,resource_type'])
+            ->with([
+                'digitalAsset:id,name,type,brand_id',
+                'digitalAsset.brand:id,name',
+                'externalResource:id,display_name,external_id,resource_type,metadata,status',
+            ])
             ->where('status', CoreAssetBinding::STATUS_ACTIVE)
             ->where('capability', MetaConnectorRegistry::META_ADS)
             ->whereHas('externalResource', fn ($q) => $q->where('integration_id', $integration->id))
             ->orderBy('id')
             ->limit(50)
             ->get()
-            ->map(fn (CoreAssetBinding $binding): array => [
-                'resource' => $binding->externalResource?->display_name
-                    ?? $binding->externalResource?->external_id
-                    ?? 'Ad Account',
-                'binding' => 'Meta Ads Binding',
-                'asset' => $binding->digitalAsset?->name ?? 'Digital Asset',
-                'route' => 'demo.meta.overview',
-            ])
+            ->map(function (CoreAssetBinding $binding): array {
+                $resource = $binding->externalResource;
+                $meta = is_array($resource?->metadata) ? $resource->metadata : [];
+                $resourceAccessible = $resource?->status === CoreExternalResource::STATUS_AVAILABLE;
+
+                return [
+                    'id' => (string) $binding->id,
+                    'resource' => $resource?->display_name
+                        ?? $resource?->external_id
+                        ?? 'Ad Account',
+                    'external_id' => $resource?->external_id,
+                    'external_id_masked' => $this->maskExternalId((string) ($resource?->external_id ?? '')),
+                    'business' => $meta['business_name'] ?? $resource?->parent_external_id,
+                    'currency' => $meta['currency'] ?? null,
+                    'timezone' => $meta['timezone_name'] ?? null,
+                    'access_label' => $this->accessContextLabel($meta),
+                    'binding' => 'Meta Ads Binding',
+                    'asset' => $binding->digitalAsset?->name ?? 'Digital Asset',
+                    'brand' => $binding->digitalAsset?->brand?->name,
+                    'status' => $binding->status,
+                    'resource_access' => $resourceAccessible ? 'accessible' : 'access_lost',
+                    'data_label' => 'Not collected yet / see Data state',
+                    'route' => 'demo.meta.overview',
+                ];
+            })
             ->all();
     }
 
@@ -607,7 +637,7 @@ final class MetaIntegrationReadModel
             'discover_businesses' => 'Discover Businesses',
             'select_business' => 'Select Business discovery context',
             'discover_ad_accounts' => 'Discover Ad Accounts',
-            'bind' => 'Select & bind Ad Account (Prompt 23)',
+            'bind' => 'Confirm Ad Account connection',
             'collect' => 'Collect data (Prompt 24–25)',
             default => 'Manage Meta',
         };
@@ -647,7 +677,8 @@ final class MetaIntegrationReadModel
                 && (bool) ($permission['can_discover_ad_accounts'] ?? false),
             'discover' => $authorized && (bool) ($permission['can_discover_businesses'] ?? false),
             'disconnect' => $this->credentials->hasTenantAuthorization($integration),
-            'bind' => false, // Prompt 23
+            'bind' => $authorized && $counts['ad_accounts'] > 0,
+            'unbind' => $counts['bound'] > 0,
             'collect' => false, // Prompt 24/25
         ];
     }
@@ -789,5 +820,44 @@ final class MetaIntegrationReadModel
         } catch (\Throwable) {
             return null;
         }
+    }
+
+    private function maskExternalId(string $externalId): string
+    {
+        $externalId = trim($externalId);
+        if ($externalId === '') {
+            return '—';
+        }
+
+        if (strlen($externalId) <= 8) {
+            return $externalId;
+        }
+
+        return substr($externalId, 0, 4).'…'.substr($externalId, -4);
+    }
+
+    /**
+     * @param  array<string, mixed>  $meta
+     */
+    private function accessContextLabel(array $meta): ?string
+    {
+        $contexts = is_array($meta['access_contexts'] ?? null) ? $meta['access_contexts'] : [];
+        $edges = collect($contexts)
+            ->pluck('edge')
+            ->filter(fn ($edge) => is_string($edge) && $edge !== '')
+            ->unique()
+            ->values();
+
+        if ($edges->contains('owned_ad_accounts') && $edges->contains('client_ad_accounts')) {
+            return 'Owned + Client / Shared';
+        }
+        if ($edges->contains('client_ad_accounts')) {
+            return 'Client / Shared';
+        }
+        if ($edges->contains('owned_ad_accounts')) {
+            return 'Owned';
+        }
+
+        return null;
     }
 }

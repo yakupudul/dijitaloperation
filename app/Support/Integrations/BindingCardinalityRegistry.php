@@ -54,6 +54,14 @@ final class BindingCardinalityRegistry
                 'managers_selectable' => false,
                 'notes' => 'GBP Location → google_business_profile DigitalAsset; account containers are not bind targets.',
             ],
+            'meta_ads' => [
+                'resource_type' => 'meta_ads',
+                'preferred_asset_type' => 'meta_ads',
+                'max_active_resources_per_asset' => 1,
+                'max_active_assets_per_resource' => 1,
+                'managers_selectable' => false,
+                'notes' => 'One Meta Ads DigitalAsset ↔ one active META_AD_ACCOUNT. META_BUSINESS is never a Binding root. Shared Ad Account across assets is not supported.',
+            ],
             default => [
                 'resource_type' => $resourceType,
                 'preferred_asset_type' => ExternalResourceAssetCompatibility::preferredAssetType($resourceType),

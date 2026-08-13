@@ -136,7 +136,8 @@ class MetaAdsBindingHotfixTest extends TestCase
         $this->assertSame($resource->id, $binding->external_resource_id);
         $this->assertSame('meta_ads', $binding->capability);
         $this->assertSame(CoreAssetBinding::STATUS_ACTIVE, $binding->status);
-        $this->assertSame([], $binding->configuration ?? []);
+        $this->assertSame($this->admin->id, $binding->configuration['confirmed_by_user_id'] ?? null);
+        $this->assertSame('meta_integration_selection', $binding->configuration['origin'] ?? null);
 
         Livewire::test(MetaAdsConnectionsRelationManager::class, [
             'ownerRecord' => $this->metaAsset->fresh(['assetBindings.externalResource']),
@@ -148,7 +149,7 @@ class MetaAdsBindingHotfixTest extends TestCase
             ->assertSee('Currency: USD')
             ->assertDontSee('Not bound')
             ->assertDontSee('EAAG-uat-secret-token-never-show')
-            ->assertTableActionHidden('create');
+            ->assertSee('Disconnect Ad Account');
 
         $this->assertDatabaseHas('core_asset_bindings', [
             'digital_asset_id' => $this->metaAsset->id,
@@ -243,15 +244,22 @@ class MetaAdsBindingHotfixTest extends TestCase
             'status' => CoreExternalResource::STATUS_AVAILABLE,
         ]);
 
+        // Silent second bind without replace confirmation must fail.
         Livewire::test(MetaAdsConnectionsRelationManager::class, [
             'ownerRecord' => $this->metaAsset->fresh(),
             'pageClass' => ViewDigitalAsset::class,
-        ])->assertTableActionHidden('create');
+        ])
+            ->callTableAction('create', data: [
+                'external_resource_id' => $secondMeta->id,
+                'allow_replace' => false,
+            ])
+            ->assertHasTableActionErrors();
 
         $this->assertFalse(
             CoreAssetBinding::query()
                 ->where('digital_asset_id', $this->metaAsset->id)
                 ->where('external_resource_id', $secondMeta->id)
+                ->where('status', CoreAssetBinding::STATUS_ACTIVE)
                 ->exists(),
         );
 
@@ -283,7 +291,8 @@ class MetaAdsBindingHotfixTest extends TestCase
         $options = (new \ReflectionMethod(MetaAdsConnectionsRelationManager::class, 'resourceOptions'))
             ->invoke($component->instance());
 
-        $this->assertArrayHasKey($metaResource->id, $options);
+        // Account already actively bound elsewhere is not offered (no shared-account ambiguity).
+        $this->assertArrayNotHasKey($metaResource->id, $options);
         $this->assertArrayHasKey($secondMeta->id, $options);
         $this->assertArrayNotHasKey($googleResource->id, $options);
         $this->assertArrayNotHasKey($wrongType->id, $options);

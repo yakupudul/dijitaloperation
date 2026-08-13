@@ -135,15 +135,14 @@
         </div>
 
         <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-            <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Upcoming product actions</h2>
-            <p class="mt-1 text-sm text-gray-500">Frozen UI does not enable Discover / Select / Collect until their owning prompts land.</p>
+            <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Milestone status</h2>
+            <p class="mt-1 text-sm text-gray-500">Authorization, discovery, and human-confirmed Binding are production-real. Analytical collection is Prompt 24.</p>
             <ul class="mt-3 space-y-1 text-sm text-gray-600 dark:text-gray-300">
                 <li>Authorization & discovery · {{ $integration['milestones']['authorization_discovery'] }}</li>
                 <li>Resource selection & binding · {{ $integration['milestones']['resource_selection_binding'] }}</li>
                 <li>Production collector · {{ $integration['milestones']['production_collector'] }}</li>
                 <li>Initial backfill · {{ $integration['milestones']['initial_backfill'] }}</li>
             </ul>
-            <p class="mt-3 text-xs text-gray-500">Internal Settings → Integrations may still configure/test/discover until Prompt 22 moves those actions onto /app. That admin surface does not redefine the frozen product.</p>
         </div>
     @elseif ($tab === 'connectors')
         <p class="text-sm text-gray-500 dark:text-gray-400">One Meta Integration authorization. The Meta Ads Connector owns advertising capability — not credentials, Businesses, or Ad Accounts themselves.</p>
@@ -206,17 +205,28 @@
             @endforeach
 
             <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-                <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Unbound Ad Accounts</h2>
-                <p class="mt-1 text-sm text-gray-500">Discovered inventory is not automatically a Digital Asset and is not automatically bound. Human Ad Account selection is Prompt 23.</p>
+                <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Ad Accounts</h2>
+                <p class="mt-1 text-sm text-gray-500">Select an Ad Account, confirm Brand / Meta Ads asset, then confirm the connection. Discovery never auto-binds. Names and domains never auto-bind.</p>
                 @if (empty($integration['unbound_resources']))
                     <p class="mt-4 text-sm text-gray-500">No unbound Ad Accounts in inventory.</p>
                 @else
                     <ul class="mt-4 space-y-3">
                         @foreach ($integration['unbound_resources'] as $resource)
-                            <li class="rounded-lg bg-gray-50 px-4 py-3 dark:bg-white/[0.03]">
-                                <p class="text-sm font-medium text-gray-800 dark:text-white/90">{{ $resource['name'] }}</p>
-                                <p class="text-xs text-gray-500">{{ $resource['external_id'] }} · {{ $resource['business'] ?? '—' }}</p>
-                                <p class="mt-1 text-xs text-warning-600 dark:text-warning-400">{{ $resource['status_label'] }}</p>
+                            <li class="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-gray-50 px-4 py-3 dark:bg-white/[0.03]">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-800 dark:text-white/90">{{ $resource['name'] }}</p>
+                                    <p class="text-xs text-gray-500">
+                                        ID {{ $resource['external_id_masked'] ?? $resource['external_id'] }}
+                                        @if (! empty($resource['business'])) · Business {{ $resource['business'] }} @endif
+                                        @if (! empty($resource['access_label'])) · {{ $resource['access_label'] }} @endif
+                                        @if (! empty($resource['currency'])) · {{ $resource['currency'] }} @endif
+                                        @if (! empty($resource['timezone'])) · {{ $resource['timezone'] }} @endif
+                                    </p>
+                                    <p class="mt-1 text-xs text-warning-600 dark:text-warning-400">{{ $resource['status_label'] }}</p>
+                                </div>
+                                @if ($integration['actions']['bind'] ?? false)
+                                    <x-ta.button wire:click="bindResource('{{ $resource['id'] }}')" size="sm">Select &amp; confirm…</x-ta.button>
+                                @endif
                             </li>
                         @endforeach
                     </ul>
@@ -224,16 +234,36 @@
             </section>
 
             <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-                <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Bindings</h2>
+                <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Connected Ad Accounts</h2>
+                <p class="mt-1 text-sm text-gray-500">Connected account ≠ data ready. Collection remains Prompt 24.</p>
                 @if (empty($integration['bindings']))
-                    <p class="mt-4 text-sm text-gray-500">No Ad Accounts selected / bound yet.</p>
+                    <p class="mt-4 text-sm text-gray-500">No Ad Accounts connected yet.</p>
                 @else
                     <ul class="mt-4 divide-y divide-gray-100 dark:divide-gray-800">
                         @foreach ($integration['bindings'] as $binding)
-                            <li class="py-3 text-sm">
-                                <p class="font-medium text-gray-800 dark:text-white/90">{{ $binding['resource'] }}</p>
-                                <p class="text-xs text-gray-500">↓ {{ $binding['binding'] }} ↓</p>
-                                <p class="text-gray-600 dark:text-gray-300">{{ $binding['asset'] }}</p>
+                            <li class="flex flex-wrap items-center justify-between gap-3 py-3 text-sm">
+                                <div>
+                                    <p class="font-medium text-gray-800 dark:text-white/90">{{ $binding['resource'] }}</p>
+                                    <p class="text-xs text-gray-500">
+                                        ID {{ $binding['external_id_masked'] ?? $binding['external_id'] ?? '—' }}
+                                        @if (! empty($binding['business'])) · {{ $binding['business'] }} @endif
+                                        @if (! empty($binding['currency'])) · {{ $binding['currency'] }} @endif
+                                    </p>
+                                    <p class="text-xs text-gray-500">↓ {{ $binding['binding'] }} ↓</p>
+                                    <p class="text-gray-600 dark:text-gray-300">
+                                        {{ $binding['asset'] }}
+                                        @if (! empty($binding['brand'])) · {{ $binding['brand'] }} @endif
+                                    </p>
+                                    <p class="mt-1 text-xs text-gray-500">Data · {{ $integration['data_state_label'] ?? 'Not collected yet' }}</p>
+                                </div>
+                                <div class="flex flex-wrap gap-2">
+                                    @if (! empty($binding['route']))
+                                        <x-ta.button :href="route($binding['route'])" size="sm" variant="outline">Open Asset</x-ta.button>
+                                    @endif
+                                    @if ($integration['actions']['unbind'] ?? false)
+                                        <x-ta.button wire:click="unbindBinding('{{ $binding['id'] }}')" size="sm" variant="outline" wire:confirm="Disconnect this Ad Account from this Meta Ads asset? Meta authorization stays connected.">Disconnect Ad Account</x-ta.button>
+                                    @endif
+                                </div>
                             </li>
                         @endforeach
                     </ul>
@@ -257,5 +287,85 @@
                 @endforeach
             </ul>
         </section>
+    @endif
+
+    @if ($showBindModal ?? false)
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 p-4" role="dialog" aria-modal="true" aria-labelledby="meta-bind-title">
+            <div class="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl dark:bg-gray-900">
+                <h2 id="meta-bind-title" class="text-lg font-semibold text-gray-800 dark:text-white/90">Confirm Meta Ad Account connection</h2>
+                <p class="mt-2 text-sm text-gray-500">You are confirming that this Meta Ad Account is the provider account for this MoxDOP Meta Ads Digital Asset. This does not connect the entire Meta Business and does not start collection.</p>
+
+                @if ($bindingPreview)
+                    <div class="mt-4 rounded-lg bg-gray-50 p-3 text-sm dark:bg-white/[0.03]">
+                        <p class="font-medium text-gray-800 dark:text-white/90">{{ $bindingPreview['name'] }}</p>
+                        <p class="text-xs text-gray-500">
+                            Provider · Meta
+                            @if (! empty($bindingPreview['business'])) · Business {{ $bindingPreview['business'] }} @endif
+                            · ID {{ $bindingPreview['external_id'] }}
+                            @if (! empty($bindingPreview['access'])) · {{ $bindingPreview['access'] }} @endif
+                            @if (! empty($bindingPreview['currency'])) · {{ $bindingPreview['currency'] }} @endif
+                            @if (! empty($bindingPreview['timezone'])) · {{ $bindingPreview['timezone'] }} @endif
+                        </p>
+                    </div>
+                @endif
+
+                <div class="mt-4 space-y-3">
+                    <div>
+                        <label class="text-xs font-medium text-gray-500" for="meta-bind-brand">Customer / Brand</label>
+                        <select id="meta-bind-brand" wire:model.live="brandId" class="mt-1 w-full rounded-lg border-gray-200 text-sm dark:border-gray-700 dark:bg-gray-800">
+                            <option value="">Select Brand…</option>
+                            @foreach ($brands as $brand)
+                                <option value="{{ $brand['id'] }}">{{ $brand['label'] }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <fieldset class="space-y-2">
+                        <legend class="text-xs font-medium text-gray-500">Meta Ads asset</legend>
+                        <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                            <input type="radio" wire:model.live="bindMode" value="create_asset" class="text-brand-500" />
+                            Create Meta Ads Digital Asset if needed
+                        </label>
+                        <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                            <input type="radio" wire:model.live="bindMode" value="existing_asset" class="text-brand-500" />
+                            Bind existing Meta Ads Digital Asset
+                        </label>
+                    </fieldset>
+
+                    @if ($bindMode === 'create_asset')
+                        <div>
+                            <label class="text-xs font-medium text-gray-500" for="meta-bind-asset-name">Digital Asset name</label>
+                            <input id="meta-bind-asset-name" type="text" wire:model="assetName" class="mt-1 w-full rounded-lg border-gray-200 text-sm dark:border-gray-700 dark:bg-gray-800" />
+                            <p class="mt-1 text-xs text-gray-400">If this Brand already has an unbound Meta Ads asset, that asset is reused instead of creating a duplicate.</p>
+                        </div>
+                    @else
+                        <div>
+                            <label class="text-xs font-medium text-gray-500" for="meta-bind-existing-asset">Existing Meta Ads Digital Asset</label>
+                            <select id="meta-bind-existing-asset" wire:model="digitalAssetId" class="mt-1 w-full rounded-lg border-gray-200 text-sm dark:border-gray-700 dark:bg-gray-800">
+                                <option value="">Select asset…</option>
+                                @forelse ($compatibleAssets as $asset)
+                                    <option value="{{ $asset['id'] }}">
+                                        {{ $asset['name'] }}
+                                        @if (! empty($asset['has_active_binding'])) · already connected @endif
+                                    </option>
+                                @empty
+                                    <option value="" disabled>No Meta Ads assets in this Brand</option>
+                                @endforelse
+                            </select>
+                        </div>
+                    @endif
+
+                    <label class="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
+                        <input type="checkbox" wire:model="allowReplace" class="mt-1 text-brand-500" />
+                        <span>Replace existing Ad Account on the selected Meta Ads asset if one is already connected. Historical data from the previous account stays attached to that previous account.</span>
+                    </label>
+                </div>
+
+                <div class="mt-5 flex flex-wrap justify-end gap-2">
+                    <x-ta.button wire:click="cancelBind" size="sm" variant="outline">Cancel</x-ta.button>
+                    <x-ta.button wire:click="confirmBind" size="sm">Confirm Connection</x-ta.button>
+                </div>
+            </div>
+        </div>
     @endif
 </div>

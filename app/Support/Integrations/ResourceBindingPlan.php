@@ -23,5 +23,7 @@ final readonly class ResourceBindingPlan
         public ?DigitalAsset $existingAsset,
         public string $assetName,
         public User $confirmedBy,
+        public bool $allowReplace = false,
+        public ?int $expectedIntegrationId = null,
     ) {}
 }

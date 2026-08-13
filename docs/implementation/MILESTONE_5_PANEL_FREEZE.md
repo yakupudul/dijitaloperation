@@ -16,8 +16,8 @@ Status reference for the frozen `/app` operator panel. UI work after this docume
 | WordPress Site Connector | PARTIAL | Demo package + pairing UX; not production-installable |
 | GBP | DEMO | Local visibility/reviews/competitors fixtures |
 | Google Ads | DEMO / PARTIAL | Specialist panels remain Demo (Prompt 30); Prompt 19 production collector writes real Ads pool facts |
-| Meta Ads | DEMO / PARTIAL | Specialist IA remains Demo; Prompt 21 Meta Integration hub/detail is real backend-state (auth/discovery/binding/collector still Prompts 22–25) |
-| Meta Integration hub/detail (`/app/integrations` Meta) | REAL (backend state) | Prompt 21–22: Core* + MetaIntegrationReadModel; Connect Meta / discover / select; no Graph on render |
+| Meta Ads | DEMO / PARTIAL | Specialist IA remains Demo; Integration auth/discovery/binding real (Prompts 21–23); collector still Prompt 24 |
+| Meta Integration hub/detail (`/app/integrations` Meta) | REAL (backend state) | Prompt 21–23: Core* + read model; Connect / discover / select / human-confirmed Binding; no Graph on render |
 | Canonical META provider / Meta Ads Connector foundation | REAL | provider=`meta`, connector=`meta_ads`; app config ≠ tenant token |
 | Meta Business container ExternalResource | REAL | `meta_business` non-bindable container; not Customer/DigitalAsset |
 | Meta Ad Account ExternalResource | REAL | `meta_ads` / META_AD_ACCOUNT; canonical `act_*` identity |
@@ -27,7 +27,7 @@ Status reference for the frozen `/app` operator panel. UI work after this docume
 | Business discovery + selection context | REAL | paginated me/businesses; discovery_context ≠ Binding |
 | Owned + client Ad Account discovery | REAL | owned_ad_accounts + client_ad_accounts; act_ dedupe |
 | Meta App external approval/readiness | UNKNOWN / MANUAL | App Review / Advanced Access / verification — dashboard |
-| Meta resource selection & Binding workflow | NOT YET | Prompt 23 |
+| Meta resource selection & Binding workflow | REAL | Prompt 23: human-confirmed META_AD_ACCOUNT ↔ Meta Ads DigitalAsset via CoreAssetBinding |
 | Meta Ads Production Collector (Collection Engine) | NOT YET | Prompt 24 — legacy BoundCollector remains PARTIAL Evidence path |
 | Meta Initial Backfill | NOT YET | Prompt 25 |
 | GA4 | DEMO / PARTIAL | Specialist panels remain Demo (Prompt 28); Prompt 18 production collector writes real GA4 pool facts |
