@@ -90,10 +90,27 @@ return [
     'meta' => [
         'app_id' => env('META_APP_ID'),
         'app_secret' => env('META_APP_SECRET'),
+        /*
+         * Optional deployment override. Normal installs derive callback from
+         * APP_URL + integrations.meta.callback (see MetaOAuthRedirectUriResolver).
+         */
+        'redirect_uri' => env('META_REDIRECT_URI'),
+        /*
+         * Facebook Login for Business configuration ID from Meta App Dashboard.
+         * Production dialog uses config_id (not scattered scope strings).
+         */
+        'login_configuration_id' => env('META_LOGIN_CONFIGURATION_ID'),
+        /*
+         * Legacy bootstrap / compatibility only — never shown in UI.
+         * Production operator path is Connect Meta OAuth (Prompt 22).
+         */
         'access_token' => env('META_ACCESS_TOKEN'),
         'api_version' => env('META_API_VERSION', 'v26.0'),
         'timeout' => (int) env('META_TIMEOUT', 20),
         'max_pagination_pages' => (int) env('META_MAX_PAGINATION_PAGES', 20),
+        'oauth_state_ttl_minutes' => (int) env('META_OAUTH_STATE_TTL_MINUTES', 15),
+        'token_validation_ttl_seconds' => (int) env('META_TOKEN_VALIDATION_TTL_SECONDS', 900),
+        'use_appsecret_proof' => (bool) env('META_USE_APPSECRET_PROOF', true),
     ],
 
     /*
