@@ -54,7 +54,7 @@ class DemoProductRoutesTest extends TestCase
             ->assertSee('Needs your attention')
             ->assertSee('My Work')
             ->assertSee('Agency')
-            ->assertSee('Recent outcomes')
+            ->assertSee('Recent Outcomes')
             ->assertDontSee('Agency Health');
 
         $this->get(route('demo.customers'))->assertOk()->assertSee('Customers');
