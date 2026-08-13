@@ -126,9 +126,10 @@ class FinalInterfaceCompletionTest extends TestCase
         $this->assertStringContainsString('DEMO CONNECTOR PACKAGE', (string) $response->headers->get('X-MoxDOP-Package'));
 
         Livewire::test(SiteConnectorShow::class, ['connector' => 'wordpress'])
-            ->assertSee('v0.1.0 Demo')
             ->assertSee('DEMO CONNECTOR PACKAGE')
-            ->assertSee('not production', false);
+            ->assertSee('not production', false)
+            ->call('setTab', 'releases')
+            ->assertSee('v0.1.0 Demo');
 
         $zipPath = SiteConnectorFixtures::ensureDemoZip();
         $zip = new ZipArchive;
