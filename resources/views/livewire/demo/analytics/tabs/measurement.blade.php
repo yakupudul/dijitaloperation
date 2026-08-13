@@ -176,7 +176,9 @@
                         <li class="rounded-lg bg-amber-50/80 px-3 py-2 text-sm dark:bg-amber-500/10">
                             <p class="font-medium text-gray-900 dark:text-white">{{ $row['title'] }}</p>
                             <p class="mt-0.5 text-xs text-gray-600 dark:text-gray-300">{{ $row['detail'] ?? '' }}</p>
-                            <x-ta.badge class="mt-2" :color="match($row['state'] ?? '') { 'Review' => 'warning', default => 'light' }" size="sm">{{ $row['state'] ?? 'Review' }}</x-ta.badge>
+                            <div class="mt-2">
+                                <x-ta.badge :color="match($row['state'] ?? '') { 'Review' => 'warning', default => 'light' }" size="sm">{{ $row['state'] ?? 'Review' }}</x-ta.badge>
+                            </div>
                         </li>
                     @endforeach
                 </ul>
