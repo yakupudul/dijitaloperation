@@ -287,9 +287,9 @@ See `docs/implementation/MILESTONE_5_PANEL_FREEZE.md` Capability Reality Matrix
 | Meta Business container architecture | REAL |
 | Meta Ad Account ExternalResource | REAL |
 | Binding foundation | REAL / existing |
-| Production Meta authorization | NOT YET / Prompt 22 |
-| Live Business / Ad Account discovery productization | NOT YET / Prompt 22 |
-| Human selection / production Binding | NOT YET / Prompt 23 |
+| Production Meta authorization | REAL / Prompt 22 |
+| Live Business / Ad Account discovery productization | REAL / Prompt 22 |
+| Human selection / production Binding | REAL / Prompt 23 |
 | Meta Ads Production Collector | NOT YET / Prompt 24 |
 | Meta Initial Backfill | NOT YET / Prompt 25 |
 
