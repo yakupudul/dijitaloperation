@@ -2,8 +2,8 @@
 
 namespace App\Livewire\Demo\Integrations;
 
+use App\Services\Integrations\OperatorIntegrationsHubQuery;
 use App\Support\Demo\DemoState;
-use App\Support\Demo\GlobalOperatingFixtures;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -24,10 +24,10 @@ class IntegrationsIndex extends Component
         }
     }
 
-    public function render(): View
+    public function render(OperatorIntegrationsHubQuery $hub): View
     {
         return view('livewire.demo.integrations.integrations-index', [
-            'groups' => GlobalOperatingFixtures::integrationsHub(),
+            'groups' => $hub->groups(),
             'flash' => DemoState::pullFlash(),
         ]);
     }

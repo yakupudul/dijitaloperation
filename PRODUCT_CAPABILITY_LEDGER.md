@@ -36,8 +36,9 @@
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Customer / Brand management | YES | YES | NO | YES | N/A | TESTED | Formal real-operator UAT not recorded as PASS | Core Filament Customer → Brand CRUD / portfolio |
 | Digital Assets | YES | YES | NO | YES | PARTIAL | TESTED | Long actions migrated to queue; short cross-asset checks still sync | Types include website, google_ads, gbp, meta_ads, instagram |
-| Google central Integration | YES | YES | NO | YES | NO | TESTED | Live OAuth/env operator-dependent; resource refresh sync | Agency Google Integration; ADR-039/040 |
-| Google resource discovery / binding | YES | YES | NO | YES | NO | TESTED | Refresh resources runs in-request | ExternalResources + AssetBinding |
+| Google central Integration | YES | YES | NO | YES | NO | TESTED | Live OAuth/env operator-dependent; resource refresh sync | Agency Google Integration; ADR-039/040; Prompt 13 converge `/app/integrations` → Core* |
+| Frozen Google Integration UI (backend state) | YES | YES | NO | YES | N/A | **TESTED** | OAuth lifecycle / discovery / bind UX still PARTIAL (Prompts 14–16); connector pages still Demo | `GoogleIntegrationReadModel` + `GoogleConnectorRegistry`; docs: `GOOGLE_INTEGRATION_ARCHITECTURE.md` |
+| Google resource discovery / binding | YES | YES | NO | YES | NO | TESTED | Refresh resources runs in-request; frozen bind workflow Prompt 16 | ExternalResources + AssetBinding |
 | Google live collection | YES | YES | NO | YES | YES | TESTED | Async via Activity Center / database queue; real Ads UAT not re-run here | GSC/GA4/Ads/GBP bound collectors via queued `CollectLiveBoundDataJob` |
 | Google Ads Intelligence | YES | YES | NO | YES | YES | TESTED | Collect + AI guidance queued; Expert Workspace not redesigned | Module Findings + Analyst + Skills; docs say IMPLEMENTED V1 |
 | Website collection | YES | YES | NO | YES | YES | TESTED | Refresh data + diagnosis queued | GSC/GA4 + diagnosis probes; distinct from public Discovery |
@@ -70,12 +71,12 @@
 | Shared collection engine (control plane) | YES | YES | NO | NO | YES | **TESTED** | Provider DatasetExecutors not registered yet; Redis/Horizon required for production collection queue | Prompt 9: `CollectionRun`→`ResourceRun`→`DatasetRun` + planner + Horizon. Docs: `docs/implementation/COLLECTION_ENGINE_ARCHITECTURE.md`. Does **not** make GA4/GSC/Ads/Meta/Website/DFS production collectors REAL. |
 | Data pool / warehouse foundation | YES | YES | NO | NO | N/A | **TESTED** | Provider population not REAL; BigQuery not implemented; SQLite proves writer semantics, PostgreSQL proves partitions | Prompt 10: raw object storage + typed PostgreSQL facts + materialization. Docs: `docs/implementation/DATA_POOL_ARCHITECTURE.md` + `MOXDOP_DATA_POOL_STORAGE_V1`. |
 | Persistent collection monitoring | YES | YES | NO | YES | YES | **TESTED** | Provider collectors still fake/unimplemented; Reverb optional; polling is mandatory fallback | Prompt 11: Integrations hub `MonitoringPanel` + `CollectionRunMonitorQuery`. Docs: `docs/implementation/COLLECTION_MONITORING_UX.md`. Does **not** make provider collectors REAL. |
-| GA4 production collection (contract-driven) | NO | NO | NO | NO | N/A | PLANNED | Engine ready; executor not implemented | Prompt 13+ |
-| GSC production collection (contract-driven) | NO | NO | NO | NO | N/A | PLANNED | Engine ready; executor not implemented | Prompt 13+ |
-| Google Ads production collection (contract-driven) | NO | NO | NO | NO | N/A | PLANNED | Engine ready; executor not implemented | Prompt 13+ |
-| Meta production collection (contract-driven) | NO | NO | NO | NO | N/A | PLANNED | Legacy bound collector remains; contract executor later | Prompt 13+ |
-| Website production crawl collection | NO | NO | NO | NO | N/A | PLANNED | Engine ready | Prompt 13+ |
-| DataForSEO production enrichment (engine-driven) | NO | NO | NO | NO | N/A | PLANNED | Existing SEO collectors unchanged | Prompt 13+ |
+| GA4 production collection (contract-driven) | NO | NO | NO | NO | N/A | PLANNED | Engine ready; executor not implemented | Prompt 18 |
+| GSC production collection (contract-driven) | NO | NO | NO | NO | N/A | PLANNED | Engine ready; executor not implemented | Prompt 17 |
+| Google Ads production collection (contract-driven) | NO | NO | NO | NO | N/A | PLANNED | Engine ready; executor not implemented | Prompt 19 |
+| Meta production collection (contract-driven) | NO | NO | NO | NO | N/A | PLANNED | Legacy bound collector remains; contract executor later | Later Meta collector milestone |
+| Website production crawl collection | NO | NO | NO | NO | N/A | PLANNED | Engine ready | Later Website collector milestone |
+| DataForSEO production enrichment (engine-driven) | NO | NO | NO | NO | N/A | PLANNED | Existing SEO collectors unchanged | Later DFS collector milestone |
 
 ---
 

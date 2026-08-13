@@ -90,15 +90,16 @@ class GlobalAgencyOperatingLayerTest extends TestCase
             ->assertSee('Atlas Dental — GA4');
     }
 
-    public function test_google_integration_bind_and_disconnect_impact_are_demo_safe(): void
+    public function test_google_integration_bind_and_disconnect_are_not_fake_real(): void
     {
         Livewire::test(GoogleIntegrationPage::class)
             ->assertSee('Dependent Digital Assets')
-            ->assertSee('14')
+            ->assertSee('Not configured')
+            ->assertDontSee('Panorama Ankara GA4')
             ->call('setTab', 'resources')
-            ->assertSee('Panorama Ankara GA4')
-            ->call('bindResource', 'ga4-panorama')
-            ->assertSee('Bound in this Demo session')
+            ->assertSee('No resources discovered yet')
+            ->call('bindResource', '1')
+            ->assertSee('Prompt 16')
             ->call('openDisconnect')
             ->assertSee('Disconnect Google?')
             ->assertSee('Total dependent Digital Assets')

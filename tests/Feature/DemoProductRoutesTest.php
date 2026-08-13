@@ -119,11 +119,13 @@ class DemoProductRoutesTest extends TestCase
             ->assertOk()
             ->assertSee('Google')
             ->assertSee('Resources & Bindings')
-            ->assertSee('Dependent Digital Assets');
+            ->assertSee('Dependent Digital Assets')
+            ->assertSee('Not configured');
         $this->get(route('demo.integrations.google', ['tab' => 'resources']))
             ->assertOk()
             ->assertSee('Available / unbound')
-            ->assertSee('Panorama Ankara GA4');
+            ->assertSee('No resources discovered yet')
+            ->assertDontSee('Panorama Ankara GA4');
         $this->get(route('demo.integrations.meta'))
             ->assertOk()
             ->assertSee('Meta data import')

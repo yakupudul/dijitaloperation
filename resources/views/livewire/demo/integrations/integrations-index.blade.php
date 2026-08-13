@@ -60,6 +60,9 @@
                                     <dd class="font-semibold text-gray-800 dark:text-white/90">{{ $provider['available'] }}</dd>
                                 </div>
                             </dl>
+                            @if (($provider['id'] ?? '') === 'google' && (int) ($provider['resources_discovered'] ?? 0) === 0)
+                                <p class="mt-2 text-xs text-gray-500">{{ $provider['note'] ?? 'Discovery not run' }}</p>
+                            @endif
                         @elseif (! empty($provider['note']))
                             <p class="mt-4 text-sm text-gray-500 dark:text-gray-400">{{ $provider['note'] }}</p>
                         @endif

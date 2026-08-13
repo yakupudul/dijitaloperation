@@ -134,7 +134,8 @@ class IntegrationOnboardingInfrastructureTest extends TestCase
             ->assertSee('Search Console Connector')
             ->assertSee('Google Business Profile Connector')
             ->call('openDisconnect')
-            ->assertSee('14');
+            ->assertSee('Disconnect Google?')
+            ->assertSee('Total dependent Digital Assets');
     }
 
     public function test_portfolio_setup_wizard_entry_points_and_flow(): void

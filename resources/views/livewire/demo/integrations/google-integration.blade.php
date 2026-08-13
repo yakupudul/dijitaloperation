@@ -8,8 +8,19 @@
                 <p class="text-xs uppercase tracking-wide text-gray-400">Integration</p>
                 <h1 class="text-2xl font-bold text-gray-800 dark:text-white/90">{{ $integration['name'] }}</h1>
                 <div class="mt-2 flex flex-wrap items-center gap-2">
-                    <x-ta.badge color="warning" size="sm">{{ $integration['state_label'] }}</x-ta.badge>
+                    @php
+                        $stateColor = match ($integration['state'] ?? '') {
+                            'connected' => 'success',
+                            'needs_attention', 'authorization_expired', 'configuration_incomplete' => 'warning',
+                            'configured' => 'info',
+                            default => 'light',
+                        };
+                    @endphp
+                    <x-ta.badge :color="$stateColor" size="sm">{{ $integration['state_label'] }}</x-ta.badge>
                     <span class="text-xs text-gray-500">Last check · {{ $integration['last_check'] }}</span>
+                    @if (! empty($integration['next_action_label']))
+                        <span class="text-xs text-gray-500">Next · {{ $integration['next_action_label'] }}</span>
+                    @endif
                 </div>
             </div>
         </div>
@@ -41,6 +52,9 @@
             <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
                 <p class="text-xs text-gray-400">Resources discovered</p>
                 <p class="mt-1 text-2xl font-bold text-gray-800 dark:text-white/90">{{ $integration['resources_discovered'] }}</p>
+                @if (($integration['resources_discovered'] ?? 0) === 0)
+                    <p class="mt-1 text-xs text-gray-500">Discovery not run</p>
+                @endif
             </div>
             <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
                 <p class="text-xs text-gray-400">Bound</p>
@@ -53,6 +67,16 @@
             <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
                 <p class="text-xs text-gray-400">Dependent Digital Assets</p>
                 <p class="mt-1 text-2xl font-bold text-gray-800 dark:text-white/90">{{ $integration['dependent_assets'] }}</p>
+            </div>
+        </div>
+        <div class="grid gap-4 sm:grid-cols-2">
+            <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                <p class="text-xs text-gray-400">Collection</p>
+                <p class="mt-1 text-sm font-medium text-gray-800 dark:text-white/90">{{ $integration['collection_state_label'] ?? 'Collection not run' }}</p>
+            </div>
+            <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                <p class="text-xs text-gray-400">Data availability</p>
+                <p class="mt-1 text-sm font-medium text-gray-800 dark:text-white/90">{{ $integration['data_state_label'] ?? 'No data available' }}</p>
             </div>
         </div>
 
@@ -90,60 +114,86 @@
             <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Configuration</h2>
             <dl class="mt-4 grid gap-3 text-sm sm:grid-cols-2">
                 <div>
-                    <dt class="text-gray-400">Authorization</dt>
-                    <dd class="font-medium text-warning-600 dark:text-warning-400">Needs attention — refresh recommended</dd>
+                    <dt class="text-gray-400">Application configuration</dt>
+                    <dd class="font-medium text-gray-800 dark:text-white/90">{{ $integration['app_configuration_label'] ?? 'Incomplete' }}</dd>
                 </div>
                 <div>
-                    <dt class="text-gray-400">Scopes (demo)</dt>
-                    <dd class="font-medium text-gray-800 dark:text-white/90">Ads · Analytics · Search Console · Business Profile</dd>
+                    <dt class="text-gray-400">Authorization</dt>
+                    <dd class="font-medium text-gray-800 dark:text-white/90">{{ $integration['auth_status_label'] ?? 'Not configured' }}</dd>
                 </div>
+                <div>
+                    <dt class="text-gray-400">Granted capabilities</dt>
+                    <dd class="font-medium text-gray-800 dark:text-white/90">{{ $integration['granted_scopes_label'] ?? 'Not granted' }}</dd>
+                </div>
+                <div>
+                    <dt class="text-gray-400">Ads developer token</dt>
+                    <dd class="font-medium text-gray-800 dark:text-white/90">{{ $integration['ads_developer_token_label'] ?? 'Developer token missing' }}</dd>
+                </div>
+                @if (! empty($integration['account_email']))
+                    <div>
+                        <dt class="text-gray-400">Authorized account</dt>
+                        <dd class="font-medium text-gray-800 dark:text-white/90">{{ $integration['account_email'] }}</dd>
+                    </div>
+                @endif
                 <div>
                     <dt class="text-gray-400">Write actions</dt>
-                    <dd class="font-medium text-gray-800 dark:text-white/90">Disabled — MoxDOP is read / bind only</dd>
+                    <dd class="font-medium text-gray-800 dark:text-white/90">{{ $integration['write_actions'] ?? 'Disabled — MoxDOP is read / bind only' }}</dd>
                 </div>
             </dl>
+            <p class="mt-4 text-xs text-gray-500">OAuth lifecycle productionization is Prompt 14. Secrets are never shown here.</p>
         </div>
     @elseif ($tab === 'resources')
         <div class="space-y-4">
             <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
                 <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Available / unbound resources</h2>
-                <p class="mt-1 text-sm text-gray-500">Discovered provider resources not yet bound to a Digital Asset. Binding is an internal MoxDOP action.</p>
-                <ul class="mt-4 space-y-3">
-                    @foreach ($integration['unbound_resources'] as $resource)
-                        <li class="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-gray-50 px-4 py-3 dark:bg-white/[0.03]">
-                            <div class="flex items-start gap-3">
-                                <x-demo.digital-asset-mark :type="$resource['type']" size="sm" />
-                                <div>
-                                    <p class="text-sm font-medium text-gray-800 dark:text-white/90">{{ $resource['type_label'] }}</p>
-                                    <p class="text-sm text-gray-700 dark:text-gray-300">{{ $resource['name'] }}</p>
-                                    <p class="text-xs text-gray-500">Property ID · {{ $resource['external_id'] }}</p>
-                                    <p class="mt-1 text-xs text-warning-600 dark:text-warning-400">{{ $resource['status_label'] }}</p>
-                                    @if ($boundResourceId === $resource['id'])
-                                        <p class="mt-1 text-xs text-success-600 dark:text-success-400">Bound in this Demo session</p>
-                                    @endif
+                <p class="mt-1 text-sm text-gray-500">Discovered provider resources not yet bound to a Digital Asset. Binding is an internal MoxDOP action (Prompt 16).</p>
+                @if (empty($integration['unbound_resources']))
+                    <p class="mt-4 text-sm text-gray-500 dark:text-gray-400">
+                        @if (($integration['resources_discovered'] ?? 0) === 0)
+                            No resources discovered yet.
+                        @else
+                            Resources available — none unbound, or none selected.
+                        @endif
+                    </p>
+                @else
+                    <ul class="mt-4 space-y-3">
+                        @foreach ($integration['unbound_resources'] as $resource)
+                            <li class="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-gray-50 px-4 py-3 dark:bg-white/[0.03]">
+                                <div class="flex items-start gap-3">
+                                    <x-demo.digital-asset-mark :type="$resource['type']" size="sm" />
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-800 dark:text-white/90">{{ $resource['type_label'] }}</p>
+                                        <p class="text-sm text-gray-700 dark:text-gray-300">{{ $resource['name'] }}</p>
+                                        <p class="text-xs text-gray-500">Property ID · {{ $resource['external_id'] }}</p>
+                                        <p class="mt-1 text-xs text-warning-600 dark:text-warning-400">{{ $resource['status_label'] }}</p>
+                                    </div>
                                 </div>
-                            </div>
-                            <x-ta.button wire:click="bindResource('{{ $resource['id'] }}')" size="sm">Bind</x-ta.button>
-                        </li>
-                    @endforeach
-                </ul>
+                                <x-ta.button wire:click="bindResource('{{ $resource['id'] }}')" size="sm" variant="outline">Bind (later)</x-ta.button>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
             </section>
 
             <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
                 <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Bindings</h2>
                 <p class="mt-1 text-sm text-gray-500">Provider Resource → Binding → Digital Asset (not Asset Relationship).</p>
-                <ul class="mt-4 divide-y divide-gray-100 dark:divide-gray-800">
-                    @foreach ($integration['bindings'] as $binding)
-                        <li class="flex flex-wrap items-center justify-between gap-3 py-3">
-                            <div class="text-sm">
-                                <p class="font-medium text-gray-800 dark:text-white/90">{{ $binding['resource'] }}</p>
-                                <p class="text-xs text-gray-500">↓ {{ $binding['binding'] }} ↓</p>
-                                <p class="text-gray-600 dark:text-gray-300">{{ $binding['asset'] }}</p>
-                            </div>
-                            <x-ta.button :href="route($binding['route'])" size="sm" variant="outline">Open Asset</x-ta.button>
-                        </li>
-                    @endforeach
-                </ul>
+                @if (empty($integration['bindings']))
+                    <p class="mt-4 text-sm text-gray-500 dark:text-gray-400">No resources selected / bound yet.</p>
+                @else
+                    <ul class="mt-4 divide-y divide-gray-100 dark:divide-gray-800">
+                        @foreach ($integration['bindings'] as $binding)
+                            <li class="flex flex-wrap items-center justify-between gap-3 py-3">
+                                <div class="text-sm">
+                                    <p class="font-medium text-gray-800 dark:text-white/90">{{ $binding['resource'] }}</p>
+                                    <p class="text-xs text-gray-500">↓ {{ $binding['binding'] }} ↓</p>
+                                    <p class="text-gray-600 dark:text-gray-300">{{ $binding['asset'] }}</p>
+                                </div>
+                                <x-ta.button :href="route($binding['route'])" size="sm" variant="outline">Open Asset</x-ta.button>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
             </section>
         </div>
     @else
@@ -175,10 +225,10 @@
                         <li>{{ $count }} {{ $label }}</li>
                     @endforeach
                 </ul>
-                <p class="mt-3 text-sm text-gray-500">Demo Mode will not execute a real provider disconnect.</p>
+                <p class="mt-3 text-sm text-gray-500">Disconnect / revocation is not executed here (Prompt 14 owns OAuth lifecycle).</p>
                 <div class="mt-5 flex flex-wrap justify-end gap-2">
                     <x-ta.button wire:click="cancelDisconnect" size="sm" variant="outline">Cancel</x-ta.button>
-                    <x-ta.button wire:click="confirmDisconnectAction" size="sm" variant="danger">Confirm (demo)</x-ta.button>
+                    <x-ta.button wire:click="confirmDisconnectAction" size="sm" variant="danger">Acknowledge</x-ta.button>
                 </div>
             </div>
         </div>

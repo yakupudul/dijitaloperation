@@ -2,6 +2,7 @@
 
 namespace App\Support\Demo;
 
+use App\Services\Integrations\Google\GoogleIntegrationReadModel;
 use Illuminate\Support\Collection;
 
 /**
@@ -507,6 +508,12 @@ final class GlobalOperatingFixtures
     }
 
     /**
+     * Legacy Demo fixture for Google Integration narrative content.
+     *
+     * Frozen `/app/integrations` Google surfaces must use
+     * {@see GoogleIntegrationReadModel}
+     * instead of this method — Demo counts must not be presented as real state.
+     *
      * @return array<string, mixed>
      */
     public static function googleIntegration(): array

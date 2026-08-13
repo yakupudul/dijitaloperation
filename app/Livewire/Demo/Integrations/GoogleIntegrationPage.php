@@ -2,8 +2,8 @@
 
 namespace App\Livewire\Demo\Integrations;
 
+use App\Services\Integrations\Google\GoogleIntegrationReadModel;
 use App\Support\Demo\DemoState;
-use App\Support\Demo\GlobalOperatingFixtures;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -18,8 +18,6 @@ class GoogleIntegrationPage extends Component
     public string $tab = 'overview';
 
     public bool $confirmDisconnect = false;
-
-    public ?string $boundResourceId = null;
 
     public function mount(): void
     {
@@ -37,8 +35,11 @@ class GoogleIntegrationPage extends Component
 
     public function bindResource(string $resourceId): void
     {
-        $this->boundResourceId = $resourceId;
-        DemoState::flash('Resource bound to a Digital Asset in Demo Mode (session only — no provider write).');
+        // Production binding workflow is Prompt 16 — do not fake binds as real.
+        DemoState::flash(
+            'Resource selection and binding is not productionized yet (Prompt 16). Discovered resources are shown read-only.',
+            'info',
+        );
     }
 
     public function openDisconnect(): void
@@ -54,13 +55,20 @@ class GoogleIntegrationPage extends Component
     public function confirmDisconnectAction(): void
     {
         $this->confirmDisconnect = false;
-        DemoState::flash('Disconnect cancelled in Demo Mode — destructive provider disconnect is not executed.', 'info');
+        // OAuth revocation / credential lifecycle is Prompt 14.
+        DemoState::flash(
+            'Disconnect was not executed. Google OAuth revocation is owned by Prompt 14.',
+            'info',
+        );
     }
 
-    public function render(): View
+    public function render(GoogleIntegrationReadModel $readModel): View
     {
+        $integration = $readModel->detail();
+        $readModel->assertNoSecrets($integration);
+
         return view('livewire.demo.integrations.google-integration', [
-            'integration' => GlobalOperatingFixtures::googleIntegration(),
+            'integration' => $integration,
             'flash' => DemoState::pullFlash(),
         ]);
     }
