@@ -35,6 +35,12 @@ use App\Services\DataPool\PartitionManager;
 use App\Services\DataPool\PostgresWarehouseWriter;
 use App\Services\DataPool\StorageContractValidator;
 use App\Services\Findings\BoundEvidenceRuleRegistry;
+use App\Services\Formulas\FormulaRegistryLoader;
+use App\Services\Formulas\Ga4FormulaCalculator;
+use App\Services\Ga4\Ga4PoolReadRepository;
+use App\Services\Ga4\Ga4SpecialistBindingResolver;
+use App\Services\Ga4\Ga4SpecialistReadService;
+use App\Services\Ga4\Ga4UiDatasetGate;
 use App\Services\Integrations\BoundCollectorRegistry;
 use App\Support\Agents\AgentProfileRegistry;
 use App\Support\Ai\AiRouteRegistry;
@@ -71,6 +77,14 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(IncrementalCoveragePlanner::class);
         $this->app->singleton(DueCollectionQueryService::class);
         $this->app->singleton(StartIncrementalCollectionService::class);
+
+        $this->app->singleton(FormulaRegistryLoader::class);
+        $this->app->singleton(Ga4FormulaCalculator::class);
+        $this->app->singleton(Ga4SpecialistBindingResolver::class);
+        $this->app->singleton(Ga4PoolReadRepository::class);
+        $this->app->singleton(Ga4UiDatasetGate::class);
+        $this->app->singleton(Ga4SpecialistReadService::class);
+
         $this->app->singleton(RawPayloadWriter::class, FilesystemRawPayloadWriter::class);
         $this->app->singleton(PostgresWarehouseWriter::class);
         $this->app->singleton(WarehouseWriter::class, PostgresWarehouseWriter::class);
