@@ -95,7 +95,8 @@ class CollectionDatasetRun extends Model
 
     public function percentage(): ?float
     {
-        if ($this->progress_mode !== ProgressMode::Counted) {
+        // PROMPT 9 FOUNDATION GAP CORRECTED: page/chunk modes may expose % when total is known.
+        if (! $this->progress_mode->allowsPercentage()) {
             return null;
         }
 

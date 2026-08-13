@@ -601,3 +601,179 @@
 .mox-integrations-page .fi-header-heading {
     font-size: 1.25rem;
 }
+
+/* Collection monitoring (Prompt 11) — Integrations embedded */
+.mox-collection-monitor {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    margin-top: 0.5rem;
+}
+
+.mox-collection-monitor__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.mox-collection-alert {
+    border: 1px solid var(--mox-border);
+    border-radius: 0.5rem;
+    padding: 0.65rem 0.85rem;
+    color: var(--color-mox-warning);
+    background: var(--mox-surface-subtle);
+    font-size: 0.85rem;
+}
+
+.mox-collection-run-card,
+.mox-collection-detail,
+.mox-collection-resource-block {
+    border: 1px solid var(--mox-border);
+    background: var(--mox-surface);
+    border-radius: 0.625rem;
+    padding: 0.85rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+
+.mox-collection-run-card__top,
+.mox-collection-detail__summary {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.75rem;
+    align-items: flex-start;
+}
+
+.mox-collection-detail__summary {
+    font-size: 0.85rem;
+    color: var(--mox-text-secondary);
+}
+
+.mox-collection-status {
+    font-size: 0.78rem;
+    font-weight: 650;
+}
+
+.mox-collection-status--emerald { color: var(--color-mox-success, #059669); }
+.mox-collection-status--rose { color: var(--color-mox-danger, #e11d48); }
+.mox-collection-status--amber { color: var(--color-mox-warning, #d97706); }
+.mox-collection-status--blue { color: var(--color-mox-info, #2563eb); }
+.mox-collection-status--slate { color: var(--mox-muted); }
+
+.mox-collection-exceptions {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.mox-collection-exceptions__item {
+    font-size: 0.78rem;
+    font-weight: 650;
+    padding: 0.15rem 0.45rem;
+    border-radius: 0.35rem;
+    border: 1px solid var(--mox-border);
+}
+
+.mox-collection-exceptions__item--retrying { color: var(--color-mox-warning, #d97706); }
+.mox-collection-exceptions__item--failed { color: var(--color-mox-danger, #e11d48); }
+
+.mox-collection-resource-rows,
+.mox-collection-dataset-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.mox-collection-resource-row,
+.mox-collection-dataset-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 0.85rem;
+    align-items: center;
+    font-size: 0.85rem;
+    padding: 0.35rem 0;
+    border-top: 1px solid var(--mox-border);
+}
+
+.mox-collection-resource-row__name,
+.mox-collection-dataset-row__main {
+    font-weight: 600;
+    min-width: 8rem;
+}
+
+.mox-collection-pct {
+    font-variant-numeric: tabular-nums;
+    font-weight: 650;
+}
+
+.mox-collection-materialization {
+    font-size: 0.85rem;
+    border: 1px dashed var(--mox-border);
+    border-radius: 0.5rem;
+    padding: 0.65rem 0.75rem;
+}
+
+.mox-collection-dataset-error {
+    width: 100%;
+    font-size: 0.8rem;
+    color: var(--mox-text-secondary);
+}
+
+.mox-collection-history-table-wrap {
+    overflow-x: auto;
+}
+
+.mox-collection-history-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+}
+
+.mox-collection-history-table th,
+.mox-collection-history-table td {
+    text-align: left;
+    padding: 0.45rem 0.55rem;
+    border-bottom: 1px solid var(--mox-border);
+    white-space: nowrap;
+}
+
+.mox-collection-filter {
+    border: 1px solid var(--mox-border);
+    background: var(--mox-surface);
+    color: var(--mox-text);
+    border-radius: 0.4rem;
+    padding: 0.3rem 0.5rem;
+    font-size: 0.8rem;
+}
+
+.mox-collection-technical {
+    font-size: 0.78rem;
+    display: grid;
+    gap: 0.35rem;
+}
+
+.mox-collection-technical dt {
+    color: var(--mox-muted);
+}
+
+.mox-collection-technical dd {
+    margin: 0;
+}
+
+@media (max-width: 720px) {
+    .mox-collection-history-table th:nth-child(3),
+    .mox-collection-history-table td:nth-child(3),
+    .mox-collection-history-table th:nth-child(5),
+    .mox-collection-history-table td:nth-child(5) {
+        display: none;
+    }
+}

@@ -12,6 +12,9 @@ enum ProgressMode: string
 
     public function allowsPercentage(): bool
     {
-        return $this === self::Counted;
+        return match ($this) {
+            self::Counted, self::PageBased, self::ChunkBased => true,
+            default => false,
+        };
     }
 }

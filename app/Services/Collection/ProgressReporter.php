@@ -29,8 +29,17 @@ final class ProgressReporter
             }
         }
 
-        if ($mode !== ProgressMode::Counted) {
-            // Never fabricate a percentage for unknown totals.
+        if (in_array($mode, [ProgressMode::PageBased, ProgressMode::ChunkBased], true)) {
+            if ($total !== null && $total <= 0) {
+                $total = null;
+            }
+            if ($total !== null && $current !== null && $current > $total) {
+                $current = $total;
+            }
+        }
+
+        if (! $mode->allowsPercentage()) {
+            // Never fabricate a percentage for indeterminate/stage modes.
             $total = null;
         }
 

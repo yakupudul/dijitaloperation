@@ -73,10 +73,15 @@ flowchart TD
   Raw --> Obj[(Private object storage)]
   Norm --> Pool[(Normalized data pool)]
   DB --> Ev[Domain events]
+  Ev --> Sig[CollectionRunChanged invalidation]
+  Sig -.-> UI[Integrations MonitoringPanel]
+  DB --> UI
+  UI --> Poll[Safe polling fallback]
+  Poll --> DB
   Ev -.-> UI[Operator UI later / Reverb later]
 ```
 
-Prompt 10 implements physical raw + warehouse writers. Provider DatasetExecutors remain later.
+Prompt 10 implements physical raw + warehouse writers. Prompt 11 implements Integrations monitoring (DB truth + polling; Reverb optional). Provider DatasetExecutors remain later.
 ## 5. Lifecycle states
 
 `queued` → `running` → (`retrying` | `completed` | `failed` | `partial` | `cancellation_requested` → `cancelled`)
