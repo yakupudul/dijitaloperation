@@ -91,6 +91,7 @@ class GlobalAgencyOperatingLayerTest extends TestCase
     public function test_google_integration_bind_and_disconnect_impact_are_demo_safe(): void
     {
         Livewire::test(GoogleIntegrationPage::class)
+            ->assertSee('Dependent Digital Assets')
             ->assertSee('14')
             ->call('setTab', 'resources')
             ->assertSee('Panorama Ankara GA4')
@@ -98,7 +99,7 @@ class GlobalAgencyOperatingLayerTest extends TestCase
             ->assertSee('Bound in this Demo session')
             ->call('openDisconnect')
             ->assertSee('Disconnect Google?')
-            ->assertSee('dependent Digital Assets')
+            ->assertSee('Total dependent Digital Assets')
             ->call('confirmDisconnectAction')
             ->assertSee('not executed');
     }

@@ -2,6 +2,8 @@
 
 namespace App\Support\Demo;
 
+use Illuminate\Support\Collection;
+
 /**
  * Deterministic presenter for the global agency operating layer (/app).
  *
@@ -143,7 +145,7 @@ final class GlobalOperatingFixtures
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<int, array<string, mixed>>  $tasks
+     * @param  Collection<int, array<string, mixed>>  $tasks
      * @return array<string, list<array<string, mixed>>>
      */
     public static function myWorkQueue($tasks): array
@@ -482,12 +484,13 @@ final class GlobalOperatingFixtures
      */
     public static function googleIntegration(): array
     {
+        // Bound counts align with disconnect impact / hub card (14 dependent Digital Assets).
         $resourceGroups = [
             [
                 'type' => 'google_ads',
                 'label' => 'Google Ads',
                 'accounts' => 4,
-                'bound' => 4,
+                'bound' => 2,
                 'available' => 0,
             ],
             [
@@ -501,7 +504,7 @@ final class GlobalOperatingFixtures
                 'type' => 'gsc',
                 'label' => 'Search Console',
                 'accounts' => 8,
-                'bound' => 6,
+                'bound' => 3,
                 'available' => 2,
             ],
             [

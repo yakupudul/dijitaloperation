@@ -119,6 +119,9 @@ class DemoProductRoutesTest extends TestCase
             ->assertOk()
             ->assertSee('Google')
             ->assertSee('Resources & Bindings')
+            ->assertSee('Dependent Digital Assets');
+        $this->get(route('demo.integrations.google', ['tab' => 'resources']))
+            ->assertOk()
             ->assertSee('Available / unbound')
             ->assertSee('Panorama Ankara GA4');
         $this->get(route('demo.integrations.meta'))
@@ -278,11 +281,12 @@ class DemoProductRoutesTest extends TestCase
 
         Livewire::test(RecommendationsIndex::class)
             ->call('approve', 'r-replace-creative')
-            ->assertSee('approved')
+            ->assertSee('accepted')
             ->call('createTask', 'r-fix-lcp')
             ->assertSee('Task created');
 
         Livewire::test(TasksIndex::class)
+            ->call('setView', 'all')
             ->assertSee('Replace PB-Video-03 creative')
             ->call('setStatus', 'blocked')
             ->assertSee('Clear unanswered GBP review backlog')
@@ -296,7 +300,7 @@ class DemoProductRoutesTest extends TestCase
             ->assertSee('WHY')
             ->assertSee('FOLLOW-UP')
             ->call('setStatus', 'completed')
-            ->assertSee('Associated improvement observed');
+            ->assertSee('improvement observed');
 
         Livewire::test(MetaIntegrationPage::class)
             ->assertSee('Ready')
