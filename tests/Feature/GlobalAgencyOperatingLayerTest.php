@@ -99,7 +99,7 @@ class GlobalAgencyOperatingLayerTest extends TestCase
             ->call('setTab', 'resources')
             ->assertSee('No resources discovered yet')
             ->call('bindResource', '1')
-            ->assertSee('Prompt 16')
+            ->assertSee('Select a discovered Google resource to bind.')
             ->assertDontSee('Revoke Google access…');
     }
 

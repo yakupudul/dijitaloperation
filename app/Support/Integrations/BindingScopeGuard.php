@@ -29,6 +29,13 @@ final class BindingScopeGuard
         if (! AssetBindingCompatibility::isCompatible($asset, $resource)) {
             throw new \InvalidArgumentException('Digital Asset type is not compatible with this ExternalResource.');
         }
+
+        if (! ExternalResourceAssetCompatibility::canBindResourceToAssetType(
+            (string) $resource->resource_type,
+            (string) $asset->type,
+        )) {
+            throw new \InvalidArgumentException('Digital Asset type is not compatible with this ExternalResource.');
+        }
     }
 
     public static function belongsToIntegration(CoreExternalResource $resource, int $integrationId): bool

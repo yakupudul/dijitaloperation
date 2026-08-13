@@ -169,13 +169,13 @@
         <div class="space-y-4">
             <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
                 <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Available / unbound resources</h2>
-                <p class="mt-1 text-sm text-gray-500">Discovered provider resources not yet bound to a Digital Asset. Binding is an internal MoxDOP action (Prompt 16).</p>
+                <p class="mt-1 text-sm text-gray-500">Discovered provider resources not yet bound. Human confirmation is required — discovery never binds automatically. Binding does not start collection.</p>
                 @if (empty($integration['unbound_resources']))
                     <p class="mt-4 text-sm text-gray-500 dark:text-gray-400">
                         @if (($integration['resources_discovered'] ?? 0) === 0)
                             No resources discovered yet.
                         @else
-                            Resources available — none unbound, or none selected.
+                            Resources available — none unbound, or none selectable.
                         @endif
                     </p>
                 @else
@@ -191,7 +191,11 @@
                                         <p class="mt-1 text-xs text-warning-600 dark:text-warning-400">{{ $resource['status_label'] }}</p>
                                     </div>
                                 </div>
-                                <x-ta.button wire:click="bindResource('{{ $resource['id'] }}')" size="sm" variant="outline">Bind (later)</x-ta.button>
+                                @if ($integration['actions']['bind'] ?? false)
+                                    <x-ta.button wire:click="bindResource('{{ $resource['id'] }}')" size="sm">Select & bind…</x-ta.button>
+                                @else
+                                    <x-ta.button size="sm" variant="outline" disabled>Connect Google first</x-ta.button>
+                                @endif
                             </li>
                         @endforeach
                     </ul>
@@ -251,6 +255,66 @@
                 <div class="mt-5 flex flex-wrap justify-end gap-2">
                     <x-ta.button wire:click="cancelDisconnect" size="sm" variant="outline">Cancel</x-ta.button>
                     <x-ta.button wire:click="confirmDisconnectAction" size="sm" variant="danger">Revoke Google access</x-ta.button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    @if ($showBindModal)
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 p-4" role="dialog" aria-modal="true" aria-labelledby="bind-title">
+            <div class="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl dark:bg-gray-900">
+                <h2 id="bind-title" class="text-lg font-semibold text-gray-800 dark:text-white/90">Confirm Google resource binding</h2>
+                <p class="mt-2 text-sm text-gray-500">Human confirmation is required. This creates a technical Binding only — it does not start collection or create Asset Relationships.</p>
+
+                <div class="mt-4 space-y-3">
+                    <div>
+                        <label class="text-xs font-medium text-gray-500" for="bind-brand">Customer / Brand</label>
+                        <select id="bind-brand" wire:model.live="brandId" class="mt-1 w-full rounded-lg border-gray-200 text-sm dark:border-gray-700 dark:bg-gray-800">
+                            <option value="">Select Brand…</option>
+                            @foreach ($brands as $brand)
+                                <option value="{{ $brand['id'] }}">{{ $brand['label'] }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <fieldset class="space-y-2">
+                        <legend class="text-xs font-medium text-gray-500">Target</legend>
+                        <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                            <input type="radio" wire:model.live="bindMode" value="create_asset" class="text-brand-500" />
+                            Create new Digital Asset
+                            @if ($preferred_asset_type)
+                                <span class="text-xs text-gray-400">({{ $preferred_asset_type }})</span>
+                            @endif
+                        </label>
+                        <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                            <input type="radio" wire:model.live="bindMode" value="existing_asset" class="text-brand-500" />
+                            Bind to existing compatible Digital Asset
+                        </label>
+                    </fieldset>
+
+                    @if ($bindMode === 'create_asset')
+                        <div>
+                            <label class="text-xs font-medium text-gray-500" for="bind-asset-name">Digital Asset name</label>
+                            <input id="bind-asset-name" type="text" wire:model="assetName" class="mt-1 w-full rounded-lg border-gray-200 text-sm dark:border-gray-700 dark:bg-gray-800" />
+                        </div>
+                    @else
+                        <div>
+                            <label class="text-xs font-medium text-gray-500" for="bind-existing-asset">Existing Digital Asset</label>
+                            <select id="bind-existing-asset" wire:model="digitalAssetId" class="mt-1 w-full rounded-lg border-gray-200 text-sm dark:border-gray-700 dark:bg-gray-800">
+                                <option value="">Select asset…</option>
+                                @forelse ($compatibleAssets as $asset)
+                                    <option value="{{ $asset['id'] }}">{{ $asset['name'] }} · {{ $asset['type'] }}</option>
+                                @empty
+                                    <option value="" disabled>No compatible unbound assets in this Brand</option>
+                                @endforelse
+                            </select>
+                        </div>
+                    @endif
+                </div>
+
+                <div class="mt-5 flex flex-wrap justify-end gap-2">
+                    <x-ta.button wire:click="cancelBind" size="sm" variant="outline">Cancel</x-ta.button>
+                    <x-ta.button wire:click="confirmBind" size="sm">Confirm binding</x-ta.button>
                 </div>
             </div>
         </div>

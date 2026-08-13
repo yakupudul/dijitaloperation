@@ -397,8 +397,21 @@ final class GoogleIntegrationReadModel
             ->when($boundIds !== [], fn ($q) => $q->whereNotIn('id', $boundIds))
             ->orderBy('resource_type')
             ->orderBy('display_name')
-            ->limit(50)
+            ->limit(100)
             ->get()
+            ->filter(function (CoreExternalResource $resource): bool {
+                // Ads managers are hierarchy context — not selectable bind targets.
+                if ($resource->resource_type === 'google_ads' && ($resource->metadata['is_manager'] ?? false) === true) {
+                    return false;
+                }
+                if (($resource->metadata['selectable'] ?? true) === false) {
+                    return false;
+                }
+
+                return true;
+            })
+            ->take(50)
+            ->values()
             ->map(function (CoreExternalResource $resource): array {
                 $type = (string) $resource->resource_type;
 
@@ -411,6 +424,7 @@ final class GoogleIntegrationReadModel
                     'status' => 'available',
                     'status_label' => 'Available · Not bound to a Digital Asset',
                     'resource_type' => $type,
+                    'selectable' => true,
                 ];
             })
             ->all();
@@ -720,7 +734,7 @@ final class GoogleIntegrationReadModel
             'configure' => 'Configure Google',
             'authorize' => 'Connect Google',
             'discover' => 'Discover resources',
-            'bind' => 'Select resources (Prompt 16)',
+            'bind' => 'Select & bind resources',
             'collect' => 'Collect data via Collection Engine',
             default => 'Manage Google',
         };
@@ -750,12 +764,14 @@ final class GoogleIntegrationReadModel
             && $authStatus === GoogleAuthStatus::CONNECTED
             && $operatorStatus !== IntegrationOperatorStatus::DISABLED;
 
+        $canBind = $canDiscover;
+
         return [
             'configure' => true,
             'authorize' => $canAuthorize,
             'reauthorize' => $canAuthorize && $authUsable,
             'discover' => $canDiscover,
-            'bind' => false,
+            'bind' => $canBind,
             'collect' => false,
             // Explicit Google grant revocation (not per-Connector disable).
             'disconnect' => $canAuthorize && $integration->authorizationCredential()->exists(),
