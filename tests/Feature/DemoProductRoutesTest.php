@@ -315,8 +315,9 @@ class DemoProductRoutesTest extends TestCase
             ->assertSee('Authorization plane for Meta Ads')
             ->assertDontSee('Import all Meta data')
             ->call('setTab', 'resources')
-            ->assertSee('Unbound Ad Accounts')
-            ->assertSee('No unbound Ad Accounts in inventory');
+            ->assertSee('Ad Accounts')
+            ->assertSee('No unbound Ad Accounts in inventory')
+            ->assertSee('Connected Ad Accounts');
     }
 
     public function test_website_severity_and_gbp_keyword_filters_work(): void

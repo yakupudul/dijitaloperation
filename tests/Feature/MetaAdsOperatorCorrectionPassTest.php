@@ -127,8 +127,10 @@ class MetaAdsOperatorCorrectionPassTest extends TestCase
         $method = new ReflectionMethod($manager, 'resourceOptions');
         $method->setAccessible(true);
         /** @var array<int|string, string> $options */
-        $options = $method->invoke($manager, $binding);
+        $options = $method->invoke($manager);
 
+        // Prompt 23: current account remains selectable for explicit replace confirmation,
+        // and other unbound accounts remain candidates (no silent overwrite).
         $this->assertArrayHasKey($current->id, $options);
         $this->assertArrayHasKey($other->id, $options);
         $this->assertStringContainsString('Avrupadent YD Yeni', $options[$current->id]);
@@ -137,9 +139,6 @@ class MetaAdsOperatorCorrectionPassTest extends TestCase
         foreach ($options as $label) {
             $this->assertDoesNotMatchRegularExpression('/^\d+$/', $label);
         }
-
-        $emptyWhileBound = $method->invoke($manager, null);
-        $this->assertSame([], $emptyWhileBound);
     }
 
     public function test_meta_ctr_percentage_semantics_and_exact_samples(): void
