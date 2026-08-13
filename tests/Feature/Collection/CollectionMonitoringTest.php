@@ -16,6 +16,7 @@ use App\Models\Collection\CollectionRun;
 use App\Models\DataPool\DatasetMaterialization;
 use App\Models\DigitalAsset;
 use App\Models\User;
+use App\Services\Collection\CollectionStatusAggregator;
 use App\Services\Collection\Monitoring\CollectionProgressPresenter;
 use App\Services\Collection\Monitoring\CollectionRunMonitorQuery;
 use App\Services\Collection\Monitoring\CollectionStatusPresenter;
@@ -133,6 +134,120 @@ class CollectionMonitoringTest extends TestCase
             'pages_completed' => 12,
         ]);
         $this->assertNull($unknownPage->percentage());
+    }
+
+    #[Test]
+    public function gsc_retrying_while_siblings_continue_then_partial_after_retry_exhausted(): void
+    {
+        $run = CollectionRun::factory()->create([
+            'status' => CollectionRunStatus::Running,
+            'requested_by_user_id' => $this->admin->id,
+            'started_at' => now()->subMinutes(3),
+            'last_activity_at' => now(),
+            'datasets_total' => 3,
+            'resources_total' => 3,
+        ]);
+
+        $gsc = $this->resource($run, 'SEARCH_CONSOLE');
+        $ga4 = $this->resource($run, 'GA4');
+        $ads = $this->resource($run, 'GOOGLE_ADS');
+
+        $gscQueryPage = CollectionDatasetRun::factory()->create([
+            'collection_run_id' => $run->id,
+            'collection_resource_run_id' => $gsc->id,
+            'provider_or_source' => 'SEARCH_CONSOLE',
+            'dataset_contract_id' => 'gsc_query_page_daily',
+            'request_family_id' => 'GSC_RF_QUERY_PAGE_DAILY',
+            'requirement_level' => RequirementLevel::Required,
+            'status' => CollectionRunStatus::Retrying,
+            'attempt_count' => 2,
+            'max_attempts' => 3,
+            'retry_at' => now()->addSeconds(30),
+            'error_category' => CollectionErrorCategory::RateLimit,
+            'error_message' => 'temporary quota',
+            'progress_mode' => ProgressMode::Indeterminate,
+        ]);
+
+        $ga4Dataset = CollectionDatasetRun::factory()->create([
+            'collection_run_id' => $run->id,
+            'collection_resource_run_id' => $ga4->id,
+            'provider_or_source' => 'GA4',
+            'dataset_contract_id' => 'ga4_property_daily',
+            'request_family_id' => 'GA4_RF_PROPERTY_DAILY',
+            'requirement_level' => RequirementLevel::Required,
+            'status' => CollectionRunStatus::Running,
+            'progress_mode' => ProgressMode::Indeterminate,
+        ]);
+
+        $adsDataset = CollectionDatasetRun::factory()->create([
+            'collection_run_id' => $run->id,
+            'collection_resource_run_id' => $ads->id,
+            'provider_or_source' => 'GOOGLE_ADS',
+            'dataset_contract_id' => 'google_ads_campaign_daily',
+            'request_family_id' => 'GADS_RF_CAMPAIGN_DAILY',
+            'requirement_level' => RequirementLevel::Required,
+            'status' => CollectionRunStatus::Running,
+            'progress_mode' => ProgressMode::Indeterminate,
+        ]);
+
+        foreach ([$gsc, $ga4, $ads] as $resource) {
+            $resource->forceFill(['datasets_total' => 1, 'status' => CollectionRunStatus::Running])->save();
+        }
+
+        // Mid-flight: GSC query×page RETRYING while GA4 + Google Ads continue.
+        app(CollectionStatusAggregator::class)->refreshFromDataset($gscQueryPage->fresh());
+        $mid = app(CollectionRunMonitorQuery::class)->summary($run->fresh(['resourceRuns.datasetRuns']));
+        $this->assertFalse($mid['is_terminal']);
+        $this->assertSame(1, $mid['summary']['datasets_retrying']);
+        $this->assertSame('running', $mid['status']['key']); // siblings still active — run continues
+        $byProvider = collect($mid['resources'])->keyBy('provider_or_source');
+        $this->assertSame('retrying', $byProvider['SEARCH_CONSOLE']['datasets_retrying'] > 0 ? 'retrying' : 'no');
+        $this->assertGreaterThan(0, $byProvider['SEARCH_CONSOLE']['datasets_retrying']);
+
+        // Retry exhausted → GSC FAILED; siblings COMPLETED → CollectionRun PARTIAL.
+        $gscQueryPage->forceFill([
+            'status' => CollectionRunStatus::Failed,
+            'attempt_count' => 3,
+            'retry_at' => null,
+            'finished_at' => now(),
+            'error_message' => 'Retry exhausted',
+        ])->save();
+        $ga4Dataset->forceFill([
+            'status' => CollectionRunStatus::Completed,
+            'rows_written' => 100,
+            'finished_at' => now(),
+        ])->save();
+        $adsDataset->forceFill([
+            'status' => CollectionRunStatus::Completed,
+            'rows_written' => 50,
+            'finished_at' => now(),
+        ])->save();
+
+        $aggregator = app(CollectionStatusAggregator::class);
+        $aggregator->refreshFromDataset($gscQueryPage->fresh());
+        $aggregator->refreshFromDataset($ga4Dataset->fresh());
+        $aggregator->refreshFromDataset($adsDataset->fresh());
+
+        $run->refresh();
+        $this->assertSame(CollectionRunStatus::Failed, $gscQueryPage->fresh()->status);
+        $this->assertSame(CollectionRunStatus::Completed, $ga4Dataset->fresh()->status);
+        $this->assertSame(CollectionRunStatus::Completed, $adsDataset->fresh()->status);
+        $this->assertSame(CollectionRunStatus::Partial, $run->status);
+
+        $final = app(CollectionRunMonitorQuery::class)->detail($run->fresh([
+            'resourceRuns.datasetRuns.attempts',
+            'requestedBy:id,name',
+        ]));
+        $this->assertSame('partial', $final['status']['key']);
+        $this->assertFalse($final['summary']['plan_completion']['success_only']);
+        $this->assertSame(2, $final['summary']['plan_completion']['completed']);
+        $this->assertSame(3, $final['summary']['plan_completion']['total']);
+        $this->assertNotSame(100.0, $final['summary']['plan_completion']['percentage']);
+
+        $datasetsById = collect($final['resources'])->flatMap(fn ($r) => $r['datasets'])->keyBy('dataset_contract_id');
+        $this->assertSame('failed', $datasetsById['gsc_query_page_daily']['status']['key']);
+        $this->assertSame('completed', $datasetsById['ga4_property_daily']['status']['key']);
+        $this->assertSame('completed', $datasetsById['google_ads_campaign_daily']['status']['key']);
     }
 
     #[Test]

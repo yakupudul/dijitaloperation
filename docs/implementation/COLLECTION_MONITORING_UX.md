@@ -90,6 +90,24 @@ php artisan reverb:start
 
 Reverb is **not** required for monitoring correctness.
 
+## Sibling isolation example
+
+```text
+Mid-flight:
+  GSC query×page → RETRYING
+  GA4             → Running (continues)
+  Google Ads      → Running (continues)
+  CollectionRun   → Running (1 retrying surfaced)
+
+After retry exhausted:
+  GSC query×page → FAILED
+  GA4             → COMPLETED
+  Google Ads      → COMPLETED
+  CollectionRun   → PARTIAL
+```
+
+A required dataset failure with sibling successes is **PARTIAL**, not a blanket run failure. Successful siblings are not blocked or recollected.
+
 ## Foundation gap corrected
 
 Prompt 9 `ProgressReporter` previously forced `progress_total = null` for all non-`counted` modes. Prompt 11 allows known totals for `page_based` / `chunk_based` so legitimate percentages work. Documented as **PROMPT 9 FOUNDATION GAP CORRECTED**.
