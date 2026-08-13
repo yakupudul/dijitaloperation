@@ -141,7 +141,11 @@ class DemoProductRoutesTest extends TestCase
         $this->get(route('demo.google-ads.overview'))
             ->assertOk()
             ->assertSee('Google Ads')
-            ->assertSee('Search terms');
+            ->assertSee('Atlas Dental — Europe')
+            ->assertSee('Search & Demand');
+        $this->get(route('demo.google-ads.overview', ['tab' => 'search_demand']))
+            ->assertOk()
+            ->assertSee('Search & demand');
         $this->get(route('demo.website'))
             ->assertOk()
             ->assertSee('Atlas Dental Website')
@@ -193,9 +197,10 @@ class DemoProductRoutesTest extends TestCase
 
         Livewire::test(OverviewPage::class)
             ->set('tab', 'search_terms')
+            ->assertSet('tab', 'search_demand')
             ->call('setClassificationFilter', 'Keep')
-            ->assertSee('implant ankara fiyat')
-            ->assertDontSee('dişçi oyunu');
+            ->assertSee('post bariatric dental turkey')
+            ->assertDontSee('dental nurse jobs ankara');
     }
 
     public function test_operations_filters_actions_and_meta_import_groups_work(): void
