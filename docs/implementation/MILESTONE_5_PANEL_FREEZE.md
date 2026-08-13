@@ -15,7 +15,7 @@ Status reference for the frozen `/app` operator panel. UI work after this docume
 | Website Infrastructure | DEMO | Domain/DNS/hosting/CDN presented as Website sections |
 | WordPress Site Connector | PARTIAL | Demo package + pairing UX; not production-installable |
 | GBP | DEMO | Local visibility/reviews/competitors fixtures |
-| Google Ads | DEMO / PARTIAL | Specialist IA complete; metrics from fixtures (provider import paths exist elsewhere) |
+| Google Ads | DEMO / PARTIAL | Specialist panels remain Demo (Prompt 30); Prompt 19 production collector writes real Ads pool facts |
 | Meta Ads | DEMO / PARTIAL | Specialist IA complete; import UX demo-backed |
 | GA4 | DEMO / PARTIAL | Specialist panels remain Demo (Prompt 28); Prompt 18 production collector writes real GA4 pool facts |
 | Search Console | DEMO / PARTIAL | Specialist panels remain Demo (Prompt 29); Prompt 17 production collector writes real GSC pool facts |
@@ -40,8 +40,8 @@ Status reference for the frozen `/app` operator panel. UI work after this docume
 | Agents | PARTIAL | Full read-only catalog under `/app/settings/ai/agents` (code registry) |
 | Skills | PARTIAL | Full read-only catalog under `/app/settings/ai/skills` (code registry) |
 | Notifications | DEMO | Deterministic bell when DB empty; preferences in Settings |
-| Google Integration hub/detail (`/app/integrations`) | REAL (backend state) | Prompt 13–18: Core* + OAuth + discovery + human binding + GSC/GA4 production collectors; Ads collector still NOT YET |
-| Google connector workspaces | DEMO / PARTIAL | GSC/GA4 pools REAL via Prompt 17–18; specialist UI Demo until Prompt 28/29; Ads collector NOT YET |
+| Google Integration hub/detail (`/app/integrations`) | REAL (backend state) | Prompt 13–19: Core* + OAuth + discovery + human binding + GSC/GA4/Ads production collectors |
+| Google connector workspaces | DEMO / PARTIAL | GSC/GA4/Ads pools REAL via Prompt 17–19; specialist UI Demo until Prompt 28/29/30 |
 | GSC Production Collector | REAL | Contract request families → WarehouseWriter → GSC normalized pool |
 | GSC Search Analytics / Sitemaps / Controlled URL Inspection | REAL | Read-only; appearance not collected (source V1) |
 | GSC specialist real-data UI | NOT YET | Prompt 29 |
@@ -50,7 +50,9 @@ Status reference for the frozen `/app` operator panel. UI work after this docume
 | GA4 Property Daily / Acquisition / Behavior / Landing / Events | REAL | Session-scoped acquisition; no firstUser*; event facts as BA inputs only |
 | GA4 Business Action mapping | SEPARATE | Not applied inside production collector |
 | GA4 specialist real-data UI | NOT YET | Prompt 28 |
-| Google Ads Production Collector | NOT YET | Prompt 19 |
+| Google Ads Production Collector | REAL | Contract GADS_RF_* → WarehouseWriter → Ads normalized pool |
+| Google Ads Customer Metadata / Campaigns / Ad Groups / Keywords / Search Terms / PMax Terms / Ads / Assets / Landing / Conversion Actions / Typed Conversions | REAL | Session/account TZ + currency preserved; managers not performance roots |
+| Google Ads specialist real-data UI | NOT YET | Prompt 30 |
 
 ## Post-Freeze Backend Roadmap
 

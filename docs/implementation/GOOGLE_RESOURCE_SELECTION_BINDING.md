@@ -112,12 +112,12 @@ Page render does not call Google APIs.
 | Bind existing DigitalAsset | REAL |
 | GBP Location → GBP DigitalAsset | REAL |
 | Auto-bind / auto-collect | NO |
-| Production collectors | GSC REAL (Prompt 17); GA4 REAL (Prompt 18); Ads NOT YET (19) |
+| Production collectors | GSC REAL (17); GA4 REAL (18); Ads REAL (19) |
 | Initial backfill | NOT YET (20) |
 
 ---
 
-## 10. Prompt 17–18 handoff
+## 10. Prompt 17–19 handoff
 
 Bindings are production-real. Collectors must resolve:
 
@@ -125,9 +125,11 @@ DigitalAsset → active CoreAssetBinding → ExternalResource → Credential Bro
 
 without creating Bindings themselves.
 
-Prompt 17 delivered `SearchConsoleDatasetExecutor` on that path for Search Console.
+Prompt 17 delivered `SearchConsoleDatasetExecutor` for Search Console.
 
-Prompt 18 delivered `Ga4DatasetExecutor` on the same path for GA4 Properties only.
+Prompt 18 delivered `Ga4DatasetExecutor` for GA4 Properties.
+
+Prompt 19 delivered `GoogleAdsDatasetExecutor` for non-manager Google Ads Customers.
 
 ---
 

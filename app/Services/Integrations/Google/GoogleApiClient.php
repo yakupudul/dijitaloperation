@@ -89,6 +89,38 @@ class GoogleApiClient
     }
 
     /**
+     * Read-only Google Ads GAQL SearchStream (googleAds:searchStream).
+     * Official REST returns the full result in one streamed response (no pageToken).
+     * Callers must process rows in bounded application batches — do not treat this
+     * as permission to hold unbounded normalized state in memory.
+     *
+     * @see https://developers.google.com/google-ads/api/rest/common/search
+     */
+    public function searchStreamAds(
+        CoreIntegration $integration,
+        string $customerId,
+        string $query,
+        ?string $loginCustomerId = null,
+        ?string $capability = 'google_ads',
+        ?int $timeoutSeconds = null,
+    ): Response {
+        $customerId = preg_replace('/\D+/', '', $customerId) ?? '';
+        if ($customerId === '') {
+            throw new RuntimeException('Google Ads customer ID is missing.');
+        }
+
+        return $this->adsRequest(
+            $integration,
+            'post',
+            'customers/'.$customerId.'/googleAds:searchStream',
+            ['query' => $query],
+            $loginCustomerId ?? $customerId,
+            $capability,
+            $timeoutSeconds,
+        );
+    }
+
+    /**
      * @param  array<string, mixed>  $body
      */
     private function adsRequest(
@@ -98,6 +130,7 @@ class GoogleApiClient
         array $body = [],
         ?string $loginCustomerId = null,
         ?string $capability = 'google_ads',
+        ?int $timeoutSeconds = null,
     ): Response {
         $developerToken = $this->broker->adsDeveloperToken($integration)
             ?? $this->credentials->developerToken($integration);
@@ -107,6 +140,7 @@ class GoogleApiClient
 
         $url = GoogleOAuthConfig::adsApiUrl($path);
         $token = $this->resolveAccessToken($integration, $capability);
+        $timeout = $timeoutSeconds ?? 30;
 
         $headers = [
             'developer-token' => $developerToken,
@@ -119,7 +153,7 @@ class GoogleApiClient
         }
 
         try {
-            $pending = Http::withToken($token)->withHeaders($headers)->timeout(30)->acceptJson();
+            $pending = Http::withToken($token)->withHeaders($headers)->timeout($timeout)->acceptJson();
 
             /** @var Response $response */
             $response = $method === 'post'
@@ -139,7 +173,7 @@ class GoogleApiClient
         if ($response->status() === 401) {
             $refreshed = $this->oauth->refreshAccessToken($integration, force: true);
             if ($refreshed !== null) {
-                $pending = Http::withToken($refreshed)->withHeaders($headers)->timeout(30)->acceptJson();
+                $pending = Http::withToken($refreshed)->withHeaders($headers)->timeout($timeout)->acceptJson();
                 $response = $method === 'post'
                     ? $pending->asJson()->post($url, $body)
                     : $pending->get($url);
