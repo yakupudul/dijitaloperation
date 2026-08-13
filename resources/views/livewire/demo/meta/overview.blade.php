@@ -1,12 +1,12 @@
 @php
     $navTabs = [
-        ['key' => 'overview', 'label' => 'Overview', 'wire' => true],
-        ['key' => 'campaigns', 'label' => 'Campaigns', 'wire' => true],
-        ['key' => 'creatives', 'label' => 'Creatives', 'wire' => true],
-        ['key' => 'audience', 'label' => 'Audience & Delivery', 'wire' => true],
-        ['key' => 'funnel', 'label' => 'Funnel & Destinations', 'wire' => true],
-        ['key' => 'measurement', 'label' => 'Measurement', 'wire' => true],
-        ['key' => 'operations', 'label' => 'Operations', 'wire' => true],
+        ['key' => 'overview', 'label' => __('operator.meta_ads.tabs.overview'), 'wire' => true],
+        ['key' => 'campaigns', 'label' => __('operator.meta_ads.tabs.campaigns'), 'wire' => true],
+        ['key' => 'creatives', 'label' => __('operator.meta_ads.tabs.creatives'), 'wire' => true],
+        ['key' => 'audience', 'label' => __('operator.meta_ads.tabs.audience'), 'wire' => true],
+        ['key' => 'funnel', 'label' => __('operator.meta_ads.tabs.funnel'), 'wire' => true],
+        ['key' => 'measurement', 'label' => __('operator.meta_ads.tabs.measurement'), 'wire' => true],
+        ['key' => 'operations', 'label' => __('operator.meta_ads.tabs.operations'), 'wire' => true],
     ];
 @endphp
 

@@ -123,7 +123,7 @@ class Ga4OperatingWorkspaceTest extends TestCase
             ->assertSee('Organic')
             ->assertDontSee('user@')
             ->call('setTab', 'relationships')
-            ->assertSee('Relationships')
+            ->assertSee(__('operator.ga4.relationship_summary'))
             ->assertSee('Measures')
             ->assertSee('Atlas Dental Website')
             ->assertSee('Provides evidence')

@@ -109,7 +109,7 @@
 
         @php $rel = $workspace['relationships']; @endphp
         <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-            <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Relationships</h2>
+            <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ __('operator.asset.relationship_summary') }}</h2>
             <p class="mt-1 text-xs text-gray-500">Linked Digital Assets and cross-channel checks for this profile.</p>
             <div class="mt-4 grid gap-4 lg:grid-cols-2">
                 <div>

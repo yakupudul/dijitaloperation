@@ -175,21 +175,21 @@
             @elseif ($section === 'ai')
                 <div class="space-y-4">
                     <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-                        <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">AI &amp; Intelligence overview</h3>
+                        <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ __('operator.settings.ai.overview') }}</h3>
                         <dl class="mt-3 grid gap-4 sm:grid-cols-3 text-sm">
-                            <div><dt class="text-gray-400">Registered routes</dt><dd class="mt-1 text-lg font-semibold text-gray-800 dark:text-white/90">{{ count($aiRoutes) }}</dd></div>
-                            <div><dt class="text-gray-400">Agent profiles</dt><dd class="mt-1 text-lg font-semibold text-gray-800 dark:text-white/90">{{ count($aiAgents) }}</dd></div>
+                            <div><dt class="text-gray-400">{{ __('operator.settings.ai.routes_count') }}</dt><dd class="mt-1 text-lg font-semibold text-gray-800 dark:text-white/90">{{ count($aiRoutes) }}</dd></div>
+                            <div><dt class="text-gray-400">{{ __('operator.settings.ai.agents') }}</dt><dd class="mt-1 text-lg font-semibold text-gray-800 dark:text-white/90">{{ count($aiAgents) }}</dd></div>
                             <div><dt class="text-gray-400">OpenAI</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['ai']['openai'] }}</dd></div>
                         </dl>
                         <p class="mt-4 text-sm text-gray-500">{{ $settings['ai']['note'] }}</p>
                         <div class="mt-4 flex flex-wrap gap-2">
-                            <x-ta.button href="{{ route('demo.settings.ai.control-plane') }}" size="sm">AI Control Plane</x-ta.button>
-                            <x-ta.button href="{{ route('demo.settings', ['section' => 'ai']) }}#agents" size="sm" variant="outline">Agent Profiles</x-ta.button>
-                            <x-ta.button href="{{ route('demo.settings', ['section' => 'ai']) }}#skills" size="sm" variant="outline">Skill Library</x-ta.button>
+                            <x-ta.button href="{{ route('demo.settings.ai.control-plane') }}" size="sm">{{ __('operator.settings.ai.control_plane') }}</x-ta.button>
+                            <x-ta.button href="{{ route('demo.settings.ai.agents') }}" size="sm" variant="outline">{{ __('operator.settings.ai.agents') }}</x-ta.button>
+                            <x-ta.button href="{{ route('demo.settings.ai.skills') }}" size="sm" variant="outline">{{ __('operator.settings.ai.skills') }}</x-ta.button>
                         </div>
                     </div>
                     <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-                        <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Registered AI routes</h3>
+                        <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ __('operator.settings.ai.routes_title') }}</h3>
                         <ul class="mt-3 divide-y divide-gray-100 dark:divide-gray-800">
                             @foreach ($aiRoutes as $route)
                                 <li class="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
@@ -197,13 +197,16 @@
                                         <p class="font-medium text-gray-800 dark:text-white/90">{{ $route['name'] }}</p>
                                         <p class="text-xs text-gray-500">{{ $route['key'] }} · {{ $route['module'] }}</p>
                                     </div>
-                                    <x-ta.button href="{{ route('demo.settings.ai.control-plane', ['route' => $route['key']]) }}" size="sm" variant="outline">Configure</x-ta.button>
+                                    <x-ta.button href="{{ route('demo.settings.ai.control-plane', ['route' => $route['key']]) }}" size="sm" variant="outline">{{ __('operator.settings.ai.configure') }}</x-ta.button>
                                 </li>
                             @endforeach
                         </ul>
                     </div>
                     <div id="agents" class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-                        <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Agent profiles</h3>
+                        <div class="flex items-center justify-between gap-2">
+                            <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ __('operator.settings.ai.agents') }}</h3>
+                            <a href="{{ route('demo.settings.ai.agents') }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline">{{ __('operator.settings.ai.open_catalog') }}</a>
+                        </div>
                         <ul class="mt-3 divide-y divide-gray-100 dark:divide-gray-800">
                             @foreach ($aiAgents as $agent)
                                 <li class="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
@@ -211,22 +214,28 @@
                                         <p class="font-medium text-gray-800 dark:text-white/90">{{ $agent['name'] }}</p>
                                         <p class="text-xs text-gray-500">{{ $agent['slug'] }} · {{ $agent['module'] }} · {{ $agent['route'] }}</p>
                                     </div>
-                                    <x-ta.badge :color="$agent['status'] === 'operational' ? 'success' : 'warning'" size="sm">{{ $agent['status'] }}</x-ta.badge>
+                                    <a href="{{ route('demo.settings.ai.agents', ['agent' => $agent['slug']]) }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline">{{ __('operator.actions.open') }}</a>
                                 </li>
                             @endforeach
                         </ul>
                     </div>
                     <div id="skills" class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-                        <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Skill library</h3>
+                        <div class="flex items-center justify-between gap-2">
+                            <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ __('operator.settings.ai.skills') }}</h3>
+                            <a href="{{ route('demo.settings.ai.skills') }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline">{{ __('operator.settings.ai.open_catalog') }}</a>
+                        </div>
                         <ul class="mt-3 divide-y divide-gray-100 dark:divide-gray-800">
                             @forelse ($aiSkills as $skill)
-                                <li class="py-2 text-sm">
-                                    <p class="font-medium text-gray-800 dark:text-white/90">{{ $skill['name'] }}</p>
-                                    <p class="text-xs text-gray-500">{{ $skill['slug'].'@'.$skill['version'] }} · {{ $skill['module'] }}</p>
-                                    <p class="mt-1 text-xs text-gray-500 line-clamp-2">{{ $skill['purpose'] }}</p>
+                                <li class="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                                    <div>
+                                        <p class="font-medium text-gray-800 dark:text-white/90">{{ $skill['name'] }}</p>
+                                        <p class="text-xs text-gray-500">{{ $skill['slug'].'@'.$skill['version'] }} · {{ $skill['module'] }}</p>
+                                        <p class="mt-1 text-xs text-gray-500 line-clamp-2">{{ $skill['purpose'] }}</p>
+                                    </div>
+                                    <a href="{{ route('demo.settings.ai.skills', ['skill' => $skill['slug']]) }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline">{{ __('operator.actions.open') }}</a>
                                 </li>
                             @empty
-                                <li class="py-2 text-sm text-gray-500">No built-in skills registered yet.</li>
+                                <li class="py-2 text-sm text-gray-500">{{ __('operator.settings.ai.no_skills') }}</li>
                             @endforelse
                         </ul>
                     </div>

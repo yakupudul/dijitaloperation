@@ -1,12 +1,12 @@
 @php
     $navTabs = [
-        ['key' => 'overview', 'label' => 'Overview', 'wire' => true],
-        ['key' => 'profile', 'label' => 'Profile', 'wire' => true],
-        ['key' => 'visibility', 'label' => 'Visibility', 'wire' => true],
-        ['key' => 'performance', 'label' => 'Performance', 'wire' => true],
-        ['key' => 'reviews', 'label' => 'Reviews', 'wire' => true],
-        ['key' => 'competitors', 'label' => 'Competitors', 'wire' => true],
-        ['key' => 'operations', 'label' => 'Operations', 'wire' => true],
+        ['key' => 'overview', 'label' => __('operator.gbp.tabs.overview'), 'wire' => true],
+        ['key' => 'profile', 'label' => __('operator.gbp.tabs.profile'), 'wire' => true],
+        ['key' => 'visibility', 'label' => __('operator.gbp.tabs.visibility'), 'wire' => true],
+        ['key' => 'performance', 'label' => __('operator.gbp.tabs.performance'), 'wire' => true],
+        ['key' => 'reviews', 'label' => __('operator.gbp.tabs.reviews'), 'wire' => true],
+        ['key' => 'competitors', 'label' => __('operator.gbp.tabs.competitors'), 'wire' => true],
+        ['key' => 'operations', 'label' => __('operator.gbp.tabs.operations'), 'wire' => true],
     ];
 @endphp
 

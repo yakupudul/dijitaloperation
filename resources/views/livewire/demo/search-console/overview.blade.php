@@ -1,11 +1,11 @@
 @php
     $navTabs = [
-        ['key' => 'overview', 'label' => 'Overview', 'wire' => true],
-        ['key' => 'performance', 'label' => 'Search Performance', 'wire' => true],
-        ['key' => 'demand', 'label' => 'Queries & Demand', 'wire' => true],
-        ['key' => 'pages', 'label' => 'Pages', 'wire' => true],
-        ['key' => 'indexing', 'label' => 'Indexing', 'wire' => true],
-        ['key' => 'operations', 'label' => 'Operations', 'wire' => true],
+        ['key' => 'overview', 'label' => __('operator.gsc.tabs.overview'), 'wire' => true],
+        ['key' => 'performance', 'label' => __('operator.gsc.tabs.performance'), 'wire' => true],
+        ['key' => 'demand', 'label' => __('operator.gsc.tabs.demand'), 'wire' => true],
+        ['key' => 'pages', 'label' => __('operator.gsc.tabs.pages'), 'wire' => true],
+        ['key' => 'indexing', 'label' => __('operator.gsc.tabs.indexing'), 'wire' => true],
+        ['key' => 'operations', 'label' => __('operator.gsc.tabs.operations'), 'wire' => true],
     ];
 @endphp
 

@@ -117,7 +117,7 @@ class GscOperatingWorkspaceTest extends TestCase
     {
         Livewire::test(SearchConsolePage::class, ['assetId' => DemoCatalog::GSC_ASSET_ID])
             ->call('setTab', 'relationships')
-            ->assertSee('Relationships')
+            ->assertSee(__('operator.gsc.relationship_summary'))
             ->assertSee('Observes')
             ->assertSee('Atlas Dental Website')
             ->assertSee('Provides evidence')

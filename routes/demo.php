@@ -48,6 +48,8 @@ use App\Livewire\Demo\Portfolio\CustomersIndex;
 use App\Livewire\Demo\Portfolio\PortfolioSetupWizard;
 use App\Livewire\Demo\ProfilePage;
 use App\Livewire\Demo\Settings\AiControlPlanePage;
+use App\Livewire\Demo\Settings\AiAgentsPage;
+use App\Livewire\Demo\Settings\AiSkillsPage;
 use App\Livewire\Demo\Settings\PlaybookShow;
 use App\Livewire\Demo\SettingsPage;
 use App\Livewire\Demo\Website\OverviewPage as WebsiteOverviewPage;
@@ -117,4 +119,6 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/settings', SettingsPage::class)->name('demo.settings');
         Route::livewire('/settings/playbooks/{playbookId}', PlaybookShow::class)->name('demo.settings.playbook');
         Route::livewire('/settings/ai/control-plane', AiControlPlanePage::class)->name('demo.settings.ai.control-plane');
+        Route::livewire('/settings/ai/agents', AiAgentsPage::class)->name('demo.settings.ai.agents');
+        Route::livewire('/settings/ai/skills', AiSkillsPage::class)->name('demo.settings.ai.skills');
     });

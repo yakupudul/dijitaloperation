@@ -147,13 +147,13 @@ class FinalInterfaceCompletionTest extends TestCase
             ->assertOk()
             ->assertSee('Instagram')
             ->assertSee('@atlasdentalankara')
-            ->assertSee('Relationships')
+            ->assertSee(__('operator.asset.relationship_summary'))
             ->assertSee('Website URL mismatch');
 
         Livewire::test(InstagramOverviewPage::class)
             ->call('setTab', 'profile')
             ->assertSee('atlasdentalankara')
-            ->call('setTab', 'findings')
+            ->call('setTab', 'operations')
             ->assertSee('Bio website path');
     }
 

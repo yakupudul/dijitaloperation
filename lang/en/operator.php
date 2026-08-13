@@ -119,6 +119,18 @@ return [
         'mark_read' => 'Mark read',
         'preferences' => 'Notification preferences',
         'item' => 'Notification',
+        'demo' => [
+            'overdue_review_title' => 'Recurring review overdue',
+            'overdue_review_body' => 'Meta Creative Review for Atlas Dental is overdue.',
+            'approval_title' => 'Client approval waiting',
+            'approval_body' => 'Landing page copy update is waiting on Client Approval.',
+            'request_title' => 'Client request due today',
+            'request_body' => "Update doctor's title on homepage.",
+            'qa_title' => 'QA required',
+            'qa_body' => 'Meta creative replacement is ready for QA review.',
+            'integration_title' => 'Integration needs attention',
+            'integration_body' => 'Google reauthorization recommended for dependent assets.',
+        ],
     ],
 
     'languages' => [
@@ -256,6 +268,113 @@ return [
             'profile' => 'Profile',
             'operations' => 'Operations',
             'setup' => 'Setup',
+        ],
+    ],
+
+    'gbp' => [
+        'tabs' => [
+            'overview' => 'Overview',
+            'profile' => 'Profile',
+            'visibility' => 'Visibility',
+            'performance' => 'Performance',
+            'reviews' => 'Reviews',
+            'competitors' => 'Competitors',
+            'operations' => 'Operations',
+        ],
+    ],
+
+    'google_ads' => [
+        'tabs' => [
+            'overview' => 'Overview',
+            'campaigns' => 'Campaigns',
+            'search_demand' => 'Search & Demand',
+            'ads_assets' => 'Ads & Assets',
+            'landing_pages' => 'Landing Pages',
+            'measurement' => 'Measurement',
+            'operations' => 'Operations',
+        ],
+    ],
+
+    'meta_ads' => [
+        'tabs' => [
+            'overview' => 'Overview',
+            'campaigns' => 'Campaigns',
+            'creatives' => 'Creatives',
+            'audience' => 'Audience & Delivery',
+            'funnel' => 'Funnel & Destinations',
+            'measurement' => 'Measurement',
+            'operations' => 'Operations',
+        ],
+    ],
+
+    'ga4' => [
+        'tabs' => [
+            'overview' => 'Overview',
+            'measurement' => 'Measurement',
+            'acquisition' => 'Acquisition',
+            'behavior' => 'Behavior',
+            'journeys' => 'Journeys',
+            'operations' => 'Operations',
+        ],
+        'relationship_summary' => 'Related assets',
+    ],
+
+    'gsc' => [
+        'tabs' => [
+            'overview' => 'Overview',
+            'performance' => 'Search Performance',
+            'demand' => 'Queries & Demand',
+            'pages' => 'Pages',
+            'indexing' => 'Indexing',
+            'operations' => 'Operations',
+        ],
+        'relationship_summary' => 'Related assets',
+    ],
+
+    'asset' => [
+        'relationship_summary' => 'Related assets',
+        'open_website' => 'Open Website',
+    ],
+
+    'settings' => [
+        'ai' => [
+            'overview' => 'Overview',
+            'nav' => 'AI administration',
+            'back' => 'Back to AI & Intelligence',
+            'control_plane' => 'Control Plane',
+            'control_plane_title' => 'AI Control Plane',
+            'control_plane_subtitle' => 'Configure provider order for every registered AI route. Credentials stay in Integrations.',
+            'provider_order' => 'Provider order',
+            'provider' => 'Provider',
+            'model' => 'Model',
+            'add_provider' => 'Add provider',
+            'agents' => 'Agents',
+            'agents_title' => 'Agent Profiles',
+            'agents_subtitle' => 'Browse Agent Profiles, Skills, allowed evidence, and output contracts. Catalog is read-only in Demo Mode.',
+            'skills' => 'Skills',
+            'skills_title' => 'Skill Library',
+            'skills_subtitle' => 'Browse Skills, evidence requirements, methodology, and grounding constraints.',
+            'routes_title' => 'AI Routes',
+            'routes_count' => 'Routes',
+            'configure' => 'Configure',
+            'open_catalog' => 'Open catalog',
+            'no_skills' => 'No skills registered.',
+            'module' => 'Module',
+            'route' => 'AI route',
+            'version' => 'Version',
+            'assigned_skills' => 'Assigned Skills',
+            'assigned_agents' => 'Assigned Agents',
+            'allowed_data' => 'Allowed evidence',
+            'allowed_ops' => 'Allowed operations',
+            'forbidden_ops' => 'Forbidden operations',
+            'output_contract' => 'Output contract',
+            'success_criteria' => 'Success criteria',
+            'required_evidence' => 'Required evidence',
+            'allowed_conclusions' => 'Allowed conclusions',
+            'forbidden_claims' => 'Forbidden claims',
+            'none' => 'None',
+            'readonly_note' => 'Read-only catalog — profiles and Skills are versioned in code registries (Demo).',
+            'skill_vs_playbook' => 'Skills guide AI assistance. Playbooks remain the human operating standard.',
         ],
     ],
 

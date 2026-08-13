@@ -25,7 +25,7 @@ final class DemoState
         }
 
         $defaults = self::defaults();
-        foreach (['contacts', 'customer_activity', 'demo_assets', 'discovery_candidates', 'discovery_history', 'discovery_conflict_resolutions', 'connector_bindings', 'wizard_state', 'finding_statuses', 'settings_overrides', 'brand_business_context', 'activity_events', 'opportunity_statuses', 'business_outcome_overrides', 'client_requests', 'playbook_states', 'recurring_review_states', 'approval_states', 'qa_states', 'capture_notes', 'execution_overrides', 'hypotheses', 'report_config'] as $key) {
+        foreach (['contacts', 'customer_activity', 'demo_assets', 'discovery_candidates', 'discovery_history', 'discovery_conflict_resolutions', 'connector_bindings', 'wizard_state', 'finding_statuses', 'settings_overrides', 'brand_business_context', 'activity_events', 'opportunity_statuses', 'business_outcome_overrides', 'client_requests', 'playbook_states', 'recurring_review_states', 'approval_states', 'qa_states', 'capture_notes', 'execution_overrides', 'hypotheses', 'report_config', 'demo_notifications'] as $key) {
             if (! array_key_exists($key, $state)) {
                 $state[$key] = $defaults[$key] ?? [];
             }
@@ -84,6 +84,7 @@ final class DemoState
             'qa_states' => [],
             'capture_notes' => [],
             'report_config' => [],
+            'demo_notifications' => null,
             'execution_overrides' => [],
             'hypotheses' => [],
             'ai_brief_visible' => false,
@@ -1675,6 +1676,52 @@ final class DemoState
         $config = self::all()['report_config'] ?? [];
 
         return is_array($config) ? $config : [];
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public static function demoNotifications(): array
+    {
+        $state = self::all();
+        if (! is_array($state['demo_notifications'] ?? null)) {
+            $state['demo_notifications'] = DemoNotificationFixtures::items();
+            session()->put(self::SESSION_KEY, $state);
+        }
+
+        return array_values($state['demo_notifications']);
+    }
+
+    public static function markDemoNotificationRead(string $id): void
+    {
+        $state = self::all();
+        $items = is_array($state['demo_notifications'] ?? null)
+            ? $state['demo_notifications']
+            : DemoNotificationFixtures::items();
+
+        foreach ($items as &$item) {
+            if (($item['id'] ?? '') === $id) {
+                $item['read'] = true;
+            }
+        }
+        unset($item);
+        $state['demo_notifications'] = array_values($items);
+        session()->put(self::SESSION_KEY, $state);
+    }
+
+    public static function markAllDemoNotificationsRead(): void
+    {
+        $state = self::all();
+        $items = is_array($state['demo_notifications'] ?? null)
+            ? $state['demo_notifications']
+            : DemoNotificationFixtures::items();
+
+        foreach ($items as &$item) {
+            $item['read'] = true;
+        }
+        unset($item);
+        $state['demo_notifications'] = array_values($items);
+        session()->put(self::SESSION_KEY, $state);
     }
 
     /**

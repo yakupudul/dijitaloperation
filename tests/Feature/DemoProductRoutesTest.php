@@ -228,13 +228,13 @@ class DemoProductRoutesTest extends TestCase
             ->assertSee('Google Analytics')
             ->assertSee('Atlas Dental — GA4')
             ->assertSee('Measurement')
-            ->assertSee('Relationships');
+            ->assertSee(__('operator.ga4.relationship_summary'));
         $this->get(route('demo.search-console'))
             ->assertOk()
             ->assertSee('Google Search Console')
             ->assertSee('Atlas Dental — Search Console')
             ->assertSee('Queries & Demand')
-            ->assertSee('Relationships');
+            ->assertSee(__('operator.gsc.relationship_summary'));
         $this->get(route('demo.domain'))
             ->assertRedirect(route('demo.website', [
                 'assetId' => DemoCatalog::WEBSITE_ASSET_ID,

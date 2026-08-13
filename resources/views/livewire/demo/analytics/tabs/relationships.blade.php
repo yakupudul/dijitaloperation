@@ -20,7 +20,7 @@
 
 <div class="space-y-4">
     <div>
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Relationships</h2>
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ __('operator.ga4.relationship_summary') }}</h2>
         <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">What this property measures and where evidence flows</p>
         <p class="mt-1 text-xs text-gray-400">Sibling Digital Assets — not children of GA4.</p>
     </div>

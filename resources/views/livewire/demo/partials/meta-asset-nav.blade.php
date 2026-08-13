@@ -4,13 +4,13 @@
     $assetId = $assetId ?? DemoCatalog::META_ASSET_ID;
     $active = $active ?? 'overview';
     $tabs = [
-        ['key' => 'overview', 'label' => 'Overview', 'url' => route('demo.meta.overview', ['assetId' => $assetId, 'tab' => 'overview'])],
-        ['key' => 'campaigns', 'label' => 'Campaigns', 'url' => route('demo.meta.overview', ['assetId' => $assetId, 'tab' => 'campaigns'])],
-        ['key' => 'creatives', 'label' => 'Creatives', 'url' => route('demo.meta.overview', ['assetId' => $assetId, 'tab' => 'creatives'])],
-        ['key' => 'audience', 'label' => 'Audience & Delivery', 'url' => route('demo.meta.overview', ['assetId' => $assetId, 'tab' => 'audience'])],
-        ['key' => 'funnel', 'label' => 'Funnel & Destinations', 'url' => route('demo.meta.overview', ['assetId' => $assetId, 'tab' => 'funnel'])],
-        ['key' => 'measurement', 'label' => 'Measurement', 'url' => route('demo.meta.overview', ['assetId' => $assetId, 'tab' => 'measurement'])],
-        ['key' => 'operations', 'label' => 'Operations', 'url' => route('demo.meta.overview', ['assetId' => $assetId, 'tab' => 'operations'])],
+        ['key' => 'overview', 'label' => __('operator.meta_ads.tabs.overview'), 'url' => route('demo.meta.overview', ['assetId' => $assetId, 'tab' => 'overview'])],
+        ['key' => 'campaigns', 'label' => __('operator.meta_ads.tabs.campaigns'), 'url' => route('demo.meta.overview', ['assetId' => $assetId, 'tab' => 'campaigns'])],
+        ['key' => 'creatives', 'label' => __('operator.meta_ads.tabs.creatives'), 'url' => route('demo.meta.overview', ['assetId' => $assetId, 'tab' => 'creatives'])],
+        ['key' => 'audience', 'label' => __('operator.meta_ads.tabs.audience'), 'url' => route('demo.meta.overview', ['assetId' => $assetId, 'tab' => 'audience'])],
+        ['key' => 'funnel', 'label' => __('operator.meta_ads.tabs.funnel'), 'url' => route('demo.meta.overview', ['assetId' => $assetId, 'tab' => 'funnel'])],
+        ['key' => 'measurement', 'label' => __('operator.meta_ads.tabs.measurement'), 'url' => route('demo.meta.overview', ['assetId' => $assetId, 'tab' => 'measurement'])],
+        ['key' => 'operations', 'label' => __('operator.meta_ads.tabs.operations'), 'url' => route('demo.meta.overview', ['assetId' => $assetId, 'tab' => 'operations'])],
     ];
 @endphp
 

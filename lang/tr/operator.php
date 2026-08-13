@@ -120,6 +120,18 @@ return [
         'mark_read' => 'Okundu işaretle',
         'preferences' => 'Bildirim tercihleri',
         'item' => 'Bildirim',
+        'demo' => [
+            'overdue_review_title' => 'Tekrarlayan inceleme gecikti',
+            'overdue_review_body' => 'Atlas Dental için Meta Kreatif İncelemesi gecikti.',
+            'approval_title' => 'Müşteri onayı bekleniyor',
+            'approval_body' => 'Açılış sayfası metin güncellemesi müşteri onayında bekliyor.',
+            'request_title' => 'Bugün bitmesi gereken müşteri talebi',
+            'request_body' => 'Ana sayfada doktor unvanını güncelle.',
+            'qa_title' => 'QA gerekli',
+            'qa_body' => 'Meta kreatif değişimi QA incelemesine hazır.',
+            'integration_title' => 'Entegrasyon dikkat gerektiriyor',
+            'integration_body' => 'Bağımlı varlıklar için Google yeniden yetkilendirme önerilir.',
+        ],
     ],
 
     'languages' => [
@@ -257,6 +269,113 @@ return [
             'profile' => 'Profil',
             'operations' => 'Operasyon',
             'setup' => 'Kurulum',
+        ],
+    ],
+
+    'gbp' => [
+        'tabs' => [
+            'overview' => 'Genel bakış',
+            'profile' => 'Profil',
+            'visibility' => 'Görünürlük',
+            'performance' => 'Performans',
+            'reviews' => 'Yorumlar',
+            'competitors' => 'Rakipler',
+            'operations' => 'Operasyon',
+        ],
+    ],
+
+    'google_ads' => [
+        'tabs' => [
+            'overview' => 'Genel bakış',
+            'campaigns' => 'Kampanyalar',
+            'search_demand' => 'Arama ve talep',
+            'ads_assets' => 'Reklamlar ve varlıklar',
+            'landing_pages' => 'Açılış sayfaları',
+            'measurement' => 'Ölçüm',
+            'operations' => 'Operasyon',
+        ],
+    ],
+
+    'meta_ads' => [
+        'tabs' => [
+            'overview' => 'Genel bakış',
+            'campaigns' => 'Kampanyalar',
+            'creatives' => 'Kreatifler',
+            'audience' => 'Kitle ve dağıtım',
+            'funnel' => 'Huni ve hedefler',
+            'measurement' => 'Ölçüm',
+            'operations' => 'Operasyon',
+        ],
+    ],
+
+    'ga4' => [
+        'tabs' => [
+            'overview' => 'Genel bakış',
+            'measurement' => 'Ölçüm',
+            'acquisition' => 'Kazanım',
+            'behavior' => 'Davranış',
+            'journeys' => 'Yolculuklar',
+            'operations' => 'Operasyon',
+        ],
+        'relationship_summary' => 'İlgili varlıklar',
+    ],
+
+    'gsc' => [
+        'tabs' => [
+            'overview' => 'Genel bakış',
+            'performance' => 'Arama performansı',
+            'demand' => 'Sorgular ve talep',
+            'pages' => 'Sayfalar',
+            'indexing' => 'Dizinleme',
+            'operations' => 'Operasyon',
+        ],
+        'relationship_summary' => 'İlgili varlıklar',
+    ],
+
+    'asset' => [
+        'relationship_summary' => 'İlgili varlıklar',
+        'open_website' => 'Web sitesini aç',
+    ],
+
+    'settings' => [
+        'ai' => [
+            'overview' => 'Genel bakış',
+            'nav' => 'YZ yönetimi',
+            'back' => 'YZ ve zekaya dön',
+            'control_plane' => 'Kontrol düzlemi',
+            'control_plane_title' => 'YZ kontrol düzlemi',
+            'control_plane_subtitle' => 'Kayıtlı her YZ rotası için sağlayıcı sırasını yapılandırın. Kimlik bilgileri Entegrasyonlar’da kalır.',
+            'provider_order' => 'Sağlayıcı sırası',
+            'provider' => 'Sağlayıcı',
+            'model' => 'Model',
+            'add_provider' => 'Sağlayıcı ekle',
+            'agents' => 'Ajanlar',
+            'agents_title' => 'Ajan profilleri',
+            'agents_subtitle' => 'Ajan profilleri, beceriler, izin verilen kanıt ve çıktı sözleşmelerine göz atın. Katalog Demo Modunda salt okunur.',
+            'skills' => 'Beceriler',
+            'skills_title' => 'Beceri kütüphanesi',
+            'skills_subtitle' => 'Beceriler, kanıt gereksinimleri, yöntem ve dayanak kısıtlarına göz atın.',
+            'routes_title' => 'YZ rotaları',
+            'routes_count' => 'Rotalar',
+            'configure' => 'Yapılandır',
+            'open_catalog' => 'Kataloğu aç',
+            'no_skills' => 'Kayıtlı beceri yok.',
+            'module' => 'Modül',
+            'route' => 'YZ rotası',
+            'version' => 'Sürüm',
+            'assigned_skills' => 'Atanan beceriler',
+            'assigned_agents' => 'Atanan ajanlar',
+            'allowed_data' => 'İzin verilen kanıt',
+            'allowed_ops' => 'İzin verilen işlemler',
+            'forbidden_ops' => 'Yasak işlemler',
+            'output_contract' => 'Çıktı sözleşmesi',
+            'success_criteria' => 'Başarı ölçütleri',
+            'required_evidence' => 'Gerekli kanıt',
+            'allowed_conclusions' => 'İzin verilen sonuçlar',
+            'forbidden_claims' => 'Yasak iddialar',
+            'none' => 'Yok',
+            'readonly_note' => 'Salt okunur katalog — profiller ve beceriler kod kayıtlarında sürülür (Demo).',
+            'skill_vs_playbook' => 'Beceriler YZ yardımını yönlendirir. Oyun kitapları insan işletim standardı olarak kalır.',
         ],
     ],
 

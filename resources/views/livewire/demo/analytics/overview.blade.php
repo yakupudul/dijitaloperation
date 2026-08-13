@@ -1,11 +1,11 @@
 @php
     $navTabs = [
-        ['key' => 'overview', 'label' => 'Overview', 'wire' => true],
-        ['key' => 'measurement', 'label' => 'Measurement', 'wire' => true],
-        ['key' => 'acquisition', 'label' => 'Acquisition', 'wire' => true],
-        ['key' => 'behavior', 'label' => 'Behavior', 'wire' => true],
-        ['key' => 'journeys', 'label' => 'Journeys', 'wire' => true],
-        ['key' => 'operations', 'label' => 'Operations', 'wire' => true],
+        ['key' => 'overview', 'label' => __('operator.ga4.tabs.overview'), 'wire' => true],
+        ['key' => 'measurement', 'label' => __('operator.ga4.tabs.measurement'), 'wire' => true],
+        ['key' => 'acquisition', 'label' => __('operator.ga4.tabs.acquisition'), 'wire' => true],
+        ['key' => 'behavior', 'label' => __('operator.ga4.tabs.behavior'), 'wire' => true],
+        ['key' => 'journeys', 'label' => __('operator.ga4.tabs.journeys'), 'wire' => true],
+        ['key' => 'operations', 'label' => __('operator.ga4.tabs.operations'), 'wire' => true],
     ];
 @endphp
 

@@ -1,12 +1,12 @@
 @php
     $navTabs = [
-        ['key' => 'overview', 'label' => 'Overview', 'wire' => true],
-        ['key' => 'campaigns', 'label' => 'Campaigns', 'wire' => true],
-        ['key' => 'search_demand', 'label' => 'Search & Demand', 'wire' => true],
-        ['key' => 'ads_assets', 'label' => 'Ads & Assets', 'wire' => true],
-        ['key' => 'landing_pages', 'label' => 'Landing Pages', 'wire' => true],
-        ['key' => 'measurement', 'label' => 'Measurement', 'wire' => true],
-        ['key' => 'operations', 'label' => 'Operations', 'wire' => true],
+        ['key' => 'overview', 'label' => __('operator.google_ads.tabs.overview'), 'wire' => true],
+        ['key' => 'campaigns', 'label' => __('operator.google_ads.tabs.campaigns'), 'wire' => true],
+        ['key' => 'search_demand', 'label' => __('operator.google_ads.tabs.search_demand'), 'wire' => true],
+        ['key' => 'ads_assets', 'label' => __('operator.google_ads.tabs.ads_assets'), 'wire' => true],
+        ['key' => 'landing_pages', 'label' => __('operator.google_ads.tabs.landing_pages'), 'wire' => true],
+        ['key' => 'measurement', 'label' => __('operator.google_ads.tabs.measurement'), 'wire' => true],
+        ['key' => 'operations', 'label' => __('operator.google_ads.tabs.operations'), 'wire' => true],
     ];
 @endphp
 
