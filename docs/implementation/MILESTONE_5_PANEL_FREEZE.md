@@ -16,7 +16,7 @@ Status reference for the frozen `/app` operator panel. UI work after this docume
 | WordPress Site Connector | PARTIAL | Demo package + pairing UX; not production-installable |
 | GBP | DEMO | Local visibility/reviews/competitors fixtures |
 | Google Ads | DEMO / PARTIAL | Specialist panels remain Demo (Prompt 30); Prompt 19 production collector writes real Ads pool facts |
-| Meta Ads | DEMO / PARTIAL | Specialist IA remains Demo; Integration auth/discovery/binding real (Prompts 21–23); collector still Prompt 24 |
+| Meta Ads | DEMO / PARTIAL | Specialist IA remains Demo (Prompt 31+); Integration auth/discovery/binding real (21–23); Prompt 24 production collector writes real Meta pool facts |
 | Meta Integration hub/detail (`/app/integrations` Meta) | REAL (backend state) | Prompt 21–23: Core* + read model; Connect / discover / select / human-confirmed Binding; no Graph on render |
 | Canonical META provider / Meta Ads Connector foundation | REAL | provider=`meta`, connector=`meta_ads`; app config ≠ tenant token |
 | Meta Business container ExternalResource | REAL | `meta_business` non-bindable container; not Customer/DigitalAsset |
@@ -28,7 +28,12 @@ Status reference for the frozen `/app` operator panel. UI work after this docume
 | Owned + client Ad Account discovery | REAL | owned_ad_accounts + client_ad_accounts; act_ dedupe |
 | Meta App external approval/readiness | UNKNOWN / MANUAL | App Review / Advanced Access / verification — dashboard |
 | Meta resource selection & Binding workflow | REAL | Prompt 23: human-confirmed META_AD_ACCOUNT ↔ Meta Ads DigitalAsset via CoreAssetBinding |
-| Meta Ads Production Collector (Collection Engine) | NOT YET | Prompt 24 — legacy BoundCollector remains PARTIAL Evidence path |
+| Meta Ads Production Collector (Collection Engine) | REAL | Prompt 24: RF_META_* → MetaAdsDatasetExecutor → WarehouseWriter → Meta normalized pool; sync + async Insights |
+| Meta Ad Account / Campaign / Ad Set / Creative metadata collection | REAL | Contract entity snapshot + account meta; human-confirmed Binding required |
+| Meta Campaign / Ad Set / Ad daily Insights | REAL | Daily grain; account TZ; clicks≠link≠outbound; reach non-additive |
+| Meta Typed Actions / Action Values | REAL | action_type preserved; no generic Results; no Business Outcome mapping |
+| Meta Sync / Async Insights transport | REAL | MetaInsightsRetrievalStrategy; async AdReportRun POST is read-only report creation |
+| Meta specialist real-data UI | NOT YET | Frozen Demo specialist until dedicated migration |
 | Meta Initial Backfill | NOT YET | Prompt 25 |
 | GA4 | DEMO / PARTIAL | Specialist panels remain Demo (Prompt 28); Prompt 18 production collector writes real GA4 pool facts |
 | Search Console | DEMO / PARTIAL | Specialist panels remain Demo (Prompt 29); Prompt 17 production collector writes real GSC pool facts |

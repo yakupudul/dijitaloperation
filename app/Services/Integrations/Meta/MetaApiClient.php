@@ -10,8 +10,11 @@ use Illuminate\Support\Facades\Http;
 use Throwable;
 
 /**
- * Read-only Meta Graph API client.
- * Only GET is exposed. Base host is fixed to graph.facebook.com.
+ * Read-only Meta Graph / Marketing API client.
+ *
+ * GET is the primary surface. POST is exposed only for transport-level
+ * creation of read-only asynchronous Insights report jobs — never for
+ * advertising configuration mutations.
  */
 class MetaApiClient
 {
@@ -26,6 +29,26 @@ class MetaApiClient
      * @return array<string, mixed>
      */
     public function get(CoreIntegration $integration, string $path, array $query = []): array
+    {
+        return $this->request($integration, 'GET', $path, $query);
+    }
+
+    /**
+     * POST a relative Graph path for read-only async Insights report creation only.
+     *
+     * @param  array<string, scalar|null>  $query
+     * @return array<string, mixed>
+     */
+    public function post(CoreIntegration $integration, string $path, array $query = []): array
+    {
+        return $this->request($integration, 'POST', $path, $query);
+    }
+
+    /**
+     * @param  array<string, scalar|null>  $query
+     * @return array<string, mixed>
+     */
+    private function request(CoreIntegration $integration, string $method, string $path, array $query = []): array
     {
         $token = $this->resolver->accessToken($integration);
         if ($token === null) {
@@ -45,16 +68,21 @@ class MetaApiClient
 
         $url = MetaApiConfig::graphBaseUrl().'/'.$path;
         $query = $this->withAppSecretProof($query, $token);
+        $filtered = array_filter(
+            $query,
+            static fn (mixed $value): bool => $value !== null && $value !== '',
+        );
 
         try {
-            $response = Http::timeout(MetaApiConfig::timeoutSeconds())
+            $pending = Http::timeout(MetaApiConfig::timeoutSeconds())
                 ->connectTimeout(5)
                 ->withToken($token)
-                ->acceptJson()
-                ->get($url, array_filter(
-                    $query,
-                    static fn (mixed $value): bool => $value !== null && $value !== '',
-                ));
+                ->acceptJson();
+
+            $response = match (strtoupper($method)) {
+                'POST' => $pending->asForm()->post($url, $filtered),
+                default => $pending->get($url, $filtered),
+            };
         } catch (ConnectionException $exception) {
             throw new MetaException(
                 'Meta connection transport error.',

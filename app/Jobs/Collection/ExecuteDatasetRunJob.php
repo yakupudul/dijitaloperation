@@ -352,7 +352,20 @@ class ExecuteDatasetRunJob implements ShouldQueue
             'last_activity_at' => now(),
         ])->save();
 
-        $starter->dispatchDatasetJob($datasetRun->fresh() ?? $datasetRun);
+        $fresh = $datasetRun->fresh() ?? $datasetRun;
+        $delaySeconds = max(0, (int) $result->backoffSeconds);
+        if ($delaySeconds > 0) {
+            // Delayed Continue (e.g. Meta async Insights poll) — no blocking sleep in the worker.
+            ExecuteDatasetRunJob::dispatch($fresh->id)
+                ->delay(now()->addSeconds($delaySeconds))
+                ->onConnection((string) config('moxdop-collection.queue_connection', 'redis'))
+                ->onQueue((string) config('moxdop-collection.queue', 'collection'))
+                ->afterCommit();
+
+            return;
+        }
+
+        $starter->dispatchDatasetJob($fresh);
     }
 
     private function scheduleRetry(

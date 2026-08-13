@@ -43,7 +43,7 @@ Prompt 22 moves authorization/discovery onto the frozen journey.
 | Filament Integration Meta pages | Manual token + discover | KEEP_INTERNAL |
 | Frozen Demo Meta hub/detail (pre-21) | Fixture import simulation | SUPERSEDED by `MetaIntegrationReadModel` |
 | `CoreConnection` / `meta_ads_api` probes | Legacy site-scoped Graph probes (often v21) | LEGACY / DEPRECATE |
-| `MetaAdsBoundCollector` | Evidence/Run Insights path (sync) | PARTIAL REAL — REPLACE IN PROMPT 24 for Collection Engine |
+| `MetaAdsBoundCollector` | Evidence/Run Insights path (sync) | LEGACY Evidence path — production pool uses Prompt 24 `MetaAdsDatasetExecutor` |
 | Specialist `/app/assets/meta/*` | Demo Meta Ads workspace | DEMO — unchanged |
 
 No competing `MetaIntegration` / `MetaAdAccount` Eloquent product roots.
@@ -80,7 +80,7 @@ Registry: `App\Support\Integrations\Meta\MetaConnectorRegistry`.
 | Provider | `meta` |
 | Resource type | `meta_ads` (semantic META_AD_ACCOUNT) |
 | Credential duplication | None — shares Integration credential |
-| Collection status (Prompt 21) | `NOT_YET` (Prompt 24) |
+| Collection status | `REAL` production collector (Prompt 24); backfill Prompt 25 |
 
 Instagram remains a registered capability id in `ProviderRegistry` but is **not**
 a Prompt 21 production Connector expansion.
@@ -290,7 +290,7 @@ See `docs/implementation/MILESTONE_5_PANEL_FREEZE.md` Capability Reality Matrix
 | Production Meta authorization | REAL / Prompt 22 |
 | Live Business / Ad Account discovery productization | REAL / Prompt 22 |
 | Human selection / production Binding | REAL / Prompt 23 |
-| Meta Ads Production Collector | NOT YET / Prompt 24 |
+| Meta Ads Production Collector | REAL / Prompt 24 |
 | Meta Initial Backfill | NOT YET / Prompt 25 |
 
 ## 24. Definition of Done
