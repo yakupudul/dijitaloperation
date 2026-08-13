@@ -112,7 +112,7 @@ Page render does not call Google APIs.
 | Bind existing DigitalAsset | REAL |
 | GBP Location → GBP DigitalAsset | REAL |
 | Auto-bind / auto-collect | NO |
-| Production collectors | NOT YET (17–19) |
+| Production collectors | GSC REAL (Prompt 17); GA4/Ads NOT YET (18–19) |
 | Initial backfill | NOT YET (20) |
 
 ---
@@ -124,6 +124,8 @@ Bindings are production-real. Collectors must resolve:
 DigitalAsset → active CoreAssetBinding → ExternalResource → Credential Broker  
 
 without creating Bindings themselves.
+
+Prompt 17 delivered `SearchConsoleDatasetExecutor` on that path for Search Console only.
 
 ---
 

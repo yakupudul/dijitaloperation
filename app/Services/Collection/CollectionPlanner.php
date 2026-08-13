@@ -22,10 +22,20 @@ final class CollectionPlanner
      */
     private const CAPABILITY_PROVIDER = [
         'ga4' => 'GA4',
-        'search_console' => 'GSC',
+        'search_console' => 'SEARCH_CONSOLE',
         'google_ads' => 'GOOGLE_ADS',
         'meta_ads' => 'META_ADS',
         'google_business_profile' => 'GBP',
+    ];
+
+    /**
+     * Source Search Console Data Contract V1 explicitly excludes these from V1 collection
+     * even when the unified registry lists a COLLECTION_READY family stub.
+     *
+     * @var list<string>
+     */
+    private const GSC_SOURCE_CONTRACT_EXCLUDED_FAMILIES = [
+        'GSC_RF_APPEARANCE_DAILY',
     ];
 
     public function __construct(
@@ -106,8 +116,19 @@ final class CollectionPlanner
                     continue;
                 }
 
+                if (in_array($familyId, self::GSC_SOURCE_CONTRACT_EXCLUDED_FAMILIES, true)) {
+                    $dispositions[] = [
+                        'type' => 'skipped_source_contract_not_required',
+                        'request_family_id' => $familyId,
+                        'provider_or_source' => $provider,
+                        'reason' => 'SEARCH_CONSOLE_DATA_CONTRACT_V1 excludes searchAppearance collection',
+                    ];
+
+                    continue;
+                }
+
                 $level = $this->requirementLevelForFamily($familyId);
-                $eligibility = $this->eligibilityForFamily($family);
+                $eligibility = $this->eligibilityForFamily($family, $request);
 
                 if ($eligibility === CollectionRunStatus::NotEligible) {
                     $datasets[] = [
@@ -206,14 +227,18 @@ final class CollectionPlanner
     /**
      * @param  array<string, mixed>  $family
      */
-    private function eligibilityForFamily(array $family): ?CollectionRunStatus
+    private function eligibilityForFamily(array $family, StartCollectionRequest $request): ?CollectionRunStatus
     {
-        $eligibility = $family['eligibility'] ?? null;
-        if (! is_array($eligibility) || $eligibility === []) {
-            return null;
+        $familyId = (string) ($family['id'] ?? '');
+
+        // Controlled URL Inspection requires explicit priority targets in the start context.
+        if ($familyId === 'GSC_RF_URL_INSPECTION') {
+            $targets = $request->context['url_inspection_targets'] ?? [];
+            if (! is_array($targets) || $targets === []) {
+                return CollectionRunStatus::NotEligible;
+            }
         }
 
-        // Structural support only — concrete condition evaluation is provider-specific later.
         return null;
     }
 

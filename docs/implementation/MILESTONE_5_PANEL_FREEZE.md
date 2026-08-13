@@ -18,7 +18,7 @@ Status reference for the frozen `/app` operator panel. UI work after this docume
 | Google Ads | DEMO / PARTIAL | Specialist IA complete; metrics from fixtures (provider import paths exist elsewhere) |
 | Meta Ads | DEMO / PARTIAL | Specialist IA complete; import UX demo-backed |
 | GA4 | DEMO / PARTIAL | First-class asset + evidence provider role; fixtures |
-| Search Console | DEMO | Measured Search Console semantics preserved in copy |
+| Search Console | DEMO / PARTIAL | Specialist panels remain Demo (Prompt 29); Prompt 17 production collector writes real GSC pool facts |
 | Instagram | DEMO | Lightweight Overview/Profile/Operations/Setup |
 | Service Scope | DEMO | Session/fixture commercial scope |
 | Goals | DEMO | Primary/conversion goals in fixtures |
@@ -40,8 +40,11 @@ Status reference for the frozen `/app` operator panel. UI work after this docume
 | Agents | PARTIAL | Full read-only catalog under `/app/settings/ai/agents` (code registry) |
 | Skills | PARTIAL | Full read-only catalog under `/app/settings/ai/skills` (code registry) |
 | Notifications | DEMO | Deterministic bell when DB empty; preferences in Settings |
-| Google Integration hub/detail (`/app/integrations`) | REAL (backend state) | Prompt 13–16: Core* + OAuth + discovery + human binding; collect still PARTIAL (17–19) |
-| Google connector workspaces | DEMO / PARTIAL | Fixture control plane until production collectors (17–19) |
+| Google Integration hub/detail (`/app/integrations`) | REAL (backend state) | Prompt 13–17: Core* + OAuth + discovery + human binding + GSC production collector; GA4/Ads collectors still NOT YET |
+| Google connector workspaces | DEMO / PARTIAL | GSC pool REAL via Prompt 17; specialist UI Demo until Prompt 29; GA4/Ads collectors NOT YET |
+| GSC Production Collector | REAL | Contract request families → WarehouseWriter → GSC normalized pool |
+| GSC Search Analytics / Sitemaps / Controlled URL Inspection | REAL | Read-only; appearance not collected (source V1) |
+| GSC specialist real-data UI | NOT YET | Prompt 29 |
 
 ## Post-Freeze Backend Roadmap
 

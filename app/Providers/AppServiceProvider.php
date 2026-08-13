@@ -16,6 +16,7 @@ use App\Services\Collection\Contracts\RetryPolicy;
 use App\Services\Collection\DataContractRegistryLoader;
 use App\Services\Collection\DatasetExecutorResolver;
 use App\Services\Collection\DefaultRetryPolicy;
+use App\Services\Collection\Providers\SearchConsole\SearchConsoleDatasetExecutor;
 use App\Services\DataPool\Contracts\WarehouseWriter;
 use App\Services\DataPool\DataPoolStorageRegistry;
 use App\Services\DataPool\FilesystemRawPayloadWriter;
@@ -58,8 +59,10 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(WarehouseWriter::class, PostgresWarehouseWriter::class);
         $this->app->singleton(NormalizedDatasetWriter::class, PostgresWarehouseWriter::class);
 
+        $this->app->singleton(SearchConsoleDatasetExecutor::class);
+        $this->app->tag([SearchConsoleDatasetExecutor::class], 'collection.dataset_executors');
+
         $this->app->singleton(DatasetExecutorResolver::class, function ($app): DatasetExecutorResolver {
-            // Provider-specific executors register later (Prompt 13+). Prompt 9 ships the resolver only.
             return new DatasetExecutorResolver($app->tagged('collection.dataset_executors'));
         });
     }
