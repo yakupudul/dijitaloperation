@@ -47,8 +47,10 @@ class GlobalAgencyOperatingLayerTest extends TestCase
         $this->assertContains('Digital Assets', $labels);
         $this->assertContains('Findings', $labels);
         $this->assertContains('Recommendations', $labels);
-        $this->assertContains('Tasks', $labels);
+        $this->assertContains('Work', $labels);
+        $this->assertContains('Opportunities', $labels);
         $this->assertContains('Activity', $labels);
+        $this->assertNotContains('Tasks', $labels);
         $this->assertContains('Integrations', $labels);
         $this->assertContains('Settings', $labels);
         $this->assertNotContains('Modules', $labels);

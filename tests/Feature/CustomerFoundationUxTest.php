@@ -119,19 +119,18 @@ class CustomerFoundationUxTest extends TestCase
             ->assertSee('Atlas Health Group')
             ->assertSee('Needs attention')
             ->assertSee(__('operator.portfolio.account_owner_responsible'))
-            ->call('setTab', 'contacts')
+            ->call('setTab', 'relationship')
             ->assertSee('Dr. Elif Arslan')
+            ->assertSee(__('operator.service_scope.title'))
             ->call('openContactForm')
             ->set('contact_name', 'Yeni Kişi')
             ->set('contact_role', 'marketing')
             ->set('contact_email', 'yeni@atlashealth.example')
             ->call('saveContact')
             ->assertSee('Yeni Kişi')
-            ->call('setTab', 'operations')
-            ->assertSee('Findings')
-            ->assertSee('View all findings')
-            ->call('setTab', 'activity')
-            ->assertSee('Activity');
+            ->assertSee(__('operator.customer.actions.open_files'))
+            ->assertSee(__('operator.customer.actions.view_activity'))
+            ->assertSee(__('operator.customer.actions.open_work'));
     }
 
     public function test_customer_directory_cta_is_localized(): void
