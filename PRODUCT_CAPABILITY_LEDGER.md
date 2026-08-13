@@ -67,6 +67,13 @@
 | Google Business Profile | PARTIAL | YES | NO | PARTIAL | NO | PARTIAL | Reputation Intelligence PLANNED; thin workspace vs Website/Ads | Location profile collector present |
 | Finding lifecycle / fingerprint | YES | YES | NO | YES | N/A | TESTED | Unique `(digital_asset_id, fingerprint)` | Persistent Findings; ADR-034 |
 | Evidence / Run model | YES | YES | NO | YES | N/A | TESTED | Foundational model; not a historical warehouse | Evidence bound to Run; no separate Result entity |
+| Shared collection engine (control plane) | YES | YES | NO | NO | YES | **TESTED** | Provider DatasetExecutors not registered yet; Redis/Horizon required for production collection queue | Prompt 9: `CollectionRun`→`ResourceRun`→`DatasetRun` + planner + Horizon. Docs: `docs/implementation/COLLECTION_ENGINE_ARCHITECTURE.md`. Does **not** make GA4/GSC/Ads/Meta/Website/DFS production collectors REAL. |
+| GA4 production collection (contract-driven) | NO | NO | NO | NO | N/A | PLANNED | Engine ready; executor not implemented | Prompt 13+ |
+| GSC production collection (contract-driven) | NO | NO | NO | NO | N/A | PLANNED | Engine ready; executor not implemented | Prompt 13+ |
+| Google Ads production collection (contract-driven) | NO | NO | NO | NO | N/A | PLANNED | Engine ready; executor not implemented | Prompt 13+ |
+| Meta production collection (contract-driven) | NO | NO | NO | NO | N/A | PLANNED | Legacy bound collector remains; contract executor later | Prompt 13+ |
+| Website production crawl collection | NO | NO | NO | NO | N/A | PLANNED | Engine ready | Prompt 13+ |
+| DataForSEO production enrichment (engine-driven) | NO | NO | NO | NO | N/A | PLANNED | Existing SEO collectors unchanged | Prompt 13+ |
 
 ---
 
