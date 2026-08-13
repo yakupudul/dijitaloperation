@@ -65,9 +65,9 @@ class GlobalAgencyOperatingLayerTest extends TestCase
     public function test_dashboard_my_work_and_agency_modes(): void
     {
         Livewire::test(Dashboard::class)
-            ->assertSee('Needs your attention')
-            ->assertSee('Lead measurement requires investigation')
-            ->assertSee('Recent outcomes')
+            ->assertSee(__('operator.dashboard_exec.needs_attention'))
+            ->assertSee('Investigate lead measurement')
+            ->assertSee(__('operator.dashboard_exec.recent_outcomes'))
             ->assertDontSee('Agency Health')
             ->assertDontSee('total Website visitors')
             ->call('setMode', 'agency')

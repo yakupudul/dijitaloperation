@@ -65,9 +65,39 @@ class CustomerDetail extends Component
         if (isset($legacy[$this->tab])) {
             $this->tab = $legacy[$this->tab];
         }
-        if (! in_array($this->tab, ['overview', 'brands', 'relationship'], true)) {
+        if (! in_array($this->tab, ['overview', 'brands', 'relationship', 'requests'], true)) {
             $this->tab = 'overview';
         }
+    }
+
+    public function triageRequest(string $id): void
+    {
+        DemoState::setClientRequestStatus($id, 'triaged');
+    }
+
+    public function planRequest(string $id): void
+    {
+        DemoState::setClientRequestStatus($id, 'planned');
+    }
+
+    public function waitRequest(string $id): void
+    {
+        DemoState::setClientRequestStatus($id, 'waiting_on_client');
+    }
+
+    public function doneRequest(string $id): void
+    {
+        DemoState::setClientRequestStatus($id, 'done');
+    }
+
+    public function declineRequest(string $id): void
+    {
+        DemoState::setClientRequestStatus($id, 'declined');
+    }
+
+    public function createTaskFromRequest(string $id): void
+    {
+        DemoState::createTaskFromClientRequest($id);
     }
 
     public function openContactForm(?string $contactId = null): void
@@ -211,6 +241,11 @@ class CustomerDetail extends Component
             $digitalAssetsCount = count(DemoCatalog::assets());
         }
 
+        $requests = collect(DemoState::clientRequestsWithState())
+            ->filter(fn (array $r): bool => ($r['customer_id'] ?? '') === ($customer['id'] ?? ''))
+            ->values()
+            ->all();
+
         return view('livewire.demo.portfolio.customer-detail', [
             'customer' => $customer,
             'industryLabel' => $industryLabel,
@@ -243,6 +278,7 @@ class CustomerDetail extends Component
             'roleOptions' => ContactRoleOptions::options(),
             'team' => $team,
             'serviceScope' => CommercialContextFixtures::serviceScopeForCustomer((string) ($customer['id'] ?? '')),
+            'clientRequests' => $requests,
             'flash' => DemoState::pullFlash(),
         ]);
     }

@@ -54,7 +54,7 @@
     </div>
 
     <div class="flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800">
-        @foreach (['overview' => __('operator.customer.tabs.overview'), 'brands' => __('operator.customer.tabs.brands'), 'relationship' => __('operator.customer.tabs.relationship')] as $key => $label)
+        @foreach (['overview' => __('operator.customer.tabs.overview'), 'brands' => __('operator.customer.tabs.brands'), 'relationship' => __('operator.customer.tabs.relationship'), 'requests' => __('operator.customer.tabs.requests')] as $key => $label)
             <button type="button" wire:click="setTab('{{ $key }}')"
                 @class([
                     'shrink-0 border-b-2 px-3 py-2.5 text-sm font-medium',
@@ -407,6 +407,55 @@
             </div>
             <p class="mt-4 text-sm text-gray-500">{{ __('operator.files.empty') }}</p>
             <p class="mt-2 text-xs text-gray-400">Files are stored privately and downloaded through authenticated routes — not public URLs.</p>
+        </div>
+    @endif
+
+    @if ($tab === 'requests')
+        <div class="space-y-4">
+            <div>
+                <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">{{ __('operator.requests.title') }}</h2>
+                <p class="mt-1 text-sm text-gray-500">{{ __('operator.requests.subtitle') }}</p>
+            </div>
+            <div class="overflow-x-auto rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                <table class="min-w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-gray-100 dark:border-gray-800">
+                            <th class="px-4 py-3 text-left text-xs uppercase text-gray-400">{{ __('operator.requests.columns.title') }}</th>
+                            <th class="px-4 py-3 text-left text-xs uppercase text-gray-400">{{ __('operator.requests.columns.status') }}</th>
+                            <th class="px-4 py-3 text-left text-xs uppercase text-gray-400">{{ __('operator.requests.columns.scope') }}</th>
+                            <th class="px-4 py-3 text-left text-xs uppercase text-gray-400">{{ __('operator.requests.columns.owner') }}</th>
+                            <th class="px-4 py-3 text-left text-xs uppercase text-gray-400">{{ __('operator.requests.columns.due') }}</th>
+                            <th class="px-4 py-3"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse ($clientRequests as $request)
+                            <tr class="border-b border-gray-50 dark:border-gray-800/60">
+                                <td class="px-4 py-3 font-medium text-gray-800 dark:text-white/90">
+                                    {{ $request['title'] }}
+                                    @if (($request['in_scope'] ?? true) === false)
+                                        <x-ta.badge color="light" size="sm" class="mt-1">{{ __('operator.commercial.outside_scope') }}</x-ta.badge>
+                                    @endif
+                                </td>
+                                <td class="px-4 py-3">{{ $request['status'] }}</td>
+                                <td class="px-4 py-3">{{ ($request['in_scope'] ?? true) ? __('operator.requests.in_scope') : __('operator.requests.out_of_scope') }}</td>
+                                <td class="px-4 py-3">{{ $request['owner'] ?? '—' }}</td>
+                                <td class="px-4 py-3">{{ $request['due'] ?? '—' }}</td>
+                                <td class="px-4 py-3 text-right">
+                                    <div class="flex flex-wrap justify-end gap-1">
+                                        <button type="button" wire:click="triageRequest('{{ $request['id'] }}')" class="rounded px-2 py-1 text-xs ring-1 ring-gray-300 dark:ring-gray-700">{{ __('operator.requests.actions.triage') }}</button>
+                                        <button type="button" wire:click="planRequest('{{ $request['id'] }}')" class="rounded px-2 py-1 text-xs ring-1 ring-gray-300 dark:ring-gray-700">{{ __('operator.requests.actions.plan') }}</button>
+                                        <button type="button" wire:click="createTaskFromRequest('{{ $request['id'] }}')" class="rounded bg-brand-500 px-2 py-1 text-xs text-white">{{ __('operator.requests.actions.create_task') }}</button>
+                                        <a href="{{ route('demo.work.show', ['workId' => $request['id'], 'type' => 'client_request']) }}" wire:navigate class="rounded px-2 py-1 text-xs text-brand-600 hover:underline">{{ __('operator.actions.open') }}</a>
+                                    </div>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="6" class="px-4 py-8 text-center text-gray-500">{{ __('operator.requests.empty') }}</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
         </div>
     @endif
 

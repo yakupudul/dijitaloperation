@@ -4,6 +4,7 @@ namespace App\Livewire\Demo;
 
 use App\Support\Agents\AgentProfileRegistry;
 use App\Support\Ai\AiRouteRegistry;
+use App\Support\Demo\AgencyExecutionFixtures;
 use App\Support\Demo\DemoState;
 use App\Support\Demo\GlobalOperatingFixtures;
 use App\Support\Skills\SkillDefinition;
@@ -23,6 +24,9 @@ class SettingsPage extends Component
 
     #[Url(as: 'advanced_sub', history: true)]
     public ?string $advanced_sub = null;
+
+    #[Url(as: 'ops_sub', history: true)]
+    public ?string $ops_sub = null;
 
     public string $agency_name = '';
 
@@ -68,6 +72,17 @@ class SettingsPage extends Component
             if ($section !== 'advanced') {
                 $this->advanced_sub = null;
             }
+            if ($section !== 'operations') {
+                $this->ops_sub = null;
+            }
+        }
+    }
+
+    public function setOpsSub(?string $sub): void
+    {
+        if ($sub === null || in_array($sub, ['defaults', 'playbooks'], true)) {
+            $this->section = 'operations';
+            $this->ops_sub = $sub ?? 'defaults';
         }
     }
 
@@ -175,6 +190,7 @@ class SettingsPage extends Component
         return view('livewire.demo.settings', [
             'sections' => GlobalOperatingFixtures::settingsSections(),
             'settings' => $settings,
+            'playbooks' => AgencyExecutionFixtures::playbooks(),
             'aiRoutes' => $routes,
             'aiAgents' => $agents,
             'aiSkills' => $skills,

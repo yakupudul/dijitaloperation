@@ -34,6 +34,7 @@ use App\Livewire\Demo\Operations\OpportunitiesIndex;
 use App\Livewire\Demo\Operations\RecommendationsIndex;
 use App\Livewire\Demo\Operations\TaskShow;
 use App\Livewire\Demo\Operations\TasksIndex;
+use App\Livewire\Demo\Operations\WorkShow;
 use App\Livewire\Demo\Portfolio\AssetCreate;
 use App\Livewire\Demo\Portfolio\AssetsIndex;
 use App\Livewire\Demo\Portfolio\BrandCreate;
@@ -47,6 +48,7 @@ use App\Livewire\Demo\Portfolio\CustomersIndex;
 use App\Livewire\Demo\Portfolio\PortfolioSetupWizard;
 use App\Livewire\Demo\ProfilePage;
 use App\Livewire\Demo\Settings\AiControlPlanePage;
+use App\Livewire\Demo\Settings\PlaybookShow;
 use App\Livewire\Demo\SettingsPage;
 use App\Livewire\Demo\Website\OverviewPage as WebsiteOverviewPage;
 use Illuminate\Support\Facades\Route;
@@ -109,8 +111,10 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/recommendations', RecommendationsIndex::class)->name('demo.recommendations');
         Route::livewire('/tasks', TasksIndex::class)->name('demo.tasks');
         Route::livewire('/tasks/{taskId}', TaskShow::class)->name('demo.task');
+        Route::livewire('/work/{workId}', WorkShow::class)->name('demo.work.show');
         Route::livewire('/activity', ActivityIndex::class)->name('demo.activity');
 
         Route::livewire('/settings', SettingsPage::class)->name('demo.settings');
+        Route::livewire('/settings/playbooks/{playbookId}', PlaybookShow::class)->name('demo.settings.playbook');
         Route::livewire('/settings/ai/control-plane', AiControlPlanePage::class)->name('demo.settings.ai.control-plane');
     });

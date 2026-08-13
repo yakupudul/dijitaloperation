@@ -33,6 +33,12 @@
         <div class="flex items-center gap-2 sm:gap-3">
             <livewire:demo.global-search />
 
+            <button type="button"
+                onclick="Livewire.dispatch('open-capture')"
+                class="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-white hover:bg-brand-600">
+                + {{ __('operator.capture.open') }}
+            </button>
+
             <livewire:demo.locale-switcher />
 
             <x-ta.theme-toggle />

@@ -2,7 +2,7 @@
 
 namespace App\Livewire\Demo;
 
-use App\Support\Demo\DemoCatalog;
+use App\Support\Demo\AgencyExecutionFixtures;
 use App\Support\Demo\DemoState;
 use App\Support\Demo\OpportunityFixtures;
 use Illuminate\Contracts\View\View;
@@ -41,7 +41,7 @@ class Dashboard extends Component
     public function render(): View
     {
         return view('livewire.demo.dashboard', [
-            'dashboard' => DemoCatalog::dashboard($this->mode),
+            'dashboard' => AgencyExecutionFixtures::dashboardExecution($this->mode),
             'growthOpportunities' => collect(OpportunityFixtures::sortByBusinessRelevance(DemoState::opportunitiesWithStatus()))
                 ->whereIn('status', ['open', 'reviewing'])
                 ->take(3)

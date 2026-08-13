@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Demo\Portfolio;
 
+use App\Support\Demo\AgencyExecutionFixtures;
 use App\Support\Demo\BrandPublicDiscoveryFixtures;
 use App\Support\Demo\BusinessOutcomeFixtures;
 use App\Support\Demo\CommercialContextFixtures;
@@ -232,8 +233,9 @@ class BrandShow extends Component
 
     public function setOps(string $ops): void
     {
-        if (in_array($ops, ['findings', 'recommendations', 'tasks', 'outcomes'], true)) {
-            $this->ops = $ops;
+        $allowed = ['findings', 'opportunities', 'recommendations', 'work', 'requests', 'approvals', 'reviews', 'tasks', 'outcomes'];
+        if (in_array($ops, $allowed, true)) {
+            $this->ops = $ops === 'tasks' ? 'work' : $ops;
             $this->tab = 'operations';
         }
     }
@@ -266,8 +268,11 @@ class BrandShow extends Component
             $this->tab = 'overview';
         }
 
-        if (! in_array($this->ops, ['findings', 'recommendations', 'tasks', 'outcomes'], true)) {
+        if (! in_array($this->ops, ['findings', 'opportunities', 'recommendations', 'work', 'requests', 'approvals', 'reviews', 'tasks', 'outcomes'], true)) {
             $this->ops = 'findings';
+        }
+        if ($this->ops === 'tasks') {
+            $this->ops = 'work';
         }
 
         if (! in_array($this->discovery, ['overview', 'facts', 'candidates', 'conflicts', 'sources'], true)) {
@@ -887,6 +892,24 @@ class BrandShow extends Component
             ? BusinessOutcomeFixtures::operationalOutcomes()
             : [];
 
+        $brandName = (string) ($brandRow['name'] ?? '');
+        $brandWorkItems = collect(AgencyExecutionFixtures::workItems())
+            ->filter(fn (array $row): bool => ($row['brand'] ?? '') === $brandName)
+            ->values()
+            ->all();
+        $brandRequests = collect(DemoState::clientRequestsWithState())
+            ->filter(fn (array $row): bool => ($row['brand_id'] ?? '') === ($brandRow['id'] ?? ''))
+            ->values()
+            ->all();
+        $brandReviews = collect(DemoState::recurringReviewsWithState())
+            ->filter(fn (array $row): bool => ($row['brand_id'] ?? '') === ($brandRow['id'] ?? ''))
+            ->values()
+            ->all();
+        $brandApprovals = collect(AgencyExecutionFixtures::approvalsWithState())
+            ->filter(fn (array $row): bool => ($row['brand'] ?? '') === $brandName)
+            ->values()
+            ->all();
+
         return view('livewire.demo.portfolio.brand-show', [
             'brandRow' => $brandRow,
             'customer' => $customer,
@@ -940,6 +963,10 @@ class BrandShow extends Component
             'businessOutcomes' => $businessOutcomes,
             'operationalOutcomes' => $operationalOutcomes,
             'outcomePeriod' => $period,
+            'brandWorkItems' => $brandWorkItems,
+            'brandRequests' => $brandRequests,
+            'brandReviews' => $brandReviews,
+            'brandApprovals' => $brandApprovals,
             'flash' => DemoState::pullFlash(),
         ]);
     }

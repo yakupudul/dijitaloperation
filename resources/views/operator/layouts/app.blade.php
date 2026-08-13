@@ -108,6 +108,8 @@
         </div>
     </div>
 
+    <livewire:demo.capture-modal />
+
     @stack('scripts')
 </body>
 

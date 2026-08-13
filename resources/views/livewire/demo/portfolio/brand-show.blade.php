@@ -634,7 +634,16 @@
             </div>
 
             <div class="inline-flex flex-wrap gap-1 rounded-lg bg-gray-100 p-1 dark:bg-white/[0.04]" role="tablist" aria-label="Operations">
-                @foreach (['findings' => 'Findings', 'recommendations' => 'Recommendations', 'tasks' => 'Tasks', 'outcomes' => 'Outcomes'] as $key => $label)
+                @foreach ([
+                    'findings' => __('operator.nav.findings'),
+                    'opportunities' => __('operator.nav.opportunities'),
+                    'recommendations' => __('operator.nav.recommendations'),
+                    'work' => __('operator.work.title'),
+                    'requests' => __('operator.requests.title'),
+                    'approvals' => __('operator.approvals.title'),
+                    'reviews' => __('operator.reviews.title'),
+                    'outcomes' => __('operator.dashboard_exec.recent_outcomes'),
+                ] as $key => $label)
                     <button type="button" wire:click="setOps('{{ $key }}')" @class([
                         'rounded-md px-3 py-1.5 text-sm font-medium',
                         'bg-white text-gray-900 shadow-sm dark:bg-gray-800 dark:text-white' => $ops === $key,
@@ -692,6 +701,73 @@
                         </div>
                     @endforeach
                 </div>
+            @endif
+
+            @if ($ops === 'opportunities')
+                <ul class="space-y-2">
+                    @forelse ($brandOpportunities as $opp)
+                        <li class="rounded-xl bg-white px-4 py-3 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
+                            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $opp['title'] }}</p>
+                            <p class="text-xs text-gray-500">{{ $opp['service_label'] }} · {{ $opp['status'] }}</p>
+                            <a href="{{ route('demo.opportunities') }}" wire:navigate class="mt-2 inline-flex text-xs font-medium text-brand-600 hover:underline">{{ __('operator.actions.open') }}</a>
+                        </li>
+                    @empty
+                        <li class="text-sm text-gray-500">{{ __('operator.opportunities.empty') ?? 'No opportunities.' }}</li>
+                    @endforelse
+                </ul>
+            @endif
+
+            @if ($ops === 'work')
+                <ul class="space-y-2">
+                    @forelse ($brandWorkItems as $item)
+                        <li class="rounded-xl bg-white px-4 py-3 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
+                            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $item['title'] }}</p>
+                            <p class="text-xs text-gray-500">{{ __('operator.work.types.'.$item['type']) }} · {{ $item['status'] }} · {{ $item['owner'] }}</p>
+                        </li>
+                    @empty
+                        <li class="text-sm text-gray-500">{{ __('operator.work.empty') }}</li>
+                    @endforelse
+                </ul>
+                <a href="{{ route('demo.tasks') }}" wire:navigate class="mt-2 inline-flex text-xs font-medium text-brand-600 hover:underline">{{ __('operator.work.view_all') }}</a>
+            @endif
+
+            @if ($ops === 'requests')
+                <ul class="space-y-2">
+                    @forelse ($brandRequests as $request)
+                        <li class="rounded-xl bg-white px-4 py-3 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
+                            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $request['title'] }}</p>
+                            <p class="text-xs text-gray-500">{{ $request['status'] }} · {{ ($request['in_scope'] ?? true) ? __('operator.requests.in_scope') : __('operator.commercial.outside_scope') }}</p>
+                        </li>
+                    @empty
+                        <li class="text-sm text-gray-500">{{ __('operator.requests.empty') }}</li>
+                    @endforelse
+                </ul>
+            @endif
+
+            @if ($ops === 'approvals')
+                <ul class="space-y-2">
+                    @forelse ($brandApprovals as $approval)
+                        <li class="rounded-xl bg-white px-4 py-3 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
+                            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $approval['title'] }}</p>
+                            <p class="text-xs text-gray-500">{{ $approval['status'] }}</p>
+                        </li>
+                    @empty
+                        <li class="text-sm text-gray-500">{{ __('operator.approvals.empty') }}</li>
+                    @endforelse
+                </ul>
+            @endif
+
+            @if ($ops === 'reviews')
+                <ul class="space-y-2">
+                    @forelse ($brandReviews as $review)
+                        <li class="rounded-xl bg-white px-4 py-3 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
+                            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $review['playbook_name'] }}</p>
+                            <p class="text-xs text-gray-500">{{ $review['status'] }} · {{ $review['due'] }}</p>
+                        </li>
+                    @empty
+                        <li class="text-sm text-gray-500">{{ __('operator.reviews.none_due') }}</li>
+                    @endforelse
+                </ul>
             @endif
 
             @if ($ops === 'tasks')
