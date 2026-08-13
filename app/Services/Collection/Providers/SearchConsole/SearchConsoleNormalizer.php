@@ -162,10 +162,6 @@ final class SearchConsoleNormalizer
      * @param  array<string, mixed>  $inspectionResult
      * @return array<string, mixed>
      */
-    /**
-     * @param  array<string, mixed>  $inspectionResult
-     * @return array<string, mixed>
-     */
     public function normalizeUrlInspection(
         string $siteUrl,
         string $page,
