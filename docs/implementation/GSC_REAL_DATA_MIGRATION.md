@@ -79,7 +79,7 @@ Period default: `last_28` anchored to Demo `2026-08-12` via `DemoPeriod`.
 | `metric_series.ctr` | `REAL_DERIVED` | per-day `FORMULA_GSC_CTR` | Never mixed with Demo zeros |
 | `metric_series.position` | `REAL` | metadata `provider_average_position` | Not exact rank — note on chart path |
 | `search_momentum` | `DEMO` | — | Heuristic cluster momentum — no store |
-| `page_pulse` | `DEMO` | — | Residual Demo overview cards |
+| `page_pulse` | `REAL` / `PARTIAL_REAL` / `UNAVAILABLE` | `gsc_page_daily` | Reuses real `pages.directory` for frozen overview cards |
 | `discoverability` funnel | `UNAVAILABLE` | — | Site-wide index totals unavailable from API |
 | `needs_attention` | `DEMO` | — | No attention engine |
 
@@ -160,7 +160,7 @@ Rollup from field provenance (`rollupTabStatus`):
 
 | Tab | Status | Primary reason |
 |---|---|---|
-| Overview | `PARTIAL` | Real glance + trend; Demo search_momentum/page_pulse/needs_attention; Unavailable discoverability |
+| Overview | `PARTIAL` | Real glance + trend + page_pulse (from pages); Demo search_momentum/needs_attention; Unavailable discoverability |
 | Performance | `PARTIAL` | Real devices/countries/trend; Demo brand/nonbrand + diagnosis |
 | Demand | `PARTIAL` | Provider-limited queries; Demo clusters/momentum/ownership |
 | Pages | `REAL` or `PARTIAL` | Page clicks/impressions from pool when gate passes |
@@ -235,7 +235,7 @@ Position metadata: `provider_average_position` per row — **not exact SERP rank
 | Demo domain | Prompt 29 action |
 |---|---|
 | Property glance + performance trend + metric series | **Retired** on numeric bound assets when gates pass |
-| Devices + countries + top queries + pages | **Retired** when gates pass |
+| Devices + countries + top queries + pages + page_pulse | **Retired** when gates pass |
 | Sitemaps + inspection sample metadata | **Retired** when snapshot gates pass |
 | Site-wide indexing coverage + reconciliation index_observed | **Retired** → Unavailable (not Demo substitution) |
 | Clusters, momentum, brand/nonbrand, diagnosis, attention, ops findings, opportunities, discoverability funnel | **Retained Demo** or **Unavailable** |
@@ -254,11 +254,11 @@ Verified against:
 
 **REAL / REAL_DERIVED / PARTIAL_REAL / PROVIDER_LIMITED when gates pass:**
 
-- identity, freshness.gsc, glance clicks/impressions/ctr/position, performance trend + metric series, devices, countries, demand.queries (top N), pages clicks/impressions, sitemaps metadata, inspection sample rows, operations.collection_state, relationships.technical_connection
+- identity, freshness.gsc, glance clicks/impressions/ctr/position, performance trend + metric series, devices, countries, demand.queries (top N), pages clicks/impressions, page_pulse (same as pages.directory), sitemaps metadata, inspection sample rows, operations.collection_state, relationships.technical_connection
 
 **DEMO (explicit residual):**
 
-- search_momentum, page_pulse, needs_attention, demand.clusters/momentum/ownership, performance.brand_nonbrand, performance.diagnosis, opportunities, recent_outcomes, narrative, operations findings/recommendations/tasks/outcomes, relationships narrative cards, indexing.discoverability_by_role, glance.search_attention
+- search_momentum, needs_attention, demand.clusters/momentum/ownership, performance.brand_nonbrand, performance.diagnosis, opportunities, recent_outcomes, narrative, operations findings/recommendations/tasks/outcomes, relationships narrative cards, indexing.discoverability_by_role, glance.search_attention
 
 **UNAVAILABLE (honest absence):**
 

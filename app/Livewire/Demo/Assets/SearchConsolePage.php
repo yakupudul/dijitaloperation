@@ -10,7 +10,6 @@ use App\Services\Gsc\GscSpecialistReadService;
 use App\Services\Gsc\Support\GscBindingMode;
 use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
-use App\Support\Demo\GscWorkspaceFixtures;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -271,8 +270,15 @@ class SearchConsolePage extends Component
             }
         }
 
-        $allSeries = $data['metric_series']
-            ?? GscWorkspaceFixtures::metricSeries($data['period_start'], $data['period_end']);
+        // metric_series is always supplied by GscSpecialistReadService (real / demo / unavailable).
+        // Never fall back to fixtures here — that would mix Demo series into a real-bound workspace.
+        $allSeries = $data['metric_series'] ?? [
+            'labels' => [],
+            'clicks' => [],
+            'impressions' => [],
+            'ctr' => [],
+            'position' => [],
+        ];
         $metricLabels = [
             'clicks' => 'Clicks',
             'impressions' => 'Impressions',

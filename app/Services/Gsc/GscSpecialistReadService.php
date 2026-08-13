@@ -212,8 +212,10 @@ final class GscSpecialistReadService
         $provenance['demand.ownership'] = DataSourceState::Demo->value;
 
         $data['pages']['directory'] = $this->realPagesDirectory($digitalAssetId, $externalResourceId, $siteUrl, $pageGate);
+        // Overview page_pulse reuses the real pages directory (frozen cards) — same grain/provenance as pages.
         $data['page_pulse'] = $data['pages']['directory'];
         $provenance['pages.directory'] = $pageGate->dataSourceState()->value;
+        $provenance['page_pulse'] = $pageGate->dataSourceState()->value;
 
         $data['indexing'] = $this->realIndexing($digitalAssetId, $siteUrl, $sitemapGate, $inspectionGate, $data['indexing']);
         $provenance['indexing.coverage'] = DataSourceState::Unavailable->value;
@@ -227,7 +229,6 @@ final class GscSpecialistReadService
         $provenance['discoverability'] = DataSourceState::Unavailable->value;
 
         $provenance['search_momentum'] = DataSourceState::Demo->value;
-        $provenance['page_pulse'] = DataSourceState::Demo->value;
         $provenance['needs_attention'] = DataSourceState::Demo->value;
         $provenance['opportunities'] = DataSourceState::Demo->value;
 
@@ -512,9 +513,34 @@ final class GscSpecialistReadService
 
         $avgPosition = $positionResult->isValue() ? round((float) $positionResult->toDisplay(), 1) : null;
 
+        if (! $propertyGate->isUsable()) {
+            $note = 'Property metrics unavailable — gsc_property_daily dataset is not ready for real UI. Unavailable ≠ zero.';
+            $unavailable = [
+                'value' => '—',
+                'raw' => null,
+                'secondary' => 'Unavailable',
+                'tone' => 'neutral',
+                'note' => $note,
+            ];
+
+            return [
+                'clicks' => $unavailable + [
+                    'avg_position' => null,
+                    'position_note' => self::POSITION_PROVENANCE_NOTE,
+                ],
+                'impressions' => $unavailable + [
+                    'note' => $note.' Impressions are observed Search Console appearances — not search volume or total keyword universe.',
+                ],
+                'ctr' => $unavailable + [
+                    'note' => $note,
+                ],
+                'search_attention' => $demoGlance['search_attention'] ?? [],
+            ];
+        }
+
         $clicks = [
             'value' => $this->formatCompact($clicksRaw),
-            'raw' => $propertyGate->isUsable() ? $clicksRaw : null,
+            'raw' => $clicksRaw,
             'secondary' => $this->deltaSecondary($clicksDelta, $propertyGate)
                 .($avgPosition !== null ? ' · avg pos '.number_format($avgPosition, 1) : ''),
             'tone' => 'neutral',
@@ -524,7 +550,7 @@ final class GscSpecialistReadService
 
         $impressions = [
             'value' => $this->formatCompact($impressionsRaw),
-            'raw' => $propertyGate->isUsable() ? $impressionsRaw : null,
+            'raw' => $impressionsRaw,
             'secondary' => $this->deltaSecondary($impressionsDelta, $propertyGate).' · impressions (not search volume)',
             'tone' => 'neutral',
             'note' => 'Impressions are observed Search Console appearances — not search volume or total keyword universe.',
@@ -541,12 +567,7 @@ final class GscSpecialistReadService
             'tone' => 'neutral',
         ];
 
-        if (! $propertyGate->isUsable()) {
-            $note = 'Property metrics unavailable — gsc_property_daily dataset is not ready for real UI.';
-            $clicks['note'] = $note;
-            $impressions['note'] = $note;
-            $ctr['note'] = $note;
-        } elseif ($propertyGate->coverageState === GscDatasetReadiness::COVERAGE_PARTIALLY_COVERED) {
+        if ($propertyGate->coverageState === GscDatasetReadiness::COVERAGE_PARTIALLY_COVERED) {
             $partial = 'Partial coverage — metrics reflect only collected days in this range.';
             $clicks['note'] = $partial;
             $impressions['note'] = $partial;

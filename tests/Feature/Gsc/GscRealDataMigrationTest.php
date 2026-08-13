@@ -379,6 +379,23 @@ class GscRealDataMigrationTest extends TestCase
     }
 
     #[Test]
+    public function unreadiness_does_not_present_synthetic_zero_glance_values(): void
+    {
+        // RealBound asset with no materialization / integrity — gate not usable.
+        $demoBaseline = GscWorkspaceFixtures::workspace('last_28');
+        $workspace = app(GscSpecialistReadService::class)->workspace((string) $this->asset->id, 'last_28');
+
+        $this->assertSame('real', $workspace['migration_mode']);
+        $this->assertSame('—', $workspace['glance']['clicks']['value']);
+        $this->assertNull($workspace['glance']['clicks']['raw']);
+        $this->assertSame('—', $workspace['glance']['impressions']['value']);
+        $this->assertNull($workspace['glance']['impressions']['raw']);
+        $this->assertNotSame($demoBaseline['glance']['clicks']['raw'], $workspace['glance']['clicks']['raw']);
+        $this->assertNotSame(0, $workspace['glance']['clicks']['raw']);
+        $this->assertStringContainsString('Unavailable ≠ zero', $workspace['glance']['clicks']['note'] ?? '');
+    }
+
+    #[Test]
     public function exception_path_returns_unavailable_operational_workspace_without_demo_fallback(): void
     {
         $dates = $this->contiguousDates('2026-07-16', 28);
