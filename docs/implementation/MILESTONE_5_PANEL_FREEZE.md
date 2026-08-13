@@ -16,7 +16,7 @@ Status reference for the frozen `/app` operator panel. UI work after this docume
 | WordPress Site Connector | PARTIAL | Demo package + pairing UX; not production-installable |
 | GBP | DEMO | Local visibility/reviews/competitors fixtures |
 | Google Ads | DEMO / PARTIAL | Specialist panels remain Demo (Prompt 30); Prompt 19 production collector writes real Ads pool facts |
-| Meta Ads | DEMO / PARTIAL | Specialist IA remains Demo (Prompt 31+); Integration auth/discovery/binding real (21–23); Prompt 24 collector + Prompt 25 initial backfill write real Meta pool facts |
+| Meta Ads | PARTIAL | Specialist UI REAL/PARTIAL (Prompt 31); Integration auth/discovery/binding real (21–23); Prompt 24 collector + Prompt 25 initial backfill write real Meta pool facts |
 | Meta Integration hub/detail (`/app/integrations` Meta) | REAL (backend state) | Prompt 21–23: Core* + read model; Connect / discover / select / human-confirmed Binding; no Graph on render |
 | Canonical META provider / Meta Ads Connector foundation | REAL | provider=`meta`, connector=`meta_ads`; app config ≠ tenant token |
 | Meta Business container ExternalResource | REAL | `meta_business` non-bindable container; not Customer/DigitalAsset |
@@ -57,10 +57,11 @@ Status reference for the frozen `/app` operator panel. UI work after this docume
 | Incremental Coverage Planner | REAL | Provider-neutral gap/catch-up/reprocess planning |
 | Due Collection Query | REAL | DB/policy driven; zero provider HTTP |
 | Start Incremental Collection | REAL | `CollectionTriggerType::Incremental`; idempotent fingerprint |
-| GA4/GSC/Ads/Meta real-data UI | PARTIAL | GA4/GSC/Ads specialists REAL/PARTIAL (Prompts 28–30); Meta specialist UI Prompt 31 |
+| GA4/GSC/Ads/Meta real-data UI | PARTIAL | GA4/GSC/Ads/Meta specialists REAL/PARTIAL (Prompts 28–31) |
 | GA4 | PARTIAL | Specialist UI reads real GA4 pool (Prompt 28): sessions/acquisition/behavior/events/streams/ops collection_state REAL; users Unavailable (non-additive); business actions, needs_attention, journeys, findings/recommendations/tasks/outcomes residual Demo |
 | Search Console | PARTIAL | Specialist UI reads real GSC pool (Prompt 29): property glance/trend/devices/countries/queries/pages/sitemaps/inspection sample/ops collection_state REAL; site-wide indexing coverage/reconciliation Unavailable; clusters/momentum/brand/diagnosis/attention/findings residual Demo |
 | Google Ads | PARTIAL | Specialist UI reads real Ads pool (Prompt 30): account spend/conversions/trend/campaigns/keywords/search terms/landing/conversion actions/ops collection_state REAL; CPA/pacing/offering Unavailable; intent/inbox/ops narrative residual Demo |
+| Meta Ads | PARTIAL | Specialist UI reads real Meta pool (Prompt 31): campaign spend/trend/campaigns/creatives/typed actions/age-gender-platform breakdowns/ops collection_state REAL; period Reach/Frequency/generic Results/country/pacing Unavailable; fatigue/CRM/ops narrative residual Demo |
 | Instagram | DEMO | Lightweight Overview/Profile/Operations/Setup |
 | Service Scope | DEMO | Session/fixture commercial scope |
 | Goals | DEMO | Primary/conversion goals in fixtures |
@@ -106,6 +107,8 @@ Status reference for the frozen `/app` operator panel. UI work after this docume
 | Google Ads Production Collector | REAL | Contract GADS_RF_* → WarehouseWriter → Ads normalized pool |
 | Google Ads Customer Metadata / Campaigns / Ad Groups / Keywords / Search Terms / PMax Terms / Ads / Assets / Landing / Conversion Actions / Typed Conversions | REAL | Session/account TZ + currency preserved; managers not performance roots |
 | Google Ads specialist real-data UI | PARTIAL | Prompt 30: pool read layer + formulas + gates; CPA/pacing Unavailable; residual Demo intent/ops narrative |
+| Meta Ads Production Collector | REAL | Contract RF_META_* → WarehouseWriter → Meta normalized pool; sync + async Insights |
+| Meta Ads specialist real-data UI | PARTIAL | Prompt 31: pool read layer + formulas + gates; period Reach/Frequency/generic Results/country Unavailable; residual Demo fatigue/CRM/ops narrative |
 
 ## Post-Freeze Backend Roadmap
 
