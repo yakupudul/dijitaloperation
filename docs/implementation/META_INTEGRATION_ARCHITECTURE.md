@@ -393,5 +393,5 @@ token exists ≠ token valid (Prompt 22).
 | Business container ER | REAL architecture | live discover | — | — | — |
 | Ad Account ER + `act_` identity | REAL | live discover | select | collect root | backfill |
 | Binding | Foundation only | — | human confirm | uses binding | uses binding |
-| Collection Engine Meta executor | NOT YET | — | — | implement | orchestrate |
-| Frozen UI actions discover/bind/collect | Disabled honest labels | enable auth/discover | enable bind | enable collect | backfill UX |
+| Collection Engine Meta executor | NOT YET | — | — | REAL | orchestrate via shared engine |
+| Frozen UI actions discover/bind/collect | Disabled honest labels | enable auth/discover | enable bind | collector ready | Collect Data REAL |
