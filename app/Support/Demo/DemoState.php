@@ -895,7 +895,7 @@ final class DemoState
             'title' => $priority,
             'observation' => 'Created from brand AI analysis priority.',
             'why' => 'Operator accepted an AI-suggested priority for follow-up.',
-            'evidence' => 'Brand AI analysis (demo — no live model call)',
+            'evidence' => 'Growth synthesis (demo — no live model call)',
             'action' => $priority,
             'dependencies' => 'Confirm with channel owner.',
             'success' => 'Priority addressed or consciously deferred.',

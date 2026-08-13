@@ -100,11 +100,16 @@ class PanelDesignFreezeTest extends TestCase
             __('operator.brand.tabs.operations'),
             __('operator.brand.tabs.value'),
         ] as $tab) {
-            $this->assertStringContainsString($tab, $html);
+            $this->assertStringContainsString('>'.$tab.'</button>', $html);
         }
 
-        $this->assertStringNotContainsString('Brand AI', $html);
-        $this->assertStringNotContainsString('Decision History</a>', $html);
+        preg_match_all('/role="tab"[^>]*wire:click="setTab\\(\'([^\']+)\'\\)"/', $html, $matches);
+        $this->assertSame(
+            ['overview', 'business', 'estate', 'growth', 'operations', 'value'],
+            $matches[1] ?? []
+        );
+        $this->assertStringNotContainsString('Domain (legacy)', $html);
+        $this->assertStringNotContainsString('Hosting (legacy)', $html);
     }
 
     public function test_specialist_asset_primary_tab_counts(): void

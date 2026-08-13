@@ -776,11 +776,17 @@ class BrandShow extends Component
                 return ($asset['brand_id'] ?? '') === $brandId
                     || ($brandId === DemoCatalog::BRAND_ID && ($asset['brand_id'] ?? DemoCatalog::BRAND_ID) === DemoCatalog::BRAND_ID);
             })
+            ->reject(fn (array $asset): bool => ($asset['legacy_deprecated'] ?? false) === true
+                || in_array((string) ($asset['type'] ?? ''), ['domain', 'hosting'], true))
             ->values()
             ->all();
 
         if (($brandRow['id'] ?? '') === DemoCatalog::BRAND_ID && $assets === []) {
-            $assets = DemoCatalog::assets();
+            $assets = collect(DemoCatalog::assets())
+                ->reject(fn (array $asset): bool => ($asset['legacy_deprecated'] ?? false) === true
+                    || in_array((string) ($asset['type'] ?? ''), ['domain', 'hosting'], true))
+                ->values()
+                ->all();
         }
 
         $assets = $this->enrichAssets($assets);

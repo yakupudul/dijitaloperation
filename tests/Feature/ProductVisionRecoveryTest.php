@@ -157,7 +157,7 @@ class ProductVisionRecoveryTest extends TestCase
             ->call('saveGeneral')
             ->assertSet('agency_name', 'Moximu Agency Demo')
             ->set('section', 'ai')
-            ->assertSee('Registered AI routes')
+            ->assertSee(__('operator.settings.ai.routes_title'))
             ->assertSee('gbp.ai_guidance')
             ->assertSee('ga4.ai_guidance')
             ->assertSee('gsc.ai_guidance')

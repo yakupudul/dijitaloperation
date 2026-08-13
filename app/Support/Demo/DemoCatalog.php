@@ -351,7 +351,7 @@ final class DemoCatalog
             ['title' => 'Website technical scan completed', 'when' => 'Today', 'category' => 'sync'],
             ['title' => 'Meta data import refreshed', 'when' => '2 hours ago', 'category' => 'sync'],
             ['title' => 'Public Discovery completed', 'when' => 'Today', 'category' => 'discovery'],
-            ['title' => 'Brand AI analysis ready (demo)', 'when' => 'Yesterday', 'category' => 'analysis'],
+            ['title' => 'Growth synthesis ready (demo)', 'when' => 'Yesterday', 'category' => 'analysis'],
             ['title' => 'GBP map grid refresh', 'when' => 'Yesterday', 'category' => 'sync'],
         ];
     }
@@ -2809,7 +2809,7 @@ final class DemoCatalog
             ],
             [
                 'id' => 'a4',
-                'title' => 'Brand AI analysis',
+                'title' => 'Growth synthesis',
                 'status' => 'completed',
                 'detail' => 'Atlas Dental Ankara',
                 'when' => 'Yesterday',
