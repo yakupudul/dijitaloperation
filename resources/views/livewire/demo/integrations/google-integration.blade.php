@@ -22,6 +22,7 @@
     <div class="flex flex-wrap gap-2" role="tablist" aria-label="Google integration sections">
         @foreach ([
             'overview' => 'Overview',
+            'connectors' => 'Connectors',
             'configuration' => 'Configuration',
             'resources' => 'Resources & Bindings',
             'activity' => 'Activity',
@@ -57,7 +58,7 @@
 
         <div class="grid gap-4 md:grid-cols-2">
             @foreach ($integration['resource_groups'] as $group)
-                <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                <a href="{{ route('demo.integrations.connector', ['connector' => $group['connector']]) }}" wire:navigate class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 transition hover:bg-gray-50 dark:bg-gray-900 dark:ring-gray-800 dark:hover:bg-white/[0.03]">
                     <div class="flex items-center gap-2">
                         <x-demo.digital-asset-mark :type="$group['type']" size="sm" />
                         <h3 class="font-semibold text-gray-800 dark:text-white/90">{{ $group['label'] }}</h3>
@@ -65,7 +66,23 @@
                     <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">
                         {{ $group['accounts'] }} accounts · {{ $group['bound'] }} bound · {{ $group['available'] }} available
                     </p>
-                </div>
+                    <p class="mt-2 text-xs font-medium text-brand-600 dark:text-brand-400">Open connector →</p>
+                </a>
+            @endforeach
+        </div>
+    @elseif ($tab === 'connectors')
+        <p class="text-sm text-gray-500 dark:text-gray-400">One Google Integration authorization. Product-specific Connectors manage discovery, binding, data freshness and sync — not specialist analytics.</p>
+        <div class="grid gap-4 md:grid-cols-2">
+            @foreach ($integration['resource_groups'] as $group)
+                <a href="{{ route('demo.integrations.connector', ['connector' => $group['connector']]) }}" wire:navigate class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 transition hover:bg-gray-50 dark:bg-gray-900 dark:ring-gray-800 dark:hover:bg-white/[0.03]">
+                    <div class="flex items-center gap-2">
+                        <x-demo.digital-asset-mark :type="$group['type']" size="md" />
+                        <div>
+                            <h3 class="font-semibold text-gray-900 dark:text-white">{{ $group['label'] }} Connector</h3>
+                            <p class="text-xs text-gray-500">{{ $group['accounts'] }} resources · {{ $group['bound'] }} bound · {{ $group['available'] }} available</p>
+                        </div>
+                    </div>
+                </a>
             @endforeach
         </div>
     @elseif ($tab === 'configuration')

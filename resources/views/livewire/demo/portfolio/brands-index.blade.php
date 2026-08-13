@@ -9,9 +9,13 @@
         </div>
         <div class="flex flex-wrap items-center gap-2">
             @include('livewire.demo.partials.demo-badge')
-            <a href="{{ route('demo.brand.create') }}" wire:navigate
+            <a href="{{ route('demo.setup', ['entry' => 'brand']) }}" wire:navigate
                 class="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600">
-                Add brand
+                Add Brand (wizard)
+            </a>
+            <a href="{{ route('demo.brand.create') }}" wire:navigate
+                class="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">
+                Quick add
             </a>
         </div>
     </div>

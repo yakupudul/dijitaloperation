@@ -1,12 +1,18 @@
 <div class="space-y-6">
     @include('livewire.demo.partials.flash')
 
+    <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
+        <p class="font-semibold">Legacy Domain workspace</p>
+        <p class="mt-1 text-xs opacity-90">Domain is Website Infrastructure — not an intended standalone Digital Asset. This route is preserved for legacy safety (no destructive deletion).</p>
+        <a href="{{ route('demo.website', ['tab' => 'infrastructure']) }}" wire:navigate class="mt-2 inline-flex text-xs font-medium underline">Open Website → Infrastructure</a>
+    </div>
+
     @include('livewire.demo.partials.workspace-header', [
         'eyebrow' => 'Domain · '.($asset['name'] ?? $data['domain']),
         'title' => 'Workspace',
-        'subtitle' => 'Infrastructure / lifecycle — registrar, DNS, SSL continuity',
-        'badges' => [$data['provenance'] ?? 'Detected'],
-        'actions' => '<a href="'.e(route('demo.website', ['tab' => 'lifecycle'])).'" class="inline-flex"><span class="inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">Website lifecycle</span></a>',
+        'subtitle' => 'Legacy infrastructure view — registrar, DNS, SSL continuity',
+        'badges' => [$data['provenance'] ?? 'Detected', 'Legacy'],
+        'actions' => '<a href="'.e(route('demo.website', ['tab' => 'infrastructure'])).'" class="inline-flex"><span class="inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">Website Infrastructure</span></a>',
     ])
 
     @include('livewire.demo.partials.section-question', [

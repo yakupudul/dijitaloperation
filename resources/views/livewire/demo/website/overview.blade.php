@@ -5,6 +5,7 @@
         ['key' => 'visibility', 'label' => 'Visibility', 'wire' => true],
         ['key' => 'content', 'label' => 'Content', 'wire' => true],
         ['key' => 'performance', 'label' => 'Performance', 'wire' => true],
+        ['key' => 'infrastructure', 'label' => 'Infrastructure', 'wire' => true],
         ['key' => 'connections', 'label' => 'Connections', 'wire' => true],
         ['key' => 'activity', 'label' => 'Activity', 'wire' => true],
         ['key' => 'settings', 'label' => 'Settings', 'wire' => true],
@@ -63,6 +64,8 @@
         @include('livewire.demo.website.tabs.content')
     @elseif ($tab === 'performance')
         @include('livewire.demo.website.tabs.performance')
+    @elseif ($tab === 'infrastructure')
+        @include('livewire.demo.website.tabs.infrastructure')
     @elseif ($tab === 'connections')
         @include('livewire.demo.website.tabs.connections')
     @elseif ($tab === 'activity')

@@ -75,7 +75,17 @@ class AssetsIndex extends Component
             [GlobalOperatingFixtures::class, 'enrichAsset'],
             array_merge(DemoCatalog::assets(), DemoState::all()['demo_assets'] ?? []),
         );
+
+        // Domain/Hosting are Website Infrastructure — hidden from normal Digital Asset inventory.
+        // Legacy records remain reachable via explicit type/role filter (not destructively deleted).
+        $legacyInfrastructureTypes = ['domain', 'hosting'];
+        $showingLegacyInfrastructure = in_array($this->filterType, $legacyInfrastructureTypes, true)
+            || $this->filterRole === 'infrastructure';
+
         $assets = collect($allAssets);
+        if (! $showingLegacyInfrastructure) {
+            $assets = $assets->reject(fn (array $asset): bool => in_array($asset['type'] ?? '', $legacyInfrastructureTypes, true));
+        }
 
         if ($this->filterBrand !== '') {
             $assets = $assets->filter(fn (array $asset): bool => ($asset['brand_id'] ?? DemoCatalog::BRAND_ID) === $this->filterBrand);
@@ -131,10 +141,16 @@ class AssetsIndex extends Component
         };
 
         $typeOptions = collect($allAssets)
+            ->reject(fn (array $asset): bool => in_array($asset['type'] ?? '', $legacyInfrastructureTypes, true))
             ->mapWithKeys(fn (array $asset): array => [($asset['type'] ?? '') => ($asset['type_label'] ?? '')])
             ->filter()
             ->unique()
             ->all();
+
+        if ($showingLegacyInfrastructure) {
+            $typeOptions['domain'] = 'Domain (legacy)';
+            $typeOptions['hosting'] = 'Hosting (legacy)';
+        }
 
         $responsibleOptions = collect(DemoCatalog::teamMembers())
             ->mapWithKeys(fn (array $u): array => [$u['id'] => $u['name']])
@@ -168,8 +184,9 @@ class AssetsIndex extends Component
             'roleOptions' => [
                 'primary_managed' => 'Primary managed asset',
                 'connected_source' => 'Connected data source',
-                'infrastructure' => 'Infrastructure / lifecycle',
+                'infrastructure' => 'Legacy infrastructure (deprecated)',
             ],
+            'showingLegacyInfrastructure' => $showingLegacyInfrastructure,
             'flash' => DemoState::pullFlash(),
         ]);
     }

@@ -24,15 +24,42 @@
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
             <x-ta.button href="{{ route('demo.integrations') }}" size="sm" variant="outline">← Integrations</x-ta.button>
-            <h1 class="mt-3 text-2xl font-bold text-gray-800 dark:text-white/90">Meta data import</h1>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Simulated history import with account-level progress. Demo Mode — no Meta API calls.</p>
+            <div class="mt-3 flex items-start gap-3">
+                <x-demo.digital-asset-mark type="meta_ads" size="lg" class="mt-0.5" />
+                <div>
+                    <p class="text-xs uppercase tracking-wide text-gray-400">Integration</p>
+                    <h1 class="text-2xl font-bold text-gray-800 dark:text-white/90">Meta</h1>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Authorization + data import control plane. Specialist creative analytics live on the Meta Ads Digital Asset.</p>
+                </div>
+            </div>
         </div>
         <div class="flex flex-wrap gap-2">
+            <a href="{{ route('demo.integrations.connector', ['connector' => 'meta-ads']) }}" wire:navigate class="inline-flex rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-white">Meta Ads Connector</a>
             @include('livewire.demo.partials.demo-badge', ['label' => 'Import simulation'])
             <x-ta.button wire:click="startImport" size="sm" :disabled="! empty($import['running'])">
                 {{ ! empty($import['running']) ? 'Import running…' : 'Import all Meta data' }}
             </x-ta.button>
         </div>
+    </div>
+
+    <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+        <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Connectors</h2>
+        <a href="{{ route('demo.integrations.connector', ['connector' => 'meta-ads']) }}" wire:navigate class="mt-3 flex items-center justify-between rounded-lg bg-gray-50 px-3 py-3 dark:bg-white/[0.03]">
+            <div class="flex items-center gap-2">
+                <x-demo.digital-asset-mark type="meta_ads" size="sm" />
+                <div>
+                    <p class="text-sm font-medium text-gray-900 dark:text-white">Meta Ads</p>
+                    <p class="text-xs text-gray-500">Resources · Bindings · Data · Sync · Activity</p>
+                </div>
+            </div>
+            <span class="text-xs font-medium text-brand-600 dark:text-brand-400">Open →</span>
+        </a>
+        <p class="mt-2 text-xs text-gray-400">Facebook Page / Instagram resource connectors are future capabilities — not advertised as active.</p>
+    </div>
+
+    <div>
+            <h2 class="text-lg font-semibold text-gray-800 dark:text-white/90">Meta data import</h2>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Simulated history import with account-level progress. Demo Mode — no Meta API calls.</p>
     </div>
 
     <x-ta.card>

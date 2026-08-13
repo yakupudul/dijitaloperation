@@ -3,6 +3,7 @@
 namespace App\Livewire\Demo\Website;
 
 use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
+use App\Support\Demo\ConnectorWorkspaceFixtures;
 use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
 use App\Support\Demo\WebsiteWorkspaceFixtures;
@@ -62,6 +63,7 @@ class OverviewPage extends Component
         'visibility',
         'content',
         'performance',
+        'infrastructure',
         'connections',
         'activity',
         'settings',
@@ -77,6 +79,8 @@ class OverviewPage extends Component
         'conversions' => 'performance',
         'lifecycle' => 'settings',
         'insights' => 'overview',
+        'domain' => 'infrastructure',
+        'hosting' => 'infrastructure',
     ];
 
     /**
@@ -266,6 +270,7 @@ class OverviewPage extends Component
             'contentDirectory' => $directory->values()->all(),
             'selectedPage' => $selectedPage,
             'activityRows' => $activity->values()->all(),
+            'infrastructure' => ConnectorWorkspaceFixtures::websiteInfrastructure(),
             'showPeriodBar' => in_array($this->tab, $this->timeBasedTabs, true),
             'flash' => DemoState::pullFlash(),
         ]);

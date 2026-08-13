@@ -23,14 +23,14 @@ class GoogleIntegrationPage extends Component
 
     public function mount(): void
     {
-        if (! in_array($this->tab, ['overview', 'configuration', 'resources', 'activity'], true)) {
+        if (! in_array($this->tab, ['overview', 'connectors', 'configuration', 'resources', 'activity'], true)) {
             $this->tab = 'overview';
         }
     }
 
     public function setTab(string $tab): void
     {
-        if (in_array($tab, ['overview', 'configuration', 'resources', 'activity'], true)) {
+        if (in_array($tab, ['overview', 'connectors', 'configuration', 'resources', 'activity'], true)) {
             $this->tab = $tab;
         }
     }

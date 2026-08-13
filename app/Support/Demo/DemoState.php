@@ -25,7 +25,7 @@ final class DemoState
         }
 
         $defaults = self::defaults();
-        foreach (['contacts', 'customer_activity', 'demo_assets', 'discovery_candidates', 'discovery_history', 'discovery_conflict_resolutions'] as $key) {
+        foreach (['contacts', 'customer_activity', 'demo_assets', 'discovery_candidates', 'discovery_history', 'discovery_conflict_resolutions', 'connector_bindings', 'wizard_state'] as $key) {
             if (! array_key_exists($key, $state)) {
                 $state[$key] = $defaults[$key] ?? [];
             }
@@ -69,6 +69,8 @@ final class DemoState
             'discovery_candidates' => DemoCatalog::brandDiscoveryCandidates(),
             'discovery_history' => BrandPublicDiscoveryFixtures::history(),
             'discovery_conflict_resolutions' => [],
+            'connector_bindings' => [],
+            'wizard_state' => null,
             'ai_brief_visible' => false,
             'period_preset' => 'last_28',
             'period_start' => null,
@@ -354,6 +356,87 @@ final class DemoState
         }
         session()->put(self::SESSION_KEY, $state);
         self::flash('Digital Asset “'.$asset['name'].'” added (Demo Mode).');
+    }
+
+    /**
+     * @return array<string, array<string, mixed>>
+     */
+    public static function connectorBindings(string $connector): array
+    {
+        $all = self::all()['connector_bindings'] ?? [];
+
+        return is_array($all[$connector] ?? null) ? $all[$connector] : [];
+    }
+
+    public static function bindConnectorResource(string $connector, string $resourceId, string $assetId, string $assetName, string $brandId): void
+    {
+        $state = self::all();
+        $bindings = $state['connector_bindings'] ?? [];
+        $bindings[$connector] = $bindings[$connector] ?? [];
+        $bindings[$connector][$resourceId] = [
+            'action' => 'bound',
+            'asset_id' => $assetId,
+            'asset_name' => $assetName,
+            'brand_id' => $brandId,
+            'at' => now()->format('M j · H:i'),
+        ];
+        $state['connector_bindings'] = $bindings;
+
+        $activity = $state['activity'] ?? [];
+        array_unshift($activity, [
+            'id' => 'act-bind-'.substr(md5($connector.$resourceId.microtime()), 0, 8),
+            'time' => now()->format('H:i'),
+            'when' => 'Today',
+            'title' => 'Resource bound',
+            'scope' => $assetName,
+            'detail' => $connector.' · '.$resourceId,
+            'actor' => 'Demo Operator',
+            'actor_kind' => 'human',
+            'status' => 'success',
+            'asset_type' => $connector === 'meta-ads' ? 'meta_ads' : str_replace('-', '_', $connector),
+        ]);
+        $state['activity'] = array_slice($activity, 0, 40);
+        session()->put(self::SESSION_KEY, $state);
+    }
+
+    public static function unbindConnectorResource(string $connector, string $resourceId): void
+    {
+        $state = self::all();
+        $bindings = $state['connector_bindings'] ?? [];
+        $bindings[$connector] = $bindings[$connector] ?? [];
+        $bindings[$connector][$resourceId] = [
+            'action' => 'unbound',
+            'at' => now()->format('M j · H:i'),
+        ];
+        $state['connector_bindings'] = $bindings;
+        session()->put(self::SESSION_KEY, $state);
+    }
+
+    /**
+     * @param  array<string, mixed>  $wizard
+     */
+    public static function saveWizardState(array $wizard): void
+    {
+        $state = self::all();
+        $state['wizard_state'] = $wizard;
+        session()->put(self::SESSION_KEY, $state);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public static function wizardState(): ?array
+    {
+        $wizard = self::all()['wizard_state'] ?? null;
+
+        return is_array($wizard) ? $wizard : null;
+    }
+
+    public static function clearWizardState(): void
+    {
+        $state = self::all();
+        $state['wizard_state'] = null;
+        session()->put(self::SESSION_KEY, $state);
     }
 
     public static function setRecommendationStatus(string $id, string $status): void

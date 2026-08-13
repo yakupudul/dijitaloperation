@@ -492,6 +492,7 @@ final class GlobalOperatingFixtures
                 'accounts' => 4,
                 'bound' => 2,
                 'available' => 0,
+                'connector' => 'google-ads',
             ],
             [
                 'type' => 'ga4',
@@ -499,6 +500,7 @@ final class GlobalOperatingFixtures
                 'accounts' => 6,
                 'bound' => 4,
                 'available' => 2,
+                'connector' => 'ga4',
             ],
             [
                 'type' => 'gsc',
@@ -506,6 +508,7 @@ final class GlobalOperatingFixtures
                 'accounts' => 8,
                 'bound' => 3,
                 'available' => 2,
+                'connector' => 'gsc',
             ],
             [
                 'type' => 'gbp',
@@ -513,6 +516,7 @@ final class GlobalOperatingFixtures
                 'accounts' => 5,
                 'bound' => 5,
                 'available' => 0,
+                'connector' => 'gbp',
             ],
         ];
 

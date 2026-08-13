@@ -8,6 +8,7 @@ use App\Livewire\Demo\Gbp\OverviewPage as GbpOverviewPage;
 use App\Livewire\Demo\GoogleAds\OverviewPage as GoogleAdsOverviewPage;
 use App\Livewire\Demo\Infrastructure\DomainPage;
 use App\Livewire\Demo\Infrastructure\HostingPage;
+use App\Livewire\Demo\Integrations\ConnectorPage;
 use App\Livewire\Demo\Integrations\GoogleIntegrationPage;
 use App\Livewire\Demo\Integrations\IntegrationsIndex;
 use App\Livewire\Demo\Integrations\MetaIntegrationPage;
@@ -36,6 +37,7 @@ use App\Livewire\Demo\Portfolio\CustomerCreate;
 use App\Livewire\Demo\Portfolio\CustomerDetail;
 use App\Livewire\Demo\Portfolio\CustomerEdit;
 use App\Livewire\Demo\Portfolio\CustomersIndex;
+use App\Livewire\Demo\Portfolio\PortfolioSetupWizard;
 use App\Livewire\Demo\SettingsPage;
 use App\Livewire\Demo\Website\OverviewPage as WebsiteOverviewPage;
 use Illuminate\Support\Facades\Route;
@@ -58,9 +60,12 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/assets', AssetsIndex::class)->name('demo.assets');
         Route::livewire('/assets/create', AssetCreate::class)->name('demo.asset.create');
 
+        Route::livewire('/setup', PortfolioSetupWizard::class)->name('demo.setup');
+
         Route::livewire('/integrations', IntegrationsIndex::class)->name('demo.integrations');
         Route::livewire('/integrations/google', GoogleIntegrationPage::class)->name('demo.integrations.google');
         Route::livewire('/integrations/meta', MetaIntegrationPage::class)->name('demo.integrations.meta');
+        Route::livewire('/integrations/connectors/{connector}', ConnectorPage::class)->name('demo.integrations.connector');
 
         Route::livewire('/assets/meta/{assetId?}', MetaOverviewPage::class)->name('demo.meta.overview');
         Route::livewire('/assets/meta/{assetId}/campaigns', CampaignsPage::class)->name('demo.meta.campaigns');

@@ -136,6 +136,18 @@ final class WebsiteWorkspaceFixtures
             ],
             [
                 'severity' => 'Medium',
+                'category' => 'Infrastructure',
+                'what' => 'Hosting renewal due in 34 days.',
+                'where' => 'Website Infrastructure · DemoHost',
+                'why' => 'Renewal continuity risk — not an outage yet.',
+                'actionability' => 'Client input required',
+                'recommended' => 'Review hosting renewal on Website → Infrastructure.',
+                'finding_id' => null,
+                'affected_scope' => 'Hosting',
+                'tab' => 'infrastructure',
+            ],
+            [
+                'severity' => 'Medium',
                 'category' => 'Content',
                 'what' => 'Implant recovery intent has weak Website coverage.',
                 'where' => 'Offering · Dental implants',

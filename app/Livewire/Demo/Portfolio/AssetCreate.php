@@ -178,8 +178,7 @@ class AssetCreate extends Component
         // Preserve demo product types already present in the catalog
         $options['ga4'] = 'Google Analytics';
         $options['gsc'] = 'Search Console';
-        $options['domain'] = 'Domain';
-        $options['hosting'] = 'Hosting';
+        // Domain / Hosting are Website Infrastructure — not selectable Digital Assets.
 
         return $options;
     }

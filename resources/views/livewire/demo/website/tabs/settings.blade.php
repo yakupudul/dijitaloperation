@@ -36,7 +36,8 @@
     </section>
 
     <div class="flex flex-wrap gap-2">
-        <a href="{{ route('demo.domain') }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">Open Domain workspace</a>
-        <a href="{{ route('demo.hosting') }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">Open Hosting workspace</a>
+        <a href="{{ route('demo.website', ['tab' => 'infrastructure']) }}" wire:navigate class="rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-white">Open Infrastructure</a>
+        <a href="{{ route('demo.domain') }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">Legacy Domain view</a>
+        <a href="{{ route('demo.hosting') }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">Legacy Hosting view</a>
     </div>
 </div>
