@@ -27,7 +27,8 @@ Keep these separate (ADR-042):
 
 Canonical type key for Google Analytics: **`ga4`** (UI: Google Analytics / GA4). Do not introduce parallel type keys for the same concept.
 
-**Search Console / DataForSEO:** remain Website-oriented Connections in current product scope unless explicitly elevated later.
+**Search Console:** first-class Digital Asset (`gsc`) that can observe Website organic performance and provide Evidence to siblings (ADR-043).  
+**DataForSEO:** remains a Website-oriented Connection unless explicitly elevated later.
 
 ## Visual identity
 

@@ -4,6 +4,7 @@
         'last_14' => 'Last 14 days',
         'last_28' => 'Last 28 days',
         'last_30' => 'Last 30 days',
+        'last_90' => 'Last 3 months',
         'this_month' => 'This month',
         'last_month' => 'Last month',
     ];

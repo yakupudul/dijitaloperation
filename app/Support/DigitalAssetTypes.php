@@ -22,6 +22,8 @@ final class DigitalAssetTypes
             // Canonical Demo/product type key remains `ga4` (label: Google Analytics).
             // Do not introduce a parallel `google_analytics` type for the same concept.
             'ga4' => 'Google Analytics',
+            // Canonical Demo/product type key remains `gsc` (label: Google Search Console).
+            'gsc' => 'Google Search Console',
         ];
     }
 }

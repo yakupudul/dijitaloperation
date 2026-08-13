@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Livewire\Demo\Assets\AnalyticsPage;
+use App\Livewire\Demo\Assets\SearchConsolePage;
 use App\Livewire\Demo\Gbp\OverviewPage as GbpOverviewPage;
 use App\Livewire\Demo\GoogleAds\OverviewPage as GoogleAdsOverviewPage;
 use App\Livewire\Demo\Meta\OverviewPage as MetaOverviewPage;
@@ -87,6 +88,10 @@ class DigitalAssetVisualIdentityTest extends TestCase
             ->assertSee('data-asset-mark="ga4"', false)
             ->assertSee('images/digital-assets/ga4.svg', false);
 
+        Livewire::test(SearchConsolePage::class, ['assetId' => DemoCatalog::GSC_ASSET_ID])
+            ->assertSee('data-asset-mark="gsc"', false)
+            ->assertSee('images/digital-assets/gsc.svg', false);
+
         Livewire::test(GoogleAdsOverviewPage::class, ['assetId' => DemoCatalog::GOOGLE_ADS_ASSET_ID])
             ->assertSee('data-asset-mark="google_ads"', false)
             ->assertSee('images/digital-assets/google-ads.svg', false);
@@ -105,6 +110,7 @@ class DigitalAssetVisualIdentityTest extends TestCase
 
         Livewire::test(AssetsIndex::class)
             ->assertSee('data-asset-mark="ga4"', false)
+            ->assertSee('data-asset-mark="gsc"', false)
             ->assertSee('data-asset-mark="google_ads"', false)
             ->assertSee('data-asset-mark="meta_ads"', false)
             ->assertSee('data-asset-mark="website"', false);
@@ -112,7 +118,9 @@ class DigitalAssetVisualIdentityTest extends TestCase
         Livewire::test(BrandShow::class, ['brand' => DemoCatalog::BRAND_ID])
             ->assertSee('Digital estate')
             ->assertSee('data-asset-mark="ga4"', false)
-            ->assertSee('Atlas Dental — GA4');
+            ->assertSee('data-asset-mark="gsc"', false)
+            ->assertSee('Atlas Dental — GA4')
+            ->assertSee('Atlas Dental — Search Console');
     }
 
     public function test_broken_logo_fallback_markup_is_present(): void

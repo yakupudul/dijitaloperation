@@ -429,14 +429,10 @@ final class DemoCatalog
     public static function assetTaxonomy(string $type): array
     {
         return match ($type) {
-            // GA4 is a first-class managed Digital Asset that can also provide Evidence to siblings.
-            'website', 'meta_ads', 'google_ads', 'gbp', 'ga4' => [
+            // GA4 / GSC are first-class managed Digital Assets that can also provide Evidence to siblings.
+            'website', 'meta_ads', 'google_ads', 'gbp', 'ga4', 'gsc' => [
                 'role' => 'primary_managed',
                 'role_label' => 'Primary managed asset',
-            ],
-            'gsc' => [
-                'role' => 'connected_source',
-                'role_label' => 'Connected data source',
             ],
             'domain', 'hosting' => [
                 'role' => 'infrastructure',
@@ -540,17 +536,18 @@ final class DemoCatalog
             [
                 'id' => self::GSC_ASSET_ID,
                 'type' => 'gsc',
-                'type_label' => 'Search Console',
-                'name' => 'atlasdental.example',
+                'type_label' => 'Google Search Console',
+                'name' => 'Atlas Dental — Search Console',
                 'brand_id' => self::BRAND_ID,
                 'connection' => 'connected',
                 'provenance' => 'Connected provider',
-                'health' => 'healthy',
-                'health_label' => 'Connected',
-                'open_findings' => 0,
-                'open_tasks' => 0,
+                'health' => 'needs_attention',
+                'health_label' => 'Needs attention',
+                'open_findings' => 4,
+                'open_tasks' => 2,
                 'last_update' => 'Today',
                 'route' => 'demo.search-console',
+                'relationship_summary' => 'Observes Website · Evidence for SEO / Ads / GBP',
             ],
             [
                 'id' => self::DOMAIN_ASSET_ID,
@@ -623,8 +620,8 @@ final class DemoCatalog
                 'primary_metric_label' => 'Open findings',
             ],
             'gsc' => [
-                'primary_metric' => (string) ($asset['open_findings'] ?? 0).' findings',
-                'primary_metric_label' => 'Open findings',
+                'primary_metric' => (string) ($asset['relationship_summary'] ?? 'Observes Website'),
+                'primary_metric_label' => 'Relationship',
             ],
             'domain' => [
                 'primary_metric' => (string) ($asset['detail'] ?? 'Active'),

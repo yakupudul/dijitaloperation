@@ -72,6 +72,7 @@ final class DigitalAssetVisualCatalog
     {
         return match (strtolower($type)) {
             'analytics', 'google_analytics' => 'ga4',
+            'search_console', 'google_search_console' => 'gsc',
             'gads' => 'google_ads',
             'meta' => 'meta_ads',
             'google_business_profile' => 'gbp',

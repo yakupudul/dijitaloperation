@@ -80,7 +80,7 @@ Customer
 | **Customer** | The real organization Moximu serves (e.g. Atlas Health Group). Root of the portfolio. Holds contacts and responsible team members. Not a SaaS tenant. |
 | **Brand** | A market-facing brand under that customer (e.g. Atlas Dental Ankara). Shared business context for every channel: sector, geography, languages, audience, offerings. Brand is **context**, not a channel. |
 | **Digital Asset** | A concrete thing the agency manages for that brand: Meta Ads account, Google Ads account, Website, GBP location, Domain, Hosting, etc. |
-| **Connection / Binding** | How MoxDOP reads data *about* an asset. Connections are not assets. **ADR-042:** Google Analytics (GA4) is a first-class Digital Asset that can also *provide Evidence* to Website/Ads; Google API/OAuth remains the technical Connection. Search Console remains Website-oriented Connection unless explicitly elevated later. |
+| **Connection / Binding** | How MoxDOP reads data *about* an asset. Connections are not assets. **ADR-042 / ADR-043:** GA4 and Search Console are first-class Digital Assets that can also *provide Evidence* to related Assets; Google API/OAuth remains the technical Connection. |
 
 **Invariants operators must feel in the UI:**
 
@@ -351,16 +351,19 @@ No review replies or profile edits via MoxDOP.
 
 GA4 **is** a first-class Digital Asset type (`ga4`) that can simultaneously provide Evidence to related Assets (ADR-042). Live Website-scoped collectors may remain unchanged until an explicit migration task — no duplicate provider stores.
 
-### 13.6 Search Console
+### 13.6 Search Console — first-class Digital Asset (ADR-043)
 
-**Must answer (as Website-attached capability):**
+**Must answer (as Organic Demand & Search Intelligence Asset):**
 
-- Which GSC property is bound?
-- Query / page visibility and coverage signals present?
-- Indexation or enhancement issues evidenced?
-- How GSC evidence feeds SEO Findings and Recommendations?
+- Which Search Console property / Digital Asset am I looking at?
+- Which Website does it observe?
+- How is organic search changing (clicks / impressions / CTR / position context)?
+- What demand topics are growing, declining, or newly observed?
+- Which page should own important topics vs which pages Google surfaces?
+- What Google index-state / sitemap / discoverability evidence exists for priority URLs?
+- How does organic Evidence support Website / Ads / GBP / GA4 analysis without ownership confusion?
 
-Search Console is **not** a separate Digital Asset type in the core model.
+Search Console **is** a first-class Digital Asset type (`gsc`) that can simultaneously provide Evidence to related Assets (ADR-043). Live Website-scoped collectors may remain unchanged until an explicit migration task — no duplicate provider stores.
 
 ### 13.7 Domain
 
@@ -526,7 +529,7 @@ Build as **vertical slices**. Each slice must earn **operator acceptance** befor
 | **3** | **Google Ads end-to-end real** | Same pattern for Google Ads account: connect, import, attach, collect, analyze, operate internally without writes. |
 | **4** | **Website end-to-end real** | Website asset with diagnosis/connectors path, Evidence → Findings → Recommendations → Tasks, honest Data Health. |
 | **5** | **Google Business / Maps end-to-end real** | GBP asset read-only collect and operational loop for local presence. |
-| **6** | **Analytics / Search Console** | GA4 as first-class Digital Asset workspace (Demo Measurement Intelligence) + Evidence to Website/Ads; GSC remains Website-oriented Connection unless elevated later. Honest capability truth on live collector scope (ADR-042). |
+| **6** | **Analytics / Search Console** | GA4 + GSC as first-class Digital Asset Demo workspaces (Measurement Intelligence / Organic Demand Intelligence) + Evidence to siblings. Honest capability truth on live collector scope (ADR-042, ADR-043). |
 | **7** | **Public Brand Discovery** | Outside-in discovery with Accept/Edit/Ignore, clear provenance, feeding Brand context without silent overwrite. |
 | **8** | **Cross-Asset Brand Intelligence** | Deterministic cross-channel packs (e.g. Ads landing vs Website, NAP vs GBP) producing Evidence-backed Findings across assets. |
 | **9** | **Digital Asset Lifecycle** | Domain / SSL / hosting / renewals visibility and continuity for operators. |

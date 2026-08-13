@@ -38,6 +38,7 @@ final class DemoPeriod
             'last_14' => self::pack($preset, $anchor->copy()->subDays(13), $anchor->copy()),
             'last_28' => self::pack($preset, $anchor->copy()->subDays(27), $anchor->copy()),
             'last_30' => self::pack($preset, $anchor->copy()->subDays(29), $anchor->copy()),
+            'last_90' => self::pack($preset, $anchor->copy()->subDays(89), $anchor->copy()),
             'this_month' => self::pack($preset, $anchor->copy()->startOfMonth(), $anchor->copy()),
             'last_month' => self::pack(
                 $preset,
@@ -145,6 +146,7 @@ final class DemoPeriod
             'last_14' => ['spend' => 0.48, 'results' => 0.42, 'efficiency' => 1.12, 'narrative' => 'Creative fatigue visible; Meta CPL still above May baseline.'],
             'last_28' => ['spend' => 1.00, 'results' => 1.00, 'efficiency' => 1.00, 'narrative' => 'July recovery underway after May deterioration; Meta still the efficiency bottleneck.'],
             'last_30' => ['spend' => 1.08, 'results' => 1.02, 'efficiency' => 1.04, 'narrative' => 'Slightly longer window softens daily volatility; waste share still material.'],
+            'last_90' => ['spend' => 2.85, 'results' => 2.70, 'efficiency' => 1.06, 'narrative' => 'Quarter-scale window — seasonal demand and recovery patterns visible.'],
             'this_month' => ['spend' => 0.55, 'results' => 0.58, 'efficiency' => 0.94, 'narrative' => 'Month-to-date recovery: results improving faster than spend.'],
             'last_month' => ['spend' => 1.22, 'results' => 0.92, 'efficiency' => 1.28, 'narrative' => 'May-style deterioration window — spend up, leads down, CPL peaked.'],
             'custom' => [

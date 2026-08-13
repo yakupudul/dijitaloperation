@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Livewire\Demo\Assets\AnalyticsPage;
+use App\Livewire\Demo\Assets\SearchConsolePage;
 use App\Livewire\Demo\GoogleAds\OverviewPage as GoogleAdsOverviewPage;
 use App\Livewire\Demo\Meta\OverviewPage as MetaOverviewPage;
 use App\Livewire\Demo\Website\OverviewPage as WebsiteOverviewPage;
@@ -11,6 +12,7 @@ use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoPeriod;
 use App\Support\Demo\DemoState;
 use App\Support\Demo\Ga4WorkspaceFixtures;
+use App\Support\Demo\GscWorkspaceFixtures;
 use App\Support\Demo\MetaAdsWorkspaceFixtures;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -139,6 +141,36 @@ class DemoSharedPeriodFilterTest extends TestCase
 
         $custom = Ga4WorkspaceFixtures::workspace('custom', '2026-07-06', '2026-08-12');
         $this->assertNotSame($baselineSessions, (int) $custom['glance']['sessions']['raw']);
+    }
+
+    public function test_gsc_custom_period_recalculates_and_persists_across_tabs(): void
+    {
+        $baseline = GscWorkspaceFixtures::workspace('last_28');
+        $baselineClicks = (int) $baseline['glance']['clicks']['raw'];
+
+        Livewire::test(SearchConsolePage::class, ['assetId' => DemoCatalog::GSC_ASSET_ID])
+            ->call('openCustomPicker')
+            ->set('draftPeriodStart', '2026-07-06')
+            ->set('draftPeriodEnd', '2026-08-12')
+            ->call('applyCustomPeriod')
+            ->assertSet('period', 'custom')
+            ->call('setTab', 'demand')
+            ->assertSet('period', 'custom')
+            ->call('setTab', 'pages')
+            ->assertSet('period', 'custom')
+            ->assertSet('compare', true)
+            ->assertSee('vs');
+
+        $custom = GscWorkspaceFixtures::workspace('custom', '2026-07-06', '2026-08-12');
+        $this->assertNotSame($baselineClicks, (int) $custom['glance']['clicks']['raw']);
+    }
+
+    public function test_last_90_preset_resolves_three_month_window(): void
+    {
+        $bounds = DemoPeriod::bounds('last_90');
+        $this->assertSame(90, $bounds['days']);
+        $this->assertSame('2026-05-15', $bounds['start']->toDateString());
+        $this->assertSame('2026-08-12', $bounds['end']->toDateString());
     }
 
     public function test_custom_factors_change_with_day_span(): void

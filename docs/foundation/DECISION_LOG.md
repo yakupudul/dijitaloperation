@@ -342,6 +342,23 @@
 
 ---
 
+## ADR-043 — Google Search Console as first-class Digital Asset (Evidence-provider role retained)
+
+- **Durum:** Accepted
+- **Tarih:** 2026-08-13
+- **Bağlam:** Earlier product docs treated Search Console primarily as a **Website Connection**. Operators need an Organic Demand & Search Intelligence workspace (property identity, search performance, topic clusters, search ownership, discoverability funnel, indexing reconciliation, Findings → Outcomes) while GSC continues to supply organic Evidence to Website, Google Ads, GBP, and GA4 analysis.
+- **Karar:**
+  1. Preserve ADR-042 ontology split: Asset / Relationship / Connection / Capability.
+  2. **Google Search Console is a first-class Digital Asset type** in the product/Demo registry. Canonical type key remains **`gsc`** (UI: Google Search Console). Do not introduce parallel keys for the same concept.
+  3. Relationship example: GSC *observes organic search performance for* Website. Evidence may be consumed by Website Content Intelligence, paid/organic review, GBP local opportunity analysis, and Brand demand intelligence — without making GSC a child of Website.
+  4. Technical Connection (Google Integration / OAuth → Search Console property) remains separate from the observes relationship.
+  5. **Capability truth:** Demo/product IA treats GSC as first-class. **Existing real Website-scoped Search Console collectors are not rewritten by this decision.** No duplicate GSC data stores. No Search Console writes, Indexing API generic submission, SERP scraping, or live rank-tracking expansion in this decision.
+  6. Product truth: no fake SEO scores; missing ≠ zero; observed queries ≠ all keywords; average position ≠ GBP local rank; no query→conversion false attribution from aggregates.
+  7. Visual identity reuses `DigitalAssetVisualCatalog` (local `gsc` mark).
+- **İlgili:** ADR-017, ADR-018, ADR-039, ADR-042; `MASTER_SPEC.md` §4; `docs/product/DIGITAL_ASSET.md`; `docs/product/website/SEARCH_CONSOLE.md`; Demo Search Console Organic Demand workspace
+
+---
+
 ## Karar indeksi
 
 | ID | Başlık | Durum |
@@ -388,6 +405,7 @@
 | ADR-040 | Integration provider vs authorization credentials | Accepted |
 | ADR-041 | OpenAI agency Integration credentials | Accepted |
 | ADR-042 | GA4 first-class Digital Asset + Evidence role | Accepted |
+| ADR-043 | GSC first-class Digital Asset + Evidence role | Accepted |
 
 ## Süpercede edilen kararlar
 
