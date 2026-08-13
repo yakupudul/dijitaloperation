@@ -122,7 +122,7 @@ class GoogleApiClient
         }
 
         if ($response->status() === 401) {
-            $refreshed = $this->oauth->refreshAccessToken($integration);
+            $refreshed = $this->oauth->refreshAccessToken($integration, force: true);
             if ($refreshed !== null) {
                 $pending = Http::withToken($refreshed)->withHeaders($headers)->timeout(30)->acceptJson();
                 $response = $method === 'post'
@@ -162,7 +162,7 @@ class GoogleApiClient
         }
 
         if ($response->status() === 401) {
-            $refreshed = $this->oauth->refreshAccessToken($integration);
+            $refreshed = $this->oauth->refreshAccessToken($integration, force: true);
             if ($refreshed !== null) {
                 $pending = Http::withToken($refreshed)->timeout(45)->acceptJson();
                 $response = $method === 'post'

@@ -285,10 +285,15 @@ class GoogleOAuthService
         return $refreshed;
     }
 
-    public function refreshAccessToken(CoreIntegration $integration): ?string
+    /**
+     * @param  bool  $force  When true (e.g. provider returned 401), always exchange even if
+     *                       local expiry metadata still looks valid. Concurrent workers that
+     *                       already rotated the token are still coalesced via lock + reload.
+     */
+    public function refreshAccessToken(CoreIntegration $integration, bool $force = false): ?string
     {
         try {
-            return DB::transaction(function () use ($integration): ?string {
+            return DB::transaction(function () use ($integration, $force): ?string {
                 /** @var CoreIntegrationCredential|null $credential */
                 $credential = CoreIntegrationCredential::query()
                     ->where('integration_id', $integration->id)
@@ -308,9 +313,23 @@ class GoogleOAuthService
                     return null;
                 }
 
+                // Non-forced path: another worker may have already refreshed under the lock.
                 $skew = (int) config('moxdop.google.access_token_refresh_skew_seconds', 60);
                 if (
-                    filled($payload['access_token'] ?? null)
+                    ! $force
+                    && filled($payload['access_token'] ?? null)
+                    && $credential->expires_at !== null
+                    && $credential->expires_at->gt(now()->addSeconds(max(0, $skew)))
+                ) {
+                    return (string) $payload['access_token'];
+                }
+
+                // Forced path: if refreshed_at is very recent, reuse to avoid stampede after 401.
+                if (
+                    $force
+                    && filled($payload['access_token'] ?? null)
+                    && $credential->refreshed_at !== null
+                    && $credential->refreshed_at->gt(now()->subSeconds(5))
                     && $credential->expires_at !== null
                     && $credential->expires_at->gt(now()->addSeconds(max(0, $skew)))
                 ) {
