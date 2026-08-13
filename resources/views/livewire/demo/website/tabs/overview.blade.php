@@ -162,4 +162,6 @@
         <p class="mt-1 text-xs text-gray-500">{{ implode(' · ', $data['ai_guidance']['evidence']) }}</p>
         <p class="mt-3 text-xs text-gray-400">{{ $data['ai_guidance']['disclaimer'] }}</p>
     </section>
+
+    @include('livewire.demo.partials._opportunity-card', ['opportunity' => collect(\App\Support\Demo\OpportunityFixtures::forAssetType('website'))->first()])
 </div>

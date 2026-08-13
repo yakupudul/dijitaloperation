@@ -59,7 +59,6 @@ class SearchConsolePage extends Component
         'demand',
         'pages',
         'indexing',
-        'relationships',
         'operations',
     ];
 
@@ -67,6 +66,7 @@ class SearchConsolePage extends Component
      * @var array<string, string>
      */
     private const LEGACY_TAB_MAP = [
+        'relationships' => 'overview',
         'queries' => 'demand',
         'countries' => 'performance',
         'devices' => 'performance',

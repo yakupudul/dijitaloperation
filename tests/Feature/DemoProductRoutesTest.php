@@ -236,13 +236,15 @@ class DemoProductRoutesTest extends TestCase
             ->assertSee('Queries & Demand')
             ->assertSee('Relationships');
         $this->get(route('demo.domain'))
-            ->assertOk()
-            ->assertSee('Domain')
-            ->assertSee('atlasdental.example');
+            ->assertRedirect(route('demo.website', [
+                'assetId' => DemoCatalog::WEBSITE_ASSET_ID,
+                'tab' => 'infrastructure',
+            ]));
         $this->get(route('demo.hosting'))
-            ->assertOk()
-            ->assertSee('Hosting')
-            ->assertSee('DemoHost');
+            ->assertRedirect(route('demo.website', [
+                'assetId' => DemoCatalog::WEBSITE_ASSET_ID,
+                'tab' => 'infrastructure',
+            ]));
     }
 
     public function test_meta_campaign_filters_and_google_search_term_filter_work(): void

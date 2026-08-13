@@ -208,3 +208,5 @@
         <button type="button" wire:click="setTab('{{ $selectedAttention['tab'] }}')" class="rounded-lg px-3 py-2 text-xs font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">Go to workspace</button>
     </x-demo.gads-drawer>
 @endif
+
+@include('livewire.demo.partials._opportunity-card', ['opportunity' => collect(\App\Support\Demo\OpportunityFixtures::forAssetType('google_ads'))->first()])

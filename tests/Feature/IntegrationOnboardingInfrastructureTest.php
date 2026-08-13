@@ -228,12 +228,16 @@ class IntegrationOnboardingInfrastructureTest extends TestCase
             ->assertSee('not standalone assets');
 
         $this->get(route('demo.domain'))
-            ->assertOk()
-            ->assertSee('Legacy Domain workspace');
+            ->assertRedirect(route('demo.website', [
+                'assetId' => DemoCatalog::WEBSITE_ASSET_ID,
+                'tab' => 'infrastructure',
+            ]));
 
         $this->get(route('demo.hosting'))
-            ->assertOk()
-            ->assertSee('Legacy Hosting workspace');
+            ->assertRedirect(route('demo.website', [
+                'assetId' => DemoCatalog::WEBSITE_ASSET_ID,
+                'tab' => 'infrastructure',
+            ]));
     }
 
     public function test_connector_fixtures_are_deterministic(): void

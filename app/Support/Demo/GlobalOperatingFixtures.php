@@ -651,6 +651,9 @@ final class GlobalOperatingFixtures
      */
     public static function activityTimeline(): array
     {
+        $brandId = DemoCatalog::BRAND_ID;
+        $customerId = DemoCatalog::CUSTOMER_ID;
+
         return [
             [
                 'id' => 'act-ga4-collect',
@@ -663,6 +666,8 @@ final class GlobalOperatingFixtures
                 'actor_kind' => 'system',
                 'status' => 'success',
                 'asset_type' => 'ga4',
+                'brand_id' => $brandId,
+                'customer_id' => $customerId,
                 'route' => 'demo.analytics',
             ],
             [
@@ -676,6 +681,8 @@ final class GlobalOperatingFixtures
                 'actor_kind' => 'human',
                 'status' => 'success',
                 'asset_type' => 'website',
+                'brand_id' => $brandId,
+                'customer_id' => $customerId,
                 'route' => 'demo.recommendations',
             ],
             [
@@ -689,6 +696,8 @@ final class GlobalOperatingFixtures
                 'actor_kind' => 'human',
                 'status' => 'success',
                 'asset_type' => 'google_ads',
+                'brand_id' => $brandId,
+                'customer_id' => $customerId,
                 'route' => 'demo.findings',
             ],
             [
@@ -702,6 +711,8 @@ final class GlobalOperatingFixtures
                 'actor_kind' => 'system',
                 'status' => 'running',
                 'asset_type' => 'meta_ads',
+                'brand_id' => $brandId,
+                'customer_id' => $customerId,
                 'route' => 'demo.integrations.meta',
             ],
             [
@@ -715,6 +726,8 @@ final class GlobalOperatingFixtures
                 'actor_kind' => 'human',
                 'status' => 'success',
                 'asset_type' => 'gbp',
+                'brand_id' => $brandId,
+                'customer_id' => $customerId,
                 'route' => 'demo.tasks',
             ],
             [
@@ -728,6 +741,8 @@ final class GlobalOperatingFixtures
                 'actor_kind' => 'human',
                 'status' => 'success',
                 'asset_type' => 'ga4',
+                'brand_id' => $brandId,
+                'customer_id' => $customerId,
                 'route' => 'demo.integrations.google',
             ],
             [
@@ -741,6 +756,8 @@ final class GlobalOperatingFixtures
                 'actor_kind' => 'system',
                 'status' => 'success',
                 'asset_type' => 'gsc',
+                'brand_id' => $brandId,
+                'customer_id' => $customerId,
                 'route' => 'demo.search-console',
             ],
             [
@@ -754,7 +771,10 @@ final class GlobalOperatingFixtures
                 'actor_kind' => 'system',
                 'status' => 'failed',
                 'asset_type' => 'hosting',
-                'route' => 'demo.hosting',
+                'brand_id' => $brandId,
+                'customer_id' => $customerId,
+                'route' => 'demo.website',
+                'route_params' => ['tab' => 'infrastructure'],
             ],
         ];
     }
@@ -765,14 +785,12 @@ final class GlobalOperatingFixtures
     public static function settingsSections(): array
     {
         return [
-            ['id' => 'general', 'label' => 'General', 'description' => 'Agency identity, locale, timezone, display defaults.'],
-            ['id' => 'team', 'label' => 'Team & Access', 'description' => 'Users, roles, Brand and Digital Asset responsibility.'],
-            ['id' => 'notifications', 'label' => 'Notifications', 'description' => 'In-app preferences for meaningful operational events.'],
-            ['id' => 'operations', 'label' => 'Operations', 'description' => 'Task due defaults, outcome review window, dashboard mode.'],
-            ['id' => 'ai', 'label' => 'AI & Intelligence', 'description' => 'Provider availability and guidance preferences — not autonomous actions.'],
-            ['id' => 'files', 'label' => 'Files & Storage', 'description' => 'Upload limits, storage disk, connector-package storage.'],
-            ['id' => 'privacy', 'label' => 'Data & Privacy', 'description' => 'Retention context and export/purge information.'],
-            ['id' => 'advanced', 'label' => 'Advanced', 'description' => 'Environment info, diagnostics, Demo Mode controls.'],
+            ['id' => 'general', 'label' => __('operator.settings_ia.general'), 'description' => 'Agency identity, locale, timezone, display defaults.'],
+            ['id' => 'team', 'label' => __('operator.settings_ia.team'), 'description' => 'Users, roles, Brand and Digital Asset responsibility.'],
+            ['id' => 'notifications', 'label' => __('operator.settings_ia.notifications'), 'description' => 'In-app preferences for meaningful operational events.'],
+            ['id' => 'operations', 'label' => __('operator.settings_ia.operations'), 'description' => 'Task due defaults, outcome review window, dashboard mode.'],
+            ['id' => 'ai', 'label' => __('operator.settings_ia.ai'), 'description' => 'Provider availability and guidance preferences — not autonomous actions.'],
+            ['id' => 'advanced', 'label' => __('operator.settings_ia.advanced'), 'description' => 'Environment info, diagnostics, files, privacy, and Demo Mode controls.'],
         ];
     }
 

@@ -33,9 +33,10 @@ final class DemoMenu
             [
                 'label' => __('operator.nav.groups.operations'),
                 'items' => [
+                    ['label' => __('operator.nav.opportunities'), 'route' => 'demo.opportunities', 'icon' => 'recommendations'],
                     ['label' => __('operator.nav.findings'), 'route' => 'demo.findings', 'icon' => 'findings'],
                     ['label' => __('operator.nav.recommendations'), 'route' => 'demo.recommendations', 'icon' => 'recommendations'],
-                    ['label' => __('operator.nav.tasks'), 'route' => 'demo.tasks', 'icon' => 'tasks'],
+                    ['label' => __('operator.nav.work'), 'route' => 'demo.tasks', 'icon' => 'tasks'],
                     ['label' => __('operator.nav.activity'), 'route' => 'demo.activity', 'icon' => 'activity'],
                 ],
             ],

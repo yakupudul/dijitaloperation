@@ -1,14 +1,13 @@
 @php
     $navTabs = [
-        ['key' => 'overview', 'label' => 'Overview', 'wire' => true],
-        ['key' => 'health', 'label' => 'Health', 'wire' => true],
-        ['key' => 'visibility', 'label' => 'Visibility', 'wire' => true],
-        ['key' => 'content', 'label' => 'Content', 'wire' => true],
-        ['key' => 'performance', 'label' => 'Performance', 'wire' => true],
-        ['key' => 'infrastructure', 'label' => 'Infrastructure', 'wire' => true],
-        ['key' => 'connections', 'label' => 'Connections', 'wire' => true],
-        ['key' => 'activity', 'label' => 'Activity', 'wire' => true],
-        ['key' => 'settings', 'label' => 'Settings', 'wire' => true],
+        ['key' => 'overview', 'label' => __('operator.website.tabs.overview'), 'wire' => true],
+        ['key' => 'health', 'label' => __('operator.website.tabs.health'), 'wire' => true],
+        ['key' => 'visibility', 'label' => __('operator.website.tabs.visibility'), 'wire' => true],
+        ['key' => 'content', 'label' => __('operator.website.tabs.content'), 'wire' => true],
+        ['key' => 'performance', 'label' => __('operator.website.tabs.performance'), 'wire' => true],
+        ['key' => 'infrastructure', 'label' => __('operator.website.tabs.infrastructure'), 'wire' => true],
+        ['key' => 'operations', 'label' => __('operator.website.tabs.operations'), 'wire' => true],
+        ['key' => 'setup', 'label' => __('operator.website.tabs.setup'), 'wire' => true],
     ];
 @endphp
 
@@ -66,11 +65,9 @@
         @include('livewire.demo.website.tabs.performance')
     @elseif ($tab === 'infrastructure')
         @include('livewire.demo.website.tabs.infrastructure')
-    @elseif ($tab === 'connections')
-        @include('livewire.demo.website.tabs.connections')
-    @elseif ($tab === 'activity')
-        @include('livewire.demo.website.tabs.activity')
-    @elseif ($tab === 'settings')
-        @include('livewire.demo.website.tabs.settings')
+    @elseif ($tab === 'operations')
+        @include('livewire.demo.website.tabs.operations')
+    @elseif ($tab === 'setup')
+        @include('livewire.demo.website.tabs.setup')
     @endif
 </div>

@@ -2,18 +2,29 @@
 
 namespace App\Livewire\Demo\Operations;
 
+use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
 use App\Support\Demo\GlobalOperatingFixtures;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 
 #[Layout('operator.layouts.app')]
 #[Title('Activity')]
 class ActivityIndex extends Component
 {
+    #[Url(as: 'brand', history: true)]
+    public string $brand = '';
+
+    #[Url(as: 'customer', history: true)]
+    public string $customer = '';
+
+    #[Url(as: 'asset', history: true)]
+    public string $asset = '';
+
     public string $actor = 'all';
 
     public string $status = 'all';
@@ -62,6 +73,32 @@ class ActivityIndex extends Component
 
         if ($this->status !== 'all') {
             $timeline = $timeline->where('status', $this->status);
+        }
+
+        if (trim($this->brand) !== '') {
+            $brandId = trim($this->brand);
+            $brandName = mb_strtolower((string) (DemoCatalog::brand()['name'] ?? ''));
+            $timeline = $timeline->filter(function (array $event) use ($brandId, $brandName): bool {
+                return ($event['brand_id'] ?? null) === $brandId
+                    || str_contains(mb_strtolower((string) ($event['scope'] ?? '')), $brandName);
+            });
+        }
+
+        if (trim($this->customer) !== '') {
+            $customerId = trim($this->customer);
+            $customerName = mb_strtolower((string) (DemoCatalog::customer()['name'] ?? ''));
+            $timeline = $timeline->filter(function (array $event) use ($customerId, $customerName): bool {
+                return ($event['customer_id'] ?? null) === $customerId
+                    || str_contains(mb_strtolower((string) ($event['scope'] ?? '')), $customerName);
+            });
+        }
+
+        if (trim($this->asset) !== '') {
+            $asset = trim($this->asset);
+            $timeline = $timeline->filter(function (array $event) use ($asset): bool {
+                return ($event['asset_id'] ?? null) === $asset
+                    || ($event['digital_asset_id'] ?? null) === $asset;
+            });
         }
 
         $maxAgeDays = match ($this->period) {

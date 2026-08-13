@@ -65,9 +65,9 @@ final class WebsiteWorkspaceFixtures
     public static function sourceFreshness(): array
     {
         return [
-            ['source' => 'WordPress', 'state' => 'current', 'label' => 'Updated 4h ago', 'tab' => 'connections'],
-            ['source' => 'Search Console', 'state' => 'current', 'label' => 'Updated 2h ago', 'tab' => 'connections'],
-            ['source' => 'GA4', 'state' => 'current', 'label' => 'Updated 2h ago', 'tab' => 'connections'],
+            ['source' => 'WordPress', 'state' => 'current', 'label' => 'Updated 4h ago', 'tab' => 'setup'],
+            ['source' => 'Search Console', 'state' => 'current', 'label' => 'Updated 2h ago', 'tab' => 'setup'],
+            ['source' => 'GA4', 'state' => 'current', 'label' => 'Updated 2h ago', 'tab' => 'setup'],
             ['source' => 'Diagnosis', 'state' => 'stale', 'label' => '1 day ago', 'tab' => 'health'],
             ['source' => 'SEO Intelligence', 'state' => 'stale', 'label' => '4 days ago', 'tab' => 'visibility'],
         ];
@@ -278,7 +278,7 @@ final class WebsiteWorkspaceFixtures
             'gaps' => [
                 'WhatsApp click CTAs detected on 23 pages, but WhatsApp business action is not mapped in MoxDOP.',
             ],
-            'configure_tab' => 'settings',
+            'configure_tab' => 'setup',
         ];
     }
 

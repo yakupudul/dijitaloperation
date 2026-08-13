@@ -25,7 +25,7 @@ final class DemoState
         }
 
         $defaults = self::defaults();
-        foreach (['contacts', 'customer_activity', 'demo_assets', 'discovery_candidates', 'discovery_history', 'discovery_conflict_resolutions', 'connector_bindings', 'wizard_state', 'finding_statuses', 'settings_overrides', 'brand_business_context', 'activity_events'] as $key) {
+        foreach (['contacts', 'customer_activity', 'demo_assets', 'discovery_candidates', 'discovery_history', 'discovery_conflict_resolutions', 'connector_bindings', 'wizard_state', 'finding_statuses', 'settings_overrides', 'brand_business_context', 'activity_events', 'opportunity_statuses', 'business_outcome_overrides'] as $key) {
             if (! array_key_exists($key, $state)) {
                 $state[$key] = $defaults[$key] ?? [];
             }
@@ -75,6 +75,8 @@ final class DemoState
             'settings_overrides' => [],
             'brand_business_context' => [],
             'activity_events' => [],
+            'opportunity_statuses' => [],
+            'business_outcome_overrides' => [],
             'ai_brief_visible' => false,
             'period_preset' => 'last_28',
             'period_start' => null,
@@ -908,5 +910,202 @@ final class DemoState
             'period_end' => $end,
             'compare' => $compare,
         ]);
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public static function opportunitiesWithStatus(): array
+    {
+        $statuses = self::all()['opportunity_statuses'] ?? [];
+        if (! is_array($statuses)) {
+            $statuses = [];
+        }
+
+        $recommendations = collect(self::all()['recommendations'] ?? []);
+
+        return array_map(function (array $opportunity) use ($statuses, $recommendations): array {
+            $id = (string) ($opportunity['id'] ?? '');
+            if ($id !== '' && isset($statuses[$id]) && is_string($statuses[$id])) {
+                $opportunity['status'] = $statuses[$id];
+            }
+
+            $recId = $opportunity['recommendation_id'] ?? null;
+            if (is_string($recId) && $recId !== '') {
+                $rec = $recommendations->firstWhere('id', $recId);
+                if (is_array($rec)) {
+                    $opportunity['recommendation_title'] = $rec['title'] ?? null;
+                }
+            }
+
+            return $opportunity;
+        }, OpportunityFixtures::all());
+    }
+
+    public static function setOpportunityStatus(string $id, string $status): void
+    {
+        $allowed = ['open', 'reviewing', 'deferred', 'converted', 'dismissed'];
+        if (! in_array($status, $allowed, true)) {
+            return;
+        }
+
+        $state = self::all();
+        $statuses = is_array($state['opportunity_statuses'] ?? null) ? $state['opportunity_statuses'] : [];
+        $statuses[$id] = $status;
+        $state['opportunity_statuses'] = $statuses;
+        session()->put(self::SESSION_KEY, $state);
+
+        $opportunity = OpportunityFixtures::find($id);
+        $title = is_array($opportunity) ? (string) ($opportunity['title'] ?? $id) : $id;
+
+        $label = match ($status) {
+            'reviewing' => 'Opportunity marked for review',
+            'deferred' => 'Opportunity deferred',
+            'converted' => 'Opportunity converted to recommendation',
+            'dismissed' => 'Opportunity dismissed',
+            default => 'Opportunity reopened',
+        };
+
+        self::recordActivityEvent([
+            'title' => $label,
+            'scope' => 'Operations · Opportunities',
+            'detail' => $title,
+            'actor' => 'Demo Operator',
+            'actor_kind' => 'human',
+            'status' => 'success',
+            'asset_type' => null,
+            'route' => 'demo.opportunities',
+        ]);
+        self::flash($label.' (Demo Mode).');
+    }
+
+    public static function createRecommendationFromOpportunity(string $id): void
+    {
+        $opportunity = OpportunityFixtures::find($id);
+        if ($opportunity === null) {
+            return;
+        }
+
+        $recId = 'r-from-'.$id;
+        $state = self::all();
+        $existing = collect($state['recommendations'] ?? [])->firstWhere('id', $recId);
+
+        if ($existing === null) {
+            $state['recommendations'][] = [
+                'id' => $recId,
+                'finding_id' => null,
+                'source_opportunity_id' => $id,
+                'goal_id' => $opportunity['goal_id'] ?? null,
+                'goal_title' => $opportunity['goal_title'] ?? null,
+                'service_code' => $opportunity['service_code'] ?? null,
+                'service_label' => $opportunity['service_label'] ?? null,
+                'title' => 'Address: '.($opportunity['title'] ?? 'Opportunity'),
+                'observation' => $opportunity['what'] ?? '',
+                'why' => $opportunity['why'] ?? '',
+                'evidence' => collect($opportunity['evidence'] ?? [])
+                    ->map(fn (array $row): string => ($row['source'] ?? '').': '.($row['summary'] ?? ''))
+                    ->implode(' · '),
+                'action' => $opportunity['what'] ?? '',
+                'dependencies' => 'Confirm scope with service owner.',
+                'success' => $opportunity['goal_title'] ?? 'Goal progress observable in next review window.',
+                'failure' => 'No measurable movement within 14 days.',
+                'watch' => [],
+                'effort' => 'Medium',
+                'verification_plan' => 'Review evidence sources after implementation.',
+                'provenance' => 'From Opportunity',
+                'ai_assisted' => (bool) ($opportunity['ai_assisted'] ?? false),
+                'status' => 'pending',
+                'brand' => $opportunity['brand_name'] ?? DemoCatalog::brand()['name'],
+                'asset' => collect($opportunity['asset_types'] ?? [])->first() ?? 'Cross-channel',
+                'asset_type' => collect($opportunity['asset_types'] ?? [])->first(),
+                'priority' => ($opportunity['goal_id'] ?? '') === 'goal-primary' ? 'high' : 'medium',
+                'customer_id' => $opportunity['customer_id'] ?? DemoCatalog::CUSTOMER_ID,
+            ];
+        }
+
+        $statuses = is_array($state['opportunity_statuses'] ?? null) ? $state['opportunity_statuses'] : [];
+        $statuses[$id] = 'converted';
+        $state['opportunity_statuses'] = $statuses;
+        session()->put(self::SESSION_KEY, $state);
+
+        self::recordActivityEvent([
+            'title' => 'Recommendation created from opportunity',
+            'scope' => ($opportunity['brand_name'] ?? 'Brand').' · Opportunities',
+            'detail' => $opportunity['title'] ?? $id,
+            'actor' => 'Demo Operator',
+            'actor_kind' => 'human',
+            'status' => 'success',
+            'asset_type' => collect($opportunity['asset_types'] ?? [])->first(),
+            'route' => 'demo.recommendations',
+        ]);
+        self::flash('Recommendation created from opportunity (Demo Mode).');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function businessOutcomes(string $period): array
+    {
+        $summary = BusinessOutcomeFixtures::summary($period);
+        $overrides = self::all()['business_outcome_overrides'] ?? [];
+        if (! is_array($overrides)) {
+            $overrides = [];
+        }
+
+        $brandOverrides = is_array($overrides[DemoCatalog::BRAND_ID] ?? null) ? $overrides[DemoCatalog::BRAND_ID] : [];
+
+        foreach (['platform_leads', 'qualified_leads', 'consultations', 'patients', 'revenue', 'note'] as $key) {
+            if (array_key_exists($key, $brandOverrides)) {
+                $summary[$key] = $brandOverrides[$key];
+            }
+        }
+
+        if (($summary['revenue'] ?? null) === null) {
+            $summary['revenue_display'] = __('operator.outcomes.not_available');
+        }
+
+        $platformLeads = (int) ($summary['platform_leads'] ?? 0);
+        $qualifiedLeads = (int) ($summary['qualified_leads'] ?? 0);
+        if ($platformLeads > 0) {
+            $summary['qualified_rate'] = sprintf(
+                '%d / %d (%.1f%%)',
+                $qualifiedLeads,
+                $platformLeads,
+                round(($qualifiedLeads / $platformLeads) * 100, 1)
+            );
+        }
+
+        return $summary;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    public static function updateBusinessOutcomes(array $payload): void
+    {
+        $state = self::all();
+        $overrides = is_array($state['business_outcome_overrides'] ?? null) ? $state['business_outcome_overrides'] : [];
+
+        $brandId = DemoCatalog::BRAND_ID;
+        $current = is_array($overrides[$brandId] ?? null) ? $overrides[$brandId] : [];
+
+        foreach (['platform_leads', 'qualified_leads', 'consultations', 'patients'] as $intKey) {
+            if (array_key_exists($intKey, $payload)) {
+                $current[$intKey] = (int) $payload[$intKey];
+            }
+        }
+
+        if (array_key_exists('revenue', $payload)) {
+            $current['revenue'] = $payload['revenue'];
+        }
+
+        if (array_key_exists('note', $payload) && is_string($payload['note'])) {
+            $current['note'] = trim($payload['note']) !== '' ? trim($payload['note']) : null;
+        }
+
+        $overrides[$brandId] = $current;
+        $state['business_outcome_overrides'] = $overrides;
+        session()->put(self::SESSION_KEY, $state);
+        self::flash('Business outcomes updated (Demo Mode).');
     }
 }

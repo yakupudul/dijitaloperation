@@ -23,7 +23,17 @@ class OverviewPage extends Component
     /**
      * @var list<string>
      */
-    private const TABS = ['overview', 'profile', 'relationships', 'findings', 'activity', 'settings'];
+    private const TABS = ['overview', 'profile', 'operations', 'setup'];
+
+    /**
+     * @var array<string, string>
+     */
+    private const LEGACY_TAB_MAP = [
+        'relationships' => 'overview',
+        'findings' => 'operations',
+        'activity' => 'operations',
+        'settings' => 'setup',
+    ];
 
     public function mount(?string $assetId = null): void
     {
@@ -31,20 +41,29 @@ class OverviewPage extends Component
             $this->assetId = $assetId;
         }
 
+        $this->normalizeTab();
+    }
+
+    public function setTab(string $tab): void
+    {
+        $this->tab = $tab;
+        $this->normalizeTab();
+    }
+
+    private function normalizeTab(): void
+    {
+        if (isset(self::LEGACY_TAB_MAP[$this->tab])) {
+            $this->tab = self::LEGACY_TAB_MAP[$this->tab];
+        }
+
         if (! in_array($this->tab, self::TABS, true)) {
             $this->tab = 'overview';
         }
     }
 
-    public function setTab(string $tab): void
-    {
-        if (in_array($tab, self::TABS, true)) {
-            $this->tab = $tab;
-        }
-    }
-
     public function render(): View
     {
+        $this->normalizeTab();
         $workspace = InstagramWorkspaceFixtures::workspace($this->assetId);
 
         return view('livewire.demo.instagram.overview', [

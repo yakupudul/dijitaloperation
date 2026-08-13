@@ -27,12 +27,10 @@ final class InstagramWorkspaceFixtures
             'activity' => self::activity(),
             'settings' => self::settings(),
             'tabs' => [
-                'overview' => 'Overview',
-                'profile' => 'Profile',
-                'relationships' => 'Relationships',
-                'findings' => 'Findings',
-                'activity' => 'Activity',
-                'settings' => 'Settings',
+                'overview',
+                'profile',
+                'operations',
+                'setup',
             ],
         ];
     }

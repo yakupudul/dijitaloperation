@@ -4,6 +4,7 @@ namespace App\Livewire\Demo;
 
 use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
+use App\Support\Demo\OpportunityFixtures;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -41,6 +42,11 @@ class Dashboard extends Component
     {
         return view('livewire.demo.dashboard', [
             'dashboard' => DemoCatalog::dashboard($this->mode),
+            'growthOpportunities' => collect(OpportunityFixtures::sortByBusinessRelevance(DemoState::opportunitiesWithStatus()))
+                ->whereIn('status', ['open', 'reviewing'])
+                ->take(3)
+                ->values()
+                ->all(),
             'flash' => DemoState::pullFlash(),
         ]);
     }

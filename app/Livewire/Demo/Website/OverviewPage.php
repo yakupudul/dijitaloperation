@@ -49,6 +49,12 @@ class OverviewPage extends Component
     public string $activity_filter = 'all';
 
     #[Url]
+    public string $ops = 'findings';
+
+    #[Url]
+    public string $setup_section = 'connection';
+
+    #[Url]
     public ?string $finding = null;
 
     #[Url]
@@ -64,9 +70,8 @@ class OverviewPage extends Component
         'content',
         'performance',
         'infrastructure',
-        'connections',
-        'activity',
-        'settings',
+        'operations',
+        'setup',
     ];
 
     /**
@@ -77,10 +82,13 @@ class OverviewPage extends Component
         'search' => 'visibility',
         'pages' => 'performance',
         'conversions' => 'performance',
-        'lifecycle' => 'settings',
+        'lifecycle' => 'setup',
         'insights' => 'overview',
         'domain' => 'infrastructure',
         'hosting' => 'infrastructure',
+        'connections' => 'setup',
+        'settings' => 'setup',
+        'activity' => 'operations',
     ];
 
     /**
@@ -152,7 +160,22 @@ class OverviewPage extends Component
         $allowed = ['all', 'collection', 'diagnosis', 'seo', 'discovery', 'ai', 'operator', 'failure'];
         if (in_array($filter, $allowed, true)) {
             $this->activity_filter = $filter;
-            $this->tab = 'activity';
+        }
+    }
+
+    public function setOps(string $ops): void
+    {
+        if (in_array($ops, ['findings', 'recommendations', 'tasks', 'outcomes'], true)) {
+            $this->ops = $ops;
+            $this->tab = 'operations';
+        }
+    }
+
+    public function setSetupSection(string $section): void
+    {
+        if (in_array($section, ['connection', 'configuration'], true)) {
+            $this->setup_section = $section;
+            $this->tab = 'setup';
         }
     }
 
@@ -210,10 +233,27 @@ class OverviewPage extends Component
             if ($legacy === 'search') {
                 $this->vis_lens = 'organic';
             }
+            if ($legacy === 'settings') {
+                $this->setup_section = 'configuration';
+            }
+            if ($legacy === 'connections') {
+                $this->setup_section = 'connection';
+            }
+            if ($legacy === 'activity') {
+                $this->ops = 'findings';
+            }
         }
 
         if (! in_array($this->tab, $this->allowedTabs, true)) {
             $this->tab = 'overview';
+        }
+
+        if (! in_array($this->ops, ['findings', 'recommendations', 'tasks', 'outcomes'], true)) {
+            $this->ops = 'findings';
+        }
+
+        if (! in_array($this->setup_section, ['connection', 'configuration'], true)) {
+            $this->setup_section = 'connection';
         }
     }
 
@@ -261,6 +301,26 @@ class OverviewPage extends Component
 
         $asset = DemoCatalog::asset($this->assetId) ?? DemoCatalog::asset(DemoCatalog::WEBSITE_ASSET_ID);
 
+        $websiteId = DemoCatalog::WEBSITE_ASSET_ID;
+        $opsFindings = collect($data['health']['findings'] ?? [])->values()->all();
+        $opsRecommendations = collect(DemoState::all()['recommendations'] ?? DemoCatalog::recommendationsSeed())
+            ->filter(function (array $row) use ($websiteId): bool {
+                $hay = mb_strtolower(($row['asset'] ?? '').' '.($row['title'] ?? '').' '.($row['scope'] ?? ''));
+
+                return str_contains($hay, 'website') || str_contains($hay, 'atlasdental') || ($row['asset_id'] ?? null) === $websiteId;
+            })
+            ->values()
+            ->all();
+        $opsTasks = collect(DemoState::all()['tasks'] ?? DemoCatalog::tasksSeed())
+            ->filter(function (array $row) use ($websiteId): bool {
+                $hay = mb_strtolower(($row['asset'] ?? '').' '.($row['title'] ?? '').' '.($row['scope'] ?? ''));
+
+                return str_contains($hay, 'website') || str_contains($hay, 'atlasdental') || ($row['asset_id'] ?? null) === $websiteId;
+            })
+            ->values()
+            ->all();
+        $opsOutcomes = collect($data['recent_outcomes'] ?? [])->values()->all();
+
         return view('livewire.demo.website.overview', [
             'asset' => $asset,
             'data' => $data,
@@ -270,6 +330,10 @@ class OverviewPage extends Component
             'contentDirectory' => $directory->values()->all(),
             'selectedPage' => $selectedPage,
             'activityRows' => $activity->values()->all(),
+            'opsFindings' => $opsFindings,
+            'opsRecommendations' => $opsRecommendations,
+            'opsTasks' => $opsTasks,
+            'opsOutcomes' => $opsOutcomes,
             'infrastructure' => ConnectorWorkspaceFixtures::websiteInfrastructure(),
             'showPeriodBar' => in_array($this->tab, $this->timeBasedTabs, true),
             'flash' => DemoState::pullFlash(),

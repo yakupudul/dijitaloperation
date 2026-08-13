@@ -53,7 +53,6 @@ class AnalyticsPage extends Component
         'acquisition',
         'behavior',
         'journeys',
-        'relationships',
         'operations',
     ];
 
@@ -61,6 +60,7 @@ class AnalyticsPage extends Component
      * @var array<string, string>
      */
     private const LEGACY_TAB_MAP = [
+        'relationships' => 'overview',
         'landing_pages' => 'behavior',
         'engagement' => 'behavior',
         'key_events' => 'measurement',

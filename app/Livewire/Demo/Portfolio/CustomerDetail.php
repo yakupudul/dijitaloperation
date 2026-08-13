@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Demo\Portfolio;
 
+use App\Support\Demo\CommercialContextFixtures;
 use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
 use App\Support\Options\AgencyServiceOptions;
@@ -44,15 +45,28 @@ class CustomerDetail extends Component
     public function mount(string $customerId): void
     {
         $this->customerId = $customerId;
-        if (! in_array($this->tab, ['overview', 'brands', 'contacts', 'files', 'operations', 'activity'], true)) {
-            $this->tab = 'overview';
-        }
+        $this->normalizeTab();
     }
 
     public function setTab(string $tab): void
     {
-        if (in_array($tab, ['overview', 'brands', 'contacts', 'files', 'operations', 'activity'], true)) {
-            $this->tab = $tab;
+        $this->tab = $tab;
+        $this->normalizeTab();
+    }
+
+    private function normalizeTab(): void
+    {
+        $legacy = [
+            'contacts' => 'relationship',
+            'files' => 'overview',
+            'operations' => 'overview',
+            'activity' => 'overview',
+        ];
+        if (isset($legacy[$this->tab])) {
+            $this->tab = $legacy[$this->tab];
+        }
+        if (! in_array($this->tab, ['overview', 'brands', 'relationship'], true)) {
+            $this->tab = 'overview';
         }
     }
 
@@ -128,13 +142,13 @@ class CustomerDetail extends Component
         }
 
         $this->closeContactForm();
-        $this->tab = 'contacts';
+        $this->tab = 'relationship';
     }
 
     public function deleteContact(string $contactId): void
     {
         DemoState::deleteContact($contactId);
-        $this->tab = 'contacts';
+        $this->tab = 'relationship';
     }
 
     public function archiveCustomer(): void
@@ -228,6 +242,7 @@ class CustomerDetail extends Component
             'openTasksCount' => (int) ($customer['open_tasks'] ?? $openTasks->count()),
             'roleOptions' => ContactRoleOptions::options(),
             'team' => $team,
+            'serviceScope' => CommercialContextFixtures::serviceScopeForCustomer((string) ($customer['id'] ?? '')),
             'flash' => DemoState::pullFlash(),
         ]);
     }

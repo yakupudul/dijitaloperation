@@ -304,4 +304,6 @@
             </div>
         </div>
     @endif
+
+    @include('livewire.demo.partials._opportunity-card', ['opportunity' => collect(\App\Support\Demo\OpportunityFixtures::forAssetType('gbp'))->first()])
 </div>

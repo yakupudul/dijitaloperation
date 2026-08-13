@@ -30,8 +30,15 @@ class WebsiteOperatingWorkspaceTest extends TestCase
 
     public function test_website_primary_tabs_render(): void
     {
-        foreach (['overview', 'health', 'visibility', 'content', 'performance', 'connections', 'activity', 'settings'] as $tab) {
+        foreach (['overview', 'health', 'visibility', 'content', 'performance', 'infrastructure', 'operations', 'setup'] as $tab) {
             $this->get(route('demo.website', ['tab' => $tab]))
+                ->assertOk()
+                ->assertSee('Atlas Dental Website');
+        }
+
+        // Legacy destinations remap into Setup / Operations.
+        foreach (['connections', 'settings', 'activity'] as $legacy) {
+            $this->get(route('demo.website', ['tab' => $legacy]))
                 ->assertOk()
                 ->assertSee('Atlas Dental Website');
         }
@@ -131,6 +138,7 @@ class WebsiteOperatingWorkspaceTest extends TestCase
     {
         Livewire::test(OverviewPage::class)
             ->call('setTab', 'connections')
+            ->assertSet('tab', 'setup')
             ->assertSee('Website data sources')
             ->assertSee('WordPress')
             ->assertSee('Google Search Console')

@@ -394,7 +394,6 @@ final class DemoCatalog
                 'provenance' => 'Public + Detected',
                 'health' => 'needs_attention',
                 'health_label' => 'Needs attention',
-                'score' => 72,
                 'open_findings' => 3,
                 'open_tasks' => 1,
                 'last_update' => 'Today',
@@ -539,8 +538,8 @@ final class DemoCatalog
     {
         return match ((string) ($asset['type'] ?? '')) {
             'website' => [
-                'primary_metric' => isset($asset['score']) ? (string) $asset['score'].'/100' : '—',
-                'primary_metric_label' => 'Health score',
+                'primary_metric' => (string) ($asset['open_findings'] ?? 0),
+                'primary_metric_label' => (string) ($asset['health_label'] ?? 'Needs attention'),
             ],
             'gbp' => [
                 'primary_metric' => isset($asset['rating']) ? number_format((float) $asset['rating'], 1).'★' : '—',
@@ -1363,9 +1362,9 @@ final class DemoCatalog
                     'evidence' => 'Manual hosting record',
                     'why' => 'Continuity risk if renewal is missed.',
                     'source' => 'Lifecycle',
-                    'route' => 'demo.hosting',
-                    'route_params' => [],
-                    'action_label' => 'Open hosting',
+                    'route' => 'demo.website',
+                    'route_params' => ['tab' => 'infrastructure'],
+                    'action_label' => 'Open infrastructure',
                 ],
             ],
             'organic_trend' => self::trendSeries('website_organic', (int) round(14 * $f['results_factor']), 180, 420),

@@ -133,6 +133,8 @@ class BrandCommandCenterUxTest extends TestCase
     {
         Livewire::test(BrandShow::class, ['brand' => DemoCatalog::BRAND_ID])
             ->call('setTab', 'discovery')
+            ->assertSet('tab', 'business')
+            ->assertSet('businessSection', 'discovery')
             ->assertSee('Public Discovery')
             ->assertSee('Observed Facts')
             ->assertSee('Candidates')
@@ -140,7 +142,8 @@ class BrandCommandCenterUxTest extends TestCase
             ->assertSee('Sources & History')
             ->assertSee('Observe public Brand identity')
             ->call('runPublicResearch')
-            ->assertSet('tab', 'discovery')
+            ->assertSet('tab', 'business')
+            ->assertSet('businessSection', 'discovery')
             ->assertSee('Observed facts')
             ->assertSee('Awaiting review')
             ->assertSee('Public identity')
@@ -165,13 +168,15 @@ class BrandCommandCenterUxTest extends TestCase
     {
         Livewire::test(BrandShow::class, ['brand' => DemoCatalog::BRAND_ID])
             ->call('setTab', 'ai')
-            ->assertSee('Brand AI')
+            ->assertSet('tab', 'growth')
+            ->assertSee(__('operator.brand.tabs.growth'))
             ->assertSee('Analysis context')
             ->assertSee('Business Context')
             ->assertSee('Available')
             ->assertSee('Not connected')
             ->assertSee('Instagram')
             ->assertSee('Executive summary')
+            ->assertSee(__('operator.opportunities.growth_observations'))
             ->assertSee('Unknowns / limitations')
             ->assertSee('Demo Mode')
             ->assertSee('Create recommendation')
@@ -246,7 +251,8 @@ class BrandCommandCenterUxTest extends TestCase
     public function test_legacy_research_tab_redirects_to_discovery(): void
     {
         Livewire::test(BrandShow::class, ['brand' => DemoCatalog::BRAND_ID, 'tab' => 'research'])
-            ->assertSet('tab', 'discovery')
+            ->assertSet('tab', 'business')
+            ->assertSet('businessSection', 'discovery')
             ->assertSee('Public Discovery');
     }
 }

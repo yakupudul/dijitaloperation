@@ -21,8 +21,8 @@
 
     @include('livewire.demo.partials.workspace-header', [
         'eyebrow' => 'Operations',
-        'title' => 'Tasks',
-        'subtitle' => 'Agency work queue — committed work with owners, due dates, and Outcomes. Completion means work was performed, not that the problem is solved.',
+        'title' => __('operator.work.title'),
+        'subtitle' => __('operator.work.subtitle'),
     ])
 
     <div class="grid grid-cols-2 gap-3 xl:grid-cols-4">

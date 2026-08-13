@@ -29,6 +29,15 @@ class FilesIndex extends Component
     #[Url(as: 'scope', history: true)]
     public string $scope = '';
 
+    #[Url(as: 'brand', history: true)]
+    public string $brand = '';
+
+    #[Url(as: 'customer', history: true)]
+    public string $customer = '';
+
+    #[Url(as: 'asset', history: true)]
+    public string $asset = '';
+
     public mixed $upload = null;
 
     public string $uploadScope = 'personal';
@@ -167,6 +176,18 @@ class FilesIndex extends Component
 
         if ($this->scope !== '' && in_array($this->scope, OperatorFile::SCOPES, true)) {
             $query->where('scope_type', $this->scope);
+        }
+
+        if (trim($this->brand) !== '') {
+            $query->where('brand_id', trim($this->brand));
+        }
+
+        if (trim($this->customer) !== '') {
+            $query->where('customer_id', trim($this->customer));
+        }
+
+        if (trim($this->asset) !== '') {
+            $query->where('digital_asset_id', trim($this->asset));
         }
 
         if (trim($this->search) !== '') {

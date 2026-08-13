@@ -40,6 +40,26 @@
         @endforeach
     </div>
 
+    @if (count($growthOpportunities) > 0)
+        <section class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" aria-labelledby="growth-opportunities-heading">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <h2 id="growth-opportunities-heading" class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('operator.opportunities.growth_section') }}</h2>
+                <a href="{{ route('demo.opportunities') }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">{{ __('operator.opportunities.actions.view_all') }}</a>
+            </div>
+            <ul class="mt-3 space-y-2">
+                @foreach ($growthOpportunities as $opp)
+                    <li class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-gray-50 px-3 py-2 dark:bg-white/[0.03]">
+                        <div class="min-w-0">
+                            <p class="text-sm font-medium text-gray-800 dark:text-white/90">{{ $opp['title'] }}</p>
+                            <p class="text-xs text-gray-500">{{ $opp['brand_name'] }} · {{ $opp['service_label'] }}</p>
+                        </div>
+                        <a href="{{ route('demo.opportunities', ['view' => 'open']) }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline">{{ __('operator.actions.open') }}</a>
+                    </li>
+                @endforeach
+            </ul>
+        </section>
+    @endif
+
     <div class="grid gap-4 xl:grid-cols-5">
         <section class="space-y-3 xl:col-span-3" aria-labelledby="needs-attention-heading">
             <div class="flex items-center justify-between gap-2">

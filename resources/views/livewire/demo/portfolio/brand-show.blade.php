@@ -1,14 +1,11 @@
 @php
     $tabs = [
-        'overview' => 'Overview',
-        'assets' => 'Digital Assets',
-        'cross_channel' => 'Cross-channel',
-        'context' => 'Business Context',
-        'operations' => 'Operations',
-        'discovery' => 'Public Discovery',
-        'ai' => 'Brand AI',
-        'history' => 'Decision History',
-        'files' => 'Files',
+        'overview' => __('operator.brand.tabs.overview'),
+        'business' => __('operator.brand.tabs.business'),
+        'estate' => __('operator.brand.tabs.estate'),
+        'growth' => __('operator.brand.tabs.growth'),
+        'operations' => __('operator.brand.tabs.operations'),
+        'value' => __('operator.brand.tabs.value'),
     ];
     $initial = mb_strtoupper(mb_substr((string) ($brandRow['name'] ?? 'B'), 0, 1));
     $teamLabel = count($responsibleUsers) > 0
@@ -47,8 +44,8 @@
                             <span class="text-xs text-gray-500 dark:text-gray-400">{{ $teamLabel }}</span>
                         </div>
                     @endif
-                    <button type="button" wire:click="setTab('context')" class="text-xs font-medium text-gray-500 underline-offset-2 hover:text-gray-800 hover:underline dark:text-gray-400 dark:hover:text-white/90">
-                        Business context · {{ $businessContext['completed'] }}/{{ $businessContext['total'] }}
+                    <button type="button" wire:click="setBusinessSection('context')" class="text-xs font-medium text-gray-500 underline-offset-2 hover:text-gray-800 hover:underline dark:text-gray-400 dark:hover:text-white/90">
+                        {{ __('operator.brand.business_context_short') }} · {{ $businessContext['completed'] }}/{{ $businessContext['total'] }}
                     </button>
                 </div>
             </div>
@@ -56,10 +53,29 @@
         <div class="shrink-0">
             @include('livewire.demo.partials._brand-show-actions', [
                 'brandId' => $brandRow['id'],
+                'brandName' => $brandRow['name'] ?? '',
                 'customerId' => $customer['id'] ?? null,
             ])
         </div>
     </div>
+
+    @if ($tab === 'business')
+        <div class="-mx-1 overflow-x-auto">
+            <div class="flex min-w-max gap-1 border-b border-gray-200 px-1 pb-px dark:border-gray-800" role="tablist" aria-label="{{ __('operator.brand.business_sections') }}">
+                <button type="button" wire:click="setBusinessSection('context')" @class(['rounded-t-lg px-3 py-2 text-sm font-medium border-b-2', 'border-brand-500 text-brand-600 dark:text-brand-400' => $businessSection === 'context', 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-white/90' => $businessSection !== 'context'])>{{ __('operator.brand.business_context') }}</button>
+                <button type="button" wire:click="setBusinessSection('discovery')" @class(['rounded-t-lg px-3 py-2 text-sm font-medium border-b-2', 'border-brand-500 text-brand-600 dark:text-brand-400' => $businessSection === 'discovery', 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-white/90' => $businessSection !== 'discovery'])>{{ __('operator.brand.public_discovery') }}</button>
+            </div>
+        </div>
+    @endif
+
+    @if ($tab === 'estate')
+        <div class="-mx-1 overflow-x-auto">
+            <div class="flex min-w-max gap-1 border-b border-gray-200 px-1 pb-px dark:border-gray-800" role="tablist" aria-label="{{ __('operator.brand.estate_sections') }}">
+                <button type="button" wire:click="setEstateSection('assets')" @class(['rounded-t-lg px-3 py-2 text-sm font-medium border-b-2', 'border-brand-500 text-brand-600 dark:text-brand-400' => $estateSection === 'assets', 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-white/90' => $estateSection !== 'assets'])>{{ __('operator.brand.estate_assets') }}</button>
+                <button type="button" wire:click="setEstateSection('cross_channel')" @class(['rounded-t-lg px-3 py-2 text-sm font-medium border-b-2', 'border-brand-500 text-brand-600 dark:text-brand-400' => $estateSection === 'cross_channel', 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-white/90' => $estateSection !== 'cross_channel'])>{{ __('operator.brand.estate_cross_channel') }}</button>
+            </div>
+        </div>
+    @endif
 
     {{-- Tabs --}}
     <div class="-mx-1 overflow-x-auto">
@@ -84,12 +100,12 @@
     @if ($tab === 'overview')
         <div class="space-y-6">
             <div class="grid grid-cols-2 gap-3 lg:grid-cols-5">
-                <button type="button" wire:click="setTab('assets')" class="rounded-xl bg-white p-4 text-left ring-1 ring-inset ring-gray-200 transition hover:bg-gray-50 dark:bg-gray-800 dark:ring-gray-700 dark:hover:bg-white/[0.03]">
+                <button type="button" wire:click="setEstateSection('assets')" class="rounded-xl bg-white p-4 text-left ring-1 ring-inset ring-gray-200 transition hover:bg-gray-50 dark:bg-gray-800 dark:ring-gray-700 dark:hover:bg-white/[0.03]">
                     <p class="text-xs text-gray-500">Digital assets</p>
                     <p class="mt-1 text-2xl font-semibold tabular-nums text-gray-900 dark:text-white">{{ $glance['assets'] }}</p>
                     <p class="mt-1 text-xs text-gray-400">Assets under this brand</p>
                 </button>
-                <button type="button" wire:click="setTab('assets')" class="rounded-xl bg-white p-4 text-left ring-1 ring-inset ring-gray-200 transition hover:bg-gray-50 dark:bg-gray-800 dark:ring-gray-700 dark:hover:bg-white/[0.03]">
+                <button type="button" wire:click="setEstateSection('assets')" class="rounded-xl bg-white p-4 text-left ring-1 ring-inset ring-gray-200 transition hover:bg-gray-50 dark:bg-gray-800 dark:ring-gray-700 dark:hover:bg-white/[0.03]">
                     <p class="text-xs text-gray-500">Connected assets</p>
                     <p class="mt-1 text-2xl font-semibold tabular-nums text-gray-900 dark:text-white">{{ $glance['connected'] }} / {{ $glance['assets'] }}</p>
                     <p class="mt-1 text-xs text-gray-400">With usable connections</p>
@@ -167,7 +183,7 @@
             <section>
                 <div class="flex items-center justify-between gap-2">
                     <h2 class="text-base font-semibold text-gray-900 dark:text-white">Digital estate</h2>
-                    <button type="button" wire:click="setTab('assets')" class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">View all</button>
+                    <button type="button" wire:click="setEstateSection('assets')" class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">View all</button>
                 </div>
                 <div class="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                     @foreach ($assets as $asset)
@@ -193,7 +209,7 @@
                 <section class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
                     <div class="flex items-center justify-between gap-2">
                         <h2 class="text-base font-semibold text-gray-900 dark:text-white">Business context</h2>
-                        <button type="button" wire:click="setTab('context')" class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">View business context</button>
+                        <button type="button" wire:click="setBusinessSection('context')" class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">View business context</button>
                     </div>
                     <dl class="mt-3 space-y-3 text-sm">
                         <div>
@@ -283,7 +299,7 @@
     @endif
 
     {{-- DIGITAL ASSETS --}}
-    @if ($tab === 'assets')
+    @if ($tab === 'estate' && $estateSection === 'assets')
         <div class="space-y-4">
             <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -364,7 +380,7 @@
     @endif
 
     {{-- CROSS-CHANNEL --}}
-    @if ($tab === 'cross_channel')
+    @if ($tab === 'estate' && $estateSection === 'cross_channel')
         <div class="space-y-4">
             <div>
                 <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Cross-channel</h2>
@@ -424,7 +440,7 @@
     @endif
 
     {{-- BUSINESS CONTEXT --}}
-    @if ($tab === 'context')
+    @if ($tab === 'business' && $businessSection === 'context')
         <div class="space-y-4">
             <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -514,9 +530,49 @@
                     </dl>
                 </section>
                 <section class="border-t border-gray-100 pt-4 dark:border-gray-800">
-                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Goals</h3>
-                    <dl class="mt-2 grid gap-3 sm:grid-cols-2 text-sm">
-                        <div><dt class="text-xs text-gray-400">Business goals</dt><dd class="mt-0.5 text-gray-700 dark:text-gray-300">{{ collect($businessContext['business_goals'] ?? [])->implode(' · ') ?: 'Unknown' }}</dd></div>
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ __('operator.commercial.agency_scope') }}</h3>
+                            <p class="mt-1 text-xs text-gray-500">{{ __('operator.commercial.agency_scope_subtitle') }}</p>
+                        </div>
+                        @if ($customer)
+                            <a href="{{ route('demo.customer', ['customerId' => $customer['id'], 'tab' => 'relationship']) }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline">{{ __('operator.commercial.view_customer_relationship') }}</a>
+                        @endif
+                    </div>
+                    <div class="mt-3 space-y-3">
+                        @foreach ($serviceScope as $scope)
+                            @if (($scope['status'] ?? '') === 'outside_scope')
+                                <p class="text-sm text-gray-500">{{ __('operator.commercial.outside_scope') }} — {{ $scope['note'] ?? '' }}</p>
+                            @else
+                                <div class="rounded-lg bg-gray-50 p-3 text-sm dark:bg-white/[0.03]">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <span class="font-medium text-gray-900 dark:text-white">{{ $scope['service_label'] }}</span>
+                                        <x-ta.badge color="success" size="sm">{{ __('operator.service_scope.status_active') }}</x-ta.badge>
+                                    </div>
+                                    <p class="mt-1 text-xs text-gray-500">{{ __('operator.service_scope.owner') }}: {{ $scope['owner_name'] ?? '—' }} · {{ __('operator.service_scope.review') }}: {{ ucfirst($scope['review_cadence'] ?? '—') }}</p>
+                                </div>
+                            @endif
+                        @endforeach
+                    </div>
+                </section>
+                <section class="border-t border-gray-100 pt-4 dark:border-gray-800">
+                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ __('operator.goals.title') }}</h3>
+                    <p class="mt-1 text-xs text-gray-500">{{ __('operator.goals.subtitle') }}</p>
+                    <div class="mt-3 grid gap-3 lg:grid-cols-3">
+                        @foreach ($structuredGoals as $goal)
+                            <div class="rounded-lg bg-gray-50 p-3 dark:bg-white/[0.03]">
+                                <x-ta.badge color="light" size="sm">{{ __('operator.goals.'.$goal['tier']) }}</x-ta.badge>
+                                <p class="mt-2 text-sm font-semibold text-gray-900 dark:text-white">{{ $goal['title'] }}</p>
+                                <dl class="mt-2 space-y-1 text-xs text-gray-500">
+                                    <div><dt class="text-gray-400">{{ __('operator.commercial.offering') }}</dt><dd class="text-gray-700 dark:text-gray-300">{{ $goal['offering'] }}</dd></div>
+                                    <div><dt class="text-gray-400">{{ __('operator.goals.success_signal') }}</dt><dd class="text-gray-700 dark:text-gray-300">{{ $goal['success_signal'] }}</dd></div>
+                                    <div><dt class="text-gray-400">{{ __('operator.goals.target') }}</dt><dd class="text-gray-700 dark:text-gray-300">{{ $goal['target'] ?? __('operator.goals.no_numeric_target') }}</dd></div>
+                                </dl>
+                            </div>
+                        @endforeach
+                    </div>
+                    <dl class="mt-4 grid gap-3 sm:grid-cols-2 text-sm">
+                        <div><dt class="text-xs text-gray-400">Business goals (source)</dt><dd class="mt-0.5 text-gray-700 dark:text-gray-300">{{ collect($businessContext['business_goals'] ?? [])->implode(' · ') ?: 'Unknown' }}</dd></div>
                         <div><dt class="text-xs text-gray-400">Conversion goals</dt><dd class="mt-0.5 text-gray-700 dark:text-gray-300">{{ collect($businessContext['conversion_goals'] ?? [])->implode(' · ') ?: 'Unknown' }}</dd></div>
                     </dl>
                 </section>
@@ -693,21 +749,59 @@
     @endif
 
     {{-- PUBLIC DISCOVERY --}}
-    @if ($tab === 'discovery')
+    @if ($tab === 'business' && $businessSection === 'discovery')
         @include('livewire.demo.portfolio.partials.brand-public-discovery')
     @endif
 
-    {{-- BRAND AI --}}
-    @if ($tab === 'ai')
+    {{-- GROWTH --}}
+    @if ($tab === 'growth')
         <div class="space-y-4">
             <div>
-                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Brand AI</h2>
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ __('operator.brand.tabs.growth') }}</h2>
                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Evidence-grounded interpretation of the brand's current digital operations.</p>
             </div>
 
+            <section class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
+                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ __('operator.opportunities.growth_context') }}</h3>
+                <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                    {{ collect($structuredGoals)->firstWhere('tier', 'primary')['title'] ?? '—' }}
+                    · {{ collect($serviceScope)->where('status', 'active')->pluck('service_label')->take(3)->implode(' · ') }}
+                </p>
+            </section>
+
+            <section class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ __('operator.opportunities.growth_section') }}</h3>
+                    <a href="{{ route('demo.opportunities', ['brand' => $brandRow['id']]) }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline">{{ __('operator.opportunities.actions.view_all') }}</a>
+                </div>
+                <ul class="mt-3 space-y-2">
+                    @foreach (array_slice($brandOpportunities, 0, 5) as $opp)
+                        <li class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-gray-50 px-3 py-2 dark:bg-white/[0.03]">
+                            <div class="min-w-0">
+                                <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $opp['title'] }}</p>
+                                <p class="text-xs text-gray-500">{{ $opp['service_label'] }} · {{ $opp['status'] }}</p>
+                            </div>
+                            <a href="{{ route('demo.opportunities', ['brand' => $brandRow['id'], 'view' => 'open']) }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline">{{ __('operator.actions.open') }}</a>
+                        </li>
+                    @endforeach
+                </ul>
+            </section>
+
+            <section class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
+                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ __('operator.goals.coverage') }}</h3>
+                <div class="mt-3 flex flex-wrap gap-2">
+                    @foreach ($structuredGoals as $goal)
+                        <span class="rounded-md bg-gray-100 px-2 py-1 text-xs text-gray-700 dark:bg-white/10 dark:text-gray-200">{{ $goal['title'] }}</span>
+                    @endforeach
+                </div>
+            </section>
+
             @if ($aiBrief)
                 <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
-                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Analysis context</h3>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Analysis context</h3>
+                        <x-ta.badge color="info" size="sm">AI-assisted</x-ta.badge>
+                    </div>
                     <ul class="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                         @foreach ($aiBrief['sources_available'] ?? [] as $source)
                             <li class="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-white/[0.03]">
@@ -722,6 +816,7 @@
                 </div>
 
                 <div class="space-y-4 rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
+                    <p class="text-xs font-medium uppercase tracking-wide text-gray-400">AI-assisted brief</p>
                     <section>
                         <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Executive summary</h3>
                         <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-700 dark:text-gray-300">
@@ -739,7 +834,7 @@
                         </ul>
                     </section>
                     <section>
-                        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Opportunities</h3>
+                        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ __('operator.opportunities.growth_observations') }}</h3>
                         <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-700 dark:text-gray-300">
                             @foreach ($aiBrief['opportunities'] ?? [] as $row)
                                 <li>{{ $row }}</li>
@@ -793,8 +888,77 @@
     @endif
 
     {{-- DECISION HISTORY --}}
-    @if ($tab === 'history')
+    @if ($tab === 'value')
         <div class="space-y-4">
+            @if ($businessOutcomes)
+                <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ __('operator.outcomes.title') }}</h2>
+                            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ __('operator.outcomes.subtitle') }} · {{ $businessOutcomes['period_label'] ?? $outcomePeriod }}</p>
+                        </div>
+                        <button type="button" wire:click="openOutcomeForm" class="rounded-lg px-3 py-1.5 text-xs font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">{{ __('operator.outcomes.update') }}</button>
+                    </div>
+                    <div class="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
+                        <div class="rounded-lg bg-gray-50 p-3 dark:bg-white/[0.03]">
+                            <p class="text-xs text-gray-500">{{ $businessOutcomes['platform_leads_label'] }}</p>
+                            <p class="mt-1 text-2xl font-bold tabular-nums text-gray-900 dark:text-white">{{ $businessOutcomes['platform_leads'] }}</p>
+                        </div>
+                        <div class="rounded-lg bg-gray-50 p-3 dark:bg-white/[0.03]">
+                            <p class="text-xs text-gray-500">{{ $businessOutcomes['qualified_leads_label'] }}</p>
+                            <p class="mt-1 text-2xl font-bold tabular-nums text-gray-900 dark:text-white">{{ $businessOutcomes['qualified_leads'] }}</p>
+                        </div>
+                        <div class="rounded-lg bg-gray-50 p-3 dark:bg-white/[0.03]">
+                            <p class="text-xs text-gray-500">{{ $businessOutcomes['consultations_label'] }}</p>
+                            <p class="mt-1 text-2xl font-bold tabular-nums text-gray-900 dark:text-white">{{ $businessOutcomes['consultations'] }}</p>
+                        </div>
+                        <div class="rounded-lg bg-gray-50 p-3 dark:bg-white/[0.03]">
+                            <p class="text-xs text-gray-500">{{ $businessOutcomes['patients_label'] }}</p>
+                            <p class="mt-1 text-2xl font-bold tabular-nums text-gray-900 dark:text-white">{{ $businessOutcomes['patients'] }}</p>
+                        </div>
+                        <div class="rounded-lg bg-gray-50 p-3 dark:bg-white/[0.03]">
+                            <p class="text-xs text-gray-500">{{ $businessOutcomes['revenue_label'] }}</p>
+                            <p class="mt-1 text-lg font-semibold text-gray-500 dark:text-gray-400">{{ $businessOutcomes['revenue_display'] }}</p>
+                        </div>
+                    </div>
+                    <p class="mt-3 text-sm text-gray-600 dark:text-gray-300">{{ __('operator.outcomes.qualified_rate') }}: {{ $businessOutcomes['qualified_rate'] }}</p>
+                    <p class="mt-1 text-xs text-gray-400">{{ $businessOutcomes['note'] }}</p>
+                </section>
+
+                @if ($showOutcomeForm)
+                    <form wire:submit="saveBusinessOutcomes" class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
+                        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                            <label class="block text-sm"><span class="text-gray-500">{{ __('operator.outcomes.platform_results') }}</span>
+                                <input wire:model="outcome_platform_leads" type="number" min="0" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700" /></label>
+                            <label class="block text-sm"><span class="text-gray-500">{{ __('operator.outcomes.qualified_leads') }}</span>
+                                <input wire:model="outcome_qualified_leads" type="number" min="0" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700" /></label>
+                            <label class="block text-sm"><span class="text-gray-500">{{ __('operator.outcomes.consultations') }}</span>
+                                <input wire:model="outcome_consultations" type="number" min="0" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700" /></label>
+                            <label class="block text-sm"><span class="text-gray-500">{{ __('operator.outcomes.patients') }}</span>
+                                <input wire:model="outcome_patients" type="number" min="0" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700" /></label>
+                            <label class="block text-sm sm:col-span-2"><span class="text-gray-500">{{ __('operator.outcomes.note') }}</span>
+                                <input wire:model="outcome_note" type="text" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700" /></label>
+                        </div>
+                        <div class="mt-3 flex gap-2">
+                            <x-ta.button type="submit" size="sm">{{ __('operator.actions.save') }}</x-ta.button>
+                            <x-ta.button type="button" wire:click="cancelOutcomeForm" size="sm" variant="outline">{{ __('operator.actions.cancel') }}</x-ta.button>
+                        </div>
+                    </form>
+                @endif
+
+                <section class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
+                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ __('operator.outcomes.operational') }}</h3>
+                    <ul class="mt-3 space-y-2">
+                        @foreach ($operationalOutcomes as $row)
+                            <li class="rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-white/[0.03]">
+                                <p class="font-medium text-gray-800 dark:text-white/90">{{ $row['label'] }}</p>
+                                <p class="text-xs text-gray-500">{{ $row['detail'] }}</p>
+                            </li>
+                        @endforeach
+                    </ul>
+                </section>
+            @endif
+
             <div>
                 <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Decision History</h2>
                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">How findings became decisions, work and observed outcomes over time.</p>
@@ -867,7 +1031,7 @@
         </div>
     @endif
 
-    @if ($tab === 'files')
+    @if (false && $tab === 'files')
         <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
             <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>

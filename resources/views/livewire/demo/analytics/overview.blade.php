@@ -5,7 +5,6 @@
         ['key' => 'acquisition', 'label' => 'Acquisition', 'wire' => true],
         ['key' => 'behavior', 'label' => 'Behavior', 'wire' => true],
         ['key' => 'journeys', 'label' => 'Journeys', 'wire' => true],
-        ['key' => 'relationships', 'label' => 'Relationships', 'wire' => true],
         ['key' => 'operations', 'label' => 'Operations', 'wire' => true],
     ];
 @endphp
@@ -65,8 +64,6 @@
         @include('livewire.demo.analytics.tabs.behavior')
     @elseif ($tab === 'journeys')
         @include('livewire.demo.analytics.tabs.journeys')
-    @elseif ($tab === 'relationships')
-        @include('livewire.demo.analytics.tabs.relationships')
     @elseif ($tab === 'operations')
         @include('livewire.demo.analytics.tabs.operations')
     @endif

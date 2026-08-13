@@ -15,9 +15,12 @@
         </div>
         <div class="flex flex-wrap items-center gap-2">
             @include('livewire.demo.partials.demo-badge')
-            <button type="button" wire:click="openContactForm" class="inline-flex rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">Add contact</button>
-            <a href="{{ route('demo.customer.edit', ['customerId' => $customer['id']]) }}" wire:navigate class="inline-flex rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">Edit customer</a>
-            <a href="{{ route('demo.brand.create', ['customerId' => $customer['id']]) }}" wire:navigate class="inline-flex rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-white hover:bg-brand-600">Add brand</a>
+            <a href="{{ route('demo.files', ['scope' => 'customer', 'customer' => $customer['id']]) }}" wire:navigate class="inline-flex rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">{{ __('operator.customer.actions.open_files') }}</a>
+            <a href="{{ route('demo.activity', ['customer' => $customer['id']]) }}" wire:navigate class="inline-flex rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">{{ __('operator.customer.actions.view_activity') }}</a>
+            <a href="{{ route('demo.tasks') }}" wire:navigate class="inline-flex rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">{{ __('operator.customer.actions.open_work') }}</a>
+            <button type="button" wire:click="openContactForm" class="inline-flex rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">{{ __('operator.customer.actions.add_contact') }}</button>
+            <a href="{{ route('demo.customer.edit', ['customerId' => $customer['id']]) }}" wire:navigate class="inline-flex rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">{{ __('operator.customer.actions.edit') }}</a>
+            <a href="{{ route('demo.brand.create', ['customerId' => $customer['id']]) }}" wire:navigate class="inline-flex rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-white hover:bg-brand-600">{{ __('operator.customer.actions.add_brand') }}</a>
             <div class="relative">
                 <button type="button" @click="archiveOpen = !archiveOpen" class="inline-flex rounded-lg px-2 py-2 text-sm text-gray-500 ring-1 ring-inset ring-gray-300 dark:ring-gray-700" aria-label="More actions">⋯</button>
                 <div x-show="archiveOpen" @click.outside="archiveOpen = false" x-cloak class="absolute right-0 z-20 mt-1 w-44 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-900">
@@ -51,7 +54,7 @@
     </div>
 
     <div class="flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800">
-        @foreach (['overview' => 'Overview', 'brands' => 'Brands', 'contacts' => 'Contacts', 'files' => 'Files', 'operations' => 'Operations', 'activity' => 'Activity'] as $key => $label)
+        @foreach (['overview' => __('operator.customer.tabs.overview'), 'brands' => __('operator.customer.tabs.brands'), 'relationship' => __('operator.customer.tabs.relationship')] as $key => $label)
             <button type="button" wire:click="setTab('{{ $key }}')"
                 @class([
                     'shrink-0 border-b-2 px-3 py-2.5 text-sm font-medium',
@@ -133,7 +136,7 @@
         <x-ta.card>
             <div class="flex items-center justify-between gap-2">
                 <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Needs attention</h2>
-                <button type="button" wire:click="setTab('operations')" class="text-sm font-medium text-brand-600 hover:underline">View all operations</button>
+                <a href="{{ route('demo.tasks') }}" wire:navigate class="text-sm font-medium text-brand-600 hover:underline">{{ __('operator.customer.actions.open_work') }}</a>
             </div>
             @php
                 $attentionItems = collect($overdueTasks)->map(fn ($t) => ['tone' => 'amber', 'title' => $t['title'] ?? 'Task', 'meta' => 'Overdue / high-priority task'])->take(2)
@@ -199,7 +202,7 @@
         <x-ta.card>
             <div class="mb-3 flex items-center justify-between">
                 <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Recent activity</h2>
-                <button type="button" wire:click="setTab('activity')" class="text-sm font-medium text-brand-600 hover:underline">View activity</button>
+                <a href="{{ route('demo.activity', ['customer' => $customer['id']]) }}" wire:navigate class="text-sm font-medium text-brand-600 hover:underline">{{ __('operator.customer.actions.view_activity') }}</a>
             </div>
             <ul class="divide-y divide-gray-100 dark:divide-gray-800">
                 @forelse (array_slice($activity, 0, 6) as $item)
@@ -258,53 +261,142 @@
         </x-ta.card>
     @endif
 
-    @if ($tab === 'contacts')
-        <x-ta.card>
-            <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
-                <div>
-                    <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Contacts</h2>
-                    <p class="text-sm text-gray-500">People at the customer organization your team works with.</p>
+    @if ($tab === 'relationship')
+        <div class="grid gap-4 xl:grid-cols-3">
+            <x-ta.card class="xl:col-span-2">
+                <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                        <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">{{ __('operator.customer.tabs.relationship') }}</h2>
+                        <p class="text-sm text-gray-500">Contacts for this agency relationship.</p>
+                    </div>
+                    <button type="button" wire:click="openContactForm" class="inline-flex rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-white hover:bg-brand-600">Add contact</button>
                 </div>
-                <button type="button" wire:click="openContactForm" class="inline-flex rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-white hover:bg-brand-600">Add contact</button>
-            </div>
-            @if (count($contacts) === 0)
-                @include('livewire.demo.partials.empty-panel', [
-                    'title' => 'No contacts yet',
-                    'message' => 'Add the people your team works with at this customer.',
-                ])
-            @else
-                <div class="overflow-x-auto">
-                    <table class="min-w-full text-sm">
-                        <thead>
-                            <tr class="text-left text-xs uppercase text-gray-400">
-                                <th class="py-2 pr-3">Name</th>
-                                <th class="py-2 pr-3">Role / title</th>
-                                <th class="hidden py-2 pr-3 md:table-cell">Email</th>
-                                <th class="hidden py-2 pr-3 lg:table-cell">Phone</th>
-                                <th class="py-2"></th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-                            @foreach ($contacts as $contact)
-                                <tr>
-                                    <td class="py-3 pr-3 font-medium text-gray-800 dark:text-white/90">{{ $contact['name'] }}</td>
-                                    <td class="py-3 pr-3 text-gray-500">{{ $contact['title'] ?? '—' }}</td>
-                                    <td class="hidden py-3 pr-3 text-gray-500 md:table-cell">{{ $contact['email'] ?? '—' }}</td>
-                                    <td class="hidden py-3 pr-3 text-gray-500 lg:table-cell">{{ $contact['phone'] ?? '—' }}</td>
-                                    <td class="py-3 text-right space-x-2">
-                                        <button type="button" wire:click="openContactForm('{{ $contact['id'] }}')" class="text-sm font-medium text-brand-600 hover:underline">Edit</button>
-                                        <button type="button" wire:click="deleteContact('{{ $contact['id'] }}')" wire:confirm="Remove this contact?" class="text-sm font-medium text-error-500 hover:underline">Remove</button>
-                                    </td>
+                @if (count($contacts) === 0)
+                    @include('livewire.demo.partials.empty-panel', [
+                        'title' => 'No contacts yet',
+                        'message' => 'Add the people your team works with at this customer.',
+                    ])
+                @else
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full text-sm">
+                            <thead>
+                                <tr class="text-left text-xs uppercase text-gray-400">
+                                    <th class="py-2 pr-3">Name</th>
+                                    <th class="py-2 pr-3">Role / title</th>
+                                    <th class="hidden py-2 pr-3 md:table-cell">Email</th>
+                                    <th class="hidden py-2 pr-3 lg:table-cell">Phone</th>
+                                    <th class="py-2"></th>
                                 </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                                @foreach ($contacts as $contact)
+                                    <tr>
+                                        <td class="py-3 pr-3 font-medium text-gray-800 dark:text-white/90">{{ $contact['name'] }}</td>
+                                        <td class="py-3 pr-3 text-gray-500">{{ $contact['title'] ?? '—' }}</td>
+                                        <td class="hidden py-3 pr-3 text-gray-500 md:table-cell">{{ $contact['email'] ?? '—' }}</td>
+                                        <td class="hidden py-3 pr-3 text-gray-500 lg:table-cell">{{ $contact['phone'] ?? '—' }}</td>
+                                        <td class="py-3 text-right space-x-2">
+                                            <button type="button" wire:click="openContactForm('{{ $contact['id'] }}')" class="text-sm font-medium text-brand-600 hover:underline">Edit</button>
+                                            <button type="button" wire:click="deleteContact('{{ $contact['id'] }}')" wire:confirm="Remove this contact?" class="text-sm font-medium text-error-500 hover:underline">Remove</button>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @endif
+            </x-ta.card>
+
+            <div class="space-y-4">
+                <x-ta.card>
+                    <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">{{ __('operator.portfolio.account_owner_responsible') }}</h2>
+                    <p class="mt-1 text-xs text-gray-500">Portfolio responsibility for Dashboard routing — separate from authorization.</p>
+                    <ul class="mt-3 space-y-2">
+                        @forelse ($responsibleUsers as $index => $user)
+                            <li class="flex items-center gap-2 text-sm">
+                                <span class="flex h-7 w-7 items-center justify-center rounded-full bg-brand-50 text-xs font-semibold text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">{{ $user['initials'] }}</span>
+                                <span class="text-gray-800 dark:text-white/90">{{ $user['name'] }}</span>
+                                @if ($index === 0)
+                                    <x-ta.badge color="info" size="sm">Account Owner</x-ta.badge>
+                                @endif
+                            </li>
+                        @empty
+                            <li class="text-sm text-gray-500">No responsible team assigned.</li>
+                        @endforelse
+                    </ul>
+                </x-ta.card>
+
+                <x-ta.card>
+                    <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">{{ __('operator.service_scope.services_received') }}</h2>
+                    <div class="mt-3 flex flex-wrap gap-1.5">
+                        @forelse ($serviceLabels as $label)
+                            <span class="rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700 dark:bg-white/10 dark:text-gray-200">{{ $label }}</span>
+                        @empty
+                            <span class="text-sm text-gray-500">—</span>
+                        @endforelse
+                    </div>
+                </x-ta.card>
+            </div>
+        </div>
+
+        @if (count($serviceScope) > 0)
+            <x-ta.card class="mt-4">
+                <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">{{ __('operator.service_scope.title') }}</h2>
+                <p class="mt-1 text-sm text-gray-500">{{ __('operator.service_scope.subtitle') }}</p>
+                <div class="mt-4 space-y-4">
+                    @foreach ($serviceScope as $scope)
+                        <div @class([
+                            'rounded-xl p-4 ring-1 ring-inset',
+                            'ring-gray-200 dark:ring-gray-700' => ($scope['status'] ?? '') !== 'outside_scope',
+                            'ring-amber-200 bg-amber-50/50 dark:ring-amber-500/30 dark:bg-amber-500/5' => ($scope['status'] ?? '') === 'outside_scope',
+                        ])>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ $scope['service_label'] }}</h3>
+                                @if (($scope['status'] ?? '') === 'active')
+                                    <x-ta.badge color="success" size="sm">{{ __('operator.service_scope.status_active') }}</x-ta.badge>
+                                @elseif (($scope['status'] ?? '') === 'outside_scope')
+                                    <x-ta.badge color="warning" size="sm">{{ __('operator.service_scope.status_outside') }}</x-ta.badge>
+                                @endif
+                            </div>
+                            @if (($scope['status'] ?? '') !== 'outside_scope')
+                                <dl class="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4 text-sm">
+                                    <div><dt class="text-xs text-gray-400">{{ __('operator.service_scope.applies_to') }}</dt><dd class="text-gray-700 dark:text-gray-300">{{ collect($scope['applies_to_brand_names'] ?? [])->implode(', ') }}</dd></div>
+                                    <div><dt class="text-xs text-gray-400">{{ __('operator.service_scope.owner') }}</dt><dd class="text-gray-700 dark:text-gray-300">{{ $scope['owner_name'] ?? '—' }}</dd></div>
+                                    <div><dt class="text-xs text-gray-400">{{ __('operator.service_scope.review') }}</dt><dd class="text-gray-700 dark:text-gray-300">{{ ucfirst($scope['review_cadence'] ?? '—') }}</dd></div>
+                                    <div><dt class="text-xs text-gray-400">{{ __('operator.service_scope.reporting') }}</dt><dd class="text-gray-700 dark:text-gray-300">{{ ucfirst($scope['reporting_cadence'] ?? '—') }}</dd></div>
+                                    @if (! empty($scope['started_at']))
+                                        <div><dt class="text-xs text-gray-400">{{ __('operator.service_scope.started') }}</dt><dd class="text-gray-700 dark:text-gray-300">{{ $scope['started_at'] }}</dd></div>
+                                    @endif
+                                </dl>
+                                <div class="mt-3 grid gap-3 sm:grid-cols-2 text-sm">
+                                    <div>
+                                        <p class="text-xs font-medium text-gray-400">{{ __('operator.service_scope.in_scope') }}</p>
+                                        <ul class="mt-1 list-disc pl-4 text-gray-700 dark:text-gray-300">
+                                            @foreach ($scope['in_scope'] ?? [] as $item)
+                                                <li>{{ $item }}</li>
+                                            @endforeach
+                                        </ul>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs font-medium text-gray-400">{{ __('operator.service_scope.out_of_scope') }}</p>
+                                        <ul class="mt-1 list-disc pl-4 text-gray-700 dark:text-gray-300">
+                                            @foreach ($scope['out_of_scope'] ?? [] as $item)
+                                                <li>{{ $item }}</li>
+                                            @endforeach
+                                        </ul>
+                                    </div>
+                                </div>
+                            @else
+                                <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">{{ $scope['note'] ?? __('operator.commercial.outside_scope') }}</p>
+                            @endif
+                        </div>
+                    @endforeach
                 </div>
-            @endif
-        </x-ta.card>
+            </x-ta.card>
+        @endif
     @endif
 
-    @if ($tab === 'files')
+    @if (false && $tab === 'files')
         <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
             <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -318,7 +410,7 @@
         </div>
     @endif
 
-    @if ($tab === 'operations')
+    @if (false && $tab === 'operations')
         <div class="grid gap-4 lg:grid-cols-3">
             <x-ta.card>
                 <div class="mb-3 flex items-center justify-between">
@@ -371,7 +463,7 @@
         </div>
     @endif
 
-    @if ($tab === 'activity')
+    @if (false && $tab === 'activity')
         <x-ta.card>
             <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
                 <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Activity</h2>

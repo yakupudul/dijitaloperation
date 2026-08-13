@@ -3,8 +3,11 @@
 namespace App\Livewire\Demo\Portfolio;
 
 use App\Support\Demo\BrandPublicDiscoveryFixtures;
+use App\Support\Demo\BusinessOutcomeFixtures;
+use App\Support\Demo\CommercialContextFixtures;
 use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
+use App\Support\Demo\OpportunityFixtures;
 use App\Support\Options\CountryOptions;
 use App\Support\Options\IndustryOptions;
 use App\Support\Options\LanguageOptions;
@@ -25,6 +28,14 @@ class BrandShow extends Component
 
     #[Url(as: 'discovery')]
     public string $discovery = 'overview';
+
+    /** Business internal segment: context | discovery */
+    #[Url(as: 'business')]
+    public string $businessSection = 'context';
+
+    /** Digital Estate internal segment: assets | cross_channel */
+    #[Url(as: 'estate')]
+    public string $estateSection = 'assets';
 
     #[Url]
     public string $ops = 'findings';
@@ -76,6 +87,18 @@ class BrandShow extends Component
 
     public string $ignoreReason = 'irrelevant';
 
+    public string $outcome_platform_leads = '';
+
+    public string $outcome_qualified_leads = '';
+
+    public string $outcome_consultations = '';
+
+    public string $outcome_patients = '';
+
+    public string $outcome_note = '';
+
+    public bool $showOutcomeForm = false;
+
     /**
      * @var list<string>
      */
@@ -87,31 +110,156 @@ class BrandShow extends Component
     ];
 
     /**
+     * Final Brand primary IA (Milestone 1 pruning).
+     *
      * @var list<string>
      */
     private const TABS = [
         'overview',
-        'assets',
-        'cross_channel',
-        'context',
+        'business',
+        'estate',
+        'growth',
         'operations',
-        'discovery',
-        'ai',
-        'history',
-        'files',
+        'value',
+    ];
+
+    /**
+     * Old primary tabs → final containers (preserve deep links).
+     *
+     * @var array<string, string>
+     */
+    private const LEGACY_TAB_MAP = [
+        'research' => 'business',
+        'discovery' => 'business',
+        'context' => 'business',
+        'assets' => 'estate',
+        'cross_channel' => 'estate',
+        'ai' => 'growth',
+        'history' => 'value',
+        'files' => 'overview',
     ];
 
     public function mount(string $brand): void
     {
         $this->brand = $brand;
+        $this->normalizeTab();
+        $this->hydrateOutcomeForm();
+    }
 
-        if ($this->tab === 'research') {
-            $this->tab = 'discovery';
+    private function hydrateOutcomeForm(): void
+    {
+        if ($this->brand !== DemoCatalog::BRAND_ID) {
+            return;
         }
 
+        $period = (string) (DemoState::all()['period_preset'] ?? 'last_28');
+        $outcomes = DemoState::businessOutcomes($period);
+        $this->outcome_platform_leads = (string) ($outcomes['platform_leads'] ?? '');
+        $this->outcome_qualified_leads = (string) ($outcomes['qualified_leads'] ?? '');
+        $this->outcome_consultations = (string) ($outcomes['consultations'] ?? '');
+        $this->outcome_patients = (string) ($outcomes['patients'] ?? '');
+        $this->outcome_note = (string) ($outcomes['note'] ?? '');
+    }
+
+    public function openOutcomeForm(): void
+    {
+        $this->hydrateOutcomeForm();
+        $this->showOutcomeForm = true;
+        $this->tab = 'value';
+    }
+
+    public function cancelOutcomeForm(): void
+    {
+        $this->showOutcomeForm = false;
+    }
+
+    public function saveBusinessOutcomes(): void
+    {
+        if ($this->brand !== DemoCatalog::BRAND_ID) {
+            return;
+        }
+
+        DemoState::updateBusinessOutcomes([
+            'platform_leads' => (int) $this->outcome_platform_leads,
+            'qualified_leads' => (int) $this->outcome_qualified_leads,
+            'consultations' => (int) $this->outcome_consultations,
+            'patients' => (int) $this->outcome_patients,
+            'revenue' => null,
+            'note' => $this->outcome_note,
+        ]);
+
+        $this->showOutcomeForm = false;
+        $this->tab = 'value';
+    }
+
+    public function setTab(string $tab): void
+    {
+        $this->tab = $tab;
+        $this->normalizeTab();
+    }
+
+    public function setBusinessSection(string $section): void
+    {
+        if (in_array($section, ['context', 'discovery'], true)) {
+            $this->businessSection = $section;
+            $this->tab = 'business';
+            if ($section === 'discovery') {
+                $this->discovery = in_array($this->discovery, ['overview', 'facts', 'candidates', 'conflicts', 'sources'], true)
+                    ? $this->discovery
+                    : 'overview';
+            }
+        }
+    }
+
+    public function setEstateSection(string $section): void
+    {
+        if (in_array($section, ['assets', 'cross_channel'], true)) {
+            $this->estateSection = $section;
+            $this->tab = 'estate';
+        }
+    }
+
+    public function setDiscovery(string $section): void
+    {
+        if (in_array($section, ['overview', 'facts', 'candidates', 'conflicts', 'sources'], true)) {
+            $this->discovery = $section;
+            $this->tab = 'business';
+            $this->businessSection = 'discovery';
+            $this->reviewCandidateId = null;
+            $this->reviewConflictId = null;
+        }
+    }
+
+    public function setOps(string $ops): void
+    {
+        if (in_array($ops, ['findings', 'recommendations', 'tasks', 'outcomes'], true)) {
+            $this->ops = $ops;
+            $this->tab = 'operations';
+        }
+    }
+
+    private function normalizeTab(): void
+    {
         if (in_array($this->tab, ['findings', 'recommendations', 'tasks'], true)) {
             $this->ops = $this->tab;
             $this->tab = 'operations';
+        }
+
+        if (isset(self::LEGACY_TAB_MAP[$this->tab])) {
+            $legacy = $this->tab;
+            $this->tab = self::LEGACY_TAB_MAP[$legacy];
+            if ($legacy === 'discovery' || $legacy === 'research') {
+                $this->businessSection = 'discovery';
+            }
+            if ($legacy === 'context') {
+                $this->businessSection = 'context';
+            }
+            if ($legacy === 'cross_channel') {
+                $this->estateSection = 'cross_channel';
+            }
+            if ($legacy === 'assets') {
+                $this->estateSection = 'assets';
+            }
         }
 
         if (! in_array($this->tab, self::TABS, true)) {
@@ -125,41 +273,13 @@ class BrandShow extends Component
         if (! in_array($this->discovery, ['overview', 'facts', 'candidates', 'conflicts', 'sources'], true)) {
             $this->discovery = 'overview';
         }
-    }
 
-    public function setTab(string $tab): void
-    {
-        if ($tab === 'research') {
-            $tab = 'discovery';
+        if (! in_array($this->businessSection, ['context', 'discovery'], true)) {
+            $this->businessSection = 'context';
         }
 
-        if (in_array($tab, ['findings', 'recommendations', 'tasks'], true)) {
-            $this->ops = $tab;
-            $this->tab = 'operations';
-
-            return;
-        }
-
-        if (in_array($tab, self::TABS, true)) {
-            $this->tab = $tab;
-        }
-    }
-
-    public function setDiscovery(string $section): void
-    {
-        if (in_array($section, ['overview', 'facts', 'candidates', 'conflicts', 'sources'], true)) {
-            $this->discovery = $section;
-            $this->tab = 'discovery';
-            $this->reviewCandidateId = null;
-            $this->reviewConflictId = null;
-        }
-    }
-
-    public function setOps(string $ops): void
-    {
-        if (in_array($ops, ['findings', 'recommendations', 'tasks', 'outcomes'], true)) {
-            $this->ops = $ops;
-            $this->tab = 'operations';
+        if (! in_array($this->estateSection, ['assets', 'cross_channel'], true)) {
+            $this->estateSection = 'assets';
         }
     }
 
@@ -174,7 +294,8 @@ class BrandShow extends Component
     public function runPublicResearch(): void
     {
         DemoState::startPublicResearch();
-        $this->tab = 'discovery';
+        $this->tab = 'business';
+        $this->businessSection = 'discovery';
         $this->discovery = 'overview';
     }
 
@@ -182,7 +303,8 @@ class BrandShow extends Component
     {
         $this->reviewCandidateId = $id;
         $this->discovery = 'candidates';
-        $this->tab = 'discovery';
+        $this->tab = 'business';
+        $this->businessSection = 'discovery';
     }
 
     public function closeCandidate(): void
@@ -194,7 +316,8 @@ class BrandShow extends Component
     {
         $this->reviewConflictId = $id;
         $this->discovery = 'conflicts';
-        $this->tab = 'discovery';
+        $this->tab = 'business';
+        $this->businessSection = 'discovery';
     }
 
     public function closeConflict(): void
@@ -210,7 +333,8 @@ class BrandShow extends Component
 
     public function startEditingContext(): void
     {
-        $this->tab = 'context';
+        $this->tab = 'business';
+        $this->businessSection = 'context';
         $this->editingContext = true;
         $context = $this->resolveBusinessContext($this->findBrandRow() ?? []);
         $this->context_business_summary = (string) ($context['business_summary'] ?? '');
@@ -357,7 +481,7 @@ class BrandShow extends Component
     public function runAiBrief(): void
     {
         DemoState::showAiBrief();
-        $this->tab = 'ai';
+        $this->tab = 'growth';
     }
 
     public function createRecommendationFromPriority(int $index): void
@@ -750,6 +874,19 @@ class BrandShow extends Component
             ->filter()
             ->all();
 
+        $period = (string) ($state['period_preset'] ?? 'last_28');
+        $serviceScope = CommercialContextFixtures::effectiveScopeForBrand((string) ($brandRow['id'] ?? ''));
+        $structuredGoals = CommercialContextFixtures::structuredGoalsForBrand((string) ($brandRow['id'] ?? ''));
+        $brandOpportunities = collect(DemoState::opportunitiesWithStatus())
+            ->filter(fn (array $row): bool => ($row['brand_id'] ?? '') === ($brandRow['id'] ?? ''))
+            ->pipe(fn ($c) => OpportunityFixtures::sortByBusinessRelevance($c->values()->all()));
+        $businessOutcomes = ($brandRow['id'] ?? '') === DemoCatalog::BRAND_ID
+            ? DemoState::businessOutcomes($period)
+            : null;
+        $operationalOutcomes = ($brandRow['id'] ?? '') === DemoCatalog::BRAND_ID
+            ? BusinessOutcomeFixtures::operationalOutcomes()
+            : [];
+
         return view('livewire.demo.portfolio.brand-show', [
             'brandRow' => $brandRow,
             'customer' => $customer,
@@ -797,6 +934,12 @@ class BrandShow extends Component
             'reviewConflict' => $reviewConflict,
             'research' => $state['public_research'] ?? [],
             'aiBrief' => $aiVisible ? $analysis : null,
+            'serviceScope' => $serviceScope,
+            'structuredGoals' => $structuredGoals,
+            'brandOpportunities' => $brandOpportunities,
+            'businessOutcomes' => $businessOutcomes,
+            'operationalOutcomes' => $operationalOutcomes,
+            'outcomePeriod' => $period,
             'flash' => DemoState::pullFlash(),
         ]);
     }

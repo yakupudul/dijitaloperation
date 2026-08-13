@@ -5,7 +5,6 @@
         ['key' => 'demand', 'label' => 'Queries & Demand', 'wire' => true],
         ['key' => 'pages', 'label' => 'Pages', 'wire' => true],
         ['key' => 'indexing', 'label' => 'Indexing', 'wire' => true],
-        ['key' => 'relationships', 'label' => 'Relationships', 'wire' => true],
         ['key' => 'operations', 'label' => 'Operations', 'wire' => true],
     ];
 @endphp
@@ -69,8 +68,6 @@
         @include('livewire.demo.search-console.tabs.pages')
     @elseif ($tab === 'indexing')
         @include('livewire.demo.search-console.tabs.indexing')
-    @elseif ($tab === 'relationships')
-        @include('livewire.demo.search-console.tabs.relationships')
     @elseif ($tab === 'operations')
         @include('livewire.demo.search-console.tabs.operations')
     @endif

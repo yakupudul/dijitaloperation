@@ -30,6 +30,7 @@ use App\Livewire\Demo\Meta\InsightsPage;
 use App\Livewire\Demo\Meta\OverviewPage as MetaOverviewPage;
 use App\Livewire\Demo\Operations\ActivityIndex;
 use App\Livewire\Demo\Operations\FindingsIndex;
+use App\Livewire\Demo\Operations\OpportunitiesIndex;
 use App\Livewire\Demo\Operations\RecommendationsIndex;
 use App\Livewire\Demo\Operations\TaskShow;
 use App\Livewire\Demo\Operations\TasksIndex;
@@ -103,6 +104,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/assets/hosting/{assetId?}', HostingPage::class)->name('demo.hosting');
         Route::livewire('/assets/instagram/{assetId?}', InstagramOverviewPage::class)->name('demo.instagram');
 
+        Route::livewire('/opportunities', OpportunitiesIndex::class)->name('demo.opportunities');
         Route::livewire('/findings', FindingsIndex::class)->name('demo.findings');
         Route::livewire('/recommendations', RecommendationsIndex::class)->name('demo.recommendations');
         Route::livewire('/tasks', TasksIndex::class)->name('demo.tasks');

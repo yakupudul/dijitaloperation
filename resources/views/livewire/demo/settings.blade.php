@@ -207,51 +207,70 @@
                         </ul>
                     </div>
                 </div>
-            @elseif ($section === 'files')
-                <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800 space-y-3 text-sm">
-                    <dl class="grid gap-4 sm:grid-cols-2">
-                        <div><dt class="text-gray-400">Private file disk</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['files']['disk'] }}</dd></div>
-                        <div><dt class="text-gray-400">Avatar disk</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['files']['avatar_disk'] }}</dd></div>
-                        <div><dt class="text-gray-400">Max upload</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['files']['max_upload_mb'] }} MB</dd></div>
-                        <div><dt class="text-gray-400">Allowed types</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['files']['allowed'] }}</dd></div>
-                        <div><dt class="text-gray-400">Blocked types</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['files']['blocked'] }}</dd></div>
-                        <div><dt class="text-gray-400">Connector packages</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['files']['connector_storage'] }}</dd></div>
-                    </dl>
-                    <p class="text-xs text-gray-500">{{ $settings['files']['note'] }}</p>
-                    <x-ta.button :href="route('demo.files')" size="sm">{{ __('operator.nav.files') }}</x-ta.button>
-                </div>
-            @elseif ($section === 'privacy')
-                <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800 space-y-3 text-sm">
-                    <p><span class="text-gray-400">Retention · </span><span class="text-gray-800 dark:text-white/90">{{ $settings['privacy']['retention'] }}</span></p>
-                    <p><span class="text-gray-400">Export · </span><span class="text-gray-800 dark:text-white/90">{{ $settings['privacy']['export'] }}</span></p>
-                    <p><span class="text-gray-400">Purge · </span><span class="text-gray-800 dark:text-white/90">{{ $settings['privacy']['purge'] }}</span></p>
-                </div>
-            @else
+            @elseif ($section === 'advanced')
                 <div class="space-y-4">
-                    <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-                        <dl class="grid gap-4 sm:grid-cols-2 text-sm">
-                            <div><dt class="text-gray-400">Environment</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['advanced']['environment'] }}</dd></div>
-                            <div><dt class="text-gray-400">App</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['advanced']['app_name'] }}</dd></div>
-                            <div><dt class="text-gray-400">Canonical operator surface</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['advanced']['canonical_surface'] }}</dd></div>
-                            <div><dt class="text-gray-400">System panel</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['advanced']['system_panel'] }}</dd></div>
-                        </dl>
-                        <div class="mt-4">
-                            <x-ta.button href="{{ route('demo.dashboard') }}" size="sm" variant="outline">Open Agency Command Center</x-ta.button>
+                    @if ($advanced_sub === null || $advanced_sub === 'diagnostics')
+                        <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                            <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ __('operator.settings_ia.advanced_diagnostics') }}</h3>
+                            <dl class="mt-3 grid gap-4 sm:grid-cols-2 text-sm">
+                                <div><dt class="text-gray-400">Environment</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['advanced']['environment'] }}</dd></div>
+                                <div><dt class="text-gray-400">App</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['advanced']['app_name'] }}</dd></div>
+                                <div><dt class="text-gray-400">Canonical operator surface</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['advanced']['canonical_surface'] }}</dd></div>
+                                <div><dt class="text-gray-400">System panel</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['advanced']['system_panel'] }}</dd></div>
+                            </dl>
+                            <div class="mt-4">
+                                <x-ta.button href="{{ route('demo.dashboard') }}" size="sm" variant="outline">Open Agency Command Center</x-ta.button>
+                            </div>
+                            <p class="mt-3 text-xs text-gray-500">Modules / package management are developer architecture — not operator navigation.</p>
                         </div>
-                        <p class="mt-3 text-xs text-gray-500">Modules / package management are developer architecture — not operator navigation.</p>
-                    </div>
 
-                    <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-                        <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Demo Mode</h3>
-                        <p class="mt-2 text-sm text-gray-500">
-                            Resets recommendations, tasks, activity, import simulation, period selection, and session-only customers/brands
-                            back to the DemoCatalog seed. Does not touch the operator database.
-                        </p>
-                        <div class="mt-4 flex flex-wrap gap-2">
-                            <x-ta.button wire:click="resetDemo" size="sm" variant="danger">Reset Demo Mode</x-ta.button>
-                            <x-ta.button href="{{ route('demo.dashboard') }}" size="sm" variant="outline">Back to dashboard</x-ta.button>
+                        <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                            <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Demo Mode</h3>
+                            <p class="mt-2 text-sm text-gray-500">
+                                Resets recommendations, tasks, activity, import simulation, period selection, and session-only customers/brands
+                                back to the DemoCatalog seed. Does not touch the operator database.
+                            </p>
+                            <div class="mt-4 flex flex-wrap gap-2">
+                                <x-ta.button wire:click="resetDemo" size="sm" variant="danger">Reset Demo Mode</x-ta.button>
+                                <x-ta.button href="{{ route('demo.dashboard') }}" size="sm" variant="outline">Back to dashboard</x-ta.button>
+                            </div>
                         </div>
-                    </div>
+                    @endif
+
+                    @if ($advanced_sub === null || $advanced_sub === 'files')
+                        <div id="files" class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800 space-y-3 text-sm">
+                            <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ __('operator.settings_ia.advanced_files') }}</h3>
+                            <dl class="grid gap-4 sm:grid-cols-2">
+                                <div><dt class="text-gray-400">Private file disk</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['files']['disk'] }}</dd></div>
+                                <div><dt class="text-gray-400">Avatar disk</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['files']['avatar_disk'] }}</dd></div>
+                                <div><dt class="text-gray-400">Max upload</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['files']['max_upload_mb'] }} MB</dd></div>
+                                <div><dt class="text-gray-400">Allowed types</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['files']['allowed'] }}</dd></div>
+                                <div><dt class="text-gray-400">Blocked types</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['files']['blocked'] }}</dd></div>
+                                <div><dt class="text-gray-400">Connector packages</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['files']['connector_storage'] }}</dd></div>
+                            </dl>
+                            <p class="text-xs text-gray-500">{{ $settings['files']['note'] }}</p>
+                            <x-ta.button :href="route('demo.files')" size="sm">{{ __('operator.nav.files') }}</x-ta.button>
+                        </div>
+                    @endif
+
+                    @if ($advanced_sub === null || $advanced_sub === 'privacy')
+                        <div id="privacy" class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800 space-y-3 text-sm">
+                            <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ __('operator.settings_ia.advanced_privacy') }}</h3>
+                            <p><span class="text-gray-400">Retention · </span><span class="text-gray-800 dark:text-white/90">{{ $settings['privacy']['retention'] }}</span></p>
+                            <p><span class="text-gray-400">Export · </span><span class="text-gray-800 dark:text-white/90">{{ $settings['privacy']['export'] }}</span></p>
+                            <p><span class="text-gray-400">Purge · </span><span class="text-gray-800 dark:text-white/90">{{ $settings['privacy']['purge'] }}</span></p>
+                        </div>
+                    @endif
+
+                    @if ($advanced_sub === null)
+                        <div class="flex flex-wrap gap-2 text-sm">
+                            <button type="button" wire:click="setAdvancedSub('files')" class="rounded-lg px-3 py-2 font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">{{ __('operator.settings_ia.advanced_files') }}</button>
+                            <button type="button" wire:click="setAdvancedSub('privacy')" class="rounded-lg px-3 py-2 font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">{{ __('operator.settings_ia.advanced_privacy') }}</button>
+                            <button type="button" wire:click="setAdvancedSub('diagnostics')" class="rounded-lg px-3 py-2 font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">{{ __('operator.settings_ia.advanced_diagnostics') }}</button>
+                        </div>
+                    @elseif ($advanced_sub !== null)
+                        <button type="button" wire:click="setAdvancedSub(null)" class="text-sm font-medium text-brand-600 hover:underline dark:text-brand-400">← All advanced settings</button>
+                    @endif
                 </div>
             @endif
         </div>

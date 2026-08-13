@@ -21,6 +21,9 @@ class SettingsPage extends Component
     #[Url(as: 'section', history: true)]
     public string $section = 'general';
 
+    #[Url(as: 'advanced_sub', history: true)]
+    public ?string $advanced_sub = null;
+
     public string $agency_name = '';
 
     public string $default_locale = '';
@@ -44,6 +47,11 @@ class SettingsPage extends Component
 
     public function mount(): void
     {
+        if (in_array($this->section, ['files', 'privacy'], true)) {
+            $this->advanced_sub = $this->section;
+            $this->section = 'advanced';
+        }
+
         $ids = array_column(GlobalOperatingFixtures::settingsSections(), 'id');
         if (! in_array($this->section, $ids, true)) {
             $this->section = 'general';
@@ -57,6 +65,17 @@ class SettingsPage extends Component
         $ids = array_column(GlobalOperatingFixtures::settingsSections(), 'id');
         if (in_array($section, $ids, true)) {
             $this->section = $section;
+            if ($section !== 'advanced') {
+                $this->advanced_sub = null;
+            }
+        }
+    }
+
+    public function setAdvancedSub(?string $sub): void
+    {
+        if ($sub === null || in_array($sub, ['files', 'privacy', 'diagnostics'], true)) {
+            $this->section = 'advanced';
+            $this->advanced_sub = $sub;
         }
     }
 
