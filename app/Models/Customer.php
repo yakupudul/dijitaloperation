@@ -60,6 +60,16 @@ class Customer extends Model
     }
 
     /**
+     * Canonical Customer Service Scopes (Prompt 36).
+     *
+     * @return HasMany<CustomerServiceScope, $this>
+     */
+    public function serviceScopes(): HasMany
+    {
+        return $this->hasMany(CustomerServiceScope::class);
+    }
+
+    /**
      * @return BelongsToMany<User, $this>
      */
     public function responsibleUsers(): BelongsToMany

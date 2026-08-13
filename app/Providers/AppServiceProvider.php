@@ -57,6 +57,9 @@ use App\Services\MetaAds\MetaAdsPoolReadRepository;
 use App\Services\MetaAds\MetaAdsSpecialistBindingResolver;
 use App\Services\MetaAds\MetaAdsSpecialistReadService;
 use App\Services\MetaAds\MetaAdsUiDatasetGate;
+use App\Services\ServiceScope\CommercialServiceContextProvider;
+use App\Services\ServiceScope\CustomerServiceScopeReadService;
+use App\Services\ServiceScope\CustomerServiceScopeService;
 use App\Support\Agents\AgentProfileRegistry;
 use App\Support\Ai\AiRouteRegistry;
 use App\Support\Roles;
@@ -117,6 +120,10 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(MetaAdsPoolReadRepository::class);
         $this->app->singleton(MetaAdsUiDatasetGate::class);
         $this->app->singleton(MetaAdsSpecialistReadService::class);
+
+        $this->app->singleton(CustomerServiceScopeService::class);
+        $this->app->singleton(CustomerServiceScopeReadService::class);
+        $this->app->singleton(CommercialServiceContextProvider::class);
 
         $this->app->singleton(RawPayloadWriter::class, FilesystemRawPayloadWriter::class);
         $this->app->singleton(PostgresWarehouseWriter::class);
