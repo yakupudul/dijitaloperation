@@ -39,6 +39,7 @@ use App\Services\Formulas\FormulaRegistryLoader;
 use App\Services\Formulas\Ga4FormulaCalculator;
 use App\Services\Formulas\GoogleAdsFormulaCalculator;
 use App\Services\Formulas\GscFormulaCalculator;
+use App\Services\Formulas\MetaAdsFormulaCalculator;
 use App\Services\Ga4\Ga4PoolReadRepository;
 use App\Services\Ga4\Ga4SpecialistBindingResolver;
 use App\Services\Ga4\Ga4SpecialistReadService;
@@ -52,6 +53,10 @@ use App\Services\Gsc\GscSpecialistBindingResolver;
 use App\Services\Gsc\GscSpecialistReadService;
 use App\Services\Gsc\GscUiDatasetGate;
 use App\Services\Integrations\BoundCollectorRegistry;
+use App\Services\MetaAds\MetaAdsPoolReadRepository;
+use App\Services\MetaAds\MetaAdsSpecialistBindingResolver;
+use App\Services\MetaAds\MetaAdsSpecialistReadService;
+use App\Services\MetaAds\MetaAdsUiDatasetGate;
 use App\Support\Agents\AgentProfileRegistry;
 use App\Support\Ai\AiRouteRegistry;
 use App\Support\Roles;
@@ -106,6 +111,12 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(GoogleAdsPoolReadRepository::class);
         $this->app->singleton(GoogleAdsUiDatasetGate::class);
         $this->app->singleton(GoogleAdsSpecialistReadService::class);
+
+        $this->app->singleton(MetaAdsFormulaCalculator::class);
+        $this->app->singleton(MetaAdsSpecialistBindingResolver::class);
+        $this->app->singleton(MetaAdsPoolReadRepository::class);
+        $this->app->singleton(MetaAdsUiDatasetGate::class);
+        $this->app->singleton(MetaAdsSpecialistReadService::class);
 
         $this->app->singleton(RawPayloadWriter::class, FilesystemRawPayloadWriter::class);
         $this->app->singleton(PostgresWarehouseWriter::class);
