@@ -2,7 +2,6 @@
 
 namespace App\Livewire\Demo\Operations;
 
-use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
@@ -57,13 +56,33 @@ class FindingsIndex extends Component
         $this->expandedId = $this->expandedId === $id ? null : $id;
     }
 
+    public function acknowledge(string $id): void
+    {
+        DemoState::setFindingStatus($id, 'acknowledged');
+    }
+
+    public function resolve(string $id): void
+    {
+        DemoState::setFindingStatus($id, 'resolved');
+    }
+
+    public function reopen(string $id): void
+    {
+        DemoState::setFindingStatus($id, 'open');
+    }
+
     public function render(): View
     {
-        $all = DemoCatalog::findings();
-        $findings = collect(DemoCatalog::filterFindings(
-            $this->severity === 'all' ? null : $this->severity,
-            $this->assetType === 'all' ? null : $this->assetType,
-        ));
+        $all = DemoState::findingsWithStatus();
+        $findings = collect($all);
+
+        if ($this->severity !== 'all') {
+            $findings = $findings->where('severity', $this->severity);
+        }
+
+        if ($this->assetType !== 'all') {
+            $findings = $findings->where('asset_type', $this->assetType);
+        }
 
         if ($this->status !== 'all') {
             $findings = $findings->where('status', $this->status);
@@ -71,9 +90,10 @@ class FindingsIndex extends Component
 
         $summary = [
             'critical_high' => collect($all)->whereIn('severity', ['critical', 'high'])->where('status', 'open')->count(),
-            'new' => collect($all)->where('status', 'open')->take(3)->count() > 0 ? min(3, collect($all)->where('status', 'open')->count()) : 0,
-            'regressions' => collect($all)->whereIn('type', ['performance', 'local', 'measurement'])->whereIn('severity', ['critical', 'high'])->count(),
+            'new' => collect($all)->where('status', 'open')->count(),
+            'regressions' => collect($all)->whereIn('type', ['performance', 'local', 'measurement'])->whereIn('severity', ['critical', 'high'])->where('status', 'open')->count(),
             'resolved' => collect($all)->where('status', 'resolved')->count(),
+            'acknowledged' => collect($all)->where('status', 'acknowledged')->count(),
         ];
 
         return view('livewire.demo.operations.findings-index', [

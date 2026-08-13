@@ -19,10 +19,10 @@ final class DigitalAssetTypes
             'google_ads' => 'Google Ads',
             'meta_ads' => 'Meta Ads',
             'instagram' => 'Instagram',
-            // Canonical Demo/product type key remains `ga4` (label: Google Analytics).
-            // Do not introduce a parallel `google_analytics` type for the same concept.
+            // Canonical product type key: `ga4` (UI label: Google Analytics / GA4).
+            // VisualCatalog aliases `google_analytics` → `ga4`. Do not introduce a parallel type.
             'ga4' => 'Google Analytics',
-            // Canonical Demo/product type key remains `gsc` (label: Google Search Console).
+            // Canonical product type key: `gsc` (UI label: Google Search Console).
             'gsc' => 'Google Search Console',
         ];
     }

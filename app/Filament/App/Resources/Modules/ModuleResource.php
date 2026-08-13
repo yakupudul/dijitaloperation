@@ -42,6 +42,12 @@ class ModuleResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'module_id';
 
+    /**
+     * Modules are developer architecture — not normal operator navigation.
+     * Admin URL access remains available for technical management.
+     */
+    protected static bool $shouldRegisterNavigation = false;
+
     public static function canAccess(): bool
     {
         $user = auth()->user();

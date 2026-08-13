@@ -112,6 +112,15 @@
                         <x-ta.button wire:click="expand('{{ $finding['id'] }}')" size="sm" variant="outline">
                             {{ $expandedId === $finding['id'] ? 'Hide' : 'Open' }}
                         </x-ta.button>
+                        @if (($finding['status'] ?? 'open') === 'open')
+                            <x-ta.button wire:click="acknowledge('{{ $finding['id'] }}')" size="sm" variant="outline">Acknowledge</x-ta.button>
+                            <x-ta.button wire:click="resolve('{{ $finding['id'] }}')" size="sm" variant="primary">Resolve</x-ta.button>
+                        @elseif (($finding['status'] ?? '') === 'acknowledged')
+                            <x-ta.button wire:click="resolve('{{ $finding['id'] }}')" size="sm" variant="primary">Resolve</x-ta.button>
+                            <x-ta.button wire:click="reopen('{{ $finding['id'] }}')" size="sm" variant="outline">Reopen</x-ta.button>
+                        @else
+                            <x-ta.button wire:click="reopen('{{ $finding['id'] }}')" size="sm" variant="outline">Reopen</x-ta.button>
+                        @endif
                         <x-ta.button href="{{ route('demo.recommendations') }}" size="sm" variant="outline">Recommendation</x-ta.button>
                     </div>
                 </div>

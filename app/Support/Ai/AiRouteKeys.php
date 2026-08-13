@@ -15,4 +15,10 @@ final class AiRouteKeys
     public const string GOOGLE_ADS_AI_GUIDANCE = 'google_ads.ai_guidance';
 
     public const string META_ADS_AI_GUIDANCE = 'meta_ads.ai_guidance';
+
+    public const string GBP_AI_GUIDANCE = 'gbp.ai_guidance';
+
+    public const string GA4_AI_GUIDANCE = 'ga4.ai_guidance';
+
+    public const string GSC_AI_GUIDANCE = 'gsc.ai_guidance';
 }

@@ -72,6 +72,7 @@ class MoxDopUiFoundationTest extends TestCase
         $this->assertSame(MoxDopNavigation::OPERATIONS, RecommendationResource::getNavigationGroup());
         $this->assertSame(MoxDopNavigation::OPERATIONS, RunResource::getNavigationGroup());
         $this->assertSame(MoxDopNavigation::SYSTEM, ModuleResource::getNavigationGroup());
+        $this->assertFalse(ModuleResource::shouldRegisterNavigation());
         $this->assertSame(MoxDopNavigation::PORTFOLIO, BrandsDirectory::getNavigationGroup());
         $this->assertSame(MoxDopNavigation::PORTFOLIO, DigitalAssetsDirectory::getNavigationGroup());
     }

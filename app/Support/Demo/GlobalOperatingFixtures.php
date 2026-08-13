@@ -719,7 +719,7 @@ final class GlobalOperatingFixtures
             [
                 'id' => 'act-host-fail',
                 'time' => '09:20',
-                'when' => '4 days ago',
+                'when' => '10 days ago',
                 'title' => 'Hosting probe failed',
                 'scope' => 'DemoHost · Atlas Dental',
                 'detail' => 'Timeout (demo)',

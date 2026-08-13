@@ -434,10 +434,58 @@
                         <p class="text-xs text-gray-400">Last updated {{ $businessContext['updated_at'] }}@if (! empty($businessContext['updated_by'])) by {{ $businessContext['updated_by'] }}@endif · {{ $businessContext['source'] ?? 'Operator maintained' }}</p>
                     @endif
                 </div>
-                <a href="{{ route('demo.brand.edit', ['brandId' => $brandRow['id']]) }}" wire:navigate class="inline-flex rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
+                <button type="button" wire:click="startEditingContext" class="inline-flex rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
                     {{ ($businessContext['completed'] ?? 0) > 0 ? 'Edit business context' : 'Add business context' }}
-                </a>
+                </button>
             </div>
+
+            @if ($editingContext)
+                <form wire:submit="saveBusinessContext" class="space-y-4 rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Canonical structured Brand Context. Legacy free-text Brand fields are compatibility only — not a second source of truth.</p>
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <label class="block text-sm sm:col-span-2">
+                            <span class="text-gray-500">Business summary</span>
+                            <textarea wire:model="context_business_summary" rows="3" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700"></textarea>
+                        </label>
+                        <label class="block text-sm">
+                            <span class="text-gray-500">Business model</span>
+                            <input wire:model="context_business_model" type="text" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700" />
+                        </label>
+                        <label class="block text-sm">
+                            <span class="text-gray-500">Positioning</span>
+                            <input wire:model="context_positioning" type="text" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700" />
+                        </label>
+                        <label class="block text-sm sm:col-span-2">
+                            <span class="text-gray-500">Priority offerings (comma-separated)</span>
+                            <input wire:model="context_priority_offerings" type="text" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700" />
+                        </label>
+                        <label class="block text-sm sm:col-span-2">
+                            <span class="text-gray-500">Target audiences (comma-separated)</span>
+                            <input wire:model="context_target_audiences" type="text" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700" />
+                        </label>
+                        <label class="block text-sm sm:col-span-2">
+                            <span class="text-gray-500">Differentiators (comma-separated)</span>
+                            <input wire:model="context_differentiators" type="text" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700" />
+                        </label>
+                        <label class="block text-sm sm:col-span-2">
+                            <span class="text-gray-500">Business goals (comma-separated)</span>
+                            <input wire:model="context_business_goals" type="text" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700" />
+                        </label>
+                        <label class="block text-sm sm:col-span-2">
+                            <span class="text-gray-500">Conversion goals (comma-separated)</span>
+                            <input wire:model="context_conversion_goals" type="text" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700" />
+                        </label>
+                        <label class="block text-sm sm:col-span-2">
+                            <span class="text-gray-500">Important constraints (comma-separated)</span>
+                            <input wire:model="context_constraints" type="text" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700" />
+                        </label>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <x-ta.button type="submit" size="sm">Save canonical context</x-ta.button>
+                        <x-ta.button type="button" wire:click="cancelEditingContext" size="sm" variant="outline">Cancel</x-ta.button>
+                    </div>
+                </form>
+            @endif
 
             <div class="space-y-4 rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
                 <section>

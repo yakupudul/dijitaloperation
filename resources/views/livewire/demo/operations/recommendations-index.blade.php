@@ -94,6 +94,7 @@
                         </x-ta.button>
                         @if ($rec['status'] === 'pending')
                             <x-ta.button wire:click="approve('{{ $rec['id'] }}')" size="sm">Accept</x-ta.button>
+                            <x-ta.button wire:click="defer('{{ $rec['id'] }}')" size="sm" variant="outline">Defer</x-ta.button>
                             <x-ta.button wire:click="reject('{{ $rec['id'] }}')" size="sm" variant="danger">Dismiss</x-ta.button>
                         @endif
                         <x-ta.button wire:click="createTask('{{ $rec['id'] }}')" size="sm" variant="outline">Create Task</x-ta.button>

@@ -10,6 +10,8 @@ use App\Support\Ai\AiRouteKeys;
 use App\Support\Ai\AiRouteRegistry;
 use App\Support\Skills\SkillRegistry;
 use Illuminate\Support\ServiceProvider;
+use MoxDop\Website\Agents\Ga4MeasurementAnalyst;
+use MoxDop\Website\Agents\GscOrganicSearchAnalyst;
 use MoxDop\Website\Agents\WebsiteBrandDiscoveryAnalyst;
 use MoxDop\Website\Agents\WebsiteSeoAnalyst;
 use MoxDop\Website\Ai\WebsiteAiRoutes;
@@ -61,6 +63,32 @@ class WebsiteServiceProvider extends ServiceProvider
             ],
         ]);
 
+        $this->app->make(AiRouteRegistry::class)->register([
+            'key' => AiRouteKeys::GA4_AI_GUIDANCE,
+            'name' => WebsiteAiRoutes::GA4_AI_GUIDANCE_NAME,
+            'module' => 'website',
+            'description' => 'Grounded GA4 measurement guidance. Designed — live specialist execution not claimed; collectors may still be Website-scoped.',
+            'default_steps' => [
+                [
+                    'provider' => AiProviderCatalog::OPENAI,
+                    'model' => AiProviderCatalog::defaultModel(AiProviderCatalog::OPENAI),
+                ],
+            ],
+        ]);
+
+        $this->app->make(AiRouteRegistry::class)->register([
+            'key' => AiRouteKeys::GSC_AI_GUIDANCE,
+            'name' => WebsiteAiRoutes::GSC_AI_GUIDANCE_NAME,
+            'module' => 'website',
+            'description' => 'Grounded Search Console organic-demand guidance. Designed — live specialist execution not claimed; collectors may still be Website-scoped.',
+            'default_steps' => [
+                [
+                    'provider' => AiProviderCatalog::OPENAI,
+                    'model' => AiProviderCatalog::defaultModel(AiProviderCatalog::OPENAI),
+                ],
+            ],
+        ]);
+
         $this->app->make(SkillRegistry::class)->registerRoot(
             'website',
             dirname(__DIR__, 2).'/resources/skills',
@@ -68,5 +96,7 @@ class WebsiteServiceProvider extends ServiceProvider
 
         $this->app->make(AgentProfileRegistry::class)->register(WebsiteSeoAnalyst::definition());
         $this->app->make(AgentProfileRegistry::class)->register(WebsiteBrandDiscoveryAnalyst::definition());
+        $this->app->make(AgentProfileRegistry::class)->register(Ga4MeasurementAnalyst::definition());
+        $this->app->make(AgentProfileRegistry::class)->register(GscOrganicSearchAnalyst::definition());
     }
 }

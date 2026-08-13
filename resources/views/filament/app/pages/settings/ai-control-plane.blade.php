@@ -49,10 +49,39 @@
 
         <x-filament::section>
             <x-slot name="heading">
+                Registered AI routes
+            </x-slot>
+            <x-slot name="description">
+                Every registered workflow is configurable. Selecting a route loads its provider chain — this page is not limited to Website AI Guidance.
+            </x-slot>
+
+            <ul class="grid gap-3 sm:grid-cols-2" role="list">
+                @foreach ($routes as $route)
+                    <li>
+                        <button
+                            type="button"
+                            wire:click="selectRoute('{{ $route['key'] }}')"
+                            @class([
+                                'w-full rounded-xl border p-4 text-left transition',
+                                'border-primary-500 bg-primary-50 dark:bg-primary-500/10' => $route['selected'],
+                                'border-gray-200 hover:border-gray-300 dark:border-white/10 dark:hover:border-white/20' => ! $route['selected'],
+                            ])
+                        >
+                            <p class="text-sm font-semibold text-gray-950 dark:text-white">{{ $route['name'] }}</p>
+                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ $route['key'] }} · {{ $route['module'] }}</p>
+                            <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">{{ $route['description'] }}</p>
+                        </button>
+                    </li>
+                @endforeach
+            </ul>
+        </x-filament::section>
+
+        <x-filament::section>
+            <x-slot name="heading">
                 {{ $route_name }}
             </x-slot>
             <x-slot name="description">
-                Effective order after eligibility filtering. Unconfigured providers are skipped before any AI call.
+                Effective order after eligibility filtering for <code class="text-xs">{{ $route_key }}</code> ({{ $route_module }}). Unconfigured providers are skipped before any AI call.
             </x-slot>
 
             <ol class="space-y-3">

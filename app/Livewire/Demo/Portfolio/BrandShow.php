@@ -50,6 +50,26 @@ class BrandShow extends Component
     #[Url]
     public string $history_type = '';
 
+    public bool $editingContext = false;
+
+    public string $context_business_summary = '';
+
+    public string $context_business_model = '';
+
+    public string $context_priority_offerings = '';
+
+    public string $context_target_audiences = '';
+
+    public string $context_positioning = '';
+
+    public string $context_differentiators = '';
+
+    public string $context_business_goals = '';
+
+    public string $context_conversion_goals = '';
+
+    public string $context_constraints = '';
+
     public ?string $reviewCandidateId = null;
 
     public ?string $reviewConflictId = null;
@@ -185,6 +205,122 @@ class BrandShow extends Component
     {
         $this->reviewCandidateId = null;
         $this->reviewConflictId = null;
+    }
+
+    public function startEditingContext(): void
+    {
+        $this->tab = 'context';
+        $this->editingContext = true;
+        $context = $this->resolveBusinessContext($this->findBrandRow() ?? []);
+        $this->context_business_summary = (string) ($context['business_summary'] ?? '');
+        $this->context_business_model = (string) ($context['business_model'] ?? '');
+        $this->context_priority_offerings = implode(', ', array_values($context['priority_offerings'] ?? []));
+        $this->context_target_audiences = implode(', ', array_values($context['target_audiences'] ?? []));
+        $this->context_positioning = (string) ($context['positioning'] ?? '');
+        $this->context_differentiators = implode(', ', array_values($context['differentiators'] ?? []));
+        $this->context_business_goals = implode(', ', array_values($context['business_goals'] ?? []));
+        $this->context_conversion_goals = implode(', ', array_values($context['conversion_goals'] ?? []));
+        $this->context_constraints = implode(', ', array_values($context['important_constraints'] ?? []));
+    }
+
+    public function cancelEditingContext(): void
+    {
+        $this->editingContext = false;
+    }
+
+    public function saveBusinessContext(): void
+    {
+        $brandId = $this->brand;
+        $split = static function (string $value): array {
+            return array_values(array_filter(array_map('trim', preg_split('/[,\\n]+/', $value) ?: [])));
+        };
+
+        $priority = $split($this->context_priority_offerings);
+        $audiences = $split($this->context_target_audiences);
+        $differentiators = $split($this->context_differentiators);
+        $goals = $split($this->context_business_goals);
+        $conversions = $split($this->context_conversion_goals);
+        $constraints = $split($this->context_constraints);
+
+        $base = $this->resolveBusinessContext($this->findBrandRow() ?? []);
+        $completed = 0;
+        foreach ([$this->context_business_summary, $this->context_business_model, $this->context_positioning] as $scalar) {
+            if (trim($scalar) !== '') {
+                $completed++;
+            }
+        }
+        foreach ([$priority, $audiences, $goals, $conversions, $constraints] as $list) {
+            if ($list !== []) {
+                $completed++;
+            }
+        }
+
+        DemoState::saveBrandBusinessContext($brandId, [
+            'completed' => min(8, $completed),
+            'total' => 8,
+            'business_summary' => trim($this->context_business_summary) !== '' ? trim($this->context_business_summary) : null,
+            'business_model' => trim($this->context_business_model) !== '' ? trim($this->context_business_model) : null,
+            'products_services' => $priority !== [] ? $priority : ($base['products_services'] ?? []),
+            'priority_offerings' => $priority,
+            'target_audiences' => $audiences,
+            'target_markets' => $base['target_markets'] ?? [],
+            'business_goals' => $goals,
+            'conversion_goals' => $conversions,
+            'positioning' => trim($this->context_positioning) !== '' ? trim($this->context_positioning) : null,
+            'differentiators' => $differentiators,
+            'known_competitors' => $base['known_competitors'] ?? [],
+            'important_constraints' => $constraints,
+            'unknown_areas' => $completed >= 8 ? [] : ['Some Business Context areas still incomplete'],
+        ]);
+
+        $this->editingContext = false;
+    }
+
+    /**
+     * @param  array<string, mixed>  $brandRow
+     * @return array<string, mixed>
+     */
+    private function resolveBusinessContext(array $brandRow): array
+    {
+        $saved = DemoState::brandBusinessContext((string) ($brandRow['id'] ?? $this->brand));
+        if (is_array($saved) && $saved !== []) {
+            return $saved;
+        }
+
+        if (($brandRow['id'] ?? '') === DemoCatalog::BRAND_ID) {
+            return DemoCatalog::brandBusinessContext();
+        }
+
+        return [
+            'completed' => (int) ($brandRow['context_completed'] ?? 0),
+            'total' => (int) ($brandRow['context_total'] ?? 8),
+            'updated_at' => null,
+            'updated_by' => null,
+            'source' => 'Operator maintained',
+            'business_summary' => $brandRow['description'] ?? null,
+            'business_model' => null,
+            'products_services' => [],
+            'priority_offerings' => [],
+            'target_audiences' => array_filter([(string) ($brandRow['audience'] ?? '')]),
+            'target_markets' => $brandRow['target_markets'] ?? [],
+            'business_goals' => [],
+            'conversion_goals' => [],
+            'positioning' => null,
+            'differentiators' => [],
+            'known_competitors' => [],
+            'important_constraints' => [],
+            'unknown_areas' => ['Structured Business Context not started'],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function findBrandRow(): ?array
+    {
+        $row = collect(DemoState::all()['brands'] ?? [])->firstWhere('id', $this->brand);
+
+        return is_array($row) ? $row : null;
     }
 
     public function acceptDiscoveryCandidate(string $id): void
@@ -468,28 +604,7 @@ class BrandShow extends Component
             return in_array($a['connection'] ?? '', ['connected', 'public_plus_detected'], true);
         })->count();
 
-        $businessContext = ($brandRow['id'] ?? '') === DemoCatalog::BRAND_ID
-            ? DemoCatalog::brandBusinessContext()
-            : [
-                'completed' => (int) ($brandRow['context_completed'] ?? 0),
-                'total' => (int) ($brandRow['context_total'] ?? 8),
-                'updated_at' => null,
-                'updated_by' => null,
-                'source' => 'Operator maintained',
-                'business_summary' => $brandRow['description'] ?? null,
-                'business_model' => null,
-                'products_services' => [],
-                'priority_offerings' => [],
-                'target_audiences' => array_filter([(string) ($brandRow['audience'] ?? '')]),
-                'target_markets' => $brandRow['target_markets'] ?? [],
-                'business_goals' => [],
-                'conversion_goals' => [],
-                'positioning' => null,
-                'differentiators' => [],
-                'known_competitors' => [],
-                'important_constraints' => [],
-                'unknown_areas' => ['Structured Business Context not started'],
-            ];
+        $businessContext = $this->resolveBusinessContext($brandRow);
 
         $crossChannel = ($brandRow['id'] ?? '') === DemoCatalog::BRAND_ID
             ? DemoCatalog::brandCrossChannel()

@@ -25,7 +25,7 @@ final class DemoState
         }
 
         $defaults = self::defaults();
-        foreach (['contacts', 'customer_activity', 'demo_assets', 'discovery_candidates', 'discovery_history', 'discovery_conflict_resolutions', 'connector_bindings', 'wizard_state'] as $key) {
+        foreach (['contacts', 'customer_activity', 'demo_assets', 'discovery_candidates', 'discovery_history', 'discovery_conflict_resolutions', 'connector_bindings', 'wizard_state', 'finding_statuses', 'settings_overrides', 'brand_business_context', 'activity_events'] as $key) {
             if (! array_key_exists($key, $state)) {
                 $state[$key] = $defaults[$key] ?? [];
             }
@@ -71,6 +71,10 @@ final class DemoState
             'discovery_conflict_resolutions' => [],
             'connector_bindings' => [],
             'wizard_state' => null,
+            'finding_statuses' => [],
+            'settings_overrides' => [],
+            'brand_business_context' => [],
+            'activity_events' => [],
             'ai_brief_visible' => false,
             'period_preset' => 'last_28',
             'period_start' => null,
@@ -449,6 +453,181 @@ final class DemoState
         }
         unset($row);
         session()->put(self::SESSION_KEY, $state);
+
+        $label = match ($status) {
+            'approved' => 'Recommendation accepted',
+            'rejected' => 'Recommendation dismissed',
+            'deferred' => 'Recommendation deferred',
+            default => 'Recommendation updated',
+        };
+        self::recordActivityEvent([
+            'title' => $label,
+            'scope' => 'Operations · Recommendations',
+            'detail' => $id,
+            'actor' => 'Demo Operator',
+            'actor_kind' => 'human',
+            'status' => 'success',
+            'asset_type' => null,
+            'route' => 'demo.recommendations',
+        ]);
+    }
+
+    public static function setFindingStatus(string $id, string $status): void
+    {
+        $allowed = ['open', 'acknowledged', 'resolved'];
+        if (! in_array($status, $allowed, true)) {
+            return;
+        }
+
+        $state = self::all();
+        $statuses = is_array($state['finding_statuses'] ?? null) ? $state['finding_statuses'] : [];
+        $statuses[$id] = $status;
+        $state['finding_statuses'] = $statuses;
+        session()->put(self::SESSION_KEY, $state);
+
+        $label = match ($status) {
+            'acknowledged' => 'Finding acknowledged',
+            'resolved' => 'Finding resolved',
+            default => 'Finding reopened',
+        };
+        self::recordActivityEvent([
+            'title' => $label,
+            'scope' => 'Operations · Findings',
+            'detail' => $id,
+            'actor' => 'Demo Operator',
+            'actor_kind' => 'human',
+            'status' => 'success',
+            'asset_type' => null,
+            'route' => 'demo.findings',
+        ]);
+        self::flash($label.' (Demo Mode).');
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public static function findingsWithStatus(): array
+    {
+        $statuses = self::all()['finding_statuses'] ?? [];
+        if (! is_array($statuses)) {
+            $statuses = [];
+        }
+
+        return array_map(function (array $finding) use ($statuses): array {
+            $id = (string) ($finding['id'] ?? '');
+            if ($id !== '' && isset($statuses[$id]) && is_string($statuses[$id])) {
+                $finding['status'] = $statuses[$id];
+            }
+
+            return $finding;
+        }, DemoCatalog::findings());
+    }
+
+    /**
+     * @param  array<string, mixed>  $overrides
+     */
+    public static function mergeSettingsOverrides(array $overrides): void
+    {
+        $state = self::all();
+        $current = is_array($state['settings_overrides'] ?? null) ? $state['settings_overrides'] : [];
+        $state['settings_overrides'] = array_replace_recursive($current, $overrides);
+        session()->put(self::SESSION_KEY, $state);
+        self::flash('Settings updated (Demo Mode — session only).');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function settingsOverrides(): array
+    {
+        $overrides = self::all()['settings_overrides'] ?? [];
+
+        return is_array($overrides) ? $overrides : [];
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     */
+    public static function saveBrandBusinessContext(string $brandId, array $context): void
+    {
+        $state = self::all();
+        $store = is_array($state['brand_business_context'] ?? null) ? $state['brand_business_context'] : [];
+        $context['brand_id'] = $brandId;
+        $context['updated_at'] = now()->timezone(config('app.timezone'))->format('M j, Y H:i');
+        $context['updated_by'] = 'Demo Operator';
+        $context['source'] = 'Operator maintained';
+        $store[$brandId] = $context;
+        $state['brand_business_context'] = $store;
+        session()->put(self::SESSION_KEY, $state);
+
+        self::recordActivityEvent([
+            'title' => 'Brand Context updated',
+            'scope' => 'Brand · Business Context',
+            'detail' => $brandId,
+            'actor' => 'Demo Operator',
+            'actor_kind' => 'human',
+            'status' => 'success',
+            'asset_type' => null,
+            'route' => 'demo.brand',
+        ]);
+        self::flash('Business Context saved as canonical Brand truth (Demo Mode). Legacy Brand free-text fields are not the source of truth.');
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public static function brandBusinessContext(string $brandId): ?array
+    {
+        $store = self::all()['brand_business_context'] ?? [];
+        if (! is_array($store) || ! isset($store[$brandId]) || ! is_array($store[$brandId])) {
+            return null;
+        }
+
+        return $store[$brandId];
+    }
+
+    /**
+     * @param  array{
+     *     title: string,
+     *     scope?: string,
+     *     detail?: string,
+     *     actor?: string,
+     *     actor_kind?: string,
+     *     status?: string,
+     *     asset_type?: ?string,
+     *     route?: ?string
+     * }  $event
+     */
+    public static function recordActivityEvent(array $event): void
+    {
+        $state = self::all();
+        $events = is_array($state['activity_events'] ?? null) ? $state['activity_events'] : [];
+        array_unshift($events, [
+            'id' => 'act-live-'.substr(md5(($event['title'] ?? '').microtime(true)), 0, 10),
+            'time' => now()->timezone(config('app.timezone'))->format('H:i'),
+            'when' => 'Today',
+            'title' => $event['title'],
+            'scope' => $event['scope'] ?? 'MoxDOP',
+            'detail' => $event['detail'] ?? '',
+            'actor' => $event['actor'] ?? 'System',
+            'actor_kind' => $event['actor_kind'] ?? 'system',
+            'status' => $event['status'] ?? 'success',
+            'asset_type' => $event['asset_type'] ?? null,
+            'route' => $event['route'] ?? null,
+            'occurred_at' => now()->toIso8601String(),
+        ]);
+        $state['activity_events'] = array_slice($events, 0, 100);
+        session()->put(self::SESSION_KEY, $state);
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public static function activityEvents(): array
+    {
+        $events = self::all()['activity_events'] ?? [];
+
+        return is_array($events) ? array_values($events) : [];
     }
 
     public static function createTaskFromRecommendation(string $recommendationId): void
@@ -486,6 +665,16 @@ final class DemoState
         }
         unset($row);
         session()->put(self::SESSION_KEY, $state);
+        self::recordActivityEvent([
+            'title' => 'Task created from recommendation',
+            'scope' => ($rec['brand'] ?? 'Brand').' · '.($rec['asset'] ?? 'Asset'),
+            'detail' => $rec['title'],
+            'actor' => 'Demo Operator',
+            'actor_kind' => 'human',
+            'status' => 'success',
+            'asset_type' => null,
+            'route' => 'demo.tasks',
+        ]);
         self::flash('Task created from recommendation (Demo Mode).');
     }
 

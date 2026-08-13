@@ -80,6 +80,8 @@ class AgentProfilesSkillLibraryV1Test extends TestCase
 
         $this->assertEqualsCanonicalizing([
             'brand-context-discovery',
+            'ga4-measurement-quality',
+            'gsc-search-demand-review',
             'technical-seo-analysis',
             'search-console-analysis',
             'keyword-opportunity-analysis',

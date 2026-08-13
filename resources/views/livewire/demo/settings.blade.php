@@ -40,20 +40,35 @@
             </div>
 
             @if ($section === 'general')
-                <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-                    <dl class="grid gap-4 sm:grid-cols-2 text-sm">
-                        <div><dt class="text-gray-400">Agency Name</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['general']['agency_name'] }}</dd></div>
-                        <div><dt class="text-gray-400">Default Locale</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['general']['default_locale'] }}</dd></div>
-                        <div><dt class="text-gray-400">Default Timezone</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['general']['default_timezone'] }}</dd></div>
-                        <div>
-                            <dt class="text-gray-400">Default Display Currency</dt>
-                            <dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['general']['default_display_currency'] }}</dd>
+                <form wire:submit="saveGeneral" class="space-y-4 rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                    <div class="grid gap-4 sm:grid-cols-2 text-sm">
+                        <label class="block"><span class="text-gray-400">Agency Name</span><input wire:model="agency_name" type="text" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700" /></label>
+                        <label class="block"><span class="text-gray-400">Default Locale</span><input wire:model="default_locale" type="text" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700" /></label>
+                        <label class="block"><span class="text-gray-400">Default Timezone</span><input wire:model="default_timezone" type="text" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700" /></label>
+                        <label class="block">
+                            <span class="text-gray-400">Default Display Currency</span>
+                            <input wire:model="default_display_currency" type="text" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700" />
                             <p class="mt-1 text-xs text-gray-500">{{ $settings['general']['currency_note'] }}</p>
-                        </div>
-                        <div><dt class="text-gray-400">Default Analytical Date Range</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['general']['default_analytical_date_range'] }}</dd></div>
-                        <div><dt class="text-gray-400">Week starts on</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ ucfirst($settings['general']['week_starts_on']) }}</dd></div>
-                    </dl>
-                </div>
+                        </label>
+                        <label class="block">
+                            <span class="text-gray-400">Default Analytical Date Range</span>
+                            <select wire:model="default_analytical_date_range" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700">
+                                <option value="last_7">Last 7 days</option>
+                                <option value="last_14">Last 14 days</option>
+                                <option value="last_28">Last 28 days</option>
+                                <option value="last_30">Last 30 days</option>
+                            </select>
+                        </label>
+                        <label class="block">
+                            <span class="text-gray-400">Week starts on</span>
+                            <select wire:model="week_starts_on" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700">
+                                <option value="monday">Monday</option>
+                                <option value="sunday">Sunday</option>
+                            </select>
+                        </label>
+                    </div>
+                    <x-ta.button type="submit" size="sm">Save general settings</x-ta.button>
+                </form>
             @elseif ($section === 'team')
                 <div class="overflow-x-auto rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
                     <table class="min-w-full text-sm">
@@ -89,37 +104,94 @@
             @elseif ($section === 'notifications')
                 <div class="rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
                     <ul class="divide-y divide-gray-100 dark:divide-gray-800">
-                        @foreach ($settings['notifications'] as $row)
+                        @foreach ($settings['notifications'] as $index => $row)
                             <li class="flex items-center justify-between gap-3 px-4 py-3 text-sm">
                                 <div>
                                     <p class="font-medium text-gray-800 dark:text-white/90">{{ $row['event'] }}</p>
                                     <p class="text-xs text-gray-500">{{ $row['channel'] }}</p>
                                 </div>
-                                <x-ta.badge :color="$row['enabled'] ? 'success' : 'light'" size="sm">{{ $row['enabled'] ? 'On' : 'Off' }}</x-ta.badge>
+                                <button type="button" wire:click="toggleNotification({{ $index }})" class="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium ring-1 ring-inset ring-gray-200 dark:ring-gray-700">
+                                    <span @class([
+                                        'h-2.5 w-2.5 rounded-full',
+                                        'bg-emerald-500' => $notificationEnabled[$index] ?? $row['enabled'],
+                                        'bg-slate-400' => ! ($notificationEnabled[$index] ?? $row['enabled']),
+                                    ]) aria-hidden="true"></span>
+                                    {{ ($notificationEnabled[$index] ?? $row['enabled']) ? 'On' : 'Off' }}
+                                </button>
                             </li>
                         @endforeach
                     </ul>
                     <p class="border-t border-gray-100 px-4 py-3 text-xs text-gray-500 dark:border-gray-800">Delivery starts with in-app. Email/Slack/push infrastructure is out of scope for this Demo milestone.</p>
                 </div>
             @elseif ($section === 'operations')
-                <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-                    <dl class="grid gap-4 sm:grid-cols-2 text-sm">
+                <form wire:submit="saveOperations" class="space-y-4 rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                    <div class="grid gap-4 sm:grid-cols-2 text-sm">
+                        <label class="block">
+                            <span class="text-gray-400">Default dashboard mode</span>
+                            <select wire:model="default_dashboard_mode" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700">
+                                <option value="My Work">My Work</option>
+                                <option value="Agency">Agency</option>
+                            </select>
+                        </label>
+                        <label class="block">
+                            <span class="text-gray-400">Outcome review window</span>
+                            <input wire:model="outcome_review_window" type="text" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700" />
+                        </label>
                         @foreach ($settings['operations'] as $key => $value)
-                            <div>
-                                <dt class="text-gray-400">{{ str_replace('_', ' ', ucfirst($key)) }}</dt>
-                                <dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $value }}</dd>
-                            </div>
+                            @if (! in_array($key, ['default_dashboard_mode', 'outcome_review_window'], true))
+                                <div>
+                                    <dt class="text-gray-400">{{ str_replace('_', ' ', ucfirst($key)) }}</dt>
+                                    <dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $value }}</dd>
+                                </div>
+                            @endif
                         @endforeach
-                    </dl>
-                </div>
+                    </div>
+                    <x-ta.button type="submit" size="sm">Save operations settings</x-ta.button>
+                </form>
             @elseif ($section === 'ai')
-                <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-                    <dl class="grid gap-4 sm:grid-cols-2 text-sm">
-                        <div><dt class="text-gray-400">OpenAI</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['ai']['openai'] }}</dd></div>
-                        <div><dt class="text-gray-400">Anthropic</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['ai']['anthropic'] }}</dd></div>
-                    </dl>
-                    <p class="mt-4 text-sm text-gray-500">{{ $settings['ai']['note'] }}</p>
-                    <p class="mt-2 text-xs text-gray-400">AI Control Plane / Agent Profiles / Skill Library are not primary operator navigation — configure here when needed.</p>
+                <div class="space-y-4">
+                    <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                        <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">AI &amp; Intelligence overview</h3>
+                        <dl class="mt-3 grid gap-4 sm:grid-cols-3 text-sm">
+                            <div><dt class="text-gray-400">Registered routes</dt><dd class="mt-1 text-lg font-semibold text-gray-800 dark:text-white/90">{{ count($aiRoutes) }}</dd></div>
+                            <div><dt class="text-gray-400">Agent profiles</dt><dd class="mt-1 text-lg font-semibold text-gray-800 dark:text-white/90">{{ count($aiAgents) }}</dd></div>
+                            <div><dt class="text-gray-400">OpenAI</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['ai']['openai'] }}</dd></div>
+                        </dl>
+                        <p class="mt-4 text-sm text-gray-500">{{ $settings['ai']['note'] }}</p>
+                        <div class="mt-4 flex flex-wrap gap-2">
+                            <x-ta.button href="/system/settings/ai-control-plane" size="sm">AI Control Plane</x-ta.button>
+                            <x-ta.button href="/system/settings/agent-profiles" size="sm" variant="outline">Agent Profiles</x-ta.button>
+                            <x-ta.button href="/system/settings/skill-library" size="sm" variant="outline">Skill Library</x-ta.button>
+                        </div>
+                    </div>
+                    <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                        <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Registered AI routes</h3>
+                        <ul class="mt-3 divide-y divide-gray-100 dark:divide-gray-800">
+                            @foreach ($aiRoutes as $route)
+                                <li class="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                                    <div>
+                                        <p class="font-medium text-gray-800 dark:text-white/90">{{ $route['name'] }}</p>
+                                        <p class="text-xs text-gray-500">{{ $route['key'] }} · {{ $route['module'] }}</p>
+                                    </div>
+                                    <x-ta.button href="/system/settings/ai-control-plane?route={{ urlencode($route['key']) }}" size="sm" variant="outline">Configure</x-ta.button>
+                                </li>
+                            @endforeach
+                        </ul>
+                    </div>
+                    <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                        <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Agent profiles</h3>
+                        <ul class="mt-3 divide-y divide-gray-100 dark:divide-gray-800">
+                            @foreach ($aiAgents as $agent)
+                                <li class="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                                    <div>
+                                        <p class="font-medium text-gray-800 dark:text-white/90">{{ $agent['name'] }}</p>
+                                        <p class="text-xs text-gray-500">{{ $agent['slug'] }} · {{ $agent['module'] }} · {{ $agent['route'] }}</p>
+                                    </div>
+                                    <x-ta.badge :color="$agent['status'] === 'operational' ? 'success' : 'warning'" size="sm">{{ $agent['status'] }}</x-ta.badge>
+                                </li>
+                            @endforeach
+                        </ul>
+                    </div>
                 </div>
             @elseif ($section === 'privacy')
                 <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800 space-y-3 text-sm">

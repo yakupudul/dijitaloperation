@@ -15,4 +15,10 @@ final class AgentProfileKeys
     public const string GOOGLE_ADS_ANALYST = 'google_ads.analyst';
 
     public const string META_ADS_ANALYST = 'meta_ads.analyst';
+
+    public const string GBP_LOCAL_PRESENCE_ANALYST = 'gbp.local_presence_analyst';
+
+    public const string GA4_MEASUREMENT_ANALYST = 'ga4.measurement_analyst';
+
+    public const string GSC_ORGANIC_SEARCH_ANALYST = 'gsc.organic_search_analyst';
 }

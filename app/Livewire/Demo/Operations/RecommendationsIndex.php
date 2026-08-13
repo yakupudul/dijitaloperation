@@ -31,6 +31,12 @@ class RecommendationsIndex extends Component
         DemoState::flash('Recommendation dismissed (Demo Mode).', 'info');
     }
 
+    public function defer(string $id): void
+    {
+        DemoState::setRecommendationStatus($id, 'deferred');
+        DemoState::flash('Recommendation deferred (Demo Mode). Human decision recorded — no Task created.', 'info');
+    }
+
     public function createTask(string $id): void
     {
         DemoState::createTaskFromRecommendation($id);
