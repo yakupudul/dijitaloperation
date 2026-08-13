@@ -128,10 +128,12 @@ class DemoProductRoutesTest extends TestCase
             ->assertDontSee('Panorama Ankara GA4');
         $this->get(route('demo.integrations.meta'))
             ->assertOk()
-            ->assertSee('Meta data import')
-            ->assertSee('Import all Meta data')
-            ->assertSee('Ready')
-            ->assertSee('Needs attention');
+            ->assertSee('Meta')
+            ->assertSee('Resources & Bindings')
+            ->assertSee('Not configured')
+            ->assertSee('State separation')
+            ->assertDontSee('Import all Meta data')
+            ->assertDontSee('Meta data import');
         $this->get(route('demo.settings'))
             ->assertOk()
             ->assertSee('General')
@@ -307,13 +309,14 @@ class DemoProductRoutesTest extends TestCase
             ->assertSee('improvement observed');
 
         Livewire::test(MetaIntegrationPage::class)
-            ->assertSee('Ready')
-            ->assertSee('Importing')
-            ->assertSee('Queued')
-            ->assertSee('Needs attention')
-            ->assertSee('Import all Meta data')
-            ->call('expandAccount', 'acc-atlas')
-            ->assertSee('Daily facts');
+            ->assertSee('Not configured')
+            ->assertSee('Meta Businesses')
+            ->assertSee('Ad Accounts discovered')
+            ->assertSee('Authorization plane for Meta Ads')
+            ->assertDontSee('Import all Meta data')
+            ->call('setTab', 'resources')
+            ->assertSee('Unbound Ad Accounts')
+            ->assertSee('No unbound Ad Accounts in inventory');
     }
 
     public function test_website_severity_and_gbp_keyword_filters_work(): void
