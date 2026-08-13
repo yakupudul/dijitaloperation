@@ -94,9 +94,9 @@ class DemoProductRoutesTest extends TestCase
             ->assertSee('Review conversion mapping');
         $this->get(route('demo.tasks'))
             ->assertOk()
-            ->assertSee('Tasks')
-            ->assertSee('My Tasks')
-            ->assertSee('Board');
+            ->assertSee(__('operator.work.title'))
+            ->assertSee(__('operator.work.views.my'))
+            ->assertSee(__('operator.work.views.tasks'));
         $this->get(route('demo.task', ['taskId' => 't-replace-creative']))
             ->assertOk()
             ->assertSee('WHY')

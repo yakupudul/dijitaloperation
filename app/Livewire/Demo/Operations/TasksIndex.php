@@ -21,6 +21,8 @@ class TasksIndex extends Component
 
     public string $typeFilter = 'all';
 
+    public string $viewMode = 'list';
+
     public function mount(): void
     {
         $allowed = ['my', 'all', 'tasks', 'client_requests', 'recurring_reviews', 'approvals', 'waiting_on_client', 'qa_required', 'completed', 'unassigned', 'overdue', 'due_today'];
@@ -40,6 +42,11 @@ class TasksIndex extends Component
         if (in_array($view, $allowed, true)) {
             $this->view = $view;
         }
+    }
+
+    public function setViewMode(string $mode): void
+    {
+        $this->viewMode = in_array($mode, ['list', 'board'], true) ? $mode : 'list';
     }
 
     public function setStatus(string $status): void
@@ -143,6 +150,7 @@ class TasksIndex extends Component
             'workItems' => $rows->values()->all(),
             'glance' => $glance,
             'capacity' => AgencyExecutionFixtures::teamCapacity(),
+            'viewMode' => $this->viewMode,
             'flash' => DemoState::pullFlash(),
         ]);
     }

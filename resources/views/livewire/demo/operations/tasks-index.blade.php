@@ -54,8 +54,38 @@
                     ])>{{ $label }}</button>
             @endforeach
         </div>
+        <div class="flex gap-2" role="group" aria-label="Layout">
+            <button type="button" wire:click="setViewMode('list')" @class(['rounded-lg px-3 py-2 text-sm font-medium', 'bg-brand-500 text-white' => ($viewMode ?? 'list') === 'list', 'ring-1 ring-inset ring-gray-300 dark:ring-gray-700' => ($viewMode ?? 'list') !== 'list'])>List</button>
+            <button type="button" wire:click="setViewMode('board')" @class(['rounded-lg px-3 py-2 text-sm font-medium', 'bg-brand-500 text-white' => ($viewMode ?? 'list') === 'board', 'ring-1 ring-inset ring-gray-300 dark:ring-gray-700' => ($viewMode ?? 'list') !== 'board'])>Board</button>
+        </div>
     </div>
 
+    @if (($viewMode ?? 'list') === 'board')
+        @php
+            $boardColumns = [
+                'open' => 'Open',
+                'in_progress' => 'In progress',
+                'blocked' => 'Blocked',
+                'completed' => 'Completed',
+            ];
+            $boardItems = collect($workItems)->where('type', 'task');
+        @endphp
+        <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            @foreach ($boardColumns as $statusKey => $statusLabel)
+                <section class="rounded-xl bg-white p-3 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                    <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ $statusLabel }}</h3>
+                    <ul class="mt-3 space-y-2">
+                        @foreach ($boardItems->where('status', $statusKey) as $item)
+                            <li class="rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-white/[0.03]">
+                                <p class="font-medium text-gray-800 dark:text-white/90">{{ $item['title'] }}</p>
+                                <p class="text-xs text-gray-500">{{ $item['owner'] }} · {{ $item['due'] }}</p>
+                            </li>
+                        @endforeach
+                    </ul>
+                </section>
+            @endforeach
+        </div>
+    @else
     <div class="overflow-x-auto rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
         <table class="min-w-full text-sm">
             <caption class="sr-only">{{ __('operator.work.title') }}</caption>
@@ -108,6 +138,7 @@
             </tbody>
         </table>
     </div>
+    @endif
 
     <section class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
         <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ __('operator.capacity.title') }}</h2>
