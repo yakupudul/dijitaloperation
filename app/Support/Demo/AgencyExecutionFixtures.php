@@ -48,7 +48,33 @@ final class AgencyExecutionFixtures
                     'Inspect landing page alignment for top campaigns',
                     'Log findings or opportunities if thresholds breached',
                 ],
+                'when_to_use' => [
+                    'Google Ads Management service is active.',
+                    'Account has spend and conversion data for the prior week.',
+                ],
+                'when_not_to_use' => [
+                    'Service is paused.',
+                    'Account has no usable data.',
+                    'Campaigns have not started yet.',
+                ],
+                'methodology' => [
+                    'Inspect meaningful-spend search terms.',
+                    'Separate intent mismatch from low-volume noise.',
+                    'Check Goal / Offering relevance.',
+                    'Review landing-page alignment.',
+                    'Produce Finding, Opportunity, or No Issue.',
+                ],
                 'instructions' => 'Run every Monday before noon. Compare against prior week. Escalate measurement gaps immediately.',
+                'qa_guidance' => [
+                    'Conversion event still mapping to the intended Business Action',
+                    'No unintended budget or bid changes left unpublished',
+                    'Findings logged with Evidence links where applicable',
+                ],
+                'related_ai_skill' => [
+                    'id' => 'skill-search-query',
+                    'name' => 'Search Query Analysis',
+                    'note' => 'Human Playbook may use this AI Skill — Skill does not replace the operating standard.',
+                ],
                 'references' => [
                     ['label' => 'Atlas Google Ads workspace', 'route' => 'demo.google-ads.overview'],
                     ['label' => 'Lead measurement finding', 'route' => 'demo.findings'],
@@ -73,7 +99,26 @@ final class AgencyExecutionFixtures
                     'Identify cross-channel gaps with paid demand',
                     'Document opportunities or tasks',
                 ],
+                'when_to_use' => [
+                    'SEO / Organic Growth service is active.',
+                    'Search Console asset exists for the Brand.',
+                ],
+                'when_not_to_use' => [
+                    'SEO service paused.',
+                    'No Search Console property connected.',
+                ],
+                'methodology' => [
+                    'Compare priority offering queries vs content ownership.',
+                    'Inspect indexing health on money pages.',
+                    'Cross-check paid demand without organic coverage.',
+                    'Log Opportunity or Task only when action is warranted.',
+                ],
                 'instructions' => 'Run first business day of the month. Cross-reference GSC and Website health tabs.',
+                'qa_guidance' => [
+                    'Opportunities cite Goal and Service Scope',
+                    'No fake Opportunity score assigned',
+                ],
+                'related_ai_skill' => null,
                 'references' => [
                     ['label' => 'Search Console workspace', 'route' => 'demo.search-console'],
                     ['label' => 'Website workspace', 'route' => 'demo.website'],
@@ -98,7 +143,26 @@ final class AgencyExecutionFixtures
                     'Validate landing destinations',
                     'Queue creative refresh task if needed',
                 ],
+                'when_to_use' => [
+                    'Meta Ads Management service is active.',
+                    'Campaigns have delivered in the review window.',
+                ],
+                'when_not_to_use' => [
+                    'Meta service paused.',
+                    'No creative spend in the period.',
+                ],
+                'methodology' => [
+                    'Rank ad sets by spend and CPL drift.',
+                    'Inspect frequency and CTR decay on top creatives.',
+                    'Confirm landing destinations still match offers.',
+                    'Queue refresh Task only when thresholds breach.',
+                ],
                 'instructions' => 'Run mid-week. Pair with Meta workspace insights tab.',
+                'qa_guidance' => [
+                    'Creative replacements reviewed on mobile',
+                    'Destination URLs verified',
+                ],
+                'related_ai_skill' => null,
                 'references' => [
                     ['label' => 'Meta Ads workspace', 'route' => 'demo.meta.overview'],
                 ],
@@ -122,7 +186,28 @@ final class AgencyExecutionFixtures
                     'Confirm connector health',
                     'Log maintenance tasks if regressions found',
                 ],
+                'when_to_use' => [
+                    'Website Management / Maintenance is in Service Scope.',
+                    'Website asset exists.',
+                ],
+                'when_not_to_use' => [
+                    'Website service not in scope.',
+                    'Site is offline for planned maintenance already tracked.',
+                ],
+                'methodology' => [
+                    'Check Core Web Vitals on money pages.',
+                    'Verify redirects and SSL.',
+                    'Confirm critical forms still convert.',
+                    'Log Task only for actionable regressions.',
+                ],
                 'instructions' => 'Run monthly after analytics close. No provider writes from MoxDOP.',
+                'qa_guidance' => [
+                    'Correct target URL after content changes',
+                    'Mobile layout reviewed',
+                    'Conversion event verified',
+                    'No unintended content change',
+                ],
+                'related_ai_skill' => null,
                 'references' => [
                     ['label' => 'Website workspace', 'route' => 'demo.website'],
                 ],

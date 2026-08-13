@@ -34,6 +34,8 @@ class CaptureModal extends Component
 
     public string $note_scope = 'Operations';
 
+    public string $noteKind = 'note';
+
     public string $service_code = 'seo';
 
     public function mount(): void
@@ -108,6 +110,7 @@ class CaptureModal extends Component
                 'title' => $this->title,
                 'body' => $this->description,
                 'scope' => $this->note_scope,
+                'kind' => $this->noteKind,
                 'brand_id' => $this->prefillBrand,
                 'customer_id' => $this->prefillCustomer,
             ]),
@@ -133,6 +136,7 @@ class CaptureModal extends Component
         $this->priority = 'medium';
         $this->due = 'Next week';
         $this->note_scope = 'Operations';
+        $this->noteKind = 'note';
         $this->service_code = 'seo';
         $this->resetValidation();
     }

@@ -17,6 +17,58 @@
             <p class="mt-3 text-sm text-gray-500">{{ __('operator.playbooks.default_owner') }}: {{ $playbook['default_owner_name'] }}</p>
         </x-ta.card>
 
+        @if (! empty($playbook['when_to_use']))
+            <x-ta.card>
+                <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ __('operator.playbooks.when_to_use') }}</h2>
+                <ul class="mt-3 list-disc space-y-1 pl-5 text-sm text-gray-600 dark:text-gray-300">
+                    @foreach ($playbook['when_to_use'] as $line)
+                        <li>{{ $line }}</li>
+                    @endforeach
+                </ul>
+            </x-ta.card>
+        @endif
+
+        @if (! empty($playbook['when_not_to_use']))
+            <x-ta.card>
+                <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ __('operator.playbooks.when_not_to_use') }}</h2>
+                <ul class="mt-3 list-disc space-y-1 pl-5 text-sm text-gray-600 dark:text-gray-300">
+                    @foreach ($playbook['when_not_to_use'] as $line)
+                        <li>{{ $line }}</li>
+                    @endforeach
+                </ul>
+            </x-ta.card>
+        @endif
+
+        @if (! empty($playbook['methodology']))
+            <x-ta.card>
+                <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ __('operator.playbooks.methodology') }}</h2>
+                <ol class="mt-3 list-decimal space-y-1 pl-5 text-sm text-gray-600 dark:text-gray-300">
+                    @foreach ($playbook['methodology'] as $line)
+                        <li>{{ $line }}</li>
+                    @endforeach
+                </ol>
+            </x-ta.card>
+        @endif
+
+        @if (! empty($playbook['qa_guidance']))
+            <x-ta.card>
+                <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ __('operator.playbooks.qa_guidance') }}</h2>
+                <ul class="mt-3 list-disc space-y-1 pl-5 text-sm text-gray-600 dark:text-gray-300">
+                    @foreach ($playbook['qa_guidance'] as $line)
+                        <li>{{ $line }}</li>
+                    @endforeach
+                </ul>
+            </x-ta.card>
+        @endif
+
+        @if (! empty($playbook['related_ai_skill']))
+            <x-ta.card>
+                <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ __('operator.playbooks.related_ai_skill') }}</h2>
+                <p class="mt-2 text-sm font-medium text-gray-800 dark:text-white/90">{{ $playbook['related_ai_skill']['name'] ?? '' }}</p>
+                <p class="mt-1 text-sm text-gray-500">{{ $playbook['related_ai_skill']['note'] ?? __('operator.playbooks.ai_skill_note') }}</p>
+            </x-ta.card>
+        @endif
+
         <div class="grid gap-4 lg:grid-cols-2">
             <x-ta.card>
                 <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ __('operator.playbooks.checklist') }}</h2>

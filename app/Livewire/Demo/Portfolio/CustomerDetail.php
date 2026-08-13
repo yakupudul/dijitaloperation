@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Demo\Portfolio;
 
+use App\Support\Demo\ClientValueFixtures;
 use App\Support\Demo\CommercialContextFixtures;
 use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
@@ -65,7 +66,7 @@ class CustomerDetail extends Component
         if (isset($legacy[$this->tab])) {
             $this->tab = $legacy[$this->tab];
         }
-        if (! in_array($this->tab, ['overview', 'brands', 'relationship', 'requests'], true)) {
+        if (! in_array($this->tab, ['overview', 'brands', 'relationship', 'requests', 'reports'], true)) {
             $this->tab = 'overview';
         }
     }
@@ -279,6 +280,7 @@ class CustomerDetail extends Component
             'team' => $team,
             'serviceScope' => CommercialContextFixtures::serviceScopeForCustomer((string) ($customer['id'] ?? '')),
             'clientRequests' => $requests,
+            'customerReports' => ClientValueFixtures::customerReports((string) ($customer['id'] ?? $this->customerId)),
             'flash' => DemoState::pullFlash(),
         ]);
     }

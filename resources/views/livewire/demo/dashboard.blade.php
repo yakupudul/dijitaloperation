@@ -207,4 +207,23 @@
             @endforeach
         </ul>
     </section>
+
+    @if (count($recentValue ?? []) > 0)
+        <section class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" aria-labelledby="recent-value-heading">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <h2 id="recent-value-heading" class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('operator.dashboard_exec.recent_value') }}</h2>
+            </div>
+            <ul class="mt-3 space-y-2">
+                @foreach ($recentValue as $row)
+                    <li class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-gray-50 px-3 py-2 dark:bg-white/[0.03]">
+                        <div class="min-w-0">
+                            <p class="text-sm font-medium text-gray-800 dark:text-white/90">{{ $row['brand'] }}</p>
+                            <p class="text-xs text-gray-500">{{ $row['line'] }}</p>
+                        </div>
+                        <a href="{{ $row['url'] }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline">{{ __('operator.dashboard_exec.open_value') }}</a>
+                    </li>
+                @endforeach
+            </ul>
+        </section>
+    @endif
 </div>

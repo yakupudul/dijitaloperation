@@ -53,6 +53,19 @@
                     @endif
 
                     @if ($captureType === 'note')
+                        <fieldset class="block text-sm">
+                            <legend class="text-gray-500">{{ __('operator.capture.fields.kind') }}</legend>
+                            <div class="mt-2 flex flex-wrap gap-3">
+                                <label class="inline-flex items-center gap-2">
+                                    <input type="radio" wire:model="noteKind" value="note" class="border-gray-300 text-brand-500" />
+                                    <span>{{ __('operator.capture.note_kinds.note') }}</span>
+                                </label>
+                                <label class="inline-flex items-center gap-2">
+                                    <input type="radio" wire:model="noteKind" value="decision" class="border-gray-300 text-brand-500" />
+                                    <span>{{ __('operator.capture.note_kinds.decision') }}</span>
+                                </label>
+                            </div>
+                        </fieldset>
                         <label class="block text-sm">
                             <span class="text-gray-500">{{ __('operator.capture.fields.scope') }}</span>
                             <input wire:model="note_scope" type="text" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700" />
