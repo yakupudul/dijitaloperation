@@ -6,6 +6,7 @@ use App\Livewire\Demo\Files\FilesIndex;
 use App\Livewire\Demo\Instagram\OverviewPage as InstagramOverviewPage;
 use App\Livewire\Demo\Integrations\SiteConnectorShow;
 use App\Livewire\Demo\ProfilePage;
+use App\Livewire\Demo\Settings\AiControlPlanePage;
 use App\Livewire\Demo\SettingsPage;
 use App\Models\OperatorFile;
 use App\Models\User;
@@ -177,12 +178,26 @@ class FinalInterfaceCompletionTest extends TestCase
 
         $this->assertStringNotContainsString('href="/system', $html);
         $this->assertStringNotContainsString("href='/system", $html);
-        $this->assertStringContainsString('/app/settings?section=ai', $html);
+        $this->assertStringContainsString('/app/settings/ai/control-plane', $html);
 
         $advanced = Livewire::test(SettingsPage::class, ['section' => 'advanced'])->html();
         $this->assertStringNotContainsString('Open system panel', $advanced);
         $this->assertStringNotContainsString('href="/system', $advanced);
-        $this->assertStringContainsString('Advanced diagnostics', $advanced);
+        $this->assertStringContainsString('Open Agency Command Center', $advanced);
+    }
+
+    public function test_ai_control_plane_lists_registered_routes(): void
+    {
+        $this->get(route('demo.settings.ai.control-plane'))
+            ->assertOk()
+            ->assertSee('AI Control Plane')
+            ->assertDontSee('href="/system', false);
+
+        Livewire::test(AiControlPlanePage::class)
+            ->assertOk()
+            ->assertSee('website.ai_guidance')
+            ->assertSee('google_ads.ai_guidance')
+            ->assertSee('meta_ads.ai_guidance');
     }
 
     public function test_profile_and_site_connectors_routes_are_reachable(): void

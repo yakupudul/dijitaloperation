@@ -159,9 +159,9 @@
                         </dl>
                         <p class="mt-4 text-sm text-gray-500">{{ $settings['ai']['note'] }}</p>
                         <div class="mt-4 flex flex-wrap gap-2">
-                            <x-ta.button href="{{ route('demo.settings', ['section' => 'ai']) }}" size="sm">AI Control Plane</x-ta.button>
-                            <x-ta.button href="{{ route('demo.settings', ['section' => 'ai']) }}" size="sm" variant="outline">Agent Profiles</x-ta.button>
-                            <x-ta.button href="{{ route('demo.settings', ['section' => 'ai']) }}" size="sm" variant="outline">Skill Library</x-ta.button>
+                            <x-ta.button href="{{ route('demo.settings.ai.control-plane') }}" size="sm">AI Control Plane</x-ta.button>
+                            <x-ta.button href="{{ route('demo.settings', ['section' => 'ai']) }}#agents" size="sm" variant="outline">Agent Profiles</x-ta.button>
+                            <x-ta.button href="{{ route('demo.settings', ['section' => 'ai']) }}#skills" size="sm" variant="outline">Skill Library</x-ta.button>
                         </div>
                     </div>
                     <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
@@ -173,12 +173,12 @@
                                         <p class="font-medium text-gray-800 dark:text-white/90">{{ $route['name'] }}</p>
                                         <p class="text-xs text-gray-500">{{ $route['key'] }} · {{ $route['module'] }}</p>
                                     </div>
-                                    <x-ta.button href="{{ route('demo.settings', ['section' => 'ai']) }}" size="sm" variant="outline">Configure</x-ta.button>
+                                    <x-ta.button href="{{ route('demo.settings.ai.control-plane', ['route' => $route['key']]) }}" size="sm" variant="outline">Configure</x-ta.button>
                                 </li>
                             @endforeach
                         </ul>
                     </div>
-                    <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                    <div id="agents" class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
                         <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Agent profiles</h3>
                         <ul class="mt-3 divide-y divide-gray-100 dark:divide-gray-800">
                             @foreach ($aiAgents as $agent)
@@ -190,6 +190,20 @@
                                     <x-ta.badge :color="$agent['status'] === 'operational' ? 'success' : 'warning'" size="sm">{{ $agent['status'] }}</x-ta.badge>
                                 </li>
                             @endforeach
+                        </ul>
+                    </div>
+                    <div id="skills" class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                        <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Skill library</h3>
+                        <ul class="mt-3 divide-y divide-gray-100 dark:divide-gray-800">
+                            @forelse ($aiSkills as $skill)
+                                <li class="py-2 text-sm">
+                                    <p class="font-medium text-gray-800 dark:text-white/90">{{ $skill['name'] }}</p>
+                                    <p class="text-xs text-gray-500">{{ $skill['slug'].'@'.$skill['version'] }} · {{ $skill['module'] }}</p>
+                                    <p class="mt-1 text-xs text-gray-500 line-clamp-2">{{ $skill['purpose'] }}</p>
+                                </li>
+                            @empty
+                                <li class="py-2 text-sm text-gray-500">No built-in skills registered yet.</li>
+                            @endforelse
                         </ul>
                     </div>
                 </div>
@@ -222,7 +236,7 @@
                             <div><dt class="text-gray-400">System panel</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['advanced']['system_panel'] }}</dd></div>
                         </dl>
                         <div class="mt-4">
-                            <x-ta.button href="{{ route('demo.settings', ['section' => 'advanced']) }}" size="sm" variant="outline">Advanced diagnostics</x-ta.button>
+                            <x-ta.button href="{{ route('demo.dashboard') }}" size="sm" variant="outline">Open Agency Command Center</x-ta.button>
                         </div>
                         <p class="mt-3 text-xs text-gray-500">Modules / package management are developer architecture — not operator navigation.</p>
                     </div>

@@ -6,6 +6,8 @@ use App\Support\Agents\AgentProfileRegistry;
 use App\Support\Ai\AiRouteRegistry;
 use App\Support\Demo\DemoState;
 use App\Support\Demo\GlobalOperatingFixtures;
+use App\Support\Skills\SkillDefinition;
+use App\Support\Skills\SkillRegistry;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -140,12 +142,23 @@ class SettingsPage extends Component
             ])
             ->values()
             ->all();
+        $skills = collect(app(SkillRegistry::class)->all())
+            ->map(fn (SkillDefinition $skill): array => [
+                'name' => $skill->name,
+                'slug' => $skill->slug,
+                'module' => $skill->module,
+                'version' => $skill->version,
+                'purpose' => $skill->purpose,
+            ])
+            ->values()
+            ->all();
 
         return view('livewire.demo.settings', [
             'sections' => GlobalOperatingFixtures::settingsSections(),
             'settings' => $settings,
             'aiRoutes' => $routes,
             'aiAgents' => $agents,
+            'aiSkills' => $skills,
             'flash' => DemoState::pullFlash(),
         ]);
     }

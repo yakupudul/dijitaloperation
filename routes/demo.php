@@ -45,6 +45,7 @@ use App\Livewire\Demo\Portfolio\CustomerEdit;
 use App\Livewire\Demo\Portfolio\CustomersIndex;
 use App\Livewire\Demo\Portfolio\PortfolioSetupWizard;
 use App\Livewire\Demo\ProfilePage;
+use App\Livewire\Demo\Settings\AiControlPlanePage;
 use App\Livewire\Demo\SettingsPage;
 use App\Livewire\Demo\Website\OverviewPage as WebsiteOverviewPage;
 use Illuminate\Support\Facades\Route;
@@ -109,4 +110,5 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/activity', ActivityIndex::class)->name('demo.activity');
 
         Route::livewire('/settings', SettingsPage::class)->name('demo.settings');
+        Route::livewire('/settings/ai/control-plane', AiControlPlanePage::class)->name('demo.settings.ai.control-plane');
     });
