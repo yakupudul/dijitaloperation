@@ -400,12 +400,15 @@ class MetaCentralIntegrationTest extends TestCase
 
     public function test_meta_api_client_exposes_no_mutation_methods(): void
     {
-        $methods = collect((new ReflectionClass(MetaApiClient::class))->getMethods())
+        $reflection = new ReflectionClass(MetaApiClient::class);
+        $methods = collect($reflection->getMethods())
             ->filter(fn ($method) => $method->class === MetaApiClient::class)
             ->map(fn ($method) => $method->getName())
             ->all();
 
-        foreach (['post', 'put', 'patch', 'delete', 'mutate', 'write'] as $forbidden) {
+        // Prompt 24: POST is allowed only as transport for read-only async Insights AdReportRun creation.
+        // Advertising configuration mutations remain forbidden.
+        foreach (['put', 'patch', 'delete', 'mutate', 'write'] as $forbidden) {
             $this->assertFalse(
                 collect($methods)->contains(fn (string $name): bool => str_contains(strtolower($name), $forbidden)),
                 'Forbidden mutation surface: '.$forbidden,
@@ -414,6 +417,11 @@ class MetaCentralIntegrationTest extends TestCase
 
         $this->assertContains('get', $methods);
         $this->assertContains('getAbsolute', $methods);
+        $this->assertContains('post', $methods);
+        $postDoc = (string) $reflection->getMethod('post')->getDocComment();
+        $this->assertStringContainsString('read-only', strtolower($postDoc));
+        $this->assertStringContainsString('async', strtolower($postDoc));
+        $this->assertStringContainsString('insights', strtolower($postDoc));
     }
 
     public function test_view_integration_shows_masked_token_and_meta_actions(): void
