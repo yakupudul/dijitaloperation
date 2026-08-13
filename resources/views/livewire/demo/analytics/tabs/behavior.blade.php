@@ -1,6 +1,6 @@
 @php
     $behavior = $data['behavior'] ?? [];
-    $rows = $behavior['rows'] ?? $behavior['landing_pages'] ?? [];
+    $rows = $behavior['landing_pages'] ?? [];
 @endphp
 
 <div class="space-y-4">
@@ -9,12 +9,19 @@
         <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ $behavior['subtitle'] ?? 'Landing pages · engagement · configured business actions' }}</p>
     </div>
 
-    @if (! empty($behavior['glance']))
+    @if (! empty($behavior['engagement']))
         <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <x-ta.metric-card label="Landing pages" :value="(string) ($behavior['glance']['landings'] ?? '—')" />
-            <x-ta.metric-card label="Need Website review" :value="(string) ($behavior['glance']['need_review'] ?? '—')" tone="warning" />
-            <x-ta.metric-card label="With business actions" :value="(string) ($behavior['glance']['with_actions'] ?? '—')" />
-            <x-ta.metric-card label="Engaged rate" :value="(string) ($behavior['glance']['engaged_rate'] ?? '—')" />
+            @foreach ($behavior['engagement'] as $metric)
+                <div class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
+                    <p class="text-xs text-gray-500">{{ $metric['metric'] }}</p>
+                    <p @class([
+                        'mt-1 text-xl font-semibold tabular-nums',
+                        'text-slate-400' => ($metric['state'] ?? '') === 'Not mapped' || ($metric['value'] ?? '') === 'Unavailable',
+                        'text-gray-900 dark:text-white' => ($metric['state'] ?? '') !== 'Not mapped' && ($metric['value'] ?? '') !== 'Unavailable',
+                    ])>{{ $metric['value'] }}</p>
+                    <p class="mt-1 text-[11px] text-gray-400">{{ $metric['state'] ?? '' }}</p>
+                </div>
+            @endforeach
         </div>
     @endif
 
@@ -31,42 +38,45 @@
         @foreach ($rows as $row)
             <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
                 <td class="px-4 py-2.5">
-                    <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $row['path'] ?? $row['url'] }}</p>
-                    @if (! empty($row['title']))
-                        <p class="text-[11px] text-gray-400">{{ $row['title'] }}</p>
-                    @endif
+                    <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $row['path'] }}</p>
+                    <p class="text-[11px] text-gray-400">{{ $row['title'] ?? '' }}</p>
                 </td>
-                <td class="px-4 py-2.5 text-xs text-gray-500">{{ $row['content_role'] ?? $row['role'] ?? '—' }}</td>
-                <td class="px-4 py-2.5 text-sm tabular-nums">
-                    @if (array_key_exists('sessions', $row) && $row['sessions'] !== null)
-                        {{ number_format($row['sessions']) }}
-                    @else
-                        <span class="text-slate-400">No data</span>
-                    @endif
-                </td>
-                <td class="px-4 py-2.5 text-sm">{{ $row['engagement'] ?? '—' }}</td>
-                <td class="px-4 py-2.5 text-sm tabular-nums">
-                    @if (array_key_exists('business_actions', $row) && $row['business_actions'] !== null)
-                        {{ is_numeric($row['business_actions']) ? number_format($row['business_actions']) : $row['business_actions'] }}
-                    @elseif (array_key_exists('actions', $row) && $row['actions'] !== null)
-                        {{ is_numeric($row['actions']) ? number_format($row['actions']) : $row['actions'] }}
-                    @else
-                        <span class="text-slate-400">No data</span>
-                    @endif
-                </td>
+                <td class="px-4 py-2.5 text-xs text-gray-500">{{ $row['content_role'] }}</td>
+                <td class="px-4 py-2.5 text-sm tabular-nums">{{ number_format($row['sessions']) }}</td>
+                <td class="px-4 py-2.5 text-sm tabular-nums">{{ $row['engaged_rate'] }}% · {{ number_format($row['engaged_sessions']) }}</td>
+                <td class="px-4 py-2.5 text-sm tabular-nums">{{ number_format($row['mapped_actions']) }}</td>
                 <td class="px-4 py-2.5">
-                    @if (! empty($row['website_attention']) || ! empty($row['attention']))
-                        <x-ta.badge :color="match($row['website_attention'] ?? $row['attention'] ?? '') { 'Critical', 'High' => 'error', 'Medium', 'Needs review', 'Weak CTA' => 'warning', 'Good', 'Healthy' => 'success', default => 'light' }" size="sm">{{ $row['website_attention'] ?? $row['attention'] }}</x-ta.badge>
+                    @if (! empty($row['attention']))
+                        <span class="text-xs text-amber-700 dark:text-amber-400">{{ $row['attention'] }}</span>
                     @else
                         <span class="text-xs text-gray-400">—</span>
                     @endif
                 </td>
                 <td class="px-4 py-2.5">
-                    <button type="button" wire:click="openLanding('{{ $row['id'] }}')" class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Inspect</button>
+                    <button type="button" wire:click="openLanding('{{ $row['path'] }}')" class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Inspect</button>
                 </td>
             </tr>
         @endforeach
     </x-ta.table>
 
-    <p class="text-[11px] text-blue-700 dark:text-blue-300">Missing ≠ zero — pages without mapped business actions are not failed conversions.</p>
+    @if (! empty($behavior['devices']))
+        <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
+            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Devices</h3>
+            <ul class="mt-3 space-y-2">
+                @foreach ($behavior['devices'] as $device)
+                    <li>
+                        <div class="mb-1 flex justify-between text-xs text-gray-500">
+                            <span>{{ $device['device'] }}</span>
+                            <span class="tabular-nums">{{ $device['share_pct'] }}% · {{ number_format($device['sessions']) }}</span>
+                        </div>
+                        <div class="h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-white/5">
+                            <div class="h-full rounded-full bg-sky-500" style="width: {{ min(100, (int) $device['share_pct']) }}%"></div>
+                        </div>
+                    </li>
+                @endforeach
+            </ul>
+        </section>
+    @endif
+
+    <p class="text-[11px] text-blue-700 dark:text-blue-300">{{ $data['missing_note'] ?? 'Missing ≠ zero — pages without mapped business actions are not failed conversions.' }}</p>
 </div>
