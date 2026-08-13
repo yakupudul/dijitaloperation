@@ -8,11 +8,13 @@ use App\Models\Run;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
+use Tests\Support\RollsBackMigrationsUntil;
 use Tests\TestCase;
 
 class RunMigrationAndModelTest extends TestCase
 {
     use RefreshDatabase;
+    use RollsBackMigrationsUntil;
 
     public function test_runs_table_has_expected_columns_indexes_and_foreign_keys(): void
     {
@@ -147,8 +149,7 @@ class RunMigrationAndModelTest extends TestCase
     {
         $this->assertTrue(Schema::hasTable('runs'));
 
-        // Newest migrations may include credential_type/agent conversations/evidence/website fields/tasks/recommendations; roll back past runs.
-        $this->assertSame(0, Artisan::call('migrate:rollback', ['--step' => 21]));
+        $this->rollbackUntilTablesMissing('runs');
 
         $this->assertFalse(Schema::hasTable('runs'));
 

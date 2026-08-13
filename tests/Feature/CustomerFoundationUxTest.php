@@ -49,7 +49,8 @@ class CustomerFoundationUxTest extends TestCase
             ->assertSee('Atlas Health Group')
             ->assertSee('Open findings')
             ->assertDontSee('Open issues')
-            ->assertSee('Add customer');
+            ->assertSee(__('operator.portfolio.new_customer_setup'))
+            ->assertSee(route('demo.setup', ['entry' => 'customer'], absolute: false));
     }
 
     public function test_customers_index_search_and_filters_compose(): void
@@ -117,7 +118,7 @@ class CustomerFoundationUxTest extends TestCase
         Livewire::test(CustomerDetail::class, ['customerId' => DemoCatalog::CUSTOMER_ID])
             ->assertSee('Atlas Health Group')
             ->assertSee('Needs attention')
-            ->assertSee('Responsible team')
+            ->assertSee(__('operator.portfolio.account_owner_responsible'))
             ->call('setTab', 'contacts')
             ->assertSee('Dr. Elif Arslan')
             ->call('openContactForm')
@@ -131,6 +132,18 @@ class CustomerFoundationUxTest extends TestCase
             ->assertSee('View all findings')
             ->call('setTab', 'activity')
             ->assertSee('Activity');
+    }
+
+    public function test_customer_directory_cta_is_localized(): void
+    {
+        app()->setLocale('tr');
+
+        Livewire::test(CustomersIndex::class)
+            ->assertSee(__('operator.portfolio.new_customer_setup'))
+            ->assertSee(route('demo.setup', ['entry' => 'customer'], absolute: false));
+
+        Livewire::test(CustomerDetail::class, ['customerId' => DemoCatalog::CUSTOMER_ID])
+            ->assertSee(__('operator.portfolio.account_owner_responsible'));
     }
 
     public function test_customer_edit_prefills_and_saves(): void
@@ -231,7 +244,7 @@ class CustomerFoundationUxTest extends TestCase
     public function test_customer_foundation_routes_resolve(): void
     {
         $this->get(route('demo.customers'))->assertOk();
-        $this->get(route('demo.customer.create'))->assertOk()->assertSee('Add customer');
+        $this->get(route('demo.customer.create'))->assertOk()->assertSee(__('operator.portfolio.add_customer'));
         $this->get(route('demo.customer', ['customerId' => DemoCatalog::CUSTOMER_ID]))->assertOk();
         $this->get(route('demo.customer.edit', ['customerId' => DemoCatalog::CUSTOMER_ID]))->assertOk();
         $this->get(route('demo.brand.create', ['customerId' => DemoCatalog::CUSTOMER_ID]))->assertOk();

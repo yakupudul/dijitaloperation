@@ -38,7 +38,8 @@ class BrandCommandCenterUxTest extends TestCase
             ->assertSee('Atlas Dental Ankara')
             ->assertSee('Atlas Health Group')
             ->assertSee('digital assets')
-            ->assertSee('Add brand')
+            ->assertSee(__('operator.portfolio.add_brand_wizard'))
+            ->assertSee(route('demo.setup', ['entry' => 'brand'], absolute: false))
             ->set('search', 'Atlas Dental')
             ->assertSee('Atlas Dental Ankara')
             ->set('search', 'NoSuchBrandXYZ')
@@ -60,6 +61,15 @@ class BrandCommandCenterUxTest extends TestCase
             ->assertSee('Atlas Dental Ankara')
             ->call('sortBy', 'findings')
             ->assertSee('Atlas Dental Ankara');
+    }
+
+    public function test_brands_directory_cta_is_localized(): void
+    {
+        app()->setLocale('tr');
+
+        Livewire::test(BrandsIndex::class)
+            ->assertSee(__('operator.portfolio.add_brand_wizard'))
+            ->assertSee(route('demo.setup', ['entry' => 'brand'], absolute: false));
     }
 
     public function test_brands_directory_prevents_empty_onboarding_when_filtered(): void

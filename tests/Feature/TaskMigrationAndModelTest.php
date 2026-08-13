@@ -12,11 +12,13 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
+use Tests\Support\RollsBackMigrationsUntil;
 use Tests\TestCase;
 
 class TaskMigrationAndModelTest extends TestCase
 {
     use RefreshDatabase;
+    use RollsBackMigrationsUntil;
 
     public function test_tasks_table_has_expected_columns_and_foreign_keys(): void
     {
@@ -253,8 +255,7 @@ class TaskMigrationAndModelTest extends TestCase
     {
         $this->assertTrue(Schema::hasTable('tasks'));
 
-        // Newest migrations may include credential_type/agent conversations/evidence/website fields; roll back past tasks.
-        $this->assertSame(0, Artisan::call('migrate:rollback', ['--step' => 19]));
+        $this->rollbackUntilTablesMissing('tasks');
 
         $this->assertFalse(Schema::hasTable('tasks'));
 

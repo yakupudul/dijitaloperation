@@ -7,11 +7,13 @@ use App\Models\Finding;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
+use Tests\Support\RollsBackMigrationsUntil;
 use Tests\TestCase;
 
 class FindingMigrationAndModelTest extends TestCase
 {
     use RefreshDatabase;
+    use RollsBackMigrationsUntil;
 
     public function test_findings_table_has_expected_columns_and_foreign_key(): void
     {
@@ -108,8 +110,7 @@ class FindingMigrationAndModelTest extends TestCase
     {
         $this->assertTrue(Schema::hasTable('findings'));
 
-        // Newest migrations may include resolved_at/credential_type/agent conversations/evidence/website fields/tasks/recommendations/runs; roll back past findings.
-        $this->assertSame(0, Artisan::call('migrate:rollback', ['--step' => 22]));
+        $this->rollbackUntilTablesMissing('findings');
 
         $this->assertFalse(Schema::hasTable('findings'));
 

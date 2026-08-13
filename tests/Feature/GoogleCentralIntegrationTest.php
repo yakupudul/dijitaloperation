@@ -100,7 +100,7 @@ class GoogleCentralIntegrationTest extends TestCase
         $this->get(route('integrations.google.callback', [
             'code' => 'auth-code',
             'state' => 'valid-state',
-        ]))->assertRedirect(IntegrationResource::getUrl('view', ['record' => $this->integration]));
+        ]))->assertRedirect(route('demo.integrations.google'));
 
         $credential = CoreIntegrationCredential::query()
             ->where('integration_id', $this->integration->id)
@@ -128,7 +128,7 @@ class GoogleCentralIntegrationTest extends TestCase
         config(['moxdop.google.client_id' => null, 'moxdop.google.client_secret' => null]);
 
         $this->get(route('integrations.google.authorize', $this->integration))
-            ->assertRedirect(IntegrationResource::getUrl('view', ['record' => $this->integration]));
+            ->assertRedirect(route('demo.integrations.google'));
 
         $this->assertSame(GoogleAuthStatus::NOT_CONFIGURED, GoogleAuthStatus::for($this->integration->fresh()));
 
@@ -140,7 +140,11 @@ class GoogleCentralIntegrationTest extends TestCase
         $this->get(route('integrations.google.callback', [
             'error' => 'access_denied',
             'state' => 'x',
-        ]))->assertRedirect(IntegrationResource::getUrl('index'));
+        ]))->assertRedirect(route('demo.integrations'));
+
+        $this->assertStringStartsWith(url('/app'), route('demo.integrations.google'));
+        $this->assertStringNotContainsString('/system', route('demo.integrations.google'));
+        $this->assertStringNotContainsString('/system', route('demo.integrations'));
     }
 
     public function test_token_refresh_updates_encrypted_access_token(): void

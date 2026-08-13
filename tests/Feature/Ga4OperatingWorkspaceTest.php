@@ -48,7 +48,7 @@ class Ga4OperatingWorkspaceTest extends TestCase
             $this->get(route('demo.analytics', ['assetId' => $id, 'tab' => $tab]))
                 ->assertOk()
                 ->assertSee('Atlas Dental — GA4')
-                ->assertDontSee('404');
+                ->assertDontSee('Page not found');
         }
     }
 

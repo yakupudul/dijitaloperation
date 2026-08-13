@@ -122,4 +122,12 @@ return [
         'en' => 'English',
         'tr' => 'Türkçe',
     ],
+
+    'portfolio' => [
+        'add_brand_wizard' => 'Add Brand (wizard)',
+        'quick_add' => 'Quick add',
+        'new_customer_setup' => 'New Customer setup',
+        'add_customer' => 'Add customer',
+        'account_owner_responsible' => 'Account Owner / Responsible users',
+    ],
 ];

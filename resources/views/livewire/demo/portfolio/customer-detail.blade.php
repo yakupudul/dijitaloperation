@@ -111,7 +111,7 @@
                     </dl>
                 </x-ta.card>
                 <x-ta.card>
-                    <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Account Owner / Responsible users</h2>
+                    <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">{{ __('operator.portfolio.account_owner_responsible') }}</h2>
                     <p class="mt-1 text-xs text-gray-500">Portfolio responsibility for Dashboard routing — separate from authorization.</p>
                     <ul class="mt-3 space-y-2">
                         @forelse ($responsibleUsers as $index => $user)

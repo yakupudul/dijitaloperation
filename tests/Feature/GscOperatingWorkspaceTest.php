@@ -47,7 +47,7 @@ class GscOperatingWorkspaceTest extends TestCase
             $this->get(route('demo.search-console', ['assetId' => $id, 'tab' => $tab]))
                 ->assertOk()
                 ->assertSee('Atlas Dental — Search Console')
-                ->assertDontSee('404');
+                ->assertDontSee('Page not found');
         }
     }
 

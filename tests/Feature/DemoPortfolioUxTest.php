@@ -37,8 +37,15 @@ class DemoPortfolioUxTest extends TestCase
             ->assertSee('Digital estate')
             ->call('runPublicResearch')
             ->assertSet('tab', 'discovery')
+            ->assertSet('discovery', 'overview')
             ->assertSee('Public Discovery')
+            ->assertSee('Observed ≠ canonical')
+            ->assertSee('No silent Brand Context mutation')
+            ->call('setDiscovery', 'facts')
+            ->assertSee('Observed Facts')
             ->assertSee('atlasdental.example')
+            ->call('setDiscovery', 'candidates')
+            ->assertSee('Dental Implant')
             ->call('runAiBrief')
             ->assertSet('tab', 'ai')
             ->assertSee('Brand analysis')
@@ -47,6 +54,10 @@ class DemoPortfolioUxTest extends TestCase
             ->assertSet('tab', 'operations')
             ->assertSet('ops', 'recommendations')
             ->assertSee('Replace underperforming Meta creative');
+
+        $research = DemoState::all()['public_research'] ?? [];
+        $this->assertTrue((bool) ($research['completed'] ?? false));
+        $this->assertSame('atlasdental.example', $research['website'] ?? null);
     }
 
     public function test_assets_index_filters_by_role_and_health(): void

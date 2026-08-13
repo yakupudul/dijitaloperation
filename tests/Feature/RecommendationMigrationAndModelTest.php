@@ -8,11 +8,13 @@ use App\Models\Recommendation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
+use Tests\Support\RollsBackMigrationsUntil;
 use Tests\TestCase;
 
 class RecommendationMigrationAndModelTest extends TestCase
 {
     use RefreshDatabase;
+    use RollsBackMigrationsUntil;
 
     public function test_recommendations_table_has_expected_columns_and_indexes(): void
     {
@@ -142,8 +144,7 @@ class RecommendationMigrationAndModelTest extends TestCase
     {
         $this->assertTrue(Schema::hasTable('recommendations'));
 
-        // Newest migrations may include credential_type/agent conversations/website fields/tasks; roll back past recommendations.
-        $this->assertSame(0, Artisan::call('migrate:rollback', ['--step' => 20]));
+        $this->rollbackUntilTablesMissing('recommendations');
 
         $this->assertFalse(Schema::hasTable('recommendations'));
 

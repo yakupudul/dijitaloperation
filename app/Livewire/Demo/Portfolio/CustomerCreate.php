@@ -57,10 +57,10 @@ class CustomerCreate extends Component
     {
         return view('livewire.demo.portfolio.customer-form', array_merge($this->customerFormViewData(), [
             'mode' => 'create',
-            'pageTitle' => 'Add customer',
+            'pageTitle' => __('operator.portfolio.add_customer'),
             'pageSubtitle' => 'Create the agency relationship first. Brands and digital assets can be added afterwards.',
             'backUrl' => route('demo.customers'),
-            'backLabel' => 'Customers',
+            'backLabel' => __('operator.nav.customers'),
             'primaryAction' => 'Save customer',
             'showSaveAndAddBrand' => true,
             'industryOptions' => IndustryOptions::options(),

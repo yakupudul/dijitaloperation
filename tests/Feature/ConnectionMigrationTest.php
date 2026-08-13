@@ -5,11 +5,13 @@ namespace Tests\Feature;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
+use Tests\Support\RollsBackMigrationsUntil;
 use Tests\TestCase;
 
 class ConnectionMigrationTest extends TestCase
 {
     use RefreshDatabase;
+    use RollsBackMigrationsUntil;
 
     public function test_core_connections_table_has_expected_columns_and_foreign_key(): void
     {
@@ -69,11 +71,7 @@ class ConnectionMigrationTest extends TestCase
         $this->assertTrue(Schema::hasTable('core_connections'));
         $this->assertTrue(Schema::hasTable('core_connection_credentials'));
 
-        // Newest migrations: credential_type, asset bindings, external resources, integration credentials,
-        // integrations, agent conversations, evidence, website fields, tasks, recommendations, runs,
-        // findings, module_registries, connection credentials, connections.
-        // Roll back enough steps so both connection tables are dropped (includes evidence fingerprint migration).
-        $this->assertSame(0, Artisan::call('migrate:rollback', ['--step' => 25]));
+        $this->rollbackUntilTablesMissing('core_connections', 'core_connection_credentials');
 
         $this->assertFalse(Schema::hasTable('core_connection_credentials'));
         $this->assertFalse(Schema::hasTable('core_connections'));

@@ -123,4 +123,12 @@ return [
         'en' => 'English',
         'tr' => 'Türkçe',
     ],
+
+    'portfolio' => [
+        'add_brand_wizard' => 'Marka ekle (sihirbaz)',
+        'quick_add' => 'Hızlı ekle',
+        'new_customer_setup' => 'Yeni müşteri kurulumu',
+        'add_customer' => 'Müşteri ekle',
+        'account_owner_responsible' => 'Hesap sahibi / Sorumlu kullanıcılar',
+    ],
 ];
