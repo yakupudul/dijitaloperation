@@ -3,10 +3,13 @@
 namespace App\Services\Collection;
 
 use App\Enums\Collection\CollectionRunStatus;
+use App\Enums\Collection\PlanDisposition;
 use App\Enums\Collection\RequirementLevel;
 use App\Models\CoreAssetBinding;
+use App\Models\DataPool\DatasetMaterialization;
 use App\Models\DigitalAsset;
 use App\Services\Collection\Support\StartCollectionRequest;
+use Illuminate\Support\Collection;
 use InvalidArgumentException;
 
 /**
@@ -38,8 +41,22 @@ final class CollectionPlanner
         'GSC_RF_APPEARANCE_DAILY',
     ];
 
+    /**
+     * Non-executable registry family statuses.
+     *
+     * @var list<string>
+     */
+    private const NON_EXECUTABLE_FAMILY_STATUSES = [
+        'DEFERRED',
+        'UNSUPPORTED',
+        'UNAVAILABLE',
+        'DEMO_ONLY',
+    ];
+
     public function __construct(
         private readonly DataContractRegistryLoader $registry,
+        private readonly HistoricalRangeResolver $ranges = new HistoricalRangeResolver,
+        private readonly CoverageSatisfactionChecker $coverage = new CoverageSatisfactionChecker,
     ) {}
 
     /**
@@ -57,7 +74,7 @@ final class CollectionPlanner
         $this->registry->load();
 
         $asset = $request->digitalAsset;
-        $bindings = $this->resolveBindings($asset, $request->bindingIds);
+        $bindings = $this->resolveBindings($asset, $request->bindingIds, $request->context);
 
         if ($bindings === []) {
             throw new InvalidArgumentException('No active asset bindings in collection scope.');
@@ -68,6 +85,7 @@ final class CollectionPlanner
         $dispositions = [];
 
         $familiesByProvider = $this->indexRequestFamilies();
+        $materializations = $this->loadMaterializations($bindings);
 
         foreach ($bindings as $binding) {
             $capability = (string) $binding->capability;
@@ -75,9 +93,20 @@ final class CollectionPlanner
 
             if ($request->providerSources !== null && ! in_array($provider, $request->providerSources, true)) {
                 $dispositions[] = [
-                    'type' => 'skipped_provider_filter',
+                    'type' => PlanDisposition::SkippedProviderFilter->value,
                     'binding_id' => $binding->id,
                     'provider_or_source' => $provider,
+                ];
+
+                continue;
+            }
+
+            if ($provider === 'GBP') {
+                $dispositions[] = [
+                    'type' => PlanDisposition::CollectorUnavailable->value,
+                    'binding_id' => $binding->id,
+                    'provider_or_source' => $provider,
+                    'reason' => 'No production GBP analytical collector',
                 ];
 
                 continue;
@@ -89,12 +118,23 @@ final class CollectionPlanner
                 'provider_or_source' => $provider,
                 'resource_kind' => 'bound_provider_resource',
                 'external_resource_id' => $binding->external_resource_id,
-                'digital_asset_id' => $asset->id,
+                'digital_asset_id' => $binding->digital_asset_id ?? $asset->id,
                 'core_asset_binding_id' => $binding->id,
                 'capability' => $capability,
             ];
 
             $families = $familiesByProvider[$provider] ?? [];
+            if ($families === []) {
+                $dispositions[] = [
+                    'type' => PlanDisposition::CollectorUnavailable->value,
+                    'binding_id' => $binding->id,
+                    'provider_or_source' => $provider,
+                    'reason' => 'No registry request families for provider',
+                ];
+
+                continue;
+            }
+
             foreach ($families as $family) {
                 $familyId = (string) ($family['id'] ?? '');
                 if ($familyId === '') {
@@ -106,11 +146,16 @@ final class CollectionPlanner
                 }
 
                 $status = (string) ($family['status'] ?? '');
-                if ($status === 'DEFERRED') {
+                if (in_array($status, self::NON_EXECUTABLE_FAMILY_STATUSES, true)) {
                     $dispositions[] = [
-                        'type' => 'deferred_request_family',
+                        'type' => match ($status) {
+                            'DEFERRED' => PlanDisposition::Deferred->value,
+                            'UNSUPPORTED' => PlanDisposition::Unsupported->value,
+                            default => PlanDisposition::Unsupported->value,
+                        },
                         'request_family_id' => $familyId,
                         'provider_or_source' => $provider,
+                        'family_status' => $status,
                     ];
 
                     continue;
@@ -118,7 +163,7 @@ final class CollectionPlanner
 
                 if (in_array($familyId, self::GSC_SOURCE_CONTRACT_EXCLUDED_FAMILIES, true)) {
                     $dispositions[] = [
-                        'type' => 'skipped_source_contract_not_required',
+                        'type' => PlanDisposition::SkippedSourceContract->value,
                         'request_family_id' => $familyId,
                         'provider_or_source' => $provider,
                         'reason' => 'SEARCH_CONSOLE_DATA_CONTRACT_V1 excludes searchAppearance collection',
@@ -129,29 +174,110 @@ final class CollectionPlanner
 
                 $level = $this->requirementLevelForFamily($familyId);
                 $eligibility = $this->eligibilityForFamily($family, $request);
+                $datasetId = $this->primaryDatasetForFamily($familyId) ?? $familyId;
+                $requirements = $this->requirementsForFamily($familyId);
+                $coverageTarget = $this->ranges->resolveForRequirements($requirements);
+                $requirementIds = array_values(array_filter(array_map(
+                    static fn (array $r): ?string => is_string($r['id'] ?? null) ? (string) $r['id'] : null,
+                    $requirements,
+                )));
 
                 if ($eligibility === CollectionRunStatus::NotEligible) {
                     $datasets[] = [
                         'resource_key' => $resourceKey,
                         'provider_or_source' => $provider,
-                        'dataset_contract_id' => $this->primaryDatasetForFamily($familyId) ?? $familyId,
+                        'dataset_contract_id' => $datasetId,
                         'request_family_id' => $familyId,
+                        'requirement_ids' => $requirementIds,
                         'requirement_level' => $level->value,
                         'planned_status' => CollectionRunStatus::NotEligible->value,
+                        'plan_disposition' => PlanDisposition::NotEligible->value,
+                        'date_range' => null,
+                        'coverage_target' => $coverageTarget,
                         'depends_on_request_family_ids' => $this->familyDependencies($familyId),
+                        'core_asset_binding_id' => $binding->id,
+                        'digital_asset_id' => $binding->digital_asset_id ?? $asset->id,
+                        'external_resource_id' => $binding->external_resource_id,
+                        'plan_disposition_detail' => [
+                            'type' => PlanDisposition::NotEligible->value,
+                            'request_family_id' => $familyId,
+                            'binding_id' => $binding->id,
+                        ],
                     ];
 
                     continue;
                 }
 
+                $materialization = $this->findMaterialization(
+                    $materializations,
+                    $datasetId,
+                    (int) ($binding->digital_asset_id ?? $asset->id),
+                    $binding->external_resource_id !== null ? (int) $binding->external_resource_id : null,
+                );
+
+                $satisfaction = $this->coverage->evaluate(
+                    $materialization,
+                    $coverageTarget,
+                    $request->forceRefresh,
+                );
+
+                if ($satisfaction['disposition'] === PlanDisposition::AlreadySatisfied->value) {
+                    $datasets[] = [
+                        'resource_key' => $resourceKey,
+                        'provider_or_source' => $provider,
+                        'dataset_contract_id' => $datasetId,
+                        'request_family_id' => $familyId,
+                        'requirement_ids' => $requirementIds,
+                        'requirement_level' => $level->value,
+                        'planned_status' => CollectionRunStatus::Skipped->value,
+                        'plan_disposition' => PlanDisposition::AlreadySatisfied->value,
+                        'date_range' => null,
+                        'coverage_target' => $coverageTarget,
+                        'depends_on_request_family_ids' => $this->familyDependencies($familyId),
+                        'core_asset_binding_id' => $binding->id,
+                        'digital_asset_id' => $binding->digital_asset_id ?? $asset->id,
+                        'external_resource_id' => $binding->external_resource_id,
+                        'plan_disposition_detail' => [
+                            'type' => PlanDisposition::AlreadySatisfied->value,
+                            'request_family_id' => $familyId,
+                            'binding_id' => $binding->id,
+                            'reason' => $satisfaction['reason'],
+                            'existing_coverage' => $satisfaction['existing_coverage'],
+                        ],
+                    ];
+
+                    continue;
+                }
+
+                $dateRange = $satisfaction['date_range'];
+                if ($dateRange === null && $coverageTarget['kind'] === 'historical') {
+                    $dateRange = [
+                        'start' => $coverageTarget['start'],
+                        'end' => $coverageTarget['end'],
+                    ];
+                }
+
                 $datasets[] = [
                     'resource_key' => $resourceKey,
                     'provider_or_source' => $provider,
-                    'dataset_contract_id' => $this->primaryDatasetForFamily($familyId) ?? $familyId,
+                    'dataset_contract_id' => $datasetId,
                     'request_family_id' => $familyId,
+                    'requirement_ids' => $requirementIds,
                     'requirement_level' => $level->value,
                     'planned_status' => CollectionRunStatus::Queued->value,
+                    'plan_disposition' => PlanDisposition::Eligible->value,
+                    'date_range' => $dateRange,
+                    'coverage_target' => $coverageTarget,
                     'depends_on_request_family_ids' => $this->familyDependencies($familyId),
+                    'core_asset_binding_id' => $binding->id,
+                    'digital_asset_id' => $binding->digital_asset_id ?? $asset->id,
+                    'external_resource_id' => $binding->external_resource_id,
+                    'plan_disposition_detail' => [
+                        'type' => PlanDisposition::Eligible->value,
+                        'request_family_id' => $familyId,
+                        'binding_id' => $binding->id,
+                        'reason' => $satisfaction['reason'],
+                    ],
                 ];
             }
         }
@@ -172,20 +298,77 @@ final class CollectionPlanner
 
     /**
      * @param  list<int>  $bindingIds
+     * @param  array<string, mixed>  $context
      * @return list<CoreAssetBinding>
      */
-    private function resolveBindings(DigitalAsset $asset, array $bindingIds): array
+    private function resolveBindings(DigitalAsset $asset, array $bindingIds, array $context): array
     {
+        $allowMultiAsset = (bool) ($context['allow_multi_asset_bindings'] ?? false);
+
         $query = CoreAssetBinding::query()
-            ->where('digital_asset_id', $asset->id)
+            ->with(['digitalAsset.brand', 'externalResource'])
             ->where('status', CoreAssetBinding::STATUS_ACTIVE);
 
         if ($bindingIds !== []) {
             $query->whereIn('id', $bindingIds);
+            if (! $allowMultiAsset) {
+                $query->where('digital_asset_id', $asset->id);
+            }
+        } else {
+            $query->where('digital_asset_id', $asset->id);
         }
 
         /** @var list<CoreAssetBinding> */
-        return $query->get()->all();
+        return $query->orderBy('id')->get()->all();
+    }
+
+    /**
+     * @param  list<CoreAssetBinding>  $bindings
+     * @return Collection<int, DatasetMaterialization>
+     */
+    private function loadMaterializations(array $bindings): Collection
+    {
+        $assetIds = [];
+        $resourceIds = [];
+        foreach ($bindings as $binding) {
+            if ($binding->digital_asset_id !== null) {
+                $assetIds[] = (int) $binding->digital_asset_id;
+            }
+            if ($binding->external_resource_id !== null) {
+                $resourceIds[] = (int) $binding->external_resource_id;
+            }
+        }
+
+        if ($assetIds === []) {
+            return collect();
+        }
+
+        return DatasetMaterialization::query()
+            ->whereIn('digital_asset_id', array_values(array_unique($assetIds)))
+            ->when($resourceIds !== [], fn ($q) => $q->whereIn('external_resource_id', array_values(array_unique($resourceIds))))
+            ->get();
+    }
+
+    /**
+     * @param  Collection<int, DatasetMaterialization>  $materializations
+     */
+    private function findMaterialization(
+        Collection $materializations,
+        string $datasetId,
+        int $digitalAssetId,
+        ?int $externalResourceId,
+    ): ?DatasetMaterialization {
+        return $materializations->first(function (DatasetMaterialization $row) use ($datasetId, $digitalAssetId, $externalResourceId): bool {
+            if ($row->dataset_id !== $datasetId || (int) $row->digital_asset_id !== $digitalAssetId) {
+                return false;
+            }
+
+            if ($externalResourceId === null) {
+                return $row->external_resource_id === null;
+            }
+
+            return (int) $row->external_resource_id === $externalResourceId;
+        });
     }
 
     /**
@@ -254,6 +437,21 @@ final class CollectionPlanner
         }
 
         return null;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function requirementsForFamily(string $familyId): array
+    {
+        $out = [];
+        foreach ($this->registry->requirements() as $requirement) {
+            if (($requirement['request_family'] ?? null) === $familyId) {
+                $out[] = $requirement;
+            }
+        }
+
+        return $out;
     }
 
     /**

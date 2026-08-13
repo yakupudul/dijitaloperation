@@ -40,8 +40,17 @@ Status reference for the frozen `/app` operator panel. UI work after this docume
 | Agents | PARTIAL | Full read-only catalog under `/app/settings/ai/agents` (code registry) |
 | Skills | PARTIAL | Full read-only catalog under `/app/settings/ai/skills` (code registry) |
 | Notifications | DEMO | Deterministic bell when DB empty; preferences in Settings |
-| Google Integration hub/detail (`/app/integrations`) | REAL (backend state) | Prompt 13–19: Core* + OAuth + discovery + human binding + GSC/GA4/Ads production collectors |
+| Google Integration hub/detail (`/app/integrations`) | REAL (backend state) | Prompt 13–20: Core* + OAuth + discovery + human binding + collectors + initial backfill Collect Data |
 | Google connector workspaces | DEMO / PARTIAL | GSC/GA4/Ads pools REAL via Prompt 17–19; specialist UI Demo until Prompt 28/29/30 |
+| Google Initial Backfill Planner | REAL | Registry-driven multi-connector plan; dataset-specific historical depth; materialization-aware |
+| Google Initial Backfill Execution | REAL | One CollectionRun → independent GSC/GA4/Ads ResourceRuns/DatasetRuns via shared engine |
+| Google Initial Backfill UX | REAL | Collect Data on frozen Google Integration + Prompt 11 MonitoringPanel; no new nav |
+| Browser-independent Google import | REAL | Persist + queue; close browser; reconstruct from DB |
+| Partial-failure Google import | REAL | Provider/dataset isolation; PARTIAL aggregation; successful facts preserved |
+| Persistent Google Collection History | REAL | Prompt 11 history; trigger Initial Google Collection |
+| GBP analytical pool | NOT YET | Discovery/binding may exist; no production GBP analytical collector / no fake DatasetRuns |
+| Recurring Google collection | NOT YET | Prompt 27 |
+| Incremental freshness | NOT YET | Prompt 27 |
 | GSC Production Collector | REAL | Contract request families → WarehouseWriter → GSC normalized pool |
 | GSC Search Analytics / Sitemaps / Controlled URL Inspection | REAL | Read-only; appearance not collected (source V1) |
 | GSC specialist real-data UI | NOT YET | Prompt 29 |

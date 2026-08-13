@@ -766,13 +766,22 @@ final class GoogleIntegrationReadModel
 
         $canBind = $canDiscover;
 
+        $hasProductionCollectableBinding = CoreAssetBinding::query()
+            ->where('status', CoreAssetBinding::STATUS_ACTIVE)
+            ->whereIn('capability', ['search_console', 'ga4', 'google_ads'])
+            ->whereHas('externalResource', function ($q) use ($integration): void {
+                $q->where('integration_id', $integration->id)
+                    ->where('provider', ProviderRegistry::GOOGLE);
+            })
+            ->exists();
+
         return [
             'configure' => true,
             'authorize' => $canAuthorize,
             'reauthorize' => $canAuthorize && $authUsable,
             'discover' => $canDiscover,
             'bind' => $canBind,
-            'collect' => false,
+            'collect' => $canDiscover && $hasProductionCollectableBinding,
             // Explicit Google grant revocation (not per-Connector disable).
             'disconnect' => $canAuthorize && $integration->authorizationCredential()->exists(),
         ];

@@ -72,39 +72,39 @@ final class CollectionStatusAggregator
             && $d->status !== CollectionRunStatus::Skipped);
 
         if ($cancelled > 0 && $completed === 0 && $failedRequired === 0) {
-            $this->stateMachine->transition($resource, CollectionRunStatus::Cancelled);
+            $this->transitionResourceTerminal($resource, CollectionRunStatus::Cancelled);
 
             return;
         }
 
         if ($failedRequired > 0 && $completed > 0) {
-            $this->stateMachine->transition($resource, CollectionRunStatus::Partial);
+            $this->transitionResourceTerminal($resource, CollectionRunStatus::Partial);
 
             return;
         }
 
         if ($failedRequired > 0 && $completed === 0) {
-            $this->stateMachine->transition($resource, CollectionRunStatus::Failed);
+            $this->transitionResourceTerminal($resource, CollectionRunStatus::Failed);
 
             return;
         }
 
         if ($cancelled > 0 && $completed > 0) {
-            $this->stateMachine->transition($resource, CollectionRunStatus::Partial);
+            $this->transitionResourceTerminal($resource, CollectionRunStatus::Partial);
 
             return;
         }
 
         if ($relevant->every(fn (CollectionDatasetRun $d): bool => $d->status === CollectionRunStatus::Completed)
             || ($relevant->isEmpty() && $notEligible === $datasets->count())) {
-            $this->stateMachine->transition($resource, CollectionRunStatus::Completed);
+            $this->transitionResourceTerminal($resource, CollectionRunStatus::Completed);
 
             return;
         }
 
         // Optional-only failures: still completed at resource level.
         if ($failedRequired === 0 && $active === 0) {
-            $this->stateMachine->transition($resource, CollectionRunStatus::Completed);
+            $this->transitionResourceTerminal($resource, CollectionRunStatus::Completed);
         }
     }
 
@@ -164,14 +164,14 @@ final class CollectionStatusAggregator
         }
 
         if ($cancelled > 0 && $completedDatasets === 0 && $failedRequired === 0) {
-            $this->stateMachine->transition($run, CollectionRunStatus::Cancelled);
+            $this->transitionCollectionTerminal($run, CollectionRunStatus::Cancelled);
             CollectionRunCancelled::dispatch($run->fresh() ?? $run);
 
             return;
         }
 
         if ($failedRequired > 0 && $completedDatasets > 0) {
-            $this->stateMachine->transition($run, CollectionRunStatus::Partial);
+            $this->transitionCollectionTerminal($run, CollectionRunStatus::Partial);
             CollectionRunCompleted::dispatch($run->fresh() ?? $run);
 
             return;
@@ -179,20 +179,42 @@ final class CollectionStatusAggregator
 
         if ($failedRequired > 0 && $completedDatasets === 0) {
             $run->forceFill(['failure_summary' => 'All required datasets failed'])->save();
-            $this->stateMachine->transition($run, CollectionRunStatus::Failed);
+            $this->transitionCollectionTerminal($run, CollectionRunStatus::Failed);
             CollectionRunCompleted::dispatch($run->fresh() ?? $run);
 
             return;
         }
 
         if ($cancelled > 0 && $completedDatasets > 0) {
-            $this->stateMachine->transition($run, CollectionRunStatus::Partial);
+            $this->transitionCollectionTerminal($run, CollectionRunStatus::Partial);
             CollectionRunCompleted::dispatch($run->fresh() ?? $run);
 
             return;
         }
 
-        $this->stateMachine->transition($run, CollectionRunStatus::Completed);
+        $this->transitionCollectionTerminal($run, CollectionRunStatus::Completed);
         CollectionRunCompleted::dispatch($run->fresh() ?? $run);
+    }
+
+    /**
+     * Resource/collection may still be Queued when the only child finishes in one tick.
+     * State machine forbids Queued → Completed/Partial/Failed — step through Running.
+     */
+    private function transitionResourceTerminal(CollectionResourceRun $resource, CollectionRunStatus $to): void
+    {
+        if ($resource->status === CollectionRunStatus::Queued) {
+            $this->stateMachine->transition($resource, CollectionRunStatus::Running);
+        }
+
+        $this->stateMachine->transition($resource, $to);
+    }
+
+    private function transitionCollectionTerminal(CollectionRun $run, CollectionRunStatus $to): void
+    {
+        if ($run->status === CollectionRunStatus::Queued) {
+            $this->stateMachine->transition($run, CollectionRunStatus::Running);
+        }
+
+        $this->stateMachine->transition($run, $to);
     }
 }

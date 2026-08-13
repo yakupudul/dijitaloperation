@@ -6,6 +6,7 @@ use App\Models\Brand;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\DigitalAsset;
+use App\Services\Collection\Google\GoogleInitialBackfillOrchestrator;
 use App\Services\Integrations\ConfirmGoogleResourceBindingService;
 use App\Services\Integrations\Google\DiscoverGoogleResourcesService;
 use App\Services\Integrations\Google\GoogleIntegrationReadModel;
@@ -211,6 +212,36 @@ class GoogleIntegrationPage extends Component
         $this->redirect($result['url']);
     }
 
+    public function collectData(GoogleInitialBackfillOrchestrator $orchestrator): void
+    {
+        $user = auth()->user();
+        if ($user === null || ! $user->hasRole(Roles::ADMIN)) {
+            abort(403);
+        }
+
+        $integration = CoreIntegration::query()
+            ->where('provider', ProviderRegistry::GOOGLE)
+            ->first();
+
+        if (! $integration instanceof CoreIntegration) {
+            DemoState::flash('No Google Integration is configured.', 'info');
+
+            return;
+        }
+
+        $result = $orchestrator->start(
+            $integration->fresh(['authorizationCredential', 'providerCredential']) ?? $integration,
+            $user,
+        );
+
+        DemoState::flash($result->message, 'info');
+
+        if ($result->collectionRun !== null) {
+            $this->tab = 'activity';
+            $this->dispatch('collection-run-selected', uuid: $result->collectionRun->uuid);
+        }
+    }
+
     public function openDisconnect(): void
     {
         $this->confirmDisconnect = true;
@@ -271,11 +302,22 @@ class GoogleIntegrationPage extends Component
             }
         }
 
+        $preflight = null;
+        if (($integration['actions']['collect'] ?? false) === true && ($integration['integration_id'] ?? null) !== null) {
+            $core = CoreIntegration::query()->find($integration['integration_id']);
+            if ($core instanceof CoreIntegration) {
+                $preflight = app(GoogleInitialBackfillOrchestrator::class)
+                    ->preflight($core)
+                    ->toArray();
+            }
+        }
+
         return view('livewire.demo.integrations.google-integration', [
             'integration' => $integration,
             'flash' => DemoState::pullFlash(),
             'brands' => $brands,
             'preferred_asset_type' => $preferredType,
+            'preflight' => $preflight,
         ]);
     }
 

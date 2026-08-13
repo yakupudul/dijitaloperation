@@ -3,6 +3,7 @@
 namespace App\Services\Collection\Monitoring;
 
 use App\Enums\Collection\CollectionRunStatus;
+use App\Enums\Collection\CollectionTriggerType;
 use App\Enums\DataPool\MaterializationStatus;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\Collection\CollectionResourceRun;
@@ -173,6 +174,16 @@ final class CollectionRunMonitorQuery
             'providers' => $run->relationLoaded('resourceRuns')
                 ? $run->resourceRuns->pluck('provider_or_source')->unique()->values()->all()
                 : [],
+            'connectors' => $run->relationLoaded('resourceRuns')
+                ? $run->resourceRuns->pluck('provider_or_source')->unique()->values()->map(
+                    fn (string $provider): array => $this->progress->connectorPlanCompletion($provider, $run->resourceRuns)
+                )->all()
+                : [],
+            'trigger_label' => $run->metadata['collection_intent_label']
+                ?? match ($run->trigger_type) {
+                    CollectionTriggerType::InitialBackfill => 'Initial Google Collection',
+                    default => $run->trigger_type->value,
+                },
         ];
 
         if ($includeChildren) {

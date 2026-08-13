@@ -67,12 +67,25 @@ final class StartCollectionService
                         'provider_or_source' => $d['provider_or_source'],
                         'dataset_contract_id' => $d['dataset_contract_id'],
                         'request_family_id' => $d['request_family_id'],
+                        'requirement_ids' => $d['requirement_ids'] ?? [],
                         'requirement_level' => $d['requirement_level'],
                         'planned_status' => $d['planned_status'],
+                        'plan_disposition' => $d['plan_disposition'] ?? null,
+                        'date_range' => $d['date_range'] ?? null,
+                        'coverage_target' => $d['coverage_target'] ?? null,
+                        'core_asset_binding_id' => $d['core_asset_binding_id'] ?? null,
+                        'digital_asset_id' => $d['digital_asset_id'] ?? null,
+                        'external_resource_id' => $d['external_resource_id'] ?? null,
                     ], $plan['datasets']),
                     'dispositions' => $plan['dispositions'],
+                    'contract_registry_version' => $plan['contract_registry_version'],
+                    'planner_version' => 1,
                 ],
-                'metadata' => [],
+                'metadata' => [
+                    'plan_fingerprint' => $request->context['plan_fingerprint'] ?? null,
+                    'collection_intent' => $request->context['collection_intent'] ?? null,
+                    'collection_intent_label' => $request->context['collection_intent_label'] ?? null,
+                ],
             ]);
 
             $resourceMap = [];
@@ -110,6 +123,10 @@ final class StartCollectionService
                     'finished_at' => $planned->isTerminal() ? now() : null,
                     'metadata' => [
                         'depends_on_request_family_ids' => $dataset['depends_on_request_family_ids'] ?? [],
+                        'requirement_ids' => $dataset['requirement_ids'] ?? [],
+                        'plan_disposition' => $dataset['plan_disposition'] ?? null,
+                        'date_range' => $dataset['date_range'] ?? null,
+                        'coverage_target' => $dataset['coverage_target'] ?? null,
                     ],
                 ]);
                 $datasetByFamily[$resourceRun->id.':'.$dataset['request_family_id']] = $datasetRun;

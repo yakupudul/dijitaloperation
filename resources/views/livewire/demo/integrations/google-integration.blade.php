@@ -38,6 +38,11 @@
                     {{ ($integration['resources_discovered'] ?? 0) > 0 ? 'Refresh Resources' : 'Discover Resources' }}
                 </x-ta.button>
             @endif
+            @if ($integration['actions']['collect'] ?? false)
+                <x-ta.button wire:click="collectData" size="sm" wire:loading.attr="disabled">
+                    Collect Data
+                </x-ta.button>
+            @endif
             @if ($integration['actions']['disconnect'] ?? false)
                 <x-ta.button wire:click="openDisconnect" size="sm" variant="danger">Revoke Google access…</x-ta.button>
             @endif
@@ -93,6 +98,39 @@
                 <p class="mt-1 text-sm font-medium text-gray-800 dark:text-white/90">{{ $integration['data_state_label'] ?? 'No data available' }}</p>
             </div>
         </div>
+
+        @if (! empty($preflight))
+            <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Google initial collection</h2>
+                <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                    {{ $preflight['summary']['eligible_resources'] ?? 0 }} bound production resources ready
+                    · Historical coverage varies by dataset
+                </p>
+                @if (! empty($preflight['summary']['by_connector']))
+                    <ul class="mt-2 space-y-1 text-sm text-gray-600 dark:text-gray-300">
+                        @foreach ($preflight['summary']['by_connector'] as $provider => $counts)
+                            <li>
+                                {{ str_replace('_', ' ', $provider) }}
+                                · {{ $counts['eligible'] ?? 0 }} eligible
+                                / {{ $counts['bound'] ?? 0 }} bound
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+                @foreach ($preflight['connectors'] ?? [] as $connector)
+                    @if (($connector['status'] ?? '') !== 'ready')
+                        <p class="mt-2 text-xs text-warning-600 dark:text-warning-400">
+                            {{ $connector['provider_or_source'] ?? $connector['capability'] }} · {{ $connector['label'] }}
+                        </p>
+                    @endif
+                @endforeach
+                @if ($preflight['can_start'] ?? false)
+                    <p class="mt-2 text-xs text-gray-500">This collection continues in the background. You may leave this page.</p>
+                @elseif (! empty($preflight['message']))
+                    <p class="mt-2 text-xs text-gray-500">{{ $preflight['message'] }}</p>
+                @endif
+            </div>
+        @endif
 
         <div class="grid gap-4 md:grid-cols-2">
             @foreach ($integration['resource_groups'] as $group)
@@ -240,6 +278,10 @@
                 @endforeach
             </ul>
         </section>
+
+        <div class="mox-collection-monitor-embed" wire:key="google-collection-monitoring">
+            @livewire(\App\Livewire\Collection\MonitoringPanel::class)
+        </div>
     @endif
 
     @if ($confirmDisconnect)

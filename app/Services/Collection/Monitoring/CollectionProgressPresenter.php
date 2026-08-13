@@ -86,6 +86,45 @@ final class CollectionProgressPresenter
     }
 
     /**
+     * Connector-level dataset-plan completion (aggregate ResourceRuns by provider_or_source).
+     * Denominator is planned executable DatasetRuns — not provider row transfer.
+     *
+     * @param  iterable<CollectionResourceRun>  $resources
+     * @return array{type: string, provider_or_source: string, resources: int, completed: int, total: int, percentage: ?float, retrying: int, label: string}
+     */
+    public function connectorPlanCompletion(string $providerOrSource, iterable $resources): array
+    {
+        $matched = collect($resources)->filter(
+            fn (CollectionResourceRun $r): bool => $r->provider_or_source === $providerOrSource
+        );
+
+        $completed = 0;
+        $total = 0;
+        $retrying = 0;
+
+        foreach ($matched as $resource) {
+            if (! $resource->relationLoaded('datasetRuns')) {
+                $resource->load('datasetRuns');
+            }
+            $plan = $this->resourcePlanCompletion($resource);
+            $completed += $plan['completed'];
+            $total += $plan['total'];
+            $retrying += $resource->datasetRuns->where('status', CollectionRunStatus::Retrying)->count();
+        }
+
+        return [
+            'type' => 'DATASET_PLAN_COMPLETION',
+            'provider_or_source' => $providerOrSource,
+            'resources' => $matched->count(),
+            'completed' => $completed,
+            'total' => $total,
+            'percentage' => $total > 0 ? round(($completed / $total) * 100, 1) : null,
+            'retrying' => $retrying,
+            'label' => __('operator.collection.progress.dataset_plan_completion'),
+        ];
+    }
+
+    /**
      * Per-dataset transfer/work progress from persisted ProgressMode.
      *
      * @return array<string, mixed>

@@ -169,7 +169,7 @@ See Milestone 5: Google Ads Production Collector = REAL; specialist UI = NOT YET
 
 ## 37. Prompt 20 / Prompt 30 Handoff
 
-- Prompt 20: Google Initial Backfill Orchestrator
+- Prompt 20: Google Initial Backfill Orchestrator — **done** (`docs/implementation/GOOGLE_INITIAL_BACKFILL.md`)
 - Prompt 27: incremental freshness
 - Prompt 30: Google Ads real-data UI migration
 

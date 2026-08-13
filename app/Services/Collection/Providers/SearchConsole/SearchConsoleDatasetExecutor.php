@@ -642,7 +642,9 @@ final class SearchConsoleDatasetExecutor implements DatasetExecutor
      */
     private function resolveDateRange(DatasetExecutionContext $context): array|DatasetExecutionResult
     {
-        $range = $context->collectionRun->request_context['date_range'] ?? null;
+        $range = $context->datasetRun->metadata['date_range']
+            ?? $context->collectionRun->request_context['date_range']
+            ?? null;
         if (! is_array($range) || empty($range['start']) || empty($range['end'])) {
             return DatasetExecutionResult::failed(
                 CollectionErrorCategory::InvalidRequest,
