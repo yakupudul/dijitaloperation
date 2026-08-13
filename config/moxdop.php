@@ -77,11 +77,19 @@ return [
 
     /*
      * Agency Meta Integration (Settings → Integrations).
-     * DB-first encrypted access token (system user / long-lived user token).
-     * META_ACCESS_TOKEN is optional bootstrap/fallback only — never shown in UI.
+     *
+     * Application / deployment configuration (Prompt 21 ownership; Prompt 22 OAuth):
+     *   META_APP_ID, META_APP_SECRET — never tenant credential rows; never shown in UI.
+     *
+     * Tenant authorization (legacy until Prompt 22 OAuth productionizes the flow):
+     *   DB-first encrypted access token (system user / long-lived user token).
+     *   META_ACCESS_TOKEN is optional bootstrap/fallback only — never shown in UI.
+     *
      * API version is centralized; host is fixed to graph.facebook.com (no operator URL).
      */
     'meta' => [
+        'app_id' => env('META_APP_ID'),
+        'app_secret' => env('META_APP_SECRET'),
         'access_token' => env('META_ACCESS_TOKEN'),
         'api_version' => env('META_API_VERSION', 'v26.0'),
         'timeout' => (int) env('META_TIMEOUT', 20),

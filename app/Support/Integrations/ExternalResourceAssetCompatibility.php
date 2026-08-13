@@ -23,6 +23,8 @@ final class ExternalResourceAssetCompatibility
             'google_ads' => 'google_ads',
             'google_business_profile' => 'google_business_profile',
             'meta_ads' => 'meta_ads',
+            // Meta Business is a provider container — never auto DigitalAsset.
+            'meta_business' => null,
             default => null,
         };
     }
@@ -40,6 +42,8 @@ final class ExternalResourceAssetCompatibility
             'google_ads' => ['google_ads'],
             'google_business_profile' => ['google_business_profile', 'gbp'],
             'meta_ads' => ['meta_ads'],
+            // META_BUSINESS is not bindable.
+            'meta_business' => [],
             default => [],
         };
     }

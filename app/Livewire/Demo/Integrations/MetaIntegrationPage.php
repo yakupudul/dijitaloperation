@@ -2,80 +2,42 @@
 
 namespace App\Livewire\Demo\Integrations;
 
-use App\Support\Demo\DemoCatalog;
+use App\Services\Integrations\Meta\MetaIntegrationReadModel;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 
 #[Layout('operator.layouts.app')]
 #[Title('Meta Integration')]
 class MetaIntegrationPage extends Component
 {
-    public ?string $expandedAccountId = null;
+    #[Url(as: 'tab', history: true)]
+    public string $tab = 'overview';
 
     public function mount(): void
     {
-        $import = DemoState::all()['import'] ?? [];
-        $this->expandedAccountId = $import['selected_account_id'] ?? null;
+        if (! in_array($this->tab, ['overview', 'connectors', 'resources', 'activity'], true)) {
+            $this->tab = 'overview';
+        }
     }
 
-    public function startImport(): void
+    public function setTab(string $tab): void
     {
-        DemoState::startMetaImport();
+        if (in_array($tab, ['overview', 'connectors', 'resources', 'activity'], true)) {
+            $this->tab = $tab;
+        }
     }
 
-    public function pollImport(): void
+    public function render(MetaIntegrationReadModel $readModel): View
     {
-        DemoState::tickMetaImport();
-    }
-
-    public function expandAccount(string $id): void
-    {
-        $this->expandedAccountId = $this->expandedAccountId === $id ? null : $id;
-        DemoState::put(['import' => array_merge(DemoState::all()['import'] ?? [], [
-            'selected_account_id' => $this->expandedAccountId,
-        ])]);
-    }
-
-    public function render(): View
-    {
-        $import = DemoState::all()['import'];
-        $accounts = collect(DemoCatalog::metaImportAccounts());
-
-        $groups = [
-            'ready' => [
-                'label' => 'Ready',
-                'hint' => 'History imported and usable for analysis.',
-                'accounts' => $accounts->where('status', 'ready')->values()->all(),
-            ],
-            'importing' => [
-                'label' => 'Importing',
-                'hint' => 'Chunks in flight — progress updates as the simulation ticks.',
-                'accounts' => $accounts->where('status', 'importing')->values()->all(),
-            ],
-            'waiting' => [
-                'label' => 'Waiting',
-                'hint' => 'Waiting on Meta Insights / provider readiness.',
-                'accounts' => $accounts->where('status', 'waiting')->values()->all(),
-            ],
-            'queued' => [
-                'label' => 'Queued',
-                'hint' => 'Queued behind active imports.',
-                'accounts' => $accounts->where('status', 'queued')->values()->all(),
-            ],
-            'needs_attention' => [
-                'label' => 'Needs attention',
-                'hint' => 'Permission or provider errors blocking import.',
-                'accounts' => $accounts->where('status', 'needs_attention')->values()->all(),
-            ],
-        ];
+        $integration = $readModel->detail();
+        $readModel->assertNoSecrets($integration);
 
         return view('livewire.demo.integrations.meta-integration', [
-            'import' => $import,
-            'groups' => $groups,
-            'accounts' => $accounts->values()->all(),
+            'integration' => $integration,
             'flash' => DemoState::pullFlash(),
         ]);
     }

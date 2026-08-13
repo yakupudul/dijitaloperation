@@ -31,6 +31,31 @@ final class MetaApiConfig
         return $version;
     }
 
+    /**
+     * Deployment-level Meta App ID (not a tenant authorization credential).
+     */
+    public static function appId(): ?string
+    {
+        $value = trim((string) config('moxdop.meta.app_id', ''));
+
+        return $value !== '' ? $value : null;
+    }
+
+    /**
+     * Deployment-level Meta App Secret (never UI-visible; not copied into tenant credentials).
+     */
+    public static function appSecret(): ?string
+    {
+        $value = trim((string) config('moxdop.meta.app_secret', ''));
+
+        return $value !== '' ? $value : null;
+    }
+
+    public static function isApplicationConfigured(): bool
+    {
+        return self::appId() !== null && self::appSecret() !== null;
+    }
+
     public static function graphBaseUrl(): string
     {
         return self::GRAPH_SCHEME.'://'.self::GRAPH_HOST.'/'.self::apiVersion();

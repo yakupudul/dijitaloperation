@@ -4,10 +4,15 @@ namespace App\Services\Integrations\Meta;
 
 use App\Models\CoreIntegration;
 use App\Models\CoreIntegrationCredential;
+use App\Support\Integrations\Meta\MetaApiConfig;
 use App\Support\Integrations\ProviderRegistry;
 
 /**
- * Resolve Meta access token: DB provider credential first, optional env fallback.
+ * Resolve Meta credentials with canonical ownership:
+ * - Application App ID/Secret: deployment config only (never tenant credential rows)
+ * - Tenant authorization token: DB provider credential first, optional env fallback
+ *
+ * Prompt 22 will productionize OAuth lifecycle; Prompt 21 defines ownership.
  */
 class MetaCredentialResolver
 {
@@ -17,7 +22,20 @@ class MetaCredentialResolver
 
     public const string SOURCE_MISSING = 'missing';
 
+    /**
+     * Legacy alias: tenant authorization token present (not Meta App configuration).
+     */
     public function isConfigured(CoreIntegration $integration): bool
+    {
+        return $this->hasTenantAuthorization($integration);
+    }
+
+    public function isApplicationConfigured(): bool
+    {
+        return MetaApiConfig::isApplicationConfigured();
+    }
+
+    public function hasTenantAuthorization(CoreIntegration $integration): bool
     {
         return $this->accessToken($integration) !== null;
     }
@@ -76,6 +94,20 @@ class MetaCredentialResolver
         return is_array($payload) ? $payload : [];
     }
 
+    /**
+     * Assert tenant credential payload never stores Meta App Secret.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    public function assertNoAppSecretInTenantPayload(array $payload): void
+    {
+        foreach (['app_secret', 'client_secret', 'meta_app_secret'] as $key) {
+            if (array_key_exists($key, $payload) && filled($payload[$key] ?? null)) {
+                throw new \InvalidArgumentException('Meta App Secret must not be stored in tenant credentials.');
+            }
+        }
+    }
+
     public function configurationLabel(string $source, bool $present): string
     {
         if (! $present) {
@@ -87,6 +119,13 @@ class MetaCredentialResolver
             self::SOURCE_ENVIRONMENT => 'Configured by environment',
             default => 'Configured',
         };
+    }
+
+    public function applicationConfigurationLabel(): string
+    {
+        return $this->isApplicationConfigured()
+            ? 'Complete'
+            : 'Incomplete — Meta App ID/Secret (Prompt 22 OAuth)';
     }
 
     private function assertMeta(CoreIntegration $integration): void

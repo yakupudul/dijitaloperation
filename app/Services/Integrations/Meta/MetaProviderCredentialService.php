@@ -77,6 +77,9 @@ class MetaProviderCredentialService
             $token = (string) ($existing['access_token'] ?? '');
         }
 
+        $this->resolver->assertNoAppSecretInTenantPayload($input);
+        $this->resolver->assertNoAppSecretInTenantPayload($existing);
+
         if ($token === '') {
             throw ValidationException::withMessages([
                 'access_token' => 'Access token is required (leave blank to keep the stored value).',

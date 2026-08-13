@@ -11,6 +11,7 @@ use App\Services\Integrations\BoundCollectionGuard;
 use App\Services\Integrations\Meta\MetaApiClient;
 use App\Services\Integrations\Meta\MetaException;
 use App\Support\Integrations\ComparisonPeriod;
+use App\Support\Integrations\Meta\MetaAdAccountId;
 use App\Support\Integrations\Meta\MetaApiConfig;
 use App\Support\Integrations\ProviderRegistry;
 use Illuminate\Support\Facades\Log;
@@ -78,7 +79,7 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
             throw new RuntimeException('Meta Ads collection requires a Meta Integration.');
         }
 
-        $actId = $this->normalizeActId((string) $resource->external_id);
+        $actId = MetaAdAccountId::toApiForm((string) $resource->external_id);
         $periods = ComparisonPeriod::lastTwentyEightCompleteDays();
         $observedAt = now();
 
@@ -453,16 +454,6 @@ final class MetaAdsBoundCollector implements CollectsBoundProviderData
         }
 
         return $run->fresh(['evidence']) ?? $run;
-    }
-
-    private function normalizeActId(string $externalId): string
-    {
-        $externalId = trim($externalId);
-        if ($externalId === '') {
-            throw new RuntimeException('Meta Ads External Resource has no Ad Account ID.');
-        }
-
-        return str_starts_with($externalId, 'act_') ? $externalId : 'act_'.$externalId;
     }
 
     /**
