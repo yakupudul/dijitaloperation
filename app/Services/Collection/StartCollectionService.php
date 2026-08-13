@@ -76,15 +76,18 @@ final class StartCollectionService
                         'core_asset_binding_id' => $d['core_asset_binding_id'] ?? null,
                         'digital_asset_id' => $d['digital_asset_id'] ?? null,
                         'external_resource_id' => $d['external_resource_id'] ?? null,
+                        'plan_disposition_detail' => $d['plan_disposition_detail'] ?? null,
                     ], $plan['datasets']),
                     'dispositions' => $plan['dispositions'],
                     'contract_registry_version' => $plan['contract_registry_version'],
-                    'planner_version' => 1,
+                    'planner_version' => 2,
+                    'freshness_policy_version' => $request->context['freshness_policy_version'] ?? null,
                 ],
                 'metadata' => [
                     'plan_fingerprint' => $request->context['plan_fingerprint'] ?? null,
                     'collection_intent' => $request->context['collection_intent'] ?? null,
                     'collection_intent_label' => $request->context['collection_intent_label'] ?? null,
+                    'freshness_policy_version' => $request->context['freshness_policy_version'] ?? null,
                 ],
             ]);
 
@@ -127,6 +130,10 @@ final class StartCollectionService
                         'plan_disposition' => $dataset['plan_disposition'] ?? null,
                         'date_range' => $dataset['date_range'] ?? null,
                         'coverage_target' => $dataset['coverage_target'] ?? null,
+                        'incremental_reasons' => $dataset['plan_disposition_detail']['incremental_reasons'] ?? null,
+                        'requested_intervals' => $dataset['plan_disposition_detail']['requested_intervals'] ?? null,
+                        'freshness_policy_version' => $dataset['plan_disposition_detail']['freshness_policy_version'] ?? null,
+                        'freshness_state' => $dataset['plan_disposition_detail']['freshness_state'] ?? null,
                     ],
                 ]);
                 $datasetByFamily[$resourceRun->id.':'.$dataset['request_family_id']] = $datasetRun;

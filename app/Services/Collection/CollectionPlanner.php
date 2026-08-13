@@ -3,12 +3,14 @@
 namespace App\Services\Collection;
 
 use App\Enums\Collection\CollectionRunStatus;
+use App\Enums\Collection\CollectionTriggerType;
 use App\Enums\Collection\PlanDisposition;
 use App\Enums\Collection\RequirementLevel;
 use App\Models\CoreAssetBinding;
 use App\Models\DataPool\DatasetMaterialization;
 use App\Models\DigitalAsset;
 use App\Services\Collection\Support\StartCollectionRequest;
+use App\Services\DataPool\Freshness\IncrementalCoveragePlanner;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
 
@@ -57,6 +59,7 @@ final class CollectionPlanner
         private readonly DataContractRegistryLoader $registry,
         private readonly HistoricalRangeResolver $ranges = new HistoricalRangeResolver,
         private readonly CoverageSatisfactionChecker $coverage = new CoverageSatisfactionChecker,
+        private readonly ?IncrementalCoveragePlanner $incrementalPlanner = null,
     ) {}
 
     /**
@@ -214,6 +217,46 @@ final class CollectionPlanner
                     (int) ($binding->digital_asset_id ?? $asset->id),
                     $binding->external_resource_id !== null ? (int) $binding->external_resource_id : null,
                 );
+
+                if ($request->triggerType === CollectionTriggerType::Incremental) {
+                    $incremental = $this->planIncrementalDataset(
+                        $request,
+                        $binding,
+                        $datasetId,
+                        $materialization,
+                    );
+
+                    $plannedStatus = $incremental['executable']
+                        ? CollectionRunStatus::Queued->value
+                        : match ($incremental['plan_disposition']) {
+                            PlanDisposition::AlreadySatisfied->value => CollectionRunStatus::Skipped->value,
+                            PlanDisposition::NotEligible->value => CollectionRunStatus::NotEligible->value,
+                            PlanDisposition::ActionRequired->value => CollectionRunStatus::NotEligible->value,
+                            PlanDisposition::IntegrityBlocked->value => CollectionRunStatus::NotEligible->value,
+                            PlanDisposition::ProviderLimited->value => CollectionRunStatus::NotEligible->value,
+                            default => CollectionRunStatus::Skipped->value,
+                        };
+
+                    $datasets[] = [
+                        'resource_key' => $resourceKey,
+                        'provider_or_source' => $provider,
+                        'dataset_contract_id' => $datasetId,
+                        'request_family_id' => $familyId,
+                        'requirement_ids' => $requirementIds,
+                        'requirement_level' => $level->value,
+                        'planned_status' => $plannedStatus,
+                        'plan_disposition' => $incremental['plan_disposition'],
+                        'date_range' => $incremental['date_range'],
+                        'coverage_target' => $coverageTarget,
+                        'depends_on_request_family_ids' => $this->familyDependencies($familyId),
+                        'core_asset_binding_id' => $binding->id,
+                        'digital_asset_id' => $binding->digital_asset_id ?? $asset->id,
+                        'external_resource_id' => $binding->external_resource_id,
+                        'plan_disposition_detail' => $incremental['plan_disposition_detail'],
+                    ];
+
+                    continue;
+                }
 
                 $satisfaction = $this->coverage->evaluate(
                     $materialization,
@@ -452,6 +495,61 @@ final class CollectionPlanner
         }
 
         return $out;
+    }
+
+    /**
+     * @return array{
+     *   executable: bool,
+     *   plan_disposition: string,
+     *   date_range: ?array{start: string, end: string},
+     *   plan_disposition_detail: array<string, mixed>
+     * }
+     */
+    private function planIncrementalDataset(
+        StartCollectionRequest $request,
+        CoreAssetBinding $binding,
+        string $datasetId,
+        ?DatasetMaterialization $materialization,
+    ): array {
+        $planner = $this->incrementalPlanner ?? app(IncrementalCoveragePlanner::class);
+
+        $authMap = $request->context['authorization_ready_by_binding_id'] ?? [];
+        $integrityMap = $request->context['integrity_blocked_by_dataset_resource'] ?? [];
+        $assetId = (int) ($binding->digital_asset_id ?? $request->digitalAsset->id);
+        $resourceId = $binding->external_resource_id !== null ? (int) $binding->external_resource_id : null;
+        $integrityKey = $datasetId.'|'.$assetId.'|'.($resourceId ?? 'null');
+
+        $reportingTimezone = null;
+        $meta = is_array($binding->externalResource?->metadata) ? $binding->externalResource->metadata : [];
+        foreach (['timezone', 'timezone_name', 'timeZone', 'time_zone'] as $key) {
+            if (is_string($meta[$key] ?? null) && $meta[$key] !== '') {
+                $reportingTimezone = (string) $meta[$key];
+                break;
+            }
+        }
+
+        $decision = $planner->planDataset($datasetId, $materialization, [
+            'authorization_ready' => $authMap[(int) $binding->id] ?? true,
+            'integrity_blocked' => (bool) ($integrityMap[$integrityKey] ?? false),
+            'reporting_timezone' => $reportingTimezone,
+        ]);
+
+        return [
+            'executable' => $decision->executable,
+            'plan_disposition' => $decision->planDisposition->value,
+            'date_range' => $decision->dateRange,
+            'plan_disposition_detail' => [
+                'type' => $decision->planDisposition->value,
+                'request_family_id' => null,
+                'binding_id' => $binding->id,
+                'reason' => $decision->reasonSummary,
+                'freshness_state' => $decision->freshnessState->value,
+                'incremental_reasons' => $decision->reasons,
+                'requested_intervals' => $decision->requestedIntervals,
+                'freshness_policy_version' => $decision->policyVersion,
+                'details' => $decision->details,
+            ],
+        ];
     }
 
     /**

@@ -6,6 +6,7 @@ use App\Models\Brand;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\DigitalAsset;
+use App\Services\Collection\Google\GoogleIncrementalCollectionOrchestrator;
 use App\Services\Collection\Google\GoogleInitialBackfillOrchestrator;
 use App\Services\Integrations\ConfirmGoogleResourceBindingService;
 use App\Services\Integrations\Google\DiscoverGoogleResourcesService;
@@ -212,8 +213,10 @@ class GoogleIntegrationPage extends Component
         $this->redirect($result['url']);
     }
 
-    public function collectData(GoogleInitialBackfillOrchestrator $orchestrator): void
-    {
+    public function collectData(
+        GoogleInitialBackfillOrchestrator $orchestrator,
+        GoogleIncrementalCollectionOrchestrator $incremental,
+    ): void {
         $user = auth()->user();
         if ($user === null || ! $user->hasRole(Roles::ADMIN)) {
             abort(403);
@@ -229,10 +232,21 @@ class GoogleIntegrationPage extends Component
             return;
         }
 
-        $result = $orchestrator->start(
-            $integration->fresh(['authorizationCredential', 'providerCredential']) ?? $integration,
-            $user,
-        );
+        $fresh = $integration->fresh(['authorizationCredential', 'providerCredential']) ?? $integration;
+        $preflight = $orchestrator->preflight($fresh);
+
+        if ($preflight->outcome === 'already_satisfied') {
+            $incr = $incremental->start($fresh, $user);
+            DemoState::flash($incr->message, 'info');
+            if ($incr->collectionRun !== null) {
+                $this->tab = 'activity';
+                $this->dispatch('collection-run-selected', uuid: $incr->collectionRun->uuid);
+            }
+
+            return;
+        }
+
+        $result = $orchestrator->start($fresh, $user);
 
         DemoState::flash($result->message, 'info');
 

@@ -95,4 +95,66 @@ final class CoverageIntervalSet
 
         return ['start' => min($starts), 'end' => max($ends)];
     }
+
+    /**
+     * Latest reporting date through which coverage is contiguous from the earliest
+     * interval (or from $requiredStart when provided). Never jumps an unresolved gap.
+     * Distinct from bounds()['end'] / MAX(stored fact date).
+     */
+    public function verifiedContiguousWatermark(?string $requiredStart = null): ?string
+    {
+        if ($this->intervals === []) {
+            return null;
+        }
+
+        $intervals = $this->intervals;
+        usort($intervals, static fn (array $a, array $b): int => strcmp($a['start'], $b['start']));
+
+        $first = $intervals[0];
+        if ($requiredStart !== null && $first['start'] > $requiredStart) {
+            return null;
+        }
+
+        $watermark = $first['end'];
+        $expectedNext = CarbonImmutable::parse($watermark)->addDay()->toDateString();
+
+        for ($i = 1; $i < count($intervals); $i++) {
+            $interval = $intervals[$i];
+            if ($interval['start'] > $expectedNext) {
+                break;
+            }
+
+            if ($interval['end'] > $watermark) {
+                $watermark = $interval['end'];
+                $expectedNext = CarbonImmutable::parse($watermark)->addDay()->toDateString();
+            }
+        }
+
+        return $watermark;
+    }
+
+    /**
+     * @return list<array{start: string, end: string}>
+     */
+    public function internalGaps(): array
+    {
+        if (count($this->intervals) < 2) {
+            return [];
+        }
+
+        $intervals = $this->intervals;
+        usort($intervals, static fn (array $a, array $b): int => strcmp($a['start'], $b['start']));
+
+        $gaps = [];
+        for ($i = 0; $i < count($intervals) - 1; $i++) {
+            $nextStart = CarbonImmutable::parse($intervals[$i]['end'])->addDay()->toDateString();
+            $following = $intervals[$i + 1]['start'];
+            if ($following > $nextStart) {
+                $gapEnd = CarbonImmutable::parse($following)->subDay()->toDateString();
+                $gaps[] = ['start' => $nextStart, 'end' => $gapEnd];
+            }
+        }
+
+        return $gaps;
+    }
 }

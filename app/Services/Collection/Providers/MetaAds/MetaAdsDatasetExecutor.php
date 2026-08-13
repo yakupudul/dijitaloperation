@@ -13,6 +13,7 @@ use App\Services\Collection\Contracts\RawPayloadWriter;
 use App\Services\Collection\Support\DatasetExecutionContext;
 use App\Services\Collection\Support\DatasetExecutionResult;
 use App\Services\DataPool\DatasetWritePipeline;
+use App\Services\DataPool\MaterializationService;
 use App\Services\DataPool\Support\NormalizedDatasetBatch;
 use App\Services\DataPool\Support\RawPayloadEnvelope;
 use App\Services\Integrations\Meta\MetaApiClient;
@@ -35,6 +36,7 @@ final class MetaAdsDatasetExecutor implements DatasetExecutor
         private readonly MetaAdsProviderErrorMapper $errors,
         private readonly DatasetWritePipeline $pipeline,
         private readonly RawPayloadWriter $rawWriter,
+        private readonly MaterializationService $materializations,
     ) {}
 
     public function supportedRequestFamilies(): array
@@ -1208,6 +1210,22 @@ final class MetaAdsDatasetExecutor implements DatasetExecutor
                 // optional raw for empty
             }
 
+            $slice = $extraMeta['date_slice'] ?? null;
+            if (is_array($slice) && isset($slice['start'], $slice['end'])) {
+                $this->materializations->recordSuccessfulCoverageRange(
+                    datasetId: $datasetId,
+                    digitalAssetId: (int) $scope['asset']->id,
+                    externalResourceId: (int) $scope['resource']->id,
+                    contractVersion: (int) $context->datasetRun->contract_registry_version,
+                    start: (string) $slice['start'],
+                    end: (string) $slice['end'],
+                    collectionRunId: (int) $context->collectionRun->id,
+                    datasetRunId: (int) $context->datasetRun->id,
+                    providerOrSource: 'META_ADS',
+                    zeroRow: true,
+                );
+            }
+
             return;
         }
 
@@ -1236,8 +1254,23 @@ final class MetaAdsDatasetExecutor implements DatasetExecutor
     ): void {
         $batchSize = max(1, (int) config('moxdop-meta-ads-collector.write_batch_size', 500));
         $chunks = array_chunk($records, $batchSize);
-        if ($chunks === []) {
-            $chunks = [[]];
+        if ($records === []) {
+            if (is_array($slice) && isset($slice['start'], $slice['end'])) {
+                $this->materializations->recordSuccessfulCoverageRange(
+                    datasetId: $datasetId,
+                    digitalAssetId: (int) $scope['asset']->id,
+                    externalResourceId: (int) $scope['resource']->id,
+                    contractVersion: (int) $context->datasetRun->contract_registry_version,
+                    start: (string) $slice['start'],
+                    end: (string) $slice['end'],
+                    collectionRunId: (int) $context->collectionRun->id,
+                    datasetRunId: (int) $context->datasetRun->id,
+                    providerOrSource: 'META_ADS',
+                    zeroRow: true,
+                );
+            }
+
+            return;
         }
 
         foreach ($chunks as $index => $chunk) {

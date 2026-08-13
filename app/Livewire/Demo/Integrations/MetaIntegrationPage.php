@@ -7,6 +7,7 @@ use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\DigitalAsset;
+use App\Services\Collection\Meta\MetaIncrementalCollectionOrchestrator;
 use App\Services\Collection\Meta\MetaInitialBackfillOrchestrator;
 use App\Services\Integrations\ConfirmMetaResourceBindingService;
 use App\Services\Integrations\Meta\DiscoverMetaResourcesService;
@@ -332,8 +333,10 @@ class MetaIntegrationPage extends Component
         $this->tab = 'resources';
     }
 
-    public function collectData(MetaInitialBackfillOrchestrator $orchestrator): void
-    {
+    public function collectData(
+        MetaInitialBackfillOrchestrator $orchestrator,
+        MetaIncrementalCollectionOrchestrator $incremental,
+    ): void {
         $user = auth()->user();
         if ($user === null || ! $user->hasRole(Roles::ADMIN)) {
             abort(403);
@@ -346,10 +349,21 @@ class MetaIntegrationPage extends Component
             return;
         }
 
-        $result = $orchestrator->start(
-            $integration->fresh(['providerCredential']) ?? $integration,
-            $user,
-        );
+        $fresh = $integration->fresh(['providerCredential']) ?? $integration;
+        $preflight = $orchestrator->preflight($fresh);
+
+        if ($preflight->outcome === 'already_satisfied') {
+            $incr = $incremental->start($fresh, $user);
+            DemoState::flash($incr->message, 'info');
+            if ($incr->collectionRun !== null) {
+                $this->tab = 'activity';
+                $this->dispatch('collection-run-selected', uuid: $incr->collectionRun->uuid);
+            }
+
+            return;
+        }
+
+        $result = $orchestrator->start($fresh, $user);
 
         DemoState::flash($result->message, 'info');
 

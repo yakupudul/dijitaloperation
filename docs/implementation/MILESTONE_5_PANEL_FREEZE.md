@@ -41,8 +41,8 @@ Status reference for the frozen `/app` operator panel. UI work after this docume
 | Partial-failure Meta import | REAL | Dataset/account isolation; PARTIAL aggregation; successful facts preserved |
 | Persistent Meta Collection History | REAL | Prompt 11 history; trigger Initial Meta Ads Collection |
 | Meta Initial Backfill | REAL | Prompt 25 |
-| Recurring Meta collection | NOT YET | Prompt 27 |
-| Meta incremental freshness | NOT YET | Prompt 27 |
+| Recurring Meta collection | REAL foundation | Manual/system incremental via `StartIncrementalCollectionService`; automatic scheduler NOT YET (Prompt 62) |
+| Meta incremental freshness | REAL | Prompt 27 policy + planner + orchestrator |
 | Data Pool Integrity Framework | REAL | Prompt 26: Integrity Registry + auditor + audit persistence + readiness gate |
 | Natural-Key / Duplicate Detection | REAL | SQL grouped NK scans; no auto-delete |
 | Coverage / Gap / Zero-row Semantics | REAL | CoverageIntervalSet; not fact-row presence; not min/max-only |
@@ -52,7 +52,11 @@ Status reference for the frozen `/app` operator panel. UI work after this docume
 | Non-Additive Metric Protection | REAL | Reach/Frequency/GA4 users cannot be sum-reconciled |
 | Migration Readiness Gate | REAL | READY_* / BLOCKED_* / UNVERIFIED; no score |
 | Actual Real-Pool Verification | NOT EXECUTED | Framework real; populated pool audit pending in this env |
-| Recurring / incremental collection | NOT YET | Prompt 27 |
+| Recurring / incremental collection | REAL | Manual/system callable (`StartIncrementalCollectionService`, due query); automatic scheduler NOT YET |
+| Data Freshness Policy Registry | REAL | Prompt 27: `MOXDOP_DATA_FRESHNESS_POLICY_V1` |
+| Incremental Coverage Planner | REAL | Provider-neutral gap/catch-up/reprocess planning |
+| Due Collection Query | REAL | DB/policy driven; zero provider HTTP |
+| Start Incremental Collection | REAL | `CollectionTriggerType::Incremental`; idempotent fingerprint |
 | GA4/GSC/Ads/Meta real-data UI | NOT YET | Prompts 28–31 |
 | GA4 | DEMO / PARTIAL | Specialist panels remain Demo (Prompt 28); Prompt 18 production collector writes real GA4 pool facts |
 | Search Console | DEMO / PARTIAL | Specialist panels remain Demo (Prompt 29); Prompt 17 production collector writes real GSC pool facts |
@@ -86,8 +90,10 @@ Status reference for the frozen `/app` operator panel. UI work after this docume
 | Partial-failure Google import | REAL | Provider/dataset isolation; PARTIAL aggregation; successful facts preserved |
 | Persistent Google Collection History | REAL | Prompt 11 history; trigger Initial Google Collection |
 | GBP analytical pool | NOT YET | Discovery/binding may exist; no production GBP analytical collector / no fake DatasetRuns |
-| Recurring Google collection | NOT YET | Prompt 27 |
-| Incremental freshness | NOT YET | Prompt 27 |
+| Recurring Google collection | REAL foundation | Manual/system incremental via orchestrators; automatic scheduler NOT YET (Prompt 62) |
+| Incremental freshness | REAL | Prompt 27 per-dataset watermark + evaluator + materialization metadata |
+| Automatic Recurring Scheduler | NOT YET | Prompt 61/62 — no `Schedule::daily` collection in Prompt 27 |
+| Collection Scheduler | NOT YET | Prompt 62 consumes `DueCollectionQueryService` |
 | GSC Production Collector | REAL | Contract request families → WarehouseWriter → GSC normalized pool |
 | GSC Search Analytics / Sitemaps / Controlled URL Inspection | REAL | Read-only; appearance not collected (source V1) |
 | GSC specialist real-data UI | NOT YET | Prompt 29 |

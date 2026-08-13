@@ -23,6 +23,10 @@ use App\Services\Collection\Providers\SearchConsole\SearchConsoleDatasetExecutor
 use App\Services\DataPool\Contracts\WarehouseWriter;
 use App\Services\DataPool\DataPoolStorageRegistry;
 use App\Services\DataPool\FilesystemRawPayloadWriter;
+use App\Services\DataPool\Freshness\DataFreshnessPolicyLoader;
+use App\Services\DataPool\Freshness\DueCollectionQueryService;
+use App\Services\DataPool\Freshness\IncrementalCoveragePlanner;
+use App\Services\DataPool\Freshness\StartIncrementalCollectionService;
 use App\Services\DataPool\Integrity\DataIntegrityRegistryLoader;
 use App\Services\DataPool\Integrity\DataPoolIntegrityAuditor;
 use App\Services\DataPool\Integrity\RealDataMigrationReadinessService;
@@ -63,6 +67,10 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(DataIntegrityRegistryLoader::class);
         $this->app->singleton(RealDataMigrationReadinessService::class);
         $this->app->singleton(DataPoolIntegrityAuditor::class);
+        $this->app->singleton(DataFreshnessPolicyLoader::class);
+        $this->app->singleton(IncrementalCoveragePlanner::class);
+        $this->app->singleton(DueCollectionQueryService::class);
+        $this->app->singleton(StartIncrementalCollectionService::class);
         $this->app->singleton(RawPayloadWriter::class, FilesystemRawPayloadWriter::class);
         $this->app->singleton(PostgresWarehouseWriter::class);
         $this->app->singleton(WarehouseWriter::class, PostgresWarehouseWriter::class);

@@ -17,6 +17,8 @@ enum PlanDisposition: string
     case Deferred = 'deferred';
     case SkippedProviderFilter = 'skipped_provider_filter';
     case SkippedSourceContract = 'skipped_source_contract';
+    case IntegrityBlocked = 'integrity_blocked';
+    case ProviderLimited = 'provider_limited';
 
     /**
      * Whether this disposition creates an executable (queued) DatasetRun.

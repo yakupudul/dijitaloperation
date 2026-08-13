@@ -12,6 +12,7 @@ use App\Services\Collection\Contracts\RawPayloadWriter;
 use App\Services\Collection\Support\DatasetExecutionContext;
 use App\Services\Collection\Support\DatasetExecutionResult;
 use App\Services\DataPool\DatasetWritePipeline;
+use App\Services\DataPool\MaterializationService;
 use App\Services\DataPool\Support\NormalizedDatasetBatch;
 use App\Services\DataPool\Support\RawPayloadEnvelope;
 use Carbon\CarbonImmutable;
@@ -32,6 +33,7 @@ final class SearchConsoleDatasetExecutor implements DatasetExecutor
         private readonly SearchConsoleProviderErrorMapper $errors,
         private readonly DatasetWritePipeline $pipeline,
         private readonly RawPayloadWriter $rawWriter,
+        private readonly MaterializationService $materializations,
     ) {}
 
     public function supportedRequestFamilies(): array
@@ -263,6 +265,21 @@ final class SearchConsoleDatasetExecutor implements DatasetExecutor
             $tickPages++;
 
             if (count($rows) < $pageSize) {
+                // Slice complete — including zero-row success for the reporting interval.
+                if ($records === [] && is_array($lastSlice) && isset($lastSlice['start'], $lastSlice['end'])) {
+                    $this->materializations->recordSuccessfulCoverageRange(
+                        datasetId: (string) $definition['dataset_id'],
+                        digitalAssetId: (int) $scope['asset']->id,
+                        externalResourceId: (int) $scope['resource']->id,
+                        contractVersion: (int) $context->datasetRun->contract_registry_version,
+                        start: (string) $lastSlice['start'],
+                        end: (string) $lastSlice['end'],
+                        collectionRunId: (int) $context->collectionRun->id,
+                        datasetRunId: (int) $context->datasetRun->id,
+                        providerOrSource: 'SEARCH_CONSOLE',
+                        zeroRow: true,
+                    );
+                }
                 $sliceIndex++;
                 $startRow = 0;
             } else {

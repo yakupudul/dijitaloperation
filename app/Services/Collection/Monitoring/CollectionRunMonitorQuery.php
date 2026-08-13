@@ -186,6 +186,10 @@ final class CollectionRunMonitorQuery
                         'google_initial_backfill' => 'Initial Google Collection',
                         default => 'Initial Collection',
                     },
+                    CollectionTriggerType::Incremental => match ($run->metadata['collection_intent'] ?? null) {
+                        'incremental_refresh' => 'Incremental Refresh',
+                        default => 'Incremental Refresh',
+                    },
                     default => $run->trigger_type->value,
                 },
         ];

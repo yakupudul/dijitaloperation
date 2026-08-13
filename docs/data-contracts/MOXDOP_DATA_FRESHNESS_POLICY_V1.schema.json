@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://moxdop.local/schemas/MOXDOP_DATA_FRESHNESS_POLICY_V1.schema.json",
+  "title": "MOXDOP_DATA_FRESHNESS_POLICY_V1",
+  "type": "object",
+  "required": ["metadata", "enums", "global_policies", "dataset_policies"],
+  "additionalProperties": false,
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": [
+        "freshness_policy_registry_id",
+        "version",
+        "verification_date",
+        "numeric_freshness_score",
+        "global_last_sync_forbidden",
+        "global_reprocess_window_forbidden"
+      ],
+      "properties": {
+        "freshness_policy_registry_id": { "type": "string", "const": "MOXDOP_DATA_FRESHNESS_POLICY" },
+        "version": { "type": "integer", "minimum": 1 },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "verification_date": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+        "numeric_freshness_score": { "type": "boolean", "const": false },
+        "global_last_sync_forbidden": { "type": "boolean", "const": true },
+        "global_reprocess_window_forbidden": { "type": "boolean", "const": true }
+      },
+      "additionalProperties": true
+    },
+    "enums": { "type": "object" },
+    "global_policies": {
+      "type": "object",
+      "required": [
+        "no_single_global_last_sync",
+        "watermark_per_resource_dataset",
+        "freshness_per_resource_dataset",
+        "max_fact_date_is_not_verified_watermark",
+        "zero_row_success_advances_coverage",
+        "failed_collection_does_not_advance_verified_watermark",
+        "current_open_day_not_automatically_complete",
+        "reprocessing_may_overlap_existing_coverage",
+        "catch_up_derived_from_coverage_not_scheduler_history",
+        "no_recurring_scheduler_in_this_registry",
+        "planner_must_not_build_provider_request_syntax"
+      ]
+    },
+    "dataset_policies": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "dataset_id",
+          "provider_or_source",
+          "policy_version",
+          "collection_mode",
+          "incremental_applicable",
+          "timezone_source",
+          "freshness_sla_hours",
+          "late_data_reprocessing",
+          "catch_up_policy",
+          "integrity_dependency",
+          "policy_source"
+        ],
+        "properties": {
+          "dataset_id": { "type": "string", "minLength": 1 },
+          "provider_or_source": {
+            "type": "string",
+            "enum": ["GA4", "SEARCH_CONSOLE", "GOOGLE_ADS", "META_ADS"]
+          },
+          "policy_version": { "type": "integer", "minimum": 1 },
+          "collection_mode": {
+            "type": "string",
+            "enum": [
+              "HISTORICAL_INCREMENTAL",
+              "CURRENT_SNAPSHOT",
+              "PERIOD_OBSERVATION",
+              "CONTROLLED_ON_DEMAND",
+              "STATIC_OR_SLOW_METADATA"
+            ]
+          },
+          "incremental_applicable": { "type": "boolean" },
+          "non_applicable_reason": { "type": ["string", "null"] },
+          "reporting_grain": {},
+          "timezone_source": { "type": "string" },
+          "current_period_collectable": { "type": "boolean" },
+          "safe_collection_lag_days": { "type": ["integer", "null"], "minimum": 0 },
+          "freshness_sla_hours": { "type": "integer", "minimum": 1 },
+          "expected_refresh_cadence": { "type": ["string", "null"] },
+          "late_data_reprocessing": {
+            "type": "object",
+            "required": ["strategy", "window_days", "window_source", "overlap_existing_coverage_allowed"],
+            "properties": {
+              "strategy": { "type": "string" },
+              "window_days": { "type": ["integer", "null"], "minimum": 0 },
+              "window_source": { "type": "string" },
+              "overlap_existing_coverage_allowed": { "type": "boolean" }
+            },
+            "additionalProperties": true
+          },
+          "catch_up_policy": { "type": "string" },
+          "max_bounded_incremental_span_days": { "type": ["integer", "null"], "minimum": 1 },
+          "snapshot_policy": { "type": ["object", "null"] },
+          "provider_history_limitation_ref": {},
+          "integrity_dependency": { "type": "object" },
+          "contract_refresh_policy": {},
+          "contract_history_policy": {},
+          "period_non_additive_notes": { "type": ["string", "null"] },
+          "policy_source": { "type": "object" }
+        },
+        "additionalProperties": true
+      }
+    }
+  }
+}

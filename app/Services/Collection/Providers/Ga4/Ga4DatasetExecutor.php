@@ -12,6 +12,7 @@ use App\Services\Collection\Contracts\RawPayloadWriter;
 use App\Services\Collection\Support\DatasetExecutionContext;
 use App\Services\Collection\Support\DatasetExecutionResult;
 use App\Services\DataPool\DatasetWritePipeline;
+use App\Services\DataPool\MaterializationService;
 use App\Services\DataPool\Support\NormalizedDatasetBatch;
 use App\Services\DataPool\Support\RawPayloadEnvelope;
 use Carbon\CarbonImmutable;
@@ -34,6 +35,7 @@ final class Ga4DatasetExecutor implements DatasetExecutor
         private readonly Ga4ProviderErrorMapper $errors,
         private readonly DatasetWritePipeline $pipeline,
         private readonly RawPayloadWriter $rawWriter,
+        private readonly MaterializationService $materializations,
     ) {}
 
     public function supportedRequestFamilies(): array
@@ -554,6 +556,20 @@ final class Ga4DatasetExecutor implements DatasetExecutor
                 } catch (Throwable) {
                     // optional
                 }
+
+                // Zero-row success still advances collection coverage (not fact-row presence).
+                $this->materializations->recordSuccessfulCoverageRange(
+                    datasetId: $datasetId,
+                    digitalAssetId: (int) $scope['asset']->id,
+                    externalResourceId: (int) $scope['resource']->id,
+                    contractVersion: (int) $context->datasetRun->contract_registry_version,
+                    start: (string) $slice['start'],
+                    end: (string) $slice['end'],
+                    collectionRunId: (int) $context->collectionRun->id,
+                    datasetRunId: (int) $context->datasetRun->id,
+                    providerOrSource: 'GA4',
+                    zeroRow: true,
+                );
             }
 
             $tickRowsReceived += count($rows);
