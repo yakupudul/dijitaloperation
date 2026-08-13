@@ -73,7 +73,7 @@ final class AgencyExecutionFixtures
                 'related_ai_skill' => [
                     'id' => 'skill-search-query',
                     'name' => 'Search Query Analysis',
-                    'note' => 'Human Playbook may use this AI Skill — Skill does not replace the operating standard.',
+                    'note' => null,
                 ],
                 'references' => [
                     ['label' => 'Atlas Google Ads workspace', 'route' => 'demo.google-ads.overview'],

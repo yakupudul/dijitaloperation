@@ -111,6 +111,7 @@ class CommercialGrowthIntelligenceTest extends TestCase
     {
         Livewire::test(BrandShow::class, ['brand' => DemoCatalog::BRAND_ID])
             ->call('setTab', 'value')
+            ->call('setValueSection', 'outcomes')
             ->assertSee(__('operator.outcomes.title'))
             ->assertSee(__('operator.outcomes.platform_results'))
             ->assertSee(__('operator.outcomes.not_available'))

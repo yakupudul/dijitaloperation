@@ -190,13 +190,13 @@ class BrandCommandCenterUxTest extends TestCase
     {
         Livewire::test(BrandShow::class, ['brand' => DemoCatalog::BRAND_ID])
             ->call('setTab', 'history')
-            ->assertSee('Decision History')
-            ->assertSee('Meta CPL deterioration on Post Bariatric — Europe')
-            ->assertSee('Improvement observed')
+            ->assertSet('tab', 'value')
+            ->call('setValueSection', 'decisions')
+            ->assertSee(__('operator.value.decision_history'))
+            ->assertSee('Expand implant organic content coverage')
+            ->assertSee('Replace underperforming Meta creative PB-Video-03')
             ->assertDontSee('Google Ads sync completed')
-            ->assertSee('Observed after ≠ caused by')
-            ->set('history_type', 'outcome')
-            ->assertSee('Improvement observed');
+            ->assertSee(__('operator.value.decision_vs_activity'));
     }
 
     public function test_brand_scope_does_not_leak_other_brand_assets(): void
