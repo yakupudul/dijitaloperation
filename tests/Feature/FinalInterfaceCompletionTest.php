@@ -1,0 +1,198 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Livewire\Demo\Files\FilesIndex;
+use App\Livewire\Demo\Instagram\OverviewPage as InstagramOverviewPage;
+use App\Livewire\Demo\Integrations\SiteConnectorShow;
+use App\Livewire\Demo\ProfilePage;
+use App\Livewire\Demo\SettingsPage;
+use App\Models\OperatorFile;
+use App\Models\User;
+use App\Support\Demo\DemoMenu;
+use App\Support\Demo\DemoState;
+use App\Support\Demo\SiteConnectorFixtures;
+use App\Support\Roles;
+use Database\Seeders\RoleAndPermissionSeeder;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use Livewire\Livewire;
+use Tests\TestCase;
+use ZipArchive;
+
+class FinalInterfaceCompletionTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private User $admin;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->seed(RoleAndPermissionSeeder::class);
+
+        $this->admin = User::factory()->create(['locale' => 'en']);
+        $this->admin->assignRole(Roles::ADMIN);
+        $this->actingAs($this->admin);
+
+        DemoState::reset();
+    }
+
+    public function test_files_upload_and_authenticated_download(): void
+    {
+        Storage::fake('local');
+
+        Livewire::test(FilesIndex::class)
+            ->set('upload', UploadedFile::fake()->create('brief.pdf', 120, 'application/pdf'))
+            ->set('uploadScope', 'personal')
+            ->call('uploadFile')
+            ->assertHasNoErrors();
+
+        $file = OperatorFile::query()->first();
+        $this->assertNotNull($file);
+        $this->assertSame('brief.pdf', $file->original_name);
+        $this->assertSame($this->admin->id, $file->user_id);
+
+        $this->get(route('demo.files.download', $file))
+            ->assertOk()
+            ->assertHeader('content-disposition');
+    }
+
+    public function test_files_download_requires_auth_and_authorization(): void
+    {
+        Storage::fake('local');
+        Storage::disk('local')->put('operator-files/secret.txt', 'private-bytes');
+
+        $file = OperatorFile::factory()->create([
+            'user_id' => $this->admin->id,
+            'disk' => 'local',
+            'path' => 'operator-files/secret.txt',
+            'original_name' => 'secret.txt',
+            'mime' => 'text/plain',
+        ]);
+
+        auth()->logout();
+        $this->get(route('demo.files.download', $file))
+            ->assertRedirect('/system/login');
+
+        $other = User::factory()->create();
+        $other->assignRole(Roles::TEAM_MEMBER);
+        $this->actingAs($other);
+
+        $this->get(route('demo.files.download', $file))
+            ->assertForbidden();
+    }
+
+    public function test_files_reject_php_and_exe_uploads(): void
+    {
+        Storage::fake('local');
+
+        Livewire::test(FilesIndex::class)
+            ->set('upload', UploadedFile::fake()->create('shell.php', 20, 'application/x-php'))
+            ->call('uploadFile')
+            ->assertHasErrors(['upload']);
+
+        Livewire::test(FilesIndex::class)
+            ->set('upload', UploadedFile::fake()->create('payload.exe', 20, 'application/x-msdownload'))
+            ->call('uploadFile')
+            ->assertHasErrors(['upload']);
+
+        $this->assertSame(0, OperatorFile::query()->count());
+    }
+
+    public function test_profile_locale_save_persists_and_sets_app_locale(): void
+    {
+        Livewire::test(ProfilePage::class)
+            ->set('locale', 'tr')
+            ->set('timezone', 'Europe/Istanbul')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->admin->refresh();
+        $this->assertSame('tr', $this->admin->locale);
+        $this->assertSame('Europe/Istanbul', $this->admin->timezone);
+        $this->assertSame('tr', app()->getLocale());
+    }
+
+    public function test_site_connector_download_is_labeled_demo(): void
+    {
+        $response = $this->get(route('demo.integrations.site-connector.download', ['connector' => 'wordpress']));
+
+        $response->assertOk();
+        $disposition = (string) $response->headers->get('content-disposition');
+        $this->assertStringContainsString('moxdop-wordpress-connector-0.1.0-demo.zip', $disposition);
+        $this->assertStringContainsString('DEMO CONNECTOR PACKAGE', (string) $response->headers->get('X-MoxDOP-Package'));
+
+        Livewire::test(SiteConnectorShow::class, ['connector' => 'wordpress'])
+            ->assertSee('v0.1.0 Demo')
+            ->assertSee('DEMO CONNECTOR PACKAGE')
+            ->assertSee('not production', false);
+
+        $zipPath = SiteConnectorFixtures::ensureDemoZip();
+        $zip = new ZipArchive;
+        $this->assertTrue($zip->open($zipPath) === true);
+        $readme = $zip->getFromName('README.txt');
+        $zip->close();
+        $this->assertIsString($readme);
+        $this->assertStringContainsString('DEMO CONNECTOR PACKAGE — NOT PRODUCTION INSTALLABLE', $readme);
+    }
+
+    public function test_instagram_workspace_returns_ok_with_useful_tabs(): void
+    {
+        $this->get(route('demo.instagram'))
+            ->assertOk()
+            ->assertSee('Instagram')
+            ->assertSee('@atlasdentalankara')
+            ->assertSee('Relationships')
+            ->assertSee('Website URL mismatch');
+
+        Livewire::test(InstagramOverviewPage::class)
+            ->call('setTab', 'profile')
+            ->assertSee('atlasdentalankara')
+            ->call('setTab', 'findings')
+            ->assertSee('Bio website path');
+    }
+
+    public function test_demo_menu_includes_files_item(): void
+    {
+        $items = collect(DemoMenu::groups())->flatMap(fn (array $group): array => $group['items']);
+        $files = $items->firstWhere('route', 'demo.files');
+
+        $this->assertNotNull($files);
+        $this->assertSame('demo.files', $files['route']);
+        $this->assertSame(__('operator.nav.files'), $files['label']);
+
+        $this->get(route('demo.files'))
+            ->assertOk()
+            ->assertSee(__('operator.files.title'));
+    }
+
+    public function test_settings_blade_has_no_system_panel_links(): void
+    {
+        $html = Livewire::test(SettingsPage::class, ['section' => 'ai'])
+            ->html();
+
+        $this->assertStringNotContainsString('href="/system', $html);
+        $this->assertStringNotContainsString("href='/system", $html);
+        $this->assertStringContainsString('/app/settings?section=ai', $html);
+
+        $advanced = Livewire::test(SettingsPage::class, ['section' => 'advanced'])->html();
+        $this->assertStringNotContainsString('Open system panel', $advanced);
+        $this->assertStringNotContainsString('href="/system', $advanced);
+        $this->assertStringContainsString('Advanced diagnostics', $advanced);
+    }
+
+    public function test_profile_and_site_connectors_routes_are_reachable(): void
+    {
+        $this->get(route('demo.profile'))->assertOk()->assertSee(__('operator.profile.title'));
+        $this->get(route('demo.integrations.site-connectors'))
+            ->assertOk()
+            ->assertSee('WordPress')
+            ->assertSee(__('operator.site_connectors.title'));
+        $this->get(route('demo.integrations'))
+            ->assertOk()
+            ->assertSee(__('operator.site_connectors.title'));
+    }
+}

@@ -147,6 +147,7 @@ class AssetCreate extends Component
                 'google_business_profile' => 'demo.gbp',
                 'ga4', 'analytics' => 'demo.analytics',
                 'gsc', 'search_console' => 'demo.search-console',
+                'instagram' => 'demo.instagram',
                 default => 'demo.assets',
             },
             // Website-specific (not shown for other types)
@@ -192,6 +193,7 @@ class AssetCreate extends Component
             'google_business_profile' => 'google-business-profile',
             'ga4', 'analytics' => 'analytics',
             'gsc', 'search_console' => 'search-console',
+            'instagram' => 'instagram',
             default => null,
         };
     }

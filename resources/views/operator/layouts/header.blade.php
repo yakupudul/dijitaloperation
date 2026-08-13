@@ -44,12 +44,16 @@
             </a>
 
             @auth
-                <div class="flex items-center gap-2 pl-2">
-                    <span class="flex items-center justify-center w-9 h-9 rounded-full bg-brand-500/10 text-brand-600 text-sm font-semibold dark:text-brand-400">
-                        {{ strtoupper(mb_substr(auth()->user()->name ?? 'U', 0, 1)) }}
-                    </span>
+                <a href="{{ route('demo.profile') }}" wire:navigate class="flex items-center gap-2 pl-2">
+                    @if (auth()->user()->avatar_path)
+                        <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url(auth()->user()->avatar_path) }}" alt="" class="h-9 w-9 rounded-full object-cover" />
+                    @else
+                        <span class="flex items-center justify-center w-9 h-9 rounded-full bg-brand-500/10 text-brand-600 text-sm font-semibold dark:text-brand-400">
+                            {{ strtoupper(mb_substr(auth()->user()->name ?? 'U', 0, 1)) }}
+                        </span>
+                    @endif
                     <span class="hidden md:block text-sm font-medium text-gray-700 dark:text-gray-300">{{ auth()->user()->name }}</span>
-                </div>
+                </a>
             @endauth
         </div>
     </div>

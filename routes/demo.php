@@ -1,17 +1,23 @@
 <?php
 
+use App\Http\Controllers\Demo\OperatorFileDownloadController;
+use App\Http\Controllers\Demo\SiteConnectorDownloadController;
 use App\Http\Middleware\EnsureDemoAppAccess;
 use App\Livewire\Demo\Assets\AnalyticsPage;
 use App\Livewire\Demo\Assets\SearchConsolePage;
 use App\Livewire\Demo\Dashboard;
+use App\Livewire\Demo\Files\FilesIndex;
 use App\Livewire\Demo\Gbp\OverviewPage as GbpOverviewPage;
 use App\Livewire\Demo\GoogleAds\OverviewPage as GoogleAdsOverviewPage;
 use App\Livewire\Demo\Infrastructure\DomainPage;
 use App\Livewire\Demo\Infrastructure\HostingPage;
+use App\Livewire\Demo\Instagram\OverviewPage as InstagramOverviewPage;
 use App\Livewire\Demo\Integrations\ConnectorPage;
 use App\Livewire\Demo\Integrations\GoogleIntegrationPage;
 use App\Livewire\Demo\Integrations\IntegrationsIndex;
 use App\Livewire\Demo\Integrations\MetaIntegrationPage;
+use App\Livewire\Demo\Integrations\SiteConnectorShow;
+use App\Livewire\Demo\Integrations\SiteConnectorsIndex;
 use App\Livewire\Demo\Meta\AdDetailPage;
 use App\Livewire\Demo\Meta\AdSetDetailPage;
 use App\Livewire\Demo\Meta\AdSetsPage;
@@ -38,6 +44,7 @@ use App\Livewire\Demo\Portfolio\CustomerDetail;
 use App\Livewire\Demo\Portfolio\CustomerEdit;
 use App\Livewire\Demo\Portfolio\CustomersIndex;
 use App\Livewire\Demo\Portfolio\PortfolioSetupWizard;
+use App\Livewire\Demo\ProfilePage;
 use App\Livewire\Demo\SettingsPage;
 use App\Livewire\Demo\Website\OverviewPage as WebsiteOverviewPage;
 use Illuminate\Support\Facades\Route;
@@ -65,7 +72,15 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/integrations', IntegrationsIndex::class)->name('demo.integrations');
         Route::livewire('/integrations/google', GoogleIntegrationPage::class)->name('demo.integrations.google');
         Route::livewire('/integrations/meta', MetaIntegrationPage::class)->name('demo.integrations.meta');
+        Route::livewire('/integrations/site-connectors', SiteConnectorsIndex::class)->name('demo.integrations.site-connectors');
+        Route::livewire('/integrations/site-connectors/{connector}', SiteConnectorShow::class)->name('demo.integrations.site-connector');
+        Route::get('/integrations/site-connectors/{connector}/download', SiteConnectorDownloadController::class)
+            ->name('demo.integrations.site-connector.download');
         Route::livewire('/integrations/connectors/{connector}', ConnectorPage::class)->name('demo.integrations.connector');
+
+        Route::livewire('/files', FilesIndex::class)->name('demo.files');
+        Route::get('/files/{file}/download', OperatorFileDownloadController::class)->name('demo.files.download');
+        Route::livewire('/profile', ProfilePage::class)->name('demo.profile');
 
         Route::livewire('/assets/meta/{assetId?}', MetaOverviewPage::class)->name('demo.meta.overview');
         Route::livewire('/assets/meta/{assetId}/campaigns', CampaignsPage::class)->name('demo.meta.campaigns');
@@ -85,6 +100,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/assets/search-console/{assetId?}', SearchConsolePage::class)->name('demo.search-console');
         Route::livewire('/assets/domain/{assetId?}', DomainPage::class)->name('demo.domain');
         Route::livewire('/assets/hosting/{assetId?}', HostingPage::class)->name('demo.hosting');
+        Route::livewire('/assets/instagram/{assetId?}', InstagramOverviewPage::class)->name('demo.instagram');
 
         Route::livewire('/findings', FindingsIndex::class)->name('demo.findings');
         Route::livewire('/recommendations', RecommendationsIndex::class)->name('demo.recommendations');

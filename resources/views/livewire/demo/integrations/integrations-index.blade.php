@@ -7,6 +7,18 @@
         'subtitle' => 'External connection control plane — providers, discovered resources, bindings, and dependencies.',
     ])
 
+    <section id="site_connectors" class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+                <h2 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ __('operator.site_connectors.title') }}</h2>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ __('operator.site_connectors.subtitle') }}</p>
+            </div>
+            <x-ta.button :href="route('demo.integrations.site-connectors')" size="sm">
+                {{ __('operator.site_connectors.catalog') }}
+            </x-ta.button>
+        </div>
+    </section>
+
     @foreach ($groups as $group)
         <section class="space-y-3" aria-labelledby="group-{{ \Illuminate\Support\Str::slug($group['group']) }}">
             <h2 id="group-{{ \Illuminate\Support\Str::slug($group['group']) }}" class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">

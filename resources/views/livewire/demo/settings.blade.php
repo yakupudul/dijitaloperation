@@ -159,9 +159,9 @@
                         </dl>
                         <p class="mt-4 text-sm text-gray-500">{{ $settings['ai']['note'] }}</p>
                         <div class="mt-4 flex flex-wrap gap-2">
-                            <x-ta.button href="/system/settings/ai-control-plane" size="sm">AI Control Plane</x-ta.button>
-                            <x-ta.button href="/system/settings/agent-profiles" size="sm" variant="outline">Agent Profiles</x-ta.button>
-                            <x-ta.button href="/system/settings/skill-library" size="sm" variant="outline">Skill Library</x-ta.button>
+                            <x-ta.button href="{{ route('demo.settings', ['section' => 'ai']) }}" size="sm">AI Control Plane</x-ta.button>
+                            <x-ta.button href="{{ route('demo.settings', ['section' => 'ai']) }}" size="sm" variant="outline">Agent Profiles</x-ta.button>
+                            <x-ta.button href="{{ route('demo.settings', ['section' => 'ai']) }}" size="sm" variant="outline">Skill Library</x-ta.button>
                         </div>
                     </div>
                     <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
@@ -173,7 +173,7 @@
                                         <p class="font-medium text-gray-800 dark:text-white/90">{{ $route['name'] }}</p>
                                         <p class="text-xs text-gray-500">{{ $route['key'] }} · {{ $route['module'] }}</p>
                                     </div>
-                                    <x-ta.button href="/system/settings/ai-control-plane?route={{ urlencode($route['key']) }}" size="sm" variant="outline">Configure</x-ta.button>
+                                    <x-ta.button href="{{ route('demo.settings', ['section' => 'ai']) }}" size="sm" variant="outline">Configure</x-ta.button>
                                 </li>
                             @endforeach
                         </ul>
@@ -209,7 +209,7 @@
                             <div><dt class="text-gray-400">System panel</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['advanced']['system_panel'] }}</dd></div>
                         </dl>
                         <div class="mt-4">
-                            <x-ta.button href="/system" size="sm" variant="outline">Open system panel</x-ta.button>
+                            <x-ta.button href="{{ route('demo.settings', ['section' => 'advanced']) }}" size="sm" variant="outline">Advanced diagnostics</x-ta.button>
                         </div>
                         <p class="mt-3 text-xs text-gray-500">Modules / package management are developer architecture — not operator navigation.</p>
                     </div>

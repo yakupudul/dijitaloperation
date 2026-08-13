@@ -1,0 +1,106 @@
+<?php
+
+return [
+    'nav' => [
+        'groups' => [
+            'menu' => 'Menu',
+            'portfolio' => 'Portfolio',
+            'operations' => 'Operations',
+            'system' => 'System',
+        ],
+        'dashboard' => 'Dashboard',
+        'customers' => 'Customers',
+        'brands' => 'Brands',
+        'digital_assets' => 'Digital Assets',
+        'files' => 'Files',
+        'findings' => 'Findings',
+        'recommendations' => 'Recommendations',
+        'tasks' => 'Tasks',
+        'activity' => 'Activity',
+        'integrations' => 'Integrations',
+        'settings' => 'Settings',
+        'profile' => 'Profile',
+        'site_connectors' => 'Site Connectors',
+    ],
+
+    'actions' => [
+        'save' => 'Save',
+        'cancel' => 'Cancel',
+        'upload' => 'Upload',
+        'download' => 'Download',
+        'delete' => 'Delete',
+        'search' => 'Search',
+        'open' => 'Open',
+        'manage' => 'Manage',
+        'remove' => 'Remove',
+        'rename' => 'Rename',
+        'confirm' => 'Confirm',
+    ],
+
+    'profile' => [
+        'title' => 'Profile',
+        'subtitle' => 'Your operator identity, language, and avatar.',
+        'name' => 'Name',
+        'email' => 'Email',
+        'password' => 'New password',
+        'password_confirmation' => 'Confirm password',
+        'locale' => 'Language',
+        'timezone' => 'Timezone',
+        'avatar' => 'Avatar',
+        'avatar_hint' => 'JPEG, PNG, or WebP · max 2 MB',
+        'saved' => 'Profile saved.',
+        'remove_avatar' => 'Remove avatar',
+    ],
+
+    'files' => [
+        'title' => 'Files',
+        'subtitle' => 'Operator file library — private storage with authenticated download.',
+        'empty' => 'No files yet. Upload a document or image to get started.',
+        'upload_cta' => 'Upload file',
+        'scope' => 'Scope',
+        'scope_all' => 'All scopes',
+        'scopes' => [
+            'personal' => 'Personal',
+            'agency' => 'Agency',
+            'customer' => 'Customer',
+            'brand' => 'Brand',
+            'digital_asset' => 'Digital asset',
+            'task' => 'Task',
+        ],
+        'original_name' => 'Name',
+        'size' => 'Size',
+        'mime' => 'Type',
+        'uploaded_by' => 'Uploaded by',
+        'uploaded_at' => 'Uploaded',
+        'confirm_delete' => 'Delete this file permanently?',
+        'deleted' => 'File deleted.',
+        'uploaded' => 'File uploaded.',
+        'renamed' => 'File renamed.',
+        'search_placeholder' => 'Search files…',
+        'rejected_type' => 'This file type is not allowed.',
+    ],
+
+    'site_connectors' => [
+        'title' => 'Site Connectors',
+        'subtitle' => 'Installable site packages that pair a managed Website with MoxDOP (demo catalog).',
+        'catalog' => 'Connector catalog',
+        'overview' => 'Overview',
+        'releases' => 'Releases',
+        'install' => 'Install',
+        'connected' => 'Connected sites',
+        'activity' => 'Activity',
+        'download_demo' => 'Download demo package',
+        'demo_badge' => 'Demo package — not production-installable',
+        'wordpress' => 'WordPress', // Provider / product name — keep untranslated in UI copy where shown as proper noun
+    ],
+
+    'demo_mode' => [
+        'label' => 'Demo Mode',
+        'boundary' => 'Deterministic fixtures — no live provider writes.',
+    ],
+
+    'languages' => [
+        'en' => 'English',
+        'tr' => 'Türkçe',
+    ],
+];

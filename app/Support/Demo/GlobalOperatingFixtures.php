@@ -293,7 +293,7 @@ final class GlobalOperatingFixtures
             $responsible,
         )));
 
-        return array_merge($asset, [
+        $merged = array_merge($asset, [
             'customer_id' => DemoCatalog::CUSTOMER_ID,
             'customer_name' => DemoCatalog::customer()['name'],
             'brand_name' => DemoCatalog::brand()['name'],
@@ -322,6 +322,12 @@ final class GlobalOperatingFixtures
             },
             'last_meaningful_activity' => $asset['last_update'] ?? '—',
         ]);
+
+        if ($type === 'instagram') {
+            $merged['route'] = $merged['route'] ?? 'demo.instagram';
+        }
+
+        return $merged;
     }
 
     /**
@@ -436,6 +442,27 @@ final class GlobalOperatingFixtures
                         'dependent_assets' => 1,
                         'route' => 'demo.integrations',
                         'manage_label' => 'Review',
+                    ],
+                ],
+            ],
+            [
+                'group' => 'Site Connectors',
+                'id' => 'site_connectors',
+                'providers' => [
+                    [
+                        'id' => 'wordpress',
+                        'name' => 'WordPress',
+                        'logo_type' => 'website',
+                        'state' => 'connected',
+                        'state_label' => 'Demo available',
+                        'resources_discovered' => 2,
+                        'bound' => 1,
+                        'available' => 1,
+                        'last_check' => '2 hours ago',
+                        'dependent_assets' => 1,
+                        'note' => 'Installable site package catalog (demo ZIP — not production).',
+                        'route' => 'demo.integrations.site-connectors',
+                        'manage_label' => 'Open catalog',
                     ],
                 ],
             ],
@@ -793,7 +820,7 @@ final class GlobalOperatingFixtures
                 'environment' => config('app.env'),
                 'app_name' => config('app.name'),
                 'canonical_surface' => '/app',
-                'system_panel' => '/system',
+                'system_panel' => 'Advanced diagnostics stay on /app',
             ],
         ];
     }

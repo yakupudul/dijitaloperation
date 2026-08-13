@@ -445,6 +445,7 @@ class PortfolioSetupWizard extends Component
                     'google_ads' => 'demo.google-ads.overview',
                     'meta_ads' => 'demo.meta.overview',
                     'gbp' => 'demo.gbp',
+                    'instagram' => 'demo.instagram',
                     default => 'demo.assets',
                 },
                 'domain' => $type === 'website' ? (parse_url($this->website_url, PHP_URL_HOST) ?: null) : null,

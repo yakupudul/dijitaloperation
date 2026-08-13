@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\SetOperatorLocale;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -14,6 +15,9 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // Filament serves login at /system/login; web auth middleware must not call missing route('login').
         $middleware->redirectGuestsTo('/system/login');
+        $middleware->web(append: [
+            SetOperatorLocale::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

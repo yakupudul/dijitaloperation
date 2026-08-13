@@ -16,33 +16,34 @@ final class DemoMenu
     {
         return [
             [
-                'label' => 'Menu',
+                'label' => __('operator.nav.groups.menu'),
                 'items' => [
-                    ['label' => 'Dashboard', 'route' => 'demo.dashboard', 'icon' => 'dashboard'],
+                    ['label' => __('operator.nav.dashboard'), 'route' => 'demo.dashboard', 'icon' => 'dashboard'],
                 ],
             ],
             [
-                'label' => 'Portfolio',
+                'label' => __('operator.nav.groups.portfolio'),
                 'items' => [
-                    ['label' => 'Customers', 'route' => 'demo.customers', 'icon' => 'customers'],
-                    ['label' => 'Brands', 'route' => 'demo.brands', 'icon' => 'brands'],
-                    ['label' => 'Digital Assets', 'route' => 'demo.assets', 'icon' => 'assets'],
+                    ['label' => __('operator.nav.customers'), 'route' => 'demo.customers', 'icon' => 'customers'],
+                    ['label' => __('operator.nav.brands'), 'route' => 'demo.brands', 'icon' => 'brands'],
+                    ['label' => __('operator.nav.digital_assets'), 'route' => 'demo.assets', 'icon' => 'assets'],
+                    ['label' => __('operator.nav.files'), 'route' => 'demo.files', 'icon' => 'files'],
                 ],
             ],
             [
-                'label' => 'Operations',
+                'label' => __('operator.nav.groups.operations'),
                 'items' => [
-                    ['label' => 'Findings', 'route' => 'demo.findings', 'icon' => 'findings'],
-                    ['label' => 'Recommendations', 'route' => 'demo.recommendations', 'icon' => 'recommendations'],
-                    ['label' => 'Tasks', 'route' => 'demo.tasks', 'icon' => 'tasks'],
-                    ['label' => 'Activity', 'route' => 'demo.activity', 'icon' => 'activity'],
+                    ['label' => __('operator.nav.findings'), 'route' => 'demo.findings', 'icon' => 'findings'],
+                    ['label' => __('operator.nav.recommendations'), 'route' => 'demo.recommendations', 'icon' => 'recommendations'],
+                    ['label' => __('operator.nav.tasks'), 'route' => 'demo.tasks', 'icon' => 'tasks'],
+                    ['label' => __('operator.nav.activity'), 'route' => 'demo.activity', 'icon' => 'activity'],
                 ],
             ],
             [
-                'label' => 'System',
+                'label' => __('operator.nav.groups.system'),
                 'items' => [
-                    ['label' => 'Integrations', 'route' => 'demo.integrations', 'icon' => 'integrations'],
-                    ['label' => 'Settings', 'route' => 'demo.settings', 'icon' => 'settings'],
+                    ['label' => __('operator.nav.integrations'), 'route' => 'demo.integrations', 'icon' => 'integrations'],
+                    ['label' => __('operator.nav.settings'), 'route' => 'demo.settings', 'icon' => 'settings'],
                 ],
             ],
         ];
