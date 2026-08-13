@@ -8,6 +8,7 @@ use App\Enums\DataPool\IntegrityAuditStatus;
 use App\Enums\DataPool\IntegrityCheckStatus;
 use App\Enums\DataPool\MaterializationStatus;
 use App\Enums\DigitalAssetStatus;
+use App\Livewire\Demo\GoogleAds\OverviewPage;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
@@ -20,6 +21,7 @@ use App\Models\DataPool\DatasetMaterialization;
 use App\Models\DigitalAsset;
 use App\Models\Evidence;
 use App\Models\Finding;
+use App\Models\User;
 use App\Services\DataPool\Integrity\Support\CoverageIntervalSet;
 use App\Services\GoogleAds\GoogleAdsPoolReadRepository;
 use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
@@ -29,12 +31,14 @@ use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\GoogleAdsWorkspaceFixtures;
 use App\Support\Integrations\Google\GoogleResourceType;
 use App\Support\Integrations\Google\GoogleScopes;
+use App\Support\Roles;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use Livewire\Livewire;
 use PHPUnit\Framework\Attributes\Test;
 use RuntimeException;
 use Tests\TestCase;
@@ -399,6 +403,36 @@ class GoogleAdsRealDataMigrationTest extends TestCase
 
         $this->assertSame($beforeEvidence, Evidence::query()->count());
         $this->assertSame($beforeFindings, Finding::query()->count());
+    }
+
+    #[Test]
+    public function overview_page_render_makes_zero_http_calls_for_demo_asset(): void
+    {
+        Http::fake();
+        $user = User::factory()->create();
+        $user->assignRole(Roles::ADMIN);
+        $this->actingAs($user);
+
+        Livewire::test(OverviewPage::class, [
+            'assetId' => DemoCatalog::GOOGLE_ADS_ASSET_ID,
+        ])->assertSee('Atlas Dental');
+
+        Http::assertNothingSent();
+    }
+
+    #[Test]
+    public function frozen_allowed_tabs_list_is_unchanged(): void
+    {
+        $component = new OverviewPage;
+        $this->assertSame([
+            'overview',
+            'campaigns',
+            'search_demand',
+            'ads_assets',
+            'landing_pages',
+            'measurement',
+            'operations',
+        ], $component->allowedTabs);
     }
 
     /**

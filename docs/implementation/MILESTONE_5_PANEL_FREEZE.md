@@ -57,9 +57,10 @@ Status reference for the frozen `/app` operator panel. UI work after this docume
 | Incremental Coverage Planner | REAL | Provider-neutral gap/catch-up/reprocess planning |
 | Due Collection Query | REAL | DB/policy driven; zero provider HTTP |
 | Start Incremental Collection | REAL | `CollectionTriggerType::Incremental`; idempotent fingerprint |
-| GA4/GSC/Ads/Meta real-data UI | PARTIAL | GA4 specialist REAL/PARTIAL (Prompt 28); GSC specialist REAL/PARTIAL (Prompt 29); Ads/Meta specialist UI Prompt 30–31 |
+| GA4/GSC/Ads/Meta real-data UI | PARTIAL | GA4/GSC/Ads specialists REAL/PARTIAL (Prompts 28–30); Meta specialist UI Prompt 31 |
 | GA4 | PARTIAL | Specialist UI reads real GA4 pool (Prompt 28): sessions/acquisition/behavior/events/streams/ops collection_state REAL; users Unavailable (non-additive); business actions, needs_attention, journeys, findings/recommendations/tasks/outcomes residual Demo |
 | Search Console | PARTIAL | Specialist UI reads real GSC pool (Prompt 29): property glance/trend/devices/countries/queries/pages/sitemaps/inspection sample/ops collection_state REAL; site-wide indexing coverage/reconciliation Unavailable; clusters/momentum/brand/diagnosis/attention/findings residual Demo |
+| Google Ads | PARTIAL | Specialist UI reads real Ads pool (Prompt 30): account spend/conversions/trend/campaigns/keywords/search terms/landing/conversion actions/ops collection_state REAL; CPA/pacing/offering Unavailable; intent/inbox/ops narrative residual Demo |
 | Instagram | DEMO | Lightweight Overview/Profile/Operations/Setup |
 | Service Scope | DEMO | Session/fixture commercial scope |
 | Goals | DEMO | Primary/conversion goals in fixtures |
@@ -104,7 +105,7 @@ Status reference for the frozen `/app` operator panel. UI work after this docume
 | GA4 specialist real-data UI | PARTIAL | Prompt 28: pool read layer + formulas + gates; residual Demo mapping/attention/journeys/findings |
 | Google Ads Production Collector | REAL | Contract GADS_RF_* → WarehouseWriter → Ads normalized pool |
 | Google Ads Customer Metadata / Campaigns / Ad Groups / Keywords / Search Terms / PMax Terms / Ads / Assets / Landing / Conversion Actions / Typed Conversions | REAL | Session/account TZ + currency preserved; managers not performance roots |
-| Google Ads specialist real-data UI | NOT YET | Prompt 30 |
+| Google Ads specialist real-data UI | PARTIAL | Prompt 30: pool read layer + formulas + gates; CPA/pacing Unavailable; residual Demo intent/ops narrative |
 
 ## Post-Freeze Backend Roadmap
 
