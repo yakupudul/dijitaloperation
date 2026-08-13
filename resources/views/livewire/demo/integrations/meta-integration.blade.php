@@ -27,9 +27,41 @@
         </div>
         <div class="flex flex-wrap gap-2">
             <x-ta.button href="{{ route('demo.integrations') }}" size="sm" variant="outline">All Integrations</x-ta.button>
+            @if (($integration['actions']['authorize'] ?? false) && ($integration['auth_status'] ?? '') !== 'connected')
+                @if (! empty($integration['authorize_url']))
+                    <x-ta.button :href="$integration['authorize_url']" size="sm">Connect Meta</x-ta.button>
+                @else
+                    <x-ta.button wire:click="bootstrapAndConnect" size="sm">Connect Meta</x-ta.button>
+                @endif
+            @elseif (($integration['actions']['reauthorize'] ?? false) && ! empty($integration['reauthorize_url']))
+                <x-ta.button :href="$integration['reauthorize_url']" size="sm" variant="outline">Reauthorize Meta</x-ta.button>
+            @endif
+            @if ($integration['actions']['discover_businesses'] ?? false)
+                <x-ta.button wire:click="discoverBusinesses" size="sm" variant="outline">Discover Businesses</x-ta.button>
+            @endif
+            @if ($integration['actions']['discover_ad_accounts'] ?? false)
+                <x-ta.button wire:click="discoverAdAccounts" size="sm" variant="outline">Discover Ad Accounts</x-ta.button>
+            @endif
+            @if (($integration['actions']['discover_businesses'] ?? false) || ($integration['actions']['discover_ad_accounts'] ?? false))
+                <x-ta.button wire:click="refreshResources" size="sm" variant="outline">Refresh Resources</x-ta.button>
+            @endif
+            @if ($integration['actions']['disconnect'] ?? false)
+                <x-ta.button wire:click="askDisconnect" size="sm" variant="outline">Disconnect</x-ta.button>
+            @endif
             <a href="{{ route('demo.integrations.connector', ['connector' => 'meta-ads']) }}" wire:navigate class="inline-flex rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-white">Meta Ads Connector</a>
         </div>
     </div>
+
+    @if ($confirmDisconnect ?? false)
+        <div class="rounded-xl bg-warning-50 p-4 ring-1 ring-inset ring-warning-200 dark:bg-warning-500/10 dark:ring-warning-500/30">
+            <p class="text-sm font-medium text-gray-800 dark:text-white/90">Disconnect Meta authorization?</p>
+            <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Clears the local credential and attempts provider permission revoke. Business/Ad Account inventory and history are preserved.</p>
+            <div class="mt-3 flex gap-2">
+                <x-ta.button wire:click="confirmDisconnectAction" size="sm">Confirm disconnect</x-ta.button>
+                <x-ta.button wire:click="cancelDisconnect" size="sm" variant="outline">Cancel</x-ta.button>
+            </div>
+        </div>
+    @endif
 
     <div class="flex flex-wrap gap-2" role="tablist" aria-label="Meta integration sections">
         @foreach ([
@@ -133,7 +165,33 @@
         <p class="text-xs text-gray-400">Facebook Page / Instagram organic connectors are future capabilities — not advertised as active production connectors here.</p>
     @elseif ($tab === 'resources')
         <div class="space-y-4">
+            <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Meta Businesses</h2>
+                <p class="mt-1 text-sm text-gray-500">Select which Business contexts MoxDOP should use to discover Ad Accounts. This is discovery context — not a Digital Asset binding.</p>
+                <p class="mt-2 text-xs text-gray-500">Discovery · {{ $integration['discovery']['businesses'] ?? 'never_run' }} · Selected {{ $integration['businesses_selected'] ?? 0 }}</p>
+                @if (empty($integration['businesses']))
+                    <p class="mt-4 text-sm text-gray-500">No Businesses discovered yet.</p>
+                @else
+                    <ul class="mt-4 space-y-3">
+                        @foreach ($integration['businesses'] as $business)
+                            <li class="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-gray-50 px-4 py-3 dark:bg-white/[0.03]">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-800 dark:text-white/90">{{ $business['name'] }}</p>
+                                    <p class="text-xs text-gray-500">{{ $business['external_id'] }} · container</p>
+                                </div>
+                                @if ($integration['actions']['select_business'] ?? false)
+                                    <x-ta.button wire:click="toggleBusinessSelection('{{ $business['id'] }}')" size="sm" variant="outline">
+                                        {{ ($business['selected'] ?? false) ? 'Deselect context' : 'Use for discovery' }}
+                                    </x-ta.button>
+                                @endif
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+            </section>
+
             @foreach ($integration['resource_groups'] as $group)
+                @continue(($group['resource_type'] ?? '') === 'meta_business')
                 <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
                     <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">{{ $group['label'] }}</h2>
                     <p class="mt-1 text-sm text-gray-500">{{ $group['note'] ?? '' }}</p>
@@ -143,12 +201,13 @@
                             · {{ $group['bound'] }} bound · {{ $group['available'] }} available
                         @endif
                     </p>
+                    <p class="mt-1 text-xs text-gray-500">Ad Account discovery · {{ $integration['discovery']['ad_accounts'] ?? 'never_run' }}</p>
                 </section>
             @endforeach
 
             <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
                 <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Unbound Ad Accounts</h2>
-                <p class="mt-1 text-sm text-gray-500">Discovered inventory is not automatically a Digital Asset and is not automatically bound. Human selection is Prompt 23.</p>
+                <p class="mt-1 text-sm text-gray-500">Discovered inventory is not automatically a Digital Asset and is not automatically bound. Human Ad Account selection is Prompt 23.</p>
                 @if (empty($integration['unbound_resources']))
                     <p class="mt-4 text-sm text-gray-500">No unbound Ad Accounts in inventory.</p>
                 @else

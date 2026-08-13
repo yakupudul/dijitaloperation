@@ -134,11 +134,15 @@ class SelectMetaDiscoveryContextService
     {
         $this->assertMeta($integration);
 
-        $resource = CoreExternalResource::query()
+        $query = CoreExternalResource::query()
             ->where('integration_id', $integration->id)
-            ->where('external_id', $externalResourceId)
-            ->where('resource_type', MetaResourceType::META_BUSINESS)
-            ->first();
+            ->where('resource_type', MetaResourceType::META_BUSINESS);
+
+        $resource = ctype_digit($externalResourceId)
+            ? (clone $query)->whereKey((int) $externalResourceId)->first()
+            : null;
+
+        $resource ??= (clone $query)->where('external_id', $externalResourceId)->first();
 
         if (! $resource instanceof CoreExternalResource) {
             throw new InvalidArgumentException(
@@ -147,6 +151,20 @@ class SelectMetaDiscoveryContextService
         }
 
         return $resource;
+    }
+
+    /**
+     * @return list<int>
+     */
+    public function activeBusinessResourceIds(CoreIntegration $integration): array
+    {
+        return CoreIntegrationDiscoveryContext::query()
+            ->where('integration_id', $integration->id)
+            ->where('purpose', CoreIntegrationDiscoveryContext::PURPOSE_DISCOVERY_CONTEXT)
+            ->where('status', CoreIntegrationDiscoveryContext::STATUS_ACTIVE)
+            ->pluck('external_resource_id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
     }
 
     private function assertMeta(CoreIntegration $integration): void

@@ -4,6 +4,7 @@ namespace App\Support\Integrations\Meta;
 
 use App\Models\CoreIntegration;
 use App\Services\Integrations\Meta\MetaCredentialResolver;
+use App\Services\Integrations\Meta\MetaPermissionCoverageService;
 
 /**
  * Operator-facing Meta Integration auth labels (persisted state only).
@@ -21,6 +22,10 @@ final class MetaAuthStatus
 
     public const string CONNECTED = 'connected';
 
+    public const string REAUTH_REQUIRED = 'reauth_required';
+
+    public const string PERMISSION_REQUIRED = 'permission_required';
+
     public const string ISSUE = 'issue';
 
     public static function for(CoreIntegration $integration): string
@@ -35,8 +40,22 @@ final class MetaAuthStatus
             return self::AUTHORIZATION_REQUIRED;
         }
 
+        $authStatus = data_get($integration->config, 'auth_status');
+        $credentialStatus = data_get($integration->config, 'credential_status');
+
+        if (in_array($authStatus, ['reauth_required'], true)
+            || in_array($credentialStatus, ['expired', 'revoked', 'invalid', 'wrong_app'], true)) {
+            return self::REAUTH_REQUIRED;
+        }
+
+        $coverage = app(MetaPermissionCoverageService::class);
+        if ($coverage->missingForAdAccountDiscovery($integration) !== []
+            && data_get($integration->config, 'granted_permissions') !== null) {
+            return self::PERMISSION_REQUIRED;
+        }
+
         $connectionStatus = data_get($integration->config, 'connection_status');
-        if ($connectionStatus === 'connected' && blank($integration->last_error)) {
+        if (($authStatus === 'connected' || $connectionStatus === 'connected') && blank($integration->last_error)) {
             return self::CONNECTED;
         }
 
@@ -54,6 +73,8 @@ final class MetaAuthStatus
             self::CONNECTED => 'Authorized',
             self::CONFIGURED => 'Credential stored',
             self::AUTHORIZATION_REQUIRED => 'Authorization required',
+            self::REAUTH_REQUIRED => 'Reauthorization required',
+            self::PERMISSION_REQUIRED => 'Permission required',
             self::ISSUE => 'Needs attention',
             default => 'Not configured',
         };

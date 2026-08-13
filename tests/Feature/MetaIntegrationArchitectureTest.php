@@ -9,6 +9,7 @@ use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\CoreIntegrationCredential;
+use App\Models\CoreIntegrationDiscoveryContext;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\User;
@@ -288,8 +289,8 @@ class MetaIntegrationArchitectureTest extends TestCase
         $this->assertSame(0, $detail['businesses_discovered']);
         $this->assertSame(0, $detail['ad_accounts_discovered']);
         $this->assertSame(0, $detail['bound']);
-        $this->assertSame('discover', $detail['next_action']);
-        $this->assertFalse($detail['actions']['discover']);
+        $this->assertSame('discover_businesses', $detail['next_action']);
+        $this->assertTrue($detail['actions']['discover_businesses']);
         $this->assertFalse($detail['actions']['bind']);
         $this->assertFalse($detail['actions']['collect']);
         $this->assertNull($detail['secrets']);
@@ -300,15 +301,25 @@ class MetaIntegrationArchitectureTest extends TestCase
 
     public function test_discovered_not_bound_and_bound_not_collected(): void
     {
+        config([
+            'moxdop.meta.app_id' => 'app-123',
+            'moxdop.meta.app_secret' => 'secret-xyz',
+        ]);
+
         $integration = CoreIntegration::factory()->meta()->create([
-            'config' => ['connection_status' => 'connected'],
+            'config' => [
+                'connection_status' => 'connected',
+                'auth_status' => 'connected',
+                'credential_status' => 'valid',
+                'granted_permissions' => ['ads_read', 'business_management'],
+            ],
         ]);
         CoreIntegrationCredential::factory()->create([
             'integration_id' => $integration->id,
             'credential_type' => CoreIntegrationCredential::TYPE_PROVIDER,
             'encrypted_payload' => ['access_token' => 'EAAG-token'],
         ]);
-        CoreExternalResource::factory()->create([
+        $business = CoreExternalResource::factory()->create([
             'integration_id' => $integration->id,
             'provider' => ProviderRegistry::META,
             'resource_type' => MetaResourceType::META_BUSINESS,
@@ -326,6 +337,17 @@ class MetaIntegrationArchitectureTest extends TestCase
         $this->assertSame(1, $detail['businesses_discovered']);
         $this->assertSame(1, $detail['ad_accounts_discovered']);
         $this->assertSame(0, $detail['bound']);
+        // Businesses exist but none selected as discovery context yet.
+        $this->assertSame('select_business', $detail['next_action']);
+
+        CoreIntegrationDiscoveryContext::query()->create([
+            'integration_id' => $integration->id,
+            'external_resource_id' => $business->id,
+            'purpose' => CoreIntegrationDiscoveryContext::PURPOSE_DISCOVERY_CONTEXT,
+            'status' => CoreIntegrationDiscoveryContext::STATUS_ACTIVE,
+            'selected_at' => now(),
+        ]);
+        $detail = app(MetaIntegrationReadModel::class)->detail();
         $this->assertSame('bind', $detail['next_action']);
 
         $asset = DigitalAsset::factory()->create(['type' => 'meta_ads']);

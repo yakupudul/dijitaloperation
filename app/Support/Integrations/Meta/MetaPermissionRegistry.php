@@ -22,8 +22,8 @@ final class MetaPermissionRegistry
     public static function requiredForMetaAds(): array
     {
         return [
-            self::BUSINESS_MANAGEMENT,
             self::ADS_READ,
+            self::BUSINESS_MANAGEMENT,
         ];
     }
 

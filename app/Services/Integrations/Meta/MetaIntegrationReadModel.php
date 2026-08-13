@@ -7,9 +7,11 @@ use App\Models\Collection\CollectionRun;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
+use App\Models\CoreIntegrationDiscoveryContext;
 use App\Models\DataPool\DatasetMaterialization;
 use App\Support\Integrations\Meta\MetaApiConfig;
 use App\Support\Integrations\Meta\MetaAuthStatus;
+use App\Support\Integrations\Meta\MetaConfigurationHealth;
 use App\Support\Integrations\Meta\MetaConnectorRegistry;
 use App\Support\Integrations\Meta\MetaResourceType;
 use App\Support\Integrations\Presentation\IntegrationHealthPresenter;
@@ -82,8 +84,15 @@ final class MetaIntegrationReadModel
         $operatorStatus = $this->health->status($integration, ProviderRegistry::META);
         $authStatus = MetaAuthStatus::for($integration);
         $counts = $this->resourceBindingCounts($integration);
+        $selectedBusinesses = $this->selectedBusinessCount($integration);
         $collection = $this->collectionSummary($integration);
         $dataState = $this->dataFreshnessSummary($integration);
+        $permission = app(MetaPermissionCoverageService::class)->summary($integration);
+        $configHealth = (new MetaConfigurationHealth)->check($integration);
+        $credentialStatus = (string) (data_get($integration->config, 'credential_status') ?? 'unknown');
+        $discovery = $this->discoveryStates($integration, $counts, $selectedBusinesses);
+        $authorizeUrl = $this->authorizeUrl($integration);
+        $next = $this->nextAction($authStatus, $counts, $selectedBusinesses, $permission);
 
         return [
             'id' => ProviderRegistry::META,
@@ -95,23 +104,40 @@ final class MetaIntegrationReadModel
             'auth_status_label' => MetaAuthStatus::label($authStatus),
             'app_configuration_label' => MetaAuthStatus::configurationLabel($integration),
             'app_configured' => $this->credentials->isApplicationConfigured(),
+            'app_configuration' => $configHealth,
             'authorization_credential_label' => MetaAuthStatus::accessTokenLabel($integration),
             'connection_test_label' => MetaAuthStatus::connectionLabel($integration),
+            'credential_status' => $credentialStatus,
+            'credential_valid' => $credentialStatus === MetaCredentialValidator::STATUS_VALID
+                || ($authStatus === MetaAuthStatus::CONNECTED && $credentialStatus === 'unknown'),
             'credential_summary' => [
                 'application_configured' => $this->credentials->isApplicationConfigured(),
                 'tenant_authorization_present' => $this->credentials->hasTenantAuthorization($integration),
                 'authorization_source' => $this->credentials->accessTokenSource($integration),
+                'credential_status' => $credentialStatus,
                 'legacy_manual_token_path' => $this->credentials->hasTenantAuthorization($integration)
-                    && ! $this->credentials->isApplicationConfigured(),
+                    && data_get($integration->config, 'auth_method') !== 'oauth',
+            ],
+            'permission_coverage' => [
+                'requested' => $permission['requested'],
+                'granted' => $permission['granted'],
+                'missing_business_discovery' => $permission['missing_business_discovery'],
+                'missing_ad_account_discovery' => $permission['missing_ad_account_discovery'],
+                'can_discover_businesses' => $permission['can_discover_businesses'],
+                'can_discover_ad_accounts' => $permission['can_discover_ad_accounts'],
+                'needs_reauthorization' => $permission['needs_reauthorization'],
             ],
             'graph_api_version' => MetaApiConfig::apiVersion(),
             'last_check' => $this->relativeLastCheck($integration) ?? '—',
             'businesses_discovered' => $counts['businesses'],
+            'businesses_selected' => $selectedBusinesses,
             'ad_accounts_discovered' => $counts['ad_accounts'],
             'resources_discovered' => $counts['ad_accounts'],
             'bound' => $counts['bound'],
             'available' => $counts['available'],
             'dependent_assets' => $counts['bound_assets'],
+            'discovery' => $discovery,
+            'businesses' => $this->businessRows($integration),
             'resource_groups' => $this->resourceGroups($counts),
             'unbound_resources' => $this->unboundAdAccounts($integration),
             'bindings' => $this->bindingRows($integration),
@@ -120,11 +146,19 @@ final class MetaIntegrationReadModel
             'collection_state_label' => $collection['label'],
             'data_state' => $dataState['state'],
             'data_state_label' => $dataState['label'],
-            'next_action' => $this->nextAction($authStatus, $counts),
-            'next_action_label' => $this->nextActionLabel($authStatus, $counts),
-            'actions' => $this->availableActions($authStatus, $counts),
+            'next_action' => $next,
+            'next_action_label' => $this->nextActionLabel($next),
+            'actions' => $this->availableActions(
+                $integration,
+                $authStatus,
+                $counts,
+                $selectedBusinesses,
+                $permission,
+            ),
+            'authorize_url' => $authorizeUrl,
+            'reauthorize_url' => $authorizeUrl,
             'milestones' => [
-                'authorization_discovery' => 'Prompt 22',
+                'authorization_discovery' => 'REAL (Prompt 22)',
                 'resource_selection_binding' => 'Prompt 23',
                 'production_collector' => 'Prompt 24',
                 'initial_backfill' => 'Prompt 25',
@@ -212,17 +246,46 @@ final class MetaIntegrationReadModel
             'collection_state_label' => 'Collection not run',
             'data_state' => 'none',
             'data_state_label' => 'No data available',
-            'next_action' => 'configure',
-            'next_action_label' => 'Configure Meta',
+            'businesses_selected' => 0,
+            'discovery' => [
+                'businesses' => 'never_run',
+                'ad_accounts' => 'never_run',
+                'last_business_discovery_at' => null,
+                'last_ad_account_discovery_at' => null,
+            ],
+            'businesses' => [],
+            'permission_coverage' => [
+                'requested' => [],
+                'granted' => [],
+                'missing_business_discovery' => [],
+                'missing_ad_account_discovery' => [],
+                'can_discover_businesses' => false,
+                'can_discover_ad_accounts' => false,
+                'needs_reauthorization' => true,
+            ],
+            'app_configuration' => (new MetaConfigurationHealth)->check(),
+            'credential_status' => 'unknown',
+            'credential_valid' => false,
+            'next_action' => $this->credentials->isApplicationConfigured() ? 'authorize' : 'configure',
+            'next_action_label' => $this->credentials->isApplicationConfigured()
+                ? 'Connect Meta'
+                : 'Configure Meta App credentials',
             'actions' => [
                 'configure' => true,
-                'authorize' => false,
+                'authorize' => $this->credentials->isApplicationConfigured(),
+                'reauthorize' => false,
+                'discover_businesses' => false,
+                'select_business' => false,
+                'discover_ad_accounts' => false,
                 'discover' => false,
+                'disconnect' => false,
                 'bind' => false,
                 'collect' => false,
             ],
+            'authorize_url' => null,
+            'reauthorize_url' => null,
             'milestones' => [
-                'authorization_discovery' => 'Prompt 22',
+                'authorization_discovery' => 'REAL (Prompt 22)',
                 'resource_selection_binding' => 'Prompt 23',
                 'production_collector' => 'Prompt 24',
                 'initial_backfill' => 'Prompt 25',
@@ -502,14 +565,31 @@ final class MetaIntegrationReadModel
 
     /**
      * @param  array{businesses: int, ad_accounts: int, bound: int, available: int, bound_assets: int}  $counts
+     * @param  array<string, mixed>  $permission
      */
-    private function nextAction(string $authStatus, array $counts): string
+    private function nextAction(string $authStatus, array $counts, int $selectedBusinesses, array $permission): string
     {
-        if (in_array($authStatus, [MetaAuthStatus::NOT_CONFIGURED, MetaAuthStatus::AUTHORIZATION_REQUIRED], true)) {
+        if (! $this->credentials->isApplicationConfigured()) {
             return 'configure';
         }
+        if (in_array($authStatus, [
+            MetaAuthStatus::NOT_CONFIGURED,
+            MetaAuthStatus::AUTHORIZATION_REQUIRED,
+            MetaAuthStatus::REAUTH_REQUIRED,
+        ], true)) {
+            return $authStatus === MetaAuthStatus::REAUTH_REQUIRED ? 'reauthorize' : 'authorize';
+        }
+        if ($authStatus === MetaAuthStatus::PERMISSION_REQUIRED) {
+            return 'reauthorize';
+        }
+        if ($counts['businesses'] === 0) {
+            return 'discover_businesses';
+        }
+        if ($selectedBusinesses === 0) {
+            return 'select_business';
+        }
         if ($counts['ad_accounts'] === 0) {
-            return 'discover';
+            return 'discover_ad_accounts';
         }
         if ($counts['bound'] === 0) {
             return 'bind';
@@ -518,14 +598,15 @@ final class MetaIntegrationReadModel
         return 'collect';
     }
 
-    /**
-     * @param  array{businesses: int, ad_accounts: int, bound: int, available: int, bound_assets: int}  $counts
-     */
-    private function nextActionLabel(string $authStatus, array $counts): string
+    private function nextActionLabel(string $next): string
     {
-        return match ($this->nextAction($authStatus, $counts)) {
-            'configure' => 'Configure Meta (Settings / Prompt 22 authorization)',
-            'discover' => 'Discover resources (Prompt 22)',
+        return match ($next) {
+            'configure' => 'Configure Meta App credentials',
+            'authorize' => 'Connect Meta',
+            'reauthorize' => 'Reauthorize Meta',
+            'discover_businesses' => 'Discover Businesses',
+            'select_business' => 'Select Business discovery context',
+            'discover_ad_accounts' => 'Discover Ad Accounts',
             'bind' => 'Select & bind Ad Account (Prompt 23)',
             'collect' => 'Collect data (Prompt 24–25)',
             default => 'Manage Meta',
@@ -533,21 +614,126 @@ final class MetaIntegrationReadModel
     }
 
     /**
-     * Frozen UI actions — do not enable product actions until owning prompts land.
-     * Filament Settings remains internal configure/discover until Prompt 22 moves UX.
-     *
      * @param  array{businesses: int, ad_accounts: int, bound: int, available: int, bound_assets: int}  $counts
-     * @return array{configure: bool, authorize: bool, discover: bool, bind: bool, collect: bool}
+     * @param  array<string, mixed>  $permission
+     * @return array<string, bool>
      */
-    private function availableActions(string $authStatus, array $counts): array
-    {
+    private function availableActions(
+        CoreIntegration $integration,
+        string $authStatus,
+        array $counts,
+        int $selectedBusinesses,
+        array $permission,
+    ): array {
+        $appOk = $this->credentials->isApplicationConfigured();
+        $authorized = in_array($authStatus, [
+            MetaAuthStatus::CONNECTED,
+            MetaAuthStatus::CONFIGURED,
+            MetaAuthStatus::PERMISSION_REQUIRED,
+        ], true);
+        $reauth = in_array($authStatus, [
+            MetaAuthStatus::REAUTH_REQUIRED,
+            MetaAuthStatus::PERMISSION_REQUIRED,
+        ], true);
+
         return [
             'configure' => true,
-            'authorize' => false, // Prompt 22
-            'discover' => false, // Prompt 22 (Filament KEEP_INTERNAL until then)
+            'authorize' => $appOk && ! $authorized,
+            'reauthorize' => $appOk && ($authorized || $reauth),
+            'discover_businesses' => $authorized && (bool) ($permission['can_discover_businesses'] ?? false),
+            'select_business' => $authorized && $counts['businesses'] > 0,
+            'discover_ad_accounts' => $authorized
+                && $selectedBusinesses > 0
+                && (bool) ($permission['can_discover_ad_accounts'] ?? false),
+            'discover' => $authorized && (bool) ($permission['can_discover_businesses'] ?? false),
+            'disconnect' => $this->credentials->hasTenantAuthorization($integration),
             'bind' => false, // Prompt 23
             'collect' => false, // Prompt 24/25
         ];
+    }
+
+    private function selectedBusinessCount(CoreIntegration $integration): int
+    {
+        if (! Schema::hasTable('core_integration_discovery_contexts')) {
+            return 0;
+        }
+
+        return (int) CoreIntegrationDiscoveryContext::query()
+            ->where('integration_id', $integration->id)
+            ->where('purpose', CoreIntegrationDiscoveryContext::PURPOSE_DISCOVERY_CONTEXT)
+            ->where('status', CoreIntegrationDiscoveryContext::STATUS_ACTIVE)
+            ->count();
+    }
+
+    /**
+     * @param  array{businesses: int, ad_accounts: int, bound: int, available: int, bound_assets: int}  $counts
+     * @return array<string, mixed>
+     */
+    private function discoveryStates(CoreIntegration $integration, array $counts, int $selectedBusinesses): array
+    {
+        $businessState = data_get($integration->config, 'discovery.businesses.status');
+        $adState = data_get($integration->config, 'discovery.ad_accounts.status');
+
+        if (! is_string($businessState) || $businessState === '') {
+            $businessState = $counts['businesses'] > 0 ? 'completed' : 'never_run';
+        }
+        if (! is_string($adState) || $adState === '') {
+            $adState = $counts['ad_accounts'] > 0 ? 'completed' : 'never_run';
+        }
+
+        return [
+            'businesses' => $businessState,
+            'ad_accounts' => $adState,
+            'selected_businesses' => $selectedBusinesses,
+            'last_business_discovery_at' => data_get($integration->config, 'discovery.businesses.finished_at'),
+            'last_ad_account_discovery_at' => data_get($integration->config, 'discovery.ad_accounts.finished_at'),
+        ];
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function businessRows(CoreIntegration $integration): array
+    {
+        $selectedIds = Schema::hasTable('core_integration_discovery_contexts')
+            ? CoreIntegrationDiscoveryContext::query()
+                ->where('integration_id', $integration->id)
+                ->where('purpose', CoreIntegrationDiscoveryContext::PURPOSE_DISCOVERY_CONTEXT)
+                ->where('status', CoreIntegrationDiscoveryContext::STATUS_ACTIVE)
+                ->pluck('external_resource_id')
+                ->all()
+            : [];
+
+        return CoreExternalResource::query()
+            ->where('integration_id', $integration->id)
+            ->where('provider', ProviderRegistry::META)
+            ->where('resource_type', MetaResourceType::META_BUSINESS)
+            ->orderBy('display_name')
+            ->limit(100)
+            ->get()
+            ->map(fn (CoreExternalResource $resource): array => [
+                'id' => (string) $resource->id,
+                'external_id' => $resource->external_id,
+                'name' => $resource->display_name,
+                'status' => $resource->status,
+                'selected' => in_array($resource->id, $selectedIds, true),
+                'container' => true,
+                'bindable' => false,
+            ])
+            ->all();
+    }
+
+    private function authorizeUrl(CoreIntegration $integration): ?string
+    {
+        if (! $this->credentials->isApplicationConfigured()) {
+            return null;
+        }
+
+        try {
+            return route('integrations.meta.authorize', ['integration' => $integration->id]);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**

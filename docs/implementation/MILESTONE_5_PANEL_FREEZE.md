@@ -17,12 +17,16 @@ Status reference for the frozen `/app` operator panel. UI work after this docume
 | GBP | DEMO | Local visibility/reviews/competitors fixtures |
 | Google Ads | DEMO / PARTIAL | Specialist panels remain Demo (Prompt 30); Prompt 19 production collector writes real Ads pool facts |
 | Meta Ads | DEMO / PARTIAL | Specialist IA remains Demo; Prompt 21 Meta Integration hub/detail is real backend-state (auth/discovery/binding/collector still Prompts 22–25) |
-| Meta Integration hub/detail (`/app/integrations` Meta) | REAL (backend state) | Prompt 21: Core* + MetaIntegrationReadModel; no live Graph on render; Discover/Bind/Collect disabled until 22–25 |
+| Meta Integration hub/detail (`/app/integrations` Meta) | REAL (backend state) | Prompt 21–22: Core* + MetaIntegrationReadModel; Connect Meta / discover / select; no Graph on render |
 | Canonical META provider / Meta Ads Connector foundation | REAL | provider=`meta`, connector=`meta_ads`; app config ≠ tenant token |
 | Meta Business container ExternalResource | REAL | `meta_business` non-bindable container; not Customer/DigitalAsset |
 | Meta Ad Account ExternalResource | REAL | `meta_ads` / META_AD_ACCOUNT; canonical `act_*` identity |
 | Meta credential/token ownership | REAL | Integration-owned encrypted credential; App Secret deployment-only |
-| Production Meta authorization / live discovery | NOT YET | Prompt 22 |
+| Production Meta authorization (Login for Business) | REAL CODE PATH | Prompt 22: OAuth attempt/state, code exchange, long-lived exchange, debug_token |
+| Meta permission coverage | REAL | requested ≠ granted; ads_management not requested |
+| Business discovery + selection context | REAL | paginated me/businesses; discovery_context ≠ Binding |
+| Owned + client Ad Account discovery | REAL | owned_ad_accounts + client_ad_accounts; act_ dedupe |
+| Meta App external approval/readiness | UNKNOWN / MANUAL | App Review / Advanced Access / verification — dashboard |
 | Meta resource selection & Binding workflow | NOT YET | Prompt 23 |
 | Meta Ads Production Collector (Collection Engine) | NOT YET | Prompt 24 — legacy BoundCollector remains PARTIAL Evidence path |
 | Meta Initial Backfill | NOT YET | Prompt 25 |
