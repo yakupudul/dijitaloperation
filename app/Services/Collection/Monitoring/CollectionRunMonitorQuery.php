@@ -181,7 +181,11 @@ final class CollectionRunMonitorQuery
                 : [],
             'trigger_label' => $run->metadata['collection_intent_label']
                 ?? match ($run->trigger_type) {
-                    CollectionTriggerType::InitialBackfill => 'Initial Google Collection',
+                    CollectionTriggerType::InitialBackfill => match ($run->metadata['collection_intent'] ?? null) {
+                        'meta_initial_backfill' => 'Initial Meta Ads Collection',
+                        'google_initial_backfill' => 'Initial Google Collection',
+                        default => 'Initial Collection',
+                    },
                     default => $run->trigger_type->value,
                 },
         ];

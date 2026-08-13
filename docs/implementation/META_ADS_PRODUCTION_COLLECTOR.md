@@ -287,4 +287,4 @@ Summarized above; hard rules:
 | Async Insights transport | REAL |
 | Raw + Normalized Meta pool + Materialization | REAL |
 | Meta specialist real-data UI | **NOT YET** |
-| Meta Initial Backfill | **NOT YET** (Prompt 25) |
+| Meta Initial Backfill | **REAL** (Prompt 25) |

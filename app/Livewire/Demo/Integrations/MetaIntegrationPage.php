@@ -7,6 +7,7 @@ use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\DigitalAsset;
+use App\Services\Collection\Meta\MetaInitialBackfillOrchestrator;
 use App\Services\Integrations\ConfirmMetaResourceBindingService;
 use App\Services\Integrations\Meta\DiscoverMetaResourcesService;
 use App\Services\Integrations\Meta\MetaIntegrationReadModel;
@@ -331,6 +332,33 @@ class MetaIntegrationPage extends Component
         $this->tab = 'resources';
     }
 
+    public function collectData(MetaInitialBackfillOrchestrator $orchestrator): void
+    {
+        $user = auth()->user();
+        if ($user === null || ! $user->hasRole(Roles::ADMIN)) {
+            abort(403);
+        }
+
+        $integration = $this->metaIntegration();
+        if ($integration === null) {
+            DemoState::flash('No Meta Integration is configured.', 'info');
+
+            return;
+        }
+
+        $result = $orchestrator->start(
+            $integration->fresh(['providerCredential']) ?? $integration,
+            $user,
+        );
+
+        DemoState::flash($result->message, 'info');
+
+        if ($result->collectionRun !== null) {
+            $this->tab = 'activity';
+            $this->dispatch('collection-run-selected', uuid: $result->collectionRun->uuid);
+        }
+    }
+
     public function askDisconnect(): void
     {
         $this->confirmDisconnect = true;
@@ -393,6 +421,16 @@ class MetaIntegrationPage extends Component
             }
         }
 
+        $preflight = null;
+        if (($integration['actions']['collect'] ?? false) === true && ($integration['integration_id'] ?? null) !== null) {
+            $core = CoreIntegration::query()->find($integration['integration_id']);
+            if ($core instanceof CoreIntegration) {
+                $preflight = app(MetaInitialBackfillOrchestrator::class)
+                    ->preflight($core)
+                    ->toArray();
+            }
+        }
+
         return view('livewire.demo.integrations.meta-integration', [
             'integration' => $integration,
             'flash' => DemoState::pullFlash(),
@@ -406,6 +444,7 @@ class MetaIntegrationPage extends Component
             'compatibleAssets' => $this->compatibleAssets,
             'brands' => $brands,
             'bindingPreview' => $bindingPreview,
+            'preflight' => $preflight,
         ]);
     }
 

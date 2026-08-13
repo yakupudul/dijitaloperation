@@ -80,7 +80,7 @@ Registry: `App\Support\Integrations\Meta\MetaConnectorRegistry`.
 | Provider | `meta` |
 | Resource type | `meta_ads` (semantic META_AD_ACCOUNT) |
 | Credential duplication | None — shares Integration credential |
-| Collection status | `REAL` production collector (Prompt 24); backfill Prompt 25 |
+| Collection status | `REAL` production collector (Prompt 24) + initial backfill (Prompt 25) |
 
 Instagram remains a registered capability id in `ProviderRegistry` but is **not**
 a Prompt 21 production Connector expansion.
@@ -291,7 +291,7 @@ See `docs/implementation/MILESTONE_5_PANEL_FREEZE.md` Capability Reality Matrix
 | Live Business / Ad Account discovery productization | REAL / Prompt 22 |
 | Human selection / production Binding | REAL / Prompt 23 |
 | Meta Ads Production Collector | REAL / Prompt 24 |
-| Meta Initial Backfill | NOT YET / Prompt 25 |
+| Meta Initial Backfill | REAL / Prompt 25 |
 
 ## 24. Definition of Done
 

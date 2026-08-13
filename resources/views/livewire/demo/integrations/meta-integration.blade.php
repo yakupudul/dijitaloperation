@@ -45,6 +45,11 @@
             @if (($integration['actions']['discover_businesses'] ?? false) || ($integration['actions']['discover_ad_accounts'] ?? false))
                 <x-ta.button wire:click="refreshResources" size="sm" variant="outline">Refresh Resources</x-ta.button>
             @endif
+            @if ($integration['actions']['collect'] ?? false)
+                <x-ta.button wire:click="collectData" size="sm" wire:loading.attr="disabled">
+                    Collect Data
+                </x-ta.button>
+            @endif
             @if ($integration['actions']['disconnect'] ?? false)
                 <x-ta.button wire:click="askDisconnect" size="sm" variant="outline">Disconnect</x-ta.button>
             @endif
@@ -118,6 +123,44 @@
             </div>
         </div>
 
+        @if (! empty($preflight))
+            <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Meta initial collection</h2>
+                <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                    {{ $preflight['summary']['eligible_resources'] ?? 0 }} bound Ad Accounts ready
+                    · Datasets contract-driven
+                    · Historical coverage varies by dataset
+                </p>
+                @if (! empty($preflight['summary']['by_account']))
+                    <ul class="mt-2 space-y-1 text-sm text-gray-600 dark:text-gray-300">
+                        @foreach ($preflight['summary']['by_account'] as $provider => $counts)
+                            <li>
+                                {{ str_replace('_', ' ', $provider) }}
+                                · {{ $counts['eligible'] ?? 0 }} eligible
+                                / {{ $counts['bound'] ?? 0 }} bound
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+                @if (($preflight['summary']['planned_datasets'] ?? 0) > 0 || ($preflight['summary']['already_satisfied_datasets'] ?? 0) > 0)
+                    <p class="mt-2 text-xs text-gray-500">
+                        Planned {{ $preflight['summary']['planned_datasets'] ?? 0 }} datasets
+                        · Already satisfied {{ $preflight['summary']['already_satisfied_datasets'] ?? 0 }}
+                    </p>
+                @endif
+                @foreach ($preflight['action_required'] ?? [] as $issue)
+                    <p class="mt-2 text-xs text-warning-600 dark:text-warning-400">
+                        {{ $issue['provider_or_source'] ?? 'META_ADS' }} · {{ $issue['label'] ?? 'Action required' }}
+                    </p>
+                @endforeach
+                @if ($preflight['can_start'] ?? false)
+                    <p class="mt-2 text-xs text-gray-500">{{ $preflight['summary']['async_insights_note'] ?? 'Large Insights reports may run asynchronously' }}. Collection continues in the background. You may leave this page.</p>
+                @elseif (! empty($preflight['message']))
+                    <p class="mt-2 text-xs text-gray-500">{{ $preflight['message'] }}</p>
+                @endif
+            </div>
+        @endif
+
         <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
             <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">State separation</h2>
             <p class="mt-1 text-sm text-gray-500">Configured ≠ authorized ≠ discovered ≠ bound ≠ collected ≠ fresh.</p>
@@ -136,7 +179,7 @@
 
         <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
             <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Milestone status</h2>
-            <p class="mt-1 text-sm text-gray-500">Authorization, discovery, and human-confirmed Binding are production-real. Analytical collection is Prompt 24.</p>
+            <p class="mt-1 text-sm text-gray-500">Authorization, discovery, Binding, production collector, and initial backfill are production-real. Specialist analytical UI remains Demo.</p>
             <ul class="mt-3 space-y-1 text-sm text-gray-600 dark:text-gray-300">
                 <li>Authorization & discovery · {{ $integration['milestones']['authorization_discovery'] }}</li>
                 <li>Resource selection & binding · {{ $integration['milestones']['resource_selection_binding'] }}</li>
@@ -287,6 +330,10 @@
                 @endforeach
             </ul>
         </section>
+
+        <div class="mox-collection-monitor-embed" wire:key="meta-collection-monitoring">
+            @livewire(\App\Livewire\Collection\MonitoringPanel::class)
+        </div>
     @endif
 
     @if ($showBindModal ?? false)

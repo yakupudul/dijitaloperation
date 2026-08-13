@@ -16,7 +16,7 @@ Status reference for the frozen `/app` operator panel. UI work after this docume
 | WordPress Site Connector | PARTIAL | Demo package + pairing UX; not production-installable |
 | GBP | DEMO | Local visibility/reviews/competitors fixtures |
 | Google Ads | DEMO / PARTIAL | Specialist panels remain Demo (Prompt 30); Prompt 19 production collector writes real Ads pool facts |
-| Meta Ads | DEMO / PARTIAL | Specialist IA remains Demo (Prompt 31+); Integration auth/discovery/binding real (21–23); Prompt 24 production collector writes real Meta pool facts |
+| Meta Ads | DEMO / PARTIAL | Specialist IA remains Demo (Prompt 31+); Integration auth/discovery/binding real (21–23); Prompt 24 collector + Prompt 25 initial backfill write real Meta pool facts |
 | Meta Integration hub/detail (`/app/integrations` Meta) | REAL (backend state) | Prompt 21–23: Core* + read model; Connect / discover / select / human-confirmed Binding; no Graph on render |
 | Canonical META provider / Meta Ads Connector foundation | REAL | provider=`meta`, connector=`meta_ads`; app config ≠ tenant token |
 | Meta Business container ExternalResource | REAL | `meta_business` non-bindable container; not Customer/DigitalAsset |
@@ -34,7 +34,15 @@ Status reference for the frozen `/app` operator panel. UI work after this docume
 | Meta Typed Actions / Action Values | REAL | action_type preserved; no generic Results; no Business Outcome mapping |
 | Meta Sync / Async Insights transport | REAL | MetaInsightsRetrievalStrategy; async AdReportRun POST is read-only report creation |
 | Meta specialist real-data UI | NOT YET | Frozen Demo specialist until dedicated migration |
-| Meta Initial Backfill | NOT YET | Prompt 25 |
+| Meta Initial Backfill Preflight / Planner | REAL | Prompt 25: control-plane preflight; Registry-driven multi-account plan; materialization-aware |
+| Meta Initial Backfill Execution | REAL | One CollectionRun → independent META_AD_ACCOUNT ResourceRuns/DatasetRuns via shared engine |
+| Meta Initial Backfill UX | REAL | Collect Data on frozen Meta Integration + Prompt 11 MonitoringPanel; no new nav |
+| Browser-independent Meta import | REAL | Persist + queue; close browser; reconstruct from DB; async Insights independent of browser |
+| Partial-failure Meta import | REAL | Dataset/account isolation; PARTIAL aggregation; successful facts preserved |
+| Persistent Meta Collection History | REAL | Prompt 11 history; trigger Initial Meta Ads Collection |
+| Meta Initial Backfill | REAL | Prompt 25 |
+| Recurring Meta collection | NOT YET | Prompt 27 |
+| Meta incremental freshness | NOT YET | Prompt 27 |
 | GA4 | DEMO / PARTIAL | Specialist panels remain Demo (Prompt 28); Prompt 18 production collector writes real GA4 pool facts |
 | Search Console | DEMO / PARTIAL | Specialist panels remain Demo (Prompt 29); Prompt 17 production collector writes real GSC pool facts |
 | Instagram | DEMO | Lightweight Overview/Profile/Operations/Setup |

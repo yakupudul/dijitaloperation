@@ -160,8 +160,8 @@ final class MetaIntegrationReadModel
             'milestones' => [
                 'authorization_discovery' => 'REAL (Prompt 22)',
                 'resource_selection_binding' => 'REAL (Prompt 23)',
-                'production_collector' => 'Prompt 24',
-                'initial_backfill' => 'Prompt 25',
+                'production_collector' => 'REAL (Prompt 24)',
+                'initial_backfill' => 'REAL (Prompt 25)',
             ],
             'activity' => $this->activityLines($integration, $authStatus, $counts, $collection),
             'hub_note' => null,
@@ -638,7 +638,7 @@ final class MetaIntegrationReadModel
             'select_business' => 'Select Business discovery context',
             'discover_ad_accounts' => 'Discover Ad Accounts',
             'bind' => 'Confirm Ad Account connection',
-            'collect' => 'Collect data (Prompt 24–25)',
+            'collect' => 'Collect data',
             default => 'Manage Meta',
         };
     }
@@ -679,7 +679,9 @@ final class MetaIntegrationReadModel
             'disconnect' => $this->credentials->hasTenantAuthorization($integration),
             'bind' => $authorized && $counts['ad_accounts'] > 0,
             'unbind' => $counts['bound'] > 0,
-            'collect' => false, // Prompt 24/25
+            'collect' => $authorized
+                && $counts['bound'] > 0
+                && $this->credentials->hasTenantAuthorization($integration),
         ];
     }
 
