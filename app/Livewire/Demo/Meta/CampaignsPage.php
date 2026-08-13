@@ -5,6 +5,7 @@ namespace App\Livewire\Demo\Meta;
 use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
 use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
+use App\Support\Demo\MetaAdsWorkspaceFixtures;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -21,8 +22,6 @@ class CampaignsPage extends Component
     public string $statusFilter = 'all';
 
     public string $objectiveFilter = 'all';
-
-    public bool $expert = false;
 
     public function mount(string $assetId): void
     {
@@ -47,22 +46,30 @@ class CampaignsPage extends Component
         DemoState::setFilter('meta_objective', $objective === 'all' ? null : $objective);
     }
 
-    public function toggleExpert(): void
-    {
-        $this->expert = ! $this->expert;
-    }
-
     public function render(): View
     {
-        $campaigns = DemoCatalog::filterMetaCampaigns(
-            $this->period,
-            $this->statusFilter === 'all' ? null : $this->statusFilter,
-            $this->objectiveFilter === 'all' ? null : $this->objectiveFilter,
-        );
+        $workspace = MetaAdsWorkspaceFixtures::workspace($this->period, $this->periodStart, $this->periodEnd);
+        $campaigns = collect($workspace['campaigns']);
+
+        if ($this->statusFilter !== 'all') {
+            $needle = strtoupper($this->statusFilter);
+            $campaigns = $campaigns->filter(
+                static fn (array $row): bool => strtoupper((string) $row['status']) === $needle
+            );
+        }
+
+        if ($this->objectiveFilter !== 'all') {
+            $needle = strtoupper($this->objectiveFilter);
+            $campaigns = $campaigns->filter(
+                static fn (array $row): bool => str_contains(strtoupper((string) $row['objective_family']), $needle)
+                    || str_contains(strtoupper((string) $row['optimization']), $needle)
+            );
+        }
 
         return view('livewire.demo.meta.campaigns', [
             'assetId' => $this->assetId,
-            'campaigns' => $campaigns,
+            'campaigns' => $campaigns->values()->all(),
+            'identity' => $workspace['identity'],
             'flash' => DemoState::pullFlash(),
         ]);
     }

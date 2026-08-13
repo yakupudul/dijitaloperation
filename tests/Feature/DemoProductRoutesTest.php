@@ -117,27 +117,51 @@ class DemoProductRoutesTest extends TestCase
         $this->get(route('demo.meta.overview', ['assetId' => $meta]))
             ->assertOk()
             ->assertSee('Overview')
-            ->assertSee('How is paid-media efficiency changing?');
+            ->assertSee('Atlas Health — Europe')
+            ->assertSee('Needs attention')
+            ->assertSee('Result Mix');
+        $this->get(route('demo.meta.overview', ['assetId' => $meta, 'tab' => 'campaigns']))
+            ->assertOk()
+            ->assertSee('Campaigns')
+            ->assertSee('Post Bariatric');
         $this->get(route('demo.meta.campaigns', ['assetId' => $meta]))
             ->assertOk()
             ->assertSee('Campaigns');
         $this->get(route('demo.meta.adsets', ['assetId' => $meta]))
-            ->assertOk()
-            ->assertSee('Ad Sets');
+            ->assertRedirect();
         $this->get(route('demo.meta.ads', ['assetId' => $meta]))
-            ->assertOk()
-            ->assertSee('Ads');
+            ->assertRedirect();
         $this->get(route('demo.meta.breakdowns', ['assetId' => $meta]))
+            ->assertRedirect();
+        $this->followingRedirects()
+            ->get(route('demo.meta.breakdowns', ['assetId' => $meta]))
             ->assertOk()
-            ->assertSee('Breakdowns')
+            ->assertSee('Audience')
             ->assertSee('Placement');
         $this->get(route('demo.meta.campaign', ['assetId' => $meta, 'campaignId' => 'camp-pb-eu']))
             ->assertOk()
-            ->assertSee('Post Bariatric');
+            ->assertSee('Post Bariatric')
+            ->assertSee('Strategy')
+            ->assertSee('Ad Sets');
         $this->get(route('demo.meta.creatives', ['assetId' => $meta]))
+            ->assertRedirect();
+        $this->followingRedirects()
+            ->get(route('demo.meta.creatives', ['assetId' => $meta]))
             ->assertOk()
             ->assertSee('Creatives');
-        $this->get(route('demo.meta.insights', ['assetId' => $meta]))->assertOk();
+        $this->get(route('demo.meta.insights', ['assetId' => $meta]))->assertRedirect();
+        $this->get(route('demo.meta.overview', ['assetId' => $meta, 'tab' => 'funnel']))
+            ->assertOk()
+            ->assertSee('Funnel')
+            ->assertSee('Instant Form');
+        $this->get(route('demo.meta.overview', ['assetId' => $meta, 'tab' => 'measurement']))
+            ->assertOk()
+            ->assertSee('Measurement')
+            ->assertSee('Missing ≠ zero');
+        $this->get(route('demo.meta.overview', ['assetId' => $meta, 'tab' => 'operations']))
+            ->assertOk()
+            ->assertSee('Operations')
+            ->assertSee('Findings');
         $this->get(route('demo.google-ads.overview'))
             ->assertOk()
             ->assertSee('Google Ads')
@@ -193,7 +217,7 @@ class DemoProductRoutesTest extends TestCase
         Livewire::test(CampaignsPage::class, ['assetId' => $meta])
             ->call('setStatusFilter', 'PAUSED')
             ->assertSee('Retargeting — Form')
-            ->assertDontSee('Post Bariatric — Europe');
+            ->assertDontSee('Post Bariatric — Diaspora Lead');
 
         Livewire::test(OverviewPage::class)
             ->set('tab', 'search_terms')

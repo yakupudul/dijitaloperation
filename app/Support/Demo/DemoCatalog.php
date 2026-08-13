@@ -746,85 +746,32 @@ final class DemoCatalog
      */
     public static function metaCampaigns(string $preset = 'last_28'): array
     {
-        $f = self::periodFactors($preset);
+        $workspace = MetaAdsWorkspaceFixtures::workspace($preset);
+        $rows = [];
+        foreach ($workspace['campaigns'] as $campaign) {
+            $rows[] = [
+                'id' => $campaign['id'],
+                'name' => $campaign['name'],
+                'status' => $campaign['status'],
+                'objective' => match ($campaign['objective_family']) {
+                    'Leads' => 'OUTCOME_LEADS',
+                    'Messaging' => 'OUTCOME_ENGAGEMENT',
+                    'Awareness' => 'OUTCOME_AWARENESS',
+                    default => 'OUTCOME_LEADS',
+                },
+                'spend' => $campaign['spend'],
+                'results' => $campaign['results'],
+                'result_label' => $campaign['result_label'],
+                'cost_result' => $campaign['cost_result'],
+                'reach' => $campaign['reach'],
+                'frequency' => $campaign['frequency'],
+                'ctr' => $campaign['ctr'],
+                'attention' => $campaign['attention_primary'] ? strtolower((string) $campaign['attention_primary']) : null,
+                'trend' => [4, 5, 6, 7, 8, 9, 8],
+            ];
+        }
 
-        return [
-            [
-                'id' => 'camp-pb-eu',
-                'name' => 'Post Bariatric — Europe',
-                'status' => 'ACTIVE',
-                'objective' => 'OUTCOME_LEADS',
-                'spend' => round(68420 * $f['spend_factor']),
-                'results' => (int) round(99 * $f['results_factor']),
-                'result_label' => 'Leads',
-                'cost_result' => round(691 * $f['efficiency_factor']),
-                'reach' => (int) round(92000 * $f['results_factor']),
-                'frequency' => round(2.4 * $f['efficiency_factor'], 1),
-                'ctr' => round(1.4 / max(0.85, $f['efficiency_factor']), 2),
-                'attention' => 'high',
-                'trend' => [4, 5, 6, 7, 8, 9, 11],
-            ],
-            [
-                'id' => 'camp-impl-tr',
-                'name' => 'Implant — Türkiye',
-                'status' => 'ACTIVE',
-                'objective' => 'OUTCOME_LEADS',
-                'spend' => round(52110 * $f['spend_factor']),
-                'results' => (int) round(118 * $f['results_factor']),
-                'result_label' => 'Leads',
-                'cost_result' => round(442 * $f['efficiency_factor']),
-                'reach' => (int) round(140000 * $f['results_factor']),
-                'frequency' => round(2.0 * $f['efficiency_factor'], 1),
-                'ctr' => round(3.1 / max(0.85, $f['efficiency_factor']), 2),
-                'attention' => null,
-                'trend' => [6, 6, 7, 7, 8, 8, 7],
-            ],
-            [
-                'id' => 'camp-msg-local',
-                'name' => 'Messaging — Local Ankara',
-                'status' => 'ACTIVE',
-                'objective' => 'OUTCOME_ENGAGEMENT',
-                'spend' => round(38400 * $f['spend_factor']),
-                'results' => (int) round(860 * $f['results_factor']),
-                'result_label' => 'Messaging conversations',
-                'cost_result' => round(45 * $f['efficiency_factor']),
-                'reach' => (int) round(110000 * $f['results_factor']),
-                'frequency' => round(1.9 * $f['efficiency_factor'], 1),
-                'ctr' => round(2.9 / max(0.85, $f['efficiency_factor']), 2),
-                'attention' => null,
-                'trend' => [5, 6, 6, 7, 8, 9, 9],
-            ],
-            [
-                'id' => 'camp-retarget',
-                'name' => 'Retargeting — Form',
-                'status' => 'PAUSED',
-                'objective' => 'OUTCOME_LEADS',
-                'spend' => round(25390 * $f['spend_factor']),
-                'results' => (int) round(95 * $f['results_factor']),
-                'result_label' => 'Leads',
-                'cost_result' => round(267 * $f['efficiency_factor']),
-                'reach' => (int) round(48000 * $f['results_factor']),
-                'frequency' => round(3.1 * $f['efficiency_factor'], 1),
-                'ctr' => round(2.2 / max(0.85, $f['efficiency_factor']), 2),
-                'attention' => 'medium',
-                'trend' => [8, 7, 6, 5, 5, 4, 4],
-            ],
-            [
-                'id' => 'camp-awareness',
-                'name' => 'Brand Awareness — Ankara',
-                'status' => 'ACTIVE',
-                'objective' => 'OUTCOME_AWARENESS',
-                'spend' => round(12400 * $f['spend_factor']),
-                'results' => (int) round(210000 * $f['results_factor']),
-                'result_label' => 'Reach',
-                'cost_result' => round(18 * $f['efficiency_factor']),
-                'reach' => (int) round(210000 * $f['results_factor']),
-                'frequency' => round(1.4 * $f['efficiency_factor'], 1),
-                'ctr' => round(1.1 / max(0.85, $f['efficiency_factor']), 2),
-                'attention' => null,
-                'trend' => [3, 4, 4, 5, 5, 6, 6],
-            ],
-        ];
+        return $rows;
     }
 
     /**
@@ -832,21 +779,7 @@ final class DemoCatalog
      */
     public static function metaCampaign(string $id, string $preset = 'last_28'): ?array
     {
-        foreach (self::metaCampaigns($preset) as $campaign) {
-            if ($campaign['id'] === $id) {
-                $campaign['adsets'] = self::metaAdSets($id, $preset);
-                $campaign['kpis'] = [
-                    ['label' => 'Spend', 'value' => $campaign['spend'], 'format' => 'try'],
-                    ['label' => $campaign['result_label'], 'value' => $campaign['results'], 'format' => 'int'],
-                    ['label' => 'Cost / Result', 'value' => $campaign['cost_result'], 'format' => 'try'],
-                    ['label' => 'Link CTR', 'value' => $campaign['ctr'], 'format' => 'pct'],
-                ];
-
-                return $campaign;
-            }
-        }
-
-        return null;
+        return MetaAdsWorkspaceFixtures::campaignDetail($id, $preset);
     }
 
     /**

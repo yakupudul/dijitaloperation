@@ -4,13 +4,13 @@
     $assetId = $assetId ?? DemoCatalog::META_ASSET_ID;
     $active = $active ?? 'overview';
     $tabs = [
-        ['key' => 'overview', 'label' => 'Overview', 'url' => route('demo.meta.overview', ['assetId' => $assetId])],
-        ['key' => 'campaigns', 'label' => 'Campaigns', 'url' => route('demo.meta.campaigns', ['assetId' => $assetId])],
-        ['key' => 'adsets', 'label' => 'Ad Sets', 'url' => route('demo.meta.adsets', ['assetId' => $assetId])],
-        ['key' => 'ads', 'label' => 'Ads', 'url' => route('demo.meta.ads', ['assetId' => $assetId])],
-        ['key' => 'creatives', 'label' => 'Creatives', 'url' => route('demo.meta.creatives', ['assetId' => $assetId])],
-        ['key' => 'breakdowns', 'label' => 'Breakdowns', 'url' => route('demo.meta.breakdowns', ['assetId' => $assetId])],
-        ['key' => 'insights', 'label' => 'Insights', 'url' => route('demo.meta.insights', ['assetId' => $assetId])],
+        ['key' => 'overview', 'label' => 'Overview', 'url' => route('demo.meta.overview', ['assetId' => $assetId, 'tab' => 'overview'])],
+        ['key' => 'campaigns', 'label' => 'Campaigns', 'url' => route('demo.meta.overview', ['assetId' => $assetId, 'tab' => 'campaigns'])],
+        ['key' => 'creatives', 'label' => 'Creatives', 'url' => route('demo.meta.overview', ['assetId' => $assetId, 'tab' => 'creatives'])],
+        ['key' => 'audience', 'label' => 'Audience & Delivery', 'url' => route('demo.meta.overview', ['assetId' => $assetId, 'tab' => 'audience'])],
+        ['key' => 'funnel', 'label' => 'Funnel & Destinations', 'url' => route('demo.meta.overview', ['assetId' => $assetId, 'tab' => 'funnel'])],
+        ['key' => 'measurement', 'label' => 'Measurement', 'url' => route('demo.meta.overview', ['assetId' => $assetId, 'tab' => 'measurement'])],
+        ['key' => 'operations', 'label' => 'Operations', 'url' => route('demo.meta.overview', ['assetId' => $assetId, 'tab' => 'operations'])],
     ];
 @endphp
 

@@ -202,8 +202,9 @@ final class MetaAdsWorkspaceFixtures
         $costPrimary = $leads > 0 ? (int) round($leadSpend / $leads) : null;
 
         $pacing = self::pacing((int) $totals['spend'], $f);
-        $resultMix = self::resultMix($campaigns, $costPrimary);
-        $creatives = self::creatives($campaigns, $rangeStart, $rangeEnd);
+        $resultMixItems = self::resultMix($campaigns, $costPrimary);
+        $creatives = self::presentCreatives(self::creatives($campaigns, $rangeStart, $rangeEnd));
+        $resultMix = self::presentResultMix($resultMixItems);
 
         return [
             'period_label' => $f['label'],
@@ -214,13 +215,16 @@ final class MetaAdsWorkspaceFixtures
             'demo_boundary' => 'Demo Mode · product vision fixtures — no live Meta write or Graph API',
             'identity' => self::identity(),
             'freshness' => self::freshness(),
-            'glance' => self::glance($totals, $resultMix, $costPrimary, $pacing, $compareTotals, $f),
+            'glance' => self::glance($totals, $resultMixItems, $costPrimary, $pacing, $compareTotals, $f),
             'result_mix' => $resultMix,
             'pacing' => $pacing,
             'needs_attention' => self::needsAttention($campaigns),
             'performance_trend' => self::performanceTrend($rangeStart, $rangeEnd, $f),
             'campaigns' => $campaigns,
-            'creative_pulse' => self::creativePulse($creatives),
+            'campaigns_tab' => [
+                'subtitle' => 'Campaign Context + delivery · typed results stay separate.',
+            ],
+            'creative_pulse' => self::creativePulseCards($creatives),
             'creatives' => $creatives,
             'audience' => self::audience($totals),
             'funnel' => self::funnel($campaigns, $totals),
@@ -230,6 +234,11 @@ final class MetaAdsWorkspaceFixtures
             'recent_outcomes' => self::recentOutcomes(),
             'narrative' => $f['narrative'] ?? null,
             'currency' => self::CURRENCY,
+            'business_goal' => [
+                'goal' => 'Qualified consultation',
+                'primary_conversion' => 'Instant Form lead → CRM accepted',
+            ],
+            'conversion_lag_note' => 'Meta-attributed results · CRM stages may lag platform reporting.',
         ];
     }
 
@@ -297,7 +306,8 @@ final class MetaAdsWorkspaceFixtures
             'website_asset_id' => DemoCatalog::WEBSITE_ASSET_ID,
             'meta_asset_id' => DemoCatalog::META_ASSET_ID,
             'strategy_line' => 'Germany · Turkish · Acquisition',
-            'status' => 'Connected · Data through Aug 12',
+            'status' => 'Connected',
+            'freshness' => 'Data through Aug 12',
             'reporting_timezone' => DemoPeriod::TIMEZONE,
             'currency' => self::CURRENCY,
             'ad_account' => 'Atlas Health — Europe (act_demo_atlas_eu)',
@@ -329,26 +339,36 @@ final class MetaAdsWorkspaceFixtures
     {
         $spendDelta = self::pctDelta((int) $totals['spend'], (int) $compareTotals['spend']);
         $primary = $resultMix[0] ?? null;
-        $secondary = array_slice($resultMix, 1);
+        $secondaryBits = [];
+        foreach (array_slice($resultMix, 1) as $row) {
+            $secondaryBits[] = number_format((int) $row['results']).' '.$row['label'];
+        }
 
         return [
             'spend' => [
                 'value' => '₺'.number_format((int) $totals['spend']),
                 'raw' => (int) $totals['spend'],
-                'secondary' => self::formatDelta($spendDelta).' vs previous '.$f['label'],
+                'secondary' => self::formatDelta($spendDelta).' vs previous period',
                 'tone' => 'neutral',
             ],
             'result_mix' => [
+                'value' => $primary
+                    ? number_format((int) $primary['results']).' '.$primary['label']
+                    : 'Mixed result types',
+                'secondary' => $secondaryBits !== []
+                    ? implode(' · ', array_slice($secondaryBits, 0, 2))
+                    : 'Heterogeneous objectives',
+                'tone' => 'neutral',
                 'primary' => $primary,
-                'secondary' => $secondary,
+                'secondary_rows' => array_slice($resultMix, 1),
                 'note' => 'Heterogeneous objectives — do not sum into one total',
             ],
             'cost_primary' => [
-                'value' => $costPrimary !== null ? '₺'.number_format($costPrimary) : 'Cost / lead unavailable',
+                'value' => $costPrimary !== null ? '₺'.number_format($costPrimary).' / Lead' : 'Mixed result types',
                 'raw' => $costPrimary,
                 'secondary' => $costPrimary !== null
                     ? 'Primary Instant Form leads · '.$f['label']
-                    : 'No lead results in period',
+                    : 'No single dominant result type',
                 'tone' => $costPrimary !== null && $costPrimary > 450 ? 'warning' : 'neutral',
             ],
             'pacing' => [
@@ -380,6 +400,7 @@ final class MetaAdsWorkspaceFixtures
 
         $expected = (int) round($planned * ($elapsedPct / 100));
         $state = abs($spendPct - $elapsedPct) <= 8 ? 'On plan' : ($spendPct > $elapsedPct ? 'Ahead of plan' : 'Behind plan');
+        $aheadBy = max(0, $spend - $expected);
 
         return [
             'source' => 'Agency planned budget · operator context',
@@ -390,6 +411,7 @@ final class MetaAdsWorkspaceFixtures
             'actual_spend' => $spend,
             'spend_pct' => $spendPct,
             'remaining' => max(0, $planned - $spend),
+            'ahead_by' => $aheadBy,
             'state' => $state,
             'summary' => $spendPct.'% spent · '.$elapsedPct.'% period elapsed',
             'projected' => (int) round($planned * ($spendPct / max(1, $elapsedPct))),
@@ -504,10 +526,20 @@ final class MetaAdsWorkspaceFixtures
             $agg = self::aggregateCampaign($id, $start, $end);
             $results = (int) $agg['results'];
             $spend = (int) $agg['spend'];
+            $attention = $base['attention'];
+            $attentionList = $attention ? [ucfirst((string) $attention)] : [];
+            $pacingState = match (true) {
+                $base['status'] === 'PAUSED' => 'Paused',
+                $id === 'camp-pb-eu' => 'On plan',
+                $id === 'camp-bl-web' => 'Ahead',
+                default => 'On plan',
+            };
+
             $rows[] = [
                 'id' => $id,
                 'name' => $base['name'],
                 'status' => $base['status'],
+                'objective' => $base['objective_family'],
                 'objective_family' => $base['objective_family'],
                 'optimization' => $base['optimization'],
                 'destination' => $base['destination'],
@@ -516,16 +548,46 @@ final class MetaAdsWorkspaceFixtures
                 'market' => $base['market'],
                 'language' => $base['language'],
                 'goal' => $base['goal'],
-                'attention' => $base['attention'],
+                'funnel' => $base['goal'],
+                'attention' => $attentionList,
+                'attention_primary' => $attentionList[0] ?? null,
                 'story' => $base['story'],
                 'context' => [
                     'offering' => $base['offering'],
                     'market' => $base['market'],
                     'language' => $base['language'],
+                    'audience_strategy' => match ($id) {
+                        'camp-pb-eu', 'camp-mm-eu' => 'Diaspora prospecting',
+                        'camp-msg-retarget', 'camp-retarget' => 'Retargeting',
+                        'camp-aware-ig' => 'Broad awareness',
+                        default => 'Prospecting',
+                    },
+                    'funnel_stage' => $base['goal'],
                     'goal' => $base['goal'],
                     'destination' => $base['destination'],
+                    'platform_result' => $base['result_label'],
+                    'desired_business_outcome' => match ($base['result_label']) {
+                        'Leads', 'Website leads' => 'Qualified consultation',
+                        'Messaging conversations' => 'Qualified enquiry',
+                        default => 'Profile engagement',
+                    },
+                    'creative_strategy' => match ($id) {
+                        'camp-pb-eu' => ['Trust', 'Transformation', 'Expert'],
+                        'camp-mm-eu' => ['Price', 'Trust'],
+                        'camp-bl-web' => ['Offer'],
+                        default => ['Coverage'],
+                    },
                     'optimization' => $base['optimization'],
+                    'planned_budget' => match ($id) {
+                        'camp-pb-eu' => 30000,
+                        'camp-mm-eu' => 25000,
+                        'camp-bl-web' => 18000,
+                        'camp-msg-retarget' => 12000,
+                        'camp-aware-ig' => 10000,
+                        default => 5000,
+                    },
                 ],
+                'pacing' => $pacingState,
                 'spend' => $spend,
                 'results' => $results,
                 'cost_result' => $results > 0 ? (int) round($spend / $results) : null,
@@ -850,41 +912,150 @@ final class MetaAdsWorkspaceFixtures
     }
 
     /**
-     * @param  array{gallery: list<array<string, mixed>>, angles: list<array<string, mixed>>, coverage: array<string, mixed>, personas: list<array<string, mixed>>, tests: list<array<string, mixed>>, variants: list<array<string, mixed>>}  $creatives
-     * @return array<string, mixed>
+     * @param  array{gallery: list<array<string, mixed>>, angles: list<array<string, mixed>>, coverage: list<array<string, mixed>>, persona_coverage: list<array<string, mixed>>, active_tests: list<array<string, mixed>>, variants: list<array<string, mixed>>, subtitle?: string}  $creatives
+     * @return list<array<string, mixed>>
      */
-    public static function creativePulse(array $creatives): array
+    public static function creativePulseCards(array $creatives): array
     {
-        $fatigue = null;
-        $stable = null;
-        $weak = null;
-        $new = null;
+        $bySignal = [];
         foreach ($creatives['gallery'] as $row) {
-            if ($row['signal'] === 'fatigue_candidate') {
-                $fatigue = $row;
-            }
-            if ($row['signal'] === 'stable_qualified') {
-                $stable = $row;
-            }
-            if ($row['signal'] === 'cheap_weak_qualified') {
-                $weak = $row;
-            }
-            if ($row['signal'] === 'insufficient_history') {
-                $new = $row;
+            $bySignal[$row['signal']] = $row;
+        }
+
+        $cards = [];
+        foreach (['stable_qualified', 'cheap_weak_qualified', 'fatigue_candidate', 'insufficient_history'] as $signal) {
+            if (isset($bySignal[$signal])) {
+                $cards[] = $bySignal[$signal];
             }
         }
 
+        return $cards;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $items
+     * @return array{items: list<array<string, mixed>>, note: string}
+     */
+    public static function presentResultMix(array $items): array
+    {
+        $tones = [
+            'Leads' => 'emerald',
+            'Messaging conversations' => 'blue',
+            'Instagram profile visits' => 'violet',
+            'Website leads' => 'amber',
+        ];
+        $presented = [];
+        foreach ($items as $item) {
+            $presented[] = [
+                'label' => $item['label'],
+                'count' => (int) $item['results'],
+                'results' => (int) $item['results'],
+                'spend' => (int) $item['spend'],
+                'tone' => $tones[$item['label']] ?? 'slate',
+                'role' => $item['role'] ?? 'secondary',
+                'cost_result' => $item['cost_result'] ?? null,
+            ];
+        }
+
         return [
-            'subtitle' => 'Creative stories visible without fake fatigue/health scores.',
-            'stable' => $stable,
-            'fatigue_candidate' => $fatigue,
-            'cheap_weak_qualified' => $weak,
-            'insufficient_history' => $new,
-            'counts' => [
-                'gallery' => count($creatives['gallery']),
-                'angles' => count($creatives['angles']),
-                'tests' => count($creatives['tests']),
-            ],
+            'items' => $presented,
+            'note' => 'Result types retain separate meaning — do not sum',
+        ];
+    }
+
+    /**
+     * @param  array{gallery: list<array<string, mixed>>, angles: list<array<string, mixed>>, coverage: array<string, mixed>, personas: list<array<string, mixed>>, tests: list<array<string, mixed>>, variants: list<array<string, mixed>>}  $creatives
+     * @return array<string, mixed>
+     */
+    public static function presentCreatives(array $creatives): array
+    {
+        $gallery = [];
+        $angleSpend = [];
+        $angleResults = [];
+        $angleLabels = [];
+        $angleCounts = [];
+
+        foreach ($creatives['gallery'] as $row) {
+            $thumb = $row['thumb_gradient'];
+            $signalLabel = match ($row['signal']) {
+                'fatigue_candidate' => 'Fatigue candidate',
+                'cheap_weak_qualified' => 'Lead quality watch',
+                'insufficient_history' => 'Insufficient history',
+                'destination_language' => 'Destination review',
+                'stable_qualified' => 'Stable',
+                default => null,
+            };
+            $presented = array_merge($row, [
+                'thumb' => $thumb,
+                'campaign' => $row['campaign_name'],
+                'result' => (int) $row['results'],
+                'signal' => $signalLabel,
+                'signal_key' => $row['signal'],
+                'headline' => $row['note'],
+            ]);
+            $gallery[] = $presented;
+
+            $angle = (string) $row['angle'];
+            $angleSpend[$angle] = ($angleSpend[$angle] ?? 0) + (int) $row['spend'];
+            $angleResults[$angle] = ($angleResults[$angle] ?? 0) + (int) $row['results'];
+            $angleCounts[$angle] = ($angleCounts[$angle] ?? 0) + 1;
+            $angleLabels[$angle] = (string) $row['result_label'];
+        }
+
+        $totalAngleSpend = max(1, array_sum($angleSpend));
+        $angles = [];
+        foreach ($angleSpend as $angle => $spend) {
+            $angles[] = [
+                'label' => $angle,
+                'angle' => $angle,
+                'creatives' => $angleCounts[$angle],
+                'spend' => $spend,
+                'results' => $angleResults[$angle],
+                'result_label' => $angleLabels[$angle],
+                'share' => (int) round(($spend / $totalAngleSpend) * 100),
+                'note' => '',
+            ];
+        }
+        usort($angles, static fn (array $a, array $b): int => $b['spend'] <=> $a['spend']);
+
+        $coverage = [
+            ['label' => 'Trust angle', 'state' => 'Strong'],
+            ['label' => 'Price angle', 'state' => 'Present'],
+            ['label' => 'Transformation angle', 'state' => 'Thin'],
+            ['label' => 'Expert angle', 'state' => 'Thin'],
+            ['label' => 'Education angle', 'state' => 'Missing'],
+        ];
+
+        $personaCoverage = [];
+        $personaTotal = max(1, array_sum(array_column($creatives['personas'], 'creatives')));
+        foreach ($creatives['personas'] as $persona) {
+            $share = (int) round(($persona['creatives'] / $personaTotal) * 100);
+            $personaCoverage[] = [
+                'persona' => $persona['persona'],
+                'share' => $share,
+                'state' => $share < 15 ? 'Thin' : ($persona['fit'] ?? 'Present'),
+            ];
+        }
+
+        $activeTests = [];
+        foreach ($creatives['tests'] as $test) {
+            $activeTests[] = [
+                'name' => $test['title'],
+                'status' => $test['status'],
+                'note' => $test['note'],
+            ];
+        }
+
+        return [
+            'subtitle' => 'Which messages, formats and creative angles are carrying paid-social acquisition.',
+            'gallery' => $gallery,
+            'angles' => $angles,
+            'coverage' => $coverage,
+            'persona_coverage' => $personaCoverage,
+            'personas' => $creatives['personas'],
+            'active_tests' => $activeTests,
+            'tests' => $creatives['tests'],
+            'variants' => $creatives['variants'],
         ];
     }
 
@@ -896,50 +1067,58 @@ final class MetaAdsWorkspaceFixtures
     {
         $spend = max(1, (int) $totals['spend']);
 
+        $placements = self::barRows([
+            ['label' => 'Instagram Reels', 'share' => 44],
+            ['label' => 'Instagram Feed', 'share' => 29],
+            ['label' => 'Facebook Feed', 'share' => 18],
+            ['label' => 'Other', 'share' => 9],
+        ], $spend);
+        $age = self::barRows([
+            ['label' => '25–34', 'share' => 21],
+            ['label' => '35–44', 'share' => 37],
+            ['label' => '45–54', 'share' => 31],
+            ['label' => '55+', 'share' => 11],
+        ], $spend);
+        $country = self::barRows([
+            ['label' => 'Germany', 'share' => 72],
+            ['label' => 'Netherlands', 'share' => 12],
+            ['label' => 'Austria', 'share' => 9],
+            ['label' => 'Other EU', 'share' => 7],
+        ], $spend);
+        $gender = self::barRows([
+            ['label' => 'Female', 'share' => 71],
+            ['label' => 'Male', 'share' => 26],
+            ['label' => 'Unknown', 'share' => 3],
+        ], $spend);
+        $platform = self::barRows([
+            ['label' => 'Instagram', 'share' => 61],
+            ['label' => 'Facebook', 'share' => 36],
+            ['label' => 'Audience Network', 'share' => 3],
+        ], $spend);
+
         return [
-            'subtitle' => 'Configured targeting vs observed delivery — bars are Demo fixtures, not live Graph breakdowns.',
+            'subtitle' => 'How Meta actually distributed spend and exposure across people, placements and markets.',
             'configured' => [
-                'locations' => ['Germany'],
-                'languages' => ['Turkish', 'German'],
-                'age' => '25–54',
-                'gender' => 'All (skew female expected)',
-                'platforms' => ['Facebook', 'Instagram'],
-                'placements' => ['Advantage+ placements (Feed, Stories, Reels)'],
+                ['label' => 'Countries', 'value' => 'Germany'],
+                ['label' => 'Language', 'value' => 'Turkish'],
+                ['label' => 'Audience strategy', 'value' => 'Broad diaspora prospecting'],
+                ['label' => 'Age', 'value' => '25–55'],
+                ['label' => 'Placements', 'value' => 'Advantage+ placements'],
             ],
             'observed' => [
-                'placement' => self::barRows([
-                    ['label' => 'Instagram Feed', 'share' => 34],
-                    ['label' => 'Facebook Feed', 'share' => 28],
-                    ['label' => 'Instagram Stories', 'share' => 18],
-                    ['label' => 'Reels', 'share' => 14],
-                    ['label' => 'Audience Network', 'share' => 6],
-                ], $spend),
-                'age' => self::barRows([
-                    ['label' => '18–24', 'share' => 8],
-                    ['label' => '25–34', 'share' => 36],
-                    ['label' => '35–44', 'share' => 32],
-                    ['label' => '45–54', 'share' => 18],
-                    ['label' => '55+', 'share' => 6],
-                ], $spend),
-                'country' => self::barRows([
-                    ['label' => 'Germany', 'share' => 78],
-                    ['label' => 'Netherlands', 'share' => 9],
-                    ['label' => 'Austria', 'share' => 7],
-                    ['label' => 'Other EU', 'share' => 6],
-                ], $spend),
-                'gender' => self::barRows([
-                    ['label' => 'Female', 'share' => 71],
-                    ['label' => 'Male', 'share' => 26],
-                    ['label' => 'Unknown', 'share' => 3],
-                ], $spend),
-                'platform' => self::barRows([
-                    ['label' => 'Instagram', 'share' => 58],
-                    ['label' => 'Facebook', 'share' => 39],
-                    ['label' => 'Audience Network', 'share' => 3],
-                ], $spend),
+                ['label' => 'Top country', 'value' => 'Germany 72%'],
+                ['label' => 'Top placement', 'value' => 'Instagram Reels 44%'],
+                ['label' => 'Age concentration', 'value' => '35–54 strong'],
+                ['label' => 'Platform', 'value' => 'Instagram-led'],
             ],
+            'placements' => $placements,
+            'age' => $age,
+            'country' => $country,
+            'gender' => $gender,
+            'platform' => $platform,
+            'concentration_note' => '44% of spend concentrated in Instagram Reels — informational until creative fit is reviewed.',
             'gaps' => [
-                'Configured Germany-only; observed 22% delivery outside Germany (NL/AT/other).',
+                'Configured Germany-only; observed spill into NL/AT/other.',
                 'Audience Network still taking a small share despite lead-quality focus.',
             ],
         ];
@@ -977,7 +1156,9 @@ final class MetaAdsWorkspaceFixtures
 
         $rows = [];
         foreach ($destinations as $label => $row) {
+            $share = (int) round(($row['spend'] / max(1, (int) $totals['spend'])) * 100);
             $rows[] = [
+                'label' => $label,
                 'destination' => $label,
                 'campaigns' => $row['campaigns'],
                 'spend' => $row['spend'],
@@ -985,13 +1166,97 @@ final class MetaAdsWorkspaceFixtures
                 'results' => $row['results'],
                 'results_display' => number_format($row['results']),
                 'result_label' => $row['result_label'],
-                'share_pct' => (int) round(($row['spend'] / max(1, (int) $totals['spend'])) * 100),
+                'share' => $share,
+                'share_pct' => $share,
             ];
         }
 
+        $instant = $destinations['Instant Forms'];
+        $website = $destinations['Website'];
+        $messaging = $destinations['Messaging'];
+        $profile = $destinations['Instagram Profile'];
+
         return [
-            'subtitle' => 'Where Meta traffic is sent — Website, Instant Forms, Messaging, Instagram Profile.',
+            'subtitle' => 'What happens after Meta delivers the ad and where the acquisition journey continues.',
             'destinations' => $rows,
+            'instant_form' => [
+                'spend' => $instant['spend'],
+                'leads' => $instant['results'],
+                'cost_lead' => $instant['results'] > 0 ? (int) round($instant['spend'] / $instant['results']) : 0,
+                'complete_rate' => '68%',
+                'notes' => [
+                    'Qualification questions present · privacy policy linked',
+                    'High Meta lead volume · CRM demo shows lower accept rate on Price angle',
+                ],
+                'attention' => 'Lead quality gap — review message + form qualification',
+            ],
+            'website' => [
+                'spend' => $website['spend'],
+                'landings' => 2,
+                'primary_action' => 'Lead form',
+                'message_match' => 'Weak',
+                'note' => 'German-market Breast Lift campaign routes to an English landing page.',
+            ],
+            'messaging' => [
+                'spend' => $messaging['spend'],
+                'conversations' => $messaging['results'],
+                'cost_conversation' => $messaging['results'] > 0 ? (int) round($messaging['spend'] / $messaging['results']) : 0,
+                'downstream' => 'Partial CRM validation (demo)',
+                'state' => 'Partial',
+                'note' => 'Stop at conversation when inbox/CRM evidence ends.',
+            ],
+            'instagram_profile' => [
+                'spend' => $profile['spend'],
+                'visits' => $profile['results'],
+                'profile_visits' => $profile['results'],
+                'role' => 'Awareness',
+                'state' => 'Platform only',
+                'cost_visit' => $profile['results'] > 0 ? (int) round($profile['spend'] / $profile['results']) : 0,
+                'note' => 'Platform-only · do not infer follow, DM, or sale.',
+            ],
+            'message_match' => [
+                ['path' => 'Post Bariatric → Instant Form', 'state' => 'Strong', 'detail' => 'Form promise aligns with Trust creative'],
+                ['path' => 'Mommy Makeover → Instant Form', 'state' => 'Partial', 'detail' => 'Price creative vs consultation intent'],
+                ['path' => 'Breast Lift → Website', 'state' => 'Weak', 'detail' => 'Language mismatch on destination'],
+            ],
+            'shapes' => [
+                [
+                    'label' => 'Instant Form',
+                    'steps' => [
+                        ['label' => 'Ad', 'value' => '—'],
+                        ['label' => 'Form opens', 'value' => 'Demo'],
+                        ['label' => 'Meta leads', 'value' => number_format($instant['results'])],
+                        ['label' => 'CRM accepted', 'value' => 'Demo'],
+                    ],
+                    'note' => 'Stop when CRM evidence ends',
+                ],
+                [
+                    'label' => 'Website',
+                    'steps' => [
+                        ['label' => 'Ad', 'value' => '—'],
+                        ['label' => 'Landing', 'value' => 'EN page'],
+                        ['label' => 'Website leads', 'value' => number_format($website['results'])],
+                    ],
+                    'note' => 'Language mismatch under review',
+                ],
+                [
+                    'label' => 'Messaging',
+                    'steps' => [
+                        ['label' => 'Ad', 'value' => '—'],
+                        ['label' => 'Conversations', 'value' => number_format($messaging['results'])],
+                        ['label' => 'Qualified enquiry', 'value' => 'Partial'],
+                    ],
+                    'note' => 'Downstream only with inbox/CRM evidence',
+                ],
+                [
+                    'label' => 'Instagram Profile',
+                    'steps' => [
+                        ['label' => 'Ad', 'value' => '—'],
+                        ['label' => 'Profile visits', 'value' => number_format($profile['results'])],
+                    ],
+                    'note' => 'No follow/DM/sale inference',
+                ],
+            ],
             'stories' => [
                 [
                     'id' => 'funnel-lang',
@@ -1015,7 +1280,20 @@ final class MetaAdsWorkspaceFixtures
         $treated = (int) round(6 * $scale);
 
         return [
-            'subtitle' => 'Platform results mapped to CRM demo outcomes — no fake composite scores.',
+            'subtitle' => 'Whether Meta platform results can be connected to meaningful business outcomes.',
+            'missing_note' => 'Missing ≠ zero — absent business evidence is not a Meta result of 0.',
+            'glance' => [
+                'primary_mappings' => 2,
+                'healthy' => 'CRM demo connected',
+                'needs_mapping' => 2,
+                'findings' => 2,
+            ],
+            'matrix' => [
+                ['action' => 'New enquiry', 'meta_result' => 'Lead', 'role' => 'Primary', 'state' => 'Healthy', 'source' => 'CRM'],
+                ['action' => 'Conversation started', 'meta_result' => 'Messaging conversation', 'role' => 'Secondary', 'state' => 'Partial', 'source' => 'CRM/Inbox'],
+                ['action' => 'Profile engagement', 'meta_result' => 'Profile visit', 'role' => 'Awareness', 'state' => 'Platform only', 'source' => '—'],
+                ['action' => 'Website lead form', 'meta_result' => 'Website conversion', 'role' => 'Secondary', 'state' => 'Needs mapping', 'source' => 'GA4/CRM'],
+            ],
             'result_mapping' => [
                 ['platform' => 'Instant Form lead', 'role' => 'Primary', 'state' => 'Mapped', 'trust' => 'Healthy'],
                 ['platform' => 'Messaging conversation', 'role' => 'Secondary', 'state' => 'Mapped', 'trust' => 'Partial'],
@@ -1027,12 +1305,35 @@ final class MetaAdsWorkspaceFixtures
                 'label' => 'CRM demo connected',
                 'detail' => 'Atlas Health lead stages available for Instant Form leads in Demo Mode.',
             ],
+            'business_funnel' => [
+                'note' => 'CRM Demo evidence · Meta-attributed upstream',
+                'steps' => [
+                    ['label' => 'Meta leads', 'value' => number_format($leads), 'state' => 'Present'],
+                    ['label' => 'Contacted', 'value' => number_format($crmAccepted), 'state' => 'Present'],
+                    ['label' => 'Qualified', 'value' => number_format($consultBooked), 'state' => 'Present'],
+                    ['label' => 'Consultations', 'value' => number_format($qualified), 'state' => 'Present'],
+                    ['label' => 'Sales', 'value' => number_format($treated), 'state' => 'Present'],
+                ],
+            ],
             'business_outcome_funnel' => [
                 ['stage' => 'Platform leads', 'count' => $leads, 'display' => number_format($leads)],
                 ['stage' => 'CRM accepted', 'count' => $crmAccepted, 'display' => number_format($crmAccepted)],
                 ['stage' => 'Consult booked', 'count' => $consultBooked, 'display' => number_format($consultBooked)],
                 ['stage' => 'Qualified', 'count' => $qualified, 'display' => number_format($qualified)],
                 ['stage' => 'Treated', 'count' => $treated, 'display' => number_format($treated)],
+            ],
+            'lead_quality' => [
+                'title' => 'Lead quality gap',
+                'source' => 'CRM Demo evidence',
+                'meta_cpl' => '₺188',
+                'qualified_cpl' => '₺1,940',
+                'metrics' => [
+                    ['label' => 'Meta CPL', 'value' => '₺188'],
+                    ['label' => 'Qualified CPL', 'value' => '₺1,940'],
+                    ['label' => 'Meta leads', 'value' => number_format($leads)],
+                    ['label' => 'Qualified', 'value' => number_format($consultBooked)],
+                ],
+                'note' => 'Price-focused acquisition · review creative/message and qualification — no automatic causal claim.',
             ],
             'lead_quality_gap' => [
                 'title' => 'Lead quality gap',
@@ -1041,17 +1342,30 @@ final class MetaAdsWorkspaceFixtures
                 'gap' => max(0, $leads - $crmAccepted),
                 'note' => 'Price-led Instant Form creatives inflate platform leads relative to CRM accept.',
             ],
+            'trust_chips' => [
+                ['label' => 'Meta Leads', 'state' => 'Healthy'],
+                ['label' => 'Messaging', 'state' => 'Partial'],
+                ['label' => 'Profile visits', 'state' => 'Platform only'],
+                ['label' => 'Website lead', 'state' => 'Needs mapping'],
+            ],
             'trust_states' => [
-                ['area' => 'Primary Instant Form mapping', 'state' => 'Trusted'],
-                ['area' => 'CRM stage progression', 'state' => 'Trusted (demo)'],
-                ['area' => 'Website conversion import', 'state' => 'Needs review'],
-                ['area' => 'Messaging → CRM', 'state' => 'Partial'],
+                ['area' => 'Primary Instant Form mapping', 'state' => 'Business validated'],
+                ['area' => 'CRM stage progression', 'state' => 'Partially validated'],
+                ['area' => 'Website conversion import', 'state' => 'Measurement incomplete'],
+                ['area' => 'Messaging → CRM', 'state' => 'Partially validated'],
             ],
             'measurement_debt' => [
                 ['label' => 'Website lead event mapping incomplete', 'severity' => 'Medium'],
                 ['label' => 'Messaging conversations not fully staged in CRM', 'severity' => 'Medium'],
                 ['label' => 'Profile visits remain platform-only (expected)', 'severity' => 'Low'],
             ],
+            'debt' => [
+                ['label' => 'Website lead event mapping incomplete', 'severity' => 'Medium', 'count' => 1],
+                ['label' => 'Messaging conversations not fully staged in CRM', 'severity' => 'Medium', 'count' => 1],
+                ['label' => 'Profile visits remain platform-only (expected)', 'severity' => 'Low', 'count' => 1],
+            ],
+            'interpretation_note' => 'Do not judge acquisition usefulness from Meta CPL alone when business outcomes exist.',
+            'finding_id' => 'meta-f-lead-quality',
         ];
     }
 
