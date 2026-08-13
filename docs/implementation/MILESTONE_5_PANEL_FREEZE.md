@@ -57,9 +57,9 @@ Status reference for the frozen `/app` operator panel. UI work after this docume
 | Incremental Coverage Planner | REAL | Provider-neutral gap/catch-up/reprocess planning |
 | Due Collection Query | REAL | DB/policy driven; zero provider HTTP |
 | Start Incremental Collection | REAL | `CollectionTriggerType::Incremental`; idempotent fingerprint |
-| GA4/GSC/Ads/Meta real-data UI | PARTIAL | GA4 specialist REAL/PARTIAL (Prompt 28); GSC/Ads/Meta specialist UI Prompts 29–31 |
+| GA4/GSC/Ads/Meta real-data UI | PARTIAL | GA4 specialist REAL/PARTIAL (Prompt 28); GSC specialist REAL/PARTIAL (Prompt 29); Ads/Meta specialist UI Prompt 30–31 |
 | GA4 | PARTIAL | Specialist UI reads real GA4 pool (Prompt 28): sessions/acquisition/behavior/events/streams/ops collection_state REAL; users Unavailable (non-additive); business actions, needs_attention, journeys, findings/recommendations/tasks/outcomes residual Demo |
-| Search Console | DEMO / PARTIAL | Specialist panels remain Demo (Prompt 29); Prompt 17 production collector writes real GSC pool facts |
+| Search Console | PARTIAL | Specialist UI reads real GSC pool (Prompt 29): property glance/trend/devices/countries/queries/pages/sitemaps/inspection sample/ops collection_state REAL; site-wide indexing coverage/reconciliation Unavailable; clusters/momentum/brand/diagnosis/attention/findings residual Demo |
 | Instagram | DEMO | Lightweight Overview/Profile/Operations/Setup |
 | Service Scope | DEMO | Session/fixture commercial scope |
 | Goals | DEMO | Primary/conversion goals in fixtures |
@@ -82,7 +82,7 @@ Status reference for the frozen `/app` operator panel. UI work after this docume
 | Skills | PARTIAL | Full read-only catalog under `/app/settings/ai/skills` (code registry) |
 | Notifications | DEMO | Deterministic bell when DB empty; preferences in Settings |
 | Google Integration hub/detail (`/app/integrations`) | REAL (backend state) | Prompt 13–20: Core* + OAuth + discovery + human binding + collectors + initial backfill Collect Data |
-| Google connector workspaces | PARTIAL | GSC/GA4/Ads pools REAL via Prompt 17–19; GA4 specialist UI REAL/PARTIAL (Prompt 28); GSC/Ads specialist UI Demo until Prompt 29/30 |
+| Google connector workspaces | PARTIAL | GSC/GA4/Ads pools REAL via Prompt 17–19; GA4 specialist UI REAL/PARTIAL (Prompt 28); GSC specialist UI REAL/PARTIAL (Prompt 29); Ads specialist UI Demo until Prompt 30 |
 | Google Initial Backfill Planner | REAL | Registry-driven multi-connector plan; dataset-specific historical depth; materialization-aware |
 | Google Initial Backfill Execution | REAL | One CollectionRun → independent GSC/GA4/Ads ResourceRuns/DatasetRuns via shared engine |
 | Google Initial Backfill UX | REAL | Collect Data on frozen Google Integration + Prompt 11 MonitoringPanel; no new nav |
@@ -96,7 +96,7 @@ Status reference for the frozen `/app` operator panel. UI work after this docume
 | Collection Scheduler | NOT YET | Prompt 62 consumes `DueCollectionQueryService` |
 | GSC Production Collector | REAL | Contract request families → WarehouseWriter → GSC normalized pool |
 | GSC Search Analytics / Sitemaps / Controlled URL Inspection | REAL | Read-only; appearance not collected (source V1) |
-| GSC specialist real-data UI | NOT YET | Prompt 29 |
+| GSC specialist real-data UI | PARTIAL | Prompt 29: pool read layer + formulas + gates; site-wide indexing Unavailable; residual Demo clusters/momentum/ops findings |
 | GA4 Production Collector | REAL | Contract request families → WarehouseWriter → GA4 normalized pool |
 | GA4 Metadata / Compatibility | REAL | getMetadata + checkCompatibility with property-scoped cache |
 | GA4 Property Daily / Acquisition / Behavior / Landing / Events | REAL | Session-scoped acquisition; no firstUser*; event facts as BA inputs only |

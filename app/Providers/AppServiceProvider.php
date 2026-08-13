@@ -37,10 +37,15 @@ use App\Services\DataPool\StorageContractValidator;
 use App\Services\Findings\BoundEvidenceRuleRegistry;
 use App\Services\Formulas\FormulaRegistryLoader;
 use App\Services\Formulas\Ga4FormulaCalculator;
+use App\Services\Formulas\GscFormulaCalculator;
 use App\Services\Ga4\Ga4PoolReadRepository;
 use App\Services\Ga4\Ga4SpecialistBindingResolver;
 use App\Services\Ga4\Ga4SpecialistReadService;
 use App\Services\Ga4\Ga4UiDatasetGate;
+use App\Services\Gsc\GscPoolReadRepository;
+use App\Services\Gsc\GscSpecialistBindingResolver;
+use App\Services\Gsc\GscSpecialistReadService;
+use App\Services\Gsc\GscUiDatasetGate;
 use App\Services\Integrations\BoundCollectorRegistry;
 use App\Support\Agents\AgentProfileRegistry;
 use App\Support\Ai\AiRouteRegistry;
@@ -84,6 +89,12 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(Ga4PoolReadRepository::class);
         $this->app->singleton(Ga4UiDatasetGate::class);
         $this->app->singleton(Ga4SpecialistReadService::class);
+
+        $this->app->singleton(GscFormulaCalculator::class);
+        $this->app->singleton(GscSpecialistBindingResolver::class);
+        $this->app->singleton(GscPoolReadRepository::class);
+        $this->app->singleton(GscUiDatasetGate::class);
+        $this->app->singleton(GscSpecialistReadService::class);
 
         $this->app->singleton(RawPayloadWriter::class, FilesystemRawPayloadWriter::class);
         $this->app->singleton(PostgresWarehouseWriter::class);

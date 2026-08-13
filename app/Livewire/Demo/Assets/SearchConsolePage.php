@@ -3,6 +3,11 @@
 namespace App\Livewire\Demo\Assets;
 
 use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
+use App\Models\DigitalAsset;
+use App\Services\DataPool\Freshness\StartIncrementalCollectionService;
+use App\Services\Gsc\GscSpecialistBindingResolver;
+use App\Services\Gsc\GscSpecialistReadService;
+use App\Services\Gsc\Support\GscBindingMode;
 use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
 use App\Support\Demo\GscWorkspaceFixtures;
@@ -177,7 +182,33 @@ class SearchConsolePage extends Component
 
     public function refreshData(): void
     {
-        DemoState::flash('Search Console data refresh queued (Demo Mode · no live Search Console API expansion).', 'info');
+        $binding = app(GscSpecialistBindingResolver::class)->resolve($this->assetId);
+
+        if ($binding->mode !== GscBindingMode::RealBound) {
+            DemoState::flash('Search Console data refresh queued (Demo Mode · no live Search Console API expansion).', 'info');
+
+            return;
+        }
+
+        $asset = DigitalAsset::query()->find($binding->digitalAssetId);
+        if (! $asset instanceof DigitalAsset) {
+            DemoState::flash('Search Console refresh unavailable — Digital Asset not found.', 'warning');
+
+            return;
+        }
+
+        $result = app(StartIncrementalCollectionService::class)->startForBindingIds(
+            [$binding->coreAssetBindingId],
+            auth()->user(),
+            ['SEARCH_CONSOLE'],
+        );
+
+        DemoState::flash(match ($result->outcome) {
+            'started' => 'Search Console incremental collection started in the background.',
+            'active_equivalent' => 'An equivalent Search Console incremental collection is already running.',
+            'data_current' => 'Search Console data is current — no incremental collection is due.',
+            default => $result->message,
+        }, $result->outcome === 'started' ? 'success' : 'info');
     }
 
     public function runAnalysis(): void
@@ -214,7 +245,7 @@ class SearchConsolePage extends Component
     public function render(): View
     {
         $this->normalizeTab();
-        $data = GscWorkspaceFixtures::workspace($this->period, $this->periodStart, $this->periodEnd);
+        $data = app(GscSpecialistReadService::class)->workspace($this->assetId, $this->period, $this->periodStart, $this->periodEnd);
 
         $selectedAttention = $this->attention
             ? collect($data['needs_attention'])->firstWhere('id', $this->attention)
@@ -240,7 +271,8 @@ class SearchConsolePage extends Component
             }
         }
 
-        $allSeries = GscWorkspaceFixtures::metricSeries($data['period_start'], $data['period_end']);
+        $allSeries = $data['metric_series']
+            ?? GscWorkspaceFixtures::metricSeries($data['period_start'], $data['period_end']);
         $metricLabels = [
             'clicks' => 'Clicks',
             'impressions' => 'Impressions',
