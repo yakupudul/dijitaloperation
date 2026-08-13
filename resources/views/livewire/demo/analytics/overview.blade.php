@@ -24,11 +24,9 @@
                 </div>
                 <a href="{{ route('demo.brand', ['brand' => $identity['brand_id']]) }}" wire:navigate class="mt-1 inline-block text-sm font-medium text-brand-600 hover:underline dark:text-brand-400">{{ $identity['brand_name'] }}</a>
                 <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
-                    {{ $identity['measures_line'] ?? 'Measures · Website' }}
-                    @if (! empty($identity['website_name']))
-                        ·
-                        <a href="{{ route('demo.website', ['assetId' => $identity['website_asset_id']]) }}" wire:navigate class="font-medium text-brand-600 hover:underline dark:text-brand-400">{{ $identity['website_name'] }}</a>
-                    @endif
+                    {{ $identity['relationship_line'] ?? $identity['measures_line'] ?? 'Measures · Website' }}
+                    ·
+                    <a href="{{ route('demo.website', ['assetId' => $identity['website_asset_id']]) }}" wire:navigate class="font-medium text-brand-600 hover:underline dark:text-brand-400">Open Website</a>
                 </p>
                 <p class="mt-2 text-xs text-gray-500">
                     <span class="font-medium text-emerald-700 dark:text-emerald-400">{{ $identity['status'] ?? 'Connected' }}</span>
@@ -98,45 +96,45 @@
 @endif
 
 @if ($selectedLanding)
-    <x-demo.gads-drawer :title="$selectedLanding['path'] ?? $selectedLanding['url'] ?? 'Landing page'" :subtitle="$selectedLanding['content_role'] ?? $selectedLanding['title'] ?? null" :severity="$selectedLanding['website_attention'] ?? $selectedLanding['attention'] ?? null">
+    <x-demo.gads-drawer :title="$selectedLanding['path'] ?? 'Landing page'" :subtitle="$selectedLanding['title'] ?? $selectedLanding['content_role'] ?? null" :severity="$selectedLanding['attention'] ?? null">
         <div class="grid grid-cols-2 gap-3">
             <div>
                 <p class="text-xs text-gray-400">Sessions</p>
                 <p class="font-semibold tabular-nums">{{ number_format($selectedLanding['sessions'] ?? 0) }}</p>
             </div>
             <div>
-                <p class="text-xs text-gray-400">Engagement</p>
-                <p class="font-semibold">{{ $selectedLanding['engagement'] ?? '—' }}</p>
+                <p class="text-xs text-gray-400">Engaged rate</p>
+                <p class="font-semibold tabular-nums">{{ isset($selectedLanding['engaged_rate']) ? $selectedLanding['engaged_rate'].'%' : ($selectedLanding['engagement'] ?? '—') }}</p>
             </div>
             <div>
-                <p class="text-xs text-gray-400">Business actions</p>
-                <p class="font-semibold tabular-nums">{{ $selectedLanding['business_actions'] ?? $selectedLanding['actions'] ?? '—' }}</p>
+                <p class="text-xs text-gray-400">Mapped actions</p>
+                <p class="font-semibold tabular-nums">
+                    @if (array_key_exists('mapped_actions', $selectedLanding) && $selectedLanding['mapped_actions'] !== null)
+                        {{ number_format($selectedLanding['mapped_actions']) }}
+                    @else
+                        —
+                    @endif
+                </p>
             </div>
             <div>
                 <p class="text-xs text-gray-400">Content role</p>
                 <p class="font-semibold">{{ $selectedLanding['content_role'] ?? '—' }}</p>
             </div>
         </div>
-        @if (! empty($selectedLanding['top_events']))
+        @if (! empty($selectedLanding['attention']))
             <div>
-                <p class="text-xs text-gray-400">Configured events</p>
-                <p class="text-gray-700 dark:text-gray-300">{{ is_array($selectedLanding['top_events']) ? implode(' · ', $selectedLanding['top_events']) : $selectedLanding['top_events'] }}</p>
+                <p class="text-xs text-gray-400">Website attention</p>
+                <p class="text-amber-700 dark:text-amber-400">{{ $selectedLanding['attention'] }}</p>
             </div>
         @endif
-        @if (! empty($selectedLanding['note']))
-            <div>
-                <p class="text-xs text-gray-400">Note</p>
-                <p class="text-gray-700 dark:text-gray-300">{{ $selectedLanding['note'] }}</p>
-            </div>
-        @endif
-        <a href="{{ route('demo.website', ['assetId' => $identity['website_asset_id']]) }}" wire:navigate class="inline-flex rounded-lg bg-brand-500 px-3 py-2 text-xs font-medium text-white">Open Website</a>
+        <a href="{{ route('demo.website', ['assetId' => $selectedLanding['website_asset_id'] ?? $identity['website_asset_id']]) }}" wire:navigate class="inline-flex rounded-lg bg-brand-500 px-3 py-2 text-xs font-medium text-white">Open Website</a>
         <p class="text-[11px] text-gray-400">GA4 · measured Website behavior · Demo Mode</p>
     </x-demo.gads-drawer>
 @endif
 
 @if ($selectedFinding)
     <x-demo.gads-drawer :title="$selectedFinding['title']" :subtitle="$selectedFinding['category'] ?? null" :severity="$selectedFinding['severity'] ?? null">
-        @foreach (['what' => 'What happened', 'why' => 'Why this matters', 'scope' => 'Scope', 'evidence' => 'Evidence', 'next' => 'Recommended next action'] as $key => $label)
+        @foreach (['what' => 'What happened', 'why' => 'Why this matters', 'scope' => 'Scope', 'evidence' => 'Evidence', 'next' => 'Recommended next action', 'outcome' => 'Outcome'] as $key => $label)
             @if (! empty($selectedFinding[$key]))
                 <div>
                     <p class="text-xs text-gray-400">{{ $label }}</p>
@@ -149,50 +147,60 @@
 @endif
 
 @if ($selectedEvent)
-    <x-demo.gads-drawer :title="$selectedEvent['name'] ?? $selectedEvent['event'] ?? 'Event'" :subtitle="$selectedEvent['role'] ?? null" :severity="$selectedEvent['state'] ?? null">
+    <x-demo.gads-drawer :title="$selectedEvent['event'] ?? $selectedEvent['name'] ?? 'Event'" :subtitle="$selectedEvent['mapped_action'] ?? null" :severity="$selectedEvent['state'] ?? null">
         <div class="grid grid-cols-2 gap-3">
             <div>
                 <p class="text-xs text-gray-400">Count</p>
-                <p class="font-semibold tabular-nums">{{ isset($selectedEvent['count']) ? number_format($selectedEvent['count']) : '—' }}</p>
+                <p class="font-semibold tabular-nums">
+                    @if (array_key_exists('count', $selectedEvent) && $selectedEvent['count'] !== null)
+                        {{ number_format($selectedEvent['count']) }}
+                    @else
+                        <span class="text-slate-400">Unavailable</span>
+                    @endif
+                </p>
             </div>
             <div>
                 <p class="text-xs text-gray-400">Mapped action</p>
-                <p class="font-semibold">{{ $selectedEvent['business_action'] ?? $selectedEvent['mapped_action'] ?? 'Not mapped' }}</p>
+                <p class="font-semibold">{{ $selectedEvent['mapped_action'] ?? 'Not mapped' }}</p>
             </div>
         </div>
-        @if (! empty($selectedEvent['detail']))
-            <div>
-                <p class="text-xs text-gray-400">Detail</p>
-                <p class="text-gray-700 dark:text-gray-300">{{ $selectedEvent['detail'] }}</p>
-            </div>
-        @endif
-        <p class="text-[11px] text-blue-700 dark:text-blue-300">Missing ≠ zero — absent event signal is not performance.</p>
-        <p class="text-[11px] text-gray-400">Configured mapping only · no invented event names</p>
+        <p class="text-[11px] text-blue-700 dark:text-blue-300">{{ $data['missing_note'] ?? 'Missing ≠ zero — absent event signal is not performance.' }}</p>
     </x-demo.gads-drawer>
 @endif
 
 @if ($selectedAction)
-    <x-demo.gads-drawer :title="$selectedAction['action'] ?? $selectedAction['business_action'] ?? 'Business action'" :subtitle="$selectedAction['role'] ?? null" :severity="$selectedAction['state'] ?? null">
+    <x-demo.gads-drawer :title="$selectedAction['action'] ?? 'Business action'" :subtitle="$selectedAction['role'] ?? null" :severity="$selectedAction['state'] ?? null">
         <div class="grid grid-cols-2 gap-3">
             <div>
                 <p class="text-xs text-gray-400">GA4 event</p>
-                <p class="font-semibold">{{ $selectedAction['ga4_event'] ?? $selectedAction['event'] ?? 'Not mapped' }}</p>
+                <p class="font-semibold">{{ $selectedAction['ga4_event'] ?? 'Unavailable' }}</p>
             </div>
             <div>
-                <p class="text-xs text-gray-400">Count</p>
-                <p class="font-semibold tabular-nums">{{ isset($selectedAction['count']) ? number_format($selectedAction['count']) : '—' }}</p>
+                <p class="text-xs text-gray-400">Event count</p>
+                <p class="font-semibold tabular-nums">
+                    @if (array_key_exists('event_count', $selectedAction) && $selectedAction['event_count'] !== null)
+                        {{ number_format($selectedAction['event_count']) }}
+                    @else
+                        <span class="text-slate-400">Unavailable</span>
+                    @endif
+                </p>
+            </div>
+            <div>
+                <p class="text-xs text-gray-400">Mapping</p>
+                <p class="font-semibold">{{ $selectedAction['mapping'] ?? $selectedAction['state'] ?? '—' }}</p>
+            </div>
+            <div>
+                <p class="text-xs text-gray-400">Role</p>
+                <p class="font-semibold">{{ $selectedAction['role'] ?? '—' }}</p>
             </div>
         </div>
-        @if (! empty($selectedAction['detail']))
+        @if (! empty($selectedAction['note']))
             <div>
-                <p class="text-xs text-gray-400">Detail</p>
-                <p class="text-gray-700 dark:text-gray-300">{{ $selectedAction['detail'] }}</p>
+                <p class="text-xs text-gray-400">Note</p>
+                <p class="text-gray-700 dark:text-gray-300">{{ $selectedAction['note'] }}</p>
             </div>
         @endif
-        @if (! empty($selectedAction['finding_id']))
-            <button type="button" wire:click="openFinding('{{ $selectedAction['finding_id'] }}')" class="rounded-lg bg-brand-500 px-3 py-2 text-xs font-medium text-white">Open related Finding</button>
-        @endif
         <button type="button" wire:click="setMeasSub('business_actions')" class="rounded-lg px-3 py-2 text-xs font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">Open measurement mapping</button>
-        <p class="text-[11px] text-gray-400">Business actions are operator-configured — not auto-inferred.</p>
+        <p class="text-[11px] text-blue-700 dark:text-blue-300">{{ $data['missing_note'] ?? 'Not mapped / Unavailable ≠ measured zero.' }}</p>
     </x-demo.gads-drawer>
 @endif
