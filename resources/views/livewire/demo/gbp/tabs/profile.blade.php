@@ -93,6 +93,9 @@
                 </table>
             </div>
             <p class="mt-2 text-xs text-gray-400">External GBP service edits remain disabled. Create internal Tasks only.</p>
+            <a href="{{ route('demo.brand', ['brand' => $identity['brand_id'], 'tab' => 'discovery', 'discovery' => 'candidates']) }}" wire:navigate class="mt-2 inline-block text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">
+                Review Offering candidates in Public Discovery →
+            </a>
         </section>
     </div>
 
@@ -136,13 +139,16 @@
                         <span @class([
                             'text-xs font-medium',
                             'text-emerald-700 dark:text-emerald-400' => $row['state'] === 'Match' || str_starts_with($row['state'], 'Matched'),
-                            'text-rose-700 dark:text-rose-400' => $row['state'] === 'Mismatch',
+                            'text-rose-700 dark:text-rose-400' => in_array($row['state'], ['Mismatch', 'Conflict'], true),
                             'text-amber-700 dark:text-amber-400' => in_array($row['state'], ['Partial', 'Needs review'], true) || str_contains($row['state'], 'Partial'),
                         ])>{{ $row['state'] }}</span>
                     </li>
                 @endforeach
             </ul>
             <p class="mt-3 text-xs text-gray-500">Trivial formatting differences are normalized before mismatch. No percentage score is assigned.</p>
+            <a href="{{ route('demo.brand', ['brand' => $identity['brand_id'], 'tab' => 'discovery', 'discovery' => 'conflicts']) }}" wire:navigate class="mt-3 inline-block text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">
+                Review in Public Discovery →
+            </a>
 
             <h3 class="mt-5 text-sm font-semibold text-gray-900 dark:text-white">Media</h3>
             <dl class="mt-2 grid grid-cols-2 gap-2 text-sm">

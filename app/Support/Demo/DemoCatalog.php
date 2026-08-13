@@ -272,74 +272,7 @@ final class DemoCatalog
      */
     public static function brandDiscoveryCandidates(): array
     {
-        return [
-            [
-                'id' => 'dc-service-implant',
-                'kind' => 'fact',
-                'kind_label' => 'Discovered fact',
-                'value' => 'Dental implants listed as a primary service',
-                'type' => 'Listed service',
-                'source' => '/treatments/implant',
-                'retrieved' => 'Today',
-                'status' => 'pending',
-                'confidence' => null,
-            ],
-            [
-                'id' => 'dc-location',
-                'kind' => 'fact',
-                'kind_label' => 'Discovered fact',
-                'value' => 'Çankaya, Ankara location visible on contact page',
-                'type' => 'Visible location',
-                'source' => '/contact',
-                'retrieved' => 'Today',
-                'status' => 'pending',
-                'confidence' => null,
-            ],
-            [
-                'id' => 'dc-lang',
-                'kind' => 'fact',
-                'kind_label' => 'Discovered fact',
-                'value' => 'Turkish + English language switcher detected',
-                'type' => 'Website language',
-                'source' => 'Site header',
-                'retrieved' => 'Today',
-                'status' => 'pending',
-                'confidence' => null,
-            ],
-            [
-                'id' => 'dc-positioning',
-                'kind' => 'inference',
-                'kind_label' => 'AI-derived interpretation',
-                'value' => 'Likely positioning as specialist implant / post-bariatric dental care',
-                'type' => 'Positioning interpretation',
-                'source' => 'Homepage + /post-bariatric',
-                'retrieved' => 'Today',
-                'status' => 'pending',
-                'confidence' => 'Medium',
-            ],
-            [
-                'id' => 'dc-audience',
-                'kind' => 'inference',
-                'kind_label' => 'AI-derived interpretation',
-                'value' => 'Probable audience includes medical-travel implant seekers',
-                'type' => 'Audience interpretation',
-                'source' => 'EU language pages + CTA copy',
-                'retrieved' => 'Today',
-                'status' => 'pending',
-                'confidence' => 'Low',
-            ],
-            [
-                'id' => 'dc-comp-1',
-                'kind' => 'competitor',
-                'kind_label' => 'Competitor candidate',
-                'value' => 'Ankara Implant Center',
-                'type' => 'Competitor candidate',
-                'source' => 'Public local SERP sample',
-                'retrieved' => 'Today',
-                'status' => 'pending',
-                'confidence' => null,
-            ],
-        ];
+        return BrandPublicDiscoveryFixtures::candidates();
     }
 
     /**

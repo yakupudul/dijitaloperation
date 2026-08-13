@@ -68,6 +68,9 @@ class OverviewPage extends Component
     #[Url]
     public ?string $point = null;
 
+    #[Url(as: 'attention')]
+    public ?string $attention = null;
+
     /**
      * @var list<string>
      */
@@ -200,6 +203,7 @@ class OverviewPage extends Component
     public function openFinding(string $id): void
     {
         $this->finding = $id;
+        $this->attention = null;
         $this->ops = 'findings';
         $this->tab = 'operations';
     }
@@ -207,6 +211,16 @@ class OverviewPage extends Component
     public function closeFinding(): void
     {
         $this->finding = null;
+    }
+
+    public function openAttention(string $id): void
+    {
+        $this->attention = $id;
+    }
+
+    public function closeAttention(): void
+    {
+        $this->attention = null;
     }
 
     public function refreshData(): void
@@ -349,6 +363,11 @@ class OverviewPage extends Component
             }
         }
 
+        $selectedAttention = null;
+        if ($this->attention) {
+            $selectedAttention = collect($data['needs_attention'] ?? [])->firstWhere('id', $this->attention);
+        }
+
         $discovery = $data['performance']['discovery'];
         $actions = $data['performance']['actions'];
 
@@ -368,6 +387,7 @@ class OverviewPage extends Component
             'queryRows' => $queryRows->values()->all(),
             'reviewInbox' => $inbox->values()->all(),
             'selectedFinding' => $selectedFinding,
+            'selectedAttention' => $selectedAttention,
             'showPeriodBar' => in_array($this->tab, $this->timeBasedTabs, true),
             'discoveryChartOptions' => [
                 'chart' => ['type' => 'area', 'height' => 240, 'toolbar' => ['show' => false], 'stacked' => false],

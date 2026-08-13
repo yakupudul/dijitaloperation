@@ -115,7 +115,7 @@ class BrandCommandCenterUxTest extends TestCase
             ->call('setOps', 'tasks')
             ->assertSee('Improve /implant mobile LCP')
             ->call('setOps', 'outcomes')
-            ->assertSee('Associated improvement observed')
+            ->assertSee('Improvement observed')
             ->assertDontSee('This task fixed the issue');
     }
 
@@ -124,19 +124,31 @@ class BrandCommandCenterUxTest extends TestCase
         Livewire::test(BrandShow::class, ['brand' => DemoCatalog::BRAND_ID])
             ->call('setTab', 'discovery')
             ->assertSee('Public Discovery')
-            ->assertSee('Discover public context')
+            ->assertSee('Observed Facts')
+            ->assertSee('Candidates')
+            ->assertSee('Conflicts')
+            ->assertSee('Sources & History')
+            ->assertSee('Observe public Brand identity')
             ->call('runPublicResearch')
             ->assertSet('tab', 'discovery')
-            ->assertSee('Discovered facts')
-            ->assertSee('AI-derived interpretations')
-            ->assertSee('Competitor candidates')
-            ->assertSee('Source:')
-            ->call('acceptDiscoveryCandidate', 'dc-service-implant')
+            ->assertSee('Observed facts')
+            ->assertSee('Awaiting review')
+            ->assertSee('Public identity')
+            ->assertSee('Dental Implant')
+            ->call('setDiscovery', 'candidates')
+            ->call('openCandidate', 'dc-offering-implant')
+            ->assertSee('Map to existing')
+            ->call('mapDiscoveryCandidate', 'dc-offering-implant', 'Implant Treatment')
+            ->assertSee('mapped')
+            ->call('openCandidate', 'dc-location-cankaya')
+            ->call('acceptDiscoveryCandidate', 'dc-location-cankaya')
             ->assertSee('accepted')
-            ->call('ignoreDiscoveryCandidate', 'dc-comp-1')
+            ->set('ignoreReason', 'irrelevant')
+            ->call('openCandidate', 'dc-positioning')
+            ->call('ignoreDiscoveryCandidate', 'dc-positioning')
             ->assertSee('ignored')
-            ->call('editAcceptDiscoveryCandidate', 'dc-positioning')
-            ->assertSee('edited');
+            ->assertDontSee('AI confidence 87')
+            ->assertDontSee('Discovery Score');
     }
 
     public function test_brand_ai_scope_disclosure_without_dead_run_button_for_demo_brand(): void

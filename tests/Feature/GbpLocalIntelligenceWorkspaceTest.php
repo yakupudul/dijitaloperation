@@ -57,9 +57,10 @@ class GbpLocalIntelligenceWorkspaceTest extends TestCase
             ->assertSee('Needs attention')
             ->assertSee('Local visibility snapshot')
             ->assertSee('Profile coverage')
-            ->assertSee('Customer interactions')
+            ->assertSee('Customer actions')
             ->assertSee('Review pulse')
-            ->assertSee('Website consistency')
+            ->assertSee('Brand & Website Consistency')
+            ->assertSee('Public Identity Consistency')
             ->assertSee('Local opportunities')
             ->assertSee('Recent operational outcomes')
             ->assertSee('14 / 17')
@@ -69,6 +70,9 @@ class GbpLocalIntelligenceWorkspaceTest extends TestCase
             ->assertDontSee('GBP Score')
             ->assertDontSee('Visibility Score')
             ->assertDontSee('Reputation Score');
+
+        $attention = GbpWorkspaceFixtures::needsAttention();
+        $this->assertLessThanOrEqual(4, count($attention));
     }
 
     public function test_profile_coverage_categories_services_and_entity_consistency(): void
@@ -83,9 +87,10 @@ class GbpLocalIntelligenceWorkspaceTest extends TestCase
             ->assertSee('Invisalign')
             ->assertSee('Not represented')
             ->assertSee('Entity consistency')
-            ->assertSee('Mismatch')
+            ->assertSee('Conflict')
             ->assertSee('/subeler/cankaya/')
             ->assertSee('Matched')
+            ->assertSee('Review in Public Discovery')
             ->assertSee('No percentage score is assigned')
             ->assertDontSee('Local SEO Score');
     }

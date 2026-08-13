@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Demo\Portfolio;
 
+use App\Support\Demo\BrandPublicDiscoveryFixtures;
 use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
 use App\Support\Options\CountryOptions;
@@ -21,6 +22,9 @@ class BrandShow extends Component
 
     #[Url]
     public string $tab = 'overview';
+
+    #[Url(as: 'discovery')]
+    public string $discovery = 'overview';
 
     #[Url]
     public string $ops = 'findings';
@@ -45,6 +49,12 @@ class BrandShow extends Component
 
     #[Url]
     public string $history_type = '';
+
+    public ?string $reviewCandidateId = null;
+
+    public ?string $reviewConflictId = null;
+
+    public string $ignoreReason = 'irrelevant';
 
     /**
      * @var list<string>
@@ -90,6 +100,10 @@ class BrandShow extends Component
         if (! in_array($this->ops, ['findings', 'recommendations', 'tasks', 'outcomes'], true)) {
             $this->ops = 'findings';
         }
+
+        if (! in_array($this->discovery, ['overview', 'facts', 'candidates', 'conflicts', 'sources'], true)) {
+            $this->discovery = 'overview';
+        }
     }
 
     public function setTab(string $tab): void
@@ -107,6 +121,16 @@ class BrandShow extends Component
 
         if (in_array($tab, self::TABS, true)) {
             $this->tab = $tab;
+        }
+    }
+
+    public function setDiscovery(string $section): void
+    {
+        if (in_array($section, ['overview', 'facts', 'candidates', 'conflicts', 'sources'], true)) {
+            $this->discovery = $section;
+            $this->tab = 'discovery';
+            $this->reviewCandidateId = null;
+            $this->reviewConflictId = null;
         }
     }
 
@@ -130,21 +154,67 @@ class BrandShow extends Component
     {
         DemoState::startPublicResearch();
         $this->tab = 'discovery';
+        $this->discovery = 'overview';
+    }
+
+    public function openCandidate(string $id): void
+    {
+        $this->reviewCandidateId = $id;
+        $this->discovery = 'candidates';
+        $this->tab = 'discovery';
+    }
+
+    public function closeCandidate(): void
+    {
+        $this->reviewCandidateId = null;
+    }
+
+    public function openConflict(string $id): void
+    {
+        $this->reviewConflictId = $id;
+        $this->discovery = 'conflicts';
+        $this->tab = 'discovery';
+    }
+
+    public function closeConflict(): void
+    {
+        $this->reviewConflictId = null;
+    }
+
+    public function closeDrawers(): void
+    {
+        $this->reviewCandidateId = null;
+        $this->reviewConflictId = null;
     }
 
     public function acceptDiscoveryCandidate(string $id): void
     {
         DemoState::setDiscoveryCandidateStatus($id, 'accepted');
+        $this->reviewCandidateId = null;
+    }
+
+    public function mapDiscoveryCandidate(string $id, string $existingLabel): void
+    {
+        DemoState::setDiscoveryCandidateStatus($id, 'mapped', null, $existingLabel);
+        $this->reviewCandidateId = null;
     }
 
     public function ignoreDiscoveryCandidate(string $id): void
     {
-        DemoState::setDiscoveryCandidateStatus($id, 'ignored');
+        DemoState::setDiscoveryCandidateStatus($id, 'ignored', $this->ignoreReason !== '' ? $this->ignoreReason : 'other');
+        $this->reviewCandidateId = null;
     }
 
     public function editAcceptDiscoveryCandidate(string $id): void
     {
-        DemoState::setDiscoveryCandidateStatus($id, 'edited');
+        DemoState::setDiscoveryCandidateStatus($id, 'accepted');
+        $this->reviewCandidateId = null;
+    }
+
+    public function resolveConflict(string $conflictId, string $decision): void
+    {
+        DemoState::resolveDiscoveryConflict($conflictId, $decision);
+        $this->reviewConflictId = null;
     }
 
     public function runAiBrief(): void
@@ -473,8 +543,60 @@ class BrandShow extends Component
             ->values()
             ->all();
 
+        $isAtlasBrand = ($brandRow['id'] ?? '') === DemoCatalog::BRAND_ID;
+
+        $discoveryOverview = $isAtlasBrand
+            ? BrandPublicDiscoveryFixtures::overview()
+            : [
+                'observed_facts' => 0,
+                'awaiting_review' => 0,
+                'conflicts' => 0,
+                'accepted_recently' => 0,
+                'public_identity' => [],
+            ];
+
+        if ($isAtlasBrand) {
+            $discoveryOverview['awaiting_review'] = collect($discoveryCandidates)
+                ->where('status', 'pending')
+                ->count();
+            $discoveryOverview['accepted_recently'] = collect($discoveryCandidates)
+                ->whereIn('status', ['accepted', 'mapped'])
+                ->count();
+            $discoveryOverview['conflicts'] = collect(BrandPublicDiscoveryFixtures::conflicts())
+                ->filter(function (array $conflict) use ($state): bool {
+                    $resolution = $state['discovery_conflict_resolutions'][$conflict['id']] ?? null;
+
+                    return $resolution === null;
+                })
+                ->count();
+        }
+
+        $discoveryConflicts = $isAtlasBrand
+            ? collect(BrandPublicDiscoveryFixtures::conflicts())
+                ->map(function (array $conflict) use ($state): array {
+                    $resolution = $state['discovery_conflict_resolutions'][$conflict['id']] ?? null;
+                    $conflict['resolution'] = is_array($resolution) ? ($resolution['decision'] ?? 'open') : 'open';
+                    $conflict['resolved'] = is_array($resolution);
+
+                    return $conflict;
+                })
+                ->values()
+                ->all()
+            : [];
+
+        $discoveryFacts = $isAtlasBrand ? BrandPublicDiscoveryFixtures::observedFacts() : [];
+        $discoverySources = $isAtlasBrand ? BrandPublicDiscoveryFixtures::sources() : [];
+        $discoveryHistory = $isAtlasBrand
+            ? array_reverse($state['discovery_history'] ?? BrandPublicDiscoveryFixtures::history())
+            : [];
+        $discoveryPublicIdentity = $isAtlasBrand ? BrandPublicDiscoveryFixtures::publicIdentity() : [];
+        $existingOfferingsForMap = $isAtlasBrand ? BrandPublicDiscoveryFixtures::existingOfferingsForMap() : [];
+
+        $reviewCandidate = collect($discoveryCandidates)->firstWhere('id', $this->reviewCandidateId);
+        $reviewConflict = collect($discoveryConflicts)->firstWhere('id', $this->reviewConflictId);
+
         $analysis = DemoCatalog::brandAiAnalysis();
-        $aiVisible = (bool) ($state['ai_brief_visible'] ?? false) || ($brandRow['id'] ?? '') === DemoCatalog::BRAND_ID;
+        $aiVisible = (bool) ($state['ai_brief_visible'] ?? false) || $isAtlasBrand;
 
         $sectorLabel = IndustryOptions::label($brandRow['sector'] ?? $brandRow['industry'] ?? null);
         $marketLabel = CountryOptions::label($brandRow['primary_country'] ?? null);
@@ -548,6 +670,15 @@ class BrandShow extends Component
             'websites' => $websites,
             'selectedWebsite' => $selectedWebsite,
             'discoveryCandidates' => $discoveryCandidates,
+            'discoveryOverview' => $discoveryOverview,
+            'discoveryFacts' => $discoveryFacts,
+            'discoveryConflicts' => $discoveryConflicts,
+            'discoverySources' => $discoverySources,
+            'discoveryHistory' => $discoveryHistory,
+            'discoveryPublicIdentity' => $discoveryPublicIdentity,
+            'existingOfferingsForMap' => $existingOfferingsForMap,
+            'reviewCandidate' => $reviewCandidate,
+            'reviewConflict' => $reviewConflict,
             'research' => $state['public_research'] ?? [],
             'aiBrief' => $aiVisible ? $analysis : null,
             'flash' => DemoState::pullFlash(),

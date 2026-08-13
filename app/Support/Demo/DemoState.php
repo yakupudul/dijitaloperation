@@ -25,7 +25,7 @@ final class DemoState
         }
 
         $defaults = self::defaults();
-        foreach (['contacts', 'customer_activity', 'demo_assets', 'discovery_candidates'] as $key) {
+        foreach (['contacts', 'customer_activity', 'demo_assets', 'discovery_candidates', 'discovery_history', 'discovery_conflict_resolutions'] as $key) {
             if (! array_key_exists($key, $state)) {
                 $state[$key] = $defaults[$key] ?? [];
             }
@@ -67,6 +67,8 @@ final class DemoState
                 'steps' => [],
             ],
             'discovery_candidates' => DemoCatalog::brandDiscoveryCandidates(),
+            'discovery_history' => BrandPublicDiscoveryFixtures::history(),
+            'discovery_conflict_resolutions' => [],
             'ai_brief_visible' => false,
             'period_preset' => 'last_28',
             'period_start' => null,
@@ -484,30 +486,91 @@ final class DemoState
                 'completed_at' => 'Today at 11:42',
             ],
             'discovery_candidates' => DemoCatalog::brandDiscoveryCandidates(),
+            'discovery_history' => BrandPublicDiscoveryFixtures::history(),
         ]);
         self::flash('Public brand research completed (Demo Mode · PUBLIC DISCOVERY provenance).');
     }
 
-    public static function setDiscoveryCandidateStatus(string $id, string $status): void
+    public static function setDiscoveryCandidateStatus(string $id, string $status, ?string $reason = null, ?string $mappedTo = null): void
     {
         $state = self::all();
         $candidates = $state['discovery_candidates'] ?? DemoCatalog::brandDiscoveryCandidates();
+        $label = $id;
         foreach ($candidates as &$row) {
             if (($row['id'] ?? '') === $id) {
                 $row['status'] = $status;
+                if ($reason !== null) {
+                    $row['ignore_reason'] = $reason;
+                }
+                if ($mappedTo !== null) {
+                    $row['mapped_to'] = $mappedTo;
+                    $row['status'] = 'mapped';
+                }
+                if (in_array($status, ['accepted', 'mapped'], true)) {
+                    $row['accepted_by'] = 'Demo Operator';
+                    $row['accepted_at'] = now()->format('M j · H:i');
+                }
+                $label = (string) ($row['value'] ?? $id);
             }
         }
         unset($row);
         $state['discovery_candidates'] = $candidates;
+
+        $history = $state['discovery_history'] ?? BrandPublicDiscoveryFixtures::history();
+        $history[] = [
+            'id' => 'hist-'.substr(md5($id.$status.microtime()), 0, 8),
+            'when' => now()->format('M j · H:i'),
+            'event' => match ($status) {
+                'accepted' => 'Candidate accepted into Brand Context review',
+                'mapped' => 'Observed value mapped to existing Brand Context item',
+                'ignored' => 'Candidate ignored',
+                default => 'Candidate updated',
+            },
+            'detail' => $label.($mappedTo ? ' → '.$mappedTo : '').($reason ? ' · '.$reason : ''),
+            'actor' => 'Demo Operator',
+            'action' => $status === 'mapped' ? 'accepted' : $status,
+        ];
+        $state['discovery_history'] = $history;
         session()->put(self::SESSION_KEY, $state);
 
-        $label = match ($status) {
-            'accepted' => 'accepted into Business Context review queue',
-            'ignored' => 'ignored',
-            'edited' => 'edited & accepted for review',
-            default => 'updated',
+        $flash = match ($status) {
+            'accepted' => 'Candidate accepted (Demo Mode — human-reviewed Brand Context update recorded; no silent overwrite of unrelated fields).',
+            'mapped' => 'Mapped to existing Brand Context item (Demo Mode — duplicate Offering avoided).',
+            'ignored' => 'Candidate ignored (Demo Mode — source Evidence retained).',
+            default => 'Discovery candidate updated (Demo Mode).',
         };
-        self::flash('Discovery candidate '.$label.' (Demo Mode — does not silently overwrite Business Context).');
+        self::flash($flash);
+    }
+
+    public static function resolveDiscoveryConflict(string $conflictId, string $decision): void
+    {
+        $state = self::all();
+        $resolutions = $state['discovery_conflict_resolutions'] ?? [];
+        $resolutions[$conflictId] = [
+            'decision' => $decision,
+            'at' => now()->format('M j · H:i'),
+            'by' => 'Demo Operator',
+        ];
+        $state['discovery_conflict_resolutions'] = $resolutions;
+
+        $history = $state['discovery_history'] ?? BrandPublicDiscoveryFixtures::history();
+        $history[] = [
+            'id' => 'hist-c-'.substr(md5($conflictId.$decision.microtime()), 0, 8),
+            'when' => now()->format('M j · H:i'),
+            'event' => match ($decision) {
+                'keep_canonical' => 'Kept canonical Brand Context value',
+                'accept_source' => 'Accepted observed source value for Brand Context review',
+                'create_recommendation' => 'Created internal Recommendation from conflict',
+                'ignore' => 'Ignored public difference for now',
+                default => 'Conflict decision recorded',
+            },
+            'detail' => $conflictId.' · '.$decision.' · no external Website/GBP write',
+            'actor' => 'Demo Operator',
+            'action' => $decision,
+        ];
+        $state['discovery_history'] = $history;
+        session()->put(self::SESSION_KEY, $state);
+        self::flash('Conflict decision recorded (Demo Mode — no provider write).');
     }
 
     public static function showAiBrief(): void
