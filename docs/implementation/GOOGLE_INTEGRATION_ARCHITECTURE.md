@@ -227,7 +227,7 @@ No dual-write. No destructive credential/resource/binding deletion.
 | ExternalResource architecture | REAL |
 | Binding architecture | REAL foundation |
 | Google OAuth lifecycle | REAL (Prompt 14) — see `GOOGLE_OAUTH_CREDENTIAL_LIFECYCLE.md` |
-| Google live resource discovery | PARTIAL / NEXT (Prompt 15) |
+| Google live resource discovery | REAL (Prompt 15) — see `GOOGLE_RESOURCE_DISCOVERY.md` |
 | Resource selection/binding workflow | PARTIAL / NEXT (Prompt 16) |
 | GSC / GA4 / Ads / GBP production collectors | NOT YET |
 

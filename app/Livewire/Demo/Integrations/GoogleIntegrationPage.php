@@ -3,6 +3,7 @@
 namespace App\Livewire\Demo\Integrations;
 
 use App\Models\CoreIntegration;
+use App\Services\Integrations\Google\DiscoverGoogleResourcesService;
 use App\Services\Integrations\Google\GoogleIntegrationReadModel;
 use App\Services\Integrations\Google\GoogleOAuthService;
 use App\Support\Demo\DemoState;
@@ -44,6 +45,31 @@ class GoogleIntegrationPage extends Component
             'Resource selection and binding is not productionized yet (Prompt 16). Discovered resources are shown read-only.',
             'info',
         );
+    }
+
+    public function discoverResources(): void
+    {
+        $user = auth()->user();
+        if ($user === null || ! $user->hasRole(Roles::ADMIN)) {
+            abort(403);
+        }
+
+        $integration = CoreIntegration::query()
+            ->where('provider', ProviderRegistry::GOOGLE)
+            ->first();
+
+        if (! $integration instanceof CoreIntegration) {
+            DemoState::flash('No Google Integration is configured.', 'info');
+
+            return;
+        }
+
+        $result = app(DiscoverGoogleResourcesService::class)->discover(
+            $integration->fresh(['authorizationCredential', 'providerCredential']) ?? $integration,
+            $user,
+        );
+
+        DemoState::flash($result['message'], 'info');
     }
 
     public function bootstrapAndConnect(): void

@@ -33,6 +33,11 @@
             @elseif (($integration['actions']['reauthorize'] ?? false) && ! empty($integration['reauthorize_url']))
                 <x-ta.button :href="$integration['reauthorize_url']" size="sm" variant="outline">Re-authorize</x-ta.button>
             @endif
+            @if ($integration['actions']['discover'] ?? false)
+                <x-ta.button wire:click="discoverResources" size="sm" variant="outline">
+                    {{ ($integration['resources_discovered'] ?? 0) > 0 ? 'Refresh Resources' : 'Discover Resources' }}
+                </x-ta.button>
+            @endif
             @if ($integration['actions']['disconnect'] ?? false)
                 <x-ta.button wire:click="openDisconnect" size="sm" variant="danger">Revoke Google access…</x-ta.button>
             @endif
@@ -97,8 +102,14 @@
                         <h3 class="font-semibold text-gray-800 dark:text-white/90">{{ $group['label'] }}</h3>
                     </div>
                     <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">
-                        {{ $group['accounts'] }} accounts · {{ $group['bound'] }} bound · {{ $group['available'] }} available
+                        {{ $group['accounts'] }}
+                        {{ $group['capability'] === 'google_business_profile' ? 'locations' : ($group['capability'] === 'google_ads' ? 'accounts' : 'properties') }}
+                        · {{ $group['bound'] }} bound · {{ $group['available'] }} available
                     </p>
+                    <p class="mt-1 text-xs text-gray-500">{{ $group['discovery_status_label'] ?? 'Discovery not run' }}</p>
+                    @if (in_array($group['discovery_status'] ?? '', ['external_access_required', 'setup_required', 'scope_required'], true) && ! empty($group['discovery_message']))
+                        <p class="mt-1 text-xs text-warning-600 dark:text-warning-400">{{ $group['discovery_message'] }}</p>
+                    @endif
                     <p class="mt-2 text-xs font-medium text-brand-600 dark:text-brand-400">Open connector →</p>
                 </a>
             @endforeach
@@ -112,7 +123,10 @@
                         <x-demo.digital-asset-mark :type="$connector['ui_slug'] === 'google-ads' ? 'google_ads' : $connector['ui_slug']" size="md" />
                         <div>
                             <h3 class="font-semibold text-gray-900 dark:text-white">{{ $connector['label'] }} Connector</h3>
-                            <p class="text-xs text-gray-500">{{ $connector['auth_status_label'] ?? 'Not authorized' }} · {{ $connector['discovered'] }} resources · {{ $connector['bound'] }} bound · {{ $connector['available'] }} available</p>
+                            <p class="text-xs text-gray-500">{{ $connector['auth_status_label'] ?? 'Not authorized' }} · {{ $connector['discovery_status_label'] ?? 'Discovery not run' }} · {{ $connector['discovered'] }} resources · {{ $connector['bound'] }} bound · {{ $connector['available'] }} available</p>
+                            @if (($connector['discovery_status'] ?? '') === 'external_access_required')
+                                <p class="mt-1 text-xs text-warning-600 dark:text-warning-400">API access required</p>
+                            @endif
                         </div>
                     </div>
                 </a>

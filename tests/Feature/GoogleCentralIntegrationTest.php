@@ -186,8 +186,12 @@ class GoogleCentralIntegrationTest extends TestCase
             'expires_at' => now()->addHour(),
         ]);
 
-        // Missing developer token => Ads setup_required; GBP disabled => setup_required.
-        config(['moxdop.google.developer_token' => null]);
+        // Missing developer token => Ads setup_required; GBP scope off => scope_required.
+        config([
+            'moxdop.google.developer_token' => null,
+            'moxdop.google.include_gbp_scope' => false,
+            'moxdop.google.gbp_discovery_enabled' => false,
+        ]);
 
         Http::fake([
             'https://www.googleapis.com/webmasters/v3/sites' => Http::response([
@@ -215,7 +219,7 @@ class GoogleCentralIntegrationTest extends TestCase
         $this->assertSame('ok', $result['results']['search_console']['status']);
         $this->assertSame('ok', $result['results']['ga4']['status']);
         $this->assertSame('setup_required', $result['results']['google_ads']['status']);
-        $this->assertSame('setup_required', $result['results']['google_business_profile']['status']);
+        $this->assertSame('scope_required', $result['results']['google_business_profile']['status']);
 
         $this->assertDatabaseHas('core_external_resources', [
             'integration_id' => $this->integration->id,

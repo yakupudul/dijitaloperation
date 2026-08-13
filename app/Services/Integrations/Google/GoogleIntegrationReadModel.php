@@ -93,7 +93,7 @@ final class GoogleIntegrationReadModel
         $operatorStatus = $this->health->status($integration, ProviderRegistry::GOOGLE);
         $authStatus = GoogleAuthStatus::for($integration);
         $counts = $this->resourceBindingCounts($integration);
-        $resourceGroups = $this->resourceGroups($counts['by_type']);
+        $resourceGroups = $this->resourceGroups($counts['by_type'], $integration);
         $unbound = $this->unboundResources($integration);
         $bindings = $this->bindingRows($integration);
         $collection = $this->collectionSummary($integration);
@@ -150,7 +150,7 @@ final class GoogleIntegrationReadModel
      */
     private function emptyDetail(string $state, string $stateLabel, string $hubNote, string $nextAction): array
     {
-        $groups = $this->resourceGroups([]);
+        $groups = $this->resourceGroups([], null);
 
         return [
             'id' => ProviderRegistry::GOOGLE,
@@ -286,13 +286,20 @@ final class GoogleIntegrationReadModel
      * @param  array<string, array{discovered: int, bound: int, available: int}>  $byType
      * @return list<array<string, mixed>>
      */
-    private function resourceGroups(array $byType): array
+    private function resourceGroups(array $byType, ?CoreIntegration $integration = null): array
     {
         $groups = [];
+
+        $health = is_array(data_get($integration?->config, 'capability_health'))
+            ? data_get($integration?->config, 'capability_health')
+            : [];
 
         foreach (GoogleConnectorRegistry::all() as $connector) {
             $type = $connector['resource_type'];
             $counts = $byType[$type] ?? ['discovered' => 0, 'bound' => 0, 'available' => 0];
+            $connectorHealth = is_array($health[$connector['capability']] ?? null)
+                ? $health[$connector['capability']]
+                : null;
 
             $groups[] = [
                 'type' => $connector['visual_type'],
@@ -303,7 +310,9 @@ final class GoogleIntegrationReadModel
                 'connector' => $connector['ui_slug'],
                 'capability' => $connector['capability'],
                 'resource_type' => $type,
-                'discovery_status' => $connector['discovery'],
+                'discovery_status' => $connectorHealth['status'] ?? 'never_run',
+                'discovery_status_label' => $this->discoveryStatusLabel($connectorHealth['status'] ?? null),
+                'discovery_message' => $connectorHealth['message'] ?? null,
                 'collection_status' => $connector['collection'],
             ];
         }
@@ -323,9 +332,16 @@ final class GoogleIntegrationReadModel
 
         $out = [];
 
+        $health = is_array(data_get($integration?->config, 'capability_health'))
+            ? data_get($integration?->config, 'capability_health')
+            : [];
+
         foreach (GoogleConnectorRegistry::all() as $id => $connector) {
             $counts = $byType[$connector['resource_type']] ?? ['discovered' => 0, 'bound' => 0, 'available' => 0];
             $auth = $authStatuses->get($connector['capability']);
+            $connectorHealth = is_array($health[$connector['capability']] ?? null)
+                ? $health[$connector['capability']]
+                : null;
             $out[] = [
                 'id' => $id,
                 'label' => $connector['label'],
@@ -337,6 +353,9 @@ final class GoogleIntegrationReadModel
                 'shares_credential' => GoogleConnectorRegistry::sharesAuthorizationCredential(),
                 'auth_status' => $auth['status'] ?? 'not_authorized',
                 'auth_status_label' => $auth['status_label'] ?? 'Not authorized',
+                'discovery_status' => $connectorHealth['status'] ?? 'never_run',
+                'discovery_status_label' => $this->discoveryStatusLabel($connectorHealth['status'] ?? null),
+                'discovery_message' => $connectorHealth['message'] ?? null,
             ];
         }
 
@@ -700,7 +719,7 @@ final class GoogleIntegrationReadModel
         return match ($this->nextAction($operatorStatus, $authStatus, $counts)) {
             'configure' => 'Configure Google',
             'authorize' => 'Connect Google',
-            'discover' => 'Discover resources (Prompt 15)',
+            'discover' => 'Discover resources',
             'bind' => 'Select resources (Prompt 16)',
             'collect' => 'Collect data via Collection Engine',
             default => 'Manage Google',
@@ -727,17 +746,34 @@ final class GoogleIntegrationReadModel
             GoogleAuthStatus::AUTHORIZATION_REQUIRED,
         ], true);
 
+        $canDiscover = $configured
+            && $authStatus === GoogleAuthStatus::CONNECTED
+            && $operatorStatus !== IntegrationOperatorStatus::DISABLED;
+
         return [
             'configure' => true,
             'authorize' => $canAuthorize,
             'reauthorize' => $canAuthorize && $authUsable,
-            // Discovery / bind / collect production UX owned by later prompts.
-            'discover' => false,
+            'discover' => $canDiscover,
             'bind' => false,
             'collect' => false,
             // Explicit Google grant revocation (not per-Connector disable).
             'disconnect' => $canAuthorize && $integration->authorizationCredential()->exists(),
         ];
+    }
+
+    private function discoveryStatusLabel(?string $status): string
+    {
+        return match ($status) {
+            'ok', 'completed' => 'Discovered',
+            'partial' => 'Partial discovery',
+            'scope_required' => 'Scope required',
+            'external_access_required', 'setup_required' => 'API access required',
+            'authentication_required' => 'Re-authorization required',
+            'error', 'failed' => 'Discovery failed',
+            'skipped' => 'Skipped',
+            default => 'Discovery not run',
+        };
     }
 
     /**

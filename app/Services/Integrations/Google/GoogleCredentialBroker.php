@@ -43,13 +43,18 @@ final class GoogleCredentialBroker
         }
 
         if ($capability !== null) {
-            $missing = $this->coverage->missingScopes($integration, [$capability]);
-            if ($missing !== []) {
-                throw new GoogleAuthorizationException(
-                    'Google Connector scope required for '.$capability.'.',
-                    $missing,
-                    $capability,
-                );
+            // When granted scopes were never persisted (legacy credentials), do not block
+            // token issuance — the provider enforces scope. Known grants still fail closed.
+            $granted = $this->coverage->grantedScopes($integration);
+            if ($granted !== []) {
+                $missing = $this->coverage->missingScopes($integration, [$capability]);
+                if ($missing !== []) {
+                    throw new GoogleAuthorizationException(
+                        'Google Connector scope required for '.$capability.'.',
+                        $missing,
+                        $capability,
+                    );
+                }
             }
         }
 

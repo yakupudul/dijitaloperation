@@ -40,8 +40,8 @@ Status reference for the frozen `/app` operator panel. UI work after this docume
 | Agents | PARTIAL | Full read-only catalog under `/app/settings/ai/agents` (code registry) |
 | Skills | PARTIAL | Full read-only catalog under `/app/settings/ai/skills` (code registry) |
 | Notifications | DEMO | Deterministic bell when DB empty; preferences in Settings |
-| Google Integration hub/detail (`/app/integrations`) | REAL (backend state) | Prompt 13+14: Core* + production OAuth lifecycle; discovery/bind/collect still PARTIAL (15–19) |
-| Google connector workspaces | DEMO / PARTIAL | Fixture control plane until Prompt 15/16 |
+| Google Integration hub/detail (`/app/integrations`) | REAL (backend state) | Prompt 13–15: Core* + OAuth + real discovery inventory; bind/collect still PARTIAL (16–19) |
+| Google connector workspaces | DEMO / PARTIAL | Fixture control plane until Prompt 16 binding UX |
 
 ## Post-Freeze Backend Roadmap
 
