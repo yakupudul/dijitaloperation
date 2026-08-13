@@ -4,6 +4,7 @@ namespace App\Filament\App\Resources\Integrations\Pages;
 
 use App\Filament\App\Resources\Integrations\IntegrationResource;
 use App\Models\CoreIntegration;
+use App\Models\User;
 use App\Services\Integrations\Anthropic\AnthropicConnectionService;
 use App\Services\Integrations\Anthropic\AnthropicCredentialResolver;
 use App\Services\Integrations\Anthropic\AnthropicProviderCredentialService;
@@ -18,10 +19,10 @@ use App\Services\Integrations\Google\GoogleOAuthRedirectUriResolver;
 use App\Services\Integrations\Google\GoogleOAuthService;
 use App\Services\Integrations\Google\GoogleProviderCredentialService;
 use App\Services\Integrations\Google\GoogleResourceRefreshService;
+use App\Services\Integrations\Meta\DiscoverMetaResourcesService;
 use App\Services\Integrations\Meta\MetaConnectionService;
 use App\Services\Integrations\Meta\MetaCredentialResolver;
 use App\Services\Integrations\Meta\MetaProviderCredentialService;
-use App\Services\Integrations\Meta\MetaResourceDiscoveryService;
 use App\Services\Integrations\OpenAi\OpenAiConnectionService;
 use App\Services\Integrations\OpenAi\OpenAiCredentialResolver;
 use App\Services\Integrations\OpenAi\OpenAiProviderCredentialService;
@@ -1332,8 +1333,12 @@ class ViewIntegration extends ViewRecord
                 ->tooltip(fn (): ?string => app(MetaCredentialResolver::class)->isConfigured($this->freshProviderCredentialRecord())
                     ? null
                     : 'Configure and preferably test the Meta token first.')
-                ->action(function (MetaResourceDiscoveryService $discovery): void {
-                    $result = $discovery->discover($this->freshProviderCredentialRecord());
+                ->action(function (DiscoverMetaResourcesService $discovery): void {
+                    $user = Auth::user();
+                    $result = $discovery->refreshInventory(
+                        $this->freshProviderCredentialRecord(),
+                        $user instanceof User ? $user : null,
+                    );
                     Notification::make()
                         ->title($result['ok'] ? 'Meta resources discovered' : 'Discovery issue')
                         ->body($result['message'])

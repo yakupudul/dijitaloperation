@@ -44,6 +44,7 @@ class MetaApiClient
         }
 
         $url = MetaApiConfig::graphBaseUrl().'/'.$path;
+        $query = $this->withAppSecretProof($query, $token);
 
         try {
             $response = Http::timeout(MetaApiConfig::timeoutSeconds())
@@ -108,6 +109,8 @@ class MetaApiClient
             unset($query['access_token']);
         }
 
+        $query = $this->withAppSecretProof($query, $token);
+
         $path = (string) ($parts['path'] ?? '/');
         $rebuild = MetaApiConfig::GRAPH_SCHEME.'://'.MetaApiConfig::GRAPH_HOST.$path;
 
@@ -126,6 +129,29 @@ class MetaApiClient
         }
 
         return $this->decodeOrThrow($response);
+    }
+
+    /**
+     * Attach appsecret_proof when moxdop.meta.use_appsecret_proof is enabled.
+     * Never logs the access token used to compute the proof.
+     *
+     * @param  array<string, mixed>  $query
+     * @return array<string, mixed>
+     */
+    private function withAppSecretProof(array $query, string $token): array
+    {
+        if (! (bool) config('moxdop.meta.use_appsecret_proof', true)) {
+            return $query;
+        }
+
+        $proof = MetaApiConfig::appSecretProof($token);
+        if ($proof === null) {
+            return $query;
+        }
+
+        $query['appsecret_proof'] = $proof;
+
+        return $query;
     }
 
     /**
