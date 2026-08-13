@@ -17,6 +17,8 @@ class FindingsIndex extends Component
 
     public string $assetType = 'all';
 
+    public string $status = 'all';
+
     public ?string $expandedId = null;
 
     public function mount(): void
@@ -45,6 +47,11 @@ class FindingsIndex extends Component
         DemoState::setFilter('finding_asset_type', $assetType === 'all' ? null : $assetType);
     }
 
+    public function setStatus(string $status): void
+    {
+        $this->status = $status;
+    }
+
     public function expand(string $id): void
     {
         $this->expandedId = $this->expandedId === $id ? null : $id;
@@ -53,19 +60,24 @@ class FindingsIndex extends Component
     public function render(): View
     {
         $all = DemoCatalog::findings();
-        $findings = DemoCatalog::filterFindings(
+        $findings = collect(DemoCatalog::filterFindings(
             $this->severity === 'all' ? null : $this->severity,
             $this->assetType === 'all' ? null : $this->assetType,
-        );
+        ));
+
+        if ($this->status !== 'all') {
+            $findings = $findings->where('status', $this->status);
+        }
 
         $summary = [
-            'critical' => collect($all)->where('severity', 'critical')->count(),
-            'high' => collect($all)->where('severity', 'high')->count(),
-            'medium' => collect($all)->where('severity', 'medium')->count(),
+            'critical_high' => collect($all)->whereIn('severity', ['critical', 'high'])->where('status', 'open')->count(),
+            'new' => collect($all)->where('status', 'open')->take(3)->count() > 0 ? min(3, collect($all)->where('status', 'open')->count()) : 0,
+            'regressions' => collect($all)->whereIn('type', ['performance', 'local', 'measurement'])->whereIn('severity', ['critical', 'high'])->count(),
+            'resolved' => collect($all)->where('status', 'resolved')->count(),
         ];
 
         return view('livewire.demo.operations.findings-index', [
-            'findings' => $findings,
+            'findings' => $findings->values()->all(),
             'summary' => $summary,
             'flash' => DemoState::pullFlash(),
         ]);

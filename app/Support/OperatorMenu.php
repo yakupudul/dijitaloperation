@@ -31,13 +31,6 @@ final class OperatorMenu
             ];
         }
 
-        $groups[] = [
-            'title' => 'Account',
-            'items' => [
-                ['name' => 'Settings', 'path' => '/app/settings', 'icon' => 'settings'],
-            ],
-        ];
-
         return $groups;
     }
 

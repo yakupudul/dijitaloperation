@@ -2,45 +2,69 @@
     @include('livewire.demo.partials.flash')
 
     @include('livewire.demo.partials.workspace-header', [
-        'eyebrow' => 'Integrations',
+        'eyebrow' => 'System',
         'title' => 'Integrations',
-        'subtitle' => 'Provider connections for Demo Mode — no live OAuth writes from this shell.',
+        'subtitle' => 'External connection control plane — providers, discovered resources, bindings, and dependencies.',
     ])
 
-    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        @foreach ($integrations as $integration)
-            @php
-                $statusColor = match ($integration['status']) {
-                    'connected' => 'success',
-                    'configured' => 'info',
-                    default => 'warning',
-                };
-            @endphp
-            <x-ta.card>
-                <div class="flex items-start justify-between gap-2">
-                    <div>
-                        <p class="text-xs font-medium uppercase tracking-wide text-gray-400">Provider</p>
-                        <h3 class="mt-1 text-lg font-semibold text-gray-800 dark:text-white/90">{{ $integration['name'] }}</h3>
-                    </div>
-                    <x-ta.badge :color="$statusColor" size="sm">{{ $integration['status'] }}</x-ta.badge>
-                </div>
-                <p class="mt-3 text-sm text-gray-600 dark:text-gray-300">{{ $integration['summary'] }}</p>
-                <dl class="mt-4 grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                        <dt class="text-gray-400">Last sync</dt>
-                        <dd class="font-medium text-gray-800 dark:text-white/90">{{ $integration['last_sync'] }}</dd>
-                    </div>
-                    <div>
-                        <dt class="text-gray-400">Problems</dt>
-                        <dd class="font-medium text-gray-800 dark:text-white/90">{{ $integration['problems'] }}</dd>
-                    </div>
-                </dl>
-                <div class="mt-4">
-                    <x-ta.button :href="route($integration['route'])" size="sm">
-                        {{ $integration['id'] === 'meta' ? 'Open Meta import' : 'View' }}
-                    </x-ta.button>
-                </div>
-            </x-ta.card>
-        @endforeach
-    </div>
+    @foreach ($groups as $group)
+        <section class="space-y-3" aria-labelledby="group-{{ \Illuminate\Support\Str::slug($group['group']) }}">
+            <h2 id="group-{{ \Illuminate\Support\Str::slug($group['group']) }}" class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                {{ $group['group'] }}
+            </h2>
+            <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                @foreach ($group['providers'] as $provider)
+                    @php
+                        $statusColor = match ($provider['state']) {
+                            'connected' => 'success',
+                            'needs_attention', 'authorization_expired', 'configuration_incomplete' => 'warning',
+                            'not_connected', 'provider_unavailable' => 'light',
+                            default => 'info',
+                        };
+                    @endphp
+                    <article class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="flex items-center gap-3">
+                                <x-demo.digital-asset-mark :type="$provider['logo_type'] ?? 'website'" size="md" />
+                                <div>
+                                    <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ $provider['name'] }}</h3>
+                                    <x-ta.badge :color="$statusColor" size="sm">{{ $provider['state_label'] }}</x-ta.badge>
+                                </div>
+                            </div>
+                        </div>
+
+                        @if ($provider['resources_discovered'] !== null)
+                            <dl class="mt-4 grid grid-cols-3 gap-2 text-center text-sm">
+                                <div class="rounded-lg bg-gray-50 px-2 py-2 dark:bg-white/[0.03]">
+                                    <dt class="text-xs text-gray-400">Discovered</dt>
+                                    <dd class="font-semibold text-gray-800 dark:text-white/90">{{ $provider['resources_discovered'] }}</dd>
+                                </div>
+                                <div class="rounded-lg bg-gray-50 px-2 py-2 dark:bg-white/[0.03]">
+                                    <dt class="text-xs text-gray-400">Bound</dt>
+                                    <dd class="font-semibold text-gray-800 dark:text-white/90">{{ $provider['bound'] }}</dd>
+                                </div>
+                                <div class="rounded-lg bg-gray-50 px-2 py-2 dark:bg-white/[0.03]">
+                                    <dt class="text-xs text-gray-400">Available</dt>
+                                    <dd class="font-semibold text-gray-800 dark:text-white/90">{{ $provider['available'] }}</dd>
+                                </div>
+                            </dl>
+                        @elseif (! empty($provider['note']))
+                            <p class="mt-4 text-sm text-gray-500 dark:text-gray-400">{{ $provider['note'] }}</p>
+                        @endif
+
+                        <p class="mt-3 text-xs text-gray-500">Last check · {{ $provider['last_check'] }}</p>
+                        @if (($provider['dependent_assets'] ?? 0) > 0)
+                            <p class="mt-1 text-xs text-gray-500">{{ $provider['dependent_assets'] }} dependent Digital Assets</p>
+                        @endif
+
+                        <div class="mt-4">
+                            <x-ta.button :href="route($provider['route'], $provider['route_params'] ?? [])" size="sm">
+                                {{ $provider['manage_label'] ?? 'Manage' }}
+                            </x-ta.button>
+                        </div>
+                    </article>
+                @endforeach
+            </div>
+        </section>
+    @endforeach
 </div>

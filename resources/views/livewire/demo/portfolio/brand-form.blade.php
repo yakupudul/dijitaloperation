@@ -44,17 +44,22 @@
             </x-ta.form.field>
         </x-ta.form.section>
 
-        <x-ta.form.section title="Positioning">
-            <x-ta.form.field label="Description" :error="$errors->first('description')">
-                <textarea wire:model="description" rows="3" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"></textarea>
+        <x-ta.form.section title="Legacy free-text fields (compatibility)">
+            <div class="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 ring-1 ring-inset ring-amber-200 dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-500/30">
+                <strong>Canonical strategic truth</strong> is Brand Intelligence Context (Business Context tab on the Brand workspace).
+                Audience, offerings, markets, competitors, goals, and positioning should be maintained there — not duplicated here.
+                These legacy fields remain for backward compatibility and are not a second source of truth.
+            </div>
+            <x-ta.form.field label="Description (legacy)" :error="$errors->first('description')">
+                <textarea wire:model="description" rows="2" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"></textarea>
             </x-ta.form.field>
-            <x-ta.form.field label="Target audience" :error="$errors->first('audience')">
-                <textarea wire:model="audience" rows="3" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"></textarea>
+            <x-ta.form.field label="Target audience (legacy — prefer Business Context)" :error="$errors->first('audience')">
+                <textarea wire:model="audience" rows="2" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"></textarea>
             </x-ta.form.field>
-            <x-ta.form.field label="Offerings" helper="Free-form list is fine — offerings are not a global catalog." :error="$errors->first('offerings')">
-                <textarea wire:model="offerings" rows="3" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"></textarea>
+            <x-ta.form.field label="Offerings (legacy — prefer Business Context)" helper="Prefer Brand Context products/services with stable future IDs." :error="$errors->first('offerings')">
+                <textarea wire:model="offerings" rows="2" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"></textarea>
             </x-ta.form.field>
-            <x-ta.form.field label="Competitors" helper="Free-form — competitors are not a finite catalog." :error="$errors->first('competitors')">
+            <x-ta.form.field label="Competitors (legacy — prefer Business Context)" :error="$errors->first('competitors')">
                 <textarea wire:model="competitors" rows="2" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"></textarea>
             </x-ta.form.field>
         </x-ta.form.section>

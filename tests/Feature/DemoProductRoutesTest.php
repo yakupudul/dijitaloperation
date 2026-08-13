@@ -51,10 +51,11 @@ class DemoProductRoutesTest extends TestCase
     {
         $this->get('/app')
             ->assertOk()
-            ->assertSee('Agency Operations OS')
-            ->assertSee('Command Center')
-            ->assertSee('What needs attention today?')
-            ->assertSee('Demo Mode');
+            ->assertSee('Needs your attention')
+            ->assertSee('My Work')
+            ->assertSee('Agency')
+            ->assertSee('Recent outcomes')
+            ->assertDontSee('Agency Health');
 
         $this->get(route('demo.customers'))->assertOk()->assertSee('Customers');
         $this->get(route('demo.brands'))->assertOk()->assertSee('Brands');
@@ -69,7 +70,13 @@ class DemoProductRoutesTest extends TestCase
         $this->get(route('demo.brand', ['brand' => DemoCatalog::BRAND_ID, 'tab' => 'research']))
             ->assertOk()
             ->assertSee('Public Discovery');
-        $this->get(route('demo.assets'))->assertOk()->assertSee('Digital Assets')->assertSee('Primary managed');
+        $this->get(route('demo.assets'))
+            ->assertOk()
+            ->assertSee('Digital Assets')
+            ->assertSee('Managed Assets')
+            ->assertSee('Estate Matrix')
+            ->assertSee('Atlas Dental — GA4')
+            ->assertSee('Atlas Dental — Search Console');
     }
 
     public function test_operations_and_integrations_routes_smoke(): void
@@ -78,14 +85,17 @@ class DemoProductRoutesTest extends TestCase
             ->assertOk()
             ->assertSee('Findings')
             ->assertSee('Critical')
+            ->assertSee('Lead measurement requires investigation')
             ->assertSee('Meta CPL deteriorated');
         $this->get(route('demo.recommendations'))
             ->assertOk()
             ->assertSee('Recommendations')
-            ->assertSee('Observation');
+            ->assertSee('Awaiting Decision')
+            ->assertSee('Review conversion mapping');
         $this->get(route('demo.tasks'))
             ->assertOk()
             ->assertSee('Tasks')
+            ->assertSee('My Tasks')
             ->assertSee('Board');
         $this->get(route('demo.task', ['taskId' => 't-replace-creative']))
             ->assertOk()
@@ -96,18 +106,36 @@ class DemoProductRoutesTest extends TestCase
         $this->get(route('demo.activity'))
             ->assertOk()
             ->assertSee('Activity')
-            ->assertSee('Needs attention');
+            ->assertSee('Google Analytics collection completed')
+            ->assertSee('Recommendation accepted');
         $this->get(route('demo.integrations'))
             ->assertOk()
             ->assertSee('Integrations')
-            ->assertSee('Open Meta import');
+            ->assertSee('Platforms & Data')
+            ->assertSee('Intelligence Providers')
+            ->assertSee('Google')
+            ->assertSee('Meta');
+        $this->get(route('demo.integrations.google'))
+            ->assertOk()
+            ->assertSee('Google')
+            ->assertSee('Resources & Bindings')
+            ->assertSee('Available / unbound')
+            ->assertSee('Panorama Ankara GA4');
         $this->get(route('demo.integrations.meta'))
             ->assertOk()
             ->assertSee('Meta data import')
             ->assertSee('Import all Meta data')
             ->assertSee('Ready')
             ->assertSee('Needs attention');
-        $this->get(route('demo.settings'))->assertOk()->assertSee('Reset Demo Mode');
+        $this->get(route('demo.settings'))
+            ->assertOk()
+            ->assertSee('General')
+            ->assertSee('Team & Access')
+            ->assertSee('AI & Intelligence');
+        $this->get(route('demo.settings', ['section' => 'advanced']))
+            ->assertOk()
+            ->assertSee('Reset Demo Mode')
+            ->assertDontSee('>Modules</');
     }
 
     public function test_asset_workspace_routes_smoke(): void

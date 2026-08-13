@@ -4,6 +4,8 @@ namespace App\Support\Demo;
 
 /**
  * Canonical /app navigation for the full product demo (TailAdmin sidebar).
+ *
+ * Module/package architecture is intentionally not exposed here.
  */
 final class DemoMenu
 {
@@ -28,18 +30,19 @@ final class DemoMenu
                 ],
             ],
             [
-                'label' => 'Data',
-                'items' => [
-                    ['label' => 'Integrations', 'route' => 'demo.integrations', 'icon' => 'integrations'],
-                ],
-            ],
-            [
                 'label' => 'Operations',
                 'items' => [
                     ['label' => 'Findings', 'route' => 'demo.findings', 'icon' => 'findings'],
                     ['label' => 'Recommendations', 'route' => 'demo.recommendations', 'icon' => 'recommendations'],
                     ['label' => 'Tasks', 'route' => 'demo.tasks', 'icon' => 'tasks'],
                     ['label' => 'Activity', 'route' => 'demo.activity', 'icon' => 'activity'],
+                ],
+            ],
+            [
+                'label' => 'System',
+                'items' => [
+                    ['label' => 'Integrations', 'route' => 'demo.integrations', 'icon' => 'integrations'],
+                    ['label' => 'Settings', 'route' => 'demo.settings', 'icon' => 'settings'],
                 ],
             ],
         ];

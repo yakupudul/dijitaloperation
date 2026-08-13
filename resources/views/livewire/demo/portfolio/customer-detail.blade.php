@@ -111,12 +111,16 @@
                     </dl>
                 </x-ta.card>
                 <x-ta.card>
-                    <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Responsible team</h2>
+                    <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Account Owner / Responsible users</h2>
+                    <p class="mt-1 text-xs text-gray-500">Portfolio responsibility for Dashboard routing — separate from authorization.</p>
                     <ul class="mt-3 space-y-2">
-                        @forelse ($responsibleUsers as $user)
+                        @forelse ($responsibleUsers as $index => $user)
                             <li class="flex items-center gap-2 text-sm">
                                 <span class="flex h-7 w-7 items-center justify-center rounded-full bg-brand-50 text-xs font-semibold text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">{{ $user['initials'] }}</span>
                                 <span class="text-gray-800 dark:text-white/90">{{ $user['name'] }}</span>
+                                @if ($index === 0)
+                                    <x-ta.badge color="info" size="sm">Account Owner</x-ta.badge>
+                                @endif
                             </li>
                         @empty
                             <li class="text-sm text-gray-500">No responsible team assigned.</li>

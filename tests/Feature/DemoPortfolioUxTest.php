@@ -52,7 +52,8 @@ class DemoPortfolioUxTest extends TestCase
     public function test_assets_index_filters_by_role_and_health(): void
     {
         Livewire::test(AssetsIndex::class)
-            ->assertSee('Primary managed')
+            ->assertSee('Managed Assets')
+            ->assertSee('Digital Estate Directory')
             ->set('filterRole', 'infrastructure')
             ->assertSee('DemoHost')
             ->assertDontSee('Atlas Dental — Meta')
@@ -60,5 +61,14 @@ class DemoPortfolioUxTest extends TestCase
             ->set('filterHealth', 'needs_attention')
             ->assertSee('atlasdental.example')
             ->assertSee('Atlas Dental — Meta');
+    }
+
+    public function test_assets_estate_matrix_marks_missing_as_not_configured(): void
+    {
+        Livewire::test(AssetsIndex::class)
+            ->call('setViewMode', 'matrix')
+            ->assertSee('Estate Matrix')
+            ->assertSee('Not configured')
+            ->assertSee('Atlas Dental Ankara');
     }
 }

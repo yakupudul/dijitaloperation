@@ -22,13 +22,13 @@ class RecommendationsIndex extends Component
     public function approve(string $id): void
     {
         DemoState::setRecommendationStatus($id, 'approved');
-        DemoState::flash('Recommendation approved (Demo Mode).');
+        DemoState::flash('Recommendation accepted (Demo Mode). Human decision recorded — no external write.');
     }
 
     public function reject(string $id): void
     {
         DemoState::setRecommendationStatus($id, 'rejected');
-        DemoState::flash('Recommendation rejected (Demo Mode).', 'info');
+        DemoState::flash('Recommendation dismissed (Demo Mode).', 'info');
     }
 
     public function createTask(string $id): void

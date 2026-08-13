@@ -2,8 +2,8 @@
 
 namespace App\Livewire\Demo\Integrations;
 
-use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
+use App\Support\Demo\GlobalOperatingFixtures;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -16,7 +16,7 @@ class IntegrationsIndex extends Component
     public function render(): View
     {
         return view('livewire.demo.integrations.integrations-index', [
-            'integrations' => DemoCatalog::integrations(),
+            'groups' => GlobalOperatingFixtures::integrationsHub(),
             'flash' => DemoState::pullFlash(),
         ]);
     }

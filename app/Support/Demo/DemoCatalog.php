@@ -584,11 +584,13 @@ final class DemoCatalog
         ];
 
         return array_map(static function (array $asset): array {
-            return array_merge(
+            $merged = array_merge(
                 $asset,
                 self::assetTaxonomy((string) $asset['type']),
                 self::assetPrimaryMetric($asset),
             );
+
+            return GlobalOperatingFixtures::enrichAsset($merged);
         }, $rows);
     }
 
@@ -1689,144 +1691,12 @@ final class DemoCatalog
      *
      * @return array<string, mixed>
      */
-    public static function dashboard(): array
+    public static function dashboard(string $mode = 'my_work'): array
     {
-        $brand = self::brand();
-        $criticalFindings = collect(self::findings())->whereIn('severity', ['critical', 'high'])->count();
-        $openTasks = collect(self::tasksSeed())->where('status', '!=', 'completed')->count();
+        $payload = GlobalOperatingFixtures::dashboard($mode);
+        $payload['seasonality'] = self::seasonalityNote('last_28');
 
-        return [
-            'needs_attention' => [
-                [
-                    'severity' => 'critical',
-                    'title' => 'Critical findings open',
-                    'body' => $criticalFindings.' critical/high findings need review (Meta CPL, Google search-term waste).',
-                    'evidence' => 'Largest efficiency risks across paid channels.',
-                    'why' => 'Unreviewed critical findings delay corrective work.',
-                    'source' => 'Findings',
-                    'route' => 'demo.findings',
-                    'action_label' => 'Review findings',
-                ],
-                [
-                    'severity' => 'high',
-                    'title' => 'Overdue / due-soon tasks',
-                    'body' => $openTasks.' open tasks — creative replacement due Friday; negatives due tomorrow.',
-                    'evidence' => 'Owned work still in flight on Atlas Dental.',
-                    'why' => 'Due-soon tasks block the efficiency loop.',
-                    'source' => 'Tasks',
-                    'route' => 'demo.tasks',
-                    'action_label' => 'Open tasks',
-                ],
-                [
-                    'severity' => 'medium',
-                    'title' => 'Sync / import attention',
-                    'body' => 'Meta historical import 11 / 31 accounts ready; one account needs attention.',
-                    'evidence' => 'Partial coverage can hide account-level deterioration.',
-                    'why' => 'Incomplete sync weakens confidence in paid diagnostics.',
-                    'source' => 'Integrations',
-                    'route' => 'demo.integrations.meta',
-                    'action_label' => 'Inspect import',
-                ],
-                [
-                    'severity' => 'info',
-                    'title' => 'Upcoming renewals',
-                    'body' => 'Hosting renewal in 34 days · SSL in 89 days.',
-                    'evidence' => 'Lifecycle reminders — no performance blocker today.',
-                    'why' => 'Avoid last-minute infra surprises.',
-                    'source' => 'Lifecycle',
-                    'route' => 'demo.website',
-                    'route_params' => ['tab' => 'settings'],
-                    'action_label' => 'View lifecycle',
-                ],
-            ],
-            'brand_cards' => [
-                [
-                    'id' => $brand['id'],
-                    'name' => $brand['name'],
-                    'urgency' => 1,
-                    'health' => $brand['health'],
-                    'health_label' => $brand['health_label'],
-                    'media_spend' => $brand['summary']['media_spend'],
-                    'platform_leads' => $brand['summary']['platform_leads'],
-                    'website_leads' => $brand['summary']['website_leads'],
-                    'calls_messages' => $brand['summary']['calls_messages'],
-                    'open_tasks' => $brand['open_tasks'],
-                    'open_findings' => count(self::findings()),
-                    'route' => 'demo.brand',
-                    'route_params' => ['brand' => self::BRAND_ID],
-                    'channels' => [
-                        ['label' => 'Meta', 'status' => 'needs_attention', 'status_label' => 'CPL ↑'],
-                        ['label' => 'Google Ads', 'status' => 'healthy', 'status_label' => 'Stable'],
-                        ['label' => 'Website', 'status' => 'needs_attention', 'status_label' => 'LCP'],
-                        ['label' => 'GBP', 'status' => 'healthy', 'status_label' => '4.8★'],
-                    ],
-                ],
-            ],
-            'movements' => [
-                [
-                    'label' => 'Meta CPL',
-                    'direction' => 'up',
-                    'value' => '+22%',
-                    'detail' => 'Post Bariatric — Europe driving deterioration',
-                    'tone' => 'bad',
-                    'route' => 'demo.meta.overview',
-                ],
-                [
-                    'label' => 'Google Ads CPA',
-                    'direction' => 'flat',
-                    'value' => '+1.8%',
-                    'detail' => 'Stable overall; waste share elevated',
-                    'tone' => 'neutral',
-                    'route' => 'demo.google-ads.overview',
-                ],
-                [
-                    'label' => 'GBP map rank',
-                    'direction' => 'down',
-                    'value' => '4.8 → 5.4',
-                    'detail' => '“implant ankara” NE grid weakened',
-                    'tone' => 'warn',
-                    'route' => 'demo.gbp',
-                ],
-                [
-                    'label' => 'Website leads',
-                    'direction' => 'down',
-                    'value' => '-4%',
-                    'detail' => 'Mobile LCP drag on /implant',
-                    'tone' => 'bad',
-                    'route' => 'demo.website',
-                ],
-            ],
-            'upcoming' => [
-                [
-                    'label' => 'Hosting renewal',
-                    'when' => '15 Sep 2026',
-                    'detail' => 'DemoHost · 34 days',
-                    'route' => 'demo.website',
-                    'route_params' => ['tab' => 'settings'],
-                ],
-                [
-                    'label' => 'SSL certificate',
-                    'when' => '09 Nov 2026',
-                    'detail' => '89 days remaining',
-                    'route' => 'demo.website',
-                    'route_params' => ['tab' => 'settings'],
-                ],
-                [
-                    'label' => 'Creative replacement task due',
-                    'when' => 'Friday',
-                    'detail' => 'Replace PB-Video-03',
-                    'route' => 'demo.tasks',
-                ],
-            ],
-            'recent_operations' => self::activitySeed(),
-            'secondary_counts' => [
-                ['label' => 'Open findings', 'value' => count(self::findings()), 'route' => 'demo.findings'],
-                ['label' => 'Open tasks', 'value' => $openTasks, 'route' => 'demo.tasks'],
-                ['label' => 'Pending recommendations', 'value' => collect(self::recommendationsSeed())->where('status', 'pending')->count(), 'route' => 'demo.recommendations'],
-                ['label' => 'Assets', 'value' => count(self::assets()), 'route' => 'demo.assets'],
-            ],
-            'seasonality' => self::seasonalityNote('last_28'),
-        ];
+        return $payload;
     }
 
     /**
@@ -2198,6 +2068,31 @@ final class DemoCatalog
     {
         return [
             [
+                'id' => 'f-lead-measurement',
+                'severity' => 'critical',
+                'brand' => 'Atlas Dental Ankara',
+                'customer' => 'Atlas Health Group',
+                'asset' => 'Google Ads',
+                'asset_type' => 'google_ads',
+                'asset_id' => self::GOOGLE_ADS_ASSET_ID,
+                'title' => 'Lead measurement requires investigation',
+                'plain' => 'Primary lead conversion signal has been missing for 36 hours across affected campaigns.',
+                'observation' => '36h without primary lead signal · 3 campaigns affected.',
+                'why' => 'Paid acquisition optimization cannot be trusted without the primary conversion signal.',
+                'evidence' => 'Conversion tracking gap on lead form / generate_lead mapping (demo).',
+                'detected' => '12 Aug 2026',
+                'last_observed' => '36h ago',
+                'status' => 'open',
+                'type' => 'measurement',
+                'category' => 'Measurement',
+                'source' => 'deterministic_analysis',
+                'source_label' => 'Deterministic analysis',
+                'recommendation_id' => 'r-review-conversion-mapping',
+                'task_id' => 't-investigate-lead-measurement',
+                'recommendations_count' => 1,
+                'tasks_count' => 1,
+            ],
+            [
                 'id' => 'f-meta-cpl',
                 'severity' => 'critical',
                 'brand' => 'Atlas Dental Ankara',
@@ -2210,8 +2105,14 @@ final class DemoCatalog
                 'why' => 'Largest paid-efficiency drag on the brand; spend remains material while conversion cost worsens.',
                 'evidence' => 'CPL ₺482 → ₺691 on Post Bariatric — Europe (14 days).',
                 'detected' => '2 Jul 2026',
+                'last_observed' => '2 days ago',
                 'status' => 'open',
                 'type' => 'performance',
+                'category' => 'Performance',
+                'source' => 'provider',
+                'source_label' => 'Provider',
+                'recommendations_count' => 1,
+                'tasks_count' => 1,
             ],
             [
                 'id' => 'f-meta-freq',
@@ -2361,6 +2262,28 @@ final class DemoCatalog
     {
         return [
             [
+                'id' => 'r-review-conversion-mapping',
+                'finding_id' => 'f-lead-measurement',
+                'title' => 'Review conversion mapping for primary lead signal',
+                'observation' => 'Primary lead conversion has been dark for 36 hours across three Google Ads campaigns.',
+                'why' => 'Without a trustworthy lead signal, spend and optimization decisions are blind.',
+                'evidence' => 'Deterministic conversion gap · Google Ads · GA4 evidence correlation (demo)',
+                'action' => 'Verify lead form → Google Ads conversion → GA4 business action mapping; restore primary lead signal.',
+                'dependencies' => 'Access to tag manager / conversion settings outside MoxDOP.',
+                'success' => 'Primary lead conversions resume within 48h and remain stable for 7 days.',
+                'failure' => 'Lead signal remains dark after mapping review.',
+                'watch' => ['Lead conversions', 'Campaign conversion rate'],
+                'effort' => 'Medium',
+                'verification_plan' => 'Confirm next successful lead conversion event in Ads + GA4 within 48 hours.',
+                'provenance' => 'Deterministic',
+                'ai_assisted' => false,
+                'status' => 'pending',
+                'brand' => 'Atlas Dental Ankara',
+                'asset' => 'Google Ads',
+                'asset_type' => 'google_ads',
+                'priority' => 'high',
+            ],
+            [
                 'id' => 'r-replace-creative',
                 'finding_id' => 'f-meta-cpl',
                 'title' => 'Replace underperforming Meta creative PB-Video-03',
@@ -2372,9 +2295,15 @@ final class DemoCatalog
                 'success' => 'CPL trending toward ≤ ₺550 over 14 days after launch.',
                 'failure' => 'CPL remains ≥ ₺650 with CTR < 1.8% after 14 days.',
                 'watch' => ['CPL', 'Link CTR', 'Frequency'],
+                'effort' => 'Medium',
+                'verification_plan' => 'Compare CPL / CTR over 14 days after creative launch.',
+                'provenance' => 'Deterministic + operator review',
+                'ai_assisted' => false,
                 'status' => 'pending',
                 'brand' => 'Atlas Dental Ankara',
                 'asset' => 'Meta Ads',
+                'asset_type' => 'meta_ads',
+                'priority' => 'high',
             ],
             [
                 'id' => 'r-fix-lcp',
@@ -2450,15 +2379,49 @@ final class DemoCatalog
     {
         return [
             [
+                'id' => 't-investigate-lead-measurement',
+                'title' => 'Investigate lead measurement',
+                'brand' => 'Atlas Dental Ankara',
+                'customer' => 'Atlas Health Group',
+                'asset' => 'Google Ads',
+                'asset_type' => 'google_ads',
+                'digital_asset_id' => self::GOOGLE_ADS_ASSET_ID,
+                'scope_level' => 'digital_asset',
+                'recommendation_id' => 'r-review-conversion-mapping',
+                'finding_id' => 'f-lead-measurement',
+                'owner' => 'Ayşe Demir',
+                'assignee_id' => 'u-ayse',
+                'priority' => 'critical',
+                'due' => 'Today',
+                'status' => 'open',
+                'origin' => 'Recommendation',
+                'description' => 'Restore primary lead conversion signal mapping across Ads and GA4.',
+                'success_signal' => 'Lead conversions resume within 48h.',
+                'why' => [
+                    'finding' => 'Lead measurement requires investigation',
+                    'recommendation' => 'Review conversion mapping for primary lead signal',
+                    'evidence' => '36h without primary lead signal · 3 campaigns',
+                ],
+                'do' => 'Audit conversion tags and business-action mapping outside MoxDOP; document restoration.',
+                'measure' => 'Primary lead conversion events in Ads + GA4.',
+                'follow_up' => 'Confirm outcome after next collection window — completion ≠ success.',
+                'outcome' => null,
+            ],
+            [
                 'id' => 't-replace-creative',
                 'title' => 'Replace PB-Video-03 creative',
                 'brand' => 'Atlas Dental Ankara',
                 'asset' => 'Meta Ads',
+                'asset_type' => 'meta_ads',
+                'digital_asset_id' => self::META_ASSET_ID,
+                'scope_level' => 'digital_asset',
                 'recommendation_id' => 'r-replace-creative',
-                'owner' => 'Ayşe Yılmaz',
+                'owner' => 'Ayşe Demir',
+                'assignee_id' => 'u-ayse',
                 'priority' => 'high',
                 'due' => 'Friday',
                 'status' => 'open',
+                'origin' => 'Recommendation',
                 'description' => 'Produce and launch replacement creative; pause PB-Video-03 after launch.',
                 'success_signal' => 'CPL trending toward ≤ ₺550 over 14 days.',
                 'why' => [
@@ -2477,10 +2440,15 @@ final class DemoCatalog
                 'brand' => 'Atlas Dental Ankara',
                 'asset' => 'Website',
                 'recommendation_id' => 'r-fix-lcp',
-                'owner' => 'Can Demir',
+                'owner' => 'Can Öztürk',
+                'assignee_id' => 'u-can',
                 'priority' => 'medium',
                 'due' => 'Next week',
                 'status' => 'in_progress',
+                'origin' => 'Recommendation',
+                'scope_level' => 'digital_asset',
+                'asset_type' => 'website',
+                'digital_asset_id' => self::WEBSITE_ASSET_ID,
                 'description' => 'Optimize hero media and JS on /implant.',
                 'success_signal' => 'Mobile LCP ≤ 2.5s',
                 'why' => [
@@ -2498,11 +2466,16 @@ final class DemoCatalog
                 'title' => 'Add Google Ads negatives for waste terms',
                 'brand' => 'Atlas Dental Ankara',
                 'asset' => 'Google Ads',
+                'asset_type' => 'google_ads',
+                'digital_asset_id' => self::GOOGLE_ADS_ASSET_ID,
+                'scope_level' => 'digital_asset',
                 'recommendation_id' => 'r-negatives',
-                'owner' => 'Performance Specialist',
+                'owner' => 'Mert Yılmaz',
+                'assignee_id' => 'u-mert',
                 'priority' => 'high',
                 'due' => 'Tomorrow',
                 'status' => 'open',
+                'origin' => 'Recommendation',
                 'description' => 'Negate demo low-relevance queries from search terms list.',
                 'success_signal' => 'Waste share < 6%',
                 'why' => [
@@ -2520,11 +2493,16 @@ final class DemoCatalog
                 'title' => 'Clear unanswered GBP review backlog',
                 'brand' => 'Atlas Dental Ankara',
                 'asset' => 'Google Business Profile',
+                'asset_type' => 'gbp',
+                'digital_asset_id' => self::GBP_ASSET_ID,
+                'scope_level' => 'digital_asset',
                 'recommendation_id' => 'r-gbp-reviews',
-                'owner' => 'Clinic ops',
+                'owner' => 'Selin Kaya',
+                'assignee_id' => 'u-selin',
                 'priority' => 'medium',
                 'due' => 'Waiting on clinic copy',
                 'status' => 'blocked',
+                'origin' => 'Recommendation',
                 'description' => 'Respond to open reviews once wait-time messaging is confirmed.',
                 'success_signal' => 'Unanswered reviews ≤ 3 within 7 days.',
                 'why' => [
@@ -2542,11 +2520,16 @@ final class DemoCatalog
                 'title' => 'Audit GBP relevance for implant ankara',
                 'brand' => 'Atlas Dental Ankara',
                 'asset' => 'Google Business Profile',
+                'asset_type' => 'gbp',
+                'digital_asset_id' => self::GBP_ASSET_ID,
+                'scope_level' => 'digital_asset',
                 'recommendation_id' => 'r-map-relevance',
-                'owner' => 'Local SEO',
+                'owner' => 'Selin Kaya',
+                'assignee_id' => 'u-selin',
                 'priority' => 'medium',
                 'due' => 'Last week',
                 'status' => 'completed',
+                'origin' => 'Recommendation',
                 'description' => 'Audit categories, services, and photo freshness against competitor density.',
                 'success_signal' => 'Avg map rank trending ≤ 5.0 within 28 days.',
                 'why' => [
@@ -2558,13 +2541,42 @@ final class DemoCatalog
                 'measure' => 'Avg map rank and Top3 share over the follow-up window.',
                 'follow_up' => 'Compare next map-grid refresh against this baseline.',
                 'outcome' => [
-                    'status' => 'associated_improvement',
-                    'label' => 'Associated improvement observed',
+                    'status' => 'improvement_observed',
+                    'label' => 'Improvement observed',
                     'before' => 'Avg map rank 5.4',
                     'after' => 'Avg map rank 5.1',
                     'period' => '28 days',
                     'note' => 'Not claiming causality — follow-up data only.',
                 ],
+            ],
+            [
+                'id' => 't-brand-positioning',
+                'title' => 'Update positioning language for medical travel',
+                'brand' => 'Atlas Dental Ankara',
+                'customer' => 'Atlas Health Group',
+                'asset' => null,
+                'asset_type' => null,
+                'digital_asset_id' => null,
+                'scope_level' => 'brand',
+                'recommendation_id' => null,
+                'owner' => 'Ayşe Demir',
+                'assignee_id' => 'u-ayse',
+                'priority' => 'low',
+                'due' => 'Next month',
+                'status' => 'open',
+                'origin' => 'Manual',
+                'description' => 'Brand-scoped strategic task — not tied to a single Digital Asset (Demo scope illustration).',
+                'success_signal' => 'Brand Context positioning updated and reviewed.',
+                'why' => [
+                    'finding' => null,
+                    'recommendation' => null,
+                    'evidence' => 'Operator-initiated Brand Context refinement',
+                ],
+                'do' => 'Revise Brand Intelligence Context positioning and differentiators.',
+                'measure' => 'Brand Context completeness fields updated.',
+                'follow_up' => 'No Outcome required — strategic documentation task.',
+                'outcome' => null,
+                'scope_note' => 'Demo illustrates Brand-scoped Task. Eloquent Task model still requires customer_id + brand_id + digital_asset_id in production — see product completeness report.',
             ],
         ];
     }
@@ -2711,35 +2723,35 @@ final class DemoCatalog
      */
     public static function integrations(): array
     {
-        return [
-            [
-                'id' => 'meta',
-                'name' => 'Meta',
-                'status' => 'connected',
-                'summary' => 'Businesses 5 · Ad Accounts 31 · History import available',
-                'last_sync' => '2 hours ago',
-                'problems' => 1,
-                'route' => 'demo.integrations.meta',
-            ],
-            [
-                'id' => 'google',
-                'name' => 'Google',
-                'status' => 'connected',
-                'summary' => 'Ads · Analytics · Search Console · Business Profile linked (demo)',
-                'last_sync' => 'Today',
-                'problems' => 0,
-                'route' => 'demo.integrations',
-            ],
-            [
-                'id' => 'dataforseo',
-                'name' => 'DataForSEO / Search Intelligence',
-                'status' => 'configured',
-                'summary' => 'Map grid + SERP intelligence available for demo',
-                'last_sync' => 'Yesterday',
-                'problems' => 0,
-                'route' => 'demo.integrations',
-            ],
-        ];
+        $hub = GlobalOperatingFixtures::integrationsHub();
+        $flat = [];
+        foreach ($hub as $group) {
+            foreach ($group['providers'] as $provider) {
+                $flat[] = [
+                    'id' => $provider['id'],
+                    'name' => $provider['name'],
+                    'status' => $provider['state'],
+                    'status_label' => $provider['state_label'],
+                    'summary' => isset($provider['resources_discovered'])
+                        ? sprintf(
+                            '%s resources discovered · %s bound · %s available',
+                            $provider['resources_discovered'] ?? '—',
+                            $provider['bound'] ?? '—',
+                            $provider['available'] ?? '—',
+                        )
+                        : ($provider['note'] ?? $provider['state_label']),
+                    'last_sync' => $provider['last_check'],
+                    'problems' => $provider['state'] === 'connected' || $provider['state'] === 'not_connected' ? 0 : 1,
+                    'route' => $provider['route'],
+                    'route_params' => $provider['route_params'] ?? [],
+                    'group' => $group['group'],
+                    'logo_type' => $provider['logo_type'] ?? null,
+                    'dependent_assets' => $provider['dependent_assets'] ?? 0,
+                ];
+            }
+        }
+
+        return $flat;
     }
 
     /**
