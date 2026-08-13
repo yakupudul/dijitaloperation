@@ -38,6 +38,7 @@
                     · {{ $identity['status_note'] }}
                     · Last data refresh {{ $identity['last_refresh'] }}
                 </p>
+                @include('livewire.demo.partials._asset-scope-chip', ['assetType' => 'website'])
             </div>
         </div>
         <div class="shrink-0">

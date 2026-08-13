@@ -35,6 +35,7 @@
                     <span class="font-medium text-emerald-700 dark:text-emerald-400">{{ $identity['status'] ?? 'Connected' }}</span>
                     · {{ $identity['freshness'] }}
                 </p>
+                @include('livewire.demo.partials._asset-scope-chip', ['assetType' => 'gsc'])
                 <div class="mt-2 flex flex-wrap gap-1.5">
                     @foreach ($data['freshness'] ?? [] as $chip)
                         <span class="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600 dark:bg-white/5 dark:text-gray-300" title="{{ $chip['detail'] ?? '' }}">

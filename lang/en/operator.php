@@ -228,10 +228,15 @@ return [
         'service' => 'Service',
         'goal' => 'Goal',
         'offering' => 'Offering',
+        'market' => 'Market',
         'agency_scope' => 'Agency scope',
         'agency_scope_subtitle' => 'Active services from customer relationship — effective for this brand.',
         'view_customer_relationship' => 'View customer relationship',
         'outside_scope' => 'Outside current agency scope',
+        'managed_under' => 'Managed under',
+        'source' => 'Source',
+        'source_finding' => 'Finding',
+        'source_opportunity' => 'Opportunity',
     ],
 
     'service_scope' => [

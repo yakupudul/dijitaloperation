@@ -159,6 +159,47 @@ final class CommercialContextFixtures
     }
 
     /**
+     * Compact commercial context for Findings / Recommendations when Atlas Demo context applies.
+     *
+     * @param  array<string, mixed>  $row
+     * @return array{service: ?string, goal: ?string, offering: ?string}
+     */
+    public static function contextForOperationalRow(array $row): array
+    {
+        $assetType = (string) ($row['asset_type'] ?? '');
+        $scope = self::scopeForAssetType($assetType);
+        $primaryGoal = collect(self::structuredGoalsForBrand(DemoCatalog::BRAND_ID))
+            ->firstWhere('tier', 'primary');
+
+        $service = $row['service_label'] ?? ($scope['service_label'] ?? null);
+        $goal = $row['goal_title'] ?? ($primaryGoal['title'] ?? null);
+        $offering = $row['offering'] ?? ($primaryGoal['offering'] ?? null);
+
+        if ($assetType === 'instagram') {
+            return [
+                'service' => __('operator.commercial.outside_scope'),
+                'goal' => null,
+                'offering' => null,
+            ];
+        }
+
+        if ($service === null && $goal === null && $offering === null) {
+            return ['service' => null, 'goal' => null, 'offering' => null];
+        }
+
+        // Only attach Goal/Offering when the asset maps to an in-scope managed service.
+        if ($scope === null) {
+            return ['service' => $service, 'goal' => null, 'offering' => null];
+        }
+
+        return [
+            'service' => is_string($service) ? $service : null,
+            'goal' => is_string($goal) ? $goal : null,
+            'offering' => is_string($offering) ? $offering : null,
+        ];
+    }
+
+    /**
      * Structured goals built from Brand Business Context — not persisted separately.
      *
      * @return list<array<string, mixed>>

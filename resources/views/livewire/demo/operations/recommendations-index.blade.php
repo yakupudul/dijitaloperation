@@ -64,6 +64,32 @@
                         </p>
 
                         @if ($expandedId === $rec['id'])
+                            @php
+                                $recContext = \App\Support\Demo\CommercialContextFixtures::contextForOperationalRow($rec);
+                                $sourceKind = filled($rec['source_opportunity_id'] ?? null)
+                                    ? 'opportunity'
+                                    : (filled($rec['finding_id'] ?? null) ? 'finding' : null);
+                            @endphp
+                            <div class="mt-3 space-y-2">
+                                <x-demo.commercial-context
+                                    :service="$recContext['service']"
+                                    :goal="$recContext['goal']"
+                                    :offering="$recContext['offering']"
+                                />
+                                @if ($sourceKind === 'opportunity')
+                                    <p class="text-xs text-gray-500">
+                                        <span class="font-medium text-gray-700 dark:text-gray-300">{{ __('operator.commercial.source') }}:</span>
+                                        {{ __('operator.commercial.source_opportunity') }}
+                                        · {{ $rec['source_opportunity_id'] }}
+                                    </p>
+                                @elseif ($sourceKind === 'finding')
+                                    <p class="text-xs text-gray-500">
+                                        <span class="font-medium text-gray-700 dark:text-gray-300">{{ __('operator.commercial.source') }}:</span>
+                                        {{ __('operator.commercial.source_finding') }}
+                                        · {{ $rec['finding_id'] }}
+                                    </p>
+                                @endif
+                            </div>
                             <div class="mt-4 grid gap-3 sm:grid-cols-2">
                                 <div class="rounded-lg bg-gray-50 p-3 dark:bg-white/[0.03] sm:col-span-2">
                                     <p class="text-xs uppercase tracking-wide text-gray-400">Recommended action</p>
@@ -74,8 +100,16 @@
                                     <p class="mt-1 text-sm text-gray-700 dark:text-gray-300">{{ $rec['verification_plan'] ?? $rec['success'] }}</p>
                                 </div>
                                 <div class="rounded-lg bg-gray-50 p-3 dark:bg-white/[0.03]">
-                                    <p class="text-xs uppercase tracking-wide text-gray-400">Related Finding</p>
-                                    <p class="mt-1 text-sm text-gray-700 dark:text-gray-300">{{ $rec['finding_id'] ?? '—' }}</p>
+                                    <p class="text-xs uppercase tracking-wide text-gray-400">{{ __('operator.commercial.source') }}</p>
+                                    <p class="mt-1 text-sm text-gray-700 dark:text-gray-300">
+                                        @if ($sourceKind === 'opportunity')
+                                            {{ __('operator.commercial.source_opportunity') }} · {{ $rec['source_opportunity_id'] }}
+                                        @elseif ($sourceKind === 'finding')
+                                            {{ __('operator.commercial.source_finding') }} · {{ $rec['finding_id'] }}
+                                        @else
+                                            —
+                                        @endif
+                                    </p>
                                 </div>
                                 <div class="rounded-lg bg-gray-50 p-3 dark:bg-white/[0.03]">
                                     <p class="text-xs uppercase tracking-wide text-gray-400">Evidence</p>

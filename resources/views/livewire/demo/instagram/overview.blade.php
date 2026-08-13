@@ -25,6 +25,7 @@
                     <span>{{ $identity['freshness'] }}</span>
                 </div>
                 <p class="mt-2 text-xs text-gray-400">{{ $workspace['demo_boundary'] }}</p>
+                @include('livewire.demo.partials._asset-scope-chip', ['assetType' => 'instagram'])
             </div>
         </div>
         <div class="flex flex-wrap gap-2">

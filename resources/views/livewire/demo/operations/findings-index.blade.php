@@ -88,6 +88,16 @@
                         </p>
 
                         @if ($expandedId === $finding['id'])
+                            @php
+                                $findingContext = \App\Support\Demo\CommercialContextFixtures::contextForOperationalRow($finding);
+                            @endphp
+                            <div class="mt-3">
+                                <x-demo.commercial-context
+                                    :service="$findingContext['service']"
+                                    :goal="$findingContext['goal']"
+                                    :offering="$findingContext['offering']"
+                                />
+                            </div>
                             <div class="mt-4 grid gap-3 sm:grid-cols-2">
                                 <div class="rounded-lg bg-gray-50 p-3 dark:bg-white/[0.03]">
                                     <p class="text-xs font-medium uppercase tracking-wide text-gray-400">What happened</p>

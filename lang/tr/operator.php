@@ -229,10 +229,15 @@ return [
         'service' => 'Hizmet',
         'goal' => 'Hedef',
         'offering' => 'Sunum',
+        'market' => 'Pazar',
         'agency_scope' => 'Ajans kapsamı',
         'agency_scope_subtitle' => 'Müşteri ilişkisinden aktif hizmetler — bu marka için geçerli.',
         'view_customer_relationship' => 'Müşteri ilişkisini görüntüle',
         'outside_scope' => 'Mevcut ajans kapsamı dışında',
+        'managed_under' => 'Kapsamında yönetilir',
+        'source' => 'Kaynak',
+        'source_finding' => 'Bulgu',
+        'source_opportunity' => 'Fırsat',
     ],
 
     'service_scope' => [

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Livewire\Demo\Operations\OpportunitiesIndex;
+use App\Livewire\Demo\Operations\RecommendationsIndex;
 use App\Livewire\Demo\Portfolio\BrandShow;
 use App\Models\User;
 use App\Support\Demo\DemoCatalog;
@@ -129,5 +130,31 @@ class CommercialGrowthIntelligenceTest extends TestCase
             $matches = File::glob($migrationPath.'/'.$pattern);
             $this->assertEmpty($matches, 'Unexpected migration files for pattern: '.$pattern);
         }
+    }
+
+    public function test_recommendation_source_distinguishes_opportunity_from_finding(): void
+    {
+        DemoState::createRecommendationFromOpportunity('opp-implant-organic-gap');
+
+        $this->get(route('demo.recommendations'))
+            ->assertOk();
+
+        Livewire::test(RecommendationsIndex::class)
+            ->call('expand', 'r-from-opp-implant-organic-gap')
+            ->assertSee(__('operator.commercial.source_opportunity'))
+            ->assertSee('opp-implant-organic-gap')
+            ->assertSee(__('operator.commercial.service'));
+    }
+
+    public function test_digital_asset_scope_awareness_on_website_and_instagram(): void
+    {
+        $this->get(route('demo.website'))
+            ->assertOk()
+            ->assertSee(__('operator.commercial.managed_under'))
+            ->assertSee('Website Maintenance');
+
+        $this->get(route('demo.instagram'))
+            ->assertOk()
+            ->assertSee(__('operator.commercial.outside_scope'));
     }
 }

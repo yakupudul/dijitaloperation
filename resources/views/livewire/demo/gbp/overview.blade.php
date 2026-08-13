@@ -32,6 +32,7 @@
                     · Updated 2h ago
                     · Local rank tracking · Demo source
                 </p>
+                @include('livewire.demo.partials._asset-scope-chip', ['assetType' => 'gbp'])
             </div>
         </div>
         <div class="shrink-0">

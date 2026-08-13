@@ -1020,6 +1020,7 @@ final class DemoState
                 'asset_type' => collect($opportunity['asset_types'] ?? [])->first(),
                 'priority' => ($opportunity['goal_id'] ?? '') === 'goal-primary' ? 'high' : 'medium',
                 'customer_id' => $opportunity['customer_id'] ?? DemoCatalog::CUSTOMER_ID,
+                'offering' => $opportunity['offering'] ?? null,
             ];
         }
 
