@@ -25,30 +25,31 @@
             </button>
 
             <div class="hidden sm:flex items-center gap-2">
-                <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Agency Operations OS</span>
-                <span class="rounded-md bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-600 dark:bg-brand-500/15 dark:text-brand-400">Demo Mode</span>
+                <span class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ __('operator.product.tagline') }}</span>
+                <span class="rounded-md bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-600 dark:bg-brand-500/15 dark:text-brand-400">{{ __('operator.demo_mode.label') }}</span>
             </div>
         </div>
 
         <div class="flex items-center gap-2 sm:gap-3">
-            <div class="hidden md:block relative">
-                <input type="search" placeholder="Search portfolio…"
-                    class="h-11 w-56 rounded-lg border border-gray-200 bg-white px-4 text-sm text-gray-700 placeholder:text-gray-400 focus:border-brand-300 focus:outline-none dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300" />
-            </div>
+            <livewire:demo.global-search />
+
+            <livewire:demo.locale-switcher />
 
             <x-ta.theme-toggle />
 
-            <a href="{{ route('demo.settings') }}"
+            <livewire:demo.notification-bell />
+
+            <a href="{{ route('demo.settings') }}" wire:navigate
                 class="hidden sm:inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-white/[0.03]">
-                Settings
+                {{ __('operator.nav.settings') }}
             </a>
 
             @auth
-                <a href="{{ route('demo.profile') }}" wire:navigate class="flex items-center gap-2 pl-2">
-                    @if (auth()->user()->avatar_path)
-                        <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url(auth()->user()->avatar_path) }}" alt="" class="h-9 w-9 rounded-full object-cover" />
+                <a href="{{ route('demo.profile') }}" wire:navigate class="flex items-center gap-2 pl-2" aria-label="{{ __('operator.nav.profile') }}">
+                    @if (! empty(auth()->user()->avatar_path))
+                        <img src="{{ asset('storage/'.auth()->user()->avatar_path) }}" alt="" class="h-9 w-9 rounded-full object-cover ring-1 ring-gray-200 dark:ring-gray-700" />
                     @else
-                        <span class="flex items-center justify-center w-9 h-9 rounded-full bg-brand-500/10 text-brand-600 text-sm font-semibold dark:text-brand-400">
+                        <span class="flex h-9 w-9 items-center justify-center rounded-full bg-brand-500/10 text-sm font-semibold text-brand-600 dark:text-brand-400">
                             {{ strtoupper(mb_substr(auth()->user()->name ?? 'U', 0, 1)) }}
                         </span>
                     @endif

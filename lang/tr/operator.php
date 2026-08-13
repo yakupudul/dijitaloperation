@@ -100,6 +100,25 @@ return [
         'boundary' => 'Belirleyici fixture’lar — canlı sağlayıcı yazması yok.',
     ],
 
+    'product' => [
+        'tagline' => 'Ajans Operasyonları OS',
+    ],
+
+    'search' => [
+        'placeholder' => 'Portföyde ara…',
+        'empty' => 'Eşleşen müşteri, marka, varlık, bulgu veya görev yok.',
+    ],
+
+    'notifications' => [
+        'title' => 'Bildirimler',
+        'unread' => 'okunmamış',
+        'empty' => 'Henüz bildirim yok. Kritik bulgular, görevler ve entegrasyon sorunları burada görünür.',
+        'mark_all' => 'Tümünü okundu işaretle',
+        'mark_read' => 'Okundu işaretle',
+        'preferences' => 'Bildirim tercihleri',
+        'item' => 'Bildirim',
+    ],
+
     'languages' => [
         'en' => 'English',
         'tr' => 'Türkçe',

@@ -44,14 +44,14 @@ class CustomerDetail extends Component
     public function mount(string $customerId): void
     {
         $this->customerId = $customerId;
-        if (! in_array($this->tab, ['overview', 'brands', 'contacts', 'operations', 'activity'], true)) {
+        if (! in_array($this->tab, ['overview', 'brands', 'contacts', 'files', 'operations', 'activity'], true)) {
             $this->tab = 'overview';
         }
     }
 
     public function setTab(string $tab): void
     {
-        if (in_array($tab, ['overview', 'brands', 'contacts', 'operations', 'activity'], true)) {
+        if (in_array($tab, ['overview', 'brands', 'contacts', 'files', 'operations', 'activity'], true)) {
             $this->tab = $tab;
         }
     }

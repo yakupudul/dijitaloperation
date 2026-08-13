@@ -193,6 +193,19 @@
                         </ul>
                     </div>
                 </div>
+            @elseif ($section === 'files')
+                <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800 space-y-3 text-sm">
+                    <dl class="grid gap-4 sm:grid-cols-2">
+                        <div><dt class="text-gray-400">Private file disk</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['files']['disk'] }}</dd></div>
+                        <div><dt class="text-gray-400">Avatar disk</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['files']['avatar_disk'] }}</dd></div>
+                        <div><dt class="text-gray-400">Max upload</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['files']['max_upload_mb'] }} MB</dd></div>
+                        <div><dt class="text-gray-400">Allowed types</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['files']['allowed'] }}</dd></div>
+                        <div><dt class="text-gray-400">Blocked types</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['files']['blocked'] }}</dd></div>
+                        <div><dt class="text-gray-400">Connector packages</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['files']['connector_storage'] }}</dd></div>
+                    </dl>
+                    <p class="text-xs text-gray-500">{{ $settings['files']['note'] }}</p>
+                    <x-ta.button :href="route('demo.files')" size="sm">{{ __('operator.nav.files') }}</x-ta.button>
+                </div>
             @elseif ($section === 'privacy')
                 <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800 space-y-3 text-sm">
                     <p><span class="text-gray-400">Retention · </span><span class="text-gray-800 dark:text-white/90">{{ $settings['privacy']['retention'] }}</span></p>

@@ -99,6 +99,25 @@ return [
         'boundary' => 'Deterministic fixtures — no live provider writes.',
     ],
 
+    'product' => [
+        'tagline' => 'Agency Operations OS',
+    ],
+
+    'search' => [
+        'placeholder' => 'Search portfolio…',
+        'empty' => 'No matching customers, brands, assets, findings, or tasks.',
+    ],
+
+    'notifications' => [
+        'title' => 'Notifications',
+        'unread' => 'unread',
+        'empty' => 'No notifications yet. Critical Findings, Tasks, and Integration issues appear here.',
+        'mark_all' => 'Mark all read',
+        'mark_read' => 'Mark read',
+        'preferences' => 'Notification preferences',
+        'item' => 'Notification',
+    ],
+
     'languages' => [
         'en' => 'English',
         'tr' => 'Türkçe',

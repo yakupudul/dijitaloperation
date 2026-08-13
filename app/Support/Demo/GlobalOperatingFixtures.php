@@ -770,6 +770,7 @@ final class GlobalOperatingFixtures
             ['id' => 'notifications', 'label' => 'Notifications', 'description' => 'In-app preferences for meaningful operational events.'],
             ['id' => 'operations', 'label' => 'Operations', 'description' => 'Task due defaults, outcome review window, dashboard mode.'],
             ['id' => 'ai', 'label' => 'AI & Intelligence', 'description' => 'Provider availability and guidance preferences — not autonomous actions.'],
+            ['id' => 'files', 'label' => 'Files & Storage', 'description' => 'Upload limits, storage disk, connector-package storage.'],
             ['id' => 'privacy', 'label' => 'Data & Privacy', 'description' => 'Retention context and export/purge information.'],
             ['id' => 'advanced', 'label' => 'Advanced', 'description' => 'Environment info, diagnostics, Demo Mode controls.'],
         ];
@@ -810,6 +811,15 @@ final class GlobalOperatingFixtures
                 'openai' => 'Connected',
                 'anthropic' => 'Not connected',
                 'note' => 'Connected AI providers do not auto-accept Recommendations or create Tasks.',
+            ],
+            'files' => [
+                'disk' => 'local (private)',
+                'avatar_disk' => 'public',
+                'max_upload_mb' => 10,
+                'allowed' => 'Images, PDF, Office docs, text, CSV, ZIP',
+                'blocked' => 'PHP, EXE, and other executables',
+                'connector_storage' => 'storage/app/site-connectors',
+                'note' => 'Customer/Brand/Task files use authenticated download routes — not public URLs.',
             ],
             'privacy' => [
                 'retention' => 'Operational Evidence retained per agency policy (demo placeholder).',

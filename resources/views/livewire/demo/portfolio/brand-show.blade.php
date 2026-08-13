@@ -8,6 +8,7 @@
         'discovery' => 'Public Discovery',
         'ai' => 'Brand AI',
         'history' => 'Decision History',
+        'files' => 'Files',
     ];
     $initial = mb_strtoupper(mb_substr((string) ($brandRow['name'] ?? 'B'), 0, 1));
     $teamLabel = count($responsibleUsers) > 0
@@ -863,6 +864,19 @@
                 @endforelse
             </div>
             <p class="text-xs text-gray-400">Decision History excludes raw sync Activity. Observed after ≠ caused by.</p>
+        </div>
+    @endif
+
+    @if ($tab === 'files')
+        <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ __('operator.nav.files') }}</h2>
+                    <p class="mt-1 text-sm text-gray-500">Brand-scoped documents from the global File Library.</p>
+                </div>
+                <x-ta.button :href="route('demo.files', ['scope' => 'brand'])" size="sm">{{ __('operator.files.upload_cta') }}</x-ta.button>
+            </div>
+            <p class="mt-4 text-sm text-gray-500">{{ __('operator.files.empty') }}</p>
         </div>
     @endif
 </div>

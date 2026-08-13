@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Integrations;
 
-use App\Filament\App\Resources\Integrations\IntegrationResource;
 use App\Http\Controllers\Controller;
 use App\Models\CoreIntegration;
 use App\Models\User;
@@ -29,7 +28,7 @@ class GoogleOAuthController extends Controller
                 ->danger()
                 ->send();
 
-            return redirect()->to(IntegrationResource::getUrl('view', ['record' => $integration]));
+            return redirect()->route('demo.integrations.google');
         }
 
         return redirect()->away($result['url']);
@@ -57,13 +56,8 @@ class GoogleOAuthController extends Controller
                 ->danger()
                 ->send();
 
-            $fallback = IntegrationResource::getUrl('index');
-
-            return redirect()->to($fallback);
+            return redirect()->route('demo.integrations');
         }
-
-        /** @var CoreIntegration $integration */
-        $integration = $result['integration'];
 
         Notification::make()
             ->title('Google connected')
@@ -71,6 +65,6 @@ class GoogleOAuthController extends Controller
             ->success()
             ->send();
 
-        return redirect()->to(IntegrationResource::getUrl('view', ['record' => $integration]));
+        return redirect()->route('demo.integrations.google');
     }
 }

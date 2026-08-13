@@ -18,6 +18,11 @@ final class SetOperatorLocale
             if (in_array($candidate, ['en', 'tr'], true)) {
                 $locale = $candidate;
             }
+        } else {
+            $sessionLocale = (string) $request->session()->get('locale', 'en');
+            if (in_array($sessionLocale, ['en', 'tr'], true)) {
+                $locale = $sessionLocale;
+            }
         }
 
         app()->setLocale($locale);

@@ -30,6 +30,24 @@
     </section>
 
     <section>
+        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Deep Website connection</h3>
+        <p class="mt-1 text-xs text-gray-400">Site Connectors pair a CMS-managed Website with MoxDOP. This is not a MoxDOP runtime plugin marketplace.</p>
+        <div class="mt-3 rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <p class="text-sm font-semibold text-gray-900 dark:text-white">CMS detected · WordPress</p>
+                    <p class="mt-1 text-xs text-gray-500">Recommended: MoxDOP WordPress Connector (Demo package)</p>
+                    <p class="mt-2 text-xs text-amber-700 dark:text-amber-300">{{ __('operator.site_connectors.demo_badge') }}</p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <x-ta.button :href="route('demo.integrations.site-connector', ['connector' => 'wordpress'])" size="sm">{{ __('operator.actions.open') }}</x-ta.button>
+                    <x-ta.button :href="route('demo.integrations.site-connector.download', ['connector' => 'wordpress'])" size="sm" variant="outline">{{ __('operator.site_connectors.download_demo') }}</x-ta.button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section>
         <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Related digital assets</h3>
         <p class="mt-1 text-xs text-gray-400">Independent Brand Digital Assets — not Website connections.</p>
         <div class="mt-3 grid gap-3 lg:grid-cols-3">

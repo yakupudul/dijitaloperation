@@ -32,7 +32,7 @@
     </div>
 
     <div class="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <a href="#" wire:click.prevent="setTab('brands')" class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 hover:ring-brand-300 dark:bg-gray-800 dark:ring-gray-700">
+        <a href="{{ route('demo.customer', ['customerId' => $customer['id'], 'tab' => 'brands']) }}" wire:navigate class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 hover:ring-brand-300 dark:bg-gray-800 dark:ring-gray-700">
             <p class="text-xs font-medium uppercase text-gray-400">Brands</p>
             <p class="mt-1 text-2xl font-semibold text-gray-800 dark:text-white/90">{{ count($brands) }}</p>
         </a>
@@ -51,7 +51,7 @@
     </div>
 
     <div class="flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800">
-        @foreach (['overview' => 'Overview', 'brands' => 'Brands', 'contacts' => 'Contacts', 'operations' => 'Operations', 'activity' => 'Activity'] as $key => $label)
+        @foreach (['overview' => 'Overview', 'brands' => 'Brands', 'contacts' => 'Contacts', 'files' => 'Files', 'operations' => 'Operations', 'activity' => 'Activity'] as $key => $label)
             <button type="button" wire:click="setTab('{{ $key }}')"
                 @class([
                     'shrink-0 border-b-2 px-3 py-2.5 text-sm font-medium',
@@ -302,6 +302,20 @@
                 </div>
             @endif
         </x-ta.card>
+    @endif
+
+    @if ($tab === 'files')
+        <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">{{ __('operator.nav.files') }}</h2>
+                    <p class="mt-1 text-sm text-gray-500">Customer-scoped documents from the global File Library.</p>
+                </div>
+                <x-ta.button :href="route('demo.files', ['scope' => 'customer'])" size="sm">{{ __('operator.files.upload_cta') }}</x-ta.button>
+            </div>
+            <p class="mt-4 text-sm text-gray-500">{{ __('operator.files.empty') }}</p>
+            <p class="mt-2 text-xs text-gray-400">Files are stored privately and downloaded through authenticated routes — not public URLs.</p>
+        </div>
     @endif
 
     @if ($tab === 'operations')

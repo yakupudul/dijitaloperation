@@ -98,6 +98,7 @@ class BrandShow extends Component
         'discovery',
         'ai',
         'history',
+        'files',
     ];
 
     public function mount(string $brand): void

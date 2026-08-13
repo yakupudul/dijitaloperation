@@ -30,6 +30,7 @@ class AppPanelProvider extends PanelProvider
             ->default()
             ->id('app')
             ->path('system')
+            ->homeUrl('/app')
             ->viteTheme('resources/css/filament/app/theme.css')
             ->authGuard('web')
             ->login()
