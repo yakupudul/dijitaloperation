@@ -655,69 +655,13 @@ final class DemoCatalog
 
     /**
      * Period multipliers so demo date changes visibly alter metrics (deterministic).
+     * Custom ranges resolve from DemoState dates (or optional overrides) via DemoPeriod.
      *
-     * @return array{spend_factor: float, results_factor: float, efficiency_factor: float, label: string, narrative: string}
+     * @return array{spend_factor: float, results_factor: float, efficiency_factor: float, label: string, narrative: string, days?: int, start?: string, end?: string}
      */
-    public static function periodFactors(string $preset): array
+    public static function periodFactors(string $preset, ?string $start = null, ?string $end = null): array
     {
-        return match ($preset) {
-            'last_7' => [
-                'spend_factor' => 0.22,
-                'results_factor' => 0.18,
-                'efficiency_factor' => 1.18,
-                'label' => 'Last 7 days',
-                'narrative' => 'Short window — CPL elevated after weekend auction pressure.',
-            ],
-            'last_14' => [
-                'spend_factor' => 0.48,
-                'results_factor' => 0.42,
-                'efficiency_factor' => 1.12,
-                'label' => 'Last 14 days',
-                'narrative' => 'Creative fatigue visible; Meta CPL still above May baseline.',
-            ],
-            'last_28' => [
-                'spend_factor' => 1.00,
-                'results_factor' => 1.00,
-                'efficiency_factor' => 1.00,
-                'label' => 'Last 28 days',
-                'narrative' => 'July recovery underway after May deterioration; Meta still the efficiency bottleneck.',
-            ],
-            'last_30' => [
-                'spend_factor' => 1.08,
-                'results_factor' => 1.02,
-                'efficiency_factor' => 1.04,
-                'label' => 'Last 30 days',
-                'narrative' => 'Slightly longer window softens daily volatility; waste share still material.',
-            ],
-            'this_month' => [
-                'spend_factor' => 0.55,
-                'results_factor' => 0.58,
-                'efficiency_factor' => 0.94,
-                'label' => 'This month',
-                'narrative' => 'Month-to-date recovery: results improving faster than spend.',
-            ],
-            'last_month' => [
-                'spend_factor' => 1.22,
-                'results_factor' => 0.92,
-                'efficiency_factor' => 1.28,
-                'label' => 'Last month',
-                'narrative' => 'May-style deterioration window — spend up, leads down, CPL peaked.',
-            ],
-            'custom' => [
-                'spend_factor' => 0.86,
-                'results_factor' => 0.91,
-                'efficiency_factor' => 0.97,
-                'label' => 'Custom range',
-                'narrative' => 'Custom range blended toward July recovery narrative.',
-            ],
-            default => [
-                'spend_factor' => 1.00,
-                'results_factor' => 1.00,
-                'efficiency_factor' => 1.00,
-                'label' => 'Last 28 days',
-                'narrative' => 'July recovery underway after May deterioration; Meta still the efficiency bottleneck.',
-            ],
-        };
+        return DemoPeriod::factors($preset, $start, $end);
     }
 
     /**
