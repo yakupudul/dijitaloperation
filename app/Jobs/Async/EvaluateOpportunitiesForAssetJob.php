@@ -3,15 +3,15 @@
 namespace App\Jobs\Async;
 
 use App\Models\DigitalAsset;
-use App\Services\Findings\FindingEvaluationService;
+use App\Services\Opportunities\OpportunityEvaluationService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Throwable;
 
 /**
- * Background Finding evaluation. Failure must not invalidate canonical Evidence.
+ * Background Opportunity evaluation. Failure must not invalidate canonical Findings or Evidence.
  */
-class EvaluateFindingsForAssetJob implements ShouldQueue
+class EvaluateOpportunitiesForAssetJob implements ShouldQueue
 {
     use Queueable;
 
@@ -37,7 +37,7 @@ class EvaluateFindingsForAssetJob implements ShouldQueue
         public ?array $definitionIds = null,
     ) {}
 
-    public function handle(FindingEvaluationService $evaluator): void
+    public function handle(OpportunityEvaluationService $evaluator): void
     {
         $asset = DigitalAsset::query()->find($this->digitalAssetId);
         if ($asset === null) {
@@ -45,10 +45,6 @@ class EvaluateFindingsForAssetJob implements ShouldQueue
         }
 
         $evaluator->evaluateAsset($asset, ruleIds: $this->ruleIds, definitionIds: $this->definitionIds);
-
-        if ((bool) config('moxdop-opportunity-rules.evaluate_after_findings', true)) {
-            EvaluateOpportunitiesForAssetJob::dispatch($this->digitalAssetId);
-        }
     }
 
     public function failed(Throwable $exception): void

@@ -192,11 +192,16 @@ class AgencyExecutionSystemTest extends TestCase
             ->assertSee(__('operator.commercial.outside_scope'));
     }
 
-    public function test_opportunities_still_present(): void
+    public function test_opportunities_queue_route_is_available_without_demo_fallback(): void
     {
+        // Residual Demo fixture catalog may still exist for specialist overview cards,
+        // but production Operations / Dashboard growth surfaces are DB-backed and empty
+        // when no canonical Opportunities exist.
         $this->assertNotEmpty(OpportunityFixtures::all());
 
-        Livewire::test(Dashboard::class)
-            ->assertSee(__('operator.opportunities.growth_section'));
+        $this->get(route('demo.opportunities'))
+            ->assertOk()
+            ->assertSee(__('operator.nav.opportunities'))
+            ->assertDontSee('High paid implant demand but weak organic coverage');
     }
 }

@@ -205,7 +205,7 @@ Filament `/app/findings` is DB-backed (`No findings` empty state). `DemoCatalog:
 
 ## 47. Opportunity Boundary
 
-Prompt 39 creates 0 Opportunities, Recommendations, Tasks, Playbooks. Production path does not fire `FindingEvaluationCompleted` (legacy lifecycle still may, for bound collectors).
+Prompt 39 creates 0 Opportunities, Recommendations, Tasks, Playbooks. Production path does not fire `FindingEvaluationCompleted` (legacy lifecycle still may, for bound collectors). **Update (Prompt 40, done):** Opportunity detection is now production — see `docs/implementation/OPPORTUNITY_PRODUCTION_PERSISTENCE_DETECTION.md`. `App\Models\Opportunity` + `OpportunityEvaluationService` compose canonical Findings (via `finding_rule_stable_ids`) with canonical Evidence; Prompt 39's `FindingEvaluationService` still creates 0 Opportunities itself — Opportunity creation runs as a separate downstream evaluator (`EvaluateOpportunitiesForAssetJob`, dispatched after Findings when `OPPORTUNITIES_EVALUATE_AFTER_FINDINGS` is enabled).
 
 ## 48. Authorization
 
@@ -236,11 +236,13 @@ Frozen in-memory Evidence set; latest row per definition. Fingerprint unique ind
 | Demo fallback | NONE on production reads |
 | Opportunities / Recommendations / Tasks / AI | NOT YET / NO |
 
-## 53. Prompt 40 Handoff
+**Update (Prompt 40, done):** Opportunities are now `CONVERGED / REAL` — see `docs/implementation/OPPORTUNITY_PRODUCTION_PERSISTENCE_DETECTION.md`. Recommendations / Tasks / AI remain NOT YET, handed off to Prompt 41.
+
+## 53. Prompt 40 Handoff — DONE
 
 `FindingReadService` exposes current Findings by Customer/Brand/DigitalAsset/subject/Goal/Offering/category/severity/rule without ad-hoc Evidence queries.
 
-Do not implement Opportunity detection here.
+Prompt 40 implemented Opportunity detection on top of this (`App\Models\Opportunity`, `OpportunityEvaluationService`, `docs/data-contracts/MOXDOP_OPPORTUNITY_RULES_V1.json`). Recommendation creation from a converted Opportunity is handed off to **Prompt 41** — Prompt 40 marks Opportunities `converted` without creating a `Recommendation` row.
 
 ## 54. Definition of Done
 

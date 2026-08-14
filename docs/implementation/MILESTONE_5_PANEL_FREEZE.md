@@ -65,7 +65,7 @@ Status reference for the frozen `/app` operator panel. UI work after this docume
 | Instagram | DEMO | Lightweight Overview/Profile/Operations/Setup |
 | Service Scope | DEMO | Session/fixture commercial scope |
 | Goals | DEMO | Primary/conversion goals in fixtures |
-| Opportunities | DEMO | Fixture list + DemoState status |
+| Opportunities | CONVERGED / REAL | Prompt 40: canonical `opportunities` + `opportunity_evaluations`; rule-backed production Opportunities from canonical Evidence + Findings (3 GSC/GA4 rules); Demo Atlas `OpportunityFixtures` remains Demo-only for non-Operations surfaces; `/app` Operations Opportunities index is DB-backed with no Demo fallback |
 | Findings | CONVERGED / REAL | Prompt 39: one canonical `findings` table; rule-backed production Findings from canonical Evidence; Demo Atlas catalog remains Demo-only Livewire; Filament `/app/findings` is DB-backed |
 | Recommendations | DEMO | Fixture recommendations + accept/create-task |
 | Work | DEMO | Tasks/requests/reviews/approvals/QA via DemoState |

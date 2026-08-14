@@ -42,5 +42,6 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="FINDINGS_EVALUATE_AFTER_EVIDENCE" value="false"/>
+        <env name="OPPORTUNITIES_EVALUATE_AFTER_FINDINGS" value="false"/>
     </php>
 </phpunit>

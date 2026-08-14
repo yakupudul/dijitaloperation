@@ -1,0 +1,215 @@
+{
+  "metadata": {
+    "registry_id": "MOXDOP_OPPORTUNITY_RULES",
+    "version": 1,
+    "status": "PRODUCTION_V1",
+    "created_at": "2026-08-14",
+    "description": "Versioned Opportunity Rule Registry. An Opportunity is a durable interpretation that an explicit versioned Opportunity Rule's activation condition is true for a canonical scope/subject, based on canonical Evidence AND an existing Finding produced by the Finding Rule Registry. No Finding is auto-promoted to an Opportunity and no Evidence creates an Opportunity without an explicit rule referencing both an Evidence Definition and a Finding Rule."
+  },
+  "invariants": {
+    "NO_ARBITRARY_EXPRESSIONS": true,
+    "NO_RUNTIME_EVAL": true,
+    "NO_GENERIC_METRIC_PROMOTION": true,
+    "NO_GENERIC_FINDING_PROMOTION": true,
+    "EVIDENCE_NOT_FINDING": true,
+    "FINDING_NOT_OPPORTUNITY": true,
+    "NO_PROVIDER_TABLE_BYPASS": true,
+    "NO_MAGIC_SCORE": true,
+    "MISSING_IS_NOT_CLEARED": true,
+    "STALE_IS_NOT_CLEARED": true,
+    "PARTIAL_IS_NOT_CLEARED": true,
+    "NO_GOAL_OFFERING_NAME_INFERENCE": true,
+    "NO_SERVICE_SCOPE_AUTO_CREATE": true
+  },
+  "condition_types": [
+    "VALUE_LT",
+    "VALUE_LTE",
+    "VALUE_GT",
+    "VALUE_GTE",
+    "VALUE_EQUALS",
+    "VALUE_BETWEEN",
+    "VALUE_OUTSIDE",
+    "STATE_EQUALS",
+    "STATE_NOT_EQUALS",
+    "BOOLEAN_IS",
+    "ABSENCE_CONFIRMED",
+    "PRESENCE_CONFIRMED",
+    "ABS_DECREASE_GTE",
+    "ABS_INCREASE_GTE",
+    "FINDING_PRESENT",
+    "FINDING_ABSENT_WITH_PROOF"
+  ],
+  "rules": [
+    {
+      "id": "website.gsc.organic_click_recovery",
+      "stable_id": "website:gsc:organic-click-recovery",
+      "version": 1,
+      "enabled": true,
+      "meaning": "Organic click recovery potential exists where a trusted GSC clicks-decline Finding is currently open or acknowledged, backed by trusted Search Console Evidence.",
+      "category": "visibility",
+      "qualitative_priority": "high",
+      "qualitative_priority_policy": "static",
+      "source_module": "website",
+      "consumer_intent": "operator_opportunity_queue",
+      "evidence_definition_ids": ["gsc.property.period_comparison"],
+      "finding_rule_stable_ids": ["website:gsc:clicks-decline"],
+      "allowed_finding_states": ["open", "acknowledged"],
+      "subject": {
+        "kind": "digital_asset",
+        "grain": "PER_DIGITAL_ASSET"
+      },
+      "cardinality": {
+        "strategy": "PER_DIGITAL_ASSET",
+        "max_per_digital_asset": 1,
+        "bound": "one_opportunity_per_asset"
+      },
+      "join_key": ["customer_id", "brand_id", "digital_asset_id"],
+      "integrity_requirement": "trusted",
+      "freshness_requirement": "fresh_or_fresh_with_limitation",
+      "completeness_requirement": "required_states_are_VALUE",
+      "provider_limitation_policy": "block_not_false",
+      "activation_policy": "IMMEDIATE",
+      "service_definition_codes": ["seo"],
+      "service_scope_policy": "context_only_outside_allowed",
+      "goal_offering_policy": "inherit_explicit_evidence_or_finding_scope_do_not_infer",
+      "include_goal_in_fingerprint": false,
+      "include_offering_in_fingerprint": false,
+      "include_market_in_fingerprint": false,
+      "include_period_in_fingerprint": false,
+      "threshold_source": "MoxDop\\Website\\Findings\\PerformanceFindingsCatalog",
+      "currency_policy": "not_applicable",
+      "activation": {
+        "combiner": "ALL",
+        "conditions": [
+          { "type": "FINDING_PRESENT", "finding_rule_stable_id": "website:gsc:clicks-decline" }
+        ]
+      },
+      "clear": {
+        "combiner": "ALL",
+        "conditions": [
+          { "type": "FINDING_ABSENT_WITH_PROOF", "finding_rule_stable_id": "website:gsc:clicks-decline" }
+        ]
+      },
+      "auto_close": true,
+      "reopen_policy": "REOPEN_SAME_OPPORTUNITY",
+      "fingerprint_inputs": ["stable_rule_id", "customer_id", "brand_id", "digital_asset_id", "subject_kind", "subject_id"],
+      "evaluation_fingerprint_inputs": ["opportunity_fingerprint", "rule_version", "evidence_observation_fingerprints", "finding_observation_fingerprints", "period", "condition_config", "service_context_snapshot", "goal_id", "offering_id"],
+      "title_template": "Organic click recovery potential",
+      "summary_template": "Trusted Search Console evidence and an open clicks-decline Finding indicate recoverable organic click potential."
+    },
+    {
+      "id": "website.gsc.organic_ctr_improvement",
+      "stable_id": "website:gsc:organic-ctr-improvement",
+      "version": 1,
+      "enabled": true,
+      "meaning": "Organic CTR improvement potential exists where a trusted GSC CTR-decline Finding is currently open or acknowledged, backed by trusted Search Console Evidence.",
+      "category": "visibility",
+      "qualitative_priority": "medium",
+      "qualitative_priority_policy": "static",
+      "source_module": "website",
+      "consumer_intent": "operator_opportunity_queue",
+      "evidence_definition_ids": ["gsc.property.period_comparison"],
+      "finding_rule_stable_ids": ["website:gsc:ctr-decline"],
+      "allowed_finding_states": ["open", "acknowledged"],
+      "subject": {
+        "kind": "digital_asset",
+        "grain": "PER_DIGITAL_ASSET"
+      },
+      "cardinality": {
+        "strategy": "PER_DIGITAL_ASSET",
+        "max_per_digital_asset": 1,
+        "bound": "one_opportunity_per_asset"
+      },
+      "join_key": ["customer_id", "brand_id", "digital_asset_id"],
+      "integrity_requirement": "trusted",
+      "freshness_requirement": "fresh_or_fresh_with_limitation",
+      "completeness_requirement": "required_states_are_VALUE",
+      "provider_limitation_policy": "block_not_false",
+      "activation_policy": "IMMEDIATE",
+      "service_definition_codes": ["seo"],
+      "service_scope_policy": "context_only_outside_allowed",
+      "goal_offering_policy": "inherit_explicit_evidence_or_finding_scope_do_not_infer",
+      "include_goal_in_fingerprint": false,
+      "include_offering_in_fingerprint": false,
+      "include_market_in_fingerprint": false,
+      "include_period_in_fingerprint": false,
+      "threshold_source": "MoxDop\\Website\\Findings\\PerformanceFindingsCatalog",
+      "currency_policy": "not_applicable",
+      "activation": {
+        "combiner": "ALL",
+        "conditions": [
+          { "type": "FINDING_PRESENT", "finding_rule_stable_id": "website:gsc:ctr-decline" }
+        ]
+      },
+      "clear": {
+        "combiner": "ALL",
+        "conditions": [
+          { "type": "FINDING_ABSENT_WITH_PROOF", "finding_rule_stable_id": "website:gsc:ctr-decline" }
+        ]
+      },
+      "auto_close": true,
+      "reopen_policy": "REOPEN_SAME_OPPORTUNITY",
+      "fingerprint_inputs": ["stable_rule_id", "customer_id", "brand_id", "digital_asset_id", "subject_kind", "subject_id"],
+      "evaluation_fingerprint_inputs": ["opportunity_fingerprint", "rule_version", "evidence_observation_fingerprints", "finding_observation_fingerprints", "period", "condition_config", "service_context_snapshot", "goal_id", "offering_id"],
+      "title_template": "Organic CTR improvement potential",
+      "summary_template": "Trusted Search Console evidence and an open CTR-decline Finding indicate organic CTR improvement potential."
+    },
+    {
+      "id": "website.ga4.session_recovery",
+      "stable_id": "website:ga4:session-recovery",
+      "version": 1,
+      "enabled": true,
+      "meaning": "Session recovery potential exists where a trusted GA4 sessions-decline Finding is currently open or acknowledged, backed by trusted GA4 Evidence.",
+      "category": "growth",
+      "qualitative_priority": "medium",
+      "qualitative_priority_policy": "static",
+      "source_module": "website",
+      "consumer_intent": "operator_opportunity_queue",
+      "evidence_definition_ids": ["ga4.property.period_comparison"],
+      "finding_rule_stable_ids": ["website:ga4:sessions-decline"],
+      "allowed_finding_states": ["open", "acknowledged"],
+      "subject": {
+        "kind": "digital_asset",
+        "grain": "PER_DIGITAL_ASSET"
+      },
+      "cardinality": {
+        "strategy": "PER_DIGITAL_ASSET",
+        "max_per_digital_asset": 1,
+        "bound": "one_opportunity_per_asset"
+      },
+      "join_key": ["customer_id", "brand_id", "digital_asset_id"],
+      "integrity_requirement": "trusted",
+      "freshness_requirement": "fresh_or_fresh_with_limitation",
+      "completeness_requirement": "required_states_are_VALUE",
+      "provider_limitation_policy": "block_not_false",
+      "activation_policy": "IMMEDIATE",
+      "service_definition_codes": ["seo"],
+      "service_scope_policy": "context_only_outside_allowed",
+      "goal_offering_policy": "inherit_explicit_evidence_or_finding_scope_do_not_infer",
+      "include_goal_in_fingerprint": false,
+      "include_offering_in_fingerprint": false,
+      "include_market_in_fingerprint": false,
+      "include_period_in_fingerprint": false,
+      "threshold_source": "MoxDop\\Website\\Findings\\PerformanceFindingsCatalog",
+      "currency_policy": "not_applicable",
+      "activation": {
+        "combiner": "ALL",
+        "conditions": [
+          { "type": "FINDING_PRESENT", "finding_rule_stable_id": "website:ga4:sessions-decline" }
+        ]
+      },
+      "clear": {
+        "combiner": "ALL",
+        "conditions": [
+          { "type": "FINDING_ABSENT_WITH_PROOF", "finding_rule_stable_id": "website:ga4:sessions-decline" }
+        ]
+      },
+      "auto_close": true,
+      "reopen_policy": "REOPEN_SAME_OPPORTUNITY",
+      "fingerprint_inputs": ["stable_rule_id", "customer_id", "brand_id", "digital_asset_id", "subject_kind", "subject_id"],
+      "evaluation_fingerprint_inputs": ["opportunity_fingerprint", "rule_version", "evidence_observation_fingerprints", "finding_observation_fingerprints", "period", "condition_config", "service_context_snapshot", "goal_id", "offering_id"],
+      "title_template": "Session recovery potential",
+      "summary_template": "Trusted GA4 evidence and an open sessions-decline Finding indicate recoverable session potential."
+    }
+  ]
+}

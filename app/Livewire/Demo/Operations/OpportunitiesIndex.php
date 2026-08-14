@@ -2,17 +2,22 @@
 
 namespace App\Livewire\Demo\Operations;
 
-use App\Support\Demo\CommercialContextFixtures;
-use App\Support\Demo\DemoCatalog;
+use App\Models\Opportunity;
+use App\Services\Opportunities\OpportunityDispositionService;
+use App\Services\Opportunities\OpportunityReadService;
 use App\Support\Demo\DemoState;
 use App\Support\Demo\OpportunityFixtures;
-use App\Support\Options\AgencyServiceOptions;
+use Closure;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
+/**
+ * Production Opportunities queue — backed by App\Models\Opportunity via OpportunityReadService.
+ * No Demo fixtures: empty result set means no rows exist yet for the current filters.
+ */
 #[Layout('operator.layouts.app')]
 #[Title('Opportunities')]
 class OpportunitiesIndex extends Component
@@ -39,13 +44,6 @@ class OpportunitiesIndex extends Component
     public string $q = '';
 
     public ?string $selectedId = null;
-
-    public function mount(): void
-    {
-        if ($this->brand === DemoCatalog::BRAND_ID) {
-            // keep explicit brand filter from URL
-        }
-    }
 
     public function setView(string $view): void
     {
@@ -97,27 +95,67 @@ class OpportunitiesIndex extends Component
 
     public function review(string $id): void
     {
-        DemoState::setOpportunityStatus($id, 'reviewing');
+        $this->applyDisposition(
+            $id,
+            static fn (Opportunity $opportunity): Opportunity => app(OpportunityDispositionService::class)->review($opportunity),
+            'Opportunity marked for review.'
+        );
     }
 
     public function defer(string $id): void
     {
-        DemoState::setOpportunityStatus($id, 'deferred');
+        $this->applyDisposition(
+            $id,
+            static fn (Opportunity $opportunity): Opportunity => app(OpportunityDispositionService::class)->defer($opportunity),
+            'Opportunity deferred.'
+        );
     }
 
     public function dismiss(string $id): void
     {
-        DemoState::setOpportunityStatus($id, 'dismissed');
+        $this->applyDisposition(
+            $id,
+            static fn (Opportunity $opportunity): Opportunity => app(OpportunityDispositionService::class)->dismiss($opportunity),
+            'Opportunity dismissed.'
+        );
     }
 
+    /**
+     * Marks the Opportunity converted. Recommendation creation from a converted Opportunity
+     * is owned by a later Prompt — no Recommendation record is created here.
+     */
     public function createRecommendation(string $id): void
     {
-        DemoState::createRecommendationFromOpportunity($id);
+        $this->applyDisposition(
+            $id,
+            static fn (Opportunity $opportunity): Opportunity => app(OpportunityDispositionService::class)->markConvertedWithoutRecommendation($opportunity),
+            'Opportunity converted.'
+        );
+    }
+
+    private function applyDisposition(string $id, Closure $action, string $message): void
+    {
+        $opportunity = $this->resolveOpportunity($id);
+        if ($opportunity === null) {
+            return;
+        }
+
+        $action($opportunity);
+        DemoState::flash($message);
+    }
+
+    private function resolveOpportunity(string $id): ?Opportunity
+    {
+        if (! ctype_digit($id)) {
+            return null;
+        }
+
+        return Opportunity::query()->find((int) $id);
     }
 
     public function render(): View
     {
-        $all = DemoState::opportunitiesWithStatus();
+        $all = app(OpportunityReadService::class)->forListPresentation();
         $filtered = collect($all);
 
         if ($this->view === 'open') {
@@ -189,7 +227,7 @@ class OpportunitiesIndex extends Component
             ->unique()
             ->all();
 
-        $categories = ['demand', 'content', 'paid', 'creative', 'local', 'conversion', 'cross_channel'];
+        $categories = ['visibility', 'growth', 'demand', 'content', 'paid', 'creative', 'local', 'conversion', 'cross_channel'];
 
         return view('livewire.demo.operations.opportunities-index', [
             'opportunities' => $rows,
@@ -199,13 +237,6 @@ class OpportunitiesIndex extends Component
             'customerOptions' => $customerOptions,
             'serviceOptions' => $serviceOptions,
             'categories' => $categories,
-            'serviceScopeLabels' => AgencyServiceOptions::labels(
-                collect(CommercialContextFixtures::serviceScopeForCustomer(DemoCatalog::CUSTOMER_ID))
-                    ->pluck('service_code')
-                    ->filter(fn (?string $code): bool => $code !== null && $code !== 'instagram_management')
-                    ->values()
-                    ->all()
-            ),
             'flash' => DemoState::pullFlash(),
         ]);
     }

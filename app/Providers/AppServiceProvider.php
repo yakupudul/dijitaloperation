@@ -60,6 +60,7 @@ use App\Services\MetaAds\MetaAdsPoolReadRepository;
 use App\Services\MetaAds\MetaAdsSpecialistBindingResolver;
 use App\Services\MetaAds\MetaAdsSpecialistReadService;
 use App\Services\MetaAds\MetaAdsUiDatasetGate;
+use App\Services\Opportunities\OpportunityRuleRegistry;
 use App\Services\ServiceScope\CommercialServiceContextProvider;
 use App\Services\ServiceScope\CustomerServiceScopeReadService;
 use App\Services\ServiceScope\CustomerServiceScopeService;
@@ -81,6 +82,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(BoundCollectorRegistry::class);
         $this->app->singleton(BoundEvidenceRuleRegistry::class);
         $this->app->singleton(FindingRuleRegistry::class);
+        $this->app->singleton(OpportunityRuleRegistry::class);
         $this->app->singleton(AiRouteRegistry::class);
         $this->app->singleton(AgentProfileRegistry::class);
         $this->app->singleton(SkillRegistry::class);

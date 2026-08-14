@@ -58,6 +58,18 @@ final class FindingConditionEvaluator
     }
 
     /**
+     * Public composition hook so other rule-engine condition evaluators (e.g. Opportunity's)
+     * can delegate typed VALUE_ / STATE_ / etc. evaluation without duplicating the match arm.
+     *
+     * @param  array<string, mixed>  $condition
+     * @param  list<CanonicalEvidenceDto>  $evidence
+     */
+    public function evaluateCondition(array $condition, array $evidence): ?bool
+    {
+        return $this->evaluateOne($condition, $evidence);
+    }
+
+    /**
      * @param  array<string, mixed>  $condition
      * @param  list<CanonicalEvidenceDto>  $evidence
      */

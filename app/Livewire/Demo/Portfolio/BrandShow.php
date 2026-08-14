@@ -3,6 +3,7 @@
 namespace App\Livewire\Demo\Portfolio;
 
 use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
+use App\Services\Opportunities\OpportunityReadService;
 use App\Support\Demo\AgencyExecutionFixtures;
 use App\Support\Demo\BrandPublicDiscoveryFixtures;
 use App\Support\Demo\BusinessOutcomeFixtures;
@@ -535,6 +536,22 @@ class BrandShow extends Component
         return is_array($row) ? $row : null;
     }
 
+    /**
+     * Production Opportunities scoped to this Brand. Demo catalog brand identifiers (e.g. "atlas-dental")
+     * never match a database Brand id, so non-numeric route values correctly resolve to an empty list —
+     * no Demo fixture fallback on this production surface.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function brandOpportunities(): array
+    {
+        if (! ctype_digit($this->brand)) {
+            return [];
+        }
+
+        return app(OpportunityReadService::class)->forListPresentation(['brand_id' => (int) $this->brand]);
+    }
+
     public function acceptDiscoveryCandidate(string $id): void
     {
         DemoState::setDiscoveryCandidateStatus($id, 'accepted');
@@ -970,9 +987,7 @@ class BrandShow extends Component
         $period = (string) ($this->period ?: ($state['period_preset'] ?? 'last_28'));
         $serviceScope = CommercialContextFixtures::effectiveScopeForBrand((string) ($brandRow['id'] ?? ''));
         $structuredGoals = CommercialContextFixtures::structuredGoalsForBrand((string) ($brandRow['id'] ?? ''));
-        $brandOpportunities = collect(DemoState::opportunitiesWithStatus())
-            ->filter(fn (array $row): bool => ($row['brand_id'] ?? '') === ($brandRow['id'] ?? ''))
-            ->pipe(fn ($c) => OpportunityFixtures::sortByBusinessRelevance($c->values()->all()));
+        $brandOpportunities = OpportunityFixtures::sortByBusinessRelevance($this->brandOpportunities());
         $businessOutcomes = ($brandRow['id'] ?? '') === DemoCatalog::BRAND_ID
             ? DemoState::businessOutcomes($period)
             : null;

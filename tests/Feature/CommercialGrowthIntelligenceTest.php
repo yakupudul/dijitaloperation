@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Livewire\Demo\Operations\OpportunitiesIndex;
 use App\Livewire\Demo\Operations\RecommendationsIndex;
 use App\Livewire\Demo\Portfolio\BrandShow;
+use App\Models\Opportunity;
+use App\Models\Recommendation;
 use App\Models\User;
 use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
@@ -44,40 +46,50 @@ class CommercialGrowthIntelligenceTest extends TestCase
             ->assertSee(__('operator.nav.opportunities'));
 
         Livewire::test(OpportunitiesIndex::class)
-            ->assertSee('High paid implant demand but weak organic coverage')
-            ->assertDontSee('Opportunity score');
+            ->assertDontSee('High paid implant demand but weak organic coverage')
+            ->assertDontSee('Opportunity score')
+            ->assertDontSee('Content coverage gap for priority offering');
     }
 
-    public function test_opportunity_demo_state_actions(): void
+    public function test_opportunity_disposition_actions_are_db_backed_without_recommendations(): void
     {
-        Livewire::test(OpportunitiesIndex::class)
-            ->call('review', 'opp-implant-organic-gap')
-            ->assertSet('view', 'open');
-
-        $statuses = DemoState::all()['opportunity_statuses'] ?? [];
-        $this->assertSame('reviewing', $statuses['opp-implant-organic-gap'] ?? null);
-
-        Livewire::test(OpportunitiesIndex::class)
-            ->call('defer', 'opp-content-coverage');
-
-        $statuses = DemoState::all()['opportunity_statuses'] ?? [];
-        $this->assertSame('deferred', $statuses['opp-content-coverage'] ?? null);
+        $opportunity = Opportunity::factory()->create([
+            'status' => Opportunity::STATUS_OPEN,
+            'title' => 'Organic click recovery potential',
+            'detection_state' => 'detected',
+            'closed_at' => null,
+        ]);
+        $id = (string) $opportunity->id;
 
         Livewire::test(OpportunitiesIndex::class)
-            ->call('dismiss', 'opp-meta-creative-angle');
+            ->set('view', 'all')
+            ->assertSee('Organic click recovery potential')
+            ->call('review', $id);
 
-        $statuses = DemoState::all()['opportunity_statuses'] ?? [];
-        $this->assertSame('dismissed', $statuses['opp-meta-creative-angle'] ?? null);
+        $this->assertSame(Opportunity::STATUS_REVIEWING, $opportunity->fresh()->status);
 
         Livewire::test(OpportunitiesIndex::class)
-            ->call('createRecommendation', 'opp-gbp-local-gap');
+            ->call('defer', $id);
+        $this->assertSame(Opportunity::STATUS_DEFERRED, $opportunity->fresh()->status);
 
-        $statuses = DemoState::all()['opportunity_statuses'] ?? [];
-        $this->assertSame('converted', $statuses['opp-gbp-local-gap'] ?? null);
+        $dismissed = Opportunity::factory()->create([
+            'status' => Opportunity::STATUS_OPEN,
+            'title' => 'Organic CTR improvement potential',
+            'detection_state' => 'detected',
+        ]);
+        Livewire::test(OpportunitiesIndex::class)
+            ->call('dismiss', (string) $dismissed->id);
+        $this->assertSame(Opportunity::STATUS_DISMISSED, $dismissed->fresh()->status);
 
-        $rec = collect(DemoState::all()['recommendations'] ?? [])->firstWhere('id', 'r-from-opp-gbp-local-gap');
-        $this->assertNotNull($rec);
-        $this->assertSame('opp-gbp-local-gap', $rec['source_opportunity_id'] ?? null);
+        $converted = Opportunity::factory()->create([
+            'status' => Opportunity::STATUS_OPEN,
+            'title' => 'Session recovery potential',
+            'detection_state' => 'detected',
+        ]);
+        Livewire::test(OpportunitiesIndex::class)
+            ->call('createRecommendation', (string) $converted->id);
+        $this->assertSame(Opportunity::STATUS_CONVERTED, $converted->fresh()->status);
+        $this->assertSame(0, Recommendation::query()->count());
     }
 
     public function test_customer_relationship_shows_service_scope(): void
@@ -99,12 +111,12 @@ class CommercialGrowthIntelligenceTest extends TestCase
             ->assertSee('Increase qualified implant consultations');
     }
 
-    public function test_brand_growth_shows_opportunity_titles(): void
+    public function test_brand_growth_shows_opportunity_section_without_demo_titles(): void
     {
         Livewire::test(BrandShow::class, ['brand' => DemoCatalog::BRAND_ID])
             ->call('setTab', 'growth')
-            ->assertSee('High paid implant demand but weak organic coverage')
-            ->assertSee(__('operator.opportunities.growth_section'));
+            ->assertSee(__('operator.opportunities.growth_section'))
+            ->assertDontSee('High paid implant demand but weak organic coverage');
     }
 
     public function test_brand_value_shows_business_outcomes_without_zero_revenue(): void
@@ -118,10 +130,12 @@ class CommercialGrowthIntelligenceTest extends TestCase
             ->assertDontSee('₺0');
     }
 
-    public function test_no_persistence_tables_or_migrations_for_deferred_commercial_entities(): void
+    public function test_opportunity_persistence_exists_while_deferred_entities_remain_deferred(): void
     {
-        // Prompt 37 owns Goal/Offering identity tables. These remain deferred:
-        foreach (['opportunities', 'service_plans', 'business_outcomes'] as $table) {
+        $this->assertTrue(Schema::hasTable('opportunities'));
+        $this->assertTrue(Schema::hasTable('opportunity_evaluations'));
+
+        foreach (['service_plans', 'business_outcomes'] as $table) {
             $this->assertFalse(Schema::hasTable($table), 'Unexpected table: '.$table);
         }
 
@@ -130,12 +144,12 @@ class CommercialGrowthIntelligenceTest extends TestCase
         $this->assertTrue(Schema::hasTable('brand_offering_names'));
 
         $migrationPath = database_path('migrations');
-        $patterns = ['*opportunities*', '*service_plans*', '*business_outcomes*'];
-
-        foreach ($patterns as $pattern) {
+        foreach (['*service_plans*', '*business_outcomes*'] as $pattern) {
             $matches = File::glob($migrationPath.'/'.$pattern);
             $this->assertEmpty($matches, 'Unexpected migration files for pattern: '.$pattern);
         }
+
+        $this->assertNotEmpty(File::glob($migrationPath.'/*opportunities*'));
     }
 
     public function test_recommendation_source_distinguishes_opportunity_from_finding(): void

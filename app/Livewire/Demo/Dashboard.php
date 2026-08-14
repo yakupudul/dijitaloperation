@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Demo;
 
+use App\Services\Opportunities\OpportunityReadService;
 use App\Support\Demo\AgencyExecutionFixtures;
 use App\Support\Demo\ClientValueFixtures;
 use App\Support\Demo\DemoState;
@@ -43,7 +44,7 @@ class Dashboard extends Component
     {
         return view('livewire.demo.dashboard', [
             'dashboard' => AgencyExecutionFixtures::dashboardExecution($this->mode),
-            'growthOpportunities' => collect(OpportunityFixtures::sortByBusinessRelevance(DemoState::opportunitiesWithStatus()))
+            'growthOpportunities' => collect(OpportunityFixtures::sortByBusinessRelevance(app(OpportunityReadService::class)->forListPresentation()))
                 ->whereIn('status', ['open', 'reviewing'])
                 ->take(3)
                 ->values()
