@@ -97,6 +97,14 @@ class FindingResource extends Resource
                             }),
                         TextEntry::make('category')
                             ->placeholder('—'),
+                        TextEntry::make('origin')
+                            ->placeholder('—'),
+                        TextEntry::make('rule_id')
+                            ->label('Rule')
+                            ->placeholder('—'),
+                        TextEntry::make('condition_state')
+                            ->label('Condition')
+                            ->placeholder('—'),
                         TextEntry::make('summary')
                             ->placeholder('—')
                             ->columnSpanFull(),

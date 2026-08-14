@@ -7,7 +7,9 @@ use App\Events\Collection\CollectionRunCompleted;
 use App\Events\Collection\CollectionRunStarted;
 use App\Events\Collection\DatasetRunFailed;
 use App\Events\Collection\DatasetRunProgressed;
+use App\Events\EvidenceCanonicalized;
 use App\Listeners\Collection\BroadcastCollectionRunChanged;
+use App\Listeners\QueueFindingEvaluationAfterEvidenceCanonicalized;
 use App\Models\Collection\CollectionRun;
 use App\Policies\CollectionRunPolicy;
 use App\Services\Collection\Contracts\NormalizedDatasetWriter;
@@ -35,6 +37,7 @@ use App\Services\DataPool\PartitionManager;
 use App\Services\DataPool\PostgresWarehouseWriter;
 use App\Services\DataPool\StorageContractValidator;
 use App\Services\Findings\BoundEvidenceRuleRegistry;
+use App\Services\Findings\FindingRuleRegistry;
 use App\Services\Formulas\FormulaRegistryLoader;
 use App\Services\Formulas\Ga4FormulaCalculator;
 use App\Services\Formulas\GoogleAdsFormulaCalculator;
@@ -77,6 +80,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(BoundCollectorRegistry::class);
         $this->app->singleton(BoundEvidenceRuleRegistry::class);
+        $this->app->singleton(FindingRuleRegistry::class);
         $this->app->singleton(AiRouteRegistry::class);
         $this->app->singleton(AgentProfileRegistry::class);
         $this->app->singleton(SkillRegistry::class);
@@ -165,5 +169,6 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(CollectionRunCancelled::class, [$broadcast, 'handleCancelled']);
         Event::listen(DatasetRunFailed::class, [$broadcast, 'handleDatasetFailed']);
         Event::listen(DatasetRunProgressed::class, [$broadcast, 'handleDatasetProgressed']);
+        Event::listen(EvidenceCanonicalized::class, QueueFindingEvaluationAfterEvidenceCanonicalized::class);
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Services\Evidence;
 
+use App\Events\EvidenceCanonicalized;
 use App\Models\DataPool\DatasetMaterialization;
 use App\Models\DigitalAsset;
 use App\Models\Finding;
@@ -158,6 +159,8 @@ final class CanonicalEvidencePipeline
         ) {
             throw new \RuntimeException('Canonical Evidence pipeline must not create Findings, Recommendations, or Tasks.');
         }
+
+        event(new EvidenceCanonicalized($asset, $result->run));
 
         return $result;
     }

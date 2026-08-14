@@ -66,7 +66,7 @@ Status reference for the frozen `/app` operator panel. UI work after this docume
 | Service Scope | DEMO | Session/fixture commercial scope |
 | Goals | DEMO | Primary/conversion goals in fixtures |
 | Opportunities | DEMO | Fixture list + DemoState status |
-| Findings | PARTIAL | Demo findings + status overrides; fingerprint concept remains product truth |
+| Findings | CONVERGED / REAL | Prompt 39: one canonical `findings` table; rule-backed production Findings from canonical Evidence; Demo Atlas catalog remains Demo-only Livewire; Filament `/app/findings` is DB-backed |
 | Recommendations | DEMO | Fixture recommendations + accept/create-task |
 | Work | DEMO | Tasks/requests/reviews/approvals/QA via DemoState |
 | Client Requests | DEMO | Customer Requests workspace + Work views |

@@ -30,6 +30,7 @@ class FindingFactory extends Factory
             'summary' => fake()->optional()->paragraph(),
             'confidence' => fake()->randomFloat(4, 0, 1),
             'status' => fake()->randomElement(['open', 'acknowledged', 'resolved']),
+            'origin' => 'legacy_unverified',
             'first_seen_at' => $seenAt,
             'last_seen_at' => $seenAt,
             'last_run_id' => null,
