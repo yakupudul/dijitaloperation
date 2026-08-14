@@ -51,10 +51,10 @@ return new class extends Migration
                 $table->unique(['digital_asset_id', 'evidence_fingerprint'], 'evidence_canonical_identity_unique');
             }
             if (! $this->hasIndexNamed('evidence_definition_id_index')) {
-                $table->index('definition_id');
+                $table->index('definition_id', 'evidence_definition_id_index');
             }
-            if (! $this->hasIndexNamed('evidence_is_canonical_index')) {
-                $table->index(['digital_asset_id', 'is_canonical']);
+            if (! $this->hasIndexNamed('evidence_asset_canonical_index')) {
+                $table->index(['digital_asset_id', 'is_canonical'], 'evidence_asset_canonical_index');
             }
         });
     }
@@ -66,14 +66,20 @@ return new class extends Migration
         }
 
         Schema::table('evidence', function (Blueprint $table): void {
-            if ($this->hasIndexNamed('evidence_canonical_identity_unique')) {
-                $table->dropUnique('evidence_canonical_identity_unique');
-            }
-            if ($this->hasIndexNamed('evidence_definition_id_index')) {
-                $table->dropIndex('evidence_definition_id_index');
-            }
-            if ($this->hasIndexNamed('evidence_is_canonical_index')) {
-                $table->dropIndex('evidence_is_canonical_index');
+            foreach ([
+                'evidence_canonical_identity_unique',
+                'evidence_definition_id_index',
+                'evidence_asset_canonical_index',
+                'evidence_digital_asset_id_is_canonical_index',
+                'evidence_is_canonical_index',
+            ] as $indexName) {
+                if ($this->hasIndexNamed($indexName)) {
+                    if ($indexName === 'evidence_canonical_identity_unique') {
+                        $table->dropUnique($indexName);
+                    } else {
+                        $table->dropIndex($indexName);
+                    }
+                }
             }
         });
 
