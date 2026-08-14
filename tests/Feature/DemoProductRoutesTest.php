@@ -11,6 +11,7 @@ use App\Livewire\Demo\Operations\RecommendationsIndex;
 use App\Livewire\Demo\Operations\TaskShow;
 use App\Livewire\Demo\Operations\TasksIndex;
 use App\Livewire\Demo\Website\OverviewPage as WebsiteOverviewPage;
+use App\Models\Recommendation;
 use App\Models\User;
 use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
@@ -91,7 +92,7 @@ class DemoProductRoutesTest extends TestCase
             ->assertOk()
             ->assertSee('Recommendations')
             ->assertSee('Awaiting Decision')
-            ->assertSee('Review conversion mapping');
+            ->assertDontSee('Review conversion mapping');
         $this->get(route('demo.tasks'))
             ->assertOk()
             ->assertSee(__('operator.work.title'))
@@ -285,11 +286,16 @@ class DemoProductRoutesTest extends TestCase
             ->call('expand', 'f-meta-cpl')
             ->assertSee('Why it matters');
 
+        $recommendation = Recommendation::factory()->create([
+            'title' => 'Replace underperforming creative',
+            'status' => Recommendation::STATUS_OPEN,
+        ]);
+
         Livewire::test(RecommendationsIndex::class)
-            ->call('approve', 'r-replace-creative')
+            ->call('approve', (string) $recommendation->id)
             ->assertSee('accepted')
-            ->call('createTask', 'r-fix-lcp')
-            ->assertSee('Task created');
+            ->call('createTask', (string) $recommendation->id)
+            ->assertSee('no Task was created');
 
         Livewire::test(TasksIndex::class)
             ->call('setView', 'all')

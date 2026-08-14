@@ -2,11 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Enums\RecommendationSourceKind;
 use App\Livewire\Demo\Operations\OpportunitiesIndex;
 use App\Livewire\Demo\Operations\RecommendationsIndex;
 use App\Livewire\Demo\Portfolio\BrandShow;
+use App\Models\Finding;
 use App\Models\Opportunity;
 use App\Models\Recommendation;
+use App\Models\Task;
 use App\Models\User;
 use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
@@ -51,7 +54,7 @@ class CommercialGrowthIntelligenceTest extends TestCase
             ->assertDontSee('Content coverage gap for priority offering');
     }
 
-    public function test_opportunity_disposition_actions_are_db_backed_without_recommendations(): void
+    public function test_opportunity_disposition_actions_are_db_backed(): void
     {
         $opportunity = Opportunity::factory()->create([
             'status' => Opportunity::STATUS_OPEN,
@@ -89,7 +92,12 @@ class CommercialGrowthIntelligenceTest extends TestCase
         Livewire::test(OpportunitiesIndex::class)
             ->call('createRecommendation', (string) $converted->id);
         $this->assertSame(Opportunity::STATUS_CONVERTED, $converted->fresh()->status);
-        $this->assertSame(0, Recommendation::query()->count());
+
+        $recommendation = Recommendation::query()->where('opportunity_id', $converted->id)->sole();
+        $this->assertSame(RecommendationSourceKind::Opportunity->value, $recommendation->source_kind);
+        $this->assertNull($recommendation->finding_id);
+        $this->assertSame('Act on: Session recovery potential', $recommendation->title);
+        $this->assertSame(0, Task::query()->count());
     }
 
     public function test_customer_relationship_shows_service_scope(): void
@@ -154,16 +162,32 @@ class CommercialGrowthIntelligenceTest extends TestCase
 
     public function test_recommendation_source_distinguishes_opportunity_from_finding(): void
     {
-        DemoState::createRecommendationFromOpportunity('opp-implant-organic-gap');
+        $opportunity = Opportunity::factory()->create([
+            'status' => Opportunity::STATUS_OPEN,
+            'title' => 'Organic click recovery potential',
+        ]);
+        $finding = Finding::factory()->create(['title' => 'Organic clicks declined']);
 
-        $this->get(route('demo.recommendations'))
-            ->assertOk();
+        $fromOpportunity = Recommendation::factory()->forOpportunity($opportunity)->create([
+            'title' => 'Act on: Organic click recovery potential',
+            'status' => Recommendation::STATUS_OPEN,
+        ]);
+        $fromFinding = Recommendation::factory()->forFinding($finding)->create([
+            'title' => 'Fix: Organic clicks declined',
+            'status' => Recommendation::STATUS_OPEN,
+        ]);
+
+        $this->get(route('demo.recommendations'))->assertOk();
 
         Livewire::test(RecommendationsIndex::class)
-            ->call('expand', 'r-from-opp-implant-organic-gap')
+            ->call('expand', (string) $fromOpportunity->id)
             ->assertSee(__('operator.commercial.source_opportunity'))
-            ->assertSee('opp-implant-organic-gap')
-            ->assertSee(__('operator.commercial.service'));
+            ->assertSee('Opportunity #'.$opportunity->id);
+
+        Livewire::test(RecommendationsIndex::class)
+            ->call('expand', (string) $fromFinding->id)
+            ->assertSee(__('operator.commercial.source_finding'))
+            ->assertSee('Finding #'.$finding->id);
     }
 
     public function test_digital_asset_scope_awareness_on_website_and_instagram(): void

@@ -8,6 +8,8 @@ use App\Livewire\Demo\Operations\RecommendationsIndex;
 use App\Livewire\Demo\Operations\TasksIndex;
 use App\Livewire\Demo\Portfolio\AssetsIndex;
 use App\Livewire\Demo\SettingsPage;
+use App\Models\Recommendation;
+use App\Models\Task;
 use App\Models\User;
 use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
@@ -105,14 +107,21 @@ class GlobalAgencyOperatingLayerTest extends TestCase
 
     public function test_recommendation_accept_and_create_task_remain_internal(): void
     {
-        Livewire::test(RecommendationsIndex::class)
-            ->assertSee('Review conversion mapping')
-            ->call('approve', 'r-review-conversion-mapping')
-            ->assertSee('accepted')
-            ->call('createTask', 'r-review-conversion-mapping');
+        $recommendation = Recommendation::factory()->create([
+            'title' => 'Review conversion mapping for primary lead signal',
+            'status' => Recommendation::STATUS_OPEN,
+        ]);
+        $id = (string) $recommendation->id;
 
-        $tasks = collect(DemoState::all()['tasks']);
-        $this->assertTrue($tasks->contains(fn (array $task): bool => ($task['recommendation_id'] ?? null) === 'r-review-conversion-mapping'));
+        Livewire::test(RecommendationsIndex::class)
+            ->assertSee('Review conversion mapping for primary lead signal')
+            ->call('approve', $id)
+            ->assertSee('accepted')
+            ->call('createTask', $id)
+            ->assertSee('no Task was created');
+
+        $this->assertSame(Recommendation::STATUS_ACCEPTED, $recommendation->fresh()->status);
+        $this->assertSame(0, Task::query()->count());
     }
 
     public function test_tasks_default_to_my_tasks_view(): void

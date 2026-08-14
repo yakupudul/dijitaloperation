@@ -352,7 +352,11 @@ class OpportunityProductionDetectionTest extends TestCase
             ->call('createRecommendation', $id);
 
         $this->assertSame(Opportunity::STATUS_CONVERTED, Opportunity::query()->value('status'));
-        $this->assertSame(0, Recommendation::query()->count());
+
+        // Recommendation creation from a converted Opportunity is owned by the Recommendation
+        // source architecture (Prompt 41); conversion still creates no Task.
+        $this->assertSame(1, Recommendation::query()->where('source_kind', 'opportunity')->count());
+        $this->assertSame(0, Task::query()->count());
     }
 
     public function test_read_service_exposes_context_without_raw_payload_or_score(): void

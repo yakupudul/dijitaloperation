@@ -10,6 +10,7 @@ use App\Livewire\Demo\Operations\FindingsIndex;
 use App\Livewire\Demo\Operations\RecommendationsIndex;
 use App\Livewire\Demo\Portfolio\BrandShow;
 use App\Livewire\Demo\SettingsPage;
+use App\Models\Recommendation;
 use App\Models\User;
 use App\Support\Agents\AgentProfileKeys;
 use App\Support\Agents\AgentProfileRegistry;
@@ -116,13 +117,18 @@ class ProductVisionRecoveryTest extends TestCase
 
     public function test_recommendations_support_defer_decision(): void
     {
+        $recommendation = Recommendation::factory()->create([
+            'title' => 'Review conversion mapping for primary lead signal',
+            'status' => Recommendation::STATUS_OPEN,
+        ]);
+
         Livewire::test(RecommendationsIndex::class)
             ->assertOk()
-            ->call('defer', 'r-review-conversion-mapping')
+            ->call('defer', (string) $recommendation->id)
             ->assertSee('deferred');
 
-        $rec = collect(DemoState::all()['recommendations'])->firstWhere('id', 'r-review-conversion-mapping');
-        $this->assertSame('deferred', $rec['status'] ?? null);
+        // Defer is a review posture: the canonical statuses stay open/accepted/dismissed/converted.
+        $this->assertSame(Recommendation::STATUS_OPEN, $recommendation->fresh()->status);
     }
 
     public function test_activity_period_filter_excludes_older_seed_events(): void

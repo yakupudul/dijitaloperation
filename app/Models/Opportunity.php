@@ -109,6 +109,14 @@ class Opportunity extends Model
     }
 
     /**
+     * @return HasMany<Recommendation, $this>
+     */
+    public function recommendations(): HasMany
+    {
+        return $this->hasMany(Recommendation::class);
+    }
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array

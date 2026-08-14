@@ -175,7 +175,7 @@ An Opportunity states that a rule-defined commercial-relevance condition is true
 
 ## 40. Recommendation Boundary
 
-Prompt 40 creates zero Recommendations. `OpportunityDispositionService::markConvertedWithoutRecommendation()` sets `status=converted` and records `OPPORTUNITY_CONVERTED` activity — it does not instantiate `App\Models\Recommendation`. The Livewire `createRecommendation()` action name is preserved from the frozen UI but is now explicitly documented as *not* creating a Recommendation; that wiring is Prompt 41's responsibility (test-asserted: `Recommendation::query()->count()` stays `0` after calling it).
+Prompt 40 creates zero Recommendations. `OpportunityDispositionService::markConvertedWithoutRecommendation()` sets `status=converted` and records `OPPORTUNITY_CONVERTED` activity — it does not instantiate `App\Models\Recommendation`, and that remains true after Prompt 41. Opportunity *evaluation* still creates zero Recommendations (test-asserted). The Livewire `createRecommendation()` action, which Prompt 40 left as a status transition only, now additionally calls `CreateRecommendationFromOpportunity` — see `docs/implementation/RECOMMENDATION_SOURCE_ARCHITECTURE.md`.
 
 ## 41. Work Boundary
 
@@ -241,11 +241,12 @@ Evidence is frozen once per `evaluateAsset()` call via `CanonicalEvidenceReadSer
 | DataForSEO / Google Ads / Meta Ads / Cross-Source Opportunities | NOT YET (missing canonical Ads/Meta Findings or DataForSEO rule support) |
 | Demo fallback on Operations Opportunities index | NONE |
 | `OpportunityFixtures` residual Demo (specialist overview cards outside Operations index) | DEMO (out of Prompt 40 scope) |
-| Recommendations / Tasks / Business Outcomes / AI | NOT YET / NO |
+| Recommendations | NOT YET at Prompt 40; REAL from Prompt 41 (operator-created, Opportunity- or Finding-sourced) |
+| Tasks / Business Outcomes / AI | NOT YET / NO |
 
-## 55. Prompt 41 Handoff
+## 55. Prompt 41 Handoff — DONE
 
-`OpportunityReadService` and `OpportunityDispositionService` expose current Opportunities by Customer/Brand/DigitalAsset/status/category/rule/service/Goal/Offering without ad-hoc Opportunity-table queries. `markConvertedWithoutRecommendation()` is the seam: Prompt 41 should create the actual `Recommendation` row (with `opportunity_id` provenance) when an Opportunity converts, rather than reopening the disposition service's status transition. Do not implement Recommendation creation here.
+`OpportunityReadService` and `OpportunityDispositionService` expose current Opportunities by Customer/Brand/DigitalAsset/status/category/rule/service/Goal/Offering without ad-hoc Opportunity-table queries. `markConvertedWithoutRecommendation()` was the seam and Prompt 41 consumed it: `OpportunitiesIndex::createRecommendation()` now marks the Opportunity converted **and** calls `CreateRecommendationFromOpportunity` (idempotency key `opportunity-convert:{id}`), producing one `Recommendation` row with `source_kind=opportunity` and `opportunity_id` provenance. The disposition service itself is unchanged and still creates nothing. See `docs/implementation/RECOMMENDATION_SOURCE_ARCHITECTURE.md`.
 
 ## 56. Definition of Done
 
@@ -452,10 +453,10 @@ All 3: `FINDING_PRESENT` activation / `FINDING_ABSENT_WITH_PROOF` clear, `allowe
 
 | Action | Creates `Recommendation` row? | Notes |
 |---|---|---|
-| `OpportunityDispositionService::markConvertedWithoutRecommendation()` | NO | sets `status=converted` only |
-| Livewire `createRecommendation()` | NO | delegates to the above; name preserved from frozen UI |
+| `OpportunityDispositionService::markConvertedWithoutRecommendation()` | NO | sets `status=converted` only, before and after Prompt 41 |
+| Livewire `createRecommendation()` | YES since Prompt 41 | status transition + `CreateRecommendationFromOpportunity` (idempotent); still creates no Task |
 | `OpportunityEvaluationService::evaluateAsset()` | NO | asserts `Recommendation::count()` unchanged, throws otherwise |
-| Any Prompt 40 code path | NO | Recommendation creation is explicitly Prompt 41 |
+| Any Prompt 40 evaluation/persistence code path | NO | automated Recommendation generation stays out of detection |
 
 ## 77. Legacy Migration Matrix
 

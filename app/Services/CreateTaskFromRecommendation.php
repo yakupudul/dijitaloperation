@@ -35,10 +35,15 @@ class CreateTaskFromRecommendation
             'priority' => ['nullable', 'string', 'max:255', Rule::in(['critical', 'high', 'medium', 'low'])],
         ])->validate();
 
-        $recommendation->loadMissing(['digitalAsset.brand', 'finding.digitalAsset.brand']);
+        $recommendation->loadMissing([
+            'digitalAsset.brand',
+            'finding.digitalAsset.brand',
+            'opportunity.digitalAsset.brand',
+        ]);
 
         $digitalAsset = $recommendation->digitalAsset
-            ?? $recommendation->finding?->digitalAsset;
+            ?? $recommendation->finding?->digitalAsset
+            ?? $recommendation->opportunity?->digitalAsset;
 
         if ($digitalAsset === null) {
             throw new InvalidArgumentException('Recommendation has no digital asset to snapshot onto a Task.');
@@ -62,6 +67,7 @@ class CreateTaskFromRecommendation
         $rationale = $recommendation->rationale;
 
         $finding = $recommendation->finding;
+        $opportunity = $recommendation->opportunity;
 
         $snapshot = [
             'customer_id' => $brand->customer_id,
@@ -72,6 +78,7 @@ class CreateTaskFromRecommendation
             'action' => $action,
             'priority' => $priority,
             'rationale' => $rationale,
+            'source_kind' => $recommendation->source_kind,
             'finding' => $finding === null ? null : [
                 'id' => $finding->id,
                 'fingerprint' => $finding->fingerprint,
@@ -80,6 +87,17 @@ class CreateTaskFromRecommendation
                 'severity' => $finding->severity,
                 'last_run_id' => $finding->last_run_id,
                 'last_seen_at' => optional($finding->last_seen_at)?->toIso8601String(),
+            ],
+            'opportunity' => $opportunity === null ? null : [
+                'id' => $opportunity->id,
+                'fingerprint' => $opportunity->fingerprint,
+                'rule_id' => $opportunity->rule_id,
+                'rule_version' => $opportunity->rule_version,
+                'category' => $opportunity->category,
+                'status' => $opportunity->status,
+                'qualitative_priority' => $opportunity->qualitative_priority,
+                'service_definition_code' => $opportunity->service_definition_code,
+                'last_detected_at' => optional($opportunity->last_detected_at)?->toIso8601String(),
             ],
         ];
 

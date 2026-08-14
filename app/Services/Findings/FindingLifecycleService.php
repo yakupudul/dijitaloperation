@@ -2,6 +2,8 @@
 
 namespace App\Services\Findings;
 
+use App\Enums\RecommendationOrigin;
+use App\Enums\RecommendationSourceKind;
 use App\Events\FindingEvaluationCompleted;
 use App\Models\Finding;
 use App\Models\Recommendation;
@@ -183,6 +185,9 @@ final class FindingLifecycleService
 
         if ($recommendation->exists && ! in_array($recommendation->status, ['open', 'accepted'], true)) {
             $recommendation->fill([
+                'source_kind' => RecommendationSourceKind::Finding->value,
+                'opportunity_id' => null,
+                'origin' => RecommendationOrigin::DeterministicTemplate->value,
                 'digital_asset_id' => $finding->digital_asset_id,
                 'title' => $title,
                 'action' => $match->recommendationAction,
@@ -196,6 +201,9 @@ final class FindingLifecycleService
 
         $wasNew = ! $recommendation->exists;
         $recommendation->fill([
+            'source_kind' => RecommendationSourceKind::Finding->value,
+            'opportunity_id' => null,
+            'origin' => RecommendationOrigin::DeterministicTemplate->value,
             'digital_asset_id' => $finding->digital_asset_id,
             'source_module' => $result->sourceModule,
             'title' => $title,

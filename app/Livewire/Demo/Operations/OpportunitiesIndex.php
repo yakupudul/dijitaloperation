@@ -2,9 +2,12 @@
 
 namespace App\Livewire\Demo\Operations;
 
+use App\Enums\RecommendationOrigin;
 use App\Models\Opportunity;
+use App\Models\Recommendation;
 use App\Services\Opportunities\OpportunityDispositionService;
 use App\Services\Opportunities\OpportunityReadService;
+use App\Services\Recommendations\CreateRecommendationFromOpportunity;
 use App\Support\Demo\DemoState;
 use App\Support\Demo\OpportunityFixtures;
 use Closure;
@@ -121,16 +124,44 @@ class OpportunitiesIndex extends Component
     }
 
     /**
-     * Marks the Opportunity converted. Recommendation creation from a converted Opportunity
-     * is owned by a later Prompt — no Recommendation record is created here.
+     * Marks the Opportunity converted and creates the one Opportunity-sourced Recommendation.
+     * No Task, Work item, or Approval is created here — Work alignment is a later Prompt.
+     * The idempotency key makes a double click a no-op instead of a duplicate row.
      */
     public function createRecommendation(string $id): void
     {
-        $this->applyDisposition(
-            $id,
-            static fn (Opportunity $opportunity): Opportunity => app(OpportunityDispositionService::class)->markConvertedWithoutRecommendation($opportunity),
-            'Opportunity converted.'
+        $opportunity = $this->resolveOpportunity($id);
+        if ($opportunity === null) {
+            return;
+        }
+
+        app(OpportunityDispositionService::class)->markConvertedWithoutRecommendation($opportunity);
+
+        app(CreateRecommendationFromOpportunity::class)->create(
+            $opportunity,
+            [
+                'title' => 'Act on: '.$opportunity->title,
+                'action' => $opportunity->description ?? $opportunity->title,
+                'rationale' => $opportunity->description,
+                'priority' => $this->priorityForOpportunity($opportunity),
+                'status' => Recommendation::STATUS_OPEN,
+            ],
+            RecommendationOrigin::Operator,
+            auth()->user(),
+            'opportunity-convert:'.$opportunity->id,
         );
+
+        DemoState::flash('Opportunity converted into a Recommendation. No Task was created.');
+    }
+
+    private function priorityForOpportunity(Opportunity $opportunity): string
+    {
+        return match ($opportunity->qualitative_priority) {
+            'critical' => 'critical',
+            'high' => 'high',
+            'low' => 'low',
+            default => 'medium',
+        };
     }
 
     private function applyDisposition(string $id, Closure $action, string $message): void

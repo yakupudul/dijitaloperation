@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Enums\RecommendationOrigin;
+use App\Enums\RecommendationSourceKind;
 use App\Models\DigitalAsset;
 use App\Models\Evidence;
 use App\Models\Finding;
@@ -1676,6 +1678,9 @@ class WebsiteDiagnosisService
         if ($recommendation->exists && ! in_array($recommendation->status, ['open', 'accepted'], true)) {
             // Preserve terminal operator decisions (dismissed/converted); still refresh guidance text.
             $recommendation->fill([
+                'source_kind' => RecommendationSourceKind::Finding->value,
+                'opportunity_id' => null,
+                'origin' => RecommendationOrigin::DeterministicTemplate->value,
                 'digital_asset_id' => $finding->digital_asset_id,
                 'title' => 'Fix: '.$finding->title,
                 'action' => $action,
@@ -1688,6 +1693,9 @@ class WebsiteDiagnosisService
         }
 
         $recommendation->fill([
+            'source_kind' => RecommendationSourceKind::Finding->value,
+            'opportunity_id' => null,
+            'origin' => RecommendationOrigin::DeterministicTemplate->value,
             'digital_asset_id' => $finding->digital_asset_id,
             'source_module' => self::MODULE_ID,
             'title' => 'Fix: '.$finding->title,
