@@ -529,6 +529,7 @@ return [
         'empty' => 'No pending approvals.',
         'approve' => 'Approve',
         'updated' => 'Approval updated',
+        'requested' => 'Approval requested',
     ],
 
     'playbooks' => [
@@ -569,6 +570,7 @@ return [
         'required' => 'QA required',
         'approve' => 'Approve QA',
         'updated' => 'QA status updated',
+        'requested' => 'QA review requested',
     ],
 
     'capacity' => [

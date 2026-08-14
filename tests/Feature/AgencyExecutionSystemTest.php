@@ -15,9 +15,12 @@ use App\Models\ClientRequest;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\ServiceDefinition;
+use App\Models\Task;
 use App\Models\User;
+use App\Services\Approvals\ApprovalService;
 use App\Services\ClientRequests\CreateClientRequest;
 use App\Services\ClientRequests\CreateTaskFromClientRequest;
+use App\Services\Qa\QaService;
 use App\Support\Demo\AgencyExecutionFixtures;
 use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
@@ -134,25 +137,63 @@ class AgencyExecutionSystemTest extends TestCase
 
     public function test_approval_waiting_and_approve(): void
     {
-        Livewire::test(WorkShow::class, ['workId' => 'appr-landing-copy', 'type' => 'approval'])
+        $customer = Customer::factory()->create();
+        $brand = Brand::factory()->create(['customer_id' => $customer->id]);
+        $task = Task::factory()->create([
+            'customer_id' => $customer->id,
+            'brand_id' => $brand->id,
+            'title' => 'Landing copy for client',
+            'status' => 'open',
+            'recommendation_id' => null,
+            'source_kind' => 'direct',
+            'scope_kind' => 'brand',
+            'digital_asset_id' => null,
+        ]);
+        $approval = app(ApprovalService::class)->request(
+            $task,
+            ['kind' => 'client'],
+            auth()->user(),
+            'agency-exec-approval:'.$task->id,
+        );
+
+        Livewire::test(WorkShow::class, ['workId' => (string) $approval->id, 'type' => 'approval'])
             ->assertSee('Client approval')
             ->call('approve');
 
-        $states = DemoState::all()['approval_states'] ?? [];
-        $this->assertSame('approved', $states['appr-landing-copy']['status'] ?? null);
+        $approval->refresh();
+        $this->assertSame('decided', $approval->status->value);
+        $this->assertSame('approved', $approval->decision->value);
     }
 
     public function test_qa_ready_and_approve(): void
     {
-        // Prompt 43: Task-backed Work no longer carries Demo QA badges.
-        // QA remains Demo residual until Prompt 44; approve API still works.
+        $customer = Customer::factory()->create();
+        $brand = Brand::factory()->create(['customer_id' => $customer->id]);
+        $task = Task::factory()->create([
+            'customer_id' => $customer->id,
+            'brand_id' => $brand->id,
+            'title' => 'Replace creative',
+            'status' => 'in_progress',
+            'recommendation_id' => null,
+            'source_kind' => 'direct',
+            'scope_kind' => 'brand',
+            'digital_asset_id' => null,
+        ]);
+        app(QaService::class)->requestReview($task, [], auth()->user(), 'agency-exec-qa:'.$task->id);
+
         Livewire::test(TasksIndex::class)
             ->call('setView', 'qa_required')
-            ->assertSet('view', 'qa_required');
+            ->assertSet('view', 'qa_required')
+            ->assertSee('Replace creative');
 
-        DemoState::setQaState('t-replace-creative', 'approved');
-        $qa = DemoState::all()['qa_states'] ?? [];
-        $this->assertSame('approved', $qa['t-replace-creative'] ?? null);
+        Livewire::test(WorkShow::class, ['workId' => (string) $task->id, 'type' => 'task'])
+            ->call('approveQa');
+
+        $this->assertDatabaseHas('qa_reviews', [
+            'task_id' => $task->id,
+            'status' => 'completed',
+            'result' => 'passed',
+        ]);
     }
 
     public function test_team_capacity_has_transparent_label_not_magic_score(): void
@@ -198,10 +239,13 @@ class AgencyExecutionSystemTest extends TestCase
             ->map(fn ($file) => File::get($file->getPathname()))
             ->implode("\n");
 
-        // Prompt 42 productionized client_requests; remaining execution entities stay Demo-only.
+        // Prompt 42: client_requests. Prompt 43: tasks. Prompt 44: approvals + qa_reviews.
         $this->assertTrue(Schema::hasTable('client_requests'));
+        $this->assertTrue(Schema::hasTable('tasks'));
+        $this->assertTrue(Schema::hasTable('approvals'));
+        $this->assertTrue(Schema::hasTable('qa_reviews'));
 
-        foreach (['playbooks', 'recurring_reviews', 'approvals', 'qa_reviews'] as $table) {
+        foreach (['playbooks', 'recurring_reviews'] as $table) {
             $this->assertFalse(Schema::hasTable($table), "Production table {$table} should not exist.");
             $this->assertStringNotContainsString("create('{$table}'", $migrationContents);
             $this->assertStringNotContainsString("create(\"{$table}\"", $migrationContents);

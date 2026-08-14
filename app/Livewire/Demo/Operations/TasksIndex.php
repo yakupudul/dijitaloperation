@@ -3,7 +3,9 @@
 namespace App\Livewire\Demo\Operations;
 
 use App\Enums\ClientRequestStatus;
+use App\Services\Approvals\ApprovalUiActions;
 use App\Services\ClientRequests\ClientRequestUiActions;
+use App\Services\Qa\QaUiActions;
 use App\Services\Work\WorkReadService;
 use App\Support\Demo\AgencyExecutionFixtures;
 use App\Support\Demo\DemoState;
@@ -118,12 +120,21 @@ class TasksIndex extends Component
 
     public function approveItem(string $id): void
     {
-        DemoState::setApprovalState($id, 'approved');
+        $result = app(ApprovalUiActions::class)->approve($id, auth()->user());
+        DemoState::flash($result['message'] ?? '');
     }
 
     public function approveQa(string $workId): void
     {
-        DemoState::setQaState($workId, 'approved');
+        $result = app(QaUiActions::class)->approveQaForTask(
+            $workId,
+            auth()->user(),
+            'qa-approve:'.$workId.':'.$this->taskCreateNonce,
+        );
+        DemoState::flash($result['message'] ?? '');
+        if ($result['ok']) {
+            $this->taskCreateNonce = (string) Str::uuid();
+        }
     }
 
     public function render(): View
@@ -137,7 +148,7 @@ class TasksIndex extends Component
             'recurring_reviews' => $all->where('type', 'recurring_review'),
             'approvals' => $all->where('type', 'approval'),
             'waiting_on_client' => $all->filter(fn (array $row): bool => (bool) ($row['waiting_on_client'] ?? false)),
-            'qa_required' => $all->filter(fn (array $row): bool => (bool) ($row['qa_required'] ?? false) && ($row['qa_status'] ?? '') !== 'approved'),
+            'qa_required' => $all->filter(fn (array $row): bool => (bool) ($row['qa_required'] ?? false) && ! in_array($row['qa_status'] ?? '', ['approved', 'passed'], true)),
             'completed' => $all->filter(fn (array $row): bool => in_array($row['status'] ?? '', ['completed', 'done'], true)),
             'unassigned' => $all->filter(fn (array $row): bool => in_array($row['owner_id'] ?? null, [null, ''], true) || ($row['owner'] ?? '') === 'Unassigned'),
             'overdue' => $all->where('due_key', 'overdue'),
@@ -159,7 +170,7 @@ class TasksIndex extends Component
             'due_today' => $open->where('due_key', 'today')->count(),
             'overdue' => $open->where('due_key', 'overdue')->count(),
             'waiting_on_client' => $open->where('waiting_on_client', true)->count(),
-            'qa_required' => $open->filter(fn (array $row): bool => (bool) ($row['qa_required'] ?? false) && ($row['qa_status'] ?? '') !== 'approved')->count(),
+            'qa_required' => $open->filter(fn (array $row): bool => (bool) ($row['qa_required'] ?? false) && ! in_array($row['qa_status'] ?? '', ['approved', 'passed'], true))->count(),
         ];
 
         return view('livewire.demo.operations.tasks-index', [

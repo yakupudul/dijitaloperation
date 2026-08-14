@@ -2,6 +2,7 @@
 
 namespace App\Services\Work;
 
+use App\Services\Approvals\ApprovalReadService;
 use App\Services\ClientRequests\ClientRequestReadService;
 use App\Services\Tasks\TaskReadService;
 use App\Support\Demo\AgencyExecutionFixtures;
@@ -11,18 +12,18 @@ use App\Support\Demo\DemoState;
  * Work aggregate read model over canonical Tasks (+ residual frozen non-Task types).
  *
  * Work is NOT a persistence domain. Work Item ID for tasks = Task ID.
- * Client Request / recurring review / approval rows remain separate domain Demo/prod
- * surfaces until their prompts; they are not duplicated into a works table.
+ * Approvals / QA are production-backed (Prompt 44). Recurring reviews remain Demo until P46.
  */
 final class WorkReadService
 {
     public function __construct(
         private readonly TaskReadService $tasks,
         private readonly ClientRequestReadService $clientRequests,
+        private readonly ApprovalReadService $approvals,
     ) {}
 
     /**
-     * Frozen Work list rows: production Tasks + production Client Requests + Demo reviews/approvals.
+     * Frozen Work list rows: production Tasks + Client Requests + Approvals + Demo reviews.
      *
      * @return list<array<string, mixed>>
      */
@@ -38,18 +39,13 @@ final class WorkReadService
             $items[] = $request;
         }
 
-        $state = DemoState::all();
+        foreach ($this->approvals->forWorkItemPresentation(200) as $approval) {
+            $items[] = $approval;
+        }
+
         foreach (DemoState::recurringReviewsWithState() as $review) {
             $items[] = AgencyExecutionFixtures::mapRecurringReviewToWorkItemPublic($review);
         }
-        foreach (AgencyExecutionFixtures::approvalsWithState() as $approval) {
-            if (($approval['status'] ?? '') === 'waiting') {
-                $items[] = AgencyExecutionFixtures::mapApprovalToWorkItemPublic($approval);
-            }
-        }
-
-        // Intentionally no Demo tasks — Task rows are production-only.
-        unset($state);
 
         return $items;
     }
@@ -76,9 +72,12 @@ final class WorkReadService
             'due' => $task['due'],
             'due_key' => $task['due_key'],
             'status' => $task['status'],
-            'waiting_on_client' => false,
-            'qa_required' => false,
-            'qa_status' => null,
+            'waiting_on_client' => (bool) ($task['waiting_on_client'] ?? false),
+            'qa_required' => (bool) ($task['qa_required'] ?? false),
+            'qa_status' => $task['qa_status'] ?? null,
+            'approval_required' => (bool) ($task['approval_required'] ?? false),
+            'current_qa' => $task['current_qa'] ?? null,
+            'current_approval' => $task['current_approval'] ?? null,
             'priority' => $task['priority'],
             'effort' => null,
             'service_label' => null,

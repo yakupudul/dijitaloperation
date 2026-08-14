@@ -530,6 +530,7 @@ return [
         'empty' => 'Bekleyen onay yok.',
         'approve' => 'Onayla',
         'updated' => 'Onay güncellendi',
+        'requested' => 'Onay talep edildi',
     ],
 
     'playbooks' => [
@@ -570,6 +571,7 @@ return [
         'required' => 'Kalite kontrolü gerekli',
         'approve' => 'Kalite kontrolünü onayla',
         'updated' => 'Kalite kontrolü durumu güncellendi',
+        'requested' => 'Kalite kontrolü talep edildi',
     ],
 
     'capacity' => [

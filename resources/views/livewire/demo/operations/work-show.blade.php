@@ -85,9 +85,8 @@
                 <x-ta.button wire:click="skipReview" size="sm" variant="outline">{{ __('operator.reviews.skip') }}</x-ta.button>
             @elseif ($type === 'approval')
                 <x-ta.button wire:click="approve" size="sm">{{ __('operator.approvals.approve') }}</x-ta.button>
-                @if (($item['type'] ?? '') === 'qa' || str_contains($item['title'] ?? '', 'QA'))
-                    <x-ta.button wire:click="approveQa" size="sm" variant="outline">{{ __('operator.qa.approve') }}</x-ta.button>
-                @endif
+            @elseif ($type === 'task')
+                <x-ta.button wire:click="approveQa" size="sm" variant="outline">{{ __('operator.qa.approve') }}</x-ta.button>
             @endif
         </div>
     @endif

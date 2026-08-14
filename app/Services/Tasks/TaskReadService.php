@@ -5,14 +5,22 @@ namespace App\Services\Tasks;
 use App\Enums\TaskScopeKind;
 use App\Enums\TaskSourceKind;
 use App\Models\Task;
+use App\Services\Approvals\ApprovalReadService;
+use App\Services\Qa\QaReadService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Canonical Task reads. No provider calls. No Demo fallback.
+ * QA/Approval fields are read projections over canonical domains.
  */
 final class TaskReadService
 {
+    public function __construct(
+        private readonly QaReadService $qa,
+        private readonly ApprovalReadService $approvals,
+    ) {}
+
     /**
      * @param  array{
      *     customer_id?: int|null,
@@ -32,8 +40,10 @@ final class TaskReadService
         $this->applyFilters($query, $filters);
 
         $paginator = $query->orderByDesc('created_at')->paginate($perPage);
+        $items = collect($paginator->items());
+        $projections = $this->batchProjections($items->all());
         $paginator->setCollection(
-            collect($paginator->items())->map(fn (Task $task): array => $this->toPresentation($task))
+            $items->map(fn (Task $task): array => $this->toPresentation($task, $projections[(int) $task->id] ?? null))
         );
 
         return $paginator;
@@ -48,10 +58,11 @@ final class TaskReadService
         $query = $this->baseQuery();
         $this->applyFilters($query, $filters);
 
-        return $query->orderByDesc('created_at')
-            ->limit($limit)
-            ->get()
-            ->map(fn (Task $task): array => $this->toPresentation($task))
+        $tasks = $query->orderByDesc('created_at')->limit($limit)->get()->all();
+        $projections = $this->batchProjections($tasks);
+
+        return collect($tasks)
+            ->map(fn (Task $task): array => $this->toPresentation($task, $projections[(int) $task->id] ?? null))
             ->all();
     }
 
@@ -61,8 +72,12 @@ final class TaskReadService
     public function findPresentation(int $id): ?array
     {
         $task = $this->baseQuery()->whereKey($id)->first();
+        if ($task === null) {
+            return null;
+        }
+        $projections = $this->batchProjections([$task]);
 
-        return $task === null ? null : $this->toPresentation($task);
+        return $this->toPresentation($task, $projections[(int) $task->id] ?? null);
     }
 
     /**
@@ -131,9 +146,30 @@ final class TaskReadService
     }
 
     /**
+     * @param  list<Task>  $tasks
+     * @return array<int, array{qa: ?array<string, mixed>, approval: ?array<string, mixed>}>
+     */
+    private function batchProjections(array $tasks): array
+    {
+        $ids = array_map(fn (Task $task): int => (int) $task->id, $tasks);
+        $qa = $this->qa->latestByTaskIds($ids);
+        $approvals = $this->approvals->latestByTaskIds($ids);
+        $out = [];
+        foreach ($ids as $id) {
+            $out[$id] = [
+                'qa' => $qa[$id] ?? null,
+                'approval' => $approvals[$id] ?? null,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  array{qa: ?array<string, mixed>, approval: ?array<string, mixed>}|null  $projection
      * @return array<string, mixed>
      */
-    public function toPresentation(Task $task): array
+    public function toPresentation(Task $task, ?array $projection = null): array
     {
         $scope = $task->scope_kind instanceof TaskScopeKind
             ? $task->scope_kind
@@ -141,6 +177,47 @@ final class TaskReadService
         $source = $task->source_kind instanceof TaskSourceKind
             ? $task->source_kind
             : TaskSourceKind::tryFrom((string) $task->source_kind);
+
+        if ($projection === null) {
+            $projection = [
+                'qa' => $this->qa->latestForTask($task),
+                'approval' => $this->approvals->latestForTask($task),
+            ];
+        }
+
+        $qa = $projection['qa'];
+        $approval = $projection['approval'];
+
+        $qaCurrent = (bool) ($qa['is_current_for_subject'] ?? true);
+        $qaStatus = null;
+        $qaRequired = false;
+        if ($qa !== null) {
+            $rawStatus = $qa['status'] ?? null;
+            $rawResult = $qa['result'] ?? null;
+            if (! $qaCurrent) {
+                $qaStatus = 'stale';
+                $qaRequired = true;
+            } elseif (in_array($rawStatus, ['pending', 'in_review'], true)) {
+                $qaStatus = 'ready';
+                $qaRequired = true;
+            } elseif ($rawResult === 'passed') {
+                $qaStatus = 'approved';
+                $qaRequired = false;
+            } elseif (in_array($rawResult, ['failed', 'needs_changes'], true)) {
+                $qaStatus = $rawResult;
+                $qaRequired = true;
+            } else {
+                $qaStatus = $rawStatus;
+                $qaRequired = (bool) ($qa['qa_required_projection'] ?? false);
+            }
+        }
+
+        $approvalCurrent = (bool) ($approval['is_current_for_subject'] ?? true);
+        $approvalRequired = $approval !== null
+            && ($approval['status'] ?? null) === 'pending'
+            && $approvalCurrent;
+        $waitingOnClient = $approvalRequired
+            && (bool) ($approval['waiting_on_client'] ?? false);
 
         return [
             'id' => (string) $task->id,
@@ -181,9 +258,12 @@ final class TaskReadService
             'due_key' => $this->dueKey($task),
             'status' => $task->status,
             'priority' => $task->priority,
-            'waiting_on_client' => false,
-            'qa_required' => false,
-            'qa_status' => null,
+            'waiting_on_client' => $waitingOnClient,
+            'qa_required' => $qaRequired,
+            'qa_status' => $qaStatus,
+            'current_qa' => $qa,
+            'current_approval' => $approval,
+            'approval_required' => $approvalRequired,
             'effort' => null,
             'service_label' => null,
             'goal_title' => null,

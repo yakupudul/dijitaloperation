@@ -68,12 +68,12 @@ Status reference for the frozen `/app` operator panel. UI work after this docume
 | Opportunities | CONVERGED / REAL | Prompt 40: canonical `opportunities` + `opportunity_evaluations`; rule-backed production Opportunities from canonical Evidence + Findings (3 GSC/GA4 rules); Demo Atlas `OpportunityFixtures` remains Demo-only for non-Operations surfaces; `/app` Operations Opportunities index is DB-backed with no Demo fallback |
 | Findings | CONVERGED / REAL | Prompt 39: one canonical `findings` table; rule-backed production Findings from canonical Evidence; Demo Atlas catalog remains Demo-only Livewire; Filament `/app/findings` is DB-backed |
 | Recommendations | CONVERGED / REAL | Prompt 41: one canonical `recommendations` table with explicit `source_kind` (Finding XOR Opportunity), restrict-on-delete source FKs, `origin`, and `idempotency_key`; `/app` Operations Recommendations index is DB-backed with no Demo fallback; Prompt 43 wires explicit Recommendation → Task handoff (Livewire + Filament) without auto-creation |
-| Work | CONVERGED / REAL (Tasks) | Prompt 43: Task is the canonical persisted execution object; Operations → Work is an aggregate read over Tasks (+ residual Demo reviews/approvals until Prompt 44–46). Client Requests remain production DB-backed. No `works` table / WorkV2. Brand/Customer Task scopes supported without fake DigitalAssets. |
+| Work | CONVERGED / REAL (Tasks) | Prompt 43: Task is the canonical persisted execution object; Operations → Work is an aggregate read over Tasks (+ residual Demo recurring reviews until Prompt 46). Client Requests remain production DB-backed. Approvals/QA are production DB-backed (Prompt 44). No `works` table / WorkV2. Brand/Customer Task scopes supported without fake DigitalAssets. |
 | Client Requests | CONVERGED / REAL | Prompt 42: canonical `client_requests` table; Customer/Brand/Work/Capture surfaces read/write production persistence; explicit Request→Task bridge; Service Scope awareness; no Demo fallback |
-| Approvals | DEMO | Approval states in session |
+| Approvals | CONVERGED / REAL | Prompt 44: canonical `approvals` rounds (Task subject only); request/decision/history; Work/Brand projections; no Demo fallback on production paths; distinct from QA and Task status |
 | Playbooks | DEMO | Catalog + knowledge fields; Settings → Operations |
 | Recurring Reviews | DEMO | Due list + completion actions |
-| QA | DEMO | QA required / approve flows |
+| QA | CONVERGED / REAL | Prompt 44: canonical `qa_reviews` rounds (Task subject only); status≠result; re-review history; Work projections; no structured Playbook checklist yet (Prompt 45); no Demo fallback on production paths |
 | Capacity | DEMO | Transparent thresholds, not a score |
 | Activity | DEMO | Timeline fixtures + scoped filters |
 | Operational Outcomes | DEMO | Observed after work — no automatic causation |

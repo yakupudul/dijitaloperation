@@ -4,6 +4,7 @@ namespace App\Livewire\Demo\Portfolio;
 
 use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
 use App\Models\Recommendation;
+use App\Services\Approvals\ApprovalReadService;
 use App\Services\ClientRequests\ClientRequestReadService;
 use App\Services\CreateTaskFromRecommendation;
 use App\Services\Opportunities\OpportunityReadService;
@@ -1078,10 +1079,11 @@ class BrandShow extends Component
             ->filter(fn (array $row): bool => ($row['brand_id'] ?? '') === ($brandRow['id'] ?? ''))
             ->values()
             ->all();
-        $brandApprovals = collect(AgencyExecutionFixtures::approvalsWithState())
-            ->filter(fn (array $row): bool => ($row['brand'] ?? '') === $brandName)
-            ->values()
-            ->all();
+        $brandApprovals = [];
+        if (ctype_digit((string) ($brandRow['id'] ?? $this->brand))) {
+            $brandApprovals = app(ApprovalReadService::class)
+                ->forBrandPresentation((int) ($brandRow['id'] ?? $this->brand));
+        }
 
         return view('livewire.demo.portfolio.brand-show', [
             'brandRow' => $brandRow,

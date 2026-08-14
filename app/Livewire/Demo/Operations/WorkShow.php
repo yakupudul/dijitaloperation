@@ -3,10 +3,12 @@
 namespace App\Livewire\Demo\Operations;
 
 use App\Enums\ClientRequestStatus;
+use App\Services\Approvals\ApprovalReadService;
+use App\Services\Approvals\ApprovalUiActions;
 use App\Services\ClientRequests\ClientRequestReadService;
 use App\Services\ClientRequests\ClientRequestUiActions;
+use App\Services\Qa\QaUiActions;
 use App\Services\Tasks\TaskReadService;
-use App\Support\Demo\AgencyExecutionFixtures;
 use App\Support\Demo\ClientValueFixtures;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
@@ -86,12 +88,36 @@ class WorkShow extends Component
 
     public function approve(): void
     {
-        DemoState::setApprovalState($this->workId, 'approved');
+        if ($this->type !== 'approval') {
+            return;
+        }
+
+        $result = app(ApprovalUiActions::class)->approve($this->workId, auth()->user());
+        DemoState::flash($result['message'] ?? '');
     }
 
     public function approveQa(): void
     {
-        DemoState::setQaState($this->workId, 'approved');
+        $taskId = $this->type === 'task' ? $this->workId : null;
+        if ($taskId === null && $this->type === 'approval') {
+            $item = app(ApprovalReadService::class)->findPresentation((int) $this->workId);
+            $taskId = isset($item['task_id']) ? (string) $item['task_id'] : null;
+        }
+        if ($taskId === null || ! ctype_digit((string) $taskId)) {
+            DemoState::flash('Task not found for QA.');
+
+            return;
+        }
+
+        $result = app(QaUiActions::class)->approveQaForTask(
+            $taskId,
+            auth()->user(),
+            'qa-approve:'.$taskId.':'.$this->taskCreateNonce,
+        );
+        DemoState::flash($result['message'] ?? '');
+        if ($result['ok']) {
+            $this->taskCreateNonce = (string) Str::uuid();
+        }
     }
 
     public function render(): View
@@ -118,10 +144,22 @@ class WorkShow extends Component
         return match ($this->type) {
             'client_request' => $this->resolveClientRequest(),
             'recurring_review' => collect(DemoState::recurringReviewsWithState())->firstWhere('id', $this->workId),
-            'approval' => collect(AgencyExecutionFixtures::approvalsWithState())->firstWhere('id', $this->workId),
+            'approval' => $this->resolveApproval(),
             'task' => $this->resolveTask(),
-            default => collect(AgencyExecutionFixtures::workItems())->firstWhere('id', $this->workId),
+            default => null,
         };
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function resolveApproval(): ?array
+    {
+        if (! ctype_digit($this->workId)) {
+            return null;
+        }
+
+        return app(ApprovalReadService::class)->findPresentation((int) $this->workId);
     }
 
     /**

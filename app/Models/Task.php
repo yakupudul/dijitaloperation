@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
     'recommendation_id',
@@ -104,6 +105,22 @@ class Task extends Model
     public function outcomeRun(): BelongsTo
     {
         return $this->belongsTo(Run::class, 'outcome_run_id');
+    }
+
+    /**
+     * @return HasMany<QaReview, $this>
+     */
+    public function qaReviews(): HasMany
+    {
+        return $this->hasMany(QaReview::class);
+    }
+
+    /**
+     * @return HasMany<Approval, $this>
+     */
+    public function approvals(): HasMany
+    {
+        return $this->hasMany(Approval::class);
     }
 
     /**
