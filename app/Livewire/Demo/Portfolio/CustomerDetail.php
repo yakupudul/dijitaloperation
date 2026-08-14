@@ -2,6 +2,9 @@
 
 namespace App\Livewire\Demo\Portfolio;
 
+use App\Enums\ClientRequestStatus;
+use App\Services\ClientRequests\ClientRequestReadService;
+use App\Services\ClientRequests\ClientRequestUiActions;
 use App\Support\Demo\ClientValueFixtures;
 use App\Support\Demo\CommercialContextFixtures;
 use App\Support\Demo\DemoCatalog;
@@ -11,6 +14,7 @@ use App\Support\Options\ContactRoleOptions;
 use App\Support\Options\CountryOptions;
 use App\Support\Options\IndustryOptions;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -43,9 +47,12 @@ class CustomerDetail extends Component
     #[Url(as: 'activity_filter', history: true)]
     public string $activityFilter = 'all';
 
+    public string $taskCreateNonce = '';
+
     public function mount(string $customerId): void
     {
         $this->customerId = $customerId;
+        $this->taskCreateNonce = (string) Str::uuid();
         $this->normalizeTab();
     }
 
@@ -73,32 +80,46 @@ class CustomerDetail extends Component
 
     public function triageRequest(string $id): void
     {
-        DemoState::setClientRequestStatus($id, 'triaged');
+        $this->mutateRequestStatus($id, ClientRequestStatus::Triaged);
     }
 
     public function planRequest(string $id): void
     {
-        DemoState::setClientRequestStatus($id, 'planned');
+        $this->mutateRequestStatus($id, ClientRequestStatus::Planned);
     }
 
     public function waitRequest(string $id): void
     {
-        DemoState::setClientRequestStatus($id, 'waiting_on_client');
+        $this->mutateRequestStatus($id, ClientRequestStatus::WaitingOnClient);
     }
 
     public function doneRequest(string $id): void
     {
-        DemoState::setClientRequestStatus($id, 'done');
+        $this->mutateRequestStatus($id, ClientRequestStatus::Done);
     }
 
     public function declineRequest(string $id): void
     {
-        DemoState::setClientRequestStatus($id, 'declined');
+        $this->mutateRequestStatus($id, ClientRequestStatus::Declined);
     }
 
     public function createTaskFromRequest(string $id): void
     {
-        DemoState::createTaskFromClientRequest($id);
+        $result = app(ClientRequestUiActions::class)->createTask(
+            $id,
+            auth()->user(),
+            'cr-task:'.$id.':'.$this->taskCreateNonce,
+        );
+        DemoState::flash(($result['message'] ?? '').($result['ok'] ? '' : ''));
+        if ($result['ok']) {
+            $this->taskCreateNonce = (string) Str::uuid();
+        }
+    }
+
+    private function mutateRequestStatus(string $id, ClientRequestStatus $status): void
+    {
+        $result = app(ClientRequestUiActions::class)->changeStatus($id, $status, auth()->user());
+        DemoState::flash($result['message'] ?? '');
     }
 
     public function openContactForm(?string $contactId = null): void
@@ -242,10 +263,14 @@ class CustomerDetail extends Component
             $digitalAssetsCount = count(DemoCatalog::assets());
         }
 
-        $requests = collect(DemoState::clientRequestsWithState())
-            ->filter(fn (array $r): bool => ($r['customer_id'] ?? '') === ($customer['id'] ?? ''))
-            ->values()
-            ->all();
+        // Prompt 42: production Client Requests only (no Demo fallback).
+        // Resolve by the route customerId when it is a production numeric ID — do not
+        // inherit DemoCatalog customer fallback identity for Request tenancy.
+        $requests = [];
+        if (ctype_digit((string) $this->customerId)) {
+            $requests = app(ClientRequestReadService::class)
+                ->forCustomerPresentation((int) $this->customerId);
+        }
 
         return view('livewire.demo.portfolio.customer-detail', [
             'customer' => $customer,

@@ -3,6 +3,7 @@
 namespace App\Livewire\Demo\Portfolio;
 
 use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
+use App\Services\ClientRequests\ClientRequestReadService;
 use App\Services\Opportunities\OpportunityReadService;
 use App\Support\Demo\AgencyExecutionFixtures;
 use App\Support\Demo\BrandPublicDiscoveryFixtures;
@@ -1021,10 +1022,11 @@ class BrandShow extends Component
             ->filter(fn (array $row): bool => ($row['brand'] ?? '') === $brandName)
             ->values()
             ->all();
-        $brandRequests = collect(DemoState::clientRequestsWithState())
-            ->filter(fn (array $row): bool => ($row['brand_id'] ?? '') === ($brandRow['id'] ?? ''))
-            ->values()
-            ->all();
+        $brandRequests = [];
+        if (ctype_digit((string) ($brandRow['id'] ?? $this->brand))) {
+            $brandRequests = app(ClientRequestReadService::class)
+                ->forBrandPresentation((int) ($brandRow['id'] ?? $this->brand));
+        }
         $brandReviews = collect(DemoState::recurringReviewsWithState())
             ->filter(fn (array $row): bool => ($row['brand_id'] ?? '') === ($brandRow['id'] ?? ''))
             ->values()

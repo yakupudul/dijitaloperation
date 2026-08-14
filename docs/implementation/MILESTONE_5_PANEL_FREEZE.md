@@ -68,8 +68,8 @@ Status reference for the frozen `/app` operator panel. UI work after this docume
 | Opportunities | CONVERGED / REAL | Prompt 40: canonical `opportunities` + `opportunity_evaluations`; rule-backed production Opportunities from canonical Evidence + Findings (3 GSC/GA4 rules); Demo Atlas `OpportunityFixtures` remains Demo-only for non-Operations surfaces; `/app` Operations Opportunities index is DB-backed with no Demo fallback |
 | Findings | CONVERGED / REAL | Prompt 39: one canonical `findings` table; rule-backed production Findings from canonical Evidence; Demo Atlas catalog remains Demo-only Livewire; Filament `/app/findings` is DB-backed |
 | Recommendations | CONVERGED / REAL | Prompt 41: one canonical `recommendations` table with explicit `source_kind` (Finding XOR Opportunity), restrict-on-delete source FKs, `origin`, and `idempotency_key`; `/app` Operations Recommendations index is DB-backed with no Demo fallback; Livewire never creates Tasks (Work alignment is a later Prompt) |
-| Work | DEMO | Tasks/requests/reviews/approvals/QA via DemoState |
-| Client Requests | DEMO | Customer Requests workspace + Work views |
+| Work | PARTIAL | Demo Tasks/reviews/approvals/QA remain; Client Request rows in Work are production DB-backed (Prompt 42). Broader Work/Task alignment owned by Prompt 43 |
+| Client Requests | CONVERGED / REAL | Prompt 42: canonical `client_requests` table; Customer/Brand/Work/Capture surfaces read/write production persistence; explicit Request→Task bridge; Service Scope awareness; no Demo fallback |
 | Approvals | DEMO | Approval states in session |
 | Playbooks | DEMO | Catalog + knowledge fields; Settings → Operations |
 | Recurring Reviews | DEMO | Due list + completion actions |

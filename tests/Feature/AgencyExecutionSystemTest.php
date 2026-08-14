@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\ClientRequestStatus;
 use App\Livewire\Demo\CaptureModal;
 use App\Livewire\Demo\Dashboard;
 use App\Livewire\Demo\Operations\TasksIndex;
@@ -9,7 +10,14 @@ use App\Livewire\Demo\Operations\WorkShow;
 use App\Livewire\Demo\Portfolio\CustomerDetail;
 use App\Livewire\Demo\Settings\PlaybookShow;
 use App\Livewire\Demo\SettingsPage;
+use App\Models\Brand;
+use App\Models\ClientRequest;
+use App\Models\Customer;
+use App\Models\DigitalAsset;
+use App\Models\ServiceDefinition;
 use App\Models\User;
+use App\Services\ClientRequests\CreateClientRequest;
+use App\Services\ClientRequests\CreateTaskFromClientRequest;
 use App\Support\Demo\AgencyExecutionFixtures;
 use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
@@ -45,32 +53,50 @@ class AgencyExecutionSystemTest extends TestCase
             ->assertSet('view', 'my')
             ->assertSee('Investigate lead measurement')
             ->call('setView', 'client_requests')
-            ->assertSee("Update doctor's title on homepage")
+            ->assertDontSee("Update doctor's title on homepage")
             ->call('setView', 'recurring_reviews')
             ->assertSee('Weekly Google Ads Review');
     }
 
     public function test_client_request_capture_status_and_create_task(): void
     {
+        $customer = Customer::factory()->create();
+        $brand = Brand::factory()->create(['customer_id' => $customer->id]);
+        $asset = DigitalAsset::factory()->create(['brand_id' => $brand->id]);
+
         Livewire::test(CaptureModal::class)
-            ->call('openCapture', 'client_request')
+            ->call('openCapture', 'client_request', (string) $brand->id, (string) $customer->id)
             ->set('title', 'New homepage banner')
             ->call('save');
 
-        $requests = DemoState::clientRequestsWithState();
-        $this->assertTrue(collect($requests)->contains(fn (array $r): bool => ($r['title'] ?? '') === 'New homepage banner'));
+        $this->assertTrue(
+            ClientRequest::query()->where('title', 'New homepage banner')->exists()
+        );
 
-        Livewire::test(CustomerDetail::class, ['customerId' => DemoCatalog::CUSTOMER_ID])
+        $request = app(CreateClientRequest::class)->create([
+            'title' => "Update doctor's title on homepage",
+            'customer_id' => $customer->id,
+            'brand_id' => $brand->id,
+            'digital_asset_id' => $asset->id,
+        ], auth()->user());
+
+        Livewire::test(CustomerDetail::class, ['customerId' => (string) $customer->id])
             ->call('setTab', 'requests')
             ->assertSee("Update doctor's title on homepage")
-            ->call('planRequest', 'req-doctor-title');
+            ->call('planRequest', (string) $request->id);
 
-        $request = DemoState::findClientRequest('req-doctor-title');
-        $this->assertSame('planned', $request['status'] ?? null);
+        $this->assertSame(
+            ClientRequestStatus::Planned,
+            $request->fresh()->status
+        );
 
-        DemoState::createTaskFromClientRequest('req-doctor-title');
-        $request = DemoState::findClientRequest('req-doctor-title');
-        $this->assertNotNull($request['linked_task_id'] ?? null);
+        $task = app(CreateTaskFromClientRequest::class)->create(
+            $request->fresh(),
+            [],
+            auth()->user(),
+            'agency-exec-create-task',
+        );
+        $this->assertSame($request->id, $task->client_request_id);
     }
 
     public function test_playbooks_settings_catalog_and_detail(): void
@@ -167,7 +193,10 @@ class AgencyExecutionSystemTest extends TestCase
             ->map(fn ($file) => File::get($file->getPathname()))
             ->implode("\n");
 
-        foreach (['client_requests', 'playbooks', 'recurring_reviews', 'approvals', 'qa_reviews'] as $table) {
+        // Prompt 42 productionized client_requests; remaining execution entities stay Demo-only.
+        $this->assertTrue(Schema::hasTable('client_requests'));
+
+        foreach (['playbooks', 'recurring_reviews', 'approvals', 'qa_reviews'] as $table) {
             $this->assertFalse(Schema::hasTable($table), "Production table {$table} should not exist.");
             $this->assertStringNotContainsString("create('{$table}'", $migrationContents);
             $this->assertStringNotContainsString("create(\"{$table}\"", $migrationContents);
@@ -186,6 +215,17 @@ class AgencyExecutionSystemTest extends TestCase
 
     public function test_instagram_outside_scope_request_still_present(): void
     {
+        $customer = Customer::factory()->create();
+        $brand = Brand::factory()->create(['customer_id' => $customer->id]);
+        $service = ServiceDefinition::query()->where('code', 'meta_ads')->firstOrFail();
+
+        app(CreateClientRequest::class)->create([
+            'title' => 'Daily Instagram posting',
+            'customer_id' => $customer->id,
+            'brand_id' => $brand->id,
+            'service_definition_id' => $service->id,
+        ], auth()->user());
+
         Livewire::test(TasksIndex::class)
             ->call('setView', 'client_requests')
             ->assertSee('Daily Instagram posting')

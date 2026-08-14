@@ -2,10 +2,14 @@
 
 namespace App\Livewire\Demo\Operations;
 
+use App\Enums\ClientRequestStatus;
+use App\Services\ClientRequests\ClientRequestReadService;
+use App\Services\ClientRequests\ClientRequestUiActions;
 use App\Support\Demo\AgencyExecutionFixtures;
 use App\Support\Demo\ClientValueFixtures;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -18,40 +22,55 @@ class WorkShow extends Component
 
     public string $type = 'client_request';
 
+    public string $taskCreateNonce = '';
+
     public function mount(string $workId, ?string $type = null): void
     {
         $this->workId = $workId;
         $this->type = $type ?? 'client_request';
+        $this->taskCreateNonce = (string) Str::uuid();
     }
 
     public function triage(): void
     {
-        DemoState::setClientRequestStatus($this->workId, 'triaged');
+        $this->mutateRequestStatus(ClientRequestStatus::Triaged);
     }
 
     public function plan(): void
     {
-        DemoState::setClientRequestStatus($this->workId, 'planned');
+        $this->mutateRequestStatus(ClientRequestStatus::Planned);
     }
 
     public function waitOnClient(): void
     {
-        DemoState::setClientRequestStatus($this->workId, 'waiting_on_client');
+        $this->mutateRequestStatus(ClientRequestStatus::WaitingOnClient);
     }
 
     public function markDone(): void
     {
-        DemoState::setClientRequestStatus($this->workId, 'done');
+        $this->mutateRequestStatus(ClientRequestStatus::Done);
     }
 
     public function decline(): void
     {
-        DemoState::setClientRequestStatus($this->workId, 'declined');
+        $this->mutateRequestStatus(ClientRequestStatus::Declined);
     }
 
     public function createTask(): void
     {
-        DemoState::createTaskFromClientRequest($this->workId);
+        if ($this->type !== 'client_request') {
+            return;
+        }
+
+        $result = app(ClientRequestUiActions::class)->createTask(
+            $this->workId,
+            auth()->user(),
+            'cr-task:'.$this->workId.':'.$this->taskCreateNonce,
+        );
+        DemoState::flash($result['message'] ?? '');
+        if ($result['ok']) {
+            $this->taskCreateNonce = (string) Str::uuid();
+        }
     }
 
     public function completeReview(string $result): void
@@ -96,10 +115,32 @@ class WorkShow extends Component
     private function resolveItem(): ?array
     {
         return match ($this->type) {
-            'client_request' => DemoState::findClientRequest($this->workId),
+            'client_request' => $this->resolveClientRequest(),
             'recurring_review' => collect(DemoState::recurringReviewsWithState())->firstWhere('id', $this->workId),
             'approval' => collect(AgencyExecutionFixtures::approvalsWithState())->firstWhere('id', $this->workId),
             default => collect(AgencyExecutionFixtures::workItems())->firstWhere('id', $this->workId),
         };
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function resolveClientRequest(): ?array
+    {
+        if (! ctype_digit($this->workId)) {
+            return null;
+        }
+
+        return app(ClientRequestReadService::class)->findPresentation((int) $this->workId);
+    }
+
+    private function mutateRequestStatus(ClientRequestStatus $status): void
+    {
+        if ($this->type !== 'client_request') {
+            return;
+        }
+
+        $result = app(ClientRequestUiActions::class)->changeStatus($this->workId, $status, auth()->user());
+        DemoState::flash($result['message'] ?? '');
     }
 }

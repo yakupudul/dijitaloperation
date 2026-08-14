@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
     'recommendation_id',
+    'client_request_id',
+    'client_request_task_idempotency_key',
     'customer_id',
     'brand_id',
     'digital_asset_id',
@@ -41,6 +43,16 @@ class Task extends Model
     public function recommendation(): BelongsTo
     {
         return $this->belongsTo(Recommendation::class);
+    }
+
+    /**
+     * Optional Prompt 42 bridge: Task created explicitly from a Client Request.
+     *
+     * @return BelongsTo<ClientRequest, $this>
+     */
+    public function clientRequest(): BelongsTo
+    {
+        return $this->belongsTo(ClientRequest::class);
     }
 
     /**

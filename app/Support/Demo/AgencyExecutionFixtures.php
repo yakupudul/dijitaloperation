@@ -2,6 +2,7 @@
 
 namespace App\Support\Demo;
 
+use App\Services\ClientRequests\ClientRequestReadService;
 use Illuminate\Support\Collection;
 
 /**
@@ -439,8 +440,9 @@ final class AgencyExecutionFixtures
             $items[] = self::mapTaskToWorkItem($task, $state);
         }
 
-        foreach (DemoState::clientRequestsWithState() as $request) {
-            $items[] = self::mapClientRequestToWorkItem($request);
+        // Prompt 42: Client Requests in Work are production DB-backed (no Demo fallback).
+        foreach (app(ClientRequestReadService::class)->forWorkItemPresentation() as $request) {
+            $items[] = $request;
         }
 
         foreach (DemoState::recurringReviewsWithState() as $review) {

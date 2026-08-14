@@ -2,9 +2,12 @@
 
 namespace App\Livewire\Demo\Operations;
 
+use App\Enums\ClientRequestStatus;
+use App\Services\ClientRequests\ClientRequestUiActions;
 use App\Support\Demo\AgencyExecutionFixtures;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -23,6 +26,8 @@ class TasksIndex extends Component
 
     public string $viewMode = 'list';
 
+    public string $taskCreateNonce = '';
+
     public function mount(): void
     {
         $allowed = ['my', 'all', 'tasks', 'client_requests', 'recurring_reviews', 'approvals', 'waiting_on_client', 'qa_required', 'completed', 'unassigned', 'overdue', 'due_today'];
@@ -34,6 +39,8 @@ class TasksIndex extends Component
         if (is_string($status) && $status !== '') {
             $this->status = $status;
         }
+
+        $this->taskCreateNonce = (string) Str::uuid();
     }
 
     public function setView(string $view): void
@@ -62,32 +69,40 @@ class TasksIndex extends Component
 
     public function triageRequest(string $id): void
     {
-        DemoState::setClientRequestStatus($id, 'triaged');
+        $this->mutateRequestStatus($id, ClientRequestStatus::Triaged);
     }
 
     public function planRequest(string $id): void
     {
-        DemoState::setClientRequestStatus($id, 'planned');
+        $this->mutateRequestStatus($id, ClientRequestStatus::Planned);
     }
 
     public function waitRequest(string $id): void
     {
-        DemoState::setClientRequestStatus($id, 'waiting_on_client');
+        $this->mutateRequestStatus($id, ClientRequestStatus::WaitingOnClient);
     }
 
     public function doneRequest(string $id): void
     {
-        DemoState::setClientRequestStatus($id, 'done');
+        $this->mutateRequestStatus($id, ClientRequestStatus::Done);
     }
 
     public function declineRequest(string $id): void
     {
-        DemoState::setClientRequestStatus($id, 'declined');
+        $this->mutateRequestStatus($id, ClientRequestStatus::Declined);
     }
 
     public function createTaskFromRequest(string $id): void
     {
-        DemoState::createTaskFromClientRequest($id);
+        $result = app(ClientRequestUiActions::class)->createTask(
+            $id,
+            auth()->user(),
+            'cr-task:'.$id.':'.$this->taskCreateNonce,
+        );
+        DemoState::flash($result['message'] ?? '');
+        if ($result['ok']) {
+            $this->taskCreateNonce = (string) Str::uuid();
+        }
     }
 
     public function completeReview(string $id, string $result): void
@@ -153,5 +168,11 @@ class TasksIndex extends Component
             'viewMode' => $this->viewMode,
             'flash' => DemoState::pullFlash(),
         ]);
+    }
+
+    private function mutateRequestStatus(string $id, ClientRequestStatus $status): void
+    {
+        $result = app(ClientRequestUiActions::class)->changeStatus($id, $status, auth()->user());
+        DemoState::flash($result['message'] ?? '');
     }
 }
