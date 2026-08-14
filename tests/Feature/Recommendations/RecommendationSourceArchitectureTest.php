@@ -448,7 +448,13 @@ class RecommendationSourceArchitectureTest extends TestCase
     {
         $finding = Finding::factory()->create(['digital_asset_id' => $this->asset->id]);
 
-        $this->assertSame(0, Artisan::call('migrate:rollback', ['--step' => 1]));
+        // Prompt 42 added a migration after Prompt 41; roll back until the
+        // Recommendation source_kind column is gone, then re-migrate.
+        $guard = 0;
+        while (Schema::hasColumn('recommendations', 'source_kind') && $guard < 5) {
+            $this->assertSame(0, Artisan::call('migrate:rollback', ['--step' => 1]));
+            $guard++;
+        }
         $this->assertFalse(Schema::hasColumn('recommendations', 'source_kind'));
 
         $legacyId = DB::table('recommendations')->insertGetId([
