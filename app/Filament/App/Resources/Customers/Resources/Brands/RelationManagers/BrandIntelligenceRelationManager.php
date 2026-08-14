@@ -4,7 +4,9 @@ namespace App\Filament\App\Resources\Customers\Resources\Brands\RelationManagers
 
 use App\Models\Brand;
 use App\Models\BrandIntelligenceContext;
+use App\Models\User;
 use App\Services\BrandIntelligence\BrandContextProvider;
+use App\Services\BrandIntelligence\BrandIntelligenceContextWriteService;
 use App\Support\BrandIntelligence\BusinessModelOptions;
 use App\Support\BrandIntelligence\ConversionGoalTypes;
 use Filament\Actions\Action;
@@ -300,13 +302,15 @@ class BrandIntelligenceRelationManager extends RelationManager
             'differentiators' => $this->cleanStringList($data['differentiators'] ?? []),
             'known_competitors' => $this->cleanNamedRows($data['known_competitors'] ?? [], ['name', 'url', 'note']),
             'important_constraints' => $this->nullableTrim($data['important_constraints'] ?? null),
-            'source' => BrandIntelligenceContext::SOURCE_OPERATOR,
-            'updated_by' => Auth::id(),
         ];
 
-        $brand->intelligenceContext()->updateOrCreate(
-            ['brand_id' => $brand->id],
+        /** @var User|null $actor */
+        $actor = Auth::user();
+
+        app(BrandIntelligenceContextWriteService::class)->saveFromForm(
+            $brand,
             $payload,
+            $actor instanceof User ? $actor : null,
         );
 
         Notification::make()

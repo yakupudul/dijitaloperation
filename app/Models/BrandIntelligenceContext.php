@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Validation\ValidationException;
 
 #[Fillable([
     'brand_id',
@@ -35,6 +36,55 @@ class BrandIntelligenceContext extends Model
     public const string SOURCE_PUBLIC_DISCOVERY = 'public_discovery';
 
     public const string SOURCE_PUBLIC_DISCOVERY_EDITED = 'public_discovery_edited';
+
+    /**
+     * @var list<string>
+     */
+    public const array LEGACY_IDENTITY_FIELDS = [
+        'business_goals',
+        'conversion_goals',
+        'priority_offerings',
+    ];
+
+    private static bool $allowLegacyIdentityProjection = false;
+
+    /**
+     * @param  callable(): mixed  $callback
+     */
+    public static function withLegacyIdentityProjection(callable $callback): mixed
+    {
+        $previous = self::$allowLegacyIdentityProjection;
+        self::$allowLegacyIdentityProjection = true;
+
+        try {
+            return $callback();
+        } finally {
+            self::$allowLegacyIdentityProjection = $previous;
+        }
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (BrandIntelligenceContext $model): void {
+            if (self::$allowLegacyIdentityProjection) {
+                return;
+            }
+
+            // Initial insert may still carry legacy arrays for migration/factory seed.
+            // Subsequent updates must go through the canonical write/projection path.
+            if (! $model->exists) {
+                return;
+            }
+
+            foreach (self::LEGACY_IDENTITY_FIELDS as $field) {
+                if ($model->isDirty($field)) {
+                    throw ValidationException::withMessages([
+                        $field => 'Legacy identity field is a compatibility projection. Use BrandIntelligenceContextWriteService / Goal / Offering services.',
+                    ]);
+                }
+            }
+        });
+    }
 
     /**
      * @return BelongsTo<Brand, $this>
