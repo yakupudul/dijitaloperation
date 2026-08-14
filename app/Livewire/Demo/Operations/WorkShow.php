@@ -5,6 +5,7 @@ namespace App\Livewire\Demo\Operations;
 use App\Enums\ClientRequestStatus;
 use App\Services\ClientRequests\ClientRequestReadService;
 use App\Services\ClientRequests\ClientRequestUiActions;
+use App\Services\Tasks\TaskReadService;
 use App\Support\Demo\AgencyExecutionFixtures;
 use App\Support\Demo\ClientValueFixtures;
 use App\Support\Demo\DemoState;
@@ -118,8 +119,21 @@ class WorkShow extends Component
             'client_request' => $this->resolveClientRequest(),
             'recurring_review' => collect(DemoState::recurringReviewsWithState())->firstWhere('id', $this->workId),
             'approval' => collect(AgencyExecutionFixtures::approvalsWithState())->firstWhere('id', $this->workId),
+            'task' => $this->resolveTask(),
             default => collect(AgencyExecutionFixtures::workItems())->firstWhere('id', $this->workId),
         };
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function resolveTask(): ?array
+    {
+        if (! ctype_digit($this->workId)) {
+            return null;
+        }
+
+        return app(TaskReadService::class)->findPresentation((int) $this->workId);
     }
 
     /**

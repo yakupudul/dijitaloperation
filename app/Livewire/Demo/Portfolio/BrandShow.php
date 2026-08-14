@@ -3,7 +3,9 @@
 namespace App\Livewire\Demo\Portfolio;
 
 use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
+use App\Models\Recommendation;
 use App\Services\ClientRequests\ClientRequestReadService;
+use App\Services\CreateTaskFromRecommendation;
 use App\Services\Opportunities\OpportunityReadService;
 use App\Support\Demo\AgencyExecutionFixtures;
 use App\Support\Demo\BrandPublicDiscoveryFixtures;
@@ -17,6 +19,7 @@ use App\Support\Options\CountryOptions;
 use App\Support\Options\IndustryOptions;
 use App\Support\Options\LanguageOptions;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -116,6 +119,8 @@ class BrandShow extends Component
 
     public string $reportOperatorNote = '';
 
+    public string $taskCreateNonce = '';
+
     /** @var array<string, bool> */
     public array $reportSections = [];
 
@@ -162,6 +167,7 @@ class BrandShow extends Component
     public function mount(string $brand): void
     {
         $this->brand = $brand;
+        $this->taskCreateNonce = (string) Str::uuid();
         $this->normalizeTab();
         $this->mountPeriod();
         $this->hydrateOutcomeForm();
@@ -606,9 +612,42 @@ class BrandShow extends Component
 
     public function createTaskFromRecommendation(string $recommendationId): void
     {
-        DemoState::createTaskFromRecommendation($recommendationId);
-        $this->ops = 'tasks';
-        $this->tab = 'operations';
+        if (! ctype_digit($recommendationId)) {
+            DemoState::flash('Only production Recommendations can create Tasks.', 'info');
+
+            return;
+        }
+
+        $recommendation = Recommendation::query()->find((int) $recommendationId);
+        if ($recommendation === null) {
+            DemoState::flash('Recommendation not found.', 'info');
+
+            return;
+        }
+
+        $actor = auth()->user();
+        $service = app(CreateTaskFromRecommendation::class);
+        if (! $service->userCanConvert($actor)) {
+            DemoState::flash('You are not allowed to create Tasks from Recommendations.', 'info');
+
+            return;
+        }
+
+        try {
+            $nonce = $this->taskCreateNonce !== '' ? $this->taskCreateNonce : (string) Str::uuid();
+            $task = $service->create(
+                $recommendation,
+                [],
+                $actor,
+                'rec-task:'.$recommendation->id.':brand:'.$nonce,
+            );
+            $this->taskCreateNonce = (string) Str::uuid();
+            DemoState::flash('Task #'.$task->id.' created from Recommendation.');
+            $this->ops = 'tasks';
+            $this->tab = 'operations';
+        } catch (\Throwable $exception) {
+            DemoState::flash($exception->getMessage(), 'info');
+        }
     }
 
     /**
@@ -1018,8 +1057,16 @@ class BrandShow extends Component
             : null;
 
         $brandName = (string) ($brandRow['name'] ?? '');
+        $brandId = (string) ($brandRow['id'] ?? $this->brand);
         $brandWorkItems = collect(AgencyExecutionFixtures::workItems())
-            ->filter(fn (array $row): bool => ($row['brand'] ?? '') === $brandName)
+            ->filter(function (array $row) use ($brandName, $brandId): bool {
+                if (($row['type'] ?? '') === 'task' && ctype_digit($brandId)) {
+                    return (string) ($row['brand_id'] ?? '') === $brandId
+                        || (($row['brand'] ?? '') === $brandName && ($row['brand_id'] ?? null) === null);
+                }
+
+                return ($row['brand'] ?? '') === $brandName;
+            })
             ->values()
             ->all();
         $brandRequests = [];

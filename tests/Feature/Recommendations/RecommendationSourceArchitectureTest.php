@@ -385,7 +385,7 @@ class RecommendationSourceArchitectureTest extends TestCase
         $this->assertStringContainsString('Finding #'.$finding->id, $rows[0]['evidence']);
     }
 
-    public function test_livewire_decisions_persist_and_never_create_tasks(): void
+    public function test_livewire_decisions_persist_and_create_task_explicitly(): void
     {
         $finding = Finding::factory()->create(['digital_asset_id' => $this->asset->id]);
         $accepted = app(CreateRecommendationFromFinding::class)->create($finding, ['title' => 'Accept me']);
@@ -401,7 +401,9 @@ class RecommendationSourceArchitectureTest extends TestCase
         $this->assertSame(Recommendation::STATUS_ACCEPTED, $accepted->fresh()->status);
         $this->assertSame(Recommendation::STATUS_DISMISSED, $dismissed->fresh()->status);
         $this->assertSame(Recommendation::STATUS_OPEN, $deferred->fresh()->status);
-        $this->assertSame(0, Task::query()->count());
+        $this->assertSame(1, Task::query()->count());
+        $this->assertSame($accepted->id, Task::query()->first()?->recommendation_id);
+        $this->assertSame(Recommendation::STATUS_ACCEPTED, $accepted->fresh()->status);
     }
 
     public function test_activity_is_recorded_for_create_and_status_change_only(): void

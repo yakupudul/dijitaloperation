@@ -30,6 +30,8 @@ class TaskMigrationAndModelTest extends TestCase
             'customer_id',
             'brand_id',
             'digital_asset_id',
+            'scope_kind',
+            'source_kind',
             'title',
             'action',
             'rationale',
@@ -224,9 +226,12 @@ class TaskMigrationAndModelTest extends TestCase
 
         $task = Task::factory()->create([
             'recommendation_id' => null,
+            'client_request_id' => null,
+            'source_kind' => 'direct',
             'customer_id' => $customer->id,
             'brand_id' => $brand->id,
             'digital_asset_id' => $asset->id,
+            'scope_kind' => 'digital_asset',
             'title' => 'Manual follow-up without recommendation',
             'action' => 'Confirm hosting TLS certificate renewal window.',
             'rationale' => null,

@@ -2,7 +2,7 @@
 
 namespace App\Support\Demo;
 
-use App\Services\ClientRequests\ClientRequestReadService;
+use App\Services\Work\WorkReadService;
 use Illuminate\Support\Collection;
 
 /**
@@ -418,33 +418,32 @@ final class AgencyExecutionFixtures
     }
 
     /**
+     * Work aggregate over canonical Tasks (+ residual Demo reviews/approvals until P44–46).
+     * No Demo Task fallback. No works table.
+     *
      * @return list<array<string, mixed>>
      */
     public static function workItems(): array
     {
-        $state = DemoState::all();
-        $items = [];
+        return app(WorkReadService::class)->workItems();
+    }
 
-        foreach ($state['tasks'] ?? DemoCatalog::tasksSeed() as $task) {
-            $items[] = self::mapTaskToWorkItem($task, $state);
-        }
+    /**
+     * @param  array<string, mixed>  $review
+     * @return array<string, mixed>
+     */
+    public static function mapRecurringReviewToWorkItemPublic(array $review): array
+    {
+        return self::mapRecurringReviewToWorkItem($review);
+    }
 
-        // Prompt 42: Client Requests in Work are production DB-backed (no Demo fallback).
-        foreach (app(ClientRequestReadService::class)->forWorkItemPresentation() as $request) {
-            $items[] = $request;
-        }
-
-        foreach (DemoState::recurringReviewsWithState() as $review) {
-            $items[] = self::mapRecurringReviewToWorkItem($review);
-        }
-
-        foreach (self::approvalsWithState() as $approval) {
-            if (($approval['status'] ?? '') === 'waiting') {
-                $items[] = self::mapApprovalToWorkItem($approval);
-            }
-        }
-
-        return $items;
+    /**
+     * @param  array<string, mixed>  $approval
+     * @return array<string, mixed>
+     */
+    public static function mapApprovalToWorkItemPublic(array $approval): array
+    {
+        return self::mapApprovalToWorkItem($approval);
     }
 
     /**

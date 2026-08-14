@@ -3,9 +3,11 @@
 namespace App\Livewire\Demo;
 
 use App\Enums\ClientRequestChannel;
+use App\Enums\TaskScopeKind;
 use App\Models\Brand;
 use App\Models\Customer;
 use App\Services\ClientRequests\CreateClientRequest;
+use App\Services\Tasks\CreateDirectTask;
 use App\Support\Demo\AgencyExecutionFixtures;
 use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
@@ -94,13 +96,7 @@ class CaptureModal extends Component
 
         match ($this->captureType) {
             'client_request' => $this->saveClientRequest(),
-            'task' => DemoState::captureTask([
-                'title' => $this->title,
-                'description' => $this->description,
-                'brand_id' => $this->prefillBrand,
-                'priority' => $this->priority,
-                'due' => $this->due,
-            ]),
+            'task' => $this->saveDirectTask(),
             'opportunity_hypothesis' => DemoState::captureOpportunityHypothesis([
                 'title' => $this->title,
                 'description' => $this->description,
@@ -167,6 +163,54 @@ class CaptureModal extends Component
             DemoState::flash(__('operator.capture.saved_request'));
         } catch (ValidationException $exception) {
             DemoState::flash(collect($exception->errors())->flatten()->first() ?? 'Client Request capture failed.');
+        }
+    }
+
+    private function saveDirectTask(): void
+    {
+        $customerId = $this->prefillCustomer;
+        $brandId = $this->prefillBrand;
+
+        if (! is_numeric($customerId)) {
+            DemoState::flash('Direct Task capture requires a production Customer.');
+
+            return;
+        }
+
+        $customer = Customer::query()->find((int) $customerId);
+        if ($customer === null) {
+            DemoState::flash('Direct Task capture requires a production Customer.');
+
+            return;
+        }
+
+        $brand = is_numeric($brandId) ? Brand::query()->find((int) $brandId) : null;
+        if ($brand !== null && (int) $brand->customer_id !== (int) $customer->id) {
+            DemoState::flash('Brand must belong to the selected Customer.');
+
+            return;
+        }
+
+        try {
+            app(CreateDirectTask::class)->create([
+                'title' => $this->title,
+                'action' => $this->description !== '' ? $this->description : $this->title,
+                'customer_id' => $customer->id,
+                'brand_id' => $brand?->id,
+                'digital_asset_id' => null,
+                'scope_kind' => $brand !== null
+                    ? TaskScopeKind::Brand->value
+                    : TaskScopeKind::Customer->value,
+                'priority' => $this->priority,
+                'due_date' => null,
+            ], auth()->user(), 'capture-direct-task:'.$this->captureNonce);
+
+            $this->captureNonce = (string) Str::uuid();
+            DemoState::flash('Task captured — Direct source, no fake Recommendation or Client Request.');
+        } catch (ValidationException $exception) {
+            DemoState::flash(collect($exception->errors())->flatten()->first() ?? 'Direct Task capture failed.');
+        } catch (\Throwable $exception) {
+            DemoState::flash($exception->getMessage());
         }
     }
 

@@ -373,6 +373,8 @@ class ClientRequestProductionPersistenceTest extends TestCase
         $this->assertSame($request->customer_id, $task->customer_id);
         $this->assertSame($request->brand_id, $task->brand_id);
         $this->assertSame($this->asset->id, $task->digital_asset_id);
+        $this->assertSame('digital_asset', $task->scope_kind?->value ?? $task->scope_kind);
+        $this->assertSame('client_request', $task->source_kind?->value ?? $task->source_kind);
         $this->assertSame(ClientRequestStatus::Planned, $request->fresh()->status);
         $this->assertSame(0, Finding::query()->count());
         $this->assertSame(0, Opportunity::query()->count());
@@ -380,7 +382,7 @@ class ClientRequestProductionPersistenceTest extends TestCase
         Http::assertNothingSent();
     }
 
-    public function test_create_task_without_asset_requires_explicit_target(): void
+    public function test_create_task_without_asset_uses_brand_scope(): void
     {
         $request = app(CreateClientRequest::class)->create([
             'title' => 'No asset yet',
@@ -390,17 +392,15 @@ class ClientRequestProductionPersistenceTest extends TestCase
 
         $beforeAssets = DigitalAsset::query()->count();
 
-        try {
-            app(CreateTaskFromClientRequest::class)->create($request, [], $this->actor);
-            $this->fail('Expected TARGET_SCOPE_REQUIRED');
-        } catch (ClientRequestTargetScopeRequiredException $exception) {
-            $this->assertSame(ClientRequestTargetScopeRequiredException::CODE, 'TARGET_SCOPE_REQUIRED');
-            $this->assertSame($request->id, $exception->clientRequest->id);
-        }
+        $task = app(CreateTaskFromClientRequest::class)->create($request, [], $this->actor, 'cr-task:brand-scope:1');
 
-        $this->assertSame(0, Task::query()->count());
-        $this->assertSame(1, ClientRequest::query()->count());
+        $this->assertSame($request->id, $task->client_request_id);
+        $this->assertSame($this->brand->id, $task->brand_id);
+        $this->assertNull($task->digital_asset_id);
+        $this->assertSame('brand', $task->scope_kind?->value ?? $task->scope_kind);
+        $this->assertSame('client_request', $task->source_kind?->value ?? $task->source_kind);
         $this->assertSame($beforeAssets, DigitalAsset::query()->count());
+        $this->assertSame(1, Task::query()->count());
     }
 
     public function test_create_task_does_not_fallback_to_first_asset(): void
@@ -413,8 +413,27 @@ class ClientRequestProductionPersistenceTest extends TestCase
             'brand_id' => $this->brand->id,
         ], $this->actor);
 
+        $task = app(CreateTaskFromClientRequest::class)->create($request, [], $this->actor, 'cr-task:no-fallback:1');
+
+        $this->assertNull($task->digital_asset_id);
+        $this->assertSame('brand', $task->scope_kind?->value ?? $task->scope_kind);
+        $this->assertSame(1, Task::query()->where('client_request_id', $request->id)->count());
+    }
+
+    public function test_explicit_digital_asset_scope_without_asset_still_requires_target(): void
+    {
+        $request = app(CreateClientRequest::class)->create([
+            'title' => 'Need asset target',
+            'customer_id' => $this->customer->id,
+            'brand_id' => $this->brand->id,
+        ], $this->actor);
+
         $this->expectException(ClientRequestTargetScopeRequiredException::class);
-        app(CreateTaskFromClientRequest::class)->create($request, [], $this->actor);
+        app(CreateTaskFromClientRequest::class)->create(
+            $request,
+            ['scope_kind' => 'digital_asset'],
+            $this->actor,
+        );
     }
 
     public function test_task_create_idempotency_and_second_explicit_task(): void

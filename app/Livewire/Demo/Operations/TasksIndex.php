@@ -4,6 +4,7 @@ namespace App\Livewire\Demo\Operations;
 
 use App\Enums\ClientRequestStatus;
 use App\Services\ClientRequests\ClientRequestUiActions;
+use App\Services\Work\WorkReadService;
 use App\Support\Demo\AgencyExecutionFixtures;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
@@ -127,7 +128,7 @@ class TasksIndex extends Component
 
     public function render(): View
     {
-        $all = collect(AgencyExecutionFixtures::workItems());
+        $all = collect(app(WorkReadService::class)->workItems());
 
         $rows = match ($this->view) {
             'my' => $all->filter(fn (array $row): bool => AgencyExecutionFixtures::isMine($row)),

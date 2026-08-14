@@ -3,10 +3,12 @@
 namespace App\Livewire\Demo\Operations;
 
 use App\Models\Recommendation;
+use App\Services\CreateTaskFromRecommendation;
 use App\Services\Recommendations\RecommendationReadService;
 use App\Services\Recommendations\UpdateRecommendation;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -20,6 +22,13 @@ use Livewire\Component;
 class RecommendationsIndex extends Component
 {
     public ?string $expandedId = null;
+
+    public string $taskCreateNonce = '';
+
+    public function mount(): void
+    {
+        $this->taskCreateNonce = (string) Str::uuid();
+    }
 
     public function expand(string $id): void
     {
@@ -62,16 +71,37 @@ class RecommendationsIndex extends Component
     }
 
     /**
-     * Task creation from a Recommendation is owned by the Work alignment Prompt.
-     * This action never creates a Task row.
+     * Explicit Recommendation → Task handoff via canonical CreateTask.
      */
     public function createTask(string $id): void
     {
-        if ($this->resolveRecommendation($id) === null) {
+        $recommendation = $this->resolveRecommendation($id);
+        if ($recommendation === null) {
+            DemoState::flash('Recommendation not found.', 'info');
+
             return;
         }
 
-        DemoState::flash('Work alignment is not wired yet — no Task was created from this Recommendation.', 'info');
+        $actor = auth()->user();
+        $service = app(CreateTaskFromRecommendation::class);
+        if (! $service->userCanConvert($actor)) {
+            DemoState::flash('You are not allowed to create Tasks from Recommendations.', 'info');
+
+            return;
+        }
+
+        try {
+            $task = $service->create(
+                $recommendation,
+                [],
+                $actor,
+                'rec-task:'.$recommendation->id.':'.$this->taskCreateNonce,
+            );
+            $this->taskCreateNonce = (string) Str::uuid();
+            DemoState::flash('Task #'.$task->id.' created from Recommendation. Recommendation status unchanged.');
+        } catch (\Throwable $exception) {
+            DemoState::flash($exception->getMessage(), 'info');
+        }
     }
 
     private function resolveRecommendation(string $id): ?Recommendation
