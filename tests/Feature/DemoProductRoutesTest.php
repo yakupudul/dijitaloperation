@@ -12,6 +12,7 @@ use App\Livewire\Demo\Operations\TaskShow;
 use App\Livewire\Demo\Operations\TasksIndex;
 use App\Livewire\Demo\Website\OverviewPage as WebsiteOverviewPage;
 use App\Models\Recommendation;
+use App\Models\Task;
 use App\Models\User;
 use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
@@ -19,11 +20,13 @@ use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
+use Tests\Support\SeedsCanonicalWorkTasks;
 use Tests\TestCase;
 
 class DemoProductRoutesTest extends TestCase
 {
     use RefreshDatabase;
+    use SeedsCanonicalWorkTasks;
 
     protected function setUp(): void
     {
@@ -34,6 +37,8 @@ class DemoProductRoutesTest extends TestCase
         $user = User::factory()->create();
         $user->assignRole(Roles::ADMIN);
         $this->actingAs($user);
+
+        $this->seedCanonicalWorkTasks();
     }
 
     public function test_guest_is_redirected_from_app_to_system_login(): void
@@ -289,13 +294,16 @@ class DemoProductRoutesTest extends TestCase
         $recommendation = Recommendation::factory()->create([
             'title' => 'Replace underperforming creative',
             'status' => Recommendation::STATUS_OPEN,
+            'digital_asset_id' => $this->workAsset->id,
         ]);
 
         Livewire::test(RecommendationsIndex::class)
             ->call('approve', (string) $recommendation->id)
             ->assertSee('accepted')
             ->call('createTask', (string) $recommendation->id)
-            ->assertSee('no Task was created');
+            ->assertSee('created from Recommendation');
+
+        $this->assertSame(1, Task::query()->where('recommendation_id', $recommendation->id)->count());
 
         Livewire::test(TasksIndex::class)
             ->call('setView', 'all')

@@ -19,11 +19,13 @@ use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
+use Tests\Support\SeedsCanonicalWorkTasks;
 use Tests\TestCase;
 
 class GlobalAgencyOperatingLayerTest extends TestCase
 {
     use RefreshDatabase;
+    use SeedsCanonicalWorkTasks;
 
     protected function setUp(): void
     {
@@ -36,6 +38,7 @@ class GlobalAgencyOperatingLayerTest extends TestCase
         $this->actingAs($user);
 
         DemoState::reset();
+        $this->seedCanonicalWorkTasks();
     }
 
     public function test_operator_navigation_exposes_system_group_without_modules(): void
@@ -110,6 +113,7 @@ class GlobalAgencyOperatingLayerTest extends TestCase
         $recommendation = Recommendation::factory()->create([
             'title' => 'Review conversion mapping for primary lead signal',
             'status' => Recommendation::STATUS_OPEN,
+            'digital_asset_id' => $this->workAsset->id,
         ]);
         $id = (string) $recommendation->id;
 
@@ -118,10 +122,10 @@ class GlobalAgencyOperatingLayerTest extends TestCase
             ->call('approve', $id)
             ->assertSee('accepted')
             ->call('createTask', $id)
-            ->assertSee('no Task was created');
+            ->assertSee('created from Recommendation');
 
         $this->assertSame(Recommendation::STATUS_ACCEPTED, $recommendation->fresh()->status);
-        $this->assertSame(0, Task::query()->count());
+        $this->assertSame(1, Task::query()->where('recommendation_id', $recommendation->id)->count());
     }
 
     public function test_tasks_default_to_my_tasks_view(): void

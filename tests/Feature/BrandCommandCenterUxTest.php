@@ -11,11 +11,13 @@ use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
+use Tests\Support\SeedsCanonicalWorkTasks;
 use Tests\TestCase;
 
 class BrandCommandCenterUxTest extends TestCase
 {
     use RefreshDatabase;
+    use SeedsCanonicalWorkTasks;
 
     protected function setUp(): void
     {
@@ -28,6 +30,7 @@ class BrandCommandCenterUxTest extends TestCase
         $this->actingAs($user);
 
         DemoState::reset();
+        $this->seedCanonicalWorkTasks();
     }
 
     public function test_brands_directory_search_filters_and_rollups(): void

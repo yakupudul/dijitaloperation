@@ -28,11 +28,13 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
+use Tests\Support\SeedsCanonicalWorkTasks;
 use Tests\TestCase;
 
 class AgencyExecutionSystemTest extends TestCase
 {
     use RefreshDatabase;
+    use SeedsCanonicalWorkTasks;
 
     protected function setUp(): void
     {
@@ -45,6 +47,7 @@ class AgencyExecutionSystemTest extends TestCase
         $this->actingAs($user);
 
         DemoState::reset();
+        $this->seedCanonicalWorkTasks();
     }
 
     public function test_work_index_defaults_to_my_view(): void
@@ -141,9 +144,11 @@ class AgencyExecutionSystemTest extends TestCase
 
     public function test_qa_ready_and_approve(): void
     {
+        // Prompt 43: Task-backed Work no longer carries Demo QA badges.
+        // QA remains Demo residual until Prompt 44; approve API still works.
         Livewire::test(TasksIndex::class)
             ->call('setView', 'qa_required')
-            ->assertSee('Replace PB-Video-03 creative');
+            ->assertSet('view', 'qa_required');
 
         DemoState::setQaState('t-replace-creative', 'approved');
         $qa = DemoState::all()['qa_states'] ?? [];
