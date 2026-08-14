@@ -118,14 +118,19 @@ class CommercialGrowthIntelligenceTest extends TestCase
             ->assertDontSee('₺0');
     }
 
-    public function test_no_persistence_tables_or_migrations_for_commercial_entities(): void
+    public function test_no_persistence_tables_or_migrations_for_deferred_commercial_entities(): void
     {
-        foreach (['opportunities', 'service_plans', 'business_outcomes', 'goals'] as $table) {
+        // Prompt 37 owns Goal/Offering identity tables. These remain deferred:
+        foreach (['opportunities', 'service_plans', 'business_outcomes'] as $table) {
             $this->assertFalse(Schema::hasTable($table), 'Unexpected table: '.$table);
         }
 
+        $this->assertTrue(Schema::hasTable('brand_goals'));
+        $this->assertTrue(Schema::hasTable('brand_offerings'));
+        $this->assertTrue(Schema::hasTable('brand_offering_names'));
+
         $migrationPath = database_path('migrations');
-        $patterns = ['*opportunities*', '*service_plans*', '*business_outcomes*', '*goals*'];
+        $patterns = ['*opportunities*', '*service_plans*', '*business_outcomes*'];
 
         foreach ($patterns as $pattern) {
             $matches = File::glob($migrationPath.'/'.$pattern);
