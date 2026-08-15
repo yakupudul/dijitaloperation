@@ -55,9 +55,31 @@ return new class extends Migration
             ");
         }
 
+        if (! Schema::hasColumn('tasks', 'recurring_review_run_item_id')) {
+            return;
+        }
+
+        if ($this->hasIndexNamed('tasks_recurring_review_run_item_id_index')) {
+            if (Schema::getConnection()->getDriverName() === 'sqlite') {
+                DB::statement('DROP INDEX IF EXISTS "tasks_recurring_review_run_item_id_index"');
+            } else {
+                Schema::table('tasks', function (Blueprint $table): void {
+                    $table->dropIndex('tasks_recurring_review_run_item_id_index');
+                });
+            }
+        }
+
+        Schema::table('tasks', function (Blueprint $table): void {
+            try {
+                $table->dropForeign(['recurring_review_run_item_id']);
+            } catch (Throwable) {
+                // SQLite / drivers without an explicit FK name.
+            }
+        });
+
         Schema::table('tasks', function (Blueprint $table): void {
             if (Schema::hasColumn('tasks', 'recurring_review_run_item_id')) {
-                $table->dropConstrainedForeignId('recurring_review_run_item_id');
+                $table->dropColumn('recurring_review_run_item_id');
             }
         });
     }
