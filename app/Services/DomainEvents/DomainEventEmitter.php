@@ -143,10 +143,17 @@ final class DomainEventEmitter
         return match ($type) {
             DomainEventType::FindingCreated => "FINDING_CREATED:finding:{$subjectId}",
             DomainEventType::TaskCompleted => "TASK_COMPLETED:task:{$subjectId}",
+            DomainEventType::TaskAssigned => sprintf(
+                'TASK_ASSIGNED:task:%d:assignee:%s',
+                $subjectId,
+                isset($payload['assignee_id']) ? (string) $payload['assignee_id'] : 'none',
+            ),
             DomainEventType::RecommendationAccepted => "RECOMMENDATION_ACCEPTED:recommendation:{$subjectId}",
             DomainEventType::QaPassed => "QA_PASSED:qa_review:{$subjectId}",
             DomainEventType::ApprovalApproved => "APPROVAL_APPROVED:approval:{$subjectId}",
             DomainEventType::RecurringReviewCompleted => "RECURRING_REVIEW_COMPLETED:recurring_review_run:{$subjectId}",
+            DomainEventType::ClientRequestCreated => "CLIENT_REQUEST_CREATED:client_request:{$subjectId}",
+            DomainEventType::OpportunityCreated => "OPPORTUNITY_CREATED:opportunity:{$subjectId}",
             default => sprintf(
                 '%s:%s:%d:%s',
                 $type->value,

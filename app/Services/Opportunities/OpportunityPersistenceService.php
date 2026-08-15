@@ -2,6 +2,9 @@
 
 namespace App\Services\Opportunities;
 
+use App\Enums\DomainEventActorKind;
+use App\Enums\DomainEventSubjectKind;
+use App\Enums\DomainEventType;
 use App\Enums\OpportunityConditionState;
 use App\Enums\OpportunityDetectionState;
 use App\Enums\OpportunityEligibilityDisposition;
@@ -13,6 +16,7 @@ use App\Models\Finding;
 use App\Models\Opportunity;
 use App\Models\OpportunityEvaluation;
 use App\Models\Run;
+use App\Services\DomainEvents\DomainEventEmitter;
 use App\Support\Evidence\Dto\CanonicalEvidenceDto;
 use App\Support\Opportunities\OpportunityCommercialContext;
 use App\Support\Opportunities\OpportunityRule;
@@ -42,6 +46,7 @@ final class OpportunityPersistenceService
         private readonly OpportunityEvaluationFingerprintBuilder $evaluationFingerprints,
         private readonly OpportunityPresentationRenderer $presentation,
         private readonly OpportunityActivityRecorder $activity,
+        private readonly DomainEventEmitter $domainEvents,
     ) {}
 
     /**
@@ -325,7 +330,21 @@ final class OpportunityPersistenceService
                 'last_detected_at' => $now,
                 'closed_at' => null,
             ]);
-            $this->activity->record($asset, $opportunity, OpportunityActivityRecorder::CREATED, OpportunityLifecycleAction::Created, $rule);
+            $this->domainEvents->emit([
+                'event_type' => DomainEventType::OpportunityCreated,
+                'actor_kind' => DomainEventActorKind::System,
+                'actor_user_id' => null,
+                'customer_id' => $opportunity->customer_id,
+                'brand_id' => $opportunity->brand_id,
+                'digital_asset_id' => $opportunity->digital_asset_id,
+                'subject_kind' => DomainEventSubjectKind::Opportunity,
+                'subject_id' => (int) $opportunity->id,
+                'payload' => [
+                    'title' => (string) $opportunity->title,
+                    'status' => (string) $opportunity->status,
+                    'rule_id' => $rule->stableId,
+                ],
+            ]);
 
             return [$opportunity, OpportunityLifecycleAction::Created];
         }

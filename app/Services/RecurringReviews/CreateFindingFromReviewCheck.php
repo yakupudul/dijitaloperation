@@ -2,6 +2,9 @@
 
 namespace App\Services\RecurringReviews;
 
+use App\Enums\DomainEventActorKind;
+use App\Enums\DomainEventSubjectKind;
+use App\Enums\DomainEventType;
 use App\Enums\FindingConditionState;
 use App\Enums\FindingEligibilityDisposition;
 use App\Enums\FindingLifecycleAction;
@@ -12,6 +15,7 @@ use App\Models\Finding;
 use App\Models\FindingEvaluation;
 use App\Models\RecurringReviewRunItem;
 use App\Models\User;
+use App\Services\DomainEvents\DomainEventEmitter;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
@@ -24,6 +28,7 @@ final class CreateFindingFromReviewCheck
 
     public function __construct(
         private readonly RecurringReviewEvidencePublisher $evidencePublisher,
+        private readonly DomainEventEmitter $domainEvents,
     ) {}
 
     /**
@@ -64,7 +69,7 @@ final class CreateFindingFromReviewCheck
         ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
 
         try {
-            $finding = DB::transaction(function () use ($item, $run, $evidence, $ruleId, $fingerprint, $evaluationFingerprint): Finding {
+            $finding = DB::transaction(function () use ($item, $run, $evidence, $ruleId, $fingerprint, $evaluationFingerprint, $actor): Finding {
                 $finding = Finding::query()
                     ->where('digital_asset_id', $run->digital_asset_id)
                     ->where('fingerprint', $fingerprint)
@@ -72,6 +77,7 @@ final class CreateFindingFromReviewCheck
                     ->first();
 
                 $now = now();
+                $created = false;
 
                 if ($finding instanceof Finding) {
                     // Existing open (or any) finding: update last_seen_at only — never resolve, never duplicate.
@@ -104,11 +110,31 @@ final class CreateFindingFromReviewCheck
                         'last_run_id' => $evidence->run_id,
                         'resolved_at' => null,
                     ]);
+                    $created = true;
                 }
 
                 $this->ensureEvaluation($finding, $evidence, $ruleId, $evaluationFingerprint);
+                $finding = $finding->fresh() ?? $finding;
 
-                return $finding->fresh() ?? $finding;
+                if ($created) {
+                    $this->domainEvents->emit([
+                        'event_type' => DomainEventType::FindingCreated,
+                        'actor_kind' => DomainEventActorKind::InternalUser,
+                        'actor_user_id' => $actor?->id,
+                        'customer_id' => $finding->customer_id,
+                        'brand_id' => $finding->brand_id,
+                        'digital_asset_id' => $finding->digital_asset_id,
+                        'subject_kind' => DomainEventSubjectKind::Finding,
+                        'subject_id' => (int) $finding->id,
+                        'payload' => [
+                            'title' => (string) $finding->title,
+                            'severity' => (string) $finding->severity,
+                            'status' => (string) $finding->status,
+                        ],
+                    ]);
+                }
+
+                return $finding;
             });
         } catch (UniqueConstraintViolationException) {
             $finding = Finding::query()

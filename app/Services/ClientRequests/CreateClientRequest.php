@@ -4,6 +4,9 @@ namespace App\Services\ClientRequests;
 
 use App\Enums\ClientRequestChannel;
 use App\Enums\ClientRequestStatus;
+use App\Enums\DomainEventActorKind;
+use App\Enums\DomainEventSubjectKind;
+use App\Enums\DomainEventType;
 use App\Models\Brand;
 use App\Models\ClientRequest;
 use App\Models\Customer;
@@ -11,6 +14,7 @@ use App\Models\CustomerContact;
 use App\Models\DigitalAsset;
 use App\Models\ServiceDefinition;
 use App\Models\User;
+use App\Services\DomainEvents\DomainEventEmitter;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -25,7 +29,7 @@ final class CreateClientRequest
 {
     public function __construct(
         private readonly ClientRequestScopeResolver $scopeResolver,
-        private readonly ClientRequestActivityRecorder $activity,
+        private readonly DomainEventEmitter $domainEvents,
     ) {}
 
     /**
@@ -143,8 +147,20 @@ final class CreateClientRequest
                     'intake_scope_assessed_at' => $resolution->evaluatedAt,
                 ])->save();
 
-                $this->activity->record($request->fresh(), ClientRequestActivityRecorder::CREATED, $actor, [
-                    'current_scope_state' => $resolution->state->value,
+                $this->domainEvents->emit([
+                    'event_type' => DomainEventType::ClientRequestCreated,
+                    'actor_kind' => DomainEventActorKind::InternalUser,
+                    'actor_user_id' => $actor?->id,
+                    'customer_id' => $request->customer_id,
+                    'brand_id' => $request->brand_id,
+                    'digital_asset_id' => $request->digital_asset_id,
+                    'subject_kind' => DomainEventSubjectKind::ClientRequest,
+                    'subject_id' => (int) $request->id,
+                    'payload' => [
+                        'title' => (string) $request->title,
+                        'status' => (string) ($request->status instanceof \BackedEnum ? $request->status->value : $request->status),
+                        'current_scope_state' => $resolution->state->value,
+                    ],
                 ]);
 
                 return $request->fresh([

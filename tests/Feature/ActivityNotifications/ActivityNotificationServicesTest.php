@@ -20,7 +20,7 @@ use App\Services\Notifications\NotificationPreferenceService;
 use App\Services\Notifications\NotificationReadService;
 use App\Services\Notifications\NotificationUiActions;
 use App\Services\Notifications\NotificationWriteService;
-use App\Services\Tasks\CreateDirectTask;
+use App\Services\Tasks\CreateTask;
 use App\Support\Notifications\NotificationPreferenceCatalog;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -58,14 +58,17 @@ class ActivityNotificationServicesTest extends TestCase
             'customer_id' => $this->customer->id,
             'name' => 'AN Brand',
         ]);
-        $this->task = app(CreateDirectTask::class)->create([
+        // Create without assignee so setUp does not emit TASK_ASSIGNED; tests control assignment events.
+        $this->task = app(CreateTask::class)->create([
             'title' => 'Fix landing CTA',
             'action' => 'Update CTA copy',
             'customer_id' => $this->customer->id,
             'brand_id' => $this->brand->id,
             'scope_kind' => TaskScopeKind::Brand->value,
-            'assignee_id' => $this->assignee->id,
+            'assignee_id' => null,
+            'source_kind' => 'direct',
         ], $this->actor, 'an:task:1');
+        $this->task->forceFill(['assignee_id' => $this->assignee->id])->save();
     }
 
     public function test_production_tables_and_preference_catalog_exist(): void

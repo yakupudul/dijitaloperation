@@ -2,6 +2,9 @@
 
 namespace App\Services\RecurringReviews;
 
+use App\Enums\DomainEventActorKind;
+use App\Enums\DomainEventSubjectKind;
+use App\Enums\DomainEventType;
 use App\Enums\RecurringReviewOccurrenceKind;
 use App\Enums\RecurringReviewRunItemState;
 use App\Enums\RecurringReviewRunStatus;
@@ -11,6 +14,7 @@ use App\Models\RecurringReviewRun;
 use App\Models\RecurringReviewRunItem;
 use App\Models\RecurringReviewSchedule;
 use App\Models\User;
+use App\Services\DomainEvents\DomainEventEmitter;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
@@ -22,6 +26,7 @@ final class RecurringReviewRunService
     public function __construct(
         private readonly RecurringReviewDueCalculator $dueCalculator,
         private readonly RecurringReviewActivityRecorder $activity,
+        private readonly DomainEventEmitter $domainEvents,
     ) {}
 
     public function startRun(RecurringReviewRun $run, ?User $actor = null): RecurringReviewRun
@@ -85,8 +90,24 @@ final class RecurringReviewRunService
                 'summary_json' => $summary,
             ])->save();
 
-            $this->activity->recordRun($run, RecurringReviewActivityRecorder::REVIEW_COMPLETED, $actor, [
-                'summary' => $summary,
+            $this->domainEvents->emit([
+                'event_type' => DomainEventType::RecurringReviewCompleted,
+                'actor_kind' => DomainEventActorKind::InternalUser,
+                'actor_user_id' => $actor?->id,
+                'customer_id' => $run->customer_id,
+                'brand_id' => $run->brand_id,
+                'digital_asset_id' => $run->digital_asset_id,
+                'subject_kind' => DomainEventSubjectKind::RecurringReviewRun,
+                'subject_id' => (int) $run->id,
+                'payload' => [
+                    'title' => 'Recurring review #'.$run->id,
+                    'title_snapshot' => 'Recurring review #'.$run->id,
+                    'finding_count' => (int) ($summary['outcomes_finding'] ?? 0),
+                    'opportunity_count' => (int) ($summary['outcomes_opportunity'] ?? 0),
+                    'task_count' => (int) ($summary['outcomes_task'] ?? 0),
+                    'check_count' => (int) ($summary['items_total'] ?? 0),
+                    'status' => RecurringReviewRunStatus::Completed->value,
+                ],
             ]);
 
             $this->advanceScheduleAfterCompletedRun($run);

@@ -121,7 +121,9 @@
                             </li>
                         @endforeach
                     </ul>
-                    <p class="border-t border-gray-100 px-4 py-3 text-xs text-gray-500 dark:border-gray-800">Delivery starts with in-app. Email/Slack/push infrastructure is out of scope for this Demo milestone.</p>
+                    <p class="border-t border-gray-100 px-4 py-3 text-xs text-gray-500 dark:border-gray-800">
+                        In-app preferences are persisted. Email / Slack / push channels are not delivered by this product milestone — toggling email does not send mail.
+                    </p>
                 </div>
             @elseif ($section === 'operations')
                 <div class="mb-4 inline-flex gap-1 rounded-lg bg-gray-100 p-1 dark:bg-white/[0.04]" role="tablist">

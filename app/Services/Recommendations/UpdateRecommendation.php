@@ -2,8 +2,12 @@
 
 namespace App\Services\Recommendations;
 
+use App\Enums\DomainEventActorKind;
+use App\Enums\DomainEventSubjectKind;
+use App\Enums\DomainEventType;
 use App\Models\Recommendation;
 use App\Models\User;
+use App\Services\DomainEvents\DomainEventEmitter;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -26,6 +30,7 @@ final class UpdateRecommendation
     public function __construct(
         private readonly RecommendationSourceGuard $guard,
         private readonly RecommendationActivityRecorder $activity,
+        private readonly DomainEventEmitter $domainEvents,
     ) {}
 
     /**
@@ -63,19 +68,46 @@ final class UpdateRecommendation
             $recommendation->save();
             $this->guard->assertConsistent($recommendation);
 
-            if ($statusChanged) {
+            $fresh = $recommendation->fresh() ?? $recommendation;
+
+            if ($statusChanged && (string) $fresh->status === Recommendation::STATUS_ACCEPTED) {
+                $fresh->loadMissing(['digitalAsset.brand', 'finding', 'opportunity']);
+                $brandId = $fresh->digitalAsset?->brand_id
+                    ?? $fresh->finding?->brand_id
+                    ?? $fresh->opportunity?->brand_id;
+                $customerId = $fresh->digitalAsset?->brand?->customer_id
+                    ?? $fresh->finding?->customer_id
+                    ?? $fresh->opportunity?->customer_id;
+
+                $this->domainEvents->emit([
+                    'event_type' => DomainEventType::RecommendationAccepted,
+                    'actor_kind' => DomainEventActorKind::InternalUser,
+                    'actor_user_id' => $actor?->id,
+                    'customer_id' => $customerId,
+                    'brand_id' => $brandId,
+                    'digital_asset_id' => $fresh->digital_asset_id,
+                    'subject_kind' => DomainEventSubjectKind::Recommendation,
+                    'subject_id' => (int) $fresh->id,
+                    'payload' => [
+                        'title' => (string) $fresh->title,
+                        'status' => (string) $fresh->status,
+                        'from_status' => $previousStatus,
+                        'to_status' => Recommendation::STATUS_ACCEPTED,
+                    ],
+                ]);
+            } elseif ($statusChanged) {
                 $this->activity->record(
-                    $recommendation,
+                    $fresh,
                     RecommendationActivityRecorder::STATUS_CHANGED,
                     null,
                     $actor,
                     ['previous_status' => $previousStatus],
                 );
             } elseif ($contentChanged) {
-                $this->activity->record($recommendation, RecommendationActivityRecorder::UPDATED, null, $actor);
+                $this->activity->record($fresh, RecommendationActivityRecorder::UPDATED, null, $actor);
             }
 
-            return $recommendation->fresh() ?? $recommendation;
+            return $fresh;
         });
     }
 

@@ -4,6 +4,7 @@ namespace Tests\Feature\Recommendations;
 
 use App\Enums\RecommendationOrigin;
 use App\Enums\RecommendationSourceKind;
+use App\Enums\DomainEventType;
 use App\Livewire\Demo\Operations\OpportunitiesIndex;
 use App\Livewire\Demo\Operations\RecommendationsIndex;
 use App\Models\Brand;
@@ -421,6 +422,10 @@ class RecommendationSourceArchitectureTest extends TestCase
         app(UpdateRecommendation::class)->accept($recommendation);
 
         $this->assertDatabaseHas('brand_context_activities', [
+            'event' => DomainEventType::RecommendationAccepted->value,
+            'subject_id' => $recommendation->id,
+        ]);
+        $this->assertDatabaseMissing('brand_context_activities', [
             'event' => RecommendationActivityRecorder::STATUS_CHANGED,
             'subject_id' => $recommendation->id,
         ]);

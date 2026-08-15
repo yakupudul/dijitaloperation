@@ -2,6 +2,9 @@
 
 namespace App\Services\Tasks;
 
+use App\Enums\DomainEventActorKind;
+use App\Enums\DomainEventSubjectKind;
+use App\Enums\DomainEventType;
 use App\Enums\TaskScopeKind;
 use App\Enums\TaskSourceKind;
 use App\Exceptions\TaskScopeValidationException;
@@ -14,6 +17,7 @@ use App\Models\Recommendation;
 use App\Models\RecurringReviewRunItem;
 use App\Models\Task;
 use App\Models\User;
+use App\Services\DomainEvents\DomainEventEmitter;
 use App\Support\Roles;
 use App\Support\Tasks\TaskStatus;
 use Illuminate\Database\QueryException;
@@ -28,6 +32,7 @@ final class CreateTask
 {
     public function __construct(
         private readonly TaskActivityRecorder $activity,
+        private readonly DomainEventEmitter $domainEvents,
     ) {}
 
     /**
@@ -131,7 +136,7 @@ final class CreateTask
                 $task = Task::query()->create($attributes);
                 $this->activity->record($task, TaskActivityRecorder::CREATED, $actor);
 
-                return $task->fresh([
+                $fresh = $task->fresh([
                     'customer',
                     'brand',
                     'digitalAsset',
@@ -139,6 +144,26 @@ final class CreateTask
                     'clientRequest',
                     'assignee',
                 ]) ?? $task;
+
+                if ($fresh->assignee_id !== null) {
+                    $this->domainEvents->emit([
+                        'event_type' => DomainEventType::TaskAssigned,
+                        'actor_kind' => DomainEventActorKind::InternalUser,
+                        'actor_user_id' => $actor?->id,
+                        'customer_id' => $fresh->customer_id,
+                        'brand_id' => $fresh->brand_id,
+                        'digital_asset_id' => $fresh->digital_asset_id,
+                        'subject_kind' => DomainEventSubjectKind::Task,
+                        'subject_id' => (int) $fresh->id,
+                        'payload' => [
+                            'title' => (string) $fresh->title,
+                            'assignee_id' => (int) $fresh->assignee_id,
+                            'status' => (string) $fresh->status,
+                        ],
+                    ]);
+                }
+
+                return $fresh;
             });
         } catch (QueryException $exception) {
             if ($idempotencyKey !== null) {

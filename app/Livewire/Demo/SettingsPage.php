@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Demo;
 
+use App\Services\Notifications\NotificationPreferenceService;
 use App\Services\Playbooks\PlaybookReadService;
 use App\Support\Agents\AgentProfileRegistry;
 use App\Support\Ai\AiRouteRegistry;
@@ -10,6 +11,7 @@ use App\Support\Demo\GlobalOperatingFixtures;
 use App\Support\Skills\SkillDefinition;
 use App\Support\Skills\SkillRegistry;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -122,28 +124,27 @@ class SettingsPage extends Component
 
     public function toggleNotification(int $index): void
     {
-        $settings = $this->mergedSettings();
-        $rows = $settings['notifications'] ?? [];
-        if (! isset($rows[$index]) || ! is_array($rows[$index])) {
+        $user = Auth::user();
+        if ($user === null) {
             return;
         }
 
-        $enabled = ! (bool) ($this->notificationEnabled[$index] ?? $rows[$index]['enabled'] ?? false);
+        $prefs = app(NotificationPreferenceService::class)->listForUser($user);
+        if (! isset($prefs[$index])) {
+            return;
+        }
+
+        $row = $prefs[$index];
+        $enabled = ! (bool) ($this->notificationEnabled[$index] ?? $row['in_app_enabled']);
         $this->notificationEnabled[$index] = $enabled;
 
-        $overrides = [];
-        foreach ($rows as $i => $row) {
-            $overrides[$i] = [
-                'event' => $row['event'],
-                'channel' => $row['channel'],
-                'enabled' => (bool) ($this->notificationEnabled[$i] ?? $row['enabled'] ?? false),
-            ];
-        }
-        $overrides[$index]['enabled'] = $enabled;
+        app(NotificationPreferenceService::class)->setPreference(
+            $user,
+            (string) $row['preference_key'],
+            $enabled,
+            (bool) ($row['email_enabled'] ?? false),
+        );
 
-        DemoState::mergeSettingsOverrides([
-            'notifications' => $overrides,
-        ]);
         $this->hydrateFromSettings();
     }
 
@@ -205,8 +206,21 @@ class SettingsPage extends Component
     {
         $base = GlobalOperatingFixtures::settingsPayload();
         $overrides = DemoState::settingsOverrides();
+        $merged = array_replace_recursive($base, $overrides);
 
-        return array_replace_recursive($base, $overrides);
+        $user = Auth::user();
+        if ($user !== null) {
+            $prefs = app(NotificationPreferenceService::class)->listForUser($user);
+            $merged['notifications'] = array_map(static fn (array $row): array => [
+                'event' => $row['label'],
+                'channel' => 'In-app (email delivery not implemented)',
+                'enabled' => $row['in_app_enabled'],
+                'preference_key' => $row['preference_key'],
+                'email_enabled' => $row['email_enabled'],
+            ], $prefs);
+        }
+
+        return $merged;
     }
 
     private function hydrateFromSettings(): void

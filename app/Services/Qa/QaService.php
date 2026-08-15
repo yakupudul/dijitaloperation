@@ -2,12 +2,16 @@
 
 namespace App\Services\Qa;
 
+use App\Enums\DomainEventActorKind;
+use App\Enums\DomainEventSubjectKind;
+use App\Enums\DomainEventType;
 use App\Enums\QaReviewResult;
 use App\Enums\QaReviewStatus;
 use App\Exceptions\QaReviewValidationException;
 use App\Models\QaReview;
 use App\Models\Task;
 use App\Models\User;
+use App\Services\DomainEvents\DomainEventEmitter;
 use App\Support\Roles;
 use App\Support\Tasks\TaskReviewedStateFingerprint;
 use Illuminate\Database\QueryException;
@@ -24,6 +28,7 @@ final class QaService
 {
     public function __construct(
         private readonly QaActivityRecorder $activity,
+        private readonly DomainEventEmitter $domainEvents,
     ) {}
 
     /**
@@ -153,7 +158,29 @@ final class QaService
                 'completed_at' => now(),
             ])->save();
             $fresh = $locked->fresh(['task', 'reviewer']) ?? $locked;
-            $this->activity->record($fresh, QaActivityRecorder::COMPLETED, $actor);
+
+            $eventType = match (QaReviewResult::from((string) $data['result'])) {
+                QaReviewResult::Passed => DomainEventType::QaPassed,
+                QaReviewResult::Failed => DomainEventType::QaFailed,
+                QaReviewResult::NeedsChanges => DomainEventType::QaNeedsChanges,
+            };
+
+            $this->domainEvents->emit([
+                'event_type' => $eventType,
+                'actor_kind' => DomainEventActorKind::InternalUser,
+                'actor_user_id' => $actor?->id,
+                'customer_id' => $fresh->customer_id,
+                'brand_id' => $fresh->brand_id,
+                'digital_asset_id' => $fresh->task?->digital_asset_id,
+                'subject_kind' => DomainEventSubjectKind::QaReview,
+                'subject_id' => (int) $fresh->id,
+                'payload' => [
+                    'title' => $fresh->task?->title ?? ('QA #'.$fresh->id),
+                    'result' => (string) $data['result'],
+                    'status' => QaReviewStatus::Completed->value,
+                    'task_id' => $fresh->task_id,
+                ],
+            ]);
 
             return $fresh;
         });

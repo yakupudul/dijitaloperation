@@ -9,6 +9,7 @@ use App\Models\BrandContextActivity;
 use App\Models\DomainEvent;
 use App\Services\Notifications\NotificationPolicyRegistry;
 use App\Support\DomainEvents\SubjectKindModelMap;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Carbon;
 
 /**
@@ -57,20 +58,26 @@ final class ActivityProjector
             ? $event->occurred_at
             : Carbon::parse((string) $event->occurred_at);
 
-        return BrandContextActivity::query()->create([
-            'domain_event_id' => $event->id,
-            'brand_id' => $event->brand_id,
-            'customer_id' => $event->customer_id,
-            'digital_asset_id' => $event->digital_asset_id,
-            'actor_user_id' => $event->actor_user_id,
-            'actor_kind' => $actorKind,
-            'event' => $type->value,
-            'subject_type' => SubjectKindModelMap::modelClass($subjectKind),
-            'subject_id' => $event->subject_id,
-            'payload' => $this->safePresentationPayload($event, $type),
-            'occurred_at' => $occurredAt,
-            'created_at' => $occurredAt,
-        ]);
+        try {
+            return BrandContextActivity::query()->create([
+                'domain_event_id' => $event->id,
+                'brand_id' => $event->brand_id,
+                'customer_id' => $event->customer_id,
+                'digital_asset_id' => $event->digital_asset_id,
+                'actor_user_id' => $event->actor_user_id,
+                'actor_kind' => $actorKind,
+                'event' => $type->value,
+                'subject_type' => SubjectKindModelMap::modelClass($subjectKind),
+                'subject_id' => $event->subject_id,
+                'payload' => $this->safePresentationPayload($event, $type),
+                'occurred_at' => $occurredAt,
+                'created_at' => $occurredAt,
+            ]);
+        } catch (UniqueConstraintViolationException) {
+            return BrandContextActivity::query()
+                ->where('domain_event_id', $event->id)
+                ->first();
+        }
     }
 
     /**

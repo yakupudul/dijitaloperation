@@ -27,25 +27,12 @@
             @endif
         </div>
         <ul class="max-h-80 divide-y divide-gray-100 overflow-y-auto dark:divide-gray-800">
-            @if ($items->isNotEmpty())
+            @if (count($items) > 0)
                 @foreach ($items as $item)
-                    <li class="px-4 py-3 text-sm">
-                        <p class="font-medium text-gray-800 dark:text-white/90">{{ data_get($item->data, 'title', __('operator.notifications.item')) }}</p>
-                        <p class="mt-1 text-xs text-gray-500">{{ data_get($item->data, 'body', $item->created_at?->diffForHumans()) }}</p>
-                        @if ($item->unread())
-                            <button type="button" wire:click="markRead('{{ $item->id }}')" class="mt-2 text-xs font-medium text-brand-600 hover:underline">{{ __('operator.notifications.mark_read') }}</button>
-                        @endif
-                    </li>
-                @endforeach
-            @elseif (count($demoItems ?? []) > 0)
-                @foreach ($demoItems as $item)
-                    <li class="px-4 py-3 text-sm {{ empty($item['read']) ? 'bg-brand-50/40 dark:bg-brand-500/5' : '' }}">
-                        <a href="{{ $item['url'] }}" wire:navigate class="block">
-                            <p class="font-medium text-gray-800 dark:text-white/90">{{ $item['title'] }}</p>
-                            <p class="mt-1 text-xs text-gray-500">{{ $item['body'] }}</p>
-                            <p class="mt-1 text-[11px] uppercase tracking-wide text-gray-400">{{ $item['category'] }}</p>
-                        </a>
-                        @if (empty($item['read']))
+                    <li class="px-4 py-3 text-sm {{ ! empty($item['is_unread']) ? 'bg-brand-50/40 dark:bg-brand-500/5' : '' }}">
+                        <p class="font-medium text-gray-800 dark:text-white/90">{{ $item['title'] ?? __('operator.notifications.item') }}</p>
+                        <p class="mt-1 text-xs text-gray-500">{{ $item['subject_label'] ?? ($item['created_at'] ?? '') }}</p>
+                        @if (! empty($item['is_unread']))
                             <button type="button" wire:click="markRead('{{ $item['id'] }}')" class="mt-2 text-xs font-medium text-brand-600 hover:underline">{{ __('operator.notifications.mark_read') }}</button>
                         @endif
                     </li>

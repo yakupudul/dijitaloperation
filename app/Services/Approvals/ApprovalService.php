@@ -7,11 +7,15 @@ use App\Enums\ApprovalDecision;
 use App\Enums\ApprovalKind;
 use App\Enums\ApprovalStatus;
 use App\Enums\ApprovalSubjectKind;
+use App\Enums\DomainEventActorKind;
+use App\Enums\DomainEventSubjectKind;
+use App\Enums\DomainEventType;
 use App\Exceptions\ApprovalValidationException;
 use App\Models\Approval;
 use App\Models\CustomerContact;
 use App\Models\Task;
 use App\Models\User;
+use App\Services\DomainEvents\DomainEventEmitter;
 use App\Support\Roles;
 use App\Support\Tasks\TaskReviewedStateFingerprint;
 use Illuminate\Database\QueryException;
@@ -27,6 +31,7 @@ final class ApprovalService
 {
     public function __construct(
         private readonly ApprovalActivityRecorder $activity,
+        private readonly DomainEventEmitter $domainEvents,
     ) {}
 
     /**
@@ -194,12 +199,33 @@ final class ApprovalService
             ])->save();
 
             $fresh = $locked->fresh(['task', 'decidedByUser', 'decidedByCustomerContact']) ?? $locked;
-            $event = match ($decision) {
-                ApprovalDecision::Approved => ApprovalActivityRecorder::APPROVED,
-                ApprovalDecision::Rejected => ApprovalActivityRecorder::REJECTED,
-                ApprovalDecision::ChangesRequested => ApprovalActivityRecorder::CHANGES_REQUESTED,
+            $eventType = match ($decision) {
+                ApprovalDecision::Approved => DomainEventType::ApprovalApproved,
+                ApprovalDecision::Rejected => DomainEventType::ApprovalRejected,
+                ApprovalDecision::ChangesRequested => DomainEventType::ApprovalChangesRequested,
             };
-            $this->activity->record($fresh, $event, $actor);
+
+            $eventActorKind = match ($actorKind) {
+                ApprovalActorKind::InternalUser => DomainEventActorKind::InternalUser,
+                ApprovalActorKind::ClientContact => DomainEventActorKind::ClientContact,
+            };
+
+            $this->domainEvents->emit([
+                'event_type' => $eventType,
+                'actor_kind' => $eventActorKind,
+                'actor_user_id' => $decidedByUserId,
+                'customer_id' => $fresh->customer_id,
+                'brand_id' => $fresh->brand_id,
+                'digital_asset_id' => $fresh->task?->digital_asset_id,
+                'subject_kind' => DomainEventSubjectKind::Approval,
+                'subject_id' => (int) $fresh->id,
+                'payload' => [
+                    'title' => $fresh->task?->title ?? ('Approval #'.$fresh->id),
+                    'decision' => $decision->value,
+                    'status' => ApprovalStatus::Decided->value,
+                    'task_id' => $fresh->task_id,
+                ],
+            ]);
 
             return $fresh;
         });

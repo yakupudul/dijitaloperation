@@ -2,6 +2,9 @@
 
 namespace App\Services\Findings;
 
+use App\Enums\DomainEventActorKind;
+use App\Enums\DomainEventSubjectKind;
+use App\Enums\DomainEventType;
 use App\Enums\FindingConditionState;
 use App\Enums\FindingEligibilityDisposition;
 use App\Enums\FindingLifecycleAction;
@@ -11,6 +14,7 @@ use App\Models\Evidence;
 use App\Models\Finding;
 use App\Models\FindingEvaluation;
 use App\Models\Run;
+use App\Services\DomainEvents\DomainEventEmitter;
 use App\Support\Evidence\Dto\CanonicalEvidenceDto;
 use App\Support\Findings\FindingRule;
 use App\Support\Findings\FindingRuleEvaluationResult;
@@ -27,6 +31,7 @@ final class FindingPersistenceService
         private readonly FindingEvaluationFingerprintBuilder $evaluationFingerprints,
         private readonly FindingPresentationRenderer $presentation,
         private readonly FindingActivityRecorder $activity,
+        private readonly DomainEventEmitter $domainEvents,
     ) {}
 
     /**
@@ -286,7 +291,22 @@ final class FindingPersistenceService
                 'last_run_id' => $run->id,
                 'resolved_at' => null,
             ]);
-            $this->activity->record($asset, $finding, FindingActivityRecorder::CREATED, FindingLifecycleAction::Created, $rule);
+            $this->domainEvents->emit([
+                'event_type' => DomainEventType::FindingCreated,
+                'actor_kind' => DomainEventActorKind::System,
+                'actor_user_id' => null,
+                'customer_id' => $finding->customer_id,
+                'brand_id' => $finding->brand_id,
+                'digital_asset_id' => $finding->digital_asset_id,
+                'subject_kind' => DomainEventSubjectKind::Finding,
+                'subject_id' => (int) $finding->id,
+                'payload' => [
+                    'title' => (string) $finding->title,
+                    'severity' => (string) $finding->severity,
+                    'status' => (string) $finding->status,
+                    'rule_id' => $rule->stableId,
+                ],
+            ]);
 
             return [$finding, FindingLifecycleAction::Created];
         }
