@@ -535,7 +535,7 @@ return [
 
     'playbooks' => [
         'catalog' => 'Playbook',
-        'catalog_subtitle' => 'Operasyon standartları — yalnızca oturum kataloğu (Demo).',
+        'catalog_subtitle' => 'Operasyon standartları — üretim Playbook kataloğu.',
         'settings_defaults' => 'Varsayılanlar',
         'standard_label' => 'Operasyon standardı',
         'overview' => 'Genel bakış',

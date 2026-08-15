@@ -2,7 +2,7 @@
 
 namespace App\Livewire\Demo;
 
-use App\Support\Demo\AgencyExecutionFixtures;
+use App\Services\Playbooks\PlaybookReadService;
 use App\Support\Demo\ClientValueFixtures;
 use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
@@ -101,9 +101,9 @@ class GlobalSearch extends Component
                 }
             }
 
-            foreach (AgencyExecutionFixtures::playbooks() as $playbook) {
+            foreach (app(PlaybookReadService::class)->forList(['status' => 'active', 'search' => $needle], 20) as $playbook) {
                 $name = (string) ($playbook['name'] ?? '');
-                if ($name !== '' && str_contains(mb_strtolower($name), $needle)) {
+                if ($name !== '') {
                     $results[] = [
                         'label' => $name,
                         'meta' => 'Playbook',

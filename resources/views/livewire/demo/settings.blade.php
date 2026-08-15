@@ -139,7 +139,7 @@
                                 <li class="flex flex-wrap items-center justify-between gap-3 py-3">
                                     <div>
                                         <p class="font-medium text-gray-800 dark:text-white/90">{{ $playbook['name'] }}</p>
-                                        <p class="text-xs text-gray-500">{{ $playbook['service_label'] }} · {{ ucfirst($playbook['cadence']) }} · {{ $playbook['default_owner_name'] }}</p>
+                                        <p class="text-xs text-gray-500">{{ $playbook['service_label'] ?? '' }} · {{ ucfirst($playbook['cadence'] ?? '') }}@if (! empty($playbook['default_owner_name'])) · {{ $playbook['default_owner_name'] }}@endif</p>
                                     </div>
                                     <x-ta.button :href="route('demo.settings.playbook', ['playbookId' => $playbook['id']])" size="sm" variant="outline">{{ __('operator.actions.open') }}</x-ta.button>
                                 </li>

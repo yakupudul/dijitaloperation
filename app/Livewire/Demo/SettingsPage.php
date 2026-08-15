@@ -2,9 +2,9 @@
 
 namespace App\Livewire\Demo;
 
+use App\Services\Playbooks\PlaybookReadService;
 use App\Support\Agents\AgentProfileRegistry;
 use App\Support\Ai\AiRouteRegistry;
-use App\Support\Demo\AgencyExecutionFixtures;
 use App\Support\Demo\DemoState;
 use App\Support\Demo\GlobalOperatingFixtures;
 use App\Support\Skills\SkillDefinition;
@@ -190,7 +190,7 @@ class SettingsPage extends Component
         return view('livewire.demo.settings', [
             'sections' => GlobalOperatingFixtures::settingsSections(),
             'settings' => $settings,
-            'playbooks' => AgencyExecutionFixtures::playbooks(),
+            'playbooks' => app(PlaybookReadService::class)->forList(['status' => 'active']),
             'aiRoutes' => $routes,
             'aiAgents' => $agents,
             'aiSkills' => $skills,

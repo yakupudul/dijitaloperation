@@ -20,6 +20,7 @@ use App\Models\User;
 use App\Services\Approvals\ApprovalService;
 use App\Services\ClientRequests\CreateClientRequest;
 use App\Services\ClientRequests\CreateTaskFromClientRequest;
+use App\Services\Playbooks\SeedDefaultPlaybooks;
 use App\Services\Qa\QaService;
 use App\Support\Demo\AgencyExecutionFixtures;
 use App\Support\Demo\DemoCatalog;
@@ -51,6 +52,7 @@ class AgencyExecutionSystemTest extends TestCase
 
         DemoState::reset();
         $this->seedCanonicalWorkTasks();
+        app(SeedDefaultPlaybooks::class)->seed($user);
     }
 
     public function test_work_index_defaults_to_my_view(): void
@@ -239,13 +241,15 @@ class AgencyExecutionSystemTest extends TestCase
             ->map(fn ($file) => File::get($file->getPathname()))
             ->implode("\n");
 
-        // Prompt 42: client_requests. Prompt 43: tasks. Prompt 44: approvals + qa_reviews.
+        // Prompt 42–45 productionized requests/tasks/approvals/qa/playbooks.
         $this->assertTrue(Schema::hasTable('client_requests'));
         $this->assertTrue(Schema::hasTable('tasks'));
         $this->assertTrue(Schema::hasTable('approvals'));
         $this->assertTrue(Schema::hasTable('qa_reviews'));
+        $this->assertTrue(Schema::hasTable('playbooks'));
+        $this->assertTrue(Schema::hasTable('playbook_revisions'));
 
-        foreach (['playbooks', 'recurring_reviews'] as $table) {
+        foreach (['recurring_reviews'] as $table) {
             $this->assertFalse(Schema::hasTable($table), "Production table {$table} should not exist.");
             $this->assertStringNotContainsString("create('{$table}'", $migrationContents);
             $this->assertStringNotContainsString("create(\"{$table}\"", $migrationContents);

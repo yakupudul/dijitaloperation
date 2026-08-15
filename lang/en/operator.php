@@ -534,7 +534,7 @@ return [
 
     'playbooks' => [
         'catalog' => 'Playbooks',
-        'catalog_subtitle' => 'Operational standards — session catalog only (Demo).',
+        'catalog_subtitle' => 'Operational standards — production Playbook catalog.',
         'settings_defaults' => 'Defaults',
         'standard_label' => 'Operational standard',
         'overview' => 'Overview',

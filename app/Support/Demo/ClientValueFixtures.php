@@ -2,6 +2,8 @@
 
 namespace App\Support\Demo;
 
+use App\Services\Playbooks\PlaybookReadService;
+
 /**
  * Deterministic Client Value Story, Reports, and Decision presentation (Milestone 4).
  *
@@ -521,9 +523,13 @@ final class ClientValueFixtures
      */
     public static function workKnowledgeContext(?string $playbookId = 'pb-weekly-gads'): array
     {
-        $playbook = $playbookId !== null
-            ? AgencyExecutionFixtures::playbook($playbookId)
-            : AgencyExecutionFixtures::playbook('pb-weekly-gads');
+        $playbook = null;
+        if ($playbookId !== null) {
+            $playbook = app(PlaybookReadService::class)->findPresentation($playbookId);
+        }
+        if ($playbook === null) {
+            $playbook = app(PlaybookReadService::class)->findPresentation('pb-weekly-gads');
+        }
 
         $goals = CommercialContextFixtures::structuredGoalsForBrand(DemoCatalog::BRAND_ID);
         $primaryGoal = collect($goals)->firstWhere('tier', 'primary')
@@ -531,15 +537,16 @@ final class ClientValueFixtures
             ?? ['title' => 'Increase qualified implant consultations'];
 
         $decision = self::meaningfulDecisions('en')[1] ?? null;
+        $key = $playbook['stable_key'] ?? $playbook['id'] ?? null;
 
         return [
             'service' => $playbook['service_label'] ?? 'Google Ads Management',
             'goal' => $primaryGoal['title'] ?? 'Increase qualified implant consultations',
             'playbook' => [
-                'id' => $playbook['id'] ?? null,
+                'id' => $key,
                 'name' => $playbook['name'] ?? null,
-                'url' => isset($playbook['id'])
-                    ? route('demo.settings.playbook', ['playbookId' => $playbook['id']])
+                'url' => $key !== null
+                    ? route('demo.settings.playbook', ['playbookId' => $key])
                     : null,
             ],
             'decision' => $decision,

@@ -6,10 +6,10 @@ use App\Services\Work\WorkReadService;
 use Illuminate\Support\Collection;
 
 /**
- * Deterministic Atlas agency execution fixtures — playbooks, reviews, work queue helpers.
+ * Deterministic Atlas agency execution fixtures — residual recurring reviews helpers.
  *
- * Client Requests in Work are production DB-backed (Prompt 42 via ClientRequestReadService).
- * Playbooks / recurring reviews / approvals / QA remain Demo session fixtures.
+ * Client Requests / Approvals / QA / Playbooks are production DB-backed (Prompts 42–45).
+ * Recurring reviews remain Demo until Prompt 46.
  */
 final class AgencyExecutionFixtures
 {
