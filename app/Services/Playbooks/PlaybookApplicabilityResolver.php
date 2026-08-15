@@ -66,6 +66,28 @@ final class PlaybookApplicabilityResolver
     }
 
     /**
+     * Recurring Review schedules/runs evaluate applicability without a Task.
+     * Prefer the DigitalAsset when present; never invent a first Brand/Asset fallback.
+     *
+     * @return array{
+     *     applicable: bool,
+     *     service_match: bool|null,
+     *     service_scope_context: string,
+     *     execution_scope_compatible: bool|null,
+     *     asset_type_compatible: bool|null,
+     *     reasons: list<string>,
+     * }
+     */
+    public function resolveForReviewScope(
+        Playbook $playbook,
+        ?Customer $customer = null,
+        ?Brand $brand = null,
+        ?DigitalAsset $asset = null,
+    ): array {
+        return $this->resolve($playbook, $customer, $brand, null, $asset);
+    }
+
+    /**
      * ANY matching explicit Service is enough for Service relevance (OR semantics).
      */
     private function serviceMatch(PlaybookRevision $revision): ?bool

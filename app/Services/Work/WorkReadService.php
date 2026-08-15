@@ -4,15 +4,14 @@ namespace App\Services\Work;
 
 use App\Services\Approvals\ApprovalReadService;
 use App\Services\ClientRequests\ClientRequestReadService;
+use App\Services\RecurringReviews\RecurringReviewReadService;
 use App\Services\Tasks\TaskReadService;
-use App\Support\Demo\AgencyExecutionFixtures;
-use App\Support\Demo\DemoState;
 
 /**
  * Work aggregate read model over canonical Tasks (+ residual frozen non-Task types).
  *
  * Work is NOT a persistence domain. Work Item ID for tasks = Task ID.
- * Approvals / QA are production-backed (Prompt 44). Recurring reviews remain Demo until P46.
+ * Approvals / QA are production-backed (Prompt 44). Recurring reviews are production-backed (Prompt 46).
  */
 final class WorkReadService
 {
@@ -20,10 +19,11 @@ final class WorkReadService
         private readonly TaskReadService $tasks,
         private readonly ClientRequestReadService $clientRequests,
         private readonly ApprovalReadService $approvals,
+        private readonly RecurringReviewReadService $recurringReviews,
     ) {}
 
     /**
-     * Frozen Work list rows: production Tasks + Client Requests + Approvals + Demo reviews.
+     * Frozen Work list rows: production Tasks + Client Requests + Approvals + Recurring Reviews.
      *
      * @return list<array<string, mixed>>
      */
@@ -43,8 +43,8 @@ final class WorkReadService
             $items[] = $approval;
         }
 
-        foreach (DemoState::recurringReviewsWithState() as $review) {
-            $items[] = AgencyExecutionFixtures::mapRecurringReviewToWorkItemPublic($review);
+        foreach ($this->recurringReviews->forWorkItemPresentation(200) as $review) {
+            $items[] = $review;
         }
 
         return $items;
