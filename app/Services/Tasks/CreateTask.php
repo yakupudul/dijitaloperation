@@ -11,6 +11,7 @@ use App\Models\ClientRequest;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\Recommendation;
+use App\Models\RecurringReviewRunItem;
 use App\Models\Task;
 use App\Models\User;
 use App\Support\Roles;
@@ -44,6 +45,7 @@ final class CreateTask
      *     source_kind: string,
      *     recommendation_id?: int|null,
      *     client_request_id?: int|null,
+     *     recurring_review_run_item_id?: int|null,
      *     snapshot_json?: array<string, mixed>|null,
      *     status?: string|null,
      * }  $input
@@ -76,6 +78,7 @@ final class CreateTask
             'source_kind' => ['required', 'string', Rule::in(array_column(TaskSourceKind::cases(), 'value'))],
             'recommendation_id' => ['nullable', 'integer', Rule::exists('recommendations', 'id')],
             'client_request_id' => ['nullable', 'integer', Rule::exists('client_requests', 'id')],
+            'recurring_review_run_item_id' => ['nullable', 'integer', Rule::exists('recurring_review_run_items', 'id')],
             'status' => ['nullable', 'string', Rule::in(TaskStatus::all())],
         ])->validate();
 
@@ -91,6 +94,7 @@ final class CreateTask
             $sourceKind,
             isset($data['recommendation_id']) ? (int) $data['recommendation_id'] : null,
             isset($data['client_request_id']) ? (int) $data['client_request_id'] : null,
+            isset($data['recurring_review_run_item_id']) ? (int) $data['recurring_review_run_item_id'] : null,
         );
         $this->assertSourceTenantBoundary(
             $sourceKind,
@@ -98,11 +102,13 @@ final class CreateTask
             $brand,
             isset($data['recommendation_id']) ? (int) $data['recommendation_id'] : null,
             isset($data['client_request_id']) ? (int) $data['client_request_id'] : null,
+            isset($data['recurring_review_run_item_id']) ? (int) $data['recurring_review_run_item_id'] : null,
         );
 
         $attributes = [
             'recommendation_id' => $data['recommendation_id'] ?? null,
             'client_request_id' => $data['client_request_id'] ?? null,
+            'recurring_review_run_item_id' => $data['recurring_review_run_item_id'] ?? null,
             'client_request_task_idempotency_key' => $sourceKind === TaskSourceKind::ClientRequest ? $idempotencyKey : null,
             'source_kind' => $sourceKind->value,
             'idempotency_key' => $idempotencyKey,
@@ -206,32 +212,41 @@ final class CreateTask
         TaskSourceKind $sourceKind,
         ?int $recommendationId,
         ?int $clientRequestId,
+        ?int $recurringReviewRunItemId,
     ): void {
         match ($sourceKind) {
-            TaskSourceKind::Recommendation => $this->assertRecommendationSource($recommendationId, $clientRequestId),
-            TaskSourceKind::ClientRequest => $this->assertClientRequestSource($recommendationId, $clientRequestId),
-            TaskSourceKind::Direct => $this->assertDirectSource($recommendationId, $clientRequestId),
+            TaskSourceKind::Recommendation => $this->assertRecommendationSource($recommendationId, $clientRequestId, $recurringReviewRunItemId),
+            TaskSourceKind::ClientRequest => $this->assertClientRequestSource($recommendationId, $clientRequestId, $recurringReviewRunItemId),
+            TaskSourceKind::Direct => $this->assertDirectSource($recommendationId, $clientRequestId, $recurringReviewRunItemId),
+            TaskSourceKind::RecurringReviewCheck => $this->assertRecurringReviewSource($recommendationId, $clientRequestId, $recurringReviewRunItemId),
         };
     }
 
-    private function assertRecommendationSource(?int $recommendationId, ?int $clientRequestId): void
+    private function assertRecommendationSource(?int $recommendationId, ?int $clientRequestId, ?int $recurringReviewRunItemId): void
     {
-        if ($recommendationId === null || $clientRequestId !== null) {
-            throw new TaskSourceValidationException('RECOMMENDATION source requires recommendation_id and null client_request_id.');
+        if ($recommendationId === null || $clientRequestId !== null || $recurringReviewRunItemId !== null) {
+            throw new TaskSourceValidationException('RECOMMENDATION source requires recommendation_id and null competing FKs.');
         }
     }
 
-    private function assertClientRequestSource(?int $recommendationId, ?int $clientRequestId): void
+    private function assertClientRequestSource(?int $recommendationId, ?int $clientRequestId, ?int $recurringReviewRunItemId): void
     {
-        if ($clientRequestId === null || $recommendationId !== null) {
-            throw new TaskSourceValidationException('CLIENT_REQUEST source requires client_request_id and null recommendation_id.');
+        if ($clientRequestId === null || $recommendationId !== null || $recurringReviewRunItemId !== null) {
+            throw new TaskSourceValidationException('CLIENT_REQUEST source requires client_request_id and null competing FKs.');
         }
     }
 
-    private function assertDirectSource(?int $recommendationId, ?int $clientRequestId): void
+    private function assertDirectSource(?int $recommendationId, ?int $clientRequestId, ?int $recurringReviewRunItemId): void
     {
-        if ($recommendationId !== null || $clientRequestId !== null) {
-            throw new TaskSourceValidationException('DIRECT source requires both recommendation_id and client_request_id to be null.');
+        if ($recommendationId !== null || $clientRequestId !== null || $recurringReviewRunItemId !== null) {
+            throw new TaskSourceValidationException('DIRECT source requires all competing source FKs to be null.');
+        }
+    }
+
+    private function assertRecurringReviewSource(?int $recommendationId, ?int $clientRequestId, ?int $recurringReviewRunItemId): void
+    {
+        if ($recurringReviewRunItemId === null || $recommendationId !== null || $clientRequestId !== null) {
+            throw new TaskSourceValidationException('RECURRING_REVIEW_CHECK source requires recurring_review_run_item_id and null competing FKs.');
         }
     }
 
@@ -241,6 +256,7 @@ final class CreateTask
         ?Brand $brand,
         ?int $recommendationId,
         ?int $clientRequestId,
+        ?int $recurringReviewRunItemId,
     ): void {
         if ($sourceKind === TaskSourceKind::Recommendation && $recommendationId !== null) {
             $recommendation = Recommendation::query()->with(['digitalAsset.brand', 'finding', 'opportunity'])->findOrFail($recommendationId);
@@ -266,6 +282,17 @@ final class CreateTask
             }
             if ($request->brand_id !== null && $brand !== null && (int) $request->brand_id !== (int) $brand->id) {
                 throw new TaskSourceValidationException('Brand-scoped Client Request cannot create a cross-Brand Task.');
+            }
+        }
+
+        if ($sourceKind === TaskSourceKind::RecurringReviewCheck && $recurringReviewRunItemId !== null) {
+            $item = RecurringReviewRunItem::query()->with('run')->findOrFail($recurringReviewRunItemId);
+            $run = $item->run;
+            if ($run === null || (int) $run->customer_id !== (int) $customer->id) {
+                throw new TaskSourceValidationException('Recurring Review source Customer must match Task Customer.');
+            }
+            if ($run->brand_id !== null && $brand !== null && (int) $run->brand_id !== (int) $brand->id) {
+                throw new TaskSourceValidationException('Brand-scoped Recurring Review cannot create a cross-Brand Task.');
             }
         }
     }

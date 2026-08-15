@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Fillable([
     'recommendation_id',
     'client_request_id',
+    'recurring_review_run_item_id',
     'client_request_task_idempotency_key',
     'source_kind',
     'idempotency_key',
@@ -57,6 +58,14 @@ class Task extends Model
     public function clientRequest(): BelongsTo
     {
         return $this->belongsTo(ClientRequest::class);
+    }
+
+    /**
+     * @return BelongsTo<RecurringReviewRunItem, $this>
+     */
+    public function recurringReviewRunItem(): BelongsTo
+    {
+        return $this->belongsTo(RecurringReviewRunItem::class, 'recurring_review_run_item_id');
     }
 
     /**
