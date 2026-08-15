@@ -7,7 +7,7 @@ use App\Models\BrandContextActivity;
 use App\Models\RecurringReviewRun;
 use App\Models\RecurringReviewSchedule;
 use App\Models\User;
-use App\Services\BrandContext\BrandContextActivityRecorder;
+use App\Services\BrandIntelligence\BrandContextActivityRecorder;
 
 final class RecurringReviewActivityRecorder
 {

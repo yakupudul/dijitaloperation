@@ -7,9 +7,9 @@ use RuntimeException;
 final class RecurringReviewValidationException extends RuntimeException
 {
     public function __construct(
-        public readonly string $code,
+        public readonly string $errorCode,
         string $message = '',
     ) {
-        parent::__construct($message !== '' ? $message : $code);
+        parent::__construct($message !== '' ? $message : $errorCode);
     }
 }

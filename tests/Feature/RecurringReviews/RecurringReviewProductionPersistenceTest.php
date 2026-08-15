@@ -107,7 +107,7 @@ class RecurringReviewProductionPersistenceTest extends TestCase
             ], $this->actor);
             $this->fail('Expected CADENCE_REQUIRED');
         } catch (RecurringReviewValidationException $exception) {
-            $this->assertSame('CADENCE_REQUIRED', $exception->code);
+            $this->assertSame('CADENCE_REQUIRED', $exception->errorCode);
         }
 
         try {
@@ -123,7 +123,7 @@ class RecurringReviewProductionPersistenceTest extends TestCase
             ], $this->actor);
             $this->fail('Expected validation failure for empty checks');
         } catch (RecurringReviewValidationException $exception) {
-            $this->assertContains($exception->code, ['VALIDATION_FAILED', 'CHECKS_REQUIRED']);
+            $this->assertContains($exception->errorCode, ['VALIDATION_FAILED', 'CHECKS_REQUIRED']);
         }
     }
 
@@ -217,7 +217,7 @@ class RecurringReviewProductionPersistenceTest extends TestCase
             $complete->complete($items[1]->fresh(), 'opportunity', [], $this->actor);
             $this->fail('Expected CONFLICT');
         } catch (RecurringReviewValidationException $exception) {
-            $this->assertSame('CONFLICT', $exception->code);
+            $this->assertSame('CONFLICT', $exception->errorCode);
         }
 
         $completed = $runService->completeRun($run->fresh(['items']), $this->actor);
@@ -372,7 +372,7 @@ class RecurringReviewProductionPersistenceTest extends TestCase
             );
             $this->fail('Expected PLAYBOOK_UNAVAILABLE');
         } catch (RecurringReviewValidationException $exception) {
-            $this->assertSame('PLAYBOOK_UNAVAILABLE', $exception->code);
+            $this->assertSame('PLAYBOOK_UNAVAILABLE', $exception->errorCode);
         }
     }
 
