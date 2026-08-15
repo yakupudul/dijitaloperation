@@ -118,7 +118,7 @@ No universal/heuristic requirement. Explicit request. Projection `approval_requi
 
 `QaReadService` / `TaskReadService`: latest round by id; `is_current_for_subject`; UI `qa_status` maps passed→`approved`, pending→`ready`, stale→`stale`.
 
-Prompt 43 Work aggregate note: Approvals/QA productionized in Prompt 44; recurring reviews remain Demo until Prompt 46.
+Prompt 43 Work aggregate note: Approvals/QA productionized in Prompt 44; Recurring Reviews productionized in Prompt 46.
 
 ## 29. Approval Current Projection
 
@@ -158,7 +158,7 @@ No scope/billing/contract mutation.
 
 ## 38. Work Aggregate Integration
 
-`WorkReadService` projects Task QA/Approval; pending Approvals as work rows. No `works` table. Demo Approval fixtures removed from Work production path. Recurring reviews remain Demo until Prompt 46.
+`WorkReadService` projects Task QA/Approval; pending Approvals as work rows; Recurring Review Runs via Prompt 46. No `works` table. Demo Approval fixtures removed from Work production path.
 
 ## 39. Activity
 
@@ -242,7 +242,7 @@ Satisfied when canonical QA/Approval domains are REAL, distinct from Task, histo
 |---|---|---|---|
 | DemoState qa_states | DemoState | DEMO_ONLY | RETIRE from Work actions |
 | Work qa badges | WorkReadService | projection | EVOLVE→REAL |
-| Recurring Review | Demo | AMBIGUOUS vs QA | DISAMBIGUATE — Prompt 46 |
+| Recurring Review | production `recurring_review_*` | DISTINCT from QA | REAL — Prompt 46 |
 | qa_reviews table | NEW | CANONICAL | CANONICAL |
 
 ## DOMAIN SEMANTICS MATRIX
@@ -441,4 +441,6 @@ Satisfied when canonical QA/Approval domains are REAL, distinct from Task, histo
 | Work QA/Approval projections | REAL |
 | Demo fallback | NONE on production paths |
 | Task DONE→QA / QA PASS→Approval / Approval→Business Outcome | NO |
-| Playbooks / Recurring Reviews / Business Outcomes / AI | NOT YET / NO |
+| Playbooks | REAL (P45) |
+| Recurring Reviews | REAL (P46; distinct from qa_reviews) |
+| Business Outcomes / AI | NOT YET / NO |

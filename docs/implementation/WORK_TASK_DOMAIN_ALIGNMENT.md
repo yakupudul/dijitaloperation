@@ -160,7 +160,7 @@ Not supported. Source immutable on normal update.
 
 ## 33. Work Aggregate Read Architecture
 
-`TaskReadService` → `WorkReadService` → Operations Work UI. Residual Demo recurring reviews + waiting approvals remain until P44–46.
+`TaskReadService` → `WorkReadService` → Operations Work UI. Approvals/QA (P44), Playbooks (P45), and Recurring Reviews (P46) are production-backed on Work paths.
 
 ## 34. Work Filters
 
@@ -224,7 +224,7 @@ Task list eager-loads customer/brand/asset/assignee/recommendation/clientRequest
 
 ## 49. Reality Matrix
 
-See Prompt §344 expected column — Task Domain REAL/ALIGNED; Work persistence NONE; Recommendation→Task REAL; Client Request→Task REAL; Direct REAL; Approvals/QA/Playbooks/Reviews NOT YET.
+See Prompt §344 expected column — Task Domain REAL/ALIGNED; Work persistence NONE; Recommendation→Task REAL; Client Request→Task REAL; Direct REAL; Approvals/QA REAL (P44); Playbooks REAL (P45); Recurring Reviews REAL (P46).
 
 ## 50. Prompt 44 Handoff
 
@@ -454,5 +454,5 @@ See Prompt §361 — satisfied when quality gate green and matrices below hold.
 | Work persistence | NONE |
 | Approvals / QA | NOT YET (P44) |
 | Playbooks | NOT YET (P45) |
-| Recurring Reviews | NOT YET (P46) |
+| Recurring Reviews | REAL (P46) |
 | Business Outcomes / AI | NOT YET |

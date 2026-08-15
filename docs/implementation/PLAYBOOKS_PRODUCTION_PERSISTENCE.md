@@ -174,7 +174,7 @@ Production reads: DB only. `AgencyExecutionFixtures::playbooks()` remains seed-s
 
 ## 44. Reality Matrix
 
-Playbook Domain/Persistence/Identity/Revisions/Knowledge/Instructions/References/Applicability/Read/Write: REAL. Demo fallback: NONE. Auto Task/QA/Approval/Recommendation/AI: NO. Recurring Reviews: NOT YET (P46).
+Playbook Domain/Persistence/Identity/Revisions/Knowledge/Instructions/References/Applicability/Read/Write: REAL. Demo fallback: NONE. Auto Task/QA/Approval/Recommendation/AI: NO. Recurring Reviews: REAL (P46; schedules bind Playbook + revision snapshot; instructions not auto-converted to checks).
 
 ## 45. Prompt 46 Handoff
 
