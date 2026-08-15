@@ -131,14 +131,16 @@ class ProductVisionRecoveryTest extends TestCase
         $this->assertSame(Recommendation::STATUS_OPEN, $recommendation->fresh()->status);
     }
 
-    public function test_activity_period_filter_excludes_older_seed_events(): void
+    public function test_activity_period_filter_reads_production_store_without_demo_seed(): void
     {
         Livewire::test(ActivityIndex::class)
             ->assertOk()
             ->set('period', 'last_7')
+            ->assertSee('No activity matches this view')
             ->assertDontSee('Hosting probe failed')
             ->set('period', 'last_90')
-            ->assertSee('Hosting probe failed');
+            ->assertDontSee('Hosting probe failed')
+            ->assertSee('No activity matches this view');
     }
 
     public function test_brand_business_context_is_editable_as_canonical_source(): void

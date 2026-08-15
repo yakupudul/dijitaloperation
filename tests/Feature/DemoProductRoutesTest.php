@@ -112,8 +112,7 @@ class DemoProductRoutesTest extends TestCase
         $this->get(route('demo.activity'))
             ->assertOk()
             ->assertSee('Activity')
-            ->assertSee('Google Analytics collection completed')
-            ->assertSee('Recommendation accepted');
+            ->assertSee('No activity matches this view');
         $this->get(route('demo.integrations'))
             ->assertOk()
             ->assertSee('Integrations')

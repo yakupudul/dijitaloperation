@@ -207,13 +207,14 @@ class PanelDesignFreezeTest extends TestCase
         $this->assertStringContainsString('forbidden', strtolower($skillsHtml));
     }
 
-    public function test_notification_bell_has_deterministic_demo_state(): void
+    public function test_notification_bell_has_empty_production_state_without_demo_fallback(): void
     {
         Livewire::test(NotificationBell::class)
-            ->assertSee(__('operator.notifications.demo.overdue_review_title'))
-            ->assertSee(__('operator.notifications.demo.request_title'))
+            ->assertSee(__('operator.notifications.empty'))
+            ->assertDontSee(__('operator.notifications.demo.overdue_review_title'))
+            ->assertDontSee(__('operator.notifications.demo.request_title'))
             ->call('markAllRead')
-            ->assertDontSee(__('operator.notifications.empty'));
+            ->assertSee(__('operator.notifications.empty'));
     }
 
     public function test_magic_score_labels_remain_absent(): void

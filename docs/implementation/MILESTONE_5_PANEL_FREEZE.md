@@ -75,14 +75,15 @@ Status reference for the frozen `/app` operator panel. UI work after this docume
 | Recurring Reviews | CONVERGED / REAL | Prompt 46: canonical schedules/runs/check definitions/items; Playbook revision snapshot; outcome XOR (no_issue/finding/opportunity/task); Evidence `recurring_review.operator_observation`; Task source `recurring_review_check`; Work/Brand production-backed with no Demo fallback; materialize idempotent; automatic scheduler NOT YET (Prompt 61) |
 | QA | CONVERGED / REAL | Prompt 44: canonical `qa_reviews` rounds (Task subject only); status≠result; re-review history; Work projections; no structured Playbook checklist yet (Prompt 45); no Demo fallback on production paths |
 | Capacity | DEMO | Transparent thresholds, not a score |
-| Activity | DEMO | Timeline fixtures + scoped filters |
+| Activity | CONVERGED / REAL | Prompt 47: Domain Event → Activity projection into canonical `brand_context_activities` (`domain_event_id`); Operations Activity Index DB-backed via `ActivityReadService`; no Demo timeline fallback; scoped Customer/Brand/Asset filters; append-oriented history |
 | Operational Outcomes | DEMO | Observed after work — no automatic causation |
 | Business Outcomes | DEMO | Brand aggregate outcomes + Demo overrides |
 | Reports / Value Story | DEMO | Deterministic assembly; no PDF/email delivery |
 | AI Control Plane | PARTIAL | Route provider order editable under `/app`; credentials in Integrations |
 | Agents | PARTIAL | Full read-only catalog under `/app/settings/ai/agents` (code registry) |
 | Skills | PARTIAL | Full read-only catalog under `/app/settings/ai/skills` (code registry) |
-| Notifications | DEMO | Deterministic bell when DB empty; preferences in Settings |
+| Notifications | CONVERGED / REAL (in-app) | Prompt 47: persistent `user_notifications` + policy/recipient resolution + preferences; bell/list/unread/mark-read DB-backed; no Demo fallback; email/push/Slack/WhatsApp/SMS NOT IMPLEMENTED |
+| Meaningful Domain Events | CONVERGED / REAL | Prompt 47: bounded `DomainEventType` registry + durable `domain_events` identity/idempotency; FINDING_CREATED / RECOMMENDATION_ACCEPTED / TASK_COMPLETED / QA_PASSED / APPROVAL_APPROVED / RECURRING_REVIEW_COMPLETED wired |
 | Google Integration hub/detail (`/app/integrations`) | REAL (backend state) | Prompt 13–20: Core* + OAuth + discovery + human binding + collectors + initial backfill Collect Data |
 | Google connector workspaces | PARTIAL | GSC/GA4/Ads pools REAL via Prompt 17–19; GA4 specialist UI REAL/PARTIAL (Prompt 28); GSC specialist UI REAL/PARTIAL (Prompt 29); Ads specialist UI Demo until Prompt 30 |
 | Google Initial Backfill Planner | REAL | Registry-driven multi-connector plan; dataset-specific historical depth; materialization-aware |

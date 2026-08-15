@@ -127,15 +127,23 @@ return new class extends Migration
         Schema::dropIfExists('user_notifications');
 
         if (Schema::hasTable('brand_context_activities')) {
-            if ($this->hasIndexNamed('brand_context_activities', 'bca_domain_event_unique')) {
+            foreach (['bca_domain_event_unique', 'bca_customer_created_index', 'bca_asset_created_index'] as $indexName) {
+                if (! $this->hasIndexNamed('brand_context_activities', $indexName)) {
+                    continue;
+                }
                 if (Schema::getConnection()->getDriverName() === 'sqlite') {
-                    DB::statement('DROP INDEX IF EXISTS "bca_domain_event_unique"');
+                    DB::statement('DROP INDEX IF EXISTS "'.$indexName.'"');
                 } else {
-                    Schema::table('brand_context_activities', function (Blueprint $table): void {
-                        $table->dropUnique('bca_domain_event_unique');
+                    Schema::table('brand_context_activities', function (Blueprint $table) use ($indexName): void {
+                        if ($indexName === 'bca_domain_event_unique') {
+                            $table->dropUnique($indexName);
+                        } else {
+                            $table->dropIndex($indexName);
+                        }
                     });
                 }
             }
+
             Schema::table('brand_context_activities', function (Blueprint $table): void {
                 $columns = [];
                 foreach (['domain_event_id', 'customer_id', 'digital_asset_id', 'actor_kind', 'occurred_at'] as $column) {

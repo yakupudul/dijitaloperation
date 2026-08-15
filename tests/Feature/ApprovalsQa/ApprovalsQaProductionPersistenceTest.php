@@ -349,7 +349,8 @@ class ApprovalsQaProductionPersistenceTest extends TestCase
             ->pluck('event')
             ->all();
         $this->assertContains('QA_REQUESTED', $events);
-        $this->assertContains('QA_COMPLETED', $events);
+        $this->assertContains('QA_PASSED', $events);
+        $this->assertNotContains('QA_APPROVED', $events);
         $this->assertContains('APPROVAL_REQUESTED', $events);
         $this->assertContains('APPROVAL_APPROVED', $events);
 
