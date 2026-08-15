@@ -404,4 +404,144 @@ class RecurringReviewProductionPersistenceTest extends TestCase
         $this->assertSame(1, RecurringReviewCheckDefinition::query()->where('schedule_id', $schedule->id)->where('is_active', true)->count());
         $this->assertSame('Replacement', RecurringReviewCheckDefinition::query()->where('schedule_id', $schedule->id)->where('is_active', true)->value('title'));
     }
+
+    public function test_finding_dedup_across_runs_and_no_issue_does_not_resolve(): void
+    {
+        $schedule = app(RecurringReviewScheduleService::class)->create([
+            'customer_id' => $this->customer->id,
+            'scope_kind' => RecurringReviewScopeKind::DigitalAsset->value,
+            'brand_id' => $this->brand->id,
+            'digital_asset_id' => $this->asset->id,
+            'playbook_id' => $this->playbook->id,
+            'cadence' => RecurringReviewCadence::Monthly->value,
+            'timezone' => 'UTC',
+            'starts_at' => now()->toDateTimeString(),
+            'checks' => [['title' => 'Persistent issue']],
+        ], $this->actor);
+
+        $run1 = app(MaterializeRecurringReviewOccurrence::class)->materialize(
+            $schedule,
+            'manual:find-1',
+            now(),
+            RecurringReviewOccurrenceKind::Manual,
+            $this->actor,
+        );
+        $item1 = $run1->items()->firstOrFail();
+        $first = app(CompleteRecurringReviewCheck::class)->complete($item1, 'finding', [], $this->actor, 'find-1');
+        $this->assertSame(1, Finding::query()->count());
+
+        $run2 = app(MaterializeRecurringReviewOccurrence::class)->materialize(
+            $schedule,
+            'manual:find-2',
+            now()->addMonth(),
+            RecurringReviewOccurrenceKind::Manual,
+            $this->actor,
+        );
+        $item2 = $run2->items()->firstOrFail();
+        $second = app(CompleteRecurringReviewCheck::class)->complete($item2, 'finding', [], $this->actor, 'find-2');
+        $this->assertSame(1, Finding::query()->count());
+        $this->assertSame($first['finding']->id, $second['finding']->id);
+        $this->assertSame(Finding::STATUS_OPEN, $second['finding']->fresh()->status);
+        $this->assertSame(0, Task::query()->count());
+        $this->assertSame(0, Recommendation::query()->count());
+
+        $run3 = app(MaterializeRecurringReviewOccurrence::class)->materialize(
+            $schedule,
+            'manual:find-3',
+            now()->addMonths(2),
+            RecurringReviewOccurrenceKind::Manual,
+            $this->actor,
+        );
+        $item3 = $run3->items()->firstOrFail();
+        app(CompleteRecurringReviewCheck::class)->complete($item3, 'no_issue', [], $this->actor, 'find-3');
+        $this->assertSame(Finding::STATUS_OPEN, Finding::query()->firstOrFail()->status);
+        $this->assertGreaterThanOrEqual(2, Evidence::query()->count());
+    }
+
+    public function test_invalid_brand_and_first_brand_fallback_rejected(): void
+    {
+        $otherCustomer = Customer::factory()->create();
+        $foreignBrand = Brand::factory()->create(['customer_id' => $otherCustomer->id]);
+
+        try {
+            app(RecurringReviewScheduleService::class)->create([
+                'customer_id' => $this->customer->id,
+                'scope_kind' => RecurringReviewScopeKind::Brand->value,
+                'brand_id' => $foreignBrand->id,
+                'playbook_id' => $this->playbook->id,
+                'cadence' => RecurringReviewCadence::Weekly->value,
+                'timezone' => 'UTC',
+                'starts_at' => now()->toDateTimeString(),
+                'checks' => [['title' => 'Bad brand']],
+            ], $this->actor);
+            $this->fail('Expected hierarchy validation');
+        } catch (RecurringReviewValidationException $exception) {
+            $this->assertNotSame('', $exception->errorCode);
+        }
+
+        try {
+            app(RecurringReviewScheduleService::class)->create([
+                'customer_id' => $this->customer->id,
+                'scope_kind' => RecurringReviewScopeKind::Brand->value,
+                'brand_id' => null,
+                'playbook_id' => $this->playbook->id,
+                'cadence' => RecurringReviewCadence::Weekly->value,
+                'timezone' => 'UTC',
+                'starts_at' => now()->toDateTimeString(),
+                'checks' => [['title' => 'Missing brand']],
+            ], $this->actor);
+            $this->fail('Expected scope shape rejection');
+        } catch (RecurringReviewValidationException $exception) {
+            $this->assertNotSame('', $exception->errorCode);
+        }
+
+        $this->assertSame(0, RecurringReviewSchedule::query()->count());
+    }
+
+    public function test_no_scheduler_registration_in_prompt_46(): void
+    {
+        $console = file_get_contents(base_path('routes/console.php')) ?: '';
+        $this->assertStringNotContainsString('RecurringReview', $console);
+        $this->assertStringNotContainsString('MaterializeRecurringReview', $console);
+
+        $migration = file_get_contents(database_path('migrations/2026_08_15_220000_create_recurring_review_tables.php')) ?: '';
+        $this->assertStringNotContainsString('Schedule::', $migration);
+        $this->assertTrue(class_exists(MaterializeRecurringReviewOccurrence::class));
+    }
+
+    public function test_review_completion_allows_open_downstream_objects(): void
+    {
+        $schedule = app(RecurringReviewScheduleService::class)->create([
+            'customer_id' => $this->customer->id,
+            'scope_kind' => RecurringReviewScopeKind::DigitalAsset->value,
+            'brand_id' => $this->brand->id,
+            'digital_asset_id' => $this->asset->id,
+            'playbook_id' => $this->playbook->id,
+            'cadence' => RecurringReviewCadence::Weekly->value,
+            'timezone' => 'UTC',
+            'starts_at' => now()->toDateTimeString(),
+            'checks' => [
+                ['title' => 'Finding check'],
+                ['title' => 'Task check'],
+            ],
+        ], $this->actor);
+
+        $run = app(MaterializeRecurringReviewOccurrence::class)->materialize(
+            $schedule,
+            'manual:complete-open',
+            now(),
+            RecurringReviewOccurrenceKind::Manual,
+            $this->actor,
+        );
+        app(RecurringReviewRunService::class)->startRun($run, $this->actor);
+        $items = $run->items()->orderBy('position')->get();
+
+        app(CompleteRecurringReviewCheck::class)->complete($items[0], 'finding', [], $this->actor, 'c-find');
+        app(CompleteRecurringReviewCheck::class)->complete($items[1], 'task', ['title' => 'Ops fix'], $this->actor, 'c-task');
+
+        $completed = app(RecurringReviewRunService::class)->completeRun($run->fresh(['items']), $this->actor);
+        $this->assertSame(RecurringReviewRunStatus::Completed, $completed->status);
+        $this->assertSame(Finding::STATUS_OPEN, Finding::query()->firstOrFail()->status);
+        $this->assertSame(TaskStatus::OPEN, Task::query()->firstOrFail()->status);
+    }
 }

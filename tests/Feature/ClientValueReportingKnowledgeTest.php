@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\RecurringReviewOccurrenceKind;
 use App\Livewire\Demo\CaptureModal;
 use App\Livewire\Demo\Dashboard;
 use App\Livewire\Demo\GlobalSearch;
@@ -9,8 +10,14 @@ use App\Livewire\Demo\Operations\WorkShow;
 use App\Livewire\Demo\Portfolio\BrandShow;
 use App\Livewire\Demo\Portfolio\CustomerDetail;
 use App\Livewire\Demo\Settings\PlaybookShow;
+use App\Models\Brand;
+use App\Models\Customer;
+use App\Models\DigitalAsset;
+use App\Models\Playbook;
 use App\Models\User;
 use App\Services\Playbooks\SeedDefaultPlaybooks;
+use App\Services\RecurringReviews\MaterializeRecurringReviewOccurrence;
+use App\Services\RecurringReviews\RecurringReviewScheduleService;
 use App\Support\Demo\ClientValueFixtures;
 use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
@@ -146,7 +153,32 @@ class ClientValueReportingKnowledgeTest extends TestCase
 
     public function test_work_contextual_knowledge(): void
     {
-        Livewire::test(WorkShow::class, ['workId' => 'rr-gads-aug13', 'type' => 'recurring_review'])
+        $customer = Customer::factory()->create();
+        $brand = Brand::factory()->create(['customer_id' => $customer->id]);
+        $asset = DigitalAsset::factory()->create(['brand_id' => $brand->id, 'type' => 'google_ads']);
+        $playbook = Playbook::query()->where('stable_key', 'pb-weekly-gads')->firstOrFail();
+
+        $schedule = app(RecurringReviewScheduleService::class)->create([
+            'customer_id' => $customer->id,
+            'scope_kind' => 'digital_asset',
+            'brand_id' => $brand->id,
+            'digital_asset_id' => $asset->id,
+            'playbook_id' => $playbook->id,
+            'cadence' => 'weekly',
+            'timezone' => 'UTC',
+            'starts_at' => now()->toDateTimeString(),
+            'checks' => [['title' => 'Confirm conversion signal']],
+        ], auth()->user(), 'cv-rr-sched');
+
+        $run = app(MaterializeRecurringReviewOccurrence::class)->materialize(
+            $schedule,
+            'manual:cv-knowledge',
+            now(),
+            RecurringReviewOccurrenceKind::Manual,
+            auth()->user(),
+        );
+
+        Livewire::test(WorkShow::class, ['workId' => (string) $run->id, 'type' => 'recurring_review'])
             ->assertOk()
             ->assertSee(__('operator.value.work_context'))
             ->assertSee(__('operator.value.work_context_playbook'));

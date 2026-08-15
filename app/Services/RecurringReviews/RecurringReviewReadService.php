@@ -139,6 +139,37 @@ final class RecurringReviewReadService
     }
 
     /**
+     * @return list<array<string, mixed>>
+     */
+    public function forBrandPresentation(int $brandId, int $limit = 100): array
+    {
+        $now = now();
+
+        return RecurringReviewRun::query()
+            ->with([
+                'customer:id,name',
+                'brand:id,name',
+                'digitalAsset:id,name,type',
+                'reviewer:id,name',
+                'playbook:id,stable_key',
+                'playbookRevision:id,title',
+                'schedule:id,owner_user_id,default_reviewer_user_id,playbook_id',
+                'schedule.owner:id,name',
+            ])
+            ->where('brand_id', $brandId)
+            ->whereIn('status', [
+                RecurringReviewRunStatus::Scheduled->value,
+                RecurringReviewRunStatus::InProgress->value,
+                RecurringReviewRunStatus::Completed->value,
+            ])
+            ->orderByDesc('due_at')
+            ->limit($limit)
+            ->get()
+            ->map(fn (RecurringReviewRun $run): array => $this->toWorkItem($run, $now))
+            ->all();
+    }
+
+    /**
      * @param  Builder<RecurringReviewSchedule>  $query
      * @param  array<string, mixed>  $filters
      */
@@ -207,18 +238,27 @@ final class RecurringReviewReadService
      */
     private function runPresentation(RecurringReviewRun $run): array
     {
+        $now = now();
+        $work = $this->toWorkItem($run, $now);
+
         return [
             'id' => $run->id,
+            'title' => $work['title'],
             'schedule_id' => $run->schedule_id,
             'occurrence_key' => $run->occurrence_key,
             'occurrence_kind' => $run->occurrence_kind instanceof \BackedEnum
                 ? $run->occurrence_kind->value
                 : $run->occurrence_kind,
             'due_at' => $run->due_at?->toIso8601String(),
-            'status' => $run->status instanceof \BackedEnum ? $run->status->value : $run->status,
+            'due' => $work['due'],
+            'due_key' => $work['due_key'],
+            'status' => $work['status'],
+            'run_status' => $run->status instanceof \BackedEnum ? $run->status->value : $run->status,
             'playbook_id' => $run->playbook_id,
+            'playbook_stable_key' => $run->playbook?->stable_key,
             'playbook_revision_id' => $run->playbook_revision_id,
             'playbook_title' => $run->playbookRevision?->title,
+            'playbook_name' => $run->playbookRevision?->title,
             'customer_id' => $run->customer_id,
             'customer' => $run->customer?->name,
             'brand_id' => $run->brand_id,
@@ -229,6 +269,7 @@ final class RecurringReviewReadService
                 ? $run->scope_kind->value
                 : $run->scope_kind,
             'service_scope_context' => $run->service_scope_context_json,
+            'owner' => $work['owner'],
             'reviewer' => $run->reviewer?->name,
             'reviewer_user_id' => $run->reviewer_user_id,
             'started_at' => $run->started_at?->toIso8601String(),
@@ -306,6 +347,7 @@ final class RecurringReviewReadService
             'source_label' => 'Playbook',
             'in_scope' => true,
             'playbook_id' => $run->playbook_id,
+            'playbook_stable_key' => $run->playbook?->stable_key,
             'schedule_id' => $run->schedule_id,
             'route' => 'demo.work.show',
             'route_params' => ['workId' => $run->id, 'type' => 'recurring_review'],

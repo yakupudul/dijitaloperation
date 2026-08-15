@@ -8,6 +8,7 @@ use App\Services\Approvals\ApprovalUiActions;
 use App\Services\ClientRequests\ClientRequestReadService;
 use App\Services\ClientRequests\ClientRequestUiActions;
 use App\Services\Qa\QaUiActions;
+use App\Services\RecurringReviews\RecurringReviewUiActions;
 use App\Services\Tasks\TaskReadService;
 use App\Support\Demo\ClientValueFixtures;
 use App\Support\Demo\DemoState;
@@ -78,12 +79,34 @@ class WorkShow extends Component
 
     public function completeReview(string $result): void
     {
-        DemoState::completeRecurringReview($this->workId, $result);
+        if ($this->type !== 'recurring_review') {
+            return;
+        }
+
+        $outcome = app(RecurringReviewUiActions::class)->completeReview(
+            $this->workId,
+            $result,
+            auth()->user(),
+            'rr-ui:'.$this->workId.':'.$result.':'.$this->taskCreateNonce,
+        );
+        DemoState::flash($outcome['message'] ?? '');
+        if ($outcome['ok']) {
+            $this->taskCreateNonce = (string) Str::uuid();
+        }
     }
 
     public function skipReview(): void
     {
-        DemoState::skipRecurringReview($this->workId, 'Skipped by operator');
+        if ($this->type !== 'recurring_review') {
+            return;
+        }
+
+        $outcome = app(RecurringReviewUiActions::class)->skipReview(
+            $this->workId,
+            auth()->user(),
+            'Skipped by operator',
+        );
+        DemoState::flash($outcome['message'] ?? '');
     }
 
     public function approve(): void
@@ -124,8 +147,8 @@ class WorkShow extends Component
     {
         $item = $this->resolveItem();
         $playbookId = 'pb-weekly-gads';
-        if ($this->type === 'recurring_review' && is_array($item) && ! empty($item['playbook_id'])) {
-            $playbookId = (string) $item['playbook_id'];
+        if ($this->type === 'recurring_review' && is_array($item)) {
+            $playbookId = (string) ($item['playbook_stable_key'] ?? $item['playbook_id'] ?? $playbookId);
         }
 
         return view('livewire.demo.operations.work-show', [
@@ -143,11 +166,19 @@ class WorkShow extends Component
     {
         return match ($this->type) {
             'client_request' => $this->resolveClientRequest(),
-            'recurring_review' => collect(DemoState::recurringReviewsWithState())->firstWhere('id', $this->workId),
+            'recurring_review' => $this->resolveRecurringReview(),
             'approval' => $this->resolveApproval(),
             'task' => $this->resolveTask(),
             default => null,
         };
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function resolveRecurringReview(): ?array
+    {
+        return app(RecurringReviewUiActions::class)->findPresentation($this->workId);
     }
 
     /**

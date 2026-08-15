@@ -8,6 +8,7 @@ use App\Services\Approvals\ApprovalReadService;
 use App\Services\ClientRequests\ClientRequestReadService;
 use App\Services\CreateTaskFromRecommendation;
 use App\Services\Opportunities\OpportunityReadService;
+use App\Services\RecurringReviews\RecurringReviewReadService;
 use App\Support\Demo\AgencyExecutionFixtures;
 use App\Support\Demo\BrandPublicDiscoveryFixtures;
 use App\Support\Demo\BusinessOutcomeFixtures;
@@ -1075,10 +1076,11 @@ class BrandShow extends Component
             $brandRequests = app(ClientRequestReadService::class)
                 ->forBrandPresentation((int) ($brandRow['id'] ?? $this->brand));
         }
-        $brandReviews = collect(DemoState::recurringReviewsWithState())
-            ->filter(fn (array $row): bool => ($row['brand_id'] ?? '') === ($brandRow['id'] ?? ''))
-            ->values()
-            ->all();
+        $brandReviews = [];
+        if (ctype_digit((string) ($brandRow['id'] ?? $this->brand))) {
+            $brandReviews = app(RecurringReviewReadService::class)
+                ->forBrandPresentation((int) ($brandRow['id'] ?? $this->brand));
+        }
         $brandApprovals = [];
         if (ctype_digit((string) ($brandRow['id'] ?? $this->brand))) {
             $brandApprovals = app(ApprovalReadService::class)

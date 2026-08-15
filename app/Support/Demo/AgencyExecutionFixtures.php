@@ -722,7 +722,7 @@ final class AgencyExecutionFixtures
             })->take(8)->values()->all(),
             'team_capacity' => self::teamCapacity(),
             'recurring_reviews_due' => $openItems->where('type', 'recurring_review')
-                ->whereIn('status', ['due', 'overdue', 'upcoming'])
+                ->whereIn('status', ['due', 'overdue', 'upcoming', 'scheduled', 'in_progress'])
                 ->take(5)->values()->all(),
             'portfolio_focus' => self::portfolioFocus(),
             'system_exceptions' => collect(GlobalOperatingFixtures::integrationAttention())

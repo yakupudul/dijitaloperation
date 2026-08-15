@@ -6,6 +6,7 @@ use App\Enums\ClientRequestStatus;
 use App\Services\Approvals\ApprovalUiActions;
 use App\Services\ClientRequests\ClientRequestUiActions;
 use App\Services\Qa\QaUiActions;
+use App\Services\RecurringReviews\RecurringReviewUiActions;
 use App\Services\Work\WorkReadService;
 use App\Support\Demo\AgencyExecutionFixtures;
 use App\Support\Demo\DemoState;
@@ -110,12 +111,22 @@ class TasksIndex extends Component
 
     public function completeReview(string $id, string $result): void
     {
-        DemoState::completeRecurringReview($id, $result);
+        $outcome = app(RecurringReviewUiActions::class)->completeReview(
+            $id,
+            $result,
+            auth()->user(),
+            'rr-ui:'.$id.':'.$result.':'.$this->taskCreateNonce,
+        );
+        DemoState::flash($outcome['message'] ?? '');
+        if ($outcome['ok']) {
+            $this->taskCreateNonce = (string) Str::uuid();
+        }
     }
 
     public function skipReview(string $id): void
     {
-        DemoState::skipRecurringReview($id, 'Skipped by operator');
+        $outcome = app(RecurringReviewUiActions::class)->skipReview($id, auth()->user(), 'Skipped by operator');
+        DemoState::flash($outcome['message'] ?? '');
     }
 
     public function approveItem(string $id): void

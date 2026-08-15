@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Enums\ClientRequestStatus;
+use App\Enums\RecurringReviewOccurrenceKind;
+use App\Enums\RecurringReviewRunStatus;
 use App\Livewire\Demo\CaptureModal;
 use App\Livewire\Demo\Dashboard;
 use App\Livewire\Demo\Operations\TasksIndex;
@@ -14,6 +16,9 @@ use App\Models\Brand;
 use App\Models\ClientRequest;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
+use App\Models\Opportunity;
+use App\Models\Playbook;
+use App\Models\Recommendation;
 use App\Models\ServiceDefinition;
 use App\Models\Task;
 use App\Models\User;
@@ -22,6 +27,8 @@ use App\Services\ClientRequests\CreateClientRequest;
 use App\Services\ClientRequests\CreateTaskFromClientRequest;
 use App\Services\Playbooks\SeedDefaultPlaybooks;
 use App\Services\Qa\QaService;
+use App\Services\RecurringReviews\MaterializeRecurringReviewOccurrence;
+use App\Services\RecurringReviews\RecurringReviewScheduleService;
 use App\Support\Demo\AgencyExecutionFixtures;
 use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
@@ -57,6 +64,31 @@ class AgencyExecutionSystemTest extends TestCase
 
     public function test_work_index_defaults_to_my_view(): void
     {
+        $customer = Customer::factory()->create();
+        $brand = Brand::factory()->create(['customer_id' => $customer->id]);
+        $asset = DigitalAsset::factory()->create(['brand_id' => $brand->id, 'type' => 'google_ads']);
+        $playbook = Playbook::query()->where('stable_key', 'pb-weekly-gads')->firstOrFail();
+
+        $schedule = app(RecurringReviewScheduleService::class)->create([
+            'customer_id' => $customer->id,
+            'scope_kind' => 'digital_asset',
+            'brand_id' => $brand->id,
+            'digital_asset_id' => $asset->id,
+            'playbook_id' => $playbook->id,
+            'cadence' => 'weekly',
+            'timezone' => 'UTC',
+            'starts_at' => now()->subDay()->toDateTimeString(),
+            'checks' => [['title' => 'Confirm conversion signal']],
+        ], auth()->user(), 'agency-rr-sched');
+
+        app(MaterializeRecurringReviewOccurrence::class)->materialize(
+            $schedule,
+            'manual:agency-exec',
+            now(),
+            RecurringReviewOccurrenceKind::Manual,
+            auth()->user(),
+        );
+
         Livewire::test(TasksIndex::class)
             ->assertSet('view', 'my')
             ->assertSee('Investigate lead measurement')
@@ -123,18 +155,57 @@ class AgencyExecutionSystemTest extends TestCase
 
     public function test_recurring_review_complete_no_issue_and_opportunity(): void
     {
-        Livewire::test(WorkShow::class, ['workId' => 'rr-gads-aug13', 'type' => 'recurring_review'])
+        $customer = Customer::factory()->create();
+        $brand = Brand::factory()->create(['customer_id' => $customer->id]);
+        $asset = DigitalAsset::factory()->create(['brand_id' => $brand->id, 'type' => 'google_ads']);
+        $playbook = Playbook::query()->where('stable_key', 'pb-weekly-gads')->firstOrFail();
+
+        $schedule = app(RecurringReviewScheduleService::class)->create([
+            'customer_id' => $customer->id,
+            'scope_kind' => 'digital_asset',
+            'brand_id' => $brand->id,
+            'digital_asset_id' => $asset->id,
+            'playbook_id' => $playbook->id,
+            'cadence' => 'weekly',
+            'timezone' => 'UTC',
+            'starts_at' => now()->subDay()->toDateTimeString(),
+            'checks' => [
+                ['title' => 'Confirm conversion signal'],
+                ['title' => 'Review waste'],
+            ],
+        ], auth()->user(), 'agency-rr-complete');
+
+        $run = app(MaterializeRecurringReviewOccurrence::class)->materialize(
+            $schedule,
+            'manual:agency-complete',
+            now(),
+            RecurringReviewOccurrenceKind::Manual,
+            auth()->user(),
+        );
+
+        Livewire::test(WorkShow::class, ['workId' => (string) $run->id, 'type' => 'recurring_review'])
             ->call('completeReview', 'no_issue');
 
-        $reviews = DemoState::recurringReviewsWithState();
-        $review = collect($reviews)->firstWhere('id', 'rr-gads-aug13');
-        $this->assertSame('completed', $review['status'] ?? null);
+        $this->assertSame(
+            RecurringReviewRunStatus::Completed,
+            $run->fresh()->status
+        );
+        $this->assertSame(0, Task::query()->where('recurring_review_run_item_id', '!=', null)->count());
+        $this->assertSame(0, Opportunity::query()->count());
 
-        DemoState::reset();
-        DemoState::completeRecurringReview('rr-seo-aug14', 'opportunity');
+        $run2 = app(MaterializeRecurringReviewOccurrence::class)->materialize(
+            $schedule,
+            'manual:agency-opp',
+            now()->addDay(),
+            RecurringReviewOccurrenceKind::Manual,
+            auth()->user(),
+        );
 
-        $hypotheses = DemoState::hypothesesWithStatus();
-        $this->assertNotEmpty($hypotheses);
+        Livewire::test(WorkShow::class, ['workId' => (string) $run2->id, 'type' => 'recurring_review'])
+            ->call('completeReview', 'opportunity');
+
+        $this->assertSame(1, Opportunity::query()->count());
+        $this->assertSame(0, Recommendation::query()->count());
     }
 
     public function test_approval_waiting_and_approve(): void
@@ -241,16 +312,18 @@ class AgencyExecutionSystemTest extends TestCase
             ->map(fn ($file) => File::get($file->getPathname()))
             ->implode("\n");
 
-        // Prompt 42–45 productionized requests/tasks/approvals/qa/playbooks.
+        // Prompt 42–46 productionized requests/tasks/approvals/qa/playbooks/recurring reviews.
         $this->assertTrue(Schema::hasTable('client_requests'));
         $this->assertTrue(Schema::hasTable('tasks'));
         $this->assertTrue(Schema::hasTable('approvals'));
         $this->assertTrue(Schema::hasTable('qa_reviews'));
         $this->assertTrue(Schema::hasTable('playbooks'));
         $this->assertTrue(Schema::hasTable('playbook_revisions'));
+        $this->assertTrue(Schema::hasTable('recurring_review_schedules'));
+        $this->assertTrue(Schema::hasTable('recurring_review_runs'));
 
-        foreach (['recurring_reviews'] as $table) {
-            $this->assertFalse(Schema::hasTable($table), "Production table {$table} should not exist.");
+        foreach (['recurring_reviews', 'works'] as $table) {
+            $this->assertFalse(Schema::hasTable($table), "Forbidden table {$table} should not exist.");
             $this->assertStringNotContainsString("create('{$table}'", $migrationContents);
             $this->assertStringNotContainsString("create(\"{$table}\"", $migrationContents);
         }
