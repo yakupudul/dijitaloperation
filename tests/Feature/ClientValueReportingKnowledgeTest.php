@@ -10,6 +10,7 @@ use App\Livewire\Demo\Portfolio\BrandShow;
 use App\Livewire\Demo\Portfolio\CustomerDetail;
 use App\Livewire\Demo\Settings\PlaybookShow;
 use App\Models\User;
+use App\Services\Playbooks\SeedDefaultPlaybooks;
 use App\Support\Demo\ClientValueFixtures;
 use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
@@ -36,6 +37,7 @@ class ClientValueReportingKnowledgeTest extends TestCase
         $this->actingAs($user);
 
         DemoState::reset();
+        app(SeedDefaultPlaybooks::class)->seed($user);
     }
 
     public function test_brand_value_sections_and_no_new_primary_tabs(): void
