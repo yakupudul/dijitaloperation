@@ -220,8 +220,8 @@ class AiAgentProductionExecutionTest extends TestCase
             str_repeat('1', 64),
         );
 
-        $this->assertSame([(int) $brand->customer_id], [$pack->customerId]);
-        $this->assertSame([(int) $brand->id], [$pack->brandId]);
+        $this->assertSame((int) $brand->customer_id, $pack->customerId);
+        $this->assertSame((int) $brand->id, $pack->brandId);
         $this->assertSame([7], $pack->evidenceIds());
         $this->assertTrue($pack->containsEvidenceId(7));
         $this->assertFalse($pack->containsEvidenceId(8));
