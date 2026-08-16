@@ -14,7 +14,8 @@
 | --- | --- |
 | Three layers | Brand / Sector / Skill — **REAL** (contracts) |
 | Generic `memories` table | **NONE** |
-| Brand Experience content | **NOT YET** / Prompt 52 |
+| Brand Experience Records | **REAL** |
+| Brand Memory content provider | **REAL** (`ExperienceBrandMemoryContextProvider`) |
 | Sector Learning + privacy pipeline | **NOT YET** / Prompt 53 |
 | Retrieval / Memory Pack injection | **NOT YET** / Prompt 54 |
 | Vector DB / embeddings / similarity | **NOT IMPLEMENTED** |
@@ -337,7 +338,7 @@ See §259 update in `docs/implementation/MILESTONE_5_PANEL_FREEZE.md` and sectio
 | Intelligence Memory Architecture | **REAL** |
 | Three Memory Layers | **REAL** |
 | Brand Memory Ownership Contract | **REAL** |
-| Brand Experience Records | **NOT YET / Prompt 52** |
+| Brand Experience Records | **REAL** |
 | Sector Memory Privacy Contract | **REAL** |
 | Sector Learning Records | **NOT YET / Prompt 53** |
 | Sector Aggregation / Qualification | **NOT YET / Prompt 53** |
