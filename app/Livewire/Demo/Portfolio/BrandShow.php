@@ -5,6 +5,8 @@ namespace App\Livewire\Demo\Portfolio;
 use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
 use App\Models\Brand;
 use App\Models\Recommendation;
+use App\Models\ReportDeliverySchedule;
+use App\Models\ReportSnapshot;
 use App\Models\User;
 use App\Services\Approvals\ApprovalReadService;
 use App\Services\BusinessOutcomes\BusinessOutcomeReadService;
@@ -13,6 +15,10 @@ use App\Services\ClientValueStory\ClientValueStoryReadService;
 use App\Services\CreateTaskFromRecommendation;
 use App\Services\Opportunities\OpportunityReadService;
 use App\Services\RecurringReviews\RecurringReviewReadService;
+use App\Services\ReportDelivery\CreateReportDeliveryService;
+use App\Services\ReportDelivery\GenerateReportPdfService;
+use App\Services\ReportDelivery\ReportDeliveryScheduleService;
+use App\Services\ReportDelivery\ReportMailConfigGuard;
 use App\Services\ReportSnapshots\CreateReportSnapshotService;
 use App\Services\ReportSnapshots\ReportSnapshotReadService;
 use App\Support\Demo\AgencyExecutionFixtures;
@@ -145,6 +151,28 @@ class BrandShow extends Component
 
     public string $snapshotStatusTone = 'info';
 
+    public string $deliveryRecipientEmail = '';
+
+    public string $deliveryRecipientName = '';
+
+    public string $deliveryNonce = '';
+
+    public string $deliveryStatusMessage = '';
+
+    public string $deliveryStatusTone = 'info';
+
+    public string $scheduleRecipientEmail = '';
+
+    public int $scheduleDayOfMonth = 5;
+
+    public string $scheduleDeliveryTime = '09:00';
+
+    public string $scheduleTimezone = 'Europe/Istanbul';
+
+    public string $scheduleStatusMessage = '';
+
+    public string $scheduleStatusTone = 'info';
+
     /**
      * @var list<string>
      */
@@ -194,6 +222,7 @@ class BrandShow extends Component
         $this->hydrateOutcomeForm();
         $this->hydrateReportComposer();
         $this->snapshotCreateNonce = (string) Str::uuid();
+        $this->deliveryNonce = (string) Str::uuid();
     }
 
     public function createReportSnapshot(): void
@@ -251,6 +280,150 @@ class BrandShow extends Component
     public function clearReportSnapshotView(): void
     {
         $this->snapshotId = '';
+        $this->deliveryStatusMessage = '';
+        $this->scheduleStatusMessage = '';
+    }
+
+    public function generateReportPdf(): void
+    {
+        if (! ctype_digit($this->brand) || ! ctype_digit($this->snapshotId)) {
+            $this->deliveryStatusTone = 'error';
+            $this->deliveryStatusMessage = __('operator.reports.snapshot_not_found');
+
+            return;
+        }
+
+        $actor = auth()->user();
+        if (! $actor instanceof User) {
+            $this->deliveryStatusTone = 'error';
+            $this->deliveryStatusMessage = __('operator.reports.snapshot_auth_required');
+
+            return;
+        }
+
+        try {
+            $brand = Brand::query()->findOrFail((int) $this->brand);
+            $snapshot = ReportSnapshot::query()->findOrFail((int) $this->snapshotId);
+            app(GenerateReportPdfService::class)->generate(
+                $snapshot,
+                $actor,
+                'ui:pdf:'.$this->snapshotId.':'.$this->deliveryNonce,
+                [(int) $brand->customer_id],
+                [(int) $brand->id],
+            );
+            $this->deliveryStatusTone = 'success';
+            $this->deliveryStatusMessage = __('operator.reports.pdf_generated');
+        } catch (ValidationException $e) {
+            $this->deliveryStatusTone = 'error';
+            $this->deliveryStatusMessage = collect($e->errors())->flatten()->first()
+                ?? __('operator.reports.pdf_generate_failed');
+        } catch (\Throwable) {
+            $this->deliveryStatusTone = 'error';
+            $this->deliveryStatusMessage = __('operator.reports.pdf_generate_failed');
+        }
+    }
+
+    public function sendReportDelivery(): void
+    {
+        if (! ctype_digit($this->brand) || ! ctype_digit($this->snapshotId)) {
+            $this->deliveryStatusTone = 'error';
+            $this->deliveryStatusMessage = __('operator.reports.snapshot_not_found');
+
+            return;
+        }
+
+        $actor = auth()->user();
+        if (! $actor instanceof User) {
+            $this->deliveryStatusTone = 'error';
+            $this->deliveryStatusMessage = __('operator.reports.snapshot_auth_required');
+
+            return;
+        }
+
+        if (! app(ReportMailConfigGuard::class)->isConfigured()) {
+            $this->deliveryStatusTone = 'error';
+            $this->deliveryStatusMessage = __('operator.reports.mail_not_configured');
+
+            return;
+        }
+
+        try {
+            $brand = Brand::query()->findOrFail((int) $this->brand);
+            $snapshot = ReportSnapshot::query()->findOrFail((int) $this->snapshotId);
+            app(CreateReportDeliveryService::class)->sendFromSnapshot(
+                $snapshot,
+                [
+                    'recipient_email' => $this->deliveryRecipientEmail,
+                    'recipient_name' => $this->deliveryRecipientName !== '' ? $this->deliveryRecipientName : null,
+                    'locale' => $this->reportLanguage,
+                    'idempotency_key' => 'ui:send:'.$this->snapshotId.':'.$this->deliveryNonce,
+                ],
+                $actor,
+                [(int) $brand->customer_id],
+                [(int) $brand->id],
+            );
+            $this->deliveryNonce = (string) Str::uuid();
+            $this->deliveryStatusTone = 'success';
+            $this->deliveryStatusMessage = __('operator.reports.delivery_queued');
+        } catch (ValidationException $e) {
+            $this->deliveryStatusTone = 'error';
+            $this->deliveryStatusMessage = collect($e->errors())->flatten()->first()
+                ?? __('operator.reports.delivery_failed');
+        } catch (\Throwable) {
+            $this->deliveryStatusTone = 'error';
+            $this->deliveryStatusMessage = __('operator.reports.delivery_failed');
+        }
+    }
+
+    public function createReportDeliverySchedule(): void
+    {
+        if (! ctype_digit($this->brand)) {
+            $this->scheduleStatusTone = 'error';
+            $this->scheduleStatusMessage = __('operator.reports.snapshot_requires_production_brand');
+
+            return;
+        }
+
+        $actor = auth()->user();
+        if (! $actor instanceof User) {
+            $this->scheduleStatusTone = 'error';
+            $this->scheduleStatusMessage = __('operator.reports.snapshot_auth_required');
+
+            return;
+        }
+
+        try {
+            $brand = Brand::query()->findOrFail((int) $this->brand);
+            $schedule = app(ReportDeliveryScheduleService::class)->create(
+                $brand,
+                [
+                    'locale' => $this->reportLanguage,
+                    'timezone' => $this->scheduleTimezone,
+                    'day_of_month' => $this->scheduleDayOfMonth,
+                    'delivery_time' => $this->scheduleDeliveryTime,
+                    'recipients' => [
+                        ['email' => $this->scheduleRecipientEmail],
+                    ],
+                ],
+                $actor,
+                [(int) $brand->customer_id],
+                [(int) $brand->id],
+            );
+            $preview = app(ReportDeliveryScheduleService::class)
+                ->previewNextOccurrence($schedule);
+            $this->scheduleStatusTone = 'success';
+            $this->scheduleStatusMessage = __('operator.reports.schedule_created', [
+                'next' => $preview['scheduled_for'],
+                'period' => $preview['period_start'].' → '.$preview['period_end'],
+            ]);
+        } catch (ValidationException $e) {
+            $this->scheduleStatusTone = 'error';
+            $this->scheduleStatusMessage = collect($e->errors())->flatten()->first()
+                ?? __('operator.reports.schedule_failed');
+        } catch (\Throwable) {
+            $this->scheduleStatusTone = 'error';
+            $this->scheduleStatusMessage = __('operator.reports.schedule_failed');
+        }
     }
 
     public function setValueSection(string $section): void
@@ -1227,7 +1400,21 @@ class BrandShow extends Component
                     })->all(),
                     'empty' => $history->total() === 0,
                     'demo' => false,
-                    'delivery_unavailable' => __('operator.reports.delivery_unavailable'),
+                    'schedules' => ReportDeliverySchedule::query()
+                        ->where('brand_id', (int) $brandModel->id)
+                        ->orderByDesc('id')
+                        ->limit(10)
+                        ->get()
+                        ->map(static function ($schedule): array {
+                            return [
+                                'id' => (int) $schedule->id,
+                                'status' => $schedule->status?->value ?? (string) $schedule->status,
+                                'day_of_month' => (int) $schedule->day_of_month,
+                                'delivery_time' => (string) $schedule->delivery_time,
+                                'timezone' => (string) $schedule->timezone,
+                                'recipients' => $schedule->recipients()->where('enabled', true)->pluck('email')->all(),
+                            ];
+                        })->all(),
                 ];
                 if ($this->snapshotId !== '' && ctype_digit($this->snapshotId)) {
                     try {
@@ -1236,6 +1423,12 @@ class BrandShow extends Component
                             [(int) $brandModel->customer_id],
                             [(int) $brandModel->id],
                         );
+                        if (is_array($reportSnapshotDetail) && isset($reportSnapshotDetail['delivery']['artifact_id'])) {
+                            $artifactId = $reportSnapshotDetail['delivery']['artifact_id'];
+                            $reportSnapshotDetail['pdf_download_url'] = $artifactId
+                                ? route('reports.artifacts.download', ['artifactId' => $artifactId])
+                                : null;
+                        }
                     } catch (\Throwable) {
                         $reportSnapshotDetail = null;
                         $this->snapshotStatusTone = 'error';

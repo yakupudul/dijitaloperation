@@ -33,7 +33,7 @@
                     <span wire:loading.remove wire:target="createReportSnapshot">{{ __('operator.reports.generate_snapshot') }}</span>
                     <span wire:loading wire:target="createReportSnapshot">{{ __('operator.reports.generating') }}</span>
                 </button>
-                <p class="text-xs text-gray-400">{{ __('operator.reports.delivery_unavailable') }}</p>
+                <p class="text-xs text-gray-400">{{ __('operator.reports.delivery_from_snapshot_hint') }}</p>
             </div>
 
             @if ($snapshotStatusMessage !== '')
@@ -137,9 +137,109 @@
                     <p class="mt-2 text-xs text-gray-400">{{ $frozenStory['causation_disclaimer'] ?? '' }}</p>
                 </section>
 
-                <p class="mt-5 text-xs text-gray-400">{{ __('operator.reports.delivery_unavailable') }}</p>
+                <section class="mt-5 rounded-lg bg-gray-50 p-4 dark:bg-gray-900/40" aria-label="{{ __('operator.reports.delivery_actions') }}">
+                    <h4 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ __('operator.reports.delivery_actions') }}</h4>
+                    <p class="mt-1 text-xs text-gray-500">{{ __('operator.reports.delivery_snapshot_only') }}</p>
+
+                    <div class="mt-3 flex flex-wrap gap-2">
+                        <button type="button" wire:click="generateReportPdf" class="rounded-lg bg-brand-500 px-3 py-2 text-xs font-medium text-white">
+                            {{ __('operator.reports.generate_pdf') }}
+                        </button>
+                        @if (! empty($reportSnapshotDetail['pdf_download_url']))
+                            <a href="{{ $reportSnapshotDetail['pdf_download_url'] }}" class="rounded-lg px-3 py-2 text-xs font-medium text-brand-700 ring-1 ring-inset ring-brand-200 hover:bg-brand-50">
+                                {{ __('operator.reports.download_pdf') }}
+                            </a>
+                        @endif
+                    </div>
+
+                    <div class="mt-4 grid gap-2 sm:grid-cols-2">
+                        <label class="block text-xs">
+                            <span class="text-gray-500">{{ __('operator.reports.recipient_email') }}</span>
+                            <input type="email" wire:model="deliveryRecipientEmail" class="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800" />
+                        </label>
+                        <label class="block text-xs">
+                            <span class="text-gray-500">{{ __('operator.reports.recipient_name_optional') }}</span>
+                            <input type="text" wire:model="deliveryRecipientName" class="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800" />
+                        </label>
+                    </div>
+                    <button type="button" wire:click="sendReportDelivery" class="mt-2 rounded-lg bg-gray-900 px-3 py-2 text-xs font-medium text-white dark:bg-white dark:text-gray-900">
+                        {{ __('operator.reports.send_secure_link') }}
+                    </button>
+
+                    @if ($deliveryStatusMessage !== '')
+                        <p @class([
+                            'mt-2 text-sm',
+                            'text-emerald-600' => $deliveryStatusTone === 'success',
+                            'text-rose-600' => $deliveryStatusTone === 'error',
+                            'text-gray-500' => $deliveryStatusTone === 'info',
+                        ])>{{ $deliveryStatusMessage }}</p>
+                    @endif
+
+                    @php($deliveryMeta = $reportSnapshotDetail['delivery'] ?? [])
+                    <p class="mt-3 text-xs text-gray-500">
+                        {{ __('operator.reports.delivery_status_summary', [
+                            'pdf' => ! empty($deliveryMeta['pdf']) ? __('operator.reports.ready') : __('operator.reports.not_ready'),
+                            'shares' => (int) ($deliveryMeta['active_share_count'] ?? 0),
+                            'sent' => (int) ($deliveryMeta['sent_count'] ?? 0),
+                            'failed' => (int) ($deliveryMeta['failed_count'] ?? 0),
+                        ]) }}
+                    </p>
+                </section>
+
+                <p class="mt-5 text-xs text-gray-400">{{ __('operator.reports.pdf_footer_snapshot_only') }}</p>
             </article>
         @endif
+
+        <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
+            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ __('operator.reports.schedule_title') }}</h3>
+            <p class="mt-1 text-xs text-gray-400">{{ __('operator.reports.schedule_subtitle') }}</p>
+            <div class="mt-3 grid gap-2 sm:grid-cols-2">
+                <label class="block text-xs">
+                    <span class="text-gray-500">{{ __('operator.reports.recipient_email') }}</span>
+                    <input type="email" wire:model="scheduleRecipientEmail" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm dark:border-gray-700" />
+                </label>
+                <label class="block text-xs">
+                    <span class="text-gray-500">{{ __('operator.reports.schedule_day_of_month') }}</span>
+                    <input type="number" min="1" max="31" wire:model="scheduleDayOfMonth" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm dark:border-gray-700" />
+                </label>
+                <label class="block text-xs">
+                    <span class="text-gray-500">{{ __('operator.reports.schedule_delivery_time') }}</span>
+                    <input type="text" wire:model="scheduleDeliveryTime" placeholder="09:00" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm dark:border-gray-700" />
+                </label>
+                <label class="block text-xs">
+                    <span class="text-gray-500">{{ __('operator.reports.schedule_timezone') }}</span>
+                    <select wire:model="scheduleTimezone" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm dark:border-gray-700">
+                        <option value="Europe/Istanbul">Europe/Istanbul</option>
+                        <option value="UTC">UTC</option>
+                        <option value="Europe/London">Europe/London</option>
+                    </select>
+                </label>
+            </div>
+            <button type="button" wire:click="createReportDeliverySchedule" class="mt-3 rounded-lg bg-brand-500 px-3 py-2 text-xs font-medium text-white">
+                {{ __('operator.reports.schedule_create') }}
+            </button>
+            @if ($scheduleStatusMessage !== '')
+                <p @class([
+                    'mt-2 text-sm',
+                    'text-emerald-600' => $scheduleStatusTone === 'success',
+                    'text-rose-600' => $scheduleStatusTone === 'error',
+                    'text-gray-500' => $scheduleStatusTone === 'info',
+                ])>{{ $scheduleStatusMessage }}</p>
+            @endif
+            <ul class="mt-3 divide-y divide-gray-100 text-sm dark:divide-gray-700">
+                @forelse ($reportSnapshots['schedules'] ?? [] as $sched)
+                    <li class="py-2">
+                        <p class="font-medium text-gray-800 dark:text-white/90">
+                            {{ __('operator.reports.schedule_monthly_label', ['day' => $sched['day_of_month'], 'time' => $sched['delivery_time']]) }}
+                            · {{ $sched['timezone'] }} · {{ $sched['status'] }}
+                        </p>
+                        <p class="text-xs text-gray-500">{{ implode(', ', $sched['recipients'] ?? []) }}</p>
+                    </li>
+                @empty
+                    <li class="py-4 text-center text-sm text-gray-500">{{ __('operator.reports.empty_schedules') }}</li>
+                @endforelse
+            </ul>
+        </div>
     @else
         {{-- Demo catalog preview only — not production history --}}
         <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
@@ -241,7 +341,7 @@
                 </section>
             @endif
 
-            <p class="mt-5 text-xs text-gray-400">{{ __('operator.reports.delivery_unavailable') }}</p>
+            <p class="mt-5 text-xs text-amber-600">{{ __('operator.reports.demo_delivery_not_available') }}</p>
         </article>
     @endif
 </div>

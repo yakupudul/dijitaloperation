@@ -489,7 +489,7 @@
                         <li class="py-6 text-center text-sm text-gray-500">{{ __('operator.reports.empty_snapshots') }}</li>
                     @endforelse
                 </ul>
-                <p class="mt-3 text-xs text-gray-400">{{ __('operator.reports.delivery_unavailable') }}</p>
+                <p class="mt-3 text-xs text-gray-400">{{ __('operator.reports.delivery_from_snapshot_hint') }}</p>
             </div>
 
             <div class="grid gap-3 sm:grid-cols-2">

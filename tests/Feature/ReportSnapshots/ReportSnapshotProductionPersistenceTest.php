@@ -45,9 +45,12 @@ class ReportSnapshotProductionPersistenceTest extends TestCase
     {
         $this->assertTrue(Schema::hasTable('report_snapshots'));
         $this->assertFalse(Schema::hasTable('report_snapshot_v2'));
-        $this->assertFalse(Schema::hasTable('report_deliveries'));
+        // Prompt 60 owns delivery/share tables; Prompt 59 must not invent token-only auth tables.
+        $this->assertTrue(Schema::hasTable('report_deliveries'));
+        $this->assertTrue(Schema::hasTable('report_share_grants'));
         $this->assertFalse(Schema::hasTable('report_share_tokens'));
         $this->assertFalse(class_exists('App\\Models\\ReportSnapshotV2'));
+        $this->assertFalse(class_exists('App\\Models\\ReportDeliveryV2'));
         $this->assertFalse(class_exists('App\\Support\\ClientValueStory\\Dto\\SourceManifestV2'));
 
         $registry = app(ReportTypeRegistry::class);

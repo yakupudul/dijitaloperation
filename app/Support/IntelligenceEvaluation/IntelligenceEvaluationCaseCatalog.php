@@ -70,6 +70,37 @@ final class IntelligenceEvaluationCaseCatalog
 
     public const string SNAPSHOT_NO_ATTRIBUTION = 'SNAPSHOT_NO_ATTRIBUTION';
 
+    /** Prompt 60 prepared golden case keys (evaluated via Report Delivery feature tests). */
+    public const string PDF_FROM_SNAPSHOT_ONLY = 'PDF_FROM_SNAPSHOT_ONLY';
+
+    public const string SHARE_TOKEN_NOT_AUTHORIZATION = 'SHARE_TOKEN_NOT_AUTHORIZATION';
+
+    public const string EXTERNAL_RECIPIENT_VERIFICATION = 'EXTERNAL_RECIPIENT_VERIFICATION';
+
+    public const string EXPIRED_SHARE_DENIED = 'EXPIRED_SHARE_DENIED';
+
+    public const string REVOKED_SHARE_DENIED = 'REVOKED_SHARE_DENIED';
+
+    public const string CROSS_BRAND_SHARE_DENIED = 'CROSS_BRAND_SHARE_DENIED';
+
+    public const string PDF_PRIVATE_STORAGE = 'PDF_PRIVATE_STORAGE';
+
+    public const string DELIVERY_IDEMPOTENT_RETRY = 'DELIVERY_IDEMPOTENT_RETRY';
+
+    public const string SCHEDULE_OCCURRENCE_IDEMPOTENCY = 'SCHEDULE_OCCURRENCE_IDEMPOTENCY';
+
+    public const string ONE_SNAPSHOT_MULTIPLE_RECIPIENTS = 'ONE_SNAPSHOT_MULTIPLE_RECIPIENTS';
+
+    public const string SNAPSHOT_CORRECTION_AFTER_SEND = 'SNAPSHOT_CORRECTION_AFTER_SEND';
+
+    public const string NO_PUBLIC_REPORT = 'NO_PUBLIC_REPORT';
+
+    public const string NO_FAKE_DELIVERED = 'NO_FAKE_DELIVERED';
+
+    public const string NO_PROVIDER_CALL = 'NO_PROVIDER_CALL';
+
+    public const string NO_AI = 'NO_AI';
+
     /**
      * Prepared Prompt 59 evaluation case identities — not silently rewritten.
      *
@@ -87,6 +118,32 @@ final class IntelligenceEvaluationCaseCatalog
             self::SNAPSHOT_SOURCE_MANIFEST_INTEGRITY,
             self::SNAPSHOT_NO_DEMO,
             self::SNAPSHOT_NO_ATTRIBUTION,
+        ];
+    }
+
+    /**
+     * Prepared Prompt 60 evaluation case identities — not silently rewritten.
+     *
+     * @return list<string>
+     */
+    public static function reportDeliveryPreparedCaseKeys(): array
+    {
+        return [
+            self::PDF_FROM_SNAPSHOT_ONLY,
+            self::SHARE_TOKEN_NOT_AUTHORIZATION,
+            self::EXTERNAL_RECIPIENT_VERIFICATION,
+            self::EXPIRED_SHARE_DENIED,
+            self::REVOKED_SHARE_DENIED,
+            self::CROSS_BRAND_SHARE_DENIED,
+            self::PDF_PRIVATE_STORAGE,
+            self::DELIVERY_IDEMPOTENT_RETRY,
+            self::SCHEDULE_OCCURRENCE_IDEMPOTENCY,
+            self::ONE_SNAPSHOT_MULTIPLE_RECIPIENTS,
+            self::SNAPSHOT_CORRECTION_AFTER_SEND,
+            self::NO_PUBLIC_REPORT,
+            self::NO_FAKE_DELIVERED,
+            self::NO_PROVIDER_CALL,
+            self::NO_AI,
         ];
     }
 

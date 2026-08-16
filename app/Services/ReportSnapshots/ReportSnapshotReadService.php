@@ -2,10 +2,14 @@
 
 namespace App\Services\ReportSnapshots;
 
+use App\Enums\ReportDeliveryStatus;
 use App\Enums\ReportSnapshotSchemaVersion;
 use App\Enums\ReportType;
 use App\Models\Brand;
 use App\Models\Customer;
+use App\Models\ReportArtifact;
+use App\Models\ReportDelivery;
+use App\Models\ReportShareGrant;
 use App\Models\ReportSnapshot;
 use App\Support\ReportSnapshots\ClientValueStorySnapshotSerializer;
 use App\Support\ReportSnapshots\ReportSnapshotChecksum;
@@ -187,15 +191,65 @@ final class ReportSnapshotReadService
             'supersedes_snapshot_id' => $snapshot->supersedes_snapshot_id !== null
                 ? (int) $snapshot->supersedes_snapshot_id
                 : null,
-            'delivery' => [
-                'pdf' => false,
-                'download' => false,
-                'share' => false,
-                'email' => false,
-                'owner' => 'prompt_60',
-            ],
+            'delivery' => $this->deliveryStatusForSnapshot((int) $snapshot->id),
             // Hard invariant: detail is frozen payload only.
             'rebuilt_from_live_story' => false,
+        ];
+    }
+
+    /**
+     * Prompt 60 readiness flags for Snapshot detail (never invents Demo delivery).
+     *
+     * @return array{
+     *     pdf: bool,
+     *     download: bool,
+     *     share: bool,
+     *     email: bool,
+     *     owner: string,
+     *     artifact_id: int|null,
+     *     active_share_count: int,
+     *     delivery_count: int,
+     *     sent_count: int,
+     *     failed_count: int
+     * }
+     */
+    private function deliveryStatusForSnapshot(int $snapshotId): array
+    {
+        $artifactId = ReportArtifact::query()
+            ->where('report_snapshot_id', $snapshotId)
+            ->orderByDesc('id')
+            ->value('id');
+
+        $activeShares = (int) ReportShareGrant::query()
+            ->where('report_snapshot_id', $snapshotId)
+            ->whereNull('revoked_at')
+            ->where('expires_at', '>', now())
+            ->count();
+
+        $deliveries = ReportDelivery::query()
+            ->where('report_snapshot_id', $snapshotId)
+            ->get(['status']);
+
+        $sent = $deliveries->filter(
+            static fn ($row): bool => $row->status === ReportDeliveryStatus::Sent
+                || $row->status?->value === ReportDeliveryStatus::Sent->value
+        )->count();
+        $failed = $deliveries->filter(
+            static fn ($row): bool => $row->status === ReportDeliveryStatus::Failed
+                || $row->status?->value === ReportDeliveryStatus::Failed->value
+        )->count();
+
+        return [
+            'pdf' => $artifactId !== null,
+            'download' => $artifactId !== null,
+            'share' => $activeShares > 0,
+            'email' => $deliveries->isNotEmpty(),
+            'owner' => 'prompt_60',
+            'artifact_id' => $artifactId !== null ? (int) $artifactId : null,
+            'active_share_count' => $activeShares,
+            'delivery_count' => $deliveries->count(),
+            'sent_count' => $sent,
+            'failed_count' => $failed,
         ];
     }
 
