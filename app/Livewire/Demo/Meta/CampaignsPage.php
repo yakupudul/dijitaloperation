@@ -3,9 +3,9 @@
 namespace App\Livewire\Demo\Meta;
 
 use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
+use App\Services\MetaAds\MetaAdsSpecialistReadService;
 use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
-use App\Support\Demo\MetaAdsWorkspaceFixtures;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -48,28 +48,34 @@ class CampaignsPage extends Component
 
     public function render(): View
     {
-        $workspace = MetaAdsWorkspaceFixtures::workspace($this->period, $this->periodStart, $this->periodEnd);
-        $campaigns = collect($workspace['campaigns']);
+        $workspace = app(MetaAdsSpecialistReadService::class)->workspace(
+            $this->assetId,
+            $this->period,
+            $this->periodStart,
+            $this->periodEnd,
+        );
+        $campaigns = collect($workspace['campaigns'] ?? []);
 
         if ($this->statusFilter !== 'all') {
             $needle = strtoupper($this->statusFilter);
             $campaigns = $campaigns->filter(
-                static fn (array $row): bool => strtoupper((string) $row['status']) === $needle
+                static fn (array $row): bool => strtoupper((string) ($row['status'] ?? '')) === $needle
             );
         }
 
         if ($this->objectiveFilter !== 'all') {
             $needle = strtoupper($this->objectiveFilter);
             $campaigns = $campaigns->filter(
-                static fn (array $row): bool => str_contains(strtoupper((string) $row['objective_family']), $needle)
-                    || str_contains(strtoupper((string) $row['optimization']), $needle)
+                static fn (array $row): bool => str_contains(strtoupper((string) ($row['objective_family'] ?? '')), $needle)
+                    || str_contains(strtoupper((string) ($row['optimization'] ?? '')), $needle)
             );
         }
 
         return view('livewire.demo.meta.campaigns', [
             'assetId' => $this->assetId,
             'campaigns' => $campaigns->values()->all(),
-            'identity' => $workspace['identity'],
+            'identity' => $workspace['identity'] ?? [],
+            'migrationMode' => $workspace['migration_mode'] ?? null,
             'flash' => DemoState::pullFlash(),
         ]);
     }

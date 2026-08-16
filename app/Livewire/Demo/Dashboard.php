@@ -4,7 +4,6 @@ namespace App\Livewire\Demo;
 
 use App\Services\Opportunities\OpportunityReadService;
 use App\Support\Demo\AgencyExecutionFixtures;
-use App\Support\Demo\ClientValueFixtures;
 use App\Support\Demo\DemoState;
 use App\Support\Demo\OpportunityFixtures;
 use Illuminate\Contracts\View\View;
@@ -49,7 +48,9 @@ class Dashboard extends Component
                 ->take(3)
                 ->values()
                 ->all(),
-            'recentValue' => ClientValueFixtures::recentValue(),
+            // Prompt 67: never inject Atlas Demo value narratives onto the production Dashboard.
+            // Empty means no recent Client Value Story rows to surface here.
+            'recentValue' => [],
             'flash' => DemoState::pullFlash(),
         ]);
     }

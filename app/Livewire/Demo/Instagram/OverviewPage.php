@@ -5,6 +5,8 @@ namespace App\Livewire\Demo\Instagram;
 use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
 use App\Support\Demo\InstagramWorkspaceFixtures;
+use App\Support\Reality\DemoCatalogAssetGuard;
+use App\Support\Reality\UnavailableWorkspaceShells;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -64,6 +66,15 @@ class OverviewPage extends Component
     public function render(): View
     {
         $this->normalizeTab();
+
+        if (! DemoCatalogAssetGuard::isDemoCatalogAssetId($this->assetId)) {
+            return view('livewire.demo.instagram.overview', [
+                'workspace' => UnavailableWorkspaceShells::instagram($this->assetId),
+                'brand' => null,
+                'flash' => DemoState::pullFlash(),
+            ]);
+        }
+
         $workspace = InstagramWorkspaceFixtures::workspace($this->assetId);
 
         return view('livewire.demo.instagram.overview', [

@@ -189,7 +189,7 @@ final class GscSpecialistReadService
         $provenance['glance.clicks'] = $propertyGate->dataSourceState()->value;
         $provenance['glance.impressions'] = $propertyGate->dataSourceState()->value;
         $provenance['glance.ctr'] = $propertyGate->dataSourceState()->value;
-        $provenance['glance.search_attention'] = DataSourceState::Demo->value;
+        $provenance['glance.search_attention'] = DataSourceState::Unavailable->value;
 
         $data['performance_trend'] = $this->realPerformanceTrend($propertyGate, $digitalAssetId, $externalResourceId, $siteUrl, $timezone);
         $provenance['performance_trend.clicks'] = $propertyGate->dataSourceState()->value;
@@ -200,16 +200,16 @@ final class GscSpecialistReadService
         $data['performance'] = $this->realPerformance($digitalAssetId, $externalResourceId, $siteUrl, $deviceGate, $countryGate, $data['performance']);
         $provenance['performance.devices'] = $deviceGate->dataSourceState()->value;
         $provenance['performance.countries'] = $countryGate->dataSourceState()->value;
-        $provenance['performance.brand_nonbrand'] = DataSourceState::Demo->value;
-        $provenance['performance.diagnosis'] = DataSourceState::Demo->value;
+        $provenance['performance.brand_nonbrand'] = DataSourceState::Unavailable->value;
+        $provenance['performance.diagnosis'] = DataSourceState::Unavailable->value;
 
         $data['demand'] = $this->realDemand($digitalAssetId, $externalResourceId, $siteUrl, $queryGate, $data['demand']);
         $provenance['demand.queries'] = $queryGate->isUsable()
             ? DataSourceState::ProviderLimited->value
             : DataSourceState::Unavailable->value;
-        $provenance['demand.clusters'] = DataSourceState::Demo->value;
-        $provenance['demand.momentum'] = DataSourceState::Demo->value;
-        $provenance['demand.ownership'] = DataSourceState::Demo->value;
+        $provenance['demand.clusters'] = DataSourceState::Unavailable->value;
+        $provenance['demand.momentum'] = DataSourceState::Unavailable->value;
+        $provenance['demand.ownership'] = DataSourceState::Unavailable->value;
 
         $data['pages']['directory'] = $this->realPagesDirectory($digitalAssetId, $externalResourceId, $siteUrl, $pageGate);
         // Overview page_pulse reuses the real pages directory (frozen cards) — same grain/provenance as pages.
@@ -228,13 +228,19 @@ final class GscSpecialistReadService
         $data['discoverability'] = $this->unavailableDiscoverability();
         $provenance['discoverability'] = DataSourceState::Unavailable->value;
 
-        $provenance['search_momentum'] = DataSourceState::Demo->value;
-        $provenance['needs_attention'] = DataSourceState::Demo->value;
-        $provenance['opportunities'] = DataSourceState::Demo->value;
+        $data['search_momentum'] = [
+            'note' => 'Unavailable — search momentum heuristics are Demo Mode only and are not computed on real GSC data.',
+        ];
+        $data['needs_attention'] = [];
+        $data['opportunities'] = [];
+        $provenance['search_momentum'] = DataSourceState::Unavailable->value;
+        $provenance['needs_attention'] = DataSourceState::Unavailable->value;
+        $provenance['opportunities'] = DataSourceState::Unavailable->value;
 
         $data['relationships']['technical_connection'] = $this->realTechnicalConnection($binding);
+        $data['relationships']['narrative'] = null;
         $provenance['relationships.technical_connection'] = DataSourceState::Real->value;
-        $provenance['relationships.narrative'] = DataSourceState::Demo->value;
+        $provenance['relationships.narrative'] = DataSourceState::Unavailable->value;
 
         $gates = [
             self::DATASET_PROPERTY_DAILY => $propertyGate,
@@ -246,10 +252,15 @@ final class GscSpecialistReadService
             self::DATASET_URL_INSPECTION_SNAPSHOT => $inspectionGate,
         ];
         $data['operations']['collection_state'] = $this->realCollectionState($gates);
+        $data['operations']['subtitle'] = 'Collection and dataset readiness for this Search Console property. Findings live in Operations queues — not fabricated here.';
+        $data['operations']['findings'] = [];
+        $data['operations']['recommendations'] = [];
+        $data['operations']['tasks'] = [];
+        $data['operations']['outcomes'] = [];
         $provenance['operations.collection_state'] = DataSourceState::Real->value;
-        $provenance['operations.findings'] = DataSourceState::Demo->value;
+        $provenance['operations.findings'] = DataSourceState::Unavailable->value;
 
-        $data['demo_boundary'] = 'Real Search Console workspace · data pool + formulas — no live Search Console / URL Inspection / Sitemap / OAuth API call on page render.';
+        $data['demo_boundary'] = 'Real Search Console workspace · data pool + formulas — no live Search Console API call on page render. Unbacked cards are empty/unavailable, never Demo.';
         $data['migration_mode'] = 'real';
         $data['data_provenance'] = $provenance;
         $data['tab_status'] = $this->rollupTabStatus($provenance);
@@ -454,19 +465,12 @@ final class GscSpecialistReadService
             default => 'Unknown',
         };
 
-        $chips = $demoChips;
-        foreach ($chips as $i => $chip) {
-            if (($chip['source'] ?? null) === 'Search Console') {
-                $chips[$i] = [
-                    'source' => 'Search Console',
-                    'age' => $ageLabel,
-                    'detail' => "Property {$siteUrl} · gsc_property_daily · {$propertyGate->coverageState}",
-                    'state' => $stateLabel,
-                ];
-            }
-        }
-
-        return $chips;
+        return [[
+            'source' => 'Search Console',
+            'age' => $ageLabel,
+            'detail' => "Property {$siteUrl} · gsc_property_daily · {$propertyGate->coverageState}",
+            'state' => $stateLabel,
+        ]];
     }
 
     /**
@@ -534,7 +538,13 @@ final class GscSpecialistReadService
                 'ctr' => $unavailable + [
                     'note' => $note,
                 ],
-                'search_attention' => $demoGlance['search_attention'] ?? [],
+                'search_attention' => [
+                    'value' => '—',
+                    'raw' => null,
+                    'secondary' => 'Unavailable',
+                    'tone' => 'neutral',
+                    'note' => 'Search attention scoring is Demo Mode only and is not computed on real GSC data.',
+                ],
             ];
         }
 
@@ -577,7 +587,13 @@ final class GscSpecialistReadService
             'clicks' => $clicks,
             'impressions' => $impressions,
             'ctr' => $ctr,
-            'search_attention' => $demoGlance['search_attention'] ?? [],
+            'search_attention' => [
+                'value' => '—',
+                'raw' => null,
+                'secondary' => 'Unavailable',
+                'tone' => 'neutral',
+                'note' => 'Search attention scoring is Demo Mode only and is not computed on real GSC data.',
+            ],
         ];
     }
 
@@ -764,8 +780,12 @@ final class GscSpecialistReadService
         return [
             'devices' => $devices,
             'countries' => $countries,
-            'brand_nonbrand' => $demoPerformance['brand_nonbrand'] ?? [],
-            'diagnosis' => $demoPerformance['diagnosis'] ?? [],
+            'brand_nonbrand' => [
+                'note' => 'Unavailable — brand vs non-brand query classification is not configured for real GSC data.',
+            ],
+            'diagnosis' => [
+                'interpretation' => 'Unavailable — performance diagnosis heuristics are Demo Mode only.',
+            ],
         ];
     }
 
@@ -813,11 +833,11 @@ final class GscSpecialistReadService
         }
 
         return [
-            'clusters' => $demoDemand['clusters'] ?? [],
+            'clusters' => [],
             'queries' => $queries,
-            'momentum' => $demoDemand['momentum'] ?? [],
-            'ownership_reviews' => $demoDemand['ownership_reviews'] ?? [],
-            'observed_query_note' => 'Queries observed in selected Search Console dataset — not an exhaustive keyword universe. Impressions ≠ search volume.',
+            'momentum' => [],
+            'ownership_reviews' => [],
+            'observed_query_note' => 'Queries observed in selected Search Console dataset — not an exhaustive keyword universe. Impressions ≠ search volume. Clusters/momentum/ownership are unavailable on the real path.',
         ];
     }
 
@@ -943,7 +963,7 @@ final class GscSpecialistReadService
                 'gaps' => [],
                 'note' => 'Site-wide reconciliation including index_observed totals is unavailable on the real path.',
             ],
-            'discoverability_by_role' => $demoIndexing['discoverability_by_role'] ?? [],
+            'discoverability_by_role' => [],
             'inspection_note' => 'URL Inspection is a selective sample only — never extrapolated to uninspected URLs. No inspection record ≠ not indexed.',
         ];
     }

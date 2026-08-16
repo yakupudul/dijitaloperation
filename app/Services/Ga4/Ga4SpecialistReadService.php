@@ -202,8 +202,8 @@ final class Ga4SpecialistReadService
         $data['glance'] = $this->realGlance($dailyGate, $sums, $prevSums, $data['glance']);
         $provenance['glance.sessions'] = $dailyGate->dataSourceState()->value;
         $provenance['glance.users'] = DataSourceState::Unavailable->value;
-        $provenance['glance.business_actions'] = DataSourceState::Demo->value;
-        $provenance['glance.measurement_state'] = DataSourceState::Demo->value;
+        $provenance['glance.business_actions'] = DataSourceState::Unavailable->value;
+        $provenance['glance.measurement_state'] = DataSourceState::Unavailable->value;
 
         // --- performance trend (sessions real; business actions omitted — no Demo+Real mixing) ---
         $data['performance_trend'] = $this->realPerformanceTrend($dailyGate, $digitalAssetId, $externalResourceId, $propertyId);
@@ -228,29 +228,33 @@ final class Ga4SpecialistReadService
         $data['measurement']['events'] = $this->realMeasurementEvents($digitalAssetId, $externalResourceId, $propertyId, $eventGate);
         $data['measurement']['streams'] = $this->realStreams($propertyMeta);
         $data['measurement']['utm_hygiene'] = $this->realUtmHygiene($digitalAssetId, $externalResourceId, $propertyId, $campaignGate, $sums);
-        $data['measurement']['subtitle'] = 'Real GA4 events and streams for this property. Business action mapping stays Demo/Unavailable — no mapping store is configured yet.';
+        $data['measurement']['subtitle'] = 'Real GA4 events and streams for this property. Business action mapping is unavailable — no mapping store is configured.';
+        $data['measurement']['business_actions'] = [];
         $provenance['measurement.events'] = $eventGate->dataSourceState()->value;
         $provenance['measurement.streams'] = $propertyMetaGate->dataSourceState()->value;
-        $provenance['measurement.business_actions'] = DataSourceState::Demo->value;
+        $provenance['measurement.business_actions'] = DataSourceState::Unavailable->value;
         $provenance['measurement.utm_hygiene'] = $campaignGate->dataSourceState()->value;
 
-        // --- journeys: no real path reconstruction in Prompt 28 — never fabricate paths ---
+        // --- journeys: no real path reconstruction — never fabricate paths ---
         $data['journeys'] = [];
         $provenance['journeys'] = DataSourceState::Unavailable->value;
 
-        // --- needs_attention / business_actions matrix / opportunities / relationships / operations
-        // findings stay Demo — no Business Action mapping store or Evidence/Findings pipeline
-        // is created by this migration (explicitly out of scope).
-        $provenance['needs_attention'] = DataSourceState::Demo->value;
-        $provenance['opportunities'] = DataSourceState::Demo->value;
+        // --- residual Demo fixture domains: clear on real path (Prompt 67) ---
+        $data['needs_attention'] = [];
+        $data['opportunities'] = [];
+        $data['business_actions'] = [];
+        $data['narrative'] = null;
+        $provenance['needs_attention'] = DataSourceState::Unavailable->value;
+        $provenance['opportunities'] = DataSourceState::Unavailable->value;
 
-        // --- relationships: technical connection is real (binding facts); narrative stays Demo ---
+        // --- relationships: technical connection is real; narrative never Demo-filled ---
         $data['relationships']['technical_connection'] = $this->realTechnicalConnection($binding, $propertyMeta);
+        $data['relationships']['measures'] = [];
+        $data['relationships']['provides_evidence_to'] = [];
         $provenance['relationships.technical_connection'] = DataSourceState::Real->value;
-        $provenance['relationships.narrative'] = DataSourceState::Demo->value;
+        $provenance['relationships.narrative'] = DataSourceState::Unavailable->value;
 
-        // --- operations: real collection/materialization/freshness/integrity/coverage state,
-        // Findings/Recommendations/Tasks/Outcomes remain the existing Demo fixtures. ---
+        // --- operations: real collection state; Findings/Recs/Tasks/Outcomes empty until canonical reads ---
         $gates = [
             self::DATASET_PROPERTY_METADATA => $propertyMetaGate,
             self::DATASET_PROPERTY_DAILY => $dailyGate,
@@ -262,10 +266,15 @@ final class Ga4SpecialistReadService
             self::DATASET_DEVICE => $deviceGate,
         ];
         $data['operations']['collection_state'] = $this->realCollectionState($gates);
+        $data['operations']['subtitle'] = 'Collection and dataset readiness for this GA4 property. Findings and Recommendations live in Operations queues — not fabricated here.';
+        $data['operations']['findings'] = [];
+        $data['operations']['recommendations'] = [];
+        $data['operations']['tasks'] = [];
+        $data['operations']['outcomes'] = [];
         $provenance['operations.collection_state'] = DataSourceState::Real->value;
-        $provenance['operations.findings'] = DataSourceState::Demo->value;
+        $provenance['operations.findings'] = DataSourceState::Unavailable->value;
 
-        $data['demo_boundary'] = 'Real GA4 workspace · data pool + formulas — no live Analytics Data API call on page render.';
+        $data['demo_boundary'] = 'Real GA4 workspace · data pool + formulas — no live Analytics Data API call on page render. Unbacked cards are empty/unavailable, never Demo.';
         $data['migration_mode'] = 'real';
         $data['data_provenance'] = $provenance;
         $data['tab_status'] = $this->rollupTabStatus($provenance);
@@ -478,19 +487,13 @@ final class Ga4SpecialistReadService
             default => 'Unknown',
         };
 
-        $chips = $demoChips;
-        foreach ($chips as $i => $chip) {
-            if (($chip['source'] ?? null) === 'GA4') {
-                $chips[$i] = [
-                    'source' => 'GA4',
-                    'age' => $ageLabel,
-                    'detail' => "Property {$propertyId} · ga4_property_daily · {$dailyGate->coverageState}",
-                    'state' => $stateLabel,
-                ];
-            }
-        }
-
-        return $chips;
+        // Real path: only the GA4 dataset chip — never retain Demo freshness siblings.
+        return [[
+            'source' => 'GA4',
+            'age' => $ageLabel,
+            'detail' => "Property {$propertyId} · ga4_property_daily · {$dailyGate->coverageState}",
+            'state' => $stateLabel,
+        ]];
     }
 
     /**
@@ -532,11 +535,23 @@ final class Ga4SpecialistReadService
             'note' => 'GA4 unique users cannot be summed across days into a period total — showing Unavailable rather than an inflated/incorrect sum.',
         ];
 
+        $unavailableChip = [
+            'value' => '—',
+            'raw' => null,
+            'secondary' => 'Unavailable',
+            'tone' => 'neutral',
+            'note' => 'Business action mapping is not configured for this property.',
+        ];
+
         return [
             'users' => $users,
             'sessions' => $sessions,
-            'business_actions' => $demoGlance['business_actions'] ?? [],
-            'measurement_state' => $demoGlance['measurement_state'] ?? [],
+            'business_actions' => $unavailableChip,
+            'measurement_state' => [
+                'value' => 'Unavailable',
+                'secondary' => 'No business-action mapping store',
+                'tone' => 'neutral',
+            ],
         ];
     }
 

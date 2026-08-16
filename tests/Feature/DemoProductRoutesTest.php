@@ -11,6 +11,8 @@ use App\Livewire\Demo\Operations\RecommendationsIndex;
 use App\Livewire\Demo\Operations\TaskShow;
 use App\Livewire\Demo\Operations\TasksIndex;
 use App\Livewire\Demo\Website\OverviewPage as WebsiteOverviewPage;
+use App\Models\DigitalAsset;
+use App\Models\Finding;
 use App\Models\Recommendation;
 use App\Models\Task;
 use App\Models\User;
@@ -91,8 +93,8 @@ class DemoProductRoutesTest extends TestCase
             ->assertOk()
             ->assertSee('Findings')
             ->assertSee('Critical')
-            ->assertSee('Lead measurement requires investigation')
-            ->assertSee('Meta CPL deteriorated');
+            ->assertSee('No Findings yet')
+            ->assertDontSee('Meta CPL deteriorated');
         $this->get(route('demo.recommendations'))
             ->assertOk()
             ->assertSee('Recommendations')
@@ -277,6 +279,22 @@ class DemoProductRoutesTest extends TestCase
     {
         DemoState::reset();
 
+        $asset = DigitalAsset::factory()->create(['type' => 'meta_ads', 'name' => 'Meta Ads Account']);
+        Finding::factory()->create([
+            'digital_asset_id' => $asset->id,
+            'severity' => 'critical',
+            'status' => Finding::STATUS_OPEN,
+            'title' => 'Meta CPL deteriorated',
+            'category' => 'performance',
+        ]);
+        Finding::factory()->create([
+            'digital_asset_id' => $asset->id,
+            'severity' => 'medium',
+            'status' => Finding::STATUS_OPEN,
+            'title' => 'Creative frequency elevated',
+            'category' => 'creative',
+        ]);
+
         Livewire::test(FindingsIndex::class)
             ->assertSee('Critical')
             ->assertSee('Meta CPL deteriorated')
@@ -287,8 +305,8 @@ class DemoProductRoutesTest extends TestCase
             ->assertDontSee('Meta CPL deteriorated')
             ->call('setSeverity', 'all')
             ->call('setAssetType', 'all')
-            ->call('expand', 'f-meta-cpl')
-            ->assertSee('Why it matters');
+            ->call('expand', (string) Finding::query()->where('title', 'Meta CPL deteriorated')->value('id'))
+            ->assertSee('What happened');
 
         $recommendation = Recommendation::factory()->create([
             'title' => 'Replace underperforming creative',

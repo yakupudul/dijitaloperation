@@ -6,6 +6,8 @@ use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
 use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
 use App\Support\Demo\GbpWorkspaceFixtures;
+use App\Support\Reality\DemoCatalogAssetGuard;
+use App\Support\Reality\UnavailableWorkspaceShells;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -260,6 +262,67 @@ class OverviewPage extends Component
     public function render(): View
     {
         $this->normalizeTab();
+
+        $usesDemoCatalog = DemoCatalogAssetGuard::isDemoCatalogAssetId($this->assetId);
+        if (! $usesDemoCatalog) {
+            $data = UnavailableWorkspaceShells::gbp($this->assetId);
+            $emptySeries = ['labels' => [], 'values' => []];
+
+            return view('livewire.demo.gbp.overview', [
+                'asset' => [
+                    'id' => $this->assetId,
+                    'name' => $data['identity']['title'] ?? 'GBP',
+                    'type' => 'gbp',
+                ],
+                'data' => $data,
+                'identity' => $data['identity'],
+                'visibility' => [
+                    'keywords' => [],
+                    'default_keyword' => '',
+                    'scans' => [],
+                    'business' => ['name' => null, 'lat' => null, 'lng' => null, 'label' => null],
+                    'note' => 'Local visibility grid is unavailable — no fabricated rankings.',
+                ],
+                'currentScan' => [
+                    'points' => [],
+                    'scanned_at' => null,
+                    'average_rank' => null,
+                    'top3_count' => 0,
+                    'top10_count' => 0,
+                    'best' => null,
+                    'worst' => null,
+                ],
+                'previousScan' => null,
+                'points' => [],
+                'selectedPoint' => null,
+                'mapPayload' => ['mode' => 'rank', 'business' => ['name' => null, 'lat' => null, 'lng' => null, 'address' => null], 'points' => []],
+                'miniMapPayload' => ['mode' => 'rank', 'business' => ['name' => null, 'lat' => null, 'lng' => null, 'address' => null], 'points' => []],
+                'queryRows' => [],
+                'reviewInbox' => [],
+                'selectedFinding' => null,
+                'selectedAttention' => null,
+                'showPeriodBar' => in_array($this->tab, $this->timeBasedTabs, true),
+                'discoveryChartOptions' => [
+                    'chart' => ['type' => 'area', 'height' => 240, 'toolbar' => ['show' => false], 'stacked' => false],
+                    'series' => [],
+                    'xaxis' => ['categories' => []],
+                    'stroke' => ['curve' => 'smooth', 'width' => 2],
+                    'dataLabels' => ['enabled' => false],
+                    'colors' => ['#ea580c', '#0284c7'],
+                    'legend' => ['position' => 'top'],
+                ],
+                'actionsChartOptions' => [
+                    'chart' => ['type' => 'line', 'height' => 240, 'toolbar' => ['show' => false]],
+                    'series' => [['name' => 'Customer actions', 'data' => []]],
+                    'xaxis' => ['categories' => []],
+                    'stroke' => ['curve' => 'smooth', 'width' => 2],
+                    'dataLabels' => ['enabled' => false],
+                    'colors' => ['#ea580c'],
+                ],
+                'flash' => DemoState::pullFlash(),
+            ]);
+        }
+
         $data = GbpWorkspaceFixtures::workspace($this->period);
         $visibility = $data['visibility'];
         $keywords = $visibility['keywords'];

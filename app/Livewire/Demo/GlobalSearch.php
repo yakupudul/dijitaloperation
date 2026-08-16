@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Demo;
 
+use App\Services\Findings\FindingReadService;
 use App\Services\Playbooks\PlaybookReadService;
 use App\Support\Demo\ClientValueFixtures;
 use App\Support\Demo\DemoCatalog;
@@ -79,12 +80,12 @@ class GlobalSearch extends Component
                 }
             }
 
-            foreach (DemoState::findingsWithStatus() as $finding) {
-                $title = (string) ($finding['title'] ?? '');
+            foreach (app(FindingReadService::class)->query([], 200) as $findingDto) {
+                $title = (string) $findingDto->title;
                 if ($title !== '' && str_contains(mb_strtolower($title), $needle)) {
                     $results[] = [
                         'label' => $title,
-                        'meta' => __('operator.nav.findings').' · '.($finding['brand'] ?? ''),
+                        'meta' => __('operator.nav.findings'),
                         'url' => route('demo.findings'),
                     ];
                 }

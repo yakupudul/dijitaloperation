@@ -7,6 +7,8 @@ use App\Support\Demo\ConnectorWorkspaceFixtures;
 use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
 use App\Support\Demo\WebsiteWorkspaceFixtures;
+use App\Support\Reality\DemoCatalogAssetGuard;
+use App\Support\Reality\UnavailableWorkspaceShells;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -260,7 +262,11 @@ class OverviewPage extends Component
     public function render(): View
     {
         $this->normalizeTab();
-        $data = WebsiteWorkspaceFixtures::workspace($this->period);
+
+        $usesDemoCatalog = DemoCatalogAssetGuard::isDemoCatalogAssetId($this->assetId);
+        $data = $usesDemoCatalog
+            ? WebsiteWorkspaceFixtures::workspace($this->period)
+            : UnavailableWorkspaceShells::website($this->assetId);
 
         $healthFindings = collect($data['health']['findings'] ?? []);
         if ($this->health_group !== 'all') {
@@ -299,26 +305,36 @@ class OverviewPage extends Component
             $activity = $activity->where('category', $this->activity_filter);
         }
 
-        $asset = DemoCatalog::asset($this->assetId) ?? DemoCatalog::asset(DemoCatalog::WEBSITE_ASSET_ID);
+        $asset = $usesDemoCatalog
+            ? (DemoCatalog::asset($this->assetId) ?? DemoCatalog::asset(DemoCatalog::WEBSITE_ASSET_ID))
+            : [
+                'id' => $this->assetId,
+                'name' => $data['identity']['title'] ?? 'Website',
+                'type' => 'website',
+            ];
 
         $websiteId = DemoCatalog::WEBSITE_ASSET_ID;
         $opsFindings = collect($data['health']['findings'] ?? [])->values()->all();
-        $opsRecommendations = collect(DemoState::all()['recommendations'] ?? DemoCatalog::recommendationsSeed())
-            ->filter(function (array $row) use ($websiteId): bool {
-                $hay = mb_strtolower(($row['asset'] ?? '').' '.($row['title'] ?? '').' '.($row['scope'] ?? ''));
+        $opsRecommendations = $usesDemoCatalog
+            ? collect(DemoState::all()['recommendations'] ?? DemoCatalog::recommendationsSeed())
+                ->filter(function (array $row) use ($websiteId): bool {
+                    $hay = mb_strtolower(($row['asset'] ?? '').' '.($row['title'] ?? '').' '.($row['scope'] ?? ''));
 
-                return str_contains($hay, 'website') || str_contains($hay, 'atlasdental') || ($row['asset_id'] ?? null) === $websiteId;
-            })
-            ->values()
-            ->all();
-        $opsTasks = collect(DemoState::all()['tasks'] ?? DemoCatalog::tasksSeed())
-            ->filter(function (array $row) use ($websiteId): bool {
-                $hay = mb_strtolower(($row['asset'] ?? '').' '.($row['title'] ?? '').' '.($row['scope'] ?? ''));
+                    return str_contains($hay, 'website') || str_contains($hay, 'atlasdental') || ($row['asset_id'] ?? null) === $websiteId;
+                })
+                ->values()
+                ->all()
+            : [];
+        $opsTasks = $usesDemoCatalog
+            ? collect(DemoState::all()['tasks'] ?? DemoCatalog::tasksSeed())
+                ->filter(function (array $row) use ($websiteId): bool {
+                    $hay = mb_strtolower(($row['asset'] ?? '').' '.($row['title'] ?? '').' '.($row['scope'] ?? ''));
 
-                return str_contains($hay, 'website') || str_contains($hay, 'atlasdental') || ($row['asset_id'] ?? null) === $websiteId;
-            })
-            ->values()
-            ->all();
+                    return str_contains($hay, 'website') || str_contains($hay, 'atlasdental') || ($row['asset_id'] ?? null) === $websiteId;
+                })
+                ->values()
+                ->all()
+            : [];
         $opsOutcomes = collect($data['recent_outcomes'] ?? [])->values()->all();
 
         return view('livewire.demo.website.overview', [
@@ -334,7 +350,7 @@ class OverviewPage extends Component
             'opsRecommendations' => $opsRecommendations,
             'opsTasks' => $opsTasks,
             'opsOutcomes' => $opsOutcomes,
-            'infrastructure' => ConnectorWorkspaceFixtures::websiteInfrastructure(),
+            'infrastructure' => $usesDemoCatalog ? ConnectorWorkspaceFixtures::websiteInfrastructure() : [],
             'showPeriodBar' => in_array($this->tab, $this->timeBasedTabs, true),
             'flash' => DemoState::pullFlash(),
         ]);

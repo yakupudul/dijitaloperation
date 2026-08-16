@@ -277,8 +277,8 @@ final class GoogleAdsSpecialistReadService
         $provenance['search.keywords'] = $keywordGate->isUsable()
             ? DataSourceState::ProviderLimited->value
             : DataSourceState::Unavailable->value;
-        $provenance['search.clusters'] = DataSourceState::Demo->value;
-        $provenance['search.inbox'] = DataSourceState::Demo->value;
+        $provenance['search.clusters'] = DataSourceState::Unavailable->value;
+        $provenance['search.inbox'] = DataSourceState::Unavailable->value;
 
         $data['ads'] = $this->realAds($adSnapshotGate, $digitalAssetId, $customerId);
         $provenance['ads.rows'] = $adSnapshotGate->dataSourceState()->value;
@@ -297,9 +297,11 @@ final class GoogleAdsSpecialistReadService
         );
         $provenance['measurement'] = $this->combinedState($conversionActionSnapshotGate, $conversionActionDailyGate)->value;
 
-        // needs_attention/opportunities remain Demo — no Evidence/Findings pipeline is created here.
-        $provenance['needs_attention'] = DataSourceState::Demo->value;
-        $provenance['opportunities'] = DataSourceState::Demo->value;
+        // Residual Demo domains: clear on real path (Prompt 67).
+        $data['needs_attention'] = [];
+        $data['opportunities'] = [];
+        $provenance['needs_attention'] = DataSourceState::Unavailable->value;
+        $provenance['opportunities'] = DataSourceState::Unavailable->value;
 
         $gates = [
             self::DATASET_ACCOUNT_DAILY => $accountGate,
@@ -315,10 +317,15 @@ final class GoogleAdsSpecialistReadService
             self::DATASET_CAMPAIGN_BUDGET_SNAPSHOT => $campaignBudgetGate,
         ];
         $data['operations']['collection_state'] = $this->realCollectionState($gates);
+        $data['operations']['subtitle'] = 'Collection and dataset readiness for this Google Ads account. Findings live in Operations queues — not fabricated here.';
+        $data['operations']['findings'] = [];
+        $data['operations']['recommendations'] = [];
+        $data['operations']['tasks'] = [];
+        $data['operations']['outcomes'] = [];
         $provenance['operations.collection_state'] = DataSourceState::Real->value;
-        $provenance['operations.findings'] = DataSourceState::Demo->value;
+        $provenance['operations.findings'] = DataSourceState::Unavailable->value;
 
-        $data['demo_boundary'] = 'Real Google Ads workspace · data pool + formulas — no live Google Ads API call on page render.';
+        $data['demo_boundary'] = 'Real Google Ads workspace · data pool + formulas — no live Google Ads API call on page render. Unbacked cards are empty/unavailable, never Demo.';
         $data['migration_mode'] = 'real';
         $data['data_provenance'] = $provenance;
         $data['tab_status'] = $this->rollupTabStatus($provenance);
@@ -516,19 +523,12 @@ final class GoogleAdsSpecialistReadService
             default => 'Unknown',
         };
 
-        $chips = $demoChips;
-        foreach ($chips as $i => $chip) {
-            if (($chip['source'] ?? null) === 'Google Ads') {
-                $chips[$i] = [
-                    'source' => 'Google Ads',
-                    'age' => $ageLabel,
-                    'detail' => "Customer {$customerId} · google_ads_account_daily · {$accountGate->coverageState}",
-                    'state' => $stateLabel,
-                ];
-            }
-        }
-
-        return $chips;
+        return [[
+            'source' => 'Google Ads',
+            'age' => $ageLabel,
+            'detail' => "Customer {$customerId} · google_ads_account_daily · {$accountGate->coverageState}",
+            'state' => $stateLabel,
+        ]];
     }
 
     /**

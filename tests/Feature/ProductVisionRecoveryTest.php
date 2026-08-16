@@ -10,6 +10,8 @@ use App\Livewire\Demo\Operations\FindingsIndex;
 use App\Livewire\Demo\Operations\RecommendationsIndex;
 use App\Livewire\Demo\Portfolio\BrandShow;
 use App\Livewire\Demo\SettingsPage;
+use App\Models\DigitalAsset;
+use App\Models\Finding;
 use App\Models\Recommendation;
 use App\Models\User;
 use App\Support\Agents\AgentProfileKeys;
@@ -104,15 +106,23 @@ class ProductVisionRecoveryTest extends TestCase
 
     public function test_findings_support_acknowledge_and_resolve_actions(): void
     {
+        $asset = DigitalAsset::factory()->create();
+        $finding = Finding::factory()->create([
+            'digital_asset_id' => $asset->id,
+            'status' => Finding::STATUS_OPEN,
+            'severity' => 'high',
+            'title' => 'Lead measurement gap',
+        ]);
+
         Livewire::test(FindingsIndex::class)
             ->assertOk()
-            ->call('acknowledge', 'f-lead-measurement')
+            ->assertSee('Lead measurement gap')
+            ->call('acknowledge', (string) $finding->id)
             ->assertSee('Finding acknowledged')
-            ->call('resolve', 'f-lead-measurement')
+            ->call('resolve', (string) $finding->id)
             ->assertSee('Finding resolved');
 
-        $statuses = DemoState::all()['finding_statuses'] ?? [];
-        $this->assertSame('resolved', $statuses['f-lead-measurement'] ?? null);
+        $this->assertSame(Finding::STATUS_RESOLVED, $finding->fresh()->status);
     }
 
     public function test_recommendations_support_defer_decision(): void

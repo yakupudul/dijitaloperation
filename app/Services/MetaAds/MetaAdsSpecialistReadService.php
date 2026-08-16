@@ -314,9 +314,11 @@ final class MetaAdsSpecialistReadService
         );
         $provenance['measurement'] = $typedActionGate->dataSourceState()->value;
 
-        // needs_attention/opportunities remain Demo — no Evidence/Findings pipeline is created here.
-        $provenance['needs_attention'] = DataSourceState::Demo->value;
-        $provenance['opportunities'] = DataSourceState::Demo->value;
+        // needs_attention/opportunities: never leave Demo fixture rows on a real-bound workspace.
+        $data['needs_attention'] = [];
+        $data['opportunities'] = [];
+        $provenance['needs_attention'] = DataSourceState::Unavailable->value;
+        $provenance['opportunities'] = DataSourceState::Unavailable->value;
 
         $gates = [
             self::DATASET_CAMPAIGN_DAILY => $campaignDailyGate,
@@ -330,10 +332,15 @@ final class MetaAdsSpecialistReadService
             self::DATASET_AD_ACCOUNT_SNAPSHOT => $adAccountSnapshotGate,
         ];
         $data['operations']['collection_state'] = $this->realCollectionState($gates);
+        $data['operations']['subtitle'] = 'Collection and dataset readiness for this Meta Ads account. Findings live in Operations queues — not fabricated here.';
+        $data['operations']['findings'] = [];
+        $data['operations']['recommendations'] = [];
+        $data['operations']['tasks'] = [];
+        $data['operations']['outcomes'] = [];
         $provenance['operations.collection_state'] = DataSourceState::Real->value;
-        $provenance['operations.findings'] = DataSourceState::Demo->value;
+        $provenance['operations.findings'] = DataSourceState::Unavailable->value;
 
-        $data['demo_boundary'] = 'Real Meta Ads workspace · data pool + formulas — no live Meta Graph API call on page render.';
+        $data['demo_boundary'] = 'Real Meta Ads workspace · data pool + formulas — no live Meta Graph API call on page render. Unbacked cards are empty/unavailable, never Demo.';
         $data['migration_mode'] = 'real';
         $data['currency'] = $currency;
         $data['data_provenance'] = $provenance;
@@ -555,19 +562,12 @@ final class MetaAdsSpecialistReadService
             default => 'Unknown',
         };
 
-        $chips = $demoChips;
-        foreach ($chips as $i => $chip) {
-            if (($chip['source'] ?? null) === 'Meta Ads') {
-                $chips[$i] = [
-                    'source' => 'Meta Ads',
-                    'age' => $ageLabel,
-                    'detail' => "act_{$accountId} · meta_campaign_daily · {$campaignDailyGate->coverageState}",
-                    'state' => $stateLabel,
-                ];
-            }
-        }
-
-        return $chips;
+        return [[
+            'source' => 'Meta Ads',
+            'age' => $ageLabel,
+            'detail' => "act_{$accountId} · meta_campaign_daily · {$campaignDailyGate->coverageState}",
+            'state' => $stateLabel,
+        ]];
     }
 
     /**

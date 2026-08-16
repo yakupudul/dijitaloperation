@@ -2,6 +2,8 @@
 
 namespace App\Support\Demo;
 
+use App\Models\Recommendation;
+use App\Services\Recommendations\RecommendationReadService;
 use App\Services\Work\WorkReadService;
 use Illuminate\Support\Collection;
 
@@ -696,10 +698,13 @@ final class AgencyExecutionFixtures
         $mode = in_array($mode, ['my_work', 'agency'], true) ? $mode : 'my_work';
         $items = collect(self::workItems());
         $openItems = $items->reject(fn (array $row): bool => in_array($row['status'] ?? '', ['completed', 'done', 'declined', 'skipped'], true));
-        $recs = collect(DemoState::all()['recommendations'] ?? DemoCatalog::recommendationsSeed());
-        $awaitingDecision = $recs->whereIn('status', ['pending', 'awaiting_decision'])->count();
+        $recs = collect(app(RecommendationReadService::class)->forListPresentation());
+        $awaitingDecision = $recs->whereIn('status', [
+            Recommendation::STATUS_OPEN,
+            'pending',
+            'awaiting_decision',
+        ])->count();
         $waitingOnClient = $openItems->where('waiting_on_client', true)->count();
-
         $myItems = $openItems->filter(fn (array $row): bool => self::isMine($row));
 
         return [
@@ -725,10 +730,9 @@ final class AgencyExecutionFixtures
                 ->whereIn('status', ['due', 'overdue', 'upcoming', 'scheduled', 'in_progress'])
                 ->take(5)->values()->all(),
             'portfolio_focus' => self::portfolioFocus(),
-            'system_exceptions' => collect(GlobalOperatingFixtures::integrationAttention())
-                ->whereIn('state', ['needs_attention', 'configuration_incomplete', 'failed'])
-                ->values()->all(),
-            'recent_outcomes' => GlobalOperatingFixtures::dashboard($mode)['recent_outcomes'],
+            // Prompt 67: system exceptions come from real Google/Meta hub cards only — no Demo connected/last_check fixtures.
+            'system_exceptions' => [],
+            'recent_outcomes' => [],
         ];
     }
 

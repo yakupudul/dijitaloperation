@@ -137,8 +137,8 @@
             </article>
         @empty
             @include('livewire.demo.partials.empty-panel', [
-                'title' => 'No open Findings match the current filters',
-                'message' => 'This does not mean no problems exist — filters, missing analysis, or unavailable data may exclude results.',
+                'title' => 'No Findings yet',
+                'message' => 'No Finding rows match the current filters. Empty means empty — sample Findings are never invented for production.',
             ])
         @endforelse
     </div>
