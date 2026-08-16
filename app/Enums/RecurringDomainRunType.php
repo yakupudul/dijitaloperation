@@ -9,4 +9,5 @@ enum RecurringDomainRunType: string
     case BusinessOutcomeRecheckRun = 'business_outcome_recheck_run';
     case NotificationBatch = 'notification_batch';
     case ReportDeliveryOccurrence = 'report_delivery_occurrence';
+    case IntelligenceExecutionPlan = 'intelligence_execution_plan';
 }

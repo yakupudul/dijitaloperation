@@ -9,4 +9,5 @@ enum RecurringScheduleKind: string
     case BusinessOutcomeRecheck = 'business_outcome_recheck';
     case InternalNotification = 'internal_notification';
     case ReportDelivery = 'report_delivery';
+    case IntelligenceValidityRecheck = 'intelligence_validity_recheck';
 }

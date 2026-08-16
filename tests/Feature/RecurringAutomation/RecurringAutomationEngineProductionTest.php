@@ -50,6 +50,7 @@ class RecurringAutomationEngineProductionTest extends TestCase
             'business_outcome_recheck',
             'internal_notification',
             'report_delivery',
+            'intelligence_validity_recheck',
         ], $kinds);
 
         $this->assertTrue(Schema::hasTable('recurring_occurrences'));
@@ -62,6 +63,8 @@ class RecurringAutomationEngineProductionTest extends TestCase
         $this->assertFalse(class_exists('App\\Models\\ReviewScheduleV2'));
         $this->assertFalse(class_exists('App\\Models\\ReportDeliveryScheduleV2'));
         $this->assertFalse(class_exists('App\\Models\\GenericAutomation'));
+        $this->assertFalse(class_exists('App\\Services\\IntelligenceScheduling\\IntelligenceEngineV2'));
+        $this->assertContains(RecurringScheduleKind::IntelligenceValidityRecheck->value, $kinds);
     }
 
     public function test_double_dispatcher_creates_one_occurrence(): void
