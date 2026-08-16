@@ -24,6 +24,8 @@ final class WebsiteSeoAnalyst
     {
         return [
             'technical-seo-analysis',
+            'indexability-analysis',
+            'metadata-consistency',
             'search-console-analysis',
             'keyword-opportunity-analysis',
             'recommendation-framing',
