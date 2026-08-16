@@ -23,7 +23,7 @@
 | Fine-tuning | **NONE** |
 | Agent memory tools / LLM retrieval | **FORBIDDEN** |
 | Provider / AI calls during retrieval | **0** |
-| Retrieval evaluation | **NOT YET** / Prompt 55 |
+| Retrieval evaluation | **REAL** (Prompt 55) — [`INTELLIGENCE_EVALUATION.md`](INTELLIGENCE_EVALUATION.md) |
 
 ---
 
@@ -489,11 +489,11 @@ See §51 Reality Matrix and architecture policy/context pack contracts. Cross-re
 | RetrievalV2 | **NONE** |
 | Fine-tuning | **NONE** |
 | Agent memory tools | **FORBIDDEN** |
-| Retrieval evaluation / ranking QA | **NOT YET** / Prompt 55 |
+| Retrieval evaluation / ranking QA | **REAL** (Prompt 55) — [`INTELLIGENCE_EVALUATION.md`](INTELLIGENCE_EVALUATION.md) |
 
 ## 52. Prompt 55 Handoff
 
-Own **retrieval evaluation** — measuring whether selected context improved grounded Agent outcomes. Prompt 54 delivers deterministic selection + manifests + tests; Prompt 55 owns evaluation metrics, governance loops, and any future **non-vector** ranking policy changes. Prompt 54 does **not** implement evaluation.
+**Delivered in Prompt 55:** retrieval evaluation observes/measures Prompt 54 selection via `IntelligenceEvaluationRunner`, versioned suites/cases, bounded assertions, separate retrieval metrics (`composite_retrieval_score` always null), human rubric, advisory judge (mocked in CI), and explicit baselines — without auto-tuning or production policy mutation. Spec: [`INTELLIGENCE_EVALUATION.md`](INTELLIGENCE_EVALUATION.md).
 
 ## 53. Relationship to Prompt 51 / 52 / 53
 
@@ -551,4 +551,4 @@ Prompt 54 is satisfied when:
 - `WebsiteAiRecommendationService` wires EvidencePack → Retrieval → `MEMORY_CONTEXT_JSON`
 - No RetrievalV2, vectors, embeddings, fine-tuning, or Agent memory tools
 - Tests pass; docs match implementation
-- Evaluation explicitly deferred to Prompt 55
+- Evaluation delivered in Prompt 55 (`INTELLIGENCE_EVALUATION.md`) — observes/measures only

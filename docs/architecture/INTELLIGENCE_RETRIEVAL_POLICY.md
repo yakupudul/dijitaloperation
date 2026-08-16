@@ -235,7 +235,7 @@ Validator enforces Memory opaque refs cannot satisfy Evidence ID claims.
 
 ## Evaluation Boundary
 
-Prompt 54 policy does **not** define retrieval quality metrics or offline eval harnesses. Prompt 55 owns evaluation. v1 selection is fully deterministic from inputs + policy version.
+Prompt 54 policy does **not** define retrieval quality metrics or offline eval harnesses. Prompt 55 owns evaluation (`intelligence_evaluation_v1`) — see [`INTELLIGENCE_EVALUATION_POLICY.md`](INTELLIGENCE_EVALUATION_POLICY.md). v1 selection remains fully deterministic from inputs + policy version; evaluation does not mutate this policy.
 
 ---
 
