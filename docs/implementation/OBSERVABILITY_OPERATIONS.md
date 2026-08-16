@@ -494,7 +494,7 @@ Filament widget uses real snapshot dimensions; title “MoxDOP Operations”; un
 | `moxdop:ops:worker-heartbeat` | Record worker heartbeat |
 | `moxdop:ops:test-alert` | Open clearly marked TEST alert |
 
-**Note:** `routes/console.php` does **not** yet Schedule `evaluate-alerts` — operators must cron/schedule it in deployment (see runbook). Dispatcher heartbeat freshness depends on that command (or other callers of `beatDispatcher`).
+**Schedule:** `routes/console.php` registers `moxdop:ops:evaluate-alerts` every five minutes (alongside async stale-run and delivery dispatchers). Dispatcher heartbeat freshness is updated by that command via `beatDispatcher('recurring')`.
 
 ---
 
@@ -593,7 +593,7 @@ No fabricated remaining%. Partition/DB bloat monitoring remains operator/Postgre
 | ProviderApiCounter + MetaApiClient recording | REAL (Meta wired) |
 | Google/OpenAI/DataForSEO HTTP recording | PARTIAL / NOT_YET wired |
 | Alert evaluator command | REAL |
-| Scheduled evaluate-alerts in `routes/console.php` | NOT_YET (ops must schedule) |
+| Scheduled evaluate-alerts in `routes/console.php` | REAL (everyFiveMinutes) |
 | Liveness / readiness | REAL |
 | Auth health snapshot | REAL |
 | SystemStatusWidget real dimensions | REAL (undiscovered) |
