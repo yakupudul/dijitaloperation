@@ -81,12 +81,7 @@ final class AssistantQueryPlanner
                 [AssistantCapabilityId::WorkLookup],
                 AssistantAnswerStrategy::CanonicalDomainSummary,
             ),
-            AssistantIntentType::HistoricalContext => $this->requireBrandPlan(
-                $scope,
-                AssistantIntentType::HistoricalContext,
-                [AssistantCapabilityId::BrandExperienceLookup],
-                AssistantAnswerStrategy::CanonicalDomainSummary,
-            ),
+            AssistantIntentType::HistoricalContext => $this->planHistorical($scope, $dateRange, $periodToken, $candidate),
             AssistantIntentType::SectorContext => $this->requireBrandPlan(
                 $scope,
                 AssistantIntentType::SectorContext,
@@ -248,6 +243,55 @@ final class AssistantQueryPlanner
         );
     }
 
+    private function planHistorical(
+        AssistantSessionScope $scope,
+        $dateRange,
+        ?string $periodToken,
+        AssistantIntentCandidate $candidate,
+    ): AssistantQueryPlan {
+        $filter = strtolower((string) ($candidate->domainFilter ?? ''));
+        $wantsReport = $candidate->capabilityId === AssistantCapabilityId::ReportSnapshotLookup
+            || str_contains($filter, 'report')
+            || str_contains($filter, 'snapshot')
+            || (bool) ($candidate->parameters['historical_report'] ?? false);
+
+        if ($wantsReport) {
+            if (! $scope->hasBrand()) {
+                return new AssistantQueryPlan(
+                    scope: $scope,
+                    intentType: AssistantIntentType::ClarificationRequired,
+                    capabilities: [],
+                    answerStrategy: AssistantAnswerStrategy::Clarification,
+                    clarificationReason: AssistantClarificationReason::BrandScopeRequired,
+                    validated: true,
+                );
+            }
+
+            return new AssistantQueryPlan(
+                scope: $scope,
+                intentType: AssistantIntentType::HistoricalContext,
+                capabilities: [AssistantCapabilityId::ReportSnapshotLookup],
+                answerStrategy: AssistantAnswerStrategy::CanonicalDomainSummary,
+                dateRange: $dateRange,
+                sourceRequirements: ['report_snapshot'],
+                parameters: [
+                    'period_token' => $periodToken,
+                    'historical_report' => true,
+                    'overrides_current_canonical_domains' => false,
+                    'ai_required' => false,
+                ],
+                validated: true,
+            );
+        }
+
+        return $this->requireBrandPlan(
+            $scope,
+            AssistantIntentType::HistoricalContext,
+            [AssistantCapabilityId::BrandExperienceLookup],
+            AssistantAnswerStrategy::CanonicalDomainSummary,
+        );
+    }
+
     private function planValueStorySummary(
         AssistantSessionScope $scope,
         $dateRange,
@@ -296,6 +340,7 @@ final class AssistantQueryPlanner
     {
         $filter = strtolower((string) ($candidate->domainFilter ?? ''));
         $capability = match (true) {
+            str_contains($filter, 'report'), str_contains($filter, 'snapshot') => AssistantCapabilityId::ReportSnapshotLookup,
             str_contains($filter, 'value_story'), str_contains($filter, 'client_value') => AssistantCapabilityId::ClientValueStorySummary,
             str_contains($filter, 'finding') => AssistantCapabilityId::FindingLookup,
             str_contains($filter, 'opportunit') => AssistantCapabilityId::OpportunityLookup,

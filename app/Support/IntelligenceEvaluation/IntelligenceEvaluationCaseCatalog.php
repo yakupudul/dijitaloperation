@@ -51,6 +51,45 @@ final class IntelligenceEvaluationCaseCatalog
 
     public const string ABLATION_FULL = 'ABLATION_FULL_RETRIEVAL';
 
+    /** Prompt 59 prepared golden case keys (evaluated via Report Snapshot feature tests). */
+    public const string REPORT_SNAPSHOT_REMAINS_IMMUTABLE = 'REPORT_SNAPSHOT_REMAINS_IMMUTABLE';
+
+    public const string OUTCOME_CORRECTION_AFTER_SNAPSHOT = 'OUTCOME_CORRECTION_AFTER_SNAPSHOT';
+
+    public const string FINDING_STATE_CHANGE_AFTER_SNAPSHOT = 'FINDING_STATE_CHANGE_AFTER_SNAPSHOT';
+
+    public const string TASK_QA_CHANGE_AFTER_SNAPSHOT = 'TASK_QA_CHANGE_AFTER_SNAPSHOT';
+
+    public const string CURRENT_VS_HISTORICAL_REPORT = 'CURRENT_VS_HISTORICAL_REPORT';
+
+    public const string CROSS_BRAND_REPORT_ACCESS = 'CROSS_BRAND_REPORT_ACCESS';
+
+    public const string SNAPSHOT_SOURCE_MANIFEST_INTEGRITY = 'SNAPSHOT_SOURCE_MANIFEST_INTEGRITY';
+
+    public const string SNAPSHOT_NO_DEMO = 'SNAPSHOT_NO_DEMO';
+
+    public const string SNAPSHOT_NO_ATTRIBUTION = 'SNAPSHOT_NO_ATTRIBUTION';
+
+    /**
+     * Prepared Prompt 59 evaluation case identities — not silently rewritten.
+     *
+     * @return list<string>
+     */
+    public static function reportSnapshotPreparedCaseKeys(): array
+    {
+        return [
+            self::REPORT_SNAPSHOT_REMAINS_IMMUTABLE,
+            self::OUTCOME_CORRECTION_AFTER_SNAPSHOT,
+            self::FINDING_STATE_CHANGE_AFTER_SNAPSHOT,
+            self::TASK_QA_CHANGE_AFTER_SNAPSHOT,
+            self::CURRENT_VS_HISTORICAL_REPORT,
+            self::CROSS_BRAND_REPORT_ACCESS,
+            self::SNAPSHOT_SOURCE_MANIFEST_INTEGRITY,
+            self::SNAPSHOT_NO_DEMO,
+            self::SNAPSHOT_NO_ATTRIBUTION,
+        ];
+    }
+
     /**
      * @return list<IntelligenceEvaluationCaseDefinition>
      */

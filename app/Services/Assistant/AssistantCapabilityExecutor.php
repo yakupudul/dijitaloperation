@@ -18,12 +18,14 @@ use App\Models\Brand;
 use App\Models\BrandExperience;
 use App\Models\DigitalAsset;
 use App\Models\Evidence;
+use App\Models\ReportSnapshot;
 use App\Services\Assistant\Adapters\GoogleAdsAssistantReadAdapter;
 use App\Services\BusinessOutcomes\BusinessOutcomeReadService;
 use App\Services\ClientValueStory\ClientValueStoryReadService;
 use App\Services\Findings\FindingReadService;
 use App\Services\IntelligenceRetrieval\IntelligenceRetrievalService;
 use App\Services\Opportunities\OpportunityReadService;
+use App\Services\ReportSnapshots\ReportSnapshotReadService;
 use App\Services\SectorLearning\SectorMemoryReadService;
 use App\Services\Work\WorkReadService;
 use App\Support\Assistant\AssistantSourceAuthority;
@@ -56,6 +58,7 @@ final class AssistantCapabilityExecutor
         private readonly AssistantSourceAuthority $authority,
         private readonly BusinessOutcomeReadService $businessOutcomes,
         private readonly ClientValueStoryReadService $clientValueStories,
+        private readonly ReportSnapshotReadService $reportSnapshots,
     ) {}
 
     public function execute(AssistantQueryPlan $plan): AssistantAnswer
@@ -91,8 +94,114 @@ final class AssistantCapabilityExecutor
             AssistantCapabilityId::SpecialistAnalysis => $this->executeSpecialistRoute($plan),
             AssistantCapabilityId::BusinessOutcomeLookup => $this->executeBusinessOutcome($plan),
             AssistantCapabilityId::ClientValueStorySummary => $this->executeClientValueStory($plan),
+            AssistantCapabilityId::ReportSnapshotLookup => $this->executeReportSnapshot($plan),
             default => $this->unavailable($plan, 'capability_not_executable'),
         };
+    }
+
+    private function executeReportSnapshot(AssistantQueryPlan $plan): AssistantAnswer
+    {
+        if ($plan->scope->brandId === null || $plan->scope->customerId === null) {
+            return $this->unavailable($plan, 'brand_scope_required');
+        }
+
+        $brand = Brand::query()->find((int) $plan->scope->brandId);
+        if ($brand === null || (int) $brand->customer_id !== (int) $plan->scope->customerId) {
+            return $this->unavailable($plan, 'brand_scope_required');
+        }
+
+        $filters = [];
+        if ($plan->dateRange !== null) {
+            $filters['period_start'] = $plan->dateRange->startDate;
+            $filters['period_end'] = $plan->dateRange->endDate;
+        }
+
+        $page = $this->reportSnapshots->listForBrand(
+            $brand,
+            array_merge($filters, ['per_page' => 5]),
+            [(int) $plan->scope->customerId],
+            [(int) $plan->scope->brandId],
+        );
+
+        $snapshots = [];
+        foreach ($page->items() as $row) {
+            /** @var ReportSnapshot $row */
+            $detail = $this->reportSnapshots->detail(
+                (int) $row->id,
+                [(int) $plan->scope->customerId],
+                [(int) $plan->scope->brandId],
+                verifyChecksum: true,
+            );
+            $outcomes = $detail['content']['business_outcomes'] ?? [];
+            $snapshots[] = [
+                'id' => $detail['id'],
+                'title' => $detail['title'],
+                'period_start' => $detail['period_start'],
+                'period_end' => $detail['period_end'],
+                'generated_at' => $detail['generated_at'],
+                'brand_name' => $detail['brand_name'],
+                'business_outcomes' => $outcomes,
+                'attribution_established' => false,
+                'causality_established' => false,
+            ];
+        }
+
+        $refs = [];
+        foreach ($snapshots as $snap) {
+            $refs[] = new AssistantSourceRef(
+                AssistantSourceClass::ReportSnapshot,
+                'report_snapshot:'.$snap['id'],
+            );
+        }
+        if ($refs === []) {
+            $refs[] = new AssistantSourceRef(
+                AssistantSourceClass::ReportSnapshot,
+                'report_snapshot:brand:'.$brand->id.':empty',
+            );
+        }
+
+        $statement = $snapshots === []
+            ? 'No Report Snapshots exist for this Brand and period.'
+            : 'Historical Report Snapshot values are shown. They do not override current Business Outcome truth.';
+
+        return new AssistantAnswer(
+            strategy: AssistantAnswerStrategy::CanonicalDomainSummary,
+            intentType: AssistantIntentType::HistoricalContext,
+            scope: $plan->scope,
+            claims: [
+                new AssistantClaim(
+                    claimId: 'historical_report_snapshot',
+                    blockType: AssistantAnswerBlockType::HistoricalContext,
+                    statement: $statement,
+                    requiredSourceClass: AssistantSourceClass::ReportSnapshot,
+                    sourceRefs: $refs,
+                    limitations: ['historical_only', 'no_attribution', 'no_causality', 'does_not_override_current_truth'],
+                ),
+            ],
+            blocks: [[
+                'type' => AssistantAnswerBlockType::HistoricalContext->value,
+                'report_snapshots' => $snapshots,
+                'overrides_current_canonical_domains' => false,
+                'ai_required' => false,
+            ]],
+            sourceManifest: new AssistantAnswerSourceManifest($refs, [
+                'source_class' => AssistantSourceClass::ReportSnapshot->value,
+                'live_provider_calls' => 0,
+                'ai_used' => false,
+            ]),
+            requestedPeriod: $plan->dateRange,
+            coveredPeriod: $plan->dateRange,
+            coverage: $snapshots === [] ? AssistantCoverageState::Missing : AssistantCoverageState::Complete,
+            freshness: AssistantFreshnessState::NotApplicable,
+            limitations: ['historical_report_only', 'no_attribution'],
+            runtimeProvenance: [
+                'ai_used' => false,
+                'provider_calls' => 0,
+                'provider_writes' => 0,
+                'attribution_established' => false,
+                'overrides_current_canonical_domains' => false,
+            ],
+        );
     }
 
     private function executeClientValueStory(AssistantQueryPlan $plan): AssistantAnswer

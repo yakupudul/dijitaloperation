@@ -66,6 +66,22 @@ final class AssistantIntentInterpreter
             );
         }
 
+        if (str_contains($q, 'report said') || str_contains($q, 'report show') || str_contains($q, 'july report')
+            || (str_contains($q, 'report') && (str_contains($q, 'historical') || str_contains($q, 'snapshot') || str_contains($q, 'generated')))) {
+            $period = 'last_month';
+            if (str_contains($q, 'july')) {
+                $period = 'last_month';
+            }
+
+            return new AssistantIntentCandidate(
+                intentType: AssistantIntentType::HistoricalContext,
+                capabilityId: AssistantCapabilityId::ReportSnapshotLookup,
+                periodToken: $period,
+                domainFilter: 'report_snapshot',
+                parameters: ['historical_report' => true],
+            );
+        }
+
         if (str_contains($q, 'finding') || str_contains($q, 'problem')) {
             return new AssistantIntentCandidate(
                 intentType: AssistantIntentType::DomainLookup,

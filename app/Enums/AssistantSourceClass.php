@@ -19,4 +19,5 @@ enum AssistantSourceClass: string
     case SkillKnowledge = 'skill_knowledge';
     case BusinessOutcome = 'business_outcome';
     case ClientValueStory = 'client_value_story';
+    case ReportSnapshot = 'report_snapshot';
 }

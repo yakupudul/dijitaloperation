@@ -198,8 +198,12 @@
             <p class="text-xs text-gray-400">{{ __('operator.value.decision_vs_activity') }}</p>
         @endif
 
-        @if ($valueSection === 'reports' && $reportPreview)
-            @include('livewire.demo.partials._report-composer', ['preview' => $reportPreview])
+        @if ($valueSection === 'reports')
+            @include('livewire.demo.partials._report-composer', [
+                'preview' => $reportPreview,
+                'reportSnapshots' => $reportSnapshots ?? ['items' => [], 'empty' => true],
+                'reportSnapshotDetail' => $reportSnapshotDetail ?? null,
+            ])
         @endif
     </div>
 @endif

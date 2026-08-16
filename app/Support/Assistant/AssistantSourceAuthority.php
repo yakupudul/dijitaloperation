@@ -146,6 +146,22 @@ final class AssistantSourceAuthority
                 'causality_established' => false,
                 'prefer_underlying_sources_for_precise_facts' => true,
             ],
+            AssistantSourceClass::ReportSnapshot->value => [
+                'current_measured_fact' => false,
+                'current_condition' => false,
+                'potential' => false,
+                'execution' => false,
+                'historical' => true,
+                'sector' => false,
+                'methodology' => false,
+                'can_satisfy_provider_metric' => false,
+                'can_override_current_evidence' => false,
+                'is_immutable_historical_report' => true,
+                'is_writable_truth' => false,
+                'overrides_current_canonical_domains' => false,
+                'attribution_established' => false,
+                'causality_established' => false,
+            ],
         ];
     }
 

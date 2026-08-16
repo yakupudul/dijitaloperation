@@ -466,15 +466,37 @@
                 <p class="mt-1 text-sm text-gray-500">{{ __('operator.reports.customer_subtitle') }}</p>
             </div>
             <p class="text-xs text-gray-400">{{ $customerReports['aggregation_note'] ?? '' }}</p>
+
+            <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ __('operator.reports.history_title') }}</h3>
+                <p class="mt-1 text-xs text-gray-400">{{ __('operator.reports.history_subtitle') }}</p>
+                <ul class="mt-3 divide-y divide-gray-100 dark:divide-gray-800">
+                    @forelse ($customerReports['snapshots'] ?? [] as $snap)
+                        <li class="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                            <div>
+                                <p class="font-medium text-gray-800 dark:text-white/90">{{ $snap['title'] }}</p>
+                                <p class="text-xs text-gray-500">
+                                    {{ $snap['brand_name'] }}
+                                    · {{ $snap['period_start'] }} → {{ $snap['period_end'] }}
+                                    · {{ __('operator.reports.generated_at') }} {{ $snap['generated_at'] }}
+                                </p>
+                            </div>
+                            <a href="{{ $snap['view_url'] }}" wire:navigate class="rounded px-2 py-1 text-xs font-medium text-brand-600 ring-1 ring-inset ring-brand-200 hover:bg-brand-50">
+                                {{ __('operator.reports.view_snapshot') }}
+                            </a>
+                        </li>
+                    @empty
+                        <li class="py-6 text-center text-sm text-gray-500">{{ __('operator.reports.empty_snapshots') }}</li>
+                    @endforelse
+                </ul>
+                <p class="mt-3 text-xs text-gray-400">{{ __('operator.reports.delivery_unavailable') }}</p>
+            </div>
+
             <div class="grid gap-3 sm:grid-cols-2">
                 @foreach ($customerReports['brands'] ?? [] as $card)
                     <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
                         <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ $card['brand_name'] }}</h3>
-                        <ul class="mt-3 space-y-1 text-sm text-gray-600 dark:text-gray-300">
-                            <li>{{ $card['completed_work'] }} {{ __('operator.reports.completed_work') }}</li>
-                            <li>{{ $card['improvements'] }} {{ __('operator.reports.improvements') }}</li>
-                            <li>{{ $card['opportunities'] }} {{ __('operator.reports.growth_opportunities') }}</li>
-                        </ul>
+                        <p class="mt-2 text-xs text-gray-400">{{ __('operator.reports.brand_scoped_note') }}</p>
                         <div class="mt-3 flex flex-wrap gap-3 text-sm">
                             <a href="{{ $card['report_url'] }}" wire:navigate class="font-medium text-brand-600 hover:underline">{{ __('operator.reports.open_brand_report') }}</a>
                             <a href="{{ $card['value_url'] }}" wire:navigate class="font-medium text-brand-600 hover:underline">{{ __('operator.dashboard_exec.open_value') }}</a>

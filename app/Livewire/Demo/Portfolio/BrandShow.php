@@ -5,6 +5,7 @@ namespace App\Livewire\Demo\Portfolio;
 use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
 use App\Models\Brand;
 use App\Models\Recommendation;
+use App\Models\User;
 use App\Services\Approvals\ApprovalReadService;
 use App\Services\BusinessOutcomes\BusinessOutcomeReadService;
 use App\Services\ClientRequests\ClientRequestReadService;
@@ -12,6 +13,8 @@ use App\Services\ClientValueStory\ClientValueStoryReadService;
 use App\Services\CreateTaskFromRecommendation;
 use App\Services\Opportunities\OpportunityReadService;
 use App\Services\RecurringReviews\RecurringReviewReadService;
+use App\Services\ReportSnapshots\CreateReportSnapshotService;
+use App\Services\ReportSnapshots\ReportSnapshotReadService;
 use App\Support\Demo\AgencyExecutionFixtures;
 use App\Support\Demo\BrandPublicDiscoveryFixtures;
 use App\Support\Demo\BusinessOutcomeFixtures;
@@ -26,6 +29,7 @@ use App\Support\Options\IndustryOptions;
 use App\Support\Options\LanguageOptions;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -130,6 +134,17 @@ class BrandShow extends Component
     /** @var array<string, bool> */
     public array $reportSections = [];
 
+    #[Url(as: 'snapshot')]
+    public string $snapshotId = '';
+
+    public string $snapshotTitle = '';
+
+    public string $snapshotCreateNonce = '';
+
+    public string $snapshotStatusMessage = '';
+
+    public string $snapshotStatusTone = 'info';
+
     /**
      * @var list<string>
      */
@@ -178,6 +193,64 @@ class BrandShow extends Component
         $this->mountPeriod();
         $this->hydrateOutcomeForm();
         $this->hydrateReportComposer();
+        $this->snapshotCreateNonce = (string) Str::uuid();
+    }
+
+    public function createReportSnapshot(): void
+    {
+        if (! ctype_digit($this->brand)) {
+            $this->snapshotStatusTone = 'info';
+            $this->snapshotStatusMessage = __('operator.reports.snapshot_requires_production_brand');
+
+            return;
+        }
+
+        $actor = auth()->user();
+        if (! $actor instanceof User) {
+            $this->snapshotStatusTone = 'info';
+            $this->snapshotStatusMessage = __('operator.reports.snapshot_auth_required');
+
+            return;
+        }
+
+        $period = (string) ($this->period ?: 'last_28');
+        $periodBounds = DemoPeriod::bounds($period, $this->periodStart, $this->periodEnd);
+        $start = ($this->periodStart && $this->periodEnd) ? $this->periodStart : $periodBounds['start']->toDateString();
+        $end = ($this->periodStart && $this->periodEnd) ? $this->periodEnd : $periodBounds['end']->toDateString();
+
+        try {
+            $brand = Brand::query()->findOrFail((int) $this->brand);
+            $snapshot = app(CreateReportSnapshotService::class)->create(
+                $brand,
+                $actor,
+                [
+                    'period_start' => $start,
+                    'period_end' => $end,
+                    'locale' => $this->reportLanguage,
+                    'title' => $this->snapshotTitle !== '' ? $this->snapshotTitle : null,
+                    'idempotency_key' => 'ui:'.$this->snapshotCreateNonce,
+                ],
+                [(int) $brand->customer_id],
+                [(int) $brand->id],
+            );
+            $this->snapshotId = (string) $snapshot->id;
+            $this->snapshotCreateNonce = (string) Str::uuid();
+            $this->snapshotStatusTone = 'success';
+            $this->snapshotStatusMessage = __('operator.reports.snapshot_created');
+            DemoState::flash(__('operator.reports.snapshot_created'));
+        } catch (ValidationException $e) {
+            $this->snapshotStatusTone = 'error';
+            $this->snapshotStatusMessage = collect($e->errors())->flatten()->first()
+                ?? __('operator.reports.snapshot_create_failed');
+        } catch (\Throwable) {
+            $this->snapshotStatusTone = 'error';
+            $this->snapshotStatusMessage = __('operator.reports.snapshot_create_failed');
+        }
+    }
+
+    public function clearReportSnapshotView(): void
+    {
+        $this->snapshotId = '';
     }
 
     public function setValueSection(string $section): void
@@ -1125,6 +1198,53 @@ class BrandShow extends Component
             ])
             : null;
 
+        $reportSnapshots = [
+            'items' => [],
+            'empty' => true,
+            'demo' => false,
+        ];
+        $reportSnapshotDetail = null;
+        if (ctype_digit((string) ($brandRow['id'] ?? ''))) {
+            $brandModel = Brand::query()->find((int) $brandRow['id']);
+            if ($brandModel !== null) {
+                $history = app(ReportSnapshotReadService::class)->listForBrand(
+                    $brandModel,
+                    ['per_page' => 20],
+                    [(int) $brandModel->customer_id],
+                    [(int) $brandModel->id],
+                );
+                $reportSnapshots = [
+                    'items' => collect($history->items())->map(static function ($row): array {
+                        return [
+                            'id' => (int) $row->id,
+                            'title' => (string) $row->title_snapshot,
+                            'period_start' => $row->period_start?->toDateString(),
+                            'period_end' => $row->period_end?->toDateString(),
+                            'generated_at' => $row->generated_at?->toIso8601String(),
+                            'brand_name' => (string) $row->brand_name_snapshot,
+                            'locale' => (string) $row->locale,
+                        ];
+                    })->all(),
+                    'empty' => $history->total() === 0,
+                    'demo' => false,
+                    'delivery_unavailable' => __('operator.reports.delivery_unavailable'),
+                ];
+                if ($this->snapshotId !== '' && ctype_digit($this->snapshotId)) {
+                    try {
+                        $reportSnapshotDetail = app(ReportSnapshotReadService::class)->detail(
+                            (int) $this->snapshotId,
+                            [(int) $brandModel->customer_id],
+                            [(int) $brandModel->id],
+                        );
+                    } catch (\Throwable) {
+                        $reportSnapshotDetail = null;
+                        $this->snapshotStatusTone = 'error';
+                        $this->snapshotStatusMessage = __('operator.reports.snapshot_not_found');
+                    }
+                }
+            }
+        }
+
         $brandName = (string) ($brandRow['name'] ?? '');
         $brandId = (string) ($brandRow['id'] ?? $this->brand);
         $brandWorkItems = collect(AgencyExecutionFixtures::workItems())
@@ -1211,6 +1331,8 @@ class BrandShow extends Component
             'valueStory' => $valueStory,
             'valueDecisions' => $valueDecisions,
             'reportPreview' => $reportPreview,
+            'reportSnapshots' => $reportSnapshots,
+            'reportSnapshotDetail' => $reportSnapshotDetail,
             'brandWorkItems' => $brandWorkItems,
             'brandRequests' => $brandRequests,
             'brandReviews' => $brandReviews,

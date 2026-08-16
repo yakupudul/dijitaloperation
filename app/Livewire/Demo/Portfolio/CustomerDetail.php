@@ -5,6 +5,7 @@ namespace App\Livewire\Demo\Portfolio;
 use App\Enums\ClientRequestStatus;
 use App\Services\ClientRequests\ClientRequestReadService;
 use App\Services\ClientRequests\ClientRequestUiActions;
+use App\Services\ReportSnapshots\ReportSnapshotReadService;
 use App\Support\Demo\ClientValueFixtures;
 use App\Support\Demo\CommercialContextFixtures;
 use App\Support\Demo\DemoCatalog;
@@ -305,7 +306,18 @@ class CustomerDetail extends Component
             'team' => $team,
             'serviceScope' => CommercialContextFixtures::serviceScopeForCustomer((string) ($customer['id'] ?? '')),
             'clientRequests' => $requests,
-            'customerReports' => ClientValueFixtures::customerReports((string) ($customer['id'] ?? $this->customerId)),
+            'customerReports' => ctype_digit((string) $this->customerId)
+                ? app(ReportSnapshotReadService::class)->forCustomerReportsPresentation((int) $this->customerId)
+                : [
+                    'customer_id' => $this->customerId,
+                    'snapshots' => [],
+                    'brands' => ClientValueFixtures::customerReports((string) ($customer['id'] ?? $this->customerId))['brands'] ?? [],
+                    'empty' => true,
+                    'aggregation_note' => __('operator.reports.no_blind_aggregation'),
+                    'demo' => ($customer['id'] ?? '') === DemoCatalog::CUSTOMER_ID,
+                    'fake_reports' => false,
+                    'production_note' => __('operator.reports.demo_customer_no_snapshots'),
+                ],
             'flash' => DemoState::pullFlash(),
         ]);
     }
