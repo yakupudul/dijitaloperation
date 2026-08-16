@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Contracts\Ai\AgentContextGateway as AgentContextGatewayContract;
 use App\Events\Collection\CollectionRunCancelled;
 use App\Events\Collection\CollectionRunCompleted;
 use App\Events\Collection\CollectionRunStarted;
@@ -12,6 +13,7 @@ use App\Listeners\Collection\BroadcastCollectionRunChanged;
 use App\Listeners\QueueFindingEvaluationAfterEvidenceCanonicalized;
 use App\Models\Collection\CollectionRun;
 use App\Policies\CollectionRunPolicy;
+use App\Services\Ai\AgentContextGateway;
 use App\Services\Collection\Contracts\NormalizedDatasetWriter;
 use App\Services\Collection\Contracts\RawPayloadWriter;
 use App\Services\Collection\Contracts\RetryPolicy;
@@ -86,6 +88,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(AiRouteRegistry::class);
         $this->app->singleton(AgentProfileRegistry::class);
         $this->app->singleton(SkillRegistry::class);
+        $this->app->singleton(AgentContextGatewayContract::class, AgentContextGateway::class);
 
         $this->app->singleton(DataContractRegistryLoader::class);
         $this->app->singleton(RetryPolicy::class, DefaultRetryPolicy::class);

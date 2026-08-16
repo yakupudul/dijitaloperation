@@ -33,7 +33,7 @@ final class GoogleAdsAgentSkillAssembler
         $active = [];
 
         foreach ($profile->skillSlugs as $slug) {
-            $skill = $this->skills->get($slug);
+            $skill = $this->skills->getForModule($profile->module, $slug);
             $evaluation = $this->eligibility->evaluate($skill, $evidenceTypes, $contextFlags);
             $evaluations[] = [
                 'slug' => $skill->slug,

@@ -2,13 +2,19 @@
 
 namespace MoxDop\Website\Ai;
 
+use App\Contracts\Ai\AgentContextGateway;
+use App\Models\AgentExecutionRun;
 use App\Models\DigitalAsset;
 use App\Models\Evidence;
 use App\Models\Run;
+use App\Services\Ai\AgentExecutionPlanner;
+use App\Services\Ai\AgentExecutionRecorder;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
+use App\Services\Ai\StructuredAgentOutputValidator;
 use App\Support\Agents\AgentProfileDefinition;
 use App\Support\Agents\AgentProfileRegistry;
+use App\Support\Ai\AgentExecutionPlan;
 use App\Support\Ai\AiProviderCatalog;
 use App\Support\BrandIntelligence\BrandIntelligenceSnapshot;
 use Illuminate\Support\Facades\Log;
@@ -20,6 +26,7 @@ use Throwable;
 /**
  * Website-owned grounded AI recommendation orchestration (manual trigger only).
  * Uses Website SEO Analyst + eligible Skills + AI Control Plane route.
+ * Prompt 50: AgentExecutionPlanner / Recorder / EvidencePack / structured validation.
  */
 final class WebsiteAiRecommendationService
 {
@@ -30,6 +37,10 @@ final class WebsiteAiRecommendationService
         private readonly AiProviderRuntimeConfig $aiRuntime,
         private readonly AgentProfileRegistry $agents,
         private readonly WebsiteAgentSkillAssembler $skillAssembler,
+        private readonly AgentExecutionPlanner $executionPlanner,
+        private readonly AgentExecutionRecorder $executionRecorder,
+        private readonly AgentContextGateway $contextGateway,
+        private readonly StructuredAgentOutputValidator $structuredValidator,
     ) {}
 
     /**
@@ -71,9 +82,14 @@ final class WebsiteAiRecommendationService
             ->values()
             ->all();
 
-        $assembled = $this->skillAssembler->assemble($profile, $evidenceTypes, [
+        $contextFlags = [
             'brand_context' => ! empty($built['context']['brand_intelligence']),
-        ]);
+        ];
+
+        $plan = $this->executionPlanner->plan($profile, $evidenceTypes, $contextFlags)
+            ->withRoute($route->routeKey, $route->signature, $route->providerModels);
+
+        $assembled = $this->skillAssembler->assemble($profile, $evidenceTypes, $contextFlags);
 
         $fingerprint = WebsiteAiInputFingerprint::make(
             WebsiteAiRecommendationConfig::PROMPT_VERSION,
@@ -97,8 +113,6 @@ final class WebsiteAiRecommendationService
             ];
         }
 
-        $this->aiRuntime->prepare(array_keys($route->providerModels));
-
         $brandHash = $this->brandContextHash($built['brand_snapshot']);
         $configuredChain = [];
         foreach ($route->providerModels as $provider => $model) {
@@ -109,6 +123,25 @@ final class WebsiteAiRecommendationService
             fn (array $row): string => $row['slug'].'@'.$row['version'],
             $assembled['skill_evaluations'],
         );
+
+        // Zero eligible skills (including recommendation-framing) → abstain without LLM.
+        if (! $plan->shouldCallInference()) {
+            return $this->completeAbstained(
+                $asset,
+                $built,
+                $profile,
+                $plan,
+                $route->routeKey,
+                $route->signature,
+                $fingerprint,
+                $brandHash,
+                $skillVersions,
+                $configuredChain,
+                $assembled,
+            );
+        }
+
+        $this->aiRuntime->prepare(array_keys($route->providerModels));
 
         $run = Run::query()->create([
             'digital_asset_id' => $asset->id,
@@ -126,6 +159,7 @@ final class WebsiteAiRecommendationService
                 'skill_versions' => $skillVersions,
                 'active_skill_signatures' => $assembled['skill_signatures'],
                 'skill_eligibility' => $assembled['skill_evaluations'],
+                'pre_inference_status' => $plan->preInferenceStatus,
                 'ai_route_key' => $route->routeKey,
                 'ai_route_name' => $route->routeName,
                 'configured_provider_chain' => $configuredChain,
@@ -141,6 +175,28 @@ final class WebsiteAiRecommendationService
                 'openai_store' => false,
             ],
         ]);
+
+        $agentRun = $this->executionRecorder->startFromPlan(
+            $run,
+            $asset,
+            $profile,
+            $plan,
+            $route->routeKey,
+            $route->signature,
+            $fingerprint,
+        );
+
+        $pack = $this->contextGateway->buildEvidencePackFromContext(
+            $asset,
+            $profile,
+            $plan,
+            $built['context'],
+            $built['evidence_ids'],
+            $built['finding_ids'],
+            $route->routeKey,
+            $route->signature,
+            $fingerprint,
+        );
 
         $observedAt = now();
 
@@ -160,6 +216,8 @@ final class WebsiteAiRecommendationService
                 $built['finding_ids'],
                 $built['evidence_ids'],
             );
+
+            $payload = $this->structuredValidator->validate($payload, $pack);
 
             $successfulProvider = data_get($response->meta?->toArray(), 'provider')
                 ?? $route->primaryProvider();
@@ -192,9 +250,42 @@ final class WebsiteAiRecommendationService
             $payload['agent_profile_version'] = $profile->version;
             $payload['skill_versions'] = $skillVersions;
             $payload['active_skill_signatures'] = $assembled['skill_signatures'];
+            $payload['evidence_pack_manifest'] = $pack->toManifestArray();
             if ($successfulProvider === AiProviderCatalog::OPENAI) {
                 $payload['openai_store'] = false;
             }
+
+            foreach ($plan->eligibleSkills as $signature) {
+                $this->executionRecorder->markSkillValidated(
+                    $agentRun,
+                    $signature,
+                    [
+                        'ok' => true,
+                        'provider' => $successfulProvider,
+                        'model' => $successfulModel,
+                    ],
+                );
+
+                if (is_string($successfulProvider) && is_string($successfulModel)) {
+                    $skillRun = $agentRun->skillExecutionRuns()
+                        ->where('skill_signature', $signature)
+                        ->first();
+                    if ($skillRun !== null) {
+                        $this->executionRecorder->recordProviderAttempt(
+                            $skillRun,
+                            1,
+                            $successfulProvider,
+                            $successfulModel,
+                            'succeeded',
+                            usage: $usage,
+                        );
+                    }
+                }
+            }
+
+            $this->executionRecorder->markCompleted($agentRun, AgentExecutionRun::STATUS_COMPLETED, [
+                'evidence_pack_fingerprint' => $pack->contextFingerprint,
+            ]);
 
             $insight = Evidence::query()->create([
                 'run_id' => $run->id,
@@ -215,6 +306,7 @@ final class WebsiteAiRecommendationService
                     'fallback_occurred' => $fallbackOccurred,
                     'usage' => $usage,
                     'reused' => false,
+                    'agent_execution_run_id' => $agentRun->id,
                 ]),
             ]);
 
@@ -229,6 +321,10 @@ final class WebsiteAiRecommendationService
             Log::warning('website_ai_recommendation_failed', [
                 'digital_asset_id' => $asset->id,
                 'run_id' => $run->id,
+                'error_class' => class_basename($exception),
+            ]);
+
+            $this->executionRecorder->markCompleted($agentRun, AgentExecutionRun::STATUS_FAILED, [
                 'error_class' => class_basename($exception),
             ]);
 
@@ -269,6 +365,7 @@ final class WebsiteAiRecommendationService
                 'metadata' => array_merge($run->metadata ?? [], [
                     'error_class' => class_basename($exception),
                     'reused' => false,
+                    'agent_execution_run_id' => $agentRun->id,
                 ]),
             ]);
 
@@ -280,6 +377,127 @@ final class WebsiteAiRecommendationService
                 'brand_snapshot' => $built['brand_snapshot'],
             ];
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $built
+     * @param  list<string>  $skillVersions
+     * @param  list<array{provider: string, model: string}>  $configuredChain
+     * @param  array<string, mixed>  $assembled
+     * @return array{
+     *     run: Run,
+     *     reused: bool,
+     *     message: string,
+     *     insight: ?Evidence,
+     *     brand_snapshot: BrandIntelligenceSnapshot
+     * }
+     */
+    private function completeAbstained(
+        DigitalAsset $asset,
+        array $built,
+        AgentProfileDefinition $profile,
+        AgentExecutionPlan $plan,
+        string $routeKey,
+        string $routeSignature,
+        string $fingerprint,
+        string $brandHash,
+        array $skillVersions,
+        array $configuredChain,
+        array $assembled,
+    ): array {
+        $run = Run::query()->create([
+            'digital_asset_id' => $asset->id,
+            'core_connection_id' => null,
+            'module_id' => WebsiteAiRecommendationConfig::MODULE_ID,
+            'status' => 'completed',
+            'started_at' => now(),
+            'finished_at' => now(),
+            'metadata' => [
+                'trigger' => 'manual',
+                'human_title' => WebsiteAiRecommendationConfig::RUN_TITLE,
+                'agent_profile_slug' => $profile->slug,
+                'agent_profile_version' => $profile->version,
+                'agent_profile_name' => $profile->name,
+                'skill_versions' => $skillVersions,
+                'active_skill_signatures' => [],
+                'skill_eligibility' => $assembled['skill_evaluations'],
+                'pre_inference_status' => $plan->preInferenceStatus,
+                'block_reason_code' => $plan->blockReasonCode,
+                'ai_route_key' => $routeKey,
+                'configured_provider_chain' => $configuredChain,
+                'prompt_version' => WebsiteAiRecommendationConfig::PROMPT_VERSION,
+                'schema_version' => WebsiteAiRecommendationConfig::SCHEMA_VERSION,
+                'finding_ids' => $built['finding_ids'],
+                'evidence_ids' => $built['evidence_ids'],
+                'brand_context_hash' => $brandHash,
+                'input_fingerprint' => $fingerprint,
+                'route_signature' => $routeSignature,
+                'abstained' => true,
+                'reused' => false,
+            ],
+        ]);
+
+        $agentRun = $this->executionRecorder->startFromPlan(
+            $run,
+            $asset,
+            $profile,
+            $plan,
+            $routeKey,
+            $routeSignature,
+            $fingerprint,
+        );
+
+        $this->executionRecorder->markCompleted($agentRun, AgentExecutionRun::STATUS_ABSTAINED, [
+            'abstained' => true,
+        ]);
+
+        $insight = Evidence::query()->create([
+            'run_id' => $run->id,
+            'digital_asset_id' => $asset->id,
+            'source_module' => WebsiteAiRecommendationConfig::MODULE_ID,
+            'type' => WebsiteAiRecommendationConfig::EVIDENCE_TYPE_AI_INSIGHT,
+            'title' => WebsiteAiRecommendationConfig::RUN_TITLE,
+            'payload' => [
+                'ok' => true,
+                'derived' => true,
+                'generated_by_ai' => false,
+                'status' => 'abstained',
+                'status_or_error' => 'abstained_pre_inference',
+                'abstention_reason_code' => $plan->blockReasonCode,
+                'pre_inference_status' => $plan->preInferenceStatus,
+                'finding_ids' => $built['finding_ids'],
+                'evidence_ids' => $built['evidence_ids'],
+                'input_fingerprint' => $fingerprint,
+                'ai_route_key' => $routeKey,
+                'route_signature' => $routeSignature,
+                'agent_profile_slug' => $profile->slug,
+                'agent_profile_version' => $profile->version,
+                'skill_versions' => $skillVersions,
+                'active_skill_signatures' => [],
+                'skill_eligibility' => $assembled['skill_evaluations'],
+                'executive_summary' => 'AI guidance abstained: no eligible Skills for this Evidence set.',
+                'summary' => 'AI guidance abstained: no eligible Skills for this Evidence set.',
+                'finding_interpretations' => [],
+                'recommendation_drafts' => [],
+                'prompt_version' => WebsiteAiRecommendationConfig::PROMPT_VERSION,
+                'schema_version' => WebsiteAiRecommendationConfig::SCHEMA_VERSION,
+            ],
+            'observed_at' => now(),
+        ]);
+
+        $run->update([
+            'metadata' => array_merge($run->metadata ?? [], [
+                'agent_execution_run_id' => $agentRun->id,
+            ]),
+        ]);
+
+        return [
+            'run' => $run->fresh(['evidence']) ?? $run,
+            'reused' => false,
+            'message' => 'AI guidance abstained: no eligible Skills for inference.',
+            'insight' => $insight,
+            'brand_snapshot' => $built['brand_snapshot'],
+        ];
     }
 
     public function latestSuccessfulInsight(DigitalAsset $asset): ?Evidence
