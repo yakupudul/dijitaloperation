@@ -370,6 +370,26 @@ class IntelligenceSchedulingTest extends TestCase
     }
 
     #[Test]
+    public function opportunity_rules_linked_to_affected_findings_are_planned(): void
+    {
+        $index = app(AnalyzerDependencyIndex::class);
+        $findings = $index->findingRulesForEvidenceDefinitions(['gsc.property.period_comparison']);
+        $this->assertNotEmpty($findings);
+        $stableIds = array_map(static fn (array $r): string => (string) $r['stable_id'], $findings);
+        $linked = $index->opportunityRulesForChanges(['gsc.property.period_comparison'], $stableIds);
+
+        $this->writeCanonical('gsc.property.period_comparison', $this->gscDeclinePayload());
+        $plan = app(ScheduleIntelligenceFromEvidenceService::class)
+            ->handleEvidenceCanonicalized($this->asset, sync: true);
+
+        $oppPhase = $plan?->analyzers['phases']['PHASE_2_OPPORTUNITY_RULES'] ?? [];
+        $plannedIds = array_map(static fn (array $a): string => (string) $a['analyzer_id'], $oppPhase);
+        foreach ($linked as $rule) {
+            $this->assertContains($rule['analyzer_id'], $plannedIds);
+        }
+    }
+
+    #[Test]
     public function collection_run_completed_is_not_a_trigger_source(): void
     {
         $this->assertNull(IntelligenceTriggerSource::tryFrom('COLLECTION_RUN_COMPLETED'));

@@ -49,10 +49,28 @@ final class IntelligenceSchedulingPlanner
                 $analyzers[] = $this->withEligibility($candidate, $asset, $definitionIds, $refs, null, $trigger->source_kind);
             }
         } else {
-            foreach ($this->dependencies->findingRulesForEvidenceDefinitions($definitionIds) as $candidate) {
+            $findingCandidates = $this->dependencies->findingRulesForEvidenceDefinitions($definitionIds);
+            foreach ($findingCandidates as $candidate) {
                 $analyzers[] = $this->withEligibility($candidate, $asset, $definitionIds, $refs, null, $trigger->source_kind);
             }
-            foreach ($this->dependencies->opportunityRulesForChanges($definitionIds, []) as $candidate) {
+
+            $findingStableIds = array_values(array_unique(array_map(
+                static fn (array $c): string => (string) ($c['stable_id'] ?? ''),
+                $findingCandidates,
+            )));
+            $findingStableIds = array_values(array_filter($findingStableIds, static fn (string $id): bool => $id !== ''));
+
+            // Phase 2 may include Opportunity rules that depend on Evidence and/or on Finding
+            // rules already selected for Phase 1 (bounded transitive closure — not run-all).
+            $oppSeen = [];
+            foreach ($this->dependencies->opportunityRulesForChanges($definitionIds, $findingStableIds) as $candidate) {
+                $key = (string) ($candidate['analyzer_id'] ?? '');
+                if ($key !== '' && isset($oppSeen[$key])) {
+                    continue;
+                }
+                if ($key !== '') {
+                    $oppSeen[$key] = true;
+                }
                 $analyzers[] = $this->withEligibility($candidate, $asset, $definitionIds, $refs, null, $trigger->source_kind);
             }
 
