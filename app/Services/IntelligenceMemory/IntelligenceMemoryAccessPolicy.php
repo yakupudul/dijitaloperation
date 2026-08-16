@@ -60,7 +60,7 @@ final class IntelligenceMemoryAccessPolicy implements IntelligenceMemoryAccessPo
                 layerDetails: [
                     'default' => 'Skill with no Memory Contract receives no Memory.',
                 ],
-                retrievalImplemented: false,
+                retrievalImplemented: true,
             );
         }
 
@@ -99,7 +99,7 @@ final class IntelligenceMemoryAccessPolicy implements IntelligenceMemoryAccessPo
             grantedLayers: $granted,
             denialReasons: array_values(array_unique($denials, SORT_REGULAR)),
             layerDetails: $details,
-            retrievalImplemented: false,
+            retrievalImplemented: true,
         );
     }
 

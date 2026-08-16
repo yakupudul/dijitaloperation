@@ -8,6 +8,7 @@ use App\Contracts\IntelligenceMemory\SectorIdentityResolver;
 use App\Contracts\IntelligenceMemory\SectorLearningPrivacyGate;
 use App\Enums\IntelligenceMemoryLayer;
 use App\Models\Brand;
+use App\Services\IntelligenceRetrieval\IntelligenceRetrievalService;
 use App\Support\IntelligenceMemory\Dto\AgentMemoryPermission;
 use App\Support\IntelligenceMemory\Dto\MemoryAccessDecision;
 use App\Support\IntelligenceMemory\Dto\MemoryContextManifest;
@@ -17,11 +18,9 @@ use App\Support\IntelligenceMemory\Dto\SkillMemoryContract;
 use App\Support\IntelligenceMemory\Dto\SkillMemoryLayerRequirement;
 
 /**
- * Central Intelligence Memory Gateway — policy coordination, not central storage.
+ * Central Intelligence Memory Gateway — policy + Prompt 54 retrieval.
  *
- * Rejects table/model/SQL/DSL parameters by having no such API.
- * LLM must not call this; application resolves before inference (Prompt 54).
- * Prompt 51 returns empty MemoryContextPack (no Agent injection).
+ * LLM must not call this; application resolves before inference.
  */
 final class IntelligenceMemoryGateway implements IntelligenceMemoryGatewayContract
 {
@@ -29,6 +28,7 @@ final class IntelligenceMemoryGateway implements IntelligenceMemoryGatewayContra
         private readonly IntelligenceMemoryAccessPolicy $accessPolicy,
         private readonly SectorIdentityResolver $sectorIdentityResolver,
         private readonly SectorLearningPrivacyGate $sectorLearningPrivacyGate,
+        private readonly IntelligenceRetrievalService $intelligenceRetrievalService,
     ) {}
 
     public function evaluate(MemoryContextRequest $request): MemoryContextManifest
@@ -82,29 +82,29 @@ final class IntelligenceMemoryGateway implements IntelligenceMemoryGatewayContra
             skillDefinitionSignature: $request->skillDefinitionSignature,
             decisions: $decisions,
             notes: [
-                'Prompt 51 architecture/policy only — retrieval not implemented.',
+                'Prompt 54 retrieval implemented — structured deterministic selection only.',
                 'effective_empty='.($effective->isEmpty() ? 'yes' : 'no'),
+                'embeddings=false',
+                'vector_db=false',
+                'fine_tuning=false',
             ],
-            retrievalImplemented: false,
+            retrievalImplemented: true,
         );
     }
 
     public function resolveMemoryContextPack(MemoryContextRequest $request): MemoryContextPack
     {
-        $manifest = $this->evaluate($request);
-
-        return MemoryContextPack::empty(
-            $request->customerId,
-            $request->brandId,
-            $request->agentDefinitionSignature,
-            $request->skillDefinitionSignature,
-            'Memory Context Pack retrieval is Prompt 54.',
-            'Prompt 51 returns empty pack; no Agent prompt injection.',
-            'manifest_allowed_layers='.implode(',', array_map(
-                static fn (IntelligenceMemoryLayer $layer): string => $layer->value,
-                $manifest->allowedLayers(),
-            )),
+        $pack = $this->intelligenceRetrievalService->retrieve(
+            agentDefinitionSignature: $request->agentDefinitionSignature,
+            skillDefinitionSignature: $request->skillDefinitionSignature,
+            customerId: $request->customerId,
+            brandId: $request->brandId,
+            evidencePack: null,
+            digitalAsset: null,
+            options: [],
         );
+
+        return $pack->memoryContextPack->toLegacyMemoryContextPack();
     }
 
     /**

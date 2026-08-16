@@ -290,10 +290,10 @@ class IntelligenceMemoryArchitectureTest extends TestCase
 
         $pack = $gateway->resolveMemoryContextPack($request);
         $this->assertTrue($pack->isEmpty());
-        $this->assertSame('prompt_51_architecture_only', $pack->retrievalPolicyVersion);
+        $this->assertSame('intelligence_retrieval_v1', $pack->retrievalPolicyVersion);
 
         $manifest = $gateway->evaluate($request);
-        $this->assertFalse($manifest->retrievalImplemented);
+        $this->assertTrue($manifest->retrievalImplemented);
     }
 
     public function test_sector_privacy_gate_requires_cohort_structure_not_raw_count_alone(): void
