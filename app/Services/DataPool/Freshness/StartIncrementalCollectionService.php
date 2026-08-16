@@ -62,8 +62,8 @@ final class StartIncrementalCollectionService
             ? $bindingIds
             : array_values(array_unique(array_map(static fn ($i) => $i->coreAssetBindingId, $executable)));
 
-        $intent = (string) ($context['collection_intent'] ?? 'INCREMENTAL');
-        $intentLabel = (string) ($context['collection_intent_label'] ?? 'Incremental');
+        $intent = (string) ($context['collection_intent'] ?? 'incremental_refresh');
+        $intentLabel = (string) ($context['collection_intent_label'] ?? 'Incremental Refresh');
         $fingerprint = $this->fingerprint(
             $asset->id,
             $resolvedBindingIds,

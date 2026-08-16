@@ -184,9 +184,14 @@ final class CollectionRunMonitorQuery
                     CollectionTriggerType::InitialBackfill => match ($run->metadata['collection_intent'] ?? null) {
                         'meta_initial_backfill' => 'Initial Meta Ads Collection',
                         'google_initial_backfill' => 'Initial Google Collection',
+                        'INITIAL_BACKFILL' => 'Initial Backfill',
                         default => 'Initial Collection',
                     },
                     CollectionTriggerType::Incremental => match ($run->metadata['collection_intent'] ?? null) {
+                        'INCREMENTAL' => 'Incremental',
+                        'LATE_DATA_REPAIR' => 'Late Data Repair',
+                        'CATCH_UP' => 'Catch-Up',
+                        'MANUAL' => 'Manual',
                         'incremental_refresh' => 'Incremental Refresh',
                         default => 'Incremental Refresh',
                     },

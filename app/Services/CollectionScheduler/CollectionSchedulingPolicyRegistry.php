@@ -129,7 +129,9 @@ final class CollectionSchedulingPolicyRegistry
             ineligibilityReason: $ineligibility,
             collectionMode: (string) ($raw['collection_mode'] ?? ''),
             requiredHistory: $history,
-            reportingGrain: isset($raw['reporting_grain']) ? (string) $raw['reporting_grain'] : null,
+            reportingGrain: is_array($raw['reporting_grain'] ?? null)
+                ? array_values(array_map('strval', $raw['reporting_grain']))
+                : (isset($raw['reporting_grain']) ? (string) $raw['reporting_grain'] : null),
             timezoneSource: (string) ($raw['timezone_source'] ?? 'resource_timezone_or_utc'),
             safeCollectionLagDays: is_int($lag) ? $lag : (is_numeric($lag) ? (int) $lag : null),
             currentPeriodCollectable: (bool) ($raw['current_period_collectable'] ?? false),

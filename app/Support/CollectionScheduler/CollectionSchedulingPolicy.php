@@ -11,6 +11,7 @@ final class CollectionSchedulingPolicy
     /**
      * @param  array<string, mixed>  $lateDataRepair
      * @param  array<string, mixed>  $requiredHistory
+     * @param  list<string>|string|null  $reportingGrain
      * @param  array<string, mixed>  $raw
      */
     public function __construct(
@@ -21,7 +22,7 @@ final class CollectionSchedulingPolicy
         public readonly ?string $ineligibilityReason,
         public readonly string $collectionMode,
         public readonly array $requiredHistory,
-        public readonly ?string $reportingGrain,
+        public readonly array|string|null $reportingGrain,
         public readonly string $timezoneSource,
         public readonly ?int $safeCollectionLagDays,
         public readonly bool $currentPeriodCollectable,
