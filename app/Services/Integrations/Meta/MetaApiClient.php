@@ -19,7 +19,7 @@ use Throwable;
 class MetaApiClient
 {
     public function __construct(
-        private readonly MetaCredentialResolver $resolver,
+        private readonly MetaCredentialBroker $broker,
     ) {}
 
     /**
@@ -50,8 +50,8 @@ class MetaApiClient
      */
     private function request(CoreIntegration $integration, string $method, string $path, array $query = []): array
     {
-        $token = $this->resolver->accessToken($integration);
-        if ($token === null) {
+        $token = $this->broker->accessTokenFor($integration)->reveal();
+        if ($token === '') {
             throw new MetaException(
                 'Meta access token is not configured.',
                 kind: MetaException::KIND_CONFIG,
@@ -108,8 +108,8 @@ class MetaApiClient
      */
     public function getAbsolute(CoreIntegration $integration, string $absoluteUrl): array
     {
-        $token = $this->resolver->accessToken($integration);
-        if ($token === null) {
+        $token = $this->broker->accessTokenFor($integration)->reveal();
+        if ($token === '') {
             throw new MetaException(
                 'Meta access token is not configured.',
                 kind: MetaException::KIND_CONFIG,

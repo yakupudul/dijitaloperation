@@ -109,7 +109,9 @@ class GoogleOAuthService
         ]);
 
         // Compatibility cache for older tests / multi-node transition readers.
-        Cache::put(self::STATE_CACHE_PREFIX.$state, [
+        // Prompt 64: never key cache by raw OAuth state — use state_hash only.
+        $stateHash = GoogleOAuthAuthorizationAttempt::hashState($state);
+        Cache::put(self::STATE_CACHE_PREFIX.$stateHash, [
             'integration_id' => $integration->id,
             'user_id' => $user->id,
             'requested_scopes' => $scopes,
@@ -740,7 +742,7 @@ class GoogleOAuthService
             }
 
             $this->assertGoogleIntegration($integration);
-            Cache::forget(self::STATE_CACHE_PREFIX.$state);
+            Cache::forget(self::STATE_CACHE_PREFIX.GoogleOAuthAuthorizationAttempt::hashState((string) $state));
 
             return [
                 'integration' => $integration,
@@ -749,8 +751,12 @@ class GoogleOAuthService
             ];
         }
 
-        // Legacy cache attempt (compat).
-        $cached = Cache::pull(self::STATE_CACHE_PREFIX.$state);
+        // Legacy cache attempt (compat) — try hash key first, then legacy raw-state key once.
+        $stateHash = GoogleOAuthAuthorizationAttempt::hashState((string) $state);
+        $cached = Cache::pull(self::STATE_CACHE_PREFIX.$stateHash);
+        if (! is_array($cached)) {
+            $cached = Cache::pull(self::STATE_CACHE_PREFIX.$state);
+        }
         if (! is_array($cached) || (int) ($cached['user_id'] ?? 0) !== (int) $user->id) {
             return [
                 'error' => 'Invalid or expired OAuth state. Click Authorize Google again to start a fresh consent flow.',
