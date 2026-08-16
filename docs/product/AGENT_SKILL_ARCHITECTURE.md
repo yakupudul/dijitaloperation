@@ -3,7 +3,12 @@
 > **STATUS: IMPLEMENTED V1 / PARTIALLY IMPLEMENTED**  
 >  
 > Authority: `MASTER_SPEC` → accepted ADRs → product blueprints → this doc.  
-> Related: [`AI_CONTROL_PLANE.md`](./AI_CONTROL_PLANE.md) · [`KNOWLEDGE_MEMORY_ARCHITECTURE.md`](./KNOWLEDGE_MEMORY_ARCHITECTURE.md) · [`DISCOVERY_INTELLIGENCE.md`](./DISCOVERY_INTELLIGENCE.md) · [`docs/research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md`](../research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md).
+> Related: [`AI_CONTROL_PLANE.md`](./AI_CONTROL_PLANE.md) · [`KNOWLEDGE_MEMORY_ARCHITECTURE.md`](./KNOWLEDGE_MEMORY_ARCHITECTURE.md) · [`DISCOVERY_INTELLIGENCE.md`](./DISCOVERY_INTELLIGENCE.md) · [`docs/research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md`](../research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md).  
+> Prompt 49: [`docs/implementation/MOXDOP_SKILL_NORMALIZATION.md`](../implementation/MOXDOP_SKILL_NORMALIZATION.md) · [`docs/skills/SKILL_DEFINITION_SPEC.md`](../skills/SKILL_DEFINITION_SPEC.md) · [`docs/skills/NORMALIZED_SKILL_CATALOG.md`](../skills/NORMALIZED_SKILL_CATALOG.md).
+
+### Prompt 49 note (Skill Definition normalization)
+
+Prompt 49 normalizes the Skill **definition contract** (Purpose, Required/Optional Evidence, When to Use, Do Not Use When, Methodology, Allowed Conclusions, Forbidden Claims, Success Signals, References, plus identity/version/provenance/status/fingerprint/abstention/downstream_domains). Canonical storage remains Markdown `SKILL.md` under module `resources/skills/` loaded by `SkillRegistry` / `SkillDefinition` / `BuiltInSkillLoader` — **still no Skill DB / SkillV2**. AI Skill **execution** remains **Prompt 50**.
 
 ---
 
@@ -63,24 +68,31 @@ Playbook runtime is **PLANNED / NOT IMPLEMENTED**.
 ## 3. Implemented V1
 
 - Generic `AgentProfileDefinition` + `AgentProfileRegistry` (code-defined; **no** `agent_profiles` table)
-- Generic `SkillDefinition` + `SkillRegistry` + safe `BuiltInSkillLoader` (Markdown under module resources; **no** `skills` / `skill_versions` tables)
-- Module-owned Website Skills (`app-modules/website/resources/skills/*/SKILL.md`)
+- Generic `SkillDefinition` + `SkillRegistry` + safe `BuiltInSkillLoader` (Markdown under module resources; **no** `skills` / `skill_versions` tables — unchanged after Prompt 49)
+- Prompt 49 contract evolution: structured Evidence requirements, abstention rules, research provenance, methodology steps, global forbidden-claim policy, definition fingerprint (`SkillDefinitionValidator`, `SkillEligibilityEvaluator`, `SkillEvidenceCatalog`, `SkillGlobalClaimPolicy`, `SkillDefinitionFingerprint`)
+- Module-owned Skills (21 total; see `NORMALIZED_SKILL_CATALOG.md`), including Website READY normalizations C1/C2/C3/C7/C8/C11 and 1.1.0 contract upgrades for Google Ads / Meta Ads / GBP
 - Operational Agents:
   - **Website SEO Analyst** (`website.seo_analyst` @ `1.0.0`)
   - **Website Brand Discovery Analyst** (`website.brand_discovery_analyst` @ `1.0.0`) — public Discovery inferences; Skill `brand-context-discovery`
   - **Google Ads Analyst** (`google_ads.analyst` @ `1.0.0`)
-- Skills:
-  - `technical-seo-analysis`
-  - `search-console-analysis`
-  - `keyword-opportunity-analysis`
-  - `recommendation-framing`
-- Bounded context assembly + Skill eligibility (missing Evidence → Skill not applicable)
+- Website Skills (normalized set includes):
+  - `technical-seo-analysis` @ `1.1.0` (C1)
+  - `indexability-analysis` @ `1.0.0` (C2)
+  - `metadata-consistency` @ `1.0.0` (C3)
+  - `search-console-analysis` @ `1.1.0`
+  - `gsc-search-demand-review` @ `1.1.0` (C7)
+  - `keyword-opportunity-analysis` @ `1.1.0` (C8)
+  - `ga4-measurement-quality` @ `1.1.0` (C11)
+  - `recommendation-framing` @ `1.1.0`
+  - `brand-context-discovery` @ `1.1.0`
+- Bounded context assembly + Skill eligibility (missing Evidence → abstain; reason codes defined in Prompt 49; live enforcement Prompt 50)
 - `required_capabilities` / `optional_capabilities` as **metadata only** (Capability Router absent)
-- Agent/Skill versions in fingerprint + Run provenance
+- Agent/Skill versions in fingerprint + Run provenance (Skill definition fingerprint sha256 over material fields)
 - Prompt sections: Agent contract · Skills · untrusted Evidence data · safety rules
 - Prompt-injection defense: Evidence treated as data
 - Settings UI: Agent Profiles + Skill Library (read-only catalog; no generic CRUD)
 - Integration with existing Website AI Guidance + `website.ai_guidance` AI Route
+- **Not yet:** grounded AI Skill Execution (Prompt 50)
 
 ---
 

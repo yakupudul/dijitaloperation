@@ -81,7 +81,7 @@ Status reference for the frozen `/app` operator panel. UI work after this docume
 | Reports / Value Story | DEMO | Deterministic assembly; no PDF/email delivery |
 | AI Control Plane | PARTIAL | Route provider order editable under `/app`; credentials in Integrations |
 | Agents | PARTIAL | Full read-only catalog under `/app/settings/ai/agents` (code registry) |
-| Skills | PARTIAL | Full read-only catalog under `/app/settings/ai/skills` (code registry) |
+| Skills | CONVERGED / REAL (definitions) | Prompt 49: normalized Markdown `SKILL.md` contracts via `SkillRegistry` / `SkillDefinition` / `BuiltInSkillLoader` (21 Skills; no skills DB / SkillV2); Settings catalog remains read-only. AI Skill Execution NOT YET (Prompt 50). |
 | Notifications | CONVERGED / REAL (in-app) | Prompt 47: persistent `user_notifications` + policy/recipient resolution + preferences; bell/list/unread/mark-read DB-backed; no Demo fallback; email/push/Slack/WhatsApp/SMS NOT IMPLEMENTED |
 | Meaningful Domain Events | CONVERGED / REAL | Prompt 47: bounded `DomainEventType` registry + durable `domain_events` identity/idempotency; FINDING_CREATED / RECOMMENDATION_ACCEPTED / TASK_COMPLETED / QA_PASSED / APPROVAL_APPROVED / RECURRING_REVIEW_COMPLETED wired |
 | Google Integration hub/detail (`/app/integrations`) | REAL (backend state) | Prompt 13–20: Core* + OAuth + discovery + human binding + collectors + initial backfill Collect Data |
