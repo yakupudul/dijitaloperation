@@ -1,14 +1,32 @@
 ---
 name: Local Presence Audit
 slug: local-presence-audit
-version: 1.0.0
+version: 1.1.0
 module: google-business-profile
-purpose: Review GBP profile consistency against Brand Context and Website Evidence without inventing a local SEO score.
+definition_status: active
+purpose: Review GBP profile consistency against Brand Context and Website Evidence without inventing a composite local visibility metric.
 required_evidence:
-  - gbp_location_profile
+  - key: gbp_location_profile
+    kind: evidence_type
+    role: PRIMARY_FACT
+    purpose: Observed GBP identity, contact, hours, and website fields for consistency review.
+    missing_behavior: ABSTAIN
+    integrity_required: true
+    completeness_required: false
+    expands_conclusions: false
+optional_evidence: []
 required_capabilities:
   - google-business-profile.read
 optional_capabilities: []
+downstream_domains:
+  - ANALYSIS_ONLY
+  - FINDING_CANDIDATE
+abstention_rules:
+  - Abstain when gbp_location_profile Evidence is missing — do not invent NAP mismatches.
+  - Abstain from Maps ranking causation or ranking guarantees from incomplete samples.
+  - Abstain from automatic GBP profile writes or review replies.
+research_provenance:
+  - existing-canonical-pre-prompt-48
 reference_sources:
   - Official Google Business Profile APIs (read)
 ---
@@ -21,6 +39,7 @@ Use when GBP location profile Evidence is available for the target Digital Asset
 
 - Profile Evidence is missing — do not invent NAP mismatches.
 - You would claim Maps ranking causation from incomplete samples.
+- You would write or publish to GBP from MoxDOP.
 
 ## Methodology
 
@@ -37,4 +56,21 @@ Use when GBP location profile Evidence is available for the target Digital Asset
 ## Forbidden claims
 
 - Local SEO score, market share, revenue, or causal ranking explanations.
-- Automatic GBP profile writes or review replies.
+- Ranking guarantees or promised Maps positions.
+- Automatic GBP profile writes, publishes, or review replies.
+- Fabricated NAP or hours not present in official GBP Evidence.
+- Task creation or Recommendation auto-approval.
+
+## Abstention
+
+- Abstain when profile Evidence is missing or insufficient for the compared field.
+- Prefer Unavailable / Needs review over invented mismatches or ranking stories.
+
+## Output contract
+
+Observation, why it matters, recommended action, Evidence IDs, caveats, success/failure signals, watch metrics, priority, confidence.
+
+## Success signals
+
+- Consistency labels cite official GBP profile Evidence and optional Brand/Website context only.
+- Guidance never implies ranking guarantees or provider writes.
