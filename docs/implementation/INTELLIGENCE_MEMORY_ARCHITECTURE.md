@@ -17,7 +17,7 @@
 | Brand Experience Records | **REAL** |
 | Brand Memory content provider | **REAL** (`ExperienceBrandMemoryContextProvider`) |
 | Sector Learning + privacy pipeline | **REAL** (Prompt 53) |
-| Retrieval / Memory Pack injection | **NOT YET** / Prompt 54 |
+| Retrieval / Memory Pack injection | **REAL** / Prompt 54 |
 | Vector DB / embeddings / similarity | **NOT IMPLEMENTED** |
 | AI direct memory writes | **FORBIDDEN** |
 | Provider / AI calls in Prompt 51 | **0** |
@@ -239,7 +239,7 @@ EffectiveMemory =
   ∩ RetrievalSelection
 ```
 
-Implemented as policy intersection in `IntelligenceMemoryAccessPolicy`. RetrievalSelection = Prompt 54 (currently empty pack).
+Implemented as policy intersection in `IntelligenceMemoryAccessPolicy`. Retrieval selection = Prompt 54 (`IntelligenceRetrievalService` — see `INTELLIGENCE_RETRIEVAL_LAYER.md`).
 
 ## 33. Intelligence Memory Gateway
 
@@ -288,7 +288,7 @@ Explicit states; do not physically delete history solely for applicability chang
 
 ## 44. Retrieval Boundary
 
-Owned by Prompt 54. Prompt 51 returns empty `MemoryContextPack`.
+Owned by Prompt 54. `IntelligenceMemoryGateway::resolveMemoryContextPack` now delegates to `IntelligenceRetrievalService` (typed pack → legacy bridge).
 
 ## 45. Evidence Pack vs Memory Pack
 
@@ -352,7 +352,7 @@ See §259 update in `docs/implementation/MILESTONE_5_PANEL_FREEZE.md` and sectio
 | Skill Memory Context Contract | **REAL** (absent ⇒ none) |
 | Generic Memory Table | **NONE** |
 | Vector / Embeddings / Similarity | **NOT IMPLEMENTED** |
-| Memory Retrieval / Pack / Injection | **NOT YET / Prompt 54** |
+| Memory Retrieval / Pack / Injection | **REAL / Prompt 54** |
 | AI Direct Memory Write | **FORBIDDEN** |
 | Cross-Brand Raw Access | **FORBIDDEN** |
 
@@ -366,7 +366,7 @@ Own Sector Learning & Privacy: versioned privacy policy, cohort thresholds, cont
 
 ## 56. Prompt 54 Handoff
 
-Own Intelligence Retrieval: server-side MemoryContextPack construction, bounded selection, citations, Agent run memory provenance pinning, still no LLM direct memory tools, still no unrestricted similar-customer retrieval.
+**Delivered (Prompt 54):** server-side typed `IntelligenceContextPack` / `TypedMemoryContextPack`, `intelligence_retrieval_v1` policy, retrievers, gateway resolution, Website `MEMORY_CONTEXT_JSON` injection, provenance manifests — still no LLM direct memory tools, no vectors/embeddings/scores, no unrestricted similar-customer retrieval. Spec: `docs/implementation/INTELLIGENCE_RETRIEVAL_LAYER.md`.
 
 ## 57. Definition of Done
 

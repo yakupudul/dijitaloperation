@@ -52,7 +52,7 @@ In scope:
 Out of scope (enforced):
 
 - GBP / GA4 / GSC live LLM execution (profiles remain **designed**)
-- Memory / retrieval / RAG / embeddings content stores (Prompt 51 establishes **architecture only**; Prompt 54 owns retrieval; vectors remain NOT IMPLEMENTED)
+- Memory / retrieval / RAG / embeddings content stores (Prompt 51 architecture; Prompt 54 retrieval **REAL** on Website path — EvidencePack → `IntelligenceRetrievalService` → `MEMORY_CONTEXT_JSON`; vectors remain NOT IMPLEMENTED)
 - Skill DB / SkillV2 / Agent DB / AiProviderV2
 - Capability Router; Playbook runtime orchestration of Agents
 - Autonomous Finding / Opportunity / Recommendation / Task writes
@@ -148,7 +148,7 @@ Registry: code-defined `AgentProfileRegistry` — **no** `agent_profiles` table.
 | Google Ads | `GoogleAdsAiGuidanceService` | `Run` + Evidence `ai_insight` |
 | Meta Ads | `MetaAdsAiGuidanceService` | `Run` + Evidence `ai_insight` |
 
-Stack: module ContextBuilders → Skill assemblers → `AiRouteResolver` → `laravel/ai` structured agents → module grounding validators. Prompt 50 inserts planner / EvidencePack / gateway / validator / execution-run tables into this path without inventing new providers.
+Stack: module ContextBuilders → Skill assemblers → `AiRouteResolver` → `laravel/ai` structured agents → module grounding validators. Prompt 50 inserts planner / EvidencePack / gateway / validator / execution-run tables into this path without inventing new providers. **Prompt 54** inserts `IntelligenceRetrievalService` after EvidencePack on the Website operational path (EvidencePack → typed Memory context → `MEMORY_CONTEXT_JSON` before inference).
 
 ## 12. Canonical Execution Architecture Decision
 
@@ -158,6 +158,8 @@ AgentProfile
       → eligible Skills + Allowed Evidence union + pre-inference status
   → AiRouteResolver (Control Plane)
   → AgentContextGateway → EvidencePack
+  → IntelligenceRetrievalService → IntelligenceContextPack (Prompt 54; Website wired)
+      → blocksInference()? abstain pre-inference (no provider call)
   → laravel/ai structured agent (only if READY)
   → StructuredAgentOutputValidator + module grounding
   → AgentExecutionRecorder → AgentExecutionRun / SkillExecutionRun / AiProviderAttempt
