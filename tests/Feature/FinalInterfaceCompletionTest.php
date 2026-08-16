@@ -76,7 +76,7 @@ class FinalInterfaceCompletionTest extends TestCase
 
         auth()->logout();
         $this->get(route('demo.files.download', $file))
-            ->assertRedirect('/system/login');
+            ->assertRedirect('/app/login');
 
         $other = User::factory()->create();
         $other->assignRole(Roles::TEAM_MEMBER);

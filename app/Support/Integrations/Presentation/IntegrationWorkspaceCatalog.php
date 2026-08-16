@@ -132,7 +132,7 @@ final class IntegrationWorkspaceCatalog
 
     /**
      * Frozen `/app/integrations` is the canonical Google operator surface.
-     * Filament `/system/settings/integrations/{id}` remains internal configure/admin.
+     * Filament `/admin/settings/integrations/{id}` remains internal configure/admin.
      */
     private function manageUrlFor(string $provider, CoreIntegration $integration): string
     {

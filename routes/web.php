@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Auth\OperatorLoginController;
 use App\Http\Controllers\Integrations\GoogleOAuthController;
 use App\Http\Controllers\Integrations\MetaOAuthController;
 use App\Http\Controllers\Ops\OpsHealthController;
@@ -11,10 +12,24 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', function () {
     return Auth::check()
         ? redirect('/app')
-        : redirect('/system/login');
+        : redirect()->route('app.login');
 });
 
-Route::redirect('/app/login', '/system/login');
+Route::middleware('guest')->group(function (): void {
+    Route::get('/app/login', [OperatorLoginController::class, 'create'])->name('app.login');
+    Route::post('/app/login', [OperatorLoginController::class, 'store'])->name('app.login.store');
+});
+
+Route::post('/app/logout', [OperatorLoginController::class, 'destroy'])
+    ->middleware('auth')
+    ->name('app.logout');
+
+// Legacy Filament operator path (/system) — retired. Keep narrow bookmark redirects only.
+Route::redirect('/system/login', '/app/login');
+Route::redirect('/system', '/app');
+Route::any('/system/{path}', function (): never {
+    abort(410, 'Legacy /system operator surface retired. Use /app.');
+})->where('path', '.*');
 
 // Prompt 66 — cheap health endpoints (no tenant/provider secrets).
 Route::get('/up/liveness', [OpsHealthController::class, 'liveness'])->name('ops.liveness');

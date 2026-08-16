@@ -25,6 +25,17 @@ return [
         'site_connectors' => 'Site Connectors',
     ],
 
+    'auth' => [
+        'login_title' => 'Login',
+        'login_heading' => 'Sign in',
+        'login_subtitle' => 'Use your MoxDOP operator account.',
+        'email' => 'Email',
+        'password' => 'Password',
+        'remember' => 'Remember me',
+        'sign_in' => 'Sign in',
+        'logout' => 'Sign out',
+    ],
+
     'actions' => [
         'save' => 'Save',
         'cancel' => 'Cancel',

@@ -43,11 +43,11 @@ class DemoProductRoutesTest extends TestCase
         $this->seedCanonicalWorkTasks();
     }
 
-    public function test_guest_is_redirected_from_app_to_system_login(): void
+    public function test_guest_is_redirected_from_app_to_app_login(): void
     {
         auth()->logout();
 
-        $this->get('/app')->assertRedirect('/system/login');
+        $this->get('/app')->assertRedirect('/app/login');
     }
 
     public function test_root_redirects_authenticated_users_to_app(): void

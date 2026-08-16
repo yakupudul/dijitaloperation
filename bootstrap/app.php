@@ -14,8 +14,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // Filament serves login at /system/login; web auth middleware must not call missing route('login').
-        $middleware->redirectGuestsTo('/system/login');
+        // Canonical operator login is /app/login (TailAdmin product). Filament technical admin is /admin.
+        $middleware->redirectGuestsTo(fn (): string => route('app.login'));
+
         $middleware->web(append: [
             SetOperatorLocale::class,
         ]);

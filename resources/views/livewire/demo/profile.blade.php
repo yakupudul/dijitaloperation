@@ -77,6 +77,10 @@
         <div class="flex flex-wrap gap-2">
             <x-ta.button type="submit" size="sm">{{ __('operator.actions.save') }}</x-ta.button>
             <x-ta.button :href="route('demo.settings')" size="sm" variant="outline">{{ __('operator.actions.cancel') }}</x-ta.button>
+            <form method="POST" action="{{ route('app.logout') }}" class="inline">
+                @csrf
+                <x-ta.button type="submit" size="sm" variant="outline">{{ __('operator.auth.logout') }}</x-ta.button>
+            </form>
         </div>
     </form>
 </div>

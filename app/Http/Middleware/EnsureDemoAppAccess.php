@@ -13,7 +13,7 @@ final class EnsureDemoAppAccess
     {
         $user = $request->user();
         if ($user === null) {
-            return redirect('/system/login');
+            return redirect()->guest(route('app.login'));
         }
 
         if (! $user->can(Permissions::ACCESS_APP)) {

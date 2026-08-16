@@ -25,6 +25,17 @@ return [
         'site_connectors' => 'Site bağlayıcıları',
     ],
 
+    'auth' => [
+        'login_title' => 'Giriş',
+        'login_heading' => 'Oturum aç',
+        'login_subtitle' => 'MoxDOP operatör hesabınızı kullanın.',
+        'email' => 'E-posta',
+        'password' => 'Şifre',
+        'remember' => 'Beni hatırla',
+        'sign_in' => 'Giriş yap',
+        'logout' => 'Çıkış yap',
+    ],
+
     'actions' => [
         'save' => 'Kaydet',
         'cancel' => 'İptal',

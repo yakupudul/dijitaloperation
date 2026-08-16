@@ -69,8 +69,8 @@ class CanonicalAppUrlIntegrityTest extends TestCase
         $panel = Filament::getPanel('app');
         $this->assertSame('/app', $panel->getHomeUrl());
 
-        // Technical Filament routes may still exist under /system for auth/admin tooling,
-        // but the operator Demo product must not emit those links.
+        // Technical Filament routes may still exist under /admin for admin tooling,
+        // but the operator product must not emit those links.
         $this->get('/app/settings')->assertOk()
             ->assertDontSee('href="/system')
             ->assertDontSee("href='/system");
