@@ -130,7 +130,7 @@ final class BuiltInSkillLoader
             definitionStatus: $definitionStatus,
             whenToUse: $this->sectionText($sections, ['when to use', 'when_to_use']),
             doNotUseWhen: $this->sectionText($sections, ['do not use when', 'do_not_use_when', 'not for']),
-            requiredContext: $this->stringList($meta['required_context'] ?? $this->sectionList($sections, ['required context', 'required_context'])),
+            requiredContext: $this->stringList($meta['required_context'] ?? []),
             requiredEvidence: array_map(
                 static fn (SkillEvidenceRequirement $r): string => $r->key,
                 $requiredEvidenceRequirements

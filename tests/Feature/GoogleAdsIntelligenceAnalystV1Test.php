@@ -85,7 +85,7 @@ class GoogleAdsIntelligenceAnalystV1Test extends TestCase
 
         foreach ($skills as $skill) {
             $this->assertSame('google-ads', $skill->module);
-            $this->assertSame('1.0.0', $skill->version);
+            $this->assertSame('1.1.0', $skill->version);
             $this->assertContains('google-ads.read', $skill->requiredCapabilities);
         }
 
@@ -324,7 +324,7 @@ class GoogleAdsIntelligenceAnalystV1Test extends TestCase
         $this->assertSame('1.0.0', $run->metadata['agent_profile_version']);
         $this->assertSame(AiRouteKeys::GOOGLE_ADS_AI_GUIDANCE, $run->metadata['ai_route_key']);
         $this->assertSame('openai', $run->metadata['provider']);
-        $this->assertContains('search-query-analysis@1.0.0', $run->metadata['active_skill_signatures']);
+        $this->assertContains('google-ads.search-query-analysis@1.1.0', $run->metadata['active_skill_signatures']);
         $this->assertSame(0, Task::query()->count());
         $this->assertSame(0, Recommendation::query()->where('source_module', GoogleAdsAiGuidanceConfig::MODULE_ID)->count());
         $this->assertStringNotContainsString('sk-test-google-ads-ai', json_encode($run->metadata));
