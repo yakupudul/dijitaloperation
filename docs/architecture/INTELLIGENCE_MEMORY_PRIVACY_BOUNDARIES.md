@@ -36,7 +36,9 @@ Tests: `IntelligenceMemoryArchitectureTest` Brand/Customer isolation cases.
 
 Interface: `App\Contracts\IntelligenceMemory\SectorLearningPrivacyGate`.
 
-Prompt 51 stub (`DeferredSectorLearningPrivacyGate`) enforces:
+**Production (Prompt 53):** `App\Services\SectorLearning\ProductionSectorLearningPrivacyGate` — bound in `AppServiceProvider`. Policy: [`SECTOR_MEMORY_PRIVACY_POLICY.md`](SECTOR_MEMORY_PRIVACY_POLICY.md) (`sector_privacy_v1`).
+
+Prompt 51 stub (`DeferredSectorLearningPrivacyGate`) historically enforced:
 
 | Block | Disposition |
 | --- | --- |
@@ -45,12 +47,11 @@ Prompt 51 stub (`DeferredSectorLearningPrivacyGate`) enforces:
 | Identifying keys in candidate (`brand_id`, names, URL, campaign, keyword, notes, …) | `blocked_raw_customer_data` |
 | Raw provider/Evidence flags | `blocked_raw_customer_data` |
 | One Brand cohort | `blocked_one_brand_insufficient` |
-| Otherwise (until Prompt 53) | `blocked_pipeline_not_implemented` |
+| Otherwise (Prompt 51 stub only) | `blocked_pipeline_not_implemented` |
 
-**No** magic minimum cohort integer in Prompt 51.  
-**No** `privacy_score` number — explicit PASS/BLOCK + reasons only.
+Production gate (Prompt 53) enforces versioned thresholds: min 5 Brands + 5 Customers, categorical cell 3/3, numeric 10/10, max share 0.20. **NOT** formal k-anonymity/DP. **No** `privacy_score` — explicit PASS/BLOCK + reason codes only.
 
-Usable Sector artifact requires Prompt 53: cohort policy, contribution bounding, aggregation method version, re-identification review.
+Usable Sector artifacts are released by `SectorLearningArtifactService` after projection, bounding, aggregation, and gate PASS. See `SECTOR_MEMORY_PRIVACY_POLICY.md`.
 
 Consumer-facing Sector payloads must **never** include contributor Customer/Brand IDs or names.  
 `SectorPrivacyGateDecision.safeMetadata` rejects those keys at construction.

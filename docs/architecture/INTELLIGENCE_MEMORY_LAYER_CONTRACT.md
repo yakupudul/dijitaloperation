@@ -41,13 +41,13 @@ Shared interfaces/DTOs are allowed. **Shared unrestricted writable storage is fo
 | Lifecycle | Aggregation/policy versioned artifacts; obsolete cohorts superseded by new artifacts |
 | Provenance | Aggregation method/version, time range, privacy policy version; contributor IDs **not** in consumer contract (restricted internal lineage optional later) |
 | Current-truth authority | Cohort observation only; **cannot override** Brand current context; **not** automatic industry standard |
-| Future writer | Prompt 53 pipeline **only** after privacy gate PASS |
-| Future reader | Prompt 54 — only when Skill+Agent allow, sector identity present, privacy Eligible, validity Active |
-| Future retrieval policy | Same intersection + privacy qualification |
-| Content in Prompt 51 | **NONE** (gate stub blocks usable output) |
-| Cohort threshold | **NOT hardcoded** — Prompt 53 owns versioned policy |
+| Writer | Prompt 53 pipeline **only** after privacy gate PASS (`SectorLearningArtifactService`) |
+| Reader | Prompt 54 — only when Skill+Agent allow, sector identity present, privacy Eligible, validity Active |
+| Retrieval policy | Same intersection + privacy qualification |
+| Content (Prompt 53) | Privacy-qualified artifacts + consumer DTO; retrieval injection **NOT YET** (Prompt 54) |
+| Cohort threshold | `sector_privacy_v1` in `SectorLearningPrivacyPolicy` (5/5 default; 3/3 cell; 10/10 numeric) |
 
-Privacy gate: `SectorLearningPrivacyGate` / `DeferredSectorLearningPrivacyGate`.
+Privacy gate: `SectorLearningPrivacyGate` → `ProductionSectorLearningPrivacyGate`. Policy: [`SECTOR_MEMORY_PRIVACY_POLICY.md`](SECTOR_MEMORY_PRIVACY_POLICY.md). (`DeferredSectorLearningPrivacyGate` superseded.)
 
 ---
 

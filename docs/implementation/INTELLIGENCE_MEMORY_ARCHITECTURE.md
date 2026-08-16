@@ -16,7 +16,7 @@
 | Generic `memories` table | **NONE** |
 | Brand Experience Records | **REAL** |
 | Brand Memory content provider | **REAL** (`ExperienceBrandMemoryContextProvider`) |
-| Sector Learning + privacy pipeline | **NOT YET** / Prompt 53 |
+| Sector Learning + privacy pipeline | **REAL** (Prompt 53) |
 | Retrieval / Memory Pack injection | **NOT YET** / Prompt 54 |
 | Vector DB / embeddings / similarity | **NOT IMPLEMENTED** |
 | AI direct memory writes | **FORBIDDEN** |
@@ -340,8 +340,9 @@ See §259 update in `docs/implementation/MILESTONE_5_PANEL_FREEZE.md` and sectio
 | Brand Memory Ownership Contract | **REAL** |
 | Brand Experience Records | **REAL** |
 | Sector Memory Privacy Contract | **REAL** |
-| Sector Learning Records | **NOT YET / Prompt 53** |
-| Sector Aggregation / Qualification | **NOT YET / Prompt 53** |
+| Sector Learning Records | **REAL** (Prompt 53) |
+| Sector Aggregation / Qualification | **REAL** (Prompt 53) |
+| Production Sector Privacy Gate | **REAL** (`ProductionSectorLearningPrivacyGate`; `DeferredSectorLearningPrivacyGate` superseded) |
 | Knowledge / Skill Memory Contract | **REAL** |
 | Skill/Playbook integration | **REAL / REFERENCED** |
 | Memory Provenance / Temporal | **REAL** (contracts) |
