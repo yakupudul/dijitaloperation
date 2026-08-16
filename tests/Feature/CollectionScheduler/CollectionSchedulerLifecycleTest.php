@@ -216,6 +216,8 @@ class CollectionSchedulerLifecycleTest extends TestCase
         $this->assertNull($registry->policy('totally_fake_dataset_xyz'));
         $this->assertFalse(class_exists('App\\Services\\CollectionScheduler\\CollectionSchedulerV2'));
         $this->assertFalse(class_exists('App\\Models\\WatermarkV2'));
+        $this->assertFalse(class_exists('App\\Models\\FreshnessV2'));
+        $this->assertFalse(class_exists('App\\Services\\DataPool\\Freshness\\FreshnessV2'));
     }
 
     #[Test]
