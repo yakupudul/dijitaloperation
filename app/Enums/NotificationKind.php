@@ -19,4 +19,5 @@ enum NotificationKind: string
     case OpportunityCreated = 'opportunity_created';
     case ScheduledInternalNotification = 'scheduled_internal_notification';
     case BusinessOutcomeRecheckAttention = 'business_outcome_recheck_attention';
+    case OperationalAlertOpened = 'operational_alert_opened';
 }

@@ -2,8 +2,12 @@
 
 namespace App\Services\Integrations\Meta;
 
+use App\Enums\Observability\ProviderQuotaVisibility;
+use App\Enums\Observability\ProviderRequestOutcome;
 use App\Models\CoreIntegration;
+use App\Services\Observability\ProviderApiTelemetryService;
 use App\Support\Integrations\Meta\MetaApiConfig;
+use App\Support\Integrations\ProviderRegistry;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
@@ -79,17 +83,21 @@ class MetaApiClient
                 ->withToken($token)
                 ->acceptJson();
 
+            $started = microtime(true);
             $response = match (strtoupper($method)) {
                 'POST' => $pending->asForm()->post($url, $filtered),
                 default => $pending->get($url, $filtered),
             };
+            $this->recordTelemetry($integration, $response->status(), (int) round((microtime(true) - $started) * 1000));
         } catch (ConnectionException $exception) {
+            $this->recordTelemetry($integration, null, null, timeout: false, network: true);
             throw new MetaException(
                 'Meta connection transport error.',
                 kind: MetaException::KIND_TRANSPORT,
                 previous: $exception,
             );
         } catch (Throwable $exception) {
+            $this->recordTelemetry($integration, null, null, timeout: false, network: true);
             throw new MetaException(
                 'Meta connection transport error.',
                 kind: MetaException::KIND_TRANSPORT,
@@ -98,6 +106,33 @@ class MetaApiClient
         }
 
         return $this->decodeOrThrow($response);
+    }
+
+    private function recordTelemetry(
+        CoreIntegration $integration,
+        ?int $status,
+        ?int $durationMs,
+        bool $timeout = false,
+        bool $network = false,
+    ): void {
+        try {
+            /** @var ProviderApiTelemetryService $telemetry */
+            $telemetry = app(ProviderApiTelemetryService::class);
+            $outcome = $telemetry->classifyHttpStatus($status, $timeout, $network);
+            $telemetry->recordAttempt([
+                'provider' => ProviderRegistry::META,
+                'operation' => 'http',
+                'outcome' => $outcome,
+                'duration_ms' => $durationMs ?? 0,
+                'http_status' => $status,
+                'integration_id' => (int) $integration->id,
+                'quota_visibility' => $outcome === ProviderRequestOutcome::RateLimit
+                    ? ProviderQuotaVisibility::RateLimitSignalOnly
+                    : ProviderQuotaVisibility::NotExposed,
+            ]);
+        } catch (Throwable) {
+            // Telemetry must never break provider calls.
+        }
     }
 
     /**

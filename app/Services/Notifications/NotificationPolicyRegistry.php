@@ -31,6 +31,8 @@ final class NotificationPolicyRegistry
             DomainEventType::OpportunityCreated,
             DomainEventType::ScheduledInternalNotification,
             DomainEventType::BusinessOutcomeRecheckAttention => true,
+            // Platform operational alerts are durable Alert state; skip brand Activity spam.
+            DomainEventType::OperationalAlertOpened => false,
         };
     }
 
@@ -58,6 +60,7 @@ final class NotificationPolicyRegistry
             DomainEventType::OpportunityCreated => NotificationKind::OpportunityCreated,
             DomainEventType::ScheduledInternalNotification => NotificationKind::ScheduledInternalNotification,
             DomainEventType::BusinessOutcomeRecheckAttention => NotificationKind::BusinessOutcomeRecheckAttention,
+            DomainEventType::OperationalAlertOpened => NotificationKind::OperationalAlertOpened,
         };
     }
 

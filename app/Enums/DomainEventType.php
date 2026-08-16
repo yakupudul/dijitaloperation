@@ -22,6 +22,7 @@ enum DomainEventType: string
     case OpportunityCreated = 'OPPORTUNITY_CREATED';
     case ScheduledInternalNotification = 'SCHEDULED_INTERNAL_NOTIFICATION';
     case BusinessOutcomeRecheckAttention = 'BUSINESS_OUTCOME_RECHECK_ATTENTION';
+    case OperationalAlertOpened = 'OPERATIONAL_ALERT_OPENED';
 
     public function category(): string
     {
@@ -34,6 +35,7 @@ enum DomainEventType: string
             self::ApprovalApproved, self::ApprovalRejected, self::ApprovalChangesRequested => 'approval',
             self::RecurringReviewCompleted => 'review',
             self::ScheduledInternalNotification, self::BusinessOutcomeRecheckAttention => 'automation',
+            self::OperationalAlertOpened => 'operations',
         };
     }
 
@@ -49,6 +51,7 @@ enum DomainEventType: string
             self::RecommendationAccepted, self::OpportunityCreated => 'critical_finding',
             self::ScheduledInternalNotification => 'scheduled_internal_notification',
             self::BusinessOutcomeRecheckAttention => 'business_outcome_recheck',
+            self::OperationalAlertOpened => 'operation_failed',
         };
     }
 }

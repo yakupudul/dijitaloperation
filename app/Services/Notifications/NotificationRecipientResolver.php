@@ -44,7 +44,8 @@ final class NotificationRecipientResolver
             DomainEventType::RecurringReviewCompleted => $this->recurringReviewOwnerRecipients($subjectId),
             DomainEventType::ClientRequestCreated => $this->clientRequestOwnerRecipients($subjectId),
             DomainEventType::ScheduledInternalNotification,
-            DomainEventType::BusinessOutcomeRecheckAttention => $this->payloadRecipientIds($event),
+            DomainEventType::BusinessOutcomeRecheckAttention,
+            DomainEventType::OperationalAlertOpened => $this->payloadRecipientIds($event),
         };
 
         return $this->uniqueExcludingActor($recipients, $actorId);

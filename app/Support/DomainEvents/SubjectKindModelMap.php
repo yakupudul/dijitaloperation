@@ -8,6 +8,7 @@ use App\Models\BusinessOutcomeRecheckRun;
 use App\Models\ClientRequest;
 use App\Models\Finding;
 use App\Models\InternalNotificationSchedule;
+use App\Models\Observability\OperationalAlert;
 use App\Models\Opportunity;
 use App\Models\Playbook;
 use App\Models\QaReview;
@@ -37,6 +38,7 @@ final class SubjectKindModelMap
             DomainEventSubjectKind::RecurringReviewRun => RecurringReviewRun::class,
             DomainEventSubjectKind::BusinessOutcomeRecheckRun => BusinessOutcomeRecheckRun::class,
             DomainEventSubjectKind::InternalNotificationSchedule => InternalNotificationSchedule::class,
+            DomainEventSubjectKind::OperationalAlert => OperationalAlert::class,
         };
     }
 }

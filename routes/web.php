@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Integrations\GoogleOAuthController;
 use App\Http\Controllers\Integrations\MetaOAuthController;
+use App\Http\Controllers\Ops\OpsHealthController;
 use App\Http\Controllers\Reports\ReportArtifactDownloadController;
 use App\Http\Controllers\Reports\ReportShareController;
 use Illuminate\Support\Facades\Auth;
@@ -14,6 +15,10 @@ Route::get('/', function () {
 });
 
 Route::redirect('/app/login', '/system/login');
+
+// Prompt 66 — cheap health endpoints (no tenant/provider secrets).
+Route::get('/up/liveness', [OpsHealthController::class, 'liveness'])->name('ops.liveness');
+Route::get('/up/readiness', [OpsHealthController::class, 'readiness'])->name('ops.readiness');
 
 Route::middleware(['web', 'auth'])->group(function (): void {
     Route::get('/integrations/google/callback', [GoogleOAuthController::class, 'callback'])
@@ -35,6 +40,10 @@ Route::middleware(['web', 'auth'])->group(function (): void {
     Route::post('/reports/snapshots/{snapshotId}/pdf', [ReportArtifactDownloadController::class, 'generateAndDownload'])
         ->whereNumber('snapshotId')
         ->name('reports.snapshots.pdf');
+
+    // Internal ops snapshot — authenticated operators only; no new top-level nav.
+    Route::get('/ops/health-snapshot', [OpsHealthController::class, 'snapshot'])
+        ->name('ops.health.snapshot');
 });
 
 Route::middleware(['web'])->prefix('reports/share')->name('reports.share.')->group(function (): void {

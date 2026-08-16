@@ -153,6 +153,7 @@ final class NotificationProjector
             DomainEventType::OpportunityCreated => 'New opportunity: '.$subjectLabel,
             DomainEventType::ScheduledInternalNotification => $subjectLabel !== '' ? $subjectLabel : 'Scheduled notification',
             DomainEventType::BusinessOutcomeRecheckAttention => $subjectLabel !== '' ? $subjectLabel : 'Business Outcome recheck attention',
+            DomainEventType::OperationalAlertOpened => $subjectLabel !== '' ? $subjectLabel : 'Operational alert',
         };
     }
 }

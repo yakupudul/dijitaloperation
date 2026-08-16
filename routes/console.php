@@ -11,3 +11,4 @@ Artisan::command('inspire', function () {
 Schedule::command('async:mark-stale-runs')->everyFiveMinutes();
 Schedule::command('reports:dispatch-due-deliveries')->everyFiveMinutes();
 Schedule::command('moxdop:dispatch-due-automations')->everyFiveMinutes();
+Schedule::command('moxdop:ops:evaluate-alerts')->everyFiveMinutes();
