@@ -2,12 +2,12 @@
 
 ## STATUS: REAL (Prompt 55)
 
-**Prompt:** 55  
-**Canonical path:** `docs/implementation/INTELLIGENCE_EVALUATION.md`  
-**Evaluation contract:** [`docs/architecture/INTELLIGENCE_EVALUATION_CONTRACT.md`](../architecture/INTELLIGENCE_EVALUATION_CONTRACT.md)  
-**Evaluation policy:** [`docs/architecture/INTELLIGENCE_EVALUATION_POLICY.md`](../architecture/INTELLIGENCE_EVALUATION_POLICY.md)  
-**Depends on:** Prompt 54 Intelligence Retrieval Layer · Prompt 53 Sector Learning & Privacy · Prompt 52 Brand Experience · Prompt 51 Intelligence Memory · Prompt 50 AI Agent Production Execution  
-**Branch:** `cursor/intelligence-evaluation-ea01`  
+**Prompt:** 55
+**Canonical path:** `docs/implementation/INTELLIGENCE_EVALUATION.md`
+**Evaluation contract:** [`docs/architecture/INTELLIGENCE_EVALUATION_CONTRACT.md`](../architecture/INTELLIGENCE_EVALUATION_CONTRACT.md)
+**Evaluation policy:** [`docs/architecture/INTELLIGENCE_EVALUATION_POLICY.md`](../architecture/INTELLIGENCE_EVALUATION_POLICY.md)
+**Depends on:** Prompt 54 Intelligence Retrieval Layer · Prompt 53 Sector Learning & Privacy · Prompt 52 Brand Experience · Prompt 51 Intelligence Memory · Prompt 50 AI Agent Production Execution
+**Branch:** `cursor/intelligence-evaluation-ea01`
 **Base HEAD:** Prompt 54 retrieval (`adc9a48`)
 
 | Fact | Value |
@@ -144,17 +144,17 @@ Auto-mutating Skills/Agents/Routes from eval results would couple measurement to
 
 ## 9. Canonical Intelligence Evaluation Decision
 
-One policy: `IntelligenceEvaluationPolicy` (`intelligence_evaluation_v1`).  
-One runner: `IntelligenceEvaluationRunner`.  
-One assertion registry: bounded `IntelligenceEvaluationAssertionType`.  
-One synthetic dataset key: `moxdop_synthetic_eval_v1`.  
+One policy: `IntelligenceEvaluationPolicy` (`intelligence_evaluation_v1`).
+One runner: `IntelligenceEvaluationRunner`.
+One assertion registry: bounded `IntelligenceEvaluationAssertionType`.
+One synthetic dataset key: `moxdop_synthetic_eval_v1`.
 **No EvaluationV2. No magic score column.**
 
 ## 10. No Single AI / Brain / Intelligence Score
 
-`snapshot()['single_ai_score'] = null`.  
-Run `dimension_summary` stores per-dimension counts only.  
-Judge findings and human rubric forbid numeric scores.  
+`snapshot()['single_ai_score'] = null`.
+Run `dimension_summary` stores per-dimension counts only.
+Judge findings and human rubric forbid numeric scores.
 Retrieval metrics set `composite_retrieval_score: null`.
 
 ## 11. Evaluation Dimensions
@@ -317,7 +317,7 @@ Uses `IntelligenceEvaluationMockedOutputFactory` for structured output. Never cl
 
 ## 30. LiveControlled Mode (Privileged / CI Forbidden)
 
-`runSuite(..., LiveControlled)` throws.  
+`runSuite(..., LiveControlled)` throws.
 `runLiveControlled()` throws with message that privileged operator tooling is required and CI forbids paid live inference. Not implemented for paid calls in v1.
 
 ## 31. HumanReview and Comparison Modes
@@ -657,26 +657,26 @@ Runner passes `providerCallsMade: false` into the assertion engine. Limits JSON 
 
 The following matrices are defined in this document (and mirrored in architecture contracts where appropriate):
 
-1. Existing Evaluation Primitive Matrix (§7)  
-2. Evaluation Dimension Matrix (§11)  
-3. Dental Golden Case Matrix (§19)  
-4. Privacy Assertion Matrix (§22)  
-5. Retrieval Expectation Matrix (§38)  
-6. Grounding Matrix (§40)  
-7. Current Truth Matrix (§41)  
-8. Abstention Matrix (§42)  
-9. Genericity Matrix (§43)  
-10. Counterfactual Matrix (§44)  
-11. Ablation Matrix (§36)  
-12. Provider Semantic Matrix (§45)  
-13. Human Rubric Matrix (§48)  
-14. LLM Judge Matrix (§51)  
-15. Evaluation Policy Matrix (below)  
-16. Version Pinning Matrix (§55)  
-17. Regression Matrix (§54)  
-18. No Auto-Tuning Matrix (§58)  
-19. CI / Live Matrix (§59)  
-20. Eval Data Privacy Matrix (§60)  
+1. Existing Evaluation Primitive Matrix (§7)
+2. Evaluation Dimension Matrix (§11)
+3. Dental Golden Case Matrix (§19)
+4. Privacy Assertion Matrix (§22)
+5. Retrieval Expectation Matrix (§38)
+6. Grounding Matrix (§40)
+7. Current Truth Matrix (§41)
+8. Abstention Matrix (§42)
+9. Genericity Matrix (§43)
+10. Counterfactual Matrix (§44)
+11. Ablation Matrix (§36)
+12. Provider Semantic Matrix (§45)
+13. Human Rubric Matrix (§48)
+14. LLM Judge Matrix (§51)
+15. Evaluation Policy Matrix (below)
+16. Version Pinning Matrix (§55)
+17. Regression Matrix (§54)
+18. No Auto-Tuning Matrix (§58)
+19. CI / Live Matrix (§59)
+20. Eval Data Privacy Matrix (§60)
 21. Reality Matrix (Prompt 55) (§68)
 
 ### Evaluation Policy Matrix

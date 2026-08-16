@@ -1,12 +1,12 @@
 # Intelligence Evaluation Contract
 
-> Prompt 55 — Suite / Dataset / Case versioning, expectations, assertions, runtime pinning, human review, comparison.  
-> Code: `App\Support\IntelligenceEvaluation\*` · `App\Services\IntelligenceEvaluation\*`  
-> Implementation: [`docs/implementation/INTELLIGENCE_EVALUATION.md`](../implementation/INTELLIGENCE_EVALUATION.md)  
+> Prompt 55 — Suite / Dataset / Case versioning, expectations, assertions, runtime pinning, human review, comparison.
+> Code: `App\Support\IntelligenceEvaluation\*` · `App\Services\IntelligenceEvaluation\*`
+> Implementation: [`docs/implementation/INTELLIGENCE_EVALUATION.md`](../implementation/INTELLIGENCE_EVALUATION.md)
 > Policy: [`INTELLIGENCE_EVALUATION_POLICY.md`](INTELLIGENCE_EVALUATION_POLICY.md)
 
-**Dataset:** `moxdop_synthetic_eval_v1` / `dataset_v1`  
-**Evaluation policy:** `intelligence_evaluation_v1`  
+**Dataset:** `moxdop_synthetic_eval_v1` / `dataset_v1`
+**Evaluation policy:** `intelligence_evaluation_v1`
 **Assertion registry:** `intelligence_evaluation_assertions_v1`
 
 This contract defines how evaluation **observes and measures**. It does not mutate production Skills, Agents, Routes, or Retrieval Policies. Humans decide changes.

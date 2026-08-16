@@ -1,14 +1,14 @@
 # Intelligence Evaluation Policy
 
-> Prompt 55 — hard safety gates, grounding, retrieval metrics, abstention, specificity, human usefulness, baseline comparison, no aggregate score, no auto-tuning.  
-> Code: `App\Support\IntelligenceEvaluation\IntelligenceEvaluationPolicy`  
-> Implementation: [`docs/implementation/INTELLIGENCE_EVALUATION.md`](../implementation/INTELLIGENCE_EVALUATION.md)  
+> Prompt 55 — hard safety gates, grounding, retrieval metrics, abstention, specificity, human usefulness, baseline comparison, no aggregate score, no auto-tuning.
+> Code: `App\Support\IntelligenceEvaluation\IntelligenceEvaluationPolicy`
+> Implementation: [`docs/implementation/INTELLIGENCE_EVALUATION.md`](../implementation/INTELLIGENCE_EVALUATION.md)
 > Contract: [`INTELLIGENCE_EVALUATION_CONTRACT.md`](INTELLIGENCE_EVALUATION_CONTRACT.md)
 
-**Policy ID:** `intelligence_evaluation`  
-**Version:** `intelligence_evaluation_v1`  
-**Assertion registry:** `intelligence_evaluation_assertions_v1`  
-**Human rubric:** `intelligence_evaluation_human_rubric_v1`  
+**Policy ID:** `intelligence_evaluation`
+**Version:** `intelligence_evaluation_v1`
+**Assertion registry:** `intelligence_evaluation_assertions_v1`
+**Human rubric:** `intelligence_evaluation_human_rubric_v1`
 **Judge contract:** `intelligence_evaluation_judge_v1_advisory`
 
 Evaluation **observes and measures**. It never auto-tunes Skills, Agents, Routes, Retrieval Policies, Sector Policies, or models. Humans decide changes.
