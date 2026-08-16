@@ -179,9 +179,10 @@ Resolver: `OperatorConfirmedSectorIdentityResolver`.
 ## 22. Sector Privacy Boundary
 
 Interface: `SectorLearningPrivacyGate`.  
-Implementation stub: `DeferredSectorLearningPrivacyGate` (`prompt_51_boundary_only`).  
-Usable Sector Memory: **not until Prompt 53**.  
-No magic cohort number. Explicit PASS/BLOCK dispositions — no privacy score.
+Production implementation: `ProductionSectorLearningPrivacyGate` (`sector_privacy_v1`).  
+`DeferredSectorLearningPrivacyGate` (Prompt 51 stub) superseded for DI binding; kept historically.  
+Usable Sector Memory: **REAL** (Prompt 53). Policy: `docs/architecture/SECTOR_MEMORY_PRIVACY_POLICY.md`.  
+Explicit PASS/BLOCK dispositions — no privacy score; **NOT** formal k-anonymity/DP.
 
 ## 23. Sector Aggregation Boundary
 

@@ -296,16 +296,18 @@ class IntelligenceMemoryArchitectureTest extends TestCase
         $this->assertFalse($manifest->retrievalImplemented);
     }
 
-    public function test_sector_privacy_gate_does_not_invent_cohort_threshold(): void
+    public function test_sector_privacy_gate_requires_cohort_structure_not_raw_count_alone(): void
     {
         $gate = app(SectorLearningPrivacyGate::class);
         $decision = $gate->qualify(new SectorIdentityRef('dental', 'brand.sector'), [
             'contributing_brand_count' => 50,
         ]);
         $this->assertFalse($decision->isEligible());
-        $this->assertSame(SectorPrivacyDisposition::BlockedPipelineNotImplemented, $decision->disposition);
-        $this->assertStringContainsString('Prompt 53', implode(' ', $decision->reasons));
+        $this->assertSame(SectorPrivacyDisposition::BlockedPrivacyNotQualified, $decision->disposition);
+        $this->assertSame('sector_privacy_v1', $decision->policyVersion);
+        $this->assertContains('INCOMPLETE_CANDIDATE', $decision->reasons);
         $this->assertArrayNotHasKey('minimum_cohort', $decision->safeMetadata);
+        $this->assertFalse($decision->safeMetadata['formal_k_anonymity_claim'] ?? true);
     }
 
     public function test_both_allow_brand_memory_still_requires_exact_brand_match(): void

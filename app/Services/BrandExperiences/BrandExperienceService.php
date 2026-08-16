@@ -25,6 +25,7 @@ use App\Models\Opportunity;
 use App\Models\Recommendation;
 use App\Models\Task;
 use App\Models\User;
+use App\Services\SectorLearning\SectorLearningArtifactService;
 use App\Support\BrandExperiences\BrandExperienceContextSnapshot;
 use App\Support\BrandExperiences\Dto\BrandExperienceEvidenceQualityAssessment;
 use App\Support\Options\CountryOptions;
@@ -39,12 +40,14 @@ use InvalidArgumentException;
  * Canonical Brand Experience write boundary.
  *
  * No provider calls, no AI calls, no auto-create from Task/Recommendation listeners,
- * no causality inference, no BusinessOutcome, no Sector aggregation.
+ * no causality inference, no BusinessOutcome. Sector aggregation is Prompt 53
+ * (invalidation only marks dependent Sector artifacts STALE).
  */
 final class BrandExperienceService
 {
     public function __construct(
         private readonly BrandExperienceEvidenceQualityEvaluator $qualityEvaluator,
+        private readonly SectorLearningArtifactService $sectorLearningArtifactService,
     ) {}
 
     /**
@@ -145,6 +148,9 @@ final class BrandExperienceService
         $experience->forceFill([
             'status' => BrandExperienceStatus::Invalidated,
         ])->save();
+
+        // Prompt 53: dependent Sector Learning artifacts become STALE / recompute-required.
+        $this->sectorLearningArtifactService->markStaleForExperience((int) $experience->id);
 
         return $experience;
     }
