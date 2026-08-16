@@ -37,7 +37,7 @@ Each capability is **read-only**, **registry-bound**, and executed only after se
 | **Input schema** | `metricId` ∈ `AssistantMetricRegistry`; `periodToken` ∈ `AssistantDateRangeResolver::SUPPORTED_TOKENS`; scope `customerId`, `brandId`, `digitalAssetId` (all explicit) |
 | **Authorization** | Customer, Brand, DigitalAsset must be in respective authorized lists |
 | **Scope** | `requires_customer`, `requires_brand`, `requires_digital_asset` = true |
-| **Source service** | Provider adapters — **implemented:** `GoogleAdsAssistantReadAdapter` (`GoogleAdsSpecialistBindingResolver` + `GoogleAdsPoolReadRepository`) |
+| **Source service** | Provider adapters — **implemented:** `GoogleAdsAssistantReadAdapter` (`GoogleAdsSpecialistBindingResolver` + `GoogleAdsPoolReadRepository`). Pool repository `selectRaw` / `DB::` usage is **domain read infrastructure**, not an Assistant AI tool or text-to-SQL surface. |
 | **Result schema** | `strategy: deterministic_fact`; block `type: fact`; claim `required_source_class: provider_data`; `AssistantProviderMetricResult` in block payload |
 | **Freshness** | `fresh` / `stale` / `unknown` from latest pool row age |
 | **Date semantics** | `requested_period` + `covered_period`; partial coverage when row count < requested days |
