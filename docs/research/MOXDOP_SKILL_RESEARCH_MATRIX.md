@@ -27,6 +27,46 @@ Clones were made **read-only** under `/tmp/moxdop-skill-research/` at shallow de
 
 Living registry of tracked repositories and long-run adoption decisions stays in [`EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md`](./EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT.md).
 
+### Prompt 48 §87 required outline → this document
+
+| §87 heading | Location in this artifact set |
+| --- | --- |
+| 1. Purpose / 2. Scope | §1 |
+| 3. Research Rules | §2–§4 |
+| 4. MoxDOP Domain Boundaries | §3–§4, R10–R14 |
+| 5. Source Repository Snapshot | §6–§8; `EXTERNAL_SKILL_SOURCE_INVENTORY.md` |
+| 6. License Summary | §32–§33; `EXTERNAL_SKILL_LICENSE_PROVENANCE.md` |
+| 7. Methodology Taxonomy | §22 |
+| 8. Skill Pattern Taxonomy | §23 |
+| 9. Evidence Requirement Taxonomy | §28–§29; `EXTERNAL_SKILL_EVIDENCE_REQUIREMENTS.md` |
+| 10. Unsafe Assumption Taxonomy | §30; `EXTERNAL_SKILL_UNSAFE_ASSUMPTIONS.md` |
+| 11. MarketingSkills Audit | §9 |
+| 12. HEAD Audit | §10 |
+| 13. claude-seo Audit | §11 |
+| 14. open-seo Audit | §12 |
+| 15. geo-seo-claude Audit | §13 |
+| 16. platinum-seo-engine Audit | §14 |
+| 17. Local SEO Skills Audit | §15 |
+| 18. SE Ranking SEO Skills Audit | §16 |
+| 19. Agent Skills Pattern Audit | §17 |
+| 20. Other Candidate Repositories | §18–§21 |
+| 21. Cross-Repository Methodology Map | §22 |
+| 22. Methodology Conflicts | `EXTERNAL_SKILL_UNSAFE_ASSUMPTIONS.md` §6; matrix §30–§31 |
+| 23. Primary-Source Verification | §31 |
+| 24. MoxDOP Data Availability | §27; evidence satellite §4 |
+| 25. Canonical Evidence Mapping | §28–§29 |
+| 26. Playbook vs Skill Classification | §4 R10; candidates C6; inventory §4 |
+| 27. Tool / Permission Requirements | evidence satellite §7; pattern §23 |
+| 28. Security Findings | unsafe satellite §5; per-repo “What not to copy” |
+| 29. License / Provenance Decisions | §32–§33; license satellite |
+| 30. What Must Not Be Copied | §33; per-repo sections; §35 |
+| 31. Candidate MoxDOP Skills | §34; `MOXDOP_SKILL_CANDIDATES.md` |
+| 32. Rejected Concepts | §35 |
+| 33. Experimental / Future Concepts | §34 C12; candidates status `EXPERIMENTAL` / `FUTURE_ONLY` |
+| 34. Prompt 49 Handoff | §36 |
+| 35. Research Limitations | §36 |
+| 36. Definition of Done | §37 |
+
 ---
 
 ## 1. Purpose and scope
@@ -1082,3 +1122,39 @@ Cross-cutting requirements for every candidate: bounded inputs; explicit `data_a
 3. Does a bounded internal-link inventory (C5) belong to the Website connector path or to a bounded direct-observation collector, given the no-general-crawler rule?
 4. Does MoxDOP want a Recommendation Reviewer gate (the auditor pattern in §18/§23) in a named prompt, or does deterministic grounding validation remain sufficient?
 5. Is GEO Observation Analysis (C12) allowed to ship as `EXPERIMENTAL` with only level A observables, or is it deferred entirely until an AI-surface data question is answered?
+
+## 37. Definition of Done (Prompt 48 research gate)
+
+| Gate | Status |
+| --- | --- |
+| Exact Prompt 47 cumulative HEAD used as base | YES — `d705f8bd00bbd0ad8f0ff50c4c9404eacc8a6147` |
+| Dedicated research branch | YES — `cursor/external-skill-repository-audit-ea01` |
+| External repos treated as untrusted read-only research | YES |
+| No installer / shell / Python / Node / MCP / credentials executed or registered | YES |
+| No external code vendored into MoxDOP; production deps unchanged | YES |
+| Every mandatory repository audited at exact immutable SHA | YES — §6 |
+| joshbuchea/HEAD treated as technical taxonomy (not Finding authority) | YES — §10 |
+| Additional candidates admitted only for unique value | YES — §18–§21 |
+| Popularity not used as factual evidence | YES — R2 |
+| License recorded per audited commit; history checked where relevant | YES — §32; license satellite (Platinum relicense) |
+| License ambiguity flagged (HEAD missing LICENSE file) | YES — `LICENSE_AMBIGUOUS` / `LICENSE_MISSING` |
+| License axis independent of methodology quality | YES — R5 |
+| Per-repo Useful Methodology / Skill Pattern / Evidence / Unsafe / License / What-not-to-copy | YES — §9–§20 |
+| Skills inventoried beyond README | YES — source inventory |
+| Claims classified measured / observed / derived / heuristic / AI / unsupported | YES — §25–§28 |
+| High-value SEO rules checked against primary sources | YES — §31 |
+| Repo claims not silently rewritten to match primary sources | YES — R4 |
+| Magic scores inventoried and rejected as canonical MoxDOP metrics | YES — §24; unsafe satellite |
+| Missing ≠ zero preserved | YES — R6 |
+| Vendor estimates distinct from first-party measurements | YES — R7; §26 |
+| GEO dedicated evidence-quality audit; no universal AI visibility score | YES — §25; C12 `EXPERIMENTAL` |
+| Methodologies mapped to MoxDOP data + Evidence; unsupported blocked | YES — §27–§29 |
+| No second Evidence / Finding / Collection / DataForSEO / Task / Playbook / scheduler stack | YES — R11–R14; §35 |
+| External artifacts classified Playbook vs Skill vs tool vs orchestrator vs reference | YES — candidates + R10 |
+| Tool/permission risks audited; high-risk writes rejected by default | YES — evidence satellite §7 |
+| Candidates synthesized by capability, not per-repo branding | YES — §34 |
+| Required research artifacts created; production runtime unchanged | YES |
+| External code committed / paid API calls / provider calls / AI execution from this prompt | **0** |
+
+**Prompt 48 production Skill implementation:** NOT YET (Prompt 49).  
+**Prompt 48 AI Agent execution:** NOT YET (Prompt 50).
