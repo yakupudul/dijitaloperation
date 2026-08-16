@@ -126,7 +126,10 @@
                         </div>
                     </div>
                     <p class="mt-3 text-sm text-gray-600 dark:text-gray-300">{{ __('operator.outcomes.qualified_rate') }}: {{ $businessOutcomes['qualified_rate'] }}</p>
-                    <p class="mt-1 text-xs text-gray-400">{{ $businessOutcomes['note'] }} · {{ $businessOutcomes['provenance'] ?? 'Demo' }}</p>
+                    @if (! empty($businessOutcomes['empty_message']))
+                        <p class="mt-2 text-sm text-amber-700 dark:text-amber-400">{{ $businessOutcomes['empty_message'] }}</p>
+                    @endif
+                    <p class="mt-1 text-xs text-gray-400">{{ $businessOutcomes['note'] }} · {{ $businessOutcomes['provenance'] ?? 'business_outcome' }}</p>
                 </section>
 
                 @if ($showOutcomeForm)

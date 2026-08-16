@@ -5,6 +5,7 @@ namespace App\Services\Assistant;
 use App\Enums\AssistantCapabilityId;
 use App\Enums\AssistantClarificationReason;
 use App\Enums\AssistantIntentType;
+use App\Enums\BusinessOutcomeKind;
 use App\Support\Assistant\AssistantCapabilityRegistry;
 use App\Support\Assistant\AssistantMetricRegistry;
 use App\Support\Assistant\Dto\AssistantIntentCandidate;
@@ -72,8 +73,16 @@ final class AssistantIntentValidator
         }
 
         if ($candidate->intentType === AssistantIntentType::FactLookup) {
-            if ($candidate->metricId === null || ! $this->metrics->has($candidate->metricId)) {
+            $isBusinessOutcome = is_string($candidate->metricId)
+                && str_starts_with($candidate->metricId, 'business_outcome.');
+            if (! $isBusinessOutcome && ($candidate->metricId === null || ! $this->metrics->has($candidate->metricId))) {
                 $errors[] = 'UNKNOWN_OR_MISSING_METRIC';
+            }
+            if ($isBusinessOutcome) {
+                $kind = substr((string) $candidate->metricId, strlen('business_outcome.'));
+                if (BusinessOutcomeKind::tryFrom($kind) === null) {
+                    $errors[] = 'UNKNOWN_OR_MISSING_METRIC';
+                }
             }
             if ($candidate->periodToken === null) {
                 return [
@@ -86,7 +95,9 @@ final class AssistantIntentValidator
             if ($candidate->capabilityId === null) {
                 $candidate = new AssistantIntentCandidate(
                     intentType: $candidate->intentType,
-                    capabilityId: AssistantCapabilityId::ProviderMetricLookup,
+                    capabilityId: $isBusinessOutcome
+                        ? AssistantCapabilityId::BusinessOutcomeLookup
+                        : AssistantCapabilityId::ProviderMetricLookup,
                     metricId: $candidate->metricId,
                     periodToken: $candidate->periodToken,
                     domainFilter: $candidate->domainFilter,

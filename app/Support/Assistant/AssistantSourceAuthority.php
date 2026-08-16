@@ -117,6 +117,19 @@ final class AssistantSourceAuthority
                 'can_satisfy_provider_metric' => false,
                 'can_override_current_evidence' => false,
             ],
+            AssistantSourceClass::BusinessOutcome->value => [
+                'current_measured_fact' => true,
+                'current_condition' => false,
+                'potential' => false,
+                'execution' => false,
+                'historical' => false,
+                'sector' => false,
+                'methodology' => false,
+                'can_satisfy_provider_metric' => false,
+                'can_override_current_evidence' => false,
+                'is_provider_conversion' => false,
+                'is_crm_record' => false,
+            ],
         ];
     }
 

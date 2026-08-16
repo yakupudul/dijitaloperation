@@ -246,6 +246,27 @@ Default planner signatures: agent `website-seo-analyst@1.0.0`, skill `website.te
 
 ---
 
+## BUSINESS_OUTCOME_LOOKUP
+
+| Field | Value |
+| --- | --- |
+| **Identity** | `business_outcome_lookup` |
+| **Intent compatibility** | `fact_lookup` with `metricId` prefix `business_outcome.` |
+| **Input schema** | `metricId` ∈ `business_outcome.{qualified_lead\|consultation\|sale_or_patient\|revenue}`; `periodToken` resolved by `AssistantDateRangeResolver`; scope `customerId`, `brandId` |
+| **Authorization** | Customer + Brand must be authorized |
+| **Scope** | customer + brand required; digital asset **not** required (Brand-total aggregates) |
+| **Source service** | `BusinessOutcomeReadService::aggregate` (Prompt 57) — **no** provider pool adapters |
+| **Result schema** | `strategy: deterministic_fact`; claim `required_source_class: business_outcome`; coverage/completeness/currency/limitations retained |
+| **Freshness** | `not_applicable` (human-reported aggregates) |
+| **Date semantics** | requested period + covered periods from aggregate result; no proration |
+| **Source authority** | `business_outcome` — never satisfied by provider conversions |
+| **AI needed?** | **No** |
+| **Read-only** | Yes |
+| **Provider conversion fallback** | **Forbidden** — missing BO data does not substitute Google Ads/Meta/GA4 conversions |
+| **Evaluation** | architecture cases in `BusinessOutcomeProductionPersistenceTest` |
+
+---
+
 ## Forbidden capabilities
 
 Must **never** be registered or executed:

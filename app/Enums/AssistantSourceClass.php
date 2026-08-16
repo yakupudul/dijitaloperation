@@ -17,4 +17,5 @@ enum AssistantSourceClass: string
     case BrandExperience = 'brand_experience';
     case SectorPattern = 'sector_pattern';
     case SkillKnowledge = 'skill_knowledge';
+    case BusinessOutcome = 'business_outcome';
 }

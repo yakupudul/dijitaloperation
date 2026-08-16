@@ -35,6 +35,7 @@ Material correction ⇒ superseding Experience (new row) + prior `superseded`.
 | Observed Situation | Bounded summary + optional Finding/Opportunity + period + Evidence roles |
 | Action | `task_completed` \| `external_operator_confirmed`; `action_occurred_at` required |
 | Observed Later Outcome | Summary + `outcome_observed_at` **after** Action; clarity enum |
+| Optional Business Outcome Revision | Nullable FK `business_outcome_observation_revision_id` (Prompt 57); same Customer/Brand only; pins exact revision; **not** causal |
 | Evidence Quality | Categorical assessment + reason codes + policy version |
 | Causality | Always `causality_not_established` |
 

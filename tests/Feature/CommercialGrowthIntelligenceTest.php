@@ -143,21 +143,26 @@ class CommercialGrowthIntelligenceTest extends TestCase
         $this->assertTrue(Schema::hasTable('opportunities'));
         $this->assertTrue(Schema::hasTable('opportunity_evaluations'));
 
-        foreach (['service_plans', 'business_outcomes'] as $table) {
-            $this->assertFalse(Schema::hasTable($table), 'Unexpected table: '.$table);
+        foreach (['service_plans', 'leads', 'patients', 'deals', 'pipelines', 'appointments', 'invoices', 'payments'] as $table) {
+            $this->assertFalse(Schema::hasTable($table), 'Unexpected CRM/deferred table: '.$table);
         }
+
+        $this->assertTrue(Schema::hasTable('business_outcome_definitions'));
+        $this->assertTrue(Schema::hasTable('business_outcome_observations'));
+        $this->assertTrue(Schema::hasTable('business_outcome_observation_revisions'));
 
         $this->assertTrue(Schema::hasTable('brand_goals'));
         $this->assertTrue(Schema::hasTable('brand_offerings'));
         $this->assertTrue(Schema::hasTable('brand_offering_names'));
 
         $migrationPath = database_path('migrations');
-        foreach (['*service_plans*', '*business_outcomes*'] as $pattern) {
+        foreach (['*service_plans*', '*create_leads*', '*create_patients*', '*create_deals*'] as $pattern) {
             $matches = File::glob($migrationPath.'/'.$pattern);
-            $this->assertEmpty($matches, 'Unexpected migration files for pattern: '.$pattern);
+            $this->assertEmpty($matches, 'Unexpected CRM migration files for pattern: '.$pattern);
         }
 
         $this->assertNotEmpty(File::glob($migrationPath.'/*opportunities*'));
+        $this->assertNotEmpty(File::glob($migrationPath.'/*business_outcome*'));
     }
 
     public function test_recommendation_source_distinguishes_opportunity_from_finding(): void

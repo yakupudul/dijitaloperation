@@ -11,12 +11,15 @@ use App\Enums\AssistantCoverageState;
 use App\Enums\AssistantFreshnessState;
 use App\Enums\AssistantIntentType;
 use App\Enums\AssistantSourceClass;
+use App\Enums\BusinessOutcomeAggregateStatus;
+use App\Enums\BusinessOutcomeKind;
 use App\Enums\IntelligenceMemoryLayer;
 use App\Models\Brand;
 use App\Models\BrandExperience;
 use App\Models\DigitalAsset;
 use App\Models\Evidence;
 use App\Services\Assistant\Adapters\GoogleAdsAssistantReadAdapter;
+use App\Services\BusinessOutcomes\BusinessOutcomeReadService;
 use App\Services\Findings\FindingReadService;
 use App\Services\IntelligenceRetrieval\IntelligenceRetrievalService;
 use App\Services\Opportunities\OpportunityReadService;
@@ -50,6 +53,7 @@ final class AssistantCapabilityExecutor
         private readonly IntelligenceRetrievalService $retrieval,
         private readonly AssistantAnswerGroundingValidator $grounding,
         private readonly AssistantSourceAuthority $authority,
+        private readonly BusinessOutcomeReadService $businessOutcomes,
     ) {}
 
     public function execute(AssistantQueryPlan $plan): AssistantAnswer
@@ -83,8 +87,100 @@ final class AssistantCapabilityExecutor
             AssistantCapabilityId::SectorPatternLookup => $this->executeSector($plan),
             AssistantCapabilityId::SkillGuidance => $this->executeSkill($plan),
             AssistantCapabilityId::SpecialistAnalysis => $this->executeSpecialistRoute($plan),
+            AssistantCapabilityId::BusinessOutcomeLookup => $this->executeBusinessOutcome($plan),
             default => $this->unavailable($plan, 'capability_not_executable'),
         };
+    }
+
+    private function executeBusinessOutcome(AssistantQueryPlan $plan): AssistantAnswer
+    {
+        if ($plan->scope->brandId === null || $plan->scope->customerId === null) {
+            return $this->unavailable($plan, 'brand_scope_required');
+        }
+        $range = $plan->dateRange;
+        if ($range === null) {
+            return $this->unavailable($plan, 'date_range_missing');
+        }
+
+        $kindValue = (string) ($plan->parameters['business_outcome_kind'] ?? $plan->domainFilter ?? '');
+        $kind = BusinessOutcomeKind::tryFrom($kindValue);
+        if ($kind === null) {
+            return $this->unavailable($plan, 'unsupported_metric');
+        }
+
+        $brand = Brand::query()->find((int) $plan->scope->brandId);
+        if ($brand === null || (int) $brand->customer_id !== (int) $plan->scope->customerId) {
+            return $this->unavailable($plan, 'brand_scope_required');
+        }
+
+        $result = $this->businessOutcomes->aggregate($brand, $kind, $range->startDate, $range->endDate);
+
+        // Never fall back to provider conversions when Business Outcome data is absent.
+        if ($result->value === null) {
+            return $this->unavailable($plan, 'no_business_outcome_data');
+        }
+
+        $ref = new AssistantSourceRef(
+            sourceClass: AssistantSourceClass::BusinessOutcome,
+            opaqueRef: 'business_outcome:'.$kind->value.':'.$range->startDate.':'.$range->endDate,
+            metadata: [
+                'definition_id' => $result->definitionId,
+                'status' => $result->status->value,
+                'currency_code' => $result->currencyCode,
+                'completeness' => $result->worstCompleteness?->value,
+                'provider_conversion_fallback' => false,
+            ],
+        );
+
+        $claim = new AssistantClaim(
+            claimId: 'business_outcome_'.$kind->value,
+            blockType: AssistantAnswerBlockType::Fact,
+            statement: sprintf(
+                'Reported %s for the requested period is %s%s (%s).',
+                $kind->defaultLabel(),
+                $result->value,
+                $result->currencyCode ? ' '.$result->currencyCode : '',
+                $result->status->value,
+            ),
+            requiredSourceClass: AssistantSourceClass::BusinessOutcome,
+            sourceRefs: [$ref],
+            limitations: $result->limitations,
+            numericValue: is_numeric($result->value) ? (float) $result->value : null,
+            unit: $result->currencyCode ?? $result->unit->value,
+        );
+
+        $answer = new AssistantAnswer(
+            strategy: AssistantAnswerStrategy::DeterministicFact,
+            intentType: AssistantIntentType::FactLookup,
+            scope: $plan->scope,
+            claims: [$claim],
+            blocks: [[
+                'type' => AssistantAnswerBlockType::Fact->value,
+                'business_outcome' => $result->toArray(),
+                'provider_conversion_fallback' => false,
+            ]],
+            sourceManifest: new AssistantAnswerSourceManifest([$ref], [
+                'source_class' => AssistantSourceClass::BusinessOutcome->value,
+                'live_provider_calls' => 0,
+            ]),
+            requestedPeriod: $range,
+            coveredPeriod: $range,
+            coverage: $result->status === BusinessOutcomeAggregateStatus::Complete
+                ? AssistantCoverageState::Complete
+                : ($result->status === BusinessOutcomeAggregateStatus::Partial
+                    ? AssistantCoverageState::Partial
+                    : AssistantCoverageState::Missing),
+            limitations: $result->limitations,
+            runtimeProvenance: [
+                'ai_used' => false,
+                'provider_calls' => 0,
+                'provider_conversion_fallback' => false,
+                'domain_writes' => 0,
+            ],
+            answeredAt: now()->toIso8601String(),
+        );
+
+        return $this->grounding->validate($answer, $plan);
     }
 
     private function executeProviderMetric(AssistantQueryPlan $plan): AssistantAnswer

@@ -135,8 +135,9 @@ final class AssistantAnswerGroundingValidator
         }
 
         if ($claim->numericValue !== null && $claim->requiredSourceClass !== AssistantSourceClass::ProviderData
-            && $claim->requiredSourceClass !== AssistantSourceClass::Evidence) {
-            // Numeric MoxDOP facts must be provider/evidence backed
+            && $claim->requiredSourceClass !== AssistantSourceClass::Evidence
+            && $claim->requiredSourceClass !== AssistantSourceClass::BusinessOutcome) {
+            // Numeric MoxDOP facts must be provider/evidence/business-outcome backed
             return ['ok' => false, 'reason' => 'NUMERIC_WITHOUT_FACT_SOURCE'];
         }
 

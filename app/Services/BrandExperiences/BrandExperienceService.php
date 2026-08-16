@@ -18,6 +18,7 @@ use App\Models\BrandExperienceOffering;
 use App\Models\BrandExperienceRevision;
 use App\Models\BrandGoal;
 use App\Models\BrandOffering;
+use App\Models\BusinessOutcomeObservationRevision;
 use App\Models\DigitalAsset;
 use App\Models\Evidence;
 use App\Models\Finding;
@@ -40,8 +41,9 @@ use InvalidArgumentException;
  * Canonical Brand Experience write boundary.
  *
  * No provider calls, no AI calls, no auto-create from Task/Recommendation listeners,
- * no causality inference, no BusinessOutcome. Sector aggregation is Prompt 53
- * (invalidation only marks dependent Sector artifacts STALE).
+ * no causality inference. Optional same-Brand Business Outcome Observation Revision
+ * may pin later-outcome lineage (Prompt 57) without establishing causality.
+ * Sector aggregation is Prompt 53 (invalidation only marks dependent Sector artifacts STALE).
  */
 final class BrandExperienceService
 {
@@ -259,6 +261,7 @@ final class BrandExperienceService
             'quality_policy_version' => $quality->policyVersion,
             'quality_assessed_at' => now(),
             'causality_status' => BrandExperienceCausalityStatus::CausalityNotEstablished->value,
+            'business_outcome_observation_revision_id' => $normalized['business_outcome_observation_revision_id'],
             'created_by' => $actor?->id,
             'idempotency_key' => $revisionIdempotencyKey,
         ]);
@@ -524,6 +527,25 @@ final class BrandExperienceService
 
         $evidenceLinks = $this->normalizeEvidenceLinks($input['evidence_links'] ?? [], $brandId);
 
+        $businessOutcomeRevisionId = null;
+        if (isset($input['business_outcome_observation_revision_id'])
+            && $input['business_outcome_observation_revision_id'] !== null
+            && $input['business_outcome_observation_revision_id'] !== '') {
+            $businessOutcomeRevisionId = (int) $input['business_outcome_observation_revision_id'];
+            $boRevision = BusinessOutcomeObservationRevision::query()
+                ->with('observation')
+                ->find($businessOutcomeRevisionId);
+            if (! $boRevision instanceof BusinessOutcomeObservationRevision
+                || $boRevision->observation === null
+                || (int) $boRevision->observation->brand_id !== $brandId
+                || (int) $boRevision->observation->customer_id !== $customerId) {
+                throw ValidationException::withMessages([
+                    'business_outcome_observation_revision_id' => 'Business Outcome revision must belong to the same Customer/Brand.',
+                ]);
+            }
+            // Pin exact revision — later BO corrections do not rewrite this Experience.
+        }
+
         $qualityHints = is_array($input['quality_hints'] ?? null) ? $input['quality_hints'] : [];
         $quality = $this->qualityEvaluator->evaluate([
             'action_kind' => $actionKind,
@@ -572,6 +594,7 @@ final class BrandExperienceService
             'outcome_period_start' => $input['outcome_period_start'] ?? null,
             'outcome_period_end' => $input['outcome_period_end'] ?? null,
             'outcome_clarity' => $outcomeClarity,
+            'business_outcome_observation_revision_id' => $businessOutcomeRevisionId,
             'goal_rows' => $goalRows,
             'offering_rows' => $offeringRows,
             'evidence_links' => $evidenceLinks,

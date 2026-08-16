@@ -3,8 +3,10 @@
 namespace App\Livewire\Demo\Portfolio;
 
 use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
+use App\Models\Brand;
 use App\Models\Recommendation;
 use App\Services\Approvals\ApprovalReadService;
+use App\Services\BusinessOutcomes\BusinessOutcomeReadService;
 use App\Services\ClientRequests\ClientRequestReadService;
 use App\Services\CreateTaskFromRecommendation;
 use App\Services\Opportunities\OpportunityReadService;
@@ -265,21 +267,15 @@ class BrandShow extends Component
 
     public function saveBusinessOutcomes(): void
     {
+        // Prompt 57: Demo session overrides are retired for Business Outcome cards.
+        // Aggregate Business Outcomes persist via BusinessOutcomeObservationService only.
         if ($this->brand !== DemoCatalog::BRAND_ID) {
             return;
         }
 
-        DemoState::updateBusinessOutcomes([
-            'platform_leads' => (int) $this->outcome_platform_leads,
-            'qualified_leads' => (int) $this->outcome_qualified_leads,
-            'consultations' => (int) $this->outcome_consultations,
-            'patients' => (int) $this->outcome_patients,
-            'revenue' => null,
-            'note' => $this->outcome_note,
-        ]);
-
         $this->showOutcomeForm = false;
         $this->tab = 'value';
+        session()->flash('status', 'Business Outcomes require production Brand persistence (manual/CSV). Demo fake values are retired.');
     }
 
     public function setTab(string $tab): void
@@ -1030,9 +1026,52 @@ class BrandShow extends Component
         $serviceScope = CommercialContextFixtures::effectiveScopeForBrand((string) ($brandRow['id'] ?? ''));
         $structuredGoals = CommercialContextFixtures::structuredGoalsForBrand((string) ($brandRow['id'] ?? ''));
         $brandOpportunities = OpportunityFixtures::sortByBusinessRelevance($this->brandOpportunities());
-        $businessOutcomes = ($brandRow['id'] ?? '') === DemoCatalog::BRAND_ID
-            ? DemoState::businessOutcomes($period)
-            : null;
+
+        if (($brandRow['id'] ?? '') === DemoCatalog::BRAND_ID) {
+            $businessOutcomes = [
+                'available' => false,
+                'period_label' => $period,
+                'qualified_leads' => '—',
+                'qualified_leads_label' => __('operator.outcomes.qualified_leads'),
+                'consultations' => '—',
+                'consultations_label' => __('operator.outcomes.consultations'),
+                'patients' => '—',
+                'patients_label' => __('operator.outcomes.patients'),
+                'revenue' => null,
+                'revenue_label' => __('operator.outcomes.revenue'),
+                'revenue_display' => __('operator.outcomes.not_available'),
+                'platform_leads' => '—',
+                'platform_leads_label' => __('operator.outcomes.platform_results'),
+                'qualified_rate' => '—',
+                'empty_message' => 'No reported Business Outcome data for this period.',
+                'demo' => false,
+                'provenance' => 'business_outcome',
+                'note' => __('operator.outcomes.brand_aggregate_note'),
+            ];
+        } elseif (ctype_digit((string) ($brandRow['id'] ?? ''))) {
+            $surface = app(BusinessOutcomeReadService::class)->forValueSurface(
+                Brand::query()->findOrFail((int) $brandRow['id']),
+                now()->subDays(27)->toDateString(),
+                now()->toDateString(),
+            );
+            $businessOutcomes = array_merge($surface, [
+                'qualified_leads_label' => __('operator.outcomes.qualified_leads'),
+                'consultations_label' => __('operator.outcomes.consultations'),
+                'patients_label' => __('operator.outcomes.patients'),
+                'revenue_label' => __('operator.outcomes.revenue'),
+                'platform_leads_label' => __('operator.outcomes.platform_results'),
+                'platform_leads' => $surface['platform_leads'] ?? '—',
+                'qualified_rate' => '—',
+                'note' => __('operator.outcomes.brand_aggregate_note'),
+                'period_label' => ($surface['period_start'] ?? '').' → '.($surface['period_end'] ?? ''),
+                'qualified_leads' => $surface['qualified_leads'] ?? '—',
+                'consultations' => $surface['consultations'] ?? '—',
+                'patients' => $surface['patients'] ?? '—',
+            ]);
+        } else {
+            $businessOutcomes = null;
+        }
+
         $operationalOutcomes = ($brandRow['id'] ?? '') === DemoCatalog::BRAND_ID
             ? BusinessOutcomeFixtures::operationalOutcomes()
             : [];

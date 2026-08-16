@@ -41,6 +41,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'quality_policy_version',
     'quality_assessed_at',
     'causality_status',
+    'business_outcome_observation_revision_id',
     'created_by',
     'idempotency_key',
 ])]
@@ -116,6 +117,17 @@ class BrandExperienceRevision extends Model
     public function evidenceLinks(): HasMany
     {
         return $this->hasMany(BrandExperienceEvidenceLink::class);
+    }
+
+    /**
+     * @return BelongsTo<BusinessOutcomeObservationRevision, $this>
+     */
+    public function businessOutcomeObservationRevision(): BelongsTo
+    {
+        return $this->belongsTo(
+            BusinessOutcomeObservationRevision::class,
+            'business_outcome_observation_revision_id',
+        );
     }
 
     /**

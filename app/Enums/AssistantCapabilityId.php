@@ -17,4 +17,5 @@ enum AssistantCapabilityId: string
     case SectorPatternLookup = 'sector_pattern_lookup';
     case SkillGuidance = 'skill_guidance';
     case SpecialistAnalysis = 'specialist_analysis';
+    case BusinessOutcomeLookup = 'business_outcome_lookup';
 }

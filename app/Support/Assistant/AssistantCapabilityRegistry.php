@@ -147,6 +147,21 @@ final class AssistantCapabilityRegistry
                 'reuses_prompt_50' => true,
                 'reuses_prompt_54' => true,
             ],
+            AssistantCapabilityId::BusinessOutcomeLookup->value => [
+                'id' => AssistantCapabilityId::BusinessOutcomeLookup->value,
+                'source_class' => AssistantSourceClass::BusinessOutcome->value,
+                'ai_required' => false,
+                'deterministic' => true,
+                'read_only' => true,
+                'requires_customer' => true,
+                'requires_brand' => true,
+                'requires_digital_asset' => false,
+                'supports_period' => true,
+                'max_cardinality' => 1,
+                'live_provider_calls' => false,
+                'domain_writes' => false,
+                'provider_conversion_fallback' => false,
+            ],
         ];
     }
 

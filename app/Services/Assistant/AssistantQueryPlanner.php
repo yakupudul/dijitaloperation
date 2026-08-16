@@ -72,7 +72,7 @@ final class AssistantQueryPlanner
         }
 
         return match ($candidate->intentType) {
-            AssistantIntentType::FactLookup => $this->planFactLookup($scope, $metricId, $dateRange, $periodToken),
+            AssistantIntentType::FactLookup => $this->planFactLookup($scope, $metricId, $dateRange, $periodToken, $candidate),
             AssistantIntentType::DomainLookup => $this->planDomain($scope, $candidate),
             AssistantIntentType::WorkStatus => $this->simplePlan(
                 $scope,
@@ -122,7 +122,49 @@ final class AssistantQueryPlanner
         ?string $metricId,
         $dateRange,
         ?string $periodToken,
+        ?AssistantIntentCandidate $candidate = null,
     ): AssistantQueryPlan {
+        // Business Outcome facts — never provider conversion fallback.
+        if (is_string($metricId) && str_starts_with($metricId, 'business_outcome.')) {
+            $kind = substr($metricId, strlen('business_outcome.'));
+            if ($dateRange === null) {
+                return new AssistantQueryPlan(
+                    scope: $scope,
+                    intentType: AssistantIntentType::ClarificationRequired,
+                    capabilities: [],
+                    answerStrategy: AssistantAnswerStrategy::Clarification,
+                    clarificationReason: AssistantClarificationReason::DateRangeRequired,
+                    validated: true,
+                );
+            }
+            if (! $scope->hasBrand()) {
+                return new AssistantQueryPlan(
+                    scope: $scope,
+                    intentType: AssistantIntentType::ClarificationRequired,
+                    capabilities: [],
+                    answerStrategy: AssistantAnswerStrategy::Clarification,
+                    clarificationReason: AssistantClarificationReason::BrandScopeRequired,
+                    validated: true,
+                );
+            }
+
+            return new AssistantQueryPlan(
+                scope: $scope,
+                intentType: AssistantIntentType::FactLookup,
+                capabilities: [AssistantCapabilityId::BusinessOutcomeLookup],
+                answerStrategy: AssistantAnswerStrategy::DeterministicFact,
+                dateRange: $dateRange,
+                metricId: $metricId,
+                sourceRequirements: ['business_outcome'],
+                parameters: [
+                    'period_token' => $periodToken,
+                    'business_outcome_kind' => $kind,
+                    'provider_conversion_fallback' => false,
+                ],
+                validated: true,
+            );
+        }
+
         if ($metricId === null || ! $this->metrics->has($metricId)) {
             return new AssistantQueryPlan(
                 scope: $scope,
@@ -182,8 +224,6 @@ final class AssistantQueryPlanner
                 );
             }
 
-            // Exactly one matching asset — still require explicit DigitalAsset on scope
-            // to avoid first-asset fallback semantics.
             return new AssistantQueryPlan(
                 scope: $scope,
                 intentType: AssistantIntentType::ClarificationRequired,
