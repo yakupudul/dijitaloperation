@@ -208,7 +208,7 @@ return [
             'maxJobs' => 0,
             'memory' => 128,
             'tries' => 1,
-            'timeout' => 60,
+            'timeout' => (int) env('HORIZON_DEFAULT_TIMEOUT', 300),
             'nice' => 0,
         ],
         // Collection engine — infrastructure workers only (not product UI).
@@ -221,7 +221,7 @@ return [
             'maxJobs' => 0,
             'memory' => 256,
             'tries' => 3,
-            'timeout' => 300,
+            'timeout' => (int) env('HORIZON_COLLECTION_TIMEOUT', 300),
             'nice' => 0,
         ],
     ],
@@ -229,23 +229,25 @@ return [
     'environments' => [
         'production' => [
             'supervisor-1' => [
-                'maxProcesses' => 5,
+                'maxProcesses' => (int) env('HORIZON_DEFAULT_MAX_PROCESSES', 5),
                 'balanceMaxShift' => 1,
                 'balanceCooldown' => 3,
+                'timeout' => (int) env('HORIZON_DEFAULT_TIMEOUT', 300),
             ],
             'supervisor-collection' => [
-                'maxProcesses' => 3,
-                'timeout' => 300,
+                'maxProcesses' => (int) env('HORIZON_COLLECTION_MAX_PROCESSES', 3),
+                'timeout' => (int) env('HORIZON_COLLECTION_TIMEOUT', 300),
             ],
         ],
 
         'local' => [
             'supervisor-1' => [
                 'maxProcesses' => 2,
+                'timeout' => (int) env('HORIZON_DEFAULT_TIMEOUT', 300),
             ],
             'supervisor-collection' => [
                 'maxProcesses' => 1,
-                'timeout' => 300,
+                'timeout' => (int) env('HORIZON_COLLECTION_TIMEOUT', 300),
             ],
         ],
     ],

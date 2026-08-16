@@ -35,8 +35,12 @@ final class ActivityReadService
         $offset = max(0, (int) ($filters['offset'] ?? 0));
         $since = $this->periodSince($filters['period'] ?? null);
 
-        $activities = $this->activityQuery($filters, $since)->get();
-        $orphanEvents = $this->orphanDomainEventQuery($filters, $since)->get();
+        // Bound SQL reads before merge (Prompt 65). Over-fetch enough rows to satisfy
+        // offset+limit after unifying two sources without loading unbounded history.
+        $sqlLimit = min(500, $offset + $limit);
+
+        $activities = $this->activityQuery($filters, $since)->limit($sqlLimit)->get();
+        $orphanEvents = $this->orphanDomainEventQuery($filters, $since)->limit($sqlLimit)->get();
 
         $rows = collect()
             ->concat($activities->map(fn (BrandContextActivity $row): array => $this->fromActivity($row)))

@@ -20,6 +20,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use UnitEnum;
 
@@ -180,6 +181,11 @@ class FindingResource extends Resource
                     ->columnSpanFull()
                     ->placeholder('No related Tasks'),
             ]);
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->with(['digitalAsset:id,name,brand_id']);
     }
 
     public static function table(Table $table): Table

@@ -267,6 +267,20 @@ class TaskResource extends Resource
             ]);
     }
 
+    /**
+     * Prompt65: eager-load Brand / DigitalAsset / Assignee to avoid N+1 on Work list.
+     *
+     * @return Builder<Task>
+     */
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->with([
+            'brand:id,name',
+            'digitalAsset:id,name',
+            'assignee:id,name',
+        ]);
+    }
+
     public static function table(Table $table): Table
     {
         return $table

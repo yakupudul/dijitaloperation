@@ -31,6 +31,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class BrandResource extends Resource
 {
@@ -185,6 +186,16 @@ class BrandResource extends Resource
                     ->collapsed()
                     ->compact(),
             ]);
+    }
+
+    /**
+     * Prompt65: eager-load responsible users for list badges.
+     *
+     * @return Builder<Brand>
+     */
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->with(['responsibleUsers']);
     }
 
     public static function table(Table $table): Table

@@ -36,6 +36,7 @@ final class TaskReadService
      */
     public function paginate(array $filters = [], int $perPage = 50): LengthAwarePaginator
     {
+        $perPage = max(1, min(100, $perPage));
         $query = $this->baseQuery();
         $this->applyFilters($query, $filters);
 

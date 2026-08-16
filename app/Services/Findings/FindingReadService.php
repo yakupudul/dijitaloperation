@@ -34,6 +34,8 @@ final class FindingReadService
      */
     public function query(array $filters = [], int $limit = 100): array
     {
+        $limit = max(1, min(500, $limit));
+
         $rows = $this->baseQuery($filters)
             ->with(['latestEvaluation.evidence'])
             ->orderByDesc('last_seen_at')
@@ -49,6 +51,8 @@ final class FindingReadService
      */
     public function paginateEvaluations(Finding $finding, int $perPage = 25): LengthAwarePaginator
     {
+        $perPage = max(1, min(100, $perPage));
+
         return $finding->evaluations()->orderByDesc('evaluated_at')->paginate($perPage);
     }
 

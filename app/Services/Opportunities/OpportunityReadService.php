@@ -58,6 +58,8 @@ final class OpportunityReadService
      */
     public function paginateEvaluations(Opportunity $opportunity, int $perPage = 25): LengthAwarePaginator
     {
+        $perPage = max(1, min(100, $perPage));
+
         return $opportunity->evaluations()->orderByDesc('evaluated_at')->paginate($perPage);
     }
 

@@ -106,19 +106,27 @@ class GscPoolReadRepository
             ->selectRaw('query, COALESCE(SUM(clicks), 0) as clicks_sum, COALESCE(SUM(impressions), 0) as impressions_sum')
             ->get();
 
-        $results = [];
-        foreach ($rows as $row) {
+        $queryKeys = $rows->map(static fn ($row): string => (string) $row->query)->all();
+        $detailsByQuery = [];
+        if ($queryKeys !== []) {
+            // One bounded detail query for the top-N queries (avoids N+1) — Prompt 65.
             $detailRows = DB::table('gsc_query_daily')
                 ->where('digital_asset_id', $digitalAssetId)
                 ->where('external_resource_id', $externalResourceId)
                 ->where('site_url', $siteUrl)
-                ->where('query', $row->query)
+                ->whereIn('query', $queryKeys)
                 ->whereBetween('reporting_date', [$start, $end])
-                ->get(['impressions', 'metadata']);
+                ->get(['query', 'impressions', 'metadata']);
+            foreach ($detailRows as $detail) {
+                $detailsByQuery[(string) $detail->query][] = $detail;
+            }
+        }
 
+        $results = [];
+        foreach ($rows as $row) {
             $positionNumerator = 0.0;
             $positionImpressions = 0;
-            foreach ($detailRows as $detail) {
+            foreach ($detailsByQuery[(string) $row->query] ?? [] as $detail) {
                 $dayImpressions = (int) $detail->impressions;
                 $position = $this->metadataFloat($detail->metadata, 'provider_average_position');
                 if ($position !== null && $dayImpressions > 0) {
@@ -188,19 +196,26 @@ class GscPoolReadRepository
             ->selectRaw('device, COALESCE(SUM(clicks), 0) as clicks_sum, COALESCE(SUM(impressions), 0) as impressions_sum')
             ->get();
 
-        $results = [];
-        foreach ($aggregates as $row) {
+        $deviceKeys = $aggregates->map(static fn ($row): string => (string) $row->device)->all();
+        $detailsByDevice = [];
+        if ($deviceKeys !== []) {
             $detailRows = DB::table('gsc_device_daily')
                 ->where('digital_asset_id', $digitalAssetId)
                 ->where('external_resource_id', $externalResourceId)
                 ->where('site_url', $siteUrl)
-                ->where('device', $row->device)
+                ->whereIn('device', $deviceKeys)
                 ->whereBetween('reporting_date', [$start, $end])
-                ->get(['impressions', 'metadata']);
+                ->get(['device', 'impressions', 'metadata']);
+            foreach ($detailRows as $detail) {
+                $detailsByDevice[(string) $detail->device][] = $detail;
+            }
+        }
 
+        $results = [];
+        foreach ($aggregates as $row) {
             $positionNumerator = 0.0;
             $positionImpressions = 0;
-            foreach ($detailRows as $detail) {
+            foreach ($detailsByDevice[(string) $row->device] ?? [] as $detail) {
                 $dayImpressions = (int) $detail->impressions;
                 $position = $this->metadataFloat($detail->metadata, 'provider_average_position');
                 if ($position !== null && $dayImpressions > 0) {
@@ -257,10 +272,12 @@ class GscPoolReadRepository
      */
     public function sitemaps(int $digitalAssetId, string $siteUrl): array
     {
+        // Bound SQL before PHP dedupe (Prompt 65) — unique sitemap paths only.
         $rows = DB::table('gsc_sitemap_snapshot')
             ->where('digital_asset_id', $digitalAssetId)
             ->where('site_url', $siteUrl)
             ->orderByDesc('retrieved_at')
+            ->limit(500)
             ->get();
 
         $seen = [];
@@ -290,10 +307,13 @@ class GscPoolReadRepository
      */
     public function urlInspectionSamples(int $digitalAssetId, string $siteUrl, int $limit = 20): array
     {
+        $limit = max(1, min(100, $limit));
+        // Over-fetch for per-page dedupe without loading the entire snapshot history.
         $rows = DB::table('gsc_url_inspection_snapshot')
             ->where('digital_asset_id', $digitalAssetId)
             ->where('site_url', $siteUrl)
             ->orderByDesc('inspected_at')
+            ->limit(min(500, $limit * 25))
             ->get();
 
         $seen = [];

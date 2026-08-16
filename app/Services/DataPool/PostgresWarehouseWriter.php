@@ -299,18 +299,20 @@ final class PostgresWarehouseWriter implements WarehouseWriter
      */
     private function countExisting(string $table, array $naturalKey, array $chunk): int
     {
-        $count = 0;
-        foreach ($chunk as $row) {
-            $q = DB::table($table);
-            foreach ($naturalKey as $col) {
-                $q->where($col, $row[$col]);
-            }
-            if ($q->exists()) {
-                $count++;
-            }
+        if ($chunk === [] || $naturalKey === []) {
+            return 0;
         }
 
-        return $count;
+        // Single bounded OR-query instead of one EXISTS per row (Prompt 65).
+        return (int) DB::table($table)->where(function ($outer) use ($naturalKey, $chunk): void {
+            foreach ($chunk as $row) {
+                $outer->orWhere(function ($inner) use ($naturalKey, $row): void {
+                    foreach ($naturalKey as $col) {
+                        $inner->where($col, $row[$col] ?? null);
+                    }
+                });
+            }
+        })->count();
     }
 
     /**

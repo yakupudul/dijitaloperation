@@ -59,6 +59,8 @@ final class BusinessOutcomeReadService
      */
     public function paginateObservations(Brand $brand, ?int $definitionId = null, int $perPage = 25): LengthAwarePaginator
     {
+        $perPage = max(1, min(100, $perPage));
+
         $query = BusinessOutcomeObservation::query()
             ->with(['currentRevision', 'definition'])
             ->where('brand_id', $brand->id)

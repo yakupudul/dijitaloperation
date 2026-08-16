@@ -29,6 +29,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use UnitEnum;
 
@@ -167,6 +168,16 @@ class RecommendationResource extends Resource
                     ->columnSpanFull()
                     ->placeholder('No Task created'),
             ]);
+    }
+
+    /**
+     * Prompt65: eager-load DigitalAsset for list columns.
+     *
+     * @return Builder<Recommendation>
+     */
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->with(['digitalAsset:id,name']);
     }
 
     public static function table(Table $table): Table

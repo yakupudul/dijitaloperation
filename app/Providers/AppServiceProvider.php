@@ -137,6 +137,7 @@ use App\Support\IntelligenceMemory\SkillMemoryContractResolver;
 use App\Support\IntelligenceMemory\SkillMemoryCustomerDataGuard;
 use App\Support\Roles;
 use App\Support\Skills\SkillRegistry;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -295,6 +296,12 @@ class AppServiceProvider extends ServiceProvider
         });
 
         Gate::policy(CollectionRun::class, CollectionRunPolicy::class);
+
+        // Prompt65: N+1 detection in local only. Performance tests enable explicitly.
+        // Do not abort the PHPUnit suite — production stays unchanged.
+        if ($this->app->environment('local')) {
+            Model::preventLazyLoading();
+        }
 
         $broadcast = BroadcastCollectionRunChanged::class;
         Event::listen(CollectionRunStarted::class, [$broadcast, 'handleStarted']);
