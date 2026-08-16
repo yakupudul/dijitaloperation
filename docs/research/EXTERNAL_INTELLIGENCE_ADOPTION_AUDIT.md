@@ -1,5 +1,19 @@
 # DOP External Intelligence Adoption Audit
 
+> **Prompt 48 note (2026-08-16):** The authoritative **Prompt 48** research set is
+> [`MOXDOP_SKILL_RESEARCH_MATRIX.md`](./MOXDOP_SKILL_RESEARCH_MATRIX.md) (primary) plus
+> [`EXTERNAL_SKILL_SOURCE_INVENTORY.md`](./EXTERNAL_SKILL_SOURCE_INVENTORY.md),
+> [`EXTERNAL_SKILL_EVIDENCE_REQUIREMENTS.md`](./EXTERNAL_SKILL_EVIDENCE_REQUIREMENTS.md),
+> [`EXTERNAL_SKILL_UNSAFE_ASSUMPTIONS.md`](./EXTERNAL_SKILL_UNSAFE_ASSUMPTIONS.md),
+> [`EXTERNAL_SKILL_LICENSE_PROVENANCE.md`](./EXTERNAL_SKILL_LICENSE_PROVENANCE.md) and
+> [`MOXDOP_SKILL_CANDIDATES.md`](./MOXDOP_SKILL_CANDIDATES.md).
+> Those artifacts pin exact audited commits (full SHAs), cover the mandatory Prompt 48 repositories — including
+> `popiliadam/platinum-seo-engine`, `garrettjsmith/localseoskills`, `seranking/seo-skills`, `addyosmani/agent-skills`,
+> `aaron-he-zhu/aaron-marketing-skills` and `aaron-he-zhu/seo-geo-claude-skills` — and own the license, evidence and
+> candidate-Skill decisions for that research. **This file remains the living registry** of tracked repositories and
+> long-run adoption status; it was not rewritten for Prompt 48. External code committed to MoxDOP = **0**;
+> production Skill implementation = **NOT YET**.
+
 > **Status:** Living research audit (concepts + adoption decisions)  
 > **Last reviewed:** 2026-08-10  
 > **Branch context at update:** Agent Profiles + Skill Library V1 (base `1e230d9`)  
