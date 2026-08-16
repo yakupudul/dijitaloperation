@@ -16,8 +16,10 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
- * Provider-neutral callable incremental refresh entrypoint.
- * Safe for operators and future Prompt 62 scheduler — no cron ownership here.
+ * Provider-neutral callable incremental / catch-up / late-repair entrypoint.
+ * Prompt 62 Collection Lifecycle Planner owns intent selection; this service
+ * starts the canonical Collection Engine for due Resource × Dataset work.
+ * Recurring cron ownership remains Prompt 61 RecurringAutomationDispatcher.
  */
 final class StartIncrementalCollectionService
 {
@@ -60,7 +62,16 @@ final class StartIncrementalCollectionService
             ? $bindingIds
             : array_values(array_unique(array_map(static fn ($i) => $i->coreAssetBindingId, $executable)));
 
-        $fingerprint = $this->fingerprint($asset->id, $resolvedBindingIds, $providerSources, $executable);
+        $intent = (string) ($context['collection_intent'] ?? 'INCREMENTAL');
+        $intentLabel = (string) ($context['collection_intent_label'] ?? 'Incremental');
+        $fingerprint = $this->fingerprint(
+            $asset->id,
+            $resolvedBindingIds,
+            $providerSources,
+            $executable,
+            $intent,
+            isset($context['idempotency_suffix']) ? (string) $context['idempotency_suffix'] : null,
+        );
         $active = $this->findActiveEquivalent($fingerprint);
         if ($active !== null) {
             return new IncrementalStartResult(
@@ -88,11 +99,13 @@ final class StartIncrementalCollectionService
             idempotencyKey: $this->resolveIdempotencyKey($fingerprint),
             forceRefresh: false,
             context: array_merge($context, [
-                'collection_intent' => 'incremental_refresh',
-                'collection_intent_label' => 'Incremental Refresh',
+                'collection_intent' => $intent,
+                'collection_intent_label' => $intentLabel,
                 'plan_fingerprint' => $fingerprint,
                 'freshness_policy_registry_id' => 'MOXDOP_DATA_FRESHNESS_POLICY',
-                'freshness_policy_version' => (int) config('moxdop-data-freshness.supported_freshness_policy_versions.0', 1),
+                'freshness_policy_version' => (int) ($context['policy_version']
+                    ?? $context['freshness_policy_version']
+                    ?? config('moxdop-data-freshness.supported_freshness_policy_versions.0', 1)),
                 'incremental_due_items' => array_map(static fn ($i) => $i->toArray(), $executable),
                 'allow_multi_asset_bindings' => (bool) ($context['allow_multi_asset_bindings'] ?? false),
             ]),
@@ -102,9 +115,16 @@ final class StartIncrementalCollectionService
 
         $meta = $run->metadata ?? [];
         $meta['plan_fingerprint'] = $fingerprint;
-        $meta['collection_intent'] = 'incremental_refresh';
-        $meta['collection_intent_label'] = 'Incremental Refresh';
+        $meta['collection_intent'] = $intent;
+        $meta['collection_intent_label'] = $intentLabel;
         $meta['freshness_policy_version'] = $request->context['freshness_policy_version'] ?? null;
+        if (isset($context['policy_fingerprint'])) {
+            $meta['policy_fingerprint'] = $context['policy_fingerprint'];
+        }
+        if (isset($context['lifecycle_plan_fingerprint']) || isset($context['plan_fingerprint'])) {
+            $meta['lifecycle_plan_fingerprint'] = $context['lifecycle_plan_fingerprint']
+                ?? $context['plan_fingerprint'];
+        }
         $run->forceFill(['metadata' => $meta])->save();
 
         Log::info('collection.incremental.started', [
@@ -162,13 +182,20 @@ final class StartIncrementalCollectionService
      * @param  list<string>|null  $providerSources
      * @param  list<DueCollectionItem>  $executable
      */
-    private function fingerprint(int $assetId, array $bindingIds, ?array $providerSources, array $executable): string
-    {
+    private function fingerprint(
+        int $assetId,
+        array $bindingIds,
+        ?array $providerSources,
+        array $executable,
+        string $intent = 'INCREMENTAL',
+        ?string $idempotencySuffix = null,
+    ): string {
         $payload = [
-            'intent' => 'incremental_refresh',
+            'intent' => $intent,
             'digital_asset_id' => $assetId,
             'binding_ids' => array_values(array_unique($bindingIds)),
             'provider_sources' => $providerSources,
+            'idempotency_suffix' => $idempotencySuffix,
             'due' => array_map(static fn ($i) => [
                 'dataset_id' => $i->datasetId,
                 'binding_id' => $i->coreAssetBindingId,

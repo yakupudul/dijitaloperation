@@ -13,7 +13,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Brand/Asset-scoped recurring collection schedule configuration (Prompt 61).
+ * Brand/Asset-scoped recurring collection schedule configuration (Prompt 61/62).
+ * Creating an Active schedule is the explicit operator enablement for the
+ * automatic Backfill → Incremental → Late Repair lifecycle.
  */
 final class CollectionScheduleService
 {

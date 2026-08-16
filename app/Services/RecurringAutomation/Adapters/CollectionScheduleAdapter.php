@@ -13,7 +13,7 @@ use App\Models\CollectionSchedule;
 use App\Models\DigitalAsset;
 use App\Models\RecurringOccurrence;
 use App\Models\User;
-use App\Services\DataPool\Freshness\StartIncrementalCollectionService;
+use App\Services\CollectionScheduler\ExecuteCollectionLifecycleService;
 use App\Services\RecurringAutomation\Concerns\DiscoversDueOccurrences;
 use App\Support\RecurringAutomation\RecurringOccurrenceCalculator;
 use App\Support\RecurringAutomation\RecurringScheduleAdapterResult;
@@ -21,15 +21,19 @@ use App\Support\RecurringAutomation\RecurringScheduleSpec;
 use Carbon\CarbonImmutable;
 
 /**
- * Recurring incremental collections via existing collection orchestrator (Prompt 61).
- * Never calls provider collectors directly. Never runs initial backfill.
+ * Prompt 61/62: recurring CollectionSchedule → shared occurrence → Collection Lifecycle Planner
+ * → canonical Collection Orchestrator.
+ *
+ * Never calls provider collectors directly.
+ * Lifecycle may choose Initial Backfill, Catch-Up, Incremental, or Late-Data Repair
+ * from canonical Resource × Dataset state after explicit collection enablement.
  */
 final class CollectionScheduleAdapter implements RecurringScheduleAdapter
 {
     use DiscoversDueOccurrences;
 
     public function __construct(
-        private readonly StartIncrementalCollectionService $incremental,
+        private readonly ExecuteCollectionLifecycleService $lifecycle,
         private readonly RecurringOccurrenceCalculator $calculator,
     ) {}
 
@@ -84,19 +88,19 @@ final class CollectionScheduleAdapter implements RecurringScheduleAdapter
             ? User::query()->find($schedule->created_by)
             : null;
 
-        $result = $this->incremental->startForDigitalAsset(
+        $result = $this->lifecycle->executeForDigitalAsset(
             $asset,
             $actor,
-            [],
-            null,
+            $schedule,
             [
                 'recurring_occurrence_id' => (int) $occurrence->id,
                 'collection_schedule_id' => (int) $schedule->id,
                 'idempotency_suffix' => 'recurring:'.$occurrence->occurrence_key,
+                'collection_enabled' => true,
             ],
         );
 
-        if ($result->outcome === 'active_equivalent' || $result->outcome === 'data_current') {
+        if ($result->outcome === 'no_work' || $result->outcome === 'data_current') {
             return new RecurringScheduleAdapterResult(
                 RecurringOccurrenceStatus::Completed,
                 RecurringDomainRunType::CollectionRun,
@@ -106,18 +110,37 @@ final class CollectionScheduleAdapter implements RecurringScheduleAdapter
             );
         }
 
-        if ($result->outcome === 'started' && $result->collectionRun !== null) {
+        if ($result->outcome === 'blocked') {
+            // Paused/disabled/auth are completed-as-skipped semantics for the occurrence ledger.
+            if (in_array($result->blockReason, ['COLLECTION_DISABLED', 'SCHEDULE_PAUSED', 'NO_SAFE_INTERVAL'], true)) {
+                return new RecurringScheduleAdapterResult(
+                    RecurringOccurrenceStatus::Skipped,
+                    failureCode: $result->blockReason,
+                    failureMessage: $result->message,
+                );
+            }
+
+            return new RecurringScheduleAdapterResult(
+                RecurringOccurrenceStatus::Failed,
+                failureCode: $result->blockReason ?? 'COLLECTION_BLOCKED',
+                failureMessage: $result->message,
+            );
+        }
+
+        if (in_array($result->outcome, ['started', 'active_equivalent'], true)) {
             return new RecurringScheduleAdapterResult(
                 RecurringOccurrenceStatus::Completed,
                 RecurringDomainRunType::CollectionRun,
-                (int) $result->collectionRun->id,
+                $result->collectionRun !== null ? (int) $result->collectionRun->id : null,
+                failureCode: null,
+                failureMessage: $result->reusedExisting ? $result->message : null,
             );
         }
 
         return new RecurringScheduleAdapterResult(
             RecurringOccurrenceStatus::Failed,
             failureCode: 'COLLECTION_START_FAILED',
-            failureMessage: $result->message ?? 'Incremental collection did not start',
+            failureMessage: $result->message,
         );
     }
 

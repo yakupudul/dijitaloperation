@@ -15,15 +15,17 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Scheduler boundary (Prompt 27)
+    | Scheduler boundary (Prompt 27 / 61 / 62)
     |--------------------------------------------------------------------------
     |
     | Due query + StartIncrementalCollectionService are scheduler-callable.
-    | Recurring cron / Schedule::daily collection ownership is Prompt 61/62.
+    | Recurring cron ownership: Prompt 61 RecurringAutomationDispatcher
+    | (moxdop:dispatch-due-automations) + Prompt 62 Collection Lifecycle Planner.
+    | This flag documents that the shared recurring runtime is active.
     |
     */
 
-    'recurring_scheduler_enabled' => false,
+    'recurring_scheduler_enabled' => true,
 
     'automatic_provider_reconciliation_after_incremental' => false,
 
