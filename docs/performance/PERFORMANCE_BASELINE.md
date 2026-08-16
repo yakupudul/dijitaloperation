@@ -4,7 +4,7 @@
 
 | Field | Value |
 |---|---|
-| Git SHA | `abae4e466b01940dea1e72bc8b5267f5f9b4cac5` |
+| Git SHA | `aca05d575d1d922a6bc89b6218732528e797bf18` |
 | PHP | 8.3.6 |
 | Laravel | 13.24.0 |
 | Database driver | sqlite (default `sqlite`) |
@@ -60,3 +60,7 @@ NOT_MEASURED — queue connection sync in this run.
 
 
 No invented SLAs. Recommended targets are PROPOSED only.
+
+## Measurement note
+
+AGENCY_20 micro-benchmark JSON was captured immediately before commit `aca05d5` on the same tree content (Prompt64 base + Prompt65 changes). Environment git_sha in the raw JSON may show the parent SHA; this baseline records the Prompt65 commit SHA.
