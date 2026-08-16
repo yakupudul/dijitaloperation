@@ -2,7 +2,7 @@
 
 Prompt 68 — target host configuration. `.env.example` is **not** production truth (still shows `mysql` + `APP_DEBUG=true`).
 
-**Release Candidate SHA:** PLACEHOLDER_RC_SHA  
+**Release Candidate SHA:** 0936a8dfcc5ac9aacdfe341851bf7c6a42fea6c7  
 **Validate with:** `php artisan moxdop:production-check` (read-only; PASS/WARN/FAIL per check; no numeric score)
 
 ---

@@ -4,7 +4,7 @@ Prompt 68 — onboard the first real MoxDOP customer (internal agency operator).
 
 **Prerequisites:** `GO_LIVE_CHECKLIST.md` gates passed on target host; blockers B-DEPLOY-01 and B-PROVIDER-01 closed for in-scope integrations.
 
-**Release Candidate SHA:** PLACEHOLDER_RC_SHA
+**Release Candidate SHA:** 0936a8dfcc5ac9aacdfe341851bf7c6a42fea6c7
 
 ---
 

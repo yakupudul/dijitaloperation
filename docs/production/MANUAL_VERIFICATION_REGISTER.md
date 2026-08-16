@@ -7,7 +7,7 @@ Prompt 68 — record **only** checks executed by a human operator on a named env
 
 | Field | Value |
 | --- | --- |
-| Release Candidate SHA | PLACEHOLDER_RC_SHA |
+| Release Candidate SHA | 0936a8dfcc5ac9aacdfe341851bf7c6a42fea6c7 |
 | Base HEAD (Prompt 67) | `ff7b648179af235a9d63ecae5454171b44dbb4ec` |
 | Audit branch | `cursor/production-readiness-audit-ea01` |
 

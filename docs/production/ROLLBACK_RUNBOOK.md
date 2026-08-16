@@ -3,7 +3,7 @@
 Prompt 68 — deploy rollback procedures. Backup/restore is **NOT_VERIFIED** in this audit; database rollback assumes ops-defined backups exist.
 
 **RPO/RTO:** NOT_DEFINED  
-**Release Candidate SHA:** PLACEHOLDER_RC_SHA
+**Release Candidate SHA:** 0936a8dfcc5ac9aacdfe341851bf7c6a42fea6c7
 
 ---
 
@@ -86,7 +86,7 @@ Use when rollback risk exceeds fix risk (small targeted patch).
 ```
 Rollback executed.
 Previous SHA: <sha>
-Failed RC: PLACEHOLDER_RC_SHA
+Failed RC: 0936a8dfcc5ac9aacdfe341851bf7c6a42fea6c7
 Reason: <symptom>
 Path: A | B | C
 Customer impact: <scope>

@@ -2,7 +2,7 @@
 
 Prompt 68 — post-deploy smoke on **target host** (staging or production). Complements PHPUnit; does not replace manual provider verification.
 
-**Release Candidate SHA:** PLACEHOLDER_RC_SHA  
+**Release Candidate SHA:** 0936a8dfcc5ac9aacdfe341851bf7c6a42fea6c7  
 **Run after:** deploy + `php artisan migrate --force` (if applicable)
 
 ---
@@ -129,6 +129,6 @@ Use test Customer or first real customer:
 
 | Run | Environment | SHA | Date | Overall | Notes |
 | --- | --- | --- | --- | --- | --- |
-| | | PLACEHOLDER_RC_SHA | | | |
+| | | 0936a8dfcc5ac9aacdfe341851bf7c6a42fea6c7 | | | |
 
 Update `MANUAL_VERIFICATION_REGISTER.md` MV-PRODCHECK-01 when executed on target host.

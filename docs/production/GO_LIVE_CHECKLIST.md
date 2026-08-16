@@ -2,14 +2,14 @@
 
 Prompt 68 — pre-deploy and launch-day gates. **Audit STATUS: BLOCKED** until blockers remediated.
 
-**Release Candidate SHA:** PLACEHOLDER_RC_SHA  
+**Release Candidate SHA:** 0936a8dfcc5ac9aacdfe341851bf7c6a42fea6c7  
 **Do not merge/deploy automatically** after checklist completion — human release decision required.
 
 ---
 
 ## Pre-flight (engineering)
 
-- [ ] Confirm RC SHA matches deployed artifact (`PLACEHOLDER_RC_SHA` → replaced at release)
+- [ ] Confirm RC SHA matches deployed artifact (`0936a8dfcc5ac9aacdfe341851bf7c6a42fea6c7` → replaced at release)
 - [ ] All `PRODUCTION_BLOCKERS.md` items OPEN → remediated or explicitly NOT_IN_SCOPE with sign-off
 - [ ] `MANUAL_VERIFICATION_REGISTER.md` updated for target environment (no invented VERIFIED)
 - [ ] PHPUnit production readiness suite green on CI for RC SHA:

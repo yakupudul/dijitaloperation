@@ -7,7 +7,7 @@ Prompt 68 — Final production readiness audit of the cumulative Prompt 0–67 s
 | Base branch | `main` |
 | Base HEAD (Prompt 67) | `ff7b648179af235a9d63ecae5454171b44dbb4ec` |
 | Audit branch | `cursor/production-readiness-audit-ea01` |
-| Release Candidate SHA | PLACEHOLDER_RC_SHA |
+| Release Candidate SHA | 0936a8dfcc5ac9aacdfe341851bf7c6a42fea6c7 |
 | Final decision | **BLOCKED** |
 
 **Canonical sources:** `docs/reality/FINAL_CAPABILITY_REALITY_MATRIX.md`, `docs/reality/REMAINING_PRODUCTION_GAPS.md`, `docs/reality/PRODUCTION_DEMO_REMOVAL_AUDIT.md`, `docs/implementation/DEMO_REALITY_FINAL_CONVERGENCE.md`.
@@ -20,7 +20,7 @@ Prompt 68 — Final production readiness audit of the cumulative Prompt 0–67 s
 
 - Prompt 67 cumulative HEAD used as base: `ff7b648179af235a9d63ecae5454171b44dbb4ec`.
 - Branch: `cursor/production-readiness-audit-ea01` (Cloud naming; maps to Prompt68 `feature/production-readiness-audit`).
-- Immutable Release Candidate content SHA: **PLACEHOLDER_RC_SHA** (frozen after green quality gate; all verification below refers to that tree unless noted).
+- Immutable Release Candidate content SHA: **0936a8dfcc5ac9aacdfe341851bf7c6a42fea6c7** (frozen after green quality gate; all verification below refers to that tree unless noted).
 - Not merged to `main`. Not auto-deployed.
 
 ## 2. Scope
@@ -342,7 +342,7 @@ See `PRODUCTION_BLOCKERS.md`.
 
 ## 59. Final Quality Gate
 
-Recorded at freeze time for PLACEHOLDER_RC_SHA:
+Recorded at freeze time for 0936a8dfcc5ac9aacdfe341851bf7c6a42fea6c7:
 
 - PHPUnit ProductionReadiness suite
 - ModuleBoundaryArchitectureTest
@@ -358,7 +358,7 @@ Exact counts filled in Prompt68 final report / quality gate artifacts.
 
 **STATUS: BLOCKED**
 
-**Release Candidate SHA:** PLACEHOLDER_RC_SHA
+**Release Candidate SHA:** 0936a8dfcc5ac9aacdfe341851bf7c6a42fea6c7
 
 **Blocking reasons:** B-BACKUP-01, B-DEPLOY-01, B-PROVIDER-01, and B-MAIL-01 when Report email Delivery is in launch scope.
 
@@ -516,11 +516,11 @@ Exact counts filled in Prompt68 final report / quality gate artifacts.
 
 | Flow | Status | SHA | Environment | Date | Evidence | Blocker |
 | --- | --- | --- | --- | --- | --- | --- |
-| Google OAuth | NOT_VERIFIED | PLACEHOLDER_RC_SHA | — | — | — | B-PROVIDER-01 |
-| Meta | NOT_VERIFIED | PLACEHOLDER_RC_SHA | — | — | — | B-PROVIDER-01 |
-| SMTP | NOT_VERIFIED | PLACEHOLDER_RC_SHA | — | — | — | B-MAIL-01 |
-| Scheduler/Horizon | NOT_VERIFIED | PLACEHOLDER_RC_SHA | — | — | — | B-DEPLOY-01 |
-| Backup restore | NOT_VERIFIED | PLACEHOLDER_RC_SHA | — | — | — | B-BACKUP-01 |
+| Google OAuth | NOT_VERIFIED | 0936a8dfcc5ac9aacdfe341851bf7c6a42fea6c7 | — | — | — | B-PROVIDER-01 |
+| Meta | NOT_VERIFIED | 0936a8dfcc5ac9aacdfe341851bf7c6a42fea6c7 | — | — | — | B-PROVIDER-01 |
+| SMTP | NOT_VERIFIED | 0936a8dfcc5ac9aacdfe341851bf7c6a42fea6c7 | — | — | — | B-MAIL-01 |
+| Scheduler/Horizon | NOT_VERIFIED | 0936a8dfcc5ac9aacdfe341851bf7c6a42fea6c7 | — | — | — | B-DEPLOY-01 |
+| Backup restore | NOT_VERIFIED | 0936a8dfcc5ac9aacdfe341851bf7c6a42fea6c7 | — | — | — | B-BACKUP-01 |
 
 ### Final Blocker Matrix (§217)
 
