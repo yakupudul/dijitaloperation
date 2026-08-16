@@ -267,6 +267,25 @@ Default planner signatures: agent `website-seo-analyst@1.0.0`, skill `website.te
 
 ---
 
+## CLIENT_VALUE_STORY_SUMMARY
+
+| Field | Value |
+| --- | --- |
+| **Identity** | `client_value_story_summary` |
+| **Intent compatibility** | `intelligence_summary`; also `domain_lookup` when filter contains `value_story` / `client_value` |
+| **Input schema** | scope `customerId`, `brandId`; `periodToken` via date resolver |
+| **Authorization** | Customer + Brand authorized |
+| **Scope** | customer + brand; digital asset not required |
+| **Source service** | `ClientValueStoryReadService` (Prompt 58) — composes Findings, Opportunities, Work, Business Outcomes |
+| **Result schema** | `strategy: canonical_domain_summary`; block `client_value_story`; limitations always include no-attribution / no-causality |
+| **Source authority** | `client_value_story` (read projection; precise facts prefer underlying domains) |
+| **AI needed?** | **No** |
+| **Read-only** | Yes |
+| **Attribution / causality** | **Forbidden** |
+| **Evaluation** | `ClientValueStoryRealDataMigrationTest` |
+
+---
+
 ## Forbidden capabilities
 
 Must **never** be registered or executed:

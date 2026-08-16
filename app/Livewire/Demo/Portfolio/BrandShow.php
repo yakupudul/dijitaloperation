@@ -8,6 +8,7 @@ use App\Models\Recommendation;
 use App\Services\Approvals\ApprovalReadService;
 use App\Services\BusinessOutcomes\BusinessOutcomeReadService;
 use App\Services\ClientRequests\ClientRequestReadService;
+use App\Services\ClientValueStory\ClientValueStoryReadService;
 use App\Services\CreateTaskFromRecommendation;
 use App\Services\Opportunities\OpportunityReadService;
 use App\Services\RecurringReviews\RecurringReviewReadService;
@@ -17,6 +18,7 @@ use App\Support\Demo\BusinessOutcomeFixtures;
 use App\Support\Demo\ClientValueFixtures;
 use App\Support\Demo\CommercialContextFixtures;
 use App\Support\Demo\DemoCatalog;
+use App\Support\Demo\DemoPeriod;
 use App\Support\Demo\DemoState;
 use App\Support\Demo\OpportunityFixtures;
 use App\Support\Options\CountryOptions;
@@ -1023,11 +1025,33 @@ class BrandShow extends Component
             ->all();
 
         $period = (string) ($this->period ?: ($state['period_preset'] ?? 'last_28'));
+        $periodBounds = DemoPeriod::bounds(
+            $period,
+            $this->periodStart,
+            $this->periodEnd,
+        );
+        $storyPeriodStart = ($this->periodStart && $this->periodEnd)
+            ? $this->periodStart
+            : $periodBounds['start']->toDateString();
+        $storyPeriodEnd = ($this->periodStart && $this->periodEnd)
+            ? $this->periodEnd
+            : $periodBounds['end']->toDateString();
+
         $serviceScope = CommercialContextFixtures::effectiveScopeForBrand((string) ($brandRow['id'] ?? ''));
         $structuredGoals = CommercialContextFixtures::structuredGoalsForBrand((string) ($brandRow['id'] ?? ''));
         $brandOpportunities = OpportunityFixtures::sortByBusinessRelevance($this->brandOpportunities());
 
+        $clientValueStory = null;
+        if (ctype_digit((string) ($brandRow['id'] ?? ''))) {
+            $clientValueStory = app(ClientValueStoryReadService::class)->forBrand(
+                Brand::query()->findOrFail((int) $brandRow['id']),
+                $storyPeriodStart,
+                $storyPeriodEnd,
+            );
+        }
+
         if (($brandRow['id'] ?? '') === DemoCatalog::BRAND_ID) {
+            // Isolated Demo catalog brand: outcomes remain empty (Prompt 57); story fixtures are Demo-only.
             $businessOutcomes = [
                 'available' => false,
                 'period_label' => $period,
@@ -1048,11 +1072,11 @@ class BrandShow extends Component
                 'provenance' => 'business_outcome',
                 'note' => __('operator.outcomes.brand_aggregate_note'),
             ];
-        } elseif (ctype_digit((string) ($brandRow['id'] ?? ''))) {
+        } elseif ($clientValueStory !== null) {
             $surface = app(BusinessOutcomeReadService::class)->forValueSurface(
                 Brand::query()->findOrFail((int) $brandRow['id']),
-                now()->subDays(27)->toDateString(),
-                now()->toDateString(),
+                $storyPeriodStart,
+                $storyPeriodEnd,
             );
             $businessOutcomes = array_merge($surface, [
                 'qualified_leads_label' => __('operator.outcomes.qualified_leads'),
@@ -1076,12 +1100,16 @@ class BrandShow extends Component
             ? BusinessOutcomeFixtures::operationalOutcomes()
             : [];
 
-        $valueSummary = ($brandRow['id'] ?? '') === DemoCatalog::BRAND_ID
-            ? ClientValueFixtures::valueSummary($period)
-            : null;
-        $valueStory = ($brandRow['id'] ?? '') === DemoCatalog::BRAND_ID
-            ? ClientValueFixtures::valueStory($period, $this->reportLanguage)
-            : null;
+        if (($brandRow['id'] ?? '') === DemoCatalog::BRAND_ID) {
+            $valueSummary = ClientValueFixtures::valueSummary($period);
+            $valueStory = ClientValueFixtures::valueStory($period, $this->reportLanguage);
+        } elseif ($clientValueStory !== null) {
+            $valueSummary = $clientValueStory->toSummaryArray();
+            $valueStory = $clientValueStory->toPresentationArray();
+        } else {
+            $valueSummary = null;
+            $valueStory = null;
+        }
         $valueDecisions = ($brandRow['id'] ?? '') === DemoCatalog::BRAND_ID
             ? ClientValueFixtures::meaningfulDecisions($this->reportLanguage)
             : [];

@@ -74,6 +74,7 @@ final class AssistantQueryPlanner
         return match ($candidate->intentType) {
             AssistantIntentType::FactLookup => $this->planFactLookup($scope, $metricId, $dateRange, $periodToken, $candidate),
             AssistantIntentType::DomainLookup => $this->planDomain($scope, $candidate),
+            AssistantIntentType::IntelligenceSummary => $this->planValueStorySummary($scope, $dateRange, $periodToken, $candidate),
             AssistantIntentType::WorkStatus => $this->simplePlan(
                 $scope,
                 AssistantIntentType::WorkStatus,
@@ -247,10 +248,55 @@ final class AssistantQueryPlanner
         );
     }
 
+    private function planValueStorySummary(
+        AssistantSessionScope $scope,
+        $dateRange,
+        ?string $periodToken,
+        AssistantIntentCandidate $candidate,
+    ): AssistantQueryPlan {
+        if ($dateRange === null) {
+            return new AssistantQueryPlan(
+                scope: $scope,
+                intentType: AssistantIntentType::ClarificationRequired,
+                capabilities: [],
+                answerStrategy: AssistantAnswerStrategy::Clarification,
+                clarificationReason: AssistantClarificationReason::DateRangeRequired,
+                validated: true,
+            );
+        }
+        if (! $scope->hasBrand()) {
+            return new AssistantQueryPlan(
+                scope: $scope,
+                intentType: AssistantIntentType::ClarificationRequired,
+                capabilities: [],
+                answerStrategy: AssistantAnswerStrategy::Clarification,
+                clarificationReason: AssistantClarificationReason::BrandScopeRequired,
+                validated: true,
+            );
+        }
+
+        return new AssistantQueryPlan(
+            scope: $scope,
+            intentType: AssistantIntentType::IntelligenceSummary,
+            capabilities: [AssistantCapabilityId::ClientValueStorySummary],
+            answerStrategy: AssistantAnswerStrategy::CanonicalDomainSummary,
+            dateRange: $dateRange,
+            sourceRequirements: ['client_value_story'],
+            parameters: [
+                'period_token' => $periodToken,
+                'attribution_established' => false,
+                'causality_established' => false,
+                'provider_conversion_fallback' => false,
+            ],
+            validated: true,
+        );
+    }
+
     private function planDomain(AssistantSessionScope $scope, AssistantIntentCandidate $candidate): AssistantQueryPlan
     {
         $filter = strtolower((string) ($candidate->domainFilter ?? ''));
         $capability = match (true) {
+            str_contains($filter, 'value_story'), str_contains($filter, 'client_value') => AssistantCapabilityId::ClientValueStorySummary,
             str_contains($filter, 'finding') => AssistantCapabilityId::FindingLookup,
             str_contains($filter, 'opportunit') => AssistantCapabilityId::OpportunityLookup,
             str_contains($filter, 'evidence') => AssistantCapabilityId::EvidenceLookup,
@@ -277,6 +323,7 @@ final class AssistantQueryPlanner
             AssistantCapabilityId::FindingLookup,
             AssistantCapabilityId::OpportunityLookup,
             AssistantCapabilityId::EvidenceLookup,
+            AssistantCapabilityId::ClientValueStorySummary,
         ], true) && ! $scope->hasBrand()) {
             return new AssistantQueryPlan(
                 scope: $scope,

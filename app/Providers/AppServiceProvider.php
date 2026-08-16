@@ -40,6 +40,7 @@ use App\Services\BusinessOutcomes\BusinessOutcomeCsvImportService;
 use App\Services\BusinessOutcomes\BusinessOutcomeDefinitionService;
 use App\Services\BusinessOutcomes\BusinessOutcomeObservationService;
 use App\Services\BusinessOutcomes\BusinessOutcomeReadService;
+use App\Services\ClientValueStory\ClientValueStoryReadService;
 use App\Services\Collection\Contracts\NormalizedDatasetWriter;
 use App\Services\Collection\Contracts\RawPayloadWriter;
 use App\Services\Collection\Contracts\RetryPolicy;
@@ -206,6 +207,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(BusinessOutcomeAggregateService::class);
         $this->app->singleton(BusinessOutcomeReadService::class);
         $this->app->singleton(BusinessOutcomeCsvImportService::class);
+        $this->app->singleton(ClientValueStoryReadService::class);
         $this->app->singleton(BrandExperienceEvidenceQualityEvaluator::class);
         $this->app->singleton(BrandExperienceService::class);
         $this->app->singleton(BrandExperienceReadService::class);

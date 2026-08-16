@@ -20,6 +20,7 @@ use App\Models\DigitalAsset;
 use App\Models\Evidence;
 use App\Services\Assistant\Adapters\GoogleAdsAssistantReadAdapter;
 use App\Services\BusinessOutcomes\BusinessOutcomeReadService;
+use App\Services\ClientValueStory\ClientValueStoryReadService;
 use App\Services\Findings\FindingReadService;
 use App\Services\IntelligenceRetrieval\IntelligenceRetrievalService;
 use App\Services\Opportunities\OpportunityReadService;
@@ -54,6 +55,7 @@ final class AssistantCapabilityExecutor
         private readonly AssistantAnswerGroundingValidator $grounding,
         private readonly AssistantSourceAuthority $authority,
         private readonly BusinessOutcomeReadService $businessOutcomes,
+        private readonly ClientValueStoryReadService $clientValueStories,
     ) {}
 
     public function execute(AssistantQueryPlan $plan): AssistantAnswer
@@ -88,8 +90,114 @@ final class AssistantCapabilityExecutor
             AssistantCapabilityId::SkillGuidance => $this->executeSkill($plan),
             AssistantCapabilityId::SpecialistAnalysis => $this->executeSpecialistRoute($plan),
             AssistantCapabilityId::BusinessOutcomeLookup => $this->executeBusinessOutcome($plan),
+            AssistantCapabilityId::ClientValueStorySummary => $this->executeClientValueStory($plan),
             default => $this->unavailable($plan, 'capability_not_executable'),
         };
+    }
+
+    private function executeClientValueStory(AssistantQueryPlan $plan): AssistantAnswer
+    {
+        if ($plan->scope->brandId === null || $plan->scope->customerId === null) {
+            return $this->unavailable($plan, 'brand_scope_required');
+        }
+        $range = $plan->dateRange;
+        if ($range === null) {
+            return $this->unavailable($plan, 'date_range_missing');
+        }
+
+        $brand = Brand::query()->find((int) $plan->scope->brandId);
+        if ($brand === null || (int) $brand->customer_id !== (int) $plan->scope->customerId) {
+            return $this->unavailable($plan, 'brand_scope_required');
+        }
+
+        $story = $this->clientValueStories->forBrand(
+            $brand,
+            $range->startDate,
+            $range->endDate,
+            [(int) $plan->scope->customerId],
+            [(int) $plan->scope->brandId],
+        );
+
+        $refs = [];
+        foreach ($story->sourceManifest->findingIds as $id) {
+            $refs[] = new AssistantSourceRef(AssistantSourceClass::Finding, 'finding:'.$id);
+        }
+        foreach ($story->sourceManifest->opportunityIds as $id) {
+            $refs[] = new AssistantSourceRef(AssistantSourceClass::Opportunity, 'opportunity:'.$id);
+        }
+        foreach ($story->sourceManifest->taskIds as $id) {
+            $refs[] = new AssistantSourceRef(AssistantSourceClass::Work, 'task:'.$id);
+        }
+        foreach ($story->sourceManifest->outcomeObservationRevisionIds as $id) {
+            $refs[] = new AssistantSourceRef(AssistantSourceClass::BusinessOutcome, 'business_outcome_revision:'.$id);
+        }
+        if ($refs === []) {
+            $refs[] = new AssistantSourceRef(
+                AssistantSourceClass::ClientValueStory,
+                'client_value_story:'.$brand->id.':'.$range->startDate.':'.$range->endDate,
+            );
+        }
+
+        $claims = [];
+        foreach ($story->claims as $storyClaim) {
+            if ($storyClaim->attribution || $storyClaim->causal) {
+                continue;
+            }
+            $claims[] = new AssistantClaim(
+                claimId: $storyClaim->type->value,
+                blockType: AssistantAnswerBlockType::DomainRecord,
+                statement: $storyClaim->text,
+                requiredSourceClass: AssistantSourceClass::ClientValueStory,
+                sourceRefs: $refs,
+                limitations: [
+                    'no_attribution',
+                    'no_causality',
+                    ...array_map(static fn ($l) => $l->value, $story->limitations),
+                ],
+            );
+        }
+
+        return new AssistantAnswer(
+            strategy: AssistantAnswerStrategy::CanonicalDomainSummary,
+            intentType: AssistantIntentType::IntelligenceSummary,
+            scope: $plan->scope,
+            claims: $claims,
+            blocks: [[
+                'type' => AssistantAnswerBlockType::DomainRecord->value,
+                'client_value_story' => [
+                    'status' => $story->status->value,
+                    'period' => ['start' => $story->periodStart, 'end' => $story->periodEnd],
+                    'finding_count' => count($story->findings),
+                    'opportunity_count' => count($story->opportunities),
+                    'completed_work_count' => count($story->completedWork),
+                    'outcomes' => array_map(static fn ($o) => $o->toArray(), $story->outcomes),
+                    'limitations' => array_map(static fn ($l) => $l->value, $story->limitations),
+                    'attribution_established' => false,
+                    'causality_established' => false,
+                    'ai_assisted' => false,
+                ],
+            ]],
+            sourceManifest: new AssistantAnswerSourceManifest($refs, [
+                'source_class' => AssistantSourceClass::ClientValueStory->value,
+                'live_provider_calls' => 0,
+                'attribution_established' => false,
+            ]),
+            requestedPeriod: $range,
+            coveredPeriod: $range,
+            coverage: AssistantCoverageState::Complete,
+            freshness: AssistantFreshnessState::NotApplicable,
+            limitations: [
+                'no_attribution',
+                'no_causality',
+            ],
+            runtimeProvenance: [
+                'ai_used' => false,
+                'provider_conversion_fallback' => false,
+                'attribution_established' => false,
+                'causality_established' => false,
+                'domain_writes' => 0,
+            ],
+        );
     }
 
     private function executeBusinessOutcome(AssistantQueryPlan $plan): AssistantAnswer

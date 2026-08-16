@@ -130,6 +130,22 @@ final class AssistantSourceAuthority
                 'is_provider_conversion' => false,
                 'is_crm_record' => false,
             ],
+            AssistantSourceClass::ClientValueStory->value => [
+                'current_measured_fact' => false,
+                'current_condition' => false,
+                'potential' => false,
+                'execution' => false,
+                'historical' => false,
+                'sector' => false,
+                'methodology' => false,
+                'can_satisfy_provider_metric' => false,
+                'can_override_current_evidence' => false,
+                'is_read_projection' => true,
+                'is_writable_truth' => false,
+                'attribution_established' => false,
+                'causality_established' => false,
+                'prefer_underlying_sources_for_precise_facts' => true,
+            ],
         ];
     }
 

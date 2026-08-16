@@ -146,6 +146,17 @@ final class TaskReadService
     }
 
     /**
+     * Batch QA/Approval projections for Client Value Story (Prompt 58).
+     *
+     * @param  list<Task>  $tasks
+     * @return array<int, array{qa: ?array<string, mixed>, approval: ?array<string, mixed>}>
+     */
+    public function batchProjectionsForStory(array $tasks): array
+    {
+        return $this->batchProjections($tasks);
+    }
+
+    /**
      * @param  list<Task>  $tasks
      * @return array<int, array{qa: ?array<string, mixed>, approval: ?array<string, mixed>}>
      */

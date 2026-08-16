@@ -56,6 +56,7 @@
 | Tasks | YES | YES | NO | YES | N/A | TESTED | Snapshot immutability (ADR-029) | Manual Recommendation → Task |
 | Outcome Loop | YES | YES | NO | YES | N/A | TESTED | Metric Outcomes / Learning Candidates not in V1 | Task outcome signals + Finding re-eval; no Result entity |
 | Business Outcome aggregates (Prompt 57) | YES | YES | NO | YES | N/A | **TESTED** | Client Value Story / Report Snapshots not yet; CRM out of scope | Definition + Observation + Revision + Manual/CSV; Brand Value outcomes cards use Read Service |
+| Client Value Story (Prompt 58) | YES | YES | NO | YES | N/A | **TESTED** | Report Snapshots / PDF / share not yet; Demo catalog story fixtures retained | Deterministic read projection over Findings/Opportunities/Work/Outcomes; no attribution/AI |
 | Meta central Integration | YES | YES | YES | YES | NO | UAT PASS | Resource refresh still sync | Agency Meta Integration; product docs claim real UAT PASS |
 | Meta resource discovery | YES | YES | YES | YES | NO | UAT PASS | Discovery sync | Ad Account ExternalResources discovered |
 | Meta binding | YES | YES | YES | YES | N/A | UAT PASS | Collect live data hidden without collector | Meta Ads Digital Asset ↔ AssetBinding |

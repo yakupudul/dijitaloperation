@@ -162,6 +162,23 @@ final class AssistantCapabilityRegistry
                 'domain_writes' => false,
                 'provider_conversion_fallback' => false,
             ],
+            AssistantCapabilityId::ClientValueStorySummary->value => [
+                'id' => AssistantCapabilityId::ClientValueStorySummary->value,
+                'source_class' => AssistantSourceClass::ClientValueStory->value,
+                'ai_required' => false,
+                'deterministic' => true,
+                'read_only' => true,
+                'requires_customer' => true,
+                'requires_brand' => true,
+                'requires_digital_asset' => false,
+                'supports_period' => true,
+                'max_cardinality' => 1,
+                'live_provider_calls' => false,
+                'domain_writes' => false,
+                'provider_conversion_fallback' => false,
+                'attribution_established' => false,
+                'causality_established' => false,
+            ],
         ];
     }
 

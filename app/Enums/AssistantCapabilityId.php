@@ -18,4 +18,5 @@ enum AssistantCapabilityId: string
     case SkillGuidance = 'skill_guidance';
     case SpecialistAnalysis = 'specialist_analysis';
     case BusinessOutcomeLookup = 'business_outcome_lookup';
+    case ClientValueStorySummary = 'client_value_story_summary';
 }
