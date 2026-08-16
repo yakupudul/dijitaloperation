@@ -143,7 +143,7 @@ Out of scope:
 | Collection monitoring UX (P12-era) | May show runs; scheduler does not redesign IA |
 | Integration binding UIs | Remain auth/bind owners |
 | Automatic collection | Now REAL via P61 tick + P62 planner when schedule Active |
-| Intelligence auto jobs | Still Prompt 63 / NOT YET |
+| Intelligence auto jobs | Prompt 63 REAL (Evidence analytical change → planner; not CollectionRun completion) |
 
 ## 11. Canonical Decision
 
@@ -477,7 +477,7 @@ Prompt 63 (Intelligence Scheduling) may consume **stable pool freshness / materi
 | Provider HTTP in scheduler path | **NONE** |
 | Evidence/Finding/Opportunity/Task/Outcome/AI from P62 | **NONE** |
 | `CollectionSchedulerV2` / `WatermarkV2` / `FreshnessV2` | **NONE** |
-| Intelligence scheduling (Prompt 63) | **NOT YET** |
+| Intelligence scheduling (Prompt 63) | **REAL** (Evidence-change triggers; CollectionRun completion is not a trigger) |
 | Filament schedule CRUD completeness | **PARTIAL / NOT REQUIRED for scheduler REAL** |
 
 ---
