@@ -8,7 +8,11 @@
 
 ### Prompt 49 note (Skill Definition normalization)
 
-Prompt 49 normalizes the Skill **definition contract** (Purpose, Required/Optional Evidence, When to Use, Do Not Use When, Methodology, Allowed Conclusions, Forbidden Claims, Success Signals, References, plus identity/version/provenance/status/fingerprint/abstention/downstream_domains). Canonical storage remains Markdown `SKILL.md` under module `resources/skills/` loaded by `SkillRegistry` / `SkillDefinition` / `BuiltInSkillLoader` — **still no Skill DB / SkillV2**. AI Skill **execution** remains **Prompt 50**.
+Prompt 49 normalizes the Skill **definition contract** (Purpose, Required/Optional Evidence, When to Use, Do Not Use When, Methodology, Allowed Conclusions, Forbidden Claims, Success Signals, References, plus identity/version/provenance/status/fingerprint/abstention/downstream_domains). Canonical storage remains Markdown `SKILL.md` under module `resources/skills/` loaded by `SkillRegistry` / `SkillDefinition` / `BuiltInSkillLoader` — **still no Skill DB / SkillV2**.
+
+### Prompt 50 note (AI Agent production execution)
+
+Prompt 50 owns **grounded execution**: `EvidencePack`, `AgentExecutionPlanner` (Allowed Evidence = union of eligible Skills; Agent cannot expand Skills), pre-inference abstention, `AgentContextGateway`, `StructuredAgentOutputValidator`, and Agent/Skill/provider-attempt provenance — routing only via AI Control Plane (`openai` / `anthropic` / `gemini`; no `AiProviderV2`). Operational specialists (Website SEO, Brand Discovery, Google Ads, Meta Ads) execute for real; GBP / GA4 / GSC stay **designed**. Raw DB Agent access is **FORBIDDEN**. Memory / retrieval remains **Prompt 51**. Spec: [`docs/implementation/AI_AGENT_PRODUCTION_EXECUTION.md`](../implementation/AI_AGENT_PRODUCTION_EXECUTION.md).
 
 ---
 
@@ -85,14 +89,14 @@ Playbook runtime is **PLANNED / NOT IMPLEMENTED**.
   - `ga4-measurement-quality` @ `1.1.0` (C11)
   - `recommendation-framing` @ `1.1.0`
   - `brand-context-discovery` @ `1.1.0`
-- Bounded context assembly + Skill eligibility (missing Evidence → abstain; reason codes defined in Prompt 49; live enforcement Prompt 50)
+- Bounded context assembly + Skill eligibility (missing Evidence → abstain; Prompt 49 reason codes; **Prompt 50 live enforcement** via `AgentExecutionPlanner`)
 - `required_capabilities` / `optional_capabilities` as **metadata only** (Capability Router absent)
 - Agent/Skill versions in fingerprint + Run provenance (Skill definition fingerprint sha256 over material fields)
 - Prompt sections: Agent contract · Skills · untrusted Evidence data · safety rules
 - Prompt-injection defense: Evidence treated as data
 - Settings UI: Agent Profiles + Skill Library (read-only catalog; no generic CRUD)
-- Integration with existing Website AI Guidance + `website.ai_guidance` AI Route
-- **Not yet:** grounded AI Skill Execution (Prompt 50)
+- Integration with existing Website / Google Ads / Meta Ads AI Guidance routes
+- **Prompt 50:** grounded AI Skill / Agent Execution for **operational** specialists (see implementation spec). **Not yet:** GBP/GA4/GSC live pipelines; memory/retrieval (Prompt 51)
 
 ---
 
