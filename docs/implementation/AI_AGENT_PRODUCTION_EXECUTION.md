@@ -33,7 +33,8 @@ Prompt 50 productionizes **grounded AI Agent / Skill execution**: assemble eligi
 ```text
 Prompt 49 Skill definitions + eligibility codes
   → Prompt 50 grounded Agent / Skill execution
-    → Prompt 51 memory / retrieval (NOT YET)
+    → Prompt 51 Intelligence Memory architecture / boundaries (REAL contracts)
+      → Prompt 52 Brand Experience / 53 Sector Learning / 54 Retrieval (NOT YET)
 ```
 
 ## 2. Scope
@@ -51,7 +52,7 @@ In scope:
 Out of scope (enforced):
 
 - GBP / GA4 / GSC live LLM execution (profiles remain **designed**)
-- Memory / retrieval / RAG / embeddings (Prompt 51)
+- Memory / retrieval / RAG / embeddings content stores (Prompt 51 establishes **architecture only**; Prompt 54 owns retrieval; vectors remain NOT IMPLEMENTED)
 - Skill DB / SkillV2 / Agent DB / AiProviderV2
 - Capability Router; Playbook runtime orchestration of Agents
 - Autonomous Finding / Opportunity / Recommendation / Task writes
@@ -392,7 +393,7 @@ Required coverage:
 
 ## 61. Memory Boundary (Prompt 51)
 
-Expert/Skill “memory” remains curated Markdown Skills (Prompt 49). Learned memory, retrieval, embeddings: **NOT YET — Prompt 51**. Prompt 50 must not invent a vector store.
+Expert/Skill “memory” remains curated Markdown Skills (Prompt 49). Prompt 51 established three-layer Intelligence Memory **architecture/contracts** (Brand / Sector / Skill) without content stores, vectors, or Agent injection. Brand Experience (52), Sector Learning (53), Retrieval / Memory Pack (54): **NOT YET**. Prompt 50 must not invent a vector store.
 
 ## 62. Milestone 5 Capability Reality
 
@@ -699,7 +700,7 @@ Planner/gateway/validator are additive. Module services keep working if recorder
 | --- | --- |
 | Curated Skill Markdown | REAL (Prompt 49) |
 | Agent execution provenance | Prompt 50 |
-| Learned memory / embeddings / RAG | NOT YET (Prompt 51) |
+| Learned memory / embeddings / RAG | Prompt 51 architecture REAL; Experience/Sector/Retrieval NOT YET (52–54); embeddings NOT IMPLEMENTED |
 
 ## 393. Prompt 50 Reality / DoD Handoff Matrix
 
