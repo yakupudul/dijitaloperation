@@ -17,4 +17,6 @@ enum NotificationKind: string
     case RecurringReviewCompleted = 'recurring_review_completed';
     case ClientRequestCreated = 'client_request_created';
     case OpportunityCreated = 'opportunity_created';
+    case ScheduledInternalNotification = 'scheduled_internal_notification';
+    case BusinessOutcomeRecheckAttention = 'business_outcome_recheck_attention';
 }

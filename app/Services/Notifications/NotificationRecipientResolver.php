@@ -43,6 +43,8 @@ final class NotificationRecipientResolver
             DomainEventType::ApprovalChangesRequested => $this->approvalTaskAssigneeRecipients($subjectId),
             DomainEventType::RecurringReviewCompleted => $this->recurringReviewOwnerRecipients($subjectId),
             DomainEventType::ClientRequestCreated => $this->clientRequestOwnerRecipients($subjectId),
+            DomainEventType::ScheduledInternalNotification,
+            DomainEventType::BusinessOutcomeRecheckAttention => $this->payloadRecipientIds($event),
         };
 
         return $this->uniqueExcludingActor($recipients, $actorId);
@@ -127,5 +129,21 @@ final class NotificationRecipientResolver
         }
 
         return [(int) $request->owner_user_id];
+    }
+
+    /**
+     * Explicit recipient list from schedule payload — never invents notify-all.
+     *
+     * @return list<int|null>
+     */
+    private function payloadRecipientIds(DomainEvent $event): array
+    {
+        $payload = is_array($event->payload) ? $event->payload : [];
+        $ids = $payload['recipient_user_ids'] ?? [];
+        if (! is_array($ids)) {
+            return [];
+        }
+
+        return array_map(static fn ($id): ?int => is_numeric($id) ? (int) $id : null, $ids);
     }
 }

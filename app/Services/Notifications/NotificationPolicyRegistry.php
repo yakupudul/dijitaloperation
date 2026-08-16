@@ -28,7 +28,9 @@ final class NotificationPolicyRegistry
             DomainEventType::ApprovalChangesRequested,
             DomainEventType::RecurringReviewCompleted,
             DomainEventType::ClientRequestCreated,
-            DomainEventType::OpportunityCreated => true,
+            DomainEventType::OpportunityCreated,
+            DomainEventType::ScheduledInternalNotification,
+            DomainEventType::BusinessOutcomeRecheckAttention => true,
         };
     }
 
@@ -54,6 +56,8 @@ final class NotificationPolicyRegistry
             DomainEventType::RecurringReviewCompleted => NotificationKind::RecurringReviewCompleted,
             DomainEventType::ClientRequestCreated => NotificationKind::ClientRequestCreated,
             DomainEventType::OpportunityCreated => NotificationKind::OpportunityCreated,
+            DomainEventType::ScheduledInternalNotification => NotificationKind::ScheduledInternalNotification,
+            DomainEventType::BusinessOutcomeRecheckAttention => NotificationKind::BusinessOutcomeRecheckAttention,
         };
     }
 

@@ -272,6 +272,8 @@ final class ActivityReadService
                 DomainEventType::RecurringReviewCompleted => 'Recurring review completed',
                 DomainEventType::ClientRequestCreated => 'Client request created',
                 DomainEventType::OpportunityCreated => 'Opportunity created',
+                DomainEventType::ScheduledInternalNotification => 'Scheduled notification',
+                DomainEventType::BusinessOutcomeRecheckAttention => 'Business Outcome recheck attention',
             };
         } catch (\ValueError) {
             return ucwords(strtolower(str_replace('_', ' ', $event)));
@@ -311,6 +313,8 @@ final class ActivityReadService
                 DomainEventType::QaPassed, DomainEventType::QaFailed, DomainEventType::QaNeedsChanges => 'demo.tasks',
                 DomainEventType::ApprovalApproved, DomainEventType::ApprovalRejected, DomainEventType::ApprovalChangesRequested => 'demo.tasks',
                 DomainEventType::ClientRequestCreated, DomainEventType::RecurringReviewCompleted => 'demo.work.show',
+                DomainEventType::ScheduledInternalNotification,
+                DomainEventType::BusinessOutcomeRecheckAttention => 'demo.activity',
             };
         } catch (\ValueError) {
             return 'demo.activity';

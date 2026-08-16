@@ -20,6 +20,8 @@ enum DomainEventType: string
     case RecurringReviewCompleted = 'RECURRING_REVIEW_COMPLETED';
     case ClientRequestCreated = 'CLIENT_REQUEST_CREATED';
     case OpportunityCreated = 'OPPORTUNITY_CREATED';
+    case ScheduledInternalNotification = 'SCHEDULED_INTERNAL_NOTIFICATION';
+    case BusinessOutcomeRecheckAttention = 'BUSINESS_OUTCOME_RECHECK_ATTENTION';
 
     public function category(): string
     {
@@ -31,6 +33,7 @@ enum DomainEventType: string
             self::QaPassed, self::QaFailed, self::QaNeedsChanges => 'quality',
             self::ApprovalApproved, self::ApprovalRejected, self::ApprovalChangesRequested => 'approval',
             self::RecurringReviewCompleted => 'review',
+            self::ScheduledInternalNotification, self::BusinessOutcomeRecheckAttention => 'automation',
         };
     }
 
@@ -44,6 +47,8 @@ enum DomainEventType: string
             self::QaPassed, self::QaFailed, self::QaNeedsChanges => 'qa_review_required',
             self::RecurringReviewCompleted => 'recurring_review_due',
             self::RecommendationAccepted, self::OpportunityCreated => 'critical_finding',
+            self::ScheduledInternalNotification => 'scheduled_internal_notification',
+            self::BusinessOutcomeRecheckAttention => 'business_outcome_recheck',
         };
     }
 }

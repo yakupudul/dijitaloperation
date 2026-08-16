@@ -13,4 +13,6 @@ enum DomainEventSubjectKind: string
     case Approval = 'approval';
     case Playbook = 'playbook';
     case RecurringReviewRun = 'recurring_review_run';
+    case BusinessOutcomeRecheckRun = 'business_outcome_recheck_run';
+    case InternalNotificationSchedule = 'internal_notification_schedule';
 }

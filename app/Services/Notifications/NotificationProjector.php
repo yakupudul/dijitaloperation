@@ -151,6 +151,8 @@ final class NotificationProjector
             DomainEventType::RecurringReviewCompleted => 'Recurring review completed: '.$subjectLabel,
             DomainEventType::ClientRequestCreated => 'Client request received: '.$subjectLabel,
             DomainEventType::OpportunityCreated => 'New opportunity: '.$subjectLabel,
+            DomainEventType::ScheduledInternalNotification => $subjectLabel !== '' ? $subjectLabel : 'Scheduled notification',
+            DomainEventType::BusinessOutcomeRecheckAttention => $subjectLabel !== '' ? $subjectLabel : 'Business Outcome recheck attention',
         };
     }
 }

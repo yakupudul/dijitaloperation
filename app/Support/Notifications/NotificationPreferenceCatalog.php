@@ -31,6 +31,10 @@ final class NotificationPreferenceCatalog
 
     public const string OPERATION_FAILED = 'operation_failed';
 
+    public const string SCHEDULED_INTERNAL_NOTIFICATION = 'scheduled_internal_notification';
+
+    public const string BUSINESS_OUTCOME_RECHECK = 'business_outcome_recheck';
+
     /**
      * @return list<string>
      */
@@ -49,6 +53,8 @@ final class NotificationPreferenceCatalog
             self::REGRESSION_OBSERVED,
             self::PROVIDER_AUTHORIZATION_ISSUE,
             self::OPERATION_FAILED,
+            self::SCHEDULED_INTERNAL_NOTIFICATION,
+            self::BUSINESS_OUTCOME_RECHECK,
         ];
     }
 
@@ -70,6 +76,8 @@ final class NotificationPreferenceCatalog
             self::REGRESSION_OBSERVED => 'Regression observed',
             self::PROVIDER_AUTHORIZATION_ISSUE => 'Provider authorization issue',
             self::OPERATION_FAILED => 'Operation failed',
+            self::SCHEDULED_INTERNAL_NOTIFICATION => 'Scheduled internal notification',
+            self::BUSINESS_OUTCOME_RECHECK => 'Business Outcome recheck attention',
         ];
     }
 
