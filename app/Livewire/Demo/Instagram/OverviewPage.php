@@ -67,19 +67,20 @@ class OverviewPage extends Component
     {
         $this->normalizeTab();
 
-        if (! DemoCatalogAssetGuard::isDemoCatalogAssetId($this->assetId)) {
+        if (DemoCatalogAssetGuard::isDemoCatalogAssetId($this->assetId)
+            || $this->assetId === InstagramWorkspaceFixtures::ASSET_ID) {
+            $workspace = InstagramWorkspaceFixtures::workspace($this->assetId);
+
             return view('livewire.demo.instagram.overview', [
-                'workspace' => UnavailableWorkspaceShells::instagram($this->assetId),
-                'brand' => null,
+                'workspace' => $workspace,
+                'brand' => DemoCatalog::brand(),
                 'flash' => DemoState::pullFlash(),
             ]);
         }
 
-        $workspace = InstagramWorkspaceFixtures::workspace($this->assetId);
-
         return view('livewire.demo.instagram.overview', [
-            'workspace' => $workspace,
-            'brand' => DemoCatalog::brand(),
+            'workspace' => UnavailableWorkspaceShells::instagram($this->assetId),
+            'brand' => null,
             'flash' => DemoState::pullFlash(),
         ]);
     }

@@ -696,7 +696,8 @@ final class AgencyExecutionFixtures
     public static function dashboardExecution(string $mode = 'my_work'): array
     {
         $mode = in_array($mode, ['my_work', 'agency'], true) ? $mode : 'my_work';
-        $items = collect(self::workItems());
+        // Prompt 67/68: Dashboard execution lists come from production WorkReadService — never Demo Atlas workItems().
+        $items = collect(app(WorkReadService::class)->workItems());
         $openItems = $items->reject(fn (array $row): bool => in_array($row['status'] ?? '', ['completed', 'done', 'declined', 'skipped'], true));
         $recs = collect(app(RecommendationReadService::class)->forListPresentation());
         $awaitingDecision = $recs->whereIn('status', [
@@ -718,22 +719,91 @@ final class AgencyExecutionFixtures
                 ['label' => __('operator.dashboard_exec.awaiting_decision'), 'value' => $awaitingDecision, 'route' => 'demo.recommendations', 'route_params' => [], 'tone' => 'info'],
                 ['label' => __('operator.dashboard_exec.waiting_on_client'), 'value' => $waitingOnClient, 'route' => 'demo.tasks', 'route_params' => ['view' => 'waiting_on_client'], 'tone' => 'info'],
             ],
-            'needs_attention' => self::attentionFromWork($openItems, $mode),
+            'needs_attention' => self::attentionFromRealWorkOnly($openItems, $mode),
             'my_work' => $myItems->sortBy(fn (array $row): int => match ($row['due_key'] ?? '') {
                 'overdue' => 0,
                 'today' => 1,
                 'soon' => 2,
                 default => 3,
             })->take(8)->values()->all(),
-            'team_capacity' => self::teamCapacity(),
+            'team_capacity' => self::teamCapacityFromItems($openItems),
             'recurring_reviews_due' => $openItems->where('type', 'recurring_review')
                 ->whereIn('status', ['due', 'overdue', 'upcoming', 'scheduled', 'in_progress'])
                 ->take(5)->values()->all(),
-            'portfolio_focus' => self::portfolioFocus(),
+            // Prompt 67/68: no Atlas Demo portfolio focus cards on the operator Dashboard.
+            'portfolio_focus' => [],
             // Prompt 67: system exceptions come from real Google/Meta hub cards only — no Demo connected/last_check fixtures.
             'system_exceptions' => [],
             'recent_outcomes' => [],
         ];
+    }
+
+    /**
+     * @param  Collection<int, array<string, mixed>>  $items
+     * @return array<string, mixed>
+     */
+    private static function teamCapacityFromItems(Collection $items): array
+    {
+        $active = $items->count();
+        $dueToday = $items->where('due_key', 'today')->count();
+        $overdue = $items->where('due_key', 'overdue')->count();
+        $plannedHours = $items->sum(fn (array $row): float => self::effortToHours($row['effort'] ?? null));
+
+        $label = match (true) {
+            $overdue > 3 || $active > 10 => 'Overloaded',
+            $overdue >= 2 || $active >= 7 => 'Heavy',
+            $active >= 4 || $overdue >= 1 => 'Balanced',
+            default => 'Light',
+        };
+
+        return [
+            'active_count' => $active,
+            'due_today' => $dueToday,
+            'overdue' => $overdue,
+            'planned_hours' => round($plannedHours, 1),
+            'label' => $label,
+            'thresholds' => [
+                'light' => 'active ≤ 3 and overdue = 0',
+                'balanced' => 'active 4–6 or overdue = 1',
+                'heavy' => 'active 7–10 or overdue 2–3',
+                'overloaded' => 'active > 10 or overdue > 3',
+            ],
+            'members' => [],
+        ];
+    }
+
+    /**
+     * Attention cards from real work items only — never merges Demo GlobalOperatingFixtures Atlas rows.
+     *
+     * @param  Collection<int, array<string, mixed>>  $items
+     * @return list<array<string, mixed>>
+     */
+    private static function attentionFromRealWorkOnly(Collection $items, string $mode): array
+    {
+        $workLimit = $mode === 'agency' ? 3 : 5;
+
+        return $items
+            ->filter(fn (array $row): bool => in_array($row['due_key'] ?? '', ['overdue', 'today'], true)
+                || ($row['waiting_on_client'] ?? false)
+                || ($row['qa_required'] ?? false))
+            ->take($workLimit)
+            ->map(fn (array $row): array => [
+                'severity' => match ($row['due_key'] ?? '') {
+                    'overdue' => 'high',
+                    'today' => 'medium',
+                    default => 'medium',
+                },
+                'title' => $row['title'],
+                'body' => ucfirst(str_replace('_', ' ', (string) ($row['type'] ?? 'work'))).' · '.($row['brand'] ?? ''),
+                'evidence' => ($row['owner'] ?? '').' · due '.($row['due'] ?? '—'),
+                'why' => ($row['waiting_on_client'] ?? false) ? 'Waiting on client blocks progress.' : 'Open execution item needs action.',
+                'source' => ucfirst(str_replace('_', ' ', (string) ($row['type'] ?? 'work'))),
+                'route' => $row['route'] ?? 'demo.tasks',
+                'route_params' => $row['route_params'] ?? [],
+                'action_label' => __('operator.actions.open'),
+            ])
+            ->values()
+            ->all();
     }
 
     /**
@@ -775,32 +845,7 @@ final class AgencyExecutionFixtures
      */
     private static function attentionFromWork(Collection $items, string $mode): array
     {
-        $base = GlobalOperatingFixtures::attentionItems($mode);
-        $workLimit = $mode === 'agency' ? 3 : 5;
-        $workAttention = $items
-            ->filter(fn (array $row): bool => in_array($row['due_key'] ?? '', ['overdue', 'today'], true)
-                || ($row['waiting_on_client'] ?? false)
-                || ($row['qa_required'] ?? false))
-            ->take($workLimit)
-            ->map(fn (array $row): array => [
-                'severity' => match ($row['due_key'] ?? '') {
-                    'overdue' => 'high',
-                    'today' => 'medium',
-                    default => 'medium',
-                },
-                'title' => $row['title'],
-                'body' => ucfirst(str_replace('_', ' ', (string) ($row['type'] ?? 'work'))).' · '.($row['brand'] ?? ''),
-                'evidence' => ($row['owner'] ?? '').' · due '.($row['due'] ?? '—'),
-                'why' => ($row['waiting_on_client'] ?? false) ? 'Waiting on client blocks progress.' : 'Open execution item needs action.',
-                'source' => ucfirst(str_replace('_', ' ', (string) ($row['type'] ?? 'work'))),
-                'route' => $row['route'] ?? 'demo.tasks',
-                'route_params' => $row['route_params'] ?? [],
-                'action_label' => __('operator.actions.open'),
-            ])
-            ->values()
-            ->all();
-
-        return array_slice(array_merge($workAttention, $base), 0, 7);
+        return self::attentionFromRealWorkOnly($items, $mode);
     }
 
     /**

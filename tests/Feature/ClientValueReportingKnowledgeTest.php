@@ -113,7 +113,7 @@ class ClientValueReportingKnowledgeTest extends TestCase
         $this->get(route('demo.customer', ['customerId' => DemoCatalog::CUSTOMER_ID, 'tab' => 'reports']))
             ->assertOk()
             ->assertSee(__('operator.reports.customer_title'))
-            ->assertSee(__('operator.value.customer_no_blind_aggregation'));
+            ->assertSee(__('operator.reports.no_blind_aggregation'));
 
         Livewire::test(CustomerDetail::class, ['customerId' => DemoCatalog::CUSTOMER_ID])
             ->call('setTab', 'reports')
@@ -186,10 +186,11 @@ class ClientValueReportingKnowledgeTest extends TestCase
 
     public function test_dashboard_recent_value_and_search_types(): void
     {
+        // Prompt 67 cleared Demo recentValue on the executive dashboard — section hidden when empty.
         Livewire::test(Dashboard::class)
             ->assertOk()
-            ->assertSee(__('operator.dashboard_exec.recent_value'))
-            ->assertSee('Atlas Dental');
+            ->assertDontSee('Atlas Dental')
+            ->assertDontSee(__('operator.dashboard_exec.open_value'));
 
         Livewire::test(GlobalSearch::class)
             ->set('q', 'Weekly Google Ads')

@@ -55,7 +55,43 @@ return new class extends Migration
 
     public function down(): void
     {
-        // Indexes are additive and safe to retain; intentional no-op for SQLite compatibility.
+        if (Schema::hasTable('brand_context_activities')) {
+            Schema::table('brand_context_activities', function (Blueprint $table): void {
+                if ($this->hasIndex('brand_context_activities', 'bca_brand_occurred_idx')) {
+                    $table->dropIndex('bca_brand_occurred_idx');
+                }
+                if ($this->hasIndex('brand_context_activities', 'bca_customer_occurred_idx')) {
+                    $table->dropIndex('bca_customer_occurred_idx');
+                }
+            });
+        }
+
+        $hotDailyTables = [
+            'gsc_query_daily',
+            'gsc_page_daily',
+            'gsc_query_page_daily',
+            'gsc_device_daily',
+            'google_ads_search_term_daily',
+            'google_ads_keyword_daily',
+            'google_ads_campaign_daily',
+            'meta_campaign_daily',
+            'meta_ad_daily',
+            'ga4_source_medium_daily',
+            'ga4_landing_page_daily',
+        ];
+
+        foreach ($hotDailyTables as $table) {
+            if (! Schema::hasTable($table)) {
+                continue;
+            }
+            $name = substr('idx_'.$table.'_asset_resource_date', 0, 63);
+            if (! $this->hasIndex($table, $name)) {
+                continue;
+            }
+            Schema::table($table, function (Blueprint $blueprint) use ($name): void {
+                $blueprint->dropIndex($name);
+            });
+        }
     }
 
     private function hasIndex(string $table, string $indexName): bool

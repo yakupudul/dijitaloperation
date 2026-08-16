@@ -82,7 +82,9 @@ class ActivityNotificationServicesTest extends TestCase
         $keys = NotificationPreferenceCatalog::keys();
         $this->assertContains('critical_finding', $keys);
         $this->assertContains('operation_failed', $keys);
-        $this->assertCount(12, $keys);
+        $this->assertContains('scheduled_internal_notification', $keys);
+        $this->assertContains('business_outcome_recheck', $keys);
+        $this->assertCount(14, $keys);
     }
 
     public function test_emitter_is_idempotent_and_projects_activity_and_notification(): void
@@ -295,7 +297,7 @@ class ActivityNotificationServicesTest extends TestCase
     public function test_preference_list_matches_frozen_catalog(): void
     {
         $list = app(NotificationPreferenceService::class)->listForUser($this->actor);
-        $this->assertCount(12, $list);
+        $this->assertCount(14, $list);
         $this->assertSame(NotificationPreferenceCatalog::keys(), array_column($list, 'preference_key'));
         $this->assertTrue($list[0]['in_app_enabled']);
         $this->assertFalse($list[0]['email_enabled']);

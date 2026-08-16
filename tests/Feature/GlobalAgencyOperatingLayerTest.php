@@ -69,15 +69,20 @@ class GlobalAgencyOperatingLayerTest extends TestCase
 
     public function test_dashboard_my_work_and_agency_modes(): void
     {
+        // Prompt 67/68: Dashboard lists production WorkReadService rows (seeded canonical tasks here),
+        // not Demo Atlas portfolio/attention fixtures.
         Livewire::test(Dashboard::class)
+            ->assertOk()
             ->assertSee(__('operator.dashboard_exec.needs_attention'))
             ->assertSee('Investigate lead measurement')
+            ->assertDontSee('Lead measurement finding open on Google Ads')
+            ->assertDontSee('1 overdue recurring review (Meta Creative)')
             ->assertSee(__('operator.dashboard_exec.recent_outcomes'))
             ->assertDontSee('Agency Health')
             ->assertDontSee('total Website visitors')
             ->call('setMode', 'agency')
             ->assertSet('mode', 'agency')
-            ->assertSee('Google Integration needs attention');
+            ->assertDontSee('Google Integration needs attention');
     }
 
     public function test_digital_assets_have_data_and_operational_states_and_responsibility(): void

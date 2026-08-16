@@ -133,25 +133,66 @@ final class UnavailableWorkspaceShells
     public static function instagram(string $assetId): array
     {
         $asset = self::asset($assetId);
+        $brandId = $asset?->brand_id ?? 0;
+        $brandName = $asset?->brand?->name ?? '—';
 
         return [
             'migration_mode' => 'unavailable',
             'demo_boundary' => 'Instagram analytics provider integration is unavailable — asset record/setup may exist, but no simulated analytics are shown.',
             'identity' => [
+                'asset_id' => $assetId,
                 'eyebrow' => 'Instagram',
                 'title' => ($asset?->name ?? 'Instagram').' — analytics unavailable',
-                'brand' => $asset?->brand?->name,
-                'brand_id' => $asset?->brand_id ?? 0,
-                'brand_name' => $asset?->brand?->name ?? '—',
+                'handle' => '—',
+                'brand' => $brandName,
+                'brand_id' => $brandId,
+                'brand_name' => $brandName,
+                'connection' => 'Not connected',
+                'freshness' => '—',
                 'status' => 'Unavailable',
+                'status_note' => 'No Demo fixtures — Instagram analytics are unavailable for this production asset.',
             ],
-            'profile' => [],
-            'glance' => [],
-            'needs_attention' => [],
-            'operations' => [],
-            'setup' => [
-                'note' => 'Connect and bind an Instagram resource when provider analytics support is available. No sample metrics are shown.',
+            'overview' => [
+                'glance' => [],
+                'needs_attention' => [],
+                'content_mix' => [],
+                'recent_posts' => [],
             ],
+            'profile' => [
+                'display_name' => $asset?->name ?? '—',
+                'username' => '—',
+                'category' => '—',
+                'bio' => 'Profile analytics are unavailable until a supported Instagram provider path exists.',
+                'website' => '—',
+                'contact' => [
+                    'email' => '—',
+                    'phone' => '—',
+                ],
+                'coverage' => [],
+                'consistency' => [
+                    'brand_name_match' => false,
+                    'website_match' => false,
+                    'website_note' => 'No Instagram analytics observations collected for this production asset.',
+                    'phone_match' => false,
+                ],
+            ],
+            'relationships' => [
+                'linked_assets' => [],
+                'cross_checks' => [],
+            ],
+            'findings' => [],
+            'activity' => [],
+            'settings' => [
+                'connection_mode' => 'Unavailable',
+                'write_actions' => 'Disabled (no external write)',
+                'sync_cadence' => '—',
+                'responsible' => '—',
+                'notes' => [
+                    'Connect and bind an Instagram resource when provider analytics support is available.',
+                    'No sample metrics are shown for production asset ids.',
+                ],
+            ],
+            'tabs' => ['overview', 'profile', 'operations', 'setup'],
         ];
     }
 
