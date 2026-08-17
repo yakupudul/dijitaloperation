@@ -29,6 +29,8 @@ trait InteractsWithCustomerForm
 
     public string $hq_city = '';
 
+    public string $hq_city_other = '';
+
     /** @var list<string> */
     public array $services = [];
 
@@ -59,6 +61,7 @@ trait InteractsWithCustomerForm
             'industry_other' => ['nullable', 'string', 'max:120'],
             'hq_country' => ['nullable', Rule::in(array_keys(CountryOptions::options()))],
             'hq_city' => ['nullable', 'string', 'max:120'],
+            'hq_city_other' => ['nullable', 'string', 'max:120'],
             'services' => ['array'],
             'services.*' => [Rule::in(array_keys(AgencyServiceOptions::options()))],
             'service_started_at' => ['nullable', 'date'],
@@ -77,8 +80,9 @@ trait InteractsWithCustomerForm
         return [
             'name' => 'customer name',
             'legal_name' => 'legal name',
-            'hq_country' => 'HQ country',
-            'hq_city' => 'HQ city',
+            'hq_country' => __('operator.forms.hq_country'),
+            'hq_city' => __('operator.forms.hq_city'),
+            'hq_city_other' => __('operator.forms.city_other'),
             'primary_email' => 'primary email',
             'primary_phone' => 'primary phone',
             'service_started_at' => 'service started',
@@ -88,11 +92,13 @@ trait InteractsWithCustomerForm
 
     public function updatedHqCountry(): void
     {
-        $allowed = CityOptions::forCountry($this->hq_country);
-        if ($this->hq_city !== '' && $allowed !== [] && ! in_array($this->hq_city, $allowed, true)) {
-            if (! in_array($this->hq_city, $allowed, true)) {
-                // Custom city values are allowed — do not clear.
-            }
+        if ($this->hq_city === '' && $this->hq_city_other === '') {
+            return;
+        }
+
+        if ($this->hq_city === CityOptions::OTHER || ! CityOptions::isCatalogCity($this->hq_country, $this->hq_city)) {
+            $this->hq_city = '';
+            $this->hq_city_other = '';
         }
     }
 
@@ -108,7 +114,17 @@ trait InteractsWithCustomerForm
         $this->industry = (string) ($customer['industry'] ?? '');
         $this->industry_other = (string) ($customer['industry_other'] ?? '');
         $this->hq_country = (string) ($customer['hq_country'] ?? '');
-        $this->hq_city = (string) ($customer['hq_city'] ?? '');
+        $storedCity = (string) ($customer['hq_city'] ?? '');
+        if (CityOptions::isCatalogCity($this->hq_country, $storedCity)) {
+            $this->hq_city = $storedCity;
+            $this->hq_city_other = '';
+        } elseif ($storedCity !== '') {
+            $this->hq_city = CityOptions::OTHER;
+            $this->hq_city_other = $storedCity;
+        } else {
+            $this->hq_city = '';
+            $this->hq_city_other = '';
+        }
         $this->services = array_values($customer['services'] ?? []);
         $this->service_started_at = (string) ($customer['service_started_at'] ?? '');
         $this->primary_email = (string) ($customer['primary_email'] ?? '');
@@ -132,7 +148,7 @@ trait InteractsWithCustomerForm
             'status' => $this->status,
             'industry' => $this->industry !== '' ? $this->industry : null,
             'hq_country' => $this->hq_country !== '' ? $this->hq_country : null,
-            'hq_city' => $this->hq_city !== '' ? trim($this->hq_city) : null,
+            'hq_city' => $this->resolvedHqCity(),
             'services' => array_values($this->services),
             'service_started_at' => $this->service_started_at !== '' ? $this->service_started_at : null,
             'primary_email' => $this->primary_email !== '' ? trim($this->primary_email) : null,
@@ -156,12 +172,12 @@ trait InteractsWithCustomerForm
     {
         $typeOptions = [];
         foreach (CustomerType::cases() as $case) {
-            $typeOptions[$case->value] = $case->name;
+            $typeOptions[$case->value] = __('operator.customer.types.'.$case->value);
         }
 
         $statusOptions = [];
         foreach (CustomerStatus::cases() as $case) {
-            $statusOptions[$case->value] = $case->name;
+            $statusOptions[$case->value] = __('operator.states.'.$case->value);
         }
 
         return [
@@ -173,6 +189,21 @@ trait InteractsWithCustomerForm
             'serviceOptions' => AgencyServiceOptions::options(),
             'teamOptions' => OperatorUserDirectory::options(),
             'showIndustryOther' => $this->industry === IndustryOptions::OTHER,
+            'showCityOther' => $this->hq_city === CityOptions::OTHER,
+            'cityOtherValue' => CityOptions::OTHER,
         ];
+    }
+
+    protected function resolvedHqCity(): ?string
+    {
+        if ($this->hq_city === CityOptions::OTHER) {
+            $other = trim($this->hq_city_other);
+
+            return $other !== '' ? $other : null;
+        }
+
+        $city = trim($this->hq_city);
+
+        return $city !== '' ? $city : null;
     }
 }

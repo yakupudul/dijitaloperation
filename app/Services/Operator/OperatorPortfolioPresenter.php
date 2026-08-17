@@ -42,14 +42,9 @@ final class OperatorPortfolioPresenter
             'name' => $customer->name,
             'legal_name' => $customer->legal_name,
             'type' => $typeValue,
-            'type_label' => $typeValue === CustomerType::Individual->value ? 'Individual' : 'Company',
+            'type_label' => __('operator.customer.types.'.$typeValue),
             'status' => $statusValue,
-            'status_label' => match ($statusValue) {
-                'active' => 'Active',
-                'inactive' => 'Inactive',
-                'archived' => 'Archived',
-                default => ucfirst($statusValue),
-            },
+            'status_label' => __('operator.states.'.$statusValue),
             'industry' => $industry,
             'industry_label' => $industryLabel,
             'hq_country' => $customer->hq_country,
@@ -139,7 +134,9 @@ final class OperatorPortfolioPresenter
             'needs_attention' => $openFindings > 0 || $work['overdue'] > 0,
             'asset_types' => $assets->pluck('type')->unique()->values()->all(),
             'health' => $openFindings > 0 || $work['overdue'] > 0 ? 'needs_attention' : 'healthy',
-            'health_label' => $openFindings > 0 || $work['overdue'] > 0 ? 'Needs attention' : 'Healthy',
+            'health_label' => $openFindings > 0 || $work['overdue'] > 0
+                ? __('operator.states.needs_attention')
+                : __('operator.brand.health_healthy'),
             'initials' => collect(explode(' ', (string) $brand->name))
                 ->map(static fn (string $part): string => mb_substr($part, 0, 1))
                 ->take(2)
@@ -188,23 +185,25 @@ final class OperatorPortfolioPresenter
             'role' => in_array($type, ['domain', 'hosting'], true) ? 'infrastructure' : 'primary_managed',
             'role_label' => in_array($type, ['domain', 'hosting'], true) ? 'Website infrastructure' : 'Primary managed asset',
             'health' => 'healthy',
-            'health_label' => 'Defined',
+            'health_label' => __('operator.states.defined'),
             'connection' => 'not_configured',
-            'connection_label' => 'Defined',
+            'connection_label' => __('operator.states.defined'),
             'connection_state' => 'not_connected',
-            'connection_state_label' => 'Defined',
+            'connection_state_label' => __('operator.states.defined'),
             'operational_status' => $status === 'archived' ? 'archived' : ($status === 'inactive' ? 'inactive' : 'setup'),
-            'operational_status_label' => $status === 'active' ? 'Defined' : ucfirst($status),
+            'operational_status_label' => $status === 'active' ? __('operator.states.defined') : ucfirst($status),
             'data_state' => 'unavailable',
-            'data_state_label' => 'Not collected',
-            'provenance' => 'Operator defined',
+            'data_state_label' => __('operator.states.not_collected'),
+            'provenance' => __('operator.states.operator_defined'),
             'open_findings' => $openFindings,
             'open_tasks' => 0,
             'last_update' => 'Never',
             'last_meaningful_activity' => '',
-            'primary_metric_label' => 'Status',
-            'primary_metric' => 'Defined',
+            'primary_metric_label' => __('operator.forms.status'),
+            'primary_metric' => __('operator.states.defined'),
             'route' => self::specialistRoute($type),
+            'route_params' => self::specialistRouteParams($asset),
+            'url' => self::specialistUrl($asset),
             'domain' => $asset->domain,
             'primary_url' => $asset->primary_url,
             'cms' => $asset->cms,
@@ -247,6 +246,44 @@ final class OperatorPortfolioPresenter
             'instagram' => 'operator.instagram',
             default => 'operator.assets',
         };
+    }
+
+    /**
+     * @return array<string, int|string>
+     */
+    public static function specialistRouteParams(DigitalAsset $asset): array
+    {
+        if (self::specialistRoute((string) $asset->type) === 'operator.assets') {
+            return [];
+        }
+
+        return ['assetId' => $asset->id];
+    }
+
+    public static function specialistUrl(DigitalAsset $asset): string
+    {
+        $name = self::specialistRoute((string) $asset->type);
+        $params = self::specialistRouteParams($asset);
+
+        return $params === [] ? route($name) : route($name, $params);
+    }
+
+    /**
+     * @param  array<string, mixed>  $asset
+     */
+    public static function specialistHref(array $asset): string
+    {
+        if (isset($asset['url']) && is_string($asset['url']) && $asset['url'] !== '') {
+            return $asset['url'];
+        }
+
+        $name = (string) ($asset['route'] ?? 'operator.assets');
+        $id = $asset['id'] ?? $asset['asset_id'] ?? null;
+        if ($name === 'operator.assets' || $id === null || $id === '') {
+            return route($name);
+        }
+
+        return route($name, ['assetId' => $id]);
     }
 
     public static function derivedModuleId(string $type): ?string
@@ -311,15 +348,17 @@ final class OperatorPortfolioPresenter
                     $asset = $byType->get('gbp');
                 }
                 if ($asset === null) {
-                    $cells[$type] = ['state' => 'not_configured', 'label' => 'Defined later'];
+                    $cells[$type] = ['state' => 'not_configured', 'label' => __('operator.states.not_configured')];
 
                     continue;
                 }
                 $cells[$type] = [
                     'state' => 'present',
-                    'label' => 'Defined',
+                    'label' => __('operator.states.defined'),
                     'asset_id' => (string) $asset->id,
                     'route' => self::specialistRoute($asset->type),
+                    'route_params' => self::specialistRouteParams($asset),
+                    'url' => self::specialistUrl($asset),
                 ];
             }
 

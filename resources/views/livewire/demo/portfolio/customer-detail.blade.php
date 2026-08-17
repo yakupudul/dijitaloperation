@@ -189,7 +189,7 @@
                                 <td class="py-3 pr-3 text-gray-700 dark:text-gray-300">{{ $brand['open_findings'] ?? 0 }}</td>
                                 <td class="py-3 pr-3 text-gray-700 dark:text-gray-300">{{ $brand['open_tasks'] ?? 0 }}</td>
                                 <td class="py-3 text-right">
-                                    <a href="{{ route('operator.brand', ['brand' => $brand['id']]) }}" wire:navigate class="text-sm font-medium text-brand-600 hover:underline">Open</a>
+                                    <a href="{{ route('operator.brand', ['brand' => $brand['id']]) }}" wire:navigate class="text-sm font-medium text-brand-600 hover:underline">{{ __('operator.actions.open') }}</a>
                                 </td>
                             </tr>
                         @endforeach
@@ -251,7 +251,7 @@
                                 <td class="py-3 pr-3">{{ $brand['assets_count'] ?? 0 }}</td>
                                 <td class="py-3 pr-3">{{ $brand['open_findings'] ?? 0 }}</td>
                                 <td class="py-3 pr-3">{{ $brand['open_tasks'] ?? 0 }}</td>
-                                <td class="py-3 text-right"><a href="{{ route('operator.brand', ['brand' => $brand['id']]) }}" wire:navigate class="font-medium text-brand-600 hover:underline">Open</a></td>
+                                <td class="py-3 text-right"><a href="{{ route('operator.brand', ['brand' => $brand['id']]) }}" wire:navigate class="font-medium text-brand-600 hover:underline">{{ __('operator.actions.open') }}</a></td>
                             </tr>
                         @endforeach
                     </tbody>

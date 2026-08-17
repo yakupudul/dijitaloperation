@@ -28,6 +28,37 @@ export const PRODUCT_ALLOWLIST = [
     'QA Final',
 ];
 
+export const CONFIRMED_TR_LEAKAGE = [
+    'Open brands',
+    'Review findings',
+    'INDUSTRY',
+    'BRANDS',
+    'OPEN TASKS',
+    'STATUS',
+    'Open',
+    'Back',
+    'Search',
+    'Digital Assets',
+    'New Customer setup',
+    'Customer name',
+    'Needs Attention',
+    'Responsible',
+    'WORK',
+    'Portfolio',
+    'Configure',
+    'Managed Assets',
+    'Data Stale / Unavailable',
+    'Assets with Active Work',
+    'Needs Attention',
+    'Data Issues',
+    'Active Work',
+    'Recently Updated',
+    'Estate Matrix',
+    'Asset Type',
+    'Operational Status',
+    'Data State',
+];
+
 export const ENGLISH_CHROME = [
     'Dashboard',
     'Customers',

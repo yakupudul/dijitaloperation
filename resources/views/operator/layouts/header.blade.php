@@ -1,7 +1,7 @@
 {{-- Operator header, adapted from TailAdmin layouts/app-header.blade.php --}}
 <header
     class="sticky top-0 flex w-full bg-white border-gray-200 z-99990 dark:border-gray-800 dark:bg-gray-900 xl:border-b">
-    <div class="flex items-center justify-between grow px-3 py-3 xl:px-6 lg:py-4">
+    <div class="flex flex-wrap items-center justify-between gap-y-2 grow px-3 py-3 xl:px-6 lg:py-4 min-w-0">
         <div class="flex items-center gap-2 sm:gap-4">
             <button
                 class="hidden xl:flex items-center justify-center w-11 h-11 text-gray-500 border border-gray-200 rounded-lg dark:border-gray-800 dark:text-gray-400"
@@ -24,18 +24,19 @@
                 </svg>
             </button>
 
-            <div class="hidden sm:flex items-center gap-2">
+            <div class="hidden lg:flex items-center gap-2">
                 <span class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ __('operator.product.tagline') }}</span>
             </div>
         </div>
 
-        <div class="flex items-center gap-2 sm:gap-3">
+        <div class="flex min-w-0 flex-wrap items-center justify-end gap-2 sm:gap-3">
             <livewire:demo.global-search />
 
             <button type="button"
                 onclick="Livewire.dispatch('open-capture')"
                 class="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-white hover:bg-brand-600">
-                + {{ __('operator.capture.open') }}
+                <span aria-hidden="true">+</span>
+                <span class="hidden sm:inline">{{ __('operator.capture.open') }}</span>
             </button>
 
             <livewire:demo.locale-switcher />
@@ -45,7 +46,7 @@
             <livewire:demo.notification-bell />
 
             <a href="{{ route('operator.settings') }}" wire:navigate
-                class="hidden sm:inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-white/[0.03]">
+                class="hidden lg:inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-white/[0.03]">
                 {{ __('operator.nav.settings') }}
             </a>
 

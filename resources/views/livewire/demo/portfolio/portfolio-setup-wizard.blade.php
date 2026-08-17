@@ -7,18 +7,18 @@
 
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
-            <p class="text-xs font-medium uppercase tracking-wide text-gray-400">Portfolio Setup Wizard</p>
+            <p class="text-xs font-medium uppercase tracking-wide text-gray-400">{{ __('operator.setup.eyebrow') }}</p>
             <h1 class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">
-                @if ($entry === 'brand') Add Brand
-                @elseif ($entry === 'asset') Add Digital Assets
-                @else New Customer setup
+                @if ($entry === 'brand') {{ __('operator.setup.title_brand') }}
+                @elseif ($entry === 'asset') {{ __('operator.setup.title_asset') }}
+                @else {{ __('operator.setup.title_customer') }}
                 @endif
             </h1>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Create a clean Customer → Brand → Digital Estate in minutes. Discover resources, confirm bindings — no manual provider IDs under normal circumstances.</p>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ __('operator.setup.subtitle') }}</p>
         </div>
     </div>
 
-    <nav aria-label="Setup progress" class="overflow-x-auto">
+    <nav aria-label="{{ __('operator.setup.progress') }}" class="overflow-x-auto">
         <ol class="flex min-w-max gap-2">
             @foreach ($stepLabels as $num => $label)
                 <li>
@@ -33,7 +33,7 @@
                     >
                         <span class="block text-[10px] font-semibold uppercase opacity-70">{{ $num }}</span>
                         <span class="font-medium">{{ $label }}</span>
-                        @if ($step > $num)<span class="sr-only">Completed</span>@endif
+                        @if ($step > $num)<span class="sr-only">{{ __('operator.setup.completed') }}</span>@endif
                     </button>
                 </li>
             @endforeach
@@ -43,30 +43,30 @@
     {{-- STEP 1 CUSTOMER --}}
     @if ($step === 1)
         <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Customer</h2>
-            <p class="mt-1 text-sm text-gray-500">Minimal agency relationship — not a CRM dump.</p>
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ __('operator.setup.customer_heading') }}</h2>
+            <p class="mt-1 text-sm text-gray-500">{{ __('operator.setup.customer_help') }}</p>
             <div class="mt-4 grid gap-4 sm:grid-cols-2">
                 <div class="sm:col-span-2">
-                    <label for="cust-name" class="mb-1 block text-xs font-medium text-gray-500">Customer name</label>
+                    <label for="cust-name" class="mb-1 block text-xs font-medium text-gray-500">{{ __('operator.forms.customer_name') }}</label>
                     <input id="cust-name" type="text" wire:model="customer_name" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-950 dark:text-white/90" />
                     @error('customer_name') <p class="mt-1 text-xs text-error-600" role="alert">{{ $message }}</p> @enderror
                 </div>
                 <div>
-                    <label for="contact-name" class="mb-1 block text-xs font-medium text-gray-500">Primary contact name</label>
+                    <label for="contact-name" class="mb-1 block text-xs font-medium text-gray-500">{{ __('operator.setup.contact_name') }}</label>
                     <input id="contact-name" type="text" wire:model="contact_name" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-950 dark:text-white/90" />
                 </div>
                 <div>
-                    <label for="contact-email" class="mb-1 block text-xs font-medium text-gray-500">Primary contact email</label>
+                    <label for="contact-email" class="mb-1 block text-xs font-medium text-gray-500">{{ __('operator.setup.contact_email') }}</label>
                     <input id="contact-email" type="email" wire:model="contact_email" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-950 dark:text-white/90" />
                 </div>
                 <div>
-                    <label for="contact-phone" class="mb-1 block text-xs font-medium text-gray-500">Primary contact phone</label>
+                    <label for="contact-phone" class="mb-1 block text-xs font-medium text-gray-500">{{ __('operator.setup.contact_phone') }}</label>
                     <input id="contact-phone" type="text" wire:model="contact_phone" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-950 dark:text-white/90" />
                 </div>
                 <div>
                     <label for="owner" class="mb-1 block text-xs font-medium text-gray-500">{{ __('operator.forms.account_owner') }}</label>
                     <select id="owner" wire:model="account_owner" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-950 dark:text-white/90">
-                        <option value="">Unassigned</option>
+                        <option value="">{{ __('operator.setup.unassigned') }}</option>
                         @foreach ($team as $member)
                             <option value="{{ $member['id'] }}">{{ $member['name'] }}</option>
                         @endforeach
@@ -79,14 +79,14 @@
     {{-- STEP 2 BRAND --}}
     @if ($step === 2)
         <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Brand</h2>
-            <p class="mt-1 text-sm text-gray-500">Initial setup only — full Brand Intelligence Context comes later.</p>
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ __('operator.setup.brand_heading') }}</h2>
+            <p class="mt-1 text-sm text-gray-500">{{ __('operator.setup.brand_help') }}</p>
             @if ($customer_name !== '')
-                <p class="mt-2 text-xs text-gray-400">Customer · {{ $customer_name }}</p>
+                <p class="mt-2 text-xs text-gray-400">{{ __('operator.setup.customer_prefix') }} · {{ $customer_name }}</p>
             @endif
             <div class="mt-4 grid gap-4 sm:grid-cols-2">
                 <div class="sm:col-span-2">
-                    <label for="brand-name" class="mb-1 block text-xs font-medium text-gray-500">Brand name</label>
+                    <label for="brand-name" class="mb-1 block text-xs font-medium text-gray-500">{{ __('operator.forms.brand_name') }}</label>
                     <input id="brand-name" type="text" wire:model="brand_name" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-950 dark:text-white/90" />
                     @error('brand_name') <p class="mt-1 text-xs text-error-600" role="alert">{{ $message }}</p> @enderror
                     @if ($duplicateBrandWarning !== '')
@@ -94,13 +94,13 @@
                     @endif
                 </div>
                 <div class="sm:col-span-2">
-                    <label for="website-url" class="mb-1 block text-xs font-medium text-gray-500">Website URL</label>
+                    <label for="website-url" class="mb-1 block text-xs font-medium text-gray-500">{{ __('operator.setup.website_url') }}</label>
                     <input id="website-url" type="url" wire:model.live="website_url" placeholder="https://www.example.com" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-950 dark:text-white/90" />
                     @error('website_url') <p class="mt-1 text-xs text-error-600" role="alert">{{ $message }}</p> @enderror
-                    <p class="mt-1 text-xs text-gray-400">Used later for matching GA4 / GSC / GBP — no live crawl on change.</p>
+                    <p class="mt-1 text-xs text-gray-400">{{ __('operator.setup.website_url_help') }}</p>
                 </div>
                 <div>
-                    <label for="country" class="mb-1 block text-xs font-medium text-gray-500">Primary market / country</label>
+                    <label for="country" class="mb-1 block text-xs font-medium text-gray-500">{{ __('operator.setup.primary_market') }}</label>
                     <select id="country" wire:model="primary_country" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-950 dark:text-white/90">
                         @foreach ($countryOptions as $code => $label)
                             <option value="{{ $code }}">{{ $label }}</option>
@@ -108,7 +108,7 @@
                     </select>
                 </div>
                 <div>
-                    <label for="language" class="mb-1 block text-xs font-medium text-gray-500">Primary language</label>
+                    <label for="language" class="mb-1 block text-xs font-medium text-gray-500">{{ __('operator.setup.primary_language') }}</label>
                     <select id="language" wire:model="primary_language" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-950 dark:text-white/90">
                         @foreach ($languageOptions as $code => $label)
                             <option value="{{ $code }}">{{ $label }}</option>
@@ -116,7 +116,7 @@
                     </select>
                 </div>
                 <div class="sm:col-span-2">
-                    <p class="mb-1 text-xs font-medium text-gray-500">Responsible user(s)</p>
+                    <p class="mb-1 text-xs font-medium text-gray-500">{{ __('operator.setup.responsible_users') }}</p>
                     <div class="flex flex-wrap gap-2">
                         @foreach ($team as $member)
                             <label class="inline-flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-white/[0.03]">
@@ -134,8 +134,8 @@
     @if ($step === 3)
         <section class="space-y-4">
             <div>
-                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Digital Assets</h2>
-                <p class="mt-1 text-sm text-gray-500">Which Digital Assets do you manage for {{ $brand_name !== '' ? $brand_name : 'this Brand' }}? Domain and Hosting are Website infrastructure — not selectable assets.</p>
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ __('operator.setup.assets_heading') }}</h2>
+                <p class="mt-1 text-sm text-gray-500">{{ __('operator.setup.assets_help', ['brand' => $brand_name !== '' ? $brand_name : __('operator.setup.this_brand')]) }}</p>
             </div>
             @error('selected_assets') <p class="text-xs text-error-600" role="alert">{{ $message }}</p> @enderror
             <div class="grid gap-3 sm:grid-cols-2">
@@ -153,9 +153,9 @@
                             <div>
                                 <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $option['label'] }}</p>
                                 <p class="text-xs text-gray-500">
-                                    @if (! empty($option['future'])) Future capability
-                                    @elseif (in_array($option['type'], $selected_assets, true)) ✓ Selected
-                                    @else Tap to select
+                                    @if (! empty($option['future'])) {{ __('operator.setup.future_capability') }}
+                                    @elseif (in_array($option['type'], $selected_assets, true)) ✓ {{ __('operator.setup.selected') }}
+                                    @else {{ __('operator.setup.tap_to_select') }}
                                     @endif
                                 </p>
                             </div>
@@ -163,7 +163,7 @@
                     </button>
                 @endforeach
             </div>
-            <p class="text-xs text-gray-400">Missing Meta/GBP/etc is setup incomplete — not an error and not a Finding.</p>
+            <p class="text-xs text-gray-400">{{ __('operator.setup.missing_not_error') }}</p>
         </section>
     @endif
 
@@ -171,8 +171,8 @@
     @if ($step === 4)
         <section class="space-y-4">
             <div>
-                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Connect &amp; Match</h2>
-                <p class="mt-1 text-sm text-gray-500">Discover → list → select. Confirm before binding. Skip any provider for later.</p>
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ __('operator.setup.connect_heading') }}</h2>
+                <p class="mt-1 text-sm text-gray-500">{{ __('operator.setup.connect_help') }}</p>
             </div>
 
             @if (in_array('website', $selected_assets, true))
@@ -181,8 +181,8 @@
                         <x-demo.digital-asset-mark type="website" size="sm" />
                         <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Website</h3>
                     </div>
-                    <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">{{ $website_url !== '' ? $website_url : 'URL not provided — can be completed later' }}</p>
-                    <p class="mt-1 text-xs text-gray-400">Infrastructure (Domain / DNS / Hosting / SSL) lives under the Website Digital Asset.</p>
+                    <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">{{ $website_url !== '' ? $website_url : __('operator.setup.url_later') }}</p>
+                    <p class="mt-1 text-xs text-gray-400">{{ __('operator.setup.website_infra') }}</p>
                 </div>
             @endif
 
@@ -193,19 +193,19 @@
                             <x-demo.digital-asset-mark :type="$card['type'] === 'gbp' ? 'gbp' : $card['type']" size="sm" />
                             <div>
                                 <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ $card['label'] }}</h3>
-                                <p class="text-xs text-gray-500">{{ $card['integration'] }} Integration · {{ $card['integration_state'] }} · {{ count($card['resources']) }} resources found</p>
+                                <p class="text-xs text-gray-500">{{ $card['integration'] }} · {{ $card['integration_state'] }} · {{ __('operator.setup.resources_found', ['count' => count($card['resources'])]) }}</p>
                                 @if (! empty($card['blocker']))
                                     <p class="mt-1 text-xs text-amber-700 dark:text-amber-300">{{ $card['blocker'] }}</p>
                                 @endif
                             </div>
                         </div>
-                        <button type="button" wire:click="skipProvider('{{ $card['type'] }}')" class="text-xs font-medium text-gray-500 hover:underline">Skip for now</button>
+                        <button type="button" wire:click="skipProvider('{{ $card['type'] }}')" class="text-xs font-medium text-gray-500 hover:underline">{{ __('operator.setup.skip_for_now') }}</button>
                     </div>
                     @if ($card['skipped'])
-                        <p class="mt-3 text-sm text-amber-700 dark:text-amber-300">Skipped — setup remains incomplete for this connector (not unhealthy).</p>
+                        <p class="mt-3 text-sm text-amber-700 dark:text-amber-300">{{ __('operator.setup.skipped_incomplete') }}</p>
                     @else
                         @if (($card['resources'] ?? []) === [])
-                            <p class="mt-3 text-sm text-gray-500">No resources discovered. Discovery has not run, or the integration is not configured.</p>
+                            <p class="mt-3 text-sm text-gray-500">{{ __('operator.setup.no_resources') }}</p>
                         @else
                         <ul class="mt-3 space-y-2">
                             @foreach ($card['resources'] as $resource)
@@ -218,13 +218,13 @@
                                         ])>
                                         <div class="flex flex-wrap items-center gap-2">
                                             @if (! empty($resource['recommended']))
-                                                <span class="text-[10px] font-bold uppercase text-brand-700 dark:text-brand-300">Recommended</span>
+                                                <span class="text-[10px] font-bold uppercase text-brand-700 dark:text-brand-300">{{ __('operator.setup.recommended') }}</span>
                                             @elseif (! empty($resource['match_signal']))
-                                                <span class="text-[10px] font-bold uppercase text-gray-400">Possible match</span>
+                                                <span class="text-[10px] font-bold uppercase text-gray-400">{{ __('operator.setup.possible_match') }}</span>
                                             @endif
                                             <span class="text-sm font-semibold text-gray-900 dark:text-white">{{ $resource['name'] }}</span>
                                             @if (($card['selected'] ?? null) === $resource['id'])
-                                                <span class="text-xs font-medium text-brand-700 dark:text-brand-300">Selected</span>
+                                                <span class="text-xs font-medium text-brand-700 dark:text-brand-300">{{ __('operator.setup.selected') }}</span>
                                             @endif
                                         </div>
                                         <p class="mt-1 text-xs text-gray-500">
@@ -246,7 +246,7 @@
 
             @if (in_array('instagram', $selected_assets, true))
                 <div class="rounded-xl bg-white p-4 text-sm text-gray-500 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-                    Instagram remains a future capability — not selectable as a defined Digital Asset yet.
+                    {{ __('operator.setup.instagram_future') }}
                 </div>
             @endif
         </section>
@@ -256,14 +256,14 @@
     @if ($step === 5)
         <section class="space-y-4">
             <div>
-                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Discover &amp; Review</h2>
-                <p class="mt-1 text-sm text-gray-500">Reuses Brand Public Discovery candidates. Observed ≠ canonical. Accept only with human approval.</p>
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ __('operator.setup.review_heading') }}</h2>
+                <p class="mt-1 text-sm text-gray-500">{{ __('operator.setup.review_help') }}</p>
             </div>
 
             <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Candidate Brand updates</h3>
+                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ __('operator.setup.candidate_updates') }}</h3>
                 @if ($candidates === [])
-                    <p class="mt-3 text-sm text-gray-500">No Public Discovery candidates. Discovery has not run.</p>
+                    <p class="mt-3 text-sm text-gray-500">{{ __('operator.setup.no_candidates') }}</p>
                 @else
                 <ul class="mt-3 space-y-2">
                     @foreach ($candidates as $candidate)
@@ -281,26 +281,26 @@
                                     'bg-brand-500 text-white' => in_array($candidate['id'], $accepted_candidate_ids, true),
                                     'ring-1 ring-inset ring-gray-300 dark:ring-gray-700' => ! in_array($candidate['id'], $accepted_candidate_ids, true),
                                 ])>
-                                {{ in_array($candidate['id'], $accepted_candidate_ids, true) ? 'Selected' : 'Add' }}
+                                {{ in_array($candidate['id'], $accepted_candidate_ids, true) ? __('operator.setup.selected') : __('operator.setup.add') }}
                             </button>
                         </li>
                     @endforeach
                 </ul>
                 @endif
-                <p class="mt-3 text-xs text-gray-400">Public Discovery stays empty until a real discovery run exists.</p>
+                <p class="mt-3 text-xs text-gray-400">{{ __('operator.setup.discovery_empty_note') }}</p>
             </div>
 
             <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Conflicts</h3>
+                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ __('operator.setup.conflicts') }}</h3>
                 @if ($conflicts === [])
-                    <p class="mt-3 text-sm text-gray-500">No public identity conflicts.</p>
+                    <p class="mt-3 text-sm text-gray-500">{{ __('operator.setup.no_conflicts') }}</p>
                 @else
                 <ul class="mt-3 space-y-2">
                     @foreach ($conflicts as $conflict)
                         <li class="flex flex-wrap items-center justify-between gap-2">
                             <div>
                                 <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $conflict['field'] }}</p>
-                                <p class="text-xs text-gray-500">{{ $conflict['state'] }} · not batch-accepted</p>
+                                <p class="text-xs text-gray-500">{{ $conflict['state'] }} · {{ __('operator.setup.not_batch') }}</p>
                             </div>
                             <button type="button" wire:click="openConflict('{{ $conflict['id'] }}')" class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Review</button>
                         </li>
@@ -314,29 +314,29 @@
     {{-- STEP 6 SUMMARY --}}
     @if ($step === 6)
         <section class="rounded-xl bg-white p-6 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-            <h2 class="text-xl font-bold text-gray-900 dark:text-white">{{ $summary['brand'] }} is ready</h2>
-            <p class="mt-1 text-sm text-gray-500">Setup incomplete ≠ Brand unhealthy.</p>
+            <h2 class="text-xl font-bold text-gray-900 dark:text-white">{{ __('operator.setup.ready', ['brand' => $summary['brand']]) }}</h2>
+            <p class="mt-1 text-sm text-gray-500">{{ __('operator.setup.incomplete_not_unhealthy') }}</p>
             <dl class="mt-5 space-y-3 text-sm">
-                <div class="flex justify-between gap-3 border-b border-gray-100 py-2 dark:border-gray-800"><dt class="text-gray-500">Customer</dt><dd class="font-medium text-gray-900 dark:text-white">{{ $summary['customer'] }} ✓</dd></div>
-                <div class="flex justify-between gap-3 border-b border-gray-100 py-2 dark:border-gray-800"><dt class="text-gray-500">Brand</dt><dd class="font-medium text-gray-900 dark:text-white">{{ $summary['brand'] }} ✓</dd></div>
-                <div class="flex justify-between gap-3 border-b border-gray-100 py-2 dark:border-gray-800"><dt class="text-gray-500">Digital Assets</dt><dd class="font-medium text-gray-900 dark:text-white">{{ $summary['defined_count'] ?? count($summary['assets']) }} defined</dd></div>
+                <div class="flex justify-between gap-3 border-b border-gray-100 py-2 dark:border-gray-800"><dt class="text-gray-500">{{ __('operator.setup.steps.customer') }}</dt><dd class="font-medium text-gray-900 dark:text-white">{{ $summary['customer'] }} ✓</dd></div>
+                <div class="flex justify-between gap-3 border-b border-gray-100 py-2 dark:border-gray-800"><dt class="text-gray-500">{{ __('operator.setup.steps.brand') }}</dt><dd class="font-medium text-gray-900 dark:text-white">{{ $summary['brand'] }} ✓</dd></div>
+                <div class="flex justify-between gap-3 border-b border-gray-100 py-2 dark:border-gray-800"><dt class="text-gray-500">{{ __('operator.setup.steps.assets') }}</dt><dd class="font-medium text-gray-900 dark:text-white">{{ __('operator.setup.defined_count', ['count' => $summary['defined_count'] ?? count($summary['assets'])]) }}</dd></div>
                 @foreach ($summary['assets'] as $type)
                     <div class="flex justify-between gap-3 border-b border-gray-50 py-1.5 dark:border-gray-800/60">
                         <dt class="text-gray-500">{{ $type }}</dt>
-                        <dd class="text-xs font-medium text-gray-600 dark:text-gray-300">Defined</dd>
+                        <dd class="text-xs font-medium text-gray-600 dark:text-gray-300">{{ __('operator.states.defined') }}</dd>
                     </div>
                 @endforeach
-                <div class="flex justify-between gap-3 border-b border-gray-100 py-2 dark:border-gray-800"><dt class="text-gray-500">Google</dt><dd class="font-medium text-gray-900 dark:text-white">{{ $summary['google'] ?? 'Not configured' }}</dd></div>
-                <div class="flex justify-between gap-3 py-2"><dt class="text-gray-500">Meta</dt><dd class="font-medium text-gray-900 dark:text-white">{{ $summary['meta'] ?? 'Not configured' }}</dd></div>
+                <div class="flex justify-between gap-3 border-b border-gray-100 py-2 dark:border-gray-800"><dt class="text-gray-500">Google</dt><dd class="font-medium text-gray-900 dark:text-white">{{ $summary['google'] ?? __('operator.states.not_configured') }}</dd></div>
+                <div class="flex justify-between gap-3 py-2"><dt class="text-gray-500">Meta</dt><dd class="font-medium text-gray-900 dark:text-white">{{ $summary['meta'] ?? __('operator.states.not_configured') }}</dd></div>
                 @if ($summary['conflicts_open'] > 0)
-                    <div class="flex justify-between gap-3 py-2"><dt class="text-gray-500">Review remaining</dt><dd class="font-medium text-amber-700 dark:text-amber-300">{{ $summary['conflicts_open'] }} public identity conflict(s)</dd></div>
+                    <div class="flex justify-between gap-3 py-2"><dt class="text-gray-500">{{ __('operator.setup.review_remaining') }}</dt><dd class="font-medium text-amber-700 dark:text-amber-300">{{ __('operator.setup.conflicts_open', ['count' => $summary['conflicts_open']]) }}</dd></div>
                 @endif
             </dl>
             <div class="mt-6 flex flex-wrap gap-2">
-                <a href="{{ route('operator.brand', ['brand' => $summary['brand_id']]) }}" wire:navigate class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white">Open Brand</a>
-                <a href="{{ route('operator.dashboard') }}" wire:navigate class="rounded-lg px-4 py-2 text-sm font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">Go to Dashboard</a>
+                <a href="{{ route('operator.brand', ['brand' => $summary['brand_id']]) }}" wire:navigate class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white">{{ __('operator.setup.open_brand') }}</a>
+                <a href="{{ route('operator.dashboard') }}" wire:navigate class="rounded-lg px-4 py-2 text-sm font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">{{ __('operator.setup.go_dashboard') }}</a>
                 @if ($summary['conflicts_open'] > 0)
-                    <a href="{{ route('operator.brand', ['brand' => $summary['brand_id'], 'tab' => 'discovery', 'discovery' => 'conflicts']) }}" wire:navigate class="rounded-lg px-4 py-2 text-sm font-medium text-brand-600 hover:underline dark:text-brand-400">Review remaining setup</a>
+                    <a href="{{ route('operator.brand', ['brand' => $summary['brand_id'], 'tab' => 'discovery', 'discovery' => 'conflicts']) }}" wire:navigate class="rounded-lg px-4 py-2 text-sm font-medium text-brand-600 hover:underline dark:text-brand-400">{{ __('operator.setup.review_remaining_setup') }}</a>
                 @endif
             </div>
         </section>
@@ -344,9 +344,9 @@
 
     @if ($step < 6)
         <div class="sticky bottom-3 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-white/95 p-3 shadow-lg ring-1 ring-inset ring-gray-200 backdrop-blur dark:bg-gray-900/95 dark:ring-gray-800">
-            <button type="button" wire:click="back" @disabled($step <= ($entry === 'asset' ? 3 : ($entry === 'brand' ? 2 : 1))) class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 disabled:opacity-40 dark:text-gray-300">Back</button>
+            <button type="button" wire:click="back" @disabled($step <= ($entry === 'asset' ? 3 : ($entry === 'brand' ? 2 : 1))) class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 disabled:opacity-40 dark:text-gray-300">{{ __('operator.forms.back') }}</button>
             <button type="button" wire:click="next" class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white">
-                {{ $step === 5 ? 'Accept selected & finish' : 'Continue' }}
+                {{ $step === 5 ? __('operator.setup.finish') : __('operator.setup.continue') }}
             </button>
         </div>
     @endif
@@ -356,7 +356,7 @@
             <div class="flex h-full w-full max-w-lg flex-col overflow-y-auto bg-white p-5 shadow-xl dark:bg-gray-900" wire:click.stop>
                 <div class="flex items-start justify-between gap-2">
                     <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ $reviewConflict['field'] }}</h2>
-                    <button type="button" wire:click="closeConflict" aria-label="Close">✕</button>
+                    <button type="button" wire:click="closeConflict" aria-label="{{ __('operator.setup.close') }}">✕</button>
                 </div>
                 <div class="mt-4 space-y-2">
                     @foreach ($reviewConflict['values'] as $value)
@@ -367,8 +367,8 @@
                     @endforeach
                 </div>
                 <div class="mt-4 flex flex-wrap gap-2">
-                    <button type="button" wire:click="resolveConflict('{{ $reviewConflict['id'] }}', 'keep_canonical')" class="rounded-lg bg-brand-500 px-3 py-2 text-xs font-medium text-white">Keep canonical</button>
-                    <button type="button" wire:click="resolveConflict('{{ $reviewConflict['id'] }}', 'ignore')" class="rounded-lg px-3 py-2 text-xs font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">Ignore difference</button>
+                    <button type="button" wire:click="resolveConflict('{{ $reviewConflict['id'] }}', 'keep_canonical')" class="rounded-lg bg-brand-500 px-3 py-2 text-xs font-medium text-white">{{ __('operator.setup.keep_canonical') }}</button>
+                    <button type="button" wire:click="resolveConflict('{{ $reviewConflict['id'] }}', 'ignore')" class="rounded-lg px-3 py-2 text-xs font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">{{ __('operator.setup.ignore_difference') }}</button>
                 </div>
             </div>
         </div>

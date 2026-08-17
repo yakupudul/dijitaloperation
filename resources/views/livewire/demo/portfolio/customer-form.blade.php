@@ -51,9 +51,18 @@
                     <x-ta.form.select wire:model.live="hq_country" :options="$countryOptions" :placeholder="__('operator.forms.search_country')" />
                 </x-ta.form.field>
 
-                <x-ta.form.field :label="__('operator.forms.hq_city')" :helper="__('operator.forms.hq_city_help')" :error="$errors->first('hq_city')">
-                    <x-ta.form.select wire:model="hq_city" :options="$cityOptions" :allow-custom="true" :placeholder="__('operator.forms.search_city')" />
+                <x-ta.form.field :label="__('operator.forms.hq_city')" :helper="__('operator.forms.hq_city_help')" :error="$errors->first('hq_city') ?: $errors->first('hq_city_other')">
+                    <div wire:key="hq-city-{{ $hq_country }}">
+                        <x-ta.form.select wire:model.live="hq_city" :options="$cityOptions" :allow-custom="false" :disabled="$hq_country === ''" :placeholder="__('operator.forms.search_city')" />
+                    </div>
                 </x-ta.form.field>
+
+                @if ($showCityOther)
+                    <x-ta.form.field :label="__('operator.forms.city_other_label')" :error="$errors->first('hq_city_other')" class="md:col-span-2">
+                        <input wire:model="hq_city_other" type="text"
+                            class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm shadow-theme-xs outline-none focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                    </x-ta.form.field>
+                @endif
             </div>
         </x-ta.form.section>
 

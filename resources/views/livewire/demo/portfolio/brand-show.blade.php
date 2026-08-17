@@ -58,27 +58,8 @@
         </div>
     </div>
 
-    @if ($tab === 'business')
-        <div class="-mx-1 overflow-x-auto">
-            <div class="flex min-w-max gap-1 border-b border-gray-200 px-1 pb-px dark:border-gray-800" role="tablist" aria-label="{{ __('operator.brand.business_sections') }}">
-                <button type="button" wire:click="setBusinessSection('context')" @class(['rounded-t-lg px-3 py-2 text-sm font-medium border-b-2', 'border-brand-500 text-brand-600 dark:text-brand-400' => $businessSection === 'context', 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-white/90' => $businessSection !== 'context'])>{{ __('operator.brand.business_context') }}</button>
-                <button type="button" wire:click="setBusinessSection('discovery')" @class(['rounded-t-lg px-3 py-2 text-sm font-medium border-b-2', 'border-brand-500 text-brand-600 dark:text-brand-400' => $businessSection === 'discovery', 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-white/90' => $businessSection !== 'discovery'])>{{ __('operator.brand.public_discovery') }}</button>
-            </div>
-        </div>
-    @endif
-
-    @if ($tab === 'estate')
-        <div class="-mx-1 overflow-x-auto">
-            <div class="flex min-w-max gap-1 border-b border-gray-200 px-1 pb-px dark:border-gray-800" role="tablist" aria-label="{{ __('operator.brand.estate_sections') }}">
-                <button type="button" wire:click="setEstateSection('assets')" @class(['rounded-t-lg px-3 py-2 text-sm font-medium border-b-2', 'border-brand-500 text-brand-600 dark:text-brand-400' => $estateSection === 'assets', 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-white/90' => $estateSection !== 'assets'])>{{ __('operator.brand.estate_assets') }}</button>
-                <button type="button" wire:click="setEstateSection('cross_channel')" @class(['rounded-t-lg px-3 py-2 text-sm font-medium border-b-2', 'border-brand-500 text-brand-600 dark:text-brand-400' => $estateSection === 'cross_channel', 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-white/90' => $estateSection !== 'cross_channel'])>{{ __('operator.brand.estate_cross_channel') }}</button>
-            </div>
-        </div>
-    @endif
-
-    {{-- Tabs --}}
     <div class="-mx-1 overflow-x-auto">
-        <div class="flex min-w-max gap-1 border-b border-gray-200 px-1 pb-px dark:border-gray-800" role="tablist" aria-label="Brand workspace">
+        <div class="flex min-w-max gap-1 border-b border-gray-200 px-1 pb-px dark:border-gray-800" role="tablist" aria-label="{{ __('operator.brand.workspace') }}">
             @foreach ($tabs as $key => $label)
                 <button
                     type="button"
@@ -94,6 +75,26 @@
             @endforeach
         </div>
     </div>
+
+    @if ($tab === 'business')
+        <div class="rounded-xl border border-gray-200 bg-gray-50/80 p-3 dark:border-gray-800 dark:bg-white/[0.03]" data-brand-business-subnav>
+            <p class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">{{ __('operator.brand.tabs.business') }}</p>
+            <div class="flex flex-wrap gap-1 border-l-2 border-brand-200 pl-3 dark:border-brand-500/40" role="tablist" aria-label="{{ __('operator.brand.business_subnav') }}">
+                <button type="button" wire:click="setBusinessSection('context')" @class(['rounded-lg px-3 py-1.5 text-sm font-medium', 'bg-white text-brand-600 ring-1 ring-inset ring-brand-200 dark:bg-gray-900 dark:text-brand-400 dark:ring-brand-500/40' => $businessSection === 'context', 'text-gray-500 hover:text-gray-800 dark:hover:text-white/90' => $businessSection !== 'context'])>{{ __('operator.brand.business_context') }}</button>
+                <button type="button" wire:click="setBusinessSection('discovery')" @class(['rounded-lg px-3 py-1.5 text-sm font-medium', 'bg-white text-brand-600 ring-1 ring-inset ring-brand-200 dark:bg-gray-900 dark:text-brand-400 dark:ring-brand-500/40' => $businessSection === 'discovery', 'text-gray-500 hover:text-gray-800 dark:hover:text-white/90' => $businessSection !== 'discovery'])>{{ __('operator.brand.public_discovery') }}</button>
+            </div>
+        </div>
+    @endif
+
+    @if ($tab === 'estate')
+        <div class="rounded-xl border border-gray-200 bg-gray-50/80 p-3 dark:border-gray-800 dark:bg-white/[0.03]">
+            <p class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">{{ __('operator.brand.tabs.estate') }}</p>
+            <div class="flex flex-wrap gap-1 border-l-2 border-brand-200 pl-3 dark:border-brand-500/40" role="tablist" aria-label="{{ __('operator.brand.estate_sections') }}">
+                <button type="button" wire:click="setEstateSection('assets')" @class(['rounded-lg px-3 py-1.5 text-sm font-medium', 'bg-white text-brand-600 ring-1 ring-inset ring-brand-200 dark:bg-gray-900 dark:text-brand-400 dark:ring-brand-500/40' => $estateSection === 'assets', 'text-gray-500 hover:text-gray-800 dark:hover:text-white/90' => $estateSection !== 'assets'])>{{ __('operator.brand.estate_assets') }}</button>
+                <button type="button" wire:click="setEstateSection('cross_channel')" @class(['rounded-lg px-3 py-1.5 text-sm font-medium', 'bg-white text-brand-600 ring-1 ring-inset ring-brand-200 dark:bg-gray-900 dark:text-brand-400 dark:ring-brand-500/40' => $estateSection === 'cross_channel', 'text-gray-500 hover:text-gray-800 dark:hover:text-white/90' => $estateSection !== 'cross_channel'])>{{ __('operator.brand.estate_cross_channel') }}</button>
+            </div>
+        </div>
+    @endif
 
     {{-- OVERVIEW --}}
     @if ($tab === 'overview')
@@ -186,7 +187,7 @@
                 </div>
                 <div class="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                     @foreach ($assets as $asset)
-                        <a href="{{ route($asset['route']) }}" wire:navigate class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 transition hover:bg-gray-50 dark:bg-gray-800 dark:ring-gray-700 dark:hover:bg-white/[0.03]">
+                        <a href="{{ $asset['url'] }}" wire:navigate class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 transition hover:bg-gray-50 dark:bg-gray-800 dark:ring-gray-700 dark:hover:bg-white/[0.03]">
                             <div class="flex items-start justify-between gap-2">
                                 <div class="flex min-w-0 items-start gap-2.5">
                                     <x-demo.digital-asset-mark :type="$asset['type']" :asset="$asset" size="sm" />
@@ -234,7 +235,7 @@
                 <section class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
                     <div class="flex items-center justify-between gap-2">
                         <h2 class="text-base font-semibold text-gray-900 dark:text-white">Cross-channel</h2>
-                        <button type="button" wire:click="setTab('cross_channel')" class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Open</button>
+                        <button type="button" wire:click="setTab('cross_channel')" class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">{{ __('operator.actions.open') }}</button>
                     </div>
                     <ul class="mt-3 space-y-2">
                         @forelse ($crossChannel as $check)
@@ -364,7 +365,7 @@
                                 <td class="px-4 py-3 text-sm tabular-nums text-gray-700 dark:text-gray-300">{{ $asset['open_findings'] ?? 0 }}</td>
                                 <td class="px-4 py-3 text-sm tabular-nums text-gray-700 dark:text-gray-300">{{ $asset['open_tasks'] ?? 0 }}</td>
                                 <td class="px-4 py-3 text-right">
-                                    <a href="{{ route($asset['route']) }}" wire:navigate class="inline-flex rounded-lg px-3 py-1.5 text-xs font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">Open</a>
+                                    <a href="{{ $asset['url'] }}" wire:navigate class="inline-flex rounded-lg px-3 py-1.5 text-xs font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">{{ __('operator.actions.open') }}</a>
                                 </td>
                             </tr>
                         @empty
@@ -424,7 +425,7 @@
                                 <td class="px-4 py-3 text-sm tabular-nums">{{ $check['open_findings'] }}</td>
                                 <td class="px-4 py-3 text-right">
                                     @if (! empty($check['route']))
-                                        <a href="{{ route($check['route']) }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Open</a>
+                                        <a href="{{ route($check['route']) }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">{{ __('operator.actions.open') }}</a>
                                     @else
                                         <span class="text-xs text-gray-400">—</span>
                                     @endif
@@ -675,7 +676,7 @@
                                     <td class="px-4 py-3 text-sm text-gray-500">{{ $finding['asset'] }}</td>
                                     <td class="px-4 py-3 text-sm text-gray-500">{{ $finding['status'] }}</td>
                                     <td class="px-4 py-3 text-sm text-gray-500">{{ $finding['detected'] }}</td>
-                                    <td class="px-4 py-3 text-right"><a href="{{ route('operator.findings') }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline">Open</a></td>
+                                    <td class="px-4 py-3 text-right"><a href="{{ route('operator.findings') }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline">{{ __('operator.actions.open') }}</a></td>
                                 </tr>
                             @endforeach
                         </tbody>
@@ -794,7 +795,7 @@
                                         @if ($isBlocked)<span class="text-error-600"> · blocked</span>@endif
                                     </p>
                                 </div>
-                                <a href="{{ route('operator.task', ['taskId' => $task['id']]) }}" wire:navigate class="inline-flex rounded-lg px-3 py-1.5 text-xs font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">Open</a>
+                                <a href="{{ route('operator.task', ['taskId' => $task['id']]) }}" wire:navigate class="inline-flex rounded-lg px-3 py-1.5 text-xs font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">{{ __('operator.actions.open') }}</a>
                             </div>
                         </div>
                     @endforeach

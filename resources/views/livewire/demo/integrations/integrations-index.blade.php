@@ -69,7 +69,7 @@
 
                         <p class="mt-3 text-xs text-gray-500">{{ __('operator.integrations_ui.last_check') }} · {{ $provider['last_check'] }}</p>
                         @if (($provider['dependent_assets'] ?? 0) > 0)
-                            <p class="mt-1 text-xs text-gray-500">{{ $provider['dependent_assets'] }} dependent Digital Assets</p>
+                            <p class="mt-1 text-xs text-gray-500">{{ __('operator.integrations_ui.dependent_assets', ['count' => $provider['dependent_assets']]) }}</p>
                         @endif
 
                         <div class="mt-4">

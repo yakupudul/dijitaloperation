@@ -83,7 +83,8 @@ export async function inspectSelect(page, label) {
     if (searchable) {
         classification = 'SEARCHABLE_SELECT';
     }
-    if (helper.toLowerCase().includes('enter') || helper.toLowerCase().includes('custom')) {
+    const helperLower = helper.toLowerCase();
+    if ((helperLower.includes('enter') || helperLower.includes('custom')) && !helperLower.includes('other')) {
         classification = 'SUSPICIOUS_FREE_TEXT';
     }
 

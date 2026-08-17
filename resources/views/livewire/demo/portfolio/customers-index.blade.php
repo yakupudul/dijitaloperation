@@ -27,69 +27,69 @@
                     class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm shadow-theme-xs outline-none focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
             </div>
             <div class="flex flex-wrap gap-2">
-                <select wire:model.live="status" class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" aria-label="Status">
-                    <option value="">Status</option>
+                <select wire:model.live="status" class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" aria-label="{{ __('operator.forms.status') }}">
+                    <option value="">{{ __('operator.forms.status') }}</option>
                     @foreach ($statusOptions as $value => $label)
                         <option value="{{ $value }}">{{ $label }}</option>
                     @endforeach
                 </select>
-                <select wire:model.live="type" class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" aria-label="Type">
-                    <option value="">Type</option>
+                <select wire:model.live="type" class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" aria-label="{{ __('operator.forms.type') }}">
+                    <option value="">{{ __('operator.forms.type') }}</option>
                     @foreach ($typeOptions as $value => $label)
                         <option value="{{ $value }}">{{ $label }}</option>
                     @endforeach
                 </select>
-                <select wire:model.live="industry" class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" aria-label="Industry">
-                    <option value="">Industry</option>
+                <select wire:model.live="industry" class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" aria-label="{{ __('operator.forms.industry') }}">
+                    <option value="">{{ __('operator.forms.industry') }}</option>
                     @foreach ($industryOptions as $value => $label)
                         <option value="{{ $value }}">{{ $label }}</option>
                     @endforeach
                 </select>
-                <select wire:model.live="hq_country" class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" aria-label="HQ country">
-                    <option value="">HQ country</option>
+                <select wire:model.live="hq_country" class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" aria-label="{{ __('operator.forms.hq_country') }}">
+                    <option value="">{{ __('operator.forms.hq_country') }}</option>
                     @foreach ($countryOptions as $value => $label)
                         <option value="{{ $value }}">{{ $label }}</option>
                     @endforeach
                 </select>
-                <select wire:model.live="responsible" class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" aria-label="Responsible team member">
-                    <option value="">Responsible</option>
+                <select wire:model.live="responsible" class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" aria-label="{{ __('operator.forms.responsible_team') }}">
+                    <option value="">{{ __('operator.forms.responsible') }}</option>
                     @foreach ($teamOptions as $value => $label)
                         <option value="{{ $value }}">{{ $label }}</option>
                     @endforeach
                 </select>
-                <select wire:model.live="service" class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" aria-label="Service">
-                    <option value="">Service</option>
+                <select wire:model.live="service" class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" aria-label="{{ __('operator.forms.service') }}">
+                    <option value="">{{ __('operator.forms.service') }}</option>
                     @foreach ($serviceOptions as $value => $label)
                         <option value="{{ $value }}">{{ $label }}</option>
                     @endforeach
                 </select>
-                <select wire:model.live="attention" class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" aria-label="Attention">
-                    <option value="">Attention</option>
-                    <option value="needs_attention">Needs attention</option>
-                    <option value="clear">Clear</option>
+                <select wire:model.live="attention" class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" aria-label="{{ __('operator.forms.attention') }}">
+                    <option value="">{{ __('operator.forms.attention') }}</option>
+                    <option value="needs_attention">{{ __('operator.forms.needs_attention') }}</option>
+                    <option value="clear">{{ __('operator.forms.clear') }}</option>
                 </select>
             </div>
         </div>
 
         @if ($hasFilters)
             <div class="mt-3 flex flex-wrap items-center gap-2">
-                <span class="text-xs text-gray-500">Active filters</span>
-                @if ($search !== '') <x-ta.badge color="light" size="sm">Search: {{ $search }}</x-ta.badge> @endif
+                <span class="text-xs text-gray-500">{{ __('operator.forms.active_filters') }}</span>
+                @if ($search !== '') <x-ta.badge color="light" size="sm">{{ __('operator.forms.search') }}: {{ $search }}</x-ta.badge> @endif
                 @if ($status !== '') <x-ta.badge color="light" size="sm">{{ $statusOptions[$status] ?? $status }}</x-ta.badge> @endif
                 @if ($type !== '') <x-ta.badge color="light" size="sm">{{ $typeOptions[$type] ?? $type }}</x-ta.badge> @endif
                 @if ($industry !== '') <x-ta.badge color="light" size="sm">{{ $industryOptions[$industry] ?? $industry }}</x-ta.badge> @endif
                 @if ($hq_country !== '') <x-ta.badge color="light" size="sm">{{ $countryOptions[$hq_country] ?? $hq_country }}</x-ta.badge> @endif
                 @if ($responsible !== '') <x-ta.badge color="light" size="sm">{{ $teamOptions[$responsible] ?? $responsible }}</x-ta.badge> @endif
                 @if ($service !== '') <x-ta.badge color="light" size="sm">{{ $serviceOptions[$service] ?? $service }}</x-ta.badge> @endif
-                @if ($attention !== '') <x-ta.badge color="light" size="sm">{{ $attention === 'needs_attention' ? 'Needs attention' : 'Clear' }}</x-ta.badge> @endif
-                <button type="button" wire:click="clearFilters" class="text-xs font-medium text-brand-600 hover:underline">Clear all</button>
+                @if ($attention !== '') <x-ta.badge color="light" size="sm">{{ $attention === 'needs_attention' ? __('operator.forms.needs_attention') : __('operator.forms.clear') }}</x-ta.badge> @endif
+                <button type="button" wire:click="clearFilters" class="text-xs font-medium text-brand-600 hover:underline">{{ __('operator.forms.clear_all') }}</button>
             </div>
         @endif
 
         <div class="mt-3">
             <label class="inline-flex items-center gap-2 text-xs text-gray-500">
                 <input type="checkbox" wire:model.live="showOptionalColumns" class="rounded border-gray-300 text-brand-500 focus:ring-brand-500" />
-                Show optional columns
+                {{ __('operator.forms.show_optional_columns') }}
             </label>
         </div>
     </div>
@@ -107,11 +107,11 @@
     @elseif (count($customers) === 0)
         <x-ta.card>
             @include('livewire.demo.partials.empty-panel', [
-                'title' => 'No customers match these filters.',
-                'message' => 'Adjust or clear filters to see customers again.',
+                'title' => __('operator.forms.no_match_filters'),
+                'message' => __('operator.forms.adjust_filters'),
             ])
             <div class="mt-4">
-                <button type="button" wire:click="clearFilters" class="inline-flex rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600">Clear filters</button>
+                <button type="button" wire:click="clearFilters" class="inline-flex rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600">{{ __('operator.forms.clear_filters') }}</button>
             </div>
         </x-ta.card>
     @else
@@ -119,18 +119,18 @@
             <table class="min-w-full divide-y divide-gray-100 dark:divide-gray-800">
                 <thead class="bg-gray-50 dark:bg-white/[0.02]">
                     <tr>
-                        <th class="px-4 py-3 text-left"><button type="button" wire:click="sortBy('name')" class="text-xs font-medium uppercase text-gray-400">Customer</button></th>
-                        <th class="hidden px-4 py-3 text-left md:table-cell"><button type="button" wire:click="sortBy('industry')" class="text-xs font-medium uppercase text-gray-400">Industry</button></th>
-                        <th class="hidden px-4 py-3 text-left lg:table-cell"> <span class="text-xs font-medium uppercase text-gray-400">HQ</span></th>
-                        <th class="px-4 py-3 text-left"><button type="button" wire:click="sortBy('brands')" class="text-xs font-medium uppercase text-gray-400">Brands</button></th>
-                        <th class="px-4 py-3 text-left"><button type="button" wire:click="sortBy('findings')" class="text-xs font-medium uppercase text-gray-400">Open findings</button></th>
-                        <th class="px-4 py-3 text-left"><button type="button" wire:click="sortBy('tasks')" class="text-xs font-medium uppercase text-gray-400">Open tasks</button></th>
+                        <th class="px-4 py-3 text-left"><button type="button" wire:click="sortBy('name')" class="text-xs font-medium uppercase text-gray-400">{{ __('operator.directory.customer') }}</button></th>
+                        <th class="hidden px-4 py-3 text-left md:table-cell"><button type="button" wire:click="sortBy('industry')" class="text-xs font-medium uppercase text-gray-400">{{ __('operator.directory.industry') }}</button></th>
+                        <th class="hidden px-4 py-3 text-left lg:table-cell"> <span class="text-xs font-medium uppercase text-gray-400">{{ __('operator.directory.hq') }}</span></th>
+                        <th class="px-4 py-3 text-left"><button type="button" wire:click="sortBy('brands')" class="text-xs font-medium uppercase text-gray-400">{{ __('operator.directory.brands') }}</button></th>
+                        <th class="px-4 py-3 text-left"><button type="button" wire:click="sortBy('findings')" class="text-xs font-medium uppercase text-gray-400">{{ __('operator.directory.open_findings') }}</button></th>
+                        <th class="px-4 py-3 text-left"><button type="button" wire:click="sortBy('tasks')" class="text-xs font-medium uppercase text-gray-400">{{ __('operator.directory.open_tasks') }}</button></th>
                         @if ($showOptionalColumns)
-                            <th class="hidden px-4 py-3 text-left xl:table-cell"><span class="text-xs font-medium uppercase text-gray-400">Team</span></th>
-                            <th class="hidden px-4 py-3 text-left xl:table-cell"><button type="button" wire:click="sortBy('service_started')" class="text-xs font-medium uppercase text-gray-400">Service start</button></th>
-                            <th class="hidden px-4 py-3 text-left xl:table-cell"><span class="text-xs font-medium uppercase text-gray-400">Assets</span></th>
+                            <th class="hidden px-4 py-3 text-left xl:table-cell"><span class="text-xs font-medium uppercase text-gray-400">{{ __('operator.directory.team') }}</span></th>
+                            <th class="hidden px-4 py-3 text-left xl:table-cell"><button type="button" wire:click="sortBy('service_started')" class="text-xs font-medium uppercase text-gray-400">{{ __('operator.directory.service_start') }}</button></th>
+                            <th class="hidden px-4 py-3 text-left xl:table-cell"><span class="text-xs font-medium uppercase text-gray-400">{{ __('operator.directory.assets') }}</span></th>
                         @endif
-                        <th class="px-4 py-3 text-left"><span class="text-xs font-medium uppercase text-gray-400">Status</span></th>
+                        <th class="px-4 py-3 text-left"><span class="text-xs font-medium uppercase text-gray-400">{{ __('operator.directory.status') }}</span></th>
                         <th class="px-4 py-3"></th>
                     </tr>
                 </thead>
@@ -152,7 +152,7 @@
                             <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
                                 {{ $customer['open_tasks'] }}
                                 @if (($customer['overdue_tasks'] ?? 0) > 0)
-                                    <span class="text-xs text-amber-600 dark:text-amber-400">· {{ $customer['overdue_tasks'] }} overdue</span>
+                                    <span class="text-xs text-amber-600 dark:text-amber-400">· {{ $customer['overdue_tasks'] }} {{ __('operator.forms.overdue') }}</span>
                                 @endif
                             </td>
                             @if ($showOptionalColumns)
@@ -167,7 +167,7 @@
                             </td>
                             <td class="px-4 py-3 text-right">
                                 <a href="{{ route('operator.customer', ['customerId' => $customer['id']]) }}" wire:navigate
-                                    class="inline-flex rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">Open</a>
+                                    class="inline-flex rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">{{ __('operator.actions.open') }}</a>
                             </td>
                         </tr>
                     @endforeach

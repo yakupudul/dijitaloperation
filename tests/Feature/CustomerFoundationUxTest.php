@@ -14,7 +14,9 @@ use App\Models\Brand;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\User;
+use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Support\Options\AgencyServiceOptions;
+use App\Support\Options\CityOptions;
 use App\Support\Options\CmsOptions;
 use App\Support\Options\CountryOptions;
 use App\Support\Options\IndustryOptions;
@@ -78,7 +80,7 @@ class CustomerFoundationUxTest extends TestCase
             ->set('industry', 'dental')
             ->assertSee('Horizon Clinics')
             ->set('hq_country', 'TR')
-            ->assertSee('No customers match these filters');
+            ->assertSee(__('operator.forms.no_match_filters'));
     }
 
     public function test_customer_create_validates_and_persists_canonical_customer(): void
@@ -271,5 +273,62 @@ class CustomerFoundationUxTest extends TestCase
         $this->get(route('operator.asset.create', ['brandId' => $brand->id]))->assertOk()->assertSee('Add digital asset');
         $this->get(route('operator.customer', ['customerId' => 'c-demo-atlas']))->assertNotFound();
         $this->get(route('operator.brand', ['brand' => 'atlas-dental']))->assertNotFound();
+    }
+
+    public function test_hq_city_clears_when_country_changes_to_incompatible_catalog(): void
+    {
+        Livewire::test(CustomerCreate::class)
+            ->set('hq_country', 'TR')
+            ->set('hq_city', 'Istanbul')
+            ->assertSet('hq_city', 'Istanbul')
+            ->set('hq_country', 'DE')
+            ->assertSet('hq_city', '')
+            ->assertSet('hq_city_other', '');
+    }
+
+    public function test_hq_city_keeps_compatible_catalog_value_when_country_unchanged(): void
+    {
+        Livewire::test(CustomerCreate::class)
+            ->set('hq_country', 'TR')
+            ->set('hq_city', 'Istanbul')
+            ->set('hq_country', 'TR')
+            ->assertSet('hq_city', 'Istanbul');
+    }
+
+    public function test_hq_city_other_persists_manual_entry_not_other_token(): void
+    {
+        Livewire::test(CustomerCreate::class)
+            ->set('name', 'City Other Client')
+            ->set('type', 'company')
+            ->set('status', 'active')
+            ->set('hq_country', 'TR')
+            ->set('hq_city', CityOptions::OTHER)
+            ->set('hq_city_other', 'Canakkale')
+            ->call('save')
+            ->assertHasNoErrors()
+            ->assertRedirect();
+
+        $created = Customer::query()->where('name', 'City Other Client')->first();
+        $this->assertNotNull($created);
+        $this->assertSame('Canakkale', $created->hq_city);
+        $this->assertNotSame(CityOptions::OTHER, $created->hq_city);
+    }
+
+    public function test_specialist_open_url_includes_canonical_asset_id(): void
+    {
+        $customer = Customer::factory()->create();
+        $brand = Brand::factory()->create(['customer_id' => $customer->id]);
+
+        foreach (['website', 'google_business_profile', 'google_ads', 'meta_ads', 'ga4', 'gsc'] as $type) {
+            $asset = DigitalAsset::factory()->create([
+                'brand_id' => $brand->id,
+                'type' => $type,
+                'name' => 'Open '.$type,
+            ]);
+            $presented = OperatorPortfolioPresenter::asset($asset->fresh(['brand.customer']));
+            $this->assertSame(['assetId' => $asset->id], $presented['route_params']);
+            $this->assertStringContainsString('/'.$asset->id, parse_url($presented['url'], PHP_URL_PATH) ?: '');
+            $this->assertDoesNotMatchRegularExpression('#/assets/(website|gbp|google-ads|meta|analytics|search-console)$#', parse_url($presented['url'], PHP_URL_PATH) ?: '');
+        }
     }
 }

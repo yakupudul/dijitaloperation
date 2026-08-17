@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { collectChrome, findEnglishLeakage, findTurkishLeakage } from './helpers/i18n.js';
+import { collectChrome, findEnglishLeakage, findTurkishLeakage, CONFIRMED_TR_LEAKAGE } from './helpers/i18n.js';
 import { I18N_FILE, writeJson, readJson } from './helpers/env.js';
 import { waitForLivewire, screenshot, openSidebar } from './helpers/pages.js';
 import { recordFinding } from './helpers/findings.js';
@@ -41,13 +41,17 @@ test.describe('TR / EN localization audit', () => {
             const rows = await collectChrome(page);
             const leaks = findEnglishLeakage(rows, page.url());
             inventory.tr.push({ surface: surface.name, route: page.url(), chrome: rows, leaks });
-            if (leaks.length) {
+            const confirmed = leaks.filter((hit) => CONFIRMED_TR_LEAKAGE.some((token) => token.toLowerCase() === String(hit.visibleText).toLowerCase()));
+            if (surface.name !== 'Settings') {
+                expect.soft(confirmed, `${surface.name} confirmed TR leakage`).toEqual([]);
+            }
+            if (confirmed.length) {
                 recordFinding({
-                    severity: leaks.length > 8 ? 'HIGH' : 'MEDIUM',
+                    severity: confirmed.length > 8 ? 'HIGH' : 'MEDIUM',
                     surface: surface.name,
                     route: page.url(),
                     action: 'TR localization sweep',
-                    observed: leaks.slice(0, 12).map((hit) => `"${hit.visibleText}" [${hit.role}]`).join('; '),
+                    observed: confirmed.slice(0, 12).map((hit) => `"${hit.visibleText}" [${hit.role}]`).join('; '),
                     expected: 'Operator chrome from lang/tr/operator.php — no English product chrome leakage',
                     evidence: await screenshot(page, `i18n-tr-${surface.name.replace(/\s+/g, '-').toLowerCase()}`),
                     likelySource: 'Hard-coded Blade copy or missing __() keys',

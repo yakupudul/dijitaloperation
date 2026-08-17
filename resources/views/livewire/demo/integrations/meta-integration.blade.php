@@ -28,7 +28,7 @@
         <div class="flex flex-wrap gap-2">
             <x-ta.button href="{{ route('operator.integrations') }}" size="sm" variant="outline">All Integrations</x-ta.button>
             @if (! ($integration['actions']['authorize'] ?? false) && ! ($integration['actions']['reauthorize'] ?? false))
-                <x-ta.button wire:click="setTab('configuration')" size="sm">Configure</x-ta.button>
+                <x-ta.button wire:click="setTab('configuration')" size="sm">{{ __('operator.integrations_ui.configure') }}</x-ta.button>
             @endif
             @if (($integration['actions']['authorize'] ?? false) && ($integration['auth_status'] ?? '') !== 'connected')
                 @if (! empty($integration['authorize_url']))

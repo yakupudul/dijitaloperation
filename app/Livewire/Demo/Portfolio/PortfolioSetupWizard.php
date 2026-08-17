@@ -454,12 +454,12 @@ class PortfolioSetupWizard extends Component
     public function render(): View
     {
         $steps = [
-            1 => 'Customer',
-            2 => 'Brand',
-            3 => 'Digital Assets',
-            4 => 'Connect',
-            5 => 'Review',
-            6 => 'Summary',
+            1 => __('operator.setup.steps.customer'),
+            2 => __('operator.setup.steps.brand'),
+            3 => __('operator.setup.steps.assets'),
+            4 => __('operator.setup.steps.connect'),
+            5 => __('operator.setup.steps.review'),
+            6 => __('operator.setup.steps.summary'),
         ];
 
         if ($this->entry === 'brand') {
@@ -516,11 +516,11 @@ class PortfolioSetupWizard extends Component
                 'connector' => $type,
                 'label' => $label,
                 'integration' => $type === 'meta_ads' ? 'Meta' : 'Google',
-                'integration_state' => 'Not configured',
+                'integration_state' => __('operator.states.not_configured'),
                 'resources' => [],
                 'selected' => $this->resource_selections[$type] ?? null,
                 'skipped' => ! empty($this->skipped_providers[$type]),
-                'blocker' => 'Configure integration first.',
+                'blocker' => __('operator.setup.configure_first'),
             ];
         }
 
@@ -545,8 +545,8 @@ class PortfolioSetupWizard extends Component
             'accepted' => 0,
             'conflicts_open' => 0,
             'brand_id' => $this->brandId,
-            'google' => 'Not configured',
-            'meta' => 'Not configured',
+            'google' => __('operator.states.not_configured'),
+            'meta' => __('operator.states.not_configured'),
             'defined_count' => count($defined),
         ];
     }

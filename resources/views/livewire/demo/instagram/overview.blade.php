@@ -121,7 +121,7 @@
                                     <p class="font-medium text-gray-800 dark:text-white/90">{{ $asset['name'] }}</p>
                                     <p class="text-xs text-gray-500">{{ $asset['label'] }} · {{ $asset['note'] }}</p>
                                 </div>
-                                <a href="{{ route($asset['route']) }}" wire:navigate class="text-xs font-medium text-brand-600 dark:text-brand-400">{{ __('operator.actions.open') }}</a>
+                                <a href="{{ $asset['url'] ?? \App\Services\Operator\OperatorPortfolioPresenter::specialistHref($asset) }}" wire:navigate class="text-xs font-medium text-brand-600 dark:text-brand-400">{{ __('operator.actions.open') }}</a>
                             </li>
                         @endforeach
                     </ul>

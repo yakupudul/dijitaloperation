@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full overflow-x-hidden">
 
 <head>
     <meta charset="utf-8">
@@ -80,6 +80,7 @@
 </head>
 
 <body
+    class="overflow-x-hidden"
     x-data="{}"
     x-init="$store.sidebar.isExpanded = window.innerWidth >= 1280;
         const checkMobile = () => {
@@ -97,7 +98,7 @@
         @include('operator.layouts.backdrop')
         @include('operator.layouts.sidebar')
 
-        <div class="flex-1 transition-all duration-300 ease-in-out"
+        <div class="flex-1 min-w-0 overflow-x-clip transition-all duration-300 ease-in-out"
             :class="{
                 'xl:ml-[290px]': $store.sidebar.isExpanded || $store.sidebar.isHovered,
                 'xl:ml-[90px]': !$store.sidebar.isExpanded && !$store.sidebar.isHovered,
@@ -105,7 +106,7 @@
             }">
             @include('operator.layouts.header')
 
-            <div class="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">
+            <div class="min-w-0 p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">
                 {{ $slot }}
             </div>
         </div>

@@ -1,10 +1,10 @@
 @php
     $discoverySections = [
-        'overview' => 'Overview',
-        'facts' => 'Observed Facts',
-        'candidates' => 'Candidates',
-        'conflicts' => 'Conflicts',
-        'sources' => 'Sources & History',
+        'overview' => __('operator.brand.discovery.sections.overview'),
+        'facts' => __('operator.brand.discovery.sections.facts'),
+        'candidates' => __('operator.brand.discovery.sections.candidates'),
+        'conflicts' => __('operator.brand.discovery.sections.conflicts'),
+        'sources' => __('operator.brand.discovery.sections.sources'),
     ];
     $pendingCandidates = collect($discoveryCandidates)->where('status', 'pending')->values();
     $resolvedCandidates = collect($discoveryCandidates)->whereIn('status', ['accepted', 'mapped', 'ignored'])->values();
@@ -13,20 +13,21 @@
 <div class="space-y-5">
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Public Discovery</h2>
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ __('operator.brand.discovery.title') }}</h2>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Observe public Brand identity · Compare with canonical Brand Context · Review · Apply
+                {{ __('operator.brand.discovery.subtitle') }}
             </p>
             <p class="mt-1 text-xs text-gray-400">
-                Observed ≠ canonical. Derived ≠ provider fact. No silent Brand Context mutation. No external Website/GBP writes.
+                {{ __('operator.brand.discovery.boundary') }}
             </p>
         </div>
         <button
             type="button"
-            wire:click="runPublicResearch"
-            class="inline-flex rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600"
+            disabled
+            title="{{ __('operator.brand.discovery.unavailable_help') }}"
+            class="inline-flex cursor-not-allowed rounded-lg bg-gray-200 px-4 py-2 text-sm font-medium text-gray-500 dark:bg-gray-800 dark:text-gray-400"
         >
-            Refresh public observations
+            {{ __('operator.brand.discovery.unavailable_action') }}
         </button>
     </div>
 
@@ -48,7 +49,7 @@
 
     @if (($discoveryCandidates ?? []) === [] && ($discoveryFacts ?? []) === [])
         <div class="rounded-xl bg-white p-6 text-sm text-gray-500 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:ring-gray-700">
-            No Public Discovery candidates. Discovery has not run.
+            {{ __('operator.brand.discovery.empty') }}
         </div>
     @else
         {{-- OVERVIEW --}}

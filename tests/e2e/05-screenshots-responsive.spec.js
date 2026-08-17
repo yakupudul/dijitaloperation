@@ -100,18 +100,7 @@ test.describe('Visual evidence and responsive QA', () => {
                 await waitForLivewire(page);
                 await screenshot(page, `${viewport.name}-${target.name}`);
                 const report = await overflowReport(page);
-                if (report.overflowing) {
-                    recordFinding({
-                        severity: 'MEDIUM',
-                        surface: target.name,
-                        route: page.url(),
-                        action: `${viewport.name} ${viewport.size.width}x${viewport.size.height} overflow check`,
-                        observed: `Horizontal overflow scrollWidth=${report.scrollWidth} clientWidth=${report.clientWidth}`,
-                        expected: 'No horizontal overflow of operator chrome',
-                        evidence: `${viewport.name}-${target.name}.png`,
-                        fixScope: 'medium',
-                    });
-                }
+                expect.soft(report.overflowing, `${viewport.name} ${target.name} document overflow scrollWidth=${report.scrollWidth} clientWidth=${report.clientWidth}`).toBeFalsy();
             }
         }
     });

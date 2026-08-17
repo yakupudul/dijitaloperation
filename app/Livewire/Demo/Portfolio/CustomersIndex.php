@@ -158,8 +158,8 @@ class CustomersIndex extends Component
         $customers = $this->filteredCustomers();
         $allCount = Customer::query()->count();
 
-        $typeOptions = collect(CustomerType::cases())->mapWithKeys(fn ($c) => [$c->value => $c->name])->all();
-        $statusOptions = collect(CustomerStatus::cases())->mapWithKeys(fn ($c) => [$c->value => $c->name])->all();
+        $typeOptions = collect(CustomerType::cases())->mapWithKeys(fn ($c) => [$c->value => __('operator.customer.types.'.$c->value)])->all();
+        $statusOptions = collect(CustomerStatus::cases())->mapWithKeys(fn ($c) => [$c->value => __('operator.states.'.$c->value)])->all();
 
         return view('livewire.demo.portfolio.customers-index', [
             'customers' => $customers,

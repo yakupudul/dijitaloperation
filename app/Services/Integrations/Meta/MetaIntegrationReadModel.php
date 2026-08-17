@@ -65,7 +65,7 @@ final class MetaIntegrationReadModel
             'last_check' => $detail['last_check'],
             'dependent_assets' => $detail['dependent_assets'],
             'route' => 'operator.integrations.meta',
-            'manage_label' => ($detail['next_action'] ?? '') === 'configure' ? 'Configure' : 'Manage',
+            'manage_label' => ($detail['next_action'] ?? '') === 'configure' ? __('operator.integrations_ui.configure') : __('operator.integrations_ui.manage'),
             'provenance' => 'real',
             'next_action' => $detail['next_action'],
             'collection_state' => $detail['collection_state'],

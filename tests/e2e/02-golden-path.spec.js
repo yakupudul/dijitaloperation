@@ -42,33 +42,40 @@ test.describe('Customer / Brand / Asset golden path', () => {
         const servicesAudit = { label: 'Services received', present: true, classification: 'MULTISELECT' };
         const teamAudit = { label: 'Responsible team', present: true, classification: 'MULTISELECT' };
 
-        const cityClassification = cityAudit.helper?.toLowerCase().includes('enter')
-            || cityAudit.classification === 'SUSPICIOUS_FREE_TEXT'
-            || cityAudit.allowCustomHint
+        const cityHasOther = (cityAudit.sample || []).some((item) => /other|diğer/i.test(item));
+        const cityClassification = cityAudit.classification === 'SUSPICIOUS_FREE_TEXT' && !cityHasOther
             ? 'SUSPICIOUS_FREE_TEXT'
             : (cityAudit.classification || 'SEARCHABLE_SELECT');
 
-        recordFinding({
-            id: 'QA-E2E-CITY-FIELD',
-            severity: 'MEDIUM',
-            surface: 'Customer form',
-            route: '/app/customers/create',
-            action: 'Audit HQ city widget',
-            observed: `Country=${countryAudit.classification || 'missing'} options=${countryAudit.optionCount}; City helper="${cityAudit.helper}" searchable=${cityAudit.searchable} allowCustom=${cityAudit.allowCustomHint} classified=${cityClassification}`,
-            expected: 'Country controlled; City should be a country-dependent controlled/searchable select when a catalog exists.',
-            evidence: await screenshot(page, 'customer-form-selects'),
-            likelySource: 'resources/views/livewire/demo/portfolio/customer-form.blade.php + CityOptions allow-custom',
-            fixScope: 'small',
-            manualId: 'QA-MANUAL-004',
-        });
-
-        writeJson(SESSION_FILE.replace('session.json', 'form-selects.json'), {
-            typeAudit, statusAudit, industryAudit, countryAudit, cityAudit, servicesAudit, teamAudit, cityClassification,
-        });
+        expect.soft(countryAudit.classification === 'SEARCHABLE_SELECT' || countryAudit.classification === 'CONTROLLED_SELECT').toBeTruthy();
+        expect.soft(cityClassification).not.toBe('SUSPICIOUS_FREE_TEXT');
+        expect.soft(cityAudit.allowCustomHint, 'City must not be silent free-text').toBeFalsy();
 
         await page.getByPlaceholder('Northwind Clinics', { exact: true }).fill(customerName);
         await page.getByPlaceholder('Northwind Clinics Ltd', { exact: true }).fill(legalName);
         await chooseSelect(page, 'Industry', 'Healthcare');
+        await chooseSelect(page, 'HQ country', 'Türkiye');
+        await page.waitForResponse((response) => response.url().includes('/livewire/') && response.ok(), { timeout: 10_000 }).catch(() => {});
+        await page.waitForTimeout(800);
+
+        const cityAfterCountry = await safeInspectSelect(page, 'HQ city');
+        const cityHasIstanbul = (cityAfterCountry.sample || []).some((item) => /istanbul/i.test(item))
+            || (cityAfterCountry.optionCount || 0) > 1;
+        expect.soft(cityAfterCountry.classification).not.toBe('SUSPICIOUS_FREE_TEXT');
+        expect.soft(cityHasIstanbul || (cityAfterCountry.optionCount || 0) > 0).toBeTruthy();
+
+        await screenshot(page, 'customer-form-selects');
+        writeJson(SESSION_FILE.replace('session.json', 'form-selects.json'), {
+            typeAudit, statusAudit, industryAudit, countryAudit, cityAudit, cityAfterCountry, servicesAudit, teamAudit, cityClassification,
+        });
+
+        await chooseSelect(page, 'HQ country', 'Germany');
+        await page.waitForResponse((response) => response.url().includes('/livewire/') && response.ok(), { timeout: 10_000 }).catch(() => {});
+        await page.waitForTimeout(500);
+        const cityButton = page.locator('div.space-y-1\\.5').filter({ has: page.locator('label').filter({ hasText: 'HQ city' }) }).first().getByRole('button').first();
+        const cityLabelAfterCountryChange = ((await cityButton.innerText()) || '').trim();
+        expect.soft(/istanbul/i.test(cityLabelAfterCountryChange)).toBeFalsy();
+
         await chooseSelect(page, 'HQ country', 'Türkiye');
         await page.waitForResponse((response) => response.url().includes('/livewire/') && response.ok(), { timeout: 10_000 }).catch(() => {});
         await page.waitForTimeout(800);
@@ -80,11 +87,8 @@ test.describe('Customer / Brand / Asset golden path', () => {
             await citySearch.fill('Istanbul');
         }
         const istanbul = cityBox.getByRole('option', { name: 'Istanbul' });
-        if (await istanbul.count()) {
-            await istanbul.first().click();
-        } else {
-            await page.keyboard.press('Enter');
-        }
+        await expect(istanbul.first()).toBeVisible();
+        await istanbul.first().click();
         await chooseMultiSelect(page, 'Services received', 'SEO');
         await chooseMultiSelect(page, 'Responsible team', 'QA Final');
 
@@ -99,6 +103,7 @@ test.describe('Customer / Brand / Asset golden path', () => {
         const row = customerByName(customerName);
         expect(row, 'customer persisted in SQLite').toBeTruthy();
         expect(String(row.hq_country)).toBe('TR');
+        expect(String(row.hq_city)).toBe('Istanbul');
 
         const session = readJson(SESSION_FILE, {});
         writeJson(SESSION_FILE, { ...session, customerName, customerId: row.id, brandName });
@@ -189,50 +194,21 @@ test.describe('Customer / Brand / Asset golden path', () => {
 
         await page.getByRole('tab', { name: 'Business' }).click();
         await waitForLivewire(page);
-        const businessNav = page.getByRole('tablist', { name: 'Business sections' });
-        await expect(businessNav.getByRole('button', { name: 'Context' })).toBeVisible();
-        await expect(businessNav.getByRole('button', { name: 'Public Discovery' })).toBeVisible();
+        const businessNav = page.getByRole('tablist', { name: /Business subsections|İşletme alt bölümleri|Business sections/i });
+        await expect(businessNav.getByRole('button', { name: /Context|Bağlam/ }).first()).toBeVisible();
+        await expect(businessNav.getByRole('button', { name: /Public Discovery|Kamusal keşif/i }).first()).toBeVisible();
+        await expect(page.locator('[data-brand-business-subnav]')).toBeVisible();
+        expect(contextVisibleAsTopTab).toBeFalsy();
         await screenshot(page, 'brand-business-context');
 
-        recordFinding({
-            id: 'QA-E2E-BRAND-IA',
-            severity: contextVisibleAsTopTab ? 'HIGH' : 'LOW',
-            surface: 'Brand workspace',
-            route: page.url(),
-            action: 'Inspect Brand / Business navigation',
-            observed: `Top tabs=${JSON.stringify(topTabs.map((t) => t.trim()))}; Business sub-nav Context+Public Discovery visible=${await businessNav.isVisible()}; Context as peer top-tab=${contextVisibleAsTopTab}`,
-            expected: 'Brand → Overview / Business (Context, Public Discovery) / Digital Estate / Growth / Operations / Value',
-            evidence: await screenshot(page, 'brand-business-ia'),
-            likelySource: 'resources/views/livewire/demo/portfolio/brand-show.blade.php — Context/Public Discovery are Business sub-tabs; Overview also exposes a Business context shortcut',
-            fixScope: 'small',
-            manualId: 'QA-MANUAL-005',
-        });
-
-        await businessNav.getByRole('button', { name: 'Public Discovery' }).click();
+        await businessNav.getByRole('button', { name: /Public Discovery|Kamusal keşif/i }).click();
         await waitForLivewire(page);
         await screenshot(page, 'brand-public-discovery');
         const discoveryBody = await page.locator('body').innerText();
-        const empty = /No Public Discovery candidates|has not run/i.test(discoveryBody);
-        const fake = /Atlas|fixture candidate|demo listing/i.test(discoveryBody);
-        if (!empty) {
-            recordFinding({
-                severity: fake ? 'HIGH' : 'MEDIUM',
-                surface: 'Public Discovery',
-                route: page.url(),
-                action: 'Open Public Discovery',
-                observed: fake ? 'Fixture-like copy present' : 'Discovery content present on empty QA portfolio',
-                expected: 'Truthful empty state when discovery has not run; no fixture candidates.',
-                manualId: 'QA-MANUAL-006',
-                fixScope: 'small',
-            });
-        }
-
-        const refresh = page.getByRole('button', { name: 'Refresh public observations' });
-        if (await refresh.count()) {
-            await refresh.click();
-            await waitForLivewire(page);
-            await expect(page.getByText(/has not run|not run/i)).toBeVisible();
-        }
+        expect(discoveryBody).toMatch(/has not run|çalışmadı/i);
+        expect(discoveryBody).not.toMatch(/Atlas|fixture candidate|demo listing/i);
+        await expect(page.getByRole('button', { name: /Live discovery unavailable|Canlı keşif yok/i })).toBeVisible();
+        await expect(page.getByRole('button', { name: 'Refresh public observations' })).toHaveCount(0);
 
         await page.getByRole('link', { name: 'Edit brand' }).click();
         await page.waitForURL(/\/edit/);
@@ -293,75 +269,67 @@ test.describe('Customer / Brand / Asset golden path', () => {
         await waitForLivewire(page);
         await screenshot(page, 'brand-digital-estate');
 
+        const persistedByType = Object.fromEntries(persisted.map((row) => [row.type, row]));
         const openResults = [];
+
         for (const asset of ASSET_TYPES) {
-            const unscoped = asset.specialist;
-            await page.goto(unscoped);
-            const unscopedHints = await pageHttpHints(page);
-            const unscopedEvidence = await screenshot(page, `asset-open-unscoped-${asset.type}`);
+            const record = persistedByType[asset.type];
+            expect(record, `${asset.type} must persist`).toBeTruthy();
+
+            await page.goto('/app/assets');
+            await waitForLivewire(page);
+            const indexRow = page.locator('tr').filter({ hasText: asset.name });
+            await expect(indexRow).toHaveCount(1);
+            const indexHref = await indexRow.getByRole('link', { name: /^(Open|Aç)$/ }).getAttribute('href');
+            expect(indexHref || '', `${asset.type} Digital Assets Open href`).toContain(String(record.id));
+            expect(indexHref || '').not.toMatch(new RegExp(`${asset.specialist}$`));
+            await indexRow.getByRole('link', { name: /^(Open|Aç)$/ }).click();
+            await page.waitForLoadState('domcontentloaded');
+            const indexHints = await pageHttpHints(page);
+            const indexEvidence = await screenshot(page, `asset-open-index-${asset.type}`);
+            expect(indexHints.looks404, `${asset.type} Open from Digital Assets must not 404`).toBeFalsy();
+            expect(indexHints.looks500, `${asset.type} Open from Digital Assets must not 500`).toBeFalsy();
+            expect(page.url()).toContain(String(record.id));
             openResults.push({
                 type: asset.type,
                 name: asset.name,
-                href: unscoped,
+                href: indexHref,
                 finalUrl: page.url(),
-                looks404: unscopedHints.looks404,
-                looks500: unscopedHints.looks500,
-                title: unscopedHints.title,
-                via: 'unscoped-specialist-route',
+                looks404: indexHints.looks404,
+                looks500: indexHints.looks500,
+                title: indexHints.title,
+                via: 'digital-assets-open',
+                evidence: indexEvidence,
             });
-            if (unscopedHints.looks404 || unscopedHints.looks500) {
-                recordFinding({
-                    severity: 'BLOCKER',
-                    surface: 'Digital Assets Open',
-                    route: unscoped,
-                    action: `Open unscoped ${asset.label} specialist URL (same URL generated by route($asset['route']) without assetId)`,
-                    observed: `Navigated to ${page.url()} title=${unscopedHints.title} 404=${unscopedHints.looks404} 500=${unscopedHints.looks500}`,
-                    expected: `Specialist workspace for the persisted asset id, e.g. ${asset.specialist}/{id}`,
-                    evidence: unscopedEvidence,
-                    likelySource: 'OperatorPortfolioPresenter::specialistRoute() passed to route() without assetId',
-                    fixScope: 'small',
-                    manualId: asset.type === 'website' ? 'QA-MANUAL-007' : '',
-                });
-            }
 
             await page.goto(`/app/brands/${brandId}`);
-            await page.getByRole('tab', { name: 'Digital Estate' }).click();
+            await page.getByRole('tab', { name: /Digital Estate|Dijital Ekosistem/ }).click();
             await waitForLivewire(page);
-            const row = page.locator('tr').filter({ hasText: asset.name });
-            if (await row.count()) {
-                const href = await row.getByRole('link', { name: 'Open', exact: true }).getAttribute('href');
-                await row.getByRole('link', { name: 'Open', exact: true }).click();
-                await page.waitForLoadState('domcontentloaded');
-                const hints = await pageHttpHints(page);
-                const evidence = await screenshot(page, `asset-open-${asset.type}`);
-                openResults.push({
-                    type: asset.type,
-                    name: asset.name,
-                    href,
-                    finalUrl: page.url(),
-                    looks404: hints.looks404,
-                    looks500: hints.looks500,
-                    title: hints.title,
-                    via: 'brand-estate-open',
-                });
-                if (hints.looks404 || hints.looks500) {
-                    recordFinding({
-                        severity: 'BLOCKER',
-                        surface: 'Digital Assets Open',
-                        route: href || page.url(),
-                        action: `Click Open on ${asset.label} from Brand Digital Estate`,
-                        observed: `Navigated to ${page.url()} title=${hints.title} 404=${hints.looks404} href=${href}`,
-                        expected: `Specialist workspace for the persisted asset id, e.g. ${asset.specialist}/{id}`,
-                        evidence,
-                        likelySource: 'route($asset[\'route\']) without assetId in brand-show.blade.php',
-                        fixScope: 'small',
-                        manualId: asset.type === 'website' ? 'QA-MANUAL-007' : '',
-                    });
-                }
-                expect.soft(hints.looks404, `${asset.type} Open must not 404`).toBeFalsy();
-            }
-
-            expect.soft(unscopedHints.looks404, `${asset.type} unscoped specialist must not 404`).toBeFalsy();
+            const estateRow = page.locator('tr').filter({ hasText: asset.name });
+            await expect(estateRow).toHaveCount(1);
+            const estateHref = await estateRow.getByRole('link', { name: /^(Open|Aç)$/ }).getAttribute('href');
+            expect(estateHref || '', `${asset.type} Brand Estate Open href`).toContain(String(record.id));
+            await estateRow.getByRole('link', { name: /^(Open|Aç)$/ }).click();
+            await page.waitForLoadState('domcontentloaded');
+            const estateHints = await pageHttpHints(page);
+            const estateEvidence = await screenshot(page, `asset-open-${asset.type}`);
+            expect(estateHints.looks404, `${asset.type} Open from Brand Digital Estate must not 404`).toBeFalsy();
+            expect(estateHints.looks500, `${asset.type} Open from Brand Digital Estate must not 500`).toBeFalsy();
+            expect(page.url()).toContain(String(record.id));
+            const body = await page.locator('body').innerText();
+            expect(body).not.toMatch(/\bAtlas\b/);
+            expect(body).not.toMatch(/fixture intelligence|demo campaign/i);
+            openResults.push({
+                type: asset.type,
+                name: asset.name,
+                href: estateHref,
+                finalUrl: page.url(),
+                looks404: estateHints.looks404,
+                looks500: estateHints.looks500,
+                title: estateHints.title,
+                via: 'brand-estate-open',
+                evidence: estateEvidence,
+            });
         }
 
         writeJson(SESSION_FILE.replace('session.json', 'asset-open.json'), openResults);
@@ -374,34 +342,12 @@ test.describe('Customer / Brand / Asset golden path', () => {
             const canonical = `${spec.specialist}/${row.id}`;
             await page.goto(canonical);
             const hints = await pageHttpHints(page);
-            const evidence = await screenshot(page, `specialist-${row.type}-${row.id}`);
-            if (hints.looks404 || hints.looks500) {
-                recordFinding({
-                    severity: 'BLOCKER',
-                    surface: 'Specialist workspace',
-                    route: canonical,
-                    action: `Open canonical specialist URL for ${row.type} #${row.id}`,
-                    observed: `HTTP-looking failure title=${hints.title}`,
-                    expected: 'Real asset context with truthful not-configured/not-collected state',
-                    evidence,
-                    likelySource: 'specialist Livewire mount / OperatorCanonicalAsset',
-                    fixScope: 'medium',
-                });
-            } else {
-                const body = await page.locator('body').innerText();
-                if (/Atlas|fixture intelligence|demo campaign/i.test(body)) {
-                    recordFinding({
-                        severity: 'HIGH',
-                        surface: 'Specialist workspace',
-                        route: canonical,
-                        action: 'Inspect specialist empty/unconfigured state',
-                        observed: 'Fixture-like copy present without provider configuration',
-                        expected: 'Truthful not-configured / not-collected / unavailable',
-                        evidence,
-                        fixScope: 'medium',
-                    });
-                }
-            }
+            await screenshot(page, `specialist-${row.type}-${row.id}`);
+            expect(hints.looks404, `canonical ${row.type} #${row.id} must not 404`).toBeFalsy();
+            expect(hints.looks500, `canonical ${row.type} #${row.id} must not 500`).toBeFalsy();
+            const body = await page.locator('body').innerText();
+            expect(body).not.toMatch(/\bAtlas\b/);
+            expect(body).not.toMatch(/fixture intelligence|demo campaign/i);
         }
     });
 });
