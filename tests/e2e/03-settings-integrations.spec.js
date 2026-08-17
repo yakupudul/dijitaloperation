@@ -101,6 +101,7 @@ test.describe('Integrations, settings, team', () => {
         await expect(agency).toHaveValue(original);
         setVerdict('Settings', 'PASS', 'General settings persist and restore');
         setVerdict('White-label', 'PASS', 'Agency name write/restore on Settings General');
+    });
 
     test('team & access lists real users and can isolate a temporary member', async ({ page }) => {
         await page.goto('/app/settings');
