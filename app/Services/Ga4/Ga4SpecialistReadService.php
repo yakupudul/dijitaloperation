@@ -309,6 +309,7 @@ final class Ga4SpecialistReadService
             : "GA4 binding {$reason} — no collection state available.";
 
         $unavailableChip = ['value' => '—', 'raw' => null, 'secondary' => 'Unavailable', 'tone' => 'neutral'];
+        $asset = DigitalAsset::query()->with('brand')->find($binding->digitalAssetId);
 
         $data = [
             'period_label' => $bounds['label'],
@@ -319,21 +320,23 @@ final class Ga4SpecialistReadService
             'demo_boundary' => 'Real GA4 workspace · no usable property binding — no live Analytics Data API call performed.',
             'identity' => [
                 'eyebrow' => 'Google Analytics',
-                'title' => $errorMessage !== null ? 'GA4 — read error' : 'GA4 — not connected',
-                'brand' => null,
-                'brand_id' => null,
-                'brand_name' => null,
+                'title' => $errorMessage !== null
+                    ? (($asset?->name ?? 'GA4').' — read error')
+                    : (($asset?->name ?? 'GA4').' — not connected'),
+                'brand' => $asset?->brand?->name,
+                'brand_id' => $asset?->brand_id,
+                'brand_name' => $asset?->brand?->name ?? '—',
                 'website_asset_id' => null,
                 'google_ads_asset_id' => null,
                 'meta_asset_id' => null,
                 'ga4_asset_id' => $binding->assetId,
-                'relationship_line' => null,
+                'relationship_line' => 'Not connected — no GA4 property is bound.',
                 'status' => $statusLabel,
-                'freshness' => null,
+                'freshness' => 'Not collected',
                 'reporting_timezone' => null,
                 'property_id' => null,
                 'measurement_id' => null,
-                'property_name' => null,
+                'property_name' => $asset?->name,
                 'stream_name' => null,
             ],
             'freshness' => [],

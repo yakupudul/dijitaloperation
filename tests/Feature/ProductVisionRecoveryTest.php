@@ -10,6 +10,7 @@ use App\Livewire\Demo\Operations\FindingsIndex;
 use App\Livewire\Demo\Operations\RecommendationsIndex;
 use App\Livewire\Demo\Portfolio\BrandShow;
 use App\Livewire\Demo\SettingsPage;
+use App\Models\Brand;
 use App\Models\DigitalAsset;
 use App\Models\Finding;
 use App\Models\Recommendation;
@@ -18,7 +19,6 @@ use App\Support\Agents\AgentProfileKeys;
 use App\Support\Agents\AgentProfileRegistry;
 use App\Support\Ai\AiRouteKeys;
 use App\Support\Ai\AiRouteRegistry;
-use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
 use App\Support\DigitalAssetTypes;
 use App\Support\DigitalAssetVisualCatalog;
@@ -155,15 +155,17 @@ class ProductVisionRecoveryTest extends TestCase
 
     public function test_brand_business_context_is_editable_as_canonical_source(): void
     {
-        Livewire::test(BrandShow::class, ['brand' => DemoCatalog::BRAND_ID])
+        $brand = Brand::factory()->create(['name' => 'Northwind Brand']);
+
+        Livewire::test(BrandShow::class, ['brand' => (string) $brand->id])
             ->assertOk()
             ->call('startEditingContext')
-            ->set('context_business_summary', 'Updated Atlas Dental canonical summary')
+            ->set('context_business_summary', 'Updated Northwind canonical summary')
             ->call('saveBusinessContext')
-            ->assertSee('Updated Atlas Dental canonical summary');
+            ->assertSee('Updated Northwind canonical summary');
 
-        $saved = DemoState::brandBusinessContext(DemoCatalog::BRAND_ID);
-        $this->assertSame('Updated Atlas Dental canonical summary', $saved['business_summary'] ?? null);
+        $saved = DemoState::brandBusinessContext((string) $brand->id);
+        $this->assertSame('Updated Northwind canonical summary', $saved['business_summary'] ?? null);
     }
 
     public function test_settings_persist_general_and_notification_overrides(): void
@@ -189,9 +191,9 @@ class ProductVisionRecoveryTest extends TestCase
         Livewire::test(Dashboard::class)->assertOk()->assertSee('Needs your attention')->assertSee('My Work');
 
         $this->get('/app/assets')->assertOk();
-        $this->get('/app/assets/analytics')->assertOk();
-        $this->get('/app/assets/search-console')->assertOk();
-        $this->get('/app/assets/gbp')->assertOk();
+        $this->get('/app/assets/analytics')->assertNotFound();
+        $this->get('/app/assets/search-console')->assertNotFound();
+        $this->get('/app/assets/gbp')->assertNotFound();
         $this->get('/app/setup')->assertOk();
         $this->get('/app/integrations/connectors/ga4')->assertOk();
         $this->get('/app/integrations/connectors/gsc')->assertOk();

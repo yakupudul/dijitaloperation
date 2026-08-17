@@ -146,9 +146,10 @@ class WorkShow extends Component
     public function render(): View
     {
         $item = $this->resolveItem();
-        $playbookId = 'pb-weekly-gads';
-        if ($this->type === 'recurring_review' && is_array($item)) {
-            $playbookId = (string) ($item['playbook_stable_key'] ?? $item['playbook_id'] ?? $playbookId);
+        $playbookId = null;
+        if (is_array($item)) {
+            $playbookId = $item['playbook_stable_key'] ?? $item['playbook_id'] ?? null;
+            $playbookId = is_string($playbookId) && $playbookId !== '' ? $playbookId : null;
         }
 
         return view('livewire.demo.operations.work-show', [

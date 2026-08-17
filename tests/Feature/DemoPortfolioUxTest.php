@@ -4,9 +4,10 @@ namespace Tests\Feature;
 
 use App\Livewire\Demo\Portfolio\AssetsIndex;
 use App\Livewire\Demo\Portfolio\BrandShow;
+use App\Models\Brand;
+use App\Models\Customer;
+use App\Models\DigitalAsset;
 use App\Models\User;
-use App\Support\Demo\DemoCatalog;
-use App\Support\Demo\DemoState;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -26,61 +27,64 @@ class DemoPortfolioUxTest extends TestCase
         $user = User::factory()->create();
         $user->assignRole(Roles::ADMIN);
         $this->actingAs($user);
-
-        DemoState::reset();
     }
 
-    public function test_brand_show_research_and_ai_actions_work(): void
+    public function test_brand_show_uses_canonical_brand_without_fixture_discovery(): void
     {
-        Livewire::test(BrandShow::class, ['brand' => DemoCatalog::BRAND_ID])
-            ->assertSee('Needs attention')
+        $customer = Customer::factory()->create(['name' => 'Nova Health Group']);
+        $brand = Brand::factory()->create([
+            'customer_id' => $customer->id,
+            'name' => 'Nova Dental',
+        ]);
+
+        Livewire::test(BrandShow::class, ['brand' => (string) $brand->id])
+            ->assertSee('Nova Dental')
             ->assertSee('Digital estate')
-            ->call('runPublicResearch')
-            ->assertSet('tab', 'business')
-            ->assertSet('businessSection', 'discovery')
-            ->assertSet('discovery', 'overview')
+            ->call('setTab', 'discovery')
             ->assertSee('Public Discovery')
-            ->assertSee('Observed ≠ canonical')
-            ->assertSee('No silent Brand Context mutation')
-            ->call('setDiscovery', 'facts')
-            ->assertSee('Observed Facts')
-            ->assertSee('atlasdental.example')
-            ->call('setDiscovery', 'candidates')
-            ->assertSee('Dental Implant')
-            ->call('runAiBrief')
-            ->assertSet('tab', 'growth')
-            ->assertSee(__('operator.brand.tabs.growth'))
-            ->assertSee('Create recommendation')
-            ->call('createRecommendationFromPriority', 0)
-            ->assertSet('tab', 'operations')
-            ->assertSet('ops', 'recommendations')
-            ->assertSee('Replace underperforming Meta creative');
-
-        $research = DemoState::all()['public_research'] ?? [];
-        $this->assertTrue((bool) ($research['completed'] ?? false));
-        $this->assertSame('atlasdental.example', $research['website'] ?? null);
+            ->assertDontSee('Dental Implant')
+            ->assertDontSee('atlasdental.example')
+            ->assertDontSee('Replace underperforming Meta creative');
     }
 
-    public function test_assets_index_filters_by_role_and_health(): void
+    public function test_assets_index_lists_real_assets_only(): void
     {
+        $customer = Customer::factory()->create();
+        $brand = Brand::factory()->create(['customer_id' => $customer->id, 'name' => 'Nova Dental']);
+        DigitalAsset::factory()->create([
+            'brand_id' => $brand->id,
+            'type' => 'website',
+            'name' => 'Nova Website',
+        ]);
+        DigitalAsset::factory()->create([
+            'brand_id' => $brand->id,
+            'type' => 'meta_ads',
+            'name' => 'Nova Meta',
+        ]);
+
         Livewire::test(AssetsIndex::class)
             ->assertSee('Managed Assets')
             ->assertSee('Digital Estate Directory')
-            ->set('filterRole', 'infrastructure')
-            ->assertSee('DemoHost')
-            ->assertDontSee('Atlas Dental — Meta')
-            ->call('clearFilters')
-            ->set('filterHealth', 'needs_attention')
-            ->assertSee('atlasdental.example')
-            ->assertSee('Atlas Dental — Meta');
+            ->assertSee('Nova Website')
+            ->assertSee('Nova Meta')
+            ->assertDontSee('DemoHost')
+            ->assertDontSee('Atlas Dental — Meta');
     }
 
-    public function test_assets_estate_matrix_marks_missing_as_not_configured(): void
+    public function test_assets_estate_matrix_marks_missing_as_defined_later(): void
     {
+        $customer = Customer::factory()->create();
+        $brand = Brand::factory()->create(['customer_id' => $customer->id, 'name' => 'Nova Dental']);
+        DigitalAsset::factory()->create([
+            'brand_id' => $brand->id,
+            'type' => 'website',
+            'name' => 'Nova Website',
+        ]);
+
         Livewire::test(AssetsIndex::class)
             ->call('setViewMode', 'matrix')
             ->assertSee('Estate Matrix')
-            ->assertSee('Not configured')
-            ->assertSee('Atlas Dental Ankara');
+            ->assertSee('Nova Dental')
+            ->assertDontSee('Atlas Dental Ankara');
     }
 }

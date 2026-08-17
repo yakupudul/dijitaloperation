@@ -8,7 +8,6 @@
                 <h1 class="text-2xl font-bold text-gray-800 dark:text-white/90">{{ $pageTitle }}</h1>
                 <p class="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">{{ $pageSubtitle }}</p>
             </div>
-            @include('livewire.demo.partials.demo-badge')
         </div>
     </div>
 
@@ -16,12 +15,12 @@
         <x-ta.form.section title="Customer identity">
             <div class="grid gap-4 md:grid-cols-2">
                 <x-ta.form.field label="Customer name" :required="true" helper="The name your team uses internally." :error="$errors->first('name')" class="md:col-span-2">
-                    <input wire:model="name" type="text" placeholder="Atlas Health Group"
+                    <input wire:model="name" type="text" placeholder="Northwind Clinics"
                         class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 shadow-theme-xs outline-none focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
                 </x-ta.form.field>
 
                 <x-ta.form.field label="Legal name" helper="Optional commercial / legal title." :error="$errors->first('legal_name')" class="md:col-span-2">
-                    <input wire:model="legal_name" type="text" placeholder="Atlas Health Group Sağlık Hizmetleri A.Ş."
+                    <input wire:model="legal_name" type="text" placeholder="Northwind Clinics Ltd"
                         class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 shadow-theme-xs outline-none focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
                 </x-ta.form.field>
 

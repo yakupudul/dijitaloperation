@@ -4,7 +4,7 @@ namespace App\Livewire\Demo\Portfolio\Concerns;
 
 use App\Enums\CustomerStatus;
 use App\Enums\CustomerType;
-use App\Support\Demo\DemoCatalog;
+use App\Services\Operator\OperatorUserDirectory;
 use App\Support\Options\AgencyServiceOptions;
 use App\Support\Options\CityOptions;
 use App\Support\Options\CountryOptions;
@@ -48,6 +48,8 @@ trait InteractsWithCustomerForm
      */
     protected function customerRules(): array
     {
+        $eligible = array_map(static fn (int $id): string => (string) $id, OperatorUserDirectory::eligibleIds());
+
         return [
             'name' => ['required', 'string', 'min:2', 'max:120'],
             'legal_name' => ['nullable', 'string', 'max:180'],
@@ -63,7 +65,7 @@ trait InteractsWithCustomerForm
             'primary_email' => ['nullable', 'email', 'max:180'],
             'primary_phone' => ['nullable', 'string', 'max:60'],
             'responsible_user_ids' => ['array'],
-            'responsible_user_ids.*' => [Rule::in(array_column(DemoCatalog::teamMembers(), 'id'))],
+            'responsible_user_ids.*' => [Rule::in($eligible)],
         ];
     }
 
@@ -88,7 +90,6 @@ trait InteractsWithCustomerForm
     {
         $allowed = CityOptions::forCountry($this->hq_country);
         if ($this->hq_city !== '' && $allowed !== [] && ! in_array($this->hq_city, $allowed, true)) {
-            // Keep custom cities; only clear when previous city was from another country's suggestions and no longer matches.
             if (! in_array($this->hq_city, $allowed, true)) {
                 // Custom city values are allowed — do not clear.
             }
@@ -112,7 +113,10 @@ trait InteractsWithCustomerForm
         $this->service_started_at = (string) ($customer['service_started_at'] ?? '');
         $this->primary_email = (string) ($customer['primary_email'] ?? '');
         $this->primary_phone = (string) ($customer['primary_phone'] ?? '');
-        $this->responsible_user_ids = array_values($customer['responsible_user_ids'] ?? []);
+        $this->responsible_user_ids = array_values(array_map(
+            static fn (mixed $id): string => (string) $id,
+            $customer['responsible_user_ids'] ?? [],
+        ));
     }
 
     /**
@@ -127,9 +131,6 @@ trait InteractsWithCustomerForm
             'type' => $this->type,
             'status' => $this->status,
             'industry' => $this->industry !== '' ? $this->industry : null,
-            'industry_other' => $this->industry === IndustryOptions::OTHER && $this->industry_other !== ''
-                ? trim($this->industry_other)
-                : null,
             'hq_country' => $this->hq_country !== '' ? $this->hq_country : null,
             'hq_city' => $this->hq_city !== '' ? trim($this->hq_city) : null,
             'services' => array_values($this->services),
@@ -138,6 +139,14 @@ trait InteractsWithCustomerForm
             'primary_phone' => $this->primary_phone !== '' ? trim($this->primary_phone) : null,
             'responsible_user_ids' => array_values($this->responsible_user_ids),
         ];
+    }
+
+    /**
+     * @return list<int>
+     */
+    protected function sanitizedResponsibleUserIds(): array
+    {
+        return OperatorUserDirectory::sanitizeIds($this->responsible_user_ids);
     }
 
     /**
@@ -155,11 +164,6 @@ trait InteractsWithCustomerForm
             $statusOptions[$case->value] = $case->name;
         }
 
-        $teamOptions = [];
-        foreach (DemoCatalog::teamMembers() as $member) {
-            $teamOptions[$member['id']] = $member['name'];
-        }
-
         return [
             'typeOptions' => $typeOptions,
             'statusOptions' => $statusOptions,
@@ -167,7 +171,7 @@ trait InteractsWithCustomerForm
             'countryOptions' => CountryOptions::options(),
             'cityOptions' => CityOptions::optionsForCountry($this->hq_country !== '' ? $this->hq_country : null),
             'serviceOptions' => AgencyServiceOptions::options(),
-            'teamOptions' => $teamOptions,
+            'teamOptions' => OperatorUserDirectory::options(),
             'showIndustryOther' => $this->industry === IndustryOptions::OTHER,
         ];
     }

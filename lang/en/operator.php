@@ -361,7 +361,7 @@ return [
             'add_provider' => 'Add provider',
             'agents' => 'Agents',
             'agents_title' => 'Agent Profiles',
-            'agents_subtitle' => 'Browse Agent Profiles, Skills, allowed evidence, and output contracts. Catalog is read-only in Demo Mode.',
+            'agents_subtitle' => 'Browse Agent Profiles, Skills, allowed evidence, and output contracts. Catalog is read-only.',
             'skills' => 'Skills',
             'skills_title' => 'Skill Library',
             'skills_subtitle' => 'Browse Skills, evidence requirements, methodology, and grounding constraints.',

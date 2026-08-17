@@ -83,7 +83,7 @@
     @endif
 
     <p class="text-xs text-gray-500">
-        <a href="{{ route('demo.activity', ['asset' => \App\Support\Demo\DemoCatalog::WEBSITE_ASSET_ID]) }}" wire:navigate class="font-medium text-brand-600 hover:underline">{{ __('operator.website.actions.view_activity') }}</a>
+        <a href="{{ route('demo.activity', ['asset' => $this->assetId]) }}" wire:navigate class="font-medium text-brand-600 hover:underline">{{ __('operator.website.actions.view_activity') }}</a>
         · opens global Activity filtered to this Website
     </p>
 </div>

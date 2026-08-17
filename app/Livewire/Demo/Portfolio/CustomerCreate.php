@@ -3,6 +3,7 @@
 namespace App\Livewire\Demo\Portfolio;
 
 use App\Livewire\Demo\Portfolio\Concerns\InteractsWithCustomerForm;
+use App\Models\Customer;
 use App\Support\Demo\DemoState;
 use App\Support\Options\IndustryOptions;
 use Illuminate\Contracts\View\View;
@@ -33,21 +34,21 @@ class CustomerCreate extends Component
         try {
             $this->validate($this->customerRules(), [], $this->customerValidationAttributes());
 
-            $id = 'c-demo-'.substr(md5($this->name.microtime(true)), 0, 8);
-            $payload = $this->customerPayload($id);
-            $payload['brands_count'] = 0;
-            $payload['digital_assets_count'] = 0;
-            $payload['open_findings'] = 0;
-            $payload['open_tasks'] = 0;
-            $payload['overdue_tasks'] = 0;
+            $payload = $this->customerPayload();
+            unset($payload['id'], $payload['responsible_user_ids']);
 
-            DemoState::addCustomer($payload);
+            $customer = Customer::query()->create($payload);
+            $customer->syncServices(array_values($this->services));
+            $customer->responsibleUsers()->sync($this->sanitizedResponsibleUserIds());
+            $customer->save();
+
+            DemoState::flash('Customer “'.$customer->name.'” saved.');
 
             if ($addBrand) {
-                return $this->redirect(route('demo.brand.create', ['customerId' => $id]), navigate: true);
+                return $this->redirect(route('demo.brand.create', ['customerId' => $customer->id]), navigate: true);
             }
 
-            return $this->redirect(route('demo.customer', ['customerId' => $id]), navigate: true);
+            return $this->redirect(route('demo.customer', ['customerId' => $customer->id]), navigate: true);
         } finally {
             $this->saving = false;
         }

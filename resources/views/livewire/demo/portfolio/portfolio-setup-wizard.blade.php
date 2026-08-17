@@ -16,7 +16,6 @@
             </h1>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Create a clean Customer → Brand → Digital Estate in minutes. Discover resources, confirm bindings — no manual provider IDs under normal circumstances.</p>
         </div>
-        @include('livewire.demo.partials.demo-badge')
     </div>
 
     <nav aria-label="Setup progress" class="overflow-x-auto">
@@ -67,6 +66,7 @@
                 <div>
                     <label for="owner" class="mb-1 block text-xs font-medium text-gray-500">Account owner</label>
                     <select id="owner" wire:model="account_owner" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-950 dark:text-white/90">
+                        <option value="">Unassigned</option>
                         @foreach ($team as $member)
                             <option value="{{ $member['id'] }}">{{ $member['name'] }}</option>
                         @endforeach
@@ -95,7 +95,7 @@
                 </div>
                 <div class="sm:col-span-2">
                     <label for="website-url" class="mb-1 block text-xs font-medium text-gray-500">Website URL</label>
-                    <input id="website-url" type="url" wire:model.live="website_url" placeholder="https://atlasdental.example" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-950 dark:text-white/90" />
+                    <input id="website-url" type="url" wire:model.live="website_url" placeholder="https://www.example.com" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-950 dark:text-white/90" />
                     @error('website_url') <p class="mt-1 text-xs text-error-600" role="alert">{{ $message }}</p> @enderror
                     <p class="mt-1 text-xs text-gray-400">Used later for matching GA4 / GSC / GBP — no live crawl on change.</p>
                 </div>
@@ -135,7 +135,7 @@
         <section class="space-y-4">
             <div>
                 <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Digital Assets</h2>
-                <p class="mt-1 text-sm text-gray-500">Which Digital Assets do you manage? Domain and Hosting are Website infrastructure — not selectable assets.</p>
+                <p class="mt-1 text-sm text-gray-500">Which Digital Assets do you manage for {{ $brand_name !== '' ? $brand_name : 'this Brand' }}? Domain and Hosting are Website infrastructure — not selectable assets.</p>
             </div>
             @error('selected_assets') <p class="text-xs text-error-600" role="alert">{{ $message }}</p> @enderror
             <div class="grid gap-3 sm:grid-cols-2">
@@ -194,6 +194,9 @@
                             <div>
                                 <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ $card['label'] }}</h3>
                                 <p class="text-xs text-gray-500">{{ $card['integration'] }} Integration · {{ $card['integration_state'] }} · {{ count($card['resources']) }} resources found</p>
+                                @if (! empty($card['blocker']))
+                                    <p class="mt-1 text-xs text-amber-700 dark:text-amber-300">{{ $card['blocker'] }}</p>
+                                @endif
                             </div>
                         </div>
                         <button type="button" wire:click="skipProvider('{{ $card['type'] }}')" class="text-xs font-medium text-gray-500 hover:underline">Skip for now</button>
@@ -201,6 +204,9 @@
                     @if ($card['skipped'])
                         <p class="mt-3 text-sm text-amber-700 dark:text-amber-300">Skipped — setup remains incomplete for this connector (not unhealthy).</p>
                     @else
+                        @if (($card['resources'] ?? []) === [])
+                            <p class="mt-3 text-sm text-gray-500">No resources discovered. Discovery has not run, or the integration is not configured.</p>
+                        @else
                         <ul class="mt-3 space-y-2">
                             @foreach ($card['resources'] as $resource)
                                 <li>
@@ -233,13 +239,14 @@
                                 </li>
                             @endforeach
                         </ul>
+                        @endif
                     @endif
                 </div>
             @endforeach
 
             @if (in_array('instagram', $selected_assets, true))
                 <div class="rounded-xl bg-white p-4 text-sm text-gray-500 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-                    Instagram remains a future capability — not connected in this Demo.
+                    Instagram remains a future capability — not selectable as a defined Digital Asset yet.
                 </div>
             @endif
         </section>
@@ -255,6 +262,9 @@
 
             <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
                 <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Candidate Brand updates</h3>
+                @if ($candidates === [])
+                    <p class="mt-3 text-sm text-gray-500">No Public Discovery candidates. Discovery has not run.</p>
+                @else
                 <ul class="mt-3 space-y-2">
                     @foreach ($candidates as $candidate)
                         @if (($candidate['kind'] ?? '') === 'competitor')
@@ -276,11 +286,15 @@
                         </li>
                     @endforeach
                 </ul>
-                <p class="mt-3 text-xs text-gray-400">Batch “Accept selected” runs on Continue — conflicts require individual review below.</p>
+                @endif
+                <p class="mt-3 text-xs text-gray-400">Public Discovery stays empty until a real discovery run exists.</p>
             </div>
 
             <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
                 <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Conflicts</h3>
+                @if ($conflicts === [])
+                    <p class="mt-3 text-sm text-gray-500">No public identity conflicts.</p>
+                @else
                 <ul class="mt-3 space-y-2">
                     @foreach ($conflicts as $conflict)
                         <li class="flex flex-wrap items-center justify-between gap-2">
@@ -292,6 +306,7 @@
                         </li>
                     @endforeach
                 </ul>
+                @endif
             </div>
         </section>
     @endif
@@ -304,14 +319,15 @@
             <dl class="mt-5 space-y-3 text-sm">
                 <div class="flex justify-between gap-3 border-b border-gray-100 py-2 dark:border-gray-800"><dt class="text-gray-500">Customer</dt><dd class="font-medium text-gray-900 dark:text-white">{{ $summary['customer'] }} ✓</dd></div>
                 <div class="flex justify-between gap-3 border-b border-gray-100 py-2 dark:border-gray-800"><dt class="text-gray-500">Brand</dt><dd class="font-medium text-gray-900 dark:text-white">{{ $summary['brand'] }} ✓</dd></div>
-                <div class="flex justify-between gap-3 border-b border-gray-100 py-2 dark:border-gray-800"><dt class="text-gray-500">Digital Assets</dt><dd class="font-medium text-gray-900 dark:text-white">{{ count($summary['assets']) }} configured</dd></div>
+                <div class="flex justify-between gap-3 border-b border-gray-100 py-2 dark:border-gray-800"><dt class="text-gray-500">Digital Assets</dt><dd class="font-medium text-gray-900 dark:text-white">{{ $summary['defined_count'] ?? count($summary['assets']) }} defined</dd></div>
                 @foreach ($summary['assets'] as $type)
                     <div class="flex justify-between gap-3 border-b border-gray-50 py-1.5 dark:border-gray-800/60">
                         <dt class="text-gray-500">{{ $type }}</dt>
-                        <dd class="text-xs font-medium text-emerald-700 dark:text-emerald-400">{{ in_array($type, $summary['bound'], true) ? '✓ Bound' : '✓ Configured' }}</dd>
+                        <dd class="text-xs font-medium text-gray-600 dark:text-gray-300">Defined</dd>
                     </div>
                 @endforeach
-                <div class="flex justify-between gap-3 py-2"><dt class="text-gray-500">Brand Context</dt><dd class="font-medium text-gray-900 dark:text-white">{{ $summary['accepted'] }} facts accepted</dd></div>
+                <div class="flex justify-between gap-3 border-b border-gray-100 py-2 dark:border-gray-800"><dt class="text-gray-500">Google</dt><dd class="font-medium text-gray-900 dark:text-white">{{ $summary['google'] ?? 'Not configured' }}</dd></div>
+                <div class="flex justify-between gap-3 py-2"><dt class="text-gray-500">Meta</dt><dd class="font-medium text-gray-900 dark:text-white">{{ $summary['meta'] ?? 'Not configured' }}</dd></div>
                 @if ($summary['conflicts_open'] > 0)
                     <div class="flex justify-between gap-3 py-2"><dt class="text-gray-500">Review remaining</dt><dd class="font-medium text-amber-700 dark:text-amber-300">{{ $summary['conflicts_open'] }} public identity conflict(s)</dd></div>
                 @endif

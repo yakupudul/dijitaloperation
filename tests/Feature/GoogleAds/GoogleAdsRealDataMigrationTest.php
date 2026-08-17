@@ -414,8 +414,8 @@ class GoogleAdsRealDataMigrationTest extends TestCase
         $this->actingAs($user);
 
         Livewire::test(OverviewPage::class, [
-            'assetId' => DemoCatalog::GOOGLE_ADS_ASSET_ID,
-        ])->assertSee('Atlas Dental');
+            'assetId' => (string) $this->asset->id,
+        ])->assertOk();
 
         Http::assertNothingSent();
     }

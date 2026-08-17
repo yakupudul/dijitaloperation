@@ -7,7 +7,6 @@
             <h1 class="mt-2 text-2xl font-bold text-gray-800 dark:text-white/90">{{ __('operator.settings.ai.control_plane_title') }}</h1>
             <p class="mt-1 text-sm text-gray-500">{{ __('operator.settings.ai.control_plane_subtitle') }}</p>
         </div>
-        @include('livewire.demo.partials.demo-badge')
     </div>
 
     <div class="grid gap-3 sm:grid-cols-2">

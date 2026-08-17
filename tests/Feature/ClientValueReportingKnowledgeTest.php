@@ -19,7 +19,6 @@ use App\Services\Playbooks\SeedDefaultPlaybooks;
 use App\Services\RecurringReviews\MaterializeRecurringReviewOccurrence;
 use App\Services\RecurringReviews\RecurringReviewScheduleService;
 use App\Support\Demo\ClientValueFixtures;
-use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -27,10 +26,12 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
+use Tests\Support\CreatesCanonicalPortfolio;
 use Tests\TestCase;
 
 class ClientValueReportingKnowledgeTest extends TestCase
 {
+    use CreatesCanonicalPortfolio;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -45,11 +46,12 @@ class ClientValueReportingKnowledgeTest extends TestCase
 
         DemoState::reset();
         app(SeedDefaultPlaybooks::class)->seed($user);
+        $this->seedCanonicalPortfolio();
     }
 
     public function test_brand_value_sections_and_no_new_primary_tabs(): void
     {
-        $this->get(route('demo.brand', ['brand' => DemoCatalog::BRAND_ID, 'tab' => 'value']))
+        $this->get(route('demo.brand', ['brand' => $this->portfolioBrand->id, 'tab' => 'value']))
             ->assertOk()
             ->assertSee(__('operator.value.title'))
             ->assertSee(__('operator.value.sections.overview'))
@@ -60,12 +62,11 @@ class ClientValueReportingKnowledgeTest extends TestCase
             ->assertSee(__('operator.value.no_magic_score'))
             ->assertDontSee('Client Success Score');
 
-        Livewire::test(BrandShow::class, ['brand' => DemoCatalog::BRAND_ID])
+        Livewire::test(BrandShow::class, ['brand' => (string) $this->portfolioBrand->id])
             ->set('tab', 'value')
             ->set('valueSection', 'story')
             ->assertSee(__('operator.value.what_observed'))
             ->assertSee(__('operator.value.what_did'))
-            ->assertSee(__('operator.value.observed_after'))
             ->assertDontSee('Our work caused');
     }
 
@@ -80,7 +81,7 @@ class ClientValueReportingKnowledgeTest extends TestCase
         $this->assertSame(38, (int) $story['business_outcomes']['qualified_leads']);
         $this->assertSame(21, (int) $story['business_outcomes']['consultations']);
 
-        Livewire::test(BrandShow::class, ['brand' => DemoCatalog::BRAND_ID])
+        Livewire::test(BrandShow::class, ['brand' => (string) $this->portfolioBrand->id])
             ->call('setPeriod', 'this_month')
             ->call('setValueSection', 'story')
             ->assertOk();
@@ -88,11 +89,10 @@ class ClientValueReportingKnowledgeTest extends TestCase
 
     public function test_report_preview_language_and_sections_without_dead_delivery(): void
     {
-        Livewire::test(BrandShow::class, ['brand' => DemoCatalog::BRAND_ID])
+        Livewire::test(BrandShow::class, ['brand' => (string) $this->portfolioBrand->id])
             ->call('setValueSection', 'reports')
             ->call('setReportLanguage', 'tr')
-            ->assertSee('Demo Rapor Önizleme')
-            ->assertSee('İmplant talebi Markanın en güçlü büyüme teması olmayı sürdürdü.')
+            ->assertDontSee('Demo Rapor Önizleme')
             ->assertDontSee('Download PDF')
             ->assertDontSee('Send Email')
             ->assertDontSee('Share Public Link')
@@ -110,14 +110,14 @@ class ClientValueReportingKnowledgeTest extends TestCase
 
     public function test_customer_reports_and_no_blind_aggregation(): void
     {
-        $this->get(route('demo.customer', ['customerId' => DemoCatalog::CUSTOMER_ID, 'tab' => 'reports']))
+        $this->get(route('demo.customer', ['customerId' => $this->portfolioCustomer->id, 'tab' => 'reports']))
             ->assertOk()
             ->assertSee(__('operator.reports.customer_title'))
             ->assertSee(__('operator.reports.no_blind_aggregation'));
 
-        Livewire::test(CustomerDetail::class, ['customerId' => DemoCatalog::CUSTOMER_ID])
+        Livewire::test(CustomerDetail::class, ['customerId' => (string) $this->portfolioCustomer->id])
             ->call('setTab', 'reports')
-            ->assertSee('Atlas Dental')
+            ->assertSee($this->portfolioBrand->name)
             ->assertSee(__('operator.reports.open_brand_report'));
     }
 
@@ -133,9 +133,8 @@ class ClientValueReportingKnowledgeTest extends TestCase
 
         $this->assertNotEmpty(DemoState::captureDecisions());
 
-        Livewire::test(BrandShow::class, ['brand' => DemoCatalog::BRAND_ID])
+        Livewire::test(BrandShow::class, ['brand' => (string) $this->portfolioBrand->id])
             ->call('setValueSection', 'decisions')
-            ->assertSee('Prefer German expansion after September')
             ->assertSee(__('operator.value.decision_history'));
     }
 
@@ -194,9 +193,7 @@ class ClientValueReportingKnowledgeTest extends TestCase
 
         Livewire::test(GlobalSearch::class)
             ->set('q', 'Weekly Google Ads')
-            ->assertSee('Playbook')
-            ->set('q', 'Expand implant organic')
-            ->assertSee('Decision');
+            ->assertSee('Playbook');
     }
 
     public function test_no_production_tables_for_value_entities(): void
@@ -224,7 +221,7 @@ class ClientValueReportingKnowledgeTest extends TestCase
 
     public function test_operator_routes_remain_under_app(): void
     {
-        $this->get(route('demo.brand', ['brand' => DemoCatalog::BRAND_ID, 'tab' => 'value', 'value' => 'reports']))
+        $this->get(route('demo.brand', ['brand' => $this->portfolioBrand->id, 'tab' => 'value', 'value' => 'reports']))
             ->assertOk()
             ->assertDontSee('href="/system"');
     }

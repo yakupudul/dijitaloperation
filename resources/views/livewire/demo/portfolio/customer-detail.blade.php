@@ -14,7 +14,6 @@
             <p class="mt-1 text-sm text-gray-500">{{ $industryLabel }} · {{ $hqDisplay }}</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-            @include('livewire.demo.partials.demo-badge')
             <a href="{{ route('demo.files', ['scope' => 'customer', 'customer' => $customer['id']]) }}" wire:navigate class="inline-flex rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">{{ __('operator.customer.actions.open_files') }}</a>
             <a href="{{ route('demo.activity', ['customer' => $customer['id']]) }}" wire:navigate class="inline-flex rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">{{ __('operator.customer.actions.view_activity') }}</a>
             <a href="{{ route('demo.tasks') }}" wire:navigate class="inline-flex rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">{{ __('operator.customer.actions.open_work') }}</a>
@@ -339,7 +338,13 @@
             </div>
         </div>
 
-        @if (count($serviceScope) > 0)
+        @if (count($serviceScope) === 0)
+            <x-ta.card class="mt-4">
+                <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">{{ __('operator.service_scope.title') }}</h2>
+                <p class="mt-1 text-sm text-gray-500">{{ __('operator.service_scope.subtitle') }}</p>
+                <p class="mt-3 text-sm text-gray-500">No service scope defined yet.</p>
+            </x-ta.card>
+        @else
             <x-ta.card class="mt-4">
                 <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">{{ __('operator.service_scope.title') }}</h2>
                 <p class="mt-1 text-sm text-gray-500">{{ __('operator.service_scope.subtitle') }}</p>

@@ -3,12 +3,12 @@
 namespace App\Livewire\Demo\Meta;
 
 use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
+use App\Livewire\Demo\Concerns\ResolvesCanonicalOperatorAsset;
 use App\Models\DigitalAsset;
 use App\Services\DataPool\Freshness\StartIncrementalCollectionService;
 use App\Services\MetaAds\MetaAdsSpecialistBindingResolver;
 use App\Services\MetaAds\MetaAdsSpecialistReadService;
 use App\Services\MetaAds\Support\MetaAdsBindingMode;
-use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
 use App\Support\Demo\MetaAdsWorkspaceFixtures;
 use Illuminate\Contracts\View\View;
@@ -22,8 +22,9 @@ use Livewire\Component;
 class OverviewPage extends Component
 {
     use InteractsWithDemoPeriod;
+    use ResolvesCanonicalOperatorAsset;
 
-    public string $assetId = DemoCatalog::META_ASSET_ID;
+    public string $assetId = '';
 
     #[Url]
     public string $tab = 'overview';
@@ -79,7 +80,7 @@ class OverviewPage extends Component
 
     public function mount(?string $assetId = null, ?string $tab = null): void
     {
-        $this->assetId = $assetId ?: DemoCatalog::META_ASSET_ID;
+        $this->bindCanonicalAsset($assetId, ['meta_ads']);
         if (filled($tab)) {
             $this->tab = $tab;
         }
@@ -179,7 +180,7 @@ class OverviewPage extends Component
         $binding = app(MetaAdsSpecialistBindingResolver::class)->resolve($this->assetId);
 
         if ($binding->mode !== MetaAdsBindingMode::RealBound) {
-            DemoState::flash('Meta Ads data refresh queued (Demo Mode · no live Graph API expansion).', 'info');
+            DemoState::flash('Meta Ads data refresh is unavailable until the integration is configured.', 'info');
 
             return;
         }
@@ -207,7 +208,7 @@ class OverviewPage extends Component
 
     public function runAnalysis(): void
     {
-        DemoState::flash('Paid social analysis completed (Demo Mode · deterministic fixtures).', 'info');
+        DemoState::flash('Paid social analysis is unavailable until Meta Ads data has been collected.', 'info');
         $this->tab = 'overview';
     }
 
@@ -299,7 +300,7 @@ class OverviewPage extends Component
         $trend = $data['performance_trend'] ?? ['labels' => [], 'spend' => [], 'leads' => []];
 
         return view('livewire.demo.meta.overview', [
-            'asset' => DemoCatalog::asset($this->assetId) ?? DemoCatalog::assets()[2] ?? null,
+            'asset' => $this->presentCanonicalAsset(),
             'data' => $data,
             'identity' => $data['identity'],
             'campaignRows' => $campaigns->values()->all(),

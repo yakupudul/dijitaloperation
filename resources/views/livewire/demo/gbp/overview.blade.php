@@ -20,17 +20,14 @@
                 <p class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ $identity['eyebrow'] }}</p>
                 <div class="mt-1 flex flex-wrap items-center gap-2">
                     <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ $identity['title'] }}</h1>
-                    @include('livewire.demo.partials.demo-badge')
                 </div>
                 <a href="{{ route('demo.brand', ['brand' => $identity['brand_id']]) }}" wire:navigate class="mt-1 inline-block text-sm font-medium text-brand-600 hover:underline dark:text-brand-400">
                     {{ $identity['brand_name'] }}
                 </a>
-                <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Brand: {{ $identity['brand_name'] }} · Location: Çankaya, Ankara</p>
-                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ $identity['locale'] }}</p>
+                <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Brand: {{ $identity['brand_name'] }}</p>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ $identity['locale'] ?? '' }}</p>
                 <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
                     <span class="font-medium text-emerald-700 dark:text-emerald-400">{{ $identity['status'] }}</span>
-                    · Updated 2h ago
-                    · Local rank tracking · Demo source
                 </p>
                 @include('livewire.demo.partials._asset-scope-chip', ['assetType' => 'gbp'])
             </div>

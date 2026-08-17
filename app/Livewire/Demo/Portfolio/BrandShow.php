@@ -13,7 +13,11 @@ use App\Services\BusinessOutcomes\BusinessOutcomeReadService;
 use App\Services\ClientRequests\ClientRequestReadService;
 use App\Services\ClientValueStory\ClientValueStoryReadService;
 use App\Services\CreateTaskFromRecommendation;
+use App\Services\Findings\FindingReadService;
+use App\Services\Operator\OperatorPortfolioPresenter;
+use App\Services\Operator\OperatorUserDirectory;
 use App\Services\Opportunities\OpportunityReadService;
+use App\Services\Recommendations\RecommendationReadService;
 use App\Services\RecurringReviews\RecurringReviewReadService;
 use App\Services\ReportDelivery\CreateReportDeliveryService;
 use App\Services\ReportDelivery\GenerateReportPdfService;
@@ -21,12 +25,9 @@ use App\Services\ReportDelivery\ReportDeliveryScheduleService;
 use App\Services\ReportDelivery\ReportMailConfigGuard;
 use App\Services\ReportSnapshots\CreateReportSnapshotService;
 use App\Services\ReportSnapshots\ReportSnapshotReadService;
-use App\Support\Demo\AgencyExecutionFixtures;
-use App\Support\Demo\BrandPublicDiscoveryFixtures;
-use App\Support\Demo\BusinessOutcomeFixtures;
+use App\Services\ServiceScope\CustomerServiceScopeReadService;
+use App\Services\Work\WorkReadService;
 use App\Support\Demo\ClientValueFixtures;
-use App\Support\Demo\CommercialContextFixtures;
-use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoPeriod;
 use App\Support\Demo\DemoState;
 use App\Support\Demo\OpportunityFixtures;
@@ -47,7 +48,7 @@ class BrandShow extends Component
 {
     use InteractsWithDemoPeriod;
 
-    public string $brand = DemoCatalog::BRAND_ID;
+    public string $brand = '';
 
     #[Url]
     public string $tab = 'overview';
@@ -215,6 +216,9 @@ class BrandShow extends Component
 
     public function mount(string $brand): void
     {
+        abort_unless(ctype_digit($brand), 404);
+        abort_if(Brand::query()->find($brand) === null, 404);
+
         $this->brand = $brand;
         $this->taskCreateNonce = (string) Str::uuid();
         $this->normalizeTab();
@@ -488,17 +492,11 @@ class BrandShow extends Component
 
     private function hydrateOutcomeForm(): void
     {
-        if ($this->brand !== DemoCatalog::BRAND_ID) {
-            return;
-        }
-
-        $period = (string) (DemoState::all()['period_preset'] ?? 'last_28');
-        $outcomes = DemoState::businessOutcomes($period);
-        $this->outcome_platform_leads = (string) ($outcomes['platform_leads'] ?? '');
-        $this->outcome_qualified_leads = (string) ($outcomes['qualified_leads'] ?? '');
-        $this->outcome_consultations = (string) ($outcomes['consultations'] ?? '');
-        $this->outcome_patients = (string) ($outcomes['patients'] ?? '');
-        $this->outcome_note = (string) ($outcomes['note'] ?? '');
+        $this->outcome_platform_leads = '';
+        $this->outcome_qualified_leads = '';
+        $this->outcome_consultations = '';
+        $this->outcome_patients = '';
+        $this->outcome_note = '';
     }
 
     public function openOutcomeForm(): void
@@ -515,12 +513,6 @@ class BrandShow extends Component
 
     public function saveBusinessOutcomes(): void
     {
-        // Prompt 57: Demo session overrides are retired for Business Outcome cards.
-        // Aggregate Business Outcomes persist via BusinessOutcomeObservationService only.
-        if ($this->brand !== DemoCatalog::BRAND_ID) {
-            return;
-        }
-
         $this->showOutcomeForm = false;
         $this->tab = 'value';
         session()->flash('status', 'Business Outcomes require production Brand persistence (manual/CSV). Demo fake values are retired.');
@@ -634,7 +626,7 @@ class BrandShow extends Component
 
     public function runPublicResearch(): void
     {
-        DemoState::startPublicResearch();
+        DemoState::flash('Public discovery has not run. No candidates are generated until a real discovery run exists.', 'info');
         $this->tab = 'business';
         $this->businessSection = 'discovery';
         $this->discovery = 'overview';
@@ -753,10 +745,6 @@ class BrandShow extends Component
             return $saved;
         }
 
-        if (($brandRow['id'] ?? '') === DemoCatalog::BRAND_ID) {
-            return DemoCatalog::brandBusinessContext();
-        }
-
         return [
             'completed' => (int) ($brandRow['context_completed'] ?? 0),
             'total' => (int) ($brandRow['context_total'] ?? 8),
@@ -784,9 +772,13 @@ class BrandShow extends Component
      */
     private function findBrandRow(): ?array
     {
-        $row = collect(DemoState::all()['brands'] ?? [])->firstWhere('id', $this->brand);
+        if (! ctype_digit($this->brand)) {
+            return null;
+        }
 
-        return is_array($row) ? $row : null;
+        $brand = Brand::query()->with(['customer', 'responsibleUsers', 'digitalAssets', 'intelligenceContext'])->find($this->brand);
+
+        return $brand !== null ? OperatorPortfolioPresenter::brand($brand) : null;
     }
 
     /**
@@ -837,23 +829,13 @@ class BrandShow extends Component
 
     public function runAiBrief(): void
     {
-        DemoState::showAiBrief();
+        DemoState::flash('Brand analysis is unavailable until canonical evidence exists. No fixture analysis is shown.', 'info');
         $this->tab = 'growth';
     }
 
     public function createRecommendationFromPriority(int $index): void
     {
-        $analysis = DemoCatalog::brandAiAnalysis();
-        $priority = $analysis['priorities'][$index] ?? null;
-
-        if (! is_string($priority) || $priority === '') {
-            return;
-        }
-
-        $recommendationId = self::AI_PRIORITY_RECOMMENDATION_IDS[$index] ?? null;
-        DemoState::createRecommendationFromAiPriority($priority, $recommendationId);
-        $this->ops = 'recommendations';
-        $this->tab = 'operations';
+        DemoState::flash('Recommendations are created from canonical Opportunities and Findings — not from fixture analysis.', 'info');
     }
 
     public function createTaskFromRecommendation(string $recommendationId): void
@@ -940,20 +922,20 @@ class BrandShow extends Component
     {
         $items = [];
 
-        foreach (DemoCatalog::brandAttention() as $row) {
-            if (strtolower((string) ($row['severity'] ?? '')) === 'info') {
+        foreach ($findings as $finding) {
+            if (! in_array($finding['severity'] ?? '', ['critical', 'high'], true)) {
                 continue;
             }
             $items[] = [
                 'kind' => 'finding',
-                'severity' => strtoupper((string) ($row['severity'] ?? 'medium')),
-                'title' => $row['title'] ?? $row['issue'] ?? '',
-                'where' => $row['asset'] ?? '',
-                'why' => $row['why'] ?? '',
-                'when' => $row['evidence'] ?? '',
-                'action_label' => $row['action_label'] ?? 'Review',
-                'route' => $row['route'] ?? null,
-                'route_params' => $row['route_params'] ?? [],
+                'severity' => strtoupper((string) ($finding['severity'] ?? 'medium')),
+                'title' => $finding['title'] ?? '',
+                'where' => '',
+                'why' => $finding['summary'] ?? '',
+                'when' => '',
+                'action_label' => 'Review',
+                'route' => 'demo.findings',
+                'route_params' => [],
             ];
         }
 
@@ -984,24 +966,6 @@ class BrandShow extends Component
                     'route_params' => ['taskId' => $task['id'] ?? ''],
                 ];
             }
-        }
-
-        foreach (DemoCatalog::brandCrossChannel() as $check) {
-            if (($check['state'] ?? '') !== 'needs_attention') {
-                continue;
-            }
-            $items[] = [
-                'kind' => 'cross_channel',
-                'severity' => 'HIGH',
-                'title' => $check['finding_title'] ?? $check['summary'] ?? $check['check'],
-                'where' => $check['check'] ?? '',
-                'why' => $check['summary'] ?? '',
-                'when' => 'Detected '.$check['last_checked'],
-                'action_label' => 'Review finding',
-                'route' => $check['route'] ?? null,
-                'route_params' => [],
-                'wire_tab' => 'cross_channel',
-            ];
         }
 
         return array_slice($items, 0, 8);
@@ -1055,58 +1019,40 @@ class BrandShow extends Component
     public function render(): View
     {
         $state = DemoState::all();
-        $brandRow = collect($state['brands'])->firstWhere('id', $this->brand);
-        if ($brandRow === null && $this->brand === DemoCatalog::BRAND_ID) {
-            $brandRow = DemoCatalog::brand();
-        }
-        $brandRow = DemoState::normalizeBrand($brandRow ?? ['id' => $this->brand, 'name' => 'Unknown brand']);
+        $brandModel = Brand::query()
+            ->with(['customer', 'responsibleUsers', 'digitalAssets.findings', 'intelligenceContext'])
+            ->find($this->brand);
+        abort_if($brandModel === null, 404);
 
-        $customer = collect($state['customers'] ?? [])->firstWhere('id', $brandRow['customer_id'] ?? '')
-            ?? ($this->brand === DemoCatalog::BRAND_ID ? DemoCatalog::customer() : null);
+        $brandRow = OperatorPortfolioPresenter::brand($brandModel);
+        $customer = $brandModel->customer !== null
+            ? OperatorPortfolioPresenter::customer($brandModel->customer)
+            : null;
 
-        $team = collect(DemoCatalog::teamMembers())->keyBy('id');
+        $team = collect(OperatorUserDirectory::presentationMembers())->keyBy('id');
         $responsibleUsers = collect($brandRow['responsible_user_ids'] ?? [])
             ->map(fn (string $id) => $team[$id] ?? null)
             ->filter()
             ->values()
             ->all();
 
-        $allAssets = array_merge(DemoCatalog::assets(), $state['demo_assets'] ?? []);
-        $assets = collect($allAssets)
-            ->filter(function (array $asset) use ($brandRow): bool {
-                $brandId = $brandRow['id'] ?? '';
-
-                return ($asset['brand_id'] ?? '') === $brandId
-                    || ($brandId === DemoCatalog::BRAND_ID && ($asset['brand_id'] ?? DemoCatalog::BRAND_ID) === DemoCatalog::BRAND_ID);
-            })
-            ->reject(fn (array $asset): bool => ($asset['legacy_deprecated'] ?? false) === true
-                || in_array((string) ($asset['type'] ?? ''), ['domain', 'hosting'], true))
+        $assets = $brandModel->digitalAssets
+            ->reject(fn ($asset): bool => in_array((string) $asset->type, ['domain', 'hosting'], true))
+            ->map(fn ($asset): array => OperatorPortfolioPresenter::asset($asset))
             ->values()
             ->all();
-
-        if (($brandRow['id'] ?? '') === DemoCatalog::BRAND_ID && $assets === []) {
-            $assets = collect(DemoCatalog::assets())
-                ->reject(fn (array $asset): bool => ($asset['legacy_deprecated'] ?? false) === true
-                    || in_array((string) ($asset['type'] ?? ''), ['domain', 'hosting'], true))
-                ->values()
-                ->all();
-        }
 
         $assets = $this->enrichAssets($assets);
         $brandName = (string) ($brandRow['name'] ?? '');
 
-        $findings = collect(DemoCatalog::findings())
-            ->filter(fn (array $f): bool => ($f['brand'] ?? '') === $brandName)
+        $findings = collect(app(FindingReadService::class)->forBrand($brandModel))
+            ->map(fn ($dto): array => array_merge($dto->toArray(), ['brand' => $brandName]))
             ->values()
             ->all();
 
-        $recommendations = collect($state['recommendations'] ?? [])
-            ->filter(fn (array $r): bool => ($r['brand'] ?? '') === $brandName || $brandName === '')
-            ->values()
-            ->all();
-
-        $tasks = collect($state['tasks'] ?? [])
-            ->filter(fn (array $t): bool => ($t['brand'] ?? '') === $brandName || $brandName === '')
+        $recommendations = app(RecommendationReadService::class)->forListPresentation(['brand_id' => $brandModel->id]);
+        $tasks = collect(app(WorkReadService::class)->workItems())
+            ->filter(fn (array $t): bool => (int) ($t['brand_id'] ?? 0) === $brandModel->id)
             ->values()
             ->all();
 
@@ -1127,18 +1073,12 @@ class BrandShow extends Component
 
         $businessContext = $this->resolveBusinessContext($brandRow);
 
-        $crossChannel = ($brandRow['id'] ?? '') === DemoCatalog::BRAND_ID
-            ? DemoCatalog::brandCrossChannel()
-            : [];
+        $crossChannel = [];
 
         $attention = $this->buildAttentionItems($tasks, $recommendations, $findings);
         $priorities = $this->buildPriorities($tasks, $recommendations);
-        $allDecisionChains = ($brandRow['id'] ?? '') === DemoCatalog::BRAND_ID
-            ? DemoCatalog::brandDecisionChains()
-            : [];
-        $recentActivity = ($brandRow['id'] ?? '') === DemoCatalog::BRAND_ID
-            ? DemoCatalog::brandRecentActivity()
-            : [];
+        $allDecisionChains = [];
+        $recentActivity = [];
 
         $filteredAssets = collect($assets);
         if ($this->asset_q !== '') {
@@ -1175,64 +1115,29 @@ class BrandShow extends Component
         }
         $selectedWebsite = collect($websites)->firstWhere('id', $this->website_id);
 
-        $discoveryCandidates = collect($state['discovery_candidates'] ?? DemoCatalog::brandDiscoveryCandidates())
-            ->values()
-            ->all();
-
-        $isAtlasBrand = ($brandRow['id'] ?? '') === DemoCatalog::BRAND_ID;
-
-        $discoveryOverview = $isAtlasBrand
-            ? BrandPublicDiscoveryFixtures::overview()
-            : [
-                'observed_facts' => 0,
-                'awaiting_review' => 0,
-                'conflicts' => 0,
-                'accepted_recently' => 0,
-                'public_identity' => [],
-            ];
-
-        if ($isAtlasBrand) {
-            $discoveryOverview['awaiting_review'] = collect($discoveryCandidates)
-                ->where('status', 'pending')
-                ->count();
-            $discoveryOverview['accepted_recently'] = collect($discoveryCandidates)
-                ->whereIn('status', ['accepted', 'mapped'])
-                ->count();
-            $discoveryOverview['conflicts'] = collect(BrandPublicDiscoveryFixtures::conflicts())
-                ->filter(function (array $conflict) use ($state): bool {
-                    $resolution = $state['discovery_conflict_resolutions'][$conflict['id']] ?? null;
-
-                    return $resolution === null;
-                })
-                ->count();
-        }
-
-        $discoveryConflicts = $isAtlasBrand
-            ? collect(BrandPublicDiscoveryFixtures::conflicts())
-                ->map(function (array $conflict) use ($state): array {
-                    $resolution = $state['discovery_conflict_resolutions'][$conflict['id']] ?? null;
-                    $conflict['resolution'] = is_array($resolution) ? ($resolution['decision'] ?? 'open') : 'open';
-                    $conflict['resolved'] = is_array($resolution);
-
-                    return $conflict;
-                })
-                ->values()
-                ->all()
-            : [];
-
-        $discoveryFacts = $isAtlasBrand ? BrandPublicDiscoveryFixtures::observedFacts() : [];
-        $discoverySources = $isAtlasBrand ? BrandPublicDiscoveryFixtures::sources() : [];
-        $discoveryHistory = $isAtlasBrand
-            ? array_reverse($state['discovery_history'] ?? BrandPublicDiscoveryFixtures::history())
-            : [];
-        $discoveryPublicIdentity = $isAtlasBrand ? BrandPublicDiscoveryFixtures::publicIdentity() : [];
-        $existingOfferingsForMap = $isAtlasBrand ? BrandPublicDiscoveryFixtures::existingOfferingsForMap() : [];
+        $discoveryCandidates = [];
+        $discoveryOverview = [
+            'observed_facts' => 0,
+            'awaiting_review' => 0,
+            'conflicts' => 0,
+            'accepted_recently' => 0,
+            'public_identity' => [],
+        ];
+        $discoveryConflicts = [];
+        $discoveryFacts = [];
+        $discoverySources = [];
+        $discoveryHistory = [];
+        $discoveryPublicIdentity = [];
+        $existingOfferingsForMap = [];
 
         $reviewCandidate = collect($discoveryCandidates)->firstWhere('id', $this->reviewCandidateId);
         $reviewConflict = collect($discoveryConflicts)->firstWhere('id', $this->reviewConflictId);
 
-        $analysis = DemoCatalog::brandAiAnalysis();
-        $aiVisible = (bool) ($state['ai_brief_visible'] ?? false) || $isAtlasBrand;
+        $analysis = [
+            'summary' => null,
+            'priorities' => [],
+        ];
+        $aiVisible = false;
 
         $sectorLabel = IndustryOptions::label($brandRow['sector'] ?? $brandRow['industry'] ?? null);
         $marketLabel = CountryOptions::label($brandRow['primary_country'] ?? null);
@@ -1283,44 +1188,19 @@ class BrandShow extends Component
             ? $this->periodEnd
             : $periodBounds['end']->toDateString();
 
-        $serviceScope = CommercialContextFixtures::effectiveScopeForBrand((string) ($brandRow['id'] ?? ''));
-        $structuredGoals = CommercialContextFixtures::structuredGoalsForBrand((string) ($brandRow['id'] ?? ''));
+        $serviceScope = app(CustomerServiceScopeReadService::class)->forBrand($brandModel, includeEnded: false);
+        $structuredGoals = [];
         $brandOpportunities = OpportunityFixtures::sortByBusinessRelevance($this->brandOpportunities());
 
-        $clientValueStory = null;
-        if (ctype_digit((string) ($brandRow['id'] ?? ''))) {
-            $clientValueStory = app(ClientValueStoryReadService::class)->forBrand(
-                Brand::query()->findOrFail((int) $brandRow['id']),
-                $storyPeriodStart,
-                $storyPeriodEnd,
-            );
-        }
+        $clientValueStory = app(ClientValueStoryReadService::class)->forBrand(
+            $brandModel,
+            $storyPeriodStart,
+            $storyPeriodEnd,
+        );
 
-        if (($brandRow['id'] ?? '') === DemoCatalog::BRAND_ID) {
-            // Isolated Demo catalog brand: outcomes remain empty (Prompt 57); story fixtures are Demo-only.
-            $businessOutcomes = [
-                'available' => false,
-                'period_label' => $period,
-                'qualified_leads' => '—',
-                'qualified_leads_label' => __('operator.outcomes.qualified_leads'),
-                'consultations' => '—',
-                'consultations_label' => __('operator.outcomes.consultations'),
-                'patients' => '—',
-                'patients_label' => __('operator.outcomes.patients'),
-                'revenue' => null,
-                'revenue_label' => __('operator.outcomes.revenue'),
-                'revenue_display' => __('operator.outcomes.not_available'),
-                'platform_leads' => '—',
-                'platform_leads_label' => __('operator.outcomes.platform_results'),
-                'qualified_rate' => '—',
-                'empty_message' => 'No reported Business Outcome data for this period.',
-                'demo' => false,
-                'provenance' => 'business_outcome',
-                'note' => __('operator.outcomes.brand_aggregate_note'),
-            ];
-        } elseif ($clientValueStory !== null) {
+        if ($clientValueStory !== null) {
             $surface = app(BusinessOutcomeReadService::class)->forValueSurface(
-                Brand::query()->findOrFail((int) $brandRow['id']),
+                $brandModel,
                 $storyPeriodStart,
                 $storyPeriodEnd,
             );
@@ -1338,38 +1218,17 @@ class BrandShow extends Component
                 'consultations' => $surface['consultations'] ?? '—',
                 'patients' => $surface['patients'] ?? '—',
             ]);
-        } else {
-            $businessOutcomes = null;
-        }
-
-        $operationalOutcomes = ($brandRow['id'] ?? '') === DemoCatalog::BRAND_ID
-            ? BusinessOutcomeFixtures::operationalOutcomes()
-            : [];
-
-        if (($brandRow['id'] ?? '') === DemoCatalog::BRAND_ID) {
-            $valueSummary = ClientValueFixtures::valueSummary($period);
-            $valueStory = ClientValueFixtures::valueStory($period, $this->reportLanguage);
-        } elseif ($clientValueStory !== null) {
             $valueSummary = $clientValueStory->toSummaryArray();
             $valueStory = $clientValueStory->toPresentationArray();
         } else {
+            $businessOutcomes = null;
             $valueSummary = null;
             $valueStory = null;
         }
-        $valueDecisions = ($brandRow['id'] ?? '') === DemoCatalog::BRAND_ID
-            ? ClientValueFixtures::meaningfulDecisions($this->reportLanguage)
-            : [];
-        $reportPreview = ($brandRow['id'] ?? '') === DemoCatalog::BRAND_ID
-            ? ClientValueFixtures::reportPreview([
-                'period' => $period,
-                'language' => $this->reportLanguage,
-                'tone' => $this->reportTone,
-                'operator_note' => $this->reportOperatorNote,
-                'sections' => $this->reportSections !== []
-                    ? $this->reportSections
-                    : array_fill_keys(ClientValueFixtures::reportSectionKeys(), true),
-            ])
-            : null;
+
+        $operationalOutcomes = [];
+        $valueDecisions = [];
+        $reportPreview = null;
 
         $reportSnapshots = [
             'items' => [],
@@ -1438,19 +1297,7 @@ class BrandShow extends Component
             }
         }
 
-        $brandName = (string) ($brandRow['name'] ?? '');
-        $brandId = (string) ($brandRow['id'] ?? $this->brand);
-        $brandWorkItems = collect(AgencyExecutionFixtures::workItems())
-            ->filter(function (array $row) use ($brandName, $brandId): bool {
-                if (($row['type'] ?? '') === 'task' && ctype_digit($brandId)) {
-                    return (string) ($row['brand_id'] ?? '') === $brandId
-                        || (($row['brand'] ?? '') === $brandName && ($row['brand_id'] ?? null) === null);
-                }
-
-                return ($row['brand'] ?? '') === $brandName;
-            })
-            ->values()
-            ->all();
+        $brandWorkItems = $tasks;
         $brandRequests = [];
         if (ctype_digit((string) ($brandRow['id'] ?? $this->brand))) {
             $brandRequests = app(ClientRequestReadService::class)

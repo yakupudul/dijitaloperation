@@ -3,12 +3,12 @@
 namespace App\Livewire\Demo\Assets;
 
 use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
+use App\Livewire\Demo\Concerns\ResolvesCanonicalOperatorAsset;
 use App\Models\DigitalAsset;
 use App\Services\DataPool\Freshness\StartIncrementalCollectionService;
 use App\Services\Ga4\Ga4SpecialistBindingResolver;
 use App\Services\Ga4\Ga4SpecialistReadService;
 use App\Services\Ga4\Support\Ga4BindingMode;
-use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
@@ -21,8 +21,9 @@ use Livewire\Component;
 class AnalyticsPage extends Component
 {
     use InteractsWithDemoPeriod;
+    use ResolvesCanonicalOperatorAsset;
 
-    public string $assetId = DemoCatalog::GA4_ASSET_ID;
+    public string $assetId = '';
 
     #[Url]
     public string $tab = 'overview';
@@ -75,7 +76,7 @@ class AnalyticsPage extends Component
 
     public function mount(?string $assetId = null): void
     {
-        $this->assetId = $assetId ?: DemoCatalog::GA4_ASSET_ID;
+        $this->bindCanonicalAsset($assetId, ['ga4', 'analytics', 'google_analytics']);
         $this->mountPeriod();
         $this->normalizeTab();
     }
@@ -163,7 +164,7 @@ class AnalyticsPage extends Component
         $binding = app(Ga4SpecialistBindingResolver::class)->resolve($this->assetId);
 
         if ($binding->mode !== Ga4BindingMode::RealBound) {
-            DemoState::flash('GA4 data refresh queued (Demo Mode · no live Analytics Data API expansion).', 'info');
+            DemoState::flash('GA4 data refresh is unavailable until the integration is configured.', 'info');
 
             return;
         }
@@ -191,7 +192,7 @@ class AnalyticsPage extends Component
 
     public function runAnalysis(): void
     {
-        DemoState::flash('Measurement analysis completed (Demo Mode · deterministic fixtures).', 'info');
+        DemoState::flash('Measurement analysis is unavailable until GA4 data has been collected.', 'info');
         $this->tab = 'overview';
     }
 
@@ -253,7 +254,7 @@ class AnalyticsPage extends Component
         }
 
         return view('livewire.demo.analytics.overview', [
-            'asset' => DemoCatalog::asset($this->assetId),
+            'asset' => $this->presentCanonicalAsset(),
             'data' => $data,
             'identity' => $data['identity'],
             'selectedAttention' => $selectedAttention,

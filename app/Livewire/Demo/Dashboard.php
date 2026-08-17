@@ -33,12 +33,6 @@ class Dashboard extends Component
         }
     }
 
-    public function resetDemo(): void
-    {
-        DemoState::reset();
-        DemoState::flash('Demo Mode reset to seed state.');
-    }
-
     public function render(): View
     {
         return view('livewire.demo.dashboard', [

@@ -3,12 +3,12 @@
 namespace App\Livewire\Demo\Assets;
 
 use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
+use App\Livewire\Demo\Concerns\ResolvesCanonicalOperatorAsset;
 use App\Models\DigitalAsset;
 use App\Services\DataPool\Freshness\StartIncrementalCollectionService;
 use App\Services\Gsc\GscSpecialistBindingResolver;
 use App\Services\Gsc\GscSpecialistReadService;
 use App\Services\Gsc\Support\GscBindingMode;
-use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
@@ -21,8 +21,9 @@ use Livewire\Component;
 class SearchConsolePage extends Component
 {
     use InteractsWithDemoPeriod;
+    use ResolvesCanonicalOperatorAsset;
 
-    public string $assetId = DemoCatalog::GSC_ASSET_ID;
+    public string $assetId = '';
 
     #[Url]
     public string $tab = 'overview';
@@ -81,7 +82,7 @@ class SearchConsolePage extends Component
 
     public function mount(?string $assetId = null): void
     {
-        $this->assetId = $assetId ?: DemoCatalog::GSC_ASSET_ID;
+        $this->bindCanonicalAsset($assetId, ['gsc', 'search_console']);
         $this->mountPeriod();
         $this->normalizeTab();
     }
@@ -184,7 +185,7 @@ class SearchConsolePage extends Component
         $binding = app(GscSpecialistBindingResolver::class)->resolve($this->assetId);
 
         if ($binding->mode !== GscBindingMode::RealBound) {
-            DemoState::flash('Search Console data refresh queued (Demo Mode · no live Search Console API expansion).', 'info');
+            DemoState::flash('Search Console data refresh is unavailable until the integration is configured.', 'info');
 
             return;
         }
@@ -212,7 +213,7 @@ class SearchConsolePage extends Component
 
     public function runAnalysis(): void
     {
-        DemoState::flash('Organic demand analysis completed (Demo Mode · deterministic fixtures).', 'info');
+        DemoState::flash('Organic demand analysis is unavailable until Search Console data has been collected.', 'info');
         $this->tab = 'overview';
     }
 
@@ -293,7 +294,7 @@ class SearchConsolePage extends Component
         }
 
         return view('livewire.demo.search-console.overview', [
-            'asset' => DemoCatalog::asset($this->assetId),
+            'asset' => $this->presentCanonicalAsset(),
             'data' => $data,
             'identity' => $data['identity'],
             'selectedAttention' => $selectedAttention,

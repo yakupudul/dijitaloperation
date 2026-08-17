@@ -431,8 +431,8 @@ class MetaAdsRealDataMigrationTest extends TestCase
         $this->actingAs($user);
 
         Livewire::test(OverviewPage::class, [
-            'assetId' => DemoCatalog::META_ASSET_ID,
-        ])->assertSee('Atlas Health');
+            'assetId' => (string) $this->asset->id,
+        ])->assertOk();
 
         Http::assertNothingSent();
     }

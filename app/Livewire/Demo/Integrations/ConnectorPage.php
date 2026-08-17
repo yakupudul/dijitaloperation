@@ -2,8 +2,6 @@
 
 namespace App\Livewire\Demo\Integrations;
 
-use App\Support\Demo\ConnectorWorkspaceFixtures;
-use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
@@ -44,11 +42,57 @@ class ConnectorPage extends Component
      */
     private const TABS = ['overview', 'resources', 'bindings', 'data', 'sync', 'activity'];
 
+    /**
+     * @var array<string, array{id: string, name: string, type: string, integration: string, integration_label: string, integration_route: string}>
+     */
+    private const CONNECTORS = [
+        'google-ads' => [
+            'id' => 'google-ads',
+            'name' => 'Google Ads',
+            'type' => 'google_ads',
+            'integration' => 'google',
+            'integration_label' => 'Google',
+            'integration_route' => 'demo.integrations.google',
+        ],
+        'ga4' => [
+            'id' => 'ga4',
+            'name' => 'Google Analytics',
+            'type' => 'ga4',
+            'integration' => 'google',
+            'integration_label' => 'Google',
+            'integration_route' => 'demo.integrations.google',
+        ],
+        'gsc' => [
+            'id' => 'gsc',
+            'name' => 'Search Console',
+            'type' => 'gsc',
+            'integration' => 'google',
+            'integration_label' => 'Google',
+            'integration_route' => 'demo.integrations.google',
+        ],
+        'gbp' => [
+            'id' => 'gbp',
+            'name' => 'Google Business Profile',
+            'type' => 'google_business_profile',
+            'integration' => 'google',
+            'integration_label' => 'Google',
+            'integration_route' => 'demo.integrations.google',
+        ],
+        'meta-ads' => [
+            'id' => 'meta-ads',
+            'name' => 'Meta Ads',
+            'type' => 'meta_ads',
+            'integration' => 'meta',
+            'integration_label' => 'Meta',
+            'integration_route' => 'demo.integrations.meta',
+        ],
+    ];
+
     public function mount(string $connector): void
     {
         $this->connector = $connector;
 
-        if (ConnectorWorkspaceFixtures::connector($connector) === null) {
+        if (! isset(self::CONNECTORS[$connector])) {
             abort(404);
         }
 
@@ -67,21 +111,7 @@ class ConnectorPage extends Component
 
     public function openBind(string $resourceId): void
     {
-        $data = ConnectorWorkspaceFixtures::connector($this->connector);
-        $resource = collect($data['resources'] ?? [])->firstWhere('id', $resourceId);
-        if ($resource === null || ($resource['state'] ?? '') !== 'available') {
-            DemoState::flash('Only Available resources can be bound. Conflict/Unavailable require review.', 'info');
-
-            return;
-        }
-
-        $this->bindResourceId = $resourceId;
-        $this->bindMode = 'existing';
-        $this->confirmBind = false;
-        $assets = $data['existing_assets_for_brand'] ?? [];
-        $this->selectedAssetId = (string) (($assets[0]['id'] ?? '') ?: '');
-        $this->newAssetName = (string) ($resource['name'] ?? 'New Digital Asset');
-        $this->tab = 'resources';
+        DemoState::flash('Configure integration first. No provider resources are available until credentials are configured.', 'info');
     }
 
     public function closeBind(): void
@@ -94,167 +124,66 @@ class ConnectorPage extends Component
 
     public function prepareConfirm(): void
     {
-        if ($this->bindResourceId === null) {
-            return;
-        }
-
-        if ($this->bindMode === 'existing' && $this->selectedAssetId === '') {
-            DemoState::flash('Select an existing Digital Asset or create one.', 'info');
-
-            return;
-        }
-
-        if ($this->bindMode === 'create' && trim($this->newAssetName) === '') {
-            DemoState::flash('Digital Asset name is required.', 'info');
-
-            return;
-        }
-
-        $this->confirmBind = true;
+        DemoState::flash('Configure integration first.', 'info');
     }
 
     public function confirmBinding(): void
     {
-        if ($this->bindResourceId === null || ! $this->confirmBind) {
-            return;
-        }
-
-        $data = ConnectorWorkspaceFixtures::connector($this->connector);
-        $resource = collect($data['resources'] ?? [])->firstWhere('id', $this->bindResourceId);
-        if ($resource === null) {
-            $this->closeBind();
-
-            return;
-        }
-
-        // Cross-Brand safety: session-bound assets must stay on Atlas Demo Brand scope.
-        $targetBrandId = DemoCatalog::BRAND_ID;
-        if ($this->bindMode === 'existing') {
-            $asset = collect($data['existing_assets_for_brand'] ?? [])->firstWhere('id', $this->selectedAssetId);
-            if ($asset === null) {
-                DemoState::flash('Selected Digital Asset is outside Brand scope — binding rejected.', 'info');
-                $this->closeBind();
-
-                return;
-            }
-            if (($asset['brand_id'] ?? '') !== $targetBrandId) {
-                DemoState::flash('Cross-Brand binding rejected. Resource must stay within Customer/Brand scope.', 'info');
-                $this->closeBind();
-
-                return;
-            }
-            $assetId = $this->selectedAssetId;
-            $assetName = (string) $asset['name'];
-        } else {
-            // Prevent duplicate asset names for same type+brand in session.
-            $existing = collect(DemoState::all()['demo_assets'] ?? [])
-                ->first(function (array $a) use ($data): bool {
-                    return ($a['brand_id'] ?? '') === DemoCatalog::BRAND_ID
-                        && ($a['type'] ?? '') === ($data['type'] ?? '')
-                        && mb_strtolower((string) ($a['name'] ?? '')) === mb_strtolower(trim($this->newAssetName));
-                });
-            if ($existing !== null) {
-                DemoState::flash('Matching Digital Asset already exists — bind to existing instead of creating a duplicate.', 'info');
-                $this->bindMode = 'existing';
-                $this->selectedAssetId = (string) $existing['id'];
-                $this->confirmBind = false;
-
-                return;
-            }
-
-            $assetId = 'da-bind-'.substr(md5($this->bindResourceId.microtime(true)), 0, 8);
-            $assetName = trim($this->newAssetName);
-            DemoState::addDemoAsset([
-                'id' => $assetId,
-                'brand_id' => DemoCatalog::BRAND_ID,
-                'name' => $assetName,
-                'type' => $data['type'],
-                'type_label' => $data['name'],
-                'status' => 'active',
-                'role' => 'channel',
-                'role_label' => 'Channel',
-                'health' => 'healthy',
-                'health_label' => 'Healthy',
-                'provenance' => 'Bound via Connector (Demo)',
-                'open_findings' => 0,
-                'last_update' => 'Just now',
-                'route' => $resource['asset_route'] ?? 'demo.assets',
-                'connection' => 'connected',
-            ]);
-        }
-
-        DemoState::bindConnectorResource($this->connector, $this->bindResourceId, $assetId, $assetName, $targetBrandId);
-        DemoState::flash('Binding confirmed (Demo Mode — human-approved; no provider write).');
+        DemoState::flash('Configure integration first. Binding is unavailable until the provider is configured.', 'info');
         $this->closeBind();
-        $this->tab = 'bindings';
     }
 
     public function unbindResource(string $resourceId): void
     {
-        DemoState::unbindConnectorResource($this->connector, $resourceId);
-        DemoState::flash('Resource unbound in Demo Mode (Evidence history retained conceptually).');
+        DemoState::flash('No bindings exist — the provider is not configured.', 'info');
     }
 
     public function refreshCollection(): void
     {
-        DemoState::flash('Manual refresh queued (Demo Mode — no live provider collector expansion).', 'info');
+        DemoState::flash('Configure integration first. Collection cannot run without credentials.', 'info');
     }
 
     public function render(): View
     {
-        $data = ConnectorWorkspaceFixtures::connector($this->connector);
-        $sessionBindings = DemoState::connectorBindings($this->connector);
+        $meta = self::CONNECTORS[$this->connector];
 
-        $resources = collect($data['resources'] ?? [])->map(function (array $resource) use ($sessionBindings): array {
-            $session = $sessionBindings[$resource['id']] ?? null;
-            if (is_array($session)) {
-                if (($session['action'] ?? '') === 'bound') {
-                    $resource['state'] = 'bound';
-                    $resource['state_label'] = 'Bound';
-                    $resource['asset_id'] = $session['asset_id'] ?? $resource['asset_id'];
-                    $resource['asset_name'] = $session['asset_name'] ?? $resource['asset_name'];
-                    $resource['brand_id'] = $session['brand_id'] ?? DemoCatalog::BRAND_ID;
-                    $resource['brand_name'] = 'Atlas Dental Ankara';
-                }
-                if (($session['action'] ?? '') === 'unbound') {
-                    $resource['state'] = 'available';
-                    $resource['state_label'] = 'Available';
-                    $resource['asset_id'] = null;
-                    $resource['asset_name'] = null;
-                }
-            }
-
-            return $resource;
-        });
-
-        if ($this->q !== '') {
-            $q = mb_strtolower($this->q);
-            $resources = $resources->filter(function (array $r) use ($q): bool {
-                $hay = mb_strtolower(($r['name'] ?? '').' '.($r['external_id'] ?? '').' '.($r['stream'] ?? '').' '.($r['address'] ?? ''));
-
-                return str_contains($hay, $q);
-            });
-        }
-
-        if ($this->state !== 'all') {
-            $resources = $resources->where('state', $this->state);
-        }
-
-        if ($this->brand === 'atlas') {
-            $resources = $resources->where('brand_id', DemoCatalog::BRAND_ID);
-        } elseif ($this->brand === 'unmapped') {
-            $resources = $resources->filter(fn (array $r): bool => empty($r['brand_id']));
-        }
-
-        $bindResource = $resources->firstWhere('id', $this->bindResourceId);
-
-        $bindings = $resources->where('state', 'bound')->values()->all();
+        $data = [
+            'id' => $meta['id'],
+            'name' => $meta['name'],
+            'type' => $meta['type'],
+            'integration_label' => $meta['integration_label'],
+            'integration_route' => $meta['integration_route'],
+            'connection' => 'Not configured',
+            'freshness' => 'Not collected',
+            'latest_collection' => '—',
+            'resources_count' => 0,
+            'bound' => 0,
+            'available' => 0,
+            'ontology_note' => 'Configure the '.$meta['integration_label'].' integration before discovering resources. Asset existence is not a connection.',
+            'existing_assets_for_brand' => [],
+            'resources' => [],
+            'data' => [
+                'latest_through' => '—',
+                'metrics' => [],
+                'note' => 'No collection data — provider is not configured.',
+                'asset_cta' => null,
+            ],
+            'sync' => [
+                'last_success' => '—',
+                'last_attempt' => '—',
+                'status' => 'Not configured',
+                'timezone' => '—',
+                'scope' => 'Not configured',
+                'failure' => null,
+            ],
+            'activity' => [],
+        ];
 
         return view('livewire.demo.integrations.connector-page', [
             'data' => $data,
-            'resources' => $resources->values()->all(),
-            'bindings' => $bindings,
-            'bindResource' => $bindResource,
+            'resources' => [],
+            'bindings' => [],
+            'bindResource' => null,
             'flash' => DemoState::pullFlash(),
         ]);
     }

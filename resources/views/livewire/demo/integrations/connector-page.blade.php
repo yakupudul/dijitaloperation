@@ -96,12 +96,11 @@
                     <label for="res-brand" class="mb-1 block text-xs font-medium text-gray-500">Brand mapping</label>
                     <select id="res-brand" wire:model.live="brand" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-950 dark:text-white/90">
                         <option value="all">All</option>
-                        <option value="atlas">Atlas Dental</option>
                         <option value="unmapped">Unmapped</option>
                     </select>
                 </div>
             </div>
-            <p class="text-xs text-gray-400">{{ count($resources) }} shown · Demo fixtures are deterministic</p>
+            <p class="text-xs text-gray-400">{{ count($resources) }} shown · resources appear only after discovery</p>
         </div>
 
         <ul class="space-y-2">

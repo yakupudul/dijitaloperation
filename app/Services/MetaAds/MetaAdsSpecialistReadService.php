@@ -376,6 +376,7 @@ final class MetaAdsSpecialistReadService
             : "Meta Ads binding {$reason} — no collection state available.";
 
         $unavailableChip = ['value' => '—', 'raw' => null, 'secondary' => 'Unavailable', 'tone' => 'neutral'];
+        $asset = DigitalAsset::query()->with('brand')->find($binding->digitalAssetId);
 
         $data = [
             'period_label' => $bounds['label'],
@@ -386,15 +387,17 @@ final class MetaAdsSpecialistReadService
             'demo_boundary' => 'Real Meta Ads workspace · no usable Ad Account binding — no live Meta Graph API call performed.',
             'identity' => [
                 'eyebrow' => 'Meta Ads',
-                'title' => $errorMessage !== null ? 'Meta Ads — read error' : 'Meta Ads — not connected',
-                'brand' => null,
-                'brand_id' => null,
-                'brand_name' => null,
+                'title' => $errorMessage !== null
+                    ? (($asset?->name ?? 'Meta Ads').' — read error')
+                    : (($asset?->name ?? 'Meta Ads').' — not connected'),
+                'brand' => $asset?->brand?->name,
+                'brand_id' => $asset?->brand_id,
+                'brand_name' => $asset?->brand?->name ?? '—',
                 'website_asset_id' => null,
                 'meta_asset_id' => $binding->assetId,
                 'strategy_line' => null,
                 'status' => $statusLabel,
-                'freshness' => null,
+                'freshness' => 'Not collected',
                 'reporting_timezone' => null,
                 'currency' => null,
                 'ad_account' => null,
@@ -1132,7 +1135,7 @@ final class MetaAdsSpecialistReadService
         string $rangeEnd,
     ): array {
         $mappingNote = 'Matrix reflects real Meta Ads typed actions — action_type is kept distinct and no generic "Results" metric is used. '
-            .self::ACTION_NOTE.' Business outcome funnel / lead quality narrative above remains Demo Mode illustrative content; no Business Action mapping is configured in Prompt 31.';
+            .self::ACTION_NOTE.' Business outcome funnel / lead quality narrative above remains illustrative; no Business Action mapping is configured in Prompt 31.';
 
         if (! $typedActionGate->isUsable() || $typedActionGate->effectiveStart === null || $typedActionGate->effectiveEnd === null) {
             return array_merge($demoMeasurement, [

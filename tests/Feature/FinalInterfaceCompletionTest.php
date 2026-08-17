@@ -8,6 +8,7 @@ use App\Livewire\Demo\Integrations\SiteConnectorShow;
 use App\Livewire\Demo\ProfilePage;
 use App\Livewire\Demo\Settings\AiControlPlanePage;
 use App\Livewire\Demo\SettingsPage;
+use App\Models\DigitalAsset;
 use App\Models\OperatorFile;
 use App\Models\User;
 use App\Support\Demo\DemoMenu;
@@ -143,18 +144,27 @@ class FinalInterfaceCompletionTest extends TestCase
 
     public function test_instagram_workspace_returns_ok_with_useful_tabs(): void
     {
-        $this->get(route('demo.instagram'))
+        $this->get(route('demo.instagram'))->assertNotFound();
+
+        $asset = DigitalAsset::factory()->create([
+            'type' => 'instagram',
+            'name' => 'Northwind Instagram',
+        ]);
+
+        $this->get(route('demo.instagram', ['assetId' => $asset->id]))
             ->assertOk()
             ->assertSee('Instagram')
-            ->assertSee('@atlasdentalankara')
-            ->assertSee(__('operator.asset.relationship_summary'))
-            ->assertSee('Website URL mismatch');
+            ->assertSee('Northwind Instagram')
+            ->assertSee(__('operator.commercial.outside_scope'))
+            ->assertDontSee('@atlasdentalankara')
+            ->assertDontSee('Website URL mismatch');
 
-        Livewire::test(InstagramOverviewPage::class)
+        Livewire::test(InstagramOverviewPage::class, ['assetId' => (string) $asset->id])
             ->call('setTab', 'profile')
-            ->assertSee('atlasdentalankara')
+            ->assertSee('Northwind Instagram')
+            ->assertDontSee('atlasdentalankara')
             ->call('setTab', 'operations')
-            ->assertSee('Bio website path');
+            ->assertDontSee('Bio website path');
     }
 
     public function test_demo_menu_includes_files_item(): void

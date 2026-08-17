@@ -244,5 +244,5 @@
         @endforeach
     </div>
 
-    @include('livewire.demo.partials._opportunity-card', ['opportunity' => collect(\App\Support\Demo\OpportunityFixtures::forAssetType('meta_ads'))->first()])
+    @include('livewire.demo.partials._opportunity-card', ['opportunity' => null])
 </div>

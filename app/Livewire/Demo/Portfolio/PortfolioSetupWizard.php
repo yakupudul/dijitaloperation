@@ -2,13 +2,20 @@
 
 namespace App\Livewire\Demo\Portfolio;
 
-use App\Support\Demo\BrandPublicDiscoveryFixtures;
-use App\Support\Demo\ConnectorWorkspaceFixtures;
-use App\Support\Demo\DemoCatalog;
+use App\Enums\CustomerStatus;
+use App\Enums\CustomerType;
+use App\Enums\DigitalAssetStatus;
+use App\Models\Brand;
+use App\Models\Customer;
+use App\Models\CustomerContact;
+use App\Models\DigitalAsset;
+use App\Services\Operator\OperatorPortfolioPresenter;
+use App\Services\Operator\OperatorUserDirectory;
 use App\Support\Demo\DemoState;
 use App\Support\Options\CountryOptions;
 use App\Support\Options\LanguageOptions;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -97,30 +104,29 @@ class PortfolioSetupWizard extends Component
         }
 
         if ($this->entry === 'brand') {
-            $this->customerId = request()->query('customerId', DemoCatalog::CUSTOMER_ID);
-            $this->customer_name = DemoCatalog::customer()['name'] ?? 'Atlas Health Group';
+            $requested = (string) request()->query('customerId', $this->customerId);
+            abort_unless(ctype_digit($requested), 404);
+            $customer = Customer::query()->find($requested);
+            abort_if($customer === null, 404);
+            $this->customerId = (string) $customer->id;
+            $this->customer_name = $customer->name;
             if ($this->step < 2) {
                 $this->step = 2;
             }
         }
 
         if ($this->entry === 'asset') {
-            $this->customerId = DemoCatalog::CUSTOMER_ID;
-            $this->brandId = request()->query('brandId', DemoCatalog::BRAND_ID);
-            $this->customer_name = DemoCatalog::customer()['name'] ?? 'Atlas Health Group';
-            $this->brand_name = DemoCatalog::brand()['name'] ?? 'Atlas Dental Ankara';
-            $this->website_url = 'https://atlasdental.example';
+            $requested = (string) request()->query('brandId', $this->brandId);
+            abort_unless(ctype_digit($requested), 404);
+            $brand = Brand::query()->with('customer')->find($requested);
+            abort_if($brand === null, 404);
+            $this->brandId = (string) $brand->id;
+            $this->customerId = (string) $brand->customer_id;
+            $this->customer_name = $brand->customer?->name ?? '';
+            $this->brand_name = $brand->name;
             if ($this->step < 3) {
                 $this->step = 3;
             }
-        }
-
-        if ($this->account_owner === '') {
-            $this->account_owner = 'u-ayse';
-        }
-
-        if ($this->responsible_user_ids === []) {
-            $this->responsible_user_ids = ['u-ayse'];
         }
 
         if ($this->website_url !== '' && ! in_array('website', $this->selected_assets, true)) {
@@ -189,7 +195,6 @@ class PortfolioSetupWizard extends Component
 
     public function resolveConflict(string $id, string $decision): void
     {
-        DemoState::resolveDiscoveryConflict($id, $decision);
         $this->reviewConflictId = null;
         $this->persist();
     }
@@ -198,10 +203,6 @@ class PortfolioSetupWizard extends Component
     {
         if (! $this->validateStep($this->step)) {
             return;
-        }
-
-        if ($this->step === 5) {
-            $this->acceptSelectedCandidates();
         }
 
         if ($this->step < 6) {
@@ -291,10 +292,16 @@ class PortfolioSetupWizard extends Component
                 return false;
             }
 
-            $existing = collect(DemoState::all()['brands'] ?? [])
-                ->first(fn (array $b): bool => mb_strtolower((string) ($b['name'] ?? '')) === mb_strtolower(trim($this->brand_name)));
-            if ($existing && ($this->brandId === '' || $existing['id'] !== $this->brandId)) {
-                $this->duplicateBrandWarning = 'Possible existing Brand · '.($existing['name'] ?? '').' — continuing will create a new Brand unless you use the existing Brand entry point.';
+            $query = Brand::query()->whereRaw('lower(name) = ?', [mb_strtolower(trim($this->brand_name))]);
+            if (ctype_digit($this->customerId)) {
+                $query->where('customer_id', (int) $this->customerId);
+            }
+            if (ctype_digit($this->brandId)) {
+                $query->whereKeyNot((int) $this->brandId);
+            }
+            $existing = $query->first();
+            if ($existing !== null) {
+                $this->duplicateBrandWarning = 'Possible existing Brand · '.$existing->name.' — continuing will create a new Brand unless you use the existing Brand entry point.';
             }
         }
 
@@ -307,166 +314,116 @@ class PortfolioSetupWizard extends Component
         return true;
     }
 
-    protected function acceptSelectedCandidates(): void
-    {
-        foreach ($this->accepted_candidate_ids as $id) {
-            $candidate = collect(BrandPublicDiscoveryFixtures::candidates())->firstWhere('id', $id);
-            if ($candidate === null || ($candidate['status'] ?? '') !== 'pending') {
-                continue;
-            }
-            // Conflicts are not batch-accepted.
-            if (($candidate['kind'] ?? '') === 'competitor') {
-                continue;
-            }
-            DemoState::setDiscoveryCandidateStatus($id, 'accepted');
-        }
-    }
-
     protected function commitSetup(): void
     {
-        $state = DemoState::all();
+        DB::transaction(function (): void {
+            $ownerIds = OperatorUserDirectory::sanitizeIds(
+                array_values(array_filter([$this->account_owner, ...$this->responsible_user_ids]))
+            );
 
-        if ($this->entry === 'customer' && $this->customerId === '') {
-            $this->customerId = 'c-wiz-'.substr(md5($this->customer_name.microtime(true)), 0, 8);
-            DemoState::addCustomer([
-                'id' => $this->customerId,
-                'name' => trim($this->customer_name),
-                'legal_name' => trim($this->customer_name),
-                'type' => 'company',
-                'status' => 'active',
-                'industry' => 'dental',
-                'hq_country' => $this->primary_country,
-                'account_owner_id' => $this->account_owner,
-                'primary_email' => $this->contact_email,
-                'primary_phone' => $this->contact_phone,
-                'brands_count' => 0,
-                'digital_assets_count' => 0,
-                'open_findings' => 0,
-                'open_tasks' => 0,
-                'overdue_tasks' => 0,
-            ]);
-            if ($this->contact_name !== '' || $this->contact_email !== '') {
-                DemoState::addContact([
-                    'id' => 'ct-wiz-'.substr(md5($this->contact_name.microtime(true)), 0, 8),
-                    'customer_id' => $this->customerId,
-                    'name' => $this->contact_name !== '' ? $this->contact_name : 'Primary contact',
-                    'email' => $this->contact_email,
-                    'phone' => $this->contact_phone,
-                    'role' => 'Primary',
-                    'is_primary' => true,
+            if ($this->entry === 'customer') {
+                if ($this->customerId !== '' && ctype_digit($this->customerId)) {
+                    $customer = Customer::query()->find($this->customerId);
+                } else {
+                    $customer = null;
+                }
+
+                if ($customer === null) {
+                    $customer = Customer::query()->create([
+                        'name' => trim($this->customer_name),
+                        'legal_name' => trim($this->customer_name),
+                        'type' => CustomerType::Company,
+                        'status' => CustomerStatus::Active,
+                        'hq_country' => $this->primary_country !== '' ? $this->primary_country : null,
+                        'primary_email' => $this->contact_email !== '' ? trim($this->contact_email) : null,
+                        'primary_phone' => $this->contact_phone !== '' ? trim($this->contact_phone) : null,
+                    ]);
+                    $this->customerId = (string) $customer->id;
+                }
+
+                $customer->responsibleUsers()->sync($ownerIds);
+
+                if ($this->contact_name !== '' || $this->contact_email !== '') {
+                    $existingContact = CustomerContact::query()
+                        ->where('customer_id', $customer->id)
+                        ->where('email', $this->contact_email !== '' ? trim($this->contact_email) : null)
+                        ->first();
+                    if ($existingContact === null) {
+                        CustomerContact::query()->create([
+                            'customer_id' => $customer->id,
+                            'name' => $this->contact_name !== '' ? $this->contact_name : 'Primary contact',
+                            'email' => $this->contact_email !== '' ? trim($this->contact_email) : null,
+                            'phone' => $this->contact_phone !== '' ? trim($this->contact_phone) : null,
+                            'title' => 'Primary',
+                        ]);
+                    }
+                }
+            }
+
+            abort_unless(ctype_digit($this->customerId), 404);
+            $customer = Customer::query()->findOrFail((int) $this->customerId);
+
+            if (in_array($this->entry, ['customer', 'brand'], true)) {
+                $brand = ($this->brandId !== '' && ctype_digit($this->brandId))
+                    ? Brand::query()->where('customer_id', $customer->id)->find($this->brandId)
+                    : null;
+
+                if ($brand === null) {
+                    $brand = Brand::query()->create([
+                        'customer_id' => $customer->id,
+                        'name' => trim($this->brand_name),
+                        'primary_country' => $this->primary_country !== '' ? $this->primary_country : null,
+                        'target_markets' => $this->primary_country !== '' ? [$this->primary_country] : [],
+                        'languages' => $this->primary_language !== '' ? [$this->primary_language] : [],
+                    ]);
+                    $this->brandId = (string) $brand->id;
+                }
+
+                $brand->responsibleUsers()->sync(OperatorUserDirectory::sanitizeIds($this->responsible_user_ids));
+            }
+
+            abort_unless(ctype_digit($this->brandId), 404);
+            $brand = Brand::query()->findOrFail((int) $this->brandId);
+            abort_unless((int) $brand->customer_id === (int) $customer->id, 404);
+
+            foreach ($this->selected_assets as $type) {
+                if ($type === 'instagram') {
+                    continue;
+                }
+
+                $assetType = OperatorPortfolioPresenter::canonicalAssetType($type);
+                $existing = DigitalAsset::query()
+                    ->where('brand_id', $brand->id)
+                    ->where('type', $assetType)
+                    ->first();
+                if ($existing !== null) {
+                    continue;
+                }
+
+                $name = match ($type) {
+                    'website' => parse_url($this->website_url, PHP_URL_HOST) ?: ($this->brand_name.' Website'),
+                    'ga4' => $this->brand_name.' — GA4',
+                    'gsc' => $this->brand_name.' — Search Console',
+                    'google_ads' => $this->brand_name.' — Google Ads',
+                    'meta_ads' => $this->brand_name.' — Meta',
+                    'gbp' => $this->brand_name,
+                    default => $this->brand_name.' · '.$type,
+                };
+
+                DigitalAsset::query()->create([
+                    'brand_id' => $brand->id,
+                    'name' => $name,
+                    'type' => $assetType,
+                    'status' => DigitalAssetStatus::Active,
+                    'module_id' => OperatorPortfolioPresenter::derivedModuleId($assetType),
+                    'domain' => $type === 'website' ? (parse_url($this->website_url, PHP_URL_HOST) ?: null) : null,
+                    'primary_url' => $type === 'website' && $this->website_url !== '' ? $this->website_url : null,
                 ]);
             }
-        }
-
-        if (in_array($this->entry, ['customer', 'brand'], true) && $this->brandId === '') {
-            $this->brandId = 'b-wiz-'.substr(md5($this->brand_name.microtime(true)), 0, 8);
-            $state = DemoState::all();
-            $state['brands'][] = [
-                'id' => $this->brandId,
-                'customer_id' => $this->customerId !== '' ? $this->customerId : DemoCatalog::CUSTOMER_ID,
-                'name' => trim($this->brand_name),
-                'sector' => 'dental',
-                'primary_country' => $this->primary_country,
-                'target_markets' => [$this->primary_country],
-                'languages' => [$this->primary_language],
-                'responsible_user_ids' => $this->responsible_user_ids,
-                'assets_count' => 0,
-                'connected_assets' => 0,
-                'open_findings' => 0,
-                'open_tasks' => 0,
-                'context_completed' => count($this->accepted_candidate_ids),
-                'context_total' => 8,
-                'website_url' => $this->website_url,
-            ];
-            DemoState::put($state);
-        }
-
-        $brandScope = $this->brandId !== '' ? $this->brandId : DemoCatalog::BRAND_ID;
-
-        foreach ($this->selected_assets as $type) {
-            if ($type === 'instagram') {
-                continue;
-            }
-            if (! empty($this->skipped_providers[$type])) {
-                continue;
-            }
-
-            $resourceId = $this->resource_selections[$type] ?? null;
-            $existingType = collect(array_merge(DemoCatalog::assets(), DemoState::all()['demo_assets'] ?? []))
-                ->first(fn (array $a): bool => ($a['brand_id'] ?? '') === $brandScope && ($a['type'] ?? '') === ($type === 'gbp' ? 'google_business_profile' : $type));
-
-            if ($existingType !== null && $resourceId) {
-                $connector = match ($type) {
-                    'google_ads' => 'google-ads',
-                    'meta_ads' => 'meta-ads',
-                    'gbp' => 'gbp',
-                    default => $type,
-                };
-                if (in_array($connector, ConnectorWorkspaceFixtures::ids(), true)) {
-                    DemoState::bindConnectorResource($connector, $resourceId, (string) $existingType['id'], (string) $existingType['name'], $brandScope);
-                }
-
-                continue;
-            }
-
-            if ($existingType !== null) {
-                continue;
-            }
-
-            $assetType = $type === 'gbp' ? 'google_business_profile' : $type;
-            $name = match ($type) {
-                'website' => parse_url($this->website_url, PHP_URL_HOST) ?: ($this->brand_name.' Website'),
-                'ga4' => $this->brand_name.' — GA4',
-                'gsc' => $this->brand_name.' — Search Console',
-                'google_ads' => $this->brand_name.' — Google Ads',
-                'meta_ads' => $this->brand_name.' — Meta',
-                'gbp' => $this->brand_name,
-                default => $this->brand_name.' · '.$type,
-            };
-
-            $id = 'da-wiz-'.substr(md5($type.$brandScope.microtime(true)), 0, 8);
-            DemoState::addDemoAsset([
-                'id' => $id,
-                'brand_id' => $brandScope,
-                'name' => $name,
-                'type' => $assetType,
-                'type_label' => $this->assetTypeLabel($assetType),
-                'status' => 'active',
-                'connection' => $resourceId ? 'connected' : ($type === 'website' ? 'manual' : 'not_configured'),
-                'provenance' => $resourceId ? 'Bound via Setup Wizard (Demo)' : 'Setup Wizard',
-                'health' => 'healthy',
-                'health_label' => 'Healthy',
-                'open_findings' => 0,
-                'last_update' => 'Just now',
-                'route' => match ($type) {
-                    'website' => 'demo.website',
-                    'ga4' => 'demo.analytics',
-                    'gsc' => 'demo.search-console',
-                    'google_ads' => 'demo.google-ads.overview',
-                    'meta_ads' => 'demo.meta.overview',
-                    'gbp' => 'demo.gbp',
-                    'instagram' => 'demo.instagram',
-                    default => 'demo.assets',
-                },
-                'domain' => $type === 'website' ? (parse_url($this->website_url, PHP_URL_HOST) ?: null) : null,
-                'primary_url' => $type === 'website' ? $this->website_url : null,
-            ]);
-
-            if ($resourceId) {
-                $connector = match ($type) {
-                    'google_ads' => 'google-ads',
-                    'meta_ads' => 'meta-ads',
-                    'gbp' => 'gbp',
-                    default => $type,
-                };
-                if (in_array($connector, ConnectorWorkspaceFixtures::ids(), true)) {
-                    DemoState::bindConnectorResource($connector, $resourceId, $id, $name, $brandScope);
-                }
-            }
-        }
+        });
 
         $this->committed = true;
-        DemoState::flash('Portfolio setup completed (Demo Mode). Setup incomplete ≠ Brand unhealthy.');
+        DemoState::flash('Portfolio setup saved. Digital assets are defined — not connected until integrations are configured.');
     }
 
     protected function persist(): void
@@ -496,15 +453,6 @@ class PortfolioSetupWizard extends Component
 
     public function render(): View
     {
-        $team = DemoCatalog::teamMembers();
-        $matchCards = $this->matchCards();
-        $candidates = collect(BrandPublicDiscoveryFixtures::candidates())
-            ->where('status', 'pending')
-            ->values()
-            ->all();
-        $conflicts = BrandPublicDiscoveryFixtures::conflicts();
-        $reviewConflict = collect($conflicts)->firstWhere('id', $this->reviewConflictId);
-
         $steps = [
             1 => 'Customer',
             2 => 'Brand',
@@ -523,12 +471,12 @@ class PortfolioSetupWizard extends Component
 
         return view('livewire.demo.portfolio.portfolio-setup-wizard', [
             'steps' => $steps,
-            'team' => $team,
+            'team' => OperatorUserDirectory::presentationMembers(),
             'assetOptions' => $this->assetOptionCards(),
-            'matchCards' => $matchCards,
-            'candidates' => $candidates,
-            'conflicts' => $conflicts,
-            'reviewConflict' => $reviewConflict,
+            'matchCards' => $this->matchCards(),
+            'candidates' => [],
+            'conflicts' => [],
+            'reviewConflict' => null,
             'countryOptions' => CountryOptions::options(),
             'languageOptions' => LanguageOptions::options(),
             'flash' => DemoState::pullFlash(),
@@ -562,29 +510,17 @@ class PortfolioSetupWizard extends Component
             if ($type === 'website' || $type === 'instagram') {
                 continue;
             }
-            $connectorId = match ($type) {
-                'google_ads' => 'google-ads',
-                'meta_ads' => 'meta-ads',
-                'gbp' => 'gbp',
-                default => $type,
-            };
-            $connector = ConnectorWorkspaceFixtures::connector($connectorId);
-            if ($connector === null) {
-                continue;
-            }
-            $resources = collect($connector['resources'])
-                ->filter(fn (array $r): bool => in_array($r['state'], ['available', 'bound'], true))
-                ->values()
-                ->all();
+            $label = $this->assetTypeLabel(OperatorPortfolioPresenter::canonicalAssetType($type));
             $cards[] = [
                 'type' => $type,
-                'connector' => $connectorId,
-                'label' => $connector['name'],
-                'integration' => $connector['integration_label'],
-                'integration_state' => 'Connected',
-                'resources' => $resources,
+                'connector' => $type,
+                'label' => $label,
+                'integration' => $type === 'meta_ads' ? 'Meta' : 'Google',
+                'integration_state' => 'Not configured',
+                'resources' => [],
                 'selected' => $this->resource_selections[$type] ?? null,
                 'skipped' => ! empty($this->skipped_providers[$type]),
+                'blocker' => 'Configure integration first.',
             ];
         }
 
@@ -596,21 +532,22 @@ class PortfolioSetupWizard extends Component
      */
     protected function summary(): array
     {
-        $configured = collect($this->selected_assets)
-            ->reject(fn (string $t): bool => ! empty($this->skipped_providers[$t]) || $t === 'instagram')
+        $defined = collect($this->selected_assets)
+            ->reject(fn (string $t): bool => $t === 'instagram')
             ->values()
             ->all();
 
         return [
             'customer' => $this->customer_name !== '' ? $this->customer_name : '—',
             'brand' => $this->brand_name !== '' ? $this->brand_name : '—',
-            'assets' => $configured,
-            'bound' => collect($this->resource_selections)->filter()->keys()->values()->all(),
-            'accepted' => count($this->accepted_candidate_ids),
-            'conflicts_open' => collect(BrandPublicDiscoveryFixtures::conflicts())
-                ->filter(fn (array $c): bool => (DemoState::all()['discovery_conflict_resolutions'][$c['id']] ?? null) === null)
-                ->count(),
-            'brand_id' => $this->brandId !== '' ? $this->brandId : DemoCatalog::BRAND_ID,
+            'assets' => $defined,
+            'bound' => [],
+            'accepted' => 0,
+            'conflicts_open' => 0,
+            'brand_id' => $this->brandId,
+            'google' => 'Not configured',
+            'meta' => 'Not configured',
+            'defined_count' => count($defined),
         ];
     }
 

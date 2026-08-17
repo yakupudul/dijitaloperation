@@ -4,15 +4,19 @@ namespace Tests\Feature;
 
 use App\Livewire\Demo\Website\OverviewPage;
 use App\Models\User;
+use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
+use App\Support\Demo\WebsiteWorkspaceFixtures;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
+use Tests\Support\CreatesCanonicalPortfolio;
 use Tests\TestCase;
 
 class WebsiteOperatingWorkspaceTest extends TestCase
 {
+    use CreatesCanonicalPortfolio;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -28,148 +32,73 @@ class WebsiteOperatingWorkspaceTest extends TestCase
         DemoState::reset();
     }
 
-    public function test_website_primary_tabs_render(): void
+    public function test_website_without_asset_id_is_not_found(): void
     {
-        foreach (['overview', 'health', 'visibility', 'content', 'performance', 'infrastructure', 'operations', 'setup'] as $tab) {
-            $this->get(route('demo.website', ['tab' => $tab]))
-                ->assertOk()
-                ->assertSee('Atlas Dental Website');
-        }
-
-        // Legacy destinations remap into Setup / Operations.
-        foreach (['connections', 'settings', 'activity'] as $legacy) {
-            $this->get(route('demo.website', ['tab' => $legacy]))
-                ->assertOk()
-                ->assertSee('Atlas Dental Website');
-        }
+        $this->get(route('demo.website'))->assertNotFound();
+        Livewire::test(OverviewPage::class)->assertStatus(404);
     }
 
-    public function test_overview_prescription_surfaces(): void
+    public function test_catalog_website_id_is_not_found_on_operator_routes(): void
     {
-        Livewire::test(OverviewPage::class)
+        $this->get(route('demo.website', ['assetId' => DemoCatalog::WEBSITE_ASSET_ID]))->assertNotFound();
+        Livewire::test(OverviewPage::class, ['assetId' => DemoCatalog::WEBSITE_ASSET_ID])->assertStatus(404);
+    }
+
+    public function test_real_website_asset_renders_tabs_without_atlas_fixtures(): void
+    {
+        $asset = $this->createPortfolioAsset('website', 'Northwind Website');
+
+        foreach (['overview', 'health', 'visibility', 'content', 'performance', 'infrastructure', 'operations', 'setup'] as $tab) {
+            $this->get(route('demo.website', ['assetId' => $asset->id, 'tab' => $tab]))
+                ->assertOk()
+                ->assertSee('Northwind Website')
+                ->assertDontSee('Atlas Dental Website')
+                ->assertDontSee('Page not found');
+        }
+
+        foreach (['connections', 'settings', 'activity'] as $legacy) {
+            $this->get(route('demo.website', ['assetId' => $asset->id, 'tab' => $legacy]))
+                ->assertOk()
+                ->assertSee('Northwind Website');
+        }
+
+        Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id])
+            ->assertSee('Northwind Website')
             ->assertSee('Needs attention')
             ->assertSee('Opportunities')
             ->assertSee('Site inventory')
-            ->assertSee('Search & demand')
-            ->assertSee('Conversion snapshot')
-            ->assertSee('Recent outcomes')
-            ->assertSee('AI guidance')
             ->assertDontSee('Website Health')
             ->assertDontSee('SEO Score')
-            ->assertDontSee('How is organic search demand moving?');
-    }
-
-    public function test_health_finding_detail_and_actionability(): void
-    {
-        Livewire::test(OverviewPage::class)
+            ->assertDontSee('27 service pages have no self-referencing canonical')
+            ->assertDontSee('Atlas Dental Website')
             ->call('setTab', 'health')
             ->assertSee('Website health')
-            ->assertSee('34 checks evaluated')
-            ->assertSee('12 findings open')
+            ->assertSee('0 checks evaluated')
             ->assertDontSee('88% Healthy')
-            ->call('setSeverity', 'high')
-            ->assertSee('27 service pages have no self-referencing canonical')
-            ->assertDontSee('Missing Content-Security-Policy header')
-            ->call('openFinding', 'wf-canonical-template')
-            ->assertSee('Problem')
-            ->assertSee('Suggested owner')
-            ->assertSee('Developer required')
-            ->assertSee('Affected scope')
-            ->assertSee('27 pages')
-            ->assertSee('Verification');
-    }
+            ->call('setTab', 'infrastructure')
+            ->assertSee('not standalone assets')
+            ->call('refreshData')
+            ->call('runDiagnosis')
+            ->assertSet('tab', 'health');
 
-    public function test_visibility_lenses_and_source_labels(): void
-    {
-        Livewire::test(OverviewPage::class)
-            ->call('setVisLens', 'organic')
-            ->assertSee('Search Console · measured')
-            ->assertSee('Striking distance')
-            ->assertSee('MoxDOP heuristic')
-            ->assertSee('DataForSEO · estimated')
-            ->assertSee('Potential query overlap')
-            ->call('setVisLens', 'local')
-            ->assertSee('Local service coverage')
-            ->assertSee('not a ranking promise')
-            ->assertSee('Open related GBP')
-            ->call('setVisLens', 'ai')
-            ->assertSee('AI readiness')
-            ->assertSee('Observed AI visibility')
-            ->assertSee('has not been measured in production')
-            ->assertDontSee('AI Rank #');
-    }
+        Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id, 'tab' => 'technical'])
+            ->assertSet('tab', 'health');
 
-    public function test_content_roles_inventory_and_gaps(): void
-    {
-        Livewire::test(OverviewPage::class)
-            ->call('setTab', 'content')
-            ->assertSee('Treatments')
-            ->assertSee('CPT · treatment')
-            ->assertSee('Content role')
-            ->assertSee('CMS type')
-            ->assertSee('Service / Product')
-            ->assertSee('page')
-            ->assertSee('Content opportunity')
-            ->assertSee('Implant recovery expectations')
-            ->assertSee('No automatic publish')
-            ->set('content_role', 'Blog / Article')
-            ->assertSee('Implant care guide')
-            ->assertDontSee('Post-Bariatric Dentistry')
-            ->call('openContentPage', 'c-implant')
-            ->assertSee('Dental Implants in Ankara')
-            ->assertSee('Word count (context only)');
-    }
-
-    public function test_performance_conversion_mapping_and_no_fake_zero(): void
-    {
-        Livewire::test(OverviewPage::class)
-            ->call('setPerfSub', 'conversions')
-            ->assertSee('Conversion mapping')
-            ->assertSee('WhatsApp click')
-            ->assertSee('Not mapped')
-            ->assertSee('Measurement debt')
-            ->assertSee('Missing measurement ≠ poor conversion')
-            ->call('setPerfSub', 'outcome')
-            ->assertSee('Observed after change — not caused by change')
-            ->assertSee('cannot prove which query caused');
-    }
-
-    public function test_connections_separate_sources_from_related_assets(): void
-    {
-        Livewire::test(OverviewPage::class)
-            ->call('setTab', 'connections')
-            ->assertSet('tab', 'setup')
-            ->assertSee('Website data sources')
-            ->assertSee('WordPress')
-            ->assertSee('Google Search Console')
-            ->assertSee('Related digital assets')
-            ->assertSee('Independent Brand Digital Assets')
-            ->assertSee('Google Ads')
-            ->assertSee('Google Business Profile')
-            ->assertDontSee('act_demo_secret');
-    }
-
-    public function test_legacy_tabs_redirect(): void
-    {
-        Livewire::test(OverviewPage::class, ['tab' => 'technical'])
-            ->assertSet('tab', 'health')
-            ->assertSee('Website health');
-
-        Livewire::test(OverviewPage::class, ['tab' => 'search'])
+        Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id, 'tab' => 'search'])
             ->assertSet('tab', 'visibility');
 
-        Livewire::test(OverviewPage::class, ['tab' => 'conversions'])
+        Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id, 'tab' => 'conversions'])
             ->assertSet('tab', 'performance')
             ->assertSet('perf_sub', 'conversions');
     }
 
-    public function test_header_actions_work(): void
+    public function test_website_workspace_fixtures_remain_deterministic_outside_http(): void
     {
-        Livewire::test(OverviewPage::class)
-            ->assertSee('Refresh data')
-            ->assertSee('Run diagnosis')
-            ->call('refreshData')
-            ->call('runDiagnosis')
-            ->assertSet('tab', 'health');
+        $a = WebsiteWorkspaceFixtures::workspace('last_28');
+        $b = WebsiteWorkspaceFixtures::workspace('last_28');
+
+        $this->assertSame($a['identity']['title'], $b['identity']['title']);
+        $this->assertSame('Atlas Dental Website', $a['identity']['title']);
+        $this->assertSame($a['health']['summary'], $b['health']['summary']);
     }
 }

@@ -797,7 +797,7 @@ final class GlobalOperatingFixtures
             ['id' => 'notifications', 'label' => __('operator.settings_ia.notifications'), 'description' => 'In-app preferences for meaningful operational events.'],
             ['id' => 'operations', 'label' => __('operator.settings_ia.operations'), 'description' => 'Task due defaults, outcome review window, dashboard mode.'],
             ['id' => 'ai', 'label' => __('operator.settings_ia.ai'), 'description' => 'Provider availability and guidance preferences — not autonomous actions.'],
-            ['id' => 'advanced', 'label' => __('operator.settings_ia.advanced'), 'description' => 'Environment info, diagnostics, files, privacy, and Demo Mode controls.'],
+            ['id' => 'advanced', 'label' => __('operator.settings_ia.advanced'), 'description' => 'Environment info, diagnostics, files, and privacy.'],
         ];
     }
 
@@ -816,7 +816,7 @@ final class GlobalOperatingFixtures
                 'default_analytical_date_range' => 'last_28',
                 'week_starts_on' => 'monday',
             ],
-            'team' => DemoCatalog::teamMembers(),
+            'team' => [],
             'notifications' => [
                 ['event' => 'Critical Finding', 'channel' => 'In-app', 'enabled' => true],
                 ['event' => 'Integration failure', 'channel' => 'In-app', 'enabled' => true],
@@ -852,9 +852,9 @@ final class GlobalOperatingFixtures
                 'note' => 'Customer/Brand/Task files use authenticated download routes — not public URLs.',
             ],
             'privacy' => [
-                'retention' => 'Operational Evidence retained per agency policy (demo placeholder).',
-                'export' => 'Operator export tooling is not part of this Demo shell.',
-                'purge' => 'Purge requests are handled out-of-band for Demo Mode.',
+                'retention' => 'Operational Evidence retained per agency policy.',
+                'export' => 'Operator export tooling is not configured in this environment.',
+                'purge' => 'Purge requests are handled out-of-band.',
             ],
             'advanced' => [
                 'environment' => config('app.env'),

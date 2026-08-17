@@ -24,8 +24,7 @@
         <button
             type="button"
             wire:click="runPublicResearch"
-            @disabled(($brandRow['id'] ?? '') !== \App\Support\Demo\DemoCatalog::BRAND_ID)
-            class="inline-flex rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
+            class="inline-flex rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600"
         >
             Refresh public observations
         </button>
@@ -47,9 +46,9 @@
         @endforeach
     </nav>
 
-    @if (($brandRow['id'] ?? '') !== \App\Support\Demo\DemoCatalog::BRAND_ID)
+    @if (($discoveryCandidates ?? []) === [] && ($discoveryFacts ?? []) === [])
         <div class="rounded-xl bg-white p-6 text-sm text-gray-500 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:ring-gray-700">
-            Public Discovery Demo fixtures are scoped to Atlas Dental. No cross-Brand leakage of observed facts or candidates.
+            No Public Discovery candidates. Discovery has not run.
         </div>
     @else
         {{-- OVERVIEW --}}
@@ -375,7 +374,7 @@
                 <p class="text-xs font-medium uppercase tracking-wide text-gray-400">Provenance</p>
                 <p class="mt-1 text-gray-800 dark:text-white/90">{{ $reviewCandidate['provenance'] }} — {{ $reviewCandidate['provenance_detail'] }}</p>
             </div>
-            <p class="text-xs text-gray-400">Accepting records a human-approved Brand Context update in Demo Mode. It does not write to Website or GBP.</p>
+            <p class="text-xs text-gray-400">Accepting records a human-approved Brand Context update. It does not write to Website or GBP.</p>
 
             @if (($reviewCandidate['status'] ?? '') === 'pending')
                 <div class="flex flex-wrap gap-2 border-t border-gray-100 pt-4 dark:border-gray-800">

@@ -229,7 +229,7 @@ final class GscSpecialistReadService
         $provenance['discoverability'] = DataSourceState::Unavailable->value;
 
         $data['search_momentum'] = [
-            'note' => 'Unavailable — search momentum heuristics are Demo Mode only and are not computed on real GSC data.',
+            'note' => 'Unavailable — search momentum heuristics are not computed on real GSC data.',
         ];
         $data['needs_attention'] = [];
         $data['opportunities'] = [];
@@ -295,6 +295,7 @@ final class GscSpecialistReadService
             : "Search Console binding {$reason} — no collection state available.";
 
         $unavailableChip = ['value' => '—', 'raw' => null, 'secondary' => 'Unavailable', 'tone' => 'neutral'];
+        $asset = DigitalAsset::query()->with('brand')->find($binding->digitalAssetId);
 
         $data = [
             'period_label' => $bounds['label'],
@@ -305,20 +306,22 @@ final class GscSpecialistReadService
             'demo_boundary' => 'Real Search Console workspace · no usable property binding — no live Search Console API call performed.',
             'identity' => [
                 'eyebrow' => 'Google Search Console',
-                'title' => $errorMessage !== null ? 'Search Console — read error' : 'Search Console — not connected',
-                'brand' => null,
-                'brand_id' => null,
-                'brand_name' => null,
+                'title' => $errorMessage !== null
+                    ? (($asset?->name ?? 'Search Console').' — read error')
+                    : (($asset?->name ?? 'Search Console').' — not connected'),
+                'brand' => $asset?->brand?->name,
+                'brand_id' => $asset?->brand_id,
+                'brand_name' => $asset?->brand?->name ?? '—',
                 'website_asset_id' => null,
                 'ga4_asset_id' => null,
                 'google_ads_asset_id' => null,
                 'gbp_asset_id' => null,
                 'gsc_asset_id' => $binding->assetId,
-                'relationship_line' => null,
+                'relationship_line' => 'Not connected — no Search Console property is bound.',
                 'property_label' => null,
                 'property_type' => null,
                 'status' => $statusLabel,
-                'freshness' => null,
+                'freshness' => 'Not collected',
                 'reporting_timezone' => null,
             ],
             'freshness' => [],
@@ -543,7 +546,7 @@ final class GscSpecialistReadService
                     'raw' => null,
                     'secondary' => 'Unavailable',
                     'tone' => 'neutral',
-                    'note' => 'Search attention scoring is Demo Mode only and is not computed on real GSC data.',
+                    'note' => 'Search attention scoring is not computed on real GSC data.',
                 ],
             ];
         }
@@ -592,7 +595,7 @@ final class GscSpecialistReadService
                 'raw' => null,
                 'secondary' => 'Unavailable',
                 'tone' => 'neutral',
-                'note' => 'Search attention scoring is Demo Mode only and is not computed on real GSC data.',
+                'note' => 'Search attention scoring is not computed on real GSC data.',
             ],
         ];
     }
@@ -784,7 +787,7 @@ final class GscSpecialistReadService
                 'note' => 'Unavailable — brand vs non-brand query classification is not configured for real GSC data.',
             ],
             'diagnosis' => [
-                'interpretation' => 'Unavailable — performance diagnosis heuristics are Demo Mode only.',
+                'interpretation' => 'Unavailable — performance diagnosis heuristics are not computed on real GSC data.',
             ],
         ];
     }

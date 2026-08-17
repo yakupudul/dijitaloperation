@@ -2,8 +2,8 @@
 
 namespace App\Livewire\Demo\Portfolio\Concerns;
 
-use App\Support\Demo\DemoCatalog;
-use App\Support\Demo\DemoState;
+use App\Models\Customer;
+use App\Services\Operator\OperatorUserDirectory;
 use App\Support\Options\CountryOptions;
 use App\Support\Options\IndustryOptions;
 use App\Support\Options\LanguageOptions;
@@ -47,7 +47,8 @@ trait InteractsWithBrandForm
      */
     protected function brandRules(): array
     {
-        $customerIds = collect(DemoState::all()['customers'] ?? [])->pluck('id')->all();
+        $customerIds = Customer::query()->pluck('id')->map(static fn (mixed $id): string => (string) $id)->all();
+        $eligible = array_map(static fn (int $id): string => (string) $id, OperatorUserDirectory::eligibleIds());
 
         return [
             'customer_id' => ['required', Rule::in($customerIds)],
@@ -63,7 +64,7 @@ trait InteractsWithBrandForm
             'offerings' => ['nullable', 'string', 'max:2000'],
             'competitors' => ['nullable', 'string', 'max:2000'],
             'responsible_user_ids' => ['array'],
-            'responsible_user_ids.*' => [Rule::in(array_column(DemoCatalog::teamMembers(), 'id'))],
+            'responsible_user_ids.*' => [Rule::in($eligible)],
             'logo_url' => ['nullable', 'url', 'max:255'],
         ];
     }
@@ -83,21 +84,22 @@ trait InteractsWithBrandForm
         $this->audience = (string) ($brand['audience'] ?? '');
         $this->offerings = (string) ($brand['offerings'] ?? '');
         $this->competitors = (string) ($brand['competitors'] ?? '');
-        $this->responsible_user_ids = array_values($brand['responsible_user_ids'] ?? []);
+        $this->responsible_user_ids = array_values(array_map(
+            static fn (mixed $id): string => (string) $id,
+            $brand['responsible_user_ids'] ?? [],
+        ));
         $this->logo_url = (string) ($brand['logo_url'] ?? '');
     }
 
     /**
      * @return array<string, mixed>
      */
-    protected function brandPayload(?string $id = null): array
+    protected function brandEloquentPayload(): array
     {
         return [
-            'id' => $id,
-            'customer_id' => $this->customer_id,
+            'customer_id' => (int) $this->customer_id,
             'name' => trim($this->name),
             'sector' => $this->sector !== '' ? $this->sector : null,
-            'industry' => $this->sector !== '' ? $this->sector : null,
             'primary_country' => $this->primary_country !== '' ? $this->primary_country : null,
             'target_markets' => array_values($this->target_markets),
             'languages' => array_values($this->languages),
@@ -105,21 +107,16 @@ trait InteractsWithBrandForm
             'audience' => $this->audience !== '' ? trim($this->audience) : null,
             'offerings' => $this->offerings !== '' ? trim($this->offerings) : null,
             'competitors' => $this->competitors !== '' ? trim($this->competitors) : null,
-            'responsible_user_ids' => array_values($this->responsible_user_ids),
             'logo_url' => $this->logo_url !== '' ? trim($this->logo_url) : null,
-            'health' => 'healthy',
-            'health_label' => 'Healthy',
-            'assets_count' => 0,
-            'open_findings' => 0,
-            'open_tasks' => 0,
-            'summary' => [
-                'media_spend' => 0,
-                'platform_leads' => 0,
-                'website_leads' => 0,
-                'calls_messages' => 0,
-                'currency' => 'TRY',
-            ],
         ];
+    }
+
+    /**
+     * @return list<int>
+     */
+    protected function sanitizedResponsibleUserIds(): array
+    {
+        return OperatorUserDirectory::sanitizeIds($this->responsible_user_ids);
     }
 
     /**
@@ -127,12 +124,10 @@ trait InteractsWithBrandForm
      */
     protected function brandFormViewData(): array
     {
-        $customers = collect(DemoState::all()['customers'] ?? [])
-            ->mapWithKeys(fn (array $c): array => [($c['id'] ?? '') => ($c['name'] ?? '')])
-            ->all();
-
-        $teamOptions = collect(DemoCatalog::teamMembers())
-            ->mapWithKeys(fn (array $m): array => [$m['id'] => $m['name']])
+        $customers = Customer::query()
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->mapWithKeys(fn ($name, $id): array => [(string) $id => (string) $name])
             ->all();
 
         return [
@@ -140,7 +135,7 @@ trait InteractsWithBrandForm
             'industryOptions' => IndustryOptions::options(),
             'countryOptions' => CountryOptions::options(),
             'languageOptions' => LanguageOptions::options(),
-            'teamOptions' => $teamOptions,
+            'teamOptions' => OperatorUserDirectory::options(),
             'customerLocked' => $this->customerLocked,
             'customerName' => $customers[$this->customer_id] ?? null,
         ];

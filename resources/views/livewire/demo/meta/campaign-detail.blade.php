@@ -20,7 +20,6 @@
             <p class="text-xs font-medium uppercase tracking-wide text-gray-500">Meta Ads · Campaign</p>
             <div class="mt-1 flex flex-wrap items-center gap-2">
                 <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ $campaign['name'] }}</h1>
-                @include('livewire.demo.partials.demo-badge')
                 <x-ta.badge :color="$campaign['status'] === 'ACTIVE' ? 'success' : 'light'" size="sm">{{ $campaign['status'] }}</x-ta.badge>
             </div>
             <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ $campaign['offering'] }} · {{ $campaign['market'] }} · {{ $campaign['language'] }} · {{ $campaign['goal'] }}</p>

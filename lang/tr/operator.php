@@ -362,7 +362,7 @@ return [
             'add_provider' => 'Sağlayıcı ekle',
             'agents' => 'Ajanlar',
             'agents_title' => 'Ajan profilleri',
-            'agents_subtitle' => 'Ajan profilleri, beceriler, izin verilen kanıt ve çıktı sözleşmelerine göz atın. Katalog Demo Modunda salt okunur.',
+            'agents_subtitle' => 'Ajan profilleri, beceriler, izin verilen kanıt ve çıktı sözleşmelerine göz atın. Katalog salt okunur.',
             'skills' => 'Beceriler',
             'skills_title' => 'Beceri kütüphanesi',
             'skills_subtitle' => 'Beceriler, kanıt gereksinimleri, yöntem ve dayanak kısıtlarına göz atın.',

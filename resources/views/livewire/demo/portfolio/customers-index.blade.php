@@ -8,7 +8,6 @@
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Agency client accounts — brands and open work roll up here.</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-            @include('livewire.demo.partials.demo-badge')
             <a href="{{ route('demo.setup', ['entry' => 'customer']) }}" wire:navigate
                 class="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600">
                 {{ __('operator.portfolio.new_customer_setup') }}
@@ -98,11 +97,11 @@
     @if ($allCount === 0)
         <x-ta.card>
             @include('livewire.demo.partials.empty-panel', [
-                'title' => 'No customers yet',
-                'message' => 'Create your first customer to start organizing brands and digital assets.',
+                'title' => '0 records',
+                'message' => 'Create your first customer',
             ])
             <div class="mt-4">
-                <a href="{{ route('demo.customer.create') }}" wire:navigate class="inline-flex rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600">Add customer</a>
+                <a href="{{ route('demo.customer.create') }}" wire:navigate class="inline-flex rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600">Create your first customer</a>
             </div>
         </x-ta.card>
     @elseif (count($customers) === 0)

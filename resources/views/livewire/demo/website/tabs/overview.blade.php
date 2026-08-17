@@ -149,7 +149,7 @@
 
     <section class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
         <h2 class="text-base font-semibold text-gray-900 dark:text-white">AI guidance</h2>
-        <p class="mt-1 text-xs text-gray-400">Derived interpretation · Demo Mode · not a Finding source</p>
+        <p class="mt-1 text-xs text-gray-400">Derived interpretation · not a Finding source</p>
         <h3 class="mt-3 text-xs font-semibold uppercase tracking-wide text-gray-400">What matters most</h3>
         <ul class="mt-1 list-disc space-y-1 pl-5 text-sm text-gray-700 dark:text-gray-300">
             @foreach ($data['ai_guidance']['what_matters'] as $point)
@@ -163,5 +163,5 @@
         <p class="mt-3 text-xs text-gray-400">{{ $data['ai_guidance']['disclaimer'] }}</p>
     </section>
 
-    @include('livewire.demo.partials._opportunity-card', ['opportunity' => collect(\App\Support\Demo\OpportunityFixtures::forAssetType('website'))->first()])
+    @include('livewire.demo.partials._opportunity-card', ['opportunity' => null])
 </div>

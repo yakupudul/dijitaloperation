@@ -91,14 +91,14 @@
                                         </span>
                                     </td>
                                     <td class="px-4 py-3 text-gray-500">{{ $member['email'] }}</td>
-                                    <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ $index === 0 ? 'Admin' : 'Team Member' }}</td>
+                                    <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ $member['role'] ?? 'Team Member' }}</td>
                                     <td class="px-4 py-3"><x-ta.badge color="success" size="sm">Active</x-ta.badge></td>
                                 </tr>
                             @endforeach
                         </tbody>
                     </table>
                     <p class="border-t border-gray-100 px-4 py-3 text-xs text-gray-500 dark:border-gray-800">
-                        Responsibility (Brand / Digital Asset owner) is separate from authorization. No enterprise RBAC matrix in Demo Mode.
+                        Customer Owner is the internal agency user responsible for the Customer. It is not legal ownership or provider authorization.
                     </p>
                 </div>
             @elseif ($section === 'notifications')
@@ -257,18 +257,6 @@
                                 <x-ta.button href="{{ route('demo.dashboard') }}" size="sm" variant="outline">Open Agency Command Center</x-ta.button>
                             </div>
                             <p class="mt-3 text-xs text-gray-500">Modules / package management are developer architecture — not operator navigation.</p>
-                        </div>
-
-                        <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-                            <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Demo Mode</h3>
-                            <p class="mt-2 text-sm text-gray-500">
-                                Resets recommendations, tasks, activity, import simulation, period selection, and session-only customers/brands
-                                back to the DemoCatalog seed. Does not touch the operator database.
-                            </p>
-                            <div class="mt-4 flex flex-wrap gap-2">
-                                <x-ta.button wire:click="resetDemo" size="sm" variant="danger">Reset Demo Mode</x-ta.button>
-                                <x-ta.button href="{{ route('demo.dashboard') }}" size="sm" variant="outline">Back to dashboard</x-ta.button>
-                            </div>
                         </div>
                     @endif
 

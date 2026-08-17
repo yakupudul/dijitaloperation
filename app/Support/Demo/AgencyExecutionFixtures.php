@@ -710,7 +710,11 @@ final class AgencyExecutionFixtures
 
         return [
             'mode' => $mode,
-            'greeting' => GlobalOperatingFixtures::dashboard($mode)['greeting'],
+            'greeting' => match (true) {
+                (int) now()->timezone(config('app.timezone'))->format('G') < 12 => 'Good morning',
+                (int) now()->timezone(config('app.timezone'))->format('G') < 18 => 'Good afternoon',
+                default => 'Good evening',
+            },
             'date_label' => now()->timezone(config('app.timezone'))->format('l, F j'),
             'subtitle' => __('operator.dashboard_exec.subtitle'),
             'today' => [
@@ -814,22 +818,22 @@ final class AgencyExecutionFixtures
         return [
             'client_request' => [
                 'title' => '',
-                'customer_id' => DemoCatalog::CUSTOMER_ID,
-                'brand_id' => DemoCatalog::BRAND_ID,
+                'customer_id' => '',
+                'brand_id' => '',
                 'asset_type' => 'website',
                 'source' => 'meeting',
                 'priority' => 'medium',
             ],
             'task' => [
                 'title' => '',
-                'customer_id' => DemoCatalog::CUSTOMER_ID,
-                'brand_id' => DemoCatalog::BRAND_ID,
+                'customer_id' => '',
+                'brand_id' => '',
                 'priority' => 'medium',
                 'due' => 'Next week',
             ],
             'opportunity_hypothesis' => [
                 'title' => '',
-                'brand_id' => DemoCatalog::BRAND_ID,
+                'brand_id' => '',
                 'service_code' => 'seo',
             ],
             'note' => [
@@ -872,14 +876,19 @@ final class AgencyExecutionFixtures
      */
     public static function isMine(array $row): bool
     {
-        $ownerId = $row['owner_id'] ?? null;
-        if ($ownerId === self::CURRENT_OPERATOR_ID) {
+        $user = auth()->user();
+        if ($user === null) {
+            return false;
+        }
+
+        $ownerId = $row['owner_id'] ?? $row['assignee_id'] ?? null;
+        if ($ownerId !== null && (string) $ownerId === (string) $user->id) {
             return true;
         }
 
         $owner = (string) ($row['owner'] ?? '');
 
-        return in_array($owner, ['Ayşe Demir', 'Ayşe Yılmaz'], true);
+        return $owner !== '' && strcasecmp($owner, (string) $user->name) === 0;
     }
 
     public static function dueKey(string $due, string $status = 'open'): string

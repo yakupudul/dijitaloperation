@@ -9,8 +9,6 @@ use App\Livewire\Demo\Dashboard;
 use App\Livewire\Demo\Files\FilesIndex;
 use App\Livewire\Demo\Gbp\OverviewPage as GbpOverviewPage;
 use App\Livewire\Demo\GoogleAds\OverviewPage as GoogleAdsOverviewPage;
-use App\Livewire\Demo\Infrastructure\DomainPage;
-use App\Livewire\Demo\Infrastructure\HostingPage;
 use App\Livewire\Demo\Instagram\OverviewPage as InstagramOverviewPage;
 use App\Livewire\Demo\Integrations\ConnectorPage;
 use App\Livewire\Demo\Integrations\GoogleIntegrationPage;
@@ -53,6 +51,7 @@ use App\Livewire\Demo\Settings\AiSkillsPage;
 use App\Livewire\Demo\Settings\PlaybookShow;
 use App\Livewire\Demo\SettingsPage;
 use App\Livewire\Demo\Website\OverviewPage as WebsiteOverviewPage;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
@@ -104,8 +103,8 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/assets/gbp/{assetId?}', GbpOverviewPage::class)->name('demo.gbp');
         Route::livewire('/assets/analytics/{assetId?}', AnalyticsPage::class)->name('demo.analytics');
         Route::livewire('/assets/search-console/{assetId?}', SearchConsolePage::class)->name('demo.search-console');
-        Route::livewire('/assets/domain/{assetId?}', DomainPage::class)->name('demo.domain');
-        Route::livewire('/assets/hosting/{assetId?}', HostingPage::class)->name('demo.hosting');
+        Route::get('/assets/domain/{assetId?}', fn () => new RedirectResponse(route('demo.assets'), 302))->name('demo.domain');
+        Route::get('/assets/hosting/{assetId?}', fn () => new RedirectResponse(route('demo.assets'), 302))->name('demo.hosting');
         Route::livewire('/assets/instagram/{assetId?}', InstagramOverviewPage::class)->name('demo.instagram');
 
         Route::livewire('/opportunities', OpportunitiesIndex::class)->name('demo.opportunities');

@@ -23,7 +23,6 @@
             <div class="min-w-0">
                 <div class="flex flex-wrap items-center gap-2">
                     <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ $brandRow['name'] }}</h1>
-                    @include('livewire.demo.partials.demo-badge')
                 </div>
                 @if ($customer)
                     <a href="{{ route('demo.customer', ['customerId' => $customer['id']]) }}" wire:navigate class="mt-1 inline-block text-sm font-medium text-brand-600 hover:underline dark:text-brand-400">
@@ -447,9 +446,12 @@
                     <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Business context</h2>
                     <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Factual business information used across MoxDOP analysis.</p>
                     <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">{{ $businessContext['completed'] }} of {{ $businessContext['total'] }} key areas completed</p>
-                    @if (! empty($businessContext['updated_at']))
-                        <p class="text-xs text-gray-400">Last updated {{ $businessContext['updated_at'] }}@if (! empty($businessContext['updated_by'])) by {{ $businessContext['updated_by'] }}@endif · {{ $businessContext['source'] ?? 'Operator maintained' }}</p>
-                    @endif
+                    <p class="text-xs text-gray-400">
+                        @if (! empty($businessContext['updated_at']))
+                            Last updated {{ $businessContext['updated_at'] }}@if (! empty($businessContext['updated_by'])) by {{ $businessContext['updated_by'] }}@endif ·
+                        @endif
+                        {{ $businessContext['source'] ?? 'Operator maintained' }}
+                    </p>
                 </div>
                 <button type="button" wire:click="startEditingContext" class="inline-flex rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
                     {{ ($businessContext['completed'] ?? 0) > 0 ? 'Edit business context' : 'Add business context' }}
@@ -888,7 +890,7 @@
                             </li>
                         @endforeach
                     </ul>
-                    <p class="mt-3 text-xs text-gray-400">Analysis based on data available as of {{ $aiBrief['as_of'] ?? '—' }} · Demo Mode — no live model call</p>
+                    <p class="mt-3 text-xs text-gray-400">Analysis based on data available as of {{ $aiBrief['as_of'] ?? '—' }}. No live model call is made from this surface.</p>
                 </div>
 
                 <div class="space-y-4 rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
@@ -956,8 +958,7 @@
                 </div>
             @else
                 <div class="rounded-xl bg-white p-6 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
-                    <p class="text-sm text-gray-600 dark:text-gray-300">Brand-wide Digital Operations Analyst is presentation-ready in Demo Mode for brands with prepared analysis context.</p>
-                    <button type="button" wire:click="runAiBrief" class="mt-4 inline-flex rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white">Show demo analysis</button>
+                    <p class="text-sm text-gray-600 dark:text-gray-300">No analysis context is available yet. Growth interpretation stays empty until canonical evidence exists.</p>
                 </div>
             @endif
         </div>

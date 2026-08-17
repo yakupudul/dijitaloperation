@@ -9,7 +9,6 @@ use App\Models\Customer;
 use App\Services\ClientRequests\CreateClientRequest;
 use App\Services\Tasks\CreateDirectTask;
 use App\Support\Demo\AgencyExecutionFixtures;
-use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Str;
@@ -50,12 +49,6 @@ class CaptureModal extends Component
 
     public function mount(): void
     {
-        if ($this->prefillBrand === null) {
-            $this->prefillBrand = DemoCatalog::BRAND_ID;
-        }
-        if ($this->prefillCustomer === null) {
-            $this->prefillCustomer = DemoCatalog::CUSTOMER_ID;
-        }
         $this->captureNonce = (string) Str::uuid();
     }
 

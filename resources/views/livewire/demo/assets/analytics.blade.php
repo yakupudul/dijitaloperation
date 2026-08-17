@@ -13,7 +13,7 @@
     @include('livewire.demo.partials.flash')
 
     @include('livewire.demo.partials.workspace-header', [
-        'eyebrow' => 'Google Analytics · '.($asset['name'] ?? 'Atlas Dental GA4'),
+        'eyebrow' => 'Google Analytics · '.($asset['name'] ?? 'GA4'),
         'title' => 'Workspace',
         'subtitle' => ($data['period_label'] ?? '').' · Bound to Website evidence workflows',
         'badges' => [$data['provenance'] ?? 'Connected data source'],
@@ -88,7 +88,7 @@
     @if ($tab === 'key_events')
         @include('livewire.demo.partials.section-question', [
             'question' => 'Which key events fired?',
-            'hint' => 'Event names from configured GA4 mapping — Demo Mode fixtures.',
+            'hint' => 'Event names from configured GA4 mapping.',
         ])
         <x-ta.table>
             <x-slot:head>

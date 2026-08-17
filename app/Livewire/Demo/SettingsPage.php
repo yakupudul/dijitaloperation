@@ -3,6 +3,7 @@
 namespace App\Livewire\Demo;
 
 use App\Services\Notifications\NotificationPreferenceService;
+use App\Services\Operator\OperatorUserDirectory;
 use App\Services\Playbooks\PlaybookReadService;
 use App\Support\Agents\AgentProfileRegistry;
 use App\Support\Ai\AiRouteRegistry;
@@ -148,13 +149,6 @@ class SettingsPage extends Component
         $this->hydrateFromSettings();
     }
 
-    public function resetDemo(): void
-    {
-        DemoState::reset();
-        DemoState::flash('Demo Mode reset to seed state.');
-        $this->hydrateFromSettings();
-    }
-
     public function render(): View
     {
         $settings = $this->mergedSettings();
@@ -207,6 +201,7 @@ class SettingsPage extends Component
         $base = GlobalOperatingFixtures::settingsPayload();
         $overrides = DemoState::settingsOverrides();
         $merged = array_replace_recursive($base, $overrides);
+        $merged['team'] = OperatorUserDirectory::presentationMembers();
 
         $user = Auth::user();
         if ($user !== null) {

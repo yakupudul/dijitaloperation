@@ -3,8 +3,8 @@
 namespace App\Livewire\Demo\Meta;
 
 use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
+use App\Livewire\Demo\Concerns\ResolvesCanonicalOperatorAsset;
 use App\Services\MetaAds\MetaAdsSpecialistReadService;
-use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
@@ -16,8 +16,9 @@ use Livewire\Component;
 class CampaignsPage extends Component
 {
     use InteractsWithDemoPeriod;
+    use ResolvesCanonicalOperatorAsset;
 
-    public string $assetId = DemoCatalog::META_ASSET_ID;
+    public string $assetId = '';
 
     public string $statusFilter = 'all';
 
@@ -25,7 +26,7 @@ class CampaignsPage extends Component
 
     public function mount(string $assetId): void
     {
-        $this->assetId = $assetId;
+        $this->bindCanonicalAsset($assetId, ['meta_ads']);
         $this->mountPeriod();
 
         $status = DemoState::getFilter('meta_status');

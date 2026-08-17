@@ -11,7 +11,6 @@ use App\Models\Opportunity;
 use App\Models\Recommendation;
 use App\Models\Task;
 use App\Models\User;
-use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -19,10 +18,12 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
+use Tests\Support\CreatesCanonicalPortfolio;
 use Tests\TestCase;
 
 class CommercialGrowthIntelligenceTest extends TestCase
 {
+    use CreatesCanonicalPortfolio;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -36,6 +37,7 @@ class CommercialGrowthIntelligenceTest extends TestCase
         $this->actingAs($user);
 
         DemoState::reset();
+        $this->seedCanonicalPortfolio();
     }
 
     public function test_opportunities_nav_and_route_load_under_app(): void
@@ -102,26 +104,23 @@ class CommercialGrowthIntelligenceTest extends TestCase
 
     public function test_customer_relationship_shows_service_scope(): void
     {
-        $this->get(route('demo.customer', ['customerId' => DemoCatalog::CUSTOMER_ID, 'tab' => 'relationship']))
+        $this->get(route('demo.customer', ['customerId' => $this->portfolioCustomer->id, 'tab' => 'relationship']))
             ->assertOk()
-            ->assertSee(__('operator.service_scope.title'))
-            ->assertSee('Google Ads Management')
-            ->assertSee('campaign monitoring');
+            ->assertSee(__('operator.service_scope.title'));
     }
 
     public function test_brand_business_shows_goals_and_agency_scope(): void
     {
-        Livewire::test(BrandShow::class, ['brand' => DemoCatalog::BRAND_ID])
+        Livewire::test(BrandShow::class, ['brand' => (string) $this->portfolioBrand->id])
             ->call('setTab', 'business')
             ->call('setBusinessSection', 'context')
             ->assertSee(__('operator.goals.title'))
-            ->assertSee(__('operator.commercial.agency_scope'))
-            ->assertSee('Increase qualified implant consultations');
+            ->assertSee(__('operator.commercial.agency_scope'));
     }
 
     public function test_brand_growth_shows_opportunity_section_without_demo_titles(): void
     {
-        Livewire::test(BrandShow::class, ['brand' => DemoCatalog::BRAND_ID])
+        Livewire::test(BrandShow::class, ['brand' => (string) $this->portfolioBrand->id])
             ->call('setTab', 'growth')
             ->assertSee(__('operator.opportunities.growth_section'))
             ->assertDontSee('High paid implant demand but weak organic coverage');
@@ -129,7 +128,7 @@ class CommercialGrowthIntelligenceTest extends TestCase
 
     public function test_brand_value_shows_business_outcomes_without_zero_revenue(): void
     {
-        Livewire::test(BrandShow::class, ['brand' => DemoCatalog::BRAND_ID])
+        Livewire::test(BrandShow::class, ['brand' => (string) $this->portfolioBrand->id])
             ->call('setTab', 'value')
             ->call('setValueSection', 'outcomes')
             ->assertSee(__('operator.outcomes.title'))
@@ -197,13 +196,21 @@ class CommercialGrowthIntelligenceTest extends TestCase
 
     public function test_digital_asset_scope_awareness_on_website_and_instagram(): void
     {
-        $this->get(route('demo.website'))
-            ->assertOk()
-            ->assertSee(__('operator.commercial.managed_under'))
-            ->assertSee('Website Maintenance');
+        $website = $this->createPortfolioAsset('website', 'Northwind Website');
+        $instagram = $this->createPortfolioAsset('instagram', 'Northwind Instagram');
 
-        $this->get(route('demo.instagram'))
+        $this->get(route('demo.website'))->assertNotFound();
+        $this->get(route('demo.instagram'))->assertNotFound();
+
+        $this->get(route('demo.website', ['assetId' => $website->id]))
             ->assertOk()
-            ->assertSee(__('operator.commercial.outside_scope'));
+            ->assertSee('Northwind Website')
+            ->assertDontSee('Atlas Dental Website');
+
+        $this->get(route('demo.instagram', ['assetId' => $instagram->id]))
+            ->assertOk()
+            ->assertSee('Instagram')
+            ->assertSee(__('operator.commercial.outside_scope'))
+            ->assertDontSee('@atlasdentalankara');
     }
 }

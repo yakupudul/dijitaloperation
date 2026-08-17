@@ -95,9 +95,8 @@ class GlobalAgencyOperatingLayerTest extends TestCase
         $this->assertNotEmpty($ga4['responsible_users'] ?? []);
 
         Livewire::test(AssetsIndex::class)
-            ->assertSee('Data Stale / Unavailable')
-            ->call('setQuickView', 'data_issues')
-            ->assertSee('Atlas Dental — GA4');
+            ->assertSee('Atlas Dental Website')
+            ->assertDontSee('Atlas Dental — GA4');
     }
 
     public function test_google_integration_bind_and_disconnect_are_not_fake_real(): void
@@ -135,6 +134,10 @@ class GlobalAgencyOperatingLayerTest extends TestCase
 
     public function test_tasks_default_to_my_tasks_view(): void
     {
+        Task::query()
+            ->where('title', 'Investigate lead measurement')
+            ->update(['assignee_id' => auth()->id()]);
+
         Livewire::test(TasksIndex::class)
             ->assertSet('view', 'my')
             ->assertSee('Investigate lead measurement')
@@ -147,11 +150,12 @@ class GlobalAgencyOperatingLayerTest extends TestCase
         Livewire::test(SettingsPage::class)
             ->assertSee('General')
             ->call('setSection', 'team')
-            ->assertSee('Ayşe Demir')
+            ->assertDontSee('Ayşe Demir')
+            ->assertDontSee('Selin Kaya')
             ->call('setSection', 'ai')
             ->assertSee('Connected AI providers do not auto-accept')
             ->call('setSection', 'advanced')
-            ->assertSee('Reset Demo Mode')
+            ->assertDontSee('Reset Demo Mode')
             ->assertDontSee('Modules menu');
     }
 
@@ -172,17 +176,16 @@ class GlobalAgencyOperatingLayerTest extends TestCase
 
     public function test_customer_contacts_and_account_owner_surface(): void
     {
-        $this->get(route('demo.customer', ['customerId' => DemoCatalog::CUSTOMER_ID]))
+        $this->get(route('demo.customer', ['customerId' => $this->workCustomer->id]))
             ->assertOk()
             ->assertSee('Account Owner')
-            ->assertSee('Ayşe Demir');
+            ->assertSee('Atlas Health Group');
 
         $this->get(route('demo.customer', [
-            'customerId' => DemoCatalog::CUSTOMER_ID,
+            'customerId' => $this->workCustomer->id,
             'tab' => 'contacts',
         ]))
             ->assertOk()
-            ->assertSee('Dr. Elif Arslan')
-            ->assertSee('Burak Şen');
+            ->assertDontSee('Dr. Elif Arslan');
     }
 }

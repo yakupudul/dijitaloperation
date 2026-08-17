@@ -94,7 +94,7 @@
                     <dd class="font-medium text-gray-800 dark:text-white/90">{{ $snap['weakest_area'] }}</dd>
                 </div>
             </dl>
-            <p class="mt-2 text-[11px] text-gray-400">Observed rank from Demo local-rank sample points — not a Google position claim.</p>
+            <p class="mt-2 text-[11px] text-gray-400">Observed rank from collected local-rank sample points — not a Google position claim.</p>
         </section>
     </div>
 
@@ -305,5 +305,5 @@
         </div>
     @endif
 
-    @include('livewire.demo.partials._opportunity-card', ['opportunity' => collect(\App\Support\Demo\OpportunityFixtures::forAssetType('gbp'))->first()])
+    @include('livewire.demo.partials._opportunity-card', ['opportunity' => null])
 </div>

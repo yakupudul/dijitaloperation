@@ -425,8 +425,8 @@ class GscRealDataMigrationTest extends TestCase
         $user->assignRole(Roles::ADMIN);
         $this->actingAs($user);
 
-        Livewire::test(SearchConsolePage::class, ['assetId' => DemoCatalog::GSC_ASSET_ID])
-            ->assertSee('Atlas Dental — Search Console');
+        Livewire::test(SearchConsolePage::class, ['assetId' => (string) $this->asset->id])
+            ->assertOk();
 
         Http::assertNothingSent();
     }

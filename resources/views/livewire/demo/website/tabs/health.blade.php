@@ -52,7 +52,7 @@
                 @if (! empty($selectedFinding['related_task']))
                     <a href="{{ route('demo.task', ['taskId' => $selectedFinding['related_task']]) }}" wire:navigate class="rounded-lg px-3 py-1.5 text-xs font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">Open task</a>
                 @endif
-                <span class="rounded-lg px-3 py-1.5 text-xs text-gray-400" title="Demo Mode — individual recheck not wired to a live runner">Recheck unavailable in Demo</span>
+                <span class="rounded-lg px-3 py-1.5 text-xs text-gray-400" title="Individual recheck is not wired to a live runner">Recheck unavailable</span>
             </div>
         </div>
     @endif

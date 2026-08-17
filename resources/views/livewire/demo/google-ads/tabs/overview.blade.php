@@ -209,4 +209,4 @@
     </x-demo.gads-drawer>
 @endif
 
-@include('livewire.demo.partials._opportunity-card', ['opportunity' => collect(\App\Support\Demo\OpportunityFixtures::forAssetType('google_ads'))->first()])
+@include('livewire.demo.partials._opportunity-card', ['opportunity' => null])

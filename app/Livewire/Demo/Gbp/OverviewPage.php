@@ -3,10 +3,8 @@
 namespace App\Livewire\Demo\Gbp;
 
 use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
-use App\Support\Demo\DemoCatalog;
+use App\Livewire\Demo\Concerns\ResolvesCanonicalOperatorAsset;
 use App\Support\Demo\DemoState;
-use App\Support\Demo\GbpWorkspaceFixtures;
-use App\Support\Reality\DemoCatalogAssetGuard;
 use App\Support\Reality\UnavailableWorkspaceShells;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
@@ -19,8 +17,9 @@ use Livewire\Component;
 class OverviewPage extends Component
 {
     use InteractsWithDemoPeriod;
+    use ResolvesCanonicalOperatorAsset;
 
-    public string $assetId = DemoCatalog::GBP_ASSET_ID;
+    public string $assetId = '';
 
     #[Url]
     public string $tab = 'overview';
@@ -104,15 +103,15 @@ class OverviewPage extends Component
 
     public function mount(?string $assetId = null): void
     {
-        $this->assetId = $assetId ?: DemoCatalog::GBP_ASSET_ID;
+        $this->bindCanonicalAsset($assetId, ['google_business_profile', 'gbp']);
         $this->mountPeriod();
         $this->normalizeTab();
 
         if ($this->keyword === '') {
             $stored = DemoState::getFilter('gbp_keyword');
-            $this->keyword = is_string($stored) && $stored !== ''
-                ? $stored
-                : GbpWorkspaceFixtures::visibility()['default_keyword'];
+            if (is_string($stored) && $stored !== '') {
+                $this->keyword = $stored;
+            }
         }
     }
 
@@ -227,19 +226,19 @@ class OverviewPage extends Component
 
     public function refreshData(): void
     {
-        DemoState::flash('GBP data refresh queued (Demo Mode · no live Google Business Profile API call).', 'info');
+        DemoState::flash('GBP data refresh is unavailable until the integration is configured.', 'info');
     }
 
     public function runLocalVisibilityScan(): void
     {
-        DemoState::flash('Local visibility scan completed (Demo Mode · deterministic fixture timestamps updated in presentation only).', 'info');
+        DemoState::flash('Local visibility scan is unavailable until a rank provider is configured.', 'info');
         $this->tab = 'visibility';
         $this->scan = 'latest';
     }
 
     public function createReviewTask(string $reviewId): void
     {
-        DemoState::flash('Internal Task created for review '.$reviewId.' (Demo Mode · no Google reply).', 'info');
+        DemoState::flash('Internal Task for review '.$reviewId.' was not created — Google reply is not available.', 'info');
         $this->reviews_sub = 'queue';
         $this->tab = 'reviews';
     }
@@ -263,215 +262,76 @@ class OverviewPage extends Component
     {
         $this->normalizeTab();
 
-        $usesDemoCatalog = DemoCatalogAssetGuard::isDemoCatalogAssetId($this->assetId);
-        if (! $usesDemoCatalog) {
-            $data = UnavailableWorkspaceShells::gbp($this->assetId);
-            $emptySeries = ['labels' => [], 'values' => []];
-
-            return view('livewire.demo.gbp.overview', [
-                'asset' => [
-                    'id' => $this->assetId,
-                    'name' => $data['identity']['title'] ?? 'GBP',
-                    'type' => 'gbp',
-                ],
-                'data' => $data,
-                'identity' => $data['identity'],
-                'visibility' => [
-                    'keywords' => [],
-                    'default_keyword' => '',
-                    'scans' => [],
-                    'business' => ['name' => null, 'lat' => null, 'lng' => null, 'label' => null],
-                    'note' => 'Local visibility grid is unavailable — no fabricated rankings.',
-                ],
-                'currentScan' => [
-                    'points' => [],
-                    'scanned_at' => null,
-                    'average_rank' => null,
-                    'top3_count' => 0,
-                    'top10_count' => 0,
-                    'best' => null,
-                    'worst' => null,
-                ],
-                'previousScan' => null,
-                'points' => [],
-                'selectedPoint' => null,
-                'mapPayload' => ['mode' => 'rank', 'business' => ['name' => null, 'lat' => null, 'lng' => null, 'address' => null], 'points' => []],
-                'miniMapPayload' => ['mode' => 'rank', 'business' => ['name' => null, 'lat' => null, 'lng' => null, 'address' => null], 'points' => []],
-                'queryRows' => [],
-                'reviewInbox' => [],
-                'selectedFinding' => null,
-                'selectedAttention' => null,
-                'showPeriodBar' => in_array($this->tab, $this->timeBasedTabs, true),
-                'discoveryChartOptions' => [
-                    'chart' => ['type' => 'area', 'height' => 240, 'toolbar' => ['show' => false], 'stacked' => false],
-                    'series' => [],
-                    'xaxis' => ['categories' => []],
-                    'stroke' => ['curve' => 'smooth', 'width' => 2],
-                    'dataLabels' => ['enabled' => false],
-                    'colors' => ['#ea580c', '#0284c7'],
-                    'legend' => ['position' => 'top'],
-                ],
-                'actionsChartOptions' => [
-                    'chart' => ['type' => 'line', 'height' => 240, 'toolbar' => ['show' => false]],
-                    'series' => [['name' => 'Customer actions', 'data' => []]],
-                    'xaxis' => ['categories' => []],
-                    'stroke' => ['curve' => 'smooth', 'width' => 2],
-                    'dataLabels' => ['enabled' => false],
-                    'colors' => ['#ea580c'],
-                ],
-                'flash' => DemoState::pullFlash(),
-            ]);
-        }
-
-        $data = GbpWorkspaceFixtures::workspace($this->period);
-        $visibility = $data['visibility'];
-        $keywords = $visibility['keywords'];
-
-        if (! in_array($this->keyword, $keywords, true)) {
-            $this->keyword = $visibility['default_keyword'];
-        }
-
-        $scanBundle = $visibility['scans'][$this->keyword];
-        $currentScan = $scanBundle['current'];
-        $previousScanMeta = $scanBundle['previous'];
-        $points = $currentScan['points'];
-
-        if ($this->scan === 'previous') {
-            $points = collect($points)->map(function (array $p) use ($previousScanMeta): array {
-                $p['rank'] = $p['previous_rank'];
-                $p['scan_at'] = $previousScanMeta['scanned_at'];
-                $p['delta'] = 0;
-
-                return $p;
-            })->all();
-            $ranks = array_column($points, 'rank');
-            $currentScan = [
-                ...$currentScan,
-                'scanned_at' => $previousScanMeta['scanned_at'],
-                'average_rank' => $previousScanMeta['average_rank'],
-                'top3_count' => count(array_filter($ranks, fn (int $r): bool => $r <= 3)),
-                'top10_count' => count(array_filter($ranks, fn (int $r): bool => $r <= 10)),
-                'best' => min($ranks),
-                'worst' => max($ranks),
-                'points' => $points,
-            ];
-        }
-
-        $selectedPoint = null;
-        if ($this->point) {
-            $selectedPoint = collect($points)->firstWhere('id', $this->point);
-        }
-
-        $mapMode = ($this->scan_compare || $this->vis_mode === 'change') && $this->scan !== 'previous' ? 'change' : 'rank';
-
-        $mapPayload = [
-            'mode' => $mapMode,
-            'business' => [
-                'name' => $visibility['business']['name'],
-                'lat' => $visibility['business']['lat'],
-                'lng' => $visibility['business']['lng'],
-                'address' => $visibility['business']['label'],
-            ],
-            'points' => collect($points)->map(fn (array $p): array => [
-                'id' => $p['id'],
-                'lat' => $p['lat'],
-                'lng' => $p['lng'],
-                'rank' => $p['rank'],
-                'delta' => $p['delta'],
-                'label' => $p['direction'].' · '.$p['distance_km'].' km',
-            ])->values()->all(),
-        ];
-
-        $miniMapPayload = [
-            'mode' => 'rank',
-            'business' => $mapPayload['business'],
-            'points' => $mapPayload['points'],
-        ];
-
-        $queryRows = collect($data['performance']['queries']['rows'] ?? []);
-        if ($this->query_filter === 'Tracked') {
-            $queryRows = $queryRows->where('tracked', true);
-        } elseif ($this->query_filter === 'Website gap') {
-            $queryRows = $queryRows->where('website', 'Missing');
-        } elseif ($this->query_filter === 'Growing') {
-            $queryRows = $queryRows->filter(fn (array $r): bool => str_starts_with((string) $r['change'], '+'));
-        } elseif ($this->query_filter === 'Declining') {
-            $queryRows = $queryRows->filter(fn (array $r): bool => str_starts_with((string) $r['change'], '−') || str_starts_with((string) $r['change'], '-'));
-        } elseif ($this->query_filter !== 'all') {
-            $queryRows = $queryRows->where('intent', $this->query_filter);
-        }
-
-        $inbox = collect($data['reviews']['inbox'] ?? []);
-        if ($this->review_stars !== 'all') {
-            $inbox = $inbox->where('stars', (int) $this->review_stars);
-        }
-        if ($this->review_reply !== 'all') {
-            $inbox = $inbox->where('reply', $this->review_reply);
-        }
-        if ($this->review_topic !== '') {
-            $topic = $this->review_topic;
-            $inbox = $inbox->filter(fn (array $r): bool => in_array($topic, $r['topics'] ?? [], true));
-        }
-        if ($this->review_q !== '') {
-            $q = mb_strtolower($this->review_q);
-            $inbox = $inbox->filter(fn (array $r): bool => str_contains(mb_strtolower(($r['excerpt'] ?? '').' '.($r['reviewer'] ?? '')), $q));
-        }
-
-        $selectedFinding = null;
-        if ($this->finding) {
-            $selectedFinding = collect($data['operations']['findings'] ?? [])->firstWhere('id', $this->finding);
-            $detail = $data['operations']['finding_detail'][$this->finding] ?? null;
-            if ($selectedFinding && $detail) {
-                $selectedFinding = array_merge($selectedFinding, $detail);
-            }
-        }
-
-        $selectedAttention = null;
-        if ($this->attention) {
-            $selectedAttention = collect($data['needs_attention'] ?? [])->firstWhere('id', $this->attention);
-        }
-
-        $discovery = $data['performance']['discovery'];
-        $actions = $data['performance']['actions'];
-
-        $asset = DemoCatalog::asset($this->assetId) ?? DemoCatalog::asset(DemoCatalog::GBP_ASSET_ID);
+        $data = UnavailableWorkspaceShells::gbp($this->assetId);
+        $emptySeries = ['labels' => [], 'values' => []];
 
         return view('livewire.demo.gbp.overview', [
-            'asset' => $asset,
+            'asset' => [
+                'id' => $this->assetId,
+                'name' => $data['identity']['title'] ?? 'GBP',
+                'type' => 'gbp',
+            ],
             'data' => $data,
             'identity' => $data['identity'],
-            'visibility' => $visibility,
-            'currentScan' => $currentScan,
-            'previousScan' => $previousScanMeta,
-            'points' => $points,
-            'selectedPoint' => $selectedPoint,
-            'mapPayload' => $mapPayload,
-            'miniMapPayload' => $miniMapPayload,
-            'queryRows' => $queryRows->values()->all(),
-            'reviewInbox' => $inbox->values()->all(),
-            'selectedFinding' => $selectedFinding,
-            'selectedAttention' => $selectedAttention,
+            'visibility' => array_merge([
+                'subtitle' => 'Local visibility has not been measured for this production GBP.',
+                'keywords' => [],
+                'default_keyword' => '',
+                'scans' => [],
+                'coverage_regions' => [],
+                'comparison' => [],
+                'opportunities' => [],
+                'business' => ['name' => null, 'lat' => null, 'lng' => null, 'label' => null],
+                'note' => 'Local visibility grid is unavailable — no fabricated rankings.',
+            ], is_array($data['visibility'] ?? null) ? $data['visibility'] : []),
+            'currentScan' => [
+                'points' => [],
+                'scanned_at' => '—',
+                'average_rank' => '—',
+                'top3_count' => 0,
+                'top10_count' => 0,
+                'best' => '—',
+                'worst' => '—',
+                'grid' => '—',
+                'radius' => '—',
+                'source' => 'Not collected',
+                'weakness' => 'No local visibility scan has been collected.',
+            ],
+            'previousScan' => [
+                'points' => [],
+                'scanned_at' => '—',
+                'average_rank' => '—',
+                'top3_count' => 0,
+                'top10_count' => 0,
+                'best' => '—',
+                'worst' => '—',
+                'grid' => '—',
+                'radius' => '—',
+                'source' => 'Not collected',
+                'weakness' => 'No previous scan exists.',
+            ],
+            'points' => [],
+            'selectedPoint' => null,
+            'mapPayload' => ['mode' => 'rank', 'business' => ['name' => null, 'lat' => null, 'lng' => null, 'address' => null], 'points' => []],
+            'miniMapPayload' => ['mode' => 'rank', 'business' => ['name' => null, 'lat' => null, 'lng' => null, 'address' => null], 'points' => []],
+            'queryRows' => [],
+            'reviewInbox' => [],
+            'selectedFinding' => null,
+            'selectedAttention' => null,
             'showPeriodBar' => in_array($this->tab, $this->timeBasedTabs, true),
             'discoveryChartOptions' => [
                 'chart' => ['type' => 'area', 'height' => 240, 'toolbar' => ['show' => false], 'stacked' => false],
-                'series' => [
-                    ['name' => 'Search impressions', 'data' => $discovery['series_search']['values']],
-                    ['name' => 'Maps impressions', 'data' => $discovery['series_maps']['values']],
-                ],
-                'xaxis' => ['categories' => $discovery['series_search']['labels']],
+                'series' => [],
+                'xaxis' => ['categories' => []],
                 'stroke' => ['curve' => 'smooth', 'width' => 2],
                 'dataLabels' => ['enabled' => false],
                 'colors' => ['#ea580c', '#0284c7'],
                 'legend' => ['position' => 'top'],
-                'fill' => [
-                    'type' => 'gradient',
-                    'gradient' => ['shadeIntensity' => 1, 'opacityFrom' => 0.3, 'opacityTo' => 0.05],
-                ],
             ],
             'actionsChartOptions' => [
                 'chart' => ['type' => 'line', 'height' => 240, 'toolbar' => ['show' => false]],
-                'series' => [['name' => 'Customer actions', 'data' => $actions['series']['values']]],
-                'xaxis' => ['categories' => $actions['series']['labels']],
+                'series' => [['name' => 'Customer actions', 'data' => []]],
+                'xaxis' => ['categories' => []],
                 'stroke' => ['curve' => 'smooth', 'width' => 2],
                 'dataLabels' => ['enabled' => false],
                 'colors' => ['#ea580c'],

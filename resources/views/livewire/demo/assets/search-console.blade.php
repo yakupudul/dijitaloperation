@@ -15,7 +15,7 @@
     @include('livewire.demo.partials.flash')
 
     @include('livewire.demo.partials.workspace-header', [
-        'eyebrow' => 'Search Console · '.($asset['name'] ?? 'atlasdental.example'),
+        'eyebrow' => 'Search Console · '.($asset['name'] ?? 'Search Console'),
         'title' => 'Workspace',
         'subtitle' => ($data['period_label'] ?? '').' · Search visibility evidence for Website',
         'badges' => [$data['provenance'] ?? 'Connected data source'],

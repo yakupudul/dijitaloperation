@@ -245,6 +245,15 @@ final class GoogleAdsSpecialistReadService
         $data['pacing'] = [
             'source' => 'Unavailable',
             'note' => 'Pacing unavailable — agency planned monthly budget is not stored in the data pool.',
+            'monthly_budget' => 0,
+            'elapsed_pct' => 0,
+            'expected_spend' => 0,
+            'actual_spend' => 0,
+            'spend_pct' => 0,
+            'remaining' => 0,
+            'ahead_by' => 0,
+            'state' => 'Unavailable',
+            'projected' => 0,
         ];
 
         $data['performance_trend'] = $this->realPerformanceTrend($accountGate, $digitalAssetId, $externalResourceId, $customerId);
@@ -360,6 +369,7 @@ final class GoogleAdsSpecialistReadService
             : "Google Ads binding {$reason} — no collection state available.";
 
         $unavailableChip = ['value' => '—', 'raw' => null, 'secondary' => 'Unavailable', 'tone' => 'neutral'];
+        $asset = DigitalAsset::query()->with('brand')->find($binding->digitalAssetId);
 
         $data = [
             'period_label' => $bounds['label'],
@@ -370,15 +380,17 @@ final class GoogleAdsSpecialistReadService
             'demo_boundary' => 'Real Google Ads workspace · no usable Customer binding — no live Google Ads API call performed.',
             'identity' => [
                 'eyebrow' => 'Google Ads',
-                'title' => $errorMessage !== null ? 'Google Ads — read error' : 'Google Ads — not connected',
-                'brand' => null,
-                'brand_id' => null,
-                'brand_name' => null,
+                'title' => $errorMessage !== null
+                    ? (($asset?->name ?? 'Google Ads').' — read error')
+                    : (($asset?->name ?? 'Google Ads').' — not connected'),
+                'brand' => $asset?->brand?->name,
+                'brand_id' => $asset?->brand_id,
+                'brand_name' => $asset?->brand?->name ?? '—',
                 'website_asset_id' => null,
                 'google_ads_asset_id' => $binding->assetId,
-                'strategy_line' => null,
+                'strategy_line' => 'Not connected — no Google Ads Customer is bound.',
                 'status' => $statusLabel,
-                'freshness' => null,
+                'freshness' => 'Not collected',
                 'customer_id' => null,
                 'reporting_timezone' => null,
                 'currency' => null,
@@ -395,20 +407,33 @@ final class GoogleAdsSpecialistReadService
                 'cpa' => $unavailableChip + ['note' => self::CPA_UNAVAILABLE_NOTE],
                 'pacing' => $unavailableChip,
             ],
-            'pacing' => ['source' => 'Unavailable', 'note' => 'Unavailable — '.$reason],
+            'pacing' => [
+                'source' => 'Unavailable',
+                'note' => 'Unavailable — '.$reason,
+                'monthly_budget' => 0,
+                'elapsed_pct' => 0,
+                'expected_spend' => 0,
+                'actual_spend' => 0,
+                'spend_pct' => 0,
+                'remaining' => 0,
+                'ahead_by' => 0,
+                'state' => 'Unavailable',
+                'projected' => 0,
+            ],
             'needs_attention' => [],
             'performance_trend' => [
                 'labels' => [],
                 'spend' => [],
                 'leads' => [],
                 'note' => 'Unavailable — '.$reason,
+                'compare_label' => 'vs '.$prev['label'],
             ],
             'campaigns' => [],
             'spend_by_offering' => [],
             'search' => [
                 'subtitle' => 'Unavailable — '.$reason,
                 'terms_observed' => 0,
-                'aligned_high_intent_pct' => null,
+                'aligned_high_intent_pct' => 0,
                 'review_spend' => 0,
                 'inbox_count' => 0,
                 'intent_distribution' => [],
@@ -430,20 +455,31 @@ final class GoogleAdsSpecialistReadService
             ],
             'landing_pages' => [
                 'subtitle' => 'Unavailable — '.$reason,
-                'active' => null,
-                'need_review' => null,
-                'exposure_attention' => null,
+                'active' => 0,
+                'need_review' => 0,
+                'exposure_attention' => 0,
                 'rows' => [],
             ],
             'measurement' => [
                 'subtitle' => 'Unavailable — '.$reason,
-                'glance' => ['primary_goals' => null, 'healthy' => null, 'needs_mapping' => null, 'findings' => null],
+                'glance' => [
+                    'primary_goals' => '—',
+                    'healthy' => '—',
+                    'needs_mapping' => '—',
+                    'findings' => '—',
+                ],
                 'matrix' => [],
                 'debt' => [],
-                'duplicate_risk' => null,
-                'interruption' => null,
+                'duplicate_risk' => [
+                    'title' => 'Duplicate risk unavailable',
+                    'detail' => 'Unavailable — '.$reason,
+                ],
+                'interruption' => [
+                    'title' => 'Not connected',
+                    'detail' => 'Unavailable — '.$reason,
+                ],
                 'trust' => 'Unavailable — '.$reason,
-                'ga4_label' => null,
+                'ga4_label' => 'GA4 · not collected',
                 'mapping_trust_note' => self::CONVERSION_NOTE,
             ],
             'operations' => [
@@ -636,6 +672,7 @@ final class GoogleAdsSpecialistReadService
                 'labels' => [],
                 'spend' => [],
                 'leads' => [],
+                'compare_label' => 'vs prior period',
                 'note' => 'Performance trend unavailable — google_ads_account_daily dataset is not ready for real UI.',
             ];
         }
@@ -657,6 +694,7 @@ final class GoogleAdsSpecialistReadService
             'labels' => $labels,
             'spend' => $spend,
             'leads' => $leads,
+            'compare_label' => 'vs prior period',
             'note' => ($partial ? 'Spend + provider conversions · real Google Ads data (partial coverage). ' : 'Spend + provider conversions · real Google Ads data. ')
                 .'"leads" is the frozen chart key — the series is provider conversions, not Qualified Leads.',
         ];
@@ -736,7 +774,7 @@ final class GoogleAdsSpecialistReadService
             'terms' => $terms,
             'clusters' => [],
             'keywords' => $keywords,
-            'intent_provenance' => 'Unavailable — intent clustering is a Demo Mode heuristic and is not computed for real search terms in Prompt 30.',
+            'intent_provenance' => 'Unavailable — intent clustering is not computed for real search terms in Prompt 30.',
             'search_volume_note' => self::SEARCH_VOLUME_NOTE,
         ];
     }
@@ -921,7 +959,7 @@ final class GoogleAdsSpecialistReadService
         string $customerId,
     ): array {
         $mappingNote = 'Matrix reflects real Google Ads conversion actions — conversions and all_conversions are kept distinct and no generic "Results" metric is used. '
-            .'Health/duplicate-risk narrative above remains Demo Mode illustrative content; no Business Action mapping is configured in Prompt 30.';
+            .'Health/duplicate-risk narrative above remains illustrative; no Business Action mapping is configured in Prompt 30.';
 
         if (! $snapshotGate->isUsable()) {
             return array_merge($demoMeasurement, [

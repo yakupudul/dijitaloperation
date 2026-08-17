@@ -337,8 +337,8 @@ class Ga4RealDataMigrationTest extends TestCase
         $user->assignRole(Roles::ADMIN);
         $this->actingAs($user);
 
-        Livewire::test(AnalyticsPage::class, ['assetId' => DemoCatalog::GA4_ASSET_ID])
-            ->assertSee('Atlas Dental — GA4');
+        Livewire::test(AnalyticsPage::class, ['assetId' => (string) $this->asset->id])
+            ->assertOk();
 
         Http::assertNothingSent();
     }

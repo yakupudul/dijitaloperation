@@ -8,14 +8,15 @@ use App\Livewire\Demo\Portfolio\CustomerDetail;
 use App\Livewire\Demo\Settings\AiAgentsPage;
 use App\Livewire\Demo\Settings\AiSkillsPage;
 use App\Livewire\Demo\SettingsPage;
+use App\Models\DigitalAsset;
 use App\Models\User;
-use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoMenu;
 use App\Support\Demo\DemoState;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
+use Tests\Support\CreatesCanonicalPortfolio;
 use Tests\TestCase;
 
 /**
@@ -23,6 +24,7 @@ use Tests\TestCase;
  */
 class PanelDesignFreezeTest extends TestCase
 {
+    use CreatesCanonicalPortfolio;
     use RefreshDatabase;
 
     private User $admin;
@@ -36,6 +38,14 @@ class PanelDesignFreezeTest extends TestCase
         $this->admin->assignRole(Roles::ADMIN);
         $this->actingAs($this->admin);
         DemoState::reset();
+        $this->seedCanonicalPortfolio();
+        $this->createPortfolioAsset('website', 'Northwind Website');
+        $this->createPortfolioAsset('google_business_profile', 'Northwind GBP');
+        $this->createPortfolioAsset('google_ads', 'Northwind Ads', ['module_id' => 'google-ads']);
+        $this->createPortfolioAsset('meta_ads', 'Northwind Meta', ['module_id' => 'meta-ads']);
+        $this->createPortfolioAsset('ga4', 'Northwind GA4', ['module_id' => 'analytics']);
+        $this->createPortfolioAsset('gsc', 'Northwind GSC', ['module_id' => 'search-console']);
+        $this->createPortfolioAsset('instagram', 'Northwind Instagram');
     }
 
     public function test_final_operator_sidebar_is_locked(): void
@@ -77,7 +87,7 @@ class PanelDesignFreezeTest extends TestCase
 
     public function test_customer_primary_ia(): void
     {
-        Livewire::test(CustomerDetail::class, ['customerId' => DemoCatalog::CUSTOMER_ID])
+        Livewire::test(CustomerDetail::class, ['customerId' => (string) $this->portfolioCustomer->id])
             ->assertSee(__('operator.customer.tabs.overview'))
             ->assertSee(__('operator.customer.tabs.brands'))
             ->assertSee(__('operator.customer.tabs.relationship'))
@@ -90,7 +100,7 @@ class PanelDesignFreezeTest extends TestCase
 
     public function test_brand_primary_ia_exactly_six(): void
     {
-        $html = Livewire::test(BrandShow::class, ['brand' => DemoCatalog::BRAND_ID])->html();
+        $html = Livewire::test(BrandShow::class, ['brand' => (string) $this->portfolioBrand->id])->html();
 
         foreach ([
             __('operator.brand.tabs.overview'),
@@ -114,8 +124,10 @@ class PanelDesignFreezeTest extends TestCase
 
     public function test_specialist_asset_primary_tab_counts(): void
     {
+        $byType = DigitalAsset::query()->where('brand_id', $this->portfolioBrand->id)->get()->keyBy('type');
+
         $cases = [
-            [route('demo.website'), [
+            [route('demo.website', ['assetId' => $byType['website']->id]), [
                 __('operator.website.tabs.overview'),
                 __('operator.website.tabs.health'),
                 __('operator.website.tabs.visibility'),
@@ -125,7 +137,7 @@ class PanelDesignFreezeTest extends TestCase
                 __('operator.website.tabs.operations'),
                 __('operator.website.tabs.setup'),
             ]],
-            [route('demo.gbp'), [
+            [route('demo.gbp', ['assetId' => $byType['google_business_profile']->id]), [
                 __('operator.gbp.tabs.overview'),
                 __('operator.gbp.tabs.profile'),
                 __('operator.gbp.tabs.visibility'),
@@ -134,7 +146,7 @@ class PanelDesignFreezeTest extends TestCase
                 __('operator.gbp.tabs.competitors'),
                 __('operator.gbp.tabs.operations'),
             ]],
-            [route('demo.google-ads.overview'), [
+            [route('demo.google-ads.overview', ['assetId' => $byType['google_ads']->id]), [
                 __('operator.google_ads.tabs.overview'),
                 __('operator.google_ads.tabs.campaigns'),
                 __('operator.google_ads.tabs.search_demand'),
@@ -143,7 +155,7 @@ class PanelDesignFreezeTest extends TestCase
                 __('operator.google_ads.tabs.measurement'),
                 __('operator.google_ads.tabs.operations'),
             ]],
-            [route('demo.meta.overview'), [
+            [route('demo.meta.overview', ['assetId' => $byType['meta_ads']->id]), [
                 __('operator.meta_ads.tabs.overview'),
                 __('operator.meta_ads.tabs.campaigns'),
                 __('operator.meta_ads.tabs.creatives'),
@@ -152,7 +164,7 @@ class PanelDesignFreezeTest extends TestCase
                 __('operator.meta_ads.tabs.measurement'),
                 __('operator.meta_ads.tabs.operations'),
             ]],
-            [route('demo.analytics'), [
+            [route('demo.analytics', ['assetId' => $byType['ga4']->id]), [
                 __('operator.ga4.tabs.overview'),
                 __('operator.ga4.tabs.measurement'),
                 __('operator.ga4.tabs.acquisition'),
@@ -160,7 +172,7 @@ class PanelDesignFreezeTest extends TestCase
                 __('operator.ga4.tabs.journeys'),
                 __('operator.ga4.tabs.operations'),
             ]],
-            [route('demo.search-console'), [
+            [route('demo.search-console', ['assetId' => $byType['gsc']->id]), [
                 __('operator.gsc.tabs.overview'),
                 __('operator.gsc.tabs.performance'),
                 __('operator.gsc.tabs.demand'),
@@ -168,7 +180,7 @@ class PanelDesignFreezeTest extends TestCase
                 __('operator.gsc.tabs.indexing'),
                 __('operator.gsc.tabs.operations'),
             ]],
-            [route('demo.instagram'), [
+            [route('demo.instagram', ['assetId' => $byType['instagram']->id]), [
                 __('operator.instagram.tabs.overview'),
                 __('operator.instagram.tabs.profile'),
                 __('operator.instagram.tabs.operations'),
@@ -221,8 +233,8 @@ class PanelDesignFreezeTest extends TestCase
     {
         $surfaces = [
             '/app',
-            route('demo.brand', ['brand' => DemoCatalog::BRAND_ID]),
-            route('demo.website'),
+            route('demo.brand', ['brand' => $this->portfolioBrand->id]),
+            route('demo.website', ['assetId' => DigitalAsset::query()->where('type', 'website')->value('id')]),
             route('demo.opportunities'),
             route('demo.tasks'),
         ];
@@ -267,7 +279,7 @@ class PanelDesignFreezeTest extends TestCase
         $this->admin->update(['locale' => 'tr']);
         app()->setLocale('tr');
 
-        $this->get(route('demo.gbp'))
+        $this->get(route('demo.gbp', ['assetId' => DigitalAsset::query()->where('type', 'google_business_profile')->value('id')]))
             ->assertOk()
             ->assertSee(__('operator.gbp.tabs.competitors', [], 'tr'));
 

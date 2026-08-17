@@ -521,38 +521,29 @@ final class ClientValueFixtures
      *
      * @return array<string, mixed>
      */
-    public static function workKnowledgeContext(?string $playbookId = 'pb-weekly-gads'): array
+    public static function workKnowledgeContext(?string $playbookId = null): array
     {
         $playbook = null;
-        if ($playbookId !== null) {
+        if (is_string($playbookId) && $playbookId !== '') {
             $playbook = app(PlaybookReadService::class)->findPresentation($playbookId);
         }
-        if ($playbook === null) {
-            $playbook = app(PlaybookReadService::class)->findPresentation('pb-weekly-gads');
-        }
 
-        $goals = CommercialContextFixtures::structuredGoalsForBrand(DemoCatalog::BRAND_ID);
-        $primaryGoal = collect($goals)->firstWhere('tier', 'primary')
-            ?? collect($goals)->first()
-            ?? ['title' => 'Increase qualified implant consultations'];
-
-        $decision = self::meaningfulDecisions('en')[1] ?? null;
-        $key = $playbook['stable_key'] ?? $playbook['id'] ?? null;
+        $key = is_array($playbook) ? ($playbook['stable_key'] ?? $playbook['id'] ?? null) : null;
 
         return [
-            'service' => $playbook['service_label'] ?? 'Google Ads Management',
-            'goal' => $primaryGoal['title'] ?? 'Increase qualified implant consultations',
+            'service' => is_array($playbook) ? ($playbook['service_label'] ?? null) : null,
+            'goal' => null,
             'playbook' => [
                 'id' => $key,
-                'name' => $playbook['name'] ?? null,
+                'name' => is_array($playbook) ? ($playbook['name'] ?? null) : null,
                 'url' => $key !== null
                     ? route('demo.settings.playbook', ['playbookId' => $key])
                     : null,
             ],
-            'decision' => $decision,
-            'references' => $playbook['references'] ?? [],
-            'qa_guidance' => $playbook['qa_guidance'] ?? [],
-            'checklist' => $playbook['checklist'] ?? [],
+            'decision' => null,
+            'references' => is_array($playbook) ? ($playbook['references'] ?? []) : [],
+            'qa_guidance' => is_array($playbook) ? ($playbook['qa_guidance'] ?? []) : [],
+            'checklist' => is_array($playbook) ? ($playbook['checklist'] ?? []) : [],
         ];
     }
 

@@ -3,12 +3,12 @@
 namespace App\Livewire\Demo\GoogleAds;
 
 use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
+use App\Livewire\Demo\Concerns\ResolvesCanonicalOperatorAsset;
 use App\Models\DigitalAsset;
 use App\Services\DataPool\Freshness\StartIncrementalCollectionService;
 use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
 use App\Services\GoogleAds\GoogleAdsSpecialistReadService;
 use App\Services\GoogleAds\Support\GoogleAdsBindingMode;
-use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
@@ -21,8 +21,9 @@ use Livewire\Component;
 class OverviewPage extends Component
 {
     use InteractsWithDemoPeriod;
+    use ResolvesCanonicalOperatorAsset;
 
-    public string $assetId = DemoCatalog::GOOGLE_ADS_ASSET_ID;
+    public string $assetId = '';
 
     #[Url]
     public string $tab = 'overview';
@@ -93,7 +94,7 @@ class OverviewPage extends Component
 
     public function mount(?string $assetId = null): void
     {
-        $this->assetId = $assetId ?: DemoCatalog::GOOGLE_ADS_ASSET_ID;
+        $this->bindCanonicalAsset($assetId, ['google_ads']);
         $this->mountPeriod();
         $this->normalizeTab();
 
@@ -193,7 +194,7 @@ class OverviewPage extends Component
         $binding = app(GoogleAdsSpecialistBindingResolver::class)->resolve($this->assetId);
 
         if ($binding->mode !== GoogleAdsBindingMode::RealBound) {
-            DemoState::flash('Google Ads data refresh queued (Demo Mode · no live Google Ads API expansion).', 'info');
+            DemoState::flash('Google Ads data refresh is unavailable until the integration is configured.', 'info');
 
             return;
         }
@@ -221,13 +222,13 @@ class OverviewPage extends Component
 
     public function runAnalysis(): void
     {
-        DemoState::flash('Paid acquisition analysis completed (Demo Mode · deterministic fixtures).', 'info');
+        DemoState::flash('Paid acquisition analysis is unavailable until Google Ads data has been collected.', 'info');
         $this->tab = 'overview';
     }
 
     public function markClusterReviewed(string $id): void
     {
-        DemoState::flash('Cluster marked reviewed internally (Demo Mode · no Google Ads write).', 'info');
+        DemoState::flash('Cluster marked reviewed internally. No Google Ads write was made.', 'info');
         $this->cluster = $id;
         $this->tab = 'search_demand';
         $this->search_sub = 'inbox';
@@ -237,8 +238,8 @@ class OverviewPage extends Component
     {
         DemoState::flash(
             $term
-                ? 'Internal Recommendation drafted for “'.$term.'” (Demo Mode · no Google Ads write).'
-                : 'Internal Recommendation drafted for Decision Inbox (Demo Mode · no Google Ads write).',
+                ? 'Internal Recommendation drafted for “'.$term.'”  No Google Ads write was made.'
+                : 'Internal Recommendation drafted for Decision Inbox  No Google Ads write was made.',
             'info',
         );
         $this->ops = 'recommendations';
@@ -342,7 +343,7 @@ class OverviewPage extends Component
             : 'Primary conversions';
 
         return view('livewire.demo.google-ads.overview', [
-            'asset' => DemoCatalog::asset($this->assetId),
+            'asset' => $this->presentCanonicalAsset(),
             'data' => $data,
             'identity' => $data['identity'],
             'campaignRows' => $campaigns->values()->all(),

@@ -38,7 +38,7 @@
             <ul class="mt-3 space-y-2 text-sm">
                 @foreach ($comp['presence'] as $row)
                     <li class="flex items-center justify-between gap-2">
-                        <span @class(['font-medium text-gray-900 dark:text-white' => $row['name'] === 'Atlas Dental Ankara'])>{{ $row['name'] }}</span>
+                        <span class="font-medium text-gray-900 dark:text-white">{{ $row['name'] }}</span>
                         <span class="tabular-nums text-gray-700 dark:text-gray-300">{{ $row['top3'] }} / 25</span>
                     </li>
                 @endforeach

@@ -562,6 +562,10 @@ class ClientRequestProductionPersistenceTest extends TestCase
         $this->assertSame('REAL', $rows[0]['source_state']);
 
         Livewire::test(CustomerDetail::class, ['customerId' => 'atlas-health'])
+            ->assertStatus(404);
+
+        $emptyCustomer = Customer::factory()->create(['name' => 'Empty Customer']);
+        Livewire::test(CustomerDetail::class, ['customerId' => (string) $emptyCustomer->id])
             ->call('setTab', 'requests')
             ->assertDontSee('Visible request')
             ->assertSee(__('operator.requests.empty'));

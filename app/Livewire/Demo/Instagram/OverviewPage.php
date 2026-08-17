@@ -2,10 +2,8 @@
 
 namespace App\Livewire\Demo\Instagram;
 
-use App\Support\Demo\DemoCatalog;
+use App\Livewire\Demo\Concerns\ResolvesCanonicalOperatorAsset;
 use App\Support\Demo\DemoState;
-use App\Support\Demo\InstagramWorkspaceFixtures;
-use App\Support\Reality\DemoCatalogAssetGuard;
 use App\Support\Reality\UnavailableWorkspaceShells;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
@@ -17,7 +15,9 @@ use Livewire\Component;
 #[Title('Instagram')]
 class OverviewPage extends Component
 {
-    public string $assetId = InstagramWorkspaceFixtures::ASSET_ID;
+    use ResolvesCanonicalOperatorAsset;
+
+    public string $assetId = '';
 
     #[Url(as: 'tab', history: true)]
     public string $tab = 'overview';
@@ -39,10 +39,7 @@ class OverviewPage extends Component
 
     public function mount(?string $assetId = null): void
     {
-        if (is_string($assetId) && $assetId !== '') {
-            $this->assetId = $assetId;
-        }
-
+        $this->bindCanonicalAsset($assetId, ['instagram']);
         $this->normalizeTab();
     }
 
@@ -66,17 +63,6 @@ class OverviewPage extends Component
     public function render(): View
     {
         $this->normalizeTab();
-
-        if (DemoCatalogAssetGuard::isDemoCatalogAssetId($this->assetId)
-            || $this->assetId === InstagramWorkspaceFixtures::ASSET_ID) {
-            $workspace = InstagramWorkspaceFixtures::workspace($this->assetId);
-
-            return view('livewire.demo.instagram.overview', [
-                'workspace' => $workspace,
-                'brand' => DemoCatalog::brand(),
-                'flash' => DemoState::pullFlash(),
-            ]);
-        }
 
         return view('livewire.demo.instagram.overview', [
             'workspace' => UnavailableWorkspaceShells::instagram($this->assetId),

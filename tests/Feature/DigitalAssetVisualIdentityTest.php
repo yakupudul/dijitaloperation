@@ -19,10 +19,12 @@ use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\File;
 use Livewire\Livewire;
+use Tests\Support\CreatesCanonicalPortfolio;
 use Tests\TestCase;
 
 class DigitalAssetVisualIdentityTest extends TestCase
 {
+    use CreatesCanonicalPortfolio;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -72,7 +74,7 @@ class DigitalAssetVisualIdentityTest extends TestCase
         );
     }
 
-    public function test_website_resolve_prefers_brand_fixture_mark(): void
+    public function test_website_resolve_prefers_brand_fixture_mark_on_catalog_payload(): void
     {
         $website = DemoCatalog::asset(DemoCatalog::WEBSITE_ASSET_ID);
         $this->assertNotNull($website);
@@ -82,31 +84,38 @@ class DigitalAssetVisualIdentityTest extends TestCase
         $this->assertStringContainsString('website-atlas.svg', $visual['asset_path']);
     }
 
-    public function test_provider_marks_render_on_asset_headers_and_directory(): void
+    public function test_provider_marks_render_on_real_asset_headers_and_directory(): void
     {
-        Livewire::test(AnalyticsPage::class, ['assetId' => DemoCatalog::GA4_ASSET_ID])
+        $this->seedCanonicalPortfolio();
+        $ga4 = $this->createPortfolioAsset('ga4', 'Northwind GA4', ['module_id' => 'analytics']);
+        $gsc = $this->createPortfolioAsset('gsc', 'Northwind GSC', ['module_id' => 'search-console']);
+        $gads = $this->createPortfolioAsset('google_ads', 'Northwind Ads', ['module_id' => 'google-ads']);
+        $meta = $this->createPortfolioAsset('meta_ads', 'Northwind Meta', ['module_id' => 'meta-ads']);
+        $gbp = $this->createPortfolioAsset('google_business_profile', 'Northwind GBP');
+        $website = $this->createPortfolioAsset('website', 'Northwind Website');
+
+        Livewire::test(AnalyticsPage::class, ['assetId' => (string) $ga4->id])
             ->assertSee('data-asset-mark="ga4"', false)
             ->assertSee('images/digital-assets/ga4.svg', false);
 
-        Livewire::test(SearchConsolePage::class, ['assetId' => DemoCatalog::GSC_ASSET_ID])
+        Livewire::test(SearchConsolePage::class, ['assetId' => (string) $gsc->id])
             ->assertSee('data-asset-mark="gsc"', false)
             ->assertSee('images/digital-assets/gsc.svg', false);
 
-        Livewire::test(GoogleAdsOverviewPage::class, ['assetId' => DemoCatalog::GOOGLE_ADS_ASSET_ID])
+        Livewire::test(GoogleAdsOverviewPage::class, ['assetId' => (string) $gads->id])
             ->assertSee('data-asset-mark="google_ads"', false)
             ->assertSee('images/digital-assets/google-ads.svg', false);
 
-        Livewire::test(MetaOverviewPage::class, ['assetId' => DemoCatalog::META_ASSET_ID])
+        Livewire::test(MetaOverviewPage::class, ['assetId' => (string) $meta->id])
             ->assertSee('data-asset-mark="meta_ads"', false)
             ->assertSee('images/digital-assets/meta.svg', false);
 
-        Livewire::test(GbpOverviewPage::class, ['assetId' => DemoCatalog::GBP_ASSET_ID])
+        Livewire::test(GbpOverviewPage::class, ['assetId' => (string) $gbp->id])
             ->assertSee('data-asset-mark="gbp"', false)
             ->assertSee('images/digital-assets/gbp.svg', false);
 
-        Livewire::test(WebsiteOverviewPage::class, ['assetId' => DemoCatalog::WEBSITE_ASSET_ID])
-            ->assertSee('data-asset-mark="website"', false)
-            ->assertSee('images/digital-assets/website-atlas.svg', false);
+        Livewire::test(WebsiteOverviewPage::class, ['assetId' => (string) $website->id])
+            ->assertSee('data-asset-mark="website"', false);
 
         Livewire::test(AssetsIndex::class)
             ->assertSee('data-asset-mark="ga4"', false)
@@ -115,12 +124,12 @@ class DigitalAssetVisualIdentityTest extends TestCase
             ->assertSee('data-asset-mark="meta_ads"', false)
             ->assertSee('data-asset-mark="website"', false);
 
-        Livewire::test(BrandShow::class, ['brand' => DemoCatalog::BRAND_ID])
+        Livewire::test(BrandShow::class, ['brand' => (string) $this->portfolioBrand->id])
             ->assertSee('Digital estate')
-            ->assertSee('data-asset-mark="ga4"', false)
-            ->assertSee('data-asset-mark="gsc"', false)
-            ->assertSee('Atlas Dental — GA4')
-            ->assertSee('Atlas Dental — Search Console');
+            ->call('setTab', 'assets')
+            ->assertSee('Northwind GA4')
+            ->assertSee('Northwind GSC')
+            ->assertDontSee('Atlas Dental — GA4');
     }
 
     public function test_broken_logo_fallback_markup_is_present(): void

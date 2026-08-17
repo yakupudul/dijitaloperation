@@ -5,7 +5,7 @@
         <div>
             <p class="text-xs font-medium uppercase tracking-wide text-gray-500">Meta Ads</p>
             <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Campaigns</h1>
-            <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Campaign Context + typed results · Demo Mode</p>
+            <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Campaign Context + typed results</p>
         </div>
         <a href="{{ route('demo.meta.overview', ['assetId' => $assetId, 'tab' => 'campaigns']) }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Open full workspace →</a>
     </div>

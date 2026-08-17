@@ -89,6 +89,10 @@ class AgencyExecutionSystemTest extends TestCase
             auth()->user(),
         );
 
+        Task::query()
+            ->where('title', 'Investigate lead measurement')
+            ->update(['assignee_id' => auth()->id()]);
+
         Livewire::test(TasksIndex::class)
             ->assertSet('view', 'my')
             ->assertSee('Investigate lead measurement')

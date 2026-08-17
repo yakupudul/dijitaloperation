@@ -1,7 +1,5 @@
 @php
-    use App\Support\Demo\DemoCatalog;
-
-    $assetId = $assetId ?? DemoCatalog::META_ASSET_ID;
+    $assetId = $assetId ?? '';
     $active = $active ?? 'overview';
     $tabs = [
         ['key' => 'overview', 'label' => __('operator.meta_ads.tabs.overview'), 'url' => route('demo.meta.overview', ['assetId' => $assetId, 'tab' => 'overview'])],

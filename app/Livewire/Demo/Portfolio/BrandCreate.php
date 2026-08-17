@@ -3,7 +3,8 @@
 namespace App\Livewire\Demo\Portfolio;
 
 use App\Livewire\Demo\Portfolio\Concerns\InteractsWithBrandForm;
-use App\Support\Demo\DemoCatalog;
+use App\Models\Brand;
+use App\Models\Customer;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
@@ -23,10 +24,10 @@ class BrandCreate extends Component
     public function mount(): void
     {
         if ($this->customerId !== '') {
+            abort_unless(ctype_digit($this->customerId), 404);
+            abort_if(Customer::query()->find($this->customerId) === null, 404);
             $this->customer_id = $this->customerId;
             $this->customerLocked = true;
-        } elseif (DemoState::findCustomer(DemoCatalog::CUSTOMER_ID)) {
-            $this->customer_id = DemoCatalog::CUSTOMER_ID;
         }
     }
 
@@ -41,11 +42,12 @@ class BrandCreate extends Component
         try {
             $this->validate($this->brandRules());
 
-            $id = 'b-demo-'.substr(md5($this->name.microtime(true)), 0, 8);
-            $payload = $this->brandPayload($id);
-            DemoState::addBrand($payload);
+            $brand = Brand::query()->create($this->brandEloquentPayload());
+            $brand->responsibleUsers()->sync($this->sanitizedResponsibleUserIds());
 
-            return $this->redirect(route('demo.brand', ['brand' => $id]), navigate: true);
+            DemoState::flash('Brand “'.$brand->name.'” saved.');
+
+            return $this->redirect(route('demo.brand', ['brand' => $brand->id]), navigate: true);
         } finally {
             $this->saving = false;
         }

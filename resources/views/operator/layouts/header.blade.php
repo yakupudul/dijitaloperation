@@ -26,7 +26,6 @@
 
             <div class="hidden sm:flex items-center gap-2">
                 <span class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ __('operator.product.tagline') }}</span>
-                <span class="rounded-md bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-600 dark:bg-brand-500/15 dark:text-brand-400">{{ __('operator.demo_mode.label') }}</span>
             </div>
         </div>
 
