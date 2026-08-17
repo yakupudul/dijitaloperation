@@ -3,16 +3,16 @@
 
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
-            <p class="text-xs font-medium uppercase tracking-wide text-gray-400">Portfolio</p>
-            <h1 class="mt-1 text-2xl font-bold text-gray-800 dark:text-white/90">Customers</h1>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Agency client accounts — brands and open work roll up here.</p>
+            <p class="text-xs font-medium uppercase tracking-wide text-gray-400">{{ __('operator.forms.portfolio') }}</p>
+            <h1 class="mt-1 text-2xl font-bold text-gray-800 dark:text-white/90">{{ __('operator.nav.customers') }}</h1>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ __('operator.forms.customers_subtitle') }}</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-            <a href="{{ route('demo.setup', ['entry' => 'customer']) }}" wire:navigate
+            <a href="{{ route('operator.setup', ['entry' => 'customer']) }}" wire:navigate
                 class="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600">
                 {{ __('operator.portfolio.new_customer_setup') }}
             </a>
-            <a href="{{ route('demo.customer.create') }}" wire:navigate
+            <a href="{{ route('operator.customer.create') }}" wire:navigate
                 class="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">
                 {{ __('operator.portfolio.quick_add') }}
             </a>
@@ -22,8 +22,8 @@
     <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
         <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div class="min-w-0 flex-1">
-                <label class="mb-1 block text-xs font-medium text-gray-500" for="customer-search">Search</label>
-                <input id="customer-search" wire:model.live.debounce.300ms="search" type="search" placeholder="Search customers..."
+                <label class="mb-1 block text-xs font-medium text-gray-500" for="customer-search">{{ __('operator.forms.search') }}</label>
+                <input id="customer-search" wire:model.live.debounce.300ms="search" type="search" placeholder="{{ __('operator.forms.search_customers') }}"
                     class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm shadow-theme-xs outline-none focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
             </div>
             <div class="flex flex-wrap gap-2">
@@ -97,11 +97,11 @@
     @if ($allCount === 0)
         <x-ta.card>
             @include('livewire.demo.partials.empty-panel', [
-                'title' => '0 records',
-                'message' => 'Create your first customer',
+                'title' => __('operator.forms.empty_customers_title'),
+                'message' => __('operator.forms.empty_customers'),
             ])
             <div class="mt-4">
-                <a href="{{ route('demo.customer.create') }}" wire:navigate class="inline-flex rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600">Create your first customer</a>
+                <a href="{{ route('operator.customer.create') }}" wire:navigate class="inline-flex rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600">{{ __('operator.forms.empty_customers') }}</a>
             </div>
         </x-ta.card>
     @elseif (count($customers) === 0)
@@ -138,7 +138,7 @@
                     @foreach ($customers as $customer)
                         <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.02]" wire:key="customer-{{ $customer['id'] }}">
                             <td class="px-4 py-3">
-                                <a href="{{ route('demo.customer', ['customerId' => $customer['id']]) }}" wire:navigate class="block">
+                                <a href="{{ route('operator.customer', ['customerId' => $customer['id']]) }}" wire:navigate class="block">
                                     <p class="text-sm font-medium text-gray-800 dark:text-white/90">{{ $customer['name'] }}</p>
                                     <p class="text-xs text-gray-500">
                                         {{ collect([($customer['legal_name'] ?? null), $customer['type_label'] ?? null])->filter()->implode(' · ') }}
@@ -166,7 +166,7 @@
                                 </x-ta.badge>
                             </td>
                             <td class="px-4 py-3 text-right">
-                                <a href="{{ route('demo.customer', ['customerId' => $customer['id']]) }}" wire:navigate
+                                <a href="{{ route('operator.customer', ['customerId' => $customer['id']]) }}" wire:navigate
                                     class="inline-flex rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">Open</a>
                             </td>
                         </tr>

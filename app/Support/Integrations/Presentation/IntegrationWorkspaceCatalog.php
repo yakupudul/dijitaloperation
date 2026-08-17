@@ -137,7 +137,7 @@ final class IntegrationWorkspaceCatalog
     private function manageUrlFor(string $provider, CoreIntegration $integration): string
     {
         if ($provider === ProviderRegistry::GOOGLE) {
-            return route('demo.integrations.google', absolute: false);
+            return route('operator.integrations.google', absolute: false);
         }
 
         return IntegrationResource::getUrl('view', ['record' => $integration]);

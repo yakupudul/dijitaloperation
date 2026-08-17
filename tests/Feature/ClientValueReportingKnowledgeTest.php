@@ -51,7 +51,7 @@ class ClientValueReportingKnowledgeTest extends TestCase
 
     public function test_brand_value_sections_and_no_new_primary_tabs(): void
     {
-        $this->get(route('demo.brand', ['brand' => $this->portfolioBrand->id, 'tab' => 'value']))
+        $this->get(route('operator.brand', ['brand' => $this->portfolioBrand->id, 'tab' => 'value']))
             ->assertOk()
             ->assertSee(__('operator.value.title'))
             ->assertSee(__('operator.value.sections.overview'))
@@ -110,7 +110,7 @@ class ClientValueReportingKnowledgeTest extends TestCase
 
     public function test_customer_reports_and_no_blind_aggregation(): void
     {
-        $this->get(route('demo.customer', ['customerId' => $this->portfolioCustomer->id, 'tab' => 'reports']))
+        $this->get(route('operator.customer', ['customerId' => $this->portfolioCustomer->id, 'tab' => 'reports']))
             ->assertOk()
             ->assertSee(__('operator.reports.customer_title'))
             ->assertSee(__('operator.reports.no_blind_aggregation'));
@@ -221,7 +221,7 @@ class ClientValueReportingKnowledgeTest extends TestCase
 
     public function test_operator_routes_remain_under_app(): void
     {
-        $this->get(route('demo.brand', ['brand' => $this->portfolioBrand->id, 'tab' => 'value', 'value' => 'reports']))
+        $this->get(route('operator.brand', ['brand' => $this->portfolioBrand->id, 'tab' => 'value', 'value' => 'reports']))
             ->assertOk()
             ->assertDontSee('href="/system"');
     }

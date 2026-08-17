@@ -113,6 +113,7 @@ use App\Services\MetaAds\MetaAdsPoolReadRepository;
 use App\Services\MetaAds\MetaAdsSpecialistBindingResolver;
 use App\Services\MetaAds\MetaAdsSpecialistReadService;
 use App\Services\MetaAds\MetaAdsUiDatasetGate;
+use App\Services\Operator\AgencySettingService;
 use App\Services\Opportunities\OpportunityRuleRegistry;
 use App\Services\SectorLearning\ProductionSectorLearningPrivacyGate;
 use App\Services\SectorLearning\SectorLearningAggregatorService;
@@ -140,6 +141,7 @@ use App\Support\Skills\SkillRegistry;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -149,6 +151,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->singleton(AgencySettingService::class);
+
         $this->app->singleton(BoundCollectorRegistry::class);
         $this->app->singleton(BoundEvidenceRuleRegistry::class);
         $this->app->singleton(FindingRuleRegistry::class);
@@ -310,5 +314,13 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(DatasetRunFailed::class, [$broadcast, 'handleDatasetFailed']);
         Event::listen(DatasetRunProgressed::class, [$broadcast, 'handleDatasetProgressed']);
         Event::listen(EvidenceCanonicalized::class, QueueFindingEvaluationAfterEvidenceCanonicalized::class);
+
+        View::composer([
+            'operator.layouts.app',
+            'operator.layouts.sidebar',
+            'operator.auth.login',
+        ], function ($view): void {
+            $view->with('operatorBranding', app(AgencySettingService::class)->branding());
+        });
     }
 }

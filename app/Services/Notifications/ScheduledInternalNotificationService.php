@@ -18,13 +18,13 @@ final class ScheduledInternalNotificationService
 {
     /** @var list<string> */
     private const SAFE_ROUTES = [
-        'demo.work',
-        'demo.work.show',
-        'demo.findings',
-        'demo.tasks',
-        'demo.notifications',
-        'demo.portfolio.brand',
-        'demo.portfolio.customer',
+        'operator.work',
+        'operator.work.show',
+        'operator.findings',
+        'operator.tasks',
+        'operator.notifications',
+        'operator.portfolio.brand',
+        'operator.portfolio.customer',
     ];
 
     public function __construct(

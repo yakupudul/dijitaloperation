@@ -39,23 +39,23 @@ class IntegrationOnboardingInfrastructureTest extends TestCase
 
     public function test_integrations_hub_and_google_meta_connectors_smoke(): void
     {
-        $this->get(route('demo.integrations'))
+        $this->get(route('operator.integrations'))
             ->assertOk()
             ->assertSee('Google')
             ->assertSee('Meta')
             ->assertSee('DataForSEO')
             ->assertSee('OpenAI');
 
-        $this->get(route('demo.integrations.google'))
+        $this->get(route('operator.integrations.google'))
             ->assertOk()
             ->assertSee('Connectors');
 
-        $this->get(route('demo.integrations.meta'))
+        $this->get(route('operator.integrations.meta'))
             ->assertOk()
             ->assertSee('Meta Ads Connector');
 
         foreach (['google-ads', 'ga4', 'gsc', 'gbp', 'meta-ads'] as $connector) {
-            $this->get(route('demo.integrations.connector', ['connector' => $connector]))
+            $this->get(route('operator.integrations.connector', ['connector' => $connector]))
                 ->assertOk()
                 ->assertSee('Overview')
                 ->assertSee('Resources')
@@ -234,11 +234,11 @@ class IntegrationOnboardingInfrastructureTest extends TestCase
             ->assertSee('CMS')
             ->assertSee('not standalone assets');
 
-        $this->get(route('demo.domain'))
-            ->assertRedirect(route('demo.assets'));
+        $this->get(route('operator.domain'))
+            ->assertRedirect(route('operator.assets'));
 
-        $this->get(route('demo.hosting'))
-            ->assertRedirect(route('demo.assets'));
+        $this->get(route('operator.hosting'))
+            ->assertRedirect(route('operator.assets'));
     }
 
     public function test_connector_fixtures_are_deterministic(): void

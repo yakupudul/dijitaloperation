@@ -45,7 +45,7 @@ class Ga4OperatingWorkspaceTest extends TestCase
 
     public function test_catalog_ga4_id_is_not_found_on_operator_routes(): void
     {
-        $this->get(route('demo.analytics', ['assetId' => DemoCatalog::GA4_ASSET_ID]))->assertNotFound();
+        $this->get(route('operator.analytics', ['assetId' => DemoCatalog::GA4_ASSET_ID]))->assertNotFound();
         Livewire::test(AnalyticsPage::class, ['assetId' => DemoCatalog::GA4_ASSET_ID])->assertStatus(404);
     }
 
@@ -54,7 +54,7 @@ class Ga4OperatingWorkspaceTest extends TestCase
         $asset = $this->createPortfolioAsset('ga4', 'Northwind GA4', ['module_id' => 'analytics']);
 
         foreach (['overview', 'measurement', 'acquisition', 'behavior', 'journeys', 'operations'] as $tab) {
-            $this->get(route('demo.analytics', ['assetId' => $asset->id, 'tab' => $tab]))
+            $this->get(route('operator.analytics', ['assetId' => $asset->id, 'tab' => $tab]))
                 ->assertOk()
                 ->assertSee('Northwind GA4')
                 ->assertDontSee('Atlas Dental — GA4')

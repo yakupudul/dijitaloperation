@@ -101,7 +101,7 @@ class MetaIntegrationPage extends Component
 
         if (! app(MetaCredentialResolver::class)->isApplicationConfigured($fresh)) {
             $this->tab = 'configuration';
-            DemoState::flash('Configure Meta application first.', 'info');
+            DemoState::flash(__('operator.flash.configure_meta_app'), 'info');
 
             return;
         }
@@ -126,7 +126,7 @@ class MetaIntegrationPage extends Component
 
         $integration = $this->metaIntegration();
         if ($integration === null) {
-            DemoState::flash('No Meta Integration is configured.', 'info');
+            DemoState::flash(__('operator.flash.no_meta_integration'), 'info');
 
             return;
         }
@@ -145,7 +145,7 @@ class MetaIntegrationPage extends Component
 
         $integration = $this->metaIntegration();
         if ($integration === null) {
-            DemoState::flash('No Meta Integration is configured.', 'info');
+            DemoState::flash(__('operator.flash.no_meta_integration'), 'info');
 
             return;
         }
@@ -164,7 +164,7 @@ class MetaIntegrationPage extends Component
 
         $integration = $this->metaIntegration();
         if ($integration === null) {
-            DemoState::flash('No Meta Integration is configured.', 'info');
+            DemoState::flash(__('operator.flash.no_meta_integration'), 'info');
 
             return;
         }
@@ -183,7 +183,7 @@ class MetaIntegrationPage extends Component
 
         $integration = $this->metaIntegration();
         if ($integration === null) {
-            DemoState::flash('No Meta Integration is configured.', 'info');
+            DemoState::flash(__('operator.flash.no_meta_integration'), 'info');
 
             return;
         }
@@ -193,10 +193,10 @@ class MetaIntegrationPage extends Component
 
         if (in_array((int) $resourceId, $activeIds, true)) {
             $selection->deselect($integration, $resourceId, $user);
-            DemoState::flash('Business removed from discovery context. Existing Ad Account Binding and inventory are preserved.', 'info');
+            DemoState::flash(__('operator.flash.meta_business_removed'), 'info');
         } else {
             $selection->select($integration, $resourceId, $user);
-            DemoState::flash('Business selected as Ad Account discovery context — not a Digital Asset binding.', 'info');
+            DemoState::flash(__('operator.flash.meta_business_selected'), 'info');
         }
 
         $this->tab = 'resources';
@@ -211,7 +211,7 @@ class MetaIntegrationPage extends Component
 
         $integration = $this->metaIntegration();
         if ($integration === null) {
-            DemoState::flash('No Meta Integration is configured.', 'info');
+            DemoState::flash(__('operator.flash.no_meta_integration'), 'info');
 
             return;
         }
@@ -224,7 +224,7 @@ class MetaIntegrationPage extends Component
             ->first();
 
         if (! $resource instanceof CoreExternalResource) {
-            DemoState::flash('Select a discovered Meta Ad Account to connect.', 'info');
+            DemoState::flash(__('operator.flash.select_meta_account'), 'info');
 
             return;
         }
@@ -286,7 +286,7 @@ class MetaIntegrationPage extends Component
         $brand = Brand::query()->find($this->brandId);
 
         if (! $resource instanceof CoreExternalResource || ! $brand instanceof Brand || $integration === null) {
-            DemoState::flash('Select a Brand and a discovered Ad Account before confirming.', 'info');
+            DemoState::flash(__('operator.flash.select_brand_ad_account'), 'info');
 
             return;
         }
@@ -295,7 +295,7 @@ class MetaIntegrationPage extends Component
         if ($this->bindMode === ResourceBindingPlan::MODE_EXISTING_ASSET) {
             $existing = DigitalAsset::query()->find($this->digitalAssetId);
             if (! $existing instanceof DigitalAsset) {
-                DemoState::flash('Select an existing Meta Ads Digital Asset.', 'info');
+                DemoState::flash(__('operator.flash.select_meta_asset'), 'info');
 
                 return;
             }
@@ -334,7 +334,7 @@ class MetaIntegrationPage extends Component
 
         $integration = $this->metaIntegration();
         if ($integration === null) {
-            DemoState::flash('No Meta Integration is configured.', 'info');
+            DemoState::flash(__('operator.flash.no_meta_integration'), 'info');
 
             return;
         }
@@ -346,7 +346,7 @@ class MetaIntegrationPage extends Component
             ->first();
 
         if (! $binding instanceof CoreAssetBinding) {
-            DemoState::flash('Binding not found.', 'info');
+            DemoState::flash(__('operator.flash.binding_not_found'), 'info');
 
             return;
         }
@@ -375,7 +375,7 @@ class MetaIntegrationPage extends Component
 
         $integration = $this->metaIntegration();
         if ($integration === null) {
-            DemoState::flash('No Meta Integration is configured.', 'info');
+            DemoState::flash(__('operator.flash.no_meta_integration'), 'info');
 
             return;
         }
@@ -425,7 +425,7 @@ class MetaIntegrationPage extends Component
 
         $integration = $this->metaIntegration();
         if ($integration === null) {
-            DemoState::flash('No Meta Integration is configured.', 'info');
+            DemoState::flash(__('operator.flash.no_meta_integration'), 'info');
 
             return;
         }
@@ -462,7 +462,7 @@ class MetaIntegrationPage extends Component
         $this->clearMetaAppSecret = false;
         $this->hydrateMetaForm($integration->fresh(['providerCredential']));
         $this->tab = 'configuration';
-        DemoState::flash('Meta application credentials saved.', 'info');
+        DemoState::flash(__('operator.flash.meta_credentials_saved'), 'info');
     }
 
     public function testMetaConfiguration(): void
@@ -471,13 +471,13 @@ class MetaIntegrationPage extends Component
         $integration = $this->metaIntegration();
 
         if ($integration === null || ! app(MetaCredentialResolver::class)->isApplicationConfigured($integration)) {
-            DemoState::flash('Configure Meta application first.', 'info');
+            DemoState::flash(__('operator.flash.configure_meta_app'), 'info');
 
             return;
         }
 
         if (! app(MetaCredentialResolver::class)->hasTenantAuthorization($integration)) {
-            DemoState::flash('Application credentials are configured. Authorization is still required.', 'info');
+            DemoState::flash(__('operator.flash.app_configured_auth_required'), 'info');
 
             return;
         }
@@ -504,7 +504,7 @@ class MetaIntegrationPage extends Component
         $integration = $this->metaIntegration();
 
         if ($integration === null) {
-            DemoState::flash('No Meta application credentials are stored.', 'info');
+            DemoState::flash(__('operator.flash.no_meta_credentials'), 'info');
 
             return;
         }
@@ -512,7 +512,7 @@ class MetaIntegrationPage extends Component
         $service->remove($integration, $user);
         $this->metaAppId = '';
         $this->hydrateMetaForm();
-        DemoState::flash('Meta application credentials removed. Historical resources were not deleted.', 'info');
+        DemoState::flash(__('operator.flash.meta_credentials_removed'), 'info');
     }
 
     public function render(MetaIntegrationReadModel $readModel): View

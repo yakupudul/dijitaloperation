@@ -1,16 +1,16 @@
 <div class="space-y-6">
     <div>
-        <a href="{{ route('demo.settings', ['section' => 'ai']) }}" wire:navigate class="text-sm font-medium text-gray-500 hover:text-brand-600">← {{ __('operator.settings.ai.back') }}</a>
+        <a href="{{ route('operator.settings', ['section' => 'ai']) }}" wire:navigate class="text-sm font-medium text-gray-500 hover:text-brand-600">← {{ __('operator.settings.ai.back') }}</a>
         <h1 class="mt-2 text-2xl font-bold text-gray-800 dark:text-white/90">{{ __('operator.settings.ai.agents_title') }}</h1>
         <p class="mt-1 text-sm text-gray-500">{{ __('operator.settings.ai.agents_subtitle') }}</p>
     </div>
 
     <nav class="flex flex-wrap gap-3 text-sm" aria-label="{{ __('operator.settings.ai.nav') }}">
-        <a href="{{ route('demo.settings.ai.control-plane') }}" wire:navigate class="font-medium text-brand-600 hover:underline">{{ __('operator.settings.ai.control_plane') }}</a>
+        <a href="{{ route('operator.settings.ai.control-plane') }}" wire:navigate class="font-medium text-brand-600 hover:underline">{{ __('operator.settings.ai.control_plane') }}</a>
         <span class="text-gray-400">·</span>
         <span class="font-semibold text-gray-800 dark:text-white/90">{{ __('operator.settings.ai.agents') }}</span>
         <span class="text-gray-400">·</span>
-        <a href="{{ route('demo.settings.ai.skills') }}" wire:navigate class="font-medium text-brand-600 hover:underline">{{ __('operator.settings.ai.skills') }}</a>
+        <a href="{{ route('operator.settings.ai.skills') }}" wire:navigate class="font-medium text-brand-600 hover:underline">{{ __('operator.settings.ai.skills') }}</a>
     </nav>
 
     <div class="grid gap-6 lg:grid-cols-[16rem_minmax(0,1fr)]">
@@ -61,7 +61,7 @@
                     <ul class="mt-2 space-y-1 text-sm text-gray-600 dark:text-gray-300">
                         @foreach ($selectedProfile['skills'] as $skill)
                             <li>
-                                <a href="{{ route('demo.settings.ai.skills', ['skill' => $skill['slug']]) }}" wire:navigate class="font-medium text-brand-600 hover:underline">{{ $skill['name'] }}</a>
+                                <a href="{{ route('operator.settings.ai.skills', ['skill' => $skill['slug']]) }}" wire:navigate class="font-medium text-brand-600 hover:underline">{{ $skill['name'] }}</a>
                                 @if ($skill['version']) <span class="text-gray-400">v{{ $skill['version'] }}</span> @endif
                             </li>
                         @endforeach

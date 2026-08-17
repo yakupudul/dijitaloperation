@@ -423,7 +423,7 @@ class PortfolioSetupWizard extends Component
         });
 
         $this->committed = true;
-        DemoState::flash('Portfolio setup saved. Digital assets are defined — not connected until integrations are configured.');
+        DemoState::flash(__('operator.flash.portfolio_setup_saved'));
     }
 
     protected function persist(): void

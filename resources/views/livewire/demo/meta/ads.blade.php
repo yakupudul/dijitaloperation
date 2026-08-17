@@ -59,7 +59,7 @@
                     <td class="px-5 py-4 text-sm text-gray-500">{{ number_format($ad['results']) }} {{ $ad['result_label'] }}</td>
                     <td class="px-5 py-4 text-sm text-gray-500">{{ $ad['ctr'] }}%</td>
                     <td class="px-5 py-4 text-right">
-                        <x-ta.button :href="route('demo.meta.ad', ['assetId' => $assetId, 'adId' => $ad['id']])" size="sm" variant="outline">Open</x-ta.button>
+                        <x-ta.button :href="route('operator.meta.ad', ['assetId' => $assetId, 'adId' => $ad['id']])" size="sm" variant="outline">Open</x-ta.button>
                     </td>
                 </tr>
             @endforeach

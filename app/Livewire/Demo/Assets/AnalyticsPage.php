@@ -164,14 +164,14 @@ class AnalyticsPage extends Component
         $binding = app(Ga4SpecialistBindingResolver::class)->resolve($this->assetId);
 
         if ($binding->mode !== Ga4BindingMode::RealBound) {
-            DemoState::flash('GA4 data refresh is unavailable until the integration is configured.', 'info');
+            DemoState::flash(__('operator.flash.ga4_refresh_unconfigured'), 'info');
 
             return;
         }
 
         $asset = DigitalAsset::query()->find($binding->digitalAssetId);
         if (! $asset instanceof DigitalAsset) {
-            DemoState::flash('GA4 refresh unavailable — Digital Asset not found.', 'warning');
+            DemoState::flash(__('operator.flash.ga4_refresh_missing_asset'), 'warning');
 
             return;
         }
@@ -192,7 +192,7 @@ class AnalyticsPage extends Component
 
     public function runAnalysis(): void
     {
-        DemoState::flash('Measurement analysis is unavailable until GA4 data has been collected.', 'info');
+        DemoState::flash(__('operator.flash.ga4_analysis_unavailable'), 'info');
         $this->tab = 'overview';
     }
 

@@ -59,25 +59,25 @@ class DemoProductRoutesTest extends TestCase
     {
         $this->get('/app')
             ->assertOk()
-            ->assertSee('Needs your attention')
+            ->assertSee(__('operator.dashboard_exec.needs_attention'))
             ->assertSee('My Work')
             ->assertSee('Agency')
             ->assertSee('Recent Outcomes')
             ->assertDontSee('Agency Health');
 
-        $this->get(route('demo.customers'))->assertOk()->assertSee('Customers');
-        $this->get(route('demo.brands'))->assertOk()->assertSee('Brands');
-        $this->get(route('demo.brand', ['brand' => $this->workBrand->id]))
+        $this->get(route('operator.customers'))->assertOk()->assertSee('Customers');
+        $this->get(route('operator.brands'))->assertOk()->assertSee('Brands');
+        $this->get(route('operator.brand', ['brand' => $this->workBrand->id]))
             ->assertOk()
             ->assertSee('Atlas Dental Ankara')
             ->assertSee('Digital estate');
-        $this->get(route('demo.brand', ['brand' => $this->workBrand->id, 'tab' => 'discovery']))
+        $this->get(route('operator.brand', ['brand' => $this->workBrand->id, 'tab' => 'discovery']))
             ->assertOk()
             ->assertSee('Public Discovery');
-        $this->get(route('demo.brand', ['brand' => $this->workBrand->id, 'tab' => 'research']))
+        $this->get(route('operator.brand', ['brand' => $this->workBrand->id, 'tab' => 'research']))
             ->assertOk()
             ->assertSee('Public Discovery');
-        $this->get(route('demo.assets'))
+        $this->get(route('operator.assets'))
             ->assertOk()
             ->assertSee('Digital Assets')
             ->assertSee('Managed Assets')
@@ -87,47 +87,47 @@ class DemoProductRoutesTest extends TestCase
 
     public function test_operations_and_integrations_routes_smoke(): void
     {
-        $this->get(route('demo.findings'))
+        $this->get(route('operator.findings'))
             ->assertOk()
             ->assertSee('Findings')
             ->assertSee('Critical')
             ->assertSee('No Findings yet')
             ->assertDontSee('Meta CPL deteriorated');
-        $this->get(route('demo.recommendations'))
+        $this->get(route('operator.recommendations'))
             ->assertOk()
             ->assertSee('Recommendations')
             ->assertSee('Awaiting Decision')
             ->assertDontSee('Review conversion mapping');
-        $this->get(route('demo.tasks'))
+        $this->get(route('operator.tasks'))
             ->assertOk()
             ->assertSee(__('operator.work.title'))
             ->assertSee(__('operator.work.views.my'))
             ->assertSee(__('operator.work.views.tasks'));
-        $this->get(route('demo.task', ['taskId' => 't-replace-creative']))
+        $this->get(route('operator.task', ['taskId' => 't-replace-creative']))
             ->assertNotFound();
-        $this->get(route('demo.activity'))
+        $this->get(route('operator.activity'))
             ->assertOk()
             ->assertSee('Activity')
             ->assertSee('No activity matches this view');
-        $this->get(route('demo.integrations'))
+        $this->get(route('operator.integrations'))
             ->assertOk()
             ->assertSee('Integrations')
             ->assertSee('Platforms & Data')
             ->assertSee('Intelligence Providers')
             ->assertSee('Google')
             ->assertSee('Meta');
-        $this->get(route('demo.integrations.google'))
+        $this->get(route('operator.integrations.google'))
             ->assertOk()
             ->assertSee('Google')
             ->assertSee('Resources & Bindings')
             ->assertSee('Dependent Digital Assets')
             ->assertSee('Not configured');
-        $this->get(route('demo.integrations.google', ['tab' => 'resources']))
+        $this->get(route('operator.integrations.google', ['tab' => 'resources']))
             ->assertOk()
             ->assertSee('Available / unbound')
             ->assertSee('No resources discovered yet')
             ->assertDontSee('Panorama Ankara GA4');
-        $this->get(route('demo.integrations.meta'))
+        $this->get(route('operator.integrations.meta'))
             ->assertOk()
             ->assertSee('Meta')
             ->assertSee('Resources & Bindings')
@@ -135,12 +135,12 @@ class DemoProductRoutesTest extends TestCase
             ->assertSee('State separation')
             ->assertDontSee('Import all Meta data')
             ->assertDontSee('Meta data import');
-        $this->get(route('demo.settings'))
+        $this->get(route('operator.settings'))
             ->assertOk()
             ->assertSee('General')
             ->assertSee('Team & Access')
             ->assertSee('AI & Intelligence');
-        $this->get(route('demo.settings', ['section' => 'advanced']))
+        $this->get(route('operator.settings', ['section' => 'advanced']))
             ->assertOk()
             ->assertDontSee('Reset Demo Mode')
             ->assertDontSee('>Modules</');
@@ -148,14 +148,14 @@ class DemoProductRoutesTest extends TestCase
 
     public function test_asset_workspace_routes_smoke(): void
     {
-        $this->get(route('demo.meta.overview', ['assetId' => DemoCatalog::META_ASSET_ID]))->assertNotFound();
-        $this->get(route('demo.google-ads.overview'))->assertNotFound();
-        $this->get(route('demo.website'))->assertNotFound();
-        $this->get(route('demo.gbp'))->assertNotFound();
-        $this->get(route('demo.analytics'))->assertNotFound();
-        $this->get(route('demo.search-console'))->assertNotFound();
-        $this->get(route('demo.domain'))->assertRedirect(route('demo.assets'));
-        $this->get(route('demo.hosting'))->assertRedirect(route('demo.assets'));
+        $this->get(route('operator.meta.overview', ['assetId' => DemoCatalog::META_ASSET_ID]))->assertNotFound();
+        $this->get(route('operator.google-ads.overview'))->assertNotFound();
+        $this->get(route('operator.website'))->assertNotFound();
+        $this->get(route('operator.gbp'))->assertNotFound();
+        $this->get(route('operator.analytics'))->assertNotFound();
+        $this->get(route('operator.search-console'))->assertNotFound();
+        $this->get(route('operator.domain'))->assertRedirect(route('operator.assets'));
+        $this->get(route('operator.hosting'))->assertRedirect(route('operator.assets'));
 
         $meta = DigitalAsset::factory()->create([
             'brand_id' => $this->workBrand->id,
@@ -188,27 +188,27 @@ class DemoProductRoutesTest extends TestCase
             'module_id' => 'search-console',
         ]);
 
-        $this->get(route('demo.meta.overview', ['assetId' => $meta->id]))
+        $this->get(route('operator.meta.overview', ['assetId' => $meta->id]))
             ->assertOk()
             ->assertSee('Overview')
             ->assertDontSee('Post Bariatric')
             ->assertDontSee('Atlas Health — Europe');
-        $this->get(route('demo.google-ads.overview', ['assetId' => $gads->id]))
+        $this->get(route('operator.google-ads.overview', ['assetId' => $gads->id]))
             ->assertOk()
             ->assertSee('Google Ads')
             ->assertDontSee('Atlas Dental — Europe');
-        $this->get(route('demo.website', ['assetId' => $website->id]))
+        $this->get(route('operator.website', ['assetId' => $website->id]))
             ->assertOk()
             ->assertSee('Atlas Dental Website');
-        $this->get(route('demo.gbp', ['assetId' => $gbp->id]))
+        $this->get(route('operator.gbp', ['assetId' => $gbp->id]))
             ->assertOk()
             ->assertSee('Google Business Profile')
             ->assertDontSee('Demo local rank tracking');
-        $this->get(route('demo.analytics', ['assetId' => $ga4->id]))
+        $this->get(route('operator.analytics', ['assetId' => $ga4->id]))
             ->assertOk()
             ->assertSee('Google Analytics')
             ->assertDontSee('Atlas Dental — GA4');
-        $this->get(route('demo.search-console', ['assetId' => $gsc->id]))
+        $this->get(route('operator.search-console', ['assetId' => $gsc->id]))
             ->assertOk()
             ->assertSee('Google Search Console')
             ->assertDontSee('Atlas Dental — Search Console');

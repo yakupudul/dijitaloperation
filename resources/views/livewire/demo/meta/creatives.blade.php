@@ -13,7 +13,7 @@
 
     @include('livewire.demo.partials.workspace-header', [
         'eyebrow' => 'Meta Ads',
-        'title' => 'Creatives',
+        'title' => __('operator.meta_ads.tabs.creatives'),
         'subtitle' => 'Media-first gallery · Connected provider',
         'badges' => ['Connected provider'],
     ])
@@ -54,7 +54,7 @@
                         <div><dt class="text-gray-400">{{ $creative['result_label'] }}</dt><dd class="font-medium">{{ number_format($creative['result']) }}</dd></div>
                         <div><dt class="text-gray-400">Cost</dt><dd class="font-medium">₺{{ number_format($creative['cost_result']) }}</dd></div>
                     </dl>
-                    <x-ta.button :href="route('demo.meta.ad', ['assetId' => $assetId, 'adId' => $creative['id']])" size="sm">Open creative</x-ta.button>
+                    <x-ta.button :href="route('operator.meta.ad', ['assetId' => $assetId, 'adId' => $creative['id']])" size="sm">Open creative</x-ta.button>
                 </div>
             </x-ta.card>
         @endforeach

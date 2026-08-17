@@ -43,7 +43,7 @@ class GoogleOAuthController extends Controller
                 ->danger()
                 ->send();
 
-            return redirect()->route('demo.integrations.google');
+            return redirect()->route('operator.integrations.google');
         }
 
         return redirect()->away($result['url']);
@@ -65,10 +65,10 @@ class GoogleOAuthController extends Controller
 
         $returnRoute = is_string($result['return_route'] ?? null)
             ? $result['return_route']
-            : 'demo.integrations.google';
+            : 'operator.integrations.google';
 
-        if (! in_array($returnRoute, ['demo.integrations.google', 'demo.integrations'], true)) {
-            $returnRoute = 'demo.integrations.google';
+        if (! in_array($returnRoute, ['operator.integrations.google', 'operator.integrations'], true)) {
+            $returnRoute = 'operator.integrations.google';
         }
 
         // Never keep code/tokens/state secrets in the browser URL after handling.
@@ -88,6 +88,6 @@ class GoogleOAuthController extends Controller
             ->success()
             ->send();
 
-        return redirect()->route('demo.integrations.google');
+        return redirect()->route('operator.integrations.google');
     }
 }

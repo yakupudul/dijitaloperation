@@ -53,7 +53,7 @@
                         <p class="text-sm font-semibold text-gray-900 dark:text-white">CMS connection</p>
                         <p class="mt-1 text-xs text-gray-500">Not configured — creating a Website Digital Asset does not connect WordPress or any CMS.</p>
                     </div>
-                    <a href="{{ route('demo.integrations.site-connectors') }}" wire:navigate class="inline-flex rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-white hover:bg-brand-600">{{ __('operator.nav.site_connectors') }}</a>
+                    <a href="{{ route('operator.integrations.site-connectors') }}" wire:navigate class="inline-flex rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-white hover:bg-brand-600">{{ __('operator.nav.site_connectors') }}</a>
                 </div>
             </div>
         </section>
@@ -73,7 +73,7 @@
                 <div><dt class="text-xs text-gray-400">Search market</dt><dd class="mt-0.5 text-gray-800 dark:text-white/90">{{ $settings['search_market']['country'] }} · {{ $settings['search_market']['language'] }}</dd></div>
             </dl>
             <p class="mt-4 text-xs text-gray-400">{{ $settings['brand_context_note'] }}</p>
-            <a href="{{ route('demo.brand', ['brand' => $identity['brand_id'], 'tab' => 'business']) }}" wire:navigate class="mt-2 inline-flex text-xs font-medium text-brand-600 hover:underline">{{ __('operator.brand.business_context_short') }}</a>
+            <a href="{{ route('operator.brand', ['brand' => $identity['brand_id'], 'tab' => 'business']) }}" wire:navigate class="mt-2 inline-flex text-xs font-medium text-brand-600 hover:underline">{{ __('operator.brand.business_context_short') }}</a>
         </div>
 
         <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
@@ -90,7 +90,7 @@
         </section>
 
         <div class="flex flex-wrap gap-2">
-            <a href="{{ route('demo.website', ['assetId' => $this->assetId, 'tab' => 'infrastructure']) }}" wire:navigate class="rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-white">Open Infrastructure</a>
+            <a href="{{ route('operator.website', ['assetId' => $this->assetId, 'tab' => 'infrastructure']) }}" wire:navigate class="rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-white">Open Infrastructure</a>
         </div>
     @endif
 </div>

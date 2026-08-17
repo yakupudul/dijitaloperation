@@ -33,7 +33,7 @@ class GbpLocalIntelligenceWorkspaceTest extends TestCase
 
     public function test_gbp_without_asset_id_is_not_found(): void
     {
-        $this->get(route('demo.gbp'))->assertNotFound();
+        $this->get(route('operator.gbp'))->assertNotFound();
         Livewire::test(OverviewPage::class)->assertStatus(404);
     }
 
@@ -42,7 +42,7 @@ class GbpLocalIntelligenceWorkspaceTest extends TestCase
         $asset = $this->createPortfolioAsset('google_business_profile', 'Northwind GBP');
 
         foreach (['overview', 'profile', 'visibility', 'performance', 'reviews', 'competitors', 'operations'] as $tab) {
-            $this->get(route('demo.gbp', ['assetId' => $asset->id, 'tab' => $tab]))
+            $this->get(route('operator.gbp', ['assetId' => $asset->id, 'tab' => $tab]))
                 ->assertOk()
                 ->assertSee('Google Business Profile')
                 ->assertDontSee('Atlas Dental Ankara')

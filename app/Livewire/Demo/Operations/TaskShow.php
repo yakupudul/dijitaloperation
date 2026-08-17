@@ -19,7 +19,7 @@ class TaskShow extends Component
         $this->taskId = $taskId;
 
         if (ctype_digit($taskId)) {
-            $this->redirect(route('demo.work.show', ['workId' => $taskId, 'type' => 'task']), navigate: true);
+            $this->redirect(route('operator.work.show', ['workId' => $taskId, 'type' => 'task']), navigate: true);
 
             return;
         }

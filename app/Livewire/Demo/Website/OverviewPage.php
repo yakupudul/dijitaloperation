@@ -203,12 +203,12 @@ class OverviewPage extends Component
 
     public function refreshData(): void
     {
-        DemoState::flash('Website data refresh is unavailable until sources are collected. DataForSEO is not triggered.', 'info');
+        DemoState::flash(__('operator.flash.website_refresh_unavailable'), 'info');
     }
 
     public function runDiagnosis(): void
     {
-        DemoState::flash('Website diagnosis is unavailable until collected observations exist.', 'info');
+        DemoState::flash(__('operator.flash.website_diagnosis_unavailable'), 'info');
         $this->tab = 'health';
     }
 

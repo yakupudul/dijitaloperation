@@ -349,7 +349,7 @@ final class RecurringReviewReadService
             'playbook_id' => $run->playbook_id,
             'playbook_stable_key' => $run->playbook?->stable_key,
             'schedule_id' => $run->schedule_id,
-            'route' => 'demo.work.show',
+            'route' => 'operator.work.show',
             'route_params' => ['workId' => $run->id, 'type' => 'recurring_review'],
             'source_state' => 'REAL',
         ];

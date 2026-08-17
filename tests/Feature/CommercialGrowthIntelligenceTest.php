@@ -42,7 +42,7 @@ class CommercialGrowthIntelligenceTest extends TestCase
 
     public function test_opportunities_nav_and_route_load_under_app(): void
     {
-        $url = route('demo.opportunities');
+        $url = route('operator.opportunities');
 
         $this->assertStringNotContainsString('/system', $url);
 
@@ -104,7 +104,7 @@ class CommercialGrowthIntelligenceTest extends TestCase
 
     public function test_customer_relationship_shows_service_scope(): void
     {
-        $this->get(route('demo.customer', ['customerId' => $this->portfolioCustomer->id, 'tab' => 'relationship']))
+        $this->get(route('operator.customer', ['customerId' => $this->portfolioCustomer->id, 'tab' => 'relationship']))
             ->assertOk()
             ->assertSee(__('operator.service_scope.title'));
     }
@@ -181,7 +181,7 @@ class CommercialGrowthIntelligenceTest extends TestCase
             'status' => Recommendation::STATUS_OPEN,
         ]);
 
-        $this->get(route('demo.recommendations'))->assertOk();
+        $this->get(route('operator.recommendations'))->assertOk();
 
         Livewire::test(RecommendationsIndex::class)
             ->call('expand', (string) $fromOpportunity->id)
@@ -199,15 +199,15 @@ class CommercialGrowthIntelligenceTest extends TestCase
         $website = $this->createPortfolioAsset('website', 'Northwind Website');
         $instagram = $this->createPortfolioAsset('instagram', 'Northwind Instagram');
 
-        $this->get(route('demo.website'))->assertNotFound();
-        $this->get(route('demo.instagram'))->assertNotFound();
+        $this->get(route('operator.website'))->assertNotFound();
+        $this->get(route('operator.instagram'))->assertNotFound();
 
-        $this->get(route('demo.website', ['assetId' => $website->id]))
+        $this->get(route('operator.website', ['assetId' => $website->id]))
             ->assertOk()
             ->assertSee('Northwind Website')
             ->assertDontSee('Atlas Dental Website');
 
-        $this->get(route('demo.instagram', ['assetId' => $instagram->id]))
+        $this->get(route('operator.instagram', ['assetId' => $instagram->id]))
             ->assertOk()
             ->assertSee('Instagram')
             ->assertSee(__('operator.commercial.outside_scope'))

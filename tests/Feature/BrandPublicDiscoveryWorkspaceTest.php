@@ -54,7 +54,7 @@ class BrandPublicDiscoveryWorkspaceTest extends TestCase
 
     public function test_catalog_brand_id_is_not_found(): void
     {
-        $this->get(route('demo.brand', ['brand' => 'atlas-dental']))->assertNotFound();
+        $this->get(route('operator.brand', ['brand' => 'atlas-dental']))->assertNotFound();
         Livewire::test(BrandShow::class, ['brand' => 'atlas-dental'])->assertStatus(404);
     }
 

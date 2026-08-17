@@ -104,7 +104,7 @@ class GoogleIntegrationPage extends Component
             ->first();
 
         if (! $resource instanceof CoreExternalResource) {
-            DemoState::flash('Select a discovered Google resource to bind.', 'info');
+            DemoState::flash(__('operator.flash.select_google_resource'), 'info');
 
             return;
         }
@@ -161,7 +161,7 @@ class GoogleIntegrationPage extends Component
         $brand = Brand::query()->find($this->brandId);
 
         if (! $resource instanceof CoreExternalResource || ! $brand instanceof Brand) {
-            DemoState::flash('Select a Brand and a discovered resource before confirming.', 'info');
+            DemoState::flash(__('operator.flash.select_brand_resource'), 'info');
 
             return;
         }
@@ -170,7 +170,7 @@ class GoogleIntegrationPage extends Component
         if ($this->bindMode === ResourceBindingPlan::MODE_EXISTING_ASSET) {
             $existing = DigitalAsset::query()->find($this->digitalAssetId);
             if (! $existing instanceof DigitalAsset) {
-                DemoState::flash('Select an existing compatible Digital Asset.', 'info');
+                DemoState::flash(__('operator.flash.select_compatible_asset'), 'info');
 
                 return;
             }
@@ -209,7 +209,7 @@ class GoogleIntegrationPage extends Component
             ->first();
 
         if (! $integration instanceof CoreIntegration) {
-            DemoState::flash('No Google Integration is configured.', 'info');
+            DemoState::flash(__('operator.flash.no_google_integration'), 'info');
 
             return;
         }
@@ -234,7 +234,7 @@ class GoogleIntegrationPage extends Component
 
         if (! app(GoogleCredentialResolver::class)->isAppConfigured($fresh)) {
             $this->tab = 'configuration';
-            DemoState::flash('Configure Google application first.', 'info');
+            DemoState::flash(__('operator.flash.configure_google_app'), 'info');
 
             return;
         }
@@ -264,7 +264,7 @@ class GoogleIntegrationPage extends Component
             ->first();
 
         if (! $integration instanceof CoreIntegration) {
-            DemoState::flash('No Google Integration is configured.', 'info');
+            DemoState::flash(__('operator.flash.no_google_integration'), 'info');
 
             return;
         }
@@ -317,7 +317,7 @@ class GoogleIntegrationPage extends Component
             ->first();
 
         if (! $integration instanceof CoreIntegration) {
-            DemoState::flash('No Google Integration is configured.', 'info');
+            DemoState::flash(__('operator.flash.no_google_integration'), 'info');
 
             return;
         }
@@ -358,7 +358,7 @@ class GoogleIntegrationPage extends Component
         $this->clearGoogleDeveloperToken = false;
         $this->hydrateGoogleForm($integration->fresh(['providerCredential']));
         $this->tab = 'configuration';
-        DemoState::flash('Google application credentials saved.', 'info');
+        DemoState::flash(__('operator.flash.google_credentials_saved'), 'info');
     }
 
     public function testGoogleConfiguration(): void
@@ -371,14 +371,14 @@ class GoogleIntegrationPage extends Component
 
         if (! $integration instanceof CoreIntegration
             || ! app(GoogleCredentialResolver::class)->isAppConfigured($integration)) {
-            DemoState::flash('Configure Google application first.', 'info');
+            DemoState::flash(__('operator.flash.configure_google_app'), 'info');
 
             return;
         }
 
         $authStatus = GoogleAuthStatus::for($integration);
         if ($authStatus !== GoogleAuthStatus::CONNECTED) {
-            DemoState::flash('Application credentials are configured. Authorization is still required.', 'info');
+            DemoState::flash(__('operator.flash.app_configured_auth_required'), 'info');
 
             return;
         }
@@ -408,7 +408,7 @@ class GoogleIntegrationPage extends Component
             ->first();
 
         if (! $integration instanceof CoreIntegration) {
-            DemoState::flash('No Google application credentials are stored.', 'info');
+            DemoState::flash(__('operator.flash.no_google_credentials'), 'info');
 
             return;
         }
@@ -416,7 +416,7 @@ class GoogleIntegrationPage extends Component
         $service->remove($integration, $user);
         $this->googleClientId = '';
         $this->hydrateGoogleForm();
-        DemoState::flash('Google application credentials removed. Authorization and historical data were not deleted.', 'info');
+        DemoState::flash(__('operator.flash.google_credentials_removed'), 'info');
     }
 
     public function render(GoogleIntegrationReadModel $readModel): View

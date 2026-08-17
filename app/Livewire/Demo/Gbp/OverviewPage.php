@@ -226,19 +226,19 @@ class OverviewPage extends Component
 
     public function refreshData(): void
     {
-        DemoState::flash('GBP data refresh is unavailable until the integration is configured.', 'info');
+        DemoState::flash(__('operator.flash.gbp_refresh_unavailable'), 'info');
     }
 
     public function runLocalVisibilityScan(): void
     {
-        DemoState::flash('Local visibility scan is unavailable until a rank provider is configured.', 'info');
+        DemoState::flash(__('operator.flash.gbp_scan_unavailable'), 'info');
         $this->tab = 'visibility';
         $this->scan = 'latest';
     }
 
     public function createReviewTask(string $reviewId): void
     {
-        DemoState::flash('Internal Task for review '.$reviewId.' was not created — Google reply is not available.', 'info');
+        DemoState::flash(__('operator.flash.gbp_review_task_unavailable', ['id' => $reviewId]), 'info');
         $this->reviews_sub = 'queue';
         $this->tab = 'reviews';
     }

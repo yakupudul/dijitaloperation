@@ -63,7 +63,7 @@ final class GoogleAdsSpecialistReadService
 
     public const string SEARCH_VOLUME_NOTE = 'Search term impressions are advertising observations — not market search volume.';
 
-    public const string CPA_UNAVAILABLE_NOTE = 'CPA requires a canonical typed conversion denominator / business-action mapping — unavailable in Prompt 30.';
+    public const string CPA_UNAVAILABLE_NOTE = 'CPA requires a canonical typed conversion denominator / business-action mapping — unavailable.';
 
     /**
      * Canonical field-path list every workspace mode must classify in `data_provenance`.
@@ -240,7 +240,7 @@ final class GoogleAdsSpecialistReadService
         $data['business_goal'] = [
             'goal' => null,
             'primary_conversion' => null,
-            'note' => 'Business goal → primary conversion action mapping is unavailable — no Business Action mapping is configured in Prompt 30.',
+            'note' => 'Business goal → primary conversion action mapping is unavailable — no Business Action mapping is configured yet.',
         ];
         $data['pacing'] = [
             'source' => 'Unavailable',
@@ -334,7 +334,7 @@ final class GoogleAdsSpecialistReadService
         $provenance['operations.collection_state'] = DataSourceState::Real->value;
         $provenance['operations.findings'] = DataSourceState::Unavailable->value;
 
-        $data['demo_boundary'] = 'Real Google Ads workspace · data pool + formulas — no live Google Ads API call on page render. Unbacked cards are empty/unavailable, never Demo.';
+        $data['demo_boundary'] = 'Google Ads workspace uses collected data. Unbacked cards stay empty. Live API calls are not made on page render.';
         $data['migration_mode'] = 'real';
         $data['data_provenance'] = $provenance;
         $data['tab_status'] = $this->rollupTabStatus($provenance);
@@ -365,7 +365,7 @@ final class GoogleAdsSpecialistReadService
             ? 'Error'
             : ($binding->mode === GoogleAdsBindingMode::ActionRequired ? 'Action required' : 'Not connected');
         $collectionNote = $errorMessage !== null
-            ? 'A read error occurred building this workspace — no data is shown and no Demo fixtures were substituted.'
+            ? 'A read error occurred building this workspace — no data is shown.'
             : "Google Ads binding {$reason} — no collection state available.";
 
         $unavailableChip = ['value' => '—', 'raw' => null, 'secondary' => 'Unavailable', 'tone' => 'neutral'];
@@ -377,7 +377,7 @@ final class GoogleAdsSpecialistReadService
             'period_start' => $rangeStart,
             'period_end' => $rangeEnd,
             'compare_label' => 'vs '.$prev['label'],
-            'demo_boundary' => 'Real Google Ads workspace · no usable Customer binding — no live Google Ads API call performed.',
+            'demo_boundary' => 'Google Ads workspace has no usable Customer binding. Live API calls are not made on page render.',
             'identity' => [
                 'eyebrow' => 'Google Ads',
                 'title' => $errorMessage !== null
@@ -774,7 +774,7 @@ final class GoogleAdsSpecialistReadService
             'terms' => $terms,
             'clusters' => [],
             'keywords' => $keywords,
-            'intent_provenance' => 'Unavailable — intent clustering is not computed for real search terms in Prompt 30.',
+            'intent_provenance' => 'Unavailable — intent clustering is not computed for real search terms yet.',
             'search_volume_note' => self::SEARCH_VOLUME_NOTE,
         ];
     }
@@ -938,7 +938,7 @@ final class GoogleAdsSpecialistReadService
         ], $rows);
 
         return [
-            'subtitle' => 'Where paid traffic lands — technical, mobile and message quality are Unavailable on the real path (no Website join in Prompt 30).',
+            'subtitle' => 'Where paid traffic lands — technical, mobile and message quality are Unavailable on the real path (no Website join yet).',
             'active' => count($formatted),
             'need_review' => null,
             'exposure_attention' => null,
@@ -959,7 +959,7 @@ final class GoogleAdsSpecialistReadService
         string $customerId,
     ): array {
         $mappingNote = 'Matrix reflects real Google Ads conversion actions — conversions and all_conversions are kept distinct and no generic "Results" metric is used. '
-            .'Health/duplicate-risk narrative above remains illustrative; no Business Action mapping is configured in Prompt 30.';
+            .'Health/duplicate-risk narrative above remains illustrative; no Business Action mapping is configured yet.';
 
         if (! $snapshotGate->isUsable()) {
             return array_merge($demoMeasurement, [

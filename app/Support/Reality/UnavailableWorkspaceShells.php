@@ -25,7 +25,7 @@ final class UnavailableWorkspaceShells
 
         return [
             'migration_mode' => 'unavailable',
-            'demo_boundary' => 'Production Website specialist analytics are not yet wired to canonical observations for this asset — no Demo fixtures are shown.',
+            'demo_boundary' => 'Website specialist analytics are not yet available for this asset.',
             'identity' => [
                 'eyebrow' => 'Website',
                 'title' => ($asset?->name ?? 'Website').' — not collected',
@@ -38,7 +38,7 @@ final class UnavailableWorkspaceShells
                 'languages' => '—',
                 'market' => '—',
                 'status' => 'Unavailable',
-                'status_note' => 'No Demo fixtures — Website specialist analytics are not wired for this production asset yet.',
+                'status_note' => 'Website specialist analytics are not wired for this asset yet.',
                 'last_refresh' => '—',
                 'freshness' => null,
             ],
@@ -134,7 +134,7 @@ final class UnavailableWorkspaceShells
                     ],
                     'gbp' => [
                         'asset_name' => '—',
-                        'route' => 'demo.assets',
+                        'route' => 'operator.assets',
                         'note' => 'No related GBP observations for this production Website.',
                     ],
                 ],
@@ -295,7 +295,7 @@ final class UnavailableWorkspaceShells
 
         return [
             'migration_mode' => 'unavailable',
-            'demo_boundary' => 'Production GBP specialist analytics are not fully productionized for this asset — no Demo fixtures, fake ranks, or sample reviews are shown.',
+            'demo_boundary' => 'GBP specialist analytics are not fully available for this asset.',
             'identity' => [
                 'eyebrow' => 'Google Business Profile',
                 'title' => ($asset?->name ?? 'GBP').' — not collected',
@@ -480,7 +480,7 @@ final class UnavailableWorkspaceShells
 
         return [
             'migration_mode' => 'unavailable',
-            'demo_boundary' => 'Instagram analytics provider integration is unavailable — asset record/setup may exist, but no simulated analytics are shown.',
+            'demo_boundary' => 'Instagram analytics are not available for this asset.',
             'identity' => [
                 'asset_id' => $assetId,
                 'eyebrow' => 'Instagram',
@@ -492,7 +492,7 @@ final class UnavailableWorkspaceShells
                 'connection' => 'Not connected',
                 'freshness' => '—',
                 'status' => 'Unavailable',
-                'status_note' => 'No Demo fixtures — Instagram analytics are unavailable for this production asset.',
+                'status_note' => 'Instagram analytics are unavailable for this asset.',
             ],
             'overview' => [
                 'glance' => [],

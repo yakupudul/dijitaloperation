@@ -127,7 +127,7 @@ class WorkShow extends Component
             $taskId = isset($item['task_id']) ? (string) $item['task_id'] : null;
         }
         if ($taskId === null || ! ctype_digit((string) $taskId)) {
-            DemoState::flash('Task not found for QA.');
+            DemoState::flash(__('operator.flash.task_not_found_qa'));
 
             return;
         }

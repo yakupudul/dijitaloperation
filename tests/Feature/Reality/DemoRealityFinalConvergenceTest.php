@@ -99,7 +99,7 @@ class DemoRealityFinalConvergenceTest extends TestCase
         Livewire::test(WebsiteOverviewPage::class, ['assetId' => (string) $asset->id])
             ->assertOk()
             ->assertDontSee('Demo Mode · product vision fixtures')
-            ->assertSee('not yet wired');
+            ->assertSee('not yet available');
     }
 
     public function test_explicit_demo_catalog_ga4_asset_still_uses_demo_fixtures(): void

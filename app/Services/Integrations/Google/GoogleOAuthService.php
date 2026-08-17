@@ -61,7 +61,7 @@ class GoogleOAuthService
         User $user,
         ?array $capabilities = null,
         bool $forceConsent = false,
-        string $returnRoute = 'demo.integrations.google',
+        string $returnRoute = 'operator.integrations.google',
         ?string $capabilityContext = null,
     ): array {
         $this->assertAdmin($user);
@@ -78,9 +78,9 @@ class GoogleOAuthService
             return ['error' => 'Google OAuth Client ID is missing.'];
         }
 
-        $allowedReturns = ['demo.integrations.google', 'demo.integrations'];
+        $allowedReturns = ['operator.integrations.google', 'operator.integrations'];
         if (! in_array($returnRoute, $allowedReturns, true)) {
-            $returnRoute = 'demo.integrations.google';
+            $returnRoute = 'operator.integrations.google';
         }
 
         $capabilities ??= $this->scopeRegistry->defaultCapabilities();
@@ -153,7 +153,7 @@ class GoogleOAuthService
 
         $returnRoute = is_string($attempt?->return_route) && $attempt->return_route !== ''
             ? $attempt->return_route
-            : 'demo.integrations.google';
+            : 'operator.integrations.google';
 
         if (filled($oauthError)) {
             if ($attempt instanceof GoogleOAuthAuthorizationAttempt && $attempt->isPending()) {
@@ -170,7 +170,7 @@ class GoogleOAuthService
             // Do not corrupt existing valid credentials on denial.
             return [
                 'error' => $this->safeOAuthQueryError((string) $oauthError),
-                'return_route' => $oauthError === 'access_denied' ? 'demo.integrations' : $returnRoute,
+                'return_route' => $oauthError === 'access_denied' ? 'operator.integrations' : $returnRoute,
             ];
         }
 
@@ -702,14 +702,14 @@ class GoogleOAuthService
             if (! $attempt->isPending()) {
                 return [
                     'error' => 'Invalid or expired OAuth state. Click Authorize Google again to start a fresh consent flow.',
-                    'return_route' => $attempt->return_route ?: 'demo.integrations.google',
+                    'return_route' => $attempt->return_route ?: 'operator.integrations.google',
                 ];
             }
 
             if ((int) $attempt->requested_by_user_id !== (int) $user->id) {
                 return [
                     'error' => 'OAuth state does not belong to the current operator.',
-                    'return_route' => 'demo.integrations.google',
+                    'return_route' => 'operator.integrations.google',
                 ];
             }
 
@@ -727,7 +727,7 @@ class GoogleOAuthService
             if ($consumed !== 1) {
                 return [
                     'error' => 'Invalid or expired OAuth state. Click Authorize Google again to start a fresh consent flow.',
-                    'return_route' => $attempt->return_route ?: 'demo.integrations.google',
+                    'return_route' => $attempt->return_route ?: 'operator.integrations.google',
                 ];
             }
 
@@ -735,7 +735,7 @@ class GoogleOAuthService
             if (! $integration instanceof CoreIntegration) {
                 return [
                     'error' => 'Google Integration record was not found.',
-                    'return_route' => 'demo.integrations.google',
+                    'return_route' => 'operator.integrations.google',
                 ];
             }
 
@@ -745,7 +745,7 @@ class GoogleOAuthService
             return [
                 'integration' => $integration,
                 'requested_scopes' => $this->scopeRegistry->parseGranted($attempt->requested_scopes),
-                'return_route' => $attempt->return_route ?: 'demo.integrations.google',
+                'return_route' => $attempt->return_route ?: 'operator.integrations.google',
             ];
         }
 
@@ -758,7 +758,7 @@ class GoogleOAuthService
         if (! is_array($cached) || (int) ($cached['user_id'] ?? 0) !== (int) $user->id) {
             return [
                 'error' => 'Invalid or expired OAuth state. Click Authorize Google again to start a fresh consent flow.',
-                'return_route' => 'demo.integrations.google',
+                'return_route' => 'operator.integrations.google',
             ];
         }
 
@@ -766,7 +766,7 @@ class GoogleOAuthService
         if (! $integration instanceof CoreIntegration) {
             return [
                 'error' => 'Google Integration record was not found.',
-                'return_route' => 'demo.integrations.google',
+                'return_route' => 'operator.integrations.google',
             ];
         }
 
@@ -778,7 +778,7 @@ class GoogleOAuthService
                 ?: $this->scopeRegistry->scopesForCapabilities(),
             'return_route' => is_string($cached['return_route'] ?? null)
                 ? (string) $cached['return_route']
-                : 'demo.integrations.google',
+                : 'operator.integrations.google',
         ];
     }
 

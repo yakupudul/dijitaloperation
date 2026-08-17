@@ -1,14 +1,14 @@
 <div class="space-y-6">
     <div>
-        <a href="{{ route('demo.settings', ['section' => 'ai']) }}" wire:navigate class="text-sm font-medium text-gray-500 hover:text-brand-600">← {{ __('operator.settings.ai.back') }}</a>
+        <a href="{{ route('operator.settings', ['section' => 'ai']) }}" wire:navigate class="text-sm font-medium text-gray-500 hover:text-brand-600">← {{ __('operator.settings.ai.back') }}</a>
         <h1 class="mt-2 text-2xl font-bold text-gray-800 dark:text-white/90">{{ __('operator.settings.ai.skills_title') }}</h1>
         <p class="mt-1 text-sm text-gray-500">{{ __('operator.settings.ai.skills_subtitle') }}</p>
     </div>
 
     <nav class="flex flex-wrap gap-3 text-sm" aria-label="{{ __('operator.settings.ai.nav') }}">
-        <a href="{{ route('demo.settings.ai.control-plane') }}" wire:navigate class="font-medium text-brand-600 hover:underline">{{ __('operator.settings.ai.control_plane') }}</a>
+        <a href="{{ route('operator.settings.ai.control-plane') }}" wire:navigate class="font-medium text-brand-600 hover:underline">{{ __('operator.settings.ai.control_plane') }}</a>
         <span class="text-gray-400">·</span>
-        <a href="{{ route('demo.settings.ai.agents') }}" wire:navigate class="font-medium text-brand-600 hover:underline">{{ __('operator.settings.ai.agents') }}</a>
+        <a href="{{ route('operator.settings.ai.agents') }}" wire:navigate class="font-medium text-brand-600 hover:underline">{{ __('operator.settings.ai.agents') }}</a>
         <span class="text-gray-400">·</span>
         <span class="font-semibold text-gray-800 dark:text-white/90">{{ __('operator.settings.ai.skills') }}</span>
     </nav>

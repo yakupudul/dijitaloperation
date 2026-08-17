@@ -59,8 +59,8 @@ final class DefaultPlaybookCatalog
                     ['body' => 'Log findings or opportunities if thresholds breached'],
                 ],
                 'references' => [
-                    ['kind' => 'internal_route', 'label' => 'Google Ads workspace', 'route_name' => 'demo.google-ads.overview'],
-                    ['kind' => 'internal_route', 'label' => 'Findings', 'route_name' => 'demo.findings'],
+                    ['kind' => 'internal_route', 'label' => 'Google Ads workspace', 'route_name' => 'operator.google-ads.overview'],
+                    ['kind' => 'internal_route', 'label' => 'Findings', 'route_name' => 'operator.findings'],
                 ],
             ],
             [
@@ -101,8 +101,8 @@ final class DefaultPlaybookCatalog
                     ['body' => 'Document opportunities or tasks'],
                 ],
                 'references' => [
-                    ['kind' => 'internal_route', 'label' => 'Search Console workspace', 'route_name' => 'demo.search-console'],
-                    ['kind' => 'internal_route', 'label' => 'Website workspace', 'route_name' => 'demo.website'],
+                    ['kind' => 'internal_route', 'label' => 'Search Console workspace', 'route_name' => 'operator.search-console'],
+                    ['kind' => 'internal_route', 'label' => 'Website workspace', 'route_name' => 'operator.website'],
                 ],
             ],
             [
@@ -143,7 +143,7 @@ final class DefaultPlaybookCatalog
                     ['body' => 'Queue creative refresh task if needed'],
                 ],
                 'references' => [
-                    ['kind' => 'internal_route', 'label' => 'Meta Ads workspace', 'route_name' => 'demo.meta.overview'],
+                    ['kind' => 'internal_route', 'label' => 'Meta Ads workspace', 'route_name' => 'operator.meta.overview'],
                 ],
             ],
             [
@@ -186,7 +186,7 @@ final class DefaultPlaybookCatalog
                     ['body' => 'Log maintenance tasks if regressions found'],
                 ],
                 'references' => [
-                    ['kind' => 'internal_route', 'label' => 'Website workspace', 'route_name' => 'demo.website'],
+                    ['kind' => 'internal_route', 'label' => 'Website workspace', 'route_name' => 'operator.website'],
                 ],
             ],
         ];

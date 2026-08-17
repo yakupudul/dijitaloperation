@@ -82,35 +82,35 @@ final class ClientValueFixtures
                 'text' => self::t($locale, 'Search demand for implant treatments remained strong.', 'İmplant tedavilerine yönelik arama talebi güçlü kaldı.'),
                 'source_type' => 'opportunity',
                 'source_label' => 'Opportunity',
-                'source_url' => route('demo.opportunities', ['view' => 'open']),
+                'source_url' => route('operator.opportunities', ['view' => 'open']),
             ],
             [
                 'id' => 'obs-organic-gap',
                 'text' => self::t($locale, 'Organic visibility for the same implant demand remained limited.', 'Aynı implant talebinde organik görünürlük sınırlı kaldı.'),
                 'source_type' => 'opportunity',
                 'source_label' => 'Opportunity',
-                'source_url' => route('demo.opportunities', ['view' => 'open']),
+                'source_url' => route('operator.opportunities', ['view' => 'open']),
             ],
             [
                 'id' => 'obs-measurement',
                 'text' => self::t($locale, 'Lead measurement contained one mapping gap that limited reviewability.', 'Lead ölçümünde incelemeyi kısıtlayan bir eşleme boşluğu vardı.'),
                 'source_type' => 'finding',
                 'source_label' => 'Finding',
-                'source_url' => route('demo.findings'),
+                'source_url' => route('operator.findings'),
             ],
             [
                 'id' => 'obs-meta-angle',
                 'text' => self::t($locale, 'Meta creative delivery became concentrated around one angle.', 'Meta kreatif dağılımı tek bir açı etrafında yoğunlaştı.'),
                 'source_type' => 'finding',
                 'source_label' => 'Finding',
-                'source_url' => route('demo.findings'),
+                'source_url' => route('operator.findings'),
             ],
             [
                 'id' => 'obs-review',
                 'text' => self::t($locale, 'Weekly Google Ads review flagged conversion mapping for follow-up.', 'Haftalık Google Ads kontrolü dönüşüm eşlemesini takip için işaretledi.'),
                 'source_type' => 'recurring_review',
                 'source_label' => 'Recurring Review',
-                'source_url' => route('demo.work.show', ['workId' => 'rr-gads-aug13', 'type' => 'recurring_review']),
+                'source_url' => route('operator.work.show', ['workId' => 'rr-gads-aug13', 'type' => 'recurring_review']),
             ],
         ];
 
@@ -119,37 +119,37 @@ final class ClientValueFixtures
             [
                 'id' => 'cw-gads-review',
                 'text' => self::t($locale, 'Completed weekly Google Ads review.', 'Haftalık Google Ads kontrolü tamamlandı.'),
-                'source_url' => route('demo.tasks'),
+                'source_url' => route('operator.tasks'),
             ],
             [
                 'id' => 'cw-mapping',
                 'text' => self::t($locale, 'Corrected conversion mapping for lead measurement.', 'Lead ölçümü için dönüşüm eşlemesi düzeltildi.'),
-                'source_url' => route('demo.task', ['taskId' => 't-investigate-lead-measurement']),
+                'source_url' => route('operator.task', ['taskId' => 't-investigate-lead-measurement']),
             ],
             [
                 'id' => 'cw-implant-content',
                 'text' => self::t($locale, 'Updated implant landing-page content.', 'İmplant açılış sayfası içeriği güncellendi.'),
-                'source_url' => route('demo.website'),
+                'source_url' => route('operator.website'),
             ],
             [
                 'id' => 'cw-search-terms',
                 'text' => self::t($locale, 'Reviewed search terms for waste and intent mismatch.', 'Arama terimleri israf ve niyet uyumsuzluğu için incelendi.'),
-                'source_url' => route('demo.google-ads.overview'),
+                'source_url' => route('operator.google-ads.overview'),
             ],
             [
                 'id' => 'cw-meta-brief',
                 'text' => self::t($locale, 'Prepared new Meta creative brief for secondary angle.', 'İkincil açı için yeni Meta kreatif brifi hazırlandı.'),
-                'source_url' => route('demo.meta.overview'),
+                'source_url' => route('operator.meta.overview'),
             ],
             [
                 'id' => 'cw-doctor-title',
                 'text' => self::t($locale, 'Completed client request: doctor title on homepage.', 'Müşteri talebi tamamlandı: ana sayfada doktor unvanı.'),
-                'source_url' => route('demo.work.show', ['workId' => 'req-doctor-title', 'type' => 'client_request']),
+                'source_url' => route('operator.work.show', ['workId' => 'req-doctor-title', 'type' => 'client_request']),
             ],
             [
                 'id' => 'cw-creative-qa',
                 'text' => self::t($locale, 'QA-approved Meta creative replacement.', 'Meta kreatif değişimi kalite kontrolünden geçti.'),
-                'source_url' => route('demo.work.show', ['workId' => 'appr-qa-creative', 'type' => 'approval']),
+                'source_url' => route('operator.work.show', ['workId' => 'appr-qa-creative', 'type' => 'approval']),
             ],
         ];
 
@@ -166,7 +166,7 @@ final class ClientValueFixtures
                         'Observed after related work — causation is not established. '.$detail,
                         'İlgili çalışmadan sonra gözlemlendi — nedensellik kanıtlanmamıştır. '.$detail
                     ),
-                    'source_url' => route('demo.brand', ['brand' => DemoCatalog::BRAND_ID, 'tab' => 'value', 'value' => 'outcomes']),
+                    'source_url' => route('operator.brand', ['brand' => DemoCatalog::BRAND_ID, 'tab' => 'value', 'value' => 'outcomes']),
                 ];
             })
             ->values()
@@ -183,7 +183,7 @@ final class ClientValueFixtures
                     'title' => $row['title'] ?? '',
                     'goal' => $row['goal_title'] ?? self::t($locale, 'Primary growth goal', 'Birincil büyüme hedefi'),
                     'service' => $row['service_label'] ?? '',
-                    'source_url' => route('demo.opportunities', ['view' => 'open']),
+                    'source_url' => route('operator.opportunities', ['view' => 'open']),
                 ];
             })
             ->values()
@@ -193,17 +193,17 @@ final class ClientValueFixtures
             [
                 'id' => 'next-content',
                 'text' => self::t($locale, 'Complete implant content expansion (accepted recommendation).', 'İmplant içerik genişlemesini tamamla (kabul edilen öneri).'),
-                'source_url' => route('demo.recommendations'),
+                'source_url' => route('operator.recommendations'),
             ],
             [
                 'id' => 'next-seo-review',
                 'text' => self::t($locale, 'Run monthly SEO coverage review.', 'Aylık SEO kapsam kontrolünü çalıştır.'),
-                'source_url' => route('demo.work.show', ['workId' => 'rr-seo-aug14', 'type' => 'recurring_review']),
+                'source_url' => route('operator.work.show', ['workId' => 'rr-seo-aug14', 'type' => 'recurring_review']),
             ],
             [
                 'id' => 'next-meta-angle',
                 'text' => self::t($locale, 'Test secondary Meta creative angle after new assets arrive.', 'Yeni varlıklar gelince ikincil Meta kreatif açısını test et.'),
-                'source_url' => route('demo.tasks'),
+                'source_url' => route('operator.tasks'),
             ],
         ];
 
@@ -266,7 +266,7 @@ final class ClientValueFixtures
                 'by' => 'Yakup',
                 'date' => '13 Aug 2026',
                 'source' => self::t($locale, 'Opportunity', 'Fırsat'),
-                'source_url' => route('demo.opportunities'),
+                'source_url' => route('operator.opportunities'),
             ],
             [
                 'id' => 'dec-keep-gads-structure',
@@ -276,7 +276,7 @@ final class ClientValueFixtures
                 'by' => 'Ayşe Demir',
                 'date' => '12 Aug 2026',
                 'source' => self::t($locale, 'Recommendation', 'Öneri'),
-                'source_url' => route('demo.recommendations'),
+                'source_url' => route('operator.recommendations'),
             ],
             [
                 'id' => 'dec-defer-meta',
@@ -286,7 +286,7 @@ final class ClientValueFixtures
                 'by' => 'Can Öztürk',
                 'date' => '12 Aug 2026',
                 'source' => self::t($locale, 'Opportunity', 'Fırsat'),
-                'source_url' => route('demo.opportunities'),
+                'source_url' => route('operator.opportunities'),
             ],
             [
                 'id' => 'dec-accept-creative',
@@ -296,7 +296,7 @@ final class ClientValueFixtures
                 'by' => 'Ayşe Demir',
                 'date' => '12 Aug 2026',
                 'source' => self::t($locale, 'Recommendation', 'Öneri'),
-                'source_url' => route('demo.recommendations'),
+                'source_url' => route('operator.recommendations'),
             ],
         ];
 
@@ -313,7 +313,7 @@ final class ClientValueFixtures
                 'by' => 'Demo Operator',
                 'date' => $note['captured_at'] ?? '',
                 'source' => self::t($locale, 'Capture', 'Hızlı kayıt'),
-                'source_url' => route('demo.brand', ['brand' => DemoCatalog::BRAND_ID, 'tab' => 'value', 'value' => 'decisions']),
+                'source_url' => route('operator.brand', ['brand' => DemoCatalog::BRAND_ID, 'tab' => 'value', 'value' => 'decisions']),
             ];
         }
 
@@ -472,12 +472,12 @@ final class ClientValueFixtures
                 'completed_work' => (int) ($summary['delivered'] ?? 0),
                 'improvements' => (int) ($summary['operational_outcomes'] ?? 0),
                 'opportunities' => (int) ($summary['open_opportunities'] ?? 0),
-                'report_url' => route('demo.brand', [
+                'report_url' => route('operator.brand', [
                     'brand' => $brand['id'] ?? DemoCatalog::BRAND_ID,
                     'tab' => 'value',
                     'value' => 'reports',
                 ]),
-                'value_url' => route('demo.brand', [
+                'value_url' => route('operator.brand', [
                     'brand' => $brand['id'] ?? DemoCatalog::BRAND_ID,
                     'tab' => 'value',
                 ]),
@@ -511,7 +511,7 @@ final class ClientValueFixtures
                     $summary['operational_outcomes'],
                     $business['available'] ? (string) ($business['qualified_leads'] ?? '—') : '—'
                 ),
-                'url' => route('demo.brand', ['brand' => DemoCatalog::BRAND_ID, 'tab' => 'value']),
+                'url' => route('operator.brand', ['brand' => DemoCatalog::BRAND_ID, 'tab' => 'value']),
             ],
         ];
     }
@@ -537,7 +537,7 @@ final class ClientValueFixtures
                 'id' => $key,
                 'name' => is_array($playbook) ? ($playbook['name'] ?? null) : null,
                 'url' => $key !== null
-                    ? route('demo.settings.playbook', ['playbookId' => $key])
+                    ? route('operator.settings.playbook', ['playbookId' => $key])
                     : null,
             ],
             'decision' => null,

@@ -84,7 +84,7 @@ final class ClientValueStory
                 'text' => $f->title,
                 'source_type' => 'finding',
                 'source_label' => 'Finding',
-                'source_url' => route('demo.findings'),
+                'source_url' => route('operator.findings'),
                 'finding_id' => $f->findingId,
                 'severity' => $f->severity,
                 'status' => $f->status,
@@ -103,7 +103,7 @@ final class ClientValueStory
             return [
                 'id' => 'task-'.$w->taskId,
                 'text' => $w->title.$suffix,
-                'source_url' => route('demo.task', ['taskId' => $w->taskId]),
+                'source_url' => route('operator.task', ['taskId' => $w->taskId]),
                 'task_id' => $w->taskId,
                 'source_kind' => $w->sourceKind,
                 'qa_status' => $w->qaStatus,
@@ -119,7 +119,7 @@ final class ClientValueStory
                 'title' => $o->title,
                 'goal' => $o->goalLabel ?? '—',
                 'service' => $o->serviceLabel ?? '',
-                'source_url' => route('demo.opportunities', ['view' => 'open']),
+                'source_url' => route('operator.opportunities', ['view' => 'open']),
                 'status' => $o->status,
                 'potential' => true,
                 'realized_value' => false,
@@ -130,7 +130,7 @@ final class ClientValueStory
             return [
                 'id' => 'active-'.$w->taskId,
                 'text' => $w->title,
-                'source_url' => route('demo.task', ['taskId' => $w->taskId]),
+                'source_url' => route('operator.task', ['taskId' => $w->taskId]),
             ];
         }, $this->activeWork);
 

@@ -48,9 +48,9 @@ class BrandEdit extends Component
             $brand->save();
             $brand->responsibleUsers()->sync($this->sanitizedResponsibleUserIds());
 
-            DemoState::flash('Brand changes saved.');
+            DemoState::flash(__('operator.forms.brand_updated'));
 
-            return $this->redirect(route('demo.brand', ['brand' => $brand->id]), navigate: true);
+            return $this->redirect(route('operator.brand', ['brand' => $brand->id]), navigate: true);
         } finally {
             $this->saving = false;
         }
@@ -60,10 +60,10 @@ class BrandEdit extends Component
     {
         return view('livewire.demo.portfolio.brand-form', array_merge($this->brandFormViewData(), [
             'mode' => 'edit',
-            'pageTitle' => 'Edit brand',
-            'pageSubtitle' => 'Update brand context used across digital assets.',
-            'backUrl' => route('demo.brand', ['brand' => $this->brandId]),
-            'primaryAction' => 'Save changes',
+            'pageTitle' => __('operator.forms.edit_brand'),
+            'pageSubtitle' => __('operator.forms.edit_brand_subtitle'),
+            'backUrl' => route('operator.brand', ['brand' => $this->brandId]),
+            'primaryAction' => __('operator.forms.save_changes'),
         ]));
     }
 }

@@ -64,7 +64,7 @@
                     <input id="contact-phone" type="text" wire:model="contact_phone" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-950 dark:text-white/90" />
                 </div>
                 <div>
-                    <label for="owner" class="mb-1 block text-xs font-medium text-gray-500">Account owner</label>
+                    <label for="owner" class="mb-1 block text-xs font-medium text-gray-500">{{ __('operator.forms.account_owner') }}</label>
                     <select id="owner" wire:model="account_owner" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-950 dark:text-white/90">
                         <option value="">Unassigned</option>
                         @foreach ($team as $member)
@@ -333,10 +333,10 @@
                 @endif
             </dl>
             <div class="mt-6 flex flex-wrap gap-2">
-                <a href="{{ route('demo.brand', ['brand' => $summary['brand_id']]) }}" wire:navigate class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white">Open Brand</a>
-                <a href="{{ route('demo.dashboard') }}" wire:navigate class="rounded-lg px-4 py-2 text-sm font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">Go to Dashboard</a>
+                <a href="{{ route('operator.brand', ['brand' => $summary['brand_id']]) }}" wire:navigate class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white">Open Brand</a>
+                <a href="{{ route('operator.dashboard') }}" wire:navigate class="rounded-lg px-4 py-2 text-sm font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">Go to Dashboard</a>
                 @if ($summary['conflicts_open'] > 0)
-                    <a href="{{ route('demo.brand', ['brand' => $summary['brand_id'], 'tab' => 'discovery', 'discovery' => 'conflicts']) }}" wire:navigate class="rounded-lg px-4 py-2 text-sm font-medium text-brand-600 hover:underline dark:text-brand-400">Review remaining setup</a>
+                    <a href="{{ route('operator.brand', ['brand' => $summary['brand_id'], 'tab' => 'discovery', 'discovery' => 'conflicts']) }}" wire:navigate class="rounded-lg px-4 py-2 text-sm font-medium text-brand-600 hover:underline dark:text-brand-400">Review remaining setup</a>
                 @endif
             </div>
         </section>

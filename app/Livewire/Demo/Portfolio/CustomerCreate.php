@@ -42,13 +42,13 @@ class CustomerCreate extends Component
             $customer->responsibleUsers()->sync($this->sanitizedResponsibleUserIds());
             $customer->save();
 
-            DemoState::flash('Customer “'.$customer->name.'” saved.');
+            DemoState::flash(__('operator.forms.customer_saved', ['name' => $customer->name]));
 
             if ($addBrand) {
-                return $this->redirect(route('demo.brand.create', ['customerId' => $customer->id]), navigate: true);
+                return $this->redirect(route('operator.brand.create', ['customerId' => $customer->id]), navigate: true);
             }
 
-            return $this->redirect(route('demo.customer', ['customerId' => $customer->id]), navigate: true);
+            return $this->redirect(route('operator.customer', ['customerId' => $customer->id]), navigate: true);
         } finally {
             $this->saving = false;
         }
@@ -59,10 +59,10 @@ class CustomerCreate extends Component
         return view('livewire.demo.portfolio.customer-form', array_merge($this->customerFormViewData(), [
             'mode' => 'create',
             'pageTitle' => __('operator.portfolio.add_customer'),
-            'pageSubtitle' => 'Create the agency relationship first. Brands and digital assets can be added afterwards.',
-            'backUrl' => route('demo.customers'),
+            'pageSubtitle' => __('operator.forms.add_customer_subtitle'),
+            'backUrl' => route('operator.customers'),
             'backLabel' => __('operator.nav.customers'),
-            'primaryAction' => 'Save customer',
+            'primaryAction' => __('operator.forms.save_customer'),
             'showSaveAndAddBrand' => true,
             'industryOptions' => IndustryOptions::options(),
         ]));

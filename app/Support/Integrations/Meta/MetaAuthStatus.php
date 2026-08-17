@@ -70,13 +70,13 @@ final class MetaAuthStatus
     public static function label(string $status): string
     {
         return match ($status) {
-            self::CONNECTED => 'Authorized',
-            self::CONFIGURED => 'Credential stored',
-            self::AUTHORIZATION_REQUIRED => 'Authorization required',
-            self::REAUTH_REQUIRED => 'Reauthorization required',
-            self::PERMISSION_REQUIRED => 'Permission required',
-            self::ISSUE => 'Needs attention',
-            default => 'Not configured',
+            self::CONNECTED => __('operator.states.authorized'),
+            self::CONFIGURED => __('operator.states.credential_stored'),
+            self::AUTHORIZATION_REQUIRED => __('operator.states.authorization_required'),
+            self::REAUTH_REQUIRED => __('operator.states.reconnect_required'),
+            self::PERMISSION_REQUIRED => __('operator.states.permission_required'),
+            self::ISSUE => __('operator.states.needs_attention'),
+            default => __('operator.states.not_configured'),
         };
     }
 

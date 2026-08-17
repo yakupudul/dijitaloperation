@@ -260,7 +260,7 @@ final class GscSpecialistReadService
         $provenance['operations.collection_state'] = DataSourceState::Real->value;
         $provenance['operations.findings'] = DataSourceState::Unavailable->value;
 
-        $data['demo_boundary'] = 'Real Search Console workspace · data pool + formulas — no live Search Console API call on page render. Unbacked cards are empty/unavailable, never Demo.';
+        $data['demo_boundary'] = 'Search Console workspace uses collected data. Unbacked cards stay empty. Live API calls are not made on page render.';
         $data['migration_mode'] = 'real';
         $data['data_provenance'] = $provenance;
         $data['tab_status'] = $this->rollupTabStatus($provenance);
@@ -291,7 +291,7 @@ final class GscSpecialistReadService
             ? 'Error'
             : ($binding->mode === GscBindingMode::ActionRequired ? 'Action required' : 'Not connected');
         $collectionNote = $errorMessage !== null
-            ? 'A read error occurred building this workspace — no data is shown and no Demo fixtures were substituted.'
+            ? 'A read error occurred building this workspace — no data is shown.'
             : "Search Console binding {$reason} — no collection state available.";
 
         $unavailableChip = ['value' => '—', 'raw' => null, 'secondary' => 'Unavailable', 'tone' => 'neutral'];
@@ -303,7 +303,7 @@ final class GscSpecialistReadService
             'period_start' => $rangeStart,
             'period_end' => $rangeEnd,
             'compare_label' => 'vs '.$prev['label'],
-            'demo_boundary' => 'Real Search Console workspace · no usable property binding — no live Search Console API call performed.',
+            'demo_boundary' => 'Search Console workspace has no usable property binding. Live API calls are not made on page render.',
             'identity' => [
                 'eyebrow' => 'Google Search Console',
                 'title' => $errorMessage !== null

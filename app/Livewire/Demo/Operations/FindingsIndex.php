@@ -72,7 +72,7 @@ class FindingsIndex extends Component
     {
         $finding = $this->resolveFinding($id);
         if ($finding === null) {
-            DemoState::flash('Finding not found.', 'info');
+            DemoState::flash(__('operator.flash.finding_not_found'), 'info');
 
             return;
         }
@@ -80,14 +80,14 @@ class FindingsIndex extends Component
         $finding->status = FindingLifecycleService::STATUS_ACKNOWLEDGED;
         $finding->resolved_at = null;
         $finding->save();
-        DemoState::flash('Finding acknowledged.');
+        DemoState::flash(__('operator.flash.finding_acknowledged'));
     }
 
     public function resolve(string $id): void
     {
         $finding = $this->resolveFinding($id);
         if ($finding === null) {
-            DemoState::flash('Finding not found.', 'info');
+            DemoState::flash(__('operator.flash.finding_not_found'), 'info');
 
             return;
         }
@@ -95,14 +95,14 @@ class FindingsIndex extends Component
         $finding->status = FindingLifecycleService::STATUS_RESOLVED;
         $finding->resolved_at = now();
         $finding->save();
-        DemoState::flash('Finding resolved.');
+        DemoState::flash(__('operator.flash.finding_resolved'));
     }
 
     public function reopen(string $id): void
     {
         $finding = $this->resolveFinding($id);
         if ($finding === null) {
-            DemoState::flash('Finding not found.', 'info');
+            DemoState::flash(__('operator.flash.finding_not_found'), 'info');
 
             return;
         }
@@ -110,7 +110,7 @@ class FindingsIndex extends Component
         $finding->status = FindingLifecycleService::STATUS_OPEN;
         $finding->resolved_at = null;
         $finding->save();
-        DemoState::flash('Finding reopened.');
+        DemoState::flash(__('operator.flash.finding_reopened'));
     }
 
     public function render(): View

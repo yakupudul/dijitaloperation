@@ -43,7 +43,7 @@ class RecommendationsIndex extends Component
         }
 
         app(UpdateRecommendation::class)->accept($recommendation, auth()->user());
-        DemoState::flash('Recommendation accepted. Human decision recorded — no external write.');
+        DemoState::flash(__('operator.flash.recommendation_accepted'));
     }
 
     public function reject(string $id): void
@@ -54,7 +54,7 @@ class RecommendationsIndex extends Component
         }
 
         app(UpdateRecommendation::class)->dismiss($recommendation, auth()->user());
-        DemoState::flash('Recommendation dismissed.', 'info');
+        DemoState::flash(__('operator.flash.recommendation_dismissed'), 'info');
     }
 
     /**
@@ -67,7 +67,7 @@ class RecommendationsIndex extends Component
             return;
         }
 
-        DemoState::flash('Recommendation deferred for now — it stays open and no Task was created.', 'info');
+        DemoState::flash(__('operator.flash.recommendation_deferred'), 'info');
     }
 
     /**
@@ -77,7 +77,7 @@ class RecommendationsIndex extends Component
     {
         $recommendation = $this->resolveRecommendation($id);
         if ($recommendation === null) {
-            DemoState::flash('Recommendation not found.', 'info');
+            DemoState::flash(__('operator.flash.recommendation_not_found'), 'info');
 
             return;
         }
@@ -85,7 +85,7 @@ class RecommendationsIndex extends Component
         $actor = auth()->user();
         $service = app(CreateTaskFromRecommendation::class);
         if (! $service->userCanConvert($actor)) {
-            DemoState::flash('You are not allowed to create Tasks from Recommendations.', 'info');
+            DemoState::flash(__('operator.flash.not_allowed_create_task'), 'info');
 
             return;
         }
@@ -98,7 +98,7 @@ class RecommendationsIndex extends Component
                 'rec-task:'.$recommendation->id.':'.$this->taskCreateNonce,
             );
             $this->taskCreateNonce = (string) Str::uuid();
-            DemoState::flash('Task #'.$task->id.' created from Recommendation. Recommendation status unchanged.');
+            DemoState::flash(__('operator.flash.task_created_status_unchanged', ['id' => $task->id]));
         } catch (\Throwable $exception) {
             DemoState::flash($exception->getMessage(), 'info');
         }

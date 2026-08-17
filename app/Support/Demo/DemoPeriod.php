@@ -93,32 +93,32 @@ final class DemoPeriod
     public static function validateCustom(?string $start, ?string $end): ?string
     {
         if (! filled($start) || ! filled($end)) {
-            return 'Select both a start and end date.';
+            return __('operator.period.select_both');
         }
 
         try {
             $from = Carbon::parse($start, self::TIMEZONE)->startOfDay();
             $to = Carbon::parse($end, self::TIMEZONE)->startOfDay();
         } catch (\Throwable) {
-            return 'Enter valid dates (YYYY-MM-DD).';
+            return __('operator.period.invalid_dates');
         }
 
         if ($from->greaterThan($to)) {
-            return 'Start date must be on or before end date.';
+            return __('operator.period.start_before_end');
         }
 
         $anchor = self::anchor();
         if ($from->greaterThan($anchor) || $to->greaterThan($anchor)) {
-            return 'Dates cannot be after available Demo data ('.$anchor->format('M j, Y').').';
+            return __('operator.period.after_available', ['date' => $anchor->format('M j, Y')]);
         }
 
         $earliest = $anchor->copy()->subDays(89);
         if ($to->lessThan($earliest)) {
-            return 'No Demo data in this range. Choose dates within the last 90 days of fixtures.';
+            return __('operator.period.no_data_range');
         }
 
         if ($from->diffInDays($to) + 1 > 90) {
-            return 'Custom range cannot exceed 90 days in Demo Mode.';
+            return __('operator.period.max_90');
         }
 
         return null;

@@ -40,8 +40,8 @@
                     <p class="mt-2 text-xs text-amber-700 dark:text-amber-300">{{ __('operator.site_connectors.demo_badge') }}</p>
                 </div>
                 <div class="flex flex-wrap gap-2">
-                    <x-ta.button :href="route('demo.integrations.site-connector', ['connector' => 'wordpress'])" size="sm">{{ __('operator.actions.open') }}</x-ta.button>
-                    <x-ta.button :href="route('demo.integrations.site-connector.download', ['connector' => 'wordpress'])" size="sm" variant="outline">{{ __('operator.site_connectors.download_demo') }}</x-ta.button>
+                    <x-ta.button :href="route('operator.integrations.site-connector', ['connector' => 'wordpress'])" size="sm">{{ __('operator.actions.open') }}</x-ta.button>
+                    <x-ta.button :href="route('operator.integrations.site-connector.download', ['connector' => 'wordpress'])" size="sm" variant="outline">{{ __('operator.site_connectors.download_demo') }}</x-ta.button>
                 </div>
             </div>
         </div>

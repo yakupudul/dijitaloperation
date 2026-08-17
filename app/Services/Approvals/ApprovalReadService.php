@@ -208,7 +208,7 @@ final class ApprovalReadService
             'source_label' => 'Approval',
             'in_scope' => true,
             'task_id' => $approval->task_id,
-            'route' => 'demo.work.show',
+            'route' => 'operator.work.show',
             'route_params' => ['workId' => $approval->id, 'type' => 'approval'],
             'source_state' => 'REAL',
         ];

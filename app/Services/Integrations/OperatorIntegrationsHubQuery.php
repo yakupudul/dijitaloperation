@@ -38,6 +38,12 @@ final class OperatorIntegrationsHubQuery
         $groups = GlobalOperatingFixtures::integrationsHub();
 
         foreach ($groups as &$group) {
+            $group['group'] = match ((string) ($group['id'] ?? $group['group'] ?? '')) {
+                'site_connectors', 'Site Connectors' => __('operator.integrations_ui.groups.connectors'),
+                'Platforms & Data' => __('operator.integrations_ui.groups.platforms'),
+                'Intelligence Providers' => __('operator.integrations_ui.groups.intelligence'),
+                default => (string) ($group['group'] ?? ''),
+            };
             $providers = [];
             foreach ($group['providers'] as $provider) {
                 $id = (string) ($provider['id'] ?? '');
@@ -48,28 +54,28 @@ final class OperatorIntegrationsHubQuery
                     ProviderRegistry::DATAFORSEO => $this->truthfulProviderCard(
                         $provider,
                         $this->dataForSeoConfigured(),
-                        'demo.integrations.dataforseo',
+                        'operator.integrations.dataforseo',
                     ),
                     'wordpress' => $this->wordpressHubCard($provider),
                     ProviderRegistry::OPENAI, AiProviderCatalog::OPENAI => $this->truthfulProviderCard(
                         $provider,
                         $this->openAiConfigured(),
-                        'demo.integrations.ai',
+                        'operator.integrations.ai',
                         ['provider' => ProviderRegistry::OPENAI],
                     ),
                     ProviderRegistry::ANTHROPIC, AiProviderCatalog::ANTHROPIC => $this->truthfulProviderCard(
                         $provider,
                         $this->anthropicConfigured(),
-                        'demo.integrations.ai',
+                        'operator.integrations.ai',
                         ['provider' => ProviderRegistry::ANTHROPIC],
                     ),
                     ProviderRegistry::GEMINI, AiProviderCatalog::GEMINI => $this->truthfulProviderCard(
                         $provider,
                         $this->geminiConfigured(),
-                        'demo.integrations.ai',
+                        'operator.integrations.ai',
                         ['provider' => ProviderRegistry::GEMINI],
                     ),
-                    default => $this->truthfulProviderCard($provider, false, 'demo.integrations'),
+                    default => $this->truthfulProviderCard($provider, false, 'operator.integrations'),
                 };
             }
             $group['providers'] = $providers;
@@ -87,7 +93,7 @@ final class OperatorIntegrationsHubQuery
     private function truthfulProviderCard(array $shell, bool $configured, string $route, array $routeParams = []): array
     {
         $shell['state'] = $configured ? 'configured' : 'not_configured';
-        $shell['state_label'] = $configured ? 'Configured' : 'Not configured';
+        $shell['state_label'] = $configured ? __('operator.states.configured') : __('operator.states.not_configured');
         $shell['resources_discovered'] = null;
         $shell['bound'] = null;
         $shell['available'] = null;
@@ -97,10 +103,10 @@ final class OperatorIntegrationsHubQuery
         $shell['provenance'] = 'real';
         $shell['route'] = $route;
         $shell['route_params'] = $routeParams;
-        $shell['manage_label'] = 'Configure';
+        $shell['manage_label'] = __('operator.integrations_ui.configure');
         $shell['note'] = $configured
-            ? 'Provider credentials are configured. Stored credentials are not a live connection.'
-            : 'Not configured — save credentials before expecting live provider data.';
+            ? __('operator.integrations_ui.credentials_configured')
+            : __('operator.integrations_ui.not_configured_note');
 
         return $shell;
     }
@@ -112,7 +118,7 @@ final class OperatorIntegrationsHubQuery
     private function wordpressHubCard(array $shell): array
     {
         $shell['state'] = 'not_configured';
-        $shell['state_label'] = 'Setup required';
+        $shell['state_label'] = __('operator.states.setup_required');
         $shell['resources_discovered'] = null;
         $shell['bound'] = null;
         $shell['available'] = null;
@@ -120,8 +126,8 @@ final class OperatorIntegrationsHubQuery
         $shell['last_check'] = '—';
         $shell['dependent_assets'] = 0;
         $shell['provenance'] = 'real';
-        $shell['note'] = 'WordPress site connector catalog is available for install packages. Bind a site connector to see real connection health.';
-        $shell['manage_label'] = 'Open catalog';
+        $shell['note'] = __('operator.integrations_ui.wordpress_note');
+        $shell['manage_label'] = __('operator.integrations_ui.open_catalog');
 
         return $shell;
     }

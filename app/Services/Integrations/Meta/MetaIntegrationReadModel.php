@@ -64,7 +64,7 @@ final class MetaIntegrationReadModel
             'available' => $detail['available'],
             'last_check' => $detail['last_check'],
             'dependent_assets' => $detail['dependent_assets'],
-            'route' => 'demo.integrations.meta',
+            'route' => 'operator.integrations.meta',
             'manage_label' => ($detail['next_action'] ?? '') === 'configure' ? 'Configure' : 'Manage',
             'provenance' => 'real',
             'next_action' => $detail['next_action'],
@@ -512,7 +512,7 @@ final class MetaIntegrationReadModel
                     'status' => $binding->status,
                     'resource_access' => $resourceAccessible ? 'accessible' : 'access_lost',
                     'data_label' => 'Not collected yet / see Data state',
-                    'route' => 'demo.meta.overview',
+                    'route' => 'operator.meta.overview',
                 ];
             })
             ->all();

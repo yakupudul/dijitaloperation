@@ -131,28 +131,28 @@ final class InstagramWorkspaceFixtures
             'brand' => [
                 'id' => DemoCatalog::BRAND_ID,
                 'name' => 'Atlas Dental Ankara',
-                'route' => 'demo.brand',
+                'route' => 'operator.brand',
             ],
             'linked_assets' => [
                 [
                     'type' => 'website',
                     'label' => 'Website',
                     'name' => 'atlasdental.example',
-                    'route' => 'demo.website',
+                    'route' => 'operator.website',
                     'note' => 'Bio URL should reconcile with primary URL',
                 ],
                 [
                     'type' => 'meta_ads',
                     'label' => 'Meta Ads',
                     'name' => 'Atlas Dental — Meta',
-                    'route' => 'demo.meta.overview',
+                    'route' => 'operator.meta.overview',
                     'note' => 'Awareness → Instagram profile destination observed',
                 ],
                 [
                     'type' => 'gbp',
                     'label' => 'GBP',
                     'name' => 'Atlas Dental Ankara',
-                    'route' => 'demo.gbp',
+                    'route' => 'operator.gbp',
                     'note' => 'Local identity alignment (name / city)',
                 ],
             ],

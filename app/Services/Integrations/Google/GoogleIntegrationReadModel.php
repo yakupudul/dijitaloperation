@@ -66,7 +66,7 @@ final class GoogleIntegrationReadModel
             'available' => $detail['available'],
             'last_check' => $detail['last_check'],
             'dependent_assets' => $detail['dependent_assets'],
-            'route' => 'demo.integrations.google',
+            'route' => 'operator.integrations.google',
             'manage_label' => ($detail['next_action'] ?? '') === 'configure' ? 'Configure' : 'Manage',
             'provenance' => 'real',
             'next_action' => $detail['next_action'],
@@ -479,11 +479,11 @@ final class GoogleIntegrationReadModel
     private function assetRouteForType(string $type): string
     {
         return match ($type) {
-            'ga4', 'google_analytics', 'analytics' => 'demo.analytics',
-            'gsc', 'search_console', 'google_search_console' => 'demo.search-console',
-            'google_ads' => 'demo.google-ads.overview',
-            'google_business_profile', 'gbp' => 'demo.gbp',
-            default => 'demo.assets',
+            'ga4', 'google_analytics', 'analytics' => 'operator.analytics',
+            'gsc', 'search_console', 'google_search_console' => 'operator.search-console',
+            'google_ads' => 'operator.google-ads.overview',
+            'google_business_profile', 'gbp' => 'operator.gbp',
+            default => 'operator.assets',
         };
     }
 

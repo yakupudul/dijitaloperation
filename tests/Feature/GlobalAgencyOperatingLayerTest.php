@@ -176,12 +176,12 @@ class GlobalAgencyOperatingLayerTest extends TestCase
 
     public function test_customer_contacts_and_account_owner_surface(): void
     {
-        $this->get(route('demo.customer', ['customerId' => $this->workCustomer->id]))
+        $this->get(route('operator.customer', ['customerId' => $this->workCustomer->id]))
             ->assertOk()
             ->assertSee('Account Owner')
             ->assertSee('Atlas Health Group');
 
-        $this->get(route('demo.customer', [
+        $this->get(route('operator.customer', [
             'customerId' => $this->workCustomer->id,
             'tab' => 'contacts',
         ]))

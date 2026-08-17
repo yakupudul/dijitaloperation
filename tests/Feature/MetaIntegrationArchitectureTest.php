@@ -410,13 +410,13 @@ class MetaIntegrationArchitectureTest extends TestCase
         $this->assertSame('real', $card['provenance'] ?? null);
         $this->assertSame(0, $card['resources_discovered']);
         $this->assertTrue($card['discovery_not_run'] ?? false);
-        $this->assertSame('demo.integrations.meta', $card['route']);
+        $this->assertSame('operator.integrations.meta', $card['route']);
     }
 
     public function test_frozen_meta_page_and_hub_render_without_provider_http(): void
     {
-        $this->get(route('demo.integrations'))->assertOk();
-        $this->get(route('demo.integrations.meta'))
+        $this->get(route('operator.integrations'))->assertOk();
+        $this->get(route('operator.integrations.meta'))
             ->assertOk()
             ->assertSee('Not configured')
             ->assertDontSee('EAAG-')
@@ -427,7 +427,7 @@ class MetaIntegrationArchitectureTest extends TestCase
         app(OperatorIntegrationsHubQuery::class)->groups();
 
         Http::assertNothingSent();
-        $this->assertStringContainsString('/app/integrations/meta', route('demo.integrations.meta', absolute: false));
+        $this->assertStringContainsString('/app/integrations/meta', route('operator.integrations.meta', absolute: false));
     }
 
     public function test_agency_meta_integration_is_provider_unique(): void

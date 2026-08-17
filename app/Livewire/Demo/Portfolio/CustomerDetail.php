@@ -202,10 +202,10 @@ class CustomerDetail extends Component
                 ->where('customer_id', $this->customerId)
                 ->whereKey((int) $this->editingContactId)
                 ->update($payload);
-            DemoState::flash('Contact updated.');
+            DemoState::flash(__('operator.flash.contact_updated'));
         } else {
             CustomerContact::query()->create($payload);
-            DemoState::flash('Contact saved.');
+            DemoState::flash(__('operator.flash.contact_saved'));
         }
 
         $this->closeContactForm();
@@ -219,7 +219,7 @@ class CustomerDetail extends Component
             ->where('customer_id', $this->customerId)
             ->whereKey((int) $contactId)
             ->delete();
-        DemoState::flash('Contact removed.');
+        DemoState::flash(__('operator.flash.contact_removed'));
         $this->tab = 'relationship';
     }
 
@@ -228,7 +228,7 @@ class CustomerDetail extends Component
         $customer = $this->canonicalCustomer();
         $customer->status = CustomerStatus::Archived;
         $customer->save();
-        DemoState::flash('Customer archived.');
+        DemoState::flash(__('operator.flash.customer_archived'));
     }
 
     public function restoreCustomer(): void
@@ -236,7 +236,7 @@ class CustomerDetail extends Component
         $customer = $this->canonicalCustomer();
         $customer->status = CustomerStatus::Active;
         $customer->save();
-        DemoState::flash('Customer restored.');
+        DemoState::flash(__('operator.flash.customer_restored'));
     }
 
     public function render(): View

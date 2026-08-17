@@ -131,7 +131,7 @@
                         @else
                             <x-ta.button wire:click="reopen('{{ $finding['id'] }}')" size="sm" variant="outline">Reopen</x-ta.button>
                         @endif
-                        <x-ta.button href="{{ route('demo.recommendations') }}" size="sm" variant="outline">Recommendation</x-ta.button>
+                        <x-ta.button href="{{ route('operator.recommendations') }}" size="sm" variant="outline">Recommendation</x-ta.button>
                     </div>
                 </div>
             </article>

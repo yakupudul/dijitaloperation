@@ -194,14 +194,14 @@ class OverviewPage extends Component
         $binding = app(GoogleAdsSpecialistBindingResolver::class)->resolve($this->assetId);
 
         if ($binding->mode !== GoogleAdsBindingMode::RealBound) {
-            DemoState::flash('Google Ads data refresh is unavailable until the integration is configured.', 'info');
+            DemoState::flash(__('operator.flash.google_ads_refresh_unconfigured'), 'info');
 
             return;
         }
 
         $asset = DigitalAsset::query()->find($binding->digitalAssetId);
         if (! $asset instanceof DigitalAsset) {
-            DemoState::flash('Google Ads refresh unavailable — Digital Asset not found.', 'warning');
+            DemoState::flash(__('operator.flash.google_ads_refresh_missing_asset'), 'warning');
 
             return;
         }
@@ -222,13 +222,13 @@ class OverviewPage extends Component
 
     public function runAnalysis(): void
     {
-        DemoState::flash('Paid acquisition analysis is unavailable until Google Ads data has been collected.', 'info');
+        DemoState::flash(__('operator.flash.google_ads_analysis_unavailable'), 'info');
         $this->tab = 'overview';
     }
 
     public function markClusterReviewed(string $id): void
     {
-        DemoState::flash('Cluster marked reviewed internally. No Google Ads write was made.', 'info');
+        DemoState::flash(__('operator.flash.cluster_reviewed'), 'info');
         $this->cluster = $id;
         $this->tab = 'search_demand';
         $this->search_sub = 'inbox';

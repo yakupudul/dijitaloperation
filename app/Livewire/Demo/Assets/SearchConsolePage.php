@@ -185,14 +185,14 @@ class SearchConsolePage extends Component
         $binding = app(GscSpecialistBindingResolver::class)->resolve($this->assetId);
 
         if ($binding->mode !== GscBindingMode::RealBound) {
-            DemoState::flash('Search Console data refresh is unavailable until the integration is configured.', 'info');
+            DemoState::flash(__('operator.flash.gsc_refresh_unconfigured'), 'info');
 
             return;
         }
 
         $asset = DigitalAsset::query()->find($binding->digitalAssetId);
         if (! $asset instanceof DigitalAsset) {
-            DemoState::flash('Search Console refresh unavailable — Digital Asset not found.', 'warning');
+            DemoState::flash(__('operator.flash.gsc_refresh_missing_asset'), 'warning');
 
             return;
         }
@@ -213,7 +213,7 @@ class SearchConsolePage extends Component
 
     public function runAnalysis(): void
     {
-        DemoState::flash('Organic demand analysis is unavailable until Search Console data has been collected.', 'info');
+        DemoState::flash(__('operator.flash.gsc_analysis_unavailable'), 'info');
         $this->tab = 'overview';
     }
 

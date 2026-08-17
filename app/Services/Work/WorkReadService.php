@@ -88,7 +88,7 @@ final class WorkReadService
             'source_kind' => $task['source_kind'],
             'scope_kind' => $task['scope_kind'],
             'in_scope' => true,
-            'route' => 'demo.task',
+            'route' => 'operator.task',
             'route_params' => ['taskId' => $task['id']],
             'recommendation_id' => $task['recommendation_id'],
             'client_request_id' => $task['client_request_id'],

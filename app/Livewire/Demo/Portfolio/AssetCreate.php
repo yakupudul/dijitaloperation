@@ -134,10 +134,10 @@ class AssetCreate extends Component
             'hosting_context' => $this->type === 'website' && $this->hosting_context !== '' ? trim($this->hosting_context) : null,
         ]);
 
-        DemoState::flash('Digital Asset “'.$asset->name.'” defined. Existence is not a provider connection.');
+        DemoState::flash(__('operator.forms.asset_defined', ['name' => $asset->name]));
         $this->saving = false;
 
-        return $this->redirect(route('demo.assets'), navigate: true);
+        return $this->redirect(route('operator.assets'), navigate: true);
     }
 
     /**
@@ -165,13 +165,13 @@ class AssetCreate extends Component
             ->all();
 
         $backUrl = $this->brandLocked
-            ? route('demo.brand', ['brand' => $this->brand_id, 'tab' => 'assets'])
-            : route('demo.assets');
+            ? route('operator.brand', ['brand' => $this->brand_id, 'tab' => 'assets'])
+            : route('operator.assets');
 
         return view('livewire.demo.portfolio.asset-form', [
             'mode' => 'create',
-            'pageTitle' => 'Add digital asset',
-            'pageSubtitle' => 'Register the managed asset. Provider connections happen later in Integrations.',
+            'pageTitle' => __('operator.forms.add_digital_asset'),
+            'pageSubtitle' => __('operator.forms.add_digital_asset_subtitle'),
             'backUrl' => $backUrl,
             'brandOptions' => $brandOptions,
             'brandLocked' => $this->brandLocked,

@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Demo;
 
+use App\Support\Operator\AgencySettingCatalog;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
@@ -13,14 +14,13 @@ class LocaleSwitcher extends Component
     public function mount(): void
     {
         $user = Auth::user();
-        $this->locale = in_array((string) ($user?->locale ?? 'en'), ['en', 'tr'], true)
-            ? (string) $user->locale
-            : app()->getLocale();
+        $candidate = (string) ($user?->locale ?? app()->getLocale());
+        $this->locale = AgencySettingCatalog::isLocale($candidate) ? $candidate : AgencySettingCatalog::LOCALE_EN;
     }
 
     public function setLocale(string $locale): void
     {
-        if (! in_array($locale, ['en', 'tr'], true)) {
+        if (! AgencySettingCatalog::isLocale($locale)) {
             return;
         }
 
@@ -33,7 +33,7 @@ class LocaleSwitcher extends Component
         app()->setLocale($locale);
         $this->locale = $locale;
 
-        $this->redirect(request()->header('Referer') ?: route('demo.dashboard'), navigate: true);
+        $this->redirect(request()->header('Referer') ?: route('operator.dashboard'), navigate: true);
     }
 
     public function render(): View

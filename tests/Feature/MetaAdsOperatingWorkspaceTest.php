@@ -32,7 +32,7 @@ class MetaAdsOperatingWorkspaceTest extends TestCase
 
     public function test_catalog_meta_id_is_not_found_on_operator_routes(): void
     {
-        $this->get(route('demo.meta.overview', ['assetId' => DemoCatalog::META_ASSET_ID]))->assertNotFound();
+        $this->get(route('operator.meta.overview', ['assetId' => DemoCatalog::META_ASSET_ID]))->assertNotFound();
         Livewire::test(OverviewPage::class, ['assetId' => DemoCatalog::META_ASSET_ID])->assertStatus(404);
         Livewire::test(CampaignDetailPage::class, [
             'assetId' => DemoCatalog::META_ASSET_ID,
@@ -45,7 +45,7 @@ class MetaAdsOperatingWorkspaceTest extends TestCase
         $asset = $this->createPortfolioAsset('meta_ads', 'Northwind Meta', ['module_id' => 'meta-ads']);
 
         foreach (['overview', 'campaigns', 'creatives', 'audience', 'funnel', 'measurement', 'operations'] as $tab) {
-            $this->get(route('demo.meta.overview', ['assetId' => $asset->id, 'tab' => $tab]))
+            $this->get(route('operator.meta.overview', ['assetId' => $asset->id, 'tab' => $tab]))
                 ->assertOk()
                 ->assertDontSee('Atlas Health — Europe')
                 ->assertDontSee('Post Bariatric');

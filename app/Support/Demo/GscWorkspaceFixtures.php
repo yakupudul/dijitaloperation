@@ -854,7 +854,7 @@ final class GscWorkspaceFixtures
                     'asset_id' => DemoCatalog::WEBSITE_ASSET_ID,
                     'relationship' => 'Observes',
                     'detail' => 'Search visibility for atlasdental.example domain property',
-                    'route' => 'demo.website',
+                    'route' => 'operator.website',
                 ],
             ],
             'provides_evidence_to' => [
@@ -862,19 +862,19 @@ final class GscWorkspaceFixtures
                     'asset' => 'Google Ads',
                     'asset_id' => DemoCatalog::GOOGLE_ADS_ASSET_ID,
                     'detail' => 'Organic demand context for paid search overlap review',
-                    'route' => 'demo.google-ads.overview',
+                    'route' => 'operator.google-ads.overview',
                 ],
                 [
                     'asset' => 'Google Business Profile',
                     'asset_id' => DemoCatalog::GBP_ASSET_ID,
                     'detail' => 'Local query alignment · entity consistency',
-                    'route' => 'demo.gbp',
+                    'route' => 'operator.gbp',
                 ],
                 [
                     'asset' => 'Google Analytics (GA4)',
                     'asset_id' => DemoCatalog::GA4_ASSET_ID,
                     'detail' => 'Page-level sessions and mapped actions — not query-attributed',
-                    'route' => 'demo.analytics',
+                    'route' => 'operator.analytics',
                 ],
             ],
             'technical_connection' => [

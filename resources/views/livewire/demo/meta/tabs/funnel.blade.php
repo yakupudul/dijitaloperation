@@ -60,7 +60,7 @@
             <div class="flex items-center justify-between gap-2">
                 <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Website destination</h3>
                 @if (! empty($identity['website_asset_id']))
-                    <a href="{{ route('demo.website', ['assetId' => $identity['website_asset_id']]) }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Open Website →</a>
+                    <a href="{{ route('operator.website', ['assetId' => $identity['website_asset_id']]) }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">{{ __('operator.chrome.open_website') }} →</a>
                 @endif
             </div>
             @php $web = $f['website'] ?? []; @endphp

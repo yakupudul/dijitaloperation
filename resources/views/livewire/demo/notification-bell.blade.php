@@ -42,7 +42,7 @@
             @endif
         </ul>
         <div class="border-t border-gray-100 px-4 py-2 dark:border-gray-800">
-            <a href="{{ route('demo.settings', ['section' => 'notifications']) }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline">{{ __('operator.notifications.preferences') }}</a>
+            <a href="{{ route('operator.settings', ['section' => 'notifications']) }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline">{{ __('operator.notifications.preferences') }}</a>
         </div>
     </div>
 </div>

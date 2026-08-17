@@ -57,7 +57,7 @@ class FinalInterfaceCompletionTest extends TestCase
         $this->assertSame('brief.pdf', $file->original_name);
         $this->assertSame($this->admin->id, $file->user_id);
 
-        $this->get(route('demo.files.download', $file))
+        $this->get(route('operator.files.download', $file))
             ->assertOk()
             ->assertHeader('content-disposition');
     }
@@ -76,14 +76,14 @@ class FinalInterfaceCompletionTest extends TestCase
         ]);
 
         auth()->logout();
-        $this->get(route('demo.files.download', $file))
+        $this->get(route('operator.files.download', $file))
             ->assertRedirect('/app/login');
 
         $other = User::factory()->create();
         $other->assignRole(Roles::TEAM_MEMBER);
         $this->actingAs($other);
 
-        $this->get(route('demo.files.download', $file))
+        $this->get(route('operator.files.download', $file))
             ->assertForbidden();
     }
 
@@ -120,7 +120,7 @@ class FinalInterfaceCompletionTest extends TestCase
 
     public function test_site_connector_download_is_labeled_demo(): void
     {
-        $response = $this->get(route('demo.integrations.site-connector.download', ['connector' => 'wordpress']));
+        $response = $this->get(route('operator.integrations.site-connector.download', ['connector' => 'wordpress']));
 
         $response->assertOk();
         $disposition = (string) $response->headers->get('content-disposition');
@@ -144,14 +144,14 @@ class FinalInterfaceCompletionTest extends TestCase
 
     public function test_instagram_workspace_returns_ok_with_useful_tabs(): void
     {
-        $this->get(route('demo.instagram'))->assertNotFound();
+        $this->get(route('operator.instagram'))->assertNotFound();
 
         $asset = DigitalAsset::factory()->create([
             'type' => 'instagram',
             'name' => 'Northwind Instagram',
         ]);
 
-        $this->get(route('demo.instagram', ['assetId' => $asset->id]))
+        $this->get(route('operator.instagram', ['assetId' => $asset->id]))
             ->assertOk()
             ->assertSee('Instagram')
             ->assertSee('Northwind Instagram')
@@ -170,13 +170,13 @@ class FinalInterfaceCompletionTest extends TestCase
     public function test_demo_menu_includes_files_item(): void
     {
         $items = collect(DemoMenu::groups())->flatMap(fn (array $group): array => $group['items']);
-        $files = $items->firstWhere('route', 'demo.files');
+        $files = $items->firstWhere('route', 'operator.files');
 
         $this->assertNotNull($files);
-        $this->assertSame('demo.files', $files['route']);
+        $this->assertSame('operator.files', $files['route']);
         $this->assertSame(__('operator.nav.files'), $files['label']);
 
-        $this->get(route('demo.files'))
+        $this->get(route('operator.files'))
             ->assertOk()
             ->assertSee(__('operator.files.title'));
     }
@@ -193,12 +193,12 @@ class FinalInterfaceCompletionTest extends TestCase
         $advanced = Livewire::test(SettingsPage::class, ['section' => 'advanced'])->html();
         $this->assertStringNotContainsString('Open system panel', $advanced);
         $this->assertStringNotContainsString('href="/system', $advanced);
-        $this->assertStringContainsString('Open Agency Command Center', $advanced);
+        $this->assertStringContainsString(__('operator.nav.dashboard'), $advanced);
     }
 
     public function test_ai_control_plane_lists_registered_routes(): void
     {
-        $this->get(route('demo.settings.ai.control-plane'))
+        $this->get(route('operator.settings.ai.control-plane'))
             ->assertOk()
             ->assertSee('AI Control Plane')
             ->assertDontSee('href="/system', false);
@@ -212,12 +212,12 @@ class FinalInterfaceCompletionTest extends TestCase
 
     public function test_profile_and_site_connectors_routes_are_reachable(): void
     {
-        $this->get(route('demo.profile'))->assertOk()->assertSee(__('operator.profile.title'));
-        $this->get(route('demo.integrations.site-connectors'))
+        $this->get(route('operator.profile'))->assertOk()->assertSee(__('operator.profile.title'));
+        $this->get(route('operator.integrations.site-connectors'))
             ->assertOk()
             ->assertSee('WordPress')
             ->assertSee(__('operator.site_connectors.title'));
-        $this->get(route('demo.integrations'))
+        $this->get(route('operator.integrations'))
             ->assertOk()
             ->assertSee(__('operator.site_connectors.title'));
     }

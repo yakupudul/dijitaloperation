@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Support\Operator\AgencySettingCatalog;
 use App\Support\Permissions;
 use App\Support\Roles;
 use Illuminate\Http\RedirectResponse;
@@ -13,8 +14,14 @@ use Illuminate\View\View;
 
 class OperatorLoginController extends Controller
 {
-    public function create(): View
+    public function create(Request $request): View
     {
+        $locale = (string) $request->query('locale', '');
+        if (AgencySettingCatalog::isLocale($locale)) {
+            $request->session()->put('locale', $locale);
+            app()->setLocale($locale);
+        }
+
         return view('operator.auth.login');
     }
 
@@ -35,6 +42,7 @@ class OperatorLoginController extends Controller
 
         $user = $request->user();
         $mayAccessOperator = $user !== null
+            && $user->is_active
             && ($user->hasRole(Roles::ADMIN) || $user->can(Permissions::ACCESS_APP));
 
         if (! $mayAccessOperator) {
@@ -46,6 +54,8 @@ class OperatorLoginController extends Controller
                 'email' => __('auth.failed'),
             ]);
         }
+
+        $user->forceFill(['last_login_at' => now()])->save();
 
         return redirect()->intended('/app');
     }

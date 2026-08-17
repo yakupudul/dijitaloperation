@@ -46,7 +46,7 @@ class GlobalSearch extends Component
                         $results[] = [
                             'label' => $name,
                             'meta' => __('operator.nav.customers'),
-                            'url' => route('demo.customer', ['customerId' => $customer->id]),
+                            'url' => route('operator.customer', ['customerId' => $customer->id]),
                         ];
                     }
                 });
@@ -61,7 +61,7 @@ class GlobalSearch extends Component
                         $results[] = [
                             'label' => $name,
                             'meta' => __('operator.nav.brands').' · '.($brand->customer?->name ?? '—'),
-                            'url' => route('demo.brand', ['brand' => $brand->id]),
+                            'url' => route('operator.brand', ['brand' => $brand->id]),
                         ];
                     }
                 });
@@ -93,7 +93,7 @@ class GlobalSearch extends Component
                     $results[] = [
                         'label' => $title,
                         'meta' => __('operator.nav.findings'),
-                        'url' => route('demo.findings'),
+                        'url' => route('operator.findings'),
                     ];
                 }
             }
@@ -105,8 +105,8 @@ class GlobalSearch extends Component
                         'label' => $title,
                         'meta' => __('operator.nav.tasks').' · '.($task['brand'] ?? ''),
                         'url' => isset($task['id'])
-                            ? route('demo.work.show', ['workId' => $task['id'], 'type' => $task['type'] ?? 'task'])
-                            : route('demo.tasks'),
+                            ? route('operator.work.show', ['workId' => $task['id'], 'type' => $task['type'] ?? 'task'])
+                            : route('operator.tasks'),
                     ];
                 }
             }
@@ -117,7 +117,7 @@ class GlobalSearch extends Component
                     $results[] = [
                         'label' => $name,
                         'meta' => 'Playbook',
-                        'url' => route('demo.settings.playbook', ['playbookId' => $playbook['id']]),
+                        'url' => route('operator.settings.playbook', ['playbookId' => $playbook['id']]),
                     ];
                 }
             }

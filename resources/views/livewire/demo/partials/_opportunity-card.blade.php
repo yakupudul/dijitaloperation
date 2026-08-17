@@ -19,7 +19,7 @@
             :offering="$opp['offering'] ?? null"
         />
         <div class="mt-3 flex flex-wrap gap-2">
-            <a href="{{ route('demo.opportunities', ['brand' => $opp['brand_id'] ?? '', 'view' => 'open']) }}" wire:navigate
+            <a href="{{ route('operator.opportunities', ['brand' => $opp['brand_id'] ?? '', 'view' => 'open']) }}" wire:navigate
                 class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">
                 {{ __('operator.opportunities.card.view') }}
             </a>

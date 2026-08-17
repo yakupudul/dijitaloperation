@@ -3,16 +3,16 @@
 
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
-            <p class="text-xs font-medium uppercase tracking-wide text-gray-400">Portfolio</p>
-            <h1 class="mt-1 text-2xl font-bold text-gray-800 dark:text-white/90">Brands</h1>
+            <p class="text-xs font-medium uppercase tracking-wide text-gray-400">{{ __('operator.forms.portfolio') }}</p>
+            <h1 class="mt-1 text-2xl font-bold text-gray-800 dark:text-white/90">{{ __('operator.nav.brands') }}</h1>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Brands managed across customer accounts and their digital operations.</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-            <a href="{{ route('demo.setup', ['entry' => 'brand']) }}" wire:navigate
+            <a href="{{ route('operator.setup', ['entry' => 'brand']) }}" wire:navigate
                 class="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600">
                 {{ __('operator.portfolio.add_brand_wizard') }}
             </a>
-            <a href="{{ route('demo.brand.create') }}" wire:navigate
+            <a href="{{ route('operator.brand.create') }}" wire:navigate
                 class="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">
                 {{ __('operator.portfolio.quick_add') }}
             </a>
@@ -92,7 +92,7 @@
         <div class="rounded-xl bg-white p-8 text-center ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
             <h2 class="text-lg font-semibold text-gray-800 dark:text-white/90">No brands yet</h2>
             <p class="mx-auto mt-2 max-w-md text-sm text-gray-500 dark:text-gray-400">Add a brand under a customer to start organizing digital assets and operations.</p>
-            <a href="{{ route('demo.brand.create') }}" wire:navigate class="mt-5 inline-flex rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600">Add brand</a>
+            <a href="{{ route('operator.brand.create') }}" wire:navigate class="mt-5 inline-flex rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600">Add brand</a>
         </div>
     @elseif (count($brands) === 0)
         <div class="rounded-xl bg-white p-8 text-center ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
@@ -122,7 +122,7 @@
                 <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                     @foreach ($brands as $brand)
                         @php
-                            $href = route('demo.brand', ['brand' => $brand['id']]);
+                            $href = route('operator.brand', ['brand' => $brand['id']]);
                         @endphp
                         <tr
                             wire:key="brand-{{ $brand['id'] }}"

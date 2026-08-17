@@ -65,7 +65,7 @@ class OperatorAiProviderIntegrationConfigurationTest extends TestCase
             ->keyBy('id');
 
         foreach ([ProviderRegistry::OPENAI, ProviderRegistry::ANTHROPIC, ProviderRegistry::GEMINI] as $provider) {
-            $this->assertSame('demo.integrations.ai', $cards[$provider]['route']);
+            $this->assertSame('operator.integrations.ai', $cards[$provider]['route']);
             $this->assertSame('Configure', $cards[$provider]['manage_label']);
             $this->assertSame('Not configured', $cards[$provider]['state_label']);
             $this->assertNull($cards[$provider]['resources_discovered']);

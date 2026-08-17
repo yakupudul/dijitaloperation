@@ -59,13 +59,13 @@ final class MetaAdsSpecialistReadService
 
     private const string DATASET_AD_ACCOUNT_SNAPSHOT = 'meta_ad_account_snapshot';
 
-    public const string ACTION_NOTE = 'Meta typed action — not automatically a qualified lead, generic "Results", or verified business outcome. No Business Action mapping is configured in Prompt 31.';
+    public const string ACTION_NOTE = 'Meta typed action — not automatically a qualified lead, generic "Results", or verified business outcome. No Business Action mapping is configured yet.';
 
     public const string REACH_NOTE = 'Reach is de-duplicated by Meta and must never be summed across days or campaigns — period Reach is Unavailable.';
 
     public const string FREQUENCY_NOTE = 'Frequency (impressions ÷ reach) must never be averaged into a period value — Frequency is Unavailable.';
 
-    public const string RESULTS_UNAVAILABLE_NOTE = 'Results / cost-per-result require a canonical typed-action → business-outcome mapping — unavailable in Prompt 31.';
+    public const string RESULTS_UNAVAILABLE_NOTE = 'Results / cost-per-result require a canonical typed-action → business-outcome mapping — unavailable.';
 
     public const string CLICKS_NOTE = 'Clicks (all click types) and Link Clicks (metadata inline_link_clicks) are distinct — never conflate them.';
 
@@ -261,7 +261,7 @@ final class MetaAdsSpecialistReadService
         $data['business_goal'] = [
             'goal' => null,
             'primary_conversion' => null,
-            'note' => 'Business goal → primary result mapping is unavailable — no Business Action mapping is configured in Prompt 31.',
+            'note' => 'Business goal → primary result mapping is unavailable — no Business Action mapping is configured yet.',
         ];
         $data['conversion_lag_note'] = 'Meta-attributed typed actions · attribution windows apply — provider actions are not automatically verified business outcomes.';
 
@@ -340,7 +340,7 @@ final class MetaAdsSpecialistReadService
         $provenance['operations.collection_state'] = DataSourceState::Real->value;
         $provenance['operations.findings'] = DataSourceState::Unavailable->value;
 
-        $data['demo_boundary'] = 'Real Meta Ads workspace · data pool + formulas — no live Meta Graph API call on page render. Unbacked cards are empty/unavailable, never Demo.';
+        $data['demo_boundary'] = 'Meta Ads workspace uses collected data. Unbacked cards stay empty. Live API calls are not made on page render.';
         $data['migration_mode'] = 'real';
         $data['currency'] = $currency;
         $data['data_provenance'] = $provenance;
@@ -372,7 +372,7 @@ final class MetaAdsSpecialistReadService
             ? 'Error'
             : ($binding->mode === MetaAdsBindingMode::ActionRequired ? 'Action required' : 'Not connected');
         $collectionNote = $errorMessage !== null
-            ? 'A read error occurred building this workspace — no data is shown and no Demo fixtures were substituted.'
+            ? 'A read error occurred building this workspace — no data is shown.'
             : "Meta Ads binding {$reason} — no collection state available.";
 
         $unavailableChip = ['value' => '—', 'raw' => null, 'secondary' => 'Unavailable', 'tone' => 'neutral'];
@@ -384,7 +384,7 @@ final class MetaAdsSpecialistReadService
             'period_start' => $rangeStart,
             'period_end' => $rangeEnd,
             'compare_label' => 'vs '.$prev['label'],
-            'demo_boundary' => 'Real Meta Ads workspace · no usable Ad Account binding — no live Meta Graph API call performed.',
+            'demo_boundary' => 'Meta Ads workspace has no usable Ad Account binding. Live API calls are not made on page render.',
             'identity' => [
                 'eyebrow' => 'Meta Ads',
                 'title' => $errorMessage !== null
@@ -698,7 +698,7 @@ final class MetaAdsSpecialistReadService
             'leads' => [],
             'messaging' => [],
             'note' => ($partial ? 'Spend · real Meta Ads data (partial coverage). ' : 'Spend · real Meta Ads data. ')
-                .'Daily typed-action ("leads") series is Unavailable in Prompt 31 — provider actions are not automatically Qualified Leads. '
+                .'Daily typed-action ("leads") series is unavailable — provider actions are not automatically Qualified Leads. '
                 .self::REACH_NOTE.' '.self::FREQUENCY_NOTE,
         ];
     }
@@ -886,7 +886,7 @@ final class MetaAdsSpecialistReadService
         ], array_slice($gallery, 0, 4));
 
         $creatives = [
-            'subtitle' => 'Real Meta creative inventory — creative angle, persona coverage and A/B test taxonomy are Unavailable in Prompt 31 (no creative-tagging pipeline).',
+            'subtitle' => 'Real Meta creative inventory — creative angle, persona coverage and A/B test taxonomy are unavailable (no creative-tagging pipeline).',
             'gallery' => $gallery,
             'angles' => [],
             'coverage' => [],
@@ -922,8 +922,8 @@ final class MetaAdsSpecialistReadService
                 'platform' => [],
                 'concentration_note' => null,
                 'gaps' => [
-                    'Country breakdown is not collected in Prompt 31 — Unavailable, not zero.',
-                    'Placement (platform_position) breakdown is not collected in Prompt 31 — Unavailable, not zero.',
+                    'Country breakdown is not collected — Unavailable, not zero.',
+                    'Placement (platform_position) breakdown is not collected — Unavailable, not zero.',
                 ],
             ];
         }
@@ -944,7 +944,7 @@ final class MetaAdsSpecialistReadService
         }
 
         return [
-            'subtitle' => 'How Meta actually distributed spend across observed age, gender and platform breakdowns — country and placement are Unavailable in Prompt 31.',
+            'subtitle' => 'How Meta actually distributed spend across observed age, gender and platform breakdowns — country and placement are unavailable.',
             'configured' => [],
             'observed' => $observed,
             'placements' => [],
@@ -954,8 +954,8 @@ final class MetaAdsSpecialistReadService
             'platform' => $platformRows,
             'concentration_note' => $platformRows !== [] ? ($platformRows[0]['label'].' carries the largest observed spend share — informational until creative fit is reviewed.') : null,
             'gaps' => [
-                'Country breakdown is not collected in Prompt 31 — Unavailable, not zero.',
-                'Placement (platform_position) breakdown is not collected in Prompt 31 — Unavailable, not zero.',
+                'Country breakdown is not collected — Unavailable, not zero.',
+                'Placement (platform_position) breakdown is not collected — Unavailable, not zero.',
                 'Configured targeting is not read from the provider on the real path — Unavailable, not zero.',
             ],
         ];
@@ -1040,7 +1040,7 @@ final class MetaAdsSpecialistReadService
         }
         usort($destinations, static fn (array $a, array $b): int => $b['spend'] <=> $a['spend']);
 
-        $note = 'Real Meta ad set destination_type · typed actions are not linked per destination in Prompt 31 — results Unavailable.';
+        $note = 'Real Meta ad set destination_type · typed actions are not linked per destination — results Unavailable.';
 
         $instantForm = $this->destinationSection($byDestination, ['LEAD_FORM']);
         $website = $this->destinationSection($byDestination, ['WEBSITE']);
@@ -1049,7 +1049,7 @@ final class MetaAdsSpecialistReadService
 
         return [
             'subtitle' => $destinations !== []
-                ? 'Spend distribution by real Meta ad set destination_type — downstream results are Unavailable in Prompt 31 (no lead-form/CRM/Website join).'
+                ? 'Spend distribution by real Meta ad set destination_type — downstream results are unavailable (no lead-form/CRM/Website join).'
                 : 'Funnel unavailable — no ad set destination_type observed for real ad sets in this range.',
             'destinations' => $destinations,
             'instant_form' => [
@@ -1135,7 +1135,7 @@ final class MetaAdsSpecialistReadService
         string $rangeEnd,
     ): array {
         $mappingNote = 'Matrix reflects real Meta Ads typed actions — action_type is kept distinct and no generic "Results" metric is used. '
-            .self::ACTION_NOTE.' Business outcome funnel / lead quality narrative above remains illustrative; no Business Action mapping is configured in Prompt 31.';
+            .self::ACTION_NOTE.' Business outcome funnel / lead quality narrative above remains illustrative; no Business Action mapping is configured yet.';
 
         if (! $typedActionGate->isUsable() || $typedActionGate->effectiveStart === null || $typedActionGate->effectiveEnd === null) {
             return array_merge($demoMeasurement, [

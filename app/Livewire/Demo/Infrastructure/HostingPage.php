@@ -13,7 +13,7 @@ class HostingPage extends Component
 {
     public function mount(?string $assetId = null): void
     {
-        $this->redirect(route('demo.assets'));
+        $this->redirect(route('operator.assets'));
     }
 
     public function render(): View

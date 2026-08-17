@@ -151,7 +151,7 @@ class OpportunitiesIndex extends Component
             'opportunity-convert:'.$opportunity->id,
         );
 
-        DemoState::flash('Opportunity converted into a Recommendation. No Task was created.');
+        DemoState::flash(__('operator.flash.opportunity_converted'));
     }
 
     private function priorityForOpportunity(Opportunity $opportunity): string

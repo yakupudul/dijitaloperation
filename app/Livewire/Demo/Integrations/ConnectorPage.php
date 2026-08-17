@@ -52,7 +52,7 @@ class ConnectorPage extends Component
             'type' => 'google_ads',
             'integration' => 'google',
             'integration_label' => 'Google',
-            'integration_route' => 'demo.integrations.google',
+            'integration_route' => 'operator.integrations.google',
         ],
         'ga4' => [
             'id' => 'ga4',
@@ -60,7 +60,7 @@ class ConnectorPage extends Component
             'type' => 'ga4',
             'integration' => 'google',
             'integration_label' => 'Google',
-            'integration_route' => 'demo.integrations.google',
+            'integration_route' => 'operator.integrations.google',
         ],
         'gsc' => [
             'id' => 'gsc',
@@ -68,7 +68,7 @@ class ConnectorPage extends Component
             'type' => 'gsc',
             'integration' => 'google',
             'integration_label' => 'Google',
-            'integration_route' => 'demo.integrations.google',
+            'integration_route' => 'operator.integrations.google',
         ],
         'gbp' => [
             'id' => 'gbp',
@@ -76,7 +76,7 @@ class ConnectorPage extends Component
             'type' => 'google_business_profile',
             'integration' => 'google',
             'integration_label' => 'Google',
-            'integration_route' => 'demo.integrations.google',
+            'integration_route' => 'operator.integrations.google',
         ],
         'meta-ads' => [
             'id' => 'meta-ads',
@@ -84,7 +84,7 @@ class ConnectorPage extends Component
             'type' => 'meta_ads',
             'integration' => 'meta',
             'integration_label' => 'Meta',
-            'integration_route' => 'demo.integrations.meta',
+            'integration_route' => 'operator.integrations.meta',
         ],
     ];
 
@@ -111,7 +111,7 @@ class ConnectorPage extends Component
 
     public function openBind(string $resourceId): void
     {
-        DemoState::flash('Configure integration first. No provider resources are available until credentials are configured.', 'info');
+        DemoState::flash(__('operator.flash.configure_integration_resources'), 'info');
     }
 
     public function closeBind(): void
@@ -124,23 +124,23 @@ class ConnectorPage extends Component
 
     public function prepareConfirm(): void
     {
-        DemoState::flash('Configure integration first.', 'info');
+        DemoState::flash(__('operator.flash.configure_integration_first'), 'info');
     }
 
     public function confirmBinding(): void
     {
-        DemoState::flash('Configure integration first. Binding is unavailable until the provider is configured.', 'info');
+        DemoState::flash(__('operator.flash.configure_integration_binding'), 'info');
         $this->closeBind();
     }
 
     public function unbindResource(string $resourceId): void
     {
-        DemoState::flash('No bindings exist — the provider is not configured.', 'info');
+        DemoState::flash(__('operator.flash.no_bindings'), 'info');
     }
 
     public function refreshCollection(): void
     {
-        DemoState::flash('Configure integration first. Collection cannot run without credentials.', 'info');
+        DemoState::flash(__('operator.flash.configure_integration_collection'), 'info');
     }
 
     public function render(): View

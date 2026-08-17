@@ -44,13 +44,13 @@
 
             <livewire:demo.notification-bell />
 
-            <a href="{{ route('demo.settings') }}" wire:navigate
+            <a href="{{ route('operator.settings') }}" wire:navigate
                 class="hidden sm:inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-white/[0.03]">
                 {{ __('operator.nav.settings') }}
             </a>
 
             @auth
-                <a href="{{ route('demo.profile') }}" wire:navigate class="flex items-center gap-2 pl-2" aria-label="{{ __('operator.nav.profile') }}">
+                <a href="{{ route('operator.profile') }}" wire:navigate class="flex items-center gap-2 pl-2" aria-label="{{ __('operator.nav.profile') }}">
                     @if (! empty(auth()->user()->avatar_path))
                         <img src="{{ asset('storage/'.auth()->user()->avatar_path) }}" alt="" class="h-9 w-9 rounded-full object-cover ring-1 ring-gray-200 dark:ring-gray-700" />
                     @else

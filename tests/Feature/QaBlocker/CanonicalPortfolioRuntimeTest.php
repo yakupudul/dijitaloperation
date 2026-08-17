@@ -107,7 +107,7 @@ class CanonicalPortfolioRuntimeTest extends TestCase
             ->assertOk()
             ->assertSee('Northwind Clinics');
 
-        $this->get(route('demo.customer', ['customerId' => 'c-demo-missing']))
+        $this->get(route('operator.customer', ['customerId' => 'c-demo-missing']))
             ->assertNotFound();
     }
 
@@ -138,7 +138,7 @@ class CanonicalPortfolioRuntimeTest extends TestCase
             ->assertDontSee('Atlas Dental Ankara')
             ->assertDontSee('Meta CPL');
 
-        $this->get(route('demo.brand', ['brand' => 'atlas-dental']))->assertNotFound();
+        $this->get(route('operator.brand', ['brand' => 'atlas-dental']))->assertNotFound();
     }
 
     public function test_digital_assets_persist_canonical_types_without_domain_hosting(): void
@@ -257,10 +257,10 @@ class CanonicalPortfolioRuntimeTest extends TestCase
         $this->assertNull(session()->get(DemoState::SESSION_KEY));
 
         $this->get('/app')->assertOk();
-        $this->get(route('demo.customers'))->assertOk();
-        $this->get(route('demo.brands'))->assertOk();
-        $this->get(route('demo.assets'))->assertOk();
-        $this->get(route('demo.settings'))->assertOk();
+        $this->get(route('operator.customers'))->assertOk();
+        $this->get(route('operator.brands'))->assertOk();
+        $this->get(route('operator.assets'))->assertOk();
+        $this->get(route('operator.settings'))->assertOk();
 
         Livewire::test(Dashboard::class)->assertOk();
         Livewire::test(CustomersIndex::class)->assertOk();

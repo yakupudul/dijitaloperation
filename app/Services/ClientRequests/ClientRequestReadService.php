@@ -238,7 +238,7 @@ final class ClientRequestReadService
             'source_label' => $presentation['source_label'] ?? 'Client',
             'in_scope' => $presentation['in_scope'],
             'linked_task_id' => $presentation['linked_task_id'],
-            'route' => 'demo.work.show',
+            'route' => 'operator.work.show',
             'route_params' => ['workId' => $presentation['id'], 'type' => 'client_request'],
         ];
     }

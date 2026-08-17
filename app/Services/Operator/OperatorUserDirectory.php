@@ -5,6 +5,7 @@ namespace App\Services\Operator;
 use App\Models\User;
 use App\Support\Permissions;
 use App\Support\Roles;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 /**
@@ -16,15 +17,25 @@ use Illuminate\Support\Collection;
 final class OperatorUserDirectory
 {
     /**
+     * Active operators eligible for new Customer / Brand responsibility assignment.
+     *
      * @return Collection<int, User>
      */
     public static function eligibleOperators(): Collection
     {
-        return User::query()
-            ->permission(Permissions::ACCESS_APP)
-            ->orderBy('name')
-            ->orderBy('id')
+        return self::directoryQuery()
+            ->where('is_active', true)
             ->get();
+    }
+
+    /**
+     * All operators including deactivated accounts (Team & Access list, historical attribution).
+     *
+     * @return Collection<int, User>
+     */
+    public static function directoryOperators(): Collection
+    {
+        return self::directoryQuery()->get();
     }
 
     /**
@@ -50,11 +61,11 @@ final class OperatorUserDirectory
     /**
      * Settings / wizard team rows.
      *
-     * @return list<array{id: string, name: string, email: string, initials: string, role: string}>
+     * @return list<array{id: string, name: string, email: string, initials: string, role: string, is_active: bool, last_login: string|null}>
      */
     public static function presentationMembers(): array
     {
-        return self::eligibleOperators()
+        return self::directoryOperators()
             ->map(static function (User $user): array {
                 $parts = preg_split('/\s+/', trim($user->name)) ?: [];
                 $initials = collect($parts)
@@ -69,6 +80,8 @@ final class OperatorUserDirectory
                     'email' => $user->email,
                     'initials' => $initials !== '' ? $initials : mb_strtoupper(mb_substr($user->name, 0, 1)),
                     'role' => $user->hasRole(Roles::ADMIN) ? Roles::ADMIN : Roles::TEAM_MEMBER,
+                    'is_active' => (bool) $user->is_active,
+                    'last_login' => $user->last_login_at?->timezone(config('app.timezone'))->format('Y-m-d H:i'),
                 ];
             })
             ->values()
@@ -87,5 +100,16 @@ final class OperatorUserDirectory
             array_map(static fn (int|string $id): int => (int) $id, $ids),
             static fn (int $id): bool => $id > 0 && in_array($id, $allowed, true),
         )));
+    }
+
+    /**
+     * @return Builder<User>
+     */
+    private static function directoryQuery()
+    {
+        return User::query()
+            ->permission(Permissions::ACCESS_APP)
+            ->orderBy('name')
+            ->orderBy('id');
     }
 }

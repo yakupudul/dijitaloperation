@@ -32,7 +32,7 @@ class MetaOAuthController extends Controller
                 ->danger()
                 ->send();
 
-            return redirect()->route('demo.integrations.meta');
+            return redirect()->route('operator.integrations.meta');
         }
 
         return redirect()->away($result['url']);
@@ -54,10 +54,10 @@ class MetaOAuthController extends Controller
 
         $returnRoute = is_string($result['return_route'] ?? null)
             ? $result['return_route']
-            : 'demo.integrations.meta';
+            : 'operator.integrations.meta';
 
-        if (! in_array($returnRoute, ['demo.integrations.meta', 'demo.integrations'], true)) {
-            $returnRoute = 'demo.integrations.meta';
+        if (! in_array($returnRoute, ['operator.integrations.meta', 'operator.integrations'], true)) {
+            $returnRoute = 'operator.integrations.meta';
         }
 
         // Never keep code/tokens/state secrets in the browser URL after handling.
@@ -77,6 +77,6 @@ class MetaOAuthController extends Controller
             ->success()
             ->send();
 
-        return redirect()->route('demo.integrations.meta');
+        return redirect()->route('operator.integrations.meta');
     }
 }

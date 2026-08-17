@@ -274,7 +274,7 @@ final class Ga4SpecialistReadService
         $provenance['operations.collection_state'] = DataSourceState::Real->value;
         $provenance['operations.findings'] = DataSourceState::Unavailable->value;
 
-        $data['demo_boundary'] = 'Real GA4 workspace · data pool + formulas — no live Analytics Data API call on page render. Unbacked cards are empty/unavailable, never Demo.';
+        $data['demo_boundary'] = 'GA4 workspace uses collected data. Unbacked cards stay empty. Live API calls are not made on page render.';
         $data['migration_mode'] = 'real';
         $data['data_provenance'] = $provenance;
         $data['tab_status'] = $this->rollupTabStatus($provenance);
@@ -305,7 +305,7 @@ final class Ga4SpecialistReadService
             ? 'Error'
             : ($binding->mode === Ga4BindingMode::ActionRequired ? 'Action required' : 'Not connected');
         $collectionNote = $errorMessage !== null
-            ? 'A read error occurred building this workspace — no data is shown and no Demo fixtures were substituted.'
+            ? 'A read error occurred building this workspace — no data is shown.'
             : "GA4 binding {$reason} — no collection state available.";
 
         $unavailableChip = ['value' => '—', 'raw' => null, 'secondary' => 'Unavailable', 'tone' => 'neutral'];
@@ -317,7 +317,7 @@ final class Ga4SpecialistReadService
             'period_start' => $rangeStart,
             'period_end' => $rangeEnd,
             'compare_label' => 'vs '.$prev['label'],
-            'demo_boundary' => 'Real GA4 workspace · no usable property binding — no live Analytics Data API call performed.',
+            'demo_boundary' => 'GA4 workspace has no usable property binding. Live API calls are not made on page render.',
             'identity' => [
                 'eyebrow' => 'Google Analytics',
                 'title' => $errorMessage !== null

@@ -34,13 +34,13 @@ class GoogleAdsOperatingWorkspaceTest extends TestCase
 
     public function test_google_ads_without_asset_id_is_not_found(): void
     {
-        $this->get(route('demo.google-ads.overview'))->assertNotFound();
+        $this->get(route('operator.google-ads.overview'))->assertNotFound();
         Livewire::test(OverviewPage::class)->assertStatus(404);
     }
 
     public function test_catalog_google_ads_id_is_not_found_on_operator_routes(): void
     {
-        $this->get(route('demo.google-ads.overview', ['assetId' => DemoCatalog::GOOGLE_ADS_ASSET_ID]))->assertNotFound();
+        $this->get(route('operator.google-ads.overview', ['assetId' => DemoCatalog::GOOGLE_ADS_ASSET_ID]))->assertNotFound();
         Livewire::test(OverviewPage::class, ['assetId' => DemoCatalog::GOOGLE_ADS_ASSET_ID])->assertStatus(404);
     }
 
@@ -49,7 +49,7 @@ class GoogleAdsOperatingWorkspaceTest extends TestCase
         $asset = $this->createPortfolioAsset('google_ads', 'Northwind Google Ads', ['module_id' => 'google-ads']);
 
         foreach (['overview', 'campaigns', 'search_demand', 'ads_assets', 'landing_pages', 'measurement', 'operations'] as $tab) {
-            $this->get(route('demo.google-ads.overview', ['assetId' => $asset->id, 'tab' => $tab]))
+            $this->get(route('operator.google-ads.overview', ['assetId' => $asset->id, 'tab' => $tab]))
                 ->assertOk()
                 ->assertSee('Google Ads')
                 ->assertSee('Northwind Google Ads')

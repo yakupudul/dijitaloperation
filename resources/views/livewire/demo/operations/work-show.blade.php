@@ -3,10 +3,10 @@
 
     @if ($item === null)
         <p class="text-sm text-gray-500">{{ __('operator.work.not_found') }}</p>
-        <x-ta.button href="{{ route('demo.tasks') }}" wire:navigate>{{ __('operator.work.back') }}</x-ta.button>
+        <x-ta.button href="{{ route('operator.tasks') }}" wire:navigate>{{ __('operator.work.back') }}</x-ta.button>
     @else
         <div>
-            <a href="{{ route('demo.tasks') }}" wire:navigate class="text-sm font-medium text-gray-500 hover:text-brand-600">← {{ __('operator.work.title') }}</a>
+            <a href="{{ route('operator.tasks') }}" wire:navigate class="text-sm font-medium text-gray-500 hover:text-brand-600">← {{ __('operator.work.title') }}</a>
             <div class="mt-2 flex flex-wrap items-center gap-2">
                 <h1 class="text-2xl font-bold text-gray-800 dark:text-white/90">{{ $item['title'] ?? ($item['playbook_name'] ?? 'Work item') }}</h1>
                 <x-ta.badge color="light" size="sm">{{ __('operator.work.types.'.$type) }}</x-ta.badge>

@@ -52,7 +52,7 @@ class CustomerFoundationUxTest extends TestCase
             ->assertSee('Open findings')
             ->assertDontSee('Open issues')
             ->assertSee(__('operator.portfolio.new_customer_setup'))
-            ->assertSee(route('demo.setup', ['entry' => 'customer'], absolute: false));
+            ->assertSee(route('operator.setup', ['entry' => 'customer'], absolute: false));
     }
 
     public function test_customers_index_search_and_filters_compose(): void
@@ -138,7 +138,7 @@ class CustomerFoundationUxTest extends TestCase
 
         Livewire::test(CustomersIndex::class)
             ->assertSee(__('operator.portfolio.new_customer_setup'))
-            ->assertSee(route('demo.setup', ['entry' => 'customer'], absolute: false));
+            ->assertSee(route('operator.setup', ['entry' => 'customer'], absolute: false));
 
         Livewire::test(CustomerDetail::class, ['customerId' => (string) $customer->id])
             ->assertSee(__('operator.portfolio.account_owner_responsible'));
@@ -262,14 +262,14 @@ class CustomerFoundationUxTest extends TestCase
         $customer = Customer::factory()->create();
         $brand = Brand::factory()->create(['customer_id' => $customer->id]);
 
-        $this->get(route('demo.customers'))->assertOk();
-        $this->get(route('demo.customer.create'))->assertOk()->assertSee(__('operator.portfolio.add_customer'));
-        $this->get(route('demo.customer', ['customerId' => $customer->id]))->assertOk();
-        $this->get(route('demo.customer.edit', ['customerId' => $customer->id]))->assertOk();
-        $this->get(route('demo.brand.create', ['customerId' => $customer->id]))->assertOk();
-        $this->get(route('demo.brand.edit', ['brandId' => $brand->id]))->assertOk();
-        $this->get(route('demo.asset.create', ['brandId' => $brand->id]))->assertOk()->assertSee('Add digital asset');
-        $this->get(route('demo.customer', ['customerId' => 'c-demo-atlas']))->assertNotFound();
-        $this->get(route('demo.brand', ['brand' => 'atlas-dental']))->assertNotFound();
+        $this->get(route('operator.customers'))->assertOk();
+        $this->get(route('operator.customer.create'))->assertOk()->assertSee(__('operator.portfolio.add_customer'));
+        $this->get(route('operator.customer', ['customerId' => $customer->id]))->assertOk();
+        $this->get(route('operator.customer.edit', ['customerId' => $customer->id]))->assertOk();
+        $this->get(route('operator.brand.create', ['customerId' => $customer->id]))->assertOk();
+        $this->get(route('operator.brand.edit', ['brandId' => $brand->id]))->assertOk();
+        $this->get(route('operator.asset.create', ['brandId' => $brand->id]))->assertOk()->assertSee('Add digital asset');
+        $this->get(route('operator.customer', ['customerId' => 'c-demo-atlas']))->assertNotFound();
+        $this->get(route('operator.brand', ['brand' => 'atlas-dental']))->assertNotFound();
     }
 }

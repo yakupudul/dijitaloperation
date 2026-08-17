@@ -124,9 +124,9 @@
                         </td>
                         <td class="px-4 py-3 text-right">
                             @if (($item['type'] ?? '') === 'task')
-                                <x-ta.button :href="route('demo.task', ['taskId' => $item['id']])" size="sm" variant="outline">{{ __('operator.actions.open') }}</x-ta.button>
+                                <x-ta.button :href="route('operator.task', ['taskId' => $item['id']])" size="sm" variant="outline">{{ __('operator.actions.open') }}</x-ta.button>
                             @else
-                                <x-ta.button :href="route('demo.work.show', ['workId' => $item['id'], 'type' => $item['type']])" size="sm" variant="outline">{{ __('operator.actions.open') }}</x-ta.button>
+                                <x-ta.button :href="route('operator.work.show', ['workId' => $item['id'], 'type' => $item['type']])" size="sm" variant="outline">{{ __('operator.actions.open') }}</x-ta.button>
                             @endif
                         </td>
                     </tr>

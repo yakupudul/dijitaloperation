@@ -288,15 +288,15 @@ final class ActivityReadService
     {
         if ($subjectType !== null) {
             return match (true) {
-                str_ends_with($subjectType, '\\Finding') => 'demo.findings',
-                str_ends_with($subjectType, '\\Opportunity') => 'demo.opportunities',
-                str_ends_with($subjectType, '\\Recommendation') => 'demo.recommendations',
-                str_ends_with($subjectType, '\\Task') => 'demo.tasks',
-                str_ends_with($subjectType, '\\ClientRequest') => 'demo.work.show',
-                str_ends_with($subjectType, '\\QaReview') => 'demo.tasks',
-                str_ends_with($subjectType, '\\Approval') => 'demo.tasks',
-                str_ends_with($subjectType, '\\RecurringReviewRun') => 'demo.work.show',
-                str_ends_with($subjectType, '\\Playbook') => 'demo.settings',
+                str_ends_with($subjectType, '\\Finding') => 'operator.findings',
+                str_ends_with($subjectType, '\\Opportunity') => 'operator.opportunities',
+                str_ends_with($subjectType, '\\Recommendation') => 'operator.recommendations',
+                str_ends_with($subjectType, '\\Task') => 'operator.tasks',
+                str_ends_with($subjectType, '\\ClientRequest') => 'operator.work.show',
+                str_ends_with($subjectType, '\\QaReview') => 'operator.tasks',
+                str_ends_with($subjectType, '\\Approval') => 'operator.tasks',
+                str_ends_with($subjectType, '\\RecurringReviewRun') => 'operator.work.show',
+                str_ends_with($subjectType, '\\Playbook') => 'operator.settings',
                 default => $this->routeForEventType($event),
             };
         }
@@ -310,18 +310,18 @@ final class ActivityReadService
             $type = DomainEventType::from($event);
 
             return match ($type) {
-                DomainEventType::FindingCreated => 'demo.findings',
-                DomainEventType::OpportunityCreated => 'demo.opportunities',
-                DomainEventType::RecommendationAccepted => 'demo.recommendations',
-                DomainEventType::TaskCompleted, DomainEventType::TaskAssigned => 'demo.tasks',
-                DomainEventType::QaPassed, DomainEventType::QaFailed, DomainEventType::QaNeedsChanges => 'demo.tasks',
-                DomainEventType::ApprovalApproved, DomainEventType::ApprovalRejected, DomainEventType::ApprovalChangesRequested => 'demo.tasks',
-                DomainEventType::ClientRequestCreated, DomainEventType::RecurringReviewCompleted => 'demo.work.show',
+                DomainEventType::FindingCreated => 'operator.findings',
+                DomainEventType::OpportunityCreated => 'operator.opportunities',
+                DomainEventType::RecommendationAccepted => 'operator.recommendations',
+                DomainEventType::TaskCompleted, DomainEventType::TaskAssigned => 'operator.tasks',
+                DomainEventType::QaPassed, DomainEventType::QaFailed, DomainEventType::QaNeedsChanges => 'operator.tasks',
+                DomainEventType::ApprovalApproved, DomainEventType::ApprovalRejected, DomainEventType::ApprovalChangesRequested => 'operator.tasks',
+                DomainEventType::ClientRequestCreated, DomainEventType::RecurringReviewCompleted => 'operator.work.show',
                 DomainEventType::ScheduledInternalNotification,
-                DomainEventType::BusinessOutcomeRecheckAttention => 'demo.activity',
+                DomainEventType::BusinessOutcomeRecheckAttention => 'operator.activity',
             };
         } catch (\ValueError) {
-            return 'demo.activity';
+            return 'operator.activity';
         }
     }
 

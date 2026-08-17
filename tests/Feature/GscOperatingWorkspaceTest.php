@@ -44,7 +44,7 @@ class GscOperatingWorkspaceTest extends TestCase
 
     public function test_catalog_gsc_id_is_not_found_on_operator_routes(): void
     {
-        $this->get(route('demo.search-console', ['assetId' => DemoCatalog::GSC_ASSET_ID]))->assertNotFound();
+        $this->get(route('operator.search-console', ['assetId' => DemoCatalog::GSC_ASSET_ID]))->assertNotFound();
         Livewire::test(SearchConsolePage::class, ['assetId' => DemoCatalog::GSC_ASSET_ID])->assertStatus(404);
     }
 
@@ -53,7 +53,7 @@ class GscOperatingWorkspaceTest extends TestCase
         $asset = $this->createPortfolioAsset('gsc', 'Northwind GSC', ['module_id' => 'search-console']);
 
         foreach (['overview', 'performance', 'demand', 'pages', 'indexing', 'operations'] as $tab) {
-            $this->get(route('demo.search-console', ['assetId' => $asset->id, 'tab' => $tab]))
+            $this->get(route('operator.search-console', ['assetId' => $asset->id, 'tab' => $tab]))
                 ->assertOk()
                 ->assertSee('Northwind GSC')
                 ->assertDontSee('Atlas Dental — Search Console')

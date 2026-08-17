@@ -321,13 +321,13 @@ class GoogleIntegrationArchitectureTest extends TestCase
 
     public function test_frozen_google_page_renders_and_oauth_lands_on_app(): void
     {
-        $this->get(route('demo.integrations'))->assertOk();
-        $this->get(route('demo.integrations.google'))
+        $this->get(route('operator.integrations'))->assertOk();
+        $this->get(route('operator.integrations.google'))
             ->assertOk()
             ->assertSee('Not configured')
             ->assertDontSee('sample-access-token');
 
-        $this->assertStringContainsString('/app/integrations/google', route('demo.integrations.google', absolute: false));
+        $this->assertStringContainsString('/app/integrations/google', route('operator.integrations.google', absolute: false));
 
         $integration = app(IntegrationWorkspaceCatalog::class)->bootstrap(ProviderRegistry::GOOGLE);
         $card = app(IntegrationWorkspaceCatalog::class)->cards()->first(

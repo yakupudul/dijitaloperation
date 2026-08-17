@@ -626,7 +626,7 @@ class BrandShow extends Component
 
     public function runPublicResearch(): void
     {
-        DemoState::flash('Public discovery has not run. No candidates are generated until a real discovery run exists.', 'info');
+        DemoState::flash(__('operator.flash.discovery_not_run'), 'info');
         $this->tab = 'business';
         $this->businessSection = 'discovery';
         $this->discovery = 'overview';
@@ -829,26 +829,26 @@ class BrandShow extends Component
 
     public function runAiBrief(): void
     {
-        DemoState::flash('Brand analysis is unavailable until canonical evidence exists. No fixture analysis is shown.', 'info');
+        DemoState::flash(__('operator.flash.brand_analysis_unavailable'), 'info');
         $this->tab = 'growth';
     }
 
     public function createRecommendationFromPriority(int $index): void
     {
-        DemoState::flash('Recommendations are created from canonical Opportunities and Findings — not from fixture analysis.', 'info');
+        DemoState::flash(__('operator.flash.recommendations_from_canonical'), 'info');
     }
 
     public function createTaskFromRecommendation(string $recommendationId): void
     {
         if (! ctype_digit($recommendationId)) {
-            DemoState::flash('Only production Recommendations can create Tasks.', 'info');
+            DemoState::flash(__('operator.flash.only_production_recommendations'), 'info');
 
             return;
         }
 
         $recommendation = Recommendation::query()->find((int) $recommendationId);
         if ($recommendation === null) {
-            DemoState::flash('Recommendation not found.', 'info');
+            DemoState::flash(__('operator.flash.recommendation_not_found'), 'info');
 
             return;
         }
@@ -856,7 +856,7 @@ class BrandShow extends Component
         $actor = auth()->user();
         $service = app(CreateTaskFromRecommendation::class);
         if (! $service->userCanConvert($actor)) {
-            DemoState::flash('You are not allowed to create Tasks from Recommendations.', 'info');
+            DemoState::flash(__('operator.flash.not_allowed_create_task'), 'info');
 
             return;
         }
@@ -870,7 +870,7 @@ class BrandShow extends Component
                 'rec-task:'.$recommendation->id.':brand:'.$nonce,
             );
             $this->taskCreateNonce = (string) Str::uuid();
-            DemoState::flash('Task #'.$task->id.' created from Recommendation.');
+            DemoState::flash(__('operator.flash.task_created_from_recommendation', ['id' => $task->id]));
             $this->ops = 'tasks';
             $this->tab = 'operations';
         } catch (\Throwable $exception) {
@@ -934,7 +934,7 @@ class BrandShow extends Component
                 'why' => $finding['summary'] ?? '',
                 'when' => '',
                 'action_label' => 'Review',
-                'route' => 'demo.findings',
+                'route' => 'operator.findings',
                 'route_params' => [],
             ];
         }
@@ -949,7 +949,7 @@ class BrandShow extends Component
                     'why' => 'Blocked work stops the operational loop.',
                     'when' => 'Assigned to: '.($task['owner'] ?? '—').' · Due '.($task['due'] ?? '—'),
                     'action_label' => 'Open task',
-                    'route' => 'demo.task',
+                    'route' => 'operator.task',
                     'route_params' => ['taskId' => $task['id'] ?? ''],
                 ];
             }
@@ -962,7 +962,7 @@ class BrandShow extends Component
                     'why' => 'Due date has passed while work remains open.',
                     'when' => 'Assigned to: '.($task['owner'] ?? '—').' · Due '.$task['due'],
                     'action_label' => 'Open task',
-                    'route' => 'demo.task',
+                    'route' => 'operator.task',
                     'route_params' => ['taskId' => $task['id'] ?? ''],
                 ];
             }
@@ -992,7 +992,7 @@ class BrandShow extends Component
                 'kind' => 'Task · '.ucfirst(str_replace('_', ' ', (string) ($task['status'] ?? 'open'))),
                 'priority' => ucfirst((string) ($task['priority'] ?? 'medium')).' priority',
                 'asset' => $task['asset'] ?? '',
-                'href' => route('demo.task', ['taskId' => $task['id'] ?? '']),
+                'href' => route('operator.task', ['taskId' => $task['id'] ?? '']),
             ];
         }
 
@@ -1009,7 +1009,7 @@ class BrandShow extends Component
                 'kind' => 'Recommendation',
                 'priority' => 'Needs decision',
                 'asset' => $rec['asset'] ?? '',
-                'href' => route('demo.recommendations'),
+                'href' => route('operator.recommendations'),
             ];
         }
 

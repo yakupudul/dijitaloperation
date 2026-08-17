@@ -10,6 +10,7 @@ use App\Livewire\Demo\Operations\FindingsIndex;
 use App\Livewire\Demo\Operations\RecommendationsIndex;
 use App\Livewire\Demo\Portfolio\BrandShow;
 use App\Livewire\Demo\SettingsPage;
+use App\Models\AgencySetting;
 use App\Models\Brand;
 use App\Models\DigitalAsset;
 use App\Models\Finding;
@@ -183,12 +184,13 @@ class ProductVisionRecoveryTest extends TestCase
             ->assertSee('gsc.ai_guidance')
             ->assertSee('GBP Local Presence Analyst');
 
-        $this->assertSame('Moximu Agency Demo', DemoState::settingsOverrides()['general']['agency_name'] ?? null);
+        $this->assertSame('Moximu Agency Demo', AgencySetting::query()->first()?->agency_name);
+        $this->assertSame([], DemoState::settingsOverrides());
     }
 
     public function test_app_shell_surfaces_remain_reachable(): void
     {
-        Livewire::test(Dashboard::class)->assertOk()->assertSee('Needs your attention')->assertSee('My Work');
+        Livewire::test(Dashboard::class)->assertOk()->assertSee(__('operator.dashboard_exec.needs_attention'))->assertSee('My Work');
 
         $this->get('/app/assets')->assertOk();
         $this->get('/app/assets/analytics')->assertNotFound();

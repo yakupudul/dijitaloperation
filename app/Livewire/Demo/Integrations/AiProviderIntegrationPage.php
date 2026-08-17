@@ -69,7 +69,7 @@ class AiProviderIntegrationPage extends Component
 
         $this->apiKey = '';
         $this->clearApiKey = false;
-        DemoState::flash(AiProviderCatalog::label($this->provider).' API key saved.', 'info');
+        DemoState::flash(__('operator.flash.provider_key_saved', ['provider' => AiProviderCatalog::label($this->provider)]), 'info');
     }
 
     public function testConfiguration(): void
@@ -78,7 +78,7 @@ class AiProviderIntegrationPage extends Component
         $integration = $this->integration();
 
         if ($integration === null || ! $this->resolver()->isConfigured($integration)) {
-            DemoState::flash('Configure the '.AiProviderCatalog::label($this->provider).' API key first.', 'info');
+            DemoState::flash(__('operator.flash.configure_provider_key', ['provider' => AiProviderCatalog::label($this->provider)]), 'info');
 
             return;
         }
@@ -105,14 +105,14 @@ class AiProviderIntegrationPage extends Component
         $integration = $this->integration();
 
         if ($integration === null) {
-            DemoState::flash('No '.AiProviderCatalog::label($this->provider).' API key is stored.', 'info');
+            DemoState::flash(__('operator.flash.no_provider_key', ['provider' => AiProviderCatalog::label($this->provider)]), 'info');
 
             return;
         }
 
         $this->credentialService()->remove($integration, $user);
         $this->apiKey = '';
-        DemoState::flash(AiProviderCatalog::label($this->provider).' API key removed.', 'info');
+        DemoState::flash(__('operator.flash.provider_key_removed', ['provider' => AiProviderCatalog::label($this->provider)]), 'info');
     }
 
     public function render(): View

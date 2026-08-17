@@ -44,7 +44,7 @@ class CanonicalAppUrlIntegrityTest extends TestCase
         }
 
         $this->assertTrue(collect(DemoMenu::groups())->pluck('items')->flatten(1)->contains(
-            fn (array $item): bool => ($item['route'] ?? '') === 'demo.files'
+            fn (array $item): bool => ($item['route'] ?? '') === 'operator.files'
         ));
     }
 

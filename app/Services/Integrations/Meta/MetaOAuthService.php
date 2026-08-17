@@ -66,7 +66,7 @@ class MetaOAuthService
     public function beginAuthorization(
         CoreIntegration $integration,
         User $user,
-        string $returnRoute = 'demo.integrations.meta',
+        string $returnRoute = 'operator.integrations.meta',
         ?string $capabilityContext = null,
     ): array {
         $this->assertAdmin($user);
@@ -83,9 +83,9 @@ class MetaOAuthService
             return ['error' => 'Configure Meta application first.'];
         }
 
-        $allowedReturns = ['demo.integrations.meta', 'demo.integrations'];
+        $allowedReturns = ['operator.integrations.meta', 'operator.integrations'];
         if (! in_array($returnRoute, $allowedReturns, true)) {
-            $returnRoute = 'demo.integrations.meta';
+            $returnRoute = 'operator.integrations.meta';
         }
 
         $permissions = MetaPermissionRegistry::requiredForMetaAds();
@@ -144,7 +144,7 @@ class MetaOAuthService
 
         $returnRoute = is_string($attempt?->return_route) && $attempt->return_route !== ''
             ? $attempt->return_route
-            : 'demo.integrations.meta';
+            : 'operator.integrations.meta';
 
         if (filled($oauthError)) {
             if ($attempt instanceof MetaOAuthAuthorizationAttempt && $attempt->isPending()) {
@@ -161,7 +161,7 @@ class MetaOAuthService
             // Never destroy an existing valid credential on denial.
             return [
                 'error' => $this->safeOAuthQueryError((string) $oauthError),
-                'return_route' => $oauthError === 'access_denied' ? 'demo.integrations' : $returnRoute,
+                'return_route' => $oauthError === 'access_denied' ? 'operator.integrations' : $returnRoute,
             ];
         }
 
@@ -462,21 +462,21 @@ class MetaOAuthService
         if (! $attempt instanceof MetaOAuthAuthorizationAttempt) {
             return [
                 'error' => 'Invalid or expired OAuth state. Click Authorize Meta again to start a fresh flow.',
-                'return_route' => 'demo.integrations.meta',
+                'return_route' => 'operator.integrations.meta',
             ];
         }
 
         if (! $attempt->isPending()) {
             return [
                 'error' => 'Invalid or expired OAuth state. Click Authorize Meta again to start a fresh flow.',
-                'return_route' => $attempt->return_route ?: 'demo.integrations.meta',
+                'return_route' => $attempt->return_route ?: 'operator.integrations.meta',
             ];
         }
 
         if ((int) $attempt->requested_by_user_id !== (int) $user->id) {
             return [
                 'error' => 'OAuth state does not belong to the current operator.',
-                'return_route' => 'demo.integrations.meta',
+                'return_route' => 'operator.integrations.meta',
             ];
         }
 
@@ -495,7 +495,7 @@ class MetaOAuthService
         if ($consumed !== 1) {
             return [
                 'error' => 'Invalid or expired OAuth state. Click Authorize Meta again to start a fresh flow.',
-                'return_route' => $attempt->return_route ?: 'demo.integrations.meta',
+                'return_route' => $attempt->return_route ?: 'operator.integrations.meta',
             ];
         }
 
@@ -503,7 +503,7 @@ class MetaOAuthService
         if (! $integration instanceof CoreIntegration) {
             return [
                 'error' => 'Meta Integration record was not found.',
-                'return_route' => 'demo.integrations.meta',
+                'return_route' => 'operator.integrations.meta',
             ];
         }
 
@@ -512,7 +512,7 @@ class MetaOAuthService
         return [
             'integration' => $integration,
             'requested_permissions' => MetaPermissionRegistry::normalize($attempt->requested_permissions),
-            'return_route' => $attempt->return_route ?: 'demo.integrations.meta',
+            'return_route' => $attempt->return_route ?: 'operator.integrations.meta',
         ];
     }
 

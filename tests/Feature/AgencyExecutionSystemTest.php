@@ -145,7 +145,7 @@ class AgencyExecutionSystemTest extends TestCase
 
     public function test_playbooks_settings_catalog_and_detail(): void
     {
-        $url = route('demo.settings', ['section' => 'operations', 'ops_sub' => 'playbooks']);
+        $url = route('operator.settings', ['section' => 'operations', 'ops_sub' => 'playbooks']);
         $this->assertStringContainsString('/app', $url);
 
         Livewire::test(SettingsPage::class, ['section' => 'operations', 'ops_sub' => 'playbooks'])
@@ -285,7 +285,7 @@ class AgencyExecutionSystemTest extends TestCase
 
     public function test_global_capture_visible_in_layout(): void
     {
-        $this->get(route('demo.dashboard'))
+        $this->get(route('operator.dashboard'))
             ->assertOk()
             ->assertSee(__('operator.capture.open'));
 
@@ -335,12 +335,12 @@ class AgencyExecutionSystemTest extends TestCase
 
     public function test_routes_under_app_not_system(): void
     {
-        $this->assertStringContainsString('/app', route('demo.tasks'));
-        $this->assertStringContainsString('/app', route('demo.work.show', ['workId' => 'req-1', 'type' => 'client_request']));
-        $this->assertStringContainsString('/app', route('demo.settings.playbook', ['playbookId' => 'pb-weekly-gads']));
-        $this->assertStringContainsString('/app', route('demo.customer', ['customerId' => DemoCatalog::CUSTOMER_ID]));
+        $this->assertStringContainsString('/app', route('operator.tasks'));
+        $this->assertStringContainsString('/app', route('operator.work.show', ['workId' => 'req-1', 'type' => 'client_request']));
+        $this->assertStringContainsString('/app', route('operator.settings.playbook', ['playbookId' => 'pb-weekly-gads']));
+        $this->assertStringContainsString('/app', route('operator.customer', ['customerId' => DemoCatalog::CUSTOMER_ID]));
 
-        $this->assertStringNotContainsString('/system', route('demo.tasks'));
+        $this->assertStringNotContainsString('/system', route('operator.tasks'));
     }
 
     public function test_instagram_outside_scope_request_still_present(): void
@@ -369,7 +369,7 @@ class AgencyExecutionSystemTest extends TestCase
         // when no canonical Opportunities exist.
         $this->assertNotEmpty(OpportunityFixtures::all());
 
-        $this->get(route('demo.opportunities'))
+        $this->get(route('operator.opportunities'))
             ->assertOk()
             ->assertSee(__('operator.nav.opportunities'))
             ->assertDontSee('High paid implant demand but weak organic coverage');

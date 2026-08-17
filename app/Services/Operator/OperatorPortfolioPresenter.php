@@ -238,14 +238,14 @@ final class OperatorPortfolioPresenter
     public static function specialistRoute(string $type): string
     {
         return match ($type) {
-            'website' => 'demo.website',
-            'meta_ads' => 'demo.meta.overview',
-            'google_ads' => 'demo.google-ads.overview',
-            'google_business_profile', 'gbp' => 'demo.gbp',
-            'ga4', 'analytics', 'google_analytics' => 'demo.analytics',
-            'gsc', 'search_console' => 'demo.search-console',
-            'instagram' => 'demo.instagram',
-            default => 'demo.assets',
+            'website' => 'operator.website',
+            'meta_ads' => 'operator.meta.overview',
+            'google_ads' => 'operator.google-ads.overview',
+            'google_business_profile', 'gbp' => 'operator.gbp',
+            'ga4', 'analytics', 'google_analytics' => 'operator.analytics',
+            'gsc', 'search_console' => 'operator.search-console',
+            'instagram' => 'operator.instagram',
+            default => 'operator.assets',
         };
     }
 

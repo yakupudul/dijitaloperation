@@ -22,7 +22,7 @@
                     <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ $identity['title'] }}</h1>
                 </div>
                 @if (filled($identity['brand_id'] ?? null))
-                <a href="{{ route('demo.brand', ['brand' => $identity['brand_id']]) }}" wire:navigate class="mt-1 inline-block text-sm font-medium text-brand-600 hover:underline dark:text-brand-400">{{ $identity['brand_name'] }}</a>
+                <a href="{{ route('operator.brand', ['brand' => $identity['brand_id']]) }}" wire:navigate class="mt-1 inline-block text-sm font-medium text-brand-600 hover:underline dark:text-brand-400">{{ $identity['brand_name'] }}</a>
                 @else
                 <p class="mt-1 text-sm font-medium text-gray-500">{{ $identity['brand_name'] ?? '—' }}</p>
                 @endif

@@ -105,7 +105,7 @@ class MetaAuthorizationDiscoveryTest extends TestCase
             'requested_by_user_id' => $this->admin->id,
             'state_hash' => MetaOAuthAuthorizationAttempt::hashState('replay-state'),
             'requested_permissions' => MetaPermissionRegistry::requiredForMetaAds(),
-            'return_route' => 'demo.integrations.meta',
+            'return_route' => 'operator.integrations.meta',
             'status' => MetaOAuthAuthorizationAttempt::STATUS_CONSUMED,
             'expires_at' => now()->addMinutes(10),
             'consumed_at' => now(),
@@ -412,8 +412,8 @@ class MetaAuthorizationDiscoveryTest extends TestCase
 
         Http::fake();
         // Authorized integration already exists — Connect Meta may be Reauthorize.
-        $this->get(route('demo.integrations'))->assertOk();
-        $this->get(route('demo.integrations.meta'))
+        $this->get(route('operator.integrations'))->assertOk();
+        $this->get(route('operator.integrations.meta'))
             ->assertOk()
             ->assertSee('Meta')
             ->assertDontSee('EAAG-authorized');

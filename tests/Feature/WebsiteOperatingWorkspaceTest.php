@@ -34,13 +34,13 @@ class WebsiteOperatingWorkspaceTest extends TestCase
 
     public function test_website_without_asset_id_is_not_found(): void
     {
-        $this->get(route('demo.website'))->assertNotFound();
+        $this->get(route('operator.website'))->assertNotFound();
         Livewire::test(OverviewPage::class)->assertStatus(404);
     }
 
     public function test_catalog_website_id_is_not_found_on_operator_routes(): void
     {
-        $this->get(route('demo.website', ['assetId' => DemoCatalog::WEBSITE_ASSET_ID]))->assertNotFound();
+        $this->get(route('operator.website', ['assetId' => DemoCatalog::WEBSITE_ASSET_ID]))->assertNotFound();
         Livewire::test(OverviewPage::class, ['assetId' => DemoCatalog::WEBSITE_ASSET_ID])->assertStatus(404);
     }
 
@@ -49,7 +49,7 @@ class WebsiteOperatingWorkspaceTest extends TestCase
         $asset = $this->createPortfolioAsset('website', 'Northwind Website');
 
         foreach (['overview', 'health', 'visibility', 'content', 'performance', 'infrastructure', 'operations', 'setup'] as $tab) {
-            $this->get(route('demo.website', ['assetId' => $asset->id, 'tab' => $tab]))
+            $this->get(route('operator.website', ['assetId' => $asset->id, 'tab' => $tab]))
                 ->assertOk()
                 ->assertSee('Northwind Website')
                 ->assertDontSee('Atlas Dental Website')
@@ -57,7 +57,7 @@ class WebsiteOperatingWorkspaceTest extends TestCase
         }
 
         foreach (['connections', 'settings', 'activity'] as $legacy) {
-            $this->get(route('demo.website', ['assetId' => $asset->id, 'tab' => $legacy]))
+            $this->get(route('operator.website', ['assetId' => $asset->id, 'tab' => $legacy]))
                 ->assertOk()
                 ->assertSee('Northwind Website');
         }

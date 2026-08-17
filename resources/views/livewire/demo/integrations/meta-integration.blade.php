@@ -26,7 +26,7 @@
             </div>
         </div>
         <div class="flex flex-wrap gap-2">
-            <x-ta.button href="{{ route('demo.integrations') }}" size="sm" variant="outline">All Integrations</x-ta.button>
+            <x-ta.button href="{{ route('operator.integrations') }}" size="sm" variant="outline">All Integrations</x-ta.button>
             @if (! ($integration['actions']['authorize'] ?? false) && ! ($integration['actions']['reauthorize'] ?? false))
                 <x-ta.button wire:click="setTab('configuration')" size="sm">Configure</x-ta.button>
             @endif
@@ -56,7 +56,7 @@
             @if ($integration['actions']['disconnect'] ?? false)
                 <x-ta.button wire:click="askDisconnect" size="sm" variant="outline">Disconnect</x-ta.button>
             @endif
-            <a href="{{ route('demo.integrations.connector', ['connector' => 'meta-ads']) }}" wire:navigate class="inline-flex rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-white">Meta Ads Connector</a>
+            <a href="{{ route('operator.integrations.connector', ['connector' => 'meta-ads']) }}" wire:navigate class="inline-flex rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-white">Meta Ads Connector</a>
         </div>
     </div>
 
@@ -262,7 +262,7 @@
         <p class="text-sm text-gray-500 dark:text-gray-400">One Meta Integration authorization. The Meta Ads Connector owns advertising capability — not credentials, Businesses, or Ad Accounts themselves.</p>
         <div class="grid gap-4 md:grid-cols-2">
             @foreach ($integration['connectors'] as $connector)
-                <a href="{{ route('demo.integrations.connector', ['connector' => $connector['ui_slug']]) }}" wire:navigate class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 transition hover:bg-gray-50 dark:bg-gray-900 dark:ring-gray-800 dark:hover:bg-white/[0.03]">
+                <a href="{{ route('operator.integrations.connector', ['connector' => $connector['ui_slug']]) }}" wire:navigate class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 transition hover:bg-gray-50 dark:bg-gray-900 dark:ring-gray-800 dark:hover:bg-white/[0.03]">
                     <div class="flex items-center gap-2">
                         <x-demo.digital-asset-mark type="meta_ads" size="sm" />
                         <h3 class="font-semibold text-gray-800 dark:text-white/90">{{ $connector['label'] }}</h3>

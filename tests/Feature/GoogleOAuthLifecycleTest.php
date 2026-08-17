@@ -301,7 +301,7 @@ class GoogleOAuthLifecycleTest extends TestCase
             'code' => 'auth-code',
             'state' => $query['state'],
         ]));
-        $response->assertRedirect(route('demo.integrations.google'));
+        $response->assertRedirect(route('operator.integrations.google'));
         $target = $response->headers->get('Location');
         $this->assertStringNotContainsString('auth-code', (string) $target);
         $this->assertStringNotContainsString((string) $query['state'], (string) $target);

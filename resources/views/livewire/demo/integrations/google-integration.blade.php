@@ -25,7 +25,7 @@
             </div>
         </div>
         <div class="flex flex-wrap gap-2">
-            <x-ta.button href="{{ route('demo.integrations') }}" size="sm" variant="outline">All Integrations</x-ta.button>
+            <x-ta.button href="{{ route('operator.integrations') }}" size="sm" variant="outline">All Integrations</x-ta.button>
             @if (! ($integration['actions']['authorize'] ?? false))
                 <x-ta.button wire:click="setTab('configuration')" size="sm">Configure</x-ta.button>
             @endif
@@ -139,7 +139,7 @@
 
         <div class="grid gap-4 md:grid-cols-2">
             @foreach ($integration['resource_groups'] as $group)
-                <a href="{{ route('demo.integrations.connector', ['connector' => $group['connector']]) }}" wire:navigate class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 transition hover:bg-gray-50 dark:bg-gray-900 dark:ring-gray-800 dark:hover:bg-white/[0.03]">
+                <a href="{{ route('operator.integrations.connector', ['connector' => $group['connector']]) }}" wire:navigate class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 transition hover:bg-gray-50 dark:bg-gray-900 dark:ring-gray-800 dark:hover:bg-white/[0.03]">
                     <div class="flex items-center gap-2">
                         <x-demo.digital-asset-mark :type="$group['type']" size="sm" />
                         <h3 class="font-semibold text-gray-800 dark:text-white/90">{{ $group['label'] }}</h3>
@@ -161,7 +161,7 @@
         <p class="text-sm text-gray-500 dark:text-gray-400">One Google Integration authorization. Product-specific Connectors manage discovery, binding, data freshness and sync — not specialist analytics.</p>
         <div class="grid gap-4 md:grid-cols-2">
             @foreach ($integration['connectors'] as $connector)
-                <a href="{{ route('demo.integrations.connector', ['connector' => $connector['ui_slug']]) }}" wire:navigate class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 transition hover:bg-gray-50 dark:bg-gray-900 dark:ring-gray-800 dark:hover:bg-white/[0.03]">
+                <a href="{{ route('operator.integrations.connector', ['connector' => $connector['ui_slug']]) }}" wire:navigate class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 transition hover:bg-gray-50 dark:bg-gray-900 dark:ring-gray-800 dark:hover:bg-white/[0.03]">
                     <div class="flex items-center gap-2">
                         <x-demo.digital-asset-mark :type="$connector['ui_slug'] === 'google-ads' ? 'google_ads' : $connector['ui_slug']" size="md" />
                         <div>

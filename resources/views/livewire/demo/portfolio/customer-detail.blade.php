@@ -3,7 +3,7 @@
 
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
-            <a href="{{ route('demo.customers') }}" wire:navigate class="text-sm font-medium text-gray-500 hover:text-brand-600 dark:text-gray-400">← Customers</a>
+            <a href="{{ route('operator.customers') }}" wire:navigate class="text-sm font-medium text-gray-500 hover:text-brand-600 dark:text-gray-400">← Customers</a>
             <div class="mt-2 flex flex-wrap items-center gap-2">
                 <h1 class="text-2xl font-bold text-gray-800 dark:text-white/90">{{ $customer['name'] }}</h1>
                 <x-ta.badge color="light" size="sm">{{ $typeLabel }}</x-ta.badge>
@@ -14,12 +14,12 @@
             <p class="mt-1 text-sm text-gray-500">{{ $industryLabel }} · {{ $hqDisplay }}</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-            <a href="{{ route('demo.files', ['scope' => 'customer', 'customer' => $customer['id']]) }}" wire:navigate class="inline-flex rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">{{ __('operator.customer.actions.open_files') }}</a>
-            <a href="{{ route('demo.activity', ['customer' => $customer['id']]) }}" wire:navigate class="inline-flex rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">{{ __('operator.customer.actions.view_activity') }}</a>
-            <a href="{{ route('demo.tasks') }}" wire:navigate class="inline-flex rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">{{ __('operator.customer.actions.open_work') }}</a>
+            <a href="{{ route('operator.files', ['scope' => 'customer', 'customer' => $customer['id']]) }}" wire:navigate class="inline-flex rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">{{ __('operator.customer.actions.open_files') }}</a>
+            <a href="{{ route('operator.activity', ['customer' => $customer['id']]) }}" wire:navigate class="inline-flex rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">{{ __('operator.customer.actions.view_activity') }}</a>
+            <a href="{{ route('operator.tasks') }}" wire:navigate class="inline-flex rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">{{ __('operator.customer.actions.open_work') }}</a>
             <button type="button" wire:click="openContactForm" class="inline-flex rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">{{ __('operator.customer.actions.add_contact') }}</button>
-            <a href="{{ route('demo.customer.edit', ['customerId' => $customer['id']]) }}" wire:navigate class="inline-flex rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">{{ __('operator.customer.actions.edit') }}</a>
-            <a href="{{ route('demo.brand.create', ['customerId' => $customer['id']]) }}" wire:navigate class="inline-flex rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-white hover:bg-brand-600">{{ __('operator.customer.actions.add_brand') }}</a>
+            <a href="{{ route('operator.customer.edit', ['customerId' => $customer['id']]) }}" wire:navigate class="inline-flex rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">{{ __('operator.customer.actions.edit') }}</a>
+            <a href="{{ route('operator.brand.create', ['customerId' => $customer['id']]) }}" wire:navigate class="inline-flex rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-white hover:bg-brand-600">{{ __('operator.customer.actions.add_brand') }}</a>
             <div class="relative">
                 <button type="button" @click="archiveOpen = !archiveOpen" class="inline-flex rounded-lg px-2 py-2 text-sm text-gray-500 ring-1 ring-inset ring-gray-300 dark:ring-gray-700" aria-label="More actions">⋯</button>
                 <div x-show="archiveOpen" @click.outside="archiveOpen = false" x-cloak class="absolute right-0 z-20 mt-1 w-44 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-900">
@@ -34,19 +34,19 @@
     </div>
 
     <div class="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <a href="{{ route('demo.customer', ['customerId' => $customer['id'], 'tab' => 'brands']) }}" wire:navigate class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 hover:ring-brand-300 dark:bg-gray-800 dark:ring-gray-700">
+        <a href="{{ route('operator.customer', ['customerId' => $customer['id'], 'tab' => 'brands']) }}" wire:navigate class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 hover:ring-brand-300 dark:bg-gray-800 dark:ring-gray-700">
             <p class="text-xs font-medium uppercase text-gray-400">Brands</p>
             <p class="mt-1 text-2xl font-semibold text-gray-800 dark:text-white/90">{{ count($brands) }}</p>
         </a>
-        <a href="{{ route('demo.assets') }}" wire:navigate class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 hover:ring-brand-300 dark:bg-gray-800 dark:ring-gray-700">
+        <a href="{{ route('operator.assets') }}" wire:navigate class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 hover:ring-brand-300 dark:bg-gray-800 dark:ring-gray-700">
             <p class="text-xs font-medium uppercase text-gray-400">Digital assets</p>
             <p class="mt-1 text-2xl font-semibold text-gray-800 dark:text-white/90">{{ $digitalAssetsCount }}</p>
         </a>
-        <a href="{{ route('demo.findings') }}" wire:navigate class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 hover:ring-brand-300 dark:bg-gray-800 dark:ring-gray-700">
+        <a href="{{ route('operator.findings') }}" wire:navigate class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 hover:ring-brand-300 dark:bg-gray-800 dark:ring-gray-700">
             <p class="text-xs font-medium uppercase text-gray-400">Open findings</p>
             <p class="mt-1 text-2xl font-semibold text-gray-800 dark:text-white/90">{{ $openFindingsCount }}</p>
         </a>
-        <a href="{{ route('demo.tasks') }}" wire:navigate class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 hover:ring-brand-300 dark:bg-gray-800 dark:ring-gray-700">
+        <a href="{{ route('operator.tasks') }}" wire:navigate class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 hover:ring-brand-300 dark:bg-gray-800 dark:ring-gray-700">
             <p class="text-xs font-medium uppercase text-gray-400">Open tasks</p>
             <p class="mt-1 text-2xl font-semibold text-gray-800 dark:text-white/90">{{ $openTasksCount }}</p>
         </a>
@@ -135,7 +135,7 @@
         <x-ta.card>
             <div class="flex items-center justify-between gap-2">
                 <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Needs attention</h2>
-                <a href="{{ route('demo.tasks') }}" wire:navigate class="text-sm font-medium text-brand-600 hover:underline">{{ __('operator.customer.actions.open_work') }}</a>
+                <a href="{{ route('operator.tasks') }}" wire:navigate class="text-sm font-medium text-brand-600 hover:underline">{{ __('operator.customer.actions.open_work') }}</a>
             </div>
             @php
                 $attentionItems = collect($overdueTasks)->map(fn ($t) => ['tone' => 'amber', 'title' => $t['title'] ?? 'Task', 'meta' => 'Overdue / high-priority task'])->take(2)
@@ -163,7 +163,7 @@
                 <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Brands</h2>
                 <div class="flex gap-2">
                     <button type="button" wire:click="setTab('brands')" class="text-sm font-medium text-brand-600 hover:underline">View all brands</button>
-                    <a href="{{ route('demo.brand.create', ['customerId' => $customer['id']]) }}" wire:navigate class="text-sm font-medium text-brand-600 hover:underline">Add brand</a>
+                    <a href="{{ route('operator.brand.create', ['customerId' => $customer['id']]) }}" wire:navigate class="text-sm font-medium text-brand-600 hover:underline">Add brand</a>
                 </div>
             </div>
             <div class="overflow-x-auto">
@@ -189,7 +189,7 @@
                                 <td class="py-3 pr-3 text-gray-700 dark:text-gray-300">{{ $brand['open_findings'] ?? 0 }}</td>
                                 <td class="py-3 pr-3 text-gray-700 dark:text-gray-300">{{ $brand['open_tasks'] ?? 0 }}</td>
                                 <td class="py-3 text-right">
-                                    <a href="{{ route('demo.brand', ['brand' => $brand['id']]) }}" wire:navigate class="text-sm font-medium text-brand-600 hover:underline">Open</a>
+                                    <a href="{{ route('operator.brand', ['brand' => $brand['id']]) }}" wire:navigate class="text-sm font-medium text-brand-600 hover:underline">Open</a>
                                 </td>
                             </tr>
                         @endforeach
@@ -201,7 +201,7 @@
         <x-ta.card>
             <div class="mb-3 flex items-center justify-between">
                 <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Recent activity</h2>
-                <a href="{{ route('demo.activity', ['customer' => $customer['id']]) }}" wire:navigate class="text-sm font-medium text-brand-600 hover:underline">{{ __('operator.customer.actions.view_activity') }}</a>
+                <a href="{{ route('operator.activity', ['customer' => $customer['id']]) }}" wire:navigate class="text-sm font-medium text-brand-600 hover:underline">{{ __('operator.customer.actions.view_activity') }}</a>
             </div>
             <ul class="divide-y divide-gray-100 dark:divide-gray-800">
                 @forelse (array_slice($activity, 0, 6) as $item)
@@ -223,7 +223,7 @@
                     <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Brands</h2>
                     <p class="text-sm text-gray-500">Brands managed under this customer.</p>
                 </div>
-                <a href="{{ route('demo.brand.create', ['customerId' => $customer['id']]) }}" wire:navigate class="inline-flex rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-white hover:bg-brand-600">Add brand</a>
+                <a href="{{ route('operator.brand.create', ['customerId' => $customer['id']]) }}" wire:navigate class="inline-flex rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-white hover:bg-brand-600">Add brand</a>
             </div>
             <div class="overflow-x-auto">
                 <table class="min-w-full text-sm">
@@ -251,7 +251,7 @@
                                 <td class="py-3 pr-3">{{ $brand['assets_count'] ?? 0 }}</td>
                                 <td class="py-3 pr-3">{{ $brand['open_findings'] ?? 0 }}</td>
                                 <td class="py-3 pr-3">{{ $brand['open_tasks'] ?? 0 }}</td>
-                                <td class="py-3 text-right"><a href="{{ route('demo.brand', ['brand' => $brand['id']]) }}" wire:navigate class="font-medium text-brand-600 hover:underline">Open</a></td>
+                                <td class="py-3 text-right"><a href="{{ route('operator.brand', ['brand' => $brand['id']]) }}" wire:navigate class="font-medium text-brand-600 hover:underline">Open</a></td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -408,7 +408,7 @@
                     <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">{{ __('operator.nav.files') }}</h2>
                     <p class="mt-1 text-sm text-gray-500">Customer-scoped documents from the global File Library.</p>
                 </div>
-                <x-ta.button :href="route('demo.files', ['scope' => 'customer'])" size="sm">{{ __('operator.files.upload_cta') }}</x-ta.button>
+                <x-ta.button :href="route('operator.files', ['scope' => 'customer'])" size="sm">{{ __('operator.files.upload_cta') }}</x-ta.button>
             </div>
             <p class="mt-4 text-sm text-gray-500">{{ __('operator.files.empty') }}</p>
             <p class="mt-2 text-xs text-gray-400">Files are stored privately and downloaded through authenticated routes — not public URLs.</p>
@@ -451,7 +451,7 @@
                                         <button type="button" wire:click="triageRequest('{{ $request['id'] }}')" class="rounded px-2 py-1 text-xs ring-1 ring-gray-300 dark:ring-gray-700">{{ __('operator.requests.actions.triage') }}</button>
                                         <button type="button" wire:click="planRequest('{{ $request['id'] }}')" class="rounded px-2 py-1 text-xs ring-1 ring-gray-300 dark:ring-gray-700">{{ __('operator.requests.actions.plan') }}</button>
                                         <button type="button" wire:click="createTaskFromRequest('{{ $request['id'] }}')" class="rounded bg-brand-500 px-2 py-1 text-xs text-white">{{ __('operator.requests.actions.create_task') }}</button>
-                                        <a href="{{ route('demo.work.show', ['workId' => $request['id'], 'type' => 'client_request']) }}" wire:navigate class="rounded px-2 py-1 text-xs text-brand-600 hover:underline">{{ __('operator.actions.open') }}</a>
+                                        <a href="{{ route('operator.work.show', ['workId' => $request['id'], 'type' => 'client_request']) }}" wire:navigate class="rounded px-2 py-1 text-xs text-brand-600 hover:underline">{{ __('operator.actions.open') }}</a>
                                     </div>
                                 </td>
                             </tr>
@@ -517,7 +517,7 @@
             <x-ta.card>
                 <div class="mb-3 flex items-center justify-between">
                     <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Findings</h2>
-                    <a href="{{ route('demo.findings') }}" wire:navigate class="text-sm text-brand-600 hover:underline">View all findings</a>
+                    <a href="{{ route('operator.findings') }}" wire:navigate class="text-sm text-brand-600 hover:underline">View all findings</a>
                 </div>
                 <ul class="space-y-2 text-sm">
                     @forelse (array_slice($findings, 0, 5) as $finding)
@@ -533,7 +533,7 @@
             <x-ta.card>
                 <div class="mb-3 flex items-center justify-between">
                     <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Recommendations</h2>
-                    <a href="{{ route('demo.recommendations') }}" wire:navigate class="text-sm text-brand-600 hover:underline">View all</a>
+                    <a href="{{ route('operator.recommendations') }}" wire:navigate class="text-sm text-brand-600 hover:underline">View all</a>
                 </div>
                 <ul class="space-y-2 text-sm">
                     @forelse (array_slice($recommendations, 0, 5) as $rec)
@@ -549,7 +549,7 @@
             <x-ta.card>
                 <div class="mb-3 flex items-center justify-between">
                     <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Tasks</h2>
-                    <a href="{{ route('demo.tasks') }}" wire:navigate class="text-sm text-brand-600 hover:underline">View all tasks</a>
+                    <a href="{{ route('operator.tasks') }}" wire:navigate class="text-sm text-brand-600 hover:underline">View all tasks</a>
                 </div>
                 <ul class="space-y-2 text-sm">
                     @forelse (array_slice($openTasks, 0, 5) as $task)

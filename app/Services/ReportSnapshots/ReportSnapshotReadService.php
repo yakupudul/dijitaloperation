@@ -326,7 +326,7 @@ final class ReportSnapshotReadService
                 'generated_at' => $snapshot->generated_at?->toIso8601String(),
                 'generated_by' => (int) $snapshot->generated_by,
                 'locale' => (string) $snapshot->locale,
-                'view_url' => route('demo.brand', [
+                'view_url' => route('operator.brand', [
                     'brand' => (string) $snapshot->brand_id,
                     'tab' => 'value',
                     'value' => 'reports',
@@ -345,12 +345,12 @@ final class ReportSnapshotReadService
             return [
                 'brand_id' => (int) $brand->id,
                 'brand_name' => (string) $brand->name,
-                'report_url' => route('demo.brand', [
+                'report_url' => route('operator.brand', [
                     'brand' => (string) $brand->id,
                     'tab' => 'value',
                     'value' => 'reports',
                 ]),
-                'value_url' => route('demo.brand', [
+                'value_url' => route('operator.brand', [
                     'brand' => (string) $brand->id,
                     'tab' => 'value',
                 ]),

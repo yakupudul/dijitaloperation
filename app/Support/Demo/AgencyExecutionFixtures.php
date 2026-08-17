@@ -68,8 +68,8 @@ final class AgencyExecutionFixtures
                     'note' => null,
                 ],
                 'references' => [
-                    ['label' => 'Atlas Google Ads workspace', 'route' => 'demo.google-ads.overview'],
-                    ['label' => 'Lead measurement finding', 'route' => 'demo.findings'],
+                    ['label' => 'Atlas Google Ads workspace', 'route' => 'operator.google-ads.overview'],
+                    ['label' => 'Lead measurement finding', 'route' => 'operator.findings'],
                 ],
                 'possible_outputs' => ['no_issue', 'finding', 'opportunity', 'task'],
                 'active' => true,
@@ -112,8 +112,8 @@ final class AgencyExecutionFixtures
                 ],
                 'related_ai_skill' => null,
                 'references' => [
-                    ['label' => 'Search Console workspace', 'route' => 'demo.search-console'],
-                    ['label' => 'Website workspace', 'route' => 'demo.website'],
+                    ['label' => 'Search Console workspace', 'route' => 'operator.search-console'],
+                    ['label' => 'Website workspace', 'route' => 'operator.website'],
                 ],
                 'possible_outputs' => ['no_issue', 'finding', 'opportunity', 'task'],
                 'active' => true,
@@ -156,7 +156,7 @@ final class AgencyExecutionFixtures
                 ],
                 'related_ai_skill' => null,
                 'references' => [
-                    ['label' => 'Meta Ads workspace', 'route' => 'demo.meta.overview'],
+                    ['label' => 'Meta Ads workspace', 'route' => 'operator.meta.overview'],
                 ],
                 'possible_outputs' => ['no_issue', 'finding', 'opportunity', 'task'],
                 'active' => true,
@@ -201,7 +201,7 @@ final class AgencyExecutionFixtures
                 ],
                 'related_ai_skill' => null,
                 'references' => [
-                    ['label' => 'Website workspace', 'route' => 'demo.website'],
+                    ['label' => 'Website workspace', 'route' => 'operator.website'],
                 ],
                 'possible_outputs' => ['no_issue', 'finding', 'opportunity', 'task'],
                 'active' => true,
@@ -490,7 +490,7 @@ final class AgencyExecutionFixtures
             'source' => strtolower((string) ($task['origin'] ?? 'task')),
             'source_label' => (string) ($task['origin'] ?? 'Task'),
             'in_scope' => true,
-            'route' => 'demo.task',
+            'route' => 'operator.task',
             'route_params' => ['taskId' => $id],
         ];
     }
@@ -529,7 +529,7 @@ final class AgencyExecutionFixtures
             'source_label' => (string) ($request['source_label'] ?? 'Client'),
             'in_scope' => array_key_exists('in_scope', $request) ? $request['in_scope'] : true,
             'linked_task_id' => $request['linked_task_id'] ?? null,
-            'route' => 'demo.work.show',
+            'route' => 'operator.work.show',
             'route_params' => ['workId' => $request['id'], 'type' => 'client_request'],
         ];
     }
@@ -568,7 +568,7 @@ final class AgencyExecutionFixtures
             'source_label' => 'Playbook',
             'in_scope' => true,
             'playbook_id' => $review['playbook_id'] ?? null,
-            'route' => 'demo.work.show',
+            'route' => 'operator.work.show',
             'route_params' => ['workId' => $review['id'], 'type' => 'recurring_review'],
         ];
     }
@@ -603,7 +603,7 @@ final class AgencyExecutionFixtures
             'source' => 'approval',
             'source_label' => 'Approval',
             'in_scope' => true,
-            'route' => 'demo.work.show',
+            'route' => 'operator.work.show',
             'route_params' => ['workId' => $approval['id'], 'type' => 'approval'],
         ];
     }
@@ -711,17 +711,17 @@ final class AgencyExecutionFixtures
         return [
             'mode' => $mode,
             'greeting' => match (true) {
-                (int) now()->timezone(config('app.timezone'))->format('G') < 12 => 'Good morning',
-                (int) now()->timezone(config('app.timezone'))->format('G') < 18 => 'Good afternoon',
-                default => 'Good evening',
+                (int) now()->timezone(config('app.timezone'))->format('G') < 12 => __('operator.greetings.morning'),
+                (int) now()->timezone(config('app.timezone'))->format('G') < 18 => __('operator.greetings.afternoon'),
+                default => __('operator.greetings.evening'),
             },
             'date_label' => now()->timezone(config('app.timezone'))->format('l, F j'),
             'subtitle' => __('operator.dashboard_exec.subtitle'),
             'today' => [
-                ['label' => __('operator.dashboard_exec.due_today'), 'value' => $openItems->where('due_key', 'today')->count(), 'route' => 'demo.tasks', 'route_params' => ['view' => 'due_today'], 'tone' => 'warning'],
-                ['label' => __('operator.dashboard_exec.overdue'), 'value' => $openItems->where('due_key', 'overdue')->count(), 'route' => 'demo.tasks', 'route_params' => ['view' => 'overdue'], 'tone' => 'error'],
-                ['label' => __('operator.dashboard_exec.awaiting_decision'), 'value' => $awaitingDecision, 'route' => 'demo.recommendations', 'route_params' => [], 'tone' => 'info'],
-                ['label' => __('operator.dashboard_exec.waiting_on_client'), 'value' => $waitingOnClient, 'route' => 'demo.tasks', 'route_params' => ['view' => 'waiting_on_client'], 'tone' => 'info'],
+                ['label' => __('operator.dashboard_exec.due_today'), 'value' => $openItems->where('due_key', 'today')->count(), 'route' => 'operator.tasks', 'route_params' => ['view' => 'due_today'], 'tone' => 'warning'],
+                ['label' => __('operator.dashboard_exec.overdue'), 'value' => $openItems->where('due_key', 'overdue')->count(), 'route' => 'operator.tasks', 'route_params' => ['view' => 'overdue'], 'tone' => 'error'],
+                ['label' => __('operator.dashboard_exec.awaiting_decision'), 'value' => $awaitingDecision, 'route' => 'operator.recommendations', 'route_params' => [], 'tone' => 'info'],
+                ['label' => __('operator.dashboard_exec.waiting_on_client'), 'value' => $waitingOnClient, 'route' => 'operator.tasks', 'route_params' => ['view' => 'waiting_on_client'], 'tone' => 'info'],
             ],
             'needs_attention' => self::attentionFromRealWorkOnly($openItems, $mode),
             'my_work' => $myItems->sortBy(fn (array $row): int => match ($row['due_key'] ?? '') {
@@ -802,7 +802,7 @@ final class AgencyExecutionFixtures
                 'evidence' => ($row['owner'] ?? '').' · due '.($row['due'] ?? '—'),
                 'why' => ($row['waiting_on_client'] ?? false) ? 'Waiting on client blocks progress.' : 'Open execution item needs action.',
                 'source' => ucfirst(str_replace('_', ' ', (string) ($row['type'] ?? 'work'))),
-                'route' => $row['route'] ?? 'demo.tasks',
+                'route' => $row['route'] ?? 'operator.tasks',
                 'route_params' => $row['route_params'] ?? [],
                 'action_label' => __('operator.actions.open'),
             ])
@@ -865,7 +865,7 @@ final class AgencyExecutionFixtures
                     '1 overdue recurring review (Meta Creative)',
                     'Client request due today (homepage title)',
                 ],
-                'route' => 'demo.brand',
+                'route' => 'operator.brand',
                 'route_params' => ['brand' => DemoCatalog::BRAND_ID],
             ],
         ];

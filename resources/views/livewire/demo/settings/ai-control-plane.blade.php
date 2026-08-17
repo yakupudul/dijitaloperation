@@ -3,7 +3,7 @@
 
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
-            <a href="{{ route('demo.settings', ['section' => 'ai']) }}" wire:navigate class="text-sm text-gray-500 hover:text-brand-600">← {{ __('operator.nav.settings') }}</a>
+            <a href="{{ route('operator.settings', ['section' => 'ai']) }}" wire:navigate class="text-sm text-gray-500 hover:text-brand-600">← {{ __('operator.nav.settings') }}</a>
             <h1 class="mt-2 text-2xl font-bold text-gray-800 dark:text-white/90">{{ __('operator.settings.ai.control_plane_title') }}</h1>
             <p class="mt-1 text-sm text-gray-500">{{ __('operator.settings.ai.control_plane_subtitle') }}</p>
         </div>

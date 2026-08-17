@@ -54,7 +54,7 @@ class DataForSeoIntegrationPage extends Component
         $this->password = '';
         $this->clearPassword = false;
         $this->hydrateForm($integration->fresh(['providerCredential']));
-        DemoState::flash('DataForSEO credentials saved.', 'info');
+        DemoState::flash(__('operator.flash.dataforseo_saved'), 'info');
     }
 
     public function testConfiguration(DataForSeoAccountService $account): void
@@ -63,7 +63,7 @@ class DataForSeoIntegrationPage extends Component
         $integration = $this->integration();
 
         if ($integration === null || ! app(DataForSeoCredentialResolver::class)->isConfigured($integration)) {
-            DemoState::flash('Configure DataForSEO API Login and API Password first.', 'info');
+            DemoState::flash(__('operator.flash.configure_dataforseo'), 'info');
 
             return;
         }
@@ -90,7 +90,7 @@ class DataForSeoIntegrationPage extends Component
         $integration = $this->integration();
 
         if ($integration === null) {
-            DemoState::flash('No DataForSEO credentials are stored.', 'info');
+            DemoState::flash(__('operator.flash.no_dataforseo'), 'info');
 
             return;
         }
@@ -98,7 +98,7 @@ class DataForSeoIntegrationPage extends Component
         $service->remove($integration, $user);
         $this->login = '';
         $this->hydrateForm();
-        DemoState::flash('DataForSEO credentials removed.', 'info');
+        DemoState::flash(__('operator.flash.dataforseo_removed'), 'info');
     }
 
     public function render(): View

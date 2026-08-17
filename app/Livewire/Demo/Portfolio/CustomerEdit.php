@@ -51,9 +51,9 @@ class CustomerEdit extends Component
             $customer->save();
             $customer->responsibleUsers()->sync($this->sanitizedResponsibleUserIds());
 
-            DemoState::flash('Customer changes saved.');
+            DemoState::flash(__('operator.forms.customer_updated'));
 
-            return $this->redirect(route('demo.customer', ['customerId' => $customer->id]), navigate: true);
+            return $this->redirect(route('operator.customer', ['customerId' => $customer->id]), navigate: true);
         } finally {
             $this->saving = false;
         }
@@ -63,11 +63,11 @@ class CustomerEdit extends Component
     {
         return view('livewire.demo.portfolio.customer-form', array_merge($this->customerFormViewData(), [
             'mode' => 'edit',
-            'pageTitle' => 'Edit customer',
-            'pageSubtitle' => 'Update the agency relationship profile.',
-            'backUrl' => route('demo.customer', ['customerId' => $this->customerId]),
-            'backLabel' => 'Customer',
-            'primaryAction' => 'Save changes',
+            'pageTitle' => __('operator.forms.edit_customer'),
+            'pageSubtitle' => __('operator.forms.edit_customer_subtitle'),
+            'backUrl' => route('operator.customer', ['customerId' => $this->customerId]),
+            'backLabel' => __('operator.nav.customers'),
+            'primaryAction' => __('operator.forms.save_changes'),
             'showSaveAndAddBrand' => false,
         ]));
     }

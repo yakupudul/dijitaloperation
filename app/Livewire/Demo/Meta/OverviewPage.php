@@ -180,14 +180,14 @@ class OverviewPage extends Component
         $binding = app(MetaAdsSpecialistBindingResolver::class)->resolve($this->assetId);
 
         if ($binding->mode !== MetaAdsBindingMode::RealBound) {
-            DemoState::flash('Meta Ads data refresh is unavailable until the integration is configured.', 'info');
+            DemoState::flash(__('operator.flash.meta_refresh_unconfigured'), 'info');
 
             return;
         }
 
         $asset = DigitalAsset::query()->find($binding->digitalAssetId);
         if (! $asset instanceof DigitalAsset) {
-            DemoState::flash('Meta Ads refresh unavailable — Digital Asset not found.', 'warning');
+            DemoState::flash(__('operator.flash.meta_refresh_missing_asset'), 'warning');
 
             return;
         }
@@ -208,7 +208,7 @@ class OverviewPage extends Component
 
     public function runAnalysis(): void
     {
-        DemoState::flash('Paid social analysis is unavailable until Meta Ads data has been collected.', 'info');
+        DemoState::flash(__('operator.flash.meta_analysis_unavailable'), 'info');
         $this->tab = 'overview';
     }
 

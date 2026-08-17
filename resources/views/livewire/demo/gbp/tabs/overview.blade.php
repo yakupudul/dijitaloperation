@@ -164,7 +164,7 @@
                     <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Brand &amp; Website Consistency</h2>
                     <p class="mt-0.5 text-xs text-gray-400">Public Identity Consistency · Brand Context ↔ Website ↔ GBP</p>
                 </div>
-                    <a href="{{ route('demo.brand', ['brand' => $identity['brand_id'], 'tab' => 'discovery', 'discovery' => 'conflicts']) }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">
+                    <a href="{{ route('operator.brand', ['brand' => $identity['brand_id'], 'tab' => 'discovery', 'discovery' => 'conflicts']) }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">
                         Review in Public Discovery →
                     </a>
             </div>
@@ -295,7 +295,7 @@
                         <button type="button" wire:click="openFinding('{{ $selectedAttention['finding_id'] }}')" class="rounded-lg bg-brand-500 px-3 py-2 text-xs font-medium text-white">Open Finding</button>
                     @endif
                     @if (! empty($selectedAttention['public_discovery_cta']))
-                        <a href="{{ route('demo.brand', ['brand' => $identity['brand_id'], 'tab' => 'discovery', 'discovery' => 'conflicts']) }}" wire:navigate class="rounded-lg px-3 py-2 text-xs font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">Review in Public Discovery →</a>
+                        <a href="{{ route('operator.brand', ['brand' => $identity['brand_id'], 'tab' => 'discovery', 'discovery' => 'conflicts']) }}" wire:navigate class="rounded-lg px-3 py-2 text-xs font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">Review in Public Discovery →</a>
                     @endif
                     @if (($selectedAttention['category'] ?? '') === 'Visibility')
                         <button type="button" wire:click="setTab('visibility')" class="rounded-lg px-3 py-2 text-xs font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">Open Visibility</button>

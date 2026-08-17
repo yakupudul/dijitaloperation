@@ -484,7 +484,7 @@ final class DemoState
             'actor_kind' => 'human',
             'status' => 'success',
             'asset_type' => null,
-            'route' => 'demo.recommendations',
+            'route' => 'operator.recommendations',
         ]);
     }
 
@@ -514,7 +514,7 @@ final class DemoState
             'actor_kind' => 'human',
             'status' => 'success',
             'asset_type' => null,
-            'route' => 'demo.findings',
+            'route' => 'operator.findings',
         ]);
         self::flash($label.'.');
     }
@@ -584,7 +584,7 @@ final class DemoState
             'actor_kind' => 'human',
             'status' => 'success',
             'asset_type' => null,
-            'route' => 'demo.brand',
+            'route' => 'operator.brand',
         ]);
         self::flash('Business Context saved as canonical Brand truth. Legacy Brand free-text fields are not the source of truth.');
     }
@@ -689,7 +689,7 @@ final class DemoState
             'actor_kind' => 'human',
             'status' => 'success',
             'asset_type' => null,
-            'route' => 'demo.tasks',
+            'route' => 'operator.tasks',
         ]);
         self::flash('Task created from recommendation.');
     }
@@ -970,7 +970,7 @@ final class DemoState
             'actor_kind' => 'human',
             'status' => 'success',
             'asset_type' => null,
-            'route' => 'demo.opportunities',
+            'route' => 'operator.opportunities',
         ]);
         self::flash($label.'.');
     }
@@ -1033,7 +1033,7 @@ final class DemoState
             'actor_kind' => 'human',
             'status' => 'success',
             'asset_type' => collect($opportunity['asset_types'] ?? [])->first(),
-            'route' => 'demo.recommendations',
+            'route' => 'operator.recommendations',
         ]);
         self::flash('Recommendation created from opportunity.');
     }
@@ -1184,7 +1184,7 @@ final class DemoState
             'actor' => 'Demo Operator',
             'actor_kind' => 'human',
             'status' => 'success',
-            'route' => 'demo.tasks',
+            'route' => 'operator.tasks',
         ]);
         self::flash(__('operator.requests.status_updated').'.');
     }
@@ -1237,7 +1237,7 @@ final class DemoState
             'actor' => 'Demo Operator',
             'actor_kind' => 'human',
             'status' => 'success',
-            'route' => 'demo.task',
+            'route' => 'operator.task',
         ]);
         self::flash(__('operator.requests.task_created').'.');
 
@@ -1284,7 +1284,7 @@ final class DemoState
             'actor' => 'Demo Operator',
             'actor_kind' => 'human',
             'status' => 'success',
-            'route' => 'demo.tasks',
+            'route' => 'operator.tasks',
         ]);
         self::flash(__('operator.reviews.status_updated').'.');
     }
@@ -1368,7 +1368,7 @@ final class DemoState
             'actor' => 'Demo Operator',
             'actor_kind' => 'human',
             'status' => 'success',
-            'route' => 'demo.tasks',
+            'route' => 'operator.tasks',
         ]);
         self::flash(__('operator.reviews.completed').'.');
     }
@@ -1391,7 +1391,7 @@ final class DemoState
             'actor' => 'Demo Operator',
             'actor_kind' => 'human',
             'status' => 'info',
-            'route' => 'demo.tasks',
+            'route' => 'operator.tasks',
         ]);
         self::flash(__('operator.reviews.skipped').'.');
     }
@@ -1416,7 +1416,7 @@ final class DemoState
             'actor' => 'Demo Operator',
             'actor_kind' => 'human',
             'status' => 'success',
-            'route' => 'demo.tasks',
+            'route' => 'operator.tasks',
         ]);
         self::flash(__('operator.approvals.updated').'.');
     }
@@ -1441,7 +1441,7 @@ final class DemoState
             'actor' => 'Demo Operator',
             'actor_kind' => 'human',
             'status' => 'success',
-            'route' => 'demo.tasks',
+            'route' => 'operator.tasks',
         ]);
         self::flash(__('operator.qa.updated').'.');
     }
@@ -1492,7 +1492,7 @@ final class DemoState
             'actor' => 'Demo Operator',
             'actor_kind' => 'human',
             'status' => 'success',
-            'route' => 'demo.tasks',
+            'route' => 'operator.tasks',
         ]);
         self::flash(__('operator.capture.saved_request').'.');
 
@@ -1533,7 +1533,7 @@ final class DemoState
             'actor' => 'Demo Operator',
             'actor_kind' => 'human',
             'status' => 'success',
-            'route' => 'demo.task',
+            'route' => 'operator.task',
         ]);
         self::flash(__('operator.capture.saved_task').'.');
 
@@ -1580,7 +1580,7 @@ final class DemoState
             'actor' => 'Demo Operator',
             'actor_kind' => 'human',
             'status' => 'info',
-            'route' => 'demo.opportunities',
+            'route' => 'operator.opportunities',
         ]);
         self::flash(__('operator.capture.saved_hypothesis').'.');
 
@@ -1617,7 +1617,7 @@ final class DemoState
             'actor' => 'Demo Operator',
             'actor_kind' => 'human',
             'status' => 'success',
-            'route' => 'demo.activity',
+            'route' => 'operator.activity',
         ]);
         self::flash(
             ($kind === 'decision'

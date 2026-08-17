@@ -20,12 +20,12 @@
                 <div class="mt-1 flex flex-wrap items-center gap-2">
                     <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ $identity['title'] }}</h1>
                 </div>
-                <a href="{{ route('demo.brand', ['brand' => $identity['brand_id']]) }}" wire:navigate class="mt-1 inline-block text-sm font-medium text-brand-600 hover:underline dark:text-brand-400">{{ $identity['brand_name'] }}</a>
+                <a href="{{ route('operator.brand', ['brand' => $identity['brand_id']]) }}" wire:navigate class="mt-1 inline-block text-sm font-medium text-brand-600 hover:underline dark:text-brand-400">{{ $identity['brand_name'] }}</a>
                 <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
                     {{ $identity['relationship_line'] ?? 'Observes · Website' }}
                     @if (filled($identity['website_asset_id'] ?? null))
                     ·
-                    <a href="{{ route('demo.website', ['assetId' => $identity['website_asset_id']]) }}" wire:navigate class="font-medium text-brand-600 hover:underline dark:text-brand-400">Open Website</a>
+                    <a href="{{ route('operator.website', ['assetId' => $identity['website_asset_id']]) }}" wire:navigate class="font-medium text-brand-600 hover:underline dark:text-brand-400">{{ __('operator.chrome.open_website') }}</a>
                     @endif
                 </p>
                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
@@ -185,7 +185,7 @@
             </div>
         @endif
         @if (filled($identity['website_asset_id'] ?? null))
-        <a href="{{ route('demo.website', ['assetId' => $identity['website_asset_id']]) }}" wire:navigate class="inline-flex rounded-lg bg-brand-500 px-3 py-2 text-xs font-medium text-white">Open Website</a>
+        <a href="{{ route('operator.website', ['assetId' => $identity['website_asset_id']]) }}" wire:navigate class="inline-flex rounded-lg bg-brand-500 px-3 py-2 text-xs font-medium text-white">{{ __('operator.chrome.open_website') }}</a>
         @endif
         <p class="text-[11px] text-gray-400">Search Console · page aggregates</p>
     </x-demo.gads-drawer>

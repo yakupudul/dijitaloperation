@@ -17,7 +17,7 @@
         'title' => 'Workspace',
         'subtitle' => ($data['period_label'] ?? '').' · Bound to Website evidence workflows',
         'badges' => [$data['provenance'] ?? 'Connected data source'],
-        'actions' => '<a href="'.e(route('demo.website')).'" class="inline-flex"><span class="inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">Website workspace</span></a>',
+        'actions' => '<a href="'.e(route('operator.website')).'" class="inline-flex"><span class="inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">Website workspace</span></a>',
     ])
 
     @include('livewire.demo.partials.asset-nav', ['tabs' => $navTabs, 'active' => $tab])

@@ -10,7 +10,7 @@
             </div>
             <p class="mt-1 text-sm text-gray-500">Agency SEO intelligence credentials. A stored login is not a live connection and does not start paid collection.</p>
         </div>
-        <x-ta.button href="{{ route('demo.integrations') }}" size="sm" variant="outline">All Integrations</x-ta.button>
+        <x-ta.button href="{{ route('operator.integrations') }}" size="sm" variant="outline">All Integrations</x-ta.button>
     </div>
 
     <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">

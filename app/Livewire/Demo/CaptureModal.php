@@ -124,7 +124,7 @@ class CaptureModal extends Component
         $brandId = $this->prefillBrand;
 
         if (! is_numeric($customerId) || ! is_numeric($brandId)) {
-            DemoState::flash('Client Request capture requires a production Customer and Brand.');
+            DemoState::flash(__('operator.flash.capture_requires_customer_brand'));
 
             return;
         }
@@ -133,7 +133,7 @@ class CaptureModal extends Component
         $brand = Brand::query()->find((int) $brandId);
 
         if ($customer === null || $brand === null) {
-            DemoState::flash('Client Request capture requires a production Customer and Brand.');
+            DemoState::flash(__('operator.flash.capture_requires_customer_brand'));
 
             return;
         }
@@ -165,21 +165,21 @@ class CaptureModal extends Component
         $brandId = $this->prefillBrand;
 
         if (! is_numeric($customerId)) {
-            DemoState::flash('Direct Task capture requires a production Customer.');
+            DemoState::flash(__('operator.flash.capture_requires_customer'));
 
             return;
         }
 
         $customer = Customer::query()->find((int) $customerId);
         if ($customer === null) {
-            DemoState::flash('Direct Task capture requires a production Customer.');
+            DemoState::flash(__('operator.flash.capture_requires_customer'));
 
             return;
         }
 
         $brand = is_numeric($brandId) ? Brand::query()->find((int) $brandId) : null;
         if ($brand !== null && (int) $brand->customer_id !== (int) $customer->id) {
-            DemoState::flash('Brand must belong to the selected Customer.');
+            DemoState::flash(__('operator.flash.brand_must_belong'));
 
             return;
         }
@@ -199,7 +199,7 @@ class CaptureModal extends Component
             ], auth()->user(), 'capture-direct-task:'.$this->captureNonce);
 
             $this->captureNonce = (string) Str::uuid();
-            DemoState::flash('Task captured — Direct source, no fake Recommendation or Client Request.');
+            DemoState::flash(__('operator.flash.task_captured_direct'));
         } catch (ValidationException $exception) {
             DemoState::flash(collect($exception->errors())->flatten()->first() ?? 'Direct Task capture failed.');
         } catch (\Throwable $exception) {

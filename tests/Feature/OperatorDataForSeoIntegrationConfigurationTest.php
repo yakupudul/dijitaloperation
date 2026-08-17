@@ -50,7 +50,7 @@ class OperatorDataForSeoIntegrationConfigurationTest extends TestCase
             ->flatMap(fn (array $group) => $group['providers'])
             ->firstWhere('id', ProviderRegistry::DATAFORSEO);
 
-        $this->assertSame('demo.integrations.dataforseo', $card['route']);
+        $this->assertSame('operator.integrations.dataforseo', $card['route']);
         $this->assertSame('Configure', $card['manage_label']);
         $this->assertSame('Not configured', $card['state_label']);
 
@@ -59,7 +59,7 @@ class OperatorDataForSeoIntegrationConfigurationTest extends TestCase
             ->assertSee('DataForSEO')
             ->assertDontSeeHtml('>Review<');
 
-        $this->get(route('demo.integrations.dataforseo'))
+        $this->get(route('operator.integrations.dataforseo'))
             ->assertOk()
             ->assertSee('API Login')
             ->assertSee('API Password');

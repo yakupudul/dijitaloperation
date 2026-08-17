@@ -51,7 +51,7 @@
                     <td class="px-5 py-4 text-sm text-gray-500">{{ $adset['cost_result'] !== null ? '₺'.number_format($adset['cost_result']) : '—' }}</td>
                     <td class="px-5 py-4 text-sm text-gray-500">{{ $adset['ctr'] }}%</td>
                     <td class="px-5 py-4 text-right">
-                        <x-ta.button :href="route('demo.meta.adset', ['assetId' => $assetId, 'adSetId' => $adset['id']])" size="sm" variant="outline">Open</x-ta.button>
+                        <x-ta.button :href="route('operator.meta.adset', ['assetId' => $assetId, 'adSetId' => $adset['id']])" size="sm" variant="outline">Open</x-ta.button>
                     </td>
                 </tr>
             @endforeach

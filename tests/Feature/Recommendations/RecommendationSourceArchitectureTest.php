@@ -2,9 +2,9 @@
 
 namespace Tests\Feature\Recommendations;
 
+use App\Enums\DomainEventType;
 use App\Enums\RecommendationOrigin;
 use App\Enums\RecommendationSourceKind;
-use App\Enums\DomainEventType;
 use App\Livewire\Demo\Operations\OpportunitiesIndex;
 use App\Livewire\Demo\Operations\RecommendationsIndex;
 use App\Models\Brand;
@@ -458,7 +458,7 @@ class RecommendationSourceArchitectureTest extends TestCase
         // Later prompts added migrations after Prompt 41; roll back until the
         // Recommendation source_kind column is gone, then re-migrate.
         $guard = 0;
-        while (Schema::hasColumn('recommendations', 'source_kind') && $guard < 20) {
+        while (Schema::hasColumn('recommendations', 'source_kind') && $guard < 40) {
             $this->assertSame(0, Artisan::call('migrate:rollback', ['--step' => 1]));
             $guard++;
         }

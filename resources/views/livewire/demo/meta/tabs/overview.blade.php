@@ -99,7 +99,7 @@
 
     <section>
         <div class="mb-2 flex items-center justify-between">
-            <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Campaign portfolio</h2>
+            <h2 class="text-sm font-semibold text-gray-900 dark:text-white">{{ __('operator.chrome.campaign_portfolio') }}</h2>
             <button type="button" wire:click="setTab('campaigns')" class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Open campaigns</button>
         </div>
         <x-ta.table>

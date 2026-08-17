@@ -16,7 +16,7 @@ abstract class RedirectToWorkspace extends Component
     {
         $asset = OperatorCanonicalAsset::require($assetId, ['meta_ads']);
 
-        $this->redirect(route('demo.meta.overview', [
+        $this->redirect(route('operator.meta.overview', [
             'assetId' => (string) $asset->id,
             'tab' => $this->targetTab(),
         ]), navigate: true);
