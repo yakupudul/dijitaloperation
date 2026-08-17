@@ -80,7 +80,7 @@ class DemoProductRoutesTest extends TestCase
         $this->get(route('operator.assets'))
             ->assertOk()
             ->assertSee('Digital Assets')
-            ->assertSee('Managed Assets')
+            ->assertSee(__('operator.directory.managed_assets'))
             ->assertSee('Estate Matrix')
             ->assertSee('Atlas Dental Website');
     }

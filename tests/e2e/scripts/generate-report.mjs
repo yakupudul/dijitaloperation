@@ -123,7 +123,7 @@ const failedTests = (playwright?.suites || [])
     .filter((test) => (test.results || []).some((result) => result.status === 'failed' || result.status === 'timedOut'));
 
 const cityClass = formSelects.cityClassification || 'UNKNOWN';
-const cityHelper = formSelects.cityAudit?.helper || '';
+const cityHelper = formSelects.cityAfterCountry?.helper || formSelects.cityAudit?.helper || '';
 
 const report = `# MOXDOP — AUTONOMOUS E2E QA REPORT 001
 
@@ -162,7 +162,7 @@ Playwright product failures are treated as regressions. Prior baseline findings 
 ## Automated coverage
 
 - routes visited: Dashboard, Customers, Brands, Digital Assets, Files, Opportunities, Findings, Recommendations, Work, Activity, Integrations, Settings, plus create/edit/detail/specialist URLs
-- primary actions tested: customer Files / Activity / Open work / Add person / Edit / Add brand; brand Edit / Business tabs / Public Discovery refresh (local flash only)
+- primary actions tested: customer Files / Activity / Open work / Add person / Edit / Add brand; brand Edit / Business tabs / Public Discovery (truthful empty; live refresh disabled)
 - CRUD workflows: Customer create/edit/reload; Brand create/edit; six Digital Asset types
 - asset types tested: Website, GBP, Google Ads, Meta Ads, GA4, GSC
 - integration workspaces: Google, Meta, DataForSEO, OpenAI, Anthropic, Gemini
