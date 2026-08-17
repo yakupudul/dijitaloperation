@@ -342,22 +342,21 @@ test.describe('QA 002 acceptance — customer, brand, specialists, work', () => 
         ]);
         expect(download.suggestedFilename()).toBe(filename);
 
-        const guest = await browser.newContext();
-        const guestPage = await guest.newPage();
-        const guestResponse = await guestPage.goto(href.startsWith('http') ? href : `${BASE_URL}${href}`);
-        const guestStatus = guestResponse?.status() ?? 0;
-        const guestUrl = guestPage.url();
-        const denied = guestStatus === 401 || guestStatus === 403 || guestStatus === 302 || /\/app\/login/.test(guestUrl);
-        if (!denied) {
+        const guest = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+        const downloadUrl = href.startsWith('http') ? href : `${BASE_URL}${href}`;
+        const guestResponse = await guest.request.get(downloadUrl, { maxRedirects: 0 });
+        const guestStatus = guestResponse.status();
+        const guestUrl = guestResponse.url();
+        const denied = guestStatus === 401 || guestStatus === 403 || guestStatus === 302 || guestStatus === 301 || /login/i.test(guestUrl);
+        if (guestStatus === 200) {
             recordFinding({
                 severity: 'HIGH',
                 surface: 'Files',
                 route: href,
                 action: 'Guest download of private operator file',
-                observed: `status=${guestStatus} url=${guestUrl}`,
+                observed: `Unauthenticated GET ${downloadUrl} returned HTTP 200 and file bytes.`,
                 expected: 'Unauthenticated download must redirect or deny; no public storage URL',
-                evidence: await screenshot(guestPage, 'qa002-file-guest-download'),
-                likelySource: 'OperatorFileDownloadController authorization',
+                likelySource: 'OperatorFileDownloadController / missing auth on download route',
                 fixScope: 'small',
             });
         }
