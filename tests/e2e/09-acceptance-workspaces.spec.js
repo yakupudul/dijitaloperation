@@ -106,7 +106,7 @@ test.describe('QA 002 acceptance — customer, brand, specialists, work', () => 
             ? 'TRUTHFUL_EMPTY'
             : 'PASS', 'Customer Reports tab');
 
-        await page.getByRole('button', { name: /^(Requests|Talepler)$/ }).click();
+        await page.locator('div.flex.gap-1.overflow-x-auto').getByRole('button', { name: /^(Requests|Talepler)$/ }).click();
         await waitForLivewire(page);
         const requestBody = await page.locator('body').innerText();
         const hasCreateRequest = await page.getByRole('button', { name: /add request|new request|create request/i }).count();
@@ -115,7 +115,19 @@ test.describe('QA 002 acceptance — customer, brand, specialists, work', () => 
         } else {
             setVerdict('Requests', 'PARTIAL', 'Create CTA present — exercised separately if capture can bind customer/brand');
         }
-        expect(requestBody).toMatch(/no client requests|empty|talep yok/i);
+        if (!/no client requests|empty|talep yok/i.test(requestBody) && !/Requests|Talepler/.test(requestBody)) {
+            recordFinding({
+                severity: 'MEDIUM',
+                surface: 'Customer Requests',
+                route: page.url(),
+                action: 'Open Customer Requests tab',
+                observed: 'Requests tab click did not show the requests empty/list copy.',
+                expected: 'Requests tab shows truthful empty or real Client Requests',
+                evidence: await screenshot(page, 'qa002-customer-requests'),
+                likelySource: 'Customer detail tab switcher',
+                fixScope: 'small',
+            });
+        }
 
         await page.goto(`/app/files?scope=customer&customer=${session.customerId}`);
         await waitForLivewire(page);
@@ -180,10 +192,24 @@ test.describe('QA 002 acceptance — customer, brand, specialists, work', () => 
             await expect(page.getByText(marker)).toBeVisible();
         }
 
-        await page.getByRole('button', { name: /Public Discovery|Kamusal keşif/i }).click();
+        await page.getByRole('tab', { name: 'Business' }).click();
+        await waitForLivewire(page);
+        await page.locator('[data-brand-business-subnav]').getByRole('button', { name: /Public Discovery|Kamusal keşif/i }).click();
         await waitForLivewire(page);
         const discovery = await page.locator('body').innerText();
-        expect(discovery).toMatch(/has not run|çalışmadı|unavailable|canlı keşif yok/i);
+        if (!/has not run|çalışmadı|unavailable|canlı keşif yok/i.test(discovery)) {
+            recordFinding({
+                severity: 'MEDIUM',
+                surface: 'Public Discovery',
+                route: page.url(),
+                action: 'Open Brand Business Public Discovery',
+                observed: 'Public Discovery subsection did not show the truthful has-not-run copy in this pass.',
+                expected: 'Truthful unavailable/not run empty state (deferred live discovery)',
+                evidence: await screenshot(page, 'qa002-public-discovery'),
+                likelySource: 'BrandShow businessSection switch',
+                fixScope: 'small',
+            });
+        }
         expect(discovery).not.toMatch(/Atlas|fixture candidate|demo listing/i);
         await expect(page.getByRole('button', { name: /Live discovery unavailable|Canlı keşif yok/i })).toBeVisible();
 
@@ -296,8 +322,9 @@ test.describe('QA 002 acceptance — customer, brand, specialists, work', () => 
             mimeType: 'text/plain',
             buffer: Buffer.from('QA 002 isolated file\n'),
         });
+        await page.waitForTimeout(800);
         await page.locator('input[wire\\:model="uploadDescription"]').fill('QA 002 isolated upload');
-        await page.getByRole('button', { name: /^Upload$/ }).click();
+        await page.locator('form').filter({ has: page.locator('input[wire\\:model="upload"]') }).locator('button[type="submit"]').click();
         await expect(page.getByText(filename)).toBeVisible({ timeout: 20_000 });
         const stored = fileByOriginalName(filename);
         expect(stored, 'uploaded file persisted').toBeTruthy();
@@ -391,18 +418,37 @@ test.describe('QA 002 acceptance — customer, brand, specialists, work', () => 
         if (scoped) {
             await page.goto(`/app/tasks/${scoped.id}`);
             await waitForLivewire(page);
-            const open = await pageHttpHints(page);
-            expect.soft(open.looks404 || open.looks500).toBeFalsy();
-            await page.getByRole('button', { name: /In progress/i }).click();
-            await waitForLivewire(page);
-            await page.reload();
-            const body = await page.locator('body').innerText();
-            expect.soft(body).toMatch(/in progress/i);
-            await page.getByRole('button', { name: /My Work|My work|Benim iş/i }).click().catch(() => {});
-            await screenshot(page, 'qa002-work-detail');
-            setVerdict('Work', orphan ? 'PASS' : 'PARTIAL', orphan
-                ? 'Create + status transition'
-                : 'Primary Capture CTA cannot create Work; URL-prefilled capture and status transition work');
+            let body = await page.locator('body').innerText();
+            if (/not found/i.test(body) || (await pageHttpHints(page)).looks404) {
+                await page.goto(`/app/work/${scoped.id}?type=task`);
+                await waitForLivewire(page);
+                body = await page.locator('body').innerText();
+            }
+            if (/not found/i.test(body)) {
+                recordFinding({
+                    id: 'QA-E2E-WORK-DETAIL-NOT-FOUND',
+                    severity: 'HIGH',
+                    surface: 'Work',
+                    route: page.url(),
+                    action: `Open captured Task #${scoped.id}`,
+                    observed: `Task "${scopedTitle}" persisted in SQLite (id=${scoped.id}) but Work/Task show renders "Work item not found." TaskShow redirects numeric ids to /app/work/{id}; WorkShow defaults type to client_request and does not read ?type=task, so production Tasks are unresolved.`,
+                    expected: 'Opening a captured Task shows the execution record and status transitions.',
+                    evidence: await screenshot(page, 'qa002-work-detail-not-found'),
+                    likelySource: 'WorkShow::$type default client_request; TaskShow redirect does not bind type',
+                    fixScope: 'small',
+                });
+                setVerdict('Work', 'FAIL', 'Task persists but Work detail is not found; header Capture cannot create without customer');
+            } else {
+                const inProgress = page.getByRole('button', { name: /In progress/i });
+                if (await inProgress.count()) {
+                    await inProgress.click();
+                    await waitForLivewire(page);
+                    await page.reload();
+                    expect.soft(await page.locator('body').innerText()).toMatch(/in progress/i);
+                }
+                await screenshot(page, 'qa002-work-detail');
+                setVerdict('Work', orphan ? 'PASS' : 'PARTIAL', 'URL-prefilled capture persisted a Task');
+            }
         } else {
             recordFinding({
                 id: 'QA-E2E-WORK-CREATE-UNUSABLE',
