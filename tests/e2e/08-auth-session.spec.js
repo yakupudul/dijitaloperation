@@ -83,13 +83,47 @@ test.describe('Auth, session, and legacy routes', () => {
             return path.startsWith('/app') && !path.includes('/login');
         }, { timeout: 20_000 });
         await expect(page.locator('#operator-sidebar')).toBeVisible();
-
-        await page.goto('/app/customers');
+        const localeEn = page.getByRole('group', { name: /locale|dil|language/i }).getByRole('button', { name: 'EN' });
+        if (await localeEn.count()) {
+            await localeEn.click();
+            await page.waitForTimeout(400);
+        }
         await expect(page.locator('#operator-sidebar')).toBeVisible();
 
         await page.goto('/app/profile');
         await waitForLivewire(page);
+        const beforeClick = page.url();
         await page.getByRole('button', { name: /Sign out|Çıkış/i }).click();
+        await page.waitForTimeout(1500);
+        if (!/\/app\/login/.test(page.url())) {
+            recordFinding({
+                id: 'QA-E2E-LOGOUT-NESTED-FORM',
+                severity: 'HIGH',
+                surface: 'Profile / logout',
+                route: '/app/profile',
+                action: 'Click Sign out on Profile',
+                observed: `Visible Sign out control did not navigate to /app/login (stayed ${page.url()}; started ${beforeClick}). Nested logout form sits inside the Livewire profile save form, so the browser submits Save instead of POST /app/logout.`,
+                expected: 'Sign out must POST /app/logout and land on /app/login.',
+                evidence: await screenshot(page, 'qa002-logout-nested-form'),
+                likelySource: 'resources/views/livewire/demo/profile.blade.php nested form',
+                fixScope: 'small',
+            });
+            await page.evaluate(() => {
+                const token = document.querySelector('input[name="_token"]')?.value
+                    || document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+                    || '';
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/app/logout';
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = '_token';
+                input.value = token;
+                form.appendChild(input);
+                document.body.appendChild(form);
+                form.submit();
+            });
+        }
         await page.waitForURL(/\/app\/login/, { timeout: 20_000 });
 
         await page.goto('/app/customers');

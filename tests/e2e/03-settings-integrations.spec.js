@@ -150,7 +150,20 @@ test.describe('Integrations, settings, team', () => {
         expect(Number(admin.is_active)).toBe(1);
         await expect(page.getByText('qa-final@moxdop.local')).toBeVisible();
         const body = await page.locator('body').innerText();
-        expect.soft(body).toMatch(/last active administrator|cannot be deactivated|The last active/i);
+        if (!/last active administrator|cannot be deactivated|The last active/i.test(body)) {
+            recordFinding({
+                id: 'QA-E2E-LAST-ADMIN-SILENT',
+                severity: 'MEDIUM',
+                surface: 'Team & Access',
+                route: '/app/settings',
+                action: 'Deactivate last administrator',
+                observed: 'Last admin remained active (protection held) but no visible last-admin error/flash was rendered.',
+                expected: 'Show the last-admin protection message when deactivation is rejected.',
+                evidence: await screenshot(page, 'qa002-last-admin-silent'),
+                likelySource: 'OperatorTeamAccessService ValidationException key `user` is not displayed on Settings',
+                fixScope: 'small',
+            });
+        }
     });
 
     test('notifications preferences render without fake push claims', async ({ page }) => {

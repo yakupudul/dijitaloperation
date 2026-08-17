@@ -75,6 +75,9 @@ test.describe('Visual evidence and responsive QA', () => {
                 await screenshot(page, 'tr-desktop-website-workspace');
             }
         }
+
+        await page.getByRole('button', { name: 'EN', exact: true }).click();
+        await page.waitForTimeout(400);
     });
 
     test('tablet and mobile overflow checks', async ({ page }) => {

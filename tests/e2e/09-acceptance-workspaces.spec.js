@@ -6,12 +6,16 @@ import { setVerdict } from './helpers/verdicts.js';
 import { readJson, SESSION_FILE, writeJson, BASE_URL } from './helpers/env.js';
 import { clientRequestByTitle, fileByOriginalName, taskByTitle } from './helpers/sqlite.js';
 
-test.describe.configure({ mode: 'serial' });
-
 const FAKE = /\bAtlas\b|fixture intelligence|demo campaign|Atlas Dental|Northwind Clinics|product vision fixtures/i;
 const UNAVAILABLE = /unavailable|not collected|not configured|has not run|no .+ yet|empty means empty|not yet available|no data/i;
 
-const CUSTOMER_TABS = ['Overview', 'Brands', 'Relationship', 'Requests', 'Reports'];
+const CUSTOMER_TABS = [
+    /^(Overview|Genel Bakış)$/,
+    /^(Brands|Markalar)$/,
+    /^(Relationship|Müşteri İlişkisi)$/,
+    /^(Requests|Talepler)$/,
+    /^(Reports|Raporlar)$/,
+];
 const BRAND_TABS = ['Overview', 'Business', 'Digital Estate', 'Growth', 'Operations', 'Value'];
 
 const WORKSPACES = [
@@ -78,14 +82,19 @@ test.describe('QA 002 acceptance — customer, brand, specialists, work', () => 
 
         await page.goto(`/app/customers/${session.customerId}`);
         await waitForLivewire(page);
+        const localeEn = page.getByRole('group', { name: /locale|dil|language/i }).getByRole('button', { name: 'EN' });
+        if (await localeEn.count()) {
+            await localeEn.click();
+            await page.waitForTimeout(500);
+        }
         const overview = await assertOperatorSurface(page, { route: page.url(), label: 'Customer overview', watcher });
         expect(overview.ok).toBeTruthy();
         await expect(page.getByRole('heading', { name: session.customerName })).toBeVisible();
 
         for (const tab of CUSTOMER_TABS) {
-            await page.getByRole('button', { name: tab, exact: true }).first().click();
+            await page.getByRole('button', { name: tab }).first().click();
             await waitForLivewire(page);
-            const result = await assertOperatorSurface(page, { route: page.url(), label: `Customer ${tab}`, watcher });
+            const result = await assertOperatorSurface(page, { route: page.url(), label: `Customer tab ${tab}`, watcher });
             expect.soft(result.ok, `Customer ${tab}`).toBeTruthy();
             const body = await page.locator('body').innerText();
             expect.soft(body).not.toMatch(/\bAtlas\b/);
@@ -97,7 +106,7 @@ test.describe('QA 002 acceptance — customer, brand, specialists, work', () => 
             ? 'TRUTHFUL_EMPTY'
             : 'PASS', 'Customer Reports tab');
 
-        await page.getByRole('button', { name: 'Requests', exact: true }).click();
+        await page.getByRole('button', { name: /^(Requests|Talepler)$/ }).click();
         await waitForLivewire(page);
         const requestBody = await page.locator('body').innerText();
         const hasCreateRequest = await page.getByRole('button', { name: /add request|new request|create request/i }).count();
@@ -125,6 +134,11 @@ test.describe('QA 002 acceptance — customer, brand, specialists, work', () => 
         const watcher = attachHttpWatcher(page);
         await page.goto(`/app/brands/${session.brandId}`);
         await waitForLivewire(page);
+        const localeEn = page.getByRole('group', { name: /locale|dil|language/i }).getByRole('button', { name: 'EN' });
+        if (await localeEn.count()) {
+            await localeEn.click();
+            await page.waitForTimeout(500);
+        }
 
         for (const tab of BRAND_TABS) {
             await page.getByRole('tab', { name: tab }).click();
@@ -195,6 +209,11 @@ test.describe('QA 002 acceptance — customer, brand, specialists, work', () => 
             expect(asset, `${spec.type} must exist from golden path`).toBeTruthy();
             await page.goto(spec.path(asset.id));
             await waitForLivewire(page);
+            const localeEn = page.getByRole('group', { name: /locale|dil|language/i }).getByRole('button', { name: 'EN' });
+            if (await localeEn.count()) {
+                await localeEn.click();
+                await page.waitForTimeout(400);
+            }
             const open = await pageHttpHints(page);
             expect.soft(open.looks404, `${spec.label} open 404`).toBeFalsy();
             expect.soft(open.looks500, `${spec.label} open 500`).toBeFalsy();
@@ -327,7 +346,12 @@ test.describe('QA 002 acceptance — customer, brand, specialists, work', () => 
 
         await page.goto('/app');
         await waitForLivewire(page);
-        await page.locator('header').getByRole('button', { name: /Capture/i }).click();
+        const localeEn = page.getByRole('group', { name: /locale|dil|language/i }).getByRole('button', { name: 'EN' });
+        if (await localeEn.count()) {
+            await localeEn.click();
+            await page.waitForTimeout(400);
+        }
+        await page.locator('header').getByRole('button', { name: /Capture|Hızlı kayıt/i }).click();
         await expect(page.getByRole('heading', { name: /Quick capture/i })).toBeVisible();
         await page.getByRole('button', { name: /^Task$/ }).click();
         await page.locator('input[wire\\:model="title"]').fill(orphanTitle);
@@ -354,7 +378,7 @@ test.describe('QA 002 acceptance — customer, brand, specialists, work', () => 
 
         await page.goto(`/app/tasks?capture_customer=${session.customerId}&capture_brand=${session.brandId}`);
         await waitForLivewire(page);
-        await page.locator('header').getByRole('button', { name: /Capture/i }).click();
+        await page.locator('header').getByRole('button', { name: /Capture|Hızlı kayıt/i }).click();
         await expect(page.getByRole('heading', { name: /Quick capture/i })).toBeVisible();
         await page.getByRole('button', { name: /^Task$/ }).click();
         await page.locator('input[wire\\:model="title"]').fill(scopedTitle);
@@ -397,7 +421,7 @@ test.describe('QA 002 acceptance — customer, brand, specialists, work', () => 
             }
         }
 
-        await page.locator('header').getByRole('button', { name: /Capture/i }).click();
+        await page.locator('header').getByRole('button', { name: /Capture|Hızlı kayıt/i }).click();
         await page.getByRole('button', { name: /Client request/i }).click();
         const requestTitle = `E2E Acceptance Request ${stamp}`;
         await page.locator('input[wire\\:model="title"]').fill(requestTitle);
