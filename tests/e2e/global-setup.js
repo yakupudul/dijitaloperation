@@ -19,11 +19,12 @@ import {
     gitIdentity,
     writeJson,
 } from './helpers/env.js';
+import { VERDICTS_FILE } from './helpers/verdicts.js';
 
 export default async function globalSetup() {
     ensureArtifactsDir();
 
-    for (const file of [FINDINGS_FILE, WATCHER_FILE, I18N_FILE, SOURCE_I18N_FILE, SESSION_FILE]) {
+    for (const file of [FINDINGS_FILE, WATCHER_FILE, I18N_FILE, SOURCE_I18N_FILE, SESSION_FILE, VERDICTS_FILE]) {
         if (fs.existsSync(file)) {
             fs.rmSync(file);
         }

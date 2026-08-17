@@ -9,10 +9,10 @@ import { SESSION_FILE, writeJson, readJson } from './helpers/env.js';
 test.describe.configure({ mode: 'serial' });
 
 const stamp = Date.now();
-const customerName = `E2E Customer ${stamp}`;
-const legalName = `E2E Legal ${stamp}`;
-const brandName = `E2E Brand ${stamp}`;
-const editedLegal = `E2E Legal Edited ${stamp}`;
+const customerName = `E2E Acceptance Customer ${stamp}`;
+const legalName = `E2E Acceptance Legal ${stamp}`;
+const brandName = `E2E Acceptance Brand ${stamp}`;
+const editedLegal = `E2E Acceptance Legal Edited ${stamp}`;
 
 const ASSET_TYPES = [
     { type: 'website', label: 'Website', name: `E2E Website ${stamp}`, specialist: '/app/assets/website' },
@@ -153,9 +153,9 @@ test.describe('Customer / Brand / Asset golden path', () => {
 
         await page.getByRole('button', { name: 'Add contact' }).first().click();
         await expect(page.getByRole('heading', { name: 'Add contact' })).toBeVisible();
-        await page.locator('input[wire\\:model="contact_name"]').fill(`E2E Person ${stamp}`);
+        await page.locator('input[wire\\:model="contact_name"]').fill(`E2E Acceptance Person ${stamp}`);
         await page.getByRole('button', { name: 'Save contact' }).click();
-        await expect(page.getByText(`E2E Person ${stamp}`)).toBeVisible({ timeout: 15_000 });
+        await expect(page.getByText(`E2E Acceptance Person ${stamp}`)).toBeVisible({ timeout: 15_000 });
 
         await page.getByRole('link', { name: 'Add brand' }).first().click();
         await page.waitForURL(/\/app\/brands\/create/);

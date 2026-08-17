@@ -32,6 +32,7 @@ async function overflowReport(page) {
 }
 
 test.describe('Visual evidence and responsive QA', () => {
+    test.setTimeout(180_000);
     test('capture representative TR desktop screenshots', async ({ page }) => {
         await page.setViewportSize(DESKTOP);
         await page.goto('/app');
@@ -81,13 +82,21 @@ test.describe('Visual evidence and responsive QA', () => {
         const targets = [
             { name: 'dashboard', path: '/app' },
             { name: 'customers', path: '/app/customers' },
+            { name: 'brands', path: '/app/brands' },
             { name: 'digital-assets', path: '/app/assets' },
+            { name: 'work', path: '/app/tasks' },
+            { name: 'integrations', path: '/app/integrations' },
+            { name: 'settings', path: '/app/settings' },
         ];
         if (session.customerId) {
             targets.push({ name: 'customer-detail', path: `/app/customers/${session.customerId}` });
         }
         if (session.brandId) {
             targets.push({ name: 'brand-detail', path: `/app/brands/${session.brandId}` });
+        }
+        const website = (session.assets || []).find((row) => row.type === 'website');
+        if (website) {
+            targets.push({ name: 'website', path: `/app/assets/website/${website.id}` });
         }
 
         for (const viewport of [
@@ -100,6 +109,19 @@ test.describe('Visual evidence and responsive QA', () => {
                 await waitForLivewire(page);
                 await screenshot(page, `${viewport.name}-${target.name}`);
                 const report = await overflowReport(page);
+                if (report.overflowing) {
+                    recordFinding({
+                        severity: 'HIGH',
+                        surface: `${viewport.name} ${target.name}`,
+                        route: target.path,
+                        action: 'Document overflow check',
+                        observed: `scrollWidth=${report.scrollWidth} clientWidth=${report.clientWidth}`,
+                        expected: 'No document-level horizontal overflow. Contained table scrolling is acceptable.',
+                        evidence: `.qa-artifacts/screenshots/${viewport.name}-${target.name}.png`,
+                        likelySource: 'layout / min-width on operator chrome',
+                        fixScope: 'small',
+                    });
+                }
                 expect.soft(report.overflowing, `${viewport.name} ${target.name} document overflow scrollWidth=${report.scrollWidth} clientWidth=${report.clientWidth}`).toBeFalsy();
             }
         }

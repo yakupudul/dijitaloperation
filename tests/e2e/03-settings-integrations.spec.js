@@ -4,6 +4,7 @@ import { assertOperatorSurface, screenshot, waitForLivewire } from './helpers/pa
 import { recordFinding } from './helpers/findings.js';
 import { chooseSelect } from './helpers/forms.js';
 import { userByEmail } from './helpers/sqlite.js';
+import { setVerdict } from './helpers/verdicts.js';
 
 const PROVIDERS = [
     { name: 'Google', path: '/app/integrations/google' },
@@ -61,6 +62,7 @@ test.describe('Integrations, settings, team', () => {
 
             await screenshot(page, `integration-${provider.name.toLowerCase()}`);
         }
+        setVerdict('Integrations', 'PASS', 'Google/Meta/DataForSEO/OpenAI/Anthropic/Gemini rendered without credentials');
     });
 
     test('settings sections exist and general writes persist then restore', async ({ page }) => {
@@ -97,7 +99,8 @@ test.describe('Integrations, settings, team', () => {
         await expect(page.getByText(/Settings saved|saved/i)).toBeVisible({ timeout: 15_000 });
         await page.reload();
         await expect(agency).toHaveValue(original);
-    });
+        setVerdict('Settings', 'PASS', 'General settings persist and restore');
+        setVerdict('White-label', 'PASS', 'Agency name write/restore on Settings General');
 
     test('team & access lists real users and can isolate a temporary member', async ({ page }) => {
         await page.goto('/app/settings');
@@ -128,5 +131,33 @@ test.describe('Integrations, settings, team', () => {
         expect(Number(after.is_active)).toBe(0);
 
         await expect(page.getByText('qa-final@moxdop.local')).toBeVisible();
+        setVerdict('Team & Access', 'PASS', 'Temporary Team Member created, listed, deactivated; QA admin remains');
+    });
+
+    test('last administrator cannot be deactivated', async ({ page }) => {
+        await page.goto('/app/settings');
+        await page.getByRole('navigation', { name: /settings sections/i }).getByRole('button', { name: 'Team & Access' }).click();
+        await waitForLivewire(page);
+
+        const adminRow = page.locator('tr').filter({ hasText: 'qa-final@moxdop.local' });
+        await expect(adminRow).toBeVisible();
+        await adminRow.getByRole('button', { name: 'Deactivate access' }).click();
+        await page.waitForTimeout(800);
+
+        const admin = userByEmail('qa-final@moxdop.local');
+        expect(admin).toBeTruthy();
+        expect(Number(admin.is_active)).toBe(1);
+        await expect(page.getByText('qa-final@moxdop.local')).toBeVisible();
+        const body = await page.locator('body').innerText();
+        expect.soft(body).toMatch(/last active administrator|cannot be deactivated|The last active/i);
+    });
+
+    test('notifications preferences render without fake push claims', async ({ page }) => {
+        await page.goto('/app/settings');
+        await page.getByRole('navigation', { name: /settings sections/i }).getByRole('button', { name: 'Notifications' }).click();
+        await waitForLivewire(page);
+        const body = await page.locator('body').innerText();
+        expect(body).not.toMatch(/mobile push is enabled|push notifications are live/i);
+        await screenshot(page, 'settings-notifications');
     });
 });

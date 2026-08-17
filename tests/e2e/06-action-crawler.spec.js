@@ -6,12 +6,26 @@ import { recordFinding } from './helpers/findings.js';
 const DANGEROUS = /(delete|archive|disconnect|revoke|remove key|remove credential|clear credential|deactivate|destroy|uninstall|send mail|collect now|backfill|authorize|oauth|generate ai|refresh seo|refresh public)/i;
 
 test.describe('Bounded safe action crawler', () => {
+    test.setTimeout(180_000);
     test('follow internal operator links without destructive actions', async ({ page }) => {
         const watcher = attachHttpWatcher(page);
         const visited = new Set();
-        const queue = ['/app', '/app/customers', '/app/brands', '/app/assets', '/app/integrations', '/app/settings'];
+        const queue = [
+            '/app',
+            '/app/customers',
+            '/app/brands',
+            '/app/assets',
+            '/app/files',
+            '/app/opportunities',
+            '/app/findings',
+            '/app/recommendations',
+            '/app/tasks',
+            '/app/activity',
+            '/app/integrations',
+            '/app/settings',
+        ];
         const failures = [];
-        const limit = 40;
+        const limit = 60;
 
         while (queue.length && visited.size < limit) {
             const next = queue.shift();

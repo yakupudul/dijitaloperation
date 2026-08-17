@@ -51,6 +51,52 @@ export function userByEmail(email) {
     return rows[0] || null;
 }
 
+export function taskByTitle(title) {
+    try {
+        const rows = sqliteJson(
+            `select id, title, customer_id, brand_id, status, assignee_id from tasks where title = '${escapeSql(title)}' limit 1`,
+        );
+
+        return rows[0] || null;
+    } catch {
+        return null;
+    }
+}
+
+export function fileByOriginalName(name) {
+    try {
+        const rows = sqliteJson(
+            `select id, uuid, original_name, scope_type, customer_id, brand_id, path from operator_files where original_name = '${escapeSql(name)}' order by id desc limit 1`,
+        );
+
+        return rows[0] || null;
+    } catch {
+        return null;
+    }
+}
+
+export function clientRequestByTitle(title) {
+    try {
+        const rows = sqliteJson(
+            `select id, title, customer_id, brand_id, status from client_requests where title = '${escapeSql(title)}' limit 1`,
+        );
+
+        return rows[0] || null;
+    } catch {
+        return null;
+    }
+}
+
+export function countRows(table) {
+    try {
+        const rows = sqliteJson(`select count(*) as c from ${table}`);
+
+        return Number(rows[0]?.c || 0);
+    } catch {
+        return -1;
+    }
+}
+
 function escapeSql(value) {
     return String(value).replaceAll("'", "''");
 }

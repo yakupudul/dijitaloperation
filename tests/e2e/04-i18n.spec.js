@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { collectChrome, findEnglishLeakage, findTurkishLeakage, CONFIRMED_TR_LEAKAGE } from './helpers/i18n.js';
 import { I18N_FILE, writeJson, readJson } from './helpers/env.js';
-import { waitForLivewire, screenshot, openSidebar } from './helpers/pages.js';
+import { waitForLivewire, screenshot } from './helpers/pages.js';
 import { recordFinding } from './helpers/findings.js';
 
 const SURFACES = [
@@ -11,9 +11,25 @@ const SURFACES = [
     { name: 'Customer setup', path: '/app/setup?entry=customer' },
     { name: 'Brands', path: '/app/brands' },
     { name: 'Digital Assets', path: '/app/assets' },
+    { name: 'Files', path: '/app/files' },
+    { name: 'Opportunities', path: '/app/opportunities' },
+    { name: 'Findings', path: '/app/findings' },
+    { name: 'Recommendations', path: '/app/recommendations' },
+    { name: 'Work', path: '/app/tasks' },
+    { name: 'Activity', path: '/app/activity' },
     { name: 'Integrations', path: '/app/integrations' },
     { name: 'Settings', path: '/app/settings' },
 ];
+
+const CORE_TR_SURFACES = new Set([
+    'Dashboard',
+    'Customers',
+    'Customer create',
+    'Customer setup',
+    'Brands',
+    'Digital Assets',
+    'Integrations',
+]);
 
 async function switchLocale(page, code) {
     const group = page.getByRole('group', { name: /locale|dil|language/i });
@@ -28,12 +44,15 @@ async function switchLocale(page, code) {
 }
 
 test.describe('TR / EN localization audit', () => {
+    test.setTimeout(180_000);
     test('collect TR leakage on operator chrome', async ({ page }) => {
         const inventory = { tr: [], en: [] };
 
         await page.goto('/app');
         await switchLocale(page, 'TR');
         await waitForLivewire(page);
+
+        const polish = [];
 
         for (const surface of SURFACES) {
             await page.goto(surface.path);
@@ -42,7 +61,7 @@ test.describe('TR / EN localization audit', () => {
             const leaks = findEnglishLeakage(rows, page.url());
             inventory.tr.push({ surface: surface.name, route: page.url(), chrome: rows, leaks });
             const confirmed = leaks.filter((hit) => CONFIRMED_TR_LEAKAGE.some((token) => token.toLowerCase() === String(hit.visibleText).toLowerCase()));
-            if (surface.name !== 'Settings') {
+            if (CORE_TR_SURFACES.has(surface.name)) {
                 expect.soft(confirmed, `${surface.name} confirmed TR leakage`).toEqual([]);
             }
             if (confirmed.length) {
@@ -64,7 +83,27 @@ test.describe('TR / EN localization audit', () => {
                                 ? 'QA-MANUAL-003'
                                 : '',
                 });
+            } else if (leaks.length) {
+                polish.push({
+                    surface: surface.name,
+                    route: page.url(),
+                    sample: leaks.slice(0, 6).map((hit) => hit.visibleText),
+                });
             }
+        }
+
+        if (polish.length) {
+            recordFinding({
+                id: 'QA-E2E-TR-POLISH-GROUPED',
+                severity: 'LOW',
+                surface: 'TR chrome',
+                route: polish.map((row) => row.route).join(', '),
+                action: 'TR polish chrome inventory (grouped)',
+                observed: polish.map((row) => `${row.surface}: ${row.sample.join(' | ')}`).join(' || '),
+                expected: 'Isolated English helper subtitles are POLISH_LANGUAGE backlog, not blocking.',
+                likelySource: 'Untranslated helper subtitle or secondary chrome',
+                fixScope: 'small',
+            });
         }
 
         const session = readJson(I18N_FILE, { tr: [], en: [] });
