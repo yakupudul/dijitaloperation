@@ -94,7 +94,19 @@ export function attachHttpWatcher(page) {
     return {
         events,
         snapshot: () => [...events],
-        documentFailures: () => events.filter((event) => event.kind === 'document-404' || event.kind === 'document-5xx'),
+        documentFailures: (pathname = null) => events.filter((event) => {
+            if (event.kind !== 'document-404' && event.kind !== 'document-5xx') {
+                return false;
+            }
+            if (!pathname) {
+                return true;
+            }
+            try {
+                return new URL(event.url).pathname === pathname;
+            } catch {
+                return false;
+            }
+        }),
         livewireFailures: () => events.filter((event) => event.kind === 'livewire-failed'),
     };
 }

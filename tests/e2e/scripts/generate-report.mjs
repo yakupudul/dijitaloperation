@@ -295,6 +295,11 @@ SMALLEST_SAFE_FIX: keep the data model; visually nest Context / Public Discovery
 
 Expected: NONE — met.
 
+## Existing tests
+
+- PHPUnit must be run with the isolated QA env **unset** (\`env -u DB_DATABASE -u DB_CONNECTION -u APP_ENV php artisan test --compact\`). \`phpunit.xml\` sets \`DB_DATABASE=:memory:\` with \`force="false"\`, so a shell that already exported the QA sqlite path will otherwise RefreshDatabase that file.
+- \`tests/e2e/scripts/ensure-qa-admin.php\` restores the QA operator from the local secret file if the login user is missing. It never prints the password.
+
 ## Localization architecture confirmation
 
 Static product copy must be localized through language resources (\`lang/{en,tr}/operator.php\`), not per-language database columns.

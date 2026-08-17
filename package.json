@@ -5,7 +5,7 @@
     "scripts": {
         "build": "vite build",
         "dev": "vite",
-        "qa:e2e": "playwright test",
+        "qa:e2e": "playwright test; node tests/e2e/scripts/generate-report.mjs",
         "qa:e2e:ui": "playwright test --ui",
         "qa:e2e:report": "playwright show-report"
     },

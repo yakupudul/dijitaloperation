@@ -67,7 +67,13 @@ export async function screenshot(page, name) {
  */
 export async function assertOperatorSurface(page, ctx) {
     const hints = await pageHttpHints(page);
-    const docFails = ctx.watcher?.documentFailures?.() || [];
+    let currentPath = '';
+    try {
+        currentPath = new URL(hints.url).pathname;
+    } catch {
+        currentPath = ctx.route || '';
+    }
+    const docFails = ctx.watcher?.documentFailures?.(currentPath) || [];
     const failed = hints.looks404 || hints.looks500 || hints.exception || docFails.length > 0;
 
     if (failed) {

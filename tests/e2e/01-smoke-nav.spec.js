@@ -28,7 +28,8 @@ test.describe('Smoke crawl — frozen operator surfaces', () => {
 
         for (const surface of SURFACES) {
             await openSidebar(page, surface.name);
-            await page.waitForURL(new RegExp(surface.path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+            const escaped = surface.path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            await page.waitForURL(new RegExp(`${escaped}(?:\\?|#|$)`));
             const result = await assertOperatorSurface(page, {
                 route: surface.path,
                 label: surface.name,

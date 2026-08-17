@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import {
     ARTIFACTS_DIR,
@@ -42,6 +43,18 @@ export default async function globalSetup() {
     if (!login.ok) {
         throw new Error(`QA server not reachable at ${BASE_URL}/app/login (HTTP ${login.status})`);
     }
+
+    execFileSync('php', ['tests/e2e/scripts/ensure-qa-admin.php'], {
+        cwd: WORKSPACE,
+        stdio: 'inherit',
+        env: {
+            ...process.env,
+            DB_CONNECTION: 'sqlite',
+            DB_DATABASE: E2E_DATABASE,
+            MOXDOP_E2E_EMAIL: E2E_EMAIL,
+            MOXDOP_E2E_PASSWORD_FILE: PASSWORD_FILE,
+        },
+    });
 
     writeJson(IDENTITY_FILE, {
         workspace: WORKSPACE,

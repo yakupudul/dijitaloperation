@@ -1,6 +1,13 @@
+import fs from 'node:fs';
 import { appendJsonl, FINDINGS_FILE } from './env.js';
 
-let sequence = 0;
+function nextSequence() {
+    if (!fs.existsSync(FINDINGS_FILE)) {
+        return 1;
+    }
+
+    return fs.readFileSync(FINDINGS_FILE, 'utf8').split('\n').filter(Boolean).length + 1;
+}
 
 /**
  * @param {{
@@ -19,8 +26,7 @@ let sequence = 0;
  * }} finding
  */
 export function recordFinding(finding) {
-    sequence += 1;
-    const id = finding.id || `QA-E2E-${String(sequence).padStart(3, '0')}`;
+    const id = finding.id || `QA-E2E-${String(nextSequence()).padStart(3, '0')}`;
     const row = {
         id,
         severity: finding.severity,
