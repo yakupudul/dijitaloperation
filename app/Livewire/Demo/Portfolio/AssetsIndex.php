@@ -135,7 +135,7 @@ class AssetsIndex extends Component
             $typeOptions['hosting'] = 'Hosting (legacy)';
         }
 
-        $brands = Brand::query()->with('customer')->orderBy('name')->get();
+        $brands = Brand::query()->with(['customer', 'digitalAssets'])->orderBy('name')->get();
 
         return view('livewire.demo.portfolio.assets-index', [
             'assets' => $assets->values()->all(),

@@ -10,6 +10,7 @@ use App\Models\DigitalAsset;
 use App\Models\User;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -63,8 +64,8 @@ class DemoPortfolioUxTest extends TestCase
         ]);
 
         Livewire::test(AssetsIndex::class)
-            ->assertSee('Managed Assets')
-            ->assertSee('Digital Estate Directory')
+            ->assertSee(__('operator.directory.managed_assets'))
+            ->assertSee(__('operator.directory.subtitle'))
             ->assertSee('Nova Website')
             ->assertSee('Nova Meta')
             ->assertDontSee('DemoHost')
@@ -83,8 +84,31 @@ class DemoPortfolioUxTest extends TestCase
 
         Livewire::test(AssetsIndex::class)
             ->call('setViewMode', 'matrix')
-            ->assertSee('Estate Matrix')
+            ->assertSee(__('operator.directory.estate_matrix'))
             ->assertSee('Nova Dental')
             ->assertDontSee('Atlas Dental Ankara');
+    }
+
+    public function test_assets_index_does_not_lazy_load_brand_relations(): void
+    {
+        Model::preventLazyLoading();
+
+        try {
+            $customer = Customer::factory()->create();
+            $brand = Brand::factory()->create(['customer_id' => $customer->id, 'name' => 'Lazy Guard Brand']);
+            DigitalAsset::factory()->create([
+                'brand_id' => $brand->id,
+                'type' => 'website',
+                'name' => 'Lazy Guard Website',
+            ]);
+
+            Livewire::test(AssetsIndex::class)
+                ->assertOk()
+                ->assertSee('Lazy Guard Website')
+                ->call('setViewMode', 'matrix')
+                ->assertSee('Lazy Guard Brand');
+        } finally {
+            Model::preventLazyLoading(false);
+        }
     }
 }

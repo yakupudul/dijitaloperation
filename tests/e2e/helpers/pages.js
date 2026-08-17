@@ -33,7 +33,9 @@ export async function isLaravelExceptionPage(page) {
     }
 
     return body.includes('Whoops, looks like something went wrong')
-        || (body.includes('Illuminate\\') && body.includes('Stack trace'));
+        || /Internal Server Error/i.test(body)
+        || /LazyLoadingViolationException/.test(body)
+        || (body.includes('Illuminate\\') && /Stack trace|Exception trace/.test(body));
 }
 
 /**
@@ -44,7 +46,9 @@ export async function pageHttpHints(page) {
     const title = await page.title();
     const url = page.url();
     const looks404 = /404|not found/i.test(title) || /^\s*404\b/m.test(body) || /not found/i.test(body.slice(0, 400));
-    const looks500 = /500|server error/i.test(title) || /server error/i.test(body.slice(0, 400));
+    const looks500 = /500|server error/i.test(title)
+        || /internal server error|server error/i.test(body.slice(0, 800))
+        || /LazyLoadingViolationException/.test(body);
     const exception = await isLaravelExceptionPage(page);
 
     return { url, title, looks404, looks500, exception, bodyPreview: body.slice(0, 500) };

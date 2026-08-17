@@ -339,6 +339,8 @@ final class OperatorPortfolioPresenter
             'gsc' => 'GSC',
         ];
 
+        $brands->loadMissing(['digitalAssets', 'customer']);
+
         $rows = $brands->map(function (Brand $brand) use ($columns): array {
             $byType = $brand->digitalAssets->keyBy('type');
             $cells = [];
