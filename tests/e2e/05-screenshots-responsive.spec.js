@@ -63,7 +63,7 @@ test.describe('Visual evidence and responsive QA', () => {
             await page.getByRole('tab', { name: /Business|İş/ }).click();
             await waitForLivewire(page);
             await screenshot(page, 'tr-desktop-business-context');
-            await page.getByRole('button', { name: /Public Discovery|Keşif/ }).click();
+            await page.getByRole('button', { name: /Public Discovery|Kamusal keşif|Keşif/i }).click();
             await waitForLivewire(page);
             await screenshot(page, 'tr-desktop-public-discovery');
         }

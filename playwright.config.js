@@ -11,9 +11,9 @@ ensureArtifactsDir();
 /**
  * MoxDOP operator browser QA harness.
  *
- * Prefer an already-running isolated QA server (default http://127.0.0.1:8012
+ * Prefer an already-running isolated QA server (default http://127.0.0.1:8013
  * against /tmp/moxdop-final-manual-qa.sqlite). Playwright will not start a
- * second application server.
+ * second application server against the workspace default database.
  */
 export default defineConfig({
     testDir: './tests/e2e',
@@ -43,10 +43,12 @@ export default defineConfig({
         ignoreHTTPSErrors: true,
     },
     webServer: {
-        command: 'printf "MoxDOP E2E requires an already-running isolated server at %s\\n" "$MOXDOP_E2E_BASE_URL" >&2; exit 1',
+        command: 'bash tests/e2e/scripts/serve-isolated.sh',
         url: `${BASE_URL}/app/login`,
         reuseExistingServer: true,
-        timeout: 10_000,
+        timeout: 30_000,
+        stdout: 'pipe',
+        stderr: 'pipe',
     },
     projects: [
         {

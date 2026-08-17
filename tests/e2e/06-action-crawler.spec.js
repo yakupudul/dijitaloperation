@@ -37,6 +37,7 @@ test.describe('Bounded safe action crawler', () => {
                     likelySource: 'href generation without resource id or missing route',
                     fixScope: 'small',
                 });
+                continue;
             }
 
             const hrefs = await page.$$eval('a[href]', (anchors) => anchors.map((a) => a.getAttribute('href') || ''));

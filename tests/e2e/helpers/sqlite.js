@@ -2,8 +2,19 @@ import { execFileSync } from 'node:child_process';
 import { E2E_DATABASE } from './env.js';
 
 export function sqliteJson(sql) {
-    const raw = execFileSync('sqlite3', ['-json', E2E_DATABASE, sql], { encoding: 'utf8' }).trim();
-    if (raw === '') {
+    const php = [
+        '$db = new PDO("sqlite:" . getenv("MOXDOP_E2E_DATABASE"));',
+        '$db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);',
+        '$stmt = $db->query(' + phpString(sql) + ');',
+        'echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));',
+    ].join('\n');
+
+    const raw = execFileSync('php', ['-r', php], {
+        encoding: 'utf8',
+        env: { ...process.env, MOXDOP_E2E_DATABASE: E2E_DATABASE },
+    }).trim();
+
+    if (raw === '' || raw === '[]') {
         return [];
     }
 
@@ -42,4 +53,8 @@ export function userByEmail(email) {
 
 function escapeSql(value) {
     return String(value).replaceAll("'", "''");
+}
+
+function phpString(value) {
+    return "'" + String(value).replaceAll('\\', '\\\\').replaceAll("'", "\\'") + "'";
 }

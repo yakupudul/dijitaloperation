@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { attachHttpWatcher } from './helpers/httpWatcher.js';
-import { assertOperatorSurface, openSidebar, screenshot } from './helpers/pages.js';
+import { assertOperatorSurface, openSidebar, screenshot, waitForLivewire } from './helpers/pages.js';
 import { recordFinding } from './helpers/findings.js';
 
 const SURFACES = [
@@ -43,6 +43,11 @@ test.describe('Smoke crawl — frozen operator surfaces', () => {
             });
             expect.soft(result.ok, `${surface.name} should render`).toBeTruthy();
             expect.soft(result.hints.exception).toBeFalsy();
+
+            if (!result.ok) {
+                await page.goto('/app');
+                await waitForLivewire(page);
+            }
         }
 
         await screenshot(page, 'smoke-settings');

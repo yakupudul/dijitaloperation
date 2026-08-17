@@ -10,14 +10,17 @@ setup('authenticate through /app/login', async ({ page }) => {
     await page.locator('input[name="email"]').fill(E2E_EMAIL);
     await page.locator('input[name="password"]').fill(password);
     await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.waitForURL((url) => {
+        const path = new URL(url).pathname;
 
-    await page.waitForURL(/\/app(\/|$)/, { timeout: 20_000 });
+        return path.startsWith('/app') && !path.includes('/login');
+    }, { timeout: 20_000 });
     await expect(page.locator('#operator-sidebar')).toBeVisible();
 
-    const localeEn = page.getByRole('group', { name: /locale|dil/i }).getByRole('button', { name: 'EN' });
+    const localeEn = page.getByRole('group', { name: /locale|dil|language/i }).getByRole('button', { name: 'EN' });
     if (await localeEn.count()) {
         await localeEn.click();
-        await page.waitForTimeout(500);
+        await page.getByRole('link', { name: 'Customers' }).waitFor({ timeout: 15_000 });
     }
 
     await page.context().storageState({ path: AUTH_STATE });

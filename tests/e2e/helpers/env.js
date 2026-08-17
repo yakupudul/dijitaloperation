@@ -13,7 +13,7 @@ export const I18N_FILE = path.join(ARTIFACTS_DIR, 'i18n-inventory.json');
 export const SOURCE_I18N_FILE = path.join(ARTIFACTS_DIR, 'source-i18n-inventory.json');
 export const WATCHER_FILE = path.join(ARTIFACTS_DIR, 'http-watcher.jsonl');
 
-export const BASE_URL = process.env.MOXDOP_E2E_BASE_URL || 'http://127.0.0.1:8012';
+export const BASE_URL = process.env.MOXDOP_E2E_BASE_URL || 'http://127.0.0.1:8013';
 export const E2E_EMAIL = process.env.MOXDOP_E2E_EMAIL || 'qa-final@moxdop.local';
 export const E2E_DATABASE = process.env.MOXDOP_E2E_DATABASE || '/tmp/moxdop-final-manual-qa.sqlite';
 export const PASSWORD_FILE = process.env.MOXDOP_E2E_PASSWORD_FILE || '/tmp/moxdop-final-manual-qa-admin.secret';
@@ -32,7 +32,12 @@ export function loadPassword() {
         throw new Error(`E2E password source missing: ${PASSWORD_FILE} (or set MOXDOP_E2E_PASSWORD)`);
     }
 
-    return fs.readFileSync(PASSWORD_FILE, 'utf8').trim();
+    return fs.readFileSync(PASSWORD_FILE, 'utf8')
+        .split(/\r?\n/)
+        .map((line) => line.trimEnd())
+        .filter((line) => line !== '')
+        .join('')
+        .trim();
 }
 
 export function gitIdentity() {
@@ -43,7 +48,7 @@ export function gitIdentity() {
         toplevel: run(['rev-parse', '--show-toplevel']),
         branch: run(['branch', '--show-current']),
         head: run(['rev-parse', 'HEAD']),
-        origin: run(['remote', 'get-url', 'origin']).replace(/x-access-token:[^@]+@/i, 'github.com/'),
+        origin: run(['remote', 'get-url', 'origin']).replace(/https:\/\/x-access-token:[^@]+@/i, 'https://'),
     };
 }
 

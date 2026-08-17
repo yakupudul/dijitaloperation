@@ -79,16 +79,13 @@ function renderIssue(row) {
 function manualStatus(id) {
     const hits = findings.filter((row) => row.manualId === id);
     if (!hits.length) {
-        if (id === 'QA-MANUAL-005') {
-            return 'PARTIAL';
-        }
         if (id === 'QA-MANUAL-006') {
             return 'CONFIRMED';
         }
         return 'NOT_REPRODUCED';
     }
-    if (hits.some((row) => row.severity === 'BLOCKER' || /404/.test(row.observed))) {
-        return 'CONFIRMED';
+    if (id === 'QA-MANUAL-005' && hits.some((row) => /peer top-tab=false/i.test(row.observed || ''))) {
+        return 'PARTIAL';
     }
     return 'CONFIRMED';
 }
@@ -123,7 +120,8 @@ Do not treat Playwright product failures as harness blockage. This report is the
 - workspace: \`${identity.workspace || WORKSPACE}\`
 - git toplevel: \`${identity.git?.toplevel || git.toplevel}\`
 - branch: \`${identity.git?.branch || git.branch}\`
-- starting/final SHA at audit: \`${identity.git?.head || git.head}\`
+- starting SHA (task): \`03f278496e2607d4d56fda70597c5b438e3a55ce\`
+- harness/audit SHA: \`${identity.git?.head || git.head}\`
 - origin: \`${identity.git?.origin || git.origin}\`
 - base URL: \`${identity.baseURL || BASE_URL}\`
 - database: \`${identity.database || E2E_DATABASE}\` (exists: ${identity.databaseExists ? 'yes' : 'no'})
@@ -327,7 +325,11 @@ if (fs.existsSync('/opt/cursor')) {
         'tr-desktop-brand-detail.png',
         'tr-desktop-digital-assets.png',
         'asset-open-website.png',
+        'asset-open-unscoped-website.png',
+        'digital-assets-500.png',
+        'fail-digital-assets.png',
         'brand-public-discovery.png',
+        'tr-desktop-public-discovery.png',
         'customer-create.png',
         'integrations.png',
         'settings.png',

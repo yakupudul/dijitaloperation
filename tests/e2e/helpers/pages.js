@@ -97,6 +97,12 @@ export async function assertOperatorSurface(page, ctx) {
  * @param {string} name
  */
 export async function openSidebar(page, name) {
+    const sidebar = page.locator('#operator-sidebar');
+    if (!(await sidebar.isVisible().catch(() => false))) {
+        await page.goto('/app');
+        await waitForLivewire(page);
+    }
+
     const link = page.locator('#operator-sidebar a').filter({ hasText: name }).first();
     await link.click();
     await waitForLivewire(page);

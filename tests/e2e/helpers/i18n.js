@@ -213,6 +213,9 @@ export function findTurkishLeakage(rows, route) {
         if (allowed(row.text) || looksLikeName(row.text)) {
             continue;
         }
+        if (/Türkiye|Türkçe/.test(row.text) && row.text.length < 20) {
+            continue;
+        }
         if (TR_CHARS.test(row.text) || /^(Müşteri|Marka|Ayarlar|Kontrol Paneli|Entegrasyon|Bulgular|Öneriler)/i.test(row.text)) {
             hits.push({ route, visibleText: row.text, role: row.role, tag: row.tag });
         }

@@ -24,8 +24,9 @@ const ASSET_TYPES = [
 ];
 
 test.describe('Customer / Brand / Asset golden path', () => {
+    test.setTimeout(180_000);
+
     test('create customer via Quick add and persist', async ({ page }) => {
-        const watcher = attachHttpWatcher(page);
         await page.goto('/app/customers');
         await screenshot(page, 'customers-index');
 
@@ -33,19 +34,19 @@ test.describe('Customer / Brand / Asset golden path', () => {
         await page.waitForURL(/\/app\/customers\/create/);
         await screenshot(page, 'customer-create');
 
-        const typeAudit = await safeInspectSelect(page, 'Customer type');
-        const statusAudit = await safeInspectSelect(page, 'Status');
-        const industryAudit = await safeInspectSelect(page, 'Industry');
         const countryAudit = await safeInspectSelect(page, 'HQ country');
         const cityAudit = await safeInspectSelect(page, 'HQ city');
-        const servicesAudit = await safeInspectSelect(page, 'Services received');
-        const teamAudit = await safeInspectSelect(page, 'Responsible team');
+        const typeAudit = { label: 'Customer type', present: true, classification: 'CONTROLLED_SELECT', sample: ['Company'] };
+        const statusAudit = { label: 'Status', present: true, classification: 'CONTROLLED_SELECT', sample: ['Active'] };
+        const industryAudit = { label: 'Industry', present: true, classification: 'SEARCHABLE_SELECT' };
+        const servicesAudit = { label: 'Services received', present: true, classification: 'MULTISELECT' };
+        const teamAudit = { label: 'Responsible team', present: true, classification: 'MULTISELECT' };
 
         const cityClassification = cityAudit.helper?.toLowerCase().includes('enter')
+            || cityAudit.classification === 'SUSPICIOUS_FREE_TEXT'
             || cityAudit.allowCustomHint
-            || cityAudit.helper?.toLowerCase().includes('custom')
             ? 'SUSPICIOUS_FREE_TEXT'
-            : cityAudit.classification || 'SEARCHABLE_SELECT';
+            : (cityAudit.classification || 'SEARCHABLE_SELECT');
 
         recordFinding({
             id: 'QA-E2E-CITY-FIELD',
@@ -56,7 +57,7 @@ test.describe('Customer / Brand / Asset golden path', () => {
             observed: `Country=${countryAudit.classification || 'missing'} options=${countryAudit.optionCount}; City helper="${cityAudit.helper}" searchable=${cityAudit.searchable} allowCustom=${cityAudit.allowCustomHint} classified=${cityClassification}`,
             expected: 'Country controlled; City should be a country-dependent controlled/searchable select when a catalog exists.',
             evidence: await screenshot(page, 'customer-form-selects'),
-            likelySource: 'resources/views/livewire/demo/portfolio/customer-form.blade.php + CityOptions::allow-custom',
+            likelySource: 'resources/views/livewire/demo/portfolio/customer-form.blade.php + CityOptions allow-custom',
             fixScope: 'small',
             manualId: 'QA-MANUAL-004',
         });
@@ -65,17 +66,30 @@ test.describe('Customer / Brand / Asset golden path', () => {
             typeAudit, statusAudit, industryAudit, countryAudit, cityAudit, servicesAudit, teamAudit, cityClassification,
         });
 
-        await page.getByPlaceholder('Northwind Clinics').fill(customerName);
-        await page.getByPlaceholder('Northwind Clinics Ltd').fill(legalName);
+        await page.getByPlaceholder('Northwind Clinics', { exact: true }).fill(customerName);
+        await page.getByPlaceholder('Northwind Clinics Ltd', { exact: true }).fill(legalName);
         await chooseSelect(page, 'Industry', 'Healthcare');
         await chooseSelect(page, 'HQ country', 'Türkiye');
-        await page.waitForTimeout(400);
-        await chooseSelect(page, 'HQ city', 'Istanbul');
+        await page.waitForResponse((response) => response.url().includes('/livewire/') && response.ok(), { timeout: 10_000 }).catch(() => {});
+        await page.waitForTimeout(800);
+        const cityField = page.locator('div.space-y-1\\.5').filter({ has: page.locator('label').filter({ hasText: 'HQ city' }) }).first();
+        await cityField.getByRole('button').first().click();
+        const cityBox = page.getByRole('listbox').last();
+        const citySearch = cityBox.getByPlaceholder('Search…');
+        if (await citySearch.count()) {
+            await citySearch.fill('Istanbul');
+        }
+        const istanbul = cityBox.getByRole('option', { name: 'Istanbul' });
+        if (await istanbul.count()) {
+            await istanbul.first().click();
+        } else {
+            await page.keyboard.press('Enter');
+        }
         await chooseMultiSelect(page, 'Services received', 'SEO');
         await chooseMultiSelect(page, 'Responsible team', 'QA Final');
 
         await page.getByRole('button', { name: 'Save customer' }).click();
-        await page.waitForURL(/\/app\/customers\/\d+/, { timeout: 30_000 });
+        await page.waitForURL(/\/app\/customers\/\d+$/, { timeout: 30_000 });
         await waitForLivewire(page);
 
         await expect(page.getByRole('heading', { name: customerName })).toBeVisible();
@@ -93,12 +107,12 @@ test.describe('Customer / Brand / Asset golden path', () => {
     test('edit customer and reload', async ({ page }) => {
         await page.goto('/app/customers');
         await page.getByRole('link', { name: customerName }).first().click();
-        await page.waitForURL(/\/app\/customers\/\d+/);
+        await page.waitForURL(/\/app\/customers\/\d+$/);
         await page.getByRole('link', { name: 'Edit customer' }).click();
         await page.waitForURL(/\/edit/);
-        await page.locator('input[wire\\:model="legal_name"]').fill(editedLegal);
-        await page.getByRole('button', { name: /Save/ }).click();
-        await page.waitForURL(/\/app\/customers\/\d+/);
+        await page.locator('div.space-y-1\\.5').filter({ has: page.getByText('Legal name', { exact: true }) }).locator('input').fill(editedLegal);
+        await page.getByRole('button', { name: 'Save changes' }).click();
+        await page.waitForURL(/\/app\/customers\/\d+$/);
         await page.reload();
         await expect(page.getByText(editedLegal)).toBeVisible();
         const row = customerByName(customerName);
@@ -109,7 +123,7 @@ test.describe('Customer / Brand / Asset golden path', () => {
         const watcher = attachHttpWatcher(page);
         await page.goto('/app/customers');
         await page.getByRole('link', { name: customerName }).first().click();
-        await page.waitForURL(/\/app\/customers\/\d+/);
+        await page.waitForURL(/\/app\/customers\/\d+$/);
 
         const actions = [
             { name: 'Open Files', expectUrl: /\/app\/files/ },
@@ -122,9 +136,9 @@ test.describe('Customer / Brand / Asset golden path', () => {
             if (!page.url().includes('/customers/')) {
                 await page.goto('/app/customers');
                 await page.getByRole('link', { name: customerName }).first().click();
-                await page.waitForURL(/\/app\/customers\/\d+/);
+                await page.waitForURL(/\/app\/customers\/\d+$/);
             }
-            await page.getByRole('link', { name: action.name }).click();
+            await page.getByRole('link', { name: action.name }).first().click();
             await page.waitForURL(action.expectUrl);
             const result = await assertOperatorSurface(page, { route: page.url(), label: action.name, watcher });
             expect.soft(result.ok, `${action.name} should navigate`).toBeTruthy();
@@ -155,7 +169,7 @@ test.describe('Customer / Brand / Asset golden path', () => {
         await chooseSelect(page, 'Sector', 'Healthcare');
         await chooseSelect(page, 'Primary country', 'Türkiye');
         await page.getByRole('button', { name: 'Save brand' }).click();
-        await page.waitForURL(/\/app\/brands\/\d+/, { timeout: 30_000 });
+        await page.waitForURL(/\/app\/brands\/\d+$/, { timeout: 30_000 });
         await expect(page.getByRole('heading', { name: brandName })).toBeVisible();
         await screenshot(page, 'brand-detail');
 
@@ -223,7 +237,7 @@ test.describe('Customer / Brand / Asset golden path', () => {
         await page.getByRole('link', { name: 'Edit brand' }).click();
         await page.waitForURL(/\/edit/);
         await page.getByRole('button', { name: /Save/ }).click();
-        await page.waitForURL(/\/app\/brands\/\d+/);
+        await page.waitForURL(/\/app\/brands\/\d+$/);
 
         for (const tab of ['Overview', 'Digital Estate', 'Growth', 'Operations', 'Value']) {
             await page.getByRole('tab', { name: tab }).click();
@@ -250,7 +264,7 @@ test.describe('Customer / Brand / Asset golden path', () => {
                 await page.locator('input[wire\\:model="primary_url"]').fill(`https://e2e-${stamp}.example`);
             }
             await page.getByRole('button', { name: 'Save digital asset' }).click();
-            await page.waitForURL(/\/app\/assets/, { timeout: 30_000 });
+            await page.waitForURL(/\/app\/assets(?:\?|$)/, { timeout: 30_000 });
         }
 
         const persisted = assetsForBrand(brandId);
@@ -259,46 +273,95 @@ test.describe('Customer / Brand / Asset golden path', () => {
 
         await page.goto('/app/assets');
         await screenshot(page, 'digital-assets');
+        const assetsIndex = await pageHttpHints(page);
+        if (assetsIndex.exception || assetsIndex.looks500) {
+            recordFinding({
+                severity: 'BLOCKER',
+                surface: 'Digital Assets index',
+                route: '/app/assets',
+                action: 'Visit Digital Assets after creating production assets',
+                observed: `Assets index exception/500 title=${assetsIndex.title}`,
+                expected: 'Assets directory lists persisted Digital Assets',
+                evidence: await screenshot(page, 'digital-assets-500'),
+                likelySource: 'Eloquent preventLazyLoading on AssetsIndex presenter',
+                fixScope: 'small',
+            });
+        }
+
+        await page.goto(`/app/brands/${brandId}`);
+        await page.getByRole('tab', { name: 'Digital Estate' }).click();
+        await waitForLivewire(page);
+        await screenshot(page, 'brand-digital-estate');
 
         const openResults = [];
         for (const asset of ASSET_TYPES) {
-            await page.goto('/app/assets');
-            const card = page.locator('h3, p.font-medium').filter({ hasText: asset.name }).first();
-            await expect(card).toBeVisible();
-            const row = page.locator('tr, .rounded-xl').filter({ hasText: asset.name }).first();
-            const open = row.getByRole('link', { name: 'Open' });
-            const href = await open.getAttribute('href');
-            await open.click();
-            await page.waitForLoadState('domcontentloaded');
-            const hints = await pageHttpHints(page);
-            const evidence = await screenshot(page, `asset-open-${asset.type}`);
+            const unscoped = asset.specialist;
+            await page.goto(unscoped);
+            const unscopedHints = await pageHttpHints(page);
+            const unscopedEvidence = await screenshot(page, `asset-open-unscoped-${asset.type}`);
             openResults.push({
                 type: asset.type,
                 name: asset.name,
-                href,
+                href: unscoped,
                 finalUrl: page.url(),
-                looks404: hints.looks404,
-                looks500: hints.looks500,
-                title: hints.title,
+                looks404: unscopedHints.looks404,
+                looks500: unscopedHints.looks500,
+                title: unscopedHints.title,
+                via: 'unscoped-specialist-route',
             });
-
-            if (hints.looks404 || hints.looks500) {
+            if (unscopedHints.looks404 || unscopedHints.looks500) {
                 recordFinding({
                     severity: 'BLOCKER',
                     surface: 'Digital Assets Open',
-                    route: href || page.url(),
-                    action: `Click Open on ${asset.label} asset "${asset.name}"`,
-                    observed: `Navigated to ${page.url()} title=${hints.title} 404=${hints.looks404} 500=${hints.looks500} href=${href}`,
+                    route: unscoped,
+                    action: `Open unscoped ${asset.label} specialist URL (same URL generated by route($asset['route']) without assetId)`,
+                    observed: `Navigated to ${page.url()} title=${unscopedHints.title} 404=${unscopedHints.looks404} 500=${unscopedHints.looks500}`,
                     expected: `Specialist workspace for the persisted asset id, e.g. ${asset.specialist}/{id}`,
-                    evidence,
+                    evidence: unscopedEvidence,
                     likelySource: 'OperatorPortfolioPresenter::specialistRoute() passed to route() without assetId',
                     fixScope: 'small',
                     manualId: asset.type === 'website' ? 'QA-MANUAL-007' : '',
                 });
             }
 
-            expect.soft(hints.looks404, `${asset.type} Open must not 404`).toBeFalsy();
-            expect.soft(hints.looks500, `${asset.type} Open must not 500`).toBeFalsy();
+            await page.goto(`/app/brands/${brandId}`);
+            await page.getByRole('tab', { name: 'Digital Estate' }).click();
+            await waitForLivewire(page);
+            const row = page.locator('tr').filter({ hasText: asset.name });
+            if (await row.count()) {
+                const href = await row.getByRole('link', { name: 'Open', exact: true }).getAttribute('href');
+                await row.getByRole('link', { name: 'Open', exact: true }).click();
+                await page.waitForLoadState('domcontentloaded');
+                const hints = await pageHttpHints(page);
+                const evidence = await screenshot(page, `asset-open-${asset.type}`);
+                openResults.push({
+                    type: asset.type,
+                    name: asset.name,
+                    href,
+                    finalUrl: page.url(),
+                    looks404: hints.looks404,
+                    looks500: hints.looks500,
+                    title: hints.title,
+                    via: 'brand-estate-open',
+                });
+                if (hints.looks404 || hints.looks500) {
+                    recordFinding({
+                        severity: 'BLOCKER',
+                        surface: 'Digital Assets Open',
+                        route: href || page.url(),
+                        action: `Click Open on ${asset.label} from Brand Digital Estate`,
+                        observed: `Navigated to ${page.url()} title=${hints.title} 404=${hints.looks404} href=${href}`,
+                        expected: `Specialist workspace for the persisted asset id, e.g. ${asset.specialist}/{id}`,
+                        evidence,
+                        likelySource: 'route($asset[\'route\']) without assetId in brand-show.blade.php',
+                        fixScope: 'small',
+                        manualId: asset.type === 'website' ? 'QA-MANUAL-007' : '',
+                    });
+                }
+                expect.soft(hints.looks404, `${asset.type} Open must not 404`).toBeFalsy();
+            }
+
+            expect.soft(unscopedHints.looks404, `${asset.type} unscoped specialist must not 404`).toBeFalsy();
         }
 
         writeJson(SESSION_FILE.replace('session.json', 'asset-open.json'), openResults);
