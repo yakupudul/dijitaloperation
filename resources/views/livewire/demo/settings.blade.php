@@ -182,10 +182,13 @@
                             <div><dt class="text-gray-400">{{ __('operator.settings.ai.routes_count') }}</dt><dd class="mt-1 text-lg font-semibold text-gray-800 dark:text-white/90">{{ count($aiRoutes) }}</dd></div>
                             <div><dt class="text-gray-400">{{ __('operator.settings.ai.agents') }}</dt><dd class="mt-1 text-lg font-semibold text-gray-800 dark:text-white/90">{{ count($aiAgents) }}</dd></div>
                             <div><dt class="text-gray-400">OpenAI</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['ai']['openai'] }}</dd></div>
+                            <div><dt class="text-gray-400">Anthropic</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['ai']['anthropic'] }}</dd></div>
+                            <div><dt class="text-gray-400">Gemini</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['ai']['gemini'] ?? 'Not configured' }}</dd></div>
                         </dl>
                         <p class="mt-4 text-sm text-gray-500">{{ $settings['ai']['note'] }}</p>
                         <div class="mt-4 flex flex-wrap gap-2">
-                            <x-ta.button href="{{ route('demo.settings.ai.control-plane') }}" size="sm">{{ __('operator.settings.ai.control_plane') }}</x-ta.button>
+                            <x-ta.button href="{{ route('demo.integrations') }}" size="sm">Provider credentials</x-ta.button>
+                            <x-ta.button href="{{ route('demo.settings.ai.control-plane') }}" size="sm" variant="outline">{{ __('operator.settings.ai.control_plane') }}</x-ta.button>
                             <x-ta.button href="{{ route('demo.settings.ai.agents') }}" size="sm" variant="outline">{{ __('operator.settings.ai.agents') }}</x-ta.button>
                             <x-ta.button href="{{ route('demo.settings.ai.skills') }}" size="sm" variant="outline">{{ __('operator.settings.ai.skills') }}</x-ta.button>
                         </div>

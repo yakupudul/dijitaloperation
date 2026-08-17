@@ -71,7 +71,7 @@ class MetaApiClient
         }
 
         $url = MetaApiConfig::graphBaseUrl().'/'.$path;
-        $query = $this->withAppSecretProof($query, $token);
+        $query = $this->withAppSecretProof($query, $token, $integration);
         $filtered = array_filter(
             $query,
             static fn (mixed $value): bool => $value !== null && $value !== '',
@@ -172,7 +172,7 @@ class MetaApiClient
             unset($query['access_token']);
         }
 
-        $query = $this->withAppSecretProof($query, $token);
+        $query = $this->withAppSecretProof($query, $token, $integration);
 
         $path = (string) ($parts['path'] ?? '/');
         $rebuild = MetaApiConfig::GRAPH_SCHEME.'://'.MetaApiConfig::GRAPH_HOST.$path;
@@ -201,13 +201,13 @@ class MetaApiClient
      * @param  array<string, mixed>  $query
      * @return array<string, mixed>
      */
-    private function withAppSecretProof(array $query, string $token): array
+    private function withAppSecretProof(array $query, string $token, CoreIntegration $integration): array
     {
         if (! (bool) config('moxdop.meta.use_appsecret_proof', true)) {
             return $query;
         }
 
-        $proof = MetaApiConfig::appSecretProof($token);
+        $proof = app(MetaCredentialResolver::class)->appSecretProof($integration, $token);
         if ($proof === null) {
             return $query;
         }

@@ -153,7 +153,7 @@ class GlobalAgencyOperatingLayerTest extends TestCase
             ->assertDontSee('Ayşe Demir')
             ->assertDontSee('Selin Kaya')
             ->call('setSection', 'ai')
-            ->assertSee('Connected AI providers do not auto-accept')
+            ->assertSee('Provider API keys are configured under Integrations')
             ->call('setSection', 'advanced')
             ->assertDontSee('Reset Demo Mode')
             ->assertDontSee('Modules menu');

@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Demo\Integrations;
 
+use App\Livewire\Demo\Integrations\Concerns\ManagesOperatorCredentials;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
@@ -11,8 +12,11 @@ use App\Services\Collection\Meta\MetaIncrementalCollectionOrchestrator;
 use App\Services\Collection\Meta\MetaInitialBackfillOrchestrator;
 use App\Services\Integrations\ConfirmMetaResourceBindingService;
 use App\Services\Integrations\Meta\DiscoverMetaResourcesService;
+use App\Services\Integrations\Meta\MetaConnectionService;
+use App\Services\Integrations\Meta\MetaCredentialResolver;
 use App\Services\Integrations\Meta\MetaIntegrationReadModel;
 use App\Services\Integrations\Meta\MetaOAuthService;
+use App\Services\Integrations\Meta\MetaProviderCredentialService;
 use App\Services\Integrations\Meta\SelectMetaDiscoveryContextService;
 use App\Support\Demo\DemoState;
 use App\Support\Integrations\Meta\MetaResourceType;
@@ -31,6 +35,8 @@ use Livewire\Component;
 #[Title('Meta Integration')]
 class MetaIntegrationPage extends Component
 {
+    use ManagesOperatorCredentials;
+
     #[Url(as: 'tab', history: true)]
     public string $tab = 'overview';
 
@@ -50,21 +56,37 @@ class MetaIntegrationPage extends Component
 
     public bool $allowReplace = false;
 
+    public string $metaAppId = '';
+
+    public string $metaAppSecret = '';
+
+    public bool $clearMetaAppSecret = false;
+
+    public bool $confirmRemoveMetaCredentials = false;
+
     /** @var list<array{id: int, name: string, type: string, customer: string, has_active_binding?: bool}> */
     public array $compatibleAssets = [];
 
     public function mount(): void
     {
-        if (! in_array($this->tab, ['overview', 'connectors', 'resources', 'activity'], true)) {
+        if (! in_array($this->tab, ['overview', 'connectors', 'configuration', 'resources', 'activity'], true)) {
             $this->tab = 'overview';
         }
+
+        $this->hydrateMetaForm();
     }
 
     public function setTab(string $tab): void
     {
-        if (in_array($tab, ['overview', 'connectors', 'resources', 'activity'], true)) {
+        if (in_array($tab, ['overview', 'connectors', 'configuration', 'resources', 'activity'], true)) {
             $this->tab = $tab;
         }
+    }
+
+    public function dehydrate(): void
+    {
+        $this->metaAppSecret = '';
+        $this->clearMetaAppSecret = false;
     }
 
     public function bootstrapAndConnect(): void
@@ -75,7 +97,16 @@ class MetaIntegrationPage extends Component
         }
 
         $integration = app(IntegrationWorkspaceCatalog::class)->bootstrap(ProviderRegistry::META);
-        $result = app(MetaOAuthService::class)->beginAuthorization($integration, $user);
+        $fresh = $integration->fresh(['providerCredential']) ?? $integration;
+
+        if (! app(MetaCredentialResolver::class)->isApplicationConfigured($fresh)) {
+            $this->tab = 'configuration';
+            DemoState::flash('Configure Meta application first.', 'info');
+
+            return;
+        }
+
+        $result = app(MetaOAuthService::class)->beginAuthorization($fresh, $user);
 
         if (isset($result['error'])) {
             DemoState::flash($result['error'], 'info');
@@ -403,6 +434,87 @@ class MetaIntegrationPage extends Component
         DemoState::flash($result['message'], 'info');
     }
 
+    public function saveMetaConfiguration(MetaProviderCredentialService $service): void
+    {
+        $user = $this->credentialManager();
+        $integration = app(IntegrationWorkspaceCatalog::class)->bootstrap(ProviderRegistry::META);
+
+        try {
+            $service->save($integration, [
+                'app_id' => $this->metaAppId,
+                'app_secret' => $this->metaAppSecret,
+                'clear_app_secret' => $this->clearMetaAppSecret,
+            ], $user);
+        } catch (ValidationException $exception) {
+            foreach ($exception->errors() as $field => $messages) {
+                $target = match ($field) {
+                    'app_id' => 'metaAppId',
+                    'app_secret' => 'metaAppSecret',
+                    default => $field,
+                };
+                $this->addError($target, (string) ($messages[0] ?? 'Invalid value.'));
+            }
+
+            return;
+        }
+
+        $this->metaAppSecret = '';
+        $this->clearMetaAppSecret = false;
+        $this->hydrateMetaForm($integration->fresh(['providerCredential']));
+        $this->tab = 'configuration';
+        DemoState::flash('Meta application credentials saved.', 'info');
+    }
+
+    public function testMetaConfiguration(): void
+    {
+        $this->credentialManager();
+        $integration = $this->metaIntegration();
+
+        if ($integration === null || ! app(MetaCredentialResolver::class)->isApplicationConfigured($integration)) {
+            DemoState::flash('Configure Meta application first.', 'info');
+
+            return;
+        }
+
+        if (! app(MetaCredentialResolver::class)->hasTenantAuthorization($integration)) {
+            DemoState::flash('Application credentials are configured. Authorization is still required.', 'info');
+
+            return;
+        }
+
+        $result = app(MetaConnectionService::class)->testConnection($integration);
+        DemoState::flash($result['message'], 'info');
+    }
+
+    public function askRemoveMetaCredentials(): void
+    {
+        $this->credentialManager();
+        $this->confirmRemoveMetaCredentials = true;
+    }
+
+    public function cancelRemoveMetaCredentials(): void
+    {
+        $this->confirmRemoveMetaCredentials = false;
+    }
+
+    public function removeMetaConfiguration(MetaProviderCredentialService $service): void
+    {
+        $user = $this->credentialManager();
+        $this->confirmRemoveMetaCredentials = false;
+        $integration = $this->metaIntegration();
+
+        if ($integration === null) {
+            DemoState::flash('No Meta application credentials are stored.', 'info');
+
+            return;
+        }
+
+        $service->remove($integration, $user);
+        $this->metaAppId = '';
+        $this->hydrateMetaForm();
+        DemoState::flash('Meta application credentials removed. Historical resources were not deleted.', 'info');
+    }
+
     public function render(MetaIntegrationReadModel $readModel): View
     {
         $integration = $readModel->detail();
@@ -459,6 +571,8 @@ class MetaIntegrationPage extends Component
             'brands' => $brands,
             'bindingPreview' => $bindingPreview,
             'preflight' => $preflight,
+            'canManageCredentials' => $this->canManageCredentials(),
+            'metaAppSecretConfigured' => $this->metaAppSecretConfigured(),
         ]);
     }
 
@@ -468,6 +582,28 @@ class MetaIntegrationPage extends Component
             ->with(['providerCredential'])
             ->where('provider', ProviderRegistry::META)
             ->first();
+    }
+
+    private function hydrateMetaForm(?CoreIntegration $integration = null): void
+    {
+        $integration ??= $this->metaIntegration();
+        $this->metaAppSecret = '';
+
+        if (! $integration instanceof CoreIntegration) {
+            $this->metaAppId = '';
+
+            return;
+        }
+
+        $this->metaAppId = app(MetaCredentialResolver::class)->databaseAppId($integration) ?? '';
+    }
+
+    private function metaAppSecretConfigured(): bool
+    {
+        $integration = $this->metaIntegration();
+
+        return $integration instanceof CoreIntegration
+            && app(MetaCredentialResolver::class)->hasDatabaseAppSecret($integration);
     }
 
     private function refreshCompatibleAssets(): void

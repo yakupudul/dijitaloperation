@@ -3,6 +3,7 @@
 namespace App\Support\Integrations\Meta;
 
 use App\Models\CoreIntegration;
+use App\Services\Integrations\Meta\MetaCredentialResolver;
 
 /**
  * Safe Meta application configuration health (no secrets).
@@ -27,9 +28,10 @@ final class MetaConfigurationHealth
      */
     public function check(?CoreIntegration $integration = null): array
     {
+        $resolver = app(MetaCredentialResolver::class);
         $checks = [
-            'app_id' => MetaApiConfig::appId() !== null,
-            'app_secret' => MetaApiConfig::appSecret() !== null,
+            'app_id' => $resolver->appId($integration) !== null,
+            'app_secret' => $resolver->appSecret($integration) !== null,
             'graph_api_version' => MetaApiConfig::apiVersion() !== '',
             'redirect_uri' => $this->redirectUri->uri() !== '',
             'login_configuration_id' => MetaApiConfig::loginConfigurationId() !== null,

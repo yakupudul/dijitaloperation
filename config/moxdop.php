@@ -78,8 +78,9 @@ return [
     /*
      * Agency Meta Integration (Settings → Integrations).
      *
-     * Application / deployment configuration (Prompt 21 ownership; Prompt 22 OAuth):
-     *   META_APP_ID, META_APP_SECRET — never tenant credential rows; never shown in UI.
+     * Application / deployment configuration:
+     *   Encrypted CoreIntegration provider credentials first (App ID / App Secret).
+     *   META_APP_ID, META_APP_SECRET remain environment fallbacks — never shown in UI.
      *
      * Tenant authorization (legacy until Prompt 22 OAuth productionizes the flow):
      *   DB-first encrypted access token (system user / long-lived user token).
@@ -102,7 +103,7 @@ return [
         'login_configuration_id' => env('META_LOGIN_CONFIGURATION_ID'),
         /*
          * Legacy bootstrap / compatibility only — never shown in UI.
-         * Production operator path is Connect Meta OAuth (Prompt 22).
+         * Production operator path is Connect Meta OAuth.
          */
         'access_token' => env('META_ACCESS_TOKEN'),
         'api_version' => env('META_API_VERSION', 'v26.0'),

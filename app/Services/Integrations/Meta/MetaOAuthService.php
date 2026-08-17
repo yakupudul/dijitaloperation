@@ -43,6 +43,7 @@ class MetaOAuthService
     public function __construct(
         private readonly MetaOAuthRedirectUriResolver $redirectUri,
         private readonly MetaCredentialValidator $validator,
+        private readonly MetaCredentialResolver $credentials,
     ) {}
 
     public function assertAdmin(User $user): void
@@ -71,15 +72,15 @@ class MetaOAuthService
         $this->assertAdmin($user);
         $this->assertMetaIntegration($integration);
 
-        if (! MetaApiConfig::isApplicationConfigured()) {
+        if (! $this->credentials->isApplicationConfigured($integration)) {
             return [
-                'error' => 'Meta application credentials are incomplete. Configure META_APP_ID and META_APP_SECRET before authorizing.',
+                'error' => 'Configure Meta application first.',
             ];
         }
 
-        $clientId = MetaApiConfig::appId();
+        $clientId = $this->credentials->appId($integration);
         if ($clientId === null) {
-            return ['error' => 'Meta App ID is missing.'];
+            return ['error' => 'Configure Meta application first.'];
         }
 
         $allowedReturns = ['demo.integrations.meta', 'demo.integrations'];
@@ -182,11 +183,11 @@ class MetaOAuthService
         $requestedPermissions = $context['requested_permissions'];
         $returnRoute = $context['return_route'];
 
-        $clientId = MetaApiConfig::appId();
-        $clientSecret = MetaApiConfig::appSecret();
+        $clientId = $this->credentials->appId($integration);
+        $clientSecret = $this->credentials->appSecret($integration);
         if ($clientId === null || $clientSecret === null) {
             return [
-                'error' => 'Meta application credentials are incomplete. Configure META_APP_ID and META_APP_SECRET first.',
+                'error' => 'Configure Meta application first.',
                 'return_route' => $returnRoute,
             ];
         }
@@ -360,10 +361,13 @@ class MetaOAuthService
             $tokenType = self::TOKEN_TYPE_LONG_LIVED_USER;
         }
 
-        $payload = [
+        $existing = $this->credentials->providerPayload($integration);
+        $payload = array_filter([
+            'app_id' => $existing['app_id'] ?? null,
+            'app_secret' => $existing['app_secret'] ?? null,
             'access_token' => $accessToken,
             'token_type' => $tokenType,
-        ];
+        ], fn (mixed $value): bool => is_string($value) && $value !== '');
 
         $expiresAt = $expiresIn > 0 ? now()->addSeconds(max(60, $expiresIn - 60)) : null;
 
@@ -403,8 +407,8 @@ class MetaOAuthService
      */
     private function exchangeForLongLivedToken(CoreIntegration $integration, string $shortLivedToken): ?array
     {
-        $clientId = MetaApiConfig::appId();
-        $clientSecret = MetaApiConfig::appSecret();
+        $clientId = $this->credentials->appId($integration);
+        $clientSecret = $this->credentials->appSecret($integration);
         if ($clientId === null || $clientSecret === null) {
             return null;
         }
@@ -515,7 +519,20 @@ class MetaOAuthService
     private function clearAuthorizationSecrets(CoreIntegration $integration): void
     {
         DB::transaction(function () use ($integration): void {
-            $integration->providerCredential()->delete();
+            $credential = $integration->providerCredential()->first();
+            if ($credential instanceof CoreIntegrationCredential) {
+                $payload = is_array($credential->encrypted_payload) ? $credential->encrypted_payload : [];
+                unset($payload['access_token'], $payload['token_type']);
+                if ($payload === []) {
+                    $credential->delete();
+                } else {
+                    $credential->forceFill([
+                        'encrypted_payload' => $payload,
+                        'expires_at' => null,
+                        'refreshed_at' => null,
+                    ])->save();
+                }
+            }
 
             $config = is_array($integration->config) ? $integration->config : [];
             $config['auth_status'] = 'reauth_required';

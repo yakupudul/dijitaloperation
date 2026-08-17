@@ -29,8 +29,9 @@
                     @php
                         $statusColor = match ($provider['state']) {
                             'connected' => 'success',
+                            'configured' => 'info',
                             'needs_attention', 'authorization_expired', 'configuration_incomplete' => 'warning',
-                            'not_connected', 'provider_unavailable' => 'light',
+                            'not_connected', 'not_configured', 'provider_unavailable' => 'light',
                             default => 'info',
                         };
                     @endphp
@@ -45,7 +46,7 @@
                             </div>
                         </div>
 
-                        @if ($provider['resources_discovered'] !== null)
+                        @if ($provider['resources_discovered'] !== null && ! ($provider['discovery_not_run'] ?? false))
                             <dl class="mt-4 grid grid-cols-3 gap-2 text-center text-sm">
                                 <div class="rounded-lg bg-gray-50 px-2 py-2 dark:bg-white/[0.03]">
                                     <dt class="text-xs text-gray-400">Discovered</dt>
@@ -60,9 +61,8 @@
                                     <dd class="font-semibold text-gray-800 dark:text-white/90">{{ $provider['available'] }}</dd>
                                 </div>
                             </dl>
-                            @if (($provider['id'] ?? '') === 'google' && (int) ($provider['resources_discovered'] ?? 0) === 0)
-                                <p class="mt-2 text-xs text-gray-500">{{ $provider['note'] ?? 'Discovery not run' }}</p>
-                            @endif
+                        @elseif ($provider['resources_discovered'] !== null && ($provider['discovery_not_run'] ?? false))
+                            <p class="mt-4 text-sm text-gray-500 dark:text-gray-400">Not discovered yet</p>
                         @elseif (! empty($provider['note']))
                             <p class="mt-4 text-sm text-gray-500 dark:text-gray-400">{{ $provider['note'] }}</p>
                         @endif

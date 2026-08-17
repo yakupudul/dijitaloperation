@@ -32,7 +32,7 @@ final class MetaAuthStatus
     {
         $resolver = app(MetaCredentialResolver::class);
 
-        if (! $resolver->hasTenantAuthorization($integration) && ! $resolver->isApplicationConfigured()) {
+        if (! $resolver->hasTenantAuthorization($integration) && ! $resolver->isApplicationConfigured($integration)) {
             return self::NOT_CONFIGURED;
         }
 
@@ -82,7 +82,7 @@ final class MetaAuthStatus
 
     public static function configurationLabel(CoreIntegration $integration): string
     {
-        return app(MetaCredentialResolver::class)->applicationConfigurationLabel();
+        return app(MetaCredentialResolver::class)->applicationConfigurationLabel($integration);
     }
 
     public static function connectionLabel(CoreIntegration $integration): string

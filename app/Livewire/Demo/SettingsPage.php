@@ -2,6 +2,10 @@
 
 namespace App\Livewire\Demo;
 
+use App\Models\CoreIntegration;
+use App\Services\Integrations\Anthropic\AnthropicCredentialResolver;
+use App\Services\Integrations\Gemini\GeminiCredentialResolver;
+use App\Services\Integrations\OpenAi\OpenAiCredentialResolver;
 use App\Services\Notifications\NotificationPreferenceService;
 use App\Services\Operator\OperatorUserDirectory;
 use App\Services\Playbooks\PlaybookReadService;
@@ -9,6 +13,7 @@ use App\Support\Agents\AgentProfileRegistry;
 use App\Support\Ai\AiRouteRegistry;
 use App\Support\Demo\DemoState;
 use App\Support\Demo\GlobalOperatingFixtures;
+use App\Support\Integrations\ProviderRegistry;
 use App\Support\Skills\SkillDefinition;
 use App\Support\Skills\SkillRegistry;
 use Illuminate\Contracts\View\View;
@@ -202,6 +207,10 @@ class SettingsPage extends Component
         $overrides = DemoState::settingsOverrides();
         $merged = array_replace_recursive($base, $overrides);
         $merged['team'] = OperatorUserDirectory::presentationMembers();
+        $merged['ai']['openai'] = $this->aiCredentialLabel(ProviderRegistry::OPENAI, OpenAiCredentialResolver::class);
+        $merged['ai']['anthropic'] = $this->aiCredentialLabel(ProviderRegistry::ANTHROPIC, AnthropicCredentialResolver::class);
+        $merged['ai']['gemini'] = $this->aiCredentialLabel(ProviderRegistry::GEMINI, GeminiCredentialResolver::class);
+        $merged['ai']['note'] = 'Provider API keys are configured under Integrations. A stored key is not a live connection.';
 
         $user = Auth::user();
         if ($user !== null) {
@@ -236,5 +245,19 @@ class SettingsPage extends Component
         foreach ($settings['notifications'] ?? [] as $i => $row) {
             $this->notificationEnabled[$i] = (bool) ($row['enabled'] ?? false);
         }
+    }
+
+    /**
+     * @param  class-string  $resolverClass
+     */
+    private function aiCredentialLabel(string $provider, string $resolverClass): string
+    {
+        $integration = CoreIntegration::query()->where('provider', $provider)->first();
+
+        if ($integration === null || ! app($resolverClass)->isConfigured($integration)) {
+            return 'Not configured';
+        }
+
+        return 'Configured';
     }
 }

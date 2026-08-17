@@ -31,6 +31,7 @@ use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use InvalidArgumentException;
 use Livewire\Livewire;
@@ -213,24 +214,25 @@ class MetaIntegrationArchitectureTest extends TestCase
         $this->assertSame(1, $integration->credentials()->count());
     }
 
-    public function test_app_secret_not_stored_in_tenant_credential(): void
+    public function test_app_secret_is_stored_encrypted_and_never_in_config(): void
     {
-        config([
-            'moxdop.meta.app_id' => 'app-123',
-            'moxdop.meta.app_secret' => 'secret-xyz',
-        ]);
-
-        $this->assertTrue(MetaApiConfig::isApplicationConfigured());
-        $this->assertSame('secret-xyz', MetaApiConfig::appSecret());
-
         $integration = CoreIntegration::factory()->meta()->create();
         $service = app(MetaProviderCredentialService::class);
 
-        $this->expectException(InvalidArgumentException::class);
         $service->save($integration, [
-            'access_token' => 'EAAG-tenant',
-            'app_secret' => 'must-not-persist',
+            'app_id' => 'app-123',
+            'app_secret' => 'must-stay-encrypted',
         ], $this->admin);
+
+        $fresh = $integration->fresh(['providerCredential']);
+        $this->assertSame('must-stay-encrypted', app(MetaCredentialResolver::class)->appSecret($fresh));
+        $this->assertArrayNotHasKey('app_secret', is_array($fresh->config) ? $fresh->config : []);
+        $this->assertStringNotContainsString(
+            'must-stay-encrypted',
+            (string) DB::table('core_integration_credentials')
+                ->where('integration_id', $integration->id)
+                ->value('encrypted_payload'),
+        );
     }
 
     public function test_meta_ads_binding_foundation_without_auto_binding(): void
@@ -407,6 +409,7 @@ class MetaIntegrationArchitectureTest extends TestCase
 
         $this->assertSame('real', $card['provenance'] ?? null);
         $this->assertSame(0, $card['resources_discovered']);
+        $this->assertTrue($card['discovery_not_run'] ?? false);
         $this->assertSame('demo.integrations.meta', $card['route']);
     }
 

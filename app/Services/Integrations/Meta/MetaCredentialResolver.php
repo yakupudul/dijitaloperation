@@ -9,10 +9,10 @@ use App\Support\Integrations\ProviderRegistry;
 
 /**
  * Resolve Meta credentials with canonical ownership:
- * - Application App ID/Secret: deployment config only (never tenant credential rows)
- * - Tenant authorization token: DB provider credential first, optional env fallback
+ * - Application App ID/Secret: encrypted provider credential first, environment fallback
+ * - Tenant authorization token: encrypted provider credential first, optional env fallback
  *
- * Prompt 22 will productionize OAuth lifecycle; Prompt 21 defines ownership.
+ * Recoverable secrets never belong in Integration config JSON or Livewire snapshots.
  */
 class MetaCredentialResolver
 {
@@ -30,14 +30,109 @@ class MetaCredentialResolver
         return $this->hasTenantAuthorization($integration);
     }
 
-    public function isApplicationConfigured(): bool
+    public function isApplicationConfigured(?CoreIntegration $integration = null): bool
     {
-        return MetaApiConfig::isApplicationConfigured();
+        return $this->appId($integration) !== null && $this->appSecret($integration) !== null;
     }
 
     public function hasTenantAuthorization(CoreIntegration $integration): bool
     {
         return $this->accessToken($integration) !== null;
+    }
+
+    public function appId(?CoreIntegration $integration = null): ?string
+    {
+        if ($integration instanceof CoreIntegration) {
+            $this->assertMeta($integration);
+            $payload = $this->providerPayload($integration);
+            $value = isset($payload['app_id']) && is_string($payload['app_id'])
+                ? trim($payload['app_id'])
+                : '';
+            if ($value !== '') {
+                return $value;
+            }
+        }
+
+        return MetaApiConfig::appId();
+    }
+
+    public function appSecret(?CoreIntegration $integration = null): ?string
+    {
+        if ($integration instanceof CoreIntegration) {
+            $this->assertMeta($integration);
+            $payload = $this->providerPayload($integration);
+            $value = isset($payload['app_secret']) && is_string($payload['app_secret'])
+                ? trim($payload['app_secret'])
+                : '';
+            if ($value !== '') {
+                return $value;
+            }
+        }
+
+        return MetaApiConfig::appSecret();
+    }
+
+    /**
+     * @return self::SOURCE_*
+     */
+    public function appIdSource(?CoreIntegration $integration = null): string
+    {
+        if ($integration instanceof CoreIntegration && $this->databaseAppId($integration) !== null) {
+            return self::SOURCE_DATABASE;
+        }
+
+        return MetaApiConfig::appId() !== null ? self::SOURCE_ENVIRONMENT : self::SOURCE_MISSING;
+    }
+
+    /**
+     * @return self::SOURCE_*
+     */
+    public function appSecretSource(?CoreIntegration $integration = null): string
+    {
+        if ($integration instanceof CoreIntegration && $this->hasDatabaseAppSecret($integration)) {
+            return self::SOURCE_DATABASE;
+        }
+
+        return MetaApiConfig::appSecret() !== null ? self::SOURCE_ENVIRONMENT : self::SOURCE_MISSING;
+    }
+
+    /**
+     * Non-secret App ID from DB only (safe to display when present).
+     */
+    public function databaseAppId(CoreIntegration $integration): ?string
+    {
+        $payload = $this->providerPayload($integration);
+        $value = $payload['app_id'] ?? null;
+
+        return is_string($value) && filled($value) ? $value : null;
+    }
+
+    public function hasDatabaseAppSecret(CoreIntegration $integration): bool
+    {
+        $payload = $this->providerPayload($integration);
+
+        return filled($payload['app_secret'] ?? null);
+    }
+
+    public function appAccessToken(?CoreIntegration $integration = null): ?string
+    {
+        $appId = $this->appId($integration);
+        $secret = $this->appSecret($integration);
+        if ($appId === null || $secret === null) {
+            return null;
+        }
+
+        return $appId.'|'.$secret;
+    }
+
+    public function appSecretProof(CoreIntegration $integration, string $accessToken): ?string
+    {
+        $secret = $this->appSecret($integration);
+        if ($secret === null || $accessToken === '') {
+            return null;
+        }
+
+        return hash_hmac('sha256', $accessToken, $secret);
     }
 
     public function accessToken(CoreIntegration $integration): ?string
@@ -95,15 +190,15 @@ class MetaCredentialResolver
     }
 
     /**
-     * Assert tenant credential payload never stores Meta App Secret.
+     * Assert Integration config JSON never stores recoverable Meta secrets.
      *
-     * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $config
      */
-    public function assertNoAppSecretInTenantPayload(array $payload): void
+    public function assertNoSecretsInPublicConfig(array $config): void
     {
-        foreach (['app_secret', 'client_secret', 'meta_app_secret'] as $key) {
-            if (array_key_exists($key, $payload) && filled($payload[$key] ?? null)) {
-                throw new \InvalidArgumentException('Meta App Secret must not be stored in tenant credentials.');
+        foreach (['app_secret', 'access_token', 'client_secret', 'meta_app_secret'] as $key) {
+            if (array_key_exists($key, $config) && filled($config[$key] ?? null)) {
+                throw new \InvalidArgumentException('Meta secrets must not be stored in integration config.');
             }
         }
     }
@@ -121,11 +216,11 @@ class MetaCredentialResolver
         };
     }
 
-    public function applicationConfigurationLabel(): string
+    public function applicationConfigurationLabel(?CoreIntegration $integration = null): string
     {
-        return $this->isApplicationConfigured()
-            ? 'Complete'
-            : 'Incomplete — Meta App ID/Secret (Prompt 22 OAuth)';
+        return $this->isApplicationConfigured($integration)
+            ? 'Configured'
+            : 'Not configured';
     }
 
     private function assertMeta(CoreIntegration $integration): void

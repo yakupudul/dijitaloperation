@@ -68,10 +68,8 @@ class GoogleOAuthService
         $this->assertGoogleIntegration($integration);
 
         if (! $this->credentials->isAppConfigured($integration)) {
-            $missing = $this->credentials->missingAppKeys($integration);
-
             return [
-                'error' => 'Google application credentials are incomplete. Configure '.implode(', ', $missing).' under Application configuration (or set environment fallbacks).',
+                'error' => 'Configure Google application first.',
             ];
         }
 

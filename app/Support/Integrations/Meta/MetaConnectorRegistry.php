@@ -4,8 +4,8 @@ namespace App\Support\Integrations\Meta;
 
 /**
  * Meta product Connectors under one Meta Integration authorization plane.
- * Prompt 21 foundation: Meta Ads is the production advertising capability.
- * Instagram remains a registered capability id but is not a Prompt 21 production connector.
+ * Meta Ads is the advertising capability. Instagram remains a registered
+ * capability id but is not an active production connector.
  */
 final class MetaConnectorRegistry
 {
@@ -35,7 +35,7 @@ final class MetaConnectorRegistry
                 'bindable' => true,
                 'production_foundation' => true,
                 'collection_status' => 'NOT_YET',
-                'collection_note' => 'Prompt 24 Meta Ads Production Collector',
+                'collection_note' => 'Read-only Meta Ads collection',
             ],
         ];
     }

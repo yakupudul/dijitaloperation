@@ -10,7 +10,9 @@ use App\Livewire\Demo\Files\FilesIndex;
 use App\Livewire\Demo\Gbp\OverviewPage as GbpOverviewPage;
 use App\Livewire\Demo\GoogleAds\OverviewPage as GoogleAdsOverviewPage;
 use App\Livewire\Demo\Instagram\OverviewPage as InstagramOverviewPage;
+use App\Livewire\Demo\Integrations\AiProviderIntegrationPage;
 use App\Livewire\Demo\Integrations\ConnectorPage;
+use App\Livewire\Demo\Integrations\DataForSeoIntegrationPage;
 use App\Livewire\Demo\Integrations\GoogleIntegrationPage;
 use App\Livewire\Demo\Integrations\IntegrationsIndex;
 use App\Livewire\Demo\Integrations\MetaIntegrationPage;
@@ -77,11 +79,13 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/integrations', IntegrationsIndex::class)->name('demo.integrations');
         Route::livewire('/integrations/google', GoogleIntegrationPage::class)->name('demo.integrations.google');
         Route::livewire('/integrations/meta', MetaIntegrationPage::class)->name('demo.integrations.meta');
+        Route::livewire('/integrations/dataforseo', DataForSeoIntegrationPage::class)->name('demo.integrations.dataforseo');
         Route::livewire('/integrations/site-connectors', SiteConnectorsIndex::class)->name('demo.integrations.site-connectors');
         Route::livewire('/integrations/site-connectors/{connector}', SiteConnectorShow::class)->name('demo.integrations.site-connector');
         Route::get('/integrations/site-connectors/{connector}/download', SiteConnectorDownloadController::class)
             ->name('demo.integrations.site-connector.download');
         Route::livewire('/integrations/connectors/{connector}', ConnectorPage::class)->name('demo.integrations.connector');
+        Route::livewire('/integrations/{provider}', AiProviderIntegrationPage::class)->name('demo.integrations.ai');
 
         Route::livewire('/files', FilesIndex::class)->name('demo.files');
         Route::get('/files/{file}/download', OperatorFileDownloadController::class)->name('demo.files.download');

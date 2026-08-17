@@ -49,23 +49,28 @@ final class MetaIntegrationReadModel
     {
         $detail = $this->detail();
 
+        $stateLabel = $detail['state'] === IntegrationOperatorStatus::CONNECTED
+            ? 'Authorized'
+            : $detail['state_label'];
+
         return [
             'id' => ProviderRegistry::META,
             'name' => 'Meta',
             'logo_type' => 'meta_ads',
             'state' => $detail['state'],
-            'state_label' => $detail['state_label'],
+            'state_label' => $stateLabel,
             'resources_discovered' => $detail['ad_accounts_discovered'],
             'bound' => $detail['bound'],
             'available' => $detail['available'],
             'last_check' => $detail['last_check'],
             'dependent_assets' => $detail['dependent_assets'],
             'route' => 'demo.integrations.meta',
-            'manage_label' => $detail['integration_id'] !== null ? 'Manage' : 'Configure',
+            'manage_label' => ($detail['next_action'] ?? '') === 'configure' ? 'Configure' : 'Manage',
             'provenance' => 'real',
             'next_action' => $detail['next_action'],
             'collection_state' => $detail['collection_state'],
             'data_state' => $detail['data_state'],
+            'discovery_not_run' => (bool) ($detail['discovery_not_run'] ?? true),
             'note' => $detail['hub_note'],
         ];
     }
@@ -92,7 +97,7 @@ final class MetaIntegrationReadModel
         $credentialStatus = (string) (data_get($integration->config, 'credential_status') ?? 'unknown');
         $discovery = $this->discoveryStates($integration, $counts, $selectedBusinesses);
         $authorizeUrl = $this->authorizeUrl($integration);
-        $next = $this->nextAction($authStatus, $counts, $selectedBusinesses, $permission);
+        $next = $this->nextAction($integration, $authStatus, $counts, $selectedBusinesses, $permission);
 
         return [
             'id' => ProviderRegistry::META,
@@ -103,7 +108,7 @@ final class MetaIntegrationReadModel
             'auth_status' => $authStatus,
             'auth_status_label' => MetaAuthStatus::label($authStatus),
             'app_configuration_label' => MetaAuthStatus::configurationLabel($integration),
-            'app_configured' => $this->credentials->isApplicationConfigured(),
+            'app_configured' => $this->credentials->isApplicationConfigured($integration),
             'app_configuration' => $configHealth,
             'authorization_credential_label' => MetaAuthStatus::accessTokenLabel($integration),
             'connection_test_label' => MetaAuthStatus::connectionLabel($integration),
@@ -111,7 +116,7 @@ final class MetaIntegrationReadModel
             'credential_valid' => $credentialStatus === MetaCredentialValidator::STATUS_VALID
                 || ($authStatus === MetaAuthStatus::CONNECTED && $credentialStatus === 'unknown'),
             'credential_summary' => [
-                'application_configured' => $this->credentials->isApplicationConfigured(),
+                'application_configured' => $this->credentials->isApplicationConfigured($integration),
                 'tenant_authorization_present' => $this->credentials->hasTenantAuthorization($integration),
                 'authorization_source' => $this->credentials->accessTokenSource($integration),
                 'credential_status' => $credentialStatus,
@@ -133,6 +138,7 @@ final class MetaIntegrationReadModel
             'businesses_selected' => $selectedBusinesses,
             'ad_accounts_discovered' => $counts['ad_accounts'],
             'resources_discovered' => $counts['ad_accounts'],
+            'discovery_not_run' => $this->discoveryHasNotRun($discovery, $counts),
             'bound' => $counts['bound'],
             'available' => $counts['available'],
             'dependent_assets' => $counts['bound_assets'],
@@ -158,10 +164,10 @@ final class MetaIntegrationReadModel
             'authorize_url' => $authorizeUrl,
             'reauthorize_url' => $authorizeUrl,
             'milestones' => [
-                'authorization_discovery' => 'REAL (Prompt 22)',
-                'resource_selection_binding' => 'REAL (Prompt 23)',
-                'production_collector' => 'REAL (Prompt 24)',
-                'initial_backfill' => 'REAL (Prompt 25)',
+                'authorization_discovery' => 'Live',
+                'resource_selection_binding' => 'Live',
+                'production_collector' => 'Live',
+                'initial_backfill' => 'Live',
             ],
             'activity' => $this->activityLines($integration, $authStatus, $counts, $collection),
             'hub_note' => null,
@@ -208,7 +214,7 @@ final class MetaIntegrationReadModel
             'state_label' => 'Not configured',
             'auth_status' => MetaAuthStatus::NOT_CONFIGURED,
             'auth_status_label' => MetaAuthStatus::label(MetaAuthStatus::NOT_CONFIGURED),
-            'app_configuration_label' => $this->credentials->applicationConfigurationLabel(),
+            'app_configuration_label' => $this->credentials->applicationConfigurationLabel(null),
             'app_configured' => $this->credentials->isApplicationConfigured(),
             'authorization_credential_label' => 'Not configured',
             'connection_test_label' => 'Not tested',
@@ -223,6 +229,7 @@ final class MetaIntegrationReadModel
             'businesses_discovered' => 0,
             'ad_accounts_discovered' => 0,
             'resources_discovered' => 0,
+            'discovery_not_run' => true,
             'bound' => 0,
             'available' => 0,
             'dependent_assets' => 0,
@@ -286,10 +293,10 @@ final class MetaIntegrationReadModel
             'authorize_url' => null,
             'reauthorize_url' => null,
             'milestones' => [
-                'authorization_discovery' => 'REAL (Prompt 22)',
-                'resource_selection_binding' => 'REAL (Prompt 23)',
-                'production_collector' => 'Prompt 24',
-                'initial_backfill' => 'Prompt 25',
+                'authorization_discovery' => 'Live',
+                'resource_selection_binding' => 'Live',
+                'production_collector' => 'Live',
+                'initial_backfill' => 'Live',
             ],
             'activity' => [[
                 'when' => '—',
@@ -388,7 +395,7 @@ final class MetaIntegrationReadModel
                 'resource_type' => MetaResourceType::META_AD_ACCOUNT,
                 'container' => false,
                 'bindable' => true,
-                'note' => 'Selectable for Prompt 23 binding; Prompt 24 collection root',
+                'note' => 'Selectable for Digital Asset binding; collection root',
             ],
         ];
     }
@@ -597,9 +604,14 @@ final class MetaIntegrationReadModel
      * @param  array{businesses: int, ad_accounts: int, bound: int, available: int, bound_assets: int}  $counts
      * @param  array<string, mixed>  $permission
      */
-    private function nextAction(string $authStatus, array $counts, int $selectedBusinesses, array $permission): string
-    {
-        if (! $this->credentials->isApplicationConfigured()) {
+    private function nextAction(
+        CoreIntegration $integration,
+        string $authStatus,
+        array $counts,
+        int $selectedBusinesses,
+        array $permission,
+    ): string {
+        if (! $this->credentials->isApplicationConfigured($integration)) {
             return 'configure';
         }
         if (in_array($authStatus, [
@@ -655,7 +667,7 @@ final class MetaIntegrationReadModel
         int $selectedBusinesses,
         array $permission,
     ): array {
-        $appOk = $this->credentials->isApplicationConfigured();
+        $appOk = $this->credentials->isApplicationConfigured($integration);
         $authorized = in_array($authStatus, [
             MetaAuthStatus::CONNECTED,
             MetaAuthStatus::CONFIGURED,
@@ -724,6 +736,22 @@ final class MetaIntegrationReadModel
     }
 
     /**
+     * @param  array<string, mixed>  $discovery
+     * @param  array{businesses: int, ad_accounts: int, bound: int, available: int, bound_assets: int}  $counts
+     */
+    private function discoveryHasNotRun(array $discovery, array $counts): bool
+    {
+        if ($counts['ad_accounts'] > 0 || $counts['businesses'] > 0) {
+            return false;
+        }
+
+        $business = $discovery['businesses'] ?? 'never_run';
+        $accounts = $discovery['ad_accounts'] ?? 'never_run';
+
+        return $business === 'never_run' && $accounts === 'never_run';
+    }
+
+    /**
      * @return list<array<string, mixed>>
      */
     private function businessRows(CoreIntegration $integration): array
@@ -758,7 +786,7 @@ final class MetaIntegrationReadModel
 
     private function authorizeUrl(CoreIntegration $integration): ?string
     {
-        if (! $this->credentials->isApplicationConfigured()) {
+        if (! $this->credentials->isApplicationConfigured($integration)) {
             return null;
         }
 

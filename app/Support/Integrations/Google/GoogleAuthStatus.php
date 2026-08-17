@@ -61,8 +61,8 @@ final class GoogleAuthStatus
         return match ($status) {
             self::NOT_CONFIGURED => 'Not configured',
             self::AUTHORIZATION_REQUIRED => 'Not authorized',
-            self::CONNECTED => 'Connected',
-            self::REFRESH_REQUIRED => 'Reauthorization required',
+            self::CONNECTED => 'Authorized',
+            self::REFRESH_REQUIRED => 'Reconnect required',
             self::REVOKED => 'Revoked',
             self::ERROR => 'Error',
             self::DISABLED => 'Disabled',
@@ -73,8 +73,8 @@ final class GoogleAuthStatus
     public static function applicationConfigurationLabel(CoreIntegration $integration): string
     {
         return app(GoogleCredentialResolver::class)->isAppConfigured($integration)
-            ? 'Complete'
-            : 'Incomplete';
+            ? 'Configured'
+            : 'Not configured';
     }
 
     public static function adsDeveloperTokenLabel(CoreIntegration $integration): string
@@ -82,11 +82,9 @@ final class GoogleAuthStatus
         $resolver = app(GoogleCredentialResolver::class);
 
         if ($resolver->hasDeveloperToken($integration)) {
-            return $resolver->developerTokenSource($integration) === GoogleCredentialResolver::SOURCE_ENVIRONMENT
-                ? 'Developer token configured by environment'
-                : 'Developer token configured';
+            return 'Configured';
         }
 
-        return 'Developer token missing';
+        return 'Missing';
     }
 }

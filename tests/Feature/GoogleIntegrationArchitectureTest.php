@@ -316,6 +316,7 @@ class GoogleIntegrationArchitectureTest extends TestCase
 
         $this->assertSame('real', $card['provenance'] ?? null);
         $this->assertSame(0, $card['resources_discovered']);
+        $this->assertTrue($card['discovery_not_run'] ?? false);
     }
 
     public function test_frozen_google_page_renders_and_oauth_lands_on_app(): void

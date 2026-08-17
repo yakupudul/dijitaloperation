@@ -56,7 +56,8 @@ final class MetaCredentialValidator
             );
         }
 
-        $appToken = MetaApiConfig::appAccessToken();
+        $resolver = app(MetaCredentialResolver::class);
+        $appToken = $resolver->appAccessToken($integration);
         if ($appToken === null) {
             return $this->result(
                 ok: false,
@@ -118,7 +119,7 @@ final class MetaCredentialValidator
 
         $isValid = (bool) ($data['is_valid'] ?? false);
         $appId = isset($data['app_id']) ? (string) $data['app_id'] : null;
-        $expectedApp = MetaApiConfig::appId();
+        $expectedApp = $resolver->appId($integration);
         if ($expectedApp !== null && $appId !== null && $appId !== $expectedApp) {
             return $this->result(
                 ok: false,

@@ -27,6 +27,9 @@
         </div>
         <div class="flex flex-wrap gap-2">
             <x-ta.button href="{{ route('demo.integrations') }}" size="sm" variant="outline">All Integrations</x-ta.button>
+            @if (! ($integration['actions']['authorize'] ?? false) && ! ($integration['actions']['reauthorize'] ?? false))
+                <x-ta.button wire:click="setTab('configuration')" size="sm">Configure</x-ta.button>
+            @endif
             @if (($integration['actions']['authorize'] ?? false) && ($integration['auth_status'] ?? '') !== 'connected')
                 @if (! empty($integration['authorize_url']))
                     <x-ta.button :href="$integration['authorize_url']" size="sm">Connect Meta</x-ta.button>
@@ -72,6 +75,7 @@
         @foreach ([
             'overview' => 'Overview',
             'connectors' => 'Connectors',
+            'configuration' => 'Configuration',
             'resources' => 'Resources & Bindings',
             'activity' => 'Activity',
         ] as $key => $label)
@@ -93,7 +97,12 @@
             </div>
             <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
                 <p class="text-xs text-gray-400">Ad Accounts discovered</p>
-                <p class="mt-1 text-2xl font-bold text-gray-800 dark:text-white/90">{{ $integration['ad_accounts_discovered'] }}</p>
+                @if ($integration['discovery_not_run'] ?? true)
+                    <p class="mt-1 text-2xl font-bold text-gray-800 dark:text-white/90">—</p>
+                    <p class="mt-1 text-xs text-gray-500">Not discovered yet</p>
+                @else
+                    <p class="mt-1 text-2xl font-bold text-gray-800 dark:text-white/90">{{ $integration['ad_accounts_discovered'] }}</p>
+                @endif
             </div>
             <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
                 <p class="text-xs text-gray-400">Bound</p>
@@ -173,19 +182,81 @@
                 <li>Data · {{ $integration['data_state_label'] }}</li>
             </ul>
             @if (! empty($integration['credential_summary']['legacy_manual_token_path']))
-                <p class="mt-3 text-xs text-warning-600 dark:text-warning-400">Legacy manual token path is active for compatibility. Production OAuth authorization is Prompt 22 — not the frozen product destination.</p>
+                <p class="mt-3 text-xs text-warning-600 dark:text-warning-400">A stored access token is present without OAuth authorization. Prefer Connect Meta after application credentials are configured.</p>
             @endif
         </div>
 
         <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-            <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Milestone status</h2>
-            <p class="mt-1 text-sm text-gray-500">Authorization, discovery, Binding, production collector, and initial backfill are production-real. Specialist analytical UI remains Demo.</p>
+            <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Capability status</h2>
+            <p class="mt-1 text-sm text-gray-500">Authorization, discovery, binding, and collection are live on this workspace. Specialist analytical UI remains separate.</p>
             <ul class="mt-3 space-y-1 text-sm text-gray-600 dark:text-gray-300">
                 <li>Authorization & discovery · {{ $integration['milestones']['authorization_discovery'] }}</li>
                 <li>Resource selection & binding · {{ $integration['milestones']['resource_selection_binding'] }}</li>
-                <li>Production collector · {{ $integration['milestones']['production_collector'] }}</li>
+                <li>Collector · {{ $integration['milestones']['production_collector'] }}</li>
                 <li>Initial backfill · {{ $integration['milestones']['initial_backfill'] }}</li>
             </ul>
+        </div>
+    @elseif ($tab === 'configuration')
+        <div class="space-y-4">
+            <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Configuration</h2>
+                <dl class="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                    <div>
+                        <dt class="text-gray-400">Application credentials</dt>
+                        <dd class="font-medium text-gray-800 dark:text-white/90">{{ $integration['app_configuration_label'] ?? 'Not configured' }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-gray-400">Authorization</dt>
+                        <dd class="font-medium text-gray-800 dark:text-white/90">{{ $integration['auth_status_label'] ?? 'Not authorized' }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-gray-400">Access token</dt>
+                        <dd class="font-medium text-gray-800 dark:text-white/90">{{ $integration['authorization_credential_label'] ?? 'Not configured' }}</dd>
+                    </div>
+                </dl>
+                <p class="mt-4 text-xs text-gray-500">App Secret is write-only and never shown after save. Application credentials are not the same as Meta authorization.</p>
+            </div>
+
+            @if ($canManageCredentials ?? false)
+                <form wire:submit.prevent="saveMetaConfiguration" class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                    <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Application credentials</h3>
+                    <div class="mt-4 grid gap-4 md:grid-cols-2">
+                        <x-ta.form.field label="Meta App ID" helper="Not a secret. Visible after save." :error="$errors->first('app_id')">
+                            <input wire:model="metaAppId" type="text" autocomplete="off"
+                                class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 shadow-theme-xs outline-none focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                        </x-ta.form.field>
+                        <x-ta.form.field label="Meta App Secret" :helper="$metaAppSecretConfigured ? 'Configured — leave blank to keep the stored value.' : 'Write-only. Never shown after save.'" :error="$errors->first('app_secret')">
+                            <input wire:model="metaAppSecret" type="password" autocomplete="new-password" placeholder="{{ $metaAppSecretConfigured ? 'Replace credential' : '' }}"
+                                class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 shadow-theme-xs outline-none focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                        </x-ta.form.field>
+                        @if ($metaAppSecretConfigured ?? false)
+                            <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 md:col-span-2">
+                                <input type="checkbox" wire:model="clearMetaAppSecret" class="rounded border-gray-300" />
+                                Clear stored App Secret
+                            </label>
+                        @endif
+                    </div>
+                    <div class="mt-4 flex flex-wrap gap-2">
+                        <x-ta.button type="submit" size="sm">Save credentials</x-ta.button>
+                        <x-ta.button type="button" wire:click="testMetaConfiguration" size="sm" variant="outline">Test configuration</x-ta.button>
+                        @if (($integration['app_configured'] ?? false) || ($metaAppSecretConfigured ?? false))
+                            <x-ta.button type="button" wire:click="askRemoveMetaCredentials" size="sm" variant="outline">Remove credentials</x-ta.button>
+                        @endif
+                    </div>
+                </form>
+                @if ($confirmRemoveMetaCredentials ?? false)
+                    <div class="rounded-xl bg-warning-50 p-4 ring-1 ring-inset ring-warning-200 dark:bg-warning-500/10 dark:ring-warning-500/30">
+                        <p class="text-sm font-medium text-gray-800 dark:text-white/90">Remove Meta application credentials?</p>
+                        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">This deletes stored App ID and App Secret. Discovered resources, bindings, and history are preserved.</p>
+                        <div class="mt-3 flex gap-2">
+                            <x-ta.button wire:click="removeMetaConfiguration" size="sm">Confirm remove</x-ta.button>
+                            <x-ta.button wire:click="cancelRemoveMetaCredentials" size="sm" variant="outline">Cancel</x-ta.button>
+                        </div>
+                    </div>
+                @endif
+            @else
+                <p class="text-sm text-gray-500">Only administrators can view or change Meta application credentials.</p>
+            @endif
         </div>
     @elseif ($tab === 'connectors')
         <p class="text-sm text-gray-500 dark:text-gray-400">One Meta Integration authorization. The Meta Ads Connector owns advertising capability — not credentials, Businesses, or Ad Accounts themselves.</p>
@@ -199,7 +270,7 @@
                     <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">
                         {{ $connector['discovered'] }} Ad Accounts · {{ $connector['bound'] }} bound · {{ $connector['available'] }} available
                     </p>
-                    <p class="mt-1 text-xs text-gray-500">Collection · {{ $connector['collection_status'] }} · {{ $connector['collection_note'] }}</p>
+                    <p class="mt-1 text-xs text-gray-500">Collection · {{ ($connector['collection_status'] ?? '') === 'NOT_YET' ? 'Not collected yet' : ($connector['collection_status'] ?? 'Not collected yet') }} · {{ $connector['collection_note'] }}</p>
                     <p class="mt-2 text-xs font-medium text-brand-600 dark:text-brand-400">Open connector →</p>
                 </a>
             @endforeach
@@ -210,7 +281,7 @@
             <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
                 <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Meta Businesses</h2>
                 <p class="mt-1 text-sm text-gray-500">Select which Business contexts MoxDOP should use to discover Ad Accounts. This is discovery context — not a Digital Asset binding.</p>
-                <p class="mt-2 text-xs text-gray-500">Discovery · {{ $integration['discovery']['businesses'] ?? 'never_run' }} · Selected {{ $integration['businesses_selected'] ?? 0 }}</p>
+                <p class="mt-2 text-xs text-gray-500">Discovery · {{ ($integration['discovery']['businesses'] ?? 'never_run') === 'never_run' ? 'Not discovered yet' : $integration['discovery']['businesses'] }} · Selected {{ $integration['businesses_selected'] ?? 0 }}</p>
                 @if (empty($integration['businesses']))
                     <p class="mt-4 text-sm text-gray-500">No Businesses discovered yet.</p>
                 @else
@@ -278,7 +349,7 @@
 
             <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
                 <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Connected Ad Accounts</h2>
-                <p class="mt-1 text-sm text-gray-500">Connected account ≠ data ready. Collection remains Prompt 24.</p>
+                <p class="mt-1 text-sm text-gray-500">Authorized account ≠ data ready. Collection still has to run after binding.</p>
                 @if (empty($integration['bindings']))
                     <p class="mt-4 text-sm text-gray-500">No Ad Accounts connected yet.</p>
                 @else

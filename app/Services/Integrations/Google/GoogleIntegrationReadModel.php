@@ -51,23 +51,28 @@ final class GoogleIntegrationReadModel
     {
         $detail = $this->detail();
 
+        $stateLabel = $detail['state'] === IntegrationOperatorStatus::CONNECTED
+            ? 'Authorized'
+            : $detail['state_label'];
+
         return [
             'id' => ProviderRegistry::GOOGLE,
             'name' => 'Google',
             'logo_type' => 'google_ads',
             'state' => $detail['state'],
-            'state_label' => $detail['state_label'],
+            'state_label' => $stateLabel,
             'resources_discovered' => $detail['resources_discovered'],
             'bound' => $detail['bound'],
             'available' => $detail['available'],
             'last_check' => $detail['last_check'],
             'dependent_assets' => $detail['dependent_assets'],
             'route' => 'demo.integrations.google',
-            'manage_label' => $detail['integration_id'] !== null ? 'Manage' : 'Configure',
+            'manage_label' => ($detail['next_action'] ?? '') === 'configure' ? 'Configure' : 'Manage',
             'provenance' => 'real',
             'next_action' => $detail['next_action'],
             'collection_state' => $detail['collection_state'],
             'data_state' => $detail['data_state'],
+            'discovery_not_run' => (bool) ($detail['discovery_not_run'] ?? true),
             'note' => $detail['hub_note'],
         ];
     }
@@ -117,6 +122,7 @@ final class GoogleIntegrationReadModel
             'granted_scopes_label' => $this->grantedScopesLabel($integration),
             'last_check' => $lastCheck ?? '—',
             'resources_discovered' => $counts['discovered'],
+            'discovery_not_run' => $this->discoveryHasNotRun($integration, $counts['discovered']),
             'bound' => $counts['bound'],
             'available' => $counts['available'],
             'dependent_assets' => $dependent,
@@ -160,8 +166,8 @@ final class GoogleIntegrationReadModel
             'state_label' => $stateLabel,
             'auth_status' => GoogleAuthStatus::NOT_CONFIGURED,
             'auth_status_label' => GoogleAuthStatus::label(GoogleAuthStatus::NOT_CONFIGURED),
-            'app_configuration_label' => 'Incomplete',
-            'ads_developer_token_label' => 'Developer token missing',
+            'app_configuration_label' => 'Not configured',
+            'ads_developer_token_label' => 'Missing',
             'credential_summary' => [
                 'provider_configured' => false,
                 'authorization_present' => false,
@@ -171,6 +177,7 @@ final class GoogleIntegrationReadModel
             'granted_scopes_label' => 'Not granted',
             'last_check' => '—',
             'resources_discovered' => 0,
+            'discovery_not_run' => true,
             'bound' => 0,
             'available' => 0,
             'dependent_assets' => 0,
@@ -365,6 +372,10 @@ final class GoogleIntegrationReadModel
     private function authorizeUrl(?CoreIntegration $integration, bool $forceConsent = false): ?string
     {
         if (! $integration instanceof CoreIntegration) {
+            return null;
+        }
+
+        if (! $this->credentials->isAppConfigured($integration)) {
             return null;
         }
 
@@ -785,6 +796,20 @@ final class GoogleIntegrationReadModel
             // Explicit Google grant revocation (not per-Connector disable).
             'disconnect' => $canAuthorize && $integration->authorizationCredential()->exists(),
         ];
+    }
+
+    private function discoveryHasNotRun(?CoreIntegration $integration, int $discovered): bool
+    {
+        if (! $integration instanceof CoreIntegration) {
+            return true;
+        }
+
+        if ($discovered > 0) {
+            return false;
+        }
+
+        return data_get($integration->config, 'discovery.last_attempt_at') === null
+            && data_get($integration->config, 'last_resource_refresh_at') === null;
     }
 
     private function discoveryStatusLabel(?string $status): string

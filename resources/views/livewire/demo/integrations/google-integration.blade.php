@@ -26,6 +26,9 @@
         </div>
         <div class="flex flex-wrap gap-2">
             <x-ta.button href="{{ route('demo.integrations') }}" size="sm" variant="outline">All Integrations</x-ta.button>
+            @if (! ($integration['actions']['authorize'] ?? false))
+                <x-ta.button wire:click="setTab('configuration')" size="sm">Configure</x-ta.button>
+            @endif
             @if (($integration['actions']['authorize'] ?? false) && ! empty($integration['authorize_url']) && ($integration['auth_status'] ?? '') !== 'connected')
                 <x-ta.button :href="$integration['authorize_url']" size="sm">Connect Google</x-ta.button>
             @elseif (($integration['actions']['authorize'] ?? false) && empty($integration['integration_id']))
@@ -70,9 +73,11 @@
         <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
                 <p class="text-xs text-gray-400">Resources discovered</p>
-                <p class="mt-1 text-2xl font-bold text-gray-800 dark:text-white/90">{{ $integration['resources_discovered'] }}</p>
-                @if (($integration['resources_discovered'] ?? 0) === 0)
-                    <p class="mt-1 text-xs text-gray-500">Discovery not run</p>
+                @if ($integration['discovery_not_run'] ?? true)
+                    <p class="mt-1 text-2xl font-bold text-gray-800 dark:text-white/90">—</p>
+                    <p class="mt-1 text-xs text-gray-500">Not discovered yet</p>
+                @else
+                    <p class="mt-1 text-2xl font-bold text-gray-800 dark:text-white/90">{{ $integration['resources_discovered'] }}</p>
                 @endif
             </div>
             <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
@@ -171,37 +176,90 @@
             @endforeach
         </div>
     @elseif ($tab === 'configuration')
-        <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-            <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Configuration</h2>
-            <dl class="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-                <div>
-                    <dt class="text-gray-400">Application configuration</dt>
-                    <dd class="font-medium text-gray-800 dark:text-white/90">{{ $integration['app_configuration_label'] ?? 'Incomplete' }}</dd>
-                </div>
-                <div>
-                    <dt class="text-gray-400">Authorization</dt>
-                    <dd class="font-medium text-gray-800 dark:text-white/90">{{ $integration['auth_status_label'] ?? 'Not configured' }}</dd>
-                </div>
-                <div>
-                    <dt class="text-gray-400">Granted capabilities</dt>
-                    <dd class="font-medium text-gray-800 dark:text-white/90">{{ $integration['granted_scopes_label'] ?? 'Not granted' }}</dd>
-                </div>
-                <div>
-                    <dt class="text-gray-400">Ads developer token</dt>
-                    <dd class="font-medium text-gray-800 dark:text-white/90">{{ $integration['ads_developer_token_label'] ?? 'Developer token missing' }}</dd>
-                </div>
-                @if (! empty($integration['account_email']))
+        <div class="space-y-4">
+            <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Configuration</h2>
+                <dl class="mt-4 grid gap-3 text-sm sm:grid-cols-2">
                     <div>
-                        <dt class="text-gray-400">Authorized account</dt>
-                        <dd class="font-medium text-gray-800 dark:text-white/90">{{ $integration['account_email'] }}</dd>
+                        <dt class="text-gray-400">Application credentials</dt>
+                        <dd class="font-medium text-gray-800 dark:text-white/90">{{ $integration['app_configuration_label'] ?? 'Not configured' }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-gray-400">Google Ads developer token</dt>
+                        <dd class="font-medium text-gray-800 dark:text-white/90">{{ $integration['ads_developer_token_label'] ?? 'Missing' }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-gray-400">Authorization</dt>
+                        <dd class="font-medium text-gray-800 dark:text-white/90">{{ $integration['auth_status_label'] ?? 'Not authorized' }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-gray-400">Granted capabilities</dt>
+                        <dd class="font-medium text-gray-800 dark:text-white/90">{{ $integration['granted_scopes_label'] ?? 'Not granted' }}</dd>
+                    </div>
+                    @if (! empty($integration['account_email']))
+                        <div>
+                            <dt class="text-gray-400">Authorized account</dt>
+                            <dd class="font-medium text-gray-800 dark:text-white/90">{{ $integration['account_email'] }}</dd>
+                        </div>
+                    @endif
+                    <div>
+                        <dt class="text-gray-400">Write actions</dt>
+                        <dd class="font-medium text-gray-800 dark:text-white/90">{{ $integration['write_actions'] ?? 'Disabled — MoxDOP is read / bind only' }}</dd>
+                    </div>
+                </dl>
+                <p class="mt-4 text-xs text-gray-500">Secrets are write-only and never shown after save. Application credentials are not the same as Google authorization.</p>
+            </div>
+
+            @if ($canManageCredentials ?? false)
+                <form wire:submit.prevent="saveGoogleConfiguration" class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                    <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Application credentials</h3>
+                    <div class="mt-4 grid gap-4 md:grid-cols-2">
+                        <x-ta.form.field label="Google OAuth Client ID" helper="Not a secret. Visible after save." :error="$errors->first('client_id')">
+                            <input wire:model="googleClientId" type="text" autocomplete="off"
+                                class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 shadow-theme-xs outline-none focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                        </x-ta.form.field>
+                        <x-ta.form.field label="Google OAuth Client Secret" :helper="$googleClientSecretConfigured ? 'Configured — leave blank to keep the stored value.' : 'Write-only. Never shown after save.'" :error="$errors->first('client_secret')">
+                            <input wire:model="googleClientSecret" type="password" autocomplete="new-password" placeholder="{{ $googleClientSecretConfigured ? 'Replace credential' : '' }}"
+                                class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 shadow-theme-xs outline-none focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                        </x-ta.form.field>
+                        @if ($googleClientSecretConfigured ?? false)
+                            <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 md:col-span-2">
+                                <input type="checkbox" wire:model="clearGoogleClientSecret" class="rounded border-gray-300" />
+                                Clear stored Client Secret
+                            </label>
+                        @endif
+                        <x-ta.form.field label="Google Ads Developer Token" :helper="$googleDeveloperTokenConfigured ? 'Configured — leave blank to keep the stored value.' : 'Write-only. Required for Google Ads discovery.'" :error="$errors->first('developer_token')" class="md:col-span-2">
+                            <input wire:model="googleDeveloperToken" type="password" autocomplete="new-password" placeholder="{{ $googleDeveloperTokenConfigured ? 'Replace credential' : '' }}"
+                                class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 shadow-theme-xs outline-none focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                        </x-ta.form.field>
+                        @if ($googleDeveloperTokenConfigured ?? false)
+                            <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 md:col-span-2">
+                                <input type="checkbox" wire:model="clearGoogleDeveloperToken" class="rounded border-gray-300" />
+                                Clear stored Ads developer token
+                            </label>
+                        @endif
+                    </div>
+                    <div class="mt-4 flex flex-wrap gap-2">
+                        <x-ta.button type="submit" size="sm">Save credentials</x-ta.button>
+                        <x-ta.button type="button" wire:click="testGoogleConfiguration" size="sm" variant="outline">Test configuration</x-ta.button>
+                        @if (($integration['app_configuration_label'] ?? '') === 'Configured' || ($googleClientSecretConfigured ?? false))
+                            <x-ta.button type="button" wire:click="askRemoveGoogleCredentials" size="sm" variant="outline">Remove credentials</x-ta.button>
+                        @endif
+                    </div>
+                </form>
+                @if ($confirmRemoveGoogleCredentials ?? false)
+                    <div class="rounded-xl bg-warning-50 p-4 ring-1 ring-inset ring-warning-200 dark:bg-warning-500/10 dark:ring-warning-500/30">
+                        <p class="text-sm font-medium text-gray-800 dark:text-white/90">Remove Google application credentials?</p>
+                        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">This deletes stored Client ID, Client Secret, and developer token. Discovered resources, bindings, and history are preserved.</p>
+                        <div class="mt-3 flex gap-2">
+                            <x-ta.button wire:click="removeGoogleConfiguration" size="sm">Confirm remove</x-ta.button>
+                            <x-ta.button wire:click="cancelRemoveGoogleCredentials" size="sm" variant="outline">Cancel</x-ta.button>
+                        </div>
                     </div>
                 @endif
-                <div>
-                    <dt class="text-gray-400">Write actions</dt>
-                    <dd class="font-medium text-gray-800 dark:text-white/90">{{ $integration['write_actions'] ?? 'Disabled — MoxDOP is read / bind only' }}</dd>
-                </div>
-            </dl>
-            <p class="mt-4 text-xs text-gray-500">OAuth lifecycle productionization is Prompt 14. Secrets are never shown here.</p>
+            @else
+                <p class="text-sm text-gray-500">Only administrators can view or change Google application credentials.</p>
+            @endif
         </div>
     @elseif ($tab === 'resources')
         <div class="space-y-4">
