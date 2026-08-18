@@ -12,6 +12,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use MoxDop\Website\Discovery\DiscoveryConfig;
 
 #[Layout('operator.layouts.app')]
 #[Title('Public Discovery')]
@@ -57,13 +58,8 @@ class PublicDiscoveryIndex extends Component
 
         $assetIds = $assets->pluck('id')->map(fn ($id) => (int) $id)->all();
 
-        $latestRuns = Run::query()
-            ->whereIn('digital_asset_id', $assetIds)
-            ->where('module_id', AsyncOperationTypes::MODULE_PUBLIC_DISCOVERY)
-            ->orderByDesc('id')
-            ->get()
-            ->unique('digital_asset_id')
-            ->keyBy('digital_asset_id');
+        $operationRuns = $this->latestRunsByModule($assetIds, AsyncOperationTypes::MODULE_PUBLIC_DISCOVERY);
+        $discoveryRuns = $this->latestRunsByModule($assetIds, DiscoveryConfig::MODULE_ID);
 
         $pendingCounts = DiscoveryCandidate::query()
             ->whereIn('digital_asset_id', $assetIds)
@@ -79,20 +75,28 @@ class PublicDiscoveryIndex extends Component
             ->groupBy('digital_asset_id')
             ->pluck('aggregate', 'digital_asset_id');
 
-        $rows = $assets->map(function (DigitalAsset $asset) use ($latestRuns, $pendingCounts, $acceptedCounts): array {
-            $run = $latestRuns->get($asset->id);
-            $discoveryStatus = $run ? (data_get($run->metadata, 'discovery_status') ?: $run->status) : 'not_run';
+        $rows = $assets->map(function (DigitalAsset $asset) use ($operationRuns, $discoveryRuns, $pendingCounts, $acceptedCounts): array {
+            /** @var Run|null $operationRun */
+            $operationRun = $operationRuns->get($asset->id);
+            /** @var Run|null $discoveryRun */
+            $discoveryRun = $discoveryRuns->get($asset->id);
+
+            $activeOperation = $operationRun !== null && in_array((string) $operationRun->status, ['queued', 'running'], true);
+            $status = $activeOperation
+                ? (string) $operationRun->status
+                : (string) (data_get($discoveryRun?->metadata, 'discovery_status') ?: $discoveryRun?->status ?: $operationRun?->status ?: 'not_run');
             $ready = filled($asset->primary_url) || filled($asset->domain);
+            $displayRun = $activeOperation ? $operationRun : ($discoveryRun ?? $operationRun);
 
             return [
                 'asset' => $asset,
-                'run' => $run,
-                'status' => (string) $discoveryStatus,
+                'run' => $displayRun,
+                'status' => $status,
                 'ready' => $ready,
                 'pending' => (int) ($pendingCounts[$asset->id] ?? 0),
                 'accepted' => (int) ($acceptedCounts[$asset->id] ?? 0),
-                'pages' => (int) (data_get($run?->metadata, 'pages_inspected') ?? 0),
-                'last_run_human' => $run?->finished_at?->diffForHumans() ?? $run?->started_at?->diffForHumans(),
+                'pages' => (int) (data_get($discoveryRun?->metadata, 'pages_inspected') ?? 0),
+                'last_run_human' => $displayRun?->finished_at?->diffForHumans() ?? $displayRun?->started_at?->diffForHumans(),
             ];
         });
 
@@ -108,10 +112,22 @@ class PublicDiscoveryIndex extends Component
             'rows' => $rows->values()->all(),
             'counts' => [
                 'websites' => $assets->count(),
-                'never_run' => $assets->filter(fn (DigitalAsset $asset): bool => ! $latestRuns->has($asset->id))->count(),
+                'never_run' => $rows->where('status', 'not_run')->count(),
                 'needs_review' => (int) $pendingCounts->sum(),
                 'accepted' => (int) $acceptedCounts->sum(),
             ],
         ]);
+    }
+
+    /** @return \Illuminate\Support\Collection<int, Run> */
+    private function latestRunsByModule(array $assetIds, string $moduleId)
+    {
+        return Run::query()
+            ->whereIn('digital_asset_id', $assetIds)
+            ->where('module_id', $moduleId)
+            ->orderByDesc('id')
+            ->get()
+            ->unique('digital_asset_id')
+            ->keyBy('digital_asset_id');
     }
 }
