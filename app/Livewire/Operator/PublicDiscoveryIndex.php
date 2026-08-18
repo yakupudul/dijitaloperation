@@ -11,12 +11,13 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
-use MoxDop\Website\Discovery\DiscoveryConfig;
 
 #[Layout('operator.layouts.app')]
 #[Title('Public Discovery')]
 class PublicDiscoveryIndex extends Component
 {
+    private const string DISCOVERY_MODULE_ID = 'website-discovery';
+
     #[Url]
     public string $q = '';
 
@@ -59,7 +60,7 @@ class PublicDiscoveryIndex extends Component
 
         $latestRuns = Run::query()
             ->whereIn('digital_asset_id', $assetIds)
-            ->where('module_id', DiscoveryConfig::MODULE_ID)
+            ->where('module_id', self::DISCOVERY_MODULE_ID)
             ->orderByDesc('id')
             ->get()
             ->unique('digital_asset_id')
