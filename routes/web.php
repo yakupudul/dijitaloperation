@@ -7,6 +7,7 @@ use App\Http\Controllers\Ops\OpsHealthController;
 use App\Http\Controllers\Prospects\ProspectReportShareController;
 use App\Http\Controllers\Reports\ReportArtifactDownloadController;
 use App\Http\Controllers\Reports\ReportShareController;
+use App\Livewire\Operator\Website\PublicDiscoveryPage;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function (): void {
@@ -74,6 +75,12 @@ Route::middleware(['web'])->prefix('reports/share')->name('reports.share.')->gro
 });
 
 require __DIR__.'/demo.php';
+
+// Real operator engine surface: intentionally outside Demo component namespaces.
+Route::middleware(['web', 'auth'])
+    ->livewire('/assets/website/{assetId}/discovery', PublicDiscoveryPage::class)
+    ->whereNumber('assetId')
+    ->name('operator.website.discovery');
 
 Route::any('/app/{path?}', function (): never {
     abort(410, 'Legacy /app operator prefix retired.');
