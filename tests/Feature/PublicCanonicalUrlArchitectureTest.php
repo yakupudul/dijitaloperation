@@ -93,7 +93,7 @@ class PublicCanonicalUrlArchitectureTest extends TestCase
             $this->get($path)
                 ->assertStatus(410)
                 ->assertDontSee('id="operator-sidebar"', false)
-                ->assertDontSee('filament', false);
+                ->assertDontSee(__('operator.auth.sign_in'));
         }
     }
 

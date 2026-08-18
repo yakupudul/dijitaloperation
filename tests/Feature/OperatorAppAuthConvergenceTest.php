@@ -72,7 +72,8 @@ class OperatorAppAuthConvergenceTest extends TestCase
     {
         $this->get('/system/login')
             ->assertStatus(410)
-            ->assertDontSee('filament', false);
+            ->assertDontSee('id="operator-sidebar"', false)
+            ->assertDontSee(__('operator.auth.sign_in'));
     }
 
     public function test_system_root_is_gone_without_legacy_dashboard(): void
