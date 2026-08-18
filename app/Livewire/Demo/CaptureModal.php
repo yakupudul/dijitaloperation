@@ -328,7 +328,7 @@ class CaptureModal extends Component
 
         $normalized = '/'.ltrim($path, '/');
 
-        if (preg_match('#^/app/customers/(\d+)(?:/|$)#', $normalized, $matches) === 1) {
+        if (preg_match('#^/customers/(\d+)(?:/|$)#', $normalized, $matches) === 1) {
             $customer = Customer::query()->find((int) $matches[1]);
 
             return [
@@ -338,7 +338,7 @@ class CaptureModal extends Component
             ];
         }
 
-        if (preg_match('#^/app/brands/(\d+)(?:/|$)#', $normalized, $matches) === 1) {
+        if (preg_match('#^/brands/(\d+)(?:/|$)#', $normalized, $matches) === 1) {
             $brand = Brand::query()->find((int) $matches[1]);
 
             return [
@@ -348,7 +348,7 @@ class CaptureModal extends Component
             ];
         }
 
-        if (preg_match('#^/app/assets/(?:website|gbp|google-ads|meta|analytics|search-console|instagram)/(\d+)(?:/|$)#', $normalized, $matches) === 1) {
+        if (preg_match('#^/assets/(?:website|gbp|google-ads|meta|analytics|search-console|instagram)/(\d+)(?:/|$)#', $normalized, $matches) === 1) {
             $asset = DigitalAsset::query()->with('brand')->find((int) $matches[1]);
             $brand = $asset?->brand;
 
