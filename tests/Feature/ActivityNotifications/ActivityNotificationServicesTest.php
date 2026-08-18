@@ -274,6 +274,29 @@ class ActivityNotificationServicesTest extends TestCase
         $this->assertArrayHasKey('relative', $rows[0]);
     }
 
+    public function test_activity_list_includes_operational_alert_opened_without_unhandled_match(): void
+    {
+        app(DomainEventEmitter::class)->emit([
+            'event_type' => DomainEventType::OperationalAlertOpened,
+            'actor_kind' => DomainEventActorKind::System,
+            'subject_kind' => DomainEventSubjectKind::OperationalAlert,
+            'subject_id' => 1,
+            'payload' => ['title' => 'Queue lag', 'rule_key' => 'queue_backlog'],
+        ], 'ops-alert-open:test:1');
+
+        $rows = app(ActivityReadService::class)->forList([
+            'limit' => 50,
+        ]);
+
+        $match = collect($rows)->first(
+            fn (array $row): bool => ($row['event'] ?? '') === DomainEventType::OperationalAlertOpened->value
+        );
+
+        $this->assertNotNull($match);
+        $this->assertSame('Operational alert opened', $match['event_label'] ?? null);
+        $this->assertSame('operator.activity', $match['route'] ?? null);
+    }
+
     public function test_emit_works_inside_existing_db_transaction(): void
     {
         DB::transaction(function (): void {
