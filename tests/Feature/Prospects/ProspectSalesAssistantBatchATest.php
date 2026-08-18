@@ -7,6 +7,7 @@ use App\Enums\ProspectIdentityStatus;
 use App\Enums\ProspectSalesIntelligenceStatus;
 use App\Enums\ProspectSource;
 use App\Enums\ProspectStatus;
+use App\Livewire\Demo\Sales\ProspectShow;
 use App\Models\Brand;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
@@ -30,6 +31,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class ProspectSalesAssistantBatchATest extends TestCase
@@ -225,5 +227,18 @@ class ProspectSalesAssistantBatchATest extends TestCase
         $codes = collect($intelligence->recommended_services ?? [])->pluck('service_definition_code')->all();
         $this->assertContains('google_ads', $codes);
         $this->assertContains('website_design', $codes);
+    }
+
+    public function test_operator_can_persist_prospect_status_from_detail(): void
+    {
+        $prospect = Prospect::factory()->create(['status' => ProspectStatus::Researching]);
+        $this->actingAs($this->admin);
+
+        Livewire::test(ProspectShow::class, ['prospectId' => (string) $prospect->id])
+            ->set('status', ProspectStatus::Qualified->value)
+            ->call('updateStatus')
+            ->assertHasNoErrors();
+
+        $this->assertSame(ProspectStatus::Qualified, $prospect->fresh()?->status);
     }
 }

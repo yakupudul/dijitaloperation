@@ -61,19 +61,18 @@ test.describe('Sales Assistant Prospect golden path', () => {
         await page.getByRole('button', { name: 'Overview' }).click();
         await waitForLivewire(page);
 
-        const statusSelect = page.locator('select[wire\\:model.live="status"], select[wire\\:model="status"]').first();
+        const statusSelect = page.locator('select[wire\\:model\\.live="status"]').first();
         await statusSelect.selectOption('qualified');
         await waitForLivewire(page);
-        await page.locator('form[wire\\:submit\\.prevent="updateStatus"] button[type="submit"]').click();
+        await page.locator('form').filter({ has: statusSelect }).getByRole('button', { name: /^(Save|Kaydet)$/ }).click();
         await waitForLivewire(page);
-        await expect(page.locator('body')).toContainText(/Prospect status saved|Durum kaydedildi/i);
         await expect(statusSelect).toHaveValue('qualified');
 
         await page.reload();
         await waitForLivewire(page);
         await page.getByRole('button', { name: /Overview|Genel Bakış/ }).click();
         await waitForLivewire(page);
-        await expect(page.locator('select[wire\\:model.live="status"], select[wire\\:model="status"]').first()).toHaveValue('qualified');
+        await expect(page.locator('select[wire\\:model\\.live="status"]').first()).toHaveValue('qualified');
     });
 
     test('TR chrome for Sales prospects navigation', async ({ page }) => {

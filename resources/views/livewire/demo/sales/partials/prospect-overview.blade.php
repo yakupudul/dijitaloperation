@@ -3,7 +3,7 @@
         <div class="space-y-4">
             <div>
                 <p class="text-xs font-medium uppercase tracking-wide text-gray-400">{{ __('operator.prospects.identity_label') }}</p>
-                <form wire:submit.prevent="updateStatus" class="mt-2 space-y-3">
+                <form class="mt-2 space-y-3">
                     <x-ta.form.field :label="__('operator.prospects.identity_label')">
                         <select wire:model.live="identity_status" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
                             @foreach ($identityOptions as $value => $label)
@@ -18,7 +18,7 @@
                             @endforeach
                         </select>
                     </x-ta.form.field>
-                    <button type="submit" class="rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-white hover:bg-brand-600">{{ __('operator.actions.save') }}</button>
+                    <button type="button" wire:click="updateStatus" class="rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-white hover:bg-brand-600">{{ __('operator.actions.save') }}</button>
                 </form>
             </div>
 

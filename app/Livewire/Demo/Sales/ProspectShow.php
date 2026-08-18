@@ -79,6 +79,9 @@ class ProspectShow extends Component
         ]);
 
         app(UpdateProspectService::class)->update($prospect, $validated, auth()->user());
+        $fresh = $prospect->fresh();
+        $this->status = $fresh?->status->value ?? $this->status;
+        $this->identity_status = $fresh?->identity_status->value ?? $this->identity_status;
 
         DemoState::flash(__('operator.prospects.status_saved'));
     }
