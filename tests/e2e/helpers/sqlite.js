@@ -23,10 +23,22 @@ export function sqliteJson(sql) {
 
 export function prospectByCompany(name) {
     const rows = sqliteJson(
-        `select id, company_name, converted_customer_id, converted_brand_id, converted_at, source from prospects where company_name = '${escapeSql(name)}' limit 1`,
+        `select id, company_name, status, converted_customer_id, converted_brand_id, converted_at, source, website_url from prospects where company_name = '${escapeSql(name)}' limit 1`,
     );
 
     return rows[0] || null;
+}
+
+export function searchProfileByName(name) {
+    try {
+        const rows = sqliteJson(
+            `select id, name, service_definition_code, active, owner_user_id from sales_search_profiles where name = '${escapeSql(name)}' limit 1`,
+        );
+
+        return rows[0] || null;
+    } catch {
+        return null;
+    }
 }
 
 export function countCustomersNamed(name) {
