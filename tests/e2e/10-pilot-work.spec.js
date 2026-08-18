@@ -161,8 +161,12 @@ test.describe('Pilot-critical logout, capture, and work detail', () => {
 
         await page.goto(`/app/customers/${session.customerId}`);
         await waitForLivewire(page);
+        await page.getByRole('link', { name: /^Open Work$/ }).click();
+        await waitForLivewire(page);
+        await page.getByRole('button', { name: /All Work|Tüm işler/i }).click();
+        await waitForLivewire(page);
         await expect(page.locator('body')).toContainText(customerTitle);
-        await page.locator('li', { hasText: customerTitle }).getByRole('link', { name: /Open|Aç/i }).click();
+        await page.locator('tr', { hasText: customerTitle }).getByRole('link', { name: /Open|Aç/i }).click();
         await page.waitForURL(new RegExp(`/app/work/task/${customerTask.id}`));
         await expect(page.locator('h1')).toContainText(customerTitle);
 
@@ -182,6 +186,15 @@ test.describe('Pilot-critical logout, capture, and work detail', () => {
         expect(brandTask).toBeTruthy();
         expect(String(brandTask.customer_id)).toBe(String(session.customerId));
         expect(String(brandTask.brand_id)).toBe(String(session.brandId));
+
+        await page.goto(`/app/brands/${session.brandId}`);
+        await waitForLivewire(page);
+        await page.getByRole('tab', { name: /^Operations$/ }).click();
+        await waitForLivewire(page);
+        await page.getByRole('tablist', { name: 'Operations' }).getByRole('button', { name: /^Work$/ }).click();
+        await waitForLivewire(page);
+        await expect(page.locator('body')).toContainText(brandTitle);
+        await expect(page.locator('body')).not.toContainText(customerTitle);
 
         setVerdict('Work', 'PASS', 'Global and contextual Capture persist Tasks; Work detail and status work');
     });
