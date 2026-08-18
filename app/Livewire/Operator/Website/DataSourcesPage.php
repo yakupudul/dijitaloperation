@@ -160,11 +160,15 @@ class DataSourcesPage extends Component
         $resource = CoreExternalResource::query()->with('integration')->find((int) $resourceId);
 
         if (! $resource instanceof CoreExternalResource
+            || $resource->provider !== ProviderRegistry::GOOGLE
+            || ! $resource->integration instanceof CoreIntegration
+            || $resource->integration->provider !== ProviderRegistry::GOOGLE
+            || $resource->integration->status !== CoreIntegration::STATUS_ACTIVE
             || $resource->resource_type !== $capability
             || $resource->status !== CoreExternalResource::STATUS_AVAILABLE
             || ! AssetBindingCompatibility::isCompatible($asset, $resource)) {
             throw ValidationException::withMessages([
-                $capability === 'ga4' ? 'ga4ResourceId' : 'searchConsoleResourceId' => 'Bu kaynak Website ile uyumlu değil.',
+                $capability === 'ga4' ? 'ga4ResourceId' : 'searchConsoleResourceId' => 'Bu kaynak aktif Google entegrasyonundan gelmiyor veya Website ile uyumlu değil.',
             ]);
         }
 
