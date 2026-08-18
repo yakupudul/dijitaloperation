@@ -7,6 +7,7 @@ use App\Http\Controllers\Ops\OpsHealthController;
 use App\Http\Controllers\Prospects\ProspectReportShareController;
 use App\Http\Controllers\Reports\ReportArtifactDownloadController;
 use App\Http\Controllers\Reports\ReportShareController;
+use App\Livewire\Operator\Website\DataSourcesPage;
 use App\Livewire\Operator\Website\PublicDiscoveryPage;
 use Illuminate\Support\Facades\Route;
 
@@ -19,7 +20,6 @@ Route::post('/logout', [OperatorLoginController::class, 'destroy'])
     ->middleware('auth')
     ->name('app.logout');
 
-// Prompt 66 — cheap health endpoints (no tenant/provider secrets).
 Route::get('/up/liveness', [OpsHealthController::class, 'liveness'])->name('ops.liveness');
 Route::get('/up/readiness', [OpsHealthController::class, 'readiness'])->name('ops.readiness');
 
@@ -44,7 +44,6 @@ Route::middleware(['web', 'auth'])->group(function (): void {
         ->whereNumber('snapshotId')
         ->name('reports.snapshots.pdf');
 
-    // Internal ops snapshot — authenticated operators only; no new top-level nav.
     Route::get('/ops/health-snapshot', [OpsHealthController::class, 'snapshot'])
         ->name('ops.health.snapshot');
 });
@@ -76,8 +75,12 @@ Route::middleware(['web'])->prefix('reports/share')->name('reports.share.')->gro
 
 require __DIR__.'/demo.php';
 
-// Real operator engine surface: intentionally outside Demo component namespaces.
+// Real operator engine surfaces: intentionally outside Demo component namespaces.
 Route::middleware(['web', 'auth'])->group(function (): void {
+    Route::livewire('/assets/website/{assetId}/sources', DataSourcesPage::class)
+        ->whereNumber('assetId')
+        ->name('operator.website.sources');
+
     Route::livewire('/assets/website/{assetId}/discovery', PublicDiscoveryPage::class)
         ->whereNumber('assetId')
         ->name('operator.website.discovery');
