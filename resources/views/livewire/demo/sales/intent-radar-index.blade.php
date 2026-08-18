@@ -32,7 +32,7 @@
                 @if (! $engine['ready'])
                     <p class="mt-3 text-sm font-medium text-amber-800 dark:text-amber-300">{{ $engine['message'] ?: 'Live intent discovery is not ready.' }}</p>
                     @if (! $engine['paid_calls_enabled'] && ! $engine['fixtures_enabled'])
-                        <p class="mt-1 text-xs text-amber-700/80 dark:text-amber-300/80">Staging runtime must enable <code>MOXDOP_SALES_INTENT_PAID_CALLS=true</code> before real searches can run. Each run still requires explicit paid-call consent.</p>
+                        <p class="mt-1 text-xs text-amber-700/80 dark:text-amber-300/80">DataForSEO → Sales Intent live discovery alanından ücretli canlı çağrıları etkinleştirin. Bu ayar tek başına arama başlatmaz; her Search Profile çalıştırmasında ayrıca ücretli çağrı onayı gerekir.</p>
                     @endif
                 @else
                     <p class="mt-3 text-sm text-emerald-800 dark:text-emerald-300">The engine is ready for real, operator-triggered discovery. Paid requests are never triggered by simply opening this page.</p>
