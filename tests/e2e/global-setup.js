@@ -45,6 +45,16 @@ export default async function globalSetup() {
         throw new Error(`QA server not reachable at ${BASE_URL}/app/login (HTTP ${login.status})`);
     }
 
+    execFileSync('php', ['artisan', 'migrate', '--force', '--no-interaction'], {
+        cwd: WORKSPACE,
+        stdio: 'inherit',
+        env: {
+            ...process.env,
+            DB_CONNECTION: 'sqlite',
+            DB_DATABASE: E2E_DATABASE,
+        },
+    });
+
     execFileSync('php', ['tests/e2e/scripts/ensure-qa-admin.php'], {
         cwd: WORKSPACE,
         stdio: 'inherit',

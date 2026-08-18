@@ -62,6 +62,7 @@ class PanelDesignFreezeTest extends TestCase
             'operator.brands',
             'operator.assets',
             'operator.files',
+            'operator.prospects',
             'operator.opportunities',
             'operator.findings',
             'operator.recommendations',

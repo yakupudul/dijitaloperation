@@ -151,7 +151,11 @@ class AgentProfilesSkillLibraryV1Test extends TestCase
         foreach ($registry->roots() as $root) {
             $this->assertDirectoryExists($root['absolute_root']);
             $this->assertStringNotContainsString('http', $root['absolute_root']);
-            $this->assertTrue(str_starts_with($root['absolute_root'], base_path('app-modules')));
+            $this->assertTrue(
+                str_starts_with($root['absolute_root'], base_path('app-modules'))
+                || str_starts_with($root['absolute_root'], base_path('resources/skills')),
+                $root['absolute_root'],
+            );
         }
     }
 

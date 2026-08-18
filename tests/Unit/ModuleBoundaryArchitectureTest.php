@@ -42,6 +42,9 @@ class ModuleBoundaryArchitectureTest extends TestCase
         'app/Jobs/Async/PublicDiscoveryJob.php',
         'app/Jobs/Async/SeoIntelligenceRefreshJob.php',
         'app/Jobs/Async/WebsiteAiGuidanceJob.php',
+        // Sales Assistant prospect research reuses bounded public discovery crawl stack.
+        'app/Services/Prospects/ProspectResearchService.php',
+        'app/Services/Prospects/ProspectWebsiteValidator.php',
     ];
 
     /**

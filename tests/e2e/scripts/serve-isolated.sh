@@ -15,6 +15,8 @@ export DB_DATABASE="${MOXDOP_E2E_DATABASE:-${DB_DATABASE:-/tmp/moxdop-final-manu
 export APP_ENV="${APP_ENV:-local}"
 export APP_DEBUG="${APP_DEBUG:-true}"
 export MAIL_MAILER="${MAIL_MAILER:-log}"
+export QUEUE_CONNECTION="${QUEUE_CONNECTION:-sync}"
+export MOXDOP_PROSPECT_RESEARCH_FIXTURES="${MOXDOP_PROSPECT_RESEARCH_FIXTURES:-true}"
 
 if [[ ! -f "$DB_DATABASE" ]]; then
     echo "Isolated E2E database missing: $DB_DATABASE" >&2

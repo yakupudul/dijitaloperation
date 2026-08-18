@@ -44,7 +44,7 @@ class SkillNormalizationPrompt49Test extends TestCase
         $validator = app(SkillDefinitionValidator::class);
 
         $skills = $registry->all();
-        $this->assertCount(21, $skills);
+        $this->assertCount(22, $skills);
 
         foreach ($skills as $skill) {
             $this->assertSame([], $validator->validate($skill), $skill->stableKey());
