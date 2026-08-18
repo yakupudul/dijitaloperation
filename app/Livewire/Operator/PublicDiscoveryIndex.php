@@ -100,6 +100,8 @@ class PublicDiscoveryIndex extends Component
             ];
         });
 
+        $neverRunCount = $rows->where('status', 'not_run')->count();
+
         if ($this->state === 'needs_review') {
             $rows = $rows->where('pending', '>', 0);
         } elseif ($this->state === 'never_run') {
@@ -112,7 +114,7 @@ class PublicDiscoveryIndex extends Component
             'rows' => $rows->values()->all(),
             'counts' => [
                 'websites' => $assets->count(),
-                'never_run' => $rows->where('status', 'not_run')->count(),
+                'never_run' => $neverRunCount,
                 'needs_review' => (int) $pendingCounts->sum(),
                 'accepted' => (int) $acceptedCounts->sum(),
             ],
