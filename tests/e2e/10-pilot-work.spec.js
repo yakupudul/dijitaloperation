@@ -161,7 +161,7 @@ test.describe('Pilot-critical logout, capture, and work detail', () => {
 
         await page.goto(`/app/customers/${session.customerId}`);
         await waitForLivewire(page);
-        await page.getByRole('link', { name: /^Open Work$/ }).click();
+        await page.getByRole('link', { name: /^Open Work$/ }).first().click();
         await waitForLivewire(page);
         await page.getByRole('button', { name: /All Work|Tüm işler/i }).click();
         await waitForLivewire(page);
