@@ -1,6 +1,6 @@
 # MOXDOP — AUTONOMOUS E2E QA REPORT 001
 
-Generated: 2026-08-17T14:13:35.331Z
+Generated: 2026-08-18T12:32:55.135Z
 
 Status: BUGFIX_BATCH_001
 
@@ -12,7 +12,7 @@ Playwright product failures are treated as regressions. Prior baseline findings 
 - git toplevel: `/workspace`
 - branch: `cursor/production-readiness-audit-ea01`
 - starting SHA (task): `79c88d5eea2e5746b81439dbf8fd5fde4cebd46d`
-- harness/audit SHA: `3720cfe7265aadf6fb3e3e1ccd6ef0c340684117`
+- harness/audit SHA: `c864e8cbedc53e2a92383238e4bb508368867bbe`
 - origin: `https://github.com/yakupudul/dijitaloperation`
 - base URL: `http://127.0.0.1:8013`
 - database: `/tmp/moxdop-final-manual-qa.sqlite` (exists: yes)
@@ -21,7 +21,7 @@ Playwright product failures are treated as regressions. Prior baseline findings 
 - auth storage: `.qa-artifacts/auth.json` (gitignored)
 - Playwright HTML report: `playwright-report/` (gitignored)
 - traces: `test-results/` retain-on-failure (gitignored)
-- screenshots: `.qa-artifacts/screenshots/` (117 files, gitignored)
+- screenshots: `.qa-artifacts/screenshots/` (184 files, gitignored)
 
 ## Harness
 
@@ -48,14 +48,14 @@ Playwright product failures are treated as regressions. Prior baseline findings 
 
 Session dataset (ephemeral):
 
-- customer: `E2E Customer 1786975690455` id=`3`
-- brand: `E2E Brand 1786975690455` id=`3`
-- assets: website#13, google_business_profile#14, google_ads#15, meta_ads#16, ga4#17, gsc#18
+- customer: `E2E Acceptance Customer 1787056167516` id=`7`
+- brand: `E2E Acceptance Brand 1787056167516` id=`7`
+- assets: website#25, google_business_profile#26, google_ads#27, meta_ads#28, ga4#29, gsc#30
 
 ## Playwright run
 
 - expectedStatus: all tests must PASS
-- stats: {"startTime":"2026-08-17T14:08:04.254Z","duration":156342.078,"expected":16,"skipped":0,"unexpected":0,"flaky":0}
+- stats: {"startTime":"2026-08-18T12:29:20.257Z","duration":214780.344,"expected":40,"skipped":0,"unexpected":0,"flaky":0}
 - failed specs: 0
 
 ## PRIOR FINDINGS (Bugfix Batch 001)
@@ -92,17 +92,124 @@ count: 0
 
 ### MEDIUM
 
-count: 0
+count: 3
 
-(none)
+- QA-E2E-002 — Activity: "Open" [a]; "Status" [label]
+- QA-E2E-004 — Public Discovery: Public Discovery subsection did not show the truthful has-not-run copy in this pass.
+- QA-E2E-LAST-ADMIN-SILENT — Team & Access: Last admin remained active (protection held) but no visible last-admin error/flash was rendered.
 
 ### LOW
 
-count: 0
+count: 2
 
-(none)
+- QA-E2E-005 — accessibility: /app/settings: 2 unlabeled controls; /app/customers/7: 3 unlabeled controls
+- QA-E2E-TR-POLISH-GROUPED — TR chrome: Findings: Findings | Operations || Recommendations: Recommendations | Operations
 
 ## Issue details
+
+### QA-E2E-002
+
+Severity: MEDIUM
+Surface: Activity
+route: http://127.0.0.1:8013/app/activity
+
+Action: TR localization sweep
+
+Observed: "Open" [a]; "Status" [label]
+
+Expected: Operator chrome from lang/tr/operator.php — no English product chrome leakage
+
+Automated reproduction: YES
+
+Evidence: /workspace/.qa-artifacts/screenshots/i18n-tr-activity.png
+
+Likely source: Hard-coded Blade copy or missing __() keys
+
+Recommended fix scope: medium
+
+
+### QA-E2E-004
+
+Severity: MEDIUM
+Surface: Public Discovery
+route: http://127.0.0.1:8013/app/brands/7?tab=business
+
+Action: Open Brand Business Public Discovery
+
+Observed: Public Discovery subsection did not show the truthful has-not-run copy in this pass.
+
+Expected: Truthful unavailable/not run empty state (deferred live discovery)
+
+Automated reproduction: YES
+
+Evidence: /workspace/.qa-artifacts/screenshots/qa002-public-discovery.png
+
+Likely source: BrandShow businessSection switch
+
+Recommended fix scope: small
+
+
+### QA-E2E-LAST-ADMIN-SILENT
+
+Severity: MEDIUM
+Surface: Team & Access
+route: /app/settings
+
+Action: Deactivate last administrator
+
+Observed: Last admin remained active (protection held) but no visible last-admin error/flash was rendered.
+
+Expected: Show the last-admin protection message when deactivation is rejected.
+
+Automated reproduction: YES
+
+Evidence: /workspace/.qa-artifacts/screenshots/qa002-last-admin-silent.png
+
+Likely source: OperatorTeamAccessService ValidationException key `user` is not displayed on Settings
+
+Recommended fix scope: small
+
+
+### QA-E2E-005
+
+Severity: LOW
+Surface: accessibility
+route: /app/settings
+
+Action: Bounded label/name check on primary workflows
+
+Observed: /app/settings: 2 unlabeled controls; /app/customers/7: 3 unlabeled controls
+
+Expected: Important form controls and destructive actions have accessible names
+
+Automated reproduction: YES
+
+Evidence: —
+
+Likely source: missing label/aria-label on operator forms
+
+Recommended fix scope: small
+
+
+### QA-E2E-TR-POLISH-GROUPED
+
+Severity: LOW
+Surface: TR chrome
+route: http://127.0.0.1:8013/app/findings, http://127.0.0.1:8013/app/recommendations
+
+Action: TR polish chrome inventory (grouped)
+
+Observed: Findings: Findings | Operations || Recommendations: Recommendations | Operations
+
+Expected: Isolated English helper subtitles are POLISH_LANGUAGE backlog, not blocking.
+
+Automated reproduction: YES
+
+Evidence: —
+
+Likely source: Untranslated helper subtitle or secondary chrome
+
+Recommended fix scope: small
 
 
 
@@ -124,8 +231,8 @@ Evidence lives in `.qa-artifacts/screenshots/` and findings above.
 
 - reproduced: NO (Open did not 404 in this run)
 - clicked from: Digital Assets index Open and Brand Digital Estate Open
-- generated target: `http://127.0.0.1:8013/app/assets/website/13`
-- final URL: `http://127.0.0.1:8013/app/assets/website/13`
+- generated target: `http://127.0.0.1:8013/app/assets/website/25`
+- final URL: `http://127.0.0.1:8013/app/assets/website/25`
 - HTTP / UI: page loaded
 - exact root cause (fixed): `OperatorPortfolioPresenter` now exposes canonical `url` + `route_params` including DigitalAsset id. Production Open actions use `$asset['url']`.
 - expected canonical target: `route('operator.website', ['assetId' => $asset->id])` → `/app/assets/website/{id}` (same pattern for GBP / Google Ads / Meta / GA4 / GSC)
@@ -133,25 +240,25 @@ Evidence lives in `.qa-artifacts/screenshots/` and findings above.
 
 Related Open results:
 
-- website: href=`http://127.0.0.1:8013/app/assets/website/13` final=`http://127.0.0.1:8013/app/assets/website/13` 404=false 500=false
-- website: href=`http://127.0.0.1:8013/app/assets/website/13` final=`http://127.0.0.1:8013/app/assets/website/13` 404=false 500=false
-- google_business_profile: href=`http://127.0.0.1:8013/app/assets/gbp/14` final=`http://127.0.0.1:8013/app/assets/gbp/14` 404=false 500=false
-- google_business_profile: href=`http://127.0.0.1:8013/app/assets/gbp/14` final=`http://127.0.0.1:8013/app/assets/gbp/14` 404=false 500=false
-- google_ads: href=`http://127.0.0.1:8013/app/assets/google-ads/15` final=`http://127.0.0.1:8013/app/assets/google-ads/15` 404=false 500=false
-- google_ads: href=`http://127.0.0.1:8013/app/assets/google-ads/15` final=`http://127.0.0.1:8013/app/assets/google-ads/15` 404=false 500=false
-- meta_ads: href=`http://127.0.0.1:8013/app/assets/meta/16` final=`http://127.0.0.1:8013/app/assets/meta/16` 404=false 500=false
-- meta_ads: href=`http://127.0.0.1:8013/app/assets/meta/16` final=`http://127.0.0.1:8013/app/assets/meta/16` 404=false 500=false
-- ga4: href=`http://127.0.0.1:8013/app/assets/analytics/17` final=`http://127.0.0.1:8013/app/assets/analytics/17` 404=false 500=false
-- ga4: href=`http://127.0.0.1:8013/app/assets/analytics/17` final=`http://127.0.0.1:8013/app/assets/analytics/17` 404=false 500=false
-- gsc: href=`http://127.0.0.1:8013/app/assets/search-console/18` final=`http://127.0.0.1:8013/app/assets/search-console/18` 404=false 500=false
-- gsc: href=`http://127.0.0.1:8013/app/assets/search-console/18` final=`http://127.0.0.1:8013/app/assets/search-console/18` 404=false 500=false
+- website: href=`http://127.0.0.1:8013/app/assets/website/25` final=`http://127.0.0.1:8013/app/assets/website/25` 404=false 500=false
+- website: href=`http://127.0.0.1:8013/app/assets/website/25` final=`http://127.0.0.1:8013/app/assets/website/25` 404=false 500=false
+- google_business_profile: href=`http://127.0.0.1:8013/app/assets/gbp/26` final=`http://127.0.0.1:8013/app/assets/gbp/26` 404=false 500=false
+- google_business_profile: href=`http://127.0.0.1:8013/app/assets/gbp/26` final=`http://127.0.0.1:8013/app/assets/gbp/26` 404=false 500=false
+- google_ads: href=`http://127.0.0.1:8013/app/assets/google-ads/27` final=`http://127.0.0.1:8013/app/assets/google-ads/27` 404=false 500=false
+- google_ads: href=`http://127.0.0.1:8013/app/assets/google-ads/27` final=`http://127.0.0.1:8013/app/assets/google-ads/27` 404=false 500=false
+- meta_ads: href=`http://127.0.0.1:8013/app/assets/meta/28` final=`http://127.0.0.1:8013/app/assets/meta/28` 404=false 500=false
+- meta_ads: href=`http://127.0.0.1:8013/app/assets/meta/28` final=`http://127.0.0.1:8013/app/assets/meta/28` 404=false 500=false
+- ga4: href=`http://127.0.0.1:8013/app/assets/analytics/29` final=`http://127.0.0.1:8013/app/assets/analytics/29` 404=false 500=false
+- ga4: href=`http://127.0.0.1:8013/app/assets/analytics/29` final=`http://127.0.0.1:8013/app/assets/analytics/29` 404=false 500=false
+- gsc: href=`http://127.0.0.1:8013/app/assets/search-console/30` final=`http://127.0.0.1:8013/app/assets/search-console/30` 404=false 500=false
+- gsc: href=`http://127.0.0.1:8013/app/assets/search-console/30` final=`http://127.0.0.1:8013/app/assets/search-console/30` 404=false 500=false
 
 ## I18N
 
-- TR leakage count: 0
+- TR leakage count: 9
 - EN leakage count: 0
-- top affected TR surfaces: —
-- hard-coded source copy count: 1531
+- top affected TR surfaces: Findings, Recommendations, Activity
+- hard-coded source copy count: 1541
 - database translation duplication found: **NO** (audit did not find per-language UI chrome columns; agency/user locale is a setting, not duplicated product copy)
 - recommended localization architecture: keep static operator chrome in `lang/en/operator.php` + `lang/tr/operator.php` (`__('operator.*')`). Store dynamic Customer/Brand/provider facts once. Convert remaining Blade/PHP English literals to language keys. Do not add translated DB columns for chrome.
 
@@ -161,7 +268,15 @@ Should static product copy be localized through language resources rather than p
 
 ### TR leakage sample
 
-- (none)
+- `http://127.0.0.1:8013/app/findings` — "Findings" (h1)
+- `http://127.0.0.1:8013/app/findings` — "Operations" (p)
+- `http://127.0.0.1:8013/app/recommendations` — "Recommendations" (h1)
+- `http://127.0.0.1:8013/app/recommendations` — "Operations" (p)
+- `http://127.0.0.1:8013/app/activity` — "Activity" (h1)
+- `http://127.0.0.1:8013/app/activity` — "Open" (a)
+- `http://127.0.0.1:8013/app/activity` — "Status" (label)
+- `http://127.0.0.1:8013/app/activity` — "status open" (p)
+- `http://127.0.0.1:8013/app/activity` — "Operations" (p)
 
 ### EN leakage sample
 
@@ -263,6 +378,7 @@ Static product copy must be localized through language resources (`lang/{en,tr}/
 
 ## Screenshots captured
 
+- `.qa-artifacts/screenshots/admin-login-surface.png`
 - `.qa-artifacts/screenshots/asset-open-ga4.png`
 - `.qa-artifacts/screenshots/asset-open-google_ads.png`
 - `.qa-artifacts/screenshots/asset-open-google_business_profile.png`
@@ -287,6 +403,7 @@ Static product copy must be localized through language resources (`lang/{en,tr}/
 - `.qa-artifacts/screenshots/brand-detail.png`
 - `.qa-artifacts/screenshots/brand-digital-estate.png`
 - `.qa-artifacts/screenshots/brand-public-discovery.png`
+- `.qa-artifacts/screenshots/crawler-fail-12.png`
 - `.qa-artifacts/screenshots/crawler-fail-4.png`
 - `.qa-artifacts/screenshots/customer-create.png`
 - `.qa-artifacts/screenshots/customer-detail.png`
@@ -307,6 +424,7 @@ Static product copy must be localized through language resources (`lang/{en,tr}/
 - `.qa-artifacts/screenshots/i18n-en-customer-create.png`
 - `.qa-artifacts/screenshots/i18n-en-customers.png`
 - `.qa-artifacts/screenshots/i18n-en-settings.png`
+- `.qa-artifacts/screenshots/i18n-tr-activity.png`
 - `.qa-artifacts/screenshots/i18n-tr-brands.png`
 - `.qa-artifacts/screenshots/i18n-tr-customer-setup.png`
 - `.qa-artifacts/screenshots/i18n-tr-customers.png`
@@ -321,53 +439,117 @@ Static product copy must be localized through language resources (`lang/{en,tr}/
 - `.qa-artifacts/screenshots/integration-openai.png`
 - `.qa-artifacts/screenshots/integrations.png`
 - `.qa-artifacts/screenshots/mobile-brand-detail.png`
+- `.qa-artifacts/screenshots/mobile-brands.png`
 - `.qa-artifacts/screenshots/mobile-customer-detail.png`
 - `.qa-artifacts/screenshots/mobile-customers.png`
 - `.qa-artifacts/screenshots/mobile-dashboard.png`
 - `.qa-artifacts/screenshots/mobile-digital-assets.png`
+- `.qa-artifacts/screenshots/mobile-integrations.png`
+- `.qa-artifacts/screenshots/mobile-settings.png`
+- `.qa-artifacts/screenshots/mobile-website.png`
+- `.qa-artifacts/screenshots/mobile-work.png`
+- `.qa-artifacts/screenshots/qa002-activity.png`
+- `.qa-artifacts/screenshots/qa002-customer-reports.png`
+- `.qa-artifacts/screenshots/qa002-files.png`
+- `.qa-artifacts/screenshots/qa002-findings.png`
+- `.qa-artifacts/screenshots/qa002-ga4-workspace.png`
+- `.qa-artifacts/screenshots/qa002-google_ads-workspace.png`
+- `.qa-artifacts/screenshots/qa002-google_business_profile-workspace.png`
+- `.qa-artifacts/screenshots/qa002-gsc-workspace.png`
+- `.qa-artifacts/screenshots/qa002-last-admin-silent.png`
+- `.qa-artifacts/screenshots/qa002-logout-nested-form.png`
+- `.qa-artifacts/screenshots/qa002-meta_ads-workspace.png`
+- `.qa-artifacts/screenshots/qa002-opportunities.png`
+- `.qa-artifacts/screenshots/qa002-public-discovery.png`
+- `.qa-artifacts/screenshots/qa002-recommendations.png`
+- `.qa-artifacts/screenshots/qa002-website-workspace.png`
+- `.qa-artifacts/screenshots/qa002-work-detail-not-found.png`
+- `.qa-artifacts/screenshots/qa002-work-orphan-capture.png`
+- `.qa-artifacts/screenshots/settings-notifications.png`
 - `.qa-artifacts/screenshots/settings.png`
 - `.qa-artifacts/screenshots/smoke-settings.png`
+- `.qa-artifacts/screenshots/specialist-ga4-11.png`
 - `.qa-artifacts/screenshots/specialist-ga4-12.png`
 - `.qa-artifacts/screenshots/specialist-ga4-17.png`
 - `.qa-artifacts/screenshots/specialist-ga4-18.png`
+- `.qa-artifacts/screenshots/specialist-ga4-23.png`
 - `.qa-artifacts/screenshots/specialist-ga4-24.png`
+- `.qa-artifacts/screenshots/specialist-ga4-29.png`
 - `.qa-artifacts/screenshots/specialist-ga4-30.png`
+- `.qa-artifacts/screenshots/specialist-ga4-35.png`
+- `.qa-artifacts/screenshots/specialist-ga4-41.png`
+- `.qa-artifacts/screenshots/specialist-ga4-47.png`
 - `.qa-artifacts/screenshots/specialist-ga4-5.png`
 - `.qa-artifacts/screenshots/specialist-google_ads-10.png`
 - `.qa-artifacts/screenshots/specialist-google_ads-15.png`
 - `.qa-artifacts/screenshots/specialist-google_ads-16.png`
+- `.qa-artifacts/screenshots/specialist-google_ads-21.png`
 - `.qa-artifacts/screenshots/specialist-google_ads-22.png`
+- `.qa-artifacts/screenshots/specialist-google_ads-27.png`
 - `.qa-artifacts/screenshots/specialist-google_ads-28.png`
 - `.qa-artifacts/screenshots/specialist-google_ads-3.png`
+- `.qa-artifacts/screenshots/specialist-google_ads-33.png`
+- `.qa-artifacts/screenshots/specialist-google_ads-39.png`
+- `.qa-artifacts/screenshots/specialist-google_ads-45.png`
+- `.qa-artifacts/screenshots/specialist-google_ads-9.png`
 - `.qa-artifacts/screenshots/specialist-google_business_profile-14.png`
 - `.qa-artifacts/screenshots/specialist-google_business_profile-15.png`
 - `.qa-artifacts/screenshots/specialist-google_business_profile-2.png`
+- `.qa-artifacts/screenshots/specialist-google_business_profile-20.png`
 - `.qa-artifacts/screenshots/specialist-google_business_profile-21.png`
+- `.qa-artifacts/screenshots/specialist-google_business_profile-26.png`
 - `.qa-artifacts/screenshots/specialist-google_business_profile-27.png`
+- `.qa-artifacts/screenshots/specialist-google_business_profile-32.png`
+- `.qa-artifacts/screenshots/specialist-google_business_profile-38.png`
+- `.qa-artifacts/screenshots/specialist-google_business_profile-44.png`
+- `.qa-artifacts/screenshots/specialist-google_business_profile-8.png`
 - `.qa-artifacts/screenshots/specialist-google_business_profile-9.png`
+- `.qa-artifacts/screenshots/specialist-gsc-12.png`
 - `.qa-artifacts/screenshots/specialist-gsc-13.png`
 - `.qa-artifacts/screenshots/specialist-gsc-18.png`
 - `.qa-artifacts/screenshots/specialist-gsc-19.png`
+- `.qa-artifacts/screenshots/specialist-gsc-24.png`
 - `.qa-artifacts/screenshots/specialist-gsc-25.png`
+- `.qa-artifacts/screenshots/specialist-gsc-30.png`
 - `.qa-artifacts/screenshots/specialist-gsc-31.png`
+- `.qa-artifacts/screenshots/specialist-gsc-36.png`
+- `.qa-artifacts/screenshots/specialist-gsc-42.png`
+- `.qa-artifacts/screenshots/specialist-gsc-48.png`
 - `.qa-artifacts/screenshots/specialist-gsc-6.png`
+- `.qa-artifacts/screenshots/specialist-meta_ads-10.png`
 - `.qa-artifacts/screenshots/specialist-meta_ads-11.png`
 - `.qa-artifacts/screenshots/specialist-meta_ads-16.png`
 - `.qa-artifacts/screenshots/specialist-meta_ads-17.png`
+- `.qa-artifacts/screenshots/specialist-meta_ads-22.png`
 - `.qa-artifacts/screenshots/specialist-meta_ads-23.png`
+- `.qa-artifacts/screenshots/specialist-meta_ads-28.png`
 - `.qa-artifacts/screenshots/specialist-meta_ads-29.png`
+- `.qa-artifacts/screenshots/specialist-meta_ads-34.png`
 - `.qa-artifacts/screenshots/specialist-meta_ads-4.png`
+- `.qa-artifacts/screenshots/specialist-meta_ads-40.png`
+- `.qa-artifacts/screenshots/specialist-meta_ads-46.png`
 - `.qa-artifacts/screenshots/specialist-website-1.png`
 - `.qa-artifacts/screenshots/specialist-website-13.png`
 - `.qa-artifacts/screenshots/specialist-website-14.png`
+- `.qa-artifacts/screenshots/specialist-website-19.png`
 - `.qa-artifacts/screenshots/specialist-website-20.png`
+- `.qa-artifacts/screenshots/specialist-website-25.png`
 - `.qa-artifacts/screenshots/specialist-website-26.png`
+- `.qa-artifacts/screenshots/specialist-website-31.png`
+- `.qa-artifacts/screenshots/specialist-website-37.png`
+- `.qa-artifacts/screenshots/specialist-website-43.png`
+- `.qa-artifacts/screenshots/specialist-website-7.png`
 - `.qa-artifacts/screenshots/specialist-website-8.png`
 - `.qa-artifacts/screenshots/tablet-brand-detail.png`
+- `.qa-artifacts/screenshots/tablet-brands.png`
 - `.qa-artifacts/screenshots/tablet-customer-detail.png`
 - `.qa-artifacts/screenshots/tablet-customers.png`
 - `.qa-artifacts/screenshots/tablet-dashboard.png`
 - `.qa-artifacts/screenshots/tablet-digital-assets.png`
+- `.qa-artifacts/screenshots/tablet-integrations.png`
+- `.qa-artifacts/screenshots/tablet-settings.png`
+- `.qa-artifacts/screenshots/tablet-website.png`
+- `.qa-artifacts/screenshots/tablet-work.png`
 - `.qa-artifacts/screenshots/tr-desktop-brand-detail.png`
 - `.qa-artifacts/screenshots/tr-desktop-brands.png`
 - `.qa-artifacts/screenshots/tr-desktop-business-context.png`

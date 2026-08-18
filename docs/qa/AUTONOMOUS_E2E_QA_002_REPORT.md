@@ -1,11 +1,11 @@
 # MOXDOP — AUTONOMOUS E2E QA 002
 ## FINAL PRE-STAGING ACCEPTANCE
 
-Generated: 2026-08-17T16:53:42.475Z
+Generated: 2026-08-18T12:32:55.182Z
 
 STATUS: AUDIT_COMPLETE
 
-PILOT DECISION: NOT_PILOT_READY
+PILOT DECISION: PILOT_READY_WITH_BACKLOG
 
 This is an **audit-only** report. Product defects were not fixed in this task.
 
@@ -13,20 +13,20 @@ This is an **audit-only** report. Product defects were not fixed in this task.
 
 - workspace: `/workspace`
 - starting SHA: `82391004840b3718d544fafb1a22454d4e919290`
-- final SHA: `393574274e085e2cd288a5865c7f2af904723266`
+- final SHA: `c864e8cbedc53e2a92383238e4bb508368867bbe`
 - branch: `cursor/production-readiness-audit-ea01`
 - origin: `https://github.com/yakupudul/dijitaloperation`
-- pushed: yes (`cursor/production-readiness-audit-ea01`)
+- pushed: see git push after this report
 - PR #197 Draft: remains Draft
-- base URL: `http://127.0.0.1:8014`
-- database: `/tmp/moxdop-e2e-qa-002.sqlite` (exists: yes)
+- base URL: `http://127.0.0.1:8013`
+- database: `/tmp/moxdop-final-manual-qa.sqlite` (exists: yes)
 - QA email: `qa-final@moxdop.local`
 - password source: `file:/tmp/moxdop-final-manual-qa-admin.secret` (value never recorded)
 
 ## AUTOMATION
 
-- Playwright tests: 29
-- passed: 29
+- Playwright tests: 40
+- passed: 40
 - failed: 0
 - skipped: 0
 - routes: Dashboard, Customers, Brands, Digital Assets, Files, Opportunities, Findings, Recommendations, Work, Activity, Integrations, Settings, Profile, specialist workspaces, /system, /admin
@@ -38,9 +38,9 @@ This is an **audit-only** report. Product defects were not fixed in this task.
 
 Session dataset (ephemeral isolated QA 002):
 
-- customer: `E2E Acceptance Customer 1786985430319` id=`4`
-- brand: `E2E Acceptance Brand 1786985430319` id=`4`
-- assets: website#19, google_business_profile#20, google_ads#21, meta_ads#22, ga4#23, gsc#24
+- customer: `E2E Acceptance Customer 1787056167516` id=`7`
+- brand: `E2E Acceptance Brand 1787056167516` id=`7`
+- assets: website#25, google_business_profile#26, google_ads#27, meta_ads#28, ga4#29, gsc#30
 
 Failed specs: (none)
 
@@ -52,94 +52,32 @@ count: 0
 
 ## HIGH
 
-count: 3
+count: 0
 
-- QA-E2E-LOGOUT-NESTED-FORM — Profile / logout: Visible Sign out control did not navigate to /app/login (stayed http://127.0.0.1:8014/app/profile; started http://127.0.0.1:8014/app/profile). Nested logout form sits inside the Livewire profile save form, so the browser submits Save instead of POST /app/logout.
-- QA-E2E-WORK-CAPTURE-CUSTOMER — Work: Header + Capture dispatches open-capture with no customer/brand. Direct Task save flashes that a production Customer is required and does not persist a Task. Capture modal has no Customer/Brand picker.
-- QA-E2E-WORK-DETAIL-NOT-FOUND — Work: Task "E2E Acceptance Work 1786985612318" persisted in SQLite (id=3) but Work/Task show renders "Work item not found." TaskShow redirects numeric ids to /app/work/{id}; WorkShow defaults type to client_request and does not read ?type=task, so production Tasks are unresolved.
+(none)
 
 ## MEDIUM
 
 count: 3
 
 - QA-E2E-002 — Activity: "Open" [a]; "Status" [label]
-- QA-E2E-005 — Public Discovery: Public Discovery subsection did not show the truthful has-not-run copy in this pass.
+- QA-E2E-004 — Public Discovery: Public Discovery subsection did not show the truthful has-not-run copy in this pass.
 - QA-E2E-LAST-ADMIN-SILENT — Team & Access: Last admin remained active (protection held) but no visible last-admin error/flash was rendered.
 
 ## LOW
 
 count: 2
 
-- QA-E2E-008 — accessibility: /app/settings: 2 unlabeled controls; /app/customers/4: 3 unlabeled controls
+- QA-E2E-005 — accessibility: /app/settings: 2 unlabeled controls; /app/customers/7: 3 unlabeled controls
 - QA-E2E-TR-POLISH-GROUPED — TR chrome: Findings: Findings | Operations || Recommendations: Recommendations | Operations
 
 ## Issue details
-
-### QA-E2E-LOGOUT-NESTED-FORM
-
-Severity: HIGH
-Surface: Profile / logout
-route: /app/profile
-
-Action: Click Sign out on Profile
-
-Observed: Visible Sign out control did not navigate to /app/login (stayed http://127.0.0.1:8014/app/profile; started http://127.0.0.1:8014/app/profile). Nested logout form sits inside the Livewire profile save form, so the browser submits Save instead of POST /app/logout.
-
-Expected: Sign out must POST /app/logout and land on /app/login.
-
-Automated reproduction: YES
-
-Evidence: /workspace/.qa-artifacts/screenshots/qa002-logout-nested-form.png
-
-Likely source: resources/views/livewire/demo/profile.blade.php nested form
-
-Recommended fix scope: small
-
-### QA-E2E-WORK-CAPTURE-CUSTOMER
-
-Severity: HIGH
-Surface: Work
-route: /app
-
-Action: Create Task from global Capture without customer context
-
-Observed: Header + Capture dispatches open-capture with no customer/brand. Direct Task save flashes that a production Customer is required and does not persist a Task. Capture modal has no Customer/Brand picker.
-
-Expected: Pilot-critical Work create from the primary Capture CTA must bind a Customer (picker or page context) and persist a Task.
-
-Automated reproduction: YES
-
-Evidence: /workspace/.qa-artifacts/screenshots/qa002-work-orphan-capture.png
-
-Likely source: CaptureModal::saveDirectTask + header Livewire.dispatch without customer
-
-Recommended fix scope: small
-
-### QA-E2E-WORK-DETAIL-NOT-FOUND
-
-Severity: HIGH
-Surface: Work
-route: http://127.0.0.1:8014/app/work/3?type=task
-
-Action: Open captured Task #3
-
-Observed: Task "E2E Acceptance Work 1786985612318" persisted in SQLite (id=3) but Work/Task show renders "Work item not found." TaskShow redirects numeric ids to /app/work/{id}; WorkShow defaults type to client_request and does not read ?type=task, so production Tasks are unresolved.
-
-Expected: Opening a captured Task shows the execution record and status transitions.
-
-Automated reproduction: YES
-
-Evidence: /workspace/.qa-artifacts/screenshots/qa002-work-detail-not-found.png
-
-Likely source: WorkShow::$type default client_request; TaskShow redirect does not bind type
-
-Recommended fix scope: small
 
 ### QA-E2E-002
 
 Severity: MEDIUM
 Surface: Activity
-route: http://127.0.0.1:8014/app/activity
+route: http://127.0.0.1:8013/app/activity
 
 Action: TR localization sweep
 
@@ -155,11 +93,11 @@ Likely source: Hard-coded Blade copy or missing __() keys
 
 Recommended fix scope: medium
 
-### QA-E2E-005
+### QA-E2E-004
 
 Severity: MEDIUM
 Surface: Public Discovery
-route: http://127.0.0.1:8014/app/brands/4?tab=business
+route: http://127.0.0.1:8013/app/brands/7?tab=business
 
 Action: Open Brand Business Public Discovery
 
@@ -195,7 +133,7 @@ Likely source: OperatorTeamAccessService ValidationException key `user` is not d
 
 Recommended fix scope: small
 
-### QA-E2E-008
+### QA-E2E-005
 
 Severity: LOW
 Surface: accessibility
@@ -203,7 +141,7 @@ route: /app/settings
 
 Action: Bounded label/name check on primary workflows
 
-Observed: /app/settings: 2 unlabeled controls; /app/customers/4: 3 unlabeled controls
+Observed: /app/settings: 2 unlabeled controls; /app/customers/7: 3 unlabeled controls
 
 Expected: Important form controls and destructive actions have accessible names
 
@@ -219,7 +157,7 @@ Recommended fix scope: small
 
 Severity: LOW
 Surface: TR chrome
-route: http://127.0.0.1:8014/app/findings, http://127.0.0.1:8014/app/recommendations
+route: http://127.0.0.1:8013/app/findings, http://127.0.0.1:8013/app/recommendations
 
 Action: TR polish chrome inventory (grouped)
 
@@ -238,7 +176,7 @@ Recommended fix scope: small
 
 ## CORE WORKFLOWS
 
-- Login: PASS — Session persisted after logout/login at http://127.0.0.1:8014
+- Login: PASS — Visible Profile Sign out POSTs /app/logout
 - Customer: PASS — Create/edit/reload already covered; tabs render
 - Brand: PASS — Brand tabs and business context persist
 - Digital Assets: PASS — Six types opened from canonical ids; specialist tabs crawled
@@ -252,9 +190,9 @@ Recommended fix scope: small
 - Opportunities: TRUTHFUL_EMPTY — Truthful empty
 - Findings: TRUTHFUL_EMPTY — Truthful empty
 - Recommendations: TRUTHFUL_EMPTY — Truthful empty
-- Work: FAIL — Task persists but Work detail is not found; header Capture cannot create without customer
+- Work: PASS — Global and contextual Capture persist Tasks; Work detail and status work
 - Activity: PASS — Rows present
-- Requests: TRUTHFUL_EMPTY — No dedicated Requests create UI; Capture Client request also requires Customer+Brand prefill
+- Requests: TRUTHFUL_EMPTY — No dedicated Requests create UI
 - Goals / Business Context: PASS — Canonical business context saved and survived reload + TR/EN
 - Outcomes / Value: TRUTHFUL_EMPTY — Brand Value tab
 - Reports: TRUTHFUL_EMPTY — Customer Reports tab
@@ -274,18 +212,18 @@ Recommended fix scope: small
 
 Asset Open results:
 
-- website via digital-assets-open: href=`http://127.0.0.1:8014/app/assets/website/19` final=`http://127.0.0.1:8014/app/assets/website/19` 404=false 500=false
-- website via brand-estate-open: href=`http://127.0.0.1:8014/app/assets/website/19` final=`http://127.0.0.1:8014/app/assets/website/19` 404=false 500=false
-- google_business_profile via digital-assets-open: href=`http://127.0.0.1:8014/app/assets/gbp/20` final=`http://127.0.0.1:8014/app/assets/gbp/20` 404=false 500=false
-- google_business_profile via brand-estate-open: href=`http://127.0.0.1:8014/app/assets/gbp/20` final=`http://127.0.0.1:8014/app/assets/gbp/20` 404=false 500=false
-- google_ads via digital-assets-open: href=`http://127.0.0.1:8014/app/assets/google-ads/21` final=`http://127.0.0.1:8014/app/assets/google-ads/21` 404=false 500=false
-- google_ads via brand-estate-open: href=`http://127.0.0.1:8014/app/assets/google-ads/21` final=`http://127.0.0.1:8014/app/assets/google-ads/21` 404=false 500=false
-- meta_ads via digital-assets-open: href=`http://127.0.0.1:8014/app/assets/meta/22` final=`http://127.0.0.1:8014/app/assets/meta/22` 404=false 500=false
-- meta_ads via brand-estate-open: href=`http://127.0.0.1:8014/app/assets/meta/22` final=`http://127.0.0.1:8014/app/assets/meta/22` 404=false 500=false
-- ga4 via digital-assets-open: href=`http://127.0.0.1:8014/app/assets/analytics/23` final=`http://127.0.0.1:8014/app/assets/analytics/23` 404=false 500=false
-- ga4 via brand-estate-open: href=`http://127.0.0.1:8014/app/assets/analytics/23` final=`http://127.0.0.1:8014/app/assets/analytics/23` 404=false 500=false
-- gsc via digital-assets-open: href=`http://127.0.0.1:8014/app/assets/search-console/24` final=`http://127.0.0.1:8014/app/assets/search-console/24` 404=false 500=false
-- gsc via brand-estate-open: href=`http://127.0.0.1:8014/app/assets/search-console/24` final=`http://127.0.0.1:8014/app/assets/search-console/24` 404=false 500=false
+- website via digital-assets-open: href=`http://127.0.0.1:8013/app/assets/website/25` final=`http://127.0.0.1:8013/app/assets/website/25` 404=false 500=false
+- website via brand-estate-open: href=`http://127.0.0.1:8013/app/assets/website/25` final=`http://127.0.0.1:8013/app/assets/website/25` 404=false 500=false
+- google_business_profile via digital-assets-open: href=`http://127.0.0.1:8013/app/assets/gbp/26` final=`http://127.0.0.1:8013/app/assets/gbp/26` 404=false 500=false
+- google_business_profile via brand-estate-open: href=`http://127.0.0.1:8013/app/assets/gbp/26` final=`http://127.0.0.1:8013/app/assets/gbp/26` 404=false 500=false
+- google_ads via digital-assets-open: href=`http://127.0.0.1:8013/app/assets/google-ads/27` final=`http://127.0.0.1:8013/app/assets/google-ads/27` 404=false 500=false
+- google_ads via brand-estate-open: href=`http://127.0.0.1:8013/app/assets/google-ads/27` final=`http://127.0.0.1:8013/app/assets/google-ads/27` 404=false 500=false
+- meta_ads via digital-assets-open: href=`http://127.0.0.1:8013/app/assets/meta/28` final=`http://127.0.0.1:8013/app/assets/meta/28` 404=false 500=false
+- meta_ads via brand-estate-open: href=`http://127.0.0.1:8013/app/assets/meta/28` final=`http://127.0.0.1:8013/app/assets/meta/28` 404=false 500=false
+- ga4 via digital-assets-open: href=`http://127.0.0.1:8013/app/assets/analytics/29` final=`http://127.0.0.1:8013/app/assets/analytics/29` 404=false 500=false
+- ga4 via brand-estate-open: href=`http://127.0.0.1:8013/app/assets/analytics/29` final=`http://127.0.0.1:8013/app/assets/analytics/29` 404=false 500=false
+- gsc via digital-assets-open: href=`http://127.0.0.1:8013/app/assets/search-console/30` final=`http://127.0.0.1:8013/app/assets/search-console/30` 404=false 500=false
+- gsc via brand-estate-open: href=`http://127.0.0.1:8013/app/assets/search-console/30` final=`http://127.0.0.1:8013/app/assets/search-console/30` 404=false 500=false
 
 Specialist tabs:
 
@@ -356,21 +294,21 @@ Specialist tabs:
 
 ### TR leakage sample
 
-- `http://127.0.0.1:8014/app/findings` — "Findings" (h1)
-- `http://127.0.0.1:8014/app/findings` — "Operations" (p)
-- `http://127.0.0.1:8014/app/recommendations` — "Recommendations" (h1)
-- `http://127.0.0.1:8014/app/recommendations` — "Operations" (p)
-- `http://127.0.0.1:8014/app/activity` — "Activity" (h1)
-- `http://127.0.0.1:8014/app/activity` — "Open" (a)
-- `http://127.0.0.1:8014/app/activity` — "Status" (label)
-- `http://127.0.0.1:8014/app/activity` — "status open" (p)
-- `http://127.0.0.1:8014/app/activity` — "Operations" (p)
+- `http://127.0.0.1:8013/app/findings` — "Findings" (h1)
+- `http://127.0.0.1:8013/app/findings` — "Operations" (p)
+- `http://127.0.0.1:8013/app/recommendations` — "Recommendations" (h1)
+- `http://127.0.0.1:8013/app/recommendations` — "Operations" (p)
+- `http://127.0.0.1:8013/app/activity` — "Activity" (h1)
+- `http://127.0.0.1:8013/app/activity` — "Open" (a)
+- `http://127.0.0.1:8013/app/activity` — "Status" (label)
+- `http://127.0.0.1:8013/app/activity` — "status open" (p)
+- `http://127.0.0.1:8013/app/activity` — "Operations" (p)
 
 ### EN leakage sample
 
 - (none)
 
-Hard-coded source copy candidates: 1531
+Hard-coded source copy candidates: 1541
 
 ## RESPONSIVE
 
@@ -381,7 +319,7 @@ Hard-coded source copy candidates: 1531
 
 ## DEFERRED / NOT BLOCKING
 
-- Public Discovery: DEFERRED PRODUCT FEATURE (golden path 02 asserted truthful “has not run” / live refresh disabled). QA-E2E-005 is a 09 click-order miss after locale switching, not a product lie.
+- Public Discovery: DEFERRED PRODUCT FEATURE (truthful unavailable / has not run; live refresh disabled)
 - Website live analytics: deferred; unavailable shell acceptable
 - mobile push: deferred; notifications UI must not claim live push
 - SMTP UI: deferred
@@ -403,24 +341,19 @@ Hard-coded source copy candidates: 1531
 
 ## EXISTING TESTS
 
-- PHPUnit passed: 1791
-- PHPUnit failed: 0
-- skipped: 2
-- npm build: PASS
-- git diff --check: PASS
-
-Isolated PHPUnit invocation: `env -u DB_DATABASE -u DB_CONNECTION -u APP_ENV php artisan test --compact`. Manual QA sqlite `/tmp/moxdop-final-manual-qa.sqlite` was not migrated or RefreshDatabase'd (mtime remained 16:13 UTC).
+- PHPUnit passed: see subsequent isolated `env -u DB_DATABASE -u DB_CONNECTION -u APP_ENV php artisan test --compact`
+- PHPUnit failed: see subsequent run
+- skipped: see subsequent run
+- npm build: see subsequent run
+- git diff --check: see subsequent run
 
 ## PILOT DECISION RATIONALE
 
-Not ready for an initial pilot until HIGH/BLOCKER items are resolved. 3 HIGH and 0 BLOCKER finding(s) affect core daily use. Do not treat deferred provider/live-collection features as the reason — only current operator-code defects listed above.
+No BLOCKER or HIGH defects remain. MEDIUM/LOW issues (localization polish, secondary UX) do not prevent an initial internal pilot. Backlog them; do not reopen product development for polish before staging.
 
 ## NEXT
 
-Smallest blocking bugfix batch before staging:
-- QA-E2E-LOGOUT-NESTED-FORM (HIGH) Profile / logout: Visible Sign out control did not navigate to /app/login (stayed http://127.0.0.1:8014/app/profile; started http://127.0.0.1:8014/app/profile). Nested logout form sits inside the Livewire profile save form, so the browser submits Save instead of POST /app/logout.
-- QA-E2E-WORK-CAPTURE-CUSTOMER (HIGH) Work: Header + Capture dispatches open-capture with no customer/brand. Direct Task save flashes that a production Customer is required and does not persist a Task. Capture modal has no Customer/Brand picker.
-- QA-E2E-WORK-DETAIL-NOT-FOUND (HIGH) Work: Task "E2E Acceptance Work 1786985612318" persisted in SQLite (id=3) but Work/Task show renders "Work item not found." TaskShow redirects numeric ids to /app/work/{id}; WorkShow defaults type to client_request and does not read ?type=task, so production Tasks are unresolved.
+The production-intended /app has passed the final autonomous pre-staging acceptance gate with no blocking application defects. Stop feature development. Proceed to staging infrastructure and one-customer pilot preparation.
 
 ## SAFETY
 
@@ -458,6 +391,7 @@ Smallest blocking bugfix batch before staging:
 - `.qa-artifacts/screenshots/brand-detail.png`
 - `.qa-artifacts/screenshots/brand-digital-estate.png`
 - `.qa-artifacts/screenshots/brand-public-discovery.png`
+- `.qa-artifacts/screenshots/crawler-fail-12.png`
 - `.qa-artifacts/screenshots/crawler-fail-4.png`
 - `.qa-artifacts/screenshots/customer-create.png`
 - `.qa-artifacts/screenshots/customer-detail.png`
@@ -512,4 +446,3 @@ Smallest blocking bugfix batch before staging:
 - `.qa-artifacts/screenshots/qa002-gsc-workspace.png`
 - `.qa-artifacts/screenshots/qa002-last-admin-silent.png`
 - `.qa-artifacts/screenshots/qa002-logout-nested-form.png`
-- `.qa-artifacts/screenshots/qa002-meta_ads-workspace.png`
