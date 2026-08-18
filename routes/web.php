@@ -77,10 +77,11 @@ Route::middleware(['web'])->prefix('reports/share')->name('reports.share.')->gro
 require __DIR__.'/demo.php';
 
 // Real operator engine surface: intentionally outside Demo component namespaces.
-Route::middleware(['web', 'auth'])
-    ->livewire('/assets/website/{assetId}/discovery', PublicDiscoveryPage::class)
-    ->whereNumber('assetId')
-    ->name('operator.website.discovery');
+Route::middleware(['web', 'auth'])->group(function (): void {
+    Route::livewire('/assets/website/{assetId}/discovery', PublicDiscoveryPage::class)
+        ->whereNumber('assetId')
+        ->name('operator.website.discovery');
+});
 
 Route::any('/app/{path?}', function (): never {
     abort(410, 'Legacy /app operator prefix retired.');
