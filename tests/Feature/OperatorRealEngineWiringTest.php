@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Contracts\GbpOperatorWorkspace;
 use App\Contracts\WebsiteOperatorWorkspace;
 use App\Livewire\Operator\Website\DataSourcesPage;
 use App\Models\Brand;
@@ -13,7 +14,6 @@ use App\Models\DigitalAsset;
 use App\Models\Evidence;
 use App\Models\Run;
 use App\Models\User;
-use App\Services\Gbp\GbpOperatorWorkspace;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Sales\IntentSearchConfig;
 use Illuminate\Foundation\Testing\RefreshDatabase;
