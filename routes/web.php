@@ -8,6 +8,7 @@ use App\Http\Controllers\Prospects\ProspectReportShareController;
 use App\Http\Controllers\Reports\ReportArtifactDownloadController;
 use App\Http\Controllers\Reports\ReportShareController;
 use App\Http\Middleware\EnsureDemoAppAccess;
+use App\Livewire\Operator\PublicDiscoveryIndex;
 use App\Livewire\Operator\Website\DataSourcesPage;
 use App\Livewire\Operator\Website\PublicDiscoveryPage;
 use Illuminate\Support\Facades\Route;
@@ -78,6 +79,9 @@ require __DIR__.'/demo.php';
 
 // Real operator engine surfaces: outside Demo component namespaces, with the same access contract.
 Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])->group(function (): void {
+    Route::livewire('/public-discovery', PublicDiscoveryIndex::class)
+        ->name('operator.public-discovery');
+
     Route::livewire('/assets/website/{assetId}/sources', DataSourcesPage::class)
         ->whereNumber('assetId')
         ->name('operator.website.sources');
