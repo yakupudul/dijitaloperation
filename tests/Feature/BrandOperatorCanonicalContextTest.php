@@ -6,6 +6,8 @@ use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Models\Brand;
 use App\Models\Customer;
 use App\Models\User;
+use App\Support\Roles;
+use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -16,7 +18,10 @@ class BrandOperatorCanonicalContextTest extends TestCase
 
     public function test_operator_business_context_edits_persist_to_canonical_brand_context(): void
     {
+        $this->seed(RoleAndPermissionSeeder::class);
+
         $user = User::factory()->create(['name' => 'Yakup']);
+        $user->assignRole(Roles::ADMIN);
         $this->actingAs($user);
 
         $customer = Customer::factory()->create();
