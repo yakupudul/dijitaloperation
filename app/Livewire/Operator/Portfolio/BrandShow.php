@@ -109,6 +109,7 @@ class BrandShow extends LegacyBrandShow
         foreach ($rows as $row) {
             if (is_string($row) && trim($row) !== '') {
                 $labels[] = trim($row);
+
                 continue;
             }
             if (! is_array($row)) {

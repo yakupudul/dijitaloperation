@@ -9,6 +9,7 @@ use App\Models\Run;
 use App\Services\Async\AsyncOperationService;
 use App\Support\Async\AsyncOperationTypes;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Collection;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -121,7 +122,7 @@ class PublicDiscoveryIndex extends Component
         ]);
     }
 
-    /** @return \Illuminate\Support\Collection<int, Run> */
+    /** @return Collection<int, Run> */
     private function latestRunsByModule(array $assetIds, string $moduleId)
     {
         return Run::query()
