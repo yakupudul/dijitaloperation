@@ -2,11 +2,11 @@
 
 namespace App\Livewire\Demo\Gbp;
 
+use App\Contracts\GbpOperatorWorkspace;
 use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
 use App\Livewire\Demo\Concerns\ResolvesCanonicalOperatorAsset;
 use App\Models\DigitalAsset;
 use App\Services\Async\AsyncOperationService;
-use App\Services\Gbp\GbpOperatorWorkspace;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
@@ -217,10 +217,6 @@ class OverviewPage extends Component
         $this->attention = null;
     }
 
-    /**
-     * Queue the canonical bound collector. This is a real read-only Google API refresh,
-     * never a Livewire-request API call and never a Demo flash-only action.
-     */
     public function refreshData(AsyncOperationService $async): void
     {
         $result = $async->queueBoundCollect($this->asset(), auth()->user(), [
