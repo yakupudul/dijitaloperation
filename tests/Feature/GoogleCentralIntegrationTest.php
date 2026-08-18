@@ -142,7 +142,7 @@ class GoogleCentralIntegrationTest extends TestCase
             'state' => 'x',
         ]))->assertRedirect(route('operator.integrations'));
 
-        $this->assertStringStartsWith(url('/app'), route('operator.integrations.google'));
+        $this->assertStringStartsWith(url('/'), route('operator.integrations.google'));
         $this->assertStringNotContainsString('/system', route('operator.integrations.google'));
         $this->assertStringNotContainsString('/system', route('operator.integrations'));
     }

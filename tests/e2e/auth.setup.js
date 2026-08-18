@@ -1,10 +1,10 @@
 import { test as setup, expect } from '@playwright/test';
 import { AUTH_STATE, E2E_EMAIL, loadPassword, writeJson, SESSION_FILE } from './helpers/env.js';
 
-setup('authenticate through /app/login', async ({ page }) => {
+setup('authenticate through /login', async ({ page }) => {
     const password = loadPassword();
 
-    await page.goto('/app/login?locale=en');
+    await page.goto('/login?locale=en');
     await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
 
     await page.locator('input[name="email"]').fill(E2E_EMAIL);
@@ -13,7 +13,7 @@ setup('authenticate through /app/login', async ({ page }) => {
     await page.waitForURL((url) => {
         const path = new URL(url).pathname;
 
-        return path.startsWith('/app') && !path.includes('/login');
+        return !path.includes('/login') && !path.startsWith('/admin') && !path.startsWith('/app') && !path.startsWith('/system');
     }, { timeout: 20_000 });
     await expect(page.locator('#operator-sidebar')).toBeVisible();
 

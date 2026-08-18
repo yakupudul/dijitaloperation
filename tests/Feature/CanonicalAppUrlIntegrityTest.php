@@ -32,14 +32,14 @@ class CanonicalAppUrlIntegrityTest extends TestCase
         Filament::setCurrentPanel('app');
     }
 
-    public function test_demo_menu_routes_stay_under_app_and_exclude_system_admin(): void
+    public function test_demo_menu_routes_stay_on_the_operator_origin_and_exclude_system_admin(): void
     {
         foreach (DemoMenu::groups() as $group) {
             foreach ($group['items'] as $item) {
                 $url = route($item['route']);
-                $this->assertStringContainsString('/app', $url);
-                $this->assertStringNotContainsString('/system', $url);
-                $this->assertStringNotContainsString('/admin', $url);
+                $path = parse_url($url, PHP_URL_PATH) ?: '/';
+                $this->assertDoesNotMatchRegularExpression('#^/(app|system)(/|$)#', $path, $url);
+                $this->assertStringNotContainsString('/admin', $path);
             }
         }
 
@@ -59,7 +59,7 @@ class CanonicalAppUrlIntegrityTest extends TestCase
         Livewire::test(SiteConnectorsIndex::class)->assertOk()->assertDontSee('/system');
         Livewire::test(ProfilePage::class)->assertOk()->assertDontSee('/system');
 
-        $this->get('/app/settings?section=ai')->assertOk()
+        $this->get('/settings?section=ai')->assertOk()
             ->assertDontSee('href="/system')
             ->assertDontSee("href='/system");
     }
@@ -67,15 +67,15 @@ class CanonicalAppUrlIntegrityTest extends TestCase
     public function test_filament_home_points_to_canonical_app_and_demo_ui_avoids_system_links(): void
     {
         $panel = Filament::getPanel('app');
-        $this->assertSame('/app', $panel->getHomeUrl());
+        $this->assertSame('/', $panel->getHomeUrl());
 
         // Technical Filament routes may still exist under /admin for admin tooling,
         // but the operator product must not emit those links.
-        $this->get('/app/settings')->assertOk()
+        $this->get('/settings')->assertOk()
             ->assertDontSee('href="/system')
             ->assertDontSee("href='/system");
 
-        $this->get('/app')->assertOk()
+        $this->get('/')->assertOk()
             ->assertDontSee('href="/system')
             ->assertDontSee('href="/admin');
     }
@@ -91,10 +91,10 @@ class CanonicalAppUrlIntegrityTest extends TestCase
 
     public function test_instagram_and_profile_and_files_routes_smoke(): void
     {
-        $this->get('/app/assets/instagram')->assertNotFound();
-        $this->get('/app/profile')->assertOk();
-        $this->get('/app/files')->assertOk();
-        $this->get('/app/integrations/site-connectors')->assertOk();
-        $this->get('/app/integrations/site-connectors/wordpress')->assertOk();
+        $this->get('/assets/instagram')->assertNotFound();
+        $this->get('/profile')->assertOk();
+        $this->get('/files')->assertOk();
+        $this->get('/integrations/site-connectors')->assertOk();
+        $this->get('/integrations/site-connectors/wordpress')->assertOk();
     }
 }

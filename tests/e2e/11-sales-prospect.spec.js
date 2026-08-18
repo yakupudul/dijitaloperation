@@ -25,7 +25,7 @@ test.describe('Sales Assistant Prospect golden path', () => {
         const title = `E2E Sales Prospect ${Date.now()}`;
         const inquiry = 'Web sitesi ve Google reklamları konusunda destek arıyoruz.';
 
-        await page.goto('/app/prospects?locale=en');
+        await page.goto('/prospects?locale=en');
         await waitForLivewire(page);
         await switchLocale(page, 'EN');
         await expect(page.locator('h1')).toContainText('Prospects');
@@ -39,7 +39,7 @@ test.describe('Sales Assistant Prospect golden path', () => {
         await page.locator('textarea[wire\\:model="inquiry"]').fill(inquiry);
 
         await page.getByRole('button', { name: /^Save$/ }).click();
-        await page.waitForURL(/\/app\/prospects\/\d+/, { timeout: 20_000 });
+        await page.waitForURL(/\/prospects\/\d+/, { timeout: 20_000 });
         await waitForLivewire(page);
 
         await expect(page.locator('h1')).toContainText(title);
@@ -77,7 +77,7 @@ test.describe('Sales Assistant Prospect golden path', () => {
     });
 
     test('TR chrome for Sales prospects navigation', async ({ page }) => {
-        await page.goto('/app/prospects');
+        await page.goto('/prospects');
         await waitForLivewire(page);
         await switchLocale(page, 'TR');
         await expect(page.locator('h1')).toContainText('Potansiyel Müşteriler');
@@ -88,7 +88,7 @@ test.describe('Sales Assistant Prospect golden path', () => {
 test.describe('Sales Prospect responsive layouts', () => {
     test('prospect list at tablet width', async ({ page }) => {
         await page.setViewportSize({ width: 768, height: 900 });
-        await page.goto('/app/prospects?locale=en');
+        await page.goto('/prospects?locale=en');
         await waitForLivewire(page);
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
         expect(overflow).toBe(false);
@@ -96,7 +96,7 @@ test.describe('Sales Prospect responsive layouts', () => {
 
     test('prospect create at mobile width', async ({ page }) => {
         await page.setViewportSize({ width: 390, height: 844 });
-        await page.goto('/app/prospects/create?locale=en');
+        await page.goto('/prospects/create?locale=en');
         await waitForLivewire(page);
         await expect(page.getByRole('heading', { name: /New Prospect|Yeni Potansiyel Müşteri/i })).toBeVisible();
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);

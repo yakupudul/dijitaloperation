@@ -187,8 +187,8 @@ class IntentRadarBatchBTest extends TestCase
 
     public function test_operator_pages_require_auth_and_list_search_profiles(): void
     {
-        $this->get('/app/prospects/search-profiles')->assertRedirect('/app/login');
-        $this->get('/app/prospects/intent-radar')->assertRedirect('/app/login');
+        $this->get('/prospects/search-profiles')->assertRedirect('/login');
+        $this->get('/prospects/intent-radar')->assertRedirect('/login');
 
         $profile = SalesSearchProfile::factory()->create([
             'name' => 'Visible Profile',
@@ -196,12 +196,12 @@ class IntentRadarBatchBTest extends TestCase
         ]);
 
         $this->actingAs($this->admin)
-            ->get('/app/prospects/search-profiles')
+            ->get('/prospects/search-profiles')
             ->assertOk()
             ->assertSee('Visible Profile');
 
         $this->actingAs($this->admin)
-            ->get('/app/prospects/search-profiles/'.$profile->id)
+            ->get('/prospects/search-profiles/'.$profile->id)
             ->assertOk()
             ->assertSee(__('operator.sales_intent.run_search'));
     }

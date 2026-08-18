@@ -60,7 +60,11 @@ check_http() {
   fi
 }
 
-check_http '/app/login' 200
+check_http '/login' 200
+check_http '/app/login' 410
+check_http '/app' 410
+check_http '/system/login' 410
+check_http '/system' 410
 check_http '/up/liveness' 200
 check_http '/up/readiness' 200
 check_http '/horizon' 302

@@ -22,42 +22,42 @@ const WORKSPACES = [
     {
         type: 'website',
         label: 'Website',
-        path: (id) => `/app/assets/website/${id}`,
+        path: (id) => `/assets/website/${id}`,
         tabs: ['Overview', 'Health', 'Visibility', 'Content', 'Performance', 'Infrastructure', 'Operations', 'Setup'],
         verdict: 'Website',
     },
     {
         type: 'google_business_profile',
         label: 'GBP',
-        path: (id) => `/app/assets/gbp/${id}`,
+        path: (id) => `/assets/gbp/${id}`,
         tabs: ['Overview', 'Profile', 'Visibility', 'Performance', 'Reviews', 'Competitors', 'Operations'],
         verdict: 'GBP',
     },
     {
         type: 'google_ads',
         label: 'Google Ads',
-        path: (id) => `/app/assets/google-ads/${id}`,
+        path: (id) => `/assets/google-ads/${id}`,
         tabs: ['Overview', 'Campaigns', 'Search & Demand', 'Ads & Assets', 'Landing Pages', 'Measurement', 'Operations'],
         verdict: 'Google Ads',
     },
     {
         type: 'meta_ads',
         label: 'Meta',
-        path: (id) => `/app/assets/meta/${id}`,
+        path: (id) => `/assets/meta/${id}`,
         tabs: ['Overview', 'Campaigns', 'Creatives', 'Audience & Delivery', 'Funnel & Destinations', 'Measurement', 'Operations'],
         verdict: 'Meta',
     },
     {
         type: 'ga4',
         label: 'GA4',
-        path: (id) => `/app/assets/analytics/${id}`,
+        path: (id) => `/assets/analytics/${id}`,
         tabs: ['Overview', 'Measurement', 'Acquisition', 'Behavior', 'Journeys', 'Operations'],
         verdict: 'GA4',
     },
     {
         type: 'gsc',
         label: 'GSC',
-        path: (id) => `/app/assets/search-console/${id}`,
+        path: (id) => `/assets/search-console/${id}`,
         tabs: ['Overview', 'Search Performance', 'Queries & Demand', 'Pages', 'Indexing', 'Operations'],
         verdict: 'GSC',
     },
@@ -80,7 +80,7 @@ test.describe('QA 002 acceptance — customer, brand, specialists, work', () => 
         expect(session, 'golden-path session must exist').toBeTruthy();
         const watcher = attachHttpWatcher(page);
 
-        await page.goto(`/app/customers/${session.customerId}`);
+        await page.goto(`/customers/${session.customerId}`);
         await waitForLivewire(page);
         const localeEn = page.getByRole('group', { name: /locale|dil|language/i }).getByRole('button', { name: 'EN' });
         if (await localeEn.count()) {
@@ -129,13 +129,13 @@ test.describe('QA 002 acceptance — customer, brand, specialists, work', () => 
             });
         }
 
-        await page.goto(`/app/files?scope=customer&customer=${session.customerId}`);
+        await page.goto(`/files?scope=customer&customer=${session.customerId}`);
         await waitForLivewire(page);
         expect((await assertOperatorSurface(page, { route: page.url(), label: 'Customer files', watcher })).ok).toBeTruthy();
-        await page.goto(`/app/activity?customer=${session.customerId}`);
+        await page.goto(`/activity?customer=${session.customerId}`);
         await waitForLivewire(page);
         expect((await assertOperatorSurface(page, { route: page.url(), label: 'Customer activity', watcher })).ok).toBeTruthy();
-        await page.goto('/app/tasks');
+        await page.goto('/tasks');
         await waitForLivewire(page);
         expect((await assertOperatorSurface(page, { route: page.url(), label: 'Customer work link', watcher })).ok).toBeTruthy();
     });
@@ -144,7 +144,7 @@ test.describe('QA 002 acceptance — customer, brand, specialists, work', () => 
         const session = sessionOrSkip();
         expect(session).toBeTruthy();
         const watcher = attachHttpWatcher(page);
-        await page.goto(`/app/brands/${session.brandId}`);
+        await page.goto(`/brands/${session.brandId}`);
         await waitForLivewire(page);
         const localeEn = page.getByRole('group', { name: /locale|dil|language/i }).getByRole('button', { name: 'EN' });
         if (await localeEn.count()) {
@@ -316,9 +316,9 @@ test.describe('QA 002 acceptance — customer, brand, specialists, work', () => 
     test('files upload, list, authenticated download, guest deny', async ({ page, browser }) => {
         const watcher = attachHttpWatcher(page);
         const filename = `e2e-acceptance-${Date.now()}.txt`;
-        await page.goto('/app/files');
+        await page.goto('/files');
         await waitForLivewire(page);
-        expect((await assertOperatorSurface(page, { route: '/app/files', label: 'Files', watcher })).ok).toBeTruthy();
+        expect((await assertOperatorSurface(page, { route: '/files', label: 'Files', watcher })).ok).toBeTruthy();
 
         await page.locator('form').filter({ hasText: /Upload/i }).locator('input[type="file"]').setInputFiles({
             name: filename,
@@ -333,7 +333,7 @@ test.describe('QA 002 acceptance — customer, brand, specialists, work', () => 
         expect(stored, 'uploaded file persisted').toBeTruthy();
 
         const href = await page.locator('tr').filter({ hasText: filename }).getByRole('link', { name: /Download/i }).getAttribute('href');
-        expect(href || '').toMatch(/\/app\/files\/\d+\/download/);
+        expect(href || '').toMatch(/\/files\/\d+\/download/);
         expect(href || '').not.toMatch(/^\/storage\//);
 
         const [download] = await Promise.all([
@@ -370,7 +370,7 @@ test.describe('QA 002 acceptance — customer, brand, specialists, work', () => 
         const session = sessionOrSkip();
         expect(session).toBeTruthy();
 
-        await page.goto('/app');
+        await page.goto('/');
         await waitForLivewire(page);
         const localeEn = page.getByRole('group', { name: /locale|dil|language/i }).getByRole('button', { name: 'EN' });
         if (await localeEn.count()) {
@@ -386,7 +386,7 @@ test.describe('QA 002 acceptance — customer, brand, specialists, work', () => 
         await expect(page.getByRole('dialog')).toContainText(/Select a customer|Müşteri seçin/);
         await page.getByRole('button', { name: /Close|Kapat|Cancel|İptal/i }).first().click().catch(() => {});
 
-        await page.goto('/app/tasks');
+        await page.goto('/tasks');
         await waitForLivewire(page);
         const body = await page.locator('body').innerText();
         expect(body).not.toMatch(/Work item not found/i);
@@ -397,10 +397,10 @@ test.describe('QA 002 acceptance — customer, brand, specialists, work', () => 
     test('opportunities, findings, recommendations, activity empty or real', async ({ page }) => {
         const watcher = attachHttpWatcher(page);
         const surfaces = [
-            { name: 'Opportunities', path: '/app/opportunities', verdict: 'Opportunities', empty: /no opportunities|empty means empty|no matching/i },
-            { name: 'Findings', path: '/app/findings', verdict: 'Findings', empty: /no finding|empty means empty|no matching/i },
-            { name: 'Recommendations', path: '/app/recommendations', verdict: 'Recommendations', empty: /no recommendation|empty means empty|no matching/i },
-            { name: 'Activity', path: '/app/activity', verdict: 'Activity', empty: /no activity|empty|no events/i },
+            { name: 'Opportunities', path: '/opportunities', verdict: 'Opportunities', empty: /no opportunities|empty means empty|no matching/i },
+            { name: 'Findings', path: '/findings', verdict: 'Findings', empty: /no finding|empty means empty|no matching/i },
+            { name: 'Recommendations', path: '/recommendations', verdict: 'Recommendations', empty: /no recommendation|empty means empty|no matching/i },
+            { name: 'Activity', path: '/activity', verdict: 'Activity', empty: /no activity|empty|no events/i },
         ];
 
         for (const surface of surfaces) {
@@ -418,12 +418,12 @@ test.describe('QA 002 acceptance — customer, brand, specialists, work', () => 
 
     test('bounded accessibility on primary workflows', async ({ page }) => {
         const session = sessionOrSkip();
-        const targets = ['/app', '/app/customers', '/app/customers/create', '/app/files', '/app/tasks', '/app/settings'];
+        const targets = ['/', '/customers', '/customers/create', '/files', '/tasks', '/settings'];
         if (session?.customerId) {
-            targets.push(`/app/customers/${session.customerId}`);
+            targets.push(`/customers/${session.customerId}`);
         }
         if (session?.brandId) {
-            targets.push(`/app/brands/${session.brandId}`);
+            targets.push(`/brands/${session.brandId}`);
         }
 
         const unlabeled = [];

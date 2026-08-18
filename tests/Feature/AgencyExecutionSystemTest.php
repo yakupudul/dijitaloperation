@@ -146,7 +146,8 @@ class AgencyExecutionSystemTest extends TestCase
     public function test_playbooks_settings_catalog_and_detail(): void
     {
         $url = route('operator.settings', ['section' => 'operations', 'ops_sub' => 'playbooks']);
-        $this->assertStringContainsString('/app', $url);
+        $path = parse_url($url, PHP_URL_PATH) ?: '/';
+        $this->assertDoesNotMatchRegularExpression('#^/(app|system)(/|$)#', $path, $url);
 
         Livewire::test(SettingsPage::class, ['section' => 'operations', 'ops_sub' => 'playbooks'])
             ->assertSee('Weekly Google Ads Review')
@@ -335,10 +336,15 @@ class AgencyExecutionSystemTest extends TestCase
 
     public function test_routes_under_app_not_system(): void
     {
-        $this->assertStringContainsString('/app', route('operator.tasks'));
-        $this->assertStringContainsString('/app', route('operator.work.show', ['workId' => 'req-1', 'type' => 'client_request']));
-        $this->assertStringContainsString('/app', route('operator.settings.playbook', ['playbookId' => 'pb-weekly-gads']));
-        $this->assertStringContainsString('/app', route('operator.customer', ['customerId' => DemoCatalog::CUSTOMER_ID]));
+        foreach ([
+            route('operator.tasks'),
+            route('operator.work.show', ['workId' => 'req-1', 'type' => 'client_request']),
+            route('operator.settings.playbook', ['playbookId' => 'pb-weekly-gads']),
+            route('operator.customer', ['customerId' => DemoCatalog::CUSTOMER_ID]),
+        ] as $url) {
+            $path = parse_url($url, PHP_URL_PATH) ?: '/';
+            $this->assertDoesNotMatchRegularExpression('#^/(app|system)(/|$)#', $path, $url);
+        }
 
         $this->assertStringNotContainsString('/system', route('operator.tasks'));
     }

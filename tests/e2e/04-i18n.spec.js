@@ -5,20 +5,20 @@ import { waitForLivewire, screenshot } from './helpers/pages.js';
 import { recordFinding } from './helpers/findings.js';
 
 const SURFACES = [
-    { name: 'Dashboard', path: '/app' },
-    { name: 'Customers', path: '/app/customers' },
-    { name: 'Customer create', path: '/app/customers/create' },
-    { name: 'Customer setup', path: '/app/setup?entry=customer' },
-    { name: 'Brands', path: '/app/brands' },
-    { name: 'Digital Assets', path: '/app/assets' },
-    { name: 'Files', path: '/app/files' },
-    { name: 'Opportunities', path: '/app/opportunities' },
-    { name: 'Findings', path: '/app/findings' },
-    { name: 'Recommendations', path: '/app/recommendations' },
-    { name: 'Work', path: '/app/tasks' },
-    { name: 'Activity', path: '/app/activity' },
-    { name: 'Integrations', path: '/app/integrations' },
-    { name: 'Settings', path: '/app/settings' },
+    { name: 'Dashboard', path: '/' },
+    { name: 'Customers', path: '/customers' },
+    { name: 'Customer create', path: '/customers/create' },
+    { name: 'Customer setup', path: '/setup?entry=customer' },
+    { name: 'Brands', path: '/brands' },
+    { name: 'Digital Assets', path: '/assets' },
+    { name: 'Files', path: '/files' },
+    { name: 'Opportunities', path: '/opportunities' },
+    { name: 'Findings', path: '/findings' },
+    { name: 'Recommendations', path: '/recommendations' },
+    { name: 'Work', path: '/tasks' },
+    { name: 'Activity', path: '/activity' },
+    { name: 'Integrations', path: '/integrations' },
+    { name: 'Settings', path: '/settings' },
 ];
 
 const CORE_TR_SURFACES = new Set([
@@ -48,7 +48,7 @@ test.describe('TR / EN localization audit', () => {
     test('collect TR leakage on operator chrome', async ({ page }) => {
         const inventory = { tr: [], en: [] };
 
-        await page.goto('/app');
+        await page.goto('/');
         await switchLocale(page, 'TR');
         await waitForLivewire(page);
 
@@ -113,7 +113,7 @@ test.describe('TR / EN localization audit', () => {
     });
 
     test('collect EN leakage of Turkish chrome', async ({ page }) => {
-        await page.goto('/app');
+        await page.goto('/');
         await switchLocale(page, 'EN');
         const inventory = [];
 

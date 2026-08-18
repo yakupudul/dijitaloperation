@@ -39,7 +39,7 @@ async function chooseDialogSelect(page, label, option) {
 
 async function loginAsQa(page) {
     const password = loadPassword();
-    await page.goto('/app/login?locale=en');
+    await page.goto('/login?locale=en');
     await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
     await page.locator('input[name="email"]').fill(E2E_EMAIL);
     await page.locator('input[name="password"]').fill(password);
@@ -47,7 +47,7 @@ async function loginAsQa(page) {
     await page.waitForURL((url) => {
         const path = new URL(url).pathname;
 
-        return path.startsWith('/app') && !path.includes('/login');
+        return !path.includes('/login') && !path.startsWith('/admin') && !path.startsWith('/app') && !path.startsWith('/system');
     }, { timeout: 20_000 });
     await waitForLivewire(page);
 }
@@ -66,20 +66,20 @@ test.describe('Pilot-critical logout, capture, and work detail', () => {
 
         test('posts logout and denies /app', async ({ page }) => {
             await loginAsQa(page);
-            await page.goto('/app/profile?locale=en');
+            await page.goto('/profile?locale=en');
             await waitForLivewire(page);
             await page.getByRole('button', { name: /Sign out|Çıkış/i }).click();
-            await page.waitForURL(/\/app\/login/, { timeout: 20_000 });
-            expect(new URL(page.url()).pathname).toBe('/app/login');
+            await page.waitForURL(/\/login/, { timeout: 20_000 });
+            expect(new URL(page.url()).pathname).toBe('/login');
 
-            await page.goto('/app');
-            await page.waitForURL(/\/app\/login/, { timeout: 15_000 });
-            expect(page.url()).toMatch(/\/app\/login/);
+            await page.goto('/');
+            await page.waitForURL(/\/login/, { timeout: 15_000 });
+            expect(page.url()).toMatch(/\/login/);
 
             await loginAsQa(page);
-            await expect(page).toHaveURL(/\/app(\/|$|\?)/);
+            await expect(page).toHaveURL(/\/($|\?)/);
             expect(page.url()).not.toMatch(/\/login/);
-            setVerdict('Login', 'PASS', 'Visible Profile Sign out POSTs /app/logout');
+            setVerdict('Login', 'PASS', 'Visible Profile Sign out POSTs /logout');
         });
     });
 
@@ -90,7 +90,7 @@ test.describe('Pilot-critical logout, capture, and work detail', () => {
         const customerTitle = `E2E customer capture task ${stamp}`;
         const brandTitle = `E2E brand capture task ${stamp}`;
 
-        await page.goto('/app');
+        await page.goto('/');
         await waitForLivewire(page);
         const localeEn = page.getByRole('group', { name: /locale|dil|language/i }).getByRole('button', { name: 'EN' });
         if (await localeEn.count()) {
@@ -120,7 +120,7 @@ test.describe('Pilot-critical logout, capture, and work detail', () => {
         await chooseDialogSelect(page, 'Brand', session.brandName);
         await page.locator('input[wire\\:model="title"]').fill(globalTitle);
         await page.getByRole('button', { name: /^Save$/ }).click();
-        await page.waitForURL(/\/app\/work\/task\/\d+/, { timeout: 20_000 });
+        await page.waitForURL(/\/work\/task\/\d+/, { timeout: 20_000 });
         await expect(page.locator('h1')).toContainText(globalTitle);
         await expect(page.locator('body')).not.toContainText('Work item not found');
 
@@ -137,16 +137,16 @@ test.describe('Pilot-critical logout, capture, and work detail', () => {
         const afterStatus = taskByTitle(globalTitle);
         expect(afterStatus?.status).toBe('in_progress');
 
-        await page.goto('/app/tasks');
+        await page.goto('/tasks');
         await waitForLivewire(page);
         await page.getByRole('button', { name: /All Work|Tüm işler/i }).click();
         await waitForLivewire(page);
         await expect(page.locator('body')).toContainText(globalTitle);
         await page.locator('tr', { hasText: globalTitle }).getByRole('link', { name: /Open|Aç/i }).click();
-        await page.waitForURL(/\/app\/work\/task\/\d+/);
+        await page.waitForURL(/\/work\/task\/\d+/);
         await expect(page.locator('h1')).toContainText(globalTitle);
 
-        await page.goto(`/app/customers/${session.customerId}`);
+        await page.goto(`/customers/${session.customerId}`);
         await waitForLivewire(page);
         await openCapture(page);
         await page.getByRole('button', { name: /^Task$/ }).click();
@@ -154,12 +154,12 @@ test.describe('Pilot-critical logout, capture, and work detail', () => {
             has: page.locator('label').filter({ hasText: 'Customer' }),
         }).first()).toContainText(session.customerName);
         await saveTaskFromCapture(page, customerTitle);
-        await page.waitForURL(/\/app\/work\/task\/\d+/, { timeout: 20_000 });
+        await page.waitForURL(/\/work\/task\/\d+/, { timeout: 20_000 });
         const customerTask = taskByTitle(customerTitle);
         expect(customerTask).toBeTruthy();
         expect(String(customerTask.customer_id)).toBe(String(session.customerId));
 
-        await page.goto(`/app/customers/${session.customerId}`);
+        await page.goto(`/customers/${session.customerId}`);
         await waitForLivewire(page);
         await page.getByRole('link', { name: /^Open Work$/ }).first().click();
         await waitForLivewire(page);
@@ -167,10 +167,10 @@ test.describe('Pilot-critical logout, capture, and work detail', () => {
         await waitForLivewire(page);
         await expect(page.locator('body')).toContainText(customerTitle);
         await page.locator('tr', { hasText: customerTitle }).getByRole('link', { name: /Open|Aç/i }).click();
-        await page.waitForURL(new RegExp(`/app/work/task/${customerTask.id}`));
+        await page.waitForURL(new RegExp(`/work/task/${customerTask.id}`));
         await expect(page.locator('h1')).toContainText(customerTitle);
 
-        await page.goto(`/app/brands/${session.brandId}`);
+        await page.goto(`/brands/${session.brandId}`);
         await waitForLivewire(page);
         await openCapture(page);
         await page.getByRole('button', { name: /^Task$/ }).click();
@@ -181,13 +181,13 @@ test.describe('Pilot-critical logout, capture, and work detail', () => {
             has: page.locator('label').filter({ hasText: 'Brand' }),
         }).first()).toContainText(session.brandName);
         await saveTaskFromCapture(page, brandTitle);
-        await page.waitForURL(/\/app\/work\/task\/\d+/, { timeout: 20_000 });
+        await page.waitForURL(/\/work\/task\/\d+/, { timeout: 20_000 });
         const brandTask = taskByTitle(brandTitle);
         expect(brandTask).toBeTruthy();
         expect(String(brandTask.customer_id)).toBe(String(session.customerId));
         expect(String(brandTask.brand_id)).toBe(String(session.brandId));
 
-        await page.goto(`/app/brands/${session.brandId}`);
+        await page.goto(`/brands/${session.brandId}`);
         await waitForLivewire(page);
         await page.getByRole('tab', { name: /^Operations$/ }).click();
         await waitForLivewire(page);

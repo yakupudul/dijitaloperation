@@ -43,21 +43,21 @@ class DemoProductRoutesTest extends TestCase
         $this->seedCanonicalWorkTasks();
     }
 
-    public function test_guest_is_redirected_from_app_to_app_login(): void
+    public function test_guest_is_redirected_from_dashboard_to_login(): void
     {
         auth()->logout();
 
-        $this->get('/app')->assertRedirect('/app/login');
+        $this->get('/')->assertRedirect('/login');
     }
 
-    public function test_root_redirects_authenticated_users_to_app(): void
+    public function test_authenticated_dashboard_is_the_site_root(): void
     {
-        $this->get('/')->assertRedirect('/app');
+        $this->get('/')->assertOk();
     }
 
     public function test_dashboard_and_portfolio_routes_smoke(): void
     {
-        $this->get('/app')
+        $this->get('/')
             ->assertOk()
             ->assertSee(__('operator.dashboard_exec.needs_attention'))
             ->assertSee('My Work')

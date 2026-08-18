@@ -41,7 +41,7 @@ php artisan dop:create-admin   # strong password; interactive
 ## Prove runtime
 
 ```bash
-curl -I https://uat.dop.moximu.com/app/login
+curl -I https://uat.dop.moximu.com/login
 php artisan queue:monitor   # or supervisorctl status
 php artisan schedule:list
 # optional synthetic stale: create running async run in a disposable way, wait for mark-stale

@@ -19,7 +19,7 @@
     <!-- Brand -->
     <div class="pt-8 pb-7 flex items-center gap-3"
         :class="(!$store.sidebar.isExpanded && !$store.sidebar.isHovered && !$store.sidebar.isMobileOpen) ? 'xl:justify-center' : 'justify-start'">
-        <a href="/app" class="flex items-center gap-3">
+        <a href="{{ route('operator.dashboard') }}" class="flex items-center gap-3">
             @if (! empty($operatorBranding['logo_url']))
                 <img src="{{ $operatorBranding['logo_url'] }}" alt="" class="h-10 w-10 rounded-xl object-contain shrink-0" />
             @else
@@ -50,7 +50,7 @@
                             @foreach ($menuGroup['items'] as $item)
                                 @php
                                     $isActive = $currentPath === $item['path']
-                                        || ($item['path'] !== '/app' && str_starts_with($currentPath, $item['path']));
+                                        || ($item['path'] !== '/' && str_starts_with($currentPath, $item['path']));
                                     $external = ! empty($item['external']);
                                 @endphp
                                 <li>

@@ -68,7 +68,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
-    ->prefix('app')
     ->group(function (): void {
         Route::livewire('/', Dashboard::class)->name('operator.dashboard');
 

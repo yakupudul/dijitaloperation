@@ -74,16 +74,16 @@ test.describe('Final autonomous release smoke', () => {
         const brandsBefore = countRows('brands');
         const assetsBefore = countRows('digital_assets');
 
-        await page.goto('/app/prospects?locale=en');
+        await page.goto('/prospects?locale=en');
         await waitForLivewire(page);
         await switchLocale(page, 'EN');
-        await page.goto('/app/prospects/create?locale=en');
+        await page.goto('/prospects/create?locale=en');
         await waitForLivewire(page);
         await page.locator('input[wire\\:model="company_name"]').fill(prospectName);
         await page.locator('input[wire\\:model="website_url"]').fill(FIXTURE_WEBSITE);
         await page.locator('textarea[wire\\:model="inquiry"]').fill('Web sitesi ve Google reklamları konusunda destek arıyoruz.');
         await page.getByRole('button', { name: /^(Save|Kaydet)$/ }).click();
-        await page.waitForURL((url) => /\/app\/prospects\/\d+$/.test(new URL(url).pathname), { timeout: 20_000 });
+        await page.waitForURL((url) => /\/prospects\/\d+$/.test(new URL(url).pathname), { timeout: 20_000 });
         await expect(page.locator('h1')).toContainText(prospectName);
 
         expect(countRows('customers')).toBe(customersBefore);
@@ -147,7 +147,7 @@ test.describe('Final autonomous release smoke', () => {
         expect(countCustomersNamed(customerName)).toBe(1);
         expect(customerByName(customerName)?.id).toBeTruthy();
 
-        await page.goto(`/app/prospects/${row.id}/convert?locale=en`);
+        await page.goto(`/prospects/${row.id}/convert?locale=en`);
         await waitForLivewire(page);
         await expect(page.locator('body')).toContainText(/already converted|Open Customer/i);
         expect(countCustomersNamed(customerName)).toBe(1);
@@ -157,7 +157,7 @@ test.describe('Final autonomous release smoke', () => {
     test('search profile, paid-call default off, intent radar, and signal to prospect', async ({ page }) => {
         const signalsBeforeProfile = countRows('sales_intent_signals');
 
-        await page.goto('/app/prospects/search-profiles?locale=en');
+        await page.goto('/prospects/search-profiles?locale=en');
         await waitForLivewire(page);
         await switchLocale(page, 'EN');
         await page.getByRole('link', { name: /New Search Profile|Yeni Arama Profili/ }).click();
@@ -166,7 +166,7 @@ test.describe('Final autonomous release smoke', () => {
         await page.locator('textarea[wire\\:model="include_concepts"]').fill('web sitesi yaptırmak');
         await page.locator('textarea[wire\\:model="exclude_concepts"]').fill('nasıl yapılır');
         await page.getByRole('button', { name: /^(Save|Kaydet)$/ }).click();
-        await page.waitForURL(/\/app\/prospects\/search-profiles\/\d+/, { timeout: 20_000 });
+        await page.waitForURL(/\/prospects\/search-profiles\/\d+/, { timeout: 20_000 });
         await waitForLivewire(page);
 
         const profile = searchProfileByName(profileName);
@@ -192,7 +192,7 @@ test.describe('Final autonomous release smoke', () => {
         await expect(page.locator('body')).not.toContainText(/email sequence|outreach sent/i);
 
         await page.getByRole('button', { name: 'Create Prospect' }).click();
-        await page.waitForURL(/\/app\/prospects\/\d+/, { timeout: 20_000 });
+        await page.waitForURL(/\/prospects\/\d+/, { timeout: 20_000 });
         await waitForLivewire(page);
         await expect(page.locator('h1')).toContainText(/Anonymous prospect|Final Smoke|ajans/i);
         await page.getByRole('button', { name: /Research Prospect|Potansiyel Müşteriyi Araştır/ }).click();
@@ -203,23 +203,23 @@ test.describe('Final autonomous release smoke', () => {
     test('guest cannot convert or edit prospects; representative responsive pages do not overflow', async ({ browser, page }) => {
         const guest = await browser.newContext({ storageState: { cookies: [], origins: [] } });
         const guestPage = await guest.newPage();
-        await guestPage.goto('/app/prospects');
-        expect(guestPage.url()).toMatch(/\/app\/login/);
-        const convert = await guestPage.goto('/app/prospects/1/convert');
-        expect(guestPage.url()).toMatch(/\/app\/login/);
+        await guestPage.goto('/prospects');
+        expect(guestPage.url()).toMatch(/\/login/);
+        const convert = await guestPage.goto('/prospects/1/convert');
+        expect(guestPage.url()).toMatch(/\/login/);
         expect((convert?.status() ?? 200) < 500).toBeTruthy();
         await guest.close();
 
         const routes = [
-            '/app',
-            '/app/customers',
-            '/app/brands',
-            '/app/assets',
-            '/app/tasks',
-            '/app/prospects',
-            '/app/prospects/intent-radar',
-            '/app/prospects/search-profiles',
-            '/app/settings',
+            '/',
+            '/customers',
+            '/brands',
+            '/assets',
+            '/tasks',
+            '/prospects',
+            '/prospects/intent-radar',
+            '/prospects/search-profiles',
+            '/settings',
         ];
         for (const width of [1440, 768, 390]) {
             await page.setViewportSize({ width, height: 900 });

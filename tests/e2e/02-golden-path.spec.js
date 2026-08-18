@@ -15,23 +15,23 @@ const brandName = `E2E Acceptance Brand ${stamp}`;
 const editedLegal = `E2E Acceptance Legal Edited ${stamp}`;
 
 const ASSET_TYPES = [
-    { type: 'website', label: 'Website', name: `E2E Website ${stamp}`, specialist: '/app/assets/website' },
-    { type: 'google_business_profile', label: 'Google Business Profile', name: `E2E GBP ${stamp}`, specialist: '/app/assets/gbp' },
-    { type: 'google_ads', label: 'Google Ads', name: `E2E Google Ads ${stamp}`, specialist: '/app/assets/google-ads' },
-    { type: 'meta_ads', label: 'Meta Ads', name: `E2E Meta Ads ${stamp}`, specialist: '/app/assets/meta' },
-    { type: 'ga4', label: 'Google Analytics', name: `E2E GA4 ${stamp}`, specialist: '/app/assets/analytics' },
-    { type: 'gsc', label: 'Google Search Console', name: `E2E GSC ${stamp}`, specialist: '/app/assets/search-console' },
+    { type: 'website', label: 'Website', name: `E2E Website ${stamp}`, specialist: '/assets/website' },
+    { type: 'google_business_profile', label: 'Google Business Profile', name: `E2E GBP ${stamp}`, specialist: '/assets/gbp' },
+    { type: 'google_ads', label: 'Google Ads', name: `E2E Google Ads ${stamp}`, specialist: '/assets/google-ads' },
+    { type: 'meta_ads', label: 'Meta Ads', name: `E2E Meta Ads ${stamp}`, specialist: '/assets/meta' },
+    { type: 'ga4', label: 'Google Analytics', name: `E2E GA4 ${stamp}`, specialist: '/assets/analytics' },
+    { type: 'gsc', label: 'Google Search Console', name: `E2E GSC ${stamp}`, specialist: '/assets/search-console' },
 ];
 
 test.describe('Customer / Brand / Asset golden path', () => {
     test.setTimeout(180_000);
 
     test('create customer via Quick add and persist', async ({ page }) => {
-        await page.goto('/app/customers');
+        await page.goto('/customers');
         await screenshot(page, 'customers-index');
 
         await page.getByRole('link', { name: 'Quick add' }).click();
-        await page.waitForURL(/\/app\/customers\/create/);
+        await page.waitForURL(/\/customers\/create/);
         await screenshot(page, 'customer-create');
 
         const countryAudit = await safeInspectSelect(page, 'HQ country');
@@ -93,7 +93,7 @@ test.describe('Customer / Brand / Asset golden path', () => {
         await chooseMultiSelect(page, 'Responsible team', 'QA Final');
 
         await page.getByRole('button', { name: 'Save customer' }).click();
-        await page.waitForURL(/\/app\/customers\/\d+$/, { timeout: 30_000 });
+        await page.waitForURL(/\/customers\/\d+$/, { timeout: 30_000 });
         await waitForLivewire(page);
 
         await expect(page.getByRole('heading', { name: customerName })).toBeVisible();
@@ -110,14 +110,14 @@ test.describe('Customer / Brand / Asset golden path', () => {
     });
 
     test('edit customer and reload', async ({ page }) => {
-        await page.goto('/app/customers');
+        await page.goto('/customers');
         await page.getByRole('link', { name: customerName }).first().click();
-        await page.waitForURL(/\/app\/customers\/\d+$/);
+        await page.waitForURL(/\/customers\/\d+$/);
         await page.getByRole('link', { name: 'Edit customer' }).click();
         await page.waitForURL(/\/edit/);
         await page.locator('div.space-y-1\\.5').filter({ has: page.getByText('Legal name', { exact: true }) }).locator('input').fill(editedLegal);
         await page.getByRole('button', { name: 'Save changes' }).click();
-        await page.waitForURL(/\/app\/customers\/\d+$/);
+        await page.waitForURL(/\/customers\/\d+$/);
         await page.reload();
         await expect(page.getByText(editedLegal)).toBeVisible();
         const row = customerByName(customerName);
@@ -126,22 +126,22 @@ test.describe('Customer / Brand / Asset golden path', () => {
 
     test('customer detail primary actions are live', async ({ page }) => {
         const watcher = attachHttpWatcher(page);
-        await page.goto('/app/customers');
+        await page.goto('/customers');
         await page.getByRole('link', { name: customerName }).first().click();
-        await page.waitForURL(/\/app\/customers\/\d+$/);
+        await page.waitForURL(/\/customers\/\d+$/);
 
         const actions = [
-            { name: 'Open Files', expectUrl: /\/app\/files/ },
-            { name: 'View Activity', expectUrl: /\/app\/activity/ },
-            { name: 'Open Work', expectUrl: /\/app\/tasks/ },
+            { name: 'Open Files', expectUrl: /\/files/ },
+            { name: 'View Activity', expectUrl: /\/activity/ },
+            { name: 'Open Work', expectUrl: /\/tasks/ },
         ];
 
         for (const action of actions) {
             await page.getByRole('link', { name: customerName }).first().waitFor({ state: 'visible' }).catch(() => {});
             if (!page.url().includes('/customers/')) {
-                await page.goto('/app/customers');
+                await page.goto('/customers');
                 await page.getByRole('link', { name: customerName }).first().click();
-                await page.waitForURL(/\/app\/customers\/\d+$/);
+                await page.waitForURL(/\/customers\/\d+$/);
             }
             await page.getByRole('link', { name: action.name }).first().click();
             await page.waitForURL(action.expectUrl);
@@ -158,23 +158,23 @@ test.describe('Customer / Brand / Asset golden path', () => {
         await expect(page.getByText(`E2E Acceptance Person ${stamp}`)).toBeVisible({ timeout: 15_000 });
 
         await page.getByRole('link', { name: 'Add brand' }).first().click();
-        await page.waitForURL(/\/app\/brands\/create/);
+        await page.waitForURL(/\/brands\/create/);
         expect(page.url()).toMatch(/customerId=/);
         await screenshot(page, 'brand-create');
     });
 
     test('create brand, edit, and audit workspace tabs', async ({ page }) => {
         const watcher = attachHttpWatcher(page);
-        await page.goto('/app/customers');
+        await page.goto('/customers');
         await page.getByRole('link', { name: customerName }).first().click();
         await page.getByRole('link', { name: 'Add brand' }).first().click();
-        await page.waitForURL(/\/app\/brands\/create/);
+        await page.waitForURL(/\/brands\/create/);
 
         await page.locator('input[wire\\:model="name"]').fill(brandName);
         await chooseSelect(page, 'Sector', 'Healthcare');
         await chooseSelect(page, 'Primary country', 'Türkiye');
         await page.getByRole('button', { name: 'Save brand' }).click();
-        await page.waitForURL(/\/app\/brands\/\d+$/, { timeout: 30_000 });
+        await page.waitForURL(/\/brands\/\d+$/, { timeout: 30_000 });
         await expect(page.getByRole('heading', { name: brandName })).toBeVisible();
         await screenshot(page, 'brand-detail');
 
@@ -213,7 +213,7 @@ test.describe('Customer / Brand / Asset golden path', () => {
         await page.getByRole('link', { name: 'Edit brand' }).click();
         await page.waitForURL(/\/edit/);
         await page.getByRole('button', { name: /Save/ }).click();
-        await page.waitForURL(/\/app\/brands\/\d+$/);
+        await page.waitForURL(/\/brands\/\d+$/);
 
         for (const tab of ['Overview', 'Digital Estate', 'Growth', 'Operations', 'Value']) {
             await page.getByRole('tab', { name: tab }).click();
@@ -231,7 +231,7 @@ test.describe('Customer / Brand / Asset golden path', () => {
         expect(brandId).toBeTruthy();
 
         for (const asset of ASSET_TYPES) {
-            await page.goto(`/app/assets/create?brandId=${brandId}`);
+            await page.goto(`/assets/create?brandId=${brandId}`);
             await waitForLivewire(page);
             await page.locator('input[wire\\:model="name"]').fill(asset.name);
             await chooseSelect(page, 'Asset type', asset.label);
@@ -240,21 +240,21 @@ test.describe('Customer / Brand / Asset golden path', () => {
                 await page.locator('input[wire\\:model="primary_url"]').fill(`https://e2e-${stamp}.example`);
             }
             await page.getByRole('button', { name: 'Save digital asset' }).click();
-            await page.waitForURL(/\/app\/assets(?:\?|$)/, { timeout: 30_000 });
+            await page.waitForURL(/\/assets(?:\?|$)/, { timeout: 30_000 });
         }
 
         const persisted = assetsForBrand(brandId);
         expect(persisted.length).toBeGreaterThanOrEqual(6);
         writeJson(SESSION_FILE, { ...session, assets: persisted });
 
-        await page.goto('/app/assets');
+        await page.goto('/assets');
         await screenshot(page, 'digital-assets');
         const assetsIndex = await pageHttpHints(page);
         if (assetsIndex.exception || assetsIndex.looks500) {
             recordFinding({
                 severity: 'BLOCKER',
                 surface: 'Digital Assets index',
-                route: '/app/assets',
+                route: '/assets',
                 action: 'Visit Digital Assets after creating production assets',
                 observed: `Assets index exception/500 title=${assetsIndex.title}`,
                 expected: 'Assets directory lists persisted Digital Assets',
@@ -264,7 +264,7 @@ test.describe('Customer / Brand / Asset golden path', () => {
             });
         }
 
-        await page.goto(`/app/brands/${brandId}`);
+        await page.goto(`/brands/${brandId}`);
         await page.getByRole('tab', { name: 'Digital Estate' }).click();
         await waitForLivewire(page);
         await screenshot(page, 'brand-digital-estate');
@@ -276,7 +276,7 @@ test.describe('Customer / Brand / Asset golden path', () => {
             const record = persistedByType[asset.type];
             expect(record, `${asset.type} must persist`).toBeTruthy();
 
-            await page.goto('/app/assets');
+            await page.goto('/assets');
             await waitForLivewire(page);
             const indexRow = page.locator('tr').filter({ hasText: asset.name });
             await expect(indexRow).toHaveCount(1);
@@ -302,7 +302,7 @@ test.describe('Customer / Brand / Asset golden path', () => {
                 evidence: indexEvidence,
             });
 
-            await page.goto(`/app/brands/${brandId}`);
+            await page.goto(`/brands/${brandId}`);
             await page.getByRole('tab', { name: /Digital Estate|Dijital Ekosistem/ }).click();
             await waitForLivewire(page);
             const estateRow = page.locator('tr').filter({ hasText: asset.name });

@@ -14,7 +14,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // Canonical operator login is /app/login (TailAdmin product). Filament technical admin is /admin.
+        // Canonical operator login is /login. Filament technical admin is /admin.
         $middleware->redirectGuestsTo(fn (): string => route('app.login'));
 
         $trustedProxies = env('TRUSTED_PROXIES');

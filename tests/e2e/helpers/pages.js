@@ -109,7 +109,7 @@ export async function assertOperatorSurface(page, ctx) {
 export async function openSidebar(page, name) {
     const sidebar = page.locator('#operator-sidebar');
     if (!(await sidebar.isVisible().catch(() => false))) {
-        await page.goto('/app');
+        await page.goto('/');
         await waitForLivewire(page);
     }
 

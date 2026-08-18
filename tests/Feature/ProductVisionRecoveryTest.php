@@ -192,13 +192,13 @@ class ProductVisionRecoveryTest extends TestCase
     {
         Livewire::test(Dashboard::class)->assertOk()->assertSee(__('operator.dashboard_exec.needs_attention'))->assertSee('My Work');
 
-        $this->get('/app/assets')->assertOk();
-        $this->get('/app/assets/analytics')->assertNotFound();
-        $this->get('/app/assets/search-console')->assertNotFound();
-        $this->get('/app/assets/gbp')->assertNotFound();
-        $this->get('/app/setup')->assertOk();
-        $this->get('/app/integrations/connectors/ga4')->assertOk();
-        $this->get('/app/integrations/connectors/gsc')->assertOk();
-        $this->get('/app/settings?section=ai')->assertOk();
+        $this->get('/assets')->assertOk();
+        $this->get('/assets/analytics')->assertNotFound();
+        $this->get('/assets/search-console')->assertNotFound();
+        $this->get('/assets/gbp')->assertNotFound();
+        $this->get('/setup')->assertOk();
+        $this->get('/integrations/connectors/ga4')->assertOk();
+        $this->get('/integrations/connectors/gsc')->assertOk();
+        $this->get('/settings?section=ai')->assertOk();
     }
 }

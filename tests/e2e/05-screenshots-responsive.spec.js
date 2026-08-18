@@ -35,31 +35,31 @@ test.describe('Visual evidence and responsive QA', () => {
     test.setTimeout(180_000);
     test('capture representative TR desktop screenshots', async ({ page }) => {
         await page.setViewportSize(DESKTOP);
-        await page.goto('/app');
+        await page.goto('/');
         await page.getByRole('button', { name: 'TR', exact: true }).click();
         await page.waitForTimeout(600);
 
         await screenshot(page, 'tr-desktop-dashboard');
-        await page.goto('/app/customers');
+        await page.goto('/customers');
         await screenshot(page, 'tr-desktop-customers');
-        await page.goto('/app/customers/create');
+        await page.goto('/customers/create');
         await screenshot(page, 'tr-desktop-customer-create');
-        await page.goto('/app/brands');
+        await page.goto('/brands');
         await screenshot(page, 'tr-desktop-brands');
-        await page.goto('/app/assets');
+        await page.goto('/assets');
         await screenshot(page, 'tr-desktop-digital-assets');
-        await page.goto('/app/integrations');
+        await page.goto('/integrations');
         await screenshot(page, 'tr-desktop-integrations');
-        await page.goto('/app/settings');
+        await page.goto('/settings');
         await screenshot(page, 'tr-desktop-settings');
 
         const session = readJson(SESSION_FILE, {});
         if (session.customerId) {
-            await page.goto(`/app/customers/${session.customerId}`);
+            await page.goto(`/customers/${session.customerId}`);
             await screenshot(page, 'tr-desktop-customer-detail');
         }
         if (session.brandId) {
-            await page.goto(`/app/brands/${session.brandId}`);
+            await page.goto(`/brands/${session.brandId}`);
             await screenshot(page, 'tr-desktop-brand-detail');
             await page.getByRole('tab', { name: /Business|İş/ }).click();
             await waitForLivewire(page);
@@ -71,7 +71,7 @@ test.describe('Visual evidence and responsive QA', () => {
         if (session.assets?.[0]) {
             const website = session.assets.find((row) => row.type === 'website');
             if (website) {
-                await page.goto(`/app/assets/website/${website.id}`);
+                await page.goto(`/assets/website/${website.id}`);
                 await screenshot(page, 'tr-desktop-website-workspace');
             }
         }
@@ -83,23 +83,23 @@ test.describe('Visual evidence and responsive QA', () => {
     test('tablet and mobile overflow checks', async ({ page }) => {
         const session = readJson(SESSION_FILE, {});
         const targets = [
-            { name: 'dashboard', path: '/app' },
-            { name: 'customers', path: '/app/customers' },
-            { name: 'brands', path: '/app/brands' },
-            { name: 'digital-assets', path: '/app/assets' },
-            { name: 'work', path: '/app/tasks' },
-            { name: 'integrations', path: '/app/integrations' },
-            { name: 'settings', path: '/app/settings' },
+            { name: 'dashboard', path: '/' },
+            { name: 'customers', path: '/customers' },
+            { name: 'brands', path: '/brands' },
+            { name: 'digital-assets', path: '/assets' },
+            { name: 'work', path: '/tasks' },
+            { name: 'integrations', path: '/integrations' },
+            { name: 'settings', path: '/settings' },
         ];
         if (session.customerId) {
-            targets.push({ name: 'customer-detail', path: `/app/customers/${session.customerId}` });
+            targets.push({ name: 'customer-detail', path: `/customers/${session.customerId}` });
         }
         if (session.brandId) {
-            targets.push({ name: 'brand-detail', path: `/app/brands/${session.brandId}` });
+            targets.push({ name: 'brand-detail', path: `/brands/${session.brandId}` });
         }
         const website = (session.assets || []).find((row) => row.type === 'website');
         if (website) {
-            targets.push({ name: 'website', path: `/app/assets/website/${website.id}` });
+            targets.push({ name: 'website', path: `/assets/website/${website.id}` });
         }
 
         for (const viewport of [

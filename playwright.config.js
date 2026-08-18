@@ -44,7 +44,7 @@ export default defineConfig({
     },
     webServer: {
         command: 'bash tests/e2e/scripts/serve-isolated.sh',
-        url: `${BASE_URL}/app/login`,
+        url: `${BASE_URL}/login`,
         reuseExistingServer: true,
         timeout: 30_000,
         stdout: 'pipe',

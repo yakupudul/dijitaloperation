@@ -40,9 +40,9 @@ export default async function globalSetup() {
         throw new Error(`Unexpected branch ${git.branch}`);
     }
 
-    const login = await fetch(`${BASE_URL}/app/login`);
+    const login = await fetch(`${BASE_URL}/login`);
     if (!login.ok) {
-        throw new Error(`QA server not reachable at ${BASE_URL}/app/login (HTTP ${login.status})`);
+        throw new Error(`QA server not reachable at ${BASE_URL}/login (HTTP ${login.status})`);
     }
 
     execFileSync('php', ['artisan', 'migrate', '--force', '--no-interaction'], {

@@ -327,14 +327,14 @@ class GoogleIntegrationArchitectureTest extends TestCase
             ->assertSee('Not configured')
             ->assertDontSee('sample-access-token');
 
-        $this->assertStringContainsString('/app/integrations/google', route('operator.integrations.google', absolute: false));
+        $this->assertStringContainsString('/integrations/google', route('operator.integrations.google', absolute: false));
 
         $integration = app(IntegrationWorkspaceCatalog::class)->bootstrap(ProviderRegistry::GOOGLE);
         $card = app(IntegrationWorkspaceCatalog::class)->cards()->first(
             fn ($c) => $c->provider === ProviderRegistry::GOOGLE,
         );
         $this->assertNotNull($card);
-        $this->assertStringContainsString('/app/integrations/google', (string) $card->manageUrl);
+        $this->assertStringContainsString('/integrations/google', (string) $card->manageUrl);
         $this->assertSame($integration->id, $card->integrationId);
     }
 

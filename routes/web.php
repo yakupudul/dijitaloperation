@@ -7,30 +7,16 @@ use App\Http\Controllers\Ops\OpsHealthController;
 use App\Http\Controllers\Prospects\ProspectReportShareController;
 use App\Http\Controllers\Reports\ReportArtifactDownloadController;
 use App\Http\Controllers\Reports\ReportShareController;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return Auth::check()
-        ? redirect('/app')
-        : redirect()->route('app.login');
-});
-
 Route::middleware('guest')->group(function (): void {
-    Route::get('/app/login', [OperatorLoginController::class, 'create'])->name('app.login');
-    Route::post('/app/login', [OperatorLoginController::class, 'store'])->name('app.login.store');
+    Route::get('/login', [OperatorLoginController::class, 'create'])->name('app.login');
+    Route::post('/login', [OperatorLoginController::class, 'store'])->name('app.login.store');
 });
 
-Route::post('/app/logout', [OperatorLoginController::class, 'destroy'])
+Route::post('/logout', [OperatorLoginController::class, 'destroy'])
     ->middleware('auth')
     ->name('app.logout');
-
-// Legacy Filament operator path (/system) — retired. Keep narrow bookmark redirects only.
-Route::redirect('/system/login', '/app/login');
-Route::redirect('/system', '/app');
-Route::any('/system/{path}', function (): never {
-    abort(410, 'Legacy /system operator surface retired. Use /app.');
-})->where('path', '.*');
 
 // Prompt 66 — cheap health endpoints (no tenant/provider secrets).
 Route::get('/up/liveness', [OpsHealthController::class, 'liveness'])->name('ops.liveness');
@@ -88,3 +74,11 @@ Route::middleware(['web'])->prefix('reports/share')->name('reports.share.')->gro
 });
 
 require __DIR__.'/demo.php';
+
+Route::any('/app/{path?}', function (): never {
+    abort(410, 'Legacy /app operator prefix retired.');
+})->where('path', '.*');
+
+Route::any('/system/{path?}', function (): never {
+    abort(410, 'Legacy /system operator surface retired.');
+})->where('path', '.*');

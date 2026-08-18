@@ -80,7 +80,7 @@ class PanelDesignFreezeTest extends TestCase
         $this->assertNotContains('Modules', $labels);
         $this->assertNotContains(__('operator.nav.site_connectors'), $labels);
 
-        $html = $this->get('/app')->assertOk()->getContent();
+        $html = $this->get('/')->assertOk()->getContent();
         $this->assertStringNotContainsString('href="/system', $html);
         $this->assertStringNotContainsString('href="/admin', $html);
         $this->assertStringNotContainsString('>Modules</', $html);
@@ -233,7 +233,7 @@ class PanelDesignFreezeTest extends TestCase
     public function test_magic_score_labels_remain_absent(): void
     {
         $surfaces = [
-            '/app',
+            '/',
             route('operator.brand', ['brand' => $this->portfolioBrand->id]),
             route('operator.website', ['assetId' => DigitalAsset::query()->where('type', 'website')->value('id')]),
             route('operator.opportunities'),

@@ -49,7 +49,7 @@ class CanonicalPortfolioRuntimeTest extends TestCase
         $this->assertSame(0, Brand::query()->count());
         $this->assertSame(0, DigitalAsset::query()->count());
 
-        $html = $this->get('/app')
+        $html = $this->get('/')
             ->assertOk()
             ->assertSee('Due Today')
             ->assertSee('Overdue')
@@ -256,7 +256,7 @@ class CanonicalPortfolioRuntimeTest extends TestCase
     {
         $this->assertNull(session()->get(DemoState::SESSION_KEY));
 
-        $this->get('/app')->assertOk();
+        $this->get('/')->assertOk();
         $this->get(route('operator.customers'))->assertOk();
         $this->get(route('operator.brands'))->assertOk();
         $this->get(route('operator.assets'))->assertOk();

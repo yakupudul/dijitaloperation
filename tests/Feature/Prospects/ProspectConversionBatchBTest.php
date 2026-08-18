@@ -224,7 +224,7 @@ class ProspectConversionBatchBTest extends TestCase
     public function test_guest_cannot_convert(): void
     {
         $prospect = Prospect::factory()->create();
-        $this->get('/app/prospects/'.$prospect->id.'/convert')->assertRedirect('/app/login');
+        $this->get('/prospects/'.$prospect->id.'/convert')->assertRedirect('/login');
     }
 
     public function test_operator_can_open_conversion_review(): void
@@ -232,7 +232,7 @@ class ProspectConversionBatchBTest extends TestCase
         $prospect = Prospect::factory()->create(['company_name' => 'Review Co']);
 
         $this->actingAs($this->admin)
-            ->get('/app/prospects/'.$prospect->id.'/convert')
+            ->get('/prospects/'.$prospect->id.'/convert')
             ->assertOk()
             ->assertSee(__('operator.prospects.conversion.convert'))
             ->assertSee('Review Co');

@@ -6,7 +6,7 @@ use App\Services\Integrations\Google\GoogleIntegrationReadModel;
 use Illuminate\Support\Collection;
 
 /**
- * Deterministic presenter for the global agency operating layer (/app).
+ * Deterministic presenter for the global agency operating layer (site root).
  *
  * Reuses DemoCatalog portfolio identity. Does not expand live providers
  * or persist operator-database entities.
@@ -875,8 +875,8 @@ final class GlobalOperatingFixtures
             'advanced' => [
                 'environment' => config('app.env'),
                 'app_name' => config('app.name'),
-                'canonical_surface' => '/app',
-                'system_panel' => 'Advanced diagnostics stay on /app',
+                'canonical_surface' => '/',
+                'system_panel' => 'Advanced diagnostics stay on the operator shell',
             ],
         ];
     }

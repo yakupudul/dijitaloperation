@@ -124,8 +124,8 @@ class ProspectReportBatchBTest extends TestCase
     {
         $prospect = Prospect::factory()->create();
 
-        $this->get('/app/prospects/'.$prospect->id.'/convert')->assertRedirect('/app/login');
-        $this->get('/app/prospects/'.$prospect->id.'/reports/1/download')->assertRedirect('/app/login');
+        $this->get('/prospects/'.$prospect->id.'/convert')->assertRedirect('/login');
+        $this->get('/prospects/'.$prospect->id.'/reports/1/download')->assertRedirect('/login');
     }
 
     public function test_client_report_requires_research_or_intelligence(): void
@@ -145,7 +145,7 @@ class ProspectReportBatchBTest extends TestCase
         $prospect = $this->prospectWithIntelligence();
 
         $this->actingAs($this->admin)
-            ->get('/app/prospects/'.$prospect->id.'?tab=report')
+            ->get('/prospects/'.$prospect->id.'?tab=report')
             ->assertOk()
             ->assertSee(__('operator.prospects.reports.internal'))
             ->assertSee(__('operator.prospects.reports.client'));

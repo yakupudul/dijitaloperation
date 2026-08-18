@@ -77,7 +77,7 @@ class FinalInterfaceCompletionTest extends TestCase
 
         auth()->logout();
         $this->get(route('operator.files.download', $file))
-            ->assertRedirect('/app/login');
+            ->assertRedirect('/login');
 
         $other = User::factory()->create();
         $other->assignRole(Roles::TEAM_MEMBER);
@@ -188,7 +188,7 @@ class FinalInterfaceCompletionTest extends TestCase
 
         $this->assertStringNotContainsString('href="/system', $html);
         $this->assertStringNotContainsString("href='/system", $html);
-        $this->assertStringContainsString('/app/settings/ai/control-plane', $html);
+        $this->assertStringContainsString('/settings/ai/control-plane', $html);
 
         $advanced = Livewire::test(SettingsPage::class, ['section' => 'advanced'])->html();
         $this->assertStringNotContainsString('Open system panel', $advanced);

@@ -3,7 +3,7 @@
 namespace App\Support\Demo;
 
 /**
- * Canonical /app navigation for the full product demo (TailAdmin sidebar).
+ * Canonical operator navigation for the full product demo (TailAdmin sidebar).
  *
  * Module/package architecture is intentionally not exposed here.
  */

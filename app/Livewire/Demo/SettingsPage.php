@@ -345,7 +345,7 @@ class SettingsPage extends Component
             ],
             'advanced' => [
                 'environment' => config('app.env'),
-                'canonical_surface' => '/app',
+                'canonical_surface' => '/',
             ],
         ];
 

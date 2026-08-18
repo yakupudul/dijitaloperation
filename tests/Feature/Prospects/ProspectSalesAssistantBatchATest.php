@@ -191,19 +191,19 @@ class ProspectSalesAssistantBatchATest extends TestCase
 
     public function test_prospect_pages_require_authentication(): void
     {
-        $this->get('/app/prospects')->assertRedirect('/app/login');
-        $this->get('/app/prospects/create')->assertRedirect('/app/login');
+        $this->get('/prospects')->assertRedirect('/login');
+        $this->get('/prospects/create')->assertRedirect('/login');
     }
 
     public function test_authenticated_operator_can_open_prospect_pages(): void
     {
         $this->actingAs($this->admin)
-            ->get('/app/prospects')
+            ->get('/prospects')
             ->assertOk()
             ->assertSee(__('operator.nav.prospects'));
 
         $this->actingAs($this->admin)
-            ->get('/app/prospects/create')
+            ->get('/prospects/create')
             ->assertOk()
             ->assertSee(__('operator.prospects.new_prospect'));
     }

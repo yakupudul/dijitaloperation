@@ -5,7 +5,7 @@ namespace App\Support;
 use App\Support\Demo\DemoMenu;
 
 /**
- * Sidebar menu for the canonical /app TailAdmin product shell.
+ * Sidebar menu for the canonical TailAdmin operator shell.
  * Delegates to DemoMenu for the full-product demo navigation.
  */
 final class OperatorMenu

@@ -5,24 +5,39 @@ import { recordFinding } from './helpers/findings.js';
 
 const DANGEROUS = /(delete|archive|disconnect|revoke|remove key|remove credential|clear credential|deactivate|destroy|uninstall|send mail|collect now|backfill|authorize|oauth|generate ai|refresh seo|refresh public)/i;
 
+function isInternalOperatorHref(href) {
+    if (!href.startsWith('/') || href.startsWith('//')) {
+        return false;
+    }
+
+    const path = href.split(/[?#]/)[0];
+
+    return !path.startsWith('/admin')
+        && !path.startsWith('/horizon')
+        && !path.startsWith('/livewire')
+        && !path.startsWith('/app')
+        && !path.startsWith('/system')
+        && !path.startsWith('/login');
+}
+
 test.describe('Bounded safe action crawler', () => {
     test.setTimeout(180_000);
     test('follow internal operator links without destructive actions', async ({ page }) => {
         const watcher = attachHttpWatcher(page);
         const visited = new Set();
         const queue = [
-            '/app',
-            '/app/customers',
-            '/app/brands',
-            '/app/assets',
-            '/app/files',
-            '/app/opportunities',
-            '/app/findings',
-            '/app/recommendations',
-            '/app/tasks',
-            '/app/activity',
-            '/app/integrations',
-            '/app/settings',
+            '/',
+            '/customers',
+            '/brands',
+            '/assets',
+            '/files',
+            '/opportunities',
+            '/findings',
+            '/recommendations',
+            '/tasks',
+            '/activity',
+            '/integrations',
+            '/settings',
         ];
         const failures = [];
         const limit = 60;
@@ -56,7 +71,7 @@ test.describe('Bounded safe action crawler', () => {
 
             const hrefs = await page.$$eval('a[href]', (anchors) => anchors.map((a) => a.getAttribute('href') || ''));
             for (const href of hrefs) {
-                if (!href.startsWith('/app')) {
+                if (!isInternalOperatorHref(href)) {
                     continue;
                 }
                 if (href.includes('/download') || href.includes('authorize')) {

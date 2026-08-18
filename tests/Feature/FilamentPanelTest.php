@@ -86,7 +86,8 @@ class FilamentPanelTest extends TestCase
 
     public function test_operator_login_is_owned_by_app_not_legacy_system(): void
     {
-        $this->get('/app/login')->assertOk();
-        $this->get('/system/login')->assertRedirect('/app/login');
+        $this->get('/login')->assertOk();
+        $this->get('/app/login')->assertStatus(410);
+        $this->get('/system/login')->assertStatus(410);
     }
 }

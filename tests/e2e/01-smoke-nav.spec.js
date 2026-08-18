@@ -4,18 +4,18 @@ import { assertOperatorSurface, openSidebar, screenshot, waitForLivewire } from 
 import { recordFinding } from './helpers/findings.js';
 
 const SURFACES = [
-    { name: 'Dashboard', path: '/app' },
-    { name: 'Customers', path: '/app/customers' },
-    { name: 'Brands', path: '/app/brands' },
-    { name: 'Digital Assets', path: '/app/assets' },
-    { name: 'Files', path: '/app/files' },
-    { name: 'Opportunities', path: '/app/opportunities' },
-    { name: 'Findings', path: '/app/findings' },
-    { name: 'Recommendations', path: '/app/recommendations' },
-    { name: 'Work', path: '/app/tasks' },
-    { name: 'Activity', path: '/app/activity' },
-    { name: 'Integrations', path: '/app/integrations' },
-    { name: 'Settings', path: '/app/settings' },
+    { name: 'Dashboard', path: '/' },
+    { name: 'Customers', path: '/customers' },
+    { name: 'Brands', path: '/brands' },
+    { name: 'Digital Assets', path: '/assets' },
+    { name: 'Files', path: '/files' },
+    { name: 'Opportunities', path: '/opportunities' },
+    { name: 'Findings', path: '/findings' },
+    { name: 'Recommendations', path: '/recommendations' },
+    { name: 'Work', path: '/tasks' },
+    { name: 'Activity', path: '/activity' },
+    { name: 'Integrations', path: '/integrations' },
+    { name: 'Settings', path: '/settings' },
 ];
 
 test.describe('Smoke crawl — frozen operator surfaces', () => {
@@ -23,7 +23,7 @@ test.describe('Smoke crawl — frozen operator surfaces', () => {
         const watcher = attachHttpWatcher(page);
         const visited = [];
 
-        await page.goto('/app');
+        await page.goto('/');
         await expect(page.locator('#operator-sidebar')).toBeVisible();
 
         for (const surface of SURFACES) {
@@ -46,7 +46,7 @@ test.describe('Smoke crawl — frozen operator surfaces', () => {
             expect.soft(result.hints.exception).toBeFalsy();
 
             if (!result.ok) {
-                await page.goto('/app');
+                await page.goto('/');
                 await waitForLivewire(page);
             }
         }
@@ -58,7 +58,7 @@ test.describe('Smoke crawl — frozen operator surfaces', () => {
                 id: 'QA-E2E-SMOKE-SUMMARY',
                 severity: 'BLOCKER',
                 surface: 'sidebar',
-                route: '/app',
+                route: '/',
                 action: 'Visit all canonical sidebar routes',
                 observed: failed.map((row) => `${row.name} FAIL ${row.finalUrl}`).join('; '),
                 expected: 'All frozen operator surfaces render.',

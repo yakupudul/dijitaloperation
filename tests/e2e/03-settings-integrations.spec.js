@@ -7,18 +7,18 @@ import { userByEmail } from './helpers/sqlite.js';
 import { setVerdict } from './helpers/verdicts.js';
 
 const PROVIDERS = [
-    { name: 'Google', path: '/app/integrations/google' },
-    { name: 'Meta', path: '/app/integrations/meta' },
-    { name: 'DataForSEO', path: '/app/integrations/dataforseo' },
-    { name: 'OpenAI', path: '/app/integrations/openai' },
-    { name: 'Anthropic', path: '/app/integrations/anthropic' },
-    { name: 'Gemini', path: '/app/integrations/gemini' },
+    { name: 'Google', path: '/integrations/google' },
+    { name: 'Meta', path: '/integrations/meta' },
+    { name: 'DataForSEO', path: '/integrations/dataforseo' },
+    { name: 'OpenAI', path: '/integrations/openai' },
+    { name: 'Anthropic', path: '/integrations/anthropic' },
+    { name: 'Gemini', path: '/integrations/gemini' },
 ];
 
 test.describe('Integrations, settings, team', () => {
     test('integration workspaces render configuration without credentials', async ({ page }) => {
         const watcher = attachHttpWatcher(page);
-        await page.goto('/app/integrations');
+        await page.goto('/integrations');
         await screenshot(page, 'integrations');
 
         for (const provider of PROVIDERS) {
@@ -66,7 +66,7 @@ test.describe('Integrations, settings, team', () => {
     });
 
     test('settings sections exist and general writes persist then restore', async ({ page }) => {
-        await page.goto('/app/settings');
+        await page.goto('/settings');
         await screenshot(page, 'settings');
 
         const sections = ['General', 'Team & Access', 'Notifications', 'Operations', 'AI & Intelligence', 'Advanced'];
@@ -104,7 +104,7 @@ test.describe('Integrations, settings, team', () => {
     });
 
     test('team & access lists real users and can isolate a temporary member', async ({ page }) => {
-        await page.goto('/app/settings');
+        await page.goto('/settings');
         await page.getByRole('navigation', { name: /settings sections/i }).getByRole('button', { name: 'Team & Access' }).click();
         await waitForLivewire(page);
         await expect(page.getByText('qa-final@moxdop.local')).toBeVisible();
@@ -136,7 +136,7 @@ test.describe('Integrations, settings, team', () => {
     });
 
     test('last administrator cannot be deactivated', async ({ page }) => {
-        await page.goto('/app/settings');
+        await page.goto('/settings');
         await page.getByRole('navigation', { name: /settings sections/i }).getByRole('button', { name: 'Team & Access' }).click();
         await waitForLivewire(page);
 
@@ -155,7 +155,7 @@ test.describe('Integrations, settings, team', () => {
                 id: 'QA-E2E-LAST-ADMIN-SILENT',
                 severity: 'MEDIUM',
                 surface: 'Team & Access',
-                route: '/app/settings',
+                route: '/settings',
                 action: 'Deactivate last administrator',
                 observed: 'Last admin remained active (protection held) but no visible last-admin error/flash was rendered.',
                 expected: 'Show the last-admin protection message when deactivation is rejected.',
@@ -167,7 +167,7 @@ test.describe('Integrations, settings, team', () => {
     });
 
     test('notifications preferences render without fake push claims', async ({ page }) => {
-        await page.goto('/app/settings');
+        await page.goto('/settings');
         await page.getByRole('navigation', { name: /settings sections/i }).getByRole('button', { name: 'Notifications' }).click();
         await waitForLivewire(page);
         const body = await page.locator('body').innerText();

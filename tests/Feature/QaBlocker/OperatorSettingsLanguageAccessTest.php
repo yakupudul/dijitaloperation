@@ -69,7 +69,7 @@ class OperatorSettingsLanguageAccessTest extends TestCase
         $this->flushSession();
         $this->actingAs($this->admin);
 
-        $this->get('/app/settings')
+        $this->get('/settings')
             ->assertOk()
             ->assertSee('Northwind Agency')
             ->assertSee('Northwind Portal');
@@ -87,31 +87,31 @@ class OperatorSettingsLanguageAccessTest extends TestCase
 
         $this->admin->forceFill(['locale' => 'tr'])->save();
 
-        $this->get('/app')
+        $this->get('/')
             ->assertOk()
             ->assertSee('Kontrol Paneli')
             ->assertSee('Müşteriler')
             ->assertSee('Ayarlar')
             ->assertDontSee('Needs Attention');
 
-        $this->get('/app/customers')
+        $this->get('/customers')
             ->assertOk()
             ->assertSee('Müşteriler')
             ->assertSee('Northwind Clinics')
             ->assertDontSee('Create your first customer');
 
-        $this->get('/app/brands')
+        $this->get('/brands')
             ->assertOk()
             ->assertSee('Markalar')
             ->assertSee('Summer Sale Campaign');
 
-        $this->get('/app/settings')
+        $this->get('/settings')
             ->assertOk()
             ->assertSee('Ayarlar')
             ->assertSee('Ekip ve Yetkiler')
             ->assertSee('Yapılandırılmadı', false);
 
-        $this->get('/app/integrations')
+        $this->get('/integrations')
             ->assertOk()
             ->assertSee('Entegrasyonlar')
             ->assertSee('Yapılandır');
@@ -126,16 +126,16 @@ class OperatorSettingsLanguageAccessTest extends TestCase
     {
         $this->admin->forceFill(['locale' => 'en'])->save();
 
-        $this->get('/app')
+        $this->get('/')
             ->assertOk()
             ->assertSee('Dashboard')
             ->assertSee('Customers')
             ->assertSee('Settings');
 
-        $this->get('/app/customers')->assertOk()->assertSee('Customers');
-        $this->get('/app/brands')->assertOk()->assertSee('Brands');
-        $this->get('/app/settings')->assertOk()->assertSee('Team & Access');
-        $this->get('/app/integrations')->assertOk()->assertSee('Integrations');
+        $this->get('/customers')->assertOk()->assertSee('Customers');
+        $this->get('/brands')->assertOk()->assertSee('Brands');
+        $this->get('/settings')->assertOk()->assertSee('Team & Access');
+        $this->get('/integrations')->assertOk()->assertSee('Integrations');
     }
 
     public function test_team_access_lists_real_users_and_admin_can_add_without_rendering_password(): void
@@ -266,7 +266,7 @@ class OperatorSettingsLanguageAccessTest extends TestCase
             ->call('saveGeneral')
             ->assertHasNoErrors();
 
-        $html = $this->get('/app')->assertOk()->getContent();
+        $html = $this->get('/')->assertOk()->getContent();
         $this->assertStringNotContainsString('<script>alert(1)</script>', $html);
         $this->assertStringContainsString('Safe Portal', $html);
 
@@ -284,7 +284,7 @@ class OperatorSettingsLanguageAccessTest extends TestCase
             'mail.mailers.smtp.password' => 'smtp-secret-must-not-leak',
         ]);
 
-        $html = $this->get('/app/settings')->assertOk()->getContent();
+        $html = $this->get('/settings')->assertOk()->getContent();
         $this->assertStringNotContainsString('smtp-secret-must-not-leak', $html);
         $this->assertStringNotContainsString('db-secret-must-not-leak', $html);
         $this->assertStringNotContainsString('redis-secret-must-not-leak', $html);

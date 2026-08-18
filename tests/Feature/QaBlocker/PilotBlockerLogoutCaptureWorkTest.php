@@ -58,10 +58,10 @@ class PilotBlockerLogoutCaptureWorkTest extends TestCase
         $document = new DOMDocument;
         @$document->loadHTML($html);
         $xpath = new DOMXPath($document);
-        $logoutForms = $xpath->query('//form[contains(@action, "/app/logout")]');
+        $logoutForms = $xpath->query('//form[contains(@action, "/logout")]');
 
         $this->assertNotFalse($logoutForms);
-        $this->assertGreaterThan(0, $logoutForms->length, 'Visible POST /app/logout form must exist on Profile');
+        $this->assertGreaterThan(0, $logoutForms->length, 'Visible POST /logout form must exist on Profile');
 
         foreach ($logoutForms as $form) {
             $parent = $form->parentNode;
@@ -80,15 +80,15 @@ class PilotBlockerLogoutCaptureWorkTest extends TestCase
 
     public function test_canonical_post_logout_invalidates_session(): void
     {
-        $this->post('/app/logout')->assertRedirect('/app/login');
+        $this->post('/logout')->assertRedirect('/login');
         $this->assertGuest();
-        $this->get('/app')->assertRedirect('/app/login');
+        $this->get('/')->assertRedirect('/login');
     }
 
     public function test_global_capture_requires_customer_with_localized_validation(): void
     {
         Livewire::test(CaptureModal::class)
-            ->call('openCapture', 'task', null, null, '/app')
+            ->call('openCapture', 'task', null, null, '/')
             ->assertSet('open', true)
             ->assertSet('prefillCustomer', null)
             ->set('title', 'E2E global capture task')
@@ -109,7 +109,7 @@ class PilotBlockerLogoutCaptureWorkTest extends TestCase
         ]);
 
         $component = Livewire::test(CaptureModal::class)
-            ->call('openCapture', 'task', null, null, '/app')
+            ->call('openCapture', 'task', null, null, '/')
             ->set('prefillCustomer', (string) $this->customer->id)
             ->set('prefillBrand', (string) $this->brand->id)
             ->set('title', 'E2E global capture task')
@@ -133,7 +133,7 @@ class PilotBlockerLogoutCaptureWorkTest extends TestCase
         ]);
 
         Livewire::test(CaptureModal::class)
-            ->call('openCapture', 'task', null, null, '/app')
+            ->call('openCapture', 'task', null, null, '/')
             ->set('prefillCustomer', (string) $this->customer->id)
             ->assertSee('Pilot Brand A')
             ->assertDontSee('Must Not Appear')
@@ -144,12 +144,12 @@ class PilotBlockerLogoutCaptureWorkTest extends TestCase
     public function test_customer_and_brand_pages_prefill_capture_context(): void
     {
         Livewire::test(CaptureModal::class)
-            ->call('openCapture', 'task', null, null, '/app/customers/'.$this->customer->id)
+            ->call('openCapture', 'task', null, null, '/customers/'.$this->customer->id)
             ->assertSet('prefillCustomer', (string) $this->customer->id)
             ->assertSet('prefillBrand', null);
 
         Livewire::test(CaptureModal::class)
-            ->call('openCapture', 'task', null, null, '/app/brands/'.$this->brand->id)
+            ->call('openCapture', 'task', null, null, '/brands/'.$this->brand->id)
             ->assertSet('prefillCustomer', (string) $this->customer->id)
             ->assertSet('prefillBrand', (string) $this->brand->id);
     }
@@ -181,9 +181,9 @@ class PilotBlockerLogoutCaptureWorkTest extends TestCase
             ->assertSee('Typed Client Request Detail')
             ->assertDontSee('Typed Task Detail');
 
-        $this->get('/app/work/'.$task->id)->assertNotFound();
+        $this->get('/work/'.$task->id)->assertNotFound();
 
-        $this->get('/app/work/'.$task->id.'?type=task')
+        $this->get('/work/'.$task->id.'?type=task')
             ->assertRedirect(WorkUrl::show(WorkUrl::TYPE_TASK, $task->id));
     }
 

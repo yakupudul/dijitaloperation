@@ -57,7 +57,7 @@ class OperatorLoginController extends Controller
 
         $user->forceFill(['last_login_at' => now()])->save();
 
-        return redirect()->intended('/app');
+        return redirect()->intended('/');
     }
 
     public function destroy(Request $request): RedirectResponse

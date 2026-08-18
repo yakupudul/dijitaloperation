@@ -21,10 +21,10 @@ async function switchLocale(page, code) {
 }
 
 async function createProspect(page, title, website = FIXTURE_WEBSITE) {
-    await page.goto('/app/prospects?locale=en');
+    await page.goto('/prospects?locale=en');
     await waitForLivewire(page);
     await switchLocale(page, 'EN');
-    await page.goto('/app/prospects/create?locale=en');
+    await page.goto('/prospects/create?locale=en');
     await waitForLivewire(page);
 
     const company = page.locator('input[wire\\:model="company_name"]');
@@ -35,7 +35,7 @@ async function createProspect(page, title, website = FIXTURE_WEBSITE) {
     await page.locator('textarea[wire\\:model="inquiry"]').fill('Web sitesi ve Google reklamları konusunda destek arıyoruz.');
     await expect(company).toHaveValue(title);
     await page.getByRole('button', { name: /^(Save|Kaydet)$/ }).click();
-    await page.waitForURL((url) => /\/app\/prospects\/\d+$/.test(new URL(url).pathname), { timeout: 20_000 });
+    await page.waitForURL((url) => /\/prospects\/\d+$/.test(new URL(url).pathname), { timeout: 20_000 });
     await waitForLivewire(page);
 }
 
@@ -131,7 +131,7 @@ test.describe('Sales Assistant Batch B golden path A', () => {
         expect(customer?.id).toBeTruthy();
         expect(countCustomersNamed(title)).toBe(1);
 
-        await page.goto(`/app/prospects/${row.id}/convert?locale=en`);
+        await page.goto(`/prospects/${row.id}/convert?locale=en`);
         await waitForLivewire(page);
         await expect(page.locator('body')).toContainText(/already converted|Open Customer/i);
         expect(countCustomersNamed(title)).toBe(1);
@@ -148,7 +148,7 @@ test.describe('Sales Assistant Batch B golden path B', () => {
     test('search profile, intent radar, signal to prospect, research', async ({ page }) => {
         const profileName = `E2E Website Intent ${Date.now()}`;
 
-        await page.goto('/app/prospects/search-profiles?locale=en');
+        await page.goto('/prospects/search-profiles?locale=en');
         await waitForLivewire(page);
         await switchLocale(page, 'EN');
         await page.waitForLoadState('networkidle').catch(() => {});
@@ -159,7 +159,7 @@ test.describe('Sales Assistant Batch B golden path B', () => {
         await page.locator('textarea[wire\\:model="include_concepts"]').fill('web sitesi yaptırmak');
         await page.locator('textarea[wire\\:model="exclude_concepts"]').fill('nasıl yapılır');
         await page.getByRole('button', { name: /^(Save|Kaydet)$/ }).click();
-        await page.waitForURL(/\/app\/prospects\/search-profiles\/\d+/, { timeout: 20_000 });
+        await page.waitForURL(/\/prospects\/search-profiles\/\d+/, { timeout: 20_000 });
         await waitForLivewire(page);
 
         await expect(page.locator('body')).toContainText('web sitesi yaptırmak');
@@ -183,7 +183,7 @@ test.describe('Sales Assistant Batch B golden path B', () => {
         await expect(page.getByRole('link', { name: 'Open Source' })).toBeVisible();
 
         await page.getByRole('button', { name: 'Create Prospect' }).click();
-        await page.waitForURL(/\/app\/prospects\/\d+/, { timeout: 20_000 });
+        await page.waitForURL(/\/prospects\/\d+/, { timeout: 20_000 });
         await waitForLivewire(page);
         await expect(page.locator('h1')).toContainText(/Anonymous prospect/i);
         await expect(page.locator('body')).toContainText('ajans arıyoruz');
@@ -205,7 +205,7 @@ test.describe('Sales Assistant Batch B duplicate conversion', () => {
         await page.getByRole('link', { name: 'Convert to Customer' }).click();
         await waitForLivewire(page);
         await page.getByRole('button', { name: 'Confirm conversion' }).click();
-        await page.waitForURL((url) => /\/app\/prospects\/\d+$/.test(new URL(url).pathname), { timeout: 20_000 });
+        await page.waitForURL((url) => /\/prospects\/\d+$/.test(new URL(url).pathname), { timeout: 20_000 });
         await waitForLivewire(page);
         await expect(page.getByRole('link', { name: 'Open Customer' })).toBeVisible();
         expect(countCustomersNamed(name)).toBe(1);
@@ -231,7 +231,7 @@ test.describe('Sales Assistant Batch B duplicate conversion', () => {
             }
         }
         await page.getByRole('button', { name: 'Confirm conversion' }).click();
-        await page.waitForURL((url) => /\/app\/prospects\/\d+$/.test(new URL(url).pathname), { timeout: 20_000 });
+        await page.waitForURL((url) => /\/prospects\/\d+$/.test(new URL(url).pathname), { timeout: 20_000 });
         await waitForLivewire(page);
         await expect(page.getByRole('link', { name: /Open Customer|Müşteriyi Aç/ })).toBeVisible();
         expect(countCustomersNamed(name)).toBe(1);
@@ -240,7 +240,7 @@ test.describe('Sales Assistant Batch B duplicate conversion', () => {
 
 test.describe('Sales Assistant Batch B chrome', () => {
     test('TR labels for radar and profiles', async ({ page }) => {
-        await page.goto('/app/prospects');
+        await page.goto('/prospects');
         await waitForLivewire(page);
         await switchLocale(page, 'TR');
         await expect(page.getByRole('link', { name: 'Niyet Radarı' })).toBeVisible();
@@ -253,12 +253,12 @@ test.describe('Sales Assistant Batch B chrome', () => {
     test('intent radar and search profiles at 768 and 390', async ({ page }) => {
         for (const width of [768, 390]) {
             await page.setViewportSize({ width, height: 900 });
-            await page.goto('/app/prospects/intent-radar?locale=en');
+            await page.goto('/prospects/intent-radar?locale=en');
             await waitForLivewire(page);
             const overflowRadar = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
             expect(overflowRadar).toBe(false);
 
-            await page.goto('/app/prospects/search-profiles?locale=en');
+            await page.goto('/prospects/search-profiles?locale=en');
             await waitForLivewire(page);
             const overflowProfiles = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
             expect(overflowProfiles).toBe(false);

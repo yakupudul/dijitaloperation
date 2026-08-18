@@ -29,9 +29,9 @@ class AppPanelProvider extends PanelProvider
         return $panel
             ->default()
             ->id('app')
-            // Technical Filament administration only. Operator product lives under /app.
+            // Technical Filament administration only. Operator product lives at the site root.
             ->path('admin')
-            ->homeUrl('/app')
+            ->homeUrl('/')
             ->viteTheme('resources/css/filament/app/theme.css')
             ->authGuard('web')
             ->login()

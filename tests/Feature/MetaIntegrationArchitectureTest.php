@@ -427,7 +427,7 @@ class MetaIntegrationArchitectureTest extends TestCase
         app(OperatorIntegrationsHubQuery::class)->groups();
 
         Http::assertNothingSent();
-        $this->assertStringContainsString('/app/integrations/meta', route('operator.integrations.meta', absolute: false));
+        $this->assertStringContainsString('/integrations/meta', route('operator.integrations.meta', absolute: false));
     }
 
     public function test_agency_meta_integration_is_provider_unique(): void
