@@ -8,6 +8,7 @@ use App\Models\DiscoveryCandidate;
 use App\Models\User;
 use Illuminate\Support\Collection;
 use MoxDop\Website\Discovery\DiscoveryCandidateReviewService;
+use MoxDop\Website\Discovery\DiscoveryConfig;
 
 final class OperatorWebsiteWorkspace implements WebsiteOperatorWorkspaceContract
 {
@@ -24,6 +25,11 @@ final class OperatorWebsiteWorkspace implements WebsiteOperatorWorkspaceContract
     public function discovery(DigitalAsset $asset): array
     {
         return $this->workspace->discovery($asset);
+    }
+
+    public function discoveryResultModuleId(): string
+    {
+        return DiscoveryConfig::MODULE_ID;
     }
 
     public function connectionCards(DigitalAsset $asset): array
