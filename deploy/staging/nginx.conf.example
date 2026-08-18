@@ -55,9 +55,11 @@ server {
         fastcgi_hide_header X-Powered-By;
     }
 
+    # Existing Vite/public files are served from disk. Missing .js/.css (Livewire hashed
+    # /livewire-*/livewire.min.js) must fall through to Laravel, not hard 404.
     location ~* \.(css|js|jpg|jpeg|png|gif|ico|svg|woff|woff2)$ {
         expires 7d;
         access_log off;
-        try_files $uri =404;
+        try_files $uri /index.php?$query_string;
     }
 }
