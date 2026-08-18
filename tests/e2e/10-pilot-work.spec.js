@@ -15,8 +15,14 @@ function sessionOrFail() {
 }
 
 async function openCapture(page) {
-    await page.locator('header').getByRole('button', { name: /Capture|Hızlı kayıt/i }).click();
-    await expect(page.getByRole('dialog')).toBeVisible();
+    await page.waitForFunction(() => window.Livewire && typeof window.Livewire.dispatch === 'function');
+    const trigger = page.locator('header').getByRole('button', { name: /Capture|Hızlı kayıt/i });
+    await trigger.click();
+    const dialog = page.getByRole('dialog');
+    if (! await dialog.isVisible().catch(() => false)) {
+        await trigger.click();
+    }
+    await expect(dialog).toBeVisible();
     await expect(page.getByRole('heading', { name: /Quick capture|Hızlı kayıt/i })).toBeVisible();
 }
 
@@ -93,8 +99,12 @@ test.describe('Pilot-critical logout, capture, and work detail', () => {
         await waitForLivewire(page);
         const localeEn = page.getByRole('group', { name: /locale|dil|language/i }).getByRole('button', { name: 'EN' });
         if (await localeEn.count()) {
-            await localeEn.click();
-            await waitForLivewire(page);
+            const alreadyEn = await localeEn.evaluate((el) => el.classList.contains('bg-brand-500'));
+            if (! alreadyEn) {
+                await localeEn.click();
+                await page.waitForLoadState('networkidle').catch(() => {});
+                await waitForLivewire(page);
+            }
         }
 
         await openCapture(page);
