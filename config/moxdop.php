@@ -76,6 +76,13 @@ return [
     ],
 
     /*
+     * Prospect public research fixtures for PHPUnit / Playwright E2E only.
+     */
+    'prospect_research' => [
+        'fixtures' => (bool) env('MOXDOP_PROSPECT_RESEARCH_FIXTURES', false),
+    ],
+
+    /*
      * Agency Meta Integration (Settings → Integrations).
      *
      * Application / deployment configuration:

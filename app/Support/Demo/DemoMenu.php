@@ -31,6 +31,12 @@ final class DemoMenu
                 ],
             ],
             [
+                'label' => __('operator.nav.groups.sales'),
+                'items' => [
+                    ['label' => __('operator.nav.prospects'), 'route' => 'operator.prospects', 'icon' => 'prospects'],
+                ],
+            ],
+            [
                 'label' => __('operator.nav.groups.operations'),
                 'items' => [
                     ['label' => __('operator.nav.opportunities'), 'route' => 'operator.opportunities', 'icon' => 'recommendations'],

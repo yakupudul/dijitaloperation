@@ -21,4 +21,6 @@ final class AgentProfileKeys
     public const string GA4_MEASUREMENT_ANALYST = 'ga4.measurement_analyst';
 
     public const string GSC_ORGANIC_SEARCH_ANALYST = 'gsc.organic_search_analyst';
+
+    public const string SALES_PROSPECT_INTELLIGENCE_ANALYST = 'sales.prospect_intelligence_analyst';
 }

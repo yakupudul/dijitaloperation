@@ -21,4 +21,6 @@ final class AiRouteKeys
     public const string GA4_AI_GUIDANCE = 'ga4.ai_guidance';
 
     public const string GSC_AI_GUIDANCE = 'gsc.ai_guidance';
+
+    public const string SALES_PROSPECT_INTELLIGENCE = 'sales.prospect_intelligence';
 }
