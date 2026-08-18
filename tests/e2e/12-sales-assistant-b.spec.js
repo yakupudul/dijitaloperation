@@ -23,21 +23,52 @@ async function switchLocale(page, code) {
 async function createProspect(page, title, website = FIXTURE_WEBSITE) {
     await page.goto('/app/prospects/create?locale=en');
     await waitForLivewire(page);
+    await switchLocale(page, 'EN');
     await page.locator('input[wire\\:model="company_name"]').fill(title);
     if (website) {
         await page.locator('input[wire\\:model="website_url"]').fill(website);
     }
     await page.locator('textarea[wire\\:model="inquiry"]').fill('Web sitesi ve Google reklamları konusunda destek arıyoruz.');
-    await page.getByRole('button', { name: /^Save$/ }).click();
-    await page.waitForURL(/\/app\/prospects\/\d+/, { timeout: 20_000 });
+    await page.getByRole('button', { name: /^(Save|Kaydet)$/ }).click();
+    await page.waitForURL((url) => /\/app\/prospects\/\d+$/.test(new URL(url).pathname), { timeout: 20_000 });
     await waitForLivewire(page);
 }
 
 async function researchProspect(page) {
-    await page.getByRole('button', { name: 'Research Prospect' }).click();
+    await page.getByRole('button', { name: /Research Prospect|Potansiyel Müşteriyi Araştır/ }).click();
     await page.waitForLoadState('networkidle').catch(() => {});
     await waitForLivewire(page);
     await expect(page.locator('body')).toContainText(/Completed|Partial|Tamamlandı|Kısmi/i, { timeout: 45_000 });
+}
+
+async function confirmConversionCreatingNew(page) {
+    await expect(page.getByRole('button', { name: /Confirm conversion|Dönüşümü onayla/ })).toBeVisible();
+
+    const assetBoxes = page.getByTestId('promotable-asset');
+    const assetCount = await assetBoxes.count();
+    for (let i = 0; i < assetCount; i++) {
+        const box = assetBoxes.nth(i);
+        if (await box.isEnabled() && await box.isChecked()) {
+            await box.uncheck();
+        }
+    }
+    if (assetCount > 0) {
+        await page.waitForLoadState('networkidle').catch(() => {});
+        await waitForLivewire(page);
+    }
+
+    if (await page.getByTestId('potential-duplicate').count()) {
+        const confirm = page.getByTestId('confirm-create-despite-duplicates');
+        await confirm.check();
+        await expect(confirm).toBeChecked();
+        await page.waitForLoadState('networkidle').catch(() => {});
+        await waitForLivewire(page);
+        await expect(confirm).toBeChecked();
+    }
+
+    await page.getByRole('button', { name: /Confirm conversion|Dönüşümü onayla/ }).click();
+    await expect(page.getByRole('link', { name: /Open Customer|Müşteriyi Aç/ })).toBeVisible({ timeout: 30_000 });
+    await waitForLivewire(page);
 }
 
 test.describe('Sales Assistant Batch B golden path A', () => {
@@ -82,17 +113,7 @@ test.describe('Sales Assistant Batch B golden path A', () => {
 
         await page.getByRole('link', { name: 'Convert to Customer' }).click();
         await waitForLivewire(page);
-        const assetBoxes = page.locator('input[wire\\:model="selected_assets"]');
-        const assetCount = await assetBoxes.count();
-        for (let i = 0; i < assetCount; i++) {
-            await assetBoxes.nth(i).uncheck();
-        }
-        if (await page.getByTestId('potential-duplicate').count()) {
-            await page.locator('input[wire\\:model="confirm_create_despite_duplicates"]').check();
-        }
-        await page.getByRole('button', { name: 'Confirm conversion' }).click();
-        await page.waitForURL(/\/app\/prospects\/\d+/, { timeout: 20_000 });
-        await waitForLivewire(page);
+        await confirmConversionCreatingNew(page);
 
         await expect(page.getByRole('link', { name: 'Open Customer' })).toBeVisible();
         await expect(page.getByRole('link', { name: 'Open Brand' })).toBeVisible();
@@ -124,12 +145,13 @@ test.describe('Sales Assistant Batch B golden path B', () => {
 
         await page.goto('/app/prospects/search-profiles?locale=en');
         await waitForLivewire(page);
-        await page.getByRole('link', { name: 'New Search Profile' }).click();
+        await switchLocale(page, 'EN');
+        await page.getByRole('link', { name: /New Search Profile|Yeni Arama Profili/ }).click();
         await waitForLivewire(page);
         await page.locator('input[wire\\:model="name"]').fill(profileName);
         await page.locator('textarea[wire\\:model="include_concepts"]').fill('web sitesi yaptırmak');
         await page.locator('textarea[wire\\:model="exclude_concepts"]').fill('nasıl yapılır');
-        await page.getByRole('button', { name: /^Save$/ }).click();
+        await page.getByRole('button', { name: /^(Save|Kaydet)$/ }).click();
         await page.waitForURL(/\/app\/prospects\/search-profiles\/\d+/, { timeout: 20_000 });
         await waitForLivewire(page);
 
@@ -176,24 +198,25 @@ test.describe('Sales Assistant Batch B duplicate conversion', () => {
         await page.getByRole('link', { name: 'Convert to Customer' }).click();
         await waitForLivewire(page);
         await page.getByRole('button', { name: 'Confirm conversion' }).click();
-        await page.waitForURL(/\/app\/prospects\/\d+/, { timeout: 20_000 });
+        await page.waitForURL((url) => /\/app\/prospects\/\d+$/.test(new URL(url).pathname), { timeout: 20_000 });
         await waitForLivewire(page);
+        await expect(page.getByRole('link', { name: 'Open Customer' })).toBeVisible();
         expect(countCustomersNamed(name)).toBe(1);
 
         await createProspect(page, name, null);
         await page.getByRole('link', { name: 'Convert to Customer' }).click();
         await waitForLivewire(page);
         await expect(page.getByTestId('potential-duplicate')).toBeVisible();
-        await expect(page.locator('body')).toContainText('Potential Duplicate');
+        await expect(page.locator('body')).toContainText(/Potential Duplicate|Olası Mükerrer Kayıt/);
 
-        const customerSelect = page.locator('select[wire\\:model="existing_customer_id"]');
+        const customerSelect = page.locator('select[wire\\:model\\.live="existing_customer_id"]');
         if (await customerSelect.count()) {
             const value = await customerSelect.locator('option').nth(1).getAttribute('value');
             if (value) {
                 await customerSelect.selectOption(value);
             }
         }
-        const brandSelect = page.locator('select[wire\\:model="existing_brand_id"]');
+        const brandSelect = page.locator('select[wire\\:model\\.live="existing_brand_id"]');
         if (await brandSelect.count()) {
             const value = await brandSelect.locator('option').nth(1).getAttribute('value');
             if (value) {
@@ -201,8 +224,9 @@ test.describe('Sales Assistant Batch B duplicate conversion', () => {
             }
         }
         await page.getByRole('button', { name: 'Confirm conversion' }).click();
-        await page.waitForURL(/\/app\/prospects\/\d+/, { timeout: 20_000 });
+        await page.waitForURL((url) => /\/app\/prospects\/\d+$/.test(new URL(url).pathname), { timeout: 20_000 });
         await waitForLivewire(page);
+        await expect(page.getByRole('link', { name: /Open Customer|Müşteriyi Aç/ })).toBeVisible();
         expect(countCustomersNamed(name)).toBe(1);
     });
 });

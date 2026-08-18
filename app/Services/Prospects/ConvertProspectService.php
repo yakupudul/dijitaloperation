@@ -82,7 +82,7 @@ final class ConvertProspectService
                 $existingCustomerId = $existingBrand->customer_id;
             }
         }
-        $forceCreate = (bool) ($input['confirm_create_despite_duplicates'] ?? false);
+        $forceCreate = filter_var($input['confirm_create_despite_duplicates'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
         $duplicates = $this->duplicates->find($prospect);
         $hasDuplicates = $duplicates['customers'] !== [] || $duplicates['brands'] !== [] || $duplicates['digital_assets'] !== [];

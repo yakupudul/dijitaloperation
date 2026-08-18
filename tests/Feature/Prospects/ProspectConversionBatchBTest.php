@@ -5,6 +5,7 @@ namespace Tests\Feature\Prospects;
 use App\Enums\ProspectEvidenceProvenance;
 use App\Enums\ProspectSalesIntelligenceStatus;
 use App\Enums\ProspectStatus;
+use App\Livewire\Demo\Sales\ProspectConvert;
 use App\Models\Brand;
 use App\Models\BrandIntelligenceContext;
 use App\Models\Customer;
@@ -21,6 +22,7 @@ use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class ProspectConversionBatchBTest extends TestCase
@@ -234,5 +236,38 @@ class ProspectConversionBatchBTest extends TestCase
             ->assertOk()
             ->assertSee(__('operator.prospects.conversion.convert'))
             ->assertSee('Review Co');
+    }
+
+    public function test_livewire_confirm_creates_new_customer_when_domain_duplicate_exists(): void
+    {
+        $customer = Customer::factory()->create(['name' => 'Existing Portfolio']);
+        $brand = Brand::factory()->create(['customer_id' => $customer->id, 'name' => 'Existing Brand']);
+        DigitalAsset::factory()->create([
+            'brand_id' => $brand->id,
+            'type' => 'website',
+            'domain' => ProspectResearchConfig::FIXTURE_HOST,
+            'primary_url' => 'http://'.ProspectResearchConfig::FIXTURE_HOST.'/',
+        ]);
+
+        $prospect = Prospect::factory()->create([
+            'company_name' => 'New Despite Domain Dup',
+            'website_url' => 'http://'.ProspectResearchConfig::FIXTURE_HOST.'/',
+        ]);
+
+        $this->actingAs($this->admin);
+
+        Livewire::test(ProspectConvert::class, ['prospectId' => (string) $prospect->id])
+            ->assertSee(__('operator.prospects.conversion.potential_duplicate'))
+            ->set('selected_assets', [])
+            ->set('confirm_create_despite_duplicates', true)
+            ->call('convert')
+            ->assertHasNoErrors()
+            ->assertRedirect(route('operator.prospect', ['prospectId' => $prospect->id]));
+
+        $fresh = $prospect->fresh();
+        $this->assertNotNull($fresh?->converted_customer_id);
+        $this->assertNotSame($customer->id, $fresh?->converted_customer_id);
+        $this->assertSame(2, Customer::query()->count());
+        $this->assertDatabaseHas('customers', ['name' => 'New Despite Domain Dup']);
     }
 }
