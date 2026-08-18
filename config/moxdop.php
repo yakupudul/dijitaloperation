@@ -127,8 +127,8 @@ return [
      * Env keys are optional bootstrap/fallback only — never shown in UI.
      */
     'dataforseo' => [
-        'login' => env('DATAFORSEO_API_LOGIN'),
-        'password' => env('DATAFORSEO_API_PASSWORD'),
+        'login' => env('DATAFORSEO_API_LOGIN', env('DATAFORSEO_LOGIN')),
+        'password' => env('DATAFORSEO_API_PASSWORD', env('DATAFORSEO_PASSWORD')),
         'base_url' => env('DATAFORSEO_BASE_URL', 'https://api.dataforseo.com'),
         'timeout' => (int) env('DATAFORSEO_TIMEOUT', 30),
         /*

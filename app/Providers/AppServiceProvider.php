@@ -141,6 +141,7 @@ use App\Support\Skills\SkillRegistry;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
@@ -300,6 +301,10 @@ class AppServiceProvider extends ServiceProvider
         });
 
         Gate::policy(CollectionRun::class, CollectionRunPolicy::class);
+
+        if ((bool) config('app.force_https')) {
+            URL::forceScheme('https');
+        }
 
         // Prompt65: N+1 detection in local only. Performance tests enable explicitly.
         // Do not abort the PHPUnit suite — production stays unchanged.

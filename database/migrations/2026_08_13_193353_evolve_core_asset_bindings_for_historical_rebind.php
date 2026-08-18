@@ -79,6 +79,9 @@ return new class extends Migration
         }
 
         if ($driver === 'pgsql') {
+            // Laravel $table->unique() creates a named UNIQUE CONSTRAINT on PostgreSQL.
+            // DROP INDEX fails while the constraint still exists (SQLSTATE 2BP01).
+            DB::statement("ALTER TABLE core_asset_bindings DROP CONSTRAINT IF EXISTS {$index}");
             DB::statement("DROP INDEX IF EXISTS {$index}");
 
             return;

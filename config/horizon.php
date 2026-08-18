@@ -83,7 +83,7 @@ return [
     |
     */
 
-    'middleware' => ['web'],
+    'middleware' => ['web', 'auth'],
 
     /*
     |--------------------------------------------------------------------------
@@ -247,6 +247,35 @@ return [
             ],
             'supervisor-collection' => [
                 'maxProcesses' => 1,
+                'timeout' => (int) env('HORIZON_COLLECTION_TIMEOUT', 300),
+            ],
+        ],
+
+        /*
+         * Staging / UAT must provision workers. Horizon only starts supervisors whose
+         * environment key matches APP_ENV. Without these keys, `php artisan horizon`
+         * would start and then idle with zero processes.
+         */
+        'staging' => [
+            'supervisor-1' => [
+                'maxProcesses' => (int) env('HORIZON_DEFAULT_MAX_PROCESSES', 2),
+                'balanceMaxShift' => 1,
+                'balanceCooldown' => 3,
+                'timeout' => (int) env('HORIZON_DEFAULT_TIMEOUT', 300),
+            ],
+            'supervisor-collection' => [
+                'maxProcesses' => (int) env('HORIZON_COLLECTION_MAX_PROCESSES', 1),
+                'timeout' => (int) env('HORIZON_COLLECTION_TIMEOUT', 300),
+            ],
+        ],
+
+        'uat' => [
+            'supervisor-1' => [
+                'maxProcesses' => (int) env('HORIZON_DEFAULT_MAX_PROCESSES', 2),
+                'timeout' => (int) env('HORIZON_DEFAULT_TIMEOUT', 300),
+            ],
+            'supervisor-collection' => [
+                'maxProcesses' => (int) env('HORIZON_COLLECTION_MAX_PROCESSES', 1),
                 'timeout' => (int) env('HORIZON_COLLECTION_TIMEOUT', 300),
             ],
         ],

@@ -17,6 +17,15 @@ return Application::configure(basePath: dirname(__DIR__))
         // Canonical operator login is /app/login (TailAdmin product). Filament technical admin is /admin.
         $middleware->redirectGuestsTo(fn (): string => route('app.login'));
 
+        $trustedProxies = env('TRUSTED_PROXIES');
+        if (is_string($trustedProxies) && $trustedProxies !== '') {
+            $middleware->trustProxies(
+                at: $trustedProxies === '*'
+                    ? '*'
+                    : array_values(array_filter(array_map('trim', explode(',', $trustedProxies)))),
+            );
+        }
+
         $middleware->web(append: [
             SetOperatorLocale::class,
         ]);

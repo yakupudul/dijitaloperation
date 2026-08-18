@@ -9,6 +9,8 @@ on:
       - "app/Services/DataPool/**"
       - "database/migrations/*data_pool*"
       - "docs/data-contracts/MOXDOP_DATA_POOL_STORAGE_V1*"
+      - "database/migrations/**"
+      - "tests/Integration/Deployment/**"
       - "tests/Integration/DataPool/**"
       - "tests/Feature/DataPool/**"
       - ".github/workflows/data-pool-postgres.yml"

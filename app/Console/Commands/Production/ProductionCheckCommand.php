@@ -73,13 +73,19 @@ final class ProductionCheckCommand extends Command
             return;
         }
 
-        $this->record('APP_ENV', 'WARN', "Current env is [{$env}] — expected production on live deploy.");
+        if ($env === 'staging') {
+            $this->record('APP_ENV', 'PASS', 'staging (pre-production; not a live customer environment)');
+
+            return;
+        }
+
+        $this->record('APP_ENV', 'WARN', "Current env is [{$env}] — expected staging or production on a deployed host.");
     }
 
     private function checkAppDebug(): void
     {
-        if (config('app.debug') === true && config('app.env') === 'production') {
-            $this->record('APP_DEBUG', 'FAIL', 'APP_DEBUG must be false in production.');
+        if (config('app.debug') === true && in_array(config('app.env'), ['production', 'staging'], true)) {
+            $this->record('APP_DEBUG', 'FAIL', 'APP_DEBUG must be false in staging and production.');
 
             return;
         }
