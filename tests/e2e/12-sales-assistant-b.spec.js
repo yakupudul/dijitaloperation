@@ -7,28 +7,33 @@ const INTERNAL_NOTE = 'INTERNAL_SALES_STRATEGY_DO_NOT_SHARE';
 
 async function switchLocale(page, code) {
     const group = page.getByRole('group', { name: /locale|dil|language/i });
-    const button = group.getByRole('button', { name: code });
-    if (await button.count()) {
-        const alreadySelected = await button.evaluate((el) => el.classList.contains('bg-brand-500'));
-        if (! alreadySelected) {
-            await button.click();
-            await waitForLivewire(page);
-        }
+    const button = group.getByRole('button', { name: code }).first();
+    const target = (await button.count()) ? button : page.getByRole('button', { name: code, exact: true }).first();
+    const alreadySelected = await target.evaluate((el) => el.classList.contains('bg-brand-500')).catch(() => false);
+    if (alreadySelected) {
         return;
     }
-    await page.getByRole('button', { name: code, exact: true }).click();
+
+    await target.click();
+    await expect(target).toHaveClass(/bg-brand-500/, { timeout: 15_000 });
+    await page.waitForLoadState('networkidle').catch(() => {});
     await waitForLivewire(page);
 }
 
 async function createProspect(page, title, website = FIXTURE_WEBSITE) {
-    await page.goto('/app/prospects/create?locale=en');
+    await page.goto('/app/prospects?locale=en');
     await waitForLivewire(page);
     await switchLocale(page, 'EN');
-    await page.locator('input[wire\\:model="company_name"]').fill(title);
+    await page.goto('/app/prospects/create?locale=en');
+    await waitForLivewire(page);
+
+    const company = page.locator('input[wire\\:model="company_name"]');
+    await company.fill(title);
     if (website) {
         await page.locator('input[wire\\:model="website_url"]').fill(website);
     }
     await page.locator('textarea[wire\\:model="inquiry"]').fill('Web sitesi ve Google reklamları konusunda destek arıyoruz.');
+    await expect(company).toHaveValue(title);
     await page.getByRole('button', { name: /^(Save|Kaydet)$/ }).click();
     await page.waitForURL((url) => /\/app\/prospects\/\d+$/.test(new URL(url).pathname), { timeout: 20_000 });
     await waitForLivewire(page);
@@ -146,6 +151,8 @@ test.describe('Sales Assistant Batch B golden path B', () => {
         await page.goto('/app/prospects/search-profiles?locale=en');
         await waitForLivewire(page);
         await switchLocale(page, 'EN');
+        await page.waitForLoadState('networkidle').catch(() => {});
+        await waitForLivewire(page);
         await page.getByRole('link', { name: /New Search Profile|Yeni Arama Profili/ }).click();
         await waitForLivewire(page);
         await page.locator('input[wire\\:model="name"]').fill(profileName);

@@ -104,6 +104,7 @@ class ProspectShow extends Component
             $research = app(ProspectResearchService::class);
             $run = $research->queue($prospect, auth()->user());
             $research->execute($run->fresh(), auth()->user());
+            $this->status = $prospect->fresh()?->status->value ?? $this->status;
 
             DemoState::flash(__('operator.prospects.research_queued'));
             $this->tab = 'research';

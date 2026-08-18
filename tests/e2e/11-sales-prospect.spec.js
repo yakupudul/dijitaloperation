@@ -5,16 +5,16 @@ const FIXTURE_WEBSITE = 'http://prospect-fixture.moxdop-e2e.test/';
 
 async function switchLocale(page, code) {
     const group = page.getByRole('group', { name: /locale|dil|language/i });
-    const button = group.getByRole('button', { name: code });
-    if (await button.count()) {
-        const alreadySelected = await button.evaluate((el) => el.classList.contains('bg-brand-500'));
-        if (! alreadySelected) {
-            await button.click();
-            await waitForLivewire(page);
-        }
+    const button = group.getByRole('button', { name: code }).first();
+    const target = (await button.count()) ? button : page.getByRole('button', { name: code, exact: true }).first();
+    const alreadySelected = await target.evaluate((el) => el.classList.contains('bg-brand-500')).catch(() => false);
+    if (alreadySelected) {
         return;
     }
-    await page.getByRole('button', { name: code, exact: true }).click();
+
+    await target.click();
+    await expect(target).toHaveClass(/bg-brand-500/, { timeout: 15_000 });
+    await page.waitForLoadState('networkidle').catch(() => {});
     await waitForLivewire(page);
 }
 
@@ -27,6 +27,7 @@ test.describe('Sales Assistant Prospect golden path', () => {
 
         await page.goto('/app/prospects?locale=en');
         await waitForLivewire(page);
+        await switchLocale(page, 'EN');
         await expect(page.locator('h1')).toContainText('Prospects');
 
         await page.getByRole('link', { name: 'New Prospect' }).click();
@@ -60,17 +61,19 @@ test.describe('Sales Assistant Prospect golden path', () => {
         await page.getByRole('button', { name: 'Overview' }).click();
         await waitForLivewire(page);
 
-        const statusSelect = page.locator('select[wire\\:model="status"]').first();
+        const statusSelect = page.locator('select[wire\\:model.live="status"], select[wire\\:model="status"]').first();
         await statusSelect.selectOption('qualified');
-        await page.getByRole('button', { name: /^Save$/ }).click();
         await waitForLivewire(page);
+        await page.locator('form[wire\\:submit\\.prevent="updateStatus"] button[type="submit"]').click();
+        await waitForLivewire(page);
+        await expect(page.locator('body')).toContainText(/Prospect status saved|Durum kaydedildi/i);
         await expect(statusSelect).toHaveValue('qualified');
 
         await page.reload();
         await waitForLivewire(page);
-        await page.getByRole('button', { name: 'Overview' }).click();
+        await page.getByRole('button', { name: /Overview|Genel Bakış/ }).click();
         await waitForLivewire(page);
-        await expect(page.locator('select[wire\\:model="status"]').first()).toHaveValue('qualified');
+        await expect(page.locator('select[wire\\:model.live="status"], select[wire\\:model="status"]').first()).toHaveValue('qualified');
     });
 
     test('TR chrome for Sales prospects navigation', async ({ page }) => {

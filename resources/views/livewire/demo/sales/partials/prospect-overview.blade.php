@@ -5,14 +5,14 @@
                 <p class="text-xs font-medium uppercase tracking-wide text-gray-400">{{ __('operator.prospects.identity_label') }}</p>
                 <form wire:submit.prevent="updateStatus" class="mt-2 space-y-3">
                     <x-ta.form.field :label="__('operator.prospects.identity_label')">
-                        <select wire:model="identity_status" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                        <select wire:model.live="identity_status" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
                             @foreach ($identityOptions as $value => $label)
                                 <option value="{{ $value }}">{{ $label }}</option>
                             @endforeach
                         </select>
                     </x-ta.form.field>
                     <x-ta.form.field :label="__('operator.forms.status')">
-                        <select wire:model="status" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                        <select wire:model.live="status" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
                             @foreach ($statusOptions as $value => $label)
                                 <option value="{{ $value }}">{{ $label }}</option>
                             @endforeach
