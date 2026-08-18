@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Demo\Website;
 
+use App\Contracts\WebsiteOperatorWorkspace;
 use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
 use App\Models\DigitalAsset;
 use App\Services\Async\AsyncOperationService;
@@ -11,7 +12,6 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
-use MoxDop\Website\Workspace\WebsiteWorkspaceData;
 
 /**
  * Legacy namespace retained temporarily for route compatibility.
@@ -99,12 +99,12 @@ class OverviewPage extends Component
         $this->tab = 'overview';
     }
 
-    public function render(WebsiteWorkspaceData $workspace): View
+    public function render(WebsiteOperatorWorkspace $workspace): View
     {
         $this->normalizeTab();
 
         $asset = $this->asset()->loadMissing('brand.customer');
-        $data = $workspace->for($asset);
+        $data = $workspace->overview($asset);
 
         return view('livewire.operator.website.overview', [
             'asset' => $asset,
