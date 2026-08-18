@@ -2,6 +2,7 @@
 
 namespace MoxDop\Website\Providers;
 
+use App\Contracts\WebsiteOperatorWorkspace;
 use App\Services\Findings\BoundEvidenceRuleRegistry;
 use App\Services\Integrations\BoundCollectorRegistry;
 use App\Support\Agents\AgentProfileRegistry;
@@ -18,12 +19,14 @@ use MoxDop\Website\Ai\WebsiteAiRoutes;
 use MoxDop\Website\Collection\Ga4BoundCollector;
 use MoxDop\Website\Collection\SearchConsoleBoundCollector;
 use MoxDop\Website\Findings\WebsitePerformanceBoundEvidenceEvaluator;
+use MoxDop\Website\Workspace\OperatorWebsiteWorkspace;
 
 class WebsiteServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
         $this->app->instance('moxdop.website.loaded', true);
+        $this->app->bind(WebsiteOperatorWorkspace::class, OperatorWebsiteWorkspace::class);
     }
 
     public function boot(): void
