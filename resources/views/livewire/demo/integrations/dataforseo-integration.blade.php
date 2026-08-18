@@ -8,7 +8,7 @@
             <div class="mt-2 flex flex-wrap items-center gap-2">
                 <x-ta.badge :color="$configured ? 'info' : 'light'" size="sm">{{ $statusLabel }}</x-ta.badge>
             </div>
-            <p class="mt-1 text-sm text-gray-500">Agency SEO intelligence credentials. A stored login is not a live connection and does not start paid collection.</p>
+            <p class="mt-1 text-sm text-gray-500">Agency SEO intelligence and Sales Intent provider. Stored credentials never trigger paid collection on page load.</p>
         </div>
         <x-ta.button href="{{ route('operator.integrations') }}" size="sm" variant="outline">All Integrations</x-ta.button>
     </div>
@@ -30,6 +30,12 @@
                     <dd class="font-medium text-gray-800 dark:text-white/90">{{ $accountLogin }}</dd>
                 </div>
             @endif
+            <div>
+                <dt class="text-gray-400">Sales Intent mode</dt>
+                <dd class="font-medium {{ $fixturesEnabled ? 'text-amber-600' : ($salesIntentPaidCalls ? 'text-emerald-600' : 'text-gray-600') }}">
+                    {{ $fixturesEnabled ? 'Fixtures' : ($salesIntentPaidCalls ? 'Live paid calls enabled' : 'Live paid calls disabled') }}
+                </dd>
+            </div>
         </dl>
     </div>
 
@@ -60,6 +66,27 @@
                 @endif
             </div>
         </form>
+
+        <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div class="max-w-3xl">
+                    <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Sales Intent live discovery</h3>
+                    <p class="mt-2 text-sm text-gray-500">Controls whether Intent Radar may call DataForSEO Google Organic SERP Live Regular. This can incur provider cost.</p>
+                    <p class="mt-2 text-xs text-gray-400">Safety: enabling this switch does not run anything automatically. Search Profile runs still require explicit paid-call consent from the operator.</p>
+                    @if ($fixturesEnabled)
+                        <p class="mt-3 text-sm font-medium text-amber-700">Fixture mode is enabled by deployment configuration. Disable fixture mode before treating Intent Radar output as real market evidence.</p>
+                    @endif
+                </div>
+                <form wire:submit.prevent="saveSalesIntentRuntime" class="shrink-0 rounded-xl bg-gray-50 p-4 dark:bg-white/[0.03]">
+                    <label class="flex items-center gap-3 text-sm font-medium text-gray-800 dark:text-gray-200">
+                        <input type="checkbox" wire:model="salesIntentPaidCalls" class="rounded border-gray-300" />
+                        Enable paid live calls
+                    </label>
+                    <button type="submit" class="mt-3 w-full rounded-lg bg-brand-500 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-600">Save runtime policy</button>
+                </form>
+            </div>
+        </section>
+
         @if ($confirmRemove)
             <div class="rounded-xl bg-warning-50 p-4 ring-1 ring-inset ring-warning-200 dark:bg-warning-500/10 dark:ring-warning-500/30">
                 <p class="text-sm font-medium text-gray-800 dark:text-white/90">Remove DataForSEO credentials?</p>

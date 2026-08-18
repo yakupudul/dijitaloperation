@@ -19,6 +19,7 @@ use App\Models\User;
 use App\Models\UserNotification;
 use App\Services\Approvals\ApprovalService;
 use App\Services\DomainEvents\DomainEventEmitter;
+use App\Services\Notifications\NotificationWriteService;
 use App\Services\Qa\QaService;
 use App\Services\Recommendations\CreateRecommendationFromFinding;
 use App\Services\Recommendations\UpdateRecommendation;
@@ -189,7 +190,7 @@ class ActivityNotificationDomainWiringTest extends TestCase
         $notification = UserNotification::query()->first();
         $this->assertNotNull($notification);
 
-        app(\App\Services\Notifications\NotificationWriteService::class)
+        app(NotificationWriteService::class)
             ->markRead($this->assignee, (int) $notification->id);
 
         $this->assertNotNull($notification->fresh()->read_at);
@@ -241,7 +242,7 @@ class ActivityNotificationDomainWiringTest extends TestCase
             ->count());
 
         $before = now();
-        $marked = app(\App\Services\Notifications\NotificationWriteService::class)
+        $marked = app(NotificationWriteService::class)
             ->markAllRead($this->assignee, $before);
         $this->assertGreaterThanOrEqual(1, $marked);
 

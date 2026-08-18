@@ -39,14 +39,15 @@ class BrandPublicDiscoveryWorkspaceTest extends TestCase
         ]);
     }
 
-    public function test_public_discovery_is_empty_without_canonical_candidates(): void
+    public function test_brand_discovery_does_not_render_fake_candidates_without_a_website(): void
     {
         Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id, 'tab' => 'discovery'])
             ->assertSee('Public Discovery')
-            ->assertSee('No Public Discovery candidates')
+            ->assertSee('REAL ENGINE')
+            ->assertSee('Website varlığı ekle')
+            ->assertSee('Tüm Kamu Keşif merkezi')
             ->assertDontSee('Dental Implant')
             ->assertDontSee('Smile Design')
-            ->assertDontSee('Çankaya')
             ->assertDontSee('Discovery Score')
             ->assertDontSee('AI confidence')
             ->assertDontSee('Atlas Dental');

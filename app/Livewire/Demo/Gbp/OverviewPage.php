@@ -2,10 +2,12 @@
 
 namespace App\Livewire\Demo\Gbp;
 
+use App\Contracts\GbpOperatorWorkspace;
 use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
 use App\Livewire\Demo\Concerns\ResolvesCanonicalOperatorAsset;
+use App\Models\DigitalAsset;
+use App\Services\Async\AsyncOperationService;
 use App\Support\Demo\DemoState;
-use App\Support\Reality\UnavailableWorkspaceShells;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -72,9 +74,7 @@ class OverviewPage extends Component
     #[Url(as: 'attention')]
     public ?string $attention = null;
 
-    /**
-     * @var list<string>
-     */
+    /** @var list<string> */
     public array $allowedTabs = [
         'overview',
         'profile',
@@ -85,21 +85,14 @@ class OverviewPage extends Component
         'operations',
     ];
 
-    /**
-     * @var array<string, string>
-     */
+    /** @var array<string, string> */
     private const LEGACY_TAB_MAP = [
         'queries' => 'performance',
         'insights' => 'overview',
     ];
 
-    /**
-     * @var list<string>
-     */
-    public array $timeBasedTabs = [
-        'performance',
-        'reviews',
-    ];
+    /** @var list<string> */
+    public array $timeBasedTabs = ['performance', 'reviews'];
 
     public function mount(?string $assetId = null): void
     {
@@ -224,21 +217,25 @@ class OverviewPage extends Component
         $this->attention = null;
     }
 
-    public function refreshData(): void
+    public function refreshData(AsyncOperationService $async): void
     {
-        DemoState::flash(__('operator.flash.gbp_refresh_unavailable'), 'info');
+        $result = $async->queueBoundCollect($this->asset(), auth()->user(), [
+            'trigger' => 'operator.gbp.refresh',
+        ]);
+
+        DemoState::flash((string) ($result['message'] ?? 'GBP collection queued.'), ($result['ok'] ?? false) ? 'success' : 'info');
     }
 
     public function runLocalVisibilityScan(): void
     {
-        DemoState::flash(__('operator.flash.gbp_scan_unavailable'), 'info');
+        DemoState::flash('A real local-rank grid collector is not wired yet; no fabricated scan was created.', 'info');
         $this->tab = 'visibility';
         $this->scan = 'latest';
     }
 
     public function createReviewTask(string $reviewId): void
     {
-        DemoState::flash(__('operator.flash.gbp_review_task_unavailable', ['id' => $reviewId]), 'info');
+        DemoState::flash('Live GBP reviews are not collected yet, so no review task was fabricated for '.$reviewId.'.', 'info');
         $this->reviews_sub = 'queue';
         $this->tab = 'reviews';
     }
@@ -258,69 +255,57 @@ class OverviewPage extends Component
         }
     }
 
-    public function render(): View
+    public function render(GbpOperatorWorkspace $workspace): View
     {
         $this->normalizeTab();
 
-        $data = UnavailableWorkspaceShells::gbp($this->assetId);
-        $emptySeries = ['labels' => [], 'values' => []];
+        $asset = $this->asset()->loadMissing('brand');
+        $data = $workspace->for($asset);
+        $identity = $data['identity'];
+        $visibility = array_merge([
+            'subtitle' => 'Local visibility has not been measured for this production GBP.',
+            'keywords' => [],
+            'default_keyword' => '',
+            'scans' => [],
+            'coverage_regions' => [],
+            'comparison' => [],
+            'opportunities' => [],
+            'business' => ['name' => $identity['title'] ?? null, 'lat' => null, 'lng' => null, 'label' => null],
+            'note' => 'No real local-rank grid collector is wired yet.',
+        ], is_array($data['visibility'] ?? null) ? $data['visibility'] : []);
+
+        $emptyScan = [
+            'points' => [],
+            'scanned_at' => '—',
+            'average_rank' => '—',
+            'top3_count' => 0,
+            'top10_count' => 0,
+            'best' => '—',
+            'worst' => '—',
+            'grid' => '—',
+            'radius' => '—',
+            'source' => 'Not collected',
+            'weakness' => 'No real local visibility scan exists.',
+        ];
 
         return view('livewire.demo.gbp.overview', [
-            'asset' => [
-                'id' => $this->assetId,
-                'name' => $data['identity']['title'] ?? 'GBP',
-                'type' => 'gbp',
-            ],
+            'asset' => $this->presentCanonicalAsset(),
             'data' => $data,
-            'identity' => $data['identity'],
-            'visibility' => array_merge([
-                'subtitle' => 'Local visibility has not been measured for this production GBP.',
-                'keywords' => [],
-                'default_keyword' => '',
-                'scans' => [],
-                'coverage_regions' => [],
-                'comparison' => [],
-                'opportunities' => [],
-                'business' => ['name' => null, 'lat' => null, 'lng' => null, 'label' => null],
-                'note' => 'Local visibility grid is unavailable — no fabricated rankings.',
-            ], is_array($data['visibility'] ?? null) ? $data['visibility'] : []),
-            'currentScan' => [
-                'points' => [],
-                'scanned_at' => '—',
-                'average_rank' => '—',
-                'top3_count' => 0,
-                'top10_count' => 0,
-                'best' => '—',
-                'worst' => '—',
-                'grid' => '—',
-                'radius' => '—',
-                'source' => 'Not collected',
-                'weakness' => 'No local visibility scan has been collected.',
-            ],
-            'previousScan' => [
-                'points' => [],
-                'scanned_at' => '—',
-                'average_rank' => '—',
-                'top3_count' => 0,
-                'top10_count' => 0,
-                'best' => '—',
-                'worst' => '—',
-                'grid' => '—',
-                'radius' => '—',
-                'source' => 'Not collected',
-                'weakness' => 'No previous scan exists.',
-            ],
+            'identity' => $identity,
+            'visibility' => $visibility,
+            'currentScan' => $emptyScan,
+            'previousScan' => $emptyScan,
             'points' => [],
             'selectedPoint' => null,
-            'mapPayload' => ['mode' => 'rank', 'business' => ['name' => null, 'lat' => null, 'lng' => null, 'address' => null], 'points' => []],
-            'miniMapPayload' => ['mode' => 'rank', 'business' => ['name' => null, 'lat' => null, 'lng' => null, 'address' => null], 'points' => []],
+            'mapPayload' => ['mode' => 'rank', 'business' => ['name' => $identity['title'] ?? null, 'lat' => null, 'lng' => null, 'address' => $identity['location_line'] ?? null], 'points' => []],
+            'miniMapPayload' => ['mode' => 'rank', 'business' => ['name' => $identity['title'] ?? null, 'lat' => null, 'lng' => null, 'address' => $identity['location_line'] ?? null], 'points' => []],
             'queryRows' => [],
             'reviewInbox' => [],
             'selectedFinding' => null,
             'selectedAttention' => null,
             'showPeriodBar' => in_array($this->tab, $this->timeBasedTabs, true),
             'discoveryChartOptions' => [
-                'chart' => ['type' => 'area', 'height' => 240, 'toolbar' => ['show' => false], 'stacked' => false],
+                'chart' => ['type' => 'area', 'height' => 240, 'toolbar' => ['show' => false]],
                 'series' => [],
                 'xaxis' => ['categories' => []],
                 'stroke' => ['curve' => 'smooth', 'width' => 2],
@@ -330,7 +315,7 @@ class OverviewPage extends Component
             ],
             'actionsChartOptions' => [
                 'chart' => ['type' => 'line', 'height' => 240, 'toolbar' => ['show' => false]],
-                'series' => [['name' => 'Customer actions', 'data' => []]],
+                'series' => [],
                 'xaxis' => ['categories' => []],
                 'stroke' => ['curve' => 'smooth', 'width' => 2],
                 'dataLabels' => ['enabled' => false],
@@ -338,5 +323,13 @@ class OverviewPage extends Component
             ],
             'flash' => DemoState::pullFlash(),
         ]);
+    }
+
+    private function asset(): DigitalAsset
+    {
+        return DigitalAsset::query()
+            ->whereKey((int) $this->assetId)
+            ->whereIn('type', ['google_business_profile', 'gbp'])
+            ->firstOrFail();
     }
 }

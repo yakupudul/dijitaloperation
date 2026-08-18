@@ -176,7 +176,7 @@ final class ApprovalService
             }
         }
 
-        return DB::transaction(function () use ($approval, $decision, $actorKind, $decidedByUserId, $decidedByContactId, $data, $actor): Approval {
+        return DB::transaction(function () use ($approval, $decision, $actorKind, $decidedByUserId, $decidedByContactId, $data): Approval {
             /** @var Approval $locked */
             $locked = Approval::query()->lockForUpdate()->findOrFail($approval->id);
             if ($locked->status === ApprovalStatus::Decided) {

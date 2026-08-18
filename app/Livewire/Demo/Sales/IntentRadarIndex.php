@@ -5,7 +5,9 @@ namespace App\Livewire\Demo\Sales;
 use App\Enums\IntentPurchaseStage;
 use App\Enums\IntentSignalStatus;
 use App\Models\SalesIntentSignal;
+use App\Services\Sales\DataForSeoIntentSearchAdapter;
 use App\Support\Options\AgencyServiceOptions;
+use App\Support\Sales\IntentSearchConfig;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -19,7 +21,7 @@ class IntentRadarIndex extends Component
     #[Url]
     public string $status = 'new';
 
-    public function render(): View
+    public function render(DataForSeoIntentSearchAdapter $adapter): View
     {
         $query = SalesIntentSignal::query()
             ->with('searchProfile')
@@ -47,8 +49,24 @@ class IntentRadarIndex extends Component
             'reason' => $signal->classification_reason,
         ])->all();
 
+        $reality = $adapter->reality();
+        $fixturesEnabled = IntentSearchConfig::fixturesEnabled();
+        $paidCallsEnabled = IntentSearchConfig::paidCallsEnabled();
+
         return view('livewire.demo.sales.intent-radar-index', [
             'rows' => $rows,
+            'engine' => [
+                'provider' => 'DataForSEO',
+                'endpoint' => $adapter->endpoint(),
+                'reality' => $fixturesEnabled ? 'fixture' : $reality['reality'],
+                'configured' => $reality['configured'],
+                'paid_calls_enabled' => $paidCallsEnabled,
+                'fixtures_enabled' => $fixturesEnabled,
+                'ready' => ! $fixturesEnabled && $reality['reality'] === 'real',
+                'message' => $fixturesEnabled
+                    ? 'Fixture mode is enabled. Results are not live market evidence.'
+                    : ($reality['message'] ?? null),
+            ],
             'statusOptions' => [
                 '' => __('operator.forms.status'),
                 IntentSignalStatus::New->value => __('operator.sales_intent.signal_statuses.new'),

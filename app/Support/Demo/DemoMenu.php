@@ -3,9 +3,9 @@
 namespace App\Support\Demo;
 
 /**
- * Canonical operator navigation for the full product demo (TailAdmin sidebar).
+ * Canonical operator navigation for the TailAdmin operator shell.
  *
- * Module/package architecture is intentionally not exposed here.
+ * The class name is legacy; navigation may point to real operator engine surfaces.
  */
 final class DemoMenu
 {
@@ -27,6 +27,7 @@ final class DemoMenu
                     ['label' => __('operator.nav.customers'), 'route' => 'operator.customers', 'icon' => 'customers'],
                     ['label' => __('operator.nav.brands'), 'route' => 'operator.brands', 'icon' => 'brands'],
                     ['label' => __('operator.nav.digital_assets'), 'route' => 'operator.assets', 'icon' => 'assets'],
+                    ['label' => app()->getLocale() === 'tr' ? 'Kamu Keşif' : 'Public Discovery', 'route' => 'operator.public-discovery', 'icon' => 'discovery'],
                     ['label' => __('operator.nav.files'), 'route' => 'operator.files', 'icon' => 'files'],
                 ],
             ],
@@ -34,6 +35,7 @@ final class DemoMenu
                 'label' => __('operator.nav.groups.sales'),
                 'items' => [
                     ['label' => __('operator.nav.prospects'), 'route' => 'operator.prospects', 'icon' => 'prospects'],
+                    ['label' => __('operator.nav.intent_radar'), 'route' => 'operator.intent-radar', 'icon' => 'activity'],
                 ],
             ],
             [
