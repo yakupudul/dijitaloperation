@@ -8,6 +8,8 @@ use App\Http\Controllers\Prospects\ProspectReportShareController;
 use App\Http\Controllers\Reports\ReportArtifactDownloadController;
 use App\Http\Controllers\Reports\ReportShareController;
 use App\Http\Middleware\EnsureDemoAppAccess;
+use App\Livewire\Operator\GoogleAds\OverviewPage as OperatorGoogleAdsOverviewPage;
+use App\Livewire\Operator\Meta\OverviewPage as OperatorMetaOverviewPage;
 use App\Livewire\Operator\PublicDiscoveryIndex;
 use App\Livewire\Operator\Website\DataSourcesPage;
 use App\Livewire\Operator\Website\PublicDiscoveryPage;
@@ -78,6 +80,8 @@ Route::middleware(['web'])->prefix('reports/share')->name('reports.share.')->gro
 require __DIR__.'/demo.php';
 
 // Real operator engine surfaces: outside Demo component namespaces, with the same access contract.
+// Routes intentionally registered after the legacy route file so these production behavior
+// classes replace the legacy handler for the same canonical URI/name.
 Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])->group(function (): void {
     Route::livewire('/public-discovery', PublicDiscoveryIndex::class)
         ->name('operator.public-discovery');
@@ -89,6 +93,12 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])->group(function (
     Route::livewire('/assets/website/{assetId}/discovery', PublicDiscoveryPage::class)
         ->whereNumber('assetId')
         ->name('operator.website.discovery');
+
+    Route::livewire('/assets/google-ads/{assetId?}', OperatorGoogleAdsOverviewPage::class)
+        ->name('operator.google-ads.overview');
+
+    Route::livewire('/assets/meta/{assetId?}', OperatorMetaOverviewPage::class)
+        ->name('operator.meta.overview');
 });
 
 Route::any('/app/{path?}', function (): never {
