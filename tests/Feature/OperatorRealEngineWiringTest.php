@@ -17,7 +17,8 @@ class OperatorRealEngineWiringTest extends TestCase
         $source = file_get_contents(app_path('Livewire/Demo/Website/OverviewPage.php'));
 
         $this->assertIsString($source);
-        $this->assertStringContainsString('WebsiteWorkspaceData', $source);
+        $this->assertStringContainsString('WebsiteOperatorWorkspace', $source);
+        $this->assertStringNotContainsString('MoxDop\\Website', $source);
         $this->assertStringNotContainsString('UnavailableWorkspaceShells', $source);
         $this->assertStringNotContainsString('WebsiteWorkspaceFixtures', $source);
     }
