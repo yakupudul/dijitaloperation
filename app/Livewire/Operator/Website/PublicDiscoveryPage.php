@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Operator\Website;
 
+use App\Contracts\WebsiteOperatorWorkspace;
 use App\Models\DigitalAsset;
 use App\Models\DiscoveryCandidate;
 use App\Models\User;
@@ -11,8 +12,6 @@ use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
-use MoxDop\Website\Discovery\DiscoveryCandidateReviewService;
-use MoxDop\Website\Workspace\WebsiteWorkspaceData;
 use Throwable;
 
 #[Layout('operator.layouts.app')]
@@ -51,15 +50,13 @@ class PublicDiscoveryPage extends Component
         }
     }
 
-    public function acceptCandidate(int $candidateId, DiscoveryCandidateReviewService $reviews): void
+    public function acceptCandidate(int $candidateId, WebsiteOperatorWorkspace $workspace): void
     {
         $actor = auth()->user();
         abort_unless($actor instanceof User, 403);
 
-        $candidate = $this->candidate($candidateId);
-
         try {
-            $reviews->accept($candidate, $actor);
+            $workspace->acceptCandidate($this->candidate($candidateId), $actor);
             $this->statusTone = 'success';
             $this->statusMessage = 'Candidate accepted into canonical brand context.';
         } catch (ValidationException $e) {
@@ -72,13 +69,13 @@ class PublicDiscoveryPage extends Component
         }
     }
 
-    public function ignoreCandidate(int $candidateId, DiscoveryCandidateReviewService $reviews): void
+    public function ignoreCandidate(int $candidateId, WebsiteOperatorWorkspace $workspace): void
     {
         $actor = auth()->user();
         abort_unless($actor instanceof User, 403);
 
         try {
-            $reviews->ignore($this->candidate($candidateId), $actor);
+            $workspace->ignoreCandidate($this->candidate($candidateId), $actor);
             $this->statusTone = 'success';
             $this->statusMessage = 'Candidate ignored.';
         } catch (Throwable $e) {
@@ -88,7 +85,7 @@ class PublicDiscoveryPage extends Component
         }
     }
 
-    public function render(WebsiteWorkspaceData $workspace): View
+    public function render(WebsiteOperatorWorkspace $workspace): View
     {
         $asset = $this->asset();
 
