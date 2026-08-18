@@ -12,18 +12,30 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 #[Fillable([
     'digital_asset_id',
+    'customer_id',
+    'brand_id',
     'source_module',
+    'origin',
+    'rule_id',
+    'rule_version',
     'fingerprint',
+    'semantic_fingerprint',
+    'subject_kind',
+    'subject_id',
+    'brand_goal_id',
+    'brand_offering_id',
     'category',
     'severity',
     'title',
     'summary',
     'confidence',
     'status',
+    'condition_state',
     'first_seen_at',
     'last_seen_at',
     'last_run_id',
     'resolved_at',
+    'latest_evaluation_id',
 ])]
 class Finding extends Model
 {
@@ -45,11 +57,59 @@ class Finding extends Model
     }
 
     /**
+     * @return BelongsTo<Customer, $this>
+     */
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
+    /**
+     * @return BelongsTo<Brand, $this>
+     */
+    public function brand(): BelongsTo
+    {
+        return $this->belongsTo(Brand::class);
+    }
+
+    /**
+     * @return BelongsTo<BrandGoal, $this>
+     */
+    public function brandGoal(): BelongsTo
+    {
+        return $this->belongsTo(BrandGoal::class);
+    }
+
+    /**
+     * @return BelongsTo<BrandOffering, $this>
+     */
+    public function brandOffering(): BelongsTo
+    {
+        return $this->belongsTo(BrandOffering::class);
+    }
+
+    /**
      * @return BelongsTo<Run, $this>
      */
     public function lastRun(): BelongsTo
     {
         return $this->belongsTo(Run::class, 'last_run_id');
+    }
+
+    /**
+     * @return BelongsTo<FindingEvaluation, $this>
+     */
+    public function latestEvaluation(): BelongsTo
+    {
+        return $this->belongsTo(FindingEvaluation::class, 'latest_evaluation_id');
+    }
+
+    /**
+     * @return HasMany<FindingEvaluation, $this>
+     */
+    public function evaluations(): HasMany
+    {
+        return $this->hasMany(FindingEvaluation::class);
     }
 
     /**
@@ -78,6 +138,7 @@ class Finding extends Model
             'first_seen_at' => 'datetime',
             'last_seen_at' => 'datetime',
             'resolved_at' => 'datetime',
+            'rule_version' => 'integer',
         ];
     }
 }

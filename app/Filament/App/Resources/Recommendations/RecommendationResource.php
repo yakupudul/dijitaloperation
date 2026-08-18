@@ -2,6 +2,9 @@
 
 namespace App\Filament\App\Resources\Recommendations;
 
+use App\Enums\RecommendationOrigin;
+use App\Enums\RecommendationSourceKind;
+use App\Filament\App\Resources\Findings\FindingResource;
 use App\Filament\App\Resources\Recommendations\Pages\ListRecommendations;
 use App\Filament\App\Resources\Recommendations\Pages\ViewRecommendation;
 use App\Filament\App\Resources\Tasks\TaskResource;
@@ -26,6 +29,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use UnitEnum;
 
@@ -80,15 +84,31 @@ class RecommendationResource extends Resource
             ->components([
                 TextEntry::make('id')
                     ->label('ID'),
+                TextEntry::make('source_kind')
+                    ->label('Source kind')
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state): string => RecommendationSourceKind::tryFrom((string) $state)?->label() ?? '—')
+                    ->color(fn (?string $state): string => $state === RecommendationSourceKind::Opportunity->value ? 'info' : 'warning'),
                 TextEntry::make('finding_id')
                     ->label('Finding')
                     ->formatStateUsing(fn (?int $state): string => $state !== null ? "Finding #{$state}" : '-')
+                    ->url(fn ($record): ?string => $record->finding_id === null
+                        ? null
+                        : FindingResource::getUrl('view', ['record' => $record->finding_id]))
+                    ->placeholder('-'),
+                TextEntry::make('opportunity_id')
+                    ->label('Opportunity')
+                    ->formatStateUsing(fn (?int $state): string => $state !== null ? "Opportunity #{$state}" : '-')
                     ->placeholder('-'),
                 TextEntry::make('digitalAsset.name')
                     ->label('Digital asset')
                     ->placeholder('-'),
                 TextEntry::make('origin')
                     ->label('Origin')
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state): string => RecommendationOrigin::tryFrom((string) $state)?->label() ?? '—'),
+                TextEntry::make('provenance')
+                    ->label('Provenance')
                     ->badge()
                     ->state(fn ($record): string => ($record->source_module ?? '') === 'website-ai-insights'
                         ? 'AI-assisted'
@@ -150,6 +170,16 @@ class RecommendationResource extends Resource
             ]);
     }
 
+    /**
+     * Prompt65: eager-load DigitalAsset for list columns.
+     *
+     * @return Builder<Recommendation>
+     */
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->with(['digitalAsset:id,name']);
+    }
+
     public static function table(Table $table): Table
     {
         return $table
@@ -194,12 +224,17 @@ class RecommendationResource extends Resource
                     ->label('ID')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('source_kind')
+                    ->label('Source kind')
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state): string => RecommendationSourceKind::tryFrom((string) $state)?->label() ?? '—')
+                    ->color(fn (?string $state): string => $state === RecommendationSourceKind::Opportunity->value ? 'info' : 'warning')
+                    ->sortable()
+                    ->toggleable(),
                 TextColumn::make('origin')
                     ->label('Origin')
                     ->badge()
-                    ->state(fn ($record): string => ($record->source_module ?? '') === 'website-ai-insights'
-                        ? 'AI-assisted'
-                        : 'Deterministic')
+                    ->formatStateUsing(fn (?string $state): string => RecommendationOrigin::tryFrom((string) $state)?->label() ?? '—')
                     ->toggleable(),
                 TextColumn::make('source_module')
                     ->label('Source')
@@ -213,6 +248,12 @@ class RecommendationResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                SelectFilter::make('source_kind')
+                    ->label('Source kind')
+                    ->options([
+                        RecommendationSourceKind::Finding->value => RecommendationSourceKind::Finding->label(),
+                        RecommendationSourceKind::Opportunity->value => RecommendationSourceKind::Opportunity->label(),
+                    ]),
                 SelectFilter::make('digital_asset_id')
                     ->label('Digital asset')
                     ->relationship('digitalAsset', 'name')

@@ -12,7 +12,7 @@ use Livewire\Component;
 
 /**
  * Full Agent Profile catalog under /app (read-only V1 — same domain as Filament).
- * Operators must not need /system for routine AI administration.
+ * Operators must not need /admin for routine AI administration.
  */
 #[Layout('operator.layouts.app')]
 #[Title('Agent Profiles')]

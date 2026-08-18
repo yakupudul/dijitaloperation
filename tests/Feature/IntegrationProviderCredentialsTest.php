@@ -367,12 +367,12 @@ class IntegrationProviderCredentialsTest extends TestCase
     public function test_missing_configuration_gives_clean_setup_required_state(): void
     {
         $this->assertSame(GoogleAuthStatus::NOT_CONFIGURED, GoogleAuthStatus::for($this->integration));
-        $this->assertSame('Incomplete', GoogleAuthStatus::applicationConfigurationLabel($this->integration));
-        $this->assertSame('Developer token missing', GoogleAuthStatus::adsDeveloperTokenLabel($this->integration));
+        $this->assertSame('Not configured', GoogleAuthStatus::applicationConfigurationLabel($this->integration));
+        $this->assertSame('Missing', GoogleAuthStatus::adsDeveloperTokenLabel($this->integration));
 
         $begin = app(GoogleOAuthService::class)->beginAuthorization($this->integration, $this->admin);
         $this->assertArrayHasKey('error', $begin);
-        $this->assertStringContainsString('application credentials', $begin['error']);
+        $this->assertSame('Configure Google application first.', $begin['error']);
     }
 
     public function test_google_ads_developer_token_resolves_through_resolver(): void

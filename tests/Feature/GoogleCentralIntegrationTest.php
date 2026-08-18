@@ -100,7 +100,7 @@ class GoogleCentralIntegrationTest extends TestCase
         $this->get(route('integrations.google.callback', [
             'code' => 'auth-code',
             'state' => 'valid-state',
-        ]))->assertRedirect(route('demo.integrations.google'));
+        ]))->assertRedirect(route('operator.integrations.google'));
 
         $credential = CoreIntegrationCredential::query()
             ->where('integration_id', $this->integration->id)
@@ -128,7 +128,7 @@ class GoogleCentralIntegrationTest extends TestCase
         config(['moxdop.google.client_id' => null, 'moxdop.google.client_secret' => null]);
 
         $this->get(route('integrations.google.authorize', $this->integration))
-            ->assertRedirect(route('demo.integrations.google'));
+            ->assertRedirect(route('operator.integrations.google'));
 
         $this->assertSame(GoogleAuthStatus::NOT_CONFIGURED, GoogleAuthStatus::for($this->integration->fresh()));
 
@@ -140,11 +140,11 @@ class GoogleCentralIntegrationTest extends TestCase
         $this->get(route('integrations.google.callback', [
             'error' => 'access_denied',
             'state' => 'x',
-        ]))->assertRedirect(route('demo.integrations'));
+        ]))->assertRedirect(route('operator.integrations'));
 
-        $this->assertStringStartsWith(url('/app'), route('demo.integrations.google'));
-        $this->assertStringNotContainsString('/system', route('demo.integrations.google'));
-        $this->assertStringNotContainsString('/system', route('demo.integrations'));
+        $this->assertStringStartsWith(url('/'), route('operator.integrations.google'));
+        $this->assertStringNotContainsString('/system', route('operator.integrations.google'));
+        $this->assertStringNotContainsString('/system', route('operator.integrations'));
     }
 
     public function test_token_refresh_updates_encrypted_access_token(): void
@@ -186,8 +186,12 @@ class GoogleCentralIntegrationTest extends TestCase
             'expires_at' => now()->addHour(),
         ]);
 
-        // Missing developer token => Ads setup_required; GBP disabled => setup_required.
-        config(['moxdop.google.developer_token' => null]);
+        // Missing developer token => Ads setup_required; GBP scope off => scope_required.
+        config([
+            'moxdop.google.developer_token' => null,
+            'moxdop.google.include_gbp_scope' => false,
+            'moxdop.google.gbp_discovery_enabled' => false,
+        ]);
 
         Http::fake([
             'https://www.googleapis.com/webmasters/v3/sites' => Http::response([
@@ -215,7 +219,7 @@ class GoogleCentralIntegrationTest extends TestCase
         $this->assertSame('ok', $result['results']['search_console']['status']);
         $this->assertSame('ok', $result['results']['ga4']['status']);
         $this->assertSame('setup_required', $result['results']['google_ads']['status']);
-        $this->assertSame('setup_required', $result['results']['google_business_profile']['status']);
+        $this->assertSame('scope_required', $result['results']['google_business_profile']['status']);
 
         $this->assertDatabaseHas('core_external_resources', [
             'integration_id' => $this->integration->id,
@@ -398,7 +402,7 @@ class GoogleCentralIntegrationTest extends TestCase
         $this->assertFalse(IntegrationResource::canAccess());
     }
 
-    public function test_disconnect_clears_credentials_and_marks_resources_unavailable(): void
+    public function test_disconnect_clears_credentials_and_preserves_resources_bindings(): void
     {
         CoreIntegrationCredential::factory()->provider()->create([
             'integration_id' => $this->integration->id,
@@ -436,9 +440,10 @@ class GoogleCentralIntegrationTest extends TestCase
         $this->assertFalse($this->integration->fresh()->authorizationCredential()->exists());
         $this->assertTrue($this->integration->fresh()->providerCredential()->exists());
         $this->assertSame('keep-client-secret', $this->integration->fresh()->providerCredential->encrypted_payload['client_secret']);
-        $this->assertSame('unavailable', $resource->fresh()->status);
-        $this->assertSame('disabled', CoreAssetBinding::query()->first()->status);
+        $this->assertSame('available', $resource->fresh()->status);
+        $this->assertSame('active', CoreAssetBinding::query()->first()->status);
         $this->assertDatabaseHas('digital_assets', ['id' => $asset->id]);
+        $this->assertSame(GoogleAuthStatus::REVOKED, GoogleAuthStatus::for($this->integration->fresh(['credential'])));
     }
 
     public function test_google_integration_view_shows_setup_and_actions_without_secrets(): void

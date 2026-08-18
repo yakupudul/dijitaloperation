@@ -2,7 +2,7 @@
 
 namespace App\Livewire\Demo\Meta;
 
-use App\Support\Demo\DemoCatalog;
+use App\Support\Reality\OperatorCanonicalAsset;
 use Livewire\Component;
 
 /**
@@ -14,8 +14,10 @@ abstract class RedirectToWorkspace extends Component
 
     public function mount(string $assetId): void
     {
-        $this->redirect(route('demo.meta.overview', [
-            'assetId' => $assetId ?: DemoCatalog::META_ASSET_ID,
+        $asset = OperatorCanonicalAsset::require($assetId, ['meta_ads']);
+
+        $this->redirect(route('operator.meta.overview', [
+            'assetId' => (string) $asset->id,
             'tab' => $this->targetTab(),
         ]), navigate: true);
     }

@@ -48,10 +48,7 @@ final class IntegrationHealthPresenter
                 $integration,
                 app(GeminiCredentialResolver::class)->isConfigured($integration),
             ),
-            ProviderRegistry::META => $this->apiKeyProviderStatus(
-                $integration,
-                app(MetaCredentialResolver::class)->isConfigured($integration),
-            ),
+            ProviderRegistry::META => $this->metaStatus($integration),
             default => IntegrationOperatorStatus::NOT_CONFIGURED,
         };
     }
@@ -111,6 +108,21 @@ final class IntegrationHealthPresenter
             GoogleAuthStatus::AUTHORIZATION_REQUIRED => IntegrationOperatorStatus::CONFIGURED,
             default => IntegrationOperatorStatus::NOT_CONFIGURED,
         };
+    }
+
+    private function metaStatus(CoreIntegration $integration): string
+    {
+        $resolver = app(MetaCredentialResolver::class);
+
+        if (! $resolver->isApplicationConfigured($integration)) {
+            return IntegrationOperatorStatus::NOT_CONFIGURED;
+        }
+
+        if (! $resolver->hasTenantAuthorization($integration)) {
+            return IntegrationOperatorStatus::CONFIGURED;
+        }
+
+        return $this->apiKeyProviderStatus($integration, true);
     }
 
     private function apiKeyProviderStatus(CoreIntegration $integration, bool $configured): string

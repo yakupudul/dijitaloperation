@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Demo\Settings;
 
+use App\Services\Playbooks\PlaybookReadService;
 use App\Support\Demo\AgencyExecutionFixtures;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
@@ -22,12 +23,12 @@ class PlaybookShow extends Component
 
     public function render(): View
     {
-        $playbook = AgencyExecutionFixtures::playbook($this->playbookId);
+        $playbook = app(PlaybookReadService::class)->findPresentation($this->playbookId);
 
         return view('livewire.demo.settings.playbook-show', [
             'playbook' => $playbook,
             'recentReviews' => $playbook !== null
-                ? AgencyExecutionFixtures::recentReviewsForPlaybook($this->playbookId)
+                ? AgencyExecutionFixtures::recentReviewsForPlaybook((string) ($playbook['stable_key'] ?? $this->playbookId))
                 : [],
             'flash' => DemoState::pullFlash(),
         ]);

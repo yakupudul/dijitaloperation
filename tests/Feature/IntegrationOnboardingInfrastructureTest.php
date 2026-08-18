@@ -8,9 +8,11 @@ use App\Livewire\Demo\Portfolio\AssetCreate;
 use App\Livewire\Demo\Portfolio\AssetsIndex;
 use App\Livewire\Demo\Portfolio\PortfolioSetupWizard;
 use App\Livewire\Demo\Website\OverviewPage as WebsiteOverviewPage;
+use App\Models\Brand;
+use App\Models\Customer;
+use App\Models\DigitalAsset;
 use App\Models\User;
 use App\Support\Demo\ConnectorWorkspaceFixtures;
-use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -37,23 +39,23 @@ class IntegrationOnboardingInfrastructureTest extends TestCase
 
     public function test_integrations_hub_and_google_meta_connectors_smoke(): void
     {
-        $this->get(route('demo.integrations'))
+        $this->get(route('operator.integrations'))
             ->assertOk()
             ->assertSee('Google')
             ->assertSee('Meta')
             ->assertSee('DataForSEO')
             ->assertSee('OpenAI');
 
-        $this->get(route('demo.integrations.google'))
+        $this->get(route('operator.integrations.google'))
             ->assertOk()
             ->assertSee('Connectors');
 
-        $this->get(route('demo.integrations.meta'))
+        $this->get(route('operator.integrations.meta'))
             ->assertOk()
             ->assertSee('Meta Ads Connector');
 
         foreach (['google-ads', 'ga4', 'gsc', 'gbp', 'meta-ads'] as $connector) {
-            $this->get(route('demo.integrations.connector', ['connector' => $connector]))
+            $this->get(route('operator.integrations.connector', ['connector' => $connector]))
                 ->assertOk()
                 ->assertSee('Overview')
                 ->assertSee('Resources')
@@ -64,77 +66,55 @@ class IntegrationOnboardingInfrastructureTest extends TestCase
         }
     }
 
-    public function test_connector_resources_bound_available_and_no_analytics_duplication(): void
+    public function test_connector_resources_are_empty_until_configured(): void
     {
         Livewire::test(ConnectorPage::class, ['connector' => 'ga4'])
             ->assertSee('Google Analytics')
-            ->assertSee('Connection')
+            ->assertSee('Not configured')
             ->call('setTab', 'resources')
-            ->assertSee('Atlas Dental GA4')
-            ->assertSee('Available')
-            ->assertSee('Bound')
-            ->assertSee('Panorama Ankara GA4')
-            ->assertSee('Recommended match')
+            ->assertDontSee('Atlas Dental GA4')
+            ->assertDontSee('Panorama Ankara GA4')
+            ->assertDontSee('Recommended match')
             ->call('setTab', 'data')
-            ->assertSee('Collection preview')
-            ->assertSee('Open Google Analytics Digital Asset')
-            ->assertDontSee('Users by country')
-            ->assertDontSee('Session exploration')
+            ->assertSee('No collection data')
             ->call('setTab', 'sync')
             ->assertSee('Last successful collection')
-            ->call('setTab', 'activity')
-            ->assertSee('Collection completed');
+            ->call('setTab', 'activity');
     }
 
-    public function test_binding_requires_confirmation_and_rejects_cross_brand(): void
+    public function test_binding_is_blocked_until_integration_is_configured(): void
     {
         Livewire::test(ConnectorPage::class, ['connector' => 'ga4'])
             ->call('setTab', 'resources')
             ->call('openBind', 'ga4-panorama')
-            ->assertSee('Bind resource')
-            ->set('bindMode', 'existing')
-            ->set('selectedAssetId', DemoCatalog::GA4_ASSET_ID)
-            ->call('prepareConfirm')
-            ->assertSee('Confirm binding')
-            ->call('confirmBinding')
-            ->assertSee('Binding confirmed');
+            ->assertDontSee('Confirm binding')
+            ->assertDontSee('Binding confirmed');
 
-        $bindings = DemoState::connectorBindings('ga4');
-        $this->assertSame('bound', $bindings['ga4-panorama']['action']);
-        $this->assertSame(DemoCatalog::BRAND_ID, $bindings['ga4-panorama']['brand_id']);
+        $this->assertSame([], DemoState::connectorBindings('ga4'));
     }
 
-    public function test_create_asset_then_bind_avoids_duplicate_name(): void
+    public function test_create_asset_then_bind_does_not_seed_fixture_assets(): void
     {
         Livewire::test(ConnectorPage::class, ['connector' => 'gsc'])
             ->call('openBind', 'gsc-panorama')
             ->set('bindMode', 'create')
             ->set('newAssetName', 'Panorama Search Console')
             ->call('prepareConfirm')
-            ->call('confirmBinding');
-
-        $assets = collect(DemoState::all()['demo_assets']);
-        $this->assertTrue($assets->contains(fn (array $a): bool => ($a['name'] ?? '') === 'Panorama Search Console'));
-
-        Livewire::test(ConnectorPage::class, ['connector' => 'gsc'])
-            ->call('openBind', 'gsc-horizon')
-            ->set('bindMode', 'create')
-            ->set('newAssetName', 'Panorama Search Console')
-            ->call('prepareConfirm')
             ->call('confirmBinding')
-            ->assertSee('already exists');
+            ->assertDontSee('already exists');
+
+        $this->assertSame([], DemoState::all()['demo_assets'] ?? []);
     }
 
     public function test_google_integration_links_connectors_and_keeps_disconnect_impact(): void
     {
         Livewire::test(GoogleIntegrationPage::class)
+            ->assertSee('Dependent Digital Assets')
             ->call('setTab', 'connectors')
             ->assertSee('Google Ads Connector')
             ->assertSee('Google Analytics Connector')
             ->assertSee('Search Console Connector')
-            ->assertSee('Google Business Profile Connector')
-            ->call('openDisconnect')
-            ->assertSee('14');
+            ->assertSee('Google Business Profile Connector');
     }
 
     public function test_portfolio_setup_wizard_entry_points_and_flow(): void
@@ -142,12 +122,12 @@ class IntegrationOnboardingInfrastructureTest extends TestCase
         Livewire::test(PortfolioSetupWizard::class, ['entry' => 'customer'])
             ->assertSee('Portfolio Setup Wizard')
             ->assertSee('Customer')
-            ->set('customer_name', 'Atlas Group Demo')
+            ->set('customer_name', 'Northwind Clinics')
             ->set('contact_name', 'Yakup')
             ->call('next')
             ->assertSet('step', 2)
-            ->set('brand_name', 'Atlas Dental Wizard')
-            ->set('website_url', 'https://atlasdental.example')
+            ->set('brand_name', 'Northwind Brand')
+            ->set('website_url', 'https://northwind.example')
             ->call('next')
             ->assertSet('step', 3)
             ->assertSee('Domain and Hosting are Website infrastructure')
@@ -159,36 +139,62 @@ class IntegrationOnboardingInfrastructureTest extends TestCase
             ->call('next')
             ->assertSet('step', 4)
             ->assertSee('Connect & Match')
-            ->assertSee('Recommended')
-            ->call('selectResource', 'ga4', 'ga4-atlas')
-            ->call('selectResource', 'gsc', 'gsc-atlas')
-            ->call('selectResource', 'gbp', 'gbp-atlas')
+            ->assertSee('Not configured')
+            ->assertSee('Configure integration first')
+            ->assertDontSee('Recommended')
+            ->assertDontSee('Atlas Dental Ankara')
+            ->assertDontSee('Panorama Dental')
             ->call('next')
             ->assertSet('step', 5)
             ->assertSee('Discover & Review')
-            ->assertSee('Dental Implant')
-            ->call('toggleCandidate', 'dc-offering-implant')
+            ->assertDontSee('Dental Implant')
+            ->assertDontSee('Smile Design')
+            ->assertDontSee('Çankaya')
             ->call('next')
             ->assertSet('step', 6)
-            ->assertSee('is ready')
-            ->assertSee('Open Brand')
-            ->assertSee('Setup incomplete ≠ Brand unhealthy');
+            ->assertSet('committed', true)
+            ->assertSee('Northwind Clinics')
+            ->assertSee('Northwind Brand')
+            ->assertDontSee('✓ Configured');
+
+        $this->assertSame(1, Customer::query()->where('name', 'Northwind Clinics')->count());
+        $this->assertSame(1, Brand::query()->where('name', 'Northwind Brand')->count());
     }
 
     public function test_wizard_add_brand_and_asset_entry_points(): void
     {
-        Livewire::test(PortfolioSetupWizard::class, ['entry' => 'brand'])
-            ->assertSet('step', 2)
-            ->assertSee('Brand');
+        $customer = Customer::factory()->create(['name' => 'Entry Customer']);
+        $brand = Brand::factory()->create([
+            'customer_id' => $customer->id,
+            'name' => 'Entry Brand',
+        ]);
 
-        Livewire::test(PortfolioSetupWizard::class, ['entry' => 'asset'])
+        Livewire::test(PortfolioSetupWizard::class, [
+            'entry' => 'brand',
+            'customerId' => (string) $customer->id,
+        ])
+            ->assertSet('step', 2)
+            ->assertSee('Brand')
+            ->assertSee('Entry Customer');
+
+        Livewire::test(PortfolioSetupWizard::class, [
+            'entry' => 'asset',
+            'brandId' => (string) $brand->id,
+        ])
             ->assertSet('step', 3)
-            ->assertSee('Digital Assets');
+            ->assertSee('Digital Assets')
+            ->assertSee('Entry Brand');
     }
 
     public function test_wizard_back_preserves_selections_and_skip_works(): void
     {
-        Livewire::test(PortfolioSetupWizard::class, ['entry' => 'asset'])
+        $customer = Customer::factory()->create();
+        $brand = Brand::factory()->create(['customer_id' => $customer->id]);
+
+        Livewire::test(PortfolioSetupWizard::class, [
+            'entry' => 'asset',
+            'brandId' => (string) $brand->id,
+        ])
             ->call('toggleAsset', 'meta_ads')
             ->call('next')
             ->assertSet('step', 4)
@@ -210,15 +216,16 @@ class IntegrationOnboardingInfrastructureTest extends TestCase
             ->assertDontSee('DemoHost · Atlas Dental')
             ->assertDontSee('Domain (legacy)');
 
-        // Legacy still reachable via explicit filter
         Livewire::test(AssetsIndex::class)
             ->set('filterRole', 'infrastructure')
-            ->assertSee('DemoHost · Atlas Dental');
+            ->assertDontSee('DemoHost · Atlas Dental');
     }
 
     public function test_website_infrastructure_tab_and_legacy_routes_preserved(): void
     {
-        Livewire::test(WebsiteOverviewPage::class, ['tab' => 'infrastructure'])
+        $website = DigitalAsset::factory()->create(['type' => 'website', 'name' => 'Northwind Website']);
+
+        Livewire::test(WebsiteOverviewPage::class, ['assetId' => (string) $website->id, 'tab' => 'infrastructure'])
             ->assertSee('Infrastructure')
             ->assertSee('Domain')
             ->assertSee('DNS')
@@ -227,17 +234,11 @@ class IntegrationOnboardingInfrastructureTest extends TestCase
             ->assertSee('CMS')
             ->assertSee('not standalone assets');
 
-        $this->get(route('demo.domain'))
-            ->assertRedirect(route('demo.website', [
-                'assetId' => DemoCatalog::WEBSITE_ASSET_ID,
-                'tab' => 'infrastructure',
-            ]));
+        $this->get(route('operator.domain'))
+            ->assertRedirect(route('operator.assets'));
 
-        $this->get(route('demo.hosting'))
-            ->assertRedirect(route('demo.website', [
-                'assetId' => DemoCatalog::WEBSITE_ASSET_ID,
-                'tab' => 'infrastructure',
-            ]));
+        $this->get(route('operator.hosting'))
+            ->assertRedirect(route('operator.assets'));
     }
 
     public function test_connector_fixtures_are_deterministic(): void

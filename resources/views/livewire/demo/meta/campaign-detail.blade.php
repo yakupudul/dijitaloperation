@@ -20,13 +20,12 @@
             <p class="text-xs font-medium uppercase tracking-wide text-gray-500">Meta Ads · Campaign</p>
             <div class="mt-1 flex flex-wrap items-center gap-2">
                 <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ $campaign['name'] }}</h1>
-                @include('livewire.demo.partials.demo-badge')
                 <x-ta.badge :color="$campaign['status'] === 'ACTIVE' ? 'success' : 'light'" size="sm">{{ $campaign['status'] }}</x-ta.badge>
             </div>
             <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ $campaign['offering'] }} · {{ $campaign['market'] }} · {{ $campaign['language'] }} · {{ $campaign['goal'] }}</p>
             <p class="mt-1 text-xs text-gray-500">{{ $campaign['destination'] }} · {{ $campaign['result_label'] }} · {{ $campaign['period_label'] }}</p>
         </div>
-        <a href="{{ route('demo.meta.overview', ['assetId' => $assetId, 'tab' => 'campaigns']) }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">← Campaign portfolio</a>
+        <a href="{{ route('operator.meta.overview', ['assetId' => $assetId, 'tab' => 'campaigns']) }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">← {{ __('operator.chrome.campaign_portfolio') }}</a>
     </div>
 
     @include('livewire.demo.partials.meta-asset-nav', ['assetId' => $assetId, 'active' => 'campaigns'])
@@ -161,7 +160,7 @@
             <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Destination</h2>
             <p class="mt-2 text-sm text-gray-700 dark:text-gray-300">{{ $campaign['destination'] }} · {{ $campaign['result_label'] }}</p>
             @if ($campaign['destination'] === 'Website')
-                <a href="{{ route('demo.website', ['assetId' => $identity['website_asset_id']]) }}" wire:navigate class="mt-3 inline-block text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Open Website asset →</a>
+                <a href="{{ route('operator.website', ['assetId' => $identity['website_asset_id']]) }}" wire:navigate class="mt-3 inline-block text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">{{ __('operator.chrome.open_website_asset') }} →</a>
             @endif
         </section>
     @elseif ($section === 'diagnostics')
@@ -180,7 +179,7 @@
         <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
             <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Decision history</h2>
             <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">Findings → Recommendations → Tasks → Outcomes live in Operations. No automatic Meta write.</p>
-            <a href="{{ route('demo.meta.overview', ['assetId' => $assetId, 'tab' => 'operations']) }}" wire:navigate class="mt-3 inline-block text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Open Operations →</a>
+            <a href="{{ route('operator.meta.overview', ['assetId' => $assetId, 'tab' => 'operations']) }}" wire:navigate class="mt-3 inline-block text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">{{ __('operator.chrome.open_operations') }} →</a>
         </section>
     @endif
 

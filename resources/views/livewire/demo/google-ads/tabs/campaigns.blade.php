@@ -1,6 +1,6 @@
 <div class="space-y-4">
     <div>
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Campaigns</h2>
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ __('operator.google_ads.tabs.campaigns') }}</h2>
         <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Portfolio performance with Campaign Context — not a Google Ads console clone.</p>
     </div>
 

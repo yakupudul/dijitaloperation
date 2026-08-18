@@ -3,9 +3,13 @@
 namespace App\Livewire\Demo\Assets;
 
 use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
-use App\Support\Demo\DemoCatalog;
+use App\Livewire\Demo\Concerns\ResolvesCanonicalOperatorAsset;
+use App\Models\DigitalAsset;
+use App\Services\DataPool\Freshness\StartIncrementalCollectionService;
+use App\Services\Gsc\GscSpecialistBindingResolver;
+use App\Services\Gsc\GscSpecialistReadService;
+use App\Services\Gsc\Support\GscBindingMode;
 use App\Support\Demo\DemoState;
-use App\Support\Demo\GscWorkspaceFixtures;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -17,8 +21,9 @@ use Livewire\Component;
 class SearchConsolePage extends Component
 {
     use InteractsWithDemoPeriod;
+    use ResolvesCanonicalOperatorAsset;
 
-    public string $assetId = DemoCatalog::GSC_ASSET_ID;
+    public string $assetId = '';
 
     #[Url]
     public string $tab = 'overview';
@@ -77,7 +82,7 @@ class SearchConsolePage extends Component
 
     public function mount(?string $assetId = null): void
     {
-        $this->assetId = $assetId ?: DemoCatalog::GSC_ASSET_ID;
+        $this->bindCanonicalAsset($assetId, ['gsc', 'search_console']);
         $this->mountPeriod();
         $this->normalizeTab();
     }
@@ -177,12 +182,38 @@ class SearchConsolePage extends Component
 
     public function refreshData(): void
     {
-        DemoState::flash('Search Console data refresh queued (Demo Mode · no live Search Console API expansion).', 'info');
+        $binding = app(GscSpecialistBindingResolver::class)->resolve($this->assetId);
+
+        if ($binding->mode !== GscBindingMode::RealBound) {
+            DemoState::flash(__('operator.flash.gsc_refresh_unconfigured'), 'info');
+
+            return;
+        }
+
+        $asset = DigitalAsset::query()->find($binding->digitalAssetId);
+        if (! $asset instanceof DigitalAsset) {
+            DemoState::flash(__('operator.flash.gsc_refresh_missing_asset'), 'warning');
+
+            return;
+        }
+
+        $result = app(StartIncrementalCollectionService::class)->startForBindingIds(
+            [$binding->coreAssetBindingId],
+            auth()->user(),
+            ['SEARCH_CONSOLE'],
+        );
+
+        DemoState::flash(match ($result->outcome) {
+            'started' => 'Search Console incremental collection started in the background.',
+            'active_equivalent' => 'An equivalent Search Console incremental collection is already running.',
+            'data_current' => 'Search Console data is current — no incremental collection is due.',
+            default => $result->message,
+        }, $result->outcome === 'started' ? 'success' : 'info');
     }
 
     public function runAnalysis(): void
     {
-        DemoState::flash('Organic demand analysis completed (Demo Mode · deterministic fixtures).', 'info');
+        DemoState::flash(__('operator.flash.gsc_analysis_unavailable'), 'info');
         $this->tab = 'overview';
     }
 
@@ -214,7 +245,7 @@ class SearchConsolePage extends Component
     public function render(): View
     {
         $this->normalizeTab();
-        $data = GscWorkspaceFixtures::workspace($this->period, $this->periodStart, $this->periodEnd);
+        $data = app(GscSpecialistReadService::class)->workspace($this->assetId, $this->period, $this->periodStart, $this->periodEnd);
 
         $selectedAttention = $this->attention
             ? collect($data['needs_attention'])->firstWhere('id', $this->attention)
@@ -240,7 +271,15 @@ class SearchConsolePage extends Component
             }
         }
 
-        $allSeries = GscWorkspaceFixtures::metricSeries($data['period_start'], $data['period_end']);
+        // metric_series is always supplied by GscSpecialistReadService (real / demo / unavailable).
+        // Never fall back to fixtures here — that would mix Demo series into a real-bound workspace.
+        $allSeries = $data['metric_series'] ?? [
+            'labels' => [],
+            'clicks' => [],
+            'impressions' => [],
+            'ctr' => [],
+            'position' => [],
+        ];
         $metricLabels = [
             'clicks' => 'Clicks',
             'impressions' => 'Impressions',
@@ -255,7 +294,7 @@ class SearchConsolePage extends Component
         }
 
         return view('livewire.demo.search-console.overview', [
-            'asset' => DemoCatalog::asset($this->assetId),
+            'asset' => $this->presentCanonicalAsset(),
             'data' => $data,
             'identity' => $data['identity'],
             'selectedAttention' => $selectedAttention,

@@ -30,7 +30,7 @@
         </div>
         <div class="flex flex-wrap gap-2">
             <a href="{{ route($data['integration_route']) }}" wire:navigate class="inline-flex rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">{{ $data['integration_label'] }} Integration</a>
-            <a href="{{ route('demo.integrations') }}" wire:navigate class="inline-flex rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">All Integrations</a>
+            <a href="{{ route('operator.integrations') }}" wire:navigate class="inline-flex rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">All Integrations</a>
         </div>
     </div>
 
@@ -96,12 +96,11 @@
                     <label for="res-brand" class="mb-1 block text-xs font-medium text-gray-500">Brand mapping</label>
                     <select id="res-brand" wire:model.live="brand" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-950 dark:text-white/90">
                         <option value="all">All</option>
-                        <option value="atlas">Atlas Dental</option>
                         <option value="unmapped">Unmapped</option>
                     </select>
                 </div>
             </div>
-            <p class="text-xs text-gray-400">{{ count($resources) }} shown · Demo fixtures are deterministic</p>
+            <p class="text-xs text-gray-400">{{ count($resources) }} shown · resources appear only after discovery</p>
         </div>
 
         <ul class="space-y-2">
@@ -176,7 +175,7 @@
                         </p>
                     @endif
                     <div class="mt-3">
-                        <a href="{{ route('demo.integrations.connector', ['connector' => $data['id'], 'tab' => 'resources']) }}" wire:navigate class="text-xs font-medium text-gray-500 hover:underline">Manage provider resource →</a>
+                        <a href="{{ route('operator.integrations.connector', ['connector' => $data['id'], 'tab' => 'resources']) }}" wire:navigate class="text-xs font-medium text-gray-500 hover:underline">Manage provider resource →</a>
                     </div>
                 </article>
             @empty

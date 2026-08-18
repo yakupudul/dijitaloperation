@@ -3,7 +3,9 @@
 namespace App\Livewire\Demo\Portfolio;
 
 use App\Enums\DigitalAssetStatus;
-use App\Support\Demo\DemoCatalog;
+use App\Models\Brand;
+use App\Models\DigitalAsset;
+use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Support\Demo\DemoState;
 use App\Support\DigitalAssetTypes;
 use App\Support\Options\CmsOptions;
@@ -59,10 +61,10 @@ class AssetCreate extends Component
     public function mount(): void
     {
         if ($this->brandId !== '') {
+            abort_unless(ctype_digit($this->brandId), 404);
+            abort_if(Brand::query()->find($this->brandId) === null, 404);
             $this->brand_id = $this->brandId;
             $this->brandLocked = true;
-        } else {
-            $this->brand_id = DemoCatalog::BRAND_ID;
         }
     }
 
@@ -89,11 +91,7 @@ class AssetCreate extends Component
 
         $this->saving = true;
 
-        $brandIds = collect(DemoState::all()['brands'] ?? [])->pluck('id')->all();
-        if ($brandIds === []) {
-            $brandIds = [DemoCatalog::BRAND_ID];
-        }
-
+        $brandIds = Brand::query()->pluck('id')->map(static fn (mixed $id): string => (string) $id)->all();
         $typeOptions = array_keys($this->typeOptions());
 
         $rules = [
@@ -121,53 +119,25 @@ class AssetCreate extends Component
 
         $this->validate($rules);
 
-        $id = 'da-demo-'.substr(md5($this->name.microtime(true)), 0, 8);
-        $taxonomy = DemoCatalog::assetTaxonomy($this->type === 'google_business_profile' ? 'gbp' : $this->type);
-
-        $asset = [
-            'id' => $id,
-            'brand_id' => $this->brand_id,
+        $asset = DigitalAsset::query()->create([
+            'brand_id' => (int) $this->brand_id,
             'name' => trim($this->name),
             'type' => $this->type,
-            'type_label' => $this->typeOptions()[$this->type] ?? $this->type,
             'status' => $this->status,
-            'role' => $taxonomy['role'],
-            'role_label' => $taxonomy['role_label'],
-            'health' => 'healthy',
-            'health_label' => 'Healthy',
-            'provenance' => 'Manual',
-            'open_findings' => 0,
-            'last_update' => 'Just now',
-            'primary_metric_label' => 'Status',
-            'primary_metric' => 'Registered',
-            'route' => match ($this->type) {
-                'website' => 'demo.website',
-                'meta_ads' => 'demo.meta.overview',
-                'google_ads' => 'demo.google-ads.overview',
-                'google_business_profile' => 'demo.gbp',
-                'ga4', 'analytics' => 'demo.analytics',
-                'gsc', 'search_console' => 'demo.search-console',
-                'instagram' => 'demo.instagram',
-                default => 'demo.assets',
-            },
-            // Website-specific (not shown for other types)
-            'domain' => $this->type === 'website' ? ($this->domain !== '' ? trim($this->domain) : null) : null,
-            'primary_url' => $this->type === 'website' ? ($this->primary_url !== '' ? trim($this->primary_url) : null) : null,
+            'module_id' => OperatorPortfolioPresenter::derivedModuleId($this->type),
+            'domain' => $this->type === 'website' && $this->domain !== '' ? trim($this->domain) : null,
+            'primary_url' => $this->type === 'website' && $this->primary_url !== '' ? trim($this->primary_url) : null,
             'cms' => $this->type === 'website' && $this->cms !== '' ? $this->cms : null,
             'site_type' => $this->type === 'website' && $this->site_type !== '' ? $this->site_type : null,
-            'languages' => $this->type === 'website' ? array_values($this->languages) : [],
-            'target_countries' => $this->type === 'website' ? array_values($this->target_countries) : [],
-            'seo_market_country' => $this->type === 'website' && $this->seo_market_country !== '' ? $this->seo_market_country : null,
-            'seo_market_language' => $this->type === 'website' && $this->seo_market_language !== '' ? $this->seo_market_language : null,
+            'languages' => $this->type === 'website' ? array_values($this->languages) : null,
+            'target_countries' => $this->type === 'website' ? array_values($this->target_countries) : null,
             'hosting_context' => $this->type === 'website' && $this->hosting_context !== '' ? trim($this->hosting_context) : null,
-            // module_id is derived — never collected as free-text from operators
-            'module_id' => $this->derivedModuleId($this->type),
-        ];
+        ]);
 
-        DemoState::addDemoAsset($asset);
+        DemoState::flash(__('operator.forms.asset_defined', ['name' => $asset->name]));
         $this->saving = false;
 
-        return $this->redirect(route('demo.assets'), navigate: true);
+        return $this->redirect(route('operator.assets'), navigate: true);
     }
 
     /**
@@ -175,45 +145,19 @@ class AssetCreate extends Component
      */
     protected function typeOptions(): array
     {
-        $options = DigitalAssetTypes::options();
-        // Preserve demo product types already present in the catalog
-        $options['ga4'] = 'Google Analytics';
-        $options['gsc'] = 'Search Console';
-        // Domain / Hosting are Website Infrastructure — not selectable Digital Assets.
-
-        return $options;
-    }
-
-    protected function derivedModuleId(string $type): ?string
-    {
-        return match ($type) {
-            'website' => 'website',
-            'meta_ads' => 'meta-ads',
-            'google_ads' => 'google-ads',
-            'google_business_profile' => 'google-business-profile',
-            'ga4', 'analytics' => 'analytics',
-            'gsc', 'search_console' => 'search-console',
-            'instagram' => 'instagram',
-            default => null,
-        };
+        return DigitalAssetTypes::options();
     }
 
     public function render(): View
     {
-        $brands = collect(DemoState::all()['brands'] ?? []);
-        if ($brands->isEmpty()) {
-            $brands = collect([DemoCatalog::brand()]);
-        }
-        $customers = collect(DemoState::all()['customers'] ?? [])->keyBy('id');
-
-        $brandOptions = $brands->mapWithKeys(function (array $brand) use ($customers): array {
-            $customerName = $customers[$brand['customer_id'] ?? '']['name'] ?? null;
-            $label = $brand['name'] ?? '';
-            if (is_string($customerName) && $customerName !== '') {
-                $label .= ' — '.$customerName;
+        $brands = Brand::query()->with('customer')->orderBy('name')->get();
+        $brandOptions = $brands->mapWithKeys(function (Brand $brand): array {
+            $label = $brand->name;
+            if ($brand->customer?->name) {
+                $label .= ' — '.$brand->customer->name;
             }
 
-            return [($brand['id'] ?? '') => $label];
+            return [(string) $brand->id => $label];
         })->all();
 
         $statusOptions = collect(DigitalAssetStatus::cases())
@@ -221,13 +165,13 @@ class AssetCreate extends Component
             ->all();
 
         $backUrl = $this->brandLocked
-            ? route('demo.brand', ['brand' => $this->brand_id, 'tab' => 'assets'])
-            : route('demo.assets');
+            ? route('operator.brand', ['brand' => $this->brand_id, 'tab' => 'assets'])
+            : route('operator.assets');
 
         return view('livewire.demo.portfolio.asset-form', [
             'mode' => 'create',
-            'pageTitle' => 'Add digital asset',
-            'pageSubtitle' => 'Register the managed asset. Provider connections happen later in Integrations.',
+            'pageTitle' => __('operator.forms.add_digital_asset'),
+            'pageSubtitle' => __('operator.forms.add_digital_asset_subtitle'),
             'backUrl' => $backUrl,
             'brandOptions' => $brandOptions,
             'brandLocked' => $this->brandLocked,

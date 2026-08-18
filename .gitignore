@@ -40,3 +40,9 @@ __pycache__/
 *.py[cod]
 .automation/runtime/
 .automation/runtime/
+
+# Playwright E2E QA artifacts (never commit credentials, auth state, traces, videos)
+/playwright-report/
+/test-results/
+/blob-report/
+/.qa-artifacts/

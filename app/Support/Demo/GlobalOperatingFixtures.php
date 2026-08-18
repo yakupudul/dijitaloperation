@@ -2,10 +2,11 @@
 
 namespace App\Support\Demo;
 
+use App\Services\Integrations\Google\GoogleIntegrationReadModel;
 use Illuminate\Support\Collection;
 
 /**
- * Deterministic presenter for the global agency operating layer (/app).
+ * Deterministic presenter for the global agency operating layer (site root).
  *
  * Reuses DemoCatalog portfolio identity. Does not expand live providers
  * or persist operator-database entities.
@@ -37,10 +38,10 @@ final class GlobalOperatingFixtures
             'date_label' => now()->timezone(config('app.timezone'))->format('l, F j'),
             'subtitle' => 'Here is what needs attention across your portfolio.',
             'glance' => [
-                ['label' => 'Open critical/high Findings', 'value' => $criticalHigh, 'route' => 'demo.findings', 'tone' => 'error'],
-                ['label' => 'Tasks due today', 'value' => max($dueToday, 2), 'route' => 'demo.tasks', 'tone' => 'warning'],
-                ['label' => 'Overdue tasks', 'value' => max($overdueCount, 1), 'route' => 'demo.tasks', 'tone' => 'error'],
-                ['label' => 'Recommendations awaiting decision', 'value' => $awaitingDecision, 'route' => 'demo.recommendations', 'tone' => 'info'],
+                ['label' => 'Open critical/high Findings', 'value' => $criticalHigh, 'route' => 'operator.findings', 'tone' => 'error'],
+                ['label' => 'Tasks due today', 'value' => max($dueToday, 2), 'route' => 'operator.tasks', 'tone' => 'warning'],
+                ['label' => 'Overdue tasks', 'value' => max($overdueCount, 1), 'route' => 'operator.tasks', 'tone' => 'error'],
+                ['label' => 'Recommendations awaiting decision', 'value' => $awaitingDecision, 'route' => 'operator.recommendations', 'tone' => 'info'],
             ],
             'needs_attention' => self::attentionItems($mode),
             'my_work' => self::myWorkQueue($tasks),
@@ -52,7 +53,7 @@ final class GlobalOperatingFixtures
                     'open_tasks' => $tasks->where('status', '!=', 'completed')->count(),
                     'awaiting_decision' => $awaitingDecision,
                     'asset_types' => ['website', 'google_ads', 'ga4', 'gsc', 'gbp', 'meta_ads'],
-                    'route' => 'demo.brand',
+                    'route' => 'operator.brand',
                     'route_params' => ['brand' => DemoCatalog::BRAND_ID],
                 ],
             ],
@@ -82,7 +83,7 @@ final class GlobalOperatingFixtures
                 'why' => 'Paid acquisition cannot be trusted without the primary conversion signal.',
                 'source' => 'Finding',
                 'asset_type' => 'google_ads',
-                'route' => 'demo.findings',
+                'route' => 'operator.findings',
                 'route_params' => [],
                 'action_label' => 'Review',
             ],
@@ -93,7 +94,7 @@ final class GlobalOperatingFixtures
                 'evidence' => 'Oldest overdue · map relevance follow-up window',
                 'why' => 'Committed work is stalling verification.',
                 'source' => 'Tasks',
-                'route' => 'demo.tasks',
+                'route' => 'operator.tasks',
                 'action_label' => 'Open Tasks',
             ],
             [
@@ -103,7 +104,7 @@ final class GlobalOperatingFixtures
                 'evidence' => 'Authorization refresh window approaching (demo)',
                 'why' => 'Provider access underpins Ads, Analytics, Search Console, and GBP.',
                 'source' => 'Integrations',
-                'route' => 'demo.integrations.google',
+                'route' => 'operator.integrations.google',
                 'action_label' => 'Inspect Integration',
             ],
             [
@@ -114,7 +115,7 @@ final class GlobalOperatingFixtures
                 'why' => 'Primary local demand keyword for implant acquisition.',
                 'source' => 'Finding',
                 'asset_type' => 'gbp',
-                'route' => 'demo.gbp',
+                'route' => 'operator.gbp',
                 'action_label' => 'Inspect',
             ],
             [
@@ -125,7 +126,7 @@ final class GlobalOperatingFixtures
                 'why' => 'Largest paid-efficiency risk on the brand.',
                 'source' => 'Finding',
                 'asset_type' => 'meta_ads',
-                'route' => 'demo.findings',
+                'route' => 'operator.findings',
                 'action_label' => 'Review',
             ],
         ];
@@ -174,7 +175,7 @@ final class GlobalOperatingFixtures
                 'state' => 'needs_attention',
                 'state_label' => 'Needs attention',
                 'detail' => 'Reauthorization recommended · 14 dependent assets',
-                'route' => 'demo.integrations.google',
+                'route' => 'operator.integrations.google',
             ],
             [
                 'id' => 'meta',
@@ -182,7 +183,7 @@ final class GlobalOperatingFixtures
                 'state' => 'connected',
                 'state_label' => 'Healthy',
                 'detail' => '1 import account needs permission review',
-                'route' => 'demo.integrations.meta',
+                'route' => 'operator.integrations.meta',
             ],
             [
                 'id' => 'dataforseo',
@@ -190,7 +191,7 @@ final class GlobalOperatingFixtures
                 'state' => 'configuration_incomplete',
                 'state_label' => 'Quota / configuration review',
                 'detail' => 'Demo search intelligence configured',
-                'route' => 'demo.integrations',
+                'route' => 'operator.integrations',
             ],
         ];
     }
@@ -324,7 +325,7 @@ final class GlobalOperatingFixtures
         ]);
 
         if ($type === 'instagram') {
-            $merged['route'] = $merged['route'] ?? 'demo.instagram';
+            $merged['route'] = $merged['route'] ?? 'operator.instagram';
         }
 
         return $merged;
@@ -412,7 +413,7 @@ final class GlobalOperatingFixtures
                         'available' => 4,
                         'last_check' => '22 min ago',
                         'dependent_assets' => 14,
-                        'route' => 'demo.integrations.google',
+                        'route' => 'operator.integrations.google',
                         'manage_label' => 'Manage',
                     ],
                     [
@@ -426,22 +427,22 @@ final class GlobalOperatingFixtures
                         'available' => 5,
                         'last_check' => '2 hours ago',
                         'dependent_assets' => 2,
-                        'route' => 'demo.integrations.meta',
+                        'route' => 'operator.integrations.meta',
                         'manage_label' => 'Manage',
                     ],
                     [
                         'id' => 'dataforseo',
                         'name' => 'DataForSEO',
                         'logo_type' => 'gsc',
-                        'state' => 'configuration_incomplete',
-                        'state_label' => 'Configuration incomplete',
-                        'resources_discovered' => 0,
-                        'bound' => 0,
-                        'available' => 0,
-                        'last_check' => 'Yesterday',
-                        'dependent_assets' => 1,
-                        'route' => 'demo.integrations',
-                        'manage_label' => 'Review',
+                        'state' => 'not_configured',
+                        'state_label' => 'Not configured',
+                        'resources_discovered' => null,
+                        'bound' => null,
+                        'available' => null,
+                        'last_check' => '—',
+                        'dependent_assets' => 0,
+                        'route' => 'operator.integrations.dataforseo',
+                        'manage_label' => 'Configure',
                     ],
                 ],
             ],
@@ -461,7 +462,7 @@ final class GlobalOperatingFixtures
                         'last_check' => '2 hours ago',
                         'dependent_assets' => 1,
                         'note' => 'Installable site package catalog (demo ZIP — not production).',
-                        'route' => 'demo.integrations.site-connectors',
+                        'route' => 'operator.integrations.site-connectors',
                         'manage_label' => 'Open catalog',
                     ],
                 ],
@@ -473,33 +474,49 @@ final class GlobalOperatingFixtures
                         'id' => 'openai',
                         'name' => 'OpenAI',
                         'logo_type' => 'website',
-                        'state' => 'connected',
-                        'state_label' => 'Connected',
+                        'state' => 'not_configured',
+                        'state_label' => 'Not configured',
                         'resources_discovered' => null,
                         'bound' => null,
                         'available' => null,
-                        'last_check' => 'Today',
+                        'last_check' => '—',
                         'dependent_assets' => 0,
                         'note' => 'Provider availability ≠ AI Recommendations enabled everywhere.',
-                        'route' => 'demo.settings',
-                        'route_params' => ['section' => 'ai'],
-                        'manage_label' => 'AI settings',
+                        'route' => 'operator.integrations.ai',
+                        'route_params' => ['provider' => 'openai'],
+                        'manage_label' => 'Configure',
                     ],
                     [
                         'id' => 'anthropic',
                         'name' => 'Anthropic',
                         'logo_type' => 'website',
-                        'state' => 'not_connected',
-                        'state_label' => 'Not connected',
+                        'state' => 'not_configured',
+                        'state_label' => 'Not configured',
                         'resources_discovered' => null,
                         'bound' => null,
                         'available' => null,
                         'last_check' => '—',
                         'dependent_assets' => 0,
                         'note' => 'Optional intelligence provider.',
-                        'route' => 'demo.settings',
-                        'route_params' => ['section' => 'ai'],
-                        'manage_label' => 'AI settings',
+                        'route' => 'operator.integrations.ai',
+                        'route_params' => ['provider' => 'anthropic'],
+                        'manage_label' => 'Configure',
+                    ],
+                    [
+                        'id' => 'gemini',
+                        'name' => 'Gemini',
+                        'logo_type' => 'website',
+                        'state' => 'not_configured',
+                        'state_label' => 'Not configured',
+                        'resources_discovered' => null,
+                        'bound' => null,
+                        'available' => null,
+                        'last_check' => '—',
+                        'dependent_assets' => 0,
+                        'note' => 'Google AI provider. Credentials are configured here, not under Google OAuth.',
+                        'route' => 'operator.integrations.ai',
+                        'route_params' => ['provider' => 'gemini'],
+                        'manage_label' => 'Configure',
                     ],
                 ],
             ],
@@ -507,6 +524,12 @@ final class GlobalOperatingFixtures
     }
 
     /**
+     * Legacy Demo fixture for Google Integration narrative content.
+     *
+     * Frozen `/app/integrations` Google surfaces must use
+     * {@see GoogleIntegrationReadModel}
+     * instead of this method — Demo counts must not be presented as real state.
+     *
      * @return array<string, mixed>
      */
     public static function googleIntegration(): array
@@ -606,28 +629,28 @@ final class GlobalOperatingFixtures
                     'binding' => 'Google binding',
                     'asset' => 'Atlas Dental — GA4',
                     'asset_id' => DemoCatalog::GA4_ASSET_ID,
-                    'route' => 'demo.analytics',
+                    'route' => 'operator.analytics',
                 ],
                 [
                     'resource' => 'GSC sc-domain:atlasdental.example',
                     'binding' => 'Google binding',
                     'asset' => 'Atlas Dental — Search Console',
                     'asset_id' => DemoCatalog::GSC_ASSET_ID,
-                    'route' => 'demo.search-console',
+                    'route' => 'operator.search-console',
                 ],
                 [
                     'resource' => 'Google Ads customer 123-456-7890',
                     'binding' => 'Google binding',
                     'asset' => 'Atlas Dental — Google Ads',
                     'asset_id' => DemoCatalog::GOOGLE_ADS_ASSET_ID,
-                    'route' => 'demo.google-ads.overview',
+                    'route' => 'operator.google-ads.overview',
                 ],
                 [
                     'resource' => 'GBP location Çankaya',
                     'binding' => 'Google binding',
                     'asset' => 'Atlas Dental Ankara',
                     'asset_id' => DemoCatalog::GBP_ASSET_ID,
-                    'route' => 'demo.gbp',
+                    'route' => 'operator.gbp',
                 ],
             ],
             'disconnect_impact' => [
@@ -668,7 +691,7 @@ final class GlobalOperatingFixtures
                 'asset_type' => 'ga4',
                 'brand_id' => $brandId,
                 'customer_id' => $customerId,
-                'route' => 'demo.analytics',
+                'route' => 'operator.analytics',
             ],
             [
                 'id' => 'act-rec-accept',
@@ -683,7 +706,7 @@ final class GlobalOperatingFixtures
                 'asset_type' => 'website',
                 'brand_id' => $brandId,
                 'customer_id' => $customerId,
-                'route' => 'demo.recommendations',
+                'route' => 'operator.recommendations',
             ],
             [
                 'id' => 'act-finding-ack',
@@ -698,7 +721,7 @@ final class GlobalOperatingFixtures
                 'asset_type' => 'google_ads',
                 'brand_id' => $brandId,
                 'customer_id' => $customerId,
-                'route' => 'demo.findings',
+                'route' => 'operator.findings',
             ],
             [
                 'id' => 'act-meta-import',
@@ -713,7 +736,7 @@ final class GlobalOperatingFixtures
                 'asset_type' => 'meta_ads',
                 'brand_id' => $brandId,
                 'customer_id' => $customerId,
-                'route' => 'demo.integrations.meta',
+                'route' => 'operator.integrations.meta',
             ],
             [
                 'id' => 'act-task-complete',
@@ -728,7 +751,7 @@ final class GlobalOperatingFixtures
                 'asset_type' => 'gbp',
                 'brand_id' => $brandId,
                 'customer_id' => $customerId,
-                'route' => 'demo.tasks',
+                'route' => 'operator.tasks',
             ],
             [
                 'id' => 'act-bind',
@@ -743,7 +766,7 @@ final class GlobalOperatingFixtures
                 'asset_type' => 'ga4',
                 'brand_id' => $brandId,
                 'customer_id' => $customerId,
-                'route' => 'demo.integrations.google',
+                'route' => 'operator.integrations.google',
             ],
             [
                 'id' => 'act-gsc',
@@ -758,7 +781,7 @@ final class GlobalOperatingFixtures
                 'asset_type' => 'gsc',
                 'brand_id' => $brandId,
                 'customer_id' => $customerId,
-                'route' => 'demo.search-console',
+                'route' => 'operator.search-console',
             ],
             [
                 'id' => 'act-host-fail',
@@ -773,7 +796,7 @@ final class GlobalOperatingFixtures
                 'asset_type' => 'hosting',
                 'brand_id' => $brandId,
                 'customer_id' => $customerId,
-                'route' => 'demo.website',
+                'route' => 'operator.website',
                 'route_params' => ['tab' => 'infrastructure'],
             ],
         ];
@@ -785,12 +808,12 @@ final class GlobalOperatingFixtures
     public static function settingsSections(): array
     {
         return [
-            ['id' => 'general', 'label' => __('operator.settings_ia.general'), 'description' => 'Agency identity, locale, timezone, display defaults.'],
-            ['id' => 'team', 'label' => __('operator.settings_ia.team'), 'description' => 'Users, roles, Brand and Digital Asset responsibility.'],
-            ['id' => 'notifications', 'label' => __('operator.settings_ia.notifications'), 'description' => 'In-app preferences for meaningful operational events.'],
-            ['id' => 'operations', 'label' => __('operator.settings_ia.operations'), 'description' => 'Task due defaults, outcome review window, dashboard mode.'],
-            ['id' => 'ai', 'label' => __('operator.settings_ia.ai'), 'description' => 'Provider availability and guidance preferences — not autonomous actions.'],
-            ['id' => 'advanced', 'label' => __('operator.settings_ia.advanced'), 'description' => 'Environment info, diagnostics, files, privacy, and Demo Mode controls.'],
+            ['id' => 'general', 'label' => __('operator.settings_ia.general'), 'description' => __('operator.settings_ia.general_help')],
+            ['id' => 'team', 'label' => __('operator.settings_ia.team'), 'description' => __('operator.settings_ia.team_help')],
+            ['id' => 'notifications', 'label' => __('operator.settings_ia.notifications'), 'description' => __('operator.settings_ia.notifications_help')],
+            ['id' => 'operations', 'label' => __('operator.settings_ia.operations'), 'description' => __('operator.settings_ia.operations_help')],
+            ['id' => 'ai', 'label' => __('operator.settings_ia.ai'), 'description' => __('operator.settings_ia.ai_help')],
+            ['id' => 'advanced', 'label' => __('operator.settings_ia.advanced'), 'description' => __('operator.settings_ia.advanced_help')],
         ];
     }
 
@@ -809,7 +832,7 @@ final class GlobalOperatingFixtures
                 'default_analytical_date_range' => 'last_28',
                 'week_starts_on' => 'monday',
             ],
-            'team' => DemoCatalog::teamMembers(),
+            'team' => [],
             'notifications' => [
                 ['event' => 'Critical Finding', 'channel' => 'In-app', 'enabled' => true],
                 ['event' => 'Integration failure', 'channel' => 'In-app', 'enabled' => true],
@@ -845,15 +868,15 @@ final class GlobalOperatingFixtures
                 'note' => 'Customer/Brand/Task files use authenticated download routes — not public URLs.',
             ],
             'privacy' => [
-                'retention' => 'Operational Evidence retained per agency policy (demo placeholder).',
-                'export' => 'Operator export tooling is not part of this Demo shell.',
-                'purge' => 'Purge requests are handled out-of-band for Demo Mode.',
+                'retention' => 'Operational Evidence retained per agency policy.',
+                'export' => 'Operator export tooling is not configured in this environment.',
+                'purge' => 'Purge requests are handled out-of-band.',
             ],
             'advanced' => [
                 'environment' => config('app.env'),
                 'app_name' => config('app.name'),
-                'canonical_surface' => '/app',
-                'system_panel' => 'Advanced diagnostics stay on /app',
+                'canonical_surface' => '/',
+                'system_panel' => 'Advanced diagnostics stay on the operator shell',
             ],
         ];
     }

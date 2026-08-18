@@ -58,7 +58,7 @@
                                 {{ $event['status'] }}
                             </x-ta.badge>
                             @if (! empty($event['route']))
-                                <x-ta.button :href="route($event['route'])" size="sm" variant="outline">Open</x-ta.button>
+                                <x-ta.button :href="route($event['route'], $event['route_params'] ?? [])" size="sm" variant="outline">Open</x-ta.button>
                             @endif
                         </div>
                     </div>

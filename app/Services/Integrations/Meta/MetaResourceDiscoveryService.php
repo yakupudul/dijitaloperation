@@ -5,7 +5,9 @@ namespace App\Services\Integrations\Meta;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Support\Integrations\DiscoveredExternalResource;
+use App\Support\Integrations\Meta\MetaAdAccountId;
 use App\Support\Integrations\Meta\MetaApiConfig;
+use App\Support\Integrations\Meta\MetaResourceType;
 use App\Support\Integrations\ProviderRegistry;
 use Illuminate\Support\Facades\DB;
 use Throwable;
@@ -22,6 +24,7 @@ use Throwable;
  */
 class MetaResourceDiscoveryService
 {
+    /** @deprecated Use MetaResourceType::META_AD_ACCOUNT */
     public const string RESOURCE_TYPE = 'meta_ads';
 
     public function __construct(
@@ -88,6 +91,20 @@ class MetaResourceDiscoveryService
             if ($businessId === null) {
                 continue;
             }
+
+            // Persist Business as container ExternalResource (not bindable, not a DigitalAsset).
+            $this->upsertResource($integration, new DiscoveredExternalResource(
+                resourceType: MetaResourceType::META_BUSINESS,
+                externalId: $businessId,
+                displayName: is_string($businessName) && $businessName !== '' ? $businessName : $businessId,
+                parentExternalId: null,
+                metadata: [
+                    'provider_resource_type' => 'meta_business',
+                    'container' => true,
+                    'selectable' => false,
+                    'bindable' => false,
+                ],
+            ));
 
             $paths['business_'.$businessId.'_owned'] = $this->collectPath(
                 $integration,
@@ -270,18 +287,19 @@ class MetaResourceDiscoveryService
      */
     private function normalizeAccount(array $row, ?array $business, string $accessRelation): ?DiscoveredExternalResource
     {
-        $accountId = null;
+        $raw = null;
         if (isset($row['account_id']) && (is_string($row['account_id']) || is_numeric($row['account_id']))) {
-            $accountId = (string) $row['account_id'];
-        } elseif (isset($row['id']) && is_string($row['id'])) {
-            $accountId = str_starts_with($row['id'], 'act_') ? substr($row['id'], 4) : $row['id'];
+            $raw = (string) $row['account_id'];
+        } elseif (isset($row['id']) && (is_string($row['id']) || is_numeric($row['id']))) {
+            $raw = (string) $row['id'];
         }
 
-        if ($accountId === null || $accountId === '') {
+        $externalId = MetaAdAccountId::canonical($raw);
+        $accountId = MetaAdAccountId::digits($raw);
+        if ($externalId === null || $accountId === null) {
             return null;
         }
 
-        $externalId = str_starts_with($accountId, 'act_') ? $accountId : 'act_'.$accountId;
         $name = isset($row['name']) && is_string($row['name']) && trim($row['name']) !== ''
             ? trim($row['name'])
             : $externalId;
@@ -307,10 +325,12 @@ class MetaResourceDiscoveryService
             'access_relation' => $accessRelation,
             'discovery_paths' => [$accessRelation],
             'provider_resource_type' => 'meta_ad_account',
+            'selectable' => true,
+            'bindable' => true,
         ], static fn (mixed $value): bool => $value !== null);
 
         return new DiscoveredExternalResource(
-            resourceType: self::RESOURCE_TYPE,
+            resourceType: MetaResourceType::META_AD_ACCOUNT,
             externalId: $externalId,
             displayName: $name,
             parentExternalId: is_string($businessId) ? $businessId : null,
@@ -354,7 +374,7 @@ class MetaResourceDiscoveryService
     {
         $query = CoreExternalResource::query()
             ->where('integration_id', $integration->id)
-            ->where('resource_type', self::RESOURCE_TYPE)
+            ->where('resource_type', MetaResourceType::META_AD_ACCOUNT)
             ->where('status', CoreExternalResource::STATUS_AVAILABLE);
 
         if ($seenIds !== []) {

@@ -2,54 +2,54 @@
 
 namespace App\Livewire\Demo;
 
-use App\Support\Demo\DemoState;
+use App\Services\Notifications\NotificationReadService;
+use App\Services\Notifications\NotificationUiActions;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
+/**
+ * In-app notification bell. Reads/writes UserNotification only — no Demo fallback, no Mail.
+ */
 class NotificationBell extends Component
 {
     public function markRead(string $id): void
     {
         $user = Auth::user();
-        if ($user) {
-            $notification = $user->notifications()->whereKey($id)->first();
-            if ($notification) {
-                $notification->markAsRead();
-
-                return;
-            }
+        if ($user === null) {
+            return;
         }
 
-        DemoState::markDemoNotificationRead($id);
+        app(NotificationUiActions::class)->markRead($user, $id);
     }
 
     public function markAllRead(): void
     {
-        Auth::user()?->unreadNotifications->markAsRead();
-        DemoState::markAllDemoNotificationsRead();
+        $user = Auth::user();
+        if ($user === null) {
+            return;
+        }
+
+        app(NotificationUiActions::class)->markAllRead($user);
     }
 
     public function render(): View
     {
         $user = Auth::user();
-        $dbItems = $user?->notifications()->latest()->limit(8)->get() ?? collect();
-
-        if ($dbItems->isNotEmpty()) {
+        if ($user === null) {
             return view('livewire.demo.notification-bell', [
-                'unreadCount' => $user?->unreadNotifications()->count() ?? 0,
-                'items' => $dbItems,
+                'unreadCount' => 0,
+                'items' => [],
                 'demoItems' => [],
             ]);
         }
 
-        $demoItems = DemoState::demoNotifications();
-        $unread = collect($demoItems)->where('read', false)->count();
+        $reads = app(NotificationReadService::class);
 
         return view('livewire.demo.notification-bell', [
-            'unreadCount' => $unread,
-            'items' => collect(),
-            'demoItems' => $demoItems,
+            'unreadCount' => $reads->unreadCount($user),
+            'items' => $reads->forUser($user, unreadOnly: false, limit: 8),
+            'demoItems' => [],
         ]);
     }
 }

@@ -29,7 +29,7 @@
             @foreach ($creatives as $creative)
                 <li class="flex items-center justify-between">
                     <span class="text-sm text-gray-800 dark:text-white/90">{{ $creative['name'] }} · {{ $creative['format'] }}</span>
-                    <x-ta.button :href="route('demo.meta.ad', ['assetId' => $assetId, 'adId' => $creative['id']])" size="sm" variant="outline">Open</x-ta.button>
+                    <x-ta.button :href="route('operator.meta.ad', ['assetId' => $assetId, 'adId' => $creative['id']])" size="sm" variant="outline">Open</x-ta.button>
                 </li>
             @endforeach
         </ul>

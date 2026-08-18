@@ -1,10 +1,10 @@
 @php
     $recs = collect($recommendations);
     $glance = [
-        'awaiting' => $recs->whereIn('status', ['pending', 'awaiting_decision'])->count(),
-        'accepted' => $recs->whereIn('status', ['approved', 'accepted'])->count(),
-        'dismissed' => $recs->whereIn('status', ['rejected', 'dismissed'])->count(),
-        'has_task' => $recs->filter(fn ($r) => ($r['status'] ?? '') === 'approved' || filled($r['task_id'] ?? null))->count(),
+        'awaiting' => $recs->where('status', 'open')->count(),
+        'accepted' => $recs->where('status', 'accepted')->count(),
+        'dismissed' => $recs->where('status', 'dismissed')->count(),
+        'has_task' => $recs->filter(fn ($r) => ($r['status'] ?? '') === 'converted' || filled($r['task_id'] ?? null))->count(),
     ];
 @endphp
 
@@ -48,15 +48,18 @@
                             @if (! empty($rec['asset_type']))
                                 <x-demo.digital-asset-mark :type="$rec['asset_type']" size="sm" />
                             @endif
-                            <x-ta.badge :color="match($rec['status']) { 'approved' => 'success', 'rejected' => 'error', default => 'warning' }" size="sm">
-                                {{ $rec['status'] === 'pending' ? 'Awaiting decision' : $rec['status'] }}
+                            <x-ta.badge :color="match($rec['status']) { 'accepted' => 'success', 'converted' => 'info', 'dismissed' => 'error', default => 'warning' }" size="sm">
+                                {{ $rec['status'] === 'open' ? 'Awaiting decision' : $rec['status'] }}
                             </x-ta.badge>
+                            @if (! empty($rec['origin_label']))
+                                <x-ta.badge color="light" size="sm">{{ $rec['origin_label'] }}</x-ta.badge>
+                            @endif
                             @if (! empty($rec['ai_assisted']))
                                 <x-ta.badge color="info" size="sm">AI-assisted</x-ta.badge>
                             @endif
                         </div>
                         <h3 class="mt-2 text-base font-semibold text-gray-800 dark:text-white/90">{{ $rec['title'] }}</h3>
-                        <p class="mt-1 text-sm text-gray-500">{{ $rec['brand'] }} · {{ $rec['asset'] }}</p>
+                        <p class="mt-1 text-sm text-gray-500">{{ $rec['brand'] ?? '—' }} · {{ $rec['asset'] ?? '—' }}</p>
                         <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">Why surfaced · {{ $rec['why'] }}</p>
                         <p class="mt-1 text-xs text-gray-500">
                             Effort · {{ $rec['effort'] ?? '—' }}
@@ -65,16 +68,13 @@
 
                         @if ($expandedId === $rec['id'])
                             @php
-                                $recContext = \App\Support\Demo\CommercialContextFixtures::contextForOperationalRow($rec);
-                                $sourceKind = filled($rec['source_opportunity_id'] ?? null)
-                                    ? 'opportunity'
-                                    : (filled($rec['finding_id'] ?? null) ? 'finding' : null);
+                                $sourceKind = $rec['source_kind'] ?? null;
                             @endphp
                             <div class="mt-3 space-y-2">
                                 <x-demo.commercial-context
-                                    :service="$recContext['service']"
-                                    :goal="$recContext['goal']"
-                                    :offering="$recContext['offering']"
+                                    :service="$rec['service'] ?? null"
+                                    :goal="null"
+                                    :offering="null"
                                 />
                                 @if ($sourceKind === 'opportunity')
                                     <p class="text-xs text-gray-500">
@@ -93,11 +93,7 @@
                             <div class="mt-4 grid gap-3 sm:grid-cols-2">
                                 <div class="rounded-lg bg-gray-50 p-3 dark:bg-white/[0.03] sm:col-span-2">
                                     <p class="text-xs uppercase tracking-wide text-gray-400">Recommended action</p>
-                                    <p class="mt-1 text-sm text-gray-700 dark:text-gray-300">{{ $rec['action'] }}</p>
-                                </div>
-                                <div class="rounded-lg bg-gray-50 p-3 dark:bg-white/[0.03]">
-                                    <p class="text-xs uppercase tracking-wide text-gray-400">Verification plan</p>
-                                    <p class="mt-1 text-sm text-gray-700 dark:text-gray-300">{{ $rec['verification_plan'] ?? $rec['success'] }}</p>
+                                    <p class="mt-1 text-sm text-gray-700 dark:text-gray-300">{{ $rec['action'] ?? '—' }}</p>
                                 </div>
                                 <div class="rounded-lg bg-gray-50 p-3 dark:bg-white/[0.03]">
                                     <p class="text-xs uppercase tracking-wide text-gray-400">{{ __('operator.commercial.source') }}</p>
@@ -116,8 +112,12 @@
                                     <p class="mt-1 text-sm text-gray-700 dark:text-gray-300">{{ $rec['evidence'] }}</p>
                                 </div>
                                 <div class="rounded-lg bg-gray-50 p-3 dark:bg-white/[0.03]">
-                                    <p class="text-xs uppercase tracking-wide text-gray-400">Expected outcome</p>
-                                    <p class="mt-1 text-sm text-gray-700 dark:text-gray-300">{{ $rec['success'] }}</p>
+                                    <p class="text-xs uppercase tracking-wide text-gray-400">Source state</p>
+                                    <p class="mt-1 text-sm text-gray-700 dark:text-gray-300">{{ $rec['source_title'] ?? '—' }} · {{ $rec['source_status'] ?? '—' }}</p>
+                                </div>
+                                <div class="rounded-lg bg-gray-50 p-3 dark:bg-white/[0.03]">
+                                    <p class="text-xs uppercase tracking-wide text-gray-400">Last updated</p>
+                                    <p class="mt-1 text-sm text-gray-700 dark:text-gray-300">{{ $rec['updated_at'] ?? '—' }}</p>
                                 </div>
                             </div>
                         @endif
@@ -126,7 +126,7 @@
                         <x-ta.button wire:click="expand('{{ $rec['id'] }}')" size="sm" variant="outline">
                             {{ $expandedId === $rec['id'] ? 'Hide' : 'Review' }}
                         </x-ta.button>
-                        @if ($rec['status'] === 'pending')
+                        @if ($rec['status'] === 'open')
                             <x-ta.button wire:click="approve('{{ $rec['id'] }}')" size="sm">Accept</x-ta.button>
                             <x-ta.button wire:click="defer('{{ $rec['id'] }}')" size="sm" variant="outline">Defer</x-ta.button>
                             <x-ta.button wire:click="reject('{{ $rec['id'] }}')" size="sm" variant="danger">Dismiss</x-ta.button>
@@ -138,7 +138,7 @@
         @empty
             @include('livewire.demo.partials.empty-panel', [
                 'title' => 'No recommendations are awaiting decision',
-                'message' => 'Recommendations appear after analysis surfaces actionable options.',
+                'message' => 'Recommendations appear after a Finding or an Opportunity is turned into a recommended action.',
             ])
         @endforelse
     </div>

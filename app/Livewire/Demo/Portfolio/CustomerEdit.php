@@ -3,7 +3,8 @@
 namespace App\Livewire\Demo\Portfolio;
 
 use App\Livewire\Demo\Portfolio\Concerns\InteractsWithCustomerForm;
-use App\Support\Demo\DemoCatalog;
+use App\Models\Customer;
+use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
@@ -20,9 +21,13 @@ class CustomerEdit extends Component
 
     public function mount(string $customerId): void
     {
-        $this->customerId = $customerId;
-        $customer = DemoState::findCustomer($customerId) ?? DemoCatalog::customer();
-        $this->fillCustomerForm($customer);
+        abort_unless(ctype_digit($customerId), 404);
+
+        $customer = Customer::query()->with('responsibleUsers')->find($customerId);
+        abort_if($customer === null, 404);
+
+        $this->customerId = (string) $customer->id;
+        $this->fillCustomerForm(OperatorPortfolioPresenter::customer($customer));
     }
 
     public function save(): mixed
@@ -36,11 +41,19 @@ class CustomerEdit extends Component
         try {
             $this->validate($this->customerRules(), [], $this->customerValidationAttributes());
 
-            $existing = DemoState::findCustomer($this->customerId) ?? DemoCatalog::customer();
-            $payload = array_merge($existing, $this->customerPayload($this->customerId));
-            DemoState::updateCustomer($this->customerId, $payload);
+            $customer = Customer::query()->find($this->customerId);
+            abort_if($customer === null, 404);
 
-            return $this->redirect(route('demo.customer', ['customerId' => $this->customerId]), navigate: true);
+            $payload = $this->customerPayload();
+            unset($payload['id'], $payload['responsible_user_ids']);
+            $customer->fill($payload);
+            $customer->syncServices(array_values($this->services));
+            $customer->save();
+            $customer->responsibleUsers()->sync($this->sanitizedResponsibleUserIds());
+
+            DemoState::flash(__('operator.forms.customer_updated'));
+
+            return $this->redirect(route('operator.customer', ['customerId' => $customer->id]), navigate: true);
         } finally {
             $this->saving = false;
         }
@@ -50,11 +63,11 @@ class CustomerEdit extends Component
     {
         return view('livewire.demo.portfolio.customer-form', array_merge($this->customerFormViewData(), [
             'mode' => 'edit',
-            'pageTitle' => 'Edit customer',
-            'pageSubtitle' => 'Update the agency relationship profile.',
-            'backUrl' => route('demo.customer', ['customerId' => $this->customerId]),
-            'backLabel' => 'Customer',
-            'primaryAction' => 'Save changes',
+            'pageTitle' => __('operator.forms.edit_customer'),
+            'pageSubtitle' => __('operator.forms.edit_customer_subtitle'),
+            'backUrl' => route('operator.customer', ['customerId' => $this->customerId]),
+            'backLabel' => __('operator.nav.customers'),
+            'primaryAction' => __('operator.forms.save_changes'),
             'showSaveAndAddBrand' => false,
         ]));
     }

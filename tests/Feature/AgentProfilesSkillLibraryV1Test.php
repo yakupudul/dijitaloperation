@@ -82,6 +82,8 @@ class AgentProfilesSkillLibraryV1Test extends TestCase
             'brand-context-discovery',
             'ga4-measurement-quality',
             'gsc-search-demand-review',
+            'indexability-analysis',
+            'metadata-consistency',
             'technical-seo-analysis',
             'search-console-analysis',
             'keyword-opportunity-analysis',
@@ -149,7 +151,11 @@ class AgentProfilesSkillLibraryV1Test extends TestCase
         foreach ($registry->roots() as $root) {
             $this->assertDirectoryExists($root['absolute_root']);
             $this->assertStringNotContainsString('http', $root['absolute_root']);
-            $this->assertTrue(str_starts_with($root['absolute_root'], base_path('app-modules')));
+            $this->assertTrue(
+                str_starts_with($root['absolute_root'], base_path('app-modules'))
+                || str_starts_with($root['absolute_root'], base_path('resources/skills')),
+                $root['absolute_root'],
+            );
         }
     }
 
@@ -203,8 +209,8 @@ class AgentProfilesSkillLibraryV1Test extends TestCase
         $this->assertSame('completed', $run->status);
         $this->assertSame(AgentProfileKeys::WEBSITE_SEO_ANALYST, $run->metadata['agent_profile_slug']);
         $this->assertSame(WebsiteSeoAnalyst::VERSION, $run->metadata['agent_profile_version']);
-        $this->assertContains('technical-seo-analysis@1.0.0', $run->metadata['active_skill_signatures']);
-        $this->assertContains('recommendation-framing@1.0.0', $run->metadata['active_skill_signatures']);
+        $this->assertContains('website.technical-seo-analysis@1.1.0', $run->metadata['active_skill_signatures']);
+        $this->assertContains('website.recommendation-framing@1.1.0', $run->metadata['active_skill_signatures']);
         $this->assertSame('website.ai_guidance', $run->metadata['ai_route_key']);
         $this->assertSame('openai', $run->metadata['provider']);
         $this->assertSame(0, Task::query()->count());
@@ -237,7 +243,7 @@ class AgentProfilesSkillLibraryV1Test extends TestCase
         $this->assertSame(SkillEligibilityEvaluator::MISSING_REQUIRED_EVIDENCE, $gsc['status']);
 
         WebsiteRecommendationAgent::assertPrompted(function (AgentPrompt $prompt): bool {
-            return $prompt->contains('search-console-analysis@1.0.0: missing_required_evidence')
+            return $prompt->contains('search-console-analysis@1.1.0: missing_required_evidence')
                 && ! $prompt->contains('### SKILL search-console-analysis@');
         });
     }
@@ -297,7 +303,7 @@ class AgentProfilesSkillLibraryV1Test extends TestCase
     public function test_agent_profiles_and_skill_library_pages_are_readable(): void
     {
         $this->actingAs($this->admin)
-            ->get('/system/settings/agent-profiles')
+            ->get('/admin/settings/agent-profiles')
             ->assertOk()
             ->assertSee('Website SEO Analyst')
             ->assertSee('Assigned Skills')
@@ -305,7 +311,7 @@ class AgentProfilesSkillLibraryV1Test extends TestCase
             ->assertDontSee('sk-test-agent-skill');
 
         $this->actingAs($this->admin)
-            ->get('/system/settings/skill-library')
+            ->get('/admin/settings/skill-library')
             ->assertOk()
             ->assertSee('Technical SEO Analysis')
             ->assertSee('Required Capabilities')

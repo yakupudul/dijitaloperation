@@ -2,8 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Enums\RecommendationSourceKind;
 use App\Models\DigitalAsset;
 use App\Models\Finding;
+use App\Models\Opportunity;
 use App\Models\Recommendation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
@@ -22,9 +24,13 @@ class RecommendationMigrationAndModelTest extends TestCase
 
         $this->assertTrue(Schema::hasColumns('recommendations', [
             'id',
+            'source_kind',
             'finding_id',
+            'opportunity_id',
             'digital_asset_id',
             'source_module',
+            'origin',
+            'idempotency_key',
             'title',
             'action',
             'rationale',
@@ -44,7 +50,16 @@ class RecommendationMigrationAndModelTest extends TestCase
         );
 
         $this->assertNotNull($findingForeignKey);
-        $this->assertSame('cascade', $findingForeignKey['on_delete']);
+        $this->assertSame('restrict', $findingForeignKey['on_delete']);
+
+        $opportunityForeignKey = collect($foreignKeys)->first(
+            fn (array $foreignKey): bool => $foreignKey['columns'] === ['opportunity_id']
+                && $foreignKey['foreign_table'] === 'opportunities'
+                && $foreignKey['foreign_columns'] === ['id']
+        );
+
+        $this->assertNotNull($opportunityForeignKey);
+        $this->assertSame('restrict', $opportunityForeignKey['on_delete']);
 
         $digitalAssetForeignKey = collect($foreignKeys)->first(
             fn (array $foreignKey): bool => $foreignKey['columns'] === ['digital_asset_id']
@@ -67,6 +82,44 @@ class RecommendationMigrationAndModelTest extends TestCase
 
         $this->assertNotNull($findingIndex);
         $this->assertNotNull($digitalAssetIndex);
+
+        foreach ([
+            ['source_kind'],
+            ['opportunity_id'],
+            ['source_kind', 'finding_id'],
+            ['source_kind', 'opportunity_id'],
+        ] as $columns) {
+            $this->assertNotNull(
+                collect($indexes)->first(fn (array $index): bool => $index['columns'] === $columns),
+                'Missing index on '.implode(', ', $columns),
+            );
+        }
+
+        $idempotencyIndex = collect($indexes)->first(
+            fn (array $index): bool => $index['columns'] === ['idempotency_key']
+        );
+
+        $this->assertNotNull($idempotencyIndex);
+        $this->assertTrue($idempotencyIndex['unique']);
+    }
+
+    public function test_finding_id_is_nullable_for_opportunity_sourced_recommendations(): void
+    {
+        $opportunity = Opportunity::factory()->create();
+
+        $recommendation = Recommendation::factory()->forOpportunity($opportunity)->create([
+            'title' => 'Act on: organic click recovery potential',
+            'status' => Recommendation::STATUS_OPEN,
+        ]);
+
+        $this->assertDatabaseHas('recommendations', [
+            'id' => $recommendation->id,
+            'source_kind' => RecommendationSourceKind::Opportunity->value,
+            'finding_id' => null,
+            'opportunity_id' => $opportunity->id,
+        ]);
+
+        $this->assertTrue($recommendation->fresh()->opportunity->is($opportunity));
     }
 
     public function test_recommendation_can_be_created_via_factory_and_belongs_to_finding(): void

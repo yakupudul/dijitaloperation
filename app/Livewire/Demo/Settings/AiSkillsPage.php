@@ -12,7 +12,7 @@ use Livewire\Component;
 
 /**
  * Full Skill Library under /app (read-only V1 — same domain as Filament).
- * Operators must not need /system for routine AI administration.
+ * Operators must not need /admin for routine AI administration.
  */
 #[Layout('operator.layouts.app')]
 #[Title('Skill Library')]
@@ -70,18 +70,25 @@ class AiSkillsPage extends Component
                 'version' => $skill->version,
                 'module' => $skill->module,
                 'purpose' => $skill->purpose,
+                'definition_status' => $skill->definitionStatus,
+                'stable_key' => $skill->stableKey(),
+                'definition_fingerprint' => $skill->definitionFingerprint(),
                 'required_evidence' => $skill->requiredEvidence,
+                'optional_evidence' => $skill->optionalEvidence,
                 'required_capabilities' => $skill->requiredCapabilities,
                 'optional_capabilities' => $skill->optionalCapabilities,
                 'when_to_use' => $skill->whenToUse,
                 'do_not_use_when' => $skill->doNotUseWhen,
                 'methodology' => $skill->methodology,
                 'allowed_conclusions' => $skill->allowedConclusions,
-                'forbidden_claims' => $skill->forbiddenClaims,
+                'forbidden_claims' => $skill->effectiveForbiddenClaims(),
+                'abstention_rules' => $skill->abstentionRules,
                 'success_signals' => $skill->successSignals,
                 'failure_signals' => $skill->failureSignals,
                 'watch_metrics' => $skill->watchMetrics,
                 'reference_sources' => $skill->referenceSources,
+                'research_provenance' => $skill->researchProvenance,
+                'downstream_domains' => $skill->downstreamDomains,
                 'assigned_agents' => $assignedAgents,
                 'body_markdown' => $skill->bodyMarkdown,
             ];

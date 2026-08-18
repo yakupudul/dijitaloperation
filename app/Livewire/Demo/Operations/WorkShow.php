@@ -2,10 +2,22 @@
 
 namespace App\Livewire\Demo\Operations;
 
-use App\Support\Demo\AgencyExecutionFixtures;
+use App\Enums\ClientRequestStatus;
+use App\Models\Task;
+use App\Services\Approvals\ApprovalReadService;
+use App\Services\Approvals\ApprovalUiActions;
+use App\Services\ClientRequests\ClientRequestReadService;
+use App\Services\ClientRequests\ClientRequestUiActions;
+use App\Services\Qa\QaUiActions;
+use App\Services\RecurringReviews\RecurringReviewUiActions;
+use App\Services\Tasks\TaskLifecycleService;
+use App\Services\Tasks\TaskReadService;
 use App\Support\Demo\ClientValueFixtures;
 use App\Support\Demo\DemoState;
+use App\Support\Work\WorkUrl;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -18,68 +30,162 @@ class WorkShow extends Component
 
     public string $type = 'client_request';
 
-    public function mount(string $workId, ?string $type = null): void
+    public string $taskCreateNonce = '';
+
+    public function mount(string $workId, string $type = 'client_request'): void
     {
+        abort_unless(WorkUrl::isType($type), 404);
+
         $this->workId = $workId;
-        $this->type = $type ?? 'client_request';
+        $this->type = $type;
+        $this->taskCreateNonce = (string) Str::uuid();
     }
 
     public function triage(): void
     {
-        DemoState::setClientRequestStatus($this->workId, 'triaged');
+        $this->mutateRequestStatus(ClientRequestStatus::Triaged);
     }
 
     public function plan(): void
     {
-        DemoState::setClientRequestStatus($this->workId, 'planned');
+        $this->mutateRequestStatus(ClientRequestStatus::Planned);
     }
 
     public function waitOnClient(): void
     {
-        DemoState::setClientRequestStatus($this->workId, 'waiting_on_client');
+        $this->mutateRequestStatus(ClientRequestStatus::WaitingOnClient);
     }
 
     public function markDone(): void
     {
-        DemoState::setClientRequestStatus($this->workId, 'done');
+        $this->mutateRequestStatus(ClientRequestStatus::Done);
     }
 
     public function decline(): void
     {
-        DemoState::setClientRequestStatus($this->workId, 'declined');
+        $this->mutateRequestStatus(ClientRequestStatus::Declined);
     }
 
     public function createTask(): void
     {
-        DemoState::createTaskFromClientRequest($this->workId);
+        if ($this->type !== 'client_request') {
+            return;
+        }
+
+        $result = app(ClientRequestUiActions::class)->createTask(
+            $this->workId,
+            auth()->user(),
+            'cr-task:'.$this->workId.':'.$this->taskCreateNonce,
+        );
+        DemoState::flash($result['message'] ?? '');
+        if ($result['ok']) {
+            $this->taskCreateNonce = (string) Str::uuid();
+        }
     }
 
     public function completeReview(string $result): void
     {
-        DemoState::completeRecurringReview($this->workId, $result);
+        if ($this->type !== 'recurring_review') {
+            return;
+        }
+
+        $outcome = app(RecurringReviewUiActions::class)->completeReview(
+            $this->workId,
+            $result,
+            auth()->user(),
+            'rr-ui:'.$this->workId.':'.$result.':'.$this->taskCreateNonce,
+        );
+        DemoState::flash($outcome['message'] ?? '');
+        if ($outcome['ok']) {
+            $this->taskCreateNonce = (string) Str::uuid();
+        }
     }
 
     public function skipReview(): void
     {
-        DemoState::skipRecurringReview($this->workId, 'Skipped by operator');
+        if ($this->type !== 'recurring_review') {
+            return;
+        }
+
+        $outcome = app(RecurringReviewUiActions::class)->skipReview(
+            $this->workId,
+            auth()->user(),
+            'Skipped by operator',
+        );
+        DemoState::flash($outcome['message'] ?? '');
     }
 
     public function approve(): void
     {
-        DemoState::setApprovalState($this->workId, 'approved');
+        if ($this->type !== 'approval') {
+            return;
+        }
+
+        $result = app(ApprovalUiActions::class)->approve($this->workId, auth()->user());
+        DemoState::flash($result['message'] ?? '');
     }
 
     public function approveQa(): void
     {
-        DemoState::setQaState($this->workId, 'approved');
+        $taskId = $this->type === 'task' ? $this->workId : null;
+        if ($taskId === null && $this->type === 'approval') {
+            $item = app(ApprovalReadService::class)->findPresentation((int) $this->workId);
+            $taskId = isset($item['task_id']) ? (string) $item['task_id'] : null;
+        }
+        if ($taskId === null || ! ctype_digit((string) $taskId)) {
+            DemoState::flash(__('operator.flash.task_not_found_qa'));
+
+            return;
+        }
+
+        $result = app(QaUiActions::class)->approveQaForTask(
+            $taskId,
+            auth()->user(),
+            'qa-approve:'.$taskId.':'.$this->taskCreateNonce,
+        );
+        DemoState::flash($result['message'] ?? '');
+        if ($result['ok']) {
+            $this->taskCreateNonce = (string) Str::uuid();
+        }
+    }
+
+    public function startTask(): void
+    {
+        $task = $this->canonicalTask();
+        if ($task === null) {
+            return;
+        }
+
+        try {
+            app(TaskLifecycleService::class)->start($task, auth()->user());
+            DemoState::flash(__('operator.flash.task_started'));
+        } catch (ValidationException $exception) {
+            DemoState::flash(collect($exception->errors())->flatten()->first() ?? __('operator.work.not_found'));
+        }
+    }
+
+    public function completeTask(): void
+    {
+        $task = $this->canonicalTask();
+        if ($task === null) {
+            return;
+        }
+
+        try {
+            app(TaskLifecycleService::class)->complete($task, [], auth()->user());
+            DemoState::flash(__('operator.flash.task_completed'));
+        } catch (ValidationException $exception) {
+            DemoState::flash(collect($exception->errors())->flatten()->first() ?? __('operator.work.not_found'));
+        }
     }
 
     public function render(): View
     {
         $item = $this->resolveItem();
-        $playbookId = 'pb-weekly-gads';
-        if ($this->type === 'recurring_review' && is_array($item) && ! empty($item['playbook_id'])) {
-            $playbookId = (string) $item['playbook_id'];
+        $playbookId = null;
+        if (is_array($item)) {
+            $playbookId = $item['playbook_stable_key'] ?? $item['playbook_id'] ?? null;
+            $playbookId = is_string($playbookId) && $playbookId !== '' ? $playbookId : null;
         }
 
         return view('livewire.demo.operations.work-show', [
@@ -96,10 +202,81 @@ class WorkShow extends Component
     private function resolveItem(): ?array
     {
         return match ($this->type) {
-            'client_request' => DemoState::findClientRequest($this->workId),
-            'recurring_review' => collect(DemoState::recurringReviewsWithState())->firstWhere('id', $this->workId),
-            'approval' => collect(AgencyExecutionFixtures::approvalsWithState())->firstWhere('id', $this->workId),
-            default => collect(AgencyExecutionFixtures::workItems())->firstWhere('id', $this->workId),
+            'client_request' => $this->resolveClientRequest(),
+            'recurring_review' => $this->resolveRecurringReview(),
+            'approval' => $this->resolveApproval(),
+            'task' => $this->resolveTask(),
+            default => null,
         };
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function resolveRecurringReview(): ?array
+    {
+        return app(RecurringReviewUiActions::class)->findPresentation($this->workId);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function resolveApproval(): ?array
+    {
+        if (! ctype_digit($this->workId)) {
+            return null;
+        }
+
+        return app(ApprovalReadService::class)->findPresentation((int) $this->workId);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function resolveTask(): ?array
+    {
+        if (! ctype_digit($this->workId)) {
+            return null;
+        }
+
+        return app(TaskReadService::class)->findPresentation((int) $this->workId);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function resolveClientRequest(): ?array
+    {
+        if (! ctype_digit($this->workId)) {
+            return null;
+        }
+
+        return app(ClientRequestReadService::class)->findPresentation((int) $this->workId);
+    }
+
+    private function mutateRequestStatus(ClientRequestStatus $status): void
+    {
+        if ($this->type !== 'client_request') {
+            return;
+        }
+
+        $result = app(ClientRequestUiActions::class)->changeStatus($this->workId, $status, auth()->user());
+        DemoState::flash($result['message'] ?? '');
+    }
+
+    private function canonicalTask(): ?Task
+    {
+        if ($this->type !== WorkUrl::TYPE_TASK || ! ctype_digit($this->workId)) {
+            DemoState::flash(__('operator.work.not_found'));
+
+            return null;
+        }
+
+        $task = Task::query()->find((int) $this->workId);
+        if ($task === null) {
+            DemoState::flash(__('operator.work.not_found'));
+        }
+
+        return $task;
     }
 }

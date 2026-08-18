@@ -93,7 +93,7 @@ final class IntegrationWorkspaceCatalog
                     lastCheckedLabel: $this->health->lastCheckedLabel($integration, $provider),
                     action: $hasRecord ? 'manage' : 'setup',
                     manageUrl: $hasRecord
-                        ? IntegrationResource::getUrl('view', ['record' => $integration])
+                        ? $this->manageUrlFor($provider, $integration)
                         : null,
                     integrationId: $hasRecord ? $integration->id : null,
                     supportsResources: (bool) $meta['supports_resources'],
@@ -128,5 +128,18 @@ final class IntegrationWorkspaceCatalog
             ->where('provider', $provider)
             ->orderBy('id')
             ->first();
+    }
+
+    /**
+     * Frozen `/app/integrations` is the canonical Google operator surface.
+     * Filament `/admin/settings/integrations/{id}` remains internal configure/admin.
+     */
+    private function manageUrlFor(string $provider, CoreIntegration $integration): string
+    {
+        if ($provider === ProviderRegistry::GOOGLE) {
+            return route('operator.integrations.google', absolute: false);
+        }
+
+        return IntegrationResource::getUrl('view', ['record' => $integration]);
     }
 }

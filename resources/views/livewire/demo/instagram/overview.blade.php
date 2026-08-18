@@ -29,9 +29,9 @@
             </div>
         </div>
         <div class="flex flex-wrap gap-2">
-            <a href="{{ route('demo.activity', ['asset' => $identity['asset_id']]) }}" wire:navigate class="inline-flex rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">{{ __('operator.customer.actions.view_activity') }}</a>
-            <a href="{{ route('demo.brand', ['brand' => $identity['brand_id']]) }}" wire:navigate class="inline-flex rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">{{ $identity['brand_name'] }}</a>
-            <a href="{{ route('demo.assets') }}" wire:navigate class="inline-flex rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">{{ __('operator.nav.digital_assets') }}</a>
+            <a href="{{ route('operator.activity', ['asset' => $identity['asset_id']]) }}" wire:navigate class="inline-flex rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">{{ __('operator.customer.actions.view_activity') }}</a>
+            <a href="{{ route('operator.brand', ['brand' => $identity['brand_id']]) }}" wire:navigate class="inline-flex rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">{{ $identity['brand_name'] }}</a>
+            <a href="{{ route('operator.assets') }}" wire:navigate class="inline-flex rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">{{ __('operator.nav.digital_assets') }}</a>
         </div>
     </div>
 
@@ -121,7 +121,7 @@
                                     <p class="font-medium text-gray-800 dark:text-white/90">{{ $asset['name'] }}</p>
                                     <p class="text-xs text-gray-500">{{ $asset['label'] }} · {{ $asset['note'] }}</p>
                                 </div>
-                                <a href="{{ route($asset['route']) }}" wire:navigate class="text-xs font-medium text-brand-600 dark:text-brand-400">{{ __('operator.actions.open') }}</a>
+                                <a href="{{ $asset['url'] ?? \App\Services\Operator\OperatorPortfolioPresenter::specialistHref($asset) }}" wire:navigate class="text-xs font-medium text-brand-600 dark:text-brand-400">{{ __('operator.actions.open') }}</a>
                             </li>
                         @endforeach
                     </ul>
@@ -191,7 +191,7 @@
             <section>
                 <div class="mb-3 flex items-center justify-between gap-2">
                     <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Recent activity</h2>
-                    <a href="{{ route('demo.activity', ['asset' => $identity['asset_id']]) }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">{{ __('operator.customer.actions.view_activity') }}</a>
+                    <a href="{{ route('operator.activity', ['asset' => $identity['asset_id']]) }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">{{ __('operator.customer.actions.view_activity') }}</a>
                 </div>
                 <ul class="divide-y divide-gray-100 rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:divide-gray-800 dark:bg-gray-900 dark:ring-gray-800">
                     @foreach ($workspace['activity'] as $row)

@@ -1,0 +1,3047 @@
+{
+    "metadata": {
+        "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+        "version": 1,
+        "status": "PRODUCTION",
+        "created_at": "2026-08-13",
+        "data_contract_registry_id": "MOXDOP_DATA_CONTRACT_REGISTRY",
+        "data_contract_registry_version": 1,
+        "storage_contract_id": "MOXDOP_DATA_POOL_STORAGE",
+        "storage_contract_version": 1,
+        "formula_registry_id": "MOXDOP_FORMULA_REGISTRY",
+        "formula_registry_version": 1,
+        "description": "Integrity check profiles for production GSC/GA4/Google Ads/Meta Ads datasets. References canonical Dataset IDs; does not redefine formulas or datasets.",
+        "invariants": [
+            "NO_NUMERIC_QUALITY_SCORE",
+            "NO_AUTOMATIC_REPAIR",
+            "COVERAGE_FROM_COLLECTION_EVIDENCE_NOT_FACT_PRESENCE",
+            "ZERO_ROW_SUCCESS_IS_COVERAGE",
+            "RAW_ROWS_NOT_EQUAL_NORMALIZED_ROWS_BY_DEFINITION",
+            "NON_ADDITIVE_METRICS_NOT_SUMMED",
+            "PROVIDER_ASYNC_COMPLETE_NOT_DATASET_COMPLETE",
+            "DEFAULT_AUDIT_ZERO_PROVIDER_CALLS",
+            "UNVERIFIED_IS_NOT_PASS"
+        ]
+    },
+    "enums": {
+        "check_status": [
+            "PASS",
+            "PASS_WITH_LIMITATION",
+            "WARNING",
+            "FAIL",
+            "UNVERIFIED",
+            "NOT_APPLICABLE"
+        ],
+        "readiness_status": [
+            "READY_FOR_REAL_UI",
+            "READY_WITH_PROVIDER_LIMITATION",
+            "BLOCKED_PARTIAL",
+            "BLOCKED_INTEGRITY",
+            "BLOCKED_STALE",
+            "BLOCKED_CONTRACT",
+            "UNVERIFIED"
+        ],
+        "audit_mode": [
+            "LOCAL_INTEGRITY",
+            "PROVIDER_RECONCILIATION"
+        ],
+        "row_accounting_mode": [
+            "ONE_TO_ONE",
+            "ONE_TO_MANY_TYPED_ACTIONS",
+            "FILTERED_CONTRACT_SUBSET",
+            "SNAPSHOT_UPSERT",
+            "STREAM_BATCH"
+        ],
+        "coverage_mode": [
+            "INTERVAL_SET",
+            "SNAPSHOT",
+            "NOT_APPLICABLE"
+        ]
+    },
+    "global_policies": {
+        "default_audit_mode": "LOCAL_INTEGRITY",
+        "provider_reconciliation_opt_in": true,
+        "page_render_provider_calls": false,
+        "automatic_repair": false,
+        "numeric_quality_score": false,
+        "zero_fill_missing_dates": false,
+        "cross_currency_aggregation": false,
+        "ingestion_time_fx": false,
+        "timezone_rebucket": false
+    },
+    "dataset_profiles": [
+        {
+            "dataset_id": "ga4_property_metadata",
+            "provider_or_source": "GA4",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "ga4_property_metadata",
+            "grain": [
+                "property_id"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "property_id"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "snapshot",
+            "coverage_mode": "SNAPSHOT",
+            "pagination_mode": "GA4_OFFSET_ROWCOUNT",
+            "row_accounting_mode": "SNAPSHOT_UPSERT",
+            "timezone_source": "ga4_property_timezone",
+            "currency_source": "NOT_APPLICABLE",
+            "raw_required": false,
+            "request_family_ids": [
+                "GA4_RF_PROPERTY_METADATA"
+            ],
+            "additive_metrics": [],
+            "non_additive_metrics": [],
+            "freshness_sla_hours": 168,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "snapshot_semantics"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": false,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "ga4_property_daily",
+            "provider_or_source": "GA4",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "ga4_property_daily",
+            "grain": [
+                "property_id",
+                "date"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "property_id",
+                "reporting_date"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "historical",
+            "coverage_mode": "INTERVAL_SET",
+            "pagination_mode": "GA4_OFFSET_ROWCOUNT",
+            "row_accounting_mode": "ONE_TO_ONE",
+            "timezone_source": "ga4_property_timezone",
+            "currency_source": "NOT_APPLICABLE",
+            "raw_required": false,
+            "request_family_ids": [
+                "GA4_RF_PROPERTY_DAILY"
+            ],
+            "additive_metrics": [
+                "sessions",
+                "eventCount",
+                "screenPageViews"
+            ],
+            "non_additive_metrics": [
+                "totalUsers",
+                "activeUsers",
+                "newUsers"
+            ],
+            "freshness_sla_hours": 48,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "coverage_intervals",
+                "timezone_provenance",
+                "non_additive_metric_protection",
+                "provider_total_compatibility"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": true,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [
+                    "totalUsers",
+                    "activeUsers",
+                    "newUsers"
+                ],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "ga4_acquisition_channel_daily",
+            "provider_or_source": "GA4",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "ga4_acquisition_channel_daily",
+            "grain": [
+                "property_id",
+                "date",
+                "sessionDefaultChannelGroup"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "property_id",
+                "reporting_date",
+                "sessionDefaultChannelGroup"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "historical",
+            "coverage_mode": "INTERVAL_SET",
+            "pagination_mode": "GA4_OFFSET_ROWCOUNT",
+            "row_accounting_mode": "ONE_TO_ONE",
+            "timezone_source": "ga4_property_timezone",
+            "currency_source": "NOT_APPLICABLE",
+            "raw_required": false,
+            "request_family_ids": [
+                "GA4_RF_CHANNEL_DAILY"
+            ],
+            "additive_metrics": [
+                "sessions",
+                "eventCount",
+                "screenPageViews"
+            ],
+            "non_additive_metrics": [
+                "totalUsers",
+                "activeUsers",
+                "newUsers"
+            ],
+            "freshness_sla_hours": 48,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "coverage_intervals",
+                "timezone_provenance",
+                "non_additive_metric_protection",
+                "provider_total_compatibility"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": true,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [
+                    "totalUsers",
+                    "activeUsers",
+                    "newUsers"
+                ],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "ga4_source_medium_daily",
+            "provider_or_source": "GA4",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "ga4_source_medium_daily",
+            "grain": [
+                "property_id",
+                "date",
+                "sessionSource",
+                "sessionMedium"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "property_id",
+                "reporting_date",
+                "sessionSource",
+                "sessionMedium"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "historical",
+            "coverage_mode": "INTERVAL_SET",
+            "pagination_mode": "GA4_OFFSET_ROWCOUNT",
+            "row_accounting_mode": "ONE_TO_ONE",
+            "timezone_source": "ga4_property_timezone",
+            "currency_source": "NOT_APPLICABLE",
+            "raw_required": false,
+            "request_family_ids": [
+                "GA4_RF_SOURCE_MEDIUM_DAILY"
+            ],
+            "additive_metrics": [
+                "sessions",
+                "eventCount",
+                "screenPageViews"
+            ],
+            "non_additive_metrics": [
+                "totalUsers",
+                "activeUsers",
+                "newUsers"
+            ],
+            "freshness_sla_hours": 48,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "coverage_intervals",
+                "timezone_provenance",
+                "non_additive_metric_protection",
+                "provider_total_compatibility"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": true,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [
+                    "totalUsers",
+                    "activeUsers",
+                    "newUsers"
+                ],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "ga4_campaign_daily",
+            "provider_or_source": "GA4",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "ga4_campaign_daily",
+            "grain": [
+                "property_id",
+                "date",
+                "sessionCampaignName"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "property_id",
+                "reporting_date",
+                "sessionCampaignName"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "historical",
+            "coverage_mode": "INTERVAL_SET",
+            "pagination_mode": "GA4_OFFSET_ROWCOUNT",
+            "row_accounting_mode": "ONE_TO_ONE",
+            "timezone_source": "ga4_property_timezone",
+            "currency_source": "NOT_APPLICABLE",
+            "raw_required": false,
+            "request_family_ids": [
+                "GA4_RF_CAMPAIGN_DAILY"
+            ],
+            "additive_metrics": [
+                "sessions",
+                "eventCount",
+                "screenPageViews"
+            ],
+            "non_additive_metrics": [
+                "totalUsers",
+                "activeUsers",
+                "newUsers"
+            ],
+            "freshness_sla_hours": 48,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "coverage_intervals",
+                "timezone_provenance",
+                "non_additive_metric_protection",
+                "provider_total_compatibility"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": true,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [
+                    "totalUsers",
+                    "activeUsers",
+                    "newUsers"
+                ],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "ga4_landing_page_daily",
+            "provider_or_source": "GA4",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "ga4_landing_page_daily",
+            "grain": [
+                "property_id",
+                "date",
+                "landingPage"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "property_id",
+                "reporting_date",
+                "landingPage"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "historical",
+            "coverage_mode": "INTERVAL_SET",
+            "pagination_mode": "GA4_OFFSET_ROWCOUNT",
+            "row_accounting_mode": "ONE_TO_ONE",
+            "timezone_source": "ga4_property_timezone",
+            "currency_source": "NOT_APPLICABLE",
+            "raw_required": false,
+            "request_family_ids": [
+                "GA4_RF_LANDING_PAGE_DAILY"
+            ],
+            "additive_metrics": [
+                "sessions",
+                "eventCount",
+                "screenPageViews"
+            ],
+            "non_additive_metrics": [
+                "totalUsers",
+                "activeUsers",
+                "newUsers"
+            ],
+            "freshness_sla_hours": 48,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "coverage_intervals",
+                "timezone_provenance",
+                "non_additive_metric_protection",
+                "provider_total_compatibility"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": true,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [
+                    "totalUsers",
+                    "activeUsers",
+                    "newUsers"
+                ],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "ga4_event_daily",
+            "provider_or_source": "GA4",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "ga4_event_daily",
+            "grain": [
+                "property_id",
+                "date",
+                "eventName"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "property_id",
+                "reporting_date",
+                "eventName"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "historical",
+            "coverage_mode": "INTERVAL_SET",
+            "pagination_mode": "GA4_OFFSET_ROWCOUNT",
+            "row_accounting_mode": "ONE_TO_ONE",
+            "timezone_source": "ga4_property_timezone",
+            "currency_source": "NOT_APPLICABLE",
+            "raw_required": false,
+            "request_family_ids": [
+                "GA4_RF_EVENT_DAILY"
+            ],
+            "additive_metrics": [
+                "sessions",
+                "eventCount",
+                "screenPageViews"
+            ],
+            "non_additive_metrics": [
+                "totalUsers",
+                "activeUsers",
+                "newUsers"
+            ],
+            "freshness_sla_hours": 48,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "coverage_intervals",
+                "timezone_provenance",
+                "non_additive_metric_protection",
+                "provider_total_compatibility"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": true,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [
+                    "totalUsers",
+                    "activeUsers",
+                    "newUsers"
+                ],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "ga4_event_channel_daily",
+            "provider_or_source": "GA4",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "ga4_event_channel_daily",
+            "grain": [
+                "property_id",
+                "date",
+                "eventName",
+                "sessionDefaultChannelGroup"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "property_id",
+                "reporting_date",
+                "eventName",
+                "sessionDefaultChannelGroup"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "historical",
+            "coverage_mode": "INTERVAL_SET",
+            "pagination_mode": "GA4_OFFSET_ROWCOUNT",
+            "row_accounting_mode": "ONE_TO_ONE",
+            "timezone_source": "ga4_property_timezone",
+            "currency_source": "NOT_APPLICABLE",
+            "raw_required": false,
+            "request_family_ids": [],
+            "additive_metrics": [
+                "sessions",
+                "eventCount",
+                "screenPageViews"
+            ],
+            "non_additive_metrics": [
+                "totalUsers",
+                "activeUsers",
+                "newUsers"
+            ],
+            "freshness_sla_hours": 48,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "coverage_intervals",
+                "timezone_provenance",
+                "non_additive_metric_protection",
+                "provider_total_compatibility"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": true,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [
+                    "totalUsers",
+                    "activeUsers",
+                    "newUsers"
+                ],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "ga4_event_source_medium_daily",
+            "provider_or_source": "GA4",
+            "storage_disposition": "STORAGE_CONTRACT_GAP",
+            "physical_table": null,
+            "grain": [],
+            "natural_key": [],
+            "collection_run_in_natural_key": false,
+            "history_mode": "historical",
+            "coverage_mode": "INTERVAL_SET",
+            "pagination_mode": "GA4_OFFSET_ROWCOUNT",
+            "row_accounting_mode": "ONE_TO_ONE",
+            "timezone_source": "ga4_property_timezone",
+            "currency_source": "NOT_APPLICABLE",
+            "raw_required": false,
+            "request_family_ids": [
+                "GA4_RF_EVENT_BREAKDOWNS"
+            ],
+            "additive_metrics": [],
+            "non_additive_metrics": [],
+            "freshness_sla_hours": 48,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": false,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "ga4_event_campaign_daily",
+            "provider_or_source": "GA4",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "ga4_event_campaign_daily",
+            "grain": [
+                "property_id",
+                "date",
+                "eventName",
+                "sessionCampaignName"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "property_id",
+                "reporting_date",
+                "eventName",
+                "sessionCampaignName"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "historical",
+            "coverage_mode": "INTERVAL_SET",
+            "pagination_mode": "GA4_OFFSET_ROWCOUNT",
+            "row_accounting_mode": "ONE_TO_ONE",
+            "timezone_source": "ga4_property_timezone",
+            "currency_source": "NOT_APPLICABLE",
+            "raw_required": false,
+            "request_family_ids": [],
+            "additive_metrics": [
+                "sessions",
+                "eventCount",
+                "screenPageViews"
+            ],
+            "non_additive_metrics": [
+                "totalUsers",
+                "activeUsers",
+                "newUsers"
+            ],
+            "freshness_sla_hours": 48,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "coverage_intervals",
+                "timezone_provenance",
+                "non_additive_metric_protection",
+                "provider_total_compatibility"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": true,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [
+                    "totalUsers",
+                    "activeUsers",
+                    "newUsers"
+                ],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "ga4_event_landing_daily",
+            "provider_or_source": "GA4",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "ga4_event_landing_daily",
+            "grain": [
+                "property_id",
+                "date",
+                "eventName",
+                "landingPage"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "property_id",
+                "reporting_date",
+                "eventName",
+                "landingPage"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "historical",
+            "coverage_mode": "INTERVAL_SET",
+            "pagination_mode": "GA4_OFFSET_ROWCOUNT",
+            "row_accounting_mode": "ONE_TO_ONE",
+            "timezone_source": "ga4_property_timezone",
+            "currency_source": "NOT_APPLICABLE",
+            "raw_required": false,
+            "request_family_ids": [],
+            "additive_metrics": [
+                "sessions",
+                "eventCount",
+                "screenPageViews"
+            ],
+            "non_additive_metrics": [
+                "totalUsers",
+                "activeUsers",
+                "newUsers"
+            ],
+            "freshness_sla_hours": 48,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "coverage_intervals",
+                "timezone_provenance",
+                "non_additive_metric_protection",
+                "provider_total_compatibility"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": true,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [
+                    "totalUsers",
+                    "activeUsers",
+                    "newUsers"
+                ],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "ga4_device_daily",
+            "provider_or_source": "GA4",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "ga4_device_daily",
+            "grain": [
+                "property_id",
+                "date",
+                "deviceCategory"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "property_id",
+                "reporting_date",
+                "deviceCategory"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "historical",
+            "coverage_mode": "INTERVAL_SET",
+            "pagination_mode": "GA4_OFFSET_ROWCOUNT",
+            "row_accounting_mode": "ONE_TO_ONE",
+            "timezone_source": "ga4_property_timezone",
+            "currency_source": "NOT_APPLICABLE",
+            "raw_required": false,
+            "request_family_ids": [
+                "GA4_RF_DEVICE_DAILY"
+            ],
+            "additive_metrics": [
+                "sessions",
+                "eventCount",
+                "screenPageViews"
+            ],
+            "non_additive_metrics": [
+                "totalUsers",
+                "activeUsers",
+                "newUsers"
+            ],
+            "freshness_sla_hours": 48,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "coverage_intervals",
+                "timezone_provenance",
+                "non_additive_metric_protection",
+                "provider_total_compatibility"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": true,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [
+                    "totalUsers",
+                    "activeUsers",
+                    "newUsers"
+                ],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "gsc_property_daily",
+            "provider_or_source": "SEARCH_CONSOLE",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "gsc_property_daily",
+            "grain": [
+                "site_url",
+                "date"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "site_url",
+                "reporting_date"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "historical",
+            "coverage_mode": "INTERVAL_SET",
+            "pagination_mode": "GSC_START_ROW",
+            "row_accounting_mode": "ONE_TO_ONE",
+            "timezone_source": "gsc_reporting_date_semantics",
+            "currency_source": "NOT_APPLICABLE",
+            "raw_required": false,
+            "request_family_ids": [
+                "GSC_RF_PROPERTY_DAILY"
+            ],
+            "additive_metrics": [
+                "clicks",
+                "impressions"
+            ],
+            "non_additive_metrics": [
+                "position"
+            ],
+            "freshness_sla_hours": 48,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "coverage_intervals",
+                "timezone_provenance",
+                "non_additive_metric_protection"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": false,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [
+                    "position"
+                ],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "gsc_query_daily",
+            "provider_or_source": "SEARCH_CONSOLE",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "gsc_query_daily",
+            "grain": [
+                "site_url",
+                "date",
+                "query"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "site_url",
+                "reporting_date",
+                "query"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "historical",
+            "coverage_mode": "INTERVAL_SET",
+            "pagination_mode": "GSC_START_ROW",
+            "row_accounting_mode": "ONE_TO_ONE",
+            "timezone_source": "gsc_reporting_date_semantics",
+            "currency_source": "NOT_APPLICABLE",
+            "raw_required": false,
+            "request_family_ids": [
+                "GSC_RF_QUERY_DAILY"
+            ],
+            "additive_metrics": [
+                "clicks",
+                "impressions"
+            ],
+            "non_additive_metrics": [
+                "position"
+            ],
+            "freshness_sla_hours": 48,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "coverage_intervals",
+                "timezone_provenance",
+                "non_additive_metric_protection"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": false,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [
+                    "position"
+                ],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "gsc_page_daily",
+            "provider_or_source": "SEARCH_CONSOLE",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "gsc_page_daily",
+            "grain": [
+                "site_url",
+                "date",
+                "page"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "site_url",
+                "reporting_date",
+                "page"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "historical",
+            "coverage_mode": "INTERVAL_SET",
+            "pagination_mode": "GSC_START_ROW",
+            "row_accounting_mode": "ONE_TO_ONE",
+            "timezone_source": "gsc_reporting_date_semantics",
+            "currency_source": "NOT_APPLICABLE",
+            "raw_required": false,
+            "request_family_ids": [
+                "GSC_RF_PAGE_DAILY"
+            ],
+            "additive_metrics": [
+                "clicks",
+                "impressions"
+            ],
+            "non_additive_metrics": [
+                "position"
+            ],
+            "freshness_sla_hours": 48,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "coverage_intervals",
+                "timezone_provenance",
+                "non_additive_metric_protection"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": false,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [
+                    "position"
+                ],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "gsc_query_page_daily",
+            "provider_or_source": "SEARCH_CONSOLE",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "gsc_query_page_daily",
+            "grain": [
+                "site_url",
+                "date",
+                "query",
+                "page"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "site_url",
+                "reporting_date",
+                "query",
+                "page"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "historical",
+            "coverage_mode": "INTERVAL_SET",
+            "pagination_mode": "GSC_START_ROW",
+            "row_accounting_mode": "ONE_TO_ONE",
+            "timezone_source": "gsc_reporting_date_semantics",
+            "currency_source": "NOT_APPLICABLE",
+            "raw_required": false,
+            "request_family_ids": [
+                "GSC_RF_QUERY_PAGE_DAILY"
+            ],
+            "additive_metrics": [
+                "clicks",
+                "impressions"
+            ],
+            "non_additive_metrics": [
+                "position"
+            ],
+            "freshness_sla_hours": 48,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "coverage_intervals",
+                "timezone_provenance",
+                "non_additive_metric_protection"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": false,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [
+                    "position"
+                ],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "gsc_country_daily",
+            "provider_or_source": "SEARCH_CONSOLE",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "gsc_country_daily",
+            "grain": [
+                "site_url",
+                "date",
+                "country"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "site_url",
+                "reporting_date",
+                "country"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "historical",
+            "coverage_mode": "INTERVAL_SET",
+            "pagination_mode": "GSC_START_ROW",
+            "row_accounting_mode": "ONE_TO_ONE",
+            "timezone_source": "gsc_reporting_date_semantics",
+            "currency_source": "NOT_APPLICABLE",
+            "raw_required": false,
+            "request_family_ids": [
+                "GSC_RF_COUNTRY_DAILY"
+            ],
+            "additive_metrics": [
+                "clicks",
+                "impressions"
+            ],
+            "non_additive_metrics": [
+                "position"
+            ],
+            "freshness_sla_hours": 48,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "coverage_intervals",
+                "timezone_provenance",
+                "non_additive_metric_protection"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": false,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [
+                    "position"
+                ],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "gsc_device_daily",
+            "provider_or_source": "SEARCH_CONSOLE",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "gsc_device_daily",
+            "grain": [
+                "site_url",
+                "date",
+                "device"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "site_url",
+                "reporting_date",
+                "device"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "historical",
+            "coverage_mode": "INTERVAL_SET",
+            "pagination_mode": "GSC_START_ROW",
+            "row_accounting_mode": "ONE_TO_ONE",
+            "timezone_source": "gsc_reporting_date_semantics",
+            "currency_source": "NOT_APPLICABLE",
+            "raw_required": false,
+            "request_family_ids": [
+                "GSC_RF_DEVICE_DAILY"
+            ],
+            "additive_metrics": [
+                "clicks",
+                "impressions"
+            ],
+            "non_additive_metrics": [
+                "position"
+            ],
+            "freshness_sla_hours": 48,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "coverage_intervals",
+                "timezone_provenance",
+                "non_additive_metric_protection"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": false,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [
+                    "position"
+                ],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "gsc_search_appearance_daily",
+            "provider_or_source": "SEARCH_CONSOLE",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "gsc_search_appearance_daily",
+            "grain": [
+                "site_url",
+                "date",
+                "searchAppearance"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "site_url",
+                "reporting_date",
+                "searchAppearance"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "historical",
+            "coverage_mode": "INTERVAL_SET",
+            "pagination_mode": "GSC_START_ROW",
+            "row_accounting_mode": "ONE_TO_ONE",
+            "timezone_source": "gsc_reporting_date_semantics",
+            "currency_source": "NOT_APPLICABLE",
+            "raw_required": false,
+            "request_family_ids": [],
+            "additive_metrics": [
+                "clicks",
+                "impressions"
+            ],
+            "non_additive_metrics": [
+                "position"
+            ],
+            "freshness_sla_hours": 48,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "coverage_intervals",
+                "timezone_provenance",
+                "non_additive_metric_protection"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": false,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [
+                    "position"
+                ],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "gsc_url_inspection_snapshot",
+            "provider_or_source": "SEARCH_CONSOLE",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "gsc_url_inspection_snapshot",
+            "grain": [
+                "site_url",
+                "page",
+                "inspected_at"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "site_url",
+                "page",
+                "inspected_at"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "snapshot",
+            "coverage_mode": "SNAPSHOT",
+            "pagination_mode": "GSC_START_ROW",
+            "row_accounting_mode": "SNAPSHOT_UPSERT",
+            "timezone_source": "gsc_reporting_date_semantics",
+            "currency_source": "NOT_APPLICABLE",
+            "raw_required": false,
+            "request_family_ids": [
+                "GSC_RF_URL_INSPECTION"
+            ],
+            "additive_metrics": [],
+            "non_additive_metrics": [],
+            "freshness_sla_hours": 168,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "snapshot_semantics"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": false,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "gsc_sitemap_snapshot",
+            "provider_or_source": "SEARCH_CONSOLE",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "gsc_sitemap_snapshot",
+            "grain": [
+                "site_url",
+                "sitemap_path",
+                "retrieved_at"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "site_url",
+                "sitemap_path",
+                "retrieved_at"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "snapshot",
+            "coverage_mode": "SNAPSHOT",
+            "pagination_mode": "GSC_START_ROW",
+            "row_accounting_mode": "SNAPSHOT_UPSERT",
+            "timezone_source": "gsc_reporting_date_semantics",
+            "currency_source": "NOT_APPLICABLE",
+            "raw_required": false,
+            "request_family_ids": [
+                "GSC_RF_SITEMAPS"
+            ],
+            "additive_metrics": [],
+            "non_additive_metrics": [],
+            "freshness_sla_hours": 168,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "snapshot_semantics"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": false,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "google_ads_account_snapshot",
+            "provider_or_source": "GOOGLE_ADS",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "google_ads_account_snapshot",
+            "grain": [
+                "customer_id"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "customer_id"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "snapshot",
+            "coverage_mode": "SNAPSHOT",
+            "pagination_mode": "GADS_SEARCH_PAGED",
+            "row_accounting_mode": "SNAPSHOT_UPSERT",
+            "timezone_source": "google_ads_customer_timezone",
+            "currency_source": "NOT_APPLICABLE",
+            "raw_required": false,
+            "request_family_ids": [
+                "GADS_RF_ENTITY_SNAPSHOT"
+            ],
+            "additive_metrics": [],
+            "non_additive_metrics": [],
+            "freshness_sla_hours": 168,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "snapshot_semantics"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": false,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "google_ads_account_daily",
+            "provider_or_source": "GOOGLE_ADS",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "google_ads_account_daily",
+            "grain": [
+                "customer_id",
+                "date"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "customer_id",
+                "reporting_date"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "historical",
+            "coverage_mode": "INTERVAL_SET",
+            "pagination_mode": "GADS_SEARCH_STREAM",
+            "row_accounting_mode": "ONE_TO_ONE",
+            "timezone_source": "google_ads_customer_timezone",
+            "currency_source": "google_ads_customer_currency",
+            "raw_required": false,
+            "request_family_ids": [
+                "GADS_RF_SEARCH_STREAM"
+            ],
+            "additive_metrics": [
+                "impressions",
+                "clicks",
+                "cost"
+            ],
+            "non_additive_metrics": [],
+            "freshness_sla_hours": 48,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "coverage_intervals",
+                "timezone_provenance",
+                "currency_provenance",
+                "provider_total_compatibility"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": true,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "google_ads_campaign_snapshot",
+            "provider_or_source": "GOOGLE_ADS",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "google_ads_campaign_snapshot",
+            "grain": [
+                "customer_id",
+                "campaign_id"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "customer_id",
+                "campaign_id"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "snapshot",
+            "coverage_mode": "SNAPSHOT",
+            "pagination_mode": "GADS_SEARCH_PAGED",
+            "row_accounting_mode": "SNAPSHOT_UPSERT",
+            "timezone_source": "google_ads_customer_timezone",
+            "currency_source": "NOT_APPLICABLE",
+            "raw_required": false,
+            "request_family_ids": [
+                "GADS_RF_ENTITY_SNAPSHOT"
+            ],
+            "additive_metrics": [],
+            "non_additive_metrics": [],
+            "freshness_sla_hours": 168,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "snapshot_semantics"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": false,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "google_ads_campaign_daily",
+            "provider_or_source": "GOOGLE_ADS",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "google_ads_campaign_daily",
+            "grain": [
+                "customer_id",
+                "date",
+                "campaign_id"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "customer_id",
+                "reporting_date",
+                "campaign_id"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "historical",
+            "coverage_mode": "INTERVAL_SET",
+            "pagination_mode": "GADS_SEARCH_PAGED",
+            "row_accounting_mode": "ONE_TO_ONE",
+            "timezone_source": "google_ads_customer_timezone",
+            "currency_source": "google_ads_customer_currency",
+            "raw_required": false,
+            "request_family_ids": [
+                "GADS_RF_CAMPAIGN_DAILY"
+            ],
+            "additive_metrics": [
+                "impressions",
+                "clicks",
+                "cost"
+            ],
+            "non_additive_metrics": [],
+            "freshness_sla_hours": 48,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "coverage_intervals",
+                "timezone_provenance",
+                "currency_provenance",
+                "provider_total_compatibility"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": true,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "google_ads_ad_group_snapshot",
+            "provider_or_source": "GOOGLE_ADS",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "google_ads_ad_group_snapshot",
+            "grain": [
+                "customer_id",
+                "ad_group_id"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "customer_id",
+                "ad_group_id"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "snapshot",
+            "coverage_mode": "SNAPSHOT",
+            "pagination_mode": "GADS_SEARCH_PAGED",
+            "row_accounting_mode": "SNAPSHOT_UPSERT",
+            "timezone_source": "google_ads_customer_timezone",
+            "currency_source": "NOT_APPLICABLE",
+            "raw_required": false,
+            "request_family_ids": [
+                "GADS_RF_ENTITY_SNAPSHOT"
+            ],
+            "additive_metrics": [],
+            "non_additive_metrics": [],
+            "freshness_sla_hours": 168,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "snapshot_semantics"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": false,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "google_ads_ad_snapshot",
+            "provider_or_source": "GOOGLE_ADS",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "google_ads_ad_snapshot",
+            "grain": [
+                "customer_id",
+                "ad_id"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "customer_id",
+                "ad_id"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "snapshot",
+            "coverage_mode": "SNAPSHOT",
+            "pagination_mode": "GADS_SEARCH_PAGED",
+            "row_accounting_mode": "SNAPSHOT_UPSERT",
+            "timezone_source": "google_ads_customer_timezone",
+            "currency_source": "NOT_APPLICABLE",
+            "raw_required": false,
+            "request_family_ids": [
+                "GADS_RF_ENTITY_SNAPSHOT"
+            ],
+            "additive_metrics": [],
+            "non_additive_metrics": [],
+            "freshness_sla_hours": 168,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "snapshot_semantics"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": false,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "google_ads_keyword_snapshot",
+            "provider_or_source": "GOOGLE_ADS",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "google_ads_keyword_snapshot",
+            "grain": [
+                "customer_id",
+                "criterion_id"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "customer_id",
+                "criterion_id"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "snapshot",
+            "coverage_mode": "SNAPSHOT",
+            "pagination_mode": "GADS_SEARCH_PAGED",
+            "row_accounting_mode": "SNAPSHOT_UPSERT",
+            "timezone_source": "google_ads_customer_timezone",
+            "currency_source": "NOT_APPLICABLE",
+            "raw_required": false,
+            "request_family_ids": [
+                "GADS_RF_ENTITY_SNAPSHOT"
+            ],
+            "additive_metrics": [],
+            "non_additive_metrics": [],
+            "freshness_sla_hours": 168,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "snapshot_semantics"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": false,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "google_ads_keyword_daily",
+            "provider_or_source": "GOOGLE_ADS",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "google_ads_keyword_daily",
+            "grain": [
+                "customer_id",
+                "date",
+                "criterion_id"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "customer_id",
+                "reporting_date",
+                "criterion_id"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "historical",
+            "coverage_mode": "INTERVAL_SET",
+            "pagination_mode": "GADS_SEARCH_PAGED",
+            "row_accounting_mode": "ONE_TO_ONE",
+            "timezone_source": "google_ads_customer_timezone",
+            "currency_source": "google_ads_customer_currency",
+            "raw_required": false,
+            "request_family_ids": [
+                "GADS_RF_KEYWORD"
+            ],
+            "additive_metrics": [
+                "impressions",
+                "clicks",
+                "cost"
+            ],
+            "non_additive_metrics": [],
+            "freshness_sla_hours": 48,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "coverage_intervals",
+                "timezone_provenance",
+                "currency_provenance",
+                "provider_total_compatibility"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": true,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "google_ads_search_term_daily",
+            "provider_or_source": "GOOGLE_ADS",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "google_ads_search_term_daily",
+            "grain": [
+                "customer_id",
+                "date",
+                "search_term"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "customer_id",
+                "reporting_date",
+                "search_term"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "historical",
+            "coverage_mode": "INTERVAL_SET",
+            "pagination_mode": "GADS_SEARCH_PAGED",
+            "row_accounting_mode": "ONE_TO_ONE",
+            "timezone_source": "google_ads_customer_timezone",
+            "currency_source": "google_ads_customer_currency",
+            "raw_required": false,
+            "request_family_ids": [
+                "GADS_RF_SEARCH_TERM"
+            ],
+            "additive_metrics": [
+                "impressions",
+                "clicks",
+                "cost"
+            ],
+            "non_additive_metrics": [],
+            "freshness_sla_hours": 48,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "coverage_intervals",
+                "timezone_provenance",
+                "currency_provenance",
+                "provider_total_compatibility"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": true,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "google_ads_landing_page_daily",
+            "provider_or_source": "GOOGLE_ADS",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "google_ads_landing_page_daily",
+            "grain": [
+                "customer_id",
+                "date",
+                "landing_page"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "customer_id",
+                "reporting_date",
+                "landing_page"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "historical",
+            "coverage_mode": "INTERVAL_SET",
+            "pagination_mode": "GADS_SEARCH_PAGED",
+            "row_accounting_mode": "ONE_TO_ONE",
+            "timezone_source": "google_ads_customer_timezone",
+            "currency_source": "google_ads_customer_currency",
+            "raw_required": false,
+            "request_family_ids": [
+                "GADS_RF_LANDING_PAGE"
+            ],
+            "additive_metrics": [
+                "impressions",
+                "clicks",
+                "cost"
+            ],
+            "non_additive_metrics": [],
+            "freshness_sla_hours": 48,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "coverage_intervals",
+                "timezone_provenance",
+                "currency_provenance",
+                "provider_total_compatibility"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": true,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "google_ads_conversion_action_snapshot",
+            "provider_or_source": "GOOGLE_ADS",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "google_ads_conversion_action_snapshot",
+            "grain": [
+                "customer_id",
+                "conversion_action_id"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "customer_id",
+                "conversion_action_id"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "snapshot",
+            "coverage_mode": "SNAPSHOT",
+            "pagination_mode": "GADS_SEARCH_PAGED",
+            "row_accounting_mode": "SNAPSHOT_UPSERT",
+            "timezone_source": "google_ads_customer_timezone",
+            "currency_source": "NOT_APPLICABLE",
+            "raw_required": false,
+            "request_family_ids": [
+                "GADS_RF_ENTITY_SNAPSHOT"
+            ],
+            "additive_metrics": [],
+            "non_additive_metrics": [],
+            "freshness_sla_hours": 168,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "snapshot_semantics"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": false,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "google_ads_conversion_action_daily",
+            "provider_or_source": "GOOGLE_ADS",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "google_ads_conversion_action_daily",
+            "grain": [
+                "customer_id",
+                "date",
+                "conversion_action_id"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "customer_id",
+                "reporting_date",
+                "conversion_action_id"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "historical",
+            "coverage_mode": "INTERVAL_SET",
+            "pagination_mode": "GADS_SEARCH_PAGED",
+            "row_accounting_mode": "ONE_TO_ONE",
+            "timezone_source": "google_ads_customer_timezone",
+            "currency_source": "NOT_APPLICABLE",
+            "raw_required": false,
+            "request_family_ids": [],
+            "additive_metrics": [
+                "impressions",
+                "clicks",
+                "cost"
+            ],
+            "non_additive_metrics": [],
+            "freshness_sla_hours": 48,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "coverage_intervals",
+                "timezone_provenance",
+                "provider_total_compatibility"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": true,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "google_ads_campaign_budget_snapshot",
+            "provider_or_source": "GOOGLE_ADS",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "google_ads_campaign_budget_snapshot",
+            "grain": [
+                "customer_id",
+                "budget_id"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "customer_id",
+                "budget_id"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "snapshot",
+            "coverage_mode": "SNAPSHOT",
+            "pagination_mode": "GADS_SEARCH_PAGED",
+            "row_accounting_mode": "SNAPSHOT_UPSERT",
+            "timezone_source": "google_ads_customer_timezone",
+            "currency_source": "NOT_APPLICABLE",
+            "raw_required": false,
+            "request_family_ids": [
+                "GADS_RF_ENTITY_SNAPSHOT"
+            ],
+            "additive_metrics": [],
+            "non_additive_metrics": [],
+            "freshness_sla_hours": 168,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "snapshot_semantics"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": false,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "google_ads_asset_coverage_snapshot",
+            "provider_or_source": "GOOGLE_ADS",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "google_ads_asset_coverage_snapshot",
+            "grain": [
+                "customer_id",
+                "asset_id"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "customer_id",
+                "asset_id"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "snapshot",
+            "coverage_mode": "SNAPSHOT",
+            "pagination_mode": "GADS_SEARCH_PAGED",
+            "row_accounting_mode": "SNAPSHOT_UPSERT",
+            "timezone_source": "google_ads_customer_timezone",
+            "currency_source": "NOT_APPLICABLE",
+            "raw_required": false,
+            "request_family_ids": [
+                "GADS_RF_ENTITY_SNAPSHOT"
+            ],
+            "additive_metrics": [],
+            "non_additive_metrics": [],
+            "freshness_sla_hours": 168,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "snapshot_semantics"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": false,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "meta_ad_account_snapshot",
+            "provider_or_source": "META_ADS",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "meta_ad_account_snapshot",
+            "grain": [
+                "account_id"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "account_id"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "snapshot",
+            "coverage_mode": "SNAPSHOT",
+            "pagination_mode": "META_SYNC_CURSOR",
+            "row_accounting_mode": "SNAPSHOT_UPSERT",
+            "timezone_source": "meta_ad_account_timezone",
+            "currency_source": "NOT_APPLICABLE",
+            "raw_required": false,
+            "request_family_ids": [
+                "RF_META_AD_ACCOUNT_META"
+            ],
+            "additive_metrics": [],
+            "non_additive_metrics": [],
+            "freshness_sla_hours": 168,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "snapshot_semantics"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": false,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "meta_campaign_snapshot",
+            "provider_or_source": "META_ADS",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "meta_campaign_snapshot",
+            "grain": [
+                "account_id",
+                "campaign_id"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "account_id",
+                "campaign_id"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "snapshot",
+            "coverage_mode": "SNAPSHOT",
+            "pagination_mode": "META_SYNC_CURSOR",
+            "row_accounting_mode": "SNAPSHOT_UPSERT",
+            "timezone_source": "meta_ad_account_timezone",
+            "currency_source": "NOT_APPLICABLE",
+            "raw_required": false,
+            "request_family_ids": [
+                "RF_META_ENTITY_SNAPSHOT"
+            ],
+            "additive_metrics": [],
+            "non_additive_metrics": [],
+            "freshness_sla_hours": 168,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "snapshot_semantics"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": false,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "meta_adset_snapshot",
+            "provider_or_source": "META_ADS",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "meta_adset_snapshot",
+            "grain": [
+                "account_id",
+                "adset_id"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "account_id",
+                "adset_id"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "snapshot",
+            "coverage_mode": "SNAPSHOT",
+            "pagination_mode": "META_SYNC_CURSOR",
+            "row_accounting_mode": "SNAPSHOT_UPSERT",
+            "timezone_source": "meta_ad_account_timezone",
+            "currency_source": "NOT_APPLICABLE",
+            "raw_required": false,
+            "request_family_ids": [
+                "RF_META_ENTITY_SNAPSHOT"
+            ],
+            "additive_metrics": [],
+            "non_additive_metrics": [],
+            "freshness_sla_hours": 168,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "snapshot_semantics"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": false,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "meta_creative_snapshot",
+            "provider_or_source": "META_ADS",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "meta_creative_snapshot",
+            "grain": [
+                "account_id",
+                "creative_id"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "account_id",
+                "creative_id"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "snapshot",
+            "coverage_mode": "SNAPSHOT",
+            "pagination_mode": "META_SYNC_CURSOR",
+            "row_accounting_mode": "SNAPSHOT_UPSERT",
+            "timezone_source": "meta_ad_account_timezone",
+            "currency_source": "NOT_APPLICABLE",
+            "raw_required": false,
+            "request_family_ids": [
+                "RF_META_ENTITY_SNAPSHOT"
+            ],
+            "additive_metrics": [],
+            "non_additive_metrics": [],
+            "freshness_sla_hours": 168,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "snapshot_semantics"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": false,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "meta_campaign_daily",
+            "provider_or_source": "META_ADS",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "meta_campaign_daily",
+            "grain": [
+                "account_id",
+                "date",
+                "campaign_id"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "account_id",
+                "reporting_date",
+                "campaign_id"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "historical",
+            "coverage_mode": "INTERVAL_SET",
+            "pagination_mode": "META_SYNC_OR_ASYNC",
+            "row_accounting_mode": "ONE_TO_ONE",
+            "timezone_source": "meta_ad_account_timezone",
+            "currency_source": "meta_ad_account_currency",
+            "raw_required": false,
+            "request_family_ids": [
+                "RF_META_INSIGHTS_DAILY"
+            ],
+            "additive_metrics": [
+                "impressions",
+                "clicks",
+                "spend",
+                "inline_link_clicks"
+            ],
+            "non_additive_metrics": [
+                "reach",
+                "frequency"
+            ],
+            "freshness_sla_hours": 48,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "coverage_intervals",
+                "timezone_provenance",
+                "currency_provenance",
+                "non_additive_metric_protection",
+                "provider_total_compatibility"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": true,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [
+                    "reach",
+                    "frequency"
+                ],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "meta_adset_daily",
+            "provider_or_source": "META_ADS",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "meta_adset_daily",
+            "grain": [
+                "account_id",
+                "date",
+                "adset_id"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "account_id",
+                "reporting_date",
+                "adset_id"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "historical",
+            "coverage_mode": "INTERVAL_SET",
+            "pagination_mode": "META_SYNC_OR_ASYNC",
+            "row_accounting_mode": "ONE_TO_ONE",
+            "timezone_source": "meta_ad_account_timezone",
+            "currency_source": "meta_ad_account_currency",
+            "raw_required": false,
+            "request_family_ids": [
+                "RF_META_INSIGHTS_DAILY"
+            ],
+            "additive_metrics": [
+                "impressions",
+                "clicks",
+                "spend",
+                "inline_link_clicks"
+            ],
+            "non_additive_metrics": [
+                "reach",
+                "frequency"
+            ],
+            "freshness_sla_hours": 48,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "coverage_intervals",
+                "timezone_provenance",
+                "currency_provenance",
+                "non_additive_metric_protection",
+                "provider_total_compatibility"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": true,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [
+                    "reach",
+                    "frequency"
+                ],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "meta_ad_daily",
+            "provider_or_source": "META_ADS",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "meta_ad_daily",
+            "grain": [
+                "account_id",
+                "date",
+                "ad_id"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "account_id",
+                "reporting_date",
+                "ad_id"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "historical",
+            "coverage_mode": "INTERVAL_SET",
+            "pagination_mode": "META_SYNC_OR_ASYNC",
+            "row_accounting_mode": "ONE_TO_ONE",
+            "timezone_source": "meta_ad_account_timezone",
+            "currency_source": "meta_ad_account_currency",
+            "raw_required": false,
+            "request_family_ids": [
+                "RF_META_INSIGHTS_DAILY"
+            ],
+            "additive_metrics": [
+                "impressions",
+                "clicks",
+                "spend",
+                "inline_link_clicks"
+            ],
+            "non_additive_metrics": [
+                "reach",
+                "frequency"
+            ],
+            "freshness_sla_hours": 48,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "coverage_intervals",
+                "timezone_provenance",
+                "currency_provenance",
+                "non_additive_metric_protection",
+                "provider_total_compatibility"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": true,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [
+                    "reach",
+                    "frequency"
+                ],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "meta_typed_action_daily",
+            "provider_or_source": "META_ADS",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "meta_typed_action_daily",
+            "grain": [
+                "account_id",
+                "date",
+                "entity_level",
+                "entity_id",
+                "action_type"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "account_id",
+                "reporting_date",
+                "entity_level",
+                "entity_id",
+                "action_type"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "historical",
+            "coverage_mode": "INTERVAL_SET",
+            "pagination_mode": "META_SYNC_OR_ASYNC",
+            "row_accounting_mode": "ONE_TO_MANY_TYPED_ACTIONS",
+            "timezone_source": "meta_ad_account_timezone",
+            "currency_source": "meta_ad_account_currency",
+            "raw_required": false,
+            "request_family_ids": [
+                "RF_META_TYPED_ACTIONS"
+            ],
+            "additive_metrics": [
+                "impressions",
+                "clicks",
+                "spend",
+                "inline_link_clicks"
+            ],
+            "non_additive_metrics": [
+                "reach",
+                "frequency"
+            ],
+            "freshness_sla_hours": 48,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "coverage_intervals",
+                "timezone_provenance",
+                "currency_provenance",
+                "non_additive_metric_protection",
+                "provider_total_compatibility"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": true,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [
+                    "reach",
+                    "frequency"
+                ],
+                "tolerance": null
+            }
+        },
+        {
+            "dataset_id": "meta_delivery_breakdown_daily",
+            "provider_or_source": "META_ADS",
+            "storage_disposition": "PHYSICAL_TABLE",
+            "physical_table": "meta_delivery_breakdown_daily",
+            "grain": [
+                "account_id",
+                "date",
+                "entity_id",
+                "breakdown_type",
+                "breakdown_value"
+            ],
+            "natural_key": [
+                "digital_asset_id",
+                "account_id",
+                "reporting_date",
+                "entity_id",
+                "breakdown_type",
+                "breakdown_value"
+            ],
+            "collection_run_in_natural_key": false,
+            "history_mode": "historical",
+            "coverage_mode": "INTERVAL_SET",
+            "pagination_mode": "META_SYNC_OR_ASYNC",
+            "row_accounting_mode": "ONE_TO_ONE",
+            "timezone_source": "meta_ad_account_timezone",
+            "currency_source": "meta_ad_account_currency",
+            "raw_required": false,
+            "request_family_ids": [
+                "RF_META_INSIGHTS_BREAKDOWN"
+            ],
+            "additive_metrics": [
+                "impressions",
+                "clicks",
+                "spend",
+                "inline_link_clicks"
+            ],
+            "non_additive_metrics": [
+                "reach",
+                "frequency"
+            ],
+            "freshness_sla_hours": 48,
+            "required_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "provenance",
+                "write_receipt_accounting",
+                "materialization_reconciliation",
+                "contract_completeness",
+                "freshness",
+                "pagination_completeness",
+                "row_accounting",
+                "coverage_intervals",
+                "timezone_provenance",
+                "currency_provenance",
+                "non_additive_metric_protection",
+                "provider_total_compatibility"
+            ],
+            "migration_blocking_checks": [
+                "natural_key_duplicates",
+                "referential_integrity",
+                "unexplained_row_loss",
+                "unexplained_row_expansion",
+                "coverage_intervals",
+                "pagination_completeness",
+                "timezone_provenance",
+                "currency_provenance",
+                "materialization_reconciliation",
+                "contract_completeness"
+            ],
+            "provider_total_reconciliation": {
+                "enabled": true,
+                "default_mode": "LOCAL_SAME_RUN",
+                "forbid_sum_metrics": [
+                    "reach",
+                    "frequency"
+                ],
+                "tolerance": null
+            }
+        }
+    ]
+}

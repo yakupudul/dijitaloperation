@@ -9,6 +9,9 @@ return [
          * APP_URL + the named integrations.google.callback route (see GoogleOAuthRedirectUriResolver).
          */
         'redirect_uri' => env('GOOGLE_REDIRECT_URI'),
+        /*
+         * Application-level Google Ads API developer token (NOT an OAuth user token).
+         */
         'developer_token' => env('GOOGLE_ADS_DEVELOPER_TOKEN'),
         'ads_api_version' => env('GOOGLE_ADS_API_VERSION', 'v25'),
         /*
@@ -18,6 +21,9 @@ return [
          */
         'include_gbp_scope' => (bool) env('GOOGLE_INCLUDE_GBP_SCOPE', false),
         'gbp_discovery_enabled' => (bool) env('GOOGLE_GBP_DISCOVERY_ENABLED', false),
+        'oauth_state_ttl_minutes' => (int) env('GOOGLE_OAUTH_STATE_TTL_MINUTES', 15),
+        'access_token_refresh_skew_seconds' => (int) env('GOOGLE_ACCESS_TOKEN_REFRESH_SKEW_SECONDS', 60),
+        'refresh_lock_seconds' => (int) env('GOOGLE_OAUTH_REFRESH_LOCK_SECONDS', 20),
     ],
 
     /*
@@ -70,16 +76,49 @@ return [
     ],
 
     /*
+     * Prospect public research fixtures for PHPUnit / Playwright E2E only.
+     */
+    'prospect_research' => [
+        'fixtures' => (bool) env('MOXDOP_PROSPECT_RESEARCH_FIXTURES', false),
+    ],
+
+    /*
      * Agency Meta Integration (Settings → Integrations).
-     * DB-first encrypted access token (system user / long-lived user token).
-     * META_ACCESS_TOKEN is optional bootstrap/fallback only — never shown in UI.
+     *
+     * Application / deployment configuration:
+     *   Encrypted CoreIntegration provider credentials first (App ID / App Secret).
+     *   META_APP_ID, META_APP_SECRET remain environment fallbacks — never shown in UI.
+     *
+     * Tenant authorization (legacy until Prompt 22 OAuth productionizes the flow):
+     *   DB-first encrypted access token (system user / long-lived user token).
+     *   META_ACCESS_TOKEN is optional bootstrap/fallback only — never shown in UI.
+     *
      * API version is centralized; host is fixed to graph.facebook.com (no operator URL).
      */
     'meta' => [
+        'app_id' => env('META_APP_ID'),
+        'app_secret' => env('META_APP_SECRET'),
+        /*
+         * Optional deployment override. Normal installs derive callback from
+         * APP_URL + integrations.meta.callback (see MetaOAuthRedirectUriResolver).
+         */
+        'redirect_uri' => env('META_REDIRECT_URI'),
+        /*
+         * Facebook Login for Business configuration ID from Meta App Dashboard.
+         * Production dialog uses config_id (not scattered scope strings).
+         */
+        'login_configuration_id' => env('META_LOGIN_CONFIGURATION_ID'),
+        /*
+         * Legacy bootstrap / compatibility only — never shown in UI.
+         * Production operator path is Connect Meta OAuth.
+         */
         'access_token' => env('META_ACCESS_TOKEN'),
         'api_version' => env('META_API_VERSION', 'v26.0'),
         'timeout' => (int) env('META_TIMEOUT', 20),
         'max_pagination_pages' => (int) env('META_MAX_PAGINATION_PAGES', 20),
+        'oauth_state_ttl_minutes' => (int) env('META_OAUTH_STATE_TTL_MINUTES', 15),
+        'token_validation_ttl_seconds' => (int) env('META_TOKEN_VALIDATION_TTL_SECONDS', 900),
+        'use_appsecret_proof' => (bool) env('META_USE_APPSECRET_PROOF', true),
     ],
 
     /*
@@ -88,8 +127,8 @@ return [
      * Env keys are optional bootstrap/fallback only — never shown in UI.
      */
     'dataforseo' => [
-        'login' => env('DATAFORSEO_API_LOGIN'),
-        'password' => env('DATAFORSEO_API_PASSWORD'),
+        'login' => env('DATAFORSEO_API_LOGIN', env('DATAFORSEO_LOGIN')),
+        'password' => env('DATAFORSEO_API_PASSWORD', env('DATAFORSEO_PASSWORD')),
         'base_url' => env('DATAFORSEO_BASE_URL', 'https://api.dataforseo.com'),
         'timeout' => (int) env('DATAFORSEO_TIMEOUT', 30),
         /*
@@ -97,6 +136,16 @@ return [
          * Official endpoint: GET /v3/dataforseo_labs/locations_and_languages (not charged).
          */
         'market_directory_cache_ttl_seconds' => (int) env('DATAFORSEO_MARKET_DIRECTORY_CACHE_TTL', 86400),
+    ],
+
+    /*
+     * Sales Intent Radar (Batch B). Paid SERP is opt-in and never scheduled.
+     */
+    'sales_intent_discovery' => [
+        'paid_calls_enabled' => (bool) env('MOXDOP_SALES_INTENT_PAID_CALLS', false),
+        'fixtures' => (bool) env('MOXDOP_INTENT_SEARCH_FIXTURES', false),
+        'max_queries_per_run' => (int) env('MOXDOP_SALES_INTENT_MAX_QUERIES', 5),
+        'max_results_per_query' => (int) env('MOXDOP_SALES_INTENT_MAX_RESULTS', 10),
     ],
 
     /*

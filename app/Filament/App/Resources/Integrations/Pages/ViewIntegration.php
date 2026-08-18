@@ -4,6 +4,7 @@ namespace App\Filament\App\Resources\Integrations\Pages;
 
 use App\Filament\App\Resources\Integrations\IntegrationResource;
 use App\Models\CoreIntegration;
+use App\Models\User;
 use App\Services\Integrations\Anthropic\AnthropicConnectionService;
 use App\Services\Integrations\Anthropic\AnthropicCredentialResolver;
 use App\Services\Integrations\Anthropic\AnthropicProviderCredentialService;
@@ -18,10 +19,10 @@ use App\Services\Integrations\Google\GoogleOAuthRedirectUriResolver;
 use App\Services\Integrations\Google\GoogleOAuthService;
 use App\Services\Integrations\Google\GoogleProviderCredentialService;
 use App\Services\Integrations\Google\GoogleResourceRefreshService;
+use App\Services\Integrations\Meta\DiscoverMetaResourcesService;
 use App\Services\Integrations\Meta\MetaConnectionService;
 use App\Services\Integrations\Meta\MetaCredentialResolver;
 use App\Services\Integrations\Meta\MetaProviderCredentialService;
-use App\Services\Integrations\Meta\MetaResourceDiscoveryService;
 use App\Services\Integrations\OpenAi\OpenAiConnectionService;
 use App\Services\Integrations\OpenAi\OpenAiCredentialResolver;
 use App\Services\Integrations\OpenAi\OpenAiProviderCredentialService;
@@ -1261,12 +1262,53 @@ class ViewIntegration extends ViewRecord
                 ->icon(Heroicon::OutlinedCog6Tooth)
                 ->color('gray')
                 ->modalHeading('Meta configuration')
-                ->modalDescription('Store a read-only Meta access token encrypted in MoxDOP. Leave blank to keep the stored value. Never paste tokens into Brand or Digital Asset screens.')
-                ->fillForm([
-                    'access_token' => '',
-                    'clear_access_token' => false,
-                ])
+                ->modalDescription('Store Meta App ID/Secret and an optional read-only access token encrypted in MoxDOP. Secret fields stay empty on purpose — leave them blank to keep stored values.')
+                ->fillForm(function () use ($record): array {
+                    $resolver = app(MetaCredentialResolver::class);
+
+                    return [
+                        'app_id' => $resolver->databaseAppId($record) ?? '',
+                        'app_secret' => '',
+                        'clear_app_secret' => false,
+                        'access_token' => '',
+                        'clear_access_token' => false,
+                    ];
+                })
                 ->form([
+                    TextInput::make('app_id')
+                        ->label('Meta App ID')
+                        ->helperText(function () use ($record): string {
+                            $source = app(MetaCredentialResolver::class)->appIdSource($record);
+
+                            return $source === MetaCredentialResolver::SOURCE_ENVIRONMENT
+                                ? 'Currently supplied by environment. Saving a value here takes precedence over the environment fallback.'
+                                : 'Not a secret. Visible after save.';
+                        })
+                        ->maxLength(255),
+                    TextInput::make('app_secret')
+                        ->label('Meta App Secret')
+                        ->password()
+                        ->revealable(false)
+                        ->placeholder(fn () => app(MetaCredentialResolver::class)->hasDatabaseAppSecret($this->freshProviderCredentialRecord())
+                            ? '•••••••• (stored)'
+                            : null)
+                        ->dehydrated(fn (?string $state): bool => filled($state))
+                        ->helperText(function () use ($record): string {
+                            $resolver = app(MetaCredentialResolver::class);
+                            if ($resolver->hasDatabaseAppSecret($record)) {
+                                return 'Stored securely ✓ — leave blank to keep current value.';
+                            }
+                            if ($resolver->appSecretSource($record) === MetaCredentialResolver::SOURCE_ENVIRONMENT) {
+                                return 'Configured by environment. Enter a value only to store encrypted in MoxDOP instead.';
+                            }
+
+                            return 'Write-only. Never shown after save. Required for Authorize Meta.';
+                        })
+                        ->maxLength(255),
+                    Toggle::make('clear_app_secret')
+                        ->label('Clear stored App Secret')
+                        ->helperText('Removes the database-stored secret only. Environment fallback is unchanged.')
+                        ->visible(fn (): bool => app(MetaCredentialResolver::class)->hasDatabaseAppSecret($this->freshProviderCredentialRecord())),
                     TextInput::make('access_token')
                         ->label('Access token')
                         ->password()
@@ -1332,8 +1374,12 @@ class ViewIntegration extends ViewRecord
                 ->tooltip(fn (): ?string => app(MetaCredentialResolver::class)->isConfigured($this->freshProviderCredentialRecord())
                     ? null
                     : 'Configure and preferably test the Meta token first.')
-                ->action(function (MetaResourceDiscoveryService $discovery): void {
-                    $result = $discovery->discover($this->freshProviderCredentialRecord());
+                ->action(function (DiscoverMetaResourcesService $discovery): void {
+                    $user = Auth::user();
+                    $result = $discovery->refreshInventory(
+                        $this->freshProviderCredentialRecord(),
+                        $user instanceof User ? $user : null,
+                    );
                     Notification::make()
                         ->title($result['ok'] ? 'Meta resources discovered' : 'Discovery issue')
                         ->body($result['message'])

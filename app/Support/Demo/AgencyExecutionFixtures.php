@@ -2,24 +2,16 @@
 
 namespace App\Support\Demo;
 
+use App\Models\Recommendation;
+use App\Services\Recommendations\RecommendationReadService;
+use App\Services\Work\WorkReadService;
 use Illuminate\Support\Collection;
 
 /**
- * Deterministic Atlas agency execution fixtures — playbooks, requests, reviews, work queue.
+ * Deterministic Atlas agency execution fixtures — residual recurring reviews helpers.
  *
- * Session mutations via {@see DemoState}; no production persistence in Milestone 3.
- *
- * Future persistence contracts (not implemented here):
- * - ClientRequest: title, description, customer/brand/asset refs, source channel, status
- *   lifecycle (new→triaged→planned→waiting_on_client→done|declined), owner, due, related Task id
- * - Playbook: name, purpose, service/asset applicability, cadence, default owner, checklist,
- *   instructions, references, expected outputs, active flag — distinct from AI Skill
- * - RecurringReview: playbook instance per brand/asset, due window, owner, status
- *   (upcoming→due→overdue→in_review→completed|skipped), result (no_issue|finding|opportunity|task)
- * - Approval: client|internal, subject work ref, requester, expected approver, state, notes/files
- * - QA Review: work ref, required flag, reviewer, approve|changes_requested — ≠ Outcome
- * - Capacity: derived from Work assignments + effort estimates; no utilization billing tables
- * - Work workspace remains an aggregation view over Task + the above; not a separate Work entity
+ * Client Requests / Approvals / QA / Playbooks are production DB-backed (Prompts 42–45).
+ * Recurring reviews remain Demo until Prompt 46.
  */
 final class AgencyExecutionFixtures
 {
@@ -76,8 +68,8 @@ final class AgencyExecutionFixtures
                     'note' => null,
                 ],
                 'references' => [
-                    ['label' => 'Atlas Google Ads workspace', 'route' => 'demo.google-ads.overview'],
-                    ['label' => 'Lead measurement finding', 'route' => 'demo.findings'],
+                    ['label' => 'Atlas Google Ads workspace', 'route' => 'operator.google-ads.overview'],
+                    ['label' => 'Lead measurement finding', 'route' => 'operator.findings'],
                 ],
                 'possible_outputs' => ['no_issue', 'finding', 'opportunity', 'task'],
                 'active' => true,
@@ -120,8 +112,8 @@ final class AgencyExecutionFixtures
                 ],
                 'related_ai_skill' => null,
                 'references' => [
-                    ['label' => 'Search Console workspace', 'route' => 'demo.search-console'],
-                    ['label' => 'Website workspace', 'route' => 'demo.website'],
+                    ['label' => 'Search Console workspace', 'route' => 'operator.search-console'],
+                    ['label' => 'Website workspace', 'route' => 'operator.website'],
                 ],
                 'possible_outputs' => ['no_issue', 'finding', 'opportunity', 'task'],
                 'active' => true,
@@ -164,7 +156,7 @@ final class AgencyExecutionFixtures
                 ],
                 'related_ai_skill' => null,
                 'references' => [
-                    ['label' => 'Meta Ads workspace', 'route' => 'demo.meta.overview'],
+                    ['label' => 'Meta Ads workspace', 'route' => 'operator.meta.overview'],
                 ],
                 'possible_outputs' => ['no_issue', 'finding', 'opportunity', 'task'],
                 'active' => true,
@@ -209,7 +201,7 @@ final class AgencyExecutionFixtures
                 ],
                 'related_ai_skill' => null,
                 'references' => [
-                    ['label' => 'Website workspace', 'route' => 'demo.website'],
+                    ['label' => 'Website workspace', 'route' => 'operator.website'],
                 ],
                 'possible_outputs' => ['no_issue', 'finding', 'opportunity', 'task'],
                 'active' => true,
@@ -428,32 +420,32 @@ final class AgencyExecutionFixtures
     }
 
     /**
+     * Work aggregate over canonical Tasks (+ residual Demo reviews/approvals until P44–46).
+     * No Demo Task fallback. No works table.
+     *
      * @return list<array<string, mixed>>
      */
     public static function workItems(): array
     {
-        $state = DemoState::all();
-        $items = [];
+        return app(WorkReadService::class)->workItems();
+    }
 
-        foreach ($state['tasks'] ?? DemoCatalog::tasksSeed() as $task) {
-            $items[] = self::mapTaskToWorkItem($task, $state);
-        }
+    /**
+     * @param  array<string, mixed>  $review
+     * @return array<string, mixed>
+     */
+    public static function mapRecurringReviewToWorkItemPublic(array $review): array
+    {
+        return self::mapRecurringReviewToWorkItem($review);
+    }
 
-        foreach (DemoState::clientRequestsWithState() as $request) {
-            $items[] = self::mapClientRequestToWorkItem($request);
-        }
-
-        foreach (DemoState::recurringReviewsWithState() as $review) {
-            $items[] = self::mapRecurringReviewToWorkItem($review);
-        }
-
-        foreach (self::approvalsWithState() as $approval) {
-            if (($approval['status'] ?? '') === 'waiting') {
-                $items[] = self::mapApprovalToWorkItem($approval);
-            }
-        }
-
-        return $items;
+    /**
+     * @param  array<string, mixed>  $approval
+     * @return array<string, mixed>
+     */
+    public static function mapApprovalToWorkItemPublic(array $approval): array
+    {
+        return self::mapApprovalToWorkItem($approval);
     }
 
     /**
@@ -498,7 +490,7 @@ final class AgencyExecutionFixtures
             'source' => strtolower((string) ($task['origin'] ?? 'task')),
             'source_label' => (string) ($task['origin'] ?? 'Task'),
             'in_scope' => true,
-            'route' => 'demo.task',
+            'route' => 'operator.task',
             'route_params' => ['taskId' => $id],
         ];
     }
@@ -537,7 +529,7 @@ final class AgencyExecutionFixtures
             'source_label' => (string) ($request['source_label'] ?? 'Client'),
             'in_scope' => array_key_exists('in_scope', $request) ? $request['in_scope'] : true,
             'linked_task_id' => $request['linked_task_id'] ?? null,
-            'route' => 'demo.work.show',
+            'route' => 'operator.work.show',
             'route_params' => ['workId' => $request['id'], 'type' => 'client_request'],
         ];
     }
@@ -576,7 +568,7 @@ final class AgencyExecutionFixtures
             'source_label' => 'Playbook',
             'in_scope' => true,
             'playbook_id' => $review['playbook_id'] ?? null,
-            'route' => 'demo.work.show',
+            'route' => 'operator.work.show',
             'route_params' => ['workId' => $review['id'], 'type' => 'recurring_review'],
         ];
     }
@@ -611,7 +603,7 @@ final class AgencyExecutionFixtures
             'source' => 'approval',
             'source_label' => 'Approval',
             'in_scope' => true,
-            'route' => 'demo.work.show',
+            'route' => 'operator.work.show',
             'route_params' => ['workId' => $approval['id'], 'type' => 'approval'],
         ];
     }
@@ -704,86 +696,97 @@ final class AgencyExecutionFixtures
     public static function dashboardExecution(string $mode = 'my_work'): array
     {
         $mode = in_array($mode, ['my_work', 'agency'], true) ? $mode : 'my_work';
-        $items = collect(self::workItems());
+        // Prompt 67/68: Dashboard execution lists come from production WorkReadService — never Demo Atlas workItems().
+        $items = collect(app(WorkReadService::class)->workItems());
         $openItems = $items->reject(fn (array $row): bool => in_array($row['status'] ?? '', ['completed', 'done', 'declined', 'skipped'], true));
-        $recs = collect(DemoState::all()['recommendations'] ?? DemoCatalog::recommendationsSeed());
-        $awaitingDecision = $recs->whereIn('status', ['pending', 'awaiting_decision'])->count();
+        $recs = collect(app(RecommendationReadService::class)->forListPresentation());
+        $awaitingDecision = $recs->whereIn('status', [
+            Recommendation::STATUS_OPEN,
+            'pending',
+            'awaiting_decision',
+        ])->count();
         $waitingOnClient = $openItems->where('waiting_on_client', true)->count();
-
         $myItems = $openItems->filter(fn (array $row): bool => self::isMine($row));
 
         return [
             'mode' => $mode,
-            'greeting' => GlobalOperatingFixtures::dashboard($mode)['greeting'],
+            'greeting' => match (true) {
+                (int) now()->timezone(config('app.timezone'))->format('G') < 12 => __('operator.greetings.morning'),
+                (int) now()->timezone(config('app.timezone'))->format('G') < 18 => __('operator.greetings.afternoon'),
+                default => __('operator.greetings.evening'),
+            },
             'date_label' => now()->timezone(config('app.timezone'))->format('l, F j'),
             'subtitle' => __('operator.dashboard_exec.subtitle'),
             'today' => [
-                ['label' => __('operator.dashboard_exec.due_today'), 'value' => $openItems->where('due_key', 'today')->count(), 'route' => 'demo.tasks', 'route_params' => ['view' => 'due_today'], 'tone' => 'warning'],
-                ['label' => __('operator.dashboard_exec.overdue'), 'value' => $openItems->where('due_key', 'overdue')->count(), 'route' => 'demo.tasks', 'route_params' => ['view' => 'overdue'], 'tone' => 'error'],
-                ['label' => __('operator.dashboard_exec.awaiting_decision'), 'value' => $awaitingDecision, 'route' => 'demo.recommendations', 'route_params' => [], 'tone' => 'info'],
-                ['label' => __('operator.dashboard_exec.waiting_on_client'), 'value' => $waitingOnClient, 'route' => 'demo.tasks', 'route_params' => ['view' => 'waiting_on_client'], 'tone' => 'info'],
+                ['label' => __('operator.dashboard_exec.due_today'), 'value' => $openItems->where('due_key', 'today')->count(), 'route' => 'operator.tasks', 'route_params' => ['view' => 'due_today'], 'tone' => 'warning'],
+                ['label' => __('operator.dashboard_exec.overdue'), 'value' => $openItems->where('due_key', 'overdue')->count(), 'route' => 'operator.tasks', 'route_params' => ['view' => 'overdue'], 'tone' => 'error'],
+                ['label' => __('operator.dashboard_exec.awaiting_decision'), 'value' => $awaitingDecision, 'route' => 'operator.recommendations', 'route_params' => [], 'tone' => 'info'],
+                ['label' => __('operator.dashboard_exec.waiting_on_client'), 'value' => $waitingOnClient, 'route' => 'operator.tasks', 'route_params' => ['view' => 'waiting_on_client'], 'tone' => 'info'],
             ],
-            'needs_attention' => self::attentionFromWork($openItems, $mode),
+            'needs_attention' => self::attentionFromRealWorkOnly($openItems, $mode),
             'my_work' => $myItems->sortBy(fn (array $row): int => match ($row['due_key'] ?? '') {
                 'overdue' => 0,
                 'today' => 1,
                 'soon' => 2,
                 default => 3,
             })->take(8)->values()->all(),
-            'team_capacity' => self::teamCapacity(),
+            'team_capacity' => self::teamCapacityFromItems($openItems),
             'recurring_reviews_due' => $openItems->where('type', 'recurring_review')
-                ->whereIn('status', ['due', 'overdue', 'upcoming'])
+                ->whereIn('status', ['due', 'overdue', 'upcoming', 'scheduled', 'in_progress'])
                 ->take(5)->values()->all(),
-            'portfolio_focus' => self::portfolioFocus(),
-            'system_exceptions' => collect(GlobalOperatingFixtures::integrationAttention())
-                ->whereIn('state', ['needs_attention', 'configuration_incomplete', 'failed'])
-                ->values()->all(),
-            'recent_outcomes' => GlobalOperatingFixtures::dashboard($mode)['recent_outcomes'],
-        ];
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    public static function captureDefaults(): array
-    {
-        return [
-            'client_request' => [
-                'title' => '',
-                'customer_id' => DemoCatalog::CUSTOMER_ID,
-                'brand_id' => DemoCatalog::BRAND_ID,
-                'asset_type' => 'website',
-                'source' => 'meeting',
-                'priority' => 'medium',
-            ],
-            'task' => [
-                'title' => '',
-                'customer_id' => DemoCatalog::CUSTOMER_ID,
-                'brand_id' => DemoCatalog::BRAND_ID,
-                'priority' => 'medium',
-                'due' => 'Next week',
-            ],
-            'opportunity_hypothesis' => [
-                'title' => '',
-                'brand_id' => DemoCatalog::BRAND_ID,
-                'service_code' => 'seo',
-            ],
-            'note' => [
-                'title' => '',
-                'scope' => 'Operations',
-            ],
+            // Prompt 67/68: no Atlas Demo portfolio focus cards on the operator Dashboard.
+            'portfolio_focus' => [],
+            // Prompt 67: system exceptions come from real Google/Meta hub cards only — no Demo connected/last_check fixtures.
+            'system_exceptions' => [],
+            'recent_outcomes' => [],
         ];
     }
 
     /**
      * @param  Collection<int, array<string, mixed>>  $items
+     * @return array<string, mixed>
+     */
+    private static function teamCapacityFromItems(Collection $items): array
+    {
+        $active = $items->count();
+        $dueToday = $items->where('due_key', 'today')->count();
+        $overdue = $items->where('due_key', 'overdue')->count();
+        $plannedHours = $items->sum(fn (array $row): float => self::effortToHours($row['effort'] ?? null));
+
+        $label = match (true) {
+            $overdue > 3 || $active > 10 => 'Overloaded',
+            $overdue >= 2 || $active >= 7 => 'Heavy',
+            $active >= 4 || $overdue >= 1 => 'Balanced',
+            default => 'Light',
+        };
+
+        return [
+            'active_count' => $active,
+            'due_today' => $dueToday,
+            'overdue' => $overdue,
+            'planned_hours' => round($plannedHours, 1),
+            'label' => $label,
+            'thresholds' => [
+                'light' => 'active ≤ 3 and overdue = 0',
+                'balanced' => 'active 4–6 or overdue = 1',
+                'heavy' => 'active 7–10 or overdue 2–3',
+                'overloaded' => 'active > 10 or overdue > 3',
+            ],
+            'members' => [],
+        ];
+    }
+
+    /**
+     * Attention cards from real work items only — never merges Demo GlobalOperatingFixtures Atlas rows.
+     *
+     * @param  Collection<int, array<string, mixed>>  $items
      * @return list<array<string, mixed>>
      */
-    private static function attentionFromWork(Collection $items, string $mode): array
+    private static function attentionFromRealWorkOnly(Collection $items, string $mode): array
     {
-        $base = GlobalOperatingFixtures::attentionItems($mode);
         $workLimit = $mode === 'agency' ? 3 : 5;
-        $workAttention = $items
+
+        return $items
             ->filter(fn (array $row): bool => in_array($row['due_key'] ?? '', ['overdue', 'today'], true)
                 || ($row['waiting_on_client'] ?? false)
                 || ($row['qa_required'] ?? false))
@@ -799,14 +802,54 @@ final class AgencyExecutionFixtures
                 'evidence' => ($row['owner'] ?? '').' · due '.($row['due'] ?? '—'),
                 'why' => ($row['waiting_on_client'] ?? false) ? 'Waiting on client blocks progress.' : 'Open execution item needs action.',
                 'source' => ucfirst(str_replace('_', ' ', (string) ($row['type'] ?? 'work'))),
-                'route' => $row['route'] ?? 'demo.tasks',
+                'route' => $row['route'] ?? 'operator.tasks',
                 'route_params' => $row['route_params'] ?? [],
                 'action_label' => __('operator.actions.open'),
             ])
             ->values()
             ->all();
+    }
 
-        return array_slice(array_merge($workAttention, $base), 0, 7);
+    /**
+     * @return array<string, mixed>
+     */
+    public static function captureDefaults(): array
+    {
+        return [
+            'client_request' => [
+                'title' => '',
+                'customer_id' => '',
+                'brand_id' => '',
+                'asset_type' => 'website',
+                'source' => 'meeting',
+                'priority' => 'medium',
+            ],
+            'task' => [
+                'title' => '',
+                'customer_id' => '',
+                'brand_id' => '',
+                'priority' => 'medium',
+                'due' => 'Next week',
+            ],
+            'opportunity_hypothesis' => [
+                'title' => '',
+                'brand_id' => '',
+                'service_code' => 'seo',
+            ],
+            'note' => [
+                'title' => '',
+                'scope' => 'Operations',
+            ],
+        ];
+    }
+
+    /**
+     * @param  Collection<int, array<string, mixed>>  $items
+     * @return list<array<string, mixed>>
+     */
+    private static function attentionFromWork(Collection $items, string $mode): array
+    {
+        return self::attentionFromRealWorkOnly($items, $mode);
     }
 
     /**
@@ -822,7 +865,7 @@ final class AgencyExecutionFixtures
                     '1 overdue recurring review (Meta Creative)',
                     'Client request due today (homepage title)',
                 ],
-                'route' => 'demo.brand',
+                'route' => 'operator.brand',
                 'route_params' => ['brand' => DemoCatalog::BRAND_ID],
             ],
         ];
@@ -833,14 +876,19 @@ final class AgencyExecutionFixtures
      */
     public static function isMine(array $row): bool
     {
-        $ownerId = $row['owner_id'] ?? null;
-        if ($ownerId === self::CURRENT_OPERATOR_ID) {
+        $user = auth()->user();
+        if ($user === null) {
+            return false;
+        }
+
+        $ownerId = $row['owner_id'] ?? $row['assignee_id'] ?? null;
+        if ($ownerId !== null && (string) $ownerId === (string) $user->id) {
             return true;
         }
 
         $owner = (string) ($row['owner'] ?? '');
 
-        return in_array($owner, ['Ayşe Demir', 'Ayşe Yılmaz'], true);
+        return $owner !== '' && strcasecmp($owner, (string) $user->name) === 0;
     }
 
     public static function dueKey(string $due, string $status = 'open'): string

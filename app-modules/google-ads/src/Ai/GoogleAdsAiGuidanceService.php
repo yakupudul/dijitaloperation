@@ -2,11 +2,16 @@
 
 namespace MoxDop\GoogleAds\Ai;
 
+use App\Contracts\Ai\AgentContextGateway;
+use App\Models\AgentExecutionRun;
 use App\Models\DigitalAsset;
 use App\Models\Evidence;
 use App\Models\Run;
+use App\Services\Ai\AgentExecutionPlanner;
+use App\Services\Ai\AgentExecutionRecorder;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
+use App\Services\Ai\StructuredAgentOutputValidator;
 use App\Support\Agents\AgentProfileDefinition;
 use App\Support\Agents\AgentProfileRegistry;
 use App\Support\Ai\AiProviderCatalog;
@@ -30,6 +35,10 @@ final class GoogleAdsAiGuidanceService
         private readonly AiProviderRuntimeConfig $aiRuntime,
         private readonly AgentProfileRegistry $agents,
         private readonly GoogleAdsAgentSkillAssembler $skillAssembler,
+        private readonly AgentExecutionPlanner $executionPlanner,
+        private readonly AgentExecutionRecorder $executionRecorder,
+        private readonly AgentContextGateway $contextGateway,
+        private readonly StructuredAgentOutputValidator $structuredValidator,
     ) {}
 
     /**
@@ -75,6 +84,10 @@ final class GoogleAdsAiGuidanceService
             'brand_context' => ! empty($built['context']['brand_intelligence']),
         ]);
 
+        $plan = $this->executionPlanner->plan($profile, $evidenceTypes, [
+            'brand_context' => ! empty($built['context']['brand_intelligence']),
+        ])->withRoute($route->routeKey, $route->signature, $route->providerModels);
+
         $fingerprint = GoogleAdsAiInputFingerprint::make(
             GoogleAdsAiGuidanceConfig::PROMPT_VERSION,
             GoogleAdsAiGuidanceConfig::SCHEMA_VERSION,
@@ -97,8 +110,6 @@ final class GoogleAdsAiGuidanceService
             ];
         }
 
-        $this->aiRuntime->prepare(array_keys($route->providerModels));
-
         $brandHash = $this->brandContextHash($built['brand_snapshot']);
         $configuredChain = [];
         foreach ($route->providerModels as $provider => $model) {
@@ -109,6 +120,81 @@ final class GoogleAdsAiGuidanceService
             fn (array $row): string => $row['slug'].'@'.$row['version'],
             $assembled['skill_evaluations'],
         );
+
+        if (! $plan->shouldCallInference()) {
+            $run = Run::query()->create([
+                'digital_asset_id' => $asset->id,
+                'core_connection_id' => null,
+                'module_id' => GoogleAdsAiGuidanceConfig::MODULE_ID,
+                'status' => 'completed',
+                'started_at' => now(),
+                'finished_at' => now(),
+                'metadata' => [
+                    'trigger' => 'manual',
+                    'human_title' => GoogleAdsAiGuidanceConfig::RUN_TITLE,
+                    'agent_profile_slug' => $profile->slug,
+                    'agent_profile_version' => $profile->version,
+                    'pre_inference_status' => $plan->preInferenceStatus,
+                    'block_reason_code' => $plan->blockReasonCode,
+                    'skill_eligibility' => $assembled['skill_evaluations'],
+                    'ai_route_key' => $route->routeKey,
+                    'input_fingerprint' => $fingerprint,
+                    'route_signature' => $route->signature,
+                    'abstained' => true,
+                    'finding_ids' => $built['finding_ids'],
+                    'evidence_ids' => $built['evidence_ids'],
+                ],
+            ]);
+
+            $agentRun = $this->executionRecorder->startFromPlan(
+                $run,
+                $asset,
+                $profile,
+                $plan,
+                $route->routeKey,
+                $route->signature,
+                $fingerprint,
+            );
+            $this->executionRecorder->markCompleted($agentRun, AgentExecutionRun::STATUS_ABSTAINED);
+
+            $insight = Evidence::query()->create([
+                'run_id' => $run->id,
+                'digital_asset_id' => $asset->id,
+                'source_module' => GoogleAdsAiGuidanceConfig::MODULE_ID,
+                'type' => GoogleAdsAiGuidanceConfig::EVIDENCE_TYPE_AI_INSIGHT,
+                'title' => GoogleAdsAiGuidanceConfig::RUN_TITLE,
+                'payload' => [
+                    'ok' => true,
+                    'derived' => true,
+                    'generated_by_ai' => false,
+                    'status' => 'abstained',
+                    'status_or_error' => 'abstained_pre_inference',
+                    'abstention_reason_code' => $plan->blockReasonCode,
+                    'finding_ids' => $built['finding_ids'],
+                    'evidence_ids' => $built['evidence_ids'],
+                    'input_fingerprint' => $fingerprint,
+                    'ai_route_key' => $route->routeKey,
+                    'agent_profile_slug' => $profile->slug,
+                    'agent_profile_version' => $profile->version,
+                    'skill_versions' => $skillVersions,
+                    'executive_summary' => 'AI guidance abstained: no eligible Skills for this Evidence set.',
+                    'finding_interpretations' => [],
+                    'prompt_version' => GoogleAdsAiGuidanceConfig::PROMPT_VERSION,
+                    'schema_version' => GoogleAdsAiGuidanceConfig::SCHEMA_VERSION,
+                ],
+                'observed_at' => now(),
+            ]);
+
+            return [
+                'run' => $run->fresh(['evidence']) ?? $run,
+                'reused' => false,
+                'message' => 'AI guidance abstained: no eligible Skills for inference.',
+                'insight' => $insight,
+                'brand_snapshot' => $built['brand_snapshot'],
+            ];
+        }
+
+        $this->aiRuntime->prepare(array_keys($route->providerModels));
 
         $run = Run::query()->create([
             'digital_asset_id' => $asset->id,
@@ -126,6 +212,7 @@ final class GoogleAdsAiGuidanceService
                 'skill_versions' => $skillVersions,
                 'active_skill_signatures' => $assembled['skill_signatures'],
                 'skill_eligibility' => $assembled['skill_evaluations'],
+                'pre_inference_status' => $plan->preInferenceStatus,
                 'ai_route_key' => $route->routeKey,
                 'ai_route_name' => $route->routeName,
                 'configured_provider_chain' => $configuredChain,
@@ -141,6 +228,28 @@ final class GoogleAdsAiGuidanceService
                 'openai_store' => false,
             ],
         ]);
+
+        $agentRun = $this->executionRecorder->startFromPlan(
+            $run,
+            $asset,
+            $profile,
+            $plan,
+            $route->routeKey,
+            $route->signature,
+            $fingerprint,
+        );
+
+        $pack = $this->contextGateway->buildEvidencePackFromContext(
+            $asset,
+            $profile,
+            $plan,
+            $built['context'],
+            $built['evidence_ids'],
+            $built['finding_ids'],
+            $route->routeKey,
+            $route->signature,
+            $fingerprint,
+        );
 
         $observedAt = now();
 
@@ -160,6 +269,8 @@ final class GoogleAdsAiGuidanceService
                 $built['finding_ids'],
                 $built['evidence_ids'],
             );
+
+            $payload = $this->structuredValidator->validate($payload, $pack);
 
             $successfulProvider = data_get($response->meta?->toArray(), 'provider')
                 ?? $route->primaryProvider();
@@ -196,6 +307,15 @@ final class GoogleAdsAiGuidanceService
                 $payload['openai_store'] = false;
             }
 
+            foreach ($plan->eligibleSkills as $signature) {
+                $this->executionRecorder->markSkillValidated($agentRun, $signature, [
+                    'ok' => true,
+                    'provider' => $successfulProvider,
+                    'model' => $successfulModel,
+                ]);
+            }
+            $this->executionRecorder->markCompleted($agentRun, AgentExecutionRun::STATUS_COMPLETED);
+
             $insight = Evidence::query()->create([
                 'run_id' => $run->id,
                 'digital_asset_id' => $asset->id,
@@ -215,6 +335,7 @@ final class GoogleAdsAiGuidanceService
                     'fallback_occurred' => $fallbackOccurred,
                     'usage' => $usage,
                     'reused' => false,
+                    'agent_execution_run_id' => $agentRun->id,
                 ]),
             ]);
 
@@ -229,6 +350,10 @@ final class GoogleAdsAiGuidanceService
             Log::warning('google_ads_ai_guidance_failed', [
                 'digital_asset_id' => $asset->id,
                 'run_id' => $run->id,
+                'error_class' => class_basename($exception),
+            ]);
+
+            $this->executionRecorder->markCompleted($agentRun, AgentExecutionRun::STATUS_FAILED, [
                 'error_class' => class_basename($exception),
             ]);
 
@@ -269,6 +394,7 @@ final class GoogleAdsAiGuidanceService
                 'metadata' => array_merge($run->metadata ?? [], [
                     'error_class' => class_basename($exception),
                     'reused' => false,
+                    'agent_execution_run_id' => $agentRun->id,
                 ]),
             ]);
 

@@ -2,9 +2,7 @@
 
 namespace App\Livewire\Demo\Operations;
 
-use App\Support\Demo\DemoCatalog;
-use App\Support\Demo\DemoState;
-use App\Support\Demo\GlobalOperatingFixtures;
+use App\Services\Activity\ActivityReadService;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
@@ -63,87 +61,74 @@ class ActivityIndex extends Component
 
     public function render(): View
     {
-        $seed = GlobalOperatingFixtures::activityTimeline();
-        $live = DemoState::activityEvents();
-        $timeline = collect(array_merge($live, $seed));
+        $filters = [
+            'period' => $this->period,
+            'actor' => $this->actor,
+            'limit' => 200,
+            'offset' => 0,
+        ];
 
-        if ($this->actor !== 'all') {
-            $timeline = $timeline->where('actor_kind', $this->actor);
+        if (trim($this->brand) !== '' && is_numeric($this->brand)) {
+            $filters['brand_id'] = (int) $this->brand;
+        }
+        if (trim($this->customer) !== '' && is_numeric($this->customer)) {
+            $filters['customer_id'] = (int) $this->customer;
+        }
+        if (trim($this->asset) !== '' && is_numeric($this->asset)) {
+            $filters['digital_asset_id'] = (int) $this->asset;
         }
 
-        if ($this->status !== 'all') {
-            $timeline = $timeline->where('status', $this->status);
-        }
+        $rows = app(ActivityReadService::class)->forList($filters);
 
-        if (trim($this->brand) !== '') {
-            $brandId = trim($this->brand);
-            $brandName = mb_strtolower((string) (DemoCatalog::brand()['name'] ?? ''));
-            $timeline = $timeline->filter(function (array $event) use ($brandId, $brandName): bool {
-                return ($event['brand_id'] ?? null) === $brandId
-                    || str_contains(mb_strtolower((string) ($event['scope'] ?? '')), $brandName);
-            });
-        }
-
-        if (trim($this->customer) !== '') {
-            $customerId = trim($this->customer);
-            $customerName = mb_strtolower((string) (DemoCatalog::customer()['name'] ?? ''));
-            $timeline = $timeline->filter(function (array $event) use ($customerId, $customerName): bool {
-                return ($event['customer_id'] ?? null) === $customerId
-                    || str_contains(mb_strtolower((string) ($event['scope'] ?? '')), $customerName);
-            });
-        }
-
-        if (trim($this->asset) !== '') {
-            $asset = trim($this->asset);
-            $timeline = $timeline->filter(function (array $event) use ($asset): bool {
-                return ($event['asset_id'] ?? null) === $asset
-                    || ($event['digital_asset_id'] ?? null) === $asset;
-            });
-        }
-
-        $maxAgeDays = match ($this->period) {
-            'last_7' => 7,
-            'last_14' => 14,
-            'last_90' => 90,
-            default => 28,
-        };
-
-        $timeline = $timeline->filter(function (array $event) use ($maxAgeDays): bool {
-            return $this->eventWithinPeriod($event, $maxAgeDays);
-        });
+        $timeline = collect($rows)
+            ->map(fn (array $row): array => $this->toTimelineRow($row))
+            ->when($this->status !== 'all', fn ($c) => $c->where('status', $this->status))
+            ->values()
+            ->all();
 
         return view('livewire.demo.operations.activity-index', [
-            'timeline' => $timeline->values()->all(),
-            'legacyRuns' => DemoState::all()['activity'] ?? [],
+            'timeline' => $timeline,
+            'legacyRuns' => [],
             'periodOptions' => self::periodOptions(),
-            'flash' => DemoState::pullFlash(),
+            'flash' => null,
         ]);
     }
 
     /**
-     * @param  array<string, mixed>  $event
+     * @param  array<string, mixed>  $row
+     * @return array<string, mixed>
      */
-    private function eventWithinPeriod(array $event, int $maxAgeDays): bool
+    private function toTimelineRow(array $row): array
     {
-        if (isset($event['occurred_at']) && is_string($event['occurred_at'])) {
-            try {
-                $at = CarbonImmutable::parse($event['occurred_at']);
+        $createdAt = isset($row['created_at']) && is_string($row['created_at'])
+            ? CarbonImmutable::parse($row['created_at'])
+            : CarbonImmutable::now();
 
-                return $at->greaterThanOrEqualTo(now()->subDays($maxAgeDays));
-            } catch (\Throwable) {
-                // fall through to relative labels
-            }
+        $scopeParts = array_filter([
+            $row['customer'] ?? null,
+            $row['brand'] ?? null,
+        ], static fn ($v): bool => is_string($v) && $v !== '');
+
+        $actorKind = (string) ($row['actor_kind'] ?? 'system');
+        if ($actorKind === 'internal_user' || $actorKind === 'client_contact') {
+            $actorKind = 'human';
         }
 
-        $when = strtolower((string) ($event['when'] ?? ''));
-
-        $ageDays = match (true) {
-            $when === 'today' || $when === 'now' => 0,
-            $when === 'yesterday' => 1,
-            preg_match('/^(\d+)\s+days?\s+ago$/', $when, $m) === 1 => (int) $m[1],
-            default => 3,
-        };
-
-        return $ageDays <= $maxAgeDays;
+        return [
+            'id' => $row['id'] ?? null,
+            'when' => $createdAt->toFormattedDateString(),
+            'time' => $createdAt->format('H:i'),
+            'title' => (string) ($row['title'] ?? $row['event_label'] ?? 'Activity'),
+            'scope' => $scopeParts === [] ? '—' : implode(' · ', $scopeParts),
+            'detail' => $row['detail'] ?? null,
+            'actor' => (string) ($row['actor'] ?? 'System'),
+            'actor_kind' => $actorKind,
+            'status' => (string) ($row['status'] ?? 'success'),
+            'route' => $row['route'] ?? null,
+            'route_params' => is_array($row['route_params'] ?? null) ? $row['route_params'] : [],
+            'brand_id' => $row['brand_id'] ?? null,
+            'customer_id' => $row['customer_id'] ?? null,
+            'event' => $row['event'] ?? null,
+        ];
     }
 }

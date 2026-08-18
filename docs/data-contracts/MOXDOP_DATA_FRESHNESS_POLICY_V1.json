@@ -1,0 +1,2516 @@
+{
+    "metadata": {
+        "freshness_policy_registry_id": "MOXDOP_DATA_FRESHNESS_POLICY",
+        "version": 1,
+        "title": "MoxDOP Data Freshness Policy Registry V1",
+        "description": "Dataset-specific freshness, maturity, reprocessing and incremental collection policy. Does not redefine provider fields or formulas. No global last-sync or global lookback.",
+        "verification_date": "2026-08-13",
+        "numeric_freshness_score": false,
+        "global_last_sync_forbidden": true,
+        "global_reprocess_window_forbidden": true
+    },
+    "enums": {
+        "collection_mode": [
+            "HISTORICAL_INCREMENTAL",
+            "CURRENT_SNAPSHOT",
+            "PERIOD_OBSERVATION",
+            "CONTROLLED_ON_DEMAND",
+            "STATIC_OR_SLOW_METADATA"
+        ],
+        "freshness_state": [
+            "FRESH",
+            "DUE",
+            "STALE",
+            "PARTIAL",
+            "ACTION_REQUIRED",
+            "PROVIDER_LIMITED",
+            "INTEGRITY_BLOCKED",
+            "UNKNOWN",
+            "FRESH_WITH_LIMITATION"
+        ],
+        "incremental_work_reason": [
+            "NEW_COVERAGE",
+            "CATCH_UP",
+            "LATE_DATA_REPROCESS",
+            "GAP_RECOVERY",
+            "SNAPSHOT_REFRESH",
+            "CONTRACT_UPGRADE",
+            "MANUAL_REPLAY"
+        ]
+    },
+    "global_policies": {
+        "no_single_global_last_sync": true,
+        "watermark_per_resource_dataset": true,
+        "freshness_per_resource_dataset": true,
+        "max_fact_date_is_not_verified_watermark": true,
+        "zero_row_success_advances_coverage": true,
+        "failed_collection_does_not_advance_verified_watermark": true,
+        "current_open_day_not_automatically_complete": true,
+        "reprocessing_may_overlap_existing_coverage": true,
+        "catch_up_derived_from_coverage_not_scheduler_history": true,
+        "no_recurring_scheduler_in_this_registry": true,
+        "planner_must_not_build_provider_request_syntax": true
+    },
+    "dataset_policies": [
+        {
+            "dataset_id": "ga4_property_metadata",
+            "provider_or_source": "GA4",
+            "policy_version": 1,
+            "collection_mode": "CURRENT_SNAPSHOT",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "property_id"
+            ],
+            "timezone_source": "ga4_property_timezone",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": null,
+            "freshness_sla_hours": 168,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "replace_current_snapshot",
+                "window_days": null,
+                "window_source": "not_applicable",
+                "overlap_existing_coverage_allowed": false
+            },
+            "catch_up_policy": "snapshot_refresh_if_stale",
+            "max_bounded_incremental_span_days": null,
+            "snapshot_policy": {
+                "freshness_basis": "last_successful_collection_at",
+                "freshness_sla_hours": 168,
+                "historical_watermark_applicable": false,
+                "reprocessing_applicable": false
+            },
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "on_demand_or_daily",
+                "cadence": "daily"
+            },
+            "contract_history_policy": {
+                "minimum_required": "current",
+                "recommended_initial_backfill": "current",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "ga4_property_metadata",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://support.google.com/analytics/answer/11198161",
+                        "https://support.google.com/analytics/answer/12233314"
+                    ],
+                    "notes": "Official docs: daily processing commonly 24-48h; reports may change after daily availability; some data can arrive late (up to ~7 days). Not a hard SLA \u2014 conservative safe lag 2 days; reprocess window 7 days."
+                }
+            }
+        },
+        {
+            "dataset_id": "ga4_property_daily",
+            "provider_or_source": "GA4",
+            "policy_version": 1,
+            "collection_mode": "HISTORICAL_INCREMENTAL",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "property_id",
+                "date"
+            ],
+            "timezone_source": "ga4_property_timezone",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": 2,
+            "freshness_sla_hours": 48,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "fixed_recent_reporting_window",
+                "window_days": 7,
+                "window_source": "MOXDOP_DATA_FRESHNESS_POLICY_V1 + provider_docs_verified_2026-08-13 + contract.refresh_policy.late_data_recheck=provider_dependent",
+                "overlap_existing_coverage_allowed": true
+            },
+            "catch_up_policy": "coverage_gap_to_collectable_end",
+            "max_bounded_incremental_span_days": 31,
+            "snapshot_policy": null,
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "incremental",
+                "cadence": "daily",
+                "late_data_recheck": "provider_dependent"
+            },
+            "contract_history_policy": {
+                "minimum_required": "180d",
+                "recommended_initial_backfill": "180d",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "ga4_property_daily",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://support.google.com/analytics/answer/11198161",
+                        "https://support.google.com/analytics/answer/12233314"
+                    ],
+                    "notes": "Official docs: daily processing commonly 24-48h; reports may change after daily availability; some data can arrive late (up to ~7 days). Not a hard SLA \u2014 conservative safe lag 2 days; reprocess window 7 days."
+                }
+            }
+        },
+        {
+            "dataset_id": "ga4_acquisition_channel_daily",
+            "provider_or_source": "GA4",
+            "policy_version": 1,
+            "collection_mode": "HISTORICAL_INCREMENTAL",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "property_id",
+                "date",
+                "sessionDefaultChannelGroup"
+            ],
+            "timezone_source": "ga4_property_timezone",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": 2,
+            "freshness_sla_hours": 48,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "fixed_recent_reporting_window",
+                "window_days": 7,
+                "window_source": "MOXDOP_DATA_FRESHNESS_POLICY_V1 + provider_docs_verified_2026-08-13 + contract.refresh_policy.late_data_recheck=provider_dependent",
+                "overlap_existing_coverage_allowed": true
+            },
+            "catch_up_policy": "coverage_gap_to_collectable_end",
+            "max_bounded_incremental_span_days": 31,
+            "snapshot_policy": null,
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "incremental",
+                "cadence": "daily",
+                "late_data_recheck": "provider_dependent"
+            },
+            "contract_history_policy": {
+                "minimum_required": "180d",
+                "recommended_initial_backfill": "180d",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "ga4_acquisition_channel_daily",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://support.google.com/analytics/answer/11198161",
+                        "https://support.google.com/analytics/answer/12233314"
+                    ],
+                    "notes": "Official docs: daily processing commonly 24-48h; reports may change after daily availability; some data can arrive late (up to ~7 days). Not a hard SLA \u2014 conservative safe lag 2 days; reprocess window 7 days."
+                }
+            }
+        },
+        {
+            "dataset_id": "ga4_source_medium_daily",
+            "provider_or_source": "GA4",
+            "policy_version": 1,
+            "collection_mode": "HISTORICAL_INCREMENTAL",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "property_id",
+                "date",
+                "sessionSource",
+                "sessionMedium"
+            ],
+            "timezone_source": "ga4_property_timezone",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": 2,
+            "freshness_sla_hours": 48,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "fixed_recent_reporting_window",
+                "window_days": 7,
+                "window_source": "MOXDOP_DATA_FRESHNESS_POLICY_V1 + provider_docs_verified_2026-08-13 + contract.refresh_policy.late_data_recheck=provider_dependent",
+                "overlap_existing_coverage_allowed": true
+            },
+            "catch_up_policy": "coverage_gap_to_collectable_end",
+            "max_bounded_incremental_span_days": 31,
+            "snapshot_policy": null,
+            "provider_history_limitation_ref": "pagination",
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "incremental",
+                "cadence": "daily",
+                "late_data_recheck": "provider_dependent"
+            },
+            "contract_history_policy": {
+                "minimum_required": "180d",
+                "recommended_initial_backfill": "180d",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "ga4_source_medium_daily",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://support.google.com/analytics/answer/11198161",
+                        "https://support.google.com/analytics/answer/12233314"
+                    ],
+                    "notes": "Official docs: daily processing commonly 24-48h; reports may change after daily availability; some data can arrive late (up to ~7 days). Not a hard SLA \u2014 conservative safe lag 2 days; reprocess window 7 days."
+                }
+            }
+        },
+        {
+            "dataset_id": "ga4_campaign_daily",
+            "provider_or_source": "GA4",
+            "policy_version": 1,
+            "collection_mode": "HISTORICAL_INCREMENTAL",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "property_id",
+                "date",
+                "sessionCampaignName"
+            ],
+            "timezone_source": "ga4_property_timezone",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": 2,
+            "freshness_sla_hours": 48,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "fixed_recent_reporting_window",
+                "window_days": 7,
+                "window_source": "MOXDOP_DATA_FRESHNESS_POLICY_V1 + provider_docs_verified_2026-08-13 + contract.refresh_policy.late_data_recheck=provider_dependent",
+                "overlap_existing_coverage_allowed": true
+            },
+            "catch_up_policy": "coverage_gap_to_collectable_end",
+            "max_bounded_incremental_span_days": 31,
+            "snapshot_policy": null,
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "incremental",
+                "cadence": "daily",
+                "late_data_recheck": "provider_dependent"
+            },
+            "contract_history_policy": {
+                "minimum_required": "180d",
+                "recommended_initial_backfill": "180d",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "ga4_campaign_daily",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://support.google.com/analytics/answer/11198161",
+                        "https://support.google.com/analytics/answer/12233314"
+                    ],
+                    "notes": "Official docs: daily processing commonly 24-48h; reports may change after daily availability; some data can arrive late (up to ~7 days). Not a hard SLA \u2014 conservative safe lag 2 days; reprocess window 7 days."
+                }
+            }
+        },
+        {
+            "dataset_id": "ga4_landing_page_daily",
+            "provider_or_source": "GA4",
+            "policy_version": 1,
+            "collection_mode": "HISTORICAL_INCREMENTAL",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "property_id",
+                "date",
+                "landingPage"
+            ],
+            "timezone_source": "ga4_property_timezone",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": 2,
+            "freshness_sla_hours": 48,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "fixed_recent_reporting_window",
+                "window_days": 7,
+                "window_source": "MOXDOP_DATA_FRESHNESS_POLICY_V1 + provider_docs_verified_2026-08-13 + contract.refresh_policy.late_data_recheck=provider_dependent",
+                "overlap_existing_coverage_allowed": true
+            },
+            "catch_up_policy": "coverage_gap_to_collectable_end",
+            "max_bounded_incremental_span_days": 31,
+            "snapshot_policy": null,
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "incremental",
+                "cadence": "daily",
+                "late_data_recheck": "provider_dependent"
+            },
+            "contract_history_policy": {
+                "minimum_required": "180d",
+                "recommended_initial_backfill": "180d",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "ga4_landing_page_daily",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://support.google.com/analytics/answer/11198161",
+                        "https://support.google.com/analytics/answer/12233314"
+                    ],
+                    "notes": "Official docs: daily processing commonly 24-48h; reports may change after daily availability; some data can arrive late (up to ~7 days). Not a hard SLA \u2014 conservative safe lag 2 days; reprocess window 7 days."
+                }
+            }
+        },
+        {
+            "dataset_id": "ga4_event_daily",
+            "provider_or_source": "GA4",
+            "policy_version": 1,
+            "collection_mode": "HISTORICAL_INCREMENTAL",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "property_id",
+                "date",
+                "eventName"
+            ],
+            "timezone_source": "ga4_property_timezone",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": 2,
+            "freshness_sla_hours": 48,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "fixed_recent_reporting_window",
+                "window_days": 7,
+                "window_source": "MOXDOP_DATA_FRESHNESS_POLICY_V1 + provider_docs_verified_2026-08-13 + contract.refresh_policy.late_data_recheck=provider_dependent",
+                "overlap_existing_coverage_allowed": true
+            },
+            "catch_up_policy": "coverage_gap_to_collectable_end",
+            "max_bounded_incremental_span_days": 31,
+            "snapshot_policy": null,
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "incremental",
+                "cadence": "daily",
+                "late_data_recheck": "provider_dependent"
+            },
+            "contract_history_policy": {
+                "minimum_required": "180d",
+                "recommended_initial_backfill": "180d",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "ga4_event_daily",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://support.google.com/analytics/answer/11198161",
+                        "https://support.google.com/analytics/answer/12233314"
+                    ],
+                    "notes": "Official docs: daily processing commonly 24-48h; reports may change after daily availability; some data can arrive late (up to ~7 days). Not a hard SLA \u2014 conservative safe lag 2 days; reprocess window 7 days."
+                }
+            }
+        },
+        {
+            "dataset_id": "ga4_event_channel_daily",
+            "provider_or_source": "GA4",
+            "policy_version": 1,
+            "collection_mode": "HISTORICAL_INCREMENTAL",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "property_id",
+                "date",
+                "eventName",
+                "sessionDefaultChannelGroup"
+            ],
+            "timezone_source": "ga4_property_timezone",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": 2,
+            "freshness_sla_hours": 48,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "fixed_recent_reporting_window",
+                "window_days": 7,
+                "window_source": "MOXDOP_DATA_FRESHNESS_POLICY_V1 + provider_docs_verified_2026-08-13 + contract.refresh_policy.late_data_recheck=provider_dependent",
+                "overlap_existing_coverage_allowed": true
+            },
+            "catch_up_policy": "coverage_gap_to_collectable_end",
+            "max_bounded_incremental_span_days": 31,
+            "snapshot_policy": null,
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "incremental",
+                "cadence": "daily",
+                "late_data_recheck": "provider_dependent"
+            },
+            "contract_history_policy": {
+                "minimum_required": "180d",
+                "recommended_initial_backfill": "180d",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "ga4_event_channel_daily",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://support.google.com/analytics/answer/11198161",
+                        "https://support.google.com/analytics/answer/12233314"
+                    ],
+                    "notes": "Official docs: daily processing commonly 24-48h; reports may change after daily availability; some data can arrive late (up to ~7 days). Not a hard SLA \u2014 conservative safe lag 2 days; reprocess window 7 days."
+                }
+            }
+        },
+        {
+            "dataset_id": "ga4_event_source_medium_daily",
+            "provider_or_source": "GA4",
+            "policy_version": 1,
+            "collection_mode": "HISTORICAL_INCREMENTAL",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [],
+            "timezone_source": "ga4_property_timezone",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": 2,
+            "freshness_sla_hours": 48,
+            "expected_refresh_cadence": "daily_or_on_demand",
+            "late_data_reprocessing": {
+                "strategy": "fixed_recent_reporting_window",
+                "window_days": 7,
+                "window_source": "MOXDOP_DATA_FRESHNESS_POLICY_V1 + provider_docs_verified_2026-08-13 + contract.refresh_policy.late_data_recheck=n/a",
+                "overlap_existing_coverage_allowed": true
+            },
+            "catch_up_policy": "coverage_gap_to_collectable_end",
+            "max_bounded_incremental_span_days": 31,
+            "snapshot_policy": null,
+            "provider_history_limitation_ref": "persist vs on-demand",
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "incremental_or_on_demand",
+                "cadence": "daily_or_on_demand"
+            },
+            "contract_history_policy": {
+                "minimum_required": "180d",
+                "recommended_initial_backfill": "180d",
+                "decision_required": true
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "ga4_event_source_medium_daily",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://support.google.com/analytics/answer/11198161",
+                        "https://support.google.com/analytics/answer/12233314"
+                    ],
+                    "notes": "Official docs: daily processing commonly 24-48h; reports may change after daily availability; some data can arrive late (up to ~7 days). Not a hard SLA \u2014 conservative safe lag 2 days; reprocess window 7 days."
+                }
+            }
+        },
+        {
+            "dataset_id": "ga4_event_campaign_daily",
+            "provider_or_source": "GA4",
+            "policy_version": 1,
+            "collection_mode": "HISTORICAL_INCREMENTAL",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "property_id",
+                "date",
+                "eventName",
+                "sessionCampaignName"
+            ],
+            "timezone_source": "ga4_property_timezone",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": 2,
+            "freshness_sla_hours": 48,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "fixed_recent_reporting_window",
+                "window_days": 7,
+                "window_source": "MOXDOP_DATA_FRESHNESS_POLICY_V1 + provider_docs_verified_2026-08-13 + contract.refresh_policy.late_data_recheck=provider_dependent",
+                "overlap_existing_coverage_allowed": true
+            },
+            "catch_up_policy": "coverage_gap_to_collectable_end",
+            "max_bounded_incremental_span_days": 31,
+            "snapshot_policy": null,
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "incremental",
+                "cadence": "daily",
+                "late_data_recheck": "provider_dependent"
+            },
+            "contract_history_policy": {
+                "minimum_required": "180d",
+                "recommended_initial_backfill": "180d",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "ga4_event_campaign_daily",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://support.google.com/analytics/answer/11198161",
+                        "https://support.google.com/analytics/answer/12233314"
+                    ],
+                    "notes": "Official docs: daily processing commonly 24-48h; reports may change after daily availability; some data can arrive late (up to ~7 days). Not a hard SLA \u2014 conservative safe lag 2 days; reprocess window 7 days."
+                }
+            }
+        },
+        {
+            "dataset_id": "ga4_event_landing_daily",
+            "provider_or_source": "GA4",
+            "policy_version": 1,
+            "collection_mode": "HISTORICAL_INCREMENTAL",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "property_id",
+                "date",
+                "eventName",
+                "landingPage"
+            ],
+            "timezone_source": "ga4_property_timezone",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": 2,
+            "freshness_sla_hours": 48,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "fixed_recent_reporting_window",
+                "window_days": 7,
+                "window_source": "MOXDOP_DATA_FRESHNESS_POLICY_V1 + provider_docs_verified_2026-08-13 + contract.refresh_policy.late_data_recheck=provider_dependent",
+                "overlap_existing_coverage_allowed": true
+            },
+            "catch_up_policy": "coverage_gap_to_collectable_end",
+            "max_bounded_incremental_span_days": 31,
+            "snapshot_policy": null,
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "incremental",
+                "cadence": "daily",
+                "late_data_recheck": "provider_dependent"
+            },
+            "contract_history_policy": {
+                "minimum_required": "180d",
+                "recommended_initial_backfill": "180d",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "ga4_event_landing_daily",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://support.google.com/analytics/answer/11198161",
+                        "https://support.google.com/analytics/answer/12233314"
+                    ],
+                    "notes": "Official docs: daily processing commonly 24-48h; reports may change after daily availability; some data can arrive late (up to ~7 days). Not a hard SLA \u2014 conservative safe lag 2 days; reprocess window 7 days."
+                }
+            }
+        },
+        {
+            "dataset_id": "ga4_device_daily",
+            "provider_or_source": "GA4",
+            "policy_version": 1,
+            "collection_mode": "HISTORICAL_INCREMENTAL",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "property_id",
+                "date",
+                "deviceCategory"
+            ],
+            "timezone_source": "ga4_property_timezone",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": 2,
+            "freshness_sla_hours": 48,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "fixed_recent_reporting_window",
+                "window_days": 7,
+                "window_source": "MOXDOP_DATA_FRESHNESS_POLICY_V1 + provider_docs_verified_2026-08-13 + contract.refresh_policy.late_data_recheck=provider_dependent",
+                "overlap_existing_coverage_allowed": true
+            },
+            "catch_up_policy": "coverage_gap_to_collectable_end",
+            "max_bounded_incremental_span_days": 31,
+            "snapshot_policy": null,
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "incremental",
+                "cadence": "daily",
+                "late_data_recheck": "provider_dependent"
+            },
+            "contract_history_policy": {
+                "minimum_required": "180d",
+                "recommended_initial_backfill": "180d",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "ga4_device_daily",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://support.google.com/analytics/answer/11198161",
+                        "https://support.google.com/analytics/answer/12233314"
+                    ],
+                    "notes": "Official docs: daily processing commonly 24-48h; reports may change after daily availability; some data can arrive late (up to ~7 days). Not a hard SLA \u2014 conservative safe lag 2 days; reprocess window 7 days."
+                }
+            }
+        },
+        {
+            "dataset_id": "gsc_property_daily",
+            "provider_or_source": "SEARCH_CONSOLE",
+            "policy_version": 1,
+            "collection_mode": "HISTORICAL_INCREMENTAL",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "site_url",
+                "date"
+            ],
+            "timezone_source": "gsc_reporting_date_semantics",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": 3,
+            "freshness_sla_hours": 48,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "fixed_recent_reporting_window",
+                "window_days": 7,
+                "window_source": "MOXDOP_DATA_FRESHNESS_POLICY_V1 + provider_docs_verified_2026-08-13 + contract.refresh_policy.late_data_recheck=gsc_lag",
+                "overlap_existing_coverage_allowed": true
+            },
+            "catch_up_policy": "coverage_gap_to_collectable_end",
+            "max_bounded_incremental_span_days": 31,
+            "snapshot_policy": null,
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "incremental",
+                "cadence": "daily",
+                "late_data_recheck": "gsc_lag"
+            },
+            "contract_history_policy": {
+                "minimum_required": "provider_16m_available",
+                "recommended_initial_backfill": "180d_ui_minimum",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "gsc_property_daily",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://developers.google.com/webmaster-tools/v1/how-tos/all-your-data",
+                        "https://support.google.com/webmasters/answer/96568"
+                    ],
+                    "notes": "Official docs: performance data typically available after 2-3 days; days labeled in Pacific Time. No deterministic exact lag SLA \u2014 conservative policy uses 3-day safe lag. dataState final/all may revise recent days."
+                }
+            }
+        },
+        {
+            "dataset_id": "gsc_query_daily",
+            "provider_or_source": "SEARCH_CONSOLE",
+            "policy_version": 1,
+            "collection_mode": "HISTORICAL_INCREMENTAL",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "site_url",
+                "date",
+                "query"
+            ],
+            "timezone_source": "gsc_reporting_date_semantics",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": 3,
+            "freshness_sla_hours": 48,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "fixed_recent_reporting_window",
+                "window_days": 7,
+                "window_source": "MOXDOP_DATA_FRESHNESS_POLICY_V1 + provider_docs_verified_2026-08-13 + contract.refresh_policy.late_data_recheck=provider_dependent",
+                "overlap_existing_coverage_allowed": true
+            },
+            "catch_up_policy": "coverage_gap_to_collectable_end",
+            "max_bounded_incremental_span_days": 31,
+            "snapshot_policy": null,
+            "provider_history_limitation_ref": "anonymization; Top-N\u2260collection",
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "incremental",
+                "cadence": "daily",
+                "late_data_recheck": "provider_dependent"
+            },
+            "contract_history_policy": {
+                "minimum_required": "provider_16m_available",
+                "recommended_initial_backfill": "180d_ui_minimum",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "gsc_query_daily",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://developers.google.com/webmaster-tools/v1/how-tos/all-your-data",
+                        "https://support.google.com/webmasters/answer/96568"
+                    ],
+                    "notes": "Official docs: performance data typically available after 2-3 days; days labeled in Pacific Time. No deterministic exact lag SLA \u2014 conservative policy uses 3-day safe lag. dataState final/all may revise recent days."
+                }
+            }
+        },
+        {
+            "dataset_id": "gsc_page_daily",
+            "provider_or_source": "SEARCH_CONSOLE",
+            "policy_version": 1,
+            "collection_mode": "HISTORICAL_INCREMENTAL",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "site_url",
+                "date",
+                "page"
+            ],
+            "timezone_source": "gsc_reporting_date_semantics",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": 3,
+            "freshness_sla_hours": 48,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "fixed_recent_reporting_window",
+                "window_days": 7,
+                "window_source": "MOXDOP_DATA_FRESHNESS_POLICY_V1 + provider_docs_verified_2026-08-13 + contract.refresh_policy.late_data_recheck=provider_dependent",
+                "overlap_existing_coverage_allowed": true
+            },
+            "catch_up_policy": "coverage_gap_to_collectable_end",
+            "max_bounded_incremental_span_days": 31,
+            "snapshot_policy": null,
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "incremental",
+                "cadence": "daily",
+                "late_data_recheck": "provider_dependent"
+            },
+            "contract_history_policy": {
+                "minimum_required": "provider_16m_available",
+                "recommended_initial_backfill": "180d_ui_minimum",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "gsc_page_daily",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://developers.google.com/webmaster-tools/v1/how-tos/all-your-data",
+                        "https://support.google.com/webmasters/answer/96568"
+                    ],
+                    "notes": "Official docs: performance data typically available after 2-3 days; days labeled in Pacific Time. No deterministic exact lag SLA \u2014 conservative policy uses 3-day safe lag. dataState final/all may revise recent days."
+                }
+            }
+        },
+        {
+            "dataset_id": "gsc_query_page_daily",
+            "provider_or_source": "SEARCH_CONSOLE",
+            "policy_version": 1,
+            "collection_mode": "HISTORICAL_INCREMENTAL",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "site_url",
+                "date",
+                "query",
+                "page"
+            ],
+            "timezone_source": "gsc_reporting_date_semantics",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": 3,
+            "freshness_sla_hours": 48,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "fixed_recent_reporting_window",
+                "window_days": 7,
+                "window_source": "MOXDOP_DATA_FRESHNESS_POLICY_V1 + provider_docs_verified_2026-08-13 + contract.refresh_policy.late_data_recheck=provider_dependent",
+                "overlap_existing_coverage_allowed": true
+            },
+            "catch_up_policy": "coverage_gap_to_collectable_end",
+            "max_bounded_incremental_span_days": 31,
+            "snapshot_policy": null,
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "incremental",
+                "cadence": "daily",
+                "late_data_recheck": "provider_dependent"
+            },
+            "contract_history_policy": {
+                "minimum_required": "provider_16m_available",
+                "recommended_initial_backfill": "180d_ui_minimum",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "gsc_query_page_daily",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://developers.google.com/webmaster-tools/v1/how-tos/all-your-data",
+                        "https://support.google.com/webmasters/answer/96568"
+                    ],
+                    "notes": "Official docs: performance data typically available after 2-3 days; days labeled in Pacific Time. No deterministic exact lag SLA \u2014 conservative policy uses 3-day safe lag. dataState final/all may revise recent days."
+                }
+            }
+        },
+        {
+            "dataset_id": "gsc_country_daily",
+            "provider_or_source": "SEARCH_CONSOLE",
+            "policy_version": 1,
+            "collection_mode": "HISTORICAL_INCREMENTAL",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "site_url",
+                "date",
+                "country"
+            ],
+            "timezone_source": "gsc_reporting_date_semantics",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": 3,
+            "freshness_sla_hours": 48,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "fixed_recent_reporting_window",
+                "window_days": 7,
+                "window_source": "MOXDOP_DATA_FRESHNESS_POLICY_V1 + provider_docs_verified_2026-08-13 + contract.refresh_policy.late_data_recheck=provider_dependent",
+                "overlap_existing_coverage_allowed": true
+            },
+            "catch_up_policy": "coverage_gap_to_collectable_end",
+            "max_bounded_incremental_span_days": 31,
+            "snapshot_policy": null,
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "incremental",
+                "cadence": "daily",
+                "late_data_recheck": "provider_dependent"
+            },
+            "contract_history_policy": {
+                "minimum_required": "provider_16m_available",
+                "recommended_initial_backfill": "180d_ui_minimum",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "gsc_country_daily",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://developers.google.com/webmaster-tools/v1/how-tos/all-your-data",
+                        "https://support.google.com/webmasters/answer/96568"
+                    ],
+                    "notes": "Official docs: performance data typically available after 2-3 days; days labeled in Pacific Time. No deterministic exact lag SLA \u2014 conservative policy uses 3-day safe lag. dataState final/all may revise recent days."
+                }
+            }
+        },
+        {
+            "dataset_id": "gsc_device_daily",
+            "provider_or_source": "SEARCH_CONSOLE",
+            "policy_version": 1,
+            "collection_mode": "HISTORICAL_INCREMENTAL",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "site_url",
+                "date",
+                "device"
+            ],
+            "timezone_source": "gsc_reporting_date_semantics",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": 3,
+            "freshness_sla_hours": 48,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "fixed_recent_reporting_window",
+                "window_days": 7,
+                "window_source": "MOXDOP_DATA_FRESHNESS_POLICY_V1 + provider_docs_verified_2026-08-13 + contract.refresh_policy.late_data_recheck=provider_dependent",
+                "overlap_existing_coverage_allowed": true
+            },
+            "catch_up_policy": "coverage_gap_to_collectable_end",
+            "max_bounded_incremental_span_days": 31,
+            "snapshot_policy": null,
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "incremental",
+                "cadence": "daily",
+                "late_data_recheck": "provider_dependent"
+            },
+            "contract_history_policy": {
+                "minimum_required": "provider_16m_available",
+                "recommended_initial_backfill": "180d_ui_minimum",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "gsc_device_daily",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://developers.google.com/webmaster-tools/v1/how-tos/all-your-data",
+                        "https://support.google.com/webmasters/answer/96568"
+                    ],
+                    "notes": "Official docs: performance data typically available after 2-3 days; days labeled in Pacific Time. No deterministic exact lag SLA \u2014 conservative policy uses 3-day safe lag. dataState final/all may revise recent days."
+                }
+            }
+        },
+        {
+            "dataset_id": "gsc_search_appearance_daily",
+            "provider_or_source": "SEARCH_CONSOLE",
+            "policy_version": 1,
+            "collection_mode": "STATIC_OR_SLOW_METADATA",
+            "incremental_applicable": false,
+            "non_applicable_reason": "SEARCH_CONSOLE_DATA_CONTRACT_V1 excludes searchAppearance collection from V1 production collector.",
+            "reporting_grain": [
+                "site_url",
+                "date",
+                "searchAppearance"
+            ],
+            "timezone_source": "gsc_reporting_date_semantics",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": null,
+            "freshness_sla_hours": 48,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "none",
+                "window_days": null,
+                "window_source": "not_applicable",
+                "overlap_existing_coverage_allowed": false
+            },
+            "catch_up_policy": "not_applicable",
+            "max_bounded_incremental_span_days": null,
+            "snapshot_policy": null,
+            "provider_history_limitation_ref": "API availability",
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "incremental",
+                "cadence": "daily",
+                "late_data_recheck": "provider_dependent"
+            },
+            "contract_history_policy": {
+                "minimum_required": "provider_16m_available",
+                "recommended_initial_backfill": "180d_ui_minimum",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "gsc_search_appearance_daily",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://developers.google.com/webmaster-tools/v1/how-tos/all-your-data",
+                        "https://support.google.com/webmasters/answer/96568"
+                    ],
+                    "notes": "Official docs: performance data typically available after 2-3 days; days labeled in Pacific Time. No deterministic exact lag SLA \u2014 conservative policy uses 3-day safe lag. dataState final/all may revise recent days."
+                }
+            }
+        },
+        {
+            "dataset_id": "gsc_url_inspection_snapshot",
+            "provider_or_source": "SEARCH_CONSOLE",
+            "policy_version": 1,
+            "collection_mode": "CONTROLLED_ON_DEMAND",
+            "incremental_applicable": false,
+            "non_applicable_reason": "Controlled URL Inspection requires explicit priority targets; not part of routine incremental refresh.",
+            "reporting_grain": [
+                "site_url",
+                "page",
+                "inspected_at"
+            ],
+            "timezone_source": "gsc_reporting_date_semantics",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": null,
+            "freshness_sla_hours": 168,
+            "expected_refresh_cadence": "on_demand_or_weekly",
+            "late_data_reprocessing": {
+                "strategy": "none",
+                "window_days": null,
+                "window_source": "not_applicable",
+                "overlap_existing_coverage_allowed": false
+            },
+            "catch_up_policy": "not_applicable",
+            "max_bounded_incremental_span_days": null,
+            "snapshot_policy": null,
+            "provider_history_limitation_ref": "not sitewide totals",
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "on_demand",
+                "cadence": "on_demand_or_weekly"
+            },
+            "contract_history_policy": {
+                "minimum_required": "priority_sampled",
+                "recommended_initial_backfill": "priority_only",
+                "decision_required": true
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "gsc_url_inspection_snapshot",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://developers.google.com/webmaster-tools/v1/how-tos/all-your-data",
+                        "https://support.google.com/webmasters/answer/96568"
+                    ],
+                    "notes": "Official docs: performance data typically available after 2-3 days; days labeled in Pacific Time. No deterministic exact lag SLA \u2014 conservative policy uses 3-day safe lag. dataState final/all may revise recent days."
+                }
+            }
+        },
+        {
+            "dataset_id": "gsc_sitemap_snapshot",
+            "provider_or_source": "SEARCH_CONSOLE",
+            "policy_version": 1,
+            "collection_mode": "CURRENT_SNAPSHOT",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "site_url",
+                "sitemap_path",
+                "retrieved_at"
+            ],
+            "timezone_source": "gsc_reporting_date_semantics",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": null,
+            "freshness_sla_hours": 168,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "replace_current_snapshot",
+                "window_days": null,
+                "window_source": "not_applicable",
+                "overlap_existing_coverage_allowed": false
+            },
+            "catch_up_policy": "snapshot_refresh_if_stale",
+            "max_bounded_incremental_span_days": null,
+            "snapshot_policy": {
+                "freshness_basis": "last_successful_collection_at",
+                "freshness_sla_hours": 168,
+                "historical_watermark_applicable": false,
+                "reprocessing_applicable": false
+            },
+            "provider_history_limitation_ref": "\u2260 Website sitemap file",
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "on_demand_or_daily",
+                "cadence": "daily"
+            },
+            "contract_history_policy": {
+                "minimum_required": "current",
+                "recommended_initial_backfill": "current",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "gsc_sitemap_snapshot",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://developers.google.com/webmaster-tools/v1/how-tos/all-your-data",
+                        "https://support.google.com/webmasters/answer/96568"
+                    ],
+                    "notes": "Official docs: performance data typically available after 2-3 days; days labeled in Pacific Time. No deterministic exact lag SLA \u2014 conservative policy uses 3-day safe lag. dataState final/all may revise recent days."
+                }
+            }
+        },
+        {
+            "dataset_id": "google_ads_account_snapshot",
+            "provider_or_source": "GOOGLE_ADS",
+            "policy_version": 1,
+            "collection_mode": "CURRENT_SNAPSHOT",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "customer_id"
+            ],
+            "timezone_source": "google_ads_customer_timezone",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": null,
+            "freshness_sla_hours": 168,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "replace_current_snapshot",
+                "window_days": null,
+                "window_source": "not_applicable",
+                "overlap_existing_coverage_allowed": false
+            },
+            "catch_up_policy": "snapshot_refresh_if_stale",
+            "max_bounded_incremental_span_days": null,
+            "snapshot_policy": {
+                "freshness_basis": "last_successful_collection_at",
+                "freshness_sla_hours": 168,
+                "historical_watermark_applicable": false,
+                "reprocessing_applicable": false
+            },
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "on_demand_or_daily",
+                "cadence": "daily"
+            },
+            "contract_history_policy": {
+                "minimum_required": "current",
+                "recommended_initial_backfill": "current",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "google_ads_account_snapshot",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://support.google.com/google-ads/answer/3123169",
+                        "https://support.google.com/google-ads/answer/6259715"
+                    ],
+                    "notes": "Conversion counts can change within conversion windows (commonly up to 30 days click-through default). Click metrics stabilize sooner. Conservative: safe lag 1 day (current open day not complete); conversion_action_daily reprocess 30d; other daily 7d."
+                }
+            }
+        },
+        {
+            "dataset_id": "google_ads_account_daily",
+            "provider_or_source": "GOOGLE_ADS",
+            "policy_version": 1,
+            "collection_mode": "HISTORICAL_INCREMENTAL",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "customer_id",
+                "date"
+            ],
+            "timezone_source": "google_ads_customer_timezone",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": 1,
+            "freshness_sla_hours": 48,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "fixed_recent_reporting_window",
+                "window_days": 7,
+                "window_source": "MOXDOP_DATA_FRESHNESS_POLICY_V1 + provider_docs_verified_2026-08-13 + contract.refresh_policy.late_data_recheck=provider_dependent",
+                "overlap_existing_coverage_allowed": true
+            },
+            "catch_up_policy": "coverage_gap_to_collectable_end",
+            "max_bounded_incremental_span_days": 31,
+            "snapshot_policy": null,
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "incremental",
+                "cadence": "daily",
+                "late_data_recheck": "provider_dependent"
+            },
+            "contract_history_policy": {
+                "minimum_required": "180d",
+                "recommended_initial_backfill": "180d",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "google_ads_account_daily",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://support.google.com/google-ads/answer/3123169",
+                        "https://support.google.com/google-ads/answer/6259715"
+                    ],
+                    "notes": "Conversion counts can change within conversion windows (commonly up to 30 days click-through default). Click metrics stabilize sooner. Conservative: safe lag 1 day (current open day not complete); conversion_action_daily reprocess 30d; other daily 7d."
+                }
+            }
+        },
+        {
+            "dataset_id": "google_ads_campaign_snapshot",
+            "provider_or_source": "GOOGLE_ADS",
+            "policy_version": 1,
+            "collection_mode": "CURRENT_SNAPSHOT",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "customer_id",
+                "campaign_id"
+            ],
+            "timezone_source": "google_ads_customer_timezone",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": null,
+            "freshness_sla_hours": 168,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "replace_current_snapshot",
+                "window_days": null,
+                "window_source": "not_applicable",
+                "overlap_existing_coverage_allowed": false
+            },
+            "catch_up_policy": "snapshot_refresh_if_stale",
+            "max_bounded_incremental_span_days": null,
+            "snapshot_policy": {
+                "freshness_basis": "last_successful_collection_at",
+                "freshness_sla_hours": 168,
+                "historical_watermark_applicable": false,
+                "reprocessing_applicable": false
+            },
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "on_demand_or_daily",
+                "cadence": "daily"
+            },
+            "contract_history_policy": {
+                "minimum_required": "current",
+                "recommended_initial_backfill": "current",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "google_ads_campaign_snapshot",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://support.google.com/google-ads/answer/3123169",
+                        "https://support.google.com/google-ads/answer/6259715"
+                    ],
+                    "notes": "Conversion counts can change within conversion windows (commonly up to 30 days click-through default). Click metrics stabilize sooner. Conservative: safe lag 1 day (current open day not complete); conversion_action_daily reprocess 30d; other daily 7d."
+                }
+            }
+        },
+        {
+            "dataset_id": "google_ads_campaign_daily",
+            "provider_or_source": "GOOGLE_ADS",
+            "policy_version": 1,
+            "collection_mode": "HISTORICAL_INCREMENTAL",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "customer_id",
+                "date",
+                "campaign_id"
+            ],
+            "timezone_source": "google_ads_customer_timezone",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": 1,
+            "freshness_sla_hours": 48,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "fixed_recent_reporting_window",
+                "window_days": 7,
+                "window_source": "MOXDOP_DATA_FRESHNESS_POLICY_V1 + provider_docs_verified_2026-08-13 + contract.refresh_policy.late_data_recheck=provider_dependent",
+                "overlap_existing_coverage_allowed": true
+            },
+            "catch_up_policy": "coverage_gap_to_collectable_end",
+            "max_bounded_incremental_span_days": 31,
+            "snapshot_policy": null,
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "incremental",
+                "cadence": "daily",
+                "late_data_recheck": "provider_dependent"
+            },
+            "contract_history_policy": {
+                "minimum_required": "180d",
+                "recommended_initial_backfill": "180d",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "google_ads_campaign_daily",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://support.google.com/google-ads/answer/3123169",
+                        "https://support.google.com/google-ads/answer/6259715"
+                    ],
+                    "notes": "Conversion counts can change within conversion windows (commonly up to 30 days click-through default). Click metrics stabilize sooner. Conservative: safe lag 1 day (current open day not complete); conversion_action_daily reprocess 30d; other daily 7d."
+                }
+            }
+        },
+        {
+            "dataset_id": "google_ads_ad_group_snapshot",
+            "provider_or_source": "GOOGLE_ADS",
+            "policy_version": 1,
+            "collection_mode": "CURRENT_SNAPSHOT",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "customer_id",
+                "ad_group_id"
+            ],
+            "timezone_source": "google_ads_customer_timezone",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": null,
+            "freshness_sla_hours": 168,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "replace_current_snapshot",
+                "window_days": null,
+                "window_source": "not_applicable",
+                "overlap_existing_coverage_allowed": false
+            },
+            "catch_up_policy": "snapshot_refresh_if_stale",
+            "max_bounded_incremental_span_days": null,
+            "snapshot_policy": {
+                "freshness_basis": "last_successful_collection_at",
+                "freshness_sla_hours": 168,
+                "historical_watermark_applicable": false,
+                "reprocessing_applicable": false
+            },
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "on_demand_or_daily",
+                "cadence": "daily"
+            },
+            "contract_history_policy": {
+                "minimum_required": "current",
+                "recommended_initial_backfill": "current",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "google_ads_ad_group_snapshot",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://support.google.com/google-ads/answer/3123169",
+                        "https://support.google.com/google-ads/answer/6259715"
+                    ],
+                    "notes": "Conversion counts can change within conversion windows (commonly up to 30 days click-through default). Click metrics stabilize sooner. Conservative: safe lag 1 day (current open day not complete); conversion_action_daily reprocess 30d; other daily 7d."
+                }
+            }
+        },
+        {
+            "dataset_id": "google_ads_ad_snapshot",
+            "provider_or_source": "GOOGLE_ADS",
+            "policy_version": 1,
+            "collection_mode": "CURRENT_SNAPSHOT",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "customer_id",
+                "ad_id"
+            ],
+            "timezone_source": "google_ads_customer_timezone",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": null,
+            "freshness_sla_hours": 168,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "replace_current_snapshot",
+                "window_days": null,
+                "window_source": "not_applicable",
+                "overlap_existing_coverage_allowed": false
+            },
+            "catch_up_policy": "snapshot_refresh_if_stale",
+            "max_bounded_incremental_span_days": null,
+            "snapshot_policy": {
+                "freshness_basis": "last_successful_collection_at",
+                "freshness_sla_hours": 168,
+                "historical_watermark_applicable": false,
+                "reprocessing_applicable": false
+            },
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "on_demand_or_daily",
+                "cadence": "daily"
+            },
+            "contract_history_policy": {
+                "minimum_required": "current",
+                "recommended_initial_backfill": "current",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "google_ads_ad_snapshot",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://support.google.com/google-ads/answer/3123169",
+                        "https://support.google.com/google-ads/answer/6259715"
+                    ],
+                    "notes": "Conversion counts can change within conversion windows (commonly up to 30 days click-through default). Click metrics stabilize sooner. Conservative: safe lag 1 day (current open day not complete); conversion_action_daily reprocess 30d; other daily 7d."
+                }
+            }
+        },
+        {
+            "dataset_id": "google_ads_keyword_snapshot",
+            "provider_or_source": "GOOGLE_ADS",
+            "policy_version": 1,
+            "collection_mode": "CURRENT_SNAPSHOT",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "customer_id",
+                "criterion_id"
+            ],
+            "timezone_source": "google_ads_customer_timezone",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": null,
+            "freshness_sla_hours": 168,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "replace_current_snapshot",
+                "window_days": null,
+                "window_source": "not_applicable",
+                "overlap_existing_coverage_allowed": false
+            },
+            "catch_up_policy": "snapshot_refresh_if_stale",
+            "max_bounded_incremental_span_days": null,
+            "snapshot_policy": {
+                "freshness_basis": "last_successful_collection_at",
+                "freshness_sla_hours": 168,
+                "historical_watermark_applicable": false,
+                "reprocessing_applicable": false
+            },
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "on_demand_or_daily",
+                "cadence": "daily"
+            },
+            "contract_history_policy": {
+                "minimum_required": "current",
+                "recommended_initial_backfill": "current",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "google_ads_keyword_snapshot",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://support.google.com/google-ads/answer/3123169",
+                        "https://support.google.com/google-ads/answer/6259715"
+                    ],
+                    "notes": "Conversion counts can change within conversion windows (commonly up to 30 days click-through default). Click metrics stabilize sooner. Conservative: safe lag 1 day (current open day not complete); conversion_action_daily reprocess 30d; other daily 7d."
+                }
+            }
+        },
+        {
+            "dataset_id": "google_ads_keyword_daily",
+            "provider_or_source": "GOOGLE_ADS",
+            "policy_version": 1,
+            "collection_mode": "HISTORICAL_INCREMENTAL",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "customer_id",
+                "date",
+                "criterion_id"
+            ],
+            "timezone_source": "google_ads_customer_timezone",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": 1,
+            "freshness_sla_hours": 48,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "fixed_recent_reporting_window",
+                "window_days": 7,
+                "window_source": "MOXDOP_DATA_FRESHNESS_POLICY_V1 + provider_docs_verified_2026-08-13 + contract.refresh_policy.late_data_recheck=provider_dependent",
+                "overlap_existing_coverage_allowed": true
+            },
+            "catch_up_policy": "coverage_gap_to_collectable_end",
+            "max_bounded_incremental_span_days": 31,
+            "snapshot_policy": null,
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "incremental",
+                "cadence": "daily",
+                "late_data_recheck": "provider_dependent"
+            },
+            "contract_history_policy": {
+                "minimum_required": "180d",
+                "recommended_initial_backfill": "180d",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "google_ads_keyword_daily",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://support.google.com/google-ads/answer/3123169",
+                        "https://support.google.com/google-ads/answer/6259715"
+                    ],
+                    "notes": "Conversion counts can change within conversion windows (commonly up to 30 days click-through default). Click metrics stabilize sooner. Conservative: safe lag 1 day (current open day not complete); conversion_action_daily reprocess 30d; other daily 7d."
+                }
+            }
+        },
+        {
+            "dataset_id": "google_ads_search_term_daily",
+            "provider_or_source": "GOOGLE_ADS",
+            "policy_version": 1,
+            "collection_mode": "HISTORICAL_INCREMENTAL",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "customer_id",
+                "date",
+                "search_term"
+            ],
+            "timezone_source": "google_ads_customer_timezone",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": 1,
+            "freshness_sla_hours": 48,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "fixed_recent_reporting_window",
+                "window_days": 7,
+                "window_source": "MOXDOP_DATA_FRESHNESS_POLICY_V1 + provider_docs_verified_2026-08-13 + contract.refresh_policy.late_data_recheck=provider_dependent",
+                "overlap_existing_coverage_allowed": true
+            },
+            "catch_up_policy": "coverage_gap_to_collectable_end",
+            "max_bounded_incremental_span_days": 31,
+            "snapshot_policy": null,
+            "provider_history_limitation_ref": "\u2260 GSC query; \u2260 keyword",
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "incremental",
+                "cadence": "daily",
+                "late_data_recheck": "provider_dependent"
+            },
+            "contract_history_policy": {
+                "minimum_required": "180d",
+                "recommended_initial_backfill": "180d",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "google_ads_search_term_daily",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://support.google.com/google-ads/answer/3123169",
+                        "https://support.google.com/google-ads/answer/6259715"
+                    ],
+                    "notes": "Conversion counts can change within conversion windows (commonly up to 30 days click-through default). Click metrics stabilize sooner. Conservative: safe lag 1 day (current open day not complete); conversion_action_daily reprocess 30d; other daily 7d."
+                }
+            }
+        },
+        {
+            "dataset_id": "google_ads_landing_page_daily",
+            "provider_or_source": "GOOGLE_ADS",
+            "policy_version": 1,
+            "collection_mode": "HISTORICAL_INCREMENTAL",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "customer_id",
+                "date",
+                "landing_page"
+            ],
+            "timezone_source": "google_ads_customer_timezone",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": 1,
+            "freshness_sla_hours": 48,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "fixed_recent_reporting_window",
+                "window_days": 7,
+                "window_source": "MOXDOP_DATA_FRESHNESS_POLICY_V1 + provider_docs_verified_2026-08-13 + contract.refresh_policy.late_data_recheck=provider_dependent",
+                "overlap_existing_coverage_allowed": true
+            },
+            "catch_up_policy": "coverage_gap_to_collectable_end",
+            "max_bounded_incremental_span_days": 31,
+            "snapshot_policy": null,
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "incremental",
+                "cadence": "daily",
+                "late_data_recheck": "provider_dependent"
+            },
+            "contract_history_policy": {
+                "minimum_required": "180d",
+                "recommended_initial_backfill": "180d",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "google_ads_landing_page_daily",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://support.google.com/google-ads/answer/3123169",
+                        "https://support.google.com/google-ads/answer/6259715"
+                    ],
+                    "notes": "Conversion counts can change within conversion windows (commonly up to 30 days click-through default). Click metrics stabilize sooner. Conservative: safe lag 1 day (current open day not complete); conversion_action_daily reprocess 30d; other daily 7d."
+                }
+            }
+        },
+        {
+            "dataset_id": "google_ads_conversion_action_snapshot",
+            "provider_or_source": "GOOGLE_ADS",
+            "policy_version": 1,
+            "collection_mode": "CURRENT_SNAPSHOT",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "customer_id",
+                "conversion_action_id"
+            ],
+            "timezone_source": "google_ads_customer_timezone",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": null,
+            "freshness_sla_hours": 168,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "replace_current_snapshot",
+                "window_days": null,
+                "window_source": "not_applicable",
+                "overlap_existing_coverage_allowed": false
+            },
+            "catch_up_policy": "snapshot_refresh_if_stale",
+            "max_bounded_incremental_span_days": null,
+            "snapshot_policy": {
+                "freshness_basis": "last_successful_collection_at",
+                "freshness_sla_hours": 168,
+                "historical_watermark_applicable": false,
+                "reprocessing_applicable": false
+            },
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "on_demand_or_daily",
+                "cadence": "daily"
+            },
+            "contract_history_policy": {
+                "minimum_required": "current",
+                "recommended_initial_backfill": "current",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "google_ads_conversion_action_snapshot",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://support.google.com/google-ads/answer/3123169",
+                        "https://support.google.com/google-ads/answer/6259715"
+                    ],
+                    "notes": "Conversion counts can change within conversion windows (commonly up to 30 days click-through default). Click metrics stabilize sooner. Conservative: safe lag 1 day (current open day not complete); conversion_action_daily reprocess 30d; other daily 7d."
+                }
+            }
+        },
+        {
+            "dataset_id": "google_ads_conversion_action_daily",
+            "provider_or_source": "GOOGLE_ADS",
+            "policy_version": 1,
+            "collection_mode": "HISTORICAL_INCREMENTAL",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "customer_id",
+                "date",
+                "conversion_action_id"
+            ],
+            "timezone_source": "google_ads_customer_timezone",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": 1,
+            "freshness_sla_hours": 48,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "fixed_recent_reporting_window",
+                "window_days": 30,
+                "window_source": "MOXDOP_DATA_FRESHNESS_POLICY_V1 + provider_docs_verified_2026-08-13 + contract.refresh_policy.late_data_recheck=provider_dependent",
+                "overlap_existing_coverage_allowed": true
+            },
+            "catch_up_policy": "coverage_gap_to_collectable_end",
+            "max_bounded_incremental_span_days": 31,
+            "snapshot_policy": null,
+            "provider_history_limitation_ref": "Conversions\u2260AllConversions\u2260Business Outcome",
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "incremental",
+                "cadence": "daily",
+                "late_data_recheck": "provider_dependent"
+            },
+            "contract_history_policy": {
+                "minimum_required": "180d",
+                "recommended_initial_backfill": "180d",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "google_ads_conversion_action_daily",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://support.google.com/google-ads/answer/3123169",
+                        "https://support.google.com/google-ads/answer/6259715"
+                    ],
+                    "notes": "Conversion counts can change within conversion windows (commonly up to 30 days click-through default). Click metrics stabilize sooner. Conservative: safe lag 1 day (current open day not complete); conversion_action_daily reprocess 30d; other daily 7d."
+                }
+            }
+        },
+        {
+            "dataset_id": "google_ads_campaign_budget_snapshot",
+            "provider_or_source": "GOOGLE_ADS",
+            "policy_version": 1,
+            "collection_mode": "CURRENT_SNAPSHOT",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "customer_id",
+                "budget_id"
+            ],
+            "timezone_source": "google_ads_customer_timezone",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": null,
+            "freshness_sla_hours": 168,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "replace_current_snapshot",
+                "window_days": null,
+                "window_source": "not_applicable",
+                "overlap_existing_coverage_allowed": false
+            },
+            "catch_up_policy": "snapshot_refresh_if_stale",
+            "max_bounded_incremental_span_days": null,
+            "snapshot_policy": {
+                "freshness_basis": "last_successful_collection_at",
+                "freshness_sla_hours": 168,
+                "historical_watermark_applicable": false,
+                "reprocessing_applicable": false
+            },
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "on_demand_or_daily",
+                "cadence": "daily"
+            },
+            "contract_history_policy": {
+                "minimum_required": "current",
+                "recommended_initial_backfill": "current",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "google_ads_campaign_budget_snapshot",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://support.google.com/google-ads/answer/3123169",
+                        "https://support.google.com/google-ads/answer/6259715"
+                    ],
+                    "notes": "Conversion counts can change within conversion windows (commonly up to 30 days click-through default). Click metrics stabilize sooner. Conservative: safe lag 1 day (current open day not complete); conversion_action_daily reprocess 30d; other daily 7d."
+                }
+            }
+        },
+        {
+            "dataset_id": "google_ads_asset_coverage_snapshot",
+            "provider_or_source": "GOOGLE_ADS",
+            "policy_version": 1,
+            "collection_mode": "CURRENT_SNAPSHOT",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "customer_id",
+                "asset_id"
+            ],
+            "timezone_source": "google_ads_customer_timezone",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": null,
+            "freshness_sla_hours": 168,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "replace_current_snapshot",
+                "window_days": null,
+                "window_source": "not_applicable",
+                "overlap_existing_coverage_allowed": false
+            },
+            "catch_up_policy": "snapshot_refresh_if_stale",
+            "max_bounded_incremental_span_days": null,
+            "snapshot_policy": {
+                "freshness_basis": "last_successful_collection_at",
+                "freshness_sla_hours": 168,
+                "historical_watermark_applicable": false,
+                "reprocessing_applicable": false
+            },
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "on_demand_or_daily",
+                "cadence": "daily"
+            },
+            "contract_history_policy": {
+                "minimum_required": "current",
+                "recommended_initial_backfill": "current",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "google_ads_asset_coverage_snapshot",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://support.google.com/google-ads/answer/3123169",
+                        "https://support.google.com/google-ads/answer/6259715"
+                    ],
+                    "notes": "Conversion counts can change within conversion windows (commonly up to 30 days click-through default). Click metrics stabilize sooner. Conservative: safe lag 1 day (current open day not complete); conversion_action_daily reprocess 30d; other daily 7d."
+                }
+            }
+        },
+        {
+            "dataset_id": "meta_ad_account_snapshot",
+            "provider_or_source": "META_ADS",
+            "policy_version": 1,
+            "collection_mode": "CURRENT_SNAPSHOT",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "account_id"
+            ],
+            "timezone_source": "meta_ad_account_timezone",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": null,
+            "freshness_sla_hours": 168,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "replace_current_snapshot",
+                "window_days": null,
+                "window_source": "not_applicable",
+                "overlap_existing_coverage_allowed": false
+            },
+            "catch_up_policy": "snapshot_refresh_if_stale",
+            "max_bounded_incremental_span_days": null,
+            "snapshot_policy": {
+                "freshness_basis": "last_successful_collection_at",
+                "freshness_sla_hours": 168,
+                "historical_watermark_applicable": false,
+                "reprocessing_applicable": false
+            },
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "on_demand_or_daily",
+                "cadence": "daily"
+            },
+            "contract_history_policy": {
+                "minimum_required": "current",
+                "recommended_initial_backfill": "current",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "meta_ad_account_snapshot",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://developers.facebook.com/blog/post/2025/10/16/ads-insights-api-metric-availability-updates/",
+                        "https://developers.facebook.com/docs/marketing-api/insights"
+                    ],
+                    "notes": "Insights/actions subject to attribution windows (e.g. 7d_click still supported; 7d_view/28d_view deprecated 2026-01-12). Unique/frequency history retention limits apply. Conservative: safe lag 1 day; typed actions/daily insights reprocess 7 days (bounded; not full attribution max)."
+                }
+            }
+        },
+        {
+            "dataset_id": "meta_campaign_snapshot",
+            "provider_or_source": "META_ADS",
+            "policy_version": 1,
+            "collection_mode": "CURRENT_SNAPSHOT",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "account_id",
+                "campaign_id"
+            ],
+            "timezone_source": "meta_ad_account_timezone",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": null,
+            "freshness_sla_hours": 168,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "replace_current_snapshot",
+                "window_days": null,
+                "window_source": "not_applicable",
+                "overlap_existing_coverage_allowed": false
+            },
+            "catch_up_policy": "snapshot_refresh_if_stale",
+            "max_bounded_incremental_span_days": null,
+            "snapshot_policy": {
+                "freshness_basis": "last_successful_collection_at",
+                "freshness_sla_hours": 168,
+                "historical_watermark_applicable": false,
+                "reprocessing_applicable": false
+            },
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "on_demand_or_daily",
+                "cadence": "daily"
+            },
+            "contract_history_policy": {
+                "minimum_required": "current",
+                "recommended_initial_backfill": "current",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "meta_campaign_snapshot",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://developers.facebook.com/blog/post/2025/10/16/ads-insights-api-metric-availability-updates/",
+                        "https://developers.facebook.com/docs/marketing-api/insights"
+                    ],
+                    "notes": "Insights/actions subject to attribution windows (e.g. 7d_click still supported; 7d_view/28d_view deprecated 2026-01-12). Unique/frequency history retention limits apply. Conservative: safe lag 1 day; typed actions/daily insights reprocess 7 days (bounded; not full attribution max)."
+                }
+            }
+        },
+        {
+            "dataset_id": "meta_adset_snapshot",
+            "provider_or_source": "META_ADS",
+            "policy_version": 1,
+            "collection_mode": "CURRENT_SNAPSHOT",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "account_id",
+                "adset_id"
+            ],
+            "timezone_source": "meta_ad_account_timezone",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": null,
+            "freshness_sla_hours": 168,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "replace_current_snapshot",
+                "window_days": null,
+                "window_source": "not_applicable",
+                "overlap_existing_coverage_allowed": false
+            },
+            "catch_up_policy": "snapshot_refresh_if_stale",
+            "max_bounded_incremental_span_days": null,
+            "snapshot_policy": {
+                "freshness_basis": "last_successful_collection_at",
+                "freshness_sla_hours": 168,
+                "historical_watermark_applicable": false,
+                "reprocessing_applicable": false
+            },
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "on_demand_or_daily",
+                "cadence": "daily"
+            },
+            "contract_history_policy": {
+                "minimum_required": "current",
+                "recommended_initial_backfill": "current",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "meta_adset_snapshot",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://developers.facebook.com/blog/post/2025/10/16/ads-insights-api-metric-availability-updates/",
+                        "https://developers.facebook.com/docs/marketing-api/insights"
+                    ],
+                    "notes": "Insights/actions subject to attribution windows (e.g. 7d_click still supported; 7d_view/28d_view deprecated 2026-01-12). Unique/frequency history retention limits apply. Conservative: safe lag 1 day; typed actions/daily insights reprocess 7 days (bounded; not full attribution max)."
+                }
+            }
+        },
+        {
+            "dataset_id": "meta_creative_snapshot",
+            "provider_or_source": "META_ADS",
+            "policy_version": 1,
+            "collection_mode": "CURRENT_SNAPSHOT",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "account_id",
+                "creative_id"
+            ],
+            "timezone_source": "meta_ad_account_timezone",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": null,
+            "freshness_sla_hours": 168,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "replace_current_snapshot",
+                "window_days": null,
+                "window_source": "not_applicable",
+                "overlap_existing_coverage_allowed": false
+            },
+            "catch_up_policy": "snapshot_refresh_if_stale",
+            "max_bounded_incremental_span_days": null,
+            "snapshot_policy": {
+                "freshness_basis": "last_successful_collection_at",
+                "freshness_sla_hours": 168,
+                "historical_watermark_applicable": false,
+                "reprocessing_applicable": false
+            },
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "on_demand_or_daily",
+                "cadence": "daily"
+            },
+            "contract_history_policy": {
+                "minimum_required": "current",
+                "recommended_initial_backfill": "current",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "meta_creative_snapshot",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://developers.facebook.com/blog/post/2025/10/16/ads-insights-api-metric-availability-updates/",
+                        "https://developers.facebook.com/docs/marketing-api/insights"
+                    ],
+                    "notes": "Insights/actions subject to attribution windows (e.g. 7d_click still supported; 7d_view/28d_view deprecated 2026-01-12). Unique/frequency history retention limits apply. Conservative: safe lag 1 day; typed actions/daily insights reprocess 7 days (bounded; not full attribution max)."
+                }
+            }
+        },
+        {
+            "dataset_id": "meta_campaign_daily",
+            "provider_or_source": "META_ADS",
+            "policy_version": 1,
+            "collection_mode": "HISTORICAL_INCREMENTAL",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "account_id",
+                "date",
+                "campaign_id"
+            ],
+            "timezone_source": "meta_ad_account_timezone",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": 1,
+            "freshness_sla_hours": 48,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "fixed_recent_reporting_window",
+                "window_days": 7,
+                "window_source": "MOXDOP_DATA_FRESHNESS_POLICY_V1 + provider_docs_verified_2026-08-13 + contract.refresh_policy.late_data_recheck=meta_action_attribution_window",
+                "overlap_existing_coverage_allowed": true
+            },
+            "catch_up_policy": "coverage_gap_to_collectable_end",
+            "max_bounded_incremental_span_days": 31,
+            "snapshot_policy": null,
+            "provider_history_limitation_ref": "Reach NON_ADDITIVE across days",
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "incremental",
+                "cadence": "daily",
+                "late_data_recheck": "meta_action_attribution_window"
+            },
+            "contract_history_policy": {
+                "minimum_required": "180d",
+                "recommended_initial_backfill": "180d",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "meta_campaign_daily",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://developers.facebook.com/blog/post/2025/10/16/ads-insights-api-metric-availability-updates/",
+                        "https://developers.facebook.com/docs/marketing-api/insights"
+                    ],
+                    "notes": "Insights/actions subject to attribution windows (e.g. 7d_click still supported; 7d_view/28d_view deprecated 2026-01-12). Unique/frequency history retention limits apply. Conservative: safe lag 1 day; typed actions/daily insights reprocess 7 days (bounded; not full attribution max)."
+                }
+            }
+        },
+        {
+            "dataset_id": "meta_adset_daily",
+            "provider_or_source": "META_ADS",
+            "policy_version": 1,
+            "collection_mode": "HISTORICAL_INCREMENTAL",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "account_id",
+                "date",
+                "adset_id"
+            ],
+            "timezone_source": "meta_ad_account_timezone",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": 1,
+            "freshness_sla_hours": 48,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "fixed_recent_reporting_window",
+                "window_days": 7,
+                "window_source": "MOXDOP_DATA_FRESHNESS_POLICY_V1 + provider_docs_verified_2026-08-13 + contract.refresh_policy.late_data_recheck=provider_dependent",
+                "overlap_existing_coverage_allowed": true
+            },
+            "catch_up_policy": "coverage_gap_to_collectable_end",
+            "max_bounded_incremental_span_days": 31,
+            "snapshot_policy": null,
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "incremental",
+                "cadence": "daily",
+                "late_data_recheck": "provider_dependent"
+            },
+            "contract_history_policy": {
+                "minimum_required": "180d",
+                "recommended_initial_backfill": "180d",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "meta_adset_daily",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://developers.facebook.com/blog/post/2025/10/16/ads-insights-api-metric-availability-updates/",
+                        "https://developers.facebook.com/docs/marketing-api/insights"
+                    ],
+                    "notes": "Insights/actions subject to attribution windows (e.g. 7d_click still supported; 7d_view/28d_view deprecated 2026-01-12). Unique/frequency history retention limits apply. Conservative: safe lag 1 day; typed actions/daily insights reprocess 7 days (bounded; not full attribution max)."
+                }
+            }
+        },
+        {
+            "dataset_id": "meta_ad_daily",
+            "provider_or_source": "META_ADS",
+            "policy_version": 1,
+            "collection_mode": "HISTORICAL_INCREMENTAL",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "account_id",
+                "date",
+                "ad_id"
+            ],
+            "timezone_source": "meta_ad_account_timezone",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": 1,
+            "freshness_sla_hours": 48,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "fixed_recent_reporting_window",
+                "window_days": 7,
+                "window_source": "MOXDOP_DATA_FRESHNESS_POLICY_V1 + provider_docs_verified_2026-08-13 + contract.refresh_policy.late_data_recheck=provider_dependent",
+                "overlap_existing_coverage_allowed": true
+            },
+            "catch_up_policy": "coverage_gap_to_collectable_end",
+            "max_bounded_incremental_span_days": 31,
+            "snapshot_policy": null,
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "incremental",
+                "cadence": "daily",
+                "late_data_recheck": "provider_dependent"
+            },
+            "contract_history_policy": {
+                "minimum_required": "180d",
+                "recommended_initial_backfill": "180d",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "meta_ad_daily",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://developers.facebook.com/blog/post/2025/10/16/ads-insights-api-metric-availability-updates/",
+                        "https://developers.facebook.com/docs/marketing-api/insights"
+                    ],
+                    "notes": "Insights/actions subject to attribution windows (e.g. 7d_click still supported; 7d_view/28d_view deprecated 2026-01-12). Unique/frequency history retention limits apply. Conservative: safe lag 1 day; typed actions/daily insights reprocess 7 days (bounded; not full attribution max)."
+                }
+            }
+        },
+        {
+            "dataset_id": "meta_typed_action_daily",
+            "provider_or_source": "META_ADS",
+            "policy_version": 1,
+            "collection_mode": "HISTORICAL_INCREMENTAL",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "account_id",
+                "date",
+                "entity_level",
+                "entity_id",
+                "action_type"
+            ],
+            "timezone_source": "meta_ad_account_timezone",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": 1,
+            "freshness_sla_hours": 48,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "fixed_recent_reporting_window",
+                "window_days": 7,
+                "window_source": "MOXDOP_DATA_FRESHNESS_POLICY_V1 + provider_docs_verified_2026-08-13 + contract.refresh_policy.late_data_recheck=provider_dependent",
+                "overlap_existing_coverage_allowed": true
+            },
+            "catch_up_policy": "coverage_gap_to_collectable_end",
+            "max_bounded_incremental_span_days": 31,
+            "snapshot_policy": null,
+            "provider_history_limitation_ref": "Never discard action_type; no untyped Results total",
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "incremental",
+                "cadence": "daily",
+                "late_data_recheck": "provider_dependent"
+            },
+            "contract_history_policy": {
+                "minimum_required": "180d",
+                "recommended_initial_backfill": "180d",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "meta_typed_action_daily",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://developers.facebook.com/blog/post/2025/10/16/ads-insights-api-metric-availability-updates/",
+                        "https://developers.facebook.com/docs/marketing-api/insights"
+                    ],
+                    "notes": "Insights/actions subject to attribution windows (e.g. 7d_click still supported; 7d_view/28d_view deprecated 2026-01-12). Unique/frequency history retention limits apply. Conservative: safe lag 1 day; typed actions/daily insights reprocess 7 days (bounded; not full attribution max)."
+                }
+            }
+        },
+        {
+            "dataset_id": "meta_delivery_breakdown_daily",
+            "provider_or_source": "META_ADS",
+            "policy_version": 1,
+            "collection_mode": "HISTORICAL_INCREMENTAL",
+            "incremental_applicable": true,
+            "non_applicable_reason": null,
+            "reporting_grain": [
+                "account_id",
+                "date",
+                "entity_id",
+                "breakdown_type",
+                "breakdown_value"
+            ],
+            "timezone_source": "meta_ad_account_timezone",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": 1,
+            "freshness_sla_hours": 48,
+            "expected_refresh_cadence": "daily",
+            "late_data_reprocessing": {
+                "strategy": "fixed_recent_reporting_window",
+                "window_days": 7,
+                "window_source": "MOXDOP_DATA_FRESHNESS_POLICY_V1 + provider_docs_verified_2026-08-13 + contract.refresh_policy.late_data_recheck=provider_dependent",
+                "overlap_existing_coverage_allowed": true
+            },
+            "catch_up_policy": "coverage_gap_to_collectable_end",
+            "max_bounded_incremental_span_days": 31,
+            "snapshot_policy": null,
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "incremental",
+                "cadence": "daily",
+                "late_data_recheck": "provider_dependent"
+            },
+            "contract_history_policy": {
+                "minimum_required": "180d",
+                "recommended_initial_backfill": "180d",
+                "decision_required": false
+            },
+            "period_non_additive_notes": "May include non-additive metrics (e.g. reach/frequency). Incremental refresh uses daily grain; Formula/Integrity forbid invalid summation across days.",
+            "policy_source": {
+                "data_contract_dataset_id": "meta_delivery_breakdown_daily",
+                "integrity_profile": true,
+                "provider_documentation_verified_at": "2026-08-13",
+                "provider_documentation": {
+                    "sources": [
+                        "https://developers.facebook.com/blog/post/2025/10/16/ads-insights-api-metric-availability-updates/",
+                        "https://developers.facebook.com/docs/marketing-api/insights"
+                    ],
+                    "notes": "Insights/actions subject to attribution windows (e.g. 7d_click still supported; 7d_view/28d_view deprecated 2026-01-12). Unique/frequency history retention limits apply. Conservative: safe lag 1 day; typed actions/daily insights reprocess 7 days (bounded; not full attribution max)."
+                }
+            }
+        }
+    ]
+}

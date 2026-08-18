@@ -3,7 +3,8 @@
 namespace App\Livewire\Demo\Portfolio;
 
 use App\Livewire\Demo\Portfolio\Concerns\InteractsWithBrandForm;
-use App\Support\Demo\DemoCatalog;
+use App\Models\Brand;
+use App\Models\Customer;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
@@ -23,10 +24,10 @@ class BrandCreate extends Component
     public function mount(): void
     {
         if ($this->customerId !== '') {
+            abort_unless(ctype_digit($this->customerId), 404);
+            abort_if(Customer::query()->find($this->customerId) === null, 404);
             $this->customer_id = $this->customerId;
             $this->customerLocked = true;
-        } elseif (DemoState::findCustomer(DemoCatalog::CUSTOMER_ID)) {
-            $this->customer_id = DemoCatalog::CUSTOMER_ID;
         }
     }
 
@@ -41,11 +42,12 @@ class BrandCreate extends Component
         try {
             $this->validate($this->brandRules());
 
-            $id = 'b-demo-'.substr(md5($this->name.microtime(true)), 0, 8);
-            $payload = $this->brandPayload($id);
-            DemoState::addBrand($payload);
+            $brand = Brand::query()->create($this->brandEloquentPayload());
+            $brand->responsibleUsers()->sync($this->sanitizedResponsibleUserIds());
 
-            return $this->redirect(route('demo.brand', ['brand' => $id]), navigate: true);
+            DemoState::flash(__('operator.forms.brand_saved', ['name' => $brand->name]));
+
+            return $this->redirect(route('operator.brand', ['brand' => $brand->id]), navigate: true);
         } finally {
             $this->saving = false;
         }
@@ -54,15 +56,15 @@ class BrandCreate extends Component
     public function render(): View
     {
         $backUrl = $this->customerLocked
-            ? route('demo.customer', ['customerId' => $this->customer_id, 'tab' => 'brands'])
-            : route('demo.brands');
+            ? route('operator.customer', ['customerId' => $this->customer_id, 'tab' => 'brands'])
+            : route('operator.brands');
 
         return view('livewire.demo.portfolio.brand-form', array_merge($this->brandFormViewData(), [
             'mode' => 'create',
-            'pageTitle' => 'Add brand',
-            'pageSubtitle' => 'Create a brand under a customer. Digital assets can be connected afterwards.',
+            'pageTitle' => __('operator.forms.add_brand'),
+            'pageSubtitle' => __('operator.forms.add_brand_subtitle'),
             'backUrl' => $backUrl,
-            'primaryAction' => 'Save brand',
+            'primaryAction' => __('operator.forms.save_brand'),
         ]));
     }
 }

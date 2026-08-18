@@ -131,14 +131,14 @@
                         @else
                             <x-ta.button wire:click="reopen('{{ $finding['id'] }}')" size="sm" variant="outline">Reopen</x-ta.button>
                         @endif
-                        <x-ta.button href="{{ route('demo.recommendations') }}" size="sm" variant="outline">Recommendation</x-ta.button>
+                        <x-ta.button href="{{ route('operator.recommendations') }}" size="sm" variant="outline">Recommendation</x-ta.button>
                     </div>
                 </div>
             </article>
         @empty
             @include('livewire.demo.partials.empty-panel', [
-                'title' => 'No open Findings match the current filters',
-                'message' => 'This does not mean no problems exist — filters, missing analysis, or unavailable data may exclude results.',
+                'title' => 'No Findings yet',
+                'message' => 'No Finding rows match the current filters. Empty means empty — sample Findings are never invented for production.',
             ])
         @endforelse
     </div>

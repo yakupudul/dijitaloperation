@@ -4,10 +4,10 @@
     <div class="flex flex-col gap-2 border-b border-gray-200 pb-4 dark:border-gray-800 sm:flex-row sm:items-end sm:justify-between">
         <div>
             <p class="text-xs font-medium uppercase tracking-wide text-gray-500">Meta Ads</p>
-            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Campaigns</h1>
-            <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Campaign Context + typed results · Demo Mode</p>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ __('operator.meta_ads.tabs.campaigns') }}</h1>
+            <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Campaign Context + typed results</p>
         </div>
-        <a href="{{ route('demo.meta.overview', ['assetId' => $assetId, 'tab' => 'campaigns']) }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Open full workspace →</a>
+        <a href="{{ route('operator.meta.overview', ['assetId' => $assetId, 'tab' => 'campaigns']) }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Open full workspace →</a>
     </div>
 
     @include('livewire.demo.partials.meta-asset-nav', ['assetId' => $assetId, 'active' => 'campaigns'])
@@ -65,7 +65,7 @@
                 <td class="px-3 py-2 text-sm tabular-nums">{{ number_format($c['results']) }} <span class="text-[11px] text-gray-400">{{ $c['result_label'] }}</span></td>
                 <td class="px-3 py-2 text-sm tabular-nums">₺{{ number_format($c['cost_result'] ?? 0) }}</td>
                 <td class="px-3 py-2">
-                    <a href="{{ route('demo.meta.campaign', ['assetId' => $assetId, 'campaignId' => $c['id']]) }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Open</a>
+                    <a href="{{ route('operator.meta.campaign', ['assetId' => $assetId, 'campaignId' => $c['id']]) }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Open</a>
                 </td>
             </tr>
         @endforeach

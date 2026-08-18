@@ -4,7 +4,7 @@
 
 <div class="space-y-4">
     <div>
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Campaigns</h2>
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ __('operator.meta_ads.tabs.campaigns') }}</h2>
         <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ $campMeta['subtitle'] ?? 'Delivered in period · Campaign Context — not Ads Manager.' }}</p>
     </div>
 

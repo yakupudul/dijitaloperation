@@ -6,32 +6,31 @@
                 <h1 class="text-2xl font-bold text-gray-800 dark:text-white/90">{{ $pageTitle }}</h1>
                 <p class="mt-1 text-sm text-gray-500">{{ $pageSubtitle }}</p>
             </div>
-            @include('livewire.demo.partials.demo-badge')
         </div>
     </div>
 
     <form wire:submit.prevent="save" class="space-y-5 pb-24">
-        <x-ta.form.section title="Brand context">
+        <x-ta.form.section :title="__('operator.forms.brand_context')">
             @if ($customerLocked && $customerName)
                 <div class="rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700 dark:bg-white/[0.03] dark:text-gray-300">
                     Customer: <span class="font-medium text-gray-900 dark:text-white">{{ $customerName }}</span>
                 </div>
             @else
-                <x-ta.form.field label="Customer" :required="true" :error="$errors->first('customer_id')">
-                    <x-ta.form.select wire:model="customer_id" :options="$customerOptions" placeholder="Search customer…" :nullable="false" />
+                <x-ta.form.field :label="__('operator.forms.customer')" :required="true" :error="$errors->first('customer_id')">
+                    <x-ta.form.select wire:model="customer_id" :options="$customerOptions" :placeholder="__('operator.forms.search_customer')" :nullable="false" />
                 </x-ta.form.field>
             @endif
 
-            <x-ta.form.field label="Brand name" :required="true" :error="$errors->first('name')">
+            <x-ta.form.field :label="__('operator.forms.brand_name')" :required="true" :error="$errors->first('name')">
                 <input wire:model="name" type="text" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm shadow-theme-xs outline-none focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
             </x-ta.form.field>
 
             <div class="grid gap-4 md:grid-cols-2">
-                <x-ta.form.field label="Sector" :error="$errors->first('sector')">
-                    <x-ta.form.select wire:model="sector" :options="$industryOptions" placeholder="Search sector…" />
+                <x-ta.form.field :label="__('operator.forms.sector')" :error="$errors->first('sector')">
+                    <x-ta.form.select wire:model="sector" :options="$industryOptions" :placeholder="__('operator.forms.search_sector')" />
                 </x-ta.form.field>
-                <x-ta.form.field label="Primary country" :error="$errors->first('primary_country')">
-                    <x-ta.form.select wire:model="primary_country" :options="$countryOptions" placeholder="Search country…" />
+                <x-ta.form.field :label="__('operator.forms.primary_country')" :error="$errors->first('primary_country')">
+                    <x-ta.form.select wire:model="primary_country" :options="$countryOptions" :placeholder="__('operator.forms.search_country')" />
                 </x-ta.form.field>
             </div>
 

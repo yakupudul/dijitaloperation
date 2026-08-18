@@ -61,7 +61,7 @@ class AiControlPlanePage extends Component
         }
 
         app(AiRouteResolver::class)->saveSteps($this->selectedRoute, $this->steps);
-        DemoState::flash('AI route saved (provider order updated).');
+        DemoState::flash(__('operator.flash.ai_route_saved'));
         $this->loadSteps();
     }
 

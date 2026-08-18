@@ -8,6 +8,8 @@ use App\Livewire\Demo\Operations\RecommendationsIndex;
 use App\Livewire\Demo\Operations\TasksIndex;
 use App\Livewire\Demo\Portfolio\AssetsIndex;
 use App\Livewire\Demo\SettingsPage;
+use App\Models\Recommendation;
+use App\Models\Task;
 use App\Models\User;
 use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
@@ -17,11 +19,13 @@ use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
+use Tests\Support\SeedsCanonicalWorkTasks;
 use Tests\TestCase;
 
 class GlobalAgencyOperatingLayerTest extends TestCase
 {
     use RefreshDatabase;
+    use SeedsCanonicalWorkTasks;
 
     protected function setUp(): void
     {
@@ -34,6 +38,7 @@ class GlobalAgencyOperatingLayerTest extends TestCase
         $this->actingAs($user);
 
         DemoState::reset();
+        $this->seedCanonicalWorkTasks();
     }
 
     public function test_operator_navigation_exposes_system_group_without_modules(): void
@@ -64,15 +69,20 @@ class GlobalAgencyOperatingLayerTest extends TestCase
 
     public function test_dashboard_my_work_and_agency_modes(): void
     {
+        // Prompt 67/68: Dashboard lists production WorkReadService rows (seeded canonical tasks here),
+        // not Demo Atlas portfolio/attention fixtures.
         Livewire::test(Dashboard::class)
+            ->assertOk()
             ->assertSee(__('operator.dashboard_exec.needs_attention'))
             ->assertSee('Investigate lead measurement')
+            ->assertDontSee('Lead measurement finding open on Google Ads')
+            ->assertDontSee('1 overdue recurring review (Meta Creative)')
             ->assertSee(__('operator.dashboard_exec.recent_outcomes'))
             ->assertDontSee('Agency Health')
             ->assertDontSee('total Website visitors')
             ->call('setMode', 'agency')
             ->assertSet('mode', 'agency')
-            ->assertSee('Google Integration needs attention');
+            ->assertDontSee('Google Integration needs attention');
     }
 
     public function test_digital_assets_have_data_and_operational_states_and_responsibility(): void
@@ -85,41 +95,49 @@ class GlobalAgencyOperatingLayerTest extends TestCase
         $this->assertNotEmpty($ga4['responsible_users'] ?? []);
 
         Livewire::test(AssetsIndex::class)
-            ->assertSee('Data Stale / Unavailable')
-            ->call('setQuickView', 'data_issues')
-            ->assertSee('Atlas Dental — GA4');
+            ->assertSee('Atlas Dental Website')
+            ->assertDontSee('Atlas Dental — GA4');
     }
 
-    public function test_google_integration_bind_and_disconnect_impact_are_demo_safe(): void
+    public function test_google_integration_bind_and_disconnect_are_not_fake_real(): void
     {
         Livewire::test(GoogleIntegrationPage::class)
             ->assertSee('Dependent Digital Assets')
-            ->assertSee('14')
+            ->assertSee('Not configured')
+            ->assertDontSee('Panorama Ankara GA4')
             ->call('setTab', 'resources')
-            ->assertSee('Panorama Ankara GA4')
-            ->call('bindResource', 'ga4-panorama')
-            ->assertSee('Bound in this Demo session')
-            ->call('openDisconnect')
-            ->assertSee('Disconnect Google?')
-            ->assertSee('Total dependent Digital Assets')
-            ->call('confirmDisconnectAction')
-            ->assertSee('not executed');
+            ->assertSee('No resources discovered yet')
+            ->call('bindResource', '1')
+            ->assertSee('Select a discovered Google resource to bind.')
+            ->assertDontSee('Revoke Google access…');
     }
 
     public function test_recommendation_accept_and_create_task_remain_internal(): void
     {
-        Livewire::test(RecommendationsIndex::class)
-            ->assertSee('Review conversion mapping')
-            ->call('approve', 'r-review-conversion-mapping')
-            ->assertSee('accepted')
-            ->call('createTask', 'r-review-conversion-mapping');
+        $recommendation = Recommendation::factory()->create([
+            'title' => 'Review conversion mapping for primary lead signal',
+            'status' => Recommendation::STATUS_OPEN,
+            'digital_asset_id' => $this->workAsset->id,
+        ]);
+        $id = (string) $recommendation->id;
 
-        $tasks = collect(DemoState::all()['tasks']);
-        $this->assertTrue($tasks->contains(fn (array $task): bool => ($task['recommendation_id'] ?? null) === 'r-review-conversion-mapping'));
+        Livewire::test(RecommendationsIndex::class)
+            ->assertSee('Review conversion mapping for primary lead signal')
+            ->call('approve', $id)
+            ->assertSee('accepted')
+            ->call('createTask', $id)
+            ->assertSee('created from Recommendation');
+
+        $this->assertSame(Recommendation::STATUS_ACCEPTED, $recommendation->fresh()->status);
+        $this->assertSame(1, Task::query()->where('recommendation_id', $recommendation->id)->count());
     }
 
     public function test_tasks_default_to_my_tasks_view(): void
     {
+        Task::query()
+            ->where('title', 'Investigate lead measurement')
+            ->update(['assignee_id' => auth()->id()]);
+
         Livewire::test(TasksIndex::class)
             ->assertSet('view', 'my')
             ->assertSee('Investigate lead measurement')
@@ -132,11 +150,12 @@ class GlobalAgencyOperatingLayerTest extends TestCase
         Livewire::test(SettingsPage::class)
             ->assertSee('General')
             ->call('setSection', 'team')
-            ->assertSee('Ayşe Demir')
+            ->assertDontSee('Ayşe Demir')
+            ->assertDontSee('Selin Kaya')
             ->call('setSection', 'ai')
-            ->assertSee('Connected AI providers do not auto-accept')
+            ->assertSee('Provider API keys are configured under Integrations')
             ->call('setSection', 'advanced')
-            ->assertSee('Reset Demo Mode')
+            ->assertDontSee('Reset Demo Mode')
             ->assertDontSee('Modules menu');
     }
 
@@ -157,17 +176,16 @@ class GlobalAgencyOperatingLayerTest extends TestCase
 
     public function test_customer_contacts_and_account_owner_surface(): void
     {
-        $this->get(route('demo.customer', ['customerId' => DemoCatalog::CUSTOMER_ID]))
+        $this->get(route('operator.customer', ['customerId' => $this->workCustomer->id]))
             ->assertOk()
             ->assertSee('Account Owner')
-            ->assertSee('Ayşe Demir');
+            ->assertSee('Atlas Health Group');
 
-        $this->get(route('demo.customer', [
-            'customerId' => DemoCatalog::CUSTOMER_ID,
+        $this->get(route('operator.customer', [
+            'customerId' => $this->workCustomer->id,
             'tab' => 'contacts',
         ]))
             ->assertOk()
-            ->assertSee('Dr. Elif Arslan')
-            ->assertSee('Burak Şen');
+            ->assertDontSee('Dr. Elif Arslan');
     }
 }

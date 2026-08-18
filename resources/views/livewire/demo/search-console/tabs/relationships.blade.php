@@ -38,7 +38,7 @@
                             <p class="mt-2 text-[11px] text-gray-400">{{ $item['relationship'] ?? 'Observes' }} · Website Digital Asset</p>
                             @if (! empty($item['route']))
                                 <a href="{{ route($item['route'], ['assetId' => $item['asset_id'] ?? $identity['website_asset_id'] ?? null]) }}" wire:navigate class="mt-3 inline-flex text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">
-                                    Open Website
+                                    {{ __('operator.chrome.open_website') }}
                                 </a>
                             @endif
                         </div>

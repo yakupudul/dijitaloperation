@@ -31,6 +31,76 @@ final class MetaApiConfig
         return $version;
     }
 
+    /**
+     * Deployment-level Meta App ID (not a tenant authorization credential).
+     */
+    public static function appId(): ?string
+    {
+        $value = trim((string) config('moxdop.meta.app_id', ''));
+
+        return $value !== '' ? $value : null;
+    }
+
+    /**
+     * Deployment-level Meta App Secret (never UI-visible; not copied into tenant credentials).
+     */
+    public static function appSecret(): ?string
+    {
+        $value = trim((string) config('moxdop.meta.app_secret', ''));
+
+        return $value !== '' ? $value : null;
+    }
+
+    public static function isApplicationConfigured(): bool
+    {
+        return self::appId() !== null && self::appSecret() !== null;
+    }
+
+    /**
+     * Facebook Login for Business configuration ID from Meta App Dashboard.
+     * Required for production Login-for-Business dialog; optional for local scope fallback.
+     */
+    public static function loginConfigurationId(): ?string
+    {
+        $value = trim((string) config('moxdop.meta.login_configuration_id', ''));
+
+        return $value !== '' ? $value : null;
+    }
+
+    /**
+     * App access token form used only for server-side debug_token (never UI/queue).
+     */
+    public static function appAccessToken(): ?string
+    {
+        $appId = self::appId();
+        $secret = self::appSecret();
+        if ($appId === null || $secret === null) {
+            return null;
+        }
+
+        return $appId.'|'.$secret;
+    }
+
+    /**
+     * Official appsecret_proof for server-side Graph calls.
+     *
+     * @see https://developers.facebook.com/docs/graph-api/securing-requests
+     */
+    public static function appSecretProof(string $accessToken): ?string
+    {
+        $secret = self::appSecret();
+        if ($secret === null || $accessToken === '') {
+            return null;
+        }
+
+        return hash_hmac('sha256', $accessToken, $secret);
+    }
+
+    public static function dialogBaseUrl(): string
+    {
+        return 'https://www.facebook.com/'.self::apiVersion().'/dialog/oauth';
+    }
+
     public static function graphBaseUrl(): string
     {
         return self::GRAPH_SCHEME.'://'.self::GRAPH_HOST.'/'.self::apiVersion();
@@ -53,10 +123,7 @@ final class MetaApiConfig
      */
     public static function requiredReadPermissions(): array
     {
-        return [
-            'ads_read',
-            'business_management',
-        ];
+        return MetaPermissionRegistry::requiredForMetaAds();
     }
 
     /**

@@ -6,14 +6,17 @@ use App\Filament\App\Concerns\ManagesRecordsOnViewPages;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\DigitalAsset;
-use App\Support\Integrations\AssetBindingCompatibility;
+use App\Models\User;
+use App\Services\Integrations\ConfirmMetaResourceBindingService;
 use App\Support\Integrations\ProviderRegistry;
+use App\Support\Roles;
+use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Toggle;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\EmbeddedTable;
 use Filament\Schemas\Components\RenderHook;
@@ -30,8 +33,9 @@ use MoxDop\MetaAds\Support\MetaAdsWorkspaceData;
 /**
  * Meta Ads Digital Asset ↔ Meta Ad Account ExternalResource binding.
  *
- * One Ads Digital Asset binds exactly one Meta Ad Account.
+ * One Ads Digital Asset binds exactly one Meta Ad Account at a time.
  * A Brand may own many Meta Ads Digital Assets (multi-account).
+ * Rebind closes the previous Binding; never mutates historical external_resource_id.
  */
 class MetaAdsConnectionsRelationManager extends RelationManager
 {
@@ -72,7 +76,7 @@ class MetaAdsConnectionsRelationManager extends RelationManager
             ->components([
                 Select::make('external_resource_id')
                     ->label('Meta Ad Account')
-                    ->options(fn (): array => $this->resourceOptions($this->mountedBindingRecord()))
+                    ->options(fn (): array => $this->resourceOptions())
                     ->getOptionLabelUsing(function ($value): ?string {
                         if ($value === null || $value === '') {
                             return null;
@@ -87,15 +91,11 @@ class MetaAdsConnectionsRelationManager extends RelationManager
                     ->searchable()
                     ->required()
                     ->native(false)
-                    ->helperText('Choose one discovered Meta Ad Account. Meta Business is selection context only — not a Brand. Credentials stay on the Meta Integration.'),
-                Select::make('status')
-                    ->options([
-                        CoreAssetBinding::STATUS_ACTIVE => 'Active',
-                        CoreAssetBinding::STATUS_DISABLED => 'Disabled',
-                    ])
-                    ->required()
-                    ->native(false)
-                    ->default(CoreAssetBinding::STATUS_ACTIVE),
+                    ->helperText('This Meta Ad Account becomes the provider account for this MoxDOP Meta Ads Digital Asset. Meta Business is discovery context only — not the Binding root.'),
+                Toggle::make('allow_replace')
+                    ->label('Replace existing Ad Account connection')
+                    ->helperText('Required only when this Meta Ads asset already has a different connected Ad Account. Historical data from the previous account is preserved.')
+                    ->default(false),
             ]);
     }
 
@@ -134,6 +134,7 @@ class MetaAdsConnectionsRelationManager extends RelationManager
                         $bits = array_filter([
                             $resource->external_id ? 'ID '.$resource->external_id : null,
                             ! empty($meta['business_name']) ? 'Business: '.$meta['business_name'] : null,
+                            ! empty($meta['currency']) ? 'Currency: '.$meta['currency'] : null,
                         ]);
 
                         return implode(' · ', $bits);
@@ -153,16 +154,28 @@ class MetaAdsConnectionsRelationManager extends RelationManager
             ])
             ->recordActions([
                 ViewAction::make(),
-                EditAction::make()
-                    ->fillForm(fn (CoreAssetBinding $record): array => [
-                        'external_resource_id' => $record->external_resource_id,
-                        'status' => $record->status,
-                    ])
-                    ->using(fn (CoreAssetBinding $record, array $data): CoreAssetBinding => $this->persistBinding($data, $record)),
-                DeleteAction::make(),
+                Action::make('unbind')
+                    ->label('Disconnect Ad Account')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->modalHeading('Disconnect this Ad Account from this Meta Ads asset?')
+                    ->modalDescription('Meta authorization, Business selection, Ad Account inventory, and historical data remain. This does not disconnect Meta.')
+                    ->visible(fn (CoreAssetBinding $record): bool => $record->status === CoreAssetBinding::STATUS_ACTIVE)
+                    ->action(function (CoreAssetBinding $record): void {
+                        $user = auth()->user();
+                        if (! $user instanceof User || ! $user->hasRole(Roles::ADMIN)) {
+                            abort(403);
+                        }
+
+                        $result = app(ConfirmMetaResourceBindingService::class)->unbind($record, $user);
+                        Notification::make()
+                            ->title($result['message'])
+                            ->success()
+                            ->send();
+                    }),
             ])
             ->emptyStateHeading('No Meta Ad Account connected')
-            ->emptyStateDescription('Discover Ad Accounts on Settings → Integrations → Meta, then bind exactly one account to this Meta Ads asset. A Brand may own multiple Meta Ads assets for multiple accounts.')
+            ->emptyStateDescription('Discover Ad Accounts on Integrations → Meta, then confirm exactly one account for this Meta Ads asset. A Brand may own multiple Meta Ads assets for multiple accounts.')
             ->emptyStateActions([
                 CreateAction::make()
                     ->label('Bind Ad Account')
@@ -171,63 +184,41 @@ class MetaAdsConnectionsRelationManager extends RelationManager
             ]);
     }
 
-    protected function mountedBindingRecord(): ?CoreAssetBinding
-    {
-        if (! method_exists($this, 'getMountedTableActionRecord')) {
-            return null;
-        }
-
-        $record = $this->getMountedTableActionRecord();
-
-        return $record instanceof CoreAssetBinding ? $record : null;
-    }
-
     /**
      * @return array<int|string, string>
      */
-    protected function resourceOptions(?CoreAssetBinding $exceptBinding = null): array
+    protected function resourceOptions(): array
     {
         /** @var DigitalAsset $asset */
         $asset = $this->getOwnerRecord();
 
-        $boundResourceIds = CoreAssetBinding::query()
-            ->where('digital_asset_id', $asset->id)
-            ->when($exceptBinding, fn (Builder $query) => $query->whereKeyNot($exceptBinding->getKey()))
-            ->pluck('external_resource_id');
-
-        $capabilityAlreadyBound = CoreAssetBinding::query()
+        $activeBoundResourceId = CoreAssetBinding::query()
             ->where('digital_asset_id', $asset->id)
             ->where('capability', 'meta_ads')
-            ->when($exceptBinding, fn (Builder $query) => $query->whereKeyNot($exceptBinding->getKey()))
-            ->exists();
+            ->where('status', CoreAssetBinding::STATUS_ACTIVE)
+            ->value('external_resource_id');
 
-        if ($capabilityAlreadyBound && $exceptBinding === null) {
-            return [];
-        }
-
-        $options = CoreExternalResource::query()
+        return CoreExternalResource::query()
             ->with('integration')
             ->where('provider', ProviderRegistry::META)
             ->where('status', CoreExternalResource::STATUS_AVAILABLE)
             ->where('resource_type', 'meta_ads')
             ->whereHas('integration', fn (Builder $query) => $query->where('status', 'active'))
-            ->whereNotIn('id', $boundResourceIds)
+            ->where(function (Builder $query) use ($activeBoundResourceId): void {
+                $query->whereDoesntHave(
+                    'bindings',
+                    fn (Builder $b) => $b->where('status', CoreAssetBinding::STATUS_ACTIVE),
+                );
+                if ($activeBoundResourceId) {
+                    $query->orWhere('core_external_resources.id', $activeBoundResourceId);
+                }
+            })
             ->orderBy('display_name')
             ->get()
             ->mapWithKeys(fn (CoreExternalResource $resource): array => [
                 $resource->id => $resource->metaAdAccountOptionLabel(),
-            ]);
-
-        // Edit: always keep the currently bound account selectable with a real label.
-        if ($exceptBinding !== null && $exceptBinding->external_resource_id) {
-            $current = CoreExternalResource::query()->find($exceptBinding->external_resource_id);
-            if ($current instanceof CoreExternalResource && ! $options->has($current->id)) {
-                $options = collect([$current->id => $current->metaAdAccountOptionLabel()])
-                    ->union($options);
-            }
-        }
-
-        return $options->all();
+            ])
+            ->all();
     }
 
     protected function availableExternalResourcesExist(): bool
@@ -238,10 +229,15 @@ class MetaAdsConnectionsRelationManager extends RelationManager
     /**
      * @param  array<string, mixed>  $data
      */
-    protected function persistBinding(array $data, ?CoreAssetBinding $record = null): CoreAssetBinding
+    protected function persistBinding(array $data): CoreAssetBinding
     {
+        $user = auth()->user();
+        if (! $user instanceof User || ! $user->hasRole(Roles::ADMIN)) {
+            abort(403);
+        }
+
         $resourceId = (int) ($data['external_resource_id'] ?? 0);
-        $resource = CoreExternalResource::query()->find($resourceId);
+        $resource = CoreExternalResource::query()->with('integration')->find($resourceId);
 
         if (! $resource instanceof CoreExternalResource) {
             throw ValidationException::withMessages([
@@ -249,67 +245,26 @@ class MetaAdsConnectionsRelationManager extends RelationManager
             ]);
         }
 
-        if ($resource->provider !== ProviderRegistry::META || $resource->resource_type !== 'meta_ads') {
-            throw ValidationException::withMessages([
-                'mountedTableActionsData.0.external_resource_id' => 'Only Meta Ad Account resources can be bound to Meta Ads assets.',
-            ]);
-        }
-
-        if (CoreExternalResource::query()
-            ->whereKey($resource->id)
-            ->whereHas('integration', fn (Builder $query) => $query->where('status', 'active'))
-            ->doesntExist()) {
-            throw ValidationException::withMessages([
-                'mountedTableActionsData.0.external_resource_id' => 'The selected resource belongs to a disabled integration.',
-            ]);
-        }
-
         /** @var DigitalAsset $owner */
         $owner = $this->getOwnerRecord();
-        if (! AssetBindingCompatibility::isCompatible($owner, $resource)) {
-            throw ValidationException::withMessages([
-                'mountedTableActionsData.0.external_resource_id' => 'That resource is not compatible with this Meta Ads Digital Asset.',
+
+        try {
+            return app(ConfirmMetaResourceBindingService::class)->bindExisting(
+                asset: $owner,
+                resource: $resource,
+                confirmedBy: $user,
+                allowReplace: (bool) ($data['allow_replace'] ?? false),
+                expectedIntegrationId: (int) $resource->integration_id,
+            );
+        } catch (ValidationException $e) {
+            $messages = [];
+            foreach ($e->errors() as $key => $errs) {
+                $messages['mountedTableActionsData.0.external_resource_id'] = $errs;
+            }
+
+            throw ValidationException::withMessages($messages !== [] ? $messages : [
+                'mountedTableActionsData.0.external_resource_id' => 'Binding could not be confirmed.',
             ]);
         }
-
-        $attributes = [
-            'external_resource_id' => $resource->id,
-            'capability' => $resource->resource_type,
-            'status' => $data['status'] ?? CoreAssetBinding::STATUS_ACTIVE,
-            'configuration' => [],
-        ];
-
-        $duplicateResource = CoreAssetBinding::query()
-            ->where('digital_asset_id', $owner->getKey())
-            ->where('external_resource_id', $resource->id)
-            ->when($record, fn ($query) => $query->whereKeyNot($record->getKey()))
-            ->exists();
-
-        if ($duplicateResource) {
-            throw ValidationException::withMessages([
-                'mountedTableActionsData.0.external_resource_id' => 'This digital asset is already bound to that Ad Account.',
-            ]);
-        }
-
-        $duplicateCapability = CoreAssetBinding::query()
-            ->where('digital_asset_id', $owner->getKey())
-            ->where('capability', $resource->resource_type)
-            ->when($record, fn ($query) => $query->whereKeyNot($record->getKey()))
-            ->exists();
-
-        if ($duplicateCapability) {
-            throw ValidationException::withMessages([
-                'mountedTableActionsData.0.external_resource_id' => 'This Meta Ads Digital Asset already has an Ad Account binding.',
-            ]);
-        }
-
-        if ($record === null) {
-            /** @var CoreAssetBinding $record */
-            $record = $this->getRelationship()->create($attributes);
-        } else {
-            $record->update($attributes);
-        }
-
-        return $record->fresh(['externalResource']) ?? $record;
     }
 }

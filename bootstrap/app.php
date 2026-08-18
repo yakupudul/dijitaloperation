@@ -10,11 +10,22 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
         commands: __DIR__.'/../routes/console.php',
+        channels: __DIR__.'/../routes/channels.php',
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // Filament serves login at /system/login; web auth middleware must not call missing route('login').
-        $middleware->redirectGuestsTo('/system/login');
+        // Canonical operator login is /login. Filament technical admin is /admin.
+        $middleware->redirectGuestsTo(fn (): string => route('app.login'));
+
+        $trustedProxies = env('TRUSTED_PROXIES');
+        if (is_string($trustedProxies) && $trustedProxies !== '') {
+            $middleware->trustProxies(
+                at: $trustedProxies === '*'
+                    ? '*'
+                    : array_values(array_filter(array_map('trim', explode(',', $trustedProxies)))),
+            );
+        }
+
         $middleware->web(append: [
             SetOperatorLocale::class,
         ]);

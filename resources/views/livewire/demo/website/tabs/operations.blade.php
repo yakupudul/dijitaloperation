@@ -32,7 +32,7 @@
                             <td class="px-4 py-2 font-medium text-gray-900 dark:text-white">{{ $finding['title'] ?? 'Finding' }}</td>
                             <td class="px-4 py-2 text-xs text-gray-500">{{ $finding['group'] ?? ($finding['category'] ?? '—') }}</td>
                             <td class="px-4 py-2 text-right">
-                                <a href="{{ route('demo.findings') }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline">{{ __('operator.actions.open') }}</a>
+                                <a href="{{ route('operator.findings') }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline">{{ __('operator.actions.open') }}</a>
                             </td>
                         </tr>
                     @empty
@@ -42,7 +42,7 @@
             </table>
         </div>
         <p class="text-xs text-gray-400">
-            <a href="{{ route('demo.findings') }}" wire:navigate class="font-medium text-brand-600 hover:underline">{{ __('operator.nav.findings') }}</a>
+            <a href="{{ route('operator.findings') }}" wire:navigate class="font-medium text-brand-600 hover:underline">{{ __('operator.nav.findings') }}</a>
             · canonical global queue
         </p>
     @elseif ($ops === 'recommendations')
@@ -56,7 +56,7 @@
                 <li class="text-sm text-gray-500">No recommendations scoped to this Website.</li>
             @endforelse
         </ul>
-        <a href="{{ route('demo.recommendations') }}" wire:navigate class="inline-flex text-xs font-medium text-brand-600 hover:underline">{{ __('operator.nav.recommendations') }}</a>
+        <a href="{{ route('operator.recommendations') }}" wire:navigate class="inline-flex text-xs font-medium text-brand-600 hover:underline">{{ __('operator.nav.recommendations') }}</a>
     @elseif ($ops === 'tasks')
         <ul class="space-y-2">
             @forelse ($opsTasks as $task)
@@ -68,7 +68,7 @@
                 <li class="text-sm text-gray-500">No open work scoped to this Website.</li>
             @endforelse
         </ul>
-        <a href="{{ route('demo.tasks') }}" wire:navigate class="inline-flex text-xs font-medium text-brand-600 hover:underline">{{ __('operator.nav.work') }}</a>
+        <a href="{{ route('operator.tasks') }}" wire:navigate class="inline-flex text-xs font-medium text-brand-600 hover:underline">{{ __('operator.nav.work') }}</a>
     @else
         <ul class="space-y-2">
             @forelse ($opsOutcomes as $outcome)
@@ -83,7 +83,7 @@
     @endif
 
     <p class="text-xs text-gray-500">
-        <a href="{{ route('demo.activity', ['asset' => \App\Support\Demo\DemoCatalog::WEBSITE_ASSET_ID]) }}" wire:navigate class="font-medium text-brand-600 hover:underline">{{ __('operator.website.actions.view_activity') }}</a>
+        <a href="{{ route('operator.activity', ['asset' => $this->assetId]) }}" wire:navigate class="font-medium text-brand-600 hover:underline">{{ __('operator.website.actions.view_activity') }}</a>
         · opens global Activity filtered to this Website
     </p>
 </div>

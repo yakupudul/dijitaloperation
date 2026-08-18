@@ -2,8 +2,7 @@
 
 namespace App\Livewire\Demo\Operations;
 
-use App\Support\Demo\DemoCatalog;
-use App\Support\Demo\DemoState;
+use App\Support\Work\WorkUrl;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -18,25 +17,18 @@ class TaskShow extends Component
     public function mount(string $taskId): void
     {
         $this->taskId = $taskId;
-    }
 
-    public function setStatus(string $status): void
-    {
-        DemoState::setTaskStatus($this->taskId, $status);
+        if (ctype_digit($taskId)) {
+            $this->redirect(WorkUrl::show(WorkUrl::TYPE_TASK, $taskId));
+
+            return;
+        }
+
+        abort(404);
     }
 
     public function render(): View
     {
-        $task = collect(DemoState::all()['tasks'])->firstWhere('id', $this->taskId);
-        if ($task === null) {
-            $task = DemoCatalog::tasksSeed()[0];
-            $task['id'] = $this->taskId;
-        }
-
-        return view('livewire.demo.operations.task-show', [
-            'task' => $task,
-            'timeline' => DemoCatalog::decisionTimeline(),
-            'flash' => DemoState::pullFlash(),
-        ]);
+        abort(404);
     }
 }

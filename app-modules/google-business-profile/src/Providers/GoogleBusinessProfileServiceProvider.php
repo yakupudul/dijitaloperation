@@ -2,6 +2,7 @@
 
 namespace MoxDop\GoogleBusinessProfile\Providers;
 
+use App\Contracts\GbpOperatorWorkspace as GbpOperatorWorkspaceContract;
 use App\Services\Integrations\BoundCollectorRegistry;
 use App\Support\Agents\AgentProfileRegistry;
 use App\Support\Ai\AiProviderCatalog;
@@ -12,12 +13,14 @@ use Illuminate\Support\ServiceProvider;
 use MoxDop\GoogleBusinessProfile\Agents\GbpLocalPresenceAnalyst;
 use MoxDop\GoogleBusinessProfile\Ai\GbpAiRoutes;
 use MoxDop\GoogleBusinessProfile\Collection\GbpLocationBoundCollector;
+use MoxDop\GoogleBusinessProfile\Workspace\OperatorGbpWorkspace;
 
 class GoogleBusinessProfileServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
         $this->app->instance('moxdop.google-business-profile.loaded', true);
+        $this->app->singleton(GbpOperatorWorkspaceContract::class, OperatorGbpWorkspace::class);
     }
 
     public function boot(): void

@@ -64,6 +64,22 @@ class Brand extends Model
     }
 
     /**
+     * @return HasMany<BrandGoal, $this>
+     */
+    public function goals(): HasMany
+    {
+        return $this->hasMany(BrandGoal::class);
+    }
+
+    /**
+     * @return HasMany<BrandOffering, $this>
+     */
+    public function offerings(): HasMany
+    {
+        return $this->hasMany(BrandOffering::class);
+    }
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array

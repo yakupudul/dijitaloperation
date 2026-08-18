@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\CoreConnection;
 use App\Models\Evidence;
 use App\Models\Run;
+use App\Services\Security\ConnectionCredentialAccessService;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
@@ -157,25 +158,16 @@ class WordPressConnectionProbeService
      */
     private function authorizationHeader(CoreConnection $connection): array
     {
-        $payload = $connection->credential?->encrypted_payload;
+        $access = app(ConnectionCredentialAccessService::class);
+        $username = $access->wordpressUsername($connection);
+        $password = $access->wordpressApplicationPassword($connection)?->reveal();
 
-        if (! is_array($payload)) {
-            return [];
-        }
-
-        $username = isset($payload['username']) && is_string($payload['username'])
-            ? trim($payload['username'])
-            : '';
-        $applicationPassword = isset($payload['application_password']) && is_string($payload['application_password'])
-            ? trim($payload['application_password'])
-            : '';
-
-        if ($username === '' || $applicationPassword === '') {
+        if ($username === null || $username === '' || $password === null || $password === '') {
             return [];
         }
 
         return [
-            'Authorization' => 'Basic '.base64_encode($username.':'.$applicationPassword),
+            'Authorization' => 'Basic '.base64_encode($username.':'.$password),
         ];
     }
 

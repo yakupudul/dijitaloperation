@@ -70,9 +70,9 @@
             <p class="mt-1 text-[11px] text-violet-700 dark:text-violet-300">Derived · explainable state — no numeric match score</p>
         </div>
         @if (! empty($selectedLanding['website_finding']))
-            <a href="{{ route('demo.website', ['tab' => 'health', 'finding' => $selectedLanding['website_finding']]) }}" wire:navigate class="inline-flex rounded-lg bg-brand-500 px-3 py-2 text-xs font-medium text-white">Open Website finding</a>
+            <a href="{{ route('operator.website', ['tab' => 'health', 'finding' => $selectedLanding['website_finding']]) }}" wire:navigate class="inline-flex rounded-lg bg-brand-500 px-3 py-2 text-xs font-medium text-white">{{ __('operator.chrome.open_website_finding') }}</a>
         @else
-            <a href="{{ route('demo.website', ['assetId' => $identity['website_asset_id']]) }}" wire:navigate class="inline-flex rounded-lg px-3 py-2 text-xs font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">Open Website</a>
+            <a href="{{ route('operator.website', ['assetId' => $identity['website_asset_id']]) }}" wire:navigate class="inline-flex rounded-lg px-3 py-2 text-xs font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">{{ __('operator.chrome.open_website') }}</a>
         @endif
     </x-demo.gads-drawer>
 @endif

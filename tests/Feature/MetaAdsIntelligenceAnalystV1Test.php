@@ -444,12 +444,18 @@ class MetaAdsIntelligenceAnalystV1Test extends TestCase
 
     public function test_no_mutation_methods_on_meta_client(): void
     {
-        $methods = collect((new \ReflectionClass(MetaApiClient::class))->getMethods())
+        $reflection = new \ReflectionClass(MetaApiClient::class);
+        $methods = collect($reflection->getMethods())
             ->filter(fn ($m) => $m->class === MetaApiClient::class)
             ->map(fn ($m) => strtolower($m->getName()))
             ->all();
-        foreach (['post', 'put', 'patch', 'delete', 'mutate', 'write'] as $forbidden) {
+        // Prompt 24 permits post() solely for read-only async Insights report jobs.
+        foreach (['put', 'patch', 'delete', 'mutate', 'write'] as $forbidden) {
             $this->assertFalse(collect($methods)->contains(fn ($n) => str_contains($n, $forbidden)));
         }
+        $this->assertContains('post', $methods);
+        $postDoc = strtolower((string) $reflection->getMethod('post')->getDocComment());
+        $this->assertStringContainsString('read-only', $postDoc);
+        $this->assertStringContainsString('async', $postDoc);
     }
 }

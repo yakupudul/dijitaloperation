@@ -3,7 +3,8 @@
 namespace App\Livewire\Demo\Portfolio;
 
 use App\Livewire\Demo\Portfolio\Concerns\InteractsWithBrandForm;
-use App\Support\Demo\DemoCatalog;
+use App\Models\Brand;
+use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
@@ -20,14 +21,12 @@ class BrandEdit extends Component
 
     public function mount(string $brandId): void
     {
-        $this->brandId = $brandId;
-        $brand = DemoState::findBrand($brandId) ?? (
-            $brandId === DemoCatalog::BRAND_ID ? DemoCatalog::brand() : null
-        );
-
+        abort_unless(ctype_digit($brandId), 404);
+        $brand = Brand::query()->with('responsibleUsers')->find($brandId);
         abort_if($brand === null, 404);
 
-        $this->fillBrandForm($brand);
+        $this->brandId = (string) $brand->id;
+        $this->fillBrandForm(OperatorPortfolioPresenter::brand($brand));
         $this->customerLocked = true;
     }
 
@@ -42,29 +41,16 @@ class BrandEdit extends Component
         try {
             $this->validate($this->brandRules());
 
-            $existing = DemoState::findBrand($this->brandId) ?? DemoCatalog::brand();
-            $payload = array_merge($existing, $this->brandPayload($this->brandId));
-            $payload['assets_count'] = $existing['assets_count'] ?? 0;
-            $payload['open_findings'] = $existing['open_findings'] ?? 0;
-            $payload['open_tasks'] = $existing['open_tasks'] ?? 0;
-            $payload['health'] = $existing['health'] ?? 'healthy';
-            $payload['health_label'] = $existing['health_label'] ?? 'Healthy';
-            $payload['summary'] = $existing['summary'] ?? $payload['summary'];
+            $brand = Brand::query()->find($this->brandId);
+            abort_if($brand === null, 404);
 
-            if (DemoState::findBrand($this->brandId) === null) {
-                $state = DemoState::all();
-                $state['brands'] = array_values(array_filter(
-                    $state['brands'] ?? [],
-                    static fn (array $b): bool => ($b['id'] ?? '') !== $this->brandId
-                ));
-                $state['brands'][] = DemoState::normalizeBrand($payload);
-                session()->put(DemoState::SESSION_KEY, $state);
-                DemoState::flash('Brand changes saved (Demo Mode).');
-            } else {
-                DemoState::updateBrand($this->brandId, $payload);
-            }
+            $brand->fill($this->brandEloquentPayload());
+            $brand->save();
+            $brand->responsibleUsers()->sync($this->sanitizedResponsibleUserIds());
 
-            return $this->redirect(route('demo.brand', ['brand' => $this->brandId]), navigate: true);
+            DemoState::flash(__('operator.forms.brand_updated'));
+
+            return $this->redirect(route('operator.brand', ['brand' => $brand->id]), navigate: true);
         } finally {
             $this->saving = false;
         }
@@ -74,10 +60,10 @@ class BrandEdit extends Component
     {
         return view('livewire.demo.portfolio.brand-form', array_merge($this->brandFormViewData(), [
             'mode' => 'edit',
-            'pageTitle' => 'Edit brand',
-            'pageSubtitle' => 'Update brand context used across digital assets.',
-            'backUrl' => route('demo.brand', ['brand' => $this->brandId]),
-            'primaryAction' => 'Save changes',
+            'pageTitle' => __('operator.forms.edit_brand'),
+            'pageSubtitle' => __('operator.forms.edit_brand_subtitle'),
+            'backUrl' => route('operator.brand', ['brand' => $this->brandId]),
+            'primaryAction' => __('operator.forms.save_changes'),
         ]));
     }
 }

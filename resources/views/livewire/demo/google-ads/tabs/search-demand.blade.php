@@ -174,7 +174,7 @@
             <button type="button" wire:click="markClusterReviewed('{{ $selectedCluster['id'] }}')" class="rounded-lg bg-brand-500 px-3 py-2 text-xs font-medium text-white">Mark reviewed</button>
             <button type="button" wire:click="createRecommendation('{{ $selectedCluster['title'] }}')" class="rounded-lg px-3 py-2 text-xs font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">Create Recommendation</button>
             @if ($selectedCluster['type'] === 'Content opportunity')
-                <a href="{{ route('demo.website', ['tab' => 'content']) }}" wire:navigate class="rounded-lg px-3 py-2 text-xs font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">Open in Website</a>
+                <a href="{{ route('operator.website', ['tab' => 'content']) }}" wire:navigate class="rounded-lg px-3 py-2 text-xs font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">Open in Website</a>
             @endif
         </div>
         <p class="text-[11px] text-gray-400">External Google Ads keyword writes remain disabled.</p>

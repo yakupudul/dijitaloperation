@@ -7,6 +7,7 @@ use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\DigitalAsset;
 use App\Support\Integrations\AssetBindingCompatibility;
+use App\Support\Integrations\BindingScopeGuard;
 use App\Support\Integrations\ProviderRegistry;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
@@ -201,18 +202,14 @@ class AssetBindingsRelationManager extends RelationManager
 
         /** @var DigitalAsset $owner */
         $owner = $this->getOwnerRecord();
-        if (! AssetBindingCompatibility::isCompatible($owner, $resource)) {
+
+        try {
+            BindingScopeGuard::assertCanBind($owner, $resource);
+        } catch (\InvalidArgumentException $e) {
             throw ValidationException::withMessages([
-                'mountedTableActionsData.0.external_resource_id' => 'That resource capability is not compatible with this digital asset type.',
+                'mountedTableActionsData.0.external_resource_id' => $e->getMessage(),
             ]);
         }
-
-        $attributes = [
-            'external_resource_id' => $resource->id,
-            'capability' => $resource->resource_type,
-            'status' => $data['status'] ?? CoreAssetBinding::STATUS_ACTIVE,
-            'configuration' => [],
-        ];
 
         $duplicateResource = CoreAssetBinding::query()
             ->where('digital_asset_id', $owner->getKey())
@@ -237,6 +234,29 @@ class AssetBindingsRelationManager extends RelationManager
                 'mountedTableActionsData.0.external_resource_id' => 'This digital asset already has a binding for this capability.',
             ]);
         }
+
+        $resourceAlreadyBound = CoreAssetBinding::query()
+            ->where('external_resource_id', $resource->id)
+            ->where('status', CoreAssetBinding::STATUS_ACTIVE)
+            ->when($record, fn ($query) => $query->whereKeyNot($record->getKey()))
+            ->exists();
+
+        if ($resourceAlreadyBound) {
+            throw ValidationException::withMessages([
+                'mountedTableActionsData.0.external_resource_id' => 'This ExternalResource is already bound to another Digital Asset.',
+            ]);
+        }
+
+        $attributes = [
+            'external_resource_id' => $resource->id,
+            'capability' => $resource->resource_type,
+            'status' => $data['status'] ?? CoreAssetBinding::STATUS_ACTIVE,
+            'configuration' => array_filter([
+                'origin' => 'filament_asset_bindings',
+                'confirmed_at' => now()->toIso8601String(),
+                'confirmed_by_user_id' => auth()->id(),
+            ]),
+        ];
 
         if ($record === null) {
             /** @var CoreAssetBinding $record */

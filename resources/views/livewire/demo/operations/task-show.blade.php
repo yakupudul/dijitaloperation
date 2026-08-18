@@ -7,7 +7,7 @@
 
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
-            <x-ta.button href="{{ route('demo.tasks') }}" size="sm" variant="outline">← Tasks</x-ta.button>
+            <x-ta.button href="{{ route('operator.tasks') }}" size="sm" variant="outline">← Tasks</x-ta.button>
             <h1 class="mt-3 text-2xl font-bold text-gray-800 dark:text-white/90">{{ $task['title'] }}</h1>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ $task['brand'] }} · {{ $task['asset'] }} · {{ $task['owner'] }}</p>
             <div class="mt-3 flex flex-wrap gap-2">

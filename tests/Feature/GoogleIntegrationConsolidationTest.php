@@ -210,7 +210,7 @@ class GoogleIntegrationConsolidationTest extends TestCase
         $this->assertSame('shared-client-id', $resolver->clientId($fresh));
         $this->assertSame('shared-client-secret', $resolver->clientSecret($fresh));
         $this->assertSame('shared-dev-token', $resolver->developerToken($fresh));
-        $this->assertSame('Complete', GoogleAuthStatus::applicationConfigurationLabel($fresh));
+        $this->assertSame('Configured', GoogleAuthStatus::applicationConfigurationLabel($fresh));
 
         $begin = app(GoogleOAuthService::class)->beginAuthorization($fresh, $this->admin);
         $this->assertArrayHasKey('url', $begin);

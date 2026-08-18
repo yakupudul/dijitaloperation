@@ -2,17 +2,26 @@
 
 namespace App\Models;
 
+use App\Enums\TaskScopeKind;
+use App\Enums\TaskSourceKind;
 use Database\Factories\TaskFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
     'recommendation_id',
+    'client_request_id',
+    'recurring_review_run_item_id',
+    'client_request_task_idempotency_key',
+    'source_kind',
+    'idempotency_key',
     'customer_id',
     'brand_id',
     'digital_asset_id',
+    'scope_kind',
     'title',
     'action',
     'rationale',
@@ -41,6 +50,22 @@ class Task extends Model
     public function recommendation(): BelongsTo
     {
         return $this->belongsTo(Recommendation::class);
+    }
+
+    /**
+     * @return BelongsTo<ClientRequest, $this>
+     */
+    public function clientRequest(): BelongsTo
+    {
+        return $this->belongsTo(ClientRequest::class);
+    }
+
+    /**
+     * @return BelongsTo<RecurringReviewRunItem, $this>
+     */
+    public function recurringReviewRunItem(): BelongsTo
+    {
+        return $this->belongsTo(RecurringReviewRunItem::class, 'recurring_review_run_item_id');
     }
 
     /**
@@ -92,11 +117,29 @@ class Task extends Model
     }
 
     /**
+     * @return HasMany<QaReview, $this>
+     */
+    public function qaReviews(): HasMany
+    {
+        return $this->hasMany(QaReview::class);
+    }
+
+    /**
+     * @return HasMany<Approval, $this>
+     */
+    public function approvals(): HasMany
+    {
+        return $this->hasMany(Approval::class);
+    }
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array
     {
         return [
+            'scope_kind' => TaskScopeKind::class,
+            'source_kind' => TaskSourceKind::class,
             'snapshot_json' => 'array',
             'outcome_json' => 'array',
             'due_date' => 'date',

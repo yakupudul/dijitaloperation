@@ -18,7 +18,7 @@ final class DemoNotificationFixtures
                 'title' => __('operator.notifications.demo.overdue_review_title'),
                 'body' => __('operator.notifications.demo.overdue_review_body'),
                 'category' => 'recurring_review',
-                'url' => route('demo.work.show', ['workId' => 'rr-gads-overdue', 'type' => 'recurring_review']),
+                'url' => route('operator.work.show', ['workId' => 'rr-gads-overdue', 'type' => 'recurring_review']),
                 'read' => false,
             ],
             [
@@ -26,7 +26,7 @@ final class DemoNotificationFixtures
                 'title' => __('operator.notifications.demo.approval_title'),
                 'body' => __('operator.notifications.demo.approval_body'),
                 'category' => 'approval',
-                'url' => route('demo.tasks', ['view' => 'waiting_on_client']),
+                'url' => route('operator.tasks', ['view' => 'waiting_on_client']),
                 'read' => false,
             ],
             [
@@ -34,7 +34,7 @@ final class DemoNotificationFixtures
                 'title' => __('operator.notifications.demo.request_title'),
                 'body' => __('operator.notifications.demo.request_body'),
                 'category' => 'client_request',
-                'url' => route('demo.work.show', ['workId' => 'req-doctor-title', 'type' => 'client_request']),
+                'url' => route('operator.work.show', ['workId' => 'req-doctor-title', 'type' => 'client_request']),
                 'read' => false,
             ],
             [
@@ -42,7 +42,7 @@ final class DemoNotificationFixtures
                 'title' => __('operator.notifications.demo.qa_title'),
                 'body' => __('operator.notifications.demo.qa_body'),
                 'category' => 'qa',
-                'url' => route('demo.work.show', ['workId' => 'appr-qa-creative', 'type' => 'approval']),
+                'url' => route('operator.work.show', ['workId' => 'appr-qa-creative', 'type' => 'approval']),
                 'read' => true,
             ],
             [
@@ -50,7 +50,7 @@ final class DemoNotificationFixtures
                 'title' => __('operator.notifications.demo.integration_title'),
                 'body' => __('operator.notifications.demo.integration_body'),
                 'category' => 'system',
-                'url' => route('demo.integrations'),
+                'url' => route('operator.integrations'),
                 'read' => true,
             ],
         ];

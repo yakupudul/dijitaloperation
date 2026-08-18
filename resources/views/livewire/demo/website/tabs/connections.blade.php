@@ -40,8 +40,8 @@
                     <p class="mt-2 text-xs text-amber-700 dark:text-amber-300">{{ __('operator.site_connectors.demo_badge') }}</p>
                 </div>
                 <div class="flex flex-wrap gap-2">
-                    <x-ta.button :href="route('demo.integrations.site-connector', ['connector' => 'wordpress'])" size="sm">{{ __('operator.actions.open') }}</x-ta.button>
-                    <x-ta.button :href="route('demo.integrations.site-connector.download', ['connector' => 'wordpress'])" size="sm" variant="outline">{{ __('operator.site_connectors.download_demo') }}</x-ta.button>
+                    <x-ta.button :href="route('operator.integrations.site-connector', ['connector' => 'wordpress'])" size="sm">{{ __('operator.actions.open') }}</x-ta.button>
+                    <x-ta.button :href="route('operator.integrations.site-connector.download', ['connector' => 'wordpress'])" size="sm" variant="outline">{{ __('operator.site_connectors.download_demo') }}</x-ta.button>
                 </div>
             </div>
         </div>
@@ -56,7 +56,7 @@
                     <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $asset['name'] }}</p>
                     <p class="mt-1 text-xs text-gray-500">{{ $asset['detail'] }}</p>
                     <p class="mt-2 text-xs text-gray-400">{{ $asset['note'] }}</p>
-                    <a href="{{ route($asset['route']) }}" wire:navigate class="mt-3 inline-flex text-xs font-medium text-brand-600 hover:underline">Open {{ $asset['name'] }}</a>
+                    <a href="{{ $asset['url'] ?? \App\Services\Operator\OperatorPortfolioPresenter::specialistHref($asset) }}" wire:navigate class="mt-3 inline-flex text-xs font-medium text-brand-600 hover:underline">{{ __('operator.actions.open') }} {{ $asset['name'] }}</a>
                 </div>
             @endforeach
         </div>

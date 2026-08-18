@@ -2,6 +2,8 @@
 
 namespace MoxDop\Website\Ai;
 
+use App\Enums\RecommendationOrigin;
+use App\Enums\RecommendationSourceKind;
 use App\Models\DigitalAsset;
 use App\Models\Evidence;
 use App\Models\Finding;
@@ -76,7 +78,10 @@ final class WebsiteAiRecommendationAcceptance
 
         // Never overwrite another source_module's deterministic Recommendation.
         $recommendation = Recommendation::query()->create([
+            'source_kind' => RecommendationSourceKind::Finding->value,
             'finding_id' => $finding->id,
+            'opportunity_id' => null,
+            'origin' => RecommendationOrigin::Operator->value,
             'digital_asset_id' => $asset->id,
             'source_module' => WebsiteAiRecommendationConfig::MODULE_ID,
             'title' => $draft['title'],

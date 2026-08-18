@@ -28,7 +28,7 @@
                     <p class="mt-3 text-sm text-gray-500 dark:text-gray-400">{{ $connector['summary'] }}</p>
                     <p class="mt-2 text-xs text-gray-400">{{ count($connector['connected_sites'] ?? []) }} connected sites · {{ count($connector['releases'] ?? []) }} release(s)</p>
                     <div class="mt-4">
-                        <x-ta.button :href="route('demo.integrations.site-connector', ['connector' => $connector['id']])" size="sm">
+                        <x-ta.button :href="route('operator.integrations.site-connector', ['connector' => $connector['id']])" size="sm">
                             {{ __('operator.actions.open') }}
                         </x-ta.button>
                     </div>
@@ -38,6 +38,6 @@
     </section>
 
     <div>
-        <a href="{{ route('demo.integrations') }}" wire:navigate class="text-sm font-medium text-brand-600 dark:text-brand-400">← {{ __('operator.nav.integrations') }}</a>
+        <a href="{{ route('operator.integrations') }}" wire:navigate class="text-sm font-medium text-brand-600 dark:text-brand-400">← {{ __('operator.nav.integrations') }}</a>
     </div>
 </div>

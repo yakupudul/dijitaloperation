@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://moxdop.local/schemas/MOXDOP_FINDING_RULES_V1.schema.json",
+  "title": "MOXDOP Finding Rules V1",
+  "type": "object",
+  "required": ["metadata", "invariants", "rules"],
+  "additionalProperties": false,
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": ["registry_id", "version"],
+      "properties": {
+        "registry_id": { "const": "MOXDOP_FINDING_RULES" },
+        "version": { "type": "integer", "const": 1 },
+        "status": { "type": "string" },
+        "created_at": { "type": "string" },
+        "description": { "type": "string" }
+      }
+    },
+    "invariants": {
+      "type": "object",
+      "required": [
+        "NO_ARBITRARY_EXPRESSIONS",
+        "NO_RUNTIME_EVAL",
+        "NO_GENERIC_METRIC_PROMOTION",
+        "EVIDENCE_NOT_FINDING",
+        "NO_PROVIDER_TABLE_BYPASS"
+      ]
+    },
+    "condition_types": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "rules": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/rule" }
+    }
+  },
+  "$defs": {
+    "condition": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "VALUE_LT",
+            "VALUE_LTE",
+            "VALUE_GT",
+            "VALUE_GTE",
+            "VALUE_EQUALS",
+            "VALUE_BETWEEN",
+            "VALUE_OUTSIDE",
+            "STATE_EQUALS",
+            "STATE_NOT_EQUALS",
+            "BOOLEAN_IS",
+            "ABSENCE_CONFIRMED",
+            "PRESENCE_CONFIRMED",
+            "ABS_DECREASE_GTE",
+            "ABS_INCREASE_GTE"
+          ]
+        },
+        "path": { "type": "string" },
+        "current_path": { "type": "string" },
+        "previous_path": { "type": "string" },
+        "value": { "type": ["number", "string", "boolean", "null"] },
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "unit": { "type": "string" }
+      }
+    },
+    "rule": {
+      "type": "object",
+      "required": [
+        "id",
+        "stable_id",
+        "version",
+        "enabled",
+        "meaning",
+        "category",
+        "severity",
+        "source_module",
+        "evidence_definition_ids",
+        "subject",
+        "cardinality",
+        "activation",
+        "auto_resolve",
+        "reopen_policy"
+      ]
+    }
+  }
+}

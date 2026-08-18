@@ -10,12 +10,16 @@ use App\Livewire\Demo\Operations\FindingsIndex;
 use App\Livewire\Demo\Operations\RecommendationsIndex;
 use App\Livewire\Demo\Portfolio\BrandShow;
 use App\Livewire\Demo\SettingsPage;
+use App\Models\AgencySetting;
+use App\Models\Brand;
+use App\Models\DigitalAsset;
+use App\Models\Finding;
+use App\Models\Recommendation;
 use App\Models\User;
 use App\Support\Agents\AgentProfileKeys;
 use App\Support\Agents\AgentProfileRegistry;
 use App\Support\Ai\AiRouteKeys;
 use App\Support\Ai\AiRouteRegistry;
-use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
 use App\Support\DigitalAssetTypes;
 use App\Support\DigitalAssetVisualCatalog;
@@ -103,49 +107,66 @@ class ProductVisionRecoveryTest extends TestCase
 
     public function test_findings_support_acknowledge_and_resolve_actions(): void
     {
+        $asset = DigitalAsset::factory()->create();
+        $finding = Finding::factory()->create([
+            'digital_asset_id' => $asset->id,
+            'status' => Finding::STATUS_OPEN,
+            'severity' => 'high',
+            'title' => 'Lead measurement gap',
+        ]);
+
         Livewire::test(FindingsIndex::class)
             ->assertOk()
-            ->call('acknowledge', 'f-lead-measurement')
+            ->assertSee('Lead measurement gap')
+            ->call('acknowledge', (string) $finding->id)
             ->assertSee('Finding acknowledged')
-            ->call('resolve', 'f-lead-measurement')
+            ->call('resolve', (string) $finding->id)
             ->assertSee('Finding resolved');
 
-        $statuses = DemoState::all()['finding_statuses'] ?? [];
-        $this->assertSame('resolved', $statuses['f-lead-measurement'] ?? null);
+        $this->assertSame(Finding::STATUS_RESOLVED, $finding->fresh()->status);
     }
 
     public function test_recommendations_support_defer_decision(): void
     {
+        $recommendation = Recommendation::factory()->create([
+            'title' => 'Review conversion mapping for primary lead signal',
+            'status' => Recommendation::STATUS_OPEN,
+        ]);
+
         Livewire::test(RecommendationsIndex::class)
             ->assertOk()
-            ->call('defer', 'r-review-conversion-mapping')
+            ->call('defer', (string) $recommendation->id)
             ->assertSee('deferred');
 
-        $rec = collect(DemoState::all()['recommendations'])->firstWhere('id', 'r-review-conversion-mapping');
-        $this->assertSame('deferred', $rec['status'] ?? null);
+        // Defer is a review posture: the canonical statuses stay open/accepted/dismissed/converted.
+        $this->assertSame(Recommendation::STATUS_OPEN, $recommendation->fresh()->status);
     }
 
-    public function test_activity_period_filter_excludes_older_seed_events(): void
+    public function test_activity_period_filter_reads_production_store_without_demo_seed(): void
     {
         Livewire::test(ActivityIndex::class)
             ->assertOk()
             ->set('period', 'last_7')
+            ->assertSee('No activity matches this view')
             ->assertDontSee('Hosting probe failed')
             ->set('period', 'last_90')
-            ->assertSee('Hosting probe failed');
+            ->assertDontSee('Hosting probe failed')
+            ->assertSee('No activity matches this view');
     }
 
     public function test_brand_business_context_is_editable_as_canonical_source(): void
     {
-        Livewire::test(BrandShow::class, ['brand' => DemoCatalog::BRAND_ID])
+        $brand = Brand::factory()->create(['name' => 'Northwind Brand']);
+
+        Livewire::test(BrandShow::class, ['brand' => (string) $brand->id])
             ->assertOk()
             ->call('startEditingContext')
-            ->set('context_business_summary', 'Updated Atlas Dental canonical summary')
+            ->set('context_business_summary', 'Updated Northwind canonical summary')
             ->call('saveBusinessContext')
-            ->assertSee('Updated Atlas Dental canonical summary');
+            ->assertSee('Updated Northwind canonical summary');
 
-        $saved = DemoState::brandBusinessContext(DemoCatalog::BRAND_ID);
-        $this->assertSame('Updated Atlas Dental canonical summary', $saved['business_summary'] ?? null);
+        $saved = DemoState::brandBusinessContext((string) $brand->id);
+        $this->assertSame('Updated Northwind canonical summary', $saved['business_summary'] ?? null);
     }
 
     public function test_settings_persist_general_and_notification_overrides(): void
@@ -163,20 +184,21 @@ class ProductVisionRecoveryTest extends TestCase
             ->assertSee('gsc.ai_guidance')
             ->assertSee('GBP Local Presence Analyst');
 
-        $this->assertSame('Moximu Agency Demo', DemoState::settingsOverrides()['general']['agency_name'] ?? null);
+        $this->assertSame('Moximu Agency Demo', AgencySetting::query()->first()?->agency_name);
+        $this->assertSame([], DemoState::settingsOverrides());
     }
 
     public function test_app_shell_surfaces_remain_reachable(): void
     {
-        Livewire::test(Dashboard::class)->assertOk()->assertSee('Needs your attention')->assertSee('My Work');
+        Livewire::test(Dashboard::class)->assertOk()->assertSee(__('operator.dashboard_exec.needs_attention'))->assertSee('My Work');
 
-        $this->get('/app/assets')->assertOk();
-        $this->get('/app/assets/analytics')->assertOk();
-        $this->get('/app/assets/search-console')->assertOk();
-        $this->get('/app/assets/gbp')->assertOk();
-        $this->get('/app/setup')->assertOk();
-        $this->get('/app/integrations/connectors/ga4')->assertOk();
-        $this->get('/app/integrations/connectors/gsc')->assertOk();
-        $this->get('/app/settings?section=ai')->assertOk();
+        $this->get('/assets')->assertOk();
+        $this->get('/assets/analytics')->assertNotFound();
+        $this->get('/assets/search-console')->assertNotFound();
+        $this->get('/assets/gbp')->assertNotFound();
+        $this->get('/setup')->assertOk();
+        $this->get('/integrations/connectors/ga4')->assertOk();
+        $this->get('/integrations/connectors/gsc')->assertOk();
+        $this->get('/settings?section=ai')->assertOk();
     }
 }

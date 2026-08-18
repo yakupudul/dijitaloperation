@@ -3,10 +3,10 @@
 
     @if ($playbook === null)
         <p class="text-sm text-gray-500">{{ __('operator.playbooks.not_found') }}</p>
-        <x-ta.button href="{{ route('demo.settings', ['section' => 'operations', 'ops_sub' => 'playbooks']) }}" wire:navigate>{{ __('operator.playbooks.back') }}</x-ta.button>
+        <x-ta.button href="{{ route('operator.settings', ['section' => 'operations', 'ops_sub' => 'playbooks']) }}" wire:navigate>{{ __('operator.playbooks.back') }}</x-ta.button>
     @else
         <div>
-            <a href="{{ route('demo.settings', ['section' => 'operations', 'ops_sub' => 'playbooks']) }}" wire:navigate class="text-sm font-medium text-gray-500 hover:text-brand-600">← {{ __('operator.playbooks.catalog') }}</a>
+            <a href="{{ route('operator.settings', ['section' => 'operations', 'ops_sub' => 'playbooks']) }}" wire:navigate class="text-sm font-medium text-gray-500 hover:text-brand-600">← {{ __('operator.playbooks.catalog') }}</a>
             <h1 class="mt-2 text-2xl font-bold text-gray-800 dark:text-white/90">{{ $playbook['name'] }}</h1>
             <p class="mt-1 text-sm text-gray-500">{{ __('operator.playbooks.standard_label') }} · {{ $playbook['service_label'] }} · {{ ucfirst($playbook['cadence'] ?? '') }}</p>
         </div>
@@ -95,7 +95,15 @@
             <ul class="mt-3 space-y-2">
                 @foreach ($playbook['references'] ?? [] as $ref)
                     <li>
-                        <a href="{{ route($ref['route']) }}" wire:navigate class="text-sm font-medium text-brand-600 hover:underline">{{ $ref['label'] }}</a>
+                        @if (! empty($ref['href']))
+                            @if (($ref['kind'] ?? '') === 'external_url')
+                                <a href="{{ $ref['href'] }}" target="_blank" rel="noopener noreferrer" class="text-sm font-medium text-brand-600 hover:underline">{{ $ref['label'] }}</a>
+                            @else
+                                <a href="{{ $ref['href'] }}" wire:navigate class="text-sm font-medium text-brand-600 hover:underline">{{ $ref['label'] }}</a>
+                            @endif
+                        @else
+                            <span class="text-sm text-gray-500">{{ $ref['label'] }}</span>
+                        @endif
                     </li>
                 @endforeach
             </ul>

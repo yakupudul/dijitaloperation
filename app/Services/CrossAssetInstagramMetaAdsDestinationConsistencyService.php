@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Enums\RecommendationOrigin;
+use App\Enums\RecommendationSourceKind;
 use App\Models\DigitalAsset;
 use App\Models\Evidence;
 use App\Models\Finding;
@@ -360,6 +362,9 @@ class CrossAssetInstagramMetaAdsDestinationConsistencyService
         ]);
 
         $recommendation->fill([
+            'source_kind' => RecommendationSourceKind::Finding->value,
+            'opportunity_id' => null,
+            'origin' => RecommendationOrigin::DeterministicTemplate->value,
             'digital_asset_id' => $instagramAsset->id,
             'source_module' => self::MODULE_ID,
             'title' => 'Align Instagram profile website and Meta Ads destination URLs',

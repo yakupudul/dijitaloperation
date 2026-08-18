@@ -18,10 +18,12 @@ use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
+use Tests\Support\CreatesCanonicalPortfolio;
 use Tests\TestCase;
 
 class DemoSharedPeriodFilterTest extends TestCase
 {
+    use CreatesCanonicalPortfolio;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -57,8 +59,9 @@ class DemoSharedPeriodFilterTest extends TestCase
     {
         $baseline = MetaAdsWorkspaceFixtures::workspace('last_28');
         $baselineSpend = (int) $baseline['glance']['spend']['raw'];
+        $asset = $this->createPortfolioAsset('meta_ads', 'Northwind Meta', ['module_id' => 'meta-ads']);
 
-        $component = Livewire::test(MetaOverviewPage::class, ['assetId' => DemoCatalog::META_ASSET_ID])
+        $component = Livewire::test(MetaOverviewPage::class, ['assetId' => (string) $asset->id])
             ->assertSet('period', 'last_28')
             ->call('openCustomPicker')
             ->assertSet('showCustomPicker', true)
@@ -96,7 +99,9 @@ class DemoSharedPeriodFilterTest extends TestCase
 
     public function test_meta_period_persists_across_tabs_and_compare_label_renders(): void
     {
-        Livewire::test(MetaOverviewPage::class, ['assetId' => DemoCatalog::META_ASSET_ID])
+        $asset = $this->createPortfolioAsset('meta_ads', 'Northwind Meta', ['module_id' => 'meta-ads']);
+
+        Livewire::test(MetaOverviewPage::class, ['assetId' => (string) $asset->id])
             ->call('setPeriod', 'last_7')
             ->assertSet('period', 'last_7')
             ->call('setTab', 'creatives')
@@ -108,12 +113,15 @@ class DemoSharedPeriodFilterTest extends TestCase
 
     public function test_website_and_google_ads_still_accept_shared_period_presets(): void
     {
-        Livewire::test(WebsiteOverviewPage::class)
+        $website = $this->createPortfolioAsset('website', 'Northwind Website');
+        $gads = $this->createPortfolioAsset('google_ads', 'Northwind Ads', ['module_id' => 'google-ads']);
+
+        Livewire::test(WebsiteOverviewPage::class, ['assetId' => (string) $website->id])
             ->call('setPeriod', 'last_14')
             ->assertSet('period', 'last_14')
             ->assertOk();
 
-        Livewire::test(GoogleAdsOverviewPage::class)
+        Livewire::test(GoogleAdsOverviewPage::class, ['assetId' => (string) $gads->id])
             ->call('setPeriod', 'last_7')
             ->assertSet('period', 'last_7')
             ->assertSee('Google Ads');
@@ -123,8 +131,9 @@ class DemoSharedPeriodFilterTest extends TestCase
     {
         $baseline = Ga4WorkspaceFixtures::workspace('last_28');
         $baselineSessions = (int) $baseline['glance']['sessions']['raw'];
+        $asset = $this->createPortfolioAsset('ga4', 'Northwind GA4', ['module_id' => 'analytics']);
 
-        Livewire::test(AnalyticsPage::class, ['assetId' => DemoCatalog::GA4_ASSET_ID])
+        Livewire::test(AnalyticsPage::class, ['assetId' => (string) $asset->id])
             ->call('openCustomPicker')
             ->set('draftPeriodStart', '2026-07-06')
             ->set('draftPeriodEnd', '2026-08-12')
@@ -147,8 +156,9 @@ class DemoSharedPeriodFilterTest extends TestCase
     {
         $baseline = GscWorkspaceFixtures::workspace('last_28');
         $baselineClicks = (int) $baseline['glance']['clicks']['raw'];
+        $asset = $this->createPortfolioAsset('gsc', 'Northwind GSC', ['module_id' => 'search-console']);
 
-        Livewire::test(SearchConsolePage::class, ['assetId' => DemoCatalog::GSC_ASSET_ID])
+        Livewire::test(SearchConsolePage::class, ['assetId' => (string) $asset->id])
             ->call('openCustomPicker')
             ->set('draftPeriodStart', '2026-07-06')
             ->set('draftPeriodEnd', '2026-08-12')

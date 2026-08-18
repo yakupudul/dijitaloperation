@@ -12,7 +12,6 @@
         @endif
         <div class="mt-0.5 flex flex-wrap items-center gap-2">
             <h1 class="text-2xl font-bold text-gray-800 dark:text-white/90">{{ $title }}</h1>
-            @include('livewire.demo.partials.demo-badge')
             @isset($badges)
                 @if (is_array($badges))
                     @foreach ($badges as $badgeLabel)

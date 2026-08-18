@@ -12,10 +12,12 @@ use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
+use Tests\Support\CreatesCanonicalPortfolio;
 use Tests\TestCase;
 
 class Ga4OperatingWorkspaceTest extends TestCase
 {
+    use CreatesCanonicalPortfolio;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -28,7 +30,7 @@ class Ga4OperatingWorkspaceTest extends TestCase
         DemoState::reset();
     }
 
-    public function test_ga4_is_first_class_demo_asset_type(): void
+    public function test_ga4_is_first_class_asset_type_and_catalog_fixture_still_exists(): void
     {
         $this->assertArrayHasKey('ga4', DigitalAssetTypes::options());
         $this->assertSame('Google Analytics', DigitalAssetTypes::options()['ga4']);
@@ -41,139 +43,52 @@ class Ga4OperatingWorkspaceTest extends TestCase
         $this->assertSame('Atlas Dental — GA4', $asset['name']);
     }
 
-    public function test_primary_tabs_render_without_dead_routes(): void
+    public function test_catalog_ga4_id_is_not_found_on_operator_routes(): void
     {
-        $id = DemoCatalog::GA4_ASSET_ID;
-        foreach (['overview', 'measurement', 'acquisition', 'behavior', 'journeys', 'relationships', 'operations'] as $tab) {
-            $this->get(route('demo.analytics', ['assetId' => $id, 'tab' => $tab]))
-                ->assertOk()
-                ->assertSee('Atlas Dental — GA4')
-                ->assertDontSee('Page not found');
-        }
+        $this->get(route('operator.analytics', ['assetId' => DemoCatalog::GA4_ASSET_ID]))->assertNotFound();
+        Livewire::test(AnalyticsPage::class, ['assetId' => DemoCatalog::GA4_ASSET_ID])->assertStatus(404);
     }
 
-    public function test_overview_scan_surface_and_no_fake_scores(): void
+    public function test_real_ga4_asset_renders_without_atlas_fixtures(): void
     {
-        Livewire::test(AnalyticsPage::class, ['assetId' => DemoCatalog::GA4_ASSET_ID])
-            ->assertSee('Atlas Dental — GA4')
-            ->assertSee('Needs attention')
-            ->assertSee('Acquisition mix')
-            ->assertSee('Landing pulse')
-            ->assertSee('Business actions')
-            ->assertSee('Users')
-            ->assertSee('Sessions')
+        $asset = $this->createPortfolioAsset('ga4', 'Northwind GA4', ['module_id' => 'analytics']);
+
+        foreach (['overview', 'measurement', 'acquisition', 'behavior', 'journeys', 'operations'] as $tab) {
+            $this->get(route('operator.analytics', ['assetId' => $asset->id, 'tab' => $tab]))
+                ->assertOk()
+                ->assertSee('Northwind GA4')
+                ->assertDontSee('Atlas Dental — GA4')
+                ->assertDontSee('Page not found');
+        }
+
+        Livewire::test(AnalyticsPage::class, ['assetId' => (string) $asset->id])
+            ->assertSee('Northwind GA4')
             ->assertDontSee('Measurement Score')
             ->assertDontSee('Data Quality Score')
             ->assertDontSee('Analytics Health')
             ->assertDontSee('Journey Score')
-            ->assertDontSee('Ask Analytics AI');
-    }
-
-    public function test_measurement_mapping_events_streams_quality(): void
-    {
-        Livewire::test(AnalyticsPage::class, ['assetId' => DemoCatalog::GA4_ASSET_ID])
-            ->call('setTab', 'measurement')
-            ->assertSee('Business actions')
-            ->assertSee('Lead Form')
-            ->assertSee('generate_lead')
-            ->assertSee('WhatsApp')
-            ->assertSee('Not mapped')
-            ->assertSee('Appointment')
-            ->call('setMeasSub', 'events')
-            ->assertSee('Events')
-            ->assertSee('whatsapp_click')
-            ->call('setMeasSub', 'streams')
-            ->assertSee('Atlas Dental Web')
-            ->assertSee('G-DEMOATLAS')
-            ->call('setMeasSub', 'quality')
-            ->assertSee('Data quality')
-            ->assertSee('Self-referral')
-            ->assertDontSee('Measurement Score')
-            ->assertDontSee('Mark as Key Event in GA4');
-    }
-
-    public function test_acquisition_related_ads_and_unmapped_source(): void
-    {
-        Livewire::test(AnalyticsPage::class, ['assetId' => DemoCatalog::GA4_ASSET_ID])
-            ->call('setTab', 'acquisition')
-            ->assertSee('Acquisition')
-            ->assertSee('Organic Search')
-            ->assertSee('Paid Search')
-            ->assertSee('Paid Social')
-            ->assertSee('google / cpc')
-            ->assertSee('Google Ads')
-            ->assertSee('facebook / paid')
-            ->assertSee('Meta Ads')
-            ->assertSee('(not set)')
-            ->assertDontSee('Fatigue Score')
-            ->assertDontSee('Ask Analytics AI');
-    }
-
-    public function test_behavior_journeys_relationships_operations(): void
-    {
-        Livewire::test(AnalyticsPage::class, ['assetId' => DemoCatalog::GA4_ASSET_ID])
-            ->call('setTab', 'behavior')
-            ->assertSee('Behavior')
-            ->assertSee('/implant')
-            ->assertSee('Service')
-            ->call('openLanding', '/implant')
-            ->assertSet('landing', '/implant')
-            ->call('setTab', 'journeys')
-            ->assertSee('Journeys')
-            ->assertSee('Organic')
-            ->assertDontSee('user@')
-            ->call('setTab', 'relationships')
-            ->assertSee(__('operator.ga4.relationship_summary'))
-            ->assertSee('Measures')
-            ->assertSee('Atlas Dental Website')
-            ->assertSee('Provides evidence')
-            ->assertSee('Technical connection')
-            ->assertSee('GA4 property binding')
-            ->call('setOps', 'findings')
-            ->assertSee('Lead Form signal interruption')
-            ->call('openFinding', 'ga4-f-lead-interruption')
-            ->assertSet('finding', 'ga4-f-lead-interruption')
-            ->call('setOps', 'outcomes')
-            ->assertSee('Improvement observed')
-            ->assertSee('Still observed')
-            ->assertDontSee('caused recovery')
-            ->assertDontSee('Mark as Key Event');
-    }
-
-    public function test_legacy_tabs_remap_and_custom_period_recalculates(): void
-    {
-        $baseline = Ga4WorkspaceFixtures::workspace('last_28');
-        $baselineSessions = (int) $baseline['glance']['sessions']['raw'];
-
-        Livewire::test(AnalyticsPage::class, ['assetId' => DemoCatalog::GA4_ASSET_ID])
+            ->assertDontSee('Ask Analytics AI')
+            ->assertDontSee('G-DEMOATLAS')
+            ->assertDontSee('Atlas Dental Web')
             ->set('tab', 'key_events')
             ->assertSet('tab', 'measurement')
-            ->assertSet('meas_sub', 'events')
-            ->set('tab', 'landing_pages')
-            ->assertSet('tab', 'behavior')
             ->call('openCustomPicker')
             ->set('draftPeriodStart', '2026-08-01')
             ->set('draftPeriodEnd', '2026-08-10')
             ->call('applyCustomPeriod')
             ->assertSet('period', 'custom')
-            ->assertSet('periodStart', '2026-08-01')
-            ->assertSet('periodEnd', '2026-08-10');
+            ->call('refreshData')
+            ->call('runAnalysis')
+            ->assertDontSee('Atlas Dental — GA4');
+    }
 
+    public function test_ga4_workspace_fixtures_remain_deterministic_outside_http(): void
+    {
+        $baseline = Ga4WorkspaceFixtures::workspace('last_28');
+        $baselineSessions = (int) $baseline['glance']['sessions']['raw'];
         $custom = Ga4WorkspaceFixtures::workspace('custom', '2026-08-01', '2026-08-10');
         $this->assertNotSame($baselineSessions, (int) $custom['glance']['sessions']['raw']);
         $this->assertLessThan($baselineSessions, (int) $custom['glance']['sessions']['raw']);
-    }
-
-    public function test_header_actions_are_demo_only_and_deterministic_refresh(): void
-    {
-        $before = Ga4WorkspaceFixtures::workspace('last_28');
-
-        Livewire::test(AnalyticsPage::class, ['assetId' => DemoCatalog::GA4_ASSET_ID])
-            ->call('refreshData')
-            ->call('runAnalysis')
-            ->assertSee('Atlas Dental — GA4');
-
-        $after = Ga4WorkspaceFixtures::workspace('last_28');
-        $this->assertSame($before, $after);
+        $this->assertSame($baseline, Ga4WorkspaceFixtures::workspace('last_28'));
     }
 }

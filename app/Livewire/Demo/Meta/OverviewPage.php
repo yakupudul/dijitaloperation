@@ -3,7 +3,12 @@
 namespace App\Livewire\Demo\Meta;
 
 use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
-use App\Support\Demo\DemoCatalog;
+use App\Livewire\Demo\Concerns\ResolvesCanonicalOperatorAsset;
+use App\Models\DigitalAsset;
+use App\Services\DataPool\Freshness\StartIncrementalCollectionService;
+use App\Services\MetaAds\MetaAdsSpecialistBindingResolver;
+use App\Services\MetaAds\MetaAdsSpecialistReadService;
+use App\Services\MetaAds\Support\MetaAdsBindingMode;
 use App\Support\Demo\DemoState;
 use App\Support\Demo\MetaAdsWorkspaceFixtures;
 use Illuminate\Contracts\View\View;
@@ -17,8 +22,9 @@ use Livewire\Component;
 class OverviewPage extends Component
 {
     use InteractsWithDemoPeriod;
+    use ResolvesCanonicalOperatorAsset;
 
-    public string $assetId = DemoCatalog::META_ASSET_ID;
+    public string $assetId = '';
 
     #[Url]
     public string $tab = 'overview';
@@ -74,7 +80,7 @@ class OverviewPage extends Component
 
     public function mount(?string $assetId = null, ?string $tab = null): void
     {
-        $this->assetId = $assetId ?: DemoCatalog::META_ASSET_ID;
+        $this->bindCanonicalAsset($assetId, ['meta_ads']);
         if (filled($tab)) {
             $this->tab = $tab;
         }
@@ -171,12 +177,38 @@ class OverviewPage extends Component
 
     public function refreshData(): void
     {
-        DemoState::flash('Meta Ads data refresh queued (Demo Mode · no live Graph API expansion).', 'info');
+        $binding = app(MetaAdsSpecialistBindingResolver::class)->resolve($this->assetId);
+
+        if ($binding->mode !== MetaAdsBindingMode::RealBound) {
+            DemoState::flash(__('operator.flash.meta_refresh_unconfigured'), 'info');
+
+            return;
+        }
+
+        $asset = DigitalAsset::query()->find($binding->digitalAssetId);
+        if (! $asset instanceof DigitalAsset) {
+            DemoState::flash(__('operator.flash.meta_refresh_missing_asset'), 'warning');
+
+            return;
+        }
+
+        $result = app(StartIncrementalCollectionService::class)->startForBindingIds(
+            [$binding->coreAssetBindingId],
+            auth()->user(),
+            ['META_ADS'],
+        );
+
+        DemoState::flash(match ($result->outcome) {
+            'started' => 'Meta Ads incremental collection started in the background.',
+            'active_equivalent' => 'An equivalent Meta Ads incremental collection is already running.',
+            'data_current' => 'Meta Ads data is current — no incremental collection is due.',
+            default => $result->message,
+        }, $result->outcome === 'started' ? 'success' : 'info');
     }
 
     public function runAnalysis(): void
     {
-        DemoState::flash('Paid social analysis completed (Demo Mode · deterministic fixtures).', 'info');
+        DemoState::flash(__('operator.flash.meta_analysis_unavailable'), 'info');
         $this->tab = 'overview';
     }
 
@@ -194,20 +226,29 @@ class OverviewPage extends Component
     public function render(): View
     {
         $this->normalizeTab();
-        $data = MetaAdsWorkspaceFixtures::workspace($this->period, $this->periodStart, $this->periodEnd);
+        // Prompt 31: analytical reads come exclusively from MetaAdsSpecialistReadService
+        // (local pool + formulas). Zero Meta Graph API on render. MetaAdsWorkspaceFixtures
+        // is only ever touched directly below when the resolved workspace is demo_catalog.
+        $data = app(MetaAdsSpecialistReadService::class)->workspace(
+            $this->assetId,
+            $this->period,
+            $this->periodStart,
+            $this->periodEnd,
+        );
+        $isDemo = ($data['migration_mode'] ?? 'demo_catalog') === 'demo_catalog';
 
-        $campaigns = collect($data['campaigns']);
+        $campaigns = collect($data['campaigns'] ?? []);
         if ($this->status_filter !== 'all') {
             $needle = strtoupper($this->status_filter);
             $campaigns = $campaigns->filter(
-                static fn (array $c): bool => strtoupper((string) $c['status']) === $needle
+                static fn (array $c): bool => strtoupper((string) ($c['status'] ?? '')) === $needle
             );
         }
         if ($this->campaign_filter === 'attention') {
             $campaigns = $campaigns->filter(static fn (array $c): bool => filled($c['attention_primary'] ?? null));
         } elseif ($this->campaign_filter === 'budget') {
             $campaigns = $campaigns->filter(
-                static fn (array $c): bool => in_array($c['pacing'], ['Ahead', 'Behind', 'Constrained'], true)
+                static fn (array $c): bool => in_array($c['pacing'] ?? null, ['Ahead', 'Behind', 'Constrained'], true)
             );
         } elseif ($this->campaign_filter === 'delivered') {
             $campaigns = $campaigns->filter(static fn (array $c): bool => (bool) ($c['delivered'] ?? false));
@@ -224,24 +265,28 @@ class OverviewPage extends Component
 
         $selectedCampaign = null;
         if ($this->campaign) {
-            $selectedCampaign = MetaAdsWorkspaceFixtures::campaignDetail(
-                $this->campaign,
-                $this->period,
-                $this->periodStart,
-                $this->periodEnd,
-            );
-            if ($selectedCampaign) {
-                $selectedCampaign['ad_sets'] = $selectedCampaign['adsets'] ?? [];
+            if ($isDemo) {
+                $selectedCampaign = MetaAdsWorkspaceFixtures::campaignDetail(
+                    $this->campaign,
+                    $this->period,
+                    $this->periodStart,
+                    $this->periodEnd,
+                );
+                if ($selectedCampaign) {
+                    $selectedCampaign['ad_sets'] = $selectedCampaign['adsets'] ?? [];
+                }
+            } else {
+                $selectedCampaign = collect($data['campaigns'] ?? [])->firstWhere('id', $this->campaign);
             }
         }
 
         $selectedCreative = $this->creative
-            ? collect($data['creatives']['gallery'])->firstWhere('id', $this->creative)
+            ? collect($data['creatives']['gallery'] ?? [])->firstWhere('id', $this->creative)
             : null;
 
         $selectedFinding = null;
         if ($this->finding) {
-            $selectedFinding = collect($data['operations']['findings'])->firstWhere('id', $this->finding);
+            $selectedFinding = collect($data['operations']['findings'] ?? [])->firstWhere('id', $this->finding);
             $detail = $data['operations']['finding_detail'][$this->finding] ?? null;
             if ($selectedFinding && $detail) {
                 $selectedFinding = array_merge($selectedFinding, $detail);
@@ -249,13 +294,13 @@ class OverviewPage extends Component
         }
 
         $selectedAttention = $this->attention
-            ? collect($data['needs_attention'])->firstWhere('id', $this->attention)
+            ? collect($data['needs_attention'] ?? [])->firstWhere('id', $this->attention)
             : null;
 
-        $trend = $data['performance_trend'];
+        $trend = $data['performance_trend'] ?? ['labels' => [], 'spend' => [], 'leads' => []];
 
         return view('livewire.demo.meta.overview', [
-            'asset' => DemoCatalog::asset($this->assetId) ?? DemoCatalog::assets()[2] ?? null,
+            'asset' => $this->presentCanonicalAsset(),
             'data' => $data,
             'identity' => $data['identity'],
             'campaignRows' => $campaigns->values()->all(),
@@ -268,10 +313,10 @@ class OverviewPage extends Component
             'performanceChartOptions' => [
                 'chart' => ['type' => 'line', 'height' => 220, 'toolbar' => ['show' => false]],
                 'series' => [
-                    ['name' => 'Spend (₺)', 'data' => $trend['spend']],
-                    ['name' => 'Leads', 'data' => $trend['leads']],
+                    ['name' => 'Spend (₺)', 'data' => $trend['spend'] ?? []],
+                    ['name' => 'Leads', 'data' => $trend['leads'] ?? []],
                 ],
-                'xaxis' => ['categories' => $trend['labels']],
+                'xaxis' => ['categories' => $trend['labels'] ?? []],
                 'stroke' => ['curve' => 'smooth', 'width' => 2],
                 'dataLabels' => ['enabled' => false],
                 'colors' => ['#ea580c', '#059669'],

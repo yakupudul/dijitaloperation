@@ -6,7 +6,8 @@
         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ __('operator.profile.subtitle') }}</p>
     </div>
 
-    <form wire:submit="save" class="space-y-6 rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+    <div class="space-y-6 rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+    <form wire:submit="save" class="space-y-6">
         <div class="flex flex-wrap items-start gap-4">
             <div class="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-brand-500/10 text-2xl font-semibold text-brand-600 dark:text-brand-400">
                 @if ($avatarUrl)
@@ -76,7 +77,12 @@
 
         <div class="flex flex-wrap gap-2">
             <x-ta.button type="submit" size="sm">{{ __('operator.actions.save') }}</x-ta.button>
-            <x-ta.button :href="route('demo.settings')" size="sm" variant="outline">{{ __('operator.actions.cancel') }}</x-ta.button>
+            <x-ta.button :href="route('operator.settings')" size="sm" variant="outline">{{ __('operator.actions.cancel') }}</x-ta.button>
         </div>
     </form>
+    <form method="POST" action="{{ route('app.logout') }}">
+        @csrf
+        <x-ta.button type="submit" size="sm" variant="outline">{{ __('operator.auth.logout') }}</x-ta.button>
+    </form>
+    </div>
 </div>

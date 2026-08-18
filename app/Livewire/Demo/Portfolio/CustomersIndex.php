@@ -4,7 +4,9 @@ namespace App\Livewire\Demo\Portfolio;
 
 use App\Enums\CustomerStatus;
 use App\Enums\CustomerType;
-use App\Support\Demo\DemoCatalog;
+use App\Models\Customer;
+use App\Services\Operator\OperatorPortfolioPresenter;
+use App\Services\Operator\OperatorUserDirectory;
 use App\Support\Demo\DemoState;
 use App\Support\Options\AgencyServiceOptions;
 use App\Support\Options\CountryOptions;
@@ -92,45 +94,10 @@ class CustomersIndex extends Component
      */
     protected function filteredCustomers(): array
     {
-        $team = collect(DemoCatalog::teamMembers())->keyBy('id');
-        $brands = collect(DemoState::all()['brands'] ?? []);
-
-        $rows = collect(DemoState::all()['customers'] ?? [])
-            ->map(function (array $customer) use ($brands, $team): array {
-                $customer = DemoState::normalizeCustomer($customer);
-                $customerBrands = $brands->where('customer_id', $customer['id']);
-                $customer['brands_count'] = $customerBrands->count();
-                $customer['digital_assets_count'] = (int) $customerBrands->sum(fn (array $b): int => (int) ($b['assets_count'] ?? 0));
-                if (($customer['digital_assets_count'] ?? 0) === 0 && ($customer['id'] ?? '') === DemoCatalog::CUSTOMER_ID) {
-                    $customer['digital_assets_count'] = count(DemoCatalog::assets());
-                }
-                $customer['open_findings'] = (int) ($customer['open_findings'] ?? $customerBrands->sum(fn (array $b): int => (int) ($b['open_findings'] ?? 0)));
-                $customer['open_tasks'] = (int) ($customer['open_tasks'] ?? $customerBrands->sum(fn (array $b): int => (int) ($b['open_tasks'] ?? 0)));
-                $customer['industry_label'] = IndustryOptions::label($customer['industry'] ?? null);
-                if (($customer['industry'] ?? '') === IndustryOptions::OTHER && ! empty($customer['industry_other'])) {
-                    $customer['industry_label'] = (string) $customer['industry_other'];
-                }
-                $customer['hq_display'] = CountryOptions::formatHq($customer['hq_city'] ?? null, $customer['hq_country'] ?? null);
-                $customer['type_label'] = match ($customer['type'] ?? '') {
-                    'company' => 'Company',
-                    'individual' => 'Individual',
-                    default => (string) ($customer['type'] ?? '—'),
-                };
-                $customer['status_label'] = match ($customer['status'] ?? '') {
-                    'active' => 'Active',
-                    'inactive' => 'Inactive',
-                    'archived' => 'Archived',
-                    default => ucfirst((string) ($customer['status'] ?? '')),
-                };
-                $customer['responsible_labels'] = collect($customer['responsible_user_ids'] ?? [])
-                    ->map(fn (string $id): string => $team[$id]['name'] ?? $id)
-                    ->values()
-                    ->all();
-                $customer['needs_attention'] = ((int) $customer['open_findings'] > 0)
-                    || ((int) ($customer['overdue_tasks'] ?? 0) > 0);
-
-                return $customer;
-            });
+        $rows = Customer::query()
+            ->with(['brands.digitalAssets', 'responsibleUsers'])
+            ->get()
+            ->map(fn (Customer $customer): array => OperatorPortfolioPresenter::customer($customer));
 
         if ($this->search !== '') {
             $q = mb_strtolower($this->search);
@@ -189,11 +156,10 @@ class CustomersIndex extends Component
     public function render(): View
     {
         $customers = $this->filteredCustomers();
-        $allCount = count(DemoState::all()['customers'] ?? []);
+        $allCount = Customer::query()->count();
 
-        $typeOptions = collect(CustomerType::cases())->mapWithKeys(fn ($c) => [$c->value => $c->name])->all();
-        $statusOptions = collect(CustomerStatus::cases())->mapWithKeys(fn ($c) => [$c->value => $c->name])->all();
-        $teamOptions = collect(DemoCatalog::teamMembers())->mapWithKeys(fn ($m) => [$m['id'] => $m['name']])->all();
+        $typeOptions = collect(CustomerType::cases())->mapWithKeys(fn ($c) => [$c->value => __('operator.customer.types.'.$c->value)])->all();
+        $statusOptions = collect(CustomerStatus::cases())->mapWithKeys(fn ($c) => [$c->value => __('operator.states.'.$c->value)])->all();
 
         return view('livewire.demo.portfolio.customers-index', [
             'customers' => $customers,
@@ -204,7 +170,7 @@ class CustomersIndex extends Component
             'industryOptions' => IndustryOptions::options(),
             'countryOptions' => CountryOptions::options(),
             'serviceOptions' => AgencyServiceOptions::options(),
-            'teamOptions' => $teamOptions,
+            'teamOptions' => OperatorUserDirectory::options(),
             'flash' => DemoState::pullFlash(),
         ]);
     }

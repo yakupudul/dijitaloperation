@@ -87,5 +87,9 @@
         </section>
     @endforeach
 
+    <div class="mox-collection-monitor-embed" wire:key="collection-monitoring">
+        @livewire(\App\Livewire\Collection\MonitoringPanel::class)
+    </div>
+
     <x-filament-actions::modals />
 </div>

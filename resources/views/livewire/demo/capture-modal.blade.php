@@ -30,6 +30,30 @@
                         <textarea wire:model="description" rows="3" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700"></textarea>
                     </label>
 
+                    @if (in_array($captureType, ['client_request', 'task'], true))
+                        <x-ta.form.field :label="__('operator.forms.customer')" :required="true" :error="$errors->first('prefillCustomer')">
+                            <x-ta.form.select
+                                id="capture-customer"
+                                wire:model="prefillCustomer"
+                                :options="$customerOptions"
+                                :placeholder="__('operator.forms.search_customer')"
+                                :nullable="false"
+                            />
+                        </x-ta.form.field>
+
+                        @if (is_numeric($prefillCustomer))
+                            <x-ta.form.field :label="__('operator.work.columns.brand')" :error="$errors->first('prefillBrand')">
+                                <x-ta.form.select
+                                    id="capture-brand"
+                                    wire:model="prefillBrand"
+                                    :options="$brandOptions"
+                                    :placeholder="__('operator.capture.select_brand')"
+                                    :nullable="true"
+                                />
+                            </x-ta.form.field>
+                        @endif
+                    @endif
+
                     @if ($captureType === 'client_request')
                         <label class="block text-sm">
                             <span class="text-gray-500">{{ __('operator.capture.fields.source') }}</span>

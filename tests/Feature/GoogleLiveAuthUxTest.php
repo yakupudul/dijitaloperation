@@ -66,7 +66,7 @@ class GoogleLiveAuthUxTest extends TestCase
         );
 
         $authorizeUrl = url('/integrations/google/'.$this->integration->id.'/authorize');
-        $appUrl = url('/system/integrations');
+        $appUrl = url('/admin/settings/integrations');
 
         $this->assertFalse(
             FilamentView::hasSpaMode($authorizeUrl),
@@ -251,6 +251,6 @@ class GoogleLiveAuthUxTest extends TestCase
         auth()->logout();
 
         $response = $this->get(route('integrations.google.authorize', $this->integration));
-        $response->assertRedirect('/system/login');
+        $response->assertRedirect('/login');
     }
 }

@@ -38,6 +38,31 @@ return [
             'report' => false,
         ],
 
+        /*
+        |--------------------------------------------------------------------------
+        | MoxDOP raw ingestion (Prompt 10)
+        |--------------------------------------------------------------------------
+        |
+        | PRIVATE object storage for provider payloads. Local disk in development/
+        | tests; S3-compatible in production via env (no public ACL / permanent URLs).
+        |
+        */
+        'raw_ingestion' => [
+            'driver' => env('MOXDOP_RAW_INGESTION_DRIVER', 'local'),
+            'root' => env('MOXDOP_RAW_INGESTION_ROOT', storage_path('app/raw_ingestion')),
+            'throw' => true,
+            'report' => false,
+            'visibility' => 'private',
+            // S3-compatible (used when MOXDOP_RAW_INGESTION_DRIVER=s3):
+            'key' => env('MOXDOP_RAW_INGESTION_KEY', env('AWS_ACCESS_KEY_ID')),
+            'secret' => env('MOXDOP_RAW_INGESTION_SECRET', env('AWS_SECRET_ACCESS_KEY')),
+            'region' => env('MOXDOP_RAW_INGESTION_REGION', env('AWS_DEFAULT_REGION')),
+            'bucket' => env('MOXDOP_RAW_INGESTION_BUCKET', env('AWS_BUCKET')),
+            'url' => env('MOXDOP_RAW_INGESTION_URL'),
+            'endpoint' => env('MOXDOP_RAW_INGESTION_ENDPOINT', env('AWS_ENDPOINT')),
+            'use_path_style_endpoint' => env('MOXDOP_RAW_INGESTION_PATH_STYLE', env('AWS_USE_PATH_STYLE_ENDPOINT', false)),
+        ],
+
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),

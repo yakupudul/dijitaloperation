@@ -3,9 +3,13 @@
 namespace App\Livewire\Demo\GoogleAds;
 
 use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
-use App\Support\Demo\DemoCatalog;
+use App\Livewire\Demo\Concerns\ResolvesCanonicalOperatorAsset;
+use App\Models\DigitalAsset;
+use App\Services\DataPool\Freshness\StartIncrementalCollectionService;
+use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
+use App\Services\GoogleAds\GoogleAdsSpecialistReadService;
+use App\Services\GoogleAds\Support\GoogleAdsBindingMode;
 use App\Support\Demo\DemoState;
-use App\Support\Demo\GoogleAdsWorkspaceFixtures;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -17,8 +21,9 @@ use Livewire\Component;
 class OverviewPage extends Component
 {
     use InteractsWithDemoPeriod;
+    use ResolvesCanonicalOperatorAsset;
 
-    public string $assetId = DemoCatalog::GOOGLE_ADS_ASSET_ID;
+    public string $assetId = '';
 
     #[Url]
     public string $tab = 'overview';
@@ -89,7 +94,7 @@ class OverviewPage extends Component
 
     public function mount(?string $assetId = null): void
     {
-        $this->assetId = $assetId ?: DemoCatalog::GOOGLE_ADS_ASSET_ID;
+        $this->bindCanonicalAsset($assetId, ['google_ads']);
         $this->mountPeriod();
         $this->normalizeTab();
 
@@ -186,18 +191,44 @@ class OverviewPage extends Component
 
     public function refreshData(): void
     {
-        DemoState::flash('Google Ads data refresh queued (Demo Mode · no live API expansion).', 'info');
+        $binding = app(GoogleAdsSpecialistBindingResolver::class)->resolve($this->assetId);
+
+        if ($binding->mode !== GoogleAdsBindingMode::RealBound) {
+            DemoState::flash(__('operator.flash.google_ads_refresh_unconfigured'), 'info');
+
+            return;
+        }
+
+        $asset = DigitalAsset::query()->find($binding->digitalAssetId);
+        if (! $asset instanceof DigitalAsset) {
+            DemoState::flash(__('operator.flash.google_ads_refresh_missing_asset'), 'warning');
+
+            return;
+        }
+
+        $result = app(StartIncrementalCollectionService::class)->startForBindingIds(
+            [$binding->coreAssetBindingId],
+            auth()->user(),
+            ['GOOGLE_ADS'],
+        );
+
+        DemoState::flash(match ($result->outcome) {
+            'started' => 'Google Ads incremental collection started in the background.',
+            'active_equivalent' => 'An equivalent Google Ads incremental collection is already running.',
+            'data_current' => 'Google Ads data is current — no incremental collection is due.',
+            default => $result->message,
+        }, $result->outcome === 'started' ? 'success' : 'info');
     }
 
     public function runAnalysis(): void
     {
-        DemoState::flash('Paid acquisition analysis completed (Demo Mode · deterministic fixtures).', 'info');
+        DemoState::flash(__('operator.flash.google_ads_analysis_unavailable'), 'info');
         $this->tab = 'overview';
     }
 
     public function markClusterReviewed(string $id): void
     {
-        DemoState::flash('Cluster marked reviewed internally (Demo Mode · no Google Ads write).', 'info');
+        DemoState::flash(__('operator.flash.cluster_reviewed'), 'info');
         $this->cluster = $id;
         $this->tab = 'search_demand';
         $this->search_sub = 'inbox';
@@ -207,8 +238,8 @@ class OverviewPage extends Component
     {
         DemoState::flash(
             $term
-                ? 'Internal Recommendation drafted for “'.$term.'” (Demo Mode · no Google Ads write).'
-                : 'Internal Recommendation drafted for Decision Inbox (Demo Mode · no Google Ads write).',
+                ? 'Internal Recommendation drafted for “'.$term.'”  No Google Ads write was made.'
+                : 'Internal Recommendation drafted for Decision Inbox  No Google Ads write was made.',
             'info',
         );
         $this->ops = 'recommendations';
@@ -244,16 +275,23 @@ class OverviewPage extends Component
     public function render(): View
     {
         $this->normalizeTab();
-        $data = GoogleAdsWorkspaceFixtures::workspace($this->period);
+        // Prompt 30: analytical reads come exclusively from GoogleAdsSpecialistReadService
+        // (local pool + formulas). Zero Google Ads Search/SearchStream/OAuth on render.
+        $data = app(GoogleAdsSpecialistReadService::class)->workspace(
+            $this->assetId,
+            $this->period,
+            $this->periodStart,
+            $this->periodEnd,
+        );
 
-        $campaigns = collect($data['campaigns']);
+        $campaigns = collect($data['campaigns'] ?? []);
         if ($this->campaign_filter === 'attention') {
             $campaigns = $campaigns->filter(fn (array $c): bool => filled($c['attention_primary'] ?? null));
         } elseif ($this->campaign_filter === 'budget') {
             $campaigns = $campaigns->filter(fn (array $c): bool => in_array($c['pacing'], ['Ahead', 'Behind', 'Constrained'], true));
         }
 
-        $terms = collect($data['search']['terms']);
+        $terms = collect($data['search']['terms'] ?? []);
         if ($this->intent_filter !== 'all') {
             $terms = $terms->where('intent', $this->intent_filter);
         }
@@ -273,33 +311,39 @@ class OverviewPage extends Component
         }
 
         $selectedCampaign = $this->campaign
-            ? collect($data['campaigns'])->firstWhere('id', $this->campaign)
+            ? collect($data['campaigns'] ?? [])->firstWhere('id', $this->campaign)
             : null;
         $selectedCluster = $this->cluster
-            ? collect($data['search']['clusters'])->firstWhere('id', $this->cluster)
+            ? collect($data['search']['clusters'] ?? [])->firstWhere('id', $this->cluster)
             : null;
         $selectedAd = $this->ad
-            ? collect($data['ads']['rows'])->firstWhere('id', $this->ad)
+            ? collect($data['ads']['rows'] ?? [])->firstWhere('id', $this->ad)
             : null;
         $selectedLanding = $this->landing
-            ? collect($data['landing_pages']['rows'])->firstWhere('id', $this->landing)
+            ? collect($data['landing_pages']['rows'] ?? [])->firstWhere('id', $this->landing)
             : null;
         $selectedFinding = null;
         if ($this->finding) {
-            $selectedFinding = collect($data['operations']['findings'])->firstWhere('id', $this->finding);
+            $selectedFinding = collect($data['operations']['findings'] ?? [])->firstWhere('id', $this->finding);
             $detail = $data['operations']['finding_detail'][$this->finding] ?? null;
             if ($selectedFinding && $detail) {
                 $selectedFinding = array_merge($selectedFinding, $detail);
             }
         }
         $selectedAttention = $this->attention
-            ? collect($data['needs_attention'])->firstWhere('id', $this->attention)
+            ? collect($data['needs_attention'] ?? [])->firstWhere('id', $this->attention)
             : null;
 
-        $trend = $data['performance_trend'];
+        $trend = $data['performance_trend'] ?? ['labels' => [], 'spend' => [], 'leads' => []];
+        $spendSeries = $trend['spend'] ?? [];
+        $leadsSeries = $trend['leads'] ?? [];
+        $labels = $trend['labels'] ?? [];
+        $conversionSeriesName = ($data['migration_mode'] ?? '') === 'real'
+            ? 'Provider conversions'
+            : 'Primary conversions';
 
         return view('livewire.demo.google-ads.overview', [
-            'asset' => DemoCatalog::asset($this->assetId),
+            'asset' => $this->presentCanonicalAsset(),
             'data' => $data,
             'identity' => $data['identity'],
             'campaignRows' => $campaigns->values()->all(),
@@ -314,17 +358,17 @@ class OverviewPage extends Component
             'performanceChartOptions' => [
                 'chart' => ['type' => 'line', 'height' => 220, 'toolbar' => ['show' => false]],
                 'series' => [
-                    ['name' => 'Spend (₺)', 'data' => $trend['spend']],
-                    ['name' => 'Primary conversions', 'data' => $trend['leads']],
+                    ['name' => 'Spend', 'data' => $spendSeries],
+                    ['name' => $conversionSeriesName, 'data' => $leadsSeries],
                 ],
-                'xaxis' => ['categories' => $trend['labels']],
+                'xaxis' => ['categories' => $labels],
                 'stroke' => ['curve' => 'smooth', 'width' => 2],
                 'dataLabels' => ['enabled' => false],
                 'colors' => ['#ea580c', '#059669'],
                 'legend' => ['position' => 'top'],
                 'yaxis' => [
                     ['title' => ['text' => 'Spend']],
-                    ['opposite' => true, 'title' => ['text' => 'Leads']],
+                    ['opposite' => true, 'title' => ['text' => $conversionSeriesName]],
                 ],
             ],
             'flash' => DemoState::pullFlash(),

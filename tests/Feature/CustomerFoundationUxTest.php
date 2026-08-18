@@ -10,11 +10,13 @@ use App\Livewire\Demo\Portfolio\CustomerCreate;
 use App\Livewire\Demo\Portfolio\CustomerDetail;
 use App\Livewire\Demo\Portfolio\CustomerEdit;
 use App\Livewire\Demo\Portfolio\CustomersIndex;
+use App\Models\Brand;
 use App\Models\Customer;
+use App\Models\DigitalAsset;
 use App\Models\User;
-use App\Support\Demo\DemoCatalog;
-use App\Support\Demo\DemoState;
+use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Support\Options\AgencyServiceOptions;
+use App\Support\Options\CityOptions;
 use App\Support\Options\CmsOptions;
 use App\Support\Options\CountryOptions;
 use App\Support\Options\IndustryOptions;
@@ -29,61 +31,59 @@ class CustomerFoundationUxTest extends TestCase
 {
     use RefreshDatabase;
 
+    private User $user;
+
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->seed(RoleAndPermissionSeeder::class);
 
-        $user = User::factory()->create();
-        $user->assignRole(Roles::ADMIN);
-        $this->actingAs($user);
-
-        DemoState::reset();
+        $this->user = User::factory()->create();
+        $this->user->assignRole(Roles::ADMIN);
+        $this->actingAs($this->user);
     }
 
     public function test_customers_index_renders_directory_and_open_findings_label(): void
     {
+        Customer::factory()->create(['name' => 'Horizon Clinics']);
+
         Livewire::test(CustomersIndex::class)
             ->assertSee('Customers')
-            ->assertSee('Atlas Health Group')
+            ->assertSee('Horizon Clinics')
             ->assertSee('Open findings')
             ->assertDontSee('Open issues')
             ->assertSee(__('operator.portfolio.new_customer_setup'))
-            ->assertSee(route('demo.setup', ['entry' => 'customer'], absolute: false));
+            ->assertSee(route('operator.setup', ['entry' => 'customer'], absolute: false));
     }
 
     public function test_customers_index_search_and_filters_compose(): void
     {
-        DemoState::addCustomer([
-            'id' => 'c-filter-demo',
+        Customer::factory()->create([
             'name' => 'Horizon Clinics',
             'legal_name' => 'Horizon Clinics Ltd',
-            'type' => 'company',
-            'status' => 'active',
+            'type' => CustomerType::Company,
+            'status' => CustomerStatus::Active,
             'industry' => 'dental',
             'hq_country' => 'DE',
             'hq_city' => 'Berlin',
             'services' => ['seo'],
-            'responsible_user_ids' => ['u-selin'],
             'primary_email' => 'hello@horizon.example',
-            'brands_count' => 0,
-            'open_findings' => 0,
-            'open_tasks' => 0,
         ]);
+        Customer::factory()->create(['name' => 'Other Client', 'industry' => 'healthcare']);
 
         Livewire::test(CustomersIndex::class)
             ->set('search', 'Horizon')
             ->assertSee('Horizon Clinics')
-            ->assertDontSee('Atlas Health Group')
+            ->assertDontSee('Other Client')
             ->call('clearFilters')
             ->set('industry', 'dental')
             ->assertSee('Horizon Clinics')
             ->set('hq_country', 'TR')
-            ->assertSee('No customers match these filters');
+            ->assertSee(__('operator.forms.no_match_filters'));
     }
 
-    public function test_customer_create_validates_and_persists_demo_state(): void
+    public function test_customer_create_validates_and_persists_canonical_customer(): void
     {
         Livewire::test(CustomerCreate::class)
             ->set('name', '')
@@ -100,32 +100,32 @@ class CustomerFoundationUxTest extends TestCase
             ->call('save')
             ->assertHasErrors(['primary_email'])
             ->set('primary_email', 'ops@nova.example')
-            ->set('responsible_user_ids', ['u-ayse'])
+            ->set('responsible_user_ids', [(string) $this->user->id])
             ->call('save')
             ->assertHasNoErrors()
             ->assertRedirect();
 
-        $created = collect(DemoState::all()['customers'])->firstWhere('name', 'Nova Health Group');
+        $created = Customer::query()->where('name', 'Nova Health Group')->first();
         $this->assertNotNull($created);
-        $this->assertSame('healthcare', $created['industry']);
-        $this->assertSame('TR', $created['hq_country']);
-        $this->assertSame(['meta_ads', 'seo'], $created['services']);
-        $this->assertSame(['u-ayse'], $created['responsible_user_ids']);
+        $this->assertSame('healthcare', $created->industry);
+        $this->assertSame('TR', $created->hq_country);
+        $this->assertSame(['meta_ads', 'seo'], $created->services);
+        $this->assertTrue($created->responsibleUsers()->whereKey($this->user->id)->exists());
     }
 
     public function test_customer_detail_workspace_tabs_and_contacts(): void
     {
-        Livewire::test(CustomerDetail::class, ['customerId' => DemoCatalog::CUSTOMER_ID])
-            ->assertSee('Atlas Health Group')
-            ->assertSee('Needs attention')
+        $customer = Customer::factory()->create(['name' => 'Nova Health Group']);
+
+        Livewire::test(CustomerDetail::class, ['customerId' => (string) $customer->id])
+            ->assertSee('Nova Health Group')
             ->assertSee(__('operator.portfolio.account_owner_responsible'))
             ->call('setTab', 'relationship')
-            ->assertSee('Dr. Elif Arslan')
             ->assertSee(__('operator.service_scope.title'))
             ->call('openContactForm')
             ->set('contact_name', 'Yeni Kişi')
             ->set('contact_role', 'marketing')
-            ->set('contact_email', 'yeni@atlashealth.example')
+            ->set('contact_email', 'yeni@nova.example')
             ->call('saveContact')
             ->assertSee('Yeni Kişi')
             ->assertSee(__('operator.customer.actions.open_files'))
@@ -135,55 +135,71 @@ class CustomerFoundationUxTest extends TestCase
 
     public function test_customer_directory_cta_is_localized(): void
     {
+        $customer = Customer::factory()->create();
         app()->setLocale('tr');
 
         Livewire::test(CustomersIndex::class)
             ->assertSee(__('operator.portfolio.new_customer_setup'))
-            ->assertSee(route('demo.setup', ['entry' => 'customer'], absolute: false));
+            ->assertSee(route('operator.setup', ['entry' => 'customer'], absolute: false));
 
-        Livewire::test(CustomerDetail::class, ['customerId' => DemoCatalog::CUSTOMER_ID])
+        Livewire::test(CustomerDetail::class, ['customerId' => (string) $customer->id])
             ->assertSee(__('operator.portfolio.account_owner_responsible'));
     }
 
     public function test_customer_edit_prefills_and_saves(): void
     {
-        Livewire::test(CustomerEdit::class, ['customerId' => DemoCatalog::CUSTOMER_ID])
-            ->assertSet('name', 'Atlas Health Group')
+        $customer = Customer::factory()->create([
+            'name' => 'Nova Health Group',
+            'hq_country' => 'TR',
+            'hq_city' => 'Istanbul',
+            'services' => ['seo'],
+        ]);
+
+        Livewire::test(CustomerEdit::class, ['customerId' => (string) $customer->id])
+            ->assertSet('name', 'Nova Health Group')
             ->assertSet('hq_country', 'TR')
             ->set('hq_city', 'Ankara')
             ->set('services', ['google_ads', 'local_seo'])
             ->call('save')
             ->assertRedirect();
 
-        $customer = DemoState::findCustomer(DemoCatalog::CUSTOMER_ID);
-        $this->assertSame(['google_ads', 'local_seo'], $customer['services'] ?? null);
+        $customer->refresh();
+        $this->assertSame(['google_ads', 'local_seo'], $customer->services);
+        $this->assertSame('Ankara', $customer->hq_city);
     }
 
     public function test_brand_create_uses_option_catalogs(): void
     {
-        Livewire::test(BrandCreate::class, ['customerId' => DemoCatalog::CUSTOMER_ID])
-            ->assertSee('Atlas Health Group')
+        $customer = Customer::factory()->create(['name' => 'Nova Health Group']);
+
+        Livewire::test(BrandCreate::class, ['customerId' => (string) $customer->id])
+            ->assertSee('Nova Health Group')
             ->assertSee('Customer:')
-            ->set('name', 'Atlas Implant EU')
+            ->set('name', 'Nova Implant EU')
             ->set('sector', 'dental')
             ->set('primary_country', 'DE')
             ->set('target_markets', ['DE', 'NL'])
             ->set('languages', ['de', 'en'])
-            ->set('responsible_user_ids', ['u-selin'])
+            ->set('responsible_user_ids', [(string) $this->user->id])
             ->call('save')
             ->assertHasNoErrors()
             ->assertRedirect();
 
-        $brand = collect(DemoState::all()['brands'])->firstWhere('name', 'Atlas Implant EU');
-        $this->assertSame('dental', $brand['sector']);
-        $this->assertSame('DE', $brand['primary_country']);
-        $this->assertSame(['DE', 'NL'], $brand['target_markets']);
-        $this->assertSame(['de', 'en'], $brand['languages']);
+        $brand = Brand::query()->where('name', 'Nova Implant EU')->first();
+        $this->assertNotNull($brand);
+        $this->assertSame($customer->id, $brand->customer_id);
+        $this->assertSame('dental', $brand->sector);
+        $this->assertSame('DE', $brand->primary_country);
+        $this->assertSame(['DE', 'NL'], $brand->target_markets);
+        $this->assertSame(['de', 'en'], $brand->languages);
     }
 
     public function test_asset_create_shows_website_fields_conditionally_and_hides_module_id(): void
     {
-        Livewire::test(AssetCreate::class, ['brandId' => DemoCatalog::BRAND_ID])
+        $customer = Customer::factory()->create();
+        $brand = Brand::factory()->create(['customer_id' => $customer->id]);
+
+        Livewire::test(AssetCreate::class, ['brandId' => (string) $brand->id])
             ->assertSee('Brand:')
             ->assertDontSee('module_id')
             ->assertDontSee('Linked module')
@@ -193,8 +209,8 @@ class CustomerFoundationUxTest extends TestCase
             ->set('type', 'meta_ads')
             ->assertDontSee('Website details')
             ->set('type', 'website')
-            ->set('name', 'Atlas Dental Website 2')
-            ->set('domain', 'atlasdental.example')
+            ->set('name', 'Nova Website 2')
+            ->set('domain', 'nova.example')
             ->set('cms', 'wordpress')
             ->set('site_type', 'lead_generation')
             ->set('languages', ['tr', 'en'])
@@ -202,15 +218,18 @@ class CustomerFoundationUxTest extends TestCase
             ->call('save')
             ->assertHasNoErrors();
 
-        $asset = collect(DemoState::all()['demo_assets'])->firstWhere('name', 'Atlas Dental Website 2');
-        $this->assertSame('wordpress', $asset['cms']);
-        $this->assertSame('website', $asset['module_id']);
-        $this->assertSame(['tr', 'en'], $asset['languages']);
+        $asset = DigitalAsset::query()->where('name', 'Nova Website 2')->first();
+        $this->assertNotNull($asset);
+        $this->assertSame($brand->id, $asset->brand_id);
+        $this->assertSame('wordpress', $asset->cms);
+        $this->assertSame('website', $asset->type);
+        $this->assertSame(['tr', 'en'], $asset->languages);
     }
 
     public function test_customer_model_supports_profile_fields_and_responsible_users(): void
     {
         $user = User::factory()->create(['name' => 'Ops Lead']);
+        $user->assignRole(Roles::TEAM_MEMBER);
 
         $customer = Customer::factory()->create([
             'name' => 'Canonical Client',
@@ -242,12 +261,74 @@ class CustomerFoundationUxTest extends TestCase
 
     public function test_customer_foundation_routes_resolve(): void
     {
-        $this->get(route('demo.customers'))->assertOk();
-        $this->get(route('demo.customer.create'))->assertOk()->assertSee(__('operator.portfolio.add_customer'));
-        $this->get(route('demo.customer', ['customerId' => DemoCatalog::CUSTOMER_ID]))->assertOk();
-        $this->get(route('demo.customer.edit', ['customerId' => DemoCatalog::CUSTOMER_ID]))->assertOk();
-        $this->get(route('demo.brand.create', ['customerId' => DemoCatalog::CUSTOMER_ID]))->assertOk();
-        $this->get(route('demo.brand.edit', ['brandId' => DemoCatalog::BRAND_ID]))->assertOk();
-        $this->get(route('demo.asset.create', ['brandId' => DemoCatalog::BRAND_ID]))->assertOk()->assertSee('Add digital asset');
+        $customer = Customer::factory()->create();
+        $brand = Brand::factory()->create(['customer_id' => $customer->id]);
+
+        $this->get(route('operator.customers'))->assertOk();
+        $this->get(route('operator.customer.create'))->assertOk()->assertSee(__('operator.portfolio.add_customer'));
+        $this->get(route('operator.customer', ['customerId' => $customer->id]))->assertOk();
+        $this->get(route('operator.customer.edit', ['customerId' => $customer->id]))->assertOk();
+        $this->get(route('operator.brand.create', ['customerId' => $customer->id]))->assertOk();
+        $this->get(route('operator.brand.edit', ['brandId' => $brand->id]))->assertOk();
+        $this->get(route('operator.asset.create', ['brandId' => $brand->id]))->assertOk()->assertSee('Add digital asset');
+        $this->get(route('operator.customer', ['customerId' => 'c-demo-atlas']))->assertNotFound();
+        $this->get(route('operator.brand', ['brand' => 'atlas-dental']))->assertNotFound();
+    }
+
+    public function test_hq_city_clears_when_country_changes_to_incompatible_catalog(): void
+    {
+        Livewire::test(CustomerCreate::class)
+            ->set('hq_country', 'TR')
+            ->set('hq_city', 'Istanbul')
+            ->assertSet('hq_city', 'Istanbul')
+            ->set('hq_country', 'DE')
+            ->assertSet('hq_city', '')
+            ->assertSet('hq_city_other', '');
+    }
+
+    public function test_hq_city_keeps_compatible_catalog_value_when_country_unchanged(): void
+    {
+        Livewire::test(CustomerCreate::class)
+            ->set('hq_country', 'TR')
+            ->set('hq_city', 'Istanbul')
+            ->set('hq_country', 'TR')
+            ->assertSet('hq_city', 'Istanbul');
+    }
+
+    public function test_hq_city_other_persists_manual_entry_not_other_token(): void
+    {
+        Livewire::test(CustomerCreate::class)
+            ->set('name', 'City Other Client')
+            ->set('type', 'company')
+            ->set('status', 'active')
+            ->set('hq_country', 'TR')
+            ->set('hq_city', CityOptions::OTHER)
+            ->set('hq_city_other', 'Canakkale')
+            ->call('save')
+            ->assertHasNoErrors()
+            ->assertRedirect();
+
+        $created = Customer::query()->where('name', 'City Other Client')->first();
+        $this->assertNotNull($created);
+        $this->assertSame('Canakkale', $created->hq_city);
+        $this->assertNotSame(CityOptions::OTHER, $created->hq_city);
+    }
+
+    public function test_specialist_open_url_includes_canonical_asset_id(): void
+    {
+        $customer = Customer::factory()->create();
+        $brand = Brand::factory()->create(['customer_id' => $customer->id]);
+
+        foreach (['website', 'google_business_profile', 'google_ads', 'meta_ads', 'ga4', 'gsc'] as $type) {
+            $asset = DigitalAsset::factory()->create([
+                'brand_id' => $brand->id,
+                'type' => $type,
+                'name' => 'Open '.$type,
+            ]);
+            $presented = OperatorPortfolioPresenter::asset($asset->fresh(['brand.customer']));
+            $this->assertSame(['assetId' => $asset->id], $presented['route_params']);
+            $this->assertStringContainsString('/'.$asset->id, parse_url($presented['url'], PHP_URL_PATH) ?: '');
+            $this->assertDoesNotMatchRegularExpression('#/assets/(website|gbp|google-ads|meta|analytics|search-console)$#', parse_url($presented['url'], PHP_URL_PATH) ?: '');
+        }
     }
 }

@@ -2,7 +2,10 @@
 
 namespace App\Livewire\Demo\Portfolio;
 
-use App\Support\Demo\DemoCatalog;
+use App\Models\Brand;
+use App\Models\Customer;
+use App\Services\Operator\OperatorPortfolioPresenter;
+use App\Services\Operator\OperatorUserDirectory;
 use App\Support\Demo\DemoState;
 use App\Support\DigitalAssetTypes;
 use App\Support\Options\CountryOptions;
@@ -90,69 +93,10 @@ class BrandsIndex extends Component
      */
     protected function enrichedBrands(): array
     {
-        $customers = collect(DemoState::all()['customers'] ?? [])->keyBy('id');
-        $team = collect(DemoCatalog::teamMembers())->keyBy('id');
-        $allAssets = array_merge(DemoCatalog::assets(), DemoState::all()['demo_assets'] ?? []);
-
-        return collect(DemoState::all()['brands'] ?? [])
-            ->map(function (array $brand) use ($customers, $team, $allAssets): array {
-                $brand = DemoState::normalizeBrand($brand);
-                $customer = $customers[$brand['customer_id'] ?? ''] ?? DemoCatalog::customer();
-                $brandAssets = collect($allAssets)->filter(
-                    fn (array $asset): bool => ($asset['brand_id'] ?? '') === ($brand['id'] ?? '')
-                        || (($brand['id'] ?? '') === DemoCatalog::BRAND_ID && ($asset['brand_id'] ?? DemoCatalog::BRAND_ID) === DemoCatalog::BRAND_ID)
-                );
-                if (($brand['id'] ?? '') === DemoCatalog::BRAND_ID && $brandAssets->isEmpty()) {
-                    $brandAssets = collect(DemoCatalog::assets());
-                }
-
-                $connected = $brandAssets->filter(function (array $asset): bool {
-                    $health = $asset['health'] ?? '';
-                    $provenance = strtolower((string) ($asset['provenance'] ?? ''));
-
-                    return $health !== 'warning' && (str_contains($provenance, 'connected') || ($asset['health'] ?? '') === 'healthy' || ($asset['health'] ?? '') === 'needs_attention');
-                })->count();
-
-                $openFindings = (int) ($brand['open_findings'] ?? $brandAssets->sum(fn (array $a): int => (int) ($a['open_findings'] ?? 0)));
-                $openTasks = (int) ($brand['open_tasks'] ?? 0);
-                $overdue = (int) ($brand['overdue_tasks'] ?? 0);
-                $completed = (int) ($brand['context_completed'] ?? 0);
-                $total = (int) ($brand['context_total'] ?? 8);
-                if (($brand['id'] ?? '') === DemoCatalog::BRAND_ID) {
-                    $ctx = DemoCatalog::brandBusinessContext();
-                    $completed = (int) $ctx['completed'];
-                    $total = (int) $ctx['total'];
-                    $openFindings = max($openFindings, (int) ($brand['open_findings'] ?? 4));
-                }
-
-                $needsAttention = $openFindings > 0 || $overdue > 0 || ($brand['health'] ?? '') === 'needs_attention';
-
-                $brand['customer_name'] = $customer['name'] ?? '—';
-                $brand['sector_label'] = IndustryOptions::label($brand['sector'] ?? null);
-                $brand['primary_market_label'] = CountryOptions::label($brand['primary_country'] ?? null);
-                $brand['extra_markets'] = max(0, count($brand['target_markets'] ?? []) - 1);
-                $brand['assets_count'] = max((int) ($brand['assets_count'] ?? 0), $brandAssets->count());
-                $brand['connected_assets'] = (int) ($brand['connected_assets'] ?? $connected);
-                $brand['open_findings'] = $openFindings;
-                $brand['open_tasks'] = $openTasks;
-                $brand['overdue_tasks'] = $overdue;
-                $brand['context_completed'] = $completed;
-                $brand['context_total'] = $total;
-                $brand['context_ratio'] = $total > 0 ? $completed / $total : 0;
-                $brand['needs_attention'] = $needsAttention;
-                $brand['asset_types'] = $brandAssets->pluck('type')->unique()->values()->all();
-                $brand['responsible'] = collect($brand['responsible_user_ids'] ?? [])
-                    ->map(fn (string $id) => $team[$id] ?? null)
-                    ->filter()
-                    ->values()
-                    ->all();
-                $brand['initials'] = collect(explode(' ', (string) ($brand['name'] ?? '')))
-                    ->map(fn (string $part): string => mb_substr($part, 0, 1))
-                    ->take(2)
-                    ->implode('');
-
-                return $brand;
-            })
+        return Brand::query()
+            ->with(['customer', 'responsibleUsers', 'digitalAssets', 'intelligenceContext'])
+            ->get()
+            ->map(fn (Brand $brand): array => OperatorPortfolioPresenter::brand($brand))
             ->values()
             ->all();
     }
@@ -217,13 +161,6 @@ class BrandsIndex extends Component
         }, SORT_REGULAR, $dir === 'desc')->values();
 
         $all = collect($this->enrichedBrands());
-        $assetTypeOptions = DigitalAssetTypes::options() + [
-            'ga4' => 'Google Analytics',
-            'gsc' => 'Search Console',
-            'gbp' => 'Google Business Profile',
-            'domain' => 'Domain',
-            'hosting' => 'Hosting',
-        ];
 
         return view('livewire.demo.portfolio.brands-index', [
             'brands' => $rows->all(),
@@ -235,15 +172,13 @@ class BrandsIndex extends Component
                 $all->filter(fn (array $b): bool => (bool) ($b['needs_attention'] ?? false))->count()
             ),
             'hasFilters' => $this->hasActiveFilters(),
-            'customerOptions' => collect(DemoState::all()['customers'] ?? [])
-                ->mapWithKeys(fn (array $c): array => [($c['id'] ?? '') => ($c['name'] ?? '')])
-                ->all(),
+            'customerOptions' => Customer::query()->orderBy('name')->pluck('name', 'id')->mapWithKeys(
+                fn ($name, $id): array => [(string) $id => (string) $name]
+            )->all(),
             'sectorOptions' => IndustryOptions::options(),
             'countryOptions' => CountryOptions::options(),
-            'assetTypeOptions' => $assetTypeOptions,
-            'teamOptions' => collect(DemoCatalog::teamMembers())
-                ->mapWithKeys(fn (array $m): array => [$m['id'] => $m['name']])
-                ->all(),
+            'assetTypeOptions' => DigitalAssetTypes::options(),
+            'teamOptions' => OperatorUserDirectory::options(),
             'flash' => DemoState::pullFlash(),
         ]);
     }

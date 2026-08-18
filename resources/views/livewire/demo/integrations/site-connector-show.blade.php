@@ -28,8 +28,8 @@
             <button type="button" wire:click="downloadDemoPackage" class="inline-flex rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-white hover:bg-brand-600">
                 {{ __('operator.site_connectors.download_demo') }}
             </button>
-            <a href="{{ route('demo.integrations.site-connectors') }}" wire:navigate class="inline-flex rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">{{ __('operator.site_connectors.catalog') }}</a>
-            <a href="{{ route('demo.integrations') }}" wire:navigate class="inline-flex rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">{{ __('operator.nav.integrations') }}</a>
+            <a href="{{ route('operator.integrations.site-connectors') }}" wire:navigate class="inline-flex rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">{{ __('operator.site_connectors.catalog') }}</a>
+            <a href="{{ route('operator.integrations') }}" wire:navigate class="inline-flex rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">{{ __('operator.nav.integrations') }}</a>
         </div>
     </div>
 
@@ -138,7 +138,7 @@
                         <tr class="border-b border-gray-50 dark:border-gray-800/60">
                             <td class="px-4 py-3">
                                 <p class="font-medium text-gray-800 dark:text-white/90">{{ $site['site'] }}</p>
-                                <a href="{{ route('demo.website', ['assetId' => $site['asset_id']]) }}" wire:navigate class="text-xs text-brand-600 dark:text-brand-400">Open Website asset</a>
+                                <a href="{{ route('operator.website', ['assetId' => $site['asset_id']]) }}" wire:navigate class="text-xs text-brand-600 dark:text-brand-400">{{ __('operator.chrome.open_website_asset') }}</a>
                             </td>
                             <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ $site['cms'] }}</td>
                             <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ $site['brand'] }}</td>

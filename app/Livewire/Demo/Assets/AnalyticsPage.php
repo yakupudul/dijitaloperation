@@ -3,9 +3,13 @@
 namespace App\Livewire\Demo\Assets;
 
 use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
-use App\Support\Demo\DemoCatalog;
+use App\Livewire\Demo\Concerns\ResolvesCanonicalOperatorAsset;
+use App\Models\DigitalAsset;
+use App\Services\DataPool\Freshness\StartIncrementalCollectionService;
+use App\Services\Ga4\Ga4SpecialistBindingResolver;
+use App\Services\Ga4\Ga4SpecialistReadService;
+use App\Services\Ga4\Support\Ga4BindingMode;
 use App\Support\Demo\DemoState;
-use App\Support\Demo\Ga4WorkspaceFixtures;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -17,8 +21,9 @@ use Livewire\Component;
 class AnalyticsPage extends Component
 {
     use InteractsWithDemoPeriod;
+    use ResolvesCanonicalOperatorAsset;
 
-    public string $assetId = DemoCatalog::GA4_ASSET_ID;
+    public string $assetId = '';
 
     #[Url]
     public string $tab = 'overview';
@@ -71,7 +76,7 @@ class AnalyticsPage extends Component
 
     public function mount(?string $assetId = null): void
     {
-        $this->assetId = $assetId ?: DemoCatalog::GA4_ASSET_ID;
+        $this->bindCanonicalAsset($assetId, ['ga4', 'analytics', 'google_analytics']);
         $this->mountPeriod();
         $this->normalizeTab();
     }
@@ -149,14 +154,45 @@ class AnalyticsPage extends Component
         $this->action = null;
     }
 
+    /**
+     * System-callable incremental refresh trigger — never calls the GA4 API directly
+     * from this request; delegates to the async collection pipeline when a real
+     * property is bound, otherwise flashes the Demo-only notice.
+     */
     public function refreshData(): void
     {
-        DemoState::flash('GA4 data refresh queued (Demo Mode · no live Analytics Data API expansion).', 'info');
+        $binding = app(Ga4SpecialistBindingResolver::class)->resolve($this->assetId);
+
+        if ($binding->mode !== Ga4BindingMode::RealBound) {
+            DemoState::flash(__('operator.flash.ga4_refresh_unconfigured'), 'info');
+
+            return;
+        }
+
+        $asset = DigitalAsset::query()->find($binding->digitalAssetId);
+        if (! $asset instanceof DigitalAsset) {
+            DemoState::flash(__('operator.flash.ga4_refresh_missing_asset'), 'warning');
+
+            return;
+        }
+
+        $result = app(StartIncrementalCollectionService::class)->startForBindingIds(
+            [$binding->coreAssetBindingId],
+            auth()->user(),
+            ['GA4'],
+        );
+
+        DemoState::flash(match ($result->outcome) {
+            'started' => 'GA4 incremental collection started in the background.',
+            'active_equivalent' => 'An equivalent GA4 incremental collection is already running.',
+            'data_current' => 'GA4 data is current — no incremental collection is due.',
+            default => $result->message,
+        }, $result->outcome === 'started' ? 'success' : 'info');
     }
 
     public function runAnalysis(): void
     {
-        DemoState::flash('Measurement analysis completed (Demo Mode · deterministic fixtures).', 'info');
+        DemoState::flash(__('operator.flash.ga4_analysis_unavailable'), 'info');
         $this->tab = 'overview';
     }
 
@@ -178,7 +214,7 @@ class AnalyticsPage extends Component
     public function render(): View
     {
         $this->normalizeTab();
-        $data = Ga4WorkspaceFixtures::workspace($this->period, $this->periodStart, $this->periodEnd);
+        $data = app(Ga4SpecialistReadService::class)->workspace($this->assetId, $this->period, $this->periodStart, $this->periodEnd);
 
         $selectedAttention = $this->attention
             ? collect($data['needs_attention'])->firstWhere('id', $this->attention)
@@ -206,8 +242,19 @@ class AnalyticsPage extends Component
 
         $trend = $data['performance_trend'];
 
+        // Never render a Business actions series alongside real Sessions data when the
+        // former is unavailable — an all-zero line would look like a measured 0, and
+        // Demo+Real must never share the same chart.
+        $businessActionsSeries = $trend['business_actions'] ?? $trend['actions'] ?? [];
+        $series = [
+            ['name' => 'Sessions', 'data' => $trend['sessions'] ?? $trend['values'] ?? []],
+        ];
+        if ($businessActionsSeries !== []) {
+            $series[] = ['name' => 'Business actions', 'data' => $businessActionsSeries];
+        }
+
         return view('livewire.demo.analytics.overview', [
-            'asset' => DemoCatalog::asset($this->assetId),
+            'asset' => $this->presentCanonicalAsset(),
             'data' => $data,
             'identity' => $data['identity'],
             'selectedAttention' => $selectedAttention,
@@ -219,19 +266,18 @@ class AnalyticsPage extends Component
             'showPeriodBar' => in_array($this->tab, ['overview', 'measurement', 'acquisition', 'behavior', 'journeys'], true),
             'performanceChartOptions' => [
                 'chart' => ['type' => 'line', 'height' => 220, 'toolbar' => ['show' => false]],
-                'series' => [
-                    ['name' => 'Sessions', 'data' => $trend['sessions'] ?? $trend['values'] ?? []],
-                    ['name' => 'Business actions', 'data' => $trend['business_actions'] ?? $trend['actions'] ?? []],
-                ],
+                'series' => $series,
                 'xaxis' => ['categories' => $trend['labels'] ?? []],
                 'stroke' => ['curve' => 'smooth', 'width' => 2],
                 'dataLabels' => ['enabled' => false],
                 'colors' => ['#ea580c', '#059669'],
                 'legend' => ['position' => 'top'],
-                'yaxis' => [
-                    ['title' => ['text' => 'Sessions']],
-                    ['opposite' => true, 'title' => ['text' => 'Actions']],
-                ],
+                'yaxis' => count($series) > 1
+                    ? [
+                        ['title' => ['text' => 'Sessions']],
+                        ['opposite' => true, 'title' => ['text' => 'Actions']],
+                    ]
+                    : [['title' => ['text' => 'Sessions']]],
             ],
             'flash' => DemoState::pullFlash(),
         ]);

@@ -93,7 +93,7 @@
                 </table>
             </div>
             <p class="mt-2 text-xs text-gray-400">External GBP service edits remain disabled. Create internal Tasks only.</p>
-            <a href="{{ route('demo.brand', ['brand' => $identity['brand_id'], 'tab' => 'discovery', 'discovery' => 'candidates']) }}" wire:navigate class="mt-2 inline-block text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">
+            <a href="{{ route('operator.brand', ['brand' => $identity['brand_id'], 'tab' => 'discovery', 'discovery' => 'candidates']) }}" wire:navigate class="mt-2 inline-block text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">
                 Review Offering candidates in Public Discovery →
             </a>
         </section>
@@ -146,7 +146,7 @@
                 @endforeach
             </ul>
             <p class="mt-3 text-xs text-gray-500">Trivial formatting differences are normalized before mismatch. No percentage score is assigned.</p>
-            <a href="{{ route('demo.brand', ['brand' => $identity['brand_id'], 'tab' => 'discovery', 'discovery' => 'conflicts']) }}" wire:navigate class="mt-3 inline-block text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">
+            <a href="{{ route('operator.brand', ['brand' => $identity['brand_id'], 'tab' => 'discovery', 'discovery' => 'conflicts']) }}" wire:navigate class="mt-3 inline-block text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">
                 Review in Public Discovery →
             </a>
 

@@ -2,21 +2,28 @@
 
 namespace App\Services\Integrations\Meta;
 
+use App\Enums\Observability\ProviderQuotaVisibility;
+use App\Enums\Observability\ProviderRequestOutcome;
 use App\Models\CoreIntegration;
+use App\Services\Observability\ProviderApiTelemetryService;
 use App\Support\Integrations\Meta\MetaApiConfig;
+use App\Support\Integrations\ProviderRegistry;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Throwable;
 
 /**
- * Read-only Meta Graph API client.
- * Only GET is exposed. Base host is fixed to graph.facebook.com.
+ * Read-only Meta Graph / Marketing API client.
+ *
+ * GET is the primary surface. POST is exposed only for transport-level
+ * creation of read-only asynchronous Insights report jobs — never for
+ * advertising configuration mutations.
  */
 class MetaApiClient
 {
     public function __construct(
-        private readonly MetaCredentialResolver $resolver,
+        private readonly MetaCredentialBroker $broker,
     ) {}
 
     /**
@@ -27,8 +34,28 @@ class MetaApiClient
      */
     public function get(CoreIntegration $integration, string $path, array $query = []): array
     {
-        $token = $this->resolver->accessToken($integration);
-        if ($token === null) {
+        return $this->request($integration, 'GET', $path, $query);
+    }
+
+    /**
+     * POST a relative Graph path for read-only async Insights report creation only.
+     *
+     * @param  array<string, scalar|null>  $query
+     * @return array<string, mixed>
+     */
+    public function post(CoreIntegration $integration, string $path, array $query = []): array
+    {
+        return $this->request($integration, 'POST', $path, $query);
+    }
+
+    /**
+     * @param  array<string, scalar|null>  $query
+     * @return array<string, mixed>
+     */
+    private function request(CoreIntegration $integration, string $method, string $path, array $query = []): array
+    {
+        $token = $this->broker->accessTokenFor($integration)->reveal();
+        if ($token === '') {
             throw new MetaException(
                 'Meta access token is not configured.',
                 kind: MetaException::KIND_CONFIG,
@@ -44,23 +71,33 @@ class MetaApiClient
         }
 
         $url = MetaApiConfig::graphBaseUrl().'/'.$path;
+        $query = $this->withAppSecretProof($query, $token, $integration);
+        $filtered = array_filter(
+            $query,
+            static fn (mixed $value): bool => $value !== null && $value !== '',
+        );
 
         try {
-            $response = Http::timeout(MetaApiConfig::timeoutSeconds())
+            $pending = Http::timeout(MetaApiConfig::timeoutSeconds())
                 ->connectTimeout(5)
                 ->withToken($token)
-                ->acceptJson()
-                ->get($url, array_filter(
-                    $query,
-                    static fn (mixed $value): bool => $value !== null && $value !== '',
-                ));
+                ->acceptJson();
+
+            $started = microtime(true);
+            $response = match (strtoupper($method)) {
+                'POST' => $pending->asForm()->post($url, $filtered),
+                default => $pending->get($url, $filtered),
+            };
+            $this->recordTelemetry($integration, $response->status(), (int) round((microtime(true) - $started) * 1000));
         } catch (ConnectionException $exception) {
+            $this->recordTelemetry($integration, null, null, timeout: false, network: true);
             throw new MetaException(
                 'Meta connection transport error.',
                 kind: MetaException::KIND_TRANSPORT,
                 previous: $exception,
             );
         } catch (Throwable $exception) {
+            $this->recordTelemetry($integration, null, null, timeout: false, network: true);
             throw new MetaException(
                 'Meta connection transport error.',
                 kind: MetaException::KIND_TRANSPORT,
@@ -71,6 +108,33 @@ class MetaApiClient
         return $this->decodeOrThrow($response);
     }
 
+    private function recordTelemetry(
+        CoreIntegration $integration,
+        ?int $status,
+        ?int $durationMs,
+        bool $timeout = false,
+        bool $network = false,
+    ): void {
+        try {
+            /** @var ProviderApiTelemetryService $telemetry */
+            $telemetry = app(ProviderApiTelemetryService::class);
+            $outcome = $telemetry->classifyHttpStatus($status, $timeout, $network);
+            $telemetry->recordAttempt([
+                'provider' => ProviderRegistry::META,
+                'operation' => 'http',
+                'outcome' => $outcome,
+                'duration_ms' => $durationMs ?? 0,
+                'http_status' => $status,
+                'integration_id' => (int) $integration->id,
+                'quota_visibility' => $outcome === ProviderRequestOutcome::RateLimit
+                    ? ProviderQuotaVisibility::RateLimitSignalOnly
+                    : ProviderQuotaVisibility::NotExposed,
+            ]);
+        } catch (Throwable) {
+            // Telemetry must never break provider calls.
+        }
+    }
+
     /**
      * Follow an absolute Graph paging URL after host validation.
      * Token is sent via Authorization header — never logged.
@@ -79,8 +143,8 @@ class MetaApiClient
      */
     public function getAbsolute(CoreIntegration $integration, string $absoluteUrl): array
     {
-        $token = $this->resolver->accessToken($integration);
-        if ($token === null) {
+        $token = $this->broker->accessTokenFor($integration)->reveal();
+        if ($token === '') {
             throw new MetaException(
                 'Meta access token is not configured.',
                 kind: MetaException::KIND_CONFIG,
@@ -108,6 +172,8 @@ class MetaApiClient
             unset($query['access_token']);
         }
 
+        $query = $this->withAppSecretProof($query, $token, $integration);
+
         $path = (string) ($parts['path'] ?? '/');
         $rebuild = MetaApiConfig::GRAPH_SCHEME.'://'.MetaApiConfig::GRAPH_HOST.$path;
 
@@ -126,6 +192,29 @@ class MetaApiClient
         }
 
         return $this->decodeOrThrow($response);
+    }
+
+    /**
+     * Attach appsecret_proof when moxdop.meta.use_appsecret_proof is enabled.
+     * Never logs the access token used to compute the proof.
+     *
+     * @param  array<string, mixed>  $query
+     * @return array<string, mixed>
+     */
+    private function withAppSecretProof(array $query, string $token, CoreIntegration $integration): array
+    {
+        if (! (bool) config('moxdop.meta.use_appsecret_proof', true)) {
+            return $query;
+        }
+
+        $proof = app(MetaCredentialResolver::class)->appSecretProof($integration, $token);
+        if ($proof === null) {
+            return $query;
+        }
+
+        $query['appsecret_proof'] = $proof;
+
+        return $query;
     }
 
     /**

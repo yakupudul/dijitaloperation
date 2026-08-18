@@ -2,7 +2,6 @@
 
 namespace App\Livewire\Demo\Infrastructure;
 
-use App\Support\Demo\DemoCatalog;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -12,16 +11,9 @@ use Livewire\Component;
 #[Title('Domain')]
 class DomainPage extends Component
 {
-    public string $assetId = DemoCatalog::DOMAIN_ASSET_ID;
-
     public function mount(?string $assetId = null): void
     {
-        $this->assetId = $assetId ?: DemoCatalog::DOMAIN_ASSET_ID;
-
-        $this->redirect(route('demo.website', [
-            'assetId' => DemoCatalog::WEBSITE_ASSET_ID,
-            'tab' => 'infrastructure',
-        ]), navigate: true);
+        $this->redirect(route('operator.assets'));
     }
 
     public function render(): View

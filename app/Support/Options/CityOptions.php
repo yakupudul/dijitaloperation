@@ -4,10 +4,12 @@ namespace App\Support\Options;
 
 /**
  * Lightweight city suggestions keyed by ISO country code.
- * Not exhaustive — combobox allows custom city entry when needed.
+ * Not exhaustive — unknown cities use an explicit Other escape, not silent free text.
  */
 final class CityOptions
 {
+    public const string OTHER = '__other__';
+
     /**
      * @return array<string, list<string>>
      */
@@ -42,14 +44,25 @@ final class CityOptions
     }
 
     /**
-     * Options map for select components (value === label).
+     * Options map for select components (value === label), plus an explicit Other escape.
      *
      * @return array<string, string>
      */
     public static function optionsForCountry(?string $countryCode): array
     {
-        $cities = self::forCountry($countryCode);
+        if ($countryCode === null || $countryCode === '') {
+            return [];
+        }
 
-        return array_combine($cities, $cities) ?: [];
+        $cities = self::forCountry($countryCode);
+        $options = $cities === [] ? [] : (array_combine($cities, $cities) ?: []);
+        $options[self::OTHER] = __('operator.forms.city_other');
+
+        return $options;
+    }
+
+    public static function isCatalogCity(?string $countryCode, string $city): bool
+    {
+        return $city !== '' && $city !== self::OTHER && in_array($city, self::forCountry($countryCode), true);
     }
 }

@@ -57,7 +57,7 @@
                     <li class="inline-flex items-center gap-1.5"><span class="inline-block h-2.5 w-2.5 rounded-full {{ $item['color'] }}"></span> {{ $item['band'] }} {{ $item['label'] }}</li>
                 @endforeach
             </ul>
-            <p class="mt-1 text-xs text-gray-400">Map visualizes geographically referenced rank observations. MapLibre/OpenFreeMap do not calculate Google rankings. Observed rank model from Demo local rank tracking.</p>
+            <p class="mt-1 text-xs text-gray-400">Map visualizes geographically referenced rank observations. MapLibre/OpenFreeMap do not calculate Google rankings. Rank observations appear only after a real visibility scan.</p>
         </div>
 
         <aside class="space-y-3 lg:col-span-4 xl:col-span-3">
@@ -165,11 +165,11 @@
     <section class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
         <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Local visibility opportunities</h3>
         <ul class="mt-3 list-disc space-y-1 pl-5 text-sm text-gray-700 dark:text-gray-300">
-            @foreach ($visibility['opportunities'] as $opp)
+            @foreach ($visibility['opportunities'] ?? [] as $opp)
                 <li>{{ $opp }}</li>
             @endforeach
         </ul>
-        <p class="mt-2 text-xs text-gray-400">Evidence · Demo local rank tracking + Brand Context + Website Demo</p>
+        <p class="mt-2 text-xs text-gray-400">Evidence · collected local rank observations + Brand Context + Website</p>
     </section>
 
     <details class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">

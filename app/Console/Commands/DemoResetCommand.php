@@ -2,24 +2,23 @@
 
 namespace App\Console\Commands;
 
+use App\Support\Demo\DemoState;
 use Illuminate\Console\Command;
 
 /**
- * Clears Demo Mode session state for the current process context.
- * Browser operators should use the in-app “Reset Demo Mode” control;
- * this Artisan command is for developers resetting local session stores in tests.
+ * Developer/test helper: forget the process session key used for wizard drafts and flash.
+ * This is not a product “Reset Demo” capability and does not seed Atlas fixtures.
  */
 final class DemoResetCommand extends Command
 {
     protected $signature = 'dop:demo-reset';
 
-    protected $description = 'Reset MoxDOP Demo Mode session state to the canonical Atlas Dental fixtures';
+    protected $description = 'Forget operator session chrome (wizard draft / flash). Does not seed sample data.';
 
     public function handle(): int
     {
-        $this->info('Demo Mode fixtures are session-scoped.');
-        $this->line('Open /app/settings and click “Reset Demo Mode”, or clear the session cookie.');
-        $this->line('Canonical fixtures: Atlas Health Group → Atlas Dental Ankara (no operator DB writes).');
+        DemoState::reset();
+        $this->info('Operator session chrome cleared. /app does not seed sample portfolio data.');
 
         return self::SUCCESS;
     }

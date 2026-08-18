@@ -2,8 +2,12 @@
 
 namespace App\Services\Tasks;
 
+use App\Enums\DomainEventActorKind;
+use App\Enums\DomainEventSubjectKind;
+use App\Enums\DomainEventType;
 use App\Models\Task;
 use App\Models\User;
+use App\Services\DomainEvents\DomainEventEmitter;
 use App\Support\Tasks\TaskOutcomeStatus;
 use App\Support\Tasks\TaskStatus;
 use Illuminate\Support\Facades\Auth;
@@ -17,6 +21,10 @@ use Illuminate\Validation\ValidationException;
  */
 final class TaskLifecycleService
 {
+    public function __construct(
+        private readonly DomainEventEmitter $domainEvents,
+    ) {}
+
     public function start(Task $task, ?User $actor = null): Task
     {
         $this->authorizeActor($actor);
@@ -104,7 +112,25 @@ final class TaskLifecycleService
                 ],
             ])->save();
 
-            return $task->refresh();
+            $fresh = $task->refresh();
+
+            $this->domainEvents->emit([
+                'event_type' => DomainEventType::TaskCompleted,
+                'actor_kind' => DomainEventActorKind::InternalUser,
+                'actor_user_id' => $actor->id,
+                'customer_id' => $fresh->customer_id,
+                'brand_id' => $fresh->brand_id,
+                'digital_asset_id' => $fresh->digital_asset_id,
+                'subject_kind' => DomainEventSubjectKind::Task,
+                'subject_id' => (int) $fresh->id,
+                'payload' => [
+                    'title' => (string) $fresh->title,
+                    'status' => (string) $fresh->status,
+                    'to_status' => TaskStatus::COMPLETED,
+                ],
+            ]);
+
+            return $fresh;
         });
     }
 

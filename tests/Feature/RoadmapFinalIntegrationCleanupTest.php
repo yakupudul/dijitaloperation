@@ -140,7 +140,7 @@ class RoadmapFinalIntegrationCleanupTest extends TestCase
     {
         $this->assertTrue($this->app->isBooted());
         $this->get('/up')->assertOk();
-        $this->get('/system')->assertOk()
+        $this->get('/admin')->assertOk()
             ->assertSeeLivewire(OpsActionOverviewWidget::class);
 
         $customer = Customer::factory()->create();
