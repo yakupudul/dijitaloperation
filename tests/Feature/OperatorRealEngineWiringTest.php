@@ -10,11 +10,15 @@ use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
+use App\Models\Evidence;
+use App\Models\Run;
 use App\Models\User;
+use App\Services\Gbp\GbpOperatorWorkspace;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Sales\IntentSearchConfig;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
+use MoxDop\GoogleBusinessProfile\Collection\GbpLocationBoundCollector;
 use Tests\TestCase;
 
 class OperatorRealEngineWiringTest extends TestCase
@@ -76,6 +80,73 @@ class OperatorRealEngineWiringTest extends TestCase
             'capability' => 'ga4',
             'status' => CoreAssetBinding::STATUS_ACTIVE,
         ]);
+    }
+
+    public function test_gbp_operator_presenter_uses_real_collected_location_evidence(): void
+    {
+        $customer = Customer::factory()->create();
+        $brand = Brand::factory()->create(['customer_id' => $customer->id]);
+        $gbp = DigitalAsset::factory()->create([
+            'brand_id' => $brand->id,
+            'type' => 'google_business_profile',
+            'name' => 'Moximu GBP',
+        ]);
+        $integration = CoreIntegration::factory()->google()->create([
+            'status' => CoreIntegration::STATUS_ACTIVE,
+        ]);
+        $resource = CoreExternalResource::factory()->create([
+            'integration_id' => $integration->id,
+            'provider' => ProviderRegistry::GOOGLE,
+            'resource_type' => GbpLocationBoundCollector::CAPABILITY,
+            'external_id' => 'locations/98765',
+            'display_name' => 'Moximu',
+            'status' => CoreExternalResource::STATUS_AVAILABLE,
+        ]);
+        $binding = CoreAssetBinding::factory()->create([
+            'digital_asset_id' => $gbp->id,
+            'external_resource_id' => $resource->id,
+            'capability' => GbpLocationBoundCollector::CAPABILITY,
+            'status' => CoreAssetBinding::STATUS_ACTIVE,
+        ]);
+        $run = Run::query()->create([
+            'digital_asset_id' => $gbp->id,
+            'core_asset_binding_id' => $binding->id,
+            'module_id' => GbpLocationBoundCollector::MODULE_ID,
+            'status' => 'completed',
+            'started_at' => now()->subMinute(),
+            'finished_at' => now(),
+            'metadata' => ['capability' => GbpLocationBoundCollector::CAPABILITY],
+        ]);
+        Evidence::query()->create([
+            'run_id' => $run->id,
+            'digital_asset_id' => $gbp->id,
+            'source_module' => GbpLocationBoundCollector::MODULE_ID,
+            'type' => GbpLocationBoundCollector::EVIDENCE_TYPE,
+            'title' => 'Google Business Profile location access',
+            'payload' => [
+                'ok' => true,
+                'title' => 'Moximu Dijital Pazarlama',
+                'website_uri' => 'https://moximu.com',
+                'primary_phone' => '+90 555 111 22 33',
+                'primary_category' => 'Marketing agency',
+                'storefront_address' => [
+                    'address_lines' => ['Example Cad. 1'],
+                    'locality' => 'Manisa',
+                    'administrative_area' => 'Manisa',
+                    'postal_code' => '45000',
+                    'region_code' => 'TR',
+                ],
+            ],
+            'observed_at' => now(),
+        ]);
+
+        $workspace = app(GbpOperatorWorkspace::class)->for($gbp->fresh(['brand']));
+
+        $this->assertSame('real', $workspace['migration_mode']);
+        $this->assertSame('Moximu Dijital Pazarlama', $workspace['identity']['title']);
+        $this->assertSame('Marketing agency', $workspace['profile']['categories']['primary']);
+        $this->assertStringContainsString('Manisa', $workspace['profile']['location']['address']);
+        $this->assertTrue($workspace['connection']['bound']);
     }
 
     public function test_sales_intent_paid_call_policy_can_be_enabled_from_dataforseo_integration_config(): void
