@@ -2,6 +2,7 @@
 # Repeatable staging deploy entrypoint. Delegates to deploy/staging/deploy.sh.
 # Safe to run from the application root on the staging host.
 # Does not overwrite .env, does not regenerate APP_KEY, never migrate:fresh.
+# Does not install/remove TLS certificates or rewrite Nginx. Canonical URL lives in .env.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
