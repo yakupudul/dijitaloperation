@@ -86,7 +86,7 @@ class DemoRealityFinalConvergenceTest extends TestCase
         }
     }
 
-    public function test_website_production_asset_does_not_load_demo_fixtures(): void
+    public function test_website_production_asset_uses_real_workspace_without_demo_fixtures(): void
     {
         $customer = Customer::factory()->create();
         $brand = Brand::factory()->create(['customer_id' => $customer->id]);
@@ -98,8 +98,13 @@ class DemoRealityFinalConvergenceTest extends TestCase
 
         Livewire::test(WebsiteOverviewPage::class, ['assetId' => (string) $asset->id])
             ->assertOk()
+            ->assertSee('Production Website Asset')
+            ->assertSee('Needs attention')
+            ->assertSee('Veri Kaynakları')
+            ->assertSee('Kamu Keşif')
             ->assertDontSee('Demo Mode · product vision fixtures')
-            ->assertSee('not yet available');
+            ->assertDontSee('Atlas Dental Website')
+            ->assertDontSee('not yet available');
     }
 
     public function test_explicit_demo_catalog_ga4_asset_still_uses_demo_fixtures(): void
