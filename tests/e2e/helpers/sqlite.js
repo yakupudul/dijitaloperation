@@ -21,6 +21,22 @@ export function sqliteJson(sql) {
     return JSON.parse(raw);
 }
 
+export function prospectByCompany(name) {
+    const rows = sqliteJson(
+        `select id, company_name, converted_customer_id, converted_brand_id, converted_at, source from prospects where company_name = '${escapeSql(name)}' limit 1`,
+    );
+
+    return rows[0] || null;
+}
+
+export function countCustomersNamed(name) {
+    const rows = sqliteJson(
+        `select count(*) as c from customers where name = '${escapeSql(name)}'`,
+    );
+
+    return Number(rows[0]?.c || 0);
+}
+
 export function customerByName(name) {
     const rows = sqliteJson(
         `select id, name, legal_name, hq_country, hq_city, status, type from customers where name = '${escapeSql(name)}' limit 1`,
