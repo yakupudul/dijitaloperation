@@ -8,7 +8,7 @@
             </div>
             <h1 class="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{{ $asset->name }} · Veri Kaynakları</h1>
             <p class="mt-1 max-w-3xl text-sm text-gray-500 dark:text-gray-400">
-                Bu ekran Website'i besleyen gerçek kaynakları gösterir. GA4 ve Search Console doğrudan Website'e bağlanır; Google Ads, Meta Ads ve GBP ayrı Digital Asset olarak aynı marka altında ilişkilidir. DataForSEO ise Website'in arama pazarı ayarlarını kullanan ortak SEO intelligence servisidir.
+                Website'i besleyen gerçek kaynakları burada yönet. GA4 ve Search Console doğrudan bu Website'e bağlanır; Google Ads, Meta Ads ve GBP aynı Brand altındaki ayrı Digital Asset'lerdir. DataForSEO ortak SEO intelligence motorudur.
             </p>
         </div>
         <div class="flex flex-wrap gap-2">
@@ -29,7 +29,7 @@
     <section class="space-y-3">
         <div>
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Website'e doğrudan bağlı kaynaklar</h2>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Bu binding'ler Website Evidence üretimine doğrudan katılır.</p>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Google hesabında keşfedilen GA4 ve Search Console kaynaklarını seçip doğrudan bu Website'e bağlayabilirsin.</p>
         </div>
         <div class="grid gap-4 lg:grid-cols-3">
             @foreach ($connections as $source)
@@ -45,23 +45,61 @@
                             'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' => ! $source['connected'],
                         ])>{{ $source['connected'] ? 'Bağlı' : 'Bağlı değil' }}</span>
                     </div>
+
                     @if (! empty($source['display_name']))
                         <p class="mt-3 text-sm font-medium text-gray-800 dark:text-white/90">{{ $source['display_name'] }}</p>
                     @endif
+
                     <dl class="mt-4 space-y-2 text-xs">
                         <div class="flex justify-between gap-3"><dt class="text-gray-400">Son veri</dt><dd class="text-right text-gray-600 dark:text-gray-300">{{ $source['last_sync_human'] ?? 'Henüz yok' }}</dd></div>
                         <div class="flex justify-between gap-3"><dt class="text-gray-400">Son durum</dt><dd class="text-right text-gray-600 dark:text-gray-300">{{ $source['last_status'] ?? '—' }}</dd></div>
-                        @if (isset($availableResources[$source['key']]))
-                            <div class="flex justify-between gap-3"><dt class="text-gray-400">Bağlanabilir keşfedilmiş kaynak</dt><dd class="font-semibold text-gray-800 dark:text-white">{{ $availableResources[$source['key']] }}</dd></div>
-                        @endif
                     </dl>
-                    <div class="mt-4">
-                        @if (in_array($source['key'], ['ga4', 'search_console'], true))
-                            <a href="{{ route('operator.integrations.google', ['tab' => 'resources']) }}" wire:navigate class="text-sm font-medium text-brand-600 hover:underline">Google kaynaklarını yönet →</a>
-                        @elseif ($source['key'] === 'wordpress')
+
+                    @if ($source['key'] === 'ga4')
+                        <div class="mt-4 space-y-2 border-t border-gray-100 pt-4 dark:border-gray-700">
+                            <label class="block text-xs font-medium text-gray-600 dark:text-gray-300">Keşfedilmiş GA4 property</label>
+                            <select wire:model="ga4ResourceId" class="w-full rounded-lg border-gray-300 bg-white text-sm dark:border-gray-700 dark:bg-gray-900">
+                                <option value="">Kaynak seç</option>
+                                @foreach ($ga4Resources as $id => $label)
+                                    <option value="{{ $id }}">{{ $label }}</option>
+                                @endforeach
+                            </select>
+                            @error('ga4ResourceId') <p class="text-xs text-red-600">{{ $message }}</p> @enderror
+                            <div class="flex flex-wrap gap-2">
+                                <button type="button" wire:click="bindGa4" class="rounded-lg bg-brand-500 px-3 py-2 text-xs font-semibold text-white hover:bg-brand-600">{{ $source['connected'] ? 'Bağlantıyı değiştir' : 'Website’e bağla' }}</button>
+                                @if ($source['connected'])
+                                    <button type="button" wire:click="disableBinding('ga4')" class="rounded-lg px-3 py-2 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">Devre dışı bırak</button>
+                                @endif
+                            </div>
+                            @if ($ga4Resources === [])
+                                <p class="text-xs text-gray-400">Başka bağlanabilir GA4 property yok. Önce Google kaynak keşfini çalıştır.</p>
+                            @endif
+                        </div>
+                    @elseif ($source['key'] === 'search_console')
+                        <div class="mt-4 space-y-2 border-t border-gray-100 pt-4 dark:border-gray-700">
+                            <label class="block text-xs font-medium text-gray-600 dark:text-gray-300">Keşfedilmiş Search Console property</label>
+                            <select wire:model="searchConsoleResourceId" class="w-full rounded-lg border-gray-300 bg-white text-sm dark:border-gray-700 dark:bg-gray-900">
+                                <option value="">Kaynak seç</option>
+                                @foreach ($gscResources as $id => $label)
+                                    <option value="{{ $id }}">{{ $label }}</option>
+                                @endforeach
+                            </select>
+                            @error('searchConsoleResourceId') <p class="text-xs text-red-600">{{ $message }}</p> @enderror
+                            <div class="flex flex-wrap gap-2">
+                                <button type="button" wire:click="bindSearchConsole" class="rounded-lg bg-brand-500 px-3 py-2 text-xs font-semibold text-white hover:bg-brand-600">{{ $source['connected'] ? 'Bağlantıyı değiştir' : 'Website’e bağla' }}</button>
+                                @if ($source['connected'])
+                                    <button type="button" wire:click="disableBinding('search_console')" class="rounded-lg px-3 py-2 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700">Devre dışı bırak</button>
+                                @endif
+                            </div>
+                            @if ($gscResources === [])
+                                <p class="text-xs text-gray-400">Başka bağlanabilir Search Console property yok. Önce Google kaynak keşfini çalıştır.</p>
+                            @endif
+                        </div>
+                    @elseif ($source['key'] === 'wordpress')
+                        <div class="mt-4 border-t border-gray-100 pt-4 dark:border-gray-700">
                             <a href="{{ route('operator.integrations.site-connectors') }}" wire:navigate class="text-sm font-medium text-brand-600 hover:underline">Site Connector yönet →</a>
-                        @endif
-                    </div>
+                        </div>
+                    @endif
                 </article>
             @endforeach
         </div>
@@ -70,7 +108,7 @@
     <section class="space-y-3">
         <div>
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Provider motorları</h2>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Hesap seviyesindeki entegrasyon durumu. Bunlar Website kartından gizlenmez.</p>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Hesap seviyesindeki entegrasyon durumu; Website'i besleyen motorlar burada açıkça görünür.</p>
         </div>
         <div class="grid gap-4 md:grid-cols-3">
             <article class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
@@ -97,7 +135,7 @@
     <section class="space-y-3">
         <div>
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Aynı markaya bağlı kanal varlıkları</h2>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Ads ve GBP Website binding'i değildir; aynı Brand altında ilişkilendirilir ve cross-channel analizde birlikte kullanılır.</p>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Google Ads, Meta Ads ve GBP Website binding'i değildir; aynı Brand altında ilişkilendirilir ve cross-channel analizde birlikte kullanılır.</p>
         </div>
         <div class="grid gap-3 lg:grid-cols-2">
             @forelse ($relatedAssets as $related)
