@@ -3,10 +3,18 @@
 namespace Tests\Feature;
 
 use App\Contracts\WebsiteOperatorWorkspace;
+use App\Livewire\Operator\Website\DataSourcesPage;
+use App\Models\Brand;
+use App\Models\CoreAssetBinding;
+use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
+use App\Models\Customer;
+use App\Models\DigitalAsset;
+use App\Models\User;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Sales\IntentSearchConfig;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class OperatorRealEngineWiringTest extends TestCase
@@ -30,6 +38,44 @@ class OperatorRealEngineWiringTest extends TestCase
         $this->assertSame('/public-discovery', route('operator.public-discovery', absolute: false));
         $this->assertSame('/assets/website/42/discovery', route('operator.website.discovery', ['assetId' => 42], absolute: false));
         $this->assertSame('/assets/website/42/sources', route('operator.website.sources', ['assetId' => 42], absolute: false));
+    }
+
+    public function test_operator_can_bind_a_discovered_ga4_resource_directly_to_a_website(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $customer = Customer::factory()->create();
+        $brand = Brand::factory()->create(['customer_id' => $customer->id]);
+        $website = DigitalAsset::factory()->create([
+            'brand_id' => $brand->id,
+            'type' => 'website',
+            'name' => 'Moximu Website',
+        ]);
+        $integration = CoreIntegration::factory()->google()->create([
+            'status' => CoreIntegration::STATUS_ACTIVE,
+        ]);
+        $resource = CoreExternalResource::factory()->create([
+            'integration_id' => $integration->id,
+            'provider' => ProviderRegistry::GOOGLE,
+            'resource_type' => 'ga4',
+            'external_id' => 'properties/123456',
+            'display_name' => 'Moximu GA4',
+            'status' => CoreExternalResource::STATUS_AVAILABLE,
+        ]);
+
+        Livewire::test(DataSourcesPage::class, ['assetId' => (string) $website->id])
+            ->set('ga4ResourceId', (string) $resource->id)
+            ->call('bindGa4')
+            ->assertHasNoErrors()
+            ->assertSee('Google Analytics 4');
+
+        $this->assertDatabaseHas('core_asset_bindings', [
+            'digital_asset_id' => $website->id,
+            'external_resource_id' => $resource->id,
+            'capability' => 'ga4',
+            'status' => CoreAssetBinding::STATUS_ACTIVE,
+        ]);
     }
 
     public function test_sales_intent_paid_call_policy_can_be_enabled_from_dataforseo_integration_config(): void
