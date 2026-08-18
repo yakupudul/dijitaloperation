@@ -380,7 +380,7 @@ test.describe('QA 002 acceptance — customer, brand, specialists, work', () => 
         await page.locator('header').getByRole('button', { name: /Capture|Hızlı kayıt/i }).click();
         await expect(page.getByRole('heading', { name: /Quick capture/i })).toBeVisible();
         await page.getByRole('button', { name: /^Task$/ }).click();
-        await expect(page.getByRole('dialog').getByText('Customer', { exact: true })).toBeVisible();
+        await expect(page.getByRole('dialog').locator('label').filter({ hasText: 'Customer' })).toBeVisible();
         await page.locator('input[wire\\:model="title"]').fill(`E2E missing customer ${Date.now()}`);
         await page.getByRole('button', { name: /^Save$/ }).click();
         await expect(page.getByRole('dialog')).toContainText(/Select a customer|Müşteri seçin/);

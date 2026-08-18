@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { waitForLivewire } from './helpers/pages.js';
-import { readJson, SESSION_FILE } from './helpers/env.js';
+import { E2E_EMAIL, loadPassword, readJson, SESSION_FILE } from './helpers/env.js';
 import { taskByTitle } from './helpers/sqlite.js';
 import { setVerdict } from './helpers/verdicts.js';
 
@@ -36,6 +36,21 @@ async function chooseDialogSelect(page, label, option) {
     await page.keyboard.press('Escape').catch(() => {});
 }
 
+async function loginAsQa(page) {
+    const password = loadPassword();
+    await page.goto('/app/login?locale=en');
+    await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
+    await page.locator('input[name="email"]').fill(E2E_EMAIL);
+    await page.locator('input[name="password"]').fill(password);
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.waitForURL((url) => {
+        const path = new URL(url).pathname;
+
+        return path.startsWith('/app') && !path.includes('/login');
+    }, { timeout: 20_000 });
+    await waitForLivewire(page);
+}
+
 async function saveTaskFromCapture(page, title) {
     await page.getByRole('button', { name: /^Task$|^Görev$/ }).click();
     await page.locator('input[wire\\:model="title"]').fill(title);
@@ -45,17 +60,26 @@ async function saveTaskFromCapture(page, title) {
 test.describe('Pilot-critical logout, capture, and work detail', () => {
     test.setTimeout(180_000);
 
-    test('visible Profile Sign out posts logout and denies /app', async ({ page }) => {
-        await page.goto('/app/profile?locale=en');
-        await waitForLivewire(page);
-        await page.getByRole('button', { name: /Sign out|Çıkış/i }).click();
-        await page.waitForURL(/\/app\/login/, { timeout: 20_000 });
-        expect(new URL(page.url()).pathname).toBe('/app/login');
+    test.describe('visible Profile Sign out', () => {
+        test.use({ storageState: { cookies: [], origins: [] } });
 
-        await page.goto('/app');
-        await page.waitForURL(/\/app\/login/, { timeout: 15_000 });
-        expect(page.url()).toMatch(/\/app\/login/);
-        setVerdict('Login', 'PASS', 'Visible Profile Sign out POSTs /app/logout');
+        test('posts logout and denies /app', async ({ page }) => {
+            await loginAsQa(page);
+            await page.goto('/app/profile?locale=en');
+            await waitForLivewire(page);
+            await page.getByRole('button', { name: /Sign out|Çıkış/i }).click();
+            await page.waitForURL(/\/app\/login/, { timeout: 20_000 });
+            expect(new URL(page.url()).pathname).toBe('/app/login');
+
+            await page.goto('/app');
+            await page.waitForURL(/\/app\/login/, { timeout: 15_000 });
+            expect(page.url()).toMatch(/\/app\/login/);
+
+            await loginAsQa(page);
+            await expect(page).toHaveURL(/\/app(\/|$|\?)/);
+            expect(page.url()).not.toMatch(/\/login/);
+            setVerdict('Login', 'PASS', 'Visible Profile Sign out POSTs /app/logout');
+        });
     });
 
     test('global and contextual Capture persist Task and Work detail status', async ({ page }) => {
@@ -75,10 +99,10 @@ test.describe('Pilot-critical logout, capture, and work detail', () => {
 
         await openCapture(page);
         await page.getByRole('button', { name: /^Task$/ }).click();
-        await expect(page.getByRole('dialog').getByText('Customer', { exact: true })).toBeVisible();
+        await expect(page.getByRole('dialog').locator('label').filter({ hasText: 'Customer' })).toBeVisible();
         await chooseDialogSelect(page, 'Customer', session.customerName);
         await waitForLivewire(page);
-        await expect(page.getByRole('dialog').getByText('Brand', { exact: true })).toBeVisible();
+        await expect(page.getByRole('dialog').locator('label').filter({ hasText: 'Brand' })).toBeVisible();
         await page.getByRole('dialog').locator('div.space-y-1\\.5').filter({
             has: page.locator('label').filter({ hasText: 'Brand' }),
         }).first().getByRole('button').first().click();
