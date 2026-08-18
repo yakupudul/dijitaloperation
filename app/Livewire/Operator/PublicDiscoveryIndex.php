@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Operator;
 
+use App\Contracts\WebsiteOperatorWorkspace;
 use App\Models\DigitalAsset;
 use App\Models\DiscoveryCandidate;
 use App\Models\Run;
@@ -12,7 +13,6 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
-use MoxDop\Website\Discovery\DiscoveryConfig;
 
 #[Layout('operator.layouts.app')]
 #[Title('Public Discovery')]
@@ -40,7 +40,7 @@ class PublicDiscoveryIndex extends Component
         $this->messageTone = ($result['ok'] ?? false) ? 'success' : 'info';
     }
 
-    public function render(): View
+    public function render(WebsiteOperatorWorkspace $websiteWorkspace): View
     {
         $assets = DigitalAsset::query()
             ->with('brand.customer')
@@ -59,7 +59,7 @@ class PublicDiscoveryIndex extends Component
         $assetIds = $assets->pluck('id')->map(fn ($id) => (int) $id)->all();
 
         $operationRuns = $this->latestRunsByModule($assetIds, AsyncOperationTypes::MODULE_PUBLIC_DISCOVERY);
-        $discoveryRuns = $this->latestRunsByModule($assetIds, DiscoveryConfig::MODULE_ID);
+        $discoveryRuns = $this->latestRunsByModule($assetIds, $websiteWorkspace->discoveryResultModuleId());
 
         $pendingCounts = DiscoveryCandidate::query()
             ->whereIn('digital_asset_id', $assetIds)
