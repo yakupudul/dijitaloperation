@@ -4,6 +4,8 @@ namespace App\Livewire\Demo\Website;
 
 use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
 use App\Livewire\Demo\Concerns\ResolvesCanonicalOperatorAsset;
+use App\Models\DigitalAsset;
+use App\Services\Async\AsyncOperationService;
 use App\Support\Demo\DemoState;
 use App\Support\Reality\UnavailableWorkspaceShells;
 use Illuminate\Contracts\View\View;
@@ -60,9 +62,7 @@ class OverviewPage extends Component
     #[Url]
     public ?string $page = null;
 
-    /**
-     * @var list<string>
-     */
+    /** @var list<string> */
     public array $allowedTabs = [
         'overview',
         'health',
@@ -74,9 +74,7 @@ class OverviewPage extends Component
         'setup',
     ];
 
-    /**
-     * @var array<string, string>
-     */
+    /** @var array<string, string> */
     private const LEGACY_TAB_MAP = [
         'technical' => 'health',
         'search' => 'visibility',
@@ -91,9 +89,7 @@ class OverviewPage extends Component
         'activity' => 'operations',
     ];
 
-    /**
-     * @var list<string>
-     */
+    /** @var list<string> */
     public array $timeBasedTabs = [
         'overview',
         'visibility',
@@ -201,15 +197,31 @@ class OverviewPage extends Component
         $this->page = null;
     }
 
-    public function refreshData(): void
+    public function refreshData(AsyncOperationService $async): void
     {
-        DemoState::flash(__('operator.flash.website_refresh_unavailable'), 'info');
+        $result = $async->queueBoundCollect($this->websiteAsset(), auth()->user());
+        DemoState::flash($result['message'], $result['ok'] ? 'success' : 'info');
     }
 
-    public function runDiagnosis(): void
+    public function runDiagnosis(AsyncOperationService $async): void
     {
-        DemoState::flash(__('operator.flash.website_diagnosis_unavailable'), 'info');
+        $result = $async->queueWebsiteDiagnosis($this->websiteAsset(), auth()->user());
+        DemoState::flash($result['message'], $result['ok'] ? 'success' : 'info');
         $this->tab = 'health';
+    }
+
+    public function refreshSeoIntelligence(AsyncOperationService $async): void
+    {
+        $result = $async->queueSeoIntelligenceRefresh($this->websiteAsset(), auth()->user());
+        DemoState::flash($result['message'], $result['ok'] ? 'success' : 'info');
+        $this->tab = 'visibility';
+    }
+
+    public function generateAiGuidance(AsyncOperationService $async): void
+    {
+        $result = $async->queueWebsiteAiGuidance($this->websiteAsset(), auth()->user());
+        DemoState::flash($result['message'], $result['ok'] ? 'success' : 'info');
+        $this->tab = 'overview';
     }
 
     public function clearContentFilters(): void
@@ -261,6 +273,9 @@ class OverviewPage extends Component
     {
         $this->normalizeTab();
 
+        // The legacy specialist shell still backs the old presentation tabs while
+        // real engine surfaces are migrated incrementally. Operator actions above
+        // now execute the canonical async services rather than Demo-only flashes.
         $data = UnavailableWorkspaceShells::website($this->assetId);
 
         $healthFindings = collect($data['health']['findings'] ?? []);
@@ -323,5 +338,13 @@ class OverviewPage extends Component
             'showPeriodBar' => in_array($this->tab, $this->timeBasedTabs, true),
             'flash' => DemoState::pullFlash(),
         ]);
+    }
+
+    private function websiteAsset(): DigitalAsset
+    {
+        return DigitalAsset::query()
+            ->whereKey((int) $this->assetId)
+            ->where('type', 'website')
+            ->firstOrFail();
     }
 }
