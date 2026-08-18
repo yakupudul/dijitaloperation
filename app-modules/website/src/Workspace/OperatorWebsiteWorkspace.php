@@ -31,9 +31,9 @@ final class OperatorWebsiteWorkspace implements WebsiteOperatorWorkspaceContract
         return $this->workspace->connectionCards($asset);
     }
 
-    public function availableResourcesForCapability(DigitalAsset $asset, string $capability): Collection
+    public function availableResourcesForCapability(DigitalAsset $asset, string $capability, ?int $exceptBindingId = null): Collection
     {
-        return $this->workspace->availableResourcesForCapability($asset, $capability);
+        return $this->workspace->availableResourcesForCapability($asset, $capability, $exceptBindingId);
     }
 
     public function acceptCandidate(DiscoveryCandidate $candidate, User $actor, ?string $editedValue = null): DiscoveryCandidate
