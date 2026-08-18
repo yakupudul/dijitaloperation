@@ -15,6 +15,12 @@ interface WebsiteOperatorWorkspace
     /** @return array<string, mixed> */
     public function discovery(DigitalAsset $asset): array;
 
+    /**
+     * Module id used by the underlying Website discovery crawl Run.
+     * Core operator code consumes this through the contract instead of importing module internals.
+     */
+    public function discoveryResultModuleId(): string;
+
     /** @return list<array<string, mixed>> */
     public function connectionCards(DigitalAsset $asset): array;
 
