@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Operator\Website;
 
+use App\Contracts\WebsiteOperatorWorkspace;
 use App\Models\CoreIntegration;
 use App\Models\DigitalAsset;
 use App\Services\Async\AsyncOperationService;
@@ -13,7 +14,6 @@ use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
-use MoxDop\Website\Workspace\WebsiteWorkspaceData;
 
 #[Layout('operator.layouts.app')]
 #[Title('Website Data Sources')]
@@ -46,7 +46,7 @@ class DataSourcesPage extends Component
         $this->messageTone = $result['ok'] ? 'success' : 'info';
     }
 
-    public function render(WebsiteWorkspaceData $workspace): View
+    public function render(WebsiteOperatorWorkspace $workspace): View
     {
         $asset = $this->asset()->loadMissing('brand');
         $connections = $workspace->connectionCards($asset);
