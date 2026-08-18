@@ -16,13 +16,8 @@ function sessionOrFail() {
 
 async function openCapture(page) {
     await page.waitForFunction(() => window.Livewire && typeof window.Livewire.dispatch === 'function');
-    const trigger = page.locator('header').getByRole('button', { name: /Capture|Hızlı kayıt/i });
-    await trigger.click();
-    const dialog = page.getByRole('dialog');
-    if (! await dialog.isVisible().catch(() => false)) {
-        await trigger.click();
-    }
-    await expect(dialog).toBeVisible();
+    await page.locator('header').getByRole('button', { name: /Capture|Hızlı kayıt/i }).click();
+    await expect(page.getByRole('dialog')).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole('heading', { name: /Quick capture|Hızlı kayıt/i })).toBeVisible();
 }
 
