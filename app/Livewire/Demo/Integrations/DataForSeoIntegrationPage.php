@@ -10,6 +10,7 @@ use App\Services\Integrations\DataForSeo\DataForSeoProviderCredentialService;
 use App\Support\Demo\DemoState;
 use App\Support\Integrations\Presentation\IntegrationWorkspaceCatalog;
 use App\Support\Integrations\ProviderRegistry;
+use App\Support\Sales\IntentSearchConfig;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -29,9 +30,12 @@ class DataForSeoIntegrationPage extends Component
 
     public bool $confirmRemove = false;
 
+    public bool $salesIntentPaidCalls = false;
+
     public function mount(): void
     {
         $this->hydrateForm();
+        $this->salesIntentPaidCalls = IntentSearchConfig::paidCallsEnabled();
     }
 
     public function dehydrate(): void
@@ -55,6 +59,23 @@ class DataForSeoIntegrationPage extends Component
         $this->clearPassword = false;
         $this->hydrateForm($integration->fresh(['providerCredential']));
         DemoState::flash(__('operator.flash.dataforseo_saved'), 'info');
+    }
+
+    public function saveSalesIntentRuntime(): void
+    {
+        $this->credentialManager();
+        $integration = app(IntegrationWorkspaceCatalog::class)->bootstrap(ProviderRegistry::DATAFORSEO);
+        $config = is_array($integration->config) ? $integration->config : [];
+        $config[IntentSearchConfig::RUNTIME_PAID_CALLS_KEY] = $this->salesIntentPaidCalls;
+        $integration->config = $config;
+        $integration->save();
+
+        DemoState::flash(
+            $this->salesIntentPaidCalls
+                ? 'Sales Intent live paid calls enabled. Each run still requires explicit operator consent.'
+                : 'Sales Intent live paid calls disabled.',
+            'info',
+        );
     }
 
     public function testConfiguration(DataForSeoAccountService $account): void
@@ -118,6 +139,7 @@ class DataForSeoIntegrationPage extends Component
             'connectionStatus' => is_string($config['connection_status'] ?? null) ? $config['connection_status'] : null,
             'lastTestedAt' => is_string($config['last_tested_at'] ?? null) ? $config['last_tested_at'] : null,
             'accountLogin' => is_string($config['account_login'] ?? null) ? $config['account_login'] : null,
+            'fixturesEnabled' => IntentSearchConfig::fixturesEnabled(),
         ]);
     }
 
