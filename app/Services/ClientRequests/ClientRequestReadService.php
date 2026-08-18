@@ -6,6 +6,7 @@ use App\Enums\ClientRequestScopeState;
 use App\Models\ClientRequest;
 use App\Models\Customer;
 use App\Support\ClientRequests\ClientRequestScopeResolution;
+use App\Support\Work\WorkUrl;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -239,7 +240,8 @@ final class ClientRequestReadService
             'in_scope' => $presentation['in_scope'],
             'linked_task_id' => $presentation['linked_task_id'],
             'route' => 'operator.work.show',
-            'route_params' => ['workId' => $presentation['id'], 'type' => 'client_request'],
+            'route_params' => WorkUrl::parameters(WorkUrl::TYPE_CLIENT_REQUEST, $presentation['id']),
+            'detail_url' => WorkUrl::show(WorkUrl::TYPE_CLIENT_REQUEST, $presentation['id']),
         ];
     }
 

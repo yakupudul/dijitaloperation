@@ -16,7 +16,16 @@
 
         <x-ta.card>
             <dl class="grid gap-3 sm:grid-cols-2 text-sm">
-                <div><dt class="text-gray-400">{{ __('operator.work.columns.status') }}</dt><dd class="font-medium">{{ $item['status'] ?? '—' }}</dd></div>
+                <div>
+                    <dt class="text-gray-400">{{ __('operator.work.columns.status') }}</dt>
+                    <dd class="font-medium">
+                        @if ($type === 'task' && isset($item['status']))
+                            {{ __('operator.work.statuses.'.$item['status']) }}
+                        @else
+                            {{ $item['status'] ?? '—' }}
+                        @endif
+                    </dd>
+                </div>
                 <div><dt class="text-gray-400">{{ __('operator.work.columns.owner') }}</dt><dd class="font-medium">{{ $item['owner'] ?? '—' }}</dd></div>
                 <div><dt class="text-gray-400">{{ __('operator.work.columns.due') }}</dt><dd class="font-medium">{{ $item['due'] ?? '—' }}</dd></div>
                 @if (! empty($item['service_label']))
@@ -86,6 +95,12 @@
             @elseif ($type === 'approval')
                 <x-ta.button wire:click="approve" size="sm">{{ __('operator.approvals.approve') }}</x-ta.button>
             @elseif ($type === 'task')
+                @if (($item['status'] ?? '') === 'open')
+                    <x-ta.button wire:click="startTask" size="sm">{{ __('operator.work.task_actions.start') }}</x-ta.button>
+                @endif
+                @if (in_array($item['status'] ?? '', ['open', 'in_progress', 'blocked'], true))
+                    <x-ta.button wire:click="completeTask" size="sm" variant="outline">{{ __('operator.work.task_actions.complete') }}</x-ta.button>
+                @endif
                 <x-ta.button wire:click="approveQa" size="sm" variant="outline">{{ __('operator.qa.approve') }}</x-ta.button>
             @endif
         </div>

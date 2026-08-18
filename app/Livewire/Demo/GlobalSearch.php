@@ -104,8 +104,8 @@ class GlobalSearch extends Component
                     $results[] = [
                         'label' => $title,
                         'meta' => __('operator.nav.tasks').' · '.($task['brand'] ?? ''),
-                        'url' => isset($task['id'])
-                            ? route('operator.work.show', ['workId' => $task['id'], 'type' => $task['type'] ?? 'task'])
+                        'url' => isset($task['id'], $task['type'])
+                            ? route('operator.work.show', ['workId' => $task['id'], 'type' => $task['type']])
                             : route('operator.tasks'),
                     ];
                 }

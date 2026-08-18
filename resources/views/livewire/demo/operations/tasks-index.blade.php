@@ -77,7 +77,7 @@
                     <ul class="mt-3 space-y-2">
                         @foreach ($boardItems->where('status', $statusKey) as $item)
                             <li class="rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-white/[0.03]">
-                                <p class="font-medium text-gray-800 dark:text-white/90">{{ $item['title'] }}</p>
+                                <a href="{{ $item['detail_url'] ?? route($item['route'] ?? 'operator.tasks', $item['route_params'] ?? []) }}" wire:navigate class="font-medium text-gray-800 hover:text-brand-600 dark:text-white/90">{{ $item['title'] }}</a>
                                 <p class="text-xs text-gray-500">{{ $item['owner'] }} · {{ $item['due'] }}</p>
                             </li>
                         @endforeach
@@ -123,11 +123,10 @@
                             <x-ta.badge color="light" size="sm">{{ $item['status'] }}</x-ta.badge>
                         </td>
                         <td class="px-4 py-3 text-right">
-                            @if (($item['type'] ?? '') === 'task')
-                                <x-ta.button :href="route('operator.task', ['taskId' => $item['id']])" size="sm" variant="outline">{{ __('operator.actions.open') }}</x-ta.button>
-                            @else
-                                <x-ta.button :href="route('operator.work.show', ['workId' => $item['id'], 'type' => $item['type']])" size="sm" variant="outline">{{ __('operator.actions.open') }}</x-ta.button>
-                            @endif
+                            @php
+                                $detailUrl = $item['detail_url'] ?? route($item['route'] ?? 'operator.work.show', $item['route_params'] ?? ['workId' => $item['id'], 'type' => $item['type'] ?? 'task']);
+                            @endphp
+                            <x-ta.button :href="$detailUrl" size="sm" variant="outline" wire:navigate>{{ __('operator.actions.open') }}</x-ta.button>
                         </td>
                     </tr>
                 @empty

@@ -227,6 +227,17 @@ return [
         'badges' => [
             'waiting_on_client' => 'Waiting on client',
         ],
+        'statuses' => [
+            'open' => 'Open',
+            'in_progress' => 'In progress',
+            'blocked' => 'Blocked',
+            'completed' => 'Completed',
+            'cancelled' => 'Cancelled',
+        ],
+        'task_actions' => [
+            'start' => 'In progress',
+            'complete' => 'Completed',
+        ],
     ],
 
     'brand' => [
@@ -732,7 +743,13 @@ return [
             'priority' => 'Priority',
             'scope' => 'Scope',
             'kind' => 'Capture as',
+            'customer' => 'Customer',
+            'brand' => 'Brand',
         ],
+        'validation' => [
+            'customer' => 'Select a customer.',
+        ],
+        'select_brand' => 'Search brand…',
         'sources' => [
             'meeting' => 'Meeting',
             'email' => 'Email',
@@ -1435,6 +1452,8 @@ return [
         'capture_requires_customer' => 'Direct Task capture requires a production Customer.',
         'brand_must_belong' => 'Brand must belong to the selected Customer.',
         'task_captured_direct' => 'Task captured — Direct source, no fake Recommendation or Client Request.',
+        'task_started' => 'Task is in progress.',
+        'task_completed' => 'Task completed.',
         'portfolio_setup_saved' => 'Portfolio setup saved. Digital assets are defined — not connected until integrations are configured.',
         'contact_updated' => 'Contact updated.',
         'contact_saved' => 'Contact saved.',

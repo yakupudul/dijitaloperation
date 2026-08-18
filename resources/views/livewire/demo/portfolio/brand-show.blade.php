@@ -795,7 +795,7 @@
                                         @if ($isBlocked)<span class="text-error-600"> · blocked</span>@endif
                                     </p>
                                 </div>
-                                <a href="{{ route('operator.task', ['taskId' => $task['id']]) }}" wire:navigate class="inline-flex rounded-lg px-3 py-1.5 text-xs font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">{{ __('operator.actions.open') }}</a>
+                                <a href="{{ route('operator.work.show', ['workId' => $task['id'], 'type' => 'task']) }}" wire:navigate class="inline-flex rounded-lg px-3 py-1.5 text-xs font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">{{ __('operator.actions.open') }}</a>
                             </div>
                         </div>
                     @endforeach

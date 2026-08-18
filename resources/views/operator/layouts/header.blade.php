@@ -33,7 +33,7 @@
             <livewire:demo.global-search />
 
             <button type="button"
-                onclick="Livewire.dispatch('open-capture')"
+                onclick="Livewire.dispatch('open-capture', { path: window.location.pathname })"
                 class="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-white hover:bg-brand-600">
                 <span aria-hidden="true">+</span>
                 <span class="hidden sm:inline">{{ __('operator.capture.open') }}</span>

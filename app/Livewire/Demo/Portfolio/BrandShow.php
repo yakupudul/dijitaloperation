@@ -34,6 +34,7 @@ use App\Support\Demo\OpportunityFixtures;
 use App\Support\Options\CountryOptions;
 use App\Support\Options\IndustryOptions;
 use App\Support\Options\LanguageOptions;
+use App\Support\Work\WorkUrl;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -949,8 +950,8 @@ class BrandShow extends Component
                     'why' => 'Blocked work stops the operational loop.',
                     'when' => 'Assigned to: '.($task['owner'] ?? '—').' · Due '.($task['due'] ?? '—'),
                     'action_label' => 'Open task',
-                    'route' => 'operator.task',
-                    'route_params' => ['taskId' => $task['id'] ?? ''],
+                    'route' => 'operator.work.show',
+                    'route_params' => WorkUrl::parameters(WorkUrl::TYPE_TASK, $task['id'] ?? ''),
                 ];
             }
             if (($task['due'] ?? '') === 'Last week' && ($task['status'] ?? '') !== 'completed') {
@@ -962,8 +963,8 @@ class BrandShow extends Component
                     'why' => 'Due date has passed while work remains open.',
                     'when' => 'Assigned to: '.($task['owner'] ?? '—').' · Due '.$task['due'],
                     'action_label' => 'Open task',
-                    'route' => 'operator.task',
-                    'route_params' => ['taskId' => $task['id'] ?? ''],
+                    'route' => 'operator.work.show',
+                    'route_params' => WorkUrl::parameters(WorkUrl::TYPE_TASK, $task['id'] ?? ''),
                 ];
             }
         }
@@ -992,7 +993,7 @@ class BrandShow extends Component
                 'kind' => 'Task · '.ucfirst(str_replace('_', ' ', (string) ($task['status'] ?? 'open'))),
                 'priority' => ucfirst((string) ($task['priority'] ?? 'medium')).' priority',
                 'asset' => $task['asset'] ?? '',
-                'href' => route('operator.task', ['taskId' => $task['id'] ?? '']),
+                'href' => WorkUrl::show(WorkUrl::TYPE_TASK, $task['id'] ?? ''),
             ];
         }
 

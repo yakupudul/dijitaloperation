@@ -125,6 +125,7 @@ class ActivityIndex extends Component
             'actor_kind' => $actorKind,
             'status' => (string) ($row['status'] ?? 'success'),
             'route' => $row['route'] ?? null,
+            'route_params' => is_array($row['route_params'] ?? null) ? $row['route_params'] : [],
             'brand_id' => $row['brand_id'] ?? null,
             'customer_id' => $row['customer_id'] ?? null,
             'event' => $row['event'] ?? null,

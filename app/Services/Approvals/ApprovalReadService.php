@@ -8,6 +8,7 @@ use App\Enums\ApprovalStatus;
 use App\Models\Approval;
 use App\Models\Task;
 use App\Support\Tasks\TaskReviewedStateFingerprint;
+use App\Support\Work\WorkUrl;
 use Illuminate\Support\Collection;
 
 final class ApprovalReadService
@@ -209,7 +210,8 @@ final class ApprovalReadService
             'in_scope' => true,
             'task_id' => $approval->task_id,
             'route' => 'operator.work.show',
-            'route_params' => ['workId' => $approval->id, 'type' => 'approval'],
+            'route_params' => WorkUrl::parameters(WorkUrl::TYPE_APPROVAL, $approval->id),
+            'detail_url' => WorkUrl::show(WorkUrl::TYPE_APPROVAL, $approval->id),
             'source_state' => 'REAL',
         ];
     }

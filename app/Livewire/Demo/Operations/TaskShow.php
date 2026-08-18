@@ -2,7 +2,7 @@
 
 namespace App\Livewire\Demo\Operations;
 
-use App\Support\Demo\DemoState;
+use App\Support\Work\WorkUrl;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -19,17 +19,12 @@ class TaskShow extends Component
         $this->taskId = $taskId;
 
         if (ctype_digit($taskId)) {
-            $this->redirect(route('operator.work.show', ['workId' => $taskId, 'type' => 'task']), navigate: true);
+            $this->redirect(WorkUrl::show(WorkUrl::TYPE_TASK, $taskId));
 
             return;
         }
 
         abort(404);
-    }
-
-    public function setStatus(string $status): void
-    {
-        DemoState::setTaskStatus($this->taskId, $status);
     }
 
     public function render(): View

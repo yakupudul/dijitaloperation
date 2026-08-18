@@ -3,17 +3,21 @@
 namespace App\Livewire\Demo\Operations;
 
 use App\Enums\ClientRequestStatus;
+use App\Models\Task;
 use App\Services\Approvals\ApprovalReadService;
 use App\Services\Approvals\ApprovalUiActions;
 use App\Services\ClientRequests\ClientRequestReadService;
 use App\Services\ClientRequests\ClientRequestUiActions;
 use App\Services\Qa\QaUiActions;
 use App\Services\RecurringReviews\RecurringReviewUiActions;
+use App\Services\Tasks\TaskLifecycleService;
 use App\Services\Tasks\TaskReadService;
 use App\Support\Demo\ClientValueFixtures;
 use App\Support\Demo\DemoState;
+use App\Support\Work\WorkUrl;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -28,10 +32,12 @@ class WorkShow extends Component
 
     public string $taskCreateNonce = '';
 
-    public function mount(string $workId, ?string $type = null): void
+    public function mount(string $workId, string $type = 'client_request'): void
     {
+        abort_unless(WorkUrl::isType($type), 404);
+
         $this->workId = $workId;
-        $this->type = $type ?? 'client_request';
+        $this->type = $type;
         $this->taskCreateNonce = (string) Str::uuid();
     }
 
@@ -143,6 +149,36 @@ class WorkShow extends Component
         }
     }
 
+    public function startTask(): void
+    {
+        $task = $this->canonicalTask();
+        if ($task === null) {
+            return;
+        }
+
+        try {
+            app(TaskLifecycleService::class)->start($task, auth()->user());
+            DemoState::flash(__('operator.flash.task_started'));
+        } catch (ValidationException $exception) {
+            DemoState::flash(collect($exception->errors())->flatten()->first() ?? __('operator.work.not_found'));
+        }
+    }
+
+    public function completeTask(): void
+    {
+        $task = $this->canonicalTask();
+        if ($task === null) {
+            return;
+        }
+
+        try {
+            app(TaskLifecycleService::class)->complete($task, [], auth()->user());
+            DemoState::flash(__('operator.flash.task_completed'));
+        } catch (ValidationException $exception) {
+            DemoState::flash(collect($exception->errors())->flatten()->first() ?? __('operator.work.not_found'));
+        }
+    }
+
     public function render(): View
     {
         $item = $this->resolveItem();
@@ -226,5 +262,21 @@ class WorkShow extends Component
 
         $result = app(ClientRequestUiActions::class)->changeStatus($this->workId, $status, auth()->user());
         DemoState::flash($result['message'] ?? '');
+    }
+
+    private function canonicalTask(): ?Task
+    {
+        if ($this->type !== WorkUrl::TYPE_TASK || ! ctype_digit($this->workId)) {
+            DemoState::flash(__('operator.work.not_found'));
+
+            return null;
+        }
+
+        $task = Task::query()->find((int) $this->workId);
+        if ($task === null) {
+            DemoState::flash(__('operator.work.not_found'));
+        }
+
+        return $task;
     }
 }

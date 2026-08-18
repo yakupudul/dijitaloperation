@@ -6,6 +6,7 @@ use App\Enums\RecurringReviewRunStatus;
 use App\Enums\RecurringReviewScheduleStatus;
 use App\Models\RecurringReviewRun;
 use App\Models\RecurringReviewSchedule;
+use App\Support\Work\WorkUrl;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -350,7 +351,8 @@ final class RecurringReviewReadService
             'playbook_stable_key' => $run->playbook?->stable_key,
             'schedule_id' => $run->schedule_id,
             'route' => 'operator.work.show',
-            'route_params' => ['workId' => $run->id, 'type' => 'recurring_review'],
+            'route_params' => WorkUrl::parameters(WorkUrl::TYPE_RECURRING_REVIEW, $run->id),
+            'detail_url' => WorkUrl::show(WorkUrl::TYPE_RECURRING_REVIEW, $run->id),
             'source_state' => 'REAL',
         ];
     }

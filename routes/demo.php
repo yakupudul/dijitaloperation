@@ -53,6 +53,7 @@ use App\Livewire\Demo\Settings\AiSkillsPage;
 use App\Livewire\Demo\Settings\PlaybookShow;
 use App\Livewire\Demo\SettingsPage;
 use App\Livewire\Demo\Website\OverviewPage as WebsiteOverviewPage;
+use App\Support\Work\WorkUrl;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Route;
 
@@ -116,7 +117,17 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/recommendations', RecommendationsIndex::class)->name('operator.recommendations');
         Route::livewire('/tasks', TasksIndex::class)->name('operator.tasks');
         Route::livewire('/tasks/{taskId}', TaskShow::class)->name('operator.task');
-        Route::livewire('/work/{workId}', WorkShow::class)->name('operator.work.show');
+        Route::livewire('/work/{type}/{workId}', WorkShow::class)
+            ->whereIn('type', WorkUrl::types())
+            ->name('operator.work.show');
+        Route::get('/work/{workId}', function (string $workId) {
+            $type = request()->query('type');
+            if (! is_string($type) || ! WorkUrl::isType($type)) {
+                abort(404);
+            }
+
+            return redirect()->route('operator.work.show', WorkUrl::parameters($type, $workId));
+        })->name('operator.work.show.legacy');
         Route::livewire('/activity', ActivityIndex::class)->name('operator.activity');
 
         Route::livewire('/settings', SettingsPage::class)->name('operator.settings');

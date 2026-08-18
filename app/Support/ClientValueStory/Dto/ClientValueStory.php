@@ -5,6 +5,7 @@ namespace App\Support\ClientValueStory\Dto;
 use App\Enums\BusinessOutcomeKind;
 use App\Enums\ClientValueStoryLimitation;
 use App\Enums\ClientValueStoryStatus;
+use App\Support\Work\WorkUrl;
 
 /**
  * Typed Client Value Story read projection (Prompt 58).
@@ -103,7 +104,7 @@ final class ClientValueStory
             return [
                 'id' => 'task-'.$w->taskId,
                 'text' => $w->title.$suffix,
-                'source_url' => route('operator.task', ['taskId' => $w->taskId]),
+                'source_url' => WorkUrl::show(WorkUrl::TYPE_TASK, $w->taskId),
                 'task_id' => $w->taskId,
                 'source_kind' => $w->sourceKind,
                 'qa_status' => $w->qaStatus,
@@ -130,7 +131,7 @@ final class ClientValueStory
             return [
                 'id' => 'active-'.$w->taskId,
                 'text' => $w->title,
-                'source_url' => route('operator.task', ['taskId' => $w->taskId]),
+                'source_url' => WorkUrl::show(WorkUrl::TYPE_TASK, $w->taskId),
             ];
         }, $this->activeWork);
 

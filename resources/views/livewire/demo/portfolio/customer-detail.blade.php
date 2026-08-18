@@ -553,9 +553,12 @@
                 </div>
                 <ul class="space-y-2 text-sm">
                     @forelse (array_slice($openTasks, 0, 5) as $task)
-                        <li class="rounded-lg bg-gray-50 px-3 py-2 dark:bg-white/[0.03]">
-                            <p class="font-medium text-gray-800 dark:text-white/90">{{ $task['title'] }}</p>
-                            <p class="text-xs text-gray-500">{{ ucfirst($task['status'] ?? '') }} · {{ $task['due'] ?? '' }}</p>
+                        <li class="flex items-start justify-between gap-2 rounded-lg bg-gray-50 px-3 py-2 dark:bg-white/[0.03]">
+                            <div>
+                                <p class="font-medium text-gray-800 dark:text-white/90">{{ $task['title'] }}</p>
+                                <p class="text-xs text-gray-500">{{ ucfirst($task['status'] ?? '') }} · {{ $task['due'] ?? '' }}</p>
+                            </div>
+                            <a href="{{ $task['detail_url'] ?? route($task['route'] ?? 'operator.work.show', $task['route_params'] ?? ['workId' => $task['id'], 'type' => $task['type'] ?? 'task']) }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline">{{ __('operator.actions.open') }}</a>
                         </li>
                     @empty
                         <li class="text-gray-500">No open tasks.</li>

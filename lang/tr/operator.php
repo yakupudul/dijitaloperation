@@ -228,6 +228,17 @@ return [
         'badges' => [
             'waiting_on_client' => 'Müşteriden bekleniyor',
         ],
+        'statuses' => [
+            'open' => 'Açık',
+            'in_progress' => 'Devam ediyor',
+            'blocked' => 'Engellendi',
+            'completed' => 'Tamamlandı',
+            'cancelled' => 'İptal edildi',
+        ],
+        'task_actions' => [
+            'start' => 'Devam ediyor',
+            'complete' => 'Tamamlandı',
+        ],
     ],
 
     'brand' => [
@@ -733,7 +744,13 @@ return [
             'priority' => 'Öncelik',
             'scope' => 'Kapsam',
             'kind' => 'Kayıt türü',
+            'customer' => 'Müşteri',
+            'brand' => 'Marka',
         ],
+        'validation' => [
+            'customer' => 'Müşteri seçin.',
+        ],
+        'select_brand' => 'Marka ara…',
         'sources' => [
             'meeting' => 'Toplantı',
             'email' => 'E-posta',
@@ -1436,6 +1453,8 @@ return [
         'capture_requires_customer' => 'Doğrudan görev kaydı için üretim Müşterisi gerekir.',
         'brand_must_belong' => 'Marka seçilen müşteriye ait olmalıdır.',
         'task_captured_direct' => 'Görev kaydedildi — doğrudan kaynak; sahte öneri veya talep yok.',
+        'task_started' => 'Görev devam ediyor.',
+        'task_completed' => 'Görev tamamlandı.',
         'portfolio_setup_saved' => 'Portföy kurulumu kaydedildi. Dijital varlıklar tanımlandı — entegrasyonlar yapılandırılana kadar bağlı değildir.',
         'contact_updated' => 'Kişi güncellendi.',
         'contact_saved' => 'Kişi kaydedildi.',

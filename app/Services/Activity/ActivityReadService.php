@@ -3,9 +3,11 @@
 namespace App\Services\Activity;
 
 use App\Enums\DomainEventActorKind;
+use App\Enums\DomainEventSubjectKind;
 use App\Enums\DomainEventType;
 use App\Models\BrandContextActivity;
 use App\Models\DomainEvent;
+use App\Support\Work\WorkUrl;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 
@@ -153,6 +155,7 @@ final class ActivityReadService
         $eventValue = (string) $row->event;
         $payload = is_array($row->payload) ? $row->payload : [];
         $actorKind = $this->normalizeActorKind($row->actor_kind);
+        $subjectRoute = $this->destinationForSubjectType($row->subject_type, $eventValue, $row->subject_id);
 
         return [
             'id' => 'activity:'.$row->id,
@@ -169,7 +172,8 @@ final class ActivityReadService
             'created_at' => $at instanceof Carbon ? $at->toIso8601String() : (string) $at,
             'occurred_at' => $at instanceof Carbon ? $at->toIso8601String() : (string) $at,
             'relative' => $at instanceof Carbon ? $at->diffForHumans() : null,
-            'route' => $this->routeForSubject($row->subject_type, $eventValue),
+            'route' => $subjectRoute['route'],
+            'route_params' => $subjectRoute['params'],
             'event' => $eventValue,
             'event_label' => $this->eventLabel($eventValue),
             'domain_event_id' => $row->domain_event_id,
@@ -191,6 +195,8 @@ final class ActivityReadService
                 ? $event->actor_kind->value
                 : (string) $event->actor_kind
         );
+        $subjectId = $event->subject_id !== null ? (int) $event->subject_id : null;
+        $subjectRoute = $this->destinationForSubjectKind($event->subject_kind, $type, $subjectId);
 
         return [
             'id' => 'domain_event:'.$event->id,
@@ -207,7 +213,8 @@ final class ActivityReadService
             'created_at' => $at instanceof Carbon ? $at->toIso8601String() : (string) $at,
             'occurred_at' => $at instanceof Carbon ? $at->toIso8601String() : (string) $at,
             'relative' => $at instanceof Carbon ? $at->diffForHumans() : null,
-            'route' => $this->routeForEventType($type),
+            'route' => $subjectRoute['route'],
+            'route_params' => $subjectRoute['params'],
             'event' => $type,
             'event_label' => $this->eventLabel($type),
             'domain_event_id' => $event->id,
@@ -284,6 +291,65 @@ final class ActivityReadService
         }
     }
 
+    /**
+     * @return array{route: ?string, params: array<string, mixed>}
+     */
+    private function destinationForSubjectType(?string $subjectType, string $event, mixed $subjectId): array
+    {
+        if ($subjectType !== null) {
+            $typed = match (true) {
+                str_ends_with($subjectType, '\\Task') => WorkUrl::TYPE_TASK,
+                str_ends_with($subjectType, '\\ClientRequest') => WorkUrl::TYPE_CLIENT_REQUEST,
+                str_ends_with($subjectType, '\\Approval') => WorkUrl::TYPE_APPROVAL,
+                str_ends_with($subjectType, '\\RecurringReviewRun') => WorkUrl::TYPE_RECURRING_REVIEW,
+                default => null,
+            };
+
+            if ($typed !== null && is_numeric($subjectId)) {
+                return [
+                    'route' => 'operator.work.show',
+                    'params' => WorkUrl::parameters($typed, $subjectId),
+                ];
+            }
+
+            return [
+                'route' => $this->routeForSubject($subjectType, $event),
+                'params' => [],
+            ];
+        }
+
+        return [
+            'route' => $this->routeForEventType($event),
+            'params' => [],
+        ];
+    }
+
+    /**
+     * @return array{route: ?string, params: array<string, mixed>}
+     */
+    private function destinationForSubjectKind(mixed $kind, string $event, ?int $subjectId): array
+    {
+        $typed = match (true) {
+            $kind === DomainEventSubjectKind::Task || $kind === DomainEventSubjectKind::Task->value => WorkUrl::TYPE_TASK,
+            $kind === DomainEventSubjectKind::ClientRequest || $kind === DomainEventSubjectKind::ClientRequest->value => WorkUrl::TYPE_CLIENT_REQUEST,
+            $kind === DomainEventSubjectKind::Approval || $kind === DomainEventSubjectKind::Approval->value => WorkUrl::TYPE_APPROVAL,
+            $kind === DomainEventSubjectKind::RecurringReviewRun || $kind === DomainEventSubjectKind::RecurringReviewRun->value => WorkUrl::TYPE_RECURRING_REVIEW,
+            default => null,
+        };
+
+        if ($typed !== null && $subjectId !== null) {
+            return [
+                'route' => 'operator.work.show',
+                'params' => WorkUrl::parameters($typed, $subjectId),
+            ];
+        }
+
+        return [
+            'route' => $this->routeForEventType($event),
+            'params' => [],
+        ];
+    }
+
     private function routeForSubject(?string $subjectType, string $event): ?string
     {
         if ($subjectType !== null) {
@@ -291,10 +357,10 @@ final class ActivityReadService
                 str_ends_with($subjectType, '\\Finding') => 'operator.findings',
                 str_ends_with($subjectType, '\\Opportunity') => 'operator.opportunities',
                 str_ends_with($subjectType, '\\Recommendation') => 'operator.recommendations',
-                str_ends_with($subjectType, '\\Task') => 'operator.tasks',
+                str_ends_with($subjectType, '\\Task') => 'operator.work.show',
                 str_ends_with($subjectType, '\\ClientRequest') => 'operator.work.show',
                 str_ends_with($subjectType, '\\QaReview') => 'operator.tasks',
-                str_ends_with($subjectType, '\\Approval') => 'operator.tasks',
+                str_ends_with($subjectType, '\\Approval') => 'operator.work.show',
                 str_ends_with($subjectType, '\\RecurringReviewRun') => 'operator.work.show',
                 str_ends_with($subjectType, '\\Playbook') => 'operator.settings',
                 default => $this->routeForEventType($event),

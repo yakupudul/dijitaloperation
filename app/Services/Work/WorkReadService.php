@@ -6,6 +6,7 @@ use App\Services\Approvals\ApprovalReadService;
 use App\Services\ClientRequests\ClientRequestReadService;
 use App\Services\RecurringReviews\RecurringReviewReadService;
 use App\Services\Tasks\TaskReadService;
+use App\Support\Work\WorkUrl;
 
 /**
  * Work aggregate read model over canonical Tasks (+ residual frozen non-Task types).
@@ -88,8 +89,9 @@ final class WorkReadService
             'source_kind' => $task['source_kind'],
             'scope_kind' => $task['scope_kind'],
             'in_scope' => true,
-            'route' => 'operator.task',
-            'route_params' => ['taskId' => $task['id']],
+            'route' => 'operator.work.show',
+            'route_params' => WorkUrl::parameters(WorkUrl::TYPE_TASK, $task['id']),
+            'detail_url' => WorkUrl::show(WorkUrl::TYPE_TASK, $task['id']),
             'recommendation_id' => $task['recommendation_id'],
             'client_request_id' => $task['client_request_id'],
         ];
