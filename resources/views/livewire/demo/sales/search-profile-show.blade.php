@@ -22,14 +22,24 @@
             {{ __('operator.sales_intent.provider') }}: DataForSEO ·
             {{ $fixturesEnabled ? __('operator.sales_intent.reality_partial') : ($paidCallsEnabled ? __('operator.sales_intent.reality_real') : __('operator.sales_intent.reality_unavailable')) }}
         </p>
+
+        @if (! $fixturesEnabled && ! $paidCallsEnabled)
+            <div class="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-800 ring-1 ring-inset ring-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/20">
+                Live Sales Intent araması kapalı. Önce DataForSEO entegrasyonunda “Sales Intent live discovery” ayarını etkinleştirin.
+                <a href="{{ route('operator.integrations.dataforseo') }}" wire:navigate class="ml-1 font-semibold underline">DataForSEO ayarları →</a>
+            </div>
+        @endif
+
         @if ($paidCallsEnabled && ! $fixturesEnabled)
             <p class="mt-2 text-sm text-amber-700">{{ __('operator.sales_intent.paid_warning') }}</p>
             <label class="mt-2 flex items-center gap-2 text-sm">
                 <input type="checkbox" wire:model="paid_consent" /> {{ __('operator.sales_intent.paid_consent') }}
             </label>
         @endif
+
         <button type="button" wire:click="runSearch" wire:loading.attr="disabled"
-            class="mt-4 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-60">{{ __('operator.sales_intent.run_search') }}</button>
+            @disabled(! $fixturesEnabled && ! $paidCallsEnabled)
+            class="mt-4 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-40">{{ __('operator.sales_intent.run_search') }}</button>
     </x-ta.card>
 
     <x-ta.card>
