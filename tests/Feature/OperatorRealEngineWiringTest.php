@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Contracts\WebsiteOperatorWorkspace;
 use App\Models\CoreIntegration;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Sales\IntentSearchConfig;
@@ -21,6 +22,7 @@ class OperatorRealEngineWiringTest extends TestCase
         $this->assertStringNotContainsString('MoxDop\\Website', $source);
         $this->assertStringNotContainsString('UnavailableWorkspaceShells', $source);
         $this->assertStringNotContainsString('WebsiteWorkspaceFixtures', $source);
+        $this->assertInstanceOf(WebsiteOperatorWorkspace::class, app(WebsiteOperatorWorkspace::class));
     }
 
     public function test_real_public_discovery_and_data_source_routes_are_registered(): void
