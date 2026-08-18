@@ -102,6 +102,22 @@ class DataForSeoApiClient
     }
 
     /**
+     * POST /v3/serp/google/organic/live/regular — paid. Sales Intent Radar only.
+     *
+     * @param  list<array<string, mixed>>  $tasks
+     */
+    public function postSerpGoogleOrganicLiveRegular(CoreIntegration $integration, array $tasks): DataForSeoResponse
+    {
+        return $this->request(
+            $integration,
+            'POST',
+            DataForSeoEndpointAllowlist::SERP_GOOGLE_ORGANIC_LIVE_REGULAR,
+            self::CHARGE_CLASS_PAID_CREATE,
+            $tasks,
+        );
+    }
+
+    /**
      * Execute an allowlisted DataForSEO request.
      *
      * @param  array<string, mixed>|null  $jsonBody

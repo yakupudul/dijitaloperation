@@ -10,6 +10,7 @@ use App\Models\Prospect;
 use App\Models\ProspectActivity;
 use App\Models\ProspectDiscoveryCandidate;
 use App\Models\ProspectEvidence;
+use App\Models\ProspectReportSnapshot;
 use App\Models\ProspectResearchRun;
 use App\Models\ProspectSalesIntelligence;
 use App\Support\Options\AgencyServiceOptions;
@@ -47,6 +48,9 @@ final class ProspectReadService
             'activities' => fn ($q) => $q->with('actor')->orderByDesc('occurred_at')->limit(50),
             'latestResearchRun',
             'latestSalesIntelligence',
+            'convertedCustomer',
+            'convertedBrand',
+            'reportSnapshots' => fn ($q) => $q->orderByDesc('id')->limit(20),
         ]);
 
         return [
@@ -59,6 +63,11 @@ final class ProspectReadService
                 : null,
             'sales_intelligence_history' => $prospect->salesIntelligence->map(fn (ProspectSalesIntelligence $row): array => $this->salesIntelligenceRow($row))->all(),
             'activities' => $prospect->activities->map(fn (ProspectActivity $row): array => $this->activityRow($row))->all(),
+            'reports' => [
+                'internal_live' => app(ProspectReportProjectionService::class)->internal($prospect),
+                'client_live' => app(ProspectReportProjectionService::class)->clientShareable($prospect),
+                'snapshots' => $prospect->reportSnapshots->map(fn ($row): array => $this->reportRow($row))->all(),
+            ],
         ];
     }
 
@@ -119,6 +128,12 @@ final class ProspectReadService
             'research_message' => is_array($run?->metadata) ? ($run->metadata['message'] ?? null) : null,
             'research_at' => $run?->finished_at?->toIso8601String() ?? $run?->started_at?->toIso8601String(),
             'can_research' => ! in_array($run?->status, [ProspectResearchRunStatus::Queued, ProspectResearchRunStatus::Running], true),
+            'converted_customer_id' => $prospect->converted_customer_id,
+            'converted_brand_id' => $prospect->converted_brand_id,
+            'converted_at' => $prospect->converted_at?->toIso8601String(),
+            'converted_customer_name' => $prospect->convertedCustomer?->name,
+            'converted_brand_name' => $prospect->convertedBrand?->name,
+            'is_converted' => $prospect->converted_customer_id !== null,
         ];
     }
 
@@ -227,6 +242,22 @@ final class ProspectReadService
             'description' => $row->description,
             'actor_name' => $row->actor?->name,
             'occurred_at' => $row->occurred_at?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function reportRow(ProspectReportSnapshot $row): array
+    {
+        return [
+            'id' => (string) $row->id,
+            'projection' => $row->projection->value,
+            'projection_label' => __('operator.prospects.reports.projections.'.$row->projection->value),
+            'title' => $row->title,
+            'locale' => $row->locale,
+            'generated_at' => $row->generated_at?->toIso8601String(),
+            'is_client' => $row->isClientShareable(),
         ];
     }
 

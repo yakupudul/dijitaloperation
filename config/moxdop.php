@@ -139,6 +139,16 @@ return [
     ],
 
     /*
+     * Sales Intent Radar (Batch B). Paid SERP is opt-in and never scheduled.
+     */
+    'sales_intent_discovery' => [
+        'paid_calls_enabled' => (bool) env('MOXDOP_SALES_INTENT_PAID_CALLS', false),
+        'fixtures' => (bool) env('MOXDOP_INTENT_SEARCH_FIXTURES', false),
+        'max_queries_per_run' => (int) env('MOXDOP_SALES_INTENT_MAX_QUERIES', 5),
+        'max_results_per_query' => (int) env('MOXDOP_SALES_INTENT_MAX_RESULTS', 10),
+    ],
+
+    /*
      * Website SEO Intelligence (DataForSEO Light V1) — MoxDOP cost/freshness policy.
      * TTL values are product decisions, not DataForSEO requirements.
      * Ranked Keywords source data updates weekly → multi-day TTL is appropriate.

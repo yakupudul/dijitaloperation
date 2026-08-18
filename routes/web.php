@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\OperatorLoginController;
 use App\Http\Controllers\Integrations\GoogleOAuthController;
 use App\Http\Controllers\Integrations\MetaOAuthController;
 use App\Http\Controllers\Ops\OpsHealthController;
+use App\Http\Controllers\Prospects\ProspectReportShareController;
 use App\Http\Controllers\Reports\ReportArtifactDownloadController;
 use App\Http\Controllers\Reports\ReportShareController;
 use Illuminate\Support\Facades\Auth;
@@ -59,6 +60,15 @@ Route::middleware(['web', 'auth'])->group(function (): void {
     // Internal ops snapshot — authenticated operators only; no new top-level nav.
     Route::get('/ops/health-snapshot', [OpsHealthController::class, 'snapshot'])
         ->name('ops.health.snapshot');
+});
+
+Route::middleware(['web'])->prefix('prospect-reports/share')->name('prospect-reports.share.')->group(function (): void {
+    Route::get('/{token}/pdf', [ProspectReportShareController::class, 'pdf'])
+        ->where('token', '[A-Za-z0-9\-_]+')
+        ->name('pdf');
+    Route::get('/{token}', [ProspectReportShareController::class, 'locator'])
+        ->where('token', '[A-Za-z0-9\-_]+')
+        ->name('locator');
 });
 
 Route::middleware(['web'])->prefix('reports/share')->name('reports.share.')->group(function (): void {

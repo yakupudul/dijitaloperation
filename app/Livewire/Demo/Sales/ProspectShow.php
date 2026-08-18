@@ -3,9 +3,14 @@
 namespace App\Livewire\Demo\Sales;
 
 use App\Enums\ProspectIdentityStatus;
+use App\Enums\ProspectReportProjection;
 use App\Enums\ProspectStatus;
 use App\Models\Prospect;
+use App\Models\ProspectReportSnapshot;
+use App\Services\Prospects\CreateProspectReportSnapshotService;
 use App\Services\Prospects\ProspectReadService;
+use App\Services\Prospects\ProspectReportPdfRenderer;
+use App\Services\Prospects\ProspectReportShareService;
 use App\Services\Prospects\ProspectResearchService;
 use App\Services\Prospects\UpdateProspectService;
 use App\Support\Demo\DemoState;
@@ -31,6 +36,12 @@ class ProspectShow extends Component
 
     public bool $researching = false;
 
+    public string $internal_notes = '';
+
+    public string $report_locale = 'en';
+
+    public ?string $shareUrl = null;
+
     public function mount(string $prospectId): void
     {
         abort_unless(ctype_digit($prospectId), 404);
@@ -42,6 +53,7 @@ class ProspectShow extends Component
         $prospect = Prospect::query()->findOrFail($prospectId);
         $this->status = $prospect->status->value;
         $this->identity_status = $prospect->identity_status->value;
+        $this->report_locale = in_array(app()->getLocale(), ['en', 'tr'], true) ? app()->getLocale() : 'en';
     }
 
     public function setTab(string $tab): void
@@ -52,7 +64,7 @@ class ProspectShow extends Component
 
     private function normalizeTab(): void
     {
-        if (! in_array($this->tab, ['overview', 'research', 'intelligence', 'activity'], true)) {
+        if (! in_array($this->tab, ['overview', 'research', 'intelligence', 'report', 'activity'], true)) {
             $this->tab = 'overview';
         }
     }
@@ -98,6 +110,57 @@ class ProspectShow extends Component
         } finally {
             $this->researching = false;
         }
+    }
+
+    public function generateInternalReport(): void
+    {
+        $prospect = Prospect::query()->findOrFail($this->prospectId);
+        app(CreateProspectReportSnapshotService::class)->generate(
+            $prospect,
+            ProspectReportProjection::Internal,
+            auth()->user(),
+            $this->report_locale,
+            internalNotes: $this->internal_notes !== '' ? $this->internal_notes : null,
+        );
+        DemoState::flash(__('operator.prospects.reports.internal_generated'));
+        $this->tab = 'report';
+    }
+
+    public function generateClientReport(): void
+    {
+        $prospect = Prospect::query()->findOrFail($this->prospectId);
+        app(CreateProspectReportSnapshotService::class)->generate(
+            $prospect,
+            ProspectReportProjection::ClientShareable,
+            auth()->user(),
+            $this->report_locale,
+        );
+        DemoState::flash(__('operator.prospects.reports.client_generated'));
+        $this->tab = 'report';
+    }
+
+    public function downloadSnapshot(string $snapshotId): mixed
+    {
+        $snapshot = ProspectReportSnapshot::query()
+            ->where('prospect_id', $this->prospectId)
+            ->findOrFail($snapshotId);
+        $artifact = app(ProspectReportPdfRenderer::class)->generateArtifact($snapshot);
+
+        return redirect()->route('operator.prospect.report.pdf', [
+            'prospectId' => $this->prospectId,
+            'artifactId' => $artifact->id,
+        ]);
+    }
+
+    public function shareSnapshot(string $snapshotId): void
+    {
+        $snapshot = ProspectReportSnapshot::query()
+            ->where('prospect_id', $this->prospectId)
+            ->findOrFail($snapshotId);
+        $result = app(ProspectReportShareService::class)->createGrant($snapshot, auth()->user());
+        $this->shareUrl = $result['url'];
+        DemoState::flash(__('operator.prospects.reports.share_created'));
+        $this->tab = 'report';
     }
 
     public function render(): View

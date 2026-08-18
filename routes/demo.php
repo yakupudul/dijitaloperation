@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Demo\OperatorFileDownloadController;
 use App\Http\Controllers\Demo\SiteConnectorDownloadController;
+use App\Http\Controllers\Prospects\ProspectReportArtifactDownloadController;
 use App\Http\Middleware\EnsureDemoAppAccess;
 use App\Livewire\Demo\Assets\AnalyticsPage;
 use App\Livewire\Demo\Assets\SearchConsolePage;
@@ -47,9 +48,15 @@ use App\Livewire\Demo\Portfolio\CustomerEdit;
 use App\Livewire\Demo\Portfolio\CustomersIndex;
 use App\Livewire\Demo\Portfolio\PortfolioSetupWizard;
 use App\Livewire\Demo\ProfilePage;
+use App\Livewire\Demo\Sales\IntentRadarIndex;
+use App\Livewire\Demo\Sales\IntentSignalShow;
+use App\Livewire\Demo\Sales\ProspectConvert;
 use App\Livewire\Demo\Sales\ProspectCreate;
 use App\Livewire\Demo\Sales\ProspectShow;
 use App\Livewire\Demo\Sales\ProspectsIndex;
+use App\Livewire\Demo\Sales\SearchProfileForm;
+use App\Livewire\Demo\Sales\SearchProfileShow;
+use App\Livewire\Demo\Sales\SearchProfilesIndex;
 use App\Livewire\Demo\Settings\AiAgentsPage;
 use App\Livewire\Demo\Settings\AiControlPlanePage;
 use App\Livewire\Demo\Settings\AiSkillsPage;
@@ -135,6 +142,17 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
 
         Route::livewire('/prospects', ProspectsIndex::class)->name('operator.prospects');
         Route::livewire('/prospects/create', ProspectCreate::class)->name('operator.prospect.create');
+        Route::livewire('/prospects/search-profiles', SearchProfilesIndex::class)->name('operator.search-profiles');
+        Route::livewire('/prospects/search-profiles/create', SearchProfileForm::class)->name('operator.search-profile.create');
+        Route::livewire('/prospects/search-profiles/{profileId}/edit', SearchProfileForm::class)->name('operator.search-profile.edit');
+        Route::livewire('/prospects/search-profiles/{profileId}', SearchProfileShow::class)->name('operator.search-profile');
+        Route::livewire('/prospects/intent-radar', IntentRadarIndex::class)->name('operator.intent-radar');
+        Route::livewire('/prospects/intent-signals/{signalId}', IntentSignalShow::class)->name('operator.intent-signal');
+        Route::livewire('/prospects/{prospectId}/convert', ProspectConvert::class)->name('operator.prospect.convert');
+        Route::get('/prospects/{prospectId}/reports/{artifactId}/download', [ProspectReportArtifactDownloadController::class, 'download'])
+            ->whereNumber('prospectId')
+            ->whereNumber('artifactId')
+            ->name('operator.prospect.report.pdf');
         Route::livewire('/prospects/{prospectId}', ProspectShow::class)->name('operator.prospect');
 
         Route::livewire('/settings', SettingsPage::class)->name('operator.settings');

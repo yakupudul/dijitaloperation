@@ -22,6 +22,9 @@ final class DataForSeoEndpointAllowlist
     /** Paid — organic competitor domains for a target domain (Labs Google). */
     public const string LABS_GOOGLE_COMPETITORS_DOMAIN_LIVE = 'dataforseo_labs/google/competitors_domain/live';
 
+    /** Paid — Sales Intent Radar V1 public SERP (explicit operator run only). */
+    public const string SERP_GOOGLE_ORGANIC_LIVE_REGULAR = 'serp/google/organic/live/regular';
+
     /**
      * @return list<string>
      */
@@ -33,6 +36,7 @@ final class DataForSeoEndpointAllowlist
             self::LABS_GOOGLE_RANKED_KEYWORDS_LIVE,
             self::LABS_GOOGLE_KEYWORDS_FOR_SITE_LIVE,
             self::LABS_GOOGLE_COMPETITORS_DOMAIN_LIVE,
+            self::SERP_GOOGLE_ORGANIC_LIVE_REGULAR,
         ];
     }
 

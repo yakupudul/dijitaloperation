@@ -23,4 +23,6 @@ final class AgentProfileKeys
     public const string GSC_ORGANIC_SEARCH_ANALYST = 'gsc.organic_search_analyst';
 
     public const string SALES_PROSPECT_INTELLIGENCE_ANALYST = 'sales.prospect_intelligence_analyst';
+
+    public const string SALES_INTENT_CLASSIFICATION_ANALYST = 'sales.intent_classification_analyst';
 }

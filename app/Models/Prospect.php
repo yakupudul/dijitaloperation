@@ -124,4 +124,12 @@ class Prospect extends Model
     {
         return $this->hasMany(ProspectActivity::class);
     }
+
+    /**
+     * @return HasMany<ProspectReportSnapshot, $this>
+     */
+    public function reportSnapshots(): HasMany
+    {
+        return $this->hasMany(ProspectReportSnapshot::class);
+    }
 }

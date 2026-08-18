@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Agents\SalesIntentClassificationAnalyst;
 use App\Agents\SalesProspectIntelligenceAnalyst;
 use App\Support\Agents\AgentProfileRegistry;
 use App\Support\Ai\AiProviderCatalog;
@@ -27,6 +28,19 @@ class SalesServiceProvider extends ServiceProvider
             ],
         ]);
 
+        $this->app->make(AiRouteRegistry::class)->register([
+            'key' => AiRouteKeys::SALES_INTENT_CLASSIFICATION,
+            'name' => 'Sales Intent Classification',
+            'module' => 'sales',
+            'description' => 'Bounded purchase-intent classification for public Intent Signals using observed snippets and the canonical service catalog.',
+            'default_steps' => [
+                [
+                    'provider' => AiProviderCatalog::OPENAI,
+                    'model' => AiProviderCatalog::defaultModel(AiProviderCatalog::OPENAI),
+                ],
+            ],
+        ]);
+
         $this->app->make(SkillRegistry::class)->registerRoot(
             'sales',
             base_path('resources/skills'),
@@ -34,6 +48,10 @@ class SalesServiceProvider extends ServiceProvider
 
         $this->app->make(AgentProfileRegistry::class)->register(
             SalesProspectIntelligenceAnalyst::definition(),
+        );
+
+        $this->app->make(AgentProfileRegistry::class)->register(
+            SalesIntentClassificationAnalyst::definition(),
         );
     }
 }

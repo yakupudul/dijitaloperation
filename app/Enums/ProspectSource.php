@@ -10,6 +10,7 @@ enum ProspectSource: string
     case Referral = 'referral';
     case Website = 'website';
     case Manual = 'manual';
+    case IntentRadar = 'intent_radar';
     case Other = 'other';
 
     /**
@@ -24,6 +25,7 @@ enum ProspectSource: string
             self::Referral,
             self::Website,
             self::Manual,
+            self::IntentRadar,
             self::Other,
         ];
     }

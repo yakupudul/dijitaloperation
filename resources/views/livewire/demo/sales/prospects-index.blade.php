@@ -1,5 +1,6 @@
 <div class="space-y-5">
     @include('livewire.demo.partials.flash')
+    @include('livewire.demo.sales.partials.sales-subnav', ['current' => 'prospects'])
 
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
