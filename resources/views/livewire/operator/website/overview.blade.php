@@ -87,49 +87,26 @@
         </div>
 
         <div class="grid gap-4 xl:grid-cols-3">
-            <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
-                <h2 class="text-base font-semibold text-gray-900 dark:text-white">Needs attention</h2>
-                <p class="mt-3 text-3xl font-bold text-gray-900 dark:text-white">{{ $data['findings']['counts']['high'] }}</p>
-                <p class="mt-1 text-sm text-gray-500">High / critical open findings</p>
-            </section>
-            <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
-                <h2 class="text-base font-semibold text-gray-900 dark:text-white">Opportunities</h2>
-                <p class="mt-3 text-3xl font-bold text-gray-900 dark:text-white">{{ count($data['seo_opportunities'] ?? []) }}</p>
-                <p class="mt-1 text-sm text-gray-500">Observed GSC / SEO opportunities</p>
-            </section>
-            <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
-                <h2 class="text-base font-semibold text-gray-900 dark:text-white">Site inventory</h2>
-                <p class="mt-3 text-sm text-gray-600 dark:text-gray-300">Inventory is populated only from collected Website / Site Connector evidence.</p>
-                <a href="{{ route('operator.integrations.site-connectors') }}" wire:navigate class="mt-3 inline-flex text-sm font-medium text-brand-600 hover:underline">Site Connector →</a>
-            </section>
+            <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700"><h2 class="text-base font-semibold text-gray-900 dark:text-white">Needs attention</h2><p class="mt-3 text-3xl font-bold text-gray-900 dark:text-white">{{ $data['findings']['counts']['high'] }}</p><p class="mt-1 text-sm text-gray-500">High / critical open findings</p></section>
+            <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700"><h2 class="text-base font-semibold text-gray-900 dark:text-white">Opportunities</h2><p class="mt-3 text-3xl font-bold text-gray-900 dark:text-white">{{ count($data['seo_opportunities'] ?? []) }}</p><p class="mt-1 text-sm text-gray-500">Observed GSC / SEO opportunities</p></section>
+            <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700"><h2 class="text-base font-semibold text-gray-900 dark:text-white">Site inventory</h2><p class="mt-3 text-sm text-gray-600 dark:text-gray-300">Inventory is populated only from collected Website / Site Connector evidence.</p><a href="{{ route('operator.integrations.site-connectors') }}" wire:navigate class="mt-3 inline-flex text-sm font-medium text-brand-600 hover:underline">Site Connector →</a></section>
         </div>
 
         <div class="grid gap-4 xl:grid-cols-2">
             <section class="rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
                 <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700"><div><h2 class="font-semibold text-gray-900 dark:text-white">Açık bulgular</h2><p class="mt-1 text-xs text-gray-400">Gerçek Finding kayıtları</p></div><a href="{{ route('operator.findings', ['asset' => $asset->id]) }}" wire:navigate class="text-xs font-medium text-brand-600">Tümü →</a></div>
-                <div class="divide-y divide-gray-100 dark:divide-gray-700">
-                    @forelse ($data['findings']['open']->take(5) as $finding)
-                        <div class="px-5 py-4"><div class="flex justify-between gap-3"><p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $finding->title }}</p><span class="text-xs font-semibold uppercase text-rose-600">{{ $finding->severity }}</span></div><p class="mt-1 text-sm text-gray-500">{{ $finding->summary }}</p></div>
-                    @empty
-                        <div class="px-5 py-8 text-sm text-gray-500">Henüz açık Finding yok.</div>
-                    @endforelse
-                </div>
+                <div class="divide-y divide-gray-100 dark:divide-gray-700">@forelse ($data['findings']['open']->take(5) as $finding)<div class="px-5 py-4"><div class="flex justify-between gap-3"><p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $finding->title }}</p><span class="text-xs font-semibold uppercase text-rose-600">{{ $finding->severity }}</span></div><p class="mt-1 text-sm text-gray-500">{{ $finding->summary }}</p></div>@empty<div class="px-5 py-8 text-sm text-gray-500">Henüz açık Finding yok.</div>@endforelse</div>
             </section>
             <section class="rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
                 <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700"><div><h2 class="font-semibold text-gray-900 dark:text-white">Öneriler</h2><p class="mt-1 text-xs text-gray-400">Gerçek Recommendation kayıtları</p></div><a href="{{ route('operator.recommendations', ['asset' => $asset->id]) }}" wire:navigate class="text-xs font-medium text-brand-600">Tümü →</a></div>
-                <div class="divide-y divide-gray-100 dark:divide-gray-700">
-                    @forelse ($data['recommendations']->take(5) as $recommendation)
-                        <div class="px-5 py-4"><p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $recommendation->title }}</p><p class="mt-1 text-sm text-gray-500">{{ $recommendation->action }}</p></div>
-                    @empty
-                        <div class="px-5 py-8 text-sm text-gray-500">Henüz Recommendation yok.</div>
-                    @endforelse
-                </div>
+                <div class="divide-y divide-gray-100 dark:divide-gray-700">@forelse ($data['recommendations']->take(5) as $recommendation)<div class="px-5 py-4"><p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $recommendation->title }}</p><p class="mt-1 text-sm text-gray-500">{{ $recommendation->action }}</p></div>@empty<div class="px-5 py-8 text-sm text-gray-500">Henüz Recommendation yok.</div>@endforelse</div>
             </section>
         </div>
     @elseif ($tab === 'health')
         <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
             <div class="flex items-center justify-between gap-3"><div><h2 class="text-lg font-semibold text-gray-900 dark:text-white">Website health</h2><p class="mt-1 text-sm text-gray-500">Gerçek diagnosis run ve Finding kayıtları</p></div><button type="button" wire:click="runDiagnosis" class="text-sm font-medium text-brand-600">Tekrar çalıştır</button></div>
-            <div class="mt-5 grid gap-3 sm:grid-cols-3">
+            <p class="mt-4 text-sm font-medium text-gray-700 dark:text-gray-300">{{ $data['diagnosis']['checks_evaluated'] ?? 0 }} checks evaluated</p>
+            <div class="mt-4 grid gap-3 sm:grid-cols-3">
                 <div class="rounded-lg bg-gray-50 p-4 dark:bg-white/[0.03]"><p class="text-2xl font-bold text-gray-900 dark:text-white">{{ $data['diagnosis']['checks_evaluated'] ?? 0 }}</p><p class="text-xs text-gray-400">checks evaluated</p></div>
                 <div class="rounded-lg bg-gray-50 p-4 dark:bg-white/[0.03]"><p class="text-2xl font-bold text-gray-900 dark:text-white">{{ $data['findings']['counts']['open'] }}</p><p class="text-xs text-gray-400">open findings</p></div>
                 <div class="rounded-lg bg-gray-50 p-4 dark:bg-white/[0.03]"><p class="text-2xl font-bold text-rose-600">{{ $data['findings']['counts']['high'] }}</p><p class="text-xs text-gray-400">high severity</p></div>
@@ -138,29 +115,25 @@
         </section>
     @elseif ($tab === 'visibility')
         <div class="grid gap-4 xl:grid-cols-2">
-            <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
-                <div class="flex items-center justify-between"><h2 class="font-semibold text-gray-900 dark:text-white">Organic Search</h2><button type="button" wire:click="refreshSeoIntelligence" class="text-sm font-medium text-brand-600">SEO intelligence yenile</button></div>
-                <p class="mt-2 text-sm text-gray-500">Search Console Evidence + DataForSEO intelligence. Paid refresh yalnız explicit action ile çalışır.</p>
-                <div class="mt-4 space-y-2">@forelse (array_slice($data['seo_opportunities'] ?? [], 0, 8) as $row)<div class="rounded-lg bg-gray-50 p-3 text-sm dark:bg-white/[0.03]">{{ is_array($row) ? ($row['query'] ?? $row['title'] ?? json_encode($row)) : $row }}</div>@empty<p class="text-sm text-gray-500">Henüz gerçek SEO opportunity yok.</p>@endforelse</div>
-            </section>
+            <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700"><div class="flex items-center justify-between"><h2 class="font-semibold text-gray-900 dark:text-white">Organic Search</h2><button type="button" wire:click="refreshSeoIntelligence" class="text-sm font-medium text-brand-600">SEO intelligence yenile</button></div><p class="mt-2 text-sm text-gray-500">Search Console Evidence + DataForSEO intelligence. Paid refresh yalnız explicit action ile çalışır.</p><div class="mt-4 space-y-2">@forelse (array_slice($data['seo_opportunities'] ?? [], 0, 8) as $row)<div class="rounded-lg bg-gray-50 p-3 text-sm dark:bg-white/[0.03]">{{ is_array($row) ? ($row['query'] ?? $row['title'] ?? json_encode($row)) : $row }}</div>@empty<p class="text-sm text-gray-500">Henüz gerçek SEO opportunity yok.</p>@endforelse</div></section>
             <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700"><h2 class="font-semibold text-gray-900 dark:text-white">Kamu Keşif / competitors</h2><p class="mt-2 text-sm text-gray-500">Public crawl ve bounded competitor discovery ayrı gerçek workspace'te yönetilir.</p><a href="{{ route('operator.website.discovery', ['assetId' => $asset->id]) }}" wire:navigate class="mt-4 inline-flex text-sm font-medium text-violet-600">Kamu Keşif'i aç →</a></section>
         </div>
     @elseif ($tab === 'content')
-        <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Site inventory & Content</h2>
-            <p class="mt-2 text-sm text-gray-500">Bu alan uydurma sayfa envanteri göstermiyor. WordPress/Site Connector veya Website observation collection ile gerçek içerik envanteri geldikçe burada işlenecek.</p>
-            <div class="mt-4 flex gap-2"><a href="{{ route('operator.integrations.site-connectors') }}" wire:navigate class="rounded-lg bg-brand-500 px-3 py-2 text-sm font-semibold text-white">Site Connector</a><a href="{{ route('operator.website.sources', ['assetId' => $asset->id]) }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-inset ring-gray-300">Veri Kaynakları</a></div>
-        </section>
+        <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700"><h2 class="text-lg font-semibold text-gray-900 dark:text-white">Site inventory & Content</h2><p class="mt-2 text-sm text-gray-500">Bu alan uydurma sayfa envanteri göstermiyor. WordPress/Site Connector veya Website observation collection ile gerçek içerik envanteri geldikçe burada işlenecek.</p><div class="mt-4 flex gap-2"><a href="{{ route('operator.integrations.site-connectors') }}" wire:navigate class="rounded-lg bg-brand-500 px-3 py-2 text-sm font-semibold text-white">Site Connector</a><a href="{{ route('operator.website.sources', ['assetId' => $asset->id]) }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-inset ring-gray-300">Veri Kaynakları</a></div></section>
     @elseif ($tab === 'performance')
-        <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Performance</h2><p class="mt-1 text-sm text-gray-500">GA4 + Search Console Evidence</p>
-            <div class="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">@forelse ($data['kpis'] as $kpi)<div class="rounded-lg bg-gray-50 p-4 dark:bg-white/[0.03]"><p class="text-xs text-gray-400">{{ $kpi['label'] }}</p><p class="mt-2 text-xl font-bold text-gray-900 dark:text-white">{{ $kpi['value'] }}</p><p class="mt-1 text-xs text-gray-400">{{ strtoupper($kpi['source']) }}</p></div>@empty<p class="text-sm text-gray-500 sm:col-span-2">Henüz provider Evidence yok.</p>@endforelse</div>
-        </section>
+        <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700"><h2 class="text-lg font-semibold text-gray-900 dark:text-white">Performance</h2><p class="mt-1 text-sm text-gray-500">GA4 + Search Console Evidence</p><div class="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">@forelse ($data['kpis'] as $kpi)<div class="rounded-lg bg-gray-50 p-4 dark:bg-white/[0.03]"><p class="text-xs text-gray-400">{{ $kpi['label'] }}</p><p class="mt-2 text-xl font-bold text-gray-900 dark:text-white">{{ $kpi['value'] }}</p><p class="mt-1 text-xs text-gray-400">{{ strtoupper($kpi['source']) }}</p></div>@empty<p class="text-sm text-gray-500 sm:col-span-2">Henüz provider Evidence yok.</p>@endforelse</div></section>
     @elseif ($tab === 'infrastructure')
         <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Infrastructure</h2>
             <p class="mt-2 text-sm text-gray-500">Domain, DNS, hosting, CDN, SSL ve CMS Website Digital Asset'in altyapısıdır; not standalone assets.</p>
-            <dl class="mt-5 grid gap-4 sm:grid-cols-2"><div class="rounded-lg bg-gray-50 p-4 dark:bg-white/[0.03]"><dt class="text-xs text-gray-400">Domain</dt><dd class="mt-1 font-medium text-gray-900 dark:text-white">{{ $asset->domain ?: '—' }}</dd></div><div class="rounded-lg bg-gray-50 p-4 dark:bg-white/[0.03]"><dt class="text-xs text-gray-400">Primary URL</dt><dd class="mt-1 break-all font-medium text-gray-900 dark:text-white">{{ $asset->primary_url ?: '—' }}</dd></div><div class="rounded-lg bg-gray-50 p-4 dark:bg-white/[0.03]"><dt class="text-xs text-gray-400">CMS</dt><dd class="mt-1 font-medium text-gray-900 dark:text-white">{{ $asset->cms ?: 'Not collected' }}</dd></div><div class="rounded-lg bg-gray-50 p-4 dark:bg-white/[0.03]"><dt class="text-xs text-gray-400">Hosting context</dt><dd class="mt-1 font-medium text-gray-900 dark:text-white">{{ $asset->hosting_context ?: 'Not collected' }}</dd></div></dl>
+            <dl class="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <div class="rounded-lg bg-gray-50 p-4 dark:bg-white/[0.03]"><dt class="text-xs text-gray-400">Domain</dt><dd class="mt-1 font-medium text-gray-900 dark:text-white">{{ $asset->domain ?: '—' }}</dd></div>
+                <div class="rounded-lg bg-gray-50 p-4 dark:bg-white/[0.03]"><dt class="text-xs text-gray-400">Primary URL</dt><dd class="mt-1 break-all font-medium text-gray-900 dark:text-white">{{ $asset->primary_url ?: '—' }}</dd></div>
+                <div class="rounded-lg bg-gray-50 p-4 dark:bg-white/[0.03]"><dt class="text-xs text-gray-400">CMS</dt><dd class="mt-1 font-medium text-gray-900 dark:text-white">{{ $asset->cms ?: 'Not collected' }}</dd></div>
+                <div class="rounded-lg bg-gray-50 p-4 dark:bg-white/[0.03]"><dt class="text-xs text-gray-400">Hosting</dt><dd class="mt-1 font-medium text-gray-900 dark:text-white">{{ $asset->hosting_context ?: 'Not collected' }}</dd></div>
+                <div class="rounded-lg bg-gray-50 p-4 dark:bg-white/[0.03]"><dt class="text-xs text-gray-400">SSL / TLS</dt><dd class="mt-1 font-medium text-gray-900 dark:text-white">Not collected</dd></div>
+                <div class="rounded-lg bg-gray-50 p-4 dark:bg-white/[0.03]"><dt class="text-xs text-gray-400">DNS / CDN</dt><dd class="mt-1 font-medium text-gray-900 dark:text-white">Not collected</dd></div>
+            </dl>
         </section>
     @elseif ($tab === 'operations')
         <div class="grid gap-4 xl:grid-cols-2">
