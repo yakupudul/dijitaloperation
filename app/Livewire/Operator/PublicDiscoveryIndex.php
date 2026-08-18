@@ -6,6 +6,7 @@ use App\Models\DigitalAsset;
 use App\Models\DiscoveryCandidate;
 use App\Models\Run;
 use App\Services\Async\AsyncOperationService;
+use App\Support\Async\AsyncOperationTypes;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -16,8 +17,6 @@ use Livewire\Component;
 #[Title('Public Discovery')]
 class PublicDiscoveryIndex extends Component
 {
-    private const string DISCOVERY_MODULE_ID = 'website-discovery';
-
     #[Url]
     public string $q = '';
 
@@ -60,7 +59,7 @@ class PublicDiscoveryIndex extends Component
 
         $latestRuns = Run::query()
             ->whereIn('digital_asset_id', $assetIds)
-            ->where('module_id', self::DISCOVERY_MODULE_ID)
+            ->where('module_id', AsyncOperationTypes::MODULE_PUBLIC_DISCOVERY)
             ->orderByDesc('id')
             ->get()
             ->unique('digital_asset_id')
