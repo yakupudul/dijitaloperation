@@ -78,9 +78,9 @@
             <div class="divide-y divide-gray-100 dark:divide-gray-700">
                 @forelse (($profile['fields'] ?? []) as $field)
                     <div class="grid gap-2 px-5 py-4 sm:grid-cols-3 sm:items-center">
-                        <p class="text-sm font-medium text-gray-500">{{ $field['area'] }}</p>
+                        <p class="text-sm font-medium text-gray-500">{{ __('operator_gbp.fields.'.($field['key'] ?? '')) }}</p>
                         <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $field['value'] }}</p>
-                        <p class="text-xs text-gray-400 sm:text-right">{{ $field['state'] }}</p>
+                        <p class="text-xs text-gray-400 sm:text-right">{{ __('operator_gbp.states.'.($field['state'] ?? 'missing')) }}</p>
                     </div>
                 @empty
                     <div class="px-5 py-8 text-sm text-gray-500">{{ __('operator_gbp.no_profile_data') }}</div>
@@ -107,7 +107,7 @@
                 <h2 class="font-semibold text-gray-900 dark:text-white">{{ __('operator_gbp.profile_fields') }}</h2>
                 <dl class="mt-4 space-y-4">
                     @foreach (($profile['fields'] ?? []) as $field)
-                        <div><dt class="text-xs text-gray-400">{{ $field['area'] }}</dt><dd class="mt-1 text-sm font-medium text-gray-900 dark:text-white">{{ $field['value'] }}</dd></div>
+                        <div><dt class="text-xs text-gray-400">{{ __('operator_gbp.fields.'.($field['key'] ?? '')) }}</dt><dd class="mt-1 text-sm font-medium text-gray-900 dark:text-white">{{ $field['value'] }}</dd></div>
                     @endforeach
                 </dl>
             </section>
