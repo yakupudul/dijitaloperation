@@ -97,13 +97,14 @@ class GoogleAdsRecollectEntitySnapshotCommand extends Command
 
                 return self::FAILURE;
             }
-            $payload = array_merge($payload, $this->evidenceForRun($run, $binding, $grainProof, includeBefore: false));
+            $payload = array_merge($payload, $this->evidenceForRun($run, $binding, $grainProof));
+            $this->attachAcceptance($payload);
             $this->emit($payload);
 
             return $this->exitFromEvidence($payload);
         }
 
-        $payload['grain_before'] = $grainProof->prove((int) $asset->id);
+        $payload['grain_before'] = $grainProof->prove($this->grainScope($binding));
         $run = $starter->start($this->startRequest($asset, $binding));
         $payload['collection_run_id'] = $run->id;
         $payload['collection_run_uuid'] = $run->uuid;
@@ -115,21 +116,40 @@ class GoogleAdsRecollectEntitySnapshotCommand extends Command
             if ($dataset === null) {
                 $payload['wait_timed_out'] = true;
                 $payload['message'] = 'Timed out waiting for GADS_RF_ENTITY_SNAPSHOT. Horizon collection worker must consume ExecuteDatasetRunJob. Re-run with --report-run-uuid after it finishes.';
-                $payload = array_merge($payload, $this->evidenceForRun($run->fresh() ?? $run, $binding, $grainProof, includeBefore: false));
+                $payload = array_merge($payload, $this->evidenceForRun($run->fresh() ?? $run, $binding, $grainProof));
+                $this->attachAcceptance($payload);
                 $this->emit($payload);
 
                 return self::FAILURE;
             }
         }
 
-        $payload = array_merge($payload, $this->evidenceForRun($run->fresh() ?? $run, $binding, $grainProof, includeBefore: false));
+        $payload = array_merge($payload, $this->evidenceForRun($run->fresh() ?? $run, $binding, $grainProof));
         if (! $this->option('wait')) {
-            $payload['message'] = 'CollectionRun started. Horizon must process queue=collection. Re-run with --wait, or later --report-run-uuid='.$run->uuid.' to print grain proof. Run the same command a second time after completion to prove idempotent upsert.';
+            $payload['message'] = 'CollectionRun started. Horizon must process queue=collection. Re-run with --wait, or later --report-run-uuid='.$run->uuid.' to print grain proof. Successful start is not keyword-grain proof.';
+            $this->emit($payload);
+
+            return self::SUCCESS;
         }
 
+        $this->attachAcceptance($payload);
         $this->emit($payload);
 
-        return $this->option('wait') ? $this->exitFromEvidence($payload) : self::SUCCESS;
+        return $this->exitFromEvidence($payload);
+    }
+
+    /**
+     * @return array{digital_asset_id: int, external_resource_id: int, ads_customer_id: string|null}
+     */
+    private function grainScope(CoreAssetBinding $binding): array
+    {
+        $adsCustomerId = $binding->externalResource?->external_id;
+
+        return [
+            'digital_asset_id' => (int) $binding->digital_asset_id,
+            'external_resource_id' => (int) $binding->external_resource_id,
+            'ads_customer_id' => is_string($adsCustomerId) && $adsCustomerId !== '' ? $adsCustomerId : null,
+        ];
     }
 
     private function assertEnvironmentAllowed(): void
@@ -284,7 +304,6 @@ class GoogleAdsRecollectEntitySnapshotCommand extends Command
         CollectionRun $run,
         CoreAssetBinding $binding,
         GoogleAdsKeywordGrainProof $grainProof,
-        bool $includeBefore,
     ): array {
         $dataset = $this->entitySnapshotDataset($run);
         $dataset?->loadMissing('resourceRun');
@@ -315,7 +334,7 @@ class GoogleAdsRecollectEntitySnapshotCommand extends Command
             ->where('external_resource_id', $binding->external_resource_id)
             ->first();
 
-        $evidence = [
+        return [
             'collection_run_id' => $run->id,
             'collection_run_uuid' => $run->uuid,
             'collection_run_status' => $run->status->value,
@@ -336,17 +355,36 @@ class GoogleAdsRecollectEntitySnapshotCommand extends Command
                 'last_successful_dataset_run_id' => $materialization->last_successful_dataset_run_id,
                 'last_collected_at' => $materialization->last_collected_at?->toIso8601String(),
             ],
-            'grain_after' => $grainProof->prove(
-                (int) $binding->digital_asset_id,
-                $dataset?->id,
-            ),
+            'grain_after' => $grainProof->prove($this->grainScope($binding), $dataset?->id),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function attachAcceptance(array &$payload): void
+    {
+        $datasetCompleted = ($payload['dataset_run_status'] ?? null) === CollectionRunStatus::Completed->value;
+        $grainProven = (bool) data_get($payload, 'grain_after.current_run_grain_proven');
+        $payload['acceptance'] = [
+            'dataset_completed' => $datasetCompleted,
+            'current_run_grain_proven' => $grainProven,
+            'ok' => $datasetCompleted && $grainProven,
         ];
 
-        if ($includeBefore) {
-            $evidence['grain_before'] = $grainProof->prove((int) $binding->digital_asset_id);
+        if ($payload['acceptance']['ok']) {
+            return;
         }
 
-        return $evidence;
+        if ($datasetCompleted && ! $grainProven) {
+            $payload['message'] = 'DatasetRun completed but exact-resource current-run keyword grain proof is not valid. Exit non-zero; do not mark PROVEN_STAGING.';
+
+            return;
+        }
+
+        $payload['message'] = is_string($payload['message'] ?? null)
+            ? $payload['message']
+            : 'Acceptance reporting requires a completed GADS_RF_ENTITY_SNAPSHOT DatasetRun and current_run_grain_proven=true.';
     }
 
     /**
@@ -354,12 +392,7 @@ class GoogleAdsRecollectEntitySnapshotCommand extends Command
      */
     private function exitFromEvidence(array $payload): int
     {
-        $status = $payload['dataset_run_status'] ?? null;
-        if ($status === CollectionRunStatus::Completed->value) {
-            return self::SUCCESS;
-        }
-
-        return self::FAILURE;
+        return ! empty($payload['acceptance']['ok']) ? self::SUCCESS : self::FAILURE;
     }
 
     /**
@@ -378,6 +411,7 @@ class GoogleAdsRecollectEntitySnapshotCommand extends Command
         $this->line('APP_ENV: '.($payload['app_env'] ?? ''));
         $this->line('Binding: '.($payload['binding_id'] ?? ''));
         $this->line('Digital asset: '.($payload['digital_asset_id'] ?? ''));
+        $this->line('External resource: '.($payload['external_resource_id'] ?? ''));
         $this->line('Family: '.($payload['family_id'] ?? ''));
         if (isset($payload['dry_run'])) {
             $this->line($payload['message'] ?? 'dry-run');
@@ -403,17 +437,22 @@ class GoogleAdsRecollectEntitySnapshotCommand extends Command
         $grain = $payload['grain_after'] ?? $payload['grain_before'] ?? null;
         if (is_array($grain)) {
             $this->line(sprintf(
-                'Keyword grain COUNT(*)=%s DISTINCT(customer|ad_group|criterion)=%s non_null_ad_group=%s missing_ad_group=%s repeated_criterion_ids=%s schema_ok=%s',
+                'Keyword grain COUNT(*)=%s DISTINCT(customer|ad_group|criterion)=%s non_null_ad_group=%s missing_ad_group=%s repeated_criterion_ids=%s schema_ok=%s current_run_proven=%s leftovers=%s',
                 $grain['row_count'] ?? 'n/a',
                 $grain['distinct_composite_count'] ?? 'n/a',
                 $grain['non_null_ad_group_id_count'] ?? 'n/a',
                 $grain['rows_missing_ad_group_id'] ?? 'n/a',
                 $grain['criterion_ids_in_multiple_ad_groups'] ?? 'n/a',
                 ! empty($grain['grain_matches_current_schema']) ? 'yes' : 'no',
+                ! empty($grain['current_run_grain_proven']) ? 'yes' : 'no',
+                $grain['rows_not_touched_by_dataset_run'] ?? 'n/a',
             ));
             foreach ($grain['notes'] ?? [] as $note) {
                 $this->line('- '.$note);
             }
+        }
+        if (isset($payload['acceptance']) && is_array($payload['acceptance'])) {
+            $this->line('Acceptance ok: '.(! empty($payload['acceptance']['ok']) ? 'yes' : 'no'));
         }
         if (isset($payload['message']) && is_string($payload['message'])) {
             $this->line($payload['message']);
