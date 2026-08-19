@@ -119,8 +119,8 @@ final class GoogleAdsNormalizer
                     'status' => $campaign['status'] ?? null,
                     'advertising_channel_type' => $campaign['advertisingChannelType'] ?? $campaign['advertising_channel_type'] ?? null,
                     'advertising_channel_sub_type' => $campaign['advertisingChannelSubType'] ?? $campaign['advertising_channel_sub_type'] ?? null,
-                    'start_date' => $campaign['startDate'] ?? $campaign['start_date'] ?? null,
-                    'end_date' => $campaign['endDate'] ?? $campaign['end_date'] ?? null,
+                    'start_date' => $this->campaignCalendarDate($campaign, 'start'),
+                    'end_date' => $this->campaignCalendarDate($campaign, 'end'),
                     'budget_id' => isset($budget['id']) ? (string) $budget['id'] : null,
                     'not_ad_group' => true,
                     'not_asset_group' => true,
@@ -808,5 +808,37 @@ final class GoogleAdsNormalizer
         }
 
         return null;
+    }
+
+    /**
+     * Google Ads API v25 returns campaign.start_date_time / end_date_time
+     * ("yyyy-MM-dd HH:mm:ss"). Storage metadata keeps calendar dates.
+     *
+     * @param  array<string, mixed>  $campaign
+     */
+    private function campaignCalendarDate(array $campaign, string $bound): ?string
+    {
+        $raw = match ($bound) {
+            'start' => $campaign['startDateTime']
+                ?? $campaign['start_date_time']
+                ?? $campaign['startDate']
+                ?? $campaign['start_date']
+                ?? null,
+            default => $campaign['endDateTime']
+                ?? $campaign['end_date_time']
+                ?? $campaign['endDate']
+                ?? $campaign['end_date']
+                ?? null,
+        };
+
+        if (! is_string($raw) || $raw === '') {
+            return null;
+        }
+
+        if (preg_match('/^(\d{4}-\d{2}-\d{2})/', $raw, $matches) === 1) {
+            return $matches[1];
+        }
+
+        return $raw;
     }
 }

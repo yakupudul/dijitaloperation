@@ -309,6 +309,9 @@ class GoogleAdsProductionCollectorTest extends TestCase
         $this->assertFalse($meta['manager']);
 
         $this->assertGreaterThan(0, DB::table('google_ads_campaign_snapshot')->count());
+        $campaignMeta = json_decode((string) DB::table('google_ads_campaign_snapshot')->value('metadata'), true);
+        $this->assertSame('2026-01-15', $campaignMeta['start_date']);
+        $this->assertSame('2026-12-31', $campaignMeta['end_date']);
         $this->assertGreaterThan(0, DB::table('google_ads_conversion_action_snapshot')->count());
 
         foreach (DB::table('raw_ingestion_objects')->get() as $raw) {
@@ -633,6 +636,8 @@ class GoogleAdsProductionCollectorTest extends TestCase
                     'name' => 'Search Brand',
                     'status' => 'ENABLED',
                     'advertisingChannelType' => 'SEARCH',
+                    'startDateTime' => '2026-01-15 00:00:00',
+                    'endDateTime' => '2026-12-31 23:59:59',
                 ],
                 'campaignBudget' => [
                     'id' => '91',

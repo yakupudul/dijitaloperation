@@ -59,18 +59,12 @@ final class GoogleAdsProviderErrorMapper
     {
         $status = $response->status();
         $body = $response->json();
-        $reason = is_array($body)
-            ? (string) (data_get($body, 'error.message')
-                ?? data_get($body, '0.error.message')
-                ?? $response->body())
-            : $response->body();
-        $reason = mb_substr($reason, 0, 500);
+        $reason = $this->reasonFromBody($body, $response);
+        $reason = mb_substr($reason, 0, 1500);
         $retryAfter = $response->header('Retry-After');
         $backoff = is_numeric($retryAfter) ? max(1, (int) $retryAfter) : 60;
         $lower = strtolower($reason);
-        $requestId = is_array($body)
-            ? (string) (data_get($body, 'requestId') ?? data_get($body, '0.requestId') ?? '')
-            : '';
+        $requestId = $this->requestIdFromBody($body);
 
         if ($status === 401) {
             return DatasetExecutionResult::failed(
@@ -135,5 +129,89 @@ final class GoogleAdsProviderErrorMapper
             'Google Ads unexpected response: '.$reason,
             'INVALID_RESPONSE',
         );
+    }
+
+    /**
+     * Prefer GoogleAdsFailure detail messages over the generic HTTP error.message.
+     *
+     * @param  array<string, mixed>|mixed  $body
+     */
+    private function reasonFromBody(mixed $body, Response $response): string
+    {
+        if (! is_array($body)) {
+            return $response->body();
+        }
+
+        $parts = [];
+        $top = data_get($body, 'error.message') ?? data_get($body, '0.error.message');
+        if (is_string($top) && $top !== '') {
+            $parts[] = $top;
+        }
+
+        $details = data_get($body, 'error.details');
+        if (! is_array($details)) {
+            $details = data_get($body, '0.error.details');
+        }
+        if (is_array($details)) {
+            foreach ($details as $detail) {
+                if (! is_array($detail)) {
+                    continue;
+                }
+                $errors = $detail['errors'] ?? [];
+                if (! is_array($errors)) {
+                    continue;
+                }
+                foreach ($errors as $error) {
+                    if (! is_array($error)) {
+                        continue;
+                    }
+                    $codeBits = [];
+                    $code = $error['errorCode'] ?? [];
+                    if (is_array($code)) {
+                        foreach ($code as $key => $value) {
+                            if (is_scalar($value)) {
+                                $codeBits[] = $key.':'.(string) $value;
+                            }
+                        }
+                    }
+                    $message = trim((string) ($error['message'] ?? ''));
+                    $fragment = trim(implode(' ', array_filter([
+                        $codeBits !== [] ? implode(',', $codeBits) : null,
+                        $message !== '' ? $message : null,
+                    ])));
+                    if ($fragment !== '') {
+                        $parts[] = $fragment;
+                    }
+                }
+            }
+        }
+
+        $joined = implode(' | ', array_values(array_unique($parts)));
+
+        return $joined !== '' ? $joined : $response->body();
+    }
+
+    /**
+     * @param  array<string, mixed>|mixed  $body
+     */
+    private function requestIdFromBody(mixed $body): string
+    {
+        if (! is_array($body)) {
+            return '';
+        }
+
+        $candidates = [
+            data_get($body, 'requestId'),
+            data_get($body, '0.requestId'),
+            data_get($body, 'error.details.0.requestId'),
+            data_get($body, '0.error.details.0.requestId'),
+        ];
+        foreach ($candidates as $candidate) {
+            if (is_string($candidate) && $candidate !== '') {
+                return $candidate;
+            }
+        }
+
+        return '';
     }
 }
