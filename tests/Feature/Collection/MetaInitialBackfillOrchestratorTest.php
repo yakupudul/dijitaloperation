@@ -266,6 +266,58 @@ class MetaInitialBackfillOrchestratorTest extends TestCase
     }
 
     #[Test]
+    public function other_meta_integration_bindings_are_never_planned(): void
+    {
+        $foreign = CoreIntegration::factory()->meta()->create([
+            'status' => CoreIntegration::STATUS_ACTIVE,
+            'config' => [
+                'auth_method' => 'oauth',
+                'auth_status' => 'connected',
+                'connection_status' => 'connected',
+                'credential_status' => 'valid',
+                'granted_permissions' => ['ads_read', 'business_management'],
+            ],
+        ]);
+        CoreIntegrationCredential::factory()->provider()->create([
+            'integration_id' => $foreign->id,
+            'encrypted_payload' => [
+                'access_token' => 'EAAG-foreign-meta-token-never-real',
+                'granted_permissions' => ['ads_read', 'business_management'],
+            ],
+        ]);
+        $foreignCustomer = Customer::factory()->create();
+        $foreignBrand = Brand::factory()->create(['customer_id' => $foreignCustomer->id]);
+        $foreignAsset = DigitalAsset::factory()->create([
+            'brand_id' => $foreignBrand->id,
+            'type' => 'meta_ads',
+            'module_id' => 'meta-ads',
+            'status' => DigitalAssetStatus::Active,
+        ]);
+        $foreignResource = CoreExternalResource::factory()->create([
+            'integration_id' => $foreign->id,
+            'provider' => 'meta',
+            'resource_type' => MetaResourceType::META_AD_ACCOUNT,
+            'external_id' => 'act_99990009',
+            'status' => CoreExternalResource::STATUS_AVAILABLE,
+        ]);
+        $foreignBinding = CoreAssetBinding::factory()->create([
+            'digital_asset_id' => $foreignAsset->id,
+            'external_resource_id' => $foreignResource->id,
+            'capability' => MetaConnectorRegistry::META_ADS,
+            'status' => CoreAssetBinding::STATUS_ACTIVE,
+        ]);
+
+        Queue::fake();
+        $result = app(MetaInitialBackfillOrchestrator::class)->start($this->integration->fresh(), $this->admin);
+        $this->assertSame('started', $result->outcome);
+        $bindingIds = $result->collectionRun?->resourceRuns()->pluck('core_asset_binding_id')->all() ?? [];
+        $this->assertContains($this->bindingA->id, $bindingIds);
+        $this->assertContains($this->bindingB->id, $bindingIds);
+        $this->assertNotContains($foreignBinding->id, $bindingIds);
+        Http::assertNothingSent();
+    }
+
+    #[Test]
     public function different_brand_scope_is_retained_per_resource_run(): void
     {
         Queue::fake();

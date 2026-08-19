@@ -33,14 +33,6 @@ final class MetaIncrementalCollectionOrchestrator
             );
         }
 
-        $authMap = [];
-        foreach ($preflight->bindings as $row) {
-            if (! is_array($row) || ! isset($row['binding_id'])) {
-                continue;
-            }
-            $authMap[(int) $row['binding_id']] = (bool) ($row['eligible'] ?? false);
-        }
-
         $assetId = $preflight->anchorDigitalAssetId;
         if ($assetId === null) {
             return new IncrementalStartResult(
@@ -55,6 +47,17 @@ final class MetaIncrementalCollectionOrchestrator
                 outcome: 'action_required',
                 message: 'Anchor Digital Asset not found.',
             );
+        }
+
+        $authMap = [];
+        foreach ($preflight->bindings as $row) {
+            if (! is_array($row) || ! isset($row['binding_id'])) {
+                continue;
+            }
+            if (! in_array((int) $row['binding_id'], $preflight->eligibleBindingIds, true)) {
+                continue;
+            }
+            $authMap[(int) $row['binding_id']] = (bool) ($row['eligible'] ?? false);
         }
 
         $result = $this->incremental->startForDigitalAsset(

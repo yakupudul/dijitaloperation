@@ -311,6 +311,8 @@ Still explicit:
 
 Main also has Meta **central Integration + resource discovery + binding** (connection layer).
 
+Contract-driven Meta production collection (Prompt 24 executor + Prompt 25 initial backfill + Prompt 27 incremental on the shared engine/data pool) is **PARTIAL** on the stacked Meta data-foundation child of PR #200: coded and PHPUnit-covered, **not** live Marketing API warehouse UAT, **not** DONE. Incremental refresh must use the exact preflight Meta Ad Account binding IDs so sibling Meta Ads Digital Assets are not starved. No specialist Meta UX redesign in that slice.
+
 Details: `PRODUCT_CAPABILITY_LEDGER.md`.
 
 ---
