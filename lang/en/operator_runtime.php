@@ -43,6 +43,9 @@ return [
             'overview' => 'Overview', 'health' => 'Health', 'visibility' => 'Visibility', 'performance' => 'Performance',
             'infrastructure' => 'Infrastructure', 'operations' => 'Operations', 'setup' => 'Setup',
         ],
+        'kpi' => [
+            'organic_clicks' => 'Organic clicks', 'impressions' => 'Impressions', 'ctr' => 'CTR', 'sessions' => 'Sessions',
+        ],
         'domain_missing' => 'Domain not specified', 'open_site' => 'Open site', 'last_data' => 'Last data', 'never' => 'not collected yet',
         'needs_source' => 'Needs attention · connect a data source', 'refresh' => 'Refresh data', 'diagnose' => 'Technical check',
         'sources' => 'Data Sources', 'public_discovery' => 'Public Discovery',
