@@ -43,6 +43,9 @@ return [
             'overview' => 'Genel Bakış', 'health' => 'Sağlık', 'visibility' => 'Görünürlük', 'performance' => 'Performans',
             'infrastructure' => 'Altyapı', 'operations' => 'Operasyon', 'setup' => 'Bağlantılar',
         ],
+        'kpi' => [
+            'organic_clicks' => 'Organik tıklamalar', 'impressions' => 'Gösterimler', 'ctr' => 'TO', 'sessions' => 'Oturumlar',
+        ],
         'domain_missing' => 'Domain belirtilmemiş', 'open_site' => 'Siteyi aç', 'last_data' => 'Son veri', 'never' => 'henüz toplanmadı',
         'needs_source' => 'Dikkat gerekiyor · veri kaynağı bağlayın', 'refresh' => 'Verileri yenile', 'diagnose' => 'Teknik kontrol',
         'sources' => 'Veri Kaynakları', 'public_discovery' => 'Kamu Keşif',
