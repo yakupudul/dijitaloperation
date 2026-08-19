@@ -30,10 +30,12 @@ use App\Services\Ga4\Ga4SpecialistReadService;
 use App\Services\Ga4\Ga4UiDatasetGate;
 use App\Services\Ga4\Support\Ga4BindingMode;
 use App\Support\Demo\DemoCatalog;
+use App\Support\Demo\DemoPeriod;
 use App\Support\Demo\Ga4WorkspaceFixtures;
 use App\Support\Integrations\Google\GoogleResourceType;
 use App\Support\Integrations\Google\GoogleScopes;
 use App\Support\Roles;
+use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -58,6 +60,8 @@ class Ga4RealDataMigrationTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        $this->travelTo(Carbon::parse(DemoPeriod::ANCHOR_DATE, DemoPeriod::TIMEZONE)->endOfDay());
 
         Http::fake();
         $this->seed(RoleAndPermissionSeeder::class);

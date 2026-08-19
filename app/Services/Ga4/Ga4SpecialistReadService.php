@@ -167,6 +167,11 @@ final class Ga4SpecialistReadService
         // Demo-shaped frozen fixture is the canonical shape; every key below is
         // overridden explicitly when a real/partial/unavailable value is computed.
         $data = Ga4WorkspaceFixtures::workspace($preset, $start, $end);
+        $data['period_label'] = $bounds['label'];
+        $data['period_days'] = $bounds['days'];
+        $data['period_start'] = $rangeStart;
+        $data['period_end'] = $rangeEnd;
+        $data['compare_label'] = 'vs '.$prev['label'];
 
         $propertyMetaGate = $this->gate->evaluateSnapshot($digitalAssetId, $externalResourceId, self::DATASET_PROPERTY_METADATA, $timezone);
         $propertyMeta = $propertyMetaGate->isUsable() ? $this->pool->propertyMetadata($digitalAssetId, $propertyId) : null;
