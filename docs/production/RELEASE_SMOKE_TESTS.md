@@ -58,10 +58,11 @@ php artisan moxdop:production-check --json
 
 ## Host smoke — auth & panels
 
-- [ ] GET `/app` redirects or loads for authenticated operator
-- [ ] Login with admin created via `dop:create-admin`
-- [ ] GET `/system` Filament panel loads (panel id `app`, path `/system`)
+- [ ] GET `/` redirects guests to `/login` or loads the operator dashboard when authenticated
+- [ ] Login with admin created via `dop:create-admin` at `/login`
+- [ ] GET `/admin` Filament panel loads (panel id `app`, path `/admin`)
 - [ ] Logout/login cycle succeeds
+- [ ] GET `/app` and `/system` return 410 (legacy prefixes retired)
 
 ---
 

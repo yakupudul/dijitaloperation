@@ -119,7 +119,7 @@ Harici entegrasyonlarda mümkün olan en düşük ve **salt okunur** yetkiler te
 
 DOP kendi iç verilerinde müşteri, marka, varlık, connection, bulgu, öneri, görev ve durum değişiklikleri yapabilir.
 
-## 6. MVP kullanıcı modeli ve panel/auth (ADR-026)
+## 6. MVP kullanıcı modeli ve panel/auth (ADR-026; route/path **ADR-044**)
 
 | Rol | Açıklama |
 |-----|----------|
@@ -128,9 +128,11 @@ DOP kendi iç verilerinde müşteri, marka, varlık, connection, bulgu, öneri, 
 
 | Konu | Karar |
 |------|--------|
-| Panel | Tek Filament panel |
+| Operator product | Root application routes on the product host (`/`, `/login`, `/customers`, `/brands`, `/assets`, `/integrations`, `/tasks`, …). One TailAdmin Livewire application. Do not duplicate Customers/Brands/Assets as a second operator product. |
+| Filament | Tek teknik/admin panel; günlük operatör ürünü değil |
 | Panel id | `app` |
-| Panel path | `/app` |
+| Panel path | `/admin` |
+| Legacy `/app/*`, `/system/*` | Retired — HTTP 410; no parallel operator product; do not redirect those prefixes into the product |
 | Guard | Laravel standart `web` session guard |
 | Permissions | `spatie/laravel-permission` |
 | Public registration | Yok |
@@ -311,7 +313,7 @@ Sonra AI: bulguları açıklar → ilişkileri yorumlar → muhtemel neden → �
 |--------|--------|
 | Framework | Laravel 13 |
 | Dil | PHP 8.3+ |
-| Admin UI | Filament 5 + Livewire (panel id `app`, path `/app`) |
+| Admin UI | Operator product: Livewire TailAdmin at site root. Technical Filament 5 panel id `app`, path `/admin` (ADR-044). |
 | Auth / RBAC | `web` guard + `spatie/laravel-permission` |
 | DB | MySQL 8 |
 | Queue | Başlangıçta database queue |

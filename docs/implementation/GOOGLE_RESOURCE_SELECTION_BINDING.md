@@ -3,7 +3,7 @@
 **Prompt:** 16  
 **Status:** CODE READY  
 **Depends on:** Prompt 13–15  
-**Canonical surface:** `/app/integrations` → Google → Resources & Bindings
+**Canonical surface:** `/integrations` → Google → Resources & Bindings
 
 ---
 
@@ -91,7 +91,7 @@ Stored on Binding `configuration`:
 
 ## 8. UX
 
-Frozen `/app/integrations/google` → Resources:
+Frozen `/integrations/google` → Resources:
 
 - Select & bind… opens confirmation modal  
 - Brand + create/existing target  

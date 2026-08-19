@@ -2,6 +2,8 @@
 
 Prompt 68 — Final production readiness audit of the cumulative Prompt 0–67 system.
 
+> **Route note (ADR-044):** Canonical operator routes are now site root (`/`, `/login`, …). Filament technical tooling is `/admin`. Legacy `/app` and `/system` return HTTP 410. Path labels in this audit that still say `/app` or `/system` are historical freeze names, not live URLs.
+
 | Field | Value |
 | --- | --- |
 | Base branch | `main` |
@@ -27,7 +29,7 @@ Prompt 68 — Final production readiness audit of the cumulative Prompt 0–67 s
 
 **Intended initial production scope (required):** Customer → Brand → Digital Asset → Integrations (Google/Meta) → Discovery → Binding → Collection → Data Pool → Integrity/Freshness → Evidence → Finding/Opportunity → Recommendation → Work → (QA/Approval where applicable) → Business Outcome → Client Value Story; plus security, tenant isolation, durable queue/scheduler, private storage, observability for launch-critical failures.
 
-**Optional / deferred for first launch:** Instagram analytics; Interactive Assistant chat; GBP local rank grid; Website `/app` analytics shell; DataForSEO paid live refresh; Report email Delivery if SMTP not provisioned (PDF/Share may still operate with private storage).
+**Optional / deferred for first launch:** Instagram analytics; Interactive Assistant chat; GBP local rank grid; Website operator analytics shell; DataForSEO paid live refresh; Report email Delivery if SMTP not provisioned (PDF/Share may still operate with private storage).
 
 Launch scope was **not** invented to force READY: optional items match Prompt67 PARTIAL/UNAVAILABLE rows.
 
@@ -243,11 +245,11 @@ Missing≠zero; partial≠complete; stale≠current; provider-limited≠failed; 
 
 ## 42. Authorization
 
-Frozen `/app` surfaces + specialist surfaces covered by permission/Feature suites. Unauthorized/wrong-tenant denied on tested paths.
+Frozen operator surfaces + specialist surfaces covered by permission/Feature suites. Unauthorized/wrong-tenant denied on tested paths.
 
 ## 43. UI Smoke
 
-Existing DemoProductRoutes / vision recovery / specialist route tests. No `/system` revival as operator product. Dead action / fake success / Demo fallback on production numeric ids: targeted Prompt67/68 regression **PASS**.
+Existing DemoProductRoutes / vision recovery / specialist route tests. No `/system` revival as operator product (legacy `/system` is HTTP 410; Filament is `/admin`). Dead action / fake success / Demo fallback on production numeric ids: targeted Prompt67/68 regression **PASS**.
 
 ## 44. TR / EN
 
@@ -332,7 +334,7 @@ See `PRODUCTION_BLOCKERS.md`.
 | Instagram analytics | UNAVAILABLE | Outside required launch scope |
 | Assistant chat runtime | UNAVAILABLE | Architecture-only; not launch-required |
 | GBP local rank grid | UNAVAILABLE | No fabricated ranks; thin GBP may still bind/collect |
-| Website `/app` analytics shell | UNAVAILABLE | Explicit unavailable shell; not silent Demo |
+| Website operator analytics shell | UNAVAILABLE | Explicit unavailable shell; not silent Demo |
 | DataForSEO paid live | NOT_VERIFIED | Optional enrichment |
 | Atlas Explicit Demo catalog | DEMO | Catalog string ids only; production numeric ids isolated |
 
@@ -538,7 +540,7 @@ Exact counts filled in Prompt68 final report / quality gate artifacts.
 | Instagram | analytics | UNAVAILABLE | out of scope | provider support |
 | Assistant | chat | UNAVAILABLE | not required | after architecture gate |
 | GBP grid | local ranks | UNAVAILABLE | honesty > invention | geo productization |
-| Website shell | `/app` analytics | UNAVAILABLE | explicit shell | wire observations |
+| Website shell | operator analytics | UNAVAILABLE | explicit shell | wire observations |
 | DFS paid | enrichment | NOT_VERIFIED | optional | authorized live test |
 
 ---

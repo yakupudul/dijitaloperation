@@ -2,6 +2,10 @@
 
 STATUS: AUDIT_COMPLETE
 
+> **Historical record (ADR-044):** This smoke report is not an operational runbook. Canonical operator routes are now site root (`/login`, …); Filament is `/admin`. Observed `/app` and `/system` URLs below are from the audit date and are retired (HTTP 410).
+
+RELEASE DECISION: **STAGING_READY**
+
 RELEASE DECISION: **STAGING_READY**
 
 Generated: 2026-08-18

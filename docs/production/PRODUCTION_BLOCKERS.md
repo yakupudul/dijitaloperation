@@ -112,7 +112,7 @@ These are documented product/runtime gaps; they do **not** block Prompt 68 audit
 | Instagram analytics | UNAVAILABLE |
 | Interactive Assistant chat | UNAVAILABLE |
 | GBP local rank grid | UNAVAILABLE |
-| Website `/app` analytics shell | UNAVAILABLE |
+| Website operator analytics shell | UNAVAILABLE |
 | DataForSEO paid live | NOT_VERIFIED |
 | Atlas Explicit Demo catalog | Retained for catalog string IDs only (`ga4-atlas`, …) |
 

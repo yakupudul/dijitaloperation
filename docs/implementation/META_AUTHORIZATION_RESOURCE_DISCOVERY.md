@@ -3,6 +3,8 @@
 Prompt 22 — production Meta authorization, token lifecycle, Business discovery,
 Business discovery-context selection, and Ad Account inventory.
 
+> **Route note (ADR-044):** Frozen `/app/integrations` labels in this prompt doc are historical. Canonical operator Integrations live at `/integrations`. Filament is `/admin`. Legacy `/app` and `/system` return HTTP 410.
+
 Verification date: **2026-08-13**. Graph API version: **v26.0**.
 
 Official references:

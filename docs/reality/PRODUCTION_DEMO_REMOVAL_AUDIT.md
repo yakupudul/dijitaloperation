@@ -37,7 +37,7 @@ Record an evidence-backed inventory so reviewers can verify MoxDOP no longer pai
 
 | Retained | Why safe |
 | --- | --- |
-| `app/Livewire/Demo/**` | Historical namespace hosting frozen `/app` UI; runtime branches on real vs catalog ids |
+| `app/Livewire/Demo/**` | Historical namespace hosting frozen operator UI (now site root; ADR-044); runtime branches on real vs catalog ids |
 | `app/Support/Demo/**` | Explicit Demo Runtime + shared period helpers; catalog fixtures only for string Atlas ids |
 | `DemoCatalog` string asset ids (`ga4-atlas`, …) | Sole entry to full fixture workspaces (`migration_mode=demo_catalog`) |
 | `DemoState` session | Atlas demo catalog UX + ephemeral filters/flash — not Finding source of truth |

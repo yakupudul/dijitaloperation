@@ -3,7 +3,7 @@
 **Prompt:** 15  
 **Status:** CODE READY (GBP / Ads external Google project access may still be MANUAL)  
 **Verification date (official docs):** 2026-08-13  
-**Canonical surface:** `/app/integrations`  
+**Canonical surface:** `/integrations`  
 **Depends on:** Prompt 13 Integration ontology + Prompt 14 OAuth / Credential Broker
 
 ---
@@ -198,7 +198,7 @@ Unavailable status preserves identity + bindings. Collection later fails honestl
 
 ## 17. Frozen Integration UX
 
-- Canonical: `/app/integrations` / Google detail  
+- Canonical: `/integrations` / Google detail  
 - Actions: Discover Resources / Refresh Resources  
 - Connector cards show counts + discovery status (incl. GBP API access required)  
 - Selection controls do not write bindings  

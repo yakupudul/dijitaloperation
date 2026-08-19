@@ -124,7 +124,7 @@ Private import / private table → **asla**.
 
 `docs/MASTER_SPEC.md` / ADR-021:
 
-* Laravel 13, PHP 8.3+, Filament 5 (panel `app` / `/app`), Livewire, MySQL 8  
+* Laravel 13, PHP 8.3+, Filament 5 (panel `app` / `/admin`), Livewire operator product at site root, MySQL 8  
 * `spatie/laravel-permission`, database queue, Laravel scheduler/events/HTTP/encryption, PHPUnit (ADR-038)  
 * AI: `laravel/ai` (key env’de)  
 * Modüller: `app-modules/` + `internachi/modular`  

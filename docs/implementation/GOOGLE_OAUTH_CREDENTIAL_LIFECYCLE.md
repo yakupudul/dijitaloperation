@@ -3,7 +3,7 @@
 **Prompt:** 14  
 **Status:** CODE READY (external Google Cloud console remaining)  
 **Verification date (official docs):** 2026-08-13  
-**Canonical surface:** `/app/integrations` → Google Integration  
+**Canonical surface:** `/integrations` → Google Integration  
 **Branch convention:** attaches to Prompt 13 `CoreIntegration` + `CoreIntegrationCredential`
 
 ---
@@ -32,7 +32,7 @@ Prompt 14 does **not** discover resources, bind assets, or collect provider data
 | Connector capability | `GoogleConnectorRegistry` + `GoogleScopeRegistry` |
 | Access token access path | `GoogleCredentialBroker` → `GoogleOAuthService` |
 | Authorization attempt (ephemeral) | `GoogleOAuthAuthorizationAttempt` |
-| Frozen operator UI | `/app/integrations` / `/app/integrations/google` |
+| Frozen operator UI | `/integrations` / `/integrations/google` |
 
 There is **no** competing long-lived `GoogleOAuthConnection` product entity.
 
@@ -56,7 +56,7 @@ Deployment/application config (not per-Customer OAuth tokens):
 | `GOOGLE_INCLUDE_GBP_SCOPE` | `include_gbp_scope` | Gate GBP scope (default false) |
 
 Health check: `GoogleOAuthConfigurationHealth` + `php artisan moxdop:google-oauth:check`  
-Never prints secret values. Never exposes secrets through `/app`.
+Never prints secret values. Never exposes secrets through the operator product or Filament `/admin`.
 
 Production HTTPS: health checker flags non-HTTPS redirect URIs outside local/testing.
 
@@ -87,14 +87,14 @@ Stored only in `CoreIntegrationCredential.encrypted_payload` (Laravel encrypted 
 Official Google OAuth 2.0 for Web Server Applications (verified 2026-08-13):
 
 ```
-Operator (/app/integrations)
+Operator (/integrations)
   → GoogleOAuthService::beginAuthorization
   → Google authorization URL (code, offline, include_granted_scopes, state)
   → Google consent
   → integrations.google.callback
   → state consume + code exchange
   → encrypted credential persist
-  → clean redirect → /app/integrations/google
+  → clean redirect → /integrations/google
 ```
 
 - Backend owns token exchange (no browser/localStorage tokens).
@@ -162,7 +162,7 @@ Open redirects rejected: only validated internal return contexts.
 
 ## 10. Callback Lifecycle
 
-Route: `GET /integrations/google/callback` (`integrations.google.callback`) — outside `/app`, not a product page.
+Route: `GET /integrations/google/callback` (`integrations.google.callback`) — OAuth callback only, not a product page.
 
 Order:
 
@@ -174,7 +174,7 @@ Order:
 6. Exchange authorization code  
 7. Persist tokens safely (refresh-token preservation rule)  
 8. Recompute coverage / auth status  
-9. Redirect cleanly to `/app/integrations/google` (flash only)
+9. Redirect cleanly to `/integrations/google` (flash only)
 
 Authorization code is never persisted or logged.
 
@@ -368,7 +368,7 @@ Not essential for initial production authorization; would require additional eve
 | Demo UI stub disconnect | Fake UX | Real Connect/Reauth/Revoke | REPLACED | YES | NO | — |
 | Socialite / google/apiclient | N/A | Not introduced | N/A | N/A | NO | — |
 | Env client secret in credential row | Forbidden anti-pattern | App config only | N/A | N/A | NO | — |
-| Filament `/system` authorize | Admin path | Same routes/services; frozen UI primary | KEEP_INTERNAL | NO | Uses canonical service | — |
+| Filament `/admin` authorize | Admin path | Same routes/services; frozen UI primary | KEEP_INTERNAL | NO | Uses canonical service | — |
 
 **Remaining duplicate authorization paths:** NONE (one callback handler, one exchange path).
 

@@ -25,7 +25,7 @@ Do not list REAL capabilities here. Authoritative full table: `FINAL_CAPABILITY_
 | Sector learning / brand experience | Bounded slices | Privacy constraints |
 | Skill normalization | Catalog/normalization ahead of unsafe external adoption | — |
 | Provider API telemetry | Meta wired; other HTTP clients pending | Prompt 66 handoff |
-| Website observations vs `/app` | Observations may exist in modules; `/app` production shell still unavailable | Treat `/app` Website analytics as UNAVAILABLE until wired |
+| Website observations vs operator shell | Observations may exist in modules; operator Website analytics still unavailable | Treat operator Website analytics as UNAVAILABLE until wired |
 
 ---
 
@@ -79,7 +79,7 @@ Missing deployment config must surface as **unavailable/not connected** — neve
 ## 5. Product blockers (future work)
 
 1. Wire specialist operations cards to canonical Finding/Opportunity reads (optional product choice).
-2. Website / GBP / Instagram `/app` production workspace migration from unavailable shells.
+2. Website / GBP / Instagram operator production workspace migration from unavailable shells.
 3. Assistant chat runtime implementation (only after architecture gate).
 4. GBP local visibility grid productionization with real geo data (no invention).
 5. Hub deep-connection models for non-Google/Meta providers when product requires.

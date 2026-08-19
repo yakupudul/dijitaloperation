@@ -146,7 +146,7 @@ Bind `act_744654160596455` only when the operator confirms that account for UAT.
 
 ## Operator URL
 
-Target concept: **https://uat.dop.moximu.com/app**
+Target concept: **https://uat.dop.moximu.com/** (operator login `/login`; Filament `/admin`)
 
 **Not live.** Operator explicitly deferred provisioning. Cursor Cloud remains development/test for product UI work until a host is approved.
 

@@ -15,7 +15,7 @@ Prompt 68 — onboard the first real MoxDOP customer (internal agency operator).
   - Instagram analytics UNAVAILABLE
   - Assistant chat UNAVAILABLE
   - GBP local rank grid UNAVAILABLE
-  - Website `/app` production analytics UNAVAILABLE shell
+  - Website operator production analytics UNAVAILABLE shell
 - [ ] Confirm Report Delivery email requirement → if yes, B-MAIL-01 must be closed
 
 ---
@@ -24,8 +24,8 @@ Prompt 68 — onboard the first real MoxDOP customer (internal agency operator).
 
 - [ ] Admin exists: `php artisan dop:create-admin` (no default password)
 - [ ] Operator user has appropriate Spatie role (Admin / specialist roles per policy)
-- [ ] Login `/app` (web guard) succeeds
-- [ ] Filament `/system` accessible for technical admin tasks
+- [ ] Login `/login` (operator product, web guard) succeeds
+- [ ] Filament `/admin` accessible for technical admin tasks (not the operator product)
 
 ---
 
@@ -34,7 +34,7 @@ Prompt 68 — onboard the first real MoxDOP customer (internal agency operator).
 - [ ] Create **Customer** (real name — not seeded fake)
 - [ ] Create **Brand** under Customer
 - [ ] Create **Digital Assets** with numeric ids (GA4, GSC, Google Ads, Meta Ads as contracted)
-- [ ] Verify assets appear in frozen `/app` sidebar IA
+- [ ] Verify assets appear in the operator sidebar IA (site-root TailAdmin shell)
 - [ ] Record MV-PORTFOLIO-01 when formal UAT PASS
 
 ---
