@@ -4,7 +4,7 @@ namespace Tests\Feature;
 
 use App\Contracts\GbpOperatorWorkspace;
 use App\Contracts\WebsiteOperatorWorkspace;
-use App\Livewire\Operator\Website\DataSourcesPage;
+use App\Livewire\Operator\AssetDataSourcesPage;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
@@ -31,17 +31,21 @@ class OperatorRealEngineWiringTest extends TestCase
 
         $this->assertIsString($source);
         $this->assertStringContainsString('WebsiteOperatorWorkspace', $source);
+        $this->assertStringContainsString('$this->period', $source);
+        $this->assertStringContainsString('$this->periodStart', $source);
+        $this->assertStringContainsString('$this->periodEnd', $source);
         $this->assertStringNotContainsString('MoxDop\\Website', $source);
         $this->assertStringNotContainsString('UnavailableWorkspaceShells', $source);
         $this->assertStringNotContainsString('WebsiteWorkspaceFixtures', $source);
         $this->assertInstanceOf(WebsiteOperatorWorkspace::class, app(WebsiteOperatorWorkspace::class));
     }
 
-    public function test_real_public_discovery_and_data_source_routes_are_registered(): void
+    public function test_real_public_discovery_and_canonical_data_source_routes_are_registered(): void
     {
         $this->assertSame('/public-discovery', route('operator.public-discovery', absolute: false));
         $this->assertSame('/assets/website/42/discovery', route('operator.website.discovery', ['assetId' => 42], absolute: false));
         $this->assertSame('/assets/website/42/sources', route('operator.website.sources', ['assetId' => 42], absolute: false));
+        $this->assertSame('/assets/42/sources', route('operator.asset.sources', ['assetId' => 42], absolute: false));
     }
 
     public function test_operator_can_bind_a_discovered_ga4_resource_directly_to_a_website(): void
@@ -68,9 +72,9 @@ class OperatorRealEngineWiringTest extends TestCase
             'status' => CoreExternalResource::STATUS_AVAILABLE,
         ]);
 
-        Livewire::test(DataSourcesPage::class, ['assetId' => (string) $website->id])
-            ->set('ga4ResourceId', (string) $resource->id)
-            ->call('bindGa4')
+        Livewire::test(AssetDataSourcesPage::class, ['assetId' => (string) $website->id])
+            ->set('selectedResource.ga4', (string) $resource->id)
+            ->call('bind', 'ga4')
             ->assertHasNoErrors()
             ->assertSee('Google Analytics 4');
 
@@ -78,6 +82,44 @@ class OperatorRealEngineWiringTest extends TestCase
             'digital_asset_id' => $website->id,
             'external_resource_id' => $resource->id,
             'capability' => 'ga4',
+            'status' => CoreAssetBinding::STATUS_ACTIVE,
+        ]);
+    }
+
+    public function test_operator_can_bind_a_discovered_google_ads_resource_to_a_google_ads_asset(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $customer = Customer::factory()->create();
+        $brand = Brand::factory()->create(['customer_id' => $customer->id]);
+        $asset = DigitalAsset::factory()->create([
+            'brand_id' => $brand->id,
+            'type' => 'google_ads',
+            'name' => 'Moximu Google Ads',
+        ]);
+        $integration = CoreIntegration::factory()->google()->create([
+            'status' => CoreIntegration::STATUS_ACTIVE,
+        ]);
+        $resource = CoreExternalResource::factory()->create([
+            'integration_id' => $integration->id,
+            'provider' => ProviderRegistry::GOOGLE,
+            'resource_type' => 'google_ads',
+            'external_id' => 'customers/1234567890',
+            'display_name' => 'Moximu Ads',
+            'status' => CoreExternalResource::STATUS_AVAILABLE,
+        ]);
+
+        Livewire::test(AssetDataSourcesPage::class, ['assetId' => (string) $asset->id])
+            ->set('selectedResource.google_ads', (string) $resource->id)
+            ->call('bind', 'google_ads')
+            ->assertHasNoErrors()
+            ->assertSee('Google Ads');
+
+        $this->assertDatabaseHas('core_asset_bindings', [
+            'digital_asset_id' => $asset->id,
+            'external_resource_id' => $resource->id,
+            'capability' => 'google_ads',
             'status' => CoreAssetBinding::STATUS_ACTIVE,
         ]);
     }
