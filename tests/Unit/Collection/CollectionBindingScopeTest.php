@@ -106,6 +106,23 @@ class CollectionBindingScopeTest extends TestCase
 
         $this->assertFalse(CollectionBindingScope::collectionRunMayTargetAsset($run, $otherBrandAsset->load('brand')));
         $this->assertFalse(CollectionBindingScope::collectionRunMayTargetAsset($run, $otherCustomerAsset->load('brand')));
+
+        $this->assertTrue(CollectionBindingScope::anchorMayTargetAsset(
+            (int) $website->id,
+            (int) $brand->id,
+            (int) $customer->id,
+            $otherBrandAsset->load('brand'),
+            true,
+            false,
+        ));
+        $this->assertFalse(CollectionBindingScope::anchorMayTargetAsset(
+            (int) $website->id,
+            (int) $brand->id,
+            (int) $customer->id,
+            $otherCustomerAsset->load('brand'),
+            true,
+            false,
+        ));
     }
 
     #[Test]

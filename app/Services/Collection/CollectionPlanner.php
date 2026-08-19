@@ -373,12 +373,19 @@ final class CollectionPlanner
                 continue;
             }
 
+            $requireSameBrand = in_array(
+                (string) $binding->capability,
+                CollectionBindingScope::GOOGLE_SAME_BRAND_CAPABILITIES,
+                true,
+            );
+
             if (! CollectionBindingScope::anchorMayTargetAsset(
                 (int) $asset->id,
                 $anchorBrandId,
                 $anchorCustomerId,
                 $candidate,
                 $allowMultiAsset,
+                $requireSameBrand,
             )) {
                 continue;
             }
