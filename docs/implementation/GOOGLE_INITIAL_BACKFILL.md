@@ -82,6 +82,8 @@ See **Connector Readiness Matrix** below. One unavailable connector does not blo
 
 One operator Collect Data → **one `CollectionRun` per eligible Brand** under the Integration. Same-brand GSC/GA4/Ads siblings share that Brand’s run (`allow_multi_asset_bindings`). Other Brands receive their own Brand-scoped CollectionRun rather than being dropped from a single first-anchor plan. Cross-customer resources never share a CollectionRun. Meta same-customer multi-brand behavior is unchanged.
 
+Incremental refresh after initial satisfaction uses the same Brand-scoped binding IDs for **due selection**, not only the website/GSC anchor Digital Asset. `StartIncrementalCollectionService` queries `DueCollectionQueryService` with `core_asset_binding_ids` from Google preflight so a sibling GA4/Ads dataset can start even when the anchor itself is DATA CURRENT. Multi-Brand incremental results expose every Brand outcome (started / reused / DATA CURRENT / action required) rather than reporting only the first started run.
+
 ## 13. ResourceRuns
 
 One ResourceRun per eligible binding (GSC property / GA4 property / Ads customer). Multiple resources per connector supported.

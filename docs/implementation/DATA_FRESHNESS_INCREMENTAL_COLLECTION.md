@@ -110,7 +110,8 @@ Does **not** build GAQL, GA4 bodies, GSC payloads, or Meta Insights requests.
 
 `DueCollectionQueryService` — DB + contract/policy driven, **zero analytical provider calls**.  
 Joins active `CoreAssetBinding` × executable request families × materializations.  
-Callable by future Prompt 62 scheduler. Filters: customer/brand/asset/provider, `authorization_ready`, `integrity_blocked`.
+Callable by future Prompt 62 scheduler. Filters: customer/brand/asset/provider, `authorization_ready`, `integrity_blocked`.  
+Exact-scope filter `core_asset_binding_ids` loads **only those binding IDs** (across Digital Assets) and does **not** also constrain `digital_asset_id` / unbounded brand or customer. Google incremental refresh uses this with Brand-scoped preflight IDs so sibling GA4/Ads assets are not starved by a website/GSC anchor. Empty binding-ID callers (asset-scoped scheduler) still query by `digital_asset_id`.
 
 ## 12. Start Incremental Collection
 
@@ -120,6 +121,7 @@ Callable by future Prompt 62 scheduler. Filters: customer/brand/asset/provider, 
 - `started` with `CollectionTriggerType::Incremental` and `collection_intent=incremental_refresh`
 - Idempotent via `plan_fingerprint` on active runs
 - Google/Meta integration pages route to incremental orchestrators when backfill `already_satisfied`
+- When callers pass binding IDs (Google Brand-scoped preflight, `startForBindingIds`, lifecycle plans), due selection uses those exact IDs across Digital Assets rather than only the anchor asset
 
 No cron ownership here.
 

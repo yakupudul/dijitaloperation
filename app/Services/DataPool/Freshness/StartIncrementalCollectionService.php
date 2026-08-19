@@ -40,15 +40,26 @@ final class StartIncrementalCollectionService
         ?array $providerSources = null,
         array $context = [],
     ): IncrementalStartResult {
+        $requestedBindingIds = array_values(array_unique(array_map('intval', $bindingIds)));
         $filters = [
-            'digital_asset_id' => $asset->id,
             'provider_sources' => $providerSources,
             'include_action_required' => true,
             'authorization_ready_by_binding_id' => $context['authorization_ready_by_binding_id'] ?? [],
             'integrity_blocked_by_dataset_resource' => $context['integrity_blocked_by_dataset_resource'] ?? [],
         ];
+        if ($requestedBindingIds !== []) {
+            $filters['core_asset_binding_ids'] = $requestedBindingIds;
+        } else {
+            $filters['digital_asset_id'] = $asset->id;
+        }
 
         $due = $this->dueQuery->query($filters);
+        if ($requestedBindingIds !== []) {
+            $due = array_values(array_filter(
+                $due,
+                static fn (DueCollectionItem $item): bool => in_array($item->coreAssetBindingId, $requestedBindingIds, true),
+            ));
+        }
         $executable = array_values(array_filter($due, static fn ($item): bool => ! $item->actionRequired));
         if ($executable === []) {
             return new IncrementalStartResult(
@@ -58,9 +69,13 @@ final class StartIncrementalCollectionService
             );
         }
 
-        $resolvedBindingIds = $bindingIds !== []
-            ? $bindingIds
-            : array_values(array_unique(array_map(static fn ($i) => $i->coreAssetBindingId, $executable)));
+        $dueBindingIds = array_values(array_unique(array_map(
+            static fn (DueCollectionItem $item): int => $item->coreAssetBindingId,
+            $executable,
+        )));
+        $resolvedBindingIds = $requestedBindingIds !== []
+            ? array_values(array_intersect($requestedBindingIds, $dueBindingIds))
+            : $dueBindingIds;
 
         $intent = (string) ($context['collection_intent'] ?? 'incremental_refresh');
         $intentLabel = (string) ($context['collection_intent_label'] ?? 'Incremental Refresh');
@@ -80,6 +95,7 @@ final class StartIncrementalCollectionService
                 collectionRun: $active,
                 reusedExisting: true,
                 decisions: array_map(static fn ($i) => $i->toArray(), $due),
+                collectionRuns: [$active],
             );
         }
 
@@ -133,11 +149,14 @@ final class StartIncrementalCollectionService
             'datasets_due' => count($executable),
         ]);
 
+        $started = $run->fresh() ?? $run;
+
         return new IncrementalStartResult(
             outcome: 'started',
             message: 'Incremental collection started in the background.',
-            collectionRun: $run->fresh() ?? $run,
+            collectionRun: $started,
             decisions: array_map(static fn ($i) => $i->toArray(), $due),
+            collectionRuns: [$started],
         );
     }
 
