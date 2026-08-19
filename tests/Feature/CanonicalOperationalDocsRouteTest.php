@@ -7,6 +7,21 @@ use Tests\TestCase;
 class CanonicalOperationalDocsRouteTest extends TestCase
 {
     /**
+     * Live Google implementation specs that PRODUCT_CAPABILITY_LEDGER.md cites
+     * as current (not historical prompt archives).
+     *
+     * @return list<string>
+     */
+    private function liveLedgerLinkedGoogleSpecs(): array
+    {
+        return [
+            'docs/implementation/GOOGLE_OAUTH_CREDENTIAL_LIFECYCLE.md',
+            'docs/implementation/GOOGLE_RESOURCE_DISCOVERY.md',
+            'docs/implementation/GOOGLE_RESOURCE_SELECTION_BINDING.md',
+        ];
+    }
+
+    /**
      * Current/canonical operator runbooks and architecture docs that must not
      * teach retired `/app` or `/system` URLs as live (ADR-044). Historical
      * ADR/QA snapshots are excluded; they must be marked superseded instead.
@@ -44,9 +59,110 @@ class CanonicalOperationalDocsRouteTest extends TestCase
         ];
     }
 
+    /**
+     * @return list<string>
+     */
+    private function docsThatMustNotTeachRetiredLiveRoutes(): array
+    {
+        $docs = array_merge(
+            $this->operationalDocs(),
+            $this->liveLedgerLinkedImplementationDocs(),
+        );
+
+        sort($docs);
+
+        return array_values(array_unique($docs));
+    }
+
+    /**
+     * Implementation docs cited by PRODUCT_CAPABILITY_LEDGER.md as current
+     * capability sources. Historical prompt archives (ADR-044 banner in the
+     * file head) are skipped so frozen `/app` labels are not rewritten blindly.
+     *
+     * @return list<string>
+     */
+    private function liveLedgerLinkedImplementationDocs(): array
+    {
+        $ledger = (string) file_get_contents(base_path('PRODUCT_CAPABILITY_LEDGER.md'));
+        preg_match_all('/docs:\s*`([^`]+)`/i', $ledger, $matches);
+
+        $paths = [];
+        foreach ($matches[1] as $ref) {
+            $relative = $this->resolveLedgerDocPath($ref);
+            if ($relative === null) {
+                continue;
+            }
+            if ($this->isMarkedHistoricalArchive($relative)) {
+                continue;
+            }
+            $paths[] = $relative;
+        }
+
+        sort($paths);
+
+        return array_values(array_unique($paths));
+    }
+
+    private function resolveLedgerDocPath(string $ref): ?string
+    {
+        $ref = ltrim($ref, '/');
+        $candidates = [
+            $ref,
+            'docs/implementation/'.basename($ref),
+            'docs/'.basename($ref),
+            basename($ref),
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (is_file(base_path($candidate))) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private function isMarkedHistoricalArchive(string $relative): bool
+    {
+        $path = base_path($relative);
+        if (! is_file($path)) {
+            return false;
+        }
+
+        $head = implode("\n", array_slice(explode("\n", (string) file_get_contents($path)), 0, 12));
+
+        return (bool) preg_match('/ADR-044/', $head)
+            && (bool) preg_match('/historical|superseded/i', $head)
+            && (bool) preg_match('/410/', $head);
+    }
+
     public function test_operational_docs_do_not_instruct_retired_app_or_system_routes(): void
     {
-        foreach ($this->operationalDocs() as $relative) {
+        $docs = $this->docsThatMustNotTeachRetiredLiveRoutes();
+
+        foreach ($this->liveLedgerLinkedGoogleSpecs() as $googleSpec) {
+            $this->assertContains(
+                $googleSpec,
+                $docs,
+                $googleSpec.' must be scanned because PRODUCT_CAPABILITY_LEDGER.md cites it as a live implementation spec.',
+            );
+            $this->assertFalse(
+                $this->isMarkedHistoricalArchive($googleSpec),
+                $googleSpec.' is a live capability spec and must not be skipped as a historical archive.',
+            );
+        }
+
+        $this->assertTrue(
+            $this->isMarkedHistoricalArchive('docs/implementation/GOOGLE_INTEGRATION_ARCHITECTURE.md'),
+            'GOOGLE_INTEGRATION_ARCHITECTURE.md must keep an ADR-044 historical banner so frozen /app labels are not treated as live.',
+        );
+        $this->assertNotContains(
+            'docs/implementation/GOOGLE_INTEGRATION_ARCHITECTURE.md',
+            $docs,
+            'Historical prompt archives must not be blindly failed by the live-route guard.',
+        );
+
+        foreach ($docs as $relative) {
             $path = base_path($relative);
             $this->assertFileExists($path, $relative);
 
@@ -63,6 +179,24 @@ class CanonicalOperationalDocsRouteTest extends TestCase
                     $line,
                 ));
             }
+        }
+    }
+
+    public function test_ledger_linked_live_google_specs_declare_root_integrations_surface(): void
+    {
+        foreach ($this->liveLedgerLinkedGoogleSpecs() as $relative) {
+            $contents = (string) file_get_contents(base_path($relative));
+
+            $this->assertMatchesRegularExpression(
+                '/\*\*Canonical surface:\*\* `\/integrations`/',
+                $contents,
+                $relative.' must declare the root /integrations operator surface (ADR-044).',
+            );
+            $this->assertDoesNotMatchRegularExpression(
+                '/\*\*Canonical surface:\*\* `\/app\//',
+                $contents,
+                $relative.' must not keep /app/integrations as the canonical surface.',
+            );
         }
     }
 
