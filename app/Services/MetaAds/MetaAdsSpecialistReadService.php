@@ -150,6 +150,16 @@ final class MetaAdsSpecialistReadService
      */
     private function demoWorkspace(string $preset, ?string $start, ?string $end): array
     {
+        return DemoPeriod::usingFixtureAnchor(function () use ($preset, $start, $end): array {
+            return $this->demoWorkspaceFromFixtures($preset, $start, $end);
+        });
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function demoWorkspaceFromFixtures(string $preset, ?string $start, ?string $end): array
+    {
         $bounds = DemoPeriod::bounds($preset, $start, $end);
         $prev = DemoPeriod::previousBounds($preset, $bounds['start']->toDateString(), $bounds['end']->toDateString());
 

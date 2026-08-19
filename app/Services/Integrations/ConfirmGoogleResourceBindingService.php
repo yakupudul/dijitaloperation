@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Support\Integrations\BindingCardinalityRegistry;
 use App\Support\Integrations\BindingScopeGuard;
 use App\Support\Integrations\ExternalResourceAssetCompatibility;
+use App\Support\Integrations\Google\GoogleResourceType;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Integrations\ResourceBindingPlan;
 use App\Support\Roles;
@@ -29,7 +30,15 @@ use RuntimeException;
 final class ConfirmGoogleResourceBindingService
 {
     /**
-     * @return array{ok: bool, message: string, binding?: CoreAssetBinding, asset?: DigitalAsset, created_asset?: bool}
+     * @return array{
+     *     ok: bool,
+     *     message: string,
+     *     binding?: CoreAssetBinding,
+     *     asset?: DigitalAsset,
+     *     created_asset?: bool,
+     *     replaced?: bool,
+     *     previous_binding_id?: int|null
+     * }
      */
     public function confirm(ResourceBindingPlan $plan): array
     {
@@ -93,14 +102,113 @@ final class ConfirmGoogleResourceBindingService
                 ]);
             }
 
-            $this->assertCardinality($asset, $resource);
+            $capability = (string) $resource->resource_type;
+            $replaced = false;
+            $previousBindingId = null;
+
+            $exactActive = CoreAssetBinding::query()
+                ->where('digital_asset_id', $asset->id)
+                ->where('external_resource_id', $resource->id)
+                ->where('capability', $capability)
+                ->where('status', CoreAssetBinding::STATUS_ACTIVE)
+                ->lockForUpdate()
+                ->first();
+
+            if ($exactActive instanceof CoreAssetBinding) {
+                return [
+                    'ok' => true,
+                    'message' => 'Google resource is already bound to this Digital Asset. Collection was not started.',
+                    'binding' => $exactActive->fresh(['digitalAsset', 'externalResource']) ?? $exactActive,
+                    'asset' => $asset->fresh() ?? $asset,
+                    'created_asset' => false,
+                    'replaced' => false,
+                    'previous_binding_id' => null,
+                ];
+            }
+
+            $exactDisabled = CoreAssetBinding::query()
+                ->where('digital_asset_id', $asset->id)
+                ->where('external_resource_id', $resource->id)
+                ->where('capability', $capability)
+                ->where('status', CoreAssetBinding::STATUS_DISABLED)
+                ->lockForUpdate()
+                ->first();
+
+            $activeOnAsset = CoreAssetBinding::query()
+                ->where('digital_asset_id', $asset->id)
+                ->where('capability', $capability)
+                ->where('status', CoreAssetBinding::STATUS_ACTIVE)
+                ->lockForUpdate()
+                ->first();
+
+            $activeOnResource = CoreAssetBinding::query()
+                ->where('external_resource_id', $resource->id)
+                ->where('status', CoreAssetBinding::STATUS_ACTIVE)
+                ->lockForUpdate()
+                ->first();
+
+            if ($activeOnResource instanceof CoreAssetBinding
+                && (int) $activeOnResource->digital_asset_id !== (int) $asset->id) {
+                throw ValidationException::withMessages([
+                    'resource_id' => 'This ExternalResource is already bound to a Digital Asset.',
+                ]);
+            }
+
+            if ($activeOnAsset instanceof CoreAssetBinding
+                && (int) $activeOnAsset->external_resource_id !== (int) $resource->id) {
+                if (! $plan->allowReplace) {
+                    throw ValidationException::withMessages([
+                        'digital_asset_id' => 'This Digital Asset already has an active Binding for this capability.',
+                    ]);
+                }
+
+                $previousBindingId = (int) $activeOnAsset->id;
+                $this->closeBinding($activeOnAsset, $plan->confirmedBy, 'replaced');
+                $replaced = true;
+            }
+
+            if ($exactDisabled instanceof CoreAssetBinding) {
+                $exactDisabled->forceFill([
+                    'status' => CoreAssetBinding::STATUS_ACTIVE,
+                    'configuration' => array_merge(
+                        is_array($exactDisabled->configuration) ? $exactDisabled->configuration : [],
+                        [
+                            'confirmed_by_user_id' => $plan->confirmedBy->id,
+                            'confirmed_at' => now()->toIso8601String(),
+                            'origin' => 'google_integration_selection',
+                            'mode' => $plan->mode,
+                            'reactivated' => true,
+                            'replaced_previous_binding_id' => $previousBindingId,
+                        ],
+                    ),
+                ])->save();
+
+                return [
+                    'ok' => true,
+                    'message' => $replaced
+                        ? 'Google resource connection replaced. Historical data from the previous resource is preserved. Collection was not started.'
+                        : 'Google resource reconnected to this Digital Asset. Collection was not started.',
+                    'binding' => $exactDisabled->fresh(['digitalAsset', 'externalResource']) ?? $exactDisabled,
+                    'asset' => $asset->fresh() ?? $asset,
+                    'created_asset' => $createdAsset,
+                    'replaced' => $replaced,
+                    'previous_binding_id' => $previousBindingId,
+                ];
+            }
+
+            $rules = BindingCardinalityRegistry::forResourceType($capability);
+            if ($activeOnAsset instanceof CoreAssetBinding && ! $replaced && $rules['max_active_resources_per_asset'] <= 1) {
+                throw ValidationException::withMessages([
+                    'digital_asset_id' => 'This Digital Asset already has an active Binding for this capability.',
+                ]);
+            }
 
             try {
                 /** @var CoreAssetBinding $binding */
                 $binding = CoreAssetBinding::query()->create([
                     'digital_asset_id' => $asset->id,
                     'external_resource_id' => $resource->id,
-                    'capability' => $resource->resource_type,
+                    'capability' => $capability,
                     'status' => CoreAssetBinding::STATUS_ACTIVE,
                     'configuration' => [
                         'confirmed_by_user_id' => $plan->confirmedBy->id,
@@ -108,6 +216,7 @@ final class ConfirmGoogleResourceBindingService
                         'origin' => 'google_integration_selection',
                         'mode' => $plan->mode,
                         'created_asset' => $createdAsset,
+                        'replaced_previous_binding_id' => $previousBindingId,
                     ],
                 ]);
             } catch (QueryException $e) {
@@ -124,10 +233,14 @@ final class ConfirmGoogleResourceBindingService
                 'ok' => true,
                 'message' => $createdAsset
                     ? 'Digital Asset created and Google resource bound. Collection was not started.'
-                    : 'Google resource bound to Digital Asset. Collection was not started.',
+                    : ($replaced
+                        ? 'Google resource connection replaced. Historical data from the previous resource is preserved. Collection was not started.'
+                        : 'Google resource bound to Digital Asset. Collection was not started.'),
                 'binding' => $binding->fresh(['digitalAsset', 'externalResource']) ?? $binding,
                 'asset' => $asset->fresh() ?? $asset,
                 'created_asset' => $createdAsset,
+                'replaced' => $replaced,
+                'previous_binding_id' => $previousBindingId,
             ];
         });
     }
@@ -172,6 +285,7 @@ final class ConfirmGoogleResourceBindingService
         DigitalAsset $asset,
         CoreExternalResource $resource,
         User $confirmedBy,
+        bool $allowReplace = false,
         string $status = CoreAssetBinding::STATUS_ACTIVE,
     ): CoreAssetBinding {
         $this->assertOperator($confirmedBy);
@@ -190,6 +304,7 @@ final class ConfirmGoogleResourceBindingService
             existingAsset: $asset,
             assetName: (string) $asset->name,
             confirmedBy: $confirmedBy,
+            allowReplace: $allowReplace,
         ));
 
         $binding = $result['binding'] ?? null;
@@ -202,6 +317,40 @@ final class ConfirmGoogleResourceBindingService
         }
 
         return $binding->fresh(['externalResource']) ?? $binding;
+    }
+
+    /**
+     * Disconnect a Google Binding without revoking Google authorization.
+     *
+     * @return array{ok: bool, message: string, binding?: CoreAssetBinding}
+     */
+    public function unbind(CoreAssetBinding $binding, User $operator): array
+    {
+        $this->assertOperator($operator);
+
+        $binding = $binding->fresh(['externalResource', 'digitalAsset']) ?? $binding;
+
+        if (! GoogleResourceType::isValid((string) $binding->capability)) {
+            throw ValidationException::withMessages([
+                'binding_id' => 'Only Google Bindings can be disconnected through this action.',
+            ]);
+        }
+
+        if ($binding->status === CoreAssetBinding::STATUS_DISABLED) {
+            return [
+                'ok' => true,
+                'message' => 'Google resource is already disconnected from this Digital Asset.',
+                'binding' => $binding,
+            ];
+        }
+
+        $this->closeBinding($binding, $operator, 'unbound');
+
+        return [
+            'ok' => true,
+            'message' => 'Disconnected this Google resource from this Digital Asset. Authorization and resource inventory are unchanged. Historical data is preserved.',
+            'binding' => $binding->fresh() ?? $binding,
+        ];
     }
 
     private function assertOperator(User $user): void
@@ -249,44 +398,17 @@ final class ConfirmGoogleResourceBindingService
         }
     }
 
-    private function assertCardinality(DigitalAsset $asset, CoreExternalResource $resource): void
+    private function closeBinding(CoreAssetBinding $binding, User $operator, string $reason): void
     {
-        $rules = BindingCardinalityRegistry::forResourceType((string) $resource->resource_type);
-        $capability = (string) $resource->resource_type;
-
-        $existingOnResource = CoreAssetBinding::query()
-            ->where('external_resource_id', $resource->id)
-            ->where('status', CoreAssetBinding::STATUS_ACTIVE)
-            ->exists();
-
-        if ($existingOnResource && $rules['max_active_assets_per_resource'] <= 1) {
-            throw ValidationException::withMessages([
-                'resource_id' => 'This ExternalResource is already bound to a Digital Asset.',
-            ]);
-        }
-
-        $existingCapability = CoreAssetBinding::query()
-            ->where('digital_asset_id', $asset->id)
-            ->where('capability', $capability)
-            ->where('status', CoreAssetBinding::STATUS_ACTIVE)
-            ->exists();
-
-        if ($existingCapability && $rules['max_active_resources_per_asset'] <= 1) {
-            throw ValidationException::withMessages([
-                'digital_asset_id' => 'This Digital Asset already has an active Binding for this capability.',
-            ]);
-        }
-
-        $duplicatePair = CoreAssetBinding::query()
-            ->where('digital_asset_id', $asset->id)
-            ->where('external_resource_id', $resource->id)
-            ->exists();
-
-        if ($duplicatePair) {
-            throw ValidationException::withMessages([
-                'resource_id' => 'This Digital Asset is already bound to that ExternalResource.',
-            ]);
-        }
+        $config = is_array($binding->configuration) ? $binding->configuration : [];
+        $binding->forceFill([
+            'status' => CoreAssetBinding::STATUS_DISABLED,
+            'configuration' => array_merge($config, [
+                'closed_by_user_id' => $operator->id,
+                'closed_at' => now()->toIso8601String(),
+                'closed_reason' => $reason,
+            ]),
+        ])->save();
     }
 
     private function isUniqueViolation(QueryException $e): bool

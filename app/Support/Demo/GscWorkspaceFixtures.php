@@ -71,6 +71,10 @@ final class GscWorkspaceFixtures
      */
     public static function workspace(string $preset = 'last_28', ?string $start = null, ?string $end = null): array
     {
+        if (! DemoPeriod::inFixtureAnchorContext()) {
+            return DemoPeriod::usingFixtureAnchor(fn (): array => self::workspace($preset, $start, $end));
+        }
+
         $f = DemoCatalog::periodFactors($preset, $start, $end);
         $bounds = DemoPeriod::bounds($preset, $f['start'] ?? $start, $f['end'] ?? $end);
         $rangeStart = $bounds['start']->toDateString();
@@ -969,6 +973,10 @@ final class GscWorkspaceFixtures
      */
     public static function rawDayWeight(string $date): array
     {
+        if (! DemoPeriod::inFixtureAnchorContext()) {
+            return DemoPeriod::usingFixtureAnchor(fn (): array => self::rawDayWeight($date));
+        }
+
         $hash = crc32($date.'|gsc-atlas|demo');
         $unit = ($hash % 10000) / 10000;
         $dow = (int) Carbon::parse($date, DemoPeriod::TIMEZONE)->dayOfWeekIso;
@@ -1002,6 +1010,10 @@ final class GscWorkspaceFixtures
      */
     public static function aggregateProperty(string $start, string $end): array
     {
+        if (! DemoPeriod::inFixtureAnchorContext()) {
+            return DemoPeriod::usingFixtureAnchor(fn (): array => self::aggregateProperty($start, $end));
+        }
+
         $anchor = DemoPeriod::anchor();
         $baselineStart = $anchor->copy()->subDays(27)->toDateString();
         $baselineEnd = $anchor->toDateString();
@@ -1104,6 +1116,10 @@ final class GscWorkspaceFixtures
      */
     public static function daysInRange(string $start, string $end): array
     {
+        if (! DemoPeriod::inFixtureAnchorContext()) {
+            return DemoPeriod::usingFixtureAnchor(fn (): array => self::daysInRange($start, $end));
+        }
+
         $from = Carbon::parse($start, DemoPeriod::TIMEZONE)->startOfDay();
         $to = Carbon::parse($end, DemoPeriod::TIMEZONE)->startOfDay();
         if ($from->greaterThan($to)) {

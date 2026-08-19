@@ -159,6 +159,11 @@ final class GscSpecialistReadService
 
         $provenance = $this->allProvenance(DataSourceState::Demo);
         $data = GscWorkspaceFixtures::workspace($preset, $start, $end);
+        $data['period_label'] = $bounds['label'];
+        $data['period_days'] = $bounds['days'];
+        $data['period_start'] = $rangeStart;
+        $data['period_end'] = $rangeEnd;
+        $data['compare_label'] = 'vs '.$prev['label'];
 
         $propertyGate = $this->gate->evaluate($digitalAssetId, $externalResourceId, self::DATASET_PROPERTY_DAILY, $rangeStart, $rangeEnd, $timezone);
         $prevPropertyGate = $this->gate->evaluate($digitalAssetId, $externalResourceId, self::DATASET_PROPERTY_DAILY, $prevStart, $prevEnd, $timezone);

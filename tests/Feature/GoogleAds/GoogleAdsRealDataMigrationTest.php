@@ -28,10 +28,12 @@ use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
 use App\Services\GoogleAds\GoogleAdsSpecialistReadService;
 use App\Services\GoogleAds\Support\GoogleAdsBindingMode;
 use App\Support\Demo\DemoCatalog;
+use App\Support\Demo\DemoPeriod;
 use App\Support\Demo\GoogleAdsWorkspaceFixtures;
 use App\Support\Integrations\Google\GoogleResourceType;
 use App\Support\Integrations\Google\GoogleScopes;
 use App\Support\Roles;
+use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -56,6 +58,8 @@ class GoogleAdsRealDataMigrationTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        $this->travelTo(Carbon::parse(DemoPeriod::ANCHOR_DATE, DemoPeriod::TIMEZONE)->endOfDay());
 
         Http::fake();
         $this->seed(RoleAndPermissionSeeder::class);

@@ -11,8 +11,10 @@
     $compareOn = (bool) ($compare ?? true);
     $appliedLabel = method_exists($this, 'appliedPeriodLabel') ? $this->appliedPeriodLabel() : ($period === 'custom' && $periodStart && $periodEnd ? $periodStart.' – '.$periodEnd : ($presets[$period] ?? 'Custom'));
     $compareLabel = method_exists($this, 'comparePeriodLabel') ? $this->comparePeriodLabel() : null;
-    $maxDate = \App\Support\Demo\DemoPeriod::ANCHOR_DATE;
-    $minDate = \Carbon\Carbon::parse(\App\Support\Demo\DemoPeriod::ANCHOR_DATE)->subDays(89)->toDateString();
+    $maxDate = method_exists($this, 'periodAnchorDate')
+        ? $this->periodAnchorDate()
+        : \App\Support\Demo\DemoPeriod::anchor()->toDateString();
+    $minDate = \Carbon\Carbon::parse($maxDate)->subDays(89)->toDateString();
 @endphp
 
 <div class="flex flex-wrap items-center gap-1.5" data-demo-period-bar>

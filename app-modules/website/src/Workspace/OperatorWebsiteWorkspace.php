@@ -13,13 +13,18 @@ use MoxDop\Website\Discovery\DiscoveryConfig;
 final class OperatorWebsiteWorkspace implements WebsiteOperatorWorkspaceContract
 {
     public function __construct(
+        private readonly PeriodAwareWebsiteWorkspace $periodAwareWorkspace,
         private readonly WebsiteWorkspaceData $workspace,
         private readonly DiscoveryCandidateReviewService $reviews,
     ) {}
 
-    public function overview(DigitalAsset $asset): array
-    {
-        return $this->workspace->for($asset);
+    public function overview(
+        DigitalAsset $asset,
+        string $periodPreset = 'last_28',
+        ?string $periodStart = null,
+        ?string $periodEnd = null,
+    ): array {
+        return $this->periodAwareWorkspace->for($asset, $periodPreset, $periodStart, $periodEnd);
     }
 
     public function discovery(DigitalAsset $asset): array

@@ -59,7 +59,9 @@ final class WorkerHeartbeatService
      *     fresh_heartbeats: int,
      *     stale_seconds: int,
      *     queue: array<string, mixed>,
-     *     message: string
+     *     message: string,
+     *     message_key: string,
+     *     message_replace: array<string, scalar>
      * }
      */
     public function snapshot(): array
@@ -76,18 +78,25 @@ final class WorkerHeartbeatService
 
         $status = OperationalHealthStatus::Unknown;
         $message = 'Worker expected capacity is not configured for this deployment.';
+        $messageKey = 'capacity_unconfigured';
+        $messageReplace = [];
 
         if ($expected === []) {
             // Without deployment expected list, use queue idle heuristic only.
             if ($queue['worker_appears_idle']) {
                 $status = OperationalHealthStatus::Degraded;
                 $message = $queue['message'];
+                $messageKey = (string) ($queue['message_key'] ?? 'jobs_stale');
+                $messageReplace = is_array($queue['message_replace'] ?? null) ? $queue['message_replace'] : [];
             } elseif ($fresh > 0) {
                 $status = OperationalHealthStatus::Healthy;
                 $message = $fresh.' fresh worker heartbeat(s); expected supervisors not configured.';
+                $messageKey = 'heartbeats_without_expected';
+                $messageReplace = ['count' => $fresh];
             } else {
                 $status = OperationalHealthStatus::Unknown;
                 $message = 'No worker heartbeats observed; expected supervisors not configured.';
+                $messageKey = 'no_heartbeats';
             }
         } else {
             $freshSupervisors = WorkerHeartbeat::query()
@@ -101,12 +110,16 @@ final class WorkerHeartbeatService
             if ($missing === []) {
                 $status = OperationalHealthStatus::Healthy;
                 $message = 'All expected supervisors have fresh heartbeats.';
+                $messageKey = 'supervisors_healthy';
             } elseif (count($freshSupervisors) > 0) {
                 $status = OperationalHealthStatus::Degraded;
                 $message = 'Missing supervisors: '.implode(', ', $missing);
+                $messageKey = 'supervisors_missing';
+                $messageReplace = ['supervisors' => implode(', ', $missing)];
             } else {
                 $status = OperationalHealthStatus::Unhealthy;
                 $message = 'No expected supervisors have fresh heartbeats.';
+                $messageKey = 'supervisors_unhealthy';
             }
         }
 
@@ -117,6 +130,8 @@ final class WorkerHeartbeatService
             'stale_seconds' => $staleSeconds,
             'queue' => $queue,
             'message' => $message,
+            'message_key' => $messageKey,
+            'message_replace' => $messageReplace,
         ];
     }
 }
