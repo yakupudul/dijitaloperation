@@ -6,7 +6,10 @@ use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\DigitalAsset;
+use App\Models\User;
 use App\Services\Async\AsyncOperationService;
+use App\Services\Integrations\ConfirmGoogleResourceBindingService;
+use App\Services\Integrations\ConfirmMetaResourceBindingService;
 use App\Services\Integrations\Google\GoogleProviderResourceDiscovery;
 use App\Services\Integrations\Meta\MetaProviderResourceDiscovery;
 use App\Support\Integrations\AssetBindingCompatibility;
@@ -71,6 +74,9 @@ final class AssetDataSourcesPage extends Component
         $asset = $this->asset();
         $this->assertCapability($asset, $capability);
 
+        $actor = auth()->user();
+        abort_unless($actor instanceof User, 403);
+
         $resourceId = (string) ($this->selectedResource[$capability] ?? '');
         if (! ctype_digit($resourceId)) {
             throw ValidationException::withMessages([
@@ -79,45 +85,26 @@ final class AssetDataSourcesPage extends Component
         }
 
         $resource = CoreExternalResource::query()->with('integration')->find((int) $resourceId);
-        if (! $resource instanceof CoreExternalResource
-            || $resource->resource_type !== $capability
-            || $resource->status !== CoreExternalResource::STATUS_AVAILABLE
-            || ! $resource->integration instanceof CoreIntegration
-            || ! $resource->integration->isActive()
-            || ! AssetBindingCompatibility::isCompatible($asset, $resource)) {
+        if (! $resource instanceof CoreExternalResource) {
             throw ValidationException::withMessages([
                 'selectedResource.'.$capability => __('operator_runtime.sources.resource_incompatible'),
             ]);
         }
 
-        $duplicate = CoreAssetBinding::query()
-            ->where('external_resource_id', $resource->id)
-            ->where('status', CoreAssetBinding::STATUS_ACTIVE)
-            ->where('digital_asset_id', '!=', $asset->id)
-            ->exists();
-
-        if ($duplicate) {
+        try {
+            match ($this->providerForCapability($capability)) {
+                ProviderRegistry::META => app(ConfirmMetaResourceBindingService::class)
+                    ->bindExisting($asset, $resource, $actor, allowReplace: true),
+                ProviderRegistry::GOOGLE => app(ConfirmGoogleResourceBindingService::class)
+                    ->bindExisting($asset, $resource, $actor, allowReplace: true),
+                default => throw ValidationException::withMessages([
+                    'selectedResource.'.$capability => __('operator_runtime.sources.resource_incompatible'),
+                ]),
+            };
+        } catch (ValidationException $e) {
             throw ValidationException::withMessages([
-                'selectedResource.'.$capability => __('operator_runtime.sources.resource_already_bound'),
-            ]);
-        }
-
-        $binding = CoreAssetBinding::query()
-            ->where('digital_asset_id', $asset->id)
-            ->where('capability', $capability)
-            ->first();
-
-        if ($binding instanceof CoreAssetBinding) {
-            $binding->update([
-                'external_resource_id' => $resource->id,
-                'status' => CoreAssetBinding::STATUS_ACTIVE,
-            ]);
-        } else {
-            $asset->assetBindings()->create([
-                'external_resource_id' => $resource->id,
-                'capability' => $capability,
-                'status' => CoreAssetBinding::STATUS_ACTIVE,
-                'configuration' => [],
+                'selectedResource.'.$capability => collect($e->errors())->flatten()->first()
+                    ?: __('operator_runtime.sources.resource_incompatible'),
             ]);
         }
 
@@ -131,10 +118,31 @@ final class AssetDataSourcesPage extends Component
         $asset = $this->asset();
         $this->assertCapability($asset, $capability);
 
-        CoreAssetBinding::query()
+        $actor = auth()->user();
+        abort_unless($actor instanceof User, 403);
+
+        $binding = CoreAssetBinding::query()
             ->where('digital_asset_id', $asset->id)
             ->where('capability', $capability)
-            ->update(['status' => CoreAssetBinding::STATUS_DISABLED]);
+            ->where('status', CoreAssetBinding::STATUS_ACTIVE)
+            ->first();
+
+        if ($binding instanceof CoreAssetBinding) {
+            try {
+                match ($this->providerForCapability($capability)) {
+                    ProviderRegistry::META => app(ConfirmMetaResourceBindingService::class)->unbind($binding, $actor),
+                    ProviderRegistry::GOOGLE => app(ConfirmGoogleResourceBindingService::class)->unbind($binding, $actor),
+                    default => throw ValidationException::withMessages([
+                        'selectedResource.'.$capability => __('operator_runtime.sources.resource_incompatible'),
+                    ]),
+                };
+            } catch (ValidationException $e) {
+                throw ValidationException::withMessages([
+                    'selectedResource.'.$capability => collect($e->errors())->flatten()->first()
+                        ?: __('operator_runtime.sources.resource_incompatible'),
+                ]);
+            }
+        }
 
         $this->messageTone = 'success';
         $this->message = __('operator_runtime.sources.disabled', ['capability' => ProviderRegistry::capabilityLabel($capability)]);
@@ -158,7 +166,10 @@ final class AssetDataSourcesPage extends Component
             ->with('externalResource.integration')
             ->where('digital_asset_id', $asset->id)
             ->whereIn('capability', $capabilities)
+            ->orderBy('status')
+            ->orderByDesc('id')
             ->get()
+            ->unique(fn (CoreAssetBinding $binding): string => (string) $binding->capability)
             ->keyBy('capability');
 
         $boundElsewhere = CoreAssetBinding::query()

@@ -382,4 +382,73 @@ class GoogleResourceBindingTest extends TestCase
 
         $this->assertSame(0, CoreAssetBinding::query()->count());
     }
+
+    public function test_replace_closes_the_old_binding_and_preserves_its_resource_identity(): void
+    {
+        $first = CoreExternalResource::factory()->create([
+            'integration_id' => $this->integration->id,
+            'provider' => ProviderRegistry::GOOGLE,
+            'resource_type' => 'ga4',
+            'external_id' => 'properties/old',
+            'display_name' => 'Old GA4',
+            'status' => CoreExternalResource::STATUS_AVAILABLE,
+        ]);
+        $second = CoreExternalResource::factory()->create([
+            'integration_id' => $this->integration->id,
+            'provider' => ProviderRegistry::GOOGLE,
+            'resource_type' => 'ga4',
+            'external_id' => 'properties/new',
+            'display_name' => 'New GA4',
+            'status' => CoreExternalResource::STATUS_AVAILABLE,
+        ]);
+        $asset = DigitalAsset::factory()->create([
+            'brand_id' => $this->brand->id,
+            'type' => 'website',
+            'status' => 'active',
+        ]);
+
+        $old = app(ConfirmGoogleResourceBindingService::class)->bindExisting($asset, $first, $this->admin);
+
+        try {
+            app(ConfirmGoogleResourceBindingService::class)->bindExisting($asset, $second, $this->admin);
+            $this->fail('Replacement without allowReplace must be rejected.');
+        } catch (ValidationException) {
+        }
+
+        $result = app(ConfirmGoogleResourceBindingService::class)->bindExisting(
+            $asset,
+            $second,
+            $this->admin,
+            allowReplace: true,
+        );
+
+        $this->assertSame(CoreAssetBinding::STATUS_DISABLED, $old->fresh()->status);
+        $this->assertSame($first->id, $old->fresh()->external_resource_id);
+        $this->assertSame(CoreAssetBinding::STATUS_ACTIVE, $result->status);
+        $this->assertSame($second->id, $result->external_resource_id);
+        $this->assertSame(2, CoreAssetBinding::query()->count());
+    }
+
+    public function test_unbind_preserves_historical_binding_identity(): void
+    {
+        $resource = CoreExternalResource::factory()->create([
+            'integration_id' => $this->integration->id,
+            'provider' => ProviderRegistry::GOOGLE,
+            'resource_type' => 'search_console',
+            'external_id' => 'sc-domain:example.com',
+            'status' => CoreExternalResource::STATUS_AVAILABLE,
+        ]);
+        $asset = DigitalAsset::factory()->create([
+            'brand_id' => $this->brand->id,
+            'type' => 'website',
+            'status' => 'active',
+        ]);
+        $binding = app(ConfirmGoogleResourceBindingService::class)->bindExisting($asset, $resource, $this->admin);
+
+        $result = app(ConfirmGoogleResourceBindingService::class)->unbind($binding, $this->admin);
+
+        $this->assertTrue($result['ok']);
+        $this->assertSame(CoreAssetBinding::STATUS_DISABLED, $binding->fresh()->status);
+        $this->assertSame($resource->id, $binding->fresh()->external_resource_id);
+    }
 }

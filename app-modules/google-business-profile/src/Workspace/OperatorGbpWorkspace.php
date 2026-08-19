@@ -24,22 +24,31 @@ final class OperatorGbpWorkspace implements GbpOperatorWorkspaceContract
             ->with('externalResource.integration')
             ->where('digital_asset_id', $asset->id)
             ->where('capability', GbpLocationBoundCollector::CAPABILITY)
+            ->where('status', CoreAssetBinding::STATUS_ACTIVE)
+            ->orderByDesc('id')
             ->first();
 
-        $evidence = Evidence::query()
-            ->where('digital_asset_id', $asset->id)
-            ->where('source_module', GbpLocationBoundCollector::MODULE_ID)
-            ->where('type', GbpLocationBoundCollector::EVIDENCE_TYPE)
-            ->whereHas('run', fn ($query) => $query->where('status', 'completed'))
-            ->latest('observed_at')
-            ->latest('id')
-            ->first();
+        $evidence = null;
+        $lastRun = null;
+        if ($binding instanceof CoreAssetBinding) {
+            $evidence = Evidence::query()
+                ->where('digital_asset_id', $asset->id)
+                ->where('source_module', GbpLocationBoundCollector::MODULE_ID)
+                ->where('type', GbpLocationBoundCollector::EVIDENCE_TYPE)
+                ->whereHas('run', fn ($query) => $query
+                    ->where('status', 'completed')
+                    ->where('core_asset_binding_id', $binding->id))
+                ->latest('observed_at')
+                ->latest('id')
+                ->first();
 
-        $lastRun = Run::query()
-            ->where('digital_asset_id', $asset->id)
-            ->where('module_id', GbpLocationBoundCollector::MODULE_ID)
-            ->latest('id')
-            ->first();
+            $lastRun = Run::query()
+                ->where('digital_asset_id', $asset->id)
+                ->where('module_id', GbpLocationBoundCollector::MODULE_ID)
+                ->where('core_asset_binding_id', $binding->id)
+                ->latest('id')
+                ->first();
+        }
 
         $payload = is_array($evidence?->payload) ? $evidence->payload : [];
         $ok = ($payload['ok'] ?? false) === true;
