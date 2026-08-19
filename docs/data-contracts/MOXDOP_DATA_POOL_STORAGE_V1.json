@@ -93,7 +93,7 @@
     {
       "logical_dataset_id": "ga4_event_source_medium_daily",
       "disposition": "STORAGE_CONTRACT_GAP",
-      "reason": "Prompt 7 DECISION_REQUIRED \u2014 no invented grain/storage",
+      "reason": "Prompt 7 DECISION_REQUIRED — no invented grain/storage",
       "blocking": false
     },
     {
@@ -114,7 +114,7 @@
     {
       "logical_dataset_id": "ga4_business_action_mapping",
       "disposition": "DOMAIN_DATA",
-      "reason": "Operator/mapping domain \u2014 not provider fact table"
+      "reason": "Operator/mapping domain — not provider fact table"
     },
     {
       "logical_dataset_id": "ga4_funnel_definition",
@@ -169,12 +169,12 @@
     {
       "logical_dataset_id": "gsc_brand_term_map",
       "disposition": "DOMAIN_DATA",
-      "reason": "Operator/mapping domain \u2014 not provider fact table"
+      "reason": "Operator/mapping domain — not provider fact table"
     },
     {
       "logical_dataset_id": "gsc_intended_owner_map",
       "disposition": "DOMAIN_DATA",
-      "reason": "Operator/mapping domain \u2014 not provider fact table"
+      "reason": "Operator/mapping domain — not provider fact table"
     },
     {
       "logical_dataset_id": "google_ads_account_snapshot",
@@ -294,7 +294,7 @@
     {
       "logical_dataset_id": "meta_result_mapping",
       "disposition": "DOMAIN_DATA",
-      "reason": "Operator/mapping domain \u2014 not provider fact table"
+      "reason": "Operator/mapping domain — not provider fact table"
     },
     {
       "logical_dataset_id": "website_asset",
@@ -1068,7 +1068,7 @@
         "GA4_MEAS_UTM_HYGIENE"
       ],
       "collection_run_in_natural_key": false,
-      "notes": "GA4 session campaign daily (\u2260 Ads entity)"
+      "notes": "GA4 session campaign daily (≠ Ads entity)"
     },
     {
       "logical_dataset_id": "ga4_landing_page_daily",
@@ -1470,7 +1470,7 @@
         "GA4_MEAS_EVENTS"
       ],
       "collection_run_in_natural_key": false,
-      "notes": "Event\u00d7channel daily"
+      "notes": "Event×channel daily"
     },
     {
       "logical_dataset_id": "ga4_event_campaign_daily",
@@ -1606,7 +1606,7 @@
         "GA4_ACQ_CAMPAIGNS"
       ],
       "collection_run_in_natural_key": false,
-      "notes": "Event\u00d7campaign daily"
+      "notes": "Event×campaign daily"
     },
     {
       "logical_dataset_id": "ga4_event_landing_daily",
@@ -1743,7 +1743,7 @@
         "GA4_OVERVIEW_LANDING_PULSE"
       ],
       "collection_run_in_natural_key": false,
-      "notes": "Event\u00d7landing daily"
+      "notes": "Event×landing daily"
     },
     {
       "logical_dataset_id": "ga4_device_daily",
@@ -2437,7 +2437,7 @@
         "GSC_DEMAND_OWNERSHIP"
       ],
       "collection_run_in_natural_key": false,
-      "notes": "Query\u00d7page daily"
+      "notes": "Query×page daily"
     },
     {
       "logical_dataset_id": "gsc_country_daily",
@@ -4332,7 +4332,7 @@
         "GADS_SEARCH_TERM_STATUS"
       ],
       "collection_run_in_natural_key": false,
-      "notes": "Search term daily (\u2260 keyword)"
+      "notes": "Search term daily (≠ keyword)"
     },
     {
       "logical_dataset_id": "google_ads_landing_page_daily",
@@ -5444,7 +5444,7 @@
         "META_CREATIVE_METADATA"
       ],
       "collection_run_in_natural_key": false,
-      "notes": "Creative metadata (\u2260 Ad)"
+      "notes": "Creative metadata (≠ Ad)"
     },
     {
       "logical_dataset_id": "meta_campaign_daily",
@@ -7634,7 +7634,7 @@
     },
     {
       "table": "dataset_materializations",
-      "purpose": "Per resource/dataset pool state (\u2260 CollectionRun)"
+      "purpose": "Per resource/dataset pool state (≠ CollectionRun)"
     }
   ],
   "validation": {
@@ -7646,7 +7646,7 @@
       {
         "logical_dataset_id": "ga4_event_source_medium_daily",
         "disposition": "STORAGE_CONTRACT_GAP",
-        "reason": "Prompt 7 DECISION_REQUIRED \u2014 no invented grain/storage",
+        "reason": "Prompt 7 DECISION_REQUIRED — no invented grain/storage",
         "blocking": false
       }
     ]

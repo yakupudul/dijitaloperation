@@ -3,6 +3,7 @@
 namespace Tests\Feature\DataPool;
 
 use App\Enums\DataPool\MaterializationStatus;
+use App\Enums\DataPool\WriteBatchStatus;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\DataPool\DatasetMaterialization;
 use App\Models\DataPool\DatasetWriteBatch;
@@ -449,6 +450,104 @@ class DataPoolFoundationTest extends TestCase
 
         app(CheckpointManager::class)->advance($run, ['cursor' => 'done']);
         $this->assertSame('done', $run->fresh()->checkpoint['cursor']);
+    }
+
+    #[Test]
+    public function failed_batch_row_is_reused_in_place_on_retry(): void
+    {
+        $run = CollectionDatasetRun::factory()->create([
+            'dataset_contract_id' => 'ga4_property_daily',
+            'provider_or_source' => 'GA4',
+        ]);
+
+        $stale = DatasetWriteBatch::query()->create([
+            'dataset_run_id' => (int) $run->id,
+            'batch_key' => 'retry-after-failure',
+            'idempotency_key' => hash('sha256', $run->id.'|retry-after-failure'),
+            'dataset_id' => 'ga4_property_daily',
+            'status' => WriteBatchStatus::Failed,
+            'rows_received' => 1,
+            'rows_inserted' => 0,
+            'rows_updated' => 0,
+            'started_at' => now()->subMinute(),
+            'checksum' => null,
+            'error_summary' => 'previous failure',
+        ]);
+
+        $receipt = app(PostgresWarehouseWriter::class)->write(new NormalizedDatasetBatch(
+            datasetId: 'ga4_property_daily',
+            datasetRunId: (int) $run->id,
+            contractVersion: 1,
+            batchKey: 'retry-after-failure',
+            records: [[
+                'digital_asset_id' => 77,
+                'property_id' => 'properties/retry',
+                'reporting_date' => '2026-08-08',
+                'sessions' => 5,
+                'engagedSessions' => 4,
+                'screenPageViews' => 9,
+                'totalUsers' => 3,
+                'activeUsers' => 3,
+            ]],
+            digitalAssetId: 77,
+            collectionRunId: (int) $run->collection_run_id,
+            providerOrSource: 'GA4',
+        ));
+
+        $this->assertTrue($receipt->isCommitted());
+        $this->assertSame(1, DatasetWriteBatch::query()->where('dataset_run_id', (int) $run->id)->where('batch_key', 'retry-after-failure')->count());
+        $this->assertSame($stale->id, DatasetWriteBatch::query()->where('dataset_run_id', (int) $run->id)->where('batch_key', 'retry-after-failure')->value('id'));
+        $this->assertSame('committed', DatasetWriteBatch::query()->find($stale->id)?->status->value);
+        $this->assertSame(1, DB::table('ga4_property_daily')->where('property_id', 'properties/retry')->count());
+    }
+
+    #[Test]
+    public function pending_batch_row_is_reused_in_place_on_retry(): void
+    {
+        $run = CollectionDatasetRun::factory()->create([
+            'dataset_contract_id' => 'ga4_property_daily',
+            'provider_or_source' => 'GA4',
+        ]);
+
+        $stale = DatasetWriteBatch::query()->create([
+            'dataset_run_id' => (int) $run->id,
+            'batch_key' => 'retry-after-pending',
+            'idempotency_key' => hash('sha256', $run->id.'|retry-after-pending'),
+            'dataset_id' => 'ga4_property_daily',
+            'status' => WriteBatchStatus::Pending,
+            'rows_received' => 1,
+            'rows_inserted' => 0,
+            'rows_updated' => 0,
+            'started_at' => now()->subMinute(),
+            'checksum' => null,
+            'error_summary' => null,
+        ]);
+
+        $receipt = app(PostgresWarehouseWriter::class)->write(new NormalizedDatasetBatch(
+            datasetId: 'ga4_property_daily',
+            datasetRunId: (int) $run->id,
+            contractVersion: 1,
+            batchKey: 'retry-after-pending',
+            records: [[
+                'digital_asset_id' => 78,
+                'property_id' => 'properties/pending',
+                'reporting_date' => '2026-08-09',
+                'sessions' => 7,
+                'engagedSessions' => 6,
+                'screenPageViews' => 11,
+                'totalUsers' => 4,
+                'activeUsers' => 4,
+            ]],
+            digitalAssetId: 78,
+            collectionRunId: (int) $run->collection_run_id,
+            providerOrSource: 'GA4',
+        ));
+
+        $this->assertTrue($receipt->isCommitted());
+        $this->assertSame(1, DatasetWriteBatch::query()->where('dataset_run_id', (int) $run->id)->where('batch_key', 'retry-after-pending')->count());
+        $this->assertSame($stale->id, DatasetWriteBatch::query()->where('dataset_run_id', (int) $run->id)->where('batch_key', 'retry-after-pending')->value('id'));
+        $this->assertSame('committed', DatasetWriteBatch::query()->find($stale->id)?->status->value);
+        $this->assertSame(1, DB::table('ga4_property_daily')->where('property_id', 'properties/pending')->count());
     }
 
     #[Test]
