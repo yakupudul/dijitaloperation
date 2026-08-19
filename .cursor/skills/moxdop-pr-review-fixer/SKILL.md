@@ -37,13 +37,16 @@ Before any edit, inspect the triggering review payload and the pull request (`gh
 - the PR is **open** (draft is allowed; closed/merged is not)
 - the review is from **Codex / OpenAI code review**, **or** the review clearly contains actionable product/code findings for this MOXDOP loop
 
+A **clean Codex approval with no comments is a continue event**, not an exit. Inspect the active milestone and keep going.
+
 **Exit without changes when:**
 
 - wrong repository
 - PR closed or merged
 - fork PR (unsupported)
-- review is a no-op approve with no comments **and** there is no actionable finding
 - event is unrelated (spam, bot noise, non-MOXDOP review)
+
+Do **not** exit merely because the review is approved, has no comments, or has no defect findings. That is the clean-review path below.
 
 ## Operating context
 
@@ -92,9 +95,16 @@ When Codex (or an equivalent review) finds actionable problems:
 11. Update `PROJECT_MEMORY.md` only when a material decision actually changes.
 12. Do not claim DONE merely because code exists.
 
-When the review has **no actionable defects**, do not stop just because the review is clean.
+When the review has **no actionable defects** (including a clean/no-comment approval), do not stop just because the review is clean.
 
 Inspect the current milestone, capability ledger, PR state, runtime proof, and remaining acceptance gates. Determine the next highest-value incomplete product requirement that belongs to the **active milestone** and can safely continue on this PR, then implement it.
+
+Stop this loop only when:
+
+- there is truly nothing actionable left in the **active milestone**, or
+- a genuine **external blocker** or **business decision** requires escalation
+
+A clean review is not either of those.
 
 ### Current product sequencing
 
@@ -134,7 +144,7 @@ Distinguish GBP **external** OAuth/API restrictions from missing implementation.
 
 ## Completion
 
-Continue the implementation-review-fix cycle until the active product acceptance gate is genuinely satisfied.
+Continue the implementation-review-fix cycle until the active product acceptance gate is genuinely satisfied. A clean Codex review is not completion of the milestone.
 
 When you push a meaningful fix, leave the PR suitable for Codex to review the new commit:
 
