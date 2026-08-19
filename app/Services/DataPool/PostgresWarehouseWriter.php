@@ -66,6 +66,14 @@ final class PostgresWarehouseWriter implements WarehouseWriter
             }
         }
 
+        $prepared = $this->collapseByNaturalKey($prepared, $naturalKey, $writeMode);
+        $dates = [];
+        foreach ($prepared as $row) {
+            if (isset($row['reporting_date'])) {
+                $dates[] = (string) $row['reporting_date'];
+            }
+        }
+
         if (($physical['partition_strategy'] ?? 'NONE') === 'RANGE_MONTHLY') {
             if ($dates === []) {
                 throw new RuntimeException("Partitioned dataset [{$batch->datasetId}] requires reporting_date on records");
@@ -268,6 +276,35 @@ final class PostgresWarehouseWriter implements WarehouseWriter
         }
 
         return compact('inserted', 'updated', 'unchanged');
+    }
+
+    /**
+     * PostgreSQL ON CONFLICT cannot update the same constrained row twice in one INSERT.
+     * Last record in the batch wins (late-correction semantics).
+     *
+     * @param  list<array<string, mixed>>  $rows
+     * @param  list<string>  $naturalKey
+     * @return list<array<string, mixed>>
+     */
+    private function collapseByNaturalKey(array $rows, array $naturalKey, string $writeMode): array
+    {
+        if ($rows === [] || $naturalKey === []) {
+            return $rows;
+        }
+        if ($writeMode === 'APPEND_SNAPSHOT' || $writeMode === 'APPEND_OBSERVATION') {
+            return $rows;
+        }
+
+        $collapsed = [];
+        foreach ($rows as $row) {
+            $parts = [];
+            foreach ($naturalKey as $col) {
+                $parts[] = (string) ($row[$col] ?? '');
+            }
+            $collapsed[implode("\0", $parts)] = $row;
+        }
+
+        return array_values($collapsed);
     }
 
     /**

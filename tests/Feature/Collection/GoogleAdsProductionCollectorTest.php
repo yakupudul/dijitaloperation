@@ -313,6 +313,7 @@ class GoogleAdsProductionCollectorTest extends TestCase
         $this->assertSame('2026-01-15', $campaignMeta['start_date']);
         $this->assertSame('2026-12-31', $campaignMeta['end_date']);
         $this->assertGreaterThan(0, DB::table('google_ads_conversion_action_snapshot')->count());
+        $this->assertGreaterThan(0, DB::table('google_ads_keyword_snapshot')->count());
 
         foreach (DB::table('raw_ingestion_objects')->get() as $raw) {
             $payload = json_encode($raw);
@@ -702,15 +703,26 @@ class GoogleAdsProductionCollectorTest extends TestCase
                     ]]], 200);
                 }
                 if (str_contains($query, 'FROM keyword_view') && ! str_contains($query, 'segments.date')) {
-                    return Http::response(['results' => [[
-                        'adGroupCriterion' => [
-                            'criterionId' => '777',
-                            'status' => 'ENABLED',
-                            'keyword' => ['text' => 'dental', 'matchType' => 'EXACT'],
+                    return Http::response(['results' => [
+                        [
+                            'adGroupCriterion' => [
+                                'criterionId' => '777',
+                                'status' => 'ENABLED',
+                                'keyword' => ['text' => 'dental', 'matchType' => 'EXACT'],
+                            ],
+                            'adGroup' => ['id' => '22'],
+                            'campaign' => ['id' => '555'],
                         ],
-                        'adGroup' => ['id' => '22'],
-                        'campaign' => ['id' => '555'],
-                    ]]], 200);
+                        [
+                            'adGroupCriterion' => [
+                                'criterionId' => '777',
+                                'status' => 'PAUSED',
+                                'keyword' => ['text' => 'dental', 'matchType' => 'EXACT'],
+                            ],
+                            'adGroup' => ['id' => '23'],
+                            'campaign' => ['id' => '555'],
+                        ],
+                    ]], 200);
                 }
                 if (str_contains($query, 'FROM asset')) {
                     return Http::response(['results' => [[

@@ -37,4 +37,40 @@ class GoogleAdsNormalizerCampaignDatesTest extends TestCase
         $this->assertSame('2026-01-15', $normalized['campaigns'][0]['metadata']['start_date']);
         $this->assertSame('2026-12-31', $normalized['campaigns'][0]['metadata']['end_date']);
     }
+
+    #[Test]
+    public function keyword_snapshots_collapse_duplicate_criterion_ids_last_wins(): void
+    {
+        $normalized = (new GoogleAdsNormalizer)->normalizeKeywordSnapshots(
+            '1112223333',
+            'Europe/Istanbul',
+            [
+                [
+                    'adGroupCriterion' => [
+                        'criterionId' => '777',
+                        'status' => 'ENABLED',
+                        'keyword' => ['text' => 'dental', 'matchType' => 'EXACT'],
+                    ],
+                    'adGroup' => ['id' => '22'],
+                    'campaign' => ['id' => '555'],
+                ],
+                [
+                    'adGroupCriterion' => [
+                        'criterionId' => '777',
+                        'status' => 'PAUSED',
+                        'keyword' => ['text' => 'dental', 'matchType' => 'EXACT'],
+                    ],
+                    'adGroup' => ['id' => '23'],
+                    'campaign' => ['id' => '555'],
+                ],
+            ],
+            2,
+            173,
+        );
+
+        $this->assertCount(1, $normalized);
+        $this->assertSame('777', $normalized[0]['criterion_id']);
+        $this->assertSame('23', (string) $normalized[0]['metadata']['ad_group_id']);
+        $this->assertSame('PAUSED', $normalized[0]['metadata']['status']);
+    }
 }

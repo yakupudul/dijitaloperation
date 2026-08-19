@@ -271,7 +271,9 @@ final class GoogleAdsNormalizer
                 continue;
             }
             $keyword = is_array($criterion['keyword'] ?? null) ? $criterion['keyword'] : [];
-            $out[] = [
+            // Storage grain is customer_id × criterion_id. Google Ads criterion IDs are
+            // ad-group-scoped, so the same id can appear in multiple ad groups — last wins.
+            $out[$criterionId] = [
                 'digital_asset_id' => $digitalAssetId,
                 'external_resource_id' => $externalResourceId,
                 'customer_id' => $customerId,
@@ -289,7 +291,7 @@ final class GoogleAdsNormalizer
             ];
         }
 
-        return $out;
+        return array_values($out);
     }
 
     /**
@@ -521,7 +523,8 @@ final class GoogleAdsNormalizer
             $costMicros = (string) ($metrics['costMicros'] ?? $metrics['cost_micros'] ?? '0');
             $keyword = is_array($criterion['keyword'] ?? null) ? $criterion['keyword'] : [];
 
-            $daily[] = [
+            $dailyKey = $date."\0".$criterionId;
+            $daily[$dailyKey] = [
                 'digital_asset_id' => $digitalAssetId,
                 'external_resource_id' => $externalResourceId,
                 'customer_id' => $customerId,
@@ -563,7 +566,7 @@ final class GoogleAdsNormalizer
             }
         }
 
-        return ['daily' => $daily, 'snapshots' => $snapshots];
+        return ['daily' => array_values($daily), 'snapshots' => $snapshots];
     }
 
     /**
