@@ -1,8 +1,12 @@
 @php
     $tabs = [
-        'overview' => __('operator_gbp.tabs.overview'),
-        'profile' => __('operator_gbp.tabs.profile'),
-        'setup' => __('operator_gbp.tabs.setup'),
+        'overview' => __('operator.gbp.tabs.overview'),
+        'profile' => __('operator.gbp.tabs.profile'),
+        'visibility' => __('operator.gbp.tabs.visibility'),
+        'performance' => __('operator.gbp.tabs.performance'),
+        'reviews' => __('operator.gbp.tabs.reviews'),
+        'competitors' => __('operator.gbp.tabs.competitors'),
+        'operations' => __('operator.gbp.tabs.operations'),
     ];
     $connection = $data['connection'] ?? [];
     $coverage = $data['profile_coverage'] ?? [];
@@ -29,9 +33,7 @@
                         'font-semibold text-emerald-600 dark:text-emerald-400' => $real,
                         'font-semibold text-amber-600 dark:text-amber-400' => $bound && ! $real,
                         'font-semibold text-gray-500' => ! $bound,
-                    ])>
-                        {{ $real ? __('operator_gbp.connected') : ($bound ? __('operator_gbp.needs_collection') : __('operator_gbp.not_connected')) }}
-                    </span>
+                    ])>{{ $real ? __('operator_gbp.connected') : ($bound ? __('operator_gbp.needs_collection') : __('operator_gbp.not_connected')) }}</span>
                 </div>
             </div>
         </div>
@@ -77,67 +79,32 @@
             <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-700"><h2 class="font-semibold text-gray-900 dark:text-white">{{ __('operator_gbp.collected_profile') }}</h2></div>
             <div class="divide-y divide-gray-100 dark:divide-gray-700">
                 @forelse (($profile['fields'] ?? []) as $field)
-                    <div class="grid gap-2 px-5 py-4 sm:grid-cols-3 sm:items-center">
-                        <p class="text-sm font-medium text-gray-500">{{ __('operator_gbp.fields.'.($field['key'] ?? '')) }}</p>
-                        <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $field['value'] }}</p>
-                        <p class="text-xs text-gray-400 sm:text-right">{{ __('operator_gbp.states.'.($field['state'] ?? 'missing')) }}</p>
-                    </div>
+                    <div class="grid gap-2 px-5 py-4 sm:grid-cols-3 sm:items-center"><p class="text-sm font-medium text-gray-500">{{ __('operator_gbp.fields.'.($field['key'] ?? '')) }}</p><p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $field['value'] }}</p><p class="text-xs text-gray-400 sm:text-right">{{ __('operator_gbp.states.'.($field['state'] ?? 'missing')) }}</p></div>
                 @empty
                     <div class="px-5 py-8 text-sm text-gray-500">{{ __('operator_gbp.no_profile_data') }}</div>
                 @endforelse
             </div>
         </section>
 
-        <section class="rounded-xl border border-gray-200 bg-gray-50 p-5 dark:border-gray-800 dark:bg-white/[0.02]">
-            <h2 class="font-semibold text-gray-900 dark:text-white">{{ __('operator_gbp.not_available_title') }}</h2>
-            <p class="mt-1 text-sm text-gray-500">{{ __('operator_gbp.not_available_body') }}</p>
-            <div class="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                @foreach (['reviews', 'performance', 'local_visibility', 'media'] as $capability)
-                    <div class="rounded-lg bg-white px-3 py-3 text-sm ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-700">
-                        <p class="font-medium text-gray-800 dark:text-gray-200">{{ __('operator_gbp.capabilities.'.$capability) }}</p>
-                        <p class="mt-1 text-xs text-gray-400">{{ __('operator_gbp.not_collected') }}</p>
-                    </div>
-                @endforeach
-            </div>
-        </section>
-
     @elseif ($tab === 'profile')
         <div class="grid gap-4 xl:grid-cols-2">
-            <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
-                <h2 class="font-semibold text-gray-900 dark:text-white">{{ __('operator_gbp.profile_fields') }}</h2>
-                <dl class="mt-4 space-y-4">
-                    @foreach (($profile['fields'] ?? []) as $field)
-                        <div><dt class="text-xs text-gray-400">{{ __('operator_gbp.fields.'.($field['key'] ?? '')) }}</dt><dd class="mt-1 text-sm font-medium text-gray-900 dark:text-white">{{ $field['value'] }}</dd></div>
-                    @endforeach
-                </dl>
-            </section>
-            <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
-                <h2 class="font-semibold text-gray-900 dark:text-white">{{ __('operator_gbp.location') }}</h2>
-                <dl class="mt-4 space-y-4">
-                    <div><dt class="text-xs text-gray-400">{{ __('operator_gbp.primary_category') }}</dt><dd class="mt-1 text-sm font-medium text-gray-900 dark:text-white">{{ data_get($profile, 'categories.primary', '—') }}</dd></div>
-                    <div><dt class="text-xs text-gray-400">{{ __('operator_gbp.address') }}</dt><dd class="mt-1 text-sm font-medium text-gray-900 dark:text-white">{{ data_get($profile, 'location.address', '—') }}</dd></div>
-                    <div><dt class="text-xs text-gray-400">{{ __('operator_gbp.website') }}</dt><dd class="mt-1 break-all text-sm font-medium text-gray-900 dark:text-white">{{ data_get($profile, 'location.website_location_page', '—') }}</dd></div>
-                </dl>
-            </section>
+            <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700"><h2 class="font-semibold text-gray-900 dark:text-white">{{ __('operator_gbp.profile_fields') }}</h2><dl class="mt-4 space-y-4">@foreach (($profile['fields'] ?? []) as $field)<div><dt class="text-xs text-gray-400">{{ __('operator_gbp.fields.'.($field['key'] ?? '')) }}</dt><dd class="mt-1 text-sm font-medium text-gray-900 dark:text-white">{{ $field['value'] }}</dd></div>@endforeach</dl></section>
+            <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700"><h2 class="font-semibold text-gray-900 dark:text-white">{{ __('operator_gbp.location') }}</h2><dl class="mt-4 space-y-4"><div><dt class="text-xs text-gray-400">{{ __('operator_gbp.primary_category') }}</dt><dd class="mt-1 text-sm font-medium text-gray-900 dark:text-white">{{ data_get($profile, 'categories.primary', '—') }}</dd></div><div><dt class="text-xs text-gray-400">{{ __('operator_gbp.address') }}</dt><dd class="mt-1 text-sm font-medium text-gray-900 dark:text-white">{{ data_get($profile, 'location.address', '—') }}</dd></div><div><dt class="text-xs text-gray-400">{{ __('operator_gbp.website') }}</dt><dd class="mt-1 break-all text-sm font-medium text-gray-900 dark:text-white">{{ data_get($profile, 'location.website_location_page', '—') }}</dd></div></dl></section>
         </div>
 
-    @elseif ($tab === 'setup')
-        <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                    <h2 class="font-semibold text-gray-900 dark:text-white">{{ __('operator_gbp.connection') }}</h2>
-                    <p class="mt-1 text-sm text-gray-500">{{ __('operator_gbp.connection_body') }}</p>
-                </div>
-                <a href="{{ route('operator.asset.sources', ['assetId' => $assetId]) }}" wire:navigate class="text-sm font-semibold text-brand-600 hover:underline">{{ __('operator_runtime.sources.title') }} →</a>
-            </div>
-            <dl class="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                <div><dt class="text-xs text-gray-400">{{ __('operator_gbp.bound_resource') }}</dt><dd class="mt-1 text-sm font-medium text-gray-900 dark:text-white">{{ $connection['resource_name'] ?? '—' }}</dd></div>
-                <div><dt class="text-xs text-gray-400">{{ __('operator_gbp.external_id') }}</dt><dd class="mt-1 break-all text-sm font-medium text-gray-900 dark:text-white">{{ $connection['external_id'] ?? '—' }}</dd></div>
-                <div><dt class="text-xs text-gray-400">{{ __('operator_gbp.integration') }}</dt><dd class="mt-1 text-sm font-medium text-gray-900 dark:text-white">{{ $connection['integration_name'] ?? '—' }}</dd></div>
-                <div><dt class="text-xs text-gray-400">{{ __('operator_gbp.last_run') }}</dt><dd class="mt-1 text-sm font-medium text-gray-900 dark:text-white">{{ $connection['last_run_status'] ?? '—' }}</dd></div>
-                <div><dt class="text-xs text-gray-400">{{ __('operator_gbp.last_refresh') }}</dt><dd class="mt-1 text-sm font-medium text-gray-900 dark:text-white">{{ $connection['last_run_human'] ?? '—' }}</dd></div>
-                <div><dt class="text-xs text-gray-400">{{ __('operator_gbp.last_error') }}</dt><dd class="mt-1 text-sm font-medium text-rose-600 dark:text-rose-300">{{ $connection['last_error'] ?? '—' }}</dd></div>
-            </dl>
+    @elseif (in_array($tab, ['visibility', 'performance', 'reviews', 'competitors'], true))
+        <section class="rounded-xl border border-gray-200 bg-gray-50 p-6 dark:border-gray-800 dark:bg-white/[0.02]">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ $tabs[$tab] }}</h2>
+            <p class="mt-2 text-sm text-gray-500">{{ __('operator_gbp.not_available_body') }}</p>
+            <p class="mt-3 text-xs font-medium text-gray-400">{{ __('operator_gbp.not_collected') }}</p>
         </section>
+
+    @elseif ($tab === 'operations')
+        <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h2 class="font-semibold text-gray-900 dark:text-white">{{ __('operator.gbp.tabs.operations') }}</h2><p class="mt-1 text-sm text-gray-500">{{ __('operator_gbp.not_available_body') }}</p></div><div class="flex gap-3"><a href="{{ route('operator.findings', ['asset' => $assetId]) }}" wire:navigate class="text-sm font-semibold text-brand-600">{{ __('operator.nav.findings') }}</a><a href="{{ route('operator.tasks', ['asset' => $assetId]) }}" wire:navigate class="text-sm font-semibold text-brand-600">{{ __('operator.nav.tasks') }}</a></div></div>
+        </section>
+
+    @elseif ($tab === 'setup')
+        <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700"><div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><h2 class="font-semibold text-gray-900 dark:text-white">{{ __('operator_gbp.connection') }}</h2><p class="mt-1 text-sm text-gray-500">{{ __('operator_gbp.connection_body') }}</p></div><a href="{{ route('operator.asset.sources', ['assetId' => $assetId]) }}" wire:navigate class="text-sm font-semibold text-brand-600 hover:underline">{{ __('operator_runtime.sources.title') }} →</a></div></section>
     @endif
 </div>
