@@ -33,19 +33,82 @@ final class GoogleInitialBackfillOrchestrator
         return $this->preflight->preflight($integration);
     }
 
+    /**
+     * @return list<GoogleBackfillPreflightResult>
+     */
+    public function preflightByBrand(CoreIntegration $integration): array
+    {
+        return $this->preflight->preflightByBrand($integration);
+    }
+
     public function start(CoreIntegration $integration, ?User $requestedBy = null): GoogleBackfillStartResult
     {
-        $preflight = $this->preflight->preflight($integration);
+        $aggregate = $this->preflight->preflight($integration);
+        $brandPreflights = $this->preflight->preflightByBrand($integration);
 
-        if (! $preflight->canStart) {
+        $started = [];
+        $reused = [];
+        foreach ($brandPreflights as $preflight) {
+            if (! $preflight->canStart) {
+                continue;
+            }
+
+            $one = $this->startBrand($integration, $requestedBy, $preflight);
+            if ($one->collectionRun === null) {
+                continue;
+            }
+            if ($one->reusedExisting) {
+                $reused[] = $one->collectionRun;
+            } else {
+                $started[] = $one->collectionRun;
+            }
+        }
+
+        $runs = array_values(array_merge($started, $reused));
+        if ($runs !== []) {
+            $primary = $started[0] ?? $reused[0];
+            $brandCount = count($runs);
+            $newCount = count($started);
+            if ($newCount > 0) {
+                $message = $brandCount > 1
+                    ? "Google initial collection started for {$brandCount} Brands in the background. You may leave this page."
+                    : 'Google initial collection started in the background. You may leave this page.';
+
+                return new GoogleBackfillStartResult(
+                    outcome: 'started',
+                    message: $message,
+                    collectionRun: $primary,
+                    preflight: $aggregate,
+                    reusedExisting: false,
+                    collectionRuns: $runs,
+                );
+            }
+
             return new GoogleBackfillStartResult(
-                outcome: $preflight->outcome,
-                message: $preflight->message,
-                collectionRun: null,
-                preflight: $preflight,
+                outcome: 'active_equivalent',
+                message: $brandCount > 1
+                    ? 'Equivalent Google initial collections are already running for the eligible Brands. Opening the active runs.'
+                    : 'An equivalent Google initial collection is already running. Opening the active run.',
+                collectionRun: $primary,
+                preflight: $aggregate,
+                reusedExisting: true,
+                collectionRuns: $runs,
             );
         }
 
+        return new GoogleBackfillStartResult(
+            outcome: $aggregate->outcome,
+            message: $aggregate->message,
+            collectionRun: null,
+            preflight: $aggregate,
+        );
+    }
+
+    private function startBrand(
+        CoreIntegration $integration,
+        ?User $requestedBy,
+        GoogleBackfillPreflightResult $preflight,
+    ): GoogleBackfillStartResult {
         $fingerprint = $preflight->fingerprint;
         if ($fingerprint !== null) {
             $active = $this->findActiveEquivalent($fingerprint);
@@ -56,6 +119,7 @@ final class GoogleInitialBackfillOrchestrator
                     collectionRun: $active,
                     preflight: $preflight,
                     reusedExisting: true,
+                    collectionRuns: [$active],
                 );
             }
         }
@@ -84,11 +148,13 @@ final class GoogleInitialBackfillOrchestrator
                 forceRefresh: false,
                 context: [
                     'google_integration_id' => $integration->id,
+                    'google_brand_id' => $preflight->brandId,
                     'collection_intent' => 'google_initial_backfill',
                     'collection_intent_label' => 'Initial Google Collection',
                     'allow_multi_asset_bindings' => true,
                     'plan_fingerprint' => $fingerprint,
                     'preflight_summary' => [
+                        'brand_id' => $preflight->brandId,
                         'eligible_resources' => $preflight->summary['eligible_resources'] ?? null,
                         'planned_datasets' => $preflight->summary['planned_datasets'] ?? null,
                         'already_satisfied_datasets' => $preflight->summary['already_satisfied_datasets'] ?? null,
@@ -98,7 +164,6 @@ final class GoogleInitialBackfillOrchestrator
                 ],
             ));
         } catch (QueryException $e) {
-            // Concurrent double-submit on unique idempotency_key.
             if ($fingerprint !== null) {
                 $existing = CollectionRun::query()
                     ->where('idempotency_key', $idempotencyKey)
@@ -111,6 +176,7 @@ final class GoogleInitialBackfillOrchestrator
                         collectionRun: $existing,
                         preflight: $preflight,
                         reusedExisting: true,
+                        collectionRuns: [$existing],
                     );
                 }
             }
@@ -118,25 +184,29 @@ final class GoogleInitialBackfillOrchestrator
             throw $e;
         }
 
-        // Attach fingerprint for active-equivalent lookups (also stored in request context).
         $meta = $run->metadata ?? [];
         $meta['plan_fingerprint'] = $fingerprint;
         $meta['collection_intent'] = 'google_initial_backfill';
         $meta['collection_intent_label'] = 'Initial Google Collection';
+        $meta['google_brand_id'] = $preflight->brandId;
         $run->forceFill(['metadata' => $meta])->save();
 
         Log::info('google.backfill.started', [
             'integration_id' => $integration->id,
+            'brand_id' => $preflight->brandId,
             'collection_run_id' => $run->id,
             'collection_run_uuid' => $run->uuid,
             'datasets_total' => $run->datasets_total,
         ]);
 
+        $fresh = $run->fresh() ?? $run;
+
         return new GoogleBackfillStartResult(
             outcome: 'started',
             message: 'Google initial collection started in the background. You may leave this page.',
-            collectionRun: $run->fresh() ?? $run,
+            collectionRun: $fresh,
             preflight: $preflight,
+            collectionRuns: [$fresh],
         );
     }
 

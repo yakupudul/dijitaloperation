@@ -22,61 +22,102 @@ final class GoogleIncrementalCollectionOrchestrator
 
     public function start(CoreIntegration $integration, User $actor): IncrementalStartResult
     {
-        $preflight = $this->preflight->preflight($integration);
+        $brandPreflights = $this->preflight->preflightByBrand($integration);
+        $started = [];
+        $current = [];
+        $blocked = null;
 
-        if ($preflight->eligibleBindingIds === []) {
-            return new IncrementalStartResult(
-                outcome: 'action_required',
-                message: $preflight->message !== ''
-                    ? $preflight->message
-                    : 'No eligible Google bindings for incremental refresh.',
-                decisions: [],
-            );
-        }
+        foreach ($brandPreflights as $preflight) {
+            if ($preflight->eligibleBindingIds === []) {
+                $blocked ??= new IncrementalStartResult(
+                    outcome: 'action_required',
+                    message: $preflight->message !== ''
+                        ? $preflight->message
+                        : 'No eligible Google bindings for incremental refresh.',
+                    decisions: [],
+                );
 
-        $authMap = [];
-        foreach ($preflight->bindings as $row) {
-            if (! is_array($row) || ! isset($row['binding_id'])) {
                 continue;
             }
-            $authMap[(int) $row['binding_id']] = (bool) ($row['eligible'] ?? false);
+
+            $assetId = $preflight->anchorDigitalAssetId;
+            if ($assetId === null) {
+                $blocked ??= new IncrementalStartResult(
+                    outcome: 'action_required',
+                    message: 'No Digital Asset anchor available for incremental Google collection.',
+                );
+
+                continue;
+            }
+
+            $asset = DigitalAsset::query()->find($assetId);
+            if ($asset === null) {
+                $blocked ??= new IncrementalStartResult(
+                    outcome: 'action_required',
+                    message: 'Anchor Digital Asset not found.',
+                );
+
+                continue;
+            }
+
+            $authMap = [];
+            foreach ($preflight->bindings as $row) {
+                if (! is_array($row) || ! isset($row['binding_id'])) {
+                    continue;
+                }
+                if (! in_array((int) $row['binding_id'], $preflight->eligibleBindingIds, true)) {
+                    continue;
+                }
+                $authMap[(int) $row['binding_id']] = (bool) ($row['eligible'] ?? false);
+            }
+
+            $result = $this->incremental->startForDigitalAsset(
+                $asset,
+                $actor,
+                $preflight->eligibleBindingIds,
+                ['SEARCH_CONSOLE', 'GA4', 'GOOGLE_ADS'],
+                [
+                    'allow_multi_asset_bindings' => true,
+                    'authorization_ready_by_binding_id' => $authMap,
+                    'collection_intent_label' => 'Incremental Google Refresh',
+                    'google_brand_id' => $preflight->brandId,
+                    'idempotency_suffix' => $preflight->brandId !== null ? 'brand:'.$preflight->brandId : null,
+                ],
+            );
+
+            Log::info('google.incremental.start', [
+                'integration_id' => $integration->id,
+                'brand_id' => $preflight->brandId,
+                'outcome' => $result->outcome,
+                'collection_run_id' => $result->collectionRun?->id,
+            ]);
+
+            if ($result->collectionRun !== null) {
+                $started[] = $result;
+            } else {
+                $current[] = $result;
+            }
         }
 
-        // Prefer anchor asset; allow multi-asset Google bindings like initial backfill.
-        $assetId = $preflight->anchorDigitalAssetId;
-        if ($assetId === null) {
+        if ($started !== []) {
+            $primary = $started[0];
+            if (count($started) === 1) {
+                return $primary;
+            }
+
             return new IncrementalStartResult(
-                outcome: 'action_required',
-                message: 'No Digital Asset anchor available for incremental Google collection.',
+                outcome: $primary->outcome,
+                message: 'Incremental Google refresh started for '.count($started).' Brands in the background.',
+                collectionRun: $primary->collectionRun,
+                reusedExisting: $primary->reusedExisting,
+                decisions: $primary->decisions,
             );
         }
 
-        $asset = DigitalAsset::query()->find($assetId);
-        if ($asset === null) {
-            return new IncrementalStartResult(
-                outcome: 'action_required',
-                message: 'Anchor Digital Asset not found.',
-            );
-        }
-
-        $result = $this->incremental->startForDigitalAsset(
-            $asset,
-            $actor,
-            $preflight->eligibleBindingIds,
-            ['SEARCH_CONSOLE', 'GA4', 'GOOGLE_ADS'],
-            [
-                'allow_multi_asset_bindings' => true,
-                'authorization_ready_by_binding_id' => $authMap,
-                'collection_intent_label' => 'Incremental Google Refresh',
-            ],
+        return $current[0] ?? $blocked ?? new IncrementalStartResult(
+            outcome: 'action_required',
+            message: 'No eligible Google bindings for incremental refresh.',
+            decisions: [],
         );
-
-        Log::info('google.incremental.start', [
-            'integration_id' => $integration->id,
-            'outcome' => $result->outcome,
-            'collection_run_id' => $result->collectionRun?->id,
-        ]);
-
-        return $result;
     }
 }
