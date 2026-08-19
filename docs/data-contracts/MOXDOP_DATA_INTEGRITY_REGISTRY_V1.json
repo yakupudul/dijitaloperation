@@ -1923,11 +1923,13 @@
             "physical_table": "google_ads_keyword_snapshot",
             "grain": [
                 "customer_id",
+                "ad_group_id",
                 "criterion_id"
             ],
             "natural_key": [
                 "digital_asset_id",
                 "customer_id",
+                "ad_group_id",
                 "criterion_id"
             ],
             "collection_run_in_natural_key": false,
@@ -1983,12 +1985,14 @@
             "grain": [
                 "customer_id",
                 "date",
+                "ad_group_id",
                 "criterion_id"
             ],
             "natural_key": [
                 "digital_asset_id",
                 "customer_id",
                 "reporting_date",
+                "ad_group_id",
                 "criterion_id"
             ],
             "collection_run_in_natural_key": false,

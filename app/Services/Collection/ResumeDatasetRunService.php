@@ -65,6 +65,7 @@ final class ResumeDatasetRunService
             $run->forceFill([
                 'finished_at' => null,
                 'last_activity_at' => now(),
+                'failure_summary' => null,
             ])->save();
         }
 

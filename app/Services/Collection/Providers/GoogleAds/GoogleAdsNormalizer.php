@@ -267,23 +267,24 @@ final class GoogleAdsNormalizer
                 ? ($row['adGroupCriterion'] ?? $row['ad_group_criterion'])
                 : [];
             $criterionId = (string) ($criterion['criterionId'] ?? $criterion['criterion_id'] ?? '');
-            if ($criterionId === '') {
+            $adGroupId = $this->adGroupId($row);
+            if ($criterionId === '' || $adGroupId === '') {
                 continue;
             }
             $keyword = is_array($criterion['keyword'] ?? null) ? $criterion['keyword'] : [];
-            // Storage grain is customer_id × criterion_id. Google Ads criterion IDs are
-            // ad-group-scoped, so the same id can appear in multiple ad groups — last wins.
-            $out[$criterionId] = [
+            $identity = $adGroupId."\0".$criterionId;
+            $out[$identity] = [
                 'digital_asset_id' => $digitalAssetId,
                 'external_resource_id' => $externalResourceId,
                 'customer_id' => $customerId,
+                'ad_group_id' => $adGroupId,
                 'criterion_id' => $criterionId,
                 'source_timezone' => $timezone,
                 'metadata' => [
                     'keyword_text' => $keyword['text'] ?? null,
                     'match_type' => $keyword['matchType'] ?? $keyword['match_type'] ?? null,
                     'status' => $criterion['status'] ?? null,
-                    'ad_group_id' => data_get($row, 'adGroup.id') ?? data_get($row, 'ad_group.id'),
+                    'ad_group_id' => $adGroupId,
                     'campaign_id' => data_get($row, 'campaign.id'),
                     'keyword_neq_search_term' => true,
                     'collector_version' => config('moxdop-google-ads-collector.collector_version'),
@@ -505,7 +506,6 @@ final class GoogleAdsNormalizer
     ): array {
         $daily = [];
         $snapshots = [];
-        $seenCriterion = [];
 
         foreach ($rows as $row) {
             if (! is_array($row)) {
@@ -516,19 +516,21 @@ final class GoogleAdsNormalizer
                 ? ($row['adGroupCriterion'] ?? $row['ad_group_criterion'])
                 : [];
             $criterionId = (string) ($criterion['criterionId'] ?? $criterion['criterion_id'] ?? '');
-            if ($date === null || $criterionId === '') {
+            $adGroupId = $this->adGroupId($row);
+            if ($date === null || $criterionId === '' || $adGroupId === '') {
                 continue;
             }
             $metrics = is_array($row['metrics'] ?? null) ? $row['metrics'] : [];
             $costMicros = (string) ($metrics['costMicros'] ?? $metrics['cost_micros'] ?? '0');
             $keyword = is_array($criterion['keyword'] ?? null) ? $criterion['keyword'] : [];
+            $identity = $adGroupId."\0".$criterionId;
 
-            $dailyKey = $date."\0".$criterionId;
-            $daily[$dailyKey] = [
+            $daily[$date."\0".$identity] = [
                 'digital_asset_id' => $digitalAssetId,
                 'external_resource_id' => $externalResourceId,
                 'customer_id' => $customerId,
                 'reporting_date' => $date,
+                'ad_group_id' => $adGroupId,
                 'criterion_id' => $criterionId,
                 'impressions' => (int) ($metrics['impressions'] ?? 0),
                 'clicks' => (int) ($metrics['clicks'] ?? 0),
@@ -540,24 +542,25 @@ final class GoogleAdsNormalizer
                 'metadata' => [
                     'keyword_text' => $keyword['text'] ?? null,
                     'match_type' => $keyword['matchType'] ?? $keyword['match_type'] ?? null,
+                    'ad_group_id' => $adGroupId,
                     'keyword_neq_search_term' => true,
                     'collector_version' => config('moxdop-google-ads-collector.collector_version'),
                 ],
             ];
 
-            if (! isset($seenCriterion[$criterionId])) {
-                $seenCriterion[$criterionId] = true;
-                $snapshots[] = [
+            if (! isset($snapshots[$identity])) {
+                $snapshots[$identity] = [
                     'digital_asset_id' => $digitalAssetId,
                     'external_resource_id' => $externalResourceId,
                     'customer_id' => $customerId,
+                    'ad_group_id' => $adGroupId,
                     'criterion_id' => $criterionId,
                     'source_timezone' => $timezone,
                     'metadata' => [
                         'keyword_text' => $keyword['text'] ?? null,
                         'match_type' => $keyword['matchType'] ?? $keyword['match_type'] ?? null,
                         'status' => $criterion['status'] ?? null,
-                        'ad_group_id' => data_get($row, 'adGroup.id') ?? data_get($row, 'ad_group.id'),
+                        'ad_group_id' => $adGroupId,
                         'campaign_id' => data_get($row, 'campaign.id'),
                         'keyword_neq_search_term' => true,
                         'collector_version' => config('moxdop-google-ads-collector.collector_version'),
@@ -566,7 +569,7 @@ final class GoogleAdsNormalizer
             }
         }
 
-        return ['daily' => array_values($daily), 'snapshots' => $snapshots];
+        return ['daily' => array_values($daily), 'snapshots' => array_values($snapshots)];
     }
 
     /**
@@ -811,6 +814,16 @@ final class GoogleAdsNormalizer
         }
 
         return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private function adGroupId(array $row): string
+    {
+        $id = data_get($row, 'adGroup.id') ?? data_get($row, 'ad_group.id');
+
+        return $id !== null && $id !== '' ? (string) $id : '';
     }
 
     /**

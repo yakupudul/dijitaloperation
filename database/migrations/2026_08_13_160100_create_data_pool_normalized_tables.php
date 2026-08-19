@@ -740,6 +740,7 @@ return new class extends Migration
                 $table->unsignedBigInteger('digital_asset_id')->nullable();
                 $table->unsignedBigInteger('external_resource_id')->nullable();
                 $table->text('customer_id');
+                $table->text('ad_group_id');
                 $table->text('criterion_id');
                 $table->integer('contract_version');
                 $table->unsignedBigInteger('last_collection_run_id')->nullable();
@@ -750,7 +751,7 @@ return new class extends Migration
                 $table->char('record_fingerprint', 64);
                 $table->json('metadata')->nullable();
                 $table->timestamps();
-                $table->unique(['digital_asset_id', 'customer_id', 'criterion_id'], 'google_ads_keyword_snapshot_nk_unique');
+                $table->unique(['digital_asset_id', 'customer_id', 'ad_group_id', 'criterion_id'], 'google_ads_keyword_snapshot_nk_unique');
                 $table->index(['digital_asset_id'], 'google_ads_keyword_snapshot_asset_idx');
             });
         }
@@ -758,7 +759,7 @@ return new class extends Migration
         // google_ads_keyword_daily | UPSERT_DAILY_FACT | RANGE_MONTHLY
         if ($driver === 'pgsql') {
             if (! Schema::hasTable('google_ads_keyword_daily')) {
-                DB::statement('CREATE TABLE google_ads_keyword_daily (id bigserial NOT NULL, digital_asset_id bigint NULL, external_resource_id bigint NULL, customer_id text NOT NULL, reporting_date date NOT NULL, criterion_id text NOT NULL, impressions bigint NOT NULL DEFAULT 0, clicks bigint NOT NULL DEFAULT 0, cost_micros bigint NOT NULL, conversions bigint NOT NULL DEFAULT 0, cost_amount numeric(20,6) NOT NULL, currency char(3) NOT NULL, contract_version integer NOT NULL, last_collection_run_id bigint NULL, last_dataset_run_id bigint NULL, first_collected_at timestamptz NOT NULL, last_collected_at timestamptz NOT NULL, source_timezone text NULL, record_fingerprint char(64) NOT NULL, metadata jsonb NULL, created_at timestamptz NULL, updated_at timestamptz NULL, PRIMARY KEY (id, reporting_date), UNIQUE (digital_asset_id, customer_id, reporting_date, criterion_id)) PARTITION BY RANGE (reporting_date)');
+                DB::statement('CREATE TABLE google_ads_keyword_daily (id bigserial NOT NULL, digital_asset_id bigint NULL, external_resource_id bigint NULL, customer_id text NOT NULL, reporting_date date NOT NULL, ad_group_id text NOT NULL, criterion_id text NOT NULL, impressions bigint NOT NULL DEFAULT 0, clicks bigint NOT NULL DEFAULT 0, cost_micros bigint NOT NULL, conversions bigint NOT NULL DEFAULT 0, cost_amount numeric(20,6) NOT NULL, currency char(3) NOT NULL, contract_version integer NOT NULL, last_collection_run_id bigint NULL, last_dataset_run_id bigint NULL, first_collected_at timestamptz NOT NULL, last_collected_at timestamptz NOT NULL, source_timezone text NULL, record_fingerprint char(64) NOT NULL, metadata jsonb NULL, created_at timestamptz NULL, updated_at timestamptz NULL, PRIMARY KEY (id, reporting_date), UNIQUE (digital_asset_id, customer_id, reporting_date, ad_group_id, criterion_id)) PARTITION BY RANGE (reporting_date)');
                 DB::statement('CREATE INDEX IF NOT EXISTS google_ads_keyword_daily_asset_date_idx ON google_ads_keyword_daily (digital_asset_id, reporting_date)');
             }
         } else {
@@ -769,6 +770,7 @@ return new class extends Migration
                     $table->unsignedBigInteger('external_resource_id')->nullable();
                     $table->text('customer_id');
                     $table->date('reporting_date');
+                    $table->text('ad_group_id');
                     $table->text('criterion_id');
                     $table->bigInteger('impressions')->default(0);
                     $table->bigInteger('clicks')->default(0);
@@ -785,7 +787,7 @@ return new class extends Migration
                     $table->char('record_fingerprint', 64);
                     $table->json('metadata')->nullable();
                     $table->timestamps();
-                    $table->unique(['digital_asset_id', 'customer_id', 'reporting_date', 'criterion_id'], 'google_ads_keyword_daily_nk_unique');
+                    $table->unique(['digital_asset_id', 'customer_id', 'reporting_date', 'ad_group_id', 'criterion_id'], 'google_ads_keyword_daily_nk_unique');
                     $table->index(['digital_asset_id', 'reporting_date'], 'google_ads_keyword_daily_asset_date_idx');
                 });
             }

@@ -356,7 +356,11 @@ class GoogleAdsProductionCollectorTest extends TestCase
         $this->assertSame('2026-01-15', $campaignMeta['start_date']);
         $this->assertSame('2026-12-31', $campaignMeta['end_date']);
         $this->assertGreaterThan(0, DB::table('google_ads_conversion_action_snapshot')->count());
-        $this->assertGreaterThan(0, DB::table('google_ads_keyword_snapshot')->count());
+        $this->assertSame(2, DB::table('google_ads_keyword_snapshot')->count());
+        $this->assertSame(
+            ['22', '23'],
+            DB::table('google_ads_keyword_snapshot')->orderBy('ad_group_id')->pluck('ad_group_id')->all()
+        );
 
         foreach (DB::table('raw_ingestion_objects')->get() as $raw) {
             $payload = json_encode($raw);
@@ -530,6 +534,7 @@ class GoogleAdsProductionCollectorTest extends TestCase
         $this->assertSame(DatasetExecutionOutcome::Completed, $keywords->outcome, (string) $keywords->errorMessage);
         $kw = DB::table('google_ads_keyword_daily')->first();
         $this->assertSame('777', $kw->criterion_id);
+        $this->assertSame('2', (string) $kw->ad_group_id);
         $this->assertTrue(json_decode((string) $kw->metadata, true)['keyword_neq_search_term']);
     }
 

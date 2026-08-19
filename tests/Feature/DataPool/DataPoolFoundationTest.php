@@ -21,6 +21,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\Test;
+use RuntimeException;
 use Tests\TestCase;
 
 class DataPoolFoundationTest extends TestCase
@@ -551,7 +552,7 @@ class DataPoolFoundationTest extends TestCase
     }
 
     #[Test]
-    public function upsert_collapses_duplicate_natural_keys_in_one_batch(): void
+    public function upsert_preserves_keyword_rows_that_share_criterion_across_ad_groups(): void
     {
         $run = CollectionDatasetRun::factory()->create([
             'dataset_contract_id' => 'google_ads_keyword_snapshot',
@@ -567,6 +568,7 @@ class DataPoolFoundationTest extends TestCase
                 [
                     'digital_asset_id' => 2,
                     'customer_id' => '1112223333',
+                    'ad_group_id' => '1',
                     'criterion_id' => '999',
                     'source_timezone' => 'Europe/Istanbul',
                     'metadata' => ['ad_group_id' => '1', 'keyword_text' => 'first'],
@@ -574,6 +576,51 @@ class DataPoolFoundationTest extends TestCase
                 [
                     'digital_asset_id' => 2,
                     'customer_id' => '1112223333',
+                    'ad_group_id' => '2',
+                    'criterion_id' => '999',
+                    'source_timezone' => 'Europe/Istanbul',
+                    'metadata' => ['ad_group_id' => '2', 'keyword_text' => 'second'],
+                ],
+            ],
+            digitalAssetId: 2,
+            collectionRunId: (int) $run->collection_run_id,
+            providerOrSource: 'GOOGLE_ADS',
+        ));
+
+        $this->assertTrue($receipt->isCommitted());
+        $this->assertSame(2, DB::table('google_ads_keyword_snapshot')->count());
+        $this->assertSame(
+            ['1', '2'],
+            DB::table('google_ads_keyword_snapshot')->orderBy('ad_group_id')->pluck('ad_group_id')->all()
+        );
+    }
+
+    #[Test]
+    public function upsert_collapses_true_natural_key_duplicates_in_one_batch(): void
+    {
+        $run = CollectionDatasetRun::factory()->create([
+            'dataset_contract_id' => 'google_ads_keyword_snapshot',
+            'provider_or_source' => 'GOOGLE_ADS',
+        ]);
+
+        $receipt = app(PostgresWarehouseWriter::class)->write(new NormalizedDatasetBatch(
+            datasetId: 'google_ads_keyword_snapshot',
+            datasetRunId: (int) $run->id,
+            contractVersion: 1,
+            batchKey: 'kw-true-dup-1',
+            records: [
+                [
+                    'digital_asset_id' => 2,
+                    'customer_id' => '1112223333',
+                    'ad_group_id' => '2',
+                    'criterion_id' => '999',
+                    'source_timezone' => 'Europe/Istanbul',
+                    'metadata' => ['ad_group_id' => '2', 'keyword_text' => 'first'],
+                ],
+                [
+                    'digital_asset_id' => 2,
+                    'customer_id' => '1112223333',
+                    'ad_group_id' => '2',
                     'criterion_id' => '999',
                     'source_timezone' => 'Europe/Istanbul',
                     'metadata' => ['ad_group_id' => '2', 'keyword_text' => 'second'],
@@ -587,7 +634,6 @@ class DataPoolFoundationTest extends TestCase
         $this->assertTrue($receipt->isCommitted());
         $this->assertSame(1, DB::table('google_ads_keyword_snapshot')->count());
         $meta = json_decode((string) DB::table('google_ads_keyword_snapshot')->value('metadata'), true);
-        $this->assertSame('2', (string) $meta['ad_group_id']);
         $this->assertSame('second', $meta['keyword_text']);
     }
 
@@ -622,6 +668,7 @@ class DataPoolFoundationTest extends TestCase
                 [
                     'digital_asset_id' => 2,
                     'customer_id' => '1112223333',
+                    'ad_group_id' => '2',
                     'criterion_id' => '999',
                     'source_timezone' => 'Europe/Istanbul',
                     'metadata' => ['ad_group_id' => '2', 'keyword_text' => 'second'],
@@ -636,6 +683,91 @@ class DataPoolFoundationTest extends TestCase
         $this->assertSame($stale->id, DatasetWriteBatch::query()->where('dataset_run_id', (int) $run->id)->value('id'));
         $this->assertSame('committed', DatasetWriteBatch::query()->find($stale->id)?->status->value);
         $this->assertSame(1, DB::table('google_ads_keyword_snapshot')->count());
+    }
+
+    #[Test]
+    public function post_fact_commit_failed_batch_cannot_replace_checksum_or_leave_stale_keys(): void
+    {
+        $run = CollectionDatasetRun::factory()->create([
+            'dataset_contract_id' => 'google_ads_keyword_snapshot',
+            'provider_or_source' => 'GOOGLE_ADS',
+        ]);
+
+        $writer = app(PostgresWarehouseWriter::class);
+        $first = $writer->write(new NormalizedDatasetBatch(
+            datasetId: 'google_ads_keyword_snapshot',
+            datasetRunId: (int) $run->id,
+            contractVersion: 1,
+            batchKey: 'kw-post-commit',
+            records: [
+                [
+                    'digital_asset_id' => 2,
+                    'customer_id' => '1112223333',
+                    'ad_group_id' => '1',
+                    'criterion_id' => '999',
+                    'source_timezone' => 'Europe/Istanbul',
+                    'metadata' => ['ad_group_id' => '1', 'keyword_text' => 'first'],
+                ],
+                [
+                    'digital_asset_id' => 2,
+                    'customer_id' => '1112223333',
+                    'ad_group_id' => '2',
+                    'criterion_id' => '999',
+                    'source_timezone' => 'Europe/Istanbul',
+                    'metadata' => ['ad_group_id' => '2', 'keyword_text' => 'second'],
+                ],
+            ],
+            digitalAssetId: 2,
+            collectionRunId: (int) $run->collection_run_id,
+            providerOrSource: 'GOOGLE_ADS',
+        ));
+
+        $this->assertTrue($first->isCommitted());
+        $this->assertSame(2, DB::table('google_ads_keyword_snapshot')->count());
+
+        $batch = DatasetWriteBatch::query()->find($first->writeBatchId);
+        $this->assertNotNull($batch);
+        $batch->forceFill([
+            'status' => WriteBatchStatus::Failed,
+            'error_summary' => 'materialization bookkeeping failed after facts committed',
+        ])->save();
+        $this->assertNotNull($batch->fresh()->committed_at);
+
+        try {
+            $writer->write(new NormalizedDatasetBatch(
+                datasetId: 'google_ads_keyword_snapshot',
+                datasetRunId: (int) $run->id,
+                contractVersion: 1,
+                batchKey: 'kw-post-commit',
+                records: [
+                    [
+                        'digital_asset_id' => 2,
+                        'customer_id' => '1112223333',
+                        'ad_group_id' => '2',
+                        'criterion_id' => '999',
+                        'source_timezone' => 'Europe/Istanbul',
+                        'metadata' => ['ad_group_id' => '2', 'keyword_text' => 'second-only'],
+                    ],
+                ],
+                digitalAssetId: 2,
+                collectionRunId: (int) $run->collection_run_id,
+                providerOrSource: 'GOOGLE_ADS',
+            ));
+            $this->fail('Expected checksum conflict when facts may already have committed');
+        } catch (RuntimeException $e) {
+            $this->assertStringContainsString('WRITE_BATCH_CHECKSUM_CONFLICT', $e->getMessage());
+        }
+
+        $this->assertSame(2, DB::table('google_ads_keyword_snapshot')->count());
+        $this->assertSame(
+            ['1', '2'],
+            DB::table('google_ads_keyword_snapshot')->orderBy('ad_group_id')->pluck('ad_group_id')->all()
+        );
+        $this->assertSame('failed', DatasetWriteBatch::query()->find($first->writeBatchId)?->status->value);
+        $this->assertSame(
+            'first',
+            json_decode((string) DB::table('google_ads_keyword_snapshot')->where('ad_group_id', '1')->value('metadata'), true)['keyword_text']
+        );
     }
 
     #[Test]

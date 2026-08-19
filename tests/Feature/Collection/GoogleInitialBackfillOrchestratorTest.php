@@ -236,6 +236,47 @@ class GoogleInitialBackfillOrchestratorTest extends TestCase
     }
 
     #[Test]
+    public function other_brand_google_binding_is_not_eligible_or_started(): void
+    {
+        Queue::fake();
+
+        $customerId = $this->gscAsset->brand->customer_id;
+        $otherBrand = Brand::factory()->create(['customer_id' => $customerId]);
+        $otherAdsAsset = DigitalAsset::factory()->create([
+            'brand_id' => $otherBrand->id,
+            'type' => 'google_ads',
+            'status' => DigitalAssetStatus::Active,
+        ]);
+        $otherAdsResource = CoreExternalResource::factory()->create([
+            'integration_id' => $this->integration->id,
+            'provider' => 'google',
+            'resource_type' => 'google_ads',
+            'external_id' => '4445556666',
+            'status' => CoreExternalResource::STATUS_AVAILABLE,
+            'metadata' => ['is_manager' => false, 'time_zone' => 'Europe/Berlin'],
+        ]);
+        $otherBinding = CoreAssetBinding::factory()->create([
+            'digital_asset_id' => $otherAdsAsset->id,
+            'external_resource_id' => $otherAdsResource->id,
+            'capability' => 'google_ads',
+            'status' => CoreAssetBinding::STATUS_ACTIVE,
+        ]);
+
+        $preflight = app(GoogleInitialBackfillOrchestrator::class)->preflight($this->integration->fresh());
+        $this->assertNotContains($otherBinding->id, $preflight->eligibleBindingIds);
+        $row = collect($preflight->bindings)->firstWhere('binding_id', $otherBinding->id);
+        $this->assertNotNull($row);
+        $this->assertFalse((bool) $row['eligible']);
+        $this->assertContains($this->adsBinding->id, $preflight->eligibleBindingIds);
+
+        $result = app(GoogleInitialBackfillOrchestrator::class)->start($this->integration->fresh(), $this->admin);
+        $this->assertSame('started', $result->outcome);
+        $plannedBindingIds = $result->collectionRun->resourceRuns()->pluck('core_asset_binding_id')->all();
+        $this->assertNotContains($otherBinding->id, $plannedBindingIds);
+        $this->assertContains($this->adsBinding->id, $plannedBindingIds);
+    }
+
+    #[Test]
     public function unbound_and_gbp_are_excluded_without_blocking_eligible_connectors(): void
     {
         Queue::fake();

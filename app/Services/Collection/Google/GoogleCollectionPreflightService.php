@@ -8,6 +8,7 @@ use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\DigitalAsset;
+use App\Services\Collection\CollectionBindingScope;
 use App\Services\Collection\CollectionPlanner;
 use App\Services\Collection\DataContractRegistryLoader;
 use App\Services\Collection\Support\GoogleBackfillPreflightResult;
@@ -180,6 +181,15 @@ final class GoogleCollectionPreflightService
         }
 
         $anchor = $this->anchorAsset($bindings, $eligibleBindingIds);
+        if ($anchor instanceof DigitalAsset) {
+            [$eligibleBindingIds, $bindingRows, $dispositions] = $this->scopeEligibleBindingsToAnchor(
+                $anchor,
+                $bindings,
+                $eligibleBindingIds,
+                $bindingRows,
+                $dispositions,
+            );
+        }
         if (! $anchor instanceof DigitalAsset) {
             return $this->result(
                 canStart: false,
@@ -195,6 +205,31 @@ final class GoogleCollectionPreflightService
                 fingerprint: null,
                 anchorAssetId: null,
                 eligibleBindingIds: $eligibleBindingIds,
+            );
+        }
+
+        if ($eligibleBindingIds === []) {
+            return $this->result(
+                canStart: false,
+                outcome: 'no_eligible_connectors',
+                message: 'Eligible Google bindings are outside the website-anchored same-brand, same-customer collection scope.',
+                summary: [
+                    'bound_resources' => count($bindings),
+                    'eligible_resources' => 0,
+                    'planned_datasets' => 0,
+                    'already_satisfied_datasets' => 0,
+                    'by_connector' => $this->connectorCounts($bindingRows),
+                    'historical_coverage' => 'varies by dataset',
+                ],
+                bindings: $bindingRows,
+                connectors: array_values($connectors),
+                planned: [],
+                satisfied: [],
+                dispositions: $dispositions,
+                actionRequired: $actionRequired,
+                fingerprint: null,
+                anchorAssetId: $anchor->id,
+                eligibleBindingIds: [],
             );
         }
 
@@ -367,6 +402,74 @@ final class GoogleCollectionPreflightService
                 'production_collector' => false,
             ],
         ];
+    }
+
+    /**
+     * Website-anchored Google backfill may only keep same-brand / same-customer
+     * bindings. Other-brand or other-customer Google bindings stay bound but
+     * are not eligible for this CollectionRun.
+     *
+     * @param  list<CoreAssetBinding>  $bindings
+     * @param  list<int>  $eligibleBindingIds
+     * @param  list<array<string, mixed>>  $bindingRows
+     * @param  list<array<string, mixed>>  $dispositions
+     * @return array{0: list<int>, 1: list<array<string, mixed>>, 2: list<array<string, mixed>>}
+     */
+    private function scopeEligibleBindingsToAnchor(
+        DigitalAsset $anchor,
+        array $bindings,
+        array $eligibleBindingIds,
+        array $bindingRows,
+        array $dispositions,
+    ): array {
+        $anchor->loadMissing('brand');
+        $anchorBrandId = $anchor->brand_id !== null ? (int) $anchor->brand_id : null;
+        $anchorCustomerId = $anchor->brand?->customer_id !== null ? (int) $anchor->brand->customer_id : null;
+
+        $bindingsById = [];
+        foreach ($bindings as $binding) {
+            $bindingsById[(int) $binding->id] = $binding;
+        }
+
+        $scoped = [];
+        foreach ($eligibleBindingIds as $bindingId) {
+            $binding = $bindingsById[(int) $bindingId] ?? null;
+            $candidate = $binding?->digitalAsset;
+            if (! $candidate instanceof DigitalAsset) {
+                continue;
+            }
+
+            if (CollectionBindingScope::anchorMayTargetAsset(
+                (int) $anchor->id,
+                $anchorBrandId,
+                $anchorCustomerId,
+                $candidate,
+                true,
+                true,
+            )) {
+                $scoped[] = (int) $bindingId;
+
+                continue;
+            }
+
+            foreach ($bindingRows as $index => $row) {
+                if ((int) ($row['binding_id'] ?? 0) !== (int) $bindingId) {
+                    continue;
+                }
+                $bindingRows[$index]['eligible'] = false;
+                $bindingRows[$index]['readiness'] = PlanDisposition::NotEligible->value;
+                $bindingRows[$index]['readiness_label'] = 'Outside same-brand, same-customer Google collection scope';
+            }
+
+            $dispositions[] = [
+                'type' => PlanDisposition::NotEligible->value,
+                'binding_id' => (int) $bindingId,
+                'provider_or_source' => self::CAPABILITY_PROVIDER[(string) ($binding->capability ?? '')] ?? null,
+                'reason' => 'Google website-anchored backfill may only include same-brand, same-customer bindings.',
+            ];
+        }
+
+        return [$scoped, $bindingRows, $dispositions];
     }
 
     /**
