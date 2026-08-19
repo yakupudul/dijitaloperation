@@ -3,10 +3,15 @@
 namespace App\Livewire\Operator\Website;
 
 use App\Contracts\WebsiteOperatorWorkspace;
+use App\Enums\Observability\OperationalHealthStatus;
 use App\Models\DigitalAsset;
 use App\Models\DiscoveryCandidate;
+use App\Models\Run;
 use App\Models\User;
 use App\Services\Async\AsyncOperationService;
+use App\Services\Async\AsyncWorkerHealth;
+use App\Services\Observability\WorkerHeartbeatService;
+use App\Support\Async\AsyncOperationTypes;
 use Illuminate\Contracts\View\View;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
@@ -34,19 +39,41 @@ class PublicDiscoveryPage extends Component
         $this->assetId = $asset->id;
     }
 
-    public function runDiscovery(AsyncOperationService $operations): void
-    {
+    public function runDiscovery(
+        AsyncOperationService $operations,
+        WorkerHeartbeatService $workers,
+        AsyncWorkerHealth $queueHealth,
+    ): void {
         $actor = auth()->user();
         abort_unless($actor instanceof User, 403);
 
+        $worker = $workers->snapshot();
+        $queue = $queueHealth->snapshot();
+        $workerStatus = $worker['status'] ?? OperationalHealthStatus::Unknown;
+
+        if ($workerStatus === OperationalHealthStatus::Unhealthy || (bool) ($queue['worker_appears_idle'] ?? false)) {
+            $reason = $workerStatus === OperationalHealthStatus::Unhealthy
+                ? (string) ($worker['message'] ?? __('operator_runtime.discovery.runtime_degraded'))
+                : (string) ($queue['message'] ?? __('operator_runtime.discovery.runtime_degraded'));
+
+            $this->statusTone = 'error';
+            $this->statusMessage = __('operator_runtime.discovery.queue_problem', ['message' => $reason]);
+
+            return;
+        }
+
         try {
             $result = $operations->queuePublicDiscovery($this->asset(), $actor);
-            $this->statusTone = ($result['ok'] ?? false) ? 'success' : 'info';
-            $this->statusMessage = (string) ($result['message'] ?? 'Public discovery queued.');
+            $run = $result['run'] ?? $result['existing_run'] ?? null;
+
+            $this->statusTone = ($result['ok'] ?? false) ? 'success' : 'error';
+            $this->statusMessage = $run instanceof Run
+                ? __('operator_runtime.discovery.queued', ['id' => $run->id])
+                : (string) ($result['message'] ?? __('operator_runtime.discovery.queue_problem', ['message' => 'Unknown queue result']));
         } catch (Throwable $e) {
             report($e);
             $this->statusTone = 'error';
-            $this->statusMessage = 'Public discovery could not be queued: '.$e->getMessage();
+            $this->statusMessage = __('operator_runtime.discovery.queue_problem', ['message' => $e->getMessage()]);
         }
     }
 
@@ -58,14 +85,15 @@ class PublicDiscoveryPage extends Component
         try {
             $workspace->acceptCandidate($this->candidate($candidateId), $actor);
             $this->statusTone = 'success';
-            $this->statusMessage = 'Candidate accepted into canonical brand context.';
+            $this->statusMessage = __('operator_runtime.discovery.candidate_accepted');
         } catch (ValidationException $e) {
             $this->statusTone = 'error';
-            $this->statusMessage = collect($e->errors())->flatten()->first() ?? 'Candidate could not be accepted.';
+            $this->statusMessage = collect($e->errors())->flatten()->first()
+                ?? __('operator_runtime.discovery.candidate_accept_failed');
         } catch (Throwable $e) {
             report($e);
             $this->statusTone = 'error';
-            $this->statusMessage = 'Candidate could not be accepted: '.$e->getMessage();
+            $this->statusMessage = __('operator_runtime.discovery.candidate_accept_failed_detail', ['message' => $e->getMessage()]);
         }
     }
 
@@ -77,23 +105,64 @@ class PublicDiscoveryPage extends Component
         try {
             $workspace->ignoreCandidate($this->candidate($candidateId), $actor);
             $this->statusTone = 'success';
-            $this->statusMessage = 'Candidate ignored.';
+            $this->statusMessage = __('operator_runtime.discovery.candidate_ignored');
         } catch (Throwable $e) {
             report($e);
             $this->statusTone = 'error';
-            $this->statusMessage = 'Candidate could not be ignored: '.$e->getMessage();
+            $this->statusMessage = __('operator_runtime.discovery.candidate_ignore_failed_detail', ['message' => $e->getMessage()]);
         }
     }
 
-    public function render(WebsiteOperatorWorkspace $workspace): View
-    {
+    public function render(
+        WebsiteOperatorWorkspace $workspace,
+        WorkerHeartbeatService $workers,
+        AsyncWorkerHealth $queueHealth,
+    ): View {
         $asset = $this->asset();
+        $worker = $workers->snapshot();
+        $queue = $queueHealth->snapshot();
+        $operationRun = $this->latestOperationRun();
+        $workerStatus = $worker['status'] ?? OperationalHealthStatus::Unknown;
+
+        $runtimeTone = match ($workerStatus) {
+            OperationalHealthStatus::Healthy => 'success',
+            OperationalHealthStatus::Degraded, OperationalHealthStatus::Unhealthy => 'error',
+            default => 'info',
+        };
+
+        if ((bool) ($queue['worker_appears_idle'] ?? false)) {
+            $runtimeTone = 'error';
+        }
 
         return view('livewire.operator.website.public-discovery', [
             'asset' => $asset,
             'brand' => $asset->brand,
             'discovery' => $workspace->discovery($asset),
+            'runtime' => [
+                'tone' => $runtimeTone,
+                'worker_status' => $workerStatus instanceof OperationalHealthStatus ? $workerStatus->value : (string) $workerStatus,
+                'worker_message' => (string) ($worker['message'] ?? ''),
+                'queue_message' => (string) ($queue['message'] ?? ''),
+                'pending_jobs' => (int) ($queue['pending_jobs'] ?? 0),
+                'oldest_queued_job_age_seconds' => $queue['oldest_queued_job_age_seconds'] ?? null,
+                'run' => $operationRun,
+                'failure' => $operationRun instanceof Run
+                    ? data_get($operationRun->metadata, 'failure_summary')
+                    : null,
+                'phase' => $operationRun instanceof Run
+                    ? data_get($operationRun->metadata, 'phase_label')
+                    : null,
+            ],
         ]);
+    }
+
+    private function latestOperationRun(): ?Run
+    {
+        return Run::query()
+            ->where('digital_asset_id', $this->assetId)
+            ->where('module_id', AsyncOperationTypes::MODULE_PUBLIC_DISCOVERY)
+            ->latest('id')
+            ->first();
     }
 
     private function asset(?int $id = null): DigitalAsset
