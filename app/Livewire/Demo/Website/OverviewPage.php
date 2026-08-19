@@ -104,7 +104,12 @@ class OverviewPage extends Component
         $this->normalizeTab();
 
         $asset = $this->asset()->loadMissing('brand.customer');
-        $data = $workspace->overview($asset);
+        $data = $workspace->overview(
+            $asset,
+            $this->period,
+            $this->periodStart,
+            $this->periodEnd,
+        );
 
         return view('livewire.operator.website.overview', [
             'asset' => $asset,
