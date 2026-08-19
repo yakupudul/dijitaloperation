@@ -2,10 +2,9 @@
 
 namespace App\Livewire\Demo;
 
+use App\Services\Operator\OperatorExecutionReadService;
 use App\Services\Opportunities\OpportunityReadService;
-use App\Support\Demo\AgencyExecutionFixtures;
 use App\Support\Demo\DemoState;
-use App\Support\Demo\OpportunityFixtures;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -36,14 +35,12 @@ class Dashboard extends Component
     public function render(): View
     {
         return view('livewire.demo.dashboard', [
-            'dashboard' => AgencyExecutionFixtures::dashboardExecution($this->mode),
-            'growthOpportunities' => collect(OpportunityFixtures::sortByBusinessRelevance(app(OpportunityReadService::class)->forListPresentation()))
+            'dashboard' => app(OperatorExecutionReadService::class)->dashboard($this->mode),
+            'growthOpportunities' => collect(app(OpportunityReadService::class)->forListPresentation())
                 ->whereIn('status', ['open', 'reviewing'])
                 ->take(3)
                 ->values()
                 ->all(),
-            // Prompt 67: never inject Atlas Demo value narratives onto the production Dashboard.
-            // Empty means no recent Client Value Story rows to surface here.
             'recentValue' => [],
             'flash' => DemoState::pullFlash(),
         ]);
