@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Log;
 /**
  * Thin Meta coordinator for incremental refresh after initial backfill is satisfied.
  * Does not choose sync/async, Insights fields, or attribution — Prompt 24 owns that.
+ * Due selection is the shared engine's exact preflight binding IDs, not the anchor asset alone.
  */
 final class MetaIncrementalCollectionOrchestrator
 {
