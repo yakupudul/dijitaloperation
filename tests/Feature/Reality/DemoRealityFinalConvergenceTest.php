@@ -100,8 +100,8 @@ class DemoRealityFinalConvergenceTest extends TestCase
             ->assertOk()
             ->assertSee('Production Website Asset')
             ->assertSee('Needs attention')
-            ->assertSee('Veri Kaynakları')
-            ->assertSee('Kamu Keşif')
+            ->assertSee(__('operator_runtime.website.sources'))
+            ->assertSee(__('operator_runtime.website.public_discovery'))
             ->assertDontSee('Demo Mode · product vision fixtures')
             ->assertDontSee('Atlas Dental Website')
             ->assertDontSee('not yet available');
