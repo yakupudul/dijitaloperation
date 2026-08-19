@@ -28,12 +28,12 @@ It records what is discovered, collected, raw-stored, normalized, and proven on 
 | event × campaign daily | Data API `runReport` via event breakdowns | via binding | yes | yes | yes | `ga4_event_campaign_daily` | event × campaign × day | 180d currently planned | offset/page size | incremental via freshness planner | 1683 rows on staging, min=2026-02-20 max=2026-08-18; proven by completed dataset 27, not by resume-alone | current plan uses 180d | none on staging | `PROVEN_STAGING` |
 | event × landing daily | Data API `runReport` via event breakdowns | via binding | yes | yes | yes | `ga4_event_landing_daily` | event × landing × day | 180d currently planned | offset/page size | incremental via freshness planner | 1615 rows on staging, min=2026-02-20 max=2026-08-18; proven by completed dataset 27, not by resume-alone | current plan uses 180d | none on staging | `PROVEN_STAGING` |
 | device daily | Data API `runReport` | via binding | yes | yes | yes | `ga4_device_daily` | device × day | 180d currently planned | offset/page size | incremental via freshness planner | 281 rows on staging | current plan uses 180d | none on staging | `PROVEN_STAGING` |
-| event × source/medium daily | Data API can support | no separate discovery | no | no | no | none | event × source/medium × day | n/a | n/a | none yet | storage contract gap explicitly recorded | contract/storage gap | none on staging | `MISSING` |
+| event × source/medium daily | Data API can support | no separate discovery | no | no | no | none | event × source/medium × day | n/a | n/a | none yet | `GA4_RF_EVENT_BY_SOURCE_MEDIUM_DAILY` is CONDITIONAL and high-cardinality. Contract decision #5 prefers stored event×channel / campaign / landing facts first; those three are `PROVEN_STAGING`. Not in the current DATA-FIRST foundation acceptance gate | deferred high-cardinality follow-on, not a silent skip of a REQUIRED family | none on staging | `DEFERRED_WITH_REASON` |
 | data streams metadata | Admin `dataStreams.list` | no separate discovery row | yes | yes | yes in metadata JSON | `ga4_property_metadata` | stream snapshot | current | none | overwrite snapshot | covered inside property metadata | not isolated into separate table | none on staging | `PROVEN_STAGING` |
-| custom dimensions / custom metrics metadata | Admin/Data API compatibility surfaces available | no | no | no | no | none | metadata snapshot | current | provider list | none yet | not implemented in collector | not yet modeled in V1 storage | none on staging | `MISSING` |
-| geography | Data API available | no | no | no | no | none | geography × day | n/a | n/a | none yet | not in current request families | contract breadth incomplete | none on staging | `MISSING` |
-| technology / browser / OS | Data API available | no | no | no | no | none | technology × day | n/a | n/a | none yet | not in current request families | contract breadth incomplete | none on staging | `MISSING` |
-| ecommerce / revenue | Data API available where property configured | no | no | no | no | none | commerce × day | n/a | n/a | none yet | current V1 GA4 contract does not model monetary surfaces | product/contract incomplete for commerce | none on staging | `MISSING` |
+| custom dimensions / custom metrics metadata | Admin/Data API compatibility surfaces available | no | no | no | no | none | metadata snapshot | current | provider list | none yet | not one of the 12 named GA4 V1 request families in `GA4_DATA_CONTRACT_V1` | outside current V1 collector families; streams already live inside property metadata | none on staging | `DEFERRED_WITH_REASON` |
+| geography | Data API available | no | no | no | no | none | geography × day | n/a | n/a | none yet | not in current V1 request families | country/geo is GSC V1 (`gsc_country_daily` proven); GA4 geography is later breadth | none on staging | `DEFERRED_WITH_REASON` |
+| technology / browser / OS | Data API available | no | no | no | no | none | technology × day | n/a | n/a | none yet | V1 required device slice is `GA4_RF_DEVICE_DAILY` (`deviceCategory`) which is `PROVEN_STAGING` (281 rows) | browser/OS are extra dimensions, not the V1 device family | none on staging | `DEFERRED_WITH_REASON` |
+| ecommerce / revenue | Data API available where property configured | no | no | no | no | none | commerce × day | n/a | n/a | none yet | `GA4_DATA_CONTRACT_V1` marks monetary metrics / `purchaseRevenue` **NOT REQUIRED** | no frozen GA4 monetary surface | none on staging | `DEFERRED_WITH_REASON` |
 | journeys / funnels | partially available only with explicit funnel config | no | no | no | no | none | funnel/path | n/a | n/a | none yet | current contract defers funnels and rejects fake path reconstruction | explicit product defer | none on staging | `DEFERRED_WITH_REASON` |
 
 ## Search Console
@@ -48,7 +48,7 @@ It records what is discovered, collected, raw-stored, normalized, and proven on 
 | country daily | `searchanalytics.query` | via binding | yes | yes | yes | `gsc_country_daily` | country × day | planner currently 180d minimum policy | `startRow` paging | incremental via freshness planner | 2,299 rows written | provider top rows | none on staging | `PROVEN_STAGING` |
 | device daily | `searchanalytics.query` | via binding | yes | yes | yes | `gsc_device_daily` | device × day | planner currently 180d minimum policy | `startRow` paging | incremental via freshness planner | 414 rows written | provider top rows | none on staging | `PROVEN_STAGING` |
 | sitemaps | `sitemaps.list` | via binding | yes | yes | yes | `gsc_sitemap_snapshot` | sitemap snapshot | current | none | overwrite snapshot | 94 rows written | submitted ≠ indexed | none on staging | `PROVEN_STAGING` |
-| URL inspection | `urlInspection.index.inspect` | via binding | conditional | yes when targets supplied | yes | `gsc_url_inspection_snapshot` | inspection snapshot | explicit targets only | per-target | conditional replay | current run marked not eligible with no targets | intentionally controlled, not automatic full-site crawl | none on staging | `IMPLEMENTED_UNPROVEN` |
+| URL inspection | `urlInspection.index.inspect` | via binding | yes (explicit homepage target) | yes | yes | `gsc_url_inspection_snapshot` | inspection snapshot | explicit targets only | per-target | conditional replay | CollectionRun #4 (`8a7a1e84-ef80-4f52-a5ae-b31e06618062`) dataset 48 `completed`, attempt_count=1, rows_received=1, rows_written=1. Raw object 2407 present (`operation=urlInspection.index.inspect`). Write-batch 2316 `committed`. Materialization `AVAILABLE` `row_count_approx=1`. Binding 2 / website asset 1 / resource 7. Target is the in-property homepage path `/` taken from `gsc_page_daily` (page sha256 prefix `b245ff4ce84f`, site sha256 prefix `3ef7c9a9fc52`). Provider `verdict=NEUTRAL`, `coverageState=Page with redirect` (http homepage). No quota/permission error; `failed_jobs=0` | intentionally controlled, not automatic full-site crawl; redirect verdict is a legitimate provider result | none on staging | `PROVEN_STAGING` |
 | search appearance daily | API available | no | no | no | table exists but planner excludes | `gsc_search_appearance_daily` | appearance × day | n/a | `startRow` paging | none yet | explicit source-contract exclusion | excluded by current source contract | none on staging | `DEFERRED_WITH_REASON` |
 
 ## Google Ads
@@ -83,6 +83,7 @@ Do not treat these as current status. They remain part of the staging audit trai
 4. **Keyword snapshot upsert:** dataset 39 then failed `PERSISTENCE` / PostgreSQL `ON CONFLICT DO UPDATE command cannot affect row a second time` because Ads `criterion_id` is ad-group-scoped while storage grain is customer×criterion_id. Collapse last-write-wins (`02a764d`).
 5. **Stale write-batch checksum:** resume of the collapsed keyword payload hit `Write batch checksum conflict`. Non-committed batches may replace checksum (`45f4435`).
 6. **GA4 CollectionRun #1 leftovers:** dataset 4 `GA4_RF_SOURCE_MEDIUM_DAILY` and dataset 8 `GA4_RF_EVENT_BREAKDOWNS` remain `failed` / `PROVIDER_5XX`. Later CollectionRun #2 completed those families with real rows. Event-breakdown `PROVEN_STAGING` is from dataset 27 completion + warehouse counts, not from the failed resume-alone poll.
+7. **GSC URL Inspection CollectionRun #4:** executed through `StartCollectionService` with a single in-property homepage target (not a site crawl). Dataset 48 completed on attempt 1 with 1 raw object and 1 normalized snapshot row. Historical `IMPLEMENTED_UNPROVEN` (no-targets / not_eligible) is superseded by this proof; earlier GSC families remain proven from prior staging runs.
 
 ## Google Business Profile
 
@@ -105,6 +106,7 @@ Do not treat these as current status. They remain part of the staging audit trai
 - Google Ads **binding**: `PROVEN_STAGING` (binding 3 on asset 2 / resource 173)
 - GBP discovery: `BLOCKED_EXTERNAL`
 - Search Console collection: `PROVEN_STAGING`
+- Search Console URL Inspection (explicit homepage target): `PROVEN_STAGING`
 - GA4 non-partitioned collection: `PROVEN_STAGING`
 - GA4 partitioned PostgreSQL schema repair: `PROVEN_STAGING`
 - GA4 event breakdowns with real rows: `PROVEN_STAGING`
@@ -112,4 +114,24 @@ Do not treat these as current status. They remain part of the staging audit trai
 - Google Ads snapshot collection: `PROVEN_STAGING`
 - Google Ads daily facts: `PROVEN_STAGING` as **successful zero-row** datasets (not “metrics present”)
 - GBP analytical collection: `MISSING`
+
+## V1 DATA-FIRST foundation gap classification
+
+This section classifies remaining Google gaps against the current V1 contracts. It does not invent new product scope.
+
+| gap | classification | canonical reason | required to close this foundation gate? |
+| --- | --- | --- | --- |
+| GSC URL Inspection | `PROVEN_STAGING` | CONDITIONAL V1 family; proven with one in-property homepage target via the collection engine | yes — now proven |
+| GSC Search Appearance | `DEFERRED_WITH_REASON` | `SEARCH_CONSOLE_DATA_CONTRACT_V1` excludes searchAppearance from V1; planner skips `GSC_RF_APPEARANCE_DAILY` | no |
+| GA4 event×channel / campaign / landing | `PROVEN_STAGING` | CONDITIONAL V1 families needed for mapped-action columns; proven by dataset 27 + warehouse rows | yes — now proven |
+| GA4 event×source/medium | `DEFERRED_WITH_REASON` | `GA4_RF_EVENT_BY_SOURCE_MEDIUM_DAILY` is CONDITIONAL/high-cardinality; contract decision #5 prefers channel+landing+campaign first | no |
+| GA4 custom dimensions / metrics | `DEFERRED_WITH_REASON` | not among the 12 named V1 request families | no |
+| GA4 geography | `DEFERRED_WITH_REASON` | not a V1 GA4 request family; GSC country daily is the V1 geo slice and is proven | no |
+| GA4 browser / OS | `DEFERRED_WITH_REASON` | V1 required device slice is `deviceCategory` (`GA4_RF_DEVICE_DAILY`, proven) | no |
+| GA4 ecommerce / revenue | `DEFERRED_WITH_REASON` | `GA4_DATA_CONTRACT_V1` monetary metrics **NOT REQUIRED** | no |
+| GA4 funnels | `DEFERRED_WITH_REASON` | explicit contract defer; rejects fake path reconstruction | no |
+| Google Ads snapshot families | `PROVEN_STAGING` | CollectionRun #2 dataset 39 + warehouse counts | yes — now proven |
+| Google Ads daily families | `PROVEN_STAGING` (successful zero-row) | completed engine runs + raw/live HTTP empty results | yes — now proven as zero-row, not as metric delivery |
+| GBP discovery | `BLOCKED_EXTERNAL` | staging `include_gbp_scope=false`, `gbp_discovery_enabled=false`, discovery `scope_required` | no — do not bypass OAuth |
+| GBP analytical collection | `MISSING` | no production request families/storage contract in the collection engine | no for this GA4/GSC/Ads DATA-FIRST gate; later GBP product work |
 

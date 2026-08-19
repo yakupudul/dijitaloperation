@@ -361,8 +361,32 @@ final class CollectionPlanner
             $query->where('digital_asset_id', $asset->id);
         }
 
-        /** @var list<CoreAssetBinding> */
-        return $query->orderBy('id')->get()->all();
+        $asset->loadMissing('brand');
+        $anchorBrandId = $asset->brand_id !== null ? (int) $asset->brand_id : null;
+        $anchorCustomerId = $asset->brand?->customer_id !== null ? (int) $asset->brand->customer_id : null;
+
+        /** @var list<CoreAssetBinding> $eligible */
+        $eligible = [];
+        foreach ($query->orderBy('id')->get() as $binding) {
+            $candidate = $binding->digitalAsset;
+            if (! $candidate instanceof DigitalAsset) {
+                continue;
+            }
+
+            if (! CollectionBindingScope::anchorMayTargetAsset(
+                (int) $asset->id,
+                $anchorBrandId,
+                $anchorCustomerId,
+                $candidate,
+                $allowMultiAsset,
+            )) {
+                continue;
+            }
+
+            $eligible[] = $binding;
+        }
+
+        return $eligible;
     }
 
     /**

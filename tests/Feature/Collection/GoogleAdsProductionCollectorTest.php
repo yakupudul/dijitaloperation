@@ -279,6 +279,49 @@ class GoogleAdsProductionCollectorTest extends TestCase
     }
 
     #[Test]
+    public function multi_asset_run_still_rejects_other_customer_ads_binding(): void
+    {
+        $otherCustomer = Customer::factory()->create();
+        $otherBrand = Brand::factory()->create(['customer_id' => $otherCustomer->id]);
+        $website = DigitalAsset::factory()->create([
+            'brand_id' => $this->brand->id,
+            'type' => 'website',
+            'status' => DigitalAssetStatus::Active,
+        ]);
+        $foreignAds = DigitalAsset::factory()->create([
+            'brand_id' => $otherBrand->id,
+            'type' => 'google_ads',
+            'status' => DigitalAssetStatus::Active,
+        ]);
+        $this->binding->forceFill(['digital_asset_id' => $foreignAds->id])->save();
+
+        $run = CollectionRun::factory()->create([
+            'digital_asset_id' => $website->id,
+            'brand_id' => $this->brand->id,
+            'customer_id' => $this->brand->customer_id,
+            'status' => CollectionRunStatus::Running,
+            'request_context' => [
+                'context' => ['allow_multi_asset_bindings' => true],
+            ],
+        ]);
+
+        $resourceRun = CollectionResourceRun::factory()->create([
+            'collection_run_id' => $run->id,
+            'provider_or_source' => 'GOOGLE_ADS',
+            'external_resource_id' => $this->resource->id,
+            'digital_asset_id' => $foreignAds->id,
+            'core_asset_binding_id' => $this->binding->id,
+            'status' => CollectionRunStatus::Running,
+        ]);
+
+        $result = app(GoogleAdsEligibilityGuard::class)->assertEligible($run, $resourceRun);
+        $this->assertInstanceOf(DatasetExecutionResult::class, $result);
+        $this->assertSame(DatasetExecutionOutcome::Failed, $result->outcome);
+        $this->assertSame('CROSS_TENANT', $result->errorCode);
+        $this->assertSame(CollectionErrorCategory::Authorization, $result->errorCategory);
+    }
+
+    #[Test]
     public function customer_metadata_preserves_timezone_currency_and_rejects_token_leak(): void
     {
         $this->fakeAdsHttp([
