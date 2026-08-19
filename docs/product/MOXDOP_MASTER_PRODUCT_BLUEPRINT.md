@@ -524,7 +524,7 @@ Build as **vertical slices**. Each slice must earn **operator acceptance** befor
 
 | # | Slice | Operator outcome when accepted |
 | --- | --- | --- |
-| **1** | **Product shell + Portfolio persistence** | `/app` navigation (Portfolio, Data/Integrations, Operations; Settings secondary). Customers, Brands, Digital Assets persist. Atlas Health Group / Atlas Dental Ankara usable as real records. Hand-off-ready Brand workspace shell. |
+| **1** | **Product shell + Portfolio persistence** | Site-root navigation (Portfolio, Data/Integrations, Operations; Settings secondary). Customers, Brands, Digital Assets persist. Atlas Health Group / Atlas Dental Ankara usable as real records. Hand-off-ready Brand workspace shell. |
 | **2** | **Meta end-to-end real** | Agency Meta Integration → discover Ad Accounts → bind to Meta Ads asset → collect → workspace Glance/Explore → Findings/Recommendations/Tasks path on live read-only data. |
 | **3** | **Google Ads end-to-end real** | Same pattern for Google Ads account: connect, import, attach, collect, analyze, operate internally without writes. |
 | **4** | **Website end-to-end real** | Website asset with diagnosis/connectors path, Evidence → Findings → Recommendations → Tasks, honest Data Health. |

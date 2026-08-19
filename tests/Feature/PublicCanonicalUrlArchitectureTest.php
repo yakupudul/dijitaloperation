@@ -32,6 +32,8 @@ class PublicCanonicalUrlArchitectureTest extends TestCase
         $this->assertSame('/assets', parse_url(route('operator.assets'), PHP_URL_PATH));
         $this->assertSame('/integrations', parse_url(route('operator.integrations'), PHP_URL_PATH));
         $this->assertSame('/tasks', parse_url(route('operator.tasks'), PHP_URL_PATH));
+        $this->assertSame('/activity', parse_url(route('operator.activity'), PHP_URL_PATH));
+        $this->assertSame('/findings', parse_url(route('operator.findings'), PHP_URL_PATH));
         $this->assertSame('/settings', parse_url(route('operator.settings'), PHP_URL_PATH));
         $this->get('/admin/login')->assertOk();
     }
@@ -72,6 +74,8 @@ class PublicCanonicalUrlArchitectureTest extends TestCase
         $this->get('/assets')->assertOk();
         $this->get('/integrations')->assertOk();
         $this->get('/tasks')->assertOk();
+        $this->get('/activity')->assertOk();
+        $this->get('/findings')->assertOk();
         $this->get('/settings')->assertOk();
         $this->get('/login')->assertRedirect('/');
     }

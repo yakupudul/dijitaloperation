@@ -2,6 +2,8 @@
 
 Internal audit matrix for the Final Interface Completion milestone. Not an operator page.
 
+> **Route note (ADR-044):** `/app/...` Expected paths in the table below are historical freeze labels. Canonical operator routes are site root (`/profile`, `/settings`, `/integrations`, …). Filament is `/admin`. Legacy `/app` and `/system` return HTTP 410.
+
 | Screen | Action label | Type | Expected | Actual | Demo/Live/Internal | Route/state | Test |
 |--------|--------------|------|----------|--------|--------------------|-------------|------|
 | Header | Locale EN/TR | state | Persist locale | Persists on User | Internal | LocaleSwitcher | FinalInterfaceCompletionTest |

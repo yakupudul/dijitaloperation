@@ -56,7 +56,7 @@ Deployment/application config (not per-Customer OAuth tokens):
 | `GOOGLE_INCLUDE_GBP_SCOPE` | `include_gbp_scope` | Gate GBP scope (default false) |
 
 Health check: `GoogleOAuthConfigurationHealth` + `php artisan moxdop:google-oauth:check`  
-Never prints secret values. Never exposes secrets through `/app`.
+Never prints secret values. Never exposes secrets through the operator product or Filament `/admin`.
 
 Production HTTPS: health checker flags non-HTTPS redirect URIs outside local/testing.
 

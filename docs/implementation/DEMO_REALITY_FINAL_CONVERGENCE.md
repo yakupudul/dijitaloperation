@@ -15,7 +15,7 @@ Make MoxDOP operator surfaces tell the truth: production Digital Assets and Oper
 
 ## 2. Scope
 
-In scope: `/app` operator Livewire surfaces, specialist read services (GA4/GSC/Google Ads/Meta), Integrations hub cards, dashboard/agency execution widgets, Website/GBP/Instagram production shells, Findings index read path, seeder boundary, reality contracts + matrix docs, PHPUnit regression.
+In scope: site-root operator Livewire surfaces, specialist read services (GA4/GSC/Google Ads/Meta), Integrations hub cards, dashboard/agency execution widgets, Website/GBP/Instagram production shells, Findings index read path, seeder boundary, reality contracts + matrix docs, PHPUnit regression.
 
 Out of scope: inventing new specialist analytics, Interactive Assistant chat runtime, inventing health scores, full GBP local-rank productionization, live OAuth/SMTP manual PASS claims, changing frozen sidebar IA.
 
@@ -30,7 +30,7 @@ MASTER_SPEC → accepted ADR → product blueprints → this Prompt 67 doc set �
 3. Missing ≠ zero; unavailable ≠ Demo.
 4. Explicit Demo only via Atlas catalog ids / DemoState catalog session.
 5. No invented health scores or fake local ranks.
-6. Frozen `/app` sidebar unchanged.
+6. Frozen operator sidebar unchanged (site root; ADR-044).
 7. Harici write action yok (read-only external integrations).
 8. Manual live provider verification is NOT claimed in Prompt 67.
 
@@ -108,7 +108,7 @@ REAL — Laravel auth + Spatie roles/permissions; admin creation via `dop:create
 
 ## 22. Customer / Brand / Asset CRUD Reality
 
-REAL — Filament `/system` + migrated `/app` portfolio create/index flows for durable Eloquent models.
+REAL — Filament `/admin` + migrated site-root portfolio create/index flows for durable Eloquent models.
 
 ## 23. Findings Persistence Reality
 
@@ -116,7 +116,7 @@ REAL — `findings` table, fingerprint uniqueness, `FindingReadService`, Filamen
 
 ## 24. FindingsIndex → FindingReadService Convergence
 
-REMOVED DemoState-backed Finding lists. `/app` Operations FindingsIndex reads `FindingReadService` only; empty state when none.
+REMOVED DemoState-backed Finding lists. `/findings` Operations FindingsIndex reads `FindingReadService` only; empty state when none.
 
 ## 25. Opportunities Reality
 
@@ -128,7 +128,7 @@ REAL — canonical recommendations + `RecommendationReadService`; dashboard awai
 
 ## 27. Work / Tasks Reality
 
-REAL — Work/Task domain persistence and `/app` Operations task surfaces (prior prompts).
+REAL — Work/Task domain persistence and `/tasks` Operations task surfaces (prior prompts).
 
 ## 28. Business Outcomes Reality
 
@@ -248,7 +248,7 @@ REAL — evaluate-alerts, heartbeats, snapshot without health score (Prompt 66).
 
 ## 57. Performance Scale Intake
 
-Prompt 65 harness/fixtures retained; not a Demo contamination vector for `/app` business truth.
+Prompt 65 harness/fixtures retained; not a Demo contamination vector for operator business truth.
 
 ## 58. UnavailableWorkspaceShells
 

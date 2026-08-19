@@ -2,6 +2,8 @@
 
 ## STATUS: PASS
 
+> **Route note (ADR-044):** Frozen `/app` Operations path labels in this prompt doc are historical. Canonical Operations Opportunities live at `/opportunities`. Filament is `/admin`. Legacy `/app` and `/system` return HTTP 410.
+
 **Prompt:** 40
 **Date:** 2026-08-14
 **Branch:** `cursor/opportunity-production-detection-ea01`

@@ -2,6 +2,8 @@
 
 Status: audit only. No product code changes are proposed in this document.
 
+> **Historical record (ADR-044):** Path labels such as `/app` in this audit are freeze-era names. Canonical operator routes are now site root; Filament is `/admin`. Legacy `/app` and `/system` return HTTP 410.
+
 Authority order: `docs/MASTER_SPEC.md` -> accepted ADRs -> `docs/product/*` -> this audit.
 
 Current canonical baseline:
