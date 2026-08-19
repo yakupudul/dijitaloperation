@@ -207,6 +207,32 @@ class CanonicalOperationalDocsRouteTest extends TestCase
         $this->assertStringContainsString('/activity', $async);
         $this->assertStringContainsString('operator.activity', $async);
         $this->assertMatchesRegularExpression('/Legacy `\/app\/runs` returns HTTP 410/', $async);
+
+        $ledger = (string) file_get_contents(base_path('PRODUCT_CAPABILITY_LEDGER.md'));
+        $this->assertMatchesRegularExpression(
+            '/Operator Activity Center is the root Livewire surface `\/activity` \(`operator\.activity`\)/',
+            $ledger,
+        );
+        $this->assertMatchesRegularExpression(
+            '/Filament `RunResource` at `\/admin\/runs` remains technical\/admin tooling only/',
+            $ledger,
+        );
+        $this->assertDoesNotMatchRegularExpression(
+            '/Activity Center is Filament `RunResource` \(`\/admin\/runs`\)/',
+            $ledger,
+        );
+    }
+
+    public function test_retired_paths_inside_absolute_urls_are_detected(): void
+    {
+        $this->assertTrue($this->lineTeachesRetiredLiveRoute('Open https://host/app/login'));
+        $this->assertTrue($this->lineTeachesRetiredLiveRoute('Open http://127.0.0.1/system/settings'));
+        $this->assertTrue($this->lineTeachesRetiredLiveRoute('Open http://127.0.0.1:8000/app/customers'));
+        $this->assertFalse($this->lineTeachesRetiredLiveRoute('Legacy `https://host/app/login` returns HTTP 410'));
+        $this->assertFalse($this->lineTeachesRetiredLiveRoute('Historical snapshot: http://127.0.0.1:8000/app/activity (ADR-044)'));
+        $this->assertFalse($this->lineTeachesRetiredLiveRoute('Operator login is `/login`'));
+        $this->assertFalse($this->lineTeachesRetiredLiveRoute('Files live in storage/app/private'));
+        $this->assertFalse($this->lineTeachesRetiredLiveRoute('Filament technical login is `/admin/login`'));
     }
 
     private function lineTeachesRetiredLiveRoute(string $line): bool
@@ -215,6 +241,10 @@ class CanonicalOperationalDocsRouteTest extends TestCase
             $withoutStorage = preg_replace('#storage/app(?:/[A-Za-z0-9._-]*)?#', '', $line) ?? $line;
             $line = $withoutStorage;
         }
+
+        // Hostnames are alphanumeric, so `/app` in `https://host/app/...` would
+        // otherwise fail the path lookbehind. Strip the origin first.
+        $line = preg_replace('#https?://[^\s/`\'"<>]+#i', '', $line) ?? $line;
 
         if (! preg_match('#(?<![A-Za-z0-9])/app(?:/|`|\s|$)|(?<![A-Za-z0-9])/system(?:/|`|\s|$)#', $line)) {
             return false;
