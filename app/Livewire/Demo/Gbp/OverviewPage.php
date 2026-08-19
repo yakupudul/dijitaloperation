@@ -24,17 +24,24 @@ class OverviewPage extends Component
     #[Url]
     public string $tab = 'overview';
 
+    #[Url]
+    public string $perf_sub = 'discovery';
+
     /** @var list<string> */
-    public array $allowedTabs = ['overview', 'profile', 'setup'];
+    public array $allowedTabs = [
+        'overview',
+        'profile',
+        'visibility',
+        'performance',
+        'reviews',
+        'competitors',
+        'operations',
+        'setup',
+    ];
 
     /** @var array<string, string> */
     private const LEGACY_TAB_MAP = [
-        'visibility' => 'overview',
-        'performance' => 'overview',
-        'queries' => 'overview',
-        'reviews' => 'overview',
-        'competitors' => 'overview',
-        'operations' => 'overview',
+        'queries' => 'performance',
         'insights' => 'overview',
         'connections' => 'setup',
     ];
@@ -66,7 +73,12 @@ class OverviewPage extends Component
     protected function normalizeTab(): void
     {
         if (isset(self::LEGACY_TAB_MAP[$this->tab])) {
-            $this->tab = self::LEGACY_TAB_MAP[$this->tab];
+            $legacy = $this->tab;
+            $this->tab = self::LEGACY_TAB_MAP[$legacy];
+
+            if ($legacy === 'queries') {
+                $this->perf_sub = 'queries';
+            }
         }
 
         if (! in_array($this->tab, $this->allowedTabs, true)) {
