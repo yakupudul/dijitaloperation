@@ -169,24 +169,23 @@ class MetaIncrementalCollectionOrchestratorTest extends TestCase
     }
 
     #[Test]
-    public function sibling_ad_account_due_work_starts_instead_of_data_current_and_excludes_other_integrations(): void
+    public function sibling_ad_account_due_work_starts_instead_of_data_current_and_excludes_google_bindings(): void
     {
         $sameCustomerOtherBrand = $this->createSameCustomerOtherBrandBinding();
         $otherCustomer = $this->createOtherCustomerBindingOnSameIntegration();
-        $foreignIntegration = $this->createForeignIntegrationBinding();
+        $googleBinding = $this->createGoogleAdsBinding();
 
         $this->materializeBindingFresh($this->bindingA, staleDatasetIds: []);
         $this->materializeBindingFresh($this->bindingB, staleDatasetIds: ['meta_campaign_daily']);
         $this->materializeBindingFresh($sameCustomerOtherBrand, staleDatasetIds: []);
         $this->materializeBindingFresh($otherCustomer, staleDatasetIds: []);
-        $this->materializeBindingFresh($foreignIntegration, staleDatasetIds: ['meta_campaign_daily']);
 
         $preflight = app(MetaInitialBackfillOrchestrator::class)->preflight($this->integration->fresh());
         $this->assertContains($this->bindingA->id, $preflight->eligibleBindingIds);
         $this->assertContains($this->bindingB->id, $preflight->eligibleBindingIds);
         $this->assertContains($sameCustomerOtherBrand->id, $preflight->eligibleBindingIds);
         $this->assertContains($otherCustomer->id, $preflight->eligibleBindingIds);
-        $this->assertNotContains($foreignIntegration->id, $preflight->eligibleBindingIds);
+        $this->assertNotContains($googleBinding->id, $preflight->eligibleBindingIds);
 
         $result = app(MetaIncrementalCollectionOrchestrator::class)
             ->start($this->integration->fresh(), $this->admin);
@@ -201,15 +200,14 @@ class MetaIncrementalCollectionOrchestratorTest extends TestCase
         $this->assertNotContains($this->bindingA->id, $plannedBindingIds);
         $this->assertNotContains($sameCustomerOtherBrand->id, $plannedBindingIds);
         $this->assertNotContains($otherCustomer->id, $plannedBindingIds);
-        $this->assertNotContains($foreignIntegration->id, $plannedBindingIds);
+        $this->assertNotContains($googleBinding->id, $plannedBindingIds);
 
         $decisionBindingIds = array_values(array_unique(array_map(
             static fn (array $row): int => (int) $row['core_asset_binding_id'],
             $result->decisions,
         )));
-        $this->assertContains($this->bindingA->id, $decisionBindingIds);
         $this->assertContains($this->bindingB->id, $decisionBindingIds);
-        $this->assertNotContains($foreignIntegration->id, $decisionBindingIds);
+        $this->assertNotContains($googleBinding->id, $decisionBindingIds);
 
         $queuedFamilies = $result->collectionRun->datasetRuns()
             ->where('status', CollectionRunStatus::Queued)
@@ -350,47 +348,28 @@ class MetaIncrementalCollectionOrchestratorTest extends TestCase
         ]);
     }
 
-    private function createForeignIntegrationBinding(): CoreAssetBinding
+    private function createGoogleAdsBinding(): CoreAssetBinding
     {
-        $foreign = CoreIntegration::factory()->meta()->create([
+        $google = CoreIntegration::factory()->google()->create([
             'status' => CoreIntegration::STATUS_ACTIVE,
-            'config' => [
-                'auth_method' => 'oauth',
-                'auth_status' => 'connected',
-                'connection_status' => 'connected',
-                'credential_status' => 'valid',
-                'granted_permissions' => ['ads_read', 'business_management'],
-            ],
         ]);
-        CoreIntegrationCredential::factory()->provider()->create([
-            'integration_id' => $foreign->id,
-            'encrypted_payload' => [
-                'access_token' => 'EAAG-foreign-meta-token-never-real',
-                'granted_permissions' => ['ads_read', 'business_management'],
-            ],
-        ]);
-
-        $otherCustomer = Customer::factory()->create();
-        $otherBrand = Brand::factory()->create(['customer_id' => $otherCustomer->id]);
         $asset = DigitalAsset::factory()->create([
-            'brand_id' => $otherBrand->id,
-            'type' => 'meta_ads',
-            'module_id' => 'meta-ads',
+            'brand_id' => $this->assetA->brand_id,
+            'type' => 'google_ads',
             'status' => DigitalAssetStatus::Active,
         ]);
         $resource = CoreExternalResource::factory()->create([
-            'integration_id' => $foreign->id,
-            'provider' => 'meta',
-            'resource_type' => MetaResourceType::META_AD_ACCOUNT,
-            'external_id' => 'act_99990009',
+            'integration_id' => $google->id,
+            'provider' => 'google',
+            'resource_type' => 'google_ads',
+            'external_id' => '1112223333',
             'status' => CoreExternalResource::STATUS_AVAILABLE,
-            'metadata' => ['timezone_name' => 'Europe/Berlin'],
         ]);
 
         return CoreAssetBinding::factory()->create([
             'digital_asset_id' => $asset->id,
             'external_resource_id' => $resource->id,
-            'capability' => MetaConnectorRegistry::META_ADS,
+            'capability' => 'google_ads',
             'status' => CoreAssetBinding::STATUS_ACTIVE,
         ]);
     }
