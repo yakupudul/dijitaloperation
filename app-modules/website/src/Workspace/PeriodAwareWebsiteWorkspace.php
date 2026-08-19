@@ -76,16 +76,16 @@ final class PeriodAwareWebsiteWorkspace
         $rows = [];
 
         if ($this->trusted($gsc, 'glance.clicks')) {
-            $rows[] = $this->kpi('Organic clicks', data_get($gsc, 'glance.clicks.value'), data_get($gsc, 'glance.clicks.secondary'), 'gsc');
+            $rows[] = $this->kpi(__('operator_runtime.website.kpi.organic_clicks'), data_get($gsc, 'glance.clicks.value'), data_get($gsc, 'glance.clicks.secondary'), 'gsc');
         }
         if ($this->trusted($gsc, 'glance.impressions')) {
-            $rows[] = $this->kpi('Impressions', data_get($gsc, 'glance.impressions.value'), data_get($gsc, 'glance.impressions.secondary'), 'gsc');
+            $rows[] = $this->kpi(__('operator_runtime.website.kpi.impressions'), data_get($gsc, 'glance.impressions.value'), data_get($gsc, 'glance.impressions.secondary'), 'gsc');
         }
         if ($this->trusted($gsc, 'glance.ctr')) {
-            $rows[] = $this->kpi('CTR', data_get($gsc, 'glance.ctr.value'), data_get($gsc, 'glance.ctr.secondary'), 'gsc');
+            $rows[] = $this->kpi(__('operator_runtime.website.kpi.ctr'), data_get($gsc, 'glance.ctr.value'), data_get($gsc, 'glance.ctr.secondary'), 'gsc');
         }
         if ($this->trusted($ga4, 'glance.sessions')) {
-            $rows[] = $this->kpi('Sessions', data_get($ga4, 'glance.sessions.value'), data_get($ga4, 'glance.sessions.secondary'), 'ga4');
+            $rows[] = $this->kpi(__('operator_runtime.website.kpi.sessions'), data_get($ga4, 'glance.sessions.value'), data_get($ga4, 'glance.sessions.secondary'), 'ga4');
         }
 
         return array_values(array_filter($rows, static fn (array $row): bool => $row['value'] !== null));
@@ -104,7 +104,10 @@ final class PeriodAwareWebsiteWorkspace
 
     private function trusted(array $workspace, string $field): bool
     {
-        $state = data_get($workspace, 'data_provenance.'.$field);
+        $provenance = is_array($workspace['data_provenance'] ?? null)
+            ? $workspace['data_provenance']
+            : [];
+        $state = $provenance[$field] ?? null;
         if (! is_string($state)) {
             return false;
         }
