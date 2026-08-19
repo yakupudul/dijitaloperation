@@ -177,7 +177,7 @@ final class AssetDataSourcesPage extends Component
                 ->where(function ($q) use ($boundElsewhere, $currentResourceId): void {
                     $q->whereNotIn('id', $boundElsewhere);
                     if ($currentResourceId !== null) {
-                        $q->orWhereKey($currentResourceId);
+                        $q->orWhere('id', $currentResourceId);
                     }
                 })
                 ->orderBy('display_name')
