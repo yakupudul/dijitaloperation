@@ -166,8 +166,8 @@ Total datasets: **66**
 | `google_ads_campaign_daily` | `GOOGLE_ADS` | customer_id × date × campaign_id | `NORMALIZED_FACT` | 180d | daily | 5 | `COLLECTION_READY` |
 | `google_ads_ad_group_snapshot` | `GOOGLE_ADS` | customer_id × ad_group_id | `NORMALIZED_SNAPSHOT` | current | daily | 1 | `COLLECTION_READY` |
 | `google_ads_ad_snapshot` | `GOOGLE_ADS` | customer_id × ad_id | `NORMALIZED_SNAPSHOT` | current | daily | 6 | `COLLECTION_READY` |
-| `google_ads_keyword_snapshot` | `GOOGLE_ADS` | customer_id × criterion_id | `NORMALIZED_SNAPSHOT` | current | daily | 3 | `COLLECTION_READY` |
-| `google_ads_keyword_daily` | `GOOGLE_ADS` | customer_id × date × criterion_id | `NORMALIZED_FACT` | 180d | daily | 2 | `COLLECTION_READY` |
+| `google_ads_keyword_snapshot` | `GOOGLE_ADS` | customer_id × ad_group_id × criterion_id | `NORMALIZED_SNAPSHOT` | current | daily | 3 | `COLLECTION_READY` |
+| `google_ads_keyword_daily` | `GOOGLE_ADS` | customer_id × date × ad_group_id × criterion_id | `NORMALIZED_FACT` | 180d | daily | 2 | `COLLECTION_READY` |
 | `google_ads_search_term_daily` | `GOOGLE_ADS` | customer_id × date × search_term | `NORMALIZED_FACT` | 180d | daily | 4 | `COLLECTION_READY` |
 | `google_ads_landing_page_daily` | `GOOGLE_ADS` | customer_id × date × landing_page | `NORMALIZED_FACT` | 180d | daily | 3 | `COLLECTION_READY` |
 | `google_ads_conversion_action_snapshot` | `GOOGLE_ADS` | customer_id × conversion_action_id | `NORMALIZED_SNAPSHOT` | current | daily | 3 | `COLLECTION_READY` |

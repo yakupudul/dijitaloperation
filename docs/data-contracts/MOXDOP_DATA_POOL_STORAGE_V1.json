@@ -3892,11 +3892,13 @@
       "partition_column": null,
       "grain": [
         "customer_id",
+        "ad_group_id",
         "criterion_id"
       ],
       "natural_key": [
         "digital_asset_id",
         "customer_id",
+        "ad_group_id",
         "criterion_id"
       ],
       "columns": [
@@ -3914,6 +3916,12 @@
         },
         {
           "name": "customer_id",
+          "type": "text",
+          "nullable": false,
+          "role": "identity"
+        },
+        {
+          "name": "ad_group_id",
           "type": "text",
           "nullable": false,
           "role": "identity"
@@ -3994,7 +4002,7 @@
         "GADS_KEYWORD_STATUS"
       ],
       "collection_run_in_natural_key": false,
-      "notes": "Keyword entities"
+      "notes": "Keyword entities; grain is customer x ad_group x criterion (criterion_id is ad-group-scoped)"
     },
     {
       "logical_dataset_id": "google_ads_keyword_daily",
@@ -4007,12 +4015,14 @@
       "grain": [
         "customer_id",
         "date",
+        "ad_group_id",
         "criterion_id"
       ],
       "natural_key": [
         "digital_asset_id",
         "customer_id",
         "reporting_date",
+        "ad_group_id",
         "criterion_id"
       ],
       "columns": [
@@ -4039,6 +4049,12 @@
           "type": "date",
           "nullable": false,
           "role": "partition_key"
+        },
+        {
+          "name": "ad_group_id",
+          "type": "text",
+          "nullable": false,
+          "role": "identity"
         },
         {
           "name": "criterion_id",

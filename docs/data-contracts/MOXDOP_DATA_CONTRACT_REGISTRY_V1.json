@@ -7734,6 +7734,7 @@
       "metrics": [],
       "grain": [
         "customer_id",
+        "ad_group_id",
         "criterion_id"
       ],
       "historical_depth": {
@@ -7797,6 +7798,7 @@
       "metrics": [],
       "grain": [
         "customer_id",
+        "ad_group_id",
         "criterion_id"
       ],
       "historical_depth": {
@@ -7860,6 +7862,7 @@
       "metrics": [],
       "grain": [
         "customer_id",
+        "ad_group_id",
         "criterion_id"
       ],
       "historical_depth": {
@@ -7930,6 +7933,7 @@
       "grain": [
         "customer_id",
         "date",
+        "ad_group_id",
         "criterion_id"
       ],
       "historical_depth": {
@@ -8001,6 +8005,7 @@
       "grain": [
         "customer_id",
         "date",
+        "ad_group_id",
         "criterion_id"
       ],
       "historical_depth": {
@@ -19090,9 +19095,11 @@
       "storage_class": "NORMALIZED_SNAPSHOT",
       "grain": [
         "customer_id",
+        "ad_group_id",
         "criterion_id"
       ],
       "primary_dimensions": [
+        "ad_group_id",
         "criterion_id"
       ],
       "base_metrics": [],
@@ -19126,10 +19133,12 @@
       "grain": [
         "customer_id",
         "date",
+        "ad_group_id",
         "criterion_id"
       ],
       "primary_dimensions": [
         "date",
+        "ad_group_id",
         "criterion_id"
       ],
       "base_metrics": [

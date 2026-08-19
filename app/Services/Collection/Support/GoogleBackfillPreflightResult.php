@@ -33,6 +33,7 @@ final class GoogleBackfillPreflightResult
         public readonly ?int $anchorDigitalAssetId,
         /** @var list<int> */
         public readonly array $eligibleBindingIds,
+        public readonly ?int $brandId = null,
     ) {}
 
     /**
@@ -56,6 +57,7 @@ final class GoogleBackfillPreflightResult
             'contract_registry_id' => $this->contractRegistryId,
             'anchor_digital_asset_id' => $this->anchorDigitalAssetId,
             'eligible_binding_ids' => $this->eligibleBindingIds,
+            'brand_id' => $this->brandId,
         ];
     }
 }

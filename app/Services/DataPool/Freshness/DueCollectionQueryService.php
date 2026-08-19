@@ -38,6 +38,7 @@ final class DueCollectionQueryService
      *   customer_id?: ?int,
      *   brand_id?: ?int,
      *   digital_asset_id?: ?int,
+     *   core_asset_binding_ids?: list<int>,
      *   provider_sources?: list<string>|null,
      *   include_action_required?: bool,
      *   authorization_ready_by_binding_id?: array<int, bool>,
@@ -152,6 +153,14 @@ final class DueCollectionQueryService
             ->where('status', CoreAssetBinding::STATUS_ACTIVE)
             ->whereIn('capability', array_keys(self::CAPABILITY_PROVIDER));
 
+        $bindingIds = $this->normalizedBindingIds($filters);
+        if ($bindingIds !== null) {
+            $query->whereIn('id', $bindingIds);
+
+            /** @var list<CoreAssetBinding> */
+            return $query->orderBy('id')->get()->all();
+        }
+
         if (isset($filters['digital_asset_id'])) {
             $query->where('digital_asset_id', (int) $filters['digital_asset_id']);
         }
@@ -164,6 +173,34 @@ final class DueCollectionQueryService
 
         /** @var list<CoreAssetBinding> */
         return $query->orderBy('id')->get()->all();
+    }
+
+    /**
+     * Exact-ID due-query scope. When present, digital_asset / brand / customer
+     * filters are not applied — callers must pass only the intended binding IDs.
+     *
+     * @param  array<string, mixed>  $filters
+     * @return list<int>|null
+     */
+    private function normalizedBindingIds(array $filters): ?array
+    {
+        if (! array_key_exists('core_asset_binding_ids', $filters)) {
+            return null;
+        }
+
+        $raw = $filters['core_asset_binding_ids'];
+        if (! is_array($raw)) {
+            return [];
+        }
+
+        $ids = [];
+        foreach ($raw as $id) {
+            if (is_int($id) || (is_string($id) && ctype_digit($id))) {
+                $ids[] = (int) $id;
+            }
+        }
+
+        return array_values(array_unique($ids));
     }
 
     /**

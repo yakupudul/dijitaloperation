@@ -15,6 +15,8 @@
 !/.cursor/cloud-agent-start.sh
 !/.cursor/dotenv.cursor-cloud.example
 !/.cursor/dotenv.uat.example
+!/.cursor/skills/
+!/.cursor/skills/**
 /.idea
 /.nova
 /.phpunit.cache

@@ -224,7 +224,49 @@ class CollectionEngineFeatureTest extends TestCase
         $this->assertSame(CollectionRunStatus::Queued, $resumed->status);
         $this->assertSame(['page' => 3], $resumed->checkpoint);
         Queue::assertPushed(ExecuteDatasetRunJob::class);
+    }
 
+    #[Test]
+    public function resume_reopens_partial_collection_and_failed_resource(): void
+    {
+        Queue::fake();
+
+        $run = CollectionRun::factory()->create([
+            'digital_asset_id' => $this->asset->id,
+            'status' => CollectionRunStatus::Partial,
+            'finished_at' => now(),
+        ]);
+        $resource = $run->resourceRuns()->create([
+            'provider_or_source' => 'GA4',
+            'resource_kind' => 'bound_provider_resource',
+            'digital_asset_id' => $this->asset->id,
+            'core_asset_binding_id' => $this->binding->id,
+            'status' => CollectionRunStatus::Failed,
+            'finished_at' => now(),
+            'datasets_total' => 1,
+            'datasets_failed' => 1,
+        ]);
+        $dataset = CollectionDatasetRun::factory()->create([
+            'collection_run_id' => $run->id,
+            'collection_resource_run_id' => $resource->id,
+            'status' => CollectionRunStatus::Failed,
+            'attempt_count' => 1,
+            'finished_at' => now(),
+        ]);
+
+        $resumed = app(ResumeDatasetRunService::class)->resume($dataset->fresh());
+
+        $this->assertSame(CollectionRunStatus::Queued, $resumed->status);
+        $this->assertSame(CollectionRunStatus::Queued, $resource->fresh()->status);
+        $this->assertNull($resource->fresh()->finished_at);
+        $this->assertSame(CollectionRunStatus::Queued, $run->fresh()->status);
+        $this->assertNull($run->fresh()->finished_at);
+        Queue::assertPushed(ExecuteDatasetRunJob::class);
+    }
+
+    #[Test]
+    public function completed_dataset_cannot_be_resumed(): void
+    {
         $completed = CollectionRun::factory()->create([
             'status' => CollectionRunStatus::Completed,
             'digital_asset_id' => $this->asset->id,

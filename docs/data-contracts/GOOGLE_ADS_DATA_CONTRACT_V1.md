@@ -632,8 +632,8 @@ One query counts as one operation whether paged or streamed — still minimize r
 | `google_ads_campaign_budget_snapshot` | entity | budget_id | — | amount_micros, shared | Campaigns | current | daily | low | customer_id | |
 | `google_ads_campaign_daily` | date×campaign | campaign_id, date | cost, clicks, impr, primary/raw conversions, IS fields | — | Overview, Campaigns | min 90d | daily + late recheck | med | date | IS may be null |
 | `google_ads_ad_group_snapshot` | entity | ad_group_id | — | name, status, campaign_id | relationship | current | daily | med | customer_id | |
-| `google_ads_keyword_snapshot` | entity | criterion_id | — | text, match, status, campaign, ad_group | Keywords | current | daily | med | customer_id | |
-| `google_ads_keyword_daily` | date×criterion | criterion_id, date | cost, clicks, impr, conversions | — | Keywords | min 90d | daily | med–high | date | |
+| `google_ads_keyword_snapshot` | entity | ad_group_id × criterion_id | — | text, match, status, campaign, ad_group | Keywords | current | daily | med | customer_id | |
+| `google_ads_keyword_daily` | date×ad_group×criterion | ad_group_id, criterion_id, date | cost, clicks, impr, conversions | — | Keywords | min 90d | daily | med–high | date | |
 | `google_ads_search_term_daily` | date×term×ad_group (or campaign for PMax) | composite | cost, clicks, impr, conversions | status optional | Search & Demand | min 90d (cardinality!) | daily | **high** | date | **privacy incomplete** |
 | `google_ads_ad_snapshot` | entity | ad_id | — | copy, urls, status, strength | Ads & Assets | current | daily | med | customer_id | |
 | `google_ads_asset_coverage_snapshot` | entity/assoc | asset/link keys | — | type, association state | Ads & Assets | current | daily | med | customer_id | Conditional |

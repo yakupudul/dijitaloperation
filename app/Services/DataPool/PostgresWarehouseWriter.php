@@ -11,7 +11,6 @@ use App\Services\DataPool\Support\WriteReceipt;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use InvalidArgumentException;
 use RuntimeException;
 use Throwable;
@@ -33,32 +32,6 @@ final class PostgresWarehouseWriter implements WarehouseWriter
     {
         if ($batch->records === []) {
             throw new InvalidArgumentException('NormalizedDatasetBatch must contain at least one record or callers should skip write');
-        }
-
-        $existing = DatasetWriteBatch::query()
-            ->where('status', WriteBatchStatus::Committed)
-            ->where(function ($q) use ($batch): void {
-                $q->where('idempotency_key', $batch->resolvedIdempotencyKey())
-                    ->orWhere(function ($q2) use ($batch): void {
-                        $q2->where('dataset_run_id', $batch->datasetRunId)
-                            ->where('batch_key', $batch->batchKey);
-                    });
-            })
-            ->first();
-
-        if ($existing !== null && $existing->status === WriteBatchStatus::Committed) {
-            return new WriteReceipt(
-                writeBatchId: (int) $existing->id,
-                status: WriteBatchStatus::Committed->value,
-                rowsReceived: (int) $existing->rows_received,
-                rowsInserted: (int) $existing->rows_inserted,
-                rowsUpdated: (int) $existing->rows_updated,
-                rowsUnchanged: $existing->rows_unchanged,
-                checkpointSafe: true,
-                rawIngestionObjectId: $existing->raw_ingestion_object_id,
-                committedAt: $existing->committed_at,
-                reusedExisting: true,
-            );
         }
 
         $physical = $this->registry->physicalDataset($batch->datasetId);
@@ -93,6 +66,14 @@ final class PostgresWarehouseWriter implements WarehouseWriter
             }
         }
 
+        $prepared = $this->collapseByNaturalKey($prepared, $naturalKey, $writeMode);
+        $dates = [];
+        foreach ($prepared as $row) {
+            if (isset($row['reporting_date'])) {
+                $dates[] = (string) $row['reporting_date'];
+            }
+        }
+
         if (($physical['partition_strategy'] ?? 'NONE') === 'RANGE_MONTHLY') {
             if ($dates === []) {
                 throw new RuntimeException("Partitioned dataset [{$batch->datasetId}] requires reporting_date on records");
@@ -106,51 +87,63 @@ final class PostgresWarehouseWriter implements WarehouseWriter
             }
         }
 
-        $writeBatch = DatasetWriteBatch::query()->create([
-            'dataset_run_id' => $batch->datasetRunId,
-            'batch_key' => $batch->batchKey,
-            'idempotency_key' => $batch->resolvedIdempotencyKey(),
-            'raw_ingestion_object_id' => $batch->rawPayloadReference?->rawIngestionObjectId,
-            'dataset_id' => $batch->datasetId,
-            'status' => WriteBatchStatus::Pending,
-            'rows_received' => count($prepared),
-            'rows_inserted' => 0,
-            'rows_updated' => 0,
-            'started_at' => $now,
-            'checksum' => hash('sha256', json_encode(array_column($prepared, 'record_fingerprint'))),
-        ]);
+        $checksum = hash('sha256', json_encode(array_column($prepared, 'record_fingerprint')));
+        $writeBatch = $this->prepareWriteBatch($batch, $now, count($prepared), $checksum);
 
-        try {
-            $stats = DB::transaction(function () use ($table, $prepared, $naturalKey, $writeMode, $columnNames): array {
-                return $this->bulkUpsert($table, $prepared, $naturalKey, $writeMode, $columnNames);
-            });
+        if ($writeBatch->status === WriteBatchStatus::Committed) {
+            return $this->receiptFromBatch($writeBatch, reusedExisting: true);
+        }
 
+        if ($this->factsMayHaveCommitted($writeBatch) && $this->checksumMatches($writeBatch->checksum, $checksum)) {
+            $this->materializations->recordSuccessfulWrite($batch, $prepared, [
+                'inserted' => 0,
+                'updated' => 0,
+                'unchanged' => count($prepared),
+            ]);
             $writeBatch->forceFill([
                 'status' => WriteBatchStatus::Committed,
-                'rows_inserted' => $stats['inserted'],
-                'rows_updated' => $stats['updated'],
-                'rows_unchanged' => $stats['unchanged'],
-                'committed_at' => now(),
+                'error_summary' => null,
+                'committed_at' => $writeBatch->committed_at ?? now(),
             ])->save();
 
-            $this->materializations->recordSuccessfulWrite($batch, $prepared, $stats);
+            return $this->receiptFromBatch($writeBatch->fresh() ?? $writeBatch, reusedExisting: true);
+        }
 
-            return new WriteReceipt(
-                writeBatchId: (int) $writeBatch->id,
-                status: WriteBatchStatus::Committed->value,
-                rowsReceived: count($prepared),
-                rowsInserted: $stats['inserted'],
-                rowsUpdated: $stats['updated'],
-                rowsUnchanged: $stats['unchanged'],
-                checkpointSafe: true,
-                rawIngestionObjectId: $batch->rawPayloadReference?->rawIngestionObjectId,
-                committedAt: $writeBatch->committed_at,
-            );
+        try {
+            return DB::transaction(function () use ($table, $prepared, $naturalKey, $writeMode, $columnNames, $writeBatch, $batch): WriteReceipt {
+                $stats = $this->bulkUpsert($table, $prepared, $naturalKey, $writeMode, $columnNames);
+
+                $writeBatch->forceFill([
+                    'status' => WriteBatchStatus::Committed,
+                    'rows_inserted' => $stats['inserted'],
+                    'rows_updated' => $stats['updated'],
+                    'rows_unchanged' => $stats['unchanged'],
+                    'committed_at' => now(),
+                    'error_summary' => null,
+                ])->save();
+
+                $this->materializations->recordSuccessfulWrite($batch, $prepared, $stats);
+
+                return new WriteReceipt(
+                    writeBatchId: (int) $writeBatch->id,
+                    status: WriteBatchStatus::Committed->value,
+                    rowsReceived: count($prepared),
+                    rowsInserted: $stats['inserted'],
+                    rowsUpdated: $stats['updated'],
+                    rowsUnchanged: $stats['unchanged'],
+                    checkpointSafe: true,
+                    rawIngestionObjectId: $batch->rawPayloadReference?->rawIngestionObjectId,
+                    committedAt: $writeBatch->committed_at,
+                );
+            });
         } catch (Throwable $e) {
-            $writeBatch->forceFill([
-                'status' => WriteBatchStatus::Failed,
-                'error_summary' => mb_substr($e->getMessage(), 0, 2000),
-            ])->save();
+            $writeBatch->refresh();
+            if ($writeBatch->status !== WriteBatchStatus::Committed && $writeBatch->committed_at === null) {
+                $writeBatch->forceFill([
+                    'status' => WriteBatchStatus::Failed,
+                    'error_summary' => mb_substr($e->getMessage(), 0, 2000),
+                ])->save();
+            }
 
             throw $e;
         }
@@ -294,6 +287,35 @@ final class PostgresWarehouseWriter implements WarehouseWriter
     }
 
     /**
+     * PostgreSQL ON CONFLICT cannot update the same constrained row twice in one INSERT.
+     * Last record in the batch wins (late-correction semantics).
+     *
+     * @param  list<array<string, mixed>>  $rows
+     * @param  list<string>  $naturalKey
+     * @return list<array<string, mixed>>
+     */
+    private function collapseByNaturalKey(array $rows, array $naturalKey, string $writeMode): array
+    {
+        if ($rows === [] || $naturalKey === []) {
+            return $rows;
+        }
+        if ($writeMode === 'APPEND_SNAPSHOT' || $writeMode === 'APPEND_OBSERVATION') {
+            return $rows;
+        }
+
+        $collapsed = [];
+        foreach ($rows as $row) {
+            $parts = [];
+            foreach ($naturalKey as $col) {
+                $parts[] = (string) ($row[$col] ?? '');
+            }
+            $collapsed[implode("\0", $parts)] = $row;
+        }
+
+        return array_values($collapsed);
+    }
+
+    /**
      * @param  list<string>  $naturalKey
      * @param  list<array<string, mixed>>  $chunk
      */
@@ -389,13 +411,114 @@ final class PostgresWarehouseWriter implements WarehouseWriter
                 'batch_key' => $batch->batchKey,
             ],
             [
-                'idempotency_key' => $batch->resolvedIdempotencyKey().':failed:'.Str::random(16),
+                'idempotency_key' => $batch->resolvedIdempotencyKey(),
                 'dataset_id' => $batch->datasetId,
                 'status' => WriteBatchStatus::Failed,
                 'rows_received' => $rows,
                 'error_summary' => mb_substr($message, 0, 2000),
                 'started_at' => now(),
             ]
+        );
+    }
+
+    private function prepareWriteBatch(
+        NormalizedDatasetBatch $batch,
+        mixed $now,
+        int $rowsReceived,
+        string $checksum,
+    ): DatasetWriteBatch {
+        $existing = DatasetWriteBatch::query()
+            ->where(function ($q) use ($batch): void {
+                $q->where('idempotency_key', $batch->resolvedIdempotencyKey())
+                    ->orWhere(function ($q2) use ($batch): void {
+                        $q2->where('dataset_run_id', $batch->datasetRunId)
+                            ->where('batch_key', $batch->batchKey);
+                    });
+            })
+            ->first();
+
+        if ($existing !== null && $existing->status === WriteBatchStatus::Committed) {
+            return $existing;
+        }
+
+        if ($existing !== null) {
+            if ($existing->dataset_id !== $batch->datasetId) {
+                throw new RuntimeException("Write batch conflict for [{$batch->datasetId}] batch [{$batch->batchKey}]");
+            }
+
+            if ($this->factsMayHaveCommitted($existing)) {
+                if (! $this->checksumMatches($existing->checksum, $checksum)) {
+                    throw new RuntimeException(
+                        "WRITE_BATCH_CHECKSUM_CONFLICT: facts may already be committed for [{$batch->datasetId}] batch [{$batch->batchKey}]; checksum replacement is only allowed before fact commit"
+                    );
+                }
+
+                return $existing;
+            }
+
+            // Pre-fact-commit pending/failed retries may rewrite the payload after a collector fix.
+            $existing->forceFill([
+                'idempotency_key' => $batch->resolvedIdempotencyKey(),
+                'raw_ingestion_object_id' => $batch->rawPayloadReference?->rawIngestionObjectId ?? $existing->raw_ingestion_object_id,
+                'dataset_id' => $batch->datasetId,
+                'status' => WriteBatchStatus::Pending,
+                'rows_received' => $rowsReceived,
+                'rows_inserted' => 0,
+                'rows_updated' => 0,
+                'rows_unchanged' => null,
+                'started_at' => $now,
+                'committed_at' => null,
+                'checksum' => $checksum,
+                'error_summary' => null,
+            ])->save();
+
+            return $existing->fresh() ?? $existing;
+        }
+
+        return DatasetWriteBatch::query()->create([
+            'dataset_run_id' => $batch->datasetRunId,
+            'batch_key' => $batch->batchKey,
+            'idempotency_key' => $batch->resolvedIdempotencyKey(),
+            'raw_ingestion_object_id' => $batch->rawPayloadReference?->rawIngestionObjectId,
+            'dataset_id' => $batch->datasetId,
+            'status' => WriteBatchStatus::Pending,
+            'rows_received' => $rowsReceived,
+            'rows_inserted' => 0,
+            'rows_updated' => 0,
+            'started_at' => $now,
+            'checksum' => $checksum,
+        ]);
+    }
+
+    private function factsMayHaveCommitted(DatasetWriteBatch $batch): bool
+    {
+        return $batch->committed_at !== null
+            || (int) $batch->rows_inserted > 0
+            || (int) $batch->rows_updated > 0;
+    }
+
+    private function checksumMatches(?string $existing, string $checksum): bool
+    {
+        if ($existing === null || $existing === '') {
+            return false;
+        }
+
+        return hash_equals($existing, $checksum);
+    }
+
+    private function receiptFromBatch(DatasetWriteBatch $writeBatch, bool $reusedExisting): WriteReceipt
+    {
+        return new WriteReceipt(
+            writeBatchId: (int) $writeBatch->id,
+            status: WriteBatchStatus::Committed->value,
+            rowsReceived: (int) $writeBatch->rows_received,
+            rowsInserted: (int) $writeBatch->rows_inserted,
+            rowsUpdated: (int) $writeBatch->rows_updated,
+            rowsUnchanged: $writeBatch->rows_unchanged,
+            checkpointSafe: true,
+            rawIngestionObjectId: $writeBatch->raw_ingestion_object_id,
+            committedAt: $writeBatch->committed_at,
+            reusedExisting: $reusedExisting,
         );
     }
 }

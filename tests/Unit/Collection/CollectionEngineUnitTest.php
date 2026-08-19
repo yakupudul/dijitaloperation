@@ -113,6 +113,33 @@ class CollectionEngineUnitTest extends TestCase
 
         $this->assertSame(CollectionRunStatus::Completed, $resource->fresh()->status);
         $this->assertSame(CollectionRunStatus::Completed, $run->fresh()->status);
+        $this->assertNull($run->fresh()->failure_summary);
+    }
+
+    #[Test]
+    public function all_required_failures_store_failure_summary(): void
+    {
+        $run = CollectionRun::factory()->create(['status' => CollectionRunStatus::Running, 'datasets_total' => 1]);
+        $resource = CollectionResourceRun::factory()->create([
+            'collection_run_id' => $run->id,
+            'status' => CollectionRunStatus::Running,
+            'datasets_total' => 1,
+        ]);
+        CollectionDatasetRun::factory()->create([
+            'collection_run_id' => $run->id,
+            'collection_resource_run_id' => $resource->id,
+            'status' => CollectionRunStatus::Failed,
+            'requirement_level' => RequirementLevel::Required,
+            'request_family_id' => 'A',
+            'dataset_contract_id' => 'a',
+        ]);
+
+        app(CollectionStatusAggregator::class)->aggregateResource($resource->fresh());
+        app(CollectionStatusAggregator::class)->aggregateCollection($run->fresh());
+
+        $this->assertSame(CollectionRunStatus::Failed, $resource->fresh()->status);
+        $this->assertSame(CollectionRunStatus::Failed, $run->fresh()->status);
+        $this->assertSame('All required datasets failed', $run->fresh()->failure_summary);
     }
 
     #[Test]

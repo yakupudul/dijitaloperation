@@ -118,15 +118,19 @@ class DataFreshnessIncrementalCollectionTest extends TestCase
         array $extraMeta = [],
         ?CarbonImmutable $lastCollectedAt = null,
         string $provider = 'GA4',
+        ?DigitalAsset $asset = null,
+        ?CoreExternalResource $resource = null,
     ): DatasetMaterialization {
         $dates = array_values(array_unique($dates));
         sort($dates);
         $set = CoverageIntervalSet::fromSuccessfulDates($dates);
+        $asset ??= $this->asset;
+        $resource ??= $this->resource;
 
         return DatasetMaterialization::query()->create([
             'dataset_id' => $datasetId,
-            'digital_asset_id' => $this->asset->id,
-            'external_resource_id' => $this->resource->id,
+            'digital_asset_id' => $asset->id,
+            'external_resource_id' => $resource->id,
             'provider_or_source' => $provider,
             'contract_version' => 1,
             'status' => MaterializationStatus::Available,
@@ -170,8 +174,13 @@ class DataFreshnessIncrementalCollectionTest extends TestCase
         return $this->contiguousDates($startDate, $count);
     }
 
-    private function materializeAllGa4DatasetsFresh(string $collectableEnd): void
-    {
+    private function materializeAllGa4DatasetsFresh(
+        string $collectableEnd,
+        ?DigitalAsset $asset = null,
+        ?CoreExternalResource $resource = null,
+    ): void {
+        $asset ??= $this->asset;
+        $resource ??= $this->resource;
         $contracts = app(DataContractRegistryLoader::class);
         $contracts->load();
         $loader = app(DataFreshnessPolicyLoader::class);
@@ -198,8 +207,8 @@ class DataFreshnessIncrementalCollectionTest extends TestCase
             if (($policy['collection_mode'] ?? '') === 'CURRENT_SNAPSHOT') {
                 DatasetMaterialization::query()->create([
                     'dataset_id' => $datasetId,
-                    'digital_asset_id' => $this->asset->id,
-                    'external_resource_id' => $this->resource->id,
+                    'digital_asset_id' => $asset->id,
+                    'external_resource_id' => $resource->id,
                     'provider_or_source' => 'GA4',
                     'contract_version' => 1,
                     'status' => MaterializationStatus::Available,
@@ -216,6 +225,9 @@ class DataFreshnessIncrementalCollectionTest extends TestCase
                 $datasetId,
                 $this->datesThrough($collectableEnd),
                 ['last_reprocess_through' => $collectableEnd],
+                provider: 'GA4',
+                asset: $asset,
+                resource: $resource,
             );
         }
     }
@@ -692,5 +704,159 @@ class DataFreshnessIncrementalCollectionTest extends TestCase
     {
         app(DataContractRegistryLoader::class)->load();
         $this->assertGreaterThan(0, count(app(DataFreshnessPolicyLoader::class)->policies()));
+    }
+
+    #[Test]
+    public function due_query_exact_binding_ids_include_sibling_assets_and_do_not_expand_to_unlisted_ids(): void
+    {
+        $stack = $this->freshnessStack();
+        $this->bindPlanner($stack['planner']);
+
+        $brand = $this->asset->brand;
+        $siblingAsset = DigitalAsset::factory()->create([
+            'brand_id' => $brand->id,
+            'type' => 'ga4',
+            'module_id' => 'ga4',
+            'status' => DigitalAssetStatus::Active,
+        ]);
+        $siblingResource = CoreExternalResource::factory()->create([
+            'integration_id' => $this->resource->integration_id,
+            'provider' => 'google',
+            'resource_type' => 'ga4',
+            'status' => CoreExternalResource::STATUS_AVAILABLE,
+            'metadata' => ['timezone' => 'Europe/Berlin'],
+        ]);
+        $siblingBinding = CoreAssetBinding::factory()->create([
+            'digital_asset_id' => $siblingAsset->id,
+            'external_resource_id' => $siblingResource->id,
+            'capability' => 'ga4',
+            'status' => CoreAssetBinding::STATUS_ACTIVE,
+        ]);
+
+        $otherBrand = Brand::factory()->create(['customer_id' => $brand->customer_id]);
+        $otherBrandAsset = DigitalAsset::factory()->create([
+            'brand_id' => $otherBrand->id,
+            'type' => 'ga4',
+            'module_id' => 'ga4',
+            'status' => DigitalAssetStatus::Active,
+        ]);
+        $otherBrandResource = CoreExternalResource::factory()->create([
+            'integration_id' => $this->resource->integration_id,
+            'provider' => 'google',
+            'resource_type' => 'ga4',
+            'status' => CoreExternalResource::STATUS_AVAILABLE,
+        ]);
+        $otherBrandBinding = CoreAssetBinding::factory()->create([
+            'digital_asset_id' => $otherBrandAsset->id,
+            'external_resource_id' => $otherBrandResource->id,
+            'capability' => 'ga4',
+            'status' => CoreAssetBinding::STATUS_ACTIVE,
+        ]);
+
+        $this->materializationWithDates('ga4_property_daily', $this->contiguousDates('2026-08-01', 5));
+        $this->materializationWithDates(
+            'ga4_property_daily',
+            $this->contiguousDates('2026-08-01', 5),
+            provider: 'GA4',
+            asset: $siblingAsset,
+            resource: $siblingResource,
+        );
+        $this->materializationWithDates(
+            'ga4_property_daily',
+            $this->contiguousDates('2026-08-01', 5),
+            provider: 'GA4',
+            asset: $otherBrandAsset,
+            resource: $otherBrandResource,
+        );
+
+        $anchorOnly = app(DueCollectionQueryService::class)->query([
+            'digital_asset_id' => $this->asset->id,
+            'provider_sources' => ['GA4'],
+        ]);
+        $anchorBindingIds = array_values(array_unique(array_map(
+            static fn ($item): int => $item->coreAssetBindingId,
+            $anchorOnly,
+        )));
+        $this->assertContains($this->binding->id, $anchorBindingIds);
+        $this->assertNotContains($siblingBinding->id, $anchorBindingIds);
+        $this->assertNotContains($otherBrandBinding->id, $anchorBindingIds);
+
+        $exact = app(DueCollectionQueryService::class)->query([
+            'core_asset_binding_ids' => [$siblingBinding->id],
+            'provider_sources' => ['GA4'],
+        ]);
+        $exactBindingIds = array_values(array_unique(array_map(
+            static fn ($item): int => $item->coreAssetBindingId,
+            $exact,
+        )));
+        $this->assertContains($siblingBinding->id, $exactBindingIds);
+        $this->assertNotContains($this->binding->id, $exactBindingIds);
+        $this->assertNotContains($otherBrandBinding->id, $exactBindingIds);
+        $this->assertTrue(collect($exact)->contains(
+            static fn ($item): bool => $item->datasetId === 'ga4_property_daily'
+                && $item->digitalAssetId === $siblingAsset->id
+                && ! $item->actionRequired,
+        ));
+    }
+
+    #[Test]
+    public function start_for_binding_ids_starts_when_only_a_sibling_binding_is_due(): void
+    {
+        Queue::fake();
+        $stack = $this->freshnessStack();
+        $this->bindPlanner($stack['planner']);
+
+        config([
+            'moxdop-collection.queue_connection' => 'database',
+            'moxdop-collection.require_queue_connection' => false,
+        ]);
+
+        $policy = $stack['policies']->policy('ga4_property_daily');
+        $collectableEnd = $stack['collectableEnd']->resolve($policy, 'UTC');
+        $this->materializeAllGa4DatasetsFresh($collectableEnd);
+
+        $siblingAsset = DigitalAsset::factory()->create([
+            'brand_id' => $this->asset->brand_id,
+            'type' => 'ga4',
+            'module_id' => 'ga4',
+            'status' => DigitalAssetStatus::Active,
+        ]);
+        $siblingResource = CoreExternalResource::factory()->create([
+            'integration_id' => $this->resource->integration_id,
+            'provider' => 'google',
+            'resource_type' => 'ga4',
+            'status' => CoreExternalResource::STATUS_AVAILABLE,
+            'metadata' => ['timezone' => 'Europe/Berlin'],
+        ]);
+        $siblingBinding = CoreAssetBinding::factory()->create([
+            'digital_asset_id' => $siblingAsset->id,
+            'external_resource_id' => $siblingResource->id,
+            'capability' => 'ga4',
+            'status' => CoreAssetBinding::STATUS_ACTIVE,
+        ]);
+        $this->materializationWithDates(
+            'ga4_property_daily',
+            $this->contiguousDates('2026-08-01', 5),
+            provider: 'GA4',
+            asset: $siblingAsset,
+            resource: $siblingResource,
+        );
+
+        $anchorOnly = app(StartIncrementalCollectionService::class)->startForDigitalAsset($this->asset);
+        $this->assertSame('data_current', $anchorOnly->outcome);
+
+        $result = app(StartIncrementalCollectionService::class)->startForBindingIds(
+            [$this->binding->id, $siblingBinding->id],
+        );
+        $this->assertSame('started', $result->outcome);
+        $this->assertNotNull($result->collectionRun);
+        $plannedBindingIds = $result->collectionRun->resourceRuns()->pluck('core_asset_binding_id')->all();
+        $this->assertContains($siblingBinding->id, $plannedBindingIds);
+        $this->assertNotContains($this->binding->id, $plannedBindingIds);
+        $this->assertTrue(collect($result->decisions)->contains(
+            static fn (array $row): bool => ($row['core_asset_binding_id'] ?? null) === $siblingBinding->id
+                && ($row['dataset_id'] ?? null) === 'ga4_property_daily',
+        ));
+        Http::assertNothingSent();
     }
 }

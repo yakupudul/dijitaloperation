@@ -119,8 +119,8 @@ final class GoogleAdsNormalizer
                     'status' => $campaign['status'] ?? null,
                     'advertising_channel_type' => $campaign['advertisingChannelType'] ?? $campaign['advertising_channel_type'] ?? null,
                     'advertising_channel_sub_type' => $campaign['advertisingChannelSubType'] ?? $campaign['advertising_channel_sub_type'] ?? null,
-                    'start_date' => $campaign['startDate'] ?? $campaign['start_date'] ?? null,
-                    'end_date' => $campaign['endDate'] ?? $campaign['end_date'] ?? null,
+                    'start_date' => $this->campaignCalendarDate($campaign, 'start'),
+                    'end_date' => $this->campaignCalendarDate($campaign, 'end'),
                     'budget_id' => isset($budget['id']) ? (string) $budget['id'] : null,
                     'not_ad_group' => true,
                     'not_asset_group' => true,
@@ -267,21 +267,24 @@ final class GoogleAdsNormalizer
                 ? ($row['adGroupCriterion'] ?? $row['ad_group_criterion'])
                 : [];
             $criterionId = (string) ($criterion['criterionId'] ?? $criterion['criterion_id'] ?? '');
-            if ($criterionId === '') {
+            $adGroupId = $this->adGroupId($row);
+            if ($criterionId === '' || $adGroupId === '') {
                 continue;
             }
             $keyword = is_array($criterion['keyword'] ?? null) ? $criterion['keyword'] : [];
-            $out[] = [
+            $identity = $adGroupId."\0".$criterionId;
+            $out[$identity] = [
                 'digital_asset_id' => $digitalAssetId,
                 'external_resource_id' => $externalResourceId,
                 'customer_id' => $customerId,
+                'ad_group_id' => $adGroupId,
                 'criterion_id' => $criterionId,
                 'source_timezone' => $timezone,
                 'metadata' => [
                     'keyword_text' => $keyword['text'] ?? null,
                     'match_type' => $keyword['matchType'] ?? $keyword['match_type'] ?? null,
                     'status' => $criterion['status'] ?? null,
-                    'ad_group_id' => data_get($row, 'adGroup.id') ?? data_get($row, 'ad_group.id'),
+                    'ad_group_id' => $adGroupId,
                     'campaign_id' => data_get($row, 'campaign.id'),
                     'keyword_neq_search_term' => true,
                     'collector_version' => config('moxdop-google-ads-collector.collector_version'),
@@ -289,7 +292,7 @@ final class GoogleAdsNormalizer
             ];
         }
 
-        return $out;
+        return array_values($out);
     }
 
     /**
@@ -503,7 +506,6 @@ final class GoogleAdsNormalizer
     ): array {
         $daily = [];
         $snapshots = [];
-        $seenCriterion = [];
 
         foreach ($rows as $row) {
             if (! is_array($row)) {
@@ -514,18 +516,21 @@ final class GoogleAdsNormalizer
                 ? ($row['adGroupCriterion'] ?? $row['ad_group_criterion'])
                 : [];
             $criterionId = (string) ($criterion['criterionId'] ?? $criterion['criterion_id'] ?? '');
-            if ($date === null || $criterionId === '') {
+            $adGroupId = $this->adGroupId($row);
+            if ($date === null || $criterionId === '' || $adGroupId === '') {
                 continue;
             }
             $metrics = is_array($row['metrics'] ?? null) ? $row['metrics'] : [];
             $costMicros = (string) ($metrics['costMicros'] ?? $metrics['cost_micros'] ?? '0');
             $keyword = is_array($criterion['keyword'] ?? null) ? $criterion['keyword'] : [];
+            $identity = $adGroupId."\0".$criterionId;
 
-            $daily[] = [
+            $daily[$date."\0".$identity] = [
                 'digital_asset_id' => $digitalAssetId,
                 'external_resource_id' => $externalResourceId,
                 'customer_id' => $customerId,
                 'reporting_date' => $date,
+                'ad_group_id' => $adGroupId,
                 'criterion_id' => $criterionId,
                 'impressions' => (int) ($metrics['impressions'] ?? 0),
                 'clicks' => (int) ($metrics['clicks'] ?? 0),
@@ -537,24 +542,25 @@ final class GoogleAdsNormalizer
                 'metadata' => [
                     'keyword_text' => $keyword['text'] ?? null,
                     'match_type' => $keyword['matchType'] ?? $keyword['match_type'] ?? null,
+                    'ad_group_id' => $adGroupId,
                     'keyword_neq_search_term' => true,
                     'collector_version' => config('moxdop-google-ads-collector.collector_version'),
                 ],
             ];
 
-            if (! isset($seenCriterion[$criterionId])) {
-                $seenCriterion[$criterionId] = true;
-                $snapshots[] = [
+            if (! isset($snapshots[$identity])) {
+                $snapshots[$identity] = [
                     'digital_asset_id' => $digitalAssetId,
                     'external_resource_id' => $externalResourceId,
                     'customer_id' => $customerId,
+                    'ad_group_id' => $adGroupId,
                     'criterion_id' => $criterionId,
                     'source_timezone' => $timezone,
                     'metadata' => [
                         'keyword_text' => $keyword['text'] ?? null,
                         'match_type' => $keyword['matchType'] ?? $keyword['match_type'] ?? null,
                         'status' => $criterion['status'] ?? null,
-                        'ad_group_id' => data_get($row, 'adGroup.id') ?? data_get($row, 'ad_group.id'),
+                        'ad_group_id' => $adGroupId,
                         'campaign_id' => data_get($row, 'campaign.id'),
                         'keyword_neq_search_term' => true,
                         'collector_version' => config('moxdop-google-ads-collector.collector_version'),
@@ -563,7 +569,7 @@ final class GoogleAdsNormalizer
             }
         }
 
-        return ['daily' => $daily, 'snapshots' => $snapshots];
+        return ['daily' => array_values($daily), 'snapshots' => array_values($snapshots)];
     }
 
     /**
@@ -808,5 +814,47 @@ final class GoogleAdsNormalizer
         }
 
         return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private function adGroupId(array $row): string
+    {
+        $id = data_get($row, 'adGroup.id') ?? data_get($row, 'ad_group.id');
+
+        return $id !== null && $id !== '' ? (string) $id : '';
+    }
+
+    /**
+     * Google Ads API v25 returns campaign.start_date_time / end_date_time
+     * ("yyyy-MM-dd HH:mm:ss"). Storage metadata keeps calendar dates.
+     *
+     * @param  array<string, mixed>  $campaign
+     */
+    private function campaignCalendarDate(array $campaign, string $bound): ?string
+    {
+        $raw = match ($bound) {
+            'start' => $campaign['startDateTime']
+                ?? $campaign['start_date_time']
+                ?? $campaign['startDate']
+                ?? $campaign['start_date']
+                ?? null,
+            default => $campaign['endDateTime']
+                ?? $campaign['end_date_time']
+                ?? $campaign['endDate']
+                ?? $campaign['end_date']
+                ?? null,
+        };
+
+        if (! is_string($raw) || $raw === '') {
+            return null;
+        }
+
+        if (preg_match('/^(\d{4}-\d{2}-\d{2})/', $raw, $matches) === 1) {
+            return $matches[1];
+        }
+
+        return $raw;
     }
 }

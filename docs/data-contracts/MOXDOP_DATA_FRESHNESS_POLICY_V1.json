@@ -1559,6 +1559,7 @@
             "non_applicable_reason": null,
             "reporting_grain": [
                 "customer_id",
+                "ad_group_id",
                 "criterion_id"
             ],
             "timezone_source": "google_ads_customer_timezone",
@@ -1618,6 +1619,7 @@
             "reporting_grain": [
                 "customer_id",
                 "date",
+                "ad_group_id",
                 "criterion_id"
             ],
             "timezone_source": "google_ads_customer_timezone",
