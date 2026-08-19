@@ -44,6 +44,30 @@ final class ResumeDatasetRunService
             'last_activity_at' => now(),
         ])->save();
 
+        $resource = $datasetRun->resourceRun;
+        if ($resource !== null && in_array($resource->status, [
+            CollectionRunStatus::Failed,
+            CollectionRunStatus::Partial,
+        ], true)) {
+            $this->stateMachine->transition($resource, CollectionRunStatus::Queued);
+            $resource->forceFill([
+                'finished_at' => null,
+                'last_activity_at' => now(),
+            ])->save();
+        }
+
+        $run = $datasetRun->collectionRun;
+        if ($run !== null && in_array($run->status, [
+            CollectionRunStatus::Failed,
+            CollectionRunStatus::Partial,
+        ], true)) {
+            $this->stateMachine->transition($run, CollectionRunStatus::Queued);
+            $run->forceFill([
+                'finished_at' => null,
+                'last_activity_at' => now(),
+            ])->save();
+        }
+
         $this->starter->dispatchDatasetJob($datasetRun->fresh() ?? $datasetRun);
 
         return $datasetRun->fresh() ?? $datasetRun;

@@ -21,6 +21,7 @@ use App\Services\Collection\CheckpointManager;
 use App\Services\Collection\CollectionPlanner;
 use App\Services\Collection\DatasetExecutorResolver;
 use App\Services\Collection\Providers\GoogleAds\GoogleAdsDatasetExecutor;
+use App\Services\Collection\Providers\GoogleAds\GoogleAdsEligibilityGuard;
 use App\Services\Collection\Providers\GoogleAds\GoogleAdsNormalizer;
 use App\Services\Collection\Providers\GoogleAds\GoogleAdsRequestFamilyCatalog;
 use App\Services\Collection\Support\DatasetExecutionContext;
@@ -166,6 +167,115 @@ class GoogleAdsProductionCollectorTest extends TestCase
         $this->assertSame(DatasetExecutionOutcome::Failed, $result->outcome);
         $this->assertSame('MANAGER_NOT_PERFORMANCE_ROOT', $result->errorCode);
         Http::assertNothingSent();
+    }
+
+    #[Test]
+    public function website_anchored_multi_asset_run_accepts_sibling_ads_binding(): void
+    {
+        $website = DigitalAsset::factory()->create([
+            'brand_id' => $this->brand->id,
+            'type' => 'website',
+            'status' => DigitalAssetStatus::Active,
+        ]);
+
+        $run = CollectionRun::factory()->create([
+            'digital_asset_id' => $website->id,
+            'brand_id' => $this->brand->id,
+            'customer_id' => $this->brand->customer_id,
+            'status' => CollectionRunStatus::Running,
+            'request_context' => [
+                'context' => ['allow_multi_asset_bindings' => true],
+            ],
+        ]);
+
+        $resourceRun = CollectionResourceRun::factory()->create([
+            'collection_run_id' => $run->id,
+            'provider_or_source' => 'GOOGLE_ADS',
+            'external_resource_id' => $this->resource->id,
+            'digital_asset_id' => $this->asset->id,
+            'core_asset_binding_id' => $this->binding->id,
+            'status' => CollectionRunStatus::Running,
+        ]);
+
+        $scope = app(GoogleAdsEligibilityGuard::class)->assertEligible($run, $resourceRun);
+        $this->assertIsArray($scope);
+        $this->assertSame('1112223333', $scope['customer_id']);
+        $this->assertSame($this->asset->id, $scope['asset']->id);
+    }
+
+    #[Test]
+    public function sibling_ads_binding_without_multi_asset_flag_is_rejected(): void
+    {
+        $website = DigitalAsset::factory()->create([
+            'brand_id' => $this->brand->id,
+            'type' => 'website',
+            'status' => DigitalAssetStatus::Active,
+        ]);
+
+        $run = CollectionRun::factory()->create([
+            'digital_asset_id' => $website->id,
+            'brand_id' => $this->brand->id,
+            'customer_id' => $this->brand->customer_id,
+            'status' => CollectionRunStatus::Running,
+            'request_context' => [
+                'context' => ['allow_multi_asset_bindings' => false],
+            ],
+        ]);
+
+        $resourceRun = CollectionResourceRun::factory()->create([
+            'collection_run_id' => $run->id,
+            'provider_or_source' => 'GOOGLE_ADS',
+            'external_resource_id' => $this->resource->id,
+            'digital_asset_id' => $this->asset->id,
+            'core_asset_binding_id' => $this->binding->id,
+            'status' => CollectionRunStatus::Running,
+        ]);
+
+        $result = app(GoogleAdsEligibilityGuard::class)->assertEligible($run, $resourceRun);
+        $this->assertInstanceOf(DatasetExecutionResult::class, $result);
+        $this->assertSame(DatasetExecutionOutcome::Failed, $result->outcome);
+        $this->assertSame('CROSS_TENANT', $result->errorCode);
+        $this->assertSame(CollectionErrorCategory::Authorization, $result->errorCategory);
+    }
+
+    #[Test]
+    public function multi_asset_run_still_rejects_other_brand_ads_binding(): void
+    {
+        $otherBrand = Brand::factory()->create();
+        $website = DigitalAsset::factory()->create([
+            'brand_id' => $this->brand->id,
+            'type' => 'website',
+            'status' => DigitalAssetStatus::Active,
+        ]);
+        $foreignAds = DigitalAsset::factory()->create([
+            'brand_id' => $otherBrand->id,
+            'type' => 'google_ads',
+            'status' => DigitalAssetStatus::Active,
+        ]);
+        $this->binding->forceFill(['digital_asset_id' => $foreignAds->id])->save();
+
+        $run = CollectionRun::factory()->create([
+            'digital_asset_id' => $website->id,
+            'brand_id' => $this->brand->id,
+            'customer_id' => $this->brand->customer_id,
+            'status' => CollectionRunStatus::Running,
+            'request_context' => [
+                'context' => ['allow_multi_asset_bindings' => true],
+            ],
+        ]);
+
+        $resourceRun = CollectionResourceRun::factory()->create([
+            'collection_run_id' => $run->id,
+            'provider_or_source' => 'GOOGLE_ADS',
+            'external_resource_id' => $this->resource->id,
+            'digital_asset_id' => $foreignAds->id,
+            'core_asset_binding_id' => $this->binding->id,
+            'status' => CollectionRunStatus::Running,
+        ]);
+
+        $result = app(GoogleAdsEligibilityGuard::class)->assertEligible($run, $resourceRun);
+        $this->assertInstanceOf(DatasetExecutionResult::class, $result);
+        $this->assertSame('CROSS_TENANT', $result->errorCode);
     }
 
     #[Test]
