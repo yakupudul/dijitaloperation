@@ -40,7 +40,6 @@ class OverviewPage extends Component
         'overview',
         'health',
         'visibility',
-        'content',
         'performance',
         'infrastructure',
         'operations',
@@ -53,6 +52,7 @@ class OverviewPage extends Component
         'search' => 'visibility',
         'pages' => 'performance',
         'conversions' => 'performance',
+        'content' => 'overview',
         'lifecycle' => 'setup',
         'insights' => 'overview',
         'domain' => 'infrastructure',
@@ -141,7 +141,7 @@ class OverviewPage extends Component
     /** @param array{ok: bool, message: string} $result */
     private function showResult(array $result): void
     {
-        $this->message = (string) ($result['message'] ?? 'Operation queued.');
+        $this->message = (string) ($result['message'] ?? __('operator_runtime.sources.collect_failed'));
         $this->messageTone = ($result['ok'] ?? false) ? 'success' : 'info';
     }
 
