@@ -34,13 +34,14 @@
 
 | Capability | Code | Automated Tests | Real UAT | Operator UX | Background-ready | State | Known blocker / debt | Canonical notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Customer / Brand management | YES | YES | NO | YES | N/A | TESTED | Formal real-operator UAT not recorded as PASS | Core Filament Customer → Brand CRUD / portfolio |
-| Digital Assets | YES | YES | NO | YES | PARTIAL | TESTED | Long actions migrated to queue; short cross-asset checks still sync | Types include website, google_ads, gbp, meta_ads, instagram |
+| Customer / Brand management | YES | YES | NO | YES | N/A | TESTED | Formal real-operator UAT not recorded as PASS | Operator `/customers` `/brands`; Filament `/admin` technical CRUD |
+| Digital Assets | YES | YES | NO | YES | PARTIAL | TESTED | Long actions migrated to queue; short cross-asset checks still sync | Operator `/assets`; types include website, google_ads, gbp, meta_ads, instagram |
+| Canonical operator URL architecture (ADR-044) | YES | YES | NO | YES | N/A | **TESTED** | Formal live host UAT not claimed on this PR | Operator product at `/` `/login` `/customers` `/brands` `/assets` `/integrations` `/tasks`; Filament `/admin` only; legacy `/app` `/system` → 410 |
 | Google central Integration | YES | YES | NO | YES | NO | TESTED | Live OAuth requires external Google Cloud console; resource refresh sync | Agency Google Integration; ADR-039/040; Prompt 13+14 |
 | Frozen Google Integration UI (backend state) | YES | YES | NO | YES | N/A | **TESTED** | Discovery/bind UX still PARTIAL (Prompts 15–16); connector pages still Demo | `GoogleIntegrationReadModel` + `GoogleConnectorRegistry`; docs: `GOOGLE_INTEGRATION_ARCHITECTURE.md` |
 | Google OAuth & credential lifecycle | YES | YES | NO | YES | YES | **TESTED** | External Google Cloud verification/approval MANUAL; no live OAuth in CI | `GoogleOAuthService` + `GoogleCredentialBroker` + attempt store; docs: `GOOGLE_OAUTH_CREDENTIAL_LIFECYCLE.md` |
 | Google resource discovery (GA4/GSC/Ads/GBP) | YES | YES | NO | YES | PARTIAL | **TESTED** | GBP/Ads external API access MANUAL; discovery sync on operator action; no auto bind | `DiscoverGoogleResourcesService` + four discoverers; docs: `GOOGLE_RESOURCE_DISCOVERY.md` |
-| Google resource selection & asset binding | YES | YES | NO | YES | N/A | **TESTED** | Human confirmation required; no collection side effect; Filament + frozen `/app` share guards | `ConfirmGoogleResourceBindingService`; docs: `GOOGLE_RESOURCE_SELECTION_BINDING.md` |
+| Google resource selection & asset binding | YES | YES | NO | YES | N/A | **TESTED** | Human confirmation required; no collection side effect; Filament `/admin` + operator `/integrations` share guards | `ConfirmGoogleResourceBindingService`; docs: `GOOGLE_RESOURCE_SELECTION_BINDING.md` |
 | Google resource discovery / binding | YES | YES | NO | YES | NO | TESTED | Refresh resources runs in-request; frozen bind workflow Prompt 16 | ExternalResources + AssetBinding |
 | Google live collection | YES | YES | NO | YES | YES | TESTED | Async via Activity Center / database queue; real Ads UAT not re-run here | GSC/GA4/Ads/GBP bound collectors via queued `CollectLiveBoundDataJob` |
 | Google Ads Intelligence | YES | YES | NO | YES | YES | TESTED | Collect + AI guidance queued; Expert Workspace not redesigned | Module Findings + Analyst + Skills; docs say IMPLEMENTED V1 |
@@ -128,7 +129,7 @@ It is **not** full digital web discovery, social intelligence, review/news monit
 
 ### Async foundation (material)
 
-Long operator actions (bound collect, Website diagnosis, public discovery, SEO refresh when not fresh, Website/Google/Meta AI guidance) queue via `AsyncOperationService` onto Laravel **database** queue. Canonical execution record remains **Run** (`queued|running|completed|partial|failed`; `cancelled` reserved). Activity Center is Filament `RunResource` (`/app/runs`) with phase progress, duplicate guards, stale detection, retry for safe failures, and in-app database notifications. **Cancellation** is intentionally **not** shipped (fragile with current job architecture). Cross-asset consistency packs and integration resource refresh remain synchronous by design for now.
+Long operator actions (bound collect, Website diagnosis, public discovery, SEO refresh when not fresh, Website/Google/Meta AI guidance) queue via `AsyncOperationService` onto Laravel **database** queue. Canonical execution record remains **Run** (`queued|running|completed|partial|failed`; `cancelled` reserved). Activity Center is Filament `RunResource` (`/admin/runs`) with phase progress, duplicate guards, stale detection, retry for safe failures, and in-app database notifications. **Cancellation** is intentionally **not** shipped (fragile with current job architecture). Cross-asset consistency packs and integration resource refresh remain synchronous by design for now.
 
 ### Async is not fully universal
 

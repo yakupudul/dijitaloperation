@@ -17,13 +17,13 @@ Legend for **Demo dependency:** `none` · `catalog-only` · `session-chrome` · 
 | Auth (web guard) | REAL | Laravel session auth | `/app`, `/system` login | User credentials | Feature auth tests | none | — | — |
 | Users | REAL | `users` | Filament User resources | Filament / artisan admin | Role seeder tests | none | — | — |
 | Roles / permissions | REAL | Spatie tables | Middleware / policies | `RoleAndPermissionSeeder` | Permission tests | none | — | — |
-| Customers CRUD | REAL | `customers` | Filament + `/app` portfolio | Eloquent / Livewire create | Portfolio/feature tests | none | Formal live UAT not re-run | NOT_MANUALLY_VERIFIED ops UAT |
-| Brands CRUD | REAL | `brands` | Filament + `/app` | Eloquent / Livewire | Portfolio tests | none | — | — |
-| Digital Assets CRUD | REAL | `digital_assets` | Filament + `/app` assets | Eloquent / Livewire | Asset tests | none | Long actions need queue workers in deploy | Redis/Horizon optional per env |
+| Customers CRUD | REAL | `customers` | Filament `/admin` + root `/customers` portfolio | Eloquent / Livewire create | Portfolio/feature tests | none | Formal live UAT not re-run | NOT_MANUALLY_VERIFIED ops UAT |
+| Brands CRUD | REAL | `brands` | Filament `/admin` + root `/brands` | Eloquent / Livewire | Portfolio tests | none | — | — |
+| Digital Assets CRUD | REAL | `digital_assets` | Filament `/admin` + root `/assets` | Eloquent / Livewire | Asset tests | none | Long actions need queue workers in deploy | Redis/Horizon optional per env |
 | Module registry | REAL | modules seeder/registry | Filament Modules | Seeder | Module tests | none | — | — |
 | DatabaseSeeder (no fake Customer) | REAL | `DatabaseSeeder` | n/a | roles/modules/playbooks only | `DemoRealityFinalConvergenceTest` | none | — | — |
-| Frozen `/app` sidebar IA | REAL | Milestone 5 freeze | Livewire nav | n/a (frozen) | Route tests | session-chrome | Naming debt `Livewire\Demo` | Product change requires justification |
-| Filament `/system` admin | REAL | Panel id `app` path `/system` | Filament resources | Filament | Resource tests | none | — | — |
+| Frozen operator sidebar IA | REAL | Milestone 5 freeze | Livewire nav at site root | n/a (frozen) | Route tests | session-chrome | Naming debt `Livewire\Demo` | Product change requires justification |
+| Filament `/admin` admin | REAL | Panel id `app` path `/admin` (ADR-044) | Filament resources | Filament | Resource tests | none | Legacy `/app` `/system` → 410 | — |
 
 ---
 

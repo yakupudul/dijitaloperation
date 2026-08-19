@@ -3,7 +3,7 @@
 > **Canonical product overview** — what MoxDOP is from the **operator’s** point of view.  
 > Not a technical architecture document. Domain detail lives in sibling blueprints under `docs/product/**`.  
 > Authority: `docs/MASTER_SPEC.md` wins on conflict; this document elaborates operator intent and information architecture.  
-> Canonical application URL: **`/app`**. One application only.
+> Canonical application URL: **root routes** (`/`, `/login`, `/customers`, …). Filament technical tooling: **`/admin`**. One application only (ADR-044).
 
 ---
 
@@ -239,7 +239,7 @@ Continuity is a **product requirement**, not a side effect of CRUD. If critical 
 
 ### One application
 
-- Canonical URL: **`/app`**
+- Canonical URL: **`/`** (operator product). Filament technical panel: **`/admin`**.
 - Single Filament panel (`app`). Filament is the **implementation shell**, not a second product brand in the UI.
 - No separate “Modules” product area in primary navigation for operators.
 - No customer-facing site, no second admin product.
@@ -637,7 +637,7 @@ Provider/plan/renewal, uptime, backups, environment stack — Manual/Unknown whe
 - Custom date opens a real range picker and updates KPI/chart/table demo data  
 - Filters that do not change data must not render  
 - Cross-links: Ads landing ↔ Website; Finding ↔ Recommendation ↔ Task ↔ Outcome; Brand ↔ every asset  
-- One TailAdmin shell under `/app` only  
+- One TailAdmin shell at the site root only  
 
 ---
 

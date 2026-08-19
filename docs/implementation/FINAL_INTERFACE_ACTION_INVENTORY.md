@@ -26,8 +26,8 @@ Internal audit matrix for the Final Interface Completion milestone. Not an opera
 
 - No `href="#"` / Coming soon found under `resources/views/livewire/demo`.
 - No Demo blade links to `/system` or `/admin`.
-- Filament technical panel remains at `/system` for login and legacy CRUD; operator shell must not deep-link there.
-- Full Agent Profile / Skill assignment editors remain Filament-backed (`/system/settings/...`) — Demo Settings shows registry overview + Control Plane editor only.
+- Filament technical panel remains at `/admin` for login and technical CRUD (ADR-044); operator shell must not deep-link there.
+- Full Agent Profile / Skill assignment editors remain Filament-backed (`/admin/settings/...`) — operator Settings shows registry overview + Control Plane editor only.
 
 ## Classification legend
 

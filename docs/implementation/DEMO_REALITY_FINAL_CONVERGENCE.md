@@ -72,11 +72,11 @@ Frozen sidebar and specialist IA remain. Convergence changes data provenance beh
 
 ## 13. Namespace Naming Debt
 
-`App\Livewire\Demo\**` names the historical Demo-era Livewire tree that now hosts production `/app` operator UI. Do not infer “all Demo namespace = fake data.”
+`App\Livewire\Demo\**` names the historical Demo-era Livewire tree that now hosts production operator UI at the site root. Do not infer “all Demo namespace = fake data.”
 
-## 14. Filament `/system` Panel Boundary
+## 14. Filament `/admin` Panel Boundary
 
-Filament panel id `app`, path `/system` — technical/admin resources (Customers, Findings, Tasks, Runs, Modules, …). Operator product UI is Livewire `/app` (routes in `routes/demo.php` + middleware).
+Filament panel id `app`, path `/admin` — technical/admin resources (Customers, Findings, Tasks, Runs, Modules, …). Operator product UI is Livewire at the site root (routes in `routes/demo.php` + `routes/web.php` + middleware). Legacy `/app` and `/system` return HTTP 410.
 
 ## 15. Explicit Demo Runtime (Atlas)
 

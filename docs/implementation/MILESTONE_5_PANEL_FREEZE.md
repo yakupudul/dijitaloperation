@@ -1,6 +1,6 @@
 # Milestone 5 — Panel Design Freeze & Post-Freeze Backend Roadmap
 
-Status reference for the frozen `/app` operator panel. UI work after this document requires product-level justification.
+Status reference for the frozen operator panel (now at site root; ADR-044). Historical `/app` path labels in this freeze are superseded. UI work after this document requires product-level justification.
 
 ## Capability Reality Matrix
 

@@ -4,8 +4,9 @@ Status: Demo / presenter milestone (no provider expansion, no warehouse, no seco
 
 ## Canonical surface
 
-- Operator product: `/app` (TailAdmin Livewire Demo Mode)
-- System/admin: `/system` (Filament) — not duplicated as a second operator shell
+- Operator product: `/` (TailAdmin Livewire)
+- Technical/admin: `/admin` (Filament) — not duplicated as a second operator shell
+- Legacy `/app/*` and `/system/*`: HTTP 410
 - Navigation groups: Menu · Portfolio · Operations · System
 - Modules are developer architecture — not operator navigation
 
