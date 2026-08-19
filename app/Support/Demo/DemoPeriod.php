@@ -6,14 +6,17 @@ use Carbon\Carbon;
 use Carbon\CarbonInterface;
 
 /**
- * Canonical Demo Mode reporting period resolution.
- * Uses a coherent account timezone and deterministic anchor ("data through" date).
+ * Reporting period resolution shared by legacy operator workspaces.
+ *
+ * Demo/test runs keep a deterministic anchor so fixtures remain reproducible.
+ * Staging/production runs resolve presets from the actual current date; real
+ * provider workspaces must never be frozen to the Demo fixture anchor.
  */
 final class DemoPeriod
 {
     public const string TIMEZONE = 'Europe/Berlin';
 
-    /** Deterministic "today" for Demo fixtures (data through Aug 12, 2026). */
+    /** Deterministic fixture anchor used in tests/demo-only execution. */
     public const string ANCHOR_DATE = '2026-08-12';
 
     /**
@@ -71,6 +74,15 @@ final class DemoPeriod
 
     public static function anchor(): CarbonInterface
     {
+        $configured = config('moxdop.reporting_anchor_date');
+        if (is_string($configured) && trim($configured) !== '') {
+            return Carbon::parse($configured, (string) config('app.timezone', self::TIMEZONE))->startOfDay();
+        }
+
+        if (! app()->environment('testing')) {
+            return Carbon::now((string) config('app.timezone', self::TIMEZONE))->startOfDay();
+        }
+
         return Carbon::parse(self::ANCHOR_DATE, self::TIMEZONE)->startOfDay();
     }
 
