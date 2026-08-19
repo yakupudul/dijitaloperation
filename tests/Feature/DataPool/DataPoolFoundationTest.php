@@ -592,6 +592,53 @@ class DataPoolFoundationTest extends TestCase
     }
 
     #[Test]
+    public function failed_batch_with_stale_checksum_can_retry_collapsed_payload(): void
+    {
+        $run = CollectionDatasetRun::factory()->create([
+            'dataset_contract_id' => 'google_ads_keyword_snapshot',
+            'provider_or_source' => 'GOOGLE_ADS',
+        ]);
+
+        $stale = DatasetWriteBatch::query()->create([
+            'dataset_run_id' => (int) $run->id,
+            'batch_key' => 'gads:google_ads_keyword_snapshot:keyword_snapshot:chunk=0',
+            'idempotency_key' => hash('sha256', $run->id.'|gads:google_ads_keyword_snapshot:keyword_snapshot:chunk=0'),
+            'dataset_id' => 'google_ads_keyword_snapshot',
+            'status' => WriteBatchStatus::Failed,
+            'rows_received' => 2,
+            'rows_inserted' => 0,
+            'rows_updated' => 0,
+            'started_at' => now()->subMinute(),
+            'checksum' => str_repeat('a', 64),
+            'error_summary' => 'ON CONFLICT DO UPDATE command cannot affect row a second time',
+        ]);
+
+        $receipt = app(PostgresWarehouseWriter::class)->write(new NormalizedDatasetBatch(
+            datasetId: 'google_ads_keyword_snapshot',
+            datasetRunId: (int) $run->id,
+            contractVersion: 1,
+            batchKey: 'gads:google_ads_keyword_snapshot:keyword_snapshot:chunk=0',
+            records: [
+                [
+                    'digital_asset_id' => 2,
+                    'customer_id' => '1112223333',
+                    'criterion_id' => '999',
+                    'source_timezone' => 'Europe/Istanbul',
+                    'metadata' => ['ad_group_id' => '2', 'keyword_text' => 'second'],
+                ],
+            ],
+            digitalAssetId: 2,
+            collectionRunId: (int) $run->collection_run_id,
+            providerOrSource: 'GOOGLE_ADS',
+        ));
+
+        $this->assertTrue($receipt->isCommitted());
+        $this->assertSame($stale->id, DatasetWriteBatch::query()->where('dataset_run_id', (int) $run->id)->value('id'));
+        $this->assertSame('committed', DatasetWriteBatch::query()->find($stale->id)?->status->value);
+        $this->assertSame(1, DB::table('google_ads_keyword_snapshot')->count());
+    }
+
+    #[Test]
     public function website_observation_history_uses_observed_at_identity(): void
     {
         $run = CollectionDatasetRun::factory()->create([

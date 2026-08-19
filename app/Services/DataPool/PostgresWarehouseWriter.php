@@ -438,9 +438,8 @@ final class PostgresWarehouseWriter implements WarehouseWriter
                 throw new RuntimeException("Write batch conflict for [{$batch->datasetId}] batch [{$batch->batchKey}]");
             }
 
-            if ($existing->checksum !== null && $existing->checksum !== $checksum) {
-                throw new RuntimeException("Write batch checksum conflict for [{$batch->datasetId}] batch [{$batch->batchKey}]");
-            }
+            // Failed/pending retries may rewrite the payload after a collector fix
+            // (e.g. collapsing duplicate natural keys). Checksum is for committed idempotency.
 
             $existing->forceFill([
                 'idempotency_key' => $batch->resolvedIdempotencyKey(),
