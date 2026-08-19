@@ -106,7 +106,7 @@ final class ProviderRegistry
     {
         return match ($capability) {
             'search_console' => 'Search Console',
-            'ga4' => 'GA4',
+            'ga4' => 'Google Analytics 4',
             'google_ads' => 'Google Ads',
             'google_business_profile' => 'Google Business Profile',
             'meta_ads' => 'Meta Ads',
