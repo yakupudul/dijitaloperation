@@ -75,7 +75,7 @@ final class OperatorExecutionReadService
     }
 
     /**
-     * @param list<array<string, mixed>>|null $items
+     * @param  list<array<string, mixed>>|null  $items
      * @return array<string, mixed>
      */
     public function teamCapacity(?array $items = null): array
@@ -162,7 +162,7 @@ final class OperatorExecutionReadService
     }
 
     /**
-     * @param Collection<int, array<string, mixed>> $items
+     * @param  Collection<int, array<string, mixed>>  $items
      * @return list<array<string, mixed>>
      */
     private function attention(Collection $items, string $mode): array
