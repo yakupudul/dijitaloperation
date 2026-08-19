@@ -45,18 +45,28 @@ final class PeriodAwareWebsiteWorkspace
 
         if ($this->trusted($gsc, 'performance_trend.clicks')) {
             $data['gsc_daily'] = $gsc['metric_series'] ?? $gsc['performance_trend'] ?? [];
+        } else {
+            $data['gsc_daily'] = ['labels' => [], 'clicks' => [], 'impressions' => []];
         }
         if ($this->trusted($gsc, 'demand.queries')) {
             $data['queries'] = array_slice($gsc['demand']['queries'] ?? [], 0, 20);
+        } else {
+            $data['queries'] = [];
         }
         if ($this->trusted($gsc, 'pages.directory')) {
             $data['pages'] = array_slice($gsc['pages']['directory'] ?? [], 0, 20);
+        } else {
+            $data['pages'] = [];
         }
         if ($this->trusted($ga4, 'behavior.landing_pages')) {
             $data['landing_pages'] = array_slice($ga4['behavior']['landing_pages'] ?? [], 0, 20);
+        } else {
+            $data['landing_pages'] = [];
         }
         if ($this->trusted($ga4, 'acquisition.channels')) {
             $data['acquisition'] = array_slice($ga4['acquisition']['channels'] ?? [], 0, 20);
+        } else {
+            $data['acquisition'] = [];
         }
 
         $data['ga4_summary'] = $this->trusted($ga4, 'glance.sessions') ? $ga4['glance'] : null;

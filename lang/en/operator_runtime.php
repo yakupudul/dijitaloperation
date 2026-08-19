@@ -37,6 +37,27 @@ return [
         'candidate_ignore_failed_detail' => 'Candidate could not be ignored: :message', 'current_phase' => 'Current phase',
         'pending_jobs' => 'Pending jobs', 'queue' => 'Queue', 'worker' => 'Worker', 'latest_run' => 'Latest run', 'source' => 'Source',
         'target_field' => 'Target field', 'summary' => 'Latest discovery summary', 'yes' => 'Yes', 'no' => 'No',
+        'health_status' => [
+            'HEALTHY' => 'Healthy',
+            'DEGRADED' => 'Degraded',
+            'UNHEALTHY' => 'Unhealthy',
+            'UNKNOWN' => 'Unknown',
+        ],
+        'worker_health' => [
+            'capacity_unconfigured' => 'Worker expected capacity is not configured for this deployment.',
+            'no_heartbeats' => 'No worker heartbeats observed; expected supervisors not configured.',
+            'heartbeats_without_expected' => ':count fresh worker heartbeat(s); expected supervisors not configured.',
+            'supervisors_healthy' => 'All expected supervisors have fresh heartbeats.',
+            'supervisors_missing' => 'Missing supervisors: :supervisors',
+            'supervisors_unhealthy' => 'No expected supervisors have fresh heartbeats.',
+            'jobs_stale' => 'Jobs are waiting and the oldest is over 2 minutes old — queue worker may not be running.',
+        ],
+        'queue_health' => [
+            'driver_limited' => 'Queue driver is :driver. Worker health signal is limited.',
+            'no_jobs' => 'No queued jobs waiting.',
+            'jobs_stale' => 'Jobs are waiting and the oldest is over 2 minutes old — queue worker may not be running.',
+            'jobs_waiting' => ':count job(s) waiting; worker appears active or recently started.',
+        ],
     ],
     'website' => [
         'tabs' => [

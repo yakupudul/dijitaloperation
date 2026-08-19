@@ -44,9 +44,9 @@
                         {{ __('operator_runtime.discovery.runtime_unknown') }}
                     @endif
                 </h2>
-                <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ $runtime['worker_message'] }}</p>
-                @if ($runtime['queue_message'] !== '' && $runtime['queue_message'] !== $runtime['worker_message'])
-                    <p class="mt-1 text-xs text-gray-500">{{ $runtime['queue_message'] }}</p>
+                <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ __('operator_runtime.discovery.worker_health.'.$runtime['worker_health_key'], $runtime['worker_health_replace']) }}</p>
+                @if ($runtime['queue_health_key'] !== $runtime['worker_health_key'])
+                    <p class="mt-1 text-xs text-gray-500">{{ __('operator_runtime.discovery.queue_health.'.$runtime['queue_health_key'], $runtime['queue_health_replace']) }}</p>
                 @endif
             </div>
             <a href="{{ route('operator.activity') }}" wire:navigate class="shrink-0 text-sm font-semibold text-brand-600 hover:underline">{{ __('operator_runtime.discovery.open_activity') }} →</a>
@@ -55,7 +55,7 @@
         <div class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div class="rounded-lg bg-white/70 p-3 dark:bg-white/[0.03]">
                 <p class="text-xs text-gray-400">{{ __('operator_runtime.discovery.worker') }}</p>
-                <p class="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{{ $runtime['worker_status'] }}</p>
+                <p class="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{{ __('operator_runtime.discovery.health_status.'.$runtime['worker_status_key']) }}</p>
             </div>
             <div class="rounded-lg bg-white/70 p-3 dark:bg-white/[0.03]">
                 <p class="text-xs text-gray-400">{{ __('operator_runtime.discovery.pending_jobs') }}</p>

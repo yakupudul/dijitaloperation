@@ -50,11 +50,21 @@ class PublicDiscoveryPage extends Component
         $worker = $workers->snapshot();
         $queue = $queueHealth->snapshot();
         $workerStatus = $worker['status'] ?? OperationalHealthStatus::Unknown;
+        $workerHealth = $this->translatedHealth(
+            'worker_health',
+            (string) ($worker['message_key'] ?? 'no_heartbeats'),
+            is_array($worker['message_replace'] ?? null) ? $worker['message_replace'] : [],
+        );
+        $queueHealthCopy = $this->translatedHealth(
+            'queue_health',
+            (string) ($queue['message_key'] ?? 'no_jobs'),
+            is_array($queue['message_replace'] ?? null) ? $queue['message_replace'] : [],
+        );
 
         if ($workerStatus === OperationalHealthStatus::Unhealthy || (bool) ($queue['worker_appears_idle'] ?? false)) {
             $reason = $workerStatus === OperationalHealthStatus::Unhealthy
-                ? (string) ($worker['message'] ?? __('operator_runtime.discovery.runtime_degraded'))
-                : (string) ($queue['message'] ?? __('operator_runtime.discovery.runtime_degraded'));
+                ? $workerHealth
+                : $queueHealthCopy;
 
             $this->statusTone = 'error';
             $this->statusMessage = __('operator_runtime.discovery.queue_problem', ['message' => $reason]);
@@ -123,6 +133,11 @@ class PublicDiscoveryPage extends Component
         $queue = $queueHealth->snapshot();
         $operationRun = $this->latestOperationRun();
         $workerStatus = $worker['status'] ?? OperationalHealthStatus::Unknown;
+        $workerStatusValue = $workerStatus instanceof OperationalHealthStatus ? $workerStatus->value : (string) $workerStatus;
+        $workerHealthKey = (string) ($worker['message_key'] ?? 'no_heartbeats');
+        $queueHealthKey = (string) ($queue['message_key'] ?? 'no_jobs');
+        $workerReplace = is_array($worker['message_replace'] ?? null) ? $worker['message_replace'] : [];
+        $queueReplace = is_array($queue['message_replace'] ?? null) ? $queue['message_replace'] : [];
 
         $runtimeTone = match ($workerStatus) {
             OperationalHealthStatus::Healthy => 'success',
@@ -140,9 +155,12 @@ class PublicDiscoveryPage extends Component
             'discovery' => $workspace->discovery($asset),
             'runtime' => [
                 'tone' => $runtimeTone,
-                'worker_status' => $workerStatus instanceof OperationalHealthStatus ? $workerStatus->value : (string) $workerStatus,
-                'worker_message' => (string) ($worker['message'] ?? ''),
-                'queue_message' => (string) ($queue['message'] ?? ''),
+                'worker_status' => $workerStatusValue,
+                'worker_status_key' => $workerStatusValue,
+                'worker_health_key' => $workerHealthKey,
+                'queue_health_key' => $queueHealthKey,
+                'worker_health_replace' => $workerReplace,
+                'queue_health_replace' => $queueReplace,
                 'pending_jobs' => (int) ($queue['pending_jobs'] ?? 0),
                 'oldest_queued_job_age_seconds' => $queue['oldest_queued_job_age_seconds'] ?? null,
                 'run' => $operationRun,
@@ -154,6 +172,19 @@ class PublicDiscoveryPage extends Component
                     : null,
             ],
         ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $replace
+     */
+    private function translatedHealth(string $group, string $key, array $replace): string
+    {
+        $translationKey = 'operator_runtime.discovery.'.$group.'.'.$key;
+        $translated = __($translationKey, $replace);
+
+        return $translated === $translationKey
+            ? __('operator_runtime.discovery.runtime_degraded')
+            : $translated;
     }
 
     private function latestOperationRun(): ?Run

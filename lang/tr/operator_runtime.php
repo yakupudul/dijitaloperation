@@ -37,6 +37,27 @@ return [
         'candidate_ignore_failed_detail' => 'Aday yok sayılamadı: :message', 'current_phase' => 'Geçerli aşama',
         'pending_jobs' => 'Bekleyen işler', 'queue' => 'Kuyruk', 'worker' => 'Worker', 'latest_run' => 'Son çalışma', 'source' => 'Kaynak',
         'target_field' => 'Hedef alan', 'summary' => 'Son keşif özeti', 'yes' => 'Evet', 'no' => 'Hayır',
+        'health_status' => [
+            'HEALTHY' => 'Sağlıklı',
+            'DEGRADED' => 'Zayıf',
+            'UNHEALTHY' => 'Sağlıksız',
+            'UNKNOWN' => 'Bilinmiyor',
+        ],
+        'worker_health' => [
+            'capacity_unconfigured' => 'Bu kurulum için beklenen worker kapasitesi yapılandırılmamış.',
+            'no_heartbeats' => 'Worker heartbeat görülmedi; beklenen supervisorlar yapılandırılmamış.',
+            'heartbeats_without_expected' => ':count taze worker heartbeat var; beklenen supervisorlar yapılandırılmamış.',
+            'supervisors_healthy' => 'Beklenen tüm supervisorların taze heartbeat değeri var.',
+            'supervisors_missing' => 'Eksik supervisorlar: :supervisors',
+            'supervisors_unhealthy' => 'Beklenen supervisorların taze heartbeat değeri yok.',
+            'jobs_stale' => 'İşler bekliyor ve en eskisi 2 dakikadan eski — kuyruk worker çalışmıyor olabilir.',
+        ],
+        'queue_health' => [
+            'driver_limited' => 'Kuyruk sürücüsü :driver. Worker sağlık sinyali sınırlı.',
+            'no_jobs' => 'Bekleyen kuyruk işi yok.',
+            'jobs_stale' => 'İşler bekliyor ve en eskisi 2 dakikadan eski — kuyruk worker çalışmıyor olabilir.',
+            'jobs_waiting' => ':count iş bekliyor; worker aktif görünüyor veya yeni başlamış.',
+        ],
     ],
     'website' => [
         'tabs' => [
