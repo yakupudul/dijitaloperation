@@ -211,7 +211,7 @@ It is **not** full digital web discovery, social intelligence, review/news monit
 
 ### Async foundation (material)
 
-Long operator actions (bound collect, Website diagnosis, public discovery, SEO refresh when not fresh, Website/Google/Meta AI guidance) queue via `AsyncOperationService` onto Laravel **database** queue (Redis/Horizon on staging/production). Canonical execution record remains **Run** (`queued|running|completed|partial|failed`; `cancelled` reserved). Activity Center is the operator `/activity` surface (Collection Engine runs plus async `Run` rows). **Cancellation** is intentionally **not** shipped (fragile with current job architecture). Cross-asset consistency packs and integration resource refresh remain synchronous by design for now.
+Long operator actions (bound collect, Website diagnosis, public discovery, SEO refresh when not fresh, Website/Google/Meta AI guidance) queue via `AsyncOperationService` onto Laravel **database** queue (Redis/Horizon on staging/production). Canonical execution record remains **Run** (`queued|running|completed|partial|failed`; `cancelled` reserved). Operator Activity Center is the root Livewire surface `/activity` (`operator.activity`) with phase progress, duplicate guards, stale detection, retry for safe failures, and in-app database notifications. Filament `RunResource` at `/admin/runs` remains technical/admin tooling only (ADR-044). **Cancellation** is intentionally **not** shipped (fragile with current job architecture). Cross-asset consistency packs and integration resource refresh remain synchronous by design for now.
 
 ### Async is not fully universal
 

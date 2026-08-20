@@ -86,7 +86,11 @@ final class PeriodAwareWebsiteWorkspace
         } elseif (! $explicitPeriod) {
             $data['gsc_summary'] = null;
         }
-        $data['has_performance_data'] = $data['kpis'] !== [];
+        if ($poolKpis !== []) {
+            $data['has_performance_data'] = true;
+        } elseif (! $explicitPeriod) {
+            $data['has_performance_data'] = $data['kpis'] !== [];
+        }
         $data['period_provenance'] = [
             'ga4' => $ga4['migration_mode'] ?? null,
             'gsc' => $gsc['migration_mode'] ?? null,

@@ -134,7 +134,7 @@ class PhaseEOperatorUxRegressionTest extends TestCase
             ->call('setPeriod', 'last_7');
 
         $operator = OperatorPeriod::bounds('last_7');
-        $demo = DemoPeriod::bounds('last_7');
+        $demo = DemoPeriod::usingFixtureAnchor(fn () => DemoPeriod::bounds('last_7'));
 
         $component
             ->assertSet('periodStart', $operator['start']->toDateString())
