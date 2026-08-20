@@ -155,16 +155,16 @@ final class CollectedFactsCompletedCoverage
     }
 
     /**
-     * Restrict current-state snapshot rows to completed DatasetRuns for this asset/dataset/resource.
+     * Restrict UPSERT_CURRENT_STATE rows to the materialization's latest successful DatasetRun.
+     * Historical completed snapshot runs are not current; dated facts still use constrainFactsQuery().
      */
     public function constrainCurrentStateQuery(Builder $query): Builder
     {
-        $completedIds = $this->completedDatasetRunIds();
-        if ($completedIds === []) {
+        if ($this->datasetRunId <= 0) {
             return $query->whereRaw('0 = 1');
         }
 
-        return $query->whereIn('last_dataset_run_id', $completedIds);
+        return $query->where('last_dataset_run_id', $this->datasetRunId);
     }
 
     /**

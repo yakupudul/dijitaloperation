@@ -496,6 +496,9 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
         $this->assertSame($backfillRun->id, (int) DB::table('meta_campaign_daily')
             ->where('campaign_id', '1001')
             ->value('last_dataset_run_id'));
+        $this->assertSame($incrementalRun->id, (int) DB::table('meta_campaign_daily')
+            ->where('campaign_id', '3003')
+            ->value('last_dataset_run_id'));
 
         $result = app(CollectedFactsAnalysisService::class)->analyze($asset);
         $this->assertTrue($result->evaluated);
@@ -506,6 +509,10 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
             ->where('digital_asset_id', $asset->id)
             ->where('fingerprint', 'meta-ads:campaign-inactive-with-context:1001')
             ->count());
+        $this->assertSame(2, (int) data_get(
+            Evidence::query()->where('run_id', $result->run?->id)->value('payload'),
+            'row_count',
+        ));
         Http::assertNothingSent();
     }
 
@@ -609,6 +616,47 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
         ]);
         $this->assertSame(0, Finding::query()->where('digital_asset_id', $assetB->id)->count());
         $this->assertSame(0, Task::query()->count());
+        Http::assertNothingSent();
+    }
+
+    #[Test]
+    public function meta_ads_stale_snapshot_entity_absent_from_latest_refresh_is_not_current(): void
+    {
+        [$asset, $resource, $collection] = $this->makeMetaAdsAsset();
+        $this->insertMetaCampaignDaily($asset, $resource, $collection->id, '2026-08-19', '1001', 80.0);
+        $this->insertMetaCampaignDaily($asset, $resource, $collection->id, '2026-08-19', '2002', 80.0);
+        $this->insertMetaCampaignSnapshot($asset, $resource, '1001', 'Paused Then Removed', 'PAUSED', 'CAMPAIGN_PAUSED');
+        $this->sealCompletedDailyFacts($asset, $resource, $collection, 'meta_campaign_daily', 'META_ADS', 'meta_campaign_daily', '2026-08-19');
+        $olderSnapshot = $this->sealCompletedSnapshotFacts($asset, $resource, $collection);
+
+        $latestCollection = $this->makeCollectionRun($asset);
+        $this->insertMetaCampaignSnapshot($asset, $resource, '2002', 'Paused Current', 'PAUSED', 'CAMPAIGN_PAUSED');
+        $latestSnapshot = $this->advanceCompletedSnapshotFacts($asset, $resource, $latestCollection);
+
+        $this->assertSame($olderSnapshot->id, (int) DB::table('meta_campaign_snapshot')
+            ->where('campaign_id', '1001')
+            ->value('last_dataset_run_id'));
+        $this->assertSame($latestSnapshot->id, (int) DB::table('meta_campaign_snapshot')
+            ->where('campaign_id', '2002')
+            ->value('last_dataset_run_id'));
+
+        $result = app(CollectedFactsAnalysisService::class)->analyze($asset);
+        $this->assertTrue($result->evaluated);
+        $this->assertSame($latestSnapshot->id, $result->provenance['snapshot_dataset_run_id']);
+        $this->assertSame(0, Finding::query()
+            ->where('digital_asset_id', $asset->id)
+            ->where('fingerprint', 'meta-ads:campaign-inactive-with-context:1001')
+            ->count());
+        $this->assertSame(1, Finding::query()
+            ->where('digital_asset_id', $asset->id)
+            ->where('fingerprint', 'meta-ads:campaign-inactive-with-context:2002')
+            ->where('status', 'open')
+            ->count());
+
+        $payload = Evidence::query()->where('run_id', $result->run?->id)->value('payload');
+        $rows = collect(data_get($payload, 'rows', []))->keyBy('campaign_id');
+        $this->assertNull(data_get($rows->get('1001'), 'status'));
+        $this->assertSame('PAUSED', data_get($rows->get('2002'), 'status'));
         Http::assertNothingSent();
     }
 
@@ -1119,6 +1167,39 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
             'status' => MaterializationStatus::Available,
             'partial' => false,
         ]);
+        DB::table('meta_campaign_snapshot')
+            ->where('digital_asset_id', $asset->id)
+            ->where('external_resource_id', $resource->id)
+            ->whereNull('last_dataset_run_id')
+            ->update(['last_dataset_run_id' => $datasetRun->id]);
+
+        return $datasetRun;
+    }
+
+    private function advanceCompletedSnapshotFacts(
+        DigitalAsset $asset,
+        CoreExternalResource $resource,
+        CollectionRun $collectionRun,
+    ): CollectionDatasetRun {
+        $datasetRun = $this->makeDatasetRun(
+            $asset,
+            $collectionRun,
+            'meta_campaign_snapshot',
+            'META_ADS',
+            CollectionRunStatus::Completed,
+            $resource,
+        );
+        DatasetMaterialization::query()
+            ->where('dataset_id', 'meta_campaign_snapshot')
+            ->where('digital_asset_id', $asset->id)
+            ->where('external_resource_id', $resource->id)
+            ->update([
+                'last_successful_collection_run_id' => $collectionRun->id,
+                'last_successful_dataset_run_id' => $datasetRun->id,
+                'last_collected_at' => now(),
+                'status' => MaterializationStatus::Available,
+                'partial' => false,
+            ]);
         DB::table('meta_campaign_snapshot')
             ->where('digital_asset_id', $asset->id)
             ->where('external_resource_id', $resource->id)
