@@ -30,6 +30,7 @@ final class OperatorTeamAccessService
         $user->email = strtolower(trim($attributes['email']));
         $user->password = $attributes['password'];
         $user->locale = app(AgencySettingService::class)->defaultLocale();
+        $user->timezone = app(AgencySettingService::class)->defaultTimezone();
         $user->is_active = $attributes['is_active'];
         $user->save();
         $user->assignRole($attributes['role']);

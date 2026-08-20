@@ -31,6 +31,12 @@ final class AgencySettingCatalog
 
     public const string CURRENCY_GBP = 'GBP';
 
+    public const string MAIL_TLS = 'tls';
+
+    public const string MAIL_SSL = 'ssl';
+
+    public const string MAIL_NONE = 'none';
+
     /**
      * @return list<string>
      */
@@ -155,5 +161,30 @@ final class AgencySettingCatalog
     public static function isDateRange(string $value): bool
     {
         return in_array($value, self::dateRanges(), true);
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function mailEncryptions(): array
+    {
+        return [self::MAIL_TLS, self::MAIL_SSL, self::MAIL_NONE];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function mailEncryptionOptions(): array
+    {
+        return [
+            self::MAIL_TLS => __('operator.mail.encryption.tls'),
+            self::MAIL_SSL => __('operator.mail.encryption.ssl'),
+            self::MAIL_NONE => __('operator.mail.encryption.none'),
+        ];
+    }
+
+    public static function isMailEncryption(string $value): bool
+    {
+        return in_array($value, self::mailEncryptions(), true);
     }
 }

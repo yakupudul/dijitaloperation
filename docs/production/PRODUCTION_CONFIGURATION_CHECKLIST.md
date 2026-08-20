@@ -13,6 +13,9 @@ Prompt 68 — target host configuration. `.env.example` is **not** production tr
 - [ ] `APP_DEBUG=false` (FAIL in production-check if true)
 - [ ] `APP_KEY` set to durable value (not empty, not placeholder)
 - [ ] `APP_URL` matches public HTTPS URL
+- [ ] `APP_FORCE_HTTPS=true`
+- [ ] `SESSION_SECURE_COOKIE=true`
+- [ ] `TRUSTED_PROXIES` set for the TLS-terminating proxy
 - [ ] `APP_PREVIOUS_KEYS` set only during documented key rotation window
 
 ---

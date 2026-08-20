@@ -17,8 +17,8 @@ class OverviewPage extends LegacyOverviewPage
             ->where('type', 'meta_ads')
             ->firstOrFail();
 
-        $result = app(AsyncOperationService::class)->queueMetaAdsAiGuidance($asset, auth()->user());
-        DemoState::flash((string) ($result['message'] ?? 'Meta Ads AI guidance queued.'), ($result['ok'] ?? false) ? 'success' : 'info');
+        $result = app(AsyncOperationService::class)->queueFindingEvaluation($asset, auth()->user());
+        DemoState::flash((string) ($result['message'] ?? __('operator.async.finding_evaluation_queued')), ($result['ok'] ?? false) ? 'success' : 'info');
         $this->tab = 'overview';
     }
 }

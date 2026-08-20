@@ -3,6 +3,7 @@
 namespace App\Services\Operator;
 
 use App\Models\User;
+use App\Support\Operator\OperatorClock;
 use App\Support\Permissions;
 use App\Support\Roles;
 use Illuminate\Database\Eloquent\Builder;
@@ -74,6 +75,7 @@ final class OperatorUserDirectory
                     ->map(static fn (string $part): string => mb_strtoupper(mb_substr($part, 0, 1)))
                     ->take(2)
                     ->implode('');
+                $viewer = auth()->user() instanceof User ? auth()->user() : null;
 
                 return [
                     'id' => (string) $user->id,
@@ -82,7 +84,7 @@ final class OperatorUserDirectory
                     'initials' => $initials !== '' ? $initials : mb_strtoupper(mb_substr($user->name, 0, 1)),
                     'role' => $user->hasRole(Roles::ADMIN) ? Roles::ADMIN : Roles::TEAM_MEMBER,
                     'is_active' => (bool) $user->is_active,
-                    'last_login' => $user->last_login_at?->timezone(config('app.timezone'))->format('Y-m-d H:i'),
+                    'last_login' => OperatorClock::formatDateTime($user->last_login_at, $viewer),
                 ];
             })
             ->values()

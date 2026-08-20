@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Notifications\OperatorResetPasswordNotification;
 use App\Support\Permissions;
 use App\Support\Roles;
 use Database\Factories\UserFactory;
@@ -45,6 +46,11 @@ class User extends Authenticatable implements FilamentUser
     public function operatorFiles(): HasMany
     {
         return $this->hasMany(OperatorFile::class);
+    }
+
+    public function sendPasswordResetNotification(#[\SensitiveParameter] $token): void
+    {
+        $this->notify(new OperatorResetPasswordNotification($token));
     }
 
     /**

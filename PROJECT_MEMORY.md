@@ -42,9 +42,11 @@ Notes:
 - **AI remains advisory and evidence-grounded.** AI does not invent Findings, silently override deterministic Recommendations, or auto-open Tasks.
 - **External provider integrations remain READ-ONLY.** No external write actions.
 - There is **no separate Result entity**. Outcomes are observed via later Evidence / Finding lifecycle and Task outcome signals.
-- Canonical operator product: root routes (`/`, `/login`, `/customers`, `/brands`, `/assets`, `/integrations`, `/tasks`, …). TailAdmin Livewire. One application.
+- Canonical operator product: root routes (`/`, `/login`, `/customers`, `/brands`, `/assets`, `/integrations`, `/activity`, `/findings`, `/recommendations`, `/tasks`, `/settings`, `/profile`, …). TailAdmin Livewire. One application.
 - Single Filament technical/admin panel: id `app`, path `/admin` (ADR-044; supersedes ADR-026 path `/app`). `web` guard; `spatie/laravel-permission`.
 - Legacy `/app/*` and `/system/*` prefixes are retired (HTTP 410). No parallel operator product.
+- Operator Data Sources bind through ConfirmGoogle/ConfirmMeta guards. Website period reads compose PeriodAware pool overlays with evidence `period_has_data` filtering.
+- Staging/production: HTTPS + PostgreSQL + Redis/Horizon. `moxdop:production-check` is the production-readiness gate. The dedicated RC integration branch is the first head that contains **#202 + #199 + #200-downstream**; PR #209 alone is not that ancestry.
 - Modules live under `app-modules/` + `internachi/modular` (minimal registry: id + enabled/disabled).
 
 ---

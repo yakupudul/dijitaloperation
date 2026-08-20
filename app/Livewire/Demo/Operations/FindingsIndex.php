@@ -14,6 +14,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 
 /**
@@ -29,6 +30,9 @@ class FindingsIndex extends Component
     public string $assetType = 'all';
 
     public string $status = 'all';
+
+    #[Url(as: 'asset', history: true)]
+    public string $asset = '';
 
     public ?string $expandedId = null;
 
@@ -115,7 +119,12 @@ class FindingsIndex extends Component
 
     public function render(): View
     {
-        $dtos = app(FindingReadService::class)->query([], 500);
+        $queryFilters = [];
+        if (trim($this->asset) !== '' && ctype_digit($this->asset)) {
+            $queryFilters['digital_asset_id'] = (int) $this->asset;
+        }
+
+        $dtos = app(FindingReadService::class)->query($queryFilters, 500);
         $all = array_map(fn (FindingReadDto $dto): array => $this->present($dto), $dtos);
         $findings = collect($all);
 
@@ -182,6 +191,7 @@ class FindingsIndex extends Component
             'status' => $dto->status,
             'category' => $dto->category,
             'type' => $dto->category,
+            'digital_asset_id' => $dto->digitalAssetId,
             'asset_type' => $assetType,
             'brand' => $brandName,
             'asset' => $assetName,

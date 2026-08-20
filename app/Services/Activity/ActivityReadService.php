@@ -2,11 +2,16 @@
 
 namespace App\Services\Activity;
 
+use App\Enums\Collection\CollectionRunStatus;
 use App\Enums\DomainEventActorKind;
 use App\Enums\DomainEventSubjectKind;
 use App\Enums\DomainEventType;
 use App\Models\BrandContextActivity;
+use App\Models\Collection\CollectionRun;
 use App\Models\DomainEvent;
+use App\Models\Run;
+use App\Models\User;
+use App\Support\Async\AsyncOperationTypes;
 use App\Support\Work\WorkUrl;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
@@ -43,10 +48,14 @@ final class ActivityReadService
 
         $activities = $this->activityQuery($filters, $since)->limit($sqlLimit)->get();
         $orphanEvents = $this->orphanDomainEventQuery($filters, $since)->limit($sqlLimit)->get();
+        $asyncRuns = $this->asyncRunQuery($filters, $since)->limit($sqlLimit)->get();
+        $collectionRuns = $this->collectionRunQuery($filters, $since)->limit($sqlLimit)->get();
 
         $rows = collect()
             ->concat($activities->map(fn (BrandContextActivity $row): array => $this->fromActivity($row)))
-            ->concat($orphanEvents->map(fn (DomainEvent $event): array => $this->fromDomainEvent($event)));
+            ->concat($orphanEvents->map(fn (DomainEvent $event): array => $this->fromDomainEvent($event)))
+            ->concat($asyncRuns->map(fn (Run $run): array => $this->fromAsyncRun($run)))
+            ->concat($collectionRuns->map(fn (CollectionRun $run): array => $this->fromCollectionRun($run)));
 
         $actorFilter = $filters['actor'] ?? null;
         if (is_string($actorFilter) && $actorFilter !== '' && $actorFilter !== 'all') {
@@ -144,6 +153,158 @@ final class ActivityReadService
         }
 
         return $query->orderByDesc('occurred_at')->orderByDesc('id');
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return Builder<Run>
+     */
+    private function asyncRunQuery(array $filters, ?Carbon $since): Builder
+    {
+        $query = Run::query()
+            ->with(['digitalAsset.brand.customer'])
+            ->where('metadata->async', true);
+
+        if (! empty($filters['digital_asset_id'])) {
+            $query->where('digital_asset_id', (int) $filters['digital_asset_id']);
+        }
+        if (! empty($filters['brand_id'])) {
+            $query->whereHas('digitalAsset', function (Builder $inner) use ($filters): void {
+                $inner->where('brand_id', (int) $filters['brand_id']);
+            });
+        }
+        if (! empty($filters['customer_id'])) {
+            $query->whereHas('digitalAsset.brand', function (Builder $inner) use ($filters): void {
+                $inner->where('customer_id', (int) $filters['customer_id']);
+            });
+        }
+        if ($since !== null) {
+            $query->where(function (Builder $inner) use ($since): void {
+                $inner->where('started_at', '>=', $since)
+                    ->orWhere(function (Builder $legacy) use ($since): void {
+                        $legacy->whereNull('started_at')->where('created_at', '>=', $since);
+                    });
+            });
+        }
+
+        return $query->orderByDesc('started_at')->orderByDesc('id');
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return Builder<CollectionRun>
+     */
+    private function collectionRunQuery(array $filters, ?Carbon $since): Builder
+    {
+        $query = CollectionRun::query()
+            ->with(['brand:id,name', 'customer:id,name', 'requestedBy:id,name']);
+
+        if (! empty($filters['brand_id'])) {
+            $query->where('brand_id', (int) $filters['brand_id']);
+        }
+        if (! empty($filters['customer_id'])) {
+            $query->where('customer_id', (int) $filters['customer_id']);
+        }
+        if (! empty($filters['digital_asset_id'])) {
+            $query->where('digital_asset_id', (int) $filters['digital_asset_id']);
+        }
+        if ($since !== null) {
+            $query->where(function (Builder $inner) use ($since): void {
+                $inner->where('started_at', '>=', $since)
+                    ->orWhere(function (Builder $legacy) use ($since): void {
+                        $legacy->whereNull('started_at')->where('created_at', '>=', $since);
+                    });
+            });
+        }
+
+        return $query->orderByDesc('started_at')->orderByDesc('id');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function fromAsyncRun(Run $run): array
+    {
+        $meta = is_array($run->metadata) ? $run->metadata : [];
+        $operationType = is_string($meta['operation_type'] ?? null) ? $meta['operation_type'] : '';
+        $title = is_string($meta['human_title'] ?? null) && $meta['human_title'] !== ''
+            ? $meta['human_title']
+            : AsyncOperationTypes::label($operationType !== '' ? $operationType : 'async');
+        $at = $run->started_at ?? $run->created_at ?? Carbon::now();
+        $asset = $run->digitalAsset;
+        $brand = $asset?->brand;
+        $triggeredById = isset($meta['triggered_by_user_id']) && is_numeric($meta['triggered_by_user_id'])
+            ? (int) $meta['triggered_by_user_id']
+            : null;
+        $actor = $triggeredById !== null ? User::query()->find($triggeredById) : null;
+        $status = match ((string) $run->status) {
+            'queued', 'running' => 'running',
+            'failed' => 'failed',
+            'partial' => 'partial',
+            default => 'success',
+        };
+
+        return [
+            'id' => 'run:'.$run->id,
+            'sort_id' => (int) $run->id,
+            'title' => $title,
+            'detail' => is_string($meta['phase_label'] ?? null) ? $meta['phase_label'] : $run->status,
+            'actor' => $actor?->name ?? 'System',
+            'actor_kind' => $actor !== null ? 'human' : 'system',
+            'status' => $status,
+            'brand' => $brand?->name,
+            'brand_id' => $brand?->id,
+            'customer' => $brand?->customer?->name,
+            'customer_id' => $brand?->customer_id,
+            'created_at' => $at instanceof Carbon ? $at->toIso8601String() : (string) $at,
+            'occurred_at' => $at instanceof Carbon ? $at->toIso8601String() : (string) $at,
+            'relative' => $at instanceof Carbon ? $at->diffForHumans() : null,
+            'route' => 'operator.activity',
+            'route_params' => [],
+            'event' => $operationType !== '' ? 'async.'.$operationType : 'async.run',
+            'event_label' => $title,
+            'domain_event_id' => null,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function fromCollectionRun(CollectionRun $run): array
+    {
+        $statusValue = $run->status instanceof CollectionRunStatus
+            ? $run->status->value
+            : (string) $run->status;
+        $at = $run->started_at ?? $run->created_at ?? Carbon::now();
+        $status = match ($statusValue) {
+            'queued', 'running', 'retrying', 'cancellation_requested' => 'running',
+            'failed' => 'failed',
+            'partial' => 'partial',
+            default => 'success',
+        };
+        $title = __('operator.activity_feed.collection_run');
+
+        return [
+            'id' => 'collection_run:'.$run->id,
+            'sort_id' => (int) $run->id,
+            'title' => $title,
+            'detail' => $statusValue,
+            'actor' => $run->requestedBy?->name ?? 'System',
+            'actor_kind' => $run->requested_by_user_id ? 'human' : 'system',
+            'status' => $status,
+            'brand' => $run->brand?->name,
+            'brand_id' => $run->brand_id,
+            'customer' => $run->customer?->name,
+            'customer_id' => $run->customer_id,
+            'created_at' => $at instanceof Carbon ? $at->toIso8601String() : (string) $at,
+            'occurred_at' => $at instanceof Carbon ? $at->toIso8601String() : (string) $at,
+            'relative' => $at instanceof Carbon ? $at->diffForHumans() : null,
+            'route' => 'operator.activity',
+            'route_params' => [],
+            'event' => 'collection.'.$statusValue,
+            'event_label' => $title,
+            'domain_event_id' => null,
+        ];
     }
 
     /**

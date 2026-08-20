@@ -17,8 +17,21 @@ class OverviewPage extends LegacyOverviewPage
             ->where('type', 'google_ads')
             ->firstOrFail();
 
-        $result = app(AsyncOperationService::class)->queueGoogleAdsAiGuidance($asset, auth()->user());
-        DemoState::flash((string) ($result['message'] ?? 'Google Ads AI guidance queued.'), ($result['ok'] ?? false) ? 'success' : 'info');
+        $result = app(AsyncOperationService::class)->queueFindingEvaluation($asset, auth()->user());
+        DemoState::flash((string) ($result['message'] ?? __('operator.async.finding_evaluation_queued')), ($result['ok'] ?? false) ? 'success' : 'info');
         $this->tab = 'overview';
+    }
+
+    public function createRecommendation(?string $term = null): void
+    {
+        DemoState::flash(__('operator.flash.recommendation_requires_finding'), 'info');
+    }
+
+    public function markClusterReviewed(string $id): void
+    {
+        DemoState::flash(__('operator.flash.cluster_review_not_persisted'), 'info');
+        $this->cluster = $id;
+        $this->tab = 'search_demand';
+        $this->search_sub = 'inbox';
     }
 }

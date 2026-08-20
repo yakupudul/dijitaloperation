@@ -9,7 +9,9 @@ use Illuminate\Support\Collection;
 
 interface WebsiteOperatorWorkspace
 {
-    /** @return array<string, mixed> */
+    /**
+     * @return array<string, mixed>
+     */
     public function overview(
         DigitalAsset $asset,
         string $periodPreset = 'last_28',

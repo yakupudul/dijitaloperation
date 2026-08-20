@@ -1,20 +1,24 @@
 @php
     $presets = [
-        'last_7' => 'Last 7 days',
-        'last_14' => 'Last 14 days',
-        'last_28' => 'Last 28 days',
-        'last_30' => 'Last 30 days',
-        'last_90' => 'Last 3 months',
-        'this_month' => 'This month',
-        'last_month' => 'Last month',
+        'last_7' => __('operator.period.presets.last_7'),
+        'last_14' => __('operator.period.presets.last_14'),
+        'last_28' => __('operator.period.presets.last_28'),
+        'last_30' => __('operator.period.presets.last_30'),
+        'last_90' => __('operator.period.presets.last_90'),
+        'this_month' => __('operator.period.presets.this_month'),
+        'last_month' => __('operator.period.presets.last_month'),
     ];
     $compareOn = (bool) ($compare ?? true);
-    $appliedLabel = method_exists($this, 'appliedPeriodLabel') ? $this->appliedPeriodLabel() : ($period === 'custom' && $periodStart && $periodEnd ? $periodStart.' – '.$periodEnd : ($presets[$period] ?? 'Custom'));
+    $appliedLabel = method_exists($this, 'appliedPeriodLabel') ? $this->appliedPeriodLabel() : ($period === 'custom' && $periodStart && $periodEnd ? $periodStart.' – '.$periodEnd : ($presets[$period] ?? __('operator.period.custom')));
     $compareLabel = method_exists($this, 'comparePeriodLabel') ? $this->comparePeriodLabel() : null;
-    $maxDate = method_exists($this, 'periodAnchorDate')
-        ? $this->periodAnchorDate()
-        : \App\Support\Demo\DemoPeriod::anchor()->toDateString();
-    $minDate = \Carbon\Carbon::parse($maxDate)->subDays(89)->toDateString();
+    $maxDate = method_exists($this, 'periodPickerMaxDate')
+        ? $this->periodPickerMaxDate()
+        : (method_exists($this, 'periodAnchorDate')
+            ? $this->periodAnchorDate()
+            : \App\Support\Demo\DemoPeriod::ANCHOR_DATE);
+    $minDate = method_exists($this, 'periodPickerMinDate')
+        ? $this->periodPickerMinDate()
+        : \Carbon\Carbon::parse($maxDate)->subDays(89)->toDateString();
 @endphp
 
 <div class="flex flex-wrap items-center gap-1.5" data-demo-period-bar>
@@ -36,7 +40,7 @@
             'bg-white text-gray-600 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700' => $period !== 'custom',
         ])
         aria-expanded="{{ $showCustomPicker ? 'true' : 'false' }}">
-        Custom
+        {{ __('operator.period.custom') }}
     </button>
 
     <button type="button" wire:click="toggleCompare"
@@ -45,23 +49,23 @@
             'bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-200 dark:bg-brand-500/15 dark:text-brand-400 dark:ring-brand-500/30' => $compareOn,
             'bg-white text-gray-600 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700' => ! $compareOn,
         ])
-        title="Compare to previous period">
-        Compare{{ $compareOn ? ' · on' : '' }}
+        title="{{ __('operator.period.compare') }}">
+        {{ $compareOn ? __('operator.period.compare_on') : __('operator.period.compare') }}
     </button>
 
     <span class="ml-1 text-xs text-gray-500 dark:text-gray-400" data-applied-range>
         {{ $appliedLabel }}
         @if ($compareOn && $compareLabel)
-            <span class="text-gray-400">vs</span> {{ $compareLabel }}
+            <span class="text-gray-400">{{ __('operator.period.vs') }}</span> {{ $compareLabel }}
         @endif
     </span>
 
     @if ($showCustomPicker)
         <div class="flex w-full flex-wrap items-end gap-2 rounded-lg bg-white p-2 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700 sm:w-auto"
             role="group"
-            aria-label="Custom date range">
+            aria-label="{{ __('operator.period.custom_range') }}">
             <label class="flex flex-col gap-0.5 text-[11px] text-gray-500 dark:text-gray-400">
-                Start
+                {{ __('operator.period.start') }}
                 <input type="date"
                     wire:model="draftPeriodStart"
                     min="{{ $minDate }}"
@@ -69,7 +73,7 @@
                     class="rounded-md border-0 bg-gray-50 px-2 py-1.5 text-xs text-gray-800 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:text-gray-200 dark:ring-gray-600" />
             </label>
             <label class="flex flex-col gap-0.5 text-[11px] text-gray-500 dark:text-gray-400">
-                End
+                {{ __('operator.period.end') }}
                 <input type="date"
                     wire:model="draftPeriodEnd"
                     min="{{ $minDate }}"
@@ -79,12 +83,12 @@
             <div class="flex items-center gap-1.5">
                 <button type="button" wire:click="cancelCustomPeriod"
                     class="rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-600 dark:hover:bg-white/5">
-                    Cancel
+                    {{ __('operator.period.cancel') }}
                 </button>
                 <button type="button" wire:click="applyCustomPeriod"
                     class="rounded-md bg-brand-500 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-brand-600"
                     wire:loading.attr="disabled">
-                    Apply
+                    {{ __('operator.period.apply') }}
                 </button>
             </div>
             @if ($customPeriodError)

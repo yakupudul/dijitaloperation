@@ -51,7 +51,7 @@
                         <x-ta.form.field :label="__('operator.settings.default_locale')" :required="true" :error="$errors->first('default_locale')">
                             <x-ta.form.select wire:model="default_locale" :options="$localeOptions" :searchable="false" :nullable="false" :disabled="! $isAdmin" />
                         </x-ta.form.field>
-                        <x-ta.form.field :label="__('operator.settings.default_timezone')" :required="true" :error="$errors->first('default_timezone')">
+                        <x-ta.form.field :label="__('operator.settings.default_timezone')" :required="true" :error="$errors->first('default_timezone')" :helper="__('operator.settings.timezone_note')">
                             <x-ta.form.select wire:model="default_timezone" :options="$timezoneOptions" :placeholder="__('operator.settings.search_timezone')" :disabled="! $isAdmin" />
                         </x-ta.form.field>
                         <x-ta.form.field :label="__('operator.settings.display_currency')" :required="true" :error="$errors->first('default_display_currency')" :helper="__('operator.settings.currency_note')">
@@ -97,6 +97,7 @@
 
                 <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
                     <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ __('operator.mail.title') }}</h3>
+                    <p class="mt-1 text-xs text-gray-500">{{ __('operator.mail.use_cases') }}</p>
                     <dl class="mt-3 grid gap-4 sm:grid-cols-2 text-sm">
                         <div>
                             <dt class="text-gray-400">{{ __('operator.mail.delivery') }}</dt>
@@ -113,6 +114,49 @@
                         </div>
                     </dl>
                     <p class="mt-3 text-xs text-gray-500">{{ $mail['explanation'] }}</p>
+
+                    @if ($isAdmin)
+                        <form wire:submit="saveMail" class="mt-4 space-y-4 border-t border-gray-100 pt-4 dark:border-gray-800">
+                            <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                <input type="checkbox" wire:model="mail_enabled" class="rounded border-gray-300 text-brand-600" />
+                                {{ __('operator.mail.enable_operator') }}
+                            </label>
+                            <div class="grid gap-4 sm:grid-cols-2 text-sm">
+                                <x-ta.form.field :label="__('operator.mail.from_name')" :error="$errors->first('mail_from_name')">
+                                    <input wire:model="mail_from_name" type="text" autocomplete="off" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700" />
+                                </x-ta.form.field>
+                                <x-ta.form.field :label="__('operator.mail.from_address')" :error="$errors->first('mail_from_address')">
+                                    <input wire:model="mail_from_address" type="email" autocomplete="off" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700" />
+                                </x-ta.form.field>
+                                <x-ta.form.field :label="__('operator.mail.host')" :error="$errors->first('mail_host')">
+                                    <input wire:model="mail_host" type="text" autocomplete="off" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700" />
+                                </x-ta.form.field>
+                                <x-ta.form.field :label="__('operator.mail.port')" :error="$errors->first('mail_port')">
+                                    <input wire:model="mail_port" type="number" min="1" max="65535" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700" />
+                                </x-ta.form.field>
+                                <x-ta.form.field :label="__('operator.mail.username')" :error="$errors->first('mail_username')">
+                                    <input wire:model="mail_username" type="text" autocomplete="off" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700" />
+                                </x-ta.form.field>
+                                <x-ta.form.field :label="__('operator.mail.encryption_label')" :error="$errors->first('mail_encryption')">
+                                    <x-ta.form.select wire:model="mail_encryption" :options="$mailEncryptionOptions" :searchable="false" :nullable="false" />
+                                </x-ta.form.field>
+                                <x-ta.form.field :label="__('operator.mail.password')" :error="$errors->first('mail_password')" :helper="$mail['has_password'] ? __('operator.mail.password_keep') : __('operator.mail.password_hint')" class="sm:col-span-2">
+                                    <input wire:model="mail_password" type="password" autocomplete="new-password" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700" />
+                                </x-ta.form.field>
+                            </div>
+                            @if ($mail['has_password'])
+                                <label class="inline-flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                                    <input type="checkbox" wire:model="clear_mail_password" class="rounded border-gray-300 text-brand-600" />
+                                    {{ __('operator.mail.clear_password') }}
+                                </label>
+                            @endif
+                            <div class="flex flex-wrap gap-2">
+                                <x-ta.button type="submit" size="sm">{{ __('operator.mail.save') }}</x-ta.button>
+                                <x-ta.button type="button" size="sm" variant="outline" wire:click="sendTestEmail">{{ __('operator.mail.test') }}</x-ta.button>
+                                <x-ta.button type="button" size="sm" variant="outline" wire:click="clearOperatorMail">{{ __('operator.mail.clear') }}</x-ta.button>
+                            </div>
+                        </form>
+                    @endif
                 </div>
             @elseif ($section === 'team')
                 <div class="overflow-x-auto rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
@@ -175,8 +219,13 @@
                         </tbody>
                     </table>
                     <p class="border-t border-gray-100 px-4 py-3 text-xs text-gray-500 dark:border-gray-800">
-                        {{ __('operator.team.owner_note') }}
+                        {{ __('operator.team.owner_note') }} {{ __('operator.team.deactivate_note') }}
                     </p>
+                    @if ($errors->has('user') || $errors->has('role'))
+                        <p class="border-t border-gray-100 px-4 py-3 text-sm text-red-600 dark:border-gray-800 dark:text-red-400" role="alert">
+                            {{ $errors->first('user') ?: $errors->first('role') }}
+                        </p>
+                    @endif
                 </div>
 
                 @if ($isAdmin)

@@ -9,11 +9,13 @@ use App\Services\Integrations\Gemini\GeminiCredentialResolver;
 use App\Services\Integrations\OpenAi\OpenAiCredentialResolver;
 use App\Services\Notifications\NotificationPreferenceService;
 use App\Services\Operator\AgencySettingService;
+use App\Services\Operator\OperatorMailConfigService;
 use App\Services\Operator\OperatorTeamAccessService;
 use App\Services\Operator\OperatorUserDirectory;
 use App\Services\Playbooks\PlaybookReadService;
 use App\Support\Agents\AgentProfileRegistry;
 use App\Support\Ai\AiRouteRegistry;
+use App\Support\Demo\DemoPeriod;
 use App\Support\Demo\DemoState;
 use App\Support\Demo\GlobalOperatingFixtures;
 use App\Support\Integrations\ProviderRegistry;
@@ -27,6 +29,8 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\Validation\ValidationException;
+use InvalidArgumentException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -60,6 +64,24 @@ class SettingsPage extends Component
     public string $default_analytical_date_range = AgencySettingCatalog::RANGE_LAST_28;
 
     public string $week_starts_on = AgencySettingCatalog::WEEK_MONDAY;
+
+    public bool $mail_enabled = false;
+
+    public string $mail_from_name = '';
+
+    public string $mail_from_address = '';
+
+    public string $mail_host = '';
+
+    public string $mail_port = '587';
+
+    public string $mail_username = '';
+
+    public string $mail_password = '';
+
+    public string $mail_encryption = AgencySettingCatalog::MAIL_TLS;
+
+    public bool $clear_mail_password = false;
 
     public mixed $logo = null;
 
@@ -165,6 +187,10 @@ class SettingsPage extends Component
         $this->favicon = null;
         $this->hydrateFromSettings();
         DemoState::flash(__('operator.settings.saved'));
+
+        $preset = $validated['default_analytical_date_range'];
+        $bounds = DemoPeriod::bounds($preset);
+        DemoState::setPeriod($preset, $bounds['start']->toDateString(), $bounds['end']->toDateString());
     }
 
     public function addTeamMember(): void
@@ -219,6 +245,70 @@ class SettingsPage extends Component
         $target = User::query()->findOrFail($userId);
         app(OperatorTeamAccessService::class)->assignRole($this->actor(), $target, $role);
         DemoState::flash(__('operator.team.role_updated'));
+    }
+
+    public function dehydrate(): void
+    {
+        $this->mail_password = '';
+        $this->clear_mail_password = false;
+    }
+
+    public function saveMail(): void
+    {
+        $this->assertAdministrator();
+
+        $validated = $this->validate([
+            'mail_enabled' => ['boolean'],
+            'mail_from_name' => ['nullable', 'string', 'max:120'],
+            'mail_from_address' => ['nullable', 'email', 'max:255', 'required_if:mail_enabled,true'],
+            'mail_host' => ['nullable', 'string', 'max:255', 'required_if:mail_enabled,true'],
+            'mail_port' => ['nullable', 'integer', 'min:1', 'max:65535', 'required_if:mail_enabled,true'],
+            'mail_username' => ['nullable', 'string', 'max:255'],
+            'mail_encryption' => ['required', Rule::in(AgencySettingCatalog::mailEncryptions())],
+            'mail_password' => ['nullable', 'string', 'max:255'],
+            'clear_mail_password' => ['boolean'],
+        ]);
+
+        try {
+            app(OperatorMailConfigService::class)->update([
+                'mail_enabled' => (bool) $validated['mail_enabled'],
+                'mail_from_name' => (string) ($validated['mail_from_name'] ?? ''),
+                'mail_from_address' => (string) ($validated['mail_from_address'] ?? ''),
+                'mail_host' => (string) ($validated['mail_host'] ?? ''),
+                'mail_port' => $validated['mail_port'] ?? null,
+                'mail_username' => (string) ($validated['mail_username'] ?? ''),
+                'mail_encryption' => $validated['mail_encryption'],
+                'mail_password' => $validated['mail_password'] ?? '',
+                'clear_password' => (bool) $validated['clear_mail_password'],
+            ]);
+        } catch (InvalidArgumentException) {
+            throw ValidationException::withMessages([
+                'mail_password' => __('operator.mail.incomplete'),
+            ]);
+        }
+
+        $this->mail_password = '';
+        $this->clear_mail_password = false;
+        $this->hydrateFromSettings();
+        DemoState::flash(__('operator.mail.saved'));
+    }
+
+    public function sendTestEmail(): void
+    {
+        $this->assertAdministrator();
+
+        $result = app(OperatorMailConfigService::class)->sendTestEmail($this->actor());
+        DemoState::flash($result['message']);
+    }
+
+    public function clearOperatorMail(): void
+    {
+        $this->assertAdministrator();
+        app(OperatorMailConfigService::class)->clearOperatorSmtp();
+        $this->mail_password = '';
+        $this->clear_mail_password = false;
+        $this->hydrateFromSettings();
+        DemoState::flash(__('operator.mail.cleared'));
     }
 
     public function toggleNotification(int $index): void
@@ -294,6 +384,7 @@ class SettingsPage extends Component
             'currencyOptions' => AgencySettingCatalog::currencyOptions(),
             'weekStartOptions' => AgencySettingCatalog::weekStartOptions(),
             'dateRangeOptions' => AgencySettingCatalog::dateRangeOptions(),
+            'mailEncryptionOptions' => AgencySettingCatalog::mailEncryptionOptions(),
             'roleOptions' => [
                 Roles::ADMIN => __('operator.team.roles.admin'),
                 Roles::TEAM_MEMBER => __('operator.team.roles.member'),
@@ -384,6 +475,17 @@ class SettingsPage extends Component
         $this->week_starts_on = AgencySettingCatalog::isWeekStart((string) $agency->week_starts_on)
             ? (string) $agency->week_starts_on
             : AgencySettingCatalog::WEEK_MONDAY;
+        $this->mail_enabled = (bool) $agency->mail_enabled;
+        $this->mail_from_name = (string) ($agency->mail_from_name ?? '');
+        $this->mail_from_address = (string) ($agency->mail_from_address ?? '');
+        $this->mail_host = (string) ($agency->mail_host ?? '');
+        $this->mail_port = $agency->mail_port !== null ? (string) $agency->mail_port : '587';
+        $this->mail_username = (string) ($agency->mail_username ?? '');
+        $this->mail_encryption = AgencySettingCatalog::isMailEncryption((string) ($agency->mail_encryption ?? ''))
+            ? (string) $agency->mail_encryption
+            : AgencySettingCatalog::MAIL_TLS;
+        $this->mail_password = '';
+        $this->clear_mail_password = false;
 
         $this->notificationEnabled = [];
         $user = Auth::user();

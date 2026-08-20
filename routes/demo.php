@@ -2,10 +2,10 @@
 
 use App\Http\Controllers\Demo\OperatorFileDownloadController;
 use App\Http\Controllers\Demo\SiteConnectorDownloadController;
+use App\Http\Controllers\Operator\LegacyWorkRedirectController;
+use App\Http\Controllers\Operator\RetiredAssetTypeRedirectController;
 use App\Http\Controllers\Prospects\ProspectReportArtifactDownloadController;
 use App\Http\Middleware\EnsureDemoAppAccess;
-use App\Livewire\Demo\Assets\AnalyticsPage;
-use App\Livewire\Demo\Assets\SearchConsolePage;
 use App\Livewire\Demo\Dashboard;
 use App\Livewire\Demo\Files\FilesIndex;
 use App\Livewire\Demo\Gbp\OverviewPage as GbpOverviewPage;
@@ -60,11 +60,12 @@ use App\Livewire\Demo\Settings\AiSkillsPage;
 use App\Livewire\Demo\Settings\PlaybookShow;
 use App\Livewire\Demo\SettingsPage;
 use App\Livewire\Demo\Website\OverviewPage as WebsiteOverviewPage;
+use App\Livewire\Operator\Assets\AnalyticsPage;
+use App\Livewire\Operator\Assets\SearchConsolePage;
 use App\Livewire\Operator\GoogleAds\OverviewPage as GoogleAdsOverviewPage;
 use App\Livewire\Operator\Meta\OverviewPage as MetaOverviewPage;
 use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Support\Work\WorkUrl;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
@@ -117,8 +118,8 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/assets/gbp/{assetId?}', GbpOverviewPage::class)->name('operator.gbp');
         Route::livewire('/assets/analytics/{assetId?}', AnalyticsPage::class)->name('operator.analytics');
         Route::livewire('/assets/search-console/{assetId?}', SearchConsolePage::class)->name('operator.search-console');
-        Route::get('/assets/domain/{assetId?}', fn () => new RedirectResponse(route('operator.assets'), 302))->name('operator.domain');
-        Route::get('/assets/hosting/{assetId?}', fn () => new RedirectResponse(route('operator.assets'), 302))->name('operator.hosting');
+        Route::get('/assets/domain/{assetId?}', RetiredAssetTypeRedirectController::class)->name('operator.domain');
+        Route::get('/assets/hosting/{assetId?}', RetiredAssetTypeRedirectController::class)->name('operator.hosting');
         Route::livewire('/assets/instagram/{assetId?}', InstagramOverviewPage::class)->name('operator.instagram');
 
         Route::livewire('/opportunities', OpportunitiesIndex::class)->name('operator.opportunities');
@@ -129,14 +130,8 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/work/{type}/{workId}', WorkShow::class)
             ->whereIn('type', WorkUrl::types())
             ->name('operator.work.show');
-        Route::get('/work/{workId}', function (string $workId) {
-            $type = request()->query('type');
-            if (! is_string($type) || ! WorkUrl::isType($type)) {
-                abort(404);
-            }
-
-            return redirect()->route('operator.work.show', WorkUrl::parameters($type, $workId));
-        })->name('operator.work.show.legacy');
+        Route::get('/work/{workId}', LegacyWorkRedirectController::class)
+            ->name('operator.work.show.legacy');
         Route::livewire('/activity', ActivityIndex::class)->name('operator.activity');
 
         Route::livewire('/prospects', ProspectsIndex::class)->name('operator.prospects');

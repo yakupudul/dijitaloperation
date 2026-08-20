@@ -22,7 +22,8 @@ final class PeriodAwareWebsiteWorkspace
     /** @return array<string, mixed> */
     public function for(DigitalAsset $asset, string $preset, ?string $start = null, ?string $end = null): array
     {
-        $data = $this->base->for($asset);
+        $data = $this->base->for($asset, $start, $end);
+        $explicitPeriod = filled($start) && filled($end);
         $assetId = (string) $asset->id;
 
         $gsc = $this->gsc->workspace($assetId, $preset, $start, $end);
@@ -30,8 +31,8 @@ final class PeriodAwareWebsiteWorkspace
 
         $periodStart = $gsc['period_start'] ?? $ga4['period_start'] ?? $start;
         $periodEnd = $gsc['period_end'] ?? $ga4['period_end'] ?? $end;
-        $periodLabel = $gsc['period_label'] ?? $ga4['period_label'] ?? null;
-        $compareLabel = $gsc['compare_label'] ?? $ga4['compare_label'] ?? null;
+        $periodLabel = $gsc['period_label'] ?? $ga4['period_label'] ?? $data['period_label'] ?? null;
+        $compareLabel = $gsc['compare_label'] ?? $ga4['compare_label'] ?? data_get($data, 'comparison_period.label');
 
         $data['period'] = [
             'preset' => $preset,
@@ -41,36 +42,50 @@ final class PeriodAwareWebsiteWorkspace
         $data['comparison_period'] = ['label' => $compareLabel];
         $data['period_label'] = $periodLabel;
         $data['period_is_live_query'] = true;
-        $data['kpis'] = $this->kpis($gsc, $ga4);
+
+        $poolKpis = $this->kpis($gsc, $ga4);
+        if ($poolKpis !== []) {
+            $data['kpis'] = $poolKpis;
+        } elseif (! $explicitPeriod) {
+            $data['kpis'] = [];
+        }
 
         if ($this->trusted($gsc, 'performance_trend.clicks')) {
             $data['gsc_daily'] = $gsc['metric_series'] ?? $gsc['performance_trend'] ?? [];
-        } else {
+        } elseif (! $explicitPeriod) {
             $data['gsc_daily'] = ['labels' => [], 'clicks' => [], 'impressions' => []];
         }
         if ($this->trusted($gsc, 'demand.queries')) {
             $data['queries'] = array_slice($gsc['demand']['queries'] ?? [], 0, 20);
-        } else {
+        } elseif (! $explicitPeriod) {
             $data['queries'] = [];
         }
         if ($this->trusted($gsc, 'pages.directory')) {
             $data['pages'] = array_slice($gsc['pages']['directory'] ?? [], 0, 20);
-        } else {
+        } elseif (! $explicitPeriod) {
             $data['pages'] = [];
         }
         if ($this->trusted($ga4, 'behavior.landing_pages')) {
             $data['landing_pages'] = array_slice($ga4['behavior']['landing_pages'] ?? [], 0, 20);
-        } else {
+        } elseif (! $explicitPeriod) {
             $data['landing_pages'] = [];
         }
         if ($this->trusted($ga4, 'acquisition.channels')) {
             $data['acquisition'] = array_slice($ga4['acquisition']['channels'] ?? [], 0, 20);
-        } else {
+        } elseif (! $explicitPeriod) {
             $data['acquisition'] = [];
         }
 
-        $data['ga4_summary'] = $this->trusted($ga4, 'glance.sessions') ? $ga4['glance'] : null;
-        $data['gsc_summary'] = $this->trusted($gsc, 'glance.clicks') ? $gsc['glance'] : null;
+        if ($this->trusted($ga4, 'glance.sessions')) {
+            $data['ga4_summary'] = $ga4['glance'];
+        } elseif (! $explicitPeriod) {
+            $data['ga4_summary'] = null;
+        }
+        if ($this->trusted($gsc, 'glance.clicks')) {
+            $data['gsc_summary'] = $gsc['glance'];
+        } elseif (! $explicitPeriod) {
+            $data['gsc_summary'] = null;
+        }
         $data['has_performance_data'] = $data['kpis'] !== [];
         $data['period_provenance'] = [
             'ga4' => $ga4['migration_mode'] ?? null,

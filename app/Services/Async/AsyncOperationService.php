@@ -3,6 +3,7 @@
 namespace App\Services\Async;
 
 use App\Jobs\Async\CollectLiveBoundDataJob;
+use App\Jobs\Async\EvaluateFindingsForAssetJob;
 use App\Jobs\Async\GoogleAdsAiGuidanceJob;
 use App\Jobs\Async\MetaAdsAiGuidanceJob;
 use App\Jobs\Async\PublicDiscoveryJob;
@@ -138,6 +139,21 @@ final class AsyncOperationService
             user: $user,
             jobFactory: fn (Run $run): object => new MetaAdsAiGuidanceJob($run->id, $findingIds),
             extraMetadata: ['finding_ids' => $findingIds],
+        );
+    }
+
+    /**
+     * @return array{ok: bool, queued: bool, message: string, run: ?Run, existing_run: ?Run}
+     */
+    public function queueFindingEvaluation(DigitalAsset $asset, ?User $user = null): array
+    {
+        return $this->queue(
+            asset: $asset,
+            operationType: AsyncOperationTypes::FINDING_EVALUATION,
+            moduleId: 'finding-evaluation',
+            humanTitle: __('operator.async.finding_evaluation'),
+            user: $user,
+            jobFactory: fn (Run $run): object => new EvaluateFindingsForAssetJob($asset->id, runId: $run->id),
         );
     }
 
@@ -350,6 +366,7 @@ final class AsyncOperationService
             AsyncOperationTypes::WEBSITE_AI_GUIDANCE => $this->queueWebsiteAiGuidance($asset, $user, $findingIds),
             AsyncOperationTypes::GOOGLE_ADS_AI_GUIDANCE => $this->queueGoogleAdsAiGuidance($asset, $user, $findingIds),
             AsyncOperationTypes::META_ADS_AI_GUIDANCE => $this->queueMetaAdsAiGuidance($asset, $user, $findingIds),
+            AsyncOperationTypes::FINDING_EVALUATION => $this->queueFindingEvaluation($asset, $user),
             default => [
                 'ok' => false,
                 'queued' => false,

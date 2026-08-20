@@ -3,6 +3,11 @@
         class="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
         {{ __('operator_runtime.sources.refresh_data') }}
     </button>
+    <button type="button" wire:click="runAnalysis"
+        class="inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-white/[0.03]"
+        title="{{ __('operator.workspace.analysis_requires_data') }}">
+        {{ __('operator.workspace.run_analysis') }}
+    </button>
     <a href="{{ route('operator.asset.sources', ['assetId' => $assetId]) }}" wire:navigate
         class="inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm font-semibold text-brand-700 ring-1 ring-inset ring-brand-200 hover:bg-brand-50 dark:text-brand-300 dark:ring-brand-500/30">
         {{ __('operator_runtime.sources.title') }}
@@ -16,6 +21,7 @@
             @if (filled($identity['website_asset_id'] ?? null))
                 <a href="{{ route('operator.website', ['assetId' => $identity['website_asset_id']]) }}" wire:navigate class="block rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.04]">{{ __('operator.chrome.open_website') }}</a>
             @endif
+            <button type="button" wire:click="setTab('overview')" class="block w-full rounded-lg px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.04]">{{ __('operator.workspace.manage_connection') }}</button>
         </div>
     </details>
 </div>

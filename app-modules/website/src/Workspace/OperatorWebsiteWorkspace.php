@@ -24,6 +24,10 @@ final class OperatorWebsiteWorkspace implements WebsiteOperatorWorkspaceContract
         ?string $periodStart = null,
         ?string $periodEnd = null,
     ): array {
+        if ($this->looksLikeIsoDate($periodPreset) && $periodEnd === null) {
+            return $this->periodAwareWorkspace->for($asset, 'custom', $periodPreset, $periodStart);
+        }
+
         return $this->periodAwareWorkspace->for($asset, $periodPreset, $periodStart, $periodEnd);
     }
 
@@ -55,5 +59,10 @@ final class OperatorWebsiteWorkspace implements WebsiteOperatorWorkspaceContract
     public function ignoreCandidate(DiscoveryCandidate $candidate, User $actor): DiscoveryCandidate
     {
         return $this->reviews->ignore($candidate, $actor);
+    }
+
+    private function looksLikeIsoDate(string $value): bool
+    {
+        return (bool) preg_match('/^\d{4}-\d{2}-\d{2}$/', $value);
     }
 }
