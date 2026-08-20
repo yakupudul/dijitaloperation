@@ -222,6 +222,23 @@ class MetaIncrementalCollectionOrchestratorTest extends TestCase
     }
 
     #[Test]
+    public function data_current_only_when_every_eligible_meta_dataset_in_preflight_scope_is_current(): void
+    {
+        $googleBinding = $this->createGoogleAdsBinding();
+        $this->materializeBindingFresh($this->bindingA, staleDatasetIds: []);
+        $this->materializeBindingFresh($this->bindingB, staleDatasetIds: []);
+
+        $result = app(MetaIncrementalCollectionOrchestrator::class)
+            ->start($this->integration->fresh(), $this->admin);
+
+        $this->assertSame('data_current', $result->outcome);
+        $this->assertNull($result->collectionRun);
+        $this->assertSame(0, CollectionRun::query()->where('trigger_type', CollectionTriggerType::Incremental)->count());
+        $this->assertNotContains($googleBinding->id, array_column($result->decisions, 'core_asset_binding_id'));
+        Http::assertNothingSent();
+    }
+
+    #[Test]
     public function same_customer_multi_brand_due_work_stays_on_one_integration_run(): void
     {
         $sameCustomerOtherBrand = $this->createSameCustomerOtherBrandBinding();

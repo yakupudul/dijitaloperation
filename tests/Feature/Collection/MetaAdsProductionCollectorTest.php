@@ -5,6 +5,7 @@ namespace Tests\Feature\Collection;
 use App\Enums\Collection\CollectionRunStatus;
 use App\Enums\Collection\DatasetExecutionOutcome;
 use App\Enums\DigitalAssetStatus;
+use App\Jobs\Collection\ExecuteDatasetRunJob;
 use App\Models\Brand;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\Collection\CollectionResourceRun;
@@ -16,12 +17,21 @@ use App\Models\CoreIntegrationCredential;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\User;
+use App\Services\Collection\CancellationService;
 use App\Services\Collection\CheckpointManager;
+use App\Services\Collection\CollectionErrorRecorder;
 use App\Services\Collection\CollectionPlanner;
+use App\Services\Collection\CollectionStateMachine;
+use App\Services\Collection\CollectionStatusAggregator;
+use App\Services\Collection\Contracts\RetryPolicy;
+use App\Services\Collection\DataContractRegistryLoader;
+use App\Services\Collection\DatasetExecutorResolver;
+use App\Services\Collection\ProgressReporter;
 use App\Services\Collection\Providers\MetaAds\MetaAdsDatasetExecutor;
 use App\Services\Collection\Providers\MetaAds\MetaAdsNormalizer;
 use App\Services\Collection\Providers\MetaAds\MetaAdsRequestFamilyCatalog;
 use App\Services\Collection\Providers\MetaAds\MetaInsightsRetrievalStrategy;
+use App\Services\Collection\StartCollectionService;
 use App\Services\Collection\Support\DatasetExecutionContext;
 use App\Services\Collection\Support\DatasetExecutionResult;
 use App\Services\Collection\Support\StartCollectionRequest;
@@ -35,6 +45,7 @@ use Illuminate\Http\Client\Factory;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -547,6 +558,152 @@ class MetaAdsProductionCollectorTest extends TestCase
     }
 
     #[Test]
+    public function entity_snapshot_resumes_from_step_index_without_skipping_or_duplicating(): void
+    {
+        Queue::fake();
+        $this->fakeMetaHttp();
+        [$context, $datasetRun] = $this->makeContext(MetaAdsRequestFamilyCatalog::FAMILY_ENTITY_SNAPSHOT);
+
+        $this->handleDatasetJob($datasetRun);
+        $this->assertFalse($datasetRun->fresh()->status->isTerminal());
+        $this->assertSame(1, (int) ($datasetRun->fresh()->checkpoint['step_index'] ?? 0));
+        $this->assertSame(1, DB::table('meta_campaign_snapshot')->count());
+        $this->assertSame(0, DB::table('meta_adset_snapshot')->count());
+        $this->assertSame(0, DB::table('meta_creative_snapshot')->count());
+
+        $replay = app(MetaAdsDatasetExecutor::class)->execute(new DatasetExecutionContext(
+            collectionRun: $context->collectionRun->fresh(),
+            resourceRun: $context->resourceRun->fresh(),
+            datasetRun: $datasetRun->fresh(),
+            checkpoint: ['step_index' => 0],
+            registryDataset: [],
+            registryRequestFamily: [],
+            attemptNumber: 2,
+        ));
+        $this->assertSame(DatasetExecutionOutcome::Continue, $replay->outcome);
+        $this->assertSame(1, DB::table('meta_campaign_snapshot')->count());
+        $this->assertSame(1, (int) ($replay->checkpoint['step_index'] ?? 0));
+
+        $this->handleDatasetJob($datasetRun->fresh());
+        $this->assertSame(1, DB::table('meta_adset_snapshot')->count());
+        $this->assertSame(2, (int) ($datasetRun->fresh()->checkpoint['step_index'] ?? 0));
+        $this->assertSame('adsets', $datasetRun->fresh()->checkpoint['last_step'] ?? null);
+
+        $this->handleDatasetJob($datasetRun->fresh());
+        $this->handleDatasetJob($datasetRun->fresh());
+        $this->assertSame(CollectionRunStatus::Completed, $datasetRun->fresh()->status);
+        $this->assertSame(1, DB::table('meta_campaign_snapshot')->count());
+        $this->assertSame(1, DB::table('meta_adset_snapshot')->count());
+        $this->assertSame(1, DB::table('meta_creative_snapshot')->count());
+    }
+
+    #[Test]
+    public function entity_snapshot_partial_ads_failure_keeps_committed_siblings_and_is_not_marked_complete(): void
+    {
+        Queue::fake();
+        $this->fakeMetaHttp();
+        [, $datasetRun] = $this->makeContext(MetaAdsRequestFamilyCatalog::FAMILY_ENTITY_SNAPSHOT);
+
+        $this->handleDatasetJob($datasetRun);
+        $this->handleDatasetJob($datasetRun->fresh());
+        $this->assertSame(1, DB::table('meta_campaign_snapshot')->count());
+        $this->assertSame(1, DB::table('meta_adset_snapshot')->count());
+
+        $this->fakeMetaHttp([
+            'handler' => function ($request) {
+                if (str_contains($request->url(), '/ads') && ! str_contains($request->url(), '/insights')) {
+                    return Http::response(['error' => ['message' => 'ads boom', 'code' => 1]], 500);
+                }
+
+                return $this->defaultMetaResponse($request);
+            },
+        ]);
+
+        $this->handleDatasetJob($datasetRun->fresh());
+        $failed = $datasetRun->fresh();
+        $this->assertNotSame(CollectionRunStatus::Completed, $failed->status);
+        $this->assertTrue(in_array($failed->status, [
+            CollectionRunStatus::Failed,
+            CollectionRunStatus::Retrying,
+            CollectionRunStatus::Queued,
+        ], true));
+        $this->assertSame(2, (int) ($failed->checkpoint['step_index'] ?? -1), 'failed ads step must not advance past unfinished work');
+        $this->assertSame(1, DB::table('meta_campaign_snapshot')->count());
+        $this->assertSame(1, DB::table('meta_adset_snapshot')->count());
+        $this->assertSame(0, DB::table('meta_creative_snapshot')->count());
+    }
+
+    #[Test]
+    public function insights_daily_resumes_work_index_without_duplicating_or_overwriting_snapshot(): void
+    {
+        Queue::fake();
+        $this->fakeMetaHttp();
+        $this->runFamily(MetaAdsRequestFamilyCatalog::FAMILY_ENTITY_SNAPSHOT);
+        $snapshotCampaigns = DB::table('meta_campaign_snapshot')->count();
+        $snapshotAdsets = DB::table('meta_adset_snapshot')->count();
+        $snapshotCreatives = DB::table('meta_creative_snapshot')->count();
+
+        config(['moxdop-meta-ads-collector.date_slice_days.RF_META_INSIGHTS_DAILY' => 1]);
+        [$context, $datasetRun] = $this->makeContext(
+            MetaAdsRequestFamilyCatalog::FAMILY_INSIGHTS_DAILY,
+            ['start' => '2026-08-01', 'end' => '2026-08-02'],
+        );
+
+        $this->handleDatasetJob($datasetRun);
+        $this->assertFalse($datasetRun->fresh()->status->isTerminal());
+        $this->assertSame(1, (int) ($datasetRun->fresh()->checkpoint['work_index'] ?? 0));
+        $this->assertSame(1, DB::table('meta_campaign_daily')->where('reporting_date', '2026-08-01')->count());
+        $this->assertSame(0, DB::table('meta_adset_daily')->count());
+        $this->assertSame($snapshotCampaigns, DB::table('meta_campaign_snapshot')->count());
+
+        $replay = app(MetaAdsDatasetExecutor::class)->execute(new DatasetExecutionContext(
+            collectionRun: $context->collectionRun->fresh(),
+            resourceRun: $context->resourceRun->fresh(),
+            datasetRun: $datasetRun->fresh(),
+            checkpoint: ['work_index' => 0, 'timezone' => 'Europe/Berlin', 'currency' => 'EUR'],
+            registryDataset: [],
+            registryRequestFamily: [],
+            attemptNumber: 2,
+        ));
+        $this->assertSame(DatasetExecutionOutcome::Continue, $replay->outcome);
+        $this->assertSame(1, DB::table('meta_campaign_daily')->where('campaign_id', '1001')->count());
+        $this->assertNotEmpty($datasetRun->fresh()->checkpoint['request_fingerprint'] ?? $replay->checkpoint['request_fingerprint'] ?? null);
+
+        $raw = DB::table('raw_ingestion_objects')->get();
+        $this->assertTrue($raw->contains(fn ($row): bool => str_contains((string) json_encode($row), 'fb-req-2026-08-01-campaign')));
+
+        $this->handleDatasetJob($datasetRun->fresh());
+        $this->assertSame(1, DB::table('meta_adset_daily')->where('reporting_date', '2026-08-01')->count());
+        $this->assertSame(1, DB::table('meta_campaign_daily')->where('reporting_date', '2026-08-01')->count());
+
+        $this->fakeMetaHttp([
+            'handler' => function ($request) {
+                $data = $request->data();
+                if (str_contains($request->url(), '/insights') && ($data['level'] ?? '') === 'ad') {
+                    return Http::response(['error' => ['message' => 'ad insights boom', 'code' => 1]], 500);
+                }
+
+                return $this->defaultMetaResponse($request);
+            },
+        ]);
+        $this->handleDatasetJob($datasetRun->fresh());
+        $status = $datasetRun->fresh()->status;
+        $this->assertNotSame(CollectionRunStatus::Completed, $status);
+        $this->assertTrue(in_array($status, [
+            CollectionRunStatus::Failed,
+            CollectionRunStatus::Retrying,
+            CollectionRunStatus::Queued,
+        ], true));
+        $this->assertSame(2, (int) ($datasetRun->fresh()->checkpoint['work_index'] ?? -1), 'failed ad insights tick must not skip past the unfinished work item');
+        $this->assertSame(1, DB::table('meta_campaign_daily')->count());
+        $this->assertSame(1, DB::table('meta_adset_daily')->count());
+        $this->assertSame(0, DB::table('meta_ad_daily')->count());
+        $this->assertSame($snapshotCampaigns, DB::table('meta_campaign_snapshot')->count());
+        $this->assertSame($snapshotAdsets, DB::table('meta_adset_snapshot')->count());
+        $this->assertSame($snapshotCreatives, DB::table('meta_creative_snapshot')->count());
+    }
+
+    #[Test]
     public function breakdown_family_requests_only_contract_dimensions(): void
     {
         $seen = [];
@@ -762,9 +919,10 @@ class MetaAdsProductionCollectorTest extends TestCase
         if (str_contains($url, '/insights')) {
             $data = $request->data();
             $level = (string) ($data['level'] ?? 'campaign');
+            $since = $this->insightSince($request);
             $row = [
-                'date_start' => '2026-08-01',
-                'date_stop' => '2026-08-01',
+                'date_start' => $since,
+                'date_stop' => $since,
                 'spend' => '12.34',
                 'impressions' => '100',
                 'clicks' => '10',
@@ -773,6 +931,7 @@ class MetaAdsProductionCollectorTest extends TestCase
                 'inline_link_clicks' => '7',
                 'outbound_clicks' => [['action_type' => 'outbound_click', 'value' => '5']],
                 'account_currency' => 'EUR',
+                'request_id' => 'fb-req-'.$since.'-'.$level,
                 'actions' => [
                     ['action_type' => 'lead', 'value' => '10'],
                     ['action_type' => 'onsite_conversion.messaging_conversation_started_7d', 'value' => '7'],
@@ -794,7 +953,7 @@ class MetaAdsProductionCollectorTest extends TestCase
                 $row['campaign_id'] = '1001';
             }
 
-            return Http::response(['data' => [$row]], 200);
+            return Http::response(['data' => [$row], 'request_id' => 'fb-req-'.$since.'-'.$level], 200);
         }
 
         return Http::response(['error' => ['message' => 'unexpected '.$url, 'code' => 1]], 500);
@@ -881,5 +1040,32 @@ class MetaAdsProductionCollectorTest extends TestCase
             ),
             $datasetRun,
         ];
+    }
+
+    private function handleDatasetJob(CollectionDatasetRun $datasetRun): void
+    {
+        (new ExecuteDatasetRunJob((int) $datasetRun->id))->handle(
+            app(DatasetExecutorResolver::class),
+            app(DataContractRegistryLoader::class),
+            app(CollectionStateMachine::class),
+            app(CollectionStatusAggregator::class),
+            app(CollectionErrorRecorder::class),
+            app(CheckpointManager::class),
+            app(ProgressReporter::class),
+            app(RetryPolicy::class),
+            app(CancellationService::class),
+            app(StartCollectionService::class),
+        );
+    }
+
+    private function insightSince($request): string
+    {
+        $data = $request->data();
+        $range = json_decode((string) ($data['time_range'] ?? ''), true);
+        if (is_array($range) && is_string($range['since'] ?? null) && $range['since'] !== '') {
+            return $range['since'];
+        }
+
+        return '2026-08-01';
     }
 }
