@@ -75,7 +75,9 @@ class DataSourcesPage extends Component
             $binding->update(['status' => CoreAssetBinding::STATUS_DISABLED]);
         }
 
-        $this->message = ProviderRegistry::capabilityLabel($capability).' Website bağlantısı devre dışı bırakıldı.';
+        $this->message = __('operator.data_sources.binding_disabled', [
+            'capability' => ProviderRegistry::capabilityLabel($capability),
+        ]);
         $this->messageTone = 'success';
     }
 
@@ -152,7 +154,7 @@ class DataSourcesPage extends Component
     {
         if (! ctype_digit($resourceId)) {
             throw ValidationException::withMessages([
-                $capability === 'ga4' ? 'ga4ResourceId' : 'searchConsoleResourceId' => 'Keşfedilmiş bir kaynak seçin.',
+                $capability === 'ga4' ? 'ga4ResourceId' : 'searchConsoleResourceId' => __('operator.data_sources.select_discovered'),
             ]);
         }
 
@@ -168,7 +170,7 @@ class DataSourcesPage extends Component
             || $resource->status !== CoreExternalResource::STATUS_AVAILABLE
             || ! AssetBindingCompatibility::isCompatible($asset, $resource)) {
             throw ValidationException::withMessages([
-                $capability === 'ga4' ? 'ga4ResourceId' : 'searchConsoleResourceId' => 'Bu kaynak aktif Google entegrasyonundan gelmiyor veya Website ile uyumlu değil.',
+                $capability === 'ga4' ? 'ga4ResourceId' : 'searchConsoleResourceId' => __('operator.data_sources.incompatible_google'),
             ]);
         }
 
@@ -180,7 +182,7 @@ class DataSourcesPage extends Component
 
         if ($duplicate) {
             throw ValidationException::withMessages([
-                $capability === 'ga4' ? 'ga4ResourceId' : 'searchConsoleResourceId' => 'Bu kaynak başka bir Digital Asset’e aktif olarak bağlı.',
+                $capability === 'ga4' ? 'ga4ResourceId' : 'searchConsoleResourceId' => __('operator.data_sources.bound_elsewhere'),
             ]);
         }
 
@@ -199,7 +201,9 @@ class DataSourcesPage extends Component
             ]);
         }
 
-        $this->message = ProviderRegistry::capabilityLabel($capability).' bu Website’e bağlandı.';
+        $this->message = __('operator.data_sources.bound_to_website', [
+            'capability' => ProviderRegistry::capabilityLabel($capability),
+        ]);
         $this->messageTone = 'success';
     }
 

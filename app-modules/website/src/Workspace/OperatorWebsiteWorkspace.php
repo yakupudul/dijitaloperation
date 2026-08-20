@@ -17,9 +17,9 @@ final class OperatorWebsiteWorkspace implements WebsiteOperatorWorkspaceContract
         private readonly DiscoveryCandidateReviewService $reviews,
     ) {}
 
-    public function overview(DigitalAsset $asset): array
+    public function overview(DigitalAsset $asset, ?string $periodStart = null, ?string $periodEnd = null): array
     {
-        return $this->workspace->for($asset);
+        return $this->workspace->for($asset, $periodStart, $periodEnd);
     }
 
     public function discovery(DigitalAsset $asset): array

@@ -84,6 +84,7 @@
 | DataForSEO production enrichment (engine-driven) | YES | YES | NO | NO | YES | **PARTIAL** | Unmerged stacked child of PR #203. Live Marketing/Labs UAT **not** reachable (`DATAFORSEO` credentials unset in this agent; no staging SSH). Paid POST is never auto-retried / never routinely scheduled. Fail-closed `paid_attempt_started` is checkpointed before the charged POST; an unresolved attempt fail-closes that DatasetRun (`CHARGE_UNKNOWN`) even if the fingerprint recomputes. A different fingerprint is allowed only on a new DatasetRun. Legacy SEO Evidence collectors unchanged. Domain intersection, relevant pages, and SERP organic stay DEFERRED. | Shared engine `DataForSeoDatasetExecutor` for COLLECTION_READY: `DFS-FREE-USER`, `DFS-FREE-MARKETS`, `DFS-RK-LIVE`, `DFS-KFS-LIVE`, `DFS-COMP-DOMAIN-LIVE`. Agency Integration credentials; facts are Website-asset scoped. Paid families require `paid_enrichment_consented`; competitors also require `public_discovery`. Missing search_volume/etv recorded as missing, never a measured zero. Not DONE. |
 | Agency brain / operational synthesis (Phase C.1) | YES | YES | NO | N/A | N/A | **PARTIAL** | Canonical child is PR #206 (PR #205 superseded). Live provider/staging UAT from #200/#203/#204 remains an isolated external gate and is **not** claimed here. No BrainV2 / FindingV2 / Result entity / auto-Task / Agency Learning. Document Head charset/viewport/OG stay unevaluated when those snapshot fields were not collected. Meta primary-result rules stay unevaluated without a collected `primary_result.status`. | `EvaluateFindingsForAssetJob` runs canonical `FindingEvaluationService` then `CollectedFactsAnalysisService`. Website `DocumentHeadEvaluator` (`website_metadata_snapshot`); Google Ads `GoogleAdsPerformanceBoundEvidenceEvaluator` (`google_ads_campaign_daily` spend-with-zero-conversions); Meta Ads `MetaAdsPerformanceBoundEvidenceEvaluator` (`meta_campaign_daily` + snapshot inactive-with-spend). `FindingEvaluationService` now emits `FindingEvaluationCompleted` so Outcome V1 observes GSC/GA4 canonical evaluations. Manual `CreateTaskFromRecommendation`. Sibling Brand/provider warehouse rows never enter collected-facts runs. Not DONE. |
 | Operational / settings completeness (Phase D) | YES | YES | NO | YES | N/A | **PARTIAL** | Live SMTP delivery UAT and browser/mobile push remain external/deferred. No SaaS whitelabel, no second credential screen, no SettingsV2. | Canonical operator `/settings` + `/profile` + `/integrations`. Admin/Team Member lifecycle with deactivate-not-delete. Agency timezone/locale drive operator rendering via `OperatorClock` (storage clock stays `APP_TIMEZONE`). Encrypted write-only operator SMTP overlay with env fallback and test-mail action. In-app notification preferences only; push not implemented. |
+| End-to-end operator UX / QA (Phase E) | YES | YES | NO | YES | YES | **PARTIAL** | Staging/browser operator UAT not reachable from this Cursor Cloud agent (`APP_URL=http://127.0.0.1:8000`; empty `GOOGLE_CLIENT_ID` / DataForSEO / Meta secrets; no staging SSH). Live provider collect remains the isolated #200/#203/#204 gate. Collection Engine still rejects PHPUnit `sync` queue; production Website refresh surfaces that as unavailable rather than a fake success. No UI redesign, no push/PWA, no GBP collector reopen. | Canonical root journey `Login → Customer → Brand → Asset → Data Sources bind/collect → Activity → Evidence/Finding → Recommendation → manual Task → Outcome`. Production period reads use `OperatorPeriod` / `OperatorReportingPeriod` (custom dates override DemoPeriod math). Capture note/opportunity are truthful unavailable. Google Ads/Meta `runAnalysis` queues finding evaluation. Findings/Recommendations `?asset=` isolation. Activity Center lists `CollectionRun` + async `Run`. PHPUnit: `tests/Feature/PhaseE/*`. Not DONE. |
 
 ---
 
@@ -159,6 +160,27 @@ Shipped in this slice:
 **Not claimed:** live SMTP provider UAT, web-push/PWA, SaaS tenant branding, or Filament as the canonical operator settings product (`/admin` remains technical).
 
 Do **not** describe this slice as “Phase D DONE”.
+
+### End-to-end operator UX / QA (Phase E) — PARTIAL, not DONE
+
+Phase E is QA + narrow remediation of the canonical root operator journey. It does **not** reopen provider collection, Agency Brain analytics, Settings architecture, GBP collectors, push/PWA, or whitelabel.
+
+Shipped in this slice:
+
+- Production date presets/custom ranges use agency `OperatorClock` “today” (`OperatorPeriod`) and treat filled from/to as a custom range (`OperatorReportingPeriod`) so workspace period controls actually change warehouse reads
+- Website overview KPIs stay `—` when the requested period does not overlap collected days (`period_has_data`); collected values outside the range are not reused as stale current KPIs
+- Capture `note` / `opportunity` are unavailable (no DemoState persistence); `client_request` and `task` still persist
+- Google Ads `createRecommendation` / `markClusterReviewed` no longer flash a fake success
+- Google Ads and Meta Ads `runAnalysis` queue `FINDING_EVALUATION` instead of AI guidance
+- Findings and Recommendations indexes honor `?asset=`
+- Activity Center lists Collection Engine runs plus async `Run` rows (`metadata.async`)
+- Website `refreshData` starts production collection when possible and surfaces Collection Engine `sync`/Redis unavailability instead of a fake refresh
+- Deterministic PHPUnit journey: Customer → Brand → Website asset → GA4 bind → `Http::fake` collect → Evidence + Document Head Finding → grounded Recommendation → manual Task → later `improvement_observed`
+- Demo catalog IDs remain 404 on operator routes; Atlas copy is not rendered on production website/GA4 surfaces
+
+**Not claimed:** staging browser smoke, live provider collect UAT, Collection Engine on PHPUnit `sync` queue, or Phase E DONE.
+
+Do **not** describe this slice as “Phase E DONE”.
 
 ### Public Website Discovery is limited
 

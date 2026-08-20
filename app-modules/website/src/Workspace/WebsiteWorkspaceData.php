@@ -33,7 +33,7 @@ final class WebsiteWorkspaceData
     /**
      * @return array<string, mixed>
      */
-    public function for(DigitalAsset $asset): array
+    public function for(DigitalAsset $asset, ?string $periodStart = null, ?string $periodEnd = null): array
     {
         $gscSummary = $this->latestEvidence($asset, 'gsc_performance_summary');
         $gscDaily = $this->latestEvidence($asset, 'gsc_daily_performance');
@@ -43,10 +43,13 @@ final class WebsiteWorkspaceData
         $ga4Landing = $this->latestEvidence($asset, 'ga4_landing_page_performance');
         $ga4Acquisition = $this->latestEvidence($asset, 'ga4_acquisition_summary');
 
-        $period = data_get($gscSummary?->payload, 'requested_period')
-            ?? data_get($ga4Summary?->payload, 'requested_period');
-        $comparison = data_get($gscSummary?->payload, 'comparison_period')
-            ?? data_get($ga4Summary?->payload, 'comparison_period');
+        $gscSummaryForPeriod = $this->evidenceForSelectedPeriod($gscSummary, $periodStart, $periodEnd);
+        $ga4SummaryForPeriod = $this->evidenceForSelectedPeriod($ga4Summary, $periodStart, $periodEnd);
+
+        $period = data_get($gscSummaryForPeriod?->payload, 'requested_period')
+            ?? data_get($ga4SummaryForPeriod?->payload, 'requested_period');
+        $comparison = data_get($gscSummaryForPeriod?->payload, 'comparison_period')
+            ?? data_get($ga4SummaryForPeriod?->payload, 'comparison_period');
 
         $lastUpdated = collect([$gscSummary, $ga4Summary])
             ->filter()
@@ -93,16 +96,16 @@ final class WebsiteWorkspaceData
                 ? $lastUpdated->diffForHumans()
                 : null,
             'kpis' => array_values(array_filter([
-                ...$this->gscKpis($gscSummary),
-                ...$this->ga4Kpis($ga4Summary),
+                ...$this->gscKpis($gscSummaryForPeriod),
+                ...$this->ga4Kpis($ga4SummaryForPeriod),
             ])),
-            'gsc_daily' => $this->dailySeries($gscDaily),
+            'gsc_daily' => $this->dailySeries($gscDaily, $periodStart, $periodEnd),
             'queries' => $this->boundedRows($gscQueries, 12),
             'pages' => $this->boundedRows($gscPages, 12),
             'landing_pages' => $this->boundedRows($ga4Landing, 12),
             'acquisition' => $this->boundedRows($ga4Acquisition, 12),
-            'ga4_summary' => $ga4Summary?->payload,
-            'gsc_summary' => $gscSummary?->payload,
+            'ga4_summary' => $ga4SummaryForPeriod?->payload,
+            'gsc_summary' => $gscSummaryForPeriod?->payload,
             'seo_opportunities' => $seoOpportunities,
             'seo_intelligence' => $seoIntelligence,
             'findings' => [
@@ -126,6 +129,10 @@ final class WebsiteWorkspaceData
             'connection_health' => $this->connectionHealthLine($connections),
             'activity' => $this->activityRows($asset),
             'has_performance_data' => $gscSummary !== null || $ga4Summary !== null,
+            'period_has_data' => $gscSummaryForPeriod !== null || $ga4SummaryForPeriod !== null
+                || $this->dailySeries($gscDaily, $periodStart, $periodEnd)['labels'] !== [],
+            'selected_period_start' => $periodStart,
+            'selected_period_end' => $periodEnd,
         ];
     }
 
@@ -522,6 +529,30 @@ final class WebsiteWorkspaceData
             ->first();
     }
 
+    private function evidenceForSelectedPeriod(?Evidence $evidence, ?string $periodStart, ?string $periodEnd): ?Evidence
+    {
+        if ($evidence === null) {
+            return null;
+        }
+
+        if (! filled($periodStart) || ! filled($periodEnd)) {
+            return $evidence;
+        }
+
+        $requested = data_get($evidence->payload, 'requested_period');
+        $evidenceStart = is_array($requested) ? ($requested['start'] ?? null) : null;
+        $evidenceEnd = is_array($requested) ? ($requested['end'] ?? null) : null;
+        if (! is_string($evidenceStart) || $evidenceStart === '' || ! is_string($evidenceEnd) || $evidenceEnd === '') {
+            return null;
+        }
+
+        if ($evidenceStart > $periodEnd || $evidenceEnd < $periodStart) {
+            return null;
+        }
+
+        return $evidence;
+    }
+
     private function latestBindingRun(DigitalAsset $asset, string $capability): ?Run
     {
         return Run::query()
@@ -639,20 +670,36 @@ final class WebsiteWorkspaceData
     /**
      * @return array{labels: list<string>, clicks: list<float|null>, impressions: list<float|null>}
      */
-    private function dailySeries(?Evidence $evidence): array
+    private function dailySeries(?Evidence $evidence, ?string $periodStart = null, ?string $periodEnd = null): array
     {
         $rows = is_array($evidence?->payload['rows'] ?? null) ? $evidence->payload['rows'] : [];
         $labels = [];
         $clicks = [];
         $impressions = [];
 
-        foreach (array_slice($rows, 0, 28) as $row) {
+        foreach ($rows as $row) {
             if (! is_array($row)) {
                 continue;
             }
-            $labels[] = (string) ($row['date'] ?? '');
+            $date = (string) ($row['date'] ?? '');
+            if ($date === '') {
+                continue;
+            }
+            if (filled($periodStart) && $date < $periodStart) {
+                continue;
+            }
+            if (filled($periodEnd) && $date > $periodEnd) {
+                continue;
+            }
+            $labels[] = $date;
             $clicks[] = isset($row['clicks']) ? (float) $row['clicks'] : null;
             $impressions[] = isset($row['impressions']) ? (float) $row['impressions'] : null;
+        }
+
+        if (! filled($periodStart) && ! filled($periodEnd) && count($labels) > 28) {
+            $labels = array_slice($labels, 0, 28);
+            $clicks = array_slice($clicks, 0, 28);
+            $impressions = array_slice($impressions, 0, 28);
         }
 
         return compact('labels', 'clicks', 'impressions');

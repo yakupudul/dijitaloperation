@@ -228,14 +228,14 @@ class OverviewPage extends Component
 
     public function runLocalVisibilityScan(): void
     {
-        DemoState::flash('A real local-rank grid collector is not wired yet; no fabricated scan was created.', 'info');
+        DemoState::flash(__('operator.flash.gbp_scan_unavailable'), 'info');
         $this->tab = 'visibility';
         $this->scan = 'latest';
     }
 
     public function createReviewTask(string $reviewId): void
     {
-        DemoState::flash('Live GBP reviews are not collected yet, so no review task was fabricated for '.$reviewId.'.', 'info');
+        DemoState::flash(__('operator.flash.gbp_review_task_unavailable', ['id' => $reviewId]), 'info');
         $this->reviews_sub = 'queue';
         $this->tab = 'reviews';
     }

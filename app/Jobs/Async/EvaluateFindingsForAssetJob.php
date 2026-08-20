@@ -3,7 +3,9 @@
 namespace App\Jobs\Async;
 
 use App\Models\DigitalAsset;
+use App\Models\Run;
 use App\Services\Analysis\CollectedFactsAnalysisService;
+use App\Services\Async\AsyncOperationService;
 use App\Services\Findings\FindingEvaluationService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -36,22 +38,45 @@ class EvaluateFindingsForAssetJob implements ShouldQueue
         public int $digitalAssetId,
         public ?array $ruleIds = null,
         public ?array $definitionIds = null,
+        public ?int $runId = null,
     ) {}
 
     public function handle(
         FindingEvaluationService $evaluator,
         CollectedFactsAnalysisService $collectedFacts,
     ): void {
+        $async = $this->runId !== null ? app(AsyncOperationService::class) : null;
+        $run = $this->runId !== null ? Run::query()->find($this->runId) : null;
+        if ($run !== null && $async !== null) {
+            $async->markRunning($run, 'evaluating', 'Evaluating findings');
+        }
+
         $asset = DigitalAsset::query()->find($this->digitalAssetId);
         if ($asset === null) {
+            if ($run !== null && $async !== null) {
+                $async->markFinished($run, 'failed', 'Asset missing');
+            }
+
             return;
         }
 
-        $evaluator->evaluateAsset($asset, ruleIds: $this->ruleIds, definitionIds: $this->definitionIds);
-        $collectedFacts->analyze($asset);
+        try {
+            $evaluator->evaluateAsset($asset, ruleIds: $this->ruleIds, definitionIds: $this->definitionIds);
+            $collectedFacts->analyze($asset);
 
-        if ((bool) config('moxdop-opportunity-rules.evaluate_after_findings', true)) {
-            EvaluateOpportunitiesForAssetJob::dispatch($this->digitalAssetId);
+            if ((bool) config('moxdop-opportunity-rules.evaluate_after_findings', true)) {
+                EvaluateOpportunitiesForAssetJob::dispatch($this->digitalAssetId);
+            }
+
+            if ($run !== null && $async !== null) {
+                $async->markFinished($run, 'completed', 'Completed');
+            }
+        } catch (Throwable $exception) {
+            if ($run !== null && $async !== null) {
+                $async->markFailed($run, $exception);
+            }
+
+            throw $exception;
         }
     }
 
