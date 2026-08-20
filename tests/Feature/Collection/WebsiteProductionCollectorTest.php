@@ -16,6 +16,7 @@ use App\Models\CoreConnectionCredential;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\Customer;
+use App\Models\DataPool\DatasetWriteBatch;
 use App\Models\DigitalAsset;
 use App\Models\Evidence;
 use App\Models\User;
@@ -350,6 +351,91 @@ class WebsiteProductionCollectorTest extends TestCase
         ));
         $this->assertSame(DatasetExecutionOutcome::Failed, $result->outcome);
         $this->assertSame('BINDING_NOT_USED', $result->errorCode);
+    }
+
+    #[Test]
+    public function public_crawl_persists_each_url_with_a_unique_batch_key_and_stays_idempotent_on_retry_and_resume(): void
+    {
+        $this->fakePublicSite();
+        [$context, $datasetRun] = $this->makeContext(WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL);
+        $executor = app(WebsiteDatasetExecutor::class);
+        $home = 'http://1.1.1.1/';
+        $about = 'http://1.1.1.1/about';
+        $startCheckpoint = [
+            'observed_at' => '2026-08-20 00:00:00',
+            'queue' => [$home, $about],
+            'visited' => [],
+            'pages' => 0,
+            'rows_written_total' => 0,
+        ];
+
+        $first = $executor->execute($this->contextFrom($context, $datasetRun, $startCheckpoint));
+        $this->assertSame(DatasetExecutionOutcome::Continue, $first->outcome, (string) $first->errorMessage);
+        $this->assertSame(1, $first->checkpoint['pages'] ?? null);
+        $this->assertSame([$about], $first->checkpoint['queue'] ?? null);
+        $this->assertContains($home, $first->checkpoint['visited'] ?? []);
+        $this->assertGreaterThan(0, (int) ($first->checkpoint['rows_written_total'] ?? 0));
+        $this->assertSame($first->rowsWritten, (int) $first->checkpoint['rows_written_total']);
+
+        $httpAfterFirst = DB::table('website_http_snapshot')->count();
+        $urlsAfterFirst = DB::table('website_url')->count();
+        $batchesAfterFirst = DatasetWriteBatch::query()->where('dataset_run_id', $datasetRun->id)->count();
+        $this->assertSame(1, $httpAfterFirst);
+        $this->assertSame(1, $urlsAfterFirst);
+        $this->assertGreaterThan(0, $batchesAfterFirst);
+        $this->assertSame(1, DB::table('website_http_snapshot')->where('digital_asset_id', $this->asset->id)->count());
+
+        $retrySamePage = $executor->execute($this->contextFrom($context, $datasetRun, $startCheckpoint));
+        $this->assertSame(DatasetExecutionOutcome::Continue, $retrySamePage->outcome, (string) $retrySamePage->errorMessage);
+        $this->assertSame(1, $retrySamePage->checkpoint['pages'] ?? null);
+        $this->assertSame($httpAfterFirst, DB::table('website_http_snapshot')->count(), 'retrying the same URL must not duplicate HTTP snapshots');
+        $this->assertSame($urlsAfterFirst, DB::table('website_url')->count(), 'retrying the same URL must not duplicate URL inventory');
+        $this->assertSame($batchesAfterFirst, DatasetWriteBatch::query()->where('dataset_run_id', $datasetRun->id)->count());
+
+        app(CheckpointManager::class)->advance($datasetRun, $first->checkpoint);
+        $second = $executor->execute($this->contextFrom($context, $datasetRun, $first->checkpoint));
+        $this->assertSame(DatasetExecutionOutcome::Completed, $second->outcome, (string) $second->errorMessage);
+        $this->assertSame(2, $second->checkpoint['pages'] ?? null);
+        $this->assertSame([], $second->checkpoint['queue'] ?? null);
+        $this->assertEqualsCanonicalizing([$home, $about], $second->checkpoint['visited'] ?? []);
+
+        $httpUrls = DB::table('website_http_snapshot')->orderBy('id')->pluck('url')->all();
+        $normalizedUrls = DB::table('website_url')->orderBy('id')->pluck('normalized_url')->all();
+        $this->assertCount(2, $httpUrls);
+        $this->assertCount(2, $normalizedUrls);
+        $this->assertContains($home, $httpUrls);
+        $this->assertContains($about, $httpUrls);
+
+        $httpBatchKeys = DatasetWriteBatch::query()
+            ->where('dataset_run_id', $datasetRun->id)
+            ->where('dataset_id', 'website_http_snapshot')
+            ->orderBy('id')
+            ->pluck('batch_key')
+            ->all();
+        $this->assertCount(2, $httpBatchKeys);
+        $this->assertCount(2, array_unique($httpBatchKeys));
+        foreach ($httpBatchKeys as $batchKey) {
+            $this->assertMatchesRegularExpression('/^website:website_http_snapshot:public_crawl_http:url=[a-f0-9]{64}$/', (string) $batchKey);
+        }
+
+        $committedRows = (int) DatasetWriteBatch::query()
+            ->where('dataset_run_id', $datasetRun->id)
+            ->where('status', 'committed')
+            ->sum('rows_received');
+        $this->assertSame($committedRows, (int) ($second->checkpoint['rows_written_total'] ?? 0));
+        $this->assertSame($first->rowsWritten, $second->rowsWritten);
+        $this->assertSame(0, Evidence::query()->count());
+
+        $resume = $this->runUntilComplete(
+            $executor,
+            $this->contextFrom($context, $datasetRun, $first->checkpoint),
+            $datasetRun,
+        );
+        $this->assertSame(DatasetExecutionOutcome::Completed, $resume->outcome, (string) $resume->errorMessage);
+        $this->assertSame(2, DB::table('website_http_snapshot')->count(), 'resume must not lose or duplicate crawled pages');
+        $this->assertSame(2, DB::table('website_url')->count());
+        $this->assertSame($committedRows, (int) DatasetWriteBatch::query()->where('dataset_run_id', $datasetRun->id)->sum('rows_received'));
+        $this->assertSame(2, (int) ($resume->checkpoint['pages'] ?? 0));
     }
 
     private function fakePublicSite(): void

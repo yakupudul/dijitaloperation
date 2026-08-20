@@ -6,6 +6,7 @@ use App\Enums\Collection\CollectionErrorCategory;
 use App\Enums\Collection\DatasetExecutionOutcome;
 use App\Enums\Collection\ProgressMode;
 use App\Models\CoreConnection;
+use App\Models\DataPool\DatasetWriteBatch;
 use App\Services\Collection\Contracts\DatasetExecutor;
 use App\Services\Collection\Contracts\RawPayloadWriter;
 use App\Services\Collection\Support\DatasetExecutionContext;
@@ -13,6 +14,7 @@ use App\Services\Collection\Support\DatasetExecutionResult;
 use App\Services\DataPool\DatasetWritePipeline;
 use App\Services\DataPool\Support\NormalizedDatasetBatch;
 use App\Services\DataPool\Support\RawPayloadEnvelope;
+use App\Services\DataPool\Support\WriteReceipt;
 use App\Support\SslCertificateProbe;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Http;
@@ -102,19 +104,17 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
 
         if ($step === 'homepage') {
             $fetch = $this->fetcher->fetch($seed);
-            $this->persistPage($context, $assetId, $fetch, $observedAt, 'diagnosis_homepage', $seed);
-            $rowsWritten += $fetch['ok'] ? 5 : 1;
+            $rowsWritten += $this->persistPage($context, $assetId, $fetch, $observedAt, 'diagnosis_homepage', $seed);
         } elseif ($step === 'robots') {
             $robotsUrl = rtrim($this->origin($seed), '/').'/robots.txt';
             $fetch = $this->fetcher->fetch($robotsUrl);
-            $this->writeOne($context, 'website_http_snapshot', 'robots', $assetId, [
+            $rowsWritten += $this->writeOne($context, 'website_http_snapshot', 'robots', $assetId, [
                 $this->normalizer->httpSnapshot($assetId, $fetch, $observedAt),
             ], [$fetch], $robotsUrl);
-            $rowsWritten++;
         } else {
             $sitemapUrl = rtrim($this->origin($seed), '/').'/sitemap.xml';
             $fetch = $this->fetcher->fetch($sitemapUrl);
-            $this->writeOne($context, 'website_http_snapshot', 'sitemap', $assetId, [
+            $rowsWritten += $this->writeOne($context, 'website_http_snapshot', 'sitemap', $assetId, [
                 $this->normalizer->httpSnapshot($assetId, $fetch, $observedAt),
             ], [$fetch], $sitemapUrl);
             $locs = $this->extractSitemapLocs(is_string($fetch['body'] ?? null) ? $fetch['body'] : null, 20);
@@ -127,9 +127,8 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
                 $urlRecords[] = $this->normalizer->urlRecord($assetId, $normalized, 'sitemap', $observedAt);
             }
             if ($urlRecords !== []) {
-                $this->writeOne($context, 'website_url', 'sitemap_urls', $assetId, $urlRecords, $locs, $sitemapUrl);
+                $rowsWritten += $this->writeOne($context, 'website_url', 'sitemap_urls', $assetId, $urlRecords, $locs, $sitemapUrl);
             }
-            $rowsWritten += 1 + count($urlRecords);
         }
 
         $checkpointOut = [
@@ -176,7 +175,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
                 'visited' => $visited,
                 'pages' => $pages,
                 'rows_written_total' => $rowsWritten,
-            ], $rowsWritten, $rowsWritten);
+            ]);
         }
 
         $url = array_shift($queue);
@@ -198,9 +197,9 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
 
         $visited[] = $url;
         $fetch = $this->fetcher->fetch($url);
-        $this->persistPage($context, $assetId, $fetch, $observedAt, 'public_crawl', $url);
+        $written = $this->persistPage($context, $assetId, $fetch, $observedAt, 'public_crawl', $url);
         $pages++;
-        $rowsWritten += $fetch['ok'] ? 5 : 1;
+        $rowsWritten += $written;
 
         if ($fetch['ok'] && is_string($fetch['body'] ?? null) && $pages < $maxPages) {
             foreach ($this->extractSameSiteHrefs((string) $fetch['body'], $seed) as $href) {
@@ -219,7 +218,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         ];
 
         if ($queue === [] || $pages >= $maxPages) {
-            return $this->completedCounted($pages, $maxPages, $checkpointOut, $rowsWritten, $rowsWritten);
+            return $this->completedCounted($pages, $maxPages, $checkpointOut, $written, $written);
         }
 
         return new DatasetExecutionResult(
@@ -227,9 +226,9 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
             progressMode: ProgressMode::PageBased,
             progressCurrent: $pages,
             progressTotal: $maxPages,
-            rowsReceived: $rowsWritten,
-            rowsWritten: $rowsWritten,
-            pagesCompleted: $pages,
+            rowsReceived: $written,
+            rowsWritten: $written,
+            pagesCompleted: 1,
             checkpoint: $checkpointOut,
         );
     }
@@ -326,7 +325,6 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
 
     /**
      * @param  array<string, mixed>  $fetch
-     * @param  array<string, mixed>  $scope
      */
     private function persistPage(
         DatasetExecutionContext $context,
@@ -335,22 +333,27 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         string $observedAt,
         string $source,
         string $requestedUrl,
-    ): void {
+    ): int {
+        $pageIdentity = $this->stablePageIdentity($requestedUrl, $fetch);
+        $rowsWritten = 0;
         $normalized = $this->normalizer->normalizeUrl((string) ($fetch['final_url'] ?? $fetch['requested_url'] ?? $requestedUrl));
         if ($normalized !== null) {
-            $this->writeOne($context, 'website_url', $source.'_url', $assetId, [
+            $rowsWritten += $this->writeOne($context, 'website_url', $source.'_url', $assetId, [
                 $this->normalizer->urlRecord($assetId, $normalized, $source, $observedAt),
-            ], [$fetch], $requestedUrl);
+            ], [$fetch], $requestedUrl, $pageIdentity);
         }
-        $this->writeOne($context, 'website_http_snapshot', $source.'_http', $assetId, [
+        $httpRows = $this->writeOne($context, 'website_http_snapshot', $source.'_http', $assetId, [
             $this->normalizer->httpSnapshot($assetId, $fetch, $observedAt),
-        ], [$fetch], $requestedUrl);
+        ], [$fetch], $requestedUrl, $pageIdentity);
+        $rowsWritten += $httpRows;
         if (($fetch['ok'] ?? false) === true && is_string($fetch['body'] ?? null)) {
             [$metadata, $heading, $schema] = $this->normalizer->htmlSnapshots($assetId, $fetch, $observedAt);
-            $this->writeOne($context, 'website_metadata_snapshot', $source.'_meta', $assetId, [$metadata], [$fetch], $requestedUrl);
-            $this->writeOne($context, 'website_heading_snapshot', $source.'_h1', $assetId, [$heading], [$fetch], $requestedUrl);
-            $this->writeOne($context, 'website_schema_snapshot', $source.'_schema', $assetId, [$schema], [$fetch], $requestedUrl);
+            $rowsWritten += $this->writeOne($context, 'website_metadata_snapshot', $source.'_meta', $assetId, [$metadata], [$fetch], $requestedUrl, $pageIdentity);
+            $rowsWritten += $this->writeOne($context, 'website_heading_snapshot', $source.'_h1', $assetId, [$heading], [$fetch], $requestedUrl, $pageIdentity);
+            $rowsWritten += $this->writeOne($context, 'website_schema_snapshot', $source.'_schema', $assetId, [$schema], [$fetch], $requestedUrl, $pageIdentity);
         }
+
+        return $rowsWritten;
     }
 
     /**
@@ -365,10 +368,14 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         array $records,
         array $rawRows,
         string $query,
-    ): void {
+        ?string $pageIdentity = null,
+    ): int {
         if ($records === []) {
-            return;
+            return 0;
         }
+
+        $identity = $pageIdentity ?? $this->stablePageIdentity($query);
+        $batchKey = $this->pageBatchKey($datasetId, $batchSuffix, $identity);
 
         $envelope = new RawPayloadEnvelope(
             providerOrSource: 'WEBSITE_DIRECT',
@@ -377,10 +384,10 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
             datasetRunId: (int) $context->datasetRun->id,
             logicalDatasetId: $datasetId,
             requestFamilyId: $context->datasetRun->request_family_id,
-            batchKey: 'website:'.$datasetId.':'.$batchSuffix,
+            batchKey: $batchKey,
             contentType: 'application/json',
             payload: json_encode(['data' => $rawRows], JSON_THROW_ON_ERROR),
-            providerRequestFingerprint: hash('sha256', $query.'|'.$datasetId.'|'.$batchSuffix),
+            providerRequestFingerprint: hash('sha256', $query.'|'.$datasetId.'|'.$batchSuffix.'|'.$identity),
             recordCount: count($records),
             providerSafeMetadata: [
                 'collector_version' => WebsiteProviderCapabilities::COLLECTOR_VERSION,
@@ -395,7 +402,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
                 datasetId: $datasetId,
                 datasetRunId: (int) $context->datasetRun->id,
                 contractVersion: (int) $context->datasetRun->contract_registry_version,
-                batchKey: 'website:'.$datasetId.':'.$batchSuffix,
+                batchKey: $batchKey,
                 records: $records,
                 digitalAssetId: $assetId,
                 externalResourceId: null,
@@ -406,9 +413,51 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
             $envelope,
         );
 
+        return $this->accountedRows($receipt, $batchKey);
+    }
+
+    private function accountedRows(WriteReceipt $receipt, string $expectedBatchKey): int
+    {
         if (! $receipt->isCommitted()) {
             throw new \RuntimeException('Website write receipt not committed; checkpoint not advanced.');
         }
+
+        if ($receipt->reusedExisting) {
+            $existingKey = DatasetWriteBatch::query()->whereKey($receipt->writeBatchId)->value('batch_key');
+            if ($existingKey !== $expectedBatchKey) {
+                throw new \RuntimeException('Website warehouse skipped a distinct page via batch-key collision; checkpoint not advanced.');
+            }
+        }
+
+        return $receipt->rowsReceived;
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $fetch
+     */
+    private function stablePageIdentity(string $url, ?array $fetch = null): string
+    {
+        $candidate = $url;
+        if ($fetch !== null) {
+            $fromFetch = (string) ($fetch['final_url'] ?? $fetch['requested_url'] ?? '');
+            if ($fromFetch !== '') {
+                $candidate = $fromFetch;
+            }
+        }
+
+        $normalized = $this->normalizer->normalizeUrl($candidate);
+        if ($normalized !== null) {
+            return $normalized;
+        }
+
+        $fromUrl = $this->normalizer->normalizeUrl($url);
+
+        return $fromUrl ?? $url;
+    }
+
+    private function pageBatchKey(string $datasetId, string $batchSuffix, string $pageIdentity): string
+    {
+        return 'website:'.$datasetId.':'.$batchSuffix.':url='.hash('sha256', $pageIdentity);
     }
 
     /**
