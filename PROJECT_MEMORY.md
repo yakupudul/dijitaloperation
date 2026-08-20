@@ -311,6 +311,8 @@ Still explicit:
 
 Main also has Meta **central Integration + resource discovery + binding** (connection layer).
 
+Contract-driven Meta production collection (Prompt 24 executor + Prompt 25 initial backfill + Prompt 27 incremental on the shared engine/data pool) is **PARTIAL** on the stacked Meta data-foundation child of PR #200: coded and PHPUnit-covered for COLLECTION_READY families, historical 180d slices, warehouse grain/idempotency, checkpoint resume, and exact-binding incremental `DATA CURRENT`. **Not** live Marketing API warehouse UAT — this Cursor Cloud agent has no Meta app credentials / staging OAuth DB (`META_APP_ID` unset, local `APP_URL`). Legacy Intelligence Ads Manager UAT does **not** prove the warehouse path. Incremental refresh must use the exact preflight Meta Ad Account binding IDs so sibling Meta Ads Digital Assets are not starved. No specialist Meta UX redesign in that slice.
+
 Details: `PRODUCT_CAPABILITY_LEDGER.md`.
 
 ---

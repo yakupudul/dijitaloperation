@@ -9,6 +9,7 @@ use App\Enums\Collection\RequirementLevel;
 use App\Models\CoreAssetBinding;
 use App\Models\DataPool\DatasetMaterialization;
 use App\Models\DigitalAsset;
+use App\Services\Collection\Providers\MetaAds\MetaAdsRequestFamilyCatalog;
 use App\Services\Collection\Support\StartCollectionRequest;
 use App\Services\DataPool\Freshness\IncrementalCoveragePlanner;
 use Illuminate\Support\Collection;
@@ -180,6 +181,10 @@ final class CollectionPlanner
                 $datasetId = $this->primaryDatasetForFamily($familyId) ?? $familyId;
                 $requirements = $this->requirementsForFamily($familyId);
                 $coverageTarget = $this->ranges->resolveForRequirements($requirements);
+                $catalogCoverage = $this->catalogCoverageTarget($familyId, $datasetId);
+                if ($catalogCoverage !== null && ($coverageTarget['kind'] ?? '') !== 'historical') {
+                    $coverageTarget = $catalogCoverage;
+                }
                 $requirementIds = array_values(array_filter(array_map(
                     static fn (array $r): ?string => is_string($r['id'] ?? null) ? (string) $r['id'] : null,
                     $requirements,
@@ -510,7 +515,47 @@ final class CollectionPlanner
             }
         }
 
-        return null;
+        return $this->catalogPrimaryDataset($familyId);
+    }
+
+    private function catalogPrimaryDataset(string $familyId): ?string
+    {
+        if (! in_array($familyId, MetaAdsRequestFamilyCatalog::supportedFamilies(), true)) {
+            return null;
+        }
+
+        $ids = MetaAdsRequestFamilyCatalog::definition($familyId)['dataset_ids'] ?? [];
+        $primary = $ids[0] ?? null;
+
+        return is_string($primary) && $primary !== '' ? $primary : null;
+    }
+
+    /**
+     * When registry requirements omit historical_depth but the Meta catalog requires a date range,
+     * use the physical dataset history_policy so Insights families are not planned without a window.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function catalogCoverageTarget(string $familyId, string $datasetId): ?array
+    {
+        if (! in_array($familyId, MetaAdsRequestFamilyCatalog::supportedFamilies(), true)) {
+            return null;
+        }
+
+        $definition = MetaAdsRequestFamilyCatalog::definition($familyId);
+        if (! ($definition['requires_date_range'] ?? false)) {
+            return null;
+        }
+
+        $dataset = $this->registry->dataset($datasetId);
+        $history = is_array($dataset['history_policy'] ?? null) ? $dataset['history_policy'] : null;
+        if ($history === null) {
+            return null;
+        }
+
+        $resolved = $this->ranges->resolve($history);
+
+        return ($resolved['kind'] ?? '') === 'historical' ? $resolved : null;
     }
 
     /**

@@ -79,7 +79,7 @@
 | GA4 production collection (contract-driven) | YES | YES | PARTIAL (staging) | NO | YES | **PARTIAL** | Unmerged until this PR; CollectionRun #1 leftover 5xx rows preserved; event×source/medium + custom dims + geo + browser/OS + ecommerce are contract-deferred, not this gate | Prompt 18; staging 180d facts + event breakdowns + property-daily idempotency replay on PR #200 |
 | GSC production collection (contract-driven) | YES | YES | PARTIAL (staging) | NO | YES | **PARTIAL** | Unmerged until this PR; Search Appearance remains source-contract deferred; GBP is a separate external blocker | Prompt 17; staging GSC SA/sitemaps proven; URL Inspection proven on CollectionRun #4 dataset 48 (1 snapshot row) on PR #200 |
 | Google Ads production collection (contract-driven) | YES | YES | PARTIAL (staging) | NO | YES | **PARTIAL** | Daily facts are successful zero-row on the bound staging account; GBP not in this slice; keyword grain now includes `ad_group_id` but staging 735 remains collapsed historical inventory (`IMPLEMENTED_UNPROVEN` until staging recollection with exact-resource `current_run_grain_proven`). Cursor Cloud cannot reach staging OAuth; operator path is `moxdop:google-ads:recollect-entity-snapshot` (`docs/operations/GOOGLE_ADS_KEYWORD_GRAIN_RECOLLECTION.md`) | Prompt 19; sibling-asset eligibility + v25 GAQL + keyword ad-group grain + pre-fact-commit checksum retry + brand-scoped Google backfill/incremental due-query (`core_asset_binding_ids`); non-keyword snapshots proven on PR #200 |
-| Meta production collection (contract-driven) | NO | NO | NO | NO | N/A | PLANNED | Legacy bound collector remains; contract executor later | Later Meta collector milestone |
+| Meta production collection (contract-driven) | YES | YES | NO | YES | YES | **PARTIAL** | Unmerged stacked child of PR #200. Live Marketing API / warehouse Collection Engine UAT **not** reachable from this Cursor Cloud agent (`META_APP_ID` / `META_APP_SECRET` / `META_ACCESS_TOKEN` unset; `APP_URL=http://127.0.0.1:8000`; no staging SSH/OAuth DB). Legacy Intelligence Ads Manager UAT (`act_744654160596455`) does **not** prove this warehouse path. Google Ads keyword grain remains `IMPLEMENTED_UNPROVEN` on #200. GBP isolated. No Meta specialist UX. | Prompt 24 `MetaAdsDatasetExecutor` + Prompt 25 initial backfill + Prompt 27 incremental on the shared engine. COLLECTION_READY families: `RF_META_AD_ACCOUNT_META`, `RF_META_ENTITY_SNAPSHOT`, `RF_META_INSIGHTS_SYNC`, `RF_META_INSIGHTS_DAILY`, `RF_META_TYPED_ACTIONS`, `RF_META_INSIGHTS_BREAKDOWN`. Deferred (not expanded): `RF_META_ASYNC_INSIGHTS` (async is transport inside daily/breakdown). Incremental due selection uses exact preflight `core_asset_binding_ids`; `DATA CURRENT` only when every eligible Meta dataset in that binding scope is current. Google bindings never enter Meta runs. |
 | Website production crawl collection | NO | NO | NO | NO | N/A | PLANNED | Engine ready | Later Website collector milestone |
 | DataForSEO production enrichment (engine-driven) | NO | NO | NO | NO | N/A | PLANNED | Existing SEO collectors unchanged | Later DFS collector milestone |
 
@@ -115,6 +115,20 @@ Also accepted on this slice: hierarchy collection, provider-ID joins, missing≠
 Do **not** describe this merge as “Meta Ads complete”, “Meta module finished”, or “Meta workspace done”.
 
 Main also continues to include Meta central Integration + discovery + binding (connection layer), with prior product-doc real UAT PASS for that scoped slice.
+
+### Meta production collection (contract-driven) — PARTIAL, not DONE
+
+Contract-driven Meta Ads collection already uses the shared Collection Engine and Data Pool (`MetaAdsDatasetExecutor`, `MetaInitialBackfillOrchestrator`, `MetaIncrementalCollectionOrchestrator`). This stacked child closes the contract-to-runtime loop for COLLECTION_READY `META_ADS` families (catalog + executor kind + PHYSICAL_TABLE natural keys + freshness/backfill policy), bounded 180d historical slices with exact asset/resource provenance, DatasetWritePipeline grain/idempotency on the nine Meta physical tables, checkpoint resume for entity snapshot `step_index` and insights `work_index`, and incremental `DATA CURRENT` only when every eligible Meta dataset in the exact preflight binding scope is current.
+
+**COLLECTION_READY families:** `RF_META_AD_ACCOUNT_META`, `RF_META_ENTITY_SNAPSHOT`, `RF_META_INSIGHTS_SYNC`, `RF_META_INSIGHTS_DAILY`, `RF_META_TYPED_ACTIONS`, `RF_META_INSIGHTS_BREAKDOWN`.
+
+**Deferred (not expanded):** `RF_META_ASYNC_INSIGHTS` — async Insights is transport inside daily/breakdown, not a separate collector family.
+
+**UAT REQUIRED / PARTIAL:** this Cursor Cloud agent cannot reach the already UAT-proven Meta Integration OAuth path. Exact missing capability: no `META_APP_ID` / `META_APP_SECRET` / `META_ACCESS_TOKEN` in process or `.env`, `APP_URL` is `http://127.0.0.1:8000`, no `.env.staging` / production secrets, no staging SSH or operator SQLite with a live Marketing API token. Do not treat PR #119 Ads Manager Intelligence UAT (`act_744654160596455`) as proof of this shared-engine warehouse path.
+
+**Not claimed:** live Marketing API warehouse CollectionRun, professional Meta Expert Workspace, Google Ads keyword-grain staging proof (still `IMPLEMENTED_UNPROVEN` on PR #200), or GBP.
+
+Do **not** describe this slice as “Meta collection DONE”.
 
 ### Public Website Discovery is limited
 
