@@ -14,6 +14,7 @@ use App\Support\Findings\RuleEvaluationResult;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use MoxDop\Website\Diagnosis\DocumentHeadEvaluator;
+use MoxDop\Website\Discovery\PublicUrlNormalizer;
 
 /**
  * Website Data Pool snapshots → existing Document Head evaluator.
@@ -26,17 +27,14 @@ final class WebsiteCollectedDocumentHeadAdapter
     public function __construct(
         private readonly DocumentHeadEvaluator $documentHeadEvaluator,
         private readonly FindingLifecycleService $lifecycle,
+        private readonly PublicUrlNormalizer $urls = new PublicUrlNormalizer,
     ) {}
 
     public function evaluate(DigitalAsset $asset): CollectedFactsAnalysisResult
     {
         $snapshot = $this->latestMetadataSnapshot($asset);
         if ($snapshot === null) {
-            return CollectedFactsAnalysisResult::skipped(
-                DigitalAssetType::Website,
-                'missing_website_metadata_snapshot',
-                ['digital_asset_id' => $asset->id, 'dataset_id' => 'website_metadata_snapshot'],
-            );
+            return $this->skipUnprovenHomepage($asset);
         }
 
         $metadata = CollectedFactsJson::decode($snapshot->metadata ?? null);
@@ -104,27 +102,117 @@ final class WebsiteCollectedDocumentHeadAdapter
      */
     private function latestMetadataSnapshot(DigitalAsset $asset): ?object
     {
-        $query = DB::table('website_metadata_snapshot')
+        $homepageUrls = $this->provenHomepageUrls($asset);
+        if ($homepageUrls === []) {
+            return null;
+        }
+
+        return DB::table('website_metadata_snapshot')
+            ->where('digital_asset_id', $asset->id)
+            ->whereIn('url', $homepageUrls)
+            ->orderByDesc('observed_at')
+            ->orderByDesc('id')
+            ->first();
+    }
+
+    private function skipUnprovenHomepage(DigitalAsset $asset): CollectedFactsAnalysisResult
+    {
+        $hasSnapshots = DB::table('website_metadata_snapshot')
+            ->where('digital_asset_id', $asset->id)
+            ->exists();
+
+        return CollectedFactsAnalysisResult::skipped(
+            DigitalAssetType::Website,
+            $hasSnapshots ? 'unproven_website_homepage_snapshot' : 'missing_website_metadata_snapshot',
+            ['digital_asset_id' => $asset->id, 'dataset_id' => 'website_metadata_snapshot'],
+        );
+    }
+
+    /**
+     * Primary URL identities plus HTTP redirect final URLs for the homepage request.
+     * Sibling crawled pages are never homepage candidates.
+     *
+     * @return list<string>
+     */
+    private function provenHomepageUrls(DigitalAsset $asset): array
+    {
+        $primary = is_string($asset->primary_url) ? trim($asset->primary_url) : '';
+        if ($primary === '') {
+            return [];
+        }
+
+        $candidates = $this->urlVariants($primary);
+        $normalizedSeed = $this->urls->normalizeAbsolute($primary);
+        if (is_string($normalizedSeed) && $normalizedSeed !== '') {
+            $candidates = array_merge($candidates, $this->urlVariants($normalizedSeed));
+        }
+
+        $requestKeys = [];
+        foreach ($candidates as $candidate) {
+            $requestKeys[$this->urlMatchKey($candidate)] = true;
+        }
+
+        $httpRows = DB::table('website_http_snapshot')
             ->where('digital_asset_id', $asset->id)
             ->orderByDesc('observed_at')
-            ->orderByDesc('id');
+            ->orderByDesc('id')
+            ->get(['url', 'metadata']);
 
-        $primary = is_string($asset->primary_url) ? trim($asset->primary_url) : '';
-        if ($primary !== '') {
-            $normalized = rtrim($primary, '/');
-            $preferred = (clone $query)
-                ->where(function ($inner) use ($primary, $normalized): void {
-                    $inner->where('url', $primary)
-                        ->orWhere('url', $normalized)
-                        ->orWhere('url', $normalized.'/');
-                })
-                ->first();
-            if ($preferred !== null) {
-                return $preferred;
+        foreach ($httpRows as $row) {
+            $meta = CollectedFactsJson::decode($row->metadata ?? null);
+            $requested = is_string($meta['requested_url'] ?? null) && trim((string) $meta['requested_url']) !== ''
+                ? trim((string) $meta['requested_url'])
+                : trim((string) $row->url);
+            if ($requested === '' || ! isset($requestKeys[$this->urlMatchKey($requested)])) {
+                continue;
+            }
+
+            $final = is_string($meta['final_url'] ?? null) ? trim((string) $meta['final_url']) : '';
+            if ($final !== '') {
+                $candidates = array_merge($candidates, $this->urlVariants($final));
             }
         }
 
-        return $query->first();
+        return array_values(array_unique($candidates));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function urlVariants(string $url): array
+    {
+        $url = trim($url);
+        if ($url === '') {
+            return [];
+        }
+
+        $normalized = rtrim($url, '/');
+        $variants = [$url, $normalized, $normalized.'/'];
+        $absolute = $this->urls->normalizeAbsolute($url);
+        if (is_string($absolute) && $absolute !== '') {
+            $variants[] = $absolute;
+            $variants[] = rtrim($absolute, '/');
+            $variants[] = rtrim($absolute, '/').'/';
+        }
+
+        return array_values(array_unique(array_filter($variants, static fn (string $value): bool => $value !== '')));
+    }
+
+    private function urlMatchKey(string $url): string
+    {
+        $parts = parse_url(trim($url));
+        if (! is_array($parts) || empty($parts['host'])) {
+            return strtolower(rtrim(trim($url), '/'));
+        }
+
+        $scheme = strtolower((string) ($parts['scheme'] ?? 'https'));
+        $host = strtolower((string) $parts['host']);
+        $port = isset($parts['port']) ? ':'.$parts['port'] : '';
+        $path = (string) ($parts['path'] ?? '');
+        $path = $path === '/' ? '' : rtrim($path, '/');
+        $query = isset($parts['query']) ? '?'.$parts['query'] : '';
+
+        return $scheme.'://'.$host.$port.$path.$query;
     }
 
     private function matchingSchemaSnapshot(DigitalAsset $asset, string $url, string $observedAt): ?object

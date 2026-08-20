@@ -168,6 +168,100 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
     }
 
     #[Test]
+    public function website_document_head_uses_redirect_final_homepage_not_higher_id_sibling(): void
+    {
+        $this->travelTo('2026-08-20 10:00:00');
+        $website = $this->makeWebsiteAsset('http://example.com');
+        $other = $this->makeWebsiteAsset('http://example.com');
+        $collectionRun = $this->makeCollectionRun($website);
+        $observedAt = '2026-08-20 09:00:00';
+
+        $this->insertWebsiteHttpSnapshot($website, $collectionRun->id, $observedAt, 'http://example.com', 'https://www.example.com/');
+        $this->insertWebsiteHttpSnapshot($website, $collectionRun->id, $observedAt, 'https://www.example.com/contact', 'https://www.example.com/contact');
+        $this->insertWebsiteMetadata($website, $collectionRun->id, $observedAt, [
+            'title' => null,
+            'title_present' => false,
+            'meta_description' => 'Atlas Dental clinic in Istanbul offers implant and smile design services for visiting patients.',
+            'meta_description_present' => true,
+        ], 'https://www.example.com/');
+        $this->insertWebsiteMetadata($website, $collectionRun->id, $observedAt, [
+            'title' => 'Contact Atlas Dental',
+            'title_present' => true,
+            'meta_description' => 'Visit the Atlas Dental clinic front desk in Istanbul for implant and smile design consults.',
+            'meta_description_present' => true,
+        ], 'https://www.example.com/contact');
+        $this->insertWebsiteMetadata($other, $collectionRun->id, $observedAt, [
+            'title' => null,
+            'title_present' => false,
+            'meta_description' => 'Unrelated sibling site document head must not leak into homepage selection.',
+            'meta_description_present' => true,
+        ], 'https://www.example.com/');
+
+        $homepageId = (int) DB::table('website_metadata_snapshot')
+            ->where('digital_asset_id', $website->id)
+            ->where('url', 'https://www.example.com/')
+            ->value('id');
+        $contactId = (int) DB::table('website_metadata_snapshot')
+            ->where('digital_asset_id', $website->id)
+            ->where('url', 'https://www.example.com/contact')
+            ->value('id');
+        $this->assertGreaterThan($homepageId, $contactId);
+
+        $result = app(CollectedFactsAnalysisService::class)->analyze($website);
+        $this->assertTrue($result->evaluated);
+        $this->assertTrue($result->evaluationSuccessful);
+        $this->assertContains(DocumentHeadCatalog::RULE_TITLE_MISSING, $result->evaluatedRuleIds);
+        $this->assertSame('https://www.example.com/', $result->provenance['url']);
+        $this->assertSame('https://www.example.com/', data_get(
+            Evidence::query()->where('run_id', $result->run?->id)->value('payload'),
+            'url',
+        ));
+        $this->assertSame(1, Finding::query()
+            ->where('digital_asset_id', $website->id)
+            ->where('fingerprint', DocumentHeadCatalog::RULE_TITLE_MISSING)
+            ->where('status', 'open')
+            ->count());
+        $this->assertSame(0, Finding::query()->where('digital_asset_id', $other->id)->count());
+        Http::assertNothingSent();
+    }
+
+    #[Test]
+    public function website_document_head_skips_when_homepage_cannot_be_proven(): void
+    {
+        $website = $this->makeWebsiteAsset('http://example.com');
+        $collectionRun = $this->makeCollectionRun($website);
+        $observedAt = '2026-08-20 09:00:00';
+        Finding::factory()->create([
+            'digital_asset_id' => $website->id,
+            'source_module' => 'website-diagnosis',
+            'fingerprint' => DocumentHeadCatalog::RULE_TITLE_MISSING,
+            'status' => 'open',
+        ]);
+
+        $this->insertWebsiteHttpSnapshot($website, $collectionRun->id, $observedAt, 'https://www.example.com/contact', 'https://www.example.com/contact');
+        $this->insertWebsiteMetadata($website, $collectionRun->id, $observedAt, [
+            'title' => null,
+            'title_present' => false,
+            'meta_description' => 'Contact page missing a title must not open or resolve global Document Head Findings.',
+            'meta_description_present' => true,
+        ], 'https://www.example.com/contact');
+
+        $result = app(CollectedFactsAnalysisService::class)->analyze($website);
+        $this->assertFalse($result->evaluated);
+        $this->assertSame('unproven_website_homepage_snapshot', $result->skipReason);
+        $this->assertSame('open', Finding::query()
+            ->where('digital_asset_id', $website->id)
+            ->where('fingerprint', DocumentHeadCatalog::RULE_TITLE_MISSING)
+            ->value('status'));
+        $this->assertSame(0, Evidence::query()
+            ->where('digital_asset_id', $website->id)
+            ->where('type', 'page_html')
+            ->count());
+        $this->assertSame(0, Task::query()->count());
+        Http::assertNothingSent();
+    }
+
+    #[Test]
     public function google_ads_campaign_zero_conversions_stays_on_bound_resource_and_reopens(): void
     {
         [$assetA, $resourceA, $collectionA] = $this->makeGoogleAdsAsset();
@@ -1228,12 +1322,18 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
     /**
      * @param  array<string, mixed>  $metadata
      */
-    private function insertWebsiteMetadata(DigitalAsset $asset, ?int $collectionRunId, string $observedAt, array $metadata): void
-    {
+    private function insertWebsiteMetadata(
+        DigitalAsset $asset,
+        ?int $collectionRunId,
+        string $observedAt,
+        array $metadata,
+        ?string $url = null,
+    ): void {
+        $pageUrl = $url ?? (string) $asset->primary_url;
         DB::table('website_metadata_snapshot')->insert([
             'digital_asset_id' => $asset->id,
             'external_resource_id' => null,
-            'url' => (string) $asset->primary_url,
+            'url' => $pageUrl,
             'observed_at' => $observedAt,
             'contract_version' => 1,
             'last_collection_run_id' => $collectionRunId,
@@ -1241,8 +1341,38 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
             'first_collected_at' => $observedAt,
             'last_collected_at' => $observedAt,
             'source_timezone' => 'UTC',
-            'record_fingerprint' => hash('sha256', $asset->id.'|'.$observedAt.'|'.json_encode($metadata)),
+            'record_fingerprint' => hash('sha256', $asset->id.'|'.$pageUrl.'|'.$observedAt.'|'.json_encode($metadata)),
             'metadata' => json_encode($metadata),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    private function insertWebsiteHttpSnapshot(
+        DigitalAsset $asset,
+        ?int $collectionRunId,
+        string $observedAt,
+        string $requestedUrl,
+        string $finalUrl,
+    ): void {
+        DB::table('website_http_snapshot')->insert([
+            'digital_asset_id' => $asset->id,
+            'external_resource_id' => null,
+            'url' => $requestedUrl,
+            'observed_at' => $observedAt,
+            'contract_version' => 1,
+            'last_collection_run_id' => $collectionRunId,
+            'last_dataset_run_id' => null,
+            'first_collected_at' => $observedAt,
+            'last_collected_at' => $observedAt,
+            'source_timezone' => 'UTC',
+            'record_fingerprint' => hash('sha256', $asset->id.'|'.$requestedUrl.'|'.$observedAt),
+            'metadata' => json_encode([
+                'requested_url' => $requestedUrl,
+                'final_url' => $finalUrl,
+                'status_code' => 200,
+                'ok' => true,
+            ]),
             'created_at' => now(),
             'updated_at' => now(),
         ]);
