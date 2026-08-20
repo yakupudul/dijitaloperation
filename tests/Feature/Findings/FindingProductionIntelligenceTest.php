@@ -61,7 +61,7 @@ class FindingProductionIntelligenceTest extends TestCase
         $registry->validate();
         $this->assertSame('MOXDOP_FINDING_RULES', $registry->registryId());
         $this->assertSame(1, $registry->version());
-        $this->assertCount(4, $registry->enabled());
+        $this->assertCount(5, $registry->enabled());
         $this->assertFalse(str_contains(json_encode($registry->registry()), '"expression"'));
         $this->assertFalse(class_exists('App\\Models\\FindingV2'));
         $this->assertFalse(class_exists('App\\Models\\ProductionFinding'));

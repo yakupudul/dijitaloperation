@@ -5,6 +5,7 @@ namespace App\Services\Findings;
 use App\Enums\FindingConditionState;
 use App\Enums\FindingEligibilityDisposition;
 use App\Enums\FindingLifecycleAction;
+use App\Events\FindingEvaluationCompleted;
 use App\Models\DigitalAsset;
 use App\Models\Finding;
 use App\Models\Opportunity;
@@ -72,10 +73,15 @@ final class FindingEvaluationService
 
         $plan = $this->freezePlan($frozenEvidence, $ruleIds, $definitionIds);
 
+        /** @var array<string, list<string>> $eligibleByModule */
+        $eligibleByModule = [];
+        /** @var array<string, list<string>> $matchedByModule */
+        $matchedByModule = [];
+
         foreach ($plan['rules'] as $rule) {
             $stats->rulesConsidered++;
             try {
-                $this->evaluateRule($asset, $rule, $run, $plan['evidence'], $stats);
+                $this->evaluateRule($asset, $rule, $run, $plan['evidence'], $stats, $eligibleByModule, $matchedByModule);
             } catch (\Throwable) {
                 $stats->errors++;
             }
@@ -85,6 +91,8 @@ final class FindingEvaluationService
         $run->finished_at = now();
         $run->metadata = array_merge($run->metadata ?? [], $stats->toArray());
         $run->save();
+
+        $this->emitOutcomeEvents($asset, $run, $stats, $eligibleByModule, $matchedByModule);
 
         if (
             Recommendation::query()->count() !== $recommendationsBefore
@@ -129,6 +137,8 @@ final class FindingEvaluationService
 
     /**
      * @param  list<CanonicalEvidenceDto>  $frozenEvidence
+     * @param  array<string, list<string>>  $eligibleByModule
+     * @param  array<string, list<string>>  $matchedByModule
      */
     private function evaluateRule(
         DigitalAsset $asset,
@@ -136,6 +146,8 @@ final class FindingEvaluationService
         Run $run,
         array $frozenEvidence,
         FindingEvaluationRunStats $stats,
+        array &$eligibleByModule,
+        array &$matchedByModule,
     ): void {
         $eligibility = $this->eligibility->evaluate($rule, $asset, $frozenEvidence);
         if (! $eligibility->isEligible()) {
@@ -161,6 +173,9 @@ final class FindingEvaluationService
             return;
         }
 
+        $eligibleByModule[$rule->sourceModule] ??= [];
+        $eligibleByModule[$rule->sourceModule][] = $rule->stableId;
+
         $stats->rulesEligible++;
         $activation = $this->conditions->activation($rule, $eligibility->evidence);
         $clear = $this->conditions->clear($rule, $eligibility->evidence);
@@ -180,6 +195,8 @@ final class FindingEvaluationService
                 false,
             );
             $this->tally($stats, $result->action, $result->evaluationReused);
+            $matchedByModule[$rule->sourceModule] ??= [];
+            $matchedByModule[$rule->sourceModule][] = $rule->stableId;
 
             return;
         }
@@ -238,6 +255,42 @@ final class FindingEvaluationService
             FindingLifecycleAction::Resolved => $stats->findingsResolved++,
             default => null,
         };
+    }
+
+    /**
+     * @param  array<string, list<string>>  $eligibleByModule
+     * @param  array<string, list<string>>  $matchedByModule
+     */
+    private function emitOutcomeEvents(
+        DigitalAsset $asset,
+        Run $run,
+        FindingEvaluationRunStats $stats,
+        array $eligibleByModule,
+        array $matchedByModule,
+    ): void {
+        foreach ($eligibleByModule as $sourceModule => $ruleIds) {
+            $ruleIds = array_values(array_unique($ruleIds));
+            if ($ruleIds === []) {
+                continue;
+            }
+
+            event(new FindingEvaluationCompleted(
+                asset: $asset,
+                sourceModule: $sourceModule,
+                run: $run,
+                evaluationSuccessful: true,
+                evaluatedRuleIds: $ruleIds,
+                matchedFingerprints: array_values(array_unique($matchedByModule[$sourceModule] ?? [])),
+                observedAt: $run->finished_at ?? now(),
+                stats: [
+                    'opened' => $stats->findingsCreated,
+                    'updated' => $stats->findingsReused,
+                    'reopened' => $stats->findingsReopened,
+                    'resolved' => $stats->findingsResolved,
+                    'recommendations' => 0,
+                ],
+            ));
+        }
     }
 
     /**

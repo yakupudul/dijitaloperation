@@ -85,6 +85,21 @@ final class EvidenceDefinitionRegistry
                 formulaIds: ['FORMULA_PERIOD_RELATIVE_CHANGE'],
                 defaultPeriodDays: 28,
             ),
+            new EvidenceDefinition(
+                id: 'google_ads.account.period_comparison',
+                statementKind: 'period_comparison',
+                titleTemplate: 'Google Ads conversions and spend versus the previous comparable period',
+                sourceModule: 'google-ads',
+                provider: 'GOOGLE_ADS',
+                datasetId: 'google_ads_account_daily',
+                physicalTable: 'google_ads_account_daily',
+                resourceType: 'google_ads',
+                bindingCapability: 'google_ads',
+                grainColumn: 'customer_id',
+                metricFields: ['conversions', 'cost_amount', 'clicks', 'impressions'],
+                formulaIds: ['FORMULA_PERIOD_RELATIVE_CHANGE'],
+                defaultPeriodDays: 28,
+            ),
         ];
 
         foreach ($definitions as $definition) {

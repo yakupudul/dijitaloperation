@@ -6,6 +6,7 @@ use App\Models\DigitalAsset;
 use App\Services\Findings\FindingEvaluationService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use MoxDop\MetaAds\Findings\MetaAdsNormalizedFactsEvaluator;
 use Throwable;
 
 /**
@@ -45,6 +46,10 @@ class EvaluateFindingsForAssetJob implements ShouldQueue
         }
 
         $evaluator->evaluateAsset($asset, ruleIds: $this->ruleIds, definitionIds: $this->definitionIds);
+
+        if ($asset->type === 'meta_ads') {
+            app(MetaAdsNormalizedFactsEvaluator::class)->evaluateAndApply($asset);
+        }
 
         if ((bool) config('moxdop-opportunity-rules.evaluate_after_findings', true)) {
             EvaluateOpportunitiesForAssetJob::dispatch($this->digitalAssetId);

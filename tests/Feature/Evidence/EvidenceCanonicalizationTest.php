@@ -253,6 +253,7 @@ class EvidenceCanonicalizationTest extends TestCase
         $this->assertSame('v1', $registry->version());
         $this->assertSame('gsc.property.period_comparison', $registry->get('gsc.property.period_comparison')->id);
         $this->assertSame('ga4.property.period_comparison', $registry->get('ga4.property.period_comparison')->id);
+        $this->assertSame('google_ads.account.period_comparison', $registry->get('google_ads.account.period_comparison')->id);
         $this->assertFalse(class_exists('App\\Models\\EvidenceV2'));
         $this->assertFalse(class_exists('App\\Models\\CanonicalEvidence'));
         $this->assertTrue(class_exists(BrandIntelligenceContext::class));

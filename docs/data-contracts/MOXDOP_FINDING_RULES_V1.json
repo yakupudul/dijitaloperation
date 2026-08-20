@@ -299,6 +299,72 @@
       "evaluation_fingerprint_inputs": ["finding_fingerprint", "rule_version", "evidence_observation_fingerprints", "period", "condition_config"],
       "title_template": "GA4 sessions declined",
       "summary_template": "Sessions moved from {metrics.sessions.previous} to {metrics.sessions.current} (relative change {metrics.sessions.relative_change}) versus the previous comparable period."
+    },
+    {
+      "id": "google_ads.account.conversions_relative_decline",
+      "stable_id": "google-ads:conversions-decline",
+      "version": 1,
+      "enabled": true,
+      "meaning": "Google Ads account conversions declined versus the previous comparable period under frozen catalog gates. Platform conversions are not verified business outcomes.",
+      "category": "performance",
+      "severity": "high",
+      "severity_policy": "static",
+      "source_module": "google-ads",
+      "consumer_intent": "operator_finding_queue",
+      "evidence_definition_ids": ["google_ads.account.period_comparison"],
+      "required_evidence_kinds": ["period_comparison"],
+      "scope_requirements": ["customer", "brand", "digital_asset"],
+      "subject": {
+        "kind": "digital_asset",
+        "grain": "PER_DIGITAL_ASSET"
+      },
+      "goal_offering_policy": "inherit_explicit_evidence_scope_do_not_infer",
+      "include_goal_in_fingerprint": false,
+      "include_offering_in_fingerprint": false,
+      "include_period_in_fingerprint": false,
+      "cardinality": {
+        "strategy": "PER_DIGITAL_ASSET",
+        "max_per_digital_asset": 1,
+        "bound": "one_finding_per_asset"
+      },
+      "join_key": ["customer_id", "brand_id", "digital_asset_id"],
+      "integrity_requirement": "trusted",
+      "freshness_requirement": "fresh_or_fresh_with_limitation",
+      "completeness_requirement": "required_states_are_VALUE",
+      "provider_limitation_policy": "block_not_false",
+      "activation_policy": "IMMEDIATE",
+      "threshold_source": "MoxDop\\GoogleAds\\Findings\\PerformanceFindingsCatalog",
+      "units": {
+        "count": "count",
+        "relative_change": "ratio"
+      },
+      "currency_policy": "not_applicable",
+      "period_compatibility": "same_evidence_period",
+      "dimension_compatibility": "account_grain",
+      "required_operand_states": [
+        { "path": "metrics.conversions.relative_change_state", "equals": "VALUE" }
+      ],
+      "activation": {
+        "combiner": "ALL",
+        "conditions": [
+          { "type": "VALUE_GTE", "path": "metrics.conversions.previous", "value": 10, "unit": "count" },
+          { "type": "VALUE_LTE", "path": "metrics.conversions.relative_change", "value": -0.3, "unit": "ratio" },
+          { "type": "ABS_DECREASE_GTE", "current_path": "metrics.conversions.current", "previous_path": "metrics.conversions.previous", "value": 5, "unit": "count" }
+        ]
+      },
+      "clear": {
+        "combiner": "ALL",
+        "conditions": [
+          { "type": "VALUE_GTE", "path": "metrics.conversions.previous", "value": 10, "unit": "count" },
+          { "type": "VALUE_GT", "path": "metrics.conversions.relative_change", "value": -0.3, "unit": "ratio" }
+        ]
+      },
+      "auto_resolve": true,
+      "reopen_policy": "REOPEN_SAME_FINDING",
+      "fingerprint_inputs": ["stable_rule_id", "customer_id", "brand_id", "digital_asset_id", "subject_kind", "subject_id"],
+      "evaluation_fingerprint_inputs": ["finding_fingerprint", "rule_version", "evidence_observation_fingerprints", "period", "condition_config"],
+      "title_template": "Google Ads conversions declined",
+      "summary_template": "Conversions moved from {metrics.conversions.previous} to {metrics.conversions.current} (relative change {metrics.conversions.relative_change}) versus the previous comparable period."
     }
   ]
 }

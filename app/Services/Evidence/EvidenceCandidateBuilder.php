@@ -4,7 +4,9 @@ namespace App\Services\Evidence;
 
 use App\Models\DigitalAsset;
 use App\Services\Formulas\Ga4FormulaCalculator;
+use App\Services\Formulas\GoogleAdsFormulaCalculator;
 use App\Services\Formulas\GscFormulaCalculator;
+use App\Services\Formulas\MetaAdsFormulaCalculator;
 use App\Support\Evidence\EvidenceCandidate;
 use App\Support\Evidence\EvidenceDefinition;
 use App\Support\Evidence\EvidenceEligibilityReport;
@@ -21,6 +23,8 @@ final class EvidenceCandidateBuilder
     public function __construct(
         private readonly GscFormulaCalculator $gscFormulas,
         private readonly Ga4FormulaCalculator $ga4Formulas,
+        private readonly GoogleAdsFormulaCalculator $googleAdsFormulas,
+        private readonly MetaAdsFormulaCalculator $metaAdsFormulas,
         private readonly EvidenceIdentityFingerprint $fingerprints,
     ) {}
 
@@ -94,6 +98,11 @@ final class EvidenceCandidateBuilder
             'generated_by_ai' => false,
             'normalization_version' => EvidenceDefinitionRegistry::VERSION,
         ];
+
+        $currency = $this->resolveCurrency($definition, $asset->id, $resourceId);
+        if ($currency !== null) {
+            $payload['currency'] = $currency;
+        }
 
         $fingerprintInputs = [
             'definition_id' => $definition->id,
@@ -182,13 +191,31 @@ final class EvidenceCandidateBuilder
      */
     private function relativeChange(EvidenceDefinition $definition, float $current, float $previous): array
     {
-        $result = $definition->provider === 'GA4'
-            ? $this->ga4Formulas->periodRelativeChange($current, $previous)
-            : $this->gscFormulas->periodRelativeChange($current, $previous);
+        $result = match ($definition->provider) {
+            'GA4' => $this->ga4Formulas->periodRelativeChange($current, $previous),
+            'GOOGLE_ADS' => $this->googleAdsFormulas->periodRelativeChange($current, $previous),
+            'META_ADS' => $this->metaAdsFormulas->periodRelativeChange($current, $previous),
+            default => $this->gscFormulas->periodRelativeChange($current, $previous),
+        };
 
         return [
             'value' => $result->isValue() ? $result->value : null,
             'state' => $result->state,
         ];
+    }
+
+    private function resolveCurrency(EvidenceDefinition $definition, int $digitalAssetId, int $resourceId): ?string
+    {
+        if ($definition->provider !== 'GOOGLE_ADS' && $definition->provider !== 'META_ADS') {
+            return null;
+        }
+
+        $value = DB::table($definition->physicalTable)
+            ->where('digital_asset_id', $digitalAssetId)
+            ->where('external_resource_id', $resourceId)
+            ->orderByDesc('reporting_date')
+            ->value('currency');
+
+        return is_string($value) && $value !== '' ? $value : null;
     }
 }

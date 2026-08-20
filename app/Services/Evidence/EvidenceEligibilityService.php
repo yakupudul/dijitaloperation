@@ -15,7 +15,9 @@ use App\Services\DataPool\Freshness\DataFreshnessPolicyLoader;
 use App\Services\DataPool\Freshness\DatasetFreshnessEvaluator;
 use App\Services\Formulas\FormulaRegistryLoader;
 use App\Services\Ga4\Ga4UiDatasetGate;
+use App\Services\GoogleAds\GoogleAdsUiDatasetGate;
 use App\Services\Gsc\GscUiDatasetGate;
+use App\Services\MetaAds\MetaAdsUiDatasetGate;
 use App\Support\Evidence\EvidenceDefinition;
 use App\Support\Evidence\EvidenceEligibilityReport;
 use App\Support\Evidence\EvidencePeriod;
@@ -29,6 +31,8 @@ final class EvidenceEligibilityService
     public function __construct(
         private readonly GscUiDatasetGate $gscGate,
         private readonly Ga4UiDatasetGate $ga4Gate,
+        private readonly GoogleAdsUiDatasetGate $googleAdsGate,
+        private readonly MetaAdsUiDatasetGate $metaAdsGate,
         private readonly DataFreshnessPolicyLoader $policies,
         private readonly DatasetFreshnessEvaluator $freshness,
         private readonly FormulaRegistryLoader $formulas,
@@ -294,6 +298,8 @@ final class EvidenceEligibilityService
         $gate = match ($definition->provider) {
             'SEARCH_CONSOLE' => $this->gscGate->evaluate($digitalAssetId, $externalResourceId, $definition->datasetId, $start, $end, $timezone),
             'GA4' => $this->ga4Gate->evaluate($digitalAssetId, $externalResourceId, $definition->datasetId, $start, $end, $timezone),
+            'GOOGLE_ADS' => $this->googleAdsGate->evaluate($digitalAssetId, $externalResourceId, $definition->datasetId, $start, $end, $timezone),
+            'META_ADS' => $this->metaAdsGate->evaluate($digitalAssetId, $externalResourceId, $definition->datasetId, $start, $end, $timezone),
             default => null,
         };
 
