@@ -3,6 +3,7 @@
 namespace App\Jobs\Async;
 
 use App\Models\DigitalAsset;
+use App\Services\Analysis\CollectedFactsAnalysisService;
 use App\Services\Findings\FindingEvaluationService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -37,14 +38,17 @@ class EvaluateFindingsForAssetJob implements ShouldQueue
         public ?array $definitionIds = null,
     ) {}
 
-    public function handle(FindingEvaluationService $evaluator): void
-    {
+    public function handle(
+        FindingEvaluationService $evaluator,
+        CollectedFactsAnalysisService $collectedFacts,
+    ): void {
         $asset = DigitalAsset::query()->find($this->digitalAssetId);
         if ($asset === null) {
             return;
         }
 
         $evaluator->evaluateAsset($asset, ruleIds: $this->ruleIds, definitionIds: $this->definitionIds);
+        $collectedFacts->analyze($asset);
 
         if ((bool) config('moxdop-opportunity-rules.evaluate_after_findings', true)) {
             EvaluateOpportunitiesForAssetJob::dispatch($this->digitalAssetId);
