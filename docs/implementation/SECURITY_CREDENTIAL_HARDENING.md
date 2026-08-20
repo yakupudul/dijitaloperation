@@ -178,7 +178,7 @@ Prompt 64 classifies these as `NON_RECOVERABLE_AUTH_SECRET` and leaves hashing u
 | --- | --- |
 | Spatie `spatie/laravel-permission` | **REAL** — `web` guard |
 | `Permissions::ACCESS_APP` | Minimal core permission |
-| Filament panel `app` | Single panel path `/app` |
+| Filament panel `app` | Single panel path `/admin` |
 | RBACV2 | **NONE** |
 | AI permission mutation | **FORBIDDEN** (`forbid_ai_permission_mutation`) |
 

@@ -128,9 +128,11 @@ DOP kendi iç verilerinde müşteri, marka, varlık, connection, bulgu, öneri, 
 
 | Konu | Karar |
 |------|--------|
-| Panel | Tek Filament panel |
+| Operator product | Canonical root routes on the application host (`/`, `/login`, `/customers`, `/brands`, `/assets`, `/integrations`, `/tasks`, `/settings`, …) |
+| Panel | Tek Filament panel — technical/admin tooling only, not the operator product |
 | Panel id | `app` |
-| Panel path | `/app` |
+| Panel path | `/admin` (**ADR-044**; supersedes ADR-026 path `/app`) |
+| Retired prefixes | `/app/*` and `/system/*` return HTTP 410 — no parallel operator surface |
 | Guard | Laravel standart `web` session guard |
 | Permissions | `spatie/laravel-permission` |
 | Public registration | Yok |
@@ -311,10 +313,10 @@ Sonra AI: bulguları açıklar → ilişkileri yorumlar → muhtemel neden → �
 |--------|--------|
 | Framework | Laravel 13 |
 | Dil | PHP 8.3+ |
-| Admin UI | Filament 5 + Livewire (panel id `app`, path `/app`) |
+| Admin UI | Filament 5 (panel id `app`, path `/admin`) — technical tooling. Operator product is Livewire at the site root. |
 | Auth / RBAC | `web` guard + `spatie/laravel-permission` |
-| DB | MySQL 8 |
-| Queue | Başlangıçta database queue |
+| DB | PostgreSQL 16 for staging/production data-pool; SQLite for local/PHPUnit |
+| Queue | Redis + Horizon on staging/production; database queue acceptable for local |
 | Scheduler | Laravel scheduler |
 | Events | Laravel events |
 | HTTP | Laravel HTTP client |

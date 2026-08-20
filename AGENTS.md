@@ -41,7 +41,8 @@ Laravel Boost guidelines ile çelişirse DOP belgeleri kazanır.
 - Install: `bash .cursor/cloud-agent-install.sh` (`composer install`, `npm ci`, `npm run build`)
 - Start: `bash .cursor/cloud-agent-start.sh` (runtime `.env`, SQLite, migrate, seed)
 - App server terminal: `php artisan serve --host=0.0.0.0 --port=8000` (forward port 8000)
-- Login: `/system/login` (Filament auth); product: `/app`
+- Login: `/login` (operator); Filament technical tooling: `/admin/login`
+- Product: canonical root routes (`/`, `/customers`, `/brands`, `/assets`, …)
 - Admin user: `php artisan dop:create-admin` (interactive; never commit passwords)
 - Provider credentials are **not** required for basic boot / PHPUnit / **Demo Mode** product review
 - Full interactive product demo (Atlas Dental): branch `feature/moxdop-full-product-demo` — session fixtures only; `docs/product/MOXDOP_MASTER_PRODUCT_BLUEPRINT.md`
@@ -57,8 +58,8 @@ Laravel Boost guidelines ile çelişirse DOP belgeleri kazanır.
 
 - Moximu **iç** operasyon; SaaS / Workspace / müşteri girişi yok
 - Harici **write action yok**
-- Tek Filament panel: id `app`, path **`/system`** (developer / system tooling only — **not** the operator product)
-- Canonical operator product URL: **`/app`** (TailAdmin Livewire shell). One normal application. Do not duplicate Customers/Brands/Assets under Filament.
+- Tek Filament panel: id `app`, path **`/admin`** (developer / technical tooling only — **not** the operator product)
+- Canonical operator product: **root routes** (`/`, `/login`, `/customers`, …). Legacy `/app/*` and `/system/*` are retired (HTTP 410). Do not duplicate Customers/Brands/Assets under Filament.
 - Do **not** advertise Filament as “Back-office” in the product UI. Operators should not need Filament for daily work.
 - **Screenshots:** Do **not** automatically generate screenshot packages, visual UAT artifact loops, or screenshot self-reviews for product UI unless the operator **explicitly** asks. Browser smoke to confirm routes render is OK; visual acceptance is human manual review.
 - Modüller: `app-modules/` + `internachi/modular` — MVP’de custom plugin framework yok (minimal registry: id + enabled/disabled)

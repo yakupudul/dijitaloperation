@@ -1,13 +1,11 @@
 # Production Blockers
 
-Prompt 68 — authoritative blocker register for MoxDOP production go-live.
+Prompt 68 historical audit remains below. **Phase F (issue #201) does not close these host/provider gates from Cursor Cloud.** They stay explicit external release gates: target-host backup restore drill, production host `moxdop:production-check`, live Google/Meta/Website/DataForSEO UAT, live SMTP delivery.
 
-**Final audit STATUS:** BLOCKED  
-**Release Candidate SHA:** 0936a8dfcc5ac9aacdfe341851bf7c6a42fea6c7  
-**Base HEAD (Prompt 67):** `ff7b648179af235a9d63ecae5454171b44dbb4ec`  
-**Branch:** `cursor/production-readiness-audit-ea01`
+**Prompt 68 audit STATUS:** BLOCKED (historical; SHA `0936a8dfcc5ac9aacdfe341851bf7c6a42fea6c7`)  
+**Current cumulative release stack:** PR #202 → #199 → #200 → #203 → #204 → #206 → #207 → #208 → Phase F child. Do not treat the Prompt 68 SHA as the current RC.
 
-Do not merge or deploy automatically until all blockers below are remediated on the **target production host** and recorded in `MANUAL_VERIFICATION_REGISTER.md`.
+Do not merge or deploy automatically until repository Reviewer APPROVED policy is satisfied and remaining external gates are accepted by the operator.
 
 ---
 

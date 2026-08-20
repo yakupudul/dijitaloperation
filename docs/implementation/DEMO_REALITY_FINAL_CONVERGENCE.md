@@ -76,7 +76,7 @@ Frozen sidebar and specialist IA remain. Convergence changes data provenance beh
 
 ## 14. Filament `/system` Panel Boundary
 
-Filament panel id `app`, path `/system` — technical/admin resources (Customers, Findings, Tasks, Runs, Modules, …). Operator product UI is Livewire `/app` (routes in `routes/demo.php` + middleware).
+Filament panel id `app`, path `/admin` — technical/admin resources. Operator product UI is Livewire at the site root (routes in `routes/demo.php` + middleware). Legacy `/app` and `/system` prefixes are retired.
 
 ## 15. Explicit Demo Runtime (Atlas)
 

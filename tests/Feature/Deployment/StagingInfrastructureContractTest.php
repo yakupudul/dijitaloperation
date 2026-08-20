@@ -56,10 +56,9 @@ class StagingInfrastructureContractTest extends TestCase
         $path = base_path('.env.staging.example');
         $this->assertFileExists($path);
         $body = File::get($path);
-        $this->assertStringContainsString('APP_ENV=staging', $body);
-        $this->assertStringContainsString('APP_DEBUG=false', $body);
-        $this->assertStringContainsString('DB_CONNECTION=pgsql', $body);
-        $this->assertStringContainsString('MOXDOP_SALES_INTENT_PAID_CALLS=false', $body);
+        $this->assertStringContainsString('APP_FORCE_HTTPS=true', $body);
+        $this->assertStringContainsString('SESSION_SECURE_COOKIE=true', $body);
+        $this->assertStringContainsString('TRUSTED_PROXIES=', $body);
         $this->assertDoesNotMatchRegularExpression('/APP_KEY=base64:[A-Za-z0-9+\/=]{20,}/', $body);
         $this->assertStringContainsString('APP_KEY=', $body);
     }

@@ -74,7 +74,8 @@ Use when rollback risk exceeds fix risk (small targeted patch).
 ## Post-rollback verification
 
 - [ ] `php artisan moxdop:production-check` — no FAIL
-- [ ] Login `/app` and `/system` (Filament panel id `app`, path `/system`)
+- [ ] Login `/login` (operator) and `/admin` (Filament panel id `app`, path `/admin`)
+- [ ] `/app/*` and `/system/*` return 410
 - [ ] Numeric Digital Asset opens specialist without Demo catalog mode
 - [ ] Queue processing resumes
 - [ ] No secrets or tokens logged

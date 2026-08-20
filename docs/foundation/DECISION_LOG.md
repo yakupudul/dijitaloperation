@@ -141,9 +141,10 @@
 
 - **Durum:** Accepted
 - **Tarih:** 2026-08-07
-- **Güncelleme:** 2026-08-07 (ADR-026, 030, 032 ile netleşti)
-- **Karar:** Laravel 13, PHP 8.3+, Filament 5, Livewire, MySQL 8, database queue, Laravel scheduler/events/HTTP client/encryption, PHPUnit (see **ADR-038**; Pest satırı superseded), `spatie/laravel-permission`, `laravel/ai`, `internachi/modular`. Redis/Horizon ihtiyaç halinde.
-- **İlgili:** `MASTER_SPEC.md`, `MODULE_ARCHITECTURE.md`
+- **Güncelleme:** 2026-08-07 (ADR-026, 030, 032 ile netleşti); 2026-08-20 (Phase F / data-pool staging contract)
+- **Karar:** Laravel 13, PHP 8.3+, Filament 5, Livewire, Laravel scheduler/events/HTTP client/encryption, PHPUnit (see **ADR-038**; Pest satırı superseded), `spatie/laravel-permission`, `laravel/ai`, `internachi/modular`.
+- **Güncel runtime:** Staging/production data-pool driver is **PostgreSQL 16**. Collection/Horizon uses **Redis**. Local/PHPUnit may use SQLite + database queue. Filament path is `/admin` (**ADR-044**).
+- **İlgili:** `MASTER_SPEC.md`, `MODULE_ARCHITECTURE.md`, `docs/deployment/STAGING_ARCHITECTURE.md`
 
 ## ADR-022 — Yerel modül paketleme; marketplace yok
 
@@ -175,10 +176,10 @@
 
 ## ADR-026 — Tek Filament panel ve auth
 
-- **Durum:** Accepted
+- **Durum:** Accepted (panel **path** superseded by **ADR-044**)
 - **Tarih:** 2026-08-07
-- **Karar:** Tek panel id `app`, path `/app`. Laravel `web` session guard. Public registration yok; kullanıcıları Admin oluşturur. Password reset ve profile var. Roller Admin / Team Member. RBAC: `spatie/laravel-permission`. Multi-tenancy veya müşteri guard yok.
-- **İlgili:** `MASTER_SPEC.md` §6, `CORE_RESPONSIBILITIES.md`
+- **Karar:** Tek panel id `app`. Laravel `web` session guard. Public registration yok; kullanıcıları Admin oluşturur. Password reset ve profile var. Roller Admin / Team Member. RBAC: `spatie/laravel-permission`. Multi-tenancy veya müşteri guard yok. Original path `/app` is retired — see ADR-044.
+- **İlgili:** `MASTER_SPEC.md` §6, `CORE_RESPONSIBILITIES.md`, ADR-044
 
 ## ADR-027 — Connection ve credential şeması
 
@@ -357,6 +358,14 @@
   7. Visual identity reuses `DigitalAssetVisualCatalog` (local `gsc` mark).
 - **İlgili:** ADR-017, ADR-018, ADR-039, ADR-042; `MASTER_SPEC.md` §4; `docs/product/DIGITAL_ASSET.md`; `docs/product/website/SEARCH_CONSOLE.md`; Demo Search Console Organic Demand workspace
 
+## ADR-044 — Canonical operator routes and Filament `/admin`
+
+- **Durum:** Accepted
+- **Tarih:** 2026-08-20
+- **Karar:** The operator product is the canonical root application (`/`, `/login`, `/customers`, `/brands`, `/assets`, `/integrations`, `/activity`, `/findings`, `/recommendations`, `/tasks`, `/settings`, `/profile`). The single Filament panel keeps id `app` but is served only at **`/admin`** as technical/admin tooling. Legacy `/app/*` and `/system/*` are retired (HTTP 410). Google/Meta OAuth callbacks remain `{APP_URL}/integrations/{google|meta}/callback`. No SaaS/workspace/client-portal split.
+- **Supersedes:** ADR-026 panel **path** `/app` only. Guard, roles, no public registration, and no customer login remain ADR-026.
+- **İlgili:** `MASTER_SPEC.md` §6 / §12, `AGENTS.md`, `docs/deployment/STAGING_RUNBOOK.md`
+
 ---
 
 ## Karar indeksi
@@ -388,7 +397,7 @@
 | ADR-023 | AI sınırı | Accepted |
 | ADR-024 | İlk modül seti | Accepted |
 | ADR-025 | Manuel Task dönüşümü | Accepted |
-| ADR-026 | Panel + auth | Accepted |
+| ADR-026 | Panel + auth | Accepted (path superseded → 044) |
 | ADR-027 | Connection/credential | Accepted |
 | ADR-028 | Eski analysis alanları | Superseded → 034 |
 | ADR-029 | Task snapshot | Accepted |
@@ -406,6 +415,7 @@
 | ADR-041 | OpenAI agency Integration credentials | Accepted |
 | ADR-042 | GA4 first-class Digital Asset + Evidence role | Accepted |
 | ADR-043 | GSC first-class Digital Asset + Evidence role | Accepted |
+| ADR-044 | Canonical operator root + Filament `/admin` | Accepted |
 
 ## Süpercede edilen kararlar
 
@@ -422,3 +432,4 @@
 | ADR-028 | ADR-034 |
 | ADR-021 (Pest satırı) | ADR-038 |
 | ADR-030 (AI API key panelden yönetilmez / env-only) | ADR-041 |
+| ADR-026 (panel path `/app`) | ADR-044 |
