@@ -2,6 +2,7 @@
 
 namespace App\Services\Operator;
 
+use App\Mail\OperatorTestMail;
 use App\Models\AgencySetting;
 use App\Models\User;
 use App\Support\Operator\AgencySettingCatalog;
@@ -196,9 +197,7 @@ final class OperatorMailConfigService
         }
 
         try {
-            Mail::raw(__('operator.mail.test_body'), function ($message) use ($actor): void {
-                $message->to($actor->email)->subject(__('operator.mail.test_subject'));
-            });
+            Mail::to($actor->email)->send(new OperatorTestMail);
         } catch (Throwable $exception) {
             Log::warning('operator.mail.test_failed', [
                 'exception_class' => $exception::class,

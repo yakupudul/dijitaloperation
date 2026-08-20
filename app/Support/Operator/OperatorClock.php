@@ -8,7 +8,8 @@ use Carbon\CarbonInterface;
 
 /**
  * Agency-default timezone for operator display and local date calculations.
- * Not a tenant/customer timezone. Provider collection grains stay on their own clocks.
+ * Not a tenant/customer timezone and not the Laravel storage clock (APP_TIMEZONE).
+ * Provider collection grains stay on their own clocks.
  */
 final class OperatorClock
 {

@@ -30,19 +30,20 @@ class OperatorResetPasswordController extends Controller
             'password' => ['required', 'confirmed', PasswordRule::defaults()],
         ]);
 
+        $user = User::query()->where('email', $validated['email'])->first();
+        if (! $user instanceof User || ! $user->is_active) {
+            return back()->withErrors(['email' => __('operator.auth.reset_invalid')]);
+        }
+
         $status = Password::reset(
             $validated,
-            function (User $user, string $password): void {
-                if (! $user->is_active) {
-                    return;
-                }
-
-                $user->forceFill([
+            function (User $operator, string $password): void {
+                $operator->forceFill([
                     'password' => $password,
                     'remember_token' => Str::random(60),
                 ])->save();
 
-                event(new PasswordReset($user));
+                event(new PasswordReset($operator));
             },
         );
 

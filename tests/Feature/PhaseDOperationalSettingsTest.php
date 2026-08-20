@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Livewire\Demo\SettingsPage;
+use App\Mail\OperatorTestMail;
 use App\Models\AgencySetting;
 use App\Models\User;
 use App\Notifications\OperatorResetPasswordNotification;
@@ -16,9 +17,11 @@ use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
+use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -96,21 +99,31 @@ class PhaseDOperationalSettingsTest extends TestCase
 
         $this->assertSame('America/New_York', app(AgencySettingService::class)->defaultTimezone());
 
+        $storageTimezone = (string) config('app.timezone');
         $this->get('/settings')->assertOk();
-        $this->assertSame('America/New_York', config('app.timezone'));
+        $this->assertSame($storageTimezone, config('app.timezone'));
+        $this->assertSame('America/New_York', OperatorClock::timezone());
+        $this->assertSame('America/New_York', OperatorClock::now()->timezoneName);
 
         $this->admin->forceFill([
             'timezone' => 'America/Los_Angeles',
             'last_login_at' => CarbonImmutable::parse('2026-08-20T16:00:00Z'),
         ])->save();
 
+        $fresh = $this->admin->fresh();
+        $this->assertNotNull($fresh?->last_login_at);
         $this->assertSame(
-            '2026-08-20 09:00',
-            OperatorClock::formatDateTime($this->admin->fresh()->last_login_at, $this->admin->fresh()),
+            $fresh->last_login_at->timezone('America/Los_Angeles')->format('Y-m-d H:i'),
+            OperatorClock::formatDateTime($fresh->last_login_at, $fresh),
+        );
+        $this->assertNotSame(
+            $fresh->last_login_at->timezone('UTC')->format('Y-m-d H:i'),
+            OperatorClock::formatDateTime($fresh->last_login_at, $fresh),
         );
 
         $this->get('/settings')->assertOk();
-        $this->assertSame('America/Los_Angeles', config('app.timezone'));
+        $this->assertSame($storageTimezone, config('app.timezone'));
+        $this->assertSame('America/Los_Angeles', OperatorClock::timezone($fresh));
     }
 
     public function test_default_analytical_range_updates_session_period(): void
@@ -133,16 +146,16 @@ class PhaseDOperationalSettingsTest extends TestCase
 
         $secret = 'operator-smtp-secret-phase-d';
 
-        Livewire::test(SettingsPage::class)
-            ->set('mail_enabled', true)
-            ->set('mail_from_name', 'MoxDOP Ops')
-            ->set('mail_from_address', 'ops@example.test')
-            ->set('mail_host', 'smtp.example.test')
-            ->set('mail_port', '587')
-            ->set('mail_username', 'ops@example.test')
-            ->set('mail_encryption', 'tls')
-            ->set('mail_password', $secret)
-            ->call('saveMail')
+        $this->saveOperatorMail([
+            'mail_enabled' => true,
+            'mail_from_name' => 'MoxDOP Ops',
+            'mail_from_address' => 'ops@example.test',
+            'mail_host' => 'smtp.example.test',
+            'mail_port' => '587',
+            'mail_username' => 'ops@example.test',
+            'mail_encryption' => 'tls',
+            'mail_password' => $secret,
+        ])
             ->assertHasNoErrors()
             ->assertSet('mail_password', '')
             ->assertDontSee($secret)
@@ -164,16 +177,16 @@ class PhaseDOperationalSettingsTest extends TestCase
         $this->assertStringNotContainsString('env-smtp-secret-must-stay-out', $html);
         $this->assertSame(OperatorMailStatus::OPERATOR_CONFIGURED, OperatorMailStatus::state());
 
-        Livewire::test(SettingsPage::class)
-            ->set('mail_from_name', 'MoxDOP Ops Updated')
-            ->set('mail_enabled', true)
-            ->set('mail_from_address', 'ops@example.test')
-            ->set('mail_host', 'smtp.example.test')
-            ->set('mail_port', '587')
-            ->set('mail_username', 'ops@example.test')
-            ->set('mail_encryption', 'tls')
-            ->set('mail_password', '')
-            ->call('saveMail')
+        $this->saveOperatorMail([
+            'mail_from_name' => 'MoxDOP Ops Updated',
+            'mail_enabled' => true,
+            'mail_from_address' => 'ops@example.test',
+            'mail_host' => 'smtp.example.test',
+            'mail_port' => '587',
+            'mail_username' => 'ops@example.test',
+            'mail_encryption' => 'tls',
+            'mail_password' => '',
+        ])
             ->assertHasNoErrors()
             ->assertSet('mail_password', '');
 
@@ -184,14 +197,13 @@ class PhaseDOperationalSettingsTest extends TestCase
     {
         Mail::fake();
 
-        Livewire::test(SettingsPage::class)
-            ->set('mail_enabled', true)
-            ->set('mail_from_address', 'ops@example.test')
-            ->set('mail_host', 'smtp.example.test')
-            ->set('mail_port', '587')
-            ->set('mail_password', 'operator-smtp-secret-phase-d')
-            ->call('saveMail')
-            ->assertHasNoErrors();
+        $this->saveOperatorMail([
+            'mail_enabled' => true,
+            'mail_from_address' => 'ops@example.test',
+            'mail_host' => 'smtp.example.test',
+            'mail_port' => '587',
+            'mail_password' => 'operator-smtp-secret-phase-d',
+        ])->assertHasNoErrors();
 
         Livewire::test(SettingsPage::class)
             ->call('sendTestEmail')
@@ -199,7 +211,7 @@ class PhaseDOperationalSettingsTest extends TestCase
             ->assertSee(__('operator.mail.test_sent'))
             ->assertDontSee('operator-smtp-secret-phase-d');
 
-        Mail::assertSentCount(1);
+        Mail::assertSent(OperatorTestMail::class, 1);
     }
 
     public function test_test_email_is_honest_when_mail_is_not_configured(): void
@@ -226,7 +238,16 @@ class PhaseDOperationalSettingsTest extends TestCase
         $this->assertFalse($prefs[0]['in_app_enabled']);
     }
 
-    public function test_operator_password_reset_sends_for_active_user_only(): void
+    public function test_forgot_password_page_renders_for_guests(): void
+    {
+        $this->post('/logout');
+
+        $this->get('/forgot-password')
+            ->assertOk()
+            ->assertSee(__('operator.auth.send_reset'));
+    }
+
+    public function test_forgot_password_post_notifies_active_operator(): void
     {
         Notification::fake();
 
@@ -242,32 +263,80 @@ class PhaseDOperationalSettingsTest extends TestCase
         ]);
         $inactive->assignRole(Roles::TEAM_MEMBER);
 
-        auth()->logout();
+        $this->post('/logout');
 
-        $this->get('/forgot-password')->assertOk()->assertSee(__('operator.auth.send_reset'));
-
-        $this->post('/forgot-password', ['email' => $active->email])
-            ->assertRedirect()
-            ->assertSessionHas('status', __('operator.auth.reset_sent'));
+        $this->post('/forgot-password', ['email' => $active->email])->assertRedirect();
         Notification::assertSentTo($active, OperatorResetPasswordNotification::class);
 
-        $this->post('/forgot-password', ['email' => $inactive->email])
-            ->assertRedirect()
-            ->assertSessionHas('status', __('operator.auth.reset_sent'));
+        $this->post('/forgot-password', ['email' => $inactive->email])->assertRedirect();
         Notification::assertNotSentTo($inactive, OperatorResetPasswordNotification::class);
+    }
 
-        $token = Password::broker()->createToken($active);
+    public function test_operator_password_reset_completes_for_active_user(): void
+    {
+        Notification::fake();
+
+        $active = User::factory()->create([
+            'email' => 'active-reset-complete@example.test',
+            'is_active' => true,
+            'password' => 'OldPass-phase-d-1',
+        ]);
+        $active->assignRole(Roles::TEAM_MEMBER);
+
+        $this->post('/logout');
+        $this->post('/forgot-password', ['email' => $active->email])->assertRedirect();
+
+        $token = null;
+        Notification::assertSentTo(
+            $active,
+            OperatorResetPasswordNotification::class,
+            function (OperatorResetPasswordNotification $notification) use (&$token): bool {
+                $token = $notification->token;
+
+                return $token !== '';
+            },
+        );
+        $this->assertIsString($token);
+
+        $this->get('/reset-password/'.$token.'?email='.urlencode($active->email))->assertOk();
+
         $this->post('/reset-password', [
             'token' => $token,
             'email' => $active->email,
             'password' => 'NewPass-phase-d-1',
             'password_confirmation' => 'NewPass-phase-d-1',
-        ])->assertRedirect('/login');
+        ])->assertRedirect(route('app.login'));
+
+        $active->refresh();
+        $this->assertTrue(Hash::check('NewPass-phase-d-1', $active->password));
 
         $this->post('/login', [
             'email' => $active->email,
             'password' => 'NewPass-phase-d-1',
         ])->assertRedirect('/');
+    }
+
+    public function test_inactive_operator_cannot_complete_password_reset(): void
+    {
+        $inactive = User::factory()->create([
+            'email' => 'inactive-reset-complete@example.test',
+            'is_active' => false,
+            'password' => 'OldPass-phase-d-1',
+        ]);
+        $inactive->assignRole(Roles::TEAM_MEMBER);
+
+        $token = Password::broker()->createToken($inactive);
+
+        $this->post('/logout');
+        $this->post('/reset-password', [
+            'token' => $token,
+            'email' => $inactive->email,
+            'password' => 'NewPass-phase-d-1',
+            'password_confirmation' => 'NewPass-phase-d-1',
+        ])->assertSessionHasErrors('email');
+
+        $inactive->refresh();
+        $this->assertTrue(Hash::check('OldPass-phase-d-1', $inactive->password));
     }
 
     public function test_clearing_operator_smtp_does_not_copy_env_secret_into_database(): void
@@ -278,14 +347,13 @@ class PhaseDOperationalSettingsTest extends TestCase
             'mail.mailers.smtp.password' => 'env-smtp-secret-must-stay-out',
         ]);
 
-        Livewire::test(SettingsPage::class)
-            ->set('mail_enabled', true)
-            ->set('mail_from_address', 'ops@example.test')
-            ->set('mail_host', 'smtp.example.test')
-            ->set('mail_port', '587')
-            ->set('mail_password', 'operator-smtp-secret-phase-d')
-            ->call('saveMail')
-            ->assertHasNoErrors();
+        $this->saveOperatorMail([
+            'mail_enabled' => true,
+            'mail_from_address' => 'ops@example.test',
+            'mail_host' => 'smtp.example.test',
+            'mail_port' => '587',
+            'mail_password' => 'operator-smtp-secret-phase-d',
+        ])->assertHasNoErrors();
 
         Livewire::test(SettingsPage::class)
             ->call('clearOperatorMail')
@@ -297,5 +365,19 @@ class PhaseDOperationalSettingsTest extends TestCase
         $this->assertNull($settings->mail_password);
         $this->assertNotSame('operator-smtp-secret-phase-d', config('mail.mailers.smtp.password'));
         $this->assertNotSame(OperatorMailStatus::OPERATOR_CONFIGURED, OperatorMailStatus::state());
+    }
+
+    /**
+     * @param  array<string, mixed>  $fields
+     */
+    private function saveOperatorMail(array $fields): Testable
+    {
+        $component = Livewire::test(SettingsPage::class);
+        $component->update(
+            [['method' => 'saveMail', 'params' => [], 'path' => '']],
+            $fields,
+        );
+
+        return $component;
     }
 }

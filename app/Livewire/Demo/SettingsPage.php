@@ -251,8 +251,6 @@ class SettingsPage extends Component
     {
         $this->mail_password = '';
         $this->clear_mail_password = false;
-        $this->new_password = '';
-        $this->new_password_confirmation = '';
     }
 
     public function saveMail(): void

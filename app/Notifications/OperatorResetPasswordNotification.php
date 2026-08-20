@@ -3,11 +3,24 @@
 namespace App\Notifications;
 
 use App\Support\Operator\AgencySettingCatalog;
-use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Notifications\Notification;
 
-class OperatorResetPasswordNotification extends ResetPassword
+class OperatorResetPasswordNotification extends Notification
 {
+    public function __construct(
+        #[\SensitiveParameter]
+        public readonly string $token,
+    ) {}
+
+    /**
+     * @return list<string>
+     */
+    public function via(object $notifiable): array
+    {
+        return ['mail'];
+    }
+
     public function toMail(object $notifiable): MailMessage
     {
         $locale = 'en';
@@ -25,7 +38,7 @@ class OperatorResetPasswordNotification extends ResetPassword
             ->line(__('operator.mail.reset_expire', ['count' => $expire], $locale));
     }
 
-    protected function resetUrl(mixed $notifiable): string
+    private function resetUrl(object $notifiable): string
     {
         return url(route('app.password.reset', [
             'token' => $this->token,
