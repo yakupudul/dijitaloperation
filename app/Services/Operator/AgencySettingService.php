@@ -21,7 +21,11 @@ final class AgencySettingService
      */
     public function current(): AgencySetting
     {
-        if (! Schema::hasTable('agency_settings')) {
+        try {
+            if (! Schema::hasTable('agency_settings')) {
+                return $this->ephemeralDefaults();
+            }
+        } catch (\Throwable) {
             return $this->ephemeralDefaults();
         }
 

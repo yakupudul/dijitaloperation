@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Notifications\OperatorResetPasswordNotification;
 use App\Services\Notifications\NotificationPreferenceService;
 use App\Services\Operator\AgencySettingService;
+use App\Services\Operator\OperatorMailConfigService;
 use App\Support\Demo\DemoState;
 use App\Support\Operator\OperatorClock;
 use App\Support\Operator\OperatorMailStatus;
@@ -21,6 +22,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -365,6 +367,16 @@ class PhaseDOperationalSettingsTest extends TestCase
         $this->assertNull($settings->mail_password);
         $this->assertNotSame('operator-smtp-secret-phase-d', config('mail.mailers.smtp.password'));
         $this->assertNotSame(OperatorMailStatus::OPERATOR_CONFIGURED, OperatorMailStatus::state());
+    }
+
+    public function test_mail_runtime_overlay_tolerates_unavailable_database(): void
+    {
+        Schema::shouldReceive('hasTable')
+            ->andThrow(new \RuntimeException('database unavailable'));
+
+        app(OperatorMailConfigService::class)->applyToRuntime();
+
+        $this->addToAssertionCount(1);
     }
 
     /**

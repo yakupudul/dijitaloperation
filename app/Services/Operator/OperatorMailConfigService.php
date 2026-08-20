@@ -48,7 +48,7 @@ final class OperatorMailConfigService
      */
     public function update(array $attributes): AgencySetting
     {
-        if (! Schema::hasTable('agency_settings')) {
+        if (! $this->agencySettingsAreQueryable()) {
             throw new InvalidArgumentException('Agency settings are not available.');
         }
 
@@ -103,7 +103,7 @@ final class OperatorMailConfigService
 
     public function clearOperatorSmtp(): AgencySetting
     {
-        if (! Schema::hasTable('agency_settings')) {
+        if (! $this->agencySettingsAreQueryable()) {
             throw new InvalidArgumentException('Agency settings are not available.');
         }
 
@@ -127,7 +127,7 @@ final class OperatorMailConfigService
 
     public function operatorSmtpIsComplete(): bool
     {
-        if (! Schema::hasTable('agency_settings')) {
+        if (! $this->agencySettingsAreQueryable()) {
             return false;
         }
 
@@ -146,7 +146,7 @@ final class OperatorMailConfigService
 
     public function hasStoredPassword(): bool
     {
-        if (! Schema::hasTable('agency_settings')) {
+        if (! $this->agencySettingsAreQueryable()) {
             return false;
         }
 
@@ -253,6 +253,15 @@ final class OperatorMailConfigService
         }
 
         config($this->deploymentMailBaseline);
+    }
+
+    private function agencySettingsAreQueryable(): bool
+    {
+        try {
+            return Schema::hasTable('agency_settings');
+        } catch (Throwable) {
+            return false;
+        }
     }
 
     private function normalizePort(int|string|null $port): ?int
