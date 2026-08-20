@@ -40,7 +40,7 @@
 | Frozen Google Integration UI (backend state) | YES | YES | NO | YES | N/A | **TESTED** | Discovery/bind UX still PARTIAL (Prompts 15–16); connector pages still Demo | `GoogleIntegrationReadModel` + `GoogleConnectorRegistry`; docs: `GOOGLE_INTEGRATION_ARCHITECTURE.md` |
 | Google OAuth & credential lifecycle | YES | YES | NO | YES | YES | **TESTED** | External Google Cloud verification/approval MANUAL; no live OAuth in CI | `GoogleOAuthService` + `GoogleCredentialBroker` + attempt store; docs: `GOOGLE_OAUTH_CREDENTIAL_LIFECYCLE.md` |
 | Google resource discovery (GA4/GSC/Ads/GBP) | YES | YES | NO | YES | PARTIAL | **TESTED** | GBP/Ads external API access MANUAL; discovery sync on operator action; no auto bind | `DiscoverGoogleResourcesService` + four discoverers; docs: `GOOGLE_RESOURCE_DISCOVERY.md` |
-| Google resource selection & asset binding | YES | YES | NO | YES | N/A | **TESTED** | Human confirmation required; no collection side effect; Filament + frozen `/app` share guards | `ConfirmGoogleResourceBindingService`; docs: `GOOGLE_RESOURCE_SELECTION_BINDING.md` |
+| Google resource selection & asset binding | YES | YES | NO | YES | N/A | **TESTED** | Human confirmation required; no collection side effect; root operator + Filament share guards | `ConfirmGoogleResourceBindingService`; docs: `GOOGLE_RESOURCE_SELECTION_BINDING.md` |
 | Google resource discovery / binding | YES | YES | NO | YES | NO | TESTED | Refresh resources runs in-request; frozen bind workflow Prompt 16 | ExternalResources + AssetBinding |
 | Google live collection | YES | YES | NO | YES | YES | TESTED | Async via Activity Center / database queue; real Ads UAT not re-run here | GSC/GA4/Ads/GBP bound collectors via queued `CollectLiveBoundDataJob` |
 | Google Ads Intelligence | YES | YES | NO | YES | YES | TESTED | Collect + AI guidance queued; Expert Workspace not redesigned | Module Findings + Analyst + Skills; docs say IMPLEMENTED V1 |
@@ -85,6 +85,7 @@
 | Agency brain / operational synthesis (Phase C.1) | YES | YES | NO | N/A | N/A | **PARTIAL** | Canonical child is PR #206 (PR #205 superseded). Live provider/staging UAT from #200/#203/#204 remains an isolated external gate and is **not** claimed here. No BrainV2 / FindingV2 / Result entity / auto-Task / Agency Learning. Document Head charset/viewport/OG stay unevaluated when those snapshot fields were not collected. Meta primary-result rules stay unevaluated without a collected `primary_result.status`. | `EvaluateFindingsForAssetJob` runs canonical `FindingEvaluationService` then `CollectedFactsAnalysisService`. Website `DocumentHeadEvaluator` (`website_metadata_snapshot`); Google Ads `GoogleAdsPerformanceBoundEvidenceEvaluator` (`google_ads_campaign_daily` spend-with-zero-conversions); Meta Ads `MetaAdsPerformanceBoundEvidenceEvaluator` (`meta_campaign_daily` + snapshot inactive-with-spend). `FindingEvaluationService` now emits `FindingEvaluationCompleted` so Outcome V1 observes GSC/GA4 canonical evaluations. Manual `CreateTaskFromRecommendation`. Sibling Brand/provider warehouse rows never enter collected-facts runs. Not DONE. |
 | Operational / settings completeness (Phase D) | YES | YES | NO | YES | N/A | **PARTIAL** | Live SMTP delivery UAT and browser/mobile push remain external/deferred. No SaaS whitelabel, no second credential screen, no SettingsV2. | Canonical operator `/settings` + `/profile` + `/integrations`. Admin/Team Member lifecycle with deactivate-not-delete. Agency timezone/locale drive operator rendering via `OperatorClock` (storage clock stays `APP_TIMEZONE`). Encrypted write-only operator SMTP overlay with env fallback and test-mail action. In-app notification preferences only; push not implemented. |
 | End-to-end operator UX / QA (Phase E) | YES | YES | NO | YES | YES | **PARTIAL** | Staging/browser operator UAT not reachable from this Cursor Cloud agent (`APP_URL=http://127.0.0.1:8000`; empty `GOOGLE_CLIENT_ID` / DataForSEO / Meta secrets; no staging SSH). Live provider collect remains the isolated #200/#203/#204 gate. Collection Engine still rejects PHPUnit `sync` queue; production Website refresh surfaces that as unavailable rather than a fake success. No UI redesign, no push/PWA, no GBP collector reopen. | Canonical root journey `Login → Customer → Brand → Asset → Data Sources bind/collect → Activity → Evidence/Finding → Recommendation → manual Task → Outcome`. Production period reads use `OperatorPeriod` / `OperatorReportingPeriod` (custom dates override DemoPeriod math). Capture note/opportunity are truthful unavailable. Google Ads/Meta `runAnalysis` queues finding evaluation. Findings/Recommendations `?asset=` isolation. Activity Center lists `CollectionRun` + async `Run`. PHPUnit: `tests/Feature/PhaseE/*`. Not DONE. |
+| Production readiness / release (Phase F) | YES | YES | NO | YES | YES | **PARTIAL** | **CODE/RELEASE-CANDIDATE READY WITH EXTERNAL GATES.** No SSH/deploy credentials on this Cursor Cloud agent; live SMTP, Google Ads keyword recollection, GBP official API, Meta/Website/DataForSEO shared-engine live UAT, and browser push/PWA remain isolated external gates. Reviewer APPROVED + stacked merge order (#202 → #199 → #200 → #203 → #204 → #206 → #207 → #208 → Phase F) still required. Do not treat Demo fixtures as production truth. | Hardening only: controller-backed retired `/app` `/system` 410 routes so `route:cache` stays deploy-safe; `moxdop:production-check` HTTPS + OAuth-callback + redacted failures; canonical docs/ADR-044 match root operator + Filament `/admin`. PHPUnit: `tests/Feature/PhaseF/*`. Not DONE. |
 
 ---
 
@@ -182,6 +183,21 @@ Shipped in this slice:
 
 Do **not** describe this slice as “Phase E DONE”.
 
+### Production readiness / release (Phase F) — PARTIAL, not DONE
+
+Phase F is release convergence/hardening on the cumulative stack. It does **not** reopen collection, Agency Brain, Settings, GBP, push/PWA, or whitelabel.
+
+Shipped in this slice:
+
+- Retired `/app/*` and `/system/*` 410 responses are controller-backed so staging `route:cache` remains a real deploy step
+- `moxdop:production-check` verifies HTTPS/`APP_FORCE_HTTPS`/secure cookies on staging/production, canonical Google/Meta callback paths, and does not print `APP_KEY` or exception secrets
+- Canonical docs (MASTER_SPEC §6/§12, ADR-044, AGENTS.md, PROJECT_MEMORY, deploy/rollback/backup/smoke) match the root operator + Filament `/admin` contract
+- Focused PHPUnit: `tests/Feature/PhaseF/PhaseFReleaseReadinessTest.php`
+
+**External gates (not claimed here):** live staging deploy from this agent (public HTTPS login is reachable at `app.moximu.com` but there is no SSH, no host `.env` access, and no ability to `git checkout` the RC SHA); Google Ads keyword exact-resource recollection; GBP official API; Meta/Website/DataForSEO shared-engine live UAT; live SMTP delivery; browser/mobile push (not implemented); Prompt 68 host backup restore drill; repository Reviewer APPROVED + stacked merge.
+
+Do **not** describe this slice as “Phase F DONE” or as production-deployed.
+
 ### Public Website Discovery is limited
 
 Current Discovery is **Website-owned bounded public discovery**:
@@ -194,7 +210,7 @@ It is **not** full digital web discovery, social intelligence, review/news monit
 
 ### Async foundation (material)
 
-Long operator actions (bound collect, Website diagnosis, public discovery, SEO refresh when not fresh, Website/Google/Meta AI guidance) queue via `AsyncOperationService` onto Laravel **database** queue. Canonical execution record remains **Run** (`queued|running|completed|partial|failed`; `cancelled` reserved). Activity Center is Filament `RunResource` (`/app/runs`) with phase progress, duplicate guards, stale detection, retry for safe failures, and in-app database notifications. **Cancellation** is intentionally **not** shipped (fragile with current job architecture). Cross-asset consistency packs and integration resource refresh remain synchronous by design for now.
+Long operator actions (bound collect, Website diagnosis, public discovery, SEO refresh when not fresh, Website/Google/Meta AI guidance) queue via `AsyncOperationService` onto Laravel **database** queue (Redis/Horizon on staging/production). Canonical execution record remains **Run** (`queued|running|completed|partial|failed`; `cancelled` reserved). Activity Center is the operator `/activity` surface (Collection Engine runs plus async `Run` rows). **Cancellation** is intentionally **not** shipped (fragile with current job architecture). Cross-asset consistency packs and integration resource refresh remain synchronous by design for now.
 
 ### Async is not fully universal
 

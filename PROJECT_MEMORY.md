@@ -42,7 +42,7 @@ Notes:
 - **AI remains advisory and evidence-grounded.** AI does not invent Findings, silently override deterministic Recommendations, or auto-open Tasks.
 - **External provider integrations remain READ-ONLY.** No external write actions.
 - There is **no separate Result entity**. Outcomes are observed via later Evidence / Finding lifecycle and Task outcome signals.
-- Single Filament panel: id `app`, path `/app`; `web` guard; `spatie/laravel-permission`.
+- Single Filament panel: id `app`, path `/admin` (technical tooling only); operator product is the site root (`/login`, `/customers`, …). Legacy `/app/*` and `/system/*` return HTTP 410. `web` guard; `spatie/laravel-permission`.
 - Modules live under `app-modules/` + `internachi/modular` (minimal registry: id + enabled/disabled).
 
 ---

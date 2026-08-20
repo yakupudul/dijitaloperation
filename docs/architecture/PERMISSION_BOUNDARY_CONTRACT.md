@@ -6,7 +6,7 @@
 
 ## Canonical rule
 
-Human operators authenticate on the single Filament panel (`id: app`, path `/app`) using the `web` guard and Spatie permissions. **Credential decryption is not a UI permission that returns plaintext** — it is a server-side adapter capability. AI Agents and Assistants cannot access credentials or mutate permissions.
+Human operators authenticate on the canonical operator root (`/login`) using the `web` guard and Spatie permissions. Filament (`id: app`, path `/admin`) is technical tooling only. **Credential decryption is not a UI permission that returns plaintext** — it is a server-side adapter capability. AI Agents and Assistants cannot access credentials or mutate permissions.
 
 ---
 

@@ -32,6 +32,8 @@ final class ProductionCheckCommand extends Command
         $this->checkAppEnv();
         $this->checkAppDebug();
         $this->checkAppKey();
+        $this->checkHttps();
+        $this->checkOauthCallbacks();
         $this->checkDatabase();
         $this->checkMigrationsTable();
         $this->checkRolesSeeded();
@@ -111,6 +113,54 @@ final class ProductionCheckCommand extends Command
         $this->record('APP_KEY', 'PASS', 'present (value not printed)');
     }
 
+    private function checkHttps(): void
+    {
+        $env = (string) config('app.env');
+        if (! in_array($env, ['production', 'staging'], true)) {
+            $this->record('HTTPS', 'WARN', 'Skipped outside staging/production.');
+
+            return;
+        }
+
+        $url = (string) config('app.url');
+        $forceHttps = (bool) config('app.force_https');
+        $secureCookie = config('session.secure');
+
+        if (! str_starts_with($url, 'https://')) {
+            $this->record('HTTPS', 'FAIL', 'APP_URL must use https on staging/production (value not printed).');
+
+            return;
+        }
+
+        if (! $forceHttps) {
+            $this->record('HTTPS', 'FAIL', 'APP_FORCE_HTTPS must be true on staging/production.');
+
+            return;
+        }
+
+        if ($secureCookie !== true) {
+            $this->record('HTTPS', 'WARN', 'SESSION_SECURE_COOKIE is not explicitly true.');
+
+            return;
+        }
+
+        $this->record('HTTPS', 'PASS', 'https APP_URL, APP_FORCE_HTTPS, and secure cookies are set (values not printed).');
+    }
+
+    private function checkOauthCallbacks(): void
+    {
+        $googlePath = parse_url(route('integrations.google.callback'), PHP_URL_PATH);
+        $metaPath = parse_url(route('integrations.meta.callback'), PHP_URL_PATH);
+
+        if ($googlePath === '/integrations/google/callback' && $metaPath === '/integrations/meta/callback') {
+            $this->record('OAUTH_CALLBACKS', 'PASS', 'Google/Meta callbacks stay on canonical /integrations/{provider}/callback paths.');
+
+            return;
+        }
+
+        $this->record('OAUTH_CALLBACKS', 'FAIL', 'OAuth callback named routes are not the canonical root integrations paths.');
+    }
+
     private function checkDatabase(): void
     {
         $driver = (string) config('database.default');
@@ -128,8 +178,8 @@ final class ProductionCheckCommand extends Command
                 return;
             }
             $this->record('DATABASE', 'PASS', $detail);
-        } catch (Throwable $e) {
-            $this->record('DATABASE', 'FAIL', 'Connectivity failed: '.$e->getMessage());
+        } catch (Throwable) {
+            $this->record('DATABASE', 'FAIL', 'Connectivity failed.');
         }
     }
 
@@ -143,8 +193,8 @@ final class ProductionCheckCommand extends Command
             }
             $count = (int) DB::table('migrations')->count();
             $this->record('MIGRATIONS', $count > 0 ? 'PASS' : 'WARN', "{$count} migration rows recorded.");
-        } catch (Throwable $e) {
-            $this->record('MIGRATIONS', 'FAIL', $e->getMessage());
+        } catch (Throwable) {
+            $this->record('MIGRATIONS', 'FAIL', 'Could not inspect the migrations table.');
         }
     }
 
@@ -158,8 +208,8 @@ final class ProductionCheckCommand extends Command
             }
             $count = (int) DB::table('roles')->count();
             $this->record('ROLES_SEED', $count > 0 ? 'PASS' : 'FAIL', $count > 0 ? "{$count} roles present" : 'No roles — run production-safe RoleAndPermissionSeeder.');
-        } catch (Throwable $e) {
-            $this->record('ROLES_SEED', 'FAIL', $e->getMessage());
+        } catch (Throwable) {
+            $this->record('ROLES_SEED', 'FAIL', 'Could not inspect the roles table.');
         }
     }
 
@@ -180,8 +230,8 @@ final class ProductionCheckCommand extends Command
         try {
             Redis::connection()->ping();
             $this->record('REDIS', 'PASS', 'ping OK');
-        } catch (Throwable $e) {
-            $this->record('REDIS', 'FAIL', 'Redis required but unreachable: '.$e->getMessage());
+        } catch (Throwable) {
+            $this->record('REDIS', 'FAIL', 'Redis required but unreachable.');
         }
     }
 
@@ -219,8 +269,8 @@ final class ProductionCheckCommand extends Command
                 return;
             }
             $this->record('PRIVATE_STORAGE', 'PASS', "default={$disk}; raw={$rawDisk}; local app disk writable");
-        } catch (Throwable $e) {
-            $this->record('PRIVATE_STORAGE', 'FAIL', $e->getMessage());
+        } catch (Throwable) {
+            $this->record('PRIVATE_STORAGE', 'FAIL', 'Could not inspect private storage.');
         }
     }
 
@@ -251,8 +301,8 @@ final class ProductionCheckCommand extends Command
                 return;
             }
             $this->record('SCHEDULER', 'PASS', 'Heartbeat row present (timestamp not printed as proof of external cron).');
-        } catch (Throwable $e) {
-            $this->record('SCHEDULER', 'WARN', $e->getMessage());
+        } catch (Throwable) {
+            $this->record('SCHEDULER', 'WARN', 'Could not inspect dispatcher heartbeats.');
         }
     }
 

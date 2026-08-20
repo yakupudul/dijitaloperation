@@ -14,7 +14,7 @@ Legend for **Demo dependency:** `none` · `catalog-only` · `session-chrome` · 
 
 | Capability | Status | Canonical source | Read path | Write path | Tests | Demo dependency | Gap | Blocker |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Auth (web guard) | REAL | Laravel session auth | `/app`, `/system` login | User credentials | Feature auth tests | none | — | — |
+| Auth (web guard) | REAL | Laravel session auth | `/login`, `/admin/login` | User credentials | Feature auth tests | none | — | — |
 | Users | REAL | `users` | Filament User resources | Filament / artisan admin | Role seeder tests | none | — | — |
 | Roles / permissions | REAL | Spatie tables | Middleware / policies | `RoleAndPermissionSeeder` | Permission tests | none | — | — |
 | Customers CRUD | REAL | `customers` | Filament + `/app` portfolio | Eloquent / Livewire create | Portfolio/feature tests | none | Formal live UAT not re-run | NOT_MANUALLY_VERIFIED ops UAT |
@@ -23,7 +23,7 @@ Legend for **Demo dependency:** `none` · `catalog-only` · `session-chrome` · 
 | Module registry | REAL | modules seeder/registry | Filament Modules | Seeder | Module tests | none | — | — |
 | DatabaseSeeder (no fake Customer) | REAL | `DatabaseSeeder` | n/a | roles/modules/playbooks only | `DemoRealityFinalConvergenceTest` | none | — | — |
 | Frozen `/app` sidebar IA | REAL | Milestone 5 freeze | Livewire nav | n/a (frozen) | Route tests | session-chrome | Naming debt `Livewire\Demo` | Product change requires justification |
-| Filament `/system` admin | REAL | Panel id `app` path `/system` | Filament resources | Filament | Resource tests | none | — | — |
+| Filament `/admin` technical tooling | REAL | Panel id `app` path `/admin` | Filament resources | Filament | Resource tests | none | — | — |
 
 ---
 

@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\OperatorLoginController;
 use App\Http\Controllers\Auth\OperatorResetPasswordController;
 use App\Http\Controllers\Integrations\GoogleOAuthController;
 use App\Http\Controllers\Integrations\MetaOAuthController;
+use App\Http\Controllers\LegacyRetiredPrefixController;
 use App\Http\Controllers\Ops\OpsHealthController;
 use App\Http\Controllers\Prospects\ProspectReportShareController;
 use App\Http\Controllers\Reports\ReportArtifactDownloadController;
@@ -97,10 +98,8 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])->group(function (
         ->name('operator.website.discovery');
 });
 
-Route::any('/app/{path?}', function (): never {
-    abort(410, 'Legacy /app operator prefix retired.');
-})->where('path', '.*');
+Route::any('/app/{path?}', [LegacyRetiredPrefixController::class, 'app'])
+    ->where('path', '.*');
 
-Route::any('/system/{path?}', function (): never {
-    abort(410, 'Legacy /system operator surface retired.');
-})->where('path', '.*');
+Route::any('/system/{path?}', [LegacyRetiredPrefixController::class, 'system'])
+    ->where('path', '.*');

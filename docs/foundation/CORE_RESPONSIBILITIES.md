@@ -7,7 +7,7 @@
 
 ### MVP Core zorunlu
 
-* Authentication (`web`; Filament panel `app` / `/app`)
+* Authentication (`web`; operator at site root; Filament panel `app` / `/admin`)
 * Users, Roles / Permissions (`spatie/laravel-permission`; Admin, Team Member)
 * Customers, Customer contacts, Brands
 * Digital assets, Connections, Encrypted credentials
