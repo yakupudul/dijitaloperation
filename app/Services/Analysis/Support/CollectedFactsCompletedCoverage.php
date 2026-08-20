@@ -91,12 +91,88 @@ final class CollectedFactsCompletedCoverage
     }
 
     /**
+     * Usable current-state snapshot: non-partial materialization whose last successful DatasetRun completed.
+     * Snapshot datasets have no 28-day reporting-date window; running/failed/partial runs are never a source.
+     */
+    public static function resolveCurrentState(
+        string $datasetId,
+        int $digitalAssetId,
+        int $externalResourceId,
+    ): ?self {
+        $materialization = DatasetMaterialization::query()
+            ->where('dataset_id', $datasetId)
+            ->where('digital_asset_id', $digitalAssetId)
+            ->where('external_resource_id', $externalResourceId)
+            ->first();
+
+        if (! $materialization instanceof DatasetMaterialization) {
+            return null;
+        }
+
+        if ($materialization->last_successful_dataset_run_id === null
+            || $materialization->partial === true
+            || $materialization->status === MaterializationStatus::Partial
+            || in_array($materialization->status, [MaterializationStatus::NotCollected, MaterializationStatus::Unavailable], true)
+        ) {
+            return null;
+        }
+
+        $datasetRun = CollectionDatasetRun::query()->find($materialization->last_successful_dataset_run_id);
+        if (! $datasetRun instanceof CollectionDatasetRun || $datasetRun->status !== CollectionRunStatus::Completed) {
+            return null;
+        }
+
+        $collectedAt = $materialization->last_collected_at?->toDateString() ?? '';
+
+        return new self(
+            periodStart: $collectedAt,
+            periodEnd: $collectedAt,
+            datasetRunId: (int) $datasetRun->id,
+            collectionRunId: $materialization->last_successful_collection_run_id !== null
+                ? (int) $materialization->last_successful_collection_run_id
+                : null,
+            materializationId: (int) $materialization->id,
+            datasetId: $datasetId,
+            digitalAssetId: $digitalAssetId,
+            externalResourceId: $externalResourceId,
+        );
+    }
+
+    /**
      * Restrict warehouse facts to the requested window and rows last written by a completed DatasetRun
      * for this asset/dataset. Incremental refreshes keep older completed days; running/failed rows stay out.
      */
     public function constrainFactsQuery(Builder $query): Builder
     {
-        $completedIds = CollectionDatasetRun::query()
+        $completedIds = $this->completedDatasetRunIds();
+        if ($completedIds === []) {
+            return $query->whereRaw('0 = 1');
+        }
+
+        return $query
+            ->whereBetween('reporting_date', [$this->periodStart, $this->periodEnd])
+            ->whereIn('last_dataset_run_id', $completedIds);
+    }
+
+    /**
+     * Restrict current-state snapshot rows to completed DatasetRuns for this asset/dataset/resource.
+     */
+    public function constrainCurrentStateQuery(Builder $query): Builder
+    {
+        $completedIds = $this->completedDatasetRunIds();
+        if ($completedIds === []) {
+            return $query->whereRaw('0 = 1');
+        }
+
+        return $query->whereIn('last_dataset_run_id', $completedIds);
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function completedDatasetRunIds(): array
+    {
+        return CollectionDatasetRun::query()
             ->where('dataset_contract_id', $this->datasetId)
             ->where('status', CollectionRunStatus::Completed)
             ->whereHas('resourceRun', function (EloquentBuilder $resourceRun): void {
@@ -104,15 +180,9 @@ final class CollectedFactsCompletedCoverage
                     ->where('digital_asset_id', $this->digitalAssetId)
                     ->where('external_resource_id', $this->externalResourceId);
             })
-            ->pluck('id');
-
-        if ($completedIds->isEmpty()) {
-            return $query->whereRaw('0 = 1');
-        }
-
-        return $query
-            ->whereBetween('reporting_date', [$this->periodStart, $this->periodEnd])
-            ->whereIn('last_dataset_run_id', $completedIds->all());
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
     }
 
     /**

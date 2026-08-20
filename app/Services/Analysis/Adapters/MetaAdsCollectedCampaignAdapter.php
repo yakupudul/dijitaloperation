@@ -61,9 +61,28 @@ final class MetaAdsCollectedCampaignAdapter
             );
         }
 
+        $snapshotCoverage = CollectedFactsCompletedCoverage::resolveCurrentState(
+            'meta_campaign_snapshot',
+            (int) $asset->id,
+            $resourceId,
+        );
+        if ($snapshotCoverage === null) {
+            return CollectedFactsAnalysisResult::skipped(
+                DigitalAssetType::MetaAds,
+                'unusable_meta_campaign_snapshot',
+                [
+                    'digital_asset_id' => $asset->id,
+                    'external_resource_id' => $resourceId,
+                    'dataset_id' => 'meta_campaign_daily',
+                    'snapshot_dataset_id' => 'meta_campaign_snapshot',
+                    'dataset_run_id' => $coverage->datasetRunId,
+                ],
+            );
+        }
+
         $periodStart = $coverage->periodStart;
         $periodEnd = $coverage->periodEnd;
-        $rows = $this->aggregateCampaigns($asset->id, $resourceId, $coverage);
+        $rows = $this->aggregateCampaigns($asset->id, $resourceId, $coverage, $snapshotCoverage);
         if ($rows === []) {
             return CollectedFactsAnalysisResult::skipped(
                 DigitalAssetType::MetaAds,
@@ -97,6 +116,7 @@ final class MetaAdsCollectedCampaignAdapter
                 'core_asset_binding_id' => $binding->id,
                 'collection_run_id' => $collectionRunId,
                 'dataset_run_id' => $coverage->datasetRunId,
+                'snapshot_dataset_run_id' => $snapshotCoverage->datasetRunId,
                 'period' => ['start' => $periodStart, 'end' => $periodEnd],
             ],
         ]);
@@ -124,7 +144,9 @@ final class MetaAdsCollectedCampaignAdapter
                     'core_asset_binding_id' => $binding->id,
                     'collection_run_id' => $collectionRunId,
                     'dataset_run_id' => $coverage->datasetRunId,
+                    'snapshot_dataset_run_id' => $snapshotCoverage->datasetRunId,
                     'materialization_id' => $coverage->materializationId,
+                    'snapshot_materialization_id' => $snapshotCoverage->materializationId,
                 ],
             ],
             'observed_at' => now(),
@@ -156,8 +178,10 @@ final class MetaAdsCollectedCampaignAdapter
                 'external_resource_id' => $resourceId,
                 'core_asset_binding_id' => $binding->id,
                 'dataset_id' => 'meta_campaign_daily',
+                'snapshot_dataset_id' => 'meta_campaign_snapshot',
                 'collection_run_id' => $collectionRunId,
                 'dataset_run_id' => $coverage->datasetRunId,
+                'snapshot_dataset_run_id' => $snapshotCoverage->datasetRunId,
                 'period_start' => $periodStart,
                 'period_end' => $periodEnd,
             ],
@@ -167,8 +191,12 @@ final class MetaAdsCollectedCampaignAdapter
     /**
      * @return list<array<string, mixed>>
      */
-    private function aggregateCampaigns(int $assetId, int $resourceId, CollectedFactsCompletedCoverage $coverage): array
-    {
+    private function aggregateCampaigns(
+        int $assetId,
+        int $resourceId,
+        CollectedFactsCompletedCoverage $coverage,
+        CollectedFactsCompletedCoverage $snapshotCoverage,
+    ): array {
         $aggregated = $coverage->constrainFactsQuery(
             DB::table('meta_campaign_daily')
                 ->where('digital_asset_id', $assetId)
@@ -185,11 +213,12 @@ final class MetaAdsCollectedCampaignAdapter
                 continue;
             }
 
-            $snapshot = DB::table('meta_campaign_snapshot')
-                ->where('digital_asset_id', $assetId)
-                ->where('external_resource_id', $resourceId)
-                ->where('campaign_id', $campaignId)
-                ->first();
+            $snapshot = $snapshotCoverage->constrainCurrentStateQuery(
+                DB::table('meta_campaign_snapshot')
+                    ->where('digital_asset_id', $assetId)
+                    ->where('external_resource_id', $resourceId)
+                    ->where('campaign_id', $campaignId),
+            )->first();
             $meta = $snapshot !== null ? CollectedFactsJson::decode($snapshot->metadata ?? null) : [];
 
             $rows[] = [

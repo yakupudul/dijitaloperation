@@ -442,6 +442,7 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
             'meta_campaign_daily',
             '2026-08-19',
         );
+        $this->sealCompletedSnapshotFacts($asset, $resource, $completedCollection);
 
         $runningCollection = $this->makeCollectionRun($asset);
         $running = $this->makeDatasetRun($asset, $runningCollection, 'meta_campaign_daily', 'META_ADS', CollectionRunStatus::Running, $resource);
@@ -470,6 +471,7 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
             'meta_campaign_daily',
             '2026-08-19',
         );
+        $this->sealCompletedSnapshotFacts($asset, $resource, $backfillCollection);
 
         $incrementalCollection = $this->makeCollectionRun($asset);
         $incrementalRun = $this->makeDatasetRun(
@@ -589,6 +591,7 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
         $this->insertMetaCampaignDaily($assetA, $resourceA, $collectionA->id, '2026-08-19', '1001', 80.0);
         $this->insertMetaCampaignSnapshot($assetA, $resourceA, '1001', 'Paused Lead Form', 'PAUSED', 'CAMPAIGN_PAUSED');
         $this->sealCompletedDailyFacts($assetA, $resourceA, $collectionA, 'meta_campaign_daily', 'META_ADS', 'meta_campaign_daily', '2026-08-19');
+        $this->sealCompletedSnapshotFacts($assetA, $resourceA, $collectionA);
         $this->insertMetaCampaignDaily($assetB, $resourceB, null, '2026-08-19', '1001', 120.0);
         $this->insertMetaCampaignSnapshot($assetB, $resourceB, '1001', 'Other Brand', 'PAUSED', 'CAMPAIGN_PAUSED');
 
@@ -606,6 +609,206 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
         ]);
         $this->assertSame(0, Finding::query()->where('digital_asset_id', $assetB->id)->count());
         $this->assertSame(0, Task::query()->count());
+        Http::assertNothingSent();
+    }
+
+    #[Test]
+    public function meta_ads_later_failed_entity_snapshot_cannot_affect_findings(): void
+    {
+        [$asset, $resource, $collection] = $this->makeMetaAdsAsset();
+        $this->insertMetaCampaignDaily($asset, $resource, $collection->id, '2026-08-19', '1001', 80.0);
+        $this->sealCompletedDailyFacts($asset, $resource, $collection, 'meta_campaign_daily', 'META_ADS', 'meta_campaign_daily', '2026-08-19');
+
+        $failedSnapshot = $this->makeDatasetRun(
+            $asset,
+            $collection,
+            'meta_campaign_snapshot',
+            'META_ADS',
+            CollectionRunStatus::Failed,
+            $resource,
+        );
+        $this->insertMetaCampaignSnapshot(
+            $asset,
+            $resource,
+            '1001',
+            'Paused After Partial Snapshot',
+            'PAUSED',
+            'CAMPAIGN_PAUSED',
+            $collection->id,
+            $failedSnapshot->id,
+        );
+        DatasetMaterialization::query()->create([
+            'dataset_id' => 'meta_campaign_snapshot',
+            'digital_asset_id' => $asset->id,
+            'external_resource_id' => $resource->id,
+            'provider_or_source' => 'META_ADS',
+            'contract_version' => 1,
+            'last_successful_collection_run_id' => $collection->id,
+            'last_successful_dataset_run_id' => $failedSnapshot->id,
+            'last_collected_at' => now(),
+            'status' => MaterializationStatus::Available,
+            'partial' => false,
+        ]);
+
+        $result = app(CollectedFactsAnalysisService::class)->analyze($asset);
+        $this->assertFalse($result->evaluated);
+        $this->assertSame('unusable_meta_campaign_snapshot', $result->skipReason);
+        $this->assertSame(0, Finding::query()->where('digital_asset_id', $asset->id)->count());
+        $this->assertSame(0, Evidence::query()
+            ->where('digital_asset_id', $asset->id)
+            ->where('type', 'meta_ads_campaign_performance')
+            ->count());
+        Http::assertNothingSent();
+    }
+
+    #[Test]
+    public function meta_ads_completed_snapshot_opens_inactive_finding(): void
+    {
+        [$asset, $resource, $collection] = $this->makeMetaAdsAsset();
+        $this->insertMetaCampaignDaily($asset, $resource, $collection->id, '2026-08-19', '1001', 80.0);
+        $this->insertMetaCampaignSnapshot($asset, $resource, '1001', 'Paused Lead Form', 'PAUSED', 'CAMPAIGN_PAUSED');
+        $this->sealCompletedDailyFacts($asset, $resource, $collection, 'meta_campaign_daily', 'META_ADS', 'meta_campaign_daily', '2026-08-19');
+        $this->sealCompletedSnapshotFacts($asset, $resource, $collection);
+
+        $result = app(CollectedFactsAnalysisService::class)->analyze($asset);
+        $this->assertTrue($result->evaluated);
+        $this->assertTrue($result->evaluationSuccessful);
+        $this->assertContains(MetaAdsFindingsCatalog::RULE_CAMPAIGN_INACTIVE_WITH_RECENT_SPEND, $result->evaluatedRuleIds);
+        $this->assertSame(1, Finding::query()
+            ->where('digital_asset_id', $asset->id)
+            ->where('fingerprint', 'meta-ads:campaign-inactive-with-context:1001')
+            ->where('status', 'open')
+            ->count());
+        $this->assertTrue((bool) data_get(
+            Evidence::query()->where('run_id', $result->run?->id)->value('payload'),
+            'response_ok',
+        ));
+        Http::assertNothingSent();
+    }
+
+    #[Test]
+    public function meta_ads_failed_snapshot_does_not_overwrite_prior_completed_finding_semantics(): void
+    {
+        [$asset, $resource, $collection] = $this->makeMetaAdsAsset();
+        $this->insertMetaCampaignDaily($asset, $resource, $collection->id, '2026-08-19', '1001', 80.0);
+        $this->insertMetaCampaignSnapshot($asset, $resource, '1001', 'Paused Lead Form', 'PAUSED', 'CAMPAIGN_PAUSED');
+        $this->sealCompletedDailyFacts($asset, $resource, $collection, 'meta_campaign_daily', 'META_ADS', 'meta_campaign_daily', '2026-08-19');
+        $completedSnapshot = $this->sealCompletedSnapshotFacts($asset, $resource, $collection);
+
+        $first = app(CollectedFactsAnalysisService::class)->analyze($asset);
+        $this->assertTrue($first->evaluated);
+        $finding = Finding::query()
+            ->where('digital_asset_id', $asset->id)
+            ->where('fingerprint', 'meta-ads:campaign-inactive-with-context:1001')
+            ->firstOrFail();
+        $this->assertSame('open', $finding->status);
+        $this->assertSame($completedSnapshot->id, $first->provenance['snapshot_dataset_run_id']);
+
+        $failedCollection = $this->makeCollectionRun($asset);
+        $failedSnapshot = $this->makeDatasetRun(
+            $asset,
+            $failedCollection,
+            'meta_campaign_snapshot',
+            'META_ADS',
+            CollectionRunStatus::Failed,
+            $resource,
+        );
+        DB::table('meta_campaign_snapshot')
+            ->where('digital_asset_id', $asset->id)
+            ->where('external_resource_id', $resource->id)
+            ->where('campaign_id', '1001')
+            ->update([
+                'last_collection_run_id' => $failedCollection->id,
+                'last_dataset_run_id' => $failedSnapshot->id,
+                'metadata' => json_encode([
+                    'name' => 'Reactivated By Failed Snapshot',
+                    'status' => 'ACTIVE',
+                    'effective_status' => 'ACTIVE',
+                ]),
+                'updated_at' => now(),
+            ]);
+        DatasetMaterialization::query()
+            ->where('dataset_id', 'meta_campaign_snapshot')
+            ->where('digital_asset_id', $asset->id)
+            ->where('external_resource_id', $resource->id)
+            ->update([
+                'last_successful_collection_run_id' => $failedCollection->id,
+                'last_successful_dataset_run_id' => $failedSnapshot->id,
+                'last_collected_at' => now(),
+                'status' => MaterializationStatus::Available,
+                'partial' => false,
+            ]);
+
+        $second = app(CollectedFactsAnalysisService::class)->analyze($asset);
+        $this->assertFalse($second->evaluated);
+        $this->assertSame('unusable_meta_campaign_snapshot', $second->skipReason);
+        $this->assertSame('open', $finding->fresh()->status);
+        $this->assertSame(1, Evidence::query()
+            ->where('digital_asset_id', $asset->id)
+            ->where('type', 'meta_ads_campaign_performance')
+            ->count());
+        $payload = Evidence::query()
+            ->where('digital_asset_id', $asset->id)
+            ->where('type', 'meta_ads_campaign_performance')
+            ->value('payload');
+        $this->assertSame('Paused Lead Form', data_get($payload, 'rows.0.campaign_name'));
+        $this->assertSame('PAUSED', data_get($payload, 'rows.0.status'));
+        Http::assertNothingSent();
+    }
+
+    #[Test]
+    public function meta_ads_snapshot_gate_does_not_leak_across_resources(): void
+    {
+        [$assetA, $resourceA, $collectionA] = $this->makeMetaAdsAsset();
+        [$assetB, $resourceB, $collectionB] = $this->makeMetaAdsAsset();
+
+        $this->insertMetaCampaignDaily($assetA, $resourceA, $collectionA->id, '2026-08-19', '1001', 80.0);
+        $this->insertMetaCampaignSnapshot($assetA, $resourceA, '1001', 'Active A', 'ACTIVE', 'ACTIVE');
+        $this->sealCompletedDailyFacts($assetA, $resourceA, $collectionA, 'meta_campaign_daily', 'META_ADS', 'meta_campaign_daily', '2026-08-19');
+        $this->sealCompletedSnapshotFacts($assetA, $resourceA, $collectionA);
+
+        $this->insertMetaCampaignDaily($assetB, $resourceB, $collectionB->id, '2026-08-19', '1001', 120.0);
+        $failedSnapshot = $this->makeDatasetRun(
+            $assetB,
+            $collectionB,
+            'meta_campaign_snapshot',
+            'META_ADS',
+            CollectionRunStatus::Failed,
+            $resourceB,
+        );
+        $this->insertMetaCampaignSnapshot(
+            $assetB,
+            $resourceB,
+            '1001',
+            'Paused B Failed Snapshot',
+            'PAUSED',
+            'CAMPAIGN_PAUSED',
+            $collectionB->id,
+            $failedSnapshot->id,
+        );
+        DatasetMaterialization::query()->create([
+            'dataset_id' => 'meta_campaign_snapshot',
+            'digital_asset_id' => $assetB->id,
+            'external_resource_id' => $resourceB->id,
+            'provider_or_source' => 'META_ADS',
+            'contract_version' => 1,
+            'last_successful_collection_run_id' => $collectionB->id,
+            'last_successful_dataset_run_id' => $failedSnapshot->id,
+            'last_collected_at' => now(),
+            'status' => MaterializationStatus::Available,
+            'partial' => false,
+        ]);
+        $this->sealCompletedDailyFacts($assetB, $resourceB, $collectionB, 'meta_campaign_daily', 'META_ADS', 'meta_campaign_daily', '2026-08-19');
+
+        $resultA = app(CollectedFactsAnalysisService::class)->analyze($assetA);
+        $this->assertTrue($resultA->evaluated);
+        $this->assertSame(0, Finding::query()->where('digital_asset_id', $assetA->id)->count());
+        $this->assertSame(0, Finding::query()->where('digital_asset_id', $assetB->id)->count());
+
+        $resultB = app(CollectedFactsAnalysisService::class)->analyze($assetB);
+        $this->assertFalse($resultB->evaluated);
+        $this->assertSame('unusable_meta_campaign_snapshot', $resultB->skipReason);
+        $this->assertSame(0, Finding::query()->where('digital_asset_id', $assetB->id)->count());
         Http::assertNothingSent();
     }
 
@@ -891,6 +1094,40 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
         return $datasetRun;
     }
 
+    private function sealCompletedSnapshotFacts(
+        DigitalAsset $asset,
+        CoreExternalResource $resource,
+        CollectionRun $collectionRun,
+    ): CollectionDatasetRun {
+        $datasetRun = $this->makeDatasetRun(
+            $asset,
+            $collectionRun,
+            'meta_campaign_snapshot',
+            'META_ADS',
+            CollectionRunStatus::Completed,
+            $resource,
+        );
+        DatasetMaterialization::query()->create([
+            'dataset_id' => 'meta_campaign_snapshot',
+            'digital_asset_id' => $asset->id,
+            'external_resource_id' => $resource->id,
+            'provider_or_source' => 'META_ADS',
+            'contract_version' => 1,
+            'last_successful_collection_run_id' => $collectionRun->id,
+            'last_successful_dataset_run_id' => $datasetRun->id,
+            'last_collected_at' => now(),
+            'status' => MaterializationStatus::Available,
+            'partial' => false,
+        ]);
+        DB::table('meta_campaign_snapshot')
+            ->where('digital_asset_id', $asset->id)
+            ->where('external_resource_id', $resource->id)
+            ->whereNull('last_dataset_run_id')
+            ->update(['last_dataset_run_id' => $datasetRun->id]);
+
+        return $datasetRun;
+    }
+
     /**
      * @return list<string>
      */
@@ -1002,6 +1239,8 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
         string $name,
         string $status,
         string $effectiveStatus,
+        ?int $collectionRunId = null,
+        ?int $datasetRunId = null,
     ): void {
         DB::table('meta_campaign_snapshot')->insert([
             'digital_asset_id' => $asset->id,
@@ -1009,12 +1248,12 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
             'account_id' => $resource->external_id,
             'campaign_id' => $campaignId,
             'contract_version' => 1,
-            'last_collection_run_id' => null,
-            'last_dataset_run_id' => null,
+            'last_collection_run_id' => $collectionRunId,
+            'last_dataset_run_id' => $datasetRunId,
             'first_collected_at' => now(),
             'last_collected_at' => now(),
             'source_timezone' => 'UTC',
-            'record_fingerprint' => hash('sha256', $asset->id.'|snap|'.$campaignId),
+            'record_fingerprint' => hash('sha256', $asset->id.'|snap|'.$campaignId.'|'.($datasetRunId ?? 'none')),
             'metadata' => json_encode([
                 'name' => $name,
                 'status' => $status,
