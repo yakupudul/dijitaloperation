@@ -25,6 +25,7 @@ use App\Models\User;
 use App\Services\Analysis\CollectedFactsAnalysisService;
 use App\Services\CreateTaskFromRecommendation;
 use App\Services\CrossAssetWebsiteGoogleAdsLandingConsistencyService;
+use App\Services\DataPool\Integrity\Support\CoverageIntervalSet;
 use App\Services\Findings\FindingEvaluationService;
 use App\Services\GoogleAdsLandingFinalUrlsCollectService;
 use App\Services\Recommendations\CreateRecommendationFromFinding;
@@ -32,6 +33,7 @@ use App\Services\Tasks\TaskLifecycleService;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Roles;
 use App\Support\Tasks\TaskOutcomeStatus;
+use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -250,7 +252,7 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
     public function google_ads_running_or_failed_partial_batches_are_not_synthesized_as_current(): void
     {
         [$asset, $resource, $completedCollection] = $this->makeGoogleAdsAsset();
-        $this->insertGoogleAdsCampaignDaily($asset, $resource, $completedCollection->id, '2026-07-01', '111', 10_000_000, 4);
+        $this->insertGoogleAdsCampaignDaily($asset, $resource, $completedCollection->id, '2026-07-23', '111', 10_000_000, 4);
         $this->sealCompletedDailyFacts(
             $asset,
             $resource,
@@ -258,25 +260,141 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
             'google_ads_campaign_daily',
             'GOOGLE_ADS',
             'google_ads_campaign_daily',
-            '2026-07-01',
+            '2026-08-19',
         );
 
         $runningCollection = $this->makeCollectionRun($asset);
-        $running = $this->makeDatasetRun($asset, $runningCollection, 'google_ads_campaign_daily', 'GOOGLE_ADS', CollectionRunStatus::Running);
+        $running = $this->makeDatasetRun($asset, $runningCollection, 'google_ads_campaign_daily', 'GOOGLE_ADS', CollectionRunStatus::Running, $resource);
         $this->insertGoogleAdsCampaignDaily($asset, $resource, $runningCollection->id, '2026-08-19', '222', 90_000_000, 0, $running->id);
 
         $runningResult = app(CollectedFactsAnalysisService::class)->analyze($asset);
         $this->assertTrue($runningResult->evaluated);
-        $this->assertSame('2026-07-01', $runningResult->provenance['period_end']);
+        $this->assertSame('2026-07-23', $runningResult->provenance['period_start']);
+        $this->assertSame('2026-08-19', $runningResult->provenance['period_end']);
         $this->assertSame(0, Finding::query()->where('digital_asset_id', $asset->id)->count());
+        $this->assertSame(
+            ['111'],
+            collect(Evidence::query()->where('run_id', $runningResult->run?->id)->first()?->payload['rows'] ?? [])
+                ->pluck('campaign_id')
+                ->all(),
+        );
 
         $failedCollection = $this->makeCollectionRun($asset);
-        $failed = $this->makeDatasetRun($asset, $failedCollection, 'google_ads_campaign_daily', 'GOOGLE_ADS', CollectionRunStatus::Failed);
-        $this->insertGoogleAdsCampaignDaily($asset, $resource, $failedCollection->id, '2026-07-01', '333', 80_000_000, 0, $failed->id);
+        $failed = $this->makeDatasetRun($asset, $failedCollection, 'google_ads_campaign_daily', 'GOOGLE_ADS', CollectionRunStatus::Failed, $resource);
+        $this->insertGoogleAdsCampaignDaily($asset, $resource, $failedCollection->id, '2026-07-23', '333', 80_000_000, 0, $failed->id);
 
         $failedResult = app(CollectedFactsAnalysisService::class)->analyze($asset);
         $this->assertTrue($failedResult->evaluated);
         $this->assertSame(0, Finding::query()->where('digital_asset_id', $asset->id)->count());
+        $this->assertSame(
+            ['111'],
+            collect(Evidence::query()->where('run_id', $failedResult->run?->id)->first()?->payload['rows'] ?? [])
+                ->pluck('campaign_id')
+                ->all(),
+        );
+        Http::assertNothingSent();
+    }
+
+    #[Test]
+    public function google_ads_incremental_refresh_keeps_older_completed_days_in_the_28_day_window(): void
+    {
+        [$asset, $resource, $backfillCollection] = $this->makeGoogleAdsAsset();
+        $this->insertGoogleAdsCampaignDaily($asset, $resource, $backfillCollection->id, '2026-07-23', '111', 75_000_000, 0);
+        $backfillRun = $this->sealCompletedDailyFacts(
+            $asset,
+            $resource,
+            $backfillCollection,
+            'google_ads_campaign_daily',
+            'GOOGLE_ADS',
+            'google_ads_campaign_daily',
+            '2026-08-19',
+        );
+
+        $incrementalCollection = $this->makeCollectionRun($asset);
+        $incrementalRun = $this->makeDatasetRun(
+            $asset,
+            $incrementalCollection,
+            'google_ads_campaign_daily',
+            'GOOGLE_ADS',
+            CollectionRunStatus::Completed,
+            $resource,
+        );
+        $this->insertGoogleAdsCampaignDaily($asset, $resource, $incrementalCollection->id, '2026-08-19', '555', 5_000_000, 10, $incrementalRun->id);
+        DatasetMaterialization::query()
+            ->where('dataset_id', 'google_ads_campaign_daily')
+            ->where('digital_asset_id', $asset->id)
+            ->where('external_resource_id', $resource->id)
+            ->update([
+                'last_successful_collection_run_id' => $incrementalCollection->id,
+                'last_successful_dataset_run_id' => $incrementalRun->id,
+            ]);
+
+        $this->assertSame($backfillRun->id, (int) DB::table('google_ads_campaign_daily')
+            ->where('campaign_id', '111')
+            ->value('last_dataset_run_id'));
+        $this->assertSame($incrementalRun->id, (int) DB::table('google_ads_campaign_daily')
+            ->where('campaign_id', '555')
+            ->value('last_dataset_run_id'));
+
+        $result = app(CollectedFactsAnalysisService::class)->analyze($asset);
+        $this->assertTrue($result->evaluated);
+        $this->assertSame('2026-07-23', $result->provenance['period_start']);
+        $this->assertSame('2026-08-19', $result->provenance['period_end']);
+        $this->assertContains(GoogleAdsFindingsCatalog::RULE_CAMPAIGN_SPEND_ZERO_CONVERSIONS, $result->evaluatedRuleIds);
+        $this->assertSame(1, Finding::query()
+            ->where('digital_asset_id', $asset->id)
+            ->where('fingerprint', GoogleAdsFindingsCatalog::RULE_CAMPAIGN_SPEND_ZERO_CONVERSIONS.':111')
+            ->count());
+        $campaignIds = collect(Evidence::query()->where('run_id', $result->run?->id)->first()?->payload['rows'] ?? [])
+            ->pluck('campaign_id')
+            ->sort()
+            ->values()
+            ->all();
+        $this->assertSame(['111', '555'], $campaignIds);
+        Http::assertNothingSent();
+    }
+
+    #[Test]
+    public function google_ads_partial_or_gapped_materialization_is_not_synthesized(): void
+    {
+        [$asset, $resource, $collection] = $this->makeGoogleAdsAsset();
+        $this->insertGoogleAdsCampaignDaily($asset, $resource, $collection->id, '2026-07-23', '111', 75_000_000, 0);
+        $completed = $this->sealCompletedDailyFacts(
+            $asset,
+            $resource,
+            $collection,
+            'google_ads_campaign_daily',
+            'GOOGLE_ADS',
+            'google_ads_campaign_daily',
+            '2026-08-19',
+        );
+
+        $dates = $this->inclusiveDateRange('2026-07-23', '2026-08-19');
+        $gapped = array_values(array_filter($dates, static fn (string $date): bool => $date !== '2026-08-05'));
+        $set = CoverageIntervalSet::fromSuccessfulDates($gapped);
+        $materialization = DatasetMaterialization::query()
+            ->where('dataset_id', 'google_ads_campaign_daily')
+            ->where('digital_asset_id', $asset->id)
+            ->where('external_resource_id', $resource->id)
+            ->firstOrFail();
+        $materialization->forceFill([
+            'partial' => true,
+            'status' => MaterializationStatus::Partial,
+            'coverage_end_date' => '2026-08-19',
+            'last_successful_dataset_run_id' => $completed->id,
+            'freshness_metadata' => [
+                'successful_coverage_dates' => $gapped,
+                'internal_gaps' => $set->internalGaps(),
+                'verified_contiguous_watermark' => $set->verifiedContiguousWatermark(),
+                'latest_observed_reporting_date' => '2026-08-19',
+            ],
+        ])->save();
+
+        $result = app(CollectedFactsAnalysisService::class)->analyze($asset);
+        $this->assertFalse($result->evaluated);
+        $this->assertSame('unusable_google_ads_campaign_daily', $result->skipReason);
+        $this->assertSame(0, Finding::query()->where('digital_asset_id', $asset->id)->count());
+        $this->assertSame(0, Evidence::query()->where('type', 'google_ads_campaign_performance')->count());
         Http::assertNothingSent();
     }
 
@@ -284,7 +402,7 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
     public function google_ads_materialization_for_a_running_dataset_run_is_skipped(): void
     {
         [$asset, $resource, $collection] = $this->makeGoogleAdsAsset();
-        $running = $this->makeDatasetRun($asset, $collection, 'google_ads_campaign_daily', 'GOOGLE_ADS', CollectionRunStatus::Running);
+        $running = $this->makeDatasetRun($asset, $collection, 'google_ads_campaign_daily', 'GOOGLE_ADS', CollectionRunStatus::Running, $resource);
         $this->insertGoogleAdsCampaignDaily($asset, $resource, $collection->id, '2026-08-19', '222', 90_000_000, 0, $running->id);
         DatasetMaterialization::query()->create([
             'dataset_id' => 'google_ads_campaign_daily',
@@ -313,7 +431,7 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
     public function meta_ads_running_partial_batches_are_not_synthesized_as_current(): void
     {
         [$asset, $resource, $completedCollection] = $this->makeMetaAdsAsset();
-        $this->insertMetaCampaignDaily($asset, $resource, $completedCollection->id, '2026-07-01', '1001', 5.0);
+        $this->insertMetaCampaignDaily($asset, $resource, $completedCollection->id, '2026-07-23', '1001', 5.0);
         $this->insertMetaCampaignSnapshot($asset, $resource, '1001', 'Active', 'ACTIVE', 'ACTIVE');
         $this->sealCompletedDailyFacts(
             $asset,
@@ -322,17 +440,113 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
             'meta_campaign_daily',
             'META_ADS',
             'meta_campaign_daily',
-            '2026-07-01',
+            '2026-08-19',
         );
 
         $runningCollection = $this->makeCollectionRun($asset);
-        $running = $this->makeDatasetRun($asset, $runningCollection, 'meta_campaign_daily', 'META_ADS', CollectionRunStatus::Running);
+        $running = $this->makeDatasetRun($asset, $runningCollection, 'meta_campaign_daily', 'META_ADS', CollectionRunStatus::Running, $resource);
         $this->insertMetaCampaignDaily($asset, $resource, $runningCollection->id, '2026-08-19', '2002', 80.0, $running->id);
         $this->insertMetaCampaignSnapshot($asset, $resource, '2002', 'Paused Partial', 'PAUSED', 'CAMPAIGN_PAUSED');
 
         $result = app(CollectedFactsAnalysisService::class)->analyze($asset);
         $this->assertTrue($result->evaluated);
-        $this->assertSame('2026-07-01', $result->provenance['period_end']);
+        $this->assertSame('2026-08-19', $result->provenance['period_end']);
+        $this->assertSame(0, Finding::query()->where('digital_asset_id', $asset->id)->count());
+        Http::assertNothingSent();
+    }
+
+    #[Test]
+    public function meta_ads_incremental_refresh_keeps_older_completed_days_in_the_28_day_window(): void
+    {
+        [$asset, $resource, $backfillCollection] = $this->makeMetaAdsAsset();
+        $this->insertMetaCampaignDaily($asset, $resource, $backfillCollection->id, '2026-07-23', '1001', 80.0);
+        $this->insertMetaCampaignSnapshot($asset, $resource, '1001', 'Paused Lead Form', 'PAUSED', 'CAMPAIGN_PAUSED');
+        $backfillRun = $this->sealCompletedDailyFacts(
+            $asset,
+            $resource,
+            $backfillCollection,
+            'meta_campaign_daily',
+            'META_ADS',
+            'meta_campaign_daily',
+            '2026-08-19',
+        );
+
+        $incrementalCollection = $this->makeCollectionRun($asset);
+        $incrementalRun = $this->makeDatasetRun(
+            $asset,
+            $incrementalCollection,
+            'meta_campaign_daily',
+            'META_ADS',
+            CollectionRunStatus::Completed,
+            $resource,
+        );
+        $this->insertMetaCampaignDaily($asset, $resource, $incrementalCollection->id, '2026-08-19', '3003', 12.0, $incrementalRun->id);
+        $this->insertMetaCampaignSnapshot($asset, $resource, '3003', 'Active Later', 'ACTIVE', 'ACTIVE');
+        DatasetMaterialization::query()
+            ->where('dataset_id', 'meta_campaign_daily')
+            ->where('digital_asset_id', $asset->id)
+            ->where('external_resource_id', $resource->id)
+            ->update([
+                'last_successful_collection_run_id' => $incrementalCollection->id,
+                'last_successful_dataset_run_id' => $incrementalRun->id,
+            ]);
+
+        $this->assertSame($backfillRun->id, (int) DB::table('meta_campaign_daily')
+            ->where('campaign_id', '1001')
+            ->value('last_dataset_run_id'));
+
+        $result = app(CollectedFactsAnalysisService::class)->analyze($asset);
+        $this->assertTrue($result->evaluated);
+        $this->assertSame('2026-07-23', $result->provenance['period_start']);
+        $this->assertSame('2026-08-19', $result->provenance['period_end']);
+        $this->assertContains(MetaAdsFindingsCatalog::RULE_CAMPAIGN_INACTIVE_WITH_RECENT_SPEND, $result->evaluatedRuleIds);
+        $this->assertSame(1, Finding::query()
+            ->where('digital_asset_id', $asset->id)
+            ->where('fingerprint', 'meta-ads:campaign-inactive-with-context:1001')
+            ->count());
+        Http::assertNothingSent();
+    }
+
+    #[Test]
+    public function meta_ads_partial_or_gapped_materialization_is_not_synthesized(): void
+    {
+        [$asset, $resource, $collection] = $this->makeMetaAdsAsset();
+        $this->insertMetaCampaignDaily($asset, $resource, $collection->id, '2026-07-23', '1001', 80.0);
+        $this->insertMetaCampaignSnapshot($asset, $resource, '1001', 'Paused Lead Form', 'PAUSED', 'CAMPAIGN_PAUSED');
+        $completed = $this->sealCompletedDailyFacts(
+            $asset,
+            $resource,
+            $collection,
+            'meta_campaign_daily',
+            'META_ADS',
+            'meta_campaign_daily',
+            '2026-08-19',
+        );
+
+        $dates = $this->inclusiveDateRange('2026-07-23', '2026-08-19');
+        $gapped = array_values(array_filter($dates, static fn (string $date): bool => $date !== '2026-08-05'));
+        $set = CoverageIntervalSet::fromSuccessfulDates($gapped);
+        $materialization = DatasetMaterialization::query()
+            ->where('dataset_id', 'meta_campaign_daily')
+            ->where('digital_asset_id', $asset->id)
+            ->where('external_resource_id', $resource->id)
+            ->firstOrFail();
+        $materialization->forceFill([
+            'partial' => true,
+            'status' => MaterializationStatus::Partial,
+            'coverage_end_date' => '2026-08-19',
+            'last_successful_dataset_run_id' => $completed->id,
+            'freshness_metadata' => [
+                'successful_coverage_dates' => $gapped,
+                'internal_gaps' => $set->internalGaps(),
+                'verified_contiguous_watermark' => $set->verifiedContiguousWatermark(),
+                'latest_observed_reporting_date' => '2026-08-19',
+            ],
+        ])->save();
+
+        $result = app(CollectedFactsAnalysisService::class)->analyze($asset);
+        $this->assertFalse($result->evaluated);
+        $this->assertSame('unusable_meta_campaign_daily', $result->skipReason);
         $this->assertSame(0, Finding::query()->where('digital_asset_id', $asset->id)->count());
         Http::assertNothingSent();
     }
@@ -341,7 +555,7 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
     public function meta_ads_materialization_for_a_failed_dataset_run_is_skipped(): void
     {
         [$asset, $resource, $collection] = $this->makeMetaAdsAsset();
-        $failed = $this->makeDatasetRun($asset, $collection, 'meta_campaign_daily', 'META_ADS', CollectionRunStatus::Failed);
+        $failed = $this->makeDatasetRun($asset, $collection, 'meta_campaign_daily', 'META_ADS', CollectionRunStatus::Failed, $resource);
         $this->insertMetaCampaignDaily($asset, $resource, $collection->id, '2026-08-19', '2002', 80.0, $failed->id);
         $this->insertMetaCampaignSnapshot($asset, $resource, '2002', 'Paused Partial', 'PAUSED', 'CAMPAIGN_PAUSED');
         DatasetMaterialization::query()->create([
@@ -614,11 +828,13 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
         string $datasetId,
         string $provider,
         CollectionRunStatus $status,
+        ?CoreExternalResource $resource = null,
     ): CollectionDatasetRun {
         $resourceRun = CollectionResourceRun::factory()->create([
             'collection_run_id' => $collectionRun->id,
             'provider_or_source' => $provider,
             'digital_asset_id' => $asset->id,
+            'external_resource_id' => $resource?->id,
             'status' => $status,
         ]);
 
@@ -639,30 +855,56 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
         string $provider,
         string $table,
         string $coverageDate,
+        int $periodDays = 28,
     ): CollectionDatasetRun {
-        $datasetRun = $this->makeDatasetRun($asset, $collectionRun, $datasetId, $provider, CollectionRunStatus::Completed);
+        $datasetRun = $this->makeDatasetRun($asset, $collectionRun, $datasetId, $provider, CollectionRunStatus::Completed, $resource);
+        $periodStart = CarbonImmutable::parse($coverageDate)->subDays($periodDays - 1)->toDateString();
+        $dates = $this->inclusiveDateRange($periodStart, $coverageDate);
+        $set = CoverageIntervalSet::fromSuccessfulDates($dates);
         DatasetMaterialization::query()->create([
             'dataset_id' => $datasetId,
             'digital_asset_id' => $asset->id,
             'external_resource_id' => $resource->id,
             'provider_or_source' => $provider,
             'contract_version' => 1,
-            'coverage_start_date' => $coverageDate,
+            'coverage_start_date' => $periodStart,
             'coverage_end_date' => $coverageDate,
             'last_successful_collection_run_id' => $collectionRun->id,
             'last_successful_dataset_run_id' => $datasetRun->id,
             'last_collected_at' => now(),
             'status' => MaterializationStatus::Available,
             'partial' => false,
+            'freshness_metadata' => [
+                'successful_coverage_dates' => $dates,
+                'internal_gaps' => [],
+                'verified_contiguous_watermark' => $set->verifiedContiguousWatermark(),
+                'latest_observed_reporting_date' => $coverageDate,
+                'watermark_provenance' => 'successful_coverage_dates',
+            ],
         ]);
         DB::table($table)
             ->where('digital_asset_id', $asset->id)
             ->where('external_resource_id', $resource->id)
-            ->where('reporting_date', $coverageDate)
             ->whereNull('last_dataset_run_id')
             ->update(['last_dataset_run_id' => $datasetRun->id]);
 
         return $datasetRun;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function inclusiveDateRange(string $start, string $end): array
+    {
+        $dates = [];
+        $cursor = CarbonImmutable::parse($start)->startOfDay();
+        $last = CarbonImmutable::parse($end)->startOfDay();
+        while ($cursor->lessThanOrEqualTo($last)) {
+            $dates[] = $cursor->toDateString();
+            $cursor = $cursor->addDay();
+        }
+
+        return $dates;
     }
 
     /**
