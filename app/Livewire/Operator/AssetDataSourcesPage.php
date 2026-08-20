@@ -10,10 +10,11 @@ use App\Models\User;
 use App\Services\Async\AsyncOperationService;
 use App\Services\Integrations\ConfirmGoogleResourceBindingService;
 use App\Services\Integrations\ConfirmMetaResourceBindingService;
-use App\Services\Integrations\Google\GoogleProviderResourceDiscovery;
-use App\Services\Integrations\Meta\MetaProviderResourceDiscovery;
+use App\Services\Integrations\Google\DiscoverGoogleResourcesService;
+use App\Services\Integrations\Meta\DiscoverMetaResourcesService;
 use App\Support\Integrations\AssetBindingCompatibility;
 use App\Support\Integrations\ProviderRegistry;
+use App\Support\Roles;
 use Illuminate\Contracts\View\View;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
@@ -47,6 +48,9 @@ final class AssetDataSourcesPage extends Component
         $provider = strtolower(trim($provider));
         abort_unless(in_array($provider, [ProviderRegistry::GOOGLE, ProviderRegistry::META], true), 404);
 
+        $actor = auth()->user();
+        abort_unless($actor instanceof User && $actor->hasRole(Roles::ADMIN), 403);
+
         $integration = CoreIntegration::query()->where('provider', $provider)->first();
         if (! $integration instanceof CoreIntegration || ! $integration->isActive()) {
             $this->messageTone = 'error';
@@ -56,12 +60,36 @@ final class AssetDataSourcesPage extends Component
         }
 
         try {
-            $resources = match ($provider) {
-                ProviderRegistry::GOOGLE => app(GoogleProviderResourceDiscovery::class)->discover($integration),
-                ProviderRegistry::META => app(MetaProviderResourceDiscovery::class)->discover($integration),
+            $result = match ($provider) {
+                ProviderRegistry::GOOGLE => app(DiscoverGoogleResourcesService::class)->discover(
+                    $integration->fresh(['authorizationCredential', 'providerCredential']) ?? $integration,
+                    $actor,
+                ),
+                ProviderRegistry::META => app(DiscoverMetaResourcesService::class)->refreshInventory(
+                    $integration->fresh(['providerCredential']) ?? $integration,
+                    $actor,
+                ),
             };
+
+            if (! ($result['ok'] ?? false)) {
+                $this->messageTone = 'error';
+                $this->message = __('operator_runtime.sources.discovery_failed', [
+                    'message' => (string) ($result['message'] ?? ''),
+                ]);
+
+                return;
+            }
+
+            $count = match ($provider) {
+                ProviderRegistry::GOOGLE => (int) collect($result['results'] ?? [])->sum(
+                    fn (array $row): int => (int) ($row['count'] ?? 0),
+                ),
+                ProviderRegistry::META => (int) ($result['businesses']['count'] ?? 0)
+                    + (int) ($result['ad_accounts']['count'] ?? 0),
+            };
+
             $this->messageTone = 'success';
-            $this->message = __('operator_runtime.sources.discovery_completed', ['count' => count($resources)]);
+            $this->message = __('operator_runtime.sources.discovery_completed', ['count' => $count]);
         } catch (Throwable $e) {
             report($e);
             $this->messageTone = 'error';
