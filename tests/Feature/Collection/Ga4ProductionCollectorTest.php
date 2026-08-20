@@ -64,6 +64,7 @@ class Ga4ProductionCollectorTest extends TestCase
 
         Storage::fake('raw_ingestion');
         config([
+            'app.key' => 'base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
             'app.url' => 'http://127.0.0.1:8000',
             'moxdop.google.client_id' => 'cid',
             'moxdop.google.client_secret' => 'csecret',
@@ -279,6 +280,35 @@ class Ga4ProductionCollectorTest extends TestCase
         $this->assertSame(['date', 'landingPage'], array_column($body['dimensions'], 'name'));
         $this->assertNotContains('landingPagePlusQueryString', array_column($body['dimensions'], 'name'));
         $this->assertSame('/pricing?utm=1', DB::table('ga4_landing_page_daily')->value('landingPage'));
+    }
+
+    #[Test]
+    public function postgres_partitioned_ga4_tables_keep_contract_column_identifiers_after_repair(): void
+    {
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            $this->markTestSkipped('Requires PostgreSQL');
+        }
+
+        $expected = [
+            'ga4_source_medium_daily' => ['sessionSource', 'sessionMedium', 'engagedSessions'],
+            'ga4_campaign_daily' => ['sessionCampaignName', 'engagedSessions'],
+            'ga4_landing_page_daily' => ['landingPage', 'engagedSessions'],
+            'ga4_event_daily' => ['eventName', 'eventCount'],
+            'ga4_event_channel_daily' => ['eventName', 'sessionDefaultChannelGroup', 'eventCount'],
+            'ga4_event_campaign_daily' => ['eventName', 'sessionCampaignName', 'eventCount'],
+            'ga4_event_landing_daily' => ['eventName', 'landingPage', 'eventCount'],
+        ];
+
+        foreach ($expected as $table => $columns) {
+            $actual = collect(DB::select(
+                'select column_name from information_schema.columns where table_schema = ? and table_name = ?',
+                ['public', $table]
+            ))->pluck('column_name')->all();
+
+            foreach ($columns as $column) {
+                $this->assertContains($column, $actual, "{$table} is missing {$column}");
+            }
+        }
     }
 
     #[Test]

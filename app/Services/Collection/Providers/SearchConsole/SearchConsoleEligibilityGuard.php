@@ -9,6 +9,7 @@ use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\DigitalAsset;
+use App\Services\Collection\CollectionBindingScope;
 use App\Services\Collection\Support\DatasetExecutionResult;
 use App\Services\Integrations\Google\GoogleScopeCoverageService;
 use App\Services\Integrations\Google\GoogleScopeRegistry;
@@ -134,7 +135,7 @@ final class SearchConsoleEligibilityGuard
             );
         }
 
-        if ((int) $collectionRun->digital_asset_id !== (int) $asset->id) {
+        if (! CollectionBindingScope::collectionRunMayTargetAsset($collectionRun, $asset)) {
             return DatasetExecutionResult::failed(
                 CollectionErrorCategory::Authorization,
                 'Cross-tenant protection: CollectionRun DigitalAsset mismatch.',

@@ -8,6 +8,7 @@ use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\DigitalAsset;
+use App\Services\Collection\CollectionBindingScope;
 use App\Services\Collection\CollectionPlanner;
 use App\Services\Collection\DataContractRegistryLoader;
 use App\Services\Collection\Support\GoogleBackfillPreflightResult;
@@ -51,11 +52,21 @@ final class GoogleCollectionPreflightService
 
     public function preflight(CoreIntegration $integration): GoogleBackfillPreflightResult
     {
+        return $this->aggregateBrandPreflights($this->preflightByBrand($integration));
+    }
+
+    /**
+     * One Brand-scoped preflight per eligible Brand under the integration.
+     * Same-brand siblings share a plan; other Brands are not discarded.
+     *
+     * @return list<GoogleBackfillPreflightResult>
+     */
+    public function preflightByBrand(CoreIntegration $integration): array
+    {
         $this->registry->load();
 
         $authStatus = GoogleAuthStatus::for($integration);
         $bindings = $this->activeGoogleBindings($integration);
-
         $connectors = $this->connectorReadiness($integration, $authStatus);
         $bindingRows = [];
         $eligibleBindingIds = [];
@@ -79,6 +90,7 @@ final class GoogleCollectionPreflightService
                 'provider_or_source' => $provider,
                 'digital_asset_id' => $binding->digital_asset_id,
                 'external_resource_id' => $binding->external_resource_id,
+                'brand_id' => $binding->digitalAsset?->brand_id,
                 'resource_display' => $binding->externalResource?->display_name
                     ?? $binding->externalResource?->external_id,
                 'readiness' => $readiness['status'],
@@ -133,7 +145,7 @@ final class GoogleCollectionPreflightService
         }
 
         if ($bindings === []) {
-            return $this->result(
+            return [$this->result(
                 canStart: false,
                 outcome: 'no_resources_selected',
                 message: 'No human-confirmed Google resources are bound. Select and confirm resources before collecting data.',
@@ -147,13 +159,13 @@ final class GoogleCollectionPreflightService
                 fingerprint: null,
                 anchorAssetId: null,
                 eligibleBindingIds: [],
-            );
+            )];
         }
 
         if ($eligibleBindingIds === []) {
             $outcome = $this->onlyGbpBound($bindings) ? 'gbp_collector_unavailable' : 'no_eligible_connectors';
 
-            return $this->result(
+            return [$this->result(
                 canStart: false,
                 outcome: $outcome,
                 message: $outcome === 'gbp_collector_unavailable'
@@ -176,15 +188,15 @@ final class GoogleCollectionPreflightService
                 fingerprint: null,
                 anchorAssetId: null,
                 eligibleBindingIds: [],
-            );
+            )];
         }
 
-        $anchor = $this->anchorAsset($bindings, $eligibleBindingIds);
-        if (! $anchor instanceof DigitalAsset) {
-            return $this->result(
+        $brandGroups = $this->groupEligibleBindingIdsByBrand($bindings, $eligibleBindingIds);
+        if ($brandGroups === []) {
+            return [$this->result(
                 canStart: false,
                 outcome: 'no_eligible_connectors',
-                message: 'Eligible bindings could not resolve a Digital Asset scope.',
+                message: 'Eligible bindings could not resolve a Brand / Digital Asset scope.',
                 summary: $this->emptySummary(),
                 bindings: $bindingRows,
                 connectors: array_values($connectors),
@@ -195,103 +207,24 @@ final class GoogleCollectionPreflightService
                 fingerprint: null,
                 anchorAssetId: null,
                 eligibleBindingIds: $eligibleBindingIds,
+            )];
+        }
+
+        $brandResults = [];
+        foreach ($brandGroups as $brandId => $brandBindingIds) {
+            $brandResults[] = $this->preflightOneBrand(
+                $integration,
+                $bindings,
+                $bindingRows,
+                array_values($connectors),
+                $dispositions,
+                $actionRequired,
+                $brandId,
+                $brandBindingIds,
             );
         }
 
-        $plan = $this->planner->plan(new StartCollectionRequest(
-            digitalAsset: $anchor,
-            triggerType: CollectionTriggerType::InitialBackfill,
-            bindingIds: $eligibleBindingIds,
-            providerSources: ['SEARCH_CONSOLE', 'GA4', 'GOOGLE_ADS'],
-            forceRefresh: false,
-            context: [
-                'google_integration_id' => $integration->id,
-                'collection_intent' => 'google_initial_backfill',
-                'allow_multi_asset_bindings' => true,
-            ],
-        ));
-
-        $planned = [];
-        $satisfied = [];
-        foreach ($plan['datasets'] as $dataset) {
-            $disposition = (string) ($dataset['plan_disposition'] ?? PlanDisposition::Eligible->value);
-            if ($disposition === PlanDisposition::AlreadySatisfied->value
-                || ($dataset['planned_status'] ?? null) === 'skipped') {
-                $satisfied[] = $dataset;
-            } elseif (($dataset['planned_status'] ?? null) === 'queued') {
-                $planned[] = $dataset;
-            }
-            if (! empty($dataset['plan_disposition_detail'])) {
-                $dispositions[] = $dataset['plan_disposition_detail'];
-            }
-        }
-
-        foreach ($plan['dispositions'] as $d) {
-            $dispositions[] = $d;
-        }
-
-        $fingerprint = $this->fingerprint(
-            $integration->id,
-            $eligibleBindingIds,
-            (int) $plan['contract_registry_version'],
-            $planned,
-        );
-
-        if ($planned === []) {
-            return $this->result(
-                canStart: false,
-                outcome: 'already_satisfied',
-                message: 'Initial data collection already completed for the eligible Google datasets. Use a deliberate refresh/recollect workflow when re-import is required.',
-                summary: [
-                    'bound_resources' => count($bindings),
-                    'eligible_resources' => count($eligibleBindingIds),
-                    'planned_datasets' => 0,
-                    'already_satisfied_datasets' => count($satisfied),
-                    'by_connector' => $this->connectorCounts($bindingRows),
-                    'historical_coverage' => 'varies by dataset',
-                ],
-                bindings: $bindingRows,
-                connectors: array_values($connectors),
-                planned: [],
-                satisfied: $satisfied,
-                dispositions: $dispositions,
-                actionRequired: $actionRequired,
-                fingerprint: $fingerprint,
-                anchorAssetId: $anchor->id,
-                eligibleBindingIds: $eligibleBindingIds,
-            );
-        }
-
-        Log::debug('google.backfill.preflight', [
-            'integration_id' => $integration->id,
-            'eligible_bindings' => count($eligibleBindingIds),
-            'planned_datasets' => count($planned),
-            // Never log tokens.
-        ]);
-
-        return $this->result(
-            canStart: true,
-            outcome: 'ready',
-            message: 'Google initial collection can start in the background. You may leave this page.',
-            summary: [
-                'bound_resources' => count($bindings),
-                'eligible_resources' => count($eligibleBindingIds),
-                'planned_datasets' => count($planned),
-                'already_satisfied_datasets' => count($satisfied),
-                'by_connector' => $this->connectorCounts($bindingRows),
-                'historical_coverage' => 'varies by dataset',
-                'resources' => $plan['resources'],
-            ],
-            bindings: $bindingRows,
-            connectors: array_values($connectors),
-            planned: $planned,
-            satisfied: $satisfied,
-            dispositions: $dispositions,
-            actionRequired: $actionRequired,
-            fingerprint: $fingerprint,
-            anchorAssetId: $anchor->id,
-            eligibleBindingIds: $eligibleBindingIds,
-        );
+        return $brandResults;
     }
 
     /**
@@ -370,18 +303,426 @@ final class GoogleCollectionPreflightService
     }
 
     /**
+     * Brand-scoped Google backfill keeps same-brand / same-customer siblings
+     * in that Brand's CollectionRun. Other Brands get their own preflight/run
+     * instead of being silently discarded.
+     *
+     * @param  list<CoreAssetBinding>  $bindings
+     * @param  list<int>  $eligibleBindingIds
+     * @param  list<array<string, mixed>>  $bindingRows
+     * @param  list<array<string, mixed>>  $dispositions
+     * @return array{0: list<int>, 1: list<array<string, mixed>>, 2: list<array<string, mixed>>}
+     */
+    private function scopeEligibleBindingsToAnchor(
+        DigitalAsset $anchor,
+        array $bindings,
+        array $eligibleBindingIds,
+        array $bindingRows,
+        array $dispositions,
+    ): array {
+        $anchor->loadMissing('brand');
+        $anchorBrandId = $anchor->brand_id !== null ? (int) $anchor->brand_id : null;
+        $anchorCustomerId = $anchor->brand?->customer_id !== null ? (int) $anchor->brand->customer_id : null;
+
+        $bindingsById = [];
+        foreach ($bindings as $binding) {
+            $bindingsById[(int) $binding->id] = $binding;
+        }
+
+        $scoped = [];
+        foreach ($eligibleBindingIds as $bindingId) {
+            $binding = $bindingsById[(int) $bindingId] ?? null;
+            $candidate = $binding?->digitalAsset;
+            if (! $candidate instanceof DigitalAsset) {
+                continue;
+            }
+
+            if (CollectionBindingScope::anchorMayTargetAsset(
+                (int) $anchor->id,
+                $anchorBrandId,
+                $anchorCustomerId,
+                $candidate,
+                true,
+                true,
+            )) {
+                $scoped[] = (int) $bindingId;
+
+                continue;
+            }
+
+            foreach ($bindingRows as $index => $row) {
+                if ((int) ($row['binding_id'] ?? 0) !== (int) $bindingId) {
+                    continue;
+                }
+                $bindingRows[$index]['eligible'] = false;
+                $bindingRows[$index]['readiness'] = PlanDisposition::NotEligible->value;
+                $bindingRows[$index]['readiness_label'] = 'Outside same-brand, same-customer Google collection scope';
+            }
+
+            $dispositions[] = [
+                'type' => PlanDisposition::NotEligible->value,
+                'binding_id' => (int) $bindingId,
+                'provider_or_source' => self::CAPABILITY_PROVIDER[(string) ($binding->capability ?? '')] ?? null,
+                'reason' => 'Google brand-scoped backfill may only include same-brand, same-customer bindings in this CollectionRun.',
+            ];
+        }
+
+        return [$scoped, $bindingRows, $dispositions];
+    }
+
+    /**
+     * @param  list<CoreAssetBinding>  $bindings
+     * @param  list<int>  $eligibleBindingIds
+     * @return array<int, list<int>>
+     */
+    private function groupEligibleBindingIdsByBrand(array $bindings, array $eligibleBindingIds): array
+    {
+        $bindingsById = [];
+        foreach ($bindings as $binding) {
+            $bindingsById[(int) $binding->id] = $binding;
+        }
+
+        $groups = [];
+        foreach ($eligibleBindingIds as $bindingId) {
+            $binding = $bindingsById[(int) $bindingId] ?? null;
+            $brandId = $binding?->digitalAsset?->brand_id;
+            if ($brandId === null) {
+                continue;
+            }
+            $groups[(int) $brandId][] = (int) $bindingId;
+        }
+        ksort($groups);
+
+        return $groups;
+    }
+
+    /**
+     * Prefer a website Digital Asset as the Brand collection anchor so GSC/GA4/Ads
+     * siblings share one Brand-scoped CollectionRun.
+     *
      * @param  list<CoreAssetBinding>  $bindings
      * @param  list<int>  $eligibleBindingIds
      */
-    private function anchorAsset(array $bindings, array $eligibleBindingIds): ?DigitalAsset
+    private function brandAnchorAsset(array $bindings, array $eligibleBindingIds): ?DigitalAsset
     {
+        $candidates = [];
         foreach ($bindings as $binding) {
-            if (in_array($binding->id, $eligibleBindingIds, true) && $binding->digitalAsset instanceof DigitalAsset) {
-                return $binding->digitalAsset;
+            if (! in_array($binding->id, $eligibleBindingIds, true)) {
+                continue;
+            }
+            if ($binding->digitalAsset instanceof DigitalAsset) {
+                $candidates[] = $binding->digitalAsset;
             }
         }
 
-        return null;
+        foreach ($candidates as $asset) {
+            if ((string) $asset->type === 'website') {
+                return $asset;
+            }
+        }
+
+        return $candidates[0] ?? null;
+    }
+
+    /**
+     * @param  list<CoreAssetBinding>  $bindings
+     * @param  list<array<string, mixed>>  $bindingRows
+     * @param  list<array<string, mixed>>  $connectors
+     * @param  list<array<string, mixed>>  $sharedDispositions
+     * @param  list<array<string, mixed>>  $actionRequired
+     * @param  list<int>  $brandBindingIds
+     */
+    private function preflightOneBrand(
+        CoreIntegration $integration,
+        array $bindings,
+        array $bindingRows,
+        array $connectors,
+        array $sharedDispositions,
+        array $actionRequired,
+        int $brandId,
+        array $brandBindingIds,
+    ): GoogleBackfillPreflightResult {
+        $dispositions = $sharedDispositions;
+        $anchor = $this->brandAnchorAsset($bindings, $brandBindingIds);
+        if ($anchor instanceof DigitalAsset) {
+            [$brandBindingIds, $bindingRows, $dispositions] = $this->scopeEligibleBindingsToAnchor(
+                $anchor,
+                $bindings,
+                $brandBindingIds,
+                $bindingRows,
+                $dispositions,
+            );
+        }
+
+        if (! $anchor instanceof DigitalAsset || $brandBindingIds === []) {
+            return $this->result(
+                canStart: false,
+                outcome: 'no_eligible_connectors',
+                message: 'Eligible Google bindings for this Brand could not resolve a same-brand, same-customer collection scope.',
+                summary: [
+                    'bound_resources' => count($bindings),
+                    'eligible_resources' => 0,
+                    'planned_datasets' => 0,
+                    'already_satisfied_datasets' => 0,
+                    'by_connector' => $this->connectorCounts($bindingRows),
+                    'historical_coverage' => 'varies by dataset',
+                    'brand_id' => $brandId,
+                ],
+                bindings: $bindingRows,
+                connectors: $connectors,
+                planned: [],
+                satisfied: [],
+                dispositions: $dispositions,
+                actionRequired: $actionRequired,
+                fingerprint: null,
+                anchorAssetId: $anchor?->id,
+                eligibleBindingIds: [],
+                brandId: $brandId,
+            );
+        }
+
+        $plan = $this->planner->plan(new StartCollectionRequest(
+            digitalAsset: $anchor,
+            triggerType: CollectionTriggerType::InitialBackfill,
+            bindingIds: $brandBindingIds,
+            providerSources: ['SEARCH_CONSOLE', 'GA4', 'GOOGLE_ADS'],
+            forceRefresh: false,
+            context: [
+                'google_integration_id' => $integration->id,
+                'google_brand_id' => $brandId,
+                'collection_intent' => 'google_initial_backfill',
+                'allow_multi_asset_bindings' => true,
+            ],
+        ));
+
+        $planned = [];
+        $satisfied = [];
+        foreach ($plan['datasets'] as $dataset) {
+            $disposition = (string) ($dataset['plan_disposition'] ?? PlanDisposition::Eligible->value);
+            if ($disposition === PlanDisposition::AlreadySatisfied->value
+                || ($dataset['planned_status'] ?? null) === 'skipped') {
+                $satisfied[] = $dataset;
+            } elseif (($dataset['planned_status'] ?? null) === 'queued') {
+                $planned[] = $dataset;
+            }
+            if (! empty($dataset['plan_disposition_detail'])) {
+                $dispositions[] = $dataset['plan_disposition_detail'];
+            }
+        }
+
+        foreach ($plan['dispositions'] as $d) {
+            $dispositions[] = $d;
+        }
+
+        $fingerprint = $this->fingerprint(
+            $integration->id,
+            $brandBindingIds,
+            (int) $plan['contract_registry_version'],
+            $planned,
+            $brandId,
+        );
+
+        if ($planned === []) {
+            return $this->result(
+                canStart: false,
+                outcome: 'already_satisfied',
+                message: 'Initial data collection already completed for this Brand\'s eligible Google datasets. Use a deliberate refresh/recollect workflow when re-import is required.',
+                summary: [
+                    'bound_resources' => count($bindings),
+                    'eligible_resources' => count($brandBindingIds),
+                    'planned_datasets' => 0,
+                    'already_satisfied_datasets' => count($satisfied),
+                    'by_connector' => $this->connectorCounts($bindingRows),
+                    'historical_coverage' => 'varies by dataset',
+                    'brand_id' => $brandId,
+                ],
+                bindings: $bindingRows,
+                connectors: $connectors,
+                planned: [],
+                satisfied: $satisfied,
+                dispositions: $dispositions,
+                actionRequired: $actionRequired,
+                fingerprint: $fingerprint,
+                anchorAssetId: $anchor->id,
+                eligibleBindingIds: $brandBindingIds,
+                brandId: $brandId,
+            );
+        }
+
+        Log::debug('google.backfill.preflight', [
+            'integration_id' => $integration->id,
+            'brand_id' => $brandId,
+            'eligible_bindings' => count($brandBindingIds),
+            'planned_datasets' => count($planned),
+        ]);
+
+        return $this->result(
+            canStart: true,
+            outcome: 'ready',
+            message: 'Google initial collection can start in the background. You may leave this page.',
+            summary: [
+                'bound_resources' => count($bindings),
+                'eligible_resources' => count($brandBindingIds),
+                'planned_datasets' => count($planned),
+                'already_satisfied_datasets' => count($satisfied),
+                'by_connector' => $this->connectorCounts($bindingRows),
+                'historical_coverage' => 'varies by dataset',
+                'resources' => $plan['resources'],
+                'brand_id' => $brandId,
+            ],
+            bindings: $bindingRows,
+            connectors: $connectors,
+            planned: $planned,
+            satisfied: $satisfied,
+            dispositions: $dispositions,
+            actionRequired: $actionRequired,
+            fingerprint: $fingerprint,
+            anchorAssetId: $anchor->id,
+            eligibleBindingIds: $brandBindingIds,
+            brandId: $brandId,
+        );
+    }
+
+    /**
+     * @param  list<GoogleBackfillPreflightResult>  $brandResults
+     */
+    private function aggregateBrandPreflights(array $brandResults): GoogleBackfillPreflightResult
+    {
+        if ($brandResults === []) {
+            return $this->result(
+                canStart: false,
+                outcome: 'no_eligible_connectors',
+                message: 'Eligible bindings could not resolve a Brand / Digital Asset scope.',
+                summary: $this->emptySummary(),
+                bindings: [],
+                connectors: [],
+                planned: [],
+                satisfied: [],
+                dispositions: [],
+                actionRequired: [],
+                fingerprint: null,
+                anchorAssetId: null,
+                eligibleBindingIds: [],
+            );
+        }
+
+        if (count($brandResults) === 1) {
+            return $brandResults[0];
+        }
+
+        $canStart = false;
+        $allSatisfied = true;
+        $anySatisfied = false;
+        $planned = [];
+        $satisfied = [];
+        $eligibleBindingIds = [];
+        $dispositions = [];
+        $actionRequired = [];
+        $bindingsById = [];
+        $brandPlans = [];
+        $anchorAssetId = null;
+        $firstReady = null;
+        $connectors = $brandResults[0]->connectors;
+        $boundResources = (int) ($brandResults[0]->summary['bound_resources'] ?? 0);
+        $seenDispositions = [];
+        $seenActionRequired = [];
+
+        foreach ($brandResults as $result) {
+            if ($result->canStart) {
+                $canStart = true;
+                $allSatisfied = false;
+                $firstReady ??= $result;
+                $anchorAssetId ??= $result->anchorDigitalAssetId;
+            } elseif ($result->outcome === 'already_satisfied') {
+                $anySatisfied = true;
+            } else {
+                $allSatisfied = false;
+            }
+
+            foreach ($result->plannedDatasets as $dataset) {
+                $planned[] = $dataset;
+            }
+            foreach ($result->alreadySatisfied as $dataset) {
+                $satisfied[] = $dataset;
+            }
+            foreach ($result->eligibleBindingIds as $bindingId) {
+                $eligibleBindingIds[] = (int) $bindingId;
+            }
+            foreach ($result->dispositions as $disposition) {
+                $key = json_encode($disposition);
+                if (is_string($key) && ! isset($seenDispositions[$key])) {
+                    $seenDispositions[$key] = true;
+                    $dispositions[] = $disposition;
+                }
+            }
+            foreach ($result->actionRequired as $item) {
+                $key = json_encode($item);
+                if (is_string($key) && ! isset($seenActionRequired[$key])) {
+                    $seenActionRequired[$key] = true;
+                    $actionRequired[] = $item;
+                }
+            }
+            foreach ($result->bindings as $row) {
+                $id = (int) ($row['binding_id'] ?? 0);
+                if ($id === 0) {
+                    continue;
+                }
+                if (! isset($bindingsById[$id]) || ($row['eligible'] ?? false) === true) {
+                    $bindingsById[$id] = $row;
+                }
+            }
+
+            $brandPlans[] = [
+                'brand_id' => $result->brandId,
+                'can_start' => $result->canStart,
+                'outcome' => $result->outcome,
+                'anchor_digital_asset_id' => $result->anchorDigitalAssetId,
+                'eligible_binding_ids' => $result->eligibleBindingIds,
+                'planned_datasets' => count($result->plannedDatasets),
+                'already_satisfied_datasets' => count($result->alreadySatisfied),
+            ];
+        }
+
+        $eligibleBindingIds = array_values(array_unique($eligibleBindingIds));
+        $outcome = 'no_eligible_connectors';
+        $message = $brandResults[0]->message;
+        if ($canStart) {
+            $outcome = 'ready';
+            $message = count($brandPlans) > 1
+                ? 'Google initial collection can start for each eligible Brand in the background. You may leave this page.'
+                : 'Google initial collection can start in the background. You may leave this page.';
+        } elseif ($allSatisfied && $anySatisfied) {
+            $outcome = 'already_satisfied';
+            $message = 'Initial data collection already completed for every eligible Brand. Use a deliberate refresh/recollect workflow when re-import is required.';
+        }
+
+        $bindingRows = array_values($bindingsById);
+
+        return $this->result(
+            canStart: $canStart,
+            outcome: $outcome,
+            message: $message,
+            summary: [
+                'bound_resources' => $boundResources,
+                'eligible_resources' => count($eligibleBindingIds),
+                'planned_datasets' => count($planned),
+                'already_satisfied_datasets' => count($satisfied),
+                'by_connector' => $this->connectorCounts($bindingRows),
+                'historical_coverage' => 'varies by dataset',
+                'brand_count' => count($brandPlans),
+                'brand_plans' => $brandPlans,
+            ],
+            bindings: $bindingRows,
+            connectors: $connectors,
+            planned: $planned,
+            satisfied: $satisfied,
+            dispositions: $dispositions,
+            actionRequired: $actionRequired,
+            fingerprint: $firstReady?->fingerprint,
+            anchorAssetId: $anchorAssetId,
+            eligibleBindingIds: $eligibleBindingIds,
+            brandId: $firstReady?->brandId,
+        );
     }
 
     /**
@@ -425,7 +766,7 @@ final class GoogleCollectionPreflightService
      * @param  list<int>  $bindingIds
      * @param  list<array<string, mixed>>  $planned
      */
-    private function fingerprint(int $integrationId, array $bindingIds, int $contractVersion, array $planned): string
+    private function fingerprint(int $integrationId, array $bindingIds, int $contractVersion, array $planned, ?int $brandId = null): string
     {
         $bindingIds = array_values(array_unique($bindingIds));
         sort($bindingIds);
@@ -444,6 +785,7 @@ final class GoogleCollectionPreflightService
         return hash('sha256', json_encode([
             'intent' => 'google_initial_backfill',
             'integration_id' => $integrationId,
+            'brand_id' => $brandId,
             'binding_ids' => $bindingIds,
             'contract_version' => $contractVersion,
             'coverage' => $coverage,
@@ -488,6 +830,7 @@ final class GoogleCollectionPreflightService
         ?string $fingerprint,
         ?int $anchorAssetId,
         array $eligibleBindingIds,
+        ?int $brandId = null,
     ): GoogleBackfillPreflightResult {
         return new GoogleBackfillPreflightResult(
             canStart: $canStart,
@@ -505,6 +848,7 @@ final class GoogleCollectionPreflightService
             contractRegistryId: $this->registry->registryId(),
             anchorDigitalAssetId: $anchorAssetId,
             eligibleBindingIds: $eligibleBindingIds,
+            brandId: $brandId,
         );
     }
 }

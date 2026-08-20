@@ -236,6 +236,131 @@ class GoogleInitialBackfillOrchestratorTest extends TestCase
     }
 
     #[Test]
+    public function multi_brand_google_integration_starts_one_run_per_brand_without_cross_binding(): void
+    {
+        Queue::fake();
+
+        $customerId = $this->gscAsset->brand->customer_id;
+        $otherBrand = Brand::factory()->create(['customer_id' => $customerId]);
+        $otherAdsAsset = DigitalAsset::factory()->create([
+            'brand_id' => $otherBrand->id,
+            'type' => 'google_ads',
+            'status' => DigitalAssetStatus::Active,
+        ]);
+        $otherAdsResource = CoreExternalResource::factory()->create([
+            'integration_id' => $this->integration->id,
+            'provider' => 'google',
+            'resource_type' => 'google_ads',
+            'external_id' => '4445556666',
+            'status' => CoreExternalResource::STATUS_AVAILABLE,
+            'metadata' => ['is_manager' => false, 'time_zone' => 'Europe/Berlin'],
+        ]);
+        $otherBinding = CoreAssetBinding::factory()->create([
+            'digital_asset_id' => $otherAdsAsset->id,
+            'external_resource_id' => $otherAdsResource->id,
+            'capability' => 'google_ads',
+            'status' => CoreAssetBinding::STATUS_ACTIVE,
+        ]);
+
+        $brandPreflights = app(GoogleInitialBackfillOrchestrator::class)
+            ->preflightByBrand($this->integration->fresh());
+        $this->assertCount(2, $brandPreflights);
+        $eligibleByBrand = [];
+        foreach ($brandPreflights as $brandPreflight) {
+            $this->assertTrue($brandPreflight->canStart);
+            $this->assertNotNull($brandPreflight->brandId);
+            $eligibleByBrand[(int) $brandPreflight->brandId] = $brandPreflight->eligibleBindingIds;
+        }
+        $this->assertContains($this->adsBinding->id, $eligibleByBrand[(int) $this->gscAsset->brand_id]);
+        $this->assertContains($otherBinding->id, $eligibleByBrand[(int) $otherBrand->id]);
+        $this->assertNotContains($otherBinding->id, $eligibleByBrand[(int) $this->gscAsset->brand_id]);
+        $this->assertNotContains($this->adsBinding->id, $eligibleByBrand[(int) $otherBrand->id]);
+
+        $aggregate = app(GoogleInitialBackfillOrchestrator::class)->preflight($this->integration->fresh());
+        $this->assertContains($this->adsBinding->id, $aggregate->eligibleBindingIds);
+        $this->assertContains($otherBinding->id, $aggregate->eligibleBindingIds);
+
+        $result = app(GoogleInitialBackfillOrchestrator::class)->start($this->integration->fresh(), $this->admin);
+        $this->assertSame('started', $result->outcome);
+        $this->assertCount(2, $result->collectionRuns);
+        $this->assertSame(2, CollectionRun::query()->count());
+
+        $bindingsByRun = [];
+        foreach ($result->collectionRuns as $run) {
+            $plannedBindingIds = $run->resourceRuns()->pluck('core_asset_binding_id')->all();
+            $bindingsByRun[$run->id] = $plannedBindingIds;
+            $this->assertNotEmpty($plannedBindingIds);
+            $hasAnchorBrandAds = in_array($this->adsBinding->id, $plannedBindingIds, true);
+            $hasOtherBrandAds = in_array($otherBinding->id, $plannedBindingIds, true);
+            $this->assertTrue($hasAnchorBrandAds xor $hasOtherBrandAds);
+            $brandIds = $run->resourceRuns()
+                ->with('digitalAsset')
+                ->get()
+                ->pluck('digitalAsset.brand_id')
+                ->unique()
+                ->values()
+                ->all();
+            $this->assertCount(1, $brandIds);
+        }
+
+        $allPlanned = array_merge(...array_values($bindingsByRun));
+        $this->assertContains($this->adsBinding->id, $allPlanned);
+        $this->assertContains($otherBinding->id, $allPlanned);
+
+        $again = app(GoogleInitialBackfillOrchestrator::class)->start($this->integration->fresh(), $this->admin);
+        $this->assertSame('active_equivalent', $again->outcome);
+        $this->assertCount(2, $again->collectionRuns);
+        $this->assertSame(2, CollectionRun::query()->count());
+    }
+
+    #[Test]
+    public function other_customer_google_brand_starts_its_own_run_without_cross_binding(): void
+    {
+        Queue::fake();
+
+        $otherCustomer = Customer::factory()->create();
+        $otherBrand = Brand::factory()->create(['customer_id' => $otherCustomer->id]);
+        $otherAdsAsset = DigitalAsset::factory()->create([
+            'brand_id' => $otherBrand->id,
+            'type' => 'google_ads',
+            'status' => DigitalAssetStatus::Active,
+        ]);
+        $otherAdsResource = CoreExternalResource::factory()->create([
+            'integration_id' => $this->integration->id,
+            'provider' => 'google',
+            'resource_type' => 'google_ads',
+            'external_id' => '7778889999',
+            'status' => CoreExternalResource::STATUS_AVAILABLE,
+            'metadata' => ['is_manager' => false, 'time_zone' => 'Europe/Berlin'],
+        ]);
+        $otherBinding = CoreAssetBinding::factory()->create([
+            'digital_asset_id' => $otherAdsAsset->id,
+            'external_resource_id' => $otherAdsResource->id,
+            'capability' => 'google_ads',
+            'status' => CoreAssetBinding::STATUS_ACTIVE,
+        ]);
+
+        $result = app(GoogleInitialBackfillOrchestrator::class)->start($this->integration->fresh(), $this->admin);
+        $this->assertSame('started', $result->outcome);
+        $this->assertCount(2, $result->collectionRuns);
+
+        foreach ($result->collectionRuns as $run) {
+            $plannedBindingIds = $run->resourceRuns()->pluck('core_asset_binding_id')->all();
+            $hasHome = in_array($this->adsBinding->id, $plannedBindingIds, true);
+            $hasForeign = in_array($otherBinding->id, $plannedBindingIds, true);
+            $this->assertTrue($hasHome xor $hasForeign);
+            $customerIds = $run->resourceRuns()
+                ->with('digitalAsset.brand')
+                ->get()
+                ->pluck('digitalAsset.brand.customer_id')
+                ->unique()
+                ->values()
+                ->all();
+            $this->assertCount(1, $customerIds);
+        }
+    }
+
+    #[Test]
     public function unbound_and_gbp_are_excluded_without_blocking_eligible_connectors(): void
     {
         Queue::fake();

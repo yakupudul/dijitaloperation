@@ -86,6 +86,10 @@ GitHub **DOP Autopilot** altında çalışan Implementer/Fixer:
 - MASTER_SPEC / product blueprint scope’u değiştirilemez
 - Product PR merge yalnızca Actions içi verified Reviewer `APPROVED` + final gates ile yapılır; local Cursor maintenance agent Reviewer yokken product PR merge etmez
 
+### Cursor Automation — PR review submitted (fixer loop)
+
+Always-on GitHub trigger **PR review submitted** cannot be stored as `.cursor/hooks.json` (IDE agent events only). Versioned fixer instructions: `.cursor/skills/moxdop-pr-review-fixer/SKILL.md`. Dashboard paste: `.cursor/skills/moxdop-pr-review-fixer/DASHBOARD_PROMPT.md`. A human must create/activate the Automation at https://cursor.com/automations/new for `yakupudul/dijitaloperation`. The agent works on the **existing PR head**; it does not open a replacement PR and does not merge. A clean Codex approval (no comments / no defects) must **not** terminate the loop: inspect the active milestone and continue the next incomplete requirement on the same PR. Exit only when nothing actionable remains in that milestone or a genuine external/business blocker requires escalation.
+
 ### Pratik
 
 - SaaS, Client Portal, harici write, marketplace/ZIP, custom migrator/FSM ekleme.

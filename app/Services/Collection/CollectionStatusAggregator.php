@@ -216,5 +216,9 @@ final class CollectionStatusAggregator
         }
 
         $this->stateMachine->transition($run, $to);
+
+        if (in_array($to, [CollectionRunStatus::Completed, CollectionRunStatus::Partial], true)) {
+            $run->forceFill(['failure_summary' => null])->save();
+        }
     }
 }

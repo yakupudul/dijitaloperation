@@ -9,6 +9,7 @@ use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\DigitalAsset;
+use App\Services\Collection\CollectionBindingScope;
 use App\Services\Collection\Support\DatasetExecutionResult;
 use App\Services\Integrations\Google\GoogleCredentialBroker;
 use App\Services\Integrations\Google\GoogleCredentialResolver;
@@ -144,7 +145,7 @@ final class GoogleAdsEligibilityGuard
             );
         }
 
-        if ((int) $collectionRun->digital_asset_id !== (int) $asset->id
+        if (! CollectionBindingScope::collectionRunMayTargetAsset($collectionRun, $asset)
             || (int) $resourceRun->digital_asset_id !== (int) $asset->id
             || (int) $resourceRun->external_resource_id !== (int) $resource->id
             || (int) $resourceRun->core_asset_binding_id !== (int) $binding->id) {

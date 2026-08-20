@@ -229,10 +229,11 @@ class GoogleAdsPoolReadRepository
             ->where('external_resource_id', $externalResourceId)
             ->where('customer_id', $customerId)
             ->whereBetween('reporting_date', [$start, $end])
-            ->groupBy('criterion_id')
+            ->groupBy('ad_group_id', 'criterion_id')
             ->orderByDesc(DB::raw('SUM(cost_amount)'))
             ->limit($limit)
             ->get([
+                'ad_group_id',
                 'criterion_id',
                 DB::raw('SUM(impressions) as impressions'),
                 DB::raw('SUM(clicks) as clicks'),
@@ -241,22 +242,30 @@ class GoogleAdsPoolReadRepository
                 DB::raw('MAX(currency) as currency'),
             ]);
 
-        $ids = $perf->pluck('criterion_id')->all();
         $snapshots = [];
-        if ($ids !== []) {
+        if ($perf->isNotEmpty()) {
             $snapshots = DB::table('google_ads_keyword_snapshot')
                 ->where('digital_asset_id', $digitalAssetId)
                 ->where('customer_id', $customerId)
-                ->whereIn('criterion_id', $ids)
-                ->get(['criterion_id', 'metadata'])
-                ->keyBy('criterion_id')
+                ->where(function ($query) use ($perf): void {
+                    foreach ($perf as $row) {
+                        $query->orWhere(function ($inner) use ($row): void {
+                            $inner->where('ad_group_id', $row->ad_group_id)
+                                ->where('criterion_id', $row->criterion_id);
+                        });
+                    }
+                })
+                ->get(['ad_group_id', 'criterion_id', 'metadata'])
+                ->keyBy(fn ($row): string => (string) $row->ad_group_id."\0".(string) $row->criterion_id)
                 ->all();
         }
 
         $rows = [];
         foreach ($perf as $row) {
-            $meta = $this->decodeMetadata($snapshots[$row->criterion_id]->metadata ?? null);
+            $snapshotKey = (string) $row->ad_group_id."\0".(string) $row->criterion_id;
+            $meta = $this->decodeMetadata($snapshots[$snapshotKey]->metadata ?? null);
             $rows[] = [
+                'ad_group_id' => (string) $row->ad_group_id,
                 'criterion_id' => (string) $row->criterion_id,
                 'keyword' => (string) ($meta['keyword_text'] ?? $meta['text'] ?? ('Keyword '.$row->criterion_id)),
                 'match_type' => (string) ($meta['match_type'] ?? $meta['matchType'] ?? 'UNKNOWN'),

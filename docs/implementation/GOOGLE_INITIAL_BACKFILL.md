@@ -6,7 +6,7 @@ Status: **REAL** (planning + execution + Integrations UX). Does **not** migrate 
 
 ## 1. Purpose
 
-One operator **Collect Data** action on the frozen Google Integration creates one canonical `CollectionRun` that plans and executes independent Search Console, GA4, and Google Ads DatasetRuns through the shared Collection Engine.
+One operator **Collect Data** action on the frozen Google Integration creates **one canonical `CollectionRun` per eligible Brand**. Each Brand-scoped run plans and executes independent Search Console, GA4, and Google Ads DatasetRuns through the shared Collection Engine. Same-brand siblings share that Brand’s run; other Brands are not discarded.
 
 ## 2. Operator Flow
 
@@ -80,7 +80,9 @@ See **Connector Readiness Matrix** below. One unavailable connector does not blo
 
 ## 12. CollectionRun Structure
 
-One operator Collect Data → normally **one** `CollectionRun` containing all eligible Google ResourceRuns for that Integration scope (multi-asset bindings allowed when orchestrated).
+One operator Collect Data → **one `CollectionRun` per eligible Brand** under the Integration. Same-brand GSC/GA4/Ads siblings share that Brand’s run (`allow_multi_asset_bindings`). Other Brands receive their own Brand-scoped CollectionRun rather than being dropped from a single first-anchor plan. Cross-customer resources never share a CollectionRun. Meta same-customer multi-brand behavior is unchanged.
+
+Incremental refresh after initial satisfaction uses the same Brand-scoped binding IDs for **due selection**, not only the website/GSC anchor Digital Asset. `StartIncrementalCollectionService` queries `DueCollectionQueryService` with `core_asset_binding_ids` from Google preflight so a sibling GA4/Ads dataset can start even when the anchor itself is DATA CURRENT. Multi-Brand incremental results expose every Brand outcome (started / reused / DATA CURRENT / action required) rather than reporting only the first started run.
 
 ## 13. ResourceRuns
 

@@ -156,6 +156,22 @@ class GscProductionCollectorTest extends TestCase
     }
 
     #[Test]
+    public function planner_queues_url_inspection_only_when_explicit_targets_are_supplied(): void
+    {
+        $plan = app(CollectionPlanner::class)->plan(new StartCollectionRequest(
+            digitalAsset: $this->asset,
+            bindingIds: [$this->binding->id],
+            requestFamilyIds: [SearchConsoleRequestFamilyCatalog::FAMILY_URL_INSPECTION],
+            context: ['url_inspection_targets' => ['https://example.com/']],
+        ));
+
+        $inspection = collect($plan['datasets'])->firstWhere('request_family_id', 'GSC_RF_URL_INSPECTION');
+        $this->assertNotNull($inspection);
+        $this->assertSame(CollectionRunStatus::Queued->value, $inspection['planned_status']);
+        $this->assertSame($this->binding->id, $inspection['core_asset_binding_id']);
+    }
+
+    #[Test]
     public function discovered_unbound_resource_is_not_planned(): void
     {
         $this->binding->forceFill(['status' => CoreAssetBinding::STATUS_DISABLED])->save();

@@ -841,6 +841,7 @@ final class GoogleAdsSpecialistReadService
         $rows = $this->pool->topKeywords($digitalAssetId, $externalResourceId, $customerId, $keywordGate->effectiveStart, $keywordGate->effectiveEnd);
 
         return array_map(fn (array $row): array => [
+            'ad_group_id' => $row['ad_group_id'] ?? null,
             'criterion_id' => $row['criterion_id'],
             'keyword' => $row['keyword'],
             'match' => $this->humanizeMatchType((string) $row['match_type']),
