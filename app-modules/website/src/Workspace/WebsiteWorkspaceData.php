@@ -100,10 +100,10 @@ final class WebsiteWorkspaceData
                 ...$this->ga4Kpis($ga4SummaryForPeriod),
             ])),
             'gsc_daily' => $this->dailySeries($gscDaily, $periodStart, $periodEnd),
-            'queries' => $this->boundedRows($gscQueries, 12),
-            'pages' => $this->boundedRows($gscPages, 12),
-            'landing_pages' => $this->boundedRows($ga4Landing, 12),
-            'acquisition' => $this->boundedRows($ga4Acquisition, 12),
+            'queries' => $this->boundedRows($gscQueries, 12, $periodStart, $periodEnd),
+            'pages' => $this->boundedRows($gscPages, 12, $periodStart, $periodEnd),
+            'landing_pages' => $this->boundedRows($ga4Landing, 12, $periodStart, $periodEnd),
+            'acquisition' => $this->boundedRows($ga4Acquisition, 12, $periodStart, $periodEnd),
             'ga4_summary' => $ga4SummaryForPeriod?->payload,
             'gsc_summary' => $gscSummaryForPeriod?->payload,
             'seo_opportunities' => $seoOpportunities,
@@ -708,18 +708,54 @@ final class WebsiteWorkspaceData
     /**
      * @return list<array<string, mixed>>
      */
-    private function boundedRows(?Evidence $evidence, int $limit): array
+    private function boundedRows(?Evidence $evidence, int $limit, ?string $periodStart = null, ?string $periodEnd = null): array
     {
-        $rows = is_array($evidence?->payload['rows'] ?? null) ? $evidence->payload['rows'] : [];
+        $evidence = $this->evidenceForSelectedPeriod($evidence, $periodStart, $periodEnd);
+        if ($evidence === null) {
+            return [];
+        }
+
+        $rows = is_array($evidence->payload['rows'] ?? null) ? $evidence->payload['rows'] : [];
         $out = [];
 
-        foreach (array_slice($rows, 0, $limit) as $row) {
-            if (is_array($row)) {
-                $out[] = $row;
+        foreach ($rows as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            if ($this->rowIsOutsideSelectedPeriod($row, $periodStart, $periodEnd)) {
+                continue;
+            }
+            $out[] = $row;
+            if (count($out) >= $limit) {
+                break;
             }
         }
 
         return $out;
+    }
+
+    /**
+     * Aggregate rows for an overlapping requested_period stay intact.
+     * Dated rows (when present) are bounded to the selected range.
+     *
+     * @param  array<string, mixed>  $row
+     */
+    private function rowIsOutsideSelectedPeriod(array $row, ?string $periodStart, ?string $periodEnd): bool
+    {
+        $date = $row['date'] ?? $row['day'] ?? null;
+        if (! is_string($date) || $date === '') {
+            return false;
+        }
+
+        if (filled($periodStart) && $date < $periodStart) {
+            return true;
+        }
+
+        if (filled($periodEnd) && $date > $periodEnd) {
+            return true;
+        }
+
+        return false;
     }
 
     /**

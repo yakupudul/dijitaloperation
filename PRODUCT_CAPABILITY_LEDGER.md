@@ -168,7 +168,7 @@ Phase E is QA + narrow remediation of the canonical root operator journey. It do
 Shipped in this slice:
 
 - Production date presets/custom ranges use agency `OperatorClock` “today” (`OperatorPeriod`) and treat filled from/to as a custom range (`OperatorReportingPeriod`) so workspace period controls actually change warehouse reads
-- Website overview KPIs stay `—` when the requested period does not overlap collected days (`period_has_data`); collected values outside the range are not reused as stale current KPIs
+- Website overview KPIs stay `—` when the requested period does not overlap collected days (`period_has_data`); collected values outside the range are not reused as stale current KPIs. GSC queries/pages and GA4 landing/acquisition Evidence use the same requested-period overlap gate; dated rows are bounded to the selected range. Missing/uncollected detail datasets stay empty arrays, never numeric zero.
 - Capture `note` / `opportunity` are unavailable (no DemoState persistence); `client_request` and `task` still persist
 - Google Ads `createRecommendation` / `markClusterReviewed` no longer flash a fake success
 - Google Ads and Meta Ads `runAnalysis` queue `FINDING_EVALUATION` instead of AI guidance
