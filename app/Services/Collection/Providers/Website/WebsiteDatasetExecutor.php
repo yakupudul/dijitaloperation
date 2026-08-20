@@ -1,0 +1,495 @@
+<?php
+
+namespace App\Services\Collection\Providers\Website;
+
+use App\Enums\Collection\CollectionErrorCategory;
+use App\Enums\Collection\DatasetExecutionOutcome;
+use App\Enums\Collection\ProgressMode;
+use App\Models\CoreConnection;
+use App\Services\Collection\Contracts\DatasetExecutor;
+use App\Services\Collection\Contracts\RawPayloadWriter;
+use App\Services\Collection\Support\DatasetExecutionContext;
+use App\Services\Collection\Support\DatasetExecutionResult;
+use App\Services\DataPool\DatasetWritePipeline;
+use App\Services\DataPool\Support\NormalizedDatasetBatch;
+use App\Services\DataPool\Support\RawPayloadEnvelope;
+use App\Support\SslCertificateProbe;
+use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Http;
+use MoxDop\Website\Discovery\DiscoveryConfig;
+use MoxDop\Website\Discovery\PublicHttpFetcher;
+use MoxDop\Website\Discovery\PublicUrlNormalizer;
+use Throwable;
+
+/**
+ * Production Website DatasetExecutor — Registry WEB_RF_* COLLECTION_READY families.
+ * Reuses public HTTP fetcher, head/canonical parsers, and TLS probe. No Evidence, Findings, or CMS writes.
+ */
+final class WebsiteDatasetExecutor implements DatasetExecutor
+{
+    public function __construct(
+        private readonly WebsiteEligibilityGuard $eligibility,
+        private readonly WebsiteNormalizer $normalizer,
+        private readonly WebsiteProviderErrorMapper $errors,
+        private readonly DatasetWritePipeline $pipeline,
+        private readonly RawPayloadWriter $rawWriter,
+        private readonly PublicHttpFetcher $fetcher = new PublicHttpFetcher,
+        private readonly PublicUrlNormalizer $urls = new PublicUrlNormalizer,
+        private readonly SslCertificateProbe $tls = new SslCertificateProbe,
+    ) {}
+
+    public function supportedRequestFamilies(): array
+    {
+        return WebsiteRequestFamilyCatalog::supportedFamilies();
+    }
+
+    public function execute(DatasetExecutionContext $context): DatasetExecutionResult
+    {
+        try {
+            $definition = WebsiteRequestFamilyCatalog::definition($context->datasetRun->request_family_id);
+        } catch (Throwable $e) {
+            return DatasetExecutionResult::failed(
+                CollectionErrorCategory::UnimplementedCapability,
+                $e->getMessage(),
+                'UNIMPLEMENTED_CAPABILITY',
+            );
+        }
+
+        $scope = $this->eligibility->assertEligible($context->collectionRun, $context->resourceRun);
+        if ($scope instanceof DatasetExecutionResult) {
+            return $scope;
+        }
+
+        try {
+            return match ($definition['kind']) {
+                'http_html_diagnosis' => $this->executeHttpHtmlDiagnosis($context, $scope),
+                'public_crawl' => $this->executePublicCrawl($context, $scope),
+                'dns_tls' => $this->executeDnsTls($context, $scope),
+                'pagespeed' => $this->executePagespeed($context, $scope),
+                default => DatasetExecutionResult::failed(
+                    CollectionErrorCategory::UnimplementedCapability,
+                    'Unsupported Website request kind.',
+                    'UNIMPLEMENTED_CAPABILITY',
+                ),
+            };
+        } catch (Throwable $e) {
+            return $this->errors->fromThrowable($e);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $scope
+     */
+    private function executeHttpHtmlDiagnosis(DatasetExecutionContext $context, array $scope): DatasetExecutionResult
+    {
+        $steps = ['homepage', 'robots', 'sitemap'];
+        $checkpoint = $context->checkpoint;
+        $stepIndex = (int) ($checkpoint['step_index'] ?? 0);
+        $observedAt = (string) ($checkpoint['observed_at'] ?? CarbonImmutable::now('UTC')->toDateTimeString());
+        $rowsWritten = (int) ($checkpoint['rows_written_total'] ?? 0);
+
+        if ($stepIndex >= count($steps)) {
+            return $this->completedCounted(count($steps), count($steps), [
+                'step_index' => $stepIndex,
+                'observed_at' => $observedAt,
+                'rows_written_total' => $rowsWritten,
+            ], $rowsWritten, $rowsWritten);
+        }
+
+        $step = $steps[$stepIndex];
+        $assetId = (int) $scope['asset']->id;
+        $seed = (string) $scope['seed_url'];
+
+        if ($step === 'homepage') {
+            $fetch = $this->fetcher->fetch($seed);
+            $this->persistPage($context, $assetId, $fetch, $observedAt, 'diagnosis_homepage', $seed);
+            $rowsWritten += $fetch['ok'] ? 5 : 1;
+        } elseif ($step === 'robots') {
+            $robotsUrl = rtrim($this->origin($seed), '/').'/robots.txt';
+            $fetch = $this->fetcher->fetch($robotsUrl);
+            $this->writeOne($context, 'website_http_snapshot', 'robots', $assetId, [
+                $this->normalizer->httpSnapshot($assetId, $fetch, $observedAt),
+            ], [$fetch], $robotsUrl);
+            $rowsWritten++;
+        } else {
+            $sitemapUrl = rtrim($this->origin($seed), '/').'/sitemap.xml';
+            $fetch = $this->fetcher->fetch($sitemapUrl);
+            $this->writeOne($context, 'website_http_snapshot', 'sitemap', $assetId, [
+                $this->normalizer->httpSnapshot($assetId, $fetch, $observedAt),
+            ], [$fetch], $sitemapUrl);
+            $locs = $this->extractSitemapLocs(is_string($fetch['body'] ?? null) ? $fetch['body'] : null, 20);
+            $urlRecords = [];
+            foreach ($locs as $loc) {
+                $normalized = $this->normalizer->normalizeUrl($loc);
+                if ($normalized === null) {
+                    continue;
+                }
+                $urlRecords[] = $this->normalizer->urlRecord($assetId, $normalized, 'sitemap', $observedAt);
+            }
+            if ($urlRecords !== []) {
+                $this->writeOne($context, 'website_url', 'sitemap_urls', $assetId, $urlRecords, $locs, $sitemapUrl);
+            }
+            $rowsWritten += 1 + count($urlRecords);
+        }
+
+        $checkpointOut = [
+            'step_index' => $stepIndex + 1,
+            'observed_at' => $observedAt,
+            'rows_written_total' => $rowsWritten,
+        ];
+
+        if ($stepIndex + 1 >= count($steps)) {
+            return $this->completedCounted(count($steps), count($steps), $checkpointOut, $rowsWritten, $rowsWritten);
+        }
+
+        return new DatasetExecutionResult(
+            outcome: DatasetExecutionOutcome::Continue,
+            progressMode: ProgressMode::PageBased,
+            progressCurrent: $stepIndex + 1,
+            progressTotal: count($steps),
+            rowsReceived: $rowsWritten,
+            rowsWritten: $rowsWritten,
+            pagesCompleted: $stepIndex + 1,
+            checkpoint: $checkpointOut,
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $scope
+     */
+    private function executePublicCrawl(DatasetExecutionContext $context, array $scope): DatasetExecutionResult
+    {
+        $checkpoint = $context->checkpoint;
+        $observedAt = (string) ($checkpoint['observed_at'] ?? CarbonImmutable::now('UTC')->toDateTimeString());
+        $seed = (string) $scope['seed_url'];
+        $queue = is_array($checkpoint['queue'] ?? null) ? array_values(array_map('strval', $checkpoint['queue'])) : $this->seedQueue($seed);
+        $visited = is_array($checkpoint['visited'] ?? null) ? array_values(array_map('strval', $checkpoint['visited'])) : [];
+        $pages = (int) ($checkpoint['pages'] ?? 0);
+        $rowsWritten = (int) ($checkpoint['rows_written_total'] ?? 0);
+        $assetId = (int) $scope['asset']->id;
+        $maxPages = DiscoveryConfig::MAX_PAGES;
+
+        if ($queue === [] || $pages >= $maxPages) {
+            return $this->completedCounted($pages, $maxPages, [
+                'observed_at' => $observedAt,
+                'queue' => [],
+                'visited' => $visited,
+                'pages' => $pages,
+                'rows_written_total' => $rowsWritten,
+            ], $rowsWritten, $rowsWritten);
+        }
+
+        $url = array_shift($queue);
+        if ($url === null || in_array($url, $visited, true)) {
+            return new DatasetExecutionResult(
+                outcome: DatasetExecutionOutcome::Continue,
+                progressMode: ProgressMode::PageBased,
+                progressCurrent: $pages,
+                progressTotal: $maxPages,
+                checkpoint: [
+                    'observed_at' => $observedAt,
+                    'queue' => array_values($queue),
+                    'visited' => $visited,
+                    'pages' => $pages,
+                    'rows_written_total' => $rowsWritten,
+                ],
+            );
+        }
+
+        $visited[] = $url;
+        $fetch = $this->fetcher->fetch($url);
+        $this->persistPage($context, $assetId, $fetch, $observedAt, 'public_crawl', $url);
+        $pages++;
+        $rowsWritten += $fetch['ok'] ? 5 : 1;
+
+        if ($fetch['ok'] && is_string($fetch['body'] ?? null) && $pages < $maxPages) {
+            foreach ($this->extractSameSiteHrefs((string) $fetch['body'], $seed) as $href) {
+                if (! in_array($href, $visited, true) && ! in_array($href, $queue, true)) {
+                    $queue[] = $href;
+                }
+            }
+        }
+
+        $checkpointOut = [
+            'observed_at' => $observedAt,
+            'queue' => array_values($queue),
+            'visited' => $visited,
+            'pages' => $pages,
+            'rows_written_total' => $rowsWritten,
+        ];
+
+        if ($queue === [] || $pages >= $maxPages) {
+            return $this->completedCounted($pages, $maxPages, $checkpointOut, $rowsWritten, $rowsWritten);
+        }
+
+        return new DatasetExecutionResult(
+            outcome: DatasetExecutionOutcome::Continue,
+            progressMode: ProgressMode::PageBased,
+            progressCurrent: $pages,
+            progressTotal: $maxPages,
+            rowsReceived: $rowsWritten,
+            rowsWritten: $rowsWritten,
+            pagesCompleted: $pages,
+            checkpoint: $checkpointOut,
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $scope
+     */
+    private function executeDnsTls(DatasetExecutionContext $context, array $scope): DatasetExecutionResult
+    {
+        $observedAt = (string) ($context->checkpoint['observed_at'] ?? CarbonImmutable::now('UTC')->toDateTimeString());
+        $host = (string) $scope['host'];
+        $tls = $this->tls->probe($host, CarbonImmutable::parse($observedAt));
+        $record = $this->normalizer->infraSnapshot((int) $scope['asset']->id, $host, $tls, $observedAt);
+        $this->writeOne($context, 'website_infra_snapshot', 'tls', (int) $scope['asset']->id, [$record], [$tls], $host);
+
+        return $this->completedCounted(1, 1, ['observed_at' => $observedAt, 'host' => $host], 1, 1);
+    }
+
+    /**
+     * @param  array<string, mixed>  $scope
+     */
+    private function executePagespeed(DatasetExecutionContext $context, array $scope): DatasetExecutionResult
+    {
+        $connection = $scope['pagespeed_connection'] ?? null;
+        if (! $connection instanceof CoreConnection) {
+            return DatasetExecutionResult::failed(
+                CollectionErrorCategory::Authorization,
+                'PageSpeed collection requires an enabled Website PageSpeed connection.',
+                'PAGESPEED_CONNECTION_REQUIRED',
+            );
+        }
+
+        $payload = $connection->credential?->encrypted_payload;
+        $apiKey = is_array($payload) && isset($payload['api_key']) && is_string($payload['api_key'])
+            ? trim($payload['api_key'])
+            : '';
+        if ($apiKey === '') {
+            return DatasetExecutionResult::failed(
+                CollectionErrorCategory::Authentication,
+                'PageSpeed connection is missing an API key.',
+                'PAGESPEED_KEY_MISSING',
+            );
+        }
+
+        $config = is_array($connection->config) ? $connection->config : [];
+        $strategy = isset($config['strategy']) && is_string($config['strategy'])
+            ? strtolower(trim($config['strategy']))
+            : 'mobile';
+        if (! in_array($strategy, ['mobile', 'desktop'], true)) {
+            $strategy = 'mobile';
+        }
+        $url = isset($config['url']) && is_string($config['url']) && trim($config['url']) !== ''
+            ? trim($config['url'])
+            : (string) $scope['seed_url'];
+        $observedAt = (string) ($context->checkpoint['observed_at'] ?? CarbonImmutable::now('UTC')->toDateTimeString());
+
+        $response = Http::timeout(60)
+            ->acceptJson()
+            ->withHeaders(['User-Agent' => 'MoxDOP-WebsiteCollector/1.0'])
+            ->get('https://www.googleapis.com/pagespeedonline/v5/runPagespeed', [
+                'url' => $url,
+                'strategy' => $strategy,
+                'category' => 'performance',
+                'key' => $apiKey,
+            ]);
+
+        if ($response->failed()) {
+            return DatasetExecutionResult::retry(
+                $response->status() >= 500 ? CollectionErrorCategory::Provider5xx : CollectionErrorCategory::InvalidRequest,
+                'PageSpeed HTTP '.$response->status(),
+                30,
+                'PAGESPEED_HTTP',
+            );
+        }
+
+        $body = $response->json();
+        $lighthouse = is_array($body) && isset($body['lighthouseResult']) && is_array($body['lighthouseResult'])
+            ? $body['lighthouseResult']
+            : [];
+        $audits = is_array($lighthouse['audits'] ?? null) ? $lighthouse['audits'] : [];
+        $lab = [
+            'final_url' => is_string($lighthouse['finalUrl'] ?? null) ? $lighthouse['finalUrl'] : $url,
+            'fetch_time' => is_string($lighthouse['fetchTime'] ?? null) ? $lighthouse['fetchTime'] : null,
+            'lcp_ms' => isset($audits['largest-contentful-paint']['numericValue']) && is_numeric($audits['largest-contentful-paint']['numericValue'])
+                ? $audits['largest-contentful-paint']['numericValue']
+                : null,
+            'lab_data' => $lighthouse !== [],
+        ];
+        $record = $this->normalizer->performanceMeasurement((int) $scope['asset']->id, $url, $strategy, $lab, $observedAt);
+        $this->writeOne($context, 'website_performance_measurement', 'psi', (int) $scope['asset']->id, [$record], is_array($body) ? [$body] : [], $url);
+
+        return $this->completedCounted(1, 1, ['observed_at' => $observedAt, 'strategy' => $strategy], 1, 1);
+    }
+
+    /**
+     * @param  array<string, mixed>  $fetch
+     * @param  array<string, mixed>  $scope
+     */
+    private function persistPage(
+        DatasetExecutionContext $context,
+        int $assetId,
+        array $fetch,
+        string $observedAt,
+        string $source,
+        string $requestedUrl,
+    ): void {
+        $normalized = $this->normalizer->normalizeUrl((string) ($fetch['final_url'] ?? $fetch['requested_url'] ?? $requestedUrl));
+        if ($normalized !== null) {
+            $this->writeOne($context, 'website_url', $source.'_url', $assetId, [
+                $this->normalizer->urlRecord($assetId, $normalized, $source, $observedAt),
+            ], [$fetch], $requestedUrl);
+        }
+        $this->writeOne($context, 'website_http_snapshot', $source.'_http', $assetId, [
+            $this->normalizer->httpSnapshot($assetId, $fetch, $observedAt),
+        ], [$fetch], $requestedUrl);
+        if (($fetch['ok'] ?? false) === true && is_string($fetch['body'] ?? null)) {
+            [$metadata, $heading, $schema] = $this->normalizer->htmlSnapshots($assetId, $fetch, $observedAt);
+            $this->writeOne($context, 'website_metadata_snapshot', $source.'_meta', $assetId, [$metadata], [$fetch], $requestedUrl);
+            $this->writeOne($context, 'website_heading_snapshot', $source.'_h1', $assetId, [$heading], [$fetch], $requestedUrl);
+            $this->writeOne($context, 'website_schema_snapshot', $source.'_schema', $assetId, [$schema], [$fetch], $requestedUrl);
+        }
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $records
+     * @param  list<mixed>  $rawRows
+     */
+    private function writeOne(
+        DatasetExecutionContext $context,
+        string $datasetId,
+        string $batchSuffix,
+        int $assetId,
+        array $records,
+        array $rawRows,
+        string $query,
+    ): void {
+        if ($records === []) {
+            return;
+        }
+
+        $envelope = new RawPayloadEnvelope(
+            providerOrSource: 'WEBSITE_DIRECT',
+            collectionRunId: (int) $context->collectionRun->id,
+            resourceRunId: (int) $context->resourceRun->id,
+            datasetRunId: (int) $context->datasetRun->id,
+            logicalDatasetId: $datasetId,
+            requestFamilyId: $context->datasetRun->request_family_id,
+            batchKey: 'website:'.$datasetId.':'.$batchSuffix,
+            contentType: 'application/json',
+            payload: json_encode(['data' => $rawRows], JSON_THROW_ON_ERROR),
+            providerRequestFingerprint: hash('sha256', $query.'|'.$datasetId.'|'.$batchSuffix),
+            recordCount: count($records),
+            providerSafeMetadata: [
+                'collector_version' => WebsiteProviderCapabilities::COLLECTOR_VERSION,
+                'request_family' => $context->datasetRun->request_family_id,
+            ],
+            capturedAt: now(),
+            retentionClass: 'standard',
+        );
+
+        $receipt = $this->pipeline->commit(
+            new NormalizedDatasetBatch(
+                datasetId: $datasetId,
+                datasetRunId: (int) $context->datasetRun->id,
+                contractVersion: (int) $context->datasetRun->contract_registry_version,
+                batchKey: 'website:'.$datasetId.':'.$batchSuffix,
+                records: $records,
+                digitalAssetId: $assetId,
+                externalResourceId: null,
+                collectionRunId: (int) $context->collectionRun->id,
+                resourceRunId: (int) $context->resourceRun->id,
+                providerOrSource: $context->datasetRun->provider_or_source,
+            ),
+            $envelope,
+        );
+
+        if (! $receipt->isCommitted()) {
+            throw new \RuntimeException('Website write receipt not committed; checkpoint not advanced.');
+        }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function seedQueue(string $seed): array
+    {
+        $queue = [$seed];
+        foreach (DiscoveryConfig::preferredPathHints() as $hint) {
+            if ($hint === '/') {
+                continue;
+            }
+            $candidate = $this->urls->resolve($seed, $hint);
+            if ($candidate !== null && $this->urls->sameSite($seed, $candidate)) {
+                $queue[] = $candidate;
+            }
+        }
+
+        return array_values(array_unique($queue));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function extractSameSiteHrefs(string $html, string $seed): array
+    {
+        preg_match_all('/href=["\']([^"\']+)["\']/i', $html, $matches);
+        $out = [];
+        foreach ($matches[1] ?? [] as $href) {
+            $resolved = $this->urls->resolve($seed, (string) $href);
+            if ($resolved !== null && $this->urls->sameSite($seed, $resolved)) {
+                $out[] = $resolved;
+            }
+        }
+
+        return array_values(array_unique($out));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function extractSitemapLocs(?string $xml, int $limit): array
+    {
+        if ($xml === null || trim($xml) === '') {
+            return [];
+        }
+        preg_match_all('/<loc>\s*([^<]+)\s*<\/loc>/i', $xml, $matches);
+        $out = [];
+        foreach ($matches[1] ?? [] as $loc) {
+            $url = trim(html_entity_decode((string) $loc));
+            if ($url !== '') {
+                $out[] = $url;
+            }
+            if (count($out) >= $limit) {
+                break;
+            }
+        }
+
+        return $out;
+    }
+
+    private function origin(string $url): string
+    {
+        $parts = parse_url($url);
+
+        return ($parts['scheme'] ?? 'https').'://'.($parts['host'] ?? '');
+    }
+
+    /**
+     * @param  array<string, mixed>  $checkpoint
+     */
+    private function completedCounted(int $current, int $total, array $checkpoint, int $rowsReceived = 0, int $rowsWritten = 0): DatasetExecutionResult
+    {
+        return new DatasetExecutionResult(
+            outcome: DatasetExecutionOutcome::Completed,
+            progressMode: ProgressMode::PageBased,
+            progressCurrent: $current,
+            progressTotal: $total,
+            rowsReceived: $rowsReceived,
+            rowsWritten: $rowsWritten,
+            checkpoint: $checkpoint,
+        );
+    }
+}

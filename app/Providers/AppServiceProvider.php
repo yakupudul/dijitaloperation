@@ -47,10 +47,12 @@ use App\Services\Collection\Contracts\RetryPolicy;
 use App\Services\Collection\DataContractRegistryLoader;
 use App\Services\Collection\DatasetExecutorResolver;
 use App\Services\Collection\DefaultRetryPolicy;
+use App\Services\Collection\Providers\DataForSeo\DataForSeoDatasetExecutor;
 use App\Services\Collection\Providers\Ga4\Ga4DatasetExecutor;
 use App\Services\Collection\Providers\GoogleAds\GoogleAdsDatasetExecutor;
 use App\Services\Collection\Providers\MetaAds\MetaAdsDatasetExecutor;
 use App\Services\Collection\Providers\SearchConsole\SearchConsoleDatasetExecutor;
+use App\Services\Collection\Providers\Website\WebsiteDatasetExecutor;
 use App\Services\DataPool\Contracts\WarehouseWriter;
 use App\Services\DataPool\DataPoolStorageRegistry;
 use App\Services\DataPool\FilesystemRawPayloadWriter;
@@ -277,11 +279,15 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(Ga4DatasetExecutor::class);
         $this->app->singleton(GoogleAdsDatasetExecutor::class);
         $this->app->singleton(MetaAdsDatasetExecutor::class);
+        $this->app->singleton(WebsiteDatasetExecutor::class);
+        $this->app->singleton(DataForSeoDatasetExecutor::class);
         $this->app->tag([
             SearchConsoleDatasetExecutor::class,
             Ga4DatasetExecutor::class,
             GoogleAdsDatasetExecutor::class,
             MetaAdsDatasetExecutor::class,
+            WebsiteDatasetExecutor::class,
+            DataForSeoDatasetExecutor::class,
         ], 'collection.dataset_executors');
 
         $this->app->singleton(DatasetExecutorResolver::class, function ($app): DatasetExecutorResolver {
