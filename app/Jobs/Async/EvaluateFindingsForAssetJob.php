@@ -47,6 +47,7 @@ class EvaluateFindingsForAssetJob implements ShouldQueue
 
         $evaluator->evaluateAsset($asset, ruleIds: $this->ruleIds, definitionIds: $this->definitionIds);
 
+        // Thin Core orchestration: Meta Ads still evaluates catalog rules from Data Pool facts.
         if ($asset->type === 'meta_ads') {
             app(MetaAdsNormalizedFactsEvaluator::class)->evaluateAndApply($asset);
         }

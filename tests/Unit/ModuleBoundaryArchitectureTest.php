@@ -84,6 +84,7 @@ class ModuleBoundaryArchitectureTest extends TestCase
         'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/MetaAdsConnectionsRelationManager.php',
         'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/MetaAdsActivityRelationManager.php',
         'app/Jobs/Async/MetaAdsAiGuidanceJob.php',
+        'app/Jobs/Async/EvaluateFindingsForAssetJob.php',
     ];
 
     #[Test]
