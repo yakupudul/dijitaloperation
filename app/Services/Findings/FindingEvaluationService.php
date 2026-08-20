@@ -77,6 +77,8 @@ final class FindingEvaluationService
         $eligibleByModule = [];
         /** @var array<string, list<string>> $matchedByModule */
         $matchedByModule = [];
+        /** @var array<string, list<string>> $failedByModule */
+        $failedByModule = [];
 
         foreach ($plan['rules'] as $rule) {
             $stats->rulesConsidered++;
@@ -84,6 +86,8 @@ final class FindingEvaluationService
                 $this->evaluateRule($asset, $rule, $run, $plan['evidence'], $stats, $eligibleByModule, $matchedByModule);
             } catch (\Throwable) {
                 $stats->errors++;
+                $failedByModule[$rule->sourceModule] ??= [];
+                $failedByModule[$rule->sourceModule][] = $rule->stableId;
             }
         }
 
@@ -92,7 +96,7 @@ final class FindingEvaluationService
         $run->metadata = array_merge($run->metadata ?? [], $stats->toArray());
         $run->save();
 
-        $this->emitOutcomeEvents($asset, $run, $stats, $eligibleByModule, $matchedByModule);
+        $this->emitOutcomeEvents($asset, $run, $stats, $eligibleByModule, $matchedByModule, $failedByModule);
 
         if (
             Recommendation::query()->count() !== $recommendationsBefore
@@ -260,6 +264,7 @@ final class FindingEvaluationService
     /**
      * @param  array<string, list<string>>  $eligibleByModule
      * @param  array<string, list<string>>  $matchedByModule
+     * @param  array<string, list<string>>  $failedByModule
      */
     private function emitOutcomeEvents(
         DigitalAsset $asset,
@@ -267,6 +272,7 @@ final class FindingEvaluationService
         FindingEvaluationRunStats $stats,
         array $eligibleByModule,
         array $matchedByModule,
+        array $failedByModule,
     ): void {
         foreach ($eligibleByModule as $sourceModule => $ruleIds) {
             $ruleIds = array_values(array_unique($ruleIds));
@@ -274,11 +280,13 @@ final class FindingEvaluationService
                 continue;
             }
 
+            $moduleFailed = ($failedByModule[$sourceModule] ?? []) !== [];
+
             event(new FindingEvaluationCompleted(
                 asset: $asset,
                 sourceModule: $sourceModule,
                 run: $run,
-                evaluationSuccessful: true,
+                evaluationSuccessful: ! $moduleFailed,
                 evaluatedRuleIds: $ruleIds,
                 matchedFingerprints: array_values(array_unique($matchedByModule[$sourceModule] ?? [])),
                 observedAt: $run->finished_at ?? now(),

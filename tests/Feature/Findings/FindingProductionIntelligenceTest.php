@@ -6,6 +6,7 @@ use App\Enums\FindingConditionState;
 use App\Enums\FindingEligibilityDisposition;
 use App\Enums\FindingOrigin;
 use App\Enums\GoalKind;
+use App\Enums\RecommendationOrigin;
 use App\Enums\ServiceBrandApplicabilityMode;
 use App\Enums\ServiceScopeStatus;
 use App\Models\Brand;
@@ -19,19 +20,26 @@ use App\Models\Recommendation;
 use App\Models\Run;
 use App\Models\ServiceDefinition;
 use App\Models\Task;
+use App\Models\User;
 use App\Services\BrandIntelligence\BrandGoalService;
 use App\Services\BrandIntelligence\BrandOfferingService;
+use App\Services\CreateTaskFromRecommendation;
 use App\Services\Findings\FindingConditionEvaluator;
 use App\Services\Findings\FindingEvaluationService;
 use App\Services\Findings\FindingEvidenceEligibilityService;
 use App\Services\Findings\FindingReadService;
 use App\Services\Findings\FindingRuleRegistry;
 use App\Services\Findings\LegacyFindingOriginMigrator;
+use App\Services\Recommendations\CreateRecommendationFromFinding;
 use App\Services\ServiceScope\CustomerServiceScopeService;
+use App\Services\Tasks\TaskLifecycleService;
 use App\Support\Evidence\Dto\CanonicalEvidenceDto;
 use App\Support\Findings\FindingRule;
+use App\Support\Roles;
+use App\Support\Tasks\TaskOutcomeStatus;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -118,6 +126,8 @@ class FindingProductionIntelligenceTest extends TestCase
         $this->assertSame('open', $finding->status);
         $this->assertSame(FindingConditionState::True->value, $finding->condition_state);
         $this->assertStringNotContainsString('Fix', $finding->title);
+        $this->assertSame(0, Recommendation::query()->count());
+        $this->assertSame(0, Task::query()->count());
         $this->assertStringNotContainsString('Investigate', (string) $finding->summary);
         $this->assertSame(1, FindingEvaluation::query()->count());
         $this->assertNull($finding->severity_score ?? null);
@@ -129,6 +139,68 @@ class FindingProductionIntelligenceTest extends TestCase
         $this->assertSame(1, FindingEvaluation::query()->count());
         $this->assertSame(0, Recommendation::query()->count());
         Http::assertNothingSent();
+    }
+
+    public function test_thrown_rule_evaluation_does_not_emit_successful_outcome_or_false_improvement(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole(Roles::ADMIN);
+
+        $evidence = $this->writeCanonical($this->asset, 'gsc.property.period_comparison', $this->gscPayload(
+            clicksPrev: 200,
+            clicksCurrent: 50,
+            impressionsPrev: 100,
+            impressionsCurrent: 90,
+            ctrPrev: 0.20,
+            ctrCurrent: 0.19,
+        ));
+
+        app(FindingEvaluationService::class)->evaluateAsset($this->asset, ruleIds: ['website:gsc:clicks-decline']);
+        $finding = Finding::query()->where('fingerprint', 'website:gsc:clicks-decline')->firstOrFail();
+        $this->assertSame('open', $finding->status);
+
+        $recommendation = app(CreateRecommendationFromFinding::class)->create(
+            $finding,
+            [
+                'title' => 'Investigate Search Console click decline',
+                'action' => 'Review cited Search Console Evidence before changing the site.',
+            ],
+            RecommendationOrigin::DeterministicTemplate,
+            $admin,
+        );
+        $task = app(CreateTaskFromRecommendation::class)->create($recommendation);
+        $task = app(TaskLifecycleService::class)->complete($task, [
+            'completion_note' => 'Published content outside MoxDOP.',
+        ], $admin);
+        $this->assertSame(TaskOutcomeStatus::AWAITING_FOLLOW_UP, $task->outcome_status);
+
+        $finding->forceFill(['status' => 'resolved'])->save();
+        $this->travel(1)->hour();
+        $evidence->forceFill([
+            'payload' => $this->gscPayload(
+                clicksPrev: 200,
+                clicksCurrent: 40,
+                impressionsPrev: 100,
+                impressionsCurrent: 90,
+                ctrPrev: 0.20,
+                ctrCurrent: 0.18,
+            ),
+        ])->save();
+
+        $throwOnFindingsWrite = false;
+        DB::connection()->beforeExecuting(function (string $query) use (&$throwOnFindingsWrite): void {
+            $sql = strtolower($query);
+            if ($throwOnFindingsWrite && (str_contains($sql, 'insert into') || str_contains($sql, 'update ')) && str_contains($sql, 'findings') && ! str_contains($sql, 'finding_evaluations')) {
+                throw new \RuntimeException('forced persistence failure');
+            }
+        });
+        $throwOnFindingsWrite = true;
+
+        $stats = app(FindingEvaluationService::class)->evaluateAsset($this->asset, ruleIds: ['website:gsc:clicks-decline']);
+        $this->assertGreaterThan(0, $stats->errors);
+        $this->assertSame('resolved', $finding->fresh()->status);
+        $this->assertNotSame(TaskOutcomeStatus::IMPROVEMENT_OBSERVED, $task->fresh()->outcome_status);
+        $this->assertSame(TaskOutcomeStatus::INSUFFICIENT_EVIDENCE, $task->fresh()->outcome_status);
     }
 
     public function test_same_rule_different_subject_and_brand_are_distinct(): void
