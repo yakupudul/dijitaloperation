@@ -29,7 +29,9 @@ use Throwable;
 
 /**
  * Production DataForSEO DatasetExecutor — Registry DFS-* COLLECTION_READY families.
- * Paid POSTs are never auto-retried. Fresh TTL skips the provider. No Evidence writes.
+ * Paid POSTs are never auto-retried. A fail-closed `paid_attempt_started` checkpoint
+ * is committed before the HTTP call leaves the process. Fresh TTL skips the provider.
+ * No Evidence writes.
  */
 final class DataForSeoDatasetExecutor implements DatasetExecutor
 {
@@ -114,14 +116,9 @@ final class DataForSeoDatasetExecutor implements DatasetExecutor
      */
     private function executePaidFamily(DatasetExecutionContext $context, array $scope, string $kind): DatasetExecutionResult
     {
-        $checkpoint = $context->checkpoint;
-        if (($checkpoint['paid_called'] ?? false) === true && ($checkpoint['normalized'] ?? false) !== true) {
-            return DatasetExecutionResult::failed(
-                CollectionErrorCategory::Unknown,
-                'A paid DataForSEO request already ran for this DatasetRun but normalized facts were not committed. Automatic retry is forbidden (CHARGE_UNKNOWN).',
-                'CHARGE_UNKNOWN',
-            );
-        }
+        $context->datasetRun->refresh();
+        $durable = is_array($context->datasetRun->checkpoint) ? $context->datasetRun->checkpoint : [];
+        $checkpoint = array_merge($durable, $context->checkpoint);
 
         [$endpoint, $useCase, $params, $ttlDays, $datasetId] = $this->paidSpec($kind, $scope);
         $fingerprint = PaidRequestFingerprint::make(
@@ -130,6 +127,11 @@ final class DataForSeoDatasetExecutor implements DatasetExecutor
             $endpoint,
             $params,
         );
+
+        $blocked = $this->failClosedIfPaidAttemptOpen($checkpoint, $fingerprint);
+        if ($blocked instanceof DatasetExecutionResult) {
+            return $blocked;
+        }
 
         $retrievedAt = (string) ($checkpoint['retrieved_at'] ?? CarbonImmutable::now('UTC')->toDateTimeString());
         $forceRefresh = (bool) $scope['force_refresh'];
@@ -166,6 +168,8 @@ final class DataForSeoDatasetExecutor implements DatasetExecutor
                 ], 0, 0);
             }
 
+            $this->markPaidAttemptStarted($context, $fingerprint, $retrievedAt, $kind, $endpoint, $scope);
+
             try {
                 $response = $this->callPaid($kind, $scope, $params);
             } catch (Throwable $e) {
@@ -186,11 +190,14 @@ final class DataForSeoDatasetExecutor implements DatasetExecutor
             try {
                 $this->writeRawOnly($context, 'dataforseo_raw_response', $kind, $response, $scope, true, $fingerprint, $taskId);
                 $this->checkpoints->advance($context->datasetRun, [
+                    'paid_attempt_started' => true,
                     'paid_called' => true,
                     'normalized' => false,
                     'request_fingerprint' => $fingerprint,
                     'retrieved_at' => $retrievedAt,
                     'provider_task_id' => $taskId,
+                    'kind' => $kind,
+                    'endpoint' => $endpoint,
                 ]);
             } catch (Throwable $e) {
                 return $this->errors->fromPaidAttempt($e);
@@ -207,6 +214,7 @@ final class DataForSeoDatasetExecutor implements DatasetExecutor
             }
 
             return $this->completedCounted(1, 1, [
+                'paid_attempt_started' => true,
                 'paid_called' => true,
                 'normalized' => true,
                 'request_fingerprint' => $fingerprint,
@@ -215,10 +223,72 @@ final class DataForSeoDatasetExecutor implements DatasetExecutor
                 'reported_cost_usd' => $response->cost,
                 'rows_written' => count($records),
                 'cache_status' => 'MISS',
+                'kind' => $kind,
+                'endpoint' => $endpoint,
             ], count($records), count($records));
         } finally {
             $lock->release();
         }
+    }
+
+    /**
+     * Fail closed when this DatasetRun already started a paid POST for the same fingerprint
+     * and facts were not proven committed. forceRefresh and engine resume must not POST again.
+     *
+     * @param  array<string, mixed>  $checkpoint
+     */
+    private function failClosedIfPaidAttemptOpen(array $checkpoint, string $fingerprint): ?DatasetExecutionResult
+    {
+        if (($checkpoint['normalized'] ?? false) === true) {
+            return null;
+        }
+
+        $started = ($checkpoint['paid_attempt_started'] ?? false) === true
+            || ($checkpoint['paid_called'] ?? false) === true;
+
+        if (! $started) {
+            return null;
+        }
+
+        $startedFingerprint = $checkpoint['request_fingerprint'] ?? null;
+        if (is_string($startedFingerprint) && $startedFingerprint !== '' && $startedFingerprint !== $fingerprint) {
+            return null;
+        }
+
+        return DatasetExecutionResult::failed(
+            CollectionErrorCategory::Unknown,
+            'A paid DataForSEO request was already attempted for this DatasetRun. Automatic retry is forbidden (CHARGE_UNKNOWN).',
+            'CHARGE_UNKNOWN',
+        );
+    }
+
+    /**
+     * Durable fail-closed marker. Must commit before the paid HTTP call leaves the process.
+     *
+     * @param  array<string, mixed>  $scope
+     */
+    private function markPaidAttemptStarted(
+        DatasetExecutionContext $context,
+        string $fingerprint,
+        string $retrievedAt,
+        string $kind,
+        string $endpoint,
+        array $scope,
+    ): void {
+        $this->checkpoints->advance($context->datasetRun, [
+            'paid_attempt_started' => true,
+            'paid_called' => false,
+            'normalized' => false,
+            'request_fingerprint' => $fingerprint,
+            'retrieved_at' => $retrievedAt,
+            'kind' => $kind,
+            'endpoint' => $endpoint,
+            'request_family' => $context->datasetRun->request_family_id,
+            'target' => $scope['target'] ?? null,
+            'location_code' => $scope['location_code'] ?? null,
+            'language_code' => $scope['language_code'] ?? null,
+            'collector_version' => DataForSeoProviderCapabilities::COLLECTOR_VERSION,
+        ]);
     }
 
     /**

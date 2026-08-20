@@ -18,22 +18,27 @@ use App\Models\DigitalAsset;
 use App\Models\Evidence;
 use App\Models\User;
 use App\Services\Collection\CollectionPlanner;
+use App\Services\Collection\Contracts\RawPayloadWriter;
 use App\Services\Collection\DataForSeo\DataForSeoEnrichmentOrchestrator;
 use App\Services\Collection\Providers\DataForSeo\DataForSeoDatasetExecutor;
 use App\Services\Collection\Providers\DataForSeo\DataForSeoRequestFamilyCatalog;
 use App\Services\Collection\Support\DatasetExecutionContext;
 use App\Services\Collection\Support\DatasetExecutionResult;
 use App\Services\Collection\Support\StartCollectionRequest;
+use App\Services\DataPool\Support\RawPayloadEnvelope;
+use App\Services\DataPool\Support\RawPayloadReference;
 use App\Services\Integrations\DataForSeo\DataForSeoProviderCredentialService;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\Test;
+use RuntimeException;
 use Tests\TestCase;
 
 class DataForSeoProductionCollectorTest extends TestCase
@@ -146,9 +151,13 @@ class DataForSeoProductionCollectorTest extends TestCase
             ),
         ]);
 
-        $first = $this->runFamily(DataForSeoRequestFamilyCatalog::FAMILY_RANKED_KEYWORDS, consented: true);
+        [$context, $datasetRun] = $this->makeContext(DataForSeoRequestFamilyCatalog::FAMILY_RANKED_KEYWORDS, consented: true);
+        $first = app(DataForSeoDatasetExecutor::class)->execute($context);
         $this->assertSame(DatasetExecutionOutcome::Completed, $first->outcome, (string) $first->errorMessage);
         $this->assertSame('MISS', $first->checkpoint['cache_status'] ?? null);
+        $this->assertTrue($first->checkpoint['paid_attempt_started'] ?? false);
+        $this->assertTrue($first->checkpoint['paid_called'] ?? false);
+        $this->assertTrue($first->checkpoint['normalized'] ?? false);
         $this->assertSame(1, DB::table('dataforseo_ranked_keyword_snapshot')->count());
         $row = DB::table('dataforseo_ranked_keyword_snapshot')->first();
         $this->assertSame('moximu.com', $row->target);
@@ -164,6 +173,11 @@ class DataForSeoProductionCollectorTest extends TestCase
         $this->assertSame('HIT_FRESH', $second->checkpoint['cache_status'] ?? null);
         $this->assertFalse($second->checkpoint['provider_called'] ?? true);
         $this->assertSame(1, DB::table('dataforseo_ranked_keyword_snapshot')->count());
+        Http::assertSentCount(1);
+
+        $replay = $this->replay($context, $datasetRun);
+        $this->assertSame(DatasetExecutionOutcome::Completed, $replay->outcome, (string) $replay->errorMessage);
+        $this->assertTrue($replay->checkpoint['normalized'] ?? false);
         Http::assertSentCount(1);
     }
 
@@ -190,6 +204,7 @@ class DataForSeoProductionCollectorTest extends TestCase
             resourceRun: $context->resourceRun,
             datasetRun: $datasetRun,
             checkpoint: [
+                'paid_attempt_started' => true,
                 'paid_called' => true,
                 'normalized' => false,
                 'request_fingerprint' => $first->checkpoint['request_fingerprint'] ?? 'fp',
@@ -302,6 +317,159 @@ class DataForSeoProductionCollectorTest extends TestCase
         $this->assertEqualsWithDelta(0.0, (float) $row->etv, 0.0001);
     }
 
+    #[Test]
+    public function paid_attempt_marker_commits_before_provider_response_and_resume_or_force_refresh_does_not_post(): void
+    {
+        [$context, $datasetRun] = $this->makeContext(DataForSeoRequestFamilyCatalog::FAMILY_RANKED_KEYWORDS, consented: true);
+        $posts = 0;
+        $markerDuringPost = false;
+
+        Http::fake(function ($request) use ($datasetRun, &$posts, &$markerDuringPost) {
+            if ($request->method() !== 'POST') {
+                return Http::response(['status_code' => 20000, 'tasks' => []], 200);
+            }
+
+            $posts++;
+            $datasetRun->refresh();
+            $checkpoint = is_array($datasetRun->checkpoint) ? $datasetRun->checkpoint : [];
+            $markerDuringPost = ($checkpoint['paid_attempt_started'] ?? false) === true
+                && ($checkpoint['paid_called'] ?? false) === false
+                && is_string($checkpoint['request_fingerprint'] ?? null)
+                && $checkpoint['request_fingerprint'] !== ''
+                && is_string($checkpoint['retrieved_at'] ?? null)
+                && $checkpoint['retrieved_at'] !== '';
+
+            throw new ConnectionException('simulated worker death after paid POST left the process');
+        });
+
+        $first = app(DataForSeoDatasetExecutor::class)->execute($context);
+        $this->assertTrue($markerDuringPost, 'paid_attempt_started must be durable before the HTTP call leaves the process');
+        $this->assertSame(DatasetExecutionOutcome::Failed, $first->outcome);
+        $this->assertSame('CHARGE_UNKNOWN', $first->errorCode);
+        $this->assertSame(1, $posts);
+
+        $durable = $datasetRun->fresh()?->checkpoint ?? [];
+        $this->assertTrue($durable['paid_attempt_started'] ?? false);
+        $this->assertFalse($durable['paid_called'] ?? true);
+        $this->assertFalse($durable['normalized'] ?? true);
+        $this->assertSame(0, DB::table('dataforseo_ranked_keyword_snapshot')->count());
+
+        $resume = $this->replay($context, $datasetRun);
+        $this->assertSame(DatasetExecutionOutcome::Failed, $resume->outcome);
+        $this->assertSame('CHARGE_UNKNOWN', $resume->errorCode);
+        $this->assertSame(1, $posts);
+
+        $run = $context->collectionRun->fresh() ?? $context->collectionRun;
+        $requestContext = is_array($run->request_context) ? $run->request_context : [];
+        $requestContext['force_refresh'] = true;
+        $run->forceFill(['request_context' => $requestContext])->save();
+
+        $forced = $this->replay($context, $datasetRun);
+        $this->assertSame(DatasetExecutionOutcome::Failed, $forced->outcome);
+        $this->assertSame('CHARGE_UNKNOWN', $forced->errorCode);
+        $this->assertSame(1, $posts);
+        $this->assertSame(0, DB::table('dataforseo_ranked_keyword_snapshot')->count());
+    }
+
+    #[Test]
+    public function paid_raw_write_failure_after_provider_success_does_not_post_on_resume(): void
+    {
+        Http::fake([
+            'https://api.dataforseo.com/v3/dataforseo_labs/google/ranked_keywords/live' => Http::response(
+                $this->rankedKeywordsFixture(),
+                200,
+            ),
+        ]);
+
+        $this->app->extend(RawPayloadWriter::class, function (): RawPayloadWriter {
+            return new class implements RawPayloadWriter
+            {
+                public function write(RawPayloadEnvelope $envelope): RawPayloadReference
+                {
+                    throw new RuntimeException('simulated raw persistence failure after paid POST');
+                }
+            };
+        });
+        $this->app->forgetInstance(DataForSeoDatasetExecutor::class);
+
+        [$context, $datasetRun] = $this->makeContext(DataForSeoRequestFamilyCatalog::FAMILY_RANKED_KEYWORDS, consented: true);
+        $first = app(DataForSeoDatasetExecutor::class)->execute($context);
+        $this->assertSame(DatasetExecutionOutcome::Failed, $first->outcome);
+        $this->assertSame('CHARGE_UNKNOWN', $first->errorCode);
+        Http::assertSentCount(1);
+
+        $durable = $datasetRun->fresh()?->checkpoint ?? [];
+        $this->assertTrue($durable['paid_attempt_started'] ?? false);
+        $this->assertFalse($durable['paid_called'] ?? true);
+        $this->assertFalse($durable['normalized'] ?? true);
+        $this->assertSame(0, DB::table('dataforseo_ranked_keyword_snapshot')->count());
+
+        $resume = $this->replay($context, $datasetRun);
+        $this->assertSame(DatasetExecutionOutcome::Failed, $resume->outcome);
+        $this->assertSame('CHARGE_UNKNOWN', $resume->errorCode);
+        Http::assertSentCount(1);
+        $this->assertSame(0, DB::table('dataforseo_ranked_keyword_snapshot')->count());
+    }
+
+    #[Test]
+    public function different_request_fingerprint_is_not_blocked_by_another_runs_open_attempt(): void
+    {
+        [$openContext, $openRun] = $this->makeContext(DataForSeoRequestFamilyCatalog::FAMILY_RANKED_KEYWORDS, consented: true);
+        $posts = 0;
+        $markerDuringFirstPost = false;
+
+        Http::fake(function ($request) use ($openRun, &$posts, &$markerDuringFirstPost) {
+            if ($request->method() !== 'POST') {
+                return Http::response(['status_code' => 20000, 'tasks' => []], 200);
+            }
+
+            $posts++;
+            if ($posts === 1) {
+                $openRun->refresh();
+                $checkpoint = is_array($openRun->checkpoint) ? $openRun->checkpoint : [];
+                $markerDuringFirstPost = ($checkpoint['paid_attempt_started'] ?? false) === true;
+
+                throw new ConnectionException('worker death on the first fingerprint');
+            }
+
+            return Http::response($this->rankedKeywordsFixture(), 200);
+        });
+
+        $open = app(DataForSeoDatasetExecutor::class)->execute($openContext);
+        $this->assertTrue($markerDuringFirstPost);
+        $this->assertSame(DatasetExecutionOutcome::Failed, $open->outcome);
+        $this->assertSame('CHARGE_UNKNOWN', $open->errorCode);
+        $this->assertSame(1, $posts);
+
+        $otherAsset = DigitalAsset::factory()->create([
+            'brand_id' => $this->brand->id,
+            'type' => 'website',
+            'module_id' => 'website',
+            'status' => DigitalAssetStatus::Active,
+            'domain' => 'https://www.atlasdental.test/',
+            'primary_url' => 'https://www.atlasdental.test/',
+            'seo_market_location_code' => 2792,
+            'seo_market_location_name' => 'Turkey',
+            'seo_market_language_code' => 'tr',
+            'seo_market_language_name' => 'Turkish',
+        ]);
+
+        [$otherContext] = $this->makeContext(
+            DataForSeoRequestFamilyCatalog::FAMILY_RANKED_KEYWORDS,
+            consented: true,
+            asset: $otherAsset,
+        );
+        $other = app(DataForSeoDatasetExecutor::class)->execute($otherContext);
+        $this->assertSame(DatasetExecutionOutcome::Completed, $other->outcome, (string) $other->errorMessage);
+        $this->assertTrue($other->checkpoint['normalized'] ?? false);
+        $this->assertSame(2, $posts);
+
+        $resumeOpen = $this->replay($openContext, $openRun);
+        $this->assertSame(DatasetExecutionOutcome::Failed, $resumeOpen->outcome);
+        $this->assertSame('CHARGE_UNKNOWN', $resumeOpen->errorCode);
+        $this->assertSame(2, $posts);
+    }
+
     private function runFamily(string $family, bool $consented = false, bool $discovery = false): DatasetExecutionResult
     {
         [$context, $datasetRun] = $this->makeContext($family, $consented, $discovery);
@@ -309,15 +477,35 @@ class DataForSeoProductionCollectorTest extends TestCase
         return app(DataForSeoDatasetExecutor::class)->execute($context);
     }
 
+    private function replay(DatasetExecutionContext $original, CollectionDatasetRun $datasetRun, int $attemptNumber = 2): DatasetExecutionResult
+    {
+        $datasetRun = $datasetRun->fresh() ?? $datasetRun;
+
+        return app(DataForSeoDatasetExecutor::class)->execute(new DatasetExecutionContext(
+            collectionRun: $original->collectionRun->fresh() ?? $original->collectionRun,
+            resourceRun: $original->resourceRun->fresh() ?? $original->resourceRun,
+            datasetRun: $datasetRun,
+            checkpoint: is_array($datasetRun->checkpoint) ? $datasetRun->checkpoint : [],
+            registryDataset: [],
+            registryRequestFamily: [],
+            attemptNumber: $attemptNumber,
+        ));
+    }
+
     /**
      * @return array{0: DatasetExecutionContext, 1: CollectionDatasetRun}
      */
-    private function makeContext(string $family, bool $consented = false, bool $discovery = false): array
-    {
+    private function makeContext(
+        string $family,
+        bool $consented = false,
+        bool $discovery = false,
+        ?DigitalAsset $asset = null,
+    ): array {
+        $asset ??= $this->asset;
         $definition = DataForSeoRequestFamilyCatalog::definition($family);
 
         $run = CollectionRun::factory()->create([
-            'digital_asset_id' => $this->asset->id,
+            'digital_asset_id' => $asset->id,
             'brand_id' => $this->brand->id,
             'customer_id' => $this->brand->customer_id,
             'status' => CollectionRunStatus::Running,
@@ -334,7 +522,7 @@ class DataForSeoProductionCollectorTest extends TestCase
             'provider_or_source' => 'DATAFORSEO',
             'resource_kind' => 'website_asset_capability',
             'external_resource_id' => null,
-            'digital_asset_id' => $this->asset->id,
+            'digital_asset_id' => $asset->id,
             'core_asset_binding_id' => null,
             'status' => CollectionRunStatus::Running,
         ]);
