@@ -2,6 +2,7 @@
 
 namespace App\Support\Demo;
 
+use App\Support\Operator\OperatorPeriod;
 use App\Support\Reality\DemoCatalogAssetGuard;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
@@ -12,7 +13,7 @@ use Carbon\CarbonInterface;
  * Demo catalog / fixture reads stay on {@see self::ANCHOR_DATE} so the 90-day
  * fixture series remains deterministic. Real provider/operator presets resolve
  * from wall-clock time unless an explicit anchor/timezone override is supplied
- * ({@see \App\Support\Operator\OperatorPeriod}). {@see DemoCatalogAssetGuard}
+ * ({@see OperatorPeriod}). {@see DemoCatalogAssetGuard}
  * and fixture-context execution are the discriminators — not APP_ENV, because
  * browser Demo Mode can run under local/staging/production-like environments.
  */
