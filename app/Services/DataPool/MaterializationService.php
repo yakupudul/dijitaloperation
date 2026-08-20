@@ -186,6 +186,10 @@ final class MaterializationService
     }
 
     /**
+     * Persist coverage dates. Attribution under coverage_dates_by_dataset_run is the
+     * synthesis source; merged successful_coverage_dates remain operational metadata
+     * and must not prove a 28-day window by themselves.
+     *
      * @param  list<string>  $dates
      */
     private function mergeSuccessfulCoverageDates(

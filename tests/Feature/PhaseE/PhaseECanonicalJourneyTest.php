@@ -327,13 +327,33 @@ class PhaseECanonicalJourneyTest extends TestCase
 
         $executor = app(WebsiteDatasetExecutor::class);
         $result = $executor->execute($context);
-        $this->assertContains(
+        $guard = 0;
+        while ($result->outcome === DatasetExecutionOutcome::Continue && $guard < 10) {
+            $guard++;
+            $this->assertNotNull($result->checkpoint, (string) $result->errorMessage);
+            app(CheckpointManager::class)->advance($datasetRun, $result->checkpoint);
+            $result = $executor->execute(new DatasetExecutionContext(
+                collectionRun: $run->fresh() ?? $run,
+                resourceRun: $resourceRun->fresh() ?? $resourceRun,
+                datasetRun: $datasetRun->fresh() ?? $datasetRun,
+                checkpoint: $result->checkpoint,
+                registryDataset: [],
+                registryRequestFamily: [],
+                attemptNumber: 1,
+            ));
+        }
+
+        $this->assertSame(
+            DatasetExecutionOutcome::Completed,
             $result->outcome,
-            [DatasetExecutionOutcome::Continue, DatasetExecutionOutcome::Completed],
             (string) $result->errorMessage,
         );
         if ($result->checkpoint !== null) {
             app(CheckpointManager::class)->advance($datasetRun, $result->checkpoint);
         }
+
+        $datasetRun->forceFill(['status' => CollectionRunStatus::Completed])->save();
+        $resourceRun->forceFill(['status' => CollectionRunStatus::Completed])->save();
+        $run->forceFill(['status' => CollectionRunStatus::Completed])->save();
     }
 }
