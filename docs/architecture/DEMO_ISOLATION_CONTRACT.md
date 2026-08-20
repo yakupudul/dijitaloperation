@@ -19,16 +19,16 @@ Atlas Demo Mode is a product teaching and UX rehearsal surface. It must never co
 | Catalog customer/brand ids | `atlas-health`, `atlas-dental` |
 | Catalog asset ids (non-numeric strings) | `ga4-atlas`, `gsc-atlas`, `meta-atlas`, `web-atlas`, `gbp-atlas`, … |
 | Session DemoState | Filters, flashes, Demo Mode reset for Atlas catalog |
-| Livewire namespace history | `App\Livewire\Demo\**` hosts both production `/app` routes and Demo catalog — runtime must branch on asset id / data source, not namespace name alone |
+| Livewire namespace history | `App\Livewire\Demo\**` hosts both production operator routes (site root) and Demo catalog — runtime must branch on asset id / data source, not namespace name alone |
 
-Namespace `Demo` is **historical**. Path `/app` is the frozen operator UI. Filament technical admin is `/system` (panel id `app`). Naming debt must not be treated as “everything under Demo is fake.”
+Namespace `Demo` is **historical**. The operator product is the TailAdmin Livewire shell at the **site root**. Filament technical admin is `/admin` (panel id `app`; ADR-044). Legacy `/app` and `/system` return HTTP 410. Naming debt must not be treated as “everything under Demo is fake.”
 
 ## 3. Fixture types (allowed)
 
 | Type | Location | Allowed use |
 | --- | --- | --- |
 | **Catalog fixtures** | `app/Support/Demo/*WorkspaceFixtures.php`, `DemoCatalog`, `ClientValueFixtures`, etc. | Only when `DemoCatalogAssetGuard::isDemoCatalogAssetId` (or equivalent binding mode `DemoCatalog`) |
-| **Session DemoState** | `App\Support\Demo\DemoState` | Atlas demo catalog UX; ephemeral filters/flash on `/app` where still used for chrome — never as Finding/Opportunity source of truth |
+| **Session DemoState** | `App\Support\Demo\DemoState` | Atlas demo catalog UX; ephemeral filters/flash on the operator shell where still used for chrome — never as Finding/Opportunity source of truth |
 | **Test factories** | `database/factories`, model factories | PHPUnit only |
 | **Evaluation fixtures** | Prompt 55 intelligence evaluation | Offline eval harness — not operator production UI |
 | **Performance fixtures** | Prompt 65 `App\Support\Performance\*` | Benchmark harness — not operator production UI |

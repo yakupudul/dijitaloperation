@@ -3,7 +3,7 @@
 > **Canonical product overview** — what MoxDOP is from the **operator’s** point of view.  
 > Not a technical architecture document. Domain detail lives in sibling blueprints under `docs/product/**`.  
 > Authority: `docs/MASTER_SPEC.md` wins on conflict; this document elaborates operator intent and information architecture.  
-> Canonical application URL: **`/app`**. One application only.
+> Canonical application URL: **root routes** (`/`, `/login`, `/customers`, …). Filament technical tooling: **`/admin`**. One application only (ADR-044).
 
 ---
 
@@ -239,7 +239,7 @@ Continuity is a **product requirement**, not a side effect of CRUD. If critical 
 
 ### One application
 
-- Canonical URL: **`/app`**
+- Canonical URL: **`/`** (operator product). Filament technical panel: **`/admin`**.
 - Single Filament panel (`app`). Filament is the **implementation shell**, not a second product brand in the UI.
 - No separate “Modules” product area in primary navigation for operators.
 - No customer-facing site, no second admin product.
@@ -524,7 +524,7 @@ Build as **vertical slices**. Each slice must earn **operator acceptance** befor
 
 | # | Slice | Operator outcome when accepted |
 | --- | --- | --- |
-| **1** | **Product shell + Portfolio persistence** | `/app` navigation (Portfolio, Data/Integrations, Operations; Settings secondary). Customers, Brands, Digital Assets persist. Atlas Health Group / Atlas Dental Ankara usable as real records. Hand-off-ready Brand workspace shell. |
+| **1** | **Product shell + Portfolio persistence** | Site-root navigation (Portfolio, Data/Integrations, Operations; Settings secondary). Customers, Brands, Digital Assets persist. Atlas Health Group / Atlas Dental Ankara usable as real records. Hand-off-ready Brand workspace shell. |
 | **2** | **Meta end-to-end real** | Agency Meta Integration → discover Ad Accounts → bind to Meta Ads asset → collect → workspace Glance/Explore → Findings/Recommendations/Tasks path on live read-only data. |
 | **3** | **Google Ads end-to-end real** | Same pattern for Google Ads account: connect, import, attach, collect, analyze, operate internally without writes. |
 | **4** | **Website end-to-end real** | Website asset with diagnosis/connectors path, Evidence → Findings → Recommendations → Tasks, honest Data Health. |
@@ -637,7 +637,7 @@ Provider/plan/renewal, uptime, backups, environment stack — Manual/Unknown whe
 - Custom date opens a real range picker and updates KPI/chart/table demo data  
 - Filters that do not change data must not render  
 - Cross-links: Ads landing ↔ Website; Finding ↔ Recommendation ↔ Task ↔ Outcome; Brand ↔ every asset  
-- One TailAdmin shell under `/app` only  
+- One TailAdmin shell at the site root only  
 
 ---
 

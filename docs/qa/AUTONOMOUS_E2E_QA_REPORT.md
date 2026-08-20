@@ -2,6 +2,8 @@
 
 Generated: 2026-08-18T12:32:55.135Z
 
+> **Historical record (ADR-044):** This QA report is not an operational runbook. Canonical operator routes are now site root; Filament is `/admin`. Observed `/app` URLs below are from the audit date and are retired (HTTP 410).
+
 Status: BUGFIX_BATCH_001
 
 Playwright product failures are treated as regressions. Prior baseline findings are classified FIXED / REMAINS / DEFERRED.

@@ -42,7 +42,9 @@ Notes:
 - **AI remains advisory and evidence-grounded.** AI does not invent Findings, silently override deterministic Recommendations, or auto-open Tasks.
 - **External provider integrations remain READ-ONLY.** No external write actions.
 - There is **no separate Result entity**. Outcomes are observed via later Evidence / Finding lifecycle and Task outcome signals.
-- Single Filament panel: id `app`, path `/app`; `web` guard; `spatie/laravel-permission`.
+- Canonical operator product: root routes (`/`, `/login`, `/customers`, `/brands`, `/assets`, `/integrations`, `/tasks`, …). TailAdmin Livewire. One application.
+- Single Filament technical/admin panel: id `app`, path `/admin` (ADR-044; supersedes ADR-026 path `/app`). `web` guard; `spatie/laravel-permission`.
+- Legacy `/app/*` and `/system/*` prefixes are retired (HTTP 410). No parallel operator product.
 - Modules live under `app-modules/` + `internachi/modular` (minimal registry: id + enabled/disabled).
 
 ---

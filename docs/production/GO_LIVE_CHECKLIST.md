@@ -56,7 +56,7 @@ Confirm launch scope excludes or accepts documented gaps:
 - [ ] Instagram analytics UNAVAILABLE — excluded or accepted
 - [ ] Assistant chat UNAVAILABLE — excluded or accepted
 - [ ] GBP local rank grid UNAVAILABLE — excluded or accepted
-- [ ] Website `/app` analytics UNAVAILABLE shell — excluded or accepted
+- [ ] Website operator analytics UNAVAILABLE shell — excluded or accepted
 - [ ] Atlas Explicit Demo catalog retained for string ids only — not used for real customer
 
 ---

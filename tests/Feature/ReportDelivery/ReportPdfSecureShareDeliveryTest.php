@@ -267,9 +267,10 @@ class ReportPdfSecureShareDeliveryTest extends TestCase
         $this->assertNull($d1->failure_category);
         Mail::assertSent(ReportDeliveryMail::class, function (ReportDeliveryMail $mail): bool {
             $html = $mail->render();
+            $withoutShareUrl = str_replace($mail->shareLocatorUrl, '', $html);
 
-            return ! str_contains($html, '44')
-                && ! str_contains(strtolower($html), 'qualified')
+            return ! str_contains($withoutShareUrl, '44')
+                && ! str_contains(strtolower($withoutShareUrl), 'qualified')
                 && str_contains($html, '/reports/share/');
         });
 

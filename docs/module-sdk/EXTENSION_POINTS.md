@@ -99,7 +99,7 @@ Kurallar:
 | Layout | Host container dışına fixed overlay / global sidebar eklenemez |
 | Breaking shell | Modül, çekirdek chrome’unu (topbar, nav) değiştiremez |
 
-UI host: tek Filament 5 panel `app` (`/app`). Modüller Filament theme/token ve çekirdek bileşen kalıplarını kullanır; global CSS sızıntısı yok.
+UI host: operator product at the site root (TailAdmin Livewire). Tek Filament 5 panel `app` (`/admin`) is technical/admin tooling (ADR-044). Modüller Filament theme/token ve çekirdek bileşen kalıplarını kullanır; global CSS sızıntısı yok.
 
 ### 6. Çözümleme sırası
 
