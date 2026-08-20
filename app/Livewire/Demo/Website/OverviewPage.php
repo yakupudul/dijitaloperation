@@ -6,12 +6,14 @@ use App\Contracts\WebsiteOperatorWorkspace;
 use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
 use App\Models\DigitalAsset;
 use App\Services\Async\AsyncOperationService;
+use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
 use App\Support\Reality\OperatorCanonicalAsset;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use Throwable;
 
 /**
  * Legacy namespace retained temporarily for route compatibility.
@@ -78,7 +80,27 @@ class OverviewPage extends Component
 
     public function refreshData(AsyncOperationService $async): void
     {
-        $this->showResult($async->queueBoundCollect($this->asset(), auth()->user()));
+        $messages = [];
+        $ok = false;
+
+        try {
+            $collectionRun = app(WebsiteCollectionOrchestrator::class)->start($this->asset(), auth()->user());
+            $messages[] = __('operator.async.website_production_collection_queued', ['id' => $collectionRun->id]);
+            $ok = true;
+        } catch (Throwable) {
+            $messages[] = __('operator.async.website_production_collection_unavailable');
+        }
+
+        $bound = $async->queueBoundCollect($this->asset(), auth()->user());
+        $messages[] = (string) ($bound['message'] ?? '');
+        if (($bound['ok'] ?? false) === true) {
+            $ok = true;
+        }
+
+        $this->showResult([
+            'ok' => $ok,
+            'message' => trim(implode(' ', array_filter($messages))),
+        ]);
     }
 
     public function runDiagnosis(AsyncOperationService $async): void
@@ -104,7 +126,7 @@ class OverviewPage extends Component
         $this->normalizeTab();
 
         $asset = $this->asset()->loadMissing('brand.customer');
-        $data = $workspace->overview($asset);
+        $data = $workspace->overview($asset, $this->periodStart, $this->periodEnd);
 
         return view('livewire.operator.website.overview', [
             'asset' => $asset,

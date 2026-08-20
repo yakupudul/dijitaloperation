@@ -12,26 +12,26 @@
     @include('livewire.demo.partials.flash')
 
     @include('livewire.demo.partials.workspace-header', [
-        'eyebrow' => 'Operations',
-        'title' => 'Recommendations',
-        'subtitle' => 'Decision inbox — what MoxDOP thinks is worth considering. Not yet committed work.',
+        'eyebrow' => __('operator.inbox.eyebrow'),
+        'title' => __('operator.inbox.recommendations_title'),
+        'subtitle' => __('operator.inbox.recommendations_subtitle'),
     ])
 
     <div class="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-            <p class="text-xs uppercase tracking-wide text-gray-400">Awaiting Decision</p>
+            <p class="text-xs uppercase tracking-wide text-gray-400">{{ __('operator.inbox.awaiting') }}</p>
             <p class="mt-1 text-2xl font-bold text-warning-600 dark:text-warning-400">{{ $glance['awaiting'] }}</p>
         </div>
         <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-            <p class="text-xs uppercase tracking-wide text-gray-400">Accepted</p>
+            <p class="text-xs uppercase tracking-wide text-gray-400">{{ __('operator.inbox.accepted') }}</p>
             <p class="mt-1 text-2xl font-bold text-success-600 dark:text-success-400">{{ $glance['accepted'] }}</p>
         </div>
         <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-            <p class="text-xs uppercase tracking-wide text-gray-400">Dismissed</p>
+            <p class="text-xs uppercase tracking-wide text-gray-400">{{ __('operator.inbox.dismissed') }}</p>
             <p class="mt-1 text-2xl font-bold text-gray-800 dark:text-white/90">{{ $glance['dismissed'] }}</p>
         </div>
         <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-            <p class="text-xs uppercase tracking-wide text-gray-400">Converted to Work</p>
+            <p class="text-xs uppercase tracking-wide text-gray-400">{{ __('operator.inbox.converted') }}</p>
             <p class="mt-1 text-2xl font-bold text-brand-600 dark:text-brand-400">{{ $glance['has_task'] }}</p>
         </div>
     </div>
@@ -137,8 +137,8 @@
             </article>
         @empty
             @include('livewire.demo.partials.empty-panel', [
-                'title' => 'No recommendations are awaiting decision',
-                'message' => 'Recommendations appear after a Finding or an Opportunity is turned into a recommended action.',
+                'title' => __('operator.inbox.empty'),
+                'message' => __('operator.inbox.recommendations_subtitle'),
             ])
         @endforelse
     </div>

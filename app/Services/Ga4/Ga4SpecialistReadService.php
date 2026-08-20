@@ -9,8 +9,8 @@ use App\Services\Formulas\Support\FormulaResult;
 use App\Services\Ga4\Support\Ga4BindingContext;
 use App\Services\Ga4\Support\Ga4BindingMode;
 use App\Services\Ga4\Support\Ga4DatasetReadiness;
-use App\Support\Demo\DemoPeriod;
 use App\Support\Demo\Ga4WorkspaceFixtures;
+use App\Support\Operator\OperatorReportingPeriod;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -150,10 +150,10 @@ final class Ga4SpecialistReadService
         ?string $start,
         ?string $end,
     ): array {
-        $bounds = DemoPeriod::bounds($preset, $start, $end);
+        $bounds = OperatorReportingPeriod::queryBounds($preset, $start, $end);
         $rangeStart = $bounds['start']->toDateString();
         $rangeEnd = $bounds['end']->toDateString();
-        $prev = DemoPeriod::previousBounds($preset, $rangeStart, $rangeEnd);
+        $prev = OperatorReportingPeriod::previousQueryBounds($preset, $start, $end);
         $prevStart = $prev['start']->toDateString();
         $prevEnd = $prev['end']->toDateString();
 
@@ -293,10 +293,10 @@ final class Ga4SpecialistReadService
         string $migrationMode,
         ?string $errorMessage = null,
     ): array {
-        $bounds = DemoPeriod::bounds($preset, $start, $end);
+        $bounds = OperatorReportingPeriod::queryBounds($preset, $start, $end);
         $rangeStart = $bounds['start']->toDateString();
         $rangeEnd = $bounds['end']->toDateString();
-        $prev = DemoPeriod::previousBounds($preset, $rangeStart, $rangeEnd);
+        $prev = OperatorReportingPeriod::previousQueryBounds($preset, $start, $end);
 
         $reason = $errorMessage !== null
             ? 'query_error'

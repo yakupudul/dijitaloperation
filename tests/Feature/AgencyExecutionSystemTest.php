@@ -294,10 +294,11 @@ class AgencyExecutionSystemTest extends TestCase
             ->call('openCapture', 'note')
             ->assertSet('open', true)
             ->set('title', 'Decision note from standup')
-            ->call('save');
+            ->call('save')
+            ->assertSet('open', true);
 
         $notes = DemoState::all()['capture_notes'] ?? [];
-        $this->assertNotEmpty($notes);
+        $this->assertSame([], $notes);
     }
 
     public function test_dashboard_execution_sections(): void

@@ -1,20 +1,20 @@
 <?php
 
-namespace App\Livewire\Operator\Meta;
+namespace App\Livewire\Operator\Assets;
 
-use App\Livewire\Demo\Meta\OverviewPage as LegacyOverviewPage;
+use App\Livewire\Demo\Assets\AnalyticsPage as LegacyAnalyticsPage;
 use App\Models\DigitalAsset;
 use App\Services\Async\AsyncOperationService;
 use App\Support\Demo\DemoState;
 
-/** Production operator behavior layered over the existing Meta Ads visual workspace. */
-class OverviewPage extends LegacyOverviewPage
+/** Production operator behavior for GA4 analysis. */
+class AnalyticsPage extends LegacyAnalyticsPage
 {
     public function runAnalysis(): void
     {
         $asset = DigitalAsset::query()
             ->whereKey((int) $this->assetId)
-            ->where('type', 'meta_ads')
+            ->whereIn('type', ['ga4', 'analytics', 'google_analytics'])
             ->firstOrFail();
 
         $result = app(AsyncOperationService::class)->queueFindingEvaluation($asset, auth()->user());

@@ -2,31 +2,31 @@
     @include('livewire.demo.partials.flash')
 
     @include('livewire.demo.partials.workspace-header', [
-        'eyebrow' => 'Operations',
-        'title' => 'Activity',
-        'subtitle' => 'What happened in MoxDOP — system runs and human operational actions. Runs are technical execution; Activity is broader.',
+        'eyebrow' => __('operator.activity.eyebrow'),
+        'title' => __('operator.activity.title'),
+        'subtitle' => __('operator.activity.subtitle'),
     ])
 
     <div class="flex flex-wrap items-end gap-3 rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
         <div>
-            <label class="mb-1 block text-xs font-medium text-gray-500" for="activity-actor">Actor</label>
+            <label class="mb-1 block text-xs font-medium text-gray-500" for="activity-actor">{{ __('operator.activity.actor') }}</label>
             <select id="activity-actor" wire:model.live="actor" class="rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm dark:border-gray-700">
-                <option value="all">User / System</option>
-                <option value="human">Human</option>
-                <option value="system">System</option>
+                <option value="all">{{ __('operator.activity.actor_all') }}</option>
+                <option value="human">{{ __('operator.activity.actor_human') }}</option>
+                <option value="system">{{ __('operator.activity.actor_system') }}</option>
             </select>
         </div>
         <div>
-            <label class="mb-1 block text-xs font-medium text-gray-500" for="activity-status">Status</label>
+            <label class="mb-1 block text-xs font-medium text-gray-500" for="activity-status">{{ __('operator.activity.status') }}</label>
             <select id="activity-status" wire:model.live="status" class="rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm dark:border-gray-700">
-                <option value="all">All</option>
-                <option value="success">Success</option>
-                <option value="running">Running</option>
-                <option value="failed">Failed</option>
+                <option value="all">{{ __('operator.activity.status_all') }}</option>
+                <option value="success">{{ __('operator.activity.status_success') }}</option>
+                <option value="running">{{ __('operator.activity.status_running') }}</option>
+                <option value="failed">{{ __('operator.activity.status_failed') }}</option>
             </select>
         </div>
         <div>
-            <label class="mb-1 block text-xs font-medium text-gray-500" for="activity-period">Date range</label>
+            <label class="mb-1 block text-xs font-medium text-gray-500" for="activity-period">{{ __('operator.activity.date_range') }}</label>
             <select id="activity-period" wire:model.live="period" class="rounded-lg border border-gray-200 bg-transparent px-3 py-2 text-sm dark:border-gray-700">
                 @foreach ($periodOptions as $key => $label)
                     <option value="{{ $key }}">{{ $label }}</option>
@@ -67,8 +67,8 @@
         @empty
             <li>
                 @include('livewire.demo.partials.empty-panel', [
-                    'title' => 'No activity matches this view',
-                    'message' => 'Adjust actor, status, or date filters. Activity is not a raw HTTP log.',
+                    'title' => __('operator.activity.empty'),
+                    'message' => __('operator.activity.subtitle'),
                 ])
             </li>
         @endforelse

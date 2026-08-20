@@ -9,8 +9,8 @@ use App\Services\Formulas\Support\FormulaResult;
 use App\Services\Gsc\Support\GscBindingContext;
 use App\Services\Gsc\Support\GscBindingMode;
 use App\Services\Gsc\Support\GscDatasetReadiness;
-use App\Support\Demo\DemoPeriod;
 use App\Support\Demo\GscWorkspaceFixtures;
+use App\Support\Operator\OperatorReportingPeriod;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -145,10 +145,10 @@ final class GscSpecialistReadService
         ?string $start,
         ?string $end,
     ): array {
-        $bounds = DemoPeriod::bounds($preset, $start, $end);
+        $bounds = OperatorReportingPeriod::queryBounds($preset, $start, $end);
         $rangeStart = $bounds['start']->toDateString();
         $rangeEnd = $bounds['end']->toDateString();
-        $prev = DemoPeriod::previousBounds($preset, $rangeStart, $rangeEnd);
+        $prev = OperatorReportingPeriod::previousQueryBounds($preset, $start, $end);
         $prevStart = $prev['start']->toDateString();
         $prevEnd = $prev['end']->toDateString();
 
@@ -279,10 +279,10 @@ final class GscSpecialistReadService
         string $migrationMode,
         ?string $errorMessage = null,
     ): array {
-        $bounds = DemoPeriod::bounds($preset, $start, $end);
+        $bounds = OperatorReportingPeriod::queryBounds($preset, $start, $end);
         $rangeStart = $bounds['start']->toDateString();
         $rangeEnd = $bounds['end']->toDateString();
-        $prev = DemoPeriod::previousBounds($preset, $rangeStart, $rangeEnd);
+        $prev = OperatorReportingPeriod::previousQueryBounds($preset, $start, $end);
 
         $reason = $errorMessage !== null
             ? 'query_error'

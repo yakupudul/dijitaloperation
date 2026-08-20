@@ -10,7 +10,7 @@ use Illuminate\Support\Collection;
 interface WebsiteOperatorWorkspace
 {
     /** @return array<string, mixed> */
-    public function overview(DigitalAsset $asset): array;
+    public function overview(DigitalAsset $asset, ?string $periodStart = null, ?string $periodEnd = null): array;
 
     /** @return array<string, mixed> */
     public function discovery(DigitalAsset $asset): array;
