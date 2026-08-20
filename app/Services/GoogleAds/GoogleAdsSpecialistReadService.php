@@ -148,20 +148,22 @@ final class GoogleAdsSpecialistReadService
      */
     private function demoWorkspace(string $preset, ?string $start, ?string $end): array
     {
-        $bounds = DemoPeriod::bounds($preset, $start, $end);
-        $prev = DemoPeriod::previousBounds($preset, $bounds['start']->toDateString(), $bounds['end']->toDateString());
+        return DemoPeriod::usingFixtureAnchor(function () use ($preset, $start, $end): array {
+            $bounds = DemoPeriod::bounds($preset, $start, $end);
+            $prev = DemoPeriod::previousBounds($preset, $bounds['start']->toDateString(), $bounds['end']->toDateString());
 
-        $data = GoogleAdsWorkspaceFixtures::workspace($preset);
-        $data['period_label'] = $bounds['label'];
-        $data['period_days'] = $bounds['days'];
-        $data['period_start'] = $bounds['start']->toDateString();
-        $data['period_end'] = $bounds['end']->toDateString();
-        $data['compare_label'] = 'vs '.$prev['label'];
-        $data['migration_mode'] = 'demo_catalog';
-        $data['data_provenance'] = $this->allProvenance(DataSourceState::Demo);
-        $data['tab_status'] = array_fill_keys(array_keys(self::TAB_FIELD_MAP), DataSourceState::Demo->value);
+            $data = GoogleAdsWorkspaceFixtures::workspace($preset);
+            $data['period_label'] = $bounds['label'];
+            $data['period_days'] = $bounds['days'];
+            $data['period_start'] = $bounds['start']->toDateString();
+            $data['period_end'] = $bounds['end']->toDateString();
+            $data['compare_label'] = 'vs '.$prev['label'];
+            $data['migration_mode'] = 'demo_catalog';
+            $data['data_provenance'] = $this->allProvenance(DataSourceState::Demo);
+            $data['tab_status'] = array_fill_keys(array_keys(self::TAB_FIELD_MAP), DataSourceState::Demo->value);
 
-        return $data;
+            return $data;
+        });
     }
 
     /**

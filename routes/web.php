@@ -8,8 +8,8 @@ use App\Http\Controllers\Prospects\ProspectReportShareController;
 use App\Http\Controllers\Reports\ReportArtifactDownloadController;
 use App\Http\Controllers\Reports\ReportShareController;
 use App\Http\Middleware\EnsureDemoAppAccess;
+use App\Livewire\Operator\AssetDataSourcesPage;
 use App\Livewire\Operator\PublicDiscoveryIndex;
-use App\Livewire\Operator\Website\DataSourcesPage;
 use App\Livewire\Operator\Website\PublicDiscoveryPage;
 use Illuminate\Support\Facades\Route;
 
@@ -77,12 +77,18 @@ Route::middleware(['web'])->prefix('reports/share')->name('reports.share.')->gro
 
 require __DIR__.'/demo.php';
 
-// Real operator engine surfaces that do not have legacy canonical routes in demo.php.
+// Canonical production operator engine surfaces that are intentionally kept outside legacy demo.php.
 Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])->group(function (): void {
     Route::livewire('/public-discovery', PublicDiscoveryIndex::class)
         ->name('operator.public-discovery');
 
-    Route::livewire('/assets/website/{assetId}/sources', DataSourcesPage::class)
+    // Canonical data-source management for every bindable Digital Asset type.
+    Route::livewire('/assets/{assetId}/sources', AssetDataSourcesPage::class)
+        ->whereNumber('assetId')
+        ->name('operator.asset.sources');
+
+    // Backward-compatible Website URL; same canonical component, no Website-only binding logic.
+    Route::livewire('/assets/website/{assetId}/sources', AssetDataSourcesPage::class)
         ->whereNumber('assetId')
         ->name('operator.website.sources');
 

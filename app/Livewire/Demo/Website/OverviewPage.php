@@ -104,7 +104,12 @@ class OverviewPage extends Component
         $this->normalizeTab();
 
         $asset = $this->asset()->loadMissing('brand.customer');
-        $data = $workspace->overview($asset);
+        $data = $workspace->overview(
+            $asset,
+            $this->period,
+            $this->periodStart,
+            $this->periodEnd,
+        );
 
         return view('livewire.operator.website.overview', [
             'asset' => $asset,
@@ -136,7 +141,7 @@ class OverviewPage extends Component
     /** @param array{ok: bool, message: string} $result */
     private function showResult(array $result): void
     {
-        $this->message = (string) ($result['message'] ?? 'Operation queued.');
+        $this->message = (string) ($result['message'] ?? __('operator_runtime.sources.collect_failed'));
         $this->messageTone = ($result['ok'] ?? false) ? 'success' : 'info';
     }
 

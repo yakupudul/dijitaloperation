@@ -7,6 +7,7 @@ use App\Support\Permissions;
 use App\Support\Roles;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Spatie\Permission\Models\Permission;
 
 /**
  * Canonical operator directory for Customer Owner / responsibility assignment.
@@ -107,8 +108,22 @@ final class OperatorUserDirectory
      */
     private static function directoryQuery()
     {
-        return User::query()
-            ->permission(Permissions::ACCESS_APP)
+        $query = User::query();
+
+        // Fresh/test installations can legitimately have users before the permission
+        // seeder has created access.app. In that bootstrap window, return real users
+        // instead of throwing PermissionDoesNotExist; once the permission exists,
+        // enforce the normal /app eligibility rule.
+        $permissionExists = Permission::query()
+            ->where('name', Permissions::ACCESS_APP)
+            ->where('guard_name', 'web')
+            ->exists();
+
+        if ($permissionExists) {
+            $query->permission(Permissions::ACCESS_APP);
+        }
+
+        return $query
             ->orderBy('name')
             ->orderBy('id');
     }

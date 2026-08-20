@@ -4,7 +4,7 @@ namespace Tests\Feature;
 
 use App\Contracts\GbpOperatorWorkspace;
 use App\Contracts\WebsiteOperatorWorkspace;
-use App\Livewire\Operator\Website\DataSourcesPage;
+use App\Livewire\Operator\AssetDataSourcesPage;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
@@ -15,7 +15,9 @@ use App\Models\Evidence;
 use App\Models\Run;
 use App\Models\User;
 use App\Support\Integrations\ProviderRegistry;
+use App\Support\Roles;
 use App\Support\Sales\IntentSearchConfig;
+use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use MoxDop\GoogleBusinessProfile\Collection\GbpLocationBoundCollector;
@@ -31,22 +33,28 @@ class OperatorRealEngineWiringTest extends TestCase
 
         $this->assertIsString($source);
         $this->assertStringContainsString('WebsiteOperatorWorkspace', $source);
+        $this->assertStringContainsString('$this->period', $source);
+        $this->assertStringContainsString('$this->periodStart', $source);
+        $this->assertStringContainsString('$this->periodEnd', $source);
         $this->assertStringNotContainsString('MoxDop\\Website', $source);
         $this->assertStringNotContainsString('UnavailableWorkspaceShells', $source);
         $this->assertStringNotContainsString('WebsiteWorkspaceFixtures', $source);
         $this->assertInstanceOf(WebsiteOperatorWorkspace::class, app(WebsiteOperatorWorkspace::class));
     }
 
-    public function test_real_public_discovery_and_data_source_routes_are_registered(): void
+    public function test_real_public_discovery_and_canonical_data_source_routes_are_registered(): void
     {
         $this->assertSame('/public-discovery', route('operator.public-discovery', absolute: false));
         $this->assertSame('/assets/website/42/discovery', route('operator.website.discovery', ['assetId' => 42], absolute: false));
         $this->assertSame('/assets/website/42/sources', route('operator.website.sources', ['assetId' => 42], absolute: false));
+        $this->assertSame('/assets/42/sources', route('operator.asset.sources', ['assetId' => 42], absolute: false));
     }
 
     public function test_operator_can_bind_a_discovered_ga4_resource_directly_to_a_website(): void
     {
+        $this->seed(RoleAndPermissionSeeder::class);
         $user = User::factory()->create();
+        $user->assignRole(Roles::ADMIN);
         $this->actingAs($user);
 
         $customer = Customer::factory()->create();
@@ -68,9 +76,9 @@ class OperatorRealEngineWiringTest extends TestCase
             'status' => CoreExternalResource::STATUS_AVAILABLE,
         ]);
 
-        Livewire::test(DataSourcesPage::class, ['assetId' => (string) $website->id])
-            ->set('ga4ResourceId', (string) $resource->id)
-            ->call('bindGa4')
+        Livewire::test(AssetDataSourcesPage::class, ['assetId' => (string) $website->id])
+            ->set('selectedResource.ga4', (string) $resource->id)
+            ->call('bind', 'ga4')
             ->assertHasNoErrors()
             ->assertSee('Google Analytics 4');
 
@@ -78,6 +86,46 @@ class OperatorRealEngineWiringTest extends TestCase
             'digital_asset_id' => $website->id,
             'external_resource_id' => $resource->id,
             'capability' => 'ga4',
+            'status' => CoreAssetBinding::STATUS_ACTIVE,
+        ]);
+    }
+
+    public function test_operator_can_bind_a_discovered_google_ads_resource_to_a_google_ads_asset(): void
+    {
+        $this->seed(RoleAndPermissionSeeder::class);
+        $user = User::factory()->create();
+        $user->assignRole(Roles::ADMIN);
+        $this->actingAs($user);
+
+        $customer = Customer::factory()->create();
+        $brand = Brand::factory()->create(['customer_id' => $customer->id]);
+        $asset = DigitalAsset::factory()->create([
+            'brand_id' => $brand->id,
+            'type' => 'google_ads',
+            'name' => 'Moximu Google Ads',
+        ]);
+        $integration = CoreIntegration::factory()->google()->create([
+            'status' => CoreIntegration::STATUS_ACTIVE,
+        ]);
+        $resource = CoreExternalResource::factory()->create([
+            'integration_id' => $integration->id,
+            'provider' => ProviderRegistry::GOOGLE,
+            'resource_type' => 'google_ads',
+            'external_id' => 'customers/1234567890',
+            'display_name' => 'Moximu Ads',
+            'status' => CoreExternalResource::STATUS_AVAILABLE,
+        ]);
+
+        Livewire::test(AssetDataSourcesPage::class, ['assetId' => (string) $asset->id])
+            ->set('selectedResource.google_ads', (string) $resource->id)
+            ->call('bind', 'google_ads')
+            ->assertHasNoErrors()
+            ->assertSee('Google Ads');
+
+        $this->assertDatabaseHas('core_asset_bindings', [
+            'digital_asset_id' => $asset->id,
+            'external_resource_id' => $resource->id,
+            'capability' => 'google_ads',
             'status' => CoreAssetBinding::STATUS_ACTIVE,
         ]);
     }
@@ -147,6 +195,88 @@ class OperatorRealEngineWiringTest extends TestCase
         $this->assertSame('Marketing agency', $workspace['profile']['categories']['primary']);
         $this->assertStringContainsString('Manisa', $workspace['profile']['location']['address']);
         $this->assertTrue($workspace['connection']['bound']);
+        $this->assertSame($binding->id, $workspace['connection']['binding_id']);
+    }
+
+    public function test_gbp_workspace_uses_the_active_binding_not_disabled_historical_location_evidence(): void
+    {
+        $customer = Customer::factory()->create();
+        $brand = Brand::factory()->create(['customer_id' => $customer->id]);
+        $gbp = DigitalAsset::factory()->create([
+            'brand_id' => $brand->id,
+            'type' => 'google_business_profile',
+            'name' => 'Moximu GBP',
+        ]);
+        $integration = CoreIntegration::factory()->google()->create([
+            'status' => CoreIntegration::STATUS_ACTIVE,
+        ]);
+        $oldResource = CoreExternalResource::factory()->create([
+            'integration_id' => $integration->id,
+            'provider' => ProviderRegistry::GOOGLE,
+            'resource_type' => GbpLocationBoundCollector::CAPABILITY,
+            'external_id' => 'locations/old-location',
+            'display_name' => 'Old Location',
+            'status' => CoreExternalResource::STATUS_AVAILABLE,
+        ]);
+        $newResource = CoreExternalResource::factory()->create([
+            'integration_id' => $integration->id,
+            'provider' => ProviderRegistry::GOOGLE,
+            'resource_type' => GbpLocationBoundCollector::CAPABILITY,
+            'external_id' => 'locations/new-location',
+            'display_name' => 'New Location',
+            'status' => CoreExternalResource::STATUS_AVAILABLE,
+        ]);
+        $oldBinding = CoreAssetBinding::factory()->create([
+            'digital_asset_id' => $gbp->id,
+            'external_resource_id' => $oldResource->id,
+            'capability' => GbpLocationBoundCollector::CAPABILITY,
+            'status' => CoreAssetBinding::STATUS_DISABLED,
+        ]);
+        $activeBinding = CoreAssetBinding::factory()->create([
+            'digital_asset_id' => $gbp->id,
+            'external_resource_id' => $newResource->id,
+            'capability' => GbpLocationBoundCollector::CAPABILITY,
+            'status' => CoreAssetBinding::STATUS_ACTIVE,
+        ]);
+
+        $oldRun = Run::query()->create([
+            'digital_asset_id' => $gbp->id,
+            'core_asset_binding_id' => $oldBinding->id,
+            'module_id' => GbpLocationBoundCollector::MODULE_ID,
+            'status' => 'completed',
+            'started_at' => now()->subHour(),
+            'finished_at' => now()->subHour(),
+            'metadata' => ['capability' => GbpLocationBoundCollector::CAPABILITY],
+        ]);
+        Evidence::query()->create([
+            'run_id' => $oldRun->id,
+            'digital_asset_id' => $gbp->id,
+            'source_module' => GbpLocationBoundCollector::MODULE_ID,
+            'type' => GbpLocationBoundCollector::EVIDENCE_TYPE,
+            'title' => 'Old GBP location',
+            'payload' => [
+                'ok' => true,
+                'title' => 'Historical Location Title',
+                'website_uri' => 'https://old.example',
+                'storefront_address' => [
+                    'address_lines' => ['Old Street 1'],
+                    'locality' => 'Oldtown',
+                ],
+            ],
+            'observed_at' => now()->subHour(),
+        ]);
+
+        $workspace = app(GbpOperatorWorkspace::class)->for($gbp->fresh(['brand']));
+
+        $this->assertTrue($workspace['connection']['bound']);
+        $this->assertSame($activeBinding->id, $workspace['connection']['binding_id']);
+        $this->assertSame($newResource->id, $workspace['connection']['resource_id']);
+        $this->assertSame('New Location', $workspace['connection']['resource_name']);
+        $this->assertNotSame('Historical Location Title', $workspace['identity']['title']);
+        $this->assertStringNotContainsString('Oldtown', (string) $workspace['identity']['location_line']);
+        $this->assertSame('configured', $workspace['migration_mode']);
+        $this->assertContains('reviews', $workspace['unsupported_live_capabilities']);
+        $this->assertContains('performance', $workspace['unsupported_live_capabilities']);
     }
 
     public function test_sales_intent_paid_call_policy_can_be_enabled_from_dataforseo_integration_config(): void
