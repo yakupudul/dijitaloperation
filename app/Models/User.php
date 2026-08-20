@@ -50,7 +50,10 @@ class User extends Authenticatable implements FilamentUser
 
     public function sendPasswordResetNotification(#[\SensitiveParameter] $token): void
     {
-        $this->notify(new OperatorResetPasswordNotification($token));
+        $this->notify(
+            (new OperatorResetPasswordNotification($token))
+                ->locale(OperatorResetPasswordNotification::mailLocale($this))
+        );
     }
 
     /**

@@ -324,6 +324,35 @@ class PhaseDOperationalSettingsTest extends TestCase
         Notification::assertSentTimes(OperatorResetPasswordNotification::class, 1);
     }
 
+    public function test_operator_reset_password_mail_renders_for_en_and_tr(): void
+    {
+        $en = User::factory()->create([
+            'email' => 'reset-mail-en@example.test',
+            'locale' => 'en',
+            'is_active' => true,
+        ]);
+        $tr = User::factory()->create([
+            'email' => 'reset-mail-tr@example.test',
+            'locale' => 'tr',
+            'is_active' => true,
+        ]);
+
+        $enMail = (new OperatorResetPasswordNotification('render-token-en'))->toMail($en);
+        $trMail = (new OperatorResetPasswordNotification('render-token-tr'))->toMail($tr);
+
+        $enHtml = $enMail->render();
+        $trHtml = $trMail->render();
+
+        $this->assertSame(__('operator.mail.reset_subject', [], 'en'), $enMail->subject);
+        $this->assertSame(__('operator.mail.reset_subject', [], 'tr'), $trMail->subject);
+        $this->assertStringContainsString(__('operator.mail.reset_line', [], 'en'), $enHtml);
+        $this->assertStringContainsString(__('operator.mail.reset_action', [], 'en'), $enHtml);
+        $this->assertStringContainsString(__('operator.mail.reset_line', [], 'tr'), $trHtml);
+        $this->assertStringContainsString(__('operator.mail.reset_action', [], 'tr'), $trHtml);
+        $this->assertStringNotContainsString(__('operator.mail.reset_line', [], 'tr'), $enHtml);
+        $this->assertStringNotContainsString(__('operator.mail.reset_line', [], 'en'), $trHtml);
+    }
+
     public function test_operator_password_reset_completes_for_active_user(): void
     {
         Notification::fake();
