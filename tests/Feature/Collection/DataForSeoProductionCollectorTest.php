@@ -158,6 +158,10 @@ class DataForSeoProductionCollectorTest extends TestCase
         $this->assertTrue($first->checkpoint['paid_attempt_started'] ?? false);
         $this->assertTrue($first->checkpoint['paid_called'] ?? false);
         $this->assertTrue($first->checkpoint['normalized'] ?? false);
+        $durableSuccess = $datasetRun->fresh()?->checkpoint ?? [];
+        $this->assertTrue($durableSuccess['paid_attempt_started'] ?? false);
+        $this->assertTrue($durableSuccess['paid_called'] ?? false);
+        $this->assertTrue($durableSuccess['normalized'] ?? false);
         $this->assertSame(1, DB::table('dataforseo_ranked_keyword_snapshot')->count());
         $row = DB::table('dataforseo_ranked_keyword_snapshot')->first();
         $this->assertSame('moximu.com', $row->target);

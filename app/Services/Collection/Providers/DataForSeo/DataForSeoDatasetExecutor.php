@@ -213,7 +213,7 @@ final class DataForSeoDatasetExecutor implements DatasetExecutor
                 return $this->errors->fromPaidAttempt($e);
             }
 
-            return $this->completedCounted(1, 1, [
+            $completed = [
                 'paid_attempt_started' => true,
                 'paid_called' => true,
                 'normalized' => true,
@@ -225,7 +225,10 @@ final class DataForSeoDatasetExecutor implements DatasetExecutor
                 'cache_status' => 'MISS',
                 'kind' => $kind,
                 'endpoint' => $endpoint,
-            ], count($records), count($records));
+            ];
+            $this->checkpoints->advance($context->datasetRun, $completed);
+
+            return $this->completedCounted(1, 1, $completed, count($records), count($records));
         } finally {
             $lock->release();
         }
