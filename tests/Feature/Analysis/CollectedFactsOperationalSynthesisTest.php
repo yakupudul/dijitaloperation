@@ -3,6 +3,7 @@
 namespace Tests\Feature\Analysis;
 
 use App\Enums\RecommendationOrigin;
+use App\Jobs\Async\EvaluateFindingsForAssetJob;
 use App\Models\Brand;
 use App\Models\Collection\CollectionRun;
 use App\Models\CoreAssetBinding;
@@ -19,7 +20,9 @@ use App\Models\User;
 use App\Services\Analysis\CollectedFactsAnalysisService;
 use App\Services\CreateTaskFromRecommendation;
 use App\Services\CrossAssetWebsiteGoogleAdsLandingConsistencyService;
+use App\Services\Findings\FindingEvaluationService;
 use App\Services\GoogleAdsLandingFinalUrlsCollectService;
+use App\Services\Recommendations\CreateRecommendationFromFinding;
 use App\Services\Tasks\TaskLifecycleService;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Roles;
@@ -316,6 +319,79 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
         $this->assertSame(0, Finding::query()->where('digital_asset_id', $websiteB->id)->count());
     }
 
+    #[Test]
+    public function evaluate_findings_job_runs_collected_facts_adapters(): void
+    {
+        config(['moxdop-opportunity-rules.evaluate_after_findings' => false]);
+        $website = $this->makeWebsiteAsset('https://atlas.example/');
+        $collectionRun = $this->makeCollectionRun($website);
+        $this->insertWebsiteMetadata($website, $collectionRun->id, '2026-08-20 09:00:00', [
+            'title' => null,
+            'title_present' => false,
+            'meta_description' => 'Atlas Dental clinic in Istanbul offers implant and smile design services for visiting patients.',
+            'meta_description_present' => true,
+        ]);
+
+        (new EvaluateFindingsForAssetJob($website->id))->handle(
+            app(FindingEvaluationService::class),
+            app(CollectedFactsAnalysisService::class),
+        );
+
+        $this->assertSame(1, Finding::query()
+            ->where('digital_asset_id', $website->id)
+            ->where('fingerprint', DocumentHeadCatalog::RULE_TITLE_MISSING)
+            ->count());
+        $this->assertSame(0, Task::query()->count());
+        Http::assertNothingSent();
+    }
+
+    #[Test]
+    public function canonical_finding_evaluation_emits_outcome_v1_on_later_clear(): void
+    {
+        $this->travelTo('2026-08-20 10:00:00');
+        $website = $this->makeWebsiteAsset('https://atlas.example/');
+        $evidence = $this->writeCanonicalGsc($website, 'ev-decline', 200, 50);
+
+        app(FindingEvaluationService::class)->evaluateAsset($website, ruleIds: ['website:gsc:clicks-decline']);
+        $finding = Finding::query()
+            ->where('digital_asset_id', $website->id)
+            ->where('fingerprint', 'website:gsc:clicks-decline')
+            ->firstOrFail();
+        $this->assertSame('website', $finding->source_module);
+        $this->assertSame(0, Recommendation::query()->count());
+        $this->assertSame(0, Task::query()->count());
+
+        $recommendation = app(CreateRecommendationFromFinding::class)->create(
+            $finding,
+            [
+                'title' => 'Investigate Search Console click decline',
+                'action' => 'Review cited Search Console Evidence before changing the site.',
+            ],
+            RecommendationOrigin::DeterministicTemplate,
+            $this->admin,
+        );
+        $task = app(CreateTaskFromRecommendation::class)->create($recommendation);
+        $this->assertNull($task->assignee_id);
+        $this->assertNull($task->due_date);
+
+        $task = app(TaskLifecycleService::class)->complete($task, [
+            'completion_note' => 'Published content outside MoxDOP.',
+        ], $this->admin);
+        $this->assertSame(TaskOutcomeStatus::AWAITING_FOLLOW_UP, $task->outcome_status);
+        $this->assertFalse(data_get($task->outcome_json, 'causal_attribution'));
+
+        $this->travelTo('2026-08-20 11:00:00');
+        $evidence->forceFill([
+            'payload' => $this->gscPeriodPayload(200, 190),
+        ])->save();
+        app(FindingEvaluationService::class)->evaluateAsset($website, ruleIds: ['website:gsc:clicks-decline']);
+
+        $this->assertSame('resolved', $finding->fresh()->status);
+        $this->assertSame(TaskOutcomeStatus::IMPROVEMENT_OBSERVED, $task->fresh()->outcome_status);
+        $this->assertFalse(data_get($task->fresh()->outcome_json, 'causal_attribution'));
+        Http::assertNothingSent();
+    }
+
     private function agencyIntegration(string $provider): CoreIntegration
     {
         return CoreIntegration::query()->firstOrCreate(
@@ -562,5 +638,66 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
             ],
             'observed_at' => now(),
         ]);
+    }
+
+    private function writeCanonicalGsc(DigitalAsset $asset, string $fingerprint, int $clicksPrev, int $clicksCurrent): Evidence
+    {
+        $run = Run::factory()->create([
+            'digital_asset_id' => $asset->id,
+            'module_id' => 'evidence-canonicalization',
+            'status' => 'completed',
+        ]);
+
+        return Evidence::factory()->create([
+            'run_id' => $run->id,
+            'digital_asset_id' => $asset->id,
+            'source_module' => 'search-console',
+            'type' => 'gsc.property.period_comparison',
+            'definition_id' => 'gsc.property.period_comparison',
+            'evidence_fingerprint' => $fingerprint.'-'.$asset->id,
+            'is_canonical' => true,
+            'eligibility_status' => 'eligible',
+            'title' => 'gsc.property.period_comparison',
+            'generated_by_ai' => false,
+            'payload' => $this->gscPeriodPayload($clicksPrev, $clicksCurrent),
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function gscPeriodPayload(int $clicksPrev, int $clicksCurrent): array
+    {
+        $relative = $clicksPrev === 0 ? null : ($clicksCurrent - $clicksPrev) / $clicksPrev;
+
+        return [
+            'definition_id' => 'gsc.property.period_comparison',
+            'freshness_state' => 'FRESH',
+            'integrity_status' => 'pass',
+            'period' => [
+                'current' => ['start' => '2026-07-16', 'end' => '2026-08-12'],
+                'previous' => ['start' => '2026-06-18', 'end' => '2026-07-15'],
+            ],
+            'metrics' => [
+                'clicks' => [
+                    'current' => $clicksCurrent,
+                    'previous' => $clicksPrev,
+                    'relative_change' => $relative,
+                    'relative_change_state' => 'VALUE',
+                ],
+                'impressions' => [
+                    'current' => 90,
+                    'previous' => 100,
+                    'relative_change' => -0.1,
+                    'relative_change_state' => 'VALUE',
+                ],
+                'ctr' => [
+                    'current' => 0.19,
+                    'previous' => 0.20,
+                    'current_state' => 'VALUE',
+                    'previous_state' => 'VALUE',
+                ],
+            ],
+        ];
     }
 }
