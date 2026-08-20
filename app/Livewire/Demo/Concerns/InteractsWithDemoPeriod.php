@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Demo\Concerns;
 
+use App\Services\Operator\AgencySettingService;
 use App\Support\Demo\DemoPeriod;
 use App\Support\Demo\DemoState;
 use Livewire\Attributes\Url;
@@ -33,7 +34,8 @@ trait InteractsWithDemoPeriod
         $queryPeriod = request()->query('period');
         if (! filled($queryPeriod)) {
             $state = DemoState::all();
-            $this->period = (string) ($state['period_preset'] ?? $this->period ?: 'last_28');
+            $defaultPreset = app(AgencySettingService::class)->defaultAnalyticalDateRange();
+            $this->period = (string) ($state['period_preset'] ?? $this->period ?: $defaultPreset);
             $this->periodStart = $state['period_start'] ?? $this->periodStart;
             $this->periodEnd = $state['period_end'] ?? $this->periodEnd;
             $this->compare = array_key_exists('compare', $state) ? (bool) $state['compare'] : $this->compare;

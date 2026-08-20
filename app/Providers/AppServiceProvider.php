@@ -116,6 +116,7 @@ use App\Services\MetaAds\MetaAdsSpecialistBindingResolver;
 use App\Services\MetaAds\MetaAdsSpecialistReadService;
 use App\Services\MetaAds\MetaAdsUiDatasetGate;
 use App\Services\Operator\AgencySettingService;
+use App\Services\Operator\OperatorMailConfigService;
 use App\Services\Opportunities\OpportunityRuleRegistry;
 use App\Services\SectorLearning\ProductionSectorLearningPrivacyGate;
 use App\Services\SectorLearning\SectorLearningAggregatorService;
@@ -155,6 +156,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(AgencySettingService::class);
+        $this->app->singleton(OperatorMailConfigService::class);
 
         $this->app->singleton(BoundCollectorRegistry::class);
         $this->app->singleton(BoundEvidenceRuleRegistry::class);
@@ -330,8 +332,14 @@ class AppServiceProvider extends ServiceProvider
             'operator.layouts.app',
             'operator.layouts.sidebar',
             'operator.auth.login',
+            'operator.auth.forgot-password',
+            'operator.auth.reset-password',
         ], function ($view): void {
             $view->with('operatorBranding', app(AgencySettingService::class)->branding());
+        });
+
+        $this->app->booted(function (): void {
+            app(OperatorMailConfigService::class)->applyToRuntime();
         });
     }
 }

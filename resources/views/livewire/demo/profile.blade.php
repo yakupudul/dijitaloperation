@@ -30,7 +30,7 @@
                     </button>
                 @endif
                 @if ($removeAvatar)
-                    <p class="text-xs text-amber-600 dark:text-amber-400">Avatar will be removed on save.</p>
+                    <p class="text-xs text-amber-600 dark:text-amber-400">{{ __('operator.profile.remove_avatar_pending') }}</p>
                 @endif
             </div>
         </div>

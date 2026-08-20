@@ -83,6 +83,7 @@
 | Website production crawl collection | YES | YES | NO | NO | YES | **PARTIAL** | Unmerged stacked child of PR #203. Live Website crawl / staging Collection Engine UAT **not** reachable from this Cursor Cloud agent (no operator Website binding on this pod, no staging SSH). Legacy Website Evidence collectors remain; this path writes Data Pool facts only. WordPress `WEB_RF_WP_REST` stays DEFERRED. | Shared Collection Engine `WebsiteDatasetExecutor` for COLLECTION_READY families: `WEB_RF_HTTP_HTML_DIAGNOSIS`, `WEB_RF_PUBLIC_CRAWL`, `WEB_RF_DNS_TLS`, `WEB_RF_PAGESPEED`. Asset-capability planner (no External Resource binding). Google/Meta sibling bindings never enter Website runs. Snapshot `observed_at` is checkpoint-frozen. Not DONE. |
 | DataForSEO production enrichment (engine-driven) | YES | YES | NO | NO | YES | **PARTIAL** | Unmerged stacked child of PR #203. Live Marketing/Labs UAT **not** reachable (`DATAFORSEO` credentials unset in this agent; no staging SSH). Paid POST is never auto-retried / never routinely scheduled. Fail-closed `paid_attempt_started` is checkpointed before the charged POST; an unresolved attempt fail-closes that DatasetRun (`CHARGE_UNKNOWN`) even if the fingerprint recomputes. A different fingerprint is allowed only on a new DatasetRun. Legacy SEO Evidence collectors unchanged. Domain intersection, relevant pages, and SERP organic stay DEFERRED. | Shared engine `DataForSeoDatasetExecutor` for COLLECTION_READY: `DFS-FREE-USER`, `DFS-FREE-MARKETS`, `DFS-RK-LIVE`, `DFS-KFS-LIVE`, `DFS-COMP-DOMAIN-LIVE`. Agency Integration credentials; facts are Website-asset scoped. Paid families require `paid_enrichment_consented`; competitors also require `public_discovery`. Missing search_volume/etv recorded as missing, never a measured zero. Not DONE. |
 | Agency brain / operational synthesis (Phase C.1) | YES | YES | NO | N/A | N/A | **PARTIAL** | Canonical child is PR #206 (PR #205 superseded). Live provider/staging UAT from #200/#203/#204 remains an isolated external gate and is **not** claimed here. No BrainV2 / FindingV2 / Result entity / auto-Task / Agency Learning. Document Head charset/viewport/OG stay unevaluated when those snapshot fields were not collected. Meta primary-result rules stay unevaluated without a collected `primary_result.status`. | `EvaluateFindingsForAssetJob` runs canonical `FindingEvaluationService` then `CollectedFactsAnalysisService`. Website `DocumentHeadEvaluator` (`website_metadata_snapshot`); Google Ads `GoogleAdsPerformanceBoundEvidenceEvaluator` (`google_ads_campaign_daily` spend-with-zero-conversions); Meta Ads `MetaAdsPerformanceBoundEvidenceEvaluator` (`meta_campaign_daily` + snapshot inactive-with-spend). `FindingEvaluationService` now emits `FindingEvaluationCompleted` so Outcome V1 observes GSC/GA4 canonical evaluations. Manual `CreateTaskFromRecommendation`. Sibling Brand/provider warehouse rows never enter collected-facts runs. Not DONE. |
+| Operational / settings completeness (Phase D) | YES | YES | NO | YES | N/A | **PARTIAL** | Live SMTP delivery UAT and browser/mobile push remain external/deferred. No SaaS whitelabel, no second credential screen, no SettingsV2. | Canonical operator `/settings` + `/profile` + `/integrations`. Admin/Team Member lifecycle with deactivate-not-delete. Agency timezone/locale drive operator rendering via `OperatorClock` (storage clock stays `APP_TIMEZONE`). Encrypted write-only operator SMTP overlay with env fallback and test-mail action. In-app notification preferences only; push not implemented. |
 
 ---
 
@@ -142,6 +143,22 @@ Phase C.1 wires already-supported deterministic analyzers to collected Data Pool
 Canonical production job `EvaluateFindingsForAssetJob` now runs collected-facts adapters after `FindingEvaluationService`. `FindingEvaluationService` emits `FindingEvaluationCompleted` so Outcome V1 can observe later canonical GSC/GA4 evaluations (ported from superseded PR #205; Google Ads account `conversions-decline` Evidence definition was not copied because #206 already has a campaign-grain Ads vertical). Manual Recommendation → Task remains human. AI does not create Findings or Tasks. Live provider UAT from #200/#203/#204 is a separate external gate.
 
 Do **not** describe this slice as “Agency brain DONE” or as proof of live Google/Meta/Website collection UAT.
+
+### Operational / settings completeness (Phase D) — PARTIAL, not DONE
+
+Phase D reuses the existing operator Settings/Team/Profile/Integrations surfaces. It does **not** introduce SettingsV2, UserV2, NotificationV2, SaaS whitelabel, or a second credential store.
+
+Shipped in this slice:
+
+- Admin-only team create/role/deactivate (no destructive delete; last admin protected)
+- Operator forgot-password / reset on `/forgot-password` (inactive/unknown emails share the same success copy and receive no mail; successful reset rotates remember token and does not reactivate)
+- Agency timezone/locale/default analytical range affect operator date rendering (`OperatorClock`) and session period defaults. Invalid stored timezone/locale values fall back to catalog defaults. Laravel `APP_TIMEZONE` remains the storage clock (password-reset tokens / Eloquent datetimes / queue+artisan are not rewritten per operator).
+- Operator SMTP overlay: encrypted write-only password, env fallback without copying env secrets into the DB, test-mail action; invalid host/port/encryption is rejected without poisoning runtime mail config; test-mail failures log exception class only
+- In-app notification preferences for existing events; browser/mobile push is **not** implemented
+
+**Not claimed:** live SMTP provider UAT, web-push/PWA, SaaS tenant branding, or Filament as the canonical operator settings product (`/admin` remains technical).
+
+Do **not** describe this slice as “Phase D DONE”.
 
 ### Public Website Discovery is limited
 

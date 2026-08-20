@@ -4,6 +4,7 @@ namespace App\Support\Demo;
 
 use App\Models\Brand;
 use App\Models\Customer;
+use App\Services\Operator\AgencySettingService;
 use App\Support\Options\CountryOptions;
 
 /**
@@ -92,7 +93,7 @@ final class DemoState
             'execution_overrides' => [],
             'hypotheses' => [],
             'ai_brief_visible' => false,
-            'period_preset' => 'last_28',
+            'period_preset' => app(AgencySettingService::class)->defaultAnalyticalDateRange(),
             'period_start' => null,
             'period_end' => null,
             'compare' => true,

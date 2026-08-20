@@ -4,6 +4,7 @@ namespace App\Providers\Filament;
 
 use App\Filament\App\Widgets\OpsActionOverviewWidget;
 use App\Http\Middleware\SetOperatorLocale;
+use App\Http\Middleware\SetOperatorTimezone;
 use App\Support\MoxDopNavigation;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -83,6 +84,7 @@ class AppPanelProvider extends PanelProvider
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
                 SetOperatorLocale::class,
+                SetOperatorTimezone::class,
             ])
             ->authMiddleware([
                 Authenticate::class,
