@@ -474,6 +474,81 @@ class DataForSeoProductionCollectorTest extends TestCase
         $this->assertSame(2, $posts);
     }
 
+    #[Test]
+    public function same_dataset_run_stays_fail_closed_when_request_fingerprint_recomputation_changes(): void
+    {
+        [$context, $datasetRun] = $this->makeContext(DataForSeoRequestFamilyCatalog::FAMILY_RANKED_KEYWORDS, consented: true);
+        $posts = 0;
+        $markerDuringFirstPost = false;
+
+        Http::fake(function ($request) use ($datasetRun, &$posts, &$markerDuringFirstPost) {
+            if ($request->method() !== 'POST') {
+                return Http::response(['status_code' => 20000, 'tasks' => []], 200);
+            }
+
+            $posts++;
+            if ($posts === 1) {
+                $datasetRun->refresh();
+                $checkpoint = is_array($datasetRun->checkpoint) ? $datasetRun->checkpoint : [];
+                $markerDuringFirstPost = ($checkpoint['paid_attempt_started'] ?? false) === true;
+
+                throw new ConnectionException('ambiguous charge on the original fingerprint');
+            }
+
+            return Http::response($this->rankedKeywordsFixture(), 200);
+        });
+
+        $first = app(DataForSeoDatasetExecutor::class)->execute($context);
+        $this->assertTrue($markerDuringFirstPost);
+        $this->assertSame(DatasetExecutionOutcome::Failed, $first->outcome);
+        $this->assertSame('CHARGE_UNKNOWN', $first->errorCode);
+        $this->assertSame(1, $posts);
+
+        $beforeMutation = $datasetRun->fresh()?->checkpoint ?? [];
+        $storedFingerprint = $beforeMutation['request_fingerprint'] ?? null;
+        $this->assertIsString($storedFingerprint);
+        $this->assertNotSame('', $storedFingerprint);
+        $this->assertTrue($beforeMutation['paid_attempt_started'] ?? false);
+        $this->assertFalse($beforeMutation['normalized'] ?? true);
+
+        $this->asset->forceFill([
+            'seo_market_language_code' => 'en',
+            'seo_market_language_name' => 'English',
+        ])->save();
+
+        $mutated = $this->replay($context, $datasetRun);
+        $this->assertSame(DatasetExecutionOutcome::Failed, $mutated->outcome);
+        $this->assertSame('CHARGE_UNKNOWN', $mutated->errorCode);
+        $this->assertStringContainsString($storedFingerprint, (string) $mutated->errorMessage);
+        $this->assertStringContainsString('differs from computed', (string) $mutated->errorMessage);
+        $this->assertSame(1, $posts);
+
+        $afterMutation = $datasetRun->fresh()?->checkpoint ?? [];
+        $this->assertSame($storedFingerprint, $afterMutation['request_fingerprint'] ?? null);
+        $this->assertTrue($afterMutation['paid_attempt_started'] ?? false);
+        $this->assertFalse($afterMutation['paid_called'] ?? true);
+        $this->assertFalse($afterMutation['normalized'] ?? true);
+
+        $run = $context->collectionRun->fresh() ?? $context->collectionRun;
+        $requestContext = is_array($run->request_context) ? $run->request_context : [];
+        $requestContext['force_refresh'] = true;
+        $run->forceFill(['request_context' => $requestContext])->save();
+
+        $forced = $this->replay($context, $datasetRun, attemptNumber: 3);
+        $this->assertSame(DatasetExecutionOutcome::Failed, $forced->outcome);
+        $this->assertSame('CHARGE_UNKNOWN', $forced->errorCode);
+        $this->assertSame(1, $posts);
+        $this->assertSame($storedFingerprint, $datasetRun->fresh()?->checkpoint['request_fingerprint'] ?? null);
+
+        [$otherContext] = $this->makeContext(DataForSeoRequestFamilyCatalog::FAMILY_RANKED_KEYWORDS, consented: true);
+        $other = app(DataForSeoDatasetExecutor::class)->execute($otherContext);
+        $this->assertSame(DatasetExecutionOutcome::Completed, $other->outcome, (string) $other->errorMessage);
+        $this->assertTrue($other->checkpoint['normalized'] ?? false);
+        $this->assertNotSame($storedFingerprint, $other->checkpoint['request_fingerprint'] ?? $storedFingerprint);
+        $this->assertSame(2, $posts);
+        $this->assertSame($storedFingerprint, $datasetRun->fresh()?->checkpoint['request_fingerprint'] ?? null);
+    }
+
     private function runFamily(string $family, bool $consented = false, bool $discovery = false): DatasetExecutionResult
     {
         [$context, $datasetRun] = $this->makeContext($family, $consented, $discovery);

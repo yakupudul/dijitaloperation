@@ -235,8 +235,9 @@ final class DataForSeoDatasetExecutor implements DatasetExecutor
     }
 
     /**
-     * Fail closed when this DatasetRun already started a paid POST for the same fingerprint
-     * and facts were not proven committed. forceRefresh and engine resume must not POST again.
+     * Fail closed when this DatasetRun already started a paid POST and facts were not
+     * proven committed. A newly computed fingerprint must not POST again on the same run;
+     * only a different DatasetRun may issue a different charged request.
      *
      * @param  array<string, mixed>  $checkpoint
      */
@@ -254,13 +255,14 @@ final class DataForSeoDatasetExecutor implements DatasetExecutor
         }
 
         $startedFingerprint = $checkpoint['request_fingerprint'] ?? null;
+        $message = 'A paid DataForSEO request was already attempted for this DatasetRun. Automatic retry is forbidden (CHARGE_UNKNOWN).';
         if (is_string($startedFingerprint) && $startedFingerprint !== '' && $startedFingerprint !== $fingerprint) {
-            return null;
+            $message .= ' Stored request fingerprint ['.$startedFingerprint.'] differs from computed ['.$fingerprint.']; the original attempt remains unresolved.';
         }
 
         return DatasetExecutionResult::failed(
             CollectionErrorCategory::Unknown,
-            'A paid DataForSEO request was already attempted for this DatasetRun. Automatic retry is forbidden (CHARGE_UNKNOWN).',
+            $message,
             'CHARGE_UNKNOWN',
         );
     }

@@ -15,7 +15,7 @@ final class DataForSeoProviderCapabilities
 
     public const string ESTIMATED_NOTE = 'DataForSEO etv / search_volume / traffic value are PROVIDER_ESTIMATED, never GA4/GSC measured traffic.';
 
-    public const string PAID_NOTE = 'Paid POSTs are cache-first, fingerprint-locked, never auto-retried, and never scheduled by the routine collection scheduler. A fail-closed paid_attempt_started checkpoint is committed before the HTTP call leaves the process; resume and forceRefresh must not POST again for that fingerprint without a proven normalized commit.';
+    public const string PAID_NOTE = 'Paid POSTs are cache-first, fingerprint-locked, never auto-retried, and never scheduled by the routine collection scheduler. A fail-closed paid_attempt_started checkpoint is committed before the HTTP call leaves the process; an unresolved attempt fail-closes that DatasetRun even if the fingerprint recomputes. Only a new DatasetRun may issue a different charged request.';
 
     public const string SCOPE_NOTE = 'Agency Integration credentials; facts remain Website Digital Asset scoped. DataForSEO is not a Digital Asset or External Resource binding.';
 }
