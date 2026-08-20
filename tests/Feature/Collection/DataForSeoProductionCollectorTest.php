@@ -14,6 +14,7 @@ use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\Customer;
+use App\Models\DataPool\DatasetWriteBatch;
 use App\Models\DigitalAsset;
 use App\Models\Evidence;
 use App\Models\User;
@@ -183,6 +184,73 @@ class DataForSeoProductionCollectorTest extends TestCase
         $this->assertSame(DatasetExecutionOutcome::Completed, $replay->outcome, (string) $replay->errorMessage);
         $this->assertTrue($replay->checkpoint['normalized'] ?? false);
         Http::assertSentCount(1);
+    }
+
+    #[Test]
+    public function paid_write_idempotency_is_scoped_to_dataset_run_not_request_fingerprint(): void
+    {
+        Http::fake([
+            'https://api.dataforseo.com/v3/dataforseo_labs/google/ranked_keywords/live' => Http::response(
+                $this->rankedKeywordsFixture(),
+                200,
+            ),
+        ]);
+
+        $this->travelTo('2026-08-20 10:00:00');
+        [$contextA, $runA] = $this->makeContext(DataForSeoRequestFamilyCatalog::FAMILY_RANKED_KEYWORDS, consented: true);
+        $first = app(DataForSeoDatasetExecutor::class)->execute($contextA);
+        $this->assertSame(DatasetExecutionOutcome::Completed, $first->outcome, (string) $first->errorMessage);
+        $fingerprint = (string) ($first->checkpoint['request_fingerprint'] ?? '');
+        $this->assertNotSame('', $fingerprint);
+        $this->assertSame(1, DatasetWriteBatch::query()->count());
+        $this->assertSame(1, DB::table('dataforseo_ranked_keyword_snapshot')->where('digital_asset_id', $this->asset->id)->count());
+
+        $sibling = DigitalAsset::factory()->create([
+            'brand_id' => $this->brand->id,
+            'type' => 'website',
+            'module_id' => 'website',
+            'status' => DigitalAssetStatus::Active,
+            'domain' => 'https://www.moximu.com/',
+            'primary_url' => 'https://www.moximu.com/',
+            'seo_market_location_code' => 2792,
+            'seo_market_location_name' => 'Turkey',
+            'seo_market_language_code' => 'tr',
+            'seo_market_language_name' => 'Turkish',
+        ]);
+        $this->travelTo('2026-08-20 10:01:00');
+        [$contextB, $runB] = $this->makeContext(
+            DataForSeoRequestFamilyCatalog::FAMILY_RANKED_KEYWORDS,
+            consented: true,
+            asset: $sibling,
+        );
+        $second = app(DataForSeoDatasetExecutor::class)->execute($contextB);
+        $this->assertSame(DatasetExecutionOutcome::Completed, $second->outcome, (string) $second->errorMessage);
+        $this->assertSame($fingerprint, $second->checkpoint['request_fingerprint'] ?? null);
+        $this->assertSame(2, DatasetWriteBatch::query()->where('status', 'committed')->count());
+        $this->assertNotSame(
+            DatasetWriteBatch::query()->where('dataset_run_id', $runA->id)->value('idempotency_key'),
+            DatasetWriteBatch::query()->where('dataset_run_id', $runB->id)->value('idempotency_key'),
+        );
+        $this->assertSame(1, DB::table('dataforseo_ranked_keyword_snapshot')->where('digital_asset_id', $this->asset->id)->count());
+        $this->assertSame(1, DB::table('dataforseo_ranked_keyword_snapshot')->where('digital_asset_id', $sibling->id)->count());
+
+        $this->travelTo('2026-08-20 10:02:00');
+        [$contextRefresh, $runRefresh] = $this->makeContext(
+            DataForSeoRequestFamilyCatalog::FAMILY_RANKED_KEYWORDS,
+            consented: true,
+            forceRefresh: true,
+        );
+        $forced = app(DataForSeoDatasetExecutor::class)->execute($contextRefresh);
+        $this->assertSame(DatasetExecutionOutcome::Completed, $forced->outcome, (string) $forced->errorMessage);
+        $this->assertSame($fingerprint, $forced->checkpoint['request_fingerprint'] ?? null);
+        $this->assertSame(3, DatasetWriteBatch::query()->where('status', 'committed')->count());
+        $this->assertSame(1, DatasetWriteBatch::query()->where('dataset_run_id', $runRefresh->id)->where('status', 'committed')->count());
+
+        $replay = $this->replay($contextA, $runA);
+        $this->assertSame(DatasetExecutionOutcome::Completed, $replay->outcome, (string) $replay->errorMessage);
+        $this->assertSame(3, DatasetWriteBatch::query()->where('status', 'committed')->count());
+        $this->assertSame(1, DatasetWriteBatch::query()->where('dataset_run_id', $runA->id)->count());
+        Http::assertSentCount(3);
     }
 
     #[Test]
@@ -579,6 +647,7 @@ class DataForSeoProductionCollectorTest extends TestCase
         bool $consented = false,
         bool $discovery = false,
         ?DigitalAsset $asset = null,
+        bool $forceRefresh = false,
     ): array {
         $asset ??= $this->asset;
         $definition = DataForSeoRequestFamilyCatalog::definition($family);
@@ -589,6 +658,7 @@ class DataForSeoProductionCollectorTest extends TestCase
             'customer_id' => $this->brand->customer_id,
             'status' => CollectionRunStatus::Running,
             'request_context' => [
+                'force_refresh' => $forceRefresh,
                 'context' => [
                     'paid_enrichment_consented' => $consented,
                     'public_discovery' => $discovery,

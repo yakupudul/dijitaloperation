@@ -2,6 +2,8 @@
 
 namespace App\Services\Analysis\Adapters;
 
+use App\Enums\Collection\CollectionRunStatus;
+use App\Models\Collection\CollectionDatasetRun;
 use App\Models\DigitalAsset;
 use App\Models\Evidence;
 use App\Models\Run;
@@ -12,6 +14,8 @@ use App\Services\Findings\FindingLifecycleService;
 use App\Services\WebsiteDiagnosisService;
 use App\Support\Findings\RuleEvaluationResult;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use MoxDop\Website\Diagnosis\DocumentHeadEvaluator;
 use MoxDop\Website\Discovery\PublicUrlNormalizer;
@@ -107,8 +111,10 @@ final class WebsiteCollectedDocumentHeadAdapter
             return null;
         }
 
-        return DB::table('website_metadata_snapshot')
-            ->where('digital_asset_id', $asset->id)
+        return $this->constrainCompletedWebsiteQuery(
+            DB::table('website_metadata_snapshot')->where('digital_asset_id', $asset->id),
+            $asset,
+        )
             ->whereIn('url', $homepageUrls)
             ->orderByDesc('observed_at')
             ->orderByDesc('id')
@@ -152,8 +158,10 @@ final class WebsiteCollectedDocumentHeadAdapter
             $requestKeys[$this->urlMatchKey($candidate)] = true;
         }
 
-        $httpRows = DB::table('website_http_snapshot')
-            ->where('digital_asset_id', $asset->id)
+        $httpRows = $this->constrainCompletedWebsiteQuery(
+            DB::table('website_http_snapshot')->where('digital_asset_id', $asset->id),
+            $asset,
+        )
             ->orderByDesc('observed_at')
             ->orderByDesc('id')
             ->get(['url', 'metadata']);
@@ -217,11 +225,40 @@ final class WebsiteCollectedDocumentHeadAdapter
 
     private function matchingSchemaSnapshot(DigitalAsset $asset, string $url, string $observedAt): ?object
     {
-        return DB::table('website_schema_snapshot')
-            ->where('digital_asset_id', $asset->id)
+        return $this->constrainCompletedWebsiteQuery(
+            DB::table('website_schema_snapshot')->where('digital_asset_id', $asset->id),
+            $asset,
+        )
             ->where('url', $url)
             ->where('observed_at', $observedAt)
             ->first();
+    }
+
+    private function constrainCompletedWebsiteQuery(Builder $query, DigitalAsset $asset): Builder
+    {
+        $ids = $this->completedWebsiteDatasetRunIds($asset);
+        if ($ids === []) {
+            return $query->whereRaw('0 = 1');
+        }
+
+        return $query->whereIn('last_dataset_run_id', $ids);
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function completedWebsiteDatasetRunIds(DigitalAsset $asset): array
+    {
+        return CollectionDatasetRun::query()
+            ->where('status', CollectionRunStatus::Completed)
+            ->whereHas('resourceRun', function (EloquentBuilder $resourceRun) use ($asset): void {
+                $resourceRun
+                    ->where('digital_asset_id', $asset->id)
+                    ->whereNull('external_resource_id');
+            })
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
     }
 
     /**

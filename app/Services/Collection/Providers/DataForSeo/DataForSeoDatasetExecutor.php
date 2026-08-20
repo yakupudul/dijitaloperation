@@ -561,7 +561,6 @@ final class DataForSeoDatasetExecutor implements DatasetExecutor
                 collectionRunId: (int) $context->collectionRun->id,
                 resourceRunId: (int) $context->resourceRun->id,
                 providerOrSource: 'DATAFORSEO',
-                idempotencyKey: $fingerprint,
             ),
             $envelope,
             rawRequired: true,

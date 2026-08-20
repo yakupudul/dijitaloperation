@@ -262,6 +262,104 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
     }
 
     #[Test]
+    public function website_document_head_ignores_running_or_failed_crawl_snapshots(): void
+    {
+        $website = $this->makeWebsiteAsset('https://atlas.example/');
+        $other = $this->makeWebsiteAsset('https://atlas.example/');
+        $collectionRun = $this->makeCollectionRun($website);
+        $failed = $this->makeDatasetRun(
+            $website,
+            $collectionRun,
+            'website_metadata_snapshot',
+            'WEBSITE_DIRECT',
+            CollectionRunStatus::Failed,
+        );
+        $running = $this->makeDatasetRun(
+            $website,
+            $this->makeCollectionRun($website),
+            'website_metadata_snapshot',
+            'WEBSITE_DIRECT',
+            CollectionRunStatus::Running,
+        );
+        Finding::factory()->create([
+            'digital_asset_id' => $website->id,
+            'source_module' => 'website-diagnosis',
+            'fingerprint' => DocumentHeadCatalog::RULE_TITLE_MISSING,
+            'status' => 'open',
+        ]);
+
+        $this->insertWebsiteHttpSnapshot(
+            $website,
+            $collectionRun->id,
+            '2026-08-20 09:00:00',
+            'https://atlas.example/',
+            'https://atlas.example/',
+            $failed->id,
+        );
+        $this->insertWebsiteMetadata($website, $collectionRun->id, '2026-08-20 09:00:00', [
+            'title' => null,
+            'title_present' => false,
+            'meta_description' => 'Failed crawl homepage must not open or resolve Document Head Findings.',
+            'meta_description_present' => true,
+        ], 'https://atlas.example/', $failed->id);
+        $this->insertWebsiteMetadata($website, $collectionRun->id, '2026-08-20 09:05:00', [
+            'title' => null,
+            'title_present' => false,
+            'meta_description' => 'Running crawl homepage must not open or resolve Document Head Findings.',
+            'meta_description_present' => true,
+        ], 'https://atlas.example/', $running->id);
+        $this->insertWebsiteMetadata($other, $collectionRun->id, '2026-08-20 09:00:00', [
+            'title' => null,
+            'title_present' => false,
+            'meta_description' => 'Sibling website completed snapshots cannot leak.',
+            'meta_description_present' => true,
+        ]);
+
+        $result = app(CollectedFactsAnalysisService::class)->analyze($website);
+        $this->assertFalse($result->evaluated);
+        $this->assertSame('unproven_website_homepage_snapshot', $result->skipReason);
+        $this->assertSame('open', Finding::query()
+            ->where('digital_asset_id', $website->id)
+            ->where('fingerprint', DocumentHeadCatalog::RULE_TITLE_MISSING)
+            ->value('status'));
+        $this->assertSame(0, Finding::query()->where('digital_asset_id', $other->id)->count());
+        $this->assertSame(0, Evidence::query()
+            ->where('digital_asset_id', $website->id)
+            ->where('type', 'page_html')
+            ->count());
+        Http::assertNothingSent();
+
+        $completedCollection = $this->makeCollectionRun($website);
+        $this->insertWebsiteHttpSnapshot(
+            $website,
+            $completedCollection->id,
+            '2026-08-20 10:00:00',
+            'https://atlas.example/',
+            'https://atlas.example/',
+        );
+        $this->insertWebsiteMetadata($website, $completedCollection->id, '2026-08-20 10:00:00', [
+            'title' => null,
+            'title_present' => false,
+            'meta_description' => 'Atlas Dental clinic in Istanbul offers implant and smile design services for visiting patients.',
+            'meta_description_present' => true,
+        ]);
+
+        $completed = app(CollectedFactsAnalysisService::class)->analyze($website);
+        $this->assertTrue($completed->evaluated);
+        $this->assertContains(DocumentHeadCatalog::RULE_TITLE_MISSING, $completed->evaluatedRuleIds);
+        $this->assertSame(1, Finding::query()
+            ->where('digital_asset_id', $website->id)
+            ->where('fingerprint', DocumentHeadCatalog::RULE_TITLE_MISSING)
+            ->where('status', 'open')
+            ->count());
+        $this->assertTrue((bool) data_get(
+            Evidence::query()->where('run_id', $completed->run?->id)->value('payload'),
+            'response_ok',
+        ));
+        Http::assertNothingSent();
+    }
+
+    #[Test]
     public function google_ads_campaign_zero_conversions_stays_on_bound_resource_and_reopens(): void
     {
         [$assetA, $resourceA, $collectionA] = $this->makeGoogleAdsAsset();
@@ -607,6 +705,116 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
             Evidence::query()->where('run_id', $result->run?->id)->value('payload'),
             'row_count',
         ));
+        Http::assertNothingSent();
+    }
+
+    #[Test]
+    public function meta_ads_failed_run_coverage_dates_cannot_fill_the_28_day_window(): void
+    {
+        [$asset, $resource, $backfillCollection] = $this->makeMetaAdsAsset();
+        $this->insertMetaCampaignDaily($asset, $resource, $backfillCollection->id, '2026-07-23', '1001', 80.0);
+        $this->insertMetaCampaignSnapshot($asset, $resource, '1001', 'Paused Lead Form', 'PAUSED', 'CAMPAIGN_PAUSED');
+        $backfillRun = $this->sealCompletedDailyFacts(
+            $asset,
+            $resource,
+            $backfillCollection,
+            'meta_campaign_daily',
+            'META_ADS',
+            'meta_campaign_daily',
+            '2026-08-12',
+            21,
+        );
+        $this->sealCompletedSnapshotFacts($asset, $resource, $backfillCollection);
+
+        $failedCollection = $this->makeCollectionRun($asset);
+        $failedRun = $this->makeDatasetRun(
+            $asset,
+            $failedCollection,
+            'meta_campaign_daily',
+            'META_ADS',
+            CollectionRunStatus::Failed,
+            $resource,
+        );
+        foreach ($this->inclusiveDateRange('2026-08-13', '2026-08-18') as $date) {
+            $this->insertMetaCampaignDaily($asset, $resource, $failedCollection->id, $date, '1001', 10.0, $failedRun->id);
+        }
+
+        $incrementalCollection = $this->makeCollectionRun($asset);
+        $incrementalRun = $this->makeDatasetRun(
+            $asset,
+            $incrementalCollection,
+            'meta_campaign_daily',
+            'META_ADS',
+            CollectionRunStatus::Completed,
+            $resource,
+        );
+        $this->insertMetaCampaignDaily($asset, $resource, $incrementalCollection->id, '2026-08-19', '1001', 12.0, $incrementalRun->id);
+
+        $allDates = $this->inclusiveDateRange('2026-07-23', '2026-08-19');
+        $failedDates = $this->inclusiveDateRange('2026-08-13', '2026-08-18');
+        DatasetMaterialization::query()
+            ->where('dataset_id', 'meta_campaign_daily')
+            ->where('digital_asset_id', $asset->id)
+            ->where('external_resource_id', $resource->id)
+            ->update([
+                'last_successful_collection_run_id' => $incrementalCollection->id,
+                'last_successful_dataset_run_id' => $incrementalRun->id,
+                'coverage_end_date' => '2026-08-19',
+                'status' => MaterializationStatus::Available,
+                'partial' => false,
+                'freshness_metadata' => [
+                    'successful_coverage_dates' => $allDates,
+                    'coverage_dates_by_dataset_run' => [
+                        (string) $backfillRun->id => $this->inclusiveDateRange('2026-07-23', '2026-08-12'),
+                        (string) $failedRun->id => $failedDates,
+                        (string) $incrementalRun->id => ['2026-08-19'],
+                    ],
+                    'internal_gaps' => [],
+                    'verified_contiguous_watermark' => '2026-08-19',
+                    'latest_observed_reporting_date' => '2026-08-19',
+                    'watermark_provenance' => 'successful_coverage_dates',
+                ],
+            ]);
+
+        $skipped = app(CollectedFactsAnalysisService::class)->analyze($asset);
+        $this->assertFalse($skipped->evaluated);
+        $this->assertSame('unusable_meta_campaign_daily', $skipped->skipReason);
+        $this->assertSame(0, Finding::query()->where('digital_asset_id', $asset->id)->count());
+        Http::assertNothingSent();
+
+        DatasetMaterialization::query()
+            ->where('dataset_id', 'meta_campaign_daily')
+            ->where('digital_asset_id', $asset->id)
+            ->where('external_resource_id', $resource->id)
+            ->update([
+                'freshness_metadata' => [
+                    'successful_coverage_dates' => $allDates,
+                    'coverage_dates_by_dataset_run' => [
+                        (string) $backfillRun->id => $this->inclusiveDateRange('2026-07-23', '2026-08-12'),
+                        (string) $failedRun->id => $failedDates,
+                        (string) $incrementalRun->id => $this->inclusiveDateRange('2026-08-13', '2026-08-19'),
+                    ],
+                    'zero_row_success_dates' => $failedDates,
+                    'internal_gaps' => [],
+                    'verified_contiguous_watermark' => '2026-08-19',
+                    'latest_observed_reporting_date' => '2026-08-19',
+                    'watermark_provenance' => 'successful_coverage_dates',
+                ],
+            ]);
+
+        $usable = app(CollectedFactsAnalysisService::class)->analyze($asset);
+        $this->assertTrue($usable->evaluated);
+        $this->assertSame('2026-07-23', $usable->provenance['period_start']);
+        $this->assertSame('2026-08-19', $usable->provenance['period_end']);
+        $this->assertSame($backfillRun->id, (int) DB::table('meta_campaign_daily')
+            ->where('campaign_id', '1001')
+            ->where('reporting_date', '2026-07-23')
+            ->value('last_dataset_run_id'));
+        $this->assertSame($incrementalRun->id, (int) DB::table('meta_campaign_daily')
+            ->where('campaign_id', '1001')
+            ->where('reporting_date', '2026-08-19')
+            ->value('last_dataset_run_id'));
+        $this->assertContains(MetaAdsFindingsCatalog::RULE_CAMPAIGN_INACTIVE_WITH_RECENT_SPEND, $usable->evaluatedRuleIds);
         Http::assertNothingSent();
     }
 
@@ -1221,6 +1429,7 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
             'partial' => false,
             'freshness_metadata' => [
                 'successful_coverage_dates' => $dates,
+                'coverage_dates_by_dataset_run' => [(string) $datasetRun->id => $dates],
                 'internal_gaps' => [],
                 'verified_contiguous_watermark' => $set->verifiedContiguousWatermark(),
                 'latest_observed_reporting_date' => $coverageDate,
@@ -1328,8 +1537,10 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
         string $observedAt,
         array $metadata,
         ?string $url = null,
+        ?int $datasetRunId = null,
     ): void {
         $pageUrl = $url ?? (string) $asset->primary_url;
+        $datasetRunId ??= $this->ensureCompletedWebsiteDatasetRun($asset, $collectionRunId);
         DB::table('website_metadata_snapshot')->insert([
             'digital_asset_id' => $asset->id,
             'external_resource_id' => null,
@@ -1337,7 +1548,7 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
             'observed_at' => $observedAt,
             'contract_version' => 1,
             'last_collection_run_id' => $collectionRunId,
-            'last_dataset_run_id' => null,
+            'last_dataset_run_id' => $datasetRunId,
             'first_collected_at' => $observedAt,
             'last_collected_at' => $observedAt,
             'source_timezone' => 'UTC',
@@ -1354,7 +1565,9 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
         string $observedAt,
         string $requestedUrl,
         string $finalUrl,
+        ?int $datasetRunId = null,
     ): void {
+        $datasetRunId ??= $this->ensureCompletedWebsiteDatasetRun($asset, $collectionRunId);
         DB::table('website_http_snapshot')->insert([
             'digital_asset_id' => $asset->id,
             'external_resource_id' => null,
@@ -1362,7 +1575,7 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
             'observed_at' => $observedAt,
             'contract_version' => 1,
             'last_collection_run_id' => $collectionRunId,
-            'last_dataset_run_id' => null,
+            'last_dataset_run_id' => $datasetRunId,
             'first_collected_at' => $observedAt,
             'last_collected_at' => $observedAt,
             'source_timezone' => 'UTC',
@@ -1376,6 +1589,35 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+    }
+
+    private function ensureCompletedWebsiteDatasetRun(DigitalAsset $asset, ?int $collectionRunId): int
+    {
+        $existing = CollectionDatasetRun::query()
+            ->where('status', CollectionRunStatus::Completed)
+            ->when($collectionRunId !== null, fn ($query) => $query->where('collection_run_id', $collectionRunId))
+            ->whereHas('resourceRun', function ($resourceRun) use ($asset): void {
+                $resourceRun
+                    ->where('digital_asset_id', $asset->id)
+                    ->whereNull('external_resource_id');
+            })
+            ->first();
+        if ($existing instanceof CollectionDatasetRun) {
+            return (int) $existing->id;
+        }
+
+        $collectionRun = $collectionRunId !== null
+            ? CollectionRun::query()->find($collectionRunId)
+            : null;
+        $collectionRun ??= $this->makeCollectionRun($asset);
+
+        return $this->makeDatasetRun(
+            $asset,
+            $collectionRun,
+            'website_metadata_snapshot',
+            'WEBSITE_DIRECT',
+            CollectionRunStatus::Completed,
+        )->id;
     }
 
     private function insertGoogleAdsCampaignDaily(

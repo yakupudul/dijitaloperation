@@ -10,6 +10,8 @@ use App\Services\DataPool\Integrity\Support\CoverageIntervalSet;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Query\Builder;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Usable collected-facts window: non-partial verified contiguous coverage plus completed DatasetRuns.
@@ -58,13 +60,22 @@ final class CollectedFactsCompletedCoverage
             return null;
         }
 
-        $coverageDates = self::successfulCoverageDates($materialization);
+        $completedIds = self::completedDatasetRunIdsFor(
+            $datasetId,
+            $digitalAssetId,
+            $externalResourceId,
+        );
+        if ($completedIds === []) {
+            return null;
+        }
+
+        $coverageDates = self::successfulCoverageDates($materialization, $completedIds);
         if ($coverageDates === []) {
             return null;
         }
 
         $set = CoverageIntervalSet::fromSuccessfulDates($coverageDates);
-        $watermark = self::verifiedWatermark($materialization, $set);
+        $watermark = $set->verifiedContiguousWatermark();
         if ($watermark === null) {
             return null;
         }
@@ -170,15 +181,33 @@ final class CollectedFactsCompletedCoverage
     /**
      * @return list<int>
      */
-    private function completedDatasetRunIds(): array
+    public function completedDatasetRunIds(): array
     {
+        return self::completedDatasetRunIdsFor(
+            $this->datasetId,
+            $this->digitalAssetId,
+            $this->externalResourceId,
+        );
+    }
+
+    /**
+     * @return list<int>
+     */
+    public static function completedDatasetRunIdsFor(
+        string $datasetId,
+        int $digitalAssetId,
+        ?int $externalResourceId,
+    ): array {
         return CollectionDatasetRun::query()
-            ->where('dataset_contract_id', $this->datasetId)
+            ->where('dataset_contract_id', $datasetId)
             ->where('status', CollectionRunStatus::Completed)
-            ->whereHas('resourceRun', function (EloquentBuilder $resourceRun): void {
-                $resourceRun
-                    ->where('digital_asset_id', $this->digitalAssetId)
-                    ->where('external_resource_id', $this->externalResourceId);
+            ->whereHas('resourceRun', function (EloquentBuilder $resourceRun) use ($digitalAssetId, $externalResourceId): void {
+                $resourceRun->where('digital_asset_id', $digitalAssetId);
+                if ($externalResourceId === null) {
+                    $resourceRun->whereNull('external_resource_id');
+                } else {
+                    $resourceRun->where('external_resource_id', $externalResourceId);
+                }
             })
             ->pluck('id')
             ->map(fn ($id): int => (int) $id)
@@ -186,35 +215,72 @@ final class CollectedFactsCompletedCoverage
     }
 
     /**
+     * Coverage dates attributed to completed DatasetRuns only. Unattributed merged
+     * materialization dates (including failed-run slices) never prove the window.
+     *
+     * @param  list<int>  $completedIds
      * @return list<string>
      */
-    private static function successfulCoverageDates(DatasetMaterialization $materialization): array
+    private static function successfulCoverageDates(DatasetMaterialization $materialization, array $completedIds): array
     {
         $meta = is_array($materialization->freshness_metadata) ? $materialization->freshness_metadata : [];
         $dates = [];
-        if (isset($meta['successful_coverage_dates']) && is_array($meta['successful_coverage_dates'])) {
-            $dates = array_values(array_filter($meta['successful_coverage_dates'], 'is_string'));
-        }
-        if (isset($meta['zero_row_success_dates']) && is_array($meta['zero_row_success_dates'])) {
-            $dates = array_merge($dates, array_values(array_filter($meta['zero_row_success_dates'], 'is_string')));
+        $byRun = is_array($meta['coverage_dates_by_dataset_run'] ?? null)
+            ? $meta['coverage_dates_by_dataset_run']
+            : [];
+        foreach ($completedIds as $id) {
+            $runDates = $byRun[(string) $id] ?? $byRun[$id] ?? null;
+            if (! is_array($runDates)) {
+                continue;
+            }
+            $dates = array_merge($dates, array_values(array_filter($runDates, 'is_string')));
         }
 
+        $dates = array_merge($dates, self::completedWarehouseReportingDates($materialization, $completedIds));
         $dates = array_values(array_unique($dates));
         sort($dates);
 
         return $dates;
     }
 
-    private static function verifiedWatermark(
+    /**
+     * @param  list<int>  $completedIds
+     * @return list<string>
+     */
+    private static function completedWarehouseReportingDates(
         DatasetMaterialization $materialization,
-        CoverageIntervalSet $set,
-    ): ?string {
-        $meta = is_array($materialization->freshness_metadata) ? $materialization->freshness_metadata : [];
-        $stored = $meta['verified_contiguous_watermark'] ?? null;
-        if (is_string($stored) && $stored !== '') {
-            return $stored;
+        array $completedIds,
+    ): array {
+        if ($completedIds === []) {
+            return [];
         }
 
-        return $set->verifiedContiguousWatermark();
+        $table = $materialization->dataset_id;
+        if (! Schema::hasTable($table) || ! Schema::hasColumn($table, 'reporting_date')) {
+            return [];
+        }
+
+        $query = DB::table($table)
+            ->where('digital_asset_id', $materialization->digital_asset_id)
+            ->whereIn('last_dataset_run_id', $completedIds);
+        if ($materialization->external_resource_id === null) {
+            $query->whereNull('external_resource_id');
+        } else {
+            $query->where('external_resource_id', $materialization->external_resource_id);
+        }
+
+        return $query
+            ->distinct()
+            ->pluck('reporting_date')
+            ->map(function ($date): ?string {
+                if (! is_string($date) && ! $date instanceof \DateTimeInterface) {
+                    return null;
+                }
+
+                return CarbonImmutable::parse($date)->toDateString();
+            })
+            ->filter(fn (?string $date): bool => $date !== null)
+            ->values()
+            ->all();
     }
 }
