@@ -706,23 +706,50 @@ final class WebsiteWorkspaceData
     }
 
     /**
+     * Detail datasets that are aggregates for a requested_period must match that
+     * range exactly. Dated rows may be sliced when the Evidence period overlaps.
+     * Do not prorate or reuse a wider aggregate under a narrower selection.
+     *
      * @return list<array<string, mixed>>
      */
     private function boundedRows(?Evidence $evidence, int $limit, ?string $periodStart = null, ?string $periodEnd = null): array
     {
-        $evidence = $this->evidenceForSelectedPeriod($evidence, $periodStart, $periodEnd);
         if ($evidence === null) {
             return [];
         }
 
         $rows = is_array($evidence->payload['rows'] ?? null) ? $evidence->payload['rows'] : [];
+        if (! filled($periodStart) || ! filled($periodEnd)) {
+            return $this->takeBoundedRows($rows, $limit, null, null, allowUndated: true);
+        }
+
+        if ($this->evidenceForSelectedPeriod($evidence, $periodStart, $periodEnd) === null) {
+            return [];
+        }
+
+        $exactMatch = $this->evidenceRequestedPeriodMatches($evidence, $periodStart, $periodEnd);
+
+        return $this->takeBoundedRows($rows, $limit, $periodStart, $periodEnd, allowUndated: $exactMatch);
+    }
+
+    /**
+     * @param  list<mixed>  $rows
+     * @return list<array<string, mixed>>
+     */
+    private function takeBoundedRows(array $rows, int $limit, ?string $periodStart, ?string $periodEnd, bool $allowUndated): array
+    {
         $out = [];
 
         foreach ($rows as $row) {
             if (! is_array($row)) {
                 continue;
             }
-            if ($this->rowIsOutsideSelectedPeriod($row, $periodStart, $periodEnd)) {
+            $date = $this->rowDate($row);
+            if ($date === null) {
+                if (! $allowUndated) {
+                    continue;
+                }
+            } elseif ($this->rowIsOutsideSelectedPeriod($row, $periodStart, $periodEnd)) {
                 continue;
             }
             $out[] = $row;
@@ -734,16 +761,34 @@ final class WebsiteWorkspaceData
         return $out;
     }
 
+    private function evidenceRequestedPeriodMatches(Evidence $evidence, string $periodStart, string $periodEnd): bool
+    {
+        $requested = data_get($evidence->payload, 'requested_period');
+        $evidenceStart = is_array($requested) ? ($requested['start'] ?? null) : null;
+        $evidenceEnd = is_array($requested) ? ($requested['end'] ?? null) : null;
+
+        return $evidenceStart === $periodStart && $evidenceEnd === $periodEnd;
+    }
+
     /**
-     * Aggregate rows for an overlapping requested_period stay intact.
+     * @param  array<string, mixed>  $row
+     */
+    private function rowDate(array $row): ?string
+    {
+        $date = $row['date'] ?? $row['day'] ?? null;
+
+        return is_string($date) && $date !== '' ? $date : null;
+    }
+
+    /**
      * Dated rows (when present) are bounded to the selected range.
      *
      * @param  array<string, mixed>  $row
      */
     private function rowIsOutsideSelectedPeriod(array $row, ?string $periodStart, ?string $periodEnd): bool
     {
-        $date = $row['date'] ?? $row['day'] ?? null;
-        if (! is_string($date) || $date === '') {
+        $date = $this->rowDate($row);
+        if ($date === null) {
             return false;
         }
 

@@ -67,15 +67,45 @@ class PhaseEWebsitePeriodIntegrityTest extends TestCase
     }
 
     #[Test]
-    public function overlapping_wider_preset_keeps_aggregates_and_bounds_dated_rows(): void
+    public function wider_overlapping_preset_hides_undated_aggregates_but_keeps_sliceable_dated_rows_and_kpis(): void
     {
         $data = app(WebsiteWorkspaceData::class)->for($this->asset, '2026-07-24', '2026-08-20');
 
-        $this->assertSame('stale-query-implant', $data['queries'][0]['query'] ?? null);
-        $this->assertSame('https://stale.example/page', $data['pages'][0]['page'] ?? null);
-        $this->assertSame('/stale-landing', $data['landing_pages'][0]['landingPage'] ?? null);
-        $this->assertSame('Stale Organic Search', $data['acquisition'][0]['sessionDefaultChannelGroup'] ?? null);
         $this->assertSame(['2026-08-01', '2026-08-06'], array_column($data['queries'], 'date'));
+        $this->assertSame('stale-query-implant', $data['queries'][0]['query'] ?? null);
+        $this->assertSame([], $data['pages']);
+        $this->assertSame([], $data['landing_pages']);
+        $this->assertSame([], $data['acquisition']);
+        $clicks = collect($data['kpis'])->firstWhere('label', 'Organic clicks');
+        $this->assertSame('4,242', $clicks['value'] ?? null);
+        $this->assertTrue($data['period_has_data']);
+    }
+
+    #[Test]
+    public function thirty_day_undated_aggregates_are_unavailable_under_seven_day_or_custom_subset(): void
+    {
+        $asset = $this->seedThirtyDayUndatedAggregates();
+
+        $sevenDay = app(WebsiteWorkspaceData::class)->for($asset, '2026-08-14', '2026-08-20');
+        $this->assertSame([], $sevenDay['queries']);
+        $this->assertSame([], $sevenDay['pages']);
+        $this->assertSame([], $sevenDay['landing_pages']);
+        $this->assertSame([], $sevenDay['acquisition']);
+        $this->assertStringNotContainsString('thirty-day-query', json_encode($sevenDay));
+        $this->assertSame([], array_column($sevenDay['queries'], 'clicks'));
+
+        $customSubset = app(WebsiteWorkspaceData::class)->for($asset, '2026-08-01', '2026-08-10');
+        $this->assertSame([], $customSubset['queries']);
+        $this->assertSame([], $customSubset['pages']);
+        $this->assertSame([], $customSubset['landing_pages']);
+        $this->assertSame([], $customSubset['acquisition']);
+
+        $exact = app(WebsiteWorkspaceData::class)->for($asset, '2026-07-22', '2026-08-20');
+        $this->assertSame('thirty-day-query', $exact['queries'][0]['query'] ?? null);
+        $this->assertSame('https://thirty.example/page', $exact['pages'][0]['page'] ?? null);
+        $this->assertSame('/thirty-landing', $exact['landing_pages'][0]['landingPage'] ?? null);
+        $this->assertSame('Thirty Day Organic', $exact['acquisition'][0]['sessionDefaultChannelGroup'] ?? null);
+        $this->assertNotSame(0, $exact['queries'][0]['clicks'] ?? 0);
     }
 
     #[Test]
@@ -95,6 +125,11 @@ class PhaseEWebsitePeriodIntegrityTest extends TestCase
             array_filter($data['queries'], fn (array $row): bool => ($row['date'] ?? null) === '2026-08-01'),
             'clicks'
         ));
+        $this->assertSame([], $data['pages']);
+        $this->assertSame([], $data['landing_pages']);
+        $this->assertSame([], $data['acquisition']);
+        $clicks = collect($data['kpis'])->firstWhere('label', 'Organic clicks');
+        $this->assertSame('4,242', $clicks['value'] ?? null);
     }
 
     #[Test]
@@ -193,5 +228,70 @@ class PhaseEWebsitePeriodIntegrityTest extends TestCase
                 ],
             ],
         ]);
+    }
+
+    private function seedThirtyDayUndatedAggregates(): DigitalAsset
+    {
+        $asset = $this->createPortfolioAsset('website', 'Thirty Day Aggregate Website');
+        $run = Run::factory()->create([
+            'digital_asset_id' => $asset->id,
+            'module_id' => 'website',
+            'status' => 'completed',
+            'finished_at' => now(),
+        ]);
+        $period = ['start' => '2026-07-22', 'end' => '2026-08-20'];
+        $base = [
+            'run_id' => $run->id,
+            'digital_asset_id' => $asset->id,
+            'source_module' => 'website',
+            'observed_at' => now(),
+        ];
+
+        Evidence::factory()->create([
+            ...$base,
+            'type' => 'gsc_query_performance',
+            'payload' => [
+                'response_ok' => true,
+                'requested_period' => $period,
+                'rows' => [
+                    ['query' => 'thirty-day-query', 'clicks' => 300],
+                ],
+            ],
+        ]);
+        Evidence::factory()->create([
+            ...$base,
+            'type' => 'gsc_page_performance',
+            'payload' => [
+                'response_ok' => true,
+                'requested_period' => $period,
+                'rows' => [
+                    ['page' => 'https://thirty.example/page', 'clicks' => 210],
+                ],
+            ],
+        ]);
+        Evidence::factory()->create([
+            ...$base,
+            'type' => 'ga4_landing_page_performance',
+            'payload' => [
+                'response_ok' => true,
+                'requested_period' => $period,
+                'rows' => [
+                    ['landingPage' => '/thirty-landing', 'sessions' => 90],
+                ],
+            ],
+        ]);
+        Evidence::factory()->create([
+            ...$base,
+            'type' => 'ga4_acquisition_summary',
+            'payload' => [
+                'response_ok' => true,
+                'requested_period' => $period,
+                'rows' => [
+                    ['sessionDefaultChannelGroup' => 'Thirty Day Organic', 'sessions' => 120, 'totalUsers' => 80],
+                ],
+            ],
+        ]);
+
+        return $asset;
     }
 }
