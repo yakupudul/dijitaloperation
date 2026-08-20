@@ -7,11 +7,11 @@ use App\Models\Evidence;
 use App\Models\Run;
 use App\Services\Analysis\Support\CollectedFactsAnalysisResult;
 use App\Services\Analysis\Support\CollectedFactsBindingScope;
+use App\Services\Analysis\Support\CollectedFactsCompletedCoverage;
 use App\Services\Analysis\Support\CollectedFactsJson;
 use App\Services\Analysis\Support\DigitalAssetType;
 use App\Services\Findings\FindingLifecycleService;
 use App\Support\Integrations\Meta\MetaConnectorRegistry;
-use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use MoxDop\MetaAds\Collection\MetaAdsBoundCollector;
 use MoxDop\MetaAds\Findings\MetaAdsPerformanceBoundEvidenceEvaluator;
@@ -43,14 +43,16 @@ final class MetaAdsCollectedCampaignAdapter
         }
 
         $resourceId = (int) $binding->external_resource_id;
-        $end = DB::table('meta_campaign_daily')
-            ->where('digital_asset_id', $asset->id)
-            ->where('external_resource_id', $resourceId)
-            ->max('reporting_date');
-        if (! is_string($end) || $end === '') {
+        $coverage = CollectedFactsCompletedCoverage::resolve(
+            'meta_campaign_daily',
+            (int) $asset->id,
+            $resourceId,
+            self::PERIOD_DAYS,
+        );
+        if ($coverage === null) {
             return CollectedFactsAnalysisResult::skipped(
                 DigitalAssetType::MetaAds,
-                'missing_meta_campaign_daily',
+                'unusable_meta_campaign_daily',
                 [
                     'digital_asset_id' => $asset->id,
                     'external_resource_id' => $resourceId,
@@ -59,9 +61,9 @@ final class MetaAdsCollectedCampaignAdapter
             );
         }
 
-        $periodEnd = CarbonImmutable::parse($end)->toDateString();
-        $periodStart = CarbonImmutable::parse($end)->subDays(self::PERIOD_DAYS - 1)->toDateString();
-        $rows = $this->aggregateCampaigns($asset->id, $resourceId, $periodStart, $periodEnd);
+        $periodStart = $coverage->periodStart;
+        $periodEnd = $coverage->periodEnd;
+        $rows = $this->aggregateCampaigns($asset->id, $resourceId, $coverage);
         if ($rows === []) {
             return CollectedFactsAnalysisResult::skipped(
                 DigitalAssetType::MetaAds,
@@ -72,11 +74,12 @@ final class MetaAdsCollectedCampaignAdapter
                     'period_start' => $periodStart,
                     'period_end' => $periodEnd,
                     'dataset_id' => 'meta_campaign_daily',
+                    'dataset_run_id' => $coverage->datasetRunId,
                 ],
             );
         }
 
-        $collectionRunId = $this->latestCollectionRunId($asset->id, $resourceId, $periodStart, $periodEnd);
+        $collectionRunId = $coverage->collectionRunId;
         $run = Run::query()->create([
             'digital_asset_id' => $asset->id,
             'core_asset_binding_id' => $binding->id,
@@ -93,6 +96,7 @@ final class MetaAdsCollectedCampaignAdapter
                 'external_resource_id' => $resourceId,
                 'core_asset_binding_id' => $binding->id,
                 'collection_run_id' => $collectionRunId,
+                'dataset_run_id' => $coverage->datasetRunId,
                 'period' => ['start' => $periodStart, 'end' => $periodEnd],
             ],
         ]);
@@ -119,6 +123,8 @@ final class MetaAdsCollectedCampaignAdapter
                     'external_resource_id' => $resourceId,
                     'core_asset_binding_id' => $binding->id,
                     'collection_run_id' => $collectionRunId,
+                    'dataset_run_id' => $coverage->datasetRunId,
+                    'materialization_id' => $coverage->materializationId,
                 ],
             ],
             'observed_at' => now(),
@@ -151,6 +157,7 @@ final class MetaAdsCollectedCampaignAdapter
                 'core_asset_binding_id' => $binding->id,
                 'dataset_id' => 'meta_campaign_daily',
                 'collection_run_id' => $collectionRunId,
+                'dataset_run_id' => $coverage->datasetRunId,
                 'period_start' => $periodStart,
                 'period_end' => $periodEnd,
             ],
@@ -160,12 +167,13 @@ final class MetaAdsCollectedCampaignAdapter
     /**
      * @return list<array<string, mixed>>
      */
-    private function aggregateCampaigns(int $assetId, int $resourceId, string $start, string $end): array
+    private function aggregateCampaigns(int $assetId, int $resourceId, CollectedFactsCompletedCoverage $coverage): array
     {
-        $aggregated = DB::table('meta_campaign_daily')
-            ->where('digital_asset_id', $assetId)
-            ->where('external_resource_id', $resourceId)
-            ->whereBetween('reporting_date', [$start, $end])
+        $aggregated = $coverage->constrainFactsQuery(
+            DB::table('meta_campaign_daily')
+                ->where('digital_asset_id', $assetId)
+                ->where('external_resource_id', $resourceId),
+        )
             ->selectRaw('campaign_id, account_id, SUM(spend) as spend_sum, SUM(clicks) as clicks_sum, SUM(impressions) as impressions_sum')
             ->groupBy('campaign_id', 'account_id')
             ->get();
@@ -196,16 +204,5 @@ final class MetaAdsCollectedCampaignAdapter
         }
 
         return $rows;
-    }
-
-    private function latestCollectionRunId(int $assetId, int $resourceId, string $start, string $end): ?int
-    {
-        $value = DB::table('meta_campaign_daily')
-            ->where('digital_asset_id', $assetId)
-            ->where('external_resource_id', $resourceId)
-            ->whereBetween('reporting_date', [$start, $end])
-            ->max('last_collection_run_id');
-
-        return is_numeric($value) ? (int) $value : null;
     }
 }

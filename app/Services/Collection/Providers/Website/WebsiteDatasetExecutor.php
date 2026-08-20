@@ -95,12 +95,13 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
                 'step_index' => $stepIndex,
                 'observed_at' => $observedAt,
                 'rows_written_total' => $rowsWritten,
-            ], $rowsWritten, $rowsWritten);
+            ]);
         }
 
         $step = $steps[$stepIndex];
         $assetId = (int) $scope['asset']->id;
         $seed = (string) $scope['seed_url'];
+        $rowsBefore = $rowsWritten;
 
         if ($step === 'homepage') {
             $fetch = $this->fetcher->fetch($seed);
@@ -136,9 +137,10 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
             'observed_at' => $observedAt,
             'rows_written_total' => $rowsWritten,
         ];
+        $tickRows = $rowsWritten - $rowsBefore;
 
         if ($stepIndex + 1 >= count($steps)) {
-            return $this->completedCounted(count($steps), count($steps), $checkpointOut, $rowsWritten, $rowsWritten);
+            return $this->completedCounted(count($steps), count($steps), $checkpointOut, $tickRows, $tickRows, 1);
         }
 
         return new DatasetExecutionResult(
@@ -146,9 +148,9 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
             progressMode: ProgressMode::PageBased,
             progressCurrent: $stepIndex + 1,
             progressTotal: count($steps),
-            rowsReceived: $rowsWritten,
-            rowsWritten: $rowsWritten,
-            pagesCompleted: $stepIndex + 1,
+            rowsReceived: $tickRows,
+            rowsWritten: $tickRows,
+            pagesCompleted: 1,
             checkpoint: $checkpointOut,
         );
     }
@@ -218,7 +220,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         ];
 
         if ($queue === [] || $pages >= $maxPages) {
-            return $this->completedCounted($pages, $maxPages, $checkpointOut, $written, $written);
+            return $this->completedCounted($pages, $maxPages, $checkpointOut, $written, $written, 1);
         }
 
         return new DatasetExecutionResult(
@@ -529,7 +531,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
     /**
      * @param  array<string, mixed>  $checkpoint
      */
-    private function completedCounted(int $current, int $total, array $checkpoint, int $rowsReceived = 0, int $rowsWritten = 0): DatasetExecutionResult
+    private function completedCounted(int $current, int $total, array $checkpoint, int $rowsReceived = 0, int $rowsWritten = 0, int $pagesCompleted = 0): DatasetExecutionResult
     {
         return new DatasetExecutionResult(
             outcome: DatasetExecutionOutcome::Completed,
@@ -538,6 +540,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
             progressTotal: $total,
             rowsReceived: $rowsReceived,
             rowsWritten: $rowsWritten,
+            pagesCompleted: $pagesCompleted,
             checkpoint: $checkpoint,
         );
     }

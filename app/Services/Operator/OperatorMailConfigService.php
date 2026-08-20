@@ -155,6 +155,16 @@ final class OperatorMailConfigService
         return is_string($password) && $password !== '';
     }
 
+    /**
+     * Re-read persisted operator SMTP at a queued send boundary and drop any
+     * already-resolved mailer/transport from this long-lived worker.
+     */
+    public function reloadForQueuedSend(): void
+    {
+        $this->applyToRuntime();
+        app('mail.manager')->forgetMailers();
+    }
+
     public function applyToRuntime(): void
     {
         $this->captureDeploymentBaseline();

@@ -22,6 +22,7 @@ use App\Models\Evidence;
 use App\Models\User;
 use App\Services\Collection\CheckpointManager;
 use App\Services\Collection\CollectionPlanner;
+use App\Services\Collection\ProgressReporter;
 use App\Services\Collection\Providers\Website\WebsiteDatasetExecutor;
 use App\Services\Collection\Providers\Website\WebsiteRequestFamilyCatalog;
 use App\Services\Collection\Support\DatasetExecutionContext;
@@ -239,6 +240,101 @@ class WebsiteProductionCollectorTest extends TestCase
         $this->assertSame(DatasetExecutionOutcome::Completed, $overlap->outcome, (string) $overlap->errorMessage);
         $this->assertSame($urlsAfter, DB::table('website_url')->count());
         $this->assertSame($httpAfter, DB::table('website_http_snapshot')->count());
+    }
+
+    #[Test]
+    public function http_html_diagnosis_reports_progress_deltas_not_cumulative_totals(): void
+    {
+        $this->fakePublicSite();
+        [$context, $datasetRun] = $this->makeContext(WebsiteRequestFamilyCatalog::FAMILY_HTTP_HTML_DIAGNOSIS);
+        $executor = app(WebsiteDatasetExecutor::class);
+        $progress = app(ProgressReporter::class);
+
+        $first = $executor->execute($context);
+        $this->assertSame(DatasetExecutionOutcome::Continue, $first->outcome, (string) $first->errorMessage);
+        $this->assertSame(1, $first->pagesCompleted);
+        $this->assertSame($first->rowsWritten, (int) $first->checkpoint['rows_written_total']);
+        $this->assertGreaterThan(0, $first->rowsWritten);
+        $progress->report(
+            $datasetRun,
+            $first->progressMode,
+            $first->progressCurrent,
+            $first->progressTotal,
+            $first->stage,
+            $first->rowsReceived,
+            $first->rowsWritten,
+            $first->chunksCompleted,
+            $first->pagesCompleted,
+        );
+        $datasetRun->refresh();
+        $this->assertSame(1, (int) $datasetRun->pages_completed);
+        $this->assertSame($first->rowsWritten, (int) $datasetRun->rows_written);
+
+        $second = $executor->execute($this->contextFrom($context, $datasetRun, $first->checkpoint));
+        $this->assertSame(DatasetExecutionOutcome::Continue, $second->outcome, (string) $second->errorMessage);
+        $this->assertSame(1, $second->pagesCompleted);
+        $this->assertSame(2, $second->checkpoint['step_index'] ?? null);
+        $this->assertSame(
+            (int) $first->checkpoint['rows_written_total'] + $second->rowsWritten,
+            (int) $second->checkpoint['rows_written_total'],
+        );
+        $progress->report(
+            $datasetRun,
+            $second->progressMode,
+            $second->progressCurrent,
+            $second->progressTotal,
+            $second->stage,
+            $second->rowsReceived,
+            $second->rowsWritten,
+            $second->chunksCompleted,
+            $second->pagesCompleted,
+        );
+        $datasetRun->refresh();
+        $this->assertSame(2, (int) $datasetRun->pages_completed);
+        $this->assertSame(
+            $first->rowsWritten + $second->rowsWritten,
+            (int) $datasetRun->rows_written,
+        );
+
+        $third = $executor->execute($this->contextFrom($context, $datasetRun, $second->checkpoint));
+        $this->assertSame(DatasetExecutionOutcome::Completed, $third->outcome, (string) $third->errorMessage);
+        $this->assertSame(1, $third->pagesCompleted);
+        $this->assertSame(3, $third->checkpoint['step_index'] ?? null);
+        $this->assertSame(
+            (int) $second->checkpoint['rows_written_total'] + $third->rowsWritten,
+            (int) $third->checkpoint['rows_written_total'],
+        );
+        $progress->report(
+            $datasetRun,
+            $third->progressMode,
+            $third->progressCurrent,
+            $third->progressTotal,
+            $third->stage,
+            $third->rowsReceived,
+            $third->rowsWritten,
+            $third->chunksCompleted,
+            $third->pagesCompleted,
+        );
+        $datasetRun->refresh();
+        $this->assertSame(3, (int) $datasetRun->pages_completed);
+        $this->assertSame(
+            $first->rowsWritten + $second->rowsWritten + $third->rowsWritten,
+            (int) $datasetRun->rows_written,
+        );
+        $this->assertNotSame(1 + 2 + 3, (int) $datasetRun->pages_completed);
+
+        $resume = $executor->execute($this->contextFrom($context, $datasetRun, $first->checkpoint));
+        $this->assertSame(1, $resume->pagesCompleted);
+        $this->assertSame($second->rowsWritten, $resume->rowsWritten);
+
+        $retryHomepage = $executor->execute($this->contextFrom($context, $datasetRun, [
+            'step_index' => 0,
+            'observed_at' => (string) $first->checkpoint['observed_at'],
+            'rows_written_total' => 0,
+        ]));
+        $this->assertSame(1, $retryHomepage->pagesCompleted);
+        $this->assertSame($first->rowsWritten, $retryHomepage->rowsWritten);
+        $this->assertSame($retryHomepage->rowsWritten, (int) $retryHomepage->checkpoint['rows_written_total']);
     }
 
     #[Test]
