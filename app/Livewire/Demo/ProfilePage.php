@@ -4,6 +4,7 @@ namespace App\Livewire\Demo;
 
 use App\Models\User;
 use App\Support\Demo\DemoState;
+use App\Support\Operator\AgencySettingCatalog;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -54,7 +55,7 @@ class ProfilePage extends Component
             'name' => ['required', 'string', 'min:2', 'max:120'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
             'locale' => ['required', Rule::in(['en', 'tr'])],
-            'timezone' => ['nullable', 'string', 'max:64'],
+            'timezone' => ['nullable', 'string', Rule::in(array_merge([''], AgencySettingCatalog::timezones()))],
             'avatar' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:2048'],
             'password' => ['nullable', 'confirmed', Password::defaults()],
         ];

@@ -170,7 +170,8 @@ class MoxDopUiFoundationTest extends TestCase
         Livewire::test(GeneralSettings::class)
             ->assertOk()
             ->assertSee('Agency operations profile')
-            ->assertSee('Moximu')
+            ->assertSee('MoxDOP')
+            ->assertSee('Open operator Settings')
             ->assertDontSee('Connect Google')
             ->assertDontSee('OAuth')
             ->assertDontSee('later milestone');
