@@ -151,9 +151,9 @@ Phase D reuses the existing operator Settings/Team/Profile/Integrations surfaces
 Shipped in this slice:
 
 - Admin-only team create/role/deactivate (no destructive delete; last admin protected)
-- Operator forgot-password / reset on `/forgot-password` (inactive accounts get the generic success message and no mail)
-- Agency timezone/locale/default analytical range affect operator date rendering (`OperatorClock`) and session period defaults. Laravel `APP_TIMEZONE` remains the storage clock (password-reset tokens / Eloquent datetimes are not rewritten per operator).
-- Operator SMTP overlay: encrypted write-only password, env fallback without copying env secrets into the DB, test-mail action
+- Operator forgot-password / reset on `/forgot-password` (inactive/unknown emails share the same success copy and receive no mail; successful reset rotates remember token and does not reactivate)
+- Agency timezone/locale/default analytical range affect operator date rendering (`OperatorClock`) and session period defaults. Invalid stored timezone/locale values fall back to catalog defaults. Laravel `APP_TIMEZONE` remains the storage clock (password-reset tokens / Eloquent datetimes / queue+artisan are not rewritten per operator).
+- Operator SMTP overlay: encrypted write-only password, env fallback without copying env secrets into the DB, test-mail action; invalid host/port/encryption is rejected without poisoning runtime mail config; test-mail failures log exception class only
 - In-app notification preferences for existing events; browser/mobile push is **not** implemented
 
 **Not claimed:** live SMTP provider UAT, web-push/PWA, SaaS tenant branding, or Filament as the canonical operator settings product (`/admin` remains technical).

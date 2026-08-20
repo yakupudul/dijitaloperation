@@ -83,6 +83,7 @@ return [
         'avatar_hint' => 'JPEG, PNG veya WebP · en fazla 2 MB',
         'saved' => 'Profil kaydedildi.',
         'remove_avatar' => 'Avatarı kaldır',
+        'remove_avatar_pending' => 'Kaydettiğinizde avatar kaldırılacak.',
     ],
 
     'files' => [

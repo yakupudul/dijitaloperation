@@ -83,6 +83,7 @@ return [
         'avatar_hint' => 'JPEG, PNG, or WebP · max 2 MB',
         'saved' => 'Profile saved.',
         'remove_avatar' => 'Remove avatar',
+        'remove_avatar_pending' => 'Avatar will be removed when you save.',
     ],
 
     'files' => [
