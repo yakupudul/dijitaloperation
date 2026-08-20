@@ -21,6 +21,7 @@ use App\Services\CreateTaskFromRecommendation;
 use App\Services\CrossAssetWebsiteGoogleAdsLandingConsistencyService;
 use App\Services\GoogleAdsLandingFinalUrlsCollectService;
 use App\Services\Tasks\TaskLifecycleService;
+use App\Support\Integrations\ProviderRegistry;
 use App\Support\Roles;
 use App\Support\Tasks\TaskOutcomeStatus;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -59,7 +60,7 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
         $this->insertWebsiteMetadata($website, $collectionRun->id, '2026-08-20 09:00:00', [
             'title' => null,
             'title_present' => false,
-            'meta_description' => 'About Atlas Dental',
+            'meta_description' => 'Atlas Dental clinic in Istanbul offers implant and smile design services for visiting patients.',
             'meta_description_present' => true,
         ]);
 
@@ -71,7 +72,10 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
         $this->assertSame(0, Task::query()->count());
         Http::assertNothingSent();
 
-        $finding = Finding::query()->where('digital_asset_id', $website->id)->firstOrFail();
+        $finding = Finding::query()
+            ->where('digital_asset_id', $website->id)
+            ->where('fingerprint', DocumentHeadCatalog::RULE_TITLE_MISSING)
+            ->firstOrFail();
         $this->assertSame(DocumentHeadCatalog::RULE_TITLE_MISSING, $finding->fingerprint);
         $this->assertSame('website-diagnosis', $finding->source_module);
         $this->assertSame('open', $finding->status);
@@ -83,8 +87,15 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
         $this->assertSame('open', $recommendation->status);
 
         $second = app(CollectedFactsAnalysisService::class)->analyze($website);
-        $this->assertSame(1, Finding::query()->where('digital_asset_id', $website->id)->count());
-        $this->assertSame($finding->id, Finding::query()->value('id'));
+        $this->assertTrue($second->evaluationSuccessful);
+        $this->assertSame(1, Finding::query()
+            ->where('digital_asset_id', $website->id)
+            ->where('fingerprint', DocumentHeadCatalog::RULE_TITLE_MISSING)
+            ->count());
+        $this->assertSame($finding->id, Finding::query()
+            ->where('digital_asset_id', $website->id)
+            ->where('fingerprint', DocumentHeadCatalog::RULE_TITLE_MISSING)
+            ->value('id'));
         $this->assertSame(1, Recommendation::query()->where('finding_id', $finding->id)->count());
         $this->assertSame(0, Task::query()->count());
 
@@ -110,7 +121,7 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
         $this->insertWebsiteMetadata($website, $collectionRun->id, '2026-08-20 10:30:00', [
             'title' => 'Atlas Dental',
             'title_present' => true,
-            'meta_description' => 'About Atlas Dental',
+            'meta_description' => 'Atlas Dental clinic in Istanbul offers implant and smile design services for visiting patients.',
             'meta_description_present' => true,
         ]);
 
@@ -305,6 +316,18 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
         $this->assertSame(0, Finding::query()->where('digital_asset_id', $websiteB->id)->count());
     }
 
+    private function agencyIntegration(string $provider): CoreIntegration
+    {
+        return CoreIntegration::query()->firstOrCreate(
+            ['provider' => $provider],
+            [
+                'name' => ProviderRegistry::defaultName($provider),
+                'status' => CoreIntegration::STATUS_ACTIVE,
+                'config' => [],
+            ],
+        );
+    }
+
     private function makeWebsiteAsset(string $url): DigitalAsset
     {
         $brand = Brand::factory()->create();
@@ -326,7 +349,7 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
             'brand_id' => $brand->id,
             'type' => 'google_ads',
         ]);
-        $integration = CoreIntegration::factory()->google()->create();
+        $integration = $this->agencyIntegration(ProviderRegistry::GOOGLE);
         $resource = CoreExternalResource::factory()->create([
             'integration_id' => $integration->id,
             'provider' => 'google',
@@ -354,7 +377,7 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
             'brand_id' => $brand->id,
             'type' => 'meta_ads',
         ]);
-        $integration = CoreIntegration::factory()->meta()->create();
+        $integration = $this->agencyIntegration(ProviderRegistry::META);
         $resource = CoreExternalResource::factory()->create([
             'integration_id' => $integration->id,
             'provider' => 'meta',

@@ -122,6 +122,10 @@ final class GoogleAdsCollectedCampaignAdapter
             'observed_at' => now(),
         ]);
 
+        // Bound-evidence evaluators skip running Runs. Warehouse facts are already committed.
+        $run->status = 'completed';
+        $run->save();
+
         $result = $this->evaluator->evaluate($asset, [$run->fresh('evidence')]);
         $stats = $this->lifecycle->apply($result);
         $run->status = $result->evaluationSuccessful ? 'completed' : 'partial';
@@ -160,7 +164,7 @@ final class GoogleAdsCollectedCampaignAdapter
             ->where('digital_asset_id', $assetId)
             ->where('external_resource_id', $resourceId)
             ->whereBetween('reporting_date', [$start, $end])
-            ->selectRaw('campaign_id, customer_id, SUM(cost_amount) as cost, SUM(clicks) as clicks, SUM(impressions) as impressions, SUM(conversions) as conversions')
+            ->selectRaw('campaign_id, customer_id, SUM(cost_amount) as cost_sum, SUM(clicks) as clicks_sum, SUM(impressions) as impressions_sum, SUM(conversions) as conversions_sum')
             ->groupBy('campaign_id', 'customer_id')
             ->get();
 
@@ -182,10 +186,10 @@ final class GoogleAdsCollectedCampaignAdapter
             $rows[] = [
                 'campaign_id' => $campaignId,
                 'campaign_name' => $name,
-                'cost' => is_numeric($row->cost) ? (float) $row->cost : null,
-                'clicks' => is_numeric($row->clicks) ? (float) $row->clicks : null,
-                'impressions' => is_numeric($row->impressions) ? (float) $row->impressions : null,
-                'conversions' => is_numeric($row->conversions) ? (float) $row->conversions : null,
+                'cost' => is_numeric($row->cost_sum) ? (float) $row->cost_sum : null,
+                'clicks' => is_numeric($row->clicks_sum) ? (float) $row->clicks_sum : null,
+                'impressions' => is_numeric($row->impressions_sum) ? (float) $row->impressions_sum : null,
+                'conversions' => is_numeric($row->conversions_sum) ? (float) $row->conversions_sum : null,
             ];
         }
 
