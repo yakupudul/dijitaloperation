@@ -9,6 +9,8 @@ use App\Events\Collection\CollectionRunCompleted;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\Collection\CollectionResourceRun;
 use App\Models\Collection\CollectionRun;
+use App\Models\Run;
+use App\Services\Async\AsyncOperationService;
 
 final class CollectionStatusAggregator
 {
@@ -32,7 +34,6 @@ final class CollectionStatusAggregator
     public function aggregateResource(CollectionResourceRun $resource): void
     {
         if ($resource->status->isTerminal() && $resource->status !== CollectionRunStatus::CancellationRequested) {
-            // Still refresh counters, but do not re-open terminal resource states.
             $datasets = $resource->datasetRuns()->get();
             $resource->forceFill([
                 'datasets_completed' => $datasets->where('status', CollectionRunStatus::Completed)->count(),
@@ -102,7 +103,6 @@ final class CollectionStatusAggregator
             return;
         }
 
-        // Optional-only failures: still completed at resource level.
         if ($failedRequired === 0 && $active === 0) {
             $this->transitionResourceTerminal($resource, CollectionRunStatus::Completed);
         }
@@ -117,6 +117,7 @@ final class CollectionStatusAggregator
                 'datasets_failed' => $datasets->where('status', CollectionRunStatus::Failed)->count(),
                 'last_activity_at' => now(),
             ])->save();
+            $this->syncOperatorRun($run->fresh() ?? $run);
 
             return;
         }
@@ -143,7 +144,7 @@ final class CollectionStatusAggregator
 
         if ($run->status === CollectionRunStatus::CancellationRequested && $active === 0) {
             $final = ($completedDatasets > 0) ? CollectionRunStatus::Partial : CollectionRunStatus::Cancelled;
-            $this->stateMachine->transition($run, $final);
+            $this->transitionCollectionTerminal($run, $final);
             $run->forceFill(['cancelled_at' => now()])->save();
             CollectionRunCancelled::dispatch($run->fresh() ?? $run);
 
@@ -196,10 +197,6 @@ final class CollectionStatusAggregator
         CollectionRunCompleted::dispatch($run->fresh() ?? $run);
     }
 
-    /**
-     * Resource/collection may still be Queued when the only child finishes in one tick.
-     * State machine forbids Queued → Completed/Partial/Failed — step through Running.
-     */
     private function transitionResourceTerminal(CollectionResourceRun $resource, CollectionRunStatus $to): void
     {
         if ($resource->status === CollectionRunStatus::Queued) {
@@ -220,5 +217,36 @@ final class CollectionStatusAggregator
         if (in_array($to, [CollectionRunStatus::Completed, CollectionRunStatus::Partial], true)) {
             $run->forceFill(['failure_summary' => null])->save();
         }
+
+        $this->syncOperatorRun($run->fresh() ?? $run);
+    }
+
+    private function syncOperatorRun(CollectionRun $collectionRun): void
+    {
+        $operatorRunId = data_get($collectionRun->metadata, 'operator_run_id');
+        if (! is_numeric($operatorRunId) || ! $collectionRun->status->isTerminal()) {
+            return;
+        }
+
+        $operatorRun = Run::query()->find((int) $operatorRunId);
+        if (! $operatorRun instanceof Run || ! in_array($operatorRun->status, ['queued', 'running'], true)) {
+            return;
+        }
+
+        [$status, $label] = match ($collectionRun->status) {
+            CollectionRunStatus::Completed => ['completed', 'Completed'],
+            CollectionRunStatus::Partial => ['partial', 'Completed with gaps'],
+            default => ['failed', 'Failed'],
+        };
+
+        app(AsyncOperationService::class)->markFinished($operatorRun, $status, $label, [
+            'collection_run_id' => $collectionRun->id,
+            'collection_status' => $collectionRun->status->value,
+            'failure_category' => $status === 'failed' ? null : data_get($operatorRun->metadata, 'failure_category'),
+            'failure_summary' => $status === 'failed'
+                ? ($collectionRun->failure_summary ?: 'Provider collection did not complete successfully.')
+                : null,
+            'retryable' => $status !== 'completed',
+        ]);
     }
 }
