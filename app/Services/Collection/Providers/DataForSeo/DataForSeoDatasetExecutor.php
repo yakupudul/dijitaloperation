@@ -136,7 +136,7 @@ final class DataForSeoDatasetExecutor implements DatasetExecutor
         $retrievedAt = (string) ($checkpoint['retrieved_at'] ?? CarbonImmutable::now('UTC')->toDateTimeString());
         $forceRefresh = (bool) $scope['force_refresh'];
 
-        if (! $forceRefresh && ($checkpoint['paid_called'] ?? false) !== true && $this->poolIsFresh($datasetId, (int) $scope['asset']->id, $ttlDays)) {
+        if (! $forceRefresh && ($checkpoint['paid_called'] ?? false) !== true && $this->poolIsFresh($datasetId, (int) $scope['asset']->id, $ttlDays, $fingerprint)) {
             return $this->completedCounted(1, 1, [
                 'cache_status' => 'HIT_FRESH',
                 'request_fingerprint' => $fingerprint,
@@ -160,7 +160,7 @@ final class DataForSeoDatasetExecutor implements DatasetExecutor
         }
 
         try {
-            if (! $forceRefresh && $this->poolIsFresh($datasetId, (int) $scope['asset']->id, $ttlDays)) {
+            if (! $forceRefresh && $this->poolIsFresh($datasetId, (int) $scope['asset']->id, $ttlDays, $fingerprint)) {
                 return $this->completedCounted(1, 1, [
                     'cache_status' => 'HIT_FRESH_LOCK',
                     'request_fingerprint' => $fingerprint,
@@ -450,7 +450,7 @@ final class DataForSeoDatasetExecutor implements DatasetExecutor
         };
     }
 
-    private function poolIsFresh(string $datasetId, int $digitalAssetId, int $ttlDays): bool
+    private function poolIsFresh(string $datasetId, int $digitalAssetId, int $ttlDays, string $fingerprint): bool
     {
         $row = DatasetMaterialization::query()
             ->where('dataset_id', $datasetId)
@@ -463,7 +463,16 @@ final class DataForSeoDatasetExecutor implements DatasetExecutor
             return false;
         }
 
-        return $row->last_collected_at->gt(now()->subDays($ttlDays));
+        if (! $row->last_collected_at->gt(now()->subDays($ttlDays))) {
+            return false;
+        }
+
+        $datasetRun = $row->lastSuccessfulDatasetRun;
+        $stored = is_array($datasetRun?->checkpoint)
+            ? (string) ($datasetRun->checkpoint['request_fingerprint'] ?? '')
+            : '';
+
+        return $stored !== '' && hash_equals($stored, $fingerprint);
     }
 
     /**

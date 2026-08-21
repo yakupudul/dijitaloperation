@@ -187,6 +187,44 @@ class DataForSeoProductionCollectorTest extends TestCase
     }
 
     #[Test]
+    public function ranked_keywords_hit_fresh_is_scoped_to_market_fingerprint(): void
+    {
+        Http::fake([
+            'https://api.dataforseo.com/v3/dataforseo_labs/google/ranked_keywords/live' => Http::response(
+                $this->rankedKeywordsFixture(),
+                200,
+            ),
+        ]);
+
+        $first = $this->runFamily(DataForSeoRequestFamilyCatalog::FAMILY_RANKED_KEYWORDS, consented: true);
+        $this->assertSame(DatasetExecutionOutcome::Completed, $first->outcome, (string) $first->errorMessage);
+        $this->assertSame('MISS', $first->checkpoint['cache_status'] ?? null);
+        $firstFingerprint = (string) ($first->checkpoint['request_fingerprint'] ?? '');
+        $this->assertNotSame('', $firstFingerprint);
+        Http::assertSentCount(1);
+
+        $this->asset->forceFill([
+            'seo_market_location_code' => 2840,
+            'seo_market_location_name' => 'United States',
+            'seo_market_language_code' => 'en',
+            'seo_market_language_name' => 'English',
+        ])->save();
+
+        $changedMarket = $this->runFamily(DataForSeoRequestFamilyCatalog::FAMILY_RANKED_KEYWORDS, consented: true);
+        $this->assertSame(DatasetExecutionOutcome::Completed, $changedMarket->outcome, (string) $changedMarket->errorMessage);
+        $this->assertSame('MISS', $changedMarket->checkpoint['cache_status'] ?? null);
+        $this->assertNotSame($firstFingerprint, $changedMarket->checkpoint['request_fingerprint'] ?? null);
+        Http::assertSentCount(2);
+
+        $sameMarketReplay = $this->runFamily(DataForSeoRequestFamilyCatalog::FAMILY_RANKED_KEYWORDS, consented: true);
+        $this->assertSame(DatasetExecutionOutcome::Completed, $sameMarketReplay->outcome, (string) $sameMarketReplay->errorMessage);
+        $this->assertSame('HIT_FRESH', $sameMarketReplay->checkpoint['cache_status'] ?? null);
+        $this->assertFalse($sameMarketReplay->checkpoint['provider_called'] ?? true);
+        $this->assertSame($changedMarket->checkpoint['request_fingerprint'] ?? null, $sameMarketReplay->checkpoint['request_fingerprint'] ?? null);
+        Http::assertSentCount(2);
+    }
+
+    #[Test]
     public function paid_write_idempotency_is_scoped_to_dataset_run_not_request_fingerprint(): void
     {
         Http::fake([
