@@ -139,6 +139,9 @@ class PhaseECanonicalJourneyTest extends TestCase
             ->assertHasNoErrors();
 
         $this->assertTrue(
+            CollectionRun::query()->where('digital_asset_id', $website->id)->exists()
+        );
+        $this->assertFalse(
             Evidence::query()->where('digital_asset_id', $website->id)->where('type', 'ga4_performance_summary')->exists()
         );
 

@@ -4,6 +4,7 @@ namespace App\Jobs\Async;
 
 use App\Models\DigitalAsset;
 use App\Models\Run;
+use App\Models\User;
 use App\Services\Async\AsyncOperationService;
 use App\Services\Integrations\CollectLiveBoundDataService;
 use App\Support\Async\AsyncFailureClassifier;
@@ -41,7 +42,9 @@ class CollectLiveBoundDataJob implements ShouldQueue
             $asset = DigitalAsset::query()->findOrFail($run->digital_asset_id);
 
             $async->setPhase($run->fresh() ?? $run, 'collecting_bindings', 'Collecting connected sources');
-            $result = $collector->collect($asset);
+            $actorId = data_get($run->metadata, 'triggered_by_user_id');
+            $actor = is_numeric($actorId) ? User::query()->find((int) $actorId) : null;
+            $result = $collector->collect($asset, $actor);
 
             $childIds = collect($result['runs'] ?? [])
                 ->map(fn (Run $child): int => (int) $child->id)
@@ -56,13 +59,14 @@ class CollectLiveBoundDataJob implements ShouldQueue
             $final = 'completed';
             $label = 'Completed';
             if (! $ok || $hasFailedChild || $hasPartial || ($result['skipped'] ?? []) !== []) {
-                $final = ($childIds === [] && ! $ok) ? 'failed' : 'partial';
+                $final = ($childIds === [] && ($result['collection_run_id'] ?? null) === null && ! $ok) ? 'failed' : 'partial';
                 $label = $final === 'failed' ? 'Failed' : 'Completed with gaps';
             }
 
             $async->markFinished($run->fresh() ?? $run, $final, $label, [
                 'result_summary' => (string) ($result['message'] ?? ''),
                 'child_run_ids' => $childIds,
+                'collection_run_id' => $result['collection_run_id'] ?? null,
                 'skipped' => $result['skipped'] ?? [],
                 'findings' => $result['findings'] ?? [],
                 'failure_category' => $final === 'failed' ? AsyncFailureClassifier::VALIDATION : null,

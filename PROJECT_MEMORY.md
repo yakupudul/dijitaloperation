@@ -97,6 +97,8 @@ Follows the corresponding **central agency-auth** model (one agency Google Integ
 
 Google **Collect Data** is Integration-scoped at the operator entry, but planning/execution is **Brand-scoped**: one `CollectionRun` per eligible Brand, same-brand GSC/GA4/Ads siblings in that run, no silent drop of sibling Brands, no cross-brand or cross-customer mixing inside a run. Incremental refresh due selection uses that Brand’s exact preflight binding IDs across Digital Assets (not only the website/GSC anchor). Meta same-customer multi-brand backfill remains a separate contract (one run may span Brands for the same Customer).
 
+Operator **Collect Now** / **Collect live data** for GA4, Search Console, Google Ads, and Meta Ads must start the shared Collection Engine (`ExecuteCollectionLifecycleService::runNow` → `CollectionRun` / warehouse). It must not write specialist Evidence summaries through BoundCollectorRegistry. GBP remains on the legacy bound Evidence collector. DataForSEO `HIT_FRESH` is scoped to the paid request fingerprint (including market `location_code` / `language_code`); a market change is a cache miss.
+
 Site-scoped legacy connection paths may still exist for some Website connectors; the **direction of travel** is central Integration + External Resource + AssetBinding.
 
 ---

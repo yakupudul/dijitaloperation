@@ -5,14 +5,18 @@ namespace App\Services\Integrations;
 use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
 use App\Models\Run;
+use App\Models\User;
+use App\Services\CollectionScheduler\CollectionSchedulingPolicyRegistry;
+use App\Services\CollectionScheduler\ExecuteCollectionLifecycleService;
 use App\Services\Findings\BoundEvidenceRuleRegistry;
 use App\Services\Findings\FindingLifecycleService;
 use Illuminate\Support\Facades\Log;
 
 /**
- * One-operator entry: discover active bindings on a Digital Asset and run
- * registered module collectors. No credentials / external IDs / OAuth here.
- * After collection, module Evidence → Finding rules run through Core lifecycle.
+ * One-operator entry: discover active bindings on a Digital Asset and collect.
+ * GA4 / GSC / Google Ads / Meta Ads use the shared Collection Engine
+ * (CollectionRun → DatasetRun → warehouse). Remaining capabilities (GBP, etc.)
+ * still use BoundCollectorRegistry Evidence collectors.
  */
 final class CollectLiveBoundDataService
 {
@@ -20,6 +24,7 @@ final class CollectLiveBoundDataService
         private readonly BoundCollectorRegistry $registry,
         private readonly BoundEvidenceRuleRegistry $ruleRegistry,
         private readonly FindingLifecycleService $lifecycle,
+        private readonly ExecuteCollectionLifecycleService $collectionLifecycle,
     ) {}
 
     /**
@@ -28,10 +33,11 @@ final class CollectLiveBoundDataService
      *     message: string,
      *     runs: list<Run>,
      *     skipped: list<array{capability: string, reason: string}>,
-     *     findings: array{opened: int, updated: int, reopened: int, resolved: int, recommendations: int}
+     *     findings: array{opened: int, updated: int, reopened: int, resolved: int, recommendations: int},
+     *     collection_run_id: ?int
      * }
      */
-    public function collect(DigitalAsset $asset): array
+    public function collect(DigitalAsset $asset, ?User $actor = null): array
     {
         $emptyFindings = [
             'opened' => 0,
@@ -55,14 +61,45 @@ final class CollectLiveBoundDataService
                 'runs' => [],
                 'skipped' => [],
                 'findings' => $emptyFindings,
+                'collection_run_id' => null,
             ];
         }
+
+        $engineBindings = $bindings->filter(
+            fn (CoreAssetBinding $binding): bool => array_key_exists(
+                (string) $binding->capability,
+                CollectionSchedulingPolicyRegistry::CAPABILITY_PROVIDER,
+            ),
+        );
+        $legacyBindings = $bindings->reject(
+            fn (CoreAssetBinding $binding): bool => array_key_exists(
+                (string) $binding->capability,
+                CollectionSchedulingPolicyRegistry::CAPABILITY_PROVIDER,
+            ),
+        );
 
         $runs = [];
         $skipped = [];
         $failures = 0;
+        $messages = [];
+        $collectionRunId = null;
+        $engineOk = true;
 
-        foreach ($bindings as $binding) {
+        if ($engineBindings->isNotEmpty()) {
+            $lifecycle = $this->collectionLifecycle->runNow($asset, $actor);
+            $collectionRunId = $lifecycle->collectionRun?->id;
+            $engineOk = in_array($lifecycle->outcome, ['started', 'active_equivalent', 'no_work'], true);
+            $messages[] = $lifecycle->message;
+            if (! $engineOk) {
+                $failures++;
+                $skipped[] = [
+                    'capability' => $engineBindings->pluck('capability')->unique()->implode(','),
+                    'reason' => $lifecycle->message,
+                ];
+            }
+        }
+
+        foreach ($legacyBindings as $binding) {
             $collector = $this->registry->forCapability((string) $binding->capability);
             if ($collector === null) {
                 $skipped[] = [
@@ -91,31 +128,38 @@ final class CollectLiveBoundDataService
             }
         }
 
-        if ($runs === [] && $skipped !== []) {
+        if ($engineBindings->isEmpty() && $runs === [] && $skipped !== []) {
             return [
                 'ok' => false,
                 'message' => 'No collectors ran. '.$this->summarizeSkipped($skipped),
                 'runs' => [],
                 'skipped' => $skipped,
                 'findings' => $emptyFindings,
+                'collection_run_id' => null,
             ];
         }
 
         $findings = $this->evaluateFindings($asset, $runs);
 
-        $ok = $failures === 0;
-        $message = count($runs).' collector run(s) finished.';
-        if ($skipped !== []) {
-            $message .= ' '.$this->summarizeSkipped($skipped);
+        $ok = $engineOk && $failures === 0;
+        $message = trim(implode(' ', $messages));
+        if ($runs !== []) {
+            $message = trim($message.' '.count($runs).' collector run(s) finished.');
         }
-        $message .= ' '.$this->summarizeFindings($findings);
+        if ($skipped !== []) {
+            $message = trim($message.' '.$this->summarizeSkipped($skipped));
+        }
+        if ($runs !== []) {
+            $message = trim($message.' '.$this->summarizeFindings($findings));
+        }
 
         return [
             'ok' => $ok,
-            'message' => $message,
+            'message' => $message !== '' ? $message : 'No collection work started.',
             'runs' => $runs,
             'skipped' => $skipped,
             'findings' => $findings,
+            'collection_run_id' => $collectionRunId,
         ];
     }
 
