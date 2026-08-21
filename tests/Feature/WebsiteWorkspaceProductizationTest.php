@@ -8,6 +8,7 @@ use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAsset
 use App\Filament\App\Resources\Runs\Pages\ViewRun;
 use App\Filament\App\Resources\Runs\RunResource;
 use App\Models\Brand;
+use App\Models\Collection\CollectionRun;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
@@ -104,6 +105,11 @@ class WebsiteWorkspaceProductizationTest extends TestCase
             ], 200),
         ]);
 
+        config([
+            'moxdop-collection.require_queue_connection' => false,
+            'moxdop-collection.queue_connection' => 'database',
+        ]);
+
         Livewire::test(ViewDigitalAsset::class, [
             'record' => $this->website->getRouteKey(),
             'parentRecord' => $this->brand,
@@ -116,9 +122,12 @@ class WebsiteWorkspaceProductizationTest extends TestCase
 
         $this->assertDatabaseHas('runs', [
             'digital_asset_id' => $this->website->id,
-            'module_id' => 'website',
+            'module_id' => 'bound-collect',
         ]);
         $this->assertTrue(
+            CollectionRun::query()->where('digital_asset_id', $this->website->id)->exists()
+        );
+        $this->assertFalse(
             Evidence::query()->where('digital_asset_id', $this->website->id)->where('type', 'gsc_performance_summary')->exists()
         );
     }
