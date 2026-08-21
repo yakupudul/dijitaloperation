@@ -2,8 +2,8 @@
 
 namespace Tests\Feature\TrackA;
 
-use App\Livewire\Demo\Assets\AnalyticsPage;
-use App\Livewire\Demo\Assets\SearchConsolePage;
+use App\Livewire\Operator\Assets\AnalyticsPage;
+use App\Livewire\Operator\Assets\SearchConsolePage;
 use App\Models\Brand;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
