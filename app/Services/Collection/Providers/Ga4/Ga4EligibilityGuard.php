@@ -18,7 +18,8 @@ use App\Support\Integrations\Google\GoogleResourceType;
 use App\Support\Integrations\ProviderRegistry;
 
 /**
- * Production GA4 collection requires human-confirmed active bindings.
+ * GA4 can be collected directly from a discovered provider resource into the central Data Pool.
+ * A Digital Asset binding is optional at ingestion time; when present, tenant-scope checks remain strict.
  */
 final class Ga4EligibilityGuard
 {
@@ -28,61 +29,122 @@ final class Ga4EligibilityGuard
 
     /**
      * @return array{
-     *   binding: CoreAssetBinding,
-     *   asset: DigitalAsset,
+     *   binding: CoreAssetBinding|null,
+     *   asset: DigitalAsset|null,
      *   resource: CoreExternalResource,
      *   integration: CoreIntegration,
      *   property_id: string,
-     *   property_resource_name: string
+     *   property_resource_name: string,
+     *   collection_scope: string
      * }|DatasetExecutionResult
      */
     public function assertEligible(CollectionRun $collectionRun, CollectionResourceRun $resourceRun): array|DatasetExecutionResult
     {
-        $bindingId = $resourceRun->core_asset_binding_id;
-        if ($bindingId === null) {
-            return DatasetExecutionResult::failed(
-                CollectionErrorCategory::Authorization,
-                'GA4 production collection requires a human-confirmed CoreAssetBinding.',
-                'BINDING_REQUIRED',
-            );
+        $binding = null;
+        $asset = null;
+        $resource = null;
+        $integration = null;
+
+        if ($resourceRun->core_asset_binding_id !== null) {
+            $binding = CoreAssetBinding::query()
+                ->with(['digitalAsset.brand', 'externalResource.integration'])
+                ->find($resourceRun->core_asset_binding_id);
+
+            if (! $binding instanceof CoreAssetBinding || $binding->status !== CoreAssetBinding::STATUS_ACTIVE) {
+                return DatasetExecutionResult::failed(
+                    CollectionErrorCategory::Authorization,
+                    'GA4 binding is missing or not active.',
+                    'BINDING_INACTIVE',
+                );
+            }
+
+            if ($binding->capability !== GoogleScopeRegistry::CAPABILITY_GA4) {
+                return DatasetExecutionResult::failed(
+                    CollectionErrorCategory::ContractMismatch,
+                    'Binding capability is not ga4.',
+                    'CONTRACT_MISMATCH',
+                );
+            }
+
+            $asset = $binding->digitalAsset;
+            $resource = $binding->externalResource;
+            $integration = $resource?->integration;
+
+            if (! $asset instanceof DigitalAsset || ! $resource instanceof CoreExternalResource || ! $integration instanceof CoreIntegration) {
+                return DatasetExecutionResult::failed(
+                    CollectionErrorCategory::Authorization,
+                    'GA4 binding scope graph is incomplete.',
+                    'SCOPE_GRAPH_INCOMPLETE',
+                );
+            }
+
+            if (! CollectionBindingScope::collectionRunMayTargetAsset($collectionRun, $asset)
+                || (int) $resourceRun->digital_asset_id !== (int) $asset->id
+                || (int) $resourceRun->external_resource_id !== (int) $resource->id
+                || (int) $resourceRun->core_asset_binding_id !== (int) $binding->id) {
+                return DatasetExecutionResult::failed(
+                    CollectionErrorCategory::Authorization,
+                    'Cross-tenant protection: GA4 scope mismatch.',
+                    'CROSS_TENANT',
+                );
+            }
+
+            if ($collectionRun->brand_id !== null && (int) $collectionRun->brand_id !== (int) $asset->brand_id) {
+                return DatasetExecutionResult::failed(
+                    CollectionErrorCategory::Authorization,
+                    'Cross-tenant protection: Brand mismatch.',
+                    'CROSS_TENANT',
+                );
+            }
+        } else {
+            $resourceId = $resourceRun->external_resource_id;
+            if ($resourceId === null) {
+                return DatasetExecutionResult::failed(
+                    CollectionErrorCategory::ContractMismatch,
+                    'GA4 resource-first collection requires an ExternalResource.',
+                    'EXTERNAL_RESOURCE_REQUIRED',
+                );
+            }
+
+            $resource = CoreExternalResource::query()
+                ->with('integration')
+                ->find($resourceId);
+            $integration = $resource?->integration;
+
+            if (! $resource instanceof CoreExternalResource || ! $integration instanceof CoreIntegration) {
+                return DatasetExecutionResult::failed(
+                    CollectionErrorCategory::Authorization,
+                    'GA4 provider-resource scope graph is incomplete.',
+                    'SCOPE_GRAPH_INCOMPLETE',
+                );
+            }
+
+            if ($resourceRun->digital_asset_id !== null
+                || $collectionRun->digital_asset_id !== null
+                || $collectionRun->brand_id !== null
+                || $collectionRun->customer_id !== null) {
+                return DatasetExecutionResult::failed(
+                    CollectionErrorCategory::Authorization,
+                    'Resource-first GA4 collection cannot silently inherit Customer, Brand or Digital Asset scope.',
+                    'CENTRAL_SCOPE_MISMATCH',
+                );
+            }
+
+            $intent = (string) data_get($collectionRun->request_context, 'context.collection_scope', '');
+            if ($intent !== 'provider_resource_first') {
+                return DatasetExecutionResult::failed(
+                    CollectionErrorCategory::Authorization,
+                    'Unbound GA4 collection is allowed only for explicit provider-resource-first runs.',
+                    'CENTRAL_SCOPE_REQUIRED',
+                );
+            }
         }
 
-        $binding = CoreAssetBinding::query()
-            ->with(['digitalAsset.brand', 'externalResource.integration'])
-            ->find($bindingId);
-
-        if (! $binding instanceof CoreAssetBinding || $binding->status !== CoreAssetBinding::STATUS_ACTIVE) {
-            return DatasetExecutionResult::failed(
-                CollectionErrorCategory::Authorization,
-                'GA4 binding is missing or not active.',
-                'BINDING_INACTIVE',
-            );
-        }
-
-        if ($binding->capability !== GoogleScopeRegistry::CAPABILITY_GA4) {
+        if ($resource->provider !== ProviderRegistry::GOOGLE
+            || $resource->resource_type !== GoogleResourceType::GA4_PROPERTY) {
             return DatasetExecutionResult::failed(
                 CollectionErrorCategory::ContractMismatch,
-                'Binding capability is not ga4.',
-                'CONTRACT_MISMATCH',
-            );
-        }
-
-        $asset = $binding->digitalAsset;
-        $resource = $binding->externalResource;
-        $integration = $resource?->integration;
-
-        if (! $asset instanceof DigitalAsset || ! $resource instanceof CoreExternalResource || ! $integration instanceof CoreIntegration) {
-            return DatasetExecutionResult::failed(
-                CollectionErrorCategory::Authorization,
-                'GA4 binding scope graph is incomplete.',
-                'SCOPE_GRAPH_INCOMPLETE',
-            );
-        }
-
-        if ($resource->resource_type !== GoogleResourceType::GA4_PROPERTY) {
-            return DatasetExecutionResult::failed(
-                CollectionErrorCategory::ContractMismatch,
-                'ExternalResource is not a GA4 property.',
+                'ExternalResource is not a Google GA4 property.',
                 'RESOURCE_TYPE_MISMATCH',
             );
         }
@@ -127,25 +189,6 @@ final class Ga4EligibilityGuard
             );
         }
 
-        if (! CollectionBindingScope::collectionRunMayTargetAsset($collectionRun, $asset)
-            || (int) $resourceRun->digital_asset_id !== (int) $asset->id
-            || (int) $resourceRun->external_resource_id !== (int) $resource->id
-            || (int) $resourceRun->core_asset_binding_id !== (int) $binding->id) {
-            return DatasetExecutionResult::failed(
-                CollectionErrorCategory::Authorization,
-                'Cross-tenant protection: GA4 scope mismatch.',
-                'CROSS_TENANT',
-            );
-        }
-
-        if ($collectionRun->brand_id !== null && (int) $collectionRun->brand_id !== (int) $asset->brand_id) {
-            return DatasetExecutionResult::failed(
-                CollectionErrorCategory::Authorization,
-                'Cross-tenant protection: Brand mismatch.',
-                'CROSS_TENANT',
-            );
-        }
-
         $externalId = trim((string) $resource->external_id);
         if ($externalId === '') {
             return DatasetExecutionResult::failed(
@@ -167,6 +210,7 @@ final class Ga4EligibilityGuard
             'integration' => $integration,
             'property_id' => $propertyId,
             'property_resource_name' => $propertyResourceName,
+            'collection_scope' => $binding instanceof CoreAssetBinding ? 'digital_asset_binding' : 'provider_resource_first',
         ];
     }
 }
