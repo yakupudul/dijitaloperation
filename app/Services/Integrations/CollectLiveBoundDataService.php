@@ -37,7 +37,7 @@ final class CollectLiveBoundDataService
      *     collection_run_id: ?int
      * }
      */
-    public function collect(DigitalAsset $asset, ?User $actor = null): array
+    public function collect(DigitalAsset $asset, ?User $actor = null, ?Run $operatorRun = null): array
     {
         $emptyFindings = [
             'opened' => 0,
@@ -86,8 +86,19 @@ final class CollectLiveBoundDataService
         $engineOk = true;
 
         if ($engineBindings->isNotEmpty()) {
-            $lifecycle = $this->collectionLifecycle->runNow($asset, $actor);
-            $collectionRunId = $lifecycle->collectionRun?->id;
+            $context = $operatorRun instanceof Run ? ['operator_run_id' => $operatorRun->id] : [];
+            $lifecycle = $this->collectionLifecycle->runNow($asset, $actor, $context);
+            $collectionRun = $lifecycle->collectionRun;
+            $collectionRunId = $collectionRun?->id;
+
+            if ($collectionRun !== null && $operatorRun instanceof Run && data_get($collectionRun->metadata, 'operator_run_id') === null) {
+                $collectionRun->forceFill([
+                    'metadata' => array_merge($collectionRun->metadata ?? [], [
+                        'operator_run_id' => $operatorRun->id,
+                    ]),
+                ])->save();
+            }
+
             $engineOk = in_array($lifecycle->outcome, ['started', 'active_equivalent', 'no_work'], true);
             $messages[] = $lifecycle->message;
             if (! $engineOk) {
