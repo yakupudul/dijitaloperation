@@ -6,6 +6,11 @@ on:
       - cursor/claude-audit-track-a-503a
     paths:
       - .github/workflows/deploy-staging-once.yml
+  pull_request:
+    branches:
+      - cursor/release-candidate-integration-a7bb
+    paths:
+      - .github/workflows/deploy-staging-once.yml
 
 permissions:
   contents: read
@@ -67,7 +72,7 @@ jobs:
       - name: Deploy exact GitHub SHA
         shell: bash
         env:
-          RELEASE_SHA: ${{ github.sha }}
+          RELEASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           ssh -i ~/.ssh/moxdop_staging -o BatchMode=yes -o StrictHostKeyChecking=yes "$STAGING_USER@$STAGING_HOST" "
