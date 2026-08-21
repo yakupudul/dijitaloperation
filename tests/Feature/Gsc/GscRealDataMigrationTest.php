@@ -119,21 +119,16 @@ class GscRealDataMigrationTest extends TestCase
     }
 
     #[Test]
-    public function demo_catalog_asset_uses_fixtures_with_demo_provenance(): void
+    public function catalog_string_ids_do_not_produce_fixture_backed_gsc_workspaces(): void
     {
         $workspace = app(GscSpecialistReadService::class)->workspace(DemoCatalog::GSC_ASSET_ID);
+        $fixtureClicks = GscWorkspaceFixtures::workspace('last_28')['glance']['clicks']['raw'];
 
-        $this->assertSame('demo_catalog', $workspace['migration_mode']);
-        $this->assertSame(
-            GscWorkspaceFixtures::workspace('last_28')['glance']['clicks']['raw'],
-            $workspace['glance']['clicks']['raw'],
-        );
-        foreach ($workspace['data_provenance'] as $field => $state) {
-            $this->assertSame('DEMO', $state, "Field {$field} should be DEMO");
-        }
-        foreach ($workspace['tab_status'] as $status) {
-            $this->assertSame('DEMO', $status);
-        }
+        $this->assertNotSame('demo_catalog', $workspace['migration_mode']);
+        $this->assertNotSame($fixtureClicks, $workspace['glance']['clicks']['raw'] ?? null);
+        $this->assertSame('—', $workspace['glance']['clicks']['value']);
+        $this->assertNull($workspace['glance']['clicks']['raw']);
+        $this->assertSame(18420, $fixtureClicks);
     }
 
     #[Test]

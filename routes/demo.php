@@ -116,8 +116,12 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/assets/google-ads/{assetId?}', GoogleAdsOverviewPage::class)->name('operator.google-ads.overview');
         Route::livewire('/assets/website/{assetId?}', WebsiteOverviewPage::class)->name('operator.website');
         Route::livewire('/assets/gbp/{assetId?}', GbpOverviewPage::class)->name('operator.gbp');
-        Route::livewire('/assets/analytics/{assetId?}', AnalyticsPage::class)->name('operator.analytics');
-        Route::livewire('/assets/search-console/{assetId?}', SearchConsolePage::class)->name('operator.search-console');
+        Route::livewire('/assets/analytics/{assetId?}', AnalyticsPage::class)
+            ->whereNumber('assetId')
+            ->name('operator.analytics');
+        Route::livewire('/assets/search-console/{assetId?}', SearchConsolePage::class)
+            ->whereNumber('assetId')
+            ->name('operator.search-console');
         Route::get('/assets/domain/{assetId?}', RetiredAssetTypeRedirectController::class)->name('operator.domain');
         Route::get('/assets/hosting/{assetId?}', RetiredAssetTypeRedirectController::class)->name('operator.hosting');
         Route::livewire('/assets/instagram/{assetId?}', InstagramOverviewPage::class)->name('operator.instagram');

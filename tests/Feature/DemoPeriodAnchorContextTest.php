@@ -46,8 +46,9 @@ class DemoPeriodAnchorContextTest extends TestCase
         $this->assertSame(18420, $workspace['glance']['clicks']['raw']);
         $this->assertSame(DemoPeriod::ANCHOR_DATE, $catalogBounds['end']->toDateString());
         $this->assertSame('2026-07-16', $catalogBounds['start']->toDateString());
-        $this->assertSame(DemoPeriod::ANCHOR_DATE, $catalogWorkspace['period_end']);
-        $this->assertSame('2026-07-16', $catalogWorkspace['period_start']);
+        $this->assertNotSame('demo_catalog', $catalogWorkspace['migration_mode'] ?? null);
+        $this->assertNotSame(18420, $catalogWorkspace['glance']['clicks']['raw'] ?? null);
+        $this->assertSame('—', $catalogWorkspace['glance']['clicks']['value'] ?? null);
     }
 
     public function test_real_operator_period_presets_follow_the_current_date(): void

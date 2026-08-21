@@ -24,13 +24,13 @@ final class Ga4BindingContext
         return new self(Ga4BindingMode::DemoCatalog, $assetId);
     }
 
-    public static function notConnected(string $assetId, int $digitalAssetId): self
+    public static function notConnected(string $assetId, ?int $digitalAssetId = null, string $reason = 'no_active_ga4_binding'): self
     {
         return new self(
             Ga4BindingMode::NotConnected,
             $assetId,
             digitalAssetId: $digitalAssetId,
-            reason: 'no_active_ga4_binding',
+            reason: $reason,
         );
     }
 
