@@ -39,6 +39,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use MoxDop\Website\Discovery\DiscoveryConfig;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -532,6 +533,145 @@ class WebsiteProductionCollectorTest extends TestCase
         $this->assertSame(2, DB::table('website_url')->count());
         $this->assertSame($committedRows, (int) DatasetWriteBatch::query()->where('dataset_run_id', $datasetRun->id)->sum('rows_received'));
         $this->assertSame(2, (int) ($resume->checkpoint['pages'] ?? 0));
+    }
+
+    #[Test]
+    public function public_crawl_resolves_nested_relative_links_against_the_fetched_page_not_the_seed(): void
+    {
+        Http::fake(function ($request) {
+            $path = (string) (parse_url($request->url(), PHP_URL_PATH) ?: '/');
+            if ($path === '/blog' || $path === '/blog/') {
+                return Http::response(
+                    '<html><body><a href="post-1">Post</a><a href="../pricing">Pricing</a><a href="/contact">Contact</a></body></html>',
+                    200,
+                    ['Content-Type' => 'text/html'],
+                );
+            }
+
+            return Http::response('<html><body>ok</body></html>', 200, ['Content-Type' => 'text/html']);
+        });
+
+        [$context, $datasetRun] = $this->makeContext(WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL);
+        $result = app(WebsiteDatasetExecutor::class)->execute($this->contextFrom($context, $datasetRun, [
+            'observed_at' => '2026-08-20 00:00:00',
+            'queue' => ['http://1.1.1.1/blog/'],
+            'visited' => [],
+            'pages' => 0,
+            'rows_written_total' => 0,
+            'bytes_downloaded_total' => 0,
+        ]));
+
+        $this->assertSame(DatasetExecutionOutcome::Continue, $result->outcome, (string) $result->errorMessage);
+        $queue = array_values($result->checkpoint['queue'] ?? []);
+        $this->assertContains('http://1.1.1.1/blog/post-1', $queue);
+        $this->assertContains('http://1.1.1.1/pricing', $queue);
+        $this->assertContains('http://1.1.1.1/contact', $queue);
+        $this->assertNotContains('http://1.1.1.1/post-1', $queue);
+    }
+
+    #[Test]
+    public function public_crawl_resolves_relative_links_against_the_redirect_final_url(): void
+    {
+        Http::fake(function ($request) {
+            $path = (string) (parse_url($request->url(), PHP_URL_PATH) ?: '/');
+            if ($path === '/old' || $path === '/old/') {
+                return Http::response('', 301, ['Location' => 'http://1.1.1.1/blog/']);
+            }
+            if ($path === '/blog' || $path === '/blog/') {
+                return Http::response(
+                    '<html><body><a href="post-1">Post</a></body></html>',
+                    200,
+                    ['Content-Type' => 'text/html'],
+                );
+            }
+
+            return Http::response('<html><body>ok</body></html>', 200, ['Content-Type' => 'text/html']);
+        });
+
+        [$context, $datasetRun] = $this->makeContext(WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL);
+        $result = app(WebsiteDatasetExecutor::class)->execute($this->contextFrom($context, $datasetRun, [
+            'observed_at' => '2026-08-20 00:00:00',
+            'queue' => ['http://1.1.1.1/old'],
+            'visited' => [],
+            'pages' => 0,
+            'rows_written_total' => 0,
+            'bytes_downloaded_total' => 0,
+        ]));
+
+        $this->assertSame(DatasetExecutionOutcome::Continue, $result->outcome, (string) $result->errorMessage);
+        $queue = array_values($result->checkpoint['queue'] ?? []);
+        $this->assertContains('http://1.1.1.1/blog/post-1', $queue);
+        $this->assertNotContains('http://1.1.1.1/post-1', $queue);
+        $this->assertNotContains('http://1.1.1.1/old/post-1', $queue);
+    }
+
+    #[Test]
+    public function public_crawl_enforces_aggregate_byte_limit_across_resume_without_duplicating_facts(): void
+    {
+        $this->fakePublicSite();
+        [$context, $datasetRun] = $this->makeContext(WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL);
+        $executor = app(WebsiteDatasetExecutor::class);
+        $home = 'http://1.1.1.1/';
+        $about = 'http://1.1.1.1/about';
+
+        $first = $executor->execute($this->contextFrom($context, $datasetRun, [
+            'observed_at' => '2026-08-20 00:00:00',
+            'queue' => [$home, $about],
+            'visited' => [],
+            'pages' => 0,
+            'rows_written_total' => 0,
+            'bytes_downloaded_total' => 0,
+        ]));
+        $this->assertSame(DatasetExecutionOutcome::Continue, $first->outcome, (string) $first->errorMessage);
+        $this->assertSame(1, $first->checkpoint['pages'] ?? null);
+        $this->assertGreaterThan(0, (int) ($first->checkpoint['bytes_downloaded_total'] ?? 0));
+        $httpAfterFirst = DB::table('website_http_snapshot')->count();
+        $bytesAfterFirst = (int) ($first->checkpoint['bytes_downloaded_total'] ?? 0);
+
+        $retry = $executor->execute($this->contextFrom($context, $datasetRun, [
+            'observed_at' => '2026-08-20 00:00:00',
+            'queue' => [$home, $about],
+            'visited' => [],
+            'pages' => 0,
+            'rows_written_total' => 0,
+            'bytes_downloaded_total' => 0,
+        ]));
+        $this->assertSame($bytesAfterFirst, (int) ($retry->checkpoint['bytes_downloaded_total'] ?? 0));
+        $this->assertSame($httpAfterFirst, DB::table('website_http_snapshot')->count());
+
+        $stopped = $executor->execute($this->contextFrom($context, $datasetRun, [
+            'observed_at' => '2026-08-20 00:00:00',
+            'queue' => [$about],
+            'visited' => [$home],
+            'pages' => 1,
+            'rows_written_total' => (int) ($first->checkpoint['rows_written_total'] ?? 0),
+            'bytes_downloaded_total' => DiscoveryConfig::MAX_TOTAL_BYTES,
+        ]));
+        $this->assertSame(DatasetExecutionOutcome::Completed, $stopped->outcome, (string) $stopped->errorMessage);
+        $this->assertSame(1, $stopped->checkpoint['pages'] ?? null);
+        $this->assertSame($httpAfterFirst, DB::table('website_http_snapshot')->count(), 'resume at the aggregate byte limit must not fetch further pages');
+        $this->assertSame(DiscoveryConfig::MAX_TOTAL_BYTES, (int) ($stopped->checkpoint['bytes_downloaded_total'] ?? 0));
+    }
+
+    #[Test]
+    public function public_crawl_does_not_persist_the_page_that_exceeds_the_aggregate_byte_limit(): void
+    {
+        $this->fakePublicSite();
+        [$context, $datasetRun] = $this->makeContext(WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL);
+        $result = app(WebsiteDatasetExecutor::class)->execute($this->contextFrom($context, $datasetRun, [
+            'observed_at' => '2026-08-20 00:00:00',
+            'queue' => ['http://1.1.1.1/about'],
+            'visited' => [],
+            'pages' => 0,
+            'rows_written_total' => 0,
+            'bytes_downloaded_total' => DiscoveryConfig::MAX_TOTAL_BYTES - 1,
+        ]));
+
+        $this->assertSame(DatasetExecutionOutcome::Completed, $result->outcome, (string) $result->errorMessage);
+        $this->assertSame(0, $result->checkpoint['pages'] ?? null);
+        $this->assertSame(0, DB::table('website_http_snapshot')->count());
+        $this->assertGreaterThan(DiscoveryConfig::MAX_TOTAL_BYTES, (int) ($result->checkpoint['bytes_downloaded_total'] ?? 0));
+        $this->assertContains('http://1.1.1.1/about', $result->checkpoint['visited'] ?? []);
     }
 
     private function fakePublicSite(): void

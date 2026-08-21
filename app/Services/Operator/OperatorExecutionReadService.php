@@ -5,6 +5,7 @@ namespace App\Services\Operator;
 use App\Models\Recommendation;
 use App\Services\Recommendations\RecommendationReadService;
 use App\Services\Work\WorkReadService;
+use App\Support\Operator\OperatorClock;
 use Illuminate\Support\Collection;
 
 /**
@@ -34,15 +35,16 @@ final class OperatorExecutionReadService
             'awaiting_decision',
         ])->count();
         $mine = $open->filter(fn (array $row): bool => $this->isMine($row));
+        $operatorNow = OperatorClock::now(auth()->user());
 
         return [
             'mode' => $mode,
             'greeting' => match (true) {
-                (int) now()->timezone(config('app.timezone'))->format('G') < 12 => __('operator.greetings.morning'),
-                (int) now()->timezone(config('app.timezone'))->format('G') < 18 => __('operator.greetings.afternoon'),
+                (int) $operatorNow->format('G') < 12 => __('operator.greetings.morning'),
+                (int) $operatorNow->format('G') < 18 => __('operator.greetings.afternoon'),
                 default => __('operator.greetings.evening'),
             },
-            'date_label' => now()->timezone(config('app.timezone'))->locale(app()->getLocale())->translatedFormat('l, j F'),
+            'date_label' => $operatorNow->locale(app()->getLocale())->translatedFormat('l, j F'),
             'subtitle' => __('operator.dashboard_exec.subtitle'),
             'today' => [
                 ['label' => __('operator.dashboard_exec.due_today'), 'value' => $open->where('due_key', 'today')->count(), 'route' => 'operator.tasks', 'route_params' => ['view' => 'due_today'], 'tone' => 'warning'],

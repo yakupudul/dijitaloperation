@@ -3,7 +3,11 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Services\Operator\AgencySettingService;
 use App\Services\Operator\OperatorExecutionReadService;
+use App\Support\Roles;
+use Carbon\CarbonImmutable;
+use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -81,5 +85,39 @@ class OperatorExecutionReadServiceTest extends TestCase
         $this->assertStringNotContainsString('AgencyExecutionFixtures', $dashboard);
         $this->assertStringNotContainsString('OpportunityFixtures', $dashboard);
         $this->assertStringNotContainsString('AgencyExecutionFixtures', $tasks);
+    }
+
+    public function test_dashboard_greeting_and_date_follow_operator_clock_not_storage_timezone(): void
+    {
+        $this->seed(RoleAndPermissionSeeder::class);
+        config(['app.timezone' => 'UTC', 'app.locale' => 'en']);
+        app()->setLocale('en');
+
+        $operator = User::factory()->create([
+            'is_active' => true,
+            'timezone' => null,
+        ]);
+        $operator->assignRole(Roles::ADMIN);
+        $this->actingAs($operator);
+
+        $settings = app(AgencySettingService::class)->current();
+        $settings->forceFill(['timezone' => 'America/New_York'])->save();
+
+        $this->travelTo(CarbonImmutable::parse('2026-08-21 03:30:00', 'UTC'));
+        $beforeMidnight = app(OperatorExecutionReadService::class)->dashboard();
+        $this->assertSame(__('operator.greetings.evening'), $beforeMidnight['greeting']);
+        $this->assertSame(
+            CarbonImmutable::parse('2026-08-20 23:30:00', 'America/New_York')->locale('en')->translatedFormat('l, j F'),
+            $beforeMidnight['date_label'],
+        );
+
+        $this->travelTo(CarbonImmutable::parse('2026-08-21 04:30:00', 'UTC'));
+        $afterMidnight = app(OperatorExecutionReadService::class)->dashboard();
+        $this->assertSame(__('operator.greetings.morning'), $afterMidnight['greeting']);
+        $this->assertSame(
+            CarbonImmutable::parse('2026-08-21 00:30:00', 'America/New_York')->locale('en')->translatedFormat('l, j F'),
+            $afterMidnight['date_label'],
+        );
+        $this->assertNotSame($beforeMidnight['date_label'], $afterMidnight['date_label']);
     }
 }

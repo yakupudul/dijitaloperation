@@ -167,17 +167,19 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         $visited = is_array($checkpoint['visited'] ?? null) ? array_values(array_map('strval', $checkpoint['visited'])) : [];
         $pages = (int) ($checkpoint['pages'] ?? 0);
         $rowsWritten = (int) ($checkpoint['rows_written_total'] ?? 0);
+        $bytesDownloaded = (int) ($checkpoint['bytes_downloaded_total'] ?? 0);
         $assetId = (int) $scope['asset']->id;
         $maxPages = DiscoveryConfig::MAX_PAGES;
 
-        if ($queue === [] || $pages >= $maxPages) {
-            return $this->completedCounted($pages, $maxPages, [
-                'observed_at' => $observedAt,
-                'queue' => [],
-                'visited' => $visited,
-                'pages' => $pages,
-                'rows_written_total' => $rowsWritten,
-            ]);
+        if ($queue === [] || $pages >= $maxPages || $bytesDownloaded >= DiscoveryConfig::MAX_TOTAL_BYTES) {
+            return $this->completedCounted($pages, $maxPages, $this->crawlCheckpoint(
+                $observedAt,
+                [],
+                $visited,
+                $pages,
+                $rowsWritten,
+                $bytesDownloaded,
+            ));
         }
 
         $url = array_shift($queue);
@@ -187,39 +189,57 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
                 progressMode: ProgressMode::PageBased,
                 progressCurrent: $pages,
                 progressTotal: $maxPages,
-                checkpoint: [
-                    'observed_at' => $observedAt,
-                    'queue' => array_values($queue),
-                    'visited' => $visited,
-                    'pages' => $pages,
-                    'rows_written_total' => $rowsWritten,
-                ],
+                checkpoint: $this->crawlCheckpoint(
+                    $observedAt,
+                    $queue,
+                    $visited,
+                    $pages,
+                    $rowsWritten,
+                    $bytesDownloaded,
+                ),
             );
         }
 
         $visited[] = $url;
         $fetch = $this->fetcher->fetch($url);
+        $bytesDownloaded += (int) ($fetch['bytes'] ?? 0);
+
+        if ($bytesDownloaded > DiscoveryConfig::MAX_TOTAL_BYTES) {
+            return $this->completedCounted($pages, $maxPages, $this->crawlCheckpoint(
+                $observedAt,
+                $queue,
+                $visited,
+                $pages,
+                $rowsWritten,
+                $bytesDownloaded,
+            ));
+        }
+
         $written = $this->persistPage($context, $assetId, $fetch, $observedAt, 'public_crawl', $url);
         $pages++;
         $rowsWritten += $written;
 
         if ($fetch['ok'] && is_string($fetch['body'] ?? null) && $pages < $maxPages) {
-            foreach ($this->extractSameSiteHrefs((string) $fetch['body'], $seed) as $href) {
+            $resolutionBase = is_string($fetch['final_url'] ?? null) && trim((string) $fetch['final_url']) !== ''
+                ? (string) $fetch['final_url']
+                : $url;
+            foreach ($this->extractSameSiteHrefs((string) $fetch['body'], $seed, $resolutionBase) as $href) {
                 if (! in_array($href, $visited, true) && ! in_array($href, $queue, true)) {
                     $queue[] = $href;
                 }
             }
         }
 
-        $checkpointOut = [
-            'observed_at' => $observedAt,
-            'queue' => array_values($queue),
-            'visited' => $visited,
-            'pages' => $pages,
-            'rows_written_total' => $rowsWritten,
-        ];
+        $checkpointOut = $this->crawlCheckpoint(
+            $observedAt,
+            $queue,
+            $visited,
+            $pages,
+            $rowsWritten,
+            $bytesDownloaded,
+        );
 
-        if ($queue === [] || $pages >= $maxPages) {
+        if ($queue === [] || $pages >= $maxPages || $bytesDownloaded >= DiscoveryConfig::MAX_TOTAL_BYTES) {
             return $this->completedCounted($pages, $maxPages, $checkpointOut, $written, $written, 1);
         }
 
@@ -482,14 +502,38 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
     }
 
     /**
+     * @param  list<string>  $queue
+     * @param  list<string>  $visited
+     * @return array<string, mixed>
+     */
+    private function crawlCheckpoint(
+        string $observedAt,
+        array $queue,
+        array $visited,
+        int $pages,
+        int $rowsWritten,
+        int $bytesDownloaded,
+    ): array {
+        return [
+            'observed_at' => $observedAt,
+            'queue' => array_values($queue),
+            'visited' => array_values($visited),
+            'pages' => $pages,
+            'rows_written_total' => $rowsWritten,
+            'bytes_downloaded_total' => $bytesDownloaded,
+        ];
+    }
+
+    /**
      * @return list<string>
      */
-    private function extractSameSiteHrefs(string $html, string $seed): array
+    private function extractSameSiteHrefs(string $html, string $seed, string $resolutionBase): array
     {
         preg_match_all('/href=["\']([^"\']+)["\']/i', $html, $matches);
         $out = [];
+        $base = trim($resolutionBase) !== '' ? $resolutionBase : $seed;
         foreach ($matches[1] ?? [] as $href) {
-            $resolved = $this->urls->resolve($seed, (string) $href);
+            $resolved = $this->urls->resolve($base, (string) $href);
             if ($resolved !== null && $this->urls->sameSite($seed, $resolved)) {
                 $out[] = $resolved;
             }
