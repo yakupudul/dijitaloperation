@@ -49,7 +49,7 @@ See the pull request body for exact SHA and command results.
 
 | Item | Status |
 | --- | --- |
-| PHPUnit / Pint / `npm ci && npm run build` / `route:cache` / unique migrations / PostgreSQL tests | Run on this PR; results in PR body |
+| PHPUnit / Pint / `npm ci && npm run build` / `route:cache` / unique migrations / PostgreSQL tests | **DONE** (code-level) on `82f912e6bb190daebd2025ed0028adbe414a15f5`. PHPUnit 2078 tests / 2071 passed / 7 skipped; Pint green; Vite build green; `route:cache` green; disposable SQLite migrate green including `2026_08_21_095920_add_ga4_property_daily_commerce_metrics`; `@group postgres` 6 passed / 857 assertions |
 | Unresolved P1/P2 review / exact-head Codex review | Requested after code-level green |
 | Real GSC/GA4 closed-period ±1% vs provider UI | **EXTERNAL UAT REQUIRED** — command above; operator paths `/assets/search-console/{id}` and `/assets/analytics/{id}` |
 | Production path Customer → Brand → Digital Asset → Data Sources → Collect → Activity → facts → Evidence/Finding → Recommendation → manual Task | Code path exists (Phase E). Live provider collect UAT is external |
