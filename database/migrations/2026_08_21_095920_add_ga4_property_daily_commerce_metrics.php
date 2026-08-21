@@ -7,8 +7,9 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Optional GA4 property-daily metrics collected when the property metadata supports them.
-     * Added one column per ALTER so SQLite and PostgreSQL both apply the change safely.
+     * Optional GA4 property-daily metrics collected only when the property/API
+     * supports them. Null means not collected/unavailable; measured zero remains 0.
+     * Added one column per ALTER so SQLite and PostgreSQL both apply safely.
      */
     public function up(): void
     {
@@ -17,13 +18,13 @@ return new class extends Migration
         }
 
         $this->addColumnIfMissing('newUsers', function (Blueprint $table): void {
-            $table->bigInteger('newUsers')->default(0);
+            $table->bigInteger('newUsers')->nullable();
         });
         $this->addColumnIfMissing('conversions', function (Blueprint $table): void {
-            $table->bigInteger('conversions')->default(0);
+            $table->decimal('conversions', 20, 6)->nullable();
         });
         $this->addColumnIfMissing('keyEvents', function (Blueprint $table): void {
-            $table->bigInteger('keyEvents')->default(0);
+            $table->decimal('keyEvents', 20, 6)->nullable();
         });
         $this->addColumnIfMissing('totalRevenue', function (Blueprint $table): void {
             $table->decimal('totalRevenue', 20, 6)->nullable();
