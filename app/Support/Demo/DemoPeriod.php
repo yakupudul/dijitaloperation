@@ -120,8 +120,9 @@ final class DemoPeriod
     }
 
     /**
-     * Same calendar dates one year earlier. Missing YoY coverage is a caller concern
-     * (unavailable, not zero).
+     * Same calendar period one year earlier while preserving the selected period's
+     * inclusive day count across leap-day boundaries. Missing YoY coverage is a
+     * caller concern (unavailable, not zero).
      *
      * @return array{start: CarbonInterface, end: CarbonInterface, days: int, label: string, preset: string}
      */
@@ -135,7 +136,7 @@ final class DemoPeriod
     ): array {
         $current = self::bounds($preset, $start, $end, $assetId, $anchorOverride, $timezone);
         $yoyStart = $current['start']->copy()->subYearNoOverflow();
-        $yoyEnd = $current['end']->copy()->subYearNoOverflow();
+        $yoyEnd = $yoyStart->copy()->addDays($current['days'] - 1);
 
         return self::pack('yoy', $yoyStart, $yoyEnd);
     }
