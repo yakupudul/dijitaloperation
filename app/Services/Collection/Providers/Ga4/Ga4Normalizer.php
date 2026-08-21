@@ -100,12 +100,12 @@ final class Ga4Normalizer
                 if ($metric === 'userEngagementDuration') {
                     $record[$metric] = (int) round((float) $raw);
                 } elseif ($metric === 'totalRevenue' || $metric === 'purchaseRevenue') {
-                    $record['totalRevenue'] = number_format((float) $raw, 6, '.', '');
+                    $record['totalRevenue'] = $this->normalizeDecimal($raw);
                 } elseif ($metric === 'conversions' || $metric === 'keyEvents') {
-                    $record[$metric] = (int) round((float) $raw);
-                    if ($metric === 'conversions' && ! isset($record['keyEvents'])) {
-                        $record['keyEvents'] = $record['conversions'];
-                    }
+                    // GA4 key-event/conversion metrics may legitimately be fractional.
+                    // Keep the provider value losslessly at warehouse precision and do not
+                    // synthesize one optional metric from another: availability is per metric.
+                    $record[$metric] = $this->normalizeDecimal($raw);
                 } else {
                     $record[$metric] = (int) round((float) $raw);
                 }
@@ -167,6 +167,15 @@ final class Ga4Normalizer
                 'collector_version' => config('moxdop-ga4-collector.collector_version'),
             ],
         ];
+    }
+
+    private function normalizeDecimal(string $value): string
+    {
+        if (! is_numeric($value)) {
+            return '0.000000';
+        }
+
+        return number_format((float) $value, 6, '.', '');
     }
 
     private function normalizeDate(string $value): ?string
