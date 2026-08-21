@@ -99,6 +99,8 @@ Google **Collect Data** is Integration-scoped at the operator entry, but plannin
 
 Operator **Collect Now** / **Collect live data** for GA4, Search Console, Google Ads, and Meta Ads must start the shared Collection Engine (`ExecuteCollectionLifecycleService::runNow` → `CollectionRun` / warehouse). It must not write specialist Evidence summaries through BoundCollectorRegistry. GBP remains on the legacy bound Evidence collector. DataForSEO `HIT_FRESH` is scoped to the paid request fingerprint (including market `location_code` / `language_code`); a market change is a cache miss.
 
+The dedicated RC integration PR is **not** a DOP Autopilot product PR. Do not put the Autopilot product-PR HTML marker in that PR body, even as a negation: the Gate treats a substring match as Autopilot and then fails when task metadata is absent. Autopilot squash-merge to `main` remains forbidden for this RC.
+
 Site-scoped legacy connection paths may still exist for some Website connectors; the **direction of travel** is central Integration + External Resource + AssetBinding.
 
 ---
