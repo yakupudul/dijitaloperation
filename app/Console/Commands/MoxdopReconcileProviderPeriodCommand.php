@@ -57,6 +57,6 @@ class MoxdopReconcileProviderPeriodCommand extends Command
             $this->line('EXTERNAL UAT REQUIRED: confirm the same closed period in the provider UI (±1% additive metrics).');
         }
 
-        return $report->status === 'fail' ? self::FAILURE : self::SUCCESS;
+        return $report->status === 'pass' ? self::SUCCESS : self::FAILURE;
     }
 }
