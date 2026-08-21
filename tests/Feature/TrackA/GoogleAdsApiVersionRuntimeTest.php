@@ -23,10 +23,14 @@ class GoogleAdsApiVersionRuntimeTest extends TestCase
             base_path('config/moxdop.php'),
             base_path('app/Support/Integrations/Google/GoogleOAuthConfig.php'),
             base_path('config/moxdop-google-ads-collector.php'),
+            base_path('.cursor/dotenv.cursor-cloud.example'),
+            base_path('.cursor/dotenv.uat.example'),
+            base_path('.env.example'),
         ];
         foreach ($paths as $path) {
             $contents = (string) file_get_contents($path);
             $this->assertDoesNotMatchRegularExpression('/googleads\\.googleapis\\.com\\/v1[0-9]\\b/', $contents, $path);
+            $this->assertDoesNotMatchRegularExpression('/GOOGLE_ADS_API_VERSION=v1[0-9]\\b/', $contents, $path);
             $this->assertStringNotContainsString("'v19'", $contents, $path);
         }
     }

@@ -61,7 +61,8 @@ class GscGa4FactIsolationTest extends TestCase
 
         $this->assertNotSame('demo_catalog', $workspace['migration_mode'] ?? null);
         $this->assertSame('—', $workspace['glance']['clicks']['value'] ?? null);
-        $this->assertNull($workspace['glance']['clicks']['raw'] ?? 'sentinel');
+        $this->assertArrayHasKey('raw', $workspace['glance']['clicks']);
+        $this->assertNull($workspace['glance']['clicks']['raw']);
     }
 
     #[Test]
