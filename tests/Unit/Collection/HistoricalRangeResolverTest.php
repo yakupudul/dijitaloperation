@@ -18,28 +18,35 @@ class HistoricalRangeResolverTest extends TestCase
 
         $gsc = $resolver->resolve([
             'minimum_required' => 'provider_16m_available',
-            'recommended_initial_backfill' => '180d_ui_minimum',
+            'recommended_initial_backfill' => 'provider_16m_available',
         ]);
         $ga4 = $resolver->resolve([
-            'minimum_required' => '180d',
-            'recommended_initial_backfill' => '180d',
+            'minimum_required' => 'provider_16m_available',
+            'recommended_initial_backfill' => 'provider_16m_available',
         ]);
         $adsSnapshot = $resolver->resolve([
             'minimum_required' => 'current',
             'recommended_initial_backfill' => 'current',
         ]);
+        $meta180 = $resolver->resolve([
+            'minimum_required' => '180d',
+            'recommended_initial_backfill' => '180d',
+        ]);
 
         $this->assertSame('historical', $gsc['kind']);
-        $this->assertSame(180, $gsc['days']);
-        $this->assertSame('2026-02-14', $gsc['start']);
+        $this->assertSame(486, $gsc['days']);
+        $this->assertSame('2025-04-14', $gsc['start']);
         $this->assertSame('2026-08-12', $gsc['end']);
 
         $this->assertSame('historical', $ga4['kind']);
-        $this->assertSame(180, $ga4['days']);
+        $this->assertSame(486, $ga4['days']);
 
         $this->assertSame('snapshot', $adsSnapshot['kind']);
         $this->assertNull($adsSnapshot['start']);
         $this->assertNull($adsSnapshot['end']);
+
+        $this->assertSame('historical', $meta180['kind']);
+        $this->assertSame(180, $meta180['days']);
     }
 
     #[Test]

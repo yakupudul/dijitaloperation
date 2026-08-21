@@ -53,6 +53,25 @@
         {{ $compareOn ? __('operator.period.compare_on') : __('operator.period.compare') }}
     </button>
 
+    @if ($compareOn && method_exists($this, 'setCompareMode'))
+        <button type="button" wire:click="setCompareMode('previous')"
+            @class([
+                'rounded-md px-2.5 py-1.5 text-xs font-medium transition',
+                'bg-brand-500 text-white' => ($compareMode ?? 'previous') !== 'yoy',
+                'bg-white text-gray-600 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700' => ($compareMode ?? 'previous') === 'yoy',
+            ])>
+            {{ __('operator.period.compare_previous') }}
+        </button>
+        <button type="button" wire:click="setCompareMode('yoy')"
+            @class([
+                'rounded-md px-2.5 py-1.5 text-xs font-medium transition',
+                'bg-brand-500 text-white' => ($compareMode ?? 'previous') === 'yoy',
+                'bg-white text-gray-600 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700' => ($compareMode ?? 'previous') !== 'yoy',
+            ])>
+            {{ __('operator.period.compare_yoy') }}
+        </button>
+    @endif
+
     <span class="ml-1 text-xs text-gray-500 dark:text-gray-400" data-applied-range>
         {{ $appliedLabel }}
         @if ($compareOn && $compareLabel)

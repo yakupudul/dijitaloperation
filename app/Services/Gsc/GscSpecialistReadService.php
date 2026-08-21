@@ -97,7 +97,7 @@ final class GscSpecialistReadService
     /**
      * @return array<string, mixed>
      */
-    public function workspace(string $assetId, string $preset = 'last_28', ?string $start = null, ?string $end = null): array
+    public function workspace(string $assetId, string $preset = 'last_28', ?string $start = null, ?string $end = null, string $compareMode = 'previous'): array
     {
         $binding = $this->bindingResolver->resolve($assetId);
 
@@ -110,7 +110,7 @@ final class GscSpecialistReadService
         }
 
         try {
-            return $this->buildRealWorkspace($binding, $preset, $start, $end);
+            return $this->buildRealWorkspace($binding, $preset, $start, $end, $compareMode);
         } catch (Throwable $e) {
             Log::error('gsc.read_service.real_workspace_failed', [
                 'digital_asset_id' => $binding->digitalAssetId,
@@ -144,11 +144,12 @@ final class GscSpecialistReadService
         string $preset,
         ?string $start,
         ?string $end,
+        string $compareMode = 'previous',
     ): array {
         $bounds = OperatorReportingPeriod::queryBounds($preset, $start, $end);
         $rangeStart = $bounds['start']->toDateString();
         $rangeEnd = $bounds['end']->toDateString();
-        $prev = OperatorReportingPeriod::previousQueryBounds($preset, $start, $end);
+        $prev = OperatorReportingPeriod::comparisonQueryBounds($compareMode, $preset, $start, $end);
         $prevStart = $prev['start']->toDateString();
         $prevEnd = $prev['end']->toDateString();
 
@@ -164,6 +165,7 @@ final class GscSpecialistReadService
         $data['period_start'] = $rangeStart;
         $data['period_end'] = $rangeEnd;
         $data['compare_label'] = 'vs '.$prev['label'];
+        $data['compare_mode'] = $compareMode;
 
         $propertyGate = $this->gate->evaluate($digitalAssetId, $externalResourceId, self::DATASET_PROPERTY_DAILY, $rangeStart, $rangeEnd, $timezone);
         $prevPropertyGate = $this->gate->evaluate($digitalAssetId, $externalResourceId, self::DATASET_PROPERTY_DAILY, $prevStart, $prevEnd, $timezone);

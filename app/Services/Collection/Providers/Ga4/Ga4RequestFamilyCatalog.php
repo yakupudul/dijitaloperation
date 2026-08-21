@@ -49,11 +49,43 @@ final class Ga4RequestFamilyCatalog
     }
 
     /**
+     * Required property-daily metrics that must be requested when the family runs.
+     *
+     * @return list<string>
+     */
+    public static function propertyDailyRequiredMetrics(): array
+    {
+        return ['sessions', 'engagedSessions', 'screenPageViews', 'userEngagementDuration', 'totalUsers', 'activeUsers'];
+    }
+
+    /**
+     * Optional property-daily metrics collected when the property metadata/API supports them.
+     *
+     * @return list<string>
+     */
+    public static function propertyDailyOptionalMetrics(): array
+    {
+        return ['newUsers', 'conversions', 'keyEvents', 'totalRevenue'];
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function propertyDailyAllMetrics(): array
+    {
+        return array_values(array_unique([
+            ...self::propertyDailyRequiredMetrics(),
+            ...self::propertyDailyOptionalMetrics(),
+        ]));
+    }
+
+    /**
      * @return array{
      *   kind: 'metadata'|'run_report'|'range_users'|'event_breakdowns',
      *   dataset_id: string|null,
      *   dimensions: list<string>,
      *   metrics: list<string>,
+     *   optional_metrics: list<string>,
      *   semantic_scope: string,
      *   requires_date_range: bool,
      *   high_cardinality: bool,
@@ -70,6 +102,7 @@ final class Ga4RequestFamilyCatalog
                 'dataset_id' => 'ga4_property_metadata',
                 'dimensions' => [],
                 'metrics' => [],
+                'optional_metrics' => [],
                 'semantic_scope' => 'property_config',
                 'requires_date_range' => false,
                 'high_cardinality' => false,
@@ -79,7 +112,8 @@ final class Ga4RequestFamilyCatalog
                 'kind' => 'run_report',
                 'dataset_id' => 'ga4_property_daily',
                 'dimensions' => ['date'],
-                'metrics' => ['sessions', 'engagedSessions', 'screenPageViews', 'userEngagementDuration', 'totalUsers', 'activeUsers'],
+                'metrics' => self::propertyDailyRequiredMetrics(),
+                'optional_metrics' => self::propertyDailyOptionalMetrics(),
                 'semantic_scope' => 'property',
                 'requires_date_range' => true,
                 'high_cardinality' => false,
@@ -90,6 +124,7 @@ final class Ga4RequestFamilyCatalog
                 'dataset_id' => 'ga4_acquisition_channel_daily',
                 'dimensions' => ['date', 'sessionDefaultChannelGroup'],
                 'metrics' => ['sessions', 'engagedSessions'],
+                'optional_metrics' => [],
                 'semantic_scope' => 'session_acquisition',
                 'requires_date_range' => true,
                 'high_cardinality' => false,
@@ -99,8 +134,8 @@ final class Ga4RequestFamilyCatalog
                 'kind' => 'run_report',
                 'dataset_id' => 'ga4_source_medium_daily',
                 'dimensions' => ['date', 'sessionSourceMedium'],
-                // Source contract V1: sessions only for this RF (engagedSessions column defaults in storage).
-                'metrics' => ['sessions'],
+                'metrics' => ['sessions', 'engagedSessions'],
+                'optional_metrics' => [],
                 'semantic_scope' => 'session_acquisition',
                 'requires_date_range' => true,
                 'high_cardinality' => true,
@@ -111,6 +146,7 @@ final class Ga4RequestFamilyCatalog
                 'dataset_id' => 'ga4_campaign_daily',
                 'dimensions' => ['date', 'sessionCampaignName'],
                 'metrics' => ['sessions'],
+                'optional_metrics' => [],
                 'semantic_scope' => 'session_acquisition',
                 'requires_date_range' => true,
                 'high_cardinality' => true,
@@ -121,6 +157,7 @@ final class Ga4RequestFamilyCatalog
                 'dataset_id' => 'ga4_landing_page_daily',
                 'dimensions' => ['date', 'landingPage'],
                 'metrics' => ['sessions', 'engagedSessions'],
+                'optional_metrics' => [],
                 'semantic_scope' => 'session_entry',
                 'requires_date_range' => true,
                 'high_cardinality' => true,
@@ -131,6 +168,7 @@ final class Ga4RequestFamilyCatalog
                 'dataset_id' => 'ga4_event_daily',
                 'dimensions' => ['date', 'eventName'],
                 'metrics' => ['eventCount'],
+                'optional_metrics' => [],
                 'semantic_scope' => 'event',
                 'requires_date_range' => true,
                 'high_cardinality' => true,
@@ -141,6 +179,7 @@ final class Ga4RequestFamilyCatalog
                 'dataset_id' => null,
                 'dimensions' => [],
                 'metrics' => ['eventCount'],
+                'optional_metrics' => [],
                 'semantic_scope' => 'event_x_session_dim',
                 'requires_date_range' => true,
                 'high_cardinality' => true,
@@ -150,8 +189,8 @@ final class Ga4RequestFamilyCatalog
                 'kind' => 'run_report',
                 'dataset_id' => 'ga4_device_daily',
                 'dimensions' => ['date', 'deviceCategory'],
-                // Source contract V1: sessions for device daily.
-                'metrics' => ['sessions'],
+                'metrics' => ['sessions', 'engagedSessions'],
+                'optional_metrics' => [],
                 'semantic_scope' => 'device',
                 'requires_date_range' => true,
                 'high_cardinality' => false,
@@ -162,6 +201,7 @@ final class Ga4RequestFamilyCatalog
                 'dataset_id' => null,
                 'dimensions' => [],
                 'metrics' => ['totalUsers', 'activeUsers'],
+                'optional_metrics' => [],
                 'semantic_scope' => 'property_range_users',
                 'requires_date_range' => true,
                 'high_cardinality' => false,

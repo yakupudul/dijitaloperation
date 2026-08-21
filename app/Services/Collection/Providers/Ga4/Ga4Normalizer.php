@@ -98,8 +98,14 @@ final class Ga4Normalizer
             foreach ($metrics as $index => $metric) {
                 $raw = (string) (data_get($metricValues, $index.'.value') ?? '0');
                 if ($metric === 'userEngagementDuration') {
-                    // Persist as integer seconds (provider string); Storage uses bigint-compatible.
                     $record[$metric] = (int) round((float) $raw);
+                } elseif ($metric === 'totalRevenue' || $metric === 'purchaseRevenue') {
+                    $record['totalRevenue'] = number_format((float) $raw, 6, '.', '');
+                } elseif ($metric === 'conversions' || $metric === 'keyEvents') {
+                    $record[$metric] = (int) round((float) $raw);
+                    if ($metric === 'conversions' && ! isset($record['keyEvents'])) {
+                        $record['keyEvents'] = $record['conversions'];
+                    }
                 } else {
                     $record[$metric] = (int) round((float) $raw);
                 }

@@ -105,7 +105,7 @@
                         "https://support.google.com/analytics/answer/11198161",
                         "https://support.google.com/analytics/answer/12233314"
                     ],
-                    "notes": "Official docs: daily processing commonly 24-48h; reports may change after daily availability; some data can arrive late (up to ~7 days). Not a hard SLA \u2014 conservative safe lag 2 days; reprocess window 7 days."
+                    "notes": "Official docs: daily processing commonly 24-48h; reports may change after daily availability; some data can arrive late (up to ~7 days). Not a hard SLA — conservative safe lag 2 days; reprocess window 7 days."
                 }
             }
         },
@@ -145,8 +145,8 @@
                 "late_data_recheck": "provider_dependent"
             },
             "contract_history_policy": {
-                "minimum_required": "180d",
-                "recommended_initial_backfill": "180d",
+                "minimum_required": "provider_16m_available",
+                "recommended_initial_backfill": "provider_16m_available",
                 "decision_required": false
             },
             "period_non_additive_notes": null,
@@ -159,7 +159,7 @@
                         "https://support.google.com/analytics/answer/11198161",
                         "https://support.google.com/analytics/answer/12233314"
                     ],
-                    "notes": "Official docs: daily processing commonly 24-48h; reports may change after daily availability; some data can arrive late (up to ~7 days). Not a hard SLA \u2014 conservative safe lag 2 days; reprocess window 7 days."
+                    "notes": "Official docs: daily processing commonly 24-48h; reports may change after daily availability; some data can arrive late (up to ~7 days). Not a hard SLA — conservative safe lag 2 days; reprocess window 7 days."
                 }
             }
         },
@@ -200,8 +200,8 @@
                 "late_data_recheck": "provider_dependent"
             },
             "contract_history_policy": {
-                "minimum_required": "180d",
-                "recommended_initial_backfill": "180d",
+                "minimum_required": "provider_16m_available",
+                "recommended_initial_backfill": "provider_16m_available",
                 "decision_required": false
             },
             "period_non_additive_notes": null,
@@ -214,7 +214,7 @@
                         "https://support.google.com/analytics/answer/11198161",
                         "https://support.google.com/analytics/answer/12233314"
                     ],
-                    "notes": "Official docs: daily processing commonly 24-48h; reports may change after daily availability; some data can arrive late (up to ~7 days). Not a hard SLA \u2014 conservative safe lag 2 days; reprocess window 7 days."
+                    "notes": "Official docs: daily processing commonly 24-48h; reports may change after daily availability; some data can arrive late (up to ~7 days). Not a hard SLA — conservative safe lag 2 days; reprocess window 7 days."
                 }
             }
         },
@@ -256,8 +256,8 @@
                 "late_data_recheck": "provider_dependent"
             },
             "contract_history_policy": {
-                "minimum_required": "180d",
-                "recommended_initial_backfill": "180d",
+                "minimum_required": "provider_16m_available",
+                "recommended_initial_backfill": "provider_16m_available",
                 "decision_required": false
             },
             "period_non_additive_notes": null,
@@ -270,7 +270,7 @@
                         "https://support.google.com/analytics/answer/11198161",
                         "https://support.google.com/analytics/answer/12233314"
                     ],
-                    "notes": "Official docs: daily processing commonly 24-48h; reports may change after daily availability; some data can arrive late (up to ~7 days). Not a hard SLA \u2014 conservative safe lag 2 days; reprocess window 7 days."
+                    "notes": "Official docs: daily processing commonly 24-48h; reports may change after daily availability; some data can arrive late (up to ~7 days). Not a hard SLA — conservative safe lag 2 days; reprocess window 7 days."
                 }
             }
         },
@@ -311,8 +311,8 @@
                 "late_data_recheck": "provider_dependent"
             },
             "contract_history_policy": {
-                "minimum_required": "180d",
-                "recommended_initial_backfill": "180d",
+                "minimum_required": "provider_16m_available",
+                "recommended_initial_backfill": "provider_16m_available",
                 "decision_required": false
             },
             "period_non_additive_notes": null,
@@ -325,7 +325,7 @@
                         "https://support.google.com/analytics/answer/11198161",
                         "https://support.google.com/analytics/answer/12233314"
                     ],
-                    "notes": "Official docs: daily processing commonly 24-48h; reports may change after daily availability; some data can arrive late (up to ~7 days). Not a hard SLA \u2014 conservative safe lag 2 days; reprocess window 7 days."
+                    "notes": "Official docs: daily processing commonly 24-48h; reports may change after daily availability; some data can arrive late (up to ~7 days). Not a hard SLA — conservative safe lag 2 days; reprocess window 7 days."
                 }
             }
         },
@@ -366,8 +366,8 @@
                 "late_data_recheck": "provider_dependent"
             },
             "contract_history_policy": {
-                "minimum_required": "180d",
-                "recommended_initial_backfill": "180d",
+                "minimum_required": "provider_16m_available",
+                "recommended_initial_backfill": "provider_16m_available",
                 "decision_required": false
             },
             "period_non_additive_notes": null,
@@ -380,7 +380,7 @@
                         "https://support.google.com/analytics/answer/11198161",
                         "https://support.google.com/analytics/answer/12233314"
                     ],
-                    "notes": "Official docs: daily processing commonly 24-48h; reports may change after daily availability; some data can arrive late (up to ~7 days). Not a hard SLA \u2014 conservative safe lag 2 days; reprocess window 7 days."
+                    "notes": "Official docs: daily processing commonly 24-48h; reports may change after daily availability; some data can arrive late (up to ~7 days). Not a hard SLA — conservative safe lag 2 days; reprocess window 7 days."
                 }
             }
         },
@@ -421,8 +421,8 @@
                 "late_data_recheck": "provider_dependent"
             },
             "contract_history_policy": {
-                "minimum_required": "180d",
-                "recommended_initial_backfill": "180d",
+                "minimum_required": "provider_16m_available",
+                "recommended_initial_backfill": "provider_16m_available",
                 "decision_required": false
             },
             "period_non_additive_notes": null,
@@ -435,7 +435,7 @@
                         "https://support.google.com/analytics/answer/11198161",
                         "https://support.google.com/analytics/answer/12233314"
                     ],
-                    "notes": "Official docs: daily processing commonly 24-48h; reports may change after daily availability; some data can arrive late (up to ~7 days). Not a hard SLA \u2014 conservative safe lag 2 days; reprocess window 7 days."
+                    "notes": "Official docs: daily processing commonly 24-48h; reports may change after daily availability; some data can arrive late (up to ~7 days). Not a hard SLA — conservative safe lag 2 days; reprocess window 7 days."
                 }
             }
         },
@@ -477,8 +477,8 @@
                 "late_data_recheck": "provider_dependent"
             },
             "contract_history_policy": {
-                "minimum_required": "180d",
-                "recommended_initial_backfill": "180d",
+                "minimum_required": "provider_16m_available",
+                "recommended_initial_backfill": "provider_16m_available",
                 "decision_required": false
             },
             "period_non_additive_notes": null,
@@ -491,7 +491,7 @@
                         "https://support.google.com/analytics/answer/11198161",
                         "https://support.google.com/analytics/answer/12233314"
                     ],
-                    "notes": "Official docs: daily processing commonly 24-48h; reports may change after daily availability; some data can arrive late (up to ~7 days). Not a hard SLA \u2014 conservative safe lag 2 days; reprocess window 7 days."
+                    "notes": "Official docs: daily processing commonly 24-48h; reports may change after daily availability; some data can arrive late (up to ~7 days). Not a hard SLA — conservative safe lag 2 days; reprocess window 7 days."
                 }
             }
         },
@@ -527,8 +527,8 @@
                 "cadence": "daily_or_on_demand"
             },
             "contract_history_policy": {
-                "minimum_required": "180d",
-                "recommended_initial_backfill": "180d",
+                "minimum_required": "provider_16m_available",
+                "recommended_initial_backfill": "provider_16m_available",
                 "decision_required": true
             },
             "period_non_additive_notes": null,
@@ -541,7 +541,7 @@
                         "https://support.google.com/analytics/answer/11198161",
                         "https://support.google.com/analytics/answer/12233314"
                     ],
-                    "notes": "Official docs: daily processing commonly 24-48h; reports may change after daily availability; some data can arrive late (up to ~7 days). Not a hard SLA \u2014 conservative safe lag 2 days; reprocess window 7 days."
+                    "notes": "Official docs: daily processing commonly 24-48h; reports may change after daily availability; some data can arrive late (up to ~7 days). Not a hard SLA — conservative safe lag 2 days; reprocess window 7 days."
                 }
             }
         },
@@ -583,8 +583,8 @@
                 "late_data_recheck": "provider_dependent"
             },
             "contract_history_policy": {
-                "minimum_required": "180d",
-                "recommended_initial_backfill": "180d",
+                "minimum_required": "provider_16m_available",
+                "recommended_initial_backfill": "provider_16m_available",
                 "decision_required": false
             },
             "period_non_additive_notes": null,
@@ -597,7 +597,7 @@
                         "https://support.google.com/analytics/answer/11198161",
                         "https://support.google.com/analytics/answer/12233314"
                     ],
-                    "notes": "Official docs: daily processing commonly 24-48h; reports may change after daily availability; some data can arrive late (up to ~7 days). Not a hard SLA \u2014 conservative safe lag 2 days; reprocess window 7 days."
+                    "notes": "Official docs: daily processing commonly 24-48h; reports may change after daily availability; some data can arrive late (up to ~7 days). Not a hard SLA — conservative safe lag 2 days; reprocess window 7 days."
                 }
             }
         },
@@ -639,8 +639,8 @@
                 "late_data_recheck": "provider_dependent"
             },
             "contract_history_policy": {
-                "minimum_required": "180d",
-                "recommended_initial_backfill": "180d",
+                "minimum_required": "provider_16m_available",
+                "recommended_initial_backfill": "provider_16m_available",
                 "decision_required": false
             },
             "period_non_additive_notes": null,
@@ -653,7 +653,7 @@
                         "https://support.google.com/analytics/answer/11198161",
                         "https://support.google.com/analytics/answer/12233314"
                     ],
-                    "notes": "Official docs: daily processing commonly 24-48h; reports may change after daily availability; some data can arrive late (up to ~7 days). Not a hard SLA \u2014 conservative safe lag 2 days; reprocess window 7 days."
+                    "notes": "Official docs: daily processing commonly 24-48h; reports may change after daily availability; some data can arrive late (up to ~7 days). Not a hard SLA — conservative safe lag 2 days; reprocess window 7 days."
                 }
             }
         },
@@ -694,8 +694,8 @@
                 "late_data_recheck": "provider_dependent"
             },
             "contract_history_policy": {
-                "minimum_required": "180d",
-                "recommended_initial_backfill": "180d",
+                "minimum_required": "provider_16m_available",
+                "recommended_initial_backfill": "provider_16m_available",
                 "decision_required": false
             },
             "period_non_additive_notes": null,
@@ -708,7 +708,7 @@
                         "https://support.google.com/analytics/answer/11198161",
                         "https://support.google.com/analytics/answer/12233314"
                     ],
-                    "notes": "Official docs: daily processing commonly 24-48h; reports may change after daily availability; some data can arrive late (up to ~7 days). Not a hard SLA \u2014 conservative safe lag 2 days; reprocess window 7 days."
+                    "notes": "Official docs: daily processing commonly 24-48h; reports may change after daily availability; some data can arrive late (up to ~7 days). Not a hard SLA — conservative safe lag 2 days; reprocess window 7 days."
                 }
             }
         },
@@ -749,7 +749,7 @@
             },
             "contract_history_policy": {
                 "minimum_required": "provider_16m_available",
-                "recommended_initial_backfill": "180d_ui_minimum",
+                "recommended_initial_backfill": "provider_16m_available",
                 "decision_required": false
             },
             "period_non_additive_notes": null,
@@ -762,7 +762,7 @@
                         "https://developers.google.com/webmaster-tools/v1/how-tos/all-your-data",
                         "https://support.google.com/webmasters/answer/96568"
                     ],
-                    "notes": "Official docs: performance data typically available after 2-3 days; days labeled in Pacific Time. No deterministic exact lag SLA \u2014 conservative policy uses 3-day safe lag. dataState final/all may revise recent days."
+                    "notes": "Official docs: performance data typically available after 2-3 days; days labeled in Pacific Time. No deterministic exact lag SLA — conservative policy uses 3-day safe lag. dataState final/all may revise recent days."
                 }
             }
         },
@@ -792,7 +792,7 @@
             "catch_up_policy": "coverage_gap_to_collectable_end",
             "max_bounded_incremental_span_days": 31,
             "snapshot_policy": null,
-            "provider_history_limitation_ref": "anonymization; Top-N\u2260collection",
+            "provider_history_limitation_ref": "anonymization; Top-N≠collection",
             "integrity_dependency": {
                 "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
                 "blocks_trusted_fresh_on_migration_blocking_fail": true
@@ -804,7 +804,7 @@
             },
             "contract_history_policy": {
                 "minimum_required": "provider_16m_available",
-                "recommended_initial_backfill": "180d_ui_minimum",
+                "recommended_initial_backfill": "provider_16m_available",
                 "decision_required": false
             },
             "period_non_additive_notes": null,
@@ -817,7 +817,7 @@
                         "https://developers.google.com/webmaster-tools/v1/how-tos/all-your-data",
                         "https://support.google.com/webmasters/answer/96568"
                     ],
-                    "notes": "Official docs: performance data typically available after 2-3 days; days labeled in Pacific Time. No deterministic exact lag SLA \u2014 conservative policy uses 3-day safe lag. dataState final/all may revise recent days."
+                    "notes": "Official docs: performance data typically available after 2-3 days; days labeled in Pacific Time. No deterministic exact lag SLA — conservative policy uses 3-day safe lag. dataState final/all may revise recent days."
                 }
             }
         },
@@ -859,7 +859,7 @@
             },
             "contract_history_policy": {
                 "minimum_required": "provider_16m_available",
-                "recommended_initial_backfill": "180d_ui_minimum",
+                "recommended_initial_backfill": "provider_16m_available",
                 "decision_required": false
             },
             "period_non_additive_notes": null,
@@ -872,7 +872,7 @@
                         "https://developers.google.com/webmaster-tools/v1/how-tos/all-your-data",
                         "https://support.google.com/webmasters/answer/96568"
                     ],
-                    "notes": "Official docs: performance data typically available after 2-3 days; days labeled in Pacific Time. No deterministic exact lag SLA \u2014 conservative policy uses 3-day safe lag. dataState final/all may revise recent days."
+                    "notes": "Official docs: performance data typically available after 2-3 days; days labeled in Pacific Time. No deterministic exact lag SLA — conservative policy uses 3-day safe lag. dataState final/all may revise recent days."
                 }
             }
         },
@@ -915,7 +915,7 @@
             },
             "contract_history_policy": {
                 "minimum_required": "provider_16m_available",
-                "recommended_initial_backfill": "180d_ui_minimum",
+                "recommended_initial_backfill": "provider_16m_available",
                 "decision_required": false
             },
             "period_non_additive_notes": null,
@@ -928,7 +928,7 @@
                         "https://developers.google.com/webmaster-tools/v1/how-tos/all-your-data",
                         "https://support.google.com/webmasters/answer/96568"
                     ],
-                    "notes": "Official docs: performance data typically available after 2-3 days; days labeled in Pacific Time. No deterministic exact lag SLA \u2014 conservative policy uses 3-day safe lag. dataState final/all may revise recent days."
+                    "notes": "Official docs: performance data typically available after 2-3 days; days labeled in Pacific Time. No deterministic exact lag SLA — conservative policy uses 3-day safe lag. dataState final/all may revise recent days."
                 }
             }
         },
@@ -970,7 +970,7 @@
             },
             "contract_history_policy": {
                 "minimum_required": "provider_16m_available",
-                "recommended_initial_backfill": "180d_ui_minimum",
+                "recommended_initial_backfill": "provider_16m_available",
                 "decision_required": false
             },
             "period_non_additive_notes": null,
@@ -983,7 +983,7 @@
                         "https://developers.google.com/webmaster-tools/v1/how-tos/all-your-data",
                         "https://support.google.com/webmasters/answer/96568"
                     ],
-                    "notes": "Official docs: performance data typically available after 2-3 days; days labeled in Pacific Time. No deterministic exact lag SLA \u2014 conservative policy uses 3-day safe lag. dataState final/all may revise recent days."
+                    "notes": "Official docs: performance data typically available after 2-3 days; days labeled in Pacific Time. No deterministic exact lag SLA — conservative policy uses 3-day safe lag. dataState final/all may revise recent days."
                 }
             }
         },
@@ -1025,7 +1025,7 @@
             },
             "contract_history_policy": {
                 "minimum_required": "provider_16m_available",
-                "recommended_initial_backfill": "180d_ui_minimum",
+                "recommended_initial_backfill": "provider_16m_available",
                 "decision_required": false
             },
             "period_non_additive_notes": null,
@@ -1038,7 +1038,7 @@
                         "https://developers.google.com/webmaster-tools/v1/how-tos/all-your-data",
                         "https://support.google.com/webmasters/answer/96568"
                     ],
-                    "notes": "Official docs: performance data typically available after 2-3 days; days labeled in Pacific Time. No deterministic exact lag SLA \u2014 conservative policy uses 3-day safe lag. dataState final/all may revise recent days."
+                    "notes": "Official docs: performance data typically available after 2-3 days; days labeled in Pacific Time. No deterministic exact lag SLA — conservative policy uses 3-day safe lag. dataState final/all may revise recent days."
                 }
             }
         },
@@ -1093,7 +1093,7 @@
                         "https://developers.google.com/webmaster-tools/v1/how-tos/all-your-data",
                         "https://support.google.com/webmasters/answer/96568"
                     ],
-                    "notes": "Official docs: performance data typically available after 2-3 days; days labeled in Pacific Time. No deterministic exact lag SLA \u2014 conservative policy uses 3-day safe lag. dataState final/all may revise recent days."
+                    "notes": "Official docs: performance data typically available after 2-3 days; days labeled in Pacific Time. No deterministic exact lag SLA — conservative policy uses 3-day safe lag. dataState final/all may revise recent days."
                 }
             }
         },
@@ -1147,7 +1147,7 @@
                         "https://developers.google.com/webmaster-tools/v1/how-tos/all-your-data",
                         "https://support.google.com/webmasters/answer/96568"
                     ],
-                    "notes": "Official docs: performance data typically available after 2-3 days; days labeled in Pacific Time. No deterministic exact lag SLA \u2014 conservative policy uses 3-day safe lag. dataState final/all may revise recent days."
+                    "notes": "Official docs: performance data typically available after 2-3 days; days labeled in Pacific Time. No deterministic exact lag SLA — conservative policy uses 3-day safe lag. dataState final/all may revise recent days."
                 }
             }
         },
@@ -1182,7 +1182,7 @@
                 "historical_watermark_applicable": false,
                 "reprocessing_applicable": false
             },
-            "provider_history_limitation_ref": "\u2260 Website sitemap file",
+            "provider_history_limitation_ref": "≠ Website sitemap file",
             "integrity_dependency": {
                 "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
                 "blocks_trusted_fresh_on_migration_blocking_fail": true
@@ -1206,7 +1206,7 @@
                         "https://developers.google.com/webmaster-tools/v1/how-tos/all-your-data",
                         "https://support.google.com/webmasters/answer/96568"
                     ],
-                    "notes": "Official docs: performance data typically available after 2-3 days; days labeled in Pacific Time. No deterministic exact lag SLA \u2014 conservative policy uses 3-day safe lag. dataState final/all may revise recent days."
+                    "notes": "Official docs: performance data typically available after 2-3 days; days labeled in Pacific Time. No deterministic exact lag SLA — conservative policy uses 3-day safe lag. dataState final/all may revise recent days."
                 }
             }
         },
@@ -1691,7 +1691,7 @@
             "catch_up_policy": "coverage_gap_to_collectable_end",
             "max_bounded_incremental_span_days": 31,
             "snapshot_policy": null,
-            "provider_history_limitation_ref": "\u2260 GSC query; \u2260 keyword",
+            "provider_history_limitation_ref": "≠ GSC query; ≠ keyword",
             "integrity_dependency": {
                 "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
                 "blocks_trusted_fresh_on_migration_blocking_fail": true
@@ -1859,7 +1859,7 @@
             "catch_up_policy": "coverage_gap_to_collectable_end",
             "max_bounded_incremental_span_days": 31,
             "snapshot_policy": null,
-            "provider_history_limitation_ref": "Conversions\u2260AllConversions\u2260Business Outcome",
+            "provider_history_limitation_ref": "Conversions≠AllConversions≠Business Outcome",
             "integrity_dependency": {
                 "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
                 "blocks_trusted_fresh_on_migration_blocking_fail": true

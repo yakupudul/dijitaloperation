@@ -163,14 +163,17 @@ final class Ga4DatasetExecutor implements DatasetExecutor
      */
     private function executeRunReportFamily(DatasetExecutionContext $context, array $definition, array $scope): DatasetExecutionResult
     {
+        $metrics = $this->resolveSupportedMetrics($definition, $scope);
+
         return $this->executePagedReport(
             $context,
             $scope,
             (string) $definition['dataset_id'],
             $definition['dimensions'],
-            $definition['metrics'],
+            $metrics,
             (string) $definition['semantic_scope'],
             $context->datasetRun->request_family_id,
+            $definition['optional_metrics'] ?? [],
         );
     }
 
@@ -349,9 +352,53 @@ final class Ga4DatasetExecutor implements DatasetExecutor
     }
 
     /**
+     * Required metrics plus optional metrics that exist in property metadata.
+     * Unavailable optional metrics are dropped rather than failing the family.
+     *
+     * @param  array<string, mixed>  $definition
+     * @param  array<string, mixed>  $scope
+     * @return list<string>
+     */
+    private function resolveSupportedMetrics(array $definition, array $scope): array
+    {
+        $required = $definition['metrics'];
+        $optional = $definition['optional_metrics'] ?? [];
+        if ($optional === []) {
+            return $required;
+        }
+
+        $metadataResponse = $this->api->getMetadata($scope['integration'], $scope['property_resource_name']);
+        if (! $metadataResponse->successful()) {
+            return $required;
+        }
+
+        $metadata = $metadataResponse->json();
+        $available = [];
+        foreach (is_array($metadata['metrics'] ?? null) ? $metadata['metrics'] : [] as $metric) {
+            if (is_array($metric) && isset($metric['apiName'])) {
+                $available[(string) $metric['apiName']] = true;
+            }
+        }
+
+        if ($available === []) {
+            return $required;
+        }
+
+        $supportedOptional = [];
+        foreach ($optional as $metric) {
+            if (isset($available[$metric])) {
+                $supportedOptional[] = $metric;
+            }
+        }
+
+        return array_values(array_unique([...$required, ...$supportedOptional]));
+    }
+
+    /**
      * @param  array<string, mixed>  $scope
      * @param  list<string>  $dimensions
      * @param  list<string>  $metrics
+     * @param  list<string>  $optionalMetrics
      */
     private function executePagedReport(
         DatasetExecutionContext $context,
@@ -361,6 +408,7 @@ final class Ga4DatasetExecutor implements DatasetExecutor
         array $metrics,
         string $semanticScope,
         string $familyId,
+        array $optionalMetrics = [],
     ): DatasetExecutionResult {
         $dateRange = $this->resolveDateRange($context);
         if ($dateRange instanceof DatasetExecutionResult) {
@@ -380,6 +428,22 @@ final class Ga4DatasetExecutor implements DatasetExecutor
             $metrics,
             (int) $context->datasetRun->contract_registry_version,
         );
+        if ($compat instanceof DatasetExecutionResult && $optionalMetrics !== []) {
+            $requiredOnly = array_values(array_diff($metrics, $optionalMetrics));
+            if ($requiredOnly !== $metrics) {
+                $retry = $this->metadataCompat->assertCompatible(
+                    $scope['integration'],
+                    $scope['property_resource_name'],
+                    $dimensions,
+                    $requiredOnly,
+                    (int) $context->datasetRun->contract_registry_version,
+                );
+                if (! $retry instanceof DatasetExecutionResult) {
+                    $metrics = $requiredOnly;
+                    $compat = null;
+                }
+            }
+        }
         if ($compat instanceof DatasetExecutionResult) {
             return $compat;
         }

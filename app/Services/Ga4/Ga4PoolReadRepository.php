@@ -16,7 +16,7 @@ class Ga4PoolReadRepository
      * Property-level sums for a date range. Deliberately excludes `totalUsers` —
      * GA4 unique users cannot be summed across days into a period total.
      *
-     * @return array{sessions: int, engagedSessions: int, screenPageViews: int, userEngagementDuration: float, activeUsers: int, rows: int}
+     * @return array{sessions: int, engagedSessions: int, screenPageViews: int, userEngagementDuration: float, activeUsers: int, newUsers: int, conversions: int, keyEvents: int, totalRevenue: float, rows: int}
      */
     public function propertyDailySums(
         int $digitalAssetId,
@@ -30,7 +30,7 @@ class Ga4PoolReadRepository
             ->where('external_resource_id', $externalResourceId)
             ->where('property_id', $propertyId)
             ->whereBetween('reporting_date', [$start, $end])
-            ->selectRaw('COUNT(*) as rows_count, COALESCE(SUM(sessions), 0) as sessions_sum, COALESCE(SUM(engagedSessions), 0) as engaged_sum, COALESCE(SUM(screenPageViews), 0) as views_sum, COALESCE(SUM(userEngagementDuration), 0) as engagement_duration_sum, COALESCE(SUM(activeUsers), 0) as active_users_sum')
+            ->selectRaw('COUNT(*) as rows_count, COALESCE(SUM(sessions), 0) as sessions_sum, COALESCE(SUM(engagedSessions), 0) as engaged_sum, COALESCE(SUM(screenPageViews), 0) as views_sum, COALESCE(SUM(userEngagementDuration), 0) as engagement_duration_sum, COALESCE(SUM(activeUsers), 0) as active_users_sum, COALESCE(SUM(newUsers), 0) as new_users_sum, COALESCE(SUM(conversions), 0) as conversions_sum, COALESCE(SUM(keyEvents), 0) as key_events_sum, COALESCE(SUM(totalRevenue), 0) as revenue_sum')
             ->first();
 
         return [
@@ -39,6 +39,10 @@ class Ga4PoolReadRepository
             'screenPageViews' => (int) ($row->views_sum ?? 0),
             'userEngagementDuration' => (float) ($row->engagement_duration_sum ?? 0),
             'activeUsers' => (int) ($row->active_users_sum ?? 0),
+            'newUsers' => (int) ($row->new_users_sum ?? 0),
+            'conversions' => (int) ($row->conversions_sum ?? 0),
+            'keyEvents' => (int) ($row->key_events_sum ?? 0),
+            'totalRevenue' => (float) ($row->revenue_sum ?? 0),
             'rows' => (int) ($row->rows_count ?? 0),
         ];
     }

@@ -38,4 +38,30 @@ final class OperatorReportingPeriod
             $current['end']->toDateString(),
         );
     }
+
+    /**
+     * @return array{start: CarbonInterface, end: CarbonInterface, days: int, label: string, preset: string}
+     */
+    public static function yearOverYearQueryBounds(string $preset, ?string $start = null, ?string $end = null): array
+    {
+        $current = self::queryBounds($preset, $start, $end);
+
+        return DemoPeriod::yearOverYearBounds(
+            'custom',
+            $current['start']->toDateString(),
+            $current['end']->toDateString(),
+        );
+    }
+
+    /**
+     * @return array{start: CarbonInterface, end: CarbonInterface, days: int, label: string, preset: string}
+     */
+    public static function comparisonQueryBounds(string $mode, string $preset, ?string $start = null, ?string $end = null): array
+    {
+        if ($mode === 'yoy') {
+            return self::yearOverYearQueryBounds($preset, $start, $end);
+        }
+
+        return self::previousQueryBounds($preset, $start, $end);
+    }
 }

@@ -27,6 +27,9 @@ trait InteractsWithDemoPeriod
     #[Url(as: 'compare', history: true)]
     public bool $compare = true;
 
+    #[Url(as: 'compare_mode', history: true)]
+    public string $compareMode = 'previous';
+
     public ?string $draftPeriodStart = null;
 
     public ?string $draftPeriodEnd = null;
@@ -43,6 +46,8 @@ trait InteractsWithDemoPeriod
             $this->periodStart = $state['period_start'] ?? $this->periodStart;
             $this->periodEnd = $state['period_end'] ?? $this->periodEnd;
             $this->compare = array_key_exists('compare', $state) ? (bool) $state['compare'] : $this->compare;
+            $storedMode = $state['compare_mode'] ?? $this->compareMode;
+            $this->compareMode = in_array($storedMode, ['previous', 'yoy'], true) ? $storedMode : 'previous';
         }
 
         if ($this->period === 'custom' && filled($this->periodStart) && filled($this->periodEnd)) {
@@ -126,7 +131,14 @@ trait InteractsWithDemoPeriod
     public function toggleCompare(): void
     {
         $this->compare = ! $this->compare;
-        DemoState::put(['compare' => $this->compare]);
+        DemoState::put(['compare' => $this->compare, 'compare_mode' => $this->compareMode]);
+    }
+
+    public function setCompareMode(string $mode): void
+    {
+        $this->compareMode = in_array($mode, ['previous', 'yoy'], true) ? $mode : 'previous';
+        $this->compare = true;
+        DemoState::put(['compare' => true, 'compare_mode' => $this->compareMode]);
     }
 
     public function appliedPeriodLabel(): string
@@ -143,8 +155,12 @@ trait InteractsWithDemoPeriod
         }
 
         $prev = $this->usesDemoPeriodAnchor()
-            ? DemoPeriod::previousBounds($this->period, $this->periodStart, $this->periodEnd, $this->periodContextAssetId())
-            : OperatorPeriod::previousBounds($this->period, $this->periodStart, $this->periodEnd);
+            ? ($this->compareMode === 'yoy'
+                ? DemoPeriod::yearOverYearBounds($this->period, $this->periodStart, $this->periodEnd, $this->periodContextAssetId())
+                : DemoPeriod::previousBounds($this->period, $this->periodStart, $this->periodEnd, $this->periodContextAssetId()))
+            : ($this->compareMode === 'yoy'
+                ? OperatorPeriod::yearOverYearBounds($this->period, $this->periodStart, $this->periodEnd)
+                : OperatorPeriod::previousBounds($this->period, $this->periodStart, $this->periodEnd));
 
         return $prev['label'];
     }
@@ -177,7 +193,7 @@ trait InteractsWithDemoPeriod
         }
 
         DemoState::setPeriod($this->period, $this->periodStart, $this->periodEnd);
-        DemoState::put(['compare' => $this->compare]);
+        DemoState::put(['compare' => $this->compare, 'compare_mode' => $this->compareMode]);
     }
 
     /**

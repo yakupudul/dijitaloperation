@@ -245,7 +245,7 @@ class SearchConsolePage extends Component
     public function render(): View
     {
         $this->normalizeTab();
-        $data = app(GscSpecialistReadService::class)->workspace($this->assetId, $this->period, $this->periodStart, $this->periodEnd);
+        $data = app(GscSpecialistReadService::class)->workspace($this->assetId, $this->period, $this->periodStart, $this->periodEnd, $this->compareMode);
 
         $selectedAttention = $this->attention
             ? collect($data['needs_attention'])->firstWhere('id', $this->attention)

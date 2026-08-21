@@ -58,6 +58,9 @@ final class Ga4SpecialistReadService
         'freshness.ga4',
         'glance.users',
         'glance.sessions',
+        'glance.new_users',
+        'glance.conversions',
+        'glance.revenue',
         'glance.business_actions',
         'glance.measurement_state',
         'performance_trend.sessions',
@@ -103,7 +106,7 @@ final class Ga4SpecialistReadService
     /**
      * @return array<string, mixed>
      */
-    public function workspace(string $assetId, string $preset = 'last_28', ?string $start = null, ?string $end = null): array
+    public function workspace(string $assetId, string $preset = 'last_28', ?string $start = null, ?string $end = null, string $compareMode = 'previous'): array
     {
         $binding = $this->bindingResolver->resolve($assetId);
 
@@ -116,7 +119,7 @@ final class Ga4SpecialistReadService
         }
 
         try {
-            return $this->buildRealWorkspace($binding, $preset, $start, $end);
+            return $this->buildRealWorkspace($binding, $preset, $start, $end, $compareMode);
         } catch (Throwable $e) {
             Log::error('ga4.read_service.real_workspace_failed', [
                 'digital_asset_id' => $binding->digitalAssetId,
@@ -149,11 +152,12 @@ final class Ga4SpecialistReadService
         string $preset,
         ?string $start,
         ?string $end,
+        string $compareMode = 'previous',
     ): array {
         $bounds = OperatorReportingPeriod::queryBounds($preset, $start, $end);
         $rangeStart = $bounds['start']->toDateString();
         $rangeEnd = $bounds['end']->toDateString();
-        $prev = OperatorReportingPeriod::previousQueryBounds($preset, $start, $end);
+        $prev = OperatorReportingPeriod::comparisonQueryBounds($compareMode, $preset, $start, $end);
         $prevStart = $prev['start']->toDateString();
         $prevEnd = $prev['end']->toDateString();
 
@@ -172,6 +176,7 @@ final class Ga4SpecialistReadService
         $data['period_start'] = $rangeStart;
         $data['period_end'] = $rangeEnd;
         $data['compare_label'] = 'vs '.$prev['label'];
+        $data['compare_mode'] = $compareMode;
 
         $propertyMetaGate = $this->gate->evaluateSnapshot($digitalAssetId, $externalResourceId, self::DATASET_PROPERTY_METADATA, $timezone);
         $propertyMeta = $propertyMetaGate->isUsable() ? $this->pool->propertyMetadata($digitalAssetId, $propertyId) : null;
@@ -207,6 +212,9 @@ final class Ga4SpecialistReadService
         $data['glance'] = $this->realGlance($dailyGate, $sums, $prevSums, $data['glance']);
         $provenance['glance.sessions'] = $dailyGate->dataSourceState()->value;
         $provenance['glance.users'] = DataSourceState::Unavailable->value;
+        $provenance['glance.new_users'] = $dailyGate->dataSourceState()->value;
+        $provenance['glance.conversions'] = $dailyGate->dataSourceState()->value;
+        $provenance['glance.revenue'] = $dailyGate->dataSourceState()->value;
         $provenance['glance.business_actions'] = DataSourceState::Unavailable->value;
         $provenance['glance.measurement_state'] = DataSourceState::Unavailable->value;
 
@@ -543,6 +551,45 @@ final class Ga4SpecialistReadService
             'note' => 'GA4 unique users cannot be summed across days into a period total — showing Unavailable rather than an inflated/incorrect sum.',
         ];
 
+        $newUsersRaw = $sums !== null ? (int) ($sums['newUsers'] ?? 0) : 0;
+        $newUsers = [
+            'value' => number_format($newUsersRaw),
+            'raw' => $newUsersRaw,
+            'secondary' => $dailyGate->isUsable() ? 'New users (additive)' : 'Unavailable',
+            'tone' => 'neutral',
+        ];
+        if (! $dailyGate->isUsable()) {
+            $newUsers['value'] = '—';
+            $newUsers['raw'] = null;
+            $newUsers['note'] = 'New users unavailable — ga4_property_daily is not ready for this period.';
+        }
+
+        $conversionsRaw = $sums !== null ? (int) ($sums['conversions'] ?? 0) : 0;
+        $conversions = [
+            'value' => number_format($conversionsRaw),
+            'raw' => $conversionsRaw,
+            'secondary' => $dailyGate->isUsable() ? 'Key events / conversions' : 'Unavailable',
+            'tone' => 'neutral',
+        ];
+        if (! $dailyGate->isUsable()) {
+            $conversions['value'] = '—';
+            $conversions['raw'] = null;
+            $conversions['note'] = 'Conversions unavailable — missing period is not zero.';
+        }
+
+        $revenueRaw = $sums !== null ? (float) ($sums['totalRevenue'] ?? 0) : 0.0;
+        $revenue = [
+            'value' => number_format($revenueRaw, 2),
+            'raw' => $revenueRaw,
+            'secondary' => $dailyGate->isUsable() ? 'totalRevenue' : 'Unavailable',
+            'tone' => 'neutral',
+        ];
+        if (! $dailyGate->isUsable()) {
+            $revenue['value'] = '—';
+            $revenue['raw'] = null;
+            $revenue['note'] = 'Revenue unavailable — missing period is not zero.';
+        }
+
         $unavailableChip = [
             'value' => '—',
             'raw' => null,
@@ -554,6 +601,9 @@ final class Ga4SpecialistReadService
         return [
             'users' => $users,
             'sessions' => $sessions,
+            'new_users' => $newUsers,
+            'conversions' => $conversions,
+            'revenue' => $revenue,
             'business_actions' => $unavailableChip,
             'measurement_state' => [
                 'value' => 'Unavailable',
