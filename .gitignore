@@ -48,3 +48,6 @@ __pycache__/
 /test-results/
 /blob-report/
 /.qa-artifacts/
+
+# Generated interface dump artifacts — never commit operator UI zip snapshots
+moxdop-final-interface-*.zip
