@@ -109,8 +109,8 @@ Partitioned physical tables: **20**
 | `google_ads_campaign_daily` | `google_ads_campaign_daily` | `UPSERT_DAILY_FACT` | `RANGE_MONTHLY` | digital_asset_id, customer_id, reporting_date, campaign_id |
 | `google_ads_ad_group_snapshot` | `google_ads_ad_group_snapshot` | `UPSERT_CURRENT_STATE` | `NONE` | digital_asset_id, customer_id, ad_group_id |
 | `google_ads_ad_snapshot` | `google_ads_ad_snapshot` | `UPSERT_CURRENT_STATE` | `NONE` | digital_asset_id, customer_id, ad_id |
-| `google_ads_keyword_snapshot` | `google_ads_keyword_snapshot` | `UPSERT_CURRENT_STATE` | `NONE` | digital_asset_id, customer_id, criterion_id |
-| `google_ads_keyword_daily` | `google_ads_keyword_daily` | `UPSERT_DAILY_FACT` | `RANGE_MONTHLY` | digital_asset_id, customer_id, reporting_date, criterion_id |
+| `google_ads_keyword_snapshot` | `google_ads_keyword_snapshot` | `UPSERT_CURRENT_STATE` | `NONE` | digital_asset_id, customer_id, ad_group_id, criterion_id |
+| `google_ads_keyword_daily` | `google_ads_keyword_daily` | `UPSERT_DAILY_FACT` | `RANGE_MONTHLY` | digital_asset_id, customer_id, reporting_date, ad_group_id, criterion_id |
 | `google_ads_search_term_daily` | `google_ads_search_term_daily` | `UPSERT_DAILY_FACT` | `RANGE_MONTHLY` | digital_asset_id, customer_id, reporting_date, search_term |
 | `google_ads_landing_page_daily` | `google_ads_landing_page_daily` | `UPSERT_DAILY_FACT` | `RANGE_MONTHLY` | digital_asset_id, customer_id, reporting_date, landing_page |
 | `google_ads_conversion_action_snapshot` | `google_ads_conversion_action_snapshot` | `UPSERT_CURRENT_STATE` | `NONE` | digital_asset_id, customer_id, conversion_action_id |

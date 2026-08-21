@@ -51,7 +51,9 @@ class DemoSharedPeriodFilterTest extends TestCase
     {
         $this->assertNotNull(DemoPeriod::validateCustom(null, '2026-08-01'));
         $this->assertNotNull(DemoPeriod::validateCustom('2026-08-10', '2026-08-01'));
-        $this->assertNotNull(DemoPeriod::validateCustom('2026-08-13', '2026-08-14'));
+        $this->assertNotNull(DemoPeriod::usingFixtureAnchor(
+            fn (): ?string => DemoPeriod::validateCustom('2026-08-13', '2026-08-14'),
+        ));
         $this->assertNull(DemoPeriod::validateCustom('2026-07-06', '2026-08-12'));
     }
 
@@ -177,7 +179,7 @@ class DemoSharedPeriodFilterTest extends TestCase
 
     public function test_last_90_preset_resolves_three_month_window(): void
     {
-        $bounds = DemoPeriod::bounds('last_90');
+        $bounds = DemoPeriod::usingFixtureAnchor(fn () => DemoPeriod::bounds('last_90'));
         $this->assertSame(90, $bounds['days']);
         $this->assertSame('2026-05-15', $bounds['start']->toDateString());
         $this->assertSame('2026-08-12', $bounds['end']->toDateString());

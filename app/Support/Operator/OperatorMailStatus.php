@@ -2,8 +2,11 @@
 
 namespace App\Support\Operator;
 
+use App\Services\Operator\AgencySettingService;
+use App\Services\Operator\OperatorMailConfigService;
+
 /**
- * Safe, operator-facing mail delivery status. Deployment secrets stay out of /app.
+ * Safe, operator-facing mail delivery status. Secrets stay out of HTML and logs.
  */
 final class OperatorMailStatus
 {
@@ -11,37 +14,70 @@ final class OperatorMailStatus
 
     public const string DEPLOYMENT_CONFIGURED = 'deployment_configured';
 
+    public const string OPERATOR_CONFIGURED = 'operator_configured';
+
     /**
-     * @return array{state: string, label: string, explanation: string, from_name: string|null, from_address: string|null, production_delivery: bool}
+     * @return array{
+     *     state: string,
+     *     label: string,
+     *     explanation: string,
+     *     from_name: string|null,
+     *     from_address: string|null,
+     *     host: string|null,
+     *     port: int|null,
+     *     username: string|null,
+     *     encryption: string|null,
+     *     has_password: bool,
+     *     operator_enabled: bool,
+     *     production_delivery: bool
+     * }
      */
     public static function presentation(): array
     {
         $state = self::state();
+        $mail = app(OperatorMailConfigService::class);
+        $settings = app(AgencySettingService::class)->current();
 
         return [
             'state' => $state,
-            'label' => $state === self::DEPLOYMENT_CONFIGURED
-                ? __('operator.mail.configured_deployment')
-                : __('operator.mail.not_configured'),
-            'explanation' => $state === self::DEPLOYMENT_CONFIGURED
-                ? __('operator.mail.explanation_deployment')
-                : __('operator.mail.explanation_not_configured'),
-            'from_name' => self::fromName(),
-            'from_address' => self::fromAddress(),
-            'production_delivery' => $state === self::DEPLOYMENT_CONFIGURED,
+            'label' => match ($state) {
+                self::OPERATOR_CONFIGURED => __('operator.mail.configured_operator'),
+                self::DEPLOYMENT_CONFIGURED => __('operator.mail.configured_deployment'),
+                default => __('operator.mail.not_configured'),
+            },
+            'explanation' => match ($state) {
+                self::OPERATOR_CONFIGURED => __('operator.mail.explanation_operator'),
+                self::DEPLOYMENT_CONFIGURED => __('operator.mail.explanation_deployment'),
+                default => __('operator.mail.explanation_not_configured'),
+            },
+            'from_name' => is_string($settings->mail_from_name) && trim($settings->mail_from_name) !== ''
+                ? trim($settings->mail_from_name)
+                : self::fromName(),
+            'from_address' => is_string($settings->mail_from_address) && trim($settings->mail_from_address) !== ''
+                ? trim($settings->mail_from_address)
+                : self::fromAddress(),
+            'host' => is_string($settings->mail_host) && trim($settings->mail_host) !== '' ? trim($settings->mail_host) : null,
+            'port' => $settings->mail_port !== null ? (int) $settings->mail_port : null,
+            'username' => is_string($settings->mail_username) && trim($settings->mail_username) !== ''
+                ? trim($settings->mail_username)
+                : null,
+            'encryption' => is_string($settings->mail_encryption) && AgencySettingCatalog::isMailEncryption($settings->mail_encryption)
+                ? $settings->mail_encryption
+                : AgencySettingCatalog::MAIL_TLS,
+            'has_password' => $mail->hasStoredPassword(),
+            'operator_enabled' => (bool) $settings->mail_enabled,
+            'production_delivery' => in_array($state, [self::OPERATOR_CONFIGURED, self::DEPLOYMENT_CONFIGURED], true),
         ];
     }
 
     public static function state(): string
     {
-        $mailer = strtolower((string) config('mail.default'));
-        $transport = strtolower((string) config("mail.mailers.{$mailer}.transport", $mailer));
-
-        if (in_array($mailer, ['log', 'array', ''], true) || in_array($transport, ['log', 'array', ''], true)) {
-            return self::NOT_CONFIGURED;
+        $mail = app(OperatorMailConfigService::class);
+        if ($mail->operatorSmtpIsComplete()) {
+            return self::OPERATOR_CONFIGURED;
         }
 
-        if (in_array($transport, ['smtp', 'ses', 'ses-v2', 'postmark', 'resend', 'mailgun', 'sendmail'], true)) {
+        if ($mail->deploymentMailerCanSend()) {
             return self::DEPLOYMENT_CONFIGURED;
         }
 

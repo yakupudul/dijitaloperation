@@ -3,6 +3,8 @@
 namespace App\Filament\App\Clusters\Settings\Pages;
 
 use App\Filament\App\Clusters\SettingsCluster;
+use App\Services\Operator\AgencySettingService;
+use App\Support\Operator\OperatorClock;
 use BackedEnum;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
@@ -25,15 +27,21 @@ class GeneralSettings extends Page
     protected string $view = 'filament.app.pages.settings.general';
 
     /**
-     * @return array{agency: string, product: string, signed_in_as: string, environment: string}
+     * @return array{agency: string, product: string, signed_in_as: string, environment: string, timezone: string, locale: string, operator_settings_url: string}
      */
     protected function getViewData(): array
     {
+        $branding = app(AgencySettingService::class)->branding();
+        $settings = app(AgencySettingService::class)->current();
+
         return [
-            'agency' => 'Moximu',
-            'product' => 'MoxDOP — Agency Operations OS',
+            'agency' => $branding['agency_name'],
+            'product' => $branding['portal_name'],
             'signed_in_as' => Auth::user()?->name ?? 'Unknown',
             'environment' => (string) config('app.env'),
+            'timezone' => OperatorClock::timezone(Auth::user()),
+            'locale' => (string) ($settings->locale ?? 'en'),
+            'operator_settings_url' => url('/settings'),
         ];
     }
 }

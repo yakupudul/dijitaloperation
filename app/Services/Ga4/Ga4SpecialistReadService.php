@@ -9,8 +9,8 @@ use App\Services\Formulas\Support\FormulaResult;
 use App\Services\Ga4\Support\Ga4BindingContext;
 use App\Services\Ga4\Support\Ga4BindingMode;
 use App\Services\Ga4\Support\Ga4DatasetReadiness;
-use App\Support\Demo\DemoPeriod;
 use App\Support\Demo\Ga4WorkspaceFixtures;
+use App\Support\Operator\OperatorReportingPeriod;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -150,10 +150,10 @@ final class Ga4SpecialistReadService
         ?string $start,
         ?string $end,
     ): array {
-        $bounds = DemoPeriod::bounds($preset, $start, $end);
+        $bounds = OperatorReportingPeriod::queryBounds($preset, $start, $end);
         $rangeStart = $bounds['start']->toDateString();
         $rangeEnd = $bounds['end']->toDateString();
-        $prev = DemoPeriod::previousBounds($preset, $rangeStart, $rangeEnd);
+        $prev = OperatorReportingPeriod::previousQueryBounds($preset, $start, $end);
         $prevStart = $prev['start']->toDateString();
         $prevEnd = $prev['end']->toDateString();
 
@@ -167,6 +167,11 @@ final class Ga4SpecialistReadService
         // Demo-shaped frozen fixture is the canonical shape; every key below is
         // overridden explicitly when a real/partial/unavailable value is computed.
         $data = Ga4WorkspaceFixtures::workspace($preset, $start, $end);
+        $data['period_label'] = $bounds['label'];
+        $data['period_days'] = $bounds['days'];
+        $data['period_start'] = $rangeStart;
+        $data['period_end'] = $rangeEnd;
+        $data['compare_label'] = 'vs '.$prev['label'];
 
         $propertyMetaGate = $this->gate->evaluateSnapshot($digitalAssetId, $externalResourceId, self::DATASET_PROPERTY_METADATA, $timezone);
         $propertyMeta = $propertyMetaGate->isUsable() ? $this->pool->propertyMetadata($digitalAssetId, $propertyId) : null;
@@ -293,10 +298,10 @@ final class Ga4SpecialistReadService
         string $migrationMode,
         ?string $errorMessage = null,
     ): array {
-        $bounds = DemoPeriod::bounds($preset, $start, $end);
+        $bounds = OperatorReportingPeriod::queryBounds($preset, $start, $end);
         $rangeStart = $bounds['start']->toDateString();
         $rangeEnd = $bounds['end']->toDateString();
-        $prev = DemoPeriod::previousBounds($preset, $rangeStart, $rangeEnd);
+        $prev = OperatorReportingPeriod::previousQueryBounds($preset, $start, $end);
 
         $reason = $errorMessage !== null
             ? 'query_error'

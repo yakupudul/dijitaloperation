@@ -51,7 +51,7 @@ Restore is destructive. It is **not** complete without this sequence.
 7. Restart Horizon via Supervisor (`autorestart` after terminate)
 8. `php artisan up`
 9. Health: `/up/liveness`, `/up/readiness`
-10. Validate login at `/app/login`
+10. Validate operator login at `/login` and Filament technical login at `/admin/login`
 11. Validate Customer/Brand counts against the pre-restore record
 12. Confirm `APP_KEY` matches the backup era (otherwise encrypted credentials will not decrypt)
 

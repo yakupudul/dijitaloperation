@@ -23,23 +23,28 @@ use App\Models\User;
 use App\Services\Collection\CancellationService;
 use App\Services\Collection\CheckpointManager;
 use App\Services\Collection\CollectionErrorRecorder;
+use App\Services\Collection\CollectionPlanner;
 use App\Services\Collection\CollectionStateMachine;
 use App\Services\Collection\CollectionStatusAggregator;
 use App\Services\Collection\Contracts\RetryPolicy;
 use App\Services\Collection\DataContractRegistryLoader;
 use App\Services\Collection\DatasetExecutorResolver;
+use App\Services\Collection\HistoricalRangeResolver;
 use App\Services\Collection\Meta\MetaInitialBackfillOrchestrator;
 use App\Services\Collection\Monitoring\CollectionProgressPresenter;
 use App\Services\Collection\Monitoring\CollectionRunMonitorQuery;
 use App\Services\Collection\ProgressReporter;
+use App\Services\Collection\Providers\MetaAds\MetaAdsDateSlicer;
 use App\Services\Collection\Providers\MetaAds\MetaAdsRequestFamilyCatalog;
 use App\Services\Collection\StartCollectionService;
+use App\Services\Collection\Support\CollectionClock;
 use App\Services\Collection\Support\DatasetExecutionResult;
 use App\Services\Collection\Support\StartCollectionRequest;
 use App\Services\Collection\Testing\FakeDatasetExecutor;
 use App\Support\Integrations\Meta\MetaConnectorRegistry;
 use App\Support\Integrations\Meta\MetaResourceType;
 use App\Support\Roles;
+use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -247,6 +252,76 @@ class MetaInitialBackfillOrchestratorTest extends TestCase
     }
 
     #[Test]
+    public function one_selected_ad_account_plans_bounded_180d_historical_range_with_exact_provenance(): void
+    {
+        $clock = new CollectionClock(CarbonImmutable::parse('2026-08-13 15:00:00', 'UTC'));
+        $this->app->instance(CollectionClock::class, $clock);
+        $this->app->instance(HistoricalRangeResolver::class, new HistoricalRangeResolver($clock));
+        $this->app->forgetInstance(CollectionPlanner::class);
+        $this->bindingB->forceFill(['status' => CoreAssetBinding::STATUS_DISABLED])->save();
+
+        $google = CoreIntegration::factory()->google()->create([
+            'status' => CoreIntegration::STATUS_ACTIVE,
+        ]);
+        $googleAsset = DigitalAsset::factory()->create([
+            'brand_id' => $this->brandA->id,
+            'type' => 'google_ads',
+            'status' => DigitalAssetStatus::Active,
+        ]);
+        $googleResource = CoreExternalResource::factory()->create([
+            'integration_id' => $google->id,
+            'provider' => 'google',
+            'resource_type' => 'google_ads',
+            'external_id' => '1112223333',
+            'status' => CoreExternalResource::STATUS_AVAILABLE,
+        ]);
+        $googleBinding = CoreAssetBinding::factory()->create([
+            'digital_asset_id' => $googleAsset->id,
+            'external_resource_id' => $googleResource->id,
+            'capability' => 'google_ads',
+            'status' => CoreAssetBinding::STATUS_ACTIVE,
+        ]);
+
+        Queue::fake();
+        $result = app(MetaInitialBackfillOrchestrator::class)->start($this->integration->fresh(), $this->admin);
+        $this->assertSame('started', $result->outcome);
+        $run = $result->collectionRun;
+        $this->assertNotNull($run);
+        $this->assertSame(1, $run->resourceRuns()->count());
+
+        $resourceRun = $run->resourceRuns()->first();
+        $this->assertSame($this->bindingA->id, $resourceRun->core_asset_binding_id);
+        $this->assertSame($this->assetA->id, $resourceRun->digital_asset_id);
+        $this->assertSame($this->resourceA->id, $resourceRun->external_resource_id);
+        $this->assertSame('META_ADS', $resourceRun->provider_or_source);
+        $this->assertNotContains($googleBinding->id, $run->resourceRuns()->pluck('core_asset_binding_id')->all());
+        $this->assertNotContains($this->bindingB->id, $run->resourceRuns()->pluck('core_asset_binding_id')->all());
+
+        $daily = $run->datasetRuns()
+            ->where('request_family_id', MetaAdsRequestFamilyCatalog::FAMILY_INSIGHTS_DAILY)
+            ->first();
+        $this->assertNotNull($daily);
+        $range = $daily->metadata['date_range'] ?? [];
+        $this->assertSame('2026-02-14', $range['start'] ?? null);
+        $this->assertSame('2026-08-12', $range['end'] ?? null);
+
+        $slicer = app(MetaAdsDateSlicer::class);
+        $sliceDays = $slicer->sliceDaysForFamily(MetaAdsRequestFamilyCatalog::FAMILY_INSIGHTS_DAILY);
+        $slices = $slicer->slices((string) $range['start'], (string) $range['end'], $sliceDays, 'UTC');
+        $this->assertSame($range['start'], $slices[0]['start']);
+        $this->assertSame($range['end'], $slices[array_key_last($slices)]['end']);
+        $this->assertSame(180, $slicer->inclusiveDayCount((string) $range['start'], (string) $range['end'], 'UTC'));
+        $this->assertLessThanOrEqual($sliceDays, $slicer->inclusiveDayCount($slices[0]['start'], $slices[0]['end'], 'UTC'));
+
+        foreach ($run->datasetRuns as $dataset) {
+            $this->assertSame($this->assetA->id, $dataset->resourceRun?->digital_asset_id);
+            $this->assertSame($this->resourceA->id, $dataset->resourceRun?->external_resource_id);
+        }
+
+        Http::assertNothingSent();
+    }
+
+    #[Test]
     public function unbound_accounts_and_business_resources_are_excluded(): void
     {
         Queue::fake();
@@ -262,6 +337,41 @@ class MetaInitialBackfillOrchestratorTest extends TestCase
         $externalIds = $result->collectionRun->resourceRuns()->pluck('external_resource_id')->all();
         $this->assertNotContains($this->unboundAccount->id, $externalIds);
         $this->assertNotContains($this->businessResource->id, $externalIds);
+        Http::assertNothingSent();
+    }
+
+    #[Test]
+    public function google_bindings_are_never_planned_on_meta_initial_backfill(): void
+    {
+        $google = CoreIntegration::factory()->google()->create([
+            'status' => CoreIntegration::STATUS_ACTIVE,
+        ]);
+        $googleAsset = DigitalAsset::factory()->create([
+            'brand_id' => $this->brandA->id,
+            'type' => 'google_ads',
+            'status' => DigitalAssetStatus::Active,
+        ]);
+        $googleResource = CoreExternalResource::factory()->create([
+            'integration_id' => $google->id,
+            'provider' => 'google',
+            'resource_type' => 'google_ads',
+            'external_id' => '1112223333',
+            'status' => CoreExternalResource::STATUS_AVAILABLE,
+        ]);
+        $googleBinding = CoreAssetBinding::factory()->create([
+            'digital_asset_id' => $googleAsset->id,
+            'external_resource_id' => $googleResource->id,
+            'capability' => 'google_ads',
+            'status' => CoreAssetBinding::STATUS_ACTIVE,
+        ]);
+
+        Queue::fake();
+        $result = app(MetaInitialBackfillOrchestrator::class)->start($this->integration->fresh(), $this->admin);
+        $this->assertSame('started', $result->outcome);
+        $bindingIds = $result->collectionRun?->resourceRuns()->pluck('core_asset_binding_id')->all() ?? [];
+        $this->assertContains($this->bindingA->id, $bindingIds);
+        $this->assertContains($this->bindingB->id, $bindingIds);
+        $this->assertNotContains($googleBinding->id, $bindingIds);
         Http::assertNothingSent();
     }
 

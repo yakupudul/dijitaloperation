@@ -21,6 +21,7 @@ use App\Services\Collection\CheckpointManager;
 use App\Services\Collection\CollectionPlanner;
 use App\Services\Collection\DatasetExecutorResolver;
 use App\Services\Collection\Providers\GoogleAds\GoogleAdsDatasetExecutor;
+use App\Services\Collection\Providers\GoogleAds\GoogleAdsEligibilityGuard;
 use App\Services\Collection\Providers\GoogleAds\GoogleAdsNormalizer;
 use App\Services\Collection\Providers\GoogleAds\GoogleAdsRequestFamilyCatalog;
 use App\Services\Collection\Support\DatasetExecutionContext;
@@ -169,6 +170,158 @@ class GoogleAdsProductionCollectorTest extends TestCase
     }
 
     #[Test]
+    public function website_anchored_multi_asset_run_accepts_sibling_ads_binding(): void
+    {
+        $website = DigitalAsset::factory()->create([
+            'brand_id' => $this->brand->id,
+            'type' => 'website',
+            'status' => DigitalAssetStatus::Active,
+        ]);
+
+        $run = CollectionRun::factory()->create([
+            'digital_asset_id' => $website->id,
+            'brand_id' => $this->brand->id,
+            'customer_id' => $this->brand->customer_id,
+            'status' => CollectionRunStatus::Running,
+            'request_context' => [
+                'context' => ['allow_multi_asset_bindings' => true],
+            ],
+        ]);
+
+        $resourceRun = CollectionResourceRun::factory()->create([
+            'collection_run_id' => $run->id,
+            'provider_or_source' => 'GOOGLE_ADS',
+            'external_resource_id' => $this->resource->id,
+            'digital_asset_id' => $this->asset->id,
+            'core_asset_binding_id' => $this->binding->id,
+            'status' => CollectionRunStatus::Running,
+        ]);
+
+        $scope = app(GoogleAdsEligibilityGuard::class)->assertEligible($run, $resourceRun);
+        $this->assertIsArray($scope);
+        $this->assertSame('1112223333', $scope['customer_id']);
+        $this->assertSame($this->asset->id, $scope['asset']->id);
+    }
+
+    #[Test]
+    public function sibling_ads_binding_without_multi_asset_flag_is_rejected(): void
+    {
+        $website = DigitalAsset::factory()->create([
+            'brand_id' => $this->brand->id,
+            'type' => 'website',
+            'status' => DigitalAssetStatus::Active,
+        ]);
+
+        $run = CollectionRun::factory()->create([
+            'digital_asset_id' => $website->id,
+            'brand_id' => $this->brand->id,
+            'customer_id' => $this->brand->customer_id,
+            'status' => CollectionRunStatus::Running,
+            'request_context' => [
+                'context' => ['allow_multi_asset_bindings' => false],
+            ],
+        ]);
+
+        $resourceRun = CollectionResourceRun::factory()->create([
+            'collection_run_id' => $run->id,
+            'provider_or_source' => 'GOOGLE_ADS',
+            'external_resource_id' => $this->resource->id,
+            'digital_asset_id' => $this->asset->id,
+            'core_asset_binding_id' => $this->binding->id,
+            'status' => CollectionRunStatus::Running,
+        ]);
+
+        $result = app(GoogleAdsEligibilityGuard::class)->assertEligible($run, $resourceRun);
+        $this->assertInstanceOf(DatasetExecutionResult::class, $result);
+        $this->assertSame(DatasetExecutionOutcome::Failed, $result->outcome);
+        $this->assertSame('CROSS_TENANT', $result->errorCode);
+        $this->assertSame(CollectionErrorCategory::Authorization, $result->errorCategory);
+    }
+
+    #[Test]
+    public function multi_asset_run_still_rejects_other_brand_ads_binding(): void
+    {
+        $otherBrand = Brand::factory()->create();
+        $website = DigitalAsset::factory()->create([
+            'brand_id' => $this->brand->id,
+            'type' => 'website',
+            'status' => DigitalAssetStatus::Active,
+        ]);
+        $foreignAds = DigitalAsset::factory()->create([
+            'brand_id' => $otherBrand->id,
+            'type' => 'google_ads',
+            'status' => DigitalAssetStatus::Active,
+        ]);
+        $this->binding->forceFill(['digital_asset_id' => $foreignAds->id])->save();
+
+        $run = CollectionRun::factory()->create([
+            'digital_asset_id' => $website->id,
+            'brand_id' => $this->brand->id,
+            'customer_id' => $this->brand->customer_id,
+            'status' => CollectionRunStatus::Running,
+            'request_context' => [
+                'context' => ['allow_multi_asset_bindings' => true],
+            ],
+        ]);
+
+        $resourceRun = CollectionResourceRun::factory()->create([
+            'collection_run_id' => $run->id,
+            'provider_or_source' => 'GOOGLE_ADS',
+            'external_resource_id' => $this->resource->id,
+            'digital_asset_id' => $foreignAds->id,
+            'core_asset_binding_id' => $this->binding->id,
+            'status' => CollectionRunStatus::Running,
+        ]);
+
+        $result = app(GoogleAdsEligibilityGuard::class)->assertEligible($run, $resourceRun);
+        $this->assertInstanceOf(DatasetExecutionResult::class, $result);
+        $this->assertSame('CROSS_TENANT', $result->errorCode);
+    }
+
+    #[Test]
+    public function multi_asset_run_still_rejects_other_customer_ads_binding(): void
+    {
+        $otherCustomer = Customer::factory()->create();
+        $otherBrand = Brand::factory()->create(['customer_id' => $otherCustomer->id]);
+        $website = DigitalAsset::factory()->create([
+            'brand_id' => $this->brand->id,
+            'type' => 'website',
+            'status' => DigitalAssetStatus::Active,
+        ]);
+        $foreignAds = DigitalAsset::factory()->create([
+            'brand_id' => $otherBrand->id,
+            'type' => 'google_ads',
+            'status' => DigitalAssetStatus::Active,
+        ]);
+        $this->binding->forceFill(['digital_asset_id' => $foreignAds->id])->save();
+
+        $run = CollectionRun::factory()->create([
+            'digital_asset_id' => $website->id,
+            'brand_id' => $this->brand->id,
+            'customer_id' => $this->brand->customer_id,
+            'status' => CollectionRunStatus::Running,
+            'request_context' => [
+                'context' => ['allow_multi_asset_bindings' => true],
+            ],
+        ]);
+
+        $resourceRun = CollectionResourceRun::factory()->create([
+            'collection_run_id' => $run->id,
+            'provider_or_source' => 'GOOGLE_ADS',
+            'external_resource_id' => $this->resource->id,
+            'digital_asset_id' => $foreignAds->id,
+            'core_asset_binding_id' => $this->binding->id,
+            'status' => CollectionRunStatus::Running,
+        ]);
+
+        $result = app(GoogleAdsEligibilityGuard::class)->assertEligible($run, $resourceRun);
+        $this->assertInstanceOf(DatasetExecutionResult::class, $result);
+        $this->assertSame(DatasetExecutionOutcome::Failed, $result->outcome);
+        $this->assertSame('CROSS_TENANT', $result->errorCode);
+        $this->assertSame(CollectionErrorCategory::Authorization, $result->errorCategory);
+    }
+
+    #[Test]
     public function customer_metadata_preserves_timezone_currency_and_rejects_token_leak(): void
     {
         $this->fakeAdsHttp([
@@ -199,7 +352,15 @@ class GoogleAdsProductionCollectorTest extends TestCase
         $this->assertFalse($meta['manager']);
 
         $this->assertGreaterThan(0, DB::table('google_ads_campaign_snapshot')->count());
+        $campaignMeta = json_decode((string) DB::table('google_ads_campaign_snapshot')->value('metadata'), true);
+        $this->assertSame('2026-01-15', $campaignMeta['start_date']);
+        $this->assertSame('2026-12-31', $campaignMeta['end_date']);
         $this->assertGreaterThan(0, DB::table('google_ads_conversion_action_snapshot')->count());
+        $this->assertSame(2, DB::table('google_ads_keyword_snapshot')->count());
+        $this->assertSame(
+            ['22', '23'],
+            DB::table('google_ads_keyword_snapshot')->orderBy('ad_group_id')->pluck('ad_group_id')->all()
+        );
 
         foreach (DB::table('raw_ingestion_objects')->get() as $raw) {
             $payload = json_encode($raw);
@@ -373,6 +534,7 @@ class GoogleAdsProductionCollectorTest extends TestCase
         $this->assertSame(DatasetExecutionOutcome::Completed, $keywords->outcome, (string) $keywords->errorMessage);
         $kw = DB::table('google_ads_keyword_daily')->first();
         $this->assertSame('777', $kw->criterion_id);
+        $this->assertSame('2', (string) $kw->ad_group_id);
         $this->assertTrue(json_decode((string) $kw->metadata, true)['keyword_neq_search_term']);
     }
 
@@ -523,6 +685,8 @@ class GoogleAdsProductionCollectorTest extends TestCase
                     'name' => 'Search Brand',
                     'status' => 'ENABLED',
                     'advertisingChannelType' => 'SEARCH',
+                    'startDateTime' => '2026-01-15 00:00:00',
+                    'endDateTime' => '2026-12-31 23:59:59',
                 ],
                 'campaignBudget' => [
                     'id' => '91',
@@ -587,15 +751,26 @@ class GoogleAdsProductionCollectorTest extends TestCase
                     ]]], 200);
                 }
                 if (str_contains($query, 'FROM keyword_view') && ! str_contains($query, 'segments.date')) {
-                    return Http::response(['results' => [[
-                        'adGroupCriterion' => [
-                            'criterionId' => '777',
-                            'status' => 'ENABLED',
-                            'keyword' => ['text' => 'dental', 'matchType' => 'EXACT'],
+                    return Http::response(['results' => [
+                        [
+                            'adGroupCriterion' => [
+                                'criterionId' => '777',
+                                'status' => 'ENABLED',
+                                'keyword' => ['text' => 'dental', 'matchType' => 'EXACT'],
+                            ],
+                            'adGroup' => ['id' => '22'],
+                            'campaign' => ['id' => '555'],
                         ],
-                        'adGroup' => ['id' => '22'],
-                        'campaign' => ['id' => '555'],
-                    ]]], 200);
+                        [
+                            'adGroupCriterion' => [
+                                'criterionId' => '777',
+                                'status' => 'PAUSED',
+                                'keyword' => ['text' => 'dental', 'matchType' => 'EXACT'],
+                            ],
+                            'adGroup' => ['id' => '23'],
+                            'campaign' => ['id' => '555'],
+                        ],
+                    ]], 200);
                 }
                 if (str_contains($query, 'FROM asset')) {
                     return Http::response(['results' => [[

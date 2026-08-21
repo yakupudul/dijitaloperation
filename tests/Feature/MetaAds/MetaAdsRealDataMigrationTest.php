@@ -28,9 +28,11 @@ use App\Services\MetaAds\MetaAdsSpecialistBindingResolver;
 use App\Services\MetaAds\MetaAdsSpecialistReadService;
 use App\Services\MetaAds\Support\MetaAdsBindingMode;
 use App\Support\Demo\DemoCatalog;
+use App\Support\Demo\DemoPeriod;
 use App\Support\Demo\MetaAdsWorkspaceFixtures;
 use App\Support\Integrations\Meta\MetaResourceType;
 use App\Support\Roles;
+use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -59,6 +61,8 @@ class MetaAdsRealDataMigrationTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        $this->travelTo(Carbon::parse(DemoPeriod::ANCHOR_DATE, DemoPeriod::TIMEZONE)->endOfDay());
 
         Http::fake();
         $this->seed(RoleAndPermissionSeeder::class);

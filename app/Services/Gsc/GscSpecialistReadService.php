@@ -9,8 +9,8 @@ use App\Services\Formulas\Support\FormulaResult;
 use App\Services\Gsc\Support\GscBindingContext;
 use App\Services\Gsc\Support\GscBindingMode;
 use App\Services\Gsc\Support\GscDatasetReadiness;
-use App\Support\Demo\DemoPeriod;
 use App\Support\Demo\GscWorkspaceFixtures;
+use App\Support\Operator\OperatorReportingPeriod;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -145,10 +145,10 @@ final class GscSpecialistReadService
         ?string $start,
         ?string $end,
     ): array {
-        $bounds = DemoPeriod::bounds($preset, $start, $end);
+        $bounds = OperatorReportingPeriod::queryBounds($preset, $start, $end);
         $rangeStart = $bounds['start']->toDateString();
         $rangeEnd = $bounds['end']->toDateString();
-        $prev = DemoPeriod::previousBounds($preset, $rangeStart, $rangeEnd);
+        $prev = OperatorReportingPeriod::previousQueryBounds($preset, $start, $end);
         $prevStart = $prev['start']->toDateString();
         $prevEnd = $prev['end']->toDateString();
 
@@ -159,6 +159,11 @@ final class GscSpecialistReadService
 
         $provenance = $this->allProvenance(DataSourceState::Demo);
         $data = GscWorkspaceFixtures::workspace($preset, $start, $end);
+        $data['period_label'] = $bounds['label'];
+        $data['period_days'] = $bounds['days'];
+        $data['period_start'] = $rangeStart;
+        $data['period_end'] = $rangeEnd;
+        $data['compare_label'] = 'vs '.$prev['label'];
 
         $propertyGate = $this->gate->evaluate($digitalAssetId, $externalResourceId, self::DATASET_PROPERTY_DAILY, $rangeStart, $rangeEnd, $timezone);
         $prevPropertyGate = $this->gate->evaluate($digitalAssetId, $externalResourceId, self::DATASET_PROPERTY_DAILY, $prevStart, $prevEnd, $timezone);
@@ -279,10 +284,10 @@ final class GscSpecialistReadService
         string $migrationMode,
         ?string $errorMessage = null,
     ): array {
-        $bounds = DemoPeriod::bounds($preset, $start, $end);
+        $bounds = OperatorReportingPeriod::queryBounds($preset, $start, $end);
         $rangeStart = $bounds['start']->toDateString();
         $rangeEnd = $bounds['end']->toDateString();
-        $prev = DemoPeriod::previousBounds($preset, $rangeStart, $rangeEnd);
+        $prev = OperatorReportingPeriod::previousQueryBounds($preset, $start, $end);
 
         $reason = $errorMessage !== null
             ? 'query_error'

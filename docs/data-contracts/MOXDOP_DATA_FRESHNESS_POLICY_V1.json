@@ -1559,6 +1559,7 @@
             "non_applicable_reason": null,
             "reporting_grain": [
                 "customer_id",
+                "ad_group_id",
                 "criterion_id"
             ],
             "timezone_source": "google_ads_customer_timezone",
@@ -1618,6 +1619,7 @@
             "reporting_grain": [
                 "customer_id",
                 "date",
+                "ad_group_id",
                 "criterion_id"
             ],
             "timezone_source": "google_ads_customer_timezone",
@@ -2509,6 +2511,654 @@
                         "https://developers.facebook.com/docs/marketing-api/insights"
                     ],
                     "notes": "Insights/actions subject to attribution windows (e.g. 7d_click still supported; 7d_view/28d_view deprecated 2026-01-12). Unique/frequency history retention limits apply. Conservative: safe lag 1 day; typed actions/daily insights reprocess 7 days (bounded; not full attribution max)."
+                }
+            }
+        },
+        {
+            "dataset_id": "website_url",
+            "provider_or_source": "WEBSITE_DIRECT",
+            "policy_version": 1,
+            "collection_mode": "CONTROLLED_ON_DEMAND",
+            "incremental_applicable": false,
+            "non_applicable_reason": "Website URL inventory is operator/on-demand public observation, not daily incremental watermark catch-up.",
+            "reporting_grain": [
+                "asset_id",
+                "normalized_url"
+            ],
+            "timezone_source": "observation_timestamp",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": null,
+            "freshness_sla_hours": 168,
+            "expected_refresh_cadence": "on_demand_or_on_discovery",
+            "late_data_reprocessing": {
+                "strategy": "none",
+                "window_days": null,
+                "window_source": "not_applicable",
+                "overlap_existing_coverage_allowed": false
+            },
+            "catch_up_policy": "not_applicable",
+            "max_bounded_incremental_span_days": null,
+            "snapshot_policy": {
+                "freshness_basis": "last_successful_collection_at",
+                "freshness_sla_hours": 168,
+                "historical_watermark_applicable": false,
+                "reprocessing_applicable": false
+            },
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "on_demand",
+                "cadence": "on_demand_or_on_discovery"
+            },
+            "contract_history_policy": {
+                "minimum_required": "current",
+                "recommended_initial_backfill": "current",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "website_url",
+                "integrity_profile": false,
+                "provider_documentation_verified_at": "2026-08-20",
+                "provider_documentation": {
+                    "sources": [
+                        "docs/data-contracts/WEBSITE_DATA_CONTRACT_V1.md",
+                        "docs/data-contracts/DATAFORSEO_DATA_CONTRACT_V1.md"
+                    ],
+                    "notes": "Operator-consented Website/DataForSEO collection. Missing remains missing. Paid DataForSEO is never routinely scheduled."
+                }
+            }
+        },
+        {
+            "dataset_id": "website_http_snapshot",
+            "provider_or_source": "WEBSITE_DIRECT",
+            "policy_version": 1,
+            "collection_mode": "CONTROLLED_ON_DEMAND",
+            "incremental_applicable": false,
+            "non_applicable_reason": "HTTP snapshots are diagnosis/crawl events; not routine incremental.",
+            "reporting_grain": [
+                "url",
+                "observed_at"
+            ],
+            "timezone_source": "observation_timestamp",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": null,
+            "freshness_sla_hours": 168,
+            "expected_refresh_cadence": "on_demand",
+            "late_data_reprocessing": {
+                "strategy": "none",
+                "window_days": null,
+                "window_source": "not_applicable",
+                "overlap_existing_coverage_allowed": false
+            },
+            "catch_up_policy": "not_applicable",
+            "max_bounded_incremental_span_days": null,
+            "snapshot_policy": {
+                "freshness_basis": "last_successful_collection_at",
+                "freshness_sla_hours": 168,
+                "historical_watermark_applicable": false,
+                "reprocessing_applicable": false
+            },
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "on_demand",
+                "cadence": "on_demand"
+            },
+            "contract_history_policy": {
+                "minimum_required": "current",
+                "recommended_initial_backfill": "current",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "website_http_snapshot",
+                "integrity_profile": false,
+                "provider_documentation_verified_at": "2026-08-20",
+                "provider_documentation": {
+                    "sources": [
+                        "docs/data-contracts/WEBSITE_DATA_CONTRACT_V1.md",
+                        "docs/data-contracts/DATAFORSEO_DATA_CONTRACT_V1.md"
+                    ],
+                    "notes": "Operator-consented Website/DataForSEO collection. Missing remains missing. Paid DataForSEO is never routinely scheduled."
+                }
+            }
+        },
+        {
+            "dataset_id": "website_metadata_snapshot",
+            "provider_or_source": "WEBSITE_DIRECT",
+            "policy_version": 1,
+            "collection_mode": "CONTROLLED_ON_DEMAND",
+            "incremental_applicable": false,
+            "non_applicable_reason": "HTML metadata snapshots are diagnosis/crawl events; not routine incremental.",
+            "reporting_grain": [
+                "url",
+                "observed_at"
+            ],
+            "timezone_source": "observation_timestamp",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": null,
+            "freshness_sla_hours": 168,
+            "expected_refresh_cadence": "on_demand",
+            "late_data_reprocessing": {
+                "strategy": "none",
+                "window_days": null,
+                "window_source": "not_applicable",
+                "overlap_existing_coverage_allowed": false
+            },
+            "catch_up_policy": "not_applicable",
+            "max_bounded_incremental_span_days": null,
+            "snapshot_policy": {
+                "freshness_basis": "last_successful_collection_at",
+                "freshness_sla_hours": 168,
+                "historical_watermark_applicable": false,
+                "reprocessing_applicable": false
+            },
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "on_demand",
+                "cadence": "on_demand"
+            },
+            "contract_history_policy": {
+                "minimum_required": "current",
+                "recommended_initial_backfill": "current",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "website_metadata_snapshot",
+                "integrity_profile": false,
+                "provider_documentation_verified_at": "2026-08-20",
+                "provider_documentation": {
+                    "sources": [
+                        "docs/data-contracts/WEBSITE_DATA_CONTRACT_V1.md",
+                        "docs/data-contracts/DATAFORSEO_DATA_CONTRACT_V1.md"
+                    ],
+                    "notes": "Operator-consented Website/DataForSEO collection. Missing remains missing. Paid DataForSEO is never routinely scheduled."
+                }
+            }
+        },
+        {
+            "dataset_id": "website_heading_snapshot",
+            "provider_or_source": "WEBSITE_DIRECT",
+            "policy_version": 1,
+            "collection_mode": "CONTROLLED_ON_DEMAND",
+            "incremental_applicable": false,
+            "non_applicable_reason": "Heading snapshots are diagnosis/crawl events; not routine incremental.",
+            "reporting_grain": [
+                "url",
+                "observed_at"
+            ],
+            "timezone_source": "observation_timestamp",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": null,
+            "freshness_sla_hours": 168,
+            "expected_refresh_cadence": "on_demand",
+            "late_data_reprocessing": {
+                "strategy": "none",
+                "window_days": null,
+                "window_source": "not_applicable",
+                "overlap_existing_coverage_allowed": false
+            },
+            "catch_up_policy": "not_applicable",
+            "max_bounded_incremental_span_days": null,
+            "snapshot_policy": {
+                "freshness_basis": "last_successful_collection_at",
+                "freshness_sla_hours": 168,
+                "historical_watermark_applicable": false,
+                "reprocessing_applicable": false
+            },
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "on_demand",
+                "cadence": "on_demand"
+            },
+            "contract_history_policy": {
+                "minimum_required": "current",
+                "recommended_initial_backfill": "current",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "website_heading_snapshot",
+                "integrity_profile": false,
+                "provider_documentation_verified_at": "2026-08-20",
+                "provider_documentation": {
+                    "sources": [
+                        "docs/data-contracts/WEBSITE_DATA_CONTRACT_V1.md",
+                        "docs/data-contracts/DATAFORSEO_DATA_CONTRACT_V1.md"
+                    ],
+                    "notes": "Operator-consented Website/DataForSEO collection. Missing remains missing. Paid DataForSEO is never routinely scheduled."
+                }
+            }
+        },
+        {
+            "dataset_id": "website_schema_snapshot",
+            "provider_or_source": "WEBSITE_DIRECT",
+            "policy_version": 1,
+            "collection_mode": "CONTROLLED_ON_DEMAND",
+            "incremental_applicable": false,
+            "non_applicable_reason": "Schema snapshots are diagnosis/crawl events; not routine incremental.",
+            "reporting_grain": [
+                "url",
+                "observed_at"
+            ],
+            "timezone_source": "observation_timestamp",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": null,
+            "freshness_sla_hours": 168,
+            "expected_refresh_cadence": "on_demand",
+            "late_data_reprocessing": {
+                "strategy": "none",
+                "window_days": null,
+                "window_source": "not_applicable",
+                "overlap_existing_coverage_allowed": false
+            },
+            "catch_up_policy": "not_applicable",
+            "max_bounded_incremental_span_days": null,
+            "snapshot_policy": {
+                "freshness_basis": "last_successful_collection_at",
+                "freshness_sla_hours": 168,
+                "historical_watermark_applicable": false,
+                "reprocessing_applicable": false
+            },
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "on_demand",
+                "cadence": "on_demand"
+            },
+            "contract_history_policy": {
+                "minimum_required": "current",
+                "recommended_initial_backfill": "current",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "website_schema_snapshot",
+                "integrity_profile": false,
+                "provider_documentation_verified_at": "2026-08-20",
+                "provider_documentation": {
+                    "sources": [
+                        "docs/data-contracts/WEBSITE_DATA_CONTRACT_V1.md",
+                        "docs/data-contracts/DATAFORSEO_DATA_CONTRACT_V1.md"
+                    ],
+                    "notes": "Operator-consented Website/DataForSEO collection. Missing remains missing. Paid DataForSEO is never routinely scheduled."
+                }
+            }
+        },
+        {
+            "dataset_id": "website_infra_snapshot",
+            "provider_or_source": "DOMAIN_DNS_TLS",
+            "policy_version": 1,
+            "collection_mode": "CONTROLLED_ON_DEMAND",
+            "incremental_applicable": false,
+            "non_applicable_reason": "TLS/infra snapshots are weekly-or-on-demand, not daily incremental.",
+            "reporting_grain": [
+                "asset_id",
+                "observed_at"
+            ],
+            "timezone_source": "observation_timestamp",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": null,
+            "freshness_sla_hours": 168,
+            "expected_refresh_cadence": "weekly_or_on_demand",
+            "late_data_reprocessing": {
+                "strategy": "none",
+                "window_days": null,
+                "window_source": "not_applicable",
+                "overlap_existing_coverage_allowed": false
+            },
+            "catch_up_policy": "not_applicable",
+            "max_bounded_incremental_span_days": null,
+            "snapshot_policy": {
+                "freshness_basis": "last_successful_collection_at",
+                "freshness_sla_hours": 168,
+                "historical_watermark_applicable": false,
+                "reprocessing_applicable": false
+            },
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "on_demand",
+                "cadence": "weekly_or_on_demand"
+            },
+            "contract_history_policy": {
+                "minimum_required": "current",
+                "recommended_initial_backfill": "current",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "website_infra_snapshot",
+                "integrity_profile": false,
+                "provider_documentation_verified_at": "2026-08-20",
+                "provider_documentation": {
+                    "sources": [
+                        "docs/data-contracts/WEBSITE_DATA_CONTRACT_V1.md",
+                        "docs/data-contracts/DATAFORSEO_DATA_CONTRACT_V1.md"
+                    ],
+                    "notes": "Operator-consented Website/DataForSEO collection. Missing remains missing. Paid DataForSEO is never routinely scheduled."
+                }
+            }
+        },
+        {
+            "dataset_id": "website_performance_measurement",
+            "provider_or_source": "PAGESPEED_TECHNICAL",
+            "policy_version": 1,
+            "collection_mode": "CONTROLLED_ON_DEMAND",
+            "incremental_applicable": false,
+            "non_applicable_reason": "PageSpeed lab measurements are quota-bounded on-demand; not routine incremental.",
+            "reporting_grain": [
+                "url",
+                "observed_at",
+                "strategy"
+            ],
+            "timezone_source": "observation_timestamp",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": null,
+            "freshness_sla_hours": 24,
+            "expected_refresh_cadence": "on_demand_daily_max",
+            "late_data_reprocessing": {
+                "strategy": "none",
+                "window_days": null,
+                "window_source": "not_applicable",
+                "overlap_existing_coverage_allowed": false
+            },
+            "catch_up_policy": "not_applicable",
+            "max_bounded_incremental_span_days": null,
+            "snapshot_policy": {
+                "freshness_basis": "last_successful_collection_at",
+                "freshness_sla_hours": 24,
+                "historical_watermark_applicable": false,
+                "reprocessing_applicable": false
+            },
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "on_demand",
+                "cadence": "on_demand_daily_max"
+            },
+            "contract_history_policy": {
+                "minimum_required": "current",
+                "recommended_initial_backfill": "current",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "website_performance_measurement",
+                "integrity_profile": false,
+                "provider_documentation_verified_at": "2026-08-20",
+                "provider_documentation": {
+                    "sources": [
+                        "docs/data-contracts/WEBSITE_DATA_CONTRACT_V1.md",
+                        "docs/data-contracts/DATAFORSEO_DATA_CONTRACT_V1.md"
+                    ],
+                    "notes": "Operator-consented Website/DataForSEO collection. Missing remains missing. Paid DataForSEO is never routinely scheduled."
+                }
+            }
+        },
+        {
+            "dataset_id": "dataforseo_ranked_keyword_snapshot",
+            "provider_or_source": "DATAFORSEO",
+            "policy_version": 1,
+            "collection_mode": "CONTROLLED_ON_DEMAND",
+            "incremental_applicable": false,
+            "non_applicable_reason": "Paid DataForSEO ranked keywords are operator-consented enrichment with a 5-day TTL; never routinely scheduled.",
+            "reporting_grain": [
+                "target",
+                "location_code",
+                "language_code",
+                "keyword",
+                "retrieved_at"
+            ],
+            "timezone_source": "observation_timestamp",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": null,
+            "freshness_sla_hours": 120,
+            "expected_refresh_cadence": "on_demand_ttl_5d",
+            "late_data_reprocessing": {
+                "strategy": "none",
+                "window_days": null,
+                "window_source": "not_applicable",
+                "overlap_existing_coverage_allowed": false
+            },
+            "catch_up_policy": "not_applicable",
+            "max_bounded_incremental_span_days": null,
+            "snapshot_policy": {
+                "freshness_basis": "last_successful_collection_at",
+                "freshness_sla_hours": 120,
+                "historical_watermark_applicable": false,
+                "reprocessing_applicable": false
+            },
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "on_demand",
+                "cadence": "on_demand_ttl_5d"
+            },
+            "contract_history_policy": {
+                "minimum_required": "current",
+                "recommended_initial_backfill": "current",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "dataforseo_ranked_keyword_snapshot",
+                "integrity_profile": false,
+                "provider_documentation_verified_at": "2026-08-20",
+                "provider_documentation": {
+                    "sources": [
+                        "docs/data-contracts/WEBSITE_DATA_CONTRACT_V1.md",
+                        "docs/data-contracts/DATAFORSEO_DATA_CONTRACT_V1.md"
+                    ],
+                    "notes": "Operator-consented Website/DataForSEO collection. Missing remains missing. Paid DataForSEO is never routinely scheduled."
+                }
+            }
+        },
+        {
+            "dataset_id": "dataforseo_keyword_site_snapshot",
+            "provider_or_source": "DATAFORSEO",
+            "policy_version": 1,
+            "collection_mode": "CONTROLLED_ON_DEMAND",
+            "incremental_applicable": false,
+            "non_applicable_reason": "Paid DataForSEO keywords-for-site are operator-consented enrichment with a 7-day TTL; never routinely scheduled.",
+            "reporting_grain": [
+                "target",
+                "location_code",
+                "language_code",
+                "keyword",
+                "retrieved_at"
+            ],
+            "timezone_source": "observation_timestamp",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": null,
+            "freshness_sla_hours": 168,
+            "expected_refresh_cadence": "on_demand_ttl_7d",
+            "late_data_reprocessing": {
+                "strategy": "none",
+                "window_days": null,
+                "window_source": "not_applicable",
+                "overlap_existing_coverage_allowed": false
+            },
+            "catch_up_policy": "not_applicable",
+            "max_bounded_incremental_span_days": null,
+            "snapshot_policy": {
+                "freshness_basis": "last_successful_collection_at",
+                "freshness_sla_hours": 168,
+                "historical_watermark_applicable": false,
+                "reprocessing_applicable": false
+            },
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "on_demand",
+                "cadence": "on_demand_ttl_7d"
+            },
+            "contract_history_policy": {
+                "minimum_required": "current",
+                "recommended_initial_backfill": "current",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "dataforseo_keyword_site_snapshot",
+                "integrity_profile": false,
+                "provider_documentation_verified_at": "2026-08-20",
+                "provider_documentation": {
+                    "sources": [
+                        "docs/data-contracts/WEBSITE_DATA_CONTRACT_V1.md",
+                        "docs/data-contracts/DATAFORSEO_DATA_CONTRACT_V1.md"
+                    ],
+                    "notes": "Operator-consented Website/DataForSEO collection. Missing remains missing. Paid DataForSEO is never routinely scheduled."
+                }
+            }
+        },
+        {
+            "dataset_id": "dataforseo_competitor_domain_snapshot",
+            "provider_or_source": "DATAFORSEO",
+            "policy_version": 1,
+            "collection_mode": "CONTROLLED_ON_DEMAND",
+            "incremental_applicable": false,
+            "non_applicable_reason": "Paid DataForSEO competitor candidates are Discovery-requested enrichment with a 14-day TTL; never routinely scheduled.",
+            "reporting_grain": [
+                "target",
+                "location_code",
+                "language_code",
+                "competitor_domain",
+                "retrieved_at"
+            ],
+            "timezone_source": "observation_timestamp",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": null,
+            "freshness_sla_hours": 336,
+            "expected_refresh_cadence": "on_demand_ttl_14d",
+            "late_data_reprocessing": {
+                "strategy": "none",
+                "window_days": null,
+                "window_source": "not_applicable",
+                "overlap_existing_coverage_allowed": false
+            },
+            "catch_up_policy": "not_applicable",
+            "max_bounded_incremental_span_days": null,
+            "snapshot_policy": {
+                "freshness_basis": "last_successful_collection_at",
+                "freshness_sla_hours": 336,
+                "historical_watermark_applicable": false,
+                "reprocessing_applicable": false
+            },
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "on_demand",
+                "cadence": "on_demand_ttl_14d"
+            },
+            "contract_history_policy": {
+                "minimum_required": "current",
+                "recommended_initial_backfill": "current",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "dataforseo_competitor_domain_snapshot",
+                "integrity_profile": false,
+                "provider_documentation_verified_at": "2026-08-20",
+                "provider_documentation": {
+                    "sources": [
+                        "docs/data-contracts/WEBSITE_DATA_CONTRACT_V1.md",
+                        "docs/data-contracts/DATAFORSEO_DATA_CONTRACT_V1.md"
+                    ],
+                    "notes": "Operator-consented Website/DataForSEO collection. Missing remains missing. Paid DataForSEO is never routinely scheduled."
+                }
+            }
+        },
+        {
+            "dataset_id": "dataforseo_raw_response",
+            "provider_or_source": "DATAFORSEO",
+            "policy_version": 1,
+            "collection_mode": "CONTROLLED_ON_DEMAND",
+            "incremental_applicable": false,
+            "non_applicable_reason": "Raw DataForSEO payloads are retained for paid replay/provenance, not incremental facts.",
+            "reporting_grain": [
+                "request_fingerprint",
+                "retrieved_at"
+            ],
+            "timezone_source": "observation_timestamp",
+            "current_period_collectable": false,
+            "safe_collection_lag_days": null,
+            "freshness_sla_hours": 168,
+            "expected_refresh_cadence": "on_collect",
+            "late_data_reprocessing": {
+                "strategy": "none",
+                "window_days": null,
+                "window_source": "not_applicable",
+                "overlap_existing_coverage_allowed": false
+            },
+            "catch_up_policy": "not_applicable",
+            "max_bounded_incremental_span_days": null,
+            "snapshot_policy": {
+                "freshness_basis": "last_successful_collection_at",
+                "freshness_sla_hours": 168,
+                "historical_watermark_applicable": false,
+                "reprocessing_applicable": false
+            },
+            "provider_history_limitation_ref": null,
+            "integrity_dependency": {
+                "integrity_registry_id": "MOXDOP_DATA_INTEGRITY_REGISTRY",
+                "blocks_trusted_fresh_on_migration_blocking_fail": true
+            },
+            "contract_refresh_policy": {
+                "type": "on_demand",
+                "cadence": "on_collect"
+            },
+            "contract_history_policy": {
+                "minimum_required": "current",
+                "recommended_initial_backfill": "current",
+                "decision_required": false
+            },
+            "period_non_additive_notes": null,
+            "policy_source": {
+                "data_contract_dataset_id": "dataforseo_raw_response",
+                "integrity_profile": false,
+                "provider_documentation_verified_at": "2026-08-20",
+                "provider_documentation": {
+                    "sources": [
+                        "docs/data-contracts/WEBSITE_DATA_CONTRACT_V1.md",
+                        "docs/data-contracts/DATAFORSEO_DATA_CONTRACT_V1.md"
+                    ],
+                    "notes": "Operator-consented Website/DataForSEO collection. Missing remains missing. Paid DataForSEO is never routinely scheduled."
                 }
             }
         }

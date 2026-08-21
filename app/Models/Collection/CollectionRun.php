@@ -120,6 +120,16 @@ class CollectionRun extends Model
     }
 
     /**
+     * Planner-authorized sibling-asset collection (Google/Meta initial backfill).
+     */
+    public function allowsMultiAssetBindings(): bool
+    {
+        $context = $this->request_context ?? [];
+
+        return (bool) data_get($context, 'context.allow_multi_asset_bindings', false);
+    }
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array

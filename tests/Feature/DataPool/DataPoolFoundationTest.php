@@ -3,6 +3,7 @@
 namespace Tests\Feature\DataPool;
 
 use App\Enums\DataPool\MaterializationStatus;
+use App\Enums\DataPool\WriteBatchStatus;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\DataPool\DatasetMaterialization;
 use App\Models\DataPool\DatasetWriteBatch;
@@ -20,6 +21,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\Test;
+use RuntimeException;
 use Tests\TestCase;
 
 class DataPoolFoundationTest extends TestCase
@@ -449,6 +451,323 @@ class DataPoolFoundationTest extends TestCase
 
         app(CheckpointManager::class)->advance($run, ['cursor' => 'done']);
         $this->assertSame('done', $run->fresh()->checkpoint['cursor']);
+    }
+
+    #[Test]
+    public function failed_batch_row_is_reused_in_place_on_retry(): void
+    {
+        $run = CollectionDatasetRun::factory()->create([
+            'dataset_contract_id' => 'ga4_property_daily',
+            'provider_or_source' => 'GA4',
+        ]);
+
+        $stale = DatasetWriteBatch::query()->create([
+            'dataset_run_id' => (int) $run->id,
+            'batch_key' => 'retry-after-failure',
+            'idempotency_key' => hash('sha256', $run->id.'|retry-after-failure'),
+            'dataset_id' => 'ga4_property_daily',
+            'status' => WriteBatchStatus::Failed,
+            'rows_received' => 1,
+            'rows_inserted' => 0,
+            'rows_updated' => 0,
+            'started_at' => now()->subMinute(),
+            'checksum' => null,
+            'error_summary' => 'previous failure',
+        ]);
+
+        $receipt = app(PostgresWarehouseWriter::class)->write(new NormalizedDatasetBatch(
+            datasetId: 'ga4_property_daily',
+            datasetRunId: (int) $run->id,
+            contractVersion: 1,
+            batchKey: 'retry-after-failure',
+            records: [[
+                'digital_asset_id' => 77,
+                'property_id' => 'properties/retry',
+                'reporting_date' => '2026-08-08',
+                'sessions' => 5,
+                'engagedSessions' => 4,
+                'screenPageViews' => 9,
+                'totalUsers' => 3,
+                'activeUsers' => 3,
+            ]],
+            digitalAssetId: 77,
+            collectionRunId: (int) $run->collection_run_id,
+            providerOrSource: 'GA4',
+        ));
+
+        $this->assertTrue($receipt->isCommitted());
+        $this->assertSame(1, DatasetWriteBatch::query()->where('dataset_run_id', (int) $run->id)->where('batch_key', 'retry-after-failure')->count());
+        $this->assertSame($stale->id, DatasetWriteBatch::query()->where('dataset_run_id', (int) $run->id)->where('batch_key', 'retry-after-failure')->value('id'));
+        $this->assertSame('committed', DatasetWriteBatch::query()->find($stale->id)?->status->value);
+        $this->assertSame(1, DB::table('ga4_property_daily')->where('property_id', 'properties/retry')->count());
+    }
+
+    #[Test]
+    public function pending_batch_row_is_reused_in_place_on_retry(): void
+    {
+        $run = CollectionDatasetRun::factory()->create([
+            'dataset_contract_id' => 'ga4_property_daily',
+            'provider_or_source' => 'GA4',
+        ]);
+
+        $stale = DatasetWriteBatch::query()->create([
+            'dataset_run_id' => (int) $run->id,
+            'batch_key' => 'retry-after-pending',
+            'idempotency_key' => hash('sha256', $run->id.'|retry-after-pending'),
+            'dataset_id' => 'ga4_property_daily',
+            'status' => WriteBatchStatus::Pending,
+            'rows_received' => 1,
+            'rows_inserted' => 0,
+            'rows_updated' => 0,
+            'started_at' => now()->subMinute(),
+            'checksum' => null,
+            'error_summary' => null,
+        ]);
+
+        $receipt = app(PostgresWarehouseWriter::class)->write(new NormalizedDatasetBatch(
+            datasetId: 'ga4_property_daily',
+            datasetRunId: (int) $run->id,
+            contractVersion: 1,
+            batchKey: 'retry-after-pending',
+            records: [[
+                'digital_asset_id' => 78,
+                'property_id' => 'properties/pending',
+                'reporting_date' => '2026-08-09',
+                'sessions' => 7,
+                'engagedSessions' => 6,
+                'screenPageViews' => 11,
+                'totalUsers' => 4,
+                'activeUsers' => 4,
+            ]],
+            digitalAssetId: 78,
+            collectionRunId: (int) $run->collection_run_id,
+            providerOrSource: 'GA4',
+        ));
+
+        $this->assertTrue($receipt->isCommitted());
+        $this->assertSame(1, DatasetWriteBatch::query()->where('dataset_run_id', (int) $run->id)->where('batch_key', 'retry-after-pending')->count());
+        $this->assertSame($stale->id, DatasetWriteBatch::query()->where('dataset_run_id', (int) $run->id)->where('batch_key', 'retry-after-pending')->value('id'));
+        $this->assertSame('committed', DatasetWriteBatch::query()->find($stale->id)?->status->value);
+        $this->assertSame(1, DB::table('ga4_property_daily')->where('property_id', 'properties/pending')->count());
+    }
+
+    #[Test]
+    public function upsert_preserves_keyword_rows_that_share_criterion_across_ad_groups(): void
+    {
+        $run = CollectionDatasetRun::factory()->create([
+            'dataset_contract_id' => 'google_ads_keyword_snapshot',
+            'provider_or_source' => 'GOOGLE_ADS',
+        ]);
+
+        $receipt = app(PostgresWarehouseWriter::class)->write(new NormalizedDatasetBatch(
+            datasetId: 'google_ads_keyword_snapshot',
+            datasetRunId: (int) $run->id,
+            contractVersion: 1,
+            batchKey: 'kw-dup-1',
+            records: [
+                [
+                    'digital_asset_id' => 2,
+                    'customer_id' => '1112223333',
+                    'ad_group_id' => '1',
+                    'criterion_id' => '999',
+                    'source_timezone' => 'Europe/Istanbul',
+                    'metadata' => ['ad_group_id' => '1', 'keyword_text' => 'first'],
+                ],
+                [
+                    'digital_asset_id' => 2,
+                    'customer_id' => '1112223333',
+                    'ad_group_id' => '2',
+                    'criterion_id' => '999',
+                    'source_timezone' => 'Europe/Istanbul',
+                    'metadata' => ['ad_group_id' => '2', 'keyword_text' => 'second'],
+                ],
+            ],
+            digitalAssetId: 2,
+            collectionRunId: (int) $run->collection_run_id,
+            providerOrSource: 'GOOGLE_ADS',
+        ));
+
+        $this->assertTrue($receipt->isCommitted());
+        $this->assertSame(2, DB::table('google_ads_keyword_snapshot')->count());
+        $this->assertSame(
+            ['1', '2'],
+            DB::table('google_ads_keyword_snapshot')->orderBy('ad_group_id')->pluck('ad_group_id')->all()
+        );
+    }
+
+    #[Test]
+    public function upsert_collapses_true_natural_key_duplicates_in_one_batch(): void
+    {
+        $run = CollectionDatasetRun::factory()->create([
+            'dataset_contract_id' => 'google_ads_keyword_snapshot',
+            'provider_or_source' => 'GOOGLE_ADS',
+        ]);
+
+        $receipt = app(PostgresWarehouseWriter::class)->write(new NormalizedDatasetBatch(
+            datasetId: 'google_ads_keyword_snapshot',
+            datasetRunId: (int) $run->id,
+            contractVersion: 1,
+            batchKey: 'kw-true-dup-1',
+            records: [
+                [
+                    'digital_asset_id' => 2,
+                    'customer_id' => '1112223333',
+                    'ad_group_id' => '2',
+                    'criterion_id' => '999',
+                    'source_timezone' => 'Europe/Istanbul',
+                    'metadata' => ['ad_group_id' => '2', 'keyword_text' => 'first'],
+                ],
+                [
+                    'digital_asset_id' => 2,
+                    'customer_id' => '1112223333',
+                    'ad_group_id' => '2',
+                    'criterion_id' => '999',
+                    'source_timezone' => 'Europe/Istanbul',
+                    'metadata' => ['ad_group_id' => '2', 'keyword_text' => 'second'],
+                ],
+            ],
+            digitalAssetId: 2,
+            collectionRunId: (int) $run->collection_run_id,
+            providerOrSource: 'GOOGLE_ADS',
+        ));
+
+        $this->assertTrue($receipt->isCommitted());
+        $this->assertSame(1, DB::table('google_ads_keyword_snapshot')->count());
+        $meta = json_decode((string) DB::table('google_ads_keyword_snapshot')->value('metadata'), true);
+        $this->assertSame('second', $meta['keyword_text']);
+    }
+
+    #[Test]
+    public function failed_batch_with_stale_checksum_can_retry_collapsed_payload(): void
+    {
+        $run = CollectionDatasetRun::factory()->create([
+            'dataset_contract_id' => 'google_ads_keyword_snapshot',
+            'provider_or_source' => 'GOOGLE_ADS',
+        ]);
+
+        $stale = DatasetWriteBatch::query()->create([
+            'dataset_run_id' => (int) $run->id,
+            'batch_key' => 'gads:google_ads_keyword_snapshot:keyword_snapshot:chunk=0',
+            'idempotency_key' => hash('sha256', $run->id.'|gads:google_ads_keyword_snapshot:keyword_snapshot:chunk=0'),
+            'dataset_id' => 'google_ads_keyword_snapshot',
+            'status' => WriteBatchStatus::Failed,
+            'rows_received' => 2,
+            'rows_inserted' => 0,
+            'rows_updated' => 0,
+            'started_at' => now()->subMinute(),
+            'checksum' => str_repeat('a', 64),
+            'error_summary' => 'ON CONFLICT DO UPDATE command cannot affect row a second time',
+        ]);
+
+        $receipt = app(PostgresWarehouseWriter::class)->write(new NormalizedDatasetBatch(
+            datasetId: 'google_ads_keyword_snapshot',
+            datasetRunId: (int) $run->id,
+            contractVersion: 1,
+            batchKey: 'gads:google_ads_keyword_snapshot:keyword_snapshot:chunk=0',
+            records: [
+                [
+                    'digital_asset_id' => 2,
+                    'customer_id' => '1112223333',
+                    'ad_group_id' => '2',
+                    'criterion_id' => '999',
+                    'source_timezone' => 'Europe/Istanbul',
+                    'metadata' => ['ad_group_id' => '2', 'keyword_text' => 'second'],
+                ],
+            ],
+            digitalAssetId: 2,
+            collectionRunId: (int) $run->collection_run_id,
+            providerOrSource: 'GOOGLE_ADS',
+        ));
+
+        $this->assertTrue($receipt->isCommitted());
+        $this->assertSame($stale->id, DatasetWriteBatch::query()->where('dataset_run_id', (int) $run->id)->value('id'));
+        $this->assertSame('committed', DatasetWriteBatch::query()->find($stale->id)?->status->value);
+        $this->assertSame(1, DB::table('google_ads_keyword_snapshot')->count());
+    }
+
+    #[Test]
+    public function post_fact_commit_failed_batch_cannot_replace_checksum_or_leave_stale_keys(): void
+    {
+        $run = CollectionDatasetRun::factory()->create([
+            'dataset_contract_id' => 'google_ads_keyword_snapshot',
+            'provider_or_source' => 'GOOGLE_ADS',
+        ]);
+
+        $writer = app(PostgresWarehouseWriter::class);
+        $first = $writer->write(new NormalizedDatasetBatch(
+            datasetId: 'google_ads_keyword_snapshot',
+            datasetRunId: (int) $run->id,
+            contractVersion: 1,
+            batchKey: 'kw-post-commit',
+            records: [
+                [
+                    'digital_asset_id' => 2,
+                    'customer_id' => '1112223333',
+                    'ad_group_id' => '1',
+                    'criterion_id' => '999',
+                    'source_timezone' => 'Europe/Istanbul',
+                    'metadata' => ['ad_group_id' => '1', 'keyword_text' => 'first'],
+                ],
+                [
+                    'digital_asset_id' => 2,
+                    'customer_id' => '1112223333',
+                    'ad_group_id' => '2',
+                    'criterion_id' => '999',
+                    'source_timezone' => 'Europe/Istanbul',
+                    'metadata' => ['ad_group_id' => '2', 'keyword_text' => 'second'],
+                ],
+            ],
+            digitalAssetId: 2,
+            collectionRunId: (int) $run->collection_run_id,
+            providerOrSource: 'GOOGLE_ADS',
+        ));
+
+        $this->assertTrue($first->isCommitted());
+        $this->assertSame(2, DB::table('google_ads_keyword_snapshot')->count());
+
+        $batch = DatasetWriteBatch::query()->find($first->writeBatchId);
+        $this->assertNotNull($batch);
+        $batch->forceFill([
+            'status' => WriteBatchStatus::Failed,
+            'error_summary' => 'materialization bookkeeping failed after facts committed',
+        ])->save();
+        $this->assertNotNull($batch->fresh()->committed_at);
+
+        try {
+            $writer->write(new NormalizedDatasetBatch(
+                datasetId: 'google_ads_keyword_snapshot',
+                datasetRunId: (int) $run->id,
+                contractVersion: 1,
+                batchKey: 'kw-post-commit',
+                records: [
+                    [
+                        'digital_asset_id' => 2,
+                        'customer_id' => '1112223333',
+                        'ad_group_id' => '2',
+                        'criterion_id' => '999',
+                        'source_timezone' => 'Europe/Istanbul',
+                        'metadata' => ['ad_group_id' => '2', 'keyword_text' => 'second-only'],
+                    ],
+                ],
+                digitalAssetId: 2,
+                collectionRunId: (int) $run->collection_run_id,
+                providerOrSource: 'GOOGLE_ADS',
+            ));
+            $this->fail('Expected checksum conflict when facts may already have committed');
+        } catch (RuntimeException $e) {
+            $this->assertStringContainsString('WRITE_BATCH_CHECKSUM_CONFLICT', $e->getMessage());
+        }
+
+        $this->assertSame(2, DB::table('google_ads_keyword_snapshot')->count());
+        $this->assertSame(
+            ['1', '2'],
+            DB::table('google_ads_keyword_snapshot')->orderBy('ad_group_id')->pluck('ad_group_id')->all()
+        );
+        $this->assertSame('failed', DatasetWriteBatch::query()->find($first->writeBatchId)?->status->value);
+        $this->assertSame(
+            'first',
+            json_decode((string) DB::table('google_ads_keyword_snapshot')->where('ad_group_id', '1')->value('metadata'), true)['keyword_text']
+        );
     }
 
     #[Test]

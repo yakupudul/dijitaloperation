@@ -1,21 +1,28 @@
 <?php
 
+use App\Http\Controllers\Auth\OperatorForgotPasswordController;
 use App\Http\Controllers\Auth\OperatorLoginController;
+use App\Http\Controllers\Auth\OperatorResetPasswordController;
 use App\Http\Controllers\Integrations\GoogleOAuthController;
 use App\Http\Controllers\Integrations\MetaOAuthController;
+use App\Http\Controllers\LegacyRetiredPrefixController;
 use App\Http\Controllers\Ops\OpsHealthController;
 use App\Http\Controllers\Prospects\ProspectReportShareController;
 use App\Http\Controllers\Reports\ReportArtifactDownloadController;
 use App\Http\Controllers\Reports\ReportShareController;
 use App\Http\Middleware\EnsureDemoAppAccess;
+use App\Livewire\Operator\AssetDataSourcesPage;
 use App\Livewire\Operator\PublicDiscoveryIndex;
-use App\Livewire\Operator\Website\DataSourcesPage;
 use App\Livewire\Operator\Website\PublicDiscoveryPage;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function (): void {
     Route::get('/login', [OperatorLoginController::class, 'create'])->name('app.login');
     Route::post('/login', [OperatorLoginController::class, 'store'])->name('app.login.store');
+    Route::get('/forgot-password', [OperatorForgotPasswordController::class, 'create'])->name('app.password.request');
+    Route::post('/forgot-password', [OperatorForgotPasswordController::class, 'store'])->name('app.password.email');
+    Route::get('/reset-password/{token}', [OperatorResetPasswordController::class, 'create'])->name('app.password.reset');
+    Route::post('/reset-password', [OperatorResetPasswordController::class, 'store'])->name('app.password.update');
 });
 
 Route::post('/logout', [OperatorLoginController::class, 'destroy'])
@@ -77,12 +84,18 @@ Route::middleware(['web'])->prefix('reports/share')->name('reports.share.')->gro
 
 require __DIR__.'/demo.php';
 
-// Real operator engine surfaces that do not have legacy canonical routes in demo.php.
+// Canonical production operator engine surfaces that are intentionally kept outside legacy demo.php.
 Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])->group(function (): void {
     Route::livewire('/public-discovery', PublicDiscoveryIndex::class)
         ->name('operator.public-discovery');
 
-    Route::livewire('/assets/website/{assetId}/sources', DataSourcesPage::class)
+    // Canonical data-source management for every bindable Digital Asset type.
+    Route::livewire('/assets/{assetId}/sources', AssetDataSourcesPage::class)
+        ->whereNumber('assetId')
+        ->name('operator.asset.sources');
+
+    // Backward-compatible Website URL; same canonical component, no Website-only binding logic.
+    Route::livewire('/assets/website/{assetId}/sources', AssetDataSourcesPage::class)
         ->whereNumber('assetId')
         ->name('operator.website.sources');
 
@@ -91,10 +104,8 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])->group(function (
         ->name('operator.website.discovery');
 });
 
-Route::any('/app/{path?}', function (): never {
-    abort(410, 'Legacy /app operator prefix retired.');
-})->where('path', '.*');
+Route::any('/app/{path?}', [LegacyRetiredPrefixController::class, 'app'])
+    ->where('path', '.*');
 
-Route::any('/system/{path?}', function (): never {
-    abort(410, 'Legacy /system operator surface retired.');
-})->where('path', '.*');
+Route::any('/system/{path?}', [LegacyRetiredPrefixController::class, 'system'])
+    ->where('path', '.*');

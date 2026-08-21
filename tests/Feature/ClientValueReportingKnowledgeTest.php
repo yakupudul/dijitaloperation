@@ -129,9 +129,9 @@ class ClientValueReportingKnowledgeTest extends TestCase
             ->set('description', 'Client preference for DE market.')
             ->set('noteKind', 'decision')
             ->call('save')
-            ->assertSet('open', false);
+            ->assertSet('open', true);
 
-        $this->assertNotEmpty(DemoState::captureDecisions());
+        $this->assertSame([], DemoState::captureDecisions());
 
         Livewire::test(BrandShow::class, ['brand' => (string) $this->portfolioBrand->id])
             ->call('setValueSection', 'decisions')

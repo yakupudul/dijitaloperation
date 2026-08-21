@@ -61,7 +61,7 @@ class CaptureModal extends Component
     public function openCapture(?string $type = null, ?string $brand = null, ?string $customer = null, ?string $path = null): void
     {
         $this->open = true;
-        if ($type !== null && in_array($type, ['client_request', 'task', 'opportunity_hypothesis', 'note'], true)) {
+        if ($type !== null && in_array($type, ['client_request', 'task'], true)) {
             $this->captureType = $type;
         }
 
@@ -95,7 +95,7 @@ class CaptureModal extends Component
 
     public function setCaptureType(string $type): void
     {
-        if (in_array($type, ['client_request', 'task', 'opportunity_hypothesis', 'note'], true)) {
+        if (in_array($type, ['client_request', 'task'], true)) {
             $this->captureType = $type;
         }
     }
@@ -272,28 +272,16 @@ class CaptureModal extends Component
 
     private function saveOpportunityHypothesis(): bool
     {
-        DemoState::captureOpportunityHypothesis([
-            'title' => $this->title,
-            'description' => $this->description,
-            'brand_id' => $this->prefillBrand,
-            'service_code' => $this->service_code,
-        ]);
+        DemoState::flash(__('operator.flash.capture_opportunity_unavailable'), 'info');
 
-        return true;
+        return false;
     }
 
     private function saveNote(): bool
     {
-        DemoState::captureNote([
-            'title' => $this->title,
-            'body' => $this->description,
-            'scope' => $this->note_scope,
-            'kind' => $this->noteKind,
-            'brand_id' => $this->prefillBrand,
-            'customer_id' => $this->prefillCustomer,
-        ]);
+        DemoState::flash(__('operator.flash.capture_note_unavailable'), 'info');
 
-        return true;
+        return false;
     }
 
     private function clearIncompatibleBrand(): void

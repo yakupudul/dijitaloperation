@@ -7,10 +7,15 @@ use App\Enums\Collection\CollectionTriggerType;
 use App\Enums\Collection\PlanDisposition;
 use App\Enums\Collection\RequirementLevel;
 use App\Models\CoreAssetBinding;
+use App\Models\CoreConnection;
 use App\Models\DataPool\DatasetMaterialization;
 use App\Models\DigitalAsset;
+use App\Services\Collection\Providers\DataForSeo\DataForSeoRequestFamilyCatalog;
+use App\Services\Collection\Providers\MetaAds\MetaAdsRequestFamilyCatalog;
+use App\Services\Collection\Providers\Website\WebsiteRequestFamilyCatalog;
 use App\Services\Collection\Support\StartCollectionRequest;
 use App\Services\DataPool\Freshness\IncrementalCoveragePlanner;
+use App\Services\PageSpeedConnectionProbeService;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
 
@@ -31,6 +36,18 @@ final class CollectionPlanner
         'google_ads' => 'GOOGLE_ADS',
         'meta_ads' => 'META_ADS',
         'google_business_profile' => 'GBP',
+    ];
+
+    /**
+     * Asset-capability sources that do not use CoreAssetBinding.
+     *
+     * @var list<string>
+     */
+    private const ASSET_CAPABILITY_PROVIDERS = [
+        'WEBSITE_DIRECT',
+        'DOMAIN_DNS_TLS',
+        'PAGESPEED_TECHNICAL',
+        'DATAFORSEO',
     ];
 
     /**
@@ -78,8 +95,9 @@ final class CollectionPlanner
 
         $asset = $request->digitalAsset;
         $bindings = $this->resolveBindings($asset, $request->bindingIds, $request->context);
+        $capabilitySources = $this->requestedAssetCapabilitySources($request);
 
-        if ($bindings === []) {
+        if ($bindings === [] && $capabilitySources === []) {
             throw new InvalidArgumentException('No active asset bindings in collection scope.');
         }
 
@@ -180,6 +198,10 @@ final class CollectionPlanner
                 $datasetId = $this->primaryDatasetForFamily($familyId) ?? $familyId;
                 $requirements = $this->requirementsForFamily($familyId);
                 $coverageTarget = $this->ranges->resolveForRequirements($requirements);
+                $catalogCoverage = $this->catalogCoverageTarget($familyId, $datasetId);
+                if ($catalogCoverage !== null && ($coverageTarget['kind'] ?? '') !== 'historical') {
+                    $coverageTarget = $catalogCoverage;
+                }
                 $requirementIds = array_values(array_filter(array_map(
                     static fn (array $r): ?string => is_string($r['id'] ?? null) ? (string) $r['id'] : null,
                     $requirements,
@@ -325,6 +347,15 @@ final class CollectionPlanner
             }
         }
 
+        $this->appendAssetCapabilityPlan(
+            $request,
+            $capabilitySources,
+            $familiesByProvider,
+            $resources,
+            $datasets,
+            $dispositions,
+        );
+
         if ($datasets === []) {
             throw new InvalidArgumentException('Collection plan produced zero datasets for the given scope.');
         }
@@ -337,6 +368,135 @@ final class CollectionPlanner
             'contract_registry_version' => $this->registry->version(),
             'contract_registry_checksum' => $this->registry->checksum(),
         ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function requestedAssetCapabilitySources(StartCollectionRequest $request): array
+    {
+        if ((string) $request->digitalAsset->type !== 'website') {
+            return [];
+        }
+
+        if ($request->providerSources === null) {
+            return [];
+        }
+
+        return array_values(array_intersect($request->providerSources, self::ASSET_CAPABILITY_PROVIDERS));
+    }
+
+    /**
+     * @param  list<string>  $capabilitySources
+     * @param  array<string, list<array<string, mixed>>>  $familiesByProvider
+     * @param  array<string, array<string, mixed>>  $resources
+     * @param  list<array<string, mixed>>  $datasets
+     * @param  list<array<string, mixed>>  $dispositions
+     */
+    private function appendAssetCapabilityPlan(
+        StartCollectionRequest $request,
+        array $capabilitySources,
+        array $familiesByProvider,
+        array &$resources,
+        array &$datasets,
+        array &$dispositions,
+    ): void {
+        if ($capabilitySources === []) {
+            return;
+        }
+
+        $asset = $request->digitalAsset;
+        $incremental = $request->triggerType === CollectionTriggerType::Incremental;
+
+        foreach ($capabilitySources as $provider) {
+            $resourceKey = 'asset-capability:'.$provider.':'.$asset->id;
+            $resources[$resourceKey] = [
+                'key' => $resourceKey,
+                'provider_or_source' => $provider,
+                'resource_kind' => 'website_asset_capability',
+                'external_resource_id' => null,
+                'digital_asset_id' => $asset->id,
+                'core_asset_binding_id' => null,
+                'capability' => strtolower($provider),
+            ];
+
+            $families = $familiesByProvider[$provider] ?? [];
+            if ($families === []) {
+                $dispositions[] = [
+                    'type' => PlanDisposition::CollectorUnavailable->value,
+                    'provider_or_source' => $provider,
+                    'reason' => 'No registry request families for provider',
+                ];
+
+                continue;
+            }
+
+            foreach ($families as $family) {
+                $familyId = (string) ($family['id'] ?? '');
+                if ($familyId === '') {
+                    continue;
+                }
+
+                if ($request->requestFamilyIds !== null && ! in_array($familyId, $request->requestFamilyIds, true)) {
+                    continue;
+                }
+
+                $status = (string) ($family['status'] ?? '');
+                if (in_array($status, self::NON_EXECUTABLE_FAMILY_STATUSES, true)) {
+                    $dispositions[] = [
+                        'type' => match ($status) {
+                            'DEFERRED' => PlanDisposition::Deferred->value,
+                            default => PlanDisposition::Unsupported->value,
+                        },
+                        'request_family_id' => $familyId,
+                        'provider_or_source' => $provider,
+                        'family_status' => $status,
+                    ];
+
+                    continue;
+                }
+
+                $level = $this->requirementLevelForFamily($familyId);
+                $eligibility = $this->eligibilityForFamily($family, $request);
+                $datasetId = $this->primaryDatasetForFamily($familyId) ?? $familyId;
+                $requirements = $this->requirementsForFamily($familyId);
+                $requirementIds = array_values(array_filter(array_map(
+                    static fn (array $r): ?string => is_string($r['id'] ?? null) ? (string) $r['id'] : null,
+                    $requirements,
+                )));
+
+                $notEligible = $eligibility === CollectionRunStatus::NotEligible
+                    || $incremental;
+
+                $datasets[] = [
+                    'resource_key' => $resourceKey,
+                    'provider_or_source' => $provider,
+                    'dataset_contract_id' => $datasetId,
+                    'request_family_id' => $familyId,
+                    'requirement_ids' => $requirementIds,
+                    'requirement_level' => $level->value,
+                    'planned_status' => $notEligible
+                        ? CollectionRunStatus::NotEligible->value
+                        : CollectionRunStatus::Queued->value,
+                    'plan_disposition' => $notEligible
+                        ? PlanDisposition::NotEligible->value
+                        : PlanDisposition::Eligible->value,
+                    'date_range' => null,
+                    'coverage_target' => $this->ranges->resolveForRequirements($requirements),
+                    'depends_on_request_family_ids' => $this->familyDependencies($familyId),
+                    'core_asset_binding_id' => null,
+                    'digital_asset_id' => $asset->id,
+                    'external_resource_id' => null,
+                    'plan_disposition_detail' => [
+                        'type' => $notEligible ? PlanDisposition::NotEligible->value : PlanDisposition::Eligible->value,
+                        'request_family_id' => $familyId,
+                        'reason' => $incremental
+                            ? 'Website/DataForSEO production collection is operator on-demand, not incremental watermark catch-up.'
+                            : ($notEligible ? 'not_eligible' : 'eligible'),
+                    ],
+                ];
+            }
+        }
     }
 
     /**
@@ -361,8 +521,39 @@ final class CollectionPlanner
             $query->where('digital_asset_id', $asset->id);
         }
 
-        /** @var list<CoreAssetBinding> */
-        return $query->orderBy('id')->get()->all();
+        $asset->loadMissing('brand');
+        $anchorBrandId = $asset->brand_id !== null ? (int) $asset->brand_id : null;
+        $anchorCustomerId = $asset->brand?->customer_id !== null ? (int) $asset->brand->customer_id : null;
+
+        /** @var list<CoreAssetBinding> $eligible */
+        $eligible = [];
+        foreach ($query->orderBy('id')->get() as $binding) {
+            $candidate = $binding->digitalAsset;
+            if (! $candidate instanceof DigitalAsset) {
+                continue;
+            }
+
+            $requireSameBrand = in_array(
+                (string) $binding->capability,
+                CollectionBindingScope::GOOGLE_SAME_BRAND_CAPABILITIES,
+                true,
+            );
+
+            if (! CollectionBindingScope::anchorMayTargetAsset(
+                (int) $asset->id,
+                $anchorBrandId,
+                $anchorCustomerId,
+                $candidate,
+                $allowMultiAsset,
+                $requireSameBrand,
+            )) {
+                continue;
+            }
+
+            $eligible[] = $binding;
+        }
+
+        return $eligible;
     }
 
     /**
@@ -465,11 +656,41 @@ final class CollectionPlanner
             }
         }
 
+        if (in_array($familyId, DataForSeoRequestFamilyCatalog::paidFamilies(), true)) {
+            $consented = (bool) ($request->context['paid_enrichment_consented'] ?? false);
+            if (! $consented) {
+                return CollectionRunStatus::NotEligible;
+            }
+        }
+
+        if ($familyId === DataForSeoRequestFamilyCatalog::FAMILY_COMPETITORS_DOMAIN) {
+            $discovery = (bool) ($request->context['public_discovery'] ?? false);
+            if (! $discovery) {
+                return CollectionRunStatus::NotEligible;
+            }
+        }
+
+        if ($familyId === WebsiteRequestFamilyCatalog::FAMILY_PAGESPEED) {
+            $hasConnection = CoreConnection::query()
+                ->where('digital_asset_id', $request->digitalAsset->id)
+                ->where('type', PageSpeedConnectionProbeService::CONNECTION_TYPE)
+                ->where('enabled', true)
+                ->exists();
+            if (! $hasConnection) {
+                return CollectionRunStatus::NotEligible;
+            }
+        }
+
         return null;
     }
 
     private function primaryDatasetForFamily(string $familyId): ?string
     {
+        $catalog = $this->catalogPrimaryDataset($familyId);
+        if ($catalog !== null) {
+            return $catalog;
+        }
+
         foreach ($this->registry->requirements() as $requirement) {
             if (($requirement['request_family'] ?? null) === $familyId) {
                 $dataset = $requirement['dataset'] ?? null;
@@ -480,6 +701,54 @@ final class CollectionPlanner
         }
 
         return null;
+    }
+
+    private function catalogPrimaryDataset(string $familyId): ?string
+    {
+        foreach ([
+            MetaAdsRequestFamilyCatalog::class,
+            WebsiteRequestFamilyCatalog::class,
+            DataForSeoRequestFamilyCatalog::class,
+        ] as $catalog) {
+            if (! in_array($familyId, $catalog::supportedFamilies(), true)) {
+                continue;
+            }
+            $ids = $catalog::definition($familyId)['dataset_ids'] ?? [];
+            $primary = $ids[0] ?? null;
+            if (is_string($primary) && $primary !== '') {
+                return $primary;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * When registry requirements omit historical_depth but the Meta catalog requires a date range,
+     * use the physical dataset history_policy so Insights families are not planned without a window.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function catalogCoverageTarget(string $familyId, string $datasetId): ?array
+    {
+        if (! in_array($familyId, MetaAdsRequestFamilyCatalog::supportedFamilies(), true)) {
+            return null;
+        }
+
+        $definition = MetaAdsRequestFamilyCatalog::definition($familyId);
+        if (! ($definition['requires_date_range'] ?? false)) {
+            return null;
+        }
+
+        $dataset = $this->registry->dataset($datasetId);
+        $history = is_array($dataset['history_policy'] ?? null) ? $dataset['history_policy'] : null;
+        if ($history === null) {
+            return null;
+        }
+
+        $resolved = $this->ranges->resolve($history);
+
+        return ($resolved['kind'] ?? '') === 'historical' ? $resolved : null;
     }
 
     /**

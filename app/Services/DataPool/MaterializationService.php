@@ -45,7 +45,7 @@ final class MaterializationService
         }
 
         if ($dates !== []) {
-            $this->mergeSuccessfulCoverageDates($materialization, $dates, zeroRow: false);
+            $this->mergeSuccessfulCoverageDates($materialization, $dates, zeroRow: false, datasetRunId: $batch->datasetRunId);
             $materialization->last_source_data_at = CarbonImmutable::parse(max($dates))->endOfDay();
         }
 
@@ -92,7 +92,7 @@ final class MaterializationService
             $materialization->partial = false;
         }
 
-        $this->mergeSuccessfulCoverageDates($materialization, $dates, zeroRow: $zeroRow);
+        $this->mergeSuccessfulCoverageDates($materialization, $dates, zeroRow: $zeroRow, datasetRunId: $datasetRunId);
 
         if ($collectionRunId !== null) {
             $materialization->last_successful_collection_run_id = $collectionRunId;
@@ -186,12 +186,17 @@ final class MaterializationService
     }
 
     /**
+     * Persist coverage dates. Attribution under coverage_dates_by_dataset_run is the
+     * synthesis source; merged successful_coverage_dates remain operational metadata
+     * and must not prove a 28-day window by themselves.
+     *
      * @param  list<string>  $dates
      */
     private function mergeSuccessfulCoverageDates(
         DatasetMaterialization $materialization,
         array $dates,
         bool $zeroRow,
+        ?int $datasetRunId = null,
     ): void {
         $dates = array_values(array_unique(array_filter($dates, 'is_string')));
         if ($dates === []) {
@@ -199,6 +204,21 @@ final class MaterializationService
         }
 
         $meta = is_array($materialization->freshness_metadata) ? $materialization->freshness_metadata : [];
+        if ($datasetRunId !== null && $datasetRunId > 0) {
+            $byRun = is_array($meta['coverage_dates_by_dataset_run'] ?? null)
+                ? $meta['coverage_dates_by_dataset_run']
+                : [];
+            $runKey = (string) $datasetRunId;
+            $existingRun = [];
+            if (isset($byRun[$runKey]) && is_array($byRun[$runKey])) {
+                $existingRun = array_values(array_filter($byRun[$runKey], 'is_string'));
+            }
+            $runMerged = array_values(array_unique(array_merge($existingRun, $dates)));
+            sort($runMerged);
+            $byRun[$runKey] = $runMerged;
+            $meta['coverage_dates_by_dataset_run'] = $byRun;
+        }
+
         $existing = [];
         if (isset($meta['successful_coverage_dates']) && is_array($meta['successful_coverage_dates'])) {
             $existing = array_values(array_filter($meta['successful_coverage_dates'], 'is_string'));

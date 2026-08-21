@@ -42,7 +42,11 @@ Notes:
 - **AI remains advisory and evidence-grounded.** AI does not invent Findings, silently override deterministic Recommendations, or auto-open Tasks.
 - **External provider integrations remain READ-ONLY.** No external write actions.
 - There is **no separate Result entity**. Outcomes are observed via later Evidence / Finding lifecycle and Task outcome signals.
-- Single Filament panel: id `app`, path `/app`; `web` guard; `spatie/laravel-permission`.
+- Canonical operator product: root routes (`/`, `/login`, `/customers`, `/brands`, `/assets`, `/integrations`, `/activity`, `/findings`, `/recommendations`, `/tasks`, `/settings`, `/profile`, …). TailAdmin Livewire. One application.
+- Single Filament technical/admin panel: id `app`, path `/admin` (ADR-044; supersedes ADR-026 path `/app`). `web` guard; `spatie/laravel-permission`.
+- Legacy `/app/*` and `/system/*` prefixes are retired (HTTP 410). No parallel operator product.
+- Operator Data Sources bind through ConfirmGoogle/ConfirmMeta guards. Google/Meta resource refresh on that page is Admin-only (`Roles::ADMIN`) before any provider call or inventory persistence; Meta refresh uses selected-Business `DiscoverMetaResourcesService::refreshInventory` (not broad `me/adaccounts`). Website period reads compose PeriodAware pool overlays with evidence `period_has_data` filtering.
+- Staging/production: HTTPS + PostgreSQL + Redis/Horizon. `moxdop:production-check` is the production-readiness gate. The dedicated RC integration branch is the first head that contains **#202 + #199 + #200-downstream**; PR #209 alone is not that ancestry.
 - Modules live under `app-modules/` + `internachi/modular` (minimal registry: id + enabled/disabled).
 
 ---
@@ -90,6 +94,12 @@ one central Meta Integration / agency credential
 ### Google
 
 Follows the corresponding **central agency-auth** model (one agency Google Integration → discover resources → bind to Digital Assets).
+
+Google **Collect Data** is Integration-scoped at the operator entry, but planning/execution is **Brand-scoped**: one `CollectionRun` per eligible Brand, same-brand GSC/GA4/Ads siblings in that run, no silent drop of sibling Brands, no cross-brand or cross-customer mixing inside a run. Incremental refresh due selection uses that Brand’s exact preflight binding IDs across Digital Assets (not only the website/GSC anchor). Meta same-customer multi-brand backfill remains a separate contract (one run may span Brands for the same Customer).
+
+Operator **Collect Now** / **Collect live data** for GA4, Search Console, Google Ads, and Meta Ads must start the shared Collection Engine (`ExecuteCollectionLifecycleService::runNow` → `CollectionRun` / warehouse). It must not write specialist Evidence summaries through BoundCollectorRegistry. GBP remains on the legacy bound Evidence collector. DataForSEO `HIT_FRESH` is scoped to the paid request fingerprint (including market `location_code` / `language_code`); a market change is a cache miss.
+
+The dedicated RC integration PR is **not** a DOP Autopilot product PR. Do not put the Autopilot product-PR HTML marker in that PR body, even as a negation: the Gate treats a substring match as Autopilot and then fails when task metadata is absent. Autopilot squash-merge to `main` remains forbidden for this RC.
 
 Site-scoped legacy connection paths may still exist for some Website connectors; the **direction of travel** is central Integration + External Resource + AssetBinding.
 

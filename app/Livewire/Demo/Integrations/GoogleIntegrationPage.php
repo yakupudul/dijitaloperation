@@ -275,9 +275,12 @@ class GoogleIntegrationPage extends Component
         if ($preflight->outcome === 'already_satisfied') {
             $incr = $incremental->start($fresh, $user);
             DemoState::flash($incr->message, 'info');
-            if ($incr->collectionRun !== null) {
+            $runs = $incr->allCollectionRuns();
+            if ($runs !== []) {
                 $this->tab = 'activity';
-                $this->dispatch('collection-run-selected', uuid: $incr->collectionRun->uuid);
+            }
+            if (count($runs) === 1) {
+                $this->dispatch('collection-run-selected', uuid: $runs[0]->uuid);
             }
 
             return;

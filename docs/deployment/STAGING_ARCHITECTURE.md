@@ -56,7 +56,7 @@ Staging `QUEUE_CONNECTION=redis` so Activity Center jobs and collection jobs are
 
 Horizon `environments` keys: `production`, `local`, **`staging`**, **`uat`**. `APP_ENV=staging` is required so supervisors actually start.
 
-Dashboard: `/horizon`, middleware `web` + `auth`, gate `viewHorizon` = Admin role. Guests are redirected to `/app/login`.
+Dashboard: `/horizon`, middleware `web` + `auth`, gate `viewHorizon` = Admin role. Guests are redirected to `/login`.
 
 ## Scheduler
 

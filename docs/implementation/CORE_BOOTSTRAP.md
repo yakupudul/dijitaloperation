@@ -9,7 +9,7 @@
 |-------|--------|
 | PHP | 8.3+ |
 | Framework | Laravel 13 |
-| Admin UI | Filament 5 panel `app` at `/app` |
+| Admin UI | Operator product at site root; Filament 5 panel `app` at `/admin` |
 | Auth roles | `spatie/laravel-permission` (`Admin`, `Team Member`) |
 | Modules | `internachi/modular` under `app-modules/` (namespace `MoxDop`) |
 | Queue | Database driver (no Redis/Horizon in bootstrap) |
@@ -44,7 +44,7 @@ php artisan dop:create-admin
 php artisan serve
 ```
 
-Open `http://127.0.0.1:8000/app/login`.
+Open `http://127.0.0.1:8000/login`. Filament technical tooling: `http://127.0.0.1:8000/admin/login`.
 
 Optional frontend tooling:
 
@@ -62,7 +62,7 @@ npm run build
 php artisan queue:work
 ```
 
-Cursor Cloud: a queue worker is **not** required for basic `/app` boot. Start one only when exercising async jobs.
+Cursor Cloud: a queue worker is **not** required for basic operator `/` boot. Start one only when exercising async jobs.
 
 ## Scheduler
 

@@ -8,7 +8,7 @@
                 </div>
 
                 <div class="mt-4 flex flex-wrap gap-2" role="tablist">
-                    @foreach (['client_request', 'task', 'opportunity_hypothesis', 'note'] as $type)
+                    @foreach (['client_request', 'task'] as $type)
                         <button type="button" wire:click="setCaptureType('{{ $type }}')"
                             @class([
                                 'rounded-lg px-3 py-1.5 text-xs font-medium',

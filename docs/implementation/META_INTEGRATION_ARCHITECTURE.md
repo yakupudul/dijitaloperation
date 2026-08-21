@@ -2,6 +2,8 @@
 
 Prompt 21 — Meta Integration Backend / UI Convergence.
 
+> **Route note (ADR-044):** Frozen `/app/integrations` and `/system/settings/integrations` path labels in this prompt doc are historical. Canonical operator Integrations live at `/integrations`. Filament is `/admin`. Legacy `/app` and `/system` return HTTP 410.
+
 ## 1. Purpose
 
 Converge every existing Meta / Facebook Ads integration concept into **one**

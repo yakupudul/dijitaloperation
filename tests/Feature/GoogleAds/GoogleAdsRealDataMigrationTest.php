@@ -28,10 +28,12 @@ use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
 use App\Services\GoogleAds\GoogleAdsSpecialistReadService;
 use App\Services\GoogleAds\Support\GoogleAdsBindingMode;
 use App\Support\Demo\DemoCatalog;
+use App\Support\Demo\DemoPeriod;
 use App\Support\Demo\GoogleAdsWorkspaceFixtures;
 use App\Support\Integrations\Google\GoogleResourceType;
 use App\Support\Integrations\Google\GoogleScopes;
 use App\Support\Roles;
+use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -56,6 +58,8 @@ class GoogleAdsRealDataMigrationTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        $this->travelTo(Carbon::parse(DemoPeriod::ANCHOR_DATE, DemoPeriod::TIMEZONE)->endOfDay());
 
         Http::fake();
         $this->seed(RoleAndPermissionSeeder::class);
@@ -617,6 +621,7 @@ class GoogleAdsRealDataMigrationTest extends TestCase
             'digital_asset_id' => $this->asset->id,
             'external_resource_id' => $this->resource->id,
             'customer_id' => '1112223333',
+            'ad_group_id' => '22',
             'criterion_id' => $criterionId,
             'contract_version' => 1,
             'first_collected_at' => now(),
@@ -639,6 +644,7 @@ class GoogleAdsRealDataMigrationTest extends TestCase
             'external_resource_id' => $this->resource->id,
             'customer_id' => '1112223333',
             'reporting_date' => $date,
+            'ad_group_id' => '22',
             'criterion_id' => $criterionId,
             'impressions' => 200,
             'clicks' => 20,

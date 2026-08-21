@@ -35,10 +35,10 @@ class ActivityIndex extends Component
     public static function periodOptions(): array
     {
         return [
-            'last_7' => 'Last 7 days',
-            'last_14' => 'Last 14 days',
-            'last_28' => 'Last 28 days',
-            'last_90' => 'Last 90 days',
+            'last_7' => __('operator.period.presets.last_7'),
+            'last_14' => __('operator.period.presets.last_14'),
+            'last_28' => __('operator.period.presets.last_28'),
+            'last_90' => __('operator.period.presets.last_90'),
         ];
     }
 

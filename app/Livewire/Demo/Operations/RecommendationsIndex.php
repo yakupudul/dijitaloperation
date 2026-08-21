@@ -11,6 +11,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 
 /**
@@ -22,6 +23,9 @@ use Livewire\Component;
 class RecommendationsIndex extends Component
 {
     public ?string $expandedId = null;
+
+    #[Url(as: 'asset', history: true)]
+    public string $asset = '';
 
     public string $taskCreateNonce = '';
 
@@ -115,8 +119,13 @@ class RecommendationsIndex extends Component
 
     public function render(): View
     {
+        $filters = [];
+        if (trim($this->asset) !== '' && ctype_digit($this->asset)) {
+            $filters['digital_asset_id'] = (int) $this->asset;
+        }
+
         return view('livewire.demo.operations.recommendations-index', [
-            'recommendations' => app(RecommendationReadService::class)->forListPresentation(),
+            'recommendations' => app(RecommendationReadService::class)->forListPresentation($filters),
             'flash' => DemoState::pullFlash(),
         ]);
     }

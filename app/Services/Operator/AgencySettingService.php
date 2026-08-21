@@ -21,7 +21,11 @@ final class AgencySettingService
      */
     public function current(): AgencySetting
     {
-        if (! Schema::hasTable('agency_settings')) {
+        try {
+            if (! Schema::hasTable('agency_settings')) {
+                return $this->ephemeralDefaults();
+            }
+        } catch (\Throwable) {
             return $this->ephemeralDefaults();
         }
 
@@ -110,6 +114,27 @@ final class AgencySettingService
         return AgencySettingCatalog::isLocale($locale) ? $locale : AgencySettingCatalog::LOCALE_EN;
     }
 
+    public function defaultTimezone(): string
+    {
+        $timezone = (string) $this->current()->timezone;
+
+        return AgencySettingCatalog::isTimezone($timezone) ? $timezone : 'Europe/Istanbul';
+    }
+
+    public function defaultAnalyticalDateRange(): string
+    {
+        $range = (string) $this->current()->analytical_date_range;
+
+        return AgencySettingCatalog::isDateRange($range) ? $range : AgencySettingCatalog::RANGE_LAST_28;
+    }
+
+    public function weekStartsOn(): string
+    {
+        $value = (string) $this->current()->week_starts_on;
+
+        return AgencySettingCatalog::isWeekStart($value) ? $value : AgencySettingCatalog::WEEK_MONDAY;
+    }
+
     /**
      * @param  array<string, string>  $attributes
      */
@@ -164,6 +189,7 @@ final class AgencySettingService
             'display_currency' => AgencySettingCatalog::CURRENCY_TRY,
             'week_starts_on' => AgencySettingCatalog::WEEK_MONDAY,
             'analytical_date_range' => AgencySettingCatalog::RANGE_LAST_28,
+            'mail_enabled' => false,
         ]);
 
         return $settings;

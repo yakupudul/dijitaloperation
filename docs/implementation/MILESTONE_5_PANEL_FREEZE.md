@@ -1,6 +1,6 @@
 # Milestone 5 — Panel Design Freeze & Post-Freeze Backend Roadmap
 
-Status reference for the frozen `/app` operator panel. UI work after this document requires product-level justification.
+Status reference for the frozen operator panel (now at site root; ADR-044). Historical `/app` path labels in this freeze are superseded. UI work after this document requires product-level justification.
 
 ## Capability Reality Matrix
 
@@ -197,8 +197,8 @@ Status reference for the frozen `/app` operator panel. UI work after this docume
 ## AI capability matrix (summary)
 
 - Agents / Skills / Routes / Allowed Evidence / Allowed & Forbidden Operations / Output Contract / Success Criteria / Eligibility / Fallback / Grounding are preserved in registries.
-- `/app` exposes Control Plane editing + full Agent/Skill browse detail.
-- Routine operator AI administration must not require `/system`.
+- `/settings` exposes Control Plane editing + full Agent/Skill browse detail.
+- Routine operator AI administration must not require Filament `/admin`.
 - Execution remains non-autonomous for provider writes.
 
 ## Post-freeze product backlog (not required for completeness)

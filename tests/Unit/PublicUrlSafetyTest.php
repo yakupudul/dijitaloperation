@@ -70,5 +70,29 @@ class PublicUrlSafetyTest extends TestCase
             'https://example.com/contact',
             $normalizer->resolve('https://example.com/about', '/contact'),
         );
+        $this->assertSame(
+            'https://example.com/blog/post-1',
+            $normalizer->resolve('https://example.com/blog/', 'post-1'),
+        );
+        $this->assertSame(
+            'https://example.com/blog/post-1',
+            $normalizer->resolve('https://example.com/blog', 'post-1'),
+        );
+        $this->assertSame(
+            'https://example.com/pricing',
+            $normalizer->resolve('https://example.com/blog/', '../pricing'),
+        );
+        $this->assertSame(
+            'https://example.com/blog/pricing',
+            $normalizer->resolve('https://example.com/blog/sub/', '../pricing'),
+        );
+        $this->assertSame(
+            'https://example.com/contact',
+            $normalizer->resolve('https://example.com/blog/', '/contact'),
+        );
+        $this->assertSame(
+            'https://example.com/post-1',
+            $normalizer->resolve('https://example.com/about.html', 'post-1'),
+        );
     }
 }

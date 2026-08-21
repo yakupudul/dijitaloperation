@@ -21,6 +21,10 @@ final class AsyncOperationTypes
 
     public const string META_ADS_AI_GUIDANCE = 'meta_ads_ai_guidance';
 
+    public const string FINDING_EVALUATION = 'finding_evaluation';
+
+    public const string WEBSITE_PRODUCTION_COLLECTION = 'website_production_collection';
+
     /**
      * Orchestration module_id for Activity Center Runs that wrap background work.
      */
@@ -43,6 +47,8 @@ final class AsyncOperationTypes
             self::WEBSITE_AI_GUIDANCE => 'Website AI guidance',
             self::GOOGLE_ADS_AI_GUIDANCE => 'Google Ads AI guidance',
             self::META_ADS_AI_GUIDANCE => 'Meta Ads AI guidance',
+            self::FINDING_EVALUATION => 'Finding evaluation',
+            self::WEBSITE_PRODUCTION_COLLECTION => 'Website production collection',
         ];
     }
 

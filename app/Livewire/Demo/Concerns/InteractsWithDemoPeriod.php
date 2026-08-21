@@ -2,8 +2,13 @@
 
 namespace App\Livewire\Demo\Concerns;
 
+use App\Services\Operator\AgencySettingService;
 use App\Support\Demo\DemoPeriod;
 use App\Support\Demo\DemoState;
+use App\Support\Operator\OperatorPeriod;
+use App\Support\Reality\DemoCatalogAssetGuard;
+use Carbon\Carbon;
+use Carbon\CarbonInterface;
 use Livewire\Attributes\Url;
 
 trait InteractsWithDemoPeriod
@@ -33,7 +38,8 @@ trait InteractsWithDemoPeriod
         $queryPeriod = request()->query('period');
         if (! filled($queryPeriod)) {
             $state = DemoState::all();
-            $this->period = (string) ($state['period_preset'] ?? $this->period ?: 'last_28');
+            $defaultPreset = app(AgencySettingService::class)->defaultAnalyticalDateRange();
+            $this->period = (string) ($state['period_preset'] ?? $this->period ?: $defaultPreset);
             $this->periodStart = $state['period_start'] ?? $this->periodStart;
             $this->periodEnd = $state['period_end'] ?? $this->periodEnd;
             $this->compare = array_key_exists('compare', $state) ? (bool) $state['compare'] : $this->compare;
@@ -57,7 +63,7 @@ trait InteractsWithDemoPeriod
         $this->period = $preset;
         $this->showCustomPicker = false;
         $this->customPeriodError = null;
-        $bounds = DemoPeriod::bounds($preset);
+        $bounds = $this->periodBounds($preset);
         $this->periodStart = $bounds['start']->toDateString();
         $this->periodEnd = $bounds['end']->toDateString();
         $this->draftPeriodStart = $this->periodStart;
@@ -68,7 +74,7 @@ trait InteractsWithDemoPeriod
 
     public function openCustomPicker(): void
     {
-        $bounds = DemoPeriod::bounds(
+        $bounds = $this->periodBounds(
             $this->period === 'custom' ? 'custom' : $this->period,
             $this->periodStart,
             $this->periodEnd,
@@ -89,7 +95,7 @@ trait InteractsWithDemoPeriod
 
         if ($this->period === 'custom' && (! filled($this->periodStart) || ! filled($this->periodEnd))) {
             $this->period = 'last_28';
-            $bounds = DemoPeriod::bounds('last_28');
+            $bounds = $this->periodBounds('last_28');
             $this->periodStart = $bounds['start']->toDateString();
             $this->periodEnd = $bounds['end']->toDateString();
             $this->syncPeriodState();
@@ -98,7 +104,9 @@ trait InteractsWithDemoPeriod
 
     public function applyCustomPeriod(): void
     {
-        $error = DemoPeriod::validateCustom($this->draftPeriodStart, $this->draftPeriodEnd);
+        $error = $this->usesDemoPeriodAnchor()
+            ? DemoPeriod::validateCustom($this->draftPeriodStart, $this->draftPeriodEnd, $this->periodContextAssetId())
+            : OperatorPeriod::validateCustom($this->draftPeriodStart, $this->draftPeriodEnd);
         if ($error !== null) {
             $this->customPeriodError = $error;
             $this->showCustomPicker = true;
@@ -123,7 +131,7 @@ trait InteractsWithDemoPeriod
 
     public function appliedPeriodLabel(): string
     {
-        $bounds = DemoPeriod::bounds($this->period, $this->periodStart, $this->periodEnd);
+        $bounds = $this->periodBounds($this->period, $this->periodStart, $this->periodEnd);
 
         return $bounds['label'];
     }
@@ -134,15 +142,36 @@ trait InteractsWithDemoPeriod
             return null;
         }
 
-        $prev = DemoPeriod::previousBounds($this->period, $this->periodStart, $this->periodEnd);
+        $prev = $this->usesDemoPeriodAnchor()
+            ? DemoPeriod::previousBounds($this->period, $this->periodStart, $this->periodEnd, $this->periodContextAssetId())
+            : OperatorPeriod::previousBounds($this->period, $this->periodStart, $this->periodEnd);
 
         return $prev['label'];
+    }
+
+    public function periodAnchorDate(): string
+    {
+        return DemoPeriod::anchor($this->periodContextAssetId())->toDateString();
+    }
+
+    public function periodPickerMaxDate(): string
+    {
+        return $this->usesDemoPeriodAnchor()
+            ? DemoPeriod::ANCHOR_DATE
+            : OperatorPeriod::pickerMaxDate();
+    }
+
+    public function periodPickerMinDate(): string
+    {
+        return $this->usesDemoPeriodAnchor()
+            ? Carbon::parse(DemoPeriod::ANCHOR_DATE)->subDays(89)->toDateString()
+            : OperatorPeriod::pickerMinDate();
     }
 
     protected function syncPeriodState(): void
     {
         if ($this->period !== 'custom') {
-            $bounds = DemoPeriod::bounds($this->period);
+            $bounds = $this->periodBounds($this->period);
             $this->periodStart = $bounds['start']->toDateString();
             $this->periodEnd = $bounds['end']->toDateString();
         }
@@ -162,5 +191,33 @@ trait InteractsWithDemoPeriod
         if (method_exists($this, 'resetPage')) {
             $this->resetPage();
         }
+    }
+
+    /**
+     * @return array{start: CarbonInterface, end: CarbonInterface, days: int, label: string, preset: string}
+     */
+    protected function periodBounds(string $preset, ?string $start = null, ?string $end = null): array
+    {
+        return $this->usesDemoPeriodAnchor()
+            ? DemoPeriod::bounds($preset, $start, $end, $this->periodContextAssetId())
+            : OperatorPeriod::bounds($preset, $start, $end);
+    }
+
+    protected function periodContextAssetId(): ?string
+    {
+        if (! property_exists($this, 'assetId')) {
+            return null;
+        }
+
+        $assetId = trim((string) $this->assetId);
+
+        return $assetId !== '' ? $assetId : null;
+    }
+
+    protected function usesDemoPeriodAnchor(): bool
+    {
+        $assetId = $this->periodContextAssetId() ?? '';
+
+        return DemoCatalogAssetGuard::isDemoCatalogAssetId($assetId);
     }
 }

@@ -90,14 +90,59 @@ final class PublicUrlNormalizer
         $host = (string) $base['host'];
         $port = isset($base['port']) ? ':'.$base['port'] : '';
         $basePath = (string) ($base['path'] ?? '/');
+        if ($basePath === '') {
+            $basePath = '/';
+        }
 
         if (str_starts_with($relativeOrAbsolute, '/')) {
-            return $this->normalizeAbsolute($scheme.'://'.$host.$port.$relativeOrAbsolute);
+            return $this->normalizeAbsolute($scheme.'://'.$host.$port.$this->removeDotSegments($relativeOrAbsolute));
+        }
+
+        if (! str_ends_with($basePath, '/') && ! $this->lastPathSegmentLooksLikeFile($basePath)) {
+            $basePath .= '/';
         }
 
         $dir = preg_replace('#/[^/]*$#', '/', $basePath) ?: '/';
+        $merged = $this->removeDotSegments($dir.$relativeOrAbsolute);
 
-        return $this->normalizeAbsolute($scheme.'://'.$host.$port.$dir.$relativeOrAbsolute);
+        return $this->normalizeAbsolute($scheme.'://'.$host.$port.$merged);
+    }
+
+    private function lastPathSegmentLooksLikeFile(string $path): bool
+    {
+        $segment = basename($path);
+
+        return $segment !== '' && str_contains($segment, '.');
+    }
+
+    /**
+     * RFC 3986 §5.2.4 Remove Dot Segments (path only).
+     */
+    private function removeDotSegments(string $path): string
+    {
+        $output = [];
+
+        foreach (explode('/', $path) as $segment) {
+            if ($segment === '.') {
+                continue;
+            }
+            if ($segment === '..') {
+                if ($output === [] || (count($output) === 1 && $output[0] === '')) {
+                    continue;
+                }
+                array_pop($output);
+
+                continue;
+            }
+            $output[] = $segment;
+        }
+
+        $resolved = implode('/', $output);
+        if (str_starts_with($path, '/') && $resolved === '') {
+            return '/';
+        }
+
+        return $resolved;
     }
 
     public function sameSite(string $a, string $b): bool

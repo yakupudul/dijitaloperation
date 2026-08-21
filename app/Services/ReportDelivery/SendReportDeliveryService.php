@@ -10,6 +10,7 @@ use App\Models\ReportDelivery;
 use App\Models\ReportDeliveryAttempt;
 use App\Models\ReportShareGrant;
 use App\Models\ReportSnapshot;
+use App\Services\Operator\OperatorMailConfigService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
@@ -22,10 +23,13 @@ final class SendReportDeliveryService
     public function __construct(
         private readonly CreateReportDeliveryService $create,
         private readonly ReportMailConfigGuard $mailGuard,
+        private readonly OperatorMailConfigService $operatorMail,
     ) {}
 
     public function send(int $deliveryId): ReportDelivery
     {
+        $this->operatorMail->reloadForQueuedSend();
+
         $delivery = ReportDelivery::query()->find($deliveryId);
         if ($delivery === null) {
             throw ValidationException::withMessages(['delivery' => 'DELIVERY_NOT_FOUND']);

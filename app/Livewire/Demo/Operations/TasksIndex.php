@@ -5,10 +5,10 @@ namespace App\Livewire\Demo\Operations;
 use App\Enums\ClientRequestStatus;
 use App\Services\Approvals\ApprovalUiActions;
 use App\Services\ClientRequests\ClientRequestUiActions;
+use App\Services\Operator\OperatorExecutionReadService;
 use App\Services\Qa\QaUiActions;
 use App\Services\RecurringReviews\RecurringReviewUiActions;
 use App\Services\Work\WorkReadService;
-use App\Support\Demo\AgencyExecutionFixtures;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Str;
@@ -151,9 +151,10 @@ class TasksIndex extends Component
     public function render(): View
     {
         $all = collect(app(WorkReadService::class)->workItems());
+        $execution = app(OperatorExecutionReadService::class);
 
         $rows = match ($this->view) {
-            'my' => $all->filter(fn (array $row): bool => AgencyExecutionFixtures::isMine($row)),
+            'my' => $all->filter(fn (array $row): bool => $execution->isMine($row)),
             'tasks' => $all->where('type', 'task'),
             'client_requests' => $all->where('type', 'client_request'),
             'recurring_reviews' => $all->where('type', 'recurring_review'),
@@ -175,7 +176,7 @@ class TasksIndex extends Component
             $rows = $rows->where('type', $this->typeFilter);
         }
 
-        $open = $all->reject(fn (array $row): bool => in_array($row['status'] ?? '', ['completed', 'done', 'declined', 'skipped'], true));
+        $open = $all->reject(fn (array $row): bool => in_array($row['status'] ?? '', ['completed', 'done', 'declined', 'skipped', 'dismissed', 'resolved', 'cancelled'], true));
 
         $glance = [
             'due_today' => $open->where('due_key', 'today')->count(),
@@ -187,7 +188,7 @@ class TasksIndex extends Component
         return view('livewire.demo.operations.tasks-index', [
             'workItems' => $rows->values()->all(),
             'glance' => $glance,
-            'capacity' => AgencyExecutionFixtures::teamCapacity(),
+            'capacity' => $execution->teamCapacity($all->values()->all()),
             'viewMode' => $this->viewMode,
             'flash' => DemoState::pullFlash(),
         ]);

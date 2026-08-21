@@ -34,10 +34,11 @@ final class MetaAdsPerformanceBoundEvidenceEvaluator implements EvaluatesBoundEv
 
         $campaigns = $this->usableEvidence($runs, MetaAdsBoundCollector::EVIDENCE_CAMPAIGN_PERFORMANCE);
         if ($campaigns !== null) {
-            $evaluatedRuleIds = array_merge($evaluatedRuleIds, MetaAdsFindingsCatalog::CAMPAIGN_RULE_IDS);
+            $campaignEvaluation = $this->evaluateCampaigns($campaigns['evidence']);
+            $evaluatedRuleIds = array_merge($evaluatedRuleIds, $campaignEvaluation['evaluated_rule_ids']);
             $anchorRun = $campaigns['run'];
             $observedAt = $campaigns['evidence']->observed_at ?? $observedAt;
-            $matches = array_merge($matches, $this->evaluateCampaigns($campaigns['evidence']));
+            $matches = array_merge($matches, $campaignEvaluation['matches']);
         }
 
         $evaluationSuccessful = $evaluatedRuleIds !== [];
@@ -103,13 +104,38 @@ final class MetaAdsPerformanceBoundEvidenceEvaluator implements EvaluatesBoundEv
     }
 
     /**
-     * @return list<RuleMatch>
+     * @return array{matches: list<RuleMatch>, evaluated_rule_ids: list<string>}
      */
     private function evaluateCampaigns(Evidence $evidence): array
     {
         $rows = data_get($evidence->payload, 'rows');
         if (! is_array($rows)) {
-            return [];
+            return ['matches' => [], 'evaluated_rule_ids' => []];
+        }
+
+        $hasPrimaryResultStatus = false;
+        $hasCampaignStatus = false;
+        foreach ($rows as $probe) {
+            if (! is_array($probe)) {
+                continue;
+            }
+            $primary = is_array($probe['primary_result'] ?? null) ? $probe['primary_result'] : [];
+            if (array_key_exists('status', $primary)) {
+                $hasPrimaryResultStatus = true;
+            }
+            $status = strtoupper(trim((string) ($probe['effective_status'] ?? $probe['status'] ?? '')));
+            if ($status !== '') {
+                $hasCampaignStatus = true;
+            }
+        }
+
+        $evaluatedRuleIds = [];
+        if ($hasPrimaryResultStatus) {
+            $evaluatedRuleIds[] = MetaAdsFindingsCatalog::RULE_SPEND_WITHOUT_PRIMARY_RESULT;
+            $evaluatedRuleIds[] = MetaAdsFindingsCatalog::RULE_DELIVERY_WITHOUT_RESOLVED_RESULT;
+        }
+        if ($hasCampaignStatus) {
+            $evaluatedRuleIds[] = MetaAdsFindingsCatalog::RULE_CAMPAIGN_INACTIVE_WITH_RECENT_SPEND;
         }
 
         $matches = [];
@@ -123,16 +149,20 @@ final class MetaAdsPerformanceBoundEvidenceEvaluator implements EvaluatesBoundEv
 
             $campaignId = (string) ($row['campaign_id'] ?? '');
             $campaignName = (string) ($row['campaign_name'] ?? $campaignId);
-            $spend = is_numeric($row['spend'] ?? null) ? (float) $row['spend'] : 0.0;
-            $impressions = is_numeric($row['impressions'] ?? null) ? (float) $row['impressions'] : 0.0;
-            $clicks = is_numeric($row['clicks'] ?? null) ? (float) $row['clicks'] : 0.0;
+            $spend = is_numeric($row['spend'] ?? null) ? (float) $row['spend'] : null;
+            $impressions = is_numeric($row['impressions'] ?? null) ? (float) $row['impressions'] : null;
+            $clicks = is_numeric($row['clicks'] ?? null) ? (float) $row['clicks'] : null;
             $primary = is_array($row['primary_result'] ?? null) ? $row['primary_result'] : [];
-            $status = strtoupper((string) ($row['effective_status'] ?? $row['status'] ?? ''));
+            $status = strtoupper(trim((string) ($row['effective_status'] ?? $row['status'] ?? '')));
 
-            $sampleOk = $spend >= MetaAdsFindingsCatalog::SPEND_MIN
-                && ($impressions >= MetaAdsFindingsCatalog::IMPRESSIONS_MIN || $clicks >= MetaAdsFindingsCatalog::CLICKS_MIN);
+            $sampleOk = $spend !== null
+                && $spend >= MetaAdsFindingsCatalog::SPEND_MIN
+                && (
+                    ($impressions !== null && $impressions >= MetaAdsFindingsCatalog::IMPRESSIONS_MIN)
+                    || ($clicks !== null && $clicks >= MetaAdsFindingsCatalog::CLICKS_MIN)
+                );
 
-            if ($sampleOk && ($primary['status'] ?? null) === 'zero') {
+            if ($hasPrimaryResultStatus && $sampleOk && ($primary['status'] ?? null) === 'zero') {
                 $matches[] = new RuleMatch(
                     ruleId: MetaAdsFindingsCatalog::RULE_SPEND_WITHOUT_PRIMARY_RESULT,
                     fingerprint: 'meta-ads:spend-without-primary-result:'.$campaignId,
@@ -150,7 +180,7 @@ final class MetaAdsPerformanceBoundEvidenceEvaluator implements EvaluatesBoundEv
                 );
             }
 
-            if ($sampleOk && in_array($primary['status'] ?? null, ['unresolved', 'none'], true)) {
+            if ($hasPrimaryResultStatus && $sampleOk && in_array($primary['status'] ?? null, ['unresolved', 'none'], true)) {
                 $matches[] = new RuleMatch(
                     ruleId: MetaAdsFindingsCatalog::RULE_DELIVERY_WITHOUT_RESOLVED_RESULT,
                     fingerprint: 'meta-ads:delivery-without-resolved-result:'.$campaignId,
@@ -167,7 +197,12 @@ final class MetaAdsPerformanceBoundEvidenceEvaluator implements EvaluatesBoundEv
                 );
             }
 
-            if ($spend >= MetaAdsFindingsCatalog::SPEND_MIN && in_array($status, ['PAUSED', 'CAMPAIGN_PAUSED', 'ARCHIVED'], true)) {
+            if (
+                $hasCampaignStatus
+                && $spend !== null
+                && $spend >= MetaAdsFindingsCatalog::SPEND_MIN
+                && in_array($status, ['PAUSED', 'CAMPAIGN_PAUSED', 'ARCHIVED'], true)
+            ) {
                 $matches[] = new RuleMatch(
                     ruleId: MetaAdsFindingsCatalog::RULE_CAMPAIGN_INACTIVE_WITH_RECENT_SPEND,
                     fingerprint: 'meta-ads:campaign-inactive-with-context:'.$campaignId,
@@ -187,6 +222,6 @@ final class MetaAdsPerformanceBoundEvidenceEvaluator implements EvaluatesBoundEv
             }
         }
 
-        return $matches;
+        return ['matches' => $matches, 'evaluated_rule_ids' => $evaluatedRuleIds];
     }
 }

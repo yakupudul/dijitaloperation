@@ -48,6 +48,15 @@ class ModuleBoundaryArchitectureTest extends TestCase
         // Sales Intent Radar reuses PublicUrlSafety fetch + existing DataForSEO integration resolver.
         'app/Services/Sales/IntentRadarService.php',
         'app/Services/Sales/DataForSeoIntentSearchAdapter.php',
+        // Shared Collection Engine adapters: reuse Website public-HTTP / SEO normalizers, no second store.
+        'app/Services/Collection/Providers/Website/WebsiteDatasetExecutor.php',
+        'app/Services/Collection/Providers/Website/WebsiteEligibilityGuard.php',
+        'app/Services/Collection/Providers/Website/WebsiteNormalizer.php',
+        'app/Services/Collection/Providers/DataForSeo/DataForSeoDatasetExecutor.php',
+        'app/Services/Collection/Providers/DataForSeo/DataForSeoEligibilityGuard.php',
+        'app/Services/Collection/Providers/DataForSeo/DataForSeoNormalizer.php',
+        // Phase C.1: Core collected-facts adapters reuse existing Website Document Head evaluator.
+        'app/Services/Analysis/Adapters/WebsiteCollectedDocumentHeadAdapter.php',
     ];
 
     /**
@@ -63,6 +72,8 @@ class ModuleBoundaryArchitectureTest extends TestCase
         'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/GoogleAdsConnectionsRelationManager.php',
         'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/GoogleAdsActivityRelationManager.php',
         'app/Jobs/Async/GoogleAdsAiGuidanceJob.php',
+        // Phase C.1: Core collected-facts adapter reuses existing Google Ads bound-evidence evaluator.
+        'app/Services/Analysis/Adapters/GoogleAdsCollectedCampaignAdapter.php',
     ];
 
     /**
@@ -77,6 +88,8 @@ class ModuleBoundaryArchitectureTest extends TestCase
         'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/MetaAdsConnectionsRelationManager.php',
         'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/MetaAdsActivityRelationManager.php',
         'app/Jobs/Async/MetaAdsAiGuidanceJob.php',
+        // Phase C.1: Core collected-facts adapter reuses existing Meta Ads bound-evidence evaluator.
+        'app/Services/Analysis/Adapters/MetaAdsCollectedCampaignAdapter.php',
     ];
 
     #[Test]

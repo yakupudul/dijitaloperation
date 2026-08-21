@@ -341,7 +341,7 @@ Manual triggers only for V1 operational guidance. Concurrent duplicate triggers 
 
 ## 53. Authorization
 
-Existing `web` guard + Filament `/app` permissions. Agents inherit operator authorization; no Agent principal that bypasses tenancy.
+Existing `web` guard + Filament `/admin` permissions (ADR-044). Agents inherit operator authorization; no Agent principal that bypasses tenancy.
 
 ## 54. Tenancy / Isolation
 

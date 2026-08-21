@@ -4,7 +4,7 @@ This project includes UI code adapted from the following third-party open-source
 
 ## TailAdmin Laravel
 
-The MoxDOP operator app (`/app`) — its Blade layouts (`resources/views/operator/layouts/*`),
+The MoxDOP operator app (site-root TailAdmin shell) — its Blade layouts (`resources/views/operator/layouts/*`),
 UI components (`resources/views/components/ta/*`), theme CSS (`resources/css/operator.css`),
 and front-end bootstrap (`resources/js/operator.js`) — is adapted from **TailAdmin Laravel**,
 a free Tailwind CSS admin dashboard template.

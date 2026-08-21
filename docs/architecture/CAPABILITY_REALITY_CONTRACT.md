@@ -53,7 +53,7 @@ All of the following must hold for the scoped claim:
 
 | Layer | Question | Example |
 | --- | --- | --- |
-| **Product** | Is the capability in scope and designed for MoxDOP operators? | Frozen `/app` specialist IA |
+| **Product** | Is the capability in scope and designed for MoxDOP operators? | Frozen operator specialist IA (site root; ADR-044) |
 | **Runtime** | Does this environment’s code path return real, demo, or unavailable data for a given asset id? | Numeric `DigitalAsset` → real/unavailable; `ga4-atlas` → demo_catalog |
 | **Deployment** | Are external credentials, queue workers, mail, object storage, and schedules configured so REAL code can operate? | Google OAuth client, Horizon, SMTP |
 
@@ -61,7 +61,7 @@ A capability can be **REAL in code** and still **blocked in a given deployment**
 
 ## 8. Demo isolation (summary)
 
-See `DEMO_ISOLATION_CONTRACT.md`. Production numeric asset ids and Filament `/system` admin flows must never read Atlas fixture narratives as business truth.
+See `DEMO_ISOLATION_CONTRACT.md`. Production numeric asset ids and Filament `/admin` admin flows must never read Atlas fixture narratives as business truth.
 
 ## 9. No production Demo fallback
 

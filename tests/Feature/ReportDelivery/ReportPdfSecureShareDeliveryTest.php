@@ -8,6 +8,7 @@ use App\Enums\ReportDeliveryStatus;
 use App\Enums\ReportShareAccessEventType;
 use App\Jobs\Reports\SendReportDeliveryJob;
 use App\Mail\ReportDeliveryMail;
+use App\Models\AgencySetting;
 use App\Models\Brand;
 use App\Models\Customer;
 use App\Models\ReportArtifact;
@@ -22,6 +23,7 @@ use App\Services\BusinessOutcomes\BusinessOutcomeDefinitionService;
 use App\Services\BusinessOutcomes\BusinessOutcomeObservationService;
 use App\Services\BusinessOutcomes\BusinessOutcomeReadService;
 use App\Services\ClientValueStory\ClientValueStoryReadService;
+use App\Services\Operator\OperatorMailConfigService;
 use App\Services\ReportDelivery\CreateReportDeliveryService;
 use App\Services\ReportDelivery\ExecuteReportDeliveryOccurrenceService;
 use App\Services\ReportDelivery\GenerateReportPdfService;
@@ -267,9 +269,10 @@ class ReportPdfSecureShareDeliveryTest extends TestCase
         $this->assertNull($d1->failure_category);
         Mail::assertSent(ReportDeliveryMail::class, function (ReportDeliveryMail $mail): bool {
             $html = $mail->render();
+            $withoutShareUrl = str_replace($mail->shareLocatorUrl, '', $html);
 
-            return ! str_contains($html, '44')
-                && ! str_contains(strtolower($html), 'qualified')
+            return ! str_contains($withoutShareUrl, '44')
+                && ! str_contains(strtolower($withoutShareUrl), 'qualified')
                 && str_contains($html, '/reports/share/');
         });
 
@@ -282,6 +285,110 @@ class ReportPdfSecureShareDeliveryTest extends TestCase
             ['queued', 'preparing', 'sending', 'sent', 'failed', 'cancelled'],
             array_map(static fn ($c) => $c->value, ReportDeliveryStatus::cases()),
         );
+    }
+
+    public function test_queued_send_reloads_operator_smtp_changed_after_worker_boot(): void
+    {
+        [$user, $brand] = $this->seedBrandWithOutcomes();
+        $snapshot = app(CreateReportSnapshotService::class)->create($brand, $user, [
+            'period_start' => '2026-07-01',
+            'period_end' => '2026-07-31',
+            'idempotency_key' => 'smtp-reload-change',
+        ]);
+
+        Storage::fake('local');
+        Queue::fake();
+        Mail::fake();
+
+        $mail = app(OperatorMailConfigService::class);
+        $mail->update([
+            'mail_enabled' => true,
+            'mail_from_name' => 'MoxDOP Ops',
+            'mail_from_address' => 'ops@example.test',
+            'mail_host' => 'smtp.boot.test',
+            'mail_port' => 587,
+            'mail_username' => 'ops@example.test',
+            'mail_encryption' => 'tls',
+            'mail_password' => 'operator-smtp-secret-queued-send',
+        ]);
+        app('mail.manager')->mailer();
+        $this->assertSame('smtp.boot.test', config('mail.mailers.smtp.host'));
+
+        $create = app(CreateReportDeliveryService::class);
+        $delivery = $create->sendFromSnapshot($snapshot, [
+            'recipient_email' => 'ops@client.com',
+            'idempotency_key' => 'smtp-reload-change-1',
+        ], $user, [(int) $brand->customer_id], [(int) $brand->id]);
+        Queue::assertPushed(SendReportDeliveryJob::class, 1);
+
+        AgencySetting::query()->whereKey(AgencySetting::query()->value('id'))->update([
+            'mail_host' => 'smtp.after-boot.test',
+        ]);
+        $this->assertSame('smtp.boot.test', config('mail.mailers.smtp.host'));
+
+        (new SendReportDeliveryJob((int) $delivery->id))->handle(app(SendReportDeliveryService::class));
+
+        $this->assertSame('smtp.after-boot.test', config('mail.mailers.smtp.host'));
+        $this->assertSame('smtp', config('mail.default'));
+        $this->assertSame(ReportDeliveryStatus::Sent, $delivery->fresh()?->status);
+        Mail::assertSent(ReportDeliveryMail::class);
+    }
+
+    public function test_queued_send_restores_deployment_mail_after_operator_smtp_cleared(): void
+    {
+        [$user, $brand] = $this->seedBrandWithOutcomes();
+        $snapshot = app(CreateReportSnapshotService::class)->create($brand, $user, [
+            'period_start' => '2026-07-01',
+            'period_end' => '2026-07-31',
+            'idempotency_key' => 'smtp-reload-clear',
+        ]);
+
+        Storage::fake('local');
+        Queue::fake();
+        Mail::fake();
+
+        $bootMailer = config('mail.default');
+        $bootHost = config('mail.mailers.smtp.host');
+
+        $mail = app(OperatorMailConfigService::class);
+        $mail->update([
+            'mail_enabled' => true,
+            'mail_from_name' => 'MoxDOP Ops',
+            'mail_from_address' => 'ops@example.test',
+            'mail_host' => 'smtp.boot.test',
+            'mail_port' => 587,
+            'mail_username' => 'ops@example.test',
+            'mail_encryption' => 'tls',
+            'mail_password' => 'operator-smtp-secret-queued-send',
+        ]);
+        app('mail.manager')->mailer();
+        $this->assertSame('smtp', config('mail.default'));
+        $this->assertSame('smtp.boot.test', config('mail.mailers.smtp.host'));
+
+        $create = app(CreateReportDeliveryService::class);
+        $delivery = $create->sendFromSnapshot($snapshot, [
+            'recipient_email' => 'ops@client.com',
+            'idempotency_key' => 'smtp-reload-clear-1',
+        ], $user, [(int) $brand->customer_id], [(int) $brand->id]);
+
+        AgencySetting::query()->whereKey(AgencySetting::query()->value('id'))->update([
+            'mail_enabled' => false,
+            'mail_from_name' => null,
+            'mail_from_address' => null,
+            'mail_host' => null,
+            'mail_port' => null,
+            'mail_username' => null,
+            'mail_encryption' => null,
+            'mail_password' => null,
+        ]);
+        $this->assertSame('smtp.boot.test', config('mail.mailers.smtp.host'));
+
+        (new SendReportDeliveryJob((int) $delivery->id))->handle(app(SendReportDeliveryService::class));
+
+        $this->assertSame($bootMailer, config('mail.default'));
+        $this->assertSame($bootHost, config('mail.mailers.smtp.host'));
+        $this->assertSame(ReportDeliveryStatus::Sent, $delivery->fresh()?->status);
+        Mail::assertSent(ReportDeliveryMail::class);
     }
 
     public function test_mail_not_configured_fails_truthfully(): void

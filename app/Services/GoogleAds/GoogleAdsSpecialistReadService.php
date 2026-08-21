@@ -11,6 +11,7 @@ use App\Services\GoogleAds\Support\GoogleAdsBindingMode;
 use App\Services\GoogleAds\Support\GoogleAdsDatasetReadiness;
 use App\Support\Demo\DemoPeriod;
 use App\Support\Demo\GoogleAdsWorkspaceFixtures;
+use App\Support\Operator\OperatorReportingPeriod;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -148,20 +149,22 @@ final class GoogleAdsSpecialistReadService
      */
     private function demoWorkspace(string $preset, ?string $start, ?string $end): array
     {
-        $bounds = DemoPeriod::bounds($preset, $start, $end);
-        $prev = DemoPeriod::previousBounds($preset, $bounds['start']->toDateString(), $bounds['end']->toDateString());
+        return DemoPeriod::usingFixtureAnchor(function () use ($preset, $start, $end): array {
+            $bounds = DemoPeriod::bounds($preset, $start, $end);
+            $prev = DemoPeriod::previousBounds($preset, $bounds['start']->toDateString(), $bounds['end']->toDateString());
 
-        $data = GoogleAdsWorkspaceFixtures::workspace($preset);
-        $data['period_label'] = $bounds['label'];
-        $data['period_days'] = $bounds['days'];
-        $data['period_start'] = $bounds['start']->toDateString();
-        $data['period_end'] = $bounds['end']->toDateString();
-        $data['compare_label'] = 'vs '.$prev['label'];
-        $data['migration_mode'] = 'demo_catalog';
-        $data['data_provenance'] = $this->allProvenance(DataSourceState::Demo);
-        $data['tab_status'] = array_fill_keys(array_keys(self::TAB_FIELD_MAP), DataSourceState::Demo->value);
+            $data = GoogleAdsWorkspaceFixtures::workspace($preset);
+            $data['period_label'] = $bounds['label'];
+            $data['period_days'] = $bounds['days'];
+            $data['period_start'] = $bounds['start']->toDateString();
+            $data['period_end'] = $bounds['end']->toDateString();
+            $data['compare_label'] = 'vs '.$prev['label'];
+            $data['migration_mode'] = 'demo_catalog';
+            $data['data_provenance'] = $this->allProvenance(DataSourceState::Demo);
+            $data['tab_status'] = array_fill_keys(array_keys(self::TAB_FIELD_MAP), DataSourceState::Demo->value);
 
-        return $data;
+            return $data;
+        });
     }
 
     /**
@@ -173,10 +176,10 @@ final class GoogleAdsSpecialistReadService
         ?string $start,
         ?string $end,
     ): array {
-        $bounds = DemoPeriod::bounds($preset, $start, $end);
+        $bounds = OperatorReportingPeriod::queryBounds($preset, $start, $end);
         $rangeStart = $bounds['start']->toDateString();
         $rangeEnd = $bounds['end']->toDateString();
-        $prev = DemoPeriod::previousBounds($preset, $rangeStart, $rangeEnd);
+        $prev = OperatorReportingPeriod::previousQueryBounds($preset, $start, $end);
         $prevStart = $prev['start']->toDateString();
         $prevEnd = $prev['end']->toDateString();
 
@@ -353,10 +356,10 @@ final class GoogleAdsSpecialistReadService
         string $migrationMode,
         ?string $errorMessage = null,
     ): array {
-        $bounds = DemoPeriod::bounds($preset, $start, $end);
+        $bounds = OperatorReportingPeriod::queryBounds($preset, $start, $end);
         $rangeStart = $bounds['start']->toDateString();
         $rangeEnd = $bounds['end']->toDateString();
-        $prev = DemoPeriod::previousBounds($preset, $rangeStart, $rangeEnd);
+        $prev = OperatorReportingPeriod::previousQueryBounds($preset, $start, $end);
 
         $reason = $errorMessage !== null
             ? 'query_error'
@@ -839,6 +842,7 @@ final class GoogleAdsSpecialistReadService
         $rows = $this->pool->topKeywords($digitalAssetId, $externalResourceId, $customerId, $keywordGate->effectiveStart, $keywordGate->effectiveEnd);
 
         return array_map(fn (array $row): array => [
+            'ad_group_id' => $row['ad_group_id'] ?? null,
             'criterion_id' => $row['criterion_id'],
             'keyword' => $row['keyword'],
             'match' => $this->humanizeMatchType((string) $row['match_type']),

@@ -2,30 +2,68 @@
 
 namespace App\Support\Demo;
 
+use App\Support\Operator\OperatorPeriod;
+use App\Support\Reality\DemoCatalogAssetGuard;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 
 /**
- * Canonical Demo Mode reporting period resolution.
- * Uses a coherent account timezone and deterministic anchor ("data through" date).
+ * Reporting period resolution shared by operator workspaces.
+ *
+ * Demo catalog / fixture reads stay on {@see self::ANCHOR_DATE} so the 90-day
+ * fixture series remains deterministic. Real provider/operator presets resolve
+ * from wall-clock time unless an explicit anchor/timezone override is supplied
+ * ({@see OperatorPeriod}). {@see DemoCatalogAssetGuard}
+ * and fixture-context execution are the discriminators — not APP_ENV, because
+ * browser Demo Mode can run under local/staging/production-like environments.
  */
 final class DemoPeriod
 {
     public const string TIMEZONE = 'Europe/Berlin';
 
-    /** Deterministic "today" for Demo fixtures (data through Aug 12, 2026). */
+    /** Deterministic fixture anchor used for Demo catalog / fixture coverage. */
     public const string ANCHOR_DATE = '2026-08-12';
+
+    private static int $fixtureAnchorDepth = 0;
+
+    /**
+     * @template TReturn
+     *
+     * @param  callable(): TReturn  $callback
+     * @return TReturn
+     */
+    public static function usingFixtureAnchor(callable $callback): mixed
+    {
+        self::$fixtureAnchorDepth++;
+
+        try {
+            return $callback();
+        } finally {
+            self::$fixtureAnchorDepth--;
+        }
+    }
+
+    public static function inFixtureAnchorContext(): bool
+    {
+        return self::$fixtureAnchorDepth > 0;
+    }
 
     /**
      * @return array{start: CarbonInterface, end: CarbonInterface, days: int, label: string, preset: string}
      */
-    public static function bounds(string $preset, ?string $start = null, ?string $end = null): array
-    {
-        $anchor = self::anchor();
+    public static function bounds(
+        string $preset,
+        ?string $start = null,
+        ?string $end = null,
+        ?string $assetId = null,
+        ?CarbonInterface $anchorOverride = null,
+        ?string $timezone = null,
+    ): array {
+        [$anchor, $tz] = self::resolveAnchor($assetId, $anchorOverride, $timezone);
 
         if ($preset === 'custom' && filled($start) && filled($end)) {
-            $from = Carbon::parse($start, self::TIMEZONE)->startOfDay();
-            $to = Carbon::parse($end, self::TIMEZONE)->startOfDay();
+            $from = Carbon::parse($start, $tz)->startOfDay();
+            $to = Carbon::parse($end, $tz)->startOfDay();
             if ($from->greaterThan($to)) {
                 [$from, $to] = [$to, $from];
             }
@@ -59,9 +97,15 @@ final class DemoPeriod
      *
      * @return array{start: CarbonInterface, end: CarbonInterface, days: int, label: string, preset: string}
      */
-    public static function previousBounds(string $preset, ?string $start = null, ?string $end = null): array
-    {
-        $current = self::bounds($preset, $start, $end);
+    public static function previousBounds(
+        string $preset,
+        ?string $start = null,
+        ?string $end = null,
+        ?string $assetId = null,
+        ?CarbonInterface $anchorOverride = null,
+        ?string $timezone = null,
+    ): array {
+        $current = self::bounds($preset, $start, $end, $assetId, $anchorOverride, $timezone);
         $days = $current['days'];
         $prevEnd = $current['start']->copy()->subDay();
         $prevStart = $prevEnd->copy()->subDays($days - 1);
@@ -69,9 +113,18 @@ final class DemoPeriod
         return self::pack('compare', $prevStart, $prevEnd);
     }
 
-    public static function anchor(): CarbonInterface
+    public static function anchor(?string $assetId = null): CarbonInterface
     {
-        return Carbon::parse(self::ANCHOR_DATE, self::TIMEZONE)->startOfDay();
+        $configured = config('moxdop.reporting_anchor_date');
+        if (is_string($configured) && trim($configured) !== '') {
+            return Carbon::parse($configured, (string) config('app.timezone', self::TIMEZONE))->startOfDay();
+        }
+
+        if (self::usesFixtureAnchor($assetId)) {
+            return Carbon::parse(self::ANCHOR_DATE, self::TIMEZONE)->startOfDay();
+        }
+
+        return Carbon::now((string) config('app.timezone', self::TIMEZONE))->startOfDay();
     }
 
     public static function formatRangeLabel(CarbonInterface $start, CarbonInterface $end): string
@@ -90,15 +143,22 @@ final class DemoPeriod
     /**
      * Validate a custom range. Returns null when valid, otherwise an error message.
      */
-    public static function validateCustom(?string $start, ?string $end): ?string
-    {
+    public static function validateCustom(
+        ?string $start,
+        ?string $end,
+        ?string $assetId = null,
+        ?CarbonInterface $anchorOverride = null,
+        ?string $timezone = null,
+    ): ?string {
         if (! filled($start) || ! filled($end)) {
             return __('operator.period.select_both');
         }
 
+        [$anchor, $tz] = self::resolveAnchor($assetId, $anchorOverride, $timezone);
+
         try {
-            $from = Carbon::parse($start, self::TIMEZONE)->startOfDay();
-            $to = Carbon::parse($end, self::TIMEZONE)->startOfDay();
+            $from = Carbon::parse($start, $tz)->startOfDay();
+            $to = Carbon::parse($end, $tz)->startOfDay();
         } catch (\Throwable) {
             return __('operator.period.invalid_dates');
         }
@@ -107,7 +167,6 @@ final class DemoPeriod
             return __('operator.period.start_before_end');
         }
 
-        $anchor = self::anchor();
         if ($from->greaterThan($anchor) || $to->greaterThan($anchor)) {
             return __('operator.period.after_available', ['date' => $anchor->format('M j, Y')]);
         }
@@ -131,6 +190,10 @@ final class DemoPeriod
      */
     public static function factors(string $preset, ?string $start = null, ?string $end = null): array
     {
+        if (! self::inFixtureAnchorContext()) {
+            return self::usingFixtureAnchor(fn (): array => self::factors($preset, $start, $end));
+        }
+
         if ($preset === 'custom') {
             $start = $start ?: (DemoState::all()['period_start'] ?? null);
             $end = $end ?: (DemoState::all()['period_end'] ?? null);
@@ -186,5 +249,39 @@ final class DemoPeriod
             'label' => self::formatRangeLabel($from, $to),
             'preset' => $preset,
         ];
+    }
+
+    /**
+     * @return array{0: CarbonInterface, 1: string}
+     */
+    private static function resolveAnchor(
+        ?string $assetId,
+        ?CarbonInterface $anchorOverride,
+        ?string $timezone,
+    ): array {
+        if ($anchorOverride !== null) {
+            $tz = $timezone ?? self::TIMEZONE;
+            $anchor = Carbon::parse($anchorOverride->toDateString(), $tz)->startOfDay();
+
+            return [$anchor, $tz];
+        }
+
+        $anchor = self::anchor($assetId);
+        $tz = $timezone ?? $anchor->timezoneName;
+
+        return [$anchor, $tz];
+    }
+
+    private static function usesFixtureAnchor(?string $assetId): bool
+    {
+        if (self::inFixtureAnchorContext()) {
+            return true;
+        }
+
+        if ($assetId === null || $assetId === '') {
+            return false;
+        }
+
+        return DemoCatalogAssetGuard::isDemoCatalogAssetId($assetId);
     }
 }

@@ -42,6 +42,10 @@
             <h1 class="text-xl font-semibold text-gray-900 dark:text-white">{{ __('operator.auth.login_heading') }}</h1>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ __('operator.auth.login_subtitle') }}</p>
 
+            @if (session('status'))
+                <p class="mt-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200" role="status">{{ session('status') }}</p>
+            @endif
+
             <form method="POST" action="{{ route('app.login.store') }}" class="mt-6 space-y-4">
                 @csrf
 
@@ -74,6 +78,9 @@
                     {{ __('operator.auth.sign_in') }}
                 </button>
             </form>
+            <p class="mt-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                <a href="{{ route('app.password.request') }}" class="font-medium text-brand-600 hover:underline">{{ __('operator.auth.forgot_password') }}</a>
+            </p>
         </div>
     </div>
 </body>
