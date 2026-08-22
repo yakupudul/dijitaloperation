@@ -255,7 +255,7 @@ class OverviewPage extends Component
             'channels' => [
                 'chart' => ['type' => 'donut', 'height' => 290, 'fontFamily' => 'Outfit, sans-serif'],
                 'series' => array_map(static fn (array $row): int => (int) ($row['sessions'] ?? 0), $channels),
-                'labels' => array_map(static fn (array $row): string => (string) ($row['label'] ?: '(not set)'), $channels),
+                'labels' => array_map(fn (array $row): string => $this->ga4ChannelLabel($row['label'] ?? null), $channels),
                 'colors' => ['#f97316', '#0ea5e9', '#10b981', '#8b5cf6', '#f59e0b', '#64748b'],
                 'dataLabels' => ['enabled' => false],
                 'legend' => ['position' => 'bottom', 'fontSize' => '12px'],
@@ -285,7 +285,7 @@ class OverviewPage extends Component
             'devices' => [
                 'chart' => ['type' => 'donut', 'height' => 260, 'fontFamily' => 'Outfit, sans-serif'],
                 'series' => array_map(static fn (array $row): int => (int) ($row['sessions'] ?? 0), $devices),
-                'labels' => array_map(static fn (array $row): string => (string) ($row['label'] ?: '(not set)'), $devices),
+                'labels' => array_map(fn (array $row): string => $this->ga4DeviceLabel($row['label'] ?? null), $devices),
                 'colors' => ['#465fff', '#9cb9ff', '#12b76a', '#f79009', '#7a5af8'],
                 'dataLabels' => ['enabled' => false],
                 'legend' => ['position' => 'bottom', 'fontSize' => '12px'],
@@ -361,5 +361,31 @@ class OverviewPage extends Component
         }
 
         return null;
+    }
+
+    private function ga4ChannelLabel(?string $label): string
+    {
+        return match ($label) {
+            'Organic Search' => __('website_ga4.channel_organic_search'),
+            'Direct' => __('website_ga4.channel_direct'),
+            'Referral' => __('website_ga4.channel_referral'),
+            'Organic Social' => __('website_ga4.channel_organic_social'),
+            'Paid Search' => __('website_ga4.channel_paid_search'),
+            'Paid Social' => __('website_ga4.channel_paid_social'),
+            'Display' => __('website_ga4.channel_display'),
+            'Email' => __('website_ga4.channel_email'),
+            'Unassigned', '(not set)', null, '' => __('website_ga4.channel_unassigned'),
+            default => $label,
+        };
+    }
+
+    private function ga4DeviceLabel(?string $label): string
+    {
+        return match (mb_strtolower((string) $label)) {
+            'mobile' => __('website_ga4.device_mobile'),
+            'desktop' => __('website_ga4.device_desktop'),
+            'tablet' => __('website_ga4.device_tablet'),
+            default => $label ?: '—',
+        };
     }
 }
