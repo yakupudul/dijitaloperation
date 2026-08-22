@@ -9,6 +9,7 @@ use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\DigitalAsset;
 use App\Services\Collection\Ga4\Ga4CentralCollectionService;
+use App\Services\Collection\SearchConsole\SearchConsoleCentralCollectionService;
 use App\Services\Integrations\Google\GoogleIntegrationReadModel;
 use App\Support\Demo\DemoState;
 use App\Support\Integrations\Google\GoogleConnectorRegistry;
@@ -89,6 +90,20 @@ class ConnectorPage extends Component
             return;
         }
 
+        $this->startCentralCollection($collector, 'GA4');
+    }
+
+    public function collectSelectedGsc(SearchConsoleCentralCollectionService $collector): void
+    {
+        if ($this->connector !== 'gsc') {
+            return;
+        }
+
+        $this->startCentralCollection($collector, 'Search Console');
+    }
+
+    private function startCentralCollection(object $collector, string $label): void
+    {
         $user = auth()->user();
         if ($user === null || ! $user->hasRole(Roles::ADMIN)) {
             abort(403);
@@ -107,16 +122,16 @@ class ConnectorPage extends Component
         try {
             $run = $collector->startSmartUpdate($integration, $this->selectedResourceIds, $user);
         } catch (Throwable $e) {
-            DemoState::flash('GA4 veri toplama başlatılamadı: '.$e->getMessage(), 'info');
+            DemoState::flash($label.' veri toplama başlatılamadı: '.$e->getMessage(), 'info');
 
             return;
         }
 
         $count = count(array_unique(array_map('intval', $this->selectedResourceIds)));
-        $label = (string) data_get($run->metadata, 'collection_intent_label', 'GA4 veri toplama');
+        $runLabel = (string) data_get($run->metadata, 'collection_intent_label', $label.' veri toplama');
         $this->selectedResourceIds = [];
         $this->tab = 'activity';
-        DemoState::flash("{$count} GA4 property için {$label} başlatıldı. Run #{$run->id}.", 'info');
+        DemoState::flash("{$count} mülk için {$runLabel} başlatıldı. Run #{$run->id}.", 'info');
     }
 
     public function openBind(string $resourceId): void
@@ -225,19 +240,22 @@ class ConnectorPage extends Component
             $runs = $runs->filter(fn (CollectionResourceRun $run): bool => $run->provider_or_source === 'GA4'
                 && $run->digital_asset_id === null
                 && data_get($run->metadata, 'collection_scope') === 'provider_resource_first')->values();
+        } elseif ($this->connector === 'gsc') {
+            $runs = $runs->filter(fn (CollectionResourceRun $run): bool => $run->provider_or_source === 'SEARCH_CONSOLE'
+                && $run->digital_asset_id === null
+                && data_get($run->metadata, 'collection_scope') === 'provider_resource_first')->values();
         }
 
         $runsByResource = $runs->groupBy('external_resource_id');
+        $isGsc = $this->connector === 'gsc';
 
-        $resources = $resourceModels->map(function (CoreExternalResource $resource) use ($runsByResource): array {
+        $resources = $resourceModels->map(function (CoreExternalResource $resource) use ($runsByResource, $isGsc): array {
             $binding = $resource->bindings->first();
             $asset = $binding?->digitalAsset;
             /** @var Collection<int, CollectionResourceRun> $resourceRuns */
             $resourceRuns = $runsByResource->get($resource->id, collect());
             $run = $resourceRuns->first();
-            $completed = $resourceRuns->first(
-                fn (CollectionResourceRun $candidate): bool => $candidate->status === CollectionRunStatus::Completed,
-            );
+            $completed = $resourceRuns->first(fn (CollectionResourceRun $candidate): bool => $candidate->status === CollectionRunStatus::Completed);
             $active = $resourceRuns->first(fn (CollectionResourceRun $candidate): bool => in_array($candidate->status, [
                 CollectionRunStatus::Queued,
                 CollectionRunStatus::Running,
@@ -276,7 +294,7 @@ class ConnectorPage extends Component
                 'name' => (string) $resource->display_name,
                 'external_id' => (string) $resource->external_id,
                 'account_name' => $meta['account_display_name'] ?? $meta['account'] ?? null,
-                'property_id' => $meta['property_id'] ?? preg_replace('/^properties\//', '', (string) $resource->external_id),
+                'property_id' => $isGsc ? (string) $resource->external_id : ($meta['property_id'] ?? preg_replace('/^properties\//', '', (string) $resource->external_id)),
                 'state' => $state,
                 'state_label' => match ($state) {
                     'bound' => 'Bound',
@@ -341,14 +359,13 @@ class ConnectorPage extends Component
             ->all();
 
         $latestAttempt = $runs->first();
-        $latestSuccess = $runs->first(
-            fn (CollectionResourceRun $run): bool => $run->status === CollectionRunStatus::Completed,
-        );
+        $latestSuccess = $runs->first(fn (CollectionResourceRun $run): bool => $run->status === CollectionRunStatus::Completed);
         $firstBoundAsset = $resourceModels
             ->flatMap(fn (CoreExternalResource $resource) => $resource->bindings)
             ->map(fn (CoreAssetBinding $binding) => $binding->digitalAsset)
             ->first(fn ($asset) => $asset instanceof DigitalAsset);
 
+        $centralConnector = in_array($this->connector, ['ga4', 'gsc'], true);
         $connection = (string) ($summary['auth_status_label'] ?? $detail['auth_status_label'] ?? 'Not authorized');
         $freshness = $latestSuccess instanceof CollectionResourceRun ? 'Collected' : 'Not collected';
         $latestCollection = $latestAttempt?->last_activity_at?->diffForHumans() ?? '—';
@@ -380,8 +397,8 @@ class ConnectorPage extends Component
             'resources_count' => (int) ($summary['discovered'] ?? $resourceModels->count()),
             'bound' => (int) ($summary['bound'] ?? $resourceModels->filter(fn (CoreExternalResource $resource) => $resource->bindings->isNotEmpty())->count()),
             'available' => (int) ($summary['available'] ?? $resourceModels->filter(fn (CoreExternalResource $resource) => $resource->bindings->isEmpty() && $resource->status === CoreExternalResource::STATUS_AVAILABLE)->count()),
-            'ontology_note' => $this->connector === 'ga4'
-                ? 'GA4 properties can be collected into the central Data Pool before Customer, Brand or Digital Asset binding.'
+            'ontology_note' => $centralConnector
+                ? $connector['label'].' properties can be collected into the central Data Pool before Customer, Brand or Digital Asset binding.'
                 : 'Reads the shared Google Integration, discovered resources, bindings and collection history.',
             'existing_assets_for_brand' => [],
             'resources' => $resources->values()->all(),
@@ -390,7 +407,7 @@ class ConnectorPage extends Component
                 'metrics' => [
                     ['label' => 'Discovered resources', 'value' => (string) $resourceModels->count(), 'state' => 'Persisted External Resources'],
                     ['label' => 'Central/bound collection runs', 'value' => (string) $runs->count(), 'state' => 'Collection Engine history'],
-                    ['label' => 'History target', 'value' => $this->connector === 'ga4' ? '486 days' : 'Provider policy', 'state' => 'Initial central collection'],
+                    ['label' => 'History target', 'value' => $centralConnector ? '486 days' : 'Provider policy', 'state' => 'Initial central collection'],
                 ],
                 'note' => $latestSuccess instanceof CollectionResourceRun
                     ? 'Central provider data exists and can later be attached to a Digital Asset without recollecting the same history.'
@@ -403,8 +420,10 @@ class ConnectorPage extends Component
                 'status' => $latestAttempt instanceof CollectionResourceRun
                     ? ucfirst(str_replace('_', ' ', $latestAttempt->status->value))
                     : 'Not collected',
-                'timezone' => (string) ($resourceModels->first()?->metadata['timezone'] ?? 'Per GA4 property timezone'),
-                'scope' => $this->connector === 'ga4'
+                'timezone' => $this->connector === 'gsc'
+                    ? 'America/Los_Angeles · final data lag 3 days'
+                    : (string) ($resourceModels->first()?->metadata['timezone'] ?? 'Per GA4 property timezone'),
+                'scope' => $centralConnector
                     ? 'Provider resource → Central Data Pool → later Digital Asset binding'
                     : (string) $connector['label'].' resources discovered through the shared Google Integration',
                 'failure' => $latestAttempt?->error_summary,
