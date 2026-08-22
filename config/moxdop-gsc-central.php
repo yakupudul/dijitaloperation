@@ -49,10 +49,6 @@ return [
     'restatement_days' => 7,
     'final_lag_days' => 3,
 
-    // The first central import is deliberately web-first. Optional Google search
-    // surfaces are stored safely via search_type and can be enabled without a schema change.
-    'initial_search_types' => ['web'],
-
     'natural_key_overrides' => [
         'gsc_property_daily' => ['external_resource_id', 'site_url', 'reporting_date', 'search_type'],
         'gsc_query_daily' => ['external_resource_id', 'site_url', 'reporting_date', 'search_type', 'query'],
@@ -61,6 +57,7 @@ return [
         'gsc_device_daily' => ['external_resource_id', 'site_url', 'reporting_date', 'search_type', 'device'],
         'gsc_country_daily' => ['external_resource_id', 'site_url', 'reporting_date', 'search_type', 'country'],
         'gsc_search_appearance_daily' => ['external_resource_id', 'site_url', 'reporting_date', 'search_type', 'searchAppearance'],
+        'gsc_sitemap_snapshot' => ['external_resource_id', 'site_url', 'sitemap_path', 'retrieved_at'],
     ],
 
     'columns_add' => [
