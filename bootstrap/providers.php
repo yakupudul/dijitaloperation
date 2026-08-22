@@ -2,6 +2,7 @@
 
 use App\Providers\AppServiceProvider;
 use App\Providers\Filament\AppPanelProvider;
+use App\Providers\GoogleBusinessProfileServiceProvider;
 use App\Providers\HorizonServiceProvider;
 use App\Providers\RecurringAutomationServiceProvider;
 use App\Providers\SalesServiceProvider;
@@ -10,6 +11,7 @@ use App\Providers\SearchConsoleGroupingServiceProvider;
 
 return [
     AppServiceProvider::class,
+    GoogleBusinessProfileServiceProvider::class,
     SearchConsoleCentralServiceProvider::class,
     SearchConsoleGroupingServiceProvider::class,
     AppPanelProvider::class,
