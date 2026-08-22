@@ -52,7 +52,95 @@ function bindDatePickers(root = document) {
     });
 }
 
+function isDeviceDistributionChart(el) {
+    return el.matches?.('[aria-label="Visitor device distribution"]');
+}
+
+function prepareChartHost(el, options) {
+    if (!isDeviceDistributionChart(el)) {
+        return options;
+    }
+
+    // The device chart sits in a 4/12 CSS-grid column. During a Livewire morph
+    // ApexCharts can otherwise measure the whole analysis width before the grid
+    // has settled, creating (for example) a 1021px canvas inside a ~330px card.
+    // Constrain both the grid item and the chart host before Apex measures them.
+    el.classList.add('w-full', 'max-w-full', 'min-w-0', 'overflow-hidden');
+    el.style.width = '100%';
+    el.style.maxWidth = '100%';
+    el.style.minWidth = '0';
+    el.style.overflow = 'hidden';
+
+    if (el.parentElement) {
+        el.parentElement.classList.add('min-w-0', 'overflow-hidden');
+        el.parentElement.style.minWidth = '0';
+        el.parentElement.style.overflow = 'hidden';
+    }
+
+    // Force layout after applying the grid constraints, then give Apex the
+    // actual host width rather than allowing it to reuse a stale full-row width.
+    const measuredWidth = Math.floor(el.getBoundingClientRect().width);
+
+    return {
+        ...options,
+        chart: {
+            ...(options.chart || {}),
+            width: measuredWidth > 0 ? measuredWidth : '100%',
+            redrawOnParentResize: true,
+            redrawOnWindowResize: true,
+        },
+    };
+}
+
+function disconnectChartResizeObserver(el) {
+    if (!el.__apexResizeObserver) {
+        return;
+    }
+
+    el.__apexResizeObserver.disconnect();
+    el.__apexResizeObserver = null;
+    el.__apexObservedWidth = null;
+}
+
+function synchronizeDeviceChartWidth(el, chart = el.__apexChart) {
+    if (!isDeviceDistributionChart(el) || !chart || el.__apexChart !== chart) {
+        return;
+    }
+
+    const width = Math.floor(el.getBoundingClientRect().width);
+    if (width <= 0 || el.__apexObservedWidth === width) {
+        return;
+    }
+
+    el.__apexObservedWidth = width;
+
+    Promise.resolve(chart.updateOptions({
+        chart: {
+            width,
+            redrawOnParentResize: true,
+            redrawOnWindowResize: true,
+        },
+    }, false, false, false)).catch(() => {
+        // A concurrent Livewire morph may have replaced the host already.
+    });
+}
+
+function bindDeviceChartResizeObserver(el) {
+    if (!isDeviceDistributionChart(el) || el.__apexResizeObserver || typeof ResizeObserver === 'undefined') {
+        return;
+    }
+
+    const observer = new ResizeObserver(() => {
+        synchronizeDeviceChartWidth(el);
+    });
+
+    observer.observe(el);
+    el.__apexResizeObserver = observer;
+}
+
 function destroyOperatorChart(el) {
+    disconnectChartResizeObserver(el);
+
     if (el.__apexChart) {
         try {
             el.__apexChart.destroy();
@@ -81,6 +169,10 @@ function renderOperatorCharts(root = document) {
         }
 
         if (el.__apexChart && el.__apexSignature === signature) {
+            if (isDeviceDistributionChart(el)) {
+                bindDeviceChartResizeObserver(el);
+                synchronizeDeviceChartWidth(el);
+            }
             return;
         }
 
@@ -92,12 +184,22 @@ function renderOperatorCharts(root = document) {
         }
 
         destroyOperatorChart(el);
+        options = prepareChartHost(el, options);
 
         const chart = new ApexCharts(el, options);
         el.__apexChart = chart;
         el.__apexSignature = signature;
 
-        Promise.resolve(chart.render()).catch(() => {
+        Promise.resolve(chart.render()).then(() => {
+            if (el.__apexChart !== chart) {
+                return;
+            }
+
+            if (isDeviceDistributionChart(el)) {
+                bindDeviceChartResizeObserver(el);
+                requestAnimationFrame(() => synchronizeDeviceChartWidth(el, chart));
+            }
+        }).catch(() => {
             if (el.__apexChart === chart) {
                 destroyOperatorChart(el);
             }
