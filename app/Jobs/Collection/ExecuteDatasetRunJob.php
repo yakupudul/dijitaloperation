@@ -48,9 +48,7 @@ class ExecuteDatasetRunJob implements ShouldQueue
         $this->onQueue((string) config('moxdop-collection.queue', 'collection'));
     }
 
-    /**
-     * @return list<object>
-     */
+    /** @return list<object> */
     public function middleware(): array
     {
         return [
@@ -60,9 +58,7 @@ class ExecuteDatasetRunJob implements ShouldQueue
         ];
     }
 
-    /**
-     * @return list<string>
-     */
+    /** @return list<string> */
     public function tags(): array
     {
         $dataset = CollectionDatasetRun::query()->find($this->datasetRunId);
@@ -102,6 +98,15 @@ class ExecuteDatasetRunJob implements ShouldQueue
         }
 
         if ($datasetRun->status->isTerminal()) {
+            return;
+        }
+
+        if ($datasetRun->status === CollectionRunStatus::CancellationRequested
+            || $cancellation->isResourceCancelRequested($datasetRun->resourceRun)) {
+            $stateMachine->transition($datasetRun, CollectionRunStatus::Cancelled);
+            $errors->record($datasetRun, CollectionErrorCategory::Cancelled, 'Resource collection cancelled by operator.');
+            $aggregator->refreshFromDataset($datasetRun);
+
             return;
         }
 
@@ -207,6 +212,27 @@ class ExecuteDatasetRunJob implements ShouldQueue
             );
 
             $result = $executor->execute($context);
+
+            $datasetRun->refresh();
+            $resourceRun = $datasetRun->resourceRun()->first();
+            if ($datasetRun->status === CollectionRunStatus::CancellationRequested
+                || $cancellation->isResourceCancelRequested($resourceRun)) {
+                if ($result->checkpoint !== null) {
+                    $checkpoints->advance($datasetRun, $result->checkpoint);
+                }
+                if (! $datasetRun->status->isTerminal()) {
+                    $stateMachine->transition($datasetRun, CollectionRunStatus::Cancelled);
+                }
+                $attempt->forceFill([
+                    'status' => CollectionRunStatus::Cancelled,
+                    'finished_at' => now(),
+                    'error_category' => CollectionErrorCategory::Cancelled,
+                    'error_message' => 'Resource collection cancelled at safe boundary',
+                ])->save();
+                $aggregator->refreshFromDataset($datasetRun);
+
+                return;
+            }
 
             if ($cancellation->isCancelRequested($collectionRun->fresh() ?? $collectionRun)) {
                 if ($result->checkpoint !== null) {
@@ -355,7 +381,6 @@ class ExecuteDatasetRunJob implements ShouldQueue
         $fresh = $datasetRun->fresh() ?? $datasetRun;
         $delaySeconds = max(0, (int) $result->backoffSeconds);
         if ($delaySeconds > 0) {
-            // Delayed Continue (e.g. Meta async Insights poll) — no blocking sleep in the worker.
             ExecuteDatasetRunJob::dispatch($fresh->id)
                 ->delay(now()->addSeconds($delaySeconds))
                 ->onConnection((string) config('moxdop-collection.queue_connection', 'redis'))
