@@ -11,9 +11,9 @@ final class Ga4Normalizer
     private const DECIMAL_METRICS = [
         'engagementRate', 'bounceRate', 'averageSessionDuration', 'sessionsPerUser',
         'screenPageViewsPerSession', 'screenPageViewsPerUser', 'eventsPerSession',
-        'userEngagementDuration', 'keyEvents', 'conversions', 'sessionKeyEventRate',
-        'userKeyEventRate', 'purchaseRevenue', 'totalRevenue', 'eventCountPerUser',
-        'eventValue', 'itemRevenue', 'cartToViewRate', 'purchaseToViewRate',
+        'keyEvents', 'conversions', 'sessionKeyEventRate', 'userKeyEventRate',
+        'purchaseRevenue', 'totalRevenue', 'eventCountPerUser', 'eventValue',
+        'itemRevenue', 'cartToViewRate', 'purchaseToViewRate',
     ];
 
     /**
@@ -108,8 +108,13 @@ final class Ga4Normalizer
                     [$record['firstUserSource'], $record['firstUserMedium']] = $this->splitSourceMedium($value);
                     continue;
                 }
+                if ($dimension === 'landingPagePlusQueryString') {
+                    // New central grain keeps query string, while the legacy table still requires landingPage.
+                    $record['landingPagePlusQueryString'] = $value;
+                    $record['landingPage'] = $value;
+                    continue;
+                }
 
-                // Typed storage columns use GA4 API dimension names directly.
                 $record[$dimension] = $value;
             }
 
