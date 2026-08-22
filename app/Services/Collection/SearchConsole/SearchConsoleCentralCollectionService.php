@@ -127,7 +127,8 @@ final class SearchConsoleCentralCollectionService
                     'dataset_id' => (string) $dataset->dataset_contract_id,
                     'date_range' => data_get($dataset->metadata, 'date_range'),
                     'central_definition' => data_get($dataset->metadata, 'central_definition'),
-                    'search_type' => data_get($dataset->metadata, 'search_type', 'web'),
+                    'search_type' => data_get($dataset->metadata, 'search_type'),
+                    'source_family_id' => data_get($dataset->metadata, 'source_family_id'),
                 ])
                 ->values()
                 ->all();
@@ -171,15 +172,16 @@ final class SearchConsoleCentralCollectionService
         }
 
         $start = $anchor->subDays(self::RESTATEMENT_DAYS - 1);
-        $activeSearchTypes = collect($completed->datasetRuns)
+        $previousSearchTypes = collect($completed->datasetRuns)
             ->pluck('metadata.search_type')
             ->filter(fn ($type): bool => is_string($type) && $type !== '')
             ->unique()
             ->values()
             ->all();
-        if ($activeSearchTypes === []) {
-            $activeSearchTypes = $this->detectActiveSearchTypes($integration, $resource, $end);
-        }
+        $activeSearchTypes = array_values(array_unique([
+            ...$previousSearchTypes,
+            ...$this->detectActiveSearchTypes($integration, $resource, $end),
+        ]));
 
         return [
             'resource' => $resource,
@@ -203,7 +205,9 @@ final class SearchConsoleCentralCollectionService
     private function detectActiveSearchTypes(CoreIntegration $integration, CoreExternalResource $resource, CarbonImmutable $end): array
     {
         $active = ['web'];
-        $start = $end->subDays(29)->toDateString();
+        // Probe the same 16-month window as the initial import so an optional surface
+        // is not missed merely because it had no traffic during the last few weeks.
+        $start = $end->subDays(self::INITIAL_DAYS - 1)->toDateString();
         $endDate = $end->toDateString();
 
         foreach (['image', 'video', 'news', 'discover', 'googleNews'] as $type) {
@@ -248,6 +252,13 @@ final class SearchConsoleCentralCollectionService
                 $definition = $base;
                 $definition['search_type'] = $searchType;
                 $definition['data_state'] = 'final';
+                $definition['slice_days'] = match ($familyId) {
+                    SearchConsoleRequestFamilyCatalog::FAMILY_PROPERTY_DAILY,
+                    SearchConsoleRequestFamilyCatalog::FAMILY_DEVICE_DAILY => 28,
+                    SearchConsoleRequestFamilyCatalog::FAMILY_COUNTRY_DAILY,
+                    SearchConsoleRequestFamilyCatalog::FAMILY_SEARCH_APPEARANCE_DAILY => 7,
+                    default => 1,
+                };
                 $plans[] = [
                     'request_family_id' => SearchConsoleCentralDatasetExecutor::FAMILY_ANALYTICS,
                     'dataset_id' => (string) $definition['dataset_id'],
