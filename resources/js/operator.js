@@ -16,6 +16,8 @@ import './maps/ga4-world-map';
 window.ApexCharts = ApexCharts;
 window.flatpickr = flatpickr;
 
+let postMorphFrame = null;
+
 function matchingElements(root, selector) {
     const scope = root?.querySelectorAll ? root : document;
     const elements = [];
@@ -103,19 +105,35 @@ function renderOperatorCharts(root = document) {
     });
 }
 
+function synchronizeInteractiveViews() {
+    renderOperatorCharts(document);
+    bindDatePickers(document);
+    window.MoxDopGa4CountryMap?.refresh?.();
+}
+
+function schedulePostMorphSynchronization() {
+    if (postMorphFrame !== null) {
+        cancelAnimationFrame(postMorphFrame);
+    }
+
+    postMorphFrame = requestAnimationFrame(() => {
+        postMorphFrame = null;
+        synchronizeInteractiveViews();
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
-    renderOperatorCharts();
-    bindDatePickers();
+    synchronizeInteractiveViews();
 });
 document.addEventListener('livewire:navigated', () => {
-    renderOperatorCharts();
-    bindDatePickers();
+    schedulePostMorphSynchronization();
 });
 document.addEventListener('livewire:init', () => {
     if (window.Livewire?.hook) {
         window.Livewire.hook('morph.updated', ({ el }) => {
             renderOperatorCharts(el);
             bindDatePickers(el);
+            schedulePostMorphSynchronization();
         });
     }
 });
