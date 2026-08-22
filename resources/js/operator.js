@@ -53,37 +53,30 @@ function bindDatePickers(root = document) {
     });
 }
 
-function isDeviceDistributionChart(el) {
-    return el.matches?.('[aria-label="Visitor device distribution"]');
+function chartHostWidth(el) {
+    return Math.floor(el.getBoundingClientRect().width || 0);
 }
 
 function prepareChartHost(el, options) {
-    if (!isDeviceDistributionChart(el)) {
-        return options;
-    }
-
-    // The device chart sits in a 4/12 CSS-grid column. During a Livewire morph
-    // ApexCharts can otherwise measure the whole analysis width before the grid
-    // has settled. Constrain the host before Apex measures it.
+    // Every chart can live inside an Alpine x-show tab or a responsive grid.
+    // Keep the host constrained to its real parent width before Apex measures it.
     el.classList.add('w-full', 'max-w-full', 'min-w-0', 'overflow-hidden');
-    el.style.width = '100%';
     el.style.maxWidth = '100%';
     el.style.minWidth = '0';
     el.style.overflow = 'hidden';
 
     if (el.parentElement) {
-        el.parentElement.classList.add('min-w-0', 'overflow-hidden');
+        el.parentElement.classList.add('min-w-0');
         el.parentElement.style.minWidth = '0';
-        el.parentElement.style.overflow = 'hidden';
     }
 
-    const measuredWidth = Math.floor(el.getBoundingClientRect().width);
+    const measuredWidth = chartHostWidth(el);
 
     return {
         ...options,
         chart: {
             ...(options.chart || {}),
-            width: measuredWidth > 0 ? measuredWidth : '100%',
+            ...(measuredWidth > 0 ? { width: measuredWidth } : {}),
             redrawOnParentResize: true,
             redrawOnWindowResize: true,
         },
@@ -100,12 +93,12 @@ function disconnectChartResizeObserver(el) {
     el.__apexObservedWidth = null;
 }
 
-function synchronizeDeviceChartWidth(el, chart = el.__apexChart) {
-    if (!isDeviceDistributionChart(el) || !chart || el.__apexChart !== chart) {
+function synchronizeChartWidth(el, chart = el.__apexChart) {
+    if (!chart || el.__apexChart !== chart || !el.isConnected) {
         return;
     }
 
-    const width = Math.floor(el.getBoundingClientRect().width);
+    const width = chartHostWidth(el);
     if (width <= 0 || el.__apexObservedWidth === width) {
         return;
     }
@@ -123,13 +116,26 @@ function synchronizeDeviceChartWidth(el, chart = el.__apexChart) {
     });
 }
 
-function bindDeviceChartResizeObserver(el) {
-    if (!isDeviceDistributionChart(el) || el.__apexResizeObserver || typeof ResizeObserver === 'undefined') {
+function bindChartResizeObserver(el) {
+    if (el.__apexResizeObserver || typeof ResizeObserver === 'undefined') {
         return;
     }
 
-    const observer = new ResizeObserver(() => {
-        synchronizeDeviceChartWidth(el);
+    const observer = new ResizeObserver((entries) => {
+        const width = Math.floor(entries[0]?.contentRect?.width || chartHostWidth(el));
+        if (width <= 0) {
+            return;
+        }
+
+        if (el.__apexChart) {
+            synchronizeChartWidth(el);
+            return;
+        }
+
+        // Hidden Alpine tabs start at width 0. When x-show makes the tab visible,
+        // the ResizeObserver becomes the deterministic signal to instantiate the
+        // chart with a real width instead of leaving a permanent 0px canvas.
+        schedulePostMorphSynchronization();
     });
 
     observer.observe(el);
@@ -170,14 +176,16 @@ function destroyOperatorChart(el) {
     el.__apexChart = null;
     el.__apexSignature = null;
     el.__apexRendering = false;
+    el.__apexObservedWidth = null;
 }
 
 /**
  * Render ApexCharts from the server-owned `data-chart` payload.
  *
- * A Livewire date change can preserve the chart host but remove or partially
- * morph the Apex-generated SVG children. A chart object plus a matching payload
- * is therefore not enough: the rendered canvas must also still be healthy.
+ * Hidden Alpine tabs have a real width of 0. ApexCharts must not be instantiated
+ * while a host is hidden because it will otherwise keep a 0px SVG even after the
+ * tab becomes visible. We observe every chart host and render only after it has a
+ * measurable width. This also covers Livewire morphs and responsive grid changes.
  */
 function renderOperatorCharts(root = document) {
     matchingElements(root, '[data-chart]').forEach((el) => {
@@ -191,15 +199,21 @@ function renderOperatorCharts(root = document) {
             return;
         }
 
+        bindChartResizeObserver(el);
+
+        // x-show / display:none hosts report width 0. Do not create Apex yet.
+        // ResizeObserver and the window resize synchronization below will retry
+        // as soon as the tab becomes visible and obtains a real width.
+        if (chartHostWidth(el) <= 0) {
+            return;
+        }
+
         if (el.__apexRendering && el.__apexSignature === signature) {
             return;
         }
 
         if (el.__apexChart && el.__apexSignature === signature && chartCanvasIsHealthy(el)) {
-            if (isDeviceDistributionChart(el)) {
-                bindDeviceChartResizeObserver(el);
-                synchronizeDeviceChartWidth(el);
-            }
+            synchronizeChartWidth(el);
             return;
         }
 
@@ -212,11 +226,13 @@ function renderOperatorCharts(root = document) {
 
         destroyOperatorChart(el);
         options = prepareChartHost(el, options);
+        bindChartResizeObserver(el);
 
         const chart = new ApexCharts(el, options);
         el.__apexChart = chart;
         el.__apexSignature = signature;
         el.__apexRendering = true;
+        el.__apexObservedWidth = chartHostWidth(el);
 
         Promise.resolve(chart.render()).then(() => {
             if (el.__apexChart !== chart) {
@@ -225,10 +241,7 @@ function renderOperatorCharts(root = document) {
 
             el.__apexRendering = false;
 
-            if (isDeviceDistributionChart(el)) {
-                bindDeviceChartResizeObserver(el);
-                requestAnimationFrame(() => synchronizeDeviceChartWidth(el, chart));
-            }
+            requestAnimationFrame(() => synchronizeChartWidth(el, chart));
 
             // Verify once more after Apex has committed its SVG. If Livewire
             // removed it during the same update cycle, the delayed global pass
@@ -282,6 +295,13 @@ document.addEventListener('DOMContentLoaded', () => {
 document.addEventListener('livewire:navigated', () => {
     schedulePostMorphSynchronization();
 });
+
+// Alpine tab switchers already dispatch a resize after x-show changes state.
+// Route that signal through the same debounced synchronization used by Livewire.
+window.addEventListener('resize', () => {
+    schedulePostMorphSynchronization();
+}, { passive: true });
+
 document.addEventListener('livewire:init', () => {
     if (window.Livewire?.hook) {
         window.Livewire.hook('morph.updated', () => {
