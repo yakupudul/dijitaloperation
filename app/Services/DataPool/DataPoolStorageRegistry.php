@@ -117,6 +117,7 @@ final class DataPoolStorageRegistry
 
         $this->applyProviderOverlay('moxdop-ga4-central', 'GA4_CENTRAL_RESOURCE_FIRST_V1');
         $this->applyProviderOverlay('moxdop-gsc-central', 'GSC_CENTRAL_RESOURCE_FIRST_V1');
+        $this->applyProviderOverlay('moxdop-gbp-central', 'GBP_TYPED_FACTS_V1');
     }
 
     private function applyProviderOverlay(string $configKey, string $overlayId): void
