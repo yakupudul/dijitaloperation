@@ -17,6 +17,7 @@ window.ApexCharts = ApexCharts;
 window.flatpickr = flatpickr;
 
 let postMorphFrame = null;
+let postMorphVerificationTimer = null;
 
 function matchingElements(root, selector) {
     const scope = root?.querySelectorAll ? root : document;
@@ -63,8 +64,7 @@ function prepareChartHost(el, options) {
 
     // The device chart sits in a 4/12 CSS-grid column. During a Livewire morph
     // ApexCharts can otherwise measure the whole analysis width before the grid
-    // has settled, creating (for example) a 1021px canvas inside a ~330px card.
-    // Constrain both the grid item and the chart host before Apex measures them.
+    // has settled. Constrain the host before Apex measures it.
     el.classList.add('w-full', 'max-w-full', 'min-w-0', 'overflow-hidden');
     el.style.width = '100%';
     el.style.maxWidth = '100%';
@@ -77,8 +77,6 @@ function prepareChartHost(el, options) {
         el.parentElement.style.overflow = 'hidden';
     }
 
-    // Force layout after applying the grid constraints, then give Apex the
-    // actual host width rather than allowing it to reuse a stale full-row width.
     const measuredWidth = Math.floor(el.getBoundingClientRect().width);
 
     return {
@@ -138,6 +136,21 @@ function bindDeviceChartResizeObserver(el) {
     el.__apexResizeObserver = observer;
 }
 
+function chartCanvasIsHealthy(el) {
+    const canvas = el.querySelector(':scope > .apexcharts-canvas');
+    const svg = canvas?.querySelector('.apexcharts-svg');
+
+    if (!canvas || !svg) {
+        return false;
+    }
+
+    const rect = canvas.getBoundingClientRect();
+    const width = Number(svg.getAttribute('width') || rect.width || 0);
+    const height = Number(svg.getAttribute('height') || rect.height || 0);
+
+    return width > 0 && height > 0;
+}
+
 function destroyOperatorChart(el) {
     disconnectChartResizeObserver(el);
 
@@ -149,26 +162,40 @@ function destroyOperatorChart(el) {
         }
     }
 
+    // Apex may have lost its internal reference after a Livewire morph while its
+    // generated canvas still remains. Remove only Apex-generated children; the
+    // host and its server-owned data-chart attribute remain untouched.
+    el.querySelectorAll(':scope > .apexcharts-canvas').forEach((canvas) => canvas.remove());
+
     el.__apexChart = null;
     el.__apexSignature = null;
+    el.__apexRendering = false;
 }
 
 /**
  * Render ApexCharts from the server-owned `data-chart` payload.
  *
- * Livewire can preserve the chart host while changing only its `data-chart`
- * attribute. Therefore a one-time "already rendered" flag is incorrect: when the
- * payload changes we must destroy the old Apex instance and render the new data.
+ * A Livewire date change can preserve the chart host but remove or partially
+ * morph the Apex-generated SVG children. A chart object plus a matching payload
+ * is therefore not enough: the rendered canvas must also still be healthy.
  */
 function renderOperatorCharts(root = document) {
     matchingElements(root, '[data-chart]').forEach((el) => {
+        if (!el.isConnected) {
+            return;
+        }
+
         const signature = el.getAttribute('data-chart') || '';
         if (!signature) {
             destroyOperatorChart(el);
             return;
         }
 
-        if (el.__apexChart && el.__apexSignature === signature) {
+        if (el.__apexRendering && el.__apexSignature === signature) {
+            return;
+        }
+
+        if (el.__apexChart && el.__apexSignature === signature && chartCanvasIsHealthy(el)) {
             if (isDeviceDistributionChart(el)) {
                 bindDeviceChartResizeObserver(el);
                 synchronizeDeviceChartWidth(el);
@@ -189,15 +216,25 @@ function renderOperatorCharts(root = document) {
         const chart = new ApexCharts(el, options);
         el.__apexChart = chart;
         el.__apexSignature = signature;
+        el.__apexRendering = true;
 
         Promise.resolve(chart.render()).then(() => {
             if (el.__apexChart !== chart) {
                 return;
             }
 
+            el.__apexRendering = false;
+
             if (isDeviceDistributionChart(el)) {
                 bindDeviceChartResizeObserver(el);
                 requestAnimationFrame(() => synchronizeDeviceChartWidth(el, chart));
+            }
+
+            // Verify once more after Apex has committed its SVG. If Livewire
+            // removed it during the same update cycle, the delayed global pass
+            // below will rebuild it.
+            if (!chartCanvasIsHealthy(el)) {
+                schedulePostMorphSynchronization();
             }
         }).catch(() => {
             if (el.__apexChart === chart) {
@@ -218,9 +255,24 @@ function schedulePostMorphSynchronization() {
         cancelAnimationFrame(postMorphFrame);
     }
 
+    if (postMorphVerificationTimer !== null) {
+        clearTimeout(postMorphVerificationTimer);
+    }
+
+    // Do not instantiate charts inside Livewire's morph.updated callback. Wait
+    // until the browser has committed the final morphed DOM and grid widths.
     postMorphFrame = requestAnimationFrame(() => {
-        postMorphFrame = null;
-        synchronizeInteractiveViews();
+        postMorphFrame = requestAnimationFrame(() => {
+            postMorphFrame = null;
+            synchronizeInteractiveViews();
+
+            // A short verification pass catches Apex SVG children that were
+            // removed by a late morph or a layout transition in the same update.
+            postMorphVerificationTimer = setTimeout(() => {
+                postMorphVerificationTimer = null;
+                synchronizeInteractiveViews();
+            }, 80);
+        });
     });
 }
 
@@ -232,10 +284,19 @@ document.addEventListener('livewire:navigated', () => {
 });
 document.addEventListener('livewire:init', () => {
     if (window.Livewire?.hook) {
-        window.Livewire.hook('morph.updated', ({ el }) => {
-            renderOperatorCharts(el);
-            bindDatePickers(el);
+        window.Livewire.hook('morph.updated', () => {
+            // Only schedule here. Rendering during the morph can race with
+            // Livewire deleting Apex-generated children from another node.
             schedulePostMorphSynchronization();
+        });
+
+        // A commit-level success hook gives us one more deterministic signal that
+        // the date-filter request has finished. Not every update morphs every
+        // chart host, so relying on element-level hooks alone is insufficient.
+        window.Livewire.hook('commit', ({ succeed }) => {
+            succeed(() => {
+                schedulePostMorphSynchronization();
+            });
         });
     }
 });
