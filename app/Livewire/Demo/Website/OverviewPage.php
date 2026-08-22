@@ -8,6 +8,7 @@ use App\Models\DigitalAsset;
 use App\Services\Async\AsyncOperationService;
 use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
 use App\Services\Ga4\WebsiteGa4AnalysisService;
+use App\Services\Gsc\WebsiteSearchConsoleAnalysisService;
 use App\Support\Reality\OperatorCanonicalAsset;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
@@ -43,6 +44,7 @@ class OverviewPage extends Component
     public array $allowedTabs = [
         'overview',
         'ga4_analysis',
+        'search_console',
         'health',
         'visibility',
         'content',
@@ -67,6 +69,8 @@ class OverviewPage extends Component
         'activity' => 'operations',
         'analytics' => 'ga4_analysis',
         'ga4' => 'ga4_analysis',
+        'gsc' => 'search_console',
+        'search-console' => 'search_console',
     ];
 
     public function mount(?string $assetId = null): void
@@ -126,8 +130,11 @@ class OverviewPage extends Component
         $this->tab = 'overview';
     }
 
-    public function render(WebsiteOperatorWorkspace $workspace, WebsiteGa4AnalysisService $ga4AnalysisService): View
-    {
+    public function render(
+        WebsiteOperatorWorkspace $workspace,
+        WebsiteGa4AnalysisService $ga4AnalysisService,
+        WebsiteSearchConsoleAnalysisService $gscAnalysisService,
+    ): View {
         $this->normalizeTab();
 
         $asset = $this->asset()->loadMissing('brand.customer');
@@ -159,6 +166,20 @@ class OverviewPage extends Component
             $ga4Charts = $this->buildGa4Charts($ga4Analysis);
         }
 
+        $gscAnalysis = null;
+        $gscCharts = [];
+        if ($this->tab === 'search_console') {
+            $gscAnalysis = $gscAnalysisService->build(
+                $asset,
+                $this->period,
+                $this->periodStart,
+                $this->periodEnd,
+                $this->compare,
+                $this->compareMode,
+            );
+            $gscCharts = $this->buildGscCharts($gscAnalysis);
+        }
+
         return view('livewire.operator.website.overview', [
             'asset' => $asset,
             'brand' => $asset->brand,
@@ -166,7 +187,9 @@ class OverviewPage extends Component
             'data' => $data,
             'ga4Analysis' => $ga4Analysis,
             'ga4Charts' => $ga4Charts,
-            'showPeriodBar' => in_array($this->tab, ['overview', 'ga4_analysis', 'visibility', 'performance'], true),
+            'gscAnalysis' => $gscAnalysis,
+            'gscCharts' => $gscCharts,
+            'showPeriodBar' => in_array($this->tab, ['overview', 'ga4_analysis', 'search_console', 'visibility', 'performance'], true),
         ]);
     }
 
@@ -312,7 +335,83 @@ class OverviewPage extends Component
         ];
     }
 
-    /** @return array{labels: list<string>, sessions: list<int>, views: list<int>, granularity: string} */
+    /** @return array<string,mixed> */
+    private function buildGscCharts(array &$analysis): array
+    {
+        $trend = $this->gscTrendForChart($analysis['trend'] ?? []);
+        $analysis['trend']['display_granularity'] = $trend['granularity'];
+        $devices = array_values(array_slice($analysis['devices'] ?? [], 0, 5));
+        $countries = array_values(array_slice($analysis['countries'] ?? [], 0, 8));
+        $surfaces = array_values(array_slice($analysis['surfaces'] ?? [], 0, 6));
+
+        return [
+            'trend' => [
+                'chart' => ['type' => 'area', 'height' => 330, 'toolbar' => ['show' => false], 'zoom' => ['enabled' => false], 'fontFamily' => 'Outfit, sans-serif'],
+                'series' => [
+                    ['name' => __('website_gsc.clicks'), 'data' => $trend['clicks']],
+                    ['name' => __('website_gsc.impressions'), 'data' => $trend['impressions']],
+                ],
+                'xaxis' => [
+                    'categories' => $trend['labels'],
+                    'tickAmount' => min(6, max(1, count($trend['labels']) - 1)),
+                    'labels' => ['rotate' => 0, 'hideOverlappingLabels' => true],
+                    'axisBorder' => ['show' => false],
+                    'axisTicks' => ['show' => false],
+                ],
+                'yaxis' => [
+                    ['seriesName' => __('website_gsc.clicks'), 'min' => 0, 'forceNiceScale' => true],
+                    ['seriesName' => __('website_gsc.impressions'), 'opposite' => true, 'min' => 0, 'forceNiceScale' => true],
+                ],
+                'stroke' => ['curve' => 'smooth', 'width' => [2.5, 2]],
+                'fill' => ['type' => 'gradient', 'gradient' => ['shadeIntensity' => 1, 'opacityFrom' => 0.22, 'opacityTo' => 0.02, 'stops' => [0, 90, 100]]],
+                'colors' => ['#465fff', '#12b76a'],
+                'markers' => ['size' => 0, 'hover' => ['sizeOffset' => 4]],
+                'dataLabels' => ['enabled' => false],
+                'legend' => ['position' => 'top', 'horizontalAlign' => 'right'],
+                'tooltip' => ['shared' => true, 'intersect' => false],
+                'grid' => ['strokeDashArray' => 4, 'borderColor' => '#eaecf0'],
+            ],
+            'devices' => [
+                'chart' => ['type' => 'donut', 'height' => 270, 'fontFamily' => 'Outfit, sans-serif'],
+                'series' => array_map(static fn (array $row): int => (int) ($row['clicks'] ?? 0), $devices),
+                'labels' => array_map(fn (array $row): string => $this->gscDeviceLabel($row['device'] ?? null), $devices),
+                'colors' => ['#465fff', '#9cb9ff', '#12b76a', '#f79009', '#7a5af8'],
+                'dataLabels' => ['enabled' => false],
+                'legend' => ['position' => 'bottom', 'fontSize' => '12px'],
+                'stroke' => ['width' => 3, 'colors' => ['#ffffff']],
+                'plotOptions' => ['pie' => ['donut' => ['size' => '70%']]],
+            ],
+            'countries' => [
+                'chart' => ['type' => 'bar', 'height' => 290, 'toolbar' => ['show' => false], 'fontFamily' => 'Outfit, sans-serif'],
+                'series' => [[
+                    'name' => __('website_gsc.clicks'),
+                    'data' => array_map(static fn (array $row): int => (int) ($row['clicks'] ?? 0), $countries),
+                ]],
+                'xaxis' => [
+                    'categories' => array_map(static fn (array $row): string => mb_strtoupper((string) ($row['country'] ?? '—')), $countries),
+                    'axisBorder' => ['show' => false],
+                    'axisTicks' => ['show' => false],
+                ],
+                'plotOptions' => ['bar' => ['horizontal' => true, 'borderRadius' => 5, 'barHeight' => '58%']],
+                'colors' => ['#465fff'],
+                'dataLabels' => ['enabled' => false],
+                'grid' => ['strokeDashArray' => 4, 'borderColor' => '#eaecf0'],
+                'legend' => ['show' => false],
+            ],
+            'surfaces' => [
+                'chart' => ['type' => 'donut', 'height' => 270, 'fontFamily' => 'Outfit, sans-serif'],
+                'series' => array_map(static fn (array $row): int => (int) ($row['clicks'] ?? 0), $surfaces),
+                'labels' => array_map(fn (array $row): string => $this->gscSurfaceLabel($row['search_type'] ?? null), $surfaces),
+                'colors' => ['#465fff', '#12b76a', '#f79009', '#7a5af8', '#0ba5ec', '#667085'],
+                'dataLabels' => ['enabled' => false],
+                'legend' => ['position' => 'bottom', 'fontSize' => '12px'],
+                'stroke' => ['width' => 3, 'colors' => ['#ffffff']],
+                'plotOptions' => ['pie' => ['donut' => ['size' => '70%']]],
+            ],
+        ];
+    }
+
+    /** @return array{labels:list<string>,sessions:list<int>,views:list<int>,granularity:string} */
     private function ga4TrendForChart(array $trend): array
     {
         $labels = array_values($trend['labels'] ?? []);
@@ -341,6 +440,39 @@ class OverviewPage extends Component
             'labels' => array_map(fn (string $date): string => $this->shortDateLabel($date), array_keys($weeks)),
             'sessions' => array_values(array_map(static fn (array $week): int => $week['sessions'], $weeks)),
             'views' => array_values(array_map(static fn (array $week): int => $week['views'], $weeks)),
+            'granularity' => 'weekly',
+        ];
+    }
+
+    /** @return array{labels:list<string>,clicks:list<int>,impressions:list<int>,granularity:string} */
+    private function gscTrendForChart(array $trend): array
+    {
+        $labels = array_values($trend['labels'] ?? []);
+        $clicks = array_values($trend['clicks'] ?? []);
+        $impressions = array_values($trend['impressions'] ?? []);
+
+        if (count($labels) <= 45) {
+            return [
+                'labels' => array_map(fn (string $date): string => $this->shortDateLabel($date), $labels),
+                'clicks' => array_map('intval', $clicks),
+                'impressions' => array_map('intval', $impressions),
+                'granularity' => 'daily',
+            ];
+        }
+
+        $weeks = [];
+        foreach ($labels as $index => $date) {
+            $weekStart = CarbonImmutable::parse($date)->startOfWeek()->toDateString();
+            $weeks[$weekStart] ??= ['clicks' => 0, 'impressions' => 0];
+            $weeks[$weekStart]['clicks'] += (int) ($clicks[$index] ?? 0);
+            $weeks[$weekStart]['impressions'] += (int) ($impressions[$index] ?? 0);
+        }
+        ksort($weeks);
+
+        return [
+            'labels' => array_map(fn (string $date): string => $this->shortDateLabel($date), array_keys($weeks)),
+            'clicks' => array_values(array_map(static fn (array $week): int => $week['clicks'], $weeks)),
+            'impressions' => array_values(array_map(static fn (array $week): int => $week['impressions'], $weeks)),
             'granularity' => 'weekly',
         ];
     }
@@ -385,6 +517,29 @@ class OverviewPage extends Component
             'mobile' => __('website_ga4.device_mobile'),
             'desktop' => __('website_ga4.device_desktop'),
             'tablet' => __('website_ga4.device_tablet'),
+            default => $label ?: '—',
+        };
+    }
+
+    private function gscDeviceLabel(?string $label): string
+    {
+        return match (mb_strtolower((string) $label)) {
+            'mobile' => __('website_gsc.device_mobile'),
+            'desktop' => __('website_gsc.device_desktop'),
+            'tablet' => __('website_gsc.device_tablet'),
+            default => $label ?: '—',
+        };
+    }
+
+    private function gscSurfaceLabel(?string $label): string
+    {
+        return match ((string) $label) {
+            'web' => __('website_gsc.surface_web'),
+            'image' => __('website_gsc.surface_image'),
+            'video' => __('website_gsc.surface_video'),
+            'news' => __('website_gsc.surface_news'),
+            'discover' => __('website_gsc.surface_discover'),
+            'googleNews' => __('website_gsc.surface_google_news'),
             default => $label ?: '—',
         };
     }
