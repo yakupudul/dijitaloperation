@@ -15,6 +15,15 @@ use Livewire\Component;
 
 class Ga4CollectionMonitor extends Component
 {
+    private const CENTRAL_INTENTS = [
+        'ga4_central_initial',
+        'ga4_central_restatement',
+        'ga4_central_update',
+        'ga4_central_repair',
+        'ga4_central_resume',
+        'ga4_central_smart',
+    ];
+
     public ?string $actionMessage = null;
 
     public function stopRun(int $runId, CancellationService $cancellation): void
@@ -80,7 +89,7 @@ class Ga4CollectionMonitor extends Component
 
         $runs = CollectionRun::query()
             ->where('metadata->collection_scope', 'provider_resource_first')
-            ->whereIn('metadata->collection_intent', ['ga4_central_initial', 'ga4_central_restatement'])
+            ->whereIn('metadata->collection_intent', self::CENTRAL_INTENTS)
             ->where('request_context->context->google_integration_id', (int) $integration->id)
             ->whereIn('status', $activeStatuses)
             ->with([
@@ -136,7 +145,7 @@ class Ga4CollectionMonitor extends Component
     private function runBelongsToIntegration(CollectionRun $run, CoreIntegration $integration): bool
     {
         return data_get($run->metadata, 'collection_scope') === 'provider_resource_first'
-            && in_array(data_get($run->metadata, 'collection_intent'), ['ga4_central_initial', 'ga4_central_restatement'], true)
+            && in_array(data_get($run->metadata, 'collection_intent'), self::CENTRAL_INTENTS, true)
             && (int) data_get($run->request_context, 'context.google_integration_id') === (int) $integration->id;
     }
 
