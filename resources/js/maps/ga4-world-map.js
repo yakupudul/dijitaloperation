@@ -1,11 +1,8 @@
 const VECTOR_CORE_URL = 'https://cdn.jsdelivr.net/npm/jsvectormap@1.7.0/dist/jsvectormap.min.js';
 const VECTOR_WORLD_URL = 'https://cdn.jsdelivr.net/npm/jsvectormap@1.7.0/dist/maps/world.js';
 const VECTOR_CSS_URL = 'https://cdn.jsdelivr.net/npm/jsvectormap@1.7.0/dist/jsvectormap.min.css';
-const CITY_DATA_URL = 'https://cdn.jsdelivr.net/gh/joelacus/world-cities@main/world_cities_15000.json';
 
-const instances = new WeakMap();
 let libraryPromise = null;
-let cityIndexPromise = null;
 
 function normalize(value) {
     return String(value || '')
@@ -18,55 +15,55 @@ function normalize(value) {
 
 function labels() {
     const tr = String(document.documentElement.lang || '').toLowerCase().startsWith('tr');
+
     return tr ? {
-        title: 'Ziyaretçilerin dünya üzerindeki dağılımı',
-        hint: 'Mavi alanlar ülke yoğunluğunu, turuncu noktalar şehir yoğunluğunu gösterir.',
-        country: 'Ülke yoğunluğu',
-        city: 'Şehir yoğunluğu',
+        title: 'Ziyaretçilerin ülkeleri',
+        hint: 'Seçilen dönemde web sitesi ziyaretlerinin ülkelere göre dağılımı. Mavi koyulaştıkça ziyaret yoğunluğu artar.',
         visit: 'ziyaret',
+        share: 'gösterilen ülke trafiğindeki pay',
         loading: 'Harita hazırlanıyor…',
-        failed: 'Harita yüklenemedi. Mevcut ülke ve şehir listeleri kullanılabilir.',
-        noData: 'Seçilen dönemde konum verisi yok.',
-        mapped: '{mapped}/{total} şehir haritada gösterildi.',
-        allMapped: '{count} şehir haritada gösterildi.',
-        countryOnly: 'Seçilen dönem için ülke yoğunluğu gösteriliyor.',
-        attribution: 'Şehir koordinatları: GeoNames tabanlı world-cities (CC BY 4.0)',
+        ready: 'Ülke yoğunluğu seçilen tarih aralığına göre gösteriliyor.',
+        failed: 'Harita yüklenemedi. Ülke listesi kullanılabilir.',
+        noData: 'Seçilen dönemde ülke verisi yok.',
     } : {
-        title: 'Where visitors are located around the world',
-        hint: 'Blue regions show country intensity; orange bubbles show city intensity.',
-        country: 'Country intensity',
-        city: 'City intensity',
+        title: 'Visitor countries',
+        hint: 'Distribution of website visits by country for the selected period. Darker blue means higher visit intensity.',
         visit: 'visits',
+        share: 'share of displayed country traffic',
         loading: 'Preparing map…',
-        failed: 'The map could not be loaded. Existing country and city lists remain available.',
-        noData: 'No location data for the selected period.',
-        mapped: '{mapped}/{total} cities shown on the map.',
-        allMapped: '{count} cities shown on the map.',
-        countryOnly: 'Country intensity is shown for the selected period.',
-        attribution: 'City coordinates: GeoNames-based world-cities (CC BY 4.0)',
+        ready: 'Country intensity reflects the selected date range.',
+        failed: 'The map could not be loaded. The country list remains available.',
+        noData: 'No country data for the selected period.',
     };
 }
 
 function addCss(url) {
-    if (document.querySelector(`link[data-ga4-world-css="${url}"]`)) return;
+    if (document.querySelector(`link[data-ga4-tailadmin-map-css="${url}"]`)) return;
+
     const link = document.createElement('link');
     link.rel = 'stylesheet';
     link.href = url;
-    link.dataset.ga4WorldCss = url;
+    link.dataset.ga4TailadminMapCss = url;
     document.head.appendChild(link);
 }
 
 function addScript(url, ready = null) {
     if (ready?.()) return Promise.resolve();
 
-    const existing = document.querySelector(`script[data-ga4-world-script="${url}"]`);
+    const existing = document.querySelector(`script[data-ga4-tailadmin-map-script="${url}"]`);
     if (existing?.dataset.loaded === 'true') {
-        return !ready || ready() ? Promise.resolve() : Promise.reject(new Error(`Expected API missing after ${url}`));
+        return !ready || ready()
+            ? Promise.resolve()
+            : Promise.reject(new Error(`Expected API missing after ${url}`));
     }
 
     if (existing) {
         return new Promise((resolve, reject) => {
-            existing.addEventListener('load', () => (!ready || ready()) ? resolve() : reject(new Error(`Expected API missing after ${url}`)), { once: true });
+            existing.addEventListener('load', () => {
+                (!ready || ready())
+                    ? resolve()
+                    : reject(new Error(`Expected API missing after ${url}`));
+            }, { once: true });
             existing.addEventListener('error', reject, { once: true });
         });
     }
@@ -75,56 +72,40 @@ function addScript(url, ready = null) {
         const script = document.createElement('script');
         script.src = url;
         script.async = true;
-        script.dataset.ga4WorldScript = url;
+        script.dataset.ga4TailadminMapScript = url;
         script.addEventListener('load', () => {
             script.dataset.loaded = 'true';
-            (!ready || ready()) ? resolve() : reject(new Error(`Expected API missing after ${url}`));
+            (!ready || ready())
+                ? resolve()
+                : reject(new Error(`Expected API missing after ${url}`));
         }, { once: true });
         script.addEventListener('error', () => reject(new Error(`Could not load ${url}`)), { once: true });
         document.head.appendChild(script);
     });
 }
 
-function constructor() {
+function vectorConstructor() {
     return window.jsVectorMap || window.JsVectorMap || null;
 }
 
 function ensureLibrary() {
     if (libraryPromise) return libraryPromise;
+
     libraryPromise = (async () => {
         addCss(VECTOR_CSS_URL);
-        await addScript(VECTOR_CORE_URL, () => Boolean(constructor()));
+        await addScript(VECTOR_CORE_URL, () => Boolean(vectorConstructor()));
         await addScript(VECTOR_WORLD_URL);
-        return constructor();
+
+        const Constructor = vectorConstructor();
+        if (!Constructor) throw new Error('jsVectorMap is unavailable.');
+
+        return Constructor;
     })();
+
     return libraryPromise;
 }
 
-function cityIndex() {
-    if (cityIndexPromise) return cityIndexPromise;
-    cityIndexPromise = fetch(CITY_DATA_URL, { cache: 'force-cache' })
-        .then((response) => {
-            if (!response.ok) throw new Error(`City dataset HTTP ${response.status}`);
-            return response.json();
-        })
-        .then((rows) => {
-            const byName = new Map();
-            (Array.isArray(rows) ? rows : []).forEach((row) => {
-                const key = normalize(row.name);
-                const country = String(row.country || '').toUpperCase();
-                const lat = Number(row.lat);
-                const lng = Number(row.lng);
-                if (!key || !country || !Number.isFinite(lat) || !Number.isFinite(lng)) return;
-                const list = byName.get(key) || [];
-                list.push({ country, lat, lng });
-                byName.set(key, list);
-            });
-            return byName;
-        });
-    return cityIndexPromise;
-}
-
-function parseExistingData(analysis) {
+function parseCountryData(analysis) {
     const countryChart = analysis.querySelector('[aria-label="Visitor countries"][data-chart]');
     if (!countryChart) return null;
 
@@ -135,263 +116,276 @@ function parseExistingData(analysis) {
         return null;
     }
 
-    const names = options?.xaxis?.categories || [];
-    const values = options?.series?.[0]?.data || [];
+    const names = Array.isArray(options?.xaxis?.categories) ? options.xaxis.categories : [];
+    const values = Array.isArray(options?.series?.[0]?.data) ? options.series[0].data : [];
     const countries = names.map((name, index) => ({
         name: String(name || '').trim(),
         sessions: Number(values[index] || 0),
     })).filter((row) => row.name && row.sessions > 0);
 
     const countrySection = countryChart.closest('section');
-    const grid = countrySection?.parentElement;
-    const cityCard = grid?.nextElementSibling || null;
-    const cityGrid = cityCard?.querySelector('.grid');
-    const cities = cityGrid ? Array.from(cityGrid.children).map((row) => ({
-        name: row.querySelector('span')?.textContent?.trim() || '',
-        sessions: Number((row.querySelector('strong')?.textContent || '0').replace(/[^0-9-]/g, '')) || 0,
-    })).filter((row) => row.name && row.sessions > 0) : [];
+    if (!countrySection) return null;
 
-    return { countries, cities, countryChart, countrySection };
+    const audienceGrid = countrySection.parentElement;
+    const possibleCityCard = audienceGrid?.nextElementSibling || null;
+    const cityCard = possibleCityCard?.querySelector('.grid strong') ? possibleCityCard : null;
+
+    return {
+        countries,
+        countryChart,
+        countrySection,
+        cityCard,
+        signature: JSON.stringify(countries),
+    };
 }
 
 function countryCodeIndex(mapData) {
     const index = new Map();
+
     Object.entries(mapData?.paths || {}).forEach(([code, meta]) => {
         const key = normalize(meta?.name);
         if (key) index.set(key, String(code).toUpperCase());
     });
 
     const aliases = {
-        turkiye: 'TR', turkey: 'TR',
-        unitedstates: 'US', unitedstatesofamerica: 'US', usa: 'US',
-        unitedkingdom: 'GB', greatbritain: 'GB', uk: 'GB',
-        russia: 'RU', russianfederation: 'RU',
-        southkorea: 'KR', northkorea: 'KP',
-        czechia: 'CZ', czechrepublic: 'CZ',
-        vietnam: 'VN', iran: 'IR', syria: 'SY', laos: 'LA',
-        bolivia: 'BO', venezuela: 'VE', tanzania: 'TZ', moldova: 'MD', brunei: 'BN',
-        northmacedonia: 'MK', macedonia: 'MK',
-        ivorycoast: 'CI', cotedivoire: 'CI',
-        democraticrepublicofthecongo: 'CD', drcongo: 'CD',
+        turkiye: 'TR',
+        turkey: 'TR',
+        unitedstates: 'US',
+        unitedstatesofamerica: 'US',
+        usa: 'US',
+        unitedkingdom: 'GB',
+        greatbritain: 'GB',
+        uk: 'GB',
+        russia: 'RU',
+        russianfederation: 'RU',
+        southkorea: 'KR',
+        northkorea: 'KP',
+        czechia: 'CZ',
+        czechrepublic: 'CZ',
+        vietnam: 'VN',
+        iran: 'IR',
+        syria: 'SY',
+        laos: 'LA',
+        bolivia: 'BO',
+        venezuela: 'VE',
+        tanzania: 'TZ',
+        moldova: 'MD',
+        brunei: 'BN',
+        northmacedonia: 'MK',
+        macedonia: 'MK',
+        ivorycoast: 'CI',
+        cotedivoire: 'CI',
+        democraticrepublicofthecongo: 'CD',
+        drcongo: 'CD',
         republicofthecongo: 'CG',
-        palestine: 'PS', palestinianterritories: 'PS',
-        taiwan: 'TW', hongkong: 'HK', macau: 'MO', macao: 'MO',
+        palestine: 'PS',
+        palestinianterritories: 'PS',
+        taiwan: 'TW',
+        hongkong: 'HK',
+        macau: 'MO',
+        macao: 'MO',
     };
+
     Object.entries(aliases).forEach(([name, code]) => index.set(name, code));
+
     return index;
 }
 
-function interpolateBlue(ratio) {
-    const from = [219, 234, 254];
-    const to = [29, 78, 216];
+function tailAdminBlue(ratio) {
+    const from = [221, 227, 255];
+    const to = [70, 95, 255];
     const value = Math.max(0, Math.min(1, ratio));
-    const rgb = from.map((start, i) => Math.round(start + ((to[i] - start) * value)));
+    const rgb = from.map((start, index) => Math.round(start + ((to[index] - start) * value)));
+
     return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
 }
 
-function applyCountryIntensity(map, rawCountries) {
+function shadeCountries(map, countries) {
     const codes = countryCodeIndex(map.mapData);
-    const resolved = [];
-
-    rawCountries.forEach((country) => {
-        const code = codes.get(normalize(country.name));
-        if (!code || !map.regions?.[code]) return;
-        resolved.push({ ...country, code });
-    });
-
-    const values = resolved.map((row) => Number(row.sessions || 0));
-    const min = Math.min(...values, 0);
-    const max = Math.max(...values, 1);
-    const total = Math.max(1, values.reduce((sum, value) => sum + value, 0));
+    const maxSessions = Math.max(1, ...countries.map((country) => Number(country.sessions || 0)));
+    const totalSessions = Math.max(1, countries.reduce((sum, country) => sum + Number(country.sessions || 0), 0));
     const lookup = new Map();
 
-    resolved.forEach((country) => {
+    countries.forEach((country) => {
+        const code = codes.get(normalize(country.name));
+        if (!code || !map.regions?.[code]) return;
+
         const sessions = Number(country.sessions || 0);
-        const ratio = max === min ? 1 : (sessions - min) / (max - min);
-        map.regions[country.code].element.setStyle('fill', interpolateBlue(ratio));
-        lookup.set(country.code, {
+        const ratio = Math.sqrt(Math.max(0, sessions) / maxSessions);
+        map.regions[code].element.setStyle('fill', tailAdminBlue(ratio));
+        lookup.set(code, {
             ...country,
-            share: Math.round((sessions / total) * 1000) / 10,
+            share: (sessions / totalSessions) * 100,
         });
     });
 
-    return { lookup, allowedCodes: new Set(resolved.map((row) => row.code)) };
+    return lookup;
 }
 
-function resolveCity(city, index, allowedCodes) {
-    const candidates = (index.get(normalize(city.name)) || []).filter((candidate) => !allowedCodes.size || allowedCodes.has(candidate.country));
-    return candidates.length === 1 ? candidates[0] : null;
+function destroyGenerated(section) {
+    const mapHost = section.querySelector('[data-ga4-tailadmin-map]');
+    if (mapHost?.__ga4TailAdminMap) {
+        try {
+            mapHost.__ga4TailAdminMap.destroy?.();
+        } catch (_) {
+            // A Livewire morph may already have removed part of the SVG tree.
+        }
+    }
+
+    section.querySelectorAll('[data-ga4-tailadmin-generated]').forEach((node) => node.remove());
+    delete section.dataset.ga4TailadminSignature;
 }
 
-function markerColor(ratio) {
-    if (ratio >= 0.75) return '#c2410c';
-    if (ratio >= 0.5) return '#ea580c';
-    if (ratio >= 0.25) return '#f97316';
-    if (ratio >= 0.1) return '#fb923c';
-    return '#fdba74';
-}
+function createTailAdminChrome(data, text) {
+    const { countrySection, countryChart, cityCard, countries } = data;
 
-function buildMarkers(cities, index, allowedCodes) {
-    const max = Math.max(1, ...cities.map((city) => Number(city.sessions || 0)));
-    return cities.map((city) => {
-        const location = resolveCity(city, index, allowedCodes);
-        if (!location) return null;
-        const sessions = Number(city.sessions || 0);
-        const ratio = Math.max(0, Math.min(1, sessions / max));
-        return {
-            name: city.name,
-            coords: [location.lat, location.lng],
-            sessions,
-            style: {
-                initial: {
-                    fill: markerColor(ratio),
-                    stroke: '#ffffff',
-                    'stroke-width': 1.5,
-                    r: Math.round((4 + Math.sqrt(ratio) * 8) * 10) / 10,
-                },
-                hover: { fill: '#9a3412', stroke: '#ffffff', 'stroke-width': 2 },
-            },
-        };
-    }).filter(Boolean);
-}
+    destroyGenerated(countrySection);
+    countryChart.classList.add('hidden');
+    if (cityCard) cityCard.classList.add('hidden');
 
-function setStatus(section, text) {
-    const target = section.querySelector('[data-ga4-world-status]');
-    if (target) target.textContent = text;
-}
-
-function createChrome(data, text) {
-    const section = data.countrySection;
-    if (!section || section.dataset.ga4WorldEnhanced === 'true') return null;
-    section.dataset.ga4WorldEnhanced = 'true';
-
-    const heading = section.querySelector('h4');
+    const heading = countrySection.querySelector('h4');
     if (heading) heading.textContent = text.title;
 
     const hint = document.createElement('p');
+    hint.dataset.ga4TailadminGenerated = 'true';
     hint.className = 'mt-1 text-xs text-gray-400';
     hint.textContent = text.hint;
     heading?.insertAdjacentElement('afterend', hint);
 
-    const legend = document.createElement('div');
-    legend.className = 'mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-500 dark:text-gray-400';
-    legend.innerHTML = `
-        <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-blue-600"></span>${text.country}</span>
-        <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-orange-500 ring-2 ring-orange-100 dark:ring-orange-900/30"></span>${text.city}</span>
-    `;
-    hint.insertAdjacentElement('afterend', legend);
+    const mapWrapper = document.createElement('div');
+    mapWrapper.dataset.ga4TailadminGenerated = 'true';
+    mapWrapper.className = 'my-5 overflow-hidden rounded-2xl border border-gray-200 bg-gray-50 px-4 py-6 dark:border-gray-800 dark:bg-gray-900 sm:px-6';
 
-    const map = document.createElement('div');
-    map.className = 'mt-3 min-h-[360px] w-full overflow-hidden rounded-xl bg-gray-50/60 dark:bg-white/[0.02]';
-    map.style.height = '390px';
-    legend.insertAdjacentElement('afterend', map);
+    const mapHost = document.createElement('div');
+    mapHost.dataset.ga4TailadminMap = 'true';
+    mapHost.className = 'mapOne map-btn -mx-4 -my-6 h-[240px] w-[calc(100%+2rem)] sm:-mx-6 sm:w-[calc(100%+3rem)]';
+    mapWrapper.appendChild(mapHost);
+    hint.insertAdjacentElement('afterend', mapWrapper);
 
-    const footer = document.createElement('div');
-    footer.className = 'mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-gray-400';
-    footer.innerHTML = `<span data-ga4-world-status>${text.loading}</span><span>${text.attribution}</span>`;
-    map.insertAdjacentElement('afterend', footer);
+    const countryList = document.createElement('div');
+    countryList.dataset.ga4TailadminGenerated = 'true';
+    countryList.className = 'space-y-4';
 
-    return map;
+    const displayedTotal = Math.max(1, countries.reduce((sum, country) => sum + Number(country.sessions || 0), 0));
+    countries.slice(0, 6).forEach((country) => {
+        const sessions = Number(country.sessions || 0);
+        const percentage = Math.max(0, Math.min(100, (sessions / displayedTotal) * 100));
+        const row = document.createElement('div');
+        row.className = 'flex items-center justify-between gap-4';
+        row.innerHTML = `
+            <div class="min-w-0">
+                <p class="truncate text-sm font-semibold text-gray-800 dark:text-white/90"></p>
+                <span class="mt-0.5 block text-xs text-gray-500 dark:text-gray-400"></span>
+            </div>
+            <div class="flex w-full max-w-[170px] items-center gap-3">
+                <div class="relative block h-2 w-full max-w-[120px] rounded-sm bg-gray-200 dark:bg-gray-800">
+                    <div class="absolute left-0 top-0 h-full rounded-sm bg-brand-500" style="width:${percentage.toFixed(1)}%"></div>
+                </div>
+                <p class="w-11 text-right text-sm font-medium tabular-nums text-gray-800 dark:text-white/90">${percentage.toFixed(1)}%</p>
+            </div>
+        `;
+        row.querySelector('p').textContent = country.name;
+        row.querySelector('span').textContent = `${sessions.toLocaleString()} ${text.visit}`;
+        countryList.appendChild(row);
+    });
+    mapWrapper.insertAdjacentElement('afterend', countryList);
+
+    const status = document.createElement('p');
+    status.dataset.ga4TailadminGenerated = 'true';
+    status.dataset.ga4TailadminStatus = 'true';
+    status.className = 'mt-3 text-[11px] text-gray-400';
+    status.textContent = countries.length ? text.loading : text.noData;
+    countryList.insertAdjacentElement('afterend', status);
+
+    countrySection.dataset.ga4TailadminSignature = data.signature;
+
+    return { mapHost, status };
 }
 
-async function mount(data) {
+async function mountTailAdminMap(data) {
     const text = labels();
-    const host = createChrome(data, text);
-    if (!host) return;
+    const { mapHost, status } = createTailAdminChrome(data, text);
 
-    if (!data.countries.length && !data.cities.length) {
-        setStatus(data.countrySection, text.noData);
+    if (!data.countries.length) {
+        status.textContent = text.noData;
         return;
     }
 
     let Constructor;
-    let cities;
     try {
-        const results = await Promise.allSettled([ensureLibrary(), cityIndex()]);
-        if (results[0].status !== 'fulfilled') throw results[0].reason;
-        Constructor = results[0].value;
-        cities = results[1].status === 'fulfilled' ? results[1].value : new Map();
+        Constructor = await ensureLibrary();
     } catch (_) {
-        setStatus(data.countrySection, text.failed);
+        status.textContent = text.failed;
         return;
     }
 
-    const countryTooltip = new Map();
-    let markers = [];
-    let map;
+    let countryLookup = new Map();
 
     try {
-        map = new Constructor({
-            selector: host,
+        const map = new Constructor({
+            selector: mapHost,
             map: 'world',
-            backgroundColor: 'transparent',
             zoomButtons: false,
-            zoomOnScroll: false,
-            draggable: true,
             regionStyle: {
                 initial: {
-                    fill: document.documentElement.classList.contains('dark') ? '#344054' : '#e4e7ec',
-                    stroke: document.documentElement.classList.contains('dark') ? '#101828' : '#ffffff',
-                    'stroke-width': 0.7,
+                    fontFamily: 'Outfit',
+                    fill: '#D9D9D9',
                 },
-                hover: { fill: '#2563eb', 'fill-opacity': 0.94, cursor: 'pointer' },
-            },
-            markerStyle: {
-                initial: { fill: '#f97316', stroke: '#ffffff', 'stroke-width': 1.5, r: 5 },
-                hover: { fill: '#c2410c', stroke: '#ffffff', 'stroke-width': 2 },
+                hover: {
+                    fillOpacity: 1,
+                    fill: '#465fff',
+                },
             },
             onRegionTooltipShow(event, tooltip, code) {
-                const country = countryTooltip.get(String(code || '').toUpperCase());
+                const country = countryLookup.get(String(code || '').toUpperCase());
                 if (!country) return;
-                tooltip.text(`${country.name} · ${Number(country.sessions).toLocaleString()} ${text.visit} · ${Number(country.share).toLocaleString(undefined, { maximumFractionDigits: 1 })}%`);
-            },
-            onMarkerTooltipShow(event, tooltip, index) {
-                const marker = markers[Number(index)];
-                if (!marker) return;
-                tooltip.text(`${marker.name} · ${Number(marker.sessions).toLocaleString()} ${text.visit}`);
+
+                tooltip.text(
+                    `${country.name} · ${Number(country.sessions || 0).toLocaleString()} ${text.visit} · ${Number(country.share || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}% ${text.share}`,
+                );
             },
         });
+
+        mapHost.__ga4TailAdminMap = map;
+        countryLookup = shadeCountries(map, data.countries);
+        status.textContent = text.ready;
     } catch (_) {
-        setStatus(data.countrySection, text.failed);
-        return;
-    }
-
-    const countryResult = applyCountryIntensity(map, data.countries);
-    countryResult.lookup.forEach((value, key) => countryTooltip.set(key, value));
-    markers = buildMarkers(data.cities, cities, countryResult.allowedCodes);
-    if (markers.length) map.addMarkers(markers);
-
-    instances.set(host, map);
-    data.countryChart.classList.add('hidden');
-
-    if (data.cities.length && markers.length < data.cities.length) {
-        setStatus(data.countrySection, text.mapped.replace('{mapped}', String(markers.length)).replace('{total}', String(data.cities.length)));
-    } else if (data.cities.length) {
-        setStatus(data.countrySection, text.allMapped.replace('{count}', String(markers.length)));
-    } else {
-        setStatus(data.countrySection, text.countryOnly);
+        status.textContent = text.failed;
     }
 }
 
-function enhance(root = document) {
+function enhanceAnalysis(analysis) {
+    const data = parseCountryData(analysis);
+    if (!data) return;
+
+    const existingMap = data.countrySection.querySelector('[data-ga4-tailadmin-map]');
+    if (existingMap && data.countrySection.dataset.ga4TailadminSignature === data.signature) {
+        data.cityCard?.classList.add('hidden');
+        data.countryChart.classList.add('hidden');
+        return;
+    }
+
+    mountTailAdminMap(data);
+}
+
+function renderGa4CountryMaps(root = document) {
     const scope = root?.querySelectorAll ? root : document;
     const analyses = [];
+
     if (scope.matches?.('[data-website-ga4-analysis]')) analyses.push(scope);
     scope.querySelectorAll?.('[data-website-ga4-analysis]').forEach((analysis) => analyses.push(analysis));
 
-    analyses.forEach((analysis) => {
-        if (analysis.querySelector('[data-ga4-world-status]')) return;
-        const data = parseExistingData(analysis);
-        if (data) mount(data);
-    });
+    analyses.forEach((analysis) => enhanceAnalysis(analysis));
 }
 
-document.addEventListener('DOMContentLoaded', () => enhance());
-document.addEventListener('livewire:navigated', () => enhance());
+document.addEventListener('DOMContentLoaded', () => renderGa4CountryMaps());
+document.addEventListener('livewire:navigated', () => renderGa4CountryMaps());
 document.addEventListener('livewire:init', () => {
     if (window.Livewire?.hook) {
-        window.Livewire.hook('morph.updated', ({ el }) => enhance(el));
+        window.Livewire.hook('morph.updated', ({ el }) => renderGa4CountryMaps(el));
     }
 });
 
-window.MoxDopGa4WorldMap = { refresh: () => enhance() };
+window.MoxDopGa4CountryMap = {
+    refresh: () => renderGa4CountryMaps(),
+};
