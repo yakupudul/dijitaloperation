@@ -29,6 +29,7 @@ return new class extends Migration
         }
 
         $this->createCentralIndexes();
+        $this->createSitemapCentralIndex();
 
         $this->createCrossDimensionTable('gsc_page_device_daily', ['page', 'device'], 'gsc_pg_dev_res_nk');
         $this->createCrossDimensionTable('gsc_page_country_daily', ['page', 'country'], 'gsc_pg_cty_res_nk');
@@ -47,6 +48,21 @@ return new class extends Migration
             'gsc_page_device_daily',
         ] as $table) {
             Schema::dropIfExists($table);
+        }
+
+        if (Schema::getConnection()->getDriverName() === 'pgsql') {
+            foreach ([
+                'gsc_prop_res_st_nk', 'gsc_prop_res_st_nk_date',
+                'gsc_query_res_st_nk', 'gsc_query_res_st_nk_date',
+                'gsc_page_res_st_nk', 'gsc_page_res_st_nk_date',
+                'gsc_qp_res_st_nk', 'gsc_qp_res_st_nk_date',
+                'gsc_dev_res_st_nk', 'gsc_dev_res_st_nk_date',
+                'gsc_cty_res_st_nk', 'gsc_cty_res_st_nk_date',
+                'gsc_sa_res_st_nk', 'gsc_sa_res_st_nk_date',
+                'gsc_smap_res_nk', 'gsc_smap_res_idx',
+            ] as $index) {
+                DB::statement("DROP INDEX IF EXISTS {$index}");
+            }
         }
 
         foreach ($this->searchTypeTables as $table) {
@@ -88,6 +104,26 @@ return new class extends Migration
                 $blueprint->index(['external_resource_id', 'reporting_date'], $name.'_date');
             });
         }
+    }
+
+    private function createSitemapCentralIndex(): void
+    {
+        if (! Schema::hasTable('gsc_sitemap_snapshot')) {
+            return;
+        }
+
+        $columns = ['external_resource_id', 'site_url', 'sitemap_path', 'retrieved_at'];
+        if (Schema::getConnection()->getDriverName() === 'pgsql') {
+            DB::statement('CREATE UNIQUE INDEX IF NOT EXISTS gsc_smap_res_nk ON gsc_sitemap_snapshot (external_resource_id, site_url, sitemap_path, retrieved_at)');
+            DB::statement('CREATE INDEX IF NOT EXISTS gsc_smap_res_idx ON gsc_sitemap_snapshot (external_resource_id)');
+
+            return;
+        }
+
+        Schema::table('gsc_sitemap_snapshot', function (Blueprint $blueprint) use ($columns): void {
+            $blueprint->unique($columns, 'gsc_smap_res_nk');
+            $blueprint->index(['external_resource_id'], 'gsc_smap_res_idx');
+        });
     }
 
     /** @param list<string> $dimensions */
