@@ -115,17 +115,18 @@ final class DataPoolStorageRegistry
             $this->dispositionByDataset[$row['logical_dataset_id']] = $row;
         }
 
-        $this->applyGa4CentralOverlay();
+        $this->applyProviderOverlay('moxdop-ga4-central', 'GA4_CENTRAL_RESOURCE_FIRST_V1');
+        $this->applyProviderOverlay('moxdop-gsc-central', 'GSC_CENTRAL_RESOURCE_FIRST_V1');
     }
 
-    private function applyGa4CentralOverlay(): void
+    private function applyProviderOverlay(string $configKey, string $overlayId): void
     {
         /** @var array<string, list<string>> $naturalKeys */
-        $naturalKeys = config('moxdop-ga4-central.natural_key_overrides', []);
+        $naturalKeys = config($configKey.'.natural_key_overrides', []);
         /** @var array<string, list<array<string, mixed>>> $columnAdds */
-        $columnAdds = config('moxdop-ga4-central.columns_add', []);
+        $columnAdds = config($configKey.'.columns_add', []);
         /** @var array<string, array<string, mixed>> $additions */
-        $additions = config('moxdop-ga4-central.physical_additions', []);
+        $additions = config($configKey.'.physical_additions', []);
 
         foreach ($naturalKeys as $datasetId => $key) {
             if (isset($this->physicalByDataset[$datasetId])) {
@@ -166,6 +167,9 @@ final class DataPoolStorageRegistry
         // Expose the effective contract to diagnostics without changing the frozen base JSON on disk.
         $this->contract['physical_datasets'] = array_values($this->physicalByDataset);
         $this->contract['dispositions'] = array_values($this->dispositionByDataset);
-        $this->contract['metadata']['runtime_overlays'][] = 'GA4_CENTRAL_RESOURCE_FIRST_V1';
+        $this->contract['metadata']['runtime_overlays'] ??= [];
+        if (! in_array($overlayId, $this->contract['metadata']['runtime_overlays'], true)) {
+            $this->contract['metadata']['runtime_overlays'][] = $overlayId;
+        }
     }
 }
