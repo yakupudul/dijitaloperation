@@ -133,7 +133,10 @@ final class WebsiteSearchConsoleAnalysisService
         $surfaces = $rangeUsable ? $this->searchSurfaces($resourceId, $siteUrl, $rangeStart, $rangeEnd) : [];
         $devices = $rangeUsable ? $this->dimensionPerformance('gsc_device_daily', 'device', $resourceId, $siteUrl, $rangeStart, $rangeEnd, 10, 'clicks') : [];
         $countries = $rangeUsable ? $this->dimensionPerformance('gsc_country_daily', 'country', $resourceId, $siteUrl, $rangeStart, $rangeEnd, 12, 'clicks') : [];
-        $appearances = $rangeUsable ? $this->searchAppearances($resourceId, $siteUrl, $rangeStart, $rangeEnd) : [];
+        $appearanceState = $rangeUsable
+            ? $this->searchAppearances($resourceId, $siteUrl, $rangeStart, $rangeEnd)
+            : ['status' => 'unavailable', 'reason' => 'period_unavailable', 'items' => []];
+        $appearances = $appearanceState['items'];
 
         $cross = $rangeUsable ? [
             'page_device' => $this->crossDimensionPerformance('gsc_page_device_daily', ['page', 'device'], $resourceId, $siteUrl, $rangeStart, $rangeEnd, 30),
@@ -145,6 +148,7 @@ final class WebsiteSearchConsoleAnalysisService
         $sitemaps = $this->sitemaps($resourceId, $siteUrl);
         $inspection = $this->urlInspectionSamples($resourceId, $siteUrl, 20);
         $cannibalization = $rangeUsable ? $this->cannibalizationCandidates($resourceId, $siteUrl, $rangeStart, $rangeEnd) : [];
+        $cannibalizationTotal = $rangeUsable ? $this->cannibalizationCandidateCount($resourceId, $siteUrl, $rangeStart, $rangeEnd) : 0;
         $risks = $this->riskSignals($current, $previous, $pageMovements, $sitemaps, $inspection, $compare);
         $topicClusters = $this->topicClusters($queryCurrent);
 
@@ -195,26 +199,26 @@ final class WebsiteSearchConsoleAnalysisService
                 'lost_queries' => count($queryMovements['lost']),
                 'rising_pages' => count($pageMovements['rising']),
                 'falling_pages' => count($pageMovements['falling']),
-                'opportunity_candidates' => count($opportunities['all']),
-                'cannibalization_candidates' => count($cannibalization),
+                'opportunity_candidates' => (int) ($opportunities['total_count'] ?? 0),
+                'cannibalization_candidates' => $cannibalizationTotal,
                 'risk_signals' => count($risks),
             ],
             'queries' => [
                 'top' => array_slice($this->sortRows($queryCurrent, 'clicks'), 0, 25),
-                'rising' => $queryMovements['rising'],
-                'falling' => $queryMovements['falling'],
-                'new' => $queryMovements['new'],
-                'lost' => $queryMovements['lost'],
+                'rising' => array_slice($queryMovements['rising'], 0, 20),
+                'falling' => array_slice($queryMovements['falling'], 0, 20),
+                'new' => array_slice($queryMovements['new'], 0, 20),
+                'lost' => array_slice($queryMovements['lost'], 0, 20),
                 'position_bands' => $positionBands,
                 'brand_split' => $brandSplit,
                 'topic_clusters' => $topicClusters,
             ],
             'pages' => [
                 'top' => array_slice($this->sortRows($pageCurrent, 'clicks'), 0, 25),
-                'rising' => $pageMovements['rising'],
-                'falling' => $pageMovements['falling'],
-                'new' => $pageMovements['new'],
-                'lost' => $pageMovements['lost'],
+                'rising' => array_slice($pageMovements['rising'], 0, 20),
+                'falling' => array_slice($pageMovements['falling'], 0, 20),
+                'new' => array_slice($pageMovements['new'], 0, 20),
+                'lost' => array_slice($pageMovements['lost'], 0, 20),
                 'content_decay' => $this->contentDecay($pageCurrent, $pagePrevious),
             ],
             'opportunities' => $opportunities,
@@ -224,6 +228,8 @@ final class WebsiteSearchConsoleAnalysisService
             'devices' => $devices,
             'countries' => $countries,
             'search_appearances' => $appearances,
+            'search_appearance_status' => $appearanceState['status'],
+            'search_appearance_reason' => $appearanceState['reason'],
             'cross_dimensions' => $cross,
             'sitemaps' => $sitemaps,
             'index_health' => $this->indexHealth($inspection),
@@ -242,6 +248,13 @@ final class WebsiteSearchConsoleAnalysisService
                 'average_position_is_not_rank_tracker' => true,
                 'brand_classification' => $brandSplit['classification'] ?? 'unavailable',
                 'available_search_types' => array_values(array_map(static fn (array $row): string => (string) $row['search_type'], $surfaces)),
+                'query_rows_analyzed' => count($queryCurrent),
+                'query_row_limit' => 400,
+                'page_rows_analyzed' => count($pageCurrent),
+                'page_row_limit' => 150,
+                'movement_display_limit' => 20,
+                'opportunity_display_limit' => 30,
+                'cannibalization_display_limit' => 12,
             ],
         ];
     }
@@ -272,13 +285,15 @@ final class WebsiteSearchConsoleAnalysisService
             'health_summary' => [],
             'queries' => ['top' => [], 'rising' => [], 'falling' => [], 'new' => [], 'lost' => [], 'position_bands' => [], 'brand_split' => [], 'topic_clusters' => []],
             'pages' => ['top' => [], 'rising' => [], 'falling' => [], 'new' => [], 'lost' => [], 'content_decay' => []],
-            'opportunities' => ['all' => [], 'low_ctr' => [], 'top_10' => [], 'page_two' => [], 'zero_click' => []],
+            'opportunities' => ['all' => [], 'low_ctr' => [], 'top_10' => [], 'page_two' => [], 'zero_click' => [], 'total_count' => 0],
             'risks' => [],
             'cannibalization' => [],
             'surfaces' => [],
             'devices' => [],
             'countries' => [],
             'search_appearances' => [],
+            'search_appearance_status' => 'unavailable',
+            'search_appearance_reason' => 'not_connected',
             'cross_dimensions' => ['page_device' => [], 'page_country' => [], 'query_device' => [], 'query_country' => []],
             'sitemaps' => [],
             'index_health' => ['available' => false, 'total' => 0, 'indexable' => 0, 'issues' => 0, 'canonical_mismatches' => 0],
@@ -448,14 +463,19 @@ final class WebsiteSearchConsoleAnalysisService
         })->all();
     }
 
-    /** @return list<array<string,mixed>> */
+    /** @return array{status:string,reason:?string,items:list<array<string,mixed>>} */
     private function searchAppearances(int $resourceId, string $siteUrl, string $start, string $end): array
     {
         if (! Schema::hasTable('gsc_search_appearance_daily')) {
-            return [];
+            return ['status' => 'unavailable', 'reason' => 'dataset_table_missing', 'items' => []];
         }
 
-        return $this->baseQuery('gsc_search_appearance_daily', $resourceId, $siteUrl, $start, $end, self::DEFAULT_SEARCH_TYPE)
+        $datasetCollected = $this->baseQuery('gsc_search_appearance_daily', $resourceId, $siteUrl, null, null, self::DEFAULT_SEARCH_TYPE)->exists();
+        if (! $datasetCollected) {
+            return ['status' => 'unavailable', 'reason' => 'dataset_not_collected', 'items' => []];
+        }
+
+        $items = $this->baseQuery('gsc_search_appearance_daily', $resourceId, $siteUrl, $start, $end, self::DEFAULT_SEARCH_TYPE)
             ->groupBy('searchAppearance')
             ->selectRaw($this->quote('searchAppearance').' as appearance, COALESCE(SUM(clicks),0) as clicks_sum, COALESCE(SUM(impressions),0) as impressions_sum')
             ->orderByDesc('impressions_sum')
@@ -472,6 +492,12 @@ final class WebsiteSearchConsoleAnalysisService
                     'ctr' => $impressions > 0 ? ($clicks / $impressions) * 100 : null,
                 ];
             })->all();
+
+        return [
+            'status' => $items === [] ? 'empty' : 'available',
+            'reason' => $items === [] ? 'no_rows_in_period' : null,
+            'items' => $items,
+        ];
     }
 
     /** @param list<string> $dimensions
@@ -564,15 +590,15 @@ final class WebsiteSearchConsoleAnalysisService
         usort($lost, static fn (array $a, array $b): int => ($b['impressions'] <=> $a['impressions']));
 
         return [
-            'rising' => array_slice($rising, 0, 20),
-            'falling' => array_slice($falling, 0, 20),
-            'new' => array_slice($new, 0, 20),
-            'lost' => array_slice($lost, 0, 20),
+            'rising' => $rising,
+            'falling' => $falling,
+            'new' => $new,
+            'lost' => $lost,
         ];
     }
 
     /** @param list<array<string,mixed>> $queries
-     *  @return array<string,list<array<string,mixed>>>
+     *  @return array<string,mixed>
      */
     private function opportunities(array $queries): array
     {
@@ -606,18 +632,23 @@ final class WebsiteSearchConsoleAnalysisService
 
         foreach ([$lowCtr, $top10, $pageTwo, $zeroClick] as &$bucket) {
             usort($bucket, static fn (array $a, array $b): int => ($b['impressions'] <=> $a['impressions']));
-            $bucket = array_slice($bucket, 0, 15);
         }
         unset($bucket);
 
-        $all = collect([...$lowCtr, ...$top10, ...$pageTwo, ...$zeroClick])
+        $allCandidates = collect([...$lowCtr, ...$top10, ...$pageTwo, ...$zeroClick])
             ->unique(fn (array $row): string => ($row['query'] ?? '').'|'.($row['opportunity_type'] ?? ''))
             ->sortByDesc('impressions')
-            ->take(30)
-            ->values()
-            ->all();
+            ->values();
+        $totalCount = $allCandidates->count();
 
-        return ['all' => $all, 'low_ctr' => $lowCtr, 'top_10' => $top10, 'page_two' => $pageTwo, 'zero_click' => $zeroClick];
+        return [
+            'all' => $allCandidates->take(30)->all(),
+            'low_ctr' => array_slice($lowCtr, 0, 15),
+            'top_10' => array_slice($top10, 0, 15),
+            'page_two' => array_slice($pageTwo, 0, 15),
+            'zero_click' => array_slice($zeroClick, 0, 15),
+            'total_count' => $totalCount,
+        ];
     }
 
     /** @param list<array<string,mixed>> $queries
@@ -804,6 +835,20 @@ final class WebsiteSearchConsoleAnalysisService
         }
 
         return $results;
+    }
+
+    private function cannibalizationCandidateCount(int $resourceId, string $siteUrl, string $start, string $end): int
+    {
+        if (! Schema::hasTable('gsc_query_page_daily')) {
+            return 0;
+        }
+
+        return $this->baseQuery('gsc_query_page_daily', $resourceId, $siteUrl, $start, $end, self::DEFAULT_SEARCH_TYPE)
+            ->groupBy('query')
+            ->select('query')
+            ->havingRaw('COUNT(DISTINCT page) >= 2')
+            ->get()
+            ->count();
     }
 
     /** @return list<array<string,mixed>> */
