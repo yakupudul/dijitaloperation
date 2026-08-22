@@ -1,6 +1,7 @@
 @php
     $tabs = [
         'overview' => __('operator.website.tabs.overview'),
+        'ga4_analysis' => __('website_ga4.tab'),
         'health' => __('operator.website.tabs.health'),
         'visibility' => __('operator.website.tabs.visibility'),
         'content' => __('operator.website.tabs.content'),
@@ -107,6 +108,8 @@
                 <div class="divide-y divide-gray-100 dark:divide-gray-700">@forelse ($data['recommendations']->take(5) as $recommendation)<div class="px-5 py-4"><p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $recommendation->title }}</p><p class="mt-1 text-sm text-gray-500">{{ $recommendation->action }}</p></div>@empty<div class="px-5 py-8 text-sm text-gray-500">{{ __('operator.website.empty.no_recommendations') }}</div>@endforelse</div>
             </section>
         </div>
+    @elseif ($tab === 'ga4_analysis')
+        @include('livewire.operator.website.tabs.ga4-analysis')
     @elseif ($tab === 'health')
         <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
             <div class="flex items-center justify-between gap-3"><div><h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ __('operator.website.health.title') }}</h2><p class="mt-1 text-sm text-gray-500">{{ __('operator.website.health.hint') }}</p></div><button type="button" wire:click="runDiagnosis" class="text-sm font-medium text-brand-600">{{ __('operator.website.health.rerun') }}</button></div>
