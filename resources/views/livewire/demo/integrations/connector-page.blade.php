@@ -68,7 +68,7 @@
                 <p class="mt-1 text-lg font-semibold text-gray-900 dark:text-white">{{ $data['latest_collection'] }}</p>
             </div>
         </div>
-        <p class="text-sm text-gray-500 dark:text-gray-400">This connector reads the shared provider integration, persisted resources, bindings and collection history. Specialist metrics live in the bound Digital Asset workspace.</p>
+        <p class="text-sm text-gray-500 dark:text-gray-400">This connector reads the shared provider integration, persisted resources, bindings and collection history.</p>
         <div class="flex flex-wrap gap-2">
             <button type="button" wire:click="setTab('resources')" class="rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-white">Browse resources</button>
             <button type="button" wire:click="setTab('data')" class="rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">Data preview</button>
@@ -76,11 +76,36 @@
     @endif
 
     @if ($tab === 'resources')
+        @if (($data['id'] ?? null) === 'ga4')
+            <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                <div class="flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-base font-semibold text-gray-900 dark:text-white">GA4 Merkezi Veri Toplama</h2>
+                        <p class="mt-1 max-w-3xl text-sm text-gray-500 dark:text-gray-400">
+                            Veri çekmek istediğin GA4 property'lerini seç. Sistem son 486 günü doğrudan merkezi Data Pool'a kaydeder; Müşteri, Marka veya Dijital Varlık oluşturman gerekmez.
+                        </p>
+                        <p class="mt-2 text-xs font-medium text-gray-600 dark:text-gray-300">{{ count($selectedResourceIds) }} property seçili</p>
+                    </div>
+                    <button
+                        type="button"
+                        wire:click="collectSelectedGa4"
+                        wire:loading.attr="disabled"
+                        wire:target="collectSelectedGa4"
+                        @disabled(count($selectedResourceIds) === 0)
+                        class="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-theme-xs hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-gray-300 dark:disabled:bg-gray-700"
+                    >
+                        <span wire:loading.remove wire:target="collectSelectedGa4">Seçilenlerin Verisini Çek (486 gün)</span>
+                        <span wire:loading wire:target="collectSelectedGa4">Toplama başlatılıyor…</span>
+                    </button>
+                </div>
+            </section>
+        @endif
+
         <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div class="grid flex-1 gap-2 sm:grid-cols-3">
                 <div>
                     <label for="res-q" class="mb-1 block text-xs font-medium text-gray-500">Search</label>
-                    <input id="res-q" type="search" wire:model.live.debounce.250ms="q" placeholder="Name, ID, domain…" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-950 dark:text-white/90" />
+                    <input id="res-q" type="search" wire:model.live.debounce.250ms="q" placeholder="Name, ID, account…" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-950 dark:text-white/90" />
                 </div>
                 <div>
                     <label for="res-state" class="mb-1 block text-xs font-medium text-gray-500">State</label>
@@ -107,33 +132,49 @@
             @forelse ($resources as $resource)
                 <li class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" wire:key="res-{{ $resource['id'] }}">
                     <div class="flex flex-wrap items-start justify-between gap-3">
-                        <div class="min-w-0">
-                            <div class="flex flex-wrap items-center gap-2">
-                                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ $resource['name'] }}</h3>
-                                <span @class([
-                                    'text-[11px] font-semibold uppercase',
-                                    'text-emerald-700 dark:text-emerald-400' => $resource['state'] === 'bound',
-                                    'text-amber-700 dark:text-amber-400' => $resource['state'] === 'available',
-                                    'text-rose-700 dark:text-rose-400' => $resource['state'] === 'conflict',
-                                    'text-gray-400' => $resource['state'] === 'unavailable',
-                                ])>{{ $resource['state_label'] }}</span>
-                            </div>
-                            <p class="mt-1 text-xs text-gray-500">
-                                @if (! empty($resource['external_id'])) ID {{ $resource['external_id'] }} · @endif
-                                @if (! empty($resource['stream'])) {{ $resource['stream_label'] ?? 'Stream' }} {{ $resource['stream'] }} · @endif
-                                @if (! empty($resource['property_type'])) {{ $resource['property_type'] }} · @endif
-                                @if (! empty($resource['address'])) {{ $resource['address'] }} · @endif
-                                @if (! empty($resource['currency'])) {{ $resource['currency'] }} · @endif
-                                @if (! empty($resource['timezone'])) {{ $resource['timezone'] }} · @endif
-                                Data {{ $resource['data_state'] }} · {{ $resource['last_collection'] }}
-                            </p>
-                            @if (($resource['state'] ?? '') === 'bound' && ! empty($resource['asset_name']))
-                                <p class="mt-1 text-xs text-gray-600 dark:text-gray-300">Digital Asset · {{ $resource['asset_name'] }}</p>
+                        <div class="flex min-w-0 items-start gap-3">
+                            @if (($data['id'] ?? null) === 'ga4' && ! empty($resource['selectable_for_collection']))
+                                <input
+                                    type="checkbox"
+                                    wire:model.live="selectedResourceIds"
+                                    value="{{ $resource['id'] }}"
+                                    class="mt-1 h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500"
+                                    aria-label="{{ $resource['name'] }} verisini seç"
+                                />
                             @endif
+                            <div class="min-w-0">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ $resource['name'] }}</h3>
+                                    <span @class([
+                                        'text-[11px] font-semibold uppercase',
+                                        'text-emerald-700 dark:text-emerald-400' => $resource['state'] === 'bound',
+                                        'text-amber-700 dark:text-amber-400' => $resource['state'] === 'available',
+                                        'text-rose-700 dark:text-rose-400' => $resource['state'] === 'conflict',
+                                        'text-gray-400' => $resource['state'] === 'unavailable',
+                                    ])>{{ $resource['state_label'] }}</span>
+                                </div>
+                                @if (($data['id'] ?? null) === 'ga4')
+                                    <p class="mt-1 text-xs font-medium text-gray-600 dark:text-gray-300">
+                                        {{ $resource['account_name'] ?? 'Google Analytics' }} · Property {{ $resource['property_id'] ?? $resource['external_id'] }}
+                                    </p>
+                                @endif
+                                <p class="mt-1 text-xs text-gray-500">
+                                    @if (! empty($resource['external_id'])) ID {{ $resource['external_id'] }} · @endif
+                                    @if (! empty($resource['stream'])) {{ $resource['stream_label'] ?? 'Stream' }} {{ $resource['stream'] }} · @endif
+                                    @if (! empty($resource['property_type'])) {{ $resource['property_type'] }} · @endif
+                                    @if (! empty($resource['address'])) {{ $resource['address'] }} · @endif
+                                    @if (! empty($resource['currency'])) {{ $resource['currency'] }} · @endif
+                                    @if (! empty($resource['timezone'])) {{ $resource['timezone'] }} · @endif
+                                    Data {{ $resource['data_state'] }} · {{ $resource['last_collection'] }}
+                                </p>
+                                @if (($resource['state'] ?? '') === 'bound' && ! empty($resource['asset_name']))
+                                    <p class="mt-1 text-xs text-gray-600 dark:text-gray-300">Digital Asset · {{ $resource['asset_name'] }}</p>
+                                @endif
+                            </div>
                         </div>
                         <div class="flex flex-wrap gap-2">
                             @if (($resource['state'] ?? '') === 'available')
-                                <button type="button" wire:click="openBind('{{ $resource['id'] }}')" class="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-medium text-white">Manage binding…</button>
+                                <button type="button" wire:click="openBind('{{ $resource['id'] }}')" class="rounded-lg px-3 py-1.5 text-xs font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">Manage binding…</button>
                             @elseif (($resource['state'] ?? '') === 'bound' && ! empty($resource['asset_url']))
                                 <a href="{{ $resource['asset_url'] }}" wire:navigate class="rounded-lg px-3 py-1.5 text-xs font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">Open Digital Asset</a>
                                 <button type="button" wire:click="unbindResource('{{ $resource['id'] }}')" class="rounded-lg px-3 py-1.5 text-xs font-medium text-gray-500 hover:underline">Manage binding</button>
