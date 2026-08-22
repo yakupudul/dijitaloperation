@@ -105,6 +105,41 @@ function ensureLibrary() {
     return libraryPromise;
 }
 
+function hideCitySection(analysis, countrySection = null) {
+    const section = countrySection || analysis.querySelector('[aria-label="Visitor countries"]')?.closest('section');
+    const audienceGrid = section?.parentElement || null;
+    const possibleCityCard = audienceGrid?.nextElementSibling || null;
+
+    if (possibleCityCard?.querySelector('.grid strong')) {
+        possibleCityCard.classList.add('hidden');
+        possibleCityCard.setAttribute('aria-hidden', 'true');
+    }
+}
+
+function purgeLegacyCityMap(section) {
+    // The first GA4 map prototype injected a country+city legend and orange city
+    // markers directly into this section. Remove that generated chrome if a
+    // Livewire navigation preserved it while a newer asset bundle was loaded.
+    const legacyStatus = section?.querySelector('[data-ga4-world-status]');
+    if (!legacyStatus) {
+        delete section?.dataset.ga4WorldEnhanced;
+        return;
+    }
+
+    const footer = legacyStatus.closest('div');
+    const mapHost = footer?.previousElementSibling || null;
+    const legend = mapHost?.previousElementSibling || null;
+    const hint = legend?.previousElementSibling || null;
+
+    [footer, mapHost, legend, hint].forEach((node) => {
+        if (node && !node.matches('[data-chart]')) {
+            node.remove();
+        }
+    });
+
+    delete section.dataset.ga4WorldEnhanced;
+}
+
 function parseCountryData(analysis) {
     const countryChart = analysis.querySelector('[aria-label="Visitor countries"][data-chart]');
     if (!countryChart) return null;
@@ -126,15 +161,10 @@ function parseCountryData(analysis) {
     const countrySection = countryChart.closest('section');
     if (!countrySection) return null;
 
-    const audienceGrid = countrySection.parentElement;
-    const possibleCityCard = audienceGrid?.nextElementSibling || null;
-    const cityCard = possibleCityCard?.querySelector('.grid strong') ? possibleCityCard : null;
-
     return {
         countries,
         countryChart,
         countrySection,
-        cityCard,
         signature: JSON.stringify(countries),
     };
 }
@@ -237,11 +267,11 @@ function destroyGenerated(section) {
 }
 
 function createTailAdminChrome(data, text) {
-    const { countrySection, countryChart, cityCard, countries } = data;
+    const { countrySection, countryChart, countries } = data;
 
+    purgeLegacyCityMap(countrySection);
     destroyGenerated(countrySection);
     countryChart.classList.add('hidden');
-    if (cityCard) cityCard.classList.add('hidden');
 
     const heading = countrySection.querySelector('h4');
     if (heading) heading.textContent = text.title;
@@ -355,12 +385,16 @@ async function mountTailAdminMap(data) {
 }
 
 function enhanceAnalysis(analysis) {
+    hideCitySection(analysis);
+
     const data = parseCountryData(analysis);
     if (!data) return;
 
+    hideCitySection(analysis, data.countrySection);
+    purgeLegacyCityMap(data.countrySection);
+
     const existingMap = data.countrySection.querySelector('[data-ga4-tailadmin-map]');
     if (existingMap && data.countrySection.dataset.ga4TailadminSignature === data.signature) {
-        data.cityCard?.classList.add('hidden');
         data.countryChart.classList.add('hidden');
         return;
     }
