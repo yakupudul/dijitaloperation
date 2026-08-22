@@ -18,16 +18,19 @@ use Illuminate\Support\Facades\Log;
  *
  * Verified 2026-08-22:
  * - accounts.list: mybusinessaccountmanagement.googleapis.com/v1/accounts
+ * - accounts.list is paginated (max pageSize 20)
  * - accounts.locations.list: mybusinessbusinessinformation.googleapis.com/v1/{parent}/locations
- *   requires readMask; supports accounts/- wildcard for indirect ownership
+ * - Google recommends listing the specific accessible accounts and then listing
+ *   locations for each account; accounts/- remains useful for indirectly owned listings.
  * - OAuth scope: https://www.googleapis.com/auth/business.manage
- *
- * GBP is a first-class discovery connector. External project API access
- * is represented as EXTERNAL_ACCESS_REQUIRED — never as deferred architecture.
  */
 class GoogleBusinessProfileDiscoverer
 {
     private const string READ_MASK = 'name,title,storeCode,storefrontAddress,websiteUri,metadata';
+
+    private const int MAX_ACCOUNT_PAGES = 100;
+
+    private const int MAX_LOCATION_PAGES = 100;
 
     public function __construct(
         private readonly GoogleApiClient $client,
@@ -46,8 +49,7 @@ class GoogleBusinessProfileDiscoverer
         }
 
         // Local granted_scopes can be stale after incremental Google re-authorization.
-        // Before rejecting GBP, reconcile the persisted scope list against Google's
-        // tokeninfo response. Provider scope is authoritative; no token is logged.
+        // Reconcile against Google's live token metadata before rejecting GBP locally.
         $this->syncGrantedScopesFromProvider($integration);
         $integration = $integration->fresh(['authorizationCredential', 'providerCredential']) ?? $integration;
 
@@ -66,114 +68,244 @@ class GoogleBusinessProfileDiscoverer
             );
         }
 
-        try {
-            $accountsResponse = $this->client->get(
-                $integration,
-                'https://mybusinessaccountmanagement.googleapis.com/v1/accounts',
-                ['pageSize' => 20],
-                GoogleScopeRegistry::CAPABILITY_GBP,
-            );
-        } catch (GoogleAuthorizationException) {
-            return CapabilityDiscoveryResult::scopeRequired(
-                'google_business_profile',
-                'Missing business.manage scope for GBP discovery.',
-            );
-        } catch (GoogleAuthenticationException $e) {
-            return CapabilityDiscoveryResult::authenticationRequired('google_business_profile', $e->getMessage());
-        } catch (\Throwable) {
-            return CapabilityDiscoveryResult::error('google_business_profile', 'GBP account discovery failed to run.');
+        $accountResult = $this->listAccounts($integration);
+        if ($accountResult['status'] !== 'ok') {
+            return match ($accountResult['status']) {
+                'scope_required' => CapabilityDiscoveryResult::scopeRequired(
+                    'google_business_profile',
+                    $accountResult['message'] ?? 'Missing business.manage scope for GBP discovery.',
+                ),
+                'authentication_required' => CapabilityDiscoveryResult::authenticationRequired(
+                    'google_business_profile',
+                    $accountResult['message'] ?? 'Google authorization is not usable for GBP discovery.',
+                ),
+                'external_access_required' => CapabilityDiscoveryResult::externalAccessRequired(
+                    'google_business_profile',
+                    $accountResult['message'] ?? 'Google Business Profile account API access is unavailable.',
+                ),
+                default => CapabilityDiscoveryResult::error(
+                    'google_business_profile',
+                    $accountResult['message'] ?? 'GBP account discovery failed.',
+                ),
+            };
         }
 
-        if (in_array($accountsResponse->status(), [403, 429], true)) {
-            return CapabilityDiscoveryResult::externalAccessRequired(
-                'google_business_profile',
-                'Google Business Profile API access unavailable (enable Account Management and Business Information APIs and request GBP API access if quota is 0).',
-            );
-        }
+        $accounts = $accountResult['accounts'];
+        $accountContext = [];
+        $accountParents = [];
 
-        if (! $accountsResponse->successful()) {
-            Log::warning('GBP accounts.list failed', [
-                'integration_id' => $integration->id,
-                'status' => $accountsResponse->status(),
-            ]);
-
-            return CapabilityDiscoveryResult::error('google_business_profile', 'GBP accounts.list returned an error.');
-        }
-
-        $accounts = $accountsResponse->json('accounts') ?? [];
-        if (! is_array($accounts)) {
-            $accounts = [];
-        }
-
-        // Prefer wildcard listing for direct + indirect ownership.
-        // Official guide: GET .../accounts/-/locations?readMask=...
-        $accountParents = ['accounts/-'];
         foreach ($accounts as $account) {
             if (! is_array($account)) {
                 continue;
             }
-            $name = (string) ($account['name'] ?? '');
-            if ($name !== '' && $name !== 'accounts/-') {
-                $accountParents[] = $name;
+
+            $name = trim((string) ($account['name'] ?? ''));
+            if ($name === '' || $name === 'accounts/-') {
+                continue;
             }
+
+            $accountParents[] = $name;
+            $accountContext[$name] = (string) ($account['accountName'] ?? $account['name'] ?? $name);
         }
+
         $accountParents = array_values(array_unique($accountParents));
 
         /** @var array<string, DiscoveredExternalResource> $byId */
         $byId = [];
-        $partial = false;
-        $accountContext = [];
+        $partial = $accountResult['partial'];
+        $failures = [];
+        $successfulParents = 0;
 
-        foreach ($accounts as $account) {
-            if (! is_array($account)) {
-                continue;
-            }
-            $name = (string) ($account['name'] ?? '');
-            if ($name !== '') {
-                $accountContext[$name] = (string) ($account['accountName'] ?? $account['name'] ?? $name);
-            }
-        }
-
+        // Google recommends listing locations for each concrete accessible account.
         foreach ($accountParents as $parent) {
             $page = $this->listLocations($integration, $parent, $accountContext);
-            if ($page['status'] === 'external_access_required' && $byId === []) {
-                return CapabilityDiscoveryResult::externalAccessRequired(
-                    'google_business_profile',
-                    $page['message'] ?? 'GBP locations.list access unavailable.',
-                );
+
+            if ($page['status'] === 'ok') {
+                $successfulParents++;
+            } else {
+                $failures[] = [
+                    'parent' => $parent,
+                    'status' => $page['status'],
+                    'message' => $page['message'],
+                ];
             }
-            if ($page['status'] === 'error' && $byId === [] && $parent === 'accounts/-') {
-                // Fall through to per-account listing.
-                continue;
-            }
+
             if ($page['partial']) {
                 $partial = true;
             }
+
             foreach ($page['resources'] as $resource) {
                 $byId[$resource->externalId] = $resource;
             }
+        }
 
-            // Wildcard success is sufficient for complete inventory.
-            if ($parent === 'accounts/-' && $page['status'] === 'ok' && ! $page['partial']) {
-                break;
-            }
+        // Also query wildcard for indirectly owned/managed listings. Crucially, a
+        // successful wildcard response with zero locations must NOT suppress the
+        // concrete-account results or prevent concrete-account discovery.
+        $wildcard = $this->listLocations($integration, 'accounts/-', $accountContext);
+        if ($wildcard['status'] === 'ok') {
+            $successfulParents++;
+        } else {
+            $failures[] = [
+                'parent' => 'accounts/-',
+                'status' => $wildcard['status'],
+                'message' => $wildcard['message'],
+            ];
+        }
+
+        if ($wildcard['partial']) {
+            $partial = true;
+        }
+
+        foreach ($wildcard['resources'] as $resource) {
+            $byId[$resource->externalId] = $resource;
         }
 
         $resources = array_values($byId);
 
-        if ($partial) {
-            return CapabilityDiscoveryResult::partial(
+        if ($resources !== []) {
+            if ($partial || $failures !== []) {
+                return CapabilityDiscoveryResult::partial(
+                    'google_business_profile',
+                    $resources,
+                    count($resources).' GBP locations discovered across '.count($accountParents).' accessible account(s); some account/location queries were partial or unavailable.',
+                );
+            }
+
+            return CapabilityDiscoveryResult::ok(
                 'google_business_profile',
                 $resources,
-                count($resources).' GBP locations discovered (partial pagination).',
+                count($resources).' GBP locations discovered across '.count($accountParents).' accessible account(s).',
             );
+        }
+
+        // No locations were found. Prefer an actionable provider error if every
+        // usable listing route failed; otherwise report the real provider result:
+        // the authorized Google user currently exposes no locations to these APIs.
+        if ($successfulParents === 0 && $failures !== []) {
+            $first = $failures[0];
+
+            return match ($first['status']) {
+                'scope_required' => CapabilityDiscoveryResult::scopeRequired(
+                    'google_business_profile',
+                    $first['message'] ?? 'Missing business.manage scope.',
+                ),
+                'authentication_required' => CapabilityDiscoveryResult::authenticationRequired(
+                    'google_business_profile',
+                    $first['message'] ?? 'Google authorization is not usable.',
+                ),
+                'external_access_required' => CapabilityDiscoveryResult::externalAccessRequired(
+                    'google_business_profile',
+                    $first['message'] ?? 'Google Business Profile locations API access is unavailable.',
+                ),
+                default => CapabilityDiscoveryResult::error(
+                    'google_business_profile',
+                    $first['message'] ?? 'GBP locations.list returned an error.',
+                ),
+            };
         }
 
         return CapabilityDiscoveryResult::ok(
             'google_business_profile',
-            $resources,
-            count($resources).' GBP locations discovered.',
+            [],
+            'Google returned 0 Business Profile locations across '.count($accountParents).' accessible account(s). The authorized Google user currently exposes no locations to the Business Profile APIs.',
         );
+    }
+
+    /**
+     * @return array{status: string, message: ?string, accounts: list<array<string, mixed>>, partial: bool}
+     */
+    private function listAccounts(CoreIntegration $integration): array
+    {
+        $accounts = [];
+        $pageToken = null;
+        $pages = 0;
+
+        do {
+            $query = ['pageSize' => 20];
+            if (is_string($pageToken) && $pageToken !== '') {
+                $query['pageToken'] = $pageToken;
+            }
+
+            try {
+                $response = $this->client->get(
+                    $integration,
+                    'https://mybusinessaccountmanagement.googleapis.com/v1/accounts',
+                    $query,
+                    GoogleScopeRegistry::CAPABILITY_GBP,
+                );
+            } catch (GoogleAuthorizationException) {
+                return [
+                    'status' => 'scope_required',
+                    'message' => 'Missing business.manage scope for GBP account discovery.',
+                    'accounts' => $accounts,
+                    'partial' => $accounts !== [],
+                ];
+            } catch (GoogleAuthenticationException $e) {
+                return [
+                    'status' => 'authentication_required',
+                    'message' => $e->getMessage(),
+                    'accounts' => $accounts,
+                    'partial' => $accounts !== [],
+                ];
+            } catch (\Throwable $e) {
+                Log::warning('GBP accounts.list failed to run', [
+                    'integration_id' => $integration->id,
+                    'exception' => $e::class,
+                ]);
+
+                return [
+                    'status' => 'error',
+                    'message' => 'GBP accounts.list failed to run.',
+                    'accounts' => $accounts,
+                    'partial' => $accounts !== [],
+                ];
+            }
+
+            $pages++;
+
+            if (in_array($response->status(), [403, 429], true)) {
+                return [
+                    'status' => 'external_access_required',
+                    'message' => 'Google Business Profile Account Management API access unavailable. Enable the Account Management API and verify GBP API quota/access for the OAuth project.',
+                    'accounts' => $accounts,
+                    'partial' => $accounts !== [],
+                ];
+            }
+
+            if (! $response->successful()) {
+                Log::warning('GBP accounts.list returned an error', [
+                    'integration_id' => $integration->id,
+                    'status' => $response->status(),
+                ]);
+
+                return [
+                    'status' => 'error',
+                    'message' => 'GBP accounts.list returned HTTP '.$response->status().'.',
+                    'accounts' => $accounts,
+                    'partial' => $accounts !== [],
+                ];
+            }
+
+            $rows = $response->json('accounts') ?? [];
+            if (is_array($rows)) {
+                foreach ($rows as $row) {
+                    if (is_array($row)) {
+                        $accounts[] = $row;
+                    }
+                }
+            }
+
+            $next = $response->json('nextPageToken');
+            $pageToken = is_string($next) && $next !== '' ? $next : null;
+        } while ($pageToken !== null && $pages < self::MAX_ACCOUNT_PAGES);
+
+        return [
+            'status' => 'ok',
+            'message' => null,
+            'accounts' => $accounts,
+            'partial' => $pageToken !== null,
+        ];
     }
 
     /**
@@ -185,7 +317,6 @@ class GoogleBusinessProfileDiscoverer
         $resources = [];
         $pageToken = null;
         $pages = 0;
-        $partial = false;
 
         do {
             $query = [
@@ -217,10 +348,16 @@ class GoogleBusinessProfileDiscoverer
                     'resources' => $resources,
                     'partial' => $resources !== [],
                 ];
-            } catch (\Throwable) {
+            } catch (\Throwable $e) {
+                Log::warning('GBP locations.list failed to run', [
+                    'integration_id' => $integration->id,
+                    'parent' => $parent,
+                    'exception' => $e::class,
+                ]);
+
                 return [
                     'status' => 'error',
-                    'message' => 'GBP locations.list failed to run.',
+                    'message' => 'GBP locations.list failed to run for '.$parent.'.',
                     'resources' => $resources,
                     'partial' => $resources !== [],
                 ];
@@ -231,14 +368,14 @@ class GoogleBusinessProfileDiscoverer
             if (in_array($locationsResponse->status(), [403, 429], true)) {
                 return [
                     'status' => 'external_access_required',
-                    'message' => 'Google Business Profile locations API access unavailable.',
+                    'message' => 'Google Business Profile Business Information API access unavailable for '.$parent.'. Enable the Business Information API and verify GBP API quota/access for the OAuth project.',
                     'resources' => $resources,
                     'partial' => $resources !== [],
                 ];
             }
 
             if (! $locationsResponse->successful()) {
-                Log::warning('GBP locations.list failed', [
+                Log::warning('GBP locations.list returned an error', [
                     'integration_id' => $integration->id,
                     'status' => $locationsResponse->status(),
                     'parent' => $parent,
@@ -246,7 +383,7 @@ class GoogleBusinessProfileDiscoverer
 
                 return [
                     'status' => 'error',
-                    'message' => 'GBP locations.list returned an error.',
+                    'message' => 'GBP locations.list returned HTTP '.$locationsResponse->status().' for '.$parent.'.',
                     'resources' => $resources,
                     'partial' => $resources !== [],
                 ];
@@ -262,7 +399,7 @@ class GoogleBusinessProfileDiscoverer
                     continue;
                 }
 
-                $locationName = (string) ($location['name'] ?? '');
+                $locationName = trim((string) ($location['name'] ?? ''));
                 if ($locationName === '') {
                     continue;
                 }
@@ -292,17 +429,13 @@ class GoogleBusinessProfileDiscoverer
 
             $next = $locationsResponse->json('nextPageToken');
             $pageToken = is_string($next) && $next !== '' ? $next : null;
-        } while ($pageToken !== null && $pages < 100);
-
-        if ($pageToken !== null) {
-            $partial = true;
-        }
+        } while ($pageToken !== null && $pages < self::MAX_LOCATION_PAGES);
 
         return [
             'status' => 'ok',
             'message' => null,
             'resources' => $resources,
-            'partial' => $partial,
+            'partial' => $pageToken !== null,
         ];
     }
 
@@ -356,7 +489,8 @@ class GoogleBusinessProfileDiscoverer
 
     private function inferAccountParent(string $locationName): ?string
     {
-        // locations/{id} — account may be unknown when listed via accounts/-
+        // Business Information v1 normally returns locations/{id}, so the account
+        // may remain unknown when the wildcard route produced the location.
         if (str_starts_with($locationName, 'locations/')) {
             return null;
         }
