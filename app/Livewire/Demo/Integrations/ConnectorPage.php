@@ -105,7 +105,7 @@ class ConnectorPage extends Component
         }
 
         try {
-            $run = $collector->startInitial($integration, $this->selectedResourceIds, $user);
+            $run = $collector->startSmartUpdate($integration, $this->selectedResourceIds, $user);
         } catch (Throwable $e) {
             DemoState::flash('GA4 veri toplama başlatılamadı: '.$e->getMessage(), 'info');
 
@@ -113,9 +113,10 @@ class ConnectorPage extends Component
         }
 
         $count = count(array_unique(array_map('intval', $this->selectedResourceIds)));
+        $label = (string) data_get($run->metadata, 'collection_intent_label', 'GA4 veri toplama');
         $this->selectedResourceIds = [];
         $this->tab = 'activity';
-        DemoState::flash("{$count} GA4 property için 486 günlük merkezi veri toplama başlatıldı. Run #{$run->id}.", 'info');
+        DemoState::flash("{$count} GA4 property için {$label} başlatıldı. Run #{$run->id}.", 'info');
     }
 
     public function openBind(string $resourceId): void
@@ -215,21 +216,53 @@ class ConnectorPage extends Component
             ? collect()
             : CollectionResourceRun::query()
                 ->whereIn('external_resource_id', $resourceIds)
-                ->with('externalResource:id,display_name')
+                ->with(['externalResource:id,display_name', 'datasetRuns'])
                 ->orderByDesc('last_activity_at')
                 ->orderByDesc('id')
                 ->get();
-        $latestByResource = $runs->unique('external_resource_id')->keyBy('external_resource_id');
+        $runsByResource = $runs->groupBy('external_resource_id');
 
-        $resources = $resourceModels->map(function (CoreExternalResource $resource) use ($latestByResource): array {
+        $resources = $resourceModels->map(function (CoreExternalResource $resource) use ($runsByResource): array {
             $binding = $resource->bindings->first();
             $asset = $binding?->digitalAsset;
-            $run = $latestByResource->get($resource->id);
-            $status = $run instanceof CollectionResourceRun ? $run->status->value : null;
+            /** @var Collection<int, CollectionResourceRun> $resourceRuns */
+            $resourceRuns = $runsByResource->get($resource->id, collect());
+            $run = $resourceRuns->first();
+            $completed = $resourceRuns->first(
+                fn (CollectionResourceRun $candidate): bool => $candidate->status === CollectionRunStatus::Completed,
+            );
+            $active = $resourceRuns->first(fn (CollectionResourceRun $candidate): bool => in_array($candidate->status, [
+                CollectionRunStatus::Queued,
+                CollectionRunStatus::Running,
+                CollectionRunStatus::Retrying,
+                CollectionRunStatus::CancellationRequested,
+            ], true));
+            $latestNeedsAttention = $run instanceof CollectionResourceRun
+                && in_array($run->status, [CollectionRunStatus::Partial, CollectionRunStatus::Failed, CollectionRunStatus::Cancelled], true)
+                && (! $completed instanceof CollectionResourceRun || $run->id > $completed->id);
+
             $state = $binding instanceof CoreAssetBinding
                 ? 'bound'
                 : ($resource->status === CoreExternalResource::STATUS_AVAILABLE ? 'available' : 'unavailable');
             $meta = is_array($resource->metadata) ? $resource->metadata : [];
+
+            $coverageStart = null;
+            $coverageEnd = null;
+            if ($completed instanceof CollectionResourceRun) {
+                $ranges = $completed->datasetRuns
+                    ->map(fn ($dataset) => data_get($dataset->metadata, 'date_range'))
+                    ->filter(fn ($range): bool => is_array($range));
+                $coverageStart = $ranges->pluck('start')->filter()->sort()->first();
+                $coverageEnd = $ranges->pluck('end')->filter()->sortDesc()->first();
+            }
+
+            [$dataState, $dataStateLabel, $collectionAction] = match (true) {
+                $active instanceof CollectionResourceRun => ['collecting', 'Çekiliyor', 'Çekiliyor'],
+                $latestNeedsAttention && $run?->status === CollectionRunStatus::Cancelled => ['resume', 'Aktarım durduruldu', 'Devam et'],
+                $latestNeedsAttention => ['needs_repair', 'Eksik veri var', 'Eksikleri tamamla'],
+                $completed instanceof CollectionResourceRun => ['collected', 'Veri mevcut', 'Şimdi güncelle'],
+                default => ['not_collected', 'Henüz veri yok', 'Verileri içe aktar'],
+            };
 
             return [
                 'id' => (string) $resource->id,
@@ -249,11 +282,18 @@ class ConnectorPage extends Component
                 'address' => $meta['address'] ?? null,
                 'currency' => $meta['currency'] ?? null,
                 'timezone' => $meta['timezone'] ?? null,
-                'data_state' => $status !== null ? ucfirst(str_replace('_', ' ', $status)) : 'Not collected',
+                'data_state' => $dataState,
+                'data_state_label' => $dataStateLabel,
+                'collection_action' => $collectionAction,
+                'coverage_start' => $coverageStart,
+                'coverage_end' => $coverageEnd,
+                'failed_datasets' => $run instanceof CollectionResourceRun ? (int) $run->datasets_failed : 0,
                 'last_collection' => $run?->last_activity_at?->diffForHumans() ?? '—',
+                'last_success' => $completed?->last_activity_at?->diffForHumans() ?? '—',
                 'asset_name' => $asset?->name,
                 'asset_url' => $asset instanceof DigitalAsset ? $this->assetUrl($asset) : null,
-                'selectable_for_collection' => $resource->status === CoreExternalResource::STATUS_AVAILABLE,
+                'selectable_for_collection' => $resource->status === CoreExternalResource::STATUS_AVAILABLE
+                    && ! $active instanceof CollectionResourceRun,
             ];
         });
 
