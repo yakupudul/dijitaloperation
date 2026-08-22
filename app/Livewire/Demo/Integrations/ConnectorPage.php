@@ -6,17 +6,21 @@ use App\Enums\Collection\CollectionRunStatus;
 use App\Models\Collection\CollectionResourceRun;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
+use App\Models\CoreIntegration;
 use App\Models\DigitalAsset;
+use App\Services\Collection\Ga4\Ga4CentralCollectionService;
 use App\Services\Integrations\Google\GoogleIntegrationReadModel;
 use App\Support\Demo\DemoState;
 use App\Support\Integrations\Google\GoogleConnectorRegistry;
 use App\Support\Integrations\ProviderRegistry;
+use App\Support\Roles;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use Throwable;
 
 #[Layout('operator.layouts.app')]
 #[Title('Connector')]
@@ -36,24 +40,19 @@ class ConnectorPage extends Component
     #[Url]
     public string $brand = 'all';
 
+    /** @var list<string> */
+    public array $selectedResourceIds = [];
+
     public ?string $bindResourceId = null;
-
     public string $bindMode = 'existing';
-
     public string $selectedAssetId = '';
-
     public string $newAssetName = '';
-
     public bool $confirmBind = false;
 
     /** @var list<string> */
     private const TABS = ['overview', 'resources', 'bindings', 'data', 'sync', 'activity'];
 
-    /**
-     * Non-Google connector metadata. Google connector metadata is canonicalized in GoogleConnectorRegistry.
-     *
-     * @var array<string, array{id: string, name: string, type: string, integration: string, integration_label: string, integration_route: string}>
-     */
+    /** @var array<string, array{id: string, name: string, type: string, integration: string, integration_label: string, integration_route: string}> */
     private const CONNECTORS = [
         'meta-ads' => [
             'id' => 'meta-ads',
@@ -68,11 +67,9 @@ class ConnectorPage extends Component
     public function mount(string $connector): void
     {
         $this->connector = $connector;
-
         if (GoogleConnectorRegistry::byUiSlug($connector) === null && ! isset(self::CONNECTORS[$connector])) {
             abort(404);
         }
-
         if (! in_array($this->tab, self::TABS, true)) {
             $this->tab = 'overview';
         }
@@ -86,6 +83,41 @@ class ConnectorPage extends Component
         }
     }
 
+    public function collectSelectedGa4(Ga4CentralCollectionService $collector): void
+    {
+        if ($this->connector !== 'ga4') {
+            return;
+        }
+
+        $user = auth()->user();
+        if ($user === null || ! $user->hasRole(Roles::ADMIN)) {
+            abort(403);
+        }
+
+        $integration = CoreIntegration::query()
+            ->where('provider', ProviderRegistry::GOOGLE)
+            ->orderBy('id')
+            ->first();
+        if (! $integration instanceof CoreIntegration) {
+            DemoState::flash('Google entegrasyonu bulunamadı.', 'info');
+
+            return;
+        }
+
+        try {
+            $run = $collector->startInitial($integration, $this->selectedResourceIds, $user);
+        } catch (Throwable $e) {
+            DemoState::flash('GA4 veri toplama başlatılamadı: '.$e->getMessage(), 'info');
+
+            return;
+        }
+
+        $count = count(array_unique(array_map('intval', $this->selectedResourceIds)));
+        $this->selectedResourceIds = [];
+        $this->tab = 'activity';
+        DemoState::flash("{$count} GA4 property için 486 günlük merkezi veri toplama başlatıldı. Run #{$run->id}.", 'info');
+    }
+
     public function openBind(string $resourceId): void
     {
         if (GoogleConnectorRegistry::byUiSlug($this->connector) !== null) {
@@ -93,7 +125,6 @@ class ConnectorPage extends Component
 
             return;
         }
-
         DemoState::flash(__('operator.flash.configure_integration_resources'), 'info');
     }
 
@@ -123,25 +154,22 @@ class ConnectorPage extends Component
 
             return;
         }
-
         DemoState::flash(__('operator.flash.no_bindings'), 'info');
     }
 
     public function refreshCollection(): void
     {
         if (GoogleConnectorRegistry::byUiSlug($this->connector) !== null) {
-            $this->redirect(route('operator.integrations.google', ['tab' => 'activity']), navigate: true);
+            $this->tab = 'activity';
 
             return;
         }
-
         DemoState::flash(__('operator.flash.configure_integration_collection'), 'info');
     }
 
     public function render(GoogleIntegrationReadModel $googleReadModel): View
     {
         $googleConnector = GoogleConnectorRegistry::byUiSlug($this->connector);
-
         if ($googleConnector !== null) {
             return $this->renderGoogleConnector($googleReadModel, $googleConnector);
         }
@@ -178,6 +206,7 @@ class ConnectorPage extends Component
                 'bindings' => fn ($query) => $query->where('status', CoreAssetBinding::STATUS_ACTIVE),
                 'bindings.digitalAsset',
             ])
+            ->orderByRaw("COALESCE(metadata->>'account_display_name', '')")
             ->orderBy('display_name')
             ->get();
 
@@ -190,7 +219,6 @@ class ConnectorPage extends Component
                 ->orderByDesc('last_activity_at')
                 ->orderByDesc('id')
                 ->get();
-
         $latestByResource = $runs->unique('external_resource_id')->keyBy('external_resource_id');
 
         $resources = $resourceModels->map(function (CoreExternalResource $resource) use ($latestByResource): array {
@@ -201,29 +229,31 @@ class ConnectorPage extends Component
             $state = $binding instanceof CoreAssetBinding
                 ? 'bound'
                 : ($resource->status === CoreExternalResource::STATUS_AVAILABLE ? 'available' : 'unavailable');
+            $meta = is_array($resource->metadata) ? $resource->metadata : [];
 
             return [
                 'id' => (string) $resource->id,
                 'name' => (string) $resource->display_name,
                 'external_id' => (string) $resource->external_id,
+                'account_name' => $meta['account_display_name'] ?? $meta['account'] ?? null,
+                'property_id' => $meta['property_id'] ?? preg_replace('/^properties\//', '', (string) $resource->external_id),
                 'state' => $state,
                 'state_label' => match ($state) {
                     'bound' => 'Bound',
                     'available' => 'Available',
                     default => 'Unavailable',
                 },
-                'recommended' => false,
-                'stream' => $resource->metadata['stream_id'] ?? null,
+                'stream' => $meta['stream_id'] ?? null,
                 'stream_label' => 'Stream',
-                'property_type' => $resource->metadata['property_type'] ?? null,
-                'address' => $resource->metadata['address'] ?? null,
-                'currency' => $resource->metadata['currency'] ?? null,
-                'timezone' => $resource->metadata['timezone'] ?? null,
+                'property_type' => $meta['property_type'] ?? null,
+                'address' => $meta['address'] ?? null,
+                'currency' => $meta['currency'] ?? null,
+                'timezone' => $meta['timezone'] ?? null,
                 'data_state' => $status !== null ? ucfirst(str_replace('_', ' ', $status)) : 'Not collected',
                 'last_collection' => $run?->last_activity_at?->diffForHumans() ?? '—',
-                'match_signal' => null,
                 'asset_name' => $asset?->name,
                 'asset_url' => $asset instanceof DigitalAsset ? $this->assetUrl($asset) : null,
+                'selectable_for_collection' => $resource->status === CoreExternalResource::STATUS_AVAILABLE,
             ];
         });
 
@@ -233,17 +263,16 @@ class ConnectorPage extends Component
                 $haystack = mb_strtolower(implode(' ', array_filter([
                     $resource['name'] ?? null,
                     $resource['external_id'] ?? null,
-                    $resource['address'] ?? null,
+                    $resource['property_id'] ?? null,
+                    $resource['account_name'] ?? null,
                 ])));
 
                 return str_contains($haystack, $needle);
             });
         }
-
         if ($this->state !== 'all') {
             $resources = $resources->where('state', $this->state);
         }
-
         if ($this->brand === 'unmapped') {
             $resources = $resources->where('state', '!=', 'bound');
         }
@@ -259,8 +288,6 @@ class ConnectorPage extends Component
                     'external_id' => (string) $resource->external_id,
                     'asset_name' => $asset?->name ?? 'Unknown asset',
                     'asset_url' => $asset instanceof DigitalAsset ? $this->assetUrl($asset) : null,
-                    'related_website' => null,
-                    'related_website_note' => null,
                 ];
             })
             ->values()
@@ -280,13 +307,14 @@ class ConnectorPage extends Component
         $latestCollection = $latestAttempt?->last_activity_at?->diffForHumans() ?? '—';
         $latestThrough = $latestSuccess?->last_activity_at?->toDateString() ?? '—';
 
-        $activity = $runs->take(10)->map(function (CollectionResourceRun $run): array {
+        $activity = $runs->take(20)->map(function (CollectionResourceRun $run): array {
             $status = $run->status->value;
+            $scope = $run->digital_asset_id === null ? 'Central Data Pool' : 'Digital Asset';
 
             return [
                 'when' => $run->last_activity_at?->diffForHumans() ?? '—',
                 'actor' => 'System',
-                'kind' => 'Collection',
+                'kind' => $scope,
                 'event' => 'Collection '.ucfirst(str_replace('_', ' ', $status)),
                 'detail' => ($run->externalResource?->display_name ?? 'Resource')
                     .' · '.(int) $run->datasets_completed.'/'.(int) $run->datasets_total.' datasets',
@@ -305,18 +333,20 @@ class ConnectorPage extends Component
             'resources_count' => (int) ($summary['discovered'] ?? $resourceModels->count()),
             'bound' => (int) ($summary['bound'] ?? $resourceModels->filter(fn (CoreExternalResource $resource) => $resource->bindings->isNotEmpty())->count()),
             'available' => (int) ($summary['available'] ?? $resourceModels->filter(fn (CoreExternalResource $resource) => $resource->bindings->isEmpty() && $resource->status === CoreExternalResource::STATUS_AVAILABLE)->count()),
-            'ontology_note' => 'Reads the shared Google Integration, discovered External Resources, active Digital Asset bindings and Collection Engine history.',
+            'ontology_note' => $this->connector === 'ga4'
+                ? 'GA4 properties can be collected into the central Data Pool before Customer, Brand or Digital Asset binding.'
+                : 'Reads the shared Google Integration, discovered resources, bindings and collection history.',
             'existing_assets_for_brand' => [],
             'resources' => $resources->values()->all(),
             'data' => [
                 'latest_through' => $latestThrough,
                 'metrics' => [
                     ['label' => 'Discovered resources', 'value' => (string) $resourceModels->count(), 'state' => 'Persisted External Resources'],
-                    ['label' => 'Bound resources', 'value' => (string) count($bindings), 'state' => 'Active Digital Asset bindings'],
-                    ['label' => 'Collection runs', 'value' => (string) $runs->count(), 'state' => 'Persisted Collection Engine history'],
+                    ['label' => 'Central/bound collection runs', 'value' => (string) $runs->count(), 'state' => 'Collection Engine history'],
+                    ['label' => 'History target', 'value' => $this->connector === 'ga4' ? '486 days' : 'Provider policy', 'state' => 'Initial central collection'],
                 ],
                 'note' => $latestSuccess instanceof CollectionResourceRun
-                    ? 'Central collection data exists. Open the bound Digital Asset for specialist metrics from the Data Pool.'
+                    ? 'Central provider data exists and can later be attached to a Digital Asset without recollecting the same history.'
                     : 'No completed collection has been recorded for this connector yet.',
                 'asset_cta' => $firstBoundAsset instanceof DigitalAsset ? $this->assetCta($firstBoundAsset) : null,
             ],
@@ -326,8 +356,10 @@ class ConnectorPage extends Component
                 'status' => $latestAttempt instanceof CollectionResourceRun
                     ? ucfirst(str_replace('_', ' ', $latestAttempt->status->value))
                     : 'Not collected',
-                'timezone' => (string) ($resourceModels->first()?->metadata['timezone'] ?? 'Provider / property timezone'),
-                'scope' => (string) $connector['label'].' resources discovered through the shared Google Integration',
+                'timezone' => (string) ($resourceModels->first()?->metadata['timezone'] ?? 'Per GA4 property timezone'),
+                'scope' => $this->connector === 'ga4'
+                    ? 'Provider resource → Central Data Pool → later Digital Asset binding'
+                    : (string) $connector['label'].' resources discovered through the shared Google Integration',
                 'failure' => $latestAttempt?->error_summary,
             ],
             'activity' => $activity,
@@ -357,23 +389,11 @@ class ConnectorPage extends Component
             'resources_count' => 0,
             'bound' => 0,
             'available' => 0,
-            'ontology_note' => 'Configure the '.$meta['integration_label'].' integration before discovering resources. Asset existence is not a connection.',
+            'ontology_note' => 'Configure the '.$meta['integration_label'].' integration before discovering resources.',
             'existing_assets_for_brand' => [],
             'resources' => [],
-            'data' => [
-                'latest_through' => '—',
-                'metrics' => [],
-                'note' => 'No collection data — provider is not configured.',
-                'asset_cta' => null,
-            ],
-            'sync' => [
-                'last_success' => '—',
-                'last_attempt' => '—',
-                'status' => 'Not configured',
-                'timezone' => '—',
-                'scope' => 'Not configured',
-                'failure' => null,
-            ],
+            'data' => ['latest_through' => '—', 'metrics' => [], 'note' => 'No collection data.', 'asset_cta' => null],
+            'sync' => ['last_success' => '—', 'last_attempt' => '—', 'status' => 'Not configured', 'timezone' => '—', 'scope' => 'Not configured', 'failure' => null],
             'activity' => [],
         ];
 
@@ -402,9 +422,7 @@ class ConnectorPage extends Component
     {
         $route = $this->assetRouteName($asset);
 
-        return $route === 'operator.assets'
-            ? route($route)
-            : route($route, ['assetId' => $asset->id]);
+        return $route === 'operator.assets' ? route($route) : route($route, ['assetId' => $asset->id]);
     }
 
     private function assetRouteName(DigitalAsset $asset): string
