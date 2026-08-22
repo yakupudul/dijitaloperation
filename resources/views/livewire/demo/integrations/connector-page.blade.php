@@ -45,6 +45,10 @@
         @endforeach
     </nav>
 
+    @if (($data['id'] ?? null) === 'ga4')
+        <livewire:demo.integrations.ga4-collection-monitor />
+    @endif
+
     @if ($tab === 'overview')
         <div class="grid grid-cols-2 gap-3 xl:grid-cols-5">
             <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
