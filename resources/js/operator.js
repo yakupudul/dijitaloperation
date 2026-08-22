@@ -16,11 +16,25 @@ import './maps/ga4-world-map';
 window.ApexCharts = ApexCharts;
 window.flatpickr = flatpickr;
 
+function matchingElements(root, selector) {
+    const scope = root?.querySelectorAll ? root : document;
+    const elements = [];
+
+    if (scope.matches?.(selector)) {
+        elements.push(scope);
+    }
+
+    scope.querySelectorAll?.(selector).forEach((element) => elements.push(element));
+
+    return elements;
+}
+
 function bindDatePickers(root = document) {
-    root.querySelectorAll('[data-flatpickr-range]').forEach((el) => {
+    matchingElements(root, '[data-flatpickr-range]').forEach((el) => {
         if (el.__fpBound) {
             return;
         }
+
         flatpickr(el, {
             mode: 'range',
             dateFormat: 'Y-m-d',
@@ -36,24 +50,56 @@ function bindDatePickers(root = document) {
     });
 }
 
+function destroyOperatorChart(el) {
+    if (el.__apexChart) {
+        try {
+            el.__apexChart.destroy();
+        } catch (_) {
+            // Livewire may already have morphed part of the ApexCharts DOM.
+        }
+    }
+
+    el.__apexChart = null;
+    el.__apexSignature = null;
+}
+
 /**
- * Render (or re-render) an ApexChart into an element carrying a JSON `data-chart`
- * options attribute. Livewire-friendly: re-initialises after morph updates.
+ * Render ApexCharts from the server-owned `data-chart` payload.
+ *
+ * Livewire can preserve the chart host while changing only its `data-chart`
+ * attribute. Therefore a one-time "already rendered" flag is incorrect: when the
+ * payload changes we must destroy the old Apex instance and render the new data.
  */
 function renderOperatorCharts(root = document) {
-    root.querySelectorAll('[data-chart]').forEach((el) => {
-        if (el.__apexRendered) {
+    matchingElements(root, '[data-chart]').forEach((el) => {
+        const signature = el.getAttribute('data-chart') || '';
+        if (!signature) {
+            destroyOperatorChart(el);
             return;
         }
+
+        if (el.__apexChart && el.__apexSignature === signature) {
+            return;
+        }
+
         let options;
         try {
-            options = JSON.parse(el.getAttribute('data-chart'));
-        } catch (e) {
+            options = JSON.parse(signature);
+        } catch (_) {
             return;
         }
+
+        destroyOperatorChart(el);
+
         const chart = new ApexCharts(el, options);
-        chart.render();
-        el.__apexRendered = true;
+        el.__apexChart = chart;
+        el.__apexSignature = signature;
+
+        Promise.resolve(chart.render()).catch(() => {
+            if (el.__apexChart === chart) {
+                destroyOperatorChart(el);
+            }
+        });
     });
 }
 
