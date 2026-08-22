@@ -6,21 +6,23 @@ use App\Exceptions\Integrations\GoogleAuthenticationException;
 use App\Exceptions\Integrations\GoogleAuthorizationException;
 use App\Models\CoreIntegration;
 use App\Services\Integrations\Google\GoogleApiClient;
+use App\Services\Integrations\Google\GoogleOAuthService;
 use App\Services\Integrations\Google\GoogleScopeCoverageService;
 use App\Services\Integrations\Google\GoogleScopeRegistry;
 use App\Support\Integrations\DiscoveredExternalResource;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
  * GBP Location discovery via Account Management + Business Information APIs.
  *
- * Verified 2026-08-13:
+ * Verified 2026-08-22:
  * - accounts.list: mybusinessaccountmanagement.googleapis.com/v1/accounts
  * - accounts.locations.list: mybusinessbusinessinformation.googleapis.com/v1/{parent}/locations
  *   requires readMask; supports accounts/- wildcard for indirect ownership
  * - OAuth scope: https://www.googleapis.com/auth/business.manage
  *
- * GBP is a first-class Prompt 15 discovery connector. External project API access
+ * GBP is a first-class discovery connector. External project API access
  * is represented as EXTERNAL_ACCESS_REQUIRED — never as deferred architecture.
  */
 class GoogleBusinessProfileDiscoverer
@@ -30,6 +32,8 @@ class GoogleBusinessProfileDiscoverer
     public function __construct(
         private readonly GoogleApiClient $client,
         private readonly GoogleScopeCoverageService $coverage,
+        private readonly GoogleOAuthService $oauth,
+        private readonly GoogleScopeRegistry $scopeRegistry,
     ) {}
 
     public function discover(CoreIntegration $integration): CapabilityDiscoveryResult
@@ -40,6 +44,12 @@ class GoogleBusinessProfileDiscoverer
                 'Missing business.manage scope. Enable GOOGLE_INCLUDE_GBP_SCOPE and re-authorize Google.',
             );
         }
+
+        // Local granted_scopes can be stale after incremental Google re-authorization.
+        // Before rejecting GBP, reconcile the persisted scope list against Google's
+        // tokeninfo response. Provider scope is authoritative; no token is logged.
+        $this->syncGrantedScopesFromProvider($integration);
+        $integration = $integration->fresh(['authorizationCredential', 'providerCredential']) ?? $integration;
 
         $granted = $this->coverage->grantedScopes($integration);
         if ($granted !== [] && ! $this->coverage->hasCapability($integration, GoogleScopeRegistry::CAPABILITY_GBP)) {
@@ -60,7 +70,7 @@ class GoogleBusinessProfileDiscoverer
             $accountsResponse = $this->client->get(
                 $integration,
                 'https://mybusinessaccountmanagement.googleapis.com/v1/accounts',
-                [],
+                ['pageSize' => 20],
                 GoogleScopeRegistry::CAPABILITY_GBP,
             );
         } catch (GoogleAuthorizationException) {
@@ -77,7 +87,7 @@ class GoogleBusinessProfileDiscoverer
         if (in_array($accountsResponse->status(), [403, 429], true)) {
             return CapabilityDiscoveryResult::externalAccessRequired(
                 'google_business_profile',
-                'Google Business Profile API access unavailable (enable APIs and request GBP API access if quota is 0).',
+                'Google Business Profile API access unavailable (enable Account Management and Business Information APIs and request GBP API access if quota is 0).',
             );
         }
 
@@ -95,7 +105,7 @@ class GoogleBusinessProfileDiscoverer
             $accounts = [];
         }
 
-        // Prefer wildcard listing for direct + indirect ownership when no PERSONAL-only need.
+        // Prefer wildcard listing for direct + indirect ownership.
         // Official guide: GET .../accounts/-/locations?readMask=...
         $accountParents = ['accounts/-'];
         foreach ($accounts as $account) {
@@ -294,6 +304,54 @@ class GoogleBusinessProfileDiscoverer
             'resources' => $resources,
             'partial' => $partial,
         ];
+    }
+
+    private function syncGrantedScopesFromProvider(CoreIntegration $integration): void
+    {
+        $fresh = $integration->fresh(['authorizationCredential']) ?? $integration;
+        $token = $this->oauth->validAccessToken($fresh);
+        if ($token === null) {
+            return;
+        }
+
+        try {
+            $response = Http::timeout(15)->get('https://oauth2.googleapis.com/tokeninfo', [
+                'access_token' => $token,
+            ]);
+        } catch (\Throwable $e) {
+            Log::info('Google scope reconciliation skipped: tokeninfo unavailable', [
+                'integration_id' => $integration->id,
+                'exception' => $e::class,
+            ]);
+
+            return;
+        }
+
+        if (! $response->successful()) {
+            return;
+        }
+
+        $rawScope = $response->json('scope');
+        if (! is_string($rawScope) || trim($rawScope) === '') {
+            return;
+        }
+
+        $granted = $this->scopeRegistry->parseGranted($rawScope);
+        if ($granted === []) {
+            return;
+        }
+
+        $config = $fresh->config ?? [];
+        $config['granted_scopes'] = $granted;
+        $config['granted_scopes_verified_at'] = now()->toIso8601String();
+        $fresh->forceFill(['config' => $config])->save();
+
+        $credential = $fresh->authorizationCredential;
+        if ($credential !== null && is_array($credential->encrypted_payload)) {
+            $payload = $credential->encrypted_payload;
+            $payload['scope'] = implode(' ', $granted);
+            $credential->forceFill(['encrypted_payload' => $payload])->save();
+        }
     }
 
     private function inferAccountParent(string $locationName): ?string
