@@ -6,3 +6,7 @@
         />
     </div>
 @endif
+
+@if (isset($isGsc) && $isGsc)
+    <livewire:demo.integrations.gsc-collection-monitor />
+@endif
