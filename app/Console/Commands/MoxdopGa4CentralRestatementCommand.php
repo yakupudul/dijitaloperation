@@ -15,18 +15,21 @@ final class MoxdopGa4CentralRestatementCommand extends Command
 {
     protected $signature = 'moxdop:ga4:central-restatement';
 
-    protected $description = 'Recollect the last 14 closed reporting days for GA4 properties already opted into the central Data Pool.';
+    protected $description = 'Smart-refresh centrally enrolled GA4 properties, repairing gaps and restating recent closed reporting days.';
 
     public function handle(Ga4CentralCollectionService $collector): int
     {
         $resourceIds = CollectionResourceRun::query()
             ->where('provider_or_source', 'GA4')
-            ->where('status', CollectionRunStatus::Completed->value)
             ->whereNull('digital_asset_id')
             ->whereNotNull('external_resource_id')
-            ->whereHas('collectionRun', function ($query): void {
-                $query->where('metadata->collection_intent', 'ga4_central_initial');
-            })
+            ->where('metadata->collection_scope', 'provider_resource_first')
+            ->whereIn('status', [
+                CollectionRunStatus::Completed->value,
+                CollectionRunStatus::Partial->value,
+                CollectionRunStatus::Failed->value,
+                CollectionRunStatus::Cancelled->value,
+            ])
             ->distinct()
             ->pluck('external_resource_id')
             ->filter()
@@ -34,7 +37,7 @@ final class MoxdopGa4CentralRestatementCommand extends Command
             ->values();
 
         if ($resourceIds->isEmpty()) {
-            $this->info('No centrally collected GA4 properties are enrolled yet.');
+            $this->info('No centrally enrolled GA4 properties found.');
 
             return self::SUCCESS;
         }
@@ -54,15 +57,19 @@ final class MoxdopGa4CentralRestatementCommand extends Command
                 continue;
             }
 
-            $collector->startRestatement(
-                $integration,
-                $group->pluck('id')->map(fn ($id): int => (int) $id)->all(),
-                null,
-            );
-            $started += $group->count();
+            try {
+                $collector->startSmartUpdate(
+                    $integration,
+                    $group->pluck('id')->map(fn ($id): int => (int) $id)->all(),
+                    null,
+                );
+                $started += $group->count();
+            } catch (\InvalidArgumentException $e) {
+                $this->warn('Skipped integration #'.$integration->id.': '.$e->getMessage());
+            }
         }
 
-        $this->info("GA4 central 14-day restatement queued for {$started} propert".($started === 1 ? 'y' : 'ies').'.');
+        $this->info("GA4 smart refresh queued for {$started} propert".($started === 1 ? 'y' : 'ies').'.');
 
         return self::SUCCESS;
     }
