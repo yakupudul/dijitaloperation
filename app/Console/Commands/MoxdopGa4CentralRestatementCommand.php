@@ -28,7 +28,6 @@ final class MoxdopGa4CentralRestatementCommand extends Command
                 CollectionRunStatus::Completed->value,
                 CollectionRunStatus::Partial->value,
                 CollectionRunStatus::Failed->value,
-                CollectionRunStatus::Cancelled->value,
             ])
             ->distinct()
             ->pluck('external_resource_id')
