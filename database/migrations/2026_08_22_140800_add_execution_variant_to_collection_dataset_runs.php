@@ -4,7 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use RuntimeException;
 
 return new class extends Migration
 {
@@ -84,7 +83,7 @@ return new class extends Migration
             ->exists();
 
         if ($hasVariants) {
-            throw new RuntimeException('Cannot safely roll back execution_variant while multiple provider variants exist.');
+            throw new \RuntimeException('Cannot safely roll back execution_variant while multiple provider variants exist.');
         }
 
         if (DB::getDriverName() === 'pgsql') {
