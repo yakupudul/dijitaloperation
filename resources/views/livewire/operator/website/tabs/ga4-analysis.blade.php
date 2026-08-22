@@ -52,6 +52,37 @@
     ];
     $deviceLabel = static fn (?string $label): string => $deviceNames[mb_strtolower((string) $label)] ?? ($label ?: '—');
 
+    $eventNames = [
+        'page_view' => __('website_ga4.event_page_view'),
+        'session_start' => __('website_ga4.event_session_start'),
+        'first_visit' => __('website_ga4.event_first_visit'),
+        'user_engagement' => __('website_ga4.event_user_engagement'),
+        'scroll' => __('website_ga4.event_scroll'),
+        'click' => __('website_ga4.event_click'),
+        'form_start' => __('website_ga4.event_form_start'),
+        'form_submit' => __('website_ga4.event_form_submit'),
+        'file_download' => __('website_ga4.event_file_download'),
+    ];
+    $eventLabel = static fn (?string $label): string => $eventNames[$label ?: ''] ?? ucfirst(str_replace('_', ' ', (string) ($label ?: '—')));
+
+    $dayNames = [
+        '0' => __('website_ga4.day_sunday'),
+        '1' => __('website_ga4.day_monday'),
+        '2' => __('website_ga4.day_tuesday'),
+        '3' => __('website_ga4.day_wednesday'),
+        '4' => __('website_ga4.day_thursday'),
+        '5' => __('website_ga4.day_friday'),
+        '6' => __('website_ga4.day_saturday'),
+        'Sunday' => __('website_ga4.day_sunday'),
+        'Monday' => __('website_ga4.day_monday'),
+        'Tuesday' => __('website_ga4.day_tuesday'),
+        'Wednesday' => __('website_ga4.day_wednesday'),
+        'Thursday' => __('website_ga4.day_thursday'),
+        'Friday' => __('website_ga4.day_friday'),
+        'Saturday' => __('website_ga4.day_saturday'),
+    ];
+    $dayLabel = static fn ($day): string => $dayNames[(string) $day] ?? (string) $day;
+
     $secondary = $ga4Analysis['secondary_metrics'] ?? [];
     $channelRows = $ga4Analysis['channels'] ?? [];
     $firstUserRows = $ga4Analysis['first_user_acquisition'] ?? [];
@@ -239,7 +270,7 @@
                     <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-800"><h4 class="text-sm font-semibold text-gray-900 dark:text-white">{{ __('website_ga4.landing_pages') }}</h4></div>
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-100 text-sm dark:divide-gray-800">
-                            <thead><tr class="text-left text-[11px] uppercase tracking-wide text-gray-400"><th class="px-5 py-3 font-medium">Sayfa</th><th class="px-3 py-3 text-right font-medium">{{ __('website_ga4.sessions_col') }}</th><th class="px-5 py-3 text-right font-medium">{{ __('website_ga4.engagement_col') }}</th></tr></thead>
+                            <thead><tr class="text-left text-[11px] uppercase tracking-wide text-gray-400"><th class="px-5 py-3 font-medium">{{ __('website_ga4.page_col') }}</th><th class="px-3 py-3 text-right font-medium">{{ __('website_ga4.sessions_col') }}</th><th class="px-5 py-3 text-right font-medium">{{ __('website_ga4.engagement_col') }}</th></tr></thead>
                             <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                                 @forelse (array_slice($landingRows, 0, 8) as $row)
                                     <tr><td class="max-w-[360px] truncate px-5 py-3 font-medium text-gray-800 dark:text-white/90">{{ $row['label'] ?: '/' }}</td><td class="px-3 py-3 text-right tabular-nums text-gray-600 dark:text-gray-300">{{ number_format($row['sessions']) }}</td><td class="px-5 py-3 text-right tabular-nums text-gray-600 dark:text-gray-300">{{ $row['engagement_rate'] === null ? '—' : number_format($row['engagement_rate'], 1).'%' }}</td></tr>
@@ -255,7 +286,7 @@
                     <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-800"><h4 class="text-sm font-semibold text-gray-900 dark:text-white">{{ __('website_ga4.pages_screens') }}</h4></div>
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-100 text-sm dark:divide-gray-800">
-                            <thead><tr class="text-left text-[11px] uppercase tracking-wide text-gray-400"><th class="px-5 py-3 font-medium">Sayfa</th><th class="px-3 py-3 text-right font-medium">{{ __('website_ga4.views_col') }}</th><th class="px-5 py-3 text-right font-medium">{{ __('website_ga4.events_col') }}</th></tr></thead>
+                            <thead><tr class="text-left text-[11px] uppercase tracking-wide text-gray-400"><th class="px-5 py-3 font-medium">{{ __('website_ga4.page_col') }}</th><th class="px-3 py-3 text-right font-medium">{{ __('website_ga4.views_col') }}</th><th class="px-5 py-3 text-right font-medium">{{ __('website_ga4.events_col') }}</th></tr></thead>
                             <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                                 @forelse (array_slice($pageRows, 0, 8) as $row)
                                     <tr><td class="px-5 py-3"><p class="max-w-[360px] truncate font-medium text-gray-800 dark:text-white/90">{{ $row['title'] ?: $row['path'] }}</p><p class="mt-0.5 max-w-[360px] truncate text-[11px] text-gray-400">{{ $row['path'] }}</p></td><td class="px-3 py-3 text-right tabular-nums text-gray-600 dark:text-gray-300">{{ number_format($row['views']) }}</td><td class="px-5 py-3 text-right tabular-nums text-gray-600 dark:text-gray-300">{{ number_format($row['events']) }}</td></tr>
@@ -280,7 +311,7 @@
                     <div class="mt-4 space-y-3">
                         @forelse (array_slice($eventRows, 0, 8) as $row)
                             <div>
-                                <div class="flex items-center justify-between gap-3 text-sm"><span class="min-w-0 truncate font-medium text-gray-700 dark:text-gray-300">{{ str_replace('_', ' ', $row['label'] ?: '—') }}</span><span class="shrink-0 tabular-nums text-gray-900 dark:text-white">{{ number_format($row['events']) }}</span></div>
+                                <div class="flex items-center justify-between gap-3 text-sm"><span class="min-w-0 truncate font-medium text-gray-700 dark:text-gray-300">{{ $eventLabel($row['label'] ?? null) }}</span><span class="shrink-0 tabular-nums text-gray-900 dark:text-white">{{ number_format($row['events']) }}</span></div>
                                 <div class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-white/5"><div class="h-full rounded-full bg-violet-500" style="width: {{ min(100, ((float) $row['events'] / $maxEvents) * 100) }}%"></div></div>
                             </div>
                         @empty
@@ -294,7 +325,7 @@
                     <div class="mt-4 space-y-3">
                         @forelse (array_slice($keyEventRows, 0, 8) as $row)
                             <div>
-                                <div class="flex items-center justify-between gap-3 text-sm"><span class="min-w-0 truncate font-medium text-gray-700 dark:text-gray-300">{{ str_replace('_', ' ', $row['label'] ?: '—') }}</span><span class="shrink-0 tabular-nums text-gray-900 dark:text-white">{{ number_format((float) $row['events'], 1) }}</span></div>
+                                <div class="flex items-center justify-between gap-3 text-sm"><span class="min-w-0 truncate font-medium text-gray-700 dark:text-gray-300">{{ $eventLabel($row['label'] ?? null) }}</span><span class="shrink-0 tabular-nums text-gray-900 dark:text-white">{{ number_format((float) $row['events'], 1) }}</span></div>
                                 <div class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-white/5"><div class="h-full rounded-full bg-emerald-500" style="width: {{ min(100, ((float) $row['events'] / $maxKeyEvents) * 100) }}%"></div></div>
                             </div>
                         @empty
@@ -358,7 +389,7 @@
                         <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400">
                             <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
                         </div>
-                        <p class="mt-3 text-xs text-gray-500">{{ $row['day'] }} · {{ str_pad($row['hour'], 2, '0', STR_PAD_LEFT) }}:00</p>
+                        <p class="mt-3 text-xs text-gray-500">{{ $dayLabel($row['day']) }} · {{ str_pad($row['hour'], 2, '0', STR_PAD_LEFT) }}:00</p>
                         <p class="mt-1 text-xl font-semibold tabular-nums text-gray-900 dark:text-white">{{ number_format($row['sessions']) }}</p>
                         <p class="text-[11px] text-gray-400">{{ mb_strtolower(__('website_ga4.sessions_col')) }}</p>
                     </div>
@@ -407,7 +438,7 @@
                     <div class="flex gap-5 text-right text-xs"><div><span class="block text-gray-400">{{ __('website_ga4.purchases_col') }}</span><strong class="mt-0.5 block text-sm text-gray-900 dark:text-white">{{ number_format($ga4Analysis['ecommerce']['purchases'] ?? 0) }}</strong></div><div><span class="block text-gray-400">{{ __('website_ga4.revenue_col') }}</span><strong class="mt-0.5 block text-sm text-gray-900 dark:text-white">{{ $ga4Analysis['ecommerce']['revenue'] === null ? '—' : number_format((float) $ga4Analysis['ecommerce']['revenue'], 2) }}</strong></div></div>
                 </div>
                 <div class="overflow-x-auto">
-                    <table class="min-w-full text-sm"><thead><tr class="border-b border-gray-100 text-left text-[11px] uppercase tracking-wide text-gray-400 dark:border-gray-800"><th class="px-5 py-3 font-medium">Ürün</th><th class="px-3 py-3 text-right font-medium">{{ __('website_ga4.views_col') }}</th><th class="px-3 py-3 text-right font-medium">Sepet</th><th class="px-5 py-3 text-right font-medium">{{ __('website_ga4.purchases_col') }}</th></tr></thead><tbody class="divide-y divide-gray-100 dark:divide-gray-800">@foreach ($ga4Analysis['ecommerce']['items'] ?? [] as $row)<tr><td class="px-5 py-3 font-medium text-gray-800 dark:text-white/90">{{ $row['item_name'] ?: $row['item_id'] }}</td><td class="px-3 py-3 text-right tabular-nums">{{ number_format($row['views']) }}</td><td class="px-3 py-3 text-right tabular-nums">{{ number_format($row['carts']) }}</td><td class="px-5 py-3 text-right tabular-nums">{{ number_format($row['purchases']) }}</td></tr>@endforeach</tbody></table>
+                    <table class="min-w-full text-sm"><thead><tr class="border-b border-gray-100 text-left text-[11px] uppercase tracking-wide text-gray-400 dark:border-gray-800"><th class="px-5 py-3 font-medium">{{ __('website_ga4.product_col') }}</th><th class="px-3 py-3 text-right font-medium">{{ __('website_ga4.views_col') }}</th><th class="px-3 py-3 text-right font-medium">{{ __('website_ga4.cart_col') }}</th><th class="px-5 py-3 text-right font-medium">{{ __('website_ga4.purchases_col') }}</th></tr></thead><tbody class="divide-y divide-gray-100 dark:divide-gray-800">@foreach ($ga4Analysis['ecommerce']['items'] ?? [] as $row)<tr><td class="px-5 py-3 font-medium text-gray-800 dark:text-white/90">{{ $row['item_name'] ?: $row['item_id'] }}</td><td class="px-3 py-3 text-right tabular-nums">{{ number_format($row['views']) }}</td><td class="px-3 py-3 text-right tabular-nums">{{ number_format($row['carts']) }}</td><td class="px-5 py-3 text-right tabular-nums">{{ number_format($row['purchases']) }}</td></tr>@endforeach</tbody></table>
                 </div>
             </section>
         @endif
