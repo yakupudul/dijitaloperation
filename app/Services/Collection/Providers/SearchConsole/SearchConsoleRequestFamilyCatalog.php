@@ -69,8 +69,8 @@ final class SearchConsoleRequestFamilyCatalog
 
     /**
      * Returns only search types compatible with a family. Discover and Google News
-     * do not expose a useful query dimension, while Search Appearance is collected
-     * conservatively from Web where the dimension is established and actionable.
+     * do not expose a useful query dimension. Search Appearance is collected from
+     * Web with Google's required two-step discover-then-filter flow.
      *
      * @param list<string> $activeSearchTypes
      * @return list<string>
@@ -112,7 +112,8 @@ final class SearchConsoleRequestFamilyCatalog
      *   search_type: string,
      *   data_state: string,
      *   requires_date_range: bool,
-     *   high_cardinality: bool
+     *   high_cardinality: bool,
+     *   search_appearance_two_step?: bool
      * }
      */
     public static function definition(string $familyId): array
@@ -142,8 +143,14 @@ final class SearchConsoleRequestFamilyCatalog
             self::FAMILY_PAGE_COUNTRY_DAILY => $analytics('gsc_page_country_daily', ['date', 'page', 'country'], 'byPage', true),
             self::FAMILY_QUERY_DEVICE_DAILY => $analytics('gsc_query_device_daily', ['date', 'query', 'device'], 'auto', true),
             self::FAMILY_QUERY_COUNTRY_DAILY => $analytics('gsc_query_country_daily', ['date', 'query', 'country'], 'auto', true),
-            self::FAMILY_SEARCH_APPEARANCE_DAILY => $analytics('gsc_search_appearance_daily', ['date', 'searchAppearance'], 'byProperty'),
-            self::FAMILY_SEARCH_APPEARANCE_PAGE_DAILY => $analytics('gsc_search_appearance_page_daily', ['date', 'searchAppearance', 'page'], 'byPage', true),
+            self::FAMILY_SEARCH_APPEARANCE_DAILY => [
+                ...$analytics('gsc_search_appearance_daily', ['date'], 'byProperty'),
+                'search_appearance_two_step' => true,
+            ],
+            self::FAMILY_SEARCH_APPEARANCE_PAGE_DAILY => [
+                ...$analytics('gsc_search_appearance_page_daily', ['date', 'page'], 'byPage', true),
+                'search_appearance_two_step' => true,
+            ],
             self::FAMILY_SITEMAPS => [
                 'kind' => 'sitemaps',
                 'dataset_id' => 'gsc_sitemap_snapshot',
