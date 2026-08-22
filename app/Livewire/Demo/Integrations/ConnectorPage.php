@@ -220,6 +220,13 @@ class ConnectorPage extends Component
                 ->orderByDesc('last_activity_at')
                 ->orderByDesc('id')
                 ->get();
+
+        if ($this->connector === 'ga4') {
+            $runs = $runs->filter(fn (CollectionResourceRun $run): bool => $run->provider_or_source === 'GA4'
+                && $run->digital_asset_id === null
+                && data_get($run->metadata, 'collection_scope') === 'provider_resource_first')->values();
+        }
+
         $runsByResource = $runs->groupBy('external_resource_id');
 
         $resources = $resourceModels->map(function (CoreExternalResource $resource) use ($runsByResource): array {
