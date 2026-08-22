@@ -9,12 +9,13 @@ use App\Services\Ga4\Support\Ga4BindingContext;
 use App\Support\Integrations\Google\GoogleAuthStatus;
 use App\Support\Integrations\Google\GoogleResourceType;
 use App\Support\Integrations\ProviderRegistry;
+use App\Support\Reality\DemoCatalogAssetGuard;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Resolves the GA4 workspace binding for an assetId (Demo catalog string OR
- * numeric DigitalAsset id). Only the human-confirmed active `ga4` CoreAssetBinding
- * is used — never the first-available ExternalResource by name.
+ * Resolves the GA4 workspace binding for a numeric DigitalAsset id.
+ * Demo catalog / string fixture ids are not a production read path.
+ * Only the human-confirmed active `ga4` CoreAssetBinding is used.
  */
 final class Ga4SpecialistBindingResolver
 {
@@ -22,8 +23,8 @@ final class Ga4SpecialistBindingResolver
 
     public function resolve(string $assetId): Ga4BindingContext
     {
-        if (! ctype_digit($assetId)) {
-            return Ga4BindingContext::demoCatalog($assetId);
+        if (! ctype_digit($assetId) || DemoCatalogAssetGuard::isDemoCatalogAssetId($assetId)) {
+            return Ga4BindingContext::notConnected($assetId, null, 'non_numeric_or_catalog_asset_id');
         }
 
         $digitalAssetId = (int) $assetId;

@@ -107,13 +107,15 @@ class DemoRealityFinalConvergenceTest extends TestCase
             ->assertDontSee('not yet available');
     }
 
-    public function test_explicit_demo_catalog_ga4_asset_still_uses_demo_fixtures(): void
+    public function test_explicit_demo_catalog_ga4_asset_does_not_use_demo_fixtures_via_specialist_read(): void
     {
         $workspace = app(Ga4SpecialistReadService::class)->workspace(DemoCatalog::GA4_ASSET_ID);
-        $this->assertSame('demo_catalog', $workspace['migration_mode']);
+        $this->assertNotSame('demo_catalog', $workspace['migration_mode']);
         $baseline = Ga4WorkspaceFixtures::workspace('last_28');
         $this->assertNotEmpty($baseline['needs_attention']);
-        $this->assertContains(DataSourceState::Demo->value, $workspace['data_provenance']);
+        $this->assertNotSame($baseline['glance']['sessions']['raw'], $workspace['glance']['sessions']['raw'] ?? null);
+        $this->assertSame('—', $workspace['glance']['sessions']['value'] ?? null);
+        $this->assertNotContains(DataSourceState::Demo->value, $workspace['data_provenance'] ?? []);
     }
 
     public function test_database_seeder_does_not_create_demo_customers(): void

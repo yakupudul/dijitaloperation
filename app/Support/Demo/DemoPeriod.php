@@ -24,6 +24,12 @@ final class DemoPeriod
     /** Deterministic fixture anchor used for Demo catalog / fixture coverage. */
     public const string ANCHOR_DATE = '2026-08-12';
 
+    /** Demo catalog fixture series length (exclusive of the extra day in picker min). */
+    public const int DEMO_HISTORY_DAYS = 89;
+
+    /** Production GSC/GA4 custom-range ceiling (~16 months). */
+    public const int PRODUCTION_HISTORY_DAYS = 486;
+
     private static int $fixtureAnchorDepth = 0;
 
     /**
@@ -113,6 +119,28 @@ final class DemoPeriod
         return self::pack('compare', $prevStart, $prevEnd);
     }
 
+    /**
+     * Same calendar period one year earlier while preserving the selected period's
+     * inclusive day count across leap-day boundaries. Missing YoY coverage is a
+     * caller concern (unavailable, not zero).
+     *
+     * @return array{start: CarbonInterface, end: CarbonInterface, days: int, label: string, preset: string}
+     */
+    public static function yearOverYearBounds(
+        string $preset,
+        ?string $start = null,
+        ?string $end = null,
+        ?string $assetId = null,
+        ?CarbonInterface $anchorOverride = null,
+        ?string $timezone = null,
+    ): array {
+        $current = self::bounds($preset, $start, $end, $assetId, $anchorOverride, $timezone);
+        $yoyStart = $current['start']->copy()->subYearNoOverflow();
+        $yoyEnd = $yoyStart->copy()->addDays($current['days'] - 1);
+
+        return self::pack('yoy', $yoyStart, $yoyEnd);
+    }
+
     public static function anchor(?string $assetId = null): CarbonInterface
     {
         $configured = config('moxdop.reporting_anchor_date');
@@ -155,6 +183,7 @@ final class DemoPeriod
         }
 
         [$anchor, $tz] = self::resolveAnchor($assetId, $anchorOverride, $timezone);
+        $historyDays = self::historyDaysFor($assetId, $anchorOverride);
 
         try {
             $from = Carbon::parse($start, $tz)->startOfDay();
@@ -171,16 +200,33 @@ final class DemoPeriod
             return __('operator.period.after_available', ['date' => $anchor->format('M j, Y')]);
         }
 
-        $earliest = $anchor->copy()->subDays(89);
+        $earliest = $anchor->copy()->subDays($historyDays);
         if ($to->lessThan($earliest)) {
             return __('operator.period.no_data_range');
         }
 
-        if ($from->diffInDays($to) + 1 > 90) {
-            return __('operator.period.max_90');
+        if ($from->diffInDays($to) + 1 > $historyDays + 1) {
+            return $historyDays >= self::PRODUCTION_HISTORY_DAYS
+                ? __('operator.period.max_16m')
+                : __('operator.period.max_90');
         }
 
         return null;
+    }
+
+    public static function historyDaysFor(?string $assetId, ?CarbonInterface $anchorOverride = null): int
+    {
+        if ($anchorOverride !== null) {
+            return self::PRODUCTION_HISTORY_DAYS;
+        }
+
+        $id = trim((string) $assetId);
+
+        if ($id !== '' && DemoCatalogAssetGuard::isDemoCatalogAssetId($id)) {
+            return self::DEMO_HISTORY_DAYS;
+        }
+
+        return self::PRODUCTION_HISTORY_DAYS;
     }
 
     /**

@@ -2,6 +2,8 @@
 
 namespace App\Livewire\Demo\Concerns;
 
+use App\Livewire\Demo\Assets\AnalyticsPage;
+use App\Livewire\Demo\Assets\SearchConsolePage;
 use App\Services\Operator\AgencySettingService;
 use App\Support\Demo\DemoPeriod;
 use App\Support\Demo\DemoState;
@@ -27,6 +29,9 @@ trait InteractsWithDemoPeriod
     #[Url(as: 'compare', history: true)]
     public bool $compare = true;
 
+    #[Url(as: 'compare_mode', history: true)]
+    public string $compareMode = 'previous';
+
     public ?string $draftPeriodStart = null;
 
     public ?string $draftPeriodEnd = null;
@@ -43,7 +48,11 @@ trait InteractsWithDemoPeriod
             $this->periodStart = $state['period_start'] ?? $this->periodStart;
             $this->periodEnd = $state['period_end'] ?? $this->periodEnd;
             $this->compare = array_key_exists('compare', $state) ? (bool) $state['compare'] : $this->compare;
+            $storedMode = $state['compare_mode'] ?? $this->compareMode;
+            $this->compareMode = in_array($storedMode, ['previous', 'yoy'], true) ? $storedMode : 'previous';
         }
+
+        $this->compareMode = $this->effectiveCompareMode();
 
         if ($this->period === 'custom' && filled($this->periodStart) && filled($this->periodEnd)) {
             $this->showCustomPicker = false;
@@ -126,7 +135,27 @@ trait InteractsWithDemoPeriod
     public function toggleCompare(): void
     {
         $this->compare = ! $this->compare;
-        DemoState::put(['compare' => $this->compare]);
+        DemoState::put(['compare' => $this->compare, 'compare_mode' => $this->effectiveCompareMode()]);
+    }
+
+    public function supportsYearOverYearComparison(): bool
+    {
+        return in_array(static::class, [AnalyticsPage::class, SearchConsolePage::class], true);
+    }
+
+    public function effectiveCompareMode(): string
+    {
+        return $this->supportsYearOverYearComparison() && $this->compareMode === 'yoy'
+            ? 'yoy'
+            : 'previous';
+    }
+
+    public function setCompareMode(string $mode): void
+    {
+        $requested = in_array($mode, ['previous', 'yoy'], true) ? $mode : 'previous';
+        $this->compareMode = $this->supportsYearOverYearComparison() ? $requested : 'previous';
+        $this->compare = true;
+        DemoState::put(['compare' => true, 'compare_mode' => $this->compareMode]);
     }
 
     public function appliedPeriodLabel(): string
@@ -142,9 +171,14 @@ trait InteractsWithDemoPeriod
             return null;
         }
 
+        $mode = $this->effectiveCompareMode();
         $prev = $this->usesDemoPeriodAnchor()
-            ? DemoPeriod::previousBounds($this->period, $this->periodStart, $this->periodEnd, $this->periodContextAssetId())
-            : OperatorPeriod::previousBounds($this->period, $this->periodStart, $this->periodEnd);
+            ? ($mode === 'yoy'
+                ? DemoPeriod::yearOverYearBounds($this->period, $this->periodStart, $this->periodEnd, $this->periodContextAssetId())
+                : DemoPeriod::previousBounds($this->period, $this->periodStart, $this->periodEnd, $this->periodContextAssetId()))
+            : ($mode === 'yoy'
+                ? OperatorPeriod::yearOverYearBounds($this->period, $this->periodStart, $this->periodEnd)
+                : OperatorPeriod::previousBounds($this->period, $this->periodStart, $this->periodEnd));
 
         return $prev['label'];
     }
@@ -176,8 +210,9 @@ trait InteractsWithDemoPeriod
             $this->periodEnd = $bounds['end']->toDateString();
         }
 
+        $this->compareMode = $this->effectiveCompareMode();
         DemoState::setPeriod($this->period, $this->periodStart, $this->periodEnd);
-        DemoState::put(['compare' => $this->compare]);
+        DemoState::put(['compare' => $this->compare, 'compare_mode' => $this->compareMode]);
     }
 
     /**

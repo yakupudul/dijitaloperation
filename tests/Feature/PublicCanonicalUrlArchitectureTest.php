@@ -136,4 +136,15 @@ class PublicCanonicalUrlArchitectureTest extends TestCase
         $this->post('/app/login')->assertStatus(410);
         $this->post('/system/login')->assertStatus(410);
     }
+
+    public function test_gsc_and_ga4_operator_routes_require_numeric_digital_asset_ids(): void
+    {
+        $searchConsole = app('router')->getRoutes()->getByName('operator.search-console');
+        $analytics = app('router')->getRoutes()->getByName('operator.analytics');
+
+        $this->assertSame('[0-9]+', $searchConsole?->wheres['assetId'] ?? null);
+        $this->assertSame('[0-9]+', $analytics?->wheres['assetId'] ?? null);
+        $this->assertSame('assets/search-console/{assetId?}', $searchConsole?->uri());
+        $this->assertSame('assets/analytics/{assetId?}', $analytics?->uri());
+    }
 }

@@ -7,6 +7,8 @@ use RuntimeException;
 
 /**
  * Loads MOXDOP_DATA_POOL_STORAGE_V1 and resolves logical dataset → physical storage.
+ * Provider-specific forward-compatible overlays may refine the same typed Data Pool contract
+ * without creating a second warehouse architecture.
  */
 final class DataPoolStorageRegistry
 {
@@ -22,9 +24,7 @@ final class DataPoolStorageRegistry
         private readonly ?string $path = null,
     ) {}
 
-    /**
-     * @return array<string, mixed>
-     */
+    /** @return array<string, mixed> */
     public function contract(): array
     {
         $this->ensureLoaded();
@@ -32,17 +32,13 @@ final class DataPoolStorageRegistry
         return $this->contract;
     }
 
-    /**
-     * @return array<string, mixed>
-     */
+    /** @return array<string, mixed> */
     public function metadata(): array
     {
         return $this->contract()['metadata'];
     }
 
-    /**
-     * @return array<string, mixed>
-     */
+    /** @return array<string, mixed> */
     public function physicalDataset(string $logicalDatasetId): array
     {
         $this->ensureLoaded();
@@ -61,9 +57,7 @@ final class DataPoolStorageRegistry
         return isset($this->physicalByDataset[$logicalDatasetId]);
     }
 
-    /**
-     * @return array<string, mixed>|null
-     */
+    /** @return array<string, mixed>|null */
     public function disposition(string $logicalDatasetId): ?array
     {
         $this->ensureLoaded();
@@ -71,20 +65,20 @@ final class DataPoolStorageRegistry
         return $this->dispositionByDataset[$logicalDatasetId] ?? null;
     }
 
-    /**
-     * @return list<array<string, mixed>>
-     */
+    /** @return list<array<string, mixed>> */
     public function physicalDatasets(): array
     {
-        return $this->contract()['physical_datasets'];
+        $this->ensureLoaded();
+
+        return array_values($this->physicalByDataset);
     }
 
-    /**
-     * @return list<array<string, mixed>>
-     */
+    /** @return list<array<string, mixed>> */
     public function dispositions(): array
     {
-        return $this->contract()['dispositions'];
+        $this->ensureLoaded();
+
+        return array_values($this->dispositionByDataset);
     }
 
     public function tableName(string $logicalDatasetId): string
@@ -119,6 +113,64 @@ final class DataPoolStorageRegistry
         }
         foreach ($decoded['dispositions'] as $row) {
             $this->dispositionByDataset[$row['logical_dataset_id']] = $row;
+        }
+
+        $this->applyProviderOverlay('moxdop-ga4-central', 'GA4_CENTRAL_RESOURCE_FIRST_V1');
+        $this->applyProviderOverlay('moxdop-gsc-central', 'GSC_CENTRAL_RESOURCE_FIRST_V1');
+        $this->applyProviderOverlay('moxdop-gbp-central', 'GBP_TYPED_FACTS_V1');
+    }
+
+    private function applyProviderOverlay(string $configKey, string $overlayId): void
+    {
+        /** @var array<string, list<string>> $naturalKeys */
+        $naturalKeys = config($configKey.'.natural_key_overrides', []);
+        /** @var array<string, list<array<string, mixed>>> $columnAdds */
+        $columnAdds = config($configKey.'.columns_add', []);
+        /** @var array<string, array<string, mixed>> $additions */
+        $additions = config($configKey.'.physical_additions', []);
+
+        foreach ($naturalKeys as $datasetId => $key) {
+            if (isset($this->physicalByDataset[$datasetId])) {
+                $this->physicalByDataset[$datasetId]['natural_key'] = array_values($key);
+            }
+        }
+
+        foreach ($columnAdds as $datasetId => $columns) {
+            if (! isset($this->physicalByDataset[$datasetId])) {
+                continue;
+            }
+
+            $existing = $this->physicalByDataset[$datasetId]['columns'] ?? [];
+            $byName = [];
+            foreach ($existing as $column) {
+                if (is_array($column) && isset($column['name'])) {
+                    $byName[(string) $column['name']] = $column;
+                }
+            }
+            foreach ($columns as $column) {
+                if (isset($column['name'])) {
+                    $byName[(string) $column['name']] = $column;
+                }
+            }
+            $this->physicalByDataset[$datasetId]['columns'] = array_values($byName);
+        }
+
+        foreach ($additions as $datasetId => $definition) {
+            $definition['logical_dataset_id'] = $datasetId;
+            $this->physicalByDataset[$datasetId] = $definition;
+            $this->dispositionByDataset[$datasetId] = [
+                'logical_dataset_id' => $datasetId,
+                'disposition' => 'PHYSICAL_TABLE',
+                'table' => $definition['table'],
+            ];
+        }
+
+        // Expose the effective contract to diagnostics without changing the frozen base JSON on disk.
+        $this->contract['physical_datasets'] = array_values($this->physicalByDataset);
+        $this->contract['dispositions'] = array_values($this->dispositionByDataset);
+        $this->contract['metadata']['runtime_overlays'] ??= [];
+        if (! in_array($overlayId, $this->contract['metadata']['runtime_overlays'], true)) {
+            $this->contract['metadata']['runtime_overlays'][] = $overlayId;
         }
     }
 }

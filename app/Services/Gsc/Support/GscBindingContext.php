@@ -24,13 +24,13 @@ final class GscBindingContext
         return new self(GscBindingMode::DemoCatalog, $assetId);
     }
 
-    public static function notConnected(string $assetId, int $digitalAssetId): self
+    public static function notConnected(string $assetId, ?int $digitalAssetId = null, string $reason = 'no_active_search_console_binding'): self
     {
         return new self(
             GscBindingMode::NotConnected,
             $assetId,
             digitalAssetId: $digitalAssetId,
-            reason: 'no_active_search_console_binding',
+            reason: $reason,
         );
     }
 

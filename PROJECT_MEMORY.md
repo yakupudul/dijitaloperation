@@ -103,6 +103,8 @@ The dedicated RC integration PR is **not** a DOP Autopilot product PR. Do not pu
 
 Site-scoped legacy connection paths may still exist for some Website connectors; the **direction of travel** is central Integration + External Resource + AssetBinding.
 
+**Track A (issue #211):** GSC/GA4 analytical reads use the canonical PostgreSQL Data Pool (`gsc_*` / `ga4_*`), not a second metrics store. Initial backfill target is `provider_16m_available` (486 days). Evidence remains run provenance. Closed-period provider totals are compared via `moxdop:reconcile-provider-period` (live ±1% is external UAT). `core_connections` is not retired while probe/WordPress/PageSpeed paths still depend on it.
+
 ---
 
 ## Current product philosophy

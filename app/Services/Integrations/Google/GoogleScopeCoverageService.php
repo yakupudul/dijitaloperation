@@ -115,16 +115,11 @@ final class GoogleScopeCoverageService
      */
     public function scopesToRequest(CoreIntegration $integration, ?array $capabilities = null, bool $incremental = true): array
     {
-        $target = $this->registry->scopesForCapabilities($capabilities);
-
-        if (! $incremental) {
-            return $target;
-        }
-
-        $missing = $this->registry->missing($this->grantedScopes($integration), $target);
-
-        // Incremental: request only missing scopes. If none missing but reauth needed for refresh token, request target set.
-        return $missing === [] ? $target : $missing;
+        // Always request the complete target scope set for the selected connectors.
+        // Google may return an incremental grant, but asking for the full target set
+        // avoids stale local scope coverage causing a newly-enabled connector (GBP)
+        // to be omitted during re-authorization.
+        return $this->registry->scopesForCapabilities($capabilities);
     }
 
     private function statusFor(string $auth, bool $hasScope): string
