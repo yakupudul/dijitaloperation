@@ -6,6 +6,8 @@ use InvalidArgumentException;
 
 /**
  * Contract-driven GA4 Core Reporting request builder — no ad-hoc UI composition.
+ * Central ingestion may use explicitly catalogued aggregate acquisition dimensions;
+ * user/client identifiers and arbitrary custom dimensions remain forbidden.
  */
 final class Ga4ReportRequestBuilder
 {
@@ -49,10 +51,6 @@ final class Ga4ReportRequestBuilder
     private function assertNoForbiddenDimensions(array $dimensions): void
     {
         $forbidden = [
-            'firstUserSource',
-            'firstUserMedium',
-            'firstUserCampaignName',
-            'firstUserDefaultChannelGroup',
             'userId',
             'clientId',
             'userPseudoId',
