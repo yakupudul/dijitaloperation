@@ -8,10 +8,12 @@ use App\Models\Collection\CollectionResourceRun;
 use App\Models\Collection\CollectionRun;
 use App\Models\CoreIntegration;
 use App\Services\Collection\CancellationService;
+use App\Services\Collection\Ga4\Ga4CentralCollectionService;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
 use Livewire\Component;
+use Throwable;
 
 class Ga4CollectionMonitor extends Component
 {
@@ -70,12 +72,28 @@ class Ga4CollectionMonitor extends Component
         $this->actionMessage = "{$name} için durdurma istendi. Diğer seçili property'ler devam edecek.";
     }
 
+    public function repairResource(int $externalResourceId, Ga4CentralCollectionService $collector): void
+    {
+        $this->authorizeOperator();
+        $integration = $this->googleIntegration();
+        $user = auth()->user();
+
+        try {
+            $run = $collector->startSmartUpdate($integration, [$externalResourceId], $user);
+            $label = (string) data_get($run->metadata, 'collection_intent_label', 'GA4 veri onarımı');
+            $this->actionMessage = "{$label} başlatıldı. Run #{$run->id}.";
+        } catch (Throwable $e) {
+            $this->actionMessage = 'Eksik veriler yeniden başlatılamadı: '.$e->getMessage();
+        }
+    }
+
     public function render(): View
     {
         $integration = $this->googleIntegration(false);
         if (! $integration instanceof CoreIntegration) {
             return view('livewire.demo.integrations.ga4-collection-monitor', [
                 'runs' => [],
+                'issues' => [],
                 'hasActive' => false,
             ]);
         }
@@ -104,8 +122,30 @@ class Ga4CollectionMonitor extends Component
             ->values()
             ->all();
 
+        $issues = CollectionResourceRun::query()
+            ->where('provider_or_source', 'GA4')
+            ->whereNull('digital_asset_id')
+            ->where('metadata->collection_scope', 'provider_resource_first')
+            ->whereHas('externalResource', fn ($query) => $query->where('integration_id', (int) $integration->id))
+            ->whereHas('collectionRun', fn ($query) => $query
+                ->where('metadata->collection_scope', 'provider_resource_first')
+                ->whereIn('metadata->collection_intent', self::CENTRAL_INTENTS)
+                ->where('request_context->context->google_integration_id', (int) $integration->id))
+            ->with(['externalResource', 'datasetRuns'])
+            ->orderByDesc('id')
+            ->limit(150)
+            ->get()
+            ->unique('external_resource_id')
+            ->filter(fn (CollectionResourceRun $resource): bool => $resource->datasetRuns
+                ->contains(fn (CollectionDatasetRun $dataset): bool => $dataset->status === CollectionRunStatus::Failed))
+            ->take(10)
+            ->map(fn (CollectionResourceRun $resource): array => $this->mapIssue($resource))
+            ->values()
+            ->all();
+
         return view('livewire.demo.integrations.ga4-collection-monitor', [
             'runs' => $runs,
+            'issues' => $issues,
             'hasActive' => $runs !== [],
         ]);
     }
@@ -234,6 +274,53 @@ class Ga4CollectionMonitor extends Component
             'current_range' => is_array($range) && isset($range['start'], $range['end']) ? $range['start'].' → '.$range['end'] : null,
             'last_activity' => $resource->last_activity_at?->diffForHumans() ?? '—',
             'can_stop' => ! $resource->status->isTerminal() && $resource->status !== CollectionRunStatus::CancellationRequested,
+            'errors' => $datasets
+                ->filter(fn (CollectionDatasetRun $dataset): bool => $dataset->status === CollectionRunStatus::Failed)
+                ->map(fn (CollectionDatasetRun $dataset): array => $this->mapDatasetError($dataset))
+                ->values()
+                ->all(),
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function mapIssue(CollectionResourceRun $resource): array
+    {
+        $meta = is_array($resource->externalResource?->metadata) ? $resource->externalResource->metadata : [];
+        $errors = $resource->datasetRuns
+            ->filter(fn (CollectionDatasetRun $dataset): bool => $dataset->status === CollectionRunStatus::Failed)
+            ->map(fn (CollectionDatasetRun $dataset): array => $this->mapDatasetError($dataset))
+            ->values()
+            ->all();
+
+        return [
+            'resource_run_id' => (int) $resource->id,
+            'external_resource_id' => (int) $resource->external_resource_id,
+            'name' => (string) ($resource->externalResource?->display_name ?: 'GA4 Property'),
+            'account_name' => $meta['account_display_name'] ?? $meta['account'] ?? 'Google Analytics',
+            'property_id' => $meta['property_id'] ?? preg_replace('/^properties\//', '', (string) $resource->externalResource?->external_id),
+            'status_label' => $this->statusLabel($resource->status),
+            'error_summary' => $resource->error_summary,
+            'failed_count' => count($errors),
+            'last_activity' => $resource->last_activity_at?->diffForHumans() ?? '—',
+            'errors' => $errors,
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function mapDatasetError(CollectionDatasetRun $dataset): array
+    {
+        $category = $dataset->error_category?->value;
+        $code = trim((string) ($dataset->error_code ?? ''));
+        $message = trim((string) ($dataset->error_message ?? ''));
+
+        return [
+            'family_id' => (string) $dataset->request_family_id,
+            'label' => $this->familyLabel((string) $dataset->request_family_id),
+            'category' => $category,
+            'code' => $code !== '' ? $code : null,
+            'message' => $message !== '' ? $message : 'Bu veri grubu tamamlanamadı. Sağlayıcı ayrıntılı bir hata mesajı döndürmedi.',
+            'attempts' => (int) $dataset->attempt_count,
+            'last_activity' => $dataset->last_activity_at?->diffForHumans() ?? '—',
         ];
     }
 
