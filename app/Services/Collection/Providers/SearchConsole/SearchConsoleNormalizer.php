@@ -32,10 +32,12 @@ final class SearchConsoleNormalizer
                 $keys = [];
             }
 
+            $searchType = (string) ($provenance['search_type'] ?? 'web');
             $record = [
                 'digital_asset_id' => $digitalAssetId,
                 'external_resource_id' => $externalResourceId,
                 'site_url' => $siteUrl,
+                'search_type' => $searchType,
                 'clicks' => (int) round((float) ($row['clicks'] ?? 0)),
                 'impressions' => (int) round((float) ($row['impressions'] ?? 0)),
                 'source_timezone' => SearchConsoleProviderCapabilities::REPORTING_TIMEZONE,
@@ -43,7 +45,7 @@ final class SearchConsoleNormalizer
                     'provider_average_position' => isset($row['position']) ? (float) $row['position'] : null,
                     'provider_ctr' => isset($row['ctr']) ? (float) $row['ctr'] : null,
                     'provider_ctr_semantic' => 'provider_reported_not_canonical_formula',
-                    'search_type' => $provenance['search_type'] ?? 'web',
+                    'search_type' => $searchType,
                     'data_state' => $provenance['data_state'] ?? 'final',
                     'aggregation_type' => $provenance['aggregation_type'] ?? null,
                     'response_aggregation_type' => $provenance['response_aggregation_type'] ?? null,
@@ -58,15 +60,12 @@ final class SearchConsoleNormalizer
                 $value = $keys[$index] ?? null;
                 if ($dimension === 'date') {
                     $record['reporting_date'] = is_string($value) ? $value : null;
-                } elseif ($dimension === 'query') {
-                    // Preserve exact provider query text — no lowercase/trim/stem.
-                    $record['query'] = is_string($value) ? $value : (string) $value;
-                } elseif ($dimension === 'page') {
-                    $record['page'] = is_string($value) ? $value : (string) $value;
-                } elseif ($dimension === 'device') {
-                    $record['device'] = is_string($value) ? $value : (string) $value;
-                } elseif ($dimension === 'country') {
-                    $record['country'] = is_string($value) ? $value : (string) $value;
+                    continue;
+                }
+
+                if (in_array($dimension, ['query', 'page', 'device', 'country', 'searchAppearance'], true)) {
+                    // Preserve exact provider values. Query text is intentionally not lowercased/stemmed.
+                    $record[$dimension] = is_string($value) ? $value : (string) $value;
                 }
             }
 
@@ -74,19 +73,29 @@ final class SearchConsoleNormalizer
                 continue;
             }
 
-            if ($datasetId === 'gsc_query_daily' && ($record['query'] ?? '') === '') {
-                continue;
+            $requiredDimensions = match ($datasetId) {
+                'gsc_query_daily' => ['query'],
+                'gsc_page_daily' => ['page'],
+                'gsc_query_page_daily' => ['query', 'page'],
+                'gsc_device_daily' => ['device'],
+                'gsc_country_daily' => ['country'],
+                'gsc_page_device_daily' => ['page', 'device'],
+                'gsc_page_country_daily' => ['page', 'country'],
+                'gsc_query_device_daily' => ['query', 'device'],
+                'gsc_query_country_daily' => ['query', 'country'],
+                'gsc_search_appearance_daily' => ['searchAppearance'],
+                'gsc_search_appearance_page_daily' => ['searchAppearance', 'page'],
+                default => [],
+            };
+
+            $missingRequiredDimension = false;
+            foreach ($requiredDimensions as $dimension) {
+                if (($record[$dimension] ?? '') === '') {
+                    $missingRequiredDimension = true;
+                    break;
+                }
             }
-            if ($datasetId === 'gsc_page_daily' && ($record['page'] ?? '') === '') {
-                continue;
-            }
-            if ($datasetId === 'gsc_query_page_daily' && (($record['query'] ?? '') === '' || ($record['page'] ?? '') === '')) {
-                continue;
-            }
-            if ($datasetId === 'gsc_device_daily' && ($record['device'] ?? '') === '') {
-                continue;
-            }
-            if ($datasetId === 'gsc_country_daily' && ($record['country'] ?? '') === '') {
+            if ($missingRequiredDimension) {
                 continue;
             }
 
@@ -122,13 +131,11 @@ final class SearchConsoleNormalizer
                 if (! is_array($content)) {
                     continue;
                 }
-                $entry = [
+                $contents[] = [
                     'type' => $content['type'] ?? null,
                     'submitted' => isset($content['submitted']) ? (int) $content['submitted'] : null,
-                    // Deprecated contents[].indexed is intentionally NOT treated as canonical indexing.
                     'indexed_deprecated_ignored' => true,
                 ];
-                $contents[] = $entry;
             }
 
             $records[] = [
@@ -158,9 +165,8 @@ final class SearchConsoleNormalizer
         return $records;
     }
 
-    /**
-     * @param  array<string, mixed>  $inspectionResult
-     * @return array<string, mixed>
+    /** @param array<string, mixed> $inspectionResult
+     *  @return array<string, mixed>
      */
     public function normalizeUrlInspection(
         string $siteUrl,
