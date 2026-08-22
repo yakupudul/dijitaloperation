@@ -24,7 +24,7 @@ return [
     |
     | This is the subdomain where Horizon will be accessible from. If this
     | setting is null, Horizon will reside under the same domain as the
-    | application. Otherwise, this value will serve as the subdomain.
+    | application. Otherwise, this value will serve the subdomain.
     |
     */
 
@@ -63,7 +63,7 @@ return [
     |
     | This prefix will be used when storing all Horizon data in Redis. You
     | may modify the prefix when you are running multiple installations
-    | of Horizon on the same server so that they don't have problems.
+    | of this application so that they don't have problems.
     |
     */
 
@@ -127,8 +127,8 @@ return [
     |--------------------------------------------------------------------------
     |
     | Silencing a job will instruct Horizon to not place the job in the list
-    | of completed jobs within the Horizon dashboard. This setting may be
-    | used to fully remove any noisy jobs from the completed jobs list.
+    | of completed jobs. This setting may be used to remove noisy jobs from
+    | the dashboard.
     |
     */
 
@@ -146,7 +146,7 @@ return [
     |--------------------------------------------------------------------------
     |
     | Here you can configure how many snapshots should be kept to display in
-    | the metrics graph. This will get used in combination with Horizon's
+    | the metrics graph. This will get used in combination with the
     | `horizon:snapshot` schedule to define how long to retain metrics.
     |
     */
@@ -164,10 +164,8 @@ return [
     |--------------------------------------------------------------------------
     |
     | When this option is enabled, Horizon's "terminate" command will not
-    | wait on all of the workers to terminate unless the --wait option
-    | is provided. Fast termination can shorten deployment delay by
-    | allowing a new instance of Horizon to start while the last
-    | instance will continue to terminate each of its workers.
+    | wait on all of the workers to terminate unless the --wait option is
+    | provided.
     |
     */
 
@@ -177,11 +175,6 @@ return [
     |--------------------------------------------------------------------------
     | Memory Limit (MB)
     |--------------------------------------------------------------------------
-    |
-    | This value describes the maximum amount of memory the Horizon master
-    | supervisor may consume before it is terminated and restarted. For
-    | configuring these limits on your workers, see the next section.
-    |
     */
 
     'memory_limit' => 64,
@@ -190,11 +183,6 @@ return [
     |--------------------------------------------------------------------------
     | Queue Worker Configuration
     |--------------------------------------------------------------------------
-    |
-    | Here you may define the queue worker settings used by your application
-    | in all environments. These supervisors and settings handle all your
-    | queued jobs and will be provisioned by Horizon during deployment.
-    |
     */
 
     'defaults' => [
@@ -264,7 +252,9 @@ return [
                 'timeout' => (int) env('HORIZON_DEFAULT_TIMEOUT', 300),
             ],
             'supervisor-collection' => [
-                'maxProcesses' => (int) env('HORIZON_COLLECTION_MAX_PROCESSES', 1),
+                // Three concurrent collection workers keeps multi-property GA4 imports responsive
+                // while remaining conservative against provider quotas on the staging VPS.
+                'maxProcesses' => (int) env('HORIZON_COLLECTION_MAX_PROCESSES', 3),
                 'timeout' => (int) env('HORIZON_COLLECTION_TIMEOUT', 300),
             ],
         ],
@@ -285,11 +275,6 @@ return [
     |--------------------------------------------------------------------------
     | File Watcher Configuration
     |--------------------------------------------------------------------------
-    |
-    | The following list of directories and files will be watched when using
-    | the `horizon:listen` command. Whenever any directories or files are
-    | changed, Horizon will automatically restart to apply all changes.
-    |
     */
 
     'watch' => [
