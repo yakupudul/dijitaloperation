@@ -2,6 +2,7 @@
     $tabs = [
         'overview' => __('operator.website.tabs.overview'),
         'ga4_analysis' => __('website_ga4.tab'),
+        'search_console' => __('website_gsc.tab'),
         'health' => __('operator.website.tabs.health'),
         'visibility' => __('operator.website.tabs.visibility'),
         'content' => __('operator.website.tabs.content'),
@@ -110,6 +111,8 @@
         </div>
     @elseif ($tab === 'ga4_analysis')
         @include('livewire.operator.website.tabs.ga4-analysis')
+    @elseif ($tab === 'search_console')
+        @include('livewire.operator.website.tabs.search-console')
     @elseif ($tab === 'health')
         <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
             <div class="flex items-center justify-between gap-3"><div><h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ __('operator.website.health.title') }}</h2><p class="mt-1 text-sm text-gray-500">{{ __('operator.website.health.hint') }}</p></div><button type="button" wire:click="runDiagnosis" class="text-sm font-medium text-brand-600">{{ __('operator.website.health.rerun') }}</button></div>
