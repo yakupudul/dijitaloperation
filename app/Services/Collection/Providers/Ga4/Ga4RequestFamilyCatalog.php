@@ -69,14 +69,26 @@ final class Ga4RequestFamilyCatalog
         ];
     }
 
-    /** @return list<string> */
+    /**
+     * Keep the required provider request at GA4's 10-metric ceiling.
+     * Ratios and secondary commerce metrics remain optional; the executor already falls back
+     * to this required core when a larger optional combination is not provider-compatible.
+     *
+     * @return list<string>
+     */
     public static function propertyDailyRequiredMetrics(): array
     {
         return [
-            'activeUsers', 'totalUsers', 'newUsers', 'sessions', 'engagedSessions',
-            'engagementRate', 'bounceRate', 'averageSessionDuration', 'sessionsPerUser',
-            'screenPageViews', 'screenPageViewsPerSession', 'screenPageViewsPerUser',
-            'eventCount', 'eventsPerSession', 'userEngagementDuration',
+            'activeUsers',
+            'totalUsers',
+            'newUsers',
+            'sessions',
+            'engagedSessions',
+            'screenPageViews',
+            'eventCount',
+            'keyEvents',
+            'userEngagementDuration',
+            'totalRevenue',
         ];
     }
 
@@ -84,8 +96,10 @@ final class Ga4RequestFamilyCatalog
     public static function propertyDailyOptionalMetrics(): array
     {
         return [
-            'keyEvents', 'conversions', 'sessionKeyEventRate', 'userKeyEventRate', 'scrolledUsers',
-            'transactions', 'ecommercePurchases', 'totalPurchasers', 'purchaseRevenue', 'totalRevenue',
+            'engagementRate', 'bounceRate', 'averageSessionDuration', 'sessionsPerUser',
+            'screenPageViewsPerSession', 'screenPageViewsPerUser', 'eventsPerSession',
+            'conversions', 'sessionKeyEventRate', 'userKeyEventRate', 'scrolledUsers',
+            'transactions', 'ecommercePurchases', 'totalPurchasers', 'purchaseRevenue',
         ];
     }
 
@@ -176,7 +190,7 @@ final class Ga4RequestFamilyCatalog
                 'ga4_first_user_acquisition_daily', ['date', 'firstUserDefaultChannelGroup', 'firstUserSourceMedium'], ['newUsers', 'activeUsers'], ['totalUsers', 'keyEvents', 'userKeyEventRate', 'totalRevenue'], 'first_user_acquisition', true
             ),
             self::FAMILY_LANDING_PAGE_DAILY => $report(
-                'ga4_landing_page_daily', ['date', 'landingPagePlusQueryString'], self::sessionRequiredMetrics(), self::sessionOptionalMetrics(), 'session_entry', true
+                'ga4_landing_page_daily', ['date', 'landingPage'], self::sessionRequiredMetrics(), self::sessionOptionalMetrics(), 'session_entry', true
             ),
             self::FAMILY_PAGE_CONTENT_DAILY => $report(
                 'ga4_page_content_daily', ['date', 'pagePathPlusQueryString', 'pageTitle', 'hostName'], ['screenPageViews', 'activeUsers', 'eventCount'], ['totalUsers', 'userEngagementDuration', 'keyEvents', 'scrolledUsers'], 'content', true
