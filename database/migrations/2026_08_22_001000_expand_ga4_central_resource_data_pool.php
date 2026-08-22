@@ -1,7 +1,7 @@
 <?php
 
-use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -19,25 +19,24 @@ return new class extends Migration
         $bigints = [
             'activeUsers', 'totalUsers', 'newUsers', 'sessions', 'engagedSessions',
             'screenPageViews', 'eventCount', 'scrolledUsers', 'transactions',
-            'ecommercePurchases', 'totalPurchasers',
+            'ecommercePurchases', 'totalPurchasers', 'userEngagementDuration',
         ];
         $decimals = [
             'engagementRate', 'bounceRate', 'averageSessionDuration', 'sessionsPerUser',
             'screenPageViewsPerSession', 'screenPageViewsPerUser', 'eventsPerSession',
-            'userEngagementDuration', 'keyEvents', 'conversions', 'sessionKeyEventRate',
-            'userKeyEventRate', 'purchaseRevenue', 'totalRevenue',
+            'keyEvents', 'conversions', 'sessionKeyEventRate', 'userKeyEventRate',
+            'purchaseRevenue', 'totalRevenue',
         ];
 
         $this->addMetrics('ga4_property_daily', $bigints, $decimals);
 
-        $sessionTables = [
+        foreach ([
             'ga4_acquisition_channel_daily',
             'ga4_source_medium_daily',
             'ga4_campaign_daily',
             'ga4_landing_page_daily',
             'ga4_device_daily',
-        ];
-        foreach ($sessionTables as $table) {
+        ] as $table) {
             $this->addMetrics(
                 $table,
                 ['sessions', 'engagedSessions', 'activeUsers', 'totalUsers', 'newUsers', 'screenPageViews', 'eventCount'],
@@ -120,7 +119,7 @@ return new class extends Migration
             $table->bigInteger('totalUsers')->nullable();
             $table->bigInteger('eventCount')->nullable();
             $table->bigInteger('scrolledUsers')->nullable();
-            $table->decimal('userEngagementDuration', 20, 6)->nullable();
+            $table->bigInteger('userEngagementDuration')->nullable();
             $table->decimal('keyEvents', 20, 6)->nullable();
         }, ['external_resource_id', 'property_id', 'reporting_date', 'pagePathPlusQueryString', 'pageTitle', 'hostName']);
 
@@ -247,8 +246,11 @@ return new class extends Migration
                 continue;
             }
             $index = substr($table.'_resource_nk_unique', 0, 60);
-            if (DB::getDriverName() === 'pgsql') {
-                $cols = implode(', ', array_map(fn (string $column): string => '"'.str_replace('"', '""', $column).'"', $columns));
+            if (DB::connection()->getDriverName() === 'pgsql') {
+                $cols = implode(', ', array_map(
+                    fn (string $column): string => '"'.str_replace('"', '""', $column).'"',
+                    $columns,
+                ));
                 DB::statement('CREATE UNIQUE INDEX IF NOT EXISTS "'.$index.'" ON "'.$table.'" ('.$cols.')');
             } else {
                 try {
@@ -270,6 +272,6 @@ return new class extends Migration
             Schema::dropIfExists($table);
         }
 
-        // Existing GA4 columns/indexes are intentionally left in place on rollback to avoid data loss.
+        // Existing GA4 columns/indexes stay in place to avoid discarding collected provider truth.
     }
 };
