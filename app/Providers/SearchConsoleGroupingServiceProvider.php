@@ -3,8 +3,8 @@
 namespace App\Providers;
 
 use App\Services\Integrations\Google\SearchConsolePropertyGroupingService;
-use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\View;
+use Illuminate\Support\ServiceProvider;
 use Illuminate\View\View as IlluminateView;
 
 final class SearchConsoleGroupingServiceProvider extends ServiceProvider
@@ -37,7 +37,7 @@ final class SearchConsoleGroupingServiceProvider extends ServiceProvider
             $data['site_groups_count'] = $groupCount;
             $data['resources_count'] = $groupCount === $rawCount
                 ? $groupCount
-                : $groupCount.' site · '.$rawCount.' Google mülkü';
+                : $groupCount.' site · '.$rawCount.' Google';
             $data['resources'] = $grouped;
 
             $view->with('data', $data);
