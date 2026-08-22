@@ -70,6 +70,32 @@
                         </div>
                     @endif
 
+                    @if ($capability === 'google_business_profile')
+                        @php
+                            $gbpDatasets = app()->getLocale() === 'tr'
+                                ? ['Profil & Google Güncellemeleri', 'Günlük Görünürlük & Aksiyonlar', 'Aylık Arama Kelimeleri', 'Yorumlar', 'Fotoğraf & Video', 'Google Gönderileri', 'Attributes', 'Hizmetler', 'Randevu / Sipariş Linkleri', 'Doğrulama & Profil Durumu']
+                                : ['Profile & Google Updates', 'Daily Visibility & Actions', 'Monthly Search Keywords', 'Reviews', 'Photo & Video', 'Google Posts', 'Attributes', 'Services', 'Appointment / Order Links', 'Verification & Profile State'];
+                        @endphp
+                        <div class="rounded-lg border border-brand-100 bg-brand-50/50 p-4 dark:border-brand-900/40 dark:bg-brand-950/10">
+                            <div class="flex items-center justify-between gap-3">
+                                <p class="text-sm font-semibold text-gray-900 dark:text-white">
+                                    {{ app()->getLocale() === 'tr' ? 'Google’dan çekilecek veriler' : 'Data collected from Google' }}
+                                </p>
+                                <span class="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-brand-600 ring-1 ring-brand-100 dark:bg-gray-900 dark:ring-brand-900/50">10 datasets</span>
+                            </div>
+                            <div class="mt-3 flex flex-wrap gap-2">
+                                @foreach ($gbpDatasets as $datasetLabel)
+                                    <span class="rounded-md bg-white px-2 py-1 text-xs text-gray-600 ring-1 ring-gray-200 dark:bg-gray-900 dark:text-gray-300 dark:ring-gray-700">{{ $datasetLabel }}</span>
+                                @endforeach
+                            </div>
+                            <p class="mt-3 text-xs leading-5 text-gray-500 dark:text-gray-400">
+                                {{ app()->getLocale() === 'tr'
+                                    ? 'Konumu bağladıktan sonra “Veriyi Topla / Collect Now” profil, performans, aramalar, yorumlar ve içerik verilerini Google Business Profile API’lerinden toplar.'
+                                    : 'After binding the location, Collect Now pulls profile, performance, search, review and content data from Google Business Profile APIs.' }}
+                            </p>
+                        </div>
+                    @endif
+
                     <div>
                         <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{{ $active ? __('operator_runtime.sources.change_resource') : __('operator_runtime.sources.select_resource_label') }}</label>
                         <select wire:model="selectedResource.{{ $capability }}"
