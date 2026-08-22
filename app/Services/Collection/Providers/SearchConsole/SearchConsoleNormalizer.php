@@ -69,6 +69,21 @@ final class SearchConsoleNormalizer
                 }
             }
 
+            // Some provider dimensions are legally usable as filters but not in the
+            // same group-by as the desired reporting dimensions. Search Appearance
+            // is the canonical example: discover it first, then filter by it while
+            // grouping by date/page. Inject those fixed filter dimensions here so
+            // the warehouse row keeps the full logical identity.
+            $fixedDimensions = $provenance['fixed_dimensions'] ?? [];
+            if (is_array($fixedDimensions)) {
+                foreach ($fixedDimensions as $dimension => $value) {
+                    if (in_array($dimension, ['query', 'page', 'device', 'country', 'searchAppearance'], true)
+                        && is_scalar($value)) {
+                        $record[$dimension] = (string) $value;
+                    }
+                }
+            }
+
             if (($record['reporting_date'] ?? null) === null || $record['reporting_date'] === '') {
                 continue;
             }
