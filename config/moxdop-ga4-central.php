@@ -60,7 +60,7 @@ return [
         'ga4_acquisition_channel_daily' => ['external_resource_id', 'property_id', 'reporting_date', 'sessionDefaultChannelGroup'],
         'ga4_source_medium_daily' => ['external_resource_id', 'property_id', 'reporting_date', 'sessionSource', 'sessionMedium'],
         'ga4_campaign_daily' => ['external_resource_id', 'property_id', 'reporting_date', 'sessionCampaignId', 'sessionCampaignName', 'sessionSource', 'sessionMedium'],
-        'ga4_landing_page_daily' => ['external_resource_id', 'property_id', 'reporting_date', 'landingPagePlusQueryString'],
+        'ga4_landing_page_daily' => ['external_resource_id', 'property_id', 'reporting_date', 'landingPage'],
         'ga4_event_daily' => ['external_resource_id', 'property_id', 'reporting_date', 'eventName'],
         'ga4_event_channel_daily' => ['external_resource_id', 'property_id', 'reporting_date', 'eventName', 'sessionDefaultChannelGroup'],
         'ga4_event_campaign_daily' => ['external_resource_id', 'property_id', 'reporting_date', 'eventName', 'sessionCampaignName'],
@@ -84,7 +84,6 @@ return [
             ...$commonSessionMetrics,
         ],
         'ga4_landing_page_daily' => [
-            $column('landingPagePlusQueryString', 'text', false, 'dimension'),
             ...$commonSessionMetrics,
         ],
         'ga4_event_daily' => [
