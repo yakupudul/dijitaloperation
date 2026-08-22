@@ -54,7 +54,6 @@ $physical = static function (
 };
 
 return [
-    // Resource identity is the central provider truth. Digital Asset is an optional later binding.
     'natural_key_overrides' => [
         'ga4_property_metadata' => ['external_resource_id', 'property_id'],
         'ga4_property_daily' => ['external_resource_id', 'property_id', 'reporting_date'],
@@ -72,8 +71,8 @@ return [
     'columns_add' => [
         'ga4_property_daily' => [
             ...$metricColumns(
-                ['activeUsers', 'totalUsers', 'newUsers', 'sessions', 'engagedSessions', 'screenPageViews', 'eventCount', 'scrolledUsers', 'transactions', 'ecommercePurchases', 'totalPurchasers'],
-                ['engagementRate', 'bounceRate', 'averageSessionDuration', 'sessionsPerUser', 'screenPageViewsPerSession', 'screenPageViewsPerUser', 'eventsPerSession', 'userEngagementDuration', 'keyEvents', 'conversions', 'sessionKeyEventRate', 'userKeyEventRate', 'purchaseRevenue', 'totalRevenue'],
+                ['activeUsers', 'totalUsers', 'newUsers', 'sessions', 'engagedSessions', 'screenPageViews', 'eventCount', 'scrolledUsers', 'transactions', 'ecommercePurchases', 'totalPurchasers', 'userEngagementDuration'],
+                ['engagementRate', 'bounceRate', 'averageSessionDuration', 'sessionsPerUser', 'screenPageViewsPerSession', 'screenPageViewsPerUser', 'eventsPerSession', 'keyEvents', 'conversions', 'sessionKeyEventRate', 'userKeyEventRate', 'purchaseRevenue', 'totalRevenue'],
             ),
         ],
         'ga4_acquisition_channel_daily' => $commonSessionMetrics,
@@ -113,7 +112,7 @@ return [
                 $column('pageTitle', 'text', false, 'dimension'),
                 $column('hostName', 'text', false, 'dimension'),
             ],
-            $metricColumns(['screenPageViews', 'activeUsers', 'totalUsers', 'eventCount', 'scrolledUsers'], ['userEngagementDuration', 'keyEvents']),
+            $metricColumns(['screenPageViews', 'activeUsers', 'totalUsers', 'eventCount', 'scrolledUsers', 'userEngagementDuration'], ['keyEvents']),
         ),
         'ga4_key_event_daily' => $physical(
             'ga4_key_event_daily',
