@@ -11,6 +11,7 @@ import flatpickr from 'flatpickr';
 import 'flatpickr/dist/flatpickr.min.css';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './maps/gbp-rank-map';
+import './maps/ga4-geo-map';
 
 window.ApexCharts = ApexCharts;
 window.flatpickr = flatpickr;
