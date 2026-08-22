@@ -118,10 +118,7 @@ final class SearchConsoleCentralDatasetExecutor implements DatasetExecutor
             return DatasetExecutionResult::failed(CollectionErrorCategory::InvalidRequest, 'Invalid central GSC date range.', 'DATE_RANGE_INVALID');
         }
 
-        $sliceDays = $this->slicer->sliceDaysForFamily(SearchConsoleRequestFamilyCatalog::FAMILY_QUERY_PAGE_DAILY);
-        if (($definition['high_cardinality'] ?? false) !== true) {
-            $sliceDays = max(1, min(7, (int) config('moxdop-gsc-collector.slice_days', 1)));
-        }
+        $sliceDays = max(1, min(28, (int) ($definition['slice_days'] ?? (($definition['high_cardinality'] ?? false) ? 1 : 7))));
         $slices = $this->slicer->slices($start, $end, $sliceDays);
 
         $checkpoint = $context->checkpoint;
