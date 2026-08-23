@@ -13,6 +13,7 @@ use InvalidArgumentException;
  */
 final class GoogleAdsCentralRequestFamilyCatalog
 {
+    public const string ACCOUNT_MONTHLY_HISTORY = 'GADS_CENTRAL_RF_ACCOUNT_MONTHLY_HISTORY';
     public const string ENTITY_SNAPSHOT = 'GADS_CENTRAL_RF_ENTITY_SNAPSHOT';
     public const string ACCOUNT_DAILY = 'GADS_CENTRAL_RF_ACCOUNT_DAILY';
     public const string CAMPAIGN_DAILY = 'GADS_CENTRAL_RF_CAMPAIGN_DAILY';
@@ -42,6 +43,17 @@ final class GoogleAdsCentralRequestFamilyCatalog
     public static function definitions(): array
     {
         $core = [
+            self::ACCOUNT_MONTHLY_HISTORY => [
+                'source_family_id' => self::ACCOUNT_MONTHLY_HISTORY,
+                'dataset_id' => 'google_ads_account_monthly_history',
+                'layer' => 'history',
+                'kind' => 'monthly_history',
+                'requires_date_range' => false,
+                'initial_days' => null,
+                'requirement_level' => RequirementLevel::Required->value,
+                'label' => 'Hesap aylık reklam aktivite geçmişi',
+                'retrieval' => 'SEARCH_STREAM',
+            ],
             self::ENTITY_SNAPSHOT => self::core(
                 GoogleAdsRequestFamilyCatalog::FAMILY_ENTITY_SNAPSHOT,
                 'google_ads_account_snapshot',
@@ -97,9 +109,6 @@ final class GoogleAdsCentralRequestFamilyCatalog
                 'layer' => 'professional',
                 'kind' => $kind,
                 'requires_date_range' => $dated,
-                // Google documents a rolling 30-day Change Event window. Date-only
-                // queries start at midnight, so 29 calendar days is the safe backfill
-                // boundary regardless of the time of day when collection executes.
                 'initial_days' => $kind === 'change_event' ? 29 : ($dated ? 180 : null),
                 'requirement_level' => self::professionalRequirementLevel($sourceFamily)->value,
                 'label' => self::professionalLabel($sourceFamily),
@@ -135,6 +144,11 @@ final class GoogleAdsCentralRequestFamilyCatalog
     public static function isChangeEvent(string $centralFamily): bool
     {
         return (string) self::definition($centralFamily)['kind'] === 'change_event';
+    }
+
+    public static function isHistoryFamily(string $centralFamily): bool
+    {
+        return $centralFamily === self::ACCOUNT_MONTHLY_HISTORY;
     }
 
     /** @return array<string, mixed> */
