@@ -26,13 +26,14 @@ use InvalidArgumentException;
 /**
  * Resource-first Google Ads ingestion.
  *
- * A discovered Google Ads customer can be collected before a DigitalAsset exists.
- * Provider facts stay keyed by CoreExternalResource; a later DigitalAsset binding can
- * reuse the already materialized facts without a second provider backfill.
+ * Initial history is activity-aware: a cheap lifetime monthly probe identifies the
+ * real advertising period, then expensive granular datasets backfill only the
+ * provider-supported active span. Existing accounts collected under the former
+ * fixed 180-day policy receive one history-policy upgrade automatically.
  */
 final class GoogleAdsCentralCollectionService
 {
-    public const int INITIAL_DAYS = 180;
+    public const int HISTORY_POLICY_VERSION = 2;
     public const int RESTATEMENT_DAYS = 30;
     public const int CHANGE_EVENT_SAFE_DAYS = 29;
 
@@ -44,11 +45,10 @@ final class GoogleAdsCentralCollectionService
         private readonly DataContractRegistryLoader $registry,
         private readonly CollectionQueueGate $queueGate,
         private readonly StartCollectionService $starter,
+        private readonly GoogleAdsHistoricalActivityDiscoveryService $historyDiscovery,
     ) {}
 
-    /**
-     * @param list<int|string> $externalResourceIds
-     */
+    /** @param list<int|string> $externalResourceIds */
     public function startSmartUpdate(CoreIntegration $integration, array $externalResourceIds, ?User $requestedBy = null): CollectionRun
     {
         $this->queueGate->assertReady();
@@ -65,7 +65,7 @@ final class GoogleAdsCentralCollectionService
         $intents = collect($plans)->pluck('intent')->unique()->values();
         $intent = $intents->count() === 1 ? (string) $intents->first() : 'google_ads_central_smart';
         $label = match ($intent) {
-            'google_ads_central_initial' => 'Google Ads ilk veri aktarımı',
+            'google_ads_central_initial' => 'Google Ads tarihsel ilk veri aktarımı',
             'google_ads_central_update' => 'Google Ads veri güncellemesi',
             'google_ads_central_repair' => 'Google Ads eksik veri onarımı',
             'google_ads_central_resume' => 'Google Ads aktarımına devam',
@@ -109,7 +109,7 @@ final class GoogleAdsCentralCollectionService
         return $resources;
     }
 
-    /** @return array{intent:string,families:list<array{family:string,date_range:?array{start:string,end:string}}>} */
+    /** @return array<string,mixed> */
     private function smartPlan(CoreExternalResource $resource): array
     {
         $history = CollectionResourceRun::query()
@@ -163,33 +163,72 @@ final class GoogleAdsCentralCollectionService
             }
         }
 
-        if (! $completed instanceof CollectionResourceRun) {
+        $historyBaseline = $history->first(fn (CollectionResourceRun $run): bool =>
+            $run->status === CollectionRunStatus::Completed
+            && (int) data_get($run->metadata, 'history_policy_version', 0) >= self::HISTORY_POLICY_VERSION
+        );
+
+        if (! $historyBaseline instanceof CollectionResourceRun) {
+            $activity = $this->historyDiscovery->discover($resource);
+
             return [
                 'intent' => 'google_ads_central_initial',
-                'families' => $this->initialFamilies($resource),
+                'families' => $this->initialFamilies($resource, $activity),
+                'history_policy_version' => self::HISTORY_POLICY_VERSION,
+                'history_policy_upgrade' => $completed instanceof CollectionResourceRun,
+                'activity_summary' => $this->activitySummary($activity),
             ];
         }
 
         return [
             'intent' => 'google_ads_central_update',
-            'families' => $this->updateFamilies($resource, $completed),
+            'families' => $this->updateFamilies($resource, $historyBaseline),
+            'history_policy_version' => self::HISTORY_POLICY_VERSION,
+            'activity_summary' => data_get($historyBaseline->metadata, 'activity_summary'),
         ];
     }
 
-    /** @return list<array{family:string,date_range:?array{start:string,end:string}}> */
-    private function initialFamilies(CoreExternalResource $resource): array
+    /** @param array<string,mixed> $activity @return list<array{family:string,date_range:?array{start:string,end:string}}> */
+    private function initialFamilies(CoreExternalResource $resource, array $activity): array
     {
         $timezone = $this->timezone($resource);
-        $end = CarbonImmutable::now($timezone)->startOfDay()->subDay();
+        $today = CarbonImmutable::now($timezone)->startOfDay();
+        $closedEnd = $today->subDay();
         $out = [];
 
         foreach (GoogleAdsCentralRequestFamilyCatalog::supportedFamilies() as $family) {
-            $days = GoogleAdsCentralRequestFamilyCatalog::initialDays($family);
+            if (GoogleAdsCentralRequestFamilyCatalog::isHistoryFamily($family)) {
+                $out[] = ['family' => $family, 'date_range' => null];
+                continue;
+            }
+
+            if (! GoogleAdsCentralRequestFamilyCatalog::isDated($family)) {
+                $out[] = ['family' => $family, 'date_range' => null];
+                continue;
+            }
+
+            if (GoogleAdsCentralRequestFamilyCatalog::isChangeEvent($family)) {
+                $out[] = [
+                    'family' => $family,
+                    'date_range' => [
+                        'start' => $today->subDays(self::CHANGE_EVENT_SAFE_DAYS)->toDateString(),
+                        'end' => $closedEnd->toDateString(),
+                    ],
+                ];
+                continue;
+            }
+
+            $granularStart = $activity['granular_start'] ?? null;
+            $granularEnd = $activity['granular_end'] ?? null;
+            if (! is_string($granularStart) || ! is_string($granularEnd) || $granularStart === '' || $granularEnd === '') {
+                // No provider-supported detailed activity window. Lifetime monthly
+                // history still records old/inactive accounts without wasting API work.
+                continue;
+            }
+
             $out[] = [
                 'family' => $family,
-                'date_range' => $days !== null
-                    ? ['start' => $end->subDays($days - 1)->toDateString(), 'end' => $end->toDateString()]
-                    : null,
+                'date_range' => ['start' => $granularStart, 'end' => $granularEnd],
             ];
         }
 
@@ -205,6 +244,12 @@ final class GoogleAdsCentralCollectionService
         $out = [];
 
         foreach (GoogleAdsCentralRequestFamilyCatalog::supportedFamilies() as $family) {
+            // Lifetime monthly discovery is a baseline concern. Normal operations
+            // stay light and do not re-scan the account's entire lifetime daily.
+            if (GoogleAdsCentralRequestFamilyCatalog::isHistoryFamily($family)) {
+                continue;
+            }
+
             if (! GoogleAdsCentralRequestFamilyCatalog::isDated($family)) {
                 $out[] = ['family' => $family, 'date_range' => null];
                 continue;
@@ -248,6 +293,9 @@ final class GoogleAdsCentralCollectionService
     /** @return array{start:string,end:string}|null */
     private function repairDateRange(CoreExternalResource $resource, string $family, mixed $range): ?array
     {
+        if (GoogleAdsCentralRequestFamilyCatalog::isHistoryFamily($family)) {
+            return null;
+        }
         if (! is_array($range) || ! isset($range['start'], $range['end'])) {
             return null;
         }
@@ -283,10 +331,24 @@ final class GoogleAdsCentralCollectionService
         return ['start' => $parsedStart->toDateString(), 'end' => $parsedEnd->toDateString()];
     }
 
-    /**
-     * @param Collection<int, CoreExternalResource> $resources
-     * @param array<int, array{intent:string,families:list<array{family:string,date_range:?array{start:string,end:string}}>} > $plans
-     */
+    /** @param array<string,mixed> $activity @return array<string,mixed> */
+    private function activitySummary(array $activity): array
+    {
+        return [
+            'has_activity' => (bool) ($activity['has_activity'] ?? false),
+            'active_months' => (int) ($activity['active_months'] ?? 0),
+            'first_activity_month' => $activity['first_activity_month'] ?? null,
+            'last_activity_month' => $activity['last_activity_month'] ?? null,
+            'granular_start' => $activity['granular_start'] ?? null,
+            'granular_end' => $activity['granular_end'] ?? null,
+            'granular_boundary' => $activity['granular_boundary'] ?? null,
+            'older_history_exists' => (bool) ($activity['older_history_exists'] ?? false),
+            'discovery_start' => $activity['discovery_start'] ?? null,
+            'discovery_end' => $activity['discovery_end'] ?? null,
+        ];
+    }
+
+    /** @param Collection<int,CoreExternalResource> $resources @param array<int,array<string,mixed>> $plans */
     private function startPlan(
         CoreIntegration $integration,
         Collection $resources,
@@ -306,17 +368,8 @@ final class GoogleAdsCentralCollectionService
         ], JSON_THROW_ON_ERROR));
 
         $run = DB::transaction(function () use (
-            $integration,
-            $resources,
-            $plans,
-            $intent,
-            $label,
-            $requestedBy,
-            $registry,
-            $registryId,
-            $registryVersion,
-            $registryChecksum,
-            $planFingerprint,
+            $integration, $resources, $plans, $intent, $label, $requestedBy,
+            $registry, $registryId, $registryVersion, $registryChecksum, $planFingerprint,
         ): CollectionRun {
             $run = CollectionRun::query()->create([
                 'requested_by_user_id' => $requestedBy?->id,
@@ -359,7 +412,8 @@ final class GoogleAdsCentralCollectionService
                     'collection_intent_label' => $label,
                     'google_integration_id' => (int) $integration->id,
                     'plan_fingerprint' => $planFingerprint,
-                    'initial_history_days' => self::INITIAL_DAYS,
+                    'history_policy_version' => self::HISTORY_POLICY_VERSION,
+                    'granular_lookback_months' => (int) config('moxdop-google-ads-history.granular_lookback_months', 37),
                     'restatement_days' => self::RESTATEMENT_DAYS,
                     'change_event_safe_days' => self::CHANGE_EVENT_SAFE_DAYS,
                 ],
@@ -388,6 +442,9 @@ final class GoogleAdsCentralCollectionService
                         'currency_code' => $meta['currency_code'] ?? null,
                         'time_zone' => $meta['time_zone'] ?? $meta['timezone'] ?? null,
                         'login_customer_id' => $meta['login_customer_id'] ?? $meta['manager_customer_id'] ?? null,
+                        'history_policy_version' => $resourcePlan['history_policy_version'] ?? null,
+                        'history_policy_upgrade' => (bool) ($resourcePlan['history_policy_upgrade'] ?? false),
+                        'activity_summary' => $resourcePlan['activity_summary'] ?? null,
                     ],
                 ]);
 
@@ -424,6 +481,7 @@ final class GoogleAdsCentralCollectionService
                             'source_layer' => $definition['layer'],
                             'dataset_label' => $definition['label'],
                             'central_definition' => $definition,
+                            'history_policy_version' => $resourcePlan['history_policy_version'] ?? null,
                         ],
                     ]);
                 }
