@@ -13,6 +13,7 @@ use App\Livewire\Demo\Instagram\OverviewPage as InstagramOverviewPage;
 use App\Livewire\Demo\Integrations\AiProviderIntegrationPage;
 use App\Livewire\Demo\Integrations\ConnectorPage;
 use App\Livewire\Demo\Integrations\DataForSeoIntegrationPage;
+use App\Livewire\Demo\Integrations\GoogleAdsConnectorPage;
 use App\Livewire\Demo\Integrations\GoogleIntegrationPage;
 use App\Livewire\Demo\Integrations\IntegrationsIndex;
 use App\Livewire\Demo\Integrations\MetaIntegrationPage;
@@ -95,6 +96,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/integrations/site-connectors/{connector}', SiteConnectorShow::class)->name('operator.integrations.site-connector');
         Route::get('/integrations/site-connectors/{connector}/download', SiteConnectorDownloadController::class)
             ->name('operator.integrations.site-connector.download');
+        Route::livewire('/integrations/connectors/google-ads', GoogleAdsConnectorPage::class)->name('operator.integrations.google-ads.connector');
         Route::livewire('/integrations/connectors/{connector}', ConnectorPage::class)->name('operator.integrations.connector');
         Route::livewire('/integrations/{provider}', AiProviderIntegrationPage::class)->name('operator.integrations.ai');
 
