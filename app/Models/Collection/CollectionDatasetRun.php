@@ -127,9 +127,14 @@ class CollectionDatasetRun extends Model
      */
     protected function casts(): array
     {
+        $requestFamily = (string) ($this->getRawOriginal('request_family_id') ?? $this->getAttributeFromArray('request_family_id') ?? '');
+        $requirementCast = str_starts_with($requestFamily, 'GADS_CENTRAL_')
+            ? 'string'
+            : RequirementLevel::class;
+
         return [
             'status' => CollectionRunStatus::class,
-            'requirement_level' => RequirementLevel::class,
+            'requirement_level' => $requirementCast,
             'progress_mode' => ProgressMode::class,
             'error_category' => CollectionErrorCategory::class,
             'started_at' => 'datetime',
