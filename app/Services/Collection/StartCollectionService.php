@@ -176,16 +176,41 @@ final class StartCollectionService
 
     public function dispatchEligibleRootJobs(CollectionRun $run): void
     {
-        $run->loadMissing('datasetRuns');
+        $datasetIds = CollectionDatasetRun::query()
+            ->where('collection_run_id', $run->id)
+            ->where('status', CollectionRunStatus::Queued->value)
+            ->pluck('id');
 
-        foreach ($run->datasetRuns as $datasetRun) {
-            if ($datasetRun->status !== CollectionRunStatus::Queued) {
-                continue;
+        foreach ($datasetIds as $datasetId) {
+            $datasetRun = DB::transaction(function () use ($datasetId): ?CollectionDatasetRun {
+                $candidate = CollectionDatasetRun::query()
+                    ->lockForUpdate()
+                    ->find($datasetId);
+
+                if (! $candidate instanceof CollectionDatasetRun
+                    || $candidate->status !== CollectionRunStatus::Queued
+                    || ! $this->dependenciesSatisfied($candidate)) {
+                    return null;
+                }
+
+                $metadata = is_array($candidate->metadata) ? $candidate->metadata : [];
+                if (($metadata['queue_dispatch_claimed'] ?? false) === true) {
+                    return null;
+                }
+
+                $metadata['queue_dispatch_claimed'] = true;
+                $metadata['queue_dispatch_claimed_at'] = now()->toIso8601String();
+                $candidate->forceFill([
+                    'metadata' => $metadata,
+                    'last_activity_at' => now(),
+                ])->save();
+
+                return $candidate->fresh();
+            });
+
+            if ($datasetRun instanceof CollectionDatasetRun) {
+                $this->dispatchDatasetJob($datasetRun);
             }
-            if (! $this->dependenciesSatisfied($datasetRun)) {
-                continue;
-            }
-            $this->dispatchDatasetJob($datasetRun);
         }
     }
 
