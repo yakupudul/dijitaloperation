@@ -3,6 +3,7 @@
 namespace MoxDop\GoogleAds\Providers;
 
 use App\Services\Collection\Providers\GoogleAds\GoogleAdsCentralDatasetExecutor;
+use App\Services\Collection\Providers\GoogleAds\GoogleAdsCentralDatasetExecutorAdapter;
 use App\Services\Collection\Providers\GoogleAds\GoogleAdsProfessionalDatasetExecutor;
 use App\Services\Findings\BoundEvidenceRuleRegistry;
 use App\Services\Integrations\BoundCollectorRegistry;
@@ -23,14 +24,15 @@ class GoogleAdsServiceProvider extends ServiceProvider
     {
         $this->app->instance('moxdop.google-ads.loaded', true);
 
-        // Extend the canonical Collection Engine with both bound-asset and
-        // provider-resource-first Google Ads datasets. Central aliases are
-        // isolated request-family IDs, so resolver ownership stays unambiguous.
+        // Central aliases are isolated from bound request-family IDs. The adapter
+        // keeps compatibility concerns local to resource-first execution while the
+        // canonical model/status layer continues using RequirementLevel enums.
         $this->app->singleton(GoogleAdsProfessionalDatasetExecutor::class);
         $this->app->singleton(GoogleAdsCentralDatasetExecutor::class);
+        $this->app->singleton(GoogleAdsCentralDatasetExecutorAdapter::class);
         $this->app->tag([
             GoogleAdsProfessionalDatasetExecutor::class,
-            GoogleAdsCentralDatasetExecutor::class,
+            GoogleAdsCentralDatasetExecutorAdapter::class,
         ], 'collection.dataset_executors');
     }
 
