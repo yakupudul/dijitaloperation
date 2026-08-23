@@ -12,21 +12,14 @@ use Throwable;
 /**
  * Compatibility boundary for the central Google Ads executor.
  *
- * The central executor intentionally tests the stored RequirementLevel backing
- * value when deciding whether a provider-side contract absence is acceptable.
- * Canonical collection models use the RequirementLevel enum everywhere else, so
- * we temporarily expose only this execution context as a string and restore the
- * enum cast before the worker/status aggregator continues.
- *
- * Change Event is additionally clamped immediately before execution. Google
- * accepts only a rolling 30-day window, while a date-only value at midnight can
- * already be more than 30 x 24 hours old later in the day. Using today - 29 days
- * keeps the request safely inside the provider boundary in the account timezone.
+ * The monthly lifetime-history family is handled by its dedicated implementation
+ * here, while all existing central families continue through the stable executor.
  */
 final class GoogleAdsCentralDatasetExecutorAdapter implements DatasetExecutor
 {
     public function __construct(
         private readonly GoogleAdsCentralDatasetExecutor $inner,
+        private readonly GoogleAdsHistoricalDatasetExecutor $history,
     ) {}
 
     public function supportedRequestFamilies(): array
@@ -36,6 +29,10 @@ final class GoogleAdsCentralDatasetExecutorAdapter implements DatasetExecutor
 
     public function execute(DatasetExecutionContext $context): DatasetExecutionResult
     {
+        if (GoogleAdsCentralRequestFamilyCatalog::isHistoryFamily($context->datasetRun->request_family_id)) {
+            return $this->history->execute($context);
+        }
+
         $context->datasetRun->mergeCasts(['requirement_level' => 'string']);
         $originalMetadata = is_array($context->datasetRun->metadata)
             ? $context->datasetRun->metadata
