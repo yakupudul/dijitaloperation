@@ -2,6 +2,7 @@
 
 namespace MoxDop\GoogleAds\Providers;
 
+use App\Services\Collection\Providers\GoogleAds\GoogleAdsProfessionalDatasetExecutor;
 use App\Services\Findings\BoundEvidenceRuleRegistry;
 use App\Services\Integrations\BoundCollectorRegistry;
 use App\Support\Agents\AgentProfileRegistry;
@@ -20,6 +21,11 @@ class GoogleAdsServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->instance('moxdop.google-ads.loaded', true);
+
+        // Extend the canonical Collection Engine with professional Google Ads v2
+        // datasets. The legacy bound Evidence collector remains compatibility-only.
+        $this->app->singleton(GoogleAdsProfessionalDatasetExecutor::class);
+        $this->app->tag([GoogleAdsProfessionalDatasetExecutor::class], 'collection.dataset_executors');
     }
 
     public function boot(): void
