@@ -34,6 +34,7 @@ final class GoogleAdsCentralCollectionService
 {
     public const int INITIAL_DAYS = 180;
     public const int RESTATEMENT_DAYS = 30;
+    public const int CHANGE_EVENT_SAFE_DAYS = 29;
 
     private const array ACTIVE_STATUSES = [
         'queued', 'running', 'retrying', 'cancellation_requested',
@@ -139,14 +140,13 @@ final class GoogleAdsCentralCollectionService
                     CollectionRunStatus::Skipped,
                     CollectionRunStatus::NotEligible,
                 ], true))
-                ->map(function (CollectionDatasetRun $dataset): array {
+                ->map(function (CollectionDatasetRun $dataset) use ($resource): array {
+                    $family = (string) $dataset->request_family_id;
                     $range = data_get($dataset->metadata, 'date_range');
 
                     return [
-                        'family' => (string) $dataset->request_family_id,
-                        'date_range' => is_array($range) && isset($range['start'], $range['end'])
-                            ? ['start' => (string) $range['start'], 'end' => (string) $range['end']]
-                            : null,
+                        'family' => $family,
+                        'date_range' => $this->repairDateRange($resource, $family, $range),
                     ];
                 })
                 ->filter(fn (array $entry): bool => in_array($entry['family'], GoogleAdsCentralRequestFamilyCatalog::supportedFamilies(), true))
@@ -200,7 +200,8 @@ final class GoogleAdsCentralCollectionService
     private function updateFamilies(CoreExternalResource $resource, CollectionResourceRun $completed): array
     {
         $timezone = $this->timezone($resource);
-        $closedEnd = CarbonImmutable::now($timezone)->startOfDay()->subDay();
+        $today = CarbonImmutable::now($timezone)->startOfDay();
+        $closedEnd = $today->subDay();
         $out = [];
 
         foreach (GoogleAdsCentralRequestFamilyCatalog::supportedFamilies() as $family) {
@@ -210,7 +211,7 @@ final class GoogleAdsCentralCollectionService
             }
 
             $window = GoogleAdsCentralRequestFamilyCatalog::isChangeEvent($family)
-                ? 30
+                ? self::CHANGE_EVENT_SAFE_DAYS
                 : self::RESTATEMENT_DAYS;
             $previous = $completed->datasetRuns->firstWhere('request_family_id', $family);
             $coverageEnd = data_get($previous?->metadata, 'date_range.end');
@@ -229,10 +230,9 @@ final class GoogleAdsCentralCollectionService
 
             $start = $anchor->subDays($window - 1);
             if (GoogleAdsCentralRequestFamilyCatalog::isChangeEvent($family)) {
-                // Google exposes ChangeEvent only for the most recent 30 days.
-                $min = $closedEnd->subDays(29);
-                if ($start->lessThan($min)) {
-                    $start = $min;
+                $oldestSafeStart = $today->subDays(self::CHANGE_EVENT_SAFE_DAYS);
+                if ($start->lessThan($oldestSafeStart)) {
+                    $start = $oldestSafeStart;
                 }
             }
 
@@ -243,6 +243,44 @@ final class GoogleAdsCentralCollectionService
         }
 
         return $out;
+    }
+
+    /** @return array{start:string,end:string}|null */
+    private function repairDateRange(CoreExternalResource $resource, string $family, mixed $range): ?array
+    {
+        if (! is_array($range) || ! isset($range['start'], $range['end'])) {
+            return null;
+        }
+
+        $start = (string) $range['start'];
+        $end = (string) $range['end'];
+        if (! GoogleAdsCentralRequestFamilyCatalog::isChangeEvent($family)) {
+            return ['start' => $start, 'end' => $end];
+        }
+
+        $timezone = $this->timezone($resource);
+        $today = CarbonImmutable::now($timezone)->startOfDay();
+        $oldestSafeStart = $today->subDays(self::CHANGE_EVENT_SAFE_DAYS);
+        $closedEnd = $today->subDay();
+
+        try {
+            $parsedStart = CarbonImmutable::createFromFormat('Y-m-d', $start, $timezone)->startOfDay();
+            $parsedEnd = CarbonImmutable::createFromFormat('Y-m-d', $end, $timezone)->startOfDay();
+        } catch (\Throwable) {
+            return ['start' => $oldestSafeStart->toDateString(), 'end' => $closedEnd->toDateString()];
+        }
+
+        if ($parsedStart->lessThan($oldestSafeStart)) {
+            $parsedStart = $oldestSafeStart;
+        }
+        if ($parsedEnd->greaterThan($closedEnd)) {
+            $parsedEnd = $closedEnd;
+        }
+        if ($parsedStart->greaterThan($parsedEnd)) {
+            $parsedStart = $parsedEnd;
+        }
+
+        return ['start' => $parsedStart->toDateString(), 'end' => $parsedEnd->toDateString()];
     }
 
     /**
@@ -323,6 +361,7 @@ final class GoogleAdsCentralCollectionService
                     'plan_fingerprint' => $planFingerprint,
                     'initial_history_days' => self::INITIAL_DAYS,
                     'restatement_days' => self::RESTATEMENT_DAYS,
+                    'change_event_safe_days' => self::CHANGE_EVENT_SAFE_DAYS,
                 ],
             ]);
 
