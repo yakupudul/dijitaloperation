@@ -119,6 +119,7 @@ final class DataPoolStorageRegistry
         $this->applyProviderOverlay('moxdop-gsc-central', 'GSC_CENTRAL_RESOURCE_FIRST_V1');
         $this->applyProviderOverlay('moxdop-gbp-central', 'GBP_TYPED_FACTS_V1');
         $this->applyProviderOverlay('moxdop-google-ads-central', 'GOOGLE_ADS_PROFESSIONAL_V2');
+        $this->applyProviderOverlay('moxdop-google-ads-history', 'GOOGLE_ADS_HISTORY_V1');
         $this->applyProviderOverlay('moxdop-google-ads-resource-first', 'GOOGLE_ADS_RESOURCE_FIRST_V1');
     }
 
