@@ -4,7 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use RuntimeException;
 
 return new class extends Migration
 {
@@ -42,7 +41,7 @@ return new class extends Migration
                 ->exists();
 
             if ($duplicate) {
-                throw new RuntimeException("Cannot enable Google Ads resource-first identity: duplicate provider rows exist in [{$table}]. Resolve duplicates before migration.");
+                throw new \RuntimeException("Cannot enable Google Ads resource-first identity: duplicate provider rows exist in [{$table}]. Resolve duplicates before migration.");
             }
 
             $name = $this->indexName($table);
