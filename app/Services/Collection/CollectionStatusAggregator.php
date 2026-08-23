@@ -47,8 +47,7 @@ final class CollectionStatusAggregator
         $datasets = $resource->datasetRuns()->get();
         $completed = $datasets->where('status', CollectionRunStatus::Completed)->count();
         $failedRequired = $datasets->filter(function (CollectionDatasetRun $d): bool {
-            return $d->status === CollectionRunStatus::Failed
-                && $d->requirement_level === RequirementLevel::Required;
+            return $d->status === CollectionRunStatus::Failed && $this->isRequired($d);
         })->count();
         $failedAny = $datasets->where('status', CollectionRunStatus::Failed)->count();
         $cancelled = $datasets->where('status', CollectionRunStatus::Cancelled)->count();
@@ -127,7 +126,7 @@ final class CollectionStatusAggregator
 
         $completedDatasets = $datasets->where('status', CollectionRunStatus::Completed)->count();
         $failedRequired = $datasets->filter(fn (CollectionDatasetRun $d): bool => $d->status === CollectionRunStatus::Failed
-            && $d->requirement_level === RequirementLevel::Required)->count();
+            && $this->isRequired($d))->count();
         $failedAny = $datasets->where('status', CollectionRunStatus::Failed)->count();
         $cancelled = $datasets->where('status', CollectionRunStatus::Cancelled)->count();
         $active = $datasets->filter(fn (CollectionDatasetRun $d): bool => ! $d->status->isTerminal())->count();
@@ -195,6 +194,14 @@ final class CollectionStatusAggregator
 
         $this->transitionCollectionTerminal($run, CollectionRunStatus::Completed);
         CollectionRunCompleted::dispatch($run->fresh() ?? $run);
+    }
+
+    private function isRequired(CollectionDatasetRun $dataset): bool
+    {
+        $level = $dataset->requirement_level;
+
+        return $level === RequirementLevel::Required
+            || $level === RequirementLevel::Required->value;
     }
 
     private function transitionResourceTerminal(CollectionResourceRun $resource, CollectionRunStatus $to): void
