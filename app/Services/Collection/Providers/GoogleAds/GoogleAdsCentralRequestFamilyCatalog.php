@@ -97,7 +97,10 @@ final class GoogleAdsCentralRequestFamilyCatalog
                 'layer' => 'professional',
                 'kind' => $kind,
                 'requires_date_range' => $dated,
-                'initial_days' => $kind === 'change_event' ? 30 : ($dated ? 180 : null),
+                // Google documents a rolling 30-day Change Event window. Date-only
+                // queries start at midnight, so 29 calendar days is the safe backfill
+                // boundary regardless of the time of day when collection executes.
+                'initial_days' => $kind === 'change_event' ? 29 : ($dated ? 180 : null),
                 'requirement_level' => self::professionalRequirementLevel($sourceFamily)->value,
                 'label' => self::professionalLabel($sourceFamily),
                 'retrieval' => (string) ($source['retrieval'] ?? 'SEARCH_STREAM'),
