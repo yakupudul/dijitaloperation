@@ -43,7 +43,24 @@ final class DataContractRegistryLoader
         }
 
         $this->assertValid($decoded);
-        $this->registry = $this->applyRuntimeOverlay($decoded, config('moxdop-gbp-central.registry_overlay', []));
+        $this->registry = $decoded;
+
+        $overlayKeys = config('moxdop-collection.registry_overlays', [
+            'moxdop-gbp-central.registry_overlay',
+        ]);
+        if (! is_array($overlayKeys)) {
+            $overlayKeys = [];
+        }
+
+        foreach ($overlayKeys as $overlayKey) {
+            if (! is_string($overlayKey) || $overlayKey === '') {
+                continue;
+            }
+            $this->registry = $this->applyRuntimeOverlay(
+                $this->registry,
+                config($overlayKey, []),
+            );
+        }
 
         return $this->registry;
     }
