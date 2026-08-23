@@ -65,21 +65,7 @@ final class GoogleAdsHistoricalActivityDiscoveryService
         );
     }
 
-    /**
-     * @return array{
-     *   rows:list<array<string,mixed>>,
-     *   has_activity:bool,
-     *   active_months:int,
-     *   first_activity_month:?string,
-     *   last_activity_month:?string,
-     *   granular_start:?string,
-     *   granular_end:?string,
-     *   older_history_exists:bool,
-     *   discovery_start:string,
-     *   discovery_end:string,
-     *   granular_boundary:string
-     * }
-     */
+    /** @return array<string,mixed> */
     public function discoverAccount(
         CoreIntegration $integration,
         string $customerId,
@@ -93,7 +79,10 @@ final class GoogleAdsHistoricalActivityDiscoveryService
         $configuredStart = (string) config('moxdop-google-ads-history.discovery_start_date', '2000-01-01');
 
         try {
-            $start = CarbonImmutable::createFromFormat('Y-m-d', $configuredStart, $timezone)->startOfDay();
+            $parsedStart = CarbonImmutable::createFromFormat('Y-m-d', $configuredStart, $timezone);
+            $start = $parsedStart instanceof CarbonImmutable
+                ? $parsedStart->startOfDay()
+                : CarbonImmutable::create(2000, 1, 1, 0, 0, 0, $timezone);
         } catch (\Throwable) {
             $start = CarbonImmutable::create(2000, 1, 1, 0, 0, 0, $timezone);
         }
@@ -171,25 +160,27 @@ final class GoogleAdsHistoricalActivityDiscoveryService
         $lastMonth = $activeRows !== [] ? (string) $activeRows[array_key_last($activeRows)]['reporting_month'] : null;
 
         $lookbackMonths = max(1, (int) config('moxdop-google-ads-history.granular_lookback_months', 37));
-        // Add one day so the first daily GAQL date is never on the ambiguous edge
-        // of the provider's rolling granular lookback boundary.
         $granularBoundary = $today->subMonthsNoOverflow($lookbackMonths)->addDay();
         $granularStart = null;
         $granularEnd = null;
         $olderHistoryExists = false;
 
         if ($firstMonth !== null && $lastMonth !== null) {
-            $first = CarbonImmutable::createFromFormat('Y-m-d', $firstMonth, $timezone)->startOfDay();
-            $last = CarbonImmutable::createFromFormat('Y-m-d', $lastMonth, $timezone)->endOfMonth()->startOfDay();
-            if ($last->greaterThan($end)) {
-                $last = $end;
-            }
+            $firstParsed = CarbonImmutable::createFromFormat('Y-m-d', $firstMonth, $timezone);
+            $lastParsed = CarbonImmutable::createFromFormat('Y-m-d', $lastMonth, $timezone);
+            if ($firstParsed instanceof CarbonImmutable && $lastParsed instanceof CarbonImmutable) {
+                $first = $firstParsed->startOfDay();
+                $last = $lastParsed->endOfMonth()->startOfDay();
+                if ($last->greaterThan($end)) {
+                    $last = $end;
+                }
 
-            $olderHistoryExists = $first->lessThan($granularBoundary);
-            $candidateStart = $first->greaterThan($granularBoundary) ? $first : $granularBoundary;
-            if (! $last->lessThan($candidateStart)) {
-                $granularStart = $candidateStart->toDateString();
-                $granularEnd = $last->toDateString();
+                $olderHistoryExists = $first->lessThan($granularBoundary);
+                $candidateStart = $first->greaterThan($granularBoundary) ? $first : $granularBoundary;
+                if (! $last->lessThan($candidateStart)) {
+                    $granularStart = $candidateStart->toDateString();
+                    $granularEnd = $last->toDateString();
+                }
             }
         }
 
