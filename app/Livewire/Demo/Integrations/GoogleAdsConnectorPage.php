@@ -209,7 +209,7 @@ class GoogleAdsConnectorPage extends Component
 
             return [
                 'id' => (int) $resource->id,
-                'name' => (string) ($resource->display_name ?: $meta['descriptive_name'] ?? 'Google Ads Account'),
+                'name' => (string) ($resource->display_name ?: ($meta['descriptive_name'] ?? 'Google Ads Account')),
                 'customer_id' => $customerId,
                 'formatted_customer_id' => $formattedId,
                 'currency' => $meta['currency_code'] ?? '—',
@@ -265,16 +265,17 @@ class GoogleAdsConnectorPage extends Component
             ->get()
             ->groupBy('dataset_id')
             ->map(function (Collection $rows, string $dataset): array {
-                $start = $rows->pluck('coverage_start')->filter()->min();
-                $end = $rows->pluck('coverage_end')->filter()->max();
+                $start = $rows->pluck('coverage_start_date')->filter()->min();
+                $end = $rows->pluck('coverage_end_date')->filter()->max();
+                $lastSuccess = $rows->pluck('last_collected_at')->filter()->sortDesc()->first();
 
                 return [
                     'dataset' => $dataset,
                     'accounts' => $rows->pluck('external_resource_id')->unique()->count(),
                     'status' => $rows->pluck('status')->map(fn ($status) => is_object($status) ? $status->value : (string) $status)->unique()->implode(', '),
-                    'coverage_start' => $start,
-                    'coverage_end' => $end,
-                    'last_success' => $rows->pluck('last_success_at')->filter()->max()?->diffForHumans(),
+                    'coverage_start' => $start?->toDateString(),
+                    'coverage_end' => $end?->toDateString(),
+                    'last_success' => $lastSuccess?->diffForHumans(),
                 ];
             })
             ->values()
