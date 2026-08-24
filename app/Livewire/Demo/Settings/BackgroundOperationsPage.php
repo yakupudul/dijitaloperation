@@ -5,6 +5,8 @@ namespace App\Livewire\Demo\Settings;
 use App\Enums\Collection\CollectionRunStatus;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\Collection\CollectionRun;
+use App\Models\Run;
+use App\Services\Async\AsyncOperationService;
 use App\Services\Collection\CancellationService;
 use App\Services\Collection\StartCollectionService;
 use App\Services\Operations\BackgroundOperationsService;
@@ -147,6 +149,21 @@ class BackgroundOperationsPage extends Component
             ]);
 
         DemoState::flash(__('background_operations.flash.locks_released', ['count' => $count]));
+    }
+
+    public function retryAsyncRun(int $runId): void
+    {
+        $this->assertAdmin();
+        $run = Run::query()->with('digitalAsset')->findOrFail($runId);
+        $service = app(AsyncOperationService::class);
+
+        if (! $service->canRetry($run)) {
+            DemoState::flash(__('background_operations.flash.async_not_retryable'));
+            return;
+        }
+
+        $result = $service->retry($run, auth()->user());
+        DemoState::flash((string) ($result['message'] ?? __('background_operations.flash.async_retried')));
     }
 
     public function retryFailedJob(string $uuid): void
