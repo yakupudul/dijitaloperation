@@ -67,7 +67,7 @@ Artisan::command('moxdop:collection:work-db {--sleep=1} {--max-runtime=3500}', f
 
     $this->info('MoxDOP DB collection worker reached max runtime; Supervisor will restart it.');
 
-    return self::SUCCESS;
+    return 0;
 })->purpose('Continuously execute canonical queued/retrying collection datasets directly from PostgreSQL state.');
 
 Artisan::command('moxdop:collection:redispatch-stale {--run=} {--force}', function () {
