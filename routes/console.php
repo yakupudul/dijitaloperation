@@ -1,15 +1,74 @@
 <?php
 
 use App\Enums\Collection\CollectionRunStatus;
+use App\Jobs\Collection\ExecuteDatasetRunJob;
+use App\Models\Collection\CollectionDatasetRun;
 use App\Models\Collection\CollectionRun;
 use App\Services\Collection\StartCollectionService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
+
+Artisan::command('moxdop:collection:work-db {--sleep=1} {--max-runtime=3500}', function () {
+    $sleep = max(1, (int) $this->option('sleep'));
+    $maxRuntime = max(60, (int) $this->option('max-runtime'));
+    $startedAt = microtime(true);
+    $starter = app(StartCollectionService::class);
+
+    $this->info(sprintf(
+        'MoxDOP DB collection worker started (sleep=%ds, max_runtime=%ds).',
+        $sleep,
+        $maxRuntime,
+    ));
+
+    while ((microtime(true) - $startedAt) < $maxRuntime) {
+        $candidates = CollectionDatasetRun::query()
+            ->where(function ($query): void {
+                $query->where('status', CollectionRunStatus::Queued->value)
+                    ->orWhere(function ($retry): void {
+                        $retry->where('status', CollectionRunStatus::Retrying->value)
+                            ->where(function ($due): void {
+                                $due->whereNull('retry_at')
+                                    ->orWhere('retry_at', '<=', now());
+                            });
+                    });
+            })
+            ->orderBy('last_activity_at')
+            ->orderBy('id')
+            ->limit(50)
+            ->get();
+
+        $dataset = $candidates->first(
+            fn (CollectionDatasetRun $candidate): bool => $starter->dependenciesSatisfied($candidate)
+        );
+
+        if (! $dataset instanceof CollectionDatasetRun) {
+            sleep($sleep);
+            continue;
+        }
+
+        try {
+            Bus::dispatchSync(new ExecuteDatasetRunJob($dataset->id));
+        } catch (Throwable $e) {
+            report($e);
+            $this->error(sprintf(
+                'Dataset #%d direct execution failed before normal job failure handling: %s',
+                $dataset->id,
+                $e->getMessage(),
+            ));
+            sleep($sleep);
+        }
+    }
+
+    $this->info('MoxDOP DB collection worker reached max runtime; Supervisor will restart it.');
+
+    return self::SUCCESS;
+})->purpose('Continuously execute canonical queued/retrying collection datasets directly from PostgreSQL state.');
 
 Artisan::command('moxdop:collection:redispatch-stale {--run=} {--force}', function () {
     $query = CollectionRun::query()
