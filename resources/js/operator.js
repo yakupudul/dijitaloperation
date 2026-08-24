@@ -12,6 +12,7 @@ import 'flatpickr/dist/flatpickr.min.css';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './maps/gbp-rank-map';
 import './maps/ga4-world-map';
+import { bindSortableTables } from './sortable-tables';
 
 window.ApexCharts = ApexCharts;
 window.flatpickr = flatpickr;
@@ -260,6 +261,7 @@ function renderOperatorCharts(root = document) {
 function synchronizeInteractiveViews() {
     renderOperatorCharts(document);
     bindDatePickers(document);
+    bindSortableTables(document);
     window.MoxDopGa4CountryMap?.refresh?.();
 }
 
