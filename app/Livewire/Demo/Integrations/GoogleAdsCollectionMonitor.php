@@ -191,11 +191,41 @@ class GoogleAdsCollectionMonitor extends Component
             ->values()
             ->all();
 
+        $nonTerminal = $datasets->filter(fn (CollectionDatasetRun $dataset): bool => ! $dataset->status->isTerminal());
+        $running = $nonTerminal->where('status', CollectionRunStatus::Running)->count();
+        $queued = $nonTerminal->where('status', CollectionRunStatus::Queued)->count();
+        $retrying = $nonTerminal->where('status', CollectionRunStatus::Retrying)->count();
+        $quotaRetries = $nonTerminal->filter(fn (CollectionDatasetRun $dataset): bool =>
+            $dataset->status === CollectionRunStatus::Retrying
+            && $dataset->retry_at !== null
+            && $dataset->retry_at->isFuture()
+            && ($dataset->error_category?->value === 'quota'
+                || strtoupper((string) $dataset->error_code) === 'GOOGLE_ADS_COOLDOWN')
+        );
+        $quotaWaiting = $nonTerminal->isNotEmpty() && $quotaRetries->count() === $nonTerminal->count();
+
+        $effectiveStatus = $run->status;
+        if (! $run->status->isTerminal() && $run->status !== CollectionRunStatus::CancellationRequested) {
+            $effectiveStatus = match (true) {
+                $running > 0 => CollectionRunStatus::Running,
+                $queued > 0 => CollectionRunStatus::Queued,
+                $retrying > 0 => CollectionRunStatus::Retrying,
+                default => $run->status,
+            };
+        }
+
+        $retryTimestamp = $quotaRetries->max(fn (CollectionDatasetRun $dataset) => $dataset->retry_at?->getTimestamp());
+        $retryAt = $retryTimestamp ? now()->setTimestamp((int) $retryTimestamp) : null;
+
         return [
             'id' => (int) $run->id,
             'label' => (string) (data_get($run->metadata, 'collection_intent_label') ?: 'Google Ads merkezi veri toplama'),
-            'status' => $run->status->value,
-            'status_label' => $this->statusLabel($run->status),
+            'status' => $effectiveStatus->value,
+            'persisted_status' => $run->status->value,
+            'status_label' => $quotaWaiting ? 'Kota bekleniyor' : $this->statusLabel($effectiveStatus),
+            'quota_waiting' => $quotaWaiting,
+            'quota_retry_at' => $retryAt?->toIso8601String(),
+            'quota_retry_human' => $retryAt?->diffForHumans(),
             'progress_percent' => $progress,
             'accounts_total' => count($resources),
             'accounts_finished' => collect($resources)->where('terminal', true)->count(),
@@ -236,14 +266,22 @@ class GoogleAdsCollectionMonitor extends Component
         $formatted = strlen($customerId) === 10
             ? substr($customerId, 0, 3).'-'.substr($customerId, 3, 3).'-'.substr($customerId, 6)
             : $customerId;
+        $nonTerminal = $datasets->filter(fn (CollectionDatasetRun $dataset): bool => ! $dataset->status->isTerminal());
+        $quotaWaiting = $nonTerminal->isNotEmpty() && $nonTerminal->every(fn (CollectionDatasetRun $dataset): bool =>
+            $dataset->status === CollectionRunStatus::Retrying
+            && $dataset->retry_at !== null
+            && $dataset->retry_at->isFuture()
+            && ($dataset->error_category?->value === 'quota'
+                || strtoupper((string) $dataset->error_code) === 'GOOGLE_ADS_COOLDOWN')
+        );
 
         return [
             'id' => (int) $resource->id,
             'external_resource_id' => (int) $resource->external_resource_id,
             'name' => (string) ($resource->externalResource?->display_name ?: 'Google Ads hesabı'),
             'customer_id' => $formatted,
-            'status' => $resource->status->value,
-            'status_label' => $this->statusLabel($resource->status),
+            'status' => $quotaWaiting ? CollectionRunStatus::Retrying->value : $resource->status->value,
+            'status_label' => $quotaWaiting ? 'Kota bekleniyor' : $this->statusLabel($resource->status),
             'terminal' => $resource->status->isTerminal(),
             'progress_percent' => $progress,
             'datasets_total' => $total,
@@ -310,7 +348,7 @@ class GoogleAdsCollectionMonitor extends Component
         return match ($status) {
             CollectionRunStatus::Queued => 'Sırada',
             CollectionRunStatus::Running => 'Çekiliyor',
-            CollectionRunStatus::Retrying => 'Yeniden deneniyor',
+            CollectionRunStatus::Retrying => 'Yeniden denenecek',
             CollectionRunStatus::Partial => 'Kısmi',
             CollectionRunStatus::Completed => 'Tamamlandı',
             CollectionRunStatus::Failed => 'Hata',
