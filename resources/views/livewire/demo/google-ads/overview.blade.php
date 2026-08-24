@@ -32,7 +32,6 @@
         ['key' => 'overview', 'label' => $isTr ? 'Genel Bakış' : 'Overview', 'wire' => true],
         ['key' => 'campaigns', 'label' => $isTr ? 'Kampanyalar' : 'Campaigns', 'wire' => true],
         ['key' => 'search_demand', 'label' => $isTr ? 'Arama' : 'Search', 'wire' => true],
-        ['key' => 'ads_assets', 'label' => $isTr ? 'Reklamlar' : 'Ads', 'wire' => true],
         ['key' => 'performance', 'label' => $isTr ? 'Performans' : 'Performance', 'wire' => true],
         ['key' => 'budget_bidding', 'label' => $isTr ? 'Bütçe & Teklif' : 'Budget & Bidding', 'wire' => true],
         ['key' => 'measurement', 'label' => $isTr ? 'Dönüşümler' : 'Conversions', 'wire' => true],
@@ -120,13 +119,9 @@
         @include('livewire.demo.google-ads.tabs.overview')
     @elseif ($tab === 'campaigns')
         @include('livewire.demo.google-ads.tabs.campaigns')
-        @include('livewire.demo.google-ads.tabs.ad-groups-performance')
     @elseif ($tab === 'search_demand')
         @include('livewire.demo.google-ads.tabs.search-demand')
         @include('livewire.demo.google-ads.tabs.search-negatives')
-    @elseif ($tab === 'ads_assets')
-        @include('livewire.demo.google-ads.tabs.ads-assets')
-        @include('livewire.demo.google-ads.tabs.ad-daily-performance')
     @elseif ($tab === 'performance')
         @include('livewire.demo.google-ads.tabs.performance')
     @elseif ($tab === 'budget_bidding')
