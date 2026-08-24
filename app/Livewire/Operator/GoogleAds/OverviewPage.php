@@ -40,6 +40,39 @@ class OverviewPage extends LegacyOverviewPage
         $this->search_sub = 'inbox';
     }
 
+    public function setCampaignSub(string $sub): void
+    {
+        if (! in_array($sub, ['campaigns', 'ad_groups', 'ads'], true)) {
+            return;
+        }
+
+        $this->campaign_sub = $sub;
+        $this->tab = 'campaigns';
+        $this->campaign = null;
+        $this->ad = null;
+        $this->entity_type = 'all';
+
+        if ($sub !== 'ads') {
+            $this->entity_ad_group = 'all';
+        }
+    }
+
+    public function updatedEntityCampaign(): void
+    {
+        $this->entity_ad_group = 'all';
+    }
+
+    public function showCampaignAdGroups(string $campaignId): void
+    {
+        $this->entity_campaign = $campaignId;
+        $this->entity_ad_group = 'all';
+        $this->entity_type = 'all';
+        $this->campaign_sub = 'ad_groups';
+        $this->tab = 'campaigns';
+        $this->campaign = null;
+        $this->ad = null;
+    }
+
     public function render(): View
     {
         $view = parent::render();
