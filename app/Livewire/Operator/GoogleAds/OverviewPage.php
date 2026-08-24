@@ -5,6 +5,7 @@ namespace App\Livewire\Operator\GoogleAds;
 use App\Livewire\Demo\GoogleAds\OverviewPage as LegacyOverviewPage;
 use App\Models\DigitalAsset;
 use App\Services\Async\AsyncOperationService;
+use App\Services\GoogleAds\GoogleAdsEntityHierarchyReconciler;
 use App\Services\GoogleAds\GoogleAdsWorkspaceTruthReconciler;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
@@ -44,6 +45,7 @@ class OverviewPage extends LegacyOverviewPage
         $view = parent::render();
         $payload = $view->getData();
         $data = is_array($payload['data'] ?? null) ? $payload['data'] : [];
+        $professional = is_array($payload['professional'] ?? null) ? $payload['professional'] : [];
         $start = (string) ($data['period_start'] ?? $this->periodStart ?? '');
         $end = (string) ($data['period_end'] ?? $this->periodEnd ?? '');
 
@@ -55,6 +57,14 @@ class OverviewPage extends LegacyOverviewPage
                 $data,
             );
         }
+
+        $hierarchy = app(GoogleAdsEntityHierarchyReconciler::class)->reconcile(
+            $this->assetId,
+            $data,
+            $professional,
+        );
+        $data = $hierarchy['data'];
+        $professional = $hierarchy['professional'];
 
         $campaigns = collect($data['campaigns'] ?? []);
         if ($this->campaign_filter === 'attention') {
@@ -104,6 +114,7 @@ class OverviewPage extends LegacyOverviewPage
 
         return $view->with([
             'data' => $data,
+            'professional' => $professional,
             'identity' => $data['identity'] ?? ($payload['identity'] ?? []),
             'campaignRows' => $campaigns->values()->all(),
             'termRows' => $terms->values()->all(),
