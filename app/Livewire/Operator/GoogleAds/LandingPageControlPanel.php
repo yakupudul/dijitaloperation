@@ -41,6 +41,11 @@ class LandingPageControlPanel extends Component
         $this->selectedLandingId = null;
     }
 
+    public function closeDrawers(): void
+    {
+        $this->closeLanding();
+    }
+
     public function render(): View
     {
         $control = app(GoogleAdsLandingPageControlService::class)->workspace(
