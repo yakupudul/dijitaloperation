@@ -1,0 +1,19 @@
+; Dedicated collection queue worker for MoxDOP staging.
+; This worker is intentionally independent from Horizon so collection jobs
+; cannot remain stranded if Horizon's internal supervisor topology changes.
+
+[program:moxdop-staging-collection]
+process_name=%(program_name)s
+command=php /var/www/moxdop/artisan queue:work redis --queue=collection --sleep=1 --tries=3 --timeout=300 --max-time=3600 --backoff=5
+ directory=/var/www/moxdop
+autostart=true
+autorestart=true
+stopasgroup=true
+killasgroup=true
+user=www-data
+numprocs=1
+redirect_stderr=true
+stdout_logfile=/var/log/moxdop-staging-collection.log
+stdout_logfile_maxbytes=10MB
+stdout_logfile_backups=5
+stopwaitsecs=360
