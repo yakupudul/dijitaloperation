@@ -178,9 +178,8 @@ GAQL,
         $this->assertDate($start);
         $this->assertDate($end);
 
-        // Do not filter REMOVED here. This is a historical performance report: a
-        // keyword that was active during the selected period must remain visible
-        // after it is later removed from the account.
+        // Historical reporting must retain keywords that were active in the
+        // selected period even if they were removed later.
         return sprintf(
             <<<'GAQL'
 SELECT
@@ -211,8 +210,9 @@ GAQL,
         $this->assertDate($start);
         $this->assertDate($end);
 
-        // Standard Search search-term detail. Keyword-related segments are valid
-        // for search_term_view and intentionally stay out of the PMax query.
+        // Keep the primary Search Terms query broad. Selecting keyword-info
+        // segments here can narrow automated/keywordless traffic, so matched
+        // keyword enrichment is intentionally separate from the completeness path.
         return sprintf(
             <<<'GAQL'
 SELECT
@@ -224,8 +224,6 @@ SELECT
   ad_group.name,
   search_term_view.search_term,
   search_term_view.status,
-  segments.keyword.info.text,
-  segments.keyword.info.match_type,
   segments.search_term_match_type,
   segments.search_term_match_source,
   metrics.impressions,
@@ -293,7 +291,6 @@ GAQL,
         $this->assertDate($start);
         $this->assertDate($end);
 
-        // Typed conversion performance — conversion action identity must not be lost.
         return sprintf(
             <<<'GAQL'
 SELECT
