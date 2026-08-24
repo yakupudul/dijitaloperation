@@ -39,9 +39,16 @@ final class GoogleAdsBudgetBiddingControlService
             ->map(fn (array $row): array => $this->normalizeCampaign($row, $currency))
             ->values();
 
-        $spend = (float) $rows->sum('spend');
-        $conversions = (float) $rows->sum('conversions');
-        $accountCpa = $conversions > 0 ? $spend / $conversions : null;
+        // Account-level KPI cards and pacing must use the canonical account_daily facts.
+        // Campaign rows are intentionally used only for campaign-level decisioning.
+        $accountSpendRaw = data_get($data, 'glance.spend.raw');
+        $accountConversionsRaw = data_get($data, 'glance.conversions.raw');
+        $accountSpend = is_numeric($accountSpendRaw) ? (float) $accountSpendRaw : null;
+        $accountConversions = is_numeric($accountConversionsRaw) ? (float) $accountConversionsRaw : null;
+        $accountCpa = $accountSpend !== null && $accountConversions !== null && $accountConversions > 0
+            ? $accountSpend / $accountConversions
+            : null;
+
         $targetCpa = $plan !== null && is_numeric($plan->target_cpa) && (float) $plan->target_cpa > 0
             ? (float) $plan->target_cpa
             : null;
@@ -53,7 +60,7 @@ final class GoogleAdsBudgetBiddingControlService
             ->sortBy(fn (array $row): array => [$this->decisionPriority($row['decision_code']), -($row['lost_is_budget'] ?? 0), $row['cpa'] ?? PHP_FLOAT_MAX])
             ->values();
 
-        $pacing = $this->pacing($plan, $spend, $start, $end, $data);
+        $pacing = $this->pacing($plan, $accountSpend, $start, $end, $data);
         $matrix = $this->matrix($decisionRows);
         $strategies = $this->strategyHealth(collect(data_get($professional, 'budget_bidding.strategies', [])), $currency);
 
@@ -70,10 +77,9 @@ final class GoogleAdsBudgetBiddingControlService
                 'currency' => $plan->currency,
             ],
             'summary' => [
-                'spend' => round($spend, 2),
-                'provider_conversions' => round($conversions, 2),
+                'spend' => $accountSpend !== null ? round($accountSpend, 2) : null,
+                'provider_conversions' => $accountConversions !== null ? round($accountConversions, 2) : null,
                 'provider_cpa' => $accountCpa !== null ? round($accountCpa, 2) : null,
-                'google_daily_budget_total' => round((float) $rows->filter(fn (array $row): bool => $row['enabled'])->sum('budget'), 2),
                 'campaigns' => $rows->count(),
                 'enabled_campaigns' => $rows->where('enabled', true)->count(),
                 'scale_candidates' => $decisionRows->where('decision_code', 'scale')->count(),
@@ -254,13 +260,13 @@ final class GoogleAdsBudgetBiddingControlService
     }
 
     /** @return array<string,mixed> */
-    private function pacing(?GoogleAdsBudgetPlan $plan, float $spend, ?string $start, ?string $end, array $data): array
+    private function pacing(?GoogleAdsBudgetPlan $plan, ?float $spend, ?string $start, ?string $end, array $data): array
     {
-        if ($plan === null || (float) $plan->planned_budget <= 0 || ! filled($start) || ! filled($end)) {
+        if ($plan === null || (float) $plan->planned_budget <= 0 || $spend === null || ! filled($start) || ! filled($end)) {
             return [
                 'available' => false,
-                'planned_budget' => null,
-                'actual_spend' => round($spend, 2),
+                'planned_budget' => $plan !== null ? round((float) $plan->planned_budget, 2) : null,
+                'actual_spend' => $spend !== null ? round($spend, 2) : null,
                 'remaining' => null,
                 'expected_spend' => null,
                 'pace_percent' => null,
