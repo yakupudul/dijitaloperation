@@ -121,7 +121,7 @@
         @include('livewire.demo.google-ads.tabs.campaigns')
     @elseif ($tab === 'search_demand')
         @if ($searchExpertWorkspace ?? false)
-            @include('livewire.demo.google-ads.tabs.search-expert-v2')
+            @include('livewire.demo.google-ads.tabs.search-expert-live')
         @else
             @include('livewire.demo.google-ads.tabs.search-demand')
             @include('livewire.demo.google-ads.tabs.search-negatives')
