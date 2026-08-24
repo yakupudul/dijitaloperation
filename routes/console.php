@@ -1,5 +1,8 @@
 <?php
 
+use App\Enums\Collection\CollectionRunStatus;
+use App\Models\Collection\CollectionRun;
+use App\Services\Collection\StartCollectionService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -7,6 +10,50 @@ use Illuminate\Support\Facades\Schedule;
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
+
+Artisan::command('moxdop:collection:redispatch-stale {--run=}', function () {
+    $query = CollectionRun::query()
+        ->whereIn('status', [
+            CollectionRunStatus::Queued->value,
+            CollectionRunStatus::Running->value,
+            CollectionRunStatus::Retrying->value,
+        ])
+        ->orderBy('id');
+
+    $runId = $this->option('run');
+    if ($runId !== null && $runId !== '') {
+        $query->whereKey((int) $runId);
+    }
+
+    $starter = app(StartCollectionService::class);
+    $runs = $query->get();
+    $before = 0;
+    $after = 0;
+
+    foreach ($runs as $run) {
+        $before += $run->datasetRuns()
+            ->where('status', CollectionRunStatus::Queued->value)
+            ->count();
+
+        $starter->dispatchEligibleRootJobs($run);
+
+        $after += $run->datasetRuns()
+            ->where('status', CollectionRunStatus::Queued->value)
+            ->count();
+    }
+
+    $this->info(sprintf(
+        'Collection recovery scanned %d active run(s); queued before=%d after=%d.',
+        $runs->count(),
+        $before,
+        $after,
+    ));
+})->purpose('Republish queued collection datasets whose Redis dispatch lease has expired.');
+
+Schedule::command('moxdop:collection:redispatch-stale')
+    ->everyMinute()
+    ->withoutOverlapping(2)
+    ->name('collection-redispatch-stale');
 
 Schedule::command('async:mark-stale-runs')
     ->everyFiveMinutes()
