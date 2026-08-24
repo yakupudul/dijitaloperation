@@ -64,6 +64,8 @@ return [
         'retry_async' => 'Tekrar çalıştır',
         'retry_failed_job' => 'Tekrar kuyruğa al',
         'forget_failed_job' => 'Kaydı sil',
+        'retry_all_failed_jobs' => 'Tümünü tekrar kuyruğa al',
+        'forget_all_failed_jobs' => 'Tüm kayıtları sil',
     ],
     'confirm' => [
         'cancel' => 'Bu run için durdurma isteği gönderilsin mi?',
@@ -71,6 +73,8 @@ return [
         'retry_async' => 'Bu async işlem mevcut canonical retry mekanizmasıyla tekrar çalıştırılsın mı?',
         'retry_failed_job' => 'Bu başarısız job tekrar kendi queue’suna gönderilsin mi?',
         'forget_failed_job' => 'Bu failed job kaydı silinsin mi? İş yeniden çalıştırılmayacak.',
+        'retry_all_failed_jobs' => 'Tüm başarısız queue işleri kendi orijinal kuyruklarına tekrar gönderilsin mi? Başarıyla gönderilen failed kayıtları silinecek, gönderilemeyenler korunacak.',
+        'forget_all_failed_jobs' => 'Tüm failed job kayıtları silinsin mi? Bu işler yeniden çalıştırılmayacak.',
     ],
     'labels' => [
         'stalled' => 'TAKILMIŞ OLABİLİR',
@@ -99,5 +103,7 @@ return [
         'failed_job_retried' => 'Failed job tekrar kendi queue’suna gönderildi.',
         'failed_job_retry_error' => 'Failed job tekrar gönderilemedi: :message',
         'failed_job_forgotten' => 'Failed job kaydı silindi.',
+        'failed_jobs_bulk_retried' => ':retried başarısız job tekrar kuyruğa alındı. :failed job gönderilemedi ve failed listesinde tutuldu.',
+        'failed_jobs_bulk_forgotten' => ':count failed job kaydı silindi.',
     ],
 ];
