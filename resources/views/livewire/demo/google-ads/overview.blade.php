@@ -120,8 +120,12 @@
     @elseif ($tab === 'campaigns')
         @include('livewire.demo.google-ads.tabs.campaigns')
     @elseif ($tab === 'search_demand')
-        @include('livewire.demo.google-ads.tabs.search-demand')
-        @include('livewire.demo.google-ads.tabs.search-negatives')
+        @if ($searchExpertWorkspace ?? false)
+            @include('livewire.demo.google-ads.tabs.search-expert')
+        @else
+            @include('livewire.demo.google-ads.tabs.search-demand')
+            @include('livewire.demo.google-ads.tabs.search-negatives')
+        @endif
     @elseif ($tab === 'performance')
         @include('livewire.demo.google-ads.tabs.performance')
     @elseif ($tab === 'budget_bidding')
