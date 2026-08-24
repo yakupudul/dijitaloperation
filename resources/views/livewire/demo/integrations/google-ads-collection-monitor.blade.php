@@ -6,20 +6,26 @@
     @endif
 
     @forelse ($runs as $run)
-        <section class="overflow-hidden rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" wire:key="gads-live-run-{{ $run['id'] }}">
+        <section class="overflow-hidden rounded-xl bg-white ring-1 ring-inset {{ $run['quota_waiting'] ? 'ring-amber-200 dark:ring-amber-500/30' : 'ring-gray-200 dark:ring-gray-800' }} dark:bg-gray-900" wire:key="gads-live-run-{{ $run['id'] }}">
             <div class="px-5 py-4">
                 <div class="flex flex-wrap items-start justify-between gap-4">
                     <div class="min-w-0">
                         <div class="flex flex-wrap items-center gap-2">
                             <span @class([
                                 'h-2.5 w-2.5 rounded-full',
-                                'animate-pulse bg-blue-500' => in_array($run['status'], ['queued', 'running', 'retrying']),
-                                'bg-amber-500' => $run['status'] === 'cancellation_requested',
+                                'bg-amber-500' => $run['quota_waiting'] || $run['status'] === 'cancellation_requested',
+                                'animate-pulse bg-blue-500' => ! $run['quota_waiting'] && in_array($run['status'], ['queued', 'running', 'retrying']),
                             ])></span>
                             <h2 class="text-base font-semibold text-gray-900 dark:text-white">
-                                {{ $run['status'] === 'cancellation_requested' ? 'Google Ads aktarımı durduruluyor' : 'Google Ads verileri çekiliyor' }}
+                                @if ($run['status'] === 'cancellation_requested')
+                                    Google Ads aktarımı durduruluyor
+                                @elseif ($run['quota_waiting'])
+                                    Google Ads kotası bekleniyor
+                                @else
+                                    Google Ads verileri çekiliyor
+                                @endif
                             </h2>
-                            <span class="text-xs font-medium text-gray-500">{{ $run['status_label'] }}</span>
+                            <span class="text-xs font-medium {{ $run['quota_waiting'] ? 'text-amber-700 dark:text-amber-300' : 'text-gray-500' }}">{{ $run['status_label'] }}</span>
                         </div>
                         <p class="mt-1 pl-[18px] text-sm text-gray-500 dark:text-gray-400">{{ $run['label'] }} · Run #{{ $run['id'] }}</p>
                     </div>
@@ -30,6 +36,17 @@
                         </button>
                     @endif
                 </div>
+
+                @if ($run['quota_waiting'])
+                    <div class="mt-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-inset ring-amber-100 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/20">
+                        <p class="font-semibold">Google Ads developer-token kotası şu anda bekleme süresinde.</p>
+                        <p class="mt-1 text-xs leading-5">
+                            Sistem yeni API çağrısı göndermiyor ve mevcut veriyi kaybetmiyor.
+                            @if ($run['quota_retry_human']) Otomatik yeniden deneme {{ $run['quota_retry_human'] }}.@endif
+                            @if ($run['quota_retry_at']) <span class="font-mono">{{ $run['quota_retry_at'] }}</span>@endif
+                        </p>
+                    </div>
+                @endif
 
                 <div class="mt-4">
                     <div class="mb-1.5 flex items-center justify-between gap-3 text-sm">
@@ -61,7 +78,7 @@
                             <div class="min-w-0 flex-1">
                                 <div class="flex flex-wrap items-center gap-2">
                                     <h3 class="truncate text-sm font-semibold text-gray-900 dark:text-white">{{ $resource['name'] }}</h3>
-                                    <span class="text-xs text-gray-500">{{ $resource['status_label'] }}</span>
+                                    <span class="text-xs {{ $resource['status'] === 'retrying' ? 'text-amber-700 dark:text-amber-300' : 'text-gray-500' }}">{{ $resource['status_label'] }}</span>
                                 </div>
                                 <p class="mt-1 text-xs text-gray-500">Customer ID {{ $resource['customer_id'] }}</p>
 
