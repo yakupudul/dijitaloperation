@@ -31,6 +31,8 @@ use InvalidArgumentException;
  */
 final class GoogleAdsSearchRecoveryCollectionService
 {
+    private const string NETWORK_DAILY_FAMILY = 'GADS_CENTRAL_RF_NETWORK_DAILY';
+
     private const array ACTIVE_STATUSES = [
         'queued', 'running', 'retrying', 'cancellation_requested',
     ];
@@ -98,6 +100,11 @@ final class GoogleAdsSearchRecoveryCollectionService
                 'family' => GoogleAdsCentralRequestFamilyCatalog::SEARCH_TERM,
                 'date_range' => ['start' => $start, 'end' => $end],
                 'execution_variant' => 'search_recovery',
+            ],
+            [
+                'family' => self::NETWORK_DAILY_FAMILY,
+                'date_range' => ['start' => $start, 'end' => $end],
+                'execution_variant' => 'search_recovery_coverage',
             ],
         ];
 
