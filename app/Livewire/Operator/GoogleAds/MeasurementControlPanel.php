@@ -72,7 +72,7 @@ class MeasurementControlPanel extends Component
     public function saveMapping(): void
     {
         if (! Schema::hasTable('google_ads_conversion_business_mappings')) {
-            DemoState::flash('Business Action eşleme tablosu henüz hazır değil. Migration durumunu kontrol edin.', 'warning');
+            DemoState::flash('İş Aksiyonu eşleme tablosu henüz hazır değil. Veritabanı geçiş durumunu kontrol edin.', 'warning');
             return;
         }
 
@@ -83,11 +83,18 @@ class MeasurementControlPanel extends Component
             'mapping_value' => ['nullable', 'numeric', 'min:0', 'max:999999999999.999999'],
             'mapping_quality_signal' => ['boolean'],
             'mapping_notes' => ['nullable', 'string', 'max:1500'],
+        ], [], [
+            'mapping_action_id' => 'dönüşüm aksiyonu',
+            'mapping_stage' => 'iş aşaması',
+            'mapping_label' => 'aksiyon etiketi',
+            'mapping_value' => 'nominal iş değeri',
+            'mapping_quality_signal' => 'kalite sinyali',
+            'mapping_notes' => 'not',
         ]);
 
         $validIds = app(GoogleAdsMeasurementControlService::class)->validActionIds($this->assetId, $this->periodStart, $this->periodEnd);
         if (! in_array((string) $validated['mapping_action_id'], $validIds, true)) {
-            DemoState::flash('Seçilen conversion action bu Google Ads varlığına ait değil.', 'warning');
+            DemoState::flash('Seçilen dönüşüm aksiyonu bu Google Ads varlığına ait değil.', 'warning');
             return;
         }
 
@@ -112,7 +119,7 @@ class MeasurementControlPanel extends Component
             'updated_by_user_id' => $userId,
         ])->save();
 
-        DemoState::flash('Conversion action → Business Action eşlemesi kaydedildi.', 'success');
+        DemoState::flash('Dönüşüm aksiyonu → İş Aksiyonu eşlemesi kaydedildi.', 'success');
     }
 
     public function deleteMapping(int $mappingId): void
@@ -132,7 +139,7 @@ class MeasurementControlPanel extends Component
         $this->mapping_value = null;
         $this->mapping_quality_signal = false;
         $this->mapping_notes = null;
-        DemoState::flash('Business Action eşlemesi kaldırıldı.', 'info');
+        DemoState::flash('İş Aksiyonu eşlemesi kaldırıldı.', 'info');
     }
 
     public function clearMappingForm(): void
@@ -154,7 +161,11 @@ class MeasurementControlPanel extends Component
             $this->periodEnd,
         );
 
-        return view('livewire.operator.google-ads.measurement-control-panel', [
+        $view = app()->getLocale() === 'tr'
+            ? 'livewire.operator.google-ads.measurement-control-panel-tr'
+            : 'livewire.operator.google-ads.measurement-control-panel';
+
+        return view($view, [
             'control' => $control,
             'stageOptions' => self::STAGES,
         ]);
