@@ -7,6 +7,14 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
+APP_DOWN=0
+cleanup() {
+  if [[ "$APP_DOWN" -eq 1 ]]; then
+    php artisan up --no-interaction >/dev/null 2>&1 || true
+  fi
+}
+trap cleanup EXIT
+
 as_root() {
   if [[ "$(id -u)" -eq 0 ]]; then
     "$@"
@@ -66,6 +74,7 @@ else
 fi
 
 php artisan down --retry=60 --no-interaction || true
+APP_DOWN=1
 
 echo "deploy/staging: migrate --force"
 php artisan migrate --force --no-interaction
@@ -77,14 +86,21 @@ php artisan route:cache
 php artisan view:cache
 php artisan event:cache || true
 
-echo "deploy/staging: verify collection Redis backend"
+echo "deploy/staging: verify collection dispatch sink"
 php -r '
 require "vendor/autoload.php";
 $app = require "bootstrap/app.php";
 $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 app(App\Services\Collection\CollectionQueueGate::class)->assertReady();
-echo "collection queue backend reachable".PHP_EOL;
+echo "collection dispatch sink reachable: ".config("moxdop-collection.queue_connection").PHP_EOL;
 ' || exit 1
+
+# PostgreSQL CollectionDatasetRun rows are authoritative. Older releases mirrored
+# dataset work into redis:collection, which can leave delayed duplicate jobs behind.
+# Clear that legacy mirror before restarting Horizon; DB workers will recover every
+# still-eligible queued/retrying row from PostgreSQL state.
+echo "deploy/staging: clear legacy redis:collection mirror"
+php artisan queue:clear redis --queue=collection --no-interaction || true
 
 if ! command -v supervisorctl >/dev/null 2>&1; then
   echo "deploy/staging: ERROR — supervisorctl is required" >&2
@@ -135,7 +151,7 @@ fi
 echo "deploy/staging: restart cron scheduler"
 as_root systemctl restart cron 2>/dev/null || as_root service cron restart 2>/dev/null || true
 
-echo "deploy/staging: recover stranded collection jobs"
+echo "deploy/staging: recover stranded collection DB state"
 php artisan moxdop:collection:redispatch-stale --force --no-interaction || exit 1
 
 # Give DB-driven workers time to pick up stranded rows.
@@ -149,17 +165,18 @@ echo "deploy/staging: collection state"
 php artisan moxdop:collection:status --no-interaction || true
 php artisan moxdop:collection:status --provider=GOOGLE_ADS --no-interaction || true
 
-echo "deploy/staging: collection queue depth"
+echo "deploy/staging: collection dispatch sink depth"
 php -r '
 require "vendor/autoload.php";
 $app = require "bootstrap/app.php";
 $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
-$connection = (string) config("moxdop-collection.queue_connection", "redis");
+$connection = (string) config("moxdop-collection.queue_connection", "null");
 $queue = (string) config("moxdop-collection.queue", "collection");
-echo Illuminate\Support\Facades\Queue::connection($connection)->size($queue).PHP_EOL;
+echo "connection={$connection} queue={$queue} depth=".Illuminate\Support\Facades\Queue::connection($connection)->size($queue).PHP_EOL;
 ' || exit 1
 
 php artisan up --no-interaction
+APP_DOWN=0
 
 echo "deploy/staging: done — SHA ${RELEASE_SHA}"
 php artisan about --only=environment 2>/dev/null || true
