@@ -1,15 +1,17 @@
 ; Supervisor program for MoxDOP staging Horizon.
-; Copy to /etc/supervisor/conf.d/moxdop-staging-horizon.conf and adjust user/paths.
+; Copy to /etc/supervisor/conf.d/moxdop-staging-horizon.conf and adjust user if needed.
 ;
-; Deployments must use `php artisan horizon:terminate` and let Supervisor restart this program.
+; Canonical staging application path: /var/www/moxdop
+; Deployments use `php artisan horizon:terminate` and let Supervisor restart this program.
 ; Do not kill -9 workers.
 ;
 ; sudo supervisorctl reread && sudo supervisorctl update
-; sudo supervisorctl status moxdop-staging-horizon:*
+; sudo supervisorctl status moxdop-staging-horizon
 
 [program:moxdop-staging-horizon]
 process_name=%(program_name)s
-command=php /var/www/moxdop-staging/artisan horizon
+command=/usr/bin/php /var/www/moxdop/artisan horizon
+directory=/var/www/moxdop
 autostart=true
 autorestart=true
 stopasgroup=true
