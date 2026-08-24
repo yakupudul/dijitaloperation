@@ -3,17 +3,65 @@
 namespace App\Livewire\Operator\GoogleAds;
 
 use App\Livewire\Demo\GoogleAds\OverviewPage as LegacyOverviewPage;
+use App\Models\CoreExternalResource;
 use App\Models\DigitalAsset;
 use App\Services\Async\AsyncOperationService;
+use App\Services\Collection\GoogleAds\GoogleAdsSearchRecoveryCollectionService;
 use App\Services\GoogleAds\GoogleAdsEntityHierarchyReconciler;
 use App\Services\GoogleAds\GoogleAdsSearchWorkspaceRecoveryService;
+use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
 use App\Services\GoogleAds\GoogleAdsWorkspaceTruthReconciler;
+use App\Services\GoogleAds\Support\GoogleAdsBindingMode;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
 
 /** Production operator behavior layered over the Google Ads specialist workspace. */
 class OverviewPage extends LegacyOverviewPage
 {
+    public function refreshData(): void
+    {
+        if ($this->tab !== 'search_demand') {
+            parent::refreshData();
+
+            return;
+        }
+
+        $binding = app(GoogleAdsSpecialistBindingResolver::class)->resolve($this->assetId);
+        if ($binding->mode !== GoogleAdsBindingMode::RealBound || $binding->externalResourceId === null) {
+            DemoState::flash(__('operator.flash.google_ads_refresh_unconfigured'), 'info');
+
+            return;
+        }
+
+        $resource = CoreExternalResource::query()
+            ->with('integration')
+            ->find($binding->externalResourceId);
+        if (! $resource instanceof CoreExternalResource || $resource->integration === null) {
+            DemoState::flash(__('operator.flash.google_ads_refresh_missing_asset'), 'warning');
+
+            return;
+        }
+
+        $start = $this->periodStart ?: now()->subDays(29)->toDateString();
+        $end = $this->periodEnd ?: now()->toDateString();
+
+        try {
+            $run = app(GoogleAdsSearchRecoveryCollectionService::class)->start(
+                $resource,
+                $start,
+                $end,
+                auth()->user(),
+            );
+
+            DemoState::flash(
+                'Google Ads Arama verisi onarımı başlatıldı · '.$start.' – '.$end.' · Run #'.$run->id.'.',
+                'success',
+            );
+        } catch (\Throwable $e) {
+            DemoState::flash('Google Ads Arama verisi onarımı başlatılamadı: '.$e->getMessage(), 'warning');
+        }
+    }
+
     public function runAnalysis(): void
     {
         $asset = DigitalAsset::query()
