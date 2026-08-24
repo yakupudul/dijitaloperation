@@ -1,13 +1,15 @@
-; Dedicated collection queue worker for MoxDOP staging.
-; This worker is intentionally independent from Horizon so collection jobs
-; cannot remain stranded if Horizon's internal supervisor topology changes.
+; Dedicated canonical collection worker for MoxDOP staging.
+; PostgreSQL collection state is the source of truth. This worker executes
+; queued/retrying datasets directly, so Redis/Horizon transport issues cannot
+; strand runs in "queued" forever. Dataset dispatch locks prevent duplicates.
 
 [program:moxdop-staging-collection]
 process_name=%(program_name)s
-command=php /var/www/moxdop/artisan queue:work redis --queue=collection --sleep=1 --tries=3 --timeout=300 --max-time=3600 --backoff=5
+command=php /var/www/moxdop/artisan moxdop:collection:work-db --sleep=1 --max-runtime=3500
 directory=/var/www/moxdop
 autostart=true
 autorestart=true
+startsecs=2
 stopasgroup=true
 killasgroup=true
 user=www-data
