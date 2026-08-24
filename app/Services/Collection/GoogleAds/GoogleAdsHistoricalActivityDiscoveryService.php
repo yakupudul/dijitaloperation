@@ -160,28 +160,17 @@ final class GoogleAdsHistoricalActivityDiscoveryService
         $lastMonth = $activeRows !== [] ? (string) $activeRows[array_key_last($activeRows)]['reporting_month'] : null;
 
         $lookbackMonths = max(1, (int) config('moxdop-google-ads-history.granular_lookback_months', 37));
+        // Keep a one-day cushion away from the rolling provider boundary.
         $granularBoundary = $today->subMonthsNoOverflow($lookbackMonths)->addDay();
-        $granularStart = null;
-        $granularEnd = null;
+        $periods = $this->granularPeriods($activeRows, $timezone, $granularBoundary, $end);
+        $granularStart = $periods !== [] ? $periods[0]['start'] : null;
+        $granularEnd = $periods !== [] ? $periods[array_key_last($periods)]['end'] : null;
+
         $olderHistoryExists = false;
-
-        if ($firstMonth !== null && $lastMonth !== null) {
+        if ($firstMonth !== null) {
             $firstParsed = CarbonImmutable::createFromFormat('Y-m-d', $firstMonth, $timezone);
-            $lastParsed = CarbonImmutable::createFromFormat('Y-m-d', $lastMonth, $timezone);
-            if ($firstParsed instanceof CarbonImmutable && $lastParsed instanceof CarbonImmutable) {
-                $first = $firstParsed->startOfDay();
-                $last = $lastParsed->endOfMonth()->startOfDay();
-                if ($last->greaterThan($end)) {
-                    $last = $end;
-                }
-
-                $olderHistoryExists = $first->lessThan($granularBoundary);
-                $candidateStart = $first->greaterThan($granularBoundary) ? $first : $granularBoundary;
-                if (! $last->lessThan($candidateStart)) {
-                    $granularStart = $candidateStart->toDateString();
-                    $granularEnd = $last->toDateString();
-                }
-            }
+            $olderHistoryExists = $firstParsed instanceof CarbonImmutable
+                && $firstParsed->startOfDay()->lessThan($granularBoundary);
         }
 
         return [
@@ -192,11 +181,72 @@ final class GoogleAdsHistoricalActivityDiscoveryService
             'last_activity_month' => $lastMonth,
             'granular_start' => $granularStart,
             'granular_end' => $granularEnd,
+            'granular_periods' => $periods,
             'older_history_exists' => $olderHistoryExists,
             'discovery_start' => $start->toDateString(),
             'discovery_end' => $end->toDateString(),
             'granular_boundary' => $granularBoundary->toDateString(),
         ];
+    }
+
+    /**
+     * Consecutive active months form one detailed-backfill period. Whole inactive
+     * gaps become separate periods and are not queried at daily/search-term grain.
+     *
+     * @param list<array<string,mixed>> $activeRows
+     * @return list<array{start:string,end:string}>
+     */
+    private function granularPeriods(
+        array $activeRows,
+        string $timezone,
+        CarbonImmutable $boundary,
+        CarbonImmutable $providerEnd,
+    ): array {
+        $periods = [];
+        $previousActiveMonth = null;
+
+        foreach ($activeRows as $row) {
+            $monthValue = $row['reporting_month'] ?? null;
+            if (! is_string($monthValue)) {
+                continue;
+            }
+            $parsed = CarbonImmutable::createFromFormat('Y-m-d', $monthValue, $timezone);
+            if (! $parsed instanceof CarbonImmutable) {
+                continue;
+            }
+
+            $monthStart = $parsed->startOfMonth()->startOfDay();
+            $monthEnd = $parsed->endOfMonth()->startOfDay();
+            if ($monthEnd->lessThan($boundary)) {
+                $previousActiveMonth = $monthStart;
+                continue;
+            }
+            if ($monthEnd->greaterThan($providerEnd)) {
+                $monthEnd = $providerEnd;
+            }
+            $periodStart = $monthStart->lessThan($boundary) ? $boundary : $monthStart;
+            if ($periodStart->greaterThan($monthEnd)) {
+                $previousActiveMonth = $monthStart;
+                continue;
+            }
+
+            $isConsecutive = $previousActiveMonth instanceof CarbonImmutable
+                && $previousActiveMonth->addMonthNoOverflow()->isSameMonth($monthStart);
+
+            if ($isConsecutive && $periods !== []) {
+                $lastIndex = array_key_last($periods);
+                $periods[$lastIndex]['end'] = $monthEnd->toDateString();
+            } else {
+                $periods[] = [
+                    'start' => $periodStart->toDateString(),
+                    'end' => $monthEnd->toDateString(),
+                ];
+            }
+
+            $previousActiveMonth = $monthStart;
+        }
+
+        return $periods;
     }
 
     private function integer(mixed $value): int
