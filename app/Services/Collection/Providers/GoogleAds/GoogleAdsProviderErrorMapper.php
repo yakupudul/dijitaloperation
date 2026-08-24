@@ -13,6 +13,15 @@ final class GoogleAdsProviderErrorMapper
 {
     public function fromThrowable(Throwable $e): DatasetExecutionResult
     {
+        if ($e instanceof GoogleAdsQuotaCooldownException) {
+            return DatasetExecutionResult::retry(
+                CollectionErrorCategory::Quota,
+                $e->getMessage(),
+                max(1, $e->retryAfterSeconds),
+                $e->scope === 'customer_concurrency' ? 'GOOGLE_ADS_CONCURRENCY_WAIT' : 'GOOGLE_ADS_COOLDOWN',
+            );
+        }
+
         if ($e instanceof GoogleAuthorizationException) {
             return DatasetExecutionResult::failed(
                 CollectionErrorCategory::Authorization,
@@ -41,7 +50,6 @@ final class GoogleAdsProviderErrorMapper
         }
 
         if (str_contains($lower, 'network') || str_contains($lower, 'timeout') || str_contains($lower, 'timed out')) {
-            // Zero means: let the collection RetryPolicy choose exponential backoff + jitter.
             return DatasetExecutionResult::retry(
                 CollectionErrorCategory::Network,
                 $message,
@@ -62,10 +70,13 @@ final class GoogleAdsProviderErrorMapper
         $body = $response->json();
         $reason = $this->reasonFromBody($body, $response);
         $reason = mb_substr($reason, 0, 1500);
-        $retryAfter = $this->retryAfterSeconds($response);
+        $retryAfter = $this->retryAfterSeconds($response, $reason);
         $lower = strtolower($reason);
+        $upper = strtoupper($reason);
         $requestId = $this->requestIdFromBody($body);
         $requestSuffix = $requestId !== '' ? ' requestId='.$requestId : '';
+        $resourceExhausted = str_contains($upper, 'RESOURCE_EXHAUSTED');
+        $temporarilyExhausted = str_contains($upper, 'RESOURCE_TEMPORARILY_EXHAUSTED');
 
         if ($status === 401) {
             return DatasetExecutionResult::failed(
@@ -100,6 +111,15 @@ final class GoogleAdsProviderErrorMapper
         }
 
         if ($status === 429) {
+            if ($resourceExhausted && ! $temporarilyExhausted) {
+                return DatasetExecutionResult::retry(
+                    CollectionErrorCategory::Quota,
+                    'Google Ads quota exhausted: '.$reason.$requestSuffix,
+                    $retryAfter,
+                    'QUOTA_EXHAUSTED',
+                );
+            }
+
             return DatasetExecutionResult::retry(
                 CollectionErrorCategory::RateLimit,
                 'Google Ads rate limit: '.$reason.$requestSuffix,
@@ -214,21 +234,26 @@ final class GoogleAdsProviderErrorMapper
         return '';
     }
 
-    private function retryAfterSeconds(Response $response): int
+    private function retryAfterSeconds(Response $response, string $reason): int
     {
         $value = trim((string) $response->header('Retry-After'));
-        if ($value === '') {
-            return 0;
-        }
-        if (is_numeric($value)) {
-            return max(1, (int) $value);
+        if ($value !== '') {
+            if (is_numeric($value)) {
+                return max(1, (int) $value);
+            }
+
+            $timestamp = strtotime($value);
+            if ($timestamp !== false) {
+                return max(1, $timestamp - time());
+            }
         }
 
-        $timestamp = strtotime($value);
-        if ($timestamp === false) {
-            return 0;
+        // Google Ads quota failures frequently place the authoritative wait in
+        // GoogleAdsFailure text rather than the HTTP Retry-After header.
+        if (preg_match('/retry\s+(?:after|in)\s+(\d+)\s+seconds?/iu', $reason, $matches) === 1) {
+            return max(1, (int) $matches[1]);
         }
 
-        return max(1, $timestamp - time());
+        return 0;
     }
 }
