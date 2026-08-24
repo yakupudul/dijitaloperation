@@ -29,16 +29,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Queue (collection control plane)
+    | Collection execution control plane
     |--------------------------------------------------------------------------
     |
-    | Production collection work should use Redis + Horizon. Existing Activity
-    | Center async jobs may continue on the app default (database) connection.
-    | Tests use Queue::fake() and do not require Redis.
+    | CollectionDatasetRun rows in PostgreSQL are the durable source of truth.
+    | Dedicated Supervisor workers execute eligible rows directly from DB state.
+    | Queue dispatch calls therefore go to Laravel's null sink by default so a
+    | second Redis/Horizon copy cannot create duplicate attempts or quota bursts.
+    |
+    | Set COLLECTION_QUEUE_CONNECTION explicitly only for a deployment that does
+    | not use the DB workers.
     |
     */
 
-    'queue_connection' => env('COLLECTION_QUEUE_CONNECTION', 'redis'),
+    'queue_connection' => env('COLLECTION_QUEUE_CONNECTION', 'null'),
 
     'queue' => env('COLLECTION_QUEUE', 'collection'),
 
@@ -47,11 +51,9 @@ return [
     'job_tries' => (int) env('COLLECTION_JOB_TRIES', 3),
 
     /*
-     * Dispatch claims are leases, not permanent flags. If a job is published
-     * while Horizon is restarting or the Redis delivery is otherwise lost,
-     * the recovery command may safely republish the queued DatasetRun after
-     * this lease expires. Dataset execution locks remain the final duplicate
-     * execution guard.
+     * Legacy dispatch claims remain leases for compatibility with older Redis
+     * deliveries. DB workers do not depend on these claims; execution locks are
+     * still the final duplicate-execution guard.
      */
     'queue_dispatch_claim_lease_seconds' => (int) env('COLLECTION_DISPATCH_CLAIM_LEASE', 120),
 
@@ -69,7 +71,7 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Fail closed when Redis collection connection is required but unavailable
+    | Fail closed when the configured dispatch sink cannot be resolved
     |--------------------------------------------------------------------------
     */
 
