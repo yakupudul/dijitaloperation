@@ -182,7 +182,7 @@ final class GoogleAdsCentralCollectionService
 
         return [
             'intent' => 'google_ads_central_update',
-            'families' => $this->updateFamilies($resource, $historyBaseline),
+            'families' => $this->updateFamilies($resource),
             'history_policy_version' => self::HISTORY_POLICY_VERSION,
             'activity_summary' => data_get($historyBaseline->metadata, 'activity_summary'),
         ];
@@ -221,8 +221,6 @@ final class GoogleAdsCentralCollectionService
             $granularStart = $activity['granular_start'] ?? null;
             $granularEnd = $activity['granular_end'] ?? null;
             if (! is_string($granularStart) || ! is_string($granularEnd) || $granularStart === '' || $granularEnd === '') {
-                // No provider-supported detailed activity window. Lifetime monthly
-                // history still records old/inactive accounts without wasting API work.
                 continue;
             }
 
@@ -236,7 +234,7 @@ final class GoogleAdsCentralCollectionService
     }
 
     /** @return list<array{family:string,date_range:?array{start:string,end:string}}> */
-    private function updateFamilies(CoreExternalResource $resource, CollectionResourceRun $completed): array
+    private function updateFamilies(CoreExternalResource $resource): array
     {
         $timezone = $this->timezone($resource);
         $today = CarbonImmutable::now($timezone)->startOfDay();
@@ -244,8 +242,6 @@ final class GoogleAdsCentralCollectionService
         $out = [];
 
         foreach (GoogleAdsCentralRequestFamilyCatalog::supportedFamilies() as $family) {
-            // Lifetime monthly discovery is a baseline concern. Normal operations
-            // stay light and do not re-scan the account's entire lifetime daily.
             if (GoogleAdsCentralRequestFamilyCatalog::isHistoryFamily($family)) {
                 continue;
             }
@@ -258,22 +254,8 @@ final class GoogleAdsCentralCollectionService
             $window = GoogleAdsCentralRequestFamilyCatalog::isChangeEvent($family)
                 ? self::CHANGE_EVENT_SAFE_DAYS
                 : self::RESTATEMENT_DAYS;
-            $previous = $completed->datasetRuns->firstWhere('request_family_id', $family);
-            $coverageEnd = data_get($previous?->metadata, 'date_range.end');
+            $start = $closedEnd->subDays($window - 1);
 
-            try {
-                $anchor = is_string($coverageEnd) && $coverageEnd !== ''
-                    ? CarbonImmutable::createFromFormat('Y-m-d', $coverageEnd, $timezone)->startOfDay()
-                    : $closedEnd;
-            } catch (\Throwable) {
-                $anchor = $closedEnd;
-            }
-
-            if ($anchor->greaterThan($closedEnd)) {
-                $anchor = $closedEnd;
-            }
-
-            $start = $anchor->subDays($window - 1);
             if (GoogleAdsCentralRequestFamilyCatalog::isChangeEvent($family)) {
                 $oldestSafeStart = $today->subDays(self::CHANGE_EVENT_SAFE_DAYS);
                 if ($start->lessThan($oldestSafeStart)) {
