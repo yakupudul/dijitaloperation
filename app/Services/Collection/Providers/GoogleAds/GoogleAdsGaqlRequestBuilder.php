@@ -178,23 +178,27 @@ GAQL,
         $this->assertDate($start);
         $this->assertDate($end);
 
+        // Do not filter REMOVED here. This is a historical performance report: a
+        // keyword that was active during the selected period must remain visible
+        // after it is later removed from the account.
         return sprintf(
             <<<'GAQL'
 SELECT
   segments.date,
+  campaign.id,
+  campaign.name,
+  ad_group.id,
+  ad_group.name,
   ad_group_criterion.criterion_id,
   ad_group_criterion.keyword.text,
   ad_group_criterion.keyword.match_type,
   ad_group_criterion.status,
-  ad_group.id,
-  campaign.id,
   metrics.impressions,
   metrics.clicks,
   metrics.cost_micros,
   metrics.conversions
 FROM keyword_view
 WHERE segments.date BETWEEN '%s' AND '%s'
-  AND ad_group_criterion.status != 'REMOVED'
   AND ad_group_criterion.type = 'KEYWORD'
 GAQL,
             $start,
@@ -207,15 +211,23 @@ GAQL,
         $this->assertDate($start);
         $this->assertDate($end);
 
+        // Standard Search search-term detail. Keyword-related segments are valid
+        // for search_term_view and intentionally stay out of the PMax query.
         return sprintf(
             <<<'GAQL'
 SELECT
   segments.date,
-  search_term_view.search_term,
-  search_term_view.status,
   campaign.id,
+  campaign.name,
   campaign.advertising_channel_type,
   ad_group.id,
+  ad_group.name,
+  search_term_view.search_term,
+  search_term_view.status,
+  segments.keyword.info.text,
+  segments.keyword.info.match_type,
+  segments.search_term_match_type,
+  segments.search_term_match_source,
   metrics.impressions,
   metrics.clicks,
   metrics.cost_micros,
@@ -239,6 +251,7 @@ SELECT
   segments.date,
   campaign_search_term_view.search_term,
   campaign.id,
+  campaign.name,
   campaign.advertising_channel_type,
   metrics.impressions,
   metrics.clicks,
