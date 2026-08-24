@@ -14,11 +14,20 @@ final class DefaultRetryPolicy implements RetryPolicy
         CollectionErrorCategory $category,
         int $attemptNumber,
     ): bool {
-        if ($attemptNumber >= (int) $datasetRun->max_attempts) {
+        $isGoogleAds = $this->isGoogleAds($datasetRun);
+        $maxAttempts = (int) $datasetRun->max_attempts;
+        if ($isGoogleAds) {
+            $maxAttempts = max(
+                $maxAttempts,
+                (int) config('moxdop-google-ads-collector.retry_max_attempts', 7),
+            );
+        }
+
+        if ($attemptNumber >= $maxAttempts) {
             return false;
         }
 
-        if ($this->isGoogleAds($datasetRun) && $category === CollectionErrorCategory::Quota) {
+        if ($isGoogleAds && $category === CollectionErrorCategory::Quota) {
             return true;
         }
 
