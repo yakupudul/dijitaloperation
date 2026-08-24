@@ -77,11 +77,24 @@ echo "deploy/staging: graceful Horizon restart"
 php artisan horizon:terminate --no-interaction || true
 
 if command -v supervisorctl >/dev/null 2>&1; then
-  supervisorctl restart moxdop-staging-horizon:* 2>/dev/null \
-    || supervisorctl restart moxdop-staging-horizon 2>/dev/null \
-    || echo "deploy/staging: supervisor restart skipped — start Horizon via supervisor"
+  if ! supervisorctl restart moxdop-staging-horizon:* 2>/dev/null \
+      && ! supervisorctl restart moxdop-staging-horizon 2>/dev/null; then
+    echo "deploy/staging: ERROR — Supervisor could not restart moxdop-staging-horizon" >&2
+    supervisorctl status 2>/dev/null || true
+    exit 1
+  fi
+
+  sleep 2
+  HORIZON_STATUS="$(supervisorctl status moxdop-staging-horizon 2>/dev/null || supervisorctl status moxdop-staging-horizon:* 2>/dev/null || true)"
+  echo "$HORIZON_STATUS"
+  if ! grep -q 'RUNNING' <<<"$HORIZON_STATUS"; then
+    echo "deploy/staging: ERROR — Horizon supervisor is not RUNNING" >&2
+    echo "deploy/staging: expected command to use /var/www/moxdop/artisan horizon" >&2
+    exit 1
+  fi
 else
-  echo "deploy/staging: supervisorctl not found — restart Horizon via systemd/supervisor"
+  echo "deploy/staging: ERROR — supervisorctl not found; collection workers cannot be verified" >&2
+  exit 1
 fi
 
 php artisan up --no-interaction
