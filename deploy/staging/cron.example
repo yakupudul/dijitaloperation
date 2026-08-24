@@ -2,4 +2,4 @@
 # Install as /etc/cron.d/moxdop-staging (or the www-data crontab).
 # Do not run a second scheduler (systemd timer + cron together).
 
-* * * * * www-data cd /var/www/moxdop-staging && php artisan schedule:run >> /dev/null 2>&1
+* * * * * www-data cd /var/www/moxdop && php artisan schedule:run >> /var/log/moxdop-staging-scheduler.log 2>&1
