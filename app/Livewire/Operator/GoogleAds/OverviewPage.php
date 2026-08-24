@@ -7,7 +7,7 @@ use App\Models\DigitalAsset;
 use App\Services\Async\AsyncOperationService;
 use App\Support\Demo\DemoState;
 
-/** Production operator behavior layered over the existing Google Ads visual workspace. */
+/** Production operator behavior layered over the Google Ads specialist workspace. */
 class OverviewPage extends LegacyOverviewPage
 {
     public function runAnalysis(): void
@@ -25,6 +25,8 @@ class OverviewPage extends LegacyOverviewPage
     public function createRecommendation(?string $term = null): void
     {
         DemoState::flash(__('operator.flash.recommendation_requires_finding'), 'info');
+        $this->ops = 'recommendations';
+        $this->tab = 'optimization';
     }
 
     public function markClusterReviewed(string $id): void
