@@ -115,34 +115,54 @@ class GoogleAdsPoolReadRepository
     /** @return list<array<string,mixed>> */
     public function topSearchTerms(int $digitalAssetId, int $externalResourceId, string $customerId, string $start, string $end, int $limit = 100): array
     {
-        return $this->dailyScope('google_ads_search_term_daily', $digitalAssetId, $externalResourceId, $customerId, $start, $end)
-            ->groupBy('search_term')->orderByDesc(DB::raw('SUM(cost_amount)'))->limit($limit)
+        $useCentral = $this->centralExists('google_ads_search_term_daily', $externalResourceId, $customerId, $start, $end);
+        $rows = $this->scopeWithMode('google_ads_search_term_daily', $digitalAssetId, $externalResourceId, $customerId, $useCentral)
+            ->whereBetween('reporting_date', [$start, $end])
+            ->groupBy('search_term')
+            ->orderByDesc(DB::raw('SUM(cost_amount)'))
+            ->limit($limit)
             ->get([
                 'search_term', DB::raw('SUM(impressions) as impressions'), DB::raw('SUM(clicks) as clicks'),
                 DB::raw('SUM(cost_amount) as cost_amount'), DB::raw('SUM(conversions) as conversions'),
-                DB::raw('MAX(currency) as currency'), DB::raw('MAX(metadata) as metadata'),
-            ])
-            ->map(function ($row): array {
-                $meta = $this->decodeMetadata($row->metadata);
-                $contexts = is_array($meta['contexts'] ?? null) ? $meta['contexts'] : [];
-                $first = $contexts[0] ?? [];
-                return [
-                    'search_term' => (string) $row->search_term,
-                    'impressions' => (int) $row->impressions,
-                    'clicks' => (int) $row->clicks,
-                    'cost_amount' => (float) $row->cost_amount,
-                    'conversions' => (float) $row->conversions,
-                    'currency' => $row->currency !== null ? (string) $row->currency : null,
-                    'source_view' => (string) ($meta['source_view'] ?? 'search_term_view'),
-                    'campaign_id' => isset($first['campaign_id']) ? (string) $first['campaign_id'] : null,
-                    'ad_group_id' => array_key_exists('ad_group_id', $first) && $first['ad_group_id'] !== null ? (string) $first['ad_group_id'] : null,
-                    'channel_type' => isset($first['advertising_channel_type']) ? (string) $first['advertising_channel_type'] : null,
-                    'is_pmax' => ($meta['source_view'] ?? '') === 'campaign_search_term_view' || strtoupper((string) ($first['advertising_channel_type'] ?? '')) === 'PERFORMANCE_MAX',
-                    'provider_may_omit_terms' => (bool) ($meta['provider_may_omit_terms'] ?? true),
-                    'search_term_neq_keyword' => true,
-                    'search_term_neq_market_volume' => true,
-                ];
-            })->all();
+                DB::raw('MAX(currency) as currency'),
+            ]);
+
+        $terms = $rows->pluck('search_term')->filter()->values()->all();
+        $metadataByTerm = [];
+        if ($terms !== []) {
+            $metadataByTerm = $this->scopeWithMode('google_ads_search_term_daily', $digitalAssetId, $externalResourceId, $customerId, $useCentral)
+                ->whereBetween('reporting_date', [$start, $end])
+                ->whereIn('search_term', $terms)
+                ->orderByDesc('reporting_date')
+                ->orderByDesc('last_collected_at')
+                ->get(['search_term', 'metadata'])
+                ->unique('search_term')
+                ->keyBy('search_term')
+                ->all();
+        }
+
+        return $rows->map(function ($row) use ($metadataByTerm): array {
+            $meta = $this->decodeMetadata($metadataByTerm[$row->search_term]->metadata ?? null);
+            $contexts = is_array($meta['contexts'] ?? null) ? $meta['contexts'] : [];
+            $first = $contexts[0] ?? [];
+
+            return [
+                'search_term' => (string) $row->search_term,
+                'impressions' => (int) $row->impressions,
+                'clicks' => (int) $row->clicks,
+                'cost_amount' => (float) $row->cost_amount,
+                'conversions' => (float) $row->conversions,
+                'currency' => $row->currency !== null ? (string) $row->currency : null,
+                'source_view' => (string) ($meta['source_view'] ?? 'search_term_view'),
+                'campaign_id' => isset($first['campaign_id']) ? (string) $first['campaign_id'] : null,
+                'ad_group_id' => array_key_exists('ad_group_id', $first) && $first['ad_group_id'] !== null ? (string) $first['ad_group_id'] : null,
+                'channel_type' => isset($first['advertising_channel_type']) ? (string) $first['advertising_channel_type'] : null,
+                'is_pmax' => ($meta['source_view'] ?? '') === 'campaign_search_term_view' || strtoupper((string) ($first['advertising_channel_type'] ?? '')) === 'PERFORMANCE_MAX',
+                'provider_may_omit_terms' => (bool) ($meta['provider_may_omit_terms'] ?? true),
+                'search_term_neq_keyword' => true,
+                'search_term_neq_market_volume' => true,
+            ];
+        })->all();
     }
 
     /** @return list<array<string,mixed>> */
