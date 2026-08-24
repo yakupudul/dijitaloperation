@@ -12,6 +12,11 @@
     $supportsYoY = method_exists($this, 'supportsYearOverYearComparison') && $this->supportsYearOverYearComparison();
     $effectiveCompareMode = method_exists($this, 'effectiveCompareMode') ? $this->effectiveCompareMode() : 'previous';
     $appliedLabel = method_exists($this, 'appliedPeriodLabel') ? $this->appliedPeriodLabel() : ($period === 'custom' && $periodStart && $periodEnd ? $periodStart.' – '.$periodEnd : ($presets[$period] ?? __('operator.period.custom')));
+    if (app()->getLocale() === 'tr' && filled($periodStart ?? null) && filled($periodEnd ?? null)) {
+        $periodStartLabel = \Carbon\CarbonImmutable::parse($periodStart)->locale('tr')->translatedFormat('j M');
+        $periodEndLabel = \Carbon\CarbonImmutable::parse($periodEnd)->locale('tr')->translatedFormat('j M');
+        $appliedLabel = $periodStartLabel.' – '.$periodEndLabel;
+    }
     $compareLabel = method_exists($this, 'comparePeriodLabel') ? $this->comparePeriodLabel() : null;
     $maxDate = method_exists($this, 'periodPickerMaxDate')
         ? $this->periodPickerMaxDate()
