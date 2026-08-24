@@ -194,12 +194,14 @@ final class StartCollectionService
                 }
 
                 $metadata = is_array($candidate->metadata) ? $candidate->metadata : [];
-                if (($metadata['queue_dispatch_claimed'] ?? false) === true) {
+                if ($this->dispatchClaimIsActive($metadata)) {
                     return null;
                 }
 
                 $metadata['queue_dispatch_claimed'] = true;
                 $metadata['queue_dispatch_claimed_at'] = now()->toIso8601String();
+                $metadata['queue_dispatch_count'] = ((int) ($metadata['queue_dispatch_count'] ?? 0)) + 1;
+
                 $candidate->forceFill([
                     'metadata' => $metadata,
                     'last_activity_at' => now(),
@@ -237,5 +239,27 @@ final class StartCollectionService
         }
 
         return $parents->count() === count($deps);
+    }
+
+    /** @param array<string, mixed> $metadata */
+    private function dispatchClaimIsActive(array $metadata): bool
+    {
+        if (($metadata['queue_dispatch_claimed'] ?? false) !== true) {
+            return false;
+        }
+
+        $claimedAt = trim((string) ($metadata['queue_dispatch_claimed_at'] ?? ''));
+        if ($claimedAt === '') {
+            return false;
+        }
+
+        $timestamp = strtotime($claimedAt);
+        if ($timestamp === false) {
+            return false;
+        }
+
+        $leaseSeconds = max(30, (int) config('moxdop-collection.queue_dispatch_claim_lease_seconds', 120));
+
+        return ($timestamp + $leaseSeconds) > time();
     }
 }
