@@ -9,11 +9,14 @@ use Illuminate\Http\Client\Response;
 /**
  * Canonical Google Ads HTTP client facade for production collection.
  * Tokens resolve only through GoogleApiClient → GoogleCredentialBroker.
+ * Every provider read passes through GoogleAdsRequestGovernor so independent
+ * dataset families cannot overwhelm the same customer/developer-token quota.
  */
 final class GoogleAdsClientFactory
 {
     public function __construct(
         private readonly GoogleApiClient $http,
+        private readonly GoogleAdsRequestGovernor $governor,
     ) {}
 
     public function search(
@@ -23,12 +26,16 @@ final class GoogleAdsClientFactory
         string $loginCustomerId,
         ?string $pageToken = null,
     ): Response {
-        return $this->http->searchAds(
+        return $this->governor->run(
             $integration,
             $customerId,
-            $query,
-            $loginCustomerId,
-            $pageToken,
+            fn (): Response => $this->http->searchAds(
+                $integration,
+                $customerId,
+                $query,
+                $loginCustomerId,
+                $pageToken,
+            ),
         );
     }
 
@@ -40,13 +47,17 @@ final class GoogleAdsClientFactory
     ): Response {
         $timeout = (int) config('moxdop-google-ads-collector.search_stream_timeout_seconds', 120);
 
-        return $this->http->searchStreamAds(
+        return $this->governor->run(
             $integration,
             $customerId,
-            $query,
-            $loginCustomerId,
-            'google_ads',
-            $timeout,
+            fn (): Response => $this->http->searchStreamAds(
+                $integration,
+                $customerId,
+                $query,
+                $loginCustomerId,
+                'google_ads',
+                $timeout,
+            ),
         );
     }
 }
