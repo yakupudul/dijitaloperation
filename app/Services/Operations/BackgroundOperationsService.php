@@ -15,9 +15,7 @@ use Throwable;
 
 final class BackgroundOperationsService
 {
-    /**
-     * @return array<string,mixed>
-     */
+    /** @return array<string,mixed> */
     public function snapshot(string $status = 'active', string $provider = 'all', string $search = ''): array
     {
         $collectionRuns = $this->collectionRuns($status, $provider, $search);
@@ -53,9 +51,7 @@ final class BackgroundOperationsService
         ];
     }
 
-    /**
-     * @return \Illuminate\Support\Collection<int,array<string,mixed>>
-     */
+    /** @return \Illuminate\Support\Collection<int,array<string,mixed>> */
     private function collectionRuns(string $status, string $provider, string $search)
     {
         $query = CollectionRun::query()
@@ -70,7 +66,11 @@ final class BackgroundOperationsService
             ->orderByDesc('id')
             ->limit(150);
 
-        if ($status === 'active') {
+        // Child dataset state is the execution truth. For active/status filters we
+        // load non-terminal parent runs first, then apply the effective child state
+        // after mapping so a queued parent with four retrying children is not lied
+        // about as simply "queued".
+        if ($status === 'active' || in_array($status, ['queued', 'running', 'retrying'], true)) {
             $query->whereIn('status', [
                 CollectionRunStatus::Queued->value,
                 CollectionRunStatus::Running->value,
@@ -107,17 +107,9 @@ final class BackgroundOperationsService
             });
         }
 
-        return $runs->map(function (CollectionRun $run): array {
+        $mapped = $runs->map(function (CollectionRun $run): array {
             $datasets = $run->datasetRuns;
-            $activeStatuses = [
-                CollectionRunStatus::Queued,
-                CollectionRunStatus::Running,
-                CollectionRunStatus::Retrying,
-                CollectionRunStatus::CancellationRequested,
-            ];
-            $active = in_array($run->status, $activeStatuses, true);
             $lastActivity = $run->last_activity_at;
-            $stalled = $active && ($lastActivity === null || $lastActivity->lt(now()->subMinutes(5)));
             $providers = $datasets->pluck('provider_or_source')->filter()->map(fn ($value) => strtoupper((string) $value))->unique()->values();
             $staleLockCutoff = now()->subMinutes(15);
 
@@ -139,6 +131,7 @@ final class BackgroundOperationsService
                     'pages' => (int) $dataset->pages_completed,
                     'stage' => $dataset->stage,
                     'retry_at' => $dataset->retry_at?->toIso8601String(),
+                    'retry_human' => $dataset->retry_at?->diffForHumans(),
                     'last_activity' => $dataset->last_activity_at?->toIso8601String(),
                     'last_activity_human' => $dataset->last_activity_at?->diffForHumans(),
                     'locked' => $locked,
@@ -158,11 +151,46 @@ final class BackgroundOperationsService
             $queued = $datasets->where('status', CollectionRunStatus::Queued)->count();
             $locked = collect($datasetRows)->where('locked', true)->count();
             $staleLocks = collect($datasetRows)->where('stale_lock', true)->count();
+            $nonTerminal = $datasets->filter(fn (CollectionDatasetRun $dataset): bool => ! $dataset->status->isTerminal());
+            $futureRetries = $nonTerminal->filter(fn (CollectionDatasetRun $dataset): bool =>
+                $dataset->status === CollectionRunStatus::Retrying
+                && $dataset->retry_at !== null
+                && $dataset->retry_at->isFuture()
+            );
+            $quotaWaiting = $nonTerminal->isNotEmpty()
+                && $futureRetries->count() === $nonTerminal->count()
+                && $nonTerminal->every(fn (CollectionDatasetRun $dataset): bool =>
+                    $dataset->error_category?->value === 'quota'
+                    || strtoupper((string) $dataset->error_code) === 'GOOGLE_ADS_COOLDOWN'
+                );
+
+            $effectiveStatus = $run->status->value;
+            if (! $run->status->isTerminal() && $run->status !== CollectionRunStatus::CancellationRequested) {
+                $effectiveStatus = match (true) {
+                    $running > 0 => CollectionRunStatus::Running->value,
+                    $queued > 0 => CollectionRunStatus::Queued->value,
+                    $retrying > 0 => CollectionRunStatus::Retrying->value,
+                    default => $effectiveStatus,
+                };
+            }
+
+            $active = in_array($effectiveStatus, [
+                CollectionRunStatus::Queued->value,
+                CollectionRunStatus::Running->value,
+                CollectionRunStatus::Retrying->value,
+                CollectionRunStatus::CancellationRequested->value,
+            ], true);
+            $expectedWait = $futureRetries->isNotEmpty();
+            $stalled = $active
+                && ! $expectedWait
+                && ($lastActivity === null || $lastActivity->lt(now()->subMinutes(5)));
+            $retryAt = $futureRetries->max(fn (CollectionDatasetRun $dataset) => $dataset->retry_at?->getTimestamp());
 
             return [
                 'id' => (int) $run->id,
                 'uuid' => (string) $run->uuid,
-                'status' => $run->status->value,
+                'status' => $effectiveStatus,
+                'persisted_status' => $run->status->value,
                 'trigger' => $run->trigger_type->value,
                 'title' => (string) (data_get($run->metadata, 'collection_intent_label') ?: 'Collection Run #'.$run->id),
                 'providers' => $providers->all(),
@@ -179,6 +207,9 @@ final class BackgroundOperationsService
                 'last_activity_human' => $lastActivity?->diffForHumans(),
                 'finished_at' => $run->finished_at?->toIso8601String(),
                 'stalled' => $stalled,
+                'quota_waiting' => $quotaWaiting,
+                'retry_at' => $retryAt ? now()->setTimestamp((int) $retryAt)->toIso8601String() : null,
+                'retry_human' => $retryAt ? now()->setTimestamp((int) $retryAt)->diffForHumans() : null,
                 'progress' => [
                     'total' => (int) $run->datasets_total,
                     'completed' => $completed,
@@ -193,13 +224,19 @@ final class BackgroundOperationsService
                 'locked_count' => $locked,
                 'stale_lock_count' => $staleLocks,
                 'can_cancel' => ! $run->status->isTerminal(),
-                'can_wake' => in_array($run->status, [CollectionRunStatus::Queued, CollectionRunStatus::Running, CollectionRunStatus::Retrying], true),
-                'can_retry_now' => $retrying > 0,
+                'can_wake' => ! $quotaWaiting && in_array($run->status, [CollectionRunStatus::Queued, CollectionRunStatus::Running, CollectionRunStatus::Retrying], true),
+                'can_retry_now' => ! $quotaWaiting && $retrying > 0,
                 'can_release_stale_locks' => $staleLocks > 0,
                 'failure_summary' => $run->failure_summary,
                 'datasets' => $datasetRows,
             ];
         });
+
+        if (in_array($status, ['queued', 'running', 'retrying'], true)) {
+            $mapped = $mapped->where('status', $status);
+        }
+
+        return $mapped;
     }
 
     /** @return list<string> */
@@ -299,20 +336,28 @@ final class BackgroundOperationsService
     /** @return list<array{name:string,size:int,error:?string}> */
     private function queueDepths(): array
     {
-        $connection = (string) config('moxdop-collection.queue_connection', config('queue.default', 'redis'));
-        $names = array_values(array_unique(array_filter([
-            (string) config('moxdop-collection.queue', 'collection'),
-            'default',
-            'async',
-            'ai',
-            'notifications',
-        ])));
+        $collectionConnection = (string) config('moxdop-collection.queue_connection', 'null');
+        $collectionQueue = (string) config('moxdop-collection.queue', 'collection');
+        $defaultConnection = (string) config('queue.default', 'database');
 
-        return collect($names)->map(function (string $name) use ($connection): array {
+        $targets = [
+            ['name' => $collectionQueue, 'connection' => $collectionConnection, 'queue' => $collectionQueue],
+            ['name' => 'legacy redis:'.$collectionQueue, 'connection' => 'redis', 'queue' => $collectionQueue],
+            ['name' => 'default', 'connection' => $defaultConnection, 'queue' => 'default'],
+            ['name' => 'async', 'connection' => $defaultConnection, 'queue' => 'async'],
+            ['name' => 'ai', 'connection' => $defaultConnection, 'queue' => 'ai'],
+            ['name' => 'notifications', 'connection' => $defaultConnection, 'queue' => 'notifications'],
+        ];
+
+        return collect($targets)->map(function (array $target): array {
             try {
-                return ['name' => $name, 'size' => (int) Queue::connection($connection)->size($name), 'error' => null];
+                return [
+                    'name' => $target['name'],
+                    'size' => (int) Queue::connection($target['connection'])->size($target['queue']),
+                    'error' => null,
+                ];
             } catch (Throwable $e) {
-                return ['name' => $name, 'size' => 0, 'error' => $e->getMessage()];
+                return ['name' => $target['name'], 'size' => 0, 'error' => $e->getMessage()];
             }
         })->all();
     }
@@ -340,8 +385,9 @@ final class BackgroundOperationsService
         return [
             'redis_ok' => $redisOk,
             'redis_error' => $redisError,
-            'queue_connection' => (string) config('moxdop-collection.queue_connection', 'redis'),
+            'queue_connection' => (string) config('moxdop-collection.queue_connection', 'null'),
             'collection_queue' => (string) config('moxdop-collection.queue', 'collection'),
+            'db_worker_authoritative' => (bool) config('moxdop-collection.db_worker_authoritative', true),
             'latest_collection_activity' => $latestActivity,
             'active_stalled' => $active->where('stalled', true)->count(),
         ];
