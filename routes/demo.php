@@ -58,6 +58,7 @@ use App\Livewire\Demo\Sales\SearchProfilesIndex;
 use App\Livewire\Demo\Settings\AiAgentsPage;
 use App\Livewire\Demo\Settings\AiControlPlanePage;
 use App\Livewire\Demo\Settings\AiSkillsPage;
+use App\Livewire\Demo\Settings\BackgroundOperationsPage;
 use App\Livewire\Demo\Settings\PlaybookShow;
 use App\Livewire\Demo\SettingsPage;
 use App\Livewire\Demo\Website\OverviewPage as WebsiteOverviewPage;
@@ -156,6 +157,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/prospects/{prospectId}', ProspectShow::class)->name('operator.prospect');
 
         Route::livewire('/settings', SettingsPage::class)->name('operator.settings');
+        Route::livewire('/settings/background-operations', BackgroundOperationsPage::class)->name('operator.settings.background-operations');
         Route::livewire('/settings/playbooks/{playbookId}', PlaybookShow::class)->name('operator.settings.playbook');
         Route::livewire('/settings/ai/control-plane', AiControlPlanePage::class)->name('operator.settings.ai.control-plane');
         Route::livewire('/settings/ai/agents', AiAgentsPage::class)->name('operator.settings.ai.agents');
