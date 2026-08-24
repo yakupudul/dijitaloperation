@@ -15,6 +15,14 @@ final class DefaultRetryPolicy implements RetryPolicy
         int $attemptNumber,
     ): bool {
         $isGoogleAds = $this->isGoogleAds($datasetRun);
+
+        // Google Ads daily/developer-token quota exhaustion is an external cooldown,
+        // not an execution defect. It must never make a dataset terminal merely
+        // because several already-enqueued jobs observed the same cooldown window.
+        if ($isGoogleAds && $category === CollectionErrorCategory::Quota) {
+            return true;
+        }
+
         $maxAttempts = (int) $datasetRun->max_attempts;
         if ($isGoogleAds) {
             $maxAttempts = max(
@@ -25,10 +33,6 @@ final class DefaultRetryPolicy implements RetryPolicy
 
         if ($attemptNumber >= $maxAttempts) {
             return false;
-        }
-
-        if ($isGoogleAds && $category === CollectionErrorCategory::Quota) {
-            return true;
         }
 
         return match ($category) {
