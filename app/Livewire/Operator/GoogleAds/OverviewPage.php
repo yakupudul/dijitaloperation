@@ -5,8 +5,10 @@ namespace App\Livewire\Operator\GoogleAds;
 use App\Livewire\Demo\GoogleAds\OverviewPage as LegacyOverviewPage;
 use App\Models\CoreExternalResource;
 use App\Models\DigitalAsset;
+use App\Models\GoogleAdsBudgetPlan;
 use App\Services\Async\AsyncOperationService;
 use App\Services\Collection\GoogleAds\GoogleAdsSearchRecoveryCollectionService;
+use App\Services\GoogleAds\GoogleAdsBudgetBiddingControlService;
 use App\Services\GoogleAds\GoogleAdsEntityHierarchyReconciler;
 use App\Services\GoogleAds\GoogleAdsSearchExpertWorkspaceService;
 use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
@@ -15,6 +17,7 @@ use App\Services\GoogleAds\Support\GoogleAdsBindingMode;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Schema;
 
 /** Production operator behavior layered over the Google Ads specialist workspace. */
 class OverviewPage extends LegacyOverviewPage
@@ -28,6 +31,17 @@ class OverviewPage extends LegacyOverviewPage
     public int $search_page = 1;
     public int $keyword_page = 1;
     public int $search_per_page = 100;
+
+    public ?string $budget_plan_amount = null;
+    public ?string $budget_target_cpa = null;
+    public ?string $budget_target_roas = null;
+    public ?string $budget_plan_notes = null;
+
+    public function mount(?string $assetId = null): void
+    {
+        parent::mount($assetId);
+        $this->loadBudgetPlanFields();
+    }
 
     public function refreshData(): void
     {
@@ -71,6 +85,72 @@ class OverviewPage extends LegacyOverviewPage
         } catch (\Throwable $e) {
             DemoState::flash('Google Ads Arama verisi onarımı başlatılamadı: '.$e->getMessage(), 'warning');
         }
+    }
+
+    public function saveBudgetPlan(): void
+    {
+        $asset = DigitalAsset::query()
+            ->whereKey((int) $this->assetId)
+            ->where('type', 'google_ads')
+            ->firstOrFail();
+
+        if (! filled($this->periodStart) || ! filled($this->periodEnd)) {
+            DemoState::flash('Bütçe planı kaydedilemedi: geçerli bir raporlama aralığı seçin.', 'warning');
+
+            return;
+        }
+
+        $validated = $this->validate([
+            'budget_plan_amount' => ['required', 'numeric', 'min:0.01', 'max:999999999999.99'],
+            'budget_target_cpa' => ['nullable', 'numeric', 'min:0.01', 'max:999999999999.99'],
+            'budget_target_roas' => ['nullable', 'numeric', 'min:0.0001', 'max:99999'],
+            'budget_plan_notes' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $binding = app(GoogleAdsSpecialistBindingResolver::class)->resolve($this->assetId);
+        $currency = $binding->currency ?: 'TRY';
+        $userId = auth()->id();
+
+        $plan = GoogleAdsBudgetPlan::query()->firstOrNew([
+            'digital_asset_id' => $asset->id,
+            'period_start' => $this->periodStart,
+            'period_end' => $this->periodEnd,
+        ]);
+
+        if (! $plan->exists) {
+            $plan->created_by_user_id = $userId;
+        }
+
+        $plan->fill([
+            'currency' => $currency,
+            'planned_budget' => (float) $validated['budget_plan_amount'],
+            'target_cpa' => filled($validated['budget_target_cpa'] ?? null) ? (float) $validated['budget_target_cpa'] : null,
+            'target_roas' => filled($validated['budget_target_roas'] ?? null) ? (float) $validated['budget_target_roas'] : null,
+            'notes' => filled($validated['budget_plan_notes'] ?? null) ? trim((string) $validated['budget_plan_notes']) : null,
+            'updated_by_user_id' => $userId,
+        ])->save();
+
+        $this->loadBudgetPlanFields();
+        DemoState::flash('Ajans bütçe planı kaydedildi. Pacing ve bütçe kararları bu planı kullanacak.', 'success');
+    }
+
+    public function clearBudgetPlan(): void
+    {
+        if (! Schema::hasTable('google_ads_budget_plans') || ! filled($this->periodStart) || ! filled($this->periodEnd)) {
+            return;
+        }
+
+        GoogleAdsBudgetPlan::query()
+            ->where('digital_asset_id', (int) $this->assetId)
+            ->whereDate('period_start', $this->periodStart)
+            ->whereDate('period_end', $this->periodEnd)
+            ->delete();
+
+        $this->budget_plan_amount = null;
+        $this->budget_target_cpa = null;
+        $this->budget_target_roas = null;
+        $this->budget_plan_notes = null;
+        DemoState::flash('Seçili dönem için ajans bütçe planı kaldırıldı.', 'info');
     }
 
     public function setSearchSub(string $sub): void
@@ -165,6 +245,12 @@ class OverviewPage extends LegacyOverviewPage
     {
         $this->search_page = 1;
         $this->keyword_page = 1;
+    }
+
+    protected function resetPeriodDependentState(): void
+    {
+        parent::resetPeriodDependentState();
+        $this->loadBudgetPlanFields();
     }
 
     public function runAnalysis(): void
@@ -315,6 +401,15 @@ class OverviewPage extends LegacyOverviewPage
         ];
         $chart['xaxis']['categories'] = $trend['labels'] ?? [];
 
+        $budgetControl = app(GoogleAdsBudgetBiddingControlService::class)->workspace(
+            $this->assetId,
+            $start !== '' ? $start : $this->periodStart,
+            $end !== '' ? $end : $this->periodEnd,
+            collect($data['campaigns'] ?? [])->values()->all(),
+            $professional,
+            $data,
+        );
+
         return $view->with([
             'data' => $data,
             'professional' => $professional,
@@ -331,6 +426,8 @@ class OverviewPage extends LegacyOverviewPage
             'selectedCluster' => $selectedCluster,
             'selectedLanding' => $selectedLanding,
             'performanceChartOptions' => $chart,
+            'budgetControl' => $budgetControl,
+            'budgetPlanEditable' => true,
         ]);
     }
 
@@ -406,5 +503,28 @@ class OverviewPage extends LegacyOverviewPage
         }
 
         return $keywords->values();
+    }
+
+    private function loadBudgetPlanFields(): void
+    {
+        if (! Schema::hasTable('google_ads_budget_plans') || ! ctype_digit($this->assetId) || ! filled($this->periodStart) || ! filled($this->periodEnd)) {
+            $this->budget_plan_amount = null;
+            $this->budget_target_cpa = null;
+            $this->budget_target_roas = null;
+            $this->budget_plan_notes = null;
+
+            return;
+        }
+
+        $plan = GoogleAdsBudgetPlan::query()
+            ->where('digital_asset_id', (int) $this->assetId)
+            ->whereDate('period_start', $this->periodStart)
+            ->whereDate('period_end', $this->periodEnd)
+            ->first();
+
+        $this->budget_plan_amount = $plan?->planned_budget !== null ? (string) $plan->planned_budget : null;
+        $this->budget_target_cpa = $plan?->target_cpa !== null ? (string) $plan->target_cpa : null;
+        $this->budget_target_roas = $plan?->target_roas !== null ? (string) $plan->target_roas : null;
+        $this->budget_plan_notes = $plan?->notes;
     }
 }
