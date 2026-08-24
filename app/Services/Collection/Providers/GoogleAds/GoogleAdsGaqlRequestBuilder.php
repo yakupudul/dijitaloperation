@@ -178,8 +178,6 @@ GAQL,
         $this->assertDate($start);
         $this->assertDate($end);
 
-        // keyword_view is already scoped to keyword criteria. Do not add a
-        // redundant criterion-type predicate to the historical performance query.
         return sprintf(
             <<<'GAQL'
 SELECT
@@ -209,8 +207,6 @@ GAQL,
         $this->assertDate($start);
         $this->assertDate($end);
 
-        // Completeness path: keep only fields required by the operator table.
-        // Optional enrichment must never be able to break the primary term read.
         return sprintf(
             <<<'GAQL'
 SELECT
@@ -274,7 +270,9 @@ SELECT
   metrics.impressions,
   metrics.clicks,
   metrics.cost_micros,
-  metrics.conversions
+  metrics.conversions,
+  metrics.mobile_friendly_clicks_percentage,
+  metrics.speed_score
 FROM landing_page_view
 WHERE segments.date BETWEEN '%s' AND '%s'
 GAQL,
