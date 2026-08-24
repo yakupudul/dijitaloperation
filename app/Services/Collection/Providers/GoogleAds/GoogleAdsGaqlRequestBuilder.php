@@ -178,8 +178,8 @@ GAQL,
         $this->assertDate($start);
         $this->assertDate($end);
 
-        // Historical reporting must retain keywords that were active in the
-        // selected period even if they were removed later.
+        // keyword_view is already scoped to keyword criteria. Do not add a
+        // redundant criterion-type predicate to the historical performance query.
         return sprintf(
             <<<'GAQL'
 SELECT
@@ -198,7 +198,6 @@ SELECT
   metrics.conversions
 FROM keyword_view
 WHERE segments.date BETWEEN '%s' AND '%s'
-  AND ad_group_criterion.type = 'KEYWORD'
 GAQL,
             $start,
             $end,
@@ -210,9 +209,8 @@ GAQL,
         $this->assertDate($start);
         $this->assertDate($end);
 
-        // Keep the primary Search Terms query broad. Selecting keyword-info
-        // segments here can narrow automated/keywordless traffic, so matched
-        // keyword enrichment is intentionally separate from the completeness path.
+        // Completeness path: keep only fields required by the operator table.
+        // Optional enrichment must never be able to break the primary term read.
         return sprintf(
             <<<'GAQL'
 SELECT
@@ -225,7 +223,6 @@ SELECT
   search_term_view.search_term,
   search_term_view.status,
   segments.search_term_match_type,
-  segments.search_term_match_source,
   metrics.impressions,
   metrics.clicks,
   metrics.cost_micros,
