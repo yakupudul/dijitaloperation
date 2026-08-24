@@ -8,16 +8,27 @@ use App\Models\DigitalAsset;
 use App\Services\Async\AsyncOperationService;
 use App\Services\Collection\GoogleAds\GoogleAdsSearchRecoveryCollectionService;
 use App\Services\GoogleAds\GoogleAdsEntityHierarchyReconciler;
-use App\Services\GoogleAds\GoogleAdsSearchWorkspaceRecoveryService;
+use App\Services\GoogleAds\GoogleAdsSearchExpertWorkspaceService;
 use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
 use App\Services\GoogleAds\GoogleAdsWorkspaceTruthReconciler;
 use App\Services\GoogleAds\Support\GoogleAdsBindingMode;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Collection;
 
 /** Production operator behavior layered over the Google Ads specialist workspace. */
 class OverviewPage extends LegacyOverviewPage
 {
+    public string $search_query = '';
+    public string $search_campaign = 'all';
+    public string $search_ad_group = 'all';
+    public string $search_source = 'all';
+    public string $search_match = 'all';
+    public string $keyword_status = 'all';
+    public int $search_page = 1;
+    public int $keyword_page = 1;
+    public int $search_per_page = 100;
+
     public function refreshData(): void
     {
         if ($this->tab !== 'search_demand') {
@@ -62,6 +73,100 @@ class OverviewPage extends LegacyOverviewPage
         }
     }
 
+    public function setSearchSub(string $sub): void
+    {
+        $sub = match ($sub) {
+            'inbox', 'drift' => 'insights',
+            default => $sub,
+        };
+        if (! in_array($sub, ['terms', 'keywords', 'negatives', 'insights'], true)) {
+            return;
+        }
+
+        $this->search_sub = $sub;
+        $this->tab = 'search_demand';
+        $this->cluster = null;
+        $this->search_page = 1;
+        $this->keyword_page = 1;
+    }
+
+    public function updatedSearchQuery(): void
+    {
+        $this->resetSearchPages();
+    }
+
+    public function updatedSearchCampaign(): void
+    {
+        $this->search_ad_group = 'all';
+        $this->resetSearchPages();
+    }
+
+    public function updatedSearchAdGroup(): void
+    {
+        $this->resetSearchPages();
+    }
+
+    public function updatedSearchSource(): void
+    {
+        $this->search_page = 1;
+    }
+
+    public function updatedSearchMatch(): void
+    {
+        $this->search_page = 1;
+    }
+
+    public function updatedKeywordStatus(): void
+    {
+        $this->keyword_page = 1;
+    }
+
+    public function setSearchPerPage(int $perPage): void
+    {
+        if (! in_array($perPage, [50, 100, 250], true)) {
+            return;
+        }
+        $this->search_per_page = $perPage;
+        $this->resetSearchPages();
+    }
+
+    public function clearSearchFilters(): void
+    {
+        $this->search_query = '';
+        $this->search_campaign = 'all';
+        $this->search_ad_group = 'all';
+        $this->search_source = 'all';
+        $this->search_match = 'all';
+        $this->keyword_status = 'all';
+        $this->resetSearchPages();
+    }
+
+    public function previousSearchPage(): void
+    {
+        $this->search_page = max(1, $this->search_page - 1);
+    }
+
+    public function nextSearchPage(): void
+    {
+        $this->search_page++;
+    }
+
+    public function previousKeywordPage(): void
+    {
+        $this->keyword_page = max(1, $this->keyword_page - 1);
+    }
+
+    public function nextKeywordPage(): void
+    {
+        $this->keyword_page++;
+    }
+
+    private function resetSearchPages(): void
+    {
+        $this->search_page = 1;
+        $this->keyword_page = 1;
+    }
+
     public function runAnalysis(): void
     {
         $asset = DigitalAsset::query()
@@ -86,7 +191,7 @@ class OverviewPage extends LegacyOverviewPage
         DemoState::flash(__('operator.flash.cluster_review_not_persisted'), 'info');
         $this->cluster = $id;
         $this->tab = 'search_demand';
-        $this->search_sub = 'inbox';
+        $this->search_sub = 'insights';
     }
 
     public function setCampaignSub(string $sub): void
@@ -124,6 +229,10 @@ class OverviewPage extends LegacyOverviewPage
 
     public function render(): View
     {
+        if (in_array($this->search_sub, ['inbox', 'drift'], true)) {
+            $this->search_sub = 'insights';
+        }
+
         $view = parent::render();
         $payload = $view->getData();
         $data = is_array($payload['data'] ?? null) ? $payload['data'] : [];
@@ -149,11 +258,12 @@ class OverviewPage extends LegacyOverviewPage
         $professional = $hierarchy['professional'];
 
         if ($start !== '' && $end !== '') {
-            $data = app(GoogleAdsSearchWorkspaceRecoveryService::class)->reconcile(
+            $data = app(GoogleAdsSearchExpertWorkspaceService::class)->reconcile(
                 $this->assetId,
                 $start,
                 $end,
                 $data,
+                $professional,
             );
         }
 
@@ -164,24 +274,23 @@ class OverviewPage extends LegacyOverviewPage
             $campaigns = $campaigns->filter(fn (array $c): bool => in_array($c['pacing'] ?? null, ['Ahead', 'Behind', 'Constrained'], true));
         }
 
-        $terms = collect($data['search']['terms'] ?? []);
-        if ($this->intent_filter !== 'all') {
-            $terms = $terms->where('intent', $this->intent_filter);
-        }
-        if ($this->fit_filter !== 'all') {
-            $terms = $terms->where('fit', $this->fit_filter);
-        }
-        if ($this->decision_filter !== 'all') {
-            $terms = $terms->where('decision', $this->decision_filter);
-        }
-        if ($this->classificationFilter !== 'all') {
-            $legacyDecision = $this->mapLegacyClassification($this->classificationFilter);
-            if ($legacyDecision === 'None') {
-                $terms = $terms->whereIn('decision', ['None', 'Monitor']);
-            } elseif ($legacyDecision !== 'all') {
-                $terms = $terms->where('decision', $legacyDecision);
-            }
-        }
+        $allTerms = collect($data['search']['terms'] ?? []);
+        $terms = $this->filterTerms($allTerms);
+        $termTotal = $terms->count();
+        $termLastPage = max(1, (int) ceil($termTotal / $this->search_per_page));
+        $this->search_page = min(max(1, $this->search_page), $termLastPage);
+        $termRows = $terms
+            ->slice(($this->search_page - 1) * $this->search_per_page, $this->search_per_page)
+            ->values();
+
+        $allKeywords = collect($data['search']['keywords'] ?? []);
+        $keywords = $this->filterKeywords($allKeywords);
+        $keywordTotal = $keywords->count();
+        $keywordLastPage = max(1, (int) ceil($keywordTotal / $this->search_per_page));
+        $this->keyword_page = min(max(1, $this->keyword_page), $keywordLastPage);
+        $keywordRows = $keywords
+            ->slice(($this->keyword_page - 1) * $this->search_per_page, $this->search_per_page)
+            ->values();
 
         $selectedCampaign = $this->campaign
             ? collect($data['campaigns'] ?? [])->firstWhere('id', $this->campaign)
@@ -211,11 +320,91 @@ class OverviewPage extends LegacyOverviewPage
             'professional' => $professional,
             'identity' => $data['identity'] ?? ($payload['identity'] ?? []),
             'campaignRows' => $campaigns->values()->all(),
-            'termRows' => $terms->values()->all(),
+            'termRows' => $termRows->all(),
+            'termRowsTotal' => $termTotal,
+            'termRowsLastPage' => $termLastPage,
+            'keywordRows' => $keywordRows->all(),
+            'keywordRowsTotal' => $keywordTotal,
+            'keywordRowsLastPage' => $keywordLastPage,
+            'searchExpertWorkspace' => true,
             'selectedCampaign' => $selectedCampaign,
             'selectedCluster' => $selectedCluster,
             'selectedLanding' => $selectedLanding,
             'performanceChartOptions' => $chart,
         ]);
+    }
+
+    /** @param Collection<int,array<string,mixed>> $terms */
+    private function filterTerms(Collection $terms): Collection
+    {
+        $query = mb_strtolower(trim($this->search_query));
+        if ($query !== '') {
+            $terms = $terms->filter(static function (array $row) use ($query): bool {
+                $haystack = mb_strtolower(implode(' ', array_filter([
+                    $row['term'] ?? null,
+                    $row['campaign'] ?? null,
+                    $row['ad_group'] ?? null,
+                    $row['matched_keyword'] ?? null,
+                    $row['match_source'] ?? null,
+                ])));
+                return str_contains($haystack, $query);
+            });
+        }
+        if ($this->search_campaign !== 'all') {
+            $campaign = $this->search_campaign;
+            $terms = $terms->filter(static fn (array $row): bool => in_array($campaign, $row['campaign_ids'] ?? [], true));
+        }
+        if ($this->search_ad_group !== 'all') {
+            $adGroup = $this->search_ad_group;
+            $terms = $terms->filter(static fn (array $row): bool => in_array($adGroup, $row['ad_group_ids'] ?? [], true));
+        }
+        if ($this->search_source !== 'all') {
+            $source = $this->search_source;
+            $terms = $terms->filter(static fn (array $row): bool => ($row['source'] ?? '') === $source);
+        }
+        if ($this->search_match !== 'all') {
+            $match = $this->search_match;
+            $terms = $terms->filter(static fn (array $row): bool => ($row['match_type'] ?? '') === $match);
+        }
+        if ($this->intent_filter !== 'all') {
+            $terms = $terms->where('intent', $this->intent_filter);
+        }
+        if ($this->decision_filter !== 'all') {
+            $terms = $terms->where('decision', $this->decision_filter);
+        }
+
+        return $terms->values();
+    }
+
+    /** @param Collection<int,array<string,mixed>> $keywords */
+    private function filterKeywords(Collection $keywords): Collection
+    {
+        $query = mb_strtolower(trim($this->search_query));
+        if ($query !== '') {
+            $keywords = $keywords->filter(static function (array $row) use ($query): bool {
+                $haystack = mb_strtolower(implode(' ', array_filter([
+                    $row['keyword'] ?? null,
+                    $row['campaign'] ?? null,
+                    $row['ad_group'] ?? null,
+                    $row['match'] ?? null,
+                    $row['status'] ?? null,
+                ])));
+                return str_contains($haystack, $query);
+            });
+        }
+        if ($this->search_campaign !== 'all') {
+            $campaign = $this->search_campaign;
+            $keywords = $keywords->filter(static fn (array $row): bool => (string) ($row['campaign_id'] ?? '') === $campaign);
+        }
+        if ($this->search_ad_group !== 'all') {
+            $adGroup = $this->search_ad_group;
+            $keywords = $keywords->filter(static fn (array $row): bool => (string) ($row['ad_group_id'] ?? '') === $adGroup);
+        }
+        if ($this->keyword_status !== 'all') {
+            $status = strtoupper($this->keyword_status);
+            $keywords = $keywords->filter(static fn (array $row): bool => strtoupper((string) ($row['status'] ?? '')) === $status);
+        }
+
+        return $keywords->values();
     }
 }
