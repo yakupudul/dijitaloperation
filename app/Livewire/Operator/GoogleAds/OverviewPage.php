@@ -6,6 +6,7 @@ use App\Livewire\Demo\GoogleAds\OverviewPage as LegacyOverviewPage;
 use App\Models\DigitalAsset;
 use App\Services\Async\AsyncOperationService;
 use App\Services\GoogleAds\GoogleAdsEntityHierarchyReconciler;
+use App\Services\GoogleAds\GoogleAdsSearchWorkspaceRecoveryService;
 use App\Services\GoogleAds\GoogleAdsWorkspaceTruthReconciler;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
@@ -99,6 +100,15 @@ class OverviewPage extends LegacyOverviewPage
         $data = $hierarchy['data'];
         $professional = $hierarchy['professional'];
 
+        if ($start !== '' && $end !== '') {
+            $data = app(GoogleAdsSearchWorkspaceRecoveryService::class)->reconcile(
+                $this->assetId,
+                $start,
+                $end,
+                $data,
+            );
+        }
+
         $campaigns = collect($data['campaigns'] ?? []);
         if ($this->campaign_filter === 'attention') {
             $campaigns = $campaigns->filter(fn (array $c): bool => filled($c['attention_primary'] ?? null));
@@ -128,6 +138,9 @@ class OverviewPage extends LegacyOverviewPage
         $selectedCampaign = $this->campaign
             ? collect($data['campaigns'] ?? [])->firstWhere('id', $this->campaign)
             : null;
+        $selectedCluster = $this->cluster
+            ? collect($data['search']['clusters'] ?? [])->firstWhere('id', $this->cluster)
+            : null;
         $selectedLanding = $this->landing
             ? collect($data['landing_pages']['rows'] ?? [])->firstWhere('id', $this->landing)
             : null;
@@ -152,6 +165,7 @@ class OverviewPage extends LegacyOverviewPage
             'campaignRows' => $campaigns->values()->all(),
             'termRows' => $terms->values()->all(),
             'selectedCampaign' => $selectedCampaign,
+            'selectedCluster' => $selectedCluster,
             'selectedLanding' => $selectedLanding,
             'performanceChartOptions' => $chart,
         ]);
