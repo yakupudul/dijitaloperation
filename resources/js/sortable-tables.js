@@ -59,14 +59,14 @@ function parseNumeric(value) {
         normalized = normalized.replace(decimalSeparator, '.');
     } else if (commaCount > 0) {
         const parts = unsigned.split(',');
-        const tail = parts.at(-1) || '';
+        const tail = parts[parts.length - 1] || '';
         const isDecimal = locale.startsWith('tr')
             ? commaCount === 1 && tail.length > 0 && tail.length <= 2
             : commaCount === 1 && tail.length > 0 && tail.length <= 2;
         normalized = isDecimal ? `${parts.slice(0, -1).join('')}.${tail}` : parts.join('');
     } else if (dotCount > 0) {
         const parts = unsigned.split('.');
-        const tail = parts.at(-1) || '';
+        const tail = parts[parts.length - 1] || '';
         const isDecimal = locale.startsWith('tr')
             ? dotCount === 1 && tail.length > 0 && tail.length <= 2
             : dotCount === 1 && tail.length > 0 && tail.length <= 2;
@@ -99,7 +99,7 @@ function parseDate(value) {
 
 function columnRows(table, columnIndex) {
     const rows = [];
-    table.tBodies.forEach((tbody) => {
+    Array.from(table.tBodies).forEach((tbody) => {
         Array.from(tbody.rows).forEach((row) => {
             if (isSortableRow(row, columnIndex)) {
                 rows.push(row);
@@ -236,7 +236,7 @@ function sortTable(table, columnIndex, direction, { remember = true } = {}) {
 
     const type = inferColumnType(table, columnIndex, th);
 
-    table.tBodies.forEach((tbody) => {
+    Array.from(table.tBodies).forEach((tbody) => {
         const allRows = Array.from(tbody.rows);
         const sortableRows = allRows
             .filter((row) => isSortableRow(row, columnIndex))
@@ -292,7 +292,6 @@ function decorateHeader(table, th, columnIndex) {
     th.dataset.moxSortable = 'true';
     th.setAttribute('aria-sort', 'none');
     th.setAttribute('tabindex', '0');
-    th.setAttribute('role', 'button');
     th.style.cursor = 'pointer';
     th.style.userSelect = 'none';
     th.style.whiteSpace = th.style.whiteSpace || 'nowrap';
