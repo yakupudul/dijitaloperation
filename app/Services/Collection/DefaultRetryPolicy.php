@@ -5,6 +5,7 @@ namespace App\Services\Collection;
 use App\Enums\Collection\CollectionErrorCategory;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Services\Collection\Contracts\RetryPolicy;
+use BackedEnum;
 
 final class DefaultRetryPolicy implements RetryPolicy
 {
@@ -15,6 +16,10 @@ final class DefaultRetryPolicy implements RetryPolicy
     ): bool {
         if ($attemptNumber >= (int) $datasetRun->max_attempts) {
             return false;
+        }
+
+        if ($this->isGoogleAds($datasetRun) && $category === CollectionErrorCategory::Quota) {
+            return true;
         }
 
         return match ($category) {
@@ -37,10 +42,37 @@ final class DefaultRetryPolicy implements RetryPolicy
 
     public function backoffSeconds(CollectionDatasetRun $datasetRun, int $attemptNumber): int
     {
+        if ($this->isGoogleAds($datasetRun)) {
+            /** @var list<int> $schedule */
+            $schedule = config('moxdop-google-ads-collector.retry_backoff_seconds', [10, 20, 40, 80, 160, 300]);
+            $index = max(0, $attemptNumber - 1);
+            $base = (int) ($schedule[min($index, max(0, count($schedule) - 1))] ?? 10);
+            $jitterMax = max(0, (int) config('moxdop-google-ads-collector.retry_jitter_seconds', 5));
+
+            if ($jitterMax === 0) {
+                return max(1, $base);
+            }
+
+            $seed = hash('sha256', (string) $datasetRun->id.'|'.$attemptNumber);
+            $jitter = (int) (hexdec(substr($seed, 0, 8)) % ($jitterMax + 1));
+
+            return max(1, $base + $jitter);
+        }
+
         /** @var list<int> $schedule */
         $schedule = config('moxdop-collection.default_backoff_seconds', [30, 90, 180]);
         $index = max(0, $attemptNumber - 1);
 
         return $schedule[min($index, count($schedule) - 1)] ?? 30;
+    }
+
+    private function isGoogleAds(CollectionDatasetRun $datasetRun): bool
+    {
+        $provider = $datasetRun->provider_or_source;
+        if ($provider instanceof BackedEnum) {
+            $provider = $provider->value;
+        }
+
+        return strtoupper((string) $provider) === 'GOOGLE_ADS';
     }
 }
