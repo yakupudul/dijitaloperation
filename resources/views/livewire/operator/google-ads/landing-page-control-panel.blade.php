@@ -30,22 +30,22 @@
                 ? $url.' seçili dönemde '.$money($decision['spend'] ?? null).' harcama aldı ancak Google Ads dönüşümü üretmedi. Yüksek harcama maruziyeti nedeniyle öncelikli inceleme adayıdır.'
                 : $url.' spent '.$money($decision['spend'] ?? null).' with no Google Ads conversions and deserves priority review.',
             'zero_conversion' => $isTr
-                ? $url.' harcama aldı ancak seçili dönemde provider dönüşümü üretmedi. Trafik niyeti ve sayfa deneyimi birlikte incelenmeli.'
+                ? $url.' harcama aldı ancak seçili dönemde Google Ads dönüşümü üretmedi. Trafik niyeti ve sayfa deneyimi birlikte incelenmeli.'
                 : $url.' has spend but no provider conversion in the selected period.',
             'cpa_above_target' => $isTr
                 ? 'Sayfa CPA’sı '.$money($decision['cpa'] ?? null).'; tanımlı hedef CPA '.$money($decision['target_cpa'] ?? null).'. Trafik kalitesi ve CRO birlikte incelenmeli.'
                 : 'Page CPA is materially above the configured target CPA.',
             'cpa_high_relative' => $isTr
-                ? 'Sayfa CPA’sı '.$money($decision['cpa'] ?? null).' ve hesap içindeki landing-page dağılımının yüksek tarafında.'
+                ? 'Sayfa CPA’sı '.$money($decision['cpa'] ?? null).' ve hesap içindeki açılış sayfası dağılımının yüksek tarafında.'
                 : 'Page CPA is high relative to the landing-page distribution.',
             'low_cvr' => $isTr
                 ? 'Dönüşüm oranı '.$pct($decision['cvr'] ?? null).' ve benzer harcama alan sayfalara göre zayıf. CRO incelemesine aday.'
                 : 'Conversion rate is weak relative to comparable landing pages.',
-            'slow_provider_speed' => $isTr ? 'Google Ads’in provider hız sinyali 1–10 ölçeğinde zayıf.' : 'Google Ads provider speed signal is weak.',
-            'medium_provider_speed' => $isTr ? 'Google Ads’in provider hız sinyali orta seviyede; mobil deneyim kontrol edilmeli.' : 'Google Ads provider speed signal is moderate.',
+            'slow_provider_speed' => $isTr ? 'Google Ads’in kendi hız sinyali 1–10 ölçeğinde zayıf.' : 'Google Ads provider speed signal is weak.',
+            'medium_provider_speed' => $isTr ? 'Google Ads’in kendi hız sinyali orta seviyede; mobil deneyim kontrol edilmeli.' : 'Google Ads provider speed signal is moderate.',
             'mobile_friendly_low' => $isTr ? 'Mobil uyumlu tıklama yüzdesi düşük görünüyor; mobil deneyim kontrol edilmeli.' : 'Mobile-friendly click percentage is low.',
             'strong_page' => $isTr
-                ? 'Sayfa anlamlı harcama hacminde güçlü CPA ve dönüşüm oranı sinyali üretiyor. Bütçe artışı kararı yine kampanya/arama niyetiyle birlikte verilmelidir.'
+                ? 'Sayfa anlamlı harcama hacminde güçlü CPA ve dönüşüm oranı sinyali üretiyor. Bütçe artışı kararı yine kampanya ve arama niyetiyle birlikte verilmelidir.'
                 : 'The page combines meaningful spend with strong CPA and conversion-rate signals.',
             default => $isTr ? 'Belirgin bir risk veya güçlü fırsat sinyali yok; izlemeye devam edin.' : 'No material risk or strong opportunity signal detected.',
         };
@@ -61,6 +61,30 @@
         'cro' => 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300',
         'risk' => 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300',
         default => 'bg-gray-100 text-gray-600 dark:bg-white/5 dark:text-gray-300',
+    };
+    $readinessNote = function (string $key, array $item) use ($isTr): string {
+        if (! $isTr) {
+            return (string) ($item['note'] ?? '');
+        }
+        $state = $item['state'] ?? 'unavailable';
+        return match ($key) {
+            'google_landing_health' => $state === 'partial'
+                ? 'Google Ads’in mobil uyumluluk ve hız sinyalleri gözlenen URL’lerin bir bölümünde mevcut.'
+                : 'Google Ads mobil uyumluluk ve hız alanları mevcut kanonik açılış sayfası satırlarında henüz bulunmuyor.',
+            'website' => $state === 'asset_available'
+                ? 'Bu markaya ait Web Sitesi varlığı mevcut; ancak teknik performans ve CRO verisi henüz URL bazında Google Ads ile kanonik olarak birleştirilmedi.'
+                : 'Teknik performans ve CRO çapraz analizi için kullanılabilir Web Sitesi varlığı bulunmuyor.',
+            'ga4' => $state === 'asset_available'
+                ? 'Bu markaya ait GA4 varlığı mevcut; ancak oturum, etkileşim ve CTA olayları henüz açılış sayfası URL’si bazında bu ekrana bağlanmadı.'
+                : 'Davranış analizi için kullanılabilir GA4 varlığı bulunmuyor.',
+            'search_console' => $state === 'asset_available'
+                ? 'Bu markaya ait Search Console varlığı mevcut; ancak organik sayfa kanıtları henüz bu ücretli trafik görünümüne URL bazında bağlanmadı.'
+                : 'Sayfa düzeyinde çapraz analiz için kullanılabilir Search Console varlığı bulunmuyor.',
+            'intent_page_match' => 'Arama terimi veya anahtar kelime ile açılış sayfası arasındaki bağ mevcut kanonik veri havuzunda henüz kurulmadığı için MOXDOP niyet ya da mesaj uyumu tahmin etmiyor.',
+            'expanded_url' => 'Genişletilmiş final URL ve sayfanın reklamveren mi Google tarafından otomatik mi seçildiği bilgisi mevcut açılış sayfası veri kümesinde henüz kanonik değil.',
+            'business_outcomes' => 'Nitelikli potansiyel müşteri, satış ve doğrulanmış gelir sonuçları henüz açılış sayfası URL’lerine kanonik olarak bağlanmadı.',
+            default => '',
+        };
     };
 @endphp
 
@@ -79,7 +103,7 @@
     @if(!($control['connected'] ?? false))
         <div class="rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-5 py-10 text-center dark:border-gray-700 dark:bg-white/[0.02]">
             <p class="font-semibold text-gray-900 dark:text-white">{{ $isTr ? 'Açılış sayfası verisi henüz kullanılabilir değil.' : 'Landing-page data is not available yet.' }}</p>
-            <p class="mt-2 text-sm text-gray-500">{{ $isTr ? 'Google Ads landing-page dataseti toplandığında bu kontrol merkezi otomatik olarak gerçek veriye geçer.' : 'This control center activates automatically when the Google Ads landing-page dataset becomes available.' }}</p>
+            <p class="mt-2 text-sm text-gray-500">{{ $isTr ? 'Google Ads açılış sayfası veri kümesi toplandığında bu kontrol merkezi otomatik olarak gerçek veriye geçer.' : 'This control center activates automatically when the Google Ads landing-page dataset becomes available.' }}</p>
         </div>
     @else
         <div class="grid grid-cols-2 gap-3 lg:grid-cols-4 2xl:grid-cols-8">
@@ -120,7 +144,7 @@
                             </div>
                         </div>
                     @empty
-                        <div class="px-4 py-10 text-center text-sm text-gray-400">{{ $isTr ? 'Seçili dönemde belirgin landing-page kararı oluşmadı.' : 'No material landing-page decision in the selected period.' }}</div>
+                        <div class="px-4 py-10 text-center text-sm text-gray-400">{{ $isTr ? 'Seçili dönemde belirgin açılış sayfası kararı oluşmadı.' : 'No material landing-page decision in the selected period.' }}</div>
                     @endforelse
                 </div>
             </section>
@@ -139,7 +163,7 @@
                 </div>
                 <div class="mt-4 rounded-xl bg-gray-50 p-3 text-xs text-gray-500 dark:bg-white/[0.03] dark:text-gray-400">
                     <p><strong class="text-gray-700 dark:text-gray-200">{{ $isTr ? 'İlk 3 sayfanın harcama payı' : 'Top-3 spend share' }}:</strong> {{ $pct($summary['top3_spend_share'] ?? null) }}</p>
-                    <p class="mt-1">{{ $isTr ? 'Kararlar mutlak “iyi/kötü” puanı değildir; hesabın kendi landing-page dağılımı ve varsa hedef CPA ile karşılaştırılır.' : 'Decisions are relative to this account’s landing-page distribution and configured target CPA when available.' }}</p>
+                    <p class="mt-1">{{ $isTr ? 'Kararlar mutlak “iyi/kötü” puanı değildir; hesabın kendi açılış sayfası dağılımı ve varsa hedef CPA ile karşılaştırılır.' : 'Decisions are relative to this account’s landing-page distribution and configured target CPA when available.' }}</p>
                 </div>
             </section>
         </div>
@@ -147,7 +171,7 @@
         <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
             <div class="border-b border-gray-100 px-4 py-3 dark:border-gray-800">
                 <h3 class="font-semibold text-gray-900 dark:text-white">{{ $isTr ? 'Açılış sayfası performansı' : 'Landing-page performance' }}</h3>
-                <p class="mt-1 text-xs text-gray-500">{{ $isTr ? 'Google Ads provider performansı + MOXDOP karar sınıflaması. Riskli harcama, kanıtlanmış israf anlamına gelmez.' : 'Google Ads provider performance plus MOXDOP decision classification.' }}</p>
+                <p class="mt-1 text-xs text-gray-500">{{ $isTr ? 'Google Ads gerçek performansı + MOXDOP karar sınıflaması. Riskli harcama, kanıtlanmış israf anlamına gelmez.' : 'Google Ads provider performance plus MOXDOP decision classification.' }}</p>
             </div>
             <div class="overflow-x-auto">
                 <table class="min-w-[1350px] w-full text-sm">
@@ -191,12 +215,12 @@
             <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                 @foreach([
                     'google_landing_health' => $isTr ? 'Google mobil & hız sinyali' : 'Google mobile & speed',
-                    'website' => $isTr ? 'Website teknik/CRO' : 'Website technical/CRO',
+                    'website' => $isTr ? 'Web Sitesi teknik/CRO' : 'Website technical/CRO',
                     'ga4' => $isTr ? 'GA4 davranış & CTA' : 'GA4 behavior & CTA',
                     'search_console' => $isTr ? 'Search Console sayfa verisi' : 'Search Console page data',
                     'intent_page_match' => $isTr ? 'Arama niyeti → sayfa' : 'Search intent → page',
                     'expanded_url' => $isTr ? 'Final URL / otomatik URL' : 'Final / automatic URL',
-                    'business_outcomes' => $isTr ? 'Lead → satış → gelir' : 'Lead → sale → revenue',
+                    'business_outcomes' => $isTr ? 'Potansiyel müşteri → satış → gelir' : 'Lead → sale → revenue',
                 ] as $key => $title)
                     @php
                         $item = $readiness[$key] ?? ['state' => 'unavailable', 'note' => ''];
@@ -204,14 +228,14 @@
                         $stateLabel = match($state) { 'partial' => $isTr ? 'Kısmi' : 'Partial', 'asset_available' => $isTr ? 'Varlık mevcut' : 'Asset exists', default => $isTr ? 'Henüz bağlı değil' : 'Not joined yet' };
                         $stateClass = $state === 'partial' ? 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300' : ($state === 'asset_available' ? 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300' : 'bg-gray-100 text-gray-500 dark:bg-white/5 dark:text-gray-400');
                     @endphp
-                    <div class="rounded-xl border border-gray-200 p-3 dark:border-gray-800"><div class="flex items-start justify-between gap-2"><p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $title }}</p><span class="rounded-full px-2 py-0.5 text-[10px] font-semibold {{ $stateClass }}">{{ $stateLabel }}</span></div><p class="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">{{ $item['note'] ?? '' }}</p></div>
+                    <div class="rounded-xl border border-gray-200 p-3 dark:border-gray-800"><div class="flex items-start justify-between gap-2"><p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $title }}</p><span class="rounded-full px-2 py-0.5 text-[10px] font-semibold {{ $stateClass }}">{{ $stateLabel }}</span></div><p class="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">{{ $readinessNote($key, $item) }}</p></div>
                 @endforeach
             </div>
         </section>
 
         <div class="rounded-xl bg-violet-50 px-4 py-3 text-sm text-violet-800 ring-1 ring-inset ring-violet-100 dark:bg-violet-500/10 dark:text-violet-200 dark:ring-violet-500/20">
             <strong>{{ $isTr ? 'Karar sınırı:' : 'Decision boundary:' }}</strong>
-            {{ $isTr ? 'Harcama, tıklama, gösterim ve Google dönüşümü provider gerçeğidir. “Riskli”, “CRO fırsatı” ve “Güçlü” sınıfları MOXDOP’un göreli karar katmanıdır; otomatik URL, teklif veya kampanya değişikliği yapılmaz.' : 'Spend, clicks, impressions and Google conversions are provider facts. Risk/CRO/Strong are MOXDOP relative decision classifications; no URL, bid or campaign change is made automatically.' }}
+            {{ $isTr ? 'Harcama, tıklama, gösterim ve Google dönüşümü Google Ads gerçeğidir. “Riskli”, “CRO fırsatı” ve “Güçlü” sınıfları MOXDOP’un göreli karar katmanıdır; otomatik URL, teklif veya kampanya değişikliği yapılmaz.' : 'Spend, clicks, impressions and Google conversions are provider facts. Risk/CRO/Strong are MOXDOP relative decision classifications; no URL, bid or campaign change is made automatically.' }}
         </div>
     @endif
 
@@ -230,7 +254,7 @@
                 <div><p class="text-xs text-gray-400">CTR</p><p class="font-semibold">{{ $pct($selectedLanding['ctr']) }}</p></div>
             </div>
             <div class="rounded-xl bg-gray-50 p-3 text-xs text-gray-500 dark:bg-white/[0.03] dark:text-gray-400">
-                <p class="font-semibold text-gray-700 dark:text-gray-200">{{ $isTr ? 'Google landing-page sinyalleri' : 'Google landing-page signals' }}</p>
+                <p class="font-semibold text-gray-700 dark:text-gray-200">{{ $isTr ? 'Google açılış sayfası sinyalleri' : 'Google landing-page signals' }}</p>
                 <p class="mt-2">{{ $isTr ? 'Hız skoru' : 'Speed score' }}: <strong>{{ is_numeric($selectedLanding['speed_score']) ? $number($selectedLanding['speed_score']).'/10' : '—' }}</strong></p>
                 <p class="mt-1">{{ $isTr ? 'Mobil uyumlu tıklama' : 'Mobile-friendly clicks' }}: <strong>{{ $pct($selectedLanding['mobile_friendly_clicks_pct']) }}</strong></p>
             </div>
@@ -238,7 +262,7 @@
                 <strong>{{ $isTr ? 'Tam URL:' : 'Full URL:' }}</strong>
                 <p class="mt-1 break-all">{{ $selectedLanding['url'] }}</p>
             </div>
-            <p class="text-xs leading-5 text-gray-500">{{ $isTr ? 'Arama terimi eşleşmesi, gerçek sayfa hızı/Core Web Vitals, GA4 davranışı ve satış sonucu bu URL’ye kanonik olarak bağlanmadıkça bu drawer bunlar hakkında iddia üretmez.' : 'Search-term fit, real web vitals, GA4 behavior and sales outcomes are not claimed until canonically joined to this URL.' }}</p>
+            <p class="text-xs leading-5 text-gray-500">{{ $isTr ? 'Arama terimi eşleşmesi, gerçek sayfa hızı/Core Web Vitals, GA4 davranışı ve satış sonucu bu URL’ye kanonik olarak bağlanmadıkça bu detay paneli bunlar hakkında iddia üretmez.' : 'Search-term fit, real web vitals, GA4 behavior and sales outcomes are not claimed until canonically joined to this URL.' }}</p>
         </x-demo.gads-drawer>
     @endif
 </div>
