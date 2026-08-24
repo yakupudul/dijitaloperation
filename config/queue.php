@@ -35,6 +35,13 @@ return [
             'driver' => 'sync',
         ],
 
+        // Used by the DB-authoritative collection engine as a dispatch sink.
+        // CollectionDatasetRun rows are the durable source of truth and are
+        // executed by moxdop:collection:work-db Supervisor workers.
+        'null' => [
+            'driver' => 'null',
+        ],
+
         'database' => [
             'driver' => 'database',
             'connection' => env('DB_QUEUE_CONNECTION'),
