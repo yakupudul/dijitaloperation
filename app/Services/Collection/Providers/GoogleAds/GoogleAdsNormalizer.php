@@ -585,7 +585,6 @@ final class GoogleAdsNormalizer
         ?int $digitalAssetId,
         ?int $externalResourceId,
     ): array {
-        // Storage NK is term×date (no ad_group). Aggregate same term/date within batch.
         $aggregated = [];
 
         foreach ($rows as $row) {
@@ -679,6 +678,12 @@ final class GoogleAdsNormalizer
             }
             $metrics = is_array($row['metrics'] ?? null) ? $row['metrics'] : [];
             $costMicros = (string) ($metrics['costMicros'] ?? $metrics['cost_micros'] ?? '0');
+            $mobileFriendlyRaw = $metrics['mobileFriendlyClicksPercentage'] ?? $metrics['mobile_friendly_clicks_percentage'] ?? null;
+            $mobileFriendlyPct = is_numeric($mobileFriendlyRaw)
+                ? ((float) $mobileFriendlyRaw <= 1.0 ? (float) $mobileFriendlyRaw * 100 : (float) $mobileFriendlyRaw)
+                : null;
+            $speedScoreRaw = $metrics['speedScore'] ?? $metrics['speed_score'] ?? null;
+
             $out[] = [
                 'digital_asset_id' => $digitalAssetId,
                 'external_resource_id' => $externalResourceId,
@@ -694,6 +699,8 @@ final class GoogleAdsNormalizer
                 'source_timezone' => $timezone,
                 'metadata' => [
                     'unexpanded_final_url' => $url,
+                    'mobile_friendly_clicks_percentage' => $mobileFriendlyPct,
+                    'speed_score' => is_numeric($speedScoreRaw) ? (int) $speedScoreRaw : null,
                     'website_canonicalization' => false,
                     'final_url_config_neq_landing_page_performance' => true,
                     'collector_version' => config('moxdop-google-ads-collector.collector_version'),
@@ -755,9 +762,7 @@ final class GoogleAdsNormalizer
         return $out;
     }
 
-    /**
-     * @param  array<string, mixed>  $row
-     */
+    /** @param array<string,mixed> $row */
     private function segmentDate(array $row): ?string
     {
         $raw = data_get($row, 'segments.date');
@@ -816,9 +821,7 @@ final class GoogleAdsNormalizer
         return null;
     }
 
-    /**
-     * @param  array<string, mixed>  $row
-     */
+    /** @param array<string,mixed> $row */
     private function adGroupId(array $row): string
     {
         $id = data_get($row, 'adGroup.id') ?? data_get($row, 'ad_group.id');
