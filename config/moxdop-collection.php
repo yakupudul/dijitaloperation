@@ -47,6 +47,15 @@ return [
     'job_tries' => (int) env('COLLECTION_JOB_TRIES', 3),
 
     /*
+     * Dispatch claims are leases, not permanent flags. If a job is published
+     * while Horizon is restarting or the Redis delivery is otherwise lost,
+     * the recovery command may safely republish the queued DatasetRun after
+     * this lease expires. Dataset execution locks remain the final duplicate
+     * execution guard.
+     */
+    'queue_dispatch_claim_lease_seconds' => (int) env('COLLECTION_DISPATCH_CLAIM_LEASE', 120),
+
+    /*
     |--------------------------------------------------------------------------
     | Default retry policy (provider-specific overrides later)
     |--------------------------------------------------------------------------
