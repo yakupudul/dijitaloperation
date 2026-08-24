@@ -26,10 +26,9 @@ use InvalidArgumentException;
 /**
  * Resource-first Google Ads ingestion.
  *
- * Initial history is activity-aware: a cheap lifetime monthly probe identifies the
- * real advertising period, then expensive granular datasets backfill only the
- * provider-supported active span. Existing accounts collected under the former
- * fixed 180-day policy receive one history-policy upgrade automatically.
+ * Initial history is activity-aware: a cheap lifetime monthly probe identifies
+ * separate advertising periods, then expensive granular datasets backfill those
+ * periods only. Existing fixed-window accounts receive one history-policy upgrade.
  */
 final class GoogleAdsCentralCollectionService
 {
@@ -147,6 +146,7 @@ final class GoogleAdsCentralCollectionService
                     return [
                         'family' => $family,
                         'date_range' => $this->repairDateRange($resource, $family, $range),
+                        'execution_variant' => (string) ($dataset->execution_variant ?? ''),
                     ];
                 })
                 ->filter(fn (array $entry): bool => in_array($entry['family'], GoogleAdsCentralRequestFamilyCatalog::supportedFamilies(), true))
@@ -188,22 +188,23 @@ final class GoogleAdsCentralCollectionService
         ];
     }
 
-    /** @param array<string,mixed> $activity @return list<array{family:string,date_range:?array{start:string,end:string}}> */
+    /** @param array<string,mixed> $activity @return list<array<string,mixed>> */
     private function initialFamilies(CoreExternalResource $resource, array $activity): array
     {
         $timezone = $this->timezone($resource);
         $today = CarbonImmutable::now($timezone)->startOfDay();
         $closedEnd = $today->subDay();
+        $periods = is_array($activity['granular_periods'] ?? null) ? $activity['granular_periods'] : [];
         $out = [];
 
         foreach (GoogleAdsCentralRequestFamilyCatalog::supportedFamilies() as $family) {
             if (GoogleAdsCentralRequestFamilyCatalog::isHistoryFamily($family)) {
-                $out[] = ['family' => $family, 'date_range' => null];
+                $out[] = ['family' => $family, 'date_range' => null, 'execution_variant' => 'lifetime'];
                 continue;
             }
 
             if (! GoogleAdsCentralRequestFamilyCatalog::isDated($family)) {
-                $out[] = ['family' => $family, 'date_range' => null];
+                $out[] = ['family' => $family, 'date_range' => null, 'execution_variant' => ''];
                 continue;
             }
 
@@ -214,26 +215,30 @@ final class GoogleAdsCentralCollectionService
                         'start' => $today->subDays(self::CHANGE_EVENT_SAFE_DAYS)->toDateString(),
                         'end' => $closedEnd->toDateString(),
                     ],
+                    'execution_variant' => 'recent',
                 ];
                 continue;
             }
 
-            $granularStart = $activity['granular_start'] ?? null;
-            $granularEnd = $activity['granular_end'] ?? null;
-            if (! is_string($granularStart) || ! is_string($granularEnd) || $granularStart === '' || $granularEnd === '') {
-                continue;
+            foreach ($periods as $index => $period) {
+                if (! is_array($period) || ! isset($period['start'], $period['end'])) {
+                    continue;
+                }
+                $out[] = [
+                    'family' => $family,
+                    'date_range' => [
+                        'start' => (string) $period['start'],
+                        'end' => (string) $period['end'],
+                    ],
+                    'execution_variant' => sprintf('history_%02d', $index + 1),
+                ];
             }
-
-            $out[] = [
-                'family' => $family,
-                'date_range' => ['start' => $granularStart, 'end' => $granularEnd],
-            ];
         }
 
         return $out;
     }
 
-    /** @return list<array{family:string,date_range:?array{start:string,end:string}}> */
+    /** @return list<array<string,mixed>> */
     private function updateFamilies(CoreExternalResource $resource): array
     {
         $timezone = $this->timezone($resource);
@@ -247,7 +252,7 @@ final class GoogleAdsCentralCollectionService
             }
 
             if (! GoogleAdsCentralRequestFamilyCatalog::isDated($family)) {
-                $out[] = ['family' => $family, 'date_range' => null];
+                $out[] = ['family' => $family, 'date_range' => null, 'execution_variant' => ''];
                 continue;
             }
 
@@ -266,6 +271,7 @@ final class GoogleAdsCentralCollectionService
             $out[] = [
                 'family' => $family,
                 'date_range' => ['start' => $start->toDateString(), 'end' => $closedEnd->toDateString()],
+                'execution_variant' => 'recent',
             ];
         }
 
@@ -323,6 +329,7 @@ final class GoogleAdsCentralCollectionService
             'last_activity_month' => $activity['last_activity_month'] ?? null,
             'granular_start' => $activity['granular_start'] ?? null,
             'granular_end' => $activity['granular_end'] ?? null,
+            'granular_periods' => is_array($activity['granular_periods'] ?? null) ? $activity['granular_periods'] : [],
             'granular_boundary' => $activity['granular_boundary'] ?? null,
             'older_history_exists' => (bool) ($activity['older_history_exists'] ?? false),
             'discovery_start' => $activity['discovery_start'] ?? null,
@@ -433,13 +440,14 @@ final class GoogleAdsCentralCollectionService
                 foreach ($resourcePlan['families'] as $entry) {
                     $family = $entry['family'];
                     $definition = GoogleAdsCentralRequestFamilyCatalog::definition($family);
+                    $variant = mb_strtolower(trim((string) ($entry['execution_variant'] ?? '')));
                     CollectionDatasetRun::query()->create([
                         'collection_run_id' => $run->id,
                         'collection_resource_run_id' => $resourceRun->id,
                         'provider_or_source' => 'GOOGLE_ADS',
                         'dataset_contract_id' => (string) $definition['dataset_id'],
                         'request_family_id' => $family,
-                        'execution_variant' => '',
+                        'execution_variant' => $variant,
                         'requirement_level' => (string) $definition['requirement_level'],
                         'contract_registry_version' => $registryVersion,
                         'status' => CollectionRunStatus::Queued,
@@ -463,6 +471,7 @@ final class GoogleAdsCentralCollectionService
                             'source_layer' => $definition['layer'],
                             'dataset_label' => $definition['label'],
                             'central_definition' => $definition,
+                            'execution_variant' => $variant,
                             'history_policy_version' => $resourcePlan['history_policy_version'] ?? null,
                         ],
                     ]);
