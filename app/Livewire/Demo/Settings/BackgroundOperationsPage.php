@@ -189,6 +189,34 @@ class BackgroundOperationsPage extends Component
         }
     }
 
+    public function retryAllFailedJobs(): void
+    {
+        $this->assertAdmin();
+        if (! Schema::hasTable('failed_jobs')) {
+            return;
+        }
+
+        $jobs = DB::table('failed_jobs')->orderBy('id')->get();
+        $retried = 0;
+        $failed = 0;
+
+        foreach ($jobs as $job) {
+            try {
+                Queue::connection((string) $job->connection)->pushRaw((string) $job->payload, (string) $job->queue);
+                DB::table('failed_jobs')->where('id', $job->id)->delete();
+                $retried++;
+            } catch (Throwable $e) {
+                report($e);
+                $failed++;
+            }
+        }
+
+        DemoState::flash(__('background_operations.flash.failed_jobs_bulk_retried', [
+            'retried' => $retried,
+            'failed' => $failed,
+        ]));
+    }
+
     public function forgetFailedJob(string $uuid): void
     {
         $this->assertAdmin();
@@ -200,12 +228,26 @@ class BackgroundOperationsPage extends Component
         DemoState::flash(__('background_operations.flash.failed_job_forgotten'));
     }
 
+    public function forgetAllFailedJobs(): void
+    {
+        $this->assertAdmin();
+        if (! Schema::hasTable('failed_jobs')) {
+            return;
+        }
+
+        $count = DB::table('failed_jobs')->count();
+        DB::table('failed_jobs')->delete();
+        DemoState::flash(__('background_operations.flash.failed_jobs_bulk_forgotten', ['count' => $count]));
+    }
+
     public function render(BackgroundOperationsService $service): View
     {
         $snapshot = $service->snapshot($this->status, $this->provider, $this->search);
+        $failedJobTotal = Schema::hasTable('failed_jobs') ? (int) DB::table('failed_jobs')->count() : 0;
 
         return view('livewire.demo.settings.background-operations', [
             'snapshot' => $snapshot,
+            'failedJobTotal' => $failedJobTotal,
             'flash' => DemoState::pullFlash(),
             'isAdmin' => auth()->user()?->hasRole(Roles::ADMIN) ?? false,
             'statusOptions' => [
