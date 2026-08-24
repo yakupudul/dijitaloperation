@@ -64,6 +64,8 @@ return [
         'retry_async' => 'Retry operation',
         'retry_failed_job' => 'Retry job',
         'forget_failed_job' => 'Forget record',
+        'retry_all_failed_jobs' => 'Retry all failed jobs',
+        'forget_all_failed_jobs' => 'Delete all failed records',
     ],
     'confirm' => [
         'cancel' => 'Send a cancellation request for this run?',
@@ -71,6 +73,8 @@ return [
         'retry_async' => 'Retry this async operation through the canonical retry mechanism?',
         'retry_failed_job' => 'Return this failed job to its original queue?',
         'forget_failed_job' => 'Delete this failed job record? The job will not be retried.',
+        'retry_all_failed_jobs' => 'Return every failed queue job to its original queue? Successfully requeued failed records will be deleted; jobs that cannot be requeued will remain in the failed list.',
+        'forget_all_failed_jobs' => 'Delete every failed job record? These jobs will not be retried.',
     ],
     'labels' => [
         'stalled' => 'MAY BE STALLED',
@@ -99,5 +103,7 @@ return [
         'failed_job_retried' => 'The failed job was returned to its original queue.',
         'failed_job_retry_error' => 'The failed job could not be retried: :message',
         'failed_job_forgotten' => 'The failed job record was deleted.',
+        'failed_jobs_bulk_retried' => ':retried failed job(s) were returned to their queues. :failed job(s) could not be requeued and were kept in the failed list.',
+        'failed_jobs_bulk_forgotten' => ':count failed job record(s) were deleted.',
     ],
 ];
