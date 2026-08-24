@@ -39,8 +39,6 @@ final class GoogleAdsRequestGovernor
         try {
             /** @var Response $response */
             $response = Cache::lock($lockKey, $lockSeconds)->block($waitSeconds, function () use ($request, $integration, $customer): Response {
-                // A different dataset may have received RESOURCE_EXHAUSTED while
-                // this request was waiting on the per-customer lock.
                 $this->assertNoGlobalCooldown();
                 $this->paceCustomer($integration, $customer);
 
@@ -57,6 +55,14 @@ final class GoogleAdsRequestGovernor
                 'customer_concurrency',
             );
         }
+    }
+
+    /** Restore persisted provider cooldown without making any Google Ads request. */
+    public function synchronizeCooldownFromHistory(): int
+    {
+        $this->restoreCooldownFromRecentAttempts();
+
+        return $this->remainingGlobalCooldownSeconds();
     }
 
     public function remainingGlobalCooldownSeconds(): int
@@ -104,15 +110,12 @@ final class GoogleAdsRequestGovernor
         $resourceExhausted = str_contains($upper, 'RESOURCE_EXHAUSTED');
         $temporarilyExhausted = str_contains($upper, 'RESOURCE_TEMPORARILY_EXHAUSTED');
 
-        // RESOURCE_EXHAUSTED with a long provider wait is the rolling developer-token
-        // quota case. Stop all Google Ads reads globally until Google says it is safe.
         if ($resourceExhausted && ! $temporarilyExhausted) {
             $this->activateGlobalCooldown($retry > 0 ? $retry : 3600, 'provider_resource_exhausted');
 
             return;
         }
 
-        // A long Retry-After on 429 is also safer to treat as token-wide cooldown.
         if ($response->status() === 429 && $retry >= 300) {
             $this->activateGlobalCooldown($retry, 'provider_429_long_retry');
         }
@@ -146,6 +149,7 @@ final class GoogleAdsRequestGovernor
             $attempts = CollectionDatasetAttempt::query()
                 ->whereNotNull('finished_at')
                 ->where('finished_at', '>=', now()->subDays(2))
+                ->where('error_message', 'like', '%Google Ads%')
                 ->where(function ($query): void {
                     $query->where('error_message', 'like', '%RESOURCE_EXHAUSTED%')
                         ->orWhere('error_message', 'like', '%Retry in % seconds%');
