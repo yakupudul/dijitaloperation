@@ -1,5 +1,7 @@
 <?php
 
+$dbWorkerAuthoritative = (bool) env('COLLECTION_DB_WORKER_AUTHORITATIVE', true);
+
 return [
 
     /*
@@ -34,15 +36,18 @@ return [
     |
     | CollectionDatasetRun rows in PostgreSQL are the durable source of truth.
     | Dedicated Supervisor workers execute eligible rows directly from DB state.
-    | Queue dispatch calls therefore go to Laravel's null sink by default so a
-    | second Redis/Horizon copy cannot create duplicate attempts or quota bursts.
-    |
-    | Set COLLECTION_QUEUE_CONNECTION explicitly only for a deployment that does
-    | not use the DB workers.
+    | When DB workers are authoritative, queue dispatch calls intentionally go to
+    | Laravel's null sink so Redis/Horizon cannot create duplicate attempts or
+    | provider quota bursts. Set COLLECTION_DB_WORKER_AUTHORITATIVE=false only on
+    | a deployment that intentionally uses the legacy queue-driven execution path.
     |
     */
 
-    'queue_connection' => env('COLLECTION_QUEUE_CONNECTION', 'null'),
+    'db_worker_authoritative' => $dbWorkerAuthoritative,
+
+    'queue_connection' => $dbWorkerAuthoritative
+        ? 'null'
+        : env('COLLECTION_QUEUE_CONNECTION', 'redis'),
 
     'queue' => env('COLLECTION_QUEUE', 'collection'),
 
