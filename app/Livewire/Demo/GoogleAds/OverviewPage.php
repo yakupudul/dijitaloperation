@@ -4,8 +4,9 @@ namespace App\Livewire\Demo\GoogleAds;
 
 use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
 use App\Livewire\Demo\Concerns\ResolvesCanonicalOperatorAsset;
-use App\Models\DigitalAsset;
-use App\Services\DataPool\Freshness\StartIncrementalCollectionService;
+use App\Models\CoreExternalResource;
+use App\Services\Collection\GoogleAds\GoogleAdsCentralCollectionService;
+use App\Services\GoogleAds\GoogleAdsProfessionalWorkspaceReadService;
 use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
 use App\Services\GoogleAds\GoogleAdsSpecialistReadService;
 use App\Services\GoogleAds\Support\GoogleAdsBindingMode;
@@ -67,22 +68,25 @@ class OverviewPage extends Component
     #[Url]
     public ?string $attention = null;
 
-    /**
-     * @var list<string>
-     */
+    /** @var list<string> */
     public array $allowedTabs = [
         'overview',
         'campaigns',
         'search_demand',
         'ads_assets',
-        'landing_pages',
+        'performance',
+        'budget_bidding',
         'measurement',
-        'operations',
+        'landing_pages',
+        'optimization',
+        'changes',
+        'data_connection',
+        'pmax',
+        'shopping',
+        'video',
     ];
 
-    /**
-     * @var array<string, string>
-     */
+    /** @var array<string, string> */
     private const LEGACY_TAB_MAP = [
         'adgroups' => 'campaigns',
         'keywords' => 'search_demand',
@@ -90,6 +94,7 @@ class OverviewPage extends Component
         'ads' => 'ads_assets',
         'conversions' => 'measurement',
         'insights' => 'overview',
+        'operations' => 'optimization',
     ];
 
     public function mount(?string $assetId = null): void
@@ -124,7 +129,7 @@ class OverviewPage extends Component
     {
         if (in_array($ops, ['findings', 'recommendations', 'tasks', 'outcomes'], true)) {
             $this->ops = $ops;
-            $this->tab = 'operations';
+            $this->tab = 'optimization';
         }
     }
 
@@ -171,7 +176,7 @@ class OverviewPage extends Component
     {
         $this->finding = $id;
         $this->ops = 'findings';
-        $this->tab = 'operations';
+        $this->tab = 'optimization';
     }
 
     public function openAttention(string $id): void
@@ -193,31 +198,34 @@ class OverviewPage extends Component
     {
         $binding = app(GoogleAdsSpecialistBindingResolver::class)->resolve($this->assetId);
 
-        if ($binding->mode !== GoogleAdsBindingMode::RealBound) {
+        if ($binding->mode !== GoogleAdsBindingMode::RealBound || $binding->externalResourceId === null) {
             DemoState::flash(__('operator.flash.google_ads_refresh_unconfigured'), 'info');
 
             return;
         }
 
-        $asset = DigitalAsset::query()->find($binding->digitalAssetId);
-        if (! $asset instanceof DigitalAsset) {
+        $resource = CoreExternalResource::query()
+            ->with('integration')
+            ->find($binding->externalResourceId);
+        if (! $resource instanceof CoreExternalResource || $resource->integration === null) {
             DemoState::flash(__('operator.flash.google_ads_refresh_missing_asset'), 'warning');
 
             return;
         }
 
-        $result = app(StartIncrementalCollectionService::class)->startForBindingIds(
-            [$binding->coreAssetBindingId],
-            auth()->user(),
-            ['GOOGLE_ADS'],
-        );
-
-        DemoState::flash(match ($result->outcome) {
-            'started' => 'Google Ads incremental collection started in the background.',
-            'active_equivalent' => 'An equivalent Google Ads incremental collection is already running.',
-            'data_current' => 'Google Ads data is current — no incremental collection is due.',
-            default => $result->message,
-        }, $result->outcome === 'started' ? 'success' : 'info');
+        try {
+            $run = app(GoogleAdsCentralCollectionService::class)->startSmartUpdate(
+                $resource->integration,
+                [(int) $resource->id],
+                auth()->user(),
+            );
+            DemoState::flash(
+                (string) data_get($run->metadata, 'collection_intent_label', 'Google Ads veri toplama').' başlatıldı. Run #'.$run->id.'.',
+                'success',
+            );
+        } catch (\Throwable $e) {
+            DemoState::flash('Google Ads veri toplama başlatılamadı: '.$e->getMessage(), 'warning');
+        }
     }
 
     public function runAnalysis(): void
@@ -243,7 +251,7 @@ class OverviewPage extends Component
             'info',
         );
         $this->ops = 'recommendations';
-        $this->tab = 'operations';
+        $this->tab = 'optimization';
     }
 
     protected function normalizeTab(): void
@@ -275,9 +283,16 @@ class OverviewPage extends Component
     public function render(): View
     {
         $this->normalizeTab();
-        // Prompt 30: analytical reads come exclusively from GoogleAdsSpecialistReadService
-        // (local pool + formulas). Zero Google Ads Search/SearchStream/OAuth on render.
+
+        // Both readers are local Data Pool readers. Rendering this Digital Asset never
+        // calls Google Ads directly and never mutates provider state.
         $data = app(GoogleAdsSpecialistReadService::class)->workspace(
+            $this->assetId,
+            $this->period,
+            $this->periodStart,
+            $this->periodEnd,
+        );
+        $professional = app(GoogleAdsProfessionalWorkspaceReadService::class)->workspace(
             $this->assetId,
             $this->period,
             $this->periodStart,
@@ -345,6 +360,7 @@ class OverviewPage extends Component
         return view('livewire.demo.google-ads.overview', [
             'asset' => $this->presentCanonicalAsset(),
             'data' => $data,
+            'professional' => $professional,
             'identity' => $data['identity'],
             'campaignRows' => $campaigns->values()->all(),
             'termRows' => $terms->values()->all(),
@@ -354,7 +370,10 @@ class OverviewPage extends Component
             'selectedLanding' => $selectedLanding,
             'selectedFinding' => $selectedFinding,
             'selectedAttention' => $selectedAttention,
-            'showPeriodBar' => in_array($this->tab, ['overview', 'campaigns', 'search_demand', 'ads_assets', 'landing_pages', 'measurement'], true),
+            'showPeriodBar' => in_array($this->tab, [
+                'overview', 'campaigns', 'search_demand', 'ads_assets', 'performance',
+                'budget_bidding', 'measurement', 'landing_pages', 'optimization', 'pmax', 'shopping', 'video',
+            ], true),
             'performanceChartOptions' => [
                 'chart' => ['type' => 'line', 'height' => 220, 'toolbar' => ['show' => false]],
                 'series' => [

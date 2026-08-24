@@ -20,8 +20,8 @@ use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
- * Production GA4 DatasetExecutor — contract request families only.
- * Does not apply Business Action mapping, invent dimensions, or create Evidence.
+ * Production GA4 DatasetExecutor.
+ * Supports both Digital Asset-bound collection and provider-resource-first central ingestion.
  */
 final class Ga4DatasetExecutor implements DatasetExecutor
 {
@@ -55,17 +55,17 @@ final class Ga4DatasetExecutor implements DatasetExecutor
             );
         }
 
-        $eligible = $this->eligibility->assertEligible($context->collectionRun, $context->resourceRun);
-        if ($eligible instanceof DatasetExecutionResult) {
-            return $eligible;
+        $scope = $this->eligibility->assertEligible($context->collectionRun, $context->resourceRun);
+        if ($scope instanceof DatasetExecutionResult) {
+            return $scope;
         }
 
         try {
             return match ($definition['kind']) {
-                'metadata' => $this->executeMetadata($context, $definition, $eligible),
-                'run_report' => $this->executeRunReportFamily($context, $definition, $eligible),
-                'event_breakdowns' => $this->executeEventBreakdowns($context, $eligible),
-                'range_users' => $this->executeRangeUsers($context, $definition, $eligible),
+                'metadata' => $this->executeMetadata($context, $definition, $scope),
+                'run_report' => $this->executeRunReportFamily($context, $definition, $scope),
+                'event_breakdowns' => $this->executeEventBreakdowns($context, $scope),
+                'range_users' => $this->executeRangeUsers($context, $definition, $scope),
                 default => DatasetExecutionResult::failed(
                     CollectionErrorCategory::UnimplementedCapability,
                     'Unsupported GA4 request kind.',
@@ -77,10 +77,7 @@ final class Ga4DatasetExecutor implements DatasetExecutor
         }
     }
 
-    /**
-     * @param  array<string, mixed>  $definition
-     * @param  array<string, mixed>  $scope
-     */
+    /** @param array<string, mixed> $definition @param array<string, mixed> $scope */
     private function executeMetadata(DatasetExecutionContext $context, array $definition, array $scope): DatasetExecutionResult
     {
         $ctx = $this->metadataCompat->propertyContext($scope['integration'], $scope['property_resource_name']);
@@ -88,12 +85,20 @@ final class Ga4DatasetExecutor implements DatasetExecutor
             return $ctx;
         }
 
+        $configuration = $this->metadataCompat->configurationSnapshot(
+            $scope['integration'],
+            $scope['property_resource_name'],
+        );
+
+        $assetId = $this->assetId($scope);
+        $resourceId = (int) $scope['resource']->id;
         $record = $this->normalizer->normalizePropertyMetadata(
             $scope['property_id'],
             $ctx['property'],
             $ctx['streams'],
-            (int) $scope['asset']->id,
-            (int) $scope['resource']->id,
+            $assetId,
+            $resourceId,
+            $configuration,
         );
 
         $batchKey = 'ga4:metadata:'.$scope['property_id'];
@@ -109,13 +114,16 @@ final class Ga4DatasetExecutor implements DatasetExecutor
             payload: json_encode([
                 'property' => $ctx['property'],
                 'dataStreams' => $ctx['streams'],
+                'configuration' => $configuration,
             ], JSON_THROW_ON_ERROR),
-            providerRequestFingerprint: hash('sha256', 'admin.properties.get|'.$scope['property_resource_name']),
+            providerRequestFingerprint: hash('sha256', 'ga4.property.configuration|'.$scope['property_resource_name']),
             recordCount: 1,
             providerSafeMetadata: [
-                'operation' => 'properties.get+dataStreams.list',
+                'operation' => 'property+streams+configuration',
                 'time_zone' => $ctx['timeZone'],
                 'currency_code' => $ctx['currencyCode'],
+                'collection_scope' => $scope['collection_scope'] ?? null,
+                'api_version' => 'admin-v1beta/data-v1beta',
             ],
             capturedAt: now(),
             retentionClass: (string) config('moxdop-ga4-collector.raw_retention_class'),
@@ -129,8 +137,8 @@ final class Ga4DatasetExecutor implements DatasetExecutor
                     contractVersion: (int) $context->datasetRun->contract_registry_version,
                     batchKey: $batchKey,
                     records: [$record],
-                    digitalAssetId: (int) $scope['asset']->id,
-                    externalResourceId: (int) $scope['resource']->id,
+                    digitalAssetId: $assetId,
+                    externalResourceId: $resourceId,
                     collectionRunId: (int) $context->collectionRun->id,
                     resourceRunId: (int) $context->resourceRun->id,
                     providerOrSource: 'GA4',
@@ -157,26 +165,24 @@ final class Ga4DatasetExecutor implements DatasetExecutor
         );
     }
 
-    /**
-     * @param  array<string, mixed>  $definition
-     * @param  array<string, mixed>  $scope
-     */
+    /** @param array<string, mixed> $definition @param array<string, mixed> $scope */
     private function executeRunReportFamily(DatasetExecutionContext $context, array $definition, array $scope): DatasetExecutionResult
     {
+        $metrics = $this->resolveSupportedMetrics($definition, $scope);
+
         return $this->executePagedReport(
             $context,
             $scope,
             (string) $definition['dataset_id'],
             $definition['dimensions'],
-            $definition['metrics'],
+            $metrics,
             (string) $definition['semantic_scope'],
             $context->datasetRun->request_family_id,
+            $definition['optional_metrics'] ?? [],
         );
     }
 
-    /**
-     * @param  array<string, mixed>  $scope
-     */
+    /** @param array<string, mixed> $scope */
     private function executeEventBreakdowns(DatasetExecutionContext $context, array $scope): DatasetExecutionResult
     {
         $specs = Ga4RequestFamilyCatalog::eventBreakdownSpecs();
@@ -191,7 +197,7 @@ final class Ga4DatasetExecutor implements DatasetExecutor
                 progressCurrent: count($specs),
                 progressTotal: count($specs),
                 stage: 'event_breakdowns_complete',
-                checkpoint: ['breakdown_index' => $specIndex, 'inner' => $innerCheckpoint],
+                checkpoint: ['breakdown_index' => $specIndex, 'inner' => []],
             );
         }
 
@@ -216,9 +222,11 @@ final class Ga4DatasetExecutor implements DatasetExecutor
             $context->datasetRun->request_family_id,
         );
 
-        if ($result->outcome === DatasetExecutionOutcome::Failed
-            || $result->outcome === DatasetExecutionOutcome::Retry
-            || $result->outcome === DatasetExecutionOutcome::Cancelled) {
+        if (in_array($result->outcome, [
+            DatasetExecutionOutcome::Failed,
+            DatasetExecutionOutcome::Retry,
+            DatasetExecutionOutcome::Cancelled,
+        ], true)) {
             return $result;
         }
 
@@ -232,10 +240,7 @@ final class Ga4DatasetExecutor implements DatasetExecutor
                 rowsWritten: $result->rowsWritten,
                 pagesCompleted: $result->pagesCompleted,
                 stage: 'event_breakdown_'.$spec['dataset_id'],
-                checkpoint: [
-                    'breakdown_index' => $specIndex,
-                    'inner' => $result->checkpoint ?? [],
-                ],
+                checkpoint: ['breakdown_index' => $specIndex, 'inner' => $result->checkpoint ?? []],
             );
         }
 
@@ -250,20 +255,13 @@ final class Ga4DatasetExecutor implements DatasetExecutor
             rowsWritten: $result->rowsWritten,
             pagesCompleted: $result->pagesCompleted,
             stage: 'event_breakdown_'.$spec['dataset_id'],
-            checkpoint: [
-                'breakdown_index' => $next,
-                'inner' => [],
-            ],
+            checkpoint: ['breakdown_index' => $next, 'inner' => []],
         );
     }
 
-    /**
-     * @param  array<string, mixed>  $definition
-     * @param  array<string, mixed>  $scope
-     */
+    /** @param array<string, mixed> $definition @param array<string, mixed> $scope */
     private function executeRangeUsers(DatasetExecutionContext $context, array $definition, array $scope): DatasetExecutionResult
     {
-        // Funnel via GENERIC_REPORT is DECISION_REQUIRED — this family implements range Users only.
         $dateRange = $this->resolveDateRange($context);
         if ($dateRange instanceof DatasetExecutionResult) {
             return $dateRange;
@@ -286,54 +284,41 @@ final class Ga4DatasetExecutor implements DatasetExecutor
         }
 
         $body = $this->requestBuilder->build(
-            [],
-            $definition['metrics'],
-            $dateRange['start'],
-            $dateRange['end'],
-            0,
-            10,
-            false,
+            [], $definition['metrics'], $dateRange['start'], $dateRange['end'], 0, 10, false,
             (bool) config('moxdop-ga4-collector.return_property_quota', true),
         );
-
         $response = $this->api->runReport($scope['integration'], $scope['property_resource_name'], $body);
         if (! $response->successful()) {
             return $this->errors->fromHttpResponse($response);
         }
-
         $payload = $response->json();
-        if (! is_array($payload)) {
-            $payload = [];
-        }
+        $payload = is_array($payload) ? $payload : [];
 
         $batchKey = 'ga4:range-users:'.$dateRange['start'].':'.$dateRange['end'];
-        $rawEnvelope = new RawPayloadEnvelope(
-            providerOrSource: 'GA4',
-            collectionRunId: (int) $context->collectionRun->id,
-            resourceRunId: (int) $context->resourceRun->id,
-            datasetRunId: (int) $context->datasetRun->id,
-            logicalDatasetId: 'ga4_property_range_users',
-            requestFamilyId: $context->datasetRun->request_family_id,
-            batchKey: $batchKey,
-            contentType: 'application/json',
-            payload: json_encode($payload, JSON_THROW_ON_ERROR),
-            providerRequestFingerprint: hash('sha256', json_encode($body, JSON_THROW_ON_ERROR)),
-            recordCount: count($payload['rows'] ?? []),
-            providerSafeMetadata: [
-                'operation' => 'runReport.range_users',
-                'date_range' => $dateRange,
-                'timezone' => $propCtx['timeZone'],
-                'property_quota' => $payload['propertyQuota'] ?? null,
-                'note' => 'totalUsers not summable across days; range query only',
-            ],
-            capturedAt: now(),
-            retentionClass: (string) config('moxdop-ga4-collector.raw_retention_class'),
-        );
-
         try {
-            $this->rawWriter->write($rawEnvelope);
+            $this->rawWriter->write(new RawPayloadEnvelope(
+                providerOrSource: 'GA4',
+                collectionRunId: (int) $context->collectionRun->id,
+                resourceRunId: (int) $context->resourceRun->id,
+                datasetRunId: (int) $context->datasetRun->id,
+                logicalDatasetId: 'ga4_property_range_users',
+                requestFamilyId: $context->datasetRun->request_family_id,
+                batchKey: $batchKey,
+                contentType: 'application/json',
+                payload: json_encode($payload, JSON_THROW_ON_ERROR),
+                providerRequestFingerprint: hash('sha256', json_encode($body, JSON_THROW_ON_ERROR)),
+                recordCount: count($payload['rows'] ?? []),
+                providerSafeMetadata: [
+                    'date_range' => $dateRange,
+                    'timezone' => $propCtx['timeZone'],
+                    'property_quota' => $payload['propertyQuota'] ?? null,
+                    'note' => 'Range users are non-additive and are retained as raw provider truth.',
+                ],
+                capturedAt: now(),
+                retentionClass: (string) config('moxdop-ga4-collector.raw_retention_class'),
+            ));
         } catch (Throwable) {
-            // Raw optional for range shell KPI family when no physical dataset.
+            // This family has no normalized table; raw retention remains best-effort.
         }
 
         return new DatasetExecutionResult(
@@ -348,10 +333,44 @@ final class Ga4DatasetExecutor implements DatasetExecutor
         );
     }
 
+    /** @param array<string, mixed> $definition @param array<string, mixed> $scope @return list<string> */
+    private function resolveSupportedMetrics(array $definition, array $scope): array
+    {
+        $required = array_values($definition['metrics'] ?? []);
+        $optional = array_values($definition['optional_metrics'] ?? []);
+        if ($optional === []) {
+            return $required;
+        }
+
+        $metadataResponse = $this->api->getMetadata($scope['integration'], $scope['property_resource_name']);
+        if (! $metadataResponse->successful()) {
+            return $required;
+        }
+
+        $metadata = $metadataResponse->json();
+        $available = [];
+        foreach (is_array($metadata['metrics'] ?? null) ? $metadata['metrics'] : [] as $metric) {
+            if (is_array($metric) && isset($metric['apiName'])) {
+                $available[(string) $metric['apiName']] = true;
+            }
+        }
+        if ($available === []) {
+            return $required;
+        }
+
+        $supportedOptional = array_values(array_filter(
+            $optional,
+            fn (string $metric): bool => isset($available[$metric]),
+        ));
+
+        return array_values(array_unique([...$required, ...$supportedOptional]));
+    }
+
     /**
-     * @param  array<string, mixed>  $scope
-     * @param  list<string>  $dimensions
-     * @param  list<string>  $metrics
+     * @param array<string, mixed> $scope
+     * @param list<string> $dimensions
+     * @param list<string> $metrics
+     * @param list<string> $optionalMetrics
      */
     private function executePagedReport(
         DatasetExecutionContext $context,
@@ -361,6 +380,7 @@ final class Ga4DatasetExecutor implements DatasetExecutor
         array $metrics,
         string $semanticScope,
         string $familyId,
+        array $optionalMetrics = [],
     ): DatasetExecutionResult {
         $dateRange = $this->resolveDateRange($context);
         if ($dateRange instanceof DatasetExecutionResult) {
@@ -380,6 +400,22 @@ final class Ga4DatasetExecutor implements DatasetExecutor
             $metrics,
             (int) $context->datasetRun->contract_registry_version,
         );
+        if ($compat instanceof DatasetExecutionResult && $optionalMetrics !== []) {
+            $requiredOnly = array_values(array_diff($metrics, $optionalMetrics));
+            if ($requiredOnly !== $metrics) {
+                $retry = $this->metadataCompat->assertCompatible(
+                    $scope['integration'],
+                    $scope['property_resource_name'],
+                    $dimensions,
+                    $requiredOnly,
+                    (int) $context->datasetRun->contract_registry_version,
+                );
+                if (! $retry instanceof DatasetExecutionResult) {
+                    $metrics = $requiredOnly;
+                    $compat = null;
+                }
+            }
+        }
         if ($compat instanceof DatasetExecutionResult) {
             return $compat;
         }
@@ -414,11 +450,12 @@ final class Ga4DatasetExecutor implements DatasetExecutor
         $tickRowsReceived = 0;
         $tickRowsWritten = 0;
         $lastSlice = $slices[min($sliceIndex, count($slices) - 1)] ?? null;
+        $assetId = $this->assetId($scope);
+        $resourceId = (int) $scope['resource']->id;
 
         while ($sliceIndex < count($slices) && $tickPages < $maxPagesPerTick) {
             $slice = $slices[$sliceIndex];
             $lastSlice = $slice;
-
             $body = $this->requestBuilder->build(
                 $dimensions,
                 $metrics,
@@ -436,14 +473,10 @@ final class Ga4DatasetExecutor implements DatasetExecutor
             }
 
             $payload = $response->json();
-            if (! is_array($payload)) {
-                $payload = [];
-            }
-            $rows = $payload['rows'] ?? [];
-            if (! is_array($rows)) {
-                $rows = [];
-            }
+            $payload = is_array($payload) ? $payload : [];
+            $rows = is_array($payload['rows'] ?? null) ? $payload['rows'] : [];
             $rowCount = isset($payload['rowCount']) ? (int) $payload['rowCount'] : null;
+            $responseMetadata = is_array($payload['metadata'] ?? null) ? $payload['metadata'] : [];
 
             $batchKey = sprintf(
                 'ga4:%s:%s:%s:%s:offset=%d',
@@ -453,6 +486,13 @@ final class Ga4DatasetExecutor implements DatasetExecutor
                 $slice['end'],
                 $offset,
             );
+
+            $quality = [
+                'subject_to_thresholding' => (bool) ($responseMetadata['subjectToThresholding'] ?? false),
+                'data_loss_from_other_row' => (bool) ($responseMetadata['dataLossFromOtherRow'] ?? false),
+                'sampling_metadata' => $responseMetadata['samplingMetadatas'] ?? null,
+                'empty_reason' => $responseMetadata['emptyReason'] ?? null,
+            ];
 
             $rawEnvelope = new RawPayloadEnvelope(
                 providerOrSource: 'GA4',
@@ -477,8 +517,12 @@ final class Ga4DatasetExecutor implements DatasetExecutor
                     'dimensions' => $dimensions,
                     'metrics' => $metrics,
                     'timezone' => $timezone,
+                    'currency_code' => $propCtx['currencyCode'],
                     'property_quota' => $payload['propertyQuota'] ?? null,
                     'semantic_scope' => $semanticScope,
+                    'collection_scope' => $scope['collection_scope'] ?? null,
+                    'quality' => $quality,
+                    'api_version' => 'analyticsdata.googleapis.com/v1beta',
                     'provider_completeness' => Ga4ProviderCapabilities::PROVIDER_COMPLETENESS,
                 ],
                 capturedAt: now(),
@@ -498,9 +542,11 @@ final class Ga4DatasetExecutor implements DatasetExecutor
                         'semantic_scope' => $semanticScope,
                         'request_family_id' => $familyId,
                         'collector_version' => config('moxdop-ga4-collector.collector_version'),
+                        'api_version' => 'analyticsdata.googleapis.com/v1beta',
+                        'row_count' => $rowCount,
                     ],
-                    (int) $scope['asset']->id,
-                    (int) $scope['resource']->id,
+                    $assetId,
+                    $resourceId,
                 );
             } catch (Throwable $e) {
                 return DatasetExecutionResult::failed(
@@ -520,8 +566,8 @@ final class Ga4DatasetExecutor implements DatasetExecutor
                             contractVersion: (int) $context->datasetRun->contract_registry_version,
                             batchKey: $batchKey,
                             records: $records,
-                            digitalAssetId: (int) $scope['asset']->id,
-                            externalResourceId: (int) $scope['resource']->id,
+                            digitalAssetId: $assetId,
+                            externalResourceId: $resourceId,
                             collectionRunId: (int) $context->collectionRun->id,
                             resourceRunId: (int) $context->resourceRun->id,
                             providerOrSource: 'GA4',
@@ -554,14 +600,13 @@ final class Ga4DatasetExecutor implements DatasetExecutor
                 try {
                     $this->rawWriter->write($rawEnvelope);
                 } catch (Throwable) {
-                    // optional
+                    // Raw optional for normalized families with durable zero-row coverage.
                 }
 
-                // Zero-row success still advances collection coverage (not fact-row presence).
                 $this->materializations->recordSuccessfulCoverageRange(
                     datasetId: $datasetId,
-                    digitalAssetId: (int) $scope['asset']->id,
-                    externalResourceId: (int) $scope['resource']->id,
+                    digitalAssetId: $assetId,
+                    externalResourceId: $resourceId,
                     contractVersion: (int) $context->datasetRun->contract_registry_version,
                     start: (string) $slice['start'],
                     end: (string) $slice['end'],
@@ -636,9 +681,7 @@ final class Ga4DatasetExecutor implements DatasetExecutor
         );
     }
 
-    /**
-     * @return array{start: string, end: string}|DatasetExecutionResult
-     */
+    /** @return array{start: string, end: string}|DatasetExecutionResult */
     private function resolveDateRange(DatasetExecutionContext $context): array|DatasetExecutionResult
     {
         $range = $context->datasetRun->metadata['date_range']
@@ -647,7 +690,7 @@ final class Ga4DatasetExecutor implements DatasetExecutor
         if (! is_array($range) || empty($range['start']) || empty($range['end'])) {
             return DatasetExecutionResult::failed(
                 CollectionErrorCategory::InvalidRequest,
-                'GA4 collection requires a bounded date_range from CollectionPlan/StartCollectionRequest.',
+                'GA4 collection requires a bounded date_range.',
                 'DATE_RANGE_REQUIRED',
             );
         }
@@ -655,21 +698,27 @@ final class Ga4DatasetExecutor implements DatasetExecutor
         try {
             $start = CarbonImmutable::createFromFormat('Y-m-d', (string) $range['start']);
             $end = CarbonImmutable::createFromFormat('Y-m-d', (string) $range['end']);
-            if ($start === false || $end === false) {
+            if ($start === false || $end === false || $start->greaterThan($end)) {
                 throw new \InvalidArgumentException('invalid');
             }
         } catch (Throwable) {
             return DatasetExecutionResult::failed(
                 CollectionErrorCategory::InvalidRequest,
-                'GA4 date_range must use inclusive Y-m-d property reporting dates.',
+                'GA4 date_range must use inclusive Y-m-d dates.',
                 'DATE_RANGE_INVALID',
             );
         }
 
-        return [
-            'start' => $start->toDateString(),
-            'end' => $end->toDateString(),
-        ];
+        return ['start' => $start->toDateString(), 'end' => $end->toDateString()];
+    }
+
+    /** @param array<string, mixed> $scope */
+    private function assetId(array $scope): ?int
+    {
+        $asset = $scope['asset'] ?? null;
+        $id = $asset?->id ?? null;
+
+        return is_numeric($id) && (int) $id > 0 ? (int) $id : null;
     }
 
     private function persistProviderLimitation(DatasetExecutionContext $context, string $datasetId, string $timezone): void
@@ -687,6 +736,7 @@ final class Ga4DatasetExecutor implements DatasetExecutor
         $meta['property_timezone'] = $timezone;
         $meta['missing_row_equals_zero'] = false;
         $meta['business_action_mapping_applied'] = false;
+        $meta['collection_scope'] = data_get($context->collectionRun->request_context, 'context.collection_scope');
 
         if (! $row->exists) {
             $row->provider_or_source = 'GA4';

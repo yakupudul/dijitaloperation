@@ -122,17 +122,6 @@ final class CollectionPlanner
                 continue;
             }
 
-            if ($provider === 'GBP') {
-                $dispositions[] = [
-                    'type' => PlanDisposition::CollectorUnavailable->value,
-                    'binding_id' => $binding->id,
-                    'provider_or_source' => $provider,
-                    'reason' => 'No production GBP analytical collector',
-                ];
-
-                continue;
-            }
-
             $resourceKey = 'binding:'.$binding->id;
             $resources[$resourceKey] = [
                 'key' => $resourceKey,

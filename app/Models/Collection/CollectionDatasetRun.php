@@ -27,6 +27,7 @@ class CollectionDatasetRun extends Model
         'provider_or_source',
         'dataset_contract_id',
         'request_family_id',
+        'execution_variant',
         'requirement_level',
         'contract_registry_version',
         'status',
@@ -60,6 +61,18 @@ class CollectionDatasetRun extends Model
         static::creating(function (self $run): void {
             if ($run->uuid === null || $run->uuid === '') {
                 $run->uuid = (string) Str::uuid();
+            }
+
+            // A logical dataset/request family may legitimately execute more than
+            // once for the same provider resource when the provider exposes a real
+            // execution dimension. Search Console search type is the first such
+            // case: web, image, video, Discover, etc. must remain separate runs.
+            if (($run->execution_variant ?? '') === '') {
+                $metadata = is_array($run->metadata) ? $run->metadata : [];
+                $variant = $metadata['execution_variant'] ?? $metadata['search_type'] ?? '';
+                $run->execution_variant = is_scalar($variant)
+                    ? mb_strtolower(trim((string) $variant))
+                    : '';
             }
         });
     }

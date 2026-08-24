@@ -41,11 +41,12 @@ final class GoogleAdsProviderErrorMapper
         }
 
         if (str_contains($lower, 'network') || str_contains($lower, 'timeout') || str_contains($lower, 'timed out')) {
+            // Zero means: let the collection RetryPolicy choose exponential backoff + jitter.
             return DatasetExecutionResult::retry(
                 CollectionErrorCategory::Network,
                 $message,
-                30,
-                'NETWORK',
+                0,
+                'NETWORK_TRANSIENT',
             );
         }
 
@@ -61,10 +62,10 @@ final class GoogleAdsProviderErrorMapper
         $body = $response->json();
         $reason = $this->reasonFromBody($body, $response);
         $reason = mb_substr($reason, 0, 1500);
-        $retryAfter = $response->header('Retry-After');
-        $backoff = is_numeric($retryAfter) ? max(1, (int) $retryAfter) : 60;
+        $retryAfter = $this->retryAfterSeconds($response);
         $lower = strtolower($reason);
         $requestId = $this->requestIdFromBody($body);
+        $requestSuffix = $requestId !== '' ? ' requestId='.$requestId : '';
 
         if ($status === 401) {
             return DatasetExecutionResult::failed(
@@ -85,8 +86,8 @@ final class GoogleAdsProviderErrorMapper
             if (str_contains($lower, 'quota') || str_contains($lower, 'rate') || str_contains($lower, 'exhausted') || str_contains($lower, 'resource_exhausted')) {
                 return DatasetExecutionResult::retry(
                     CollectionErrorCategory::Quota,
-                    'Google Ads quota/rate limit: '.$reason.($requestId !== '' ? ' requestId='.$requestId : ''),
-                    $backoff,
+                    'Google Ads quota/rate limit: '.$reason.$requestSuffix,
+                    $retryAfter,
                     'QUOTA_EXHAUSTED',
                 );
             }
@@ -101,8 +102,8 @@ final class GoogleAdsProviderErrorMapper
         if ($status === 429) {
             return DatasetExecutionResult::retry(
                 CollectionErrorCategory::RateLimit,
-                'Google Ads rate limit: '.$reason,
-                $backoff,
+                'Google Ads rate limit: '.$reason.$requestSuffix,
+                $retryAfter,
                 'RATE_LIMIT',
             );
         }
@@ -110,9 +111,9 @@ final class GoogleAdsProviderErrorMapper
         if ($status >= 500) {
             return DatasetExecutionResult::retry(
                 CollectionErrorCategory::Provider5xx,
-                'Google Ads provider 5xx: '.$reason,
-                $backoff,
-                'PROVIDER_5XX',
+                'Google Ads provider 5xx: '.$reason.$requestSuffix,
+                $retryAfter,
+                $status === 503 ? 'PROVIDER_UNAVAILABLE' : 'PROVIDER_5XX',
             );
         }
 
@@ -191,9 +192,7 @@ final class GoogleAdsProviderErrorMapper
         return $joined !== '' ? $joined : $response->body();
     }
 
-    /**
-     * @param  array<string, mixed>|mixed  $body
-     */
+    /** @param array<string, mixed>|mixed $body */
     private function requestIdFromBody(mixed $body): string
     {
         if (! is_array($body)) {
@@ -213,5 +212,23 @@ final class GoogleAdsProviderErrorMapper
         }
 
         return '';
+    }
+
+    private function retryAfterSeconds(Response $response): int
+    {
+        $value = trim((string) $response->header('Retry-After'));
+        if ($value === '') {
+            return 0;
+        }
+        if (is_numeric($value)) {
+            return max(1, (int) $value);
+        }
+
+        $timestamp = strtotime($value);
+        if ($timestamp === false) {
+            return 0;
+        }
+
+        return max(1, $timestamp - time());
     }
 }

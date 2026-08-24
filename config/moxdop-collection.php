@@ -18,6 +18,16 @@ return [
     'supported_registry_versions' => [1],
 
     /*
+     * Frozen V1 registry + explicit provider amendments. Order is stable and
+     * deterministic; later overlays may intentionally replace rows by id.
+     */
+    'registry_overlays' => [
+        'moxdop-gbp-central.registry_overlay',
+        'moxdop-google-ads-central.registry_overlay',
+        'moxdop-google-ads-history.registry_overlay',
+    ],
+
+    /*
     |--------------------------------------------------------------------------
     | Queue (collection control plane)
     |--------------------------------------------------------------------------

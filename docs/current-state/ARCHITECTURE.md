@@ -1,8 +1,8 @@
 # ARCHITECTURE
 
-> **HISTORICAL SNAPSHOT**  
+> **HISTORICAL SNAPSHOT — OBSOLETE as current architecture**  
 > This document reflects an earlier project state and is **NOT** the canonical current product truth.  
-> For current truth consult: `docs/MASTER_SPEC.md`, accepted ADRs, `PROJECT_MEMORY.md`, `PRODUCT_CAPABILITY_LEDGER.md`, and `docs/PROJECT_STATUS.md` where current.
+> For current truth consult: `docs/MASTER_SPEC.md`, accepted ADRs, `PROJECT_MEMORY.md`, `PRODUCT_CAPABILITY_LEDGER.md`, and Track A runtime map `docs/current-state/CLAUDE_AUDIT_RECONCILIATION.md`.
 
 
 > İnceleme tarihi: 2026-08-06  

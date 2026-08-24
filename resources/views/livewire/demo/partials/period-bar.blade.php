@@ -9,6 +9,8 @@
         'last_month' => __('operator.period.presets.last_month'),
     ];
     $compareOn = (bool) ($compare ?? true);
+    $supportsYoY = method_exists($this, 'supportsYearOverYearComparison') && $this->supportsYearOverYearComparison();
+    $effectiveCompareMode = method_exists($this, 'effectiveCompareMode') ? $this->effectiveCompareMode() : 'previous';
     $appliedLabel = method_exists($this, 'appliedPeriodLabel') ? $this->appliedPeriodLabel() : ($period === 'custom' && $periodStart && $periodEnd ? $periodStart.' – '.$periodEnd : ($presets[$period] ?? __('operator.period.custom')));
     $compareLabel = method_exists($this, 'comparePeriodLabel') ? $this->comparePeriodLabel() : null;
     $maxDate = method_exists($this, 'periodPickerMaxDate')
@@ -52,6 +54,25 @@
         title="{{ __('operator.period.compare') }}">
         {{ $compareOn ? __('operator.period.compare_on') : __('operator.period.compare') }}
     </button>
+
+    @if ($compareOn && $supportsYoY)
+        <button type="button" wire:click="setCompareMode('previous')"
+            @class([
+                'rounded-md px-2.5 py-1.5 text-xs font-medium transition',
+                'bg-brand-500 text-white' => $effectiveCompareMode !== 'yoy',
+                'bg-white text-gray-600 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700' => $effectiveCompareMode === 'yoy',
+            ])>
+            {{ __('operator.period.compare_previous') }}
+        </button>
+        <button type="button" wire:click="setCompareMode('yoy')"
+            @class([
+                'rounded-md px-2.5 py-1.5 text-xs font-medium transition',
+                'bg-brand-500 text-white' => $effectiveCompareMode === 'yoy',
+                'bg-white text-gray-600 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700' => $effectiveCompareMode !== 'yoy',
+            ])>
+            {{ __('operator.period.compare_yoy') }}
+        </button>
+    @endif
 
     <span class="ml-1 text-xs text-gray-500 dark:text-gray-400" data-applied-range>
         {{ $appliedLabel }}

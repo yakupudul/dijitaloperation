@@ -117,7 +117,7 @@ final class ExecuteCollectionLifecycleService
         $idempotencyKey = $this->resolveIdempotencyKey($plan, $context);
 
         $existing = CollectionRun::query()->where('idempotency_key', $idempotencyKey)->first();
-        if ($existing !== null) {
+        if ($existing !== null && ! $existing->status->isTerminal()) {
             return new CollectionLifecycleStartResult(
                 outcome: 'active_equivalent',
                 message: 'Idempotent initial backfill reuse.',
@@ -127,6 +127,30 @@ final class ExecuteCollectionLifecycleService
                 plan: $plan,
                 decisions: $decisions,
             );
+        }
+
+        // A terminal run proves the prior attempt is over; it must never block a
+        // legitimate operator retry. Derive a new deterministic retry key from the
+        // latest terminal attempt while the top-level active-equivalent guard still
+        // deduplicates genuinely queued/running equivalents.
+        if ($existing !== null && $existing->status->isTerminal()) {
+            $idempotencyKey = 'life:'.hash('sha256', $plan->planFingerprint.'|retry-after:'.$existing->id);
+
+            $retryExisting = CollectionRun::query()->where('idempotency_key', $idempotencyKey)->first();
+            if ($retryExisting !== null && ! $retryExisting->status->isTerminal()) {
+                return new CollectionLifecycleStartResult(
+                    outcome: 'active_equivalent',
+                    message: 'Idempotent initial backfill retry is already active.',
+                    intent: $plan->intent,
+                    collectionRun: $retryExisting,
+                    reusedExisting: true,
+                    plan: $plan,
+                    decisions: $decisions,
+                );
+            }
+            if ($retryExisting !== null && $retryExisting->status->isTerminal()) {
+                $idempotencyKey = 'life:'.hash('sha256', $plan->planFingerprint.'|retry-after:'.$retryExisting->id);
+            }
         }
 
         $request = new StartCollectionRequest(

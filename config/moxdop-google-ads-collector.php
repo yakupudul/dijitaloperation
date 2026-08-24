@@ -21,6 +21,18 @@ return [
     'search_stream_timeout_seconds' => (int) env('MOXDOP_GADS_STREAM_TIMEOUT', 120),
 
     /**
+     * Google Ads transient failures are frequently short-lived provider/network events.
+     * Dataset-level retries preserve checkpoints and use exponential backoff with a
+     * small deterministic jitter so concurrent account datasets do not retry in lockstep.
+     */
+    'retry_max_attempts' => (int) env('MOXDOP_GADS_RETRY_MAX_ATTEMPTS', 7),
+
+    /** @var list<int> */
+    'retry_backoff_seconds' => [10, 20, 40, 80, 160, 300, 300],
+
+    'retry_jitter_seconds' => (int) env('MOXDOP_GADS_RETRY_JITTER_SECONDS', 5),
+
+    /**
      * Preferred inclusive date-slice width (days) per request family.
      *
      * @var array<string, int>

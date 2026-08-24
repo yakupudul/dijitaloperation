@@ -155,21 +155,15 @@ class Ga4RealDataMigrationTest extends TestCase
     }
 
     #[Test]
-    public function demo_catalog_asset_uses_fixtures_with_demo_provenance(): void
+    public function catalog_string_ids_do_not_produce_fixture_backed_ga4_workspaces(): void
     {
         $workspace = app(Ga4SpecialistReadService::class)->workspace(DemoCatalog::GA4_ASSET_ID);
+        $fixtureSessions = Ga4WorkspaceFixtures::workspace('last_28')['glance']['sessions']['raw'];
 
-        $this->assertSame('demo_catalog', $workspace['migration_mode']);
-        $this->assertSame(
-            Ga4WorkspaceFixtures::workspace('last_28')['glance']['sessions']['raw'],
-            $workspace['glance']['sessions']['raw'],
-        );
-        foreach ($workspace['data_provenance'] as $field => $state) {
-            $this->assertSame(DataSourceState::Demo->value, $state, "Field {$field} should be DEMO");
-        }
-        foreach ($workspace['tab_status'] as $status) {
-            $this->assertSame('DEMO', $status);
-        }
+        $this->assertNotSame('demo_catalog', $workspace['migration_mode']);
+        $this->assertNotSame($fixtureSessions, $workspace['glance']['sessions']['raw'] ?? null);
+        $this->assertSame('—', $workspace['glance']['sessions']['value']);
+        $this->assertNotEmpty(Ga4WorkspaceFixtures::workspace('last_28')['needs_attention']);
     }
 
     #[Test]

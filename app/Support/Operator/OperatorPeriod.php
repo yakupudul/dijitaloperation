@@ -27,6 +27,14 @@ final class OperatorPeriod
         return DemoPeriod::previousBounds($preset, $start, $end, null, self::anchor(), self::timezone());
     }
 
+    /**
+     * @return array{start: CarbonInterface, end: CarbonInterface, days: int, label: string, preset: string}
+     */
+    public static function yearOverYearBounds(string $preset, ?string $start = null, ?string $end = null): array
+    {
+        return DemoPeriod::yearOverYearBounds($preset, $start, $end, null, self::anchor(), self::timezone());
+    }
+
     public static function validateCustom(?string $start, ?string $end): ?string
     {
         return DemoPeriod::validateCustom($start, $end, null, self::anchor(), self::timezone());
@@ -49,6 +57,6 @@ final class OperatorPeriod
 
     public static function pickerMinDate(): string
     {
-        return self::anchor()->copy()->subDays(89)->toDateString();
+        return self::anchor()->copy()->subDays(DemoPeriod::PRODUCTION_HISTORY_DAYS)->toDateString();
     }
 }

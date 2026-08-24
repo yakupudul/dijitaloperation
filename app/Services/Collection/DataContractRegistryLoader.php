@@ -7,7 +7,7 @@ use RuntimeException;
 
 /**
  * Safe runtime reader for MOXDOP_DATA_CONTRACT_REGISTRY_V1.json.
- * Collectors do not invent requirements — they consume this registry.
+ * Collectors do not invent requirements — they consume this registry plus explicit runtime amendments.
  */
 final class DataContractRegistryLoader
 {
@@ -18,9 +18,7 @@ final class DataContractRegistryLoader
         private readonly ?string $path = null,
     ) {}
 
-    /**
-     * @return array<string, mixed>
-     */
+    /** @return array<string, mixed> */
     public function load(): array
     {
         if ($this->registry !== null) {
@@ -45,21 +43,34 @@ final class DataContractRegistryLoader
         }
 
         $this->assertValid($decoded);
-
         $this->registry = $decoded;
+
+        $overlayKeys = config('moxdop-collection.registry_overlays', [
+            'moxdop-gbp-central.registry_overlay',
+        ]);
+        if (! is_array($overlayKeys)) {
+            $overlayKeys = [];
+        }
+
+        foreach ($overlayKeys as $overlayKey) {
+            if (! is_string($overlayKey) || $overlayKey === '') {
+                continue;
+            }
+            $this->registry = $this->applyRuntimeOverlay(
+                $this->registry,
+                config($overlayKey, []),
+            );
+        }
 
         return $this->registry;
     }
 
     public function checksum(): string
     {
-        $path = $this->path ?? (string) config('moxdop-collection.registry_path');
-        $raw = file_get_contents($path);
-        if ($raw === false) {
-            throw new RuntimeException("Unable to checksum registry: {$path}");
-        }
-
-        return hash('sha256', $raw);
+        return hash('sha256', json_encode(
+            $this->load(),
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR,
+        ));
     }
 
     public function version(): int
@@ -78,36 +89,25 @@ final class DataContractRegistryLoader
         return (string) $registry['metadata']['registry_id'];
     }
 
-    /**
-     * @return list<array<string, mixed>>
-     */
+    /** @return list<array<string, mixed>> */
     public function datasets(): array
     {
-        /** @var list<array<string, mixed>> */
         return array_values($this->load()['datasets'] ?? []);
     }
 
-    /**
-     * @return list<array<string, mixed>>
-     */
+    /** @return list<array<string, mixed>> */
     public function requestFamilies(): array
     {
-        /** @var list<array<string, mixed>> */
         return array_values($this->load()['request_families'] ?? []);
     }
 
-    /**
-     * @return list<array<string, mixed>>
-     */
+    /** @return list<array<string, mixed>> */
     public function requirements(): array
     {
-        /** @var list<array<string, mixed>> */
         return array_values($this->load()['requirements'] ?? []);
     }
 
-    /**
-     * @return array<string, mixed>|null
-     */
+    /** @return array<string, mixed>|null */
     public function dataset(string $id): ?array
     {
         foreach ($this->datasets() as $dataset) {
@@ -119,9 +119,7 @@ final class DataContractRegistryLoader
         return null;
     }
 
-    /**
-     * @return array<string, mixed>|null
-     */
+    /** @return array<string, mixed>|null */
     public function requestFamily(string $id): ?array
     {
         foreach ($this->requestFamilies() as $family) {
@@ -134,8 +132,49 @@ final class DataContractRegistryLoader
     }
 
     /**
-     * @param  array<string, mixed>  $decoded
+     * @param  array<string, mixed>  $registry
+     * @param  mixed  $overlay
+     * @return array<string, mixed>
      */
+    private function applyRuntimeOverlay(array $registry, mixed $overlay): array
+    {
+        if (! is_array($overlay) || $overlay === []) {
+            return $registry;
+        }
+
+        foreach (['sources', 'datasets', 'request_families', 'requirements'] as $section) {
+            $rows = $overlay[$section] ?? [];
+            if (! is_array($rows) || $rows === []) {
+                continue;
+            }
+
+            $byId = [];
+            foreach ($registry[$section] ?? [] as $row) {
+                if (is_array($row) && is_string($row['id'] ?? null)) {
+                    $byId[(string) $row['id']] = $row;
+                }
+            }
+            foreach ($rows as $row) {
+                if (! is_array($row) || ! is_string($row['id'] ?? null) || $row['id'] === '') {
+                    throw new InvalidArgumentException("Runtime registry overlay [{$section}] contains a row without id");
+                }
+                $byId[(string) $row['id']] = $row;
+            }
+            $registry[$section] = array_values($byId);
+        }
+
+        $overlayId = $overlay['overlay_id'] ?? null;
+        if (is_string($overlayId) && $overlayId !== '') {
+            $registry['metadata']['runtime_amendments'] ??= [];
+            if (! in_array($overlayId, $registry['metadata']['runtime_amendments'], true)) {
+                $registry['metadata']['runtime_amendments'][] = $overlayId;
+            }
+        }
+
+        return $registry;
+    }
+
+    /** @param array<string, mixed> $decoded */
     private function assertValid(array $decoded): void
     {
         $metadata = $decoded['metadata'] ?? null;

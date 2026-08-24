@@ -10,11 +10,12 @@ use App\Services\Gsc\Support\GscBindingContext;
 use App\Support\Integrations\Google\GoogleAuthStatus;
 use App\Support\Integrations\Google\GoogleResourceType;
 use App\Support\Integrations\ProviderRegistry;
+use App\Support\Reality\DemoCatalogAssetGuard;
 
 /**
- * Resolves the GSC workspace binding for an assetId (Demo catalog string OR
- * numeric DigitalAsset id). Only the human-confirmed active `search_console`
- * CoreAssetBinding is used — never the first-available ExternalResource by name.
+ * Resolves the GSC workspace binding for a numeric DigitalAsset id.
+ * Demo catalog / string fixture ids are not a production read path.
+ * Only the human-confirmed active `search_console` CoreAssetBinding is used.
  */
 final class GscSpecialistBindingResolver
 {
@@ -22,8 +23,8 @@ final class GscSpecialistBindingResolver
 
     public function resolve(string $assetId): GscBindingContext
     {
-        if (! ctype_digit($assetId)) {
-            return GscBindingContext::demoCatalog($assetId);
+        if (! ctype_digit($assetId) || DemoCatalogAssetGuard::isDemoCatalogAssetId($assetId)) {
+            return GscBindingContext::notConnected($assetId, null, 'non_numeric_or_catalog_asset_id');
         }
 
         $digitalAssetId = (int) $assetId;

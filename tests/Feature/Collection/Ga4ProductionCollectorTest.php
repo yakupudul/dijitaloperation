@@ -215,6 +215,39 @@ class Ga4ProductionCollectorTest extends TestCase
     }
 
     #[Test]
+    public function property_daily_persists_optional_metrics_when_property_metadata_supports_them(): void
+    {
+        $allMetrics = Ga4RequestFamilyCatalog::propertyDailyAllMetrics();
+        $this->fakeGa4Http([
+            'metadata' => [
+                'dimensions' => array_map(static fn (string $n): array => ['apiName' => $n], ['date']),
+                'metrics' => array_map(static fn (string $n): array => ['apiName' => $n], $allMetrics),
+            ],
+            'runReport' => [
+                'dimensionHeaders' => [['name' => 'date']],
+                'metricHeaders' => array_map(static fn (string $name): array => ['name' => $name], $allMetrics),
+                'rows' => [[
+                    'dimensionValues' => [['value' => '20260801']],
+                    'metricValues' => [
+                        ['value' => '10'], ['value' => '7'], ['value' => '20'], ['value' => '120'],
+                        ['value' => '5'], ['value' => '4'], ['value' => '3'], ['value' => '2'],
+                        ['value' => '2'], ['value' => '12.5'],
+                    ],
+                ]],
+                'rowCount' => 1,
+            ],
+        ]);
+
+        $result = $this->runFamily(Ga4RequestFamilyCatalog::FAMILY_PROPERTY_DAILY, ['start' => '2026-08-01', 'end' => '2026-08-01']);
+        $this->assertSame(DatasetExecutionOutcome::Completed, $result->outcome, (string) $result->errorMessage);
+        $row = DB::table('ga4_property_daily')->first();
+        $this->assertSame(3, (int) $row->newUsers);
+        $this->assertSame(2, (int) $row->conversions);
+        $this->assertSame(2, (int) $row->keyEvents);
+        $this->assertEqualsWithDelta(12.5, (float) $row->totalRevenue, 0.001);
+    }
+
+    #[Test]
     public function session_acquisition_scopes_are_not_first_user(): void
     {
         $this->fakeGa4Http([
@@ -243,10 +276,10 @@ class Ga4ProductionCollectorTest extends TestCase
         $this->fakeGa4Http([
             'runReport' => [
                 'dimensionHeaders' => [['name' => 'date'], ['name' => 'sessionSourceMedium']],
-                'metricHeaders' => [['name' => 'sessions']],
+                'metricHeaders' => [['name' => 'sessions'], ['name' => 'engagedSessions']],
                 'rows' => [[
                     'dimensionValues' => [['value' => '20260801'], ['value' => 'google / organic']],
-                    'metricValues' => [['value' => '8']],
+                    'metricValues' => [['value' => '8'], ['value' => '5']],
                 ]],
                 'rowCount' => 1,
             ],
@@ -256,6 +289,7 @@ class Ga4ProductionCollectorTest extends TestCase
         $row = DB::table('ga4_source_medium_daily')->first();
         $this->assertSame('google', $row->sessionSource);
         $this->assertSame('organic', $row->sessionMedium);
+        $this->assertSame(5, (int) $row->engagedSessions);
         $meta = json_decode((string) $row->metadata, true);
         $this->assertSame('session_acquisition', $meta['semantic_scope']);
     }
@@ -479,10 +513,10 @@ class Ga4ProductionCollectorTest extends TestCase
                 if ($offset === 0) {
                     return Http::response([
                         'dimensionHeaders' => [['name' => 'date'], ['name' => 'deviceCategory']],
-                        'metricHeaders' => [['name' => 'sessions']],
+                        'metricHeaders' => [['name' => 'sessions'], ['name' => 'engagedSessions']],
                         'rows' => [[
                             'dimensionValues' => [['value' => '20260801'], ['value' => 'desktop']],
-                            'metricValues' => [['value' => '1']],
+                            'metricValues' => [['value' => '1'], ['value' => '1']],
                         ]],
                         'rowCount' => 2,
                     ], 200);
@@ -490,10 +524,10 @@ class Ga4ProductionCollectorTest extends TestCase
 
                 return Http::response([
                     'dimensionHeaders' => [['name' => 'date'], ['name' => 'deviceCategory']],
-                    'metricHeaders' => [['name' => 'sessions']],
+                    'metricHeaders' => [['name' => 'sessions'], ['name' => 'engagedSessions']],
                     'rows' => [[
                         'dimensionValues' => [['value' => '20260801'], ['value' => 'mobile']],
-                        'metricValues' => [['value' => '1']],
+                        'metricValues' => [['value' => '1'], ['value' => '1']],
                     ]],
                     'rowCount' => 2,
                 ], 200);
@@ -712,14 +746,15 @@ class Ga4ProductionCollectorTest extends TestCase
             'rows' => [],
             'rowCount' => 0,
         ];
+        $metadata = $overrides['metadata'] ?? $this->metadataPayload();
 
         // Replace factory: Http::fake() merges stub callbacks and first match wins.
         Http::swap(new Factory);
 
-        Http::fake(function ($request) use ($runReport) {
+        Http::fake(function ($request) use ($runReport, $metadata) {
             $url = $request->url();
             if (str_contains($url, '/metadata')) {
-                return Http::response($this->metadataPayload(), 200);
+                return Http::response($metadata, 200);
             }
             if (str_contains($url, 'checkCompatibility')) {
                 return Http::response(['dimensionCompatibilities' => [], 'metricCompatibilities' => []], 200);

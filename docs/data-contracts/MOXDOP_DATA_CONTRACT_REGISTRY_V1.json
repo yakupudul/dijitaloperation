@@ -677,8 +677,8 @@
         "date"
       ],
       "historical_depth": {
-        "minimum_required": "180d",
-        "recommended_initial_backfill": "180d",
+        "minimum_required": "provider_16m_available",
+        "recommended_initial_backfill": "provider_16m_available",
         "decision_required": false
       },
       "refresh_cadence": {
@@ -1578,8 +1578,8 @@
         "eventName"
       ],
       "historical_depth": {
-        "minimum_required": "180d",
-        "recommended_initial_backfill": "180d",
+        "minimum_required": "provider_16m_available",
+        "recommended_initial_backfill": "provider_16m_available",
         "decision_required": false
       },
       "refresh_cadence": {
@@ -2100,8 +2100,8 @@
         "sessionMedium"
       ],
       "historical_depth": {
-        "minimum_required": "180d",
-        "recommended_initial_backfill": "180d",
+        "minimum_required": "provider_16m_available",
+        "recommended_initial_backfill": "provider_16m_available",
         "decision_required": false
       },
       "refresh_cadence": {
@@ -2169,8 +2169,8 @@
         "sessionCampaignName"
       ],
       "historical_depth": {
-        "minimum_required": "180d",
-        "recommended_initial_backfill": "180d",
+        "minimum_required": "provider_16m_available",
+        "recommended_initial_backfill": "provider_16m_available",
         "decision_required": false
       },
       "refresh_cadence": {
@@ -2442,8 +2442,8 @@
         "date"
       ],
       "historical_depth": {
-        "minimum_required": "180d",
-        "recommended_initial_backfill": "180d",
+        "minimum_required": "provider_16m_available",
+        "recommended_initial_backfill": "provider_16m_available",
         "decision_required": false
       },
       "refresh_cadence": {
@@ -2573,8 +2573,8 @@
         "landingPage"
       ],
       "historical_depth": {
-        "minimum_required": "180d",
-        "recommended_initial_backfill": "180d",
+        "minimum_required": "provider_16m_available",
+        "recommended_initial_backfill": "provider_16m_available",
         "decision_required": false
       },
       "refresh_cadence": {
@@ -2642,8 +2642,8 @@
         "deviceCategory"
       ],
       "historical_depth": {
-        "minimum_required": "180d",
-        "recommended_initial_backfill": "180d",
+        "minimum_required": "provider_16m_available",
+        "recommended_initial_backfill": "provider_16m_available",
         "decision_required": false
       },
       "refresh_cadence": {
@@ -3314,7 +3314,7 @@
       ],
       "historical_depth": {
         "minimum_required": "provider_16m_available",
-        "recommended_initial_backfill": "180d_ui_minimum",
+        "recommended_initial_backfill": "provider_16m_available",
         "decision_required": false
       },
       "refresh_cadence": {
@@ -3441,7 +3441,7 @@
       ],
       "historical_depth": {
         "minimum_required": "provider_16m_available",
-        "recommended_initial_backfill": "180d_ui_minimum",
+        "recommended_initial_backfill": "provider_16m_available",
         "decision_required": false
       },
       "refresh_cadence": {
@@ -3508,7 +3508,7 @@
       ],
       "historical_depth": {
         "minimum_required": "provider_16m_available",
-        "recommended_initial_backfill": "180d_ui_minimum",
+        "recommended_initial_backfill": "provider_16m_available",
         "decision_required": false
       },
       "refresh_cadence": {
@@ -3575,7 +3575,7 @@
       ],
       "historical_depth": {
         "minimum_required": "provider_16m_available",
-        "recommended_initial_backfill": "180d_ui_minimum",
+        "recommended_initial_backfill": "provider_16m_available",
         "decision_required": false
       },
       "refresh_cadence": {
@@ -3762,7 +3762,7 @@
       ],
       "historical_depth": {
         "minimum_required": "provider_16m_available",
-        "recommended_initial_backfill": "180d_ui_minimum",
+        "recommended_initial_backfill": "provider_16m_available",
         "decision_required": false
       },
       "refresh_cadence": {
@@ -3831,7 +3831,7 @@
       ],
       "historical_depth": {
         "minimum_required": "provider_16m_available",
-        "recommended_initial_backfill": "180d_ui_minimum",
+        "recommended_initial_backfill": "provider_16m_available",
         "decision_required": false
       },
       "refresh_cadence": {
@@ -3898,7 +3898,7 @@
       ],
       "historical_depth": {
         "minimum_required": "provider_16m_available",
-        "recommended_initial_backfill": "180d_ui_minimum",
+        "recommended_initial_backfill": "provider_16m_available",
         "decision_required": false
       },
       "refresh_cadence": {
@@ -3967,7 +3967,7 @@
       ],
       "historical_depth": {
         "minimum_required": "provider_16m_available",
-        "recommended_initial_backfill": "180d_ui_minimum",
+        "recommended_initial_backfill": "provider_16m_available",
         "decision_required": false
       },
       "refresh_cadence": {
@@ -4036,7 +4036,7 @@
       ],
       "historical_depth": {
         "minimum_required": "provider_16m_available",
-        "recommended_initial_backfill": "180d_ui_minimum",
+        "recommended_initial_backfill": "provider_16m_available",
         "decision_required": false
       },
       "refresh_cadence": {
@@ -4223,7 +4223,7 @@
       ],
       "historical_depth": {
         "minimum_required": "provider_16m_available",
-        "recommended_initial_backfill": "180d_ui_minimum",
+        "recommended_initial_backfill": "provider_16m_available",
         "decision_required": false
       },
       "refresh_cadence": {
@@ -4290,7 +4290,7 @@
       ],
       "historical_depth": {
         "minimum_required": "provider_16m_available",
-        "recommended_initial_backfill": "180d_ui_minimum",
+        "recommended_initial_backfill": "provider_16m_available",
         "decision_required": false
       },
       "refresh_cadence": {
@@ -4357,7 +4357,7 @@
       ],
       "historical_depth": {
         "minimum_required": "provider_16m_available",
-        "recommended_initial_backfill": "180d_ui_minimum",
+        "recommended_initial_backfill": "provider_16m_available",
         "decision_required": false
       },
       "refresh_cadence": {
@@ -4424,7 +4424,7 @@
       ],
       "historical_depth": {
         "minimum_required": "provider_16m_available",
-        "recommended_initial_backfill": "180d_ui_minimum",
+        "recommended_initial_backfill": "provider_16m_available",
         "decision_required": false
       },
       "refresh_cadence": {
@@ -4491,7 +4491,7 @@
       ],
       "historical_depth": {
         "minimum_required": "provider_16m_available",
-        "recommended_initial_backfill": "180d_ui_minimum",
+        "recommended_initial_backfill": "provider_16m_available",
         "decision_required": false
       },
       "refresh_cadence": {
@@ -4560,7 +4560,7 @@
       ],
       "historical_depth": {
         "minimum_required": "provider_16m_available",
-        "recommended_initial_backfill": "180d_ui_minimum",
+        "recommended_initial_backfill": "provider_16m_available",
         "decision_required": false
       },
       "refresh_cadence": {
@@ -4629,7 +4629,7 @@
       ],
       "historical_depth": {
         "minimum_required": "provider_16m_available",
-        "recommended_initial_backfill": "180d_ui_minimum",
+        "recommended_initial_backfill": "provider_16m_available",
         "decision_required": false
       },
       "refresh_cadence": {
@@ -4824,7 +4824,7 @@
       ],
       "historical_depth": {
         "minimum_required": "provider_16m_available",
-        "recommended_initial_backfill": "180d_ui_minimum",
+        "recommended_initial_backfill": "provider_16m_available",
         "decision_required": false
       },
       "refresh_cadence": {
@@ -4893,7 +4893,7 @@
       ],
       "historical_depth": {
         "minimum_required": "provider_16m_available",
-        "recommended_initial_backfill": "180d_ui_minimum",
+        "recommended_initial_backfill": "provider_16m_available",
         "decision_required": false
       },
       "refresh_cadence": {
@@ -4962,7 +4962,7 @@
       ],
       "historical_depth": {
         "minimum_required": "provider_16m_available",
-        "recommended_initial_backfill": "180d_ui_minimum",
+        "recommended_initial_backfill": "provider_16m_available",
         "decision_required": false
       },
       "refresh_cadence": {
@@ -5033,7 +5033,7 @@
       ],
       "historical_depth": {
         "minimum_required": "provider_16m_available",
-        "recommended_initial_backfill": "180d_ui_minimum",
+        "recommended_initial_backfill": "provider_16m_available",
         "decision_required": false
       },
       "refresh_cadence": {
@@ -5102,7 +5102,7 @@
       ],
       "historical_depth": {
         "minimum_required": "provider_16m_available",
-        "recommended_initial_backfill": "180d_ui_minimum",
+        "recommended_initial_backfill": "provider_16m_available",
         "decision_required": false
       },
       "refresh_cadence": {
@@ -5171,7 +5171,7 @@
       ],
       "historical_depth": {
         "minimum_required": "provider_16m_available",
-        "recommended_initial_backfill": "180d_ui_minimum",
+        "recommended_initial_backfill": "provider_16m_available",
         "decision_required": false
       },
       "refresh_cadence": {
@@ -9105,8 +9105,8 @@
         "landing_page"
       ],
       "historical_depth": {
-        "minimum_required": "180d",
-        "recommended_initial_backfill": "180d",
+        "minimum_required": "provider_16m_available",
+        "recommended_initial_backfill": "provider_16m_available",
         "decision_required": false
       },
       "refresh_cadence": {
@@ -13064,8 +13064,8 @@
         "action_type"
       ],
       "historical_depth": {
-        "minimum_required": "180d",
-        "recommended_initial_backfill": "180d",
+        "minimum_required": "provider_16m_available",
+        "recommended_initial_backfill": "provider_16m_available",
         "decision_required": false
       },
       "refresh_cadence": {
@@ -14108,7 +14108,7 @@
       ],
       "historical_depth": {
         "minimum_required": "provider_16m_available",
-        "recommended_initial_backfill": "180d_ui_minimum",
+        "recommended_initial_backfill": "provider_16m_available",
         "decision_required": false
       },
       "refresh_cadence": {
@@ -14865,7 +14865,7 @@
       ],
       "historical_depth": {
         "minimum_required": "provider_16m_available",
-        "recommended_initial_backfill": "180d_ui_minimum",
+        "recommended_initial_backfill": "provider_16m_available",
         "decision_required": false
       },
       "refresh_cadence": {
@@ -14934,7 +14934,7 @@
       ],
       "historical_depth": {
         "minimum_required": "provider_16m_available",
-        "recommended_initial_backfill": "180d_ui_minimum",
+        "recommended_initial_backfill": "provider_16m_available",
         "decision_required": false
       },
       "refresh_cadence": {
@@ -15799,8 +15799,8 @@
         "date"
       ],
       "historical_depth": {
-        "minimum_required": "180d",
-        "recommended_initial_backfill": "180d",
+        "minimum_required": "provider_16m_available",
+        "recommended_initial_backfill": "provider_16m_available",
         "decision_required": false
       },
       "refresh_cadence": {
@@ -15872,8 +15872,8 @@
         "date"
       ],
       "historical_depth": {
-        "minimum_required": "180d",
-        "recommended_initial_backfill": "180d",
+        "minimum_required": "provider_16m_available",
+        "recommended_initial_backfill": "provider_16m_available",
         "decision_required": false
       },
       "refresh_cadence": {
@@ -15945,8 +15945,8 @@
         "date"
       ],
       "historical_depth": {
-        "minimum_required": "180d",
-        "recommended_initial_backfill": "180d",
+        "minimum_required": "provider_16m_available",
+        "recommended_initial_backfill": "provider_16m_available",
         "decision_required": false
       },
       "refresh_cadence": {
@@ -17594,8 +17594,8 @@
         "sessionMedium"
       ],
       "historical_depth": {
-        "minimum_required": "180d",
-        "recommended_initial_backfill": "180d",
+        "minimum_required": "provider_16m_available",
+        "recommended_initial_backfill": "provider_16m_available",
         "decision_required": true
       },
       "refresh_cadence": {

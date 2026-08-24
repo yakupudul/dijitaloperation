@@ -32,3 +32,10 @@ Schedule::command('horizon:snapshot')
     ->everyFiveMinutes()
     ->withoutOverlapping(5)
     ->name('horizon-snapshot');
+
+// Properties explicitly selected for central GA4 collection are refreshed daily.
+// The command recalculates each property's last 14 closed reporting days in that property's timezone.
+Schedule::command('moxdop:ga4:central-restatement')
+    ->dailyAt('04:10')
+    ->withoutOverlapping(120)
+    ->name('moxdop-ga4-central-restatement');

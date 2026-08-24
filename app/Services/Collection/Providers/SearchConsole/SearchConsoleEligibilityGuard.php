@@ -19,7 +19,7 @@ use App\Support\Integrations\ProviderRegistry;
 use RuntimeException;
 
 /**
- * Production GSC collection may run only for human-confirmed active bindings.
+ * Validates both legacy bound GSC collection and provider-resource-first central collection.
  */
 final class SearchConsoleEligibilityGuard
 {
@@ -29,20 +29,62 @@ final class SearchConsoleEligibilityGuard
 
     /**
      * @return array{
-     *   binding: CoreAssetBinding,
-     *   asset: DigitalAsset,
+     *   binding: CoreAssetBinding|null,
+     *   asset: DigitalAsset|null,
      *   resource: CoreExternalResource,
      *   integration: CoreIntegration,
-     *   site_url: string
+     *   site_url: string,
+     *   central: bool
      * }|DatasetExecutionResult
      */
     public function assertEligible(CollectionRun $collectionRun, CollectionResourceRun $resourceRun): array|DatasetExecutionResult
     {
+        $central = $resourceRun->digital_asset_id === null
+            && $resourceRun->core_asset_binding_id === null
+            && data_get($resourceRun->metadata, 'collection_scope') === 'provider_resource_first';
+
+        if ($central) {
+            $resource = CoreExternalResource::query()
+                ->with('integration')
+                ->find($resourceRun->external_resource_id);
+            $integration = $resource?->integration;
+
+            if (! $resource instanceof CoreExternalResource || ! $integration instanceof CoreIntegration) {
+                return DatasetExecutionResult::failed(
+                    CollectionErrorCategory::Authorization,
+                    'GSC central provider resource scope is incomplete.',
+                    'SCOPE_GRAPH_INCOMPLETE',
+                );
+            }
+
+            $common = $this->validateProviderResource($resource, $integration);
+            if ($common instanceof DatasetExecutionResult) {
+                return $common;
+            }
+
+            if ($collectionRun->digital_asset_id !== null || $collectionRun->brand_id !== null || $collectionRun->customer_id !== null) {
+                return DatasetExecutionResult::failed(
+                    CollectionErrorCategory::Authorization,
+                    'Central GSC collection must not be scoped to Customer, Brand or Digital Asset.',
+                    'CENTRAL_SCOPE_MISMATCH',
+                );
+            }
+
+            return [
+                'binding' => null,
+                'asset' => null,
+                'resource' => $resource,
+                'integration' => $integration,
+                'site_url' => $common,
+                'central' => true,
+            ];
+        }
+
         $bindingId = $resourceRun->core_asset_binding_id;
         if ($bindingId === null) {
             return DatasetExecutionResult::failed(
                 CollectionErrorCategory::Authorization,
-                'GSC production collection requires a human-confirmed CoreAssetBinding.',
+                'GSC bound collection requires a human-confirmed CoreAssetBinding.',
                 'BINDING_REQUIRED',
             );
         }
@@ -52,63 +94,59 @@ final class SearchConsoleEligibilityGuard
             ->find($bindingId);
 
         if (! $binding instanceof CoreAssetBinding) {
-            return DatasetExecutionResult::failed(
-                CollectionErrorCategory::Authorization,
-                'GSC binding not found.',
-                'BINDING_MISSING',
-            );
+            return DatasetExecutionResult::failed(CollectionErrorCategory::Authorization, 'GSC binding not found.', 'BINDING_MISSING');
         }
-
         if ($binding->status !== CoreAssetBinding::STATUS_ACTIVE) {
-            return DatasetExecutionResult::failed(
-                CollectionErrorCategory::Authorization,
-                'GSC binding is not active.',
-                'BINDING_INACTIVE',
-            );
+            return DatasetExecutionResult::failed(CollectionErrorCategory::Authorization, 'GSC binding is not active.', 'BINDING_INACTIVE');
         }
-
         if ($binding->capability !== GoogleScopeRegistry::CAPABILITY_SEARCH_CONSOLE) {
-            return DatasetExecutionResult::failed(
-                CollectionErrorCategory::ContractMismatch,
-                'Binding capability is not search_console.',
-                'CONTRACT_MISMATCH',
-            );
+            return DatasetExecutionResult::failed(CollectionErrorCategory::ContractMismatch, 'Binding capability is not search_console.', 'CONTRACT_MISMATCH');
         }
 
         $asset = $binding->digitalAsset;
         $resource = $binding->externalResource;
         $integration = $resource?->integration;
-
         if (! $asset instanceof DigitalAsset || ! $resource instanceof CoreExternalResource || ! $integration instanceof CoreIntegration) {
-            return DatasetExecutionResult::failed(
-                CollectionErrorCategory::Authorization,
-                'GSC binding scope graph is incomplete.',
-                'SCOPE_GRAPH_INCOMPLETE',
-            );
+            return DatasetExecutionResult::failed(CollectionErrorCategory::Authorization, 'GSC binding scope graph is incomplete.', 'SCOPE_GRAPH_INCOMPLETE');
         }
 
+        $siteUrl = $this->validateProviderResource($resource, $integration);
+        if ($siteUrl instanceof DatasetExecutionResult) {
+            return $siteUrl;
+        }
+
+        if (! CollectionBindingScope::collectionRunMayTargetAsset($collectionRun, $asset)) {
+            return DatasetExecutionResult::failed(CollectionErrorCategory::Authorization, 'Cross-tenant protection: CollectionRun DigitalAsset mismatch.', 'CROSS_TENANT');
+        }
+        if ((int) $resourceRun->digital_asset_id !== (int) $asset->id
+            || (int) $resourceRun->external_resource_id !== (int) $resource->id
+            || (int) $resourceRun->core_asset_binding_id !== (int) $binding->id) {
+            return DatasetExecutionResult::failed(CollectionErrorCategory::Authorization, 'Cross-tenant protection: ResourceRun scope mismatch.', 'CROSS_TENANT');
+        }
+        if ($collectionRun->brand_id !== null && (int) $collectionRun->brand_id !== (int) $asset->brand_id) {
+            return DatasetExecutionResult::failed(CollectionErrorCategory::Authorization, 'Cross-tenant protection: Brand mismatch.', 'CROSS_TENANT');
+        }
+
+        return [
+            'binding' => $binding,
+            'asset' => $asset,
+            'resource' => $resource,
+            'integration' => $integration,
+            'site_url' => $siteUrl,
+            'central' => false,
+        ];
+    }
+
+    private function validateProviderResource(CoreExternalResource $resource, CoreIntegration $integration): string|DatasetExecutionResult
+    {
         if ($resource->resource_type !== GoogleResourceType::GSC_PROPERTY) {
-            return DatasetExecutionResult::failed(
-                CollectionErrorCategory::ContractMismatch,
-                'ExternalResource is not a Search Console property.',
-                'RESOURCE_TYPE_MISMATCH',
-            );
+            return DatasetExecutionResult::failed(CollectionErrorCategory::ContractMismatch, 'ExternalResource is not a Search Console property.', 'RESOURCE_TYPE_MISMATCH');
         }
-
         if ($resource->status !== CoreExternalResource::STATUS_AVAILABLE) {
-            return DatasetExecutionResult::failed(
-                CollectionErrorCategory::Authorization,
-                'GSC ExternalResource is not available.',
-                'RESOURCE_UNAVAILABLE',
-            );
+            return DatasetExecutionResult::failed(CollectionErrorCategory::Authorization, 'GSC ExternalResource is not available.', 'RESOURCE_UNAVAILABLE');
         }
-
         if ($integration->provider !== ProviderRegistry::GOOGLE || ! $integration->isActive()) {
-            return DatasetExecutionResult::failed(
-                CollectionErrorCategory::Authentication,
-                'Google Integration is not active.',
-                'INTEGRATION_INACTIVE',
-            );
+            return DatasetExecutionResult::failed(CollectionErrorCategory::Authentication, 'Google Integration is not active.', 'INTEGRATION_INACTIVE');
         }
 
         $auth = GoogleAuthStatus::for($integration);
@@ -135,32 +173,6 @@ final class SearchConsoleEligibilityGuard
             );
         }
 
-        if (! CollectionBindingScope::collectionRunMayTargetAsset($collectionRun, $asset)) {
-            return DatasetExecutionResult::failed(
-                CollectionErrorCategory::Authorization,
-                'Cross-tenant protection: CollectionRun DigitalAsset mismatch.',
-                'CROSS_TENANT',
-            );
-        }
-
-        if ((int) $resourceRun->digital_asset_id !== (int) $asset->id
-            || (int) $resourceRun->external_resource_id !== (int) $resource->id
-            || (int) $resourceRun->core_asset_binding_id !== (int) $binding->id) {
-            return DatasetExecutionResult::failed(
-                CollectionErrorCategory::Authorization,
-                'Cross-tenant protection: ResourceRun scope mismatch.',
-                'CROSS_TENANT',
-            );
-        }
-
-        if ($collectionRun->brand_id !== null && (int) $collectionRun->brand_id !== (int) $asset->brand_id) {
-            return DatasetExecutionResult::failed(
-                CollectionErrorCategory::Authorization,
-                'Cross-tenant protection: Brand mismatch.',
-                'CROSS_TENANT',
-            );
-        }
-
         $siteUrl = trim((string) $resource->external_id);
         if ($siteUrl === '') {
             return DatasetExecutionResult::failed(
@@ -170,13 +182,7 @@ final class SearchConsoleEligibilityGuard
             );
         }
 
-        return [
-            'binding' => $binding,
-            'asset' => $asset,
-            'resource' => $resource,
-            'integration' => $integration,
-            'site_url' => $siteUrl,
-        ];
+        return $siteUrl;
     }
 
     public function assertInspectionUrlBelongsToProperty(string $siteUrl, string $inspectionUrl): void
@@ -198,7 +204,6 @@ final class SearchConsoleEligibilityGuard
 
         $normalizedSite = rtrim($siteUrl, '/').'/';
         if (! str_starts_with($inspectionUrl, $siteUrl) && ! str_starts_with($inspectionUrl, $normalizedSite)) {
-            // URL-prefix properties require the inspection URL to start with siteUrl.
             if (! str_starts_with($inspectionUrl, rtrim($siteUrl, '/'))) {
                 throw new RuntimeException('Inspection URL is outside the GSC URL-prefix property.');
             }
