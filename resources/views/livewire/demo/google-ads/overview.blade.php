@@ -25,8 +25,11 @@
     $strategyLine = (string) ($identity['strategy_line'] ?? '');
     if ($providerConnected && str_contains(strtolower($strategyLine), 'not connected')) {
         $strategyLine = $isTr
-            ? 'Google Ads hesabı bağlı. Ana veri katmanının bir bölümü okunamadığında mevcut provider verisi korunur.'
+            ? 'Google Ads hesabı bağlı. Ana veri katmanının bir bölümü okunamadığında mevcut sağlayıcı verisi korunur.'
             : 'Google Ads account is connected. Existing provider data remains available if part of the main read layer fails.';
+    }
+    if ($isTr && preg_match('/^Runs ads for\s*·\s*(.+)$/iu', $strategyLine, $matches) === 1) {
+        $strategyLine = 'Reklam hesabı · '.trim((string) ($matches[1] ?? ''));
     }
     $navTabs = [
         ['key' => 'overview', 'label' => $isTr ? 'Genel Bakış' : 'Overview', 'wire' => true],
@@ -35,7 +38,7 @@
         ['key' => 'performance', 'label' => $isTr ? 'Performans' : 'Performance', 'wire' => true],
         ['key' => 'budget_bidding', 'label' => $isTr ? 'Bütçe & Teklif' : 'Budget & Bidding', 'wire' => true],
         ['key' => 'measurement', 'label' => $isTr ? 'Dönüşümler' : 'Conversions', 'wire' => true],
-        ['key' => 'landing_pages', 'label' => $isTr ? 'Landing Pages' : 'Landing Pages', 'wire' => true],
+        ['key' => 'landing_pages', 'label' => $isTr ? 'Açılış Sayfaları' : 'Landing Pages', 'wire' => true],
         ['key' => 'optimization', 'label' => $isTr ? 'Optimizasyon' : 'Optimization', 'wire' => true],
         ['key' => 'changes', 'label' => $isTr ? 'Değişiklikler' : 'Changes', 'wire' => true],
         ['key' => 'data_connection', 'label' => $isTr ? 'Veri & Bağlantı' : 'Data & Connection', 'wire' => true],
@@ -44,7 +47,7 @@
         $navTabs[] = ['key' => 'pmax', 'label' => 'PMax', 'wire' => true];
     }
     if (data_get($professional, 'capabilities.shopping')) {
-        $navTabs[] = ['key' => 'shopping', 'label' => 'Shopping', 'wire' => true];
+        $navTabs[] = ['key' => 'shopping', 'label' => $isTr ? 'Alışveriş' : 'Shopping', 'wire' => true];
     }
     if (data_get($professional, 'capabilities.video')) {
         $navTabs[] = ['key' => 'video', 'label' => 'Video', 'wire' => true];
@@ -74,7 +77,7 @@
                 <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
                     <span><span class="font-medium {{ $providerConnected || $rawStatus === 'Connected' ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400' }}">{{ $statusLabel }}</span>@if($freshnessLabel !== '') · {{ $freshnessLabel }} @endif</span>
                     @if (! empty($identity['customer_id']))
-                        <span>Customer ID <strong class="font-medium text-gray-700 dark:text-gray-300">{{ $identity['customer_id'] }}</strong></span>
+                        <span>{{ $isTr ? 'Müşteri ID' : 'Customer ID' }} <strong class="font-medium text-gray-700 dark:text-gray-300">{{ $identity['customer_id'] }}</strong></span>
                     @endif
                     @if (! empty($identity['reporting_timezone']))
                         <span>{{ $identity['reporting_timezone'] }}</span>
@@ -109,8 +112,8 @@
 
     @if (! empty($professional['error']))
         <div class="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-inset ring-amber-200 dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-500/20">
-            <strong>{{ $isTr ? 'Provider veri katmanında geçici okuma sorunu.' : 'Temporary provider data read issue.' }}</strong>
-            {{ $isTr ? 'Hesap bağlantısı korunuyor; Veri & Bağlantı sekmesinden dataset durumunu kontrol edebilirsiniz.' : 'The account remains connected; inspect dataset state under Data & Connection.' }}
+            <strong>{{ $isTr ? 'Sağlayıcı veri katmanında geçici okuma sorunu.' : 'Temporary provider data read issue.' }}</strong>
+            {{ $isTr ? 'Hesap bağlantısı korunuyor; Veri & Bağlantı sekmesinden veri seti durumunu kontrol edebilirsiniz.' : 'The account remains connected; inspect dataset state under Data & Connection.' }}
         </div>
     @endif
 
