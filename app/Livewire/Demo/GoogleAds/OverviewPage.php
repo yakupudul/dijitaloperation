@@ -4,8 +4,8 @@ namespace App\Livewire\Demo\GoogleAds;
 
 use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
 use App\Livewire\Demo\Concerns\ResolvesCanonicalOperatorAsset;
-use App\Models\DigitalAsset;
-use App\Services\DataPool\Freshness\StartIncrementalCollectionService;
+use App\Models\CoreExternalResource;
+use App\Services\Collection\GoogleAds\GoogleAdsCentralCollectionService;
 use App\Services\GoogleAds\GoogleAdsProfessionalWorkspaceReadService;
 use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
 use App\Services\GoogleAds\GoogleAdsSpecialistReadService;
@@ -198,31 +198,34 @@ class OverviewPage extends Component
     {
         $binding = app(GoogleAdsSpecialistBindingResolver::class)->resolve($this->assetId);
 
-        if ($binding->mode !== GoogleAdsBindingMode::RealBound) {
+        if ($binding->mode !== GoogleAdsBindingMode::RealBound || $binding->externalResourceId === null) {
             DemoState::flash(__('operator.flash.google_ads_refresh_unconfigured'), 'info');
 
             return;
         }
 
-        $asset = DigitalAsset::query()->find($binding->digitalAssetId);
-        if (! $asset instanceof DigitalAsset) {
+        $resource = CoreExternalResource::query()
+            ->with('integration')
+            ->find($binding->externalResourceId);
+        if (! $resource instanceof CoreExternalResource || $resource->integration === null) {
             DemoState::flash(__('operator.flash.google_ads_refresh_missing_asset'), 'warning');
 
             return;
         }
 
-        $result = app(StartIncrementalCollectionService::class)->startForBindingIds(
-            [$binding->coreAssetBindingId],
-            auth()->user(),
-            ['GOOGLE_ADS'],
-        );
-
-        DemoState::flash(match ($result->outcome) {
-            'started' => 'Google Ads incremental collection started in the background.',
-            'active_equivalent' => 'An equivalent Google Ads incremental collection is already running.',
-            'data_current' => 'Google Ads data is current — no incremental collection is due.',
-            default => $result->message,
-        }, $result->outcome === 'started' ? 'success' : 'info');
+        try {
+            $run = app(GoogleAdsCentralCollectionService::class)->startSmartUpdate(
+                $resource->integration,
+                [(int) $resource->id],
+                auth()->user(),
+            );
+            DemoState::flash(
+                (string) data_get($run->metadata, 'collection_intent_label', 'Google Ads veri toplama').' başlatıldı. Run #'.$run->id.'.',
+                'success',
+            );
+        } catch (\Throwable $e) {
+            DemoState::flash('Google Ads veri toplama başlatılamadı: '.$e->getMessage(), 'warning');
+        }
     }
 
     public function runAnalysis(): void
