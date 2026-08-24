@@ -1,11 +1,11 @@
-; Dedicated canonical collection worker for MoxDOP staging.
-; PostgreSQL collection state is the source of truth. This worker executes
-; queued/retrying datasets directly, so Redis/Horizon transport issues cannot
-; strand runs in "queued" forever. Dataset dispatch locks prevent duplicates.
+; Dedicated canonical collection workers for MoxDOP staging.
+; PostgreSQL collection state is the source of truth. Google Ads is isolated
+; from other providers so a GA4/Meta/Website backlog cannot starve Ads runs.
+; Dataset dispatch locks prevent duplicate execution with Horizon/Redis.
 
 [program:moxdop-staging-collection]
 process_name=%(program_name)s
-command=php /var/www/moxdop/artisan moxdop:collection:work-db --sleep=1 --max-runtime=3500
+command=php /var/www/moxdop/artisan moxdop:collection:work-db --exclude-provider=GOOGLE_ADS --sleep=1 --max-runtime=3500
 directory=/var/www/moxdop
 autostart=true
 autorestart=true
@@ -16,6 +16,23 @@ user=www-data
 numprocs=1
 redirect_stderr=true
 stdout_logfile=/var/log/moxdop-staging-collection.log
+stdout_logfile_maxbytes=10MB
+stdout_logfile_backups=5
+stopwaitsecs=360
+
+[program:moxdop-staging-google-ads-collection]
+process_name=%(program_name)s
+command=php /var/www/moxdop/artisan moxdop:collection:work-db --provider=GOOGLE_ADS --sleep=1 --max-runtime=3500
+directory=/var/www/moxdop
+autostart=true
+autorestart=true
+startsecs=2
+stopasgroup=true
+killasgroup=true
+user=www-data
+numprocs=1
+redirect_stderr=true
+stdout_logfile=/var/log/moxdop-staging-google-ads-collection.log
 stdout_logfile_maxbytes=10MB
 stdout_logfile_backups=5
 stopwaitsecs=360
