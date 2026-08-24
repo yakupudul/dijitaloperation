@@ -14,20 +14,41 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-Artisan::command('moxdop:collection:work-db {--sleep=1} {--max-runtime=3500}', function () {
+Artisan::command('moxdop:collection:work-db {--provider=} {--exclude-provider=} {--sleep=1} {--max-runtime=3500}', function () {
     $sleep = max(1, (int) $this->option('sleep'));
     $maxRuntime = max(60, (int) $this->option('max-runtime'));
+    $provider = strtoupper(trim((string) $this->option('provider')));
+    $excludeProvider = strtoupper(trim((string) $this->option('exclude-provider')));
+
+    if ($provider !== '' && $excludeProvider !== '') {
+        $this->error('Use either --provider or --exclude-provider, not both.');
+
+        return 2;
+    }
+
     $startedAt = microtime(true);
     $starter = app(StartCollectionService::class);
+    $scope = $provider !== ''
+        ? 'provider='.$provider
+        : ($excludeProvider !== '' ? 'exclude_provider='.$excludeProvider : 'all');
 
     $this->info(sprintf(
-        'MoxDOP DB collection worker started (sleep=%ds, max_runtime=%ds).',
+        'MoxDOP DB collection worker started (%s, sleep=%ds, max_runtime=%ds).',
+        $scope,
         $sleep,
         $maxRuntime,
     ));
 
     while ((microtime(true) - $startedAt) < $maxRuntime) {
-        $candidates = CollectionDatasetRun::query()
+        $query = CollectionDatasetRun::query()
+            ->whereHas('collectionRun', function ($run): void {
+                $run->whereIn('status', [
+                    CollectionRunStatus::Queued->value,
+                    CollectionRunStatus::Running->value,
+                    CollectionRunStatus::Retrying->value,
+                    CollectionRunStatus::CancellationRequested->value,
+                ]);
+            })
             ->where(function ($query): void {
                 $query->where('status', CollectionRunStatus::Queued->value)
                     ->orWhere(function ($retry): void {
@@ -38,9 +59,22 @@ Artisan::command('moxdop:collection:work-db {--sleep=1} {--max-runtime=3500}', f
                             });
                     });
             })
+            ->where(function ($lock): void {
+                $lock->whereNull('dispatch_lock_token')
+                    ->orWhereNull('dispatch_locked_at')
+                    ->orWhere('dispatch_locked_at', '<', now()->subMinutes(15));
+            });
+
+        if ($provider !== '') {
+            $query->where('provider_or_source', $provider);
+        } elseif ($excludeProvider !== '') {
+            $query->where('provider_or_source', '!=', $excludeProvider);
+        }
+
+        $candidates = $query
             ->orderBy('last_activity_at')
             ->orderBy('id')
-            ->limit(50)
+            ->limit(100)
             ->get();
 
         $dataset = $candidates->first(
@@ -52,8 +86,18 @@ Artisan::command('moxdop:collection:work-db {--sleep=1} {--max-runtime=3500}', f
             continue;
         }
 
+        $beforeAttempt = (int) $dataset->attempt_count;
+        $beforeStatus = $dataset->status;
+
         try {
             Bus::dispatchSync(new ExecuteDatasetRunJob($dataset->id));
+
+            $dataset->refresh();
+            if ((int) $dataset->attempt_count === $beforeAttempt && $dataset->status === $beforeStatus) {
+                // Another worker may have claimed the row between selection and execution.
+                // Avoid a hot loop on the same queued dataset and give the owner time to progress.
+                usleep(250000);
+            }
         } catch (Throwable $e) {
             report($e);
             $this->error(sprintf(
@@ -69,6 +113,87 @@ Artisan::command('moxdop:collection:work-db {--sleep=1} {--max-runtime=3500}', f
 
     return 0;
 })->purpose('Continuously execute canonical queued/retrying collection datasets directly from PostgreSQL state.');
+
+Artisan::command('moxdop:collection:status {--provider=}', function () {
+    $provider = strtoupper(trim((string) $this->option('provider')));
+    $activeStatuses = [
+        CollectionRunStatus::Queued->value,
+        CollectionRunStatus::Running->value,
+        CollectionRunStatus::Retrying->value,
+        CollectionRunStatus::CancellationRequested->value,
+    ];
+
+    $runs = CollectionRun::query()
+        ->whereIn('status', $activeStatuses)
+        ->with(['datasetRuns', 'resourceRuns'])
+        ->orderBy('id')
+        ->get();
+
+    if ($provider !== '') {
+        $runs = $runs->filter(fn (CollectionRun $run): bool => $run->datasetRuns->contains(
+            fn (CollectionDatasetRun $dataset): bool => strtoupper((string) $dataset->provider_or_source) === $provider
+        ))->values();
+    }
+
+    $this->info(sprintf('Active collection runs: %d%s', $runs->count(), $provider !== '' ? ' · provider='.$provider : ''));
+
+    foreach ($runs as $run) {
+        $datasets = $run->datasetRuns;
+        $providers = $datasets->pluck('provider_or_source')->filter()->unique()->implode(',');
+        $queued = $datasets->where('status', CollectionRunStatus::Queued)->count();
+        $running = $datasets->where('status', CollectionRunStatus::Running)->count();
+        $retrying = $datasets->where('status', CollectionRunStatus::Retrying)->count();
+        $completed = $datasets->where('status', CollectionRunStatus::Completed)->count();
+        $failed = $datasets->where('status', CollectionRunStatus::Failed)->count();
+        $attempts = (int) $datasets->sum('attempt_count');
+        $locked = $datasets->filter(fn (CollectionDatasetRun $dataset): bool => filled($dataset->dispatch_lock_token))->count();
+
+        $this->line(sprintf(
+            'Run #%d | %s | providers=%s | q=%d run=%d retry=%d done=%d fail=%d | attempts=%d locks=%d | activity=%s',
+            $run->id,
+            $run->status->value,
+            $providers !== '' ? $providers : '-',
+            $queued,
+            $running,
+            $retrying,
+            $completed,
+            $failed,
+            $attempts,
+            $locked,
+            $run->last_activity_at?->diffForHumans() ?? '-',
+        ));
+    }
+
+    $datasetQuery = CollectionDatasetRun::query()
+        ->where(function ($query): void {
+            $query->where('status', CollectionRunStatus::Queued->value)
+                ->orWhere('status', CollectionRunStatus::Retrying->value);
+        });
+
+    if ($provider !== '') {
+        $datasetQuery->where('provider_or_source', $provider);
+    }
+
+    $queuedDatasets = $datasetQuery->get();
+    $freshLocks = $queuedDatasets->filter(fn (CollectionDatasetRun $dataset): bool =>
+        filled($dataset->dispatch_lock_token)
+        && $dataset->dispatch_locked_at !== null
+        && $dataset->dispatch_locked_at->greaterThan(now()->subMinutes(15))
+    )->count();
+    $staleLocks = $queuedDatasets->filter(fn (CollectionDatasetRun $dataset): bool =>
+        filled($dataset->dispatch_lock_token)
+        && ($dataset->dispatch_locked_at === null || $dataset->dispatch_locked_at->lessThanOrEqualTo(now()->subMinutes(15)))
+    )->count();
+
+    $this->line(sprintf(
+        'Queued/retrying datasets=%d | fresh_locks=%d | stale_locks=%d',
+        $queuedDatasets->count(),
+        $freshLocks,
+        $staleLocks,
+    ));
+
+    return 0;
+})->purpose('Show active collection runs, attempts and dispatch-lock health.');
 
 Artisan::command('moxdop:collection:redispatch-stale {--run=} {--force}', function () {
     $query = CollectionRun::query()
