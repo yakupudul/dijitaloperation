@@ -11,7 +11,7 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-Artisan::command('moxdop:collection:redispatch-stale {--run=}', function () {
+Artisan::command('moxdop:collection:redispatch-stale {--run=} {--force}', function () {
     $query = CollectionRun::query()
         ->whereIn('status', [
             CollectionRunStatus::Queued->value,
@@ -27,26 +27,39 @@ Artisan::command('moxdop:collection:redispatch-stale {--run=}', function () {
 
     $starter = app(StartCollectionService::class);
     $runs = $query->get();
-    $before = 0;
-    $after = 0;
+    $queued = 0;
+    $forcedClaims = 0;
 
     foreach ($runs as $run) {
-        $before += $run->datasetRuns()
+        $queuedDatasets = $run->datasetRuns()
             ->where('status', CollectionRunStatus::Queued->value)
-            ->count();
+            ->get();
 
-        $starter->dispatchEligibleRootJobs($run);
+        $queued += $queuedDatasets->count();
 
-        $after += $run->datasetRuns()
-            ->where('status', CollectionRunStatus::Queued->value)
-            ->count();
+        if ((bool) $this->option('force')) {
+            foreach ($queuedDatasets as $dataset) {
+                $metadata = is_array($dataset->metadata) ? $dataset->metadata : [];
+                if (($metadata['queue_dispatch_claimed'] ?? false) === true) {
+                    $forcedClaims++;
+                }
+                unset($metadata['queue_dispatch_claimed'], $metadata['queue_dispatch_claimed_at']);
+                $dataset->forceFill([
+                    'metadata' => $metadata,
+                    'dispatch_lock_token' => null,
+                    'dispatch_locked_at' => null,
+                ])->save();
+            }
+        }
+
+        $starter->dispatchEligibleRootJobs($run->fresh() ?? $run);
     }
 
     $this->info(sprintf(
-        'Collection recovery scanned %d active run(s); queued before=%d after=%d.',
+        'Collection recovery scanned %d active run(s); queued=%d; forced_claims=%d.',
         $runs->count(),
-        $before,
-        $after,
+        $queued,
+        $forcedClaims,
     ));
 })->purpose('Republish queued collection datasets whose Redis dispatch lease has expired.');
 
