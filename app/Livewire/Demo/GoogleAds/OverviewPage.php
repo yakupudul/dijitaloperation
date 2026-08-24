@@ -30,6 +30,24 @@ class OverviewPage extends Component
     public string $tab = 'overview';
 
     #[Url]
+    public string $campaign_sub = 'campaigns';
+
+    #[Url]
+    public string $entity_campaign = 'all';
+
+    #[Url]
+    public string $entity_ad_group = 'all';
+
+    #[Url]
+    public string $entity_status = 'all';
+
+    #[Url]
+    public string $entity_type = 'all';
+
+    #[Url]
+    public string $entity_query = '';
+
+    #[Url]
     public string $search_sub = 'terms';
 
     #[Url]
@@ -73,7 +91,6 @@ class OverviewPage extends Component
         'overview',
         'campaigns',
         'search_demand',
-        'ads_assets',
         'performance',
         'budget_bidding',
         'measurement',
@@ -91,7 +108,7 @@ class OverviewPage extends Component
         'adgroups' => 'campaigns',
         'keywords' => 'search_demand',
         'search_terms' => 'search_demand',
-        'ads' => 'ads_assets',
+        'ads' => 'campaigns',
         'conversions' => 'measurement',
         'insights' => 'overview',
         'operations' => 'optimization',
@@ -112,9 +129,34 @@ class OverviewPage extends Component
 
     public function setTab(string $tab): void
     {
+        if ($tab === 'ads_assets') {
+            $this->campaign_sub = 'ads';
+            $tab = 'campaigns';
+        }
         $this->tab = $tab;
         $this->normalizeTab();
         $this->closeDrawers();
+    }
+
+    public function setCampaignSub(string $sub): void
+    {
+        if (! in_array($sub, ['campaigns', 'ad_groups', 'ads'], true)) {
+            return;
+        }
+
+        $this->campaign_sub = $sub;
+        $this->tab = 'campaigns';
+        $this->campaign = null;
+        $this->ad = null;
+    }
+
+    public function resetEntityFilters(): void
+    {
+        $this->entity_campaign = 'all';
+        $this->entity_ad_group = 'all';
+        $this->entity_status = 'all';
+        $this->entity_type = 'all';
+        $this->entity_query = '';
     }
 
     public function setSearchSub(string $sub): void
@@ -146,6 +188,7 @@ class OverviewPage extends Component
     {
         $this->campaign = $id;
         $this->tab = 'campaigns';
+        $this->campaign_sub = 'campaigns';
         $this->cluster = null;
         $this->ad = null;
         $this->landing = null;
@@ -163,7 +206,8 @@ class OverviewPage extends Component
     public function openAd(string $id): void
     {
         $this->ad = $id;
-        $this->tab = 'ads_assets';
+        $this->tab = 'campaigns';
+        $this->campaign_sub = 'ads';
     }
 
     public function openLanding(string $id): void
@@ -256,12 +300,26 @@ class OverviewPage extends Component
 
     protected function normalizeTab(): void
     {
+        if ($this->tab === 'ads_assets') {
+            $this->tab = 'campaigns';
+            $this->campaign_sub = 'ads';
+        }
+
         if (isset(self::LEGACY_TAB_MAP[$this->tab])) {
             $legacy = $this->tab;
             $this->tab = self::LEGACY_TAB_MAP[$legacy];
             if (in_array($legacy, ['search_terms', 'keywords'], true)) {
                 $this->search_sub = $legacy === 'keywords' ? 'keywords' : 'terms';
             }
+            if ($legacy === 'adgroups') {
+                $this->campaign_sub = 'ad_groups';
+            } elseif ($legacy === 'ads') {
+                $this->campaign_sub = 'ads';
+            }
+        }
+
+        if (! in_array($this->campaign_sub, ['campaigns', 'ad_groups', 'ads'], true)) {
+            $this->campaign_sub = 'campaigns';
         }
 
         if (! in_array($this->tab, $this->allowedTabs, true)) {
@@ -303,7 +361,7 @@ class OverviewPage extends Component
         if ($this->campaign_filter === 'attention') {
             $campaigns = $campaigns->filter(fn (array $c): bool => filled($c['attention_primary'] ?? null));
         } elseif ($this->campaign_filter === 'budget') {
-            $campaigns = $campaigns->filter(fn (array $c): bool => in_array($c['pacing'], ['Ahead', 'Behind', 'Constrained'], true));
+            $campaigns = $campaigns->filter(fn (array $c): bool => in_array($c['pacing'] ?? null, ['Ahead', 'Behind', 'Constrained'], true));
         }
 
         $terms = collect($data['search']['terms'] ?? []);
@@ -371,7 +429,7 @@ class OverviewPage extends Component
             'selectedFinding' => $selectedFinding,
             'selectedAttention' => $selectedAttention,
             'showPeriodBar' => in_array($this->tab, [
-                'overview', 'campaigns', 'search_demand', 'ads_assets', 'performance',
+                'overview', 'campaigns', 'search_demand', 'performance',
                 'budget_bidding', 'measurement', 'landing_pages', 'optimization', 'pmax', 'shopping', 'video',
             ], true),
             'performanceChartOptions' => [
