@@ -51,14 +51,25 @@
     </div>
 @elseif($state === 'no_stored_rows')
     <div class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-4 dark:border-rose-500/20 dark:bg-rose-500/10">
-        <p class="text-sm font-semibold text-rose-900 dark:text-rose-100">
-            {{ $isTr ? 'Açılış sayfası veri kümesinde henüz gerçek satır yok.' : 'The landing-page dataset has no stored provider rows yet.' }}
-        </p>
-        <p class="mt-1 text-xs leading-5 text-rose-700 dark:text-rose-200/80">
-            {{ $isTr
-                ? 'Google Ads hesabı bağlı olsa da google_ads_landing_page_daily tablosuna bu hesap için URL satırı yazılmamış. Üstteki “Verileri yenile” işlemi landing-page ailesini de yeniden toplar; toplama tamamlandıktan sonra bu ekran otomatik olarak gerçek veriye geçer.'
-                : 'The Google Ads account is connected, but no URL rows have been written to google_ads_landing_page_daily for this account. “Refresh data” also recollects the landing-page family; the workspace switches to real rows after collection completes.' }}
-        </p>
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+                <p class="text-sm font-semibold text-rose-900 dark:text-rose-100">
+                    {{ $isTr ? 'Açılış sayfası veri kümesinde henüz gerçek satır yok.' : 'The landing-page dataset has no stored provider rows yet.' }}
+                </p>
+                <p class="mt-1 text-xs leading-5 text-rose-700 dark:text-rose-200/80">
+                    {{ $isTr
+                        ? 'Google Ads hesabı bağlı olsa da google_ads_landing_page_daily tablosuna bu hesap için URL satırı yazılmamış. Yenileme işlemi landing-page ailesini de yeniden toplar; toplama tamamlandıktan sonra bu ekran otomatik olarak gerçek veriye geçer.'
+                        : 'The Google Ads account is connected, but no URL rows have been written to google_ads_landing_page_daily for this account. Refresh recollects the landing-page family; the workspace switches to real rows after collection completes.' }}
+                </p>
+            </div>
+            <button type="button"
+                    wire:click="$parent.refreshData"
+                    wire:loading.attr="disabled"
+                    class="inline-flex shrink-0 items-center justify-center rounded-lg bg-rose-700 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-rose-800 disabled:cursor-wait disabled:opacity-60 dark:bg-rose-500 dark:text-gray-950 dark:hover:bg-rose-400">
+                <span wire:loading.remove wire:target="$parent.refreshData">{{ $isTr ? 'Landing-page verisini yenile' : 'Refresh landing-page data' }}</span>
+                <span wire:loading wire:target="$parent.refreshData">{{ $isTr ? 'Toplama başlatılıyor…' : 'Starting collection…' }}</span>
+            </button>
+        </div>
     </div>
 @elseif($state === 'dataset_unavailable')
     <div class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-4 text-sm text-rose-800 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200">
