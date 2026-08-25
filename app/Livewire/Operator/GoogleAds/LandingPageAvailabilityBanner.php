@@ -133,15 +133,23 @@ class LandingPageAvailabilityBanner extends Component
             ->where('external_resource_id', $externalResourceId)
             ->where('customer_id', $customerId);
 
-        $hasCentralRows = (clone $canonicalBase)
+        // Mirror GoogleAdsPoolReadRepository::dailyScope(): central rows win only
+        // when central data exists inside the requested date range. Otherwise the
+        // migration-era asset-bound rows remain the canonical selected-period source.
+        $hasCentralSelectedRows = (clone $canonicalBase)
             ->whereNull('digital_asset_id')
+            ->whereBetween('reporting_date', [$this->periodStart, $this->periodEnd])
             ->exists();
 
-        $scope = $this->scopedRows($canonicalBase, $digitalAssetId, $hasCentralRows)
+        $selectedScope = $this->scopedRows(
+            clone $canonicalBase,
+            $digitalAssetId,
+            $hasCentralSelectedRows,
+        )
             ->whereNotNull('landing_page')
             ->where('landing_page', '<>', '');
 
-        $selectedRows = (clone $scope)
+        $selectedRows = (clone $selectedScope)
             ->whereBetween('reporting_date', [$this->periodStart, $this->periodEnd])
             ->count();
 
@@ -150,11 +158,25 @@ class LandingPageAvailabilityBanner extends Component
                 ...$base,
                 'state' => 'ready',
                 'selected_rows' => $selectedRows,
-                'source_mode' => $hasCentralRows ? 'central' : 'asset_bound',
+                'source_mode' => $hasCentralSelectedRows ? 'central' : 'asset_bound',
             ];
         }
 
-        $history = (clone $scope)
+        // For the historical fallback hint, prefer provider-resource-first history
+        // whenever it exists; otherwise inspect the older asset-bound history.
+        $hasCentralHistoricalRows = (clone $canonicalBase)
+            ->whereNull('digital_asset_id')
+            ->exists();
+
+        $historyScope = $this->scopedRows(
+            clone $canonicalBase,
+            $digitalAssetId,
+            $hasCentralHistoricalRows,
+        )
+            ->whereNotNull('landing_page')
+            ->where('landing_page', '<>', '');
+
+        $history = (clone $historyScope)
             ->selectRaw('COUNT(*) as rows_count')
             ->selectRaw('MIN(reporting_date) as first_date')
             ->selectRaw('MAX(reporting_date) as last_date')
@@ -168,7 +190,7 @@ class LandingPageAvailabilityBanner extends Component
             return [
                 ...$base,
                 'state' => 'no_stored_rows',
-                'source_mode' => $hasCentralRows ? 'central' : 'asset_bound',
+                'source_mode' => $hasCentralHistoricalRows ? 'central' : 'asset_bound',
             ];
         }
 
@@ -189,7 +211,7 @@ class LandingPageAvailabilityBanner extends Component
             'last_date' => $lastDate,
             'suggested_start' => $suggestedStart->toDateString(),
             'suggested_end' => $latest->toDateString(),
-            'source_mode' => $hasCentralRows ? 'central' : 'asset_bound',
+            'source_mode' => $hasCentralHistoricalRows ? 'central' : 'asset_bound',
         ];
     }
 
