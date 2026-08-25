@@ -12,7 +12,18 @@
             'to' => $suggestedEnd,
         ])
         : null;
+    $refreshClass = match ($refreshTone ?? 'info') {
+        'success' => 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200',
+        'warning' => 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200',
+        default => 'border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-200',
+    };
 @endphp
+
+@if($refreshMessage)
+    <div class="rounded-xl border px-4 py-3 text-xs font-medium {{ $refreshClass }}">
+        {{ $refreshMessage }}
+    </div>
+@endif
 
 @if($state === 'selected_period_empty')
     <div class="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 dark:border-amber-500/20 dark:bg-amber-500/10">
@@ -63,11 +74,12 @@
                 </p>
             </div>
             <button type="button"
-                    wire:click="$parent.refreshData"
+                    wire:click="refreshLandingData"
                     wire:loading.attr="disabled"
+                    wire:target="refreshLandingData"
                     class="inline-flex shrink-0 items-center justify-center rounded-lg bg-rose-700 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-rose-800 disabled:cursor-wait disabled:opacity-60 dark:bg-rose-500 dark:text-gray-950 dark:hover:bg-rose-400">
-                <span wire:loading.remove>{{ $isTr ? 'Landing-page verisini yenile' : 'Refresh landing-page data' }}</span>
-                <span wire:loading>{{ $isTr ? 'Toplama başlatılıyor…' : 'Starting collection…' }}</span>
+                <span wire:loading.remove wire:target="refreshLandingData">{{ $isTr ? 'Landing-page verisini yenile' : 'Refresh landing-page data' }}</span>
+                <span wire:loading wire:target="refreshLandingData">{{ $isTr ? 'Toplama başlatılıyor…' : 'Starting collection…' }}</span>
             </button>
         </div>
     </div>
