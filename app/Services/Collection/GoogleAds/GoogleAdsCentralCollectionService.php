@@ -139,26 +139,32 @@ final class GoogleAdsCentralCollectionService
                     CollectionRunStatus::Skipped,
                     CollectionRunStatus::NotEligible,
                 ], true))
-                ->map(function (CollectionDatasetRun $dataset) use ($resource): array {
-                    $family = (string) $dataset->request_family_id;
-                    $range = data_get($dataset->metadata, 'date_range');
-
-                    return [
-                        'family' => $family,
-                        'date_range' => $this->repairDateRange($resource, $family, $range),
-                        'execution_variant' => (string) ($dataset->execution_variant ?? ''),
-                    ];
-                })
+                ->map(fn (CollectionDatasetRun $dataset): array => $this->repairFamilyEntry($resource, $dataset))
                 ->filter(fn (array $entry): bool => in_array($entry['family'], GoogleAdsCentralRequestFamilyCatalog::supportedFamilies(), true))
                 ->values()
                 ->all();
 
             if ($families !== []) {
+                $historyPolicyVersion = max(
+                    (int) data_get($latest->metadata, 'history_policy_version', 0),
+                    $completed instanceof CollectionResourceRun
+                        ? (int) data_get($completed->metadata, 'history_policy_version', 0)
+                        : 0,
+                );
+                $activitySummary = data_get($latest->metadata, 'activity_summary');
+                if ($activitySummary === null && $completed instanceof CollectionResourceRun) {
+                    $activitySummary = data_get($completed->metadata, 'activity_summary');
+                }
+
                 return [
                     'intent' => $latest->status === CollectionRunStatus::Cancelled
                         ? 'google_ads_central_resume'
                         : 'google_ads_central_repair',
                     'families' => $families,
+                    'history_policy_version' => $historyPolicyVersion > 0 ? $historyPolicyVersion : null,
+                    'history_policy_upgrade' => (bool) data_get($latest->metadata, 'history_policy_upgrade', false),
+                    'activity_summary' => $activitySummary,
+                    'resumed_from_resource_run_id' => (int) $latest->id,
                 ];
             }
         }
@@ -276,6 +282,61 @@ final class GoogleAdsCentralCollectionService
         }
 
         return $out;
+    }
+
+    /** @return array<string,mixed> */
+    private function repairFamilyEntry(CoreExternalResource $resource, CollectionDatasetRun $dataset): array
+    {
+        $family = (string) $dataset->request_family_id;
+        $originalRange = data_get($dataset->metadata, 'date_range');
+        $dateRange = $this->repairDateRange($resource, $family, $originalRange);
+        $checkpoint = is_array($dataset->checkpoint) ? $dataset->checkpoint : [];
+
+        if (! $this->checkpointMatchesRepairRange($checkpoint, $originalRange, $dateRange)) {
+            $checkpoint = [];
+        } else {
+            unset($checkpoint['completed']);
+        }
+
+        return [
+            'family' => $family,
+            'date_range' => $dateRange,
+            'execution_variant' => (string) ($dataset->execution_variant ?? ''),
+            'checkpoint' => $checkpoint,
+            'progress_current' => $checkpoint === [] ? 0 : max(0, (int) $dataset->progress_current),
+            'progress_total' => $checkpoint === [] || $dataset->progress_total === null
+                ? null
+                : max(0, (int) $dataset->progress_total),
+            'resumed_from_dataset_run_id' => (int) $dataset->id,
+        ];
+    }
+
+    private function checkpointMatchesRepairRange(array $checkpoint, mixed $originalRange, ?array $repairRange): bool
+    {
+        if ($checkpoint === []) {
+            return true;
+        }
+
+        $normalize = static function (mixed $range): ?array {
+            if (! is_array($range) || ! isset($range['start'], $range['end'])) {
+                return null;
+            }
+
+            return [
+                'start' => (string) $range['start'],
+                'end' => (string) $range['end'],
+            ];
+        };
+
+        $planned = $normalize($originalRange);
+        $repaired = $normalize($repairRange);
+        if ($planned !== $repaired) {
+            return false;
+        }
+
+        $checkpointRange = $normalize($checkpoint['date_range'] ?? null);
+
+        return $checkpointRange === null || $checkpointRange === $repaired;
     }
 
     /** @return array{start:string,end:string}|null */
@@ -434,6 +495,7 @@ final class GoogleAdsCentralCollectionService
                         'history_policy_version' => $resourcePlan['history_policy_version'] ?? null,
                         'history_policy_upgrade' => (bool) ($resourcePlan['history_policy_upgrade'] ?? false),
                         'activity_summary' => $resourcePlan['activity_summary'] ?? null,
+                        'resumed_from_resource_run_id' => $resourcePlan['resumed_from_resource_run_id'] ?? null,
                     ],
                 ]);
 
@@ -441,6 +503,12 @@ final class GoogleAdsCentralCollectionService
                     $family = $entry['family'];
                     $definition = GoogleAdsCentralRequestFamilyCatalog::definition($family);
                     $variant = mb_strtolower(trim((string) ($entry['execution_variant'] ?? '')));
+                    $checkpoint = is_array($entry['checkpoint'] ?? null) ? $entry['checkpoint'] : [];
+                    $progressCurrent = $checkpoint === [] ? 0 : max(0, (int) ($entry['progress_current'] ?? 0));
+                    $progressTotal = $checkpoint === [] || ! isset($entry['progress_total'])
+                        ? null
+                        : max(0, (int) $entry['progress_total']);
+
                     CollectionDatasetRun::query()->create([
                         'collection_run_id' => $run->id,
                         'collection_resource_run_id' => $resourceRun->id,
@@ -455,14 +523,14 @@ final class GoogleAdsCentralCollectionService
                         'max_attempts' => (int) config('moxdop-collection.default_max_attempts', 3),
                         'last_activity_at' => now(),
                         'progress_mode' => ProgressMode::Counted,
-                        'progress_current' => 0,
-                        'progress_total' => null,
+                        'progress_current' => $progressCurrent,
+                        'progress_total' => $progressTotal,
                         'rows_received' => 0,
                         'rows_written' => 0,
                         'chunks_completed' => 0,
                         'chunks_failed' => 0,
                         'pages_completed' => 0,
-                        'checkpoint' => [],
+                        'checkpoint' => $checkpoint,
                         'depends_on_dataset_run_ids' => [],
                         'metadata' => [
                             'collection_scope' => 'provider_resource_first',
@@ -473,6 +541,7 @@ final class GoogleAdsCentralCollectionService
                             'central_definition' => $definition,
                             'execution_variant' => $variant,
                             'history_policy_version' => $resourcePlan['history_policy_version'] ?? null,
+                            'resumed_from_dataset_run_id' => $entry['resumed_from_dataset_run_id'] ?? null,
                         ],
                     ]);
                 }
