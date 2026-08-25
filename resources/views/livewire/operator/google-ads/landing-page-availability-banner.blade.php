@@ -66,8 +66,8 @@
                     wire:click="$parent.refreshData"
                     wire:loading.attr="disabled"
                     class="inline-flex shrink-0 items-center justify-center rounded-lg bg-rose-700 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-rose-800 disabled:cursor-wait disabled:opacity-60 dark:bg-rose-500 dark:text-gray-950 dark:hover:bg-rose-400">
-                <span wire:loading.remove wire:target="$parent.refreshData">{{ $isTr ? 'Landing-page verisini yenile' : 'Refresh landing-page data' }}</span>
-                <span wire:loading wire:target="$parent.refreshData">{{ $isTr ? 'Toplama başlatılıyor…' : 'Starting collection…' }}</span>
+                <span wire:loading.remove>{{ $isTr ? 'Landing-page verisini yenile' : 'Refresh landing-page data' }}</span>
+                <span wire:loading>{{ $isTr ? 'Toplama başlatılıyor…' : 'Starting collection…' }}</span>
             </button>
         </div>
     </div>
