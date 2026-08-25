@@ -2,6 +2,8 @@
 
 namespace App\Livewire\Operator\GoogleAds;
 
+use App\Models\CoreExternalResource;
+use App\Services\Collection\GoogleAds\GoogleAdsCentralCollectionService;
 use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
 use App\Services\GoogleAds\Support\GoogleAdsBindingMode;
 use Carbon\CarbonImmutable;
@@ -26,11 +28,62 @@ class LandingPageAvailabilityBanner extends Component
 
     public ?string $periodEnd = null;
 
+    public ?string $refreshMessage = null;
+
+    public string $refreshTone = 'info';
+
     public function mount(string $assetId, ?string $periodStart = null, ?string $periodEnd = null): void
     {
         $this->assetId = $assetId;
         $this->periodStart = $periodStart;
         $this->periodEnd = $periodEnd;
+    }
+
+    public function refreshLandingData(): void
+    {
+        $this->refreshMessage = null;
+        $this->refreshTone = 'info';
+
+        $binding = app(GoogleAdsSpecialistBindingResolver::class)->resolve($this->assetId);
+        if ($binding->mode !== GoogleAdsBindingMode::RealBound || $binding->externalResourceId === null) {
+            $this->refreshTone = 'warning';
+            $this->refreshMessage = app()->getLocale() === 'tr'
+                ? 'Google Ads hesabı bağlı değil; veri toplama başlatılamadı.'
+                : 'The Google Ads account is not connected; collection could not start.';
+
+            return;
+        }
+
+        $resource = CoreExternalResource::query()
+            ->with('integration')
+            ->find($binding->externalResourceId);
+
+        if (! $resource instanceof CoreExternalResource || $resource->integration === null) {
+            $this->refreshTone = 'warning';
+            $this->refreshMessage = app()->getLocale() === 'tr'
+                ? 'Bağlı Google Ads kaynağı bulunamadı.'
+                : 'The bound Google Ads resource could not be found.';
+
+            return;
+        }
+
+        try {
+            $run = app(GoogleAdsCentralCollectionService::class)->startSmartUpdate(
+                $resource->integration,
+                [(int) $resource->id],
+                auth()->user(),
+            );
+
+            $this->refreshTone = 'success';
+            $this->refreshMessage = app()->getLocale() === 'tr'
+                ? 'Google Ads veri toplama başlatıldı. Açılış sayfası veri ailesi de yeniden okunacak. Run #'.$run->id.'.'
+                : 'Google Ads collection started. The landing-page family will be recollected as well. Run #'.$run->id.'.';
+        } catch (\Throwable $e) {
+            $this->refreshTone = 'warning';
+            $this->refreshMessage = app()->getLocale() === 'tr'
+                ? 'Google Ads veri toplama başlatılamadı: '.$e->getMessage()
+                : 'Google Ads collection could not start: '.$e->getMessage();
+        }
     }
 
     public function render(): View
