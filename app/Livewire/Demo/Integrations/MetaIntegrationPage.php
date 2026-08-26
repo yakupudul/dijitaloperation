@@ -387,7 +387,7 @@ class MetaIntegrationPage extends Component
             $incr = $incremental->start($fresh, $user);
             DemoState::flash($incr->message, 'info');
             if ($incr->collectionRun !== null) {
-                $this->tab = 'activity';
+                $this->tab = 'connectors';
                 $this->dispatch('collection-run-selected', uuid: $incr->collectionRun->uuid);
             }
 
@@ -399,7 +399,7 @@ class MetaIntegrationPage extends Component
         DemoState::flash($result->message, 'info');
 
         if ($result->collectionRun !== null) {
-            $this->tab = 'activity';
+            $this->tab = 'connectors';
             $this->dispatch('collection-run-selected', uuid: $result->collectionRun->uuid);
         }
     }
@@ -557,7 +557,7 @@ class MetaIntegrationPage extends Component
             }
         }
 
-        return view('livewire.demo.integrations.meta-integration', [
+        return view('livewire.demo.integrations.meta-integration-shell', [
             'integration' => $integration,
             'flash' => DemoState::pullFlash(),
             'confirmDisconnect' => $this->confirmDisconnect,
