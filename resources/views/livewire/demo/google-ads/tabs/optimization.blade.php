@@ -16,9 +16,15 @@
         </div>
         <div class="divide-y divide-gray-100 dark:divide-gray-800">
             @forelse ($googleRecommendations as $row)
-                @php $m = is_array($row['metadata'] ?? null) ? $row['metadata'] : []; @endphp
+                @php
+                    $m = data_get($row, 'metadata', []);
+                    $m = is_array($m) ? $m : [];
+                    $recommendationType = data_get($row, 'recommendation_type', 'Google recommendation');
+                    $campaignResource = data_get($row, 'campaign_resource_name') ?: ($isTr ? 'Hesap düzeyi' : 'Account level');
+                    $observedDate = data_get($row, 'observed_date', '—');
+                @endphp
                 <div class="grid gap-2 px-4 py-3 md:grid-cols-[1fr_auto] md:items-start">
-                    <div><p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $row['recommendation_type'] ?? 'Google recommendation' }}</p><p class="mt-1 text-xs text-gray-500">{{ $row['campaign_resource_name'] ?? ($isTr ? 'Hesap düzeyi' : 'Account level') }} · {{ $row['observed_date'] ?? '—' }}</p>@if($m)<p class="mt-2 text-xs text-gray-500">{{ collect($m)->except(['provider','api_version','collector_layer','provider_fact','derived_rates_stored'])->map(fn($v,$k) => $k.': '.(is_scalar($v)?$v:json_encode($v)))->take(4)->implode(' · ') }}</p>@endif</div>
+                    <div><p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $recommendationType }}</p><p class="mt-1 text-xs text-gray-500">{{ $campaignResource }} · {{ $observedDate }}</p>@if($m)<p class="mt-2 text-xs text-gray-500">{{ collect($m)->except(['provider','api_version','collector_layer','provider_fact','derived_rates_stored'])->map(fn($v,$k) => $k.': '.(is_scalar($v)?$v:json_encode($v)))->take(4)->implode(' · ') }}</p>@endif</div>
                     <span class="rounded-full bg-gray-100 px-2 py-1 text-[11px] font-medium text-gray-600 dark:bg-white/5 dark:text-gray-300">Google</span>
                 </div>
             @empty
