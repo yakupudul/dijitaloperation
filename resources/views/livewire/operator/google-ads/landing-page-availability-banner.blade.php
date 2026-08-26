@@ -5,7 +5,7 @@
     $suggestedStart = $availability['suggested_start'] ?? null;
     $suggestedEnd = $availability['suggested_end'] ?? null;
     $suggestedUrl = $suggestedStart && $suggestedEnd
-        ? request()->fullUrlWithQuery([
+        ? url('/assets/google-ads/'.rawurlencode((string) $assetId)).'?'.http_build_query([
             'tab' => 'landing_pages',
             'period' => 'custom',
             'from' => $suggestedStart,
