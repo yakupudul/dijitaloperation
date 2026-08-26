@@ -56,7 +56,7 @@ final class DatasetWritePipeline
             datasetRunId: $batch->datasetRunId,
             contractVersion: $batch->contractVersion,
             batchKey: $batch->batchKey,
-            records: $batch->records,
+            records: $this->recordsWithCanonicalScope($batch),
             digitalAssetId: $batch->digitalAssetId,
             externalResourceId: $batch->externalResourceId,
             collectionRunId: $batch->collectionRunId,
@@ -75,6 +75,45 @@ final class DatasetWritePipeline
         }
 
         return $receipt;
+    }
+
+    /**
+     * Scope carried by NormalizedDatasetBatch is the canonical provider-resource scope.
+     * Physical contracts may require these fields in the record itself (including in
+     * natural keys), so inject them before warehouse contract validation. This avoids
+     * every collector having to duplicate the same scope plumbing and prevents a
+     * record from accidentally overriding the batch's authoritative scope.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function recordsWithCanonicalScope(NormalizedDatasetBatch $batch): array
+    {
+        if ($batch->records === [] || ! $this->registry->hasPhysicalTable($batch->datasetId)) {
+            return $batch->records;
+        }
+
+        $physical = $this->registry->physicalDataset($batch->datasetId);
+        $columnNames = collect($physical['columns'] ?? [])
+            ->filter(fn (mixed $column): bool => is_array($column) && isset($column['name']))
+            ->map(fn (array $column): string => (string) $column['name'])
+            ->all();
+
+        $scope = [];
+        if ($batch->digitalAssetId !== null && in_array('digital_asset_id', $columnNames, true)) {
+            $scope['digital_asset_id'] = $batch->digitalAssetId;
+        }
+        if ($batch->externalResourceId !== null && in_array('external_resource_id', $columnNames, true)) {
+            $scope['external_resource_id'] = $batch->externalResourceId;
+        }
+
+        if ($scope === []) {
+            return $batch->records;
+        }
+
+        return array_map(
+            static fn (array $record): array => array_merge($record, $scope),
+            $batch->records,
+        );
     }
 
     private function isRawRequired(string $datasetId): bool
