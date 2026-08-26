@@ -7,6 +7,7 @@ use App\Enums\Collection\PlanDisposition;
 use App\Enums\DataPool\DatasetCollectionMode;
 use App\Enums\DataPool\FreshnessState;
 use App\Models\DataPool\DatasetMaterialization;
+use App\Services\Collection\Support\CollectionClock;
 use App\Services\DataPool\Freshness\Support\FreshnessEvaluation;
 use App\Services\DataPool\Freshness\Support\IncrementalDatasetDecision;
 use Carbon\CarbonImmutable;
@@ -21,6 +22,7 @@ final class IncrementalCoveragePlanner
         private readonly DataFreshnessPolicyLoader $policies,
         private readonly DatasetFreshnessEvaluator $evaluator = new DatasetFreshnessEvaluator,
         private readonly DatasetWatermarkCalculator $watermarks = new DatasetWatermarkCalculator,
+        private readonly CollectionClock $clock = new CollectionClock,
     ) {}
 
     /**
@@ -154,10 +156,14 @@ final class IncrementalCoveragePlanner
         FreshnessEvaluation $evaluation,
         array $context,
     ): IncrementalDatasetDecision {
+        $reportingTimezone = is_string($context['reporting_timezone'] ?? null)
+            ? (string) $context['reporting_timezone']
+            : 'UTC';
+
         $watermark = $this->watermarks->calculate(
             $materialization,
             $policy,
-            is_string($context['reporting_timezone'] ?? null) ? (string) $context['reporting_timezone'] : null,
+            $reportingTimezone,
         );
 
         $collectableEnd = $watermark->currentCollectableEnd;
@@ -187,7 +193,6 @@ final class IncrementalCoveragePlanner
                 $reason = $newStart < $collectableEnd
                     ? IncrementalWorkReason::CatchUp
                     : IncrementalWorkReason::NewCoverage;
-                // Multi-day missing collectable coverage is catch-up even when contiguous.
                 $spanDays = CarbonImmutable::parse($newStart)->diffInDays(CarbonImmutable::parse($collectableEnd)) + 1;
                 if ($spanDays > 1) {
                     $reason = IncrementalWorkReason::CatchUp;
@@ -195,8 +200,6 @@ final class IncrementalCoveragePlanner
                 $this->mergeInterval($intervalMap, $newStart, $collectableEnd, $reason);
             }
         } elseif ($verified === null && $watermark->continuityProven === false) {
-            // Unproven continuity: do not invent full history; surface as non-executable unknown
-            // unless evaluation already says due for never collected (initial backfill owns baseline).
             if ($materialization === null) {
                 return IncrementalDatasetDecision::blocked(
                     datasetId: $datasetId,
@@ -209,7 +212,7 @@ final class IncrementalCoveragePlanner
             }
         }
 
-        // Late-data reprocessing window (may overlap existing coverage).
+        // Daily late-data reconciliation window. This intentionally overlaps existing coverage.
         $reprocess = $policy['late_data_reprocessing'] ?? [];
         if ($evaluation->reprocessDue
             && ($reprocess['strategy'] ?? '') === 'fixed_recent_reporting_window'
@@ -217,20 +220,36 @@ final class IncrementalCoveragePlanner
             && (int) $reprocess['window_days'] > 0
             && $verified !== null) {
             $window = (int) $reprocess['window_days'];
-            $reprocessEnd = min($collectableEnd, $verified > $collectableEnd ? $collectableEnd : max($verified, $collectableEnd));
-            // Reprocess through the lesser of verified and collectable end for already-covered days,
-            // and through collectable end when new coverage is also planned.
             $reprocessEnd = $collectableEnd;
             $reprocessStart = CarbonImmutable::parse($reprocessEnd)->subDays($window - 1)->toDateString();
-            if ($verified !== null) {
-                // Do not reprocess before known coverage begins if intervals exist.
-                $boundsStart = $watermark->coverageIntervals[0]['start'] ?? null;
-                if (is_string($boundsStart) && $reprocessStart < $boundsStart) {
-                    $reprocessStart = $boundsStart;
-                }
+            $boundsStart = $watermark->coverageIntervals[0]['start'] ?? null;
+            if (is_string($boundsStart) && $reprocessStart < $boundsStart) {
+                $reprocessStart = $boundsStart;
             }
             if ($reprocessStart <= $reprocessEnd) {
                 $this->mergeInterval($intervalMap, $reprocessStart, $reprocessEnd, IncrementalWorkReason::LateDataReprocess);
+            }
+        }
+
+        // Optional provider-specific weekly deeper reconciliation. Meta Ads uses
+        // this for a 35-day attribution replay while retaining a 7-day daily replay.
+        $weekly = is_array($policy['weekly_reconciliation'] ?? null)
+            ? $policy['weekly_reconciliation']
+            : [];
+        if (($weekly['enabled'] ?? false) === true
+            && is_int($weekly['window_days'] ?? null)
+            && (int) $weekly['window_days'] > 0
+            && is_int($weekly['iso_weekday'] ?? null)
+            && $verified !== null
+            && $this->weeklyReconciliationDue($materialization, $reportingTimezone, (int) $weekly['iso_weekday'])) {
+            $weeklyEnd = $collectableEnd;
+            $weeklyStart = CarbonImmutable::parse($weeklyEnd)->subDays((int) $weekly['window_days'] - 1)->toDateString();
+            $boundsStart = $watermark->coverageIntervals[0]['start'] ?? null;
+            if (is_string($boundsStart) && $weeklyStart < $boundsStart) {
+                $weeklyStart = $boundsStart;
+            }
+            if ($weeklyStart <= $weeklyEnd) {
+                $this->mergeInterval($intervalMap, $weeklyStart, $weeklyEnd, IncrementalWorkReason::LateDataReprocess);
             }
         }
 
@@ -302,8 +321,33 @@ final class IncrementalCoveragePlanner
             details: array_merge($evaluation->toArray(), [
                 'watermark' => $watermark->toArray(),
                 'policy_version' => $policyVersion,
+                'weekly_reconciliation' => $weekly,
             ]),
         );
+    }
+
+    private function weeklyReconciliationDue(
+        ?DatasetMaterialization $materialization,
+        string $timezone,
+        int $isoWeekday,
+    ): bool {
+        if ($isoWeekday < 1 || $isoWeekday > 7) {
+            return false;
+        }
+
+        $today = $this->clock->today($timezone);
+        if ((int) $today->isoWeekday() !== $isoWeekday) {
+            return false;
+        }
+
+        $lastCollectedAt = $materialization?->last_collected_at;
+        if ($lastCollectedAt === null) {
+            return true;
+        }
+
+        return CarbonImmutable::parse($lastCollectedAt)
+            ->setTimezone($timezone)
+            ->toDateString() !== $today->toDateString();
     }
 
     /**
