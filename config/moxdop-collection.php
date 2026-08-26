@@ -28,6 +28,7 @@ return [
         'moxdop-google-ads-central.registry_overlay',
         'moxdop-google-ads-history.registry_overlay',
         'moxdop-meta-ads-central.registry_overlay',
+        'moxdop-meta-ads-legacy-retirement.registry_overlay',
     ],
 
     /*
