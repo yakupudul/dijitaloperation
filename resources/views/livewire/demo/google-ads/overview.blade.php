@@ -1,5 +1,6 @@
 @php
     $isTr = app()->getLocale() === 'tr';
+    $effectiveTab = $tab === 'landing_pages' ? 'overview' : $tab;
     $providerConnected = (bool) ($professional['connected'] ?? false);
     $rawTitle = (string) ($identity['title'] ?? 'Google Ads');
     if ($providerConnected) {
@@ -38,7 +39,6 @@
         ['key' => 'performance', 'label' => $isTr ? 'Performans' : 'Performance', 'wire' => true],
         ['key' => 'budget_bidding', 'label' => $isTr ? 'Bütçe & Teklif' : 'Budget & Bidding', 'wire' => true],
         ['key' => 'measurement', 'label' => $isTr ? 'Dönüşümler' : 'Conversions', 'wire' => true],
-        ['key' => 'landing_pages', 'label' => $isTr ? 'Açılış Sayfaları' : 'Landing Pages', 'wire' => true],
         ['key' => 'optimization', 'label' => $isTr ? 'Optimizasyon' : 'Optimization', 'wire' => true],
         ['key' => 'changes', 'label' => $isTr ? 'Değişiklikler' : 'Changes', 'wire' => true],
         ['key' => 'data_connection', 'label' => $isTr ? 'Veri & Bağlantı' : 'Data & Connection', 'wire' => true],
@@ -102,7 +102,7 @@
 
     <div class="overflow-x-auto">
         <div class="min-w-max">
-            @include('livewire.demo.partials.asset-nav', ['tabs' => $navTabs, 'active' => $tab])
+            @include('livewire.demo.partials.asset-nav', ['tabs' => $navTabs, 'active' => $effectiveTab])
         </div>
     </div>
 
@@ -117,37 +117,35 @@
         </div>
     @endif
 
-    @if ($tab === 'overview')
+    @if ($effectiveTab === 'overview')
         @include('livewire.demo.google-ads.tabs.professional-summary')
         @include('livewire.demo.google-ads.tabs.overview')
-    @elseif ($tab === 'campaigns')
+    @elseif ($effectiveTab === 'campaigns')
         @include('livewire.demo.google-ads.tabs.campaigns')
-    @elseif ($tab === 'search_demand')
+    @elseif ($effectiveTab === 'search_demand')
         @if ($searchExpertWorkspace ?? false)
             @include('livewire.demo.google-ads.tabs.search-expert-live')
         @else
             @include('livewire.demo.google-ads.tabs.search-demand')
             @include('livewire.demo.google-ads.tabs.search-negatives')
         @endif
-    @elseif ($tab === 'performance')
+    @elseif ($effectiveTab === 'performance')
         @include('livewire.demo.google-ads.tabs.performance')
-    @elseif ($tab === 'budget_bidding')
+    @elseif ($effectiveTab === 'budget_bidding')
         @include('livewire.demo.google-ads.tabs.budget-bidding')
-    @elseif ($tab === 'measurement')
+    @elseif ($effectiveTab === 'measurement')
         @include('livewire.demo.google-ads.tabs.measurement')
-    @elseif ($tab === 'landing_pages')
-        @include('livewire.demo.google-ads.tabs.landing-pages')
-    @elseif ($tab === 'optimization')
+    @elseif ($effectiveTab === 'optimization')
         @include('livewire.demo.google-ads.tabs.optimization')
-    @elseif ($tab === 'changes')
+    @elseif ($effectiveTab === 'changes')
         @include('livewire.demo.google-ads.tabs.changes')
-    @elseif ($tab === 'data_connection')
+    @elseif ($effectiveTab === 'data_connection')
         @include('livewire.demo.google-ads.tabs.data-connection')
-    @elseif ($tab === 'pmax')
+    @elseif ($effectiveTab === 'pmax')
         @include('livewire.demo.google-ads.tabs.pmax')
-    @elseif ($tab === 'shopping')
+    @elseif ($effectiveTab === 'shopping')
         @include('livewire.demo.google-ads.tabs.shopping')
-    @elseif ($tab === 'video')
+    @elseif ($effectiveTab === 'video')
         @include('livewire.demo.google-ads.tabs.video')
     @endif
 </div>
