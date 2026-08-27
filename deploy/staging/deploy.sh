@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Staging deploy helper for MoxDOP (single VPS: Nginx + PHP-FPM + PostgreSQL + Redis + Horizon).
+# Staging deploy helper for MoxDOP (single VPS: Nginx + PHP-FPM + PostgreSQL + Redis + Supervisor queue workers).
 # Run from the application root on the staging host after checking out an exact Git SHA.
-# Does NOT start Google/Meta/AI/DataForSEO. Does NOT print secrets. Never migrate:fresh.
+# Does NOT print secrets. Never migrate:fresh.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -13,7 +13,7 @@ if [[ ! -f artisan ]]; then
 fi
 
 if [[ ! -f .env ]]; then
-  echo "deploy/staging/deploy.sh: missing .env — copy .env.staging.example and set secrets first" >&2
+  echo "deploy/staging/deploy.sh: missing .env" >&2
   exit 1
 fi
 
@@ -48,6 +48,17 @@ echo "deploy/staging: release SHA ${RELEASE_SHA}"
 echo "deploy/staging: composer install"
 composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction
 
+# Current production dependency set uses the phpredis extension, not predis/predis.
+# Fail before maintenance mode if an old staging .env still points at Predis.
+if grep -qE '^REDIS_CLIENT=predis([[:space:]]*)$' .env; then
+  if php -r 'exit(extension_loaded("redis") ? 0 : 1);'; then
+    echo "deploy/staging/deploy.sh: REDIS_CLIENT=predis is stale; set REDIS_CLIENT=phpredis before deploy" >&2
+  else
+    echo "deploy/staging/deploy.sh: Predis package is absent and phpredis extension is unavailable" >&2
+  fi
+  exit 1
+fi
+
 if command -v npm >/dev/null 2>&1; then
   echo "deploy/staging: npm ci && npm run build"
   npm ci --no-fund --no-audit
@@ -60,7 +71,18 @@ else
   fi
 fi
 
+MAINTENANCE_ENTERED=0
+cleanup() {
+  status=$?
+  if [[ "$MAINTENANCE_ENTERED" -eq 1 ]]; then
+    php artisan up --no-interaction >/dev/null 2>&1 || true
+  fi
+  exit "$status"
+}
+trap cleanup EXIT
+
 php artisan down --retry=60 --no-interaction || true
+MAINTENANCE_ENTERED=1
 
 echo "deploy/staging: migrate --force (never migrate:fresh)"
 php artisan migrate --force --no-interaction
@@ -73,18 +95,24 @@ php artisan route:cache
 php artisan view:cache
 php artisan event:cache || true
 
-echo "deploy/staging: graceful Horizon restart"
-php artisan horizon:terminate --no-interaction || true
+echo "deploy/staging: signal Laravel queue workers to restart"
+php artisan queue:restart --no-interaction || true
 
 if command -v supervisorctl >/dev/null 2>&1; then
-  supervisorctl restart moxdop-staging-horizon:* 2>/dev/null \
-    || supervisorctl restart moxdop-staging-horizon 2>/dev/null \
-    || echo "deploy/staging: supervisor restart skipped — start Horizon via supervisor"
+  if supervisorctl status 2>/dev/null | grep -q 'moxdop-staging-worker'; then
+    supervisorctl restart 'moxdop-staging-worker:*' 2>/dev/null \
+      || supervisorctl restart moxdop-staging-worker 2>/dev/null \
+      || echo "deploy/staging: worker supervisor restart skipped"
+  else
+    echo "deploy/staging: moxdop-staging-worker is not configured in Supervisor"
+  fi
 else
-  echo "deploy/staging: supervisorctl not found — restart Horizon via systemd/supervisor"
+  echo "deploy/staging: supervisorctl not found — queue worker restart skipped"
 fi
 
 php artisan up --no-interaction
+MAINTENANCE_ENTERED=0
+trap - EXIT
 
 echo "deploy/staging: done — SHA ${RELEASE_SHA}"
 php artisan about --only=environment 2>/dev/null || true
