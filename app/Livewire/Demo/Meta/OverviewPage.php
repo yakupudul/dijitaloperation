@@ -13,6 +13,7 @@ use App\Services\MetaAds\MetaAdsSpecialistReadService;
 use App\Services\MetaAds\Support\MetaAdsBindingMode;
 use App\Support\Demo\DemoState;
 use App\Support\Demo\MetaAdsWorkspaceFixtures;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -82,13 +83,24 @@ class OverviewPage extends Component
         if (filled($tab)) {
             $this->tab = $tab;
         }
+
         $this->mountPeriod();
+        $this->normalizeMetaPeriodState();
         $this->normalizeTab();
 
         $status = DemoState::getFilter('meta_status');
         if (is_string($status) && $status !== '') {
             $this->status_filter = $status;
         }
+    }
+
+    /**
+     * Livewire can hydrate an old period/from/to trio from browser history.
+     * A named preset is authoritative: its dates must always match the preset.
+     */
+    public function hydrate(): void
+    {
+        $this->normalizeMetaPeriodState();
     }
 
     public function setTab(string $tab): void
@@ -114,6 +126,7 @@ class OverviewPage extends Component
         } else {
             $this->campaign_filter = $value;
         }
+
         $this->tab = 'campaigns';
         $this->resetPeriodDependentState();
     }
@@ -130,6 +143,7 @@ class OverviewPage extends Component
         if ($key === 'format' || $key === 'creative') {
             $this->creative_filter = $value;
         }
+
         $this->tab = 'creatives';
         $this->resetPeriodDependentState();
     }
@@ -197,17 +211,26 @@ class OverviewPage extends Component
         );
 
         DemoState::flash(match ($result->outcome) {
-            'started' => 'Meta Ads incremental collection started in the background.',
-            'active_equivalent' => 'An equivalent Meta Ads incremental collection is already running.',
-            'data_current' => 'Meta Ads data is current — no incremental collection is due.',
+            'started' => app()->getLocale() === 'tr'
+                ? 'Meta Ads verileri yenilenmek üzere sıraya alındı.'
+                : 'Meta Ads incremental collection started.',
+            'active_equivalent' => app()->getLocale() === 'tr'
+                ? 'Aynı Meta Ads yenileme işlemi zaten çalışıyor.'
+                : 'An equivalent Meta Ads collection is already running.',
+            'data_current' => app()->getLocale() === 'tr'
+                ? 'Meta Ads verileri güncel; yeni toplama gerekmiyor.'
+                : 'Meta Ads data is current; no collection is due.',
             default => $result->message,
         }, $result->outcome === 'started' ? 'success' : 'info');
     }
 
+    /**
+     * Kept for backwards-compatible Livewire calls. Analysis is not pretended to
+     * run; users are taken to the actual analysis state instead.
+     */
     public function runAnalysis(): void
     {
-        DemoState::flash(__('operator.flash.meta_analysis_unavailable'), 'info');
-        $this->tab = 'overview';
+        $this->tab = 'operations';
     }
 
     protected function normalizeTab(): void
@@ -221,26 +244,74 @@ class OverviewPage extends Component
         }
     }
 
+    protected function normalizeMetaPeriodState(): void
+    {
+        if ($this->period === 'custom') {
+            return;
+        }
+
+        $bounds = $this->periodBounds($this->period);
+        $start = $bounds['start']->toDateString();
+        $end = $bounds['end']->toDateString();
+
+        if ($this->periodStart === $start && $this->periodEnd === $end) {
+            return;
+        }
+
+        $this->periodStart = $start;
+        $this->periodEnd = $end;
+        $this->draftPeriodStart = $start;
+        $this->draftPeriodEnd = $end;
+        DemoState::setPeriod($this->period, $start, $end);
+    }
+
+    private function localizedComparisonLabel(): string
+    {
+        if (! $this->compare || ! filled($this->periodStart) || ! filled($this->periodEnd)) {
+            return app()->getLocale() === 'tr' ? 'Kapalı' : 'Off';
+        }
+
+        $timezone = (string) config('app.timezone', 'UTC');
+        $start = CarbonImmutable::parse($this->periodStart, $timezone)->startOfDay();
+        $end = CarbonImmutable::parse($this->periodEnd, $timezone)->startOfDay();
+        $days = max(1, $start->diffInDays($end) + 1);
+
+        if ($this->effectiveCompareMode() === 'yoy') {
+            $compareStart = $start->subYearNoOverflow();
+            $compareEnd = $compareStart->addDays($days - 1);
+        } else {
+            $compareEnd = $start->subDay();
+            $compareStart = $compareEnd->subDays($days - 1);
+        }
+
+        if (app()->getLocale() === 'tr') {
+            return $compareStart->locale('tr')->translatedFormat('j M')
+                .' – '
+                .$compareEnd->locale('tr')->translatedFormat('j M');
+        }
+
+        return $compareStart->format('M j').' – '.$compareEnd->format('M j');
+    }
+
     public function render(): View
     {
+        $this->normalizeMetaPeriodState();
         $this->normalizeTab();
 
-        // Legacy specialist shape is retained for identity, period helpers and
-        // existing drawers. The professional model is the source of visible
-        // Meta Ads metrics; enhancer adds complete campaign inventory and
-        // typed conversion/action context at each supported hierarchy level.
         $data = app(MetaAdsSpecialistReadService::class)->workspace(
             $this->assetId,
             $this->period,
             $this->periodStart,
             $this->periodEnd,
         );
+
         $professional = app(MetaAdsProfessionalWorkspaceReadService::class)->workspace(
             $this->assetId,
             $this->period,
             $this->periodStart,
             $this->periodEnd,
         );
+
         $professional = app(MetaAdsProfessionalWorkspaceEnhancer::class)->enhance(
             $professional,
             $this->assetId,
@@ -270,7 +341,9 @@ class OverviewPage extends Component
 
         $creatives = collect($data['creatives']['gallery'] ?? []);
         if ($this->creative_filter === 'attention') {
-            $creatives = $creatives->filter(static fn (array $c): bool => filled($c['signal'] ?? null) && ($c['signal_key'] ?? '') !== 'coverage' && ($c['signal_key'] ?? '') !== 'stable_qualified');
+            $creatives = $creatives->filter(static fn (array $c): bool => filled($c['signal'] ?? null)
+                && ($c['signal_key'] ?? '') !== 'coverage'
+                && ($c['signal_key'] ?? '') !== 'stable_qualified');
         } elseif ($this->creative_filter !== 'all') {
             $creatives = $creatives->filter(
                 static fn (array $c): bool => strtolower((string) ($c['format'] ?? '')) === strtolower($this->creative_filter)
@@ -326,6 +399,7 @@ class OverviewPage extends Component
             'selectedCreative' => $selectedCreative,
             'selectedFinding' => $selectedFinding,
             'selectedAttention' => $selectedAttention,
+            'metaCompareLabel' => $this->localizedComparisonLabel(),
             'showPeriodBar' => in_array($this->tab, ['overview', 'campaigns', 'creatives', 'audience', 'funnel', 'measurement'], true),
             'performanceChartOptions' => [
                 'chart' => ['type' => 'line', 'height' => 260, 'toolbar' => ['show' => false]],
