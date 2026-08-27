@@ -137,12 +137,43 @@ class MetaApiClient
         $json = $response->json();
         $payload = is_array($json) ? $json : [];
 
+        // Meta can return a structured Graph error together with an HTTP 5xx status.
+        // Always preserve the Graph error first; otherwise deterministic request errors
+        // (notably code 100) are incorrectly classified as retryable provider outages.
+        if (isset($payload['error']) && is_array($payload['error'])) {
+            $error = $payload['error'];
+            $code = isset($error['code']) && is_numeric($error['code']) ? (int) $error['code'] : null;
+            $subcode = isset($error['error_subcode']) && is_numeric($error['error_subcode'])
+                ? (int) $error['error_subcode']
+                : null;
+            $isTransient = filter_var($error['is_transient'] ?? false, FILTER_VALIDATE_BOOL);
+
+            $kind = match (true) {
+                $status === 401 || in_array($code, [190, 102], true) => MetaException::KIND_AUTH,
+                $status === 403 || in_array($code, [10, 200, 294], true) => MetaException::KIND_PERMISSION,
+                $status === 429 || in_array($code, [4, 17, 32, 613], true) => MetaException::KIND_RATE_LIMIT,
+                default => MetaException::KIND_PROVIDER,
+            };
+
+            throw new MetaException(
+                $this->safeProviderMessage($error['message'] ?? null, 'Meta Graph request failed.'),
+                kind: $kind,
+                httpStatus: $status,
+                providerCode: $code,
+                providerSubcode: $subcode,
+                providerType: $this->safeOptionalText($error['type'] ?? null),
+                providerUserTitle: $this->safeOptionalText($error['error_user_title'] ?? null),
+                providerUserMessage: $this->safeOptionalText($error['error_user_msg'] ?? null),
+                isTransient: $isTransient,
+                traceId: $this->safeTraceId($error['fbtrace_id'] ?? null),
+            );
+        }
+
         if ($status === 401) {
             throw new MetaException(
                 'Authentication failed.',
                 kind: MetaException::KIND_AUTH,
                 httpStatus: $status,
-                providerCode: $this->errorCode($payload),
             );
         }
 
@@ -151,7 +182,6 @@ class MetaApiClient
                 'Permission missing.',
                 kind: MetaException::KIND_PERMISSION,
                 httpStatus: $status,
-                providerCode: $this->errorCode($payload),
             );
         }
 
@@ -160,7 +190,6 @@ class MetaApiClient
                 'Rate limited.',
                 kind: MetaException::KIND_RATE_LIMIT,
                 httpStatus: $status,
-                providerCode: $this->errorCode($payload),
             );
         }
 
@@ -169,46 +198,58 @@ class MetaApiClient
                 'Provider unavailable.',
                 kind: MetaException::KIND_HTTP,
                 httpStatus: $status,
-                providerCode: $this->errorCode($payload),
-            );
-        }
-
-        if (isset($payload['error']) && is_array($payload['error'])) {
-            $code = isset($payload['error']['code']) ? (int) $payload['error']['code'] : null;
-            $kind = match (true) {
-                in_array($code, [190, 102], true) => MetaException::KIND_AUTH,
-                in_array($code, [10, 200, 294], true) => MetaException::KIND_PERMISSION,
-                in_array($code, [4, 17, 32, 613], true) => MetaException::KIND_RATE_LIMIT,
-                default => MetaException::KIND_PROVIDER,
-            };
-
-            throw new MetaException(
-                'Meta Graph error.',
-                kind: $kind,
-                httpStatus: $status,
-                providerCode: $code,
             );
         }
 
         if ($status >= 400) {
             throw new MetaException(
-                'Provider unavailable.',
+                'Meta Graph HTTP request failed.',
                 kind: MetaException::KIND_HTTP,
                 httpStatus: $status,
-                providerCode: $this->errorCode($payload),
             );
         }
 
         return $payload;
     }
 
-    /**
-     * @param  array<string, mixed>  $payload
-     */
-    private function errorCode(array $payload): ?int
+    private function safeProviderMessage(mixed $value, string $fallback): string
     {
-        $code = data_get($payload, 'error.code');
+        $message = $this->safeOptionalText($value, 500);
 
-        return is_numeric($code) ? (int) $code : null;
+        return $message ?? $fallback;
+    }
+
+    private function safeOptionalText(mixed $value, int $limit = 280): ?string
+    {
+        if (! is_scalar($value)) {
+            return null;
+        }
+
+        $text = trim((string) $value);
+        if ($text === '') {
+            return null;
+        }
+
+        // Redact common credential shapes if a provider ever echoes them.
+        $text = preg_replace('/(?i)(access_token\s*[=:]\s*)[^\s&,]+/', '$1[redacted]', $text) ?? $text;
+        $text = preg_replace('/(?i)(authorization\s*:\s*bearer\s+)[A-Za-z0-9._~-]+/', '$1[redacted]', $text) ?? $text;
+        $text = preg_replace('/\bEAA[A-Za-z0-9_-]{16,}\b/', '[redacted]', $text) ?? $text;
+
+        if (mb_strlen($text) > $limit) {
+            $text = mb_substr($text, 0, $limit - 1).'…';
+        }
+
+        return $text;
+    }
+
+    private function safeTraceId(mixed $value): ?string
+    {
+        if (! is_scalar($value)) {
+            return null;
+        }
+
+        $trace = trim((string) $value);
+
+        return $trace !== '' && preg_match('/^[A-Za-z0-9_-]{1,120}$/', $trace) === 1 ? $trace : null;
     }
 }
