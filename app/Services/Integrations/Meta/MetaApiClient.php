@@ -24,6 +24,8 @@ class MetaApiClient
 {
     private const CAMPAIGN_CORE_FIELDS = 'id,name,objective,status,effective_status,buying_type,start_time,stop_time';
 
+    private const AD_CREATIVE_CORE_FIELDS = 'id,name,object_type,status,title,body,call_to_action_type,thumbnail_url,image_hash,video_id';
+
     public function __construct(
         private readonly MetaCredentialBroker $broker,
     ) {}
@@ -70,6 +72,15 @@ class MetaApiClient
                 'Invalid Meta Graph path.',
                 kind: MetaException::KIND_PROVIDER,
             );
+        }
+
+        $creativeIds = $this->creativeIdsFromUnsupportedEdgeFilter($method, $path, $query);
+        if ($creativeIds !== null) {
+            $fields = isset($query['fields']) && is_string($query['fields']) && trim($query['fields']) !== ''
+                ? $query['fields']
+                : self::AD_CREATIVE_CORE_FIELDS;
+
+            return $this->readAdCreativesByIds($integration, $creativeIds, $fields, $token);
         }
 
         $url = MetaApiConfig::graphBaseUrl().'/'.$path;
@@ -143,6 +154,215 @@ class MetaApiClient
 
             return $this->decodeOrThrow($fallbackResponse);
         }
+    }
+
+    /**
+     * The AdAccount adcreatives edge does not support filtering by creative id with
+     * the IN operator. The legacy entity collector used that shape after deriving
+     * creative ids from Ads, which caused the whole entity snapshot to fail with
+     * Meta error #100. Detect only that exact unsupported request and replace it
+     * with Graph's supported multi-id object read.
+     *
+     * @param  array<string, mixed>  $query
+     * @return list<string>|null
+     */
+    private function creativeIdsFromUnsupportedEdgeFilter(string $method, string $path, array $query): ?array
+    {
+        if (strtoupper($method) !== 'GET' || ! preg_match('#(?:^|/)act_[^/]+/adcreatives$#', $path)) {
+            return null;
+        }
+
+        $filtering = $query['filtering'] ?? null;
+        if (! is_string($filtering) || trim($filtering) === '') {
+            return null;
+        }
+
+        try {
+            $filters = json_decode($filtering, true, 512, JSON_THROW_ON_ERROR);
+        } catch (Throwable) {
+            return null;
+        }
+
+        if (! is_array($filters) || count($filters) !== 1 || ! is_array($filters[0])) {
+            return null;
+        }
+
+        $filter = $filters[0];
+        if (strtolower((string) ($filter['field'] ?? '')) !== 'id'
+            || strtoupper((string) ($filter['operator'] ?? '')) !== 'IN'
+            || ! is_array($filter['value'] ?? null)) {
+            return null;
+        }
+
+        $ids = [];
+        foreach ($filter['value'] as $value) {
+            $id = trim((string) $value);
+            if ($id !== '' && preg_match('/^\d+$/', $id)) {
+                $ids[$id] = $id;
+            }
+        }
+
+        return array_values($ids);
+    }
+
+    /**
+     * Read the creative ids through the Graph multi-id surface instead of sending
+     * an unsupported id-IN filter to /act_{id}/adcreatives. If the rich field set
+     * itself is rejected, retry once with the stable creative core fields. A stale
+     * or deleted creative that returns provider code 100 is then isolated with an
+     * individual read so it cannot fail every other valid creative in the batch.
+     *
+     * @param  list<string>  $creativeIds
+     * @return array<string, mixed>
+     */
+    private function readAdCreativesByIds(
+        CoreIntegration $integration,
+        array $creativeIds,
+        string $fields,
+        string $token,
+    ): array {
+        if ($creativeIds === []) {
+            return ['data' => []];
+        }
+
+        try {
+            return $this->readAdCreativeIdBatch($integration, $creativeIds, $fields, $token);
+        } catch (MetaException $exception) {
+            if ($exception->kind !== MetaException::KIND_PROVIDER || $exception->providerCode !== 100) {
+                throw $exception;
+            }
+        }
+
+        if ($fields !== self::AD_CREATIVE_CORE_FIELDS) {
+            try {
+                return $this->readAdCreativeIdBatch(
+                    $integration,
+                    $creativeIds,
+                    self::AD_CREATIVE_CORE_FIELDS,
+                    $token,
+                );
+            } catch (MetaException $exception) {
+                if ($exception->kind !== MetaException::KIND_PROVIDER || $exception->providerCode !== 100) {
+                    throw $exception;
+                }
+            }
+        }
+
+        $rows = [];
+        $skipped = 0;
+        foreach ($creativeIds as $creativeId) {
+            try {
+                $payload = $this->request(
+                    $integration,
+                    'GET',
+                    $creativeId,
+                    ['fields' => self::AD_CREATIVE_CORE_FIELDS],
+                );
+            } catch (MetaException $exception) {
+                if ($exception->kind === MetaException::KIND_PROVIDER && $exception->providerCode === 100) {
+                    $skipped++;
+                    continue;
+                }
+
+                throw $exception;
+            }
+
+            if (isset($payload['id'])) {
+                $rows[] = $payload;
+            }
+        }
+
+        return [
+            'data' => $rows,
+            'summary' => [
+                'requested_ids' => count($creativeIds),
+                'skipped_unavailable_ids' => $skipped,
+            ],
+        ];
+    }
+
+    /**
+     * @param  list<string>  $creativeIds
+     * @return array<string, mixed>
+     */
+    private function readAdCreativeIdBatch(
+        CoreIntegration $integration,
+        array $creativeIds,
+        string $fields,
+        string $token,
+    ): array {
+        $query = $this->withAppSecretProof([
+            'ids' => implode(',', $creativeIds),
+            'fields' => $fields,
+        ], $token, $integration);
+
+        try {
+            $started = microtime(true);
+            $response = Http::timeout(MetaApiConfig::timeoutSeconds())
+                ->connectTimeout(5)
+                ->withToken($token)
+                ->acceptJson()
+                ->get(MetaApiConfig::graphBaseUrl(), $query);
+            $this->recordTelemetry(
+                $integration,
+                $response->status(),
+                (int) round((microtime(true) - $started) * 1000),
+            );
+        } catch (ConnectionException $exception) {
+            $this->recordTelemetry($integration, null, null, timeout: false, network: true);
+            throw new MetaException(
+                'Meta creative multi-id transport error.',
+                kind: MetaException::KIND_TRANSPORT,
+                previous: $exception,
+            );
+        } catch (Throwable $exception) {
+            $this->recordTelemetry($integration, null, null, timeout: false, network: true);
+            throw new MetaException(
+                'Meta creative multi-id transport error.',
+                kind: MetaException::KIND_TRANSPORT,
+                previous: $exception,
+            );
+        }
+
+        $payload = $this->decodeOrThrow($response);
+        $rows = [];
+        $skipped = 0;
+        $allowedIds = array_fill_keys($creativeIds, true);
+
+        foreach ($payload as $key => $value) {
+            if (! is_array($value)) {
+                continue;
+            }
+
+            if (isset($value['error']) && is_array($value['error'])) {
+                $code = is_numeric($value['error']['code'] ?? null) ? (int) $value['error']['code'] : null;
+                if ($code === 100) {
+                    $skipped++;
+                    continue;
+                }
+
+                throw new MetaException(
+                    $this->safeGraphErrorMessage($value['error']),
+                    kind: MetaException::KIND_PROVIDER,
+                    providerCode: $code,
+                );
+            }
+
+            $id = trim((string) ($value['id'] ?? $key));
+            if ($id === '' || ! isset($allowedIds[$id])) {
+                continue;
+            }
+
+            $rows[] = $value;
+        }
+
+        return [
+            'data' => $rows,
+            'summary' => [
+                'requested_ids' => count($creativeIds),
+                'skipped_unavailable_ids' => $skipped,
+            ],
+        ];
     }
 
     /**
