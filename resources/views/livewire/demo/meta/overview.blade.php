@@ -22,6 +22,21 @@
         'partial' => $isTr ? 'Bazı veriler eksik veya eski' : 'Some data is limited',
         default => $isTr ? 'Veri kontrolü gerekli' : 'Data check required',
     };
+
+    $periodStartRaw = $professional['period_start'] ?? $data['period_start'] ?? null;
+    $periodEndRaw = $professional['period_end'] ?? $data['period_end'] ?? null;
+    $periodDisplay = '—';
+    if (filled($periodStartRaw) && filled($periodEndRaw)) {
+        if ($isTr) {
+            $periodDisplay = \Carbon\CarbonImmutable::parse($periodStartRaw)->locale('tr')->translatedFormat('j M Y')
+                .' → '
+                .\Carbon\CarbonImmutable::parse($periodEndRaw)->locale('tr')->translatedFormat('j M Y');
+        } else {
+            $periodDisplay = \Carbon\CarbonImmutable::parse($periodStartRaw)->format('M j, Y')
+                .' → '
+                .\Carbon\CarbonImmutable::parse($periodEndRaw)->format('M j, Y');
+        }
+    }
 @endphp
 
 <div class="space-y-5">
@@ -44,8 +59,8 @@
 
         <div class="grid gap-3 bg-gray-50/70 px-5 py-4 dark:bg-white/[0.02] sm:grid-cols-2 sm:px-6 xl:grid-cols-4">
             <div class="rounded-xl border border-gray-200 bg-white px-3.5 py-3 dark:border-gray-800 dark:bg-gray-900"><p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">{{ $isTr ? 'Reklam Hesabı' : 'Ad Account' }}</p><p class="mt-1 truncate text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $identity['ad_account'] ?? $professional['act_id'] ?? '—' }}</p></div>
-            <div class="rounded-xl border border-gray-200 bg-white px-3.5 py-3 dark:border-gray-800 dark:bg-gray-900"><p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">{{ $isTr ? 'Tarih Aralığı' : 'Date Range' }}</p><p class="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $professional['period_start'] ?? $data['period_start'] ?? '—' }} → {{ $professional['period_end'] ?? $data['period_end'] ?? '—' }}</p></div>
-            <div class="rounded-xl border border-gray-200 bg-white px-3.5 py-3 dark:border-gray-800 dark:bg-gray-900"><p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">{{ $isTr ? 'Karşılaştırma' : 'Comparison' }}</p><p class="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $data['compare_label'] ?? ($isTr ? 'Önceki dönem' : 'Previous period') }}</p></div>
+            <div class="rounded-xl border border-gray-200 bg-white px-3.5 py-3 dark:border-gray-800 dark:bg-gray-900"><p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">{{ $isTr ? 'Tarih Aralığı' : 'Date Range' }}</p><p class="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $periodDisplay }}</p></div>
+            <div class="rounded-xl border border-gray-200 bg-white px-3.5 py-3 dark:border-gray-800 dark:bg-gray-900"><p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">{{ $isTr ? 'Karşılaştırma' : 'Comparison' }}</p><p class="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $metaCompareLabel ?? ($isTr ? 'Önceki dönem' : 'Previous period') }}</p></div>
             <details class="group rounded-xl border border-gray-200 bg-white px-3.5 py-3 dark:border-gray-800 dark:bg-gray-900">
                 <summary class="cursor-pointer list-none"><p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">{{ $isTr ? 'Veri Durumu' : 'Data Status' }}</p><div class="mt-1 flex items-center justify-between gap-2"><span class="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200"><span class="h-2 w-2 rounded-full {{ $healthClasses }}"></span>{{ $healthLabel }}</span><span class="text-xs text-gray-400">{{ $health['usable'] ?? 0 }}/{{ $health['total'] ?? 0 }}</span></div></summary>
                 <div class="mt-3 border-t border-gray-100 pt-3 dark:border-gray-800">
