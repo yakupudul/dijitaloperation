@@ -1,248 +1,141 @@
 @php
-    $glance = $data['glance'];
-    $pacing = $data['pacing'];
-    $mix = $data['result_mix'];
-    $audience = $data['audience'];
-    $funnel = $data['funnel'];
-    $meas = $data['measurement'];
-    $maxMixSpend = max(1, (float) collect($mix['items'])->max('spend'));
-    $maxPlacement = max(1, (float) collect($audience['placements'] ?? [])->max('spend'));
-    $maxDest = max(1, (float) collect($funnel['destinations'] ?? [])->max('spend'));
+    $isTr = app()->getLocale() === 'tr';
+    $kpis = $professional['kpis'] ?? [];
+    $metricCards = [
+        ['key' => 'spend', 'label' => $isTr ? 'Harcama' : 'Spend'],
+        ['key' => 'impressions', 'label' => $isTr ? 'Gösterim' : 'Impressions'],
+        ['key' => 'clicks', 'label' => $isTr ? 'Tıklamalar' : 'Clicks'],
+        ['key' => 'ctr', 'label' => 'CTR'],
+    ];
+    $secondaryMetrics = [
+        ['key' => 'cpc', 'label' => 'CPC'],
+        ['key' => 'cpm', 'label' => 'CPM'],
+        ['key' => 'link_clicks', 'label' => $isTr ? 'Bağlantı Tıklamaları' : 'Link Clicks'],
+        ['key' => 'outbound_clicks', 'label' => $isTr ? 'Giden Tıklamalar' : 'Outbound Clicks'],
+    ];
+    $topCampaigns = array_slice($professional['campaigns'] ?? [], 0, 5);
+    $topCreatives = array_slice($professional['creatives'] ?? [], 0, 4);
+    $actions = array_slice($professional['typed_actions'] ?? [], 0, 5);
+    $healthIssues = array_slice($professional['health']['issues'] ?? [], 0, 5);
 @endphp
 
-<div class="space-y-4">
-    <div class="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <x-ta.metric-card label="Spend" :value="$glance['spend']['value']" :delta="$glance['spend']['secondary']" :tone="$glance['spend']['tone']" />
-        <x-ta.metric-card label="Result Mix" :value="$glance['result_mix']['value']" :delta="$glance['result_mix']['secondary']" :tone="$glance['result_mix']['tone']" />
-        <x-ta.metric-card label="Cost / primary" :value="$glance['cost_primary']['value']" :delta="$glance['cost_primary']['secondary']" :tone="$glance['cost_primary']['tone']" />
-        <x-ta.metric-card label="Budget pacing" :value="$glance['pacing']['value']" :delta="$glance['pacing']['secondary']" :tone="$glance['pacing']['tone']" />
-    </div>
-
-    <p class="text-xs text-gray-400">{{ $data['business_goal']['goal'] ?? '' }} · {{ $mix['note'] ?? 'Result types are not summed' }} · {{ $data['conversion_lag_note'] ?? '' }}</p>
-
-    <div class="grid gap-3 lg:grid-cols-12">
-        <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03] lg:col-span-4">
-            <div class="mb-2 flex items-center justify-between gap-2">
-                <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Result Mix</h2>
-                <span class="text-[11px] text-violet-700 dark:text-violet-300">Do not sum types</span>
-            </div>
-            <ul class="space-y-2">
-                @foreach ($mix['items'] as $row)
-                    <li>
-                        <div class="mb-1 flex items-center justify-between gap-2 text-xs">
-                            <span class="font-medium text-gray-800 dark:text-white/90">{{ $row['label'] }}</span>
-                            <span class="tabular-nums text-gray-500">{{ number_format($row['count']) }} · ₺{{ number_format($row['spend']) }}</span>
-                        </div>
-                        <div class="h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-white/5">
-                            <div @class([
-                                'h-full rounded-full',
-                                'bg-emerald-500' => ($row['tone'] ?? '') === 'emerald',
-                                'bg-blue-500' => ($row['tone'] ?? '') === 'blue',
-                                'bg-amber-500' => ($row['tone'] ?? '') === 'amber',
-                                'bg-violet-500' => ($row['tone'] ?? '') === 'violet',
-                                'bg-rose-500' => ($row['tone'] ?? '') === 'rose',
-                                'bg-slate-400' => ! in_array($row['tone'] ?? '', ['emerald', 'blue', 'amber', 'violet', 'rose'], true),
-                            ]) style="width: {{ min(100, round(($row['spend'] / $maxMixSpend) * 100)) }}%"></div>
-                        </div>
-                    </li>
-                @endforeach
-            </ul>
-        </section>
-
-        <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03] lg:col-span-5">
-            <div class="mb-2 flex items-center justify-between">
-                <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Needs attention</h2>
-                <span class="text-xs text-gray-400">{{ count($data['needs_attention']) }} signals</span>
-            </div>
-            <ul class="divide-y divide-gray-100 dark:divide-gray-800">
-                @foreach ($data['needs_attention'] as $item)
-                    <li class="flex items-center justify-between gap-3 py-2">
-                        <div class="min-w-0">
-                            <div class="flex flex-wrap items-center gap-1.5">
-                                <x-ta.badge :color="match($item['severity']) { 'Critical' => 'error', 'High' => 'error', 'Medium' => 'warning', default => 'light' }" size="sm">{{ $item['severity'] }}</x-ta.badge>
-                                <span class="truncate text-sm font-semibold text-gray-900 dark:text-white">{{ $item['title'] }}</span>
-                            </div>
-                            <p class="mt-0.5 truncate text-xs text-gray-600 dark:text-gray-300">{{ $item['metric'] }}</p>
-                            <p class="truncate text-[11px] text-gray-400">{{ $item['scope'] }}</p>
-                        </div>
-                        <button type="button" wire:click="openAttention('{{ $item['id'] }}')" class="shrink-0 text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">{{ $item['action'] }} →</button>
-                    </li>
-                @endforeach
-            </ul>
-        </section>
-
-        <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03] lg:col-span-3">
-            <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Budget pacing</h2>
-            <p class="mt-0.5 text-[11px] text-gray-400">{{ $pacing['source'] }}</p>
-            <dl class="mt-3 grid grid-cols-2 gap-2 text-sm">
-                <div><dt class="text-xs text-gray-400">Monthly</dt><dd class="font-semibold tabular-nums">₺{{ number_format($pacing['monthly_budget']) }}</dd></div>
-                <div><dt class="text-xs text-gray-400">State</dt><dd class="font-semibold text-amber-700 dark:text-amber-400">{{ $pacing['state'] }}</dd></div>
-                <div><dt class="text-xs text-gray-400">Expected</dt><dd class="tabular-nums">₺{{ number_format($pacing['expected_spend']) }}</dd></div>
-                <div><dt class="text-xs text-gray-400">Actual</dt><dd class="tabular-nums">₺{{ number_format($pacing['actual_spend']) }}</dd></div>
-            </dl>
-            <div class="mt-3 space-y-2">
-                <x-ta.progress-bar :value="$pacing['elapsed_pct']" :max="100" tone="primary" label="Month elapsed" />
-                <x-ta.progress-bar :value="$pacing['spend_pct']" :max="100" tone="warning" label="Actual spend" />
-            </div>
-            <p class="mt-2 text-[11px] text-gray-500">Ahead ₺{{ number_format($pacing['ahead_by']) }} · Left ₺{{ number_format($pacing['remaining']) }}</p>
-        </section>
-    </div>
-
-    <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-        <div class="mb-2 flex items-center justify-between gap-2">
-            <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Performance trend</h2>
-            <span class="text-xs text-gray-400">{{ $data['period_label'] }} · {{ $data['performance_trend']['compare_label'] ?? '' }}</span>
-        </div>
-        <div data-chart='@json($performanceChartOptions)' aria-label="Spend and primary results trend" class="min-h-[220px]"></div>
-        <p class="mt-1 text-xs text-gray-500">Spend vs primary result type for the selected window — types stay separate.</p>
-    </section>
-
-    <section>
-        <div class="mb-2 flex items-center justify-between">
-            <h2 class="text-sm font-semibold text-gray-900 dark:text-white">{{ __('operator.chrome.campaign_portfolio') }}</h2>
-            <button type="button" wire:click="setTab('campaigns')" class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Open campaigns</button>
-        </div>
-        <x-ta.table>
-            <x-slot:head>
-                <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-400">Campaign</th>
-                <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-400">Status</th>
-                <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-400">Spend</th>
-                <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-400">Result</th>
-                <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-400">Cost</th>
-                <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-400">Pacing</th>
-                <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-400">Attention</th>
-                <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-400"></th>
-            </x-slot:head>
-            @foreach ($data['campaigns'] as $c)
-                <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
-                    <td class="px-3 py-2">
-                        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $c['name'] }}</p>
-                        <p class="text-[11px] text-gray-400">{{ $c['offering'] }} · {{ $c['market'] === 'United Kingdom' ? 'UK' : $c['market'] }} · {{ $c['destination'] ?? $c['funnel'] }}</p>
-                    </td>
-                    <td class="px-3 py-2"><x-ta.badge color="success" size="sm">{{ $c['status'] }}</x-ta.badge></td>
-                    <td class="px-3 py-2 text-sm tabular-nums text-gray-700 dark:text-gray-300">₺{{ number_format($c['spend']) }}</td>
-                    <td class="px-3 py-2 text-sm tabular-nums">{{ number_format($c['results']) }} <span class="text-[11px] text-gray-400">{{ $c['result_label'] }}</span></td>
-                    <td class="px-3 py-2 text-sm tabular-nums">₺{{ number_format($c['cost_result']) }}</td>
-                    <td class="px-3 py-2"><x-ta.badge :color="match($c['pacing']) { 'Ahead', 'Constrained' => 'warning', 'Behind' => 'info', default => 'success' }" size="sm">{{ $c['pacing'] }}</x-ta.badge></td>
-                    <td class="px-3 py-2 text-xs text-gray-500">{{ $c['attention_primary'] ?? '—' }}@if (count($c['attention'] ?? []) > 1) <span class="text-gray-400">+{{ count($c['attention']) - 1 }}</span>@endif</td>
-                    <td class="px-3 py-2"><button type="button" wire:click="openCampaign('{{ $c['id'] }}')" class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Open</button></td>
-                </tr>
-            @endforeach
-        </x-ta.table>
-    </section>
-
-    <section>
-        <div class="mb-2 flex items-center justify-between">
-            <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Creative pulse</h2>
-            <button type="button" wire:click="setTab('creatives')" class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Open creatives</button>
-        </div>
-        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            @foreach ($data['creative_pulse'] as $cr)
-                <button type="button" wire:click="openCreative('{{ $cr['id'] }}')" class="overflow-hidden rounded-2xl border border-gray-200 bg-white text-left transition hover:bg-gray-50 dark:border-gray-800 dark:bg-white/[0.03] dark:hover:bg-white/[0.05]">
-                    <x-demo.meta-creative-thumb :gradient="$cr['thumb']" :name="$cr['name']" class="h-28 !aspect-auto" />
-                    <div class="space-y-1 p-3">
-                        <p class="truncate text-sm font-semibold text-gray-900 dark:text-white">{{ $cr['name'] }}</p>
-                        <p class="text-[11px] text-gray-400">{{ $cr['format'] }} · ₺{{ number_format($cr['spend']) }}</p>
-                        <p class="text-xs tabular-nums text-gray-600 dark:text-gray-300">{{ number_format($cr['result']) }} {{ $cr['result_label'] }}</p>
-                        @if (! empty($cr['signal']))
-                            <p class="text-[11px] font-medium text-amber-700 dark:text-amber-400">{{ $cr['signal'] }}</p>
-                        @endif
-                    </div>
-                </button>
-            @endforeach
-        </div>
-    </section>
-
-    <div class="grid gap-3 lg:grid-cols-2">
-        <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-            <div class="flex items-center justify-between">
-                <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Audience</h2>
-                <button type="button" wire:click="setTab('audience')" class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Open audience</button>
-            </div>
-            <p class="mt-1 text-[11px] text-gray-400">{{ $audience['concentration_note'] ?? 'Observed delivery · not causal' }}</p>
-            <ul class="mt-3 space-y-2">
-                @foreach (array_slice($audience['placements'] ?? [], 0, 4) as $row)
-                    <li>
-                        <div class="mb-1 flex justify-between text-xs text-gray-500">
-                            <span>{{ $row['label'] }}</span>
-                            <span class="tabular-nums">₺{{ number_format($row['spend']) }}</span>
-                        </div>
-                        <div class="h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-white/5">
-                            <div class="h-full rounded-full bg-blue-500" style="width: {{ min(100, round(($row['spend'] / $maxPlacement) * 100)) }}%"></div>
-                        </div>
-                    </li>
-                @endforeach
-            </ul>
-        </section>
-
-        <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-            <div class="flex items-center justify-between">
-                <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Funnel destinations</h2>
-                <button type="button" wire:click="setTab('funnel')" class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Open funnel</button>
-            </div>
-            <ul class="mt-3 space-y-2">
-                @foreach ($funnel['destinations'] ?? [] as $row)
-                    <li>
-                        <div class="mb-1 flex justify-between text-xs text-gray-500">
-                            <span>{{ $row['label'] }}</span>
-                            <span class="tabular-nums">₺{{ number_format($row['spend']) }} · {{ $row['share'] }}%</span>
-                        </div>
-                        <div class="h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-white/5">
-                            <div class="h-full rounded-full bg-violet-500" style="width: {{ min(100, round(($row['spend'] / $maxDest) * 100)) }}%"></div>
-                        </div>
-                    </li>
-                @endforeach
-            </ul>
-        </section>
-
-        <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-            <div class="flex items-center justify-between">
-                <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Measurement trust</h2>
-                <button type="button" wire:click="setTab('measurement')" class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Open measurement</button>
-            </div>
-            <div class="mt-3 flex flex-wrap gap-1.5">
-                @foreach ($meas['trust_chips'] ?? $meas['chips'] ?? [] as $chip)
-                    <span @class([
-                        'inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium',
-                        'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400' => ($chip['state'] ?? '') === 'Healthy',
-                        'bg-amber-50 text-amber-800 dark:bg-amber-500/15 dark:text-amber-400' => in_array($chip['state'] ?? '', ['Needs mapping', 'Partial', 'No recent signal'], true),
-                        'bg-rose-50 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400' => ($chip['state'] ?? '') === 'Broken',
-                        'bg-slate-100 text-slate-600 dark:bg-white/5 dark:text-gray-300' => ! in_array($chip['state'] ?? '', ['Healthy', 'Needs mapping', 'Partial', 'No recent signal', 'Broken'], true),
-                    ])>{{ $chip['label'] }} · {{ $chip['state'] }}</span>
-                @endforeach
-            </div>
-            <p class="mt-3 text-xs text-blue-700 dark:text-blue-300">{{ $meas['missing_note'] ?? 'Missing ≠ zero performance' }}</p>
-        </section>
-
-        <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-            <div class="flex items-center justify-between">
-                <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Recent outcomes</h2>
-                <button type="button" wire:click="setOps('outcomes')" class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Operations</button>
-            </div>
-            <ul class="mt-3 space-y-2">
-                @foreach ($data['recent_outcomes'] as $o)
-                    <li class="flex items-center justify-between gap-2 text-sm">
-                        <span class="text-gray-800 dark:text-white/90">{{ $o['title'] }}</span>
-                        <span @class([
-                            'shrink-0 text-xs font-semibold',
-                            'text-emerald-700 dark:text-emerald-400' => $o['state'] === 'Improvement observed',
-                            'text-amber-700 dark:text-amber-400' => $o['state'] !== 'Improvement observed',
-                        ])>{{ $o['state'] }}</span>
-                    </li>
-                @endforeach
-            </ul>
-        </section>
-    </div>
-
-    <div class="flex flex-wrap gap-2">
-        @foreach ($data['opportunities'] as $opp)
-            <button type="button" wire:click="setTab('{{ $opp['tab'] }}')" class="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-left text-xs transition hover:bg-gray-50 dark:border-gray-800 dark:bg-white/[0.03] dark:hover:bg-white/[0.05]">
-                <x-ta.badge :color="match($opp['priority']) { 'High' => 'error', 'Medium' => 'warning', default => 'info' }" size="sm">{{ $opp['priority'] }}</x-ta.badge>
-                <span class="font-medium text-gray-900 dark:text-white">{{ $opp['title'] }}</span>
-                <span class="text-gray-400">{{ $opp['metric'] }}</span>
-            </button>
+<section class="space-y-5">
+    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        @foreach ($metricCards as $card)
+            @php $metric = $kpis[$card['key']] ?? []; @endphp
+            <article class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                <p class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ $card['label'] }}</p>
+                <p class="mt-3 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">{{ $metric['display'] ?? '—' }}</p>
+                <div class="mt-3 flex items-center justify-between gap-2 text-xs">
+                    @if (($metric['delta_pct'] ?? null) !== null)
+                        <span class="font-semibold {{ $metric['delta_pct'] >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400' }}">
+                            {{ $metric['delta_pct'] > 0 ? '+' : '' }}{{ number_format($metric['delta_pct'], 1) }}%
+                        </span>
+                        <span class="text-gray-400">{{ $isTr ? 'önceki döneme göre' : 'vs previous period' }}</span>
+                    @else
+                        <span class="text-gray-400">{{ $isTr ? 'Karşılaştırma yok' : 'No comparison' }}</span>
+                    @endif
+                </div>
+            </article>
         @endforeach
     </div>
 
-    @include('livewire.demo.partials._opportunity-card', ['opportunity' => null])
-</div>
+    <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        @foreach ($secondaryMetrics as $card)
+            @php $metric = $kpis[$card['key']] ?? []; @endphp
+            <div class="rounded-xl border border-gray-200 bg-white px-4 py-3 dark:border-gray-800 dark:bg-gray-900">
+                <p class="text-xs font-medium text-gray-400">{{ $card['label'] }}</p>
+                <p class="mt-1 text-lg font-bold text-gray-900 dark:text-white">{{ $metric['display'] ?? '—' }}</p>
+            </div>
+        @endforeach
+    </div>
+
+    <div class="grid gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(320px,.8fr)]">
+        @if (! empty($professional['trend']))
+            <x-ta.chart-card
+                :title="$isTr ? 'Performans Eğilimi' : 'Performance Trend'"
+                :subtitle="$isTr ? 'Günlük harcama ve tıklama trendi · gerçek Meta Ads verisi' : 'Daily spend and clicks trend · real Meta Ads data'"
+                :options="$performanceChartOptions"
+                chart-id="meta-professional-overview-trend"
+            />
+        @else
+            <article class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                <h2 class="font-bold text-gray-900 dark:text-white">{{ $isTr ? 'Performans Eğilimi' : 'Performance Trend' }}</h2>
+                <div class="mt-5 rounded-xl border border-dashed border-gray-300 px-5 py-12 text-center text-sm text-gray-400 dark:border-gray-700">{{ $isTr ? 'Seçili dönem için kullanılabilir günlük performans verisi yok.' : 'No usable daily performance data for the selected period.' }}</div>
+            </article>
+        @endif
+
+        <article class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900 sm:p-6">
+            <div class="flex items-center justify-between gap-3">
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-[0.14em] text-gray-400">MOXDOP</p>
+                    <h2 class="mt-1 text-lg font-bold text-gray-900 dark:text-white">{{ $isTr ? 'Dikkat Gerektirenler' : 'Needs Attention' }}</h2>
+                </div>
+                <span class="rounded-full bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-500 dark:bg-white/[0.05]">{{ count($healthIssues) }}</span>
+            </div>
+
+            <div class="mt-5 space-y-3">
+                @forelse ($healthIssues as $issue)
+                    <div class="rounded-xl border border-amber-200 bg-amber-50/60 p-4 dark:border-amber-500/20 dark:bg-amber-500/[0.06]">
+                        <p class="text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $issue['label'] }}</p>
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ $issue['freshness_state'] }} · {{ $issue['coverage_state'] }} · {{ $issue['integrity_status'] }}</p>
+                    </div>
+                @empty
+                    <div class="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 text-sm text-emerald-800 dark:border-emerald-500/20 dark:bg-emerald-500/[0.06] dark:text-emerald-300">
+                        {{ $isTr ? 'Kullanılabilir datasetlerde veri sağlığı sorunu görünmüyor.' : 'No data-health issue is visible in usable datasets.' }}
+                    </div>
+                @endforelse
+            </div>
+            <p class="mt-4 text-xs leading-5 text-gray-400">{{ $isTr ? 'Performans bulguları ayrıca analiz motoru tarafından üretilecek; burada sahte teşhis oluşturulmaz.' : 'Performance findings will be produced by the analysis engine; no diagnosis is fabricated here.' }}</p>
+        </article>
+    </div>
+
+    <div class="grid gap-5 xl:grid-cols-3">
+        <article class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+            <div class="flex items-center justify-between"><h3 class="font-bold text-gray-900 dark:text-white">{{ $isTr ? 'En Yüksek Harcamalı Kampanyalar' : 'Top Campaigns by Spend' }}</h3><button type="button" wire:click="setTab('campaigns')" class="text-xs font-semibold text-brand-600 dark:text-brand-400">{{ $isTr ? 'Tümü' : 'View all' }}</button></div>
+            <div class="mt-4 space-y-3">
+                @forelse ($topCampaigns as $campaign)
+                    <div class="flex items-center justify-between gap-4 border-b border-gray-100 pb-3 last:border-0 last:pb-0 dark:border-gray-800">
+                        <div class="min-w-0"><p class="truncate text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $campaign['name'] }}</p><p class="mt-0.5 text-xs text-gray-400">CTR {{ $campaign['ctr'] !== null ? number_format($campaign['ctr'], 2).'%' : '—' }} · {{ $campaign['status'] }}</p></div>
+                        <span class="shrink-0 text-sm font-bold text-gray-900 dark:text-white">{{ $campaign['spend_display'] }}</span>
+                    </div>
+                @empty
+                    <p class="py-8 text-center text-sm text-gray-400">{{ $isTr ? 'Kampanya performans verisi yok.' : 'No campaign performance data.' }}</p>
+                @endforelse
+            </div>
+        </article>
+
+        <article class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+            <div class="flex items-center justify-between"><h3 class="font-bold text-gray-900 dark:text-white">{{ $isTr ? 'Kreatif Nabzı' : 'Creative Pulse' }}</h3><button type="button" wire:click="setTab('creatives')" class="text-xs font-semibold text-brand-600 dark:text-brand-400">{{ $isTr ? 'Tümü' : 'View all' }}</button></div>
+            <div class="mt-4 space-y-3">
+                @forelse ($topCreatives as $creative)
+                    <div class="flex items-center gap-3 border-b border-gray-100 pb-3 last:border-0 last:pb-0 dark:border-gray-800">
+                        <div class="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-gray-100 dark:bg-white/[0.05]">
+                            @if (! empty($creative['thumbnail_url']))<img src="{{ $creative['thumbnail_url'] }}" alt="" class="h-full w-full object-cover" loading="lazy">@endif
+                        </div>
+                        <div class="min-w-0 flex-1"><p class="truncate text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $creative['name'] }}</p><p class="text-xs text-gray-400">{{ $creative['format'] }} · CTR {{ $creative['ctr'] !== null ? number_format($creative['ctr'], 2).'%' : '—' }}</p></div>
+                        <span class="text-xs font-semibold text-gray-700 dark:text-gray-300">{{ $creative['spend_display'] }}</span>
+                    </div>
+                @empty
+                    <p class="py-8 text-center text-sm text-gray-400">{{ $isTr ? 'Kreatif snapshot verisi yok.' : 'No creative snapshot data.' }}</p>
+                @endforelse
+            </div>
+        </article>
+
+        <article class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+            <div class="flex items-center justify-between"><h3 class="font-bold text-gray-900 dark:text-white">{{ $isTr ? 'Dönüşüm Sinyalleri' : 'Conversion Signals' }}</h3><button type="button" wire:click="setTab('measurement')" class="text-xs font-semibold text-brand-600 dark:text-brand-400">{{ $isTr ? 'Detay' : 'Details' }}</button></div>
+            <div class="mt-4 space-y-3">
+                @forelse ($actions as $action)
+                    <div class="flex items-center justify-between gap-3 border-b border-gray-100 pb-3 last:border-0 last:pb-0 dark:border-gray-800"><span class="truncate text-sm text-gray-600 dark:text-gray-300">{{ $action['label'] }}</span><span class="font-bold tabular-nums text-gray-900 dark:text-white">{{ number_format($action['value'], 2) }}</span></div>
+                @empty
+                    <p class="py-8 text-center text-sm text-gray-400">{{ $isTr ? 'Typed action verisi yok.' : 'No typed-action data.' }}</p>
+                @endforelse
+            </div>
+            <p class="mt-4 text-[11px] leading-5 text-gray-400">{{ $isTr ? 'Action türleri ayrı tutulur; genel “Results” toplamına dönüştürülmez.' : 'Action types stay separate and are not collapsed into a generic “Results” total.' }}</p>
+        </article>
+    </div>
+
+    <div class="rounded-xl border border-blue-200 bg-blue-50/60 px-4 py-3 text-xs leading-5 text-blue-800 dark:border-blue-500/20 dark:bg-blue-500/[0.06] dark:text-blue-300">
+        {{ $isTr ? 'Results, CPL ve ROAS; canonical Business Action eşlemesi kurulmadan hesaplanmaz. Bu alanlarda “0” göstermek yerine ölçüm bilinçli olarak boş bırakılır.' : 'Results, CPL and ROAS are not calculated until canonical Business Action mapping exists. Missing measurement is intentionally left unavailable rather than shown as 0.' }}
+    </div>
+</section>
