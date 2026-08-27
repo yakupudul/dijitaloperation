@@ -1,136 +1,92 @@
 @php
-    $creatives = $data['creatives'];
-    $maxAngle = max(1, (float) collect($creatives['angles'] ?? [])->max('spend'));
+    $isTr = app()->getLocale() === 'tr';
+    $creatives = $professional['creatives'] ?? [];
+    $withSpend = collect($creatives)->filter(fn ($row) => ($row['spend'] ?? 0) > 0)->count();
+    $videoCreatives = collect($creatives)->filter(fn ($row) => ! empty($row['video']))->count();
+    $highestCtr = collect($creatives)->filter(fn ($row) => ($row['impressions'] ?? 0) > 0 && ($row['ctr'] ?? null) !== null)->sortByDesc('ctr')->first();
 @endphp
 
-<div class="space-y-4">
+<section class="space-y-5">
     <div>
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ __('operator.meta_ads.tabs.creatives') }}</h2>
-        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ $creatives['subtitle'] }}</p>
+        <p class="text-xs font-semibold uppercase tracking-[0.14em] text-gray-400">{{ $isTr ? 'Kreatif Analizi' : 'Creative Analysis' }}</p>
+        <h2 class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{{ $isTr ? 'Kreatif envanterini gerçek delivery verisiyle birlikte oku' : 'Read creative inventory with real delivery data' }}</h2>
+        <p class="mt-1 max-w-3xl text-sm text-gray-500 dark:text-gray-400">{{ $isTr ? 'Creative snapshot; reklam performansı ve varsa video engagement metrikleriyle creative_id üzerinden birleştirilir.' : 'Creative snapshots are joined by creative_id with ad performance and video engagement metrics when available.' }}</p>
     </div>
 
-    <div class="flex flex-wrap gap-2">
-        <label class="text-xs text-gray-500">Format
-            <select wire:model.live="creative_filter" class="mt-1 block rounded-lg border-gray-200 text-sm dark:border-gray-700 dark:bg-gray-900">
-                <option value="all">All formats</option>
-                <option value="image">Image</option>
-                <option value="video">Video</option>
-                <option value="carousel">Carousel</option>
-                <option value="attention">With attention</option>
-            </select>
-        </label>
-        @if (! empty($creatives['filters']))
-            @foreach ($creatives['filters'] as $filter)
-                <label class="text-xs text-gray-500">{{ $filter['label'] }}
-                    <select wire:change="setCreativeFilter('{{ $filter['key'] }}', $event.target.value)" class="mt-1 block rounded-lg border-gray-200 text-sm dark:border-gray-700 dark:bg-gray-900">
-                        @foreach ($filter['options'] as $opt)
-                            <option value="{{ $opt['value'] }}" @selected(($filter['value'] ?? 'all') === $opt['value'])>{{ $opt['label'] }}</option>
-                        @endforeach
-                    </select>
-                </label>
-            @endforeach
-        @endif
-    </div>
-
-    <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        @foreach ($creativeRows as $cr)
-            <button type="button" wire:click="openCreative('{{ $cr['id'] }}')" class="overflow-hidden rounded-2xl border border-gray-200 bg-white text-left transition hover:bg-gray-50 dark:border-gray-800 dark:bg-white/[0.03] dark:hover:bg-white/[0.05]">
-                <div class="relative">
-                    <x-demo.meta-creative-thumb :gradient="$cr['thumb']" :name="$cr['name']" class="h-36 !aspect-auto" />
-                    <span class="absolute left-2 top-2 rounded-md bg-black/40 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">{{ $cr['format'] }}</span>
-                    @if (! empty($cr['signal']))
-                        <span class="absolute bottom-2 right-2 rounded-md bg-amber-500/90 px-2 py-0.5 text-[10px] font-semibold text-white">{{ $cr['signal'] }}</span>
-                    @endif
-                </div>
-                <div class="space-y-2 p-3">
-                    <div>
-                        <p class="truncate text-sm font-semibold text-gray-900 dark:text-white">{{ $cr['name'] }}</p>
-                        <p class="truncate text-[11px] text-gray-400">{{ $cr['campaign'] }}</p>
+    <div class="grid gap-5 xl:grid-cols-[minmax(0,1.6fr)_360px]">
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            @forelse ($creatives as $creative)
+                <article class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                    <div class="relative flex aspect-[4/3] items-center justify-center bg-gray-100 dark:bg-white/[0.03]">
+                        @if (! empty($creative['thumbnail_url']))
+                            <img src="{{ $creative['thumbnail_url'] }}" alt="" class="h-full w-full object-cover" loading="lazy">
+                        @else
+                            <div class="text-center text-gray-400">
+                                <svg class="mx-auto h-8 w-8" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5v-13Z" stroke="currentColor" stroke-width="1.5"/><path d="m7 16 3.5-4 2.5 2.5 1.5-2 2.5 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                <p class="mt-2 text-xs">{{ $isTr ? 'Thumbnail yok' : 'No thumbnail' }}</p>
+                            </div>
+                        @endif
+                        <span class="absolute left-3 top-3 rounded-full bg-black/65 px-2 py-1 text-[10px] font-semibold text-white">{{ $creative['format'] ?? 'Unknown' }}</span>
                     </div>
-                    @if (! empty($cr['headline']))
-                        <p class="line-clamp-2 text-xs text-gray-600 dark:text-gray-300">{{ $cr['headline'] }}</p>
-                    @endif
-                    <dl class="grid grid-cols-2 gap-2 text-xs">
-                        <div><dt class="text-gray-400">Spend</dt><dd class="font-medium tabular-nums">₺{{ number_format($cr['spend']) }}</dd></div>
-                        <div><dt class="text-gray-400">{{ $cr['result_label'] }}</dt><dd class="font-medium tabular-nums">{{ number_format($cr['result'] ?? $cr['results'] ?? 0) }}</dd></div>
-                        <div><dt class="text-gray-400">Cost / result</dt><dd class="font-medium tabular-nums">₺{{ number_format($cr['cost_result']) }}</dd></div>
-                        <div><dt class="text-gray-400">Angle</dt><dd class="font-medium">{{ $cr['angle'] ?? '—' }}</dd></div>
-                    </dl>
-                </div>
-            </button>
-        @endforeach
-    </div>
-
-    <div class="grid gap-3 lg:grid-cols-12">
-        <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03] lg:col-span-7">
-            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Angle performance</h3>
-            <p class="mt-0.5 text-[11px] text-gray-400">Spend by creative angle · typed results stay separate</p>
-            <x-ta.table class="mt-3 border-0">
-                <x-slot:head>
-                    <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-400">Angle</th>
-                    <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-400">Creatives</th>
-                    <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-400">Spend</th>
-                    <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-400">Result</th>
-                    <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-400">Share</th>
-                </x-slot:head>
-                @foreach ($creatives['angles'] ?? [] as $angle)
-                    <tr>
-                        <td class="px-3 py-2 text-sm font-medium text-gray-900 dark:text-white">{{ $angle['label'] }}</td>
-                        <td class="px-3 py-2 text-xs tabular-nums">{{ $angle['creatives'] }}</td>
-                        <td class="px-3 py-2 text-sm tabular-nums">₺{{ number_format($angle['spend']) }}</td>
-                        <td class="px-3 py-2 text-sm tabular-nums">{{ number_format($angle['results']) }} <span class="text-[11px] text-gray-400">{{ $angle['result_label'] }}</span></td>
-                        <td class="px-3 py-2">
-                            <div class="flex items-center gap-2">
-                                <div class="h-1.5 w-16 overflow-hidden rounded-full bg-slate-100 dark:bg-white/5">
-                                    <div class="h-full rounded-full bg-emerald-500" style="width: {{ min(100, round(($angle['spend'] / $maxAngle) * 100)) }}%"></div>
-                                </div>
-                                <span class="text-xs tabular-nums text-gray-500">{{ $angle['share'] }}%</span>
+                    <div class="p-4">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <p class="truncate text-sm font-bold text-gray-900 dark:text-white">{{ $creative['name'] }}</p>
+                                <p class="mt-0.5 truncate text-xs text-gray-400">{{ implode(' · ', array_slice($creative['campaigns'] ?? [], 0, 2)) ?: ($isTr ? 'Kampanya ilişkisi yok' : 'No campaign linkage') }}</p>
                             </div>
-                        </td>
-                    </tr>
-                @endforeach
-            </x-ta.table>
-        </section>
+                            <span class="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-500 dark:bg-white/[0.05] dark:text-gray-300">{{ $creative['status'] }}</span>
+                        </div>
 
-        <div class="space-y-3 lg:col-span-5">
-            <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Coverage</h3>
-                <ul class="mt-3 space-y-1.5 text-sm">
-                    @foreach ($creatives['coverage'] ?? [] as $row)
-                        <li class="flex items-center justify-between gap-2">
-                            <span class="text-gray-700 dark:text-gray-300">{{ $row['label'] }}</span>
-                            <x-ta.badge :color="match($row['state']) { 'Present', 'Strong' => 'success', 'Partial', 'Thin' => 'warning', default => 'light' }" size="sm">{{ $row['state'] }}</x-ta.badge>
-                        </li>
-                    @endforeach
-                </ul>
-            </section>
+                        <div class="mt-4 grid grid-cols-2 gap-3 text-xs">
+                            <div><p class="text-gray-400">{{ $isTr ? 'Harcama' : 'Spend' }}</p><p class="mt-1 font-bold text-gray-800 dark:text-gray-200">{{ $creative['spend_display'] }}</p></div>
+                            <div><p class="text-gray-400">CTR</p><p class="mt-1 font-bold text-gray-800 dark:text-gray-200">{{ $creative['ctr'] !== null ? number_format($creative['ctr'], 2).'%' : '—' }}</p></div>
+                            <div><p class="text-gray-400">{{ $isTr ? 'Gösterim' : 'Impressions' }}</p><p class="mt-1 font-semibold text-gray-700 dark:text-gray-300">{{ number_format($creative['impressions']) }}</p></div>
+                            <div><p class="text-gray-400">{{ $isTr ? 'Tıklama' : 'Clicks' }}</p><p class="mt-1 font-semibold text-gray-700 dark:text-gray-300">{{ number_format($creative['clicks']) }}</p></div>
+                        </div>
 
-            <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Persona coverage</h3>
-                <ul class="mt-3 space-y-2">
-                    @foreach ($creatives['persona_coverage'] ?? [] as $row)
-                        <li>
-                            <div class="mb-1 flex justify-between text-xs text-gray-500">
-                                <span>{{ $row['persona'] }}</span>
-                                <span>{{ $row['state'] }}</span>
+                        @if (! empty($creative['title']) || ! empty($creative['body']))
+                            <div class="mt-4 border-t border-gray-100 pt-3 dark:border-gray-800">
+                                @if (! empty($creative['title']))<p class="text-xs font-semibold text-gray-700 dark:text-gray-300">{{ $creative['title'] }}</p>@endif
+                                @if (! empty($creative['body']))<p class="mt-1 line-clamp-2 text-[11px] leading-5 text-gray-400">{{ $creative['body'] }}</p>@endif
                             </div>
-                            <x-ta.progress-bar :value="$row['share']" :max="100" :tone="($row['state'] ?? '') === 'Thin' ? 'warning' : 'primary'" />
-                        </li>
-                    @endforeach
-                </ul>
-            </section>
+                        @endif
 
-            <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Active tests</h3>
-                <ul class="mt-3 space-y-2 text-sm">
-                    @foreach ($creatives['active_tests'] ?? [] as $test)
-                        <li class="rounded-lg bg-slate-50 px-3 py-2 dark:bg-white/[0.03]">
-                            <p class="font-medium text-gray-900 dark:text-white">{{ $test['name'] }}</p>
-                            <p class="text-[11px] text-gray-400">{{ $test['status'] }} · {{ $test['note'] }}</p>
-                        </li>
-                    @endforeach
-                </ul>
-            </section>
+                        @if (! empty($creative['video']))
+                            <div class="mt-4 grid grid-cols-3 gap-2 border-t border-gray-100 pt-3 text-[10px] dark:border-gray-800">
+                                @foreach ([
+                                    'video_p25_watched_actions' => '25%',
+                                    'video_p50_watched_actions' => '50%',
+                                    'video_p100_watched_actions' => '100%',
+                                ] as $metricKey => $metricLabel)
+                                    <div class="rounded-lg bg-gray-50 px-2 py-2 text-center dark:bg-white/[0.03]"><p class="text-gray-400">{{ $metricLabel }}</p><p class="mt-1 font-bold text-gray-700 dark:text-gray-300">{{ isset($creative['video'][$metricKey]) ? number_format($creative['video'][$metricKey]) : '—' }}</p></div>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+                </article>
+            @empty
+                <div class="col-span-full rounded-2xl border border-dashed border-gray-300 bg-white px-6 py-16 text-center text-sm text-gray-400 dark:border-gray-700 dark:bg-gray-900">{{ $isTr ? 'Kullanılabilir creative snapshot verisi yok.' : 'No usable creative snapshot data.' }}</div>
+            @endforelse
         </div>
+
+        <article class="h-fit rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+            <h3 class="font-bold text-gray-900 dark:text-white">{{ $isTr ? 'Gözlenen Kreatif Sinyalleri' : 'Observed Creative Signals' }}</h3>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ $isTr ? 'Yalnızca ölçülmüş veriler; winner/fatigue teşhisi yapılmaz.' : 'Measured data only; no winner/fatigue diagnosis is inferred.' }}</p>
+            <div class="mt-5 space-y-3">
+                <div class="rounded-xl border border-gray-200 p-4 dark:border-gray-800"><p class="text-xs text-gray-400">{{ $isTr ? 'Toplam kreatif' : 'Total creatives' }}</p><p class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{{ count($creatives) }}</p></div>
+                <div class="rounded-xl border border-gray-200 p-4 dark:border-gray-800"><p class="text-xs text-gray-400">{{ $isTr ? 'Harcama gözlenen kreatif' : 'Creatives with observed spend' }}</p><p class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{{ $withSpend }}</p></div>
+                <div class="rounded-xl border border-gray-200 p-4 dark:border-gray-800"><p class="text-xs text-gray-400">{{ $isTr ? 'Video metriği bulunan' : 'With video metrics' }}</p><p class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{{ $videoCreatives }}</p></div>
+                <div class="rounded-xl border border-gray-200 p-4 dark:border-gray-800">
+                    <p class="text-xs text-gray-400">{{ $isTr ? 'Gözlenen en yüksek CTR' : 'Highest observed CTR' }}</p>
+                    @if ($highestCtr)
+                        <p class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{{ number_format($highestCtr['ctr'], 2) }}%</p>
+                        <p class="mt-1 truncate text-xs text-gray-400">{{ $highestCtr['name'] }}</p>
+                    @else
+                        <p class="mt-1 text-2xl font-bold text-gray-400">—</p>
+                    @endif
+                </div>
+            </div>
+            <div class="mt-5 rounded-xl bg-gray-50 p-4 text-xs leading-5 text-gray-500 dark:bg-white/[0.03] dark:text-gray-400">{{ $isTr ? 'Fatigue, hook, angle ve persona sınıflandırması sonraki analiz katmanıdır. Bu ekranda mevcut olmayan kreatif zekâ sinyalleri uydurulmaz.' : 'Fatigue, hook, angle and persona classification belong to the next analysis layer. Creative-intelligence signals that do not exist are not fabricated here.' }}</div>
+        </article>
     </div>
-</div>
+</section>
