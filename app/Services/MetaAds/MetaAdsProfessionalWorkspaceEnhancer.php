@@ -48,7 +48,10 @@ final class MetaAdsProfessionalWorkspaceEnhancer
             $workspace['campaigns'] = $this->mergeCompleteCampaignInventory(
                 $workspace['campaigns'] ?? [],
                 $binding->digitalAssetId,
+                $binding->externalResourceId,
                 $binding->accountId,
+                $rangeStart,
+                $rangeEnd,
                 $currency,
             );
 
@@ -94,10 +97,19 @@ final class MetaAdsProfessionalWorkspaceEnhancer
     }
 
     /** @param list<array<string,mixed>> $existing @return list<array<string,mixed>> */
-    private function mergeCompleteCampaignInventory(array $existing, int $digitalAssetId, string $accountId, string $currency): array
-    {
+    private function mergeCompleteCampaignInventory(
+        array $existing,
+        int $digitalAssetId,
+        int $externalResourceId,
+        string $accountId,
+        string $start,
+        string $end,
+        string $currency,
+    ): array {
         $byId = collect($existing)->keyBy(static fn (array $row): string => (string) ($row['id'] ?? ''));
 
+        // Complete inventory: snapshot is not filtered by selected period, so
+        // paused/inactive campaigns remain visible instead of disappearing.
         if (Schema::hasTable('meta_campaign_snapshot')) {
             $snapshots = DB::table('meta_campaign_snapshot')
                 ->where('digital_asset_id', $digitalAssetId)
@@ -109,40 +121,60 @@ final class MetaAdsProfessionalWorkspaceEnhancer
                 $meta = $this->decodeMetadata($snapshot->metadata);
                 $current = $byId->get($campaignId);
 
-                if (is_array($current)) {
-                    $current['name'] = (string) ($meta['name'] ?? $current['name'] ?? ('Kampanya '.$campaignId));
-                    $current['objective'] = $meta['objective'] ?? ($current['objective'] ?? null);
-                    $current['status'] = $meta['status'] ?? ($current['status'] ?? 'UNKNOWN');
-                    $current['effective_status'] = $meta['effective_status'] ?? ($current['effective_status'] ?? null);
-                    $current['daily_budget'] = $meta['daily_budget'] ?? ($current['daily_budget'] ?? null);
-                    $current['lifetime_budget'] = $meta['lifetime_budget'] ?? ($current['lifetime_budget'] ?? null);
-                    $current['has_period_activity'] = ((float) ($current['spend'] ?? 0)) > 0
-                        || ((int) ($current['impressions'] ?? 0)) > 0
-                        || ((int) ($current['clicks'] ?? 0)) > 0;
-                    $byId->put($campaignId, $current);
-                    continue;
+                if (! is_array($current)) {
+                    $current = $this->emptyCampaign($campaignId, $currency);
                 }
 
-                $byId->put($campaignId, [
-                    'id' => $campaignId,
-                    'name' => (string) ($meta['name'] ?? ('Kampanya '.$campaignId)),
-                    'objective' => $meta['objective'] ?? null,
-                    'status' => $meta['status'] ?? 'UNKNOWN',
-                    'effective_status' => $meta['effective_status'] ?? null,
-                    'daily_budget' => $meta['daily_budget'] ?? null,
-                    'lifetime_budget' => $meta['lifetime_budget'] ?? null,
-                    'spend' => 0.0,
-                    'spend_display' => $this->money(0, $currency),
-                    'impressions' => 0,
-                    'clicks' => 0,
-                    'link_clicks' => null,
-                    'outbound_clicks' => null,
-                    'ctr' => null,
-                    'cpc' => null,
-                    'cpm' => null,
-                    'currency' => $currency,
-                    'has_period_activity' => false,
+                $current['name'] = (string) ($meta['name'] ?? $current['name'] ?? ('Kampanya '.$campaignId));
+                $current['objective'] = $meta['objective'] ?? ($current['objective'] ?? null);
+                $current['status'] = $meta['status'] ?? ($current['status'] ?? 'UNKNOWN');
+                $current['effective_status'] = $meta['effective_status'] ?? ($current['effective_status'] ?? null);
+                $current['daily_budget'] = $meta['daily_budget'] ?? ($current['daily_budget'] ?? null);
+                $current['lifetime_budget'] = $meta['lifetime_budget'] ?? ($current['lifetime_budget'] ?? null);
+                $byId->put($campaignId, $current);
+            }
+        }
+
+        // Full selected-period performance: intentionally NO arbitrary LIMIT.
+        // This prevents campaign 201+ from being present in inventory but shown
+        // with a false zero just because the legacy read method capped rows.
+        if (Schema::hasTable('meta_campaign_daily')) {
+            $performance = DB::table('meta_campaign_daily')
+                ->where('digital_asset_id', $digitalAssetId)
+                ->where('external_resource_id', $externalResourceId)
+                ->where('account_id', $accountId)
+                ->whereBetween('reporting_date', [$start, $end])
+                ->groupBy('campaign_id')
+                ->get([
+                    'campaign_id',
+                    DB::raw('SUM(spend) AS spend'),
+                    DB::raw('SUM(impressions) AS impressions'),
+                    DB::raw('SUM(clicks) AS clicks'),
+                    DB::raw('MAX(currency) AS currency'),
                 ]);
+
+            foreach ($performance as $perf) {
+                $campaignId = (string) $perf->campaign_id;
+                $current = $byId->get($campaignId);
+                if (! is_array($current)) {
+                    $current = $this->emptyCampaign($campaignId, $currency);
+                }
+
+                $spend = (float) $perf->spend;
+                $impressions = (int) $perf->impressions;
+                $clicks = (int) $perf->clicks;
+                $rowCurrency = $perf->currency !== null ? (string) $perf->currency : ($current['currency'] ?? $currency);
+
+                $current['spend'] = round($spend, 2);
+                $current['spend_display'] = $this->money($spend, (string) $rowCurrency);
+                $current['impressions'] = $impressions;
+                $current['clicks'] = $clicks;
+                $current['ctr'] = $impressions > 0 ? round(($clicks / $impressions) * 100, 2) : null;
+                $current['cpc'] = $clicks > 0 ? round($spend / $clicks, 2) : null;
+                $current['cpm'] = $impressions > 0 ? round(($spend / $impressions) * 1000, 2) : null;
+                $current['currency'] = (string) $rowCurrency;
+                $current['has_period_activity'] = $spend > 0 || $impressions > 0 || $clicks > 0;
+                $byId->put($campaignId, $current);
             }
         }
 
@@ -174,6 +206,31 @@ final class MetaAdsProfessionalWorkspaceEnhancer
                 return strcasecmp((string) ($a['name'] ?? ''), (string) ($b['name'] ?? ''));
             })
             ->all();
+    }
+
+    /** @return array<string,mixed> */
+    private function emptyCampaign(string $campaignId, string $currency): array
+    {
+        return [
+            'id' => $campaignId,
+            'name' => 'Kampanya '.$campaignId,
+            'objective' => null,
+            'status' => 'UNKNOWN',
+            'effective_status' => null,
+            'daily_budget' => null,
+            'lifetime_budget' => null,
+            'spend' => 0.0,
+            'spend_display' => $this->money(0, $currency),
+            'impressions' => 0,
+            'clicks' => 0,
+            'link_clicks' => null,
+            'outbound_clicks' => null,
+            'ctr' => null,
+            'cpc' => null,
+            'cpm' => null,
+            'currency' => $currency,
+            'has_period_activity' => false,
+        ];
     }
 
     /** @return list<array{ad_id:string,action_type:string,action_value:float,currency:?string,rows:int}> */
