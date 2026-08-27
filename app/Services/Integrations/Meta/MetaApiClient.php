@@ -272,7 +272,7 @@ class MetaApiClient
             };
 
             throw new MetaException(
-                'Meta Graph error.',
+                $this->safeGraphErrorMessage($payload['error']),
                 kind: $kind,
                 httpStatus: $status,
                 providerCode: $code,
@@ -289,6 +289,47 @@ class MetaApiClient
         }
 
         return $payload;
+    }
+
+    /**
+     * Preserve only Meta's non-secret diagnostic fields. Never include request URLs,
+     * access tokens, appsecret_proof values, headers, or the full provider payload.
+     *
+     * @param  array<string, mixed>  $error
+     */
+    private function safeGraphErrorMessage(array $error): string
+    {
+        $message = trim((string) ($error['message'] ?? ''));
+        $userTitle = trim((string) ($error['error_user_title'] ?? ''));
+        $userMessage = trim((string) ($error['error_user_msg'] ?? ''));
+        $code = is_numeric($error['code'] ?? null) ? (int) $error['code'] : null;
+        $subcode = is_numeric($error['error_subcode'] ?? null) ? (int) $error['error_subcode'] : null;
+
+        $parts = [];
+        if ($message !== '') {
+            $parts[] = preg_replace('/\s+/', ' ', $message) ?: $message;
+        }
+        if ($userTitle !== '' && ! str_contains($message, $userTitle)) {
+            $parts[] = $userTitle;
+        }
+        if ($userMessage !== '' && ! str_contains($message, $userMessage)) {
+            $parts[] = $userMessage;
+        }
+
+        $diagnostic = [];
+        if ($code !== null) {
+            $diagnostic[] = 'code '.$code;
+        }
+        if ($subcode !== null) {
+            $diagnostic[] = 'subcode '.$subcode;
+        }
+        if ($diagnostic !== []) {
+            $parts[] = '('.implode(', ', $diagnostic).')';
+        }
+
+        $text = $parts !== [] ? implode(' · ', $parts) : 'Meta Graph error.';
+
+        return mb_substr($text, 0, 800);
     }
 
     /**
