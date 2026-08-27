@@ -62,7 +62,13 @@
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ $isTr ? 'Hesap saat dilimine göre en fazla reklam harcaması gerçekleşen saatler.' : 'Hours with the highest ad spend in the account timezone.' }}</p>
             <div class="mt-5 space-y-2">
                 @forelse ($hourly as $row)
-                    @php $hourLabel = preg_replace('/:\d\d:\d\d\s*-\s*(\d\d):\d\d:\d\d/', ':00–$1:00', (string)$row['hour']); @endphp
+                    @php
+                        $hourLabel = (string) $row['hour'];
+                        if (preg_match('/^(\d{2}):/', $hourLabel, $matches)) {
+                            $hour = (int) $matches[1];
+                            $hourLabel = sprintf('%02d:00–%02d:00', $hour, ($hour + 1) % 24);
+                        }
+                    @endphp
                     <div class="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 rounded-xl border border-gray-100 px-3 py-2.5 text-sm dark:border-gray-800"><span class="truncate font-medium text-gray-700 dark:text-gray-300">{{ $hourLabel }}</span><span class="tabular-nums text-gray-500">{{ $isTr ? 'Tıklama oranı' : 'Click rate' }} {{ $row['ctr'] !== null ? number_format($row['ctr'], 2).'%' : '—' }}</span><span class="font-semibold tabular-nums text-gray-900 dark:text-white">{{ $professional['currency'] ?? '' }} {{ number_format($row['spend'], 2) }}</span></div>
                 @empty
                     <div class="rounded-xl border border-dashed border-gray-300 px-5 py-10 text-center text-sm text-gray-400 dark:border-gray-700">{{ $isTr ? 'Saatlik performans verisi yok.' : 'No hourly performance data.' }}</div>
