@@ -1,0 +1,22 @@
+; Supervisor program for MoxDOP staging Laravel queue workers.
+; Copy to /etc/supervisor/conf.d/moxdop-staging-worker.conf.
+; This replaces the legacy Horizon supervisor program.
+;
+; sudo supervisorctl reread && sudo supervisorctl update
+; sudo supervisorctl status moxdop-staging-worker:*
+
+[program:moxdop-staging-worker]
+process_name=%(program_name)s_%(process_num)02d
+directory=/var/www/moxdop
+command=/usr/bin/php /var/www/moxdop/artisan queue:work --queue=collection,default --sleep=2 --tries=3 --timeout=600 --max-time=3600
+autostart=true
+autorestart=true
+stopasgroup=true
+killasgroup=true
+user=www-data
+numprocs=2
+redirect_stderr=true
+stdout_logfile=/var/log/moxdop-staging-worker.log
+stdout_logfile_maxbytes=10MB
+stdout_logfile_backups=5
+stopwaitsecs=660
