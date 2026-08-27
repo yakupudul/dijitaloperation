@@ -17,6 +17,17 @@ final class MetaAdsProviderErrorMapper
             $message = $this->diagnosticMessage($e);
             $providerCode = $e->providerCode !== null ? '_'.$e->providerCode : '';
 
+            // Meta Graph code 100 is an invalid request/field/filter shape. Meta can
+            // occasionally pair it with HTTP 500, but it is still not a transient
+            // provider outage and must never enter the automatic 5xx retry loop.
+            if ($e->providerCode === 100) {
+                return DatasetExecutionResult::failed(
+                    CollectionErrorCategory::InvalidRequest,
+                    $message,
+                    'META_INVALID_REQUEST_100',
+                );
+            }
+
             return match ($e->kind) {
                 MetaException::KIND_AUTH => DatasetExecutionResult::failed(
                     CollectionErrorCategory::Authentication,
