@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Http;
 use Throwable;
 
 /**
- * Read-only Meta Graph / Marketing API client.
+ * Canonical read-only Meta Graph / Marketing API boundary.
  *
  * GET is the primary surface. POST is exposed only for transport-level
  * creation of read-only asynchronous Insights report jobs — never for
@@ -23,8 +23,6 @@ use Throwable;
 class MetaApiClient
 {
     private const CAMPAIGN_CORE_FIELDS = 'id,name,objective,status,effective_status,buying_type,start_time,stop_time';
-
-    private const AD_CREATIVE_CORE_FIELDS = 'id,name,object_type,status,title,body,call_to_action_type,thumbnail_url,image_hash,video_id';
 
     public function __construct(
         private readonly MetaCredentialBroker $broker,
@@ -74,14 +72,10 @@ class MetaApiClient
             );
         }
 
-        $creativeIds = $this->creativeIdsFromUnsupportedEdgeFilter($method, $path, $query);
-        if ($creativeIds !== null) {
-            $fields = isset($query['fields']) && is_string($query['fields']) && trim($query['fields']) !== ''
-                ? $query['fields']
-                : self::AD_CREATIVE_CORE_FIELDS;
-
-            return $this->readAdCreativesByIds($integration, $creativeIds, $fields, $token);
-        }
+        // Entity inventory collectors must enumerate supported account edges and
+        // filter locally. Never let a future collector regress to Meta's unsupported
+        // id IN filtering on campaigns/adsets/ads/adcreatives.
+        $this->assertNoUnsupportedEntityIdInFilter($method, $path, $query);
 
         $url = MetaApiConfig::graphBaseUrl().'/'.$path;
         $query = $this->withAppSecretProof($query, $token, $integration);
@@ -90,33 +84,7 @@ class MetaApiClient
             static fn (mixed $value): bool => $value !== null && $value !== '',
         );
 
-        try {
-            $pending = Http::timeout(MetaApiConfig::timeoutSeconds())
-                ->connectTimeout(5)
-                ->withToken($token)
-                ->acceptJson();
-
-            $started = microtime(true);
-            $response = match (strtoupper($method)) {
-                'POST' => $pending->asForm()->post($url, $filtered),
-                default => $pending->get($url, $filtered),
-            };
-            $this->recordTelemetry($integration, $response->status(), (int) round((microtime(true) - $started) * 1000));
-        } catch (ConnectionException $exception) {
-            $this->recordTelemetry($integration, null, null, timeout: false, network: true);
-            throw new MetaException(
-                'Meta connection transport error.',
-                kind: MetaException::KIND_TRANSPORT,
-                previous: $exception,
-            );
-        } catch (Throwable $exception) {
-            $this->recordTelemetry($integration, null, null, timeout: false, network: true);
-            throw new MetaException(
-                'Meta connection transport error.',
-                kind: MetaException::KIND_TRANSPORT,
-                previous: $exception,
-            );
-        }
+        $response = $this->send($integration, $method, $url, $filtered, $token);
 
         try {
             return $this->decodeOrThrow($response);
@@ -125,301 +93,16 @@ class MetaApiClient
                 throw $exception;
             }
 
+            // Meta occasionally reports an invalid/unsupported optional Campaign
+            // field as error code 100, including responses that carry HTTP 500.
+            // Retry once with the stable identity/config field set. This is not a
+            // generic retry: only Campaign code 100 from the richer field set enters.
             $fallback = $filtered;
             $fallback['fields'] = self::CAMPAIGN_CORE_FIELDS;
 
-            try {
-                $started = microtime(true);
-                $fallbackResponse = $pending->get($url, $fallback);
-                $this->recordTelemetry(
-                    $integration,
-                    $fallbackResponse->status(),
-                    (int) round((microtime(true) - $started) * 1000),
-                );
-            } catch (ConnectionException $fallbackException) {
-                $this->recordTelemetry($integration, null, null, timeout: false, network: true);
-                throw new MetaException(
-                    'Meta campaign core-field fallback transport error.',
-                    kind: MetaException::KIND_TRANSPORT,
-                    previous: $fallbackException,
-                );
-            } catch (Throwable $fallbackException) {
-                $this->recordTelemetry($integration, null, null, timeout: false, network: true);
-                throw new MetaException(
-                    'Meta campaign core-field fallback transport error.',
-                    kind: MetaException::KIND_TRANSPORT,
-                    previous: $fallbackException,
-                );
-            }
-
-            return $this->decodeOrThrow($fallbackResponse);
-        }
-    }
-
-    /**
-     * The AdAccount adcreatives edge does not support filtering by creative id with
-     * the IN operator. The legacy entity collector used that shape after deriving
-     * creative ids from Ads, which caused the whole entity snapshot to fail with
-     * Meta error #100. Detect only that exact unsupported request and replace it
-     * with Graph's supported multi-id object read.
-     *
-     * @param  array<string, mixed>  $query
-     * @return list<string>|null
-     */
-    private function creativeIdsFromUnsupportedEdgeFilter(string $method, string $path, array $query): ?array
-    {
-        if (strtoupper($method) !== 'GET' || ! preg_match('#(?:^|/)act_[^/]+/adcreatives$#', $path)) {
-            return null;
-        }
-
-        $filtering = $query['filtering'] ?? null;
-        if (! is_string($filtering) || trim($filtering) === '') {
-            return null;
-        }
-
-        try {
-            $filters = json_decode($filtering, true, 512, JSON_THROW_ON_ERROR);
-        } catch (Throwable) {
-            return null;
-        }
-
-        if (! is_array($filters) || count($filters) !== 1 || ! is_array($filters[0])) {
-            return null;
-        }
-
-        $filter = $filters[0];
-        if (strtolower((string) ($filter['field'] ?? '')) !== 'id'
-            || strtoupper((string) ($filter['operator'] ?? '')) !== 'IN'
-            || ! is_array($filter['value'] ?? null)) {
-            return null;
-        }
-
-        $ids = [];
-        foreach ($filter['value'] as $value) {
-            $id = trim((string) $value);
-            if ($id !== '' && preg_match('/^\d+$/', $id)) {
-                $ids[$id] = $id;
-            }
-        }
-
-        return array_values($ids);
-    }
-
-    /**
-     * Read the creative ids through the Graph multi-id surface instead of sending
-     * an unsupported id-IN filter to /act_{id}/adcreatives. If the rich field set
-     * itself is rejected, retry once with the stable creative core fields. A stale
-     * or deleted creative that returns provider code 100 is then isolated with an
-     * individual read so it cannot fail every other valid creative in the batch.
-     *
-     * @param  list<string>  $creativeIds
-     * @return array<string, mixed>
-     */
-    private function readAdCreativesByIds(
-        CoreIntegration $integration,
-        array $creativeIds,
-        string $fields,
-        string $token,
-    ): array {
-        if ($creativeIds === []) {
-            return ['data' => []];
-        }
-
-        try {
-            return $this->readAdCreativeIdBatch($integration, $creativeIds, $fields, $token);
-        } catch (MetaException $exception) {
-            if ($exception->kind !== MetaException::KIND_PROVIDER || $exception->providerCode !== 100) {
-                throw $exception;
-            }
-        }
-
-        if ($fields !== self::AD_CREATIVE_CORE_FIELDS) {
-            try {
-                return $this->readAdCreativeIdBatch(
-                    $integration,
-                    $creativeIds,
-                    self::AD_CREATIVE_CORE_FIELDS,
-                    $token,
-                );
-            } catch (MetaException $exception) {
-                if ($exception->kind !== MetaException::KIND_PROVIDER || $exception->providerCode !== 100) {
-                    throw $exception;
-                }
-            }
-        }
-
-        $rows = [];
-        $skipped = 0;
-        foreach ($creativeIds as $creativeId) {
-            try {
-                $payload = $this->request(
-                    $integration,
-                    'GET',
-                    $creativeId,
-                    ['fields' => self::AD_CREATIVE_CORE_FIELDS],
-                );
-            } catch (MetaException $exception) {
-                if ($exception->kind === MetaException::KIND_PROVIDER && $exception->providerCode === 100) {
-                    $skipped++;
-                    continue;
-                }
-
-                throw $exception;
-            }
-
-            if (isset($payload['id'])) {
-                $rows[] = $payload;
-            }
-        }
-
-        return [
-            'data' => $rows,
-            'summary' => [
-                'requested_ids' => count($creativeIds),
-                'skipped_unavailable_ids' => $skipped,
-            ],
-        ];
-    }
-
-    /**
-     * @param  list<string>  $creativeIds
-     * @return array<string, mixed>
-     */
-    private function readAdCreativeIdBatch(
-        CoreIntegration $integration,
-        array $creativeIds,
-        string $fields,
-        string $token,
-    ): array {
-        $query = $this->withAppSecretProof([
-            'ids' => implode(',', $creativeIds),
-            'fields' => $fields,
-        ], $token, $integration);
-
-        try {
-            $started = microtime(true);
-            $response = Http::timeout(MetaApiConfig::timeoutSeconds())
-                ->connectTimeout(5)
-                ->withToken($token)
-                ->acceptJson()
-                ->get(MetaApiConfig::graphBaseUrl(), $query);
-            $this->recordTelemetry(
-                $integration,
-                $response->status(),
-                (int) round((microtime(true) - $started) * 1000),
+            return $this->decodeOrThrow(
+                $this->send($integration, 'GET', $url, $fallback, $token),
             );
-        } catch (ConnectionException $exception) {
-            $this->recordTelemetry($integration, null, null, timeout: false, network: true);
-            throw new MetaException(
-                'Meta creative multi-id transport error.',
-                kind: MetaException::KIND_TRANSPORT,
-                previous: $exception,
-            );
-        } catch (Throwable $exception) {
-            $this->recordTelemetry($integration, null, null, timeout: false, network: true);
-            throw new MetaException(
-                'Meta creative multi-id transport error.',
-                kind: MetaException::KIND_TRANSPORT,
-                previous: $exception,
-            );
-        }
-
-        $payload = $this->decodeOrThrow($response);
-        $rows = [];
-        $skipped = 0;
-        $allowedIds = array_fill_keys($creativeIds, true);
-
-        foreach ($payload as $key => $value) {
-            if (! is_array($value)) {
-                continue;
-            }
-
-            if (isset($value['error']) && is_array($value['error'])) {
-                $code = is_numeric($value['error']['code'] ?? null) ? (int) $value['error']['code'] : null;
-                if ($code === 100) {
-                    $skipped++;
-                    continue;
-                }
-
-                throw new MetaException(
-                    $this->safeGraphErrorMessage($value['error']),
-                    kind: MetaException::KIND_PROVIDER,
-                    providerCode: $code,
-                );
-            }
-
-            $id = trim((string) ($value['id'] ?? $key));
-            if ($id === '' || ! isset($allowedIds[$id])) {
-                continue;
-            }
-
-            $rows[] = $value;
-        }
-
-        return [
-            'data' => $rows,
-            'summary' => [
-                'requested_ids' => count($creativeIds),
-                'skipped_unavailable_ids' => $skipped,
-            ],
-        ];
-    }
-
-    /**
-     * A provider-level error on the campaign edge can be caused by one optional
-     * campaign field becoming unavailable for an account/API version. Do not let
-     * that optional enrichment block the canonical campaign identity snapshot.
-     * Authentication, authorization, rate-limit and transport failures are never
-     * hidden by this fallback.
-     *
-     * @param array<string, mixed> $query
-     */
-    private function shouldRetryCampaignWithCoreFields(
-        string $method,
-        string $path,
-        array $query,
-        MetaException $exception,
-    ): bool {
-        if (strtoupper($method) !== 'GET' || $exception->kind !== MetaException::KIND_PROVIDER) {
-            return false;
-        }
-
-        if (! preg_match('#(?:^|/)act_[^/]+/campaigns$#', $path)) {
-            return false;
-        }
-
-        $fields = $query['fields'] ?? null;
-        if (! is_string($fields) || $fields === '' || $fields === self::CAMPAIGN_CORE_FIELDS) {
-            return false;
-        }
-
-        return true;
-    }
-
-    private function recordTelemetry(
-        CoreIntegration $integration,
-        ?int $status,
-        ?int $durationMs,
-        bool $timeout = false,
-        bool $network = false,
-    ): void {
-        try {
-            /** @var ProviderApiTelemetryService $telemetry */
-            $telemetry = app(ProviderApiTelemetryService::class);
-            $outcome = $telemetry->classifyHttpStatus($status, $timeout, $network);
-            $telemetry->recordAttempt([
-                'provider' => ProviderRegistry::META,
-                'operation' => 'http',
-                'outcome' => $outcome,
-                'duration_ms' => $durationMs ?? 0,
-                'http_status' => $status,
-                'integration_id' => (int) $integration->id,
-                'quota_visibility' => $outcome === ProviderRequestOutcome::RateLimit
-                    ? ProviderQuotaVisibility::RateLimitSignalOnly
-                    : ProviderQuotaVisibility::NotExposed,
-            ]);
-        } catch (Throwable) {
-            // Telemetry must never break provider calls.
         }
     }
 
@@ -453,7 +136,8 @@ class MetaApiClient
             );
         }
 
-        // Strip access_token from query if Meta embedded it — we use Bearer instead.
+        // Strip access_token from provider paging URLs; credentials stay in the
+        // Authorization header and are never copied into logs/checkpoints.
         $query = [];
         if (isset($parts['query']) && is_string($parts['query'])) {
             parse_str($parts['query'], $query);
@@ -461,25 +145,58 @@ class MetaApiClient
         }
 
         $query = $this->withAppSecretProof($query, $token, $integration);
-
         $path = (string) ($parts['path'] ?? '/');
-        $rebuild = MetaApiConfig::GRAPH_SCHEME.'://'.MetaApiConfig::GRAPH_HOST.$path;
+        $url = MetaApiConfig::GRAPH_SCHEME.'://'.MetaApiConfig::GRAPH_HOST.$path;
 
+        return $this->decodeOrThrow(
+            $this->send($integration, 'GET', $url, $query, $token),
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $query
+     */
+    private function send(
+        CoreIntegration $integration,
+        string $method,
+        string $url,
+        array $query,
+        string $token,
+    ): Response {
         try {
-            $response = Http::timeout(MetaApiConfig::timeoutSeconds())
+            $pending = Http::timeout(MetaApiConfig::timeoutSeconds())
                 ->connectTimeout(5)
                 ->withToken($token)
-                ->acceptJson()
-                ->get($rebuild, $query);
+                ->acceptJson();
+
+            $started = microtime(true);
+            $response = match (strtoupper($method)) {
+                'POST' => $pending->asForm()->post($url, $query),
+                default => $pending->get($url, $query),
+            };
+
+            $this->recordTelemetry(
+                $integration,
+                $response->status(),
+                (int) round((microtime(true) - $started) * 1000),
+            );
+
+            return $response;
         } catch (ConnectionException $exception) {
+            $this->recordTelemetry($integration, null, null, network: true);
+            throw new MetaException(
+                'Meta connection transport error.',
+                kind: MetaException::KIND_TRANSPORT,
+                previous: $exception,
+            );
+        } catch (Throwable $exception) {
+            $this->recordTelemetry($integration, null, null, network: true);
             throw new MetaException(
                 'Meta connection transport error.',
                 kind: MetaException::KIND_TRANSPORT,
                 previous: $exception,
             );
         }
-
-        return $this->decodeOrThrow($response);
     }
 
     /**
@@ -506,6 +223,12 @@ class MetaApiClient
     }
 
     /**
+     * Meta sometimes returns a structured Graph error with an HTTP status that does
+     * not describe the actual failure class (observed: HTTP 500 + Graph code 100).
+     * Structured Graph diagnostics are therefore interpreted before generic HTTP
+     * fallback classification. This preserves the real provider message/subcode and
+     * prevents permanent invalid-request errors from entering blind 5xx retry loops.
+     *
      * @return array<string, mixed>
      */
     private function decodeOrThrow(Response $response): array
@@ -514,12 +237,23 @@ class MetaApiClient
         $json = $response->json();
         $payload = is_array($json) ? $json : [];
 
+        if (isset($payload['error']) && is_array($payload['error'])) {
+            $error = $payload['error'];
+            $code = is_numeric($error['code'] ?? null) ? (int) $error['code'] : null;
+
+            throw new MetaException(
+                $this->safeGraphErrorMessage($error),
+                kind: $this->graphErrorKind($code, $status),
+                httpStatus: $status,
+                providerCode: $code,
+            );
+        }
+
         if ($status === 401) {
             throw new MetaException(
                 'Authentication failed.',
                 kind: MetaException::KIND_AUTH,
                 httpStatus: $status,
-                providerCode: $this->errorCode($payload),
             );
         }
 
@@ -528,7 +262,6 @@ class MetaApiClient
                 'Permission missing.',
                 kind: MetaException::KIND_PERMISSION,
                 httpStatus: $status,
-                providerCode: $this->errorCode($payload),
             );
         }
 
@@ -537,7 +270,6 @@ class MetaApiClient
                 'Rate limited.',
                 kind: MetaException::KIND_RATE_LIMIT,
                 httpStatus: $status,
-                providerCode: $this->errorCode($payload),
             );
         }
 
@@ -546,37 +278,142 @@ class MetaApiClient
                 'Provider unavailable.',
                 kind: MetaException::KIND_HTTP,
                 httpStatus: $status,
-                providerCode: $this->errorCode($payload),
-            );
-        }
-
-        if (isset($payload['error']) && is_array($payload['error'])) {
-            $code = isset($payload['error']['code']) ? (int) $payload['error']['code'] : null;
-            $kind = match (true) {
-                in_array($code, [190, 102], true) => MetaException::KIND_AUTH,
-                in_array($code, [10, 200, 294], true) => MetaException::KIND_PERMISSION,
-                in_array($code, [4, 17, 32, 613], true) => MetaException::KIND_RATE_LIMIT,
-                default => MetaException::KIND_PROVIDER,
-            };
-
-            throw new MetaException(
-                $this->safeGraphErrorMessage($payload['error']),
-                kind: $kind,
-                httpStatus: $status,
-                providerCode: $code,
             );
         }
 
         if ($status >= 400) {
             throw new MetaException(
-                'Provider unavailable.',
-                kind: MetaException::KIND_HTTP,
+                'Meta Graph HTTP error.',
+                kind: MetaException::KIND_PROVIDER,
                 httpStatus: $status,
-                providerCode: $this->errorCode($payload),
             );
         }
 
         return $payload;
+    }
+
+    private function graphErrorKind(?int $code, int $httpStatus): string
+    {
+        if (in_array($code, [190, 102], true)) {
+            return MetaException::KIND_AUTH;
+        }
+
+        if (in_array($code, [10, 200, 294], true)) {
+            return MetaException::KIND_PERMISSION;
+        }
+
+        if (in_array($code, [4, 17, 32, 613], true)) {
+            return MetaException::KIND_RATE_LIMIT;
+        }
+
+        // Code 100 is a permanent invalid-parameter/field/filter shape even when
+        // Meta responds with HTTP 500. It must not be treated as a transient 5xx.
+        if ($code === 100) {
+            return MetaException::KIND_PROVIDER;
+        }
+
+        return $httpStatus >= 500
+            ? MetaException::KIND_HTTP
+            : MetaException::KIND_PROVIDER;
+    }
+
+    /**
+     * A provider code-100 error on the Campaign edge can be caused by one optional
+     * Campaign field becoming unavailable for an account/API version. Retry once
+     * with stable core fields; auth, permission, rate-limit, transport and unrelated
+     * provider failures are never hidden by this fallback.
+     *
+     * @param  array<string, mixed>  $query
+     */
+    private function shouldRetryCampaignWithCoreFields(
+        string $method,
+        string $path,
+        array $query,
+        MetaException $exception,
+    ): bool {
+        if (strtoupper($method) !== 'GET'
+            || $exception->kind !== MetaException::KIND_PROVIDER
+            || $exception->providerCode !== 100) {
+            return false;
+        }
+
+        if (! preg_match('#(?:^|/)act_[^/]+/campaigns$#', $path)) {
+            return false;
+        }
+
+        $fields = $query['fields'] ?? null;
+
+        return is_string($fields)
+            && $fields !== ''
+            && $fields !== self::CAMPAIGN_CORE_FIELDS;
+    }
+
+    /**
+     * @param  array<string, mixed>  $query
+     */
+    private function assertNoUnsupportedEntityIdInFilter(string $method, string $path, array $query): void
+    {
+        if (strtoupper($method) !== 'GET'
+            || ! preg_match('#(?:^|/)act_[^/]+/(campaigns|adsets|ads|adcreatives)$#', $path)) {
+            return;
+        }
+
+        $filtering = $query['filtering'] ?? null;
+        if (! is_string($filtering) || trim($filtering) === '') {
+            return;
+        }
+
+        try {
+            $filters = json_decode($filtering, true, 512, JSON_THROW_ON_ERROR);
+        } catch (Throwable) {
+            return;
+        }
+
+        if (! is_array($filters)) {
+            return;
+        }
+
+        foreach ($filters as $filter) {
+            if (! is_array($filter)) {
+                continue;
+            }
+
+            if (strtolower(trim((string) ($filter['field'] ?? ''))) === 'id'
+                && strtoupper(trim((string) ($filter['operator'] ?? ''))) === 'IN') {
+                throw new MetaException(
+                    'Unsupported Meta entity id IN filtering blocked before provider call.',
+                    kind: MetaException::KIND_PROVIDER,
+                    providerCode: 100,
+                );
+            }
+        }
+    }
+
+    private function recordTelemetry(
+        CoreIntegration $integration,
+        ?int $status,
+        ?int $durationMs,
+        bool $timeout = false,
+        bool $network = false,
+    ): void {
+        try {
+            /** @var ProviderApiTelemetryService $telemetry */
+            $telemetry = app(ProviderApiTelemetryService::class);
+            $outcome = $telemetry->classifyHttpStatus($status, $timeout, $network);
+            $telemetry->recordAttempt([
+                'provider' => ProviderRegistry::META,
+                'operation' => 'http',
+                'outcome' => $outcome,
+                'duration_ms' => $durationMs ?? 0,
+                'http_status' => $status,
+                'integration_id' => (int) $integration->id,
+                'quota_visibility' => $outcome === ProviderRequestOutcome::RateLimit
+                    ? ProviderQuotaVisibility::RateLimitSignalOnly
+                    : ProviderQuotaVisibility::NotExposed,
+            ]);
+        } catch (Throwable) {
+            // Telemetry must never break provider calls.
+        }
     }
 
     /**
@@ -618,15 +455,5 @@ class MetaApiClient
         $text = $parts !== [] ? implode(' · ', $parts) : 'Meta Graph error.';
 
         return mb_substr($text, 0, 800);
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
-     */
-    private function errorCode(array $payload): ?int
-    {
-        $code = data_get($payload, 'error.code');
-
-        return is_numeric($code) ? (int) $code : null;
     }
 }
