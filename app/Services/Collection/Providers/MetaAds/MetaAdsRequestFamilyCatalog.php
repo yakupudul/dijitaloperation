@@ -7,8 +7,10 @@ use InvalidArgumentException;
 /**
  * Contract-driven Meta Ads request-family definitions (Registry RF_META_*).
  *
- * RF_META_ASYNC_INSIGHTS is DEFERRED in the registry and is not registered here;
- * async transport is a strategy inside daily/breakdown families.
+ * Only the V1 account metadata and entity inventory families remain executable.
+ * Performance, typed actions and breakdown collection are authoritative in the
+ * Professional V2 collector and stay here only as historical definitions used by
+ * date-policy code and frozen-contract references.
  */
 final class MetaAdsRequestFamilyCatalog
 {
@@ -25,6 +27,8 @@ final class MetaAdsRequestFamilyCatalog
     public const string FAMILY_INSIGHTS_BREAKDOWN = 'RF_META_INSIGHTS_BREAKDOWN';
 
     /**
+     * Families still owned by the V1 snapshot executor at runtime.
+     *
      * @return list<string>
      */
     public static function supportedFamilies(): array
@@ -32,10 +36,6 @@ final class MetaAdsRequestFamilyCatalog
         return [
             self::FAMILY_AD_ACCOUNT_META,
             self::FAMILY_ENTITY_SNAPSHOT,
-            self::FAMILY_INSIGHTS_SYNC,
-            self::FAMILY_INSIGHTS_DAILY,
-            self::FAMILY_TYPED_ACTIONS,
-            self::FAMILY_INSIGHTS_BREAKDOWN,
         ];
     }
 
