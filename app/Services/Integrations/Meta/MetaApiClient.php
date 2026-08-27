@@ -22,6 +22,8 @@ use Throwable;
  */
 class MetaApiClient
 {
+    private const CAMPAIGN_CORE_FIELDS = 'id,name,objective,status,effective_status,buying_type,start_time,stop_time';
+
     public function __construct(
         private readonly MetaCredentialBroker $broker,
     ) {}
@@ -105,7 +107,73 @@ class MetaApiClient
             );
         }
 
-        return $this->decodeOrThrow($response);
+        try {
+            return $this->decodeOrThrow($response);
+        } catch (MetaException $exception) {
+            if (! $this->shouldRetryCampaignWithCoreFields($method, $path, $filtered, $exception)) {
+                throw $exception;
+            }
+
+            $fallback = $filtered;
+            $fallback['fields'] = self::CAMPAIGN_CORE_FIELDS;
+
+            try {
+                $started = microtime(true);
+                $fallbackResponse = $pending->get($url, $fallback);
+                $this->recordTelemetry(
+                    $integration,
+                    $fallbackResponse->status(),
+                    (int) round((microtime(true) - $started) * 1000),
+                );
+            } catch (ConnectionException $fallbackException) {
+                $this->recordTelemetry($integration, null, null, timeout: false, network: true);
+                throw new MetaException(
+                    'Meta campaign core-field fallback transport error.',
+                    kind: MetaException::KIND_TRANSPORT,
+                    previous: $fallbackException,
+                );
+            } catch (Throwable $fallbackException) {
+                $this->recordTelemetry($integration, null, null, timeout: false, network: true);
+                throw new MetaException(
+                    'Meta campaign core-field fallback transport error.',
+                    kind: MetaException::KIND_TRANSPORT,
+                    previous: $fallbackException,
+                );
+            }
+
+            return $this->decodeOrThrow($fallbackResponse);
+        }
+    }
+
+    /**
+     * A provider-level error on the campaign edge can be caused by one optional
+     * campaign field becoming unavailable for an account/API version. Do not let
+     * that optional enrichment block the canonical campaign identity snapshot.
+     * Authentication, authorization, rate-limit and transport failures are never
+     * hidden by this fallback.
+     *
+     * @param array<string, mixed> $query
+     */
+    private function shouldRetryCampaignWithCoreFields(
+        string $method,
+        string $path,
+        array $query,
+        MetaException $exception,
+    ): bool {
+        if (strtoupper($method) !== 'GET' || $exception->kind !== MetaException::KIND_PROVIDER) {
+            return false;
+        }
+
+        if (! preg_match('#(?:^|/)act_[^/]+/campaigns$#', $path)) {
+            return false;
+        }
+
+        $fields = $query['fields'] ?? null;
+        if (! is_string($fields) || $fields === '' || $fields === self::CAMPAIGN_CORE_FIELDS) {
+            return false;
+        }
+
+        return true;
     }
 
     private function recordTelemetry(
