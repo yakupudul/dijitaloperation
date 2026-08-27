@@ -6,6 +6,7 @@ use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
 use App\Livewire\Demo\Concerns\ResolvesCanonicalOperatorAsset;
 use App\Models\DigitalAsset;
 use App\Services\DataPool\Freshness\StartIncrementalCollectionService;
+use App\Services\MetaAds\MetaAdsProfessionalWorkspaceEnhancer;
 use App\Services\MetaAds\MetaAdsProfessionalWorkspaceReadService;
 use App\Services\MetaAds\MetaAdsSpecialistBindingResolver;
 use App\Services\MetaAds\MetaAdsSpecialistReadService;
@@ -225,8 +226,9 @@ class OverviewPage extends Component
         $this->normalizeTab();
 
         // Legacy specialist shape is retained for identity, period helpers and
-        // existing drawers. The professional presentation model below is the
-        // source of all new Meta Ads workspace metrics and V2 datasets.
+        // existing drawers. The professional model is the source of visible
+        // Meta Ads metrics; enhancer adds complete campaign inventory and
+        // typed conversion/action context at each supported hierarchy level.
         $data = app(MetaAdsSpecialistReadService::class)->workspace(
             $this->assetId,
             $this->period,
@@ -234,6 +236,13 @@ class OverviewPage extends Component
             $this->periodEnd,
         );
         $professional = app(MetaAdsProfessionalWorkspaceReadService::class)->workspace(
+            $this->assetId,
+            $this->period,
+            $this->periodStart,
+            $this->periodEnd,
+        );
+        $professional = app(MetaAdsProfessionalWorkspaceEnhancer::class)->enhance(
+            $professional,
             $this->assetId,
             $this->period,
             $this->periodStart,
@@ -304,6 +313,7 @@ class OverviewPage extends Component
 
         $trend = $professional['trend'] ?? [];
         $currency = (string) ($professional['currency'] ?? $data['currency'] ?? '');
+        $isTr = app()->getLocale() === 'tr';
 
         return view('livewire.demo.meta.overview', [
             'asset' => $this->presentCanonicalAsset(),
@@ -320,16 +330,16 @@ class OverviewPage extends Component
             'performanceChartOptions' => [
                 'chart' => ['type' => 'line', 'height' => 260, 'toolbar' => ['show' => false]],
                 'series' => [
-                    ['name' => 'Spend'.($currency !== '' ? ' ('.$currency.')' : ''), 'data' => array_column($trend, 'spend')],
-                    ['name' => 'Clicks', 'data' => array_column($trend, 'clicks')],
+                    ['name' => ($isTr ? 'Reklam Harcaması' : 'Ad Spend').($currency !== '' ? ' ('.$currency.')' : ''), 'data' => array_column($trend, 'spend')],
+                    ['name' => $isTr ? 'Toplam Tıklamalar' : 'Total Clicks', 'data' => array_column($trend, 'clicks')],
                 ],
                 'xaxis' => ['categories' => array_column($trend, 'date')],
                 'stroke' => ['curve' => 'smooth', 'width' => 2],
                 'dataLabels' => ['enabled' => false],
                 'legend' => ['position' => 'top'],
                 'yaxis' => [
-                    ['title' => ['text' => 'Spend']],
-                    ['opposite' => true, 'title' => ['text' => 'Clicks']],
+                    ['title' => ['text' => $isTr ? 'Harcama' : 'Spend']],
+                    ['opposite' => true, 'title' => ['text' => $isTr ? 'Tıklamalar' : 'Clicks']],
                 ],
             ],
             'flash' => DemoState::pullFlash(),
