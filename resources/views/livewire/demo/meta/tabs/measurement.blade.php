@@ -6,6 +6,7 @@
     $customConversionCount = collect($sources)->where('source_type', 'CUSTOM_CONVERSION')->count();
     $availableSources = collect($sources)->filter(fn ($row) => ! ($row['is_unavailable'] ?? false) && ! ($row['is_archived'] ?? false))->count();
     $timezone = $professional['timezone'] ?? config('app.timezone', 'UTC');
+    $currency = strtoupper((string) ($professional['currency'] ?? ''));
 
     $formatTime = static function ($value) use ($isTr, $timezone): string {
         if (! filled($value)) return '—';
@@ -45,6 +46,47 @@
             default => str_replace('_', ' ', (string) $sourceType),
         };
     };
+
+    $entityActionValue = static function (array $entity, string $actionType): float {
+        foreach (($entity['actions'] ?? []) as $action) {
+            if (($action['action_type'] ?? null) === $actionType) {
+                return (float) ($action['value'] ?? 0);
+            }
+        }
+
+        return 0.0;
+    };
+
+    $campaignsById = collect($professional['campaigns'] ?? [])->keyBy(fn (array $row) => (string) ($row['id'] ?? ''));
+    $adsets = collect($professional['adsets'] ?? []);
+
+    $leadAdsets = $adsets->filter(function (array $row) use ($campaignsById, $entityActionValue): bool {
+        $campaign = $campaignsById->get((string) ($row['campaign_id'] ?? ''), []);
+        $objective = strtoupper((string) ($campaign['objective'] ?? ''));
+        $goal = strtoupper((string) ($row['optimization_goal'] ?? ''));
+
+        return str_contains($objective, 'LEAD')
+            || str_contains($goal, 'LEAD')
+            || $entityActionValue($row, 'lead') > 0;
+    });
+
+    $leadSpend = (float) $leadAdsets->sum(fn (array $row) => (float) ($row['spend'] ?? 0));
+    $leadCount = (float) $leadAdsets->sum(fn (array $row) => $entityActionValue($row, 'lead'));
+    $leadCost = $leadCount > 0 ? $leadSpend / $leadCount : null;
+
+    $whatsappAdsets = $adsets->filter(
+        fn (array $row): bool => strtoupper((string) ($row['destination_type'] ?? '')) === 'WHATSAPP'
+    );
+    $whatsappSpend = (float) $whatsappAdsets->sum(fn (array $row) => (float) ($row['spend'] ?? 0));
+    $whatsappConversationCount = (float) $whatsappAdsets->sum(
+        fn (array $row) => $entityActionValue($row, 'onsite_conversion.messaging_conversation_started_7d')
+    );
+    $whatsappConversationCost = $whatsappConversationCount > 0 ? $whatsappSpend / $whatsappConversationCount : null;
+
+    $money = static function (?float $value) use ($currency): string {
+        if ($value === null) return '—';
+        return ($currency !== '' ? $currency.' ' : '').number_format($value, 2);
+    };
 @endphp
 
 <section class="space-y-5">
@@ -64,6 +106,45 @@
             <article class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900"><p class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ $label }}</p><p class="mt-3 text-3xl font-bold text-gray-900 dark:text-white">{{ number_format($value) }}</p></article>
         @endforeach
     </div>
+
+    @if ($leadAdsets->isNotEmpty() || $whatsappAdsets->isNotEmpty())
+        <article class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900 sm:p-6">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                    <h3 class="font-bold text-gray-900 dark:text-white">{{ $isTr ? 'Sonuç Başına Maliyet' : 'Cost per Outcome' }}</h3>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ $isTr ? 'Harcama yalnızca ilgili lead veya WhatsApp reklam setlerinden alınır; farklı kampanya amaçlarının bütçesi birbirine karıştırılmaz.' : 'Spend is scoped to the relevant lead or WhatsApp ad sets; budgets from unrelated objectives are not mixed into these costs.' }}</p>
+                </div>
+                <span class="text-xs text-gray-400">{{ $professional['period_start'] ?? '—' }} → {{ $professional['period_end'] ?? '—' }}</span>
+            </div>
+
+            <div class="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <div class="rounded-xl border border-gray-200 p-4 dark:border-gray-800">
+                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ $isTr ? 'Lead' : 'Leads' }}</p>
+                    <p class="mt-2 text-2xl font-bold tabular-nums text-gray-900 dark:text-white">{{ $leadCount > 0 ? number_format($leadCount, 0) : '—' }}</p>
+                    <p class="mt-1 text-[11px] text-gray-400">{{ $isTr ? 'Meta’nın canonical lead action değeri' : 'Canonical Meta lead action' }}</p>
+                </div>
+                <div class="rounded-xl border border-gray-200 p-4 dark:border-gray-800">
+                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ $isTr ? 'Lead Başına Maliyet (CPL)' : 'Cost per Lead (CPL)' }}</p>
+                    <p class="mt-2 text-2xl font-bold tabular-nums text-gray-900 dark:text-white">{{ $money($leadCost) }}</p>
+                    <p class="mt-1 text-[11px] text-gray-400">{{ $isTr ? 'Lead odaklı reklam setleri harcaması / lead' : 'Lead-focused ad set spend / leads' }}</p>
+                </div>
+                <div class="rounded-xl border border-gray-200 p-4 dark:border-gray-800">
+                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ $isTr ? 'WhatsApp Başlatılan Konuşma' : 'WhatsApp Conversations Started' }}</p>
+                    <p class="mt-2 text-2xl font-bold tabular-nums text-gray-900 dark:text-white">{{ $whatsappConversationCount > 0 ? number_format($whatsappConversationCount, 0) : '—' }}</p>
+                    <p class="mt-1 text-[11px] text-gray-400">{{ $isTr ? 'Yalnızca Hedef = WhatsApp reklam setleri' : 'Only Destination = WhatsApp ad sets' }}</p>
+                </div>
+                <div class="rounded-xl border border-gray-200 p-4 dark:border-gray-800">
+                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ $isTr ? 'WhatsApp Konuşma Başına Maliyet' : 'Cost per WhatsApp Conversation' }}</p>
+                    <p class="mt-2 text-2xl font-bold tabular-nums text-gray-900 dark:text-white">{{ $money($whatsappConversationCost) }}</p>
+                    <p class="mt-1 text-[11px] text-gray-400">{{ $isTr ? 'WhatsApp reklam setleri harcaması / başlatılan konuşma' : 'WhatsApp ad set spend / conversations started' }}</p>
+                </div>
+            </div>
+
+            <div class="mt-4 rounded-xl bg-gray-50 px-4 py-3 text-xs leading-5 text-gray-500 dark:bg-white/[0.03] dark:text-gray-400">
+                {{ $isTr ? 'WhatsApp maliyeti yalnızca destination_type = WHATSAPP ve Meta’nın “messaging_conversation_started_7d” metriği birlikte mevcutsa hesaplanır. Diğer messaging action’ları WhatsApp sonucuymuş gibi kullanılmaz.' : 'WhatsApp cost is calculated only when destination_type = WHATSAPP and Meta’s messaging_conversation_started_7d metric are both available. Other messaging actions are not treated as WhatsApp results.' }}
+            </div>
+        </article>
+    @endif
 
     <div class="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,.85fr)]">
         <article class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
