@@ -25,10 +25,24 @@
         if ($key === 'ctr') return $delta > 0 ? 'daha iyi' : ($delta < 0 ? 'daha düşük' : 'değişmedi');
         return 'önceki döneme göre';
     };
+    $statusLabel = static function (?string $status) use ($isTr): string {
+        $value = strtoupper(trim((string) $status));
+        if (! $isTr) return $value !== '' ? str_replace('_', ' ', $value) : '—';
+        return match ($value) {
+            'ACTIVE' => 'Aktif',
+            'PAUSED' => 'Durduruldu',
+            'WITH_ISSUES' => 'Sorun Var',
+            'PENDING_REVIEW' => 'İncelemede',
+            'ARCHIVED' => 'Arşivlendi',
+            'DELETED' => 'Silindi',
+            'UNKNOWN', '' => 'Bilinmiyor',
+            default => str_replace('_', ' ', $value),
+        };
+    };
     $allCampaigns = $professional['campaigns'] ?? [];
     $topCampaigns = array_slice(array_values(array_filter($allCampaigns, static fn (array $row): bool => ($row['spend'] ?? 0) > 0)), 0, 5);
-    $topCreatives = array_slice($professional['creatives'] ?? [], 0, 4);
-    $actions = array_slice($professional['typed_actions'] ?? [], 0, 6);
+    $topCreatives = array_slice(array_values(array_filter($professional['creatives'] ?? [], static fn (array $row): bool => ($row['spend'] ?? 0) > 0)), 0, 4);
+    $actions = array_slice($professional['headline_actions'] ?? [], 0, 6);
     $healthIssues = array_slice($professional['health']['issues'] ?? [], 0, 5);
     $inventory = $professional['campaign_inventory'] ?? ['total' => count($allCampaigns), 'with_period_activity' => count($allCampaigns)];
 @endphp
@@ -92,8 +106,8 @@
             <div class="flex items-start justify-between gap-3"><div><h3 class="font-bold text-gray-900 dark:text-white">{{ $isTr ? 'En Çok Harcama Yapan Kampanyalar' : 'Top Campaigns by Spend' }}</h3><p class="mt-1 text-[11px] text-gray-400">{{ $isTr ? 'Hesaptaki '.number_format((int)($inventory['total'] ?? 0)).' kampanyanın tamamı dikkate alınır.' : 'All '.number_format((int)($inventory['total'] ?? 0)).' campaigns are considered.' }}</p></div><button type="button" wire:click="setTab('campaigns')" class="text-xs font-semibold text-brand-600 dark:text-brand-400">{{ $isTr ? 'Tümünü gör' : 'View all' }}</button></div>
             <div class="mt-4 space-y-3">
                 @forelse ($topCampaigns as $campaign)
-                    @php $action = $campaign['actions'][0] ?? null; @endphp
-                    <div class="flex items-center justify-between gap-4 border-b border-gray-100 pb-3 last:border-0 last:pb-0 dark:border-gray-800"><div class="min-w-0"><p class="truncate text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $campaign['name'] }}</p><p class="mt-0.5 text-xs text-gray-400">{{ $isTr ? 'Tıklama oranı' : 'Click rate' }} {{ $campaign['ctr'] !== null ? number_format($campaign['ctr'], 2).'%' : '—' }} · {{ $campaign['status'] }}</p>@if($action)<p class="mt-1 text-[11px] font-medium text-brand-600 dark:text-brand-400">{{ $isTr ? $action['label_tr'] : $action['label_en'] }}: {{ number_format((float)$action['value'], 2) }}</p>@endif</div><span class="shrink-0 text-sm font-bold text-gray-900 dark:text-white">{{ $campaign['spend_display'] }}</span></div>
+                    @php $action = $campaign['summary_actions'][0] ?? null; @endphp
+                    <div class="flex items-center justify-between gap-4 border-b border-gray-100 pb-3 last:border-0 last:pb-0 dark:border-gray-800"><div class="min-w-0"><p class="truncate text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $campaign['name'] }}</p><p class="mt-0.5 text-xs text-gray-400">{{ $isTr ? 'Tıklama oranı' : 'Click rate' }} {{ $campaign['ctr'] !== null ? number_format($campaign['ctr'], 2).'%' : '—' }} · {{ $statusLabel($campaign['effective_status'] ?? $campaign['status'] ?? null) }}</p>@if($action)<p class="mt-1 text-[11px] font-medium text-brand-600 dark:text-brand-400">{{ $isTr ? $action['label_tr'] : $action['label_en'] }}: {{ number_format((float)$action['value'], 2) }}</p>@endif</div><span class="shrink-0 text-sm font-bold text-gray-900 dark:text-white">{{ $campaign['spend_display'] }}</span></div>
                 @empty
                     <p class="py-8 text-center text-sm text-gray-400">{{ $isTr ? 'Seçili dönemde harcama yapan kampanya yok.' : 'No campaign spend in the selected period.' }}</p>
                 @endforelse
@@ -104,25 +118,25 @@
             <div class="flex items-center justify-between"><h3 class="font-bold text-gray-900 dark:text-white">{{ $isTr ? 'Kreatif Performansı' : 'Creative Performance' }}</h3><button type="button" wire:click="setTab('creatives')" class="text-xs font-semibold text-brand-600 dark:text-brand-400">{{ $isTr ? 'Tümünü gör' : 'View all' }}</button></div>
             <div class="mt-4 space-y-3">
                 @forelse ($topCreatives as $creative)
-                    @php $action = $creative['actions'][0] ?? null; @endphp
+                    @php $action = $creative['summary_actions'][0] ?? null; @endphp
                     <div class="flex items-center gap-3 border-b border-gray-100 pb-3 last:border-0 last:pb-0 dark:border-gray-800"><div class="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-gray-100 dark:bg-white/[0.05]">@if (! empty($creative['thumbnail_url']))<img src="{{ $creative['thumbnail_url'] }}" alt="" class="h-full w-full object-cover" loading="lazy">@endif</div><div class="min-w-0 flex-1"><p class="truncate text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $creative['name'] }}</p><p class="text-xs text-gray-400">{{ $isTr ? 'Tıklama oranı' : 'Click rate' }} {{ $creative['ctr'] !== null ? number_format($creative['ctr'], 2).'%' : '—' }}</p>@if($action)<p class="mt-1 text-[11px] font-medium text-brand-600 dark:text-brand-400">{{ $isTr ? $action['label_tr'] : $action['label_en'] }}: {{ number_format((float)$action['value'], 2) }}</p>@endif</div><span class="text-xs font-semibold text-gray-700 dark:text-gray-300">{{ $creative['spend_display'] }}</span></div>
                 @empty
-                    <p class="py-8 text-center text-sm text-gray-400">{{ $isTr ? 'Kreatif verisi yok.' : 'No creative data.' }}</p>
+                    <p class="py-8 text-center text-sm text-gray-400">{{ $isTr ? 'Seçili dönemde harcama yapılan kreatif yok.' : 'No creative spend in the selected period.' }}</p>
                 @endforelse
             </div>
         </article>
 
         <article class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-            <div class="flex items-center justify-between"><div><h3 class="font-bold text-gray-900 dark:text-white">{{ $isTr ? 'Reklamların Ürettiği Sonuçlar' : 'Ad Outcomes' }}</h3><p class="mt-1 text-[11px] text-gray-400">{{ $isTr ? 'Meta’nın ölçtüğü sonuç türleri birbirinden ayrı gösterilir.' : 'Meta-observed action types are kept separate.' }}</p></div><button type="button" wire:click="setTab('measurement')" class="text-xs font-semibold text-brand-600 dark:text-brand-400">{{ $isTr ? 'Tüm sonuçlar' : 'All outcomes' }}</button></div>
+            <div class="flex items-center justify-between"><div><h3 class="font-bold text-gray-900 dark:text-white">{{ $isTr ? 'Öne Çıkan Reklam Sonuçları' : 'Headline Ad Outcomes' }}</h3><p class="mt-1 text-[11px] text-gray-400">{{ $isTr ? 'Aynı olayı tekrar eden teknik varyantlar burada çoğaltılmaz.' : 'Overlapping technical variants are de-duplicated here.' }}</p></div><button type="button" wire:click="setTab('measurement')" class="text-xs font-semibold text-brand-600 dark:text-brand-400">{{ $isTr ? 'Tüm aksiyonlar' : 'All actions' }}</button></div>
             <div class="mt-4 space-y-3">
                 @forelse ($actions as $action)
-                    <div class="flex items-center justify-between gap-3 border-b border-gray-100 pb-3 last:border-0 last:pb-0 dark:border-gray-800"><div class="min-w-0"><span class="truncate text-sm text-gray-600 dark:text-gray-300">{{ $isTr ? ($action['label_tr'] ?? $action['label']) : ($action['label_en'] ?? $action['label']) }}</span><details class="mt-0.5"><summary class="cursor-pointer text-[10px] text-gray-300">{{ $isTr ? 'Teknik adı' : 'Technical name' }}</summary><code class="text-[10px] text-gray-400">{{ $action['action_type'] }}</code></details></div><span class="font-bold tabular-nums text-gray-900 dark:text-white">{{ number_format($action['value'], 2) }}</span></div>
+                    <div class="flex items-center justify-between gap-3 border-b border-gray-100 pb-3 last:border-0 last:pb-0 dark:border-gray-800"><span class="truncate text-sm text-gray-600 dark:text-gray-300">{{ $isTr ? ($action['label_tr'] ?? $action['label']) : ($action['label_en'] ?? $action['label']) }}</span><span class="font-bold tabular-nums text-gray-900 dark:text-white">{{ number_format($action['value'], 2) }}</span></div>
                 @empty
-                    <p class="py-8 text-center text-sm text-gray-400">{{ $isTr ? 'Meta tarafından ölçülmüş action verisi yok.' : 'No Meta-observed action data.' }}</p>
+                    <p class="py-8 text-center text-sm text-gray-400">{{ $isTr ? 'Öne çıkarılabilecek ölçülmüş sonuç yok.' : 'No headline observed outcome.' }}</p>
                 @endforelse
             </div>
         </article>
     </div>
 
-    <div class="rounded-xl border border-blue-200 bg-blue-50/60 px-4 py-3 text-xs leading-5 text-blue-800 dark:border-blue-500/20 dark:bg-blue-500/[0.06] dark:text-blue-300">{{ $isTr ? 'MOXDOP farklı sonuç türlerini tek bir sayı altında toplamaz. Lead, mesaj, satın alma veya diğer aksiyonlar kendi türüyle gösterilir; böylece yüksek hacimli bir etkileşim gerçek iş sonucuyla karıştırılmaz.' : 'MOXDOP does not collapse different outcome types into one number. Leads, messages, purchases and other actions stay separate.' }}</div>
+    <div class="rounded-xl border border-blue-200 bg-blue-50/60 px-4 py-3 text-xs leading-5 text-blue-800 dark:border-blue-500/20 dark:bg-blue-500/[0.06] dark:text-blue-300">{{ $isTr ? 'MOXDOP farklı sonuç türlerini tek bir sayı altında toplamaz. Lead, mesaj, satın alma veya diğer aksiyonlar kendi türüyle gösterilir; teknik varyantların tamamı Dönüşümler sekmesinde ayrı ayrı korunur.' : 'MOXDOP does not collapse different outcome types into one number. Detailed technical variants remain available in Conversions.' }}</div>
 </section>
