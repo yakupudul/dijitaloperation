@@ -10,13 +10,130 @@
         ['key' => 'platform_position', 'title' => $isTr ? 'Reklam Konumu' : 'Ad Placement'],
         ['key' => 'device', 'title' => $isTr ? 'Cihazlar' : 'Devices'],
     ];
-    $translateTargetingChip = static function (string $chip) use ($isTr): string {
-        if (!$isTr) return $chip;
-        return str_replace(
-            ['Age ', 'Countries: ', 'Platforms: ', ' custom audiences', ' custom audience', ' interests', ' interest'],
-            ['Yaş ', 'Ülkeler: ', 'Platformlar: ', ' özel hedef kitle', ' özel hedef kitle', ' ilgi alanı', ' ilgi alanı'],
-            $chip,
-        );
+
+    $countryNamesTr = [
+        'TR' => 'Türkiye', 'GB' => 'Birleşik Krallık', 'DE' => 'Almanya', 'US' => 'ABD',
+        'NL' => 'Hollanda', 'FR' => 'Fransa', 'AT' => 'Avusturya', 'BE' => 'Belçika',
+        'CH' => 'İsviçre', 'SE' => 'İsveç', 'DK' => 'Danimarka', 'NO' => 'Norveç',
+        'FI' => 'Finlandiya', 'IT' => 'İtalya', 'ES' => 'İspanya', 'PL' => 'Polonya',
+        'RO' => 'Romanya', 'BG' => 'Bulgaristan', 'GR' => 'Yunanistan', 'IE' => 'İrlanda',
+        'CA' => 'Kanada', 'AU' => 'Avustralya', 'AE' => 'BAE', 'SA' => 'Suudi Arabistan',
+    ];
+
+    $breakdownLabel = static function (string $key, string $label) use ($isTr, $countryNamesTr): string {
+        if (! $isTr) return $label;
+
+        $normalized = trim($label);
+
+        if ($key === 'country') {
+            $code = strtoupper($normalized);
+            return $countryNamesTr[$code] ?? $code;
+        }
+
+        if ($key === 'gender') {
+            return match (strtolower($normalized)) {
+                'male', 'men' => 'Erkek',
+                'female', 'women' => 'Kadın',
+                'unknown', 'unclassified' => 'Bilinmiyor',
+                default => $normalized,
+            };
+        }
+
+        if ($key === 'device') {
+            return match (strtolower($normalized)) {
+                'iphone' => 'iPhone',
+                'ipad' => 'iPad',
+                'android smartphone', 'android_phone', 'android phone' => 'Android Telefon',
+                'android tablet', 'android_tablet' => 'Android Tablet',
+                'desktop' => 'Masaüstü',
+                'other' => 'Diğer',
+                default => $normalized,
+            };
+        }
+
+        if ($key === 'platform_position') {
+            return match (strtolower($normalized)) {
+                'facebook feed' => 'Facebook Akışı',
+                'instagram feed' => 'Instagram Akışı',
+                'facebook stories' => 'Facebook Hikayeler',
+                'instagram stories' => 'Instagram Hikayeler',
+                'facebook reels' => 'Facebook Reels',
+                'instagram reels' => 'Instagram Reels',
+                'messenger inbox' => 'Messenger Gelen Kutusu',
+                'marketplace' => 'Facebook Marketplace',
+                default => $normalized,
+            };
+        }
+
+        return $normalized;
+    };
+
+    $optimizationLabel = static function (?string $value) use ($isTr): string {
+        if (! filled($value) || ! $isTr) return $value ?: '—';
+
+        return match (strtolower(trim((string) $value))) {
+            'offsite conversions', 'conversions' => 'Dönüşümler',
+            'landing page views' => 'Açılış Sayfası Görüntülemeleri',
+            'link clicks' => 'Bağlantı Tıklamaları',
+            'conversations' => 'Mesajlaşmalar',
+            'lead generation', 'leads' => 'Lead Toplama',
+            'profile visit', 'profile visits' => 'Profil Ziyaretleri',
+            'reach' => 'Erişim',
+            'impressions' => 'Gösterimler',
+            'post engagement' => 'Gönderi Etkileşimi',
+            'video views' => 'Video İzlemeleri',
+            default => (string) $value,
+        };
+    };
+
+    $billingLabel = static function (?string $value) use ($isTr): string {
+        if (! filled($value) || ! $isTr) return $value ?: '—';
+
+        return match (strtolower(trim((string) $value))) {
+            'impressions' => 'Gösterimler',
+            'link clicks' => 'Bağlantı Tıklamaları',
+            default => (string) $value,
+        };
+    };
+
+    $bidLabel = static function (?string $value) use ($isTr): string {
+        if (! filled($value) || ! $isTr) return $value ?: '—';
+
+        return match (strtolower(trim((string) $value))) {
+            'lowest cost without cap' => 'En Düşük Maliyet · Teklif Sınırı Yok',
+            'lowest cost with bid cap' => 'En Düşük Maliyet · Teklif Sınırı',
+            'cost cap' => 'Maliyet Sınırı',
+            'bid cap' => 'Teklif Sınırı',
+            default => (string) $value,
+        };
+    };
+
+    $translateTargetingChip = static function (string $chip) use ($isTr, $countryNamesTr): string {
+        if (! $isTr) return $chip;
+
+        if (str_starts_with($chip, 'Countries: ')) {
+            $codes = array_map('trim', explode(',', substr($chip, strlen('Countries: '))));
+            $names = array_map(static fn (string $code): string => $countryNamesTr[strtoupper($code)] ?? strtoupper($code), $codes);
+            return 'Ülkeler: '.implode(', ', $names);
+        }
+
+        if (str_starts_with($chip, 'Age ')) {
+            return 'Yaş '.substr($chip, 4);
+        }
+
+        if (str_starts_with($chip, 'Platforms: ')) {
+            return 'Platformlar: '.substr($chip, strlen('Platforms: '));
+        }
+
+        if (preg_match('/^(\d+) custom audiences?$/i', $chip, $m)) {
+            return $m[1].' özel hedef kitle';
+        }
+
+        if (preg_match('/^(\d+) interests?$/i', $chip, $m)) {
+            return $m[1].' ilgi alanı';
+        }
+
+        return $chip;
     };
 @endphp
 
@@ -24,7 +141,7 @@
     <div>
         <p class="text-xs font-semibold uppercase tracking-[0.14em] text-gray-400">{{ $isTr ? 'Kitle & Dağıtım' : 'Audience & Delivery' }}</p>
         <h2 class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{{ $isTr ? 'Reklam bütçesi gerçekte kimlere ve nerelere gitti?' : 'Who and where actually received the ad budget?' }}</h2>
-        <p class="mt-1 max-w-3xl text-sm text-gray-500 dark:text-gray-400">{{ $isTr ? 'Üst bölüm reklamların gerçekte kimlere ve hangi alanlarda gösterildiğini anlatır. Alt bölüm ise reklam setlerinde sizin tanımladığınız hedefleme ayarlarını gösterir. Böylece “hedeflediğimiz kitle” ile “reklamı gerçekten gören kitle” birbirine karışmaz.' : 'The top shows observed delivery; the lower section shows configured targeting, keeping intended audience separate from actual delivery.' }}</p>
+        <p class="mt-1 max-w-3xl text-sm text-gray-500 dark:text-gray-400">{{ $isTr ? 'Üst bölüm reklamların gerçekte kimlere ve hangi alanlarda gösterildiğini anlatır. Alt bölüm ise reklam setlerinde tanımlanan hedefleme ayarlarını gösterir. Böylece “hedeflediğimiz kitle” ile “reklamı gerçekten gören kitle” birbirine karışmaz.' : 'The top shows observed delivery; the lower section shows configured targeting, keeping intended audience separate from actual delivery.' }}</p>
     </div>
 
     <div class="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
@@ -35,7 +152,7 @@
                 <div class="mt-5 space-y-4">
                     @forelse ($rows as $row)
                         <div>
-                            <div class="flex items-center justify-between gap-3 text-sm"><span class="truncate font-medium text-gray-700 dark:text-gray-300">{{ $row['label'] }}</span><span class="shrink-0 text-xs font-semibold tabular-nums text-gray-500">{{ number_format((float) $row['share'], 1) }}% {{ $isTr ? 'harcama payı' : 'spend share' }} · {{ $isTr ? 'Tıklama oranı' : 'Click rate' }} {{ $row['ctr'] !== null ? number_format($row['ctr'], 2).'%' : '—' }}</span></div>
+                            <div class="flex items-center justify-between gap-3 text-sm"><span class="truncate font-medium text-gray-700 dark:text-gray-300">{{ $breakdownLabel($section['key'], (string) $row['label']) }}</span><span class="shrink-0 text-xs font-semibold tabular-nums text-gray-500">{{ number_format((float) $row['share'], 1) }}% {{ $isTr ? 'harcama payı' : 'spend share' }} · {{ $isTr ? 'Tıklama oranı' : 'Click rate' }} {{ $row['ctr'] !== null ? number_format($row['ctr'], 2).'%' : '—' }}</span></div>
                             <div class="mt-2 h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-white/[0.05]"><div class="h-full rounded-full bg-brand-500" style="width: {{ min(100, max(0, (float) $row['share'])) }}%"></div></div>
                             <div class="mt-1 flex justify-between text-[10px] text-gray-400"><span>{{ $professional['currency'] ?? '' }} {{ number_format((float) $row['spend'], 2) }} {{ $isTr ? 'harcama' : 'spend' }}</span><span>{{ number_format((int) $row['impressions']) }} {{ $isTr ? 'gösterim' : 'impressions' }}</span></div>
                         </div>
@@ -48,12 +165,35 @@
     </div>
 
     <article class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-        <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-800 sm:px-6"><h3 class="font-bold text-gray-900 dark:text-white">{{ $isTr ? 'Tanımlanan Hedef Kitle ve Dağıtım Ayarları' : 'Configured Targeting and Delivery Settings' }}</h3><p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ $isTr ? 'Bunlar Meta’ya reklam seti seviyesinde verdiğiniz hedefleme ve optimizasyon talimatlarıdır; reklamın gerçekte kimlere gösterildiğini değil, nasıl çalışmasını istediğinizi anlatır.' : 'These are Ad Set targeting and optimization instructions, not observed delivery.' }}</p></div>
-        <div class="overflow-x-auto"><table class="min-w-full text-left"><thead class="bg-gray-50/80 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:bg-white/[0.02]"><tr><th class="px-5 py-3">{{ $isTr ? 'Reklam Seti' : 'Ad Set' }}</th><th class="px-4 py-3">{{ $isTr ? 'Neye Göre Optimize Ediliyor?' : 'Optimization' }}</th><th class="px-4 py-3">{{ $isTr ? 'Teklif Stratejisi' : 'Bidding' }}</th><th class="px-5 py-3">{{ $isTr ? 'Hedef Kitle Özeti' : 'Targeting Summary' }}</th></tr></thead><tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-            @forelse (array_slice($targeting, 0, 100) as $row)
-                <tr><td class="max-w-xs px-5 py-3.5"><p class="truncate text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $row['adset_name'] }}</p><p class="text-[11px] text-gray-400">ID {{ $row['adset_id'] }}</p></td><td class="px-4 py-3.5 text-sm text-gray-600 dark:text-gray-300">{{ $row['optimization_goal'] ?? '—' }}@if ($row['billing_event'])<p class="mt-0.5 text-[11px] text-gray-400">{{ $isTr ? 'Faturalandırma: ' : 'Billing: ' }}{{ $row['billing_event'] }}</p>@endif</td><td class="px-4 py-3.5 text-sm text-gray-600 dark:text-gray-300">{{ $row['bid_strategy'] ?? '—' }}</td><td class="max-w-xl px-5 py-3.5"><div class="flex flex-wrap gap-1.5">@forelse ($row['summary'] as $chip)<span class="rounded-full bg-gray-100 px-2 py-1 text-[11px] text-gray-600 dark:bg-white/[0.05] dark:text-gray-300">{{ $translateTargetingChip($chip) }}</span>@empty<span class="text-xs text-gray-400">{{ $isTr ? 'Özetlenebilir hedefleme bilgisi yok' : 'No summarized targeting fields' }}</span>@endforelse</div></td></tr>
-            @empty<tr><td colspan="4" class="px-5 py-12 text-center text-sm text-gray-400">{{ $isTr ? 'Tanımlanan hedefleme ayarları henüz alınmamış.' : 'Configured targeting data is not ready.' }}</td></tr>@endforelse
-        </tbody></table></div>
+        <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-800 sm:px-6">
+            <h3 class="font-bold text-gray-900 dark:text-white">{{ $isTr ? 'Tanımlanan Hedef Kitle ve Dağıtım Ayarları' : 'Configured Targeting and Delivery Settings' }}</h3>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ $isTr ? 'Bunlar Meta’ya reklam seti seviyesinde verilen hedefleme ve optimizasyon talimatlarıdır; reklamın gerçekte kimlere gösterildiğini değil, nasıl çalışmasının istendiğini anlatır.' : 'These are Ad Set targeting and optimization instructions, not observed delivery.' }}</p>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="min-w-full text-left">
+                <thead class="bg-gray-50/80 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:bg-white/[0.02]">
+                    <tr>
+                        <th class="px-5 py-3">{{ $isTr ? 'Reklam Seti' : 'Ad Set' }}</th>
+                        <th class="px-4 py-3">{{ $isTr ? 'Neye Göre Optimize Ediliyor?' : 'Optimization' }}</th>
+                        <th class="px-4 py-3">{{ $isTr ? 'Teklif Stratejisi' : 'Bidding' }}</th>
+                        <th class="px-5 py-3">{{ $isTr ? 'Hedef Kitle Özeti' : 'Targeting Summary' }}</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                    @forelse (array_slice($targeting, 0, 100) as $row)
+                        <tr>
+                            <td class="max-w-xs px-5 py-3.5"><p class="truncate text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $row['adset_name'] }}</p><p class="text-[11px] text-gray-400">ID {{ $row['adset_id'] }}</p></td>
+                            <td class="px-4 py-3.5 text-sm text-gray-600 dark:text-gray-300">{{ $optimizationLabel($row['optimization_goal'] ?? null) }}@if ($row['billing_event'])<p class="mt-0.5 text-[11px] text-gray-400">{{ $isTr ? 'Faturalandırma: ' : 'Billing: ' }}{{ $billingLabel($row['billing_event']) }}</p>@endif</td>
+                            <td class="px-4 py-3.5 text-sm text-gray-600 dark:text-gray-300">{{ $bidLabel($row['bid_strategy'] ?? null) }}</td>
+                            <td class="max-w-xl px-5 py-3.5"><div class="flex flex-wrap gap-1.5">@forelse ($row['summary'] as $chip)<span class="rounded-full bg-gray-100 px-2 py-1 text-[11px] text-gray-600 dark:bg-white/[0.05] dark:text-gray-300">{{ $translateTargetingChip($chip) }}</span>@empty<span class="text-xs text-gray-400">{{ $isTr ? 'Özetlenebilir hedefleme bilgisi yok' : 'No summarized targeting fields' }}</span>@endforelse</div></td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="4" class="px-5 py-12 text-center text-sm text-gray-400">{{ $isTr ? 'Tanımlanan hedefleme ayarları henüz alınmamış.' : 'Configured targeting data is not ready.' }}</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
     </article>
 
     <div class="rounded-xl border border-blue-200 bg-blue-50/60 px-4 py-3 text-xs leading-5 text-blue-800 dark:border-blue-500/20 dark:bg-blue-500/[0.06] dark:text-blue-300">{{ $isTr ? 'Buradaki yüzdeler kitle büyüklüğü değildir; reklam harcamasının hangi gruba veya alana ne oranda dağıldığını gösterir. Dönüşüm verisi yaş/ülke/reklam konumu kırılımında toplanmadığı için bu ekranda dönüşüm tahmini yapılmaz.' : 'Percentages are spend share, not audience size. Conversions are not inferred because action data is not collected at these breakdown grains.' }}</div>
