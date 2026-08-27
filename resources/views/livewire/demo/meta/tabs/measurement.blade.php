@@ -1,113 +1,66 @@
-@php $m = $data['measurement']; @endphp
+@php
+    $isTr = app()->getLocale() === 'tr';
+    $actions = $professional['typed_actions'] ?? [];
+    $sources = $professional['conversion_sources'] ?? [];
+    $pixelCount = collect($sources)->where('source_type', 'PIXEL')->count();
+    $customConversionCount = collect($sources)->where('source_type', 'CUSTOM_CONVERSION')->count();
+    $availableSources = collect($sources)->filter(fn ($row) => ! ($row['is_unavailable'] ?? false) && ! ($row['is_archived'] ?? false))->count();
+@endphp
 
-<div class="space-y-4">
+<section class="space-y-5">
     <div>
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Measurement</h2>
-        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ $m['subtitle'] }}</p>
-        <p class="mt-1 text-xs text-blue-700 dark:text-blue-300">{{ $m['missing_note'] ?? 'Missing ≠ zero — absent signals are not performance.' }}</p>
+        <p class="text-xs font-semibold uppercase tracking-[0.14em] text-gray-400">{{ $isTr ? 'Dönüşümler' : 'Conversions' }}</p>
+        <h2 class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{{ $isTr ? 'Meta’nın ölçtüğü action’ları ve dönüşüm kaynaklarını doğrula' : 'Validate Meta-observed actions and conversion sources' }}</h2>
+        <p class="mt-1 max-w-3xl text-sm text-gray-500 dark:text-gray-400">{{ $isTr ? 'Typed Actions provider tarafından ölçülen action_type değerlerini ayrı tutar. Pixel ve Custom Conversion kaynakları da Meta hesabından alınan snapshot verisidir.' : 'Typed Actions keep provider-observed action_type values separate. Pixel and Custom Conversion sources are also snapshots collected from the Meta account.' }}</p>
     </div>
 
-    <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <x-ta.metric-card label="Primary mappings" :value="(string) $m['glance']['primary_mappings']" />
-        <x-ta.metric-card label="Healthy signals" :value="$m['glance']['healthy']" tone="positive" />
-        <x-ta.metric-card label="Needs mapping" :value="(string) $m['glance']['needs_mapping']" tone="warning" />
-        <x-ta.metric-card label="Measurement Findings" :value="(string) $m['glance']['findings']" tone="warning" />
+    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        @foreach ([
+            [$isTr ? 'Gözlenen Action Türü' : 'Observed Action Types', count($actions)],
+            [$isTr ? 'Dönüşüm Kaynağı' : 'Conversion Sources', count($sources)],
+            ['Pixels', $pixelCount],
+            [$isTr ? 'Custom Conversion' : 'Custom Conversions', $customConversionCount],
+        ] as [$label, $value])
+            <article class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900"><p class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ $label }}</p><p class="mt-3 text-3xl font-bold text-gray-900 dark:text-white">{{ number_format($value) }}</p></article>
+        @endforeach
     </div>
 
-    @if (! empty($m['interruption']))
-        <x-ta.alert variant="warning" title="{{ $m['interruption']['title'] }}" :message="$m['interruption']['detail']" />
-    @endif
-
-    <section class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-        <div class="border-b border-gray-100 px-4 py-3 dark:border-gray-800">
-            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Result mapping matrix</h3>
-            <p class="text-xs text-gray-400">Business action → Meta result · platform vs outcome</p>
-        </div>
-        <x-ta.table class="border-0 rounded-none">
-            <x-slot:head>
-                <th class="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-400">Business action</th>
-                <th class="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-400">Meta result</th>
-                <th class="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-400">Role</th>
-                <th class="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-400">State</th>
-            </x-slot:head>
-            @foreach ($m['matrix'] as $row)
-                <tr>
-                    <td class="px-4 py-2.5 text-sm font-medium text-gray-900 dark:text-white">{{ $row['action'] }}</td>
-                    <td class="px-4 py-2.5 text-xs text-gray-500">{{ $row['meta_result'] ?? $row['source'] }}</td>
-                    <td class="px-4 py-2.5 text-xs">{{ $row['role'] }}</td>
-                    <td class="px-4 py-2.5"><x-ta.badge :color="match($row['state']) { 'Healthy' => 'success', 'Needs mapping', 'No recent signal', 'Partial' => 'warning', 'Broken' => 'error', default => 'light' }" size="sm">{{ $row['state'] }}</x-ta.badge></td>
-                </tr>
-            @endforeach
-        </x-ta.table>
-    </section>
-
-    <div class="grid gap-3 lg:grid-cols-2">
-        <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Business outcome funnel</h3>
-            <p class="mt-0.5 text-[11px] text-gray-400">{{ $m['business_funnel']['note'] ?? 'Shown only where business evidence exists' }}</p>
-            <ol class="mt-3 space-y-2">
-                @foreach ($m['business_funnel']['steps'] ?? [] as $step)
-                    <li class="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm dark:bg-white/[0.03]">
-                        <span class="text-gray-700 dark:text-gray-300">{{ $step['label'] }}</span>
-                        <span @class([
-                            'font-semibold tabular-nums',
-                            'text-slate-400' => ($step['state'] ?? '') === 'Missing',
-                            'text-gray-900 dark:text-white' => ($step['state'] ?? '') !== 'Missing',
-                        ])>{{ $step['value'] }}</span>
-                    </li>
-                @endforeach
-            </ol>
-        </section>
-
-        <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Lead quality</h3>
-            <p class="mt-0.5 text-[11px] text-gray-400">{{ $m['lead_quality']['source'] ?? 'CRM / operator context when available' }}</p>
-            <dl class="mt-3 grid grid-cols-2 gap-3 text-sm">
-                @foreach ($m['lead_quality']['metrics'] ?? [] as $metric)
-                    <div>
-                        <dt class="text-xs text-gray-400">{{ $metric['label'] }}</dt>
-                        <dd class="font-semibold text-gray-900 dark:text-white">{{ $metric['value'] }}</dd>
-                    </div>
-                @endforeach
-            </dl>
-            @if (! empty($m['lead_quality']['note']))
-                <p class="mt-3 text-xs text-gray-600 dark:text-gray-300">{{ $m['lead_quality']['note'] }}</p>
-            @endif
-        </section>
-
-        <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Measurement debt</h3>
-            <ul class="mt-3 space-y-2">
-                @foreach ($m['debt'] as $row)
-                    <li class="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-white/[0.03]">
-                        <span>{{ $row['label'] }}</span>
-                        <span class="font-semibold tabular-nums text-amber-700 dark:text-amber-400">{{ $row['count'] }}</span>
-                    </li>
-                @endforeach
-            </ul>
-        </section>
-
-        <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Trust states</h3>
-            <div class="mt-3 flex flex-wrap gap-1.5">
-                @foreach ($m['trust_chips'] ?? $m['chips'] ?? [] as $chip)
-                    <span @class([
-                        'inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium',
-                        'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400' => ($chip['state'] ?? '') === 'Healthy',
-                        'bg-amber-50 text-amber-800 dark:bg-amber-500/15 dark:text-amber-400' => in_array($chip['state'] ?? '', ['Needs mapping', 'Partial', 'No recent signal'], true),
-                        'bg-rose-50 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400' => ($chip['state'] ?? '') === 'Broken',
-                        'bg-slate-100 text-slate-600 dark:bg-white/5 dark:text-gray-300' => ! in_array($chip['state'] ?? '', ['Healthy', 'Needs mapping', 'Partial', 'No recent signal', 'Broken'], true),
-                    ])>{{ $chip['label'] }} · {{ $chip['state'] }}</span>
-                @endforeach
+    <div class="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,.85fr)]">
+        <article class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+            <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-800 sm:px-6"><h3 class="font-bold text-gray-900 dark:text-white">{{ $isTr ? 'Typed Actions' : 'Typed Actions' }}</h3><p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ $isTr ? 'Action türleri birbirine eklenip genel “Results” üretilmez.' : 'Action types are never summed into a generic “Results” metric.' }}</p></div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-left">
+                    <thead class="bg-gray-50/80 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:bg-white/[0.02]"><tr><th class="px-5 py-3">Action Type</th><th class="px-4 py-3 text-right">{{ $isTr ? 'Gözlenen Adet' : 'Observed Count' }}</th><th class="px-4 py-3 text-right">{{ $isTr ? 'Satır' : 'Rows' }}</th><th class="px-5 py-3">{{ $isTr ? 'Yorum' : 'Interpretation' }}</th></tr></thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                        @forelse ($actions as $row)
+                            <tr><td class="px-5 py-3.5"><p class="text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $row['label'] }}</p><p class="mt-0.5 max-w-sm truncate text-[11px] text-gray-400">{{ $row['action_type'] }}</p></td><td class="px-4 py-3.5 text-right text-sm font-bold tabular-nums text-gray-900 dark:text-white">{{ number_format((float) $row['value'], 2) }}</td><td class="px-4 py-3.5 text-right text-sm tabular-nums text-gray-500">{{ number_format((int) $row['rows']) }}</td><td class="px-5 py-3.5 text-xs text-gray-500 dark:text-gray-400">{{ $isTr ? 'Meta-attributed action; qualified lead / satış olduğu varsayılmaz.' : 'Meta-attributed action; not assumed to be a qualified lead / sale.' }}</td></tr>
+                        @empty
+                            <tr><td colspan="4" class="px-5 py-12 text-center text-sm text-gray-400">{{ $isTr ? 'Typed Actions datasetinde kullanılabilir veri yok.' : 'No usable data in the Typed Actions dataset.' }}</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
             </div>
-            @if (! empty($m['trust']))
-                <p class="mt-3 text-xs text-gray-500">{{ $m['trust'] }}</p>
-            @endif
-            @if (! empty($m['finding_id']))
-                <button type="button" wire:click="openFinding('{{ $m['finding_id'] }}')" class="mt-3 text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Open measurement Finding →</button>
-            @endif
-        </section>
+        </article>
+
+        <article class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900 sm:p-6">
+            <div class="flex items-center justify-between gap-3"><div><h3 class="font-bold text-gray-900 dark:text-white">{{ $isTr ? 'Ölçüm Kaynağı Sağlığı' : 'Measurement Source Health' }}</h3><p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ $isTr ? 'Toplanan Pixel / Custom Conversion snapshot durumu.' : 'Collected Pixel / Custom Conversion snapshot state.' }}</p></div><span class="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-600 dark:bg-white/[0.05] dark:text-gray-300">{{ $availableSources }}/{{ count($sources) }} {{ $isTr ? 'aktif' : 'active' }}</span></div>
+            <div class="mt-5 space-y-3">
+                @forelse (array_slice($sources, 0, 12) as $row)
+                    @php
+                        $sourceProblem = ($row['is_unavailable'] ?? false) || ($row['is_archived'] ?? false);
+                    @endphp
+                    <div class="rounded-xl border border-gray-200 p-4 dark:border-gray-800">
+                        <div class="flex items-start justify-between gap-3"><div class="min-w-0"><p class="truncate text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $row['source_name'] ?? ($row['source_type'].' '.$row['source_id']) }}</p><p class="mt-0.5 text-xs text-gray-400">{{ str_replace('_', ' ', $row['source_type']) }}{{ $row['event_type'] ? ' · '.str_replace('_', ' ', $row['event_type']) : '' }}</p></div><span class="h-2.5 w-2.5 shrink-0 rounded-full {{ $sourceProblem ? 'bg-amber-500' : 'bg-emerald-500' }}"></span></div>
+                        <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-gray-400"><span>{{ $isTr ? 'Son tetikleme' : 'Last fired' }}: {{ $row['last_fired_time'] ?? '—' }}</span>@if ($row['pixel_id'])<span>Pixel {{ $row['pixel_id'] }}</span>@endif</div>
+                    </div>
+                @empty
+                    <div class="rounded-xl border border-dashed border-gray-300 px-5 py-12 text-center text-sm text-gray-400 dark:border-gray-700">{{ $isTr ? 'Conversion source snapshot kullanıma hazır değil.' : 'Conversion source snapshot is not ready.' }}</div>
+                @endforelse
+            </div>
+        </article>
     </div>
 
-    <x-ta.alert variant="info" title="Missing ≠ zero" :message="$m['interpretation_note'] ?? 'Do not judge CPA or underperformance until the primary signal is trustworthy.'" />
-</div>
+    <div class="rounded-xl border border-blue-200 bg-blue-50/60 px-4 py-3 text-xs leading-5 text-blue-800 dark:border-blue-500/20 dark:bg-blue-500/[0.06] dark:text-blue-300">
+        {{ $isTr ? 'MOXDOP şu aşamada Meta action sayılarını “satış”, “kaliteli lead” veya genel Results olarak yorumlamaz. CRM/Business Action eşlemesi kurulduğunda gerçek iş sonucu katmanı bunun üzerine eklenecek.' : 'MOXDOP does not currently reinterpret Meta action counts as sales, qualified leads or generic Results. A real business-outcome layer can be added after CRM/Business Action mapping.' }}
+    </div>
+</section>
