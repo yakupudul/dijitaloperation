@@ -246,6 +246,55 @@ final class DataIntegrityRegistryLoader
             $known[$datasetId] = true;
         }
 
+        // Some Professional V2 datasets predate the overlay and already exist in
+        // the static integrity registry (campaign/ad-set/ad/typed-actions). Normalize
+        // those existing profiles to the same V2 policy instead of leaving them on
+        // legacy global coverage/write-receipt rules.
+        $professionalDatasetIds = [];
+        foreach ($families as $definition) {
+            if (! is_array($definition)) {
+                continue;
+            }
+            $datasetId = (string) ($definition['dataset'] ?? '');
+            if ($datasetId !== '') {
+                $professionalDatasetIds[$datasetId] = true;
+            }
+        }
+
+        foreach ($profiles as &$profile) {
+            if (! is_array($profile)) {
+                continue;
+            }
+
+            $datasetId = (string) ($profile['dataset_id'] ?? '');
+            if (! isset($professionalDatasetIds[$datasetId])) {
+                continue;
+            }
+
+            $profile['required_checks'] = array_values(array_filter(
+                array_values((array) ($profile['required_checks'] ?? [])),
+                static fn (mixed $check): bool => ! in_array((string) $check, [
+                    'write_receipt_accounting',
+                    'coverage_intervals',
+                ], true),
+            ));
+            $profile['migration_blocking_checks'] = array_values(array_filter(
+                array_values((array) ($profile['migration_blocking_checks'] ?? [])),
+                static fn (mixed $check): bool => ! in_array((string) $check, [
+                    'write_receipt_accounting',
+                    'coverage_intervals',
+                ], true),
+            ));
+            $profile['metadata'] = array_merge(
+                is_array($profile['metadata'] ?? null) ? $profile['metadata'] : [],
+                [
+                    'professional_v2_policy' => true,
+                    'coverage_gate' => 'MetaAdsUiDatasetGate',
+                ],
+            );
+        }
+        unset($profile);
+
         return $profiles;
     }
 
