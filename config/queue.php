@@ -20,9 +20,9 @@ return [
     | Queue Connections
     |--------------------------------------------------------------------------
     |
-    | Here you may configure the connection options for every backend supported
-    | by your application. An example configuration is provided for each
-    | backend supported by Laravel. You're also free to add more.
+    | Here you may configure the connection options for every queue backend
+    | used by your application. An example configuration is provided for
+    | each backend supported by Laravel. You're also free to add more.
     |
     | Drivers: "sync", "database", "beanstalkd", "sqs", "redis",
     |          "deferred", "background", "failover", "null"
@@ -69,9 +69,7 @@ return [
             'driver' => 'redis',
             'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
             'queue' => env('REDIS_QUEUE', 'default'),
-            // Bound-provider collectors can run for up to 600s. Keep retry_after
-            // comfortably above the longest worker/job timeout to prevent the
-            // same job from being reclaimed while it is still executing.
+            // Long provider collectors can run for up to 600s; keep retry_after above the worker timeout.
             'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 900),
             'block_for' => null,
             'after_commit' => false,
@@ -100,9 +98,9 @@ return [
     | Job Batching
     |--------------------------------------------------------------------------
     |
-    | These options configure the behavior of failed queue job logging so you
-    | can control how and where failed jobs are stored. Laravel ships with
-    | support for storing failed jobs in a variety of ways.
+    | The following options configure the database and table that store job
+    | batching information. These options can be updated to any database
+    | connection which has been defined by your application.
     |
     */
 
