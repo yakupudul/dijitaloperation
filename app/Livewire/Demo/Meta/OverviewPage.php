@@ -44,6 +44,9 @@ class OverviewPage extends Component
     #[Url]
     public string $creative_filter = 'all';
 
+    #[Url(as: 'level')]
+    public string $campaign_level = 'campaigns';
+
     #[Url]
     public ?string $campaign = null;
 
@@ -136,6 +139,17 @@ class OverviewPage extends Component
         $this->status_filter = $status;
         DemoState::setFilter('meta_status', $status === 'all' ? null : $status);
         $this->tab = 'campaigns';
+    }
+
+    public function setCampaignLevel(string $level): void
+    {
+        if (! in_array($level, ['campaigns', 'adsets', 'ads'], true)) {
+            return;
+        }
+
+        $this->campaign_level = $level;
+        $this->tab = 'campaigns';
+        $this->closeDrawers();
     }
 
     public function setCreativeFilter(string $key, string $value): void
