@@ -2,7 +2,24 @@
     $isTr = app()->getLocale() === 'tr';
     $kpis = $professional['kpis'] ?? [];
     $campaigns = array_slice($professional['campaigns'] ?? [], 0, 10);
-    $destinations = $data['funnel']['destinations'] ?? [];
+    $destinationGroups = collect($professional['adsets'] ?? [])
+        ->filter(static fn (array $row): bool => filled($row['destination_type'] ?? null))
+        ->groupBy(static fn (array $row): string => (string) $row['destination_type']);
+    $destinationSpend = (float) $destinationGroups->sum(static fn ($rows): float => (float) collect($rows)->sum('spend'));
+    $destinations = $destinationGroups
+        ->map(static function ($rows, string $destination) use ($destinationSpend): array {
+            $spend = (float) collect($rows)->sum('spend');
+
+            return [
+                'destination' => $destination,
+                'label' => \Illuminate\Support\Str::headline($destination),
+                'spend' => $spend,
+                'share' => $destinationSpend > 0 ? ($spend / $destinationSpend) * 100 : 0.0,
+            ];
+        })
+        ->sortByDesc('spend')
+        ->values()
+        ->all();
     $hourly = collect($professional['hourly'] ?? [])->sortByDesc('spend')->take(12)->values()->all();
 @endphp
 
