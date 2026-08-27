@@ -34,6 +34,7 @@ class MetaAdsEntityCollectorArchitectureTest extends TestCase
         $this->assertStringContainsString("'meta_adset_snapshot' => \$this->executeAdSetSnapshot", $source);
         $this->assertStringContainsString("'meta_creative_snapshot' => \$this->executeCreativeSnapshot", $source);
         $this->assertStringContainsString('account_edge_cursor_pagination_then_application_id_filter', $source);
+        $this->assertStringContainsString('entity_collector_version', $source);
         $this->assertStringContainsString("\$scope['act_id'].'/campaigns'", $source);
         $this->assertStringContainsString("\$scope['act_id'].'/adsets'", $source);
         $this->assertStringContainsString("\$scope['act_id'].'/ads'", $source);
@@ -45,7 +46,7 @@ class MetaAdsEntityCollectorArchitectureTest extends TestCase
     #[Test]
     public function meta_collectors_share_the_canonical_api_client_without_a_second_compatibility_client(): void
     {
-        $providerSource = (string) file_get_contents(app_path('../app/Providers/MetaAdsCollectionServiceProvider.php'));
+        $providerSource = (string) file_get_contents(app_path('Providers/MetaAdsCollectionServiceProvider.php'));
 
         $this->assertStringContainsString('singleton(MetaApiClient::class)', $providerSource);
         $this->assertStringNotContainsString('MetaApiClientCompatibility', $providerSource);
