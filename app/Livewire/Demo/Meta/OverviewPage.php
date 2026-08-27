@@ -6,6 +6,7 @@ use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
 use App\Livewire\Demo\Concerns\ResolvesCanonicalOperatorAsset;
 use App\Models\DigitalAsset;
 use App\Services\DataPool\Freshness\StartIncrementalCollectionService;
+use App\Services\MetaAds\MetaAdsProfessionalWorkspaceReadService;
 use App\Services\MetaAds\MetaAdsSpecialistBindingResolver;
 use App\Services\MetaAds\MetaAdsSpecialistReadService;
 use App\Services\MetaAds\Support\MetaAdsBindingMode;
@@ -53,9 +54,7 @@ class OverviewPage extends Component
     #[Url]
     public ?string $attention = null;
 
-    /**
-     * @var list<string>
-     */
+    /** @var list<string> */
     public array $allowedTabs = [
         'overview',
         'campaigns',
@@ -66,12 +65,10 @@ class OverviewPage extends Component
         'operations',
     ];
 
-    /**
-     * @var array<string, string>
-     */
+    /** @var array<string, string> */
     private const LEGACY_TAB_MAP = [
         'adsets' => 'campaigns',
-        'ads' => 'creatives',
+        'ads' => 'campaigns',
         'breakdowns' => 'audience',
         'insights' => 'operations',
         'delivery' => 'audience',
@@ -226,15 +223,23 @@ class OverviewPage extends Component
     public function render(): View
     {
         $this->normalizeTab();
-        // Prompt 31: analytical reads come exclusively from MetaAdsSpecialistReadService
-        // (local pool + formulas). Zero Meta Graph API on render. MetaAdsWorkspaceFixtures
-        // is only ever touched directly below when the resolved workspace is demo_catalog.
+
+        // Legacy specialist shape is retained for identity, period helpers and
+        // existing drawers. The professional presentation model below is the
+        // source of all new Meta Ads workspace metrics and V2 datasets.
         $data = app(MetaAdsSpecialistReadService::class)->workspace(
             $this->assetId,
             $this->period,
             $this->periodStart,
             $this->periodEnd,
         );
+        $professional = app(MetaAdsProfessionalWorkspaceReadService::class)->workspace(
+            $this->assetId,
+            $this->period,
+            $this->periodStart,
+            $this->periodEnd,
+        );
+
         $isDemo = ($data['migration_mode'] ?? 'demo_catalog') === 'demo_catalog';
 
         $campaigns = collect($data['campaigns'] ?? []);
@@ -297,11 +302,13 @@ class OverviewPage extends Component
             ? collect($data['needs_attention'] ?? [])->firstWhere('id', $this->attention)
             : null;
 
-        $trend = $data['performance_trend'] ?? ['labels' => [], 'spend' => [], 'leads' => []];
+        $trend = $professional['trend'] ?? [];
+        $currency = (string) ($professional['currency'] ?? $data['currency'] ?? '');
 
         return view('livewire.demo.meta.overview', [
             'asset' => $this->presentCanonicalAsset(),
             'data' => $data,
+            'professional' => $professional,
             'identity' => $data['identity'],
             'campaignRows' => $campaigns->values()->all(),
             'creativeRows' => $creatives->values()->all(),
@@ -311,19 +318,18 @@ class OverviewPage extends Component
             'selectedAttention' => $selectedAttention,
             'showPeriodBar' => in_array($this->tab, ['overview', 'campaigns', 'creatives', 'audience', 'funnel', 'measurement'], true),
             'performanceChartOptions' => [
-                'chart' => ['type' => 'line', 'height' => 220, 'toolbar' => ['show' => false]],
+                'chart' => ['type' => 'line', 'height' => 260, 'toolbar' => ['show' => false]],
                 'series' => [
-                    ['name' => 'Spend (₺)', 'data' => $trend['spend'] ?? []],
-                    ['name' => 'Leads', 'data' => $trend['leads'] ?? []],
+                    ['name' => 'Spend'.($currency !== '' ? ' ('.$currency.')' : ''), 'data' => array_column($trend, 'spend')],
+                    ['name' => 'Clicks', 'data' => array_column($trend, 'clicks')],
                 ],
-                'xaxis' => ['categories' => $trend['labels'] ?? []],
+                'xaxis' => ['categories' => array_column($trend, 'date')],
                 'stroke' => ['curve' => 'smooth', 'width' => 2],
                 'dataLabels' => ['enabled' => false],
-                'colors' => ['#ea580c', '#059669'],
                 'legend' => ['position' => 'top'],
                 'yaxis' => [
                     ['title' => ['text' => 'Spend']],
-                    ['opposite' => true, 'title' => ['text' => 'Leads']],
+                    ['opposite' => true, 'title' => ['text' => 'Clicks']],
                 ],
             ],
             'flash' => DemoState::pullFlash(),
