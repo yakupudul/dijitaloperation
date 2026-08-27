@@ -73,7 +73,16 @@
                                             @foreach ($resource['errors'] as $error)
                                                 <div class="rounded-lg bg-warning-50 p-3 text-xs text-warning-800 dark:bg-warning-500/10 dark:text-warning-300">
                                                     <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                                                        <div class="min-w-0"><p class="font-semibold">{{ $error['label'] }}</p><p class="mt-1 break-words">{{ $error['message'] }}</p><p class="mt-1 text-[11px] opacity-70">{{ $error['code'] ?? '' }} @if($error['category']) · {{ $error['category'] }} @endif · {{ $error['attempts'] }} deneme</p></div>
+                                                        <div class="min-w-0">
+                                                            <div class="flex flex-wrap items-center gap-2">
+                                                                <p class="font-semibold">{{ $error['label'] }}</p>
+                                                                @if (($error['attempts'] ?? 0) > 1)
+                                                                    <span class="rounded-full bg-error-50 px-2 py-0.5 text-[10px] font-bold text-error-700 ring-1 ring-inset ring-error-200 dark:bg-error-500/10 dark:text-error-300 dark:ring-error-500/20">Tekrar hata verdi</span>
+                                                                @endif
+                                                            </div>
+                                                            <p class="mt-1 break-words">{{ $error['message'] }}</p>
+                                                            <p class="mt-1 text-[11px] opacity-70">{{ $error['code'] ?? '' }} @if($error['category']) · {{ $error['category'] }} @endif · {{ $error['attempts'] }} deneme</p>
+                                                        </div>
                                                         <button type="button" wire:click="retryDataset({{ $error['id'] }})" wire:loading.attr="disabled" class="shrink-0 rounded-lg bg-white px-2.5 py-1.5 text-xs font-semibold text-warning-800 ring-1 ring-inset ring-warning-200 dark:bg-gray-900 dark:text-warning-300 dark:ring-warning-700">Yeniden dene</button>
                                                     </div>
                                                 </div>
@@ -112,7 +121,16 @@
                         <div class="mt-3 space-y-2">
                             @foreach ($issue['errors'] as $error)
                                 <div class="flex flex-col gap-2 rounded-lg bg-gray-50 p-3 dark:bg-white/[0.03] sm:flex-row sm:items-start sm:justify-between">
-                                    <div class="min-w-0"><p class="text-xs font-semibold text-gray-800 dark:text-gray-200">{{ $error['label'] }}</p><p class="mt-1 break-words text-xs text-gray-500">{{ $error['message'] }}</p></div>
+                                    <div class="min-w-0">
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <p class="text-xs font-semibold text-gray-800 dark:text-gray-200">{{ $error['label'] }}</p>
+                                            @if (($error['attempts'] ?? 0) > 1)
+                                                <span class="rounded-full bg-error-50 px-2 py-0.5 text-[10px] font-bold text-error-700 ring-1 ring-inset ring-error-200 dark:bg-error-500/10 dark:text-error-300 dark:ring-error-500/20">Tekrar hata verdi</span>
+                                            @endif
+                                        </div>
+                                        <p class="mt-1 break-words text-xs text-gray-500">{{ $error['message'] }}</p>
+                                        <p class="mt-1 text-[11px] text-gray-400">{{ $error['attempts'] }} deneme</p>
+                                    </div>
                                     <button type="button" wire:click="retryDataset({{ $error['id'] }})" wire:loading.attr="disabled" class="shrink-0 rounded-lg bg-white px-2.5 py-1.5 text-xs font-semibold text-brand-600 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:text-brand-400 dark:ring-gray-700">Yeniden dene</button>
                                 </div>
                             @endforeach
