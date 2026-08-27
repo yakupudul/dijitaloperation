@@ -167,11 +167,18 @@ final class DataIntegrityRegistryLoader
             $nonAdditive = array_values(array_intersect($metricColumns, ['reach', 'frequency']));
             $additive = array_values(array_diff($metricColumns, $nonAdditive));
 
+            // Meta Professional V2 separates two concerns deliberately:
+            // 1) integrity audit answers whether persisted facts are structurally trustworthy;
+            // 2) MetaAdsUiDatasetGate evaluates requested date-range coverage independently.
+            //
+            // Do not run the generic checkpoint/write-receipt check here yet: the legacy
+            // checker scans unrelated family runs and can report false checkpoint-ahead
+            // failures for V2 datasets. The canonical writer still persists receipts and
+            // row_accounting validates committed V2 batches where applicable.
             $requiredChecks = [
                 'natural_key_duplicates',
                 'referential_integrity',
                 'provenance',
-                'write_receipt_accounting',
                 'materialization_reconciliation',
                 'contract_completeness',
                 'freshness',
@@ -185,7 +192,9 @@ final class DataIntegrityRegistryLoader
             if ($isSnapshot) {
                 $requiredChecks[] = 'snapshot_semantics';
             } else {
-                $requiredChecks[] = 'coverage_intervals';
+                // Range coverage remains encoded on DatasetMaterialization and is enforced
+                // by MetaAdsUiDatasetGate for the actual user-selected period. A historical
+                // gap outside that period must not invalidate otherwise trustworthy facts.
                 // Video normalization may emit multiple metric rows from one provider row,
                 // so strict received===written row accounting would be semantically wrong.
                 if ($datasetId !== 'meta_video_engagement_daily') {
@@ -200,9 +209,6 @@ final class DataIntegrityRegistryLoader
                 'contract_completeness',
                 'timezone_provenance',
             ];
-            if (! $isSnapshot) {
-                $blockingChecks[] = 'coverage_intervals';
-            }
 
             $profiles[] = [
                 'dataset_id' => $datasetId,
@@ -234,6 +240,7 @@ final class DataIntegrityRegistryLoader
                 'metadata' => [
                     'runtime_overlay' => 'META_ADS_PROFESSIONAL_V2',
                     'source_contract' => 'config/moxdop-meta-ads-central.php',
+                    'coverage_gate' => 'MetaAdsUiDatasetGate',
                 ],
             ];
             $known[$datasetId] = true;
