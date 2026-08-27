@@ -12,12 +12,30 @@
     $supportsYoY = method_exists($this, 'supportsYearOverYearComparison') && $this->supportsYearOverYearComparison();
     $effectiveCompareMode = method_exists($this, 'effectiveCompareMode') ? $this->effectiveCompareMode() : 'previous';
     $appliedLabel = method_exists($this, 'appliedPeriodLabel') ? $this->appliedPeriodLabel() : ($period === 'custom' && $periodStart && $periodEnd ? $periodStart.' – '.$periodEnd : ($presets[$period] ?? __('operator.period.custom')));
+
     if (app()->getLocale() === 'tr' && filled($periodStart ?? null) && filled($periodEnd ?? null)) {
-        $periodStartLabel = \Carbon\CarbonImmutable::parse($periodStart)->locale('tr')->translatedFormat('j M');
-        $periodEndLabel = \Carbon\CarbonImmutable::parse($periodEnd)->locale('tr')->translatedFormat('j M');
-        $appliedLabel = $periodStartLabel.' – '.$periodEndLabel;
+        $periodStartDate = \Carbon\CarbonImmutable::parse($periodStart);
+        $periodEndDate = \Carbon\CarbonImmutable::parse($periodEnd);
+        $appliedLabel = $periodStartDate->locale('tr')->translatedFormat('j M').' – '.$periodEndDate->locale('tr')->translatedFormat('j M');
     }
+
     $compareLabel = method_exists($this, 'comparePeriodLabel') ? $this->comparePeriodLabel() : null;
+    if ($compareOn && app()->getLocale() === 'tr' && filled($periodStart ?? null) && filled($periodEnd ?? null)) {
+        $currentStart = \Carbon\CarbonImmutable::parse($periodStart)->startOfDay();
+        $currentEnd = \Carbon\CarbonImmutable::parse($periodEnd)->startOfDay();
+        $days = max(1, $currentStart->diffInDays($currentEnd) + 1);
+
+        if ($effectiveCompareMode === 'yoy') {
+            $compareStart = $currentStart->subYearNoOverflow();
+            $compareEnd = $compareStart->addDays($days - 1);
+        } else {
+            $compareEnd = $currentStart->subDay();
+            $compareStart = $compareEnd->subDays($days - 1);
+        }
+
+        $compareLabel = $compareStart->locale('tr')->translatedFormat('j M').' – '.$compareEnd->locale('tr')->translatedFormat('j M');
+    }
+
     $maxDate = method_exists($this, 'periodPickerMaxDate')
         ? $this->periodPickerMaxDate()
         : (method_exists($this, 'periodAnchorDate')
