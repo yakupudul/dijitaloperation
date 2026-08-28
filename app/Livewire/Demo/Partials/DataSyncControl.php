@@ -22,6 +22,8 @@ final class DataSyncControl extends Component
 
     public bool $showProviders = false;
 
+    public bool $showButton = true;
+
     public bool $compact = false;
 
     public string $feedback = '';
@@ -36,6 +38,7 @@ final class DataSyncControl extends Component
         string $buttonLabel = '',
         string $title = '',
         bool $showProviders = false,
+        bool $showButton = true,
         bool $compact = false,
     ): void {
         $this->assetId = (int) $assetId;
@@ -44,6 +47,7 @@ final class DataSyncControl extends Component
         $this->buttonLabel = $buttonLabel;
         $this->title = $title;
         $this->showProviders = $showProviders;
+        $this->showButton = $showButton;
         $this->compact = $compact;
     }
 
