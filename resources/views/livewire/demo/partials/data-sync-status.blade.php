@@ -8,6 +8,7 @@
     $isTr = app()->getLocale() === 'tr';
     $state = (string) ($sync['state'] ?? 'unconfigured');
     $active = (bool) ($sync['active'] ?? false);
+    $determinate = (bool) ($sync['progress_determinate'] ?? false);
     $progress = isset($sync['progress_pct']) && is_numeric($sync['progress_pct']) ? (int) $sync['progress_pct'] : null;
     $dataThrough = $sync['data_through'] ?? null;
     $lastSuccess = $sync['last_success_at'] ?? null;
@@ -60,7 +61,7 @@
             @unless($compact)<p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">{{ $syncTitle }}</p>@endunless
             <div class="mt-0.5 flex items-center gap-2">
                 <span class="h-2.5 w-2.5 shrink-0 rounded-full {{ $dotClass }} {{ $active ? 'animate-pulse' : '' }}"></span>
-                <p class="truncate text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $stateLabel }}@if($active && $progress !== null) · %{{ $progress }}@endif</p>
+                <p class="truncate text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $stateLabel }}@if($active && $determinate && $progress !== null) · %{{ $progress }}@endif</p>
             </div>
             @if($active)
                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ $sync['stage'] ?? ($isTr ? 'Veriler hazırlanıyor' : 'Preparing data') }}</p>
@@ -81,7 +82,7 @@
 
     @if($active)
         <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-white/[0.06]">
-            @if($progress !== null && ($sync['progress_determinate'] ?? false))
+            @if($progress !== null && $determinate)
                 <div class="h-full rounded-full bg-brand-500 transition-[width] duration-500" style="width: {{ max(2, min(100, $progress)) }}%"></div>
             @else
                 <div class="h-full w-1/3 animate-pulse rounded-full bg-brand-500"></div>
@@ -98,11 +99,10 @@
             @foreach($sync['providers'] as $provider)
                 @php
                     $providerState = (string)($provider['state'] ?? 'current');
-                    $providerActive = in_array($providerState, ['queued','running','retrying'], true) || $active;
                     $providerProgress = isset($provider['progress_pct']) ? (int)$provider['progress_pct'] : null;
                 @endphp
                 <div class="rounded-lg bg-gray-50 px-3 py-2 dark:bg-white/[0.03]">
-                    <div class="flex items-center justify-between gap-2"><span class="text-xs font-semibold text-gray-700 dark:text-gray-300">{{ $provider['label'] }}</span>@if($providerProgress !== null && $active)<span class="text-[11px] font-semibold text-brand-600">%{{ $providerProgress }}</span>@else<span class="h-2 w-2 rounded-full {{ $providerState === 'failed' ? 'bg-rose-500' : ($providerState === 'due' ? 'bg-amber-500' : ($active ? 'bg-blue-500 animate-pulse' : 'bg-emerald-500')) }}"></span>@endif</div>
+                    <div class="flex items-center justify-between gap-2"><span class="text-xs font-semibold text-gray-700 dark:text-gray-300">{{ $provider['label'] }}</span>@if($providerProgress !== null && $active && $determinate)<span class="text-[11px] font-semibold text-brand-600">%{{ $providerProgress }}</span>@else<span class="h-2 w-2 rounded-full {{ $providerState === 'failed' ? 'bg-rose-500' : ($providerState === 'due' ? 'bg-amber-500' : ($active ? 'bg-blue-500 animate-pulse' : 'bg-emerald-500')) }}"></span>@endif</div>
                     @if($active && !empty($provider['stage']))<p class="mt-1 truncate text-[11px] text-gray-400">{{ $provider['stage'] }}</p>@elseif(!empty($provider['data_through']))<p class="mt-1 text-[11px] text-gray-400">{{ $dateLabel($provider['data_through']) }}</p>@endif
                 </div>
             @endforeach
