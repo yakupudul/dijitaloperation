@@ -1,4 +1,4 @@
-<section class="overflow-hidden rounded-2xl bg-white shadow-theme-xs ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+<section wire:poll.3s.visible class="overflow-hidden rounded-2xl bg-white shadow-theme-xs ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
     <div class="flex flex-col gap-3 border-b border-gray-100 px-5 py-5 sm:flex-row sm:items-start sm:justify-between dark:border-gray-800 md:px-6">
         <div>
             <p class="text-xs font-semibold uppercase tracking-[0.14em] text-gray-400">Hesap Bazlı Güncelleme</p>
