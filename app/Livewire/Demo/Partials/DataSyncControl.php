@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Demo\Partials;
 
+use App\Services\Collection\Presentation\DataSyncLatestDatasetOutcomeService;
 use App\Services\Collection\Presentation\DataSyncScopeService;
 use Illuminate\Contracts\View\View;
 use Livewire\Component;
@@ -74,10 +75,20 @@ final class DataSyncControl extends Component
         };
     }
 
-    public function render(DataSyncScopeService $sync): View
-    {
+    public function render(
+        DataSyncScopeService $sync,
+        DataSyncLatestDatasetOutcomeService $latestOutcome,
+    ): View {
+        $syncStatus = $sync->status($this->assetId, $this->capabilities, $this->providers);
+        $syncStatus = $latestOutcome->reconcile(
+            $syncStatus,
+            $this->assetId,
+            $this->capabilities,
+            $this->providers,
+        );
+
         return view('livewire.demo.partials.data-sync-control', [
-            'syncStatus' => $sync->status($this->assetId, $this->capabilities, $this->providers),
+            'syncStatus' => $syncStatus,
         ]);
     }
 }
