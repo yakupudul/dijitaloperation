@@ -128,7 +128,7 @@ final class MetaAdsAccountSyncControl extends Component
             CollectionRunStatus::Queued => 'Sırada',
             CollectionRunStatus::Running => 'Güncelleniyor',
             CollectionRunStatus::Retrying => 'Yeniden deneniyor',
-            CollectionRunStatus::Completed => 'Güncel',
+            CollectionRunStatus::Completed => 'Son güncelleme tamamlandı',
             CollectionRunStatus::Partial => 'Kısmen güncellendi',
             CollectionRunStatus::Failed => 'Güncelleme başarısız',
             CollectionRunStatus::CancellationRequested => 'Durduruluyor',
