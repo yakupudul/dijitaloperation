@@ -47,7 +47,7 @@ final class DataSyncControl extends Component
         $this->buttonLabel = $buttonLabel;
         $this->title = $title;
         $this->showProviders = $showProviders;
-        $this->showButton = $showButton;
+        $this->showButton = $showProviders ? false : $showButton;
         $this->compact = $compact;
     }
 
