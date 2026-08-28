@@ -13,6 +13,7 @@
         'buttonLabel' => $buttonLabel !== '' ? $buttonLabel : (app()->getLocale() === 'tr' ? 'Şimdi Güncelle' : 'Update Now'),
         'title' => $title !== '' ? $title : (app()->getLocale() === 'tr' ? 'Veri Güncelliği' : 'Data Freshness'),
         'showProviders' => $showProviders,
+        'showButton' => $showButton,
         'compact' => $compact,
     ])
 </div>
