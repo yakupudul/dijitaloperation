@@ -122,6 +122,7 @@ final class DataPoolStorageRegistry
         $this->applyProviderOverlay('moxdop-google-ads-history', 'GOOGLE_ADS_HISTORY_V1');
         $this->applyProviderOverlay('moxdop-google-ads-resource-first', 'GOOGLE_ADS_RESOURCE_FIRST_V1');
         $this->applyProviderOverlay('moxdop-meta-ads-central', 'META_ADS_PROFESSIONAL_V2');
+        $this->applyProviderOverlay('moxdop-website-intelligence', 'WEBSITE_INTELLIGENCE_V1');
     }
 
     private function applyProviderOverlay(string $configKey, string $overlayId): void
