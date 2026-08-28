@@ -1,8 +1,13 @@
-<div class="flex flex-wrap gap-2">
-    <button type="button" wire:click="refreshData"
-        class="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
-        {{ __('operator_runtime.sources.refresh_data') }}
-    </button>
+<div class="flex flex-wrap items-start gap-2">
+    <livewire:demo.partials.data-sync-control
+        :asset-id="(int) $assetId"
+        :capabilities="['meta_ads']"
+        :providers="['META_ADS']"
+        :button-label="app()->getLocale() === 'tr' ? 'Şimdi Güncelle' : 'Update Now'"
+        :title="app()->getLocale() === 'tr' ? 'Meta Ads Veri Güncelliği' : 'Meta Ads Data Freshness'"
+        :compact="true"
+        :key="'meta-data-sync-'.$assetId"
+    />
     <button type="button" wire:click="setTab('operations')"
         class="inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-white/[0.03]">
         {{ app()->getLocale() === 'tr' ? 'Analiz durumu' : 'Analysis status' }}
