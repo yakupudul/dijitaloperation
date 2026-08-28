@@ -58,7 +58,7 @@ final class PublicHttpFetcher
                     ])
                     ->withHeaders([
                         'User-Agent' => DiscoveryConfig::USER_AGENT,
-                        'Accept' => 'text/html,application/xhtml+xml;q=0.9,text/plain;q=0.5,*/*;q=0.1',
+                        'Accept' => 'text/html,application/xhtml+xml,application/json;q=0.9,text/plain;q=0.5,*/*;q=0.1',
                     ])
                     ->get($current);
             } catch (ConnectionException $exception) {
@@ -72,7 +72,7 @@ final class PublicHttpFetcher
             if (in_array($status, [301, 302, 303, 307, 308], true)) {
                 $location = $response->header('Location');
                 if (! is_string($location) || trim($location) === '') {
-                    return $this->failure($url, 'redirect_missing_location', $current, $redirects, $status);
+                    return $this->failure($url, 'redirect_missing_location', $current, $redirects);
                 }
 
                 $next = $this->normalizer->resolve($current, $location);
@@ -143,6 +143,8 @@ final class PublicHttpFetcher
     {
         return str_contains($contentType, 'text/html')
             || str_contains($contentType, 'application/xhtml')
+            || str_contains($contentType, 'application/json')
+            || str_contains($contentType, '+json')
             || str_contains($contentType, 'text/plain');
     }
 
