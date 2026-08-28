@@ -4,6 +4,7 @@
     $syncButtonLabel = (string) ($buttonLabel ?? (app()->getLocale() === 'tr' ? 'Şimdi Güncelle' : 'Update Now'));
     $syncTitle = (string) ($title ?? (app()->getLocale() === 'tr' ? 'Veri Güncelliği' : 'Data Freshness'));
     $showProviders = (bool) ($showProviders ?? false);
+    $showButton = (bool) ($showButton ?? true);
     $compact = (bool) ($compact ?? false);
     $isTr = app()->getLocale() === 'tr';
     $state = (string) ($sync['state'] ?? 'unconfigured');
@@ -72,12 +73,14 @@
             @endif
         </div>
 
-        <button type="button" wire:click="{{ $syncAction }}" wire:loading.attr="disabled" wire:target="{{ $syncAction }}" @disabled($active || $state === 'action_required' || $state === 'unconfigured')
-            class="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-brand-500 px-3.5 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50">
-            <svg wire:loading.class="animate-spin" wire:target="{{ $syncAction }}" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-width="2" d="M20 12a8 8 0 1 1-2.34-5.66M20 4v6h-6"/></svg>
-            <span wire:loading.remove wire:target="{{ $syncAction }}">{{ $active ? ($isTr ? 'Güncelleniyor' : 'Updating') : $syncButtonLabel }}</span>
-            <span wire:loading wire:target="{{ $syncAction }}">{{ $isTr ? 'Başlatılıyor…' : 'Starting…' }}</span>
-        </button>
+        @if($showButton)
+            <button type="button" wire:click="{{ $syncAction }}" wire:loading.attr="disabled" wire:target="{{ $syncAction }}" @disabled($active || $state === 'action_required' || $state === 'unconfigured')
+                class="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-brand-500 px-3.5 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50">
+                <svg wire:loading.class="animate-spin" wire:target="{{ $syncAction }}" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-width="2" d="M20 12a8 8 0 1 1-2.34-5.66M20 4v6h-6"/></svg>
+                <span wire:loading.remove wire:target="{{ $syncAction }}">{{ $active ? ($isTr ? 'Güncelleniyor' : 'Updating') : $syncButtonLabel }}</span>
+                <span wire:loading wire:target="{{ $syncAction }}">{{ $isTr ? 'Başlatılıyor…' : 'Starting…' }}</span>
+            </button>
+        @endif
     </div>
 
     @if($active)
