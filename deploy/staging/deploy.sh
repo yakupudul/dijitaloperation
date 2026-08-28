@@ -12,6 +12,38 @@ if [[ ! -f artisan ]]; then
   exit 1
 fi
 
+# Product invariant: app.moximu.com is the operator application root.
+# Legacy /app/* and /system/* operator prefixes are retired. This branch is stale
+# if those routes are still canonical, so deployment must stop before dependencies,
+# migrations, caches, or workers are touched.
+if [[ ! -f routes/web.php || ! -f routes/demo.php ]]; then
+  echo "deploy/staging/deploy.sh: canonical route files are missing" >&2
+  exit 1
+fi
+
+if grep -Fq -- "->prefix('app')" routes/demo.php || grep -Fq -- '->prefix("app")' routes/demo.php; then
+  echo "deploy/staging/deploy.sh: REFUSING DEPLOY — legacy /app operator prefix detected" >&2
+  echo "Canonical product URL is https://app.moximu.com/; /app/* is retired." >&2
+  echo "Checkout the current canonical release branch before deploying." >&2
+  exit 1
+fi
+
+if grep -Fq -- "redirect('/app')" routes/web.php \
+  || grep -Fq -- 'redirect("/app")' routes/web.php \
+  || grep -Fq -- "redirect('/system/login')" routes/web.php \
+  || grep -Fq -- 'redirect("/system/login")' routes/web.php; then
+  echo "deploy/staging/deploy.sh: REFUSING DEPLOY — legacy /app or /system root redirect detected" >&2
+  echo "Canonical product URL is https://app.moximu.com/." >&2
+  exit 1
+fi
+
+if ! grep -Fq -- "Route::livewire('/', Dashboard::class)" routes/demo.php; then
+  echo "deploy/staging/deploy.sh: REFUSING DEPLOY — canonical root dashboard route is missing" >&2
+  exit 1
+fi
+
+echo "deploy/staging: canonical root-route guard PASS"
+
 if [[ ! -f .env ]]; then
   echo "deploy/staging/deploy.sh: missing .env" >&2
   exit 1
