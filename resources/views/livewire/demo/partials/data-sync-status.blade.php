@@ -15,7 +15,7 @@
     $lastSuccess = $sync['last_success_at'] ?? null;
 
     $stateLabel = match ($state) {
-        'current' => $isTr ? 'Veriler güncel' : 'Data is current',
+        'current' => $isTr ? 'Senkronizasyon tamamlandı' : 'Sync completed',
         'due' => $isTr ? 'Güncelleme öneriliyor' : 'Update recommended',
         'queued' => $isTr ? 'Güncelleme sırada' : 'Update queued',
         'running' => $isTr ? 'Güncelleniyor' : 'Updating',
@@ -66,10 +66,13 @@
             </div>
             @if($active)
                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ $sync['stage'] ?? ($isTr ? 'Veriler hazırlanıyor' : 'Preparing data') }}</p>
-            @elseif($dataThrough)
-                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ $isTr ? 'Veri: '.$dateLabel($dataThrough).' tarihine kadar' : 'Data through '.$dateLabel($dataThrough) }}</p>
-            @elseif($lastSuccess)
-                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ $isTr ? 'Son başarılı güncelleme: '.$timeLabel($lastSuccess) : 'Last successful update: '.$timeLabel($lastSuccess) }}</p>
+            @else
+                @if($lastSuccess)
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ $isTr ? 'Son senkronizasyon: '.$timeLabel($lastSuccess) : 'Last sync: '.$timeLabel($lastSuccess) }}</p>
+                @endif
+                @if($dataThrough)
+                    <p class="mt-0.5 text-[11px] text-gray-400">{{ $isTr ? 'Güncellenen veri dönemi: '.$dateLabel($dataThrough).' tarihine kadar' : 'Updated data period through '.$dateLabel($dataThrough) }}</p>
+                @endif
             @endif
         </div>
 
