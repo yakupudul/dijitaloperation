@@ -46,7 +46,10 @@ final class WebsiteCollectionOrchestrator
 
         $families = $requestFamilyIds;
         if ($families === null) {
-            $families = WebsiteRequestFamilyCatalog::supportedFamilies();
+            $families = array_values(array_unique(array_merge(
+                WebsiteRequestFamilyCatalog::supportedFamilies(),
+                [WebsiteRequestFamilyCatalog::FAMILY_WP_REST],
+            )));
             if ($includeDataForSeo) {
                 $families = array_merge(
                     $families,
@@ -71,6 +74,7 @@ final class WebsiteCollectionOrchestrator
                 'allow_multi_asset_bindings' => false,
                 'paid_enrichment_consented' => $paidEnrichmentConsented,
                 'public_discovery' => $publicDiscovery,
+                'website_intelligence_version' => 'v1',
             ]),
         ));
     }
