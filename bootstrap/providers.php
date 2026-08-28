@@ -8,12 +8,14 @@ use App\Providers\RecurringAutomationServiceProvider;
 use App\Providers\SalesServiceProvider;
 use App\Providers\SearchConsoleCentralServiceProvider;
 use App\Providers\SearchConsoleGroupingServiceProvider;
+use App\Providers\WebsiteIntelligenceServiceProvider;
 
 return [
     AppServiceProvider::class,
     MetaAdsCollectionServiceProvider::class,
     SearchConsoleCentralServiceProvider::class,
     SearchConsoleGroupingServiceProvider::class,
+    WebsiteIntelligenceServiceProvider::class,
     AppPanelProvider::class,
     HorizonServiceProvider::class,
     RecurringAutomationServiceProvider::class,
