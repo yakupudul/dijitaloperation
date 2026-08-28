@@ -78,6 +78,7 @@ final class DataSyncLatestDatasetOutcomeService
 
         $rows = CollectionDatasetRun::query()
             ->select('collection_dataset_runs.*')
+            ->with('resourceRun:id,core_asset_binding_id')
             ->join('collection_resource_runs as sync_resource_runs', 'sync_resource_runs.id', '=', 'collection_dataset_runs.collection_resource_run_id')
             ->whereIn('sync_resource_runs.core_asset_binding_id', $bindings)
             ->when($providers !== [], fn ($query) => $query->whereIn('collection_dataset_runs.provider_or_source', $providers))
@@ -135,8 +136,7 @@ final class DataSyncLatestDatasetOutcomeService
         $seen = [];
 
         return $rows->filter(function (CollectionDatasetRun $row) use (&$seen): bool {
-            $resourceRun = $row->resourceRun;
-            $bindingId = (int) ($resourceRun?->core_asset_binding_id ?? 0);
+            $bindingId = (int) ($row->resourceRun?->core_asset_binding_id ?? 0);
             $provider = strtoupper((string) $row->provider_or_source);
             $variant = mb_strtolower(trim((string) ($row->execution_variant ?? '')));
             $key = implode('|', [$bindingId, $provider, (string) $row->dataset_contract_id, $variant]);
