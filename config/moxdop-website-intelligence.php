@@ -3,10 +3,8 @@
 /**
  * Website Intelligence V1 runtime amendments.
  *
- * WordPress is an optional Website capability, never a separate Digital Asset.
- * The collection planner schedules the public REST probe on the Website asset
- * capability resource; normalized CMS rows retain WORDPRESS_SITE_CONNECTOR
- * provenance in their metadata / write envelope.
+ * The public crawler is provider-neutral and represents what search engines/users can
+ * observe. WordPress is an optional deep capability on the same Website Digital Asset.
  */
 
 $column = static fn (string $name, string $type, bool $nullable = true, string $role = 'dimension', mixed $default = null): array => array_filter([
@@ -34,8 +32,6 @@ return [
         'request_families' => [
             [
                 'id' => 'WEB_RF_WP_REST',
-                // Transport is the Website asset capability. The executor writes
-                // source provenance as WORDPRESS_SITE_CONNECTOR.
                 'provider_or_source' => 'WEBSITE_DIRECT',
                 'capability_endpoint_resource' => 'WordPress REST public content inventory',
                 'requirement_ids' => [
@@ -47,6 +43,13 @@ return [
                 'status' => 'COLLECTION_READY',
             ],
         ],
+    ],
+
+    // Used by the integrity registry runtime overlay for datasets introduced here.
+    'integrity_request_families' => [
+        'website_cms_object_snapshot' => ['WEB_RF_WP_REST'],
+        'website_link_edge' => ['WEB_RF_PUBLIC_CRAWL', 'WEB_RF_HTTP_HTML_DIAGNOSIS'],
+        'website_crawl_issue_snapshot' => ['WEB_RF_PUBLIC_CRAWL', 'WEB_RF_HTTP_HTML_DIAGNOSIS'],
     ],
 
     'physical_additions' => [
@@ -74,6 +77,52 @@ return [
                 $column('parent_id', 'text', true),
                 $column('template', 'text', true),
                 $column('featured_media_id', 'text', true),
+                $column('observed_at', 'timestamptz', false, 'identity'),
+                ...$provenance,
+            ],
+        ],
+
+        'website_link_edge' => [
+            'table' => 'website_link_edge',
+            'provider_or_source' => 'WEBSITE_DIRECT',
+            'storage_class' => 'NORMALIZED_SNAPSHOT',
+            'write_mode' => 'UPSERT_CURRENT_STATE',
+            'partition_strategy' => 'NONE',
+            'partition_column' => null,
+            'grain' => ['digital_asset_id', 'edge_key', 'observed_at'],
+            'natural_key' => ['digital_asset_id', 'edge_key', 'observed_at'],
+            'columns' => [
+                $column('digital_asset_id', 'bigint', false, 'scope'),
+                $column('external_resource_id', 'bigint', true, 'scope'),
+                $column('edge_key', 'char(64)', false, 'identity'),
+                $column('source_url', 'text', false, 'identity'),
+                $column('target_url', 'text', false),
+                $column('normalized_target_url', 'text', false),
+                $column('is_internal', 'boolean', false, 'dimension', false),
+                $column('anchor_text', 'text', true),
+                $column('rel', 'text', true),
+                $column('nofollow', 'boolean', false, 'dimension', false),
+                $column('observed_at', 'timestamptz', false, 'identity'),
+                ...$provenance,
+            ],
+        ],
+
+        'website_crawl_issue_snapshot' => [
+            'table' => 'website_crawl_issue_snapshot',
+            'provider_or_source' => 'WEBSITE_DIRECT',
+            'storage_class' => 'NORMALIZED_SNAPSHOT',
+            'write_mode' => 'UPSERT_CURRENT_STATE',
+            'partition_strategy' => 'NONE',
+            'partition_column' => null,
+            'grain' => ['digital_asset_id', 'url', 'issue_code', 'observed_at'],
+            'natural_key' => ['digital_asset_id', 'url', 'issue_code', 'observed_at'],
+            'columns' => [
+                $column('digital_asset_id', 'bigint', false, 'scope'),
+                $column('external_resource_id', 'bigint', true, 'scope'),
+                $column('url', 'text', false, 'identity'),
+                $column('issue_code', 'text', false, 'identity'),
+                $column('severity', 'text', false),
+                $column('message', 'text', false),
                 $column('observed_at', 'timestamptz', false, 'identity'),
                 ...$provenance,
             ],
