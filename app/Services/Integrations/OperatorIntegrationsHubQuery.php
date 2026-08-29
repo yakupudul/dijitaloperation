@@ -2,7 +2,9 @@
 
 namespace App\Services\Integrations;
 
+use App\Models\Collection\CollectionRun;
 use App\Models\CoreIntegration;
+use App\Models\DigitalAsset;
 use App\Services\Integrations\Anthropic\AnthropicCredentialResolver;
 use App\Services\Integrations\DataForSeo\DataForSeoCredentialResolver;
 use App\Services\Integrations\Gemini\GeminiCredentialResolver;
@@ -14,10 +16,11 @@ use App\Support\Demo\GlobalOperatingFixtures;
 use App\Support\Integrations\ProviderRegistry;
 
 /**
- * Frozen `/app/integrations` hub projection.
+ * Operator integrations hub projection.
  *
- * Provider cards are backed by canonical CoreIntegration credential state.
- * Hub CTAs always lead to a real configuration or workspace surface.
+ * Provider cards are backed by canonical integration/asset state. Website Data is
+ * projected directly from Website Digital Assets and production Collection Runs;
+ * it does not depend on the demo Site Connector catalog.
  */
 final class OperatorIntegrationsHubQuery
 {
@@ -82,7 +85,59 @@ final class OperatorIntegrationsHubQuery
         }
         unset($group);
 
+        array_unshift($groups, [
+            'id' => 'website_data',
+            'group' => app()->getLocale() === 'tr' ? 'Web Sitesi Verileri' : 'Website Data',
+            'providers' => [$this->websiteHubCard()],
+        ]);
+
         return $groups;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function websiteHubCard(): array
+    {
+        $assetCount = DigitalAsset::query()
+            ->where('type', 'website')
+            ->count();
+
+        $latestCollection = CollectionRun::query()
+            ->whereHas('digitalAsset', fn ($query) => $query->where('type', 'website'))
+            ->latest('id')
+            ->limit(50)
+            ->get()
+            ->first(fn (CollectionRun $run): bool => in_array(
+                'WEBSITE_DIRECT',
+                (array) data_get($run->request_context, 'provider_sources', []),
+                true,
+            ));
+
+        $ready = $assetCount > 0;
+
+        return [
+            'id' => 'website',
+            'name' => 'Website',
+            'logo_type' => 'website',
+            'state' => $ready ? 'connected' : 'not_configured',
+            'state_label' => $ready
+                ? (app()->getLocale() === 'tr' ? 'Hazır' : 'Ready')
+                : (app()->getLocale() === 'tr' ? 'Website gerekli' : 'Website required'),
+            'resources_discovered' => null,
+            'bound' => null,
+            'available' => null,
+            'discovery_not_run' => false,
+            'last_check' => $latestCollection?->updated_at?->diffForHumans() ?? '—',
+            'dependent_assets' => $assetCount,
+            'provenance' => 'real',
+            'route' => 'operator.integrations.website',
+            'route_params' => [],
+            'manage_label' => app()->getLocale() === 'tr' ? 'Web Sitelerini Yönet' : 'Manage websites',
+            'note' => app()->getLocale() === 'tr'
+                ? 'Public crawl, HTTP/HTML teknik analiz, SSL/TLS ve yapılandırıldığında PageSpeed verilerini production Collection Engine ile toplar.'
+                : 'Collects public crawl, HTTP/HTML technical analysis, SSL/TLS and, when configured, PageSpeed data through the production Collection Engine.',
+        ];
     }
 
     /**
