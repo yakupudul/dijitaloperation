@@ -12,6 +12,7 @@ use App\Http\Controllers\Reports\ReportArtifactDownloadController;
 use App\Http\Controllers\Reports\ReportShareController;
 use App\Http\Middleware\EnsureDemoAppAccess;
 use App\Livewire\Operator\AssetDataSourcesPage;
+use App\Livewire\Operator\Integrations\WebsiteIntegrationIndex;
 use App\Livewire\Operator\PublicDiscoveryIndex;
 use App\Livewire\Operator\Website\PublicDiscoveryPage;
 use Illuminate\Support\Facades\Route;
@@ -82,6 +83,12 @@ Route::middleware(['web'])->prefix('reports/share')->name('reports.share.')->gro
         ->name('locator');
 });
 
+// Register the concrete Website integration route before demo.php's /integrations/{provider} catch-all.
+Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])->group(function (): void {
+    Route::livewire('/integrations/website', WebsiteIntegrationIndex::class)
+        ->name('operator.integrations.website');
+});
+
 require __DIR__.'/demo.php';
 
 // Canonical production operator engine surfaces that are intentionally kept outside legacy demo.php.
@@ -94,7 +101,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])->group(function (
         ->whereNumber('assetId')
         ->name('operator.asset.sources');
 
-    // Backward-compatible Website URL; same canonical component, no Website-only binding logic.
+    // Backward-compatible Website URL; same canonical component.
     Route::livewire('/assets/website/{assetId}/sources', AssetDataSourcesPage::class)
         ->whereNumber('assetId')
         ->name('operator.website.sources');
