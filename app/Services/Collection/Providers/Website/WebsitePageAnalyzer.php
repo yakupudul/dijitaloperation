@@ -124,6 +124,25 @@ final class WebsitePageAnalyzer
     }
 
     /**
+     * A URL is allowed into the collected page inventory only after it produced a real,
+     * successful HTML page response. HTTP errors and soft/error templates remain issues,
+     * not pages.
+     *
+     * @param array<string, mixed> $fetch
+     */
+    public function isInventoryEligible(array $fetch): bool
+    {
+        $status = is_numeric($fetch['status_code'] ?? null) ? (int) $fetch['status_code'] : null;
+
+        return ($fetch['ok'] ?? false) === true
+            && $status !== null
+            && $status >= 200
+            && $status < 400
+            && $this->isHtmlResponse($fetch)
+            && ! $this->looksLikeErrorTemplate($fetch);
+    }
+
+    /**
      * @param  array<string, mixed>  $fetch
      * @return list<array<string, mixed>>
      */
@@ -147,6 +166,20 @@ final class WebsitePageAnalyzer
         }
 
         if (! $this->isHtmlResponse($fetch)) {
+            return $issues;
+        }
+
+        if ($this->looksLikeErrorTemplate($fetch)) {
+            $issues[] = $this->issue(
+                $digitalAssetId,
+                $url,
+                'INVALID_PAGE_RESPONSE',
+                'high',
+                'URL geçerli sayfa içeriği yerine 404 veya hata şablonu döndürüyor.',
+                $observedAt,
+                ['status_code' => $status, 'soft_error_template' => true],
+            );
+
             return $issues;
         }
 
@@ -196,6 +229,38 @@ final class WebsitePageAnalyzer
         }
 
         return str_contains($contentType, 'text/html') || str_contains($contentType, 'application/xhtml+xml');
+    }
+
+    /** @param array<string, mixed> $fetch */
+    private function looksLikeErrorTemplate(array $fetch): bool
+    {
+        if (! $this->isHtmlResponse($fetch)) {
+            return false;
+        }
+
+        $body = (string) $fetch['body'];
+        $title = mb_strtolower((string) ($this->firstTagText($body, 'title') ?? ''));
+        $text = mb_strtolower(mb_substr($this->visibleText($body), 0, 12000));
+        $haystack = $title.' '.$text;
+
+        foreach ([
+            '404 not found',
+            'error 404',
+            'page not found',
+            'the page you are looking for could not be found',
+            'sayfa bulunamadı',
+            'sayfa bulunamadi',
+            'aradığınız sayfa bulunamadı',
+            'aradiginiz sayfa bulunamadi',
+            'there has been a critical error on this website',
+            'critical error on this website',
+        ] as $marker) {
+            if (str_contains($haystack, $marker)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** @param array<string, mixed> $fetch */
