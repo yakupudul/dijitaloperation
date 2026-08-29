@@ -7,7 +7,7 @@ namespace MoxDop\Website\Discovery;
  */
 final class DiscoveryConfig
 {
-    public const string VERSION = 'website-public-discovery-v1';
+    public const string VERSION = 'website-public-discovery-v2';
 
     public const string MODULE_ID = 'website-discovery';
 
@@ -17,7 +17,17 @@ final class DiscoveryConfig
 
     public const string EVIDENCE_COMPETITOR_CANDIDATES = 'website_public_competitor_candidates';
 
+    /** Maximum number of HTML pages analyzed in a single public crawl run. */
     public const int MAX_PAGES = 15;
+
+    /** Maximum number of sitemap documents followed from one website. */
+    public const int MAX_SITEMAP_FILES = 50;
+
+    /** Maximum number of page URLs accepted from sitemap urlsets in one run. */
+    public const int MAX_SITEMAP_URLS = 5000;
+
+    /** Maximum sitemap-index nesting depth. */
+    public const int MAX_SITEMAP_DEPTH = 3;
 
     public const int MAX_REDIRECTS = 5;
 
@@ -32,21 +42,23 @@ final class DiscoveryConfig
     public const string USER_AGENT = 'MoxDOP-PublicDiscovery/1.0 (+https://moximu.com; read-only public discovery)';
 
     /**
+     * Production crawling must never invent likely page paths. The root is the only seed;
+     * additional URLs must come from robots/sitemaps, redirects, or real same-site links.
+     *
      * @return list<string>
      */
     public static function preferredPathHints(): array
     {
+        return ['/'];
+    }
+
+    /** @return list<string> */
+    public static function sitemapFallbackPaths(): array
+    {
         return [
-            '/',
-            '/about',
-            '/about-us',
-            '/services',
-            '/products',
-            '/contact',
-            '/contact-us',
-            '/locations',
-            '/location',
-            '/our-services',
+            '/sitemap.xml',
+            '/sitemap_index.xml',
+            '/sitemaps.xml',
         ];
     }
 }
