@@ -132,6 +132,7 @@ final class WebsitePageAnalyzer
             && $status !== null
             && $status >= 200
             && $status < 400
+            && $this->externalRedirect($fetch) === null
             && $this->isHtmlResponse($fetch)
             && $this->detectedErrorTemplate($fetch) === null;
     }
@@ -189,6 +190,27 @@ final class WebsitePageAnalyzer
                 $observedAt,
                 ['redirect_count' => $redirectCount],
             );
+        }
+
+        $externalRedirect = $this->externalRedirect($fetch);
+        if ($externalRedirect !== null) {
+            $issues[] = $this->issue(
+                $digitalAssetId,
+                $externalRedirect['requested_url'],
+                'EXTERNAL_REDIRECT',
+                'medium',
+                'URL site kapsamı dışındaki bir hedefe yönleniyor.',
+                $observedAt,
+                [
+                    'requested_url' => $externalRedirect['requested_url'],
+                    'final_url' => $externalRedirect['final_url'],
+                    'redirect_count' => $redirectCount,
+                ],
+            );
+
+            // HTTP/redirect evidence remains available, but the external destination must not
+            // generate page-level SEO issues for this Website asset.
+            return $issues;
         }
 
         if (! $this->isHtmlResponse($fetch)) {
@@ -406,6 +428,29 @@ final class WebsitePageAnalyzer
         }
 
         return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $fetch
+     * @return array{requested_url:string,final_url:string}|null
+     */
+    private function externalRedirect(array $fetch): ?array
+    {
+        $requested = is_string($fetch['requested_url'] ?? null)
+            ? $this->urls->normalizeAbsolute((string) $fetch['requested_url'])
+            : null;
+        $final = is_string($fetch['final_url'] ?? null)
+            ? $this->urls->normalizeAbsolute((string) $fetch['final_url'])
+            : null;
+
+        if ($requested === null || $final === null || $this->urls->sameSite($requested, $final)) {
+            return null;
+        }
+
+        return [
+            'requested_url' => $requested,
+            'final_url' => $final,
+        ];
     }
 
     /** @param array<string, mixed> $fetch */
