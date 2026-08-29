@@ -1,145 +1,108 @@
 @php
-    $f = $data['funnel'];
-    $maxDest = max(1, (float) collect($f['destinations'] ?? [])->max('spend'));
+    $isTr = app()->getLocale() === 'tr';
+    $kpis = $professional['kpis'] ?? [];
+    $campaigns = array_slice(array_values(array_filter($professional['campaigns'] ?? [], static fn (array $row): bool => ($row['spend'] ?? 0) > 0)), 0, 10);
+    $actions = array_slice($professional['headline_actions'] ?? [], 0, 8);
+    $hourly = collect($professional['hourly'] ?? [])->sortByDesc('spend')->take(12)->values()->all();
+    $cards = [
+        ['key' => 'ctr', 'label' => $isTr ? 'Tıklama Oranı' : 'Click-through Rate', 'short' => 'CTR', 'help' => $isTr ? 'Her 100 reklam gösteriminin kaçının tıklamayla sonuçlandığını gösterir.' : 'Share of impressions that produced a click.', 'lower_better' => false],
+        ['key' => 'cpc', 'label' => $isTr ? 'Tıklama Başına Maliyet' : 'Cost per Click', 'short' => 'CPC', 'help' => $isTr ? 'Bir tıklama almak için ortalama ne kadar ödendiği.' : 'Average amount paid for one click.', 'lower_better' => true],
+        ['key' => 'cpm', 'label' => $isTr ? '1.000 Gösterim Maliyeti' : 'Cost per 1,000 Impressions', 'short' => 'CPM', 'help' => $isTr ? 'Reklamı 1.000 kez göstermek için ortalama ne kadar ödendiği.' : 'Average cost for 1,000 impressions.', 'lower_better' => true],
+        ['key' => 'link_clicks', 'label' => $isTr ? 'Bağlantı Tıklamaları' : 'Link Clicks', 'short' => null, 'help' => $isTr ? 'Reklamdaki bağlantılara yapılan tıklamalar.' : 'Clicks on links inside the ad.', 'lower_better' => false],
+    ];
+
+    $objectiveLabel = static function (?string $objective) use ($isTr): string {
+        $value = strtoupper(trim((string) $objective));
+        if (! $isTr) return $value !== '' ? str_replace('_', ' ', $value) : '—';
+
+        return match ($value) {
+            'OUTCOME_LEADS', 'LEAD_GENERATION' => 'Lead Toplama',
+            'OUTCOME_SALES', 'CONVERSIONS' => 'Satış / Dönüşüm',
+            'OUTCOME_TRAFFIC', 'LINK_CLICKS' => 'Trafik',
+            'OUTCOME_ENGAGEMENT', 'POST_ENGAGEMENT' => 'Etkileşim',
+            'OUTCOME_AWARENESS', 'BRAND_AWARENESS', 'REACH' => 'Bilinirlik',
+            'OUTCOME_APP_PROMOTION', 'APP_INSTALLS' => 'Uygulama Tanıtımı',
+            'MESSAGES' => 'Mesajlaşma',
+            '', 'UNKNOWN' => '—',
+            default => str_replace('_', ' ', $value),
+        };
+    };
 @endphp
 
-<div class="space-y-4">
+<section class="space-y-5">
     <div>
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Funnel & Destinations</h2>
-        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ $f['subtitle'] ?? 'Where traffic lands and how funnel shapes differ by destination.' }}</p>
+        <p class="text-xs font-semibold uppercase tracking-[0.14em] text-gray-400">{{ $isTr ? 'Performans' : 'Performance' }}</p>
+        <h2 class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{{ $isTr ? 'Reklam hesabı daha verimli mi, daha pahalı mı çalışıyor?' : 'Is the ad account becoming more efficient or more expensive?' }}</h2>
+        <p class="mt-1 max-w-3xl text-sm text-gray-500 dark:text-gray-400">{{ $isTr ? 'Tıklama verimliliğini, maliyet değişimini, günlük eğilimi, reklamların ürettiği ana sonuçları ve en yoğun saatleri birlikte okuyun.' : 'Read click efficiency, cost changes, daily trend, headline ad outcomes and peak hours together.' }}</p>
     </div>
 
-    <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Destination mix</h3>
-        <p class="mt-0.5 text-[11px] text-gray-400">Spend share by destination family</p>
-        <ul class="mt-3 space-y-2">
-            @foreach ($f['destinations'] ?? [] as $row)
-                <li>
-                    <div class="mb-1 flex flex-wrap items-center justify-between gap-2 text-xs">
-                        <span class="font-medium text-gray-800 dark:text-white/90">{{ $row['label'] }}</span>
-                        <span class="tabular-nums text-gray-500">₺{{ number_format($row['spend']) }} · {{ $row['share'] }}%@if (! empty($row['results'])) · {{ number_format($row['results']) }} {{ $row['result_label'] ?? '' }}@endif</span>
-                    </div>
-                    @php
-                        $destTone = match (true) {
-                            str_contains(strtolower($row['label']), 'instant') => 'bg-violet-500',
-                            str_contains(strtolower($row['label']), 'website') => 'bg-blue-500',
-                            str_contains(strtolower($row['label']), 'message') => 'bg-emerald-500',
-                            str_contains(strtolower($row['label']), 'instagram') => 'bg-rose-500',
-                            default => 'bg-slate-400',
-                        };
-                    @endphp
-                    <div class="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-white/5">
-                        <div class="h-full rounded-full {{ $destTone }}" style="width: {{ min(100, round(($row['spend'] / $maxDest) * 100)) }}%"></div>
-                    </div>
-                </li>
-            @endforeach
-        </ul>
-    </section>
-
-    <div class="grid gap-3 lg:grid-cols-2">
-        <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Instant Form</h3>
-            @php $if = $f['instant_form'] ?? []; @endphp
-            <dl class="mt-3 grid grid-cols-2 gap-3 text-sm">
-                <div><dt class="text-xs text-gray-400">Spend</dt><dd class="font-semibold tabular-nums">₺{{ number_format($if['spend'] ?? 0) }}</dd></div>
-                <div><dt class="text-xs text-gray-400">Leads</dt><dd class="font-semibold tabular-nums">{{ number_format($if['leads'] ?? 0) }}</dd></div>
-                <div><dt class="text-xs text-gray-400">Cost / lead</dt><dd class="font-semibold tabular-nums">₺{{ number_format($if['cost_lead'] ?? 0) }}</dd></div>
-                <div><dt class="text-xs text-gray-400">Complete rate</dt><dd class="font-semibold">{{ $if['complete_rate'] ?? '—' }}</dd></div>
-            </dl>
-            @if (! empty($if['notes']))
-                <ul class="mt-3 space-y-1 text-xs text-gray-600 dark:text-gray-300">
-                    @foreach ($if['notes'] as $note)<li>{{ $note }}</li>@endforeach
-                </ul>
-            @endif
-            @if (! empty($if['attention']))
-                <p class="mt-2 text-xs font-medium text-amber-700 dark:text-amber-400">{{ $if['attention'] }}</p>
-            @endif
-        </section>
-
-        <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-            <div class="flex items-center justify-between gap-2">
-                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Website destination</h3>
-                @if (! empty($identity['website_asset_id']))
-                    <a href="{{ route('operator.website', ['assetId' => $identity['website_asset_id']]) }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">{{ __('operator.chrome.open_website') }} →</a>
+    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        @foreach ($cards as $card)
+            @php
+                $metric = $kpis[$card['key']] ?? [];
+                $delta = $metric['delta_pct'] ?? null;
+                $isGood = $delta !== null ? ($card['lower_better'] ? $delta <= 0 : $delta >= 0) : null;
+            @endphp
+            <article class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                <div class="flex items-start justify-between gap-2"><div><p class="text-sm font-medium text-gray-600 dark:text-gray-300">{{ $card['label'] }}</p>@if($card['short'])<p class="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400">{{ $card['short'] }}</p>@endif</div><span class="cursor-help text-xs text-gray-300" title="{{ $card['help'] }}">ⓘ</span></div>
+                <p class="mt-3 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">{{ $metric['display'] ?? '—' }}</p>
+                @if ($delta !== null)
+                    <p class="mt-2 text-xs font-semibold {{ $isGood ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400' }}">
+                        {{ $delta > 0 ? '+' : '' }}{{ number_format($delta, 1) }}%
+                        @if($isTr && in_array($card['key'], ['cpc','cpm'], true)) · {{ $delta > 0 ? 'daha pahalı' : 'daha ucuz' }} @elseif($isTr) · {{ $isGood ? 'olumlu yönde' : 'olumsuz yönde' }} @endif
+                    </p>
+                @else
+                    <p class="mt-2 text-xs text-gray-400">{{ $isTr ? 'Karşılaştırma mevcut değil' : 'Comparison unavailable' }}</p>
                 @endif
-            </div>
-            @php $web = $f['website'] ?? []; @endphp
-            <dl class="mt-3 grid grid-cols-2 gap-3 text-sm">
-                <div><dt class="text-xs text-gray-400">Spend</dt><dd class="font-semibold tabular-nums">₺{{ number_format($web['spend'] ?? 0) }}</dd></div>
-                <div><dt class="text-xs text-gray-400">Landings</dt><dd class="font-semibold tabular-nums">{{ $web['landings'] ?? '—' }}</dd></div>
-                <div><dt class="text-xs text-gray-400">Primary action</dt><dd class="font-semibold">{{ $web['primary_action'] ?? '—' }}</dd></div>
-                <div><dt class="text-xs text-gray-400">Message match</dt><dd class="font-semibold">{{ $web['message_match'] ?? '—' }}</dd></div>
-            </dl>
-            @if (! empty($web['note']))
-                <p class="mt-3 text-xs text-gray-600 dark:text-gray-300">{{ $web['note'] }}</p>
-            @endif
-        </section>
-
-        <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Messaging</h3>
-            @php $msg = $f['messaging'] ?? []; @endphp
-            <dl class="mt-3 grid grid-cols-2 gap-3 text-sm">
-                <div><dt class="text-xs text-gray-400">Spend</dt><dd class="font-semibold tabular-nums">₺{{ number_format($msg['spend'] ?? 0) }}</dd></div>
-                <div><dt class="text-xs text-gray-400">Conversations</dt><dd class="font-semibold tabular-nums">{{ number_format($msg['conversations'] ?? 0) }}</dd></div>
-                <div><dt class="text-xs text-gray-400">Cost / convo</dt><dd class="font-semibold tabular-nums">₺{{ number_format($msg['cost_conversation'] ?? 0) }}</dd></div>
-                <div><dt class="text-xs text-gray-400">State</dt><dd class="font-semibold">{{ $msg['state'] ?? '—' }}</dd></div>
-            </dl>
-            @if (! empty($msg['note']))
-                <p class="mt-3 text-xs text-gray-600 dark:text-gray-300">{{ $msg['note'] }}</p>
-            @endif
-        </section>
-
-        <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Instagram Profile</h3>
-            @php $ig = $f['instagram_profile'] ?? []; @endphp
-            <dl class="mt-3 grid grid-cols-2 gap-3 text-sm">
-                <div><dt class="text-xs text-gray-400">Spend</dt><dd class="font-semibold tabular-nums">₺{{ number_format($ig['spend'] ?? 0) }}</dd></div>
-                <div><dt class="text-xs text-gray-400">Profile visits</dt><dd class="font-semibold tabular-nums">{{ number_format($ig['profile_visits'] ?? 0) }}</dd></div>
-                <div><dt class="text-xs text-gray-400">Role</dt><dd class="font-semibold">{{ $ig['role'] ?? '—' }}</dd></div>
-                <div><dt class="text-xs text-gray-400">State</dt><dd class="font-semibold">{{ $ig['state'] ?? '—' }}</dd></div>
-            </dl>
-            @if (! empty($ig['note']))
-                <p class="mt-3 text-xs text-gray-600 dark:text-gray-300">{{ $ig['note'] }}</p>
-            @endif
-        </section>
+            </article>
+        @endforeach
     </div>
 
-    <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Message match</h3>
-        <p class="mt-0.5 text-[11px] text-violet-700 dark:text-violet-300">Explainable states — no numeric match score</p>
-        <ul class="mt-3 divide-y divide-gray-100 dark:divide-gray-800">
-            @foreach ($f['message_match'] ?? [] as $row)
-                <li class="flex flex-col gap-1 py-2.5 sm:flex-row sm:items-center sm:justify-between">
-                    <div class="min-w-0">
-                        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $row['path'] }}</p>
-                        <p class="text-xs text-gray-500">{{ $row['detail'] }}</p>
-                    </div>
-                    <x-ta.badge :color="match($row['state']) { 'Strong' => 'success', 'Weak' => 'error', 'Partial' => 'warning', default => 'light' }" size="sm">{{ $row['state'] }}</x-ta.badge>
-                </li>
-            @endforeach
-        </ul>
-    </section>
+    @if (! empty($professional['trend']))
+        <x-ta.chart-card :title="$isTr ? 'Günlük Harcama ve Tıklama Eğilimi' : 'Daily Spend and Click Trend'" :subtitle="$isTr ? 'Gün gün ne kadar harcandı ve kaç tıklama alındı?' : 'Daily spend and total clicks'" :options="$performanceChartOptions" chart-id="meta-professional-performance-trend" />
+    @endif
 
-    <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Funnel shapes</h3>
-        <p class="mt-0.5 text-[11px] text-gray-400">Different destinations produce different shapes — compare within type</p>
-        <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            @foreach ($f['shapes'] ?? [] as $shape)
-                <div class="rounded-xl bg-slate-50 p-3 dark:bg-white/[0.03]">
-                    <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $shape['label'] }}</p>
-                    <ol class="mt-2 space-y-1.5">
-                        @foreach ($shape['steps'] as $step)
-                            <li class="flex items-center justify-between gap-2 text-xs">
-                                <span class="text-gray-600 dark:text-gray-300">{{ $step['label'] }}</span>
-                                <span class="tabular-nums font-medium text-gray-900 dark:text-white">{{ $step['value'] }}</span>
-                            </li>
-                        @endforeach
-                    </ol>
-                    @if (! empty($shape['note']))
-                        <p class="mt-2 text-[11px] text-gray-400">{{ $shape['note'] }}</p>
-                    @endif
-                </div>
-            @endforeach
-        </div>
-    </section>
-</div>
+    <div class="grid gap-5 xl:grid-cols-2">
+        <article class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900 sm:p-6">
+            <div class="flex items-start justify-between gap-3"><div><h3 class="font-bold text-gray-900 dark:text-white">{{ $isTr ? 'Reklamların Ürettiği Ana Sonuçlar' : 'Headline Ad Outcomes' }}</h3><p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ $isTr ? 'Aynı olayı tekrar eden teknik varyantlar burada çoğaltılmaz; ayrıntılı action listesi Dönüşümler sekmesindedir.' : 'Overlapping technical variants are de-duplicated here; the detailed action list remains in Conversions.' }}</p></div><button type="button" wire:click="setTab('measurement')" class="text-xs font-semibold text-brand-600 dark:text-brand-400">{{ $isTr ? 'Detay' : 'Details' }}</button></div>
+            <div class="mt-5 grid gap-3 sm:grid-cols-2">
+                @forelse ($actions as $action)
+                    <div class="rounded-xl border border-gray-100 p-4 dark:border-gray-800"><p class="text-xs text-gray-500 dark:text-gray-400">{{ $isTr ? ($action['label_tr'] ?? $action['label']) : ($action['label_en'] ?? $action['label']) }}</p><p class="mt-1 text-2xl font-bold tabular-nums text-gray-900 dark:text-white">{{ number_format((float)$action['value'], 2) }}</p></div>
+                @empty
+                    <div class="col-span-full rounded-xl border border-dashed border-gray-300 px-5 py-10 text-center text-sm text-gray-400 dark:border-gray-700">{{ $isTr ? 'Seçili dönemde öne çıkarılabilecek ölçülmüş sonuç yok.' : 'No headline observed outcome in this period.' }}</div>
+                @endforelse
+            </div>
+        </article>
+
+        <article class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900 sm:p-6">
+            <h3 class="font-bold text-gray-900 dark:text-white">{{ $isTr ? 'En Yoğun Reklam Saatleri' : 'Peak Ad Hours' }}</h3>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ $isTr ? 'Hesap saat dilimine göre en fazla reklam harcaması gerçekleşen saatler.' : 'Hours with the highest ad spend in the account timezone.' }}</p>
+            <div class="mt-5 space-y-2">
+                @forelse ($hourly as $row)
+                    @php
+                        $hourLabel = (string) $row['hour'];
+                        if (preg_match('/^(\d{2}):/', $hourLabel, $matches)) {
+                            $hour = (int) $matches[1];
+                            $hourLabel = sprintf('%02d:00–%02d:00', $hour, ($hour + 1) % 24);
+                        }
+                    @endphp
+                    <div class="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 rounded-xl border border-gray-100 px-3 py-2.5 text-sm dark:border-gray-800"><span class="truncate font-medium text-gray-700 dark:text-gray-300">{{ $hourLabel }}</span><span class="tabular-nums text-gray-500">{{ $isTr ? 'Tıklama oranı' : 'Click rate' }} {{ $row['ctr'] !== null ? number_format($row['ctr'], 2).'%' : '—' }}</span><span class="font-semibold tabular-nums text-gray-900 dark:text-white">{{ $professional['currency'] ?? '' }} {{ number_format($row['spend'], 2) }}</span></div>
+                @empty
+                    <div class="rounded-xl border border-dashed border-gray-300 px-5 py-10 text-center text-sm text-gray-400 dark:border-gray-700">{{ $isTr ? 'Saatlik performans verisi yok.' : 'No hourly performance data.' }}</div>
+                @endforelse
+            </div>
+        </article>
+    </div>
+
+    <article class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-800"><h3 class="font-bold text-gray-900 dark:text-white">{{ $isTr ? 'En Çok Harcama Yapan Kampanyalar' : 'Top Campaigns by Spend' }}</h3><p class="mt-1 text-xs text-gray-400">{{ $isTr ? 'Bu özet ilk 10 kampanyayı gösterir; Kampanyalar sekmesinde hesap envanterinin tamamı bulunur.' : 'This summary shows the top 10; the Campaigns tab contains the full account inventory.' }}</p></div>
+        <div class="overflow-x-auto"><table class="min-w-full text-left"><thead class="bg-gray-50/80 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:bg-white/[0.02]"><tr><th class="px-5 py-3">{{ $isTr ? 'Kampanya' : 'Campaign' }}</th><th class="px-4 py-3 text-right">{{ $isTr ? 'Harcama' : 'Spend' }}</th><th class="px-4 py-3 text-right">{{ $isTr ? 'Tıklama Oranı' : 'Click Rate' }}</th><th class="px-4 py-3 text-right">{{ $isTr ? 'Tıklama Maliyeti' : 'Click Cost' }}</th><th class="px-5 py-3">{{ $isTr ? 'Öne Çıkan Sonuç' : 'Top Outcome' }}</th></tr></thead><tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+            @forelse ($campaigns as $row)
+                @php $action = $row['summary_actions'][0] ?? null; @endphp
+                <tr><td class="max-w-sm px-5 py-3.5"><p class="truncate text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $row['name'] }}</p><p class="text-[11px] text-gray-400">{{ $objectiveLabel($row['objective'] ?? null) }}</p></td><td class="px-4 py-3.5 text-right text-sm font-semibold tabular-nums">{{ $row['spend_display'] }}</td><td class="px-4 py-3.5 text-right text-sm tabular-nums">{{ $row['ctr'] !== null ? number_format($row['ctr'], 2).'%' : '—' }}</td><td class="px-4 py-3.5 text-right text-sm tabular-nums">{{ $row['cpc'] !== null ? ($row['currency'].' '.number_format($row['cpc'], 2)) : '—' }}</td><td class="px-5 py-3.5 text-sm">@if($action)<span class="font-semibold text-gray-800 dark:text-gray-200">{{ $isTr ? $action['label_tr'] : $action['label_en'] }}</span><span class="ml-2 tabular-nums text-gray-500">{{ number_format((float)$action['value'], 2) }}</span>@else<span class="text-gray-300">—</span>@endif</td></tr>
+            @empty
+                <tr><td colspan="5" class="px-5 py-10 text-center text-sm text-gray-400">{{ $isTr ? 'Seçili dönemde kampanya performansı yok.' : 'No campaign performance in this period.' }}</td></tr>
+            @endforelse
+        </tbody></table></div>
+    </article>
+</section>

@@ -25,13 +25,15 @@ use Throwable;
 
 /**
  * Production Website DatasetExecutor — Registry WEB_RF_* COLLECTION_READY families.
- * Reuses public HTTP fetcher, head/canonical parsers, and TLS probe. No Evidence, Findings, or CMS writes.
+ * Reuses the hardened public fetcher and writes externally observable Website Intelligence
+ * into the canonical Data Pool. No Findings/Recommendations are created here.
  */
 final class WebsiteDatasetExecutor implements DatasetExecutor
 {
     public function __construct(
         private readonly WebsiteEligibilityGuard $eligibility,
         private readonly WebsiteNormalizer $normalizer,
+        private readonly WebsitePageAnalyzer $pageAnalyzer,
         private readonly WebsiteProviderErrorMapper $errors,
         private readonly DatasetWritePipeline $pipeline,
         private readonly RawPayloadWriter $rawWriter,
@@ -79,9 +81,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         }
     }
 
-    /**
-     * @param  array<string, mixed>  $scope
-     */
+    /** @param array<string, mixed> $scope */
     private function executeHttpHtmlDiagnosis(DatasetExecutionContext $context, array $scope): DatasetExecutionResult
     {
         $steps = ['homepage', 'robots', 'sitemap'];
@@ -95,6 +95,9 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
                 'step_index' => $stepIndex,
                 'observed_at' => $observedAt,
                 'rows_written_total' => $rowsWritten,
+                'sitemap_candidates' => $this->checkpointStringList($checkpoint['sitemap_candidates'] ?? []),
+                'sitemap_files_checked' => (int) ($checkpoint['sitemap_files_checked'] ?? 0),
+                'sitemap_urls_discovered' => (int) ($checkpoint['sitemap_urls_discovered'] ?? 0),
             ]);
         }
 
@@ -102,41 +105,85 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         $assetId = (int) $scope['asset']->id;
         $seed = (string) $scope['seed_url'];
         $rowsBefore = $rowsWritten;
+        $checkpointExtra = [
+            'sitemap_candidates' => $this->checkpointStringList($checkpoint['sitemap_candidates'] ?? []),
+            'sitemap_files_checked' => (int) ($checkpoint['sitemap_files_checked'] ?? 0),
+            'sitemap_urls_discovered' => (int) ($checkpoint['sitemap_urls_discovered'] ?? 0),
+        ];
 
         if ($step === 'homepage') {
             $fetch = $this->fetcher->fetch($seed);
-            $rowsWritten += $this->persistPage($context, $assetId, $fetch, $observedAt, 'diagnosis_homepage', $seed);
+            $rowsWritten += $this->persistPage($context, $assetId, $fetch, $observedAt, 'diagnosis_homepage', $seed, $seed);
         } elseif ($step === 'robots') {
             $robotsUrl = rtrim($this->origin($seed), '/').'/robots.txt';
             $fetch = $this->fetcher->fetch($robotsUrl);
             $rowsWritten += $this->writeOne($context, 'website_http_snapshot', 'robots', $assetId, [
                 $this->normalizer->httpSnapshot($assetId, $fetch, $observedAt),
             ], [$fetch], $robotsUrl);
+            $checkpointExtra['sitemap_candidates'] = $this->extractRobotsSitemapUrls(
+                is_string($fetch['body'] ?? null) ? $fetch['body'] : null,
+                $seed,
+            );
         } else {
-            $sitemapUrl = rtrim($this->origin($seed), '/').'/sitemap.xml';
-            $fetch = $this->fetcher->fetch($sitemapUrl);
-            $rowsWritten += $this->writeOne($context, 'website_http_snapshot', 'sitemap', $assetId, [
-                $this->normalizer->httpSnapshot($assetId, $fetch, $observedAt),
-            ], [$fetch], $sitemapUrl);
-            $locs = $this->extractSitemapLocs(is_string($fetch['body'] ?? null) ? $fetch['body'] : null, 20);
-            $urlRecords = [];
-            foreach ($locs as $loc) {
-                $normalized = $this->normalizer->normalizeUrl($loc);
-                if ($normalized === null) {
+            $candidates = $checkpointExtra['sitemap_candidates'];
+            foreach (DiscoveryConfig::sitemapFallbackPaths() as $path) {
+                $candidate = $this->urls->resolve($seed, $path);
+                if ($candidate !== null && $this->urls->sameSite($seed, $candidate)) {
+                    $candidates[] = $candidate;
+                }
+            }
+            $candidates = array_values(array_unique($candidates));
+
+            $inventory = $this->discoverSitemapInventory($seed, $candidates);
+            $checkpointExtra['sitemap_candidates'] = $candidates;
+            $checkpointExtra['sitemap_files_checked'] = count($inventory['documents']);
+            $checkpointExtra['sitemap_urls_discovered'] = count($inventory['pages']);
+
+            foreach ($inventory['documents'] as $index => $document) {
+                $documentUrl = (string) $document['url'];
+                /** @var array<string, mixed> $documentFetch */
+                $documentFetch = $document['fetch'];
+                $rowsWritten += $this->writeOne(
+                    $context,
+                    'website_http_snapshot',
+                    'sitemap_doc_'.($index + 1),
+                    $assetId,
+                    [$this->normalizer->httpSnapshot($assetId, $documentFetch, $observedAt)],
+                    [$documentFetch],
+                    $documentUrl,
+                );
+            }
+
+            foreach (array_chunk($inventory['pages'], 500) as $chunkIndex => $pageUrls) {
+                $urlRecords = [];
+                foreach ($pageUrls as $pageUrl) {
+                    $normalized = $this->normalizer->normalizeUrl($pageUrl);
+                    if ($normalized === null) {
+                        continue;
+                    }
+                    $urlRecords[] = $this->normalizer->urlRecord($assetId, $normalized, 'sitemap', $observedAt);
+                }
+                if ($urlRecords === []) {
                     continue;
                 }
-                $urlRecords[] = $this->normalizer->urlRecord($assetId, $normalized, 'sitemap', $observedAt);
-            }
-            if ($urlRecords !== []) {
-                $rowsWritten += $this->writeOne($context, 'website_url', 'sitemap_urls', $assetId, $urlRecords, $locs, $sitemapUrl);
+
+                $rowsWritten += $this->writeOne(
+                    $context,
+                    'website_url',
+                    'sitemap_urls_'.($chunkIndex + 1),
+                    $assetId,
+                    $urlRecords,
+                    $pageUrls,
+                    $this->origin($seed).'|sitemap-inventory|'.$chunkIndex,
+                );
             }
         }
 
-        $checkpointOut = [
+        $checkpointOut = array_merge([
             'step_index' => $stepIndex + 1,
             'observed_at' => $observedAt,
             'rows_written_total' => $rowsWritten,
-        ];
+        ], $checkpointExtra);
         $tickRows = $rowsWritten - $rowsBefore;
 
         if ($stepIndex + 1 >= count($steps)) {
@@ -155,9 +202,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         );
     }
 
-    /**
-     * @param  array<string, mixed>  $scope
-     */
+    /** @param array<string, mixed> $scope */
     private function executePublicCrawl(DatasetExecutionContext $context, array $scope): DatasetExecutionResult
     {
         $checkpoint = $context->checkpoint;
@@ -173,12 +218,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
 
         if ($queue === [] || $pages >= $maxPages || $bytesDownloaded >= DiscoveryConfig::MAX_TOTAL_BYTES) {
             return $this->completedCounted($pages, $maxPages, $this->crawlCheckpoint(
-                $observedAt,
-                [],
-                $visited,
-                $pages,
-                $rowsWritten,
-                $bytesDownloaded,
+                $observedAt, [], $visited, $pages, $rowsWritten, $bytesDownloaded,
             ));
         }
 
@@ -189,14 +229,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
                 progressMode: ProgressMode::PageBased,
                 progressCurrent: $pages,
                 progressTotal: $maxPages,
-                checkpoint: $this->crawlCheckpoint(
-                    $observedAt,
-                    $queue,
-                    $visited,
-                    $pages,
-                    $rowsWritten,
-                    $bytesDownloaded,
-                ),
+                checkpoint: $this->crawlCheckpoint($observedAt, $queue, $visited, $pages, $rowsWritten, $bytesDownloaded),
             );
         }
 
@@ -206,20 +239,15 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
 
         if ($bytesDownloaded > DiscoveryConfig::MAX_TOTAL_BYTES) {
             return $this->completedCounted($pages, $maxPages, $this->crawlCheckpoint(
-                $observedAt,
-                $queue,
-                $visited,
-                $pages,
-                $rowsWritten,
-                $bytesDownloaded,
+                $observedAt, $queue, $visited, $pages, $rowsWritten, $bytesDownloaded,
             ));
         }
 
-        $written = $this->persistPage($context, $assetId, $fetch, $observedAt, 'public_crawl', $url);
+        $written = $this->persistPage($context, $assetId, $fetch, $observedAt, 'public_crawl', $url, $seed);
         $pages++;
         $rowsWritten += $written;
 
-        if ($fetch['ok'] && is_string($fetch['body'] ?? null) && $pages < $maxPages) {
+        if ($this->pageAnalyzer->isInventoryEligible($fetch) && $pages < $maxPages) {
             $resolutionBase = is_string($fetch['final_url'] ?? null) && trim((string) $fetch['final_url']) !== ''
                 ? (string) $fetch['final_url']
                 : $url;
@@ -230,14 +258,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
             }
         }
 
-        $checkpointOut = $this->crawlCheckpoint(
-            $observedAt,
-            $queue,
-            $visited,
-            $pages,
-            $rowsWritten,
-            $bytesDownloaded,
-        );
+        $checkpointOut = $this->crawlCheckpoint($observedAt, $queue, $visited, $pages, $rowsWritten, $bytesDownloaded);
 
         if ($queue === [] || $pages >= $maxPages || $bytesDownloaded >= DiscoveryConfig::MAX_TOTAL_BYTES) {
             return $this->completedCounted($pages, $maxPages, $checkpointOut, $written, $written, 1);
@@ -255,9 +276,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         );
     }
 
-    /**
-     * @param  array<string, mixed>  $scope
-     */
+    /** @param array<string, mixed> $scope */
     private function executeDnsTls(DatasetExecutionContext $context, array $scope): DatasetExecutionResult
     {
         $observedAt = (string) ($context->checkpoint['observed_at'] ?? CarbonImmutable::now('UTC')->toDateTimeString());
@@ -269,9 +288,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         return $this->completedCounted(1, 1, ['observed_at' => $observedAt, 'host' => $host], 1, 1);
     }
 
-    /**
-     * @param  array<string, mixed>  $scope
-     */
+    /** @param array<string, mixed> $scope */
     private function executePagespeed(DatasetExecutionContext $context, array $scope): DatasetExecutionResult
     {
         $connection = $scope['pagespeed_connection'] ?? null;
@@ -284,9 +301,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         }
 
         $payload = $connection->credential?->encrypted_payload;
-        $apiKey = is_array($payload) && isset($payload['api_key']) && is_string($payload['api_key'])
-            ? trim($payload['api_key'])
-            : '';
+        $apiKey = is_array($payload) && isset($payload['api_key']) && is_string($payload['api_key']) ? trim($payload['api_key']) : '';
         if ($apiKey === '') {
             return DatasetExecutionResult::failed(
                 CollectionErrorCategory::Authentication,
@@ -296,15 +311,11 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         }
 
         $config = is_array($connection->config) ? $connection->config : [];
-        $strategy = isset($config['strategy']) && is_string($config['strategy'])
-            ? strtolower(trim($config['strategy']))
-            : 'mobile';
+        $strategy = isset($config['strategy']) && is_string($config['strategy']) ? strtolower(trim($config['strategy'])) : 'mobile';
         if (! in_array($strategy, ['mobile', 'desktop'], true)) {
             $strategy = 'mobile';
         }
-        $url = isset($config['url']) && is_string($config['url']) && trim($config['url']) !== ''
-            ? trim($config['url'])
-            : (string) $scope['seed_url'];
+        $url = isset($config['url']) && is_string($config['url']) && trim($config['url']) !== '' ? trim($config['url']) : (string) $scope['seed_url'];
         $observedAt = (string) ($context->checkpoint['observed_at'] ?? CarbonImmutable::now('UTC')->toDateTimeString());
 
         $response = Http::timeout(60)
@@ -327,16 +338,13 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         }
 
         $body = $response->json();
-        $lighthouse = is_array($body) && isset($body['lighthouseResult']) && is_array($body['lighthouseResult'])
-            ? $body['lighthouseResult']
-            : [];
+        $lighthouse = is_array($body) && isset($body['lighthouseResult']) && is_array($body['lighthouseResult']) ? $body['lighthouseResult'] : [];
         $audits = is_array($lighthouse['audits'] ?? null) ? $lighthouse['audits'] : [];
         $lab = [
             'final_url' => is_string($lighthouse['finalUrl'] ?? null) ? $lighthouse['finalUrl'] : $url,
             'fetch_time' => is_string($lighthouse['fetchTime'] ?? null) ? $lighthouse['fetchTime'] : null,
             'lcp_ms' => isset($audits['largest-contentful-paint']['numericValue']) && is_numeric($audits['largest-contentful-paint']['numericValue'])
-                ? $audits['largest-contentful-paint']['numericValue']
-                : null,
+                ? $audits['largest-contentful-paint']['numericValue'] : null,
             'lab_data' => $lighthouse !== [],
         ];
         $record = $this->normalizer->performanceMeasurement((int) $scope['asset']->id, $url, $strategy, $lab, $observedAt);
@@ -345,9 +353,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         return $this->completedCounted(1, 1, ['observed_at' => $observedAt, 'strategy' => $strategy], 1, 1);
     }
 
-    /**
-     * @param  array<string, mixed>  $fetch
-     */
+    /** @param array<string, mixed> $fetch */
     private function persistPage(
         DatasetExecutionContext $context,
         int $assetId,
@@ -355,32 +361,66 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         string $observedAt,
         string $source,
         string $requestedUrl,
+        string $siteSeed,
     ): int {
         $pageIdentity = $this->stablePageIdentity($requestedUrl, $fetch);
         $rowsWritten = 0;
+
+        // HTTP evidence and crawl issues are retained even when the URL is not a valid page.
+        $rowsWritten += $this->writeOne($context, 'website_http_snapshot', $source.'_http', $assetId, [
+            $this->normalizer->httpSnapshot($assetId, $fetch, $observedAt),
+        ], [$fetch], $requestedUrl, $pageIdentity);
+
+        $issues = $this->pageAnalyzer->issueSnapshots($assetId, $fetch, $observedAt);
+        if ($issues !== []) {
+            $rowsWritten += $this->writeOne(
+                $context,
+                'website_crawl_issue_snapshot',
+                $source.'_issues',
+                $assetId,
+                $issues,
+                [$fetch],
+                $requestedUrl,
+                $pageIdentity,
+            );
+        }
+
+        // Never promote HTTP failures, guessed paths, or soft/error templates into page inventory.
+        if (! $this->pageAnalyzer->isInventoryEligible($fetch)) {
+            return $rowsWritten;
+        }
+
         $normalized = $this->normalizer->normalizeUrl((string) ($fetch['final_url'] ?? $fetch['requested_url'] ?? $requestedUrl));
         if ($normalized !== null) {
             $rowsWritten += $this->writeOne($context, 'website_url', $source.'_url', $assetId, [
                 $this->normalizer->urlRecord($assetId, $normalized, $source, $observedAt),
             ], [$fetch], $requestedUrl, $pageIdentity);
         }
-        $httpRows = $this->writeOne($context, 'website_http_snapshot', $source.'_http', $assetId, [
-            $this->normalizer->httpSnapshot($assetId, $fetch, $observedAt),
-        ], [$fetch], $requestedUrl, $pageIdentity);
-        $rowsWritten += $httpRows;
-        if (($fetch['ok'] ?? false) === true && is_string($fetch['body'] ?? null)) {
-            [$metadata, $heading, $schema] = $this->normalizer->htmlSnapshots($assetId, $fetch, $observedAt);
-            $rowsWritten += $this->writeOne($context, 'website_metadata_snapshot', $source.'_meta', $assetId, [$metadata], [$fetch], $requestedUrl, $pageIdentity);
-            $rowsWritten += $this->writeOne($context, 'website_heading_snapshot', $source.'_h1', $assetId, [$heading], [$fetch], $requestedUrl, $pageIdentity);
-            $rowsWritten += $this->writeOne($context, 'website_schema_snapshot', $source.'_schema', $assetId, [$schema], [$fetch], $requestedUrl, $pageIdentity);
+
+        [$metadata, $heading, $schema] = $this->normalizer->htmlSnapshots($assetId, $fetch, $observedAt);
+        $rowsWritten += $this->writeOne($context, 'website_metadata_snapshot', $source.'_meta', $assetId, [$metadata], [$fetch], $requestedUrl, $pageIdentity);
+        $rowsWritten += $this->writeOne($context, 'website_heading_snapshot', $source.'_h1', $assetId, [$heading], [$fetch], $requestedUrl, $pageIdentity);
+        $rowsWritten += $this->writeOne($context, 'website_schema_snapshot', $source.'_schema', $assetId, [$schema], [$fetch], $requestedUrl, $pageIdentity);
+
+        $contentStats = $this->pageAnalyzer->contentStats($assetId, $fetch, $observedAt);
+        if ($contentStats !== null) {
+            $rowsWritten += $this->writeOne($context, 'website_content_stats', $source.'_content', $assetId, [$contentStats], [$fetch], $requestedUrl, $pageIdentity);
+        }
+
+        $resolutionBase = is_string($fetch['final_url'] ?? null) && trim((string) $fetch['final_url']) !== ''
+            ? (string) $fetch['final_url']
+            : $requestedUrl;
+        $edges = $this->pageAnalyzer->linkEdges($assetId, (string) $fetch['body'], $siteSeed, $resolutionBase, $observedAt);
+        if ($edges !== []) {
+            $rowsWritten += $this->writeOne($context, 'website_link_edge', $source.'_links', $assetId, $edges, [$fetch], $requestedUrl, $pageIdentity);
         }
 
         return $rowsWritten;
     }
 
     /**
-     * @param  list<array<string, mixed>>  $records
-     * @param  list<mixed>  $rawRows
+     * @param list<array<string, mixed>> $records
+     * @param list<mixed> $rawRows
      */
     private function writeOne(
         DatasetExecutionContext $context,
@@ -454,9 +494,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         return $receipt->rowsReceived;
     }
 
-    /**
-     * @param  array<string, mixed>|null  $fetch
-     */
+    /** @param array<string, mixed>|null $fetch */
     private function stablePageIdentity(string $url, ?array $fetch = null): string
     {
         $candidate = $url;
@@ -482,38 +520,21 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         return 'website:'.$datasetId.':'.$batchSuffix.':url='.hash('sha256', $pageIdentity);
     }
 
-    /**
-     * @return list<string>
-     */
+    /** @return list<string> */
     private function seedQueue(string $seed): array
     {
-        $queue = [$seed];
-        foreach (DiscoveryConfig::preferredPathHints() as $hint) {
-            if ($hint === '/') {
-                continue;
-            }
-            $candidate = $this->urls->resolve($seed, $hint);
-            if ($candidate !== null && $this->urls->sameSite($seed, $candidate)) {
-                $queue[] = $candidate;
-            }
-        }
+        $normalized = $this->urls->normalizeAbsolute($seed);
 
-        return array_values(array_unique($queue));
+        return [$normalized ?? $seed];
     }
 
     /**
-     * @param  list<string>  $queue
-     * @param  list<string>  $visited
+     * @param list<string> $queue
+     * @param list<string> $visited
      * @return array<string, mixed>
      */
-    private function crawlCheckpoint(
-        string $observedAt,
-        array $queue,
-        array $visited,
-        int $pages,
-        int $rowsWritten,
-        int $bytesDownloaded,
-    ): array {
+    private function crawlCheckpoint(string $observedAt, array $queue, array $visited, int $pages, int $rowsWritten, int $bytesDownloaded): array
+    {
         return [
             'observed_at' => $observedAt,
             'queue' => array_values($queue),
@@ -524,9 +545,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         ];
     }
 
-    /**
-     * @return list<string>
-     */
+    /** @return list<string> */
     private function extractSameSiteHrefs(string $html, string $seed, string $resolutionBase): array
     {
         preg_match_all('/href=["\']([^"\']+)["\']/i', $html, $matches);
@@ -542,9 +561,141 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         return array_values(array_unique($out));
     }
 
+    /** @return list<string> */
+    private function extractRobotsSitemapUrls(?string $robots, string $seed): array
+    {
+        if ($robots === null || trim($robots) === '') {
+            return [];
+        }
+
+        preg_match_all('/^\s*sitemap\s*:\s*(\S+)\s*$/im', $robots, $matches);
+        $urls = [];
+        foreach ($matches[1] ?? [] as $candidate) {
+            $decoded = trim(html_entity_decode((string) $candidate, ENT_QUOTES | ENT_HTML5));
+            $resolved = $this->urls->resolve($seed, $decoded);
+            if ($resolved !== null && $this->urls->sameSite($seed, $resolved)) {
+                $urls[] = $resolved;
+            }
+        }
+
+        return array_values(array_unique($urls));
+    }
+
     /**
-     * @return list<string>
+     * @param list<string> $candidates
+     * @return array{pages: list<string>, documents: list<array{url: string, fetch: array<string, mixed>}>, bytes: int}
      */
+    private function discoverSitemapInventory(string $seed, array $candidates): array
+    {
+        $queue = [];
+        foreach ($candidates as $candidate) {
+            $normalized = $this->urls->normalizeAbsolute($candidate);
+            if ($normalized !== null && $this->urls->sameSite($seed, $normalized)) {
+                $queue[] = ['url' => $normalized, 'depth' => 0];
+            }
+        }
+
+        $visited = [];
+        $pages = [];
+        $documents = [];
+        $bytes = 0;
+
+        while ($queue !== []
+            && count($visited) < DiscoveryConfig::MAX_SITEMAP_FILES
+            && count($pages) < DiscoveryConfig::MAX_SITEMAP_URLS
+            && $bytes < DiscoveryConfig::MAX_TOTAL_BYTES) {
+            $item = array_shift($queue);
+            if (! is_array($item)) {
+                continue;
+            }
+
+            $url = (string) ($item['url'] ?? '');
+            $depth = (int) ($item['depth'] ?? 0);
+            if ($url === '' || isset($visited[$url])) {
+                continue;
+            }
+            $visited[$url] = true;
+
+            $fetch = $this->fetcher->fetch($url);
+            $bytes += (int) ($fetch['bytes'] ?? 0);
+            $documents[] = ['url' => $url, 'fetch' => $fetch];
+
+            if (($fetch['ok'] ?? false) !== true || ! is_string($fetch['body'] ?? null) || trim((string) $fetch['body']) === '') {
+                continue;
+            }
+
+            $parsed = $this->parseSitemapDocument((string) $fetch['body']);
+            if ($parsed['type'] === 'index') {
+                if ($depth >= DiscoveryConfig::MAX_SITEMAP_DEPTH) {
+                    continue;
+                }
+                foreach ($parsed['locs'] as $child) {
+                    $normalized = $this->urls->normalizeAbsolute($child);
+                    if ($normalized === null || ! $this->urls->sameSite($seed, $normalized) || isset($visited[$normalized])) {
+                        continue;
+                    }
+                    $queue[] = ['url' => $normalized, 'depth' => $depth + 1];
+                }
+
+                continue;
+            }
+
+            if ($parsed['type'] !== 'urlset') {
+                continue;
+            }
+
+            foreach ($parsed['locs'] as $pageUrl) {
+                $normalized = $this->urls->normalizeAbsolute($pageUrl);
+                if ($normalized === null || ! $this->urls->sameSite($seed, $normalized)) {
+                    continue;
+                }
+                $pages[$normalized] = true;
+                if (count($pages) >= DiscoveryConfig::MAX_SITEMAP_URLS) {
+                    break;
+                }
+            }
+        }
+
+        return [
+            'pages' => array_keys($pages),
+            'documents' => $documents,
+            'bytes' => $bytes,
+        ];
+    }
+
+    /** @return array{type: 'index'|'urlset'|null, locs: list<string>} */
+    private function parseSitemapDocument(string $xml): array
+    {
+        $trimmed = ltrim($xml);
+        $type = match (true) {
+            preg_match('/<sitemapindex\b/i', $trimmed) === 1 => 'index',
+            preg_match('/<urlset\b/i', $trimmed) === 1 => 'urlset',
+            default => null,
+        };
+
+        if ($type === null) {
+            return ['type' => null, 'locs' => []];
+        }
+
+        $limit = $type === 'index' ? DiscoveryConfig::MAX_SITEMAP_FILES : DiscoveryConfig::MAX_SITEMAP_URLS;
+
+        return ['type' => $type, 'locs' => $this->extractSitemapLocs($xml, $limit)];
+    }
+
+    /** @param mixed $value @return list<string> */
+    private function checkpointStringList(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(
+            static fn ($item): string => is_scalar($item) ? trim((string) $item) : '',
+            $value,
+        ), static fn (string $item): bool => $item !== ''));
+    }
+
+    /** @return list<string> */
     private function extractSitemapLocs(?string $xml, int $limit): array
     {
         if ($xml === null || trim($xml) === '') {
@@ -553,7 +704,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         preg_match_all('/<loc>\s*([^<]+)\s*<\/loc>/i', $xml, $matches);
         $out = [];
         foreach ($matches[1] ?? [] as $loc) {
-            $url = trim(html_entity_decode((string) $loc));
+            $url = trim(html_entity_decode((string) $loc, ENT_QUOTES | ENT_HTML5));
             if ($url !== '') {
                 $out[] = $url;
             }
@@ -572,9 +723,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         return ($parts['scheme'] ?? 'https').'://'.($parts['host'] ?? '');
     }
 
-    /**
-     * @param  array<string, mixed>  $checkpoint
-     */
+    /** @param array<string, mixed> $checkpoint */
     private function completedCounted(int $current, int $total, array $checkpoint, int $rowsReceived = 0, int $rowsWritten = 0, int $pagesCompleted = 0): DatasetExecutionResult
     {
         return new DatasetExecutionResult(

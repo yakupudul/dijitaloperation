@@ -1,87 +1,200 @@
 @php
-    $a = $data['audience'];
-    $barRows = [
-        ['title' => 'Placement', 'rows' => $a['placements'] ?? [], 'tone' => 'bg-blue-500'],
-        ['title' => 'Age', 'rows' => $a['age'] ?? [], 'tone' => 'bg-violet-500'],
-        ['title' => 'Country', 'rows' => $a['country'] ?? [], 'tone' => 'bg-emerald-500'],
-        ['title' => 'Gender', 'rows' => $a['gender'] ?? [], 'tone' => 'bg-amber-500'],
-        ['title' => 'Platform', 'rows' => $a['platform'] ?? [], 'tone' => 'bg-rose-500'],
+    $isTr = app()->getLocale() === 'tr';
+    $breakdowns = $professional['breakdowns'] ?? [];
+    $targeting = $professional['targeting'] ?? [];
+    $sections = [
+        ['key' => 'age', 'title' => $isTr ? 'Yaş Grupları' : 'Age Groups'],
+        ['key' => 'gender', 'title' => $isTr ? 'Cinsiyet' : 'Gender'],
+        ['key' => 'country', 'title' => $isTr ? 'Ülkeler' : 'Countries'],
+        ['key' => 'publisher_platform', 'title' => $isTr ? 'Facebook / Instagram Dağılımı' : 'Platform Distribution'],
+        ['key' => 'platform_position', 'title' => $isTr ? 'Reklam Konumu' : 'Ad Placement'],
+        ['key' => 'device', 'title' => $isTr ? 'Cihazlar' : 'Devices'],
     ];
+
+    $countryNamesTr = [
+        'TR' => 'Türkiye', 'GB' => 'Birleşik Krallık', 'DE' => 'Almanya', 'US' => 'ABD',
+        'NL' => 'Hollanda', 'FR' => 'Fransa', 'AT' => 'Avusturya', 'BE' => 'Belçika',
+        'CH' => 'İsviçre', 'SE' => 'İsveç', 'DK' => 'Danimarka', 'NO' => 'Norveç',
+        'FI' => 'Finlandiya', 'IT' => 'İtalya', 'ES' => 'İspanya', 'PL' => 'Polonya',
+        'RO' => 'Romanya', 'BG' => 'Bulgaristan', 'GR' => 'Yunanistan', 'IE' => 'İrlanda',
+        'CA' => 'Kanada', 'AU' => 'Avustralya', 'AE' => 'BAE', 'SA' => 'Suudi Arabistan',
+    ];
+
+    $breakdownLabel = static function (string $key, string $label) use ($isTr, $countryNamesTr): string {
+        if (! $isTr) return $label;
+
+        $normalized = trim($label);
+
+        if ($key === 'country') {
+            $code = strtoupper($normalized);
+            return $countryNamesTr[$code] ?? $code;
+        }
+
+        if ($key === 'gender') {
+            return match (strtolower($normalized)) {
+                'male', 'men' => 'Erkek',
+                'female', 'women' => 'Kadın',
+                'unknown', 'unclassified' => 'Bilinmiyor',
+                default => $normalized,
+            };
+        }
+
+        if ($key === 'device') {
+            return match (strtolower($normalized)) {
+                'iphone' => 'iPhone',
+                'ipad' => 'iPad',
+                'android smartphone', 'android_phone', 'android phone' => 'Android Telefon',
+                'android tablet', 'android_tablet' => 'Android Tablet',
+                'desktop' => 'Masaüstü',
+                'other' => 'Diğer',
+                default => $normalized,
+            };
+        }
+
+        if ($key === 'platform_position') {
+            return match (strtolower($normalized)) {
+                'facebook feed' => 'Facebook Akışı',
+                'instagram feed' => 'Instagram Akışı',
+                'facebook stories' => 'Facebook Hikayeler',
+                'instagram stories' => 'Instagram Hikayeler',
+                'facebook reels' => 'Facebook Reels',
+                'instagram reels' => 'Instagram Reels',
+                'messenger inbox' => 'Messenger Gelen Kutusu',
+                'marketplace' => 'Facebook Marketplace',
+                default => $normalized,
+            };
+        }
+
+        return $normalized;
+    };
+
+    $optimizationLabel = static function (?string $value) use ($isTr): string {
+        if (! filled($value) || ! $isTr) return $value ?: '—';
+
+        return match (strtolower(trim((string) $value))) {
+            'offsite conversions', 'conversions' => 'Dönüşümler',
+            'landing page views' => 'Açılış Sayfası Görüntülemeleri',
+            'link clicks' => 'Bağlantı Tıklamaları',
+            'conversations' => 'Mesajlaşmalar',
+            'lead generation', 'leads' => 'Lead Toplama',
+            'profile visit', 'profile visits' => 'Profil Ziyaretleri',
+            'reach' => 'Erişim',
+            'impressions' => 'Gösterimler',
+            'post engagement' => 'Gönderi Etkileşimi',
+            'video views' => 'Video İzlemeleri',
+            default => (string) $value,
+        };
+    };
+
+    $billingLabel = static function (?string $value) use ($isTr): string {
+        if (! filled($value) || ! $isTr) return $value ?: '—';
+
+        return match (strtolower(trim((string) $value))) {
+            'impressions' => 'Gösterimler',
+            'link clicks' => 'Bağlantı Tıklamaları',
+            default => (string) $value,
+        };
+    };
+
+    $bidLabel = static function (?string $value) use ($isTr): string {
+        if (! filled($value) || ! $isTr) return $value ?: '—';
+
+        return match (strtolower(trim((string) $value))) {
+            'lowest cost without cap' => 'En Düşük Maliyet · Teklif Sınırı Yok',
+            'lowest cost with bid cap' => 'En Düşük Maliyet · Teklif Sınırı',
+            'cost cap' => 'Maliyet Sınırı',
+            'bid cap' => 'Teklif Sınırı',
+            default => (string) $value,
+        };
+    };
+
+    $translateTargetingChip = static function (string $chip) use ($isTr, $countryNamesTr): string {
+        if (! $isTr) return $chip;
+
+        if (str_starts_with($chip, 'Countries: ')) {
+            $codes = array_map('trim', explode(',', substr($chip, strlen('Countries: '))));
+            $names = array_map(static fn (string $code): string => $countryNamesTr[strtoupper($code)] ?? strtoupper($code), $codes);
+            return 'Ülkeler: '.implode(', ', $names);
+        }
+
+        if (str_starts_with($chip, 'Age ')) {
+            return 'Yaş '.substr($chip, 4);
+        }
+
+        if (str_starts_with($chip, 'Platforms: ')) {
+            return 'Platformlar: '.substr($chip, strlen('Platforms: '));
+        }
+
+        if (preg_match('/^(\d+) custom audiences?$/i', $chip, $m)) {
+            return $m[1].' özel hedef kitle';
+        }
+
+        if (preg_match('/^(\d+) interests?$/i', $chip, $m)) {
+            return $m[1].' ilgi alanı';
+        }
+
+        return $chip;
+    };
 @endphp
 
-<div class="space-y-4">
+<section class="space-y-5">
     <div>
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Audience & Delivery</h2>
-        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ $a['subtitle'] ?? 'Configured targeting vs observed delivery — descriptive only.' }}</p>
-        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">No causal claims. Concentration ≠ audience quality score.</p>
+        <p class="text-xs font-semibold uppercase tracking-[0.14em] text-gray-400">{{ $isTr ? 'Kitle & Dağıtım' : 'Audience & Delivery' }}</p>
+        <h2 class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{{ $isTr ? 'Reklam bütçesi gerçekte kimlere ve nerelere gitti?' : 'Who and where actually received the ad budget?' }}</h2>
+        <p class="mt-1 max-w-3xl text-sm text-gray-500 dark:text-gray-400">{{ $isTr ? 'Üst bölüm reklamların gerçekte kimlere ve hangi alanlarda gösterildiğini anlatır. Alt bölüm ise reklam setlerinde tanımlanan hedefleme ayarlarını gösterir. Böylece “hedeflediğimiz kitle” ile “reklamı gerçekten gören kitle” birbirine karışmaz.' : 'The top shows observed delivery; the lower section shows configured targeting, keeping intended audience separate from actual delivery.' }}</p>
     </div>
 
-    <div class="grid gap-3 lg:grid-cols-2">
-        <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Configured</h3>
-            <p class="mt-0.5 text-[11px] text-gray-400">Operator / Meta targeting setup</p>
-            <dl class="mt-3 space-y-2 text-sm">
-                @foreach ($a['configured'] ?? [] as $row)
-                    <div class="flex items-start justify-between gap-3">
-                        <dt class="text-gray-500">{{ $row['label'] }}</dt>
-                        <dd class="text-right font-medium text-gray-900 dark:text-white">{{ $row['value'] }}</dd>
-                    </div>
-                @endforeach
-            </dl>
-        </section>
-
-        <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Observed</h3>
-            <p class="mt-0.5 text-[11px] text-gray-400">Where spend actually delivered</p>
-            <dl class="mt-3 space-y-2 text-sm">
-                @foreach ($a['observed'] ?? [] as $row)
-                    <div class="flex items-start justify-between gap-3">
-                        <dt class="text-gray-500">{{ $row['label'] }}</dt>
-                        <dd class="text-right font-medium text-gray-900 dark:text-white">{{ $row['value'] }}</dd>
-                    </div>
-                @endforeach
-            </dl>
-        </section>
-    </div>
-
-    @if (! empty($a['concentration_note']))
-        <p class="rounded-xl border border-amber-200/80 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">{{ $a['concentration_note'] }}</p>
-    @endif
-
-    <div class="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
-        @foreach ($barRows as $block)
-            @php $maxSpend = max(1, (float) collect($block['rows'])->max('spend')); @endphp
-            <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ $block['title'] }}</h3>
-                <ul class="mt-3 space-y-2.5">
-                    @foreach ($block['rows'] as $row)
-                        <li>
-                            <div class="mb-1 flex items-center justify-between gap-2 text-xs">
-                                <span class="font-medium text-gray-800 dark:text-white/90">{{ $row['label'] }}</span>
-                                <span class="tabular-nums text-gray-500">
-                                    ₺{{ number_format($row['spend']) }}
-                                    @if (isset($row['results']))
-                                        · {{ number_format($row['results']) }} {{ $row['result_label'] ?? '' }}
-                                    @elseif (isset($row['share']))
-                                        · {{ $row['share'] }}%
-                                    @endif
-                                </span>
-                            </div>
-                            <div class="h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-white/5">
-                                <div class="h-full rounded-full {{ $block['tone'] }}" style="width: {{ min(100, round(($row['spend'] / $maxSpend) * 100)) }}%"></div>
-                            </div>
-                        </li>
-                    @endforeach
-                </ul>
-            </section>
+    <div class="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
+        @foreach ($sections as $section)
+            @php $rows = array_slice($breakdowns[$section['key']] ?? [], 0, 10); @endphp
+            <article class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                <div class="flex items-center justify-between gap-3"><h3 class="font-bold text-gray-900 dark:text-white">{{ $section['title'] }}</h3><span class="text-xs font-medium text-gray-400">{{ count($breakdowns[$section['key']] ?? []) }} {{ $isTr ? 'kırılım' : 'values' }}</span></div>
+                <div class="mt-5 space-y-4">
+                    @forelse ($rows as $row)
+                        <div>
+                            <div class="flex items-center justify-between gap-3 text-sm"><span class="truncate font-medium text-gray-700 dark:text-gray-300">{{ $breakdownLabel($section['key'], (string) $row['label']) }}</span><span class="shrink-0 text-xs font-semibold tabular-nums text-gray-500">{{ number_format((float) $row['share'], 1) }}% {{ $isTr ? 'harcama payı' : 'spend share' }} · {{ $isTr ? 'Tıklama oranı' : 'Click rate' }} {{ $row['ctr'] !== null ? number_format($row['ctr'], 2).'%' : '—' }}</span></div>
+                            <div class="mt-2 h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-white/[0.05]"><div class="h-full rounded-full bg-brand-500" style="width: {{ min(100, max(0, (float) $row['share'])) }}%"></div></div>
+                            <div class="mt-1 flex justify-between text-[10px] text-gray-400"><span>{{ $professional['currency'] ?? '' }} {{ number_format((float) $row['spend'], 2) }} {{ $isTr ? 'harcama' : 'spend' }}</span><span>{{ number_format((int) $row['impressions']) }} {{ $isTr ? 'gösterim' : 'impressions' }}</span></div>
+                        </div>
+                    @empty
+                        <div class="rounded-xl border border-dashed border-gray-300 px-4 py-10 text-center text-sm text-gray-400 dark:border-gray-700">{{ $isTr ? 'Bu kırılım için yeterli veri yok.' : 'No usable data for this breakdown.' }}</div>
+                    @endforelse
+                </div>
+            </article>
         @endforeach
     </div>
 
-    @if (! empty($a['notes']))
-        <ul class="space-y-1 text-xs text-gray-500">
-            @foreach ($a['notes'] as $note)
-                <li>{{ $note }}</li>
-            @endforeach
-        </ul>
-    @endif
-</div>
+    <article class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-800 sm:px-6">
+            <h3 class="font-bold text-gray-900 dark:text-white">{{ $isTr ? 'Tanımlanan Hedef Kitle ve Dağıtım Ayarları' : 'Configured Targeting and Delivery Settings' }}</h3>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ $isTr ? 'Bunlar Meta’ya reklam seti seviyesinde verilen hedefleme ve optimizasyon talimatlarıdır; reklamın gerçekte kimlere gösterildiğini değil, nasıl çalışmasının istendiğini anlatır.' : 'These are Ad Set targeting and optimization instructions, not observed delivery.' }}</p>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="min-w-full text-left">
+                <thead class="bg-gray-50/80 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:bg-white/[0.02]">
+                    <tr>
+                        <th class="px-5 py-3">{{ $isTr ? 'Reklam Seti' : 'Ad Set' }}</th>
+                        <th class="px-4 py-3">{{ $isTr ? 'Neye Göre Optimize Ediliyor?' : 'Optimization' }}</th>
+                        <th class="px-4 py-3">{{ $isTr ? 'Teklif Stratejisi' : 'Bidding' }}</th>
+                        <th class="px-5 py-3">{{ $isTr ? 'Hedef Kitle Özeti' : 'Targeting Summary' }}</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                    @forelse (array_slice($targeting, 0, 100) as $row)
+                        <tr>
+                            <td class="max-w-xs px-5 py-3.5"><p class="truncate text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $row['adset_name'] }}</p><p class="text-[11px] text-gray-400">ID {{ $row['adset_id'] }}</p></td>
+                            <td class="px-4 py-3.5 text-sm text-gray-600 dark:text-gray-300">{{ $optimizationLabel($row['optimization_goal'] ?? null) }}@if ($row['billing_event'])<p class="mt-0.5 text-[11px] text-gray-400">{{ $isTr ? 'Faturalandırma: ' : 'Billing: ' }}{{ $billingLabel($row['billing_event']) }}</p>@endif</td>
+                            <td class="px-4 py-3.5 text-sm text-gray-600 dark:text-gray-300">{{ $bidLabel($row['bid_strategy'] ?? null) }}</td>
+                            <td class="max-w-xl px-5 py-3.5"><div class="flex flex-wrap gap-1.5">@forelse ($row['summary'] as $chip)<span class="rounded-full bg-gray-100 px-2 py-1 text-[11px] text-gray-600 dark:bg-white/[0.05] dark:text-gray-300">{{ $translateTargetingChip($chip) }}</span>@empty<span class="text-xs text-gray-400">{{ $isTr ? 'Özetlenebilir hedefleme bilgisi yok' : 'No summarized targeting fields' }}</span>@endforelse</div></td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="4" class="px-5 py-12 text-center text-sm text-gray-400">{{ $isTr ? 'Tanımlanan hedefleme ayarları henüz alınmamış.' : 'Configured targeting data is not ready.' }}</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </article>
+
+    <div class="rounded-xl border border-blue-200 bg-blue-50/60 px-4 py-3 text-xs leading-5 text-blue-800 dark:border-blue-500/20 dark:bg-blue-500/[0.06] dark:text-blue-300">{{ $isTr ? 'Buradaki yüzdeler kitle büyüklüğü değildir; reklam harcamasının hangi gruba veya alana ne oranda dağıldığını gösterir. Dönüşüm verisi yaş/ülke/reklam konumu kırılımında toplanmadığı için bu ekranda dönüşüm tahmini yapılmaz.' : 'Percentages are spend share, not audience size. Conversions are not inferred because action data is not collected at these breakdown grains.' }}</div>
+</section>

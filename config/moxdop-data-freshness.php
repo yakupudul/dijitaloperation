@@ -13,6 +13,11 @@ return [
 
     'numeric_freshness_score' => false,
 
+    /* Provider-specific runtime policy overlays. Later rows replace by dataset_id. */
+    'policy_overlays' => [
+        'moxdop-meta-ads-freshness',
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Scheduler boundary (Prompt 27 / 61 / 62)

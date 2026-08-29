@@ -27,6 +27,9 @@ return [
         'moxdop-gbp-central.registry_overlay',
         'moxdop-google-ads-central.registry_overlay',
         'moxdop-google-ads-history.registry_overlay',
+        'moxdop-meta-ads-central.registry_overlay',
+        'moxdop-meta-ads-legacy-retirement.registry_overlay',
+        'moxdop-website-intelligence.registry_overlay',
     ],
 
     /*

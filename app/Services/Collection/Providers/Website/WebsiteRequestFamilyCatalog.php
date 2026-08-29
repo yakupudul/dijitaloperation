@@ -7,7 +7,8 @@ use InvalidArgumentException;
 /**
  * Contract-driven Website request-family definitions (Registry WEB_RF_*).
  *
- * WEB_RF_WP_REST is DEFERRED (WordPress Site Connector productionization is out of this slice).
+ * WordPress inventory is executed by the dedicated WordPress REST executor while
+ * the provider-neutral crawler remains the canonical externally-observable source.
  */
 final class WebsiteRequestFamilyCatalog
 {
@@ -64,6 +65,9 @@ final class WebsiteRequestFamilyCatalog
                     'website_metadata_snapshot',
                     'website_heading_snapshot',
                     'website_schema_snapshot',
+                    'website_content_stats',
+                    'website_link_edge',
+                    'website_crawl_issue_snapshot',
                 ],
                 'requires_date_range' => false,
                 'preferred_mode' => 'sync',
@@ -91,10 +95,13 @@ final class WebsiteRequestFamilyCatalog
                     'website_metadata_snapshot',
                     'website_heading_snapshot',
                     'website_schema_snapshot',
+                    'website_content_stats',
+                    'website_link_edge',
+                    'website_crawl_issue_snapshot',
                 ],
                 'requires_date_range' => false,
                 'preferred_mode' => 'sync',
-                'high_cardinality' => false,
+                'high_cardinality' => true,
             ],
             default => throw new InvalidArgumentException("Unknown Website request family [{$familyId}]"),
         };

@@ -6,11 +6,14 @@ use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
 use App\Livewire\Demo\Concerns\ResolvesCanonicalOperatorAsset;
 use App\Models\DigitalAsset;
 use App\Services\DataPool\Freshness\StartIncrementalCollectionService;
+use App\Services\MetaAds\MetaAdsProfessionalWorkspaceEnhancer;
+use App\Services\MetaAds\MetaAdsProfessionalWorkspaceReadService;
 use App\Services\MetaAds\MetaAdsSpecialistBindingResolver;
 use App\Services\MetaAds\MetaAdsSpecialistReadService;
 use App\Services\MetaAds\Support\MetaAdsBindingMode;
 use App\Support\Demo\DemoState;
 use App\Support\Demo\MetaAdsWorkspaceFixtures;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -41,6 +44,9 @@ class OverviewPage extends Component
     #[Url]
     public string $creative_filter = 'all';
 
+    #[Url(as: 'level')]
+    public string $campaign_level = 'campaigns';
+
     #[Url]
     public ?string $campaign = null;
 
@@ -53,9 +59,7 @@ class OverviewPage extends Component
     #[Url]
     public ?string $attention = null;
 
-    /**
-     * @var list<string>
-     */
+    /** @var list<string> */
     public array $allowedTabs = [
         'overview',
         'campaigns',
@@ -66,12 +70,10 @@ class OverviewPage extends Component
         'operations',
     ];
 
-    /**
-     * @var array<string, string>
-     */
+    /** @var array<string, string> */
     private const LEGACY_TAB_MAP = [
         'adsets' => 'campaigns',
-        'ads' => 'creatives',
+        'ads' => 'campaigns',
         'breakdowns' => 'audience',
         'insights' => 'operations',
         'delivery' => 'audience',
@@ -84,13 +86,24 @@ class OverviewPage extends Component
         if (filled($tab)) {
             $this->tab = $tab;
         }
+
         $this->mountPeriod();
+        $this->normalizeMetaPeriodState();
         $this->normalizeTab();
 
         $status = DemoState::getFilter('meta_status');
         if (is_string($status) && $status !== '') {
             $this->status_filter = $status;
         }
+    }
+
+    /**
+     * Livewire can hydrate an old period/from/to trio from browser history.
+     * A named preset is authoritative: its dates must always match the preset.
+     */
+    public function hydrate(): void
+    {
+        $this->normalizeMetaPeriodState();
     }
 
     public function setTab(string $tab): void
@@ -116,6 +129,7 @@ class OverviewPage extends Component
         } else {
             $this->campaign_filter = $value;
         }
+
         $this->tab = 'campaigns';
         $this->resetPeriodDependentState();
     }
@@ -127,11 +141,23 @@ class OverviewPage extends Component
         $this->tab = 'campaigns';
     }
 
+    public function setCampaignLevel(string $level): void
+    {
+        if (! in_array($level, ['campaigns', 'adsets', 'ads'], true)) {
+            return;
+        }
+
+        $this->campaign_level = $level;
+        $this->tab = 'campaigns';
+        $this->closeDrawers();
+    }
+
     public function setCreativeFilter(string $key, string $value): void
     {
         if ($key === 'format' || $key === 'creative') {
             $this->creative_filter = $value;
         }
+
         $this->tab = 'creatives';
         $this->resetPeriodDependentState();
     }
@@ -199,17 +225,26 @@ class OverviewPage extends Component
         );
 
         DemoState::flash(match ($result->outcome) {
-            'started' => 'Meta Ads incremental collection started in the background.',
-            'active_equivalent' => 'An equivalent Meta Ads incremental collection is already running.',
-            'data_current' => 'Meta Ads data is current — no incremental collection is due.',
+            'started' => app()->getLocale() === 'tr'
+                ? 'Meta Ads verileri yenilenmek üzere sıraya alındı.'
+                : 'Meta Ads incremental collection started.',
+            'active_equivalent' => app()->getLocale() === 'tr'
+                ? 'Aynı Meta Ads yenileme işlemi zaten çalışıyor.'
+                : 'An equivalent Meta Ads collection is already running.',
+            'data_current' => app()->getLocale() === 'tr'
+                ? 'Meta Ads verileri güncel; yeni toplama gerekmiyor.'
+                : 'Meta Ads data is current; no collection is due.',
             default => $result->message,
         }, $result->outcome === 'started' ? 'success' : 'info');
     }
 
+    /**
+     * Kept for backwards-compatible Livewire calls. Analysis is not pretended to
+     * run; users are taken to the actual analysis state instead.
+     */
     public function runAnalysis(): void
     {
-        DemoState::flash(__('operator.flash.meta_analysis_unavailable'), 'info');
-        $this->tab = 'overview';
+        $this->tab = 'operations';
     }
 
     protected function normalizeTab(): void
@@ -223,18 +258,82 @@ class OverviewPage extends Component
         }
     }
 
+    protected function normalizeMetaPeriodState(): void
+    {
+        if ($this->period === 'custom') {
+            return;
+        }
+
+        $bounds = $this->periodBounds($this->period);
+        $start = $bounds['start']->toDateString();
+        $end = $bounds['end']->toDateString();
+
+        if ($this->periodStart === $start && $this->periodEnd === $end) {
+            return;
+        }
+
+        $this->periodStart = $start;
+        $this->periodEnd = $end;
+        $this->draftPeriodStart = $start;
+        $this->draftPeriodEnd = $end;
+        DemoState::setPeriod($this->period, $start, $end);
+    }
+
+    private function localizedComparisonLabel(): string
+    {
+        if (! $this->compare || ! filled($this->periodStart) || ! filled($this->periodEnd)) {
+            return app()->getLocale() === 'tr' ? 'Kapalı' : 'Off';
+        }
+
+        $timezone = (string) config('app.timezone', 'UTC');
+        $start = CarbonImmutable::parse($this->periodStart, $timezone)->startOfDay();
+        $end = CarbonImmutable::parse($this->periodEnd, $timezone)->startOfDay();
+        $days = max(1, $start->diffInDays($end) + 1);
+
+        if ($this->effectiveCompareMode() === 'yoy') {
+            $compareStart = $start->subYearNoOverflow();
+            $compareEnd = $compareStart->addDays($days - 1);
+        } else {
+            $compareEnd = $start->subDay();
+            $compareStart = $compareEnd->subDays($days - 1);
+        }
+
+        if (app()->getLocale() === 'tr') {
+            return $compareStart->locale('tr')->translatedFormat('j M')
+                .' – '
+                .$compareEnd->locale('tr')->translatedFormat('j M');
+        }
+
+        return $compareStart->format('M j').' – '.$compareEnd->format('M j');
+    }
+
     public function render(): View
     {
+        $this->normalizeMetaPeriodState();
         $this->normalizeTab();
-        // Prompt 31: analytical reads come exclusively from MetaAdsSpecialistReadService
-        // (local pool + formulas). Zero Meta Graph API on render. MetaAdsWorkspaceFixtures
-        // is only ever touched directly below when the resolved workspace is demo_catalog.
+
         $data = app(MetaAdsSpecialistReadService::class)->workspace(
             $this->assetId,
             $this->period,
             $this->periodStart,
             $this->periodEnd,
         );
+
+        $professional = app(MetaAdsProfessionalWorkspaceReadService::class)->workspace(
+            $this->assetId,
+            $this->period,
+            $this->periodStart,
+            $this->periodEnd,
+        );
+
+        $professional = app(MetaAdsProfessionalWorkspaceEnhancer::class)->enhance(
+            $professional,
+            $this->assetId,
+            $this->period,
+            $this->periodStart,
+            $this->periodEnd,
+        );
+
         $isDemo = ($data['migration_mode'] ?? 'demo_catalog') === 'demo_catalog';
 
         $campaigns = collect($data['campaigns'] ?? []);
@@ -256,7 +355,9 @@ class OverviewPage extends Component
 
         $creatives = collect($data['creatives']['gallery'] ?? []);
         if ($this->creative_filter === 'attention') {
-            $creatives = $creatives->filter(static fn (array $c): bool => filled($c['signal'] ?? null) && ($c['signal_key'] ?? '') !== 'coverage' && ($c['signal_key'] ?? '') !== 'stable_qualified');
+            $creatives = $creatives->filter(static fn (array $c): bool => filled($c['signal'] ?? null)
+                && ($c['signal_key'] ?? '') !== 'coverage'
+                && ($c['signal_key'] ?? '') !== 'stable_qualified');
         } elseif ($this->creative_filter !== 'all') {
             $creatives = $creatives->filter(
                 static fn (array $c): bool => strtolower((string) ($c['format'] ?? '')) === strtolower($this->creative_filter)
@@ -297,11 +398,14 @@ class OverviewPage extends Component
             ? collect($data['needs_attention'] ?? [])->firstWhere('id', $this->attention)
             : null;
 
-        $trend = $data['performance_trend'] ?? ['labels' => [], 'spend' => [], 'leads' => []];
+        $trend = $professional['trend'] ?? [];
+        $currency = (string) ($professional['currency'] ?? $data['currency'] ?? '');
+        $isTr = app()->getLocale() === 'tr';
 
         return view('livewire.demo.meta.overview', [
             'asset' => $this->presentCanonicalAsset(),
             'data' => $data,
+            'professional' => $professional,
             'identity' => $data['identity'],
             'campaignRows' => $campaigns->values()->all(),
             'creativeRows' => $creatives->values()->all(),
@@ -309,21 +413,21 @@ class OverviewPage extends Component
             'selectedCreative' => $selectedCreative,
             'selectedFinding' => $selectedFinding,
             'selectedAttention' => $selectedAttention,
+            'metaCompareLabel' => $this->localizedComparisonLabel(),
             'showPeriodBar' => in_array($this->tab, ['overview', 'campaigns', 'creatives', 'audience', 'funnel', 'measurement'], true),
             'performanceChartOptions' => [
-                'chart' => ['type' => 'line', 'height' => 220, 'toolbar' => ['show' => false]],
+                'chart' => ['type' => 'line', 'height' => 260, 'toolbar' => ['show' => false]],
                 'series' => [
-                    ['name' => 'Spend (₺)', 'data' => $trend['spend'] ?? []],
-                    ['name' => 'Leads', 'data' => $trend['leads'] ?? []],
+                    ['name' => ($isTr ? 'Reklam Harcaması' : 'Ad Spend').($currency !== '' ? ' ('.$currency.')' : ''), 'data' => array_column($trend, 'spend')],
+                    ['name' => $isTr ? 'Toplam Tıklamalar' : 'Total Clicks', 'data' => array_column($trend, 'clicks')],
                 ],
-                'xaxis' => ['categories' => $trend['labels'] ?? []],
+                'xaxis' => ['categories' => array_column($trend, 'date')],
                 'stroke' => ['curve' => 'smooth', 'width' => 2],
                 'dataLabels' => ['enabled' => false],
-                'colors' => ['#ea580c', '#059669'],
                 'legend' => ['position' => 'top'],
                 'yaxis' => [
-                    ['title' => ['text' => 'Spend']],
-                    ['opposite' => true, 'title' => ['text' => 'Leads']],
+                    ['title' => ['text' => $isTr ? 'Harcama' : 'Spend']],
+                    ['opposite' => true, 'title' => ['text' => $isTr ? 'Tıklamalar' : 'Clicks']],
                 ],
             ],
             'flash' => DemoState::pullFlash(),

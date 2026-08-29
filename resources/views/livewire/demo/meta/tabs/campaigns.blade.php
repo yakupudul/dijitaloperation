@@ -1,133 +1,194 @@
 @php
-    $campMeta = $data['campaigns_tab'] ?? [];
+    $isTr = app()->getLocale() === 'tr';
+    $campaigns = $professional['campaigns'] ?? [];
+    $adsets = $professional['adsets'] ?? [];
+    $ads = $professional['ads'] ?? [];
+    $level = in_array($campaign_level ?? 'campaigns', ['campaigns', 'adsets', 'ads'], true) ? ($campaign_level ?? 'campaigns') : 'campaigns';
+    $inventory = $professional['campaign_inventory'] ?? ['total' => count($campaigns), 'with_period_activity' => count($campaigns), 'without_period_activity' => 0];
+
+    $statusLabel = static function (?string $status) use ($isTr): string {
+        $value = strtoupper(trim((string) $status));
+        if (! $isTr) return $value !== '' ? str_replace('_', ' ', $value) : '—';
+
+        return match ($value) {
+            'ACTIVE' => 'Aktif',
+            'PAUSED' => 'Durduruldu',
+            'PENDING_REVIEW' => 'İncelemede',
+            'IN_PROCESS' => 'İşleniyor',
+            'WITH_ISSUES' => 'Sorun Var',
+            'ARCHIVED' => 'Arşivlendi',
+            'DELETED' => 'Silindi',
+            'DISAPPROVED' => 'Onaylanmadı',
+            'PREAPPROVED' => 'Ön Onaylı',
+            'CAMPAIGN_PAUSED' => 'Kampanya Durduruldu',
+            'ADSET_PAUSED' => 'Reklam Seti Durduruldu',
+            'UNKNOWN', '' => 'Bilinmiyor',
+            default => str_replace('_', ' ', $value),
+        };
+    };
+
+    $objectiveLabel = static function (?string $objective) use ($isTr): string {
+        $value = strtoupper(trim((string) $objective));
+        if (! $isTr) return $value !== '' ? str_replace('_', ' ', $value) : '—';
+
+        return match ($value) {
+            'OUTCOME_LEADS', 'LEAD_GENERATION' => 'Lead Toplama',
+            'OUTCOME_SALES', 'CONVERSIONS' => 'Satış / Dönüşüm',
+            'OUTCOME_TRAFFIC', 'LINK_CLICKS' => 'Trafik',
+            'OUTCOME_ENGAGEMENT', 'POST_ENGAGEMENT' => 'Etkileşim',
+            'OUTCOME_AWARENESS', 'BRAND_AWARENESS', 'REACH' => 'Bilinirlik',
+            'OUTCOME_APP_PROMOTION', 'APP_INSTALLS' => 'Uygulama Tanıtımı',
+            'MESSAGES' => 'Mesajlaşma',
+            '', 'UNKNOWN' => '—',
+            default => str_replace('_', ' ', $value),
+        };
+    };
+
+    $optimizationLabel = static function (?string $value) use ($isTr): string {
+        if (! filled($value)) return '—';
+        if (! $isTr) return str_replace('_', ' ', (string) $value);
+
+        return match (strtoupper((string) $value)) {
+            'OFFSITE_CONVERSIONS', 'CONVERSIONS' => 'Dönüşümler',
+            'LANDING_PAGE_VIEWS' => 'Açılış Sayfası Görüntülemeleri',
+            'LINK_CLICKS' => 'Bağlantı Tıklamaları',
+            'CONVERSATIONS' => 'Mesajlaşmalar',
+            'LEAD_GENERATION', 'LEADS' => 'Lead Toplama',
+            'PROFILE_VISIT', 'PROFILE_VISITS' => 'Profil Ziyaretleri',
+            'REACH' => 'Erişim',
+            'IMPRESSIONS' => 'Gösterimler',
+            'POST_ENGAGEMENT' => 'Gönderi Etkileşimi',
+            'VIDEO_VIEWS' => 'Video İzlemeleri',
+            default => str_replace('_', ' ', (string) $value),
+        };
+    };
+
+    $destinationLabel = static function (?string $value) use ($isTr): string {
+        if (! filled($value)) return '—';
+        if (! $isTr) return str_replace('_', ' ', (string) $value);
+
+        return match (strtoupper((string) $value)) {
+            'WEBSITE' => 'Web Sitesi',
+            'MESSAGING_WHATSAPP', 'WHATSAPP' => 'WhatsApp',
+            'MESSAGING_MESSENGER', 'MESSENGER' => 'Messenger',
+            'MESSAGING_INSTAGRAM_DIRECT', 'INSTAGRAM_DIRECT' => 'Instagram Mesajları',
+            'ON_AD', 'ON_FACEBOOK' => 'Meta Üzerinde',
+            'APP' => 'Uygulama',
+            default => str_replace('_', ' ', (string) $value),
+        };
+    };
+
+    $currentRows = match ($level) {
+        'adsets' => $adsets,
+        'ads' => $ads,
+        default => $campaigns,
+    };
+
+    $currentTitle = match ($level) {
+        'adsets' => $isTr ? 'Reklam Setleri' : 'Ad Sets',
+        'ads' => $isTr ? 'Reklamlar' : 'Ads',
+        default => $isTr ? 'Kampanyalar' : 'Campaigns',
+    };
 @endphp
 
-<div class="space-y-4">
-    <div>
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ __('operator.meta_ads.tabs.campaigns') }}</h2>
-        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ $campMeta['subtitle'] ?? 'Delivered in period · Campaign Context — not Ads Manager.' }}</p>
-    </div>
+<section class="space-y-5">
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.14em] text-gray-400">{{ $isTr ? 'Kampanyalar ve Reklamlar' : 'Campaigns and Ads' }}</p>
+            <h2 class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{{ $isTr ? 'Hangi kampanya ne kadar harcadı ve ne üretti?' : 'What did each campaign spend and produce?' }}</h2>
+            <p class="mt-1 max-w-3xl text-sm text-gray-500 dark:text-gray-400">{{ $isTr ? 'Hesaptaki tüm kampanyalar envanterde tutulur. Seçili dönemde çalışmayan kampanyalar da kaybolmaz; performans değerleri yalnızca gerçek aktivite varsa gösterilir.' : 'All campaigns remain in inventory, including campaigns without activity in the selected period.' }}</p>
+            <p class="mt-2 text-xs font-medium text-gray-400">{{ $isTr ? 'Toplam '.number_format((int)$inventory['total']).' kampanya · '.number_format((int)$inventory['with_period_activity']).' tanesinde seçili dönemde aktivite var' : number_format((int)$inventory['total']).' campaigns total · '.number_format((int)$inventory['with_period_activity']).' active in period' }}</p>
+        </div>
 
-    <div class="flex flex-wrap gap-2">
-        <label class="text-xs text-gray-500">Attention
-            <select wire:model.live="campaign_filter" class="mt-1 block rounded-lg border-gray-200 text-sm dark:border-gray-700 dark:bg-gray-900">
-                <option value="all">All campaigns</option>
-                <option value="attention">With attention</option>
-                <option value="budget">Budget pacing issues</option>
-                <option value="delivered">Delivered in period</option>
-            </select>
-        </label>
-        @if (! empty($campMeta['filters']))
-            @foreach ($campMeta['filters'] as $filter)
-                <label class="text-xs text-gray-500">{{ $filter['label'] }}
-                    <select wire:change="setCampaignFilter('{{ $filter['key'] }}', $event.target.value)" class="mt-1 block rounded-lg border-gray-200 text-sm dark:border-gray-700 dark:bg-gray-900">
-                        @foreach ($filter['options'] as $opt)
-                            <option value="{{ $opt['value'] }}" @selected(($filter['value'] ?? 'all') === $opt['value'])>{{ $opt['label'] }}</option>
-                        @endforeach
-                    </select>
-                </label>
+        <div class="inline-flex w-fit rounded-xl bg-gray-100 p-1 dark:bg-white/[0.05]">
+            @foreach ([
+                'campaigns' => [$isTr ? 'Kampanyalar' : 'Campaigns', count($campaigns)],
+                'adsets' => [$isTr ? 'Reklam Setleri' : 'Ad Sets', count($adsets)],
+                'ads' => [$isTr ? 'Reklamlar' : 'Ads', count($ads)],
+            ] as $key => [$label, $count])
+                <button type="button" wire:click="setCampaignLevel('{{ $key }}')"
+                    class="rounded-lg px-3 py-2 text-sm font-semibold {{ $level === $key ? 'bg-white text-gray-900 shadow-sm dark:bg-gray-800 dark:text-white' : 'text-gray-500 dark:text-gray-400' }}">
+                    {{ $label }} <span class="ml-1 text-xs opacity-60">{{ $count }}</span>
+                </button>
             @endforeach
-        @endif
+        </div>
     </div>
 
-    <x-ta.table>
-        <x-slot:head>
-            <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-400">Campaign</th>
-            <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-400">Status</th>
-            <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-400">Offering</th>
-            <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-400">Market</th>
-            <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-400">Funnel</th>
-            <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-400">Destination</th>
-            <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-400">Spend</th>
-            <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-400">Result</th>
-            <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-400">Cost / result</th>
-            <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-400">Pacing</th>
-            <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-400">Attention</th>
-            <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-400"></th>
-        </x-slot:head>
-        @foreach ($campaignRows as $c)
-            <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
-                <td class="px-3 py-2">
-                    <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $c['name'] }}</p>
-                    <p class="text-[11px] text-gray-400">{{ $c['objective'] ?? $c['type'] ?? '' }}</p>
-                </td>
-                <td class="px-3 py-2"><x-ta.badge color="success" size="sm">{{ $c['status'] }}</x-ta.badge></td>
-                <td class="px-3 py-2 text-xs text-gray-600 dark:text-gray-300">{{ $c['offering'] }}</td>
-                <td class="px-3 py-2 text-xs text-gray-600 dark:text-gray-300">{{ $c['market'] === 'United Kingdom' ? 'UK' : $c['market'] }}</td>
-                <td class="px-3 py-2 text-xs text-gray-600 dark:text-gray-300">{{ $c['funnel'] }}</td>
-                <td class="px-3 py-2 text-xs text-gray-600 dark:text-gray-300">{{ $c['destination'] }}</td>
-                <td class="px-3 py-2 text-sm tabular-nums">₺{{ number_format($c['spend']) }}</td>
-                <td class="px-3 py-2 text-sm tabular-nums">{{ number_format($c['results']) }} <span class="text-[11px] text-gray-400">{{ $c['result_label'] }}</span></td>
-                <td class="px-3 py-2 text-sm tabular-nums">₺{{ number_format($c['cost_result']) }}</td>
-                <td class="px-3 py-2"><x-ta.badge :color="match($c['pacing']) { 'Ahead', 'Constrained' => 'warning', 'Behind' => 'info', default => 'success' }" size="sm">{{ $c['pacing'] }}</x-ta.badge></td>
-                <td class="px-3 py-2 text-xs text-gray-500">{{ $c['attention_primary'] ?? '—' }}</td>
-                <td class="px-3 py-2"><button type="button" wire:click="openCampaign('{{ $c['id'] }}')" class="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Open</button></td>
-            </tr>
-        @endforeach
-    </x-ta.table>
-</div>
-
-@if ($selectedCampaign)
-    <x-demo.gads-drawer :title="$selectedCampaign['name']" :subtitle="($selectedCampaign['objective'] ?? $selectedCampaign['type'] ?? '').' · '.$selectedCampaign['status']">
-        <div>
-            <h3 class="text-xs font-semibold uppercase text-gray-400">Overview</h3>
-            <div class="mt-2 grid grid-cols-2 gap-3">
-                <div><p class="text-xs text-gray-400">Spend</p><p class="font-semibold tabular-nums">₺{{ number_format($selectedCampaign['spend']) }}</p></div>
-                <div>
-                    <p class="text-xs text-gray-400">Result</p>
-                    <p class="font-semibold tabular-nums">{{ number_format($selectedCampaign['results']) }} <span class="text-xs font-normal text-gray-400">{{ $selectedCampaign['result_label'] }}</span></p>
-                </div>
-                <div><p class="text-xs text-gray-400">Cost / result</p><p class="font-semibold tabular-nums">₺{{ number_format($selectedCampaign['cost_result']) }}</p></div>
-                <div><p class="text-xs text-gray-400">Pacing</p><p class="font-semibold">{{ $selectedCampaign['pacing'] }}</p></div>
-                <div><p class="text-xs text-gray-400">Destination</p><p class="font-semibold">{{ $selectedCampaign['destination'] }}</p></div>
-                <div><p class="text-xs text-gray-400">Funnel</p><p class="font-semibold">{{ $selectedCampaign['funnel'] }}</p></div>
-            </div>
-        </div>
-
-        <div>
-            <h3 class="text-xs font-semibold uppercase text-gray-400">Strategy</h3>
-            <dl class="mt-2 grid grid-cols-2 gap-2 text-sm">
-                <div><dt class="text-xs text-gray-400">Offering</dt><dd>{{ $selectedCampaign['offering'] }}</dd></div>
-                <div><dt class="text-xs text-gray-400">Market</dt><dd>{{ $selectedCampaign['market'] }}</dd></div>
-                <div><dt class="text-xs text-gray-400">Language</dt><dd>{{ $selectedCampaign['language'] ?? '—' }}</dd></div>
-                <div><dt class="text-xs text-gray-400">Business goal</dt><dd>{{ $selectedCampaign['goal'] ?? '—' }}</dd></div>
-                <div><dt class="text-xs text-gray-400">Primary result</dt><dd>{{ $selectedCampaign['result_label'] }}</dd></div>
-                <div><dt class="text-xs text-gray-400">Optimization</dt><dd>{{ $selectedCampaign['optimization'] ?? $selectedCampaign['objective'] ?? '—' }}</dd></div>
-            </dl>
-            <p class="mt-2 text-[11px] text-violet-700 dark:text-violet-300">Operator-maintained strategy · does not mutate Meta Ads</p>
-        </div>
-
-        <div>
-            <h3 class="text-xs font-semibold uppercase text-gray-400">Ad Sets</h3>
-            @if (! empty($selectedCampaign['ad_sets']))
-                <ul class="mt-2 divide-y divide-gray-100 dark:divide-gray-800">
-                    @foreach ($selectedCampaign['ad_sets'] as $adSet)
-                        <li class="flex items-center justify-between gap-2 py-2 text-sm">
-                            <div class="min-w-0">
-                                <p class="truncate font-medium text-gray-900 dark:text-white">{{ $adSet['name'] }}</p>
-                                <p class="text-[11px] text-gray-400">{{ $adSet['status'] ?? '' }} · {{ $adSet['audience'] ?? '' }}</p>
-                            </div>
-                            <div class="shrink-0 text-right text-xs tabular-nums text-gray-600 dark:text-gray-300">
-                                <p>₺{{ number_format($adSet['spend'] ?? 0) }}</p>
-                                <p>{{ number_format($adSet['results'] ?? 0) }} {{ $adSet['result_label'] ?? '' }}</p>
-                            </div>
-                        </li>
-                    @endforeach
-                </ul>
-            @else
-                <p class="mt-2 text-sm text-gray-500">Ad set breakdown available in deep data when selected.</p>
-            @endif
-        </div>
-
-        @if (! empty($selectedCampaign['attention']))
+    <article class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <div class="flex flex-col gap-2 border-b border-gray-100 px-5 py-4 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
             <div>
-                <h3 class="text-xs font-semibold uppercase text-gray-400">Attention</h3>
-                <ul class="mt-2 space-y-1 text-sm text-amber-800 dark:text-amber-300">
-                    @foreach ($selectedCampaign['attention'] as $a)
-                        <li>{{ $a }}</li>
-                    @endforeach
-                </ul>
+                <h3 class="font-bold text-gray-900 dark:text-white">{{ $currentTitle }}</h3>
+                <p class="mt-0.5 text-xs text-gray-400">{{ $isTr ? 'Öne çıkan gerçek sonuç türleri ilgili satırda gösterilir. Ayrıntılı teknik action kayıtları Dönüşümler sekmesinde korunur.' : 'Headline real outcomes are shown per row; detailed technical actions remain in Conversions.' }}</p>
             </div>
-        @endif
-    </x-demo.gads-drawer>
-@endif
+            <span class="text-xs font-medium text-gray-400">{{ $professional['period_start'] ?? '—' }} → {{ $professional['period_end'] ?? '—' }}</span>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-100 text-left dark:divide-gray-800">
+                <thead class="bg-gray-50/80 dark:bg-white/[0.02]">
+                    <tr class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                        <th class="px-5 py-3">{{ $isTr ? 'Ad' : 'Name' }}</th>
+                        <th class="px-4 py-3">{{ $isTr ? 'Bağlam' : 'Context' }}</th>
+                        <th class="px-4 py-3">{{ $isTr ? 'Durum' : 'Status' }}</th>
+                        <th class="px-4 py-3 text-right">{{ $isTr ? 'Harcama' : 'Spend' }}</th>
+                        <th class="px-4 py-3 text-right">{{ $isTr ? 'Tıklama Oranı' : 'Click Rate' }}<span class="ml-1 normal-case text-gray-300">(CTR)</span></th>
+                        <th class="px-4 py-3 text-right">{{ $isTr ? 'Tıklama Maliyeti' : 'Click Cost' }}<span class="ml-1 normal-case text-gray-300">(CPC)</span></th>
+                        <th class="min-w-[220px] px-5 py-3">{{ $isTr ? 'Öne Çıkan Sonuçlar' : 'Headline Outcomes' }}</th>
+                    </tr>
+                </thead>
+
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                    @forelse ($currentRows as $row)
+                        @php
+                            $summaryActions = $row['summary_actions'] ?? [];
+                            $contextPrimary = '—';
+                            $contextSecondary = null;
+
+                            if ($level === 'campaigns') {
+                                $contextPrimary = $objectiveLabel($row['objective'] ?? null);
+                            } elseif ($level === 'adsets') {
+                                $contextPrimary = $row['campaign_name'] ?? '—';
+                                $optimization = $optimizationLabel($row['optimization_goal'] ?? null);
+                                $destination = $destinationLabel($row['destination_type'] ?? null);
+                                $contextSecondary = $optimization.($destination !== '—' ? ' · '.$destination : '');
+                            } else {
+                                $contextPrimary = $row['campaign_name'] ?? '—';
+                                $contextSecondary = $row['adset_name'] ?? null;
+                            }
+                        @endphp
+
+                        <tr class="hover:bg-gray-50/70 dark:hover:bg-white/[0.02]">
+                            <td class="max-w-xs px-5 py-3.5">
+                                <p class="truncate text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $row['name'] }}</p>
+                                <p class="mt-0.5 text-[11px] text-gray-400">
+                                    ID {{ $row['id'] }}
+                                    @if ($level === 'campaigns' && !($row['has_period_activity'] ?? true)) · {{ $isTr ? 'Bu dönemde aktivite yok' : 'No activity in period' }} @endif
+                                    @if ($level === 'ads' && !empty($row['creative_id'])) · {{ $isTr ? 'Kreatif' : 'Creative' }} {{ $row['creative_id'] }} @endif
+                                </p>
+                            </td>
+                            <td class="max-w-xs px-4 py-3.5">
+                                <p class="truncate text-xs font-medium text-gray-600 dark:text-gray-300">{{ $contextPrimary }}</p>
+                                @if (filled($contextSecondary))<p class="mt-0.5 truncate text-[11px] text-gray-400">{{ $contextSecondary }}</p>@endif
+                            </td>
+                            <td class="px-4 py-3.5"><span class="rounded-full bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-600 dark:bg-white/[0.05] dark:text-gray-300">{{ $statusLabel($row['effective_status'] ?? $row['status'] ?? null) }}</span></td>
+                            <td class="px-4 py-3.5 text-right text-sm font-semibold tabular-nums">{{ $row['spend_display'] }}</td>
+                            <td class="px-4 py-3.5 text-right text-sm tabular-nums">{{ $row['ctr'] !== null ? number_format($row['ctr'], 2).'%' : '—' }}</td>
+                            <td class="px-4 py-3.5 text-right text-sm tabular-nums">{{ $row['cpc'] !== null ? ($row['currency'].' '.number_format($row['cpc'], 2)) : '—' }}</td>
+                            <td class="px-5 py-3.5">
+                                @forelse (array_slice($summaryActions, 0, 2) as $action)
+                                    <div class="flex justify-between gap-3 text-xs"><span class="truncate text-gray-600 dark:text-gray-300">{{ $isTr ? $action['label_tr'] : $action['label_en'] }}</span><strong class="tabular-nums text-gray-900 dark:text-white">{{ number_format((float) $action['value'], 2) }}</strong></div>
+                                @empty
+                                    <span class="text-xs text-gray-300">—</span>
+                                @endforelse
+                            </td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="7" class="px-5 py-12 text-center text-sm text-gray-400">{{ $isTr ? 'Bu seviyede kullanılabilir veri yok.' : 'No usable data at this level.' }}</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </article>
+
+    <div class="rounded-xl border border-blue-200 bg-blue-50/60 px-4 py-3 text-xs leading-5 text-blue-800 dark:border-blue-500/20 dark:bg-blue-500/[0.06] dark:text-blue-300">{{ $isTr ? 'Tıklama Oranı (CTR) ve Tıklama Başına Maliyet (CPC) gibi kısaltmalar uzmanlar için korunur. Kampanya, reklam seti ve reklam tabloları ayrı ayrı sunucudan oluşturulduğu için görünmeyen seviyeler gereksiz yere sayfaya yüklenmez.' : 'Technical abbreviations remain available, while only the selected campaign hierarchy level is rendered.' }}</div>
+</section>

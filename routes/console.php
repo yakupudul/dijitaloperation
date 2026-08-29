@@ -283,3 +283,11 @@ Schedule::command('moxdop:ga4:central-restatement')
     ->dailyAt('04:10')
     ->withoutOverlapping(120)
     ->name('moxdop-ga4-central-restatement');
+
+// Meta Ads UI readiness is backed by the central integrity registry. Re-run a
+// local-only audit daily so newly collected Professional V2 datasets and any
+// later integrity regressions are reflected in REAL/PARTIAL_REAL gating.
+Schedule::command('moxdop:data-pool-audit --provider=META_ADS')
+    ->dailyAt('05:10')
+    ->withoutOverlapping(180)
+    ->name('moxdop-meta-ads-data-pool-audit');

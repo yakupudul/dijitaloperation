@@ -46,12 +46,16 @@ final class WebsiteCollectionOrchestrator
 
         $families = $requestFamilyIds;
         if ($families === null) {
+            // The Website data center collects only production-ready public website families.
+            // Authenticated CMS/site-connector families are added only when their production
+            // connector is explicitly enabled; they must never be silently planned here.
             $families = WebsiteRequestFamilyCatalog::supportedFamilies();
+
             if ($includeDataForSeo) {
-                $families = array_merge(
+                $families = array_values(array_unique(array_merge(
                     $families,
                     DataForSeoRequestFamilyCatalog::supportedFamilies(),
-                );
+                )));
             }
         }
 
@@ -71,6 +75,7 @@ final class WebsiteCollectionOrchestrator
                 'allow_multi_asset_bindings' => false,
                 'paid_enrichment_consented' => $paidEnrichmentConsented,
                 'public_discovery' => $publicDiscovery,
+                'website_intelligence_version' => 'v1',
             ]),
         ));
     }

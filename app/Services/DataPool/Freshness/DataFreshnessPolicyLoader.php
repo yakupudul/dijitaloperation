@@ -8,6 +8,8 @@ use RuntimeException;
 
 /**
  * Loads MOXDOP_DATA_FRESHNESS_POLICY_V1. Policies reference Dataset IDs only.
+ * Provider-specific runtime overlays may replace/add policies by dataset_id
+ * without mutating the frozen base registry JSON.
  */
 final class DataFreshnessPolicyLoader
 {
@@ -154,7 +156,55 @@ final class DataFreshnessPolicyLoader
         }
 
         $this->registry = $decoded;
-        foreach ($decoded['dataset_policies'] ?? [] as $policy) {
+        $this->applyConfiguredOverlays();
+        $this->indexPolicies();
+    }
+
+    private function applyConfiguredOverlays(): void
+    {
+        $overlayKeys = config('moxdop-data-freshness.policy_overlays', []);
+        if (! is_array($overlayKeys)) {
+            return;
+        }
+
+        $byId = [];
+        foreach ($this->registry['dataset_policies'] ?? [] as $policy) {
+            if (is_array($policy) && is_string($policy['dataset_id'] ?? null) && $policy['dataset_id'] !== '') {
+                $byId[(string) $policy['dataset_id']] = $policy;
+            }
+        }
+
+        foreach ($overlayKeys as $configKey) {
+            if (! is_string($configKey) || $configKey === '') {
+                continue;
+            }
+            $overlay = config($configKey, []);
+            if (! is_array($overlay)) {
+                continue;
+            }
+            foreach ($overlay['dataset_policies'] ?? [] as $policy) {
+                if (! is_array($policy) || ! is_string($policy['dataset_id'] ?? null) || $policy['dataset_id'] === '') {
+                    throw new RuntimeException("Freshness policy overlay [{$configKey}] contains a row without dataset_id.");
+                }
+                $byId[(string) $policy['dataset_id']] = $policy;
+            }
+
+            $overlayId = $overlay['overlay_id'] ?? null;
+            if (is_string($overlayId) && $overlayId !== '') {
+                $this->registry['metadata']['runtime_overlays'] ??= [];
+                if (! in_array($overlayId, $this->registry['metadata']['runtime_overlays'], true)) {
+                    $this->registry['metadata']['runtime_overlays'][] = $overlayId;
+                }
+            }
+        }
+
+        $this->registry['dataset_policies'] = array_values($byId);
+    }
+
+    private function indexPolicies(): void
+    {
+        $this->policiesByDataset = [];
+        foreach ($this->registry['dataset_policies'] ?? [] as $policy) {
             if (! is_array($policy)) {
                 continue;
             }

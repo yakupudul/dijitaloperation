@@ -9,47 +9,63 @@ use Throwable;
 
 final class MetaAdsProviderErrorMapper
 {
+    private const DIAGNOSTIC_VERSION = 'meta-error-v2';
+
     public function fromThrowable(Throwable $e): DatasetExecutionResult
     {
         if ($e instanceof MetaException) {
+            $message = $this->diagnosticMessage($e);
+            $providerCode = $e->providerCode !== null ? '_'.$e->providerCode : '';
+
+            // Meta Graph code 100 is an invalid request/field/filter shape. Meta can
+            // occasionally pair it with HTTP 500, but it is still not a transient
+            // provider outage and must never enter the automatic 5xx retry loop.
+            if ($e->providerCode === 100) {
+                return DatasetExecutionResult::failed(
+                    CollectionErrorCategory::InvalidRequest,
+                    $message,
+                    'META_INVALID_REQUEST_100',
+                );
+            }
+
             return match ($e->kind) {
                 MetaException::KIND_AUTH => DatasetExecutionResult::failed(
                     CollectionErrorCategory::Authentication,
-                    'Meta authentication failed.',
-                    'AUTHENTICATION',
+                    $message,
+                    'META_AUTH'.$providerCode,
                 ),
                 MetaException::KIND_PERMISSION => DatasetExecutionResult::failed(
                     CollectionErrorCategory::Authorization,
-                    'Meta permission missing for analytical collection.',
-                    'PERMISSION_REQUIRED',
+                    $message,
+                    'META_PERMISSION'.$providerCode,
                 ),
                 MetaException::KIND_RATE_LIMIT => DatasetExecutionResult::retry(
                     CollectionErrorCategory::RateLimit,
-                    'Meta rate limited.',
+                    $message,
                     60,
-                    'RATE_LIMIT',
+                    'META_RATE_LIMIT'.$providerCode,
                 ),
                 MetaException::KIND_TRANSPORT => DatasetExecutionResult::retry(
                     CollectionErrorCategory::Network,
-                    'Meta transport error.',
+                    $message,
                     30,
-                    'NETWORK',
+                    'META_NETWORK'.$providerCode,
                 ),
                 MetaException::KIND_HTTP => DatasetExecutionResult::retry(
                     CollectionErrorCategory::Provider5xx,
-                    'Meta provider unavailable.',
+                    $message,
                     45,
-                    'PROVIDER_5XX',
+                    'META_HTTP'.$providerCode,
                 ),
                 MetaException::KIND_CONFIG => DatasetExecutionResult::failed(
                     CollectionErrorCategory::Authentication,
-                    $e->getMessage(),
-                    'CONFIG',
+                    $message,
+                    'META_CONFIG'.$providerCode,
                 ),
                 default => DatasetExecutionResult::failed(
                     CollectionErrorCategory::Unknown,
-                    $e->getMessage() !== '' ? $e->getMessage() : 'Meta provider error.',
-                    'PROVIDER',
+                    $message,
+                    'META_PROVIDER'.$providerCode,
                 ),
             };
         }
@@ -78,5 +94,23 @@ final class MetaAdsProviderErrorMapper
             CollectionErrorCategory::Unknown,
             $message,
         );
+    }
+
+    private function diagnosticMessage(MetaException $e): string
+    {
+        $message = trim($e->getMessage());
+        if ($message === '') {
+            $message = 'Meta provider error.';
+        }
+
+        $diagnostics = [self::DIAGNOSTIC_VERSION];
+        if ($e->httpStatus !== null) {
+            $diagnostics[] = 'http '.$e->httpStatus;
+        }
+        if ($e->providerCode !== null) {
+            $diagnostics[] = 'code '.$e->providerCode;
+        }
+
+        return mb_substr($message.' · ['.implode(' · ', $diagnostics).']', 0, 900);
     }
 }
