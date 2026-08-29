@@ -344,8 +344,13 @@ final class WebsiteIntegrationIndex extends Component
         $processedRows = $batches->sum(fn (DatasetWriteBatch $batch): int => max(0, (int) $batch->rows_received));
         $successfulBatches = $batches->filter(fn (DatasetWriteBatch $batch): bool => ($batch->status?->value ?? null) === 'committed')->count();
         $failedBatches = $batches->filter(fn (DatasetWriteBatch $batch): bool => ($batch->status?->value ?? null) === 'failed')->count();
-        $currentRows = max(0, (int) ($materialization?->row_count_approx ?? 0));
         $schema = $this->datasetSchema($datasetId, $storageRegistry);
+        $currentRows = $this->currentDatasetRows(
+            assetId: (int) $asset->id,
+            runId: $run?->id,
+            schema: $schema,
+            fallback: max(0, (int) ($materialization?->row_count_approx ?? 0)),
+        );
 
         return [
             'id' => $datasetId,
@@ -364,7 +369,7 @@ final class WebsiteIntegrationIndex extends Component
             'fields' => $schema['fields'],
             'system_field_count' => $schema['system_field_count'],
             'table' => $schema['table'],
-            'preview' => $this->datasetPreview($asset->id, $run?->id, $schema),
+            'preview' => $this->datasetPreview($datasetId, $asset->id, $run?->id, $schema),
             'result_detail' => $this->datasetResultDetail($state, $currentRows, $processedRows),
         ];
     }
@@ -392,7 +397,7 @@ final class WebsiteIntegrationIndex extends Component
             'fields' => $schema['fields'],
             'system_field_count' => $schema['system_field_count'],
             'table' => $schema['table'],
-            'preview' => $this->datasetPreview($asset->id, null, $schema),
+            'preview' => $this->datasetPreview($datasetId, $asset->id, null, $schema),
             'result_detail' => $this->text('Kimlik doğrulamalı WordPress bağlayıcısı production kullanıma açılmadığı için bu dataset henüz toplanmıyor.', 'This dataset is not collected yet because the authenticated WordPress connector is not production-ready.'),
         ];
     }
@@ -499,8 +504,35 @@ final class WebsiteIntegrationIndex extends Component
         }
     }
 
+    /**
+     * Current Website facts are scoped to the selected collection run. Historical rows stay
+     * in the warehouse for provenance, but must never inflate the operator's latest result.
+     *
+     * @param  array{table: ?string, fields: list<array<string, mixed>>, system_field_count: int}  $schema
+     */
+    private function currentDatasetRows(int $assetId, ?int $runId, array $schema, int $fallback): int
+    {
+        $table = $schema['table'];
+        if (! is_string($table) || $table === '' || ! Schema::hasTable($table)) {
+            return 0;
+        }
+
+        try {
+            $query = DB::table($table)->where('digital_asset_id', $assetId);
+            if ($runId !== null && Schema::hasColumn($table, 'last_collection_run_id')) {
+                return (int) $query->where('last_collection_run_id', $runId)->count();
+            }
+
+            return $runId === null ? 0 : $fallback;
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return 0;
+        }
+    }
+
     /** @param array{table: ?string, fields: list<array<string, mixed>>, system_field_count: int} $schema @return array{state: string, columns: list<array{name: string, label: string}>, rows: list<array<string, string>>} */
-    private function datasetPreview(int $assetId, ?int $runId, array $schema): array
+    private function datasetPreview(string $datasetId, int $assetId, ?int $runId, array $schema): array
     {
         $table = $schema['table'];
         if (! is_string($table) || $table === '') {
@@ -513,29 +545,48 @@ final class WebsiteIntegrationIndex extends Component
             }
 
             $availableColumns = Schema::getColumnListing($table);
-            $fields = collect($schema['fields'])
-                ->filter(fn (array $field): bool => in_array($field['name'], $availableColumns, true))
+            $definition = collect($this->operatorPreviewDefinition($datasetId))
+                ->filter(function (array $field) use ($availableColumns): bool {
+                    $root = explode('.', (string) $field['path'])[0];
+
+                    return in_array($root, $availableColumns, true);
+                })
                 ->take(6)
                 ->values();
-            if ($fields->isEmpty()) {
+            if ($definition->isEmpty()) {
                 return ['state' => 'unavailable', 'columns' => [], 'rows' => []];
             }
 
-            $columnNames = $fields->pluck('name')->all();
+            $columnNames = $definition
+                ->map(fn (array $field): string => explode('.', (string) $field['path'])[0])
+                ->unique()
+                ->values()
+                ->all();
             $query = DB::table($table)->where('digital_asset_id', $assetId)->select($columnNames);
+            if ($runId !== null && in_array('last_collection_run_id', $availableColumns, true)) {
+                $query->where('last_collection_run_id', $runId);
+            } elseif ($runId === null) {
+                return ['state' => 'empty', 'columns' => [], 'rows' => []];
+            }
             if (in_array('last_collected_at', $availableColumns, true)) {
                 $query->orderByDesc('last_collected_at');
             } elseif (in_array('observed_at', $availableColumns, true)) {
                 $query->orderByDesc('observed_at');
-            } elseif ($runId !== null && in_array('last_collection_run_id', $availableColumns, true)) {
-                $query->orderByRaw('CASE WHEN last_collection_run_id = ? THEN 0 ELSE 1 END', [$runId]);
             }
 
-            $rows = $query->limit(5)->get()->map(function ($record) use ($columnNames): array {
+            $rows = $query->limit(5)->get()->map(function ($record) use ($datasetId, $definition): array {
                 $data = (array) $record;
+                if (isset($data['metadata']) && is_string($data['metadata'])) {
+                    $decoded = json_decode($data['metadata'], true);
+                    $data['metadata'] = is_array($decoded) ? $decoded : [];
+                }
                 $normalized = [];
-                foreach ($columnNames as $column) {
-                    $normalized[$column] = $this->previewValue($data[$column] ?? null);
+                foreach ($definition as $field) {
+                    $key = (string) $field['name'];
+                    $path = (string) $field['path'];
+                    $normalized[$key] = $this->previewValue(
+                        $this->operatorPreviewValue($datasetId, $path, data_get($data, $path)),
+                    );
                 }
 
                 return $normalized;
@@ -543,7 +594,7 @@ final class WebsiteIntegrationIndex extends Component
 
             return [
                 'state' => $rows === [] ? 'empty' : 'available',
-                'columns' => $fields->map(fn (array $field): array => ['name' => $field['name'], 'label' => $field['label']])->all(),
+                'columns' => $definition->map(fn (array $field): array => ['name' => $field['name'], 'label' => $field['label']])->all(),
                 'rows' => $rows,
             ];
         } catch (Throwable $exception) {
@@ -551,6 +602,96 @@ final class WebsiteIntegrationIndex extends Component
 
             return ['state' => 'unavailable', 'columns' => [], 'rows' => []];
         }
+    }
+
+    /** @return list<array{name:string,label:string,path:string}> */
+    private function operatorPreviewDefinition(string $datasetId): array
+    {
+        return match ($datasetId) {
+            'website_url' => [
+                ['name' => 'url', 'label' => 'URL', 'path' => 'normalized_url'],
+                ['name' => 'source', 'label' => $this->text('Keşif kaynağı', 'Discovery source'), 'path' => 'metadata.source'],
+            ],
+            'website_http_snapshot' => [
+                ['name' => 'url', 'label' => 'URL', 'path' => 'url'],
+                ['name' => 'status', 'label' => $this->text('HTTP durumu', 'HTTP status'), 'path' => 'metadata.status_code'],
+                ['name' => 'final_url', 'label' => $this->text('Son URL', 'Final URL'), 'path' => 'metadata.final_url'],
+                ['name' => 'redirects', 'label' => $this->text('Yönlendirme', 'Redirects'), 'path' => 'metadata.redirect_count'],
+                ['name' => 'error', 'label' => $this->text('Erişim sonucu', 'Access result'), 'path' => 'metadata.error'],
+            ],
+            'website_metadata_snapshot' => [
+                ['name' => 'url', 'label' => 'URL', 'path' => 'url'],
+                ['name' => 'title', 'label' => 'Title', 'path' => 'metadata.title'],
+                ['name' => 'description', 'label' => $this->text('Meta açıklaması', 'Meta description'), 'path' => 'metadata.meta_description'],
+                ['name' => 'canonical', 'label' => 'Canonical', 'path' => 'metadata.canonical_hrefs'],
+                ['name' => 'robots', 'label' => 'Robots', 'path' => 'metadata.meta_robots'],
+            ],
+            'website_heading_snapshot' => [
+                ['name' => 'url', 'label' => 'URL', 'path' => 'url'],
+                ['name' => 'h1', 'label' => 'H1', 'path' => 'metadata.h1'],
+                ['name' => 'h1_present', 'label' => $this->text('H1 mevcut', 'H1 present'), 'path' => 'metadata.h1_present'],
+            ],
+            'website_schema_snapshot' => [
+                ['name' => 'url', 'label' => 'URL', 'path' => 'url'],
+                ['name' => 'types', 'label' => $this->text('Schema türleri', 'Schema types'), 'path' => 'metadata.types'],
+                ['name' => 'blocks', 'label' => $this->text('Schema bloğu', 'Schema blocks'), 'path' => 'metadata.block_count'],
+                ['name' => 'malformed', 'label' => $this->text('Bozuk blok', 'Malformed blocks'), 'path' => 'metadata.malformed_count'],
+            ],
+            'website_content_stats' => [
+                ['name' => 'url', 'label' => 'URL', 'path' => 'url'],
+                ['name' => 'words', 'label' => $this->text('Kelime', 'Words'), 'path' => 'metadata.word_count'],
+                ['name' => 'paragraphs', 'label' => $this->text('Paragraf', 'Paragraphs'), 'path' => 'metadata.paragraph_count'],
+                ['name' => 'language', 'label' => $this->text('Dil', 'Language'), 'path' => 'metadata.language'],
+                ['name' => 'thin', 'label' => $this->text('İnce içerik sinyali', 'Thin-content signal'), 'path' => 'metadata.thin_content_hint'],
+            ],
+            'website_link_edge' => [
+                ['name' => 'source', 'label' => $this->text('Kaynak sayfa', 'Source page'), 'path' => 'source_url'],
+                ['name' => 'target', 'label' => $this->text('Hedef URL', 'Target URL'), 'path' => 'target_url'],
+                ['name' => 'internal', 'label' => $this->text('İç bağlantı', 'Internal link'), 'path' => 'is_internal'],
+                ['name' => 'anchor', 'label' => $this->text('Bağlantı metni', 'Anchor text'), 'path' => 'anchor_text'],
+                ['name' => 'nofollow', 'label' => 'Nofollow', 'path' => 'nofollow'],
+            ],
+            'website_crawl_issue_snapshot' => [
+                ['name' => 'url', 'label' => 'URL', 'path' => 'url'],
+                ['name' => 'issue', 'label' => $this->text('Sorun', 'Issue'), 'path' => 'issue_code'],
+                ['name' => 'severity', 'label' => $this->text('Önem', 'Severity'), 'path' => 'severity'],
+                ['name' => 'message', 'label' => $this->text('Açıklama', 'Description'), 'path' => 'message'],
+            ],
+            'website_infra_snapshot' => [
+                ['name' => 'host', 'label' => 'Host', 'path' => 'metadata.host'],
+                ['name' => 'tls', 'label' => $this->text('SSL mevcut', 'SSL present'), 'path' => 'metadata.present'],
+                ['name' => 'issuer', 'label' => $this->text('Sertifika sağlayıcısı', 'Certificate issuer'), 'path' => 'metadata.tls.issuer_common_name'],
+                ['name' => 'valid_to', 'label' => $this->text('Geçerlilik sonu', 'Valid until'), 'path' => 'metadata.tls.valid_to'],
+            ],
+            'website_performance_measurement' => [
+                ['name' => 'url', 'label' => 'URL', 'path' => 'url'],
+                ['name' => 'strategy', 'label' => $this->text('Cihaz', 'Device'), 'path' => 'strategy'],
+                ['name' => 'lcp', 'label' => 'LCP (ms)', 'path' => 'metadata.lcp_ms'],
+                ['name' => 'measured_at', 'label' => $this->text('Ölçüm zamanı', 'Measured at'), 'path' => 'metadata.fetch_time'],
+            ],
+            'website_cms_object_snapshot' => [
+                ['name' => 'type', 'label' => $this->text('İçerik türü', 'Content type'), 'path' => 'object_type'],
+                ['name' => 'title', 'label' => $this->text('Başlık', 'Title'), 'path' => 'title'],
+                ['name' => 'status', 'label' => $this->text('Durum', 'Status'), 'path' => 'status'],
+                ['name' => 'url', 'label' => 'URL', 'path' => 'permalink'],
+                ['name' => 'modified', 'label' => $this->text('Güncellenme', 'Modified'), 'path' => 'modified_at'],
+            ],
+            default => [],
+        };
+    }
+
+    private function operatorPreviewValue(string $datasetId, string $path, mixed $value): mixed
+    {
+        if ($datasetId === 'website_url' && $path === 'metadata.source') {
+            return match ((string) $value) {
+                'sitemap' => $this->text('Sitemap', 'Sitemap'),
+                'public_crawl' => $this->text('Site içi bağlantı', 'Internal site link'),
+                'diagnosis_homepage' => $this->text('Ana sayfa', 'Homepage'),
+                default => $value,
+            };
+        }
+
+        return $value;
     }
 
     private function previewValue(mixed $value): string
@@ -561,7 +702,11 @@ final class WebsiteIntegrationIndex extends Component
         if (is_bool($value)) {
             return $value ? $this->text('Evet', 'Yes') : $this->text('Hayır', 'No');
         }
-        if (is_array($value) || is_object($value)) {
+        if (is_array($value)) {
+            $value = array_is_list($value)
+                ? implode(', ', array_map(static fn (mixed $item): string => is_scalar($item) ? (string) $item : '—', $value))
+                : json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        } elseif (is_object($value)) {
             $value = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         }
 
@@ -577,18 +722,18 @@ final class WebsiteIntegrationIndex extends Component
     {
         return match ($state) {
             'completed' => $currentRows > 0
-                ? $this->text("Mevcut veri havuzunda yaklaşık {$currentRows} kayıt var.", "Approximately {$currentRows} current records are available in the data pool.")
-                : $this->text('Kontrol tamamlandı; bu dataset için kayıt oluşmamış olabilir.', 'Check completed; this dataset may legitimately contain no records.'),
-            'running' => $this->text('Bu datasetin bağlı olduğu veri çekimi devam ediyor.', 'Collection contributing to this dataset is still running.'),
-            'partial' => $this->text('Dataset kısmi sonuç üretti; bağlı çekimlerden en az biri tam tamamlanmadı.', 'The dataset has partial results because at least one contributing collector did not complete fully.'),
-            'failed' => $this->text('Bu datasetin bağlı olduğu veri çekimi başarısız oldu.', 'The collector contributing to this dataset failed.'),
-            'connection_required' => $this->text('PageSpeed API bağlantısı yapılmadan bu dataset üretilemez.', 'This dataset cannot be produced until PageSpeed API is connected.'),
-            'needs_setup' => $this->text('Web sitesi URL/domain bilgisi tamamlanmadan bu dataset üretilemez.', 'This dataset cannot be produced until the website URL/domain is configured.'),
-            'not_eligible' => $this->text('Bu dataset mevcut koşullarda bu web sitesi için uygun değil.', 'This dataset is not eligible for this website under current conditions.'),
-            'skipped' => $this->text('Bu dataset son çekimde atlandı.', 'This dataset was skipped in the latest run.'),
+                ? $this->text("Son çekimde {$currentRows} sonuç üretildi.", "{$currentRows} results were produced in the latest run.")
+                : $this->text('Kontrol tamamlandı; bu veri grubu için sonuç oluşmamış olabilir.', 'Check completed; this data group may legitimately contain no results.'),
+            'running' => $this->text('Bu veri grubunu üreten çekim devam ediyor.', 'Collection contributing to this data group is still running.'),
+            'partial' => $this->text('Veri grubu kısmi sonuç üretti; bağlı çekimlerden en az biri tam tamamlanmadı.', 'This data group has partial results because at least one contributing collector did not complete fully.'),
+            'failed' => $this->text('Bu veri grubunu üreten çekim başarısız oldu.', 'The collector contributing to this data group failed.'),
+            'connection_required' => $this->text('PageSpeed API bağlantısı yapılmadan bu veri grubu üretilemez.', 'This data group cannot be produced until PageSpeed API is connected.'),
+            'needs_setup' => $this->text('Web sitesi URL/domain bilgisi tamamlanmadan bu veri grubu üretilemez.', 'This data group cannot be produced until the website URL/domain is configured.'),
+            'not_eligible' => $this->text('Bu veri grubu mevcut koşullarda bu web sitesi için uygun değil.', 'This data group is not eligible for this website under current conditions.'),
+            'skipped' => $this->text('Bu veri grubu son çekimde atlandı.', 'This data group was skipped in the latest run.'),
             default => $processedRows > 0
                 ? $this->text("Son çekimde {$processedRows} kayıt işlendi.", "{$processedRows} records were processed in the latest run.")
-                : $this->text('Bu dataset için henüz veri çekimi yapılmadı.', 'No collection has produced this dataset yet.'),
+                : $this->text('Bu veri grubu için henüz çekim yapılmadı.', 'No collection has produced this data group yet.'),
         };
     }
 

@@ -154,7 +154,7 @@ final class WebsiteOperatorReadModel
                 'high' => $normalized->where('severity', 'high')->count(),
                 'medium' => $normalized->where('severity', 'medium')->count(),
                 'low_info' => $normalized->filter(fn (array $issue): bool => in_array($issue['severity'], ['low', 'info'], true))->count(),
-                'redirect' => $normalized->where('code', 'REDIRECT_CHAIN')->count(),
+                'redirect' => $normalized->whereIn('code', ['REDIRECT_CHAIN', 'EXTERNAL_REDIRECT'])->count(),
                 'seo' => $normalized->filter(fn (array $issue): bool => in_array($issue['code'], $seoCodes, true))->count(),
                 'availability' => $normalized->filter(fn (array $issue): bool => in_array($issue['code'], $availabilityCodes, true))->count(),
                 'issues' => $issues,

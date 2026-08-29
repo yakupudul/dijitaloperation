@@ -6,6 +6,7 @@ use App\Enums\Collection\CollectionRunStatus;
 use App\Enums\Collection\CollectionTriggerType;
 use App\Enums\Collection\DatasetExecutionOutcome;
 use App\Enums\DigitalAssetStatus;
+use App\Livewire\Operator\Integrations\WebsiteIntegrationIndex;
 use App\Models\Brand;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\Collection\CollectionResourceRun;
@@ -29,6 +30,7 @@ use App\Services\Collection\Support\DatasetExecutionContext;
 use App\Services\Collection\Support\DatasetExecutionResult;
 use App\Services\Collection\Support\StartCollectionRequest;
 use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
+use App\Services\Collection\Website\WebsiteOperatorReadModel;
 use App\Services\PageSpeedConnectionProbeService;
 use App\Support\Roles;
 use App\Support\SslCertificateProbe;
@@ -39,6 +41,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Livewire;
 use MoxDop\Website\Discovery\DiscoveryConfig;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -339,6 +342,67 @@ class WebsiteProductionCollectorTest extends TestCase
     }
 
     #[Test]
+    public function http_html_diagnosis_recurses_sitemap_indexes_without_promoting_xml_documents_to_pages(): void
+    {
+        Http::fake(function ($request) {
+            $path = (string) (parse_url($request->url(), PHP_URL_PATH) ?: '/');
+
+            return match ($path) {
+                '/' => Http::response(
+                    '<html><head><title>Home</title><meta name="description" content="Home"><link rel="canonical" href="http://1.1.1.1/"></head><body><h1>Home</h1></body></html>',
+                    200,
+                    ['Content-Type' => 'text/html'],
+                ),
+                '/robots.txt' => Http::response(
+                    "User-agent: *\nAllow: /\nSitemap: http://1.1.1.1/sitemaps.xml\n",
+                    200,
+                    ['Content-Type' => 'text/plain'],
+                ),
+                '/sitemaps.xml' => Http::response(
+                    '<?xml version="1.0"?><sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><sitemap><loc>http://1.1.1.1/page-sitemap1.xml</loc></sitemap><sitemap><loc>http://1.1.1.1/post-sitemap1.xml</loc></sitemap></sitemapindex>',
+                    200,
+                    ['Content-Type' => 'application/xml'],
+                ),
+                '/page-sitemap1.xml' => Http::response(
+                    '<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>http://1.1.1.1/hakkimizda/</loc></url><url><loc>http://1.1.1.1/hizmetlerimiz/</loc></url></urlset>',
+                    200,
+                    ['Content-Type' => 'application/xml'],
+                ),
+                '/post-sitemap1.xml' => Http::response(
+                    '<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>http://1.1.1.1/blog/yazi/</loc></url></urlset>',
+                    200,
+                    ['Content-Type' => 'application/xml'],
+                ),
+                '/sitemap.xml', '/sitemap_index.xml' => Http::response('Not found', 404, ['Content-Type' => 'text/plain']),
+                default => Http::response('Not found', 404, ['Content-Type' => 'text/plain']),
+            };
+        });
+
+        $result = $this->runFamily(WebsiteRequestFamilyCatalog::FAMILY_HTTP_HTML_DIAGNOSIS);
+
+        $this->assertSame(DatasetExecutionOutcome::Completed, $result->outcome, (string) $result->errorMessage);
+        $this->assertSame(5, $result->checkpoint['sitemap_files_checked'] ?? null);
+        $this->assertSame(3, $result->checkpoint['sitemap_urls_discovered'] ?? null);
+
+        $inventory = DB::table('website_url')->pluck('normalized_url')->all();
+        $this->assertContains('http://1.1.1.1/', $inventory);
+        $this->assertContains('http://1.1.1.1/hakkimizda/', $inventory);
+        $this->assertContains('http://1.1.1.1/hizmetlerimiz/', $inventory);
+        $this->assertContains('http://1.1.1.1/blog/yazi/', $inventory);
+        $this->assertNotContains('http://1.1.1.1/sitemaps.xml', $inventory);
+        $this->assertNotContains('http://1.1.1.1/page-sitemap1.xml', $inventory);
+        $this->assertNotContains('http://1.1.1.1/post-sitemap1.xml', $inventory);
+        $this->assertNotContains('http://1.1.1.1/contact-us', $inventory);
+        $this->assertNotContains('http://1.1.1.1/location', $inventory);
+        $this->assertNotContains('http://1.1.1.1/locations', $inventory);
+
+        $httpDocuments = DB::table('website_http_snapshot')->pluck('url')->all();
+        $this->assertContains('http://1.1.1.1/sitemaps.xml', $httpDocuments);
+        $this->assertContains('http://1.1.1.1/page-sitemap1.xml', $httpDocuments);
+        $this->assertContains('http://1.1.1.1/post-sitemap1.xml', $httpDocuments);
+    }
+
+    #[Test]
     public function dns_tls_writes_one_infra_snapshot_via_injected_probe(): void
     {
         $probe = new class extends SslCertificateProbe
@@ -570,6 +634,112 @@ class WebsiteProductionCollectorTest extends TestCase
     }
 
     #[Test]
+    public function public_crawl_keeps_wordpress_critical_error_evidence_out_of_the_page_inventory(): void
+    {
+        Http::fake([
+            'http://1.1.1.1/contact-us' => Http::response(
+                '<html lang="tr"><head><title>moximu</title></head><body><h1>moximu</h1><p>Sitenizde ciddi bir sorun çıktı.</p><a href="https://wordpress.org/documentation/article/faq-troubleshooting/">Ayrıntılı bilgi alın.</a></body></html>',
+                200,
+                ['Content-Type' => 'text/html'],
+            ),
+        ]);
+
+        [$context, $datasetRun] = $this->makeContext(WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL);
+        $result = app(WebsiteDatasetExecutor::class)->execute($this->contextFrom($context, $datasetRun, [
+            'observed_at' => '2026-08-20 00:00:00',
+            'queue' => ['http://1.1.1.1/contact-us'],
+            'visited' => [],
+            'pages' => 0,
+            'rows_written_total' => 0,
+            'bytes_downloaded_total' => 0,
+        ]));
+
+        $this->assertSame(DatasetExecutionOutcome::Completed, $result->outcome, (string) $result->errorMessage);
+        $this->assertSame(1, DB::table('website_http_snapshot')->count());
+        $this->assertSame(0, DB::table('website_url')->count());
+        $this->assertSame(0, DB::table('website_metadata_snapshot')->count());
+        $this->assertDatabaseHas('website_crawl_issue_snapshot', [
+            'digital_asset_id' => $this->asset->id,
+            'url' => 'http://1.1.1.1/contact-us',
+            'issue_code' => 'WORDPRESS_CRITICAL_ERROR',
+            'severity' => 'critical',
+        ]);
+    }
+
+    #[Test]
+    public function operator_projection_excludes_historical_pages_and_issues_from_the_latest_run(): void
+    {
+        Http::fake([
+            'http://1.1.1.1/old-page' => Http::response(
+                '<html><head><title>Old page</title></head><body><p>Old page without H1 or metadata.</p></body></html>',
+                200,
+                ['Content-Type' => 'text/html'],
+            ),
+        ]);
+        [$oldContext, $oldDatasetRun] = $this->makeContext(WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL);
+        $oldResult = app(WebsiteDatasetExecutor::class)->execute($this->contextFrom($oldContext, $oldDatasetRun, [
+            'observed_at' => '2026-08-19 00:00:00',
+            'queue' => ['http://1.1.1.1/old-page'],
+            'visited' => [],
+            'pages' => 0,
+            'rows_written_total' => 0,
+            'bytes_downloaded_total' => 0,
+        ]));
+        $this->assertSame(DatasetExecutionOutcome::Completed, $oldResult->outcome, (string) $oldResult->errorMessage);
+
+        Http::fake([
+            'http://1.1.1.1/new-page' => Http::response(
+                '<html><head><title>New page</title><meta name="description" content="New page"><link rel="canonical" href="http://1.1.1.1/new-page"></head><body><h1>New page</h1></body></html>',
+                200,
+                ['Content-Type' => 'text/html'],
+            ),
+        ]);
+        [$latestContext, $latestDatasetRun] = $this->makeContext(WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL);
+        $latestResult = app(WebsiteDatasetExecutor::class)->execute($this->contextFrom($latestContext, $latestDatasetRun, [
+            'observed_at' => '2026-08-20 00:00:00',
+            'queue' => ['http://1.1.1.1/new-page'],
+            'visited' => [],
+            'pages' => 0,
+            'rows_written_total' => 0,
+            'bytes_downloaded_total' => 0,
+        ]));
+        $this->assertSame(DatasetExecutionOutcome::Completed, $latestResult->outcome, (string) $latestResult->errorMessage);
+
+        $projection = app(WebsiteOperatorReadModel::class)->forAsset(
+            $this->asset->id,
+            (int) $latestContext->collectionRun->id,
+        );
+
+        $this->assertSame(1, $projection['latest_pages']['count']);
+        $this->assertTrue($projection['latest_pages']['run_scoped']);
+        $this->assertSame(0, $projection['site_health']['total']);
+        $this->assertTrue($projection['site_health']['run_scoped']);
+        $this->assertSame(2, DB::table('website_url')->count(), 'historical rows remain available for provenance');
+        $this->assertGreaterThan(0, DB::table('website_crawl_issue_snapshot')->count(), 'historical issues remain available for provenance');
+
+        $this->admin->forceFill(['locale' => 'tr'])->save();
+        $component = Livewire::actingAs($this->admin)
+            ->test(WebsiteIntegrationIndex::class)
+            ->set('selectedAssetId', $this->asset->id)
+            ->assertSeeHtml('wire:poll.2s')
+            ->assertSee('http://1.1.1.1/new-page')
+            ->assertDontSee('http://1.1.1.1/old-page')
+            ->assertDontSee('Asset Id')
+            ->assertDontSee('Source Timezone');
+
+        $latestContext->collectionRun->forceFill([
+            'status' => CollectionRunStatus::Completed,
+            'datasets_completed' => 1,
+            'datasets_total' => 1,
+        ])->save();
+        $latestDatasetRun->forceFill(['status' => CollectionRunStatus::Completed])->save();
+
+        $component
+            ->call('$refresh')
+            ->assertDontSeeHtml('wire:poll.2s');
+    }
+
+    #[Test]
     public function public_crawl_resolves_relative_links_against_the_redirect_final_url(): void
     {
         Http::fake(function ($request) {
@@ -760,6 +930,7 @@ class WebsiteProductionCollectorTest extends TestCase
             'customer_id' => $this->brand->customer_id,
             'status' => CollectionRunStatus::Running,
             'request_context' => [
+                'provider_sources' => [$provider],
                 'context' => ['collection_intent' => 'website_production_collection'],
             ],
         ]);

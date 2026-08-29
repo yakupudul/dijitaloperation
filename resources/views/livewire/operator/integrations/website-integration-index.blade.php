@@ -62,7 +62,7 @@
     $effectiveDatasetState = function (array $dataset): string {
         $state = (string) ($dataset['state'] ?? 'not_run');
         if ($state === 'completed'
-            && (int) ($dataset['processed_rows'] ?? 0) === 0
+            && (int) ($dataset['current_rows'] ?? 0) === 0
             && (string) ($dataset['id'] ?? '') !== 'website_crawl_issue_snapshot') {
             return 'attention';
         }
@@ -73,7 +73,7 @@
     $datasetOutcome = function (array $dataset) use ($tr): string {
         $id = (string) ($dataset['id'] ?? '');
         $state = (string) ($dataset['state'] ?? 'not_run');
-        $processed = max(0, (int) ($dataset['processed_rows'] ?? 0));
+        $resultRows = max(0, (int) ($dataset['current_rows'] ?? 0));
 
         if ($state === 'connection_required') {
             return $tr ? 'PageSpeed bağlantısı gerekli. Bu kaynak bağlanmadan performans verisi alınamaz.' : 'PageSpeed connection is required before performance data can be collected.';
@@ -90,22 +90,22 @@
         if ($state === 'partial') {
             return $tr ? 'Son veri çekimi kısmi sonuç üretti; tamamlanmayan işlem var.' : 'The latest collection produced partial results.';
         }
-        if ($state === 'completed' && $id === 'website_crawl_issue_snapshot' && $processed === 0) {
+        if ($state === 'completed' && $id === 'website_crawl_issue_snapshot' && $resultRows === 0) {
             return $tr ? 'Son çekimde tarama sorunu bulunmadı.' : 'No crawl issues were found in the latest collection.';
         }
-        if ($state === 'completed' && $processed === 0) {
+        if ($state === 'completed' && $resultRows === 0) {
             return $tr
                 ? 'Çekim tamamlandı ancak bu veri grubunda veri üretilmedi. Veri hattı veya sayfa kapsamı kontrol edilmeli.'
                 : 'The run completed but this data group produced no data. Check the pipeline or page coverage.';
         }
         if ($state === 'completed' && $id === 'website_url') {
-            return $tr ? number_format($processed, 0, ',', '.').' URL son çekimde kaydedildi.' : number_format($processed).' URLs were recorded in the latest collection.';
+            return $tr ? number_format($resultRows, 0, ',', '.').' geçerli URL son çekimde keşfedildi.' : number_format($resultRows).' valid URLs were discovered in the latest collection.';
         }
         if ($state === 'completed' && $id === 'website_crawl_issue_snapshot') {
-            return $tr ? number_format($processed, 0, ',', '.').' sorun kaydı son çekimde üretildi.' : number_format($processed).' issue records were produced in the latest collection.';
+            return $tr ? number_format($resultRows, 0, ',', '.').' sorun son çekimde bulundu.' : number_format($resultRows).' issues were found in the latest collection.';
         }
         if ($state === 'completed') {
-            return $tr ? number_format($processed, 0, ',', '.').' kayıt son çekimde üretildi.' : number_format($processed).' records were produced in the latest collection.';
+            return $tr ? number_format($resultRows, 0, ',', '.').' sonuç son çekimde üretildi.' : number_format($resultRows).' results were produced in the latest collection.';
         }
 
         return $tr ? 'Bu veri grubu için henüz sonuç yok.' : 'No result is available for this data group yet.';
@@ -367,8 +367,8 @@
                                         @endif
                                     </p>
                                 </div>
-                                @if ($run?->updated_at)
-                                    <span class="text-xs text-gray-500 dark:text-gray-400">{{ $tr ? 'Son hareket' : 'Last activity' }}: {{ $run->updated_at->diffForHumans() }}</span>
+                                @if ($run?->last_activity_at || $run?->updated_at)
+                                    <span class="text-xs text-gray-500 dark:text-gray-400">{{ $tr ? 'Son hareket' : 'Last activity' }}: {{ ($run->last_activity_at ?: $run->updated_at)->diffForHumans() }}</span>
                                 @endif
                             </div>
 
@@ -570,7 +570,7 @@
                                                         @php
                                                             $effectiveState = $effectiveDatasetState($dataset);
                                                             $preview = $dataset['preview'];
-                                                            $processedRows = (int) $dataset['processed_rows'];
+                                                            $resultRows = (int) $dataset['current_rows'];
                                                         @endphp
                                                         <div wire:key="data-group-{{ $asset->id }}-{{ $source['key'] }}-{{ $dataset['id'] }}" x-data="{ open: false }" class="bg-white dark:bg-gray-900">
                                                             <button type="button" @click="open = !open" class="flex w-full items-start gap-3 px-4 py-4 text-left sm:px-5">
@@ -604,12 +604,12 @@
                                                                         </div>
                                                                         <div class="flex shrink-0 items-center gap-4">
                                                                             <div class="text-right">
-                                                                                @if ($dataset['id'] === 'website_crawl_issue_snapshot' && $dataset['state'] === 'completed' && $processedRows === 0)
+                                                                                @if ($dataset['id'] === 'website_crawl_issue_snapshot' && $dataset['state'] === 'completed' && $resultRows === 0)
                                                                                     <p class="text-xs font-semibold text-emerald-700 dark:text-emerald-300">{{ $tr ? 'Sorun bulunmadı' : 'No issues found' }}</p>
                                                                                 @elseif ($dataset['state'] === 'connection_required')
                                                                                     <p class="text-xs font-semibold text-amber-700 dark:text-amber-300">{{ $tr ? 'Bağlantı gerekli' : 'Connection required' }}</p>
                                                                                 @else
-                                                                                    <p class="text-xs font-semibold text-gray-800 dark:text-gray-200">{{ number_format($processedRows, 0, ',', '.') }} {{ $tr ? 'son çekim' : 'latest run' }}</p>
+                                                                                    <p class="text-xs font-semibold text-gray-800 dark:text-gray-200">{{ number_format($resultRows, 0, ',', '.') }} {{ $tr ? 'sonuç' : 'results' }}</p>
                                                                                 @endif
                                                                             </div>
                                                                             <svg class="h-4 w-4 text-gray-400 transition" :class="open ? 'rotate-180' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"></path></svg>
@@ -653,7 +653,7 @@
                                                                                 </tbody>
                                                                             </table>
                                                                         </div>
-                                                                    @elseif ($dataset['id'] === 'website_crawl_issue_snapshot' && $dataset['state'] === 'completed' && $processedRows === 0)
+                                                                    @elseif ($dataset['id'] === 'website_crawl_issue_snapshot' && $dataset['state'] === 'completed' && $resultRows === 0)
                                                                         <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-4 text-xs text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:text-emerald-300">{{ $tr ? 'Sorun bulunmadığı için gösterilecek sorun kaydı yok.' : 'There are no issue records to show because no crawl issues were found.' }}</div>
                                                                     @else
                                                                         <div class="rounded-lg border border-gray-200 bg-white px-4 py-4 text-xs leading-5 text-gray-500 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400">{{ $tr ? 'Bu veri grubu için gösterilebilir gerçek kayıt henüz yok.' : 'No previewable real records are available for this data group yet.' }}</div>
@@ -666,7 +666,7 @@
                                                                         <div class="grid gap-2 text-[11px] text-gray-500 sm:grid-cols-2 dark:text-gray-400">
                                                                             <div><span class="font-medium text-gray-700 dark:text-gray-300">{{ $tr ? 'Veri grubu kimliği' : 'Data group ID' }}:</span> <span class="font-mono">{{ $dataset['id'] }}</span></div>
                                                                             <div><span class="font-medium text-gray-700 dark:text-gray-300">{{ $tr ? 'Fiziksel tablo' : 'Physical table' }}:</span> <span class="font-mono">{{ $dataset['table'] ?: '—' }}</span></div>
-                                                                            <div><span class="font-medium text-gray-700 dark:text-gray-300">{{ $tr ? 'Veri havuzundaki toplam' : 'Total in data pool' }}:</span> {{ number_format((int) $dataset['current_rows'], 0, ',', '.') }}</div>
+                                                                            <div><span class="font-medium text-gray-700 dark:text-gray-300">{{ $tr ? 'Son çekimin sonucu' : 'Latest run result' }}:</span> {{ number_format((int) $dataset['current_rows'], 0, ',', '.') }}</div>
                                                                             <div><span class="font-medium text-gray-700 dark:text-gray-300">{{ $tr ? 'Sistem alanı' : 'System fields' }}:</span> {{ $dataset['system_field_count'] }}</div>
                                                                         </div>
                                                                         @if (! empty($dataset['fields']))

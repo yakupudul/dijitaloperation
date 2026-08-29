@@ -88,7 +88,9 @@
 
             <div class="border-t border-gray-100 px-5 py-4 text-xs text-gray-500 dark:border-gray-700 dark:text-gray-400">
                 @if ($websiteCollection)
-                    @php($collectionStatus = $websiteCollection->status?->value ?? '')
+                    @php
+                        $collectionStatus = $websiteCollection->status?->value ?? '';
+                    @endphp
                     <span>Collection #{{ $websiteCollection->id }}</span>
                     <span class="mx-2">·</span>
                     <span class="font-semibold">{{ strtoupper($collectionStatus) }}</span>
