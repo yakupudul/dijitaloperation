@@ -4,6 +4,7 @@ namespace Tests\Unit;
 
 use App\Services\Collection\Providers\Website\WebsitePageAnalyzer;
 use MoxDop\Website\Discovery\DiscoveryConfig;
+use MoxDop\Website\Discovery\PublicUrlNormalizer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -19,6 +20,74 @@ final class WebsiteDiscoveryTruthfulnessTest extends TestCase
         self::assertNotContains('/contact-us', DiscoveryConfig::preferredPathHints());
         self::assertNotContains('/location', DiscoveryConfig::preferredPathHints());
         self::assertNotContains('/locations', DiscoveryConfig::preferredPathHints());
+    }
+
+    public function test_url_normalization_preserves_server_resource_identity(): void
+    {
+        $urls = new PublicUrlNormalizer;
+
+        self::assertSame(
+            'https://www.example.com/Products/ABC/?Sku=AbC',
+            $urls->normalizeAbsolute('HTTPS://WWW.Example.COM/Products/ABC/?Sku=AbC#details'),
+        );
+        self::assertSame('https://example.com/Products/ABC', $urls->normalizeAbsolute('example.com/Products/ABC'));
+        self::assertSame('https://example.com/Products/ABC/', $urls->normalizeAbsolute('example.com/Products/ABC/'));
+        self::assertNotSame(
+            $urls->normalizeAbsolute('https://example.com/Products/ABC'),
+            $urls->normalizeAbsolute('https://example.com/products/abc'),
+        );
+        self::assertNotSame(
+            $urls->normalizeAbsolute('https://example.com/Products/ABC'),
+            $urls->normalizeAbsolute('https://example.com/Products/ABC/'),
+        );
+    }
+
+    public function test_url_normalization_rejects_non_http_schemes(): void
+    {
+        $urls = new PublicUrlNormalizer;
+
+        self::assertNull($urls->normalizeAbsolute('mailto:test@example.com'));
+        self::assertNull($urls->normalizeAbsolute('tel:+905551112233'));
+        self::assertNull($urls->normalizeAbsolute('javascript:alert(1)'));
+    }
+
+    public function test_relative_url_resolution_uses_browser_document_semantics(): void
+    {
+        $urls = new PublicUrlNormalizer;
+
+        self::assertSame(
+            'https://www.example.com/Catalog/NextPage',
+            $urls->resolve('https://www.example.com/Catalog/Item', 'NextPage'),
+        );
+        self::assertSame(
+            'https://www.example.com/Catalog/Item/NextPage',
+            $urls->resolve('https://www.example.com/Catalog/Item/', 'NextPage'),
+        );
+        self::assertSame(
+            'https://www.example.com/Catalog/Other/',
+            $urls->resolve('https://www.example.com/Catalog/Item/', '../Other/'),
+        );
+    }
+
+    public function test_query_only_relative_url_stays_on_current_document(): void
+    {
+        $urls = new PublicUrlNormalizer;
+
+        self::assertSame(
+            'https://www.example.com/Products/ABC?page=2',
+            $urls->resolve('https://www.example.com/Products/ABC?sort=name', '?page=2#results'),
+        );
+    }
+
+    public function test_www_and_apex_hosts_are_same_site_without_rewriting_fetch_target(): void
+    {
+        $urls = new PublicUrlNormalizer;
+
+        self::assertTrue($urls->sameSite('https://www.example.com/Products', 'https://example.com/products'));
+        self::assertSame(
+            'https://www.example.com/Products',
+            $urls->normalizeAbsolute('https://www.example.com/Products'),
+        );
     }
 
     #[DataProvider('applicationErrorProvider')]
