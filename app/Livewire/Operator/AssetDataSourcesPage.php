@@ -2,16 +2,20 @@
 
 namespace App\Livewire\Operator;
 
+use App\Models\Collection\CollectionRun;
 use App\Models\CoreAssetBinding;
+use App\Models\CoreConnection;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\DigitalAsset;
 use App\Models\User;
 use App\Services\Async\AsyncOperationService;
+use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
 use App\Services\Integrations\ConfirmGoogleResourceBindingService;
 use App\Services\Integrations\ConfirmMetaResourceBindingService;
 use App\Services\Integrations\Google\DiscoverGoogleResourcesService;
 use App\Services\Integrations\Meta\DiscoverMetaResourcesService;
+use App\Services\PageSpeedConnectionProbeService;
 use App\Support\Integrations\AssetBindingCompatibility;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Roles;
@@ -39,7 +43,8 @@ final class AssetDataSourcesPage extends Component
     {
         abort_unless(ctype_digit($assetId), 404);
         $asset = DigitalAsset::query()->findOrFail((int) $assetId);
-        abort_if(AssetBindingCompatibility::capabilitiesForAssetType((string) $asset->type) === [], 404);
+        $capabilities = AssetBindingCompatibility::capabilitiesForAssetType((string) $asset->type);
+        abort_if((string) $asset->type !== 'website' && $capabilities === [], 404);
         $this->assetId = $asset->id;
     }
 
@@ -176,9 +181,40 @@ final class AssetDataSourcesPage extends Component
         $this->message = __('operator_runtime.sources.disabled', ['capability' => ProviderRegistry::capabilityLabel($capability)]);
     }
 
-    public function collectNow(AsyncOperationService $async): void
+    public function collectNow(AsyncOperationService $async, WebsiteCollectionOrchestrator $website): void
     {
-        $result = $async->queueBoundCollect($this->asset(), auth()->user(), [
+        $asset = $this->asset();
+
+        if ((string) $asset->type === 'website') {
+            $actor = auth()->user();
+            abort_unless($actor instanceof User, 403);
+
+            try {
+                $run = $website->start(
+                    asset: $asset,
+                    requestedBy: $actor,
+                    context: [
+                        'trigger' => 'operator.asset.sources.collect',
+                        'force_refresh' => true,
+                    ],
+                );
+
+                $this->messageTone = 'success';
+                $this->message = app()->getLocale() === 'tr'
+                    ? "Website veri toplama kuyruğa alındı. Collection #{$run->id}."
+                    : "Website collection queued. Collection #{$run->id}.";
+            } catch (Throwable $e) {
+                report($e);
+                $this->messageTone = 'error';
+                $this->message = app()->getLocale() === 'tr'
+                    ? 'Website veri toplama başlatılamadı: '.$e->getMessage()
+                    : 'Website collection could not be started: '.$e->getMessage();
+            }
+
+            return;
+        }
+
+        $result = $async->queueBoundCollect($asset, auth()->user(), [
             'trigger' => 'operator.asset.sources.collect',
         ]);
 
@@ -231,11 +267,80 @@ final class AssetDataSourcesPage extends Component
             ->values()
             ->all();
 
-        // Keep discovery available even before resources exist.
+        // Keep provider discovery available even before external resources exist.
         foreach ($capabilities as $capability) {
             $providers[] = $this->providerForCapability($capability);
         }
         $providers = array_values(array_unique(array_filter($providers)));
+
+        $hasActiveBinding = $bindings->contains(
+            fn (CoreAssetBinding $binding): bool => $binding->status === CoreAssetBinding::STATUS_ACTIVE,
+        );
+
+        $isWebsite = (string) $asset->type === 'website';
+        $websiteCollection = null;
+        $websiteSources = [];
+        $websiteCollectable = filled($asset->primary_url) || filled($asset->domain);
+
+        if ($isWebsite) {
+            $websiteCollection = CollectionRun::query()
+                ->where('digital_asset_id', $asset->id)
+                ->latest('id')
+                ->limit(25)
+                ->get()
+                ->first(fn (CollectionRun $run): bool => in_array(
+                    'WEBSITE_DIRECT',
+                    (array) data_get($run->request_context, 'provider_sources', []),
+                    true,
+                ));
+
+            $pageSpeed = CoreConnection::query()
+                ->with('credential')
+                ->where('digital_asset_id', $asset->id)
+                ->where('type', PageSpeedConnectionProbeService::CONNECTION_TYPE)
+                ->latest('id')
+                ->first();
+            $pageSpeedPayload = $pageSpeed?->credential?->encrypted_payload;
+            $pageSpeedReady = $pageSpeed instanceof CoreConnection
+                && $pageSpeed->enabled
+                && is_array($pageSpeedPayload)
+                && filled($pageSpeedPayload['api_key'] ?? null);
+
+            $websiteSources = [
+                [
+                    'key' => 'public_crawl',
+                    'name' => 'Public Website Crawl',
+                    'ready' => $websiteCollectable,
+                    'status' => $websiteCollectable ? 'ready' : 'url_required',
+                ],
+                [
+                    'key' => 'http_html',
+                    'name' => 'HTTP / HTML Intelligence',
+                    'ready' => $websiteCollectable,
+                    'status' => $websiteCollectable ? 'ready' : 'url_required',
+                ],
+                [
+                    'key' => 'dns_tls',
+                    'name' => 'SSL / TLS Infrastructure',
+                    'ready' => $websiteCollectable,
+                    'status' => $websiteCollectable ? 'ready' : 'domain_required',
+                ],
+                [
+                    'key' => 'pagespeed',
+                    'name' => 'PageSpeed Insights',
+                    'ready' => $pageSpeedReady,
+                    'status' => $pageSpeedReady ? 'ready' : 'connection_required',
+                ],
+                [
+                    'key' => 'wordpress_rest',
+                    'name' => 'WordPress Public REST',
+                    'ready' => false,
+                    'status' => str_contains(strtolower((string) $asset->cms), 'wordpress')
+                        ? 'cms_detected_family_deferred'
+                        : 'family_deferred',
+                ],
+            ];
+        }
 
         return view('livewire.operator.asset-data-sources', [
             'asset' => $asset,
@@ -245,7 +350,11 @@ final class AssetDataSourcesPage extends Component
             'bindings' => $bindings,
             'resources' => $resources,
             'providers' => $providers,
-            'hasActiveBinding' => $bindings->contains(fn (CoreAssetBinding $binding) => $binding->status === CoreAssetBinding::STATUS_ACTIVE),
+            'hasActiveBinding' => $hasActiveBinding,
+            'hasCollectableSource' => $isWebsite ? $websiteCollectable : $hasActiveBinding,
+            'isWebsite' => $isWebsite,
+            'websiteCollection' => $websiteCollection,
+            'websiteSources' => $websiteSources,
         ]);
     }
 
