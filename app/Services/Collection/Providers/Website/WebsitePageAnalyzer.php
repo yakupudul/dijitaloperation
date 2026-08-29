@@ -38,7 +38,9 @@ final class WebsitePageAnalyzer
         }
 
         preg_match('/<html\b[^>]*\blang\s*=\s*["\']?([^"\'\s>]+)/i', $body, $langMatch);
-        $language = isset($langMatch[1]) ? strtolower(trim(html_entity_decode((string) $langMatch[1], ENT_QUOTES | ENT_HTML5))) : null;
+        $language = isset($langMatch[1])
+            ? strtolower(trim(html_entity_decode((string) $langMatch[1], ENT_QUOTES | ENT_HTML5)))
+            : null;
         $paragraphCount = preg_match_all('/<p\b[^>]*>/i', $body) ?: 0;
 
         return [
@@ -53,16 +55,13 @@ final class WebsitePageAnalyzer
                 'content_hash' => hash('sha256', $text),
                 'language' => $language,
                 'paragraph_count' => $paragraphCount,
-                // This is an observation hint, not an SEO failure: page type/context matters.
                 'thin_content_hint' => $wordCount > 0 && $wordCount < 300,
                 'collector_version' => WebsiteProviderCapabilities::COLLECTOR_VERSION,
             ], $headingCounts),
         ];
     }
 
-    /**
-     * @return list<array<string, mixed>>
-     */
+    /** @return list<array<string, mixed>> */
     public function linkEdges(
         int $digitalAssetId,
         string $html,
@@ -97,6 +96,7 @@ final class WebsitePageAnalyzer
 
             if (isset($edges[$edgeKey])) {
                 $edges[$edgeKey]['metadata']['occurrences'] = (int) ($edges[$edgeKey]['metadata']['occurrences'] ?? 1) + 1;
+
                 continue;
             }
 
@@ -123,13 +123,7 @@ final class WebsitePageAnalyzer
         return array_values($edges);
     }
 
-    /**
-     * A URL is allowed into the collected page inventory only after it produced a real,
-     * successful HTML page response. HTTP errors and soft/error templates remain issues,
-     * not pages.
-     *
-     * @param array<string, mixed> $fetch
-     */
+    /** @param array<string, mixed> $fetch */
     public function isInventoryEligible(array $fetch): bool
     {
         $status = is_numeric($fetch['status_code'] ?? null) ? (int) $fetch['status_code'] : null;
@@ -139,7 +133,7 @@ final class WebsitePageAnalyzer
             && $status >= 200
             && $status < 400
             && $this->isHtmlResponse($fetch)
-            && ! $this->looksLikeErrorTemplate($fetch);
+            && $this->detectedErrorTemplate($fetch) === null;
     }
 
     /**
@@ -153,31 +147,68 @@ final class WebsitePageAnalyzer
         $issues = [];
 
         if ($status !== null && $status >= 500) {
-            $issues[] = $this->issue($digitalAssetId, $url, 'HTTP_5XX', 'critical', 'Sunucu 5xx yanıtı döndürüyor.', $observedAt, ['status_code' => $status]);
+            $issues[] = $this->issue(
+                $digitalAssetId,
+                $url,
+                'HTTP_5XX',
+                'critical',
+                'Sunucu 5xx yanıtı döndürüyor.',
+                $observedAt,
+                ['status_code' => $status],
+            );
         } elseif ($status !== null && $status >= 400) {
-            $issues[] = $this->issue($digitalAssetId, $url, 'HTTP_4XX', 'high', 'Sayfa 4xx yanıtı döndürüyor.', $observedAt, ['status_code' => $status]);
+            $issues[] = $this->issue(
+                $digitalAssetId,
+                $url,
+                'HTTP_4XX',
+                'high',
+                'Sayfa 4xx yanıtı döndürüyor.',
+                $observedAt,
+                ['status_code' => $status],
+            );
         } elseif (($fetch['ok'] ?? false) !== true && $status === null) {
-            $issues[] = $this->issue($digitalAssetId, $url, 'FETCH_FAILED', 'high', 'Sayfa tarayıcı tarafından alınamadı.', $observedAt, ['error' => $fetch['error'] ?? null]);
+            $issues[] = $this->issue(
+                $digitalAssetId,
+                $url,
+                'FETCH_FAILED',
+                'high',
+                'Sayfa tarayıcı tarafından alınamadı.',
+                $observedAt,
+                ['error' => $fetch['error'] ?? null],
+            );
         }
 
         $redirectCount = is_numeric($fetch['redirect_count'] ?? null) ? (int) $fetch['redirect_count'] : 0;
         if ($redirectCount >= 2) {
-            $issues[] = $this->issue($digitalAssetId, $url, 'REDIRECT_CHAIN', 'medium', 'URL birden fazla yönlendirme adımından geçiyor.', $observedAt, ['redirect_count' => $redirectCount]);
+            $issues[] = $this->issue(
+                $digitalAssetId,
+                $url,
+                'REDIRECT_CHAIN',
+                'medium',
+                'URL birden fazla yönlendirme adımından geçiyor.',
+                $observedAt,
+                ['redirect_count' => $redirectCount],
+            );
         }
 
         if (! $this->isHtmlResponse($fetch)) {
             return $issues;
         }
 
-        if ($this->looksLikeErrorTemplate($fetch)) {
+        $errorTemplate = $this->detectedErrorTemplate($fetch);
+        if ($errorTemplate !== null) {
             $issues[] = $this->issue(
                 $digitalAssetId,
                 $url,
-                'INVALID_PAGE_RESPONSE',
-                'high',
-                'URL geçerli sayfa içeriği yerine 404 veya hata şablonu döndürüyor.',
+                $errorTemplate['code'],
+                $errorTemplate['severity'],
+                $errorTemplate['message'],
                 $observedAt,
-                ['status_code' => $status, 'soft_error_template' => true],
+                [
+                    'status_code' => $status,
+                    'soft_error_template' => true,
+                    'signature' => $errorTemplate['signature'],
+                ],
             );
 
             return $issues;
@@ -186,31 +217,82 @@ final class WebsitePageAnalyzer
         $body = (string) $fetch['body'];
         $title = $this->firstTagText($body, 'title');
         if ($title === null || trim($title) === '') {
-            $issues[] = $this->issue($digitalAssetId, $url, 'MISSING_TITLE', 'high', 'Sayfada title etiketi bulunamadı.', $observedAt);
+            $issues[] = $this->issue(
+                $digitalAssetId,
+                $url,
+                'MISSING_TITLE',
+                'high',
+                'Sayfada title etiketi bulunamadı.',
+                $observedAt,
+            );
         }
 
         if (! preg_match('/<meta\b[^>]*\bname\s*=\s*["\']?description["\']?[^>]*>/i', $body)
             && ! preg_match('/<meta\b[^>]*\bcontent\s*=\s*["\'][^"\']*["\'][^>]*\bname\s*=\s*["\']?description["\']?[^>]*>/i', $body)) {
-            $issues[] = $this->issue($digitalAssetId, $url, 'MISSING_META_DESCRIPTION', 'medium', 'Sayfada meta açıklaması bulunamadı.', $observedAt);
+            $issues[] = $this->issue(
+                $digitalAssetId,
+                $url,
+                'MISSING_META_DESCRIPTION',
+                'medium',
+                'Sayfada meta açıklaması bulunamadı.',
+                $observedAt,
+            );
         }
 
         $h1Count = preg_match_all('/<h1\b[^>]*>/i', $body) ?: 0;
         if ($h1Count === 0) {
-            $issues[] = $this->issue($digitalAssetId, $url, 'MISSING_H1', 'medium', 'Sayfada H1 başlığı bulunamadı.', $observedAt);
+            $issues[] = $this->issue(
+                $digitalAssetId,
+                $url,
+                'MISSING_H1',
+                'medium',
+                'Sayfada H1 başlığı bulunamadı.',
+                $observedAt,
+            );
         } elseif ($h1Count > 1) {
-            $issues[] = $this->issue($digitalAssetId, $url, 'MULTIPLE_H1', 'low', 'Sayfada birden fazla H1 başlığı bulunuyor.', $observedAt, ['h1_count' => $h1Count]);
+            $issues[] = $this->issue(
+                $digitalAssetId,
+                $url,
+                'MULTIPLE_H1',
+                'low',
+                'Sayfada birden fazla H1 başlığı bulunuyor.',
+                $observedAt,
+                ['h1_count' => $h1Count],
+            );
         }
 
         $canonicalCount = preg_match_all('/<link\b[^>]*\brel\s*=\s*["\'][^"\']*canonical[^"\']*["\'][^>]*>/i', $body) ?: 0;
         if ($canonicalCount === 0) {
-            $issues[] = $this->issue($digitalAssetId, $url, 'CANONICAL_MISSING', 'low', 'Sayfada canonical etiketi bulunamadı.', $observedAt);
+            $issues[] = $this->issue(
+                $digitalAssetId,
+                $url,
+                'CANONICAL_MISSING',
+                'low',
+                'Sayfada canonical etiketi bulunamadı.',
+                $observedAt,
+            );
         } elseif ($canonicalCount > 1) {
-            $issues[] = $this->issue($digitalAssetId, $url, 'CANONICAL_MULTIPLE', 'medium', 'Sayfada birden fazla canonical etiketi bulunuyor.', $observedAt, ['canonical_count' => $canonicalCount]);
+            $issues[] = $this->issue(
+                $digitalAssetId,
+                $url,
+                'CANONICAL_MULTIPLE',
+                'medium',
+                'Sayfada birden fazla canonical etiketi bulunuyor.',
+                $observedAt,
+                ['canonical_count' => $canonicalCount],
+            );
         }
 
         if (preg_match('/<meta\b[^>]*\bname\s*=\s*["\']?robots["\']?[^>]*\bcontent\s*=\s*["\'][^"\']*noindex[^"\']*["\'][^>]*>/i', $body)
             || preg_match('/<meta\b[^>]*\bcontent\s*=\s*["\'][^"\']*noindex[^"\']*["\'][^>]*\bname\s*=\s*["\']?robots["\']?[^>]*>/i', $body)) {
-            $issues[] = $this->issue($digitalAssetId, $url, 'NOINDEX', 'info', 'Sayfa arama motoru indekslemesine kapalı.', $observedAt);
+            $issues[] = $this->issue(
+                $digitalAssetId,
+                $url,
+                'NOINDEX',
+                'info',
+                'Sayfa arama motoru indekslemesine kapalı.',
+                $observedAt,
+            );
         }
 
         return $issues;
@@ -219,7 +301,9 @@ final class WebsitePageAnalyzer
     /** @param array<string, mixed> $fetch */
     public function isHtmlResponse(array $fetch): bool
     {
-        if (($fetch['ok'] ?? false) !== true || ! is_string($fetch['body'] ?? null) || trim((string) $fetch['body']) === '') {
+        if (($fetch['ok'] ?? false) !== true
+            || ! is_string($fetch['body'] ?? null)
+            || trim((string) $fetch['body']) === '') {
             return false;
         }
 
@@ -231,17 +315,75 @@ final class WebsitePageAnalyzer
         return str_contains($contentType, 'text/html') || str_contains($contentType, 'application/xhtml+xml');
     }
 
-    /** @param array<string, mixed> $fetch */
-    private function looksLikeErrorTemplate(array $fetch): bool
+    /**
+     * @param  array<string, mixed>  $fetch
+     * @return array{code:string,severity:string,message:string,signature:string}|null
+     */
+    private function detectedErrorTemplate(array $fetch): ?array
     {
         if (! $this->isHtmlResponse($fetch)) {
-            return false;
+            return null;
+        }
+
+        $status = is_numeric($fetch['status_code'] ?? null) ? (int) $fetch['status_code'] : null;
+        if ($status === null || $status < 200 || $status >= 400) {
+            return null;
         }
 
         $body = (string) $fetch['body'];
         $title = mb_strtolower((string) ($this->firstTagText($body, 'title') ?? ''));
         $text = mb_strtolower(mb_substr($this->visibleText($body), 0, 12000));
         $haystack = $title.' '.$text;
+
+        foreach ([
+            'there has been a critical error on this website',
+            'critical error on this website',
+            'sitenizde ciddi bir sorun çıktı',
+            'sitenizde ciddi bir sorun cikti',
+        ] as $signature) {
+            if (str_contains($haystack, $signature)) {
+                return [
+                    'code' => 'WORDPRESS_CRITICAL_ERROR',
+                    'severity' => 'critical',
+                    'message' => 'Sayfa HTTP başarılı dönüyor ancak WordPress kritik hata ekranı gösteriyor.',
+                    'signature' => $signature,
+                ];
+            }
+        }
+
+        foreach ([
+            'error establishing a database connection',
+            'veritabanı bağlantısı kurulurken hata oluştu',
+            'veritabanı bağlantısı kurulamadı',
+            'veritabani baglantisi kurulurken hata olustu',
+            'veritabani baglantisi kurulamadi',
+        ] as $signature) {
+            if (str_contains($haystack, $signature)) {
+                return [
+                    'code' => 'WORDPRESS_DATABASE_ERROR',
+                    'severity' => 'critical',
+                    'message' => 'Sayfa HTTP başarılı dönüyor ancak WordPress veritabanı bağlantı hatası gösteriyor.',
+                    'signature' => $signature,
+                ];
+            }
+        }
+
+        foreach ([
+            'briefly unavailable for scheduled maintenance',
+            'scheduled maintenance. check back in a minute',
+            'zamanlanmış bakım nedeniyle kısa süreliğine kullanılamıyor',
+            'bakım nedeniyle geçici olarak kullanılamıyor',
+            'bakim nedeniyle gecici olarak kullanilamiyor',
+        ] as $signature) {
+            if (str_contains($haystack, $signature)) {
+                return [
+                    'code' => 'APPLICATION_ERROR_PAGE',
+                    'severity' => 'high',
+                    'message' => 'HTTP isteği başarılı ancak ziyaretçiye uygulama veya bakım hata sayfası gösteriliyor.',
+                    'signature' => $signature,
+                ];
+            }
+        }
 
         foreach ([
             '404 not found',
@@ -252,15 +394,18 @@ final class WebsitePageAnalyzer
             'sayfa bulunamadi',
             'aradığınız sayfa bulunamadı',
             'aradiginiz sayfa bulunamadi',
-            'there has been a critical error on this website',
-            'critical error on this website',
-        ] as $marker) {
-            if (str_contains($haystack, $marker)) {
-                return true;
+        ] as $signature) {
+            if (str_contains($haystack, $signature)) {
+                return [
+                    'code' => 'SOFT_404',
+                    'severity' => 'high',
+                    'message' => 'URL HTTP başarılı dönüyor ancak içerik bir 404 veya bulunamadı şablonu gösteriyor.',
+                    'signature' => $signature,
+                ];
             }
         }
 
-        return false;
+        return null;
     }
 
     /** @param array<string, mixed> $fetch */
@@ -300,6 +445,7 @@ final class WebsitePageAnalyzer
         if (preg_match($quoted, $attributes, $match)) {
             return trim((string) $match[2]);
         }
+
         $unquoted = '/\b'.preg_quote($name, '/').'\s*=\s*([^\s>]+)/i';
         if (preg_match($unquoted, $attributes, $match)) {
             return trim((string) $match[1]);
