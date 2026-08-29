@@ -90,6 +90,42 @@ final class WebsiteDiscoveryTruthfulnessTest extends TestCase
         );
     }
 
+    public function test_external_redirect_is_not_promoted_to_website_inventory(): void
+    {
+        $analyzer = new WebsitePageAnalyzer;
+        $fetch = $this->htmlFetch(
+            'https://example.com/outbound',
+            '<!doctype html><html><head><title>External destination</title></head><body><h1>External destination</h1></body></html>',
+        );
+        $fetch['final_url'] = 'https://unrelated.example.org/landing';
+        $fetch['redirect_count'] = 1;
+
+        self::assertFalse($analyzer->isInventoryEligible($fetch));
+
+        $issues = $analyzer->issueSnapshots(42, $fetch, '2026-08-29 12:00:00');
+        $issue = collect($issues)->firstWhere('issue_code', 'EXTERNAL_REDIRECT');
+
+        self::assertIsArray($issue);
+        self::assertSame('medium', $issue['severity']);
+        self::assertSame('https://example.com/outbound', $issue['url']);
+        self::assertSame('https://unrelated.example.org/landing', $issue['metadata']['evidence']['final_url']);
+        self::assertNull(collect($issues)->firstWhere('issue_code', 'CANONICAL_MISSING'));
+    }
+
+    public function test_www_to_apex_redirect_remains_inventory_eligible(): void
+    {
+        $analyzer = new WebsitePageAnalyzer;
+        $fetch = $this->htmlFetch(
+            'https://www.example.com/services',
+            '<!doctype html><html><head><title>Services</title><meta name="description" content="Services"><link rel="canonical" href="https://example.com/services"></head><body><h1>Services</h1></body></html>',
+        );
+        $fetch['final_url'] = 'https://example.com/services';
+        $fetch['redirect_count'] = 1;
+
+        self::assertTrue($analyzer->isInventoryEligible($fetch));
+        self::assertNull(collect($analyzer->issueSnapshots(1, $fetch, '2026-08-29 12:00:00'))->firstWhere('issue_code', 'EXTERNAL_REDIRECT'));
+    }
+
     #[DataProvider('applicationErrorProvider')]
     public function test_application_error_templates_are_not_promoted_to_page_inventory(
         string $body,
