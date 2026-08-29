@@ -4,6 +4,7 @@ namespace Tests\Unit;
 
 use App\Services\Collection\Providers\Website\WebsitePageAnalyzer;
 use MoxDop\Website\Discovery\DiscoveryConfig;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class WebsiteDiscoveryTruthfulnessTest extends TestCase
@@ -20,29 +21,54 @@ final class WebsiteDiscoveryTruthfulnessTest extends TestCase
         self::assertNotContains('/locations', DiscoveryConfig::preferredPathHints());
     }
 
-    public function test_wordpress_critical_error_template_is_not_promoted_to_page_inventory(): void
-    {
+    #[DataProvider('applicationErrorProvider')]
+    public function test_application_error_templates_are_not_promoted_to_page_inventory(
+        string $body,
+        string $expectedIssueCode,
+        string $expectedSeverity,
+    ): void {
         $analyzer = new WebsitePageAnalyzer;
-        $fetch = $this->htmlFetch(
-            'https://www.moximu.com/contact-us',
-            '<!doctype html><html><head><title>WordPress Error</title></head><body><p>There has been a critical error on this website.</p></body></html>',
-        );
+        $fetch = $this->htmlFetch('https://example.com/broken', $body);
 
         self::assertFalse($analyzer->isInventoryEligible($fetch));
 
         $issues = $analyzer->issueSnapshots(1, $fetch, '2026-08-29 12:00:00');
-        self::assertContains('INVALID_PAGE_RESPONSE', array_column($issues, 'issue_code'));
+        $issue = collect($issues)->firstWhere('issue_code', $expectedIssueCode);
+
+        self::assertIsArray($issue);
+        self::assertSame($expectedSeverity, $issue['severity']);
     }
 
-    public function test_soft_404_template_is_not_promoted_to_page_inventory(): void
+    /** @return array<string, array{string, string, string}> */
+    public static function applicationErrorProvider(): array
     {
-        $analyzer = new WebsitePageAnalyzer;
-        $fetch = $this->htmlFetch(
-            'https://example.com/does-not-exist',
-            '<!doctype html><html><head><title>404 Not Found</title></head><body><h1>Page not found</h1></body></html>',
-        );
-
-        self::assertFalse($analyzer->isInventoryEligible($fetch));
+        return [
+            'wordpress critical english' => [
+                '<!doctype html><html><head><title>WordPress Error</title></head><body>There has been a critical error on this website.</body></html>',
+                'WORDPRESS_CRITICAL_ERROR',
+                'critical',
+            ],
+            'wordpress critical turkish' => [
+                '<!doctype html><html><head><title>Hata</title></head><body>Sitenizde ciddi bir sorun çıktı.</body></html>',
+                'WORDPRESS_CRITICAL_ERROR',
+                'critical',
+            ],
+            'wordpress database error' => [
+                '<!doctype html><html><head><title>Error</title></head><body>Error establishing a database connection</body></html>',
+                'WORDPRESS_DATABASE_ERROR',
+                'critical',
+            ],
+            'maintenance application error' => [
+                '<!doctype html><html><head><title>Maintenance</title></head><body>Briefly unavailable for scheduled maintenance. Check back in a minute.</body></html>',
+                'APPLICATION_ERROR_PAGE',
+                'high',
+            ],
+            'soft 404' => [
+                '<!doctype html><html><head><title>404 Not Found</title></head><body><h1>Page not found</h1></body></html>',
+                'SOFT_404',
+                'high',
+            ],
+        ];
     }
 
     public function test_real_successful_html_page_is_inventory_eligible(): void
