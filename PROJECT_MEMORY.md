@@ -405,6 +405,20 @@ Canonical adoption registry: `docs/research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT
 
 ---
 
+## Website source boundary (accepted 2026-08-29)
+
+- WordPress Connector = CMS inside truth. Public Discovery = externally published HTTP/HTML truth.
+- A paired WordPress Website keeps Public Discovery and adds the authenticated connector family; it never replaces public verification.
+- Non-WordPress Websites use public collection families.
+- Connector is asset-scoped, read-only, least-data and signed. No WordPress writes, users/passwords/comments or media binaries.
+- Integration screens show collection truth only. Deterministic Findings, Recommendations and manual Task handoff belong to the Website Digital Asset analysis workspace.
+- Update availability is an observed maintenance state, not a CVE/vulnerability claim.
+- Code/test completion does not prove live WordPress UAT or production deployment.
+
+Canonical decision: ADR-045. Detailed contract: `docs/product/website/WORDPRESS.md`.
+
+---
+
 ## Source priority
 
 Preserve MASTER_SPEC supremacy while integrating project memory:

@@ -4,9 +4,9 @@ namespace Tests\Feature;
 
 use App\Livewire\Demo\Dashboard;
 use App\Livewire\Demo\Files\FilesIndex;
-use App\Livewire\Demo\Integrations\SiteConnectorsIndex;
 use App\Livewire\Demo\LocaleSwitcher;
 use App\Livewire\Demo\ProfilePage;
+use App\Livewire\Operator\Integrations\SiteConnectorsIndex;
 use App\Models\User;
 use App\Support\Demo\DemoMenu;
 use App\Support\Roles;

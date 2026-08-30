@@ -4,7 +4,7 @@ namespace Tests\Feature;
 
 use App\Livewire\Demo\Files\FilesIndex;
 use App\Livewire\Demo\Instagram\OverviewPage as InstagramOverviewPage;
-use App\Livewire\Demo\Integrations\SiteConnectorShow;
+use App\Livewire\Operator\Integrations\SiteConnectorShow;
 use App\Livewire\Demo\ProfilePage;
 use App\Livewire\Demo\Settings\AiControlPlanePage;
 use App\Livewire\Demo\SettingsPage;
@@ -13,7 +13,6 @@ use App\Models\OperatorFile;
 use App\Models\User;
 use App\Support\Demo\DemoMenu;
 use App\Support\Demo\DemoState;
-use App\Support\Demo\SiteConnectorFixtures;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -118,28 +117,26 @@ class FinalInterfaceCompletionTest extends TestCase
         $this->assertSame('tr', app()->getLocale());
     }
 
-    public function test_site_connector_download_is_labeled_demo(): void
+    public function test_site_connector_download_is_a_production_plugin(): void
     {
+        DigitalAsset::factory()->create(['type' => 'website', 'primary_url' => 'https://example.com']);
         $response = $this->get(route('operator.integrations.site-connector.download', ['connector' => 'wordpress']));
 
         $response->assertOk();
         $disposition = (string) $response->headers->get('content-disposition');
-        $this->assertStringContainsString('moxdop-wordpress-connector-0.1.0-demo.zip', $disposition);
-        $this->assertStringContainsString('DEMO CONNECTOR PACKAGE', (string) $response->headers->get('X-MoxDOP-Package'));
+        $this->assertStringContainsString('moxdop-wordpress-connector-1.0.0.zip', $disposition);
+        $this->assertSame('WORDPRESS CONNECTOR PRODUCTION PACKAGE', $response->headers->get('X-MoxDOP-Package'));
 
         Livewire::test(SiteConnectorShow::class, ['connector' => 'wordpress'])
-            ->assertSee('DEMO CONNECTOR PACKAGE')
-            ->assertSee('not production', false)
-            ->call('setTab', 'releases')
-            ->assertSee('v0.1.0 Demo');
+            ->assertSee('moxdop-wordpress-connector-1.0.0.zip')
+            ->assertDontSee('DEMO CONNECTOR PACKAGE');
 
-        $zipPath = SiteConnectorFixtures::ensureDemoZip();
         $zip = new ZipArchive;
-        $this->assertTrue($zip->open($zipPath) === true);
-        $readme = $zip->getFromName('README.txt');
+        $this->assertTrue($zip->open($response->baseResponse->getFile()->getPathname()) === true);
+        $plugin = $zip->getFromName('moxdop-connector/moxdop-connector.php');
         $zip->close();
-        $this->assertIsString($readme);
-        $this->assertStringContainsString('DEMO CONNECTOR PACKAGE — NOT PRODUCTION INSTALLABLE', $readme);
+        $this->assertIsString($plugin);
+        $this->assertStringContainsString('Plugin Name: MoxDOP Website Connector', $plugin);
     }
 
     public function test_instagram_workspace_returns_ok_with_useful_tabs(): void

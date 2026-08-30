@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Controllers\Demo\OperatorFileDownloadController;
-use App\Http\Controllers\Demo\SiteConnectorDownloadController;
+use App\Http\Controllers\Integrations\WordPressConnectorDownloadController;
 use App\Http\Controllers\Operator\LegacyWorkRedirectController;
 use App\Http\Controllers\Operator\RetiredAssetTypeRedirectController;
 use App\Http\Controllers\Prospects\ProspectReportArtifactDownloadController;
@@ -17,8 +17,8 @@ use App\Livewire\Demo\Integrations\GoogleAdsConnectorPage;
 use App\Livewire\Demo\Integrations\GoogleIntegrationPage;
 use App\Livewire\Demo\Integrations\IntegrationsIndex;
 use App\Livewire\Demo\Integrations\MetaIntegrationPage;
-use App\Livewire\Demo\Integrations\SiteConnectorShow;
-use App\Livewire\Demo\Integrations\SiteConnectorsIndex;
+use App\Livewire\Operator\Integrations\SiteConnectorShow;
+use App\Livewire\Operator\Integrations\SiteConnectorsIndex;
 use App\Livewire\Demo\Meta\AdDetailPage;
 use App\Livewire\Demo\Meta\AdSetDetailPage;
 use App\Livewire\Demo\Meta\AdSetsPage;
@@ -95,7 +95,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/integrations/dataforseo', DataForSeoIntegrationPage::class)->name('operator.integrations.dataforseo');
         Route::livewire('/integrations/site-connectors', SiteConnectorsIndex::class)->name('operator.integrations.site-connectors');
         Route::livewire('/integrations/site-connectors/{connector}', SiteConnectorShow::class)->name('operator.integrations.site-connector');
-        Route::get('/integrations/site-connectors/{connector}/download', SiteConnectorDownloadController::class)
+        Route::get('/integrations/site-connectors/{connector}/download', WordPressConnectorDownloadController::class)
             ->name('operator.integrations.site-connector.download');
         Route::livewire('/integrations/connectors/google-ads', GoogleAdsConnectorPage::class)->name('operator.integrations.google-ads.connector');
         Route::livewire('/integrations/connectors/{connector}', ConnectorPage::class)->name('operator.integrations.connector');

@@ -4,12 +4,14 @@ namespace App\Services\Collection\Website;
 
 use App\Enums\Collection\CollectionTriggerType;
 use App\Models\Collection\CollectionRun;
+use App\Models\CoreConnection;
 use App\Models\DigitalAsset;
 use App\Models\User;
 use App\Services\Collection\Providers\DataForSeo\DataForSeoRequestFamilyCatalog;
 use App\Services\Collection\Providers\Website\WebsiteRequestFamilyCatalog;
 use App\Services\Collection\StartCollectionService;
 use App\Services\Collection\Support\StartCollectionRequest;
+use App\Services\Integrations\WordPress\WordPressConnectorPairingService;
 use InvalidArgumentException;
 
 /**
@@ -49,7 +51,15 @@ final class WebsiteCollectionOrchestrator
             // The Website data center collects only production-ready public website families.
             // Authenticated CMS/site-connector families are added only when their production
             // connector is explicitly enabled; they must never be silently planned here.
-            $families = WebsiteRequestFamilyCatalog::supportedFamilies();
+            $families = WebsiteRequestFamilyCatalog::publicFamilies();
+
+            if ($this->hasPairedWordPressConnector($asset)) {
+                $providers[] = 'WORDPRESS_SITE_CONNECTOR';
+                $families = array_values(array_unique(array_merge(
+                    $families,
+                    WebsiteRequestFamilyCatalog::connectorFamilies(),
+                )));
+            }
 
             if ($includeDataForSeo) {
                 $families = array_values(array_unique(array_merge(
@@ -78,5 +88,17 @@ final class WebsiteCollectionOrchestrator
                 'website_intelligence_version' => 'v1',
             ]),
         ));
+    }
+
+    private function hasPairedWordPressConnector(DigitalAsset $asset): bool
+    {
+        return CoreConnection::query()
+            ->where('digital_asset_id', $asset->id)
+            ->where('type', WordPressConnectorPairingService::CONNECTION_TYPE)
+            ->where('config->pairing_state', WordPressConnectorPairingService::PAIRED)
+            ->where('enabled', true)
+            ->whereNotNull('last_success_at')
+            ->whereHas('credential')
+            ->exists();
     }
 }

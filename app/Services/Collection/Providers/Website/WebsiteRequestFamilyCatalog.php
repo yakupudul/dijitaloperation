@@ -7,7 +7,7 @@ use InvalidArgumentException;
 /**
  * Contract-driven Website request-family definitions (Registry WEB_RF_*).
  *
- * WordPress inventory is executed by the dedicated WordPress REST executor while
+ * WordPress inventory is executed by the authenticated WordPress Connector executor while
  * the provider-neutral crawler remains the canonical externally-observable source.
  */
 final class WebsiteRequestFamilyCatalog
@@ -27,6 +27,12 @@ final class WebsiteRequestFamilyCatalog
      */
     public static function supportedFamilies(): array
     {
+        return [...self::publicFamilies(), ...self::connectorFamilies()];
+    }
+
+    /** @return list<string> */
+    public static function publicFamilies(): array
+    {
         return [
             self::FAMILY_HTTP_HTML_DIAGNOSIS,
             self::FAMILY_PAGESPEED,
@@ -38,7 +44,7 @@ final class WebsiteRequestFamilyCatalog
     /**
      * @return list<string>
      */
-    public static function deferredFamilies(): array
+    public static function connectorFamilies(): array
     {
         return [
             self::FAMILY_WP_REST,
@@ -98,6 +104,19 @@ final class WebsiteRequestFamilyCatalog
                     'website_content_stats',
                     'website_link_edge',
                     'website_crawl_issue_snapshot',
+                ],
+                'requires_date_range' => false,
+                'preferred_mode' => 'sync',
+                'high_cardinality' => true,
+            ],
+            self::FAMILY_WP_REST => [
+                'kind' => 'wordpress_connector',
+                'dataset_ids' => [
+                    'website_cms_site_snapshot',
+                    'website_cms_object_snapshot',
+                    'website_cms_extension_snapshot',
+                    'website_cms_taxonomy_snapshot',
+                    'website_cms_seo_snapshot',
                 ],
                 'requires_date_range' => false,
                 'preferred_mode' => 'sync',

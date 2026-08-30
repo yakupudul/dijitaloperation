@@ -2,6 +2,13 @@
 
 Status reference for the frozen operator panel (now at site root; ADR-044). Historical `/app` path labels in this freeze are superseded. UI work after this document requires product-level justification.
 
+> **2026-08-30 amendment:** The Website Integration and WordPress Site
+> Connector classifications below were historical freeze-time values. ADR-045
+> replaces the demo package/pairing path with the production read-only
+> `wordpress_connector` package, secure pairing, five CMS snapshot datasets and
+> post-collection Website analysis. The Integration surface remains collection
+> only; Findings, Recommendations and Tasks remain Website/Operations concerns.
+
 ## Capability Reality Matrix
 
 | Capability | Classification | Notes |
@@ -11,9 +18,9 @@ Status reference for the frozen operator panel (now at site root; ADR-044). Hist
 | Brand Context | DEMO | Offerings/audiences/markets/goals in fixtures |
 | Public Discovery | DEMO | Deterministic discovery candidates |
 | Files | REAL | OperatorFile persistence, upload/download/auth |
-| Website | PARTIAL | Specialist workspace + demo health/content; Site Connector pairing demo |
+| Website | PARTIAL / REAL DATA PATHS | Specialist workspace composes production source pools; some historical presentation remains partial |
 | Website Infrastructure | DEMO | Domain/DNS/hosting/CDN presented as Website sections |
-| WordPress Site Connector | PARTIAL | Demo package + pairing UX; not production-installable |
+| WordPress Site Connector | REAL CODE PATH | Production-installable read-only package, secure pairing and CMS snapshot collection; deployment/UAT pending |
 | GBP | DEMO | Local visibility/reviews/competitors fixtures |
 | Google Ads | DEMO / PARTIAL | Specialist panels remain Demo (Prompt 30); Prompt 19 production collector writes real Ads pool facts |
 | Meta Ads | PARTIAL | Specialist UI REAL/PARTIAL (Prompt 31); Integration auth/discovery/binding real (21–23); Prompt 24 collector + Prompt 25 initial backfill write real Meta pool facts |

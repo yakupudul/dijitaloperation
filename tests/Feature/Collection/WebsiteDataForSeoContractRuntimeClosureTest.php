@@ -9,6 +9,7 @@ use App\Services\Collection\Providers\DataForSeo\DataForSeoDatasetExecutor;
 use App\Services\Collection\Providers\DataForSeo\DataForSeoRequestFamilyCatalog;
 use App\Services\Collection\Providers\Website\WebsiteDatasetExecutor;
 use App\Services\Collection\Providers\Website\WebsiteRequestFamilyCatalog;
+use App\Services\Collection\Providers\Website\WordPressConnectorDatasetExecutor;
 use App\Services\CollectionScheduler\CollectionSchedulingPolicyRegistry;
 use App\Services\DataPool\DataPoolStorageRegistry;
 use App\Services\DataPool\Freshness\DataFreshnessPolicyLoader;
@@ -61,13 +62,24 @@ class WebsiteDataForSeoContractRuntimeClosureTest extends TestCase
             ->values();
 
         $readyIds = $readyFamilies->pluck('id')->all();
-        $this->assertEqualsCanonicalizing(WebsiteRequestFamilyCatalog::supportedFamilies(), array_values($readyIds));
+        $this->assertEqualsCanonicalizing(WebsiteRequestFamilyCatalog::publicFamilies(), array_values($readyIds));
         $this->assertNotContains(WebsiteRequestFamilyCatalog::FAMILY_WP_REST, $readyIds);
 
-        $deferred = collect($registry->requestFamilies())
+        $connectorFamily = collect($registry->requestFamilies())
             ->first(static fn (array $family): bool => ($family['id'] ?? '') === WebsiteRequestFamilyCatalog::FAMILY_WP_REST);
-        $this->assertNotNull($deferred);
-        $this->assertSame('DEFERRED', $deferred['status'] ?? null);
+        $this->assertNotNull($connectorFamily);
+        $this->assertSame('WORDPRESS_SITE_CONNECTOR', $connectorFamily['provider_or_source'] ?? null);
+        $this->assertSame('COLLECTION_READY', $connectorFamily['status'] ?? null);
+
+        $connectorExecutor = app(WordPressConnectorDatasetExecutor::class);
+        $this->assertContains(WebsiteRequestFamilyCatalog::FAMILY_WP_REST, $connectorExecutor->supportedRequestFamilies());
+        $this->assertInstanceOf(
+            WordPressConnectorDatasetExecutor::class,
+            $resolver->resolve(CollectionDatasetRun::factory()->make([
+                'request_family_id' => WebsiteRequestFamilyCatalog::FAMILY_WP_REST,
+                'provider_or_source' => 'WORDPRESS_SITE_CONNECTOR',
+            ])),
+        );
 
         $executorSource = file_get_contents(app_path('Services/Collection/Providers/Website/WebsiteDatasetExecutor.php'));
         $this->assertIsString($executorSource);

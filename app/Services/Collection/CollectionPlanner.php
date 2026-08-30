@@ -15,6 +15,7 @@ use App\Services\Collection\Providers\MetaAds\MetaAdsRequestFamilyCatalog;
 use App\Services\Collection\Providers\Website\WebsiteRequestFamilyCatalog;
 use App\Services\Collection\Support\StartCollectionRequest;
 use App\Services\DataPool\Freshness\IncrementalCoveragePlanner;
+use App\Services\Integrations\WordPress\WordPressConnectorPairingService;
 use App\Services\PageSpeedConnectionProbeService;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
@@ -47,6 +48,7 @@ final class CollectionPlanner
         'WEBSITE_DIRECT',
         'DOMAIN_DNS_TLS',
         'PAGESPEED_TECHNICAL',
+        'WORDPRESS_SITE_CONNECTOR',
         'DATAFORSEO',
     ];
 
@@ -447,7 +449,10 @@ final class CollectionPlanner
 
                 $level = $this->requirementLevelForFamily($familyId);
                 $eligibility = $this->eligibilityForFamily($family, $request);
-                $datasetId = $this->primaryDatasetForFamily($familyId) ?? $familyId;
+                $primaryDatasetId = $this->primaryDatasetForFamily($familyId) ?? $familyId;
+                $datasetIds = $familyId === WebsiteRequestFamilyCatalog::FAMILY_WP_REST
+                    ? WebsiteRequestFamilyCatalog::definition($familyId)['dataset_ids']
+                    : [$primaryDatasetId];
                 $requirements = $this->requirementsForFamily($familyId);
                 $requirementIds = array_values(array_filter(array_map(
                     static fn (array $r): ?string => is_string($r['id'] ?? null) ? (string) $r['id'] : null,
@@ -457,33 +462,35 @@ final class CollectionPlanner
                 $notEligible = $eligibility === CollectionRunStatus::NotEligible
                     || $incremental;
 
-                $datasets[] = [
-                    'resource_key' => $resourceKey,
-                    'provider_or_source' => $provider,
-                    'dataset_contract_id' => $datasetId,
-                    'request_family_id' => $familyId,
-                    'requirement_ids' => $requirementIds,
-                    'requirement_level' => $level->value,
-                    'planned_status' => $notEligible
-                        ? CollectionRunStatus::NotEligible->value
-                        : CollectionRunStatus::Queued->value,
-                    'plan_disposition' => $notEligible
-                        ? PlanDisposition::NotEligible->value
-                        : PlanDisposition::Eligible->value,
-                    'date_range' => null,
-                    'coverage_target' => $this->ranges->resolveForRequirements($requirements),
-                    'depends_on_request_family_ids' => $this->familyDependencies($familyId),
-                    'core_asset_binding_id' => null,
-                    'digital_asset_id' => $asset->id,
-                    'external_resource_id' => null,
-                    'plan_disposition_detail' => [
-                        'type' => $notEligible ? PlanDisposition::NotEligible->value : PlanDisposition::Eligible->value,
+                foreach ($datasetIds as $datasetId) {
+                    $datasets[] = [
+                        'resource_key' => $resourceKey,
+                        'provider_or_source' => $provider,
+                        'dataset_contract_id' => $datasetId,
                         'request_family_id' => $familyId,
-                        'reason' => $incremental
-                            ? 'Website/DataForSEO production collection is operator on-demand, not incremental watermark catch-up.'
-                            : ($notEligible ? 'not_eligible' : 'eligible'),
-                    ],
-                ];
+                        'requirement_ids' => $requirementIds,
+                        'requirement_level' => $level->value,
+                        'planned_status' => $notEligible
+                            ? CollectionRunStatus::NotEligible->value
+                            : CollectionRunStatus::Queued->value,
+                        'plan_disposition' => $notEligible
+                            ? PlanDisposition::NotEligible->value
+                            : PlanDisposition::Eligible->value,
+                        'date_range' => null,
+                        'coverage_target' => $this->ranges->resolveForRequirements($requirements),
+                        'depends_on_request_family_ids' => $this->familyDependencies($familyId),
+                        'core_asset_binding_id' => null,
+                        'digital_asset_id' => $asset->id,
+                        'external_resource_id' => null,
+                        'plan_disposition_detail' => [
+                            'type' => $notEligible ? PlanDisposition::NotEligible->value : PlanDisposition::Eligible->value,
+                            'request_family_id' => $familyId,
+                            'reason' => $incremental
+                                ? 'Website/DataForSEO production collection is operator on-demand, not incremental watermark catch-up.'
+                                : ($notEligible ? 'not_eligible' : 'eligible'),
+                        ],
+                    ];
+                }
             }
         }
     }
@@ -666,6 +673,20 @@ final class CollectionPlanner
                 ->where('enabled', true)
                 ->exists();
             if (! $hasConnection) {
+                return CollectionRunStatus::NotEligible;
+            }
+        }
+
+        if ($familyId === WebsiteRequestFamilyCatalog::FAMILY_WP_REST) {
+            $hasPairedConnector = CoreConnection::query()
+                ->where('digital_asset_id', $request->digitalAsset->id)
+                ->where('type', WordPressConnectorPairingService::CONNECTION_TYPE)
+                ->where('config->pairing_state', WordPressConnectorPairingService::PAIRED)
+                ->where('enabled', true)
+                ->whereNotNull('last_success_at')
+                ->whereHas('credential')
+                ->exists();
+            if (! $hasPairedConnector) {
                 return CollectionRunStatus::NotEligible;
             }
         }

@@ -374,6 +374,22 @@
 
 ---
 
+## ADR-045 — WordPress inside truth + Public Discovery outside truth
+
+- **Durum:** Accepted
+- **Tarih:** 2026-08-29
+- **Bağlam:** Public `/wp-json/wp/v2` envanteri, CMS’in yetkili iç durumunu temsil etmiyor; yalnız connector ise gerçek HTTP, redirect ve yayınlanan final HTML’i kanıtlayamıyor. Entegrasyon ekranındaki collection state ile Website varlığındaki diagnosis çıktısı da karışmamalı.
+- **Karar:**
+  1. WordPress V1, Website asset-scoped `CoreConnection` + encrypted credential ile gerçek, kurulabilir, read-only plugin connector olarak çalışır.
+  2. Connector CMS iç gerçeğini toplar. Public Discovery, WordPress sitelerde kaldırılmaz; dış HTTP/HTML doğrulama katmanı olarak aynı Website collection planında kalır. WordPress olmayan siteler public family’lerle çalışır.
+  3. Connector pairing tek kullanımlık hash-stored code ve iki yönlü HMAC-SHA256 imza kullanır. Write REST route, user/password/comment ve media binary collection yoktur.
+  4. Integration surface yalnız bağlantı, collection progress/history, dataset ve raw/normalized record truth gösterir. Finding/Recommendation/Task burada üretilmez veya sunulmaz.
+  5. Website Digital Asset analysis tamamlanmış WordPress/Public DatasetRun’larını birleştirir; connector ayarı ile published HTML farkları deterministik Finding olabilir. GA4/GSC davranış/platform Evidence’i mevcut akışlardan eklenir. Recommendation grounded, Task dönüşümü manueldir.
+  6. Connector code/test completion live WordPress UAT veya production deploy anlamına gelmez.
+- **İlgili:** ADR-012, ADR-017, ADR-018, ADR-027, ADR-034, ADR-039; `docs/product/website/WORDPRESS.md`; `PRODUCT_CAPABILITY_LEDGER.md`
+
+---
+
 ## Karar indeksi
 
 | ID | Başlık | Durum |
@@ -422,6 +438,7 @@
 | ADR-042 | GA4 first-class Digital Asset + Evidence role | Accepted |
 | ADR-043 | GSC first-class Digital Asset + Evidence role | Accepted |
 | ADR-044 | Canonical operator routes + Filament `/admin` | Accepted |
+| ADR-045 | WordPress inside truth + Public Discovery outside truth | Accepted |
 
 ## Süpercede edilen kararlar
 

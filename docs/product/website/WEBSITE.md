@@ -15,10 +15,11 @@ Website asset; WordPress/GA4/GSC/DataForSEO/PageSpeed connection'lardır.
 ## MVP behavior
 
 * Brand altında Website kaydı: domain, primary URL, CMS (opsiyonel), languages, target countries, site type, optional hosting context
-* Related connections
+* Related connections and source-specific collection state
 * Ekran vizyonu: Overview, Connections, Runs, Findings, Recommendations, Tasks
 * İlk akış: Customer → Brand → Website → Diagnosis → Evidence → Findings → Recommendations → Task
-* WordPress status derived from WordPress connection when present
+* WordPress status derived from the authenticated read-only WordPress connection when present
+* Public Discovery remains active for WordPress and non-WordPress sites; it verifies externally published HTTP/HTML
 
 ## Important data / attributes
 
@@ -34,7 +35,8 @@ Website create/detail; attach connections; start diagnosis run.
 
 ## Rules / invariants
 
-CMS-specific fields Core'a şişirilmez; module/connection'dan gelir.
+CMS-specific fields Core'a şişirilmez; module/connection'dan gelir. Integration ekranı collection truth gösterir;
+Finding/Recommendation/Task yalnızca Website Digital Asset analizinde üretilir.
 
 ## Derived information
 

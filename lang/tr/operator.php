@@ -116,15 +116,15 @@ return [
 
     'site_connectors' => [
         'title' => 'Site bağlayıcıları',
-        'subtitle' => 'Yönetilen bir Website’i MoxDOP ile eşleyen kurulabilir site paketleri (demo katalog).',
+        'subtitle' => 'Yönetilen bir Website’i MoxDOP ile güvenli biçimde eşleyen, kurulabilir salt-okunur site paketleri.',
         'catalog' => 'Bağlayıcı kataloğu',
         'overview' => 'Genel bakış',
         'releases' => 'Sürümler',
         'install' => 'Kurulum',
         'connected' => 'Bağlı siteler',
         'activity' => 'Aktivite',
-        'download_demo' => 'Demo paketini indir',
-        'demo_badge' => 'Demo paketi — üretim kurulumu için değil',
+        'download_package' => 'Production paketini indir',
+        'production_badge' => 'Production kuruluma uygun salt-okunur connector',
         // Provider names stay as proper nouns (WordPress, etc.)
         'wordpress' => 'WordPress',
     ],

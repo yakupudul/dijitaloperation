@@ -12,6 +12,15 @@
 
 Future semantic changes require **v2** or an explicit amendment.
 
+> **Runtime amendment — 2026-08-30:** ADR-045 implements the first production
+> WordPress overlay without changing the frozen Website source boundaries. A
+> dedicated `wordpress_connector` connection now collects five read-only CMS
+> snapshot datasets (site, objects/media, extensions, taxonomies, SEO). Public
+> Discovery remains the independent outside-view source. Connector collection
+> state stays in Integration; cross-source conditions are evaluated in the
+> Website digital asset. See `docs/product/website/WORDPRESS.md` for the current
+> operational contract.
+
 Related contracts (do **not** redefine):
 
 - `docs/data-contracts/GA4_DATA_CONTRACT_V1.md`
@@ -699,12 +708,13 @@ Risks: link-edge cardinality, media, schema objects, PSI call volume.
 | `DigitalAsset` Website fields | Identity | DB | Strong | KEEP |
 | `WebsiteDiagnosisService` + parsers | HTTP/TLS/robots/sitemap/canonical/head | Direct | Strong partial | KEEP / ADAPT |
 | `PublicSiteCrawler` / Discovery | Bounded crawl + candidates | Direct | Partial | KEEP / ADAPT |
-| WordPress probe | REST index | WP | Weak vs Content UI | ADAPT LATER |
+| WordPress probe | REST index | WP | Legacy application-password path | KEEP SEPARATE |
+| WordPress Connector V1 | Signed read-only site/CMS snapshots | WP | Implemented; production package and collection path | KEEP / EXTEND |
 | PageSpeed probe | PSI lab Evidence | PSI | Present unused in Filament UI | ADAPT LATER |
 | GSC/GA4 collectors | Measurement | GSC/GA4 | Strong | KEEP |
 | DataForSEO SEO Intelligence | Ranked/KFS | DFS | Partial | KEEP; Prompt 6 |
 | Demo Website fixtures / OverviewPage | Frozen IA | Demo | Spec source | KEEP Demo |
-| Site Connector Demo ZIP | UX | Demo | Not production plugin | ADAPT / REPLACE LATER |
+| WordPress Connector package | Pairing + collection UX | WP | Production-installable source package | KEEP / EXTEND |
 | Legacy domain/hosting asset types | Deprecated | Demo catalog | Legacy | REMOVE LATER from creation |
 
 ---
@@ -713,15 +723,15 @@ Risks: link-edge cardinality, media, schema objects, PSI call volume.
 
 | Area | Status |
 | --- | --- |
-| Site identity | PARTIAL (probe `/wp-json/`) |
-| Content inventory pages/posts/CPTs | **MISSING** |
-| Taxonomy | **MISSING** |
-| Media library | **MISSING** |
-| SEO metadata adapters | **MISSING** |
-| Capabilities model | **MISSING** (Demo lists provides[]) |
-| Pagination | **MISSING** |
-| Multilingual | **MISSING** |
-| Production readiness | **NOT ready** for Content tab — probe-only |
+| Site identity | IMPLEMENTED (signed connector snapshot) |
+| Content inventory pages/posts/CPTs | IMPLEMENTED |
+| Taxonomy | IMPLEMENTED |
+| Media library | IMPLEMENTED (metadata and URL only; no binary download) |
+| SEO metadata adapters | IMPLEMENTED (allowlisted fields) |
+| Capabilities model | IMPLEMENTED in the connector status/snapshot contract |
+| Pagination | IMPLEMENTED with bounded signed pages |
+| Multilingual | IMPLEMENTED for exposed Polylang language metadata |
+| Production readiness | CODE COMPLETE; deployment/UAT remains an operator responsibility |
 
 ---
 

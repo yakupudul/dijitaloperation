@@ -36,12 +36,12 @@
             <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>
                     <p class="text-sm font-semibold text-gray-900 dark:text-white">CMS detected · WordPress</p>
-                    <p class="mt-1 text-xs text-gray-500">Recommended: MoxDOP WordPress Connector (Demo package)</p>
-                    <p class="mt-2 text-xs text-amber-700 dark:text-amber-300">{{ __('operator.site_connectors.demo_badge') }}</p>
+                    <p class="mt-1 text-xs text-gray-500">Recommended: MoxDOP WordPress Connector</p>
+                    <p class="mt-2 text-xs text-emerald-700 dark:text-emerald-300">{{ __('operator.site_connectors.production_badge') }}</p>
                 </div>
                 <div class="flex flex-wrap gap-2">
                     <x-ta.button :href="route('operator.integrations.site-connector', ['connector' => 'wordpress'])" size="sm">{{ __('operator.actions.open') }}</x-ta.button>
-                    <x-ta.button :href="route('operator.integrations.site-connector.download', ['connector' => 'wordpress'])" size="sm" variant="outline">{{ __('operator.site_connectors.download_demo') }}</x-ta.button>
+                    <x-ta.button :href="route('operator.integrations.site-connector.download', ['connector' => 'wordpress'])" size="sm" variant="outline">{{ __('operator.site_connectors.download_package') }}</x-ta.button>
                 </div>
             </div>
         </div>

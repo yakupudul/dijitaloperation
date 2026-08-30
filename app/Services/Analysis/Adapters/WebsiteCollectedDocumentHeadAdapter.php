@@ -31,13 +31,19 @@ final class WebsiteCollectedDocumentHeadAdapter
     public function __construct(
         private readonly DocumentHeadEvaluator $documentHeadEvaluator,
         private readonly FindingLifecycleService $lifecycle,
+        private readonly WordPressCollectedFactsEvaluator $wordpress,
         private readonly PublicUrlNormalizer $urls = new PublicUrlNormalizer,
     ) {}
 
     public function evaluate(DigitalAsset $asset): CollectedFactsAnalysisResult
     {
+        $wordpress = $this->wordpress->evaluate($asset);
         $snapshot = $this->latestMetadataSnapshot($asset);
         if ($snapshot === null) {
+            if ($wordpress['evaluated']) {
+                return $this->evaluateWordPressOnly($asset, $wordpress);
+            }
+
             return $this->skipUnprovenHomepage($asset);
         }
 
@@ -91,7 +97,92 @@ final class WebsiteCollectedDocumentHeadAdapter
             $dimensions,
         );
 
-        return $this->persist($asset, $run, $result, $this->provenanceFromRow($snapshot, $schema));
+        if ($wordpress['evaluated']) {
+            $this->recordWordPressEvidence($asset, $run, $wordpress);
+            $wordpressObservedAt = $wordpress['observed_at'];
+            $result = new RuleEvaluationResult(
+                asset: $result->asset,
+                sourceModule: $result->sourceModule,
+                run: $result->run,
+                evaluationSuccessful: $result->evaluationSuccessful,
+                evaluatedRuleIds: array_values(array_unique(array_merge(
+                    $result->evaluatedRuleIds,
+                    $wordpress['evaluated_rule_ids'],
+                ))),
+                matches: array_merge($result->matches, $wordpress['matches']),
+                observedAt: $wordpressObservedAt instanceof CarbonImmutable && $wordpressObservedAt->greaterThan($observedAt)
+                    ? $wordpressObservedAt
+                    : $observedAt,
+            );
+        }
+
+        return $this->persist($asset, $run, $result, array_merge(
+            $this->provenanceFromRow($snapshot, $schema),
+            $wordpress['evaluated'] ? ['wordpress_connector' => $wordpress['provenance']] : [],
+        ));
+    }
+
+    /**
+     * @param array{
+     *   evaluated:bool,evaluated_rule_ids:list<string>,matches:list<\App\Support\Findings\RuleMatch>,
+     *   observed_at:?CarbonImmutable,provenance:array<string,mixed>,evidence:array<string,mixed>
+     * } $wordpress
+     */
+    private function evaluateWordPressOnly(DigitalAsset $asset, array $wordpress): CollectedFactsAnalysisResult
+    {
+        $observedAt = $wordpress['observed_at'];
+        if (! $observedAt instanceof CarbonImmutable) {
+            return $this->skipUnprovenHomepage($asset);
+        }
+
+        $run = Run::query()->create([
+            'digital_asset_id' => $asset->id,
+            'module_id' => WebsiteDiagnosisService::MODULE_ID,
+            'status' => 'running',
+            'started_at' => now(),
+            'metadata' => [
+                'pipeline' => self::PIPELINE,
+                'generated_by_ai' => false,
+                'provider_calls' => 0,
+                'ai_calls' => 0,
+                'dataset_id' => 'website_cms_site_snapshot',
+                'collection_run_id' => $wordpress['provenance']['collection_run_id'] ?? null,
+                'dataset_run_id' => $wordpress['provenance']['dataset_run_id'] ?? null,
+            ],
+        ]);
+        $this->recordWordPressEvidence($asset, $run, $wordpress);
+        $result = new RuleEvaluationResult(
+            asset: $asset,
+            sourceModule: WebsiteDiagnosisService::MODULE_ID,
+            run: $run,
+            evaluationSuccessful: true,
+            evaluatedRuleIds: $wordpress['evaluated_rule_ids'],
+            matches: $wordpress['matches'],
+            observedAt: $observedAt,
+        );
+
+        return $this->persist($asset, $run, $result, $wordpress['provenance']);
+    }
+
+    /**
+     * @param array{
+     *   evaluated:bool,evaluated_rule_ids:list<string>,matches:list<\App\Support\Findings\RuleMatch>,
+     *   observed_at:?CarbonImmutable,provenance:array<string,mixed>,evidence:array<string,mixed>
+     * } $wordpress
+     */
+    private function recordWordPressEvidence(DigitalAsset $asset, Run $run, array $wordpress): void
+    {
+        Evidence::query()->create([
+            'run_id' => $run->id,
+            'digital_asset_id' => $asset->id,
+            'source_module' => WebsiteDiagnosisService::MODULE_ID,
+            'type' => 'website_wordpress_connector_snapshot',
+            'title' => 'Collected WordPress Connector snapshot',
+            'collection_run_id' => $wordpress['provenance']['collection_run_id'] ?? null,
+            'generated_by_ai' => false,
+            'payload' => $wordpress['evidence'],
+            'observed_at' => $wordpress['observed_at'],
+        ]);
     }
 
     /**

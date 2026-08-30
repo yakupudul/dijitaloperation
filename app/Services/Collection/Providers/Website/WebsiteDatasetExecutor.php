@@ -44,7 +44,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
 
     public function supportedRequestFamilies(): array
     {
-        return WebsiteRequestFamilyCatalog::supportedFamilies();
+        return WebsiteRequestFamilyCatalog::publicFamilies();
     }
 
     public function execute(DatasetExecutionContext $context): DatasetExecutionResult

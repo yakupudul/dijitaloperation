@@ -1,6 +1,15 @@
 # WORDPRESS SITE CONNECTOR PRODUCTIONIZATION
 
-## STATUS: BLOCKED — Prompt 32 prerequisite missing
+## STATUS: SUPERSEDED — WordPress Connector V1 implemented
+
+> **2026-08-30 runtime amendment:** This document is retained as the historical
+> pre-implementation audit for Prompt 33. Its blocker and missing-capability
+> statements no longer describe the current code. The production, read-only
+> connector is implemented under `connectors/wordpress/moxdop-connector`, uses
+> the dedicated `wordpress_connector` connection type, and materializes the
+> five Website CMS snapshot datasets. The current contract is
+> `docs/product/website/WORDPRESS.md`; the architecture decision is ADR-045 in
+> `docs/foundation/DECISION_LOG.md`.
 
 **Prompt:** 33  
 **Date:** 2026-08-13  
@@ -14,7 +23,8 @@
 
 Prompt 33 productionizes the frozen Website → Setup → WordPress Connector so a real WordPress installation can feed the **Prompt 32** canonical Website foundation through a source-specific adapter.
 
-This document records the **pre-implementation audit** and the hard gate that prevents implementation.
+This document records the historical **pre-implementation audit** and the hard
+gate that existed at that point. It is not the current runtime specification.
 
 ---
 

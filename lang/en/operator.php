@@ -116,15 +116,15 @@ return [
 
     'site_connectors' => [
         'title' => 'Site Connectors',
-        'subtitle' => 'Installable site packages that pair a managed Website with MoxDOP (demo catalog).',
+        'subtitle' => 'Installable, read-only site packages that securely pair a managed Website with MoxDOP.',
         'catalog' => 'Connector catalog',
         'overview' => 'Overview',
         'releases' => 'Releases',
         'install' => 'Install',
         'connected' => 'Connected sites',
         'activity' => 'Activity',
-        'download_demo' => 'Download demo package',
-        'demo_badge' => 'Demo package — not production-installable',
+        'download_package' => 'Download production package',
+        'production_badge' => 'Production-installable read-only connector',
         'wordpress' => 'WordPress', // Provider / product name — keep untranslated in UI copy where shown as proper noun
     ],
 

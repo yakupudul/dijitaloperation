@@ -17,6 +17,7 @@ use App\Events\Collection\DatasetRunFailed;
 use App\Events\Collection\DatasetRunProgressed;
 use App\Events\EvidenceCanonicalized;
 use App\Listeners\Collection\BroadcastCollectionRunChanged;
+use App\Listeners\Collection\QueueWebsiteAnalysisAfterCollection;
 use App\Listeners\QueueFindingEvaluationAfterEvidenceCanonicalized;
 use App\Models\Collection\CollectionRun;
 use App\Policies\CollectionRunPolicy;
@@ -323,6 +324,7 @@ class AppServiceProvider extends ServiceProvider
         $broadcast = BroadcastCollectionRunChanged::class;
         Event::listen(CollectionRunStarted::class, [$broadcast, 'handleStarted']);
         Event::listen(CollectionRunCompleted::class, [$broadcast, 'handleCompleted']);
+        Event::listen(CollectionRunCompleted::class, QueueWebsiteAnalysisAfterCollection::class);
         Event::listen(CollectionRunCancelled::class, [$broadcast, 'handleCancelled']);
         Event::listen(DatasetRunFailed::class, [$broadcast, 'handleDatasetFailed']);
         Event::listen(DatasetRunProgressed::class, [$broadcast, 'handleDatasetProgressed']);

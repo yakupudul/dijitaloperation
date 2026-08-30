@@ -2,14 +2,14 @@
 
 namespace App\Providers;
 
-use App\Services\Collection\Providers\Website\WordPressRestDatasetExecutor;
+use App\Services\Collection\Providers\Website\WordPressConnectorDatasetExecutor;
 use Illuminate\Support\ServiceProvider;
 
 final class WebsiteIntelligenceServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        $this->app->singleton(WordPressRestDatasetExecutor::class);
-        $this->app->tag([WordPressRestDatasetExecutor::class], 'collection.dataset_executors');
+        $this->app->singleton(WordPressConnectorDatasetExecutor::class);
+        $this->app->tag([WordPressConnectorDatasetExecutor::class], 'collection.dataset_executors');
     }
 }

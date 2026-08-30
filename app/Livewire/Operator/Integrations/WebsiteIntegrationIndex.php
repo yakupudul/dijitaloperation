@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\Collection\Providers\Website\WebsiteRequestFamilyCatalog;
 use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
 use App\Services\DataPool\DataPoolStorageRegistry;
+use App\Services\Integrations\WordPress\WordPressConnectorPairingService;
 use App\Services\PageSpeedConnectionProbeService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
@@ -104,8 +105,16 @@ final class WebsiteIntegrationIndex extends Component
             /** @var CollectionRun|null $run */
             $run = $runs->get($asset->id);
             $collectable = filled($asset->primary_url) || filled($asset->domain);
-            $wordpressDetected = str_contains(strtolower((string) $asset->cms), 'wordpress');
-            $collectors = $this->collectorSummaries($run, $collectable, $pageSpeedReady);
+            $wordpressConnection = $asset->connections->first(
+                fn (CoreConnection $connection): bool => $connection->type === WordPressConnectorPairingService::CONNECTION_TYPE,
+            );
+            $wordpressDetected = str_contains(strtolower((string) $asset->cms), 'wordpress')
+                || $wordpressConnection instanceof CoreConnection;
+            $wordpressReady = $wordpressConnection instanceof CoreConnection
+                && $wordpressConnection->enabled
+                && data_get($wordpressConnection->config, 'pairing_state') === WordPressConnectorPairingService::PAIRED
+                && $wordpressConnection->credential !== null;
+            $collectors = $this->collectorSummaries($run, $collectable, $pageSpeedReady, $wordpressDetected, $wordpressReady);
             $completedCollectors = collect($collectors)->where('state', 'completed')->count();
             $collectorTotal = count($collectors);
 
@@ -115,6 +124,8 @@ final class WebsiteIntegrationIndex extends Component
                 'collectable' => $collectable,
                 'page_speed_ready' => $pageSpeedReady,
                 'wordpress_detected' => $wordpressDetected,
+                'wordpress_ready' => $wordpressReady,
+                'wordpress_connection' => $wordpressConnection,
                 'collectors' => $collectors,
                 'completed_collectors' => $completedCollectors,
                 'collector_total' => $collectorTotal,
@@ -168,7 +179,13 @@ final class WebsiteIntegrationIndex extends Component
     }
 
     /** @return list<array<string, mixed>> */
-    private function collectorSummaries(?CollectionRun $run, bool $collectable, bool $pageSpeedReady): array
+    private function collectorSummaries(
+        ?CollectionRun $run,
+        bool $collectable,
+        bool $pageSpeedReady,
+        bool $wordpressDetected,
+        bool $wordpressReady,
+    ): array
     {
         $definitions = [
             ['key' => 'crawl', 'family' => WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL],
@@ -176,29 +193,75 @@ final class WebsiteIntegrationIndex extends Component
             ['key' => 'tls', 'family' => WebsiteRequestFamilyCatalog::FAMILY_DNS_TLS],
             ['key' => 'pagespeed', 'family' => WebsiteRequestFamilyCatalog::FAMILY_PAGESPEED],
         ];
+        if ($wordpressDetected) {
+            $definitions[] = ['key' => 'wordpress', 'family' => WebsiteRequestFamilyCatalog::FAMILY_WP_REST];
+        }
         $datasetRuns = $run?->datasetRuns ?? collect();
 
-        return array_map(function (array $definition) use ($datasetRuns, $collectable, $pageSpeedReady): array {
-            /** @var CollectionDatasetRun|null $datasetRun */
-            $datasetRun = $datasetRuns->first(
+        return array_map(function (array $definition) use ($datasetRuns, $collectable, $pageSpeedReady, $wordpressReady): array {
+            $familyRuns = $datasetRuns->filter(
                 fn (CollectionDatasetRun $candidate): bool => $candidate->request_family_id === $definition['family'],
             );
+            /** @var CollectionDatasetRun|null $datasetRun */
+            $datasetRun = $familyRuns->first();
+            $state = $definition['key'] === 'wordpress'
+                ? $this->connectorCollectorState($familyRuns, $collectable, $wordpressReady)
+                : $this->collectorState((string) $definition['key'], $datasetRun, $collectable, $pageSpeedReady, $wordpressReady);
 
             return [
                 'key' => $definition['key'],
                 'family' => $definition['family'],
                 'dataset_run' => $datasetRun,
-                'state' => $this->collectorState((string) $definition['key'], $datasetRun, $collectable, $pageSpeedReady),
+                'state' => $state,
             ];
         }, $definitions);
     }
 
-    private function collectorState(string $key, ?CollectionDatasetRun $datasetRun, bool $collectable, bool $pageSpeedReady): string
+    /** @param Collection<int, CollectionDatasetRun> $runs */
+    private function connectorCollectorState(Collection $runs, bool $collectable, bool $wordpressReady): string
+    {
+        if (! $collectable) {
+            return 'needs_setup';
+        }
+        if (! $wordpressReady) {
+            return 'connection_required';
+        }
+        if ($runs->isEmpty()) {
+            return 'not_run';
+        }
+
+        $states = $runs->map(fn (CollectionDatasetRun $run): string => $this->datasetRunState($run));
+        if ($states->contains('running')) {
+            return 'running';
+        }
+        if ($states->every(fn (string $state): bool => $state === 'completed')) {
+            return 'completed';
+        }
+        if ($states->contains('completed') || $states->contains('partial')) {
+            return 'partial';
+        }
+        if ($states->contains('failed')) {
+            return 'failed';
+        }
+
+        return $states->first() ?? 'not_run';
+    }
+
+    private function collectorState(
+        string $key,
+        ?CollectionDatasetRun $datasetRun,
+        bool $collectable,
+        bool $pageSpeedReady,
+        bool $wordpressReady,
+    ): string
     {
         if (! $collectable && $key !== 'pagespeed') {
             return 'needs_setup';
         }
         if ($key === 'pagespeed' && ! $pageSpeedReady) {
+            return 'connection_required';
+        }
+        if ($key === 'wordpress' && ! $wordpressReady) {
             return 'connection_required';
         }
         if (! $datasetRun instanceof CollectionDatasetRun) {
@@ -216,20 +279,22 @@ final class WebsiteIntegrationIndex extends Component
         /** @var CollectionRun|null $run */
         $run = $row['run'];
         $datasetIds = $this->publicDatasetIds();
+        $connectorDatasetIds = $this->connectorDatasetIds();
+        $allDatasetIds = array_values(array_unique(array_merge($datasetIds, $connectorDatasetIds)));
         $datasetRunIds = $run?->datasetRuns?->pluck('id')->map(fn ($id): int => (int) $id)->all() ?? [];
 
         $batches = $datasetRunIds === []
             ? collect()
             : DatasetWriteBatch::query()
                 ->whereIn('dataset_run_id', $datasetRunIds)
-                ->whereIn('dataset_id', $datasetIds)
+                ->whereIn('dataset_id', $allDatasetIds)
                 ->orderBy('id')
                 ->get()
                 ->groupBy('dataset_id');
 
         $materializations = DatasetMaterialization::query()
             ->where('digital_asset_id', $asset->id)
-            ->whereIn('dataset_id', array_values(array_unique(array_merge($datasetIds, ['website_cms_object_snapshot']))))
+            ->whereIn('dataset_id', $allDatasetIds)
             ->get()
             ->keyBy('dataset_id');
 
@@ -258,14 +323,27 @@ final class WebsiteIntegrationIndex extends Component
             default => 'neutral',
         };
 
-        $connectorDatasets = collect();
-        if ((bool) $row['wordpress_detected']) {
-            $connectorDatasets->push($this->connectorDatasetSummary(
+        $connectorDatasets = ! (bool) $row['wordpress_detected']
+            ? collect()
+            : collect($connectorDatasetIds)->map(fn (string $datasetId): array => $this->datasetSummary(
+                datasetId: $datasetId,
                 asset: $asset,
-                materialization: $materializations->get('website_cms_object_snapshot'),
+                run: $run,
+                pageSpeedReady: true,
+                batches: $batches->get($datasetId, collect()),
+                materialization: $materializations->get($datasetId),
                 storageRegistry: $storageRegistry,
-            ));
-        }
+            ))->values();
+        $connectorCompleted = $connectorDatasets->where('state', 'completed')->count();
+        $connectorRunning = $connectorDatasets->where('state', 'running')->count();
+        $connectorState = match (true) {
+            ! (bool) $row['wordpress_detected'] => 'not_applicable',
+            ! (bool) $row['wordpress_ready'] => 'connection_required',
+            $connectorDatasets->count() > 0 && $connectorCompleted === $connectorDatasets->count() => 'completed',
+            $connectorRunning > 0 => 'running',
+            $connectorDatasets->whereIn('state', ['partial', 'failed'])->isNotEmpty() => 'partial',
+            default => 'not_run',
+        };
 
         $row['data_sources'] = [
             [
@@ -293,10 +371,15 @@ final class WebsiteIntegrationIndex extends Component
                 'key' => 'site_connector',
                 'label' => $this->text('Web Sitesi Bağlayıcısı', 'Site Connector'),
                 'description' => $this->text('Web sitesine kurulan bağlayıcı üzerinden public taraftan görülemeyen CMS envanterini toplar.', 'Collects CMS inventory that is not observable publicly through a connector installed on the website.'),
-                'state' => (bool) $row['wordpress_detected'] ? 'not_available' : 'not_applicable',
-                'status_label' => (bool) $row['wordpress_detected'] ? $this->text('Henüz devrede değil', 'Not active yet') : $this->text('Uygun bağlayıcı yok', 'No applicable connector'),
-                'connection_label' => (bool) $row['wordpress_detected'] ? $this->text('WordPress algılandı', 'WordPress detected') : $this->text('CMS bağlayıcısı bekleniyor', 'CMS connector pending'),
+                'state' => $connectorState,
+                'status_label' => $this->sourceGroupStatusLabel($connectorState),
+                'connection_label' => (bool) $row['wordpress_ready']
+                    ? $this->text('WordPress bağlı', 'WordPress paired')
+                    : ((bool) $row['wordpress_detected'] ? $this->text('Eşleştirme gerekli', 'Pairing required') : $this->text('Uygulanamaz', 'Not applicable')),
                 'datasets' => $connectorDatasets,
+                'completed' => $connectorCompleted,
+                'total' => $connectorDatasets->count(),
+                'coverage_percent' => $connectorDatasets->count() > 0 ? (int) round(($connectorCompleted / $connectorDatasets->count()) * 100) : 0,
             ],
         ];
 
@@ -312,13 +395,24 @@ final class WebsiteIntegrationIndex extends Component
     private function publicDatasetIds(): array
     {
         $ids = [];
-        foreach (WebsiteRequestFamilyCatalog::supportedFamilies() as $family) {
+        foreach (WebsiteRequestFamilyCatalog::publicFamilies() as $family) {
             foreach ((array) WebsiteRequestFamilyCatalog::definition($family)['dataset_ids'] as $datasetId) {
-                $ids[] = (string) $datasetId;
+                if ((string) $datasetId !== 'website_crawl_issue_snapshot') {
+                    $ids[] = (string) $datasetId;
+                }
             }
         }
 
         return array_values(array_unique($ids));
+    }
+
+    /** @return list<string> */
+    private function connectorDatasetIds(): array
+    {
+        return array_values(array_map(
+            'strval',
+            (array) WebsiteRequestFamilyCatalog::definition(WebsiteRequestFamilyCatalog::FAMILY_WP_REST)['dataset_ids'],
+        ));
     }
 
     /** @param Collection<int, DatasetWriteBatch> $batches @return array<string, mixed> */
@@ -335,6 +429,12 @@ final class WebsiteIntegrationIndex extends Component
         $familyRuns = $run?->datasetRuns?->filter(
             fn (CollectionDatasetRun $datasetRun): bool => in_array($datasetRun->request_family_id, $families, true),
         ) ?? collect();
+        $exactRuns = $familyRuns->filter(
+            fn (CollectionDatasetRun $datasetRun): bool => (string) $datasetRun->dataset_contract_id === $datasetId,
+        );
+        if ($exactRuns->isNotEmpty()) {
+            $familyRuns = $exactRuns;
+        }
         $state = $this->datasetState(
             $datasetId,
             $familyRuns,
@@ -369,34 +469,6 @@ final class WebsiteIntegrationIndex extends Component
         ];
     }
 
-    /** @return array<string, mixed> */
-    private function connectorDatasetSummary(DigitalAsset $asset, mixed $materialization, DataPoolStorageRegistry $storageRegistry): array
-    {
-        $datasetId = 'website_cms_object_snapshot';
-        $schema = $this->datasetSchema($datasetId, $storageRegistry);
-
-        return [
-            'id' => $datasetId,
-            'label' => $this->datasetLabel($datasetId),
-            'description' => $this->datasetDescription($datasetId),
-            'state' => 'not_available',
-            'status_label' => $this->text('Henüz devrede değil', 'Not active yet'),
-            'tone' => 'neutral',
-            'current_rows' => max(0, (int) ($materialization?->row_count_approx ?? 0)),
-            'processed_rows' => 0,
-            'successful_batches' => 0,
-            'failed_batches' => 0,
-            'last_collected_at' => $materialization?->last_collected_at,
-            'families' => [WebsiteRequestFamilyCatalog::FAMILY_WP_REST],
-            'collectors' => [$this->text('WordPress Bağlayıcısı', 'WordPress Connector')],
-            'fields' => $schema['fields'],
-            'system_field_count' => $schema['system_field_count'],
-            'table' => $schema['table'],
-            'preview' => $this->datasetPreview($asset->id, null, $schema),
-            'result_detail' => $this->text('Kimlik doğrulamalı WordPress bağlayıcısı production kullanıma açılmadığı için bu dataset henüz toplanmıyor.', 'This dataset is not collected yet because the authenticated WordPress connector is not production-ready.'),
-        ];
-    }
-
     /** @param Collection<int, CollectionDatasetRun> $familyRuns */
     private function datasetState(string $datasetId, Collection $familyRuns, bool $pageSpeedReady, bool $collectable): string
     {
@@ -414,10 +486,10 @@ final class WebsiteIntegrationIndex extends Component
         if ($states->contains('running')) {
             return 'running';
         }
-        if ($states->contains('completed')) {
+        if ($states->every(fn (string $state): bool => $state === 'completed')) {
             return 'completed';
         }
-        if ($states->contains('partial')) {
+        if ($states->contains('completed') || $states->contains('partial')) {
             return 'partial';
         }
         if ($states->contains('failed')) {
@@ -602,10 +674,13 @@ final class WebsiteIntegrationIndex extends Component
             'website_schema_snapshot' => $this->text('Yapısal Veri (Schema)', 'Structured Data (Schema)'),
             'website_content_stats' => $this->text('İçerik İstatistikleri', 'Content Statistics'),
             'website_link_edge' => $this->text('İç / Dış Bağlantılar', 'Internal / External Links'),
-            'website_crawl_issue_snapshot' => $this->text('Tarama Sorunları', 'Crawl Issues'),
             'website_infra_snapshot' => $this->text('SSL/TLS Altyapısı', 'SSL/TLS Infrastructure'),
             'website_performance_measurement' => $this->text('PageSpeed Performansı', 'PageSpeed Performance'),
+            'website_cms_site_snapshot' => $this->text('WordPress Site Bilgileri', 'WordPress Site Facts'),
             'website_cms_object_snapshot' => $this->text('WordPress İçerik Envanteri', 'WordPress Content Inventory'),
+            'website_cms_extension_snapshot' => $this->text('WordPress Eklenti ve Tema Envanteri', 'WordPress Plugin and Theme Inventory'),
+            'website_cms_taxonomy_snapshot' => $this->text('WordPress Taksonomileri', 'WordPress Taxonomies'),
+            'website_cms_seo_snapshot' => $this->text('WordPress SEO Alanları', 'WordPress SEO Fields'),
             default => str($datasetId)->replace('_', ' ')->title()->toString(),
         };
     }
@@ -620,10 +695,13 @@ final class WebsiteIntegrationIndex extends Component
             'website_schema_snapshot' => $this->text('Sayfadaki yapılandırılmış veri / schema gözlemleri.', 'Structured data / schema observations found on the page.'),
             'website_content_stats' => $this->text('Kelime, paragraf, görünür metin ve içerik yoğunluğu istatistikleri.', 'Word, paragraph, visible text, and content density statistics.'),
             'website_link_edge' => $this->text('Sayfalar arasındaki iç bağlantılar ve harici link ilişkileri.', 'Internal page links and external link relationships.'),
-            'website_crawl_issue_snapshot' => $this->text('Tarama sırasında tespit edilen teknik ve SEO sorunları.', 'Technical and SEO issues detected during crawling.'),
             'website_infra_snapshot' => $this->text('Alan adı hostu, sertifika ve SSL/TLS altyapı gözlemleri.', 'Host, certificate, and SSL/TLS infrastructure observations.'),
             'website_performance_measurement' => $this->text('Google PageSpeed / Lighthouse performans ölçümleri.', 'Google PageSpeed / Lighthouse performance measurements.'),
+            'website_cms_site_snapshot' => $this->text('WordPress, PHP, tema ve güvenli çalışma ayarları snapshot’ı.', 'Snapshot of WordPress, PHP, theme, and safe runtime settings.'),
             'website_cms_object_snapshot' => $this->text('WordPress sayfa, yazı ve diğer CMS nesnelerinin authenticated envanteri.', 'Authenticated inventory of WordPress pages, posts, and other CMS objects.'),
+            'website_cms_extension_snapshot' => $this->text('Eklenti ve tema sürümü, aktiflik ve güncelleme durumu.', 'Plugin and theme versions, activation, and update state.'),
+            'website_cms_taxonomy_snapshot' => $this->text('Kategori, etiket, özel taksonomi ve dil metadata’sı.', 'Categories, tags, custom taxonomies, and language metadata.'),
+            'website_cms_seo_snapshot' => $this->text('Allowlist içindeki SEO eklentisi title, description, canonical ve robots alanları.', 'Allowlisted SEO plugin title, description, canonical, and robots fields.'),
             default => $datasetId,
         };
     }
@@ -645,8 +723,6 @@ final class WebsiteIntegrationIndex extends Component
             'thin_content_hint' => $this->text('İnce İçerik Sinyali', 'Thin Content Hint'),
             'heading_level', 'level' => $this->text('Başlık Seviyesi', 'Heading Level'),
             'heading_text', 'text' => $this->text('Başlık Metni', 'Heading Text'),
-            'issue_code' => $this->text('Sorun Kodu', 'Issue Code'),
-            'severity' => $this->text('Önem Düzeyi', 'Severity'),
             'message' => $this->text('Açıklama', 'Message'),
             'is_internal' => $this->text('İç Bağlantı mı?', 'Internal Link?'),
             'anchor_text' => $this->text('Bağlantı Metni', 'Anchor Text'),
@@ -655,6 +731,21 @@ final class WebsiteIntegrationIndex extends Component
             'observed_at' => $this->text('Gözlem Zamanı', 'Observed At'),
             'host' => 'Host',
             'cms' => 'CMS',
+            'site_key' => $this->text('Site Kimliği', 'Site Key'),
+            'wordpress_version' => 'WordPress',
+            'php_version' => 'PHP',
+            'active_theme' => $this->text('Aktif Tema', 'Active Theme'),
+            'site_health_good_count' => $this->text('Site Health İyi Gözlemleri', 'Site Health Good Observations'),
+            'site_health_recommended_count' => $this->text('Site Health Önerilen Gözlemler', 'Site Health Recommended Observations'),
+            'site_health_critical_count' => $this->text('Site Health Kritik Gözlemler', 'Site Health Critical Observations'),
+            'extension_type' => $this->text('Bileşen Türü', 'Extension Type'),
+            'extension_id' => $this->text('Bileşen Kimliği', 'Extension ID'),
+            'update_available' => $this->text('Güncelleme Var', 'Update Available'),
+            'available_version' => $this->text('Yeni Sürüm', 'Available Version'),
+            'taxonomy' => $this->text('Taksonomi', 'Taxonomy'),
+            'term_id' => $this->text('Terim Kimliği', 'Term ID'),
+            'seo_provider' => $this->text('SEO Sağlayıcısı', 'SEO Provider'),
+            'seo_title' => $this->text('SEO Başlığı', 'SEO Title'),
             'object_type' => $this->text('İçerik Türü', 'Object Type'),
             'object_id' => $this->text('İçerik Kimliği', 'Object ID'),
             'status' => $this->text('Durum', 'Status'),
@@ -703,6 +794,8 @@ final class WebsiteIntegrationIndex extends Component
             'running' => $this->text('Veri çekimi devam ediyor', 'Collection in progress'),
             'partial' => $this->text('Kısmi kapsam', 'Partial coverage'),
             'attention' => $this->text('Eksik kaynak var', 'Missing source'),
+            'connection_required' => $this->text('Eşleştirme gerekli', 'Pairing required'),
+            'not_applicable' => $this->text('Uygulanamaz', 'Not applicable'),
             'not_run' => $this->text('Henüz veri çekilmedi', 'Never collected'),
             default => $this->text('Durum bekleniyor', 'Status pending'),
         };
