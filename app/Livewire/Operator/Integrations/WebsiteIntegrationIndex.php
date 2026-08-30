@@ -41,9 +41,46 @@ final class WebsiteIntegrationIndex extends Component
     #[Url(as: 'site', history: true)]
     public ?int $selectedAssetId = null;
 
-    public function selectWebsite(int $assetId): void
+    #[Url(as: 'tab', history: true)]
+    public string $activeTab = 'overview';
+
+    #[Url(as: 'dataset', history: true)]
+    public ?string $selectedDatasetId = null;
+
+    #[Url(as: 'data_q', history: true)]
+    public string $dataSearch = '';
+
+    #[Url(as: 'data_page', history: true)]
+    public int $dataPage = 1;
+
+    public function mount(?int $assetId = null): void
     {
-        $this->selectedAssetId = $assetId;
+        if ($assetId !== null) {
+            $this->selectedAssetId = $assetId;
+        }
+    }
+
+    public function setTab(string $tab): void
+    {
+        $allowed = ['overview', 'sources', 'runs', 'data', 'settings'];
+        $this->activeTab = in_array($tab, $allowed, true) ? $tab : 'overview';
+    }
+
+    public function selectDataset(string $datasetId): void
+    {
+        $this->selectedDatasetId = $datasetId;
+        $this->activeTab = 'data';
+        $this->dataPage = 1;
+    }
+
+    public function setDataPage(int $page): void
+    {
+        $this->dataPage = max(1, $page);
+    }
+
+    public function updatedDataSearch(): void
+    {
+        $this->dataPage = 1;
     }
 
     public function collectNow(int $assetId, WebsiteCollectionOrchestrator $orchestrator): void
@@ -115,8 +152,15 @@ final class WebsiteIntegrationIndex extends Component
                 && data_get($wordpressConnection->config, 'pairing_state') === WordPressConnectorPairingService::PAIRED
                 && $wordpressConnection->credential !== null;
             $collectors = $this->collectorSummaries($run, $collectable, $pageSpeedReady, $wordpressDetected, $wordpressReady);
-            $completedCollectors = collect($collectors)->where('state', 'completed')->count();
-            $collectorTotal = count($collectors);
+            $requiredCollectors = collect($collectors)->where('optional', false);
+            $requiredCompleted = $requiredCollectors->where('state', 'completed')->count();
+            $sourceLabels = collect([$this->text('Public', 'Public')]);
+            if ($wordpressDetected) {
+                $sourceLabels->push('WordPress');
+            }
+            if ($pageSpeedReady) {
+                $sourceLabels->push('PageSpeed');
+            }
 
             return [
                 'asset' => $asset,
@@ -127,10 +171,11 @@ final class WebsiteIntegrationIndex extends Component
                 'wordpress_ready' => $wordpressReady,
                 'wordpress_connection' => $wordpressConnection,
                 'collectors' => $collectors,
-                'completed_collectors' => $completedCollectors,
-                'collector_total' => $collectorTotal,
-                'coverage_percent' => $collectorTotal > 0 ? (int) round(($completedCollectors / $collectorTotal) * 100) : 0,
-                'missing_collectors' => collect($collectors)->whereNotIn('state', ['completed', 'running'])->count(),
+                'required_completed' => $requiredCompleted,
+                'required_total' => $requiredCollectors->count(),
+                'optional_ready' => $pageSpeedReady,
+                'source_summary' => $sourceLabels->implode(' + '),
+                'latest_rows_written' => (int) ($run?->datasetRuns?->sum('rows_written') ?? 0),
                 'overall_state' => $this->overallState($run, $collectable),
                 'run_status_label' => $run ? $this->runStatusLabel($run) : $this->text('Henüz veri çekilmedi', 'Never collected'),
                 'last_run_at' => $run?->updated_at,
@@ -141,12 +186,17 @@ final class WebsiteIntegrationIndex extends Component
             'total' => $allRows->count(),
             'collect_ready' => $allRows->where('collectable', true)->count(),
             'completed' => $allRows->filter(fn (array $row): bool => ($row['run']?->status?->value ?? null) === 'completed')->count(),
+            'running' => $allRows->where('overall_state', 'running')->count(),
             'attention' => $allRows->filter(fn (array $row): bool => in_array($row['overall_state'], ['attention', 'partial', 'needs_setup'], true))->count(),
             'never_collected' => $allRows->whereNull('run')->count(),
         ];
 
         $rows = $this->filterRows($allRows);
-        $selectedRow = $this->selectedRow($rows);
+        $selectedRow = $this->selectedRow($allRows);
+
+        if ($this->selectedAssetId !== null && $selectedRow === null) {
+            abort(404);
+        }
 
         if ($selectedRow !== null) {
             $selectedRow = $this->enrichSelectedRow($selectedRow, $storageRegistry);
@@ -156,10 +206,38 @@ final class WebsiteIntegrationIndex extends Component
             ? $this->collectionHistory((int) $selectedRow['asset']->id)
             : collect();
 
+        $liveConsole = $selectedRow !== null
+            ? $this->liveConsole($selectedRow['run'])
+            : null;
+
+        $availableDatasets = $selectedRow === null
+            ? collect()
+            : collect($selectedRow['data_sources'])
+                ->flatMap(fn (array $source): Collection => $source['datasets'])
+                ->unique('id')
+                ->values();
+        $selectedDataset = $availableDatasets->first(
+            fn (array $dataset): bool => $dataset['id'] === $this->selectedDatasetId,
+        ) ?? $availableDatasets->first();
+        $dataExplorer = $selectedRow !== null && is_array($selectedDataset) && $this->activeTab === 'data'
+            ? $this->datasetExplorer(
+                assetId: (int) $selectedRow['asset']->id,
+                schema: [
+                    'table' => $selectedDataset['table'],
+                    'fields' => $selectedDataset['fields'],
+                    'system_field_count' => $selectedDataset['system_field_count'],
+                ],
+            )
+            : null;
+
         return view('livewire.operator.integrations.website-integration-index', [
             'rows' => $rows,
             'selectedRow' => $selectedRow,
             'history' => $history,
+            'liveConsole' => $liveConsole,
+            'availableDatasets' => $availableDatasets,
+            'selectedDataset' => $selectedDataset,
+            'dataExplorer' => $dataExplorer,
             'stats' => $stats,
             'filters' => $this->filterOptions($allRows),
         ]);
@@ -188,13 +266,13 @@ final class WebsiteIntegrationIndex extends Component
     ): array
     {
         $definitions = [
-            ['key' => 'crawl', 'family' => WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL],
-            ['key' => 'html', 'family' => WebsiteRequestFamilyCatalog::FAMILY_HTTP_HTML_DIAGNOSIS],
-            ['key' => 'tls', 'family' => WebsiteRequestFamilyCatalog::FAMILY_DNS_TLS],
-            ['key' => 'pagespeed', 'family' => WebsiteRequestFamilyCatalog::FAMILY_PAGESPEED],
+            ['key' => 'crawl', 'family' => WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL, 'optional' => false],
+            ['key' => 'html', 'family' => WebsiteRequestFamilyCatalog::FAMILY_HTTP_HTML_DIAGNOSIS, 'optional' => false],
+            ['key' => 'tls', 'family' => WebsiteRequestFamilyCatalog::FAMILY_DNS_TLS, 'optional' => false],
+            ['key' => 'pagespeed', 'family' => WebsiteRequestFamilyCatalog::FAMILY_PAGESPEED, 'optional' => true],
         ];
         if ($wordpressDetected) {
-            $definitions[] = ['key' => 'wordpress', 'family' => WebsiteRequestFamilyCatalog::FAMILY_WP_REST];
+            $definitions[] = ['key' => 'wordpress', 'family' => WebsiteRequestFamilyCatalog::FAMILY_WP_REST, 'optional' => false];
         }
         $datasetRuns = $run?->datasetRuns ?? collect();
 
@@ -213,6 +291,7 @@ final class WebsiteIntegrationIndex extends Component
                 'family' => $definition['family'],
                 'dataset_run' => $datasetRun,
                 'state' => $state,
+                'optional' => $definition['optional'],
             ];
         }, $definitions);
     }
@@ -279,8 +358,9 @@ final class WebsiteIntegrationIndex extends Component
         /** @var CollectionRun|null $run */
         $run = $row['run'];
         $datasetIds = $this->publicDatasetIds();
+        $pageSpeedDatasetIds = $this->pageSpeedDatasetIds();
         $connectorDatasetIds = $this->connectorDatasetIds();
-        $allDatasetIds = array_values(array_unique(array_merge($datasetIds, $connectorDatasetIds)));
+        $allDatasetIds = array_values(array_unique(array_merge($datasetIds, $pageSpeedDatasetIds, $connectorDatasetIds)));
         $datasetRunIds = $run?->datasetRuns?->pluck('id')->map(fn ($id): int => (int) $id)->all() ?? [];
 
         $batches = $datasetRunIds === []
@@ -307,21 +387,15 @@ final class WebsiteIntegrationIndex extends Component
             materialization: $materializations->get($datasetId),
             storageRegistry: $storageRegistry,
         ))->values();
-
-        $publicCompleted = $publicDatasets->where('state', 'completed')->count();
-        $publicRunning = $publicDatasets->where('state', 'running')->count();
-        $publicAttention = $publicDatasets->filter(
-            fn (array $dataset): bool => in_array($dataset['state'], ['partial', 'failed', 'connection_required', 'needs_setup'], true),
-        )->count();
-        $publicTotal = $publicDatasets->count();
-        $publicState = match (true) {
-            $publicTotal > 0 && $publicCompleted === $publicTotal => 'completed',
-            $publicRunning > 0 => 'running',
-            $publicAttention > 0 && $publicCompleted > 0 => 'partial',
-            $publicAttention > 0 => 'attention',
-            $run === null => 'not_run',
-            default => 'neutral',
-        };
+        $pageSpeedDatasets = collect($pageSpeedDatasetIds)->map(fn (string $datasetId): array => $this->datasetSummary(
+            datasetId: $datasetId,
+            asset: $asset,
+            run: $run,
+            pageSpeedReady: (bool) $row['page_speed_ready'],
+            batches: $batches->get($datasetId, collect()),
+            materialization: $materializations->get($datasetId),
+            storageRegistry: $storageRegistry,
+        ))->values();
 
         $connectorDatasets = ! (bool) $row['wordpress_detected']
             ? collect()
@@ -334,59 +408,65 @@ final class WebsiteIntegrationIndex extends Component
                 materialization: $materializations->get($datasetId),
                 storageRegistry: $storageRegistry,
             ))->values();
-        $connectorCompleted = $connectorDatasets->where('state', 'completed')->count();
-        $connectorRunning = $connectorDatasets->where('state', 'running')->count();
-        $connectorState = match (true) {
-            ! (bool) $row['wordpress_detected'] => 'not_applicable',
-            ! (bool) $row['wordpress_ready'] => 'connection_required',
-            $connectorDatasets->count() > 0 && $connectorCompleted === $connectorDatasets->count() => 'completed',
-            $connectorRunning > 0 => 'running',
-            $connectorDatasets->whereIn('state', ['partial', 'failed'])->isNotEmpty() => 'partial',
-            default => 'not_run',
-        };
+        $publicState = $this->sourceState($publicDatasets);
+        $connectorState = ! (bool) $row['wordpress_ready']
+            ? 'connection_required'
+            : $this->sourceState($connectorDatasets);
+        $pageSpeedState = ! (bool) $row['page_speed_ready']
+            ? 'connection_required'
+            : $this->sourceState($pageSpeedDatasets);
 
-        $row['data_sources'] = [
-            [
-                'key' => 'google',
-                'label' => $this->text('Google Verileri', 'Google Data'),
-                'description' => $this->text('GA4 ve Search Console bağlantıları mevcut Google entegrasyon alanından yönetilir.', 'GA4 and Search Console connections are managed from the existing Google integration area.'),
-                'state' => 'managed_elsewhere',
-                'status_label' => $this->text('Ayrı entegrasyondan yönetilir', 'Managed separately'),
-                'connection_label' => 'GA4 + Search Console',
-                'datasets' => collect(),
-            ],
-            [
-                'key' => 'public_web',
-                'label' => $this->text('Genel Web Verileri', 'Public Web Data'),
-                'description' => $this->text('Eklenti veya hesap bağlantısı olmadan yalnızca web sitesi adresinden toplanabilen teknik ve içerik verileri.', 'Technical and content data collected from the website address without a plugin or account connection.'),
-                'state' => $publicState,
-                'status_label' => $this->sourceGroupStatusLabel($publicState),
-                'connection_label' => $this->text('Bağlantı gerektirmez', 'No connection required'),
-                'datasets' => $publicDatasets,
-                'completed' => $publicCompleted,
-                'total' => $publicTotal,
-                'coverage_percent' => $publicTotal > 0 ? (int) round(($publicCompleted / $publicTotal) * 100) : 0,
-            ],
-            [
-                'key' => 'site_connector',
-                'label' => $this->text('Web Sitesi Bağlayıcısı', 'Site Connector'),
-                'description' => $this->text('Web sitesine kurulan bağlayıcı üzerinden public taraftan görülemeyen CMS envanterini toplar.', 'Collects CMS inventory that is not observable publicly through a connector installed on the website.'),
-                'state' => $connectorState,
-                'status_label' => $this->sourceGroupStatusLabel($connectorState),
-                'connection_label' => (bool) $row['wordpress_ready']
-                    ? $this->text('WordPress bağlı', 'WordPress paired')
-                    : ((bool) $row['wordpress_detected'] ? $this->text('Eşleştirme gerekli', 'Pairing required') : $this->text('Uygulanamaz', 'Not applicable')),
-                'datasets' => $connectorDatasets,
-                'completed' => $connectorCompleted,
-                'total' => $connectorDatasets->count(),
-                'coverage_percent' => $connectorDatasets->count() > 0 ? (int) round(($connectorCompleted / $connectorDatasets->count()) * 100) : 0,
-            ],
+        $sources = collect([
+            $this->sourceSummary(
+                key: 'public_web',
+                label: $this->text('Public Site Taraması', 'Public Site Crawl'),
+                description: $this->text('Yayınlanan HTTP, HTML, bağlantı ve SSL/TLS verilerini dışarıdan toplar.', 'Collects published HTTP, HTML, link, and SSL/TLS facts from outside the site.'),
+                state: $publicState,
+                connectionLabel: $this->text('Bağlantı gerektirmez', 'No connection required'),
+                datasets: $publicDatasets,
+                optional: false,
+            ),
+        ]);
+
+        if ((bool) $row['wordpress_detected']) {
+            $sources->push($this->sourceSummary(
+                key: 'site_connector',
+                label: 'WordPress Connector',
+                description: $this->text('CMS’in içerik, eklenti, tema, taksonomi ve SEO envanterini salt okunur toplar.', 'Collects the CMS content, plugin, theme, taxonomy, and SEO inventory read-only.'),
+                state: $connectorState,
+                connectionLabel: (bool) $row['wordpress_ready']
+                    ? $this->text('Bağlı', 'Paired')
+                    : $this->text('Eşleştirme gerekli', 'Pairing required'),
+                datasets: $connectorDatasets,
+                optional: false,
+            ));
+        }
+
+        $sources->push($this->sourceSummary(
+            key: 'pagespeed',
+            label: 'PageSpeed',
+            description: $this->text('Lighthouse performans ölçümlerini isteğe bağlı API kaynağından toplar.', 'Collects Lighthouse performance measurements from an optional API source.'),
+            state: $pageSpeedState,
+            connectionLabel: (bool) $row['page_speed_ready']
+                ? $this->text('Bağlı', 'Connected')
+                : $this->text('İsteğe bağlı · bağlı değil', 'Optional · not connected'),
+            datasets: $pageSpeedDatasets,
+            optional: true,
+        ));
+
+        $row['data_sources'] = $sources->values();
+        $row['headline_metrics'] = [
+            'urls' => (int) data_get($publicDatasets->firstWhere('id', 'website_url'), 'current_rows', 0),
+            'http' => (int) data_get($publicDatasets->firstWhere('id', 'website_http_snapshot'), 'current_rows', 0),
+            'wordpress_objects' => (int) data_get($connectorDatasets->firstWhere('id', 'website_cms_object_snapshot'), 'current_rows', 0),
+            'last_run_at' => $run?->updated_at,
         ];
-
-        $row['public_dataset_completed'] = $publicCompleted;
-        $row['public_dataset_total'] = $publicTotal;
-        $row['public_dataset_coverage_percent'] = $publicTotal > 0 ? (int) round(($publicCompleted / $publicTotal) * 100) : 0;
-        $row['current_rows'] = $publicDatasets->sum(fn (array $dataset): int => (int) ($dataset['current_rows'] ?? 0));
+        $row['last_run_changes'] = [
+            'inserted' => $sources->flatMap(fn (array $source): Collection => $source['datasets'])->sum('inserted_rows'),
+            'updated' => $sources->flatMap(fn (array $source): Collection => $source['datasets'])->sum('updated_rows'),
+            'unchanged' => $sources->flatMap(fn (array $source): Collection => $source['datasets'])->sum('unchanged_rows'),
+            'failed_batches' => $sources->flatMap(fn (array $source): Collection => $source['datasets'])->sum('failed_batches'),
+        ];
 
         return $row;
     }
@@ -396,6 +476,9 @@ final class WebsiteIntegrationIndex extends Component
     {
         $ids = [];
         foreach (WebsiteRequestFamilyCatalog::publicFamilies() as $family) {
+            if ($family === WebsiteRequestFamilyCatalog::FAMILY_PAGESPEED) {
+                continue;
+            }
             foreach ((array) WebsiteRequestFamilyCatalog::definition($family)['dataset_ids'] as $datasetId) {
                 if ((string) $datasetId !== 'website_crawl_issue_snapshot') {
                     $ids[] = (string) $datasetId;
@@ -407,12 +490,72 @@ final class WebsiteIntegrationIndex extends Component
     }
 
     /** @return list<string> */
+    private function pageSpeedDatasetIds(): array
+    {
+        return array_values(array_map(
+            'strval',
+            (array) WebsiteRequestFamilyCatalog::definition(WebsiteRequestFamilyCatalog::FAMILY_PAGESPEED)['dataset_ids'],
+        ));
+    }
+
+    /** @return list<string> */
     private function connectorDatasetIds(): array
     {
         return array_values(array_map(
             'strval',
             (array) WebsiteRequestFamilyCatalog::definition(WebsiteRequestFamilyCatalog::FAMILY_WP_REST)['dataset_ids'],
         ));
+    }
+
+    /** @param Collection<int, array<string, mixed>> $datasets */
+    private function sourceState(Collection $datasets): string
+    {
+        if ($datasets->isEmpty()) {
+            return 'not_run';
+        }
+        if ($datasets->where('state', 'running')->isNotEmpty()) {
+            return 'running';
+        }
+        if ($datasets->every(fn (array $dataset): bool => $dataset['state'] === 'completed')) {
+            return 'completed';
+        }
+        if ($datasets->where('state', 'completed')->isNotEmpty()
+            || $datasets->whereIn('state', ['partial', 'skipped'])->isNotEmpty()) {
+            return 'partial';
+        }
+        if ($datasets->whereIn('state', ['failed', 'needs_setup'])->isNotEmpty()) {
+            return 'attention';
+        }
+
+        return 'not_run';
+    }
+
+    /**
+     * @param Collection<int, array<string, mixed>> $datasets
+     * @return array<string, mixed>
+     */
+    private function sourceSummary(
+        string $key,
+        string $label,
+        string $description,
+        string $state,
+        string $connectionLabel,
+        Collection $datasets,
+        bool $optional,
+    ): array {
+        return [
+            'key' => $key,
+            'label' => $label,
+            'description' => $description,
+            'state' => $state,
+            'status_label' => $this->sourceGroupStatusLabel($state),
+            'connection_label' => $connectionLabel,
+            'datasets' => $datasets,
+            'completed' => $datasets->where('state', 'completed')->count(),
+            'total' => $datasets->count(),
+            'optional' => $optional,
+            'last_collected_at' => $datasets->pluck('last_collected_at')->filter()->sortDesc()->first(),
+        ];
     }
 
     /** @param Collection<int, DatasetWriteBatch> $batches @return array<string, mixed> */
@@ -442,6 +585,9 @@ final class WebsiteIntegrationIndex extends Component
             filled($asset->primary_url) || filled($asset->domain),
         );
         $processedRows = $batches->sum(fn (DatasetWriteBatch $batch): int => max(0, (int) $batch->rows_received));
+        $insertedRows = $batches->sum(fn (DatasetWriteBatch $batch): int => max(0, (int) $batch->rows_inserted));
+        $updatedRows = $batches->sum(fn (DatasetWriteBatch $batch): int => max(0, (int) $batch->rows_updated));
+        $unchangedRows = $batches->sum(fn (DatasetWriteBatch $batch): int => max(0, (int) $batch->rows_unchanged));
         $successfulBatches = $batches->filter(fn (DatasetWriteBatch $batch): bool => ($batch->status?->value ?? null) === 'committed')->count();
         $failedBatches = $batches->filter(fn (DatasetWriteBatch $batch): bool => ($batch->status?->value ?? null) === 'failed')->count();
         $currentRows = max(0, (int) ($materialization?->row_count_approx ?? 0));
@@ -456,6 +602,9 @@ final class WebsiteIntegrationIndex extends Component
             'tone' => $this->sourceTone($state),
             'current_rows' => $currentRows,
             'processed_rows' => $processedRows,
+            'inserted_rows' => $insertedRows,
+            'updated_rows' => $updatedRows,
+            'unchanged_rows' => $unchangedRows,
             'successful_batches' => $successfulBatches,
             'failed_batches' => $failedBatches,
             'last_collected_at' => $materialization?->last_collected_at,
@@ -464,7 +613,6 @@ final class WebsiteIntegrationIndex extends Component
             'fields' => $schema['fields'],
             'system_field_count' => $schema['system_field_count'],
             'table' => $schema['table'],
-            'preview' => $this->datasetPreview($asset->id, $run?->id, $schema),
             'result_detail' => $this->datasetResultDetail($state, $currentRows, $processedRows),
         ];
     }
@@ -571,58 +719,105 @@ final class WebsiteIntegrationIndex extends Component
         }
     }
 
-    /** @param array{table: ?string, fields: list<array<string, mixed>>, system_field_count: int} $schema @return array{state: string, columns: list<array{name: string, label: string}>, rows: list<array<string, string>>} */
-    private function datasetPreview(int $assetId, ?int $runId, array $schema): array
+    /**
+     * @param array{table: ?string, fields: list<array<string, mixed>>, system_field_count: int} $schema
+     * @return array<string, mixed>
+     */
+    private function datasetExplorer(int $assetId, array $schema): array
     {
         $table = $schema['table'];
         if (! is_string($table) || $table === '') {
-            return ['state' => 'unavailable', 'columns' => [], 'rows' => []];
+            return $this->emptyExplorer('unavailable');
         }
 
         try {
             if (! Schema::hasTable($table) || ! Schema::hasColumn($table, 'digital_asset_id')) {
-                return ['state' => 'unavailable', 'columns' => [], 'rows' => []];
+                return $this->emptyExplorer('unavailable');
             }
 
             $availableColumns = Schema::getColumnListing($table);
             $fields = collect($schema['fields'])
                 ->filter(fn (array $field): bool => in_array($field['name'], $availableColumns, true))
-                ->take(6)
+                ->take(8)
                 ->values();
             if ($fields->isEmpty()) {
-                return ['state' => 'unavailable', 'columns' => [], 'rows' => []];
+                return $this->emptyExplorer('unavailable');
             }
 
             $columnNames = $fields->pluck('name')->all();
-            $query = DB::table($table)->where('digital_asset_id', $assetId)->select($columnNames);
+            $query = DB::table($table)->where('digital_asset_id', $assetId);
+            $search = mb_strtolower(trim($this->dataSearch));
+            $searchable = $fields->filter(function (array $field): bool {
+                $type = mb_strtolower((string) ($field['type'] ?? ''));
+
+                return str_contains($type, 'string')
+                    || str_contains($type, 'text')
+                    || str_contains($type, 'char');
+            })->pluck('name');
+            if ($search !== '' && $searchable->isNotEmpty()) {
+                $operator = DB::connection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
+                $query->where(function ($nested) use ($operator, $search, $searchable): void {
+                    foreach ($searchable as $column) {
+                        $nested->orWhere((string) $column, $operator, '%'.$search.'%');
+                    }
+                });
+            }
+
+            $total = (clone $query)->count();
+            $perPage = 25;
+            $lastPage = max(1, (int) ceil($total / $perPage));
+            $page = min(max(1, $this->dataPage), $lastPage);
+            $query->select($columnNames);
             if (in_array('last_collected_at', $availableColumns, true)) {
                 $query->orderByDesc('last_collected_at');
             } elseif (in_array('observed_at', $availableColumns, true)) {
                 $query->orderByDesc('observed_at');
-            } elseif ($runId !== null && in_array('last_collection_run_id', $availableColumns, true)) {
-                $query->orderByRaw('CASE WHEN last_collection_run_id = ? THEN 0 ELSE 1 END', [$runId]);
             }
 
-            $rows = $query->limit(5)->get()->map(function ($record) use ($columnNames): array {
-                $data = (array) $record;
-                $normalized = [];
-                foreach ($columnNames as $column) {
-                    $normalized[$column] = $this->previewValue($data[$column] ?? null);
-                }
+            $rows = $query
+                ->offset(($page - 1) * $perPage)
+                ->limit($perPage)
+                ->get()
+                ->map(function ($record) use ($columnNames): array {
+                    $data = (array) $record;
+                    $normalized = [];
+                    foreach ($columnNames as $column) {
+                        $normalized[$column] = $this->previewValue($data[$column] ?? null);
+                    }
 
-                return $normalized;
-            })->values()->all();
+                    return $normalized;
+                })->values()->all();
 
             return [
                 'state' => $rows === [] ? 'empty' : 'available',
                 'columns' => $fields->map(fn (array $field): array => ['name' => $field['name'], 'label' => $field['label']])->all(),
                 'rows' => $rows,
+                'page' => $page,
+                'last_page' => $lastPage,
+                'total' => $total,
+                'from' => $total === 0 ? 0 : (($page - 1) * $perPage) + 1,
+                'to' => min($total, $page * $perPage),
             ];
         } catch (Throwable $exception) {
             report($exception);
 
-            return ['state' => 'unavailable', 'columns' => [], 'rows' => []];
+            return $this->emptyExplorer('unavailable');
         }
+    }
+
+    /** @return array<string, mixed> */
+    private function emptyExplorer(string $state): array
+    {
+        return [
+            'state' => $state,
+            'columns' => [],
+            'rows' => [],
+            'page' => 1,
+            'last_page' => 1,
+            'total' => 0,
+            'from' => 0,
+            'to' => 0,
+        ];
     }
 
     private function previewValue(mixed $value): string
@@ -794,7 +989,7 @@ final class WebsiteIntegrationIndex extends Component
             'running' => $this->text('Veri çekimi devam ediyor', 'Collection in progress'),
             'partial' => $this->text('Kısmi kapsam', 'Partial coverage'),
             'attention' => $this->text('Eksik kaynak var', 'Missing source'),
-            'connection_required' => $this->text('Eşleştirme gerekli', 'Pairing required'),
+            'connection_required' => $this->text('Bağlantı gerekli', 'Connection required'),
             'not_applicable' => $this->text('Uygulanamaz', 'Not applicable'),
             'not_run' => $this->text('Henüz veri çekilmedi', 'Never collected'),
             default => $this->text('Durum bekleniyor', 'Status pending'),
@@ -892,31 +1087,25 @@ final class WebsiteIntegrationIndex extends Component
     /** @param Collection<int, array<string, mixed>> $rows @return array<string, mixed>|null */
     private function selectedRow(Collection $rows): ?array
     {
-        if ($rows->isEmpty()) {
+        if ($rows->isEmpty() || $this->selectedAssetId === null) {
             return null;
         }
-        if ($this->selectedAssetId !== null) {
-            $selected = $rows->first(fn (array $row): bool => (int) $row['asset']->id === $this->selectedAssetId);
-            if (is_array($selected)) {
-                return $selected;
-            }
-        }
+        $selected = $rows->first(fn (array $row): bool => (int) $row['asset']->id === $this->selectedAssetId);
 
-        $first = $rows->first();
-
-        return is_array($first) ? $first : null;
+        return is_array($selected) ? $selected : null;
     }
 
     /** @return Collection<int, array<string, mixed>> */
     private function collectionHistory(int $assetId): Collection
     {
         return CollectionRun::query()
+            ->with(['datasetRuns', 'requestedBy'])
             ->where('digital_asset_id', $assetId)
             ->latest('id')
             ->limit(20)
             ->get()
             ->filter(fn (CollectionRun $run): bool => $this->isWebsiteRun($run))
-            ->take(5)
+            ->take(10)
             ->map(fn (CollectionRun $run): array => [
                 'id' => $run->id,
                 'status' => $run->status?->value,
@@ -924,8 +1113,91 @@ final class WebsiteIntegrationIndex extends Component
                 'datasets_completed' => (int) $run->datasets_completed,
                 'datasets_total' => (int) $run->datasets_total,
                 'datasets_failed' => (int) $run->datasets_failed,
+                'rows_written' => (int) $run->datasetRuns->sum('rows_written'),
+                'trigger_label' => $this->triggerLabel($run->trigger_type?->value),
+                'requested_by' => $run->requestedBy?->name ?? $this->text('Sistem', 'System'),
+                'started_at' => $run->started_at ?? $run->created_at,
+                'finished_at' => $run->finished_at,
+                'duration_label' => ($run->started_at ?? $run->created_at)?->diffForHumans($run->finished_at ?? $run->updated_at, true),
+                'failure_summary' => $run->failure_summary,
                 'updated_at' => $run->updated_at,
             ])->values();
+    }
+
+    /** @return array<string, mixed>|null */
+    private function liveConsole(?CollectionRun $run): ?array
+    {
+        if (! $run instanceof CollectionRun) {
+            return null;
+        }
+
+        $active = in_array($run->status?->value, ['queued', 'running', 'retrying', 'cancellation_requested'], true);
+        $stages = $run->datasetRuns
+            ->groupBy('request_family_id')
+            ->map(function (Collection $datasetRuns, string $family): array {
+                $states = $datasetRuns->map(fn (CollectionDatasetRun $datasetRun): string => $this->datasetRunState($datasetRun));
+                $state = match (true) {
+                    $states->contains('running') => 'running',
+                    $states->every(fn (string $candidate): bool => $candidate === 'completed') => 'completed',
+                    $states->contains('completed') || $states->contains('partial') => 'partial',
+                    $states->contains('failed') => 'failed',
+                    $states->contains('skipped') || $states->contains('not_eligible') => 'skipped',
+                    default => 'not_run',
+                };
+                $progressTotal = (int) $datasetRuns->sum(fn (CollectionDatasetRun $datasetRun): int => max(0, (int) $datasetRun->progress_total));
+                $progressCurrent = (int) $datasetRuns->sum(fn (CollectionDatasetRun $datasetRun): int => max(0, (int) $datasetRun->progress_current));
+                $latestStage = $datasetRuns->sortByDesc('last_activity_at')->first()?->stage;
+
+                return [
+                    'family' => $family,
+                    'label' => $this->familyLabel($family),
+                    'state' => $state,
+                    'status_label' => $this->datasetStatusLabel($state),
+                    'datasets_completed' => $states->filter(fn (string $candidate): bool => $candidate === 'completed')->count(),
+                    'datasets_total' => $states->count(),
+                    'rows_received' => (int) $datasetRuns->sum('rows_received'),
+                    'rows_written' => (int) $datasetRuns->sum('rows_written'),
+                    'progress_current' => $progressCurrent,
+                    'progress_total' => $progressTotal,
+                    'progress_percent' => $progressTotal > 0 ? min(100, (int) round(($progressCurrent / $progressTotal) * 100)) : null,
+                    'stage' => is_string($latestStage) && $latestStage !== '' ? $latestStage : null,
+                    'error' => $datasetRuns->first(fn (CollectionDatasetRun $datasetRun): bool => filled($datasetRun->error_message))?->error_message,
+                ];
+            })->values();
+
+        $datasetsTotal = max((int) $run->datasets_total, $run->datasetRuns->count());
+        $datasetsCompleted = max((int) $run->datasets_completed, $run->datasetRuns->filter(
+            fn (CollectionDatasetRun $datasetRun): bool => $datasetRun->status?->value === 'completed',
+        )->count());
+
+        return [
+            'id' => $run->id,
+            'active' => $active,
+            'state' => $this->overallState($run, true),
+            'status_label' => $this->runStatusLabel($run),
+            'datasets_completed' => $datasetsCompleted,
+            'datasets_total' => $datasetsTotal,
+            'datasets_failed' => (int) $run->datasets_failed,
+            'progress_percent' => $datasetsTotal > 0 ? min(100, (int) round(($datasetsCompleted / $datasetsTotal) * 100)) : 0,
+            'rows_received' => (int) $run->datasetRuns->sum('rows_received'),
+            'rows_written' => (int) $run->datasetRuns->sum('rows_written'),
+            'duration_label' => ($run->started_at ?? $run->created_at)?->diffForHumans($run->finished_at ?? now(), true),
+            'last_activity_at' => $run->last_activity_at ?? $run->updated_at,
+            'stages' => $stages,
+            'failure_summary' => $run->failure_summary,
+        ];
+    }
+
+    private function triggerLabel(?string $trigger): string
+    {
+        return match ($trigger) {
+            'manual' => $this->text('Manuel', 'Manual'),
+            'initial_backfill' => $this->text('İlk veri çekimi', 'Initial backfill'),
+            'incremental' => $this->text('Planlı güncelleme', 'Scheduled refresh'),
+            'retry' => $this->text('Yeniden deneme', 'Retry'),
+            'replay' => $this->text('Tekrar oynatma', 'Replay'),
+            default => $this->text('Sistem', 'System'),
+        };
     }
 
     private function isWebsiteRun(CollectionRun $run): bool

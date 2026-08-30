@@ -85,7 +85,8 @@ Route::middleware(['web'])->prefix('reports/share')->name('reports.share.')->gro
 
 // Register the concrete Website integration route before demo.php's /integrations/{provider} catch-all.
 Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])->group(function (): void {
-    Route::livewire('/integrations/website', WebsiteIntegrationIndex::class)
+    Route::livewire('/integrations/website/{assetId?}', WebsiteIntegrationIndex::class)
+        ->whereNumber('assetId')
         ->name('operator.integrations.website');
 });
 
