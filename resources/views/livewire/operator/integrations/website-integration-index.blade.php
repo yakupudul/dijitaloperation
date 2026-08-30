@@ -41,8 +41,8 @@
         <div class="flex flex-wrap gap-3">
             <input wire:model.live.debounce.300ms="search" type="search" class="min-w-64 flex-1 rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950" placeholder="{{ $tr ? 'Website ara' : 'Search websites' }}">
             <select wire:model.live="filter" class="rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950">
-                @foreach ($filters as $value => $label)
-                    <option value="{{ $value }}">{{ $label }}</option>
+                @foreach ($filters as $option)
+                    <option value="{{ $option['key'] }}">{{ $option['label'] }} ({{ $option['count'] }})</option>
                 @endforeach
             </select>
         </div>
@@ -150,8 +150,8 @@
             <h2 class="text-base font-semibold text-gray-900 dark:text-white">{{ $tr ? 'Veri çekim geçmişi' : 'Collection history' }}</h2>
             <div class="mt-3 overflow-x-auto">
                 <table class="min-w-full text-sm">
-                    <thead><tr class="border-b border-gray-100 text-left text-xs text-gray-400 dark:border-gray-800"><th class="py-2 pr-4">ID</th><th class="py-2 pr-4">{{ $tr ? 'Durum' : 'State' }}</th><th class="py-2 pr-4">{{ $tr ? 'Başlangıç' : 'Started' }}</th><th class="py-2">{{ $tr ? 'Bitiş' : 'Finished' }}</th></tr></thead>
-                    <tbody>@forelse ($history as $run)<tr class="border-b border-gray-50 dark:border-gray-800/60"><td class="py-2 pr-4 font-mono">#{{ $run->id }}</td><td class="py-2 pr-4">{{ $run->status?->value }}</td><td class="py-2 pr-4">{{ $run->started_at ?? $run->created_at }}</td><td class="py-2">{{ $run->finished_at ?? '—' }}</td></tr>@empty<tr><td colspan="4" class="py-4 text-gray-500">{{ $tr ? 'Henüz çekim geçmişi yok.' : 'No collection history yet.' }}</td></tr>@endforelse</tbody>
+                    <thead><tr class="border-b border-gray-100 text-left text-xs text-gray-400 dark:border-gray-800"><th class="py-2 pr-4">ID</th><th class="py-2 pr-4">{{ $tr ? 'Durum' : 'State' }}</th><th class="py-2 pr-4">{{ $tr ? 'Dataset' : 'Datasets' }}</th><th class="py-2">{{ $tr ? 'Güncellendi' : 'Updated' }}</th></tr></thead>
+                    <tbody>@forelse ($history as $run)<tr class="border-b border-gray-50 dark:border-gray-800/60"><td class="py-2 pr-4 font-mono">#{{ $run['id'] }}</td><td class="py-2 pr-4">{{ $run['status_label'] }}</td><td class="py-2 pr-4">{{ $run['datasets_completed'] }}/{{ $run['datasets_total'] }}@if ($run['datasets_failed'] > 0) · {{ $run['datasets_failed'] }} {{ $tr ? 'başarısız' : 'failed' }}@endif</td><td class="py-2">{{ $run['updated_at']?->diffForHumans() ?? '—' }}</td></tr>@empty<tr><td colspan="4" class="py-4 text-gray-500">{{ $tr ? 'Henüz çekim geçmişi yok.' : 'No collection history yet.' }}</td></tr>@endforelse</tbody>
                 </table>
             </div>
         </section>
