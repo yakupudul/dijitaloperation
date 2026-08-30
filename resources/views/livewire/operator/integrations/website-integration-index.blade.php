@@ -9,8 +9,8 @@
     };
     $stateTone = fn (string $state): string => match ($state) {
         'completed' => 'success',
-        'running' => 'info',
-        'failed', 'attention' => 'error',
+        'running', 'queued', 'retrying', 'cancellation_requested' => 'info',
+        'failed', 'cancelled', 'attention' => 'error',
         'partial', 'connection_required', 'needs_setup' => 'warning',
         default => 'neutral',
     };
@@ -291,7 +291,7 @@
                             @forelse ($history as $run)
                                 <tr>
                                     <td class="px-5 py-4 font-mono text-xs">#{{ $run['id'] }}</td>
-                                    <td class="px-5 py-4"><span class="rounded-full border px-2.5 py-1 text-xs {{ $toneClasses($stateTone($run['status'] === 'completed' ? 'completed' : ($run['status'] === 'partial' ? 'partial' : ($run['status'] === 'running' ? 'running' : ($run['status'] === 'failed' ? 'failed' : 'neutral')))) }}">{{ $run['status_label'] }}</span>@if ($run['failure_summary'])<p class="mt-2 max-w-72 text-xs text-red-600 dark:text-red-400">{{ $run['failure_summary'] }}</p>@endif</td>
+                                    <td class="px-5 py-4"><span class="rounded-full border px-2.5 py-1 text-xs {{ $toneClasses($stateTone((string) $run['status'])) }}">{{ $run['status_label'] }}</span>@if ($run['failure_summary'])<p class="mt-2 max-w-72 text-xs text-red-600 dark:text-red-400">{{ $run['failure_summary'] }}</p>@endif</td>
                                     <td class="px-5 py-4"><p>{{ $run['trigger_label'] }}</p><p class="mt-1 text-xs text-gray-400">{{ $run['requested_by'] }}</p></td>
                                     <td class="px-5 py-4">{{ $run['datasets_completed'] }}/{{ $run['datasets_total'] }}@if ($run['datasets_failed'] > 0)<p class="mt-1 text-xs text-red-500">{{ $run['datasets_failed'] }} {{ $tr ? 'başarısız' : 'failed' }}</p>@endif</td>
                                     <td class="px-5 py-4">{{ number_format((int) $run['rows_written'], 0, ',', '.') }}</td>
