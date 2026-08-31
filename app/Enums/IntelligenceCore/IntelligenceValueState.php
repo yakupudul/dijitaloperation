@@ -17,6 +17,6 @@ enum IntelligenceValueState: string
 
     public function carriesValue(): bool
     {
-        return $this === self::Value || $this === self::Zero;
+        return in_array($this, [self::Value, self::Zero, self::Partial, self::Stale], true);
     }
 }
