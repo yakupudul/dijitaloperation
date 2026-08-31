@@ -10,6 +10,7 @@ use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
 use App\Services\Ga4\WebsiteGa4AnalysisService;
 use App\Services\Gsc\WebsiteSearchConsoleAnalysisService;
 use App\Services\IntelligenceProjection\Website\WebsitePagesContentReadService;
+use App\Services\IntelligenceProjection\Website\WebsiteTechnicalHealthReadService;
 use App\Support\Reality\OperatorCanonicalAsset;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
@@ -51,6 +52,18 @@ class OverviewPage extends Component
 
     #[Url(as: 'page_profile')]
     public ?int $selectedPageProfileId = null;
+
+    #[Url(as: 'health_search')]
+    public string $healthSearch = '';
+
+    #[Url(as: 'health_filter')]
+    public string $healthFilter = 'all';
+
+    #[Url(as: 'health_page')]
+    public int $healthPage = 1;
+
+    #[Url(as: 'health_profile')]
+    public ?int $selectedHealthProfileId = null;
 
     public string $message = '';
 
@@ -137,6 +150,34 @@ class OverviewPage extends Component
         $this->selectedPageProfileId = null;
     }
 
+    public function updatedHealthSearch(): void
+    {
+        $this->healthPage = 1;
+        $this->selectedHealthProfileId = null;
+    }
+
+    public function updatedHealthFilter(): void
+    {
+        $this->healthPage = 1;
+        $this->selectedHealthProfileId = null;
+    }
+
+    public function setHealthPage(int $page): void
+    {
+        $this->healthPage = max(1, $page);
+        $this->selectedHealthProfileId = null;
+    }
+
+    public function selectHealthProfile(int $profileId): void
+    {
+        $this->selectedHealthProfileId = $profileId > 0 ? $profileId : null;
+    }
+
+    public function closeHealthProfile(): void
+    {
+        $this->selectedHealthProfileId = null;
+    }
+
     public function refreshData(AsyncOperationService $async): void
     {
         $messages = [];
@@ -185,6 +226,7 @@ class OverviewPage extends Component
         WebsiteGa4AnalysisService $ga4AnalysisService,
         WebsiteSearchConsoleAnalysisService $gscAnalysisService,
         WebsitePagesContentReadService $pagesContentReadService,
+        WebsiteTechnicalHealthReadService $technicalHealthReadService,
     ): View {
         $this->normalizeTab();
 
@@ -242,6 +284,16 @@ class OverviewPage extends Component
             )
             : null;
 
+        $technicalHealth = $this->tab === 'health'
+            ? $technicalHealthReadService->workspace(
+                asset: $asset,
+                search: $this->healthSearch,
+                filter: $this->healthFilter,
+                page: $this->healthPage,
+                selectedProfileId: $this->selectedHealthProfileId,
+            )
+            : null;
+
         return view('livewire.operator.website.overview', [
             'asset' => $asset,
             'brand' => $asset->brand,
@@ -252,6 +304,7 @@ class OverviewPage extends Component
             'gscAnalysis' => $gscAnalysis,
             'gscCharts' => $gscCharts,
             'pagesContent' => $pagesContent,
+            'technicalHealth' => $technicalHealth,
             'showPeriodBar' => in_array($this->tab, ['overview', 'ga4_analysis', 'search_console', 'visibility', 'performance'], true),
         ]);
     }

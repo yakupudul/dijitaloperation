@@ -53,8 +53,8 @@ final class WebsitePublicProjectionAdapter implements WebsiteProjectionSourceAda
         $content = $this->latestSnapshots('website_content_stats', $assetId);
         $html = $this->latestSnapshots('website_html_snapshot', $assetId);
         $performance = $this->latestPerformance($assetId);
-        $issues = $this->latestIssues($assetId);
-        $links = $this->latestLinks($assetId);
+        $issues = $this->latestIssues($assetId, $http, $metadata);
+        $links = $this->latestLinks($assetId, $http, $metadata);
 
         $urls = array_values(array_unique(array_filter([
             ...array_keys($inventory),
@@ -300,8 +300,12 @@ final class WebsitePublicProjectionAdapter implements WebsiteProjectionSourceAda
         return $grouped;
     }
 
-    /** @return array<string, list<array<string, mixed>>> */
-    private function latestIssues(int $assetId): array
+    /**
+     * @param  array<string, object>  $http
+     * @param  array<string, object>  $metadata
+     * @return array<string, list<array<string, mixed>>>
+     */
+    private function latestIssues(int $assetId, array $http, array $metadata): array
     {
         if (! Schema::hasTable('website_crawl_issue_snapshot')) {
             return [];
@@ -313,7 +317,13 @@ final class WebsitePublicProjectionAdapter implements WebsiteProjectionSourceAda
         );
         $grouped = [];
         foreach ($latest as $row) {
-            $grouped[(string) $row->url][] = [
+            $url = (string) $row->url;
+            $currentObservedAt = $metadata[$url]->observed_at ?? $http[$url]->observed_at ?? null;
+            if ($currentObservedAt === null || (string) $row->observed_at !== (string) $currentObservedAt) {
+                continue;
+            }
+
+            $grouped[$url][] = [
                 'code' => (string) $row->issue_code,
                 'severity' => (string) $row->severity,
                 'message' => (string) $row->message,
@@ -325,8 +335,12 @@ final class WebsitePublicProjectionAdapter implements WebsiteProjectionSourceAda
         return $grouped;
     }
 
-    /** @return array<string, array{internal:int, external:int, observed_at:?string}> */
-    private function latestLinks(int $assetId): array
+    /**
+     * @param  array<string, object>  $http
+     * @param  array<string, object>  $metadata
+     * @return array<string, array{internal:int, external:int, observed_at:?string}>
+     */
+    private function latestLinks(int $assetId, array $http, array $metadata): array
     {
         if (! Schema::hasTable('website_link_edge')) {
             return [];
@@ -340,6 +354,11 @@ final class WebsitePublicProjectionAdapter implements WebsiteProjectionSourceAda
         $links = [];
         foreach (DB::table('website_link_edge')->where('digital_asset_id', $assetId)->where('observed_at', $latestObservedAt)->get() as $row) {
             $url = (string) $row->source_url;
+            $currentObservedAt = $metadata[$url]->observed_at ?? $http[$url]->observed_at ?? null;
+            if ($currentObservedAt === null || (string) $row->observed_at !== (string) $currentObservedAt) {
+                continue;
+            }
+
             $links[$url] ??= ['internal' => 0, 'external' => 0, 'observed_at' => (string) $row->observed_at];
             $links[$url][$row->is_internal ? 'internal' : 'external']++;
         }

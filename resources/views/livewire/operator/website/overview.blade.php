@@ -9,8 +9,13 @@
         'operations' => __('operator.website.tabs.operations'),
         'setup' => __('operator.website.tabs.setup'),
     ];
-    $headerLastUpdatedHuman = $tab === 'content' && data_get($pagesContent, 'projection.completed_at')
-        ? \Carbon\CarbonImmutable::parse(data_get($pagesContent, 'projection.completed_at'))->diffForHumans()
+    $projectionCompletedAt = match ($tab) {
+        'content' => data_get($pagesContent, 'projection.completed_at'),
+        'health' => data_get($technicalHealth, 'projection.completed_at'),
+        default => null,
+    };
+    $headerLastUpdatedHuman = $projectionCompletedAt
+        ? \Carbon\CarbonImmutable::parse($projectionCompletedAt)->diffForHumans()
         : ($data['last_updated_human'] ?? null);
 @endphp
 
@@ -113,16 +118,7 @@
     @elseif ($tab === 'content')
         @include('livewire.operator.website.tabs.pages-content')
     @elseif ($tab === 'health')
-        <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
-            <div class="flex items-center justify-between gap-3"><div><h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ __('operator.website.health.title') }}</h2><p class="mt-1 text-sm text-gray-500">{{ __('operator.website.health.hint') }}</p></div><button type="button" wire:click="runDiagnosis" class="text-sm font-medium text-brand-600">{{ __('operator.website.health.rerun') }}</button></div>
-            <p class="mt-4 text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('operator.website.health.checks_evaluated', ['count' => $data['diagnosis']['checks_evaluated'] ?? 0]) }}</p>
-            <div class="mt-4 grid gap-3 sm:grid-cols-3">
-                <div class="rounded-lg bg-gray-50 p-4 dark:bg-white/[0.03]"><p class="text-2xl font-bold text-gray-900 dark:text-white">{{ $data['diagnosis']['checks_evaluated'] ?? 0 }}</p><p class="text-xs text-gray-400">{{ __('operator.website.health.checks_evaluated', ['count' => $data['diagnosis']['checks_evaluated'] ?? 0]) }}</p></div>
-                <div class="rounded-lg bg-gray-50 p-4 dark:bg-white/[0.03]"><p class="text-2xl font-bold text-gray-900 dark:text-white">{{ $data['findings']['counts']['open'] }}</p><p class="text-xs text-gray-400">{{ __('operator.website.health.open_findings') }}</p></div>
-                <div class="rounded-lg bg-gray-50 p-4 dark:bg-white/[0.03]"><p class="text-2xl font-bold text-rose-600">{{ $data['findings']['counts']['high'] }}</p><p class="text-xs text-gray-400">{{ __('operator.website.health.high_severity') }}</p></div>
-            </div>
-            <p class="mt-4 text-sm text-gray-600 dark:text-gray-300">{{ $data['diagnosis']['summary'] ?? __('operator.website.health.no_run') }}</p>
-        </section>
+        @include('livewire.operator.website.tabs.technical-health')
     @elseif ($tab === 'visibility')
         <div class="grid gap-4 xl:grid-cols-2">
             <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700"><div class="flex items-center justify-between"><h2 class="font-semibold text-gray-900 dark:text-white">Organic Search</h2><button type="button" wire:click="refreshSeoIntelligence" class="text-sm font-medium text-brand-600">{{ __('operator.website.panels.refresh_seo') }}</button></div><p class="mt-2 text-sm text-gray-500">{{ __('operator.website.panels.visibility_hint') }}</p><div class="mt-4 space-y-2">@forelse (array_slice($data['seo_opportunities'] ?? [], 0, 8) as $row)<div class="rounded-lg bg-gray-50 p-3 text-sm dark:bg-white/[0.03]">{{ is_array($row) ? ($row['query'] ?? $row['title'] ?? json_encode($row)) : $row }}</div>@empty<p class="text-sm text-gray-500">{{ __('operator.website.panels.no_seo_opportunities') }}</p>@endforelse</div></section>

@@ -53,6 +53,11 @@ detail. Stored visitor HTML can be opened only by authenticated operators and is
 plain text after ownership and checksum verification. This screen presents collected facts; interpretation remains
 in Findings/Improvements.
 
+`Teknik Sağlık` is the second projection-backed operator slice. It summarizes externally observed HTTP reachability,
+redirects, deterministic crawl observations, document-head signals, structured data, TLS certificate facts and
+PageSpeed lab LCP coverage. It has no opaque health score and does not create Findings or Recommendations. Missing
+collection is shown as unavailable rather than zero; page-level details retain source-record provenance.
+
 ## Rules / invariants
 
 CMS-specific fields Core'a şişirilmez; module/connection'dan gelir. Integration ekranı collection truth gösterir;
@@ -73,7 +78,7 @@ GA4 Key Event provider-attributed signal'dır ve verified business outcome sayı
 
 Bu tablolar canonical provider fact store değildir; silinip kaynak fact'lardan yeniden üretilebilir. Varsayılan projection penceresi son
 tamamlanmış 90 UTC gündür. Collection completion async rebuild tetikler; operator backfill komutu
-`intelligence:website-projection:rebuild`'dir. `Sayfalar & İçerik` bu read model'i kullanır. Kalan hedef sekmeler
+`intelligence:website-projection:rebuild`'dir. `Sayfalar & İçerik` ve `Teknik Sağlık` bu read model'i kullanır. Kalan hedef sekmeler
 ve sekmeler arası nihai Genel Bakış ayrı UI fazlarıdır.
 
 ## Derived information
