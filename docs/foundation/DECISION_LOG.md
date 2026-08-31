@@ -390,6 +390,24 @@
 
 ---
 
+
+## ADR-046 — MoxDOP Intelligence Core: provider-neutral identity and provenance layer
+
+- **Durum:** Accepted
+- **Tarih:** 2026-08-31
+- **Bağlam:** Website, WordPress, GSC, GA4, Ads, GBP ve DataForSEO verilerinin ekranlarda farklı kurallarla doğrudan birleştirilmesi; ikinci bir veri ambarı, belirsiz kimlik eşleştirmesi ve yeni sağlayıcıda yeniden yazım riski oluşturur.
+- **Karar:**
+  1. Intelligence Core, sağlayıcı fact tablolarının üzerinde çalışan ortak **kimlik + provenance + metrik sözleşmesi + capability** katmanıdır. Provider fact tabloları canonical truth olarak kalır; generic EAV/metrik ambarına kopyalanmaz.
+  2. Ortak kimlikler Page/URL, Search Term, Entity ve Business Action’dır. Zaman/market/language/device/surface/model/sampling bağlamı ile provider/dataset/record/asset/resource/run/contract provenance korunur.
+  3. URL normalizasyonu scheme, `www`, path case ve trailing slash farklılıklarını otomatik birleştirmez. Eşdeğerlik redirect, canonical, CMS permalink, rule veya operator kanıtı gerektirir.
+  4. Search term canonical kimliği diacritics korur; folded metin yalnız clustering içindir. GSC query, Ads search term/keyword, DataForSEO/GBP keyword ve gelecekteki AI query kaynak anlamları ayrı tutulur.
+  5. Missing ≠ zero; estimated ≠ measured; platform signal ≠ verified business outcome. Registry dışı metric/formula veya magic score oluşturulmaz.
+  6. Page/Search Term/Entity/Outcome profilleri rebuildable Projection katmanlarıdır; bu ADR onları uygulanmış saymaz. Yeni kaynaklar capability adapter ekler.
+  7. Mevcut Formula Registry, Evidence Definitions, Canonical Evidence ve Finding Rules tek deterministik teşhis zinciridir. Paralel Evidence/Finding sistemi kurulmaz; AI Finding/Task yaratmaz ve harici write yasağı sürer.
+- **İlgili:** ADR-007, ADR-018, ADR-023, ADR-034, ADR-036, ADR-039, ADR-045; `resources/intelligence/MOXDOP_INTELLIGENCE_CORE_V1.json`
+
+---
+
 ## Karar indeksi
 
 | ID | Başlık | Durum |
@@ -439,6 +457,7 @@
 | ADR-043 | GSC first-class Digital Asset + Evidence role | Accepted |
 | ADR-044 | Canonical operator routes + Filament `/admin` | Accepted |
 | ADR-045 | WordPress inside truth + Public Discovery outside truth | Accepted |
+| ADR-046 | Provider-neutral Intelligence Core identity/provenance layer | Accepted |
 
 ## Süpercede edilen kararlar
 

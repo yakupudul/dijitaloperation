@@ -1,0 +1,656 @@
+{
+  "metadata": {
+    "registry_id": "MOXDOP_INTELLIGENCE_CORE",
+    "version": 1,
+    "status": "CODE_CONTRACT",
+    "created_at": "2026-08-31",
+    "description": "Provider-neutral identity, provenance, metric and capability contract for MoxDOP Intelligence projections.",
+    "formula_registry_id": "MOXDOP_FORMULA_REGISTRY",
+    "evidence_pipeline": "CanonicalEvidencePipeline",
+    "finding_rule_registry": "MOXDOP_FINDING_RULES"
+  },
+  "global_policies": {
+    "PROVIDER_FACT_TABLES_REMAIN_CANONICAL": true,
+    "NO_GENERIC_METRIC_WAREHOUSE": true,
+    "MISSING_NEVER_EQUALS_ZERO": true,
+    "ESTIMATED_NEVER_EQUALS_MEASURED": true,
+    "PLATFORM_SIGNAL_NEVER_EQUALS_VERIFIED_OUTCOME": true,
+    "RAW_SOURCE_IDENTITY_IS_PRESERVED": true,
+    "URL_EQUIVALENCE_REQUIRES_EVIDENCE": true,
+    "SEARCH_TERM_SEMANTICS_ARE_NOT_COLLAPSED": true,
+    "PROJECTIONS_ARE_REBUILDABLE": true,
+    "NO_MAGIC_SCORES": true,
+    "AI_DOES_NOT_CREATE_FINDINGS": true,
+    "EXTERNAL_WRITES_FORBIDDEN": true
+  },
+  "profiles": [
+    {
+      "id": "page",
+      "label": "page profile",
+      "status": "PROJECTION_NOT_IMPLEMENTED"
+    },
+    {
+      "id": "search_term",
+      "label": "search term profile",
+      "status": "PROJECTION_NOT_IMPLEMENTED"
+    },
+    {
+      "id": "entity",
+      "label": "entity profile",
+      "status": "PROJECTION_NOT_IMPLEMENTED"
+    },
+    {
+      "id": "outcome",
+      "label": "outcome profile",
+      "status": "PROJECTION_NOT_IMPLEMENTED"
+    }
+  ],
+  "dimensions": [
+    {
+      "id": "page",
+      "identity_table": "intelligence_page_identities",
+      "alias_table": "intelligence_page_aliases",
+      "merge_policy": "Explicit redirect, declared canonical, CMS permalink, provider stable identity, rule or operator confirmation; syntactic normalization never merges www, scheme or trailing-slash variants."
+    },
+    {
+      "id": "search_term",
+      "identity_table": "intelligence_search_term_identities",
+      "alias_table": "intelligence_search_term_aliases",
+      "merge_policy": "Canonical text preserves diacritics. Folded text is clustering-only and source semantics remain distinct."
+    },
+    {
+      "id": "entity",
+      "identity_table": "intelligence_entity_identities",
+      "alias_table": "intelligence_entity_aliases",
+      "merge_policy": "Provider stable identity or explicit deterministic/operator match; no fuzzy auto-merge."
+    },
+    {
+      "id": "business_action",
+      "identity_table": "intelligence_business_action_identities",
+      "alias_table": "intelligence_business_action_aliases",
+      "merge_policy": "Provider signals map to a named Brand action without becoming verified business outcomes."
+    },
+    {
+      "id": "time_context",
+      "identity_table": null,
+      "alias_table": null,
+      "merge_policy": "Reporting date, timezone, observed/retrieved time, market, language, device, surface, model and sampling travel with every contribution."
+    },
+    {
+      "id": "source_provenance",
+      "identity_table": null,
+      "alias_table": null,
+      "merge_policy": "Provider, dataset, source record, asset/resource, collection run, dataset run and contract version are retained."
+    }
+  ],
+  "source_classes": [
+    {
+      "id": "FIRST_PARTY_MEASURED",
+      "meaning": "First-party measured provider fact."
+    },
+    {
+      "id": "FIRST_PARTY_CONFIGURED",
+      "meaning": "First-party configured state; not a measured outcome."
+    },
+    {
+      "id": "DIRECT_OBSERVED",
+      "meaning": "Direct public HTTP, HTML, DNS, TLS or browser observation."
+    },
+    {
+      "id": "CMS_AUTHENTICATED",
+      "meaning": "Authenticated CMS inside truth."
+    },
+    {
+      "id": "PROVIDER_ATTRIBUTED",
+      "meaning": "Provider-attributed platform result; not a verified business outcome."
+    },
+    {
+      "id": "PROVIDER_ESTIMATED",
+      "meaning": "Vendor estimate or modeled external intelligence; not first-party measurement."
+    },
+    {
+      "id": "OPERATOR_MAINTAINED",
+      "meaning": "Human-maintained MoxDOP fact."
+    },
+    {
+      "id": "MOXDOP_DERIVED",
+      "meaning": "Deterministic MoxDOP calculation with input provenance."
+    },
+    {
+      "id": "AI_SEARCH_OBSERVED",
+      "meaning": "Observed AI-search response with model, locale, time and sampling context; not universal visibility."
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "website.public_observation.read",
+      "profiles": [
+        "page",
+        "entity"
+      ],
+      "read_only": true
+    },
+    {
+      "id": "website.cms_snapshot.read",
+      "profiles": [
+        "page",
+        "entity"
+      ],
+      "read_only": true
+    },
+    {
+      "id": "website.performance.read",
+      "profiles": [
+        "page"
+      ],
+      "read_only": true
+    },
+    {
+      "id": "search.first_party.read",
+      "profiles": [
+        "page",
+        "search_term"
+      ],
+      "read_only": true
+    },
+    {
+      "id": "search.paid_terms.read",
+      "profiles": [
+        "page",
+        "search_term",
+        "outcome"
+      ],
+      "read_only": true
+    },
+    {
+      "id": "search.market_estimates.read",
+      "profiles": [
+        "page",
+        "search_term",
+        "entity"
+      ],
+      "read_only": true
+    },
+    {
+      "id": "analytics.behavior.read",
+      "profiles": [
+        "page",
+        "outcome"
+      ],
+      "read_only": true
+    },
+    {
+      "id": "ads.performance.read",
+      "profiles": [
+        "page",
+        "search_term",
+        "outcome"
+      ],
+      "read_only": true
+    },
+    {
+      "id": "local.profile.read",
+      "profiles": [
+        "page",
+        "entity"
+      ],
+      "read_only": true
+    },
+    {
+      "id": "local.performance.read",
+      "profiles": [
+        "search_term",
+        "entity",
+        "outcome"
+      ],
+      "read_only": true
+    },
+    {
+      "id": "business_actions.map",
+      "profiles": [
+        "outcome"
+      ],
+      "read_only": true
+    },
+    {
+      "id": "business_outcomes.read",
+      "profiles": [
+        "outcome"
+      ],
+      "read_only": true
+    },
+    {
+      "id": "ai_search.observations.read",
+      "profiles": [
+        "page",
+        "search_term",
+        "entity"
+      ],
+      "read_only": true
+    },
+    {
+      "id": "identity.page.resolve",
+      "profiles": [
+        "page"
+      ],
+      "read_only": true
+    },
+    {
+      "id": "identity.search_term.resolve",
+      "profiles": [
+        "search_term"
+      ],
+      "read_only": true
+    },
+    {
+      "id": "identity.entity.resolve",
+      "profiles": [
+        "entity"
+      ],
+      "read_only": true
+    },
+    {
+      "id": "identity.business_action.resolve",
+      "profiles": [
+        "outcome"
+      ],
+      "read_only": true
+    }
+  ],
+  "sources": [
+    {
+      "id": "website",
+      "status": "CURRENT",
+      "capabilities": [
+        "website.public_observation.read",
+        "website.performance.read"
+      ]
+    },
+    {
+      "id": "wordpress",
+      "status": "CURRENT",
+      "capabilities": [
+        "website.cms_snapshot.read"
+      ]
+    },
+    {
+      "id": "gsc",
+      "status": "CURRENT",
+      "capabilities": [
+        "search.first_party.read"
+      ]
+    },
+    {
+      "id": "ga4",
+      "status": "CURRENT",
+      "capabilities": [
+        "analytics.behavior.read"
+      ]
+    },
+    {
+      "id": "google_ads",
+      "status": "CURRENT",
+      "capabilities": [
+        "search.paid_terms.read",
+        "ads.performance.read"
+      ]
+    },
+    {
+      "id": "meta_ads",
+      "status": "CURRENT",
+      "capabilities": [
+        "ads.performance.read"
+      ]
+    },
+    {
+      "id": "dataforseo",
+      "status": "CURRENT_PARTIAL",
+      "capabilities": [
+        "search.market_estimates.read"
+      ]
+    },
+    {
+      "id": "gbp",
+      "status": "CURRENT_PARTIAL",
+      "capabilities": [
+        "local.profile.read",
+        "local.performance.read"
+      ]
+    },
+    {
+      "id": "business_outcomes",
+      "status": "CURRENT",
+      "capabilities": [
+        "business_outcomes.read"
+      ]
+    },
+    {
+      "id": "ai_search",
+      "status": "FUTURE_ADAPTER",
+      "capabilities": [
+        "ai_search.observations.read"
+      ]
+    }
+  ],
+  "metrics": [
+    {
+      "id": "website.http_status",
+      "source": "website",
+      "source_class": "DIRECT_OBSERVED",
+      "unit": "status_code",
+      "grains": [
+        "page_observation"
+      ],
+      "additivity": "NON_ADDITIVE"
+    },
+    {
+      "id": "website.html_change",
+      "source": "website",
+      "source_class": "DIRECT_OBSERVED",
+      "unit": "state",
+      "grains": [
+        "page_observation"
+      ],
+      "additivity": "NON_ADDITIVE"
+    },
+    {
+      "id": "gsc.clicks",
+      "source": "gsc",
+      "source_class": "FIRST_PARTY_MEASURED",
+      "unit": "count",
+      "grains": [
+        "site_daily",
+        "query_daily",
+        "page_daily",
+        "query_page_daily"
+      ],
+      "additivity": "ADDITIVE_WITHIN_GRAIN"
+    },
+    {
+      "id": "gsc.impressions",
+      "source": "gsc",
+      "source_class": "FIRST_PARTY_MEASURED",
+      "unit": "count",
+      "grains": [
+        "site_daily",
+        "query_daily",
+        "page_daily",
+        "query_page_daily"
+      ],
+      "additivity": "ADDITIVE_WITHIN_GRAIN"
+    },
+    {
+      "id": "gsc.average_position",
+      "source": "gsc",
+      "source_class": "FIRST_PARTY_MEASURED",
+      "unit": "position",
+      "grains": [
+        "site_period",
+        "query_period",
+        "page_period",
+        "query_page_period"
+      ],
+      "additivity": "RECOMPUTE_PROVIDER_WEIGHTED"
+    },
+    {
+      "id": "ga4.sessions",
+      "source": "ga4",
+      "source_class": "FIRST_PARTY_MEASURED",
+      "unit": "count",
+      "grains": [
+        "property_daily",
+        "landing_page_daily",
+        "channel_daily"
+      ],
+      "additivity": "ADDITIVE_WITHIN_GRAIN"
+    },
+    {
+      "id": "ga4.engaged_sessions",
+      "source": "ga4",
+      "source_class": "FIRST_PARTY_MEASURED",
+      "unit": "count",
+      "grains": [
+        "property_daily",
+        "landing_page_daily",
+        "channel_daily"
+      ],
+      "additivity": "ADDITIVE_WITHIN_GRAIN"
+    },
+    {
+      "id": "ga4.key_events",
+      "source": "ga4",
+      "source_class": "PROVIDER_ATTRIBUTED",
+      "unit": "count",
+      "grains": [
+        "property_daily",
+        "event_daily",
+        "landing_page_daily"
+      ],
+      "additivity": "ADDITIVE_WITHIN_GRAIN"
+    },
+    {
+      "id": "ga4.total_revenue",
+      "source": "ga4",
+      "source_class": "PROVIDER_ATTRIBUTED",
+      "unit": "currency",
+      "grains": [
+        "property_daily"
+      ],
+      "additivity": "ADDITIVE_SAME_CURRENCY"
+    },
+    {
+      "id": "google_ads.impressions",
+      "source": "google_ads",
+      "source_class": "FIRST_PARTY_MEASURED",
+      "unit": "count",
+      "grains": [
+        "account_daily",
+        "campaign_daily",
+        "keyword_daily",
+        "search_term_daily",
+        "landing_page_daily"
+      ],
+      "additivity": "ADDITIVE_WITHIN_GRAIN"
+    },
+    {
+      "id": "google_ads.clicks",
+      "source": "google_ads",
+      "source_class": "FIRST_PARTY_MEASURED",
+      "unit": "count",
+      "grains": [
+        "account_daily",
+        "campaign_daily",
+        "keyword_daily",
+        "search_term_daily",
+        "landing_page_daily"
+      ],
+      "additivity": "ADDITIVE_WITHIN_GRAIN"
+    },
+    {
+      "id": "google_ads.cost",
+      "source": "google_ads",
+      "source_class": "FIRST_PARTY_MEASURED",
+      "unit": "currency",
+      "grains": [
+        "account_daily",
+        "campaign_daily",
+        "keyword_daily",
+        "search_term_daily",
+        "landing_page_daily"
+      ],
+      "additivity": "ADDITIVE_SAME_CURRENCY"
+    },
+    {
+      "id": "google_ads.conversions",
+      "source": "google_ads",
+      "source_class": "PROVIDER_ATTRIBUTED",
+      "unit": "count",
+      "grains": [
+        "account_daily",
+        "campaign_daily",
+        "keyword_daily",
+        "search_term_daily",
+        "landing_page_daily"
+      ],
+      "additivity": "ADDITIVE_WITHIN_PROVIDER_SEMANTICS"
+    },
+    {
+      "id": "meta_ads.impressions",
+      "source": "meta_ads",
+      "source_class": "FIRST_PARTY_MEASURED",
+      "unit": "count",
+      "grains": [
+        "account_daily",
+        "campaign_daily",
+        "adset_daily",
+        "ad_daily"
+      ],
+      "additivity": "ADDITIVE_WITHIN_GRAIN"
+    },
+    {
+      "id": "meta_ads.link_clicks",
+      "source": "meta_ads",
+      "source_class": "FIRST_PARTY_MEASURED",
+      "unit": "count",
+      "grains": [
+        "account_daily",
+        "campaign_daily",
+        "adset_daily",
+        "ad_daily"
+      ],
+      "additivity": "ADDITIVE_WITHIN_GRAIN"
+    },
+    {
+      "id": "meta_ads.spend",
+      "source": "meta_ads",
+      "source_class": "FIRST_PARTY_MEASURED",
+      "unit": "currency",
+      "grains": [
+        "account_daily",
+        "campaign_daily",
+        "adset_daily",
+        "ad_daily"
+      ],
+      "additivity": "ADDITIVE_SAME_CURRENCY"
+    },
+    {
+      "id": "meta_ads.typed_result",
+      "source": "meta_ads",
+      "source_class": "PROVIDER_ATTRIBUTED",
+      "unit": "count",
+      "grains": [
+        "typed_action_daily"
+      ],
+      "additivity": "ADDITIVE_SAME_RESULT_TYPE"
+    },
+    {
+      "id": "dataforseo.search_volume",
+      "source": "dataforseo",
+      "source_class": "PROVIDER_ESTIMATED",
+      "unit": "count",
+      "grains": [
+        "keyword_market_snapshot"
+      ],
+      "additivity": "NON_ADDITIVE"
+    },
+    {
+      "id": "dataforseo.rank_position",
+      "source": "dataforseo",
+      "source_class": "PROVIDER_ESTIMATED",
+      "unit": "position",
+      "grains": [
+        "keyword_page_market_snapshot"
+      ],
+      "additivity": "NON_ADDITIVE"
+    },
+    {
+      "id": "dataforseo.etv",
+      "source": "dataforseo",
+      "source_class": "PROVIDER_ESTIMATED",
+      "unit": "decimal",
+      "grains": [
+        "keyword_page_market_snapshot"
+      ],
+      "additivity": "NON_ADDITIVE"
+    },
+    {
+      "id": "gbp.search_impressions",
+      "source": "gbp",
+      "source_class": "FIRST_PARTY_MEASURED",
+      "unit": "count",
+      "grains": [
+        "location_daily",
+        "search_keyword_monthly"
+      ],
+      "additivity": "ADDITIVE_WITHIN_GRAIN"
+    },
+    {
+      "id": "gbp.profile_action",
+      "source": "gbp",
+      "source_class": "PROVIDER_ATTRIBUTED",
+      "unit": "count",
+      "grains": [
+        "location_action_daily"
+      ],
+      "additivity": "ADDITIVE_SAME_ACTION_TYPE"
+    },
+    {
+      "id": "ai_search.citation_observed",
+      "source": "ai_search",
+      "source_class": "AI_SEARCH_OBSERVED",
+      "unit": "boolean",
+      "grains": [
+        "query_model_surface_observation"
+      ],
+      "additivity": "NON_ADDITIVE",
+      "availability": "FUTURE_ADAPTER"
+    },
+    {
+      "id": "ai_search.recommendation_observed",
+      "source": "ai_search",
+      "source_class": "AI_SEARCH_OBSERVED",
+      "unit": "boolean",
+      "grains": [
+        "query_model_surface_observation"
+      ],
+      "additivity": "NON_ADDITIVE",
+      "availability": "FUTURE_ADAPTER"
+    }
+  ],
+  "formula_contract": {
+    "registry_id": "MOXDOP_FORMULA_REGISTRY",
+    "required_fields": [
+      "id",
+      "formula_version",
+      "inputs",
+      "output_type",
+      "missing_policy",
+      "provenance",
+      "status"
+    ],
+    "abstain_when": [
+      "required_capability_missing",
+      "required_metric_missing",
+      "identity_unresolved",
+      "period_not_comparable",
+      "currency_not_comparable",
+      "coverage_insufficient",
+      "provenance_incompatible"
+    ],
+    "output_flow": "Formula result -> canonical Evidence candidate -> existing CanonicalEvidencePipeline"
+  },
+  "rule_contract": {
+    "registry_id": "MOXDOP_FINDING_RULES",
+    "required_fields": [
+      "stable_id",
+      "version",
+      "evidence_definition_ids",
+      "activation",
+      "clear",
+      "fingerprint_inputs"
+    ],
+    "input_flow": "Eligible canonical Evidence only",
+    "output_flow": "Existing Finding -> Recommendation -> manual Task",
+    "ai_finding_creation": false
+  }
+}

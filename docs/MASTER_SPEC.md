@@ -233,6 +233,23 @@ Platforma özel veriler core tablolara eklenmez (modül `payload` / kendi tablol
 V1’de Outcome, Task üzerindeki **gözlemlenmiş sinyal**dir (`outcome_status` / `outcome_json`); ayrı Result/Outcome tablosu yoktur.
 Nedensel attribution iddia edilmez. Ayrıntı: `docs/product/OPERATIONAL_OUTCOME_LOOP.md`.
 
+
+### 7.5 MoxDOP Intelligence Core ve Projection sınırı (ADR-046)
+
+Intelligence Core, provider Data Pool/fact tablolarını değiştirmeden kaynaklar arasında güvenli birleştirme sağlayan semantik katmandır:
+
+* **Identity:** Page/URL, Search Term, Entity ve Business Action kimlikleri ile source alias’ları
+* **Context:** reporting date, source timezone, observed/retrieved time, market, language, device, surface, model ve sampling state
+* **Provenance:** provider/source, dataset, source record, Digital Asset, External Resource, CollectionRun, DatasetRun ve contract version
+* **Metric contract:** source class, unit, desteklenen grain ve additivity; missing/zero ile estimated/measured ayrımı
+* **Capability adapter:** yeni kaynak mevcut tüketiciyi yeniden yazdırmadan registry capability’leri üzerinden eklenir
+
+Provider fact tabloları canonical truth olarak kalır; Intelligence Core generic EAV/metrik ambarı veya ikinci Evidence deposu değildir. Website Projection ve sonraki Page/Search Term/Entity/Outcome projection’ları bu kimliklere bağlanan, yeniden üretilebilir read modelleridir.
+
+URL eşdeğerliği yalnız syntactic sadeleştirmeyle kurulmaz. Search term folded değeri yalnız clustering içindir. Platform conversion/result sinyali doğrulanmış business outcome sayılmaz.
+
+Deterministik sonuç akışı mevcut `MOXDOP_FORMULA_REGISTRY → CanonicalEvidencePipeline → MOXDOP_FINDING_RULES → Finding → Recommendation → manuel Task` zinciridir. AI bu zincirden sonra açıklama/önceliklendirme yardımı sağlar; Finding veya Task icat etmez.
+
 ## 8. Modüler mimari (MVP sade)
 
 Plugin-based **modular monolith** — paketleme temeli:

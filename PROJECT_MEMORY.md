@@ -421,6 +421,22 @@ Canonical decision: ADR-045. Detailed contract: `docs/product/website/WORDPRESS.
 
 ---
 
+
+## Intelligence Core boundary (accepted 2026-08-31)
+
+- Intelligence Core provider-neutral identity/provenance/metric/capability layeridir; provider fact tablolarının yerine geçen ikinci bir warehouse değildir.
+- Canonical dimensions: Page/URL, Search Term, Entity, Business Action, Time/Context ve Source/Provenance.
+- URL join key scheme, `www`, path case ve trailing slash bilgisini korur. Redirect/canonical/CMS/rule/operator kanıtı olmadan Page identities birleştirilmez.
+- Search term canonical text diacritics korur; folded text yalnız clustering candidate üretir. Source semantics alias üzerinde ayrı kalır.
+- Missing ≠ zero; estimated ≠ measured; platform signal ≠ verified business outcome. Magic score ve ad-hoc formula yoktur.
+- DataForSEO, GBP veya gelecekteki AI search kaynağı capability adapter ekler; mevcut source tables veya projection tüketicileri yeniden tasarlanmaz.
+- Rebuildable Page/Search Term/Entity/Outcome profilleri Website Projection ve sonraki aşamalara aittir; bu milestone’da uygulanmış sayılmaz.
+- Mevcut Formula/Evidence/Finding/Recommendation/manual Task hattı tek otoritedir. AI Finding/Task oluşturmaz; external write yapmaz.
+
+Canonical decision: ADR-046. Machine-readable contract: `resources/intelligence/MOXDOP_INTELLIGENCE_CORE_V1.json`.
+
+---
+
 ## Source priority
 
 Preserve MASTER_SPEC supremacy while integrating project memory:

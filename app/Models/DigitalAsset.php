@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\DigitalAssetStatus;
+use App\Models\IntelligenceCore\IntelligencePageIdentity;
 use Database\Factories\DigitalAssetFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -73,6 +74,16 @@ class DigitalAsset extends Model
     public function findings(): HasMany
     {
         return $this->hasMany(Finding::class);
+    }
+
+    /**
+     * Provider-neutral Page identities resolved for this Website asset.
+     *
+     * @return HasMany<IntelligencePageIdentity, $this>
+     */
+    public function intelligencePageIdentities(): HasMany
+    {
+        return $this->hasMany(IntelligencePageIdentity::class, 'website_asset_id');
     }
 
     /**

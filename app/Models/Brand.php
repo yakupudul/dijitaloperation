@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Models\IntelligenceCore\IntelligenceBusinessActionIdentity;
+use App\Models\IntelligenceCore\IntelligenceEntityIdentity;
+use App\Models\IntelligenceCore\IntelligenceSearchTermIdentity;
 use Database\Factories\BrandFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -77,6 +80,24 @@ class Brand extends Model
     public function offerings(): HasMany
     {
         return $this->hasMany(BrandOffering::class);
+    }
+
+    /** @return HasMany<IntelligenceSearchTermIdentity, $this> */
+    public function intelligenceSearchTerms(): HasMany
+    {
+        return $this->hasMany(IntelligenceSearchTermIdentity::class);
+    }
+
+    /** @return HasMany<IntelligenceEntityIdentity, $this> */
+    public function intelligenceEntities(): HasMany
+    {
+        return $this->hasMany(IntelligenceEntityIdentity::class);
+    }
+
+    /** @return HasMany<IntelligenceBusinessActionIdentity, $this> */
+    public function intelligenceBusinessActions(): HasMany
+    {
+        return $this->hasMany(IntelligenceBusinessActionIdentity::class);
     }
 
     /**
