@@ -9,6 +9,7 @@ use App\Services\Async\AsyncOperationService;
 use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
 use App\Services\Ga4\WebsiteGa4AnalysisService;
 use App\Services\Gsc\WebsiteSearchConsoleAnalysisService;
+use App\Services\IntelligenceProjection\Website\WebsitePagesContentReadService;
 use App\Support\Reality\OperatorCanonicalAsset;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
@@ -36,6 +37,21 @@ class OverviewPage extends Component
     #[Url]
     public string $perf_sub = 'search';
 
+    #[Url(as: 'content_search')]
+    public string $contentSearch = '';
+
+    #[Url(as: 'content_filter')]
+    public string $contentFilter = 'all';
+
+    #[Url(as: 'content_source')]
+    public string $contentSource = 'all';
+
+    #[Url(as: 'content_page')]
+    public int $contentPage = 1;
+
+    #[Url(as: 'page_profile')]
+    public ?int $selectedPageProfileId = null;
+
     public string $message = '';
 
     public string $messageTone = 'info';
@@ -43,11 +59,9 @@ class OverviewPage extends Component
     /** @var list<string> */
     public array $allowedTabs = [
         'overview',
-        'ga4_analysis',
-        'search_console',
+        'content',
         'health',
         'visibility',
-        'content',
         'performance',
         'infrastructure',
         'operations',
@@ -67,10 +81,12 @@ class OverviewPage extends Component
         'connections' => 'setup',
         'settings' => 'setup',
         'activity' => 'operations',
-        'analytics' => 'ga4_analysis',
-        'ga4' => 'ga4_analysis',
-        'gsc' => 'search_console',
-        'search-console' => 'search_console',
+        'analytics' => 'performance',
+        'ga4' => 'performance',
+        'ga4_analysis' => 'performance',
+        'gsc' => 'visibility',
+        'search-console' => 'visibility',
+        'search_console' => 'visibility',
     ];
 
     public function mount(?string $assetId = null): void
@@ -85,6 +101,40 @@ class OverviewPage extends Component
     {
         $this->tab = $tab;
         $this->normalizeTab();
+    }
+
+    public function updatedContentSearch(): void
+    {
+        $this->contentPage = 1;
+        $this->selectedPageProfileId = null;
+    }
+
+    public function updatedContentFilter(): void
+    {
+        $this->contentPage = 1;
+        $this->selectedPageProfileId = null;
+    }
+
+    public function updatedContentSource(): void
+    {
+        $this->contentPage = 1;
+        $this->selectedPageProfileId = null;
+    }
+
+    public function setContentPage(int $page): void
+    {
+        $this->contentPage = max(1, $page);
+        $this->selectedPageProfileId = null;
+    }
+
+    public function selectPageProfile(int $profileId): void
+    {
+        $this->selectedPageProfileId = $profileId > 0 ? $profileId : null;
+    }
+
+    public function closePageProfile(): void
+    {
+        $this->selectedPageProfileId = null;
     }
 
     public function refreshData(AsyncOperationService $async): void
@@ -134,6 +184,7 @@ class OverviewPage extends Component
         WebsiteOperatorWorkspace $workspace,
         WebsiteGa4AnalysisService $ga4AnalysisService,
         WebsiteSearchConsoleAnalysisService $gscAnalysisService,
+        WebsitePagesContentReadService $pagesContentReadService,
     ): View {
         $this->normalizeTab();
 
@@ -180,6 +231,17 @@ class OverviewPage extends Component
             $gscCharts = $this->buildGscCharts($gscAnalysis);
         }
 
+        $pagesContent = $this->tab === 'content'
+            ? $pagesContentReadService->workspace(
+                asset: $asset,
+                search: $this->contentSearch,
+                filter: $this->contentFilter,
+                source: $this->contentSource,
+                page: $this->contentPage,
+                selectedProfileId: $this->selectedPageProfileId,
+            )
+            : null;
+
         return view('livewire.operator.website.overview', [
             'asset' => $asset,
             'brand' => $asset->brand,
@@ -189,6 +251,7 @@ class OverviewPage extends Component
             'ga4Charts' => $ga4Charts,
             'gscAnalysis' => $gscAnalysis,
             'gscCharts' => $gscCharts,
+            'pagesContent' => $pagesContent,
             'showPeriodBar' => in_array($this->tab, ['overview', 'ga4_analysis', 'search_console', 'visibility', 'performance'], true),
         ]);
     }

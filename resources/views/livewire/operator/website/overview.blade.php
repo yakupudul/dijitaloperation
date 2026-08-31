@@ -1,16 +1,17 @@
 @php
     $tabs = [
         'overview' => __('operator.website.tabs.overview'),
-        'ga4_analysis' => __('website_ga4.tab'),
-        'search_console' => __('website_gsc.tab'),
+        'content' => __('operator.website.tabs.content'),
         'health' => __('operator.website.tabs.health'),
         'visibility' => __('operator.website.tabs.visibility'),
-        'content' => __('operator.website.tabs.content'),
         'performance' => __('operator.website.tabs.performance'),
         'infrastructure' => __('operator.website.tabs.infrastructure'),
         'operations' => __('operator.website.tabs.operations'),
         'setup' => __('operator.website.tabs.setup'),
     ];
+    $headerLastUpdatedHuman = $tab === 'content' && data_get($pagesContent, 'projection.completed_at')
+        ? \Carbon\CarbonImmutable::parse(data_get($pagesContent, 'projection.completed_at'))->diffForHumans()
+        : ($data['last_updated_human'] ?? null);
 @endphp
 
 <div class="space-y-5">
@@ -26,7 +27,7 @@
                         <a href="{{ $asset->primary_url }}" target="_blank" rel="noopener" class="font-medium text-brand-600 hover:underline">{{ __('operator.website.actions.open_site') }} ↗</a>
                     @endif
                     <span>{{ $data['connection_health'] ?: __('operator.website.header.needs_attention_connect') }}</span>
-                    <span>{{ $data['last_updated_human'] ? __('operator.website.header.last_data', ['when' => $data['last_updated_human']]) : __('operator.website.header.last_data_none') }}</span>
+                    <span>{{ $headerLastUpdatedHuman ? __('operator.website.header.last_data', ['when' => $headerLastUpdatedHuman]) : __('operator.website.header.last_data_none') }}</span>
                 </div>
             </div>
         </div>
@@ -109,10 +110,8 @@
                 <div class="divide-y divide-gray-100 dark:divide-gray-700">@forelse ($data['recommendations']->take(5) as $recommendation)<div class="px-5 py-4"><p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $recommendation->title }}</p><p class="mt-1 text-sm text-gray-500">{{ $recommendation->action }}</p></div>@empty<div class="px-5 py-8 text-sm text-gray-500">{{ __('operator.website.empty.no_recommendations') }}</div>@endforelse</div>
             </section>
         </div>
-    @elseif ($tab === 'ga4_analysis')
-        @include('livewire.operator.website.tabs.ga4-analysis')
-    @elseif ($tab === 'search_console')
-        @include('livewire.operator.website.tabs.search-console')
+    @elseif ($tab === 'content')
+        @include('livewire.operator.website.tabs.pages-content')
     @elseif ($tab === 'health')
         <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
             <div class="flex items-center justify-between gap-3"><div><h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ __('operator.website.health.title') }}</h2><p class="mt-1 text-sm text-gray-500">{{ __('operator.website.health.hint') }}</p></div><button type="button" wire:click="runDiagnosis" class="text-sm font-medium text-brand-600">{{ __('operator.website.health.rerun') }}</button></div>
@@ -129,8 +128,6 @@
             <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700"><div class="flex items-center justify-between"><h2 class="font-semibold text-gray-900 dark:text-white">Organic Search</h2><button type="button" wire:click="refreshSeoIntelligence" class="text-sm font-medium text-brand-600">{{ __('operator.website.panels.refresh_seo') }}</button></div><p class="mt-2 text-sm text-gray-500">{{ __('operator.website.panels.visibility_hint') }}</p><div class="mt-4 space-y-2">@forelse (array_slice($data['seo_opportunities'] ?? [], 0, 8) as $row)<div class="rounded-lg bg-gray-50 p-3 text-sm dark:bg-white/[0.03]">{{ is_array($row) ? ($row['query'] ?? $row['title'] ?? json_encode($row)) : $row }}</div>@empty<p class="text-sm text-gray-500">{{ __('operator.website.panels.no_seo_opportunities') }}</p>@endforelse</div></section>
             <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700"><h2 class="font-semibold text-gray-900 dark:text-white">{{ __('operator.website.panels.public_discovery_competitors') }}</h2><p class="mt-2 text-sm text-gray-500">{{ __('operator.website.panels.public_discovery_hint') }}</p><a href="{{ route('operator.website.discovery', ['assetId' => $asset->id]) }}" wire:navigate class="mt-4 inline-flex text-sm font-medium text-violet-600">{{ __('operator.website.panels.open_public_discovery') }}</a></section>
         </div>
-    @elseif ($tab === 'content')
-        <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700"><h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ __('operator.website.panels.inventory_title') }}</h2><p class="mt-2 text-sm text-gray-500">{{ __('operator.website.panels.inventory_hint') }}</p><div class="mt-4 flex gap-2"><a href="{{ route('operator.integrations.site-connectors') }}" wire:navigate class="rounded-lg bg-brand-500 px-3 py-2 text-sm font-semibold text-white">{{ __('operator.website.setup_sections.connector') }}</a><a href="{{ route('operator.asset.sources', ['assetId' => $asset->id]) }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-inset ring-gray-300">{{ __('operator.website.actions.data_sources') }}</a></div></section>
     @elseif ($tab === 'performance')
         <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700"><h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ __('operator.website.tabs.performance') }}</h2><p class="mt-1 text-sm text-gray-500">{{ __('operator.website.panels.performance_hint') }}</p><div class="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">@forelse ($data['kpis'] as $kpi)<div class="rounded-lg bg-gray-50 p-4 dark:bg-white/[0.03]"><p class="text-xs text-gray-400">{{ $kpi['label'] }}</p><p class="mt-2 text-xl font-bold text-gray-900 dark:text-white">{{ $kpi['value'] }}</p><p class="mt-1 text-xs text-gray-400">{{ strtoupper($kpi['source']) }}</p></div>@empty<p class="text-sm text-gray-500 sm:col-span-2">{{ __('operator.website.panels.no_provider_evidence') }}</p>@endforelse</div></section>
     @elseif ($tab === 'infrastructure')

@@ -36,6 +36,23 @@ Brand → Website asset → Connections; pipeline entities.
 
 Website create/detail; attach connections; start diagnosis run.
 
+Target operator workspace navigation:
+
+1. Genel Bakış
+2. Sayfalar & İçerik
+3. Teknik Sağlık
+4. Arama & AI Görünürlüğü
+5. Performans & Dönüşüm
+6. Altyapı & WordPress
+7. İyileştirmeler
+8. Veri Kaynakları
+
+`Sayfalar & İçerik` is the first projection-backed operator slice. It presents Page profiles, source coverage,
+public HTML capture/change state, WordPress object state, compact GSC/GA4 page context and a source comparison
+detail. Stored visitor HTML can be opened only by authenticated operators and is returned as non-executable
+plain text after ownership and checksum verification. This screen presents collected facts; interpretation remains
+in Findings/Improvements.
+
 ## Rules / invariants
 
 CMS-specific fields Core'a şişirilmez; module/connection'dan gelir. Integration ekranı collection truth gösterir;
@@ -56,7 +73,8 @@ GA4 Key Event provider-attributed signal'dır ve verified business outcome sayı
 
 Bu tablolar canonical provider fact store değildir; silinip kaynak fact'lardan yeniden üretilebilir. Varsayılan projection penceresi son
 tamamlanmış 90 UTC gündür. Collection completion async rebuild tetikler; operator backfill komutu
-`intelligence:website-projection:rebuild`'dir. Website sekmelerinin bu read model'i sunması ayrı UI fazıdır.
+`intelligence:website-projection:rebuild`'dir. `Sayfalar & İçerik` bu read model'i kullanır. Kalan hedef sekmeler
+ve sekmeler arası nihai Genel Bakış ayrı UI fazlarıdır.
 
 ## Derived information
 

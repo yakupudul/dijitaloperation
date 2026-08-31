@@ -7,6 +7,7 @@ use App\Http\Controllers\Integrations\GoogleOAuthController;
 use App\Http\Controllers\Integrations\MetaOAuthController;
 use App\Http\Controllers\LegacyRetiredPrefixController;
 use App\Http\Controllers\Ops\OpsHealthController;
+use App\Http\Controllers\Operator\WebsiteHtmlSnapshotController;
 use App\Http\Controllers\Prospects\ProspectReportShareController;
 use App\Http\Controllers\Reports\ReportArtifactDownloadController;
 use App\Http\Controllers\Reports\ReportShareController;
@@ -110,6 +111,10 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])->group(function (
     Route::livewire('/assets/website/{assetId}/discovery', PublicDiscoveryPage::class)
         ->whereNumber('assetId')
         ->name('operator.website.discovery');
+
+    Route::get('/assets/website/{assetId}/html/{rawObjectId}', [WebsiteHtmlSnapshotController::class, 'show'])
+        ->whereNumber(['assetId', 'rawObjectId'])
+        ->name('operator.website.html.show');
 });
 
 Route::any('/app/{path?}', [LegacyRetiredPrefixController::class, 'app'])
