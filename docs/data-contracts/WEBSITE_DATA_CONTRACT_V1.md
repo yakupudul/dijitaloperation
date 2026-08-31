@@ -8,7 +8,7 @@
 | Based on freeze tag | `panel-design-freeze-v1` (`80ebef56195fa7ba04fde8c60c74959d4ab990fa`) |
 | Cumulative docs base | `cursor/data-contract-meta-ads-ea01` @ `7f774c96f15b6a22af03d0fa30459bd1e786c496` (includes GA4 + GSC + Google Ads + Meta Ads contracts; not yet on `main`) |
 | Audit branch | `cursor/data-contract-website-ea01` |
-| Runtime product code changed | **NONE** |
+| Runtime product code changed | **YES — explicit amendments below** |
 
 Future semantic changes require **v2** or an explicit amendment.
 
@@ -20,6 +20,17 @@ Future semantic changes require **v2** or an explicit amendment.
 > state stays in Integration; cross-source conditions are evaluated in the
 > Website digital asset. See `docs/product/website/WORDPRESS.md` for the current
 > operational contract.
+
+> **Runtime amendment — 2026-08-31:** Public Website collection persists a
+> `website_html_snapshot` observation for every successfully fetched, eligible
+> HTML URL. The normalized row records the current/previous SHA-256 hash,
+> `first_seen|unchanged|changed` state, response metadata and the private raw
+> artifact reference. HTML bodies use content-addressed compressed storage, so
+> an unchanged body is referenced by later observations instead of being stored
+> again. CMS `post_content` remains separate connector truth; it is not treated
+> as the visitor-facing document. The resumable collection crawl accepts sitemap,
+> previously discovered and published connector URLs up to the documented
+> collection bounds.
 
 Related contracts (do **not** redefine):
 

@@ -412,6 +412,8 @@ Canonical adoption registry: `docs/research/EXTERNAL_INTELLIGENCE_ADOPTION_AUDIT
 - Non-WordPress Websites use public collection families.
 - Connector is asset-scoped, read-only, least-data and signed. No WordPress writes, users/passwords/comments or media binaries.
 - Integration screens show collection truth only. Deterministic Findings, Recommendations and manual Task handoff belong to the Website Digital Asset analysis workspace.
+- Final visitor HTML is stored separately as versioned `website_html_snapshot` observations. SHA-256 change state links each observation to a content-addressed private compressed artifact; unchanged HTML does not duplicate the body. WordPress `post_content` remains distinct CMS truth.
+- Public collection seeds from sitemap, existing URL inventory and published connector permalinks, then follows real same-site links within the explicit 5,000-page / 2 GB per-run and 10 MB per-response bounds. Discovered URL count is never presented as captured-HTML coverage.
 - Update availability is an observed maintenance state, not a CVE/vulnerability claim.
 - Code/test completion does not prove live WordPress UAT or production deployment.
 

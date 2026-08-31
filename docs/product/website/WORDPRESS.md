@@ -63,10 +63,19 @@ Full connector response, including content HTML, remains in the compressed priva
 object. Normalized CMS object rows retain inventory, provenance, content hash/length and safe metadata;
 they do not duplicate full HTML.
 
+Public collection additionally writes `website_html_snapshot` for the final HTML returned to an
+outside visitor. Each URL observation stores the current and previous SHA-256 hash, byte size,
+response identity, `first_seen|unchanged|changed` state and a reference to the compressed private HTML
+artifact. Artifact storage is content-addressed: an unchanged HTML body is not stored a second time,
+while every collection still records a new observation. This is intentionally different from
+WordPress `post_content` / block rendering. Draft and private CMS objects remain connector-only because
+they have no public visitor HTML.
+
 ## Product boundary
 
-Website Integration displays only connection state, last collection, progress, record/batch counts,
-dataset schema/preview and collection history. It does not interpret observations as Findings,
+Website Integration displays only connection state, last collection, required-source progress,
+discovered URL versus captured HTML coverage, HTML change counts, record/batch counts, dataset
+schema/preview and collection history. It does not interpret observations as Findings,
 Recommendations or Tasks.
 
 Website Digital Asset analysis consumes completed connector and public DatasetRuns. Deterministic V1
@@ -83,6 +92,11 @@ CDN/Nginx output or the final browser HTML.
 Connector collection is queued through the shared Website Collection Engine. Non-WordPress Website
 assets run public families only. A paired WordPress Website plans public families plus
 `WEB_RF_WP_REST` in the same run.
+
+The resumable public collection queue is seeded from sitemaps, previously discovered URLs and published
+WordPress permalinks, then expanded through real same-site links. The collection bound is 5,000 HTML
+pages / 2 GB downloaded response data per run, with a 10 MB complete-response limit per URL; reaching a
+bound is recorded explicitly and must not be described as an unbounded whole-internet crawl.
 
 Code and automated contract coverage do not prove a live WordPress installation. Real operator UAT
 must install the generated ZIP on a disposable WordPress site, pair it to the matching Website asset,

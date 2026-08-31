@@ -222,6 +222,7 @@ final class WebsiteIntegrationIndex extends Component
         $dataExplorer = $selectedRow !== null && is_array($selectedDataset) && $this->activeTab === 'data'
             ? $this->datasetExplorer(
                 assetId: (int) $selectedRow['asset']->id,
+                datasetId: (string) $selectedDataset['id'],
                 schema: [
                     'table' => $selectedDataset['table'],
                     'fields' => $selectedDataset['fields'],
@@ -455,9 +456,11 @@ final class WebsiteIntegrationIndex extends Component
         ));
 
         $row['data_sources'] = $sources->values();
+        $htmlCoverage = $this->htmlCoverageMetrics((int) $asset->id, $run?->id);
         $row['headline_metrics'] = [
             'urls' => (int) data_get($publicDatasets->firstWhere('id', 'website_url'), 'current_rows', 0),
-            'http' => (int) data_get($publicDatasets->firstWhere('id', 'website_http_snapshot'), 'current_rows', 0),
+            'html_pages' => $htmlCoverage['pages'],
+            'html_changes' => $htmlCoverage['changed'],
             'wordpress_objects' => (int) data_get($connectorDatasets->firstWhere('id', 'website_cms_object_snapshot'), 'current_rows', 0),
             'last_run_at' => $run?->updated_at,
         ];
@@ -469,6 +472,35 @@ final class WebsiteIntegrationIndex extends Component
         ];
 
         return $row;
+    }
+
+    /** @return array{pages: int, changed: int} */
+    private function htmlCoverageMetrics(int $assetId, ?int $collectionRunId): array
+    {
+        if (! Schema::hasTable('website_html_snapshot')) {
+            return ['pages' => 0, 'changed' => 0];
+        }
+
+        try {
+            $pages = DB::table('website_html_snapshot')
+                ->where('digital_asset_id', $assetId)
+                ->distinct()
+                ->count('url');
+            $changed = $collectionRunId === null
+                ? 0
+                : DB::table('website_html_snapshot')
+                    ->where('digital_asset_id', $assetId)
+                    ->where('last_collection_run_id', $collectionRunId)
+                    ->where('change_state', 'changed')
+                    ->distinct()
+                    ->count('url');
+
+            return ['pages' => (int) $pages, 'changed' => (int) $changed];
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return ['pages' => 0, 'changed' => 0];
+        }
     }
 
     /** @return list<string> */
@@ -597,6 +629,7 @@ final class WebsiteIntegrationIndex extends Component
             'id' => $datasetId,
             'label' => $this->datasetLabel($datasetId),
             'description' => $this->datasetDescription($datasetId),
+            'row_label' => $this->datasetRowLabel($datasetId),
             'state' => $state,
             'status_label' => $this->datasetStatusLabel($state),
             'tone' => $this->sourceTone($state),
@@ -723,7 +756,7 @@ final class WebsiteIntegrationIndex extends Component
      * @param array{table: ?string, fields: list<array<string, mixed>>, system_field_count: int} $schema
      * @return array<string, mixed>
      */
-    private function datasetExplorer(int $assetId, array $schema): array
+    private function datasetExplorer(int $assetId, string $datasetId, array $schema): array
     {
         $table = $schema['table'];
         if (! is_string($table) || $table === '') {
@@ -736,24 +769,40 @@ final class WebsiteIntegrationIndex extends Component
             }
 
             $availableColumns = Schema::getColumnListing($table);
-            $fields = collect($schema['fields'])
-                ->filter(fn (array $field): bool => in_array($field['name'], $availableColumns, true))
-                ->take(8)
+            $fields = $this->datasetPreviewFields($datasetId, $schema['fields'])
+                ->filter(function (array $field) use ($availableColumns): bool {
+                    $column = (string) ($field['column'] ?? $field['name']);
+
+                    return in_array($column, $availableColumns, true)
+                        && (! isset($field['metadata_path']) || in_array('metadata', $availableColumns, true));
+                })
+                ->take(9)
                 ->values();
             if ($fields->isEmpty()) {
                 return $this->emptyExplorer('unavailable');
             }
 
-            $columnNames = $fields->pluck('name')->all();
+            $columnNames = $fields
+                ->map(fn (array $field): string => (string) ($field['column'] ?? $field['name']))
+                ->when(
+                    $fields->contains(fn (array $field): bool => isset($field['metadata_path'])),
+                    fn (Collection $columns): Collection => $columns->push('metadata'),
+                )
+                ->unique()
+                ->values()
+                ->all();
             $query = DB::table($table)->where('digital_asset_id', $assetId);
             $search = mb_strtolower(trim($this->dataSearch));
             $searchable = $fields->filter(function (array $field): bool {
+                if (isset($field['metadata_path'])) {
+                    return false;
+                }
                 $type = mb_strtolower((string) ($field['type'] ?? ''));
 
                 return str_contains($type, 'string')
                     || str_contains($type, 'text')
                     || str_contains($type, 'char');
-            })->pluck('name');
+            })->map(fn (array $field): string => (string) ($field['column'] ?? $field['name']))->unique();
             if ($search !== '' && $searchable->isNotEmpty()) {
                 $operator = DB::connection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
                 $query->where(function ($nested) use ($operator, $search, $searchable): void {
@@ -768,7 +817,15 @@ final class WebsiteIntegrationIndex extends Component
             $lastPage = max(1, (int) ceil($total / $perPage));
             $page = min(max(1, $this->dataPage), $lastPage);
             $query->select($columnNames);
-            if (in_array('last_collected_at', $availableColumns, true)) {
+            if ($datasetId === 'website_cms_object_snapshot' && in_array('object_type', $availableColumns, true)) {
+                $query->orderByRaw("CASE WHEN object_type = 'attachment' THEN 1 ELSE 0 END");
+                if (in_array('modified_at', $availableColumns, true)) {
+                    $query->orderByDesc('modified_at');
+                }
+            } elseif ($datasetId === 'website_cms_seo_snapshot' && in_array('seo_provider', $availableColumns, true)) {
+                $query->orderByRaw('CASE WHEN seo_provider IS NULL THEN 1 ELSE 0 END');
+                $query->orderByDesc('observed_at');
+            } elseif (in_array('last_collected_at', $availableColumns, true)) {
                 $query->orderByDesc('last_collected_at');
             } elseif (in_array('observed_at', $availableColumns, true)) {
                 $query->orderByDesc('observed_at');
@@ -778,11 +835,16 @@ final class WebsiteIntegrationIndex extends Component
                 ->offset(($page - 1) * $perPage)
                 ->limit($perPage)
                 ->get()
-                ->map(function ($record) use ($columnNames): array {
+                ->map(function ($record) use ($fields): array {
                     $data = (array) $record;
+                    $metadata = $this->decodedMetadata($data['metadata'] ?? null);
                     $normalized = [];
-                    foreach ($columnNames as $column) {
-                        $normalized[$column] = $this->previewValue($data[$column] ?? null);
+                    foreach ($fields as $field) {
+                        $name = (string) $field['name'];
+                        $value = isset($field['metadata_path'])
+                            ? data_get($metadata, (string) $field['metadata_path'])
+                            : ($data[(string) ($field['column'] ?? $name)] ?? null);
+                        $normalized[$name] = $this->previewValue($value);
                     }
 
                     return $normalized;
@@ -840,6 +902,181 @@ final class WebsiteIntegrationIndex extends Component
         return mb_strlen($text) > 140 ? mb_substr($text, 0, 137).'…' : $text;
     }
 
+    /** @param list<array<string, mixed>> $schemaFields @return Collection<int, array<string, mixed>> */
+    private function datasetPreviewFields(string $datasetId, array $schemaFields): Collection
+    {
+        $field = fn (
+            string $name,
+            string $label,
+            string $type = 'text',
+            ?string $column = null,
+            ?string $metadataPath = null,
+        ): array => array_filter([
+            'name' => $name,
+            'label' => $label,
+            'type' => $type,
+            'column' => $column ?? $name,
+            'metadata_path' => $metadataPath,
+        ], static fn (mixed $value): bool => $value !== null);
+
+        $definitions = match ($datasetId) {
+            'website_url' => [
+                $field('normalized_url', 'URL'),
+                $field('source', $this->text('Keşif Kaynağı', 'Discovery Source'), column: 'metadata', metadataPath: 'source'),
+            ],
+            'website_http_snapshot' => [
+                $field('url', 'URL'),
+                $field('status_code', $this->text('HTTP Durum Kodu', 'HTTP Status Code'), 'integer', 'metadata', 'status_code'),
+                $field('final_url', $this->text('Son URL', 'Final URL'), column: 'metadata', metadataPath: 'final_url'),
+                $field('redirect_count', $this->text('Yönlendirme Sayısı', 'Redirect Count'), 'integer', 'metadata', 'redirect_count'),
+                $field('content_type', $this->text('İçerik Türü', 'Content Type'), column: 'metadata', metadataPath: 'content_type'),
+                $field('ok', $this->text('Erişilebilir', 'Reachable'), 'boolean', 'metadata', 'ok'),
+                $field('error', $this->text('Hata', 'Error'), column: 'metadata', metadataPath: 'error'),
+                $field('observed_at', $this->fieldLabel('observed_at'), 'timestamptz'),
+            ],
+            'website_html_snapshot' => [
+                $field('url', 'URL'),
+                $field('status_code', $this->fieldLabel('status_code'), 'integer'),
+                $field('change_state', $this->fieldLabel('change_state')),
+                $field('html_hash', $this->fieldLabel('html_hash')),
+                $field('previous_html_hash', $this->fieldLabel('previous_html_hash')),
+                $field('html_bytes', $this->fieldLabel('html_bytes'), 'bigint'),
+                $field('observed_at', $this->fieldLabel('observed_at'), 'timestamptz'),
+            ],
+            'website_metadata_snapshot' => [
+                $field('url', 'URL'),
+                $field('title', $this->fieldLabel('title'), column: 'metadata', metadataPath: 'title'),
+                $field('meta_description', $this->fieldLabel('meta_description'), column: 'metadata', metadataPath: 'meta_description'),
+                $field('canonical_hrefs', 'Canonical URL', column: 'metadata', metadataPath: 'canonical_hrefs'),
+                $field('meta_robots', $this->fieldLabel('robots'), column: 'metadata', metadataPath: 'meta_robots'),
+                $field('title_present', $this->text('Başlık Mevcut', 'Title Present'), 'boolean', 'metadata', 'title_present'),
+                $field('observed_at', $this->fieldLabel('observed_at'), 'timestamptz'),
+            ],
+            'website_heading_snapshot' => [
+                $field('url', 'URL'),
+                $field('h1', 'H1', column: 'metadata', metadataPath: 'h1'),
+                $field('h1_present', $this->text('H1 Mevcut', 'H1 Present'), 'boolean', 'metadata', 'h1_present'),
+                $field('observed_at', $this->fieldLabel('observed_at'), 'timestamptz'),
+            ],
+            'website_schema_snapshot' => [
+                $field('url', 'URL'),
+                $field('types', $this->text('Schema Türleri', 'Schema Types'), column: 'metadata', metadataPath: 'types'),
+                $field('block_count', $this->text('Blok Sayısı', 'Block Count'), 'integer', 'metadata', 'block_count'),
+                $field('parse_ok_count', $this->text('Geçerli Blok', 'Valid Blocks'), 'integer', 'metadata', 'parse_ok_count'),
+                $field('malformed_count', $this->text('Hatalı Blok', 'Malformed Blocks'), 'integer', 'metadata', 'malformed_count'),
+                $field('observed_at', $this->fieldLabel('observed_at'), 'timestamptz'),
+            ],
+            'website_content_stats' => [
+                $field('url', 'URL'),
+                $field('word_count', $this->fieldLabel('word_count'), 'integer', 'metadata', 'word_count'),
+                $field('paragraph_count', $this->fieldLabel('paragraph_count'), 'integer', 'metadata', 'paragraph_count'),
+                $field('visible_text_length', $this->fieldLabel('visible_text_length'), 'integer', 'metadata', 'visible_text_length'),
+                $field('language', $this->fieldLabel('language'), column: 'metadata', metadataPath: 'language'),
+                $field('thin_content_hint', $this->fieldLabel('thin_content_hint'), 'boolean', 'metadata', 'thin_content_hint'),
+                $field('observed_at', $this->fieldLabel('observed_at'), 'timestamptz'),
+            ],
+            'website_link_edge' => [
+                $field('source_url', $this->fieldLabel('source_url')),
+                $field('target_url', $this->fieldLabel('target_url')),
+                $field('is_internal', $this->fieldLabel('is_internal'), 'boolean'),
+                $field('anchor_text', $this->fieldLabel('anchor_text')),
+                $field('rel', 'Rel'),
+                $field('nofollow', 'Nofollow', 'boolean'),
+                $field('observed_at', $this->fieldLabel('observed_at'), 'timestamptz'),
+            ],
+            'website_infra_snapshot' => [
+                $field('host', 'Host', column: 'metadata', metadataPath: 'host'),
+                $field('present', $this->text('TLS Mevcut', 'TLS Present'), 'boolean', 'metadata', 'present'),
+                $field('issuer', $this->text('Sertifika Sağlayıcısı', 'Certificate Issuer'), column: 'metadata', metadataPath: 'tls.issuer_common_name'),
+                $field('valid_from', $this->text('Geçerlilik Başlangıcı', 'Valid From'), column: 'metadata', metadataPath: 'tls.valid_from'),
+                $field('valid_to', $this->text('Geçerlilik Bitişi', 'Valid To'), column: 'metadata', metadataPath: 'tls.valid_to'),
+                $field('error', $this->text('Hata', 'Error'), column: 'metadata', metadataPath: 'tls.error_class'),
+                $field('observed_at', $this->fieldLabel('observed_at'), 'timestamptz'),
+            ],
+            'website_cms_site_snapshot' => [
+                $field('site_url', 'Site URL'),
+                $field('wordpress_version', 'WordPress'),
+                $field('php_version', 'PHP'),
+                $field('active_theme', $this->fieldLabel('active_theme')),
+                $field('rest_state', 'REST'),
+                $field('cron_state', 'Cron'),
+                $field('site_health_recommended_count', $this->text('Önerilen Kontrol', 'Recommended Checks'), 'integer'),
+                $field('site_health_critical_count', $this->text('Kritik Kontrol', 'Critical Checks'), 'integer'),
+                $field('observed_at', $this->fieldLabel('observed_at'), 'timestamptz'),
+            ],
+            'website_cms_object_snapshot' => [
+                $field('object_type', $this->fieldLabel('object_type')),
+                $field('title', $this->fieldLabel('title')),
+                $field('status', $this->fieldLabel('status')),
+                $field('slug', 'Slug'),
+                $field('permalink', 'URL'),
+                $field('published_at', $this->fieldLabel('published_at'), 'timestamptz'),
+                $field('modified_at', $this->fieldLabel('modified_at'), 'timestamptz'),
+                $field('language', $this->fieldLabel('language')),
+            ],
+            'website_cms_extension_snapshot' => [
+                $field('extension_type', $this->fieldLabel('extension_type')),
+                $field('name', $this->text('Ad', 'Name')),
+                $field('version', $this->text('Sürüm', 'Version')),
+                $field('status', $this->fieldLabel('status')),
+                $field('update_available', $this->fieldLabel('update_available'), 'boolean'),
+                $field('available_version', $this->fieldLabel('available_version')),
+                $field('auto_update', $this->text('Otomatik Güncelleme', 'Auto Update'), 'boolean'),
+                $field('observed_at', $this->fieldLabel('observed_at'), 'timestamptz'),
+            ],
+            'website_cms_taxonomy_snapshot' => [
+                $field('taxonomy', $this->fieldLabel('taxonomy')),
+                $field('name', $this->text('Ad', 'Name')),
+                $field('slug', 'Slug'),
+                $field('parent_id', $this->text('Üst Terim', 'Parent Term'), 'integer'),
+                $field('content_count', $this->text('İçerik Sayısı', 'Content Count'), 'integer'),
+                $field('language', $this->fieldLabel('language')),
+                $field('observed_at', $this->fieldLabel('observed_at'), 'timestamptz'),
+            ],
+            'website_cms_seo_snapshot' => [
+                $field('object_type', $this->fieldLabel('object_type')),
+                $field('permalink', 'URL'),
+                $field('seo_provider', $this->fieldLabel('seo_provider')),
+                $field('seo_title', $this->fieldLabel('seo_title')),
+                $field('meta_description', $this->fieldLabel('meta_description')),
+                $field('canonical_url', $this->fieldLabel('canonical_url')),
+                $field('robots', $this->fieldLabel('robots')),
+                $field('language', $this->fieldLabel('language')),
+            ],
+            'website_performance_measurement' => [
+                $field('url', 'URL'),
+                $field('strategy', $this->fieldLabel('strategy')),
+                $field('lcp_ms', 'LCP (ms)', 'integer', 'metadata', 'lcp_ms'),
+                $field('final_url', $this->fieldLabel('final_url'), column: 'metadata', metadataPath: 'final_url'),
+                $field('fetch_time', $this->text('Ölçüm Zamanı', 'Measurement Time'), column: 'metadata', metadataPath: 'fetch_time'),
+                $field('observed_at', $this->fieldLabel('observed_at'), 'timestamptz'),
+            ],
+            default => collect($schemaFields)->map(fn (array $schemaField): array => array_merge($schemaField, [
+                'column' => (string) $schemaField['name'],
+            ]))->take(9)->all(),
+        };
+
+        return collect($definitions);
+    }
+
+    /** @return array<string, mixed> */
+    private function decodedMetadata(mixed $metadata): array
+    {
+        if (is_array($metadata)) {
+            return $metadata;
+        }
+        if (is_object($metadata)) {
+            return (array) $metadata;
+        }
+        if (! is_string($metadata) || trim($metadata) === '') {
+            return [];
+        }
+
+        $decoded = json_decode($metadata, true);
+
+        return is_array($decoded) ? $decoded : [];
+    }
+
     private function datasetResultDetail(string $state, int $currentRows, int $processedRows): string
     {
         return match ($state) {
@@ -864,6 +1101,7 @@ final class WebsiteIntegrationIndex extends Component
         return match ($datasetId) {
             'website_url' => $this->text('URL ve Sayfalar', 'URLs and Pages'),
             'website_http_snapshot' => $this->text('HTTP Durumları', 'HTTP Statuses'),
+            'website_html_snapshot' => $this->text('Yayınlanan HTML Sürümleri', 'Published HTML Versions'),
             'website_metadata_snapshot' => $this->text('Başlık ve Meta Verileri', 'Titles and Metadata'),
             'website_heading_snapshot' => $this->text('Başlık Hiyerarşisi', 'Heading Hierarchy'),
             'website_schema_snapshot' => $this->text('Yapısal Veri (Schema)', 'Structured Data (Schema)'),
@@ -885,8 +1123,9 @@ final class WebsiteIntegrationIndex extends Component
         return match ($datasetId) {
             'website_url' => $this->text('Keşfedilen ve normalize edilen web sayfası adresleri.', 'Discovered and normalized website URLs.'),
             'website_http_snapshot' => $this->text('HTTP yanıt kodu, yönlendirme ve erişilebilirlik gözlemleri.', 'HTTP response, redirect, and availability observations.'),
-            'website_metadata_snapshot' => $this->text('Title, meta description, canonical, robots ve dil sinyalleri.', 'Title, meta description, canonical, robots, and language signals.'),
-            'website_heading_snapshot' => $this->text('H1-H6 başlık yapısı ve sayfa başlık hiyerarşisi.', 'H1-H6 structure and page heading hierarchy.'),
+            'website_html_snapshot' => $this->text('Ziyaretçinin aldığı nihai HTML gövdesi; hash, önceki sürüm ve değişim durumu ile özel depoda sürümlenir.', 'Final visitor-facing HTML body, versioned in private storage with its hash, previous version, and change state.'),
+            'website_metadata_snapshot' => $this->text('Yayınlanan HTML içindeki title, meta description, canonical ve robots sinyalleri.', 'Title, meta description, canonical, and robots signals emitted in published HTML.'),
+            'website_heading_snapshot' => $this->text('Yayınlanan HTML içindeki H1 başlığı ve mevcutluk durumu.', 'H1 heading and presence state in published HTML.'),
             'website_schema_snapshot' => $this->text('Sayfadaki yapılandırılmış veri / schema gözlemleri.', 'Structured data / schema observations found on the page.'),
             'website_content_stats' => $this->text('Kelime, paragraf, görünür metin ve içerik yoğunluğu istatistikleri.', 'Word, paragraph, visible text, and content density statistics.'),
             'website_link_edge' => $this->text('Sayfalar arasındaki iç bağlantılar ve harici link ilişkileri.', 'Internal page links and external link relationships.'),
@@ -901,10 +1140,31 @@ final class WebsiteIntegrationIndex extends Component
         };
     }
 
+    private function datasetRowLabel(string $datasetId): string
+    {
+        return match ($datasetId) {
+            'website_url' => $this->text('keşfedilmiş URL', 'discovered URLs'),
+            'website_http_snapshot' => $this->text('HTTP gözlemi', 'HTTP observations'),
+            'website_html_snapshot' => $this->text('HTML sürüm gözlemi', 'HTML version observations'),
+            'website_metadata_snapshot', 'website_heading_snapshot', 'website_schema_snapshot',
+            'website_content_stats', 'website_infra_snapshot' => $this->text('sayfa gözlemi', 'page observations'),
+            'website_link_edge' => $this->text('bağlantı ilişkisi', 'link relationships'),
+            'website_performance_measurement' => $this->text('performans ölçümü', 'performance measurements'),
+            'website_cms_site_snapshot' => $this->text('site gözlemi', 'site observations'),
+            'website_cms_object_snapshot' => $this->text('CMS nesnesi', 'CMS objects'),
+            'website_cms_extension_snapshot' => $this->text('eklenti/tema kaydı', 'plugin/theme records'),
+            'website_cms_taxonomy_snapshot' => $this->text('taksonomi kaydı', 'taxonomy records'),
+            'website_cms_seo_snapshot' => $this->text('SEO alan kaydı', 'SEO field records'),
+            default => $this->text('kayıt', 'rows'),
+        };
+    }
+
     private function fieldLabel(string $field): string
     {
         return match ($field) {
-            'url', 'requested_url', 'normalized_url', 'source_url', 'target_url', 'normalized_target_url', 'permalink' => 'URL',
+            'url', 'requested_url', 'normalized_url', 'permalink' => 'URL',
+            'source_url' => $this->text('Kaynak Sayfa', 'Source Page'),
+            'target_url', 'normalized_target_url' => $this->text('Hedef URL', 'Target URL'),
             'final_url' => $this->text('Son URL', 'Final URL'),
             'status_code', 'http_status' => $this->text('HTTP Durum Kodu', 'HTTP Status Code'),
             'title' => $this->text('Başlık', 'Title'),
@@ -924,6 +1184,10 @@ final class WebsiteIntegrationIndex extends Component
             'nofollow' => 'Nofollow',
             'rel' => 'Rel',
             'observed_at' => $this->text('Gözlem Zamanı', 'Observed At'),
+            'change_state' => $this->text('HTML Değişimi', 'HTML Change'),
+            'html_hash' => $this->text('HTML Hash', 'HTML Hash'),
+            'previous_html_hash' => $this->text('Önceki HTML Hash', 'Previous HTML Hash'),
+            'html_bytes' => $this->text('HTML Boyutu (bayt)', 'HTML Size (bytes)'),
             'host' => 'Host',
             'cms' => 'CMS',
             'site_key' => $this->text('Site Kimliği', 'Site Key'),
@@ -1151,6 +1415,7 @@ final class WebsiteIntegrationIndex extends Component
                 return [
                     'family' => $family,
                     'label' => $this->familyLabel($family),
+                    'optional' => $family === WebsiteRequestFamilyCatalog::FAMILY_PAGESPEED,
                     'state' => $state,
                     'status_label' => $this->datasetStatusLabel($state),
                     'datasets_completed' => $states->filter(fn (string $candidate): bool => $candidate === 'completed')->count(),
@@ -1165,10 +1430,13 @@ final class WebsiteIntegrationIndex extends Component
                 ];
             })->values();
 
-        $datasetsTotal = max((int) $run->datasets_total, $run->datasetRuns->count());
-        $datasetsCompleted = max((int) $run->datasets_completed, $run->datasetRuns->filter(
+        $requiredDatasetRuns = $run->datasetRuns->reject(
+            fn (CollectionDatasetRun $datasetRun): bool => $datasetRun->request_family_id === WebsiteRequestFamilyCatalog::FAMILY_PAGESPEED,
+        );
+        $datasetsTotal = $requiredDatasetRuns->count();
+        $datasetsCompleted = $requiredDatasetRuns->filter(
             fn (CollectionDatasetRun $datasetRun): bool => $datasetRun->status?->value === 'completed',
-        )->count());
+        )->count();
 
         return [
             'id' => $run->id,
@@ -1177,7 +1445,9 @@ final class WebsiteIntegrationIndex extends Component
             'status_label' => $this->runStatusLabel($run),
             'datasets_completed' => $datasetsCompleted,
             'datasets_total' => $datasetsTotal,
-            'datasets_failed' => (int) $run->datasets_failed,
+            'datasets_failed' => $requiredDatasetRuns->filter(
+                fn (CollectionDatasetRun $datasetRun): bool => in_array($datasetRun->status?->value, ['failed', 'cancelled'], true),
+            )->count(),
             'progress_percent' => $datasetsTotal > 0 ? min(100, (int) round(($datasetsCompleted / $datasetsTotal) * 100)) : 0,
             'rows_received' => (int) $run->datasetRuns->sum('rows_received'),
             'rows_written' => (int) $run->datasetRuns->sum('rows_written'),

@@ -8,6 +8,7 @@ use App\Services\Collection\Contracts\RawPayloadWriter;
 use App\Services\DataPool\Contracts\WarehouseWriter;
 use App\Services\DataPool\Support\NormalizedDatasetBatch;
 use App\Services\DataPool\Support\RawPayloadEnvelope;
+use App\Services\DataPool\Support\RawPayloadReference;
 use App\Services\DataPool\Support\WriteReceipt;
 use RuntimeException;
 
@@ -56,7 +57,7 @@ final class DatasetWritePipeline
             datasetRunId: $batch->datasetRunId,
             contractVersion: $batch->contractVersion,
             batchKey: $batch->batchKey,
-            records: $this->recordsWithCanonicalScope($batch),
+            records: $this->recordsWithCanonicalScope($batch, $rawRef),
             digitalAssetId: $batch->digitalAssetId,
             externalResourceId: $batch->externalResourceId,
             collectionRunId: $batch->collectionRunId,
@@ -86,7 +87,10 @@ final class DatasetWritePipeline
      *
      * @return list<array<string, mixed>>
      */
-    private function recordsWithCanonicalScope(NormalizedDatasetBatch $batch): array
+    private function recordsWithCanonicalScope(
+        NormalizedDatasetBatch $batch,
+        ?RawPayloadReference $rawPayloadReference,
+    ): array
     {
         if ($batch->records === [] || ! $this->registry->hasPhysicalTable($batch->datasetId)) {
             return $batch->records;
@@ -104,6 +108,9 @@ final class DatasetWritePipeline
         }
         if ($batch->externalResourceId !== null && in_array('external_resource_id', $columnNames, true)) {
             $scope['external_resource_id'] = $batch->externalResourceId;
+        }
+        if ($rawPayloadReference !== null && in_array('raw_ingestion_object_id', $columnNames, true)) {
+            $scope['raw_ingestion_object_id'] = $rawPayloadReference->rawIngestionObjectId;
         }
 
         if ($scope === []) {

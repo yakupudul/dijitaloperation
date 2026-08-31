@@ -72,6 +72,57 @@ final class WebsiteNormalizer
 
     /**
      * @param  array<string, mixed>  $fetch
+     * @return array<string, mixed>|null
+     */
+    public function htmlSnapshot(
+        int $digitalAssetId,
+        array $fetch,
+        string $observedAt,
+        ?string $previousHtmlHash,
+    ): ?array {
+        $body = $fetch['body'] ?? null;
+        if (! is_string($body) || $body === '') {
+            return null;
+        }
+
+        $finalUrl = (string) ($fetch['final_url'] ?? $fetch['requested_url'] ?? '');
+        $url = $this->normalizeUrl($finalUrl);
+        if ($url === null) {
+            return null;
+        }
+
+        $htmlHash = hash('sha256', $body);
+        $changeState = match (true) {
+            $previousHtmlHash === null => 'first_seen',
+            hash_equals($previousHtmlHash, $htmlHash) => 'unchanged',
+            default => 'changed',
+        };
+
+        return [
+            'digital_asset_id' => $digitalAssetId,
+            'external_resource_id' => null,
+            'url' => $url,
+            'requested_url' => $fetch['requested_url'] ?? null,
+            'final_url' => $fetch['final_url'] ?? null,
+            'status_code' => isset($fetch['status_code']) ? (int) $fetch['status_code'] : null,
+            'content_type' => $fetch['content_type'] ?? null,
+            'html_hash' => $htmlHash,
+            'previous_html_hash' => $previousHtmlHash,
+            'change_state' => $changeState,
+            'html_bytes' => strlen($body),
+            'observed_at' => $observedAt,
+            'source_timezone' => 'UTC',
+            'metadata' => [
+                'artifact_format' => 'html',
+                'artifact_compression' => 'gzip',
+                'content_addressed' => true,
+                'collector_version' => WebsiteProviderCapabilities::COLLECTOR_VERSION,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $fetch
      * @return list<array<string, mixed>>
      */
     public function htmlSnapshots(int $digitalAssetId, array $fetch, string $observedAt): array

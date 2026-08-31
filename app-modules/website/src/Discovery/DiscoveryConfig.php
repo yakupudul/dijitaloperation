@@ -20,6 +20,9 @@ final class DiscoveryConfig
     /** Maximum number of HTML pages analyzed in a single public crawl run. */
     public const int MAX_PAGES = 15;
 
+    /** Maximum URL observations collected by the resumable Website Collection Engine. */
+    public const int MAX_COLLECTION_PAGES = 5000;
+
     /** Maximum number of sitemap documents followed from one website. */
     public const int MAX_SITEMAP_FILES = 50;
 
@@ -37,7 +40,13 @@ final class DiscoveryConfig
 
     public const int MAX_RESPONSE_BYTES = 1_500_000;
 
+    /** Maximum complete response retained by the resumable Website Collection Engine. */
+    public const int MAX_COLLECTION_RESPONSE_BYTES = 10_000_000;
+
     public const int MAX_TOTAL_BYTES = 8_000_000;
+
+    /** Aggregate HTML budget for one resumable full-site collection. */
+    public const int MAX_COLLECTION_TOTAL_BYTES = 2_000_000_000;
 
     public const string USER_AGENT = 'MoxDOP-PublicDiscovery/1.0 (+https://moximu.com; read-only public discovery)';
 

@@ -68,6 +68,7 @@ final class WebsiteRequestFamilyCatalog
                 'dataset_ids' => [
                     'website_url',
                     'website_http_snapshot',
+                    'website_html_snapshot',
                     'website_metadata_snapshot',
                     'website_heading_snapshot',
                     'website_schema_snapshot',
@@ -98,6 +99,7 @@ final class WebsiteRequestFamilyCatalog
                 'dataset_ids' => [
                     'website_url',
                     'website_http_snapshot',
+                    'website_html_snapshot',
                     'website_metadata_snapshot',
                     'website_heading_snapshot',
                     'website_schema_snapshot',

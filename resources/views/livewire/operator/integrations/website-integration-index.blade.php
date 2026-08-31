@@ -159,7 +159,7 @@
                     </div>
                     <div class="text-right">
                         <p class="text-xl font-semibold text-gray-900 dark:text-white">%{{ $liveConsole['progress_percent'] }}</p>
-                        <p class="text-xs text-gray-400">{{ $liveConsole['datasets_completed'] }}/{{ $liveConsole['datasets_total'] }} dataset</p>
+                        <p class="text-xs text-gray-400">{{ $liveConsole['datasets_completed'] }}/{{ $liveConsole['datasets_total'] }} {{ $tr ? 'zorunlu dataset' : 'required datasets' }}</p>
                     </div>
                 </div>
                 <div class="h-1 bg-gray-100 dark:bg-gray-800"><div class="h-full bg-brand-500 transition-all" style="width: {{ $liveConsole['progress_percent'] }}%"></div></div>
@@ -168,6 +168,7 @@
                         <div class="bg-white p-4 dark:bg-gray-900">
                             <div class="flex items-center justify-between gap-2">
                                 <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $stage['label'] }}</p>
+                                @if ($stage['optional'])<span class="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500 dark:bg-white/[0.05]">{{ $tr ? 'İsteğe bağlı' : 'Optional' }}</span>@endif
                                 <span class="rounded-full border px-2 py-0.5 text-[11px] {{ $toneClasses($stateTone($stage['state'])) }}">{{ $stage['status_label'] }}</span>
                             </div>
                             <p class="mt-2 text-xs text-gray-500">{{ $stage['datasets_completed'] }}/{{ $stage['datasets_total'] }} dataset · {{ number_format((int) $stage['rows_written'], 0, ',', '.') }} {{ $tr ? 'kayıt' : 'rows' }}</p>
@@ -183,10 +184,11 @@
         @endif
 
         @if ($activeTab === 'overview')
-            <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
                 @foreach ([
                     [$tr ? 'Keşfedilen URL' : 'Discovered URLs', $selectedRow['headline_metrics']['urls']],
-                    [$tr ? 'HTTP gözlemi' : 'HTTP observations', $selectedRow['headline_metrics']['http']],
+                    [$tr ? 'HTML alınan URL' : 'URLs with HTML', $selectedRow['headline_metrics']['html_pages']],
+                    [$tr ? 'Son çekimde değişen HTML' : 'HTML changed in latest run', $selectedRow['headline_metrics']['html_changes']],
                     [$tr ? 'WordPress nesnesi' : 'WordPress objects', $selectedRow['headline_metrics']['wordpress_objects']],
                     [$tr ? 'Son çekim' : 'Latest collection', $selectedRow['headline_metrics']['last_run_at']?->diffForHumans() ?? '—'],
                 ] as [$label, $value])
@@ -261,7 +263,7 @@
                                             <p class="mt-1 text-xs leading-5 text-gray-500">{{ $dataset['description'] }}</p>
                                         </div>
                                         <div class="flex items-center gap-5">
-                                            <div class="text-right"><p class="text-sm font-semibold text-gray-900 dark:text-white">{{ number_format((int) $dataset['current_rows'], 0, ',', '.') }}</p><p class="text-[11px] text-gray-400">{{ $tr ? 'mevcut kayıt' : 'current rows' }}</p></div>
+                                            <div class="text-right"><p class="text-sm font-semibold text-gray-900 dark:text-white">{{ number_format((int) $dataset['current_rows'], 0, ',', '.') }}</p><p class="text-[11px] text-gray-400">{{ $dataset['row_label'] }}</p></div>
                                             <button type="button" wire:click="selectDataset('{{ $dataset['id'] }}')" class="rounded-lg px-3 py-2 text-xs font-medium text-brand-600 ring-1 ring-inset ring-brand-200 hover:bg-brand-50 dark:text-brand-400 dark:ring-brand-500/30">{{ $tr ? 'Veriyi aç' : 'Open data' }}</button>
                                         </div>
                                     </div>
@@ -315,7 +317,7 @@
                                 'mb-1 w-full rounded-lg px-3 py-2.5 text-left transition',
                                 'bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-300' => ($selectedDataset['id'] ?? null) === $dataset['id'],
                                 'text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.03]' => ($selectedDataset['id'] ?? null) !== $dataset['id'],
-                            ])><span class="block text-sm font-medium">{{ $dataset['label'] }}</span><span class="mt-1 block text-xs opacity-70">{{ number_format((int) $dataset['current_rows'], 0, ',', '.') }} {{ $tr ? 'kayıt' : 'rows' }}</span></button>
+                            ])><span class="block text-sm font-medium">{{ $dataset['label'] }}</span><span class="mt-1 block text-xs opacity-70">{{ number_format((int) $dataset['current_rows'], 0, ',', '.') }} {{ $dataset['row_label'] }}</span></button>
                         @endforeach
                     </div>
                 </aside>
@@ -324,7 +326,7 @@
                     @if ($selectedDataset)
                         <div class="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 px-5 py-4 dark:border-gray-800">
                             <div><div class="flex flex-wrap items-center gap-2"><h2 class="text-base font-semibold text-gray-900 dark:text-white">{{ $selectedDataset['label'] }}</h2><span class="rounded-full border px-2 py-0.5 text-[11px] {{ $toneClasses($stateTone($selectedDataset['state'])) }}">{{ $selectedDataset['status_label'] }}</span></div><p class="mt-1 text-sm text-gray-500">{{ $selectedDataset['description'] }}</p></div>
-                            <div class="text-right"><p class="text-lg font-semibold text-gray-900 dark:text-white">{{ number_format((int) ($dataExplorer['total'] ?? 0), 0, ',', '.') }}</p><p class="text-xs text-gray-400">{{ $tr ? 'eşleşen kayıt' : 'matching rows' }}</p></div>
+                            <div class="text-right"><p class="text-lg font-semibold text-gray-900 dark:text-white">{{ number_format((int) ($dataExplorer['total'] ?? 0), 0, ',', '.') }}</p><p class="text-xs text-gray-400">{{ $tr ? 'eşleşen ' : 'matching ' }}{{ $selectedDataset['row_label'] }}</p></div>
                         </div>
                         <div class="border-b border-gray-100 p-4 dark:border-gray-800">
                             <input wire:model.live.debounce.400ms="dataSearch" type="search" class="w-full rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950" placeholder="{{ $tr ? 'Bu dataset içinde ara' : 'Search within this dataset' }}">

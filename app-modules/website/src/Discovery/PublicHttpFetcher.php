@@ -31,8 +31,10 @@ final class PublicHttpFetcher
      *     error: ?string
      * }
      */
-    public function fetch(string $url): array
+    public function fetch(string $url, ?int $maxResponseBytes = null): array
     {
+        $maxResponseBytes ??= DiscoveryConfig::MAX_RESPONSE_BYTES;
+        $maxResponseBytes = max(1, $maxResponseBytes);
         $current = $this->normalizer->normalizeAbsolute($url);
         if ($current === null) {
             return $this->failure($url, 'invalid_url');
@@ -98,14 +100,14 @@ final class PublicHttpFetcher
             }
 
             $contentLength = $response->header('Content-Length');
-            if (is_string($contentLength) && ctype_digit($contentLength) && (int) $contentLength > DiscoveryConfig::MAX_RESPONSE_BYTES) {
+            if (is_string($contentLength) && ctype_digit($contentLength) && (int) $contentLength > $maxResponseBytes) {
                 return $this->failure($url, 'response_too_large', $current, $redirects, $status, $contentType);
             }
 
             $body = $response->body();
             $bytes = strlen($body);
 
-            if ($bytes > DiscoveryConfig::MAX_RESPONSE_BYTES) {
+            if ($bytes > $maxResponseBytes) {
                 return $this->failure($url, 'response_too_large', $current, $redirects, $status, $contentType);
             }
 

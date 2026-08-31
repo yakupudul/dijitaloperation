@@ -20,6 +20,8 @@ Website asset; WordPress/GA4/GSC/DataForSEO/PageSpeed connection'lardır.
 * İlk akış: Customer → Brand → Website → Diagnosis → Evidence → Findings → Recommendations → Task
 * WordPress status derived from the authenticated read-only WordPress connection when present
 * Public Discovery remains active for WordPress and non-WordPress sites; it verifies externally published HTTP/HTML
+* Final public HTML is versioned per URL with current/previous hash and change state; unchanged bodies reuse the same private compressed artifact
+* Integration coverage distinguishes discovered URLs from URLs whose final HTML was actually captured
 
 ## Important data / attributes
 
@@ -37,6 +39,8 @@ Website create/detail; attach connections; start diagnosis run.
 
 CMS-specific fields Core'a şişirilmez; module/connection'dan gelir. Integration ekranı collection truth gösterir;
 Finding/Recommendation/Task yalnızca Website Digital Asset analizinde üretilir.
+WordPress `post_content` CMS iç gerçeğidir; `website_html_snapshot` ise dış HTTP yanıtındaki nihai HTML'dir ve
+bu iki veri birbirinin yerine kullanılamaz.
 
 ## Derived information
 
