@@ -119,8 +119,11 @@ final class IntelligenceCoreRegistryLoader
             'NO_GENERIC_METRIC_WAREHOUSE',
             'MISSING_NEVER_EQUALS_ZERO',
             'ESTIMATED_NEVER_EQUALS_MEASURED',
+            'PLATFORM_SIGNAL_NEVER_EQUALS_VERIFIED_OUTCOME',
             'PROJECTIONS_ARE_REBUILDABLE',
             'NO_MAGIC_SCORES',
+            'AI_DOES_NOT_CREATE_FINDINGS',
+            'EXTERNAL_WRITES_FORBIDDEN',
         ] as $requiredPolicy) {
             if (($policies[$requiredPolicy] ?? false) !== true) {
                 throw new InvalidArgumentException("Intelligence Core policy [{$requiredPolicy}] must be enabled.");
