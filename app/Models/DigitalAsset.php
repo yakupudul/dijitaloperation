@@ -4,6 +4,11 @@ namespace App\Models;
 
 use App\Enums\DigitalAssetStatus;
 use App\Models\IntelligenceCore\IntelligencePageIdentity;
+use App\Models\IntelligenceProjection\WebsiteEntityProfile;
+use App\Models\IntelligenceProjection\WebsiteIntelligenceProjectionRun;
+use App\Models\IntelligenceProjection\WebsiteOutcomeProfile;
+use App\Models\IntelligenceProjection\WebsitePageProfile;
+use App\Models\IntelligenceProjection\WebsiteSearchTermProfile;
 use Database\Factories\DigitalAssetFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -84,6 +89,36 @@ class DigitalAsset extends Model
     public function intelligencePageIdentities(): HasMany
     {
         return $this->hasMany(IntelligencePageIdentity::class, 'website_asset_id');
+    }
+
+    /** @return HasMany<WebsiteIntelligenceProjectionRun, $this> */
+    public function websiteProjectionRuns(): HasMany
+    {
+        return $this->hasMany(WebsiteIntelligenceProjectionRun::class, 'website_asset_id');
+    }
+
+    /** @return HasMany<WebsitePageProfile, $this> */
+    public function websitePageProfiles(): HasMany
+    {
+        return $this->hasMany(WebsitePageProfile::class, 'website_asset_id');
+    }
+
+    /** @return HasMany<WebsiteSearchTermProfile, $this> */
+    public function websiteSearchTermProfiles(): HasMany
+    {
+        return $this->hasMany(WebsiteSearchTermProfile::class, 'website_asset_id');
+    }
+
+    /** @return HasMany<WebsiteEntityProfile, $this> */
+    public function websiteEntityProfiles(): HasMany
+    {
+        return $this->hasMany(WebsiteEntityProfile::class, 'website_asset_id');
+    }
+
+    /** @return HasMany<WebsiteOutcomeProfile, $this> */
+    public function websiteOutcomeProfiles(): HasMany
+    {
+        return $this->hasMany(WebsiteOutcomeProfile::class, 'website_asset_id');
     }
 
     /**

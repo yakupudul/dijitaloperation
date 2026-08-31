@@ -14,7 +14,7 @@ final class IntelligenceMetricObservation
     public function __construct(
         public readonly string $metricId,
         public readonly IntelligenceValueState $state,
-        public readonly int|float|null $value,
+        public readonly int|float|string|bool|null $value,
         public readonly string $unit,
         public readonly string $grain,
         public readonly array $dimensions,
@@ -31,7 +31,8 @@ final class IntelligenceMetricObservation
             throw new InvalidArgumentException('Non-value intelligence states must not carry a value.');
         }
 
-        if ($this->state === IntelligenceValueState::Zero && (float) $this->value !== 0.0) {
+        if ($this->state === IntelligenceValueState::Zero
+            && (! is_numeric($this->value) || (float) $this->value !== 0.0)) {
             throw new InvalidArgumentException('ZERO intelligence state must carry numeric zero.');
         }
     }

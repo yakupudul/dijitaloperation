@@ -27,22 +27,22 @@
     {
       "id": "page",
       "label": "page profile",
-      "status": "PROJECTION_NOT_IMPLEMENTED"
+      "status": "WEBSITE_PROJECTION_IMPLEMENTED_V1"
     },
     {
       "id": "search_term",
       "label": "search term profile",
-      "status": "PROJECTION_NOT_IMPLEMENTED"
+      "status": "WEBSITE_PROJECTION_IMPLEMENTED_V1"
     },
     {
       "id": "entity",
       "label": "entity profile",
-      "status": "PROJECTION_NOT_IMPLEMENTED"
+      "status": "WEBSITE_PROJECTION_IMPLEMENTED_V1"
     },
     {
       "id": "outcome",
       "label": "outcome profile",
-      "status": "PROJECTION_NOT_IMPLEMENTED"
+      "status": "WEBSITE_PROJECTION_IMPLEMENTED_V1"
     }
   ],
   "dimensions": [

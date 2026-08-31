@@ -430,10 +430,25 @@ Canonical decision: ADR-045. Detailed contract: `docs/product/website/WORDPRESS.
 - Search term canonical text diacritics korur; folded text yalnız clustering candidate üretir. Source semantics alias üzerinde ayrı kalır.
 - Missing ≠ zero; estimated ≠ measured; platform signal ≠ verified business outcome. Magic score ve ad-hoc formula yoktur.
 - DataForSEO, GBP veya gelecekteki AI search kaynağı capability adapter ekler; mevcut source tables veya projection tüketicileri yeniden tasarlanmaz.
-- Rebuildable Page/Search Term/Entity/Outcome profilleri Website Projection ve sonraki aşamalara aittir; bu milestone’da uygulanmış sayılmaz.
+- Rebuildable Page/Search Term/Entity/Outcome profilleri Website Projection tarafından source-keyed read model olarak uygulanır. Bu katman provider fact tablolarını kopyalayan generic warehouse değildir ve source facts silinirse tek başına canonical truth sayılmaz.
 - Mevcut Formula/Evidence/Finding/Recommendation/manual Task hattı tek otoritedir. AI Finding/Task oluşturmaz; external write yapmaz.
 
 Canonical decision: ADR-046. Machine-readable contract: `resources/intelligence/MOXDOP_INTELLIGENCE_CORE_V1.json`.
+
+---
+
+## Website Intelligence Projection boundary (accepted 2026-08-31)
+
+- Projection’ın canonical girdileri mevcut Website public/HTML, authenticated WordPress, bound GSC ve bound GA4 fact tablolarıdır. Kaynak fact tabloları authoritative kalır.
+- Projection dört kimlik profili üretir: Page, Search Term, Entity ve Outcome. Her profil tek satırda source-keyed typed state, period, coverage, value state ve provenance taşır; generic EAV metric warehouse değildir.
+- Varsayılan analitik pencere son tamamlanmış 90 UTC gündür. GSC/GA4 kaynakları kendi coverage ve watermark bilgisini ayrıca taşır; missing veya provider-omitted değerler sıfıra çevrilmez.
+- WordPress CMS içeriği ile public visitor HTML aynı Page identity üzerinde ayrı `wordpress` ve `website` source state olarak kalır. Birinin alanı diğerinin yerine kullanılmaz.
+- GSC query↔page ilişkileri provider limitleri belirtilerek korunur. GA4 Key Event, explicitly mapped Business Action altında provider-attributed signal olarak kalır; operator-verified outcome’a otomatik yükseltilmez.
+- Collection tamamlandığında ilgili Website projection rebuild işi kuyruğa alınır. Projection kısmi kaynak hatasında mevcut başarılı source state’i korur; tam rebuild yok olan profilleri temizleyebilir.
+- DataForSEO, GBP, Ads ve gelecekteki AI Search yeni source adapter ekler. Mevcut profile tüketicileri ve provider tabloları yeniden tasarlanmaz.
+- Bu milestone backend projection/read service’tir. Operator Website sekmeleri, formula→Evidence tüketimi, test ve live UAT ayrı aşamalardır; DONE değildir.
+
+Canonical decision: ADR-047. Implementation truth: `PRODUCT_CAPABILITY_LEDGER.md`.
 
 ---
 

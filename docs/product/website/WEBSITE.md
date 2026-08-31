@@ -22,6 +22,7 @@ Website asset; WordPress/GA4/GSC/DataForSEO/PageSpeed connection'lardır.
 * Public Discovery remains active for WordPress and non-WordPress sites; it verifies externally published HTTP/HTML
 * Final public HTML is versioned per URL with current/previous hash and change state; unchanged bodies reuse the same private compressed artifact
 * Integration coverage distinguishes discovered URLs from URLs whose final HTML was actually captured
+* Website Intelligence Projection rebuilds Page/Search Term/Entity/Outcome read profiles from Website, WordPress, bound GSC and bound GA4 facts; provider tables remain canonical
 
 ## Important data / attributes
 
@@ -41,6 +42,21 @@ CMS-specific fields Core'a şişirilmez; module/connection'dan gelir. Integratio
 Finding/Recommendation/Task yalnızca Website Digital Asset analizinde üretilir.
 WordPress `post_content` CMS iç gerçeğidir; `website_html_snapshot` ise dış HTTP yanıtındaki nihai HTML'dir ve
 bu iki veri birbirinin yerine kullanılamaz.
+Projection source state'leri de bu sınırı korur: aynı Page identity altında `wordpress` ve `website` ayrı kalır.
+GSC query/page ve GA4 landing/page verileri yalnız confirmed Asset Binding üzerinden profile katılır. Missing değer sıfır değildir;
+GA4 Key Event provider-attributed signal'dır ve verified business outcome sayılmaz.
+
+## Intelligence Projection read model
+
+* `website_page_profiles`: public HTTP/HTML, CMS içeriği, organic search ve davranış state'lerini Page identity üzerinde birleştirir
+* `website_search_term_profiles`: GSC query kimliği ve query→page ilişkilerini kaynak semantiği korunarak taşır
+* `website_entity_profiles`: operator-confirmed Brand/Website entity bağlamını kaynak state'leriyle taşır
+* `website_outcome_profiles`: explicit Business Action mapping'lerine bağlı platform sinyallerini taşır
+* `website_intelligence_projection_runs`: period, source coverage/watermark, partial failure ve rebuild provenance kaydıdır
+
+Bu tablolar canonical provider fact store değildir; silinip kaynak fact'lardan yeniden üretilebilir. Varsayılan projection penceresi son
+tamamlanmış 90 UTC gündür. Collection completion async rebuild tetikler; operator backfill komutu
+`intelligence:website-projection:rebuild`'dir. Website sekmelerinin bu read model'i sunması ayrı UI fazıdır.
 
 ## Derived information
 
