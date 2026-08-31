@@ -24,11 +24,11 @@ final class IntelligenceMetricObservation
         public readonly array $metadata = [],
     ) {
         if ($this->state->carriesValue() && $this->value === null) {
-            throw new InvalidArgumentException('Measured intelligence states require a value.');
+            throw new InvalidArgumentException('Value-bearing intelligence states require a value.');
         }
 
         if (! $this->state->carriesValue() && $this->value !== null) {
-            throw new InvalidArgumentException('Missing or unavailable intelligence states must not carry a value.');
+            throw new InvalidArgumentException('Non-value intelligence states must not carry a value.');
         }
 
         if ($this->state === IntelligenceValueState::Zero && (float) $this->value !== 0.0) {
