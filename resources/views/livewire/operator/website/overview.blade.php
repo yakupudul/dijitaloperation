@@ -13,6 +13,7 @@
         'content' => data_get($pagesContent, 'projection.completed_at'),
         'health' => data_get($technicalHealth, 'projection.completed_at'),
         'infrastructure' => data_get($infrastructure, 'projection.completed_at'),
+        'setup' => data_get($dataSources, 'projection.completed_at'),
         default => null,
     };
     $headerLastUpdatedHuman = $projectionCompletedAt
@@ -135,9 +136,6 @@
             <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700"><h2 class="font-semibold text-gray-900 dark:text-white">{{ __('operator.website.empty.recommendations') }}</h2><div class="mt-4 space-y-3">@forelse ($data['recommendations']->take(10) as $recommendation)<div class="rounded-lg bg-gray-50 p-3 dark:bg-white/[0.03]"><p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $recommendation->title }}</p><p class="mt-1 text-xs text-gray-500">{{ $recommendation->priority }} · {{ $recommendation->status }}</p></div>@empty<p class="text-sm text-gray-500">{{ __('operator.website.panels.no_recommendations') }}</p>@endforelse</div></section>
         </div>
     @elseif ($tab === 'setup')
-        <div class="grid gap-4 xl:grid-cols-2">
-            <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700"><h2 class="font-semibold text-gray-900 dark:text-white">{{ __('operator.website.panels.connections') }}</h2><div class="mt-4 space-y-3">@foreach ($data['connections'] as $source)<div class="flex items-center justify-between rounded-lg bg-gray-50 p-3 dark:bg-white/[0.03]"><div><p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $source['label'] }}</p><p class="mt-1 text-xs text-gray-500">{{ $source['display_name'] ?: ($source['subtitle'] ?? '—') }}</p></div><span class="text-xs font-semibold {{ $source['connected'] ? 'text-emerald-600' : 'text-gray-400' }}">{{ $source['connected'] ? __('operator.website.panels.connected') : __('operator.website.panels.not_connected') }}</span></div>@endforeach</div><a href="{{ route('operator.asset.sources', ['assetId' => $asset->id]) }}" wire:navigate class="mt-4 inline-flex text-sm font-medium text-brand-600">{{ __('operator.website.panels.manage_all_sources') }}</a></section>
-            <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700"><h2 class="font-semibold text-gray-900 dark:text-white">{{ __('operator.website.panels.website_configuration') }}</h2><dl class="mt-4 space-y-3 text-sm"><div><dt class="text-gray-400">{{ __('operator.website.panels.search_market') }}</dt><dd class="font-medium text-gray-800 dark:text-white">{{ $asset->seo_market_location_name ?: __('operator.website.panels.not_configured') }} · {{ $asset->seo_market_language_name ?: __('operator.website.panels.not_configured') }}</dd></div><div><dt class="text-gray-400">{{ __('operator.website.panels.languages') }}</dt><dd class="font-medium text-gray-800 dark:text-white">{{ implode(', ', $asset->languages ?? []) ?: '—' }}</dd></div><div><dt class="text-gray-400">{{ __('operator.website.panels.target_countries') }}</dt><dd class="font-medium text-gray-800 dark:text-white">{{ implode(', ', $asset->target_countries ?? []) ?: '—' }}</dd></div></dl></section>
-        </div>
+        @include('livewire.operator.website.tabs.data-sources')
     @endif
 </div>

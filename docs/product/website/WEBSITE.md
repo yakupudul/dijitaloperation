@@ -65,6 +65,12 @@ remain separate `website` source state. Connection status is read from the asset
 credentials. The screen is inventory and observation truth; it does not convert updates or Site Health counts into
 Findings.
 
+`Veri Kaynakları` is the fourth projection-backed operator slice. It separates connection/readiness state from actual
+collected-data state for Public Website, WordPress Connector, PageSpeed, confirmed-binding GSC and confirmed-binding
+GA4. Source watermark and available coverage counts are shown without duplicating Integration raw dataset tables.
+The screen links to the canonical source-management and collection workspaces, while preserving the public HTML versus
+WordPress inside-truth and platform-signal versus verified-outcome boundaries.
+
 ## Rules / invariants
 
 CMS-specific fields Core'a şişirilmez; module/connection'dan gelir. Integration ekranı collection truth gösterir;
@@ -85,8 +91,8 @@ GA4 Key Event provider-attributed signal'dır ve verified business outcome sayı
 
 Bu tablolar canonical provider fact store değildir; silinip kaynak fact'lardan yeniden üretilebilir. Varsayılan projection penceresi son
 tamamlanmış 90 UTC gündür. Collection completion async rebuild tetikler; operator backfill komutu
-`intelligence:website-projection:rebuild`'dir. `Sayfalar & İçerik`, `Teknik Sağlık` ve `Altyapı & WordPress` bu read model'i kullanır. Kalan hedef sekmeler
-ve sekmeler arası nihai Genel Bakış ayrı UI fazlarıdır.
+`intelligence:website-projection:rebuild`'dir. `Sayfalar & İçerik`, `Teknik Sağlık`, `Altyapı & WordPress` ve `Veri Kaynakları`
+bu read model'i kullanır. Kalan hedef sekmeler ve sekmeler arası nihai Genel Bakış ayrı UI fazlarıdır.
 
 ## Derived information
 

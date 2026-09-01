@@ -9,6 +9,7 @@ use App\Services\Async\AsyncOperationService;
 use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
 use App\Services\Ga4\WebsiteGa4AnalysisService;
 use App\Services\Gsc\WebsiteSearchConsoleAnalysisService;
+use App\Services\IntelligenceProjection\Website\WebsiteDataSourcesReadService;
 use App\Services\IntelligenceProjection\Website\WebsiteInfrastructureReadService;
 use App\Services\IntelligenceProjection\Website\WebsitePagesContentReadService;
 use App\Services\IntelligenceProjection\Website\WebsiteTechnicalHealthReadService;
@@ -253,6 +254,7 @@ class OverviewPage extends Component
         WebsitePagesContentReadService $pagesContentReadService,
         WebsiteTechnicalHealthReadService $technicalHealthReadService,
         WebsiteInfrastructureReadService $infrastructureReadService,
+        WebsiteDataSourcesReadService $dataSourcesReadService,
     ): View {
         $this->normalizeTab();
 
@@ -329,6 +331,10 @@ class OverviewPage extends Component
             )
             : null;
 
+        $dataSources = $this->tab === 'setup'
+            ? $dataSourcesReadService->workspace($asset)
+            : null;
+
         return view('livewire.operator.website.overview', [
             'asset' => $asset,
             'brand' => $asset->brand,
@@ -341,6 +347,7 @@ class OverviewPage extends Component
             'pagesContent' => $pagesContent,
             'technicalHealth' => $technicalHealth,
             'infrastructure' => $infrastructure,
+            'dataSources' => $dataSources,
             'showPeriodBar' => in_array($this->tab, ['overview', 'ga4_analysis', 'search_console', 'visibility', 'performance'], true),
         ]);
     }
