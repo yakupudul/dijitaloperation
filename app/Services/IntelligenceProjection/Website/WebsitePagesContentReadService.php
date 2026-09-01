@@ -151,14 +151,16 @@ final class WebsitePagesContentReadService
     private function coverage(array $summary): array
     {
         $coverage = is_array($summary['coverage_state'] ?? null) ? $summary['coverage_state'] : [];
+        $sourceErrors = is_array($summary['source_errors'] ?? null) ? $summary['source_errors'] : [];
 
         return collect([
             'website' => __('operator.website.pages_content.sources.website'),
             'wordpress' => __('operator.website.pages_content.sources.wordpress'),
             'gsc' => __('operator.website.pages_content.sources.gsc'),
             'ga4' => __('operator.website.pages_content.sources.ga4'),
-        ])->map(function (string $label, string $key) use ($coverage): array {
+        ])->map(function (string $label, string $key) use ($coverage, $sourceErrors, $summary): array {
             $state = (string) data_get($coverage, $key.'.state', 'not_collected');
+            $error = is_array($sourceErrors[$key] ?? null) ? $sourceErrors[$key] : [];
 
             return [
                 'key' => $key,
@@ -166,6 +168,12 @@ final class WebsitePagesContentReadService
                 'state' => $state,
                 'state_label' => __('operator.website.pages_content.states.'.$state),
                 'watermark' => data_get($coverage, $key.'.watermark'),
+                'error_code' => $state === 'projection_failed'
+                    ? ($error['code'] ?? data_get($coverage, $key.'.error_code'))
+                    : null,
+                'projection_run_id' => $state === 'projection_failed'
+                    ? ($summary['projection_run_id'] ?? null)
+                    : null,
             ];
         })->values()->all();
     }

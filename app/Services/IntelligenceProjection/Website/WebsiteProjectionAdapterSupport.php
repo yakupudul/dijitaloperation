@@ -13,6 +13,8 @@ use Illuminate\Support\Collection;
 
 final class WebsiteProjectionAdapterSupport
 {
+    private const int SOURCE_RECORD_KEY_MAX_BYTES = 255;
+
     public function __construct(
         private readonly IntelligenceMetricFactory $metrics,
     ) {}
@@ -68,18 +70,29 @@ final class WebsiteProjectionAdapterSupport
             return is_object($source) ? ($source->{$key} ?? null) : null;
         };
 
+        $sourceRecordKey = $recordKey ?? (($id = $read($row, 'id')) !== null ? (string) $id : null);
+
         return new IntelligenceSourceReference(
             providerOrSource: $provider,
             sourceClass: $sourceClass,
             sourceSemantic: $semantic,
             datasetId: $datasetId,
-            sourceRecordKey: $recordKey ?? (($id = $read($row, 'id')) !== null ? (string) $id : null),
+            sourceRecordKey: $this->boundedSourceRecordKey($sourceRecordKey),
             sourceDigitalAssetId: ($assetId = $read($row, 'digital_asset_id')) !== null ? (int) $assetId : $fallbackAssetId,
             externalResourceId: ($resourceId = $read($row, 'external_resource_id')) !== null ? (int) $resourceId : $fallbackResourceId,
             collectionRunId: ($runId = $read($row, 'last_collection_run_id')) !== null ? (int) $runId : null,
             datasetRunId: ($datasetRunId = $read($row, 'last_dataset_run_id')) !== null ? (int) $datasetRunId : null,
             contractVersion: ($version = $read($row, 'contract_version')) !== null ? (int) $version : null,
         );
+    }
+
+    private function boundedSourceRecordKey(?string $key): ?string
+    {
+        if ($key === null || strlen($key) <= self::SOURCE_RECORD_KEY_MAX_BYTES) {
+            return $key;
+        }
+
+        return 'sha256:'.hash('sha256', $key);
     }
 
     public function time(

@@ -8,7 +8,6 @@ use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\ShouldBeUniqueUntilProcessing;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Throwable;
 
 final class RebuildWebsiteProjectionJob implements ShouldBeUniqueUntilProcessing, ShouldQueue
@@ -40,16 +39,6 @@ final class RebuildWebsiteProjectionJob implements ShouldBeUniqueUntilProcessing
     public function backoff(): array
     {
         return [30, 120];
-    }
-
-    /** @return list<object> */
-    public function middleware(): array
-    {
-        return [
-            (new WithoutOverlapping($this->uniqueId()))
-                ->releaseAfter(60)
-                ->expireAfter(1200),
-        ];
     }
 
     public function handle(WebsiteProjectionRebuilder $rebuilder): void

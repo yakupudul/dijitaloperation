@@ -16,6 +16,7 @@ use App\Services\IntelligenceCore\IntelligenceCoreRegistryLoader;
 use App\Support\IntelligenceProjection\WebsiteProjectionContext;
 use App\Support\IntelligenceProjection\WebsiteProjectionContribution;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
@@ -42,6 +43,29 @@ final class WebsiteProjectionRebuilder
         ?int $triggerCollectionRunId = null,
         ?CarbonImmutable $periodStart = null,
         ?CarbonImmutable $periodEnd = null,
+    ): WebsiteIntelligenceProjectionRun {
+        if ($asset->getKey() === null || $asset->type !== 'website') {
+            throw new InvalidArgumentException('Website Projection can only rebuild a persisted Website Digital Asset.');
+        }
+
+        return Cache::lock('website-projection-rebuild:'.$asset->getKey(), 1200)->block(
+            60,
+            fn (): WebsiteIntelligenceProjectionRun => $this->rebuildUnlocked(
+                asset: $asset,
+                trigger: $trigger,
+                triggerCollectionRunId: $triggerCollectionRunId,
+                periodStart: $periodStart,
+                periodEnd: $periodEnd,
+            ),
+        );
+    }
+
+    private function rebuildUnlocked(
+        DigitalAsset $asset,
+        string $trigger,
+        ?int $triggerCollectionRunId,
+        ?CarbonImmutable $periodStart,
+        ?CarbonImmutable $periodEnd,
     ): WebsiteIntelligenceProjectionRun {
         if ($asset->getKey() === null || $asset->type !== 'website') {
             throw new InvalidArgumentException('Website Projection can only rebuild a persisted Website Digital Asset.');

@@ -450,6 +450,7 @@ return [
                 'ga4' => 'GA4',
             ],
             'no_collection_time' => 'No collection time',
+            'projection_error_reference' => 'Projection #:run · :code',
             'cards' => [
                 'pages' => 'Known pages',
                 'pages_hint' => 'Deduplicated Page identities',

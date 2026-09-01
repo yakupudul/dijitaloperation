@@ -58,6 +58,14 @@
                         <p class="mt-2 text-xs text-gray-400">
                             {{ $source['watermark'] ? \Carbon\CarbonImmutable::parse($source['watermark'])->diffForHumans() : __('operator.website.pages_content.no_collection_time') }}
                         </p>
+                        @if ($source['state'] === 'projection_failed')
+                            <p class="mt-1 break-all font-mono text-[10px] text-amber-600 dark:text-amber-300">
+                                {{ __('operator.website.pages_content.projection_error_reference', [
+                                    'run' => $source['projection_run_id'] ?? '—',
+                                    'code' => $source['error_code'] ?? 'UNKNOWN',
+                                ]) }}
+                            </p>
+                        @endif
                     </div>
                 @endforeach
             </div>

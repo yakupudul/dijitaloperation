@@ -451,6 +451,7 @@ return [
                 'ga4' => 'GA4',
             ],
             'no_collection_time' => 'Toplama zamanı yok',
+            'projection_error_reference' => 'Projection #:run · :code',
             'cards' => [
                 'pages' => 'Bilinen sayfalar',
                 'pages_hint' => 'Tekilleştirilmiş Page kimlikleri',

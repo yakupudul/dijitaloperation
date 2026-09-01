@@ -89,6 +89,11 @@ bu iki veri birbirinin yerine kullanılamaz.
 Projection source state'leri de bu sınırı korur: aynı Page identity altında `wordpress` ve `website` ayrı kalır.
 GSC query/page ve GA4 landing/page verileri yalnız confirmed Asset Binding üzerinden profile katılır. Missing değer sıfır değildir;
 GA4 Key Event provider-attributed signal'dır ve verified business outcome sayılmaz.
+Provider URL/query gibi dış kimlikleri kaynak anahtarı olarak kullanırken 255 byte sınırını aşan değerler merkezi olarak
+SHA-256 anahtarına dönüştürülür; özgün URL veya sorgu kendi fact/alias alanında korunur. Bir source adapter başarısız olursa
+operator ekranı güvenli projection run ve exception sınıfı referansını gösterir; SQL veya credential ayrıntısı göstermez.
+Aynı Website için queued, collection-triggered ve senkron operator rebuild'leri tek asset-scoped lock üzerinden seri çalışır;
+eşzamanlı kimlik/alias yazımı yapılmaz.
 
 ## Intelligence Projection read model
 

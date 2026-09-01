@@ -65,6 +65,7 @@ final class WebsiteProjectionReadService
             ] : null,
             'source_watermarks' => $run?->source_watermarks ?? [],
             'coverage_state' => $run?->coverage_state ?? [],
+            'source_errors' => $runSummary['source_errors'] ?? [],
             'profile_counts' => $runSummary['profile_counts'] ?? [
                 'pages' => 0,
                 'search_terms' => 0,
