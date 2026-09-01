@@ -89,9 +89,9 @@ final class Ga4ProjectionAdapter implements WebsiteProjectionSourceAdapter
             $attributedSource = $this->source('ga4_landing_page_daily', $aggregate, $binding->externalResourceId, IntelligenceSourceClass::ProviderAttributed);
             $time = $this->time($aggregate, $timezone, $start, $end, $context);
             $metrics = [
-                $this->support->metric('ga4.sessions', $aggregate['sessions'], 'landing_page_daily', ['page_identity_id' => $identityId], $source, $time, metadata: $this->runProvenance($aggregate)),
-                $this->support->metric('ga4.engaged_sessions', $aggregate['engaged_sessions'], 'landing_page_daily', ['page_identity_id' => $identityId], $source, $time, metadata: $this->runProvenance($aggregate)),
-                $this->support->metric('ga4.key_events', $aggregate['key_events'], 'landing_page_daily', ['page_identity_id' => $identityId], $attributedSource, $time, metadata: $this->runProvenance($aggregate)),
+                $this->support->metric('ga4.sessions', $aggregate['sessions'], 'landing_page_period', ['page_identity_id' => $identityId], $source, $time, metadata: $this->runProvenance($aggregate)),
+                $this->support->metric('ga4.engaged_sessions', $aggregate['engaged_sessions'], 'landing_page_period', ['page_identity_id' => $identityId], $source, $time, metadata: $this->runProvenance($aggregate)),
+                $this->support->metric('ga4.key_events', $aggregate['key_events'], 'landing_page_period', ['page_identity_id' => $identityId], $attributedSource, $time, metadata: $this->runProvenance($aggregate)),
             ];
             $pageStates[$identityId] = [
                 'identity_id' => $identityId,
@@ -343,7 +343,7 @@ final class Ga4ProjectionAdapter implements WebsiteProjectionSourceAdapter
                     'metric' => $this->support->metric(
                         metricId: 'ga4.key_events',
                         value: $value,
-                        grain: 'event_daily',
+                        grain: 'event_period',
                         dimensions: ['business_action_identity_id' => (int) $identityId],
                         source: $source,
                         time: $time,

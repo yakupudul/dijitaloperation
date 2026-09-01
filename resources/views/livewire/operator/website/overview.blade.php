@@ -3,8 +3,10 @@
         'overview' => __('operator.website.tabs.overview'),
         'content' => __('operator.website.tabs.content'),
         'health' => __('operator.website.tabs.health'),
+        'search_console' => __('operator.website.tabs.search_console'),
         'visibility' => __('operator.website.tabs.visibility'),
         'performance' => __('operator.website.tabs.performance'),
+        'ga4_analysis' => __('operator.website.tabs.ga4_analysis'),
         'infrastructure' => __('operator.website.tabs.infrastructure'),
         'operations' => __('operator.website.tabs.operations'),
         'setup' => __('operator.website.tabs.setup'),
@@ -12,6 +14,8 @@
     $projectionCompletedAt = match ($tab) {
         'content' => data_get($pagesContent, 'projection.completed_at'),
         'health' => data_get($technicalHealth, 'projection.completed_at'),
+        'search_console' => data_get($gscAnalysis, 'coverage.last_collected_at'),
+        'ga4_analysis' => data_get($ga4Analysis, 'coverage.last_collected_at'),
         'infrastructure' => data_get($infrastructure, 'projection.completed_at'),
         'setup' => data_get($dataSources, 'projection.completed_at'),
         default => null,
@@ -121,6 +125,8 @@
         @include('livewire.operator.website.tabs.pages-content')
     @elseif ($tab === 'health')
         @include('livewire.operator.website.tabs.technical-health')
+    @elseif ($tab === 'search_console')
+        @include('livewire.operator.website.tabs.search-console')
     @elseif ($tab === 'visibility')
         <div class="grid gap-4 xl:grid-cols-2">
             <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700"><div class="flex items-center justify-between"><h2 class="font-semibold text-gray-900 dark:text-white">Organic Search</h2><button type="button" wire:click="refreshSeoIntelligence" class="text-sm font-medium text-brand-600">{{ __('operator.website.panels.refresh_seo') }}</button></div><p class="mt-2 text-sm text-gray-500">{{ __('operator.website.panels.visibility_hint') }}</p><div class="mt-4 space-y-2">@forelse (array_slice($data['seo_opportunities'] ?? [], 0, 8) as $row)<div class="rounded-lg bg-gray-50 p-3 text-sm dark:bg-white/[0.03]">{{ is_array($row) ? ($row['query'] ?? $row['title'] ?? json_encode($row)) : $row }}</div>@empty<p class="text-sm text-gray-500">{{ __('operator.website.panels.no_seo_opportunities') }}</p>@endforelse</div></section>
@@ -128,6 +134,8 @@
         </div>
     @elseif ($tab === 'performance')
         <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700"><h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ __('operator.website.tabs.performance') }}</h2><p class="mt-1 text-sm text-gray-500">{{ __('operator.website.panels.performance_hint') }}</p><div class="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">@forelse ($data['kpis'] as $kpi)<div class="rounded-lg bg-gray-50 p-4 dark:bg-white/[0.03]"><p class="text-xs text-gray-400">{{ $kpi['label'] }}</p><p class="mt-2 text-xl font-bold text-gray-900 dark:text-white">{{ $kpi['value'] }}</p><p class="mt-1 text-xs text-gray-400">{{ strtoupper($kpi['source']) }}</p></div>@empty<p class="text-sm text-gray-500 sm:col-span-2">{{ __('operator.website.panels.no_provider_evidence') }}</p>@endforelse</div></section>
+    @elseif ($tab === 'ga4_analysis')
+        @include('livewire.operator.website.tabs.ga4-analysis')
     @elseif ($tab === 'infrastructure')
         @include('livewire.operator.website.tabs.infrastructure-wordpress')
     @elseif ($tab === 'operations')

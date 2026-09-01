@@ -47,6 +47,10 @@ Target operator workspace navigation:
 7. İyileştirmeler
 8. Veri Kaynakları
 
+Search Console ve Google Analytics uzman ekranları da Website bağlamındaki doğrudan sağlayıcı drill-in sekmeleri olarak
+korunur. Bunlar çapraz-kaynak `Arama & AI Görünürlüğü` ve `Performans & Dönüşüm` çalışma alanlarının yerine geçmez;
+sağlayıcının ayrıntılı gerçeklerini aynı asset altında incelemek için kullanılır.
+
 `Sayfalar & İçerik` is the first projection-backed operator slice. It presents Page profiles, source coverage,
 public HTML capture/change state, WordPress object state, compact GSC/GA4 page context and a source comparison
 detail. Stored visitor HTML can be opened only by authenticated operators and is returned as non-executable
@@ -57,6 +61,11 @@ in Findings/Improvements.
 redirects, deterministic crawl observations, document-head signals, structured data, TLS certificate facts and
 PageSpeed lab LCP coverage. It has no opaque health score and does not create Findings or Recommendations. Missing
 collection is shown as unavailable rather than zero; page-level details retain source-record provenance.
+Bir gözlem için `Düzeltmeyi doğrula` eylemi yalnız seçilen URL’yi ve aynı gözlem kodunu taşıyan, aynı sayfalama
+ailesindeki ilişkili URL’leri bounded bir public crawl ile yeniden alır. Her URL bağımsız doğrulanır; yeni nihai HTML
+mevcut kayıtlı sürümle hash üzerinden karşılaştırılıp version/change state olarak saklanır. Gözlem yalnız güncel HTML’de
+artık üretilmiyorsa projection rebuild sonrasında kapanır; kullanıcı beyanıyla manuel olarak kapatılmaz. Hızlı doğrulama
+tek çalışmada en fazla 100 URL planlar ve normal tam-site taramasına genişlemez.
 
 `Altyapı & WordPress` is the third projection-backed operator slice. Authenticated CMS site/runtime facts, safe
 WordPress settings, Site Health observation counts, plugin/theme versions and update state, taxonomy summaries and
@@ -92,7 +101,8 @@ GA4 Key Event provider-attributed signal'dır ve verified business outcome sayı
 Bu tablolar canonical provider fact store değildir; silinip kaynak fact'lardan yeniden üretilebilir. Varsayılan projection penceresi son
 tamamlanmış 90 UTC gündür. Collection completion async rebuild tetikler; operator backfill komutu
 `intelligence:website-projection:rebuild`'dir. `Sayfalar & İçerik`, `Teknik Sağlık`, `Altyapı & WordPress` ve `Veri Kaynakları`
-bu read model'i kullanır. Kalan hedef sekmeler ve sekmeler arası nihai Genel Bakış ayrı UI fazlarıdır.
+bu read model'i kullanır. Search Console ve Google Analytics uzman sekmeleri canonical provider read servislerini kullanır;
+kalan çapraz-kaynak hedef sekmeler ve sekmeler arası nihai Genel Bakış ayrı UI fazlarıdır.
 
 ## Derived information
 

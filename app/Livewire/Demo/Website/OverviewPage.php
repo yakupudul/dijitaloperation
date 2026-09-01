@@ -7,6 +7,7 @@ use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
 use App\Models\DigitalAsset;
 use App\Services\Async\AsyncOperationService;
 use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
+use App\Services\Collection\Website\WebsiteIssueVerificationService;
 use App\Services\Ga4\WebsiteGa4AnalysisService;
 use App\Services\Gsc\WebsiteSearchConsoleAnalysisService;
 use App\Services\IntelligenceProjection\Website\WebsiteDataSourcesReadService;
@@ -85,8 +86,10 @@ class OverviewPage extends Component
         'overview',
         'content',
         'health',
+        'search_console',
         'visibility',
         'performance',
+        'ga4_analysis',
         'infrastructure',
         'operations',
         'setup',
@@ -106,11 +109,9 @@ class OverviewPage extends Component
         'settings' => 'setup',
         'activity' => 'operations',
         'analytics' => 'performance',
-        'ga4' => 'performance',
-        'ga4_analysis' => 'performance',
-        'gsc' => 'visibility',
-        'search-console' => 'visibility',
-        'search_console' => 'visibility',
+        'ga4' => 'ga4_analysis',
+        'gsc' => 'search_console',
+        'search-console' => 'search_console',
     ];
 
     public function mount(?string $assetId = null): void
@@ -187,6 +188,37 @@ class OverviewPage extends Component
     public function closeHealthProfile(): void
     {
         $this->selectedHealthProfileId = null;
+    }
+
+    public function verifyTechnicalIssue(
+        int $profileId,
+        string $issueCode,
+        WebsiteIssueVerificationService $verification,
+    ): void {
+        try {
+            $result = $verification->start(
+                asset: $this->asset(),
+                profileId: $profileId,
+                issueCode: $issueCode,
+                requestedBy: auth()->user(),
+            );
+
+            $this->message = __('operator.website.technical_health.verification.queued', [
+                'id' => $result['collection_run_id'],
+                'pages' => $result['planned_url_count'],
+                'related' => $result['related_url_count'],
+            ]).($result['truncated']
+                ? ' '.__('operator.website.technical_health.verification.truncated', [
+                    'limit' => WebsiteIssueVerificationService::MAX_URLS,
+                ])
+                : '');
+            $this->messageTone = 'success';
+            $this->selectedHealthProfileId = $profileId;
+        } catch (Throwable $exception) {
+            report($exception);
+            $this->message = __('operator.website.technical_health.verification.unavailable');
+            $this->messageTone = 'info';
+        }
     }
 
     public function updatedInfrastructureSearch(): void
