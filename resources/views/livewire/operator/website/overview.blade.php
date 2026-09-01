@@ -44,9 +44,14 @@
         </div>
         <div class="flex flex-wrap gap-2">
             <button type="button" wire:click="refreshData" class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600">{{ __('operator.website.actions.refresh_data') }}</button>
-            <button type="button" wire:click="runDiagnosis" class="rounded-lg bg-white px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-300 dark:ring-gray-700">{{ __('operator.website.actions.technical_check') }}</button>
-            <a href="{{ route('operator.asset.sources', ['assetId' => $asset->id]) }}" wire:navigate class="rounded-lg bg-white px-3 py-2 text-sm font-semibold text-brand-700 ring-1 ring-inset ring-brand-200 hover:bg-brand-50 dark:bg-gray-900 dark:text-brand-300 dark:ring-brand-500/30">{{ __('operator.website.actions.data_sources') }}</a>
-            <a href="{{ route('operator.website.discovery', ['assetId' => $asset->id]) }}" wire:navigate class="rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white hover:bg-violet-700">{{ __('operator.website.actions.public_discovery') }}</a>
+            <details class="relative">
+                <summary class="cursor-pointer list-none rounded-lg bg-white px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-300 dark:ring-gray-700">{{ __('operator.website.actions.more_actions') }} ⌄</summary>
+                <div class="absolute right-0 z-30 mt-2 w-56 overflow-hidden rounded-xl bg-white py-1 shadow-xl ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10">
+                    <button type="button" wire:click="runDiagnosis" class="block w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.03]">{{ __('operator.website.actions.technical_check') }}</button>
+                    <a href="{{ route('operator.asset.sources', ['assetId' => $asset->id]) }}" wire:navigate class="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.03]">{{ __('operator.website.actions.data_sources') }}</a>
+                    <a href="{{ route('operator.website.discovery', ['assetId' => $asset->id]) }}" wire:navigate class="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.03]">{{ __('operator.website.actions.public_discovery') }}</a>
+                </div>
+            </details>
         </div>
     </div>
 

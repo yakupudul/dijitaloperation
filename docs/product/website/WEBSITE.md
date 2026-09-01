@@ -51,11 +51,21 @@ Search Console ve Google Analytics uzman ekranları da Website bağlamındaki do
 korunur. Bunlar çapraz-kaynak `Arama & AI Görünürlüğü` ve `Performans & Dönüşüm` çalışma alanlarının yerine geçmez;
 sağlayıcının ayrıntılı gerçeklerini aynı asset altında incelemek için kullanılır.
 
-`Sayfalar & İçerik` is the first projection-backed operator slice. It presents Page profiles, source coverage,
-public HTML capture/change state, WordPress object state, compact GSC/GA4 page context and a source comparison
-detail. Stored visitor HTML can be opened only by authenticated operators and is returned as non-executable
-plain text after ownership and checksum verification. This screen presents collected facts; interpretation remains
-in Findings/Improvements.
+`Sayfalar & İçerik` is the first projection-backed operator slice. Its compact operator view reconciles total Page
+identities, externally published URLs, WordPress objects and platform-only identities without mixing their scopes.
+Public HTML coverage, WordPress inside state and compact GSC/GA4 page context are progressively disclosed through
+saved views and a right-side Page detail drawer. Pagination URLs are classified under a deterministic Page family;
+the raw URL observations remain independent facts, while the operator may review the family as one repeated template.
+Expected pagination members without a separate WordPress object are disclosed separately and are excluded from the
+CMS identity-review count.
+Stored visitor HTML can be opened only by authenticated operators and is returned as non-executable plain text after
+ownership and checksum verification. This screen presents collected facts; interpretation remains in Findings/Improvements.
+
+Every captured public HTML version retains the exact body hash/change state for audit. In addition, the collector
+stores a versioned semantic signature over title, meta description, canonical, H1 and main visitor-visible content,
+excluding volatile page chrome. The first post-release observation creates a baseline; only a later comparable
+observation may become `meaningful_change`. Raw HTML change and meaningful content change are never presented as the
+same claim. The Page drawer lists recent stored versions, semantic changed fields and authenticated raw HTML links.
 
 `Teknik Sağlık` is the second projection-backed operator slice. It summarizes externally observed HTTP reachability,
 redirects, deterministic crawl observations, document-head signals, structured data, TLS certificate facts and
@@ -86,6 +96,8 @@ CMS-specific fields Core'a şişirilmez; module/connection'dan gelir. Integratio
 Finding/Recommendation/Task yalnızca Website Digital Asset analizinde üretilir.
 WordPress `post_content` CMS iç gerçeğidir; `website_html_snapshot` ise dış HTTP yanıtındaki nihai HTML'dir ve
 bu iki veri birbirinin yerine kullanılamaz.
+HTML sürümünün ham SHA-256 değişimi denetim gerçeğidir; anlamlı değişiklik ise sürümlenmiş deterministik normalizasyon
+çıktısıdır. Anlamlı karşılaştırma baseline yokken sıfır veya değişmedi olarak sunulamaz.
 Projection source state'leri de bu sınırı korur: aynı Page identity altında `wordpress` ve `website` ayrı kalır.
 GSC query/page ve GA4 landing/page verileri yalnız confirmed Asset Binding üzerinden profile katılır. Missing değer sıfır değildir;
 GA4 Key Event provider-attributed signal'dır ve verified business outcome sayılmaz.

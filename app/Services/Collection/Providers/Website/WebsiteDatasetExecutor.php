@@ -456,17 +456,26 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         }
 
         $previousHtmlHash = null;
+        $previousSemanticMetadata = null;
         if (Schema::hasTable('website_html_snapshot')) {
-            $previousHtmlHash = DB::table('website_html_snapshot')
+            $previous = DB::table('website_html_snapshot')
                 ->where('digital_asset_id', $assetId)
                 ->where('url', $url)
                 ->where('observed_at', '<', $observedAt)
                 ->orderByDesc('observed_at')
-                ->value('html_hash');
+                ->first(['html_hash', 'metadata']);
+            $previousHtmlHash = $previous?->html_hash;
             $previousHtmlHash = is_string($previousHtmlHash) && $previousHtmlHash !== '' ? $previousHtmlHash : null;
+            $previousSemanticMetadata = $this->jsonArray($previous?->metadata);
         }
 
-        $record = $this->normalizer->htmlSnapshot($assetId, $fetch, $observedAt, $previousHtmlHash);
+        $record = $this->normalizer->htmlSnapshot(
+            $assetId,
+            $fetch,
+            $observedAt,
+            $previousHtmlHash,
+            $previousSemanticMetadata,
+        );
         if ($record === null) {
             return 0;
         }
@@ -491,6 +500,8 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
                 'url_hash' => hash('sha256', $url),
                 'html_hash' => $htmlHash,
                 'change_state' => $record['change_state'],
+                'semantic_hash' => data_get($record, 'metadata.semantic_hash'),
+                'semantic_change_state' => data_get($record, 'metadata.semantic_change_state'),
             ],
             capturedAt: now(),
             retentionClass: 'website_html_version',
@@ -926,6 +937,22 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         $parts = parse_url($url);
 
         return ($parts['scheme'] ?? 'https').'://'.($parts['host'] ?? '');
+    }
+
+    /** @return array<string, mixed>|null */
+    private function jsonArray(mixed $value): ?array
+    {
+        if (is_array($value)) {
+            return $value;
+        }
+
+        if (! is_string($value) || trim($value) === '') {
+            return null;
+        }
+
+        $decoded = json_decode($value, true);
+
+        return is_array($decoded) ? $decoded : null;
     }
 
     /** @param array<string, mixed> $checkpoint */

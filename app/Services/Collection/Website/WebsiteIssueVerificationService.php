@@ -6,6 +6,7 @@ use App\Models\DigitalAsset;
 use App\Models\IntelligenceProjection\WebsitePageProfile;
 use App\Models\User;
 use App\Services\Collection\Providers\Website\WebsiteRequestFamilyCatalog;
+use App\Support\IntelligenceProjection\Website\WebsitePageFamilyClassifier;
 use InvalidArgumentException;
 use MoxDop\Website\Discovery\PublicUrlNormalizer;
 
@@ -16,6 +17,7 @@ final class WebsiteIssueVerificationService
     public function __construct(
         private readonly WebsiteCollectionOrchestrator $collections,
         private readonly PublicUrlNormalizer $urls = new PublicUrlNormalizer,
+        private readonly WebsitePageFamilyClassifier $families = new WebsitePageFamilyClassifier,
     ) {}
 
     /**
@@ -61,11 +63,11 @@ final class WebsiteIssueVerificationService
             throw new InvalidArgumentException('The selected page does not have a public Website URL.');
         }
 
-        $relationBase = $this->relationBase($selectedUrl);
+        $relationBase = $this->families->classify($selectedUrl)['key'];
         $candidates = $profiles
             ->filter(fn (WebsitePageProfile $profile): bool => $this->issue($profile, $issueCode) !== null)
             ->map(fn (WebsitePageProfile $profile): ?string => $this->profileUrl($profile))
-            ->filter(fn (?string $url): bool => $url !== null && $this->relationBase($url) === $relationBase)
+            ->filter(fn (?string $url): bool => $url !== null && $this->families->classify($url)['key'] === $relationBase)
             ->map(fn (string $url): string => $this->urls->normalizeAbsolute($url) ?? $url)
             ->unique()
             ->sort()
@@ -153,49 +155,4 @@ final class WebsiteIssueVerificationService
         return $normalized !== null ? $normalized : null;
     }
 
-    private function relationBase(string $url): string
-    {
-        $normalized = $this->urls->normalizeAbsolute($url) ?? $url;
-        $parts = parse_url($normalized);
-        if (! is_array($parts) || empty($parts['host'])) {
-            return $normalized;
-        }
-
-        $scheme = strtolower((string) ($parts['scheme'] ?? 'https'));
-        $host = strtolower((string) $parts['host']);
-        $port = isset($parts['port']) ? ':'.(int) $parts['port'] : '';
-        $path = (string) ($parts['path'] ?? '/');
-        $path = preg_replace('#/page/\d+/?$#i', '/', $path) ?? $path;
-        if ($path === '') {
-            $path = '/';
-        } elseif ($path !== '/') {
-            $path = rtrim($path, '/').'/';
-        }
-
-        $query = [];
-        if (is_string($parts['query'] ?? null) && $parts['query'] !== '') {
-            parse_str($parts['query'], $query);
-            foreach (array_keys($query) as $key) {
-                if ($this->isPaginationParameter((string) $key, $query[$key])) {
-                    unset($query[$key]);
-                }
-            }
-            ksort($query);
-        }
-
-        $queryString = $query === [] ? '' : '?'.http_build_query($query, '', '&', PHP_QUERY_RFC3986);
-
-        return $scheme.'://'.$host.$port.$path.$queryString;
-    }
-
-    private function isPaginationParameter(string $key, mixed $value): bool
-    {
-        if (! is_scalar($value) || preg_match('/^\d+$/', (string) $value) !== 1) {
-            return false;
-        }
-
-        return preg_match('/^e-page-/i', $key) === 1
-            || preg_match('/^(?:paged|page|page_num|page_no|pageno|product-page|sf_paged)$/i', $key) === 1
-            || preg_match('/(?:^|[-_])page(?:d|num|no)?(?:$|[-_])/i', $key) === 1;
-    }
 }

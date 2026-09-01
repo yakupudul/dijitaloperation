@@ -106,6 +106,7 @@ final class WebsitePublicProjectionAdapter implements WebsiteProjectionSourceAda
             $heading = $this->support->json($headings[$url]->metadata ?? null);
             $schemaMeta = $this->support->json($schema[$url]->metadata ?? null);
             $contentMeta = $this->support->json($content[$url]->metadata ?? null);
+            $htmlMeta = $this->support->json($html[$url]->metadata ?? null);
             $statusCode = is_numeric($httpMeta['status_code'] ?? null)
                 ? (int) $httpMeta['status_code']
                 : (isset($html[$url]->status_code) ? (int) $html[$url]->status_code : null);
@@ -203,6 +204,10 @@ final class WebsitePublicProjectionAdapter implements WebsiteProjectionSourceAda
                     'html_hash' => $html[$url]->html_hash,
                     'previous_html_hash' => $html[$url]->previous_html_hash,
                     'change_state' => $html[$url]->change_state,
+                    'semantic_hash' => $htmlMeta['semantic_hash'] ?? null,
+                    'semantic_change_state' => $htmlMeta['semantic_change_state'] ?? null,
+                    'semantic_changed_fields' => is_array($htmlMeta['semantic_changed_fields'] ?? null) ? $htmlMeta['semantic_changed_fields'] : [],
+                    'semantic_normalization_version' => $htmlMeta['semantic_normalization_version'] ?? null,
                     'html_bytes' => (int) $html[$url]->html_bytes,
                     'raw_ingestion_object_id' => $html[$url]->raw_ingestion_object_id !== null ? (int) $html[$url]->raw_ingestion_object_id : null,
                     'observed_at' => $html[$url]->observed_at,

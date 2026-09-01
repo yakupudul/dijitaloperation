@@ -50,6 +50,9 @@ class OverviewPage extends Component
     #[Url(as: 'content_source')]
     public string $contentSource = 'all';
 
+    #[Url(as: 'content_sort')]
+    public string $contentSort = 'recent';
+
     #[Url(as: 'content_page')]
     public int $contentPage = 1;
 
@@ -142,6 +145,20 @@ class OverviewPage extends Component
 
     public function updatedContentSource(): void
     {
+        $this->contentPage = 1;
+        $this->selectedPageProfileId = null;
+    }
+
+    public function updatedContentSort(): void
+    {
+        $this->contentPage = 1;
+        $this->selectedPageProfileId = null;
+    }
+
+    public function setContentFilter(string $filter): void
+    {
+        $allowed = ['all', 'public', 'search_visible', 'traffic', 'meaningful_changed', 'cms_mismatch', 'families'];
+        $this->contentFilter = in_array($filter, $allowed, true) ? $filter : 'all';
         $this->contentPage = 1;
         $this->selectedPageProfileId = null;
     }
@@ -339,6 +356,7 @@ class OverviewPage extends Component
                 search: $this->contentSearch,
                 filter: $this->contentFilter,
                 source: $this->contentSource,
+                sort: $this->contentSort,
                 page: $this->contentPage,
                 selectedProfileId: $this->selectedPageProfileId,
             )
