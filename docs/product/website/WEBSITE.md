@@ -58,6 +58,13 @@ redirects, deterministic crawl observations, document-head signals, structured d
 PageSpeed lab LCP coverage. It has no opaque health score and does not create Findings or Recommendations. Missing
 collection is shown as unavailable rather than zero; page-level details retain source-record provenance.
 
+`Altyapı & WordPress` is the third projection-backed operator slice. Authenticated CMS site/runtime facts, safe
+WordPress settings, Site Health observation counts, plugin/theme versions and update state, taxonomy summaries and
+detected SEO/features are retained as a `wordpress` Entity source state. Website configuration and external TLS facts
+remain separate `website` source state. Connection status is read from the asset-scoped connector without exposing
+credentials. The screen is inventory and observation truth; it does not convert updates or Site Health counts into
+Findings.
+
 ## Rules / invariants
 
 CMS-specific fields Core'a şişirilmez; module/connection'dan gelir. Integration ekranı collection truth gösterir;
@@ -78,7 +85,7 @@ GA4 Key Event provider-attributed signal'dır ve verified business outcome sayı
 
 Bu tablolar canonical provider fact store değildir; silinip kaynak fact'lardan yeniden üretilebilir. Varsayılan projection penceresi son
 tamamlanmış 90 UTC gündür. Collection completion async rebuild tetikler; operator backfill komutu
-`intelligence:website-projection:rebuild`'dir. `Sayfalar & İçerik` ve `Teknik Sağlık` bu read model'i kullanır. Kalan hedef sekmeler
+`intelligence:website-projection:rebuild`'dir. `Sayfalar & İçerik`, `Teknik Sağlık` ve `Altyapı & WordPress` bu read model'i kullanır. Kalan hedef sekmeler
 ve sekmeler arası nihai Genel Bakış ayrı UI fazlarıdır.
 
 ## Derived information

@@ -9,6 +9,7 @@ use App\Services\Async\AsyncOperationService;
 use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
 use App\Services\Ga4\WebsiteGa4AnalysisService;
 use App\Services\Gsc\WebsiteSearchConsoleAnalysisService;
+use App\Services\IntelligenceProjection\Website\WebsiteInfrastructureReadService;
 use App\Services\IntelligenceProjection\Website\WebsitePagesContentReadService;
 use App\Services\IntelligenceProjection\Website\WebsiteTechnicalHealthReadService;
 use App\Support\Reality\OperatorCanonicalAsset;
@@ -64,6 +65,15 @@ class OverviewPage extends Component
 
     #[Url(as: 'health_profile')]
     public ?int $selectedHealthProfileId = null;
+
+    #[Url(as: 'infra_search')]
+    public string $infrastructureSearch = '';
+
+    #[Url(as: 'infra_filter')]
+    public string $infrastructureFilter = 'all';
+
+    #[Url(as: 'infra_page')]
+    public int $infrastructurePage = 1;
 
     public string $message = '';
 
@@ -178,6 +188,21 @@ class OverviewPage extends Component
         $this->selectedHealthProfileId = null;
     }
 
+    public function updatedInfrastructureSearch(): void
+    {
+        $this->infrastructurePage = 1;
+    }
+
+    public function updatedInfrastructureFilter(): void
+    {
+        $this->infrastructurePage = 1;
+    }
+
+    public function setInfrastructurePage(int $page): void
+    {
+        $this->infrastructurePage = max(1, $page);
+    }
+
     public function refreshData(AsyncOperationService $async): void
     {
         $messages = [];
@@ -227,6 +252,7 @@ class OverviewPage extends Component
         WebsiteSearchConsoleAnalysisService $gscAnalysisService,
         WebsitePagesContentReadService $pagesContentReadService,
         WebsiteTechnicalHealthReadService $technicalHealthReadService,
+        WebsiteInfrastructureReadService $infrastructureReadService,
     ): View {
         $this->normalizeTab();
 
@@ -294,6 +320,15 @@ class OverviewPage extends Component
             )
             : null;
 
+        $infrastructure = $this->tab === 'infrastructure'
+            ? $infrastructureReadService->workspace(
+                asset: $asset,
+                search: $this->infrastructureSearch,
+                filter: $this->infrastructureFilter,
+                page: $this->infrastructurePage,
+            )
+            : null;
+
         return view('livewire.operator.website.overview', [
             'asset' => $asset,
             'brand' => $asset->brand,
@@ -305,6 +340,7 @@ class OverviewPage extends Component
             'gscCharts' => $gscCharts,
             'pagesContent' => $pagesContent,
             'technicalHealth' => $technicalHealth,
+            'infrastructure' => $infrastructure,
             'showPeriodBar' => in_array($this->tab, ['overview', 'ga4_analysis', 'search_console', 'visibility', 'performance'], true),
         ]);
     }

@@ -12,6 +12,7 @@
     $projectionCompletedAt = match ($tab) {
         'content' => data_get($pagesContent, 'projection.completed_at'),
         'health' => data_get($technicalHealth, 'projection.completed_at'),
+        'infrastructure' => data_get($infrastructure, 'projection.completed_at'),
         default => null,
     };
     $headerLastUpdatedHuman = $projectionCompletedAt
@@ -127,18 +128,7 @@
     @elseif ($tab === 'performance')
         <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700"><h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ __('operator.website.tabs.performance') }}</h2><p class="mt-1 text-sm text-gray-500">{{ __('operator.website.panels.performance_hint') }}</p><div class="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">@forelse ($data['kpis'] as $kpi)<div class="rounded-lg bg-gray-50 p-4 dark:bg-white/[0.03]"><p class="text-xs text-gray-400">{{ $kpi['label'] }}</p><p class="mt-2 text-xl font-bold text-gray-900 dark:text-white">{{ $kpi['value'] }}</p><p class="mt-1 text-xs text-gray-400">{{ strtoupper($kpi['source']) }}</p></div>@empty<p class="text-sm text-gray-500 sm:col-span-2">{{ __('operator.website.panels.no_provider_evidence') }}</p>@endforelse</div></section>
     @elseif ($tab === 'infrastructure')
-        <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ __('operator.website.tabs.infrastructure') }}</h2>
-            <p class="mt-2 text-sm text-gray-500">{{ __('operator.website.panels.infrastructure_hint') }}</p>
-            <dl class="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                <div class="rounded-lg bg-gray-50 p-4 dark:bg-white/[0.03]"><dt class="text-xs text-gray-400">Domain</dt><dd class="mt-1 font-medium text-gray-900 dark:text-white">{{ $asset->domain ?: '—' }}</dd></div>
-                <div class="rounded-lg bg-gray-50 p-4 dark:bg-white/[0.03]"><dt class="text-xs text-gray-400">Primary URL</dt><dd class="mt-1 break-all font-medium text-gray-900 dark:text-white">{{ $asset->primary_url ?: '—' }}</dd></div>
-                <div class="rounded-lg bg-gray-50 p-4 dark:bg-white/[0.03]"><dt class="text-xs text-gray-400">CMS</dt><dd class="mt-1 font-medium text-gray-900 dark:text-white">{{ $asset->cms ?: __('operator.website.panels.not_collected') }}</dd></div>
-                <div class="rounded-lg bg-gray-50 p-4 dark:bg-white/[0.03]"><dt class="text-xs text-gray-400">Hosting</dt><dd class="mt-1 font-medium text-gray-900 dark:text-white">{{ $asset->hosting_context ?: __('operator.website.panels.not_collected') }}</dd></div>
-                <div class="rounded-lg bg-gray-50 p-4 dark:bg-white/[0.03]"><dt class="text-xs text-gray-400">SSL / TLS</dt><dd class="mt-1 font-medium text-gray-900 dark:text-white">{{ __('operator.website.panels.not_collected') }}</dd></div>
-                <div class="rounded-lg bg-gray-50 p-4 dark:bg-white/[0.03]"><dt class="text-xs text-gray-400">DNS / CDN</dt><dd class="mt-1 font-medium text-gray-900 dark:text-white">{{ __('operator.website.panels.not_collected') }}</dd></div>
-            </dl>
-        </section>
+        @include('livewire.operator.website.tabs.infrastructure-wordpress')
     @elseif ($tab === 'operations')
         <div class="grid gap-4 xl:grid-cols-2">
             <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700"><h2 class="font-semibold text-gray-900 dark:text-white">{{ __('operator.website.empty.open_findings') }}</h2><div class="mt-4 space-y-3">@forelse ($data['findings']['open']->take(10) as $finding)<div class="rounded-lg bg-gray-50 p-3 dark:bg-white/[0.03]"><p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $finding->title }}</p><p class="mt-1 text-xs text-gray-500">{{ $finding->severity }} · {{ $finding->status }}</p></div>@empty<p class="text-sm text-gray-500">{{ __('operator.website.panels.no_open_findings') }}</p>@endforelse</div></section>
