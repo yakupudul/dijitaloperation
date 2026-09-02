@@ -5,8 +5,10 @@ namespace App\Livewire\Demo\Portfolio;
 use App\Livewire\Demo\Portfolio\Concerns\InteractsWithBrandForm;
 use App\Models\Brand;
 use App\Models\Customer;
+use App\Services\SearchDemand\BrandCommercialContextService;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -31,7 +33,7 @@ class BrandCreate extends Component
         }
     }
 
-    public function save(): mixed
+    public function save(BrandCommercialContextService $commercialContext): mixed
     {
         if ($this->saving) {
             return null;
@@ -42,8 +44,21 @@ class BrandCreate extends Component
         try {
             $this->validate($this->brandRules());
 
-            $brand = Brand::query()->create($this->brandEloquentPayload());
-            $brand->responsibleUsers()->sync($this->sanitizedResponsibleUserIds());
+            $brand = DB::transaction(function () use ($commercialContext): Brand {
+                $brand = Brand::query()->create($this->brandEloquentPayload());
+                $brand->responsibleUsers()->sync($this->sanitizedResponsibleUserIds());
+                $commercialContext->sync(
+                    $brand,
+                    $this->selected_service_catalog_ids,
+                    $this->priority_service_catalog_ids,
+                    $this->service_areas,
+                    $this->new_service_name,
+                    $this->new_service_is_priority,
+                    auth()->user(),
+                );
+
+                return $brand;
+            });
 
             DemoState::flash(__('operator.forms.brand_saved', ['name' => $brand->name]));
 

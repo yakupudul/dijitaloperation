@@ -210,16 +210,25 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         $checkpoint = $context->checkpoint;
         $observedAt = (string) ($checkpoint['observed_at'] ?? $this->collectionObservedAt());
         $seed = (string) $scope['seed_url'];
+        $targetedUrls = $this->targetedVerificationUrls($context, $seed);
+        $targeted = $targetedUrls !== null;
+        if ($targeted && $targetedUrls === []) {
+            return DatasetExecutionResult::failed(
+                CollectionErrorCategory::InvalidRequest,
+                'Targeted Website verification did not contain an eligible same-site URL.',
+                'TARGETED_VERIFICATION_SCOPE_INVALID',
+            );
+        }
         $queue = is_array($checkpoint['queue'] ?? null)
             ? array_values(array_map('strval', $checkpoint['queue']))
-            : $this->crawlSeedQueue((int) $scope['asset']->id, $seed);
+            : ($targeted ? $targetedUrls : $this->crawlSeedQueue((int) $scope['asset']->id, $seed));
         $visited = is_array($checkpoint['visited'] ?? null) ? array_values(array_map('strval', $checkpoint['visited'])) : [];
         $pages = (int) ($checkpoint['pages'] ?? 0);
         $urlsPlanned = max((int) ($checkpoint['urls_planned'] ?? 0), count($queue) + count($visited));
         $rowsWritten = (int) ($checkpoint['rows_written_total'] ?? 0);
         $bytesDownloaded = (int) ($checkpoint['bytes_downloaded_total'] ?? 0);
         $assetId = (int) $scope['asset']->id;
-        $maxPages = DiscoveryConfig::MAX_COLLECTION_PAGES;
+        $maxPages = $targeted ? count($targetedUrls) : DiscoveryConfig::MAX_COLLECTION_PAGES;
 
         if ($queue === [] || $pages >= $maxPages || $bytesDownloaded >= DiscoveryConfig::MAX_COLLECTION_TOTAL_BYTES) {
             return $this->completedCounted($pages, $maxPages, $this->crawlCheckpoint(
@@ -252,7 +261,7 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         $pages++;
         $rowsWritten += $written;
 
-        if ($this->pageAnalyzer->isInventoryEligible($fetch) && $pages < $maxPages) {
+        if (! $targeted && $this->pageAnalyzer->isInventoryEligible($fetch) && $pages < $maxPages) {
             $resolutionBase = is_string($fetch['final_url'] ?? null) && trim((string) $fetch['final_url']) !== ''
                 ? (string) $fetch['final_url']
                 : $url;
@@ -447,17 +456,26 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         }
 
         $previousHtmlHash = null;
+        $previousSemanticMetadata = null;
         if (Schema::hasTable('website_html_snapshot')) {
-            $previousHtmlHash = DB::table('website_html_snapshot')
+            $previous = DB::table('website_html_snapshot')
                 ->where('digital_asset_id', $assetId)
                 ->where('url', $url)
                 ->where('observed_at', '<', $observedAt)
                 ->orderByDesc('observed_at')
-                ->value('html_hash');
+                ->first(['html_hash', 'metadata']);
+            $previousHtmlHash = $previous?->html_hash;
             $previousHtmlHash = is_string($previousHtmlHash) && $previousHtmlHash !== '' ? $previousHtmlHash : null;
+            $previousSemanticMetadata = $this->jsonArray($previous?->metadata);
         }
 
-        $record = $this->normalizer->htmlSnapshot($assetId, $fetch, $observedAt, $previousHtmlHash);
+        $record = $this->normalizer->htmlSnapshot(
+            $assetId,
+            $fetch,
+            $observedAt,
+            $previousHtmlHash,
+            $previousSemanticMetadata,
+        );
         if ($record === null) {
             return 0;
         }
@@ -482,6 +500,8 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
                 'url_hash' => hash('sha256', $url),
                 'html_hash' => $htmlHash,
                 'change_state' => $record['change_state'],
+                'semantic_hash' => data_get($record, 'metadata.semantic_hash'),
+                'semantic_change_state' => data_get($record, 'metadata.semantic_change_state'),
             ],
             capturedAt: now(),
             retentionClass: 'website_html_version',
@@ -662,6 +682,31 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         }
 
         return array_keys($queue);
+    }
+
+    /** @return list<string>|null */
+    private function targetedVerificationUrls(DatasetExecutionContext $context, string $seed): ?array
+    {
+        $urls = data_get($context->collectionRun->request_context, 'context.targeted_verification.urls');
+        if (! is_array($urls)) {
+            return null;
+        }
+
+        $validated = [];
+        foreach ($urls as $url) {
+            if (! is_string($url)) {
+                continue;
+            }
+
+            $normalized = $this->urls->normalizeAbsolute($url);
+            if ($normalized === null || ! $this->urls->sameSite($seed, $normalized)) {
+                continue;
+            }
+
+            $validated[$normalized] = true;
+        }
+
+        return array_keys($validated);
     }
 
     /**
@@ -892,6 +937,22 @@ final class WebsiteDatasetExecutor implements DatasetExecutor
         $parts = parse_url($url);
 
         return ($parts['scheme'] ?? 'https').'://'.($parts['host'] ?? '');
+    }
+
+    /** @return array<string, mixed>|null */
+    private function jsonArray(mixed $value): ?array
+    {
+        if (is_array($value)) {
+            return $value;
+        }
+
+        if (! is_string($value) || trim($value) === '') {
+            return null;
+        }
+
+        $decoded = json_decode($value, true);
+
+        return is_array($decoded) ? $decoded : null;
     }
 
     /** @param array<string, mixed> $checkpoint */

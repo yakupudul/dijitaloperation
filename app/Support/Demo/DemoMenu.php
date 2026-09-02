@@ -39,6 +39,13 @@ final class DemoMenu
                 ],
             ],
             [
+                'label' => app()->getLocale() === 'tr' ? 'Kütüphane' : 'Library',
+                'items' => [
+                    ['label' => app()->getLocale() === 'tr' ? 'Hizmetler' : 'Services', 'route' => 'operator.library.services', 'icon' => 'library'],
+                    ['label' => app()->getLocale() === 'tr' ? 'Sorgular' : 'Search Queries', 'route' => 'operator.library.search-queries', 'icon' => 'search'],
+                ],
+            ],
+            [
                 'label' => __('operator.nav.groups.operations'),
                 'items' => [
                     ['label' => __('operator.nav.opportunities'), 'route' => 'operator.opportunities', 'icon' => 'recommendations'],

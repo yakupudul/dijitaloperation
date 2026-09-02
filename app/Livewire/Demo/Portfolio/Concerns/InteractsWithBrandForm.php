@@ -2,7 +2,9 @@
 
 namespace App\Livewire\Demo\Portfolio\Concerns;
 
+use App\Models\Brand;
 use App\Models\Customer;
+use App\Models\ServiceCatalogItem;
 use App\Services\Operator\OperatorUserDirectory;
 use App\Support\Options\CountryOptions;
 use App\Support\Options\IndustryOptions;
@@ -38,6 +40,19 @@ trait InteractsWithBrandForm
 
     public string $logo_url = '';
 
+    /** @var list<string> */
+    public array $selected_service_catalog_ids = [];
+
+    /** @var list<string> */
+    public array $priority_service_catalog_ids = [];
+
+    /** @var list<array{country_code: string, city_name: string, district_name: string}> */
+    public array $service_areas = [['country_code' => 'TR', 'city_name' => '', 'district_name' => '']];
+
+    public string $new_service_name = '';
+
+    public bool $new_service_is_priority = false;
+
     public bool $customerLocked = false;
 
     public bool $saving = false;
@@ -66,6 +81,16 @@ trait InteractsWithBrandForm
             'responsible_user_ids' => ['array'],
             'responsible_user_ids.*' => [Rule::in($eligible)],
             'logo_url' => ['nullable', 'url', 'max:255'],
+            'selected_service_catalog_ids' => ['array'],
+            'selected_service_catalog_ids.*' => ['integer', 'exists:service_catalog_items,id'],
+            'priority_service_catalog_ids' => ['array'],
+            'priority_service_catalog_ids.*' => ['integer', 'exists:service_catalog_items,id'],
+            'new_service_name' => ['nullable', 'string', 'max:255'],
+            'new_service_is_priority' => ['boolean'],
+            'service_areas' => ['array', 'min:1', 'max:100'],
+            'service_areas.*.country_code' => ['required', Rule::in(array_keys(CountryOptions::options()))],
+            'service_areas.*.city_name' => ['nullable', 'string', 'max:160'],
+            'service_areas.*.district_name' => ['nullable', 'string', 'max:160'],
         ];
     }
 
@@ -111,6 +136,58 @@ trait InteractsWithBrandForm
         ];
     }
 
+    public function addServiceArea(): void
+    {
+        $this->service_areas[] = ['country_code' => $this->primary_country ?: 'TR', 'city_name' => '', 'district_name' => ''];
+    }
+
+    public function removeServiceArea(int $index): void
+    {
+        if (! isset($this->service_areas[$index])) {
+            return;
+        }
+
+        unset($this->service_areas[$index]);
+        $this->service_areas = array_values($this->service_areas);
+
+        if ($this->service_areas === []) {
+            $this->addServiceArea();
+        }
+    }
+
+    protected function fillCommercialContext(Brand $brand): void
+    {
+        $brand->loadMissing(['offerings', 'serviceAreas']);
+        $this->selected_service_catalog_ids = $brand->offerings
+            ->filter(fn ($offering): bool => $offering->status->value === 'active' && $offering->service_catalog_item_id !== null)
+            ->pluck('service_catalog_item_id')
+            ->map(fn ($id): string => (string) $id)
+            ->values()
+            ->all();
+        $this->priority_service_catalog_ids = $brand->offerings
+            ->filter(fn ($offering): bool => $offering->status->value === 'active' && $offering->priority_rank !== null && $offering->service_catalog_item_id !== null)
+            ->sortBy('priority_rank')
+            ->pluck('service_catalog_item_id')
+            ->map(fn ($id): string => (string) $id)
+            ->values()
+            ->all();
+
+        $areas = $brand->serviceAreas
+            ->where('status', 'active')
+            ->sortBy('priority_rank')
+            ->map(fn ($area): array => [
+                'country_code' => (string) $area->country_code,
+                'city_name' => (string) ($area->city_name ?? ''),
+                'district_name' => (string) ($area->district_name ?? ''),
+            ])
+            ->values()
+            ->all();
+
+        if ($areas !== []) {
+            $this->service_areas = $areas;
+        }
+    }
+
     /**
      * @return list<int>
      */
@@ -138,6 +215,19 @@ trait InteractsWithBrandForm
             'teamOptions' => OperatorUserDirectory::options(),
             'customerLocked' => $this->customerLocked,
             'customerName' => $customers[$this->customer_id] ?? null,
+            'serviceOptions' => ServiceCatalogItem::query()
+                ->with('primaryName')
+                ->where('status', 'active')
+                ->orderBy('sector')
+                ->orderBy('id')
+                ->get()
+                ->mapWithKeys(fn (ServiceCatalogItem $service): array => [
+                    (string) $service->id => [
+                        'label' => $service->primaryName?->raw_label ?? 'İsimsiz hizmet',
+                        'sector' => $service->sector,
+                    ],
+                ])
+                ->all(),
         ];
     }
 }

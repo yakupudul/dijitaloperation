@@ -454,9 +454,10 @@
                         {{ $businessContext['source'] ?? 'Operator maintained' }}
                     </p>
                 </div>
-                <button type="button" wire:click="startEditingContext" class="inline-flex rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
-                    {{ ($businessContext['completed'] ?? 0) > 0 ? 'Edit business context' : 'Add business context' }}
-                </button>
+                <div class="flex flex-wrap gap-2">
+                    <a href="{{ route('operator.brand.edit', ['brandId' => $brandRow['id']]) }}" wire:navigate class="inline-flex rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">Hizmetleri ve bölgeleri düzenle</a>
+                    <button type="button" wire:click="startEditingContext" class="inline-flex rounded-lg px-4 py-2 text-sm font-medium text-gray-600 ring-1 ring-inset ring-gray-300 dark:text-gray-300 dark:ring-gray-700">Gelişmiş bağlam</button>
+                </div>
             </div>
 
             @if ($editingContext)
@@ -531,6 +532,19 @@
                         <div><dt class="text-xs text-gray-400">Target audiences</dt><dd class="mt-0.5 text-gray-700 dark:text-gray-300">{{ collect($businessContext['target_audiences'] ?? [])->implode(' · ') ?: 'Unknown' }}</dd></div>
                         <div><dt class="text-xs text-gray-400">Target markets</dt><dd class="mt-0.5 text-gray-700 dark:text-gray-300">{{ collect($businessContext['target_markets'] ?? [])->implode(', ') ?: 'Unknown' }}</dd></div>
                     </dl>
+                </section>
+                <section class="border-t border-gray-100 pt-4 dark:border-gray-800">
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                        <div><h3 class="text-sm font-semibold text-gray-900 dark:text-white">Hizmet bölgeleri</h3><p class="mt-1 text-xs text-gray-500">Sorgu keşfi ve lokal görünürlük için açıkça tanımlanan coğrafi kapsam.</p></div>
+                        <a href="{{ route('operator.library.search-queries') }}" wire:navigate class="text-xs font-medium text-brand-600">Sorgu kütüphanesini aç →</a>
+                    </div>
+                    <div class="mt-3 flex flex-wrap gap-2">
+                        @forelse ($businessContext['service_areas'] ?? [] as $area)
+                            <span class="rounded-full bg-brand-50 px-3 py-1.5 text-xs font-medium text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">{{ $area['label'] }}</span>
+                        @empty
+                            <span class="text-sm text-gray-500">Henüz hizmet bölgesi tanımlanmadı.</span>
+                        @endforelse
+                    </div>
                 </section>
                 <section class="border-t border-gray-100 pt-4 dark:border-gray-800">
                     <div class="flex flex-wrap items-start justify-between gap-3">

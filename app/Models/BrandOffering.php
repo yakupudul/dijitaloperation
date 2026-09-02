@@ -16,6 +16,7 @@ class BrandOffering extends Model
      */
     protected $fillable = [
         'brand_id',
+        'service_catalog_item_id',
         'status',
         'priority_rank',
     ];
@@ -26,6 +27,12 @@ class BrandOffering extends Model
     public function brand(): BelongsTo
     {
         return $this->belongsTo(Brand::class);
+    }
+
+    /** @return BelongsTo<ServiceCatalogItem, $this> */
+    public function catalogItem(): BelongsTo
+    {
+        return $this->belongsTo(ServiceCatalogItem::class, 'service_catalog_item_id');
     }
 
     /**

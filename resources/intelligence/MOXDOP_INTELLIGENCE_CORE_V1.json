@@ -27,22 +27,22 @@
     {
       "id": "page",
       "label": "page profile",
-      "status": "PROJECTION_NOT_IMPLEMENTED"
+      "status": "WEBSITE_PROJECTION_IMPLEMENTED_V1"
     },
     {
       "id": "search_term",
       "label": "search term profile",
-      "status": "PROJECTION_NOT_IMPLEMENTED"
+      "status": "WEBSITE_PROJECTION_IMPLEMENTED_V1"
     },
     {
       "id": "entity",
       "label": "entity profile",
-      "status": "PROJECTION_NOT_IMPLEMENTED"
+      "status": "WEBSITE_PROJECTION_IMPLEMENTED_V1"
     },
     {
       "id": "outcome",
       "label": "outcome profile",
-      "status": "PROJECTION_NOT_IMPLEMENTED"
+      "status": "WEBSITE_PROJECTION_IMPLEMENTED_V1"
     }
   ],
   "dimensions": [
@@ -360,9 +360,13 @@
       "unit": "count",
       "grains": [
         "site_daily",
+        "site_period",
         "query_daily",
+        "query_period",
         "page_daily",
-        "query_page_daily"
+        "page_period",
+        "query_page_daily",
+        "query_page_period"
       ],
       "additivity": "ADDITIVE_WITHIN_GRAIN"
     },
@@ -373,9 +377,13 @@
       "unit": "count",
       "grains": [
         "site_daily",
+        "site_period",
         "query_daily",
+        "query_period",
         "page_daily",
-        "query_page_daily"
+        "page_period",
+        "query_page_daily",
+        "query_page_period"
       ],
       "additivity": "ADDITIVE_WITHIN_GRAIN"
     },
@@ -400,6 +408,7 @@
       "grains": [
         "property_daily",
         "landing_page_daily",
+        "landing_page_period",
         "channel_daily"
       ],
       "additivity": "ADDITIVE_WITHIN_GRAIN"
@@ -412,6 +421,7 @@
       "grains": [
         "property_daily",
         "landing_page_daily",
+        "landing_page_period",
         "channel_daily"
       ],
       "additivity": "ADDITIVE_WITHIN_GRAIN"
@@ -424,7 +434,9 @@
       "grains": [
         "property_daily",
         "event_daily",
-        "landing_page_daily"
+        "event_period",
+        "landing_page_daily",
+        "landing_page_period"
       ],
       "additivity": "ADDITIVE_WITHIN_GRAIN"
     },

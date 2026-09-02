@@ -21,7 +21,7 @@ final class IntelligenceMetricFactory
     public function make(
         string $metricId,
         IntelligenceValueState $state,
-        int|float|null $value,
+        int|float|string|bool|null $value,
         string $grain,
         array $dimensions,
         IntelligenceSourceReference $source,

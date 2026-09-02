@@ -7,8 +7,13 @@ use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
 use App\Models\DigitalAsset;
 use App\Services\Async\AsyncOperationService;
 use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
+use App\Services\Collection\Website\WebsiteIssueVerificationService;
 use App\Services\Ga4\WebsiteGa4AnalysisService;
 use App\Services\Gsc\WebsiteSearchConsoleAnalysisService;
+use App\Services\IntelligenceProjection\Website\WebsiteDataSourcesReadService;
+use App\Services\IntelligenceProjection\Website\WebsiteInfrastructureReadService;
+use App\Services\IntelligenceProjection\Website\WebsitePagesContentReadService;
+use App\Services\IntelligenceProjection\Website\WebsiteTechnicalHealthReadService;
 use App\Support\Reality\OperatorCanonicalAsset;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
@@ -36,6 +41,45 @@ class OverviewPage extends Component
     #[Url]
     public string $perf_sub = 'search';
 
+    #[Url(as: 'content_search')]
+    public string $contentSearch = '';
+
+    #[Url(as: 'content_filter')]
+    public string $contentFilter = 'all';
+
+    #[Url(as: 'content_source')]
+    public string $contentSource = 'all';
+
+    #[Url(as: 'content_sort')]
+    public string $contentSort = 'recent';
+
+    #[Url(as: 'content_page')]
+    public int $contentPage = 1;
+
+    #[Url(as: 'page_profile')]
+    public ?int $selectedPageProfileId = null;
+
+    #[Url(as: 'health_search')]
+    public string $healthSearch = '';
+
+    #[Url(as: 'health_filter')]
+    public string $healthFilter = 'all';
+
+    #[Url(as: 'health_page')]
+    public int $healthPage = 1;
+
+    #[Url(as: 'health_profile')]
+    public ?int $selectedHealthProfileId = null;
+
+    #[Url(as: 'infra_search')]
+    public string $infrastructureSearch = '';
+
+    #[Url(as: 'infra_filter')]
+    public string $infrastructureFilter = 'all';
+
+    #[Url(as: 'infra_page')]
+    public int $infrastructurePage = 1;
+
     public string $message = '';
 
     public string $messageTone = 'info';
@@ -43,12 +87,12 @@ class OverviewPage extends Component
     /** @var list<string> */
     public array $allowedTabs = [
         'overview',
-        'ga4_analysis',
-        'search_console',
-        'health',
-        'visibility',
         'content',
+        'health',
+        'search_console',
+        'visibility',
         'performance',
+        'ga4_analysis',
         'infrastructure',
         'operations',
         'setup',
@@ -67,7 +111,7 @@ class OverviewPage extends Component
         'connections' => 'setup',
         'settings' => 'setup',
         'activity' => 'operations',
-        'analytics' => 'ga4_analysis',
+        'analytics' => 'performance',
         'ga4' => 'ga4_analysis',
         'gsc' => 'search_console',
         'search-console' => 'search_console',
@@ -85,6 +129,128 @@ class OverviewPage extends Component
     {
         $this->tab = $tab;
         $this->normalizeTab();
+    }
+
+    public function updatedContentSearch(): void
+    {
+        $this->contentPage = 1;
+        $this->selectedPageProfileId = null;
+    }
+
+    public function updatedContentFilter(): void
+    {
+        $this->contentPage = 1;
+        $this->selectedPageProfileId = null;
+    }
+
+    public function updatedContentSource(): void
+    {
+        $this->contentPage = 1;
+        $this->selectedPageProfileId = null;
+    }
+
+    public function updatedContentSort(): void
+    {
+        $this->contentPage = 1;
+        $this->selectedPageProfileId = null;
+    }
+
+    public function setContentFilter(string $filter): void
+    {
+        $allowed = ['all', 'public', 'search_visible', 'traffic', 'meaningful_changed', 'cms_mismatch', 'families'];
+        $this->contentFilter = in_array($filter, $allowed, true) ? $filter : 'all';
+        $this->contentPage = 1;
+        $this->selectedPageProfileId = null;
+    }
+
+    public function setContentPage(int $page): void
+    {
+        $this->contentPage = max(1, $page);
+        $this->selectedPageProfileId = null;
+    }
+
+    public function selectPageProfile(int $profileId): void
+    {
+        $this->selectedPageProfileId = $profileId > 0 ? $profileId : null;
+    }
+
+    public function closePageProfile(): void
+    {
+        $this->selectedPageProfileId = null;
+    }
+
+    public function updatedHealthSearch(): void
+    {
+        $this->healthPage = 1;
+        $this->selectedHealthProfileId = null;
+    }
+
+    public function updatedHealthFilter(): void
+    {
+        $this->healthPage = 1;
+        $this->selectedHealthProfileId = null;
+    }
+
+    public function setHealthPage(int $page): void
+    {
+        $this->healthPage = max(1, $page);
+        $this->selectedHealthProfileId = null;
+    }
+
+    public function selectHealthProfile(int $profileId): void
+    {
+        $this->selectedHealthProfileId = $profileId > 0 ? $profileId : null;
+    }
+
+    public function closeHealthProfile(): void
+    {
+        $this->selectedHealthProfileId = null;
+    }
+
+    public function verifyTechnicalIssue(
+        int $profileId,
+        string $issueCode,
+        WebsiteIssueVerificationService $verification,
+    ): void {
+        try {
+            $result = $verification->start(
+                asset: $this->asset(),
+                profileId: $profileId,
+                issueCode: $issueCode,
+                requestedBy: auth()->user(),
+            );
+
+            $this->message = __('operator.website.technical_health.verification.queued', [
+                'id' => $result['collection_run_id'],
+                'pages' => $result['planned_url_count'],
+                'related' => $result['related_url_count'],
+            ]).($result['truncated']
+                ? ' '.__('operator.website.technical_health.verification.truncated', [
+                    'limit' => WebsiteIssueVerificationService::MAX_URLS,
+                ])
+                : '');
+            $this->messageTone = 'success';
+            $this->selectedHealthProfileId = $profileId;
+        } catch (Throwable $exception) {
+            report($exception);
+            $this->message = __('operator.website.technical_health.verification.unavailable');
+            $this->messageTone = 'info';
+        }
+    }
+
+    public function updatedInfrastructureSearch(): void
+    {
+        $this->infrastructurePage = 1;
+    }
+
+    public function updatedInfrastructureFilter(): void
+    {
+        $this->infrastructurePage = 1;
+    }
+
+    public function setInfrastructurePage(int $page): void
+    {
+        $this->infrastructurePage = max(1, $page);
     }
 
     public function refreshData(AsyncOperationService $async): void
@@ -134,6 +300,10 @@ class OverviewPage extends Component
         WebsiteOperatorWorkspace $workspace,
         WebsiteGa4AnalysisService $ga4AnalysisService,
         WebsiteSearchConsoleAnalysisService $gscAnalysisService,
+        WebsitePagesContentReadService $pagesContentReadService,
+        WebsiteTechnicalHealthReadService $technicalHealthReadService,
+        WebsiteInfrastructureReadService $infrastructureReadService,
+        WebsiteDataSourcesReadService $dataSourcesReadService,
     ): View {
         $this->normalizeTab();
 
@@ -180,6 +350,41 @@ class OverviewPage extends Component
             $gscCharts = $this->buildGscCharts($gscAnalysis);
         }
 
+        $pagesContent = $this->tab === 'content'
+            ? $pagesContentReadService->workspace(
+                asset: $asset,
+                search: $this->contentSearch,
+                filter: $this->contentFilter,
+                source: $this->contentSource,
+                sort: $this->contentSort,
+                page: $this->contentPage,
+                selectedProfileId: $this->selectedPageProfileId,
+            )
+            : null;
+
+        $technicalHealth = $this->tab === 'health'
+            ? $technicalHealthReadService->workspace(
+                asset: $asset,
+                search: $this->healthSearch,
+                filter: $this->healthFilter,
+                page: $this->healthPage,
+                selectedProfileId: $this->selectedHealthProfileId,
+            )
+            : null;
+
+        $infrastructure = $this->tab === 'infrastructure'
+            ? $infrastructureReadService->workspace(
+                asset: $asset,
+                search: $this->infrastructureSearch,
+                filter: $this->infrastructureFilter,
+                page: $this->infrastructurePage,
+            )
+            : null;
+
+        $dataSources = $this->tab === 'setup'
+            ? $dataSourcesReadService->workspace($asset)
+            : null;
+
         return view('livewire.operator.website.overview', [
             'asset' => $asset,
             'brand' => $asset->brand,
@@ -189,6 +394,10 @@ class OverviewPage extends Component
             'ga4Charts' => $ga4Charts,
             'gscAnalysis' => $gscAnalysis,
             'gscCharts' => $gscCharts,
+            'pagesContent' => $pagesContent,
+            'technicalHealth' => $technicalHealth,
+            'infrastructure' => $infrastructure,
+            'dataSources' => $dataSources,
             'showPeriodBar' => in_array($this->tab, ['overview', 'ga4_analysis', 'search_console', 'visibility', 'performance'], true),
         ]);
     }

@@ -408,6 +408,40 @@
 
 ---
 
+## ADR-047 — Website Intelligence Projection as a rebuildable source-keyed read model
+
+- **Durum:** Accepted
+- **Tarih:** 2026-08-31
+- **Bağlam:** Website public/HTML, authenticated WordPress, GSC ve GA4 verilerini her Website sekmesinde doğrudan join etmek; farklı URL/term anlamlarını karıştırır, provider eklenince ekranları yeniden yazdırır ve ikinci bir canonical data warehouse yaratma riski doğurur.
+- **Karar:**
+  1. Website Projection, ADR-046 kimlikleri üzerinde dört rebuildable read profile üretir: Page, Search Term, Entity ve Outcome. Provider fact tabloları canonical truth olarak kalır.
+  2. Her profil source-keyed typed state JSON taşır. Bu yapı generic EAV metric warehouse değildir; sadece domain-specific identity read model'idir. Yeni provider yeni adapter/source state ekler, tablo grain'i değişmez.
+  3. İlk adapter seti Website direct observation, WordPress CMS authenticated snapshot, confirmed-binding GSC ve confirmed-binding GA4'tür. Binding yoksa `not_configured`, veri yoksa `not_collected`; ikisi de numeric zero değildir.
+  4. Default projection window son tamamlanmış 90 UTC gündür. Her source kendi period/coverage/watermark/provenance bilgisini taşır. GSC average position impression-weighted hesaplanır ve rank tracker değildir; provider row limits belirtilir.
+  5. WordPress CMS state ve published visitor HTML aynı Page identity üzerinde ayrı source state kalır. Full raw HTML private ingestion artifact'tadır; profile hash/reference taşır.
+  6. GA4 Key Event yalnız explicit Business Action mapping ile Outcome profile'a girer ve provider-attributed signal olarak kalır; operator-verified business outcome'a otomatik yükseltilmez.
+  7. Terminal Website/GSC/GA4 collection run ilgili Website rebuild job'ını kuyruğa alır. Source adapter failure projection'ı partial yapar ve önceki başarılı source state'i korur; tam başarılı rebuild stale profile'ları temizler.
+  8. Formula/Evidence/Finding/Recommendation/manual Task hattı değişmez. Projection Finding üretmez, AI çalıştırmaz ve provider write yapmaz.
+- **İlgili:** ADR-039, ADR-042, ADR-043, ADR-045, ADR-046; `resources/intelligence/MOXDOP_INTELLIGENCE_CORE_V1.json`; `docs/product/website/WEBSITE.md`
+
+---
+
+## ADR-048 — Global Service Catalog and reusable Search Query Library
+
+- **Durum:** Accepted
+- **Tarih:** 2026-09-02
+- **Bağlam:** Provider verilerini toplamış olmak, bir Brand'in hangi hizmetleri hangi bölgelerde öne çıkarmak istediğini açıklamaz. Her Brand için aynı sorguları yeniden DataForSEO'dan satın almak da ajans bilgisini tekrar kullanmaz. Öte yandan global sorgu kütüphanesini Brand-scoped Intelligence kimliği veya ikinci bir metrik ambarı yapmak ADR-046'yı bozar.
+- **Karar:**
+  1. Global Service Catalog ajans genelinde stable Service kimliği ve alias tutar. Mevcut Brand Offering, Brand-scoped canonical kimlik olarak kalır ve opsiyonel olarak katalog Service'ine bağlanır.
+  2. Brand, birden fazla açık ülke/şehir/ilçe Service Area satırı taşır. Bu satırlar Brand Context'e projection olur; otomatik Service × Area Cartesian scope üretmez.
+  3. Search Query Library ajans genelinde yeniden kullanılabilir sorgu kimliği ve kaynak kayıtlarını tutar. Manuel, dosya, Google Ads, GSC ve DataForSEO gözlemleri birbirini ezmez; provenance ve mevcut metrikler source record'da kalır.
+  4. Query Library provider Evidence veya Brand-scoped Intelligence identity değildir. Bir sorgu Brand'e uygulandığında ADR-046 `IntelligenceSearchTermIdentity` hattına resolve edilir.
+  5. AI sınıflandırma/clustering çıktısı adaydır. Confidence, rationale, abstention, model/skill version ve insan onayı olmadan operator truth veya URL ownership olmaz. SERP benzerliği daha sonraki doğrulama katmanıdır.
+  6. Bu foundation provider çağrısı, external write, Finding, Recommendation veya Task üretmez.
+- **İlgili:** ADR-023, ADR-034, ADR-039, ADR-046, ADR-047; `docs/product/SEARCH_DEMAND_INTELLIGENCE.md`
+
+---
+
 ## Karar indeksi
 
 | ID | Başlık | Durum |
@@ -458,6 +492,8 @@
 | ADR-044 | Canonical operator routes + Filament `/admin` | Accepted |
 | ADR-045 | WordPress inside truth + Public Discovery outside truth | Accepted |
 | ADR-046 | Provider-neutral Intelligence Core identity/provenance layer | Accepted |
+| ADR-047 | Rebuildable Website Intelligence Projection | Accepted |
+| ADR-048 | Global Service Catalog + reusable Search Query Library | Accepted |
 
 ## Süpercede edilen kararlar
 

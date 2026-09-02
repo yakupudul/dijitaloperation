@@ -82,6 +82,12 @@ class Brand extends Model
         return $this->hasMany(BrandOffering::class);
     }
 
+    /** @return HasMany<BrandServiceArea, $this> */
+    public function serviceAreas(): HasMany
+    {
+        return $this->hasMany(BrandServiceArea::class);
+    }
+
     /** @return HasMany<IntelligenceSearchTermIdentity, $this> */
     public function intelligenceSearchTerms(): HasMany
     {

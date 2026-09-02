@@ -80,8 +80,8 @@ final class WebsiteCollectionOrchestrator
             idempotencyKey: $context['idempotency_key'] ?? null,
             forceRefresh: (bool) ($context['force_refresh'] ?? false),
             context: array_merge($context, [
-                'collection_intent' => 'website_production_collection',
-                'collection_intent_label' => 'Website production collection',
+                'collection_intent' => $context['collection_intent'] ?? 'website_production_collection',
+                'collection_intent_label' => $context['collection_intent_label'] ?? 'Website production collection',
                 'allow_multi_asset_bindings' => false,
                 'paid_enrichment_consented' => $paidEnrichmentConsented,
                 'public_discovery' => $publicDiscovery,

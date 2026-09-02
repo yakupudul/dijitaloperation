@@ -64,7 +64,15 @@ class BrandShow extends LegacyBrandShow
             return;
         }
 
-        $brand = Brand::query()->with('intelligenceContext.updatedByUser')->find((int) $this->brand);
+        $brand = Brand::query()->with([
+            'intelligenceContext.updatedByUser',
+            'serviceAreas' => fn ($query) => $query->where('status', 'active')->orderBy('priority_rank'),
+            'offerings' => fn ($query) => $query->with('primaryName')
+                ->where('status', 'active')
+                ->orderByRaw('CASE WHEN priority_rank IS NULL THEN 1 ELSE 0 END')
+                ->orderBy('priority_rank')
+                ->orderBy('id'),
+        ])->find((int) $this->brand);
         $context = $brand?->intelligenceContext;
         if (! $context instanceof BrandIntelligenceContext) {
             return;
@@ -79,10 +87,21 @@ class BrandShow extends LegacyBrandShow
             'source' => $context->source,
             'business_summary' => $context->business_summary,
             'business_model' => $context->business_model,
-            'products_services' => $context->products_services ?? [],
+            'products_services' => $brand->offerings
+                ->map(fn ($offering): ?string => $offering->primaryName?->raw_label)
+                ->filter()
+                ->values()
+                ->all(),
             'priority_offerings' => $this->labels($context->priority_offerings ?? [], ['name', 'label', 'goal']),
             'target_audiences' => $this->labels($context->target_audiences ?? [], ['name', 'label']),
-            'target_markets' => $context->target_markets ?? [],
+            'target_markets' => $brand->serviceAreas->map(fn ($area): string => $area->label())->values()->all(),
+            'service_areas' => $brand->serviceAreas->map(fn ($area): array => [
+                'country_code' => $area->country_code,
+                'country_name' => $area->country_name,
+                'city_name' => $area->city_name,
+                'district_name' => $area->district_name,
+                'label' => $area->label(),
+            ])->values()->all(),
             'business_goals' => $this->labels($context->business_goals ?? [], ['goal', 'label', 'name']),
             'conversion_goals' => $this->labels($context->conversion_goals ?? [], ['label', 'type', 'goal']),
             'positioning' => $context->positioning,

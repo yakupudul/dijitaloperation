@@ -15,7 +15,9 @@ Brand ≠ Digital Asset. Brand bağlamdır; Digital Asset yönetilen somut şeyd
 ## MVP behavior
 
 * Brand Customer'a bağlı oluşturulur
-* Temel alanlar: ad, sektör, ana ülke, hedef pazarlar/ülkeler, diller, kısa açıklama, hedef kitle, hizmet/ürün özeti, rakipler (basit), logo (opsiyonel basit upload veya URL — ağır attachment framework zorunlu değil)
+* Operatörün minimum ticari bağlamı: ad, global katalogdan hizmetler, öncelikli hizmetler ve çoklu ülke/şehir/ilçe hizmet bölgeleri
+* Sektör, dil, sorumlu ekip ve logo isteğe bağlı yönetim alanlarıdır
+* Eski açıklama/hedef kitle/offerings/rakipler metinleri uyumluluk için saklanır; yeni Brand formunun ana akışı değildir
 * Sorumlu ekip üyeleri
 * Brand detail'den Digital Assets listesine geçiş
 
@@ -46,6 +48,8 @@ Structured factual business context lives in `BrandIntelligenceContext` (one-to-
 See `docs/product/BRAND_INTELLIGENCE.md`.
 
 Legacy Brand text fields (`description`, `audience`, `offerings`, `competitors`, simple `target_markets`) remain for identity/backward compatibility. Intelligence Context is the structured source for future analysis.
+
+Global Service Catalog, Brand-scoped Offering bağlantısı, Brand Service Area ve Search Query Library sınırları için `docs/product/SEARCH_DEMAND_INTELLIGENCE.md` belgesine bakın.
 
 ## Later enhancements
 

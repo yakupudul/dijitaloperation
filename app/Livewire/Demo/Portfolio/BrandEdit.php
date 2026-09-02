@@ -5,8 +5,10 @@ namespace App\Livewire\Demo\Portfolio;
 use App\Livewire\Demo\Portfolio\Concerns\InteractsWithBrandForm;
 use App\Models\Brand;
 use App\Services\Operator\OperatorPortfolioPresenter;
+use App\Services\SearchDemand\BrandCommercialContextService;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -27,10 +29,11 @@ class BrandEdit extends Component
 
         $this->brandId = (string) $brand->id;
         $this->fillBrandForm(OperatorPortfolioPresenter::brand($brand));
+        $this->fillCommercialContext($brand);
         $this->customerLocked = true;
     }
 
-    public function save(): mixed
+    public function save(BrandCommercialContextService $commercialContext): mixed
     {
         if ($this->saving) {
             return null;
@@ -44,9 +47,20 @@ class BrandEdit extends Component
             $brand = Brand::query()->find($this->brandId);
             abort_if($brand === null, 404);
 
-            $brand->fill($this->brandEloquentPayload());
-            $brand->save();
-            $brand->responsibleUsers()->sync($this->sanitizedResponsibleUserIds());
+            DB::transaction(function () use ($brand, $commercialContext): void {
+                $brand->fill($this->brandEloquentPayload());
+                $brand->save();
+                $brand->responsibleUsers()->sync($this->sanitizedResponsibleUserIds());
+                $commercialContext->sync(
+                    $brand,
+                    $this->selected_service_catalog_ids,
+                    $this->priority_service_catalog_ids,
+                    $this->service_areas,
+                    $this->new_service_name,
+                    $this->new_service_is_priority,
+                    auth()->user(),
+                );
+            });
 
             DemoState::flash(__('operator.forms.brand_updated'));
 
