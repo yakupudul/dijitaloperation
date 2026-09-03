@@ -88,6 +88,24 @@ class Brand extends Model
         return $this->hasMany(BrandServiceArea::class);
     }
 
+    /** @return HasMany<BrandQueryPortfolioItem, $this> */
+    public function queryPortfolioItems(): HasMany
+    {
+        return $this->hasMany(BrandQueryPortfolioItem::class);
+    }
+
+    /** @return HasMany<SearchDemandCluster, $this> */
+    public function searchDemandClusters(): HasMany
+    {
+        return $this->hasMany(SearchDemandCluster::class);
+    }
+
+    /** @return HasMany<SearchDemandClusteringRun, $this> */
+    public function searchDemandClusteringRuns(): HasMany
+    {
+        return $this->hasMany(SearchDemandClusteringRun::class);
+    }
+
     /** @return HasMany<IntelligenceSearchTermIdentity, $this> */
     public function intelligenceSearchTerms(): HasMany
     {

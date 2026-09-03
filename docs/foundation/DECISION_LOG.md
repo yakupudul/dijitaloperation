@@ -442,6 +442,68 @@
 
 ---
 
+## ADR-049 — Search Demand AI proposals and human review boundary
+
+- **Durum:** Accepted
+- **Tarih:** 2026-09-03
+- **Bağlam:** Sorgu üretimi, alias önerisi ve semantik sınıflandırma insan dil muhakemesi gerektirir; ancak AI çıktısını doğrudan global sorgu veya Service truth yapmak hatalı sınıflandırmayı kalıcı hale getirir. Uzun AI çağrısını request içinde çalıştırmak da operator async standardını ihlal eder.
+- **Karar:**
+  1. `Search Intelligence Analyst`, işlem başına yalnız gerekli generation veya classification Skill'i ile ve merkezi `search_demand.librarian` route'u üzerinden çalışır.
+  2. AI çalışması kuyruklanır. Run ve candidate kayıtları Library truth'tan ayrı tutulur; queued/running/completed/failed ve pending/approved/rejected durumları açıkça persist edilir.
+  3. Exact cache anahtarı input + Agent version + Skill signature/definition fingerprint + sanitized AI route/model signature'dır. Aynı tamamlanmış çalışma provider çağrısı yapılmadan yeniden kullanılır.
+  4. Sorgu, alias ve semantik alanlar yalnız insan onayıyla uygulanır. Rejection ve abstention provenance olarak kalır; çekimser çıktı otomatik truth olmaz.
+  5. AI metrik, SERP gözlemi veya ticari sonuç uyduramaz; Findings, Recommendations, Tasks, provider-spend, CMS veya başka external write üretemez. OpenAI `store=false` kalır.
+- **İlgili:** ADR-018, ADR-023, ADR-039, ADR-048; `OPERATOR_ASYNC_EXECUTION.md`; `docs/product/SEARCH_DEMAND_INTELLIGENCE.md`
+
+---
+
+## ADR-050 — Relational Brand Query Portfolio and dynamic location expansion
+
+- **Durum:** Accepted
+- **Tarih:** 2026-09-03
+- **Bağlam:** Global Library sorgusunu her Brand ve bölge için kopyalamak hem ajans bilgisini parçalar hem Service × Area Cartesian büyüme yaratır. Buna karşılık global, Brand ve Website kararlarını tek status alanına sıkıştırmak da farklı sahiplik kapsamlarını kaybettirir.
+- **Karar:**
+  1. Brand Query Portfolio global Library satırını foreign-key relation ile uygular; global query text kopyalanmaz. Brand-only sorgu normalized kendi kimliğini taşır.
+  2. Brand query text/family/market/location/branded override'ları global satırı değiştirmeyen explicit operator facts'tir. Brand-only sorgunun globale önerilmesi yalnız submitted review state üretir.
+  3. Default alan kapsamı tüm etkin Brand Service Areas'dır; gerekirse seçili-area relation kullanılır. `{location}` metinleri yalnız read/request anında genişletilir ve kalıcı Service × Area sorgu satırı yaratılmaz.
+  4. Uygulanan her portfolio query mevcut Brand-scoped `IntelligenceSearchTermIdentity` resolver hattına bağlanır. Ayrı query identity warehouse kurulmaz.
+  5. Website etkin/excluded durumu portfolio item ile Digital Asset arasındaki ayrı relation'dır; global, Brand ve Website scope birbirine karıştırılmaz.
+- **İlgili:** ADR-039, ADR-046, ADR-048, ADR-049; `docs/product/SEARCH_DEMAND_INTELLIGENCE.md`
+
+---
+
+## ADR-051 — Human-governed layered Search Demand clusters
+
+- **Durum:** Accepted
+- **Tarih:** 2026-09-03
+- **Bağlam:** Talep ailesi, benzer SERP niyeti ve aynı içerik/URL hedefi eş anlamlı değildir. Bunları tek AI etiketi yapmak URL sahipliğini kanıtsız varsayar; yeni sorgular geldiğinde bütün kümeleri yeniden yazmak da insan kararlarını ve stabil kimlikleri kaybettirir.
+- **Karar:**
+  1. Brand Query Portfolio öğeleri Brand-scoped, stabil Search Demand Cluster kimliklerine membership ile bağlanır. Talep ailesi, SERP intent group ve content target cluster ayrı alanlardır.
+  2. AI clustering queued run ve pending candidate üretir. Incremental mod yalnız kümelenmemiş etkin sorguları alır; mevcut kümeyi değiştiren move/merge/split/update önerileri yalnız explicit review modunda oluşur.
+  3. AI önerisi insan onayı olmadan kümeyi değiştirmez. Lock edilmiş küme ve üyeleri değiştirilemez; operator unlock, move, merge ve split işlemleri de aynı servis sınırlarını kullanır.
+  4. Her yapısal karar küme sürümünü artırır ve üye ID'leri dahil snapshot saklar. Exact tekrar kullanımı input + mevcut cluster state + Agent + Skill fingerprint + provider/model route imzasına bağlıdır.
+  5. SERP observation sağlanmadıkça validation state `ai_prediction` kalır. `serp_validated`, `serp_conflict` ve `review_required` daha sonraki gözlemsel doğrulama içindir; confidence performans metriği veya URL ownership kanıtı değildir.
+  6. Clustering Agent metrik, Finding, Recommendation, Task, içerik, redirect, provider-spend veya external write üretemez.
+- **İlgili:** ADR-018, ADR-023, ADR-046, ADR-049, ADR-050; `OPERATOR_ASYNC_EXECUTION.md`; `docs/product/SEARCH_DEMAND_INTELLIGENCE.md`
+
+---
+
+## ADR-052 — Read-only Query–URL Visibility Map over canonical facts
+
+- **Durum:** Accepted
+- **Tarih:** 2026-09-03
+- **Bağlam:** Search Demand sorgularını GSC, GA4 ve Website HTML verisiyle ilişkilendirmek gerekir; ancak performansı portfolio veya cluster tablolarına kopyalamak ikinci bir warehouse ve çelişen truth üretir. GA4 landing performansını sorguya atfetmek de kaynak grain'ini aşan yanlış bir iddiadır.
+- **Karar:**
+  1. Visibility Map yalnız Website'te active edilmiş Brand Query Portfolio item'larını okur ve canonical `IntelligenceSearchTermIdentity` alias'ları üzerinden GSC query text gözlemlerini eşler.
+  2. Query–URL ilişkisi, clicks, impressions, CTR ve average position explicit dönem için `gsc_query_page_daily` kaynağından okunur. Provider limitleri ve position semantiği korunur.
+  3. URL identity, HTTP/robots/HTML coverage mevcut `IntelligencePageIdentity` ve `WebsitePageProfile` projection'ından okunur; yeni URL identity veya metrics warehouse kurulmaz.
+  4. GA4 landing sessions/engaged sessions Page grain olarak gösterilir ve query attribution sayılmaz.
+  5. Period comparison yalnız iki tarafta gözlem varsa delta üretir. GSC satırı olmayan aktif sorgu `unobserved` olur; missing/unavailable değer sıfıra çevrilmez.
+  6. Bu yüzey read-only'dir; SERP validation, URL ownership kararı, Finding, Recommendation, Task veya external write üretmez.
+- **İlgili:** ADR-039, ADR-046, ADR-047, ADR-050, ADR-051; `docs/product/SEARCH_DEMAND_INTELLIGENCE.md`
+
+---
+
 ## Karar indeksi
 
 | ID | Başlık | Durum |
@@ -494,6 +556,10 @@
 | ADR-046 | Provider-neutral Intelligence Core identity/provenance layer | Accepted |
 | ADR-047 | Rebuildable Website Intelligence Projection | Accepted |
 | ADR-048 | Global Service Catalog + reusable Search Query Library | Accepted |
+| ADR-049 | Search Demand AI proposals + human review boundary | Accepted |
+| ADR-050 | Relational Brand Query Portfolio + dynamic locations | Accepted |
+| ADR-051 | Human-governed layered Search Demand clusters | Accepted |
+| ADR-052 | Read-only Query–URL Visibility Map over canonical facts | Accepted |
 
 ## Süpercede edilen kararlar
 

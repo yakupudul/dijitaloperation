@@ -25,4 +25,8 @@ final class AiRouteKeys
     public const string SALES_PROSPECT_INTELLIGENCE = 'sales.prospect_intelligence';
 
     public const string SALES_INTENT_CLASSIFICATION = 'sales.intent_classification';
+
+    public const string SEARCH_DEMAND_LIBRARIAN = 'search_demand.librarian';
+
+    public const string SEARCH_DEMAND_CLUSTERING = 'search_demand.clustering';
 }

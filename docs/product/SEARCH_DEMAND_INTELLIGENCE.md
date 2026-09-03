@@ -2,7 +2,7 @@
 
 ## Status
 
-**FOUNDATION CODE COMPLETE / TEST AND OPERATOR UAT NOT RUN**
+**PHASES 1–6 CODE COMPLETE / TEST AND OPERATOR UAT NOT RUN**
 
 This document defines the shared commercial context and reusable Search Query Library that later Website search-demand, SERP, content-ownership and competitor analysis will consume.
 
@@ -70,7 +70,20 @@ The two concepts are deliberately distinct:
 | Search Query Library | Agency-wide | Reusable operator research and imported observations |
 | `IntelligenceSearchTermIdentity` | Brand-scoped | Canonical identity for provider observations joined inside Intelligence Core |
 
-When a library query is applied to a Brand in a later phase, it will resolve into the existing Brand-scoped Intelligence Search Term identity. No second Website adapter or generic metrics warehouse is introduced.
+When a library query is applied to a Brand, the Brand Query Portfolio resolves it into the existing Brand-scoped Intelligence Search Term identity. No second Website adapter or generic metrics warehouse is introduced.
+
+## Brand Query Portfolio
+
+`brand_query_portfolio_items` is the Brand-scoped application layer:
+
+- a global query is referenced by `search_query_library_item_id`; its text is not copied;
+- a Brand-only query keeps its own normalized identity and may be submitted for global human review without automatic promotion;
+- Brand text, demand-family, market/language, location and branded-state overrides are explicit and do not mutate the global item;
+- applicable Brand services remain relations;
+- the default area scope means “all active Brand areas”; an operator may select a subset;
+- `{location}` variants are rendered on demand and are never persisted as a Service × Area Cartesian set;
+- each applied query resolves to the canonical Brand-scoped `IntelligenceSearchTermIdentity`;
+- website activation/exclusion is a separate relation, so global, Brand and Website scope remain distinguishable.
 
 ## No Cartesian explosion
 
@@ -83,7 +96,7 @@ Later Brand Query Portfolio work will:
 - render provider request variants only when required;
 - let SERP evidence and human review decide whether multiple locations need separate content.
 
-## AI boundary (next phase)
+## AI Search Demand Librarian
 
 AI will be used for bounded classification where human language understanding is material:
 
@@ -97,21 +110,65 @@ AI will be used for bounded classification where human language understanding is
 
 AI output is a candidate with confidence, rationale, abstention and version provenance. It never overwrites operator facts, invents volume/rankings, creates Findings, publishes content or opens Tasks automatically.
 
+The Phase 3 runtime adds:
+
+- the code-defined `Search Intelligence Analyst` profile;
+- separate query-generation and query-classification Skills;
+- a queued `search_demand.librarian` AI route using the central agency Integration credential chain;
+- structured candidates for service alias, demand family, search intent, user problem, decision stage, location pattern, candidate SERP group, candidate content cluster and branded/licensed suspicion;
+- persistent run/candidate records with agent, Skill, model, route and input fingerprints;
+- exact-fingerprint reuse so an identical completed request does not call the provider again;
+- operator bulk approve/edit/reject controls inside `/library/search-queries`.
+
+Generated and classified output remains a proposal. Approval is the only path that applies semantic fields or a service alias. Rejection preserves the proposal and review provenance. Abstained candidates cannot be bulk-approved.
+
+AI work is queued and returns control to the operator. OpenAI requests retain the platform `store=false` policy. The agent has no browsing, tool, provider-spend, Finding, Recommendation, Task, CMS or other external-write capability.
+
 SERP evidence will validate content-target grouping later. Semantic similarity alone is not URL ownership proof.
+
+## AI Search Demand Clustering
+
+Phase 5 adds a Brand-scoped, versioned clustering layer on top of the Brand Query Portfolio:
+
+- demand family, expected SERP intent group and content target cluster remain separate fields;
+- every cluster has a representative portfolio query, suggested content type, rationale, confidence and validation state;
+- incremental runs read only active portfolio queries without a current cluster membership;
+- review runs may propose metadata changes, query moves, merges or splits;
+- all AI actions persist as pending candidates and require explicit operator approval;
+- a locked cluster and its membership cannot be changed until an operator unlocks it;
+- every create, lock, move, merge and split records a version snapshot with stable member IDs;
+- manual move, merge and split controls use the same lock and version boundaries as AI-approved actions.
+
+Until observed SERP evidence exists, approved clusters remain `ai_prediction`. The reserved later states are `serp_validated`, `serp_conflict` and `review_required`; Phase 5 does not infer any of these from semantic similarity. Cluster confidence is classification confidence, not a ranking or performance metric.
+
+Exact AI reuse is keyed by Brand input, current cluster state, Agent version, Skill signature/fingerprint and resolved provider/model route. Cluster proposals cannot create Findings, Recommendations, Tasks, content, redirects or external writes.
+
+## Query–URL Visibility Map
+
+Phase 6 joins only existing canonical and measured layers; it does not create another metrics warehouse:
+
+- the Query Library connects through website-active Brand Query Portfolio items and their canonical Brand search-term identities;
+- GSC `gsc_query_page_daily` supplies measured query–URL pairs, clicks, impressions, CTR and impression-weighted average position for an explicit period;
+- existing Website Page identities and Page Profiles supply preferred URL, observed HTTP status, robots and HTML coverage;
+- GA4 `ga4_landing_page_daily` supplies page-grain sessions and engaged sessions, explicitly labelled as landing-page behavior rather than query attribution;
+- a separate comparison period produces absolute deltas only when both period values exist;
+- query, cluster, service, area, text and observed/unobserved filters are available;
+- the operator can inspect query and resolved-URL details plus cluster summaries.
+
+An active Website query with no GSC query–URL row in the requested period is `unobserved`; it is not assigned a zero. Missing source bindings, missing periods, unresolved Page identities and absent GA4 values remain explicit coverage/unknown states. GSC provider row limits still apply, and average position is not presented as a rank tracker.
 
 ## Operator surfaces
 
 - `/library/services`
 - `/library/search-queries`
+- `/library/brand-query-portfolios`
+- `/library/search-demand-clusters`
+- `/library/search-demand-visibility`
 - simplified Brand create/edit form for services, priorities and multiple service areas
 - Brand Business Context summary for service-area visibility
 
 ## Deferred
 
-- AI Search Demand Librarian runtime and human-review queue
-- Brand Query Portfolio application
-- query clustering and cluster versioning
-- query ↔ URL visibility map
 - DataForSEO SERP sampling and competitor result sets
 - URL ownership decisions
 - competitor crawl and comparison

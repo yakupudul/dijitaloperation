@@ -9,6 +9,7 @@ use App\Providers\RecurringAutomationServiceProvider;
 use App\Providers\SalesServiceProvider;
 use App\Providers\SearchConsoleCentralServiceProvider;
 use App\Providers\SearchConsoleGroupingServiceProvider;
+use App\Providers\SearchDemandServiceProvider;
 use App\Providers\WebsiteIntelligenceServiceProvider;
 
 return [
@@ -22,4 +23,5 @@ return [
     HorizonServiceProvider::class,
     RecurringAutomationServiceProvider::class,
     SalesServiceProvider::class,
+    SearchDemandServiceProvider::class,
 ];

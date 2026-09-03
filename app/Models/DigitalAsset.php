@@ -121,6 +121,12 @@ class DigitalAsset extends Model
         return $this->hasMany(WebsiteOutcomeProfile::class, 'website_asset_id');
     }
 
+    /** @return HasMany<BrandQueryPortfolioAsset, $this> */
+    public function queryPortfolioStates(): HasMany
+    {
+        return $this->hasMany(BrandQueryPortfolioAsset::class);
+    }
+
     /**
      * @return HasMany<Recommendation, $this>
      */

@@ -43,6 +43,9 @@ final class DemoMenu
                 'items' => [
                     ['label' => app()->getLocale() === 'tr' ? 'Hizmetler' : 'Services', 'route' => 'operator.library.services', 'icon' => 'library'],
                     ['label' => app()->getLocale() === 'tr' ? 'Sorgular' : 'Search Queries', 'route' => 'operator.library.search-queries', 'icon' => 'search'],
+                    ['label' => app()->getLocale() === 'tr' ? 'Marka Sorguları' : 'Brand Queries', 'route' => 'operator.library.brand-query-portfolios', 'icon' => 'brands'],
+                    ['label' => app()->getLocale() === 'tr' ? 'Sorgu Kümeleri' : 'Query Clusters', 'route' => 'operator.library.search-demand-clusters', 'icon' => 'activity'],
+                    ['label' => app()->getLocale() === 'tr' ? 'Görünürlük Haritası' : 'Visibility Map', 'route' => 'operator.library.search-demand-visibility', 'icon' => 'website'],
                 ],
             ],
             [

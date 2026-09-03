@@ -536,7 +536,7 @@
                 <section class="border-t border-gray-100 pt-4 dark:border-gray-800">
                     <div class="flex flex-wrap items-start justify-between gap-3">
                         <div><h3 class="text-sm font-semibold text-gray-900 dark:text-white">Hizmet bölgeleri</h3><p class="mt-1 text-xs text-gray-500">Sorgu keşfi ve lokal görünürlük için açıkça tanımlanan coğrafi kapsam.</p></div>
-                        <a href="{{ route('operator.library.search-queries') }}" wire:navigate class="text-xs font-medium text-brand-600">Sorgu kütüphanesini aç →</a>
+                        <div class="flex flex-wrap gap-3"><a href="{{ route('operator.library.search-queries') }}" wire:navigate class="text-xs font-medium text-brand-600">Sorgu kütüphanesi</a><a href="{{ route('operator.library.brand-query-portfolios', ['brand' => $brandRow['id']]) }}" wire:navigate class="text-xs font-medium text-brand-600">Marka sorgu portföyü →</a></div>
                     </div>
                     <div class="mt-3 flex flex-wrap gap-2">
                         @forelse ($businessContext['service_areas'] ?? [] as $area)

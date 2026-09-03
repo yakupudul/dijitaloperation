@@ -67,6 +67,9 @@ use App\Livewire\Operator\Assets\SearchConsolePage;
 use App\Livewire\Operator\GoogleAds\OverviewPage as GoogleAdsOverviewPage;
 use App\Livewire\Operator\Library\SearchQueryLibraryPage;
 use App\Livewire\Operator\Library\ServiceCatalogPage;
+use App\Livewire\Operator\Library\BrandQueryPortfolioPage;
+use App\Livewire\Operator\Library\SearchDemandClustersPage;
+use App\Livewire\Operator\Library\SearchDemandVisibilityMapPage;
 use App\Livewire\Operator\Meta\OverviewPage as MetaOverviewPage;
 use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Support\Work\WorkUrl;
@@ -88,6 +91,9 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
 
         Route::livewire('/library/services', ServiceCatalogPage::class)->name('operator.library.services');
         Route::livewire('/library/search-queries', SearchQueryLibraryPage::class)->name('operator.library.search-queries');
+        Route::livewire('/library/brand-query-portfolios', BrandQueryPortfolioPage::class)->name('operator.library.brand-query-portfolios');
+        Route::livewire('/library/search-demand-clusters', SearchDemandClustersPage::class)->name('operator.library.search-demand-clusters');
+        Route::livewire('/library/search-demand-visibility', SearchDemandVisibilityMapPage::class)->name('operator.library.search-demand-visibility');
 
         Route::livewire('/assets', AssetsIndex::class)->name('operator.assets');
         Route::livewire('/assets/create', AssetCreate::class)->name('operator.asset.create');

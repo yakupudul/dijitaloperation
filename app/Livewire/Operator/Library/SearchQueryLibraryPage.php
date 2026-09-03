@@ -4,7 +4,9 @@ namespace App\Livewire\Operator\Library;
 
 use App\Models\SearchQueryLibraryImport;
 use App\Models\SearchQueryLibraryItem;
+use App\Models\SearchDemandAiRun;
 use App\Models\ServiceCatalogItem;
+use App\Services\SearchDemand\SearchDemandLibrarianService;
 use App\Services\SearchDemand\SearchQueryImportService;
 use App\Services\SearchDemand\SearchQueryLibraryService;
 use App\Support\Options\IndustryOptions;
@@ -62,6 +64,29 @@ class SearchQueryLibraryPage extends Component
     public string $import_language = 'tr';
 
     public string $import_market = 'TR';
+
+    public string $ai_service_id = '';
+
+    public string $ai_language = 'tr';
+
+    public string $ai_market = 'TR';
+
+    public string $ai_sector = '';
+
+    public string $ai_location_context = '';
+
+    public int $ai_candidate_count = 20;
+
+    /** @var list<int|string> */
+    public array $selectedQueryIds = [];
+
+    /** @var list<int|string> */
+    public array $selectedAiCandidateIds = [];
+
+    /** @var array<int|string, array<string, mixed>> */
+    public array $candidateEdits = [];
+
+    public ?int $aiRunId = null;
 
     public string $message = '';
 
@@ -144,6 +169,131 @@ class SearchQueryLibraryPage extends Component
         $this->message_tone = 'success';
     }
 
+    public function queueAiGeneration(SearchDemandLibrarianService $librarian): void
+    {
+        $this->validate([
+            'ai_service_id' => ['required', 'integer', 'exists:service_catalog_items,id'],
+            'ai_language' => ['nullable', 'string', 'max:32'],
+            'ai_market' => ['nullable', 'string', 'max:32'],
+            'ai_sector' => ['nullable', 'string', 'max:120'],
+            'ai_location_context' => ['nullable', 'string', 'max:500'],
+            'ai_candidate_count' => ['required', 'integer', 'min:5', 'max:50'],
+        ]);
+
+        $result = $librarian->queueGeneration((int) $this->ai_service_id, [
+            'language_code' => $this->ai_language,
+            'market_code' => $this->ai_market,
+            'sector' => $this->ai_sector,
+            'location_context' => $this->ai_location_context,
+            'candidate_count' => $this->ai_candidate_count,
+        ], auth()->user());
+
+        $this->aiRunId = $result['run']->id;
+        $this->selectedAiCandidateIds = [];
+        $this->candidateEdits = [];
+        $this->primeCandidateEdits($result['run']->load('candidates'));
+        $this->message_tone = 'success';
+        $this->message = $result['cached']
+            ? 'Aynı model, skill ve girdi parmak izine ait tamamlanmış AI sonucu yeniden kullanıldı.'
+            : ($result['queued']
+                ? 'AI sorgu üretimi kuyruğa alındı. Bu sayfada çalışmaya devam edebilirsiniz.'
+                : 'Aynı AI çalışması zaten kuyrukta veya çalışıyor.');
+    }
+
+    public function queueAiClassification(SearchDemandLibrarianService $librarian): void
+    {
+        $this->validate([
+            'selectedQueryIds' => ['required', 'array', 'min:1', 'max:80'],
+            'selectedQueryIds.*' => ['integer', 'exists:search_query_library_items,id'],
+        ]);
+
+        $result = $librarian->queueClassification($this->selectedQueryIds, auth()->user());
+        $this->aiRunId = $result['run']->id;
+        $this->selectedQueryIds = [];
+        $this->selectedAiCandidateIds = [];
+        $this->candidateEdits = [];
+        $this->primeCandidateEdits($result['run']->load('candidates'));
+        $this->message_tone = 'success';
+        $this->message = $result['cached']
+            ? 'Aynı sorgular için tamamlanmış AI sınıflandırması yeniden kullanıldı.'
+            : ($result['queued']
+                ? 'Seçilen sorguların AI sınıflandırması kuyruğa alındı.'
+                : 'Aynı sınıflandırma zaten kuyrukta veya çalışıyor.');
+    }
+
+    public function openAiRun(int $runId): void
+    {
+        $run = SearchDemandAiRun::query()->with('candidates')->findOrFail($runId);
+        $this->aiRunId = $run->id;
+        $this->selectedAiCandidateIds = [];
+        $this->candidateEdits = [];
+        $this->primeCandidateEdits($run);
+    }
+
+    public function refreshAiRun(): void
+    {
+        if ($this->aiRunId === null) {
+            return;
+        }
+
+        $run = SearchDemandAiRun::query()->with('candidates')->find($this->aiRunId);
+        if ($run instanceof SearchDemandAiRun) {
+            $this->primeCandidateEdits($run);
+        }
+    }
+
+    public function selectPendingAiCandidates(): void
+    {
+        if ($this->aiRunId === null) {
+            return;
+        }
+
+        $this->selectedAiCandidateIds = SearchDemandAiRun::query()
+            ->findOrFail($this->aiRunId)
+            ->candidates()
+            ->where('status', 'pending')
+            ->where('abstained', false)
+            ->pluck('id')
+            ->all();
+    }
+
+    public function reviewAiCandidates(string $decision, SearchDemandLibrarianService $librarian): void
+    {
+        abort_unless(in_array($decision, ['approve', 'reject'], true), 422);
+
+        if ($this->aiRunId === null) {
+            return;
+        }
+
+        $counts = $librarian->reviewCandidates(
+            $this->aiRunId,
+            $this->selectedAiCandidateIds,
+            $decision,
+            $this->candidateEdits,
+            auth()->user(),
+        );
+
+        $this->selectedAiCandidateIds = [];
+        $this->candidateEdits = [];
+        $run = SearchDemandAiRun::query()->with('candidates')->find($this->aiRunId);
+        if ($run instanceof SearchDemandAiRun) {
+            $this->primeCandidateEdits($run);
+        }
+        $this->message_tone = 'success';
+        $this->message = sprintf(
+            'AI adayları güncellendi: %d onaylı, %d reddedilmiş, %d bekleyen.',
+            $counts['approved'],
+            $counts['rejected'],
+            $counts['pending'],
+        );
+    }
+
+    public function reviewAiCandidate(int $candidateId, string $decision, SearchDemandLibrarianService $librarian): void
+    {
+        $this->selectedAiCandidateIds = [$candidateId];
+        $this->reviewAiCandidates($decision, $librarian);
+    }
+
     public function render(): View
     {
         $query = SearchQueryLibraryItem::query()
@@ -180,12 +330,28 @@ class SearchQueryLibraryPage extends Component
             ->mapWithKeys(fn (ServiceCatalogItem $item): array => [(string) $item->id => $item->primaryName?->raw_label ?? 'İsimsiz hizmet'])
             ->all();
 
+        $aiRun = $this->aiRunId !== null
+            ? SearchDemandAiRun::query()
+                ->with(['service.primaryName', 'candidates.service.primaryName', 'candidates.sourceItem'])
+                ->find($this->aiRunId)
+            : null;
+
+        if ($this->aiRunId !== null && $aiRun === null) {
+            $this->aiRunId = null;
+        }
+
         return view('livewire.operator.library.search-query-library-page', [
             'queries' => $query->orderByDesc('last_seen_at')->limit(300)->get(),
             'serviceOptions' => $serviceOptions,
             'sourceOptions' => SearchQueryLibraryService::sourceOptions(),
             'sectorOptions' => IndustryOptions::options(),
             'imports' => SearchQueryLibraryImport::query()->latest('id')->limit(10)->get(),
+            'aiRun' => $aiRun,
+            'aiRuns' => SearchDemandAiRun::query()
+                ->with('service.primaryName')
+                ->latest('id')
+                ->limit(8)
+                ->get(),
             'summary' => [
                 'total' => SearchQueryLibraryItem::query()->count(),
                 'active' => SearchQueryLibraryItem::query()->where('status', 'active')->count(),
@@ -225,5 +391,28 @@ class SearchQueryLibraryPage extends Component
             'is_branded' => $this->query_is_branded,
             'status' => 'active',
         ];
+    }
+
+    private function primeCandidateEdits(SearchDemandAiRun $run): void
+    {
+        foreach ($run->candidates as $candidate) {
+            if ($candidate->status !== 'pending' || isset($this->candidateEdits[$candidate->id])) {
+                continue;
+            }
+
+            $this->candidateEdits[$candidate->id] = [
+                'proposed_text' => $candidate->proposed_text,
+                'service_alias' => $candidate->service_alias,
+                'demand_family' => $candidate->demand_family,
+                'search_intent' => $candidate->search_intent,
+                'user_problem' => $candidate->user_problem,
+                'decision_stage' => $candidate->decision_stage,
+                'serp_intent_group' => $candidate->serp_intent_group,
+                'content_target_cluster' => $candidate->content_target_cluster,
+                'location_scope' => $candidate->location_scope,
+                'location_value' => $candidate->location_value,
+                'is_branded_suspected' => $candidate->is_branded_suspected,
+            ];
+        }
     }
 }

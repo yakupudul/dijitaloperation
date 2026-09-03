@@ -63,6 +63,11 @@ final class SearchQueryLibraryService
             $item->fill([
                 'sector' => $this->nullable($attributes['sector'] ?? null) ?? $item->sector,
                 'demand_family' => $this->nullable($attributes['demand_family'] ?? null) ?? $item->demand_family,
+                'search_intent' => $this->nullable($attributes['search_intent'] ?? null) ?? $item->search_intent,
+                'user_problem' => $this->nullable($attributes['user_problem'] ?? null) ?? $item->user_problem,
+                'decision_stage' => $this->nullable($attributes['decision_stage'] ?? null) ?? $item->decision_stage,
+                'serp_intent_group' => $this->nullable($attributes['serp_intent_group'] ?? null) ?? $item->serp_intent_group,
+                'content_target_cluster' => $this->nullable($attributes['content_target_cluster'] ?? null) ?? $item->content_target_cluster,
                 'location_scope' => array_key_exists('location_scope', $attributes)
                     ? $this->locationScope($attributes['location_scope'])
                     : ($item->location_scope ?: 'none'),
@@ -74,6 +79,13 @@ final class SearchQueryLibraryService
                     ? $this->status($attributes['status'])
                     : ($item->status ?: 'active'),
                 'notes' => $this->nullable($attributes['notes'] ?? null) ?? $item->notes,
+                'classification_source' => $this->nullable($attributes['classification_source'] ?? null) ?? $item->classification_source,
+                'classification_confidence' => is_numeric($attributes['classification_confidence'] ?? null)
+                    ? max(0, min(100, (int) $attributes['classification_confidence']))
+                    : $item->classification_confidence,
+                'classification_version' => $this->nullable($attributes['classification_version'] ?? null) ?? $item->classification_version,
+                'classified_at' => $attributes['classified_at'] ?? $item->classified_at,
+                'classified_by' => $attributes['classified_by'] ?? $item->classified_by,
                 'last_seen_at' => $now,
                 'updated_by' => $actor?->id,
             ]);

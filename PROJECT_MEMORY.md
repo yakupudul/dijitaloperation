@@ -461,8 +461,18 @@ Canonical decision: ADR-047. Implementation truth: `PRODUCT_CAPABILITY_LEDGER.md
 - Do not create a permanent Service × Area Cartesian product. Keep service and area relations separate; render provider request variants only when required.
 - AI is reserved for bounded language classification and clustering candidates. Operator review and later SERP validation are required before URL ownership decisions. AI never invents metrics, Findings or Tasks.
 - Query source observations retain provenance and missing values. Google Ads, GSC and DataForSEO observations do not overwrite one another.
+- Search Demand Librarian execution is queued and persists proposals separately from Library truth. Exact reuse requires the same input, Agent, Skill definition and AI route/model fingerprint.
+- AI-generated service aliases and query semantics are applied only after explicit operator approval. Rejected and abstained candidates remain auditable; abstention is never converted into a synthetic classification.
+- Brand Query Portfolio references global Library identities instead of copying query text. Brand-only queries and Brand overrides are separate operator facts; global promotion is a submitted proposal, never an automatic write.
+- Global, Brand and Website query scope are distinct. Portfolio application resolves through canonical Brand-scoped `IntelligenceSearchTermIdentity`; website activation is an explicit relation.
+- Multi-region query variants are rendered from Brand Service Areas at use time. The default `all_brand_areas` scope and optional selected-area relations must not become a persistent Service × Area Cartesian table.
+- Brand query clustering stores demand family, predicted SERP intent and content target as separate Brand-scoped layers. AI runs are queued proposals; human approval is the only apply path.
+- Clusters are lockable and versioned. Incremental clustering only receives currently unclustered active portfolio queries; move, merge and split operations preserve stable item IDs and append snapshots.
+- Without observed SERP evidence, a cluster remains `ai_prediction`. Semantic confidence must not be presented as SERP validation, ranking evidence or URL ownership.
+- The Query–URL Visibility Map reads website-active portfolio queries and existing GSC, GA4 and Website Projection facts. It does not persist copied performance values or introduce another warehouse.
+- GSC query–URL metrics are first-party measured at query/page grain. GA4 landing metrics remain page grain and are never represented as query attribution. Requested-period absence is `unobserved`/unknown, not zero.
 
-Canonical product contract: `docs/product/SEARCH_DEMAND_INTELLIGENCE.md`.
+Canonical decisions: ADR-048, ADR-049, ADR-050, ADR-051 and ADR-052. Canonical product contract: `docs/product/SEARCH_DEMAND_INTELLIGENCE.md`.
 
 ---
 
