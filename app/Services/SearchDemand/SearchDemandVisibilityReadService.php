@@ -6,6 +6,8 @@ use App\Models\BrandQueryPortfolioItem;
 use App\Models\DigitalAsset;
 use App\Models\IntelligenceCore\IntelligenceSearchTermAlias;
 use App\Models\IntelligenceProjection\WebsitePageProfile;
+use App\Models\SearchDemandKeywordMetricSnapshot;
+use App\Models\SearchDemandSerpSnapshot;
 use App\Services\Ga4\Ga4SpecialistBindingResolver;
 use App\Services\Gsc\GscSpecialistBindingResolver;
 use Carbon\CarbonImmutable;
@@ -41,6 +43,8 @@ final class SearchDemandVisibilityReadService
         $gsc = $this->gscBindings->resolve((string) $website->id);
         $ga4 = $this->ga4Bindings->resolve((string) $website->id);
         $queryMap = $this->queryTextMap($items, $gsc->externalResourceId);
+        $serpByItem = $this->latestSerp($website, $items);
+        $metricByItem = $this->latestMetrics($website, $items);
 
         $currentRelations = $this->gscRelations(
             $gsc->isReal() ? $gsc->externalResourceId : null,
@@ -76,7 +80,7 @@ final class SearchDemandVisibilityReadService
             $urlKeys = $current->keys()->merge($previous->keys())->unique()->values();
 
             if ($urlKeys->isEmpty()) {
-                $rows[] = $this->row($item, null, null, null, null, null);
+                $rows[] = $this->row($item, null, null, null, null, null, $serpByItem->get($item->id), $metricByItem->get($item->id));
 
                 continue;
             }
@@ -94,6 +98,8 @@ final class SearchDemandVisibilityReadService
                     $comparison,
                     $currentLanding[$landingKey] ?? null,
                     $comparisonLanding[$landingKey] ?? null,
+                    $serpByItem->get($item->id),
+                    $metricByItem->get($item->id),
                 );
             }
         }
@@ -129,6 +135,12 @@ final class SearchDemandVisibilityReadService
                     'state' => $profiles->isEmpty() ? 'unobserved' : 'available',
                     'profile_count' => $profiles->count(),
                     'source' => 'website_page_profiles',
+                ],
+                'dataforseo' => [
+                    'state' => $serpByItem->isEmpty() && $metricByItem->isEmpty() ? 'unobserved' : 'available',
+                    'serp_query_count' => $serpByItem->count(),
+                    'metric_query_count' => $metricByItem->count(),
+                    'source' => 'search_demand_serp_snapshots + search_demand_keyword_metric_snapshots',
                 ],
             ],
             'truncated' => $rows->count() > 500,
@@ -317,6 +329,8 @@ final class SearchDemandVisibilityReadService
         ?array $comparison,
         ?array $landing,
         ?array $comparisonLanding,
+        ?SearchDemandSerpSnapshot $serp,
+        ?SearchDemandKeywordMetricSnapshot $metric,
     ): array {
         $states = $profile?->source_states ?? [];
         $status = data_get($states, 'website.http.status_code');
@@ -372,12 +386,60 @@ final class SearchDemandVisibilityReadService
                 'indexability' => $indexability,
                 'last_observed_at' => $profile?->last_observed_at?->toIso8601String(),
             ],
+            'enrichment' => [
+                'search_volume' => $metric?->search_volume,
+                'cpc' => $metric?->cpc !== null ? (float) $metric->cpc : null,
+                'competition' => $metric?->competition,
+                'monthly_searches' => $metric?->monthly_searches,
+                'measurement_type' => $metric?->measurement_type,
+                'brand_rank' => $serp?->brand_rank,
+                'brand_url' => $serp?->brand_url,
+                'serp_features' => $serp?->serp_features,
+                'device' => $serp?->device,
+                'retrieved_at' => $serp?->retrieved_at?->toIso8601String() ?? $metric?->retrieved_at?->toIso8601String(),
+            ],
             'provenance' => [
                 'search' => $current === null ? null : 'gsc_query_page_daily',
                 'behavior' => $landing === null ? null : 'ga4_landing_page_daily',
                 'page' => $profile === null ? null : 'website_page_profiles',
+                'serp' => $serp === null ? null : 'search_demand_serp_snapshots',
+                'market_estimate' => $metric === null ? null : 'search_demand_keyword_metric_snapshots',
             ],
         ];
+    }
+
+    /** @param Collection<int, BrandQueryPortfolioItem> $items @return Collection<int, SearchDemandSerpSnapshot> */
+    private function latestSerp(DigitalAsset $website, Collection $items): Collection
+    {
+        if ($items->isEmpty() || ! Schema::hasTable('search_demand_serp_snapshots')) {
+            return collect();
+        }
+
+        return SearchDemandSerpSnapshot::query()
+            ->where('digital_asset_id', $website->id)
+            ->whereIn('brand_query_portfolio_item_id', $items->pluck('id'))
+            ->latest('retrieved_at')
+            ->limit(1000)
+            ->get()
+            ->unique('brand_query_portfolio_item_id')
+            ->keyBy('brand_query_portfolio_item_id');
+    }
+
+    /** @param Collection<int, BrandQueryPortfolioItem> $items @return Collection<int, SearchDemandKeywordMetricSnapshot> */
+    private function latestMetrics(DigitalAsset $website, Collection $items): Collection
+    {
+        if ($items->isEmpty() || ! Schema::hasTable('search_demand_keyword_metric_snapshots')) {
+            return collect();
+        }
+
+        return SearchDemandKeywordMetricSnapshot::query()
+            ->where('digital_asset_id', $website->id)
+            ->whereIn('brand_query_portfolio_item_id', $items->pluck('id'))
+            ->latest('retrieved_at')
+            ->limit(1000)
+            ->get()
+            ->unique('brand_query_portfolio_item_id')
+            ->keyBy('brand_query_portfolio_item_id');
     }
 
     /** @param Collection<int, array<string, mixed>> $rows @param Collection<int, BrandQueryPortfolioItem> $items */

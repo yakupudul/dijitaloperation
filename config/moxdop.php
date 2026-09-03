@@ -173,4 +173,22 @@ return [
             'weak_rank_max' => 30,
         ],
     ],
+
+    /*
+     * Search Demand Phase 7. Paid calls are manual-only and consent-gated.
+     * USD rates are optional deployment estimates, never provider quotes.
+     */
+    'search_demand_enrichment' => [
+        'freshness_days' => (int) env('MOXDOP_SEARCH_DEMAND_SERP_TTL_DAYS', 7),
+        'max_queries_per_run' => (int) env('MOXDOP_SEARCH_DEMAND_SERP_MAX_QUERIES', 20),
+        'default_depth' => (int) env('MOXDOP_SEARCH_DEMAND_SERP_DEPTH', 20),
+        // Estimated cost per one 10-result SERP billing unit; depth 20 uses two units.
+        'estimated_serp_cost_per_query_usd' => env('MOXDOP_SEARCH_DEMAND_SERP_COST_PER_QUERY_USD'),
+        'estimated_keyword_metric_batch_cost_usd' => env('MOXDOP_SEARCH_DEMAND_KEYWORD_BATCH_COST_USD'),
+        'estimated_keyword_expansion_batch_cost_usd' => env('MOXDOP_SEARCH_DEMAND_EXPANSION_BATCH_COST_USD'),
+        'max_expansion_candidates' => (int) env('MOXDOP_SEARCH_DEMAND_MAX_EXPANSION_CANDIDATES', 50),
+        'validation_top_results' => (int) env('MOXDOP_SEARCH_DEMAND_VALIDATION_TOP_RESULTS', 10),
+        'validated_overlap_threshold' => (float) env('MOXDOP_SEARCH_DEMAND_VALIDATED_OVERLAP', 0.30),
+        'conflict_overlap_threshold' => (float) env('MOXDOP_SEARCH_DEMAND_CONFLICT_OVERLAP', 0.10),
+    ],
 ];

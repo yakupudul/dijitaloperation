@@ -10,6 +10,7 @@
             <a href="{{ route('operator.library.search-queries') }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium text-brand-600 ring-1 ring-inset ring-brand-200">Global sorgular</a>
             <a href="{{ route('operator.library.search-demand-clusters', ['brand' => $selectedBrandId]) }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium text-brand-600 ring-1 ring-inset ring-brand-200">Sorgu kümeleri</a>
             <a href="{{ route('operator.library.search-demand-visibility') }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium text-brand-600 ring-1 ring-inset ring-brand-200">Görünürlük haritası</a>
+            <a href="{{ route('operator.library.search-demand-enrichment') }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium text-brand-600 ring-1 ring-inset ring-brand-200">SERP zenginleştirme</a>
         </div>
     </div>
 

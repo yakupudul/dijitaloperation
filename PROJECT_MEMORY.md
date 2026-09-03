@@ -471,8 +471,13 @@ Canonical decision: ADR-047. Implementation truth: `PRODUCT_CAPABILITY_LEDGER.md
 - Without observed SERP evidence, a cluster remains `ai_prediction`. Semantic confidence must not be presented as SERP validation, ranking evidence or URL ownership.
 - The Query–URL Visibility Map reads website-active portfolio queries and existing GSC, GA4 and Website Projection facts. It does not persist copied performance values or introduce another warehouse.
 - GSC query–URL metrics are first-party measured at query/page grain. GA4 landing metrics remain page grain and are never represented as query attribution. Requested-period absence is `unobserved`/unknown, not zero.
+- Search Demand SERP enrichment is a separate manual, queued and paid-consent-gated workflow behind a provider-neutral adapter. It is never invoked by Brand creation, import, page render or routine scheduling.
+- Exact query/market/language/device/depth fingerprints reuse fresh SERP and keyword-metric observations. Every paid POST receives a durable pre-call marker, one queue attempt and fail-closed `CHARGE_UNKNOWN` handling when commit cannot be proven.
+- DataForSEO search volume, CPC, competition and monthly trend are provider estimates and remain distinct from measured GSC/GA4 facts. Missing estimates remain unknown. Configured pre-call USD values are estimates; provider-reported cost is separate provenance.
+- Optional DataForSEO query expansion creates review candidates only. Operator approval may add and activate a Brand Portfolio query; no automatic cluster membership, global promotion or Finding/Task follows.
+- Observed exact-URL SERP overlap creates a threshold-provenanced cluster validation recommendation. Only human approval applies `serp_validated`, `serp_conflict` or `review_required`; URL ownership remains Phase 8.
 
-Canonical decisions: ADR-048, ADR-049, ADR-050, ADR-051 and ADR-052. Canonical product contract: `docs/product/SEARCH_DEMAND_INTELLIGENCE.md`.
+Canonical decisions: ADR-048, ADR-049, ADR-050, ADR-051, ADR-052 and ADR-053. Canonical product contract: `docs/product/SEARCH_DEMAND_INTELLIGENCE.md`.
 
 ---
 

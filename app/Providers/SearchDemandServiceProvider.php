@@ -3,6 +3,8 @@
 namespace App\Providers;
 
 use App\Agents\SearchIntelligenceAnalyst;
+use App\Contracts\SearchDemand\SearchDemandSerpEnrichmentAdapter;
+use App\Services\SearchDemand\DataForSeoSearchDemandEnrichmentAdapter;
 use App\Support\Agents\AgentProfileRegistry;
 use App\Support\Ai\AiProviderCatalog;
 use App\Support\Ai\AiRouteKeys;
@@ -12,6 +14,14 @@ use Illuminate\Support\ServiceProvider;
 
 class SearchDemandServiceProvider extends ServiceProvider
 {
+    public function register(): void
+    {
+        $this->app->bind(
+            SearchDemandSerpEnrichmentAdapter::class,
+            DataForSeoSearchDemandEnrichmentAdapter::class,
+        );
+    }
+
     public function boot(): void
     {
         $this->app->make(AiRouteRegistry::class)->register([

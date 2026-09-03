@@ -2,7 +2,7 @@
 
 ## Status
 
-**PHASES 1–6 CODE COMPLETE / TEST AND OPERATOR UAT NOT RUN**
+**PHASES 1–7 CODE COMPLETE / TEST AND OPERATOR UAT NOT RUN**
 
 This document defines the shared commercial context and reusable Search Query Library that later Website search-demand, SERP, content-ownership and competitor analysis will consume.
 
@@ -157,6 +157,25 @@ Phase 6 joins only existing canonical and measured layers; it does not create an
 
 An active Website query with no GSC query–URL row in the requested period is `unobserved`; it is not assigned a zero. Missing source bindings, missing periods, unresolved Page identities and absent GA4 values remain explicit coverage/unknown states. GSC provider row limits still apply, and average position is not presented as a rank tracker.
 
+## DataForSEO / SERP enrichment
+
+Phase 7 adds an explicit paid, queued observation workflow behind a provider-neutral `SearchDemandSerpEnrichmentAdapter` contract:
+
+- the operator selects one Website plus a service or cluster scope; the run is capped at 20 website-active portfolio queries and never materializes a Service × Area Cartesian set;
+- Website SEO location and language are mandatory, device is explicit and organic depth is exactly 10 or 20;
+- DataForSEO Google Organic Live Regular observations persist the first organic URLs, ranks, titles, descriptions, result feature types, provider task ID, request fingerprint and retrieval time;
+- current Brand-domain rank and URL are derived only from the observed organic result set; absence remains unknown/not observed rather than rank zero;
+- Google Ads Search Volume Live persists provider-estimated search volume, CPC, competition and monthly trend separately from measured GSC and GA4 facts;
+- optional Keyword Ideas expansion is a third explicit paid request. Returned terms are review candidates; approve adds/activates a Brand Portfolio query, reject preserves provenance, and neither path assigns a cluster automatically;
+- each uncached SERP query uses one Live SERP POST, as required by the provider; exact result-affecting fingerprints, a configurable freshness window and per-query paid-request locks reuse fresh observations and prevent concurrent identical paid POSTs;
+- deployment-configured price rates may provide a pre-run USD estimate. Missing rates display unknown; only provider-reported response cost is persisted as reported cost;
+- a durable paid-attempt marker is committed before each POST. If response/fact commit cannot be proven, the run closes `CHARGE_UNKNOWN`; queue jobs have one attempt and do not automatically retry;
+- raw request/response payloads are retained per run without credentials.
+
+Observed pairwise exact-URL Jaccard overlap over the first ten organic results creates a `serp_validated`, `serp_conflict` or `review_required` recommendation. Thresholds and method are persisted with the recommendation. Only operator approval changes the cluster validation state; no membership, URL owner, content, Finding, Recommendation or Task is changed automatically.
+
+The Phase 7 screen is `/library/search-demand-enrichment`. Creating a Brand, importing queries, opening the page or rendering a plan cannot trigger a provider call.
+
 ## Operator surfaces
 
 - `/library/services`
@@ -164,14 +183,14 @@ An active Website query with no GSC query–URL row in the requested period is `
 - `/library/brand-query-portfolios`
 - `/library/search-demand-clusters`
 - `/library/search-demand-visibility`
+- `/library/search-demand-enrichment`
 - simplified Brand create/edit form for services, priorities and multiple service areas
 - Brand Business Context summary for service-area visibility
 
 ## Deferred
 
-- DataForSEO SERP sampling and competitor result sets
 - URL ownership decisions
-- competitor crawl and comparison
+- competitor library, crawl and page comparison (SERP result URLs remain observations only)
 - Finding → Recommendation → manual Task → Outcome loop
 
 ## Safety

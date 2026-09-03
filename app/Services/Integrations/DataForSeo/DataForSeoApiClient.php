@@ -102,7 +102,7 @@ class DataForSeoApiClient
     }
 
     /**
-     * POST /v3/serp/google/organic/live/regular — paid. Sales Intent Radar only.
+     * POST /v3/serp/google/organic/live/regular — paid. Explicit operator runs only.
      *
      * @param  list<array<string, mixed>>  $tasks
      */
@@ -112,6 +112,38 @@ class DataForSeoApiClient
             $integration,
             'POST',
             DataForSeoEndpointAllowlist::SERP_GOOGLE_ORGANIC_LIVE_REGULAR,
+            self::CHARGE_CLASS_PAID_CREATE,
+            $tasks,
+        );
+    }
+
+    /**
+     * POST /v3/keywords_data/google_ads/search_volume/live — paid.
+     *
+     * @param  list<array<string, mixed>>  $tasks
+     */
+    public function postGoogleAdsSearchVolumeLive(CoreIntegration $integration, array $tasks): DataForSeoResponse
+    {
+        return $this->request(
+            $integration,
+            'POST',
+            DataForSeoEndpointAllowlist::KEYWORDS_DATA_GOOGLE_ADS_SEARCH_VOLUME_LIVE,
+            self::CHARGE_CLASS_PAID_CREATE,
+            $tasks,
+        );
+    }
+
+    /**
+     * POST /v3/dataforseo_labs/google/keyword_ideas/live — paid.
+     *
+     * @param  list<array<string, mixed>>  $tasks
+     */
+    public function postKeywordIdeasLive(CoreIntegration $integration, array $tasks): DataForSeoResponse
+    {
+        return $this->request(
+            $integration,
+            'POST',
+            DataForSeoEndpointAllowlist::LABS_GOOGLE_KEYWORD_IDEAS_LIVE,
             self::CHARGE_CLASS_PAID_CREATE,
             $tasks,
         );

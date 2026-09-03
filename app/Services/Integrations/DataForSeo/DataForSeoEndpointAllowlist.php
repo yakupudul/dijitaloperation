@@ -25,6 +25,12 @@ final class DataForSeoEndpointAllowlist
     /** Paid — Sales Intent Radar V1 public SERP (explicit operator run only). */
     public const string SERP_GOOGLE_ORGANIC_LIVE_REGULAR = 'serp/google/organic/live/regular';
 
+    /** Paid — explicit keyword search-volume and monthly-trend observation. */
+    public const string KEYWORDS_DATA_GOOGLE_ADS_SEARCH_VOLUME_LIVE = 'keywords_data/google_ads/search_volume/live';
+
+    /** Paid — bounded related query expansion from explicit seeds. */
+    public const string LABS_GOOGLE_KEYWORD_IDEAS_LIVE = 'dataforseo_labs/google/keyword_ideas/live';
+
     /**
      * @return list<string>
      */
@@ -37,6 +43,8 @@ final class DataForSeoEndpointAllowlist
             self::LABS_GOOGLE_KEYWORDS_FOR_SITE_LIVE,
             self::LABS_GOOGLE_COMPETITORS_DOMAIN_LIVE,
             self::SERP_GOOGLE_ORGANIC_LIVE_REGULAR,
+            self::KEYWORDS_DATA_GOOGLE_ADS_SEARCH_VOLUME_LIVE,
+            self::LABS_GOOGLE_KEYWORD_IDEAS_LIVE,
         ];
     }
 

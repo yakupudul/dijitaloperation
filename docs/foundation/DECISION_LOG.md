@@ -504,6 +504,22 @@
 
 ---
 
+## ADR-053 — Manual paid SERP observations and human-applied cluster validation
+
+- **Durum:** Accepted
+- **Tarih:** 2026-09-03
+- **Bağlam:** Search Demand kümelerini gerçek sonuç örtüşmesiyle sınamak, marka konumunu gözlemek ve sorgulara market tahmini eklemek gerekir. Bunu Brand oluşturma veya sayfa render'ına bağlamak kontrolsüz maliyet; DataForSEO hacmini GSC gerçeğiyle birleştirmek yanlış ölçüm; SERP sonucundan doğrudan URL sahibi veya rakip kaydı üretmek ise Faz 8/9 karar sınırlarını ihlal eder.
+- **Karar:**
+  1. SERP enrichment sağlayıcıdan bağımsız adapter sözleşmesi arkasında, yalnız operator tarafından hizmet veya küme scope'u ile başlatılan queued run'dır. Website SEO location/language zorunlu, device ve 10/20 depth explicit, sorgu sayısı 20 ile sınırlıdır.
+  2. Her paid POST için result-affecting fingerprint, freshness reuse ve concurrent lock uygulanır. HTTP öncesi durable attempt marker yazılır; response/fact commit ispatlanamazsa `CHARGE_UNKNOWN` olur ve `tries=1` nedeniyle otomatik retry yapılmaz.
+  3. SERP snapshot ilk organik URL'leri, SERP features, Brand-domain rank/URL, market/device context, task/fingerprint ve retrieval provenance ile saklar. Bu gözlem URL ownership veya competitor-library write değildir.
+  4. Search volume, CPC, competition ve monthly trend `provider_estimate` olarak ayrı snapshot'tır; GSC/GA4 measured değerleriyle birleştirilmez. Eksik değer sıfır değildir. Pre-call USD estimate yalnız deployment configuration varsayımıdır; provider-reported cost ayrı tutulur.
+  5. Optional Keyword Ideas sonucu pending candidate'dır. Yalnız insan onayı Brand Portfolio query oluşturup Website'te etkinleştirebilir; otomatik cluster/global library/Finding/Task üretmez.
+  6. İlk on exact organic URL üzerinde pairwise Jaccard ortalaması threshold provenance ile validation recommendation üretir. `serp_validated`, `serp_conflict` veya `review_required` cluster state'i yalnız operator approval ile uygulanır. Üyelik ve URL ownership değişmez.
+- **İlgili:** ADR-018, ADR-039, ADR-046, ADR-050, ADR-051, ADR-052; `OPERATOR_ASYNC_EXECUTION.md`; `docs/product/SEARCH_DEMAND_INTELLIGENCE.md`
+
+---
+
 ## Karar indeksi
 
 | ID | Başlık | Durum |
@@ -560,6 +576,7 @@
 | ADR-050 | Relational Brand Query Portfolio + dynamic locations | Accepted |
 | ADR-051 | Human-governed layered Search Demand clusters | Accepted |
 | ADR-052 | Read-only Query–URL Visibility Map over canonical facts | Accepted |
+| ADR-053 | Manual paid SERP observations + human-applied cluster validation | Accepted |
 
 ## Süpercede edilen kararlar
 

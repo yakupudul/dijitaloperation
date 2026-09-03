@@ -315,7 +315,7 @@ final class SearchDemandClusteringService
 
     public function setValidationStatus(SearchDemandCluster $cluster, string $status, ?User $actor = null): void
     {
-        if (! in_array($status, ['ai_prediction', 'review_required'], true)) {
+        if (! in_array($status, ['ai_prediction', 'serp_validated', 'serp_conflict', 'review_required'], true)) {
             throw ValidationException::withMessages(['validationStatus' => 'Geçersiz küme doğrulama durumu.']);
         }
 

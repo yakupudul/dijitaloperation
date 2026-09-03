@@ -9,6 +9,7 @@
             <a href="{{ route('operator.library.search-queries') }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium text-brand-600 ring-1 ring-inset ring-brand-200">Global sorgular</a>
             <a href="{{ route('operator.library.brand-query-portfolios', ['brand' => $selectedBrandId]) }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium text-brand-600 ring-1 ring-inset ring-brand-200">Marka portföyü</a>
             <a href="{{ route('operator.library.search-demand-visibility') }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium text-brand-600 ring-1 ring-inset ring-brand-200">Görünürlük haritası</a>
+            <a href="{{ route('operator.library.search-demand-enrichment') }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium text-brand-600 ring-1 ring-inset ring-brand-200">SERP zenginleştirme</a>
         </div>
     </div>
 
@@ -41,7 +42,7 @@
             </div>
         </div>
         @error('clusteringMode') <p class="mt-2 text-xs text-red-600">{{ $message }}</p> @enderror
-        <p class="mt-3 text-xs text-gray-400">Bu fazda SERP kanıtı yoktur; onaylanan kümeler <code>ai_prediction</code> olarak işaretlenir. AI önerileri otomatik uygulanmaz.</p>
+        <p class="mt-3 text-xs text-gray-400">AI ile onaylanan yeni kümeler <code>ai_prediction</code> başlar. Faz 7 SERP kanıtı ayrı ücretli çalıştırılır ve doğrulama önerisi yine insan onayı olmadan uygulanmaz.</p>
     </section>
 
     @if ($brand)

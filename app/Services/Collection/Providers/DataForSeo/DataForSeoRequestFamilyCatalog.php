@@ -8,7 +8,8 @@ use InvalidArgumentException;
  * Contract-driven DataForSEO request-family definitions (Registry DFS-*).
  *
  * Paid families are operator-consented enrichment, never a routine scheduler.
- * Domain intersection, relevant pages, and SERP organic remain DEFERRED.
+ * Domain intersection and relevant pages remain DEFERRED. SERP organic is intentionally
+ * outside the routine Collection Engine and is implemented by the manual Phase 7 workflow.
  */
 final class DataForSeoRequestFamilyCatalog
 {
