@@ -7,11 +7,13 @@ use App\Jobs\Async\EvaluateFindingsForAssetJob;
 use App\Jobs\Async\GoogleAdsAiGuidanceJob;
 use App\Jobs\Async\MetaAdsAiGuidanceJob;
 use App\Jobs\Async\PublicDiscoveryJob;
+use App\Jobs\Async\SearchDemandCompetitorPageCollectionJob;
 use App\Jobs\Async\SeoIntelligenceRefreshJob;
 use App\Jobs\Async\WebsiteAiGuidanceJob;
 use App\Jobs\Async\WebsiteDiagnosisJob;
 use App\Models\DigitalAsset;
 use App\Models\Run;
+use App\Models\SearchDemandCluster;
 use App\Models\User;
 use App\Support\Async\AsyncFailureClassifier;
 use App\Support\Async\AsyncOperationTypes;
@@ -19,6 +21,7 @@ use Carbon\Carbon;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use InvalidArgumentException;
 use Throwable;
 
 /**
@@ -73,6 +76,40 @@ final class AsyncOperationService
             humanTitle: 'Public discovery',
             user: $user,
             jobFactory: fn (Run $run): object => new PublicDiscoveryJob($run->id),
+        );
+    }
+
+    /**
+     * @return array{ok: bool, queued: bool, message: string, run: ?Run, existing_run: ?Run}
+     */
+    public function queueSearchDemandCompetitorPageCollection(
+        DigitalAsset $asset,
+        SearchDemandCluster $cluster,
+        int $maxUrls,
+        ?User $user = null,
+    ): array {
+        if ($asset->type !== 'website'
+            || (int) $asset->brand_id !== (int) $cluster->brand_id
+            || $cluster->status !== 'active'
+            || blank($cluster->content_target_cluster)) {
+            throw new InvalidArgumentException('Competitor page collection requires an active content-target cluster from the Website Brand.');
+        }
+        $maxUrls = max(1, min(20, $maxUrls));
+
+        return $this->queue(
+            asset: $asset,
+            operationType: AsyncOperationTypes::SEARCH_DEMAND_COMPETITOR_PAGE_COLLECTION,
+            moduleId: AsyncOperationTypes::MODULE_SEARCH_DEMAND_COMPETITOR_PAGE_COLLECTION,
+            humanTitle: 'Competitor page collection',
+            user: $user,
+            jobFactory: fn (Run $run): object => new SearchDemandCompetitorPageCollectionJob($run->id),
+            extraMetadata: [
+                'cluster_id' => $cluster->id,
+                'cluster_name' => $cluster->name,
+                'max_urls' => $maxUrls,
+                'collection_scope' => 'exact_selected_urls_only',
+                'follows_discovered_links' => false,
+            ],
         );
     }
 
@@ -355,6 +392,9 @@ final class AsyncOperationService
         $type = (string) data_get($original->metadata, 'operation_type');
         $findingIds = data_get($original->metadata, 'finding_ids');
         $findingIds = is_array($findingIds) ? array_values(array_map('intval', $findingIds)) : null;
+        $clusterId = data_get($original->metadata, 'cluster_id');
+        $cluster = is_numeric($clusterId) ? SearchDemandCluster::query()->find((int) $clusterId) : null;
+        $maxUrls = (int) data_get($original->metadata, 'max_urls', 10);
 
         $result = match ($type) {
             AsyncOperationTypes::BOUND_COLLECT => $this->queueBoundCollect($asset, $user, [
@@ -362,6 +402,15 @@ final class AsyncOperationService
             ]),
             AsyncOperationTypes::WEBSITE_DIAGNOSIS => $this->queueWebsiteDiagnosis($asset, $user),
             AsyncOperationTypes::PUBLIC_DISCOVERY => $this->queuePublicDiscovery($asset, $user),
+            AsyncOperationTypes::SEARCH_DEMAND_COMPETITOR_PAGE_COLLECTION => $cluster instanceof SearchDemandCluster
+                ? $this->queueSearchDemandCompetitorPageCollection($asset, $cluster, $maxUrls, $user)
+                : [
+                    'ok' => false,
+                    'queued' => false,
+                    'message' => 'The original competitor page collection cluster is unavailable.',
+                    'run' => null,
+                    'existing_run' => null,
+                ],
             AsyncOperationTypes::SEO_INTELLIGENCE_REFRESH => $this->queueSeoIntelligenceRefresh($asset, $user),
             AsyncOperationTypes::WEBSITE_AI_GUIDANCE => $this->queueWebsiteAiGuidance($asset, $user, $findingIds),
             AsyncOperationTypes::GOOGLE_ADS_AI_GUIDANCE => $this->queueGoogleAdsAiGuidance($asset, $user, $findingIds),

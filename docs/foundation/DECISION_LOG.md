@@ -552,6 +552,22 @@
 
 ---
 
+## ADR-056 — Bounded exact-URL competitor page collection and reusable history
+
+- **Durum:** Accepted
+- **Tarih:** 2026-09-04
+- **Bağlam:** Rakip sayfaların başlık, yapı, şema, bağlantı ve hizmet/lokasyon ifadelerini gözlemek gerekir. Ancak SERP'te görülen birkaç URL'den tüm rakip sitesini taramaya geçmek gereksiz trafik ve kontrolsüz kapsam yaratır. Aynı HTML'i her çalışmada tekrar parse edip tam normalize içeriği kopyalamak da geçmişi şişirir.
+- **Karar:**
+  1. Faz 10 yalnız approved Competitor Library kayıtlarının operator-selected content-target cluster ile ilişkili URL'lerini toplar. Seçim URL hash'iyle tekilleştirilir; rakip başına 3, run başına 20 URL ile sınırlıdır.
+  2. Public Discovery'nin SSRF-safe HTTP fetcher'ı aynen kullanılır: her redirect public-IP kontrolünden geçer, timeout/response-size sınırları korunur ve credential gönderilmez. Final URL approved competitor domain'i dışına çıkarsa gözlem fail-closed olur.
+  3. Yalnız seçilmiş exact URL'ler istenir. Sayfadaki iç/dış bağlantılar yapı gözlemi olarak saklanır ama takip edilmez; rakip site çapında crawl, robots veya sitemap expansion yapılmaz.
+  4. Değişen sayfa görünür normalize metin, title/meta, H1–H6, JSON-LD schema summary, bounded iç/dış links ve operator-owned service/location sözlüğünden deterministic expression match üretir.
+  5. Her deneme append-only gözlem geçmişidir. Raw HTML hash aynıysa parsing atlanır; normalize content fingerprint aynıysa yeni satır önceki content observation'a referans verir ve içerik alanlarını kopyalamaz. Failed/unchanged zamanları da last-observed history olarak kalır.
+  6. İşlem canonical async Run/Activity hattında yürür. Faz 10 AI analizi, intent classification, Finding, Recommendation, Task, provider spend veya external write yapmaz; bunlar daha sonraki insan-gated fazlardır.
+- **İlgili:** ADR-013, ADR-018, ADR-023, ADR-045, ADR-046, ADR-053, ADR-055; `OPERATOR_ASYNC_EXECUTION.md`; `docs/product/SEARCH_DEMAND_INTELLIGENCE.md`
+
+---
+
 ## Karar indeksi
 
 | ID | Başlık | Durum |
@@ -611,6 +627,7 @@
 | ADR-053 | Manual paid SERP observations + human-applied cluster validation | Accepted |
 | ADR-054 | Fail-closed URL eligibility + human-owned Page Relevance decisions | Accepted |
 | ADR-055 | Brand-scoped Competitor Library + observation-only discovery | Accepted |
+| ADR-056 | Bounded exact-URL competitor page collection + reusable history | Accepted |
 
 ## Süpercede edilen kararlar
 

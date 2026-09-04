@@ -46,6 +46,11 @@ class SearchDemandCompetitor extends Model
         return $this->hasMany(SearchDemandCompetitorUrl::class);
     }
 
+    public function pageRunItems(): HasMany
+    {
+        return $this->hasMany(SearchDemandCompetitorPageRunItem::class);
+    }
+
     public function services(): BelongsToMany
     {
         return $this->belongsToMany(ServiceCatalogItem::class, 'search_demand_competitor_service')

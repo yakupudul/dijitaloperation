@@ -77,6 +77,11 @@ class SearchDemandCluster extends Model
             ->withPivot('provenance')->withTimestamps();
     }
 
+    public function competitorPageRunItems(): HasMany
+    {
+        return $this->hasMany(SearchDemandCompetitorPageRunItem::class);
+    }
+
     public function mergedInto(): BelongsTo
     {
         return $this->belongsTo(self::class, 'merged_into_cluster_id');

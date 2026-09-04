@@ -485,8 +485,11 @@ Canonical decision: ADR-047. Implementation truth: `PRODUCT_CAPABILITY_LEDGER.md
 - Commercial, SERP and content roles are independent. Business, directory, platform and authority-site kind is a separate operator classification; unknown remains allowed.
 - Approved competitor links to services, Brand Service Areas, content-target clusters, appeared-on queries and observed URLs without creating a Service × Area Cartesian scope. Manual addition is an explicit human approval; pending candidates support individual/bulk review.
 - Competitor page fetch/crawl is Phase 10 and Competitive Intelligence AI is Phase 11. Phase 9 creates no crawl, AI inference, Finding, Recommendation, Task, provider spend or external write.
+- Competitor page collection is a queued, cluster-scoped Phase 10 operation over approved Competitor Library URLs. Selection is deterministic and bounded to 3 URLs per competitor / 20 per run; extracted links are observations and are never followed, so this is not a whole-site crawl.
+- Phase 10 reuses Public Discovery's SSRF-safe bounded HTTP fetcher. It stores normalized text, title/meta/H1/headings, schema summary, bounded internal/external links and deterministic service/location expression matches with observation history.
+- Raw HTML and normalized-content fingerprints detect repeats. Exact raw repeats skip parsing; unchanged normalized content appends a lightweight observation that references the prior content record instead of duplicating it. Phase 10 has no AI, Finding, Recommendation, Task, provider spend or external write.
 
-Canonical decisions: ADR-048, ADR-049, ADR-050, ADR-051, ADR-052, ADR-053, ADR-054 and ADR-055. Canonical product contract: `docs/product/SEARCH_DEMAND_INTELLIGENCE.md`.
+Canonical decisions: ADR-048, ADR-049, ADR-050, ADR-051, ADR-052, ADR-053, ADR-054, ADR-055 and ADR-056. Canonical product contract: `docs/product/SEARCH_DEMAND_INTELLIGENCE.md`.
 
 ---
 

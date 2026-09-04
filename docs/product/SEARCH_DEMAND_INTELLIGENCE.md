@@ -211,6 +211,21 @@ Phase 9 adds one Brand-scoped competitor identity per normalized domain and keep
 
 The Phase 9 screen is `/library/search-demand-competitors`. Phase 9 does not crawl competitor pages, invoke AI, classify page intent, create Findings/Recommendations/Tasks or write externally; those remain later phases.
 
+## Competitor page collection
+
+Phase 10 collects a bounded set of exact URLs from approved competitors linked to one content-target cluster:
+
+- URL selection is deterministic, hash-deduplicated and limited to three URLs per competitor and twenty URLs per run;
+- stored SERP provenance and best observed rank influence selection order, but do not turn the collection into a ranking or commercial-competitor claim;
+- collection runs asynchronously through the canonical Activity/Run flow and reuses the Public Discovery HTTP fetcher, including public-IP checks on every redirect, timeouts, response limits and read-only requests;
+- only selected URLs are requested. Extracted internal and external links are retained as page structure but are never followed, so Phase 10 cannot become a whole-site crawl;
+- HTML is normalized into visible text, title, meta description, H1/H2–H6 headings, JSON-LD schema summary, bounded internal/external links and deterministic service/location expression matches;
+- each observation records HTTP context, raw HTML hash, normalized-content fingerprint and observation time. Exact raw repeats skip parsing; semantically unchanged normalized content reuses the prior content observation rather than duplicating fields;
+- every fetch attempt appends page history, including failed and unchanged observations. A redirect outside the approved competitor domain fails closed;
+- Phase 10 performs no AI analysis, page-intent classification, semantic comparison, Finding, Recommendation, Task, provider spend or external write.
+
+The Phase 10 screen is `/library/search-demand-competitor-pages`. Competitive Intelligence interpretation remains Phase 11.
+
 ## Operator surfaces
 
 - `/library/services`
@@ -221,12 +236,12 @@ The Phase 9 screen is `/library/search-demand-competitors`. Phase 9 does not cra
 - `/library/search-demand-enrichment`
 - `/library/search-demand-ownership`
 - `/library/search-demand-competitors`
+- `/library/search-demand-competitor-pages`
 - simplified Brand create/edit form for services, priorities and multiple service areas
 - Brand Business Context summary for service-area visibility
 
 ## Deferred
 
-- competitor page crawl and page comparison
 - Competitive Intelligence Agent classification and semantic comparison
 - Finding → Recommendation → manual Task → Outcome loop
 

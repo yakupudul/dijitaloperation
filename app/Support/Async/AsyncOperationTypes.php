@@ -13,6 +13,8 @@ final class AsyncOperationTypes
 
     public const string PUBLIC_DISCOVERY = 'public_discovery';
 
+    public const string SEARCH_DEMAND_COMPETITOR_PAGE_COLLECTION = 'search_demand_competitor_page_collection';
+
     public const string SEO_INTELLIGENCE_REFRESH = 'seo_intelligence_refresh';
 
     public const string WEBSITE_AI_GUIDANCE = 'website_ai_guidance';
@@ -32,6 +34,8 @@ final class AsyncOperationTypes
 
     public const string MODULE_PUBLIC_DISCOVERY = 'public-discovery';
 
+    public const string MODULE_SEARCH_DEMAND_COMPETITOR_PAGE_COLLECTION = 'search-demand-competitor-page-collection';
+
     public const string MODULE_SEO_REFRESH = 'seo-intelligence-refresh';
 
     /**
@@ -43,6 +47,7 @@ final class AsyncOperationTypes
             self::BOUND_COLLECT => 'Collect live data',
             self::WEBSITE_DIAGNOSIS => 'Website diagnosis',
             self::PUBLIC_DISCOVERY => 'Public discovery',
+            self::SEARCH_DEMAND_COMPETITOR_PAGE_COLLECTION => 'Competitor page collection',
             self::SEO_INTELLIGENCE_REFRESH => 'SEO intelligence refresh',
             self::WEBSITE_AI_GUIDANCE => 'Website AI guidance',
             self::GOOGLE_ADS_AI_GUIDANCE => 'Google Ads AI guidance',
