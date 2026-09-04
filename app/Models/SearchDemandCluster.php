@@ -60,6 +60,16 @@ class SearchDemandCluster extends Model
         return $this->hasMany(SearchDemandClusterVersion::class);
     }
 
+    public function pageOwnerships(): HasMany
+    {
+        return $this->hasMany(SearchDemandPageOwnership::class);
+    }
+
+    public function pageRelevanceRuns(): HasMany
+    {
+        return $this->hasMany(SearchDemandPageRelevanceRun::class);
+    }
+
     public function mergedInto(): BelongsTo
     {
         return $this->belongsTo(self::class, 'merged_into_cluster_id');

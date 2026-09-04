@@ -13,6 +13,7 @@
         <div class="flex flex-wrap gap-2">
             <a href="{{ route('operator.library.search-demand-clusters', ['brand' => $website?->brand_id]) }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium text-brand-600 ring-1 ring-inset ring-brand-200">Sorgu kümeleri</a>
             <a href="{{ route('operator.library.search-demand-visibility', ['website' => $website?->id]) }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium text-brand-600 ring-1 ring-inset ring-brand-200">Görünürlük haritası</a>
+            <a href="{{ route('operator.library.search-demand-ownership', ['website' => $website?->id]) }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium text-brand-600 ring-1 ring-inset ring-brand-200">URL sahipliği</a>
         </div>
     </div>
 

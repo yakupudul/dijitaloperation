@@ -50,6 +50,19 @@ class SearchDemandServiceProvider extends ServiceProvider
             ],
         ]);
 
+        $this->app->make(AiRouteRegistry::class)->register([
+            'key' => AiRouteKeys::SEARCH_DEMAND_PAGE_RELEVANCE,
+            'name' => 'Search Demand Page Relevance',
+            'module' => 'search_demand',
+            'description' => 'Human-reviewed page-owner and content-type proposals over technically eligible Website page candidates.',
+            'default_steps' => [
+                [
+                    'provider' => AiProviderCatalog::OPENAI,
+                    'model' => AiProviderCatalog::defaultModel(AiProviderCatalog::OPENAI),
+                ],
+            ],
+        ]);
+
         $this->app->make(SkillRegistry::class)->registerRoot(
             'search_demand',
             base_path('resources/search-demand-skills'),

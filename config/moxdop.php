@@ -191,4 +191,13 @@ return [
         'validated_overlap_threshold' => (float) env('MOXDOP_SEARCH_DEMAND_VALIDATED_OVERLAP', 0.30),
         'conflict_overlap_threshold' => (float) env('MOXDOP_SEARCH_DEMAND_CONFLICT_OVERLAP', 0.10),
     ],
+
+    /*
+     * Search Demand Phase 8. Thresholds classify review candidates only;
+     * they never apply URL ownership without an operator decision.
+     */
+    'search_demand_page_ownership' => [
+        'max_candidates' => (int) env('MOXDOP_SEARCH_DEMAND_PAGE_MAX_CANDIDATES', 20),
+        'dominance_threshold' => (float) env('MOXDOP_SEARCH_DEMAND_PAGE_DOMINANCE', 0.60),
+    ],
 ];

@@ -71,6 +71,7 @@ use App\Livewire\Operator\Library\BrandQueryPortfolioPage;
 use App\Livewire\Operator\Library\SearchDemandClustersPage;
 use App\Livewire\Operator\Library\SearchDemandVisibilityMapPage;
 use App\Livewire\Operator\Library\SearchDemandEnrichmentPage;
+use App\Livewire\Operator\Library\SearchDemandPageOwnershipPage;
 use App\Livewire\Operator\Meta\OverviewPage as MetaOverviewPage;
 use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Support\Work\WorkUrl;
@@ -96,6 +97,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/library/search-demand-clusters', SearchDemandClustersPage::class)->name('operator.library.search-demand-clusters');
         Route::livewire('/library/search-demand-visibility', SearchDemandVisibilityMapPage::class)->name('operator.library.search-demand-visibility');
         Route::livewire('/library/search-demand-enrichment', SearchDemandEnrichmentPage::class)->name('operator.library.search-demand-enrichment');
+        Route::livewire('/library/search-demand-ownership', SearchDemandPageOwnershipPage::class)->name('operator.library.search-demand-ownership');
 
         Route::livewire('/assets', AssetsIndex::class)->name('operator.assets');
         Route::livewire('/assets/create', AssetCreate::class)->name('operator.asset.create');

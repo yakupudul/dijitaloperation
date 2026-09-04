@@ -29,4 +29,6 @@ final class AiRouteKeys
     public const string SEARCH_DEMAND_LIBRARIAN = 'search_demand.librarian';
 
     public const string SEARCH_DEMAND_CLUSTERING = 'search_demand.clustering';
+
+    public const string SEARCH_DEMAND_PAGE_RELEVANCE = 'search_demand.page_relevance';
 }

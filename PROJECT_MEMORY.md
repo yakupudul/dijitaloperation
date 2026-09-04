@@ -475,9 +475,13 @@ Canonical decision: ADR-047. Implementation truth: `PRODUCT_CAPABILITY_LEDGER.md
 - Exact query/market/language/device/depth fingerprints reuse fresh SERP and keyword-metric observations. Every paid POST receives a durable pre-call marker, one queue attempt and fail-closed `CHARGE_UNKNOWN` handling when commit cannot be proven.
 - DataForSEO search volume, CPC, competition and monthly trend are provider estimates and remain distinct from measured GSC/GA4 facts. Missing estimates remain unknown. Configured pre-call USD values are estimates; provider-reported cost is separate provenance.
 - Optional DataForSEO query expansion creates review candidates only. Operator approval may add and activate a Brand Portfolio query; no automatic cluster membership, global promotion or Finding/Task follows.
-- Observed exact-URL SERP overlap creates a threshold-provenanced cluster validation recommendation. Only human approval applies `serp_validated`, `serp_conflict` or `review_required`; URL ownership remains Phase 8.
+- Observed exact-URL SERP overlap creates a threshold-provenanced cluster validation recommendation. Only human approval applies `serp_validated`, `serp_conflict` or `review_required`; that Phase 7 action never changes the separate Phase 8 URL ownership decision.
+- URL ownership is a versioned human decision at Website + content-target-cluster grain. Candidate generation reads existing Website Page Projection, GSC query–page facts and stored SERP Brand URLs; it does not create a second metrics warehouse.
+- The URL technical gate is fail-closed: only a same-Website public page with observed 2xx HTTP, no observed `noindex`, no canonical to another URL, matching observed language and an allowed content URL type may be proposed or verified. Missing gate evidence remains `unknown`.
+- Two-period GSC leader changes and split visibility produce wrong-URL/cannibalization review candidates only. Page Relevance AI receives a bounded evidence pack, proposes at most one eligible page or abstains, and cannot change ownership.
+- Human approval rechecks the live gate, records decision-time evidence and may lock ownership. Redirect, deletion, merge, new page/content, Finding, Recommendation, Task, provider spend and external write never follow automatically.
 
-Canonical decisions: ADR-048, ADR-049, ADR-050, ADR-051, ADR-052 and ADR-053. Canonical product contract: `docs/product/SEARCH_DEMAND_INTELLIGENCE.md`.
+Canonical decisions: ADR-048, ADR-049, ADR-050, ADR-051, ADR-052, ADR-053 and ADR-054. Canonical product contract: `docs/product/SEARCH_DEMAND_INTELLIGENCE.md`.
 
 ---
 

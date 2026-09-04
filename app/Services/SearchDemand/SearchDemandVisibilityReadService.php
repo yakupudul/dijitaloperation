@@ -7,6 +7,7 @@ use App\Models\DigitalAsset;
 use App\Models\IntelligenceCore\IntelligenceSearchTermAlias;
 use App\Models\IntelligenceProjection\WebsitePageProfile;
 use App\Models\SearchDemandKeywordMetricSnapshot;
+use App\Models\SearchDemandPageOwnership;
 use App\Models\SearchDemandSerpSnapshot;
 use App\Services\Ga4\Ga4SpecialistBindingResolver;
 use App\Services\Gsc\GscSpecialistBindingResolver;
@@ -45,6 +46,7 @@ final class SearchDemandVisibilityReadService
         $queryMap = $this->queryTextMap($items, $gsc->externalResourceId);
         $serpByItem = $this->latestSerp($website, $items);
         $metricByItem = $this->latestMetrics($website, $items);
+        $ownershipByCluster = $this->ownershipByCluster($website, $items);
 
         $currentRelations = $this->gscRelations(
             $gsc->isReal() ? $gsc->externalResourceId : null,
@@ -105,6 +107,27 @@ final class SearchDemandVisibilityReadService
         }
 
         $rows = collect($rows)
+            ->map(function (array $row) use ($ownershipByCluster): array {
+                $clusterId = data_get($row, 'cluster.id');
+                $ownership = is_numeric($clusterId) ? $ownershipByCluster->get((int) $clusterId) : null;
+                $row['ownership'] = $ownership instanceof SearchDemandPageOwnership ? [
+                    'status' => $ownership->status,
+                    'target_url' => $ownership->target_url,
+                    'page_profile_id' => $ownership->website_page_profile_id,
+                    'is_locked' => $ownership->is_locked,
+                    'decision_source' => $ownership->decision_source,
+                    'verified_at' => $ownership->verified_at?->toIso8601String(),
+                ] : [
+                    'status' => 'unassigned',
+                    'target_url' => null,
+                    'page_profile_id' => null,
+                    'is_locked' => false,
+                    'decision_source' => null,
+                    'verified_at' => null,
+                ];
+
+                return $row;
+            })
             ->when(($filters['observation'] ?? 'all') === 'observed', fn (Collection $rows) => $rows->where('observed', true))
             ->when(($filters['observation'] ?? 'all') === 'unobserved', fn (Collection $rows) => $rows->where('observed', false))
             ->sortByDesc(fn (array $row): int => $row['current']['impressions'] ?? -1)
@@ -141,6 +164,11 @@ final class SearchDemandVisibilityReadService
                     'serp_query_count' => $serpByItem->count(),
                     'metric_query_count' => $metricByItem->count(),
                     'source' => 'search_demand_serp_snapshots + search_demand_keyword_metric_snapshots',
+                ],
+                'url_ownership' => [
+                    'state' => $ownershipByCluster->isEmpty() ? 'unobserved' : 'available',
+                    'cluster_count' => $ownershipByCluster->count(),
+                    'source' => 'search_demand_page_ownerships',
                 ],
             ],
             'truncated' => $rows->count() > 500,
@@ -442,6 +470,24 @@ final class SearchDemandVisibilityReadService
             ->keyBy('brand_query_portfolio_item_id');
     }
 
+    /** @param Collection<int, BrandQueryPortfolioItem> $items @return Collection<int, SearchDemandPageOwnership> */
+    private function ownershipByCluster(DigitalAsset $website, Collection $items): Collection
+    {
+        if (! Schema::hasTable('search_demand_page_ownerships')) {
+            return collect();
+        }
+        $clusterIds = $items->pluck('clusterMembership.search_demand_cluster_id')->filter()->unique();
+        if ($clusterIds->isEmpty()) {
+            return collect();
+        }
+
+        return SearchDemandPageOwnership::query()
+            ->where('digital_asset_id', $website->id)
+            ->whereIn('search_demand_cluster_id', $clusterIds)
+            ->get()
+            ->keyBy('search_demand_cluster_id');
+    }
+
     /** @param Collection<int, array<string, mixed>> $rows @param Collection<int, BrandQueryPortfolioItem> $items */
     private function summary(Collection $rows, Collection $items): array
     {
@@ -473,6 +519,8 @@ final class SearchDemandVisibilityReadService
                     'url_count' => $observed->pluck('url_key')->filter()->unique()->count(),
                     'clicks' => $observed->isEmpty() ? null : $observed->sum('current.clicks'),
                     'impressions' => $observed->isEmpty() ? null : $observed->sum('current.impressions'),
+                    'ownership_status' => data_get($clusterRows->first(), 'ownership.status', 'unassigned'),
+                    'target_url' => data_get($clusterRows->first(), 'ownership.target_url'),
                 ];
             })
             ->sortByDesc(fn (array $row): int => $row['impressions'] ?? -1)

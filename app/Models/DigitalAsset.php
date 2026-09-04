@@ -127,6 +127,18 @@ class DigitalAsset extends Model
         return $this->hasMany(BrandQueryPortfolioAsset::class);
     }
 
+    /** @return HasMany<SearchDemandPageOwnership, $this> */
+    public function searchDemandPageOwnerships(): HasMany
+    {
+        return $this->hasMany(SearchDemandPageOwnership::class);
+    }
+
+    /** @return HasMany<SearchDemandPageRelevanceRun, $this> */
+    public function searchDemandPageRelevanceRuns(): HasMany
+    {
+        return $this->hasMany(SearchDemandPageRelevanceRun::class);
+    }
+
     /**
      * @return HasMany<Recommendation, $this>
      */

@@ -2,7 +2,7 @@
 
 ## Status
 
-**PHASES 1–7 CODE COMPLETE / TEST AND OPERATOR UAT NOT RUN**
+**PHASES 1–8 CODE COMPLETE / TEST AND OPERATOR UAT NOT RUN**
 
 This document defines the shared commercial context and reusable Search Query Library that later Website search-demand, SERP, content-ownership and competitor analysis will consume.
 
@@ -176,6 +176,23 @@ Observed pairwise exact-URL Jaccard overlap over the first ten organic results c
 
 The Phase 7 screen is `/library/search-demand-enrichment`. Creating a Brand, importing queries, opening the page or rendering a plan cannot trigger a provider call.
 
+## URL ownership and Page Relevance
+
+Phase 8 adds one human-governed URL ownership decision per Website and content-target cluster:
+
+- candidate pages come from the existing Website Page Projection and are bounded to 20 records per review;
+- first-party GSC query–page observations, point-in-time Brand SERP URLs, the current human owner and deterministic title/H1/slug term matches are retained as separate candidate sources;
+- the technical gate requires the same Website, a public page observation, successful 2xx HTTP, no observed `noindex`, no canonical to another URL, an observed matching language and an allowed content URL type;
+- attachment/system URLs and pagination are ineligible. Archive/category pages are allowed only when the cluster explicitly targets that content type;
+- missing technical evidence produces `unknown`, never a silent pass. Only `eligible` pages can be proposed or human-verified as owner;
+- two-period GSC leader changes or visibility split below the configured dominance threshold produce a cannibalization **review candidate**, not a proven diagnosis;
+- a current GSC leader different from a verified target produces a wrong-URL candidate. The system does not decide whether Google or the prior target decision is wrong;
+- the queued Page Relevance Skill compares only supplied eligible pages with cluster/query context and may propose at most one owner, abstain, or suggest improve/new service page/blog/FAQ/merge review;
+- AI output remains a proposal. Human approval rechecks the live technical gate, records the owner and evidence snapshot, and may lock it. Locked ownership cannot be changed until a human unlocks it;
+- ownership and lock changes append immutable versions. No redirect, deletion, merge, page creation, Finding, Recommendation, Task, provider spend or external write follows automatically.
+
+The Phase 8 screen is `/library/search-demand-ownership`. The Phase 6 Visibility Map reads the verified target/status without copying GSC, SERP or Website facts into the ownership record beyond the decision-time evidence snapshot.
+
 ## Operator surfaces
 
 - `/library/services`
@@ -184,12 +201,12 @@ The Phase 7 screen is `/library/search-demand-enrichment`. Creating a Brand, imp
 - `/library/search-demand-clusters`
 - `/library/search-demand-visibility`
 - `/library/search-demand-enrichment`
+- `/library/search-demand-ownership`
 - simplified Brand create/edit form for services, priorities and multiple service areas
 - Brand Business Context summary for service-area visibility
 
 ## Deferred
 
-- URL ownership decisions
 - competitor library, crawl and page comparison (SERP result URLs remain observations only)
 - Finding → Recommendation → manual Task → Outcome loop
 

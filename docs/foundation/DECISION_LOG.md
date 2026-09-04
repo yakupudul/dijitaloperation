@@ -520,6 +520,22 @@
 
 ---
 
+## ADR-054 — Fail-closed URL eligibility and human-owned Page Relevance decisions
+
+- **Durum:** Accepted
+- **Tarih:** 2026-09-04
+- **Bağlam:** Bir Search Demand içerik kümesini Website URL'sine bağlamak gerekir; ancak GSC'de görünen veya SERP'te sıralanan URL'yi otomatik hedef kabul etmek intended ownership ile observed visibility'yi karıştırır. İki URL'nin görünmesi de tek başına cannibalization kanıtı değildir. AI'nin teknik olarak uygunsuz sayfayı önermesi veya redirect/silme uygulaması insan karar sınırını ihlal eder.
+- **Karar:**
+  1. URL ownership, Website + content-target-cluster grain'inde tek, sürümlü ve insan yönetimli karardır. Kilitli insan kararı yeni analizlerle otomatik değişmez.
+  2. Adaylar mevcut Website Page Projection'dan gelir ve bir review'da 20 ile sınırlıdır. GSC dönem gözlemi, saklı SERP Brand URL'si, mevcut owner ve semantik ön seçim ayrı provenance olarak kalır; performans ownership tablolarına kopyalanan yeni warehouse olmaz.
+  3. Teknik kapı fail-closed çalışır: aynı Website, public gözlem, 2xx HTTP, observed `noindex` yokluğu, başka URL'ye canonical olmama, observed dil eşleşmesi ve izinli içerik URL türü gerekir. Missing kanıt `unknown` olur; yalnız `eligible` URL önerilebilir veya doğrulanabilir.
+  4. İki dönem arasında GSC lider URL değişimi veya configured dominance eşiğinin altındaki parçalanma yalnız wrong-URL/cannibalization review candidate üretir. Algoritma cannibalization veya hangi kararın yanlış olduğunu kesinleştirmez.
+  5. Page Relevance AI queued ve exact-fingerprint cached evidence pack üzerinde yalnız semantik uyum yorumlar; en fazla bir eligible owner önerir veya abstain eder. AI çıktısı ownership truth değildir.
+  6. İnsan onayı anlık teknik kapıyı tekrar çalıştırır, evidence snapshot ve version kaydeder ve isteğe bağlı kilit uygular. Redirect, delete, merge, page/content creation, Finding, Recommendation, Task, provider spend ve external write otomatik değildir.
+- **İlgili:** ADR-018, ADR-023, ADR-046, ADR-047, ADR-050, ADR-051, ADR-052, ADR-053; `OPERATOR_ASYNC_EXECUTION.md`; `docs/product/SEARCH_DEMAND_INTELLIGENCE.md`
+
+---
+
 ## Karar indeksi
 
 | ID | Başlık | Durum |
@@ -577,6 +593,7 @@
 | ADR-051 | Human-governed layered Search Demand clusters | Accepted |
 | ADR-052 | Read-only Query–URL Visibility Map over canonical facts | Accepted |
 | ADR-053 | Manual paid SERP observations + human-applied cluster validation | Accepted |
+| ADR-054 | Fail-closed URL eligibility + human-owned Page Relevance decisions | Accepted |
 
 ## Süpercede edilen kararlar
 
