@@ -600,6 +600,22 @@
 
 ---
 
+## ADR-059 — Search Demand change verification uses Task Outcome as the only result truth
+
+- **Durum:** Accepted
+- **Tarih:** 2026-09-04
+- **Bağlam:** Faz 13 uygulanan Website değişikliğini eski/yeni HTML, ilgili sayfa ailesi ve GSC/GA4/SERP dönemleriyle izlemelidir. Ayrı bir Result/Outcome entity açmak ADR-036'yı; AI veya metrik hareketiyle doğrudan Finding/Task değiştirmek insan otoritesi ve nedensellik sınırını ihlal eder. Hedefli yeniden tarama yeni bir crawler veya otomatik ücretli sağlayıcı çağrısı üretmemelidir.
+- **Karar:**
+  1. `search_demand_change_trackings` uygulanmış değişikliğin audit/provenance kaydıdır; sonuç gerçeği değildir. Current Outcome yalnız mevcut Task `outcome_*` alanlarında tutulur ve ayrı Result/Outcome tablosu açılmaz.
+  2. Kayıt yalnız human-approved Faz 12 proposal → canonical Recommendation → manuel oluşturulmuş ve tamamlanmış Task zincirinden açılır. Uygulama özeti, affected Website URLs/query clusters, application/review dates ve pre-change HTML fingerprints saklanır.
+  3. Post-change collection mevcut shared Website Public Crawl ile exact affected URLs + bounded related page family üzerinde çalışır; 100 URL üst sınırı vardır. Faz 13 DataForSEO çağırmaz, full-site crawl yapmaz ve CMS/Website/external write gerçekleştirmez.
+  4. Collection-linked post-change HTML fingerprints trusted code ile alınır. Missing title/H1/meta/internal-link koşulları deterministik yeniden değerlendirilir. Diğer semantic condition'lar stored before/after evidence kullanan Website Change Verification Analyst tarafından yalnız proposal olarak yorumlanır.
+  5. GSC query-page ve GA4 landing-page facts explicit pre/post periods ile; SERP rank ise yalnız mevcut stored snapshots ile karşılaştırılır. Missing coverage `insufficient_data`, premature window `too_early` kalır. Hiçbir visibility movement causality ispatı sayılmaz.
+  6. Exact input + Agent + Skill + route fingerprint equivalent verification'ı reuse eder. İnsan accept işlemi Task Outcome'u günceller ve yalnız resolved/still-observed kararı varsa canonical FindingEvaluation ekler; reject hiçbir canonical truth değiştirmez.
+- **İlgili:** ADR-013, ADR-018, ADR-023, ADR-025, ADR-029, ADR-034, ADR-036, ADR-046, ADR-052, ADR-053, ADR-058; `OPERATOR_ASYNC_EXECUTION.md`; `docs/product/OPERATIONAL_OUTCOME_LOOP.md`; `docs/product/SEARCH_DEMAND_INTELLIGENCE.md`
+
+---
+
 ## Karar indeksi
 
 | ID | Başlık | Durum |
@@ -662,6 +678,7 @@
 | ADR-056 | Bounded exact-URL competitor page collection + reusable history | Accepted |
 | ADR-057 | Evidence-bounded Competitive Intelligence + review-only analysis | Accepted |
 | ADR-058 | Human-gated Search Demand Finding + Recommendation promotion | Accepted |
+| ADR-059 | Search Demand change verification + Task Outcome truth | Accepted |
 
 ## Süpercede edilen kararlar
 

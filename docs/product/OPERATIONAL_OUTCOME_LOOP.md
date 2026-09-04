@@ -1,4 +1,4 @@
-# Operational Outcome Loop V1
+# Operational Outcome Loop V1 + Search Demand Phase 13
 
 > **STATUS: IMPLEMENTED V1**  
 > Authority: `MASTER_SPEC` → ADR-025 / ADR-029 / ADR-034 / ADR-036 → this doc.  
@@ -35,8 +35,15 @@ Stored on `tasks.outcome_status` (no Result / Outcome entity or table):
 | `regression_observed` | Improvement was observed earlier; same stable Finding later reopened |
 | `insufficient_evidence` | Relevant follow-up attempt existed but was not successful/complete enough |
 | `not_evaluable` | Insufficient auditable Finding provenance |
+| `technically_fixed` | Human-accepted post-change HTML observation no longer contains the original deterministic technical condition |
+| `content_change_verified` | Human accepted the stored before/after semantic verification of the intended change |
+| `visibility_increased` | Comparable stored GSC/SERP visibility observations increased; no causal claim |
+| `visibility_decreased` | Comparable stored GSC/SERP visibility observations decreased; no causal claim |
+| `no_change_observed` | Comparable observations show no consistent direction |
+| `too_early` | The configured review-after time has not arrived |
+| `insufficient_data` | Stored post-change evidence or comparable periods are missing |
 
-Evaluator version: `finding-lifecycle-outcome-v1` (stored in `outcome_json.version`).
+Evaluator versions: `finding-lifecycle-outcome-v1` for the generic loop and `search-demand-change-outcome-v1` for Phase 13 (stored in `outcome_json.version`).
 
 ---
 
@@ -90,20 +97,33 @@ Optional `outcome_review_after_at` delays eligibility when immediate follow-up d
 
 ---
 
-## Explicit non-goals (V1)
+## Search Demand Phase 13 extension
+
+For completed Tasks promoted from an approved Phase 12 proposal, `/library/search-demand-changes` records the implementation and coordinates:
+
+1. baseline HTML fingerprint capture;
+2. exact affected-URL plus bounded page-family Public Crawl;
+3. collection-linked post-change fingerprint capture and deterministic technical recheck;
+4. review-only AI semantic before/after verification;
+5. stored GSC, GA4 and SERP period comparison;
+6. explicit human acceptance before Task Outcome and Finding lifecycle updates.
+
+The Phase 13 tables are audit/provenance records for applied changes and verification attempts. They are not a second Outcome truth. Current Outcome remains on Task, and no provider/CMS write is introduced.
+
+## Explicit non-goals
 
 - No Result entity / Result table / Outcome table / task_outcome_events
 - No automatic Task creation
 - No automatic external actions / Google Ads writes / Website writes
-- No AI Outcome classification
+- No autonomous AI Outcome decision; Phase 13 AI output requires human acceptance
 - No Capability Router / Playbook runtime / RAG / learned-memory automation
-- No module-specific metric Outcome engines (SEO traffic, CPA, ROAS, rankings)
+- No causal attribution, automatic paid SERP refresh or generic cross-module metric Outcome engine
 
 ---
 
 ## Future (PLANNED — not implemented)
 
-- Module-specific Outcome Signals comparing bounded Watch Metrics (before/after, measurement window) where metrics are genuinely comparable
+- Additional module-specific Outcome Signals beyond Search Demand
 - Learning Candidates promoted from trustworthy Outcomes
 - Playbooks orchestrating multiple Tasks/Agents
 - Digital Operations Analyst interpreting Outcomes with AI

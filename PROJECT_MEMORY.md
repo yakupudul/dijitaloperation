@@ -496,8 +496,12 @@ Canonical decision: ADR-047. Implementation truth: `PRODUCT_CAPABILITY_LEDGER.md
 - Every Phase 12 semantic proposal carries Agent/Skill/route provenance, exact analysis/observation/competitor references, evidence confidence, rationale, verification steps, one bounded action type and a non-publishable content brief. `insufficient_evidence` and abstention remain non-promotable states.
 - Human acceptance is the only Phase 12 promotion path. It publishes canonical derived Evidence, attaches it to a Finding evaluation, writes/reconfirms the existing canonical Finding and creates a Finding-sourced Recommendation through the existing writer. It never creates a second Finding/Recommendation model.
 - Recommendation → Task remains a separate explicit operator action. Phase 12 never creates a Task, changes URL ownership, publishes content, mutates a Website or writes externally. Change/result measurement remains Phase 13.
+- Search Demand Phase 13 starts only from a completed Task linked to a human-approved Phase 12 proposal. The applied-change record stores affected URLs/clusters, application and review dates, and pre/post HTML fingerprints; it is provenance, not a separate Result entity.
+- Targeted verification uses the shared read-only Website Public Crawl for exact affected URLs plus at most 99 matching page-family URLs. It never starts DataForSEO or performs a Website/CMS write.
+- Deterministic technical rechecks, stored GSC/GA4 periods, stored pre/post SERP snapshots and a bounded Website Change Verification AI proposal remain separate components. Missing observations stay insufficient, and metric movement never becomes causal attribution.
+- Phase 13 AI output is review-only. Human acceptance is required before the existing Task `outcome_*` fields change or a resolved/reconfirmed FindingEvaluation is appended. Task remains the only current Outcome truth; no Result/Outcome table exists.
 
-Canonical decisions: ADR-048, ADR-049, ADR-050, ADR-051, ADR-052, ADR-053, ADR-054, ADR-055, ADR-056, ADR-057 and ADR-058. Canonical product contract: `docs/product/SEARCH_DEMAND_INTELLIGENCE.md`.
+Canonical decisions: ADR-048, ADR-049, ADR-050, ADR-051, ADR-052, ADR-053, ADR-054, ADR-055, ADR-056, ADR-057, ADR-058 and ADR-059. Canonical product contract: `docs/product/SEARCH_DEMAND_INTELLIGENCE.md`.
 
 ---
 

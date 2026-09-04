@@ -49,6 +49,7 @@ final class DemoMenu
                     ['label' => app()->getLocale() === 'tr' ? 'Rakip Kütüphanesi' : 'Competitor Library', 'route' => 'operator.library.search-demand-competitors', 'icon' => 'search'],
                     ['label' => app()->getLocale() === 'tr' ? 'Rakip Analizi' : 'Competitive Intelligence', 'route' => 'operator.library.search-demand-competitive-intelligence', 'icon' => 'activity'],
                     ['label' => app()->getLocale() === 'tr' ? 'Bulgu ve Öneriler' : 'Findings & Recommendations', 'route' => 'operator.library.search-demand-improvements', 'icon' => 'findings'],
+                    ['label' => app()->getLocale() === 'tr' ? 'Değişiklik Takibi' : 'Change Tracking', 'route' => 'operator.library.search-demand-changes', 'icon' => 'tasks'],
                 ],
             ],
             [

@@ -265,6 +265,24 @@ Phase 12 does not browse, collect new evidence, change URL ownership, publish co
 
 The Phase 12 screen is `/library/search-demand-improvements`; accepted Recommendations continue through the canonical `/recommendations` operator screen.
 
+## Change and Outcome tracking
+
+Phase 13 closes the Search Demand execution loop without introducing a separate Result entity:
+
+- an implementation record can be opened only for a completed Task that came from a human-approved Phase 12 proposal;
+- the record keeps the implementation summary, affected Website URLs, affected query-cluster IDs, application/review dates and the latest stored pre-change HTML fingerprint per URL;
+- a separate operator action starts a read-only Public Crawl for the exact affected URLs plus bounded matching Website page-family members, capped at 100 URLs. It does not invoke DataForSEO, publish content or follow this feature into a whole-site crawl;
+- after the targeted CollectionRun is complete or partial, a queued verification captures collection-linked post-change HTML fingerprints and rechecks missing title, H1, meta description and observed internal-link conditions deterministically;
+- wrong-URL, cannibalization and semantic findings remain non-deterministic. The Website Change Verification Analyst compares only checksum-valid stored before/after observations and proposes whether content changed, the intended change is observable, and the original condition appears resolved, still observed or unclear;
+- GSC query–page and GA4 landing-page facts are compared across explicit pre/post periods for affected URLs and the affected cluster. Stored SERP snapshots before/after application are compared separately; Phase 13 never triggers paid SERP collection;
+- missing source binding, absent rows or unmatched periods remain `insufficient_data`, not zero. If `review_after_at` has not arrived, the overall proposal is `too_early` even though technical components can already be inspected;
+- the exact before/after evidence, Agent, Skill and AI route fingerprint reuses an equivalent run. AI output is review-only and cannot mutate Task or Finding truth;
+- operator acceptance writes the selected signal to the existing Task `outcome_*` fields. A resolved/still-observed Finding evaluation is appended only after this human gate. Rejection changes no Task Outcome or Finding lifecycle state;
+- supported Phase 13 Task Outcome signals are `technically_fixed`, `content_change_verified`, `visibility_increased`, `visibility_decreased`, `no_change_observed`, `too_early` and `insufficient_data`;
+- visibility movement is explicitly observational (`causal_attribution: false`) and is never proof that the recorded implementation caused the movement.
+
+The Phase 13 screen is `/library/search-demand-changes`.
+
 ## Operator surfaces
 
 - `/library/services`
@@ -278,12 +296,13 @@ The Phase 12 screen is `/library/search-demand-improvements`; accepted Recommend
 - `/library/search-demand-competitor-pages`
 - `/library/search-demand-competitive-intelligence`
 - `/library/search-demand-improvements`
+- `/library/search-demand-changes`
 - simplified Brand create/edit form for services, priorities and multiple service areas
 - Brand Business Context summary for service-area visibility
 
 ## Deferred
 
-- Phase 13 change/result measurement after manual Task execution
+- causal experiments, automatic CMS publication, automatic redirects/deletions and automatic paid SERP refreshes
 
 ## Safety
 

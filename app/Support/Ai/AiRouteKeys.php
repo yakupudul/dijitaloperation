@@ -35,4 +35,6 @@ final class AiRouteKeys
     public const string SEARCH_DEMAND_COMPETITIVE_INTELLIGENCE = 'search_demand.competitive_intelligence';
 
     public const string SEARCH_DEMAND_WEBSITE_IMPROVEMENT = 'search_demand.website_improvement';
+
+    public const string SEARCH_DEMAND_CHANGE_VERIFICATION = 'search_demand.change_verification';
 }

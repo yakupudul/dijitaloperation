@@ -14,8 +14,10 @@ use App\Jobs\Async\WebsiteDiagnosisJob;
 use App\Models\DigitalAsset;
 use App\Models\Run;
 use App\Models\SearchDemandCluster;
+use App\Models\SearchDemandChangeTracking;
 use App\Models\User;
 use App\Services\SearchDemand\SearchDemandCompetitiveIntelligenceService;
+use App\Services\SearchDemand\SearchDemandChangeTrackingService;
 use App\Services\SearchDemand\SearchDemandWebsiteImprovementService;
 use App\Support\Async\AsyncFailureClassifier;
 use App\Support\Async\AsyncOperationTypes;
@@ -397,6 +399,8 @@ final class AsyncOperationService
         $clusterId = data_get($original->metadata, 'cluster_id');
         $cluster = is_numeric($clusterId) ? SearchDemandCluster::query()->find((int) $clusterId) : null;
         $maxUrls = (int) data_get($original->metadata, 'max_urls', 10);
+        $changeTrackingId = data_get($original->metadata, 'change_tracking_id');
+        $changeTracking = is_numeric($changeTrackingId) ? SearchDemandChangeTracking::query()->find((int) $changeTrackingId) : null;
 
         $result = match ($type) {
             AsyncOperationTypes::BOUND_COLLECT => $this->queueBoundCollect($asset, $user, [
@@ -428,6 +432,15 @@ final class AsyncOperationService
                     'ok' => false,
                     'queued' => false,
                     'message' => 'The original Website Improvement cluster is unavailable.',
+                    'run' => null,
+                    'existing_run' => null,
+                ],
+            AsyncOperationTypes::SEARCH_DEMAND_CHANGE_VERIFICATION => $changeTracking instanceof SearchDemandChangeTracking
+                ? $this->retryChangeVerification($changeTracking, $user)
+                : [
+                    'ok' => false,
+                    'queued' => false,
+                    'message' => 'The original change-tracking record is unavailable.',
                     'run' => null,
                     'existing_run' => null,
                 ],
@@ -491,6 +504,23 @@ final class AsyncOperationService
             'message' => $result['cached']
                 ? 'An equivalent completed Website Improvement run already exists.'
                 : ($result['queued'] ? 'Website Improvement planning queued.' : 'Website Improvement planning is already active.'),
+            'run' => $result['queued'] ? $activity : null,
+            'existing_run' => $result['queued'] ? null : $activity,
+        ];
+    }
+
+    /** @return array{ok: bool, queued: bool, message: string, run: ?Run, existing_run: ?Run} */
+    private function retryChangeVerification(SearchDemandChangeTracking $tracking, ?User $user): array
+    {
+        $result = app(SearchDemandChangeTrackingService::class)->queueVerification($tracking, $user);
+        $activity = $result['run']->activityRun;
+
+        return [
+            'ok' => true,
+            'queued' => $result['queued'],
+            'message' => $result['cached']
+                ? 'An equivalent completed change verification already exists.'
+                : ($result['queued'] ? 'Change verification queued.' : 'Change verification is already active.'),
             'run' => $result['queued'] ? $activity : null,
             'existing_run' => $result['queued'] ? null : $activity,
         ];

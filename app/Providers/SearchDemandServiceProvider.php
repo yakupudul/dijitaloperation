@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Agents\CompetitiveIntelligenceAnalyst;
 use App\Agents\SearchIntelligenceAnalyst;
 use App\Agents\WebsiteImprovementAnalyst;
+use App\Agents\WebsiteChangeVerificationAnalyst;
 use App\Contracts\SearchDemand\SearchDemandSerpEnrichmentAdapter;
 use App\Services\SearchDemand\DataForSeoSearchDemandEnrichmentAdapter;
 use App\Support\Agents\AgentProfileRegistry;
@@ -91,6 +92,19 @@ class SearchDemandServiceProvider extends ServiceProvider
             ],
         ]);
 
+        $this->app->make(AiRouteRegistry::class)->register([
+            'key' => AiRouteKeys::SEARCH_DEMAND_CHANGE_VERIFICATION,
+            'name' => 'Search Demand Change Verification',
+            'module' => 'search_demand',
+            'description' => 'Human-reviewed semantic verification of stored before-and-after Website change evidence.',
+            'default_steps' => [
+                [
+                    'provider' => AiProviderCatalog::OPENAI,
+                    'model' => AiProviderCatalog::defaultModel(AiProviderCatalog::OPENAI),
+                ],
+            ],
+        ]);
+
         $this->app->make(SkillRegistry::class)->registerRoot(
             'search_demand',
             base_path('resources/search-demand-skills'),
@@ -104,6 +118,9 @@ class SearchDemandServiceProvider extends ServiceProvider
         );
         $this->app->make(AgentProfileRegistry::class)->register(
             WebsiteImprovementAnalyst::definition(),
+        );
+        $this->app->make(AgentProfileRegistry::class)->register(
+            WebsiteChangeVerificationAnalyst::definition(),
         );
     }
 }

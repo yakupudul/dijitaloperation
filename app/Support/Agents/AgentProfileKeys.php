@@ -31,4 +31,6 @@ final class AgentProfileKeys
     public const string SEARCH_DEMAND_COMPETITIVE_INTELLIGENCE_ANALYST = 'search_demand.competitive_intelligence_analyst';
 
     public const string SEARCH_DEMAND_WEBSITE_IMPROVEMENT_ANALYST = 'search_demand.website_improvement_analyst';
+
+    public const string SEARCH_DEMAND_CHANGE_VERIFICATION_ANALYST = 'search_demand.change_verification_analyst';
 }
