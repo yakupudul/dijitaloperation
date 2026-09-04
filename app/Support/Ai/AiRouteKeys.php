@@ -31,4 +31,6 @@ final class AiRouteKeys
     public const string SEARCH_DEMAND_CLUSTERING = 'search_demand.clustering';
 
     public const string SEARCH_DEMAND_PAGE_RELEVANCE = 'search_demand.page_relevance';
+
+    public const string SEARCH_DEMAND_COMPETITIVE_INTELLIGENCE = 'search_demand.competitive_intelligence';
 }

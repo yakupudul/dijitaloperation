@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Agents\CompetitiveIntelligenceAnalyst;
 use App\Agents\SearchIntelligenceAnalyst;
 use App\Contracts\SearchDemand\SearchDemandSerpEnrichmentAdapter;
 use App\Services\SearchDemand\DataForSeoSearchDemandEnrichmentAdapter;
@@ -63,6 +64,19 @@ class SearchDemandServiceProvider extends ServiceProvider
             ],
         ]);
 
+        $this->app->make(AiRouteRegistry::class)->register([
+            'key' => AiRouteKeys::SEARCH_DEMAND_COMPETITIVE_INTELLIGENCE,
+            'name' => 'Search Demand Competitive Intelligence',
+            'module' => 'search_demand',
+            'description' => 'Evidence-bounded competitor-page and verified Brand-page comparison with review-only differentiation proposals.',
+            'default_steps' => [
+                [
+                    'provider' => AiProviderCatalog::OPENAI,
+                    'model' => AiProviderCatalog::defaultModel(AiProviderCatalog::OPENAI),
+                ],
+            ],
+        ]);
+
         $this->app->make(SkillRegistry::class)->registerRoot(
             'search_demand',
             base_path('resources/search-demand-skills'),
@@ -70,6 +84,9 @@ class SearchDemandServiceProvider extends ServiceProvider
 
         $this->app->make(AgentProfileRegistry::class)->register(
             SearchIntelligenceAnalyst::definition(),
+        );
+        $this->app->make(AgentProfileRegistry::class)->register(
+            CompetitiveIntelligenceAnalyst::definition(),
         );
     }
 }

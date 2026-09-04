@@ -27,4 +27,6 @@ final class AgentProfileKeys
     public const string SALES_INTENT_CLASSIFICATION_ANALYST = 'sales.intent_classification_analyst';
 
     public const string SEARCH_DEMAND_INTELLIGENCE_ANALYST = 'search_demand.intelligence_analyst';
+
+    public const string SEARCH_DEMAND_COMPETITIVE_INTELLIGENCE_ANALYST = 'search_demand.competitive_intelligence_analyst';
 }

@@ -82,6 +82,11 @@ class SearchDemandCluster extends Model
         return $this->hasMany(SearchDemandCompetitorPageRunItem::class);
     }
 
+    public function competitiveIntelligenceRuns(): HasMany
+    {
+        return $this->hasMany(SearchDemandCompetitiveIntelligenceRun::class);
+    }
+
     public function mergedInto(): BelongsTo
     {
         return $this->belongsTo(self::class, 'merged_into_cluster_id');

@@ -17,6 +17,7 @@
             <a href="{{ route('operator.library.search-demand-enrichment', ['website' => $selectedWebsiteId]) }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium text-brand-600 ring-1 ring-inset ring-brand-200">SERP zenginleştirme</a>
             <a href="{{ route('operator.library.search-demand-ownership', ['website' => $selectedWebsiteId]) }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium text-brand-600 ring-1 ring-inset ring-brand-200">URL sahipliği</a>
             <a href="{{ route('operator.library.search-demand-competitor-pages', ['brand' => $selectedBrandId, 'website' => $selectedWebsiteId, 'cluster' => $selectedClusterId]) }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium text-brand-600 ring-1 ring-inset ring-brand-200">Rakip sayfaları</a>
+            <a href="{{ route('operator.library.search-demand-competitive-intelligence', ['brand' => $selectedBrandId, 'website' => $selectedWebsiteId, 'cluster' => $selectedClusterId]) }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium text-brand-600 ring-1 ring-inset ring-brand-200">Competitive Intelligence</a>
         </div>
     </div>
 

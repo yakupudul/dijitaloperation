@@ -568,6 +568,22 @@
 
 ---
 
+## ADR-057 — Evidence-bounded Competitive Intelligence as review-only analysis
+
+- **Durum:** Accepted
+- **Tarih:** 2026-09-04
+- **Bağlam:** Rakip sayfa gözlemlerinden kullanıcı soruları, kapsam farkları ve farklılaşma yönleri çıkarmak gerekir. Ancak agent'ın canlı web'e çıkması, rakip içeriğini talimat kabul etmesi, uzunluğu kalite yerine koyması veya sınıflandırma/URL ownership/Finding truth'ını otomatik değiştirmesi kanıt ve insan otoritesi sınırını bozar.
+- **Karar:**
+  1. Faz 11 için ayrı Competitive Intelligence Analyst, Skill ve AI route kullanılır. Run yalnız bir Website + active content-target cluster scope'undadır ve canonical queued Run/Activity hattında yürür.
+  2. Required evidence, insan tarafından doğrulanmış URL owner'ın checksum doğrulamalı saklı Website HTML sürümü ile approved/cluster-linked rakiplerin successful Faz 10 observations kayıtlarıdır. Agent yeni URL fetch etmez veya browse etmez.
+  3. Input en yeni unique rakip URL'lerinde sekiz sayfa ile; Brand metni 16.000 ve rakip metni sayfa başına 12.000 karakter ile sınırlıdır. Page/query metni untrusted data'dır ve instruction olarak yorumlanmaz.
+  4. Çıktı competitor kind/roles, page intent, topics/subtopics, user questions, content structure, local trust, Brand page missing user needs, unnecessary/do-not-copy sections, differentiation ideas, evidence explanation, confidence ve abstention alanlarıyla ayrı proposal kayıtlarında saklanır.
+  5. Eksik kapsam word-count karşılaştırmasıyla değil rakibin yanıtlayıp Brand sayfasının yanıtlamadığı kullanıcı ihtiyacı/sorusu olarak ifade edilir. Rank, volume, traffic, conversion veya performans uydurulmaz.
+  6. Exact input + Agent + Skill + route fingerprint tamamlanmış sonucu reuse eder. İnsan accept/reject yalnız analysis review state'ini değiştirir; competitor classification, URL ownership, Finding, Recommendation, Task, page/content ve external system truth'ı değişmez. Finding/Recommendation üretimi Faz 12'dir.
+- **İlgili:** ADR-013, ADR-018, ADR-023, ADR-046, ADR-049, ADR-054, ADR-055, ADR-056; `OPERATOR_ASYNC_EXECUTION.md`; `docs/product/SEARCH_DEMAND_INTELLIGENCE.md`
+
+---
+
 ## Karar indeksi
 
 | ID | Başlık | Durum |
@@ -628,6 +644,7 @@
 | ADR-054 | Fail-closed URL eligibility + human-owned Page Relevance decisions | Accepted |
 | ADR-055 | Brand-scoped Competitor Library + observation-only discovery | Accepted |
 | ADR-056 | Bounded exact-URL competitor page collection + reusable history | Accepted |
+| ADR-057 | Evidence-bounded Competitive Intelligence + review-only analysis | Accepted |
 
 ## Süpercede edilen kararlar
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-**PHASES 1–9 CODE COMPLETE / TEST AND OPERATOR UAT NOT RUN**
+**PHASES 1–11 CODE COMPLETE / TEST AND OPERATOR UAT NOT RUN**
 
 This document defines the shared commercial context and reusable Search Query Library that later Website search-demand, SERP, content-ownership and competitor analysis will consume.
 
@@ -224,7 +224,27 @@ Phase 10 collects a bounded set of exact URLs from approved competitors linked t
 - every fetch attempt appends page history, including failed and unchanged observations. A redirect outside the approved competitor domain fails closed;
 - Phase 10 performs no AI analysis, page-intent classification, semantic comparison, Finding, Recommendation, Task, provider spend or external write.
 
-The Phase 10 screen is `/library/search-demand-competitor-pages`. Competitive Intelligence interpretation remains Phase 11.
+The Phase 10 screen is `/library/search-demand-competitor-pages`; its stored observations are the competitor-side evidence for Phase 11.
+
+## Competitive Intelligence
+
+Phase 11 adds a dedicated `Competitive Intelligence Analyst`, `competitive-page-analysis` Skill and `search_demand.competitive_intelligence` AI route:
+
+- each run is scoped to one Website and one active content-target cluster;
+- a human-verified Phase 8 URL owner and its checksum-verified stored Website HTML are required;
+- only successful Phase 10 observations from approved, cluster-linked competitors are eligible, deduplicated by competitor URL and bounded to the eight newest pages;
+- Brand text is bounded to 16,000 characters and competitor text to 12,000 characters per page, while headings, schema types, link counts and observed service/location expressions remain explicit evidence;
+- page content and query text are untrusted data and cannot supply instructions to the agent;
+- output proposes competitor kind/roles, page intent, topics, subtopics, user questions, content structure, local trust signals, missing user needs, unnecessary sections, do-not-copy cautions and Brand-specific differentiation ideas;
+- missing coverage is described as unanswered user needs or questions, never as a word-count contest;
+- each conclusion includes concise evidence explanation, confidence and abstention. Unknown or contradictory evidence stays uncertain;
+- exact input + Agent + Skill + AI-route fingerprints reuse a completed run rather than spending again;
+- execution uses the canonical queued Run/Activity flow and persists a separate analysis run plus one review record per competitor observation;
+- operator acceptance/rejection changes only the analysis review state. It does not mutate competitor kind/roles, URL ownership or any other canonical fact.
+
+Phase 11 never browses, fetches new competitor content, creates a Finding, Recommendation or Task, copies competitor prose, changes a page or writes externally. Phase 12 owns the Finding/Recommendation interpretation layer.
+
+The Phase 11 screen is `/library/search-demand-competitive-intelligence`.
 
 ## Operator surfaces
 
@@ -237,12 +257,12 @@ The Phase 10 screen is `/library/search-demand-competitor-pages`. Competitive In
 - `/library/search-demand-ownership`
 - `/library/search-demand-competitors`
 - `/library/search-demand-competitor-pages`
+- `/library/search-demand-competitive-intelligence`
 - simplified Brand create/edit form for services, priorities and multiple service areas
 - Brand Business Context summary for service-area visibility
 
 ## Deferred
 
-- Competitive Intelligence Agent classification and semantic comparison
 - Finding → Recommendation → manual Task → Outcome loop
 
 ## Safety

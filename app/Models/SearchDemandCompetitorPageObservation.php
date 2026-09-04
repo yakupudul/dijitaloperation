@@ -58,4 +58,9 @@ class SearchDemandCompetitorPageObservation extends Model
     {
         return $this->hasMany(self::class, 'content_source_observation_id');
     }
+
+    public function competitiveAnalyses(): HasMany
+    {
+        return $this->hasMany(SearchDemandCompetitivePageAnalysis::class, 'competitor_page_observation_id');
+    }
 }
