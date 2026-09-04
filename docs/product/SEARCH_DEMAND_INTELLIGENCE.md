@@ -2,7 +2,7 @@
 
 ## Status
 
-**PHASES 1–11 CODE COMPLETE / TEST AND OPERATOR UAT NOT RUN**
+**PHASES 1–12 CODE COMPLETE / TEST AND OPERATOR UAT NOT RUN**
 
 This document defines the shared commercial context and reusable Search Query Library that later Website search-demand, SERP, content-ownership and competitor analysis will consume.
 
@@ -246,6 +246,25 @@ Phase 11 never browses, fetches new competitor content, creates a Finding, Recom
 
 The Phase 11 screen is `/library/search-demand-competitive-intelligence`.
 
+## Finding and Recommendation planning
+
+Phase 12 adds a dedicated `Website Improvement Analyst`, `website-improvement-planning` Skill and `search_demand.website_improvement` AI route:
+
+- each queued run is scoped to one Website, one active content-target cluster and its human-verified URL owner;
+- the semantic input contains only explicitly approved Phase 11 analyses. Pending, rejected and abstained analysis records are not eligible;
+- trusted application code separately proposes deterministic missing-title, missing-H1, missing-meta-description, zero-observed-internal-link, wrong-URL-candidate and cannibalization-candidate checks. The AI is forbidden from duplicating those checks;
+- AI output is a review-only semantic proposal with severity, one bounded action type, Recommendation draft, content brief, stable analysis/observation/competitor references, evidence explanation, confidence, rationale, verification steps and abstention;
+- allowed actions are: improve the existing page, create a new service page, create a blog/guide, create FAQ coverage, merge, adjust internal links, take no action, or mark evidence insufficient;
+- exact input + Agent + Skill + AI-route fingerprints reuse a completed run. Execution uses the canonical queued Run/Activity flow;
+- no proposal is a canonical Finding. Explicit operator acceptance first publishes one canonical derived Evidence record, attaches it to a Finding evaluation, creates or reconfirms the canonical Finding, and then creates a Finding-sourced Recommendation through the existing writer;
+- deterministic and AI provenance stay explicit. The approved Evidence payload retains Agent/Skill/route signatures, evidence references, confidence, rationale, content brief, verification steps and approving operator;
+- rejected proposals change only their review state. Abstained or `insufficient_evidence` proposals cannot be promoted;
+- approval never creates a Task. The existing manual Recommendation → Task action remains the only handoff into execution.
+
+Phase 12 does not browse, collect new evidence, change URL ownership, publish content, mutate a website or perform any external write. Result/change measurement remains Phase 13.
+
+The Phase 12 screen is `/library/search-demand-improvements`; accepted Recommendations continue through the canonical `/recommendations` operator screen.
+
 ## Operator surfaces
 
 - `/library/services`
@@ -258,12 +277,13 @@ The Phase 11 screen is `/library/search-demand-competitive-intelligence`.
 - `/library/search-demand-competitors`
 - `/library/search-demand-competitor-pages`
 - `/library/search-demand-competitive-intelligence`
+- `/library/search-demand-improvements`
 - simplified Brand create/edit form for services, priorities and multiple service areas
 - Brand Business Context summary for service-area visibility
 
 ## Deferred
 
-- Finding → Recommendation → manual Task → Outcome loop
+- Phase 13 change/result measurement after manual Task execution
 
 ## Safety
 

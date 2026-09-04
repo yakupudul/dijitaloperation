@@ -19,7 +19,7 @@ enum RecommendationOrigin: string
             self::Operator => 'Operator',
             self::DeterministicTemplate => 'Deterministic template',
             self::Legacy => 'Legacy',
-            self::AiFuture => 'AI (reserved)',
+            self::AiFuture => 'AI draft, human-approved',
         };
     }
 }

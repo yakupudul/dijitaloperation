@@ -492,8 +492,12 @@ Canonical decision: ADR-047. Implementation truth: `PRODUCT_CAPABILITY_LEDGER.md
 - The dedicated Competitive Intelligence Analyst receives bounded excerpts (Brand 16k chars, competitor 12k chars, max 8 newest unique competitor URLs), treats page/query content as untrusted data and persists exact Agent/Skill/route/input provenance.
 - Phase 11 describes gaps as unanswered user needs/questions rather than word-count comparisons. Proposed competitor kind/roles, page intent, topics, structure, local trust, unnecessary/do-not-copy content and Brand differentiation remain separate review-only analysis records.
 - Accepting or rejecting a Competitive Intelligence analysis changes only its review state. Competitor truth, URL ownership, Findings, Recommendations, Tasks, pages and external systems are unchanged; Phase 12 owns Finding/Recommendation creation.
+- Search Demand Phase 12 separates deterministic technical checks from Website Improvement AI semantic interpretation. Both are review-only proposals; AI receives only human-approved Phase 11 analyses and the verified Brand-page evidence pack.
+- Every Phase 12 semantic proposal carries Agent/Skill/route provenance, exact analysis/observation/competitor references, evidence confidence, rationale, verification steps, one bounded action type and a non-publishable content brief. `insufficient_evidence` and abstention remain non-promotable states.
+- Human acceptance is the only Phase 12 promotion path. It publishes canonical derived Evidence, attaches it to a Finding evaluation, writes/reconfirms the existing canonical Finding and creates a Finding-sourced Recommendation through the existing writer. It never creates a second Finding/Recommendation model.
+- Recommendation → Task remains a separate explicit operator action. Phase 12 never creates a Task, changes URL ownership, publishes content, mutates a Website or writes externally. Change/result measurement remains Phase 13.
 
-Canonical decisions: ADR-048, ADR-049, ADR-050, ADR-051, ADR-052, ADR-053, ADR-054, ADR-055, ADR-056 and ADR-057. Canonical product contract: `docs/product/SEARCH_DEMAND_INTELLIGENCE.md`.
+Canonical decisions: ADR-048, ADR-049, ADR-050, ADR-051, ADR-052, ADR-053, ADR-054, ADR-055, ADR-056, ADR-057 and ADR-058. Canonical product contract: `docs/product/SEARCH_DEMAND_INTELLIGENCE.md`.
 
 ---
 

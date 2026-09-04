@@ -16,6 +16,7 @@ use App\Models\Run;
 use App\Models\SearchDemandCluster;
 use App\Models\User;
 use App\Services\SearchDemand\SearchDemandCompetitiveIntelligenceService;
+use App\Services\SearchDemand\SearchDemandWebsiteImprovementService;
 use App\Support\Async\AsyncFailureClassifier;
 use App\Support\Async\AsyncOperationTypes;
 use Carbon\Carbon;
@@ -421,6 +422,15 @@ final class AsyncOperationService
                     'run' => null,
                     'existing_run' => null,
                 ],
+            AsyncOperationTypes::SEARCH_DEMAND_WEBSITE_IMPROVEMENT => $cluster instanceof SearchDemandCluster
+                ? $this->retryWebsiteImprovement($asset, $cluster, $user)
+                : [
+                    'ok' => false,
+                    'queued' => false,
+                    'message' => 'The original Website Improvement cluster is unavailable.',
+                    'run' => null,
+                    'existing_run' => null,
+                ],
             AsyncOperationTypes::SEO_INTELLIGENCE_REFRESH => $this->queueSeoIntelligenceRefresh($asset, $user),
             AsyncOperationTypes::WEBSITE_AI_GUIDANCE => $this->queueWebsiteAiGuidance($asset, $user, $findingIds),
             AsyncOperationTypes::GOOGLE_ADS_AI_GUIDANCE => $this->queueGoogleAdsAiGuidance($asset, $user, $findingIds),
@@ -461,6 +471,26 @@ final class AsyncOperationService
             'message' => $result['cached']
                 ? 'An equivalent completed Competitive Intelligence run already exists.'
                 : ($result['queued'] ? 'Competitive Intelligence queued.' : 'Competitive Intelligence is already active.'),
+            'run' => $result['queued'] ? $activity : null,
+            'existing_run' => $result['queued'] ? null : $activity,
+        ];
+    }
+
+    /** @return array{ok: bool, queued: bool, message: string, run: ?Run, existing_run: ?Run} */
+    private function retryWebsiteImprovement(
+        DigitalAsset $asset,
+        SearchDemandCluster $cluster,
+        ?User $user,
+    ): array {
+        $result = app(SearchDemandWebsiteImprovementService::class)->queue($asset, $cluster, $user);
+        $activity = $result['run']->activityRun;
+
+        return [
+            'ok' => true,
+            'queued' => $result['queued'],
+            'message' => $result['cached']
+                ? 'An equivalent completed Website Improvement run already exists.'
+                : ($result['queued'] ? 'Website Improvement planning queued.' : 'Website Improvement planning is already active.'),
             'run' => $result['queued'] ? $activity : null,
             'existing_run' => $result['queued'] ? null : $activity,
         ];

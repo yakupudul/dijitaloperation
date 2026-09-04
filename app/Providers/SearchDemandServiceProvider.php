@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Agents\CompetitiveIntelligenceAnalyst;
 use App\Agents\SearchIntelligenceAnalyst;
+use App\Agents\WebsiteImprovementAnalyst;
 use App\Contracts\SearchDemand\SearchDemandSerpEnrichmentAdapter;
 use App\Services\SearchDemand\DataForSeoSearchDemandEnrichmentAdapter;
 use App\Support\Agents\AgentProfileRegistry;
@@ -77,6 +78,19 @@ class SearchDemandServiceProvider extends ServiceProvider
             ],
         ]);
 
+        $this->app->make(AiRouteRegistry::class)->register([
+            'key' => AiRouteKeys::SEARCH_DEMAND_WEBSITE_IMPROVEMENT,
+            'name' => 'Search Demand Website Improvement',
+            'module' => 'search_demand',
+            'description' => 'Human-gated semantic Finding and Recommendation proposals over approved competitive analysis and verified Brand-page evidence.',
+            'default_steps' => [
+                [
+                    'provider' => AiProviderCatalog::OPENAI,
+                    'model' => AiProviderCatalog::defaultModel(AiProviderCatalog::OPENAI),
+                ],
+            ],
+        ]);
+
         $this->app->make(SkillRegistry::class)->registerRoot(
             'search_demand',
             base_path('resources/search-demand-skills'),
@@ -87,6 +101,9 @@ class SearchDemandServiceProvider extends ServiceProvider
         );
         $this->app->make(AgentProfileRegistry::class)->register(
             CompetitiveIntelligenceAnalyst::definition(),
+        );
+        $this->app->make(AgentProfileRegistry::class)->register(
+            WebsiteImprovementAnalyst::definition(),
         );
     }
 }

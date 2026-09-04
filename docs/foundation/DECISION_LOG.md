@@ -584,6 +584,22 @@
 
 ---
 
+## ADR-058 — Human-gated Search Demand Finding and Recommendation promotion
+
+- **Durum:** Accepted
+- **Tarih:** 2026-09-04
+- **Bağlam:** Faz 12 teknik sayfa sorunlarını ve onaylı rekabet analizinden çıkarılan semantik iyileştirme ihtiyacını operasyon hattına taşır. AI'nın doğrudan canonical Finding üretmesi, pending/rejected analizi kullanması veya Recommendation ile birlikte Task açması MASTER_SPEC'teki Formula/Evidence/Finding/Recommendation/manual Task otoritesini bozar. Ayrı bir ikinci Finding modeli de core gerçeğini parçalar.
+- **Karar:**
+  1. Deterministic technical check ve AI semantic interpretation ayrı proposal origin'leri olarak saklanır. Missing title/H1/meta, zero observed internal link, wrong-URL candidate ve cannibalization candidate trusted application code tarafından üretilir; AI bunları tekrarlamaz.
+  2. Website Improvement Analyst yalnız human-approved Faz 11 analysis, verified Brand page, active content-target cluster ve optional Page Relevance sinyallerini alır. Pending/rejected/abstained analysis input'a girmez; page/query metni untrusted data kalır ve agent browse/fetch yapmaz.
+  3. Her semantic proposal bir allowed action type, content brief, exact analysis/observation/competitor references, evidence explanation, confidence, rationale, verification steps ve abstention taşır. Rank, volume, traffic, conversion, revenue veya causality uydurulmaz.
+  4. Proposal canonical Finding değildir. Operator accept işlemi atomic olarak canonical derived Evidence yayınlar, bunu FindingEvaluation'a bağlar, mevcut `findings` satırını create/reconfirm eder ve canonical `CreateRecommendationFromFinding` writer ile Recommendation oluşturur. Duplicate entity yaratılmaz.
+  5. AI proposal origin/provenance'i Finding, Recommendation ve Evidence üzerinde korunur; fakat insan gate'i olmadan hiçbir canonical write yapılmaz. Rejected proposal yalnız review state değiştirir; abstained veya `insufficient_evidence` proposal promote edilemez.
+  6. Recommendation → Task mevcut explicit manual action olarak kalır. Faz 12 Task, URL ownership, redirect, page/content, CMS veya external system mutation yapmaz. Değişiklik/sonuç ölçümü Faz 13'tür.
+- **İlgili:** ADR-013, ADR-018, ADR-023, ADR-025, ADR-034, ADR-041, ADR-046, ADR-049, ADR-054, ADR-057; `OPERATOR_ASYNC_EXECUTION.md`; `docs/product/SEARCH_DEMAND_INTELLIGENCE.md`
+
+---
+
 ## Karar indeksi
 
 | ID | Başlık | Durum |
@@ -645,6 +661,7 @@
 | ADR-055 | Brand-scoped Competitor Library + observation-only discovery | Accepted |
 | ADR-056 | Bounded exact-URL competitor page collection + reusable history | Accepted |
 | ADR-057 | Evidence-bounded Competitive Intelligence + review-only analysis | Accepted |
+| ADR-058 | Human-gated Search Demand Finding + Recommendation promotion | Accepted |
 
 ## Süpercede edilen kararlar
 

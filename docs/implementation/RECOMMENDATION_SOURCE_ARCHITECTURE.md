@@ -92,7 +92,7 @@ Canonical statuses stay `open`, `accepted`, `dismissed`, `converted` (`Recommend
 
 ## 14. Origin
 
-`origin` (`App\Enums\RecommendationOrigin`) records *how* a row came to exist, orthogonally to its source: `operator`, `deterministic_template`, `legacy`, `ai_future`. `ai_future` is reserved and unused — Prompt 41 activates no AI generation path.
+`origin` (`App\Enums\RecommendationOrigin`) records *how* a row came to exist, orthogonally to its source: `operator`, `deterministic_template`, `legacy`, `ai_future`. Prompt 41 reserved `ai_future`; Search Demand Phase 12 activates it only when an operator explicitly accepts an evidence-bounded AI draft.
 
 ## 15. Idempotency
 
@@ -181,7 +181,7 @@ Nothing generates Recommendations from Finding or Opportunity evaluation. No obs
 
 ## 36. AI Boundary
 
-Prompt 41 adds no AI generation, no prompt, no route. `RecommendationOrigin::AiFuture` exists as a reserved vocabulary item only, and no code path writes it.
+Prompt 41 itself adds no AI generation, prompt or route. Search Demand Phase 12 later writes `RecommendationOrigin::AiFuture` only through a separate human acceptance action over a durable proposal; the AI execution path cannot write the Recommendation directly.
 
 ## 37. Provider Boundary
 
@@ -344,7 +344,7 @@ One canonical Recommendation with an explicit, enforced, single source; Opportun
 | Task / Work | never created from a Prompt 41 path; Filament's pre-existing action remains |
 | Approvals / Client Requests / Playbooks / Business Outcomes | untouched, no tables, no code |
 | Service Scope / Goals / Offerings | read-only context only |
-| AI | no generation; `ai_future` reserved and unwritten |
+| AI | Search Demand Phase 12 draft only; `ai_future` is written after explicit operator acceptance |
 | Providers | no calls (`Http::assertNothingSent()`) |
 | Demo | flash channel only on the Operations index |
 

@@ -71,6 +71,11 @@ class Run extends Model
         return $this->hasMany(SearchDemandCompetitiveIntelligenceRun::class);
     }
 
+    public function searchDemandImprovementRuns(): HasMany
+    {
+        return $this->hasMany(SearchDemandImprovementRun::class);
+    }
+
     /**
      * @return array<string, string>
      */
