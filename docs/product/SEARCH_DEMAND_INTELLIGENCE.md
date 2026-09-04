@@ -2,7 +2,7 @@
 
 ## Status
 
-**PHASES 1–8 CODE COMPLETE / TEST AND OPERATOR UAT NOT RUN**
+**PHASES 1–9 CODE COMPLETE / TEST AND OPERATOR UAT NOT RUN**
 
 This document defines the shared commercial context and reusable Search Query Library that later Website search-demand, SERP, content-ownership and competitor analysis will consume.
 
@@ -193,6 +193,24 @@ Phase 8 adds one human-governed URL ownership decision per Website and content-t
 
 The Phase 8 screen is `/library/search-demand-ownership`. The Phase 6 Visibility Map reads the verified target/status without copying GSC, SERP or Website facts into the ownership record beyond the decision-time evidence snapshot.
 
+## Competitor Library and discovery
+
+Phase 9 adds one Brand-scoped competitor identity per normalized domain and keeps candidate state separate from competitor classification:
+
+- a competitor is `pending`, `approved` or `rejected`; rejected candidates retain their source provenance;
+- commercial, SERP and content-competitor roles are independent booleans because the same domain can hold more than one role;
+- business, directory, platform and authority-site kinds are separate from those roles. `unknown` remains valid until a human classifies the entity;
+- a DataForSEO SERP/domain observation establishes only SERP competition candidacy. It never establishes that the domain sells the same service in the same area, and its observed SERP role cannot be erased while that source remains linked;
+- the importer reads existing `search_demand_serp_*` and `dataforseo_competitor_domain_snapshot` facts only. It never starts a provider request and is bounded to 100 distinct domains per operator action;
+- source rows retain Website, provider record, query, rank, market/language/device and observation time where available;
+- competitor URLs and appeared-on queries remain explicit relations. Service, Brand Service Area and content-target cluster relations are also many-to-many rather than a permanent Cartesian expansion;
+- manual creation is an explicit human approval and may record roles, entity kind, URLs and scope relations immediately;
+- pending candidates support individual or bulk approval/rejection. Roles, entity kind and scope relations remain operator-editable after review;
+- domain normalization lowercases the host and treats `www` as the same domain. Other subdomains remain distinct identities;
+- existing Brand Context `known_competitors` remains broad operator business context and is not silently overwritten or treated as this evidence-linked library.
+
+The Phase 9 screen is `/library/search-demand-competitors`. Phase 9 does not crawl competitor pages, invoke AI, classify page intent, create Findings/Recommendations/Tasks or write externally; those remain later phases.
+
 ## Operator surfaces
 
 - `/library/services`
@@ -202,12 +220,14 @@ The Phase 8 screen is `/library/search-demand-ownership`. The Phase 6 Visibility
 - `/library/search-demand-visibility`
 - `/library/search-demand-enrichment`
 - `/library/search-demand-ownership`
+- `/library/search-demand-competitors`
 - simplified Brand create/edit form for services, priorities and multiple service areas
 - Brand Business Context summary for service-area visibility
 
 ## Deferred
 
-- competitor library, crawl and page comparison (SERP result URLs remain observations only)
+- competitor page crawl and page comparison
+- Competitive Intelligence Agent classification and semantic comparison
 - Finding → Recommendation → manual Task → Outcome loop
 
 ## Safety

@@ -139,6 +139,12 @@ class DigitalAsset extends Model
         return $this->hasMany(SearchDemandPageRelevanceRun::class);
     }
 
+    /** @return HasMany<SearchDemandCompetitorSource, $this> */
+    public function searchDemandCompetitorSources(): HasMany
+    {
+        return $this->hasMany(SearchDemandCompetitorSource::class);
+    }
+
     /**
      * @return HasMany<Recommendation, $this>
      */

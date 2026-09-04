@@ -200,4 +200,9 @@ return [
         'max_candidates' => (int) env('MOXDOP_SEARCH_DEMAND_PAGE_MAX_CANDIDATES', 20),
         'dominance_threshold' => (float) env('MOXDOP_SEARCH_DEMAND_PAGE_DOMINANCE', 0.60),
     ],
+
+    /* Phase 9 imports only already-stored observations and never calls a provider. */
+    'search_demand_competitors' => [
+        'max_import_candidates' => (int) env('MOXDOP_SEARCH_DEMAND_COMPETITOR_MAX_IMPORT', 100),
+    ],
 ];

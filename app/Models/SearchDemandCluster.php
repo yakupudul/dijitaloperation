@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
@@ -68,6 +69,12 @@ class SearchDemandCluster extends Model
     public function pageRelevanceRuns(): HasMany
     {
         return $this->hasMany(SearchDemandPageRelevanceRun::class);
+    }
+
+    public function competitors(): BelongsToMany
+    {
+        return $this->belongsToMany(SearchDemandCompetitor::class, 'search_demand_competitor_cluster')
+            ->withPivot('provenance')->withTimestamps();
     }
 
     public function mergedInto(): BelongsTo

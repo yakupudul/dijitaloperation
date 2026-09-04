@@ -69,6 +69,7 @@ use App\Livewire\Operator\Library\SearchQueryLibraryPage;
 use App\Livewire\Operator\Library\ServiceCatalogPage;
 use App\Livewire\Operator\Library\BrandQueryPortfolioPage;
 use App\Livewire\Operator\Library\SearchDemandClustersPage;
+use App\Livewire\Operator\Library\SearchDemandCompetitorLibraryPage;
 use App\Livewire\Operator\Library\SearchDemandVisibilityMapPage;
 use App\Livewire\Operator\Library\SearchDemandEnrichmentPage;
 use App\Livewire\Operator\Library\SearchDemandPageOwnershipPage;
@@ -98,6 +99,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/library/search-demand-visibility', SearchDemandVisibilityMapPage::class)->name('operator.library.search-demand-visibility');
         Route::livewire('/library/search-demand-enrichment', SearchDemandEnrichmentPage::class)->name('operator.library.search-demand-enrichment');
         Route::livewire('/library/search-demand-ownership', SearchDemandPageOwnershipPage::class)->name('operator.library.search-demand-ownership');
+        Route::livewire('/library/search-demand-competitors', SearchDemandCompetitorLibraryPage::class)->name('operator.library.search-demand-competitors');
 
         Route::livewire('/assets', AssetsIndex::class)->name('operator.assets');
         Route::livewire('/assets/create', AssetCreate::class)->name('operator.asset.create');

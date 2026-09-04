@@ -480,8 +480,13 @@ Canonical decision: ADR-047. Implementation truth: `PRODUCT_CAPABILITY_LEDGER.md
 - The URL technical gate is fail-closed: only a same-Website public page with observed 2xx HTTP, no observed `noindex`, no canonical to another URL, matching observed language and an allowed content URL type may be proposed or verified. Missing gate evidence remains `unknown`.
 - Two-period GSC leader changes and split visibility produce wrong-URL/cannibalization review candidates only. Page Relevance AI receives a bounded evidence pack, proposes at most one eligible page or abstains, and cannot change ownership.
 - Human approval rechecks the live gate, records decision-time evidence and may lock ownership. Redirect, deletion, merge, new page/content, Finding, Recommendation, Task, provider spend and external write never follow automatically.
+- Competitor Library identity is Brand + normalized domain. `www` is folded into the same domain while other subdomains stay distinct; candidate status is separate from role and entity-kind classification.
+- Stored DataForSEO SERP/domain observations may create a bounded SERP competitor candidate with source/query/URL/time provenance. They never establish commercial competition automatically and the Phase 9 import never calls the provider.
+- Commercial, SERP and content roles are independent. Business, directory, platform and authority-site kind is a separate operator classification; unknown remains allowed.
+- Approved competitor links to services, Brand Service Areas, content-target clusters, appeared-on queries and observed URLs without creating a Service × Area Cartesian scope. Manual addition is an explicit human approval; pending candidates support individual/bulk review.
+- Competitor page fetch/crawl is Phase 10 and Competitive Intelligence AI is Phase 11. Phase 9 creates no crawl, AI inference, Finding, Recommendation, Task, provider spend or external write.
 
-Canonical decisions: ADR-048, ADR-049, ADR-050, ADR-051, ADR-052, ADR-053 and ADR-054. Canonical product contract: `docs/product/SEARCH_DEMAND_INTELLIGENCE.md`.
+Canonical decisions: ADR-048, ADR-049, ADR-050, ADR-051, ADR-052, ADR-053, ADR-054 and ADR-055. Canonical product contract: `docs/product/SEARCH_DEMAND_INTELLIGENCE.md`.
 
 ---
 

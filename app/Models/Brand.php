@@ -106,6 +106,12 @@ class Brand extends Model
         return $this->hasMany(SearchDemandClusteringRun::class);
     }
 
+    /** @return HasMany<SearchDemandCompetitor, $this> */
+    public function searchDemandCompetitors(): HasMany
+    {
+        return $this->hasMany(SearchDemandCompetitor::class);
+    }
+
     /** @return HasMany<IntelligenceSearchTermIdentity, $this> */
     public function intelligenceSearchTerms(): HasMany
     {

@@ -15,6 +15,7 @@
             <a href="{{ route('operator.library.search-demand-clusters', ['brand' => $website?->brand_id]) }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium text-brand-600 ring-1 ring-inset ring-brand-200">Sorgu kümeleri</a>
             <a href="{{ route('operator.library.search-demand-enrichment', ['website' => $website?->id]) }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium text-brand-600 ring-1 ring-inset ring-brand-200">SERP zenginleştirme</a>
             <a href="{{ route('operator.library.search-demand-ownership', ['website' => $website?->id]) }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium text-brand-600 ring-1 ring-inset ring-brand-200">URL sahipliği</a>
+            <a href="{{ route('operator.library.search-demand-competitors', ['brand' => $website?->brand_id, 'website' => $website?->id]) }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium text-brand-600 ring-1 ring-inset ring-brand-200">Rakip kütüphanesi</a>
         </div>
     </div>
 

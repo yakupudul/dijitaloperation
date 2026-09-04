@@ -536,6 +536,22 @@
 
 ---
 
+## ADR-055 — Brand-scoped Competitor Library with observation-only discovery
+
+- **Durum:** Accepted
+- **Tarih:** 2026-09-04
+- **Bağlam:** SERP'te aynı sorguda görünen domain ticari rakip, içerik rakibi, dizin, platform veya otorite sitesi olabilir. DataForSEO sonucunu doğrudan ticari rakip yapmak observed search competition ile operator-owned business knowledge'ı karıştırır. Rakip URL/sorgu ilişkilerini tek JSON listesine koymak da provenance ve sonraki sayfa seçimini kaybettirir.
+- **Karar:**
+  1. Competitor Library kimliği Brand + normalized domain'dir. Host lower-case olur ve `www` aynı domain'e katlanır; diğer subdomain'ler otomatik birleşmez. Lifecycle `pending`, `approved`, `rejected` olarak ayrı tutulur.
+  2. Commercial, SERP ve content competitor rolleri bağımsızdır. Business, directory, platform ve authority-site kind ayrı sınıflandırmadır; `unknown` insan kararı gelene kadar geçerlidir.
+  3. Faz 7 SERP sonuçları ve mevcut `dataforseo_competitor_domain_snapshot` satırları yalnız saklı gözlemden, operator action ile ve 100 distinct domain sınırında candidate üretir. Faz 9 importer provider çağrısı yapmaz ve maliyet oluşturmaz.
+  4. DataForSEO gözlemi `is_serp_competitor` sinyalini destekler; `is_commercial_competitor` veya `is_content_competitor` alanını otomatik kanıtlamaz. Pending aday ancak insan onayıyla approved olur; rejection source provenance'ı silmez.
+  5. Source, Website, provider record, observation time ve mevcut market/query/rank bağlamı ayrı source satırında kalır. Rakip URL'leri, göründüğü Brand Portfolio sorguları ve Service/Brand Service Area/content-target-cluster ilişkileri relational tutulur; kalıcı Service × Area Cartesian scope yaratılmaz.
+  6. Manuel ekleme explicit human approval'dır. Faz 9 competitor HTML toplamaz, AI çalıştırmaz, page intent sınıflandırmaz, Finding/Recommendation/Task üretmez ve external write yapmaz. Bunlar Faz 10–12 sınırıdır.
+- **İlgili:** ADR-018, ADR-023, ADR-039, ADR-046, ADR-048, ADR-050, ADR-051, ADR-053, ADR-054; `docs/product/SEARCH_DEMAND_INTELLIGENCE.md`
+
+---
+
 ## Karar indeksi
 
 | ID | Başlık | Durum |
@@ -594,6 +610,7 @@
 | ADR-052 | Read-only Query–URL Visibility Map over canonical facts | Accepted |
 | ADR-053 | Manual paid SERP observations + human-applied cluster validation | Accepted |
 | ADR-054 | Fail-closed URL eligibility + human-owned Page Relevance decisions | Accepted |
+| ADR-055 | Brand-scoped Competitor Library + observation-only discovery | Accepted |
 
 ## Süpercede edilen kararlar
 
