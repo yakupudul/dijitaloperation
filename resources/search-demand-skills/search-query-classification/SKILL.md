@@ -1,20 +1,20 @@
 ---
 name: Search Query Classification
 slug: search-query-classification
-version: 1.0.0
+version: 1.0.1
 module: search_demand
 purpose: Propose semantic classifications for observed or curated query records while preserving source identity and human authority.
 definition_status: active
 required_evidence:
   - key: source_queries
-    kind: catalog_records
+    kind: workflow_context
     role: PRIMARY_FACT
     purpose: Existing Search Query Library records selected by the operator
     missing_behavior: ABSTAIN
     integrity_required: true
 optional_evidence:
   - key: canonical_service
-    kind: catalog_record
+    kind: workflow_context
     role: OPTIONAL_CONTEXT
     purpose: Existing canonical service relationship and aliases
     missing_behavior: CONTINUE

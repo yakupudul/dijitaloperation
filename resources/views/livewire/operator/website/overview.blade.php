@@ -3,6 +3,7 @@
         'overview' => __('operator.website.tabs.overview'),
         'content' => __('operator.website.tabs.content'),
         'health' => __('operator.website.tabs.health'),
+        'standards' => 'Standartlar ve İyileştirmeler',
         'search_console' => __('operator.website.tabs.search_console'),
         'visibility' => __('operator.website.tabs.visibility'),
         'performance' => __('operator.website.tabs.performance'),
@@ -76,6 +77,10 @@
             'bg-emerald-50 text-emerald-800 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/20' => $messageTone === 'success',
             'bg-blue-50 text-blue-800 ring-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-500/20' => $messageTone !== 'success',
         ])>{{ $message }}</div>
+    @endif
+
+    @if ($tab === 'standards')
+        <livewire:operator.website.website-assessment-panel :website-id="$asset->id" :key="'website-standards-'.$asset->id" />
     @endif
 
     @if ($tab === 'overview')

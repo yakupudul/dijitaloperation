@@ -1,32 +1,32 @@
 ---
 name: Page Relevance Analysis
 slug: page-relevance-analysis
-version: 1.0.0
+version: 1.1.0
 module: search_demand
 purpose: Compare technically eligible Website pages with one human-governed content-target cluster and propose a page owner or abstention without changing ownership.
 definition_status: active
 required_evidence:
   - key: search_demand_cluster
-    kind: operator_records
+    kind: workflow_context
     role: PRIMARY_CONTEXT
     purpose: One active cluster, stable member queries, and current lock/validation state
     missing_behavior: ABSTAIN
     integrity_required: true
   - key: website_page_candidates
-    kind: projection_records
+    kind: workflow_context
     role: PRIMARY_FACT
     purpose: Bounded Website Page profiles with technical gate results
     missing_behavior: ABSTAIN
     integrity_required: true
 optional_evidence:
   - key: gsc_query_page_observations
-    kind: provider_observation
+    kind: workflow_context
     role: OPTIONAL_VALIDATION
     purpose: Period-bounded first-party query-page visibility
     missing_behavior: CONTINUE
     integrity_required: true
   - key: serp_brand_url_observations
-    kind: provider_observation
+    kind: workflow_context
     role: OPTIONAL_VALIDATION
     purpose: Point-in-time observed Brand URLs for cluster queries
     missing_behavior: CONTINUE
@@ -46,7 +46,7 @@ forbidden_claims:
   - Multiple URLs presented as proven cannibalization without review
 abstention_rules:
   - "REQUIRED_EVIDENCE_MISSING: Abstain when the cluster or page candidate set is missing."
-  - "TECHNICAL_GATE_FAILED: Abstain when no candidate passes the complete technical eligibility gate."
+  - "TECHNICAL_GATE_FAILED: Use review_required when no candidate passes the technical gate. A technically blocked relevant page remains a repair candidate; technical failure cannot prove no_suitable_url."
   - "CONFLICTING_EVIDENCE: Abstain when page intent or observed leaders conflict materially."
 success_signals:
   - Recommendation references only supplied eligible page_profile_ids
@@ -94,6 +94,10 @@ methodology_steps:
 
 Use only when an operator requests an ownership review for one active Search Demand cluster and one Website.
 
+## Do not use when
+
+Required workflow context is absent, stale, outside the selected Brand/Website scope, or unsupported by stored observations. Do not use this Skill to bypass a human approval or to collect/publish externally.
+
 ## Methodology
 
 1. Enforce the deterministic technical gate before semantic comparison.
@@ -113,3 +117,5 @@ Use only when an operator requests an ownership review for one active Search Dem
 ## Output contract
 
 One structured decision proposal, zero or one recommended eligible page_profile_id, per-page semantic fit and rationale, explicit abstention, candidate flags, and a review-only content-type suggestion.
+
+Technical readiness and semantic relevance are separate. When a supplied candidate matches the need but has noindex, HTTP, canonical or missing-observation blockers, examine repairing that page before suggesting a new one. Keep the human verification gate and locked decisions intact.

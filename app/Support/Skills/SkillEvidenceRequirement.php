@@ -23,6 +23,8 @@ final class SkillEvidenceRequirement
 
     public const string KIND_EVIDENCE_TYPE = 'evidence_type';
 
+    public const string KIND_WORKFLOW_CONTEXT = 'workflow_context';
+
     public const string ROLE_PRIMARY_FACT = 'PRIMARY_FACT';
 
     public const string ROLE_COMPARISON_BASELINE = 'COMPARISON_BASELINE';

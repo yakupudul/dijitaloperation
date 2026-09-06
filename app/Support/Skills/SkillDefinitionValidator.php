@@ -134,6 +134,7 @@ final class SkillDefinitionValidator
         if (! in_array($requirement->kind, [
             SkillEvidenceRequirement::KIND_EVIDENCE_DEFINITION,
             SkillEvidenceRequirement::KIND_EVIDENCE_TYPE,
+            SkillEvidenceRequirement::KIND_WORKFLOW_CONTEXT,
         ], true)) {
             $errors[] = 'evidence_kind_invalid:'.$requirement->key;
         }

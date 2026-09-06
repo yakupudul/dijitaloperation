@@ -14,10 +14,10 @@
         <div>
             <p class="text-xs font-semibold uppercase tracking-[0.18em] text-brand-600">Arama talebi · Faz 12</p>
             <h1 class="mt-1 text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">Bulgu ve öneri üretimi</h1>
-            <p class="mt-1 max-w-3xl text-sm text-gray-500 dark:text-gray-400">Teknik kontrolleri deterministik, semantik yorumları onaylı Faz 11 kanıtıyla üretir. Her kayıt önce taslaktır; yalnız insan kabulü kanonik Evidence → Finding → Recommendation zincirini oluşturur. Task geçişi ayrıca manueldir.</p>
+            <p class="mt-1 max-w-3xl text-sm text-gray-500 dark:text-gray-400">Seçtiğiniz sayfanın saklı içeriğini etkin standartlarla inceler. Uygun ve onaylı rakip analizi varsa bağlam olarak kullanır. Öneriler insan onayıyla Bulgu ve Öneriler ekranına eklenir; görev oluşturma ayrı bir karardır.</p>
         </div>
         <div class="flex flex-wrap gap-2">
-            <a href="{{ route('operator.library.search-demand-competitive-intelligence', ['brand' => $selectedBrandId, 'website' => $selectedWebsiteId, 'cluster' => $selectedClusterId]) }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium text-brand-600 ring-1 ring-inset ring-brand-200">Faz 11 analizi</a>
+            <a href="{{ route('operator.library.search-demand-competitive-intelligence', ['brand' => $selectedBrandId, 'website' => $selectedWebsiteId, 'cluster' => $selectedClusterId]) }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium text-brand-600 ring-1 ring-inset ring-brand-200">Rakip karşılaştırması</a>
             <a href="{{ route('operator.recommendations', ['asset' => $selectedWebsiteId]) }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium text-brand-600 ring-1 ring-inset ring-brand-200">Öneriler / Task</a>
             <a href="{{ route('operator.library.search-demand-changes', ['brand' => $selectedBrandId, 'website' => $selectedWebsiteId]) }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium text-brand-600 ring-1 ring-inset ring-brand-200">Faz 13 sonuç takibi</a>
             <a href="{{ route('operator.activity') }}" wire:navigate class="rounded-lg px-3 py-2 text-sm font-medium text-brand-600 ring-1 ring-inset ring-brand-200">Activity</a>
@@ -39,11 +39,11 @@
 
         <div class="mt-4 grid gap-3 sm:grid-cols-2">
             <div class="rounded-lg border p-3 {{ $readiness['verified_owner'] ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50' }}"><p class="text-xs font-semibold {{ $readiness['verified_owner'] ? 'text-emerald-800' : 'text-amber-800' }}">Doğrulanmış marka URL’si</p><p class="mt-1 text-xs text-gray-600">{{ $readiness['verified_owner'] ? 'Hazır; teknik kontrol bu saklı sayfa kanıtını kullanır.' : 'Eksik; Faz 8’de URL sahibini doğrulayın.' }}</p></div>
-            <div class="rounded-lg border p-3 {{ $readiness['approved_analyses'] > 0 ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50' }}"><p class="text-xs font-semibold {{ $readiness['approved_analyses'] > 0 ? 'text-emerald-800' : 'text-amber-800' }}">Onaylı Faz 11 analizi</p><p class="mt-1 text-xs text-gray-600">{{ $readiness['approved_analyses'] }} kabul edilmiş analiz; pending veya reddedilmiş kayıt kullanılmaz.</p></div>
+            <div class="rounded-lg border p-3 {{ $readiness['approved_analyses'] > 0 ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50' }}"><p class="text-xs font-semibold {{ $readiness['approved_analyses'] > 0 ? 'text-emerald-800' : 'text-amber-800' }}">Rakip bağlamı (isteğe bağlı)</p><p class="mt-1 text-xs text-gray-600">{{ $readiness['approved_analyses'] }} onaylı analiz. Rakip verisi olmadan da kendi sayfanız standartlarla değerlendirilir.</p></div>
         </div>
 
         <div class="mt-4 flex flex-wrap items-center gap-3">
-            <button wire:click="queuePlanning" wire:loading.attr="disabled" type="button" class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-50">Bulgu ve öneri taslaklarını üret</button>
+            <button wire:click="queuePlanning" wire:loading.attr="disabled" type="button" class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-50">Sayfayı standartlara göre incele</button>
             <p class="text-xs text-gray-500">Aynı kanıt + agent + Skill + model rotası imzası tamamlandıysa yeniden ücret oluşmaz.</p>
         </div>
     </section>
@@ -55,7 +55,7 @@
                 @foreach($runs as $history)
                     <button wire:click="openRun({{ $history->id }})" type="button" class="grid w-full gap-2 px-5 py-3 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-950 md:grid-cols-[5rem_1fr_10rem]">
                         <span class="font-semibold text-gray-800 dark:text-gray-200">#{{ $history->id }}</span>
-                        <span class="text-gray-500">{{ $history->proposal_count }} taslak · Faz 11 run #{{ $history->competitive_intelligence_run_id }}</span>
+                        <span class="text-gray-500">{{ $history->proposal_count }} taslak · {{ $history->competitive_intelligence_run_id ? 'Rakip karşılaştırmalı' : 'Kendi sayfa analizi' }}</span>
                         <span class="text-right font-medium">{{ $statusLabels[$history->status] ?? $history->status }}</span>
                     </button>
                 @endforeach
@@ -87,6 +87,9 @@
                         <div><h3 class="text-sm font-semibold text-gray-900 dark:text-white">Gerekçe ve kanıt</h3><p class="mt-2 text-sm text-gray-600 dark:text-gray-300">{{ $proposal->rationale }}</p><ul class="mt-2 space-y-1 text-xs text-gray-500">@foreach((array) data_get($proposal->evidence_refs, 'evidence_explanation', []) as $item)<li>• {{ $item }}</li>@endforeach</ul><p class="mt-2 text-[11px] text-gray-400">Analiz: {{ collect((array) data_get($proposal->evidence_refs, 'analysis_ids', []))->join(', ') ?: 'teknik sayfa kanıtı' }} · Gözlem: {{ collect((array) data_get($proposal->evidence_refs, 'observation_ids', []))->join(', ') ?: '—' }}</p></div>
                         <div><h3 class="text-sm font-semibold text-gray-900 dark:text-white">Nasıl doğrulanır</h3><ul class="mt-2 space-y-1 text-sm text-gray-600 dark:text-gray-300">@forelse($proposal->verification_steps ?? [] as $item)<li>• {{ $item }}</li>@empty<li>• Doğrulama adımı belirtilmedi.</li>@endforelse</ul></div>
                     </div>
+                    @if(data_get($proposal->evidence_refs, 'standard_id'))
+                        <div class="mt-4 rounded-lg border border-gray-200 p-3 text-sm dark:border-gray-800"><p class="font-semibold text-gray-800 dark:text-gray-200">Standart: {{ data_get($proposal->evidence_refs, 'standard_snapshot.title', data_get($proposal->evidence_refs, 'standard_id')) }}</p><p class="mt-1 text-xs text-gray-500">Sürüm {{ data_get($proposal->evidence_refs, 'standard_version') }} · {{ data_get($proposal->evidence_refs, 'assessment_state') }}</p><p class="mt-2 text-gray-600 dark:text-gray-400">{{ data_get($proposal->evidence_refs, 'brand_evidence') }}</p><p class="mt-1 break-all text-xs text-gray-500">{{ data_get($proposal->evidence_refs, 'page_url') }}</p></div>
+                    @endif
                     @if(is_array($proposal->content_brief) && array_filter($proposal->content_brief) !== [])
                         <div class="mt-5 rounded-lg bg-gray-50 p-4 dark:bg-white/[0.03]"><h3 class="text-sm font-semibold text-gray-900 dark:text-white">İçerik brief’i</h3><dl class="mt-3 grid gap-3 md:grid-cols-2">@foreach($proposal->content_brief as $key => $value)@if(filled($value))<div><dt class="text-xs font-semibold text-gray-500">{{ str($key)->replace('_', ' ')->title() }}</dt><dd class="mt-1 text-sm text-gray-700 dark:text-gray-300">{{ is_array($value) ? collect($value)->join(' · ') : $value }}</dd></div>@endif @endforeach</dl></div>
                     @endif

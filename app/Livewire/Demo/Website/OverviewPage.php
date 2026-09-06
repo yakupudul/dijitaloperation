@@ -89,6 +89,7 @@ class OverviewPage extends Component
         'overview',
         'content',
         'health',
+        'standards',
         'search_console',
         'visibility',
         'performance',

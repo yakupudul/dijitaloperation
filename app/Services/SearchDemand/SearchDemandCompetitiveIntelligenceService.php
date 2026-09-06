@@ -6,7 +6,6 @@ use App\Agents\CompetitiveIntelligenceAnalyst;
 use App\Ai\Agents\SearchDemandCompetitiveIntelligenceAgent;
 use App\Jobs\Async\SearchDemandCompetitiveIntelligenceJob;
 use App\Models\BrandQueryPortfolioItem;
-use App\Models\DataPool\RawIngestionObject;
 use App\Models\DigitalAsset;
 use App\Models\Run;
 use App\Models\SearchDemandCluster;
@@ -22,11 +21,14 @@ use App\Support\Agents\AgentProfileRegistry;
 use App\Support\Ai\AiRouteKeys;
 use App\Support\Async\AsyncOperationTypes;
 use App\Support\Skills\SkillRegistry;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use MoxDop\Website\Standards\StandardEvidenceGuard;
+use MoxDop\Website\Standards\StoredPageReader;
+use MoxDop\Website\Standards\WebsiteStandardCatalog;
 use RuntimeException;
 use Throwable;
 
@@ -213,8 +215,18 @@ final class SearchDemandCompetitiveIntelligenceService
             if ($locked->review_status !== 'pending') {
                 throw ValidationException::withMessages(['analysis' => 'Bu analiz daha önce incelenmiş.']);
             }
-            if ($decision === 'approved' && $locked->abstained) {
+            if ($decision === 'approved' && ($locked->abstained || $locked->comparability !== 'comparable' || empty($locked->standard_assessments))) {
                 throw ValidationException::withMessages(['analysis' => 'Çekimser analiz kabul edilemez; reddedin veya yeni kanıtla tekrar çalıştırın.']);
+            }
+            if ($decision === 'approved') {
+                $active = app(WebsiteStandardCatalog::class)->all(true);
+                $original = collect(data_get($locked->run->input_payload, 'standards', []))->keyBy('id');
+                foreach ($locked->standard_assessments as $assessment) {
+                    $id = $assessment['standard_id'];
+                    if (! isset($active[$id]) || $active[$id] != $original->get($id)) {
+                        throw ValidationException::withMessages(['analysis' => 'Standart değişmiş veya kapatılmış. Yeni rakip incelemesi başlatın.']);
+                    }
+                }
             }
             $locked->update([
                 'review_status' => $decision,
@@ -262,9 +274,10 @@ final class SearchDemandCompetitiveIntelligenceService
         }
 
         $members = BrandQueryPortfolioItem::query()
-            ->with(['libraryItem', 'services.names', 'serviceAreas'])
+            ->with(['libraryItem', 'services.names', 'serviceAreas', 'brand.serviceAreas'])
             ->where('brand_id', $website->brand_id)
             ->where('status', 'active')
+            ->whereHas('assetStates', fn ($query) => $query->where('digital_asset_id', $website->id)->where('status', 'active'))
             ->whereHas('clusterMembership', fn ($query) => $query->where('search_demand_cluster_id', $cluster->id))
             ->orderBy('id')->limit(100)->get();
         if ($members->isEmpty()) {
@@ -305,7 +318,7 @@ final class SearchDemandCompetitiveIntelligenceService
         $services = $members->flatMap(fn (BrandQueryPortfolioItem $item) => $item->services)
             ->flatMap(fn ($service) => $service->names->where('is_active', true)->pluck('raw_label'))
             ->filter()->unique()->take(100)->values()->all();
-        $markets = $members->flatMap(fn (BrandQueryPortfolioItem $item) => $item->serviceAreas)
+        $markets = $members->flatMap(fn (BrandQueryPortfolioItem $item) => ($item->area_scope === 'selected_areas' ? $item->serviceAreas : $item->brand->serviceAreas)->where('status', 'active'))
             ->flatMap(fn ($area): array => [$area->country_name, $area->city_name, $area->district_name])
             ->filter()->unique()->take(100)->values()->all();
         $pages = $observations->map(function (SearchDemandCompetitorPageObservation $observation): array {
@@ -335,6 +348,7 @@ final class SearchDemandCompetitiveIntelligenceService
                 'observed_service_expressions' => array_slice(is_array($content->service_expressions) ? $content->service_expressions : [], 0, 100),
                 'observed_location_expressions' => array_slice(is_array($content->location_expressions) ? $content->location_expressions : [], 0, 100),
                 'normalized_text_excerpt' => mb_substr((string) $content->normalized_text, 0, self::COMPETITOR_TEXT_LIMIT),
+                'text_truncated' => mb_strlen((string) $content->normalized_text) > self::COMPETITOR_TEXT_LIMIT,
             ];
         })->all();
 
@@ -350,10 +364,12 @@ final class SearchDemandCompetitiveIntelligenceService
                 ],
                 'website' => ['id' => $website->id, 'brand_id' => $website->brand_id, 'name' => $website->name, 'domain' => $website->domain, 'language_code' => $website->seo_market_language_code],
                 'cluster' => [
-                    'id' => $cluster->id, 'name' => $cluster->name, 'demand_family' => $cluster->demand_family,
+                    'id' => $cluster->id, 'name' => $cluster->name, 'version' => $cluster->version, 'demand_family' => $cluster->demand_family,
                     'serp_intent_group' => $cluster->serp_intent_group, 'content_target_cluster' => $cluster->content_target_cluster,
                     'suggested_content_type' => $cluster->suggested_content_type, 'queries' => $queries,
                 ],
+                'standards' => app(WebsiteStandardCatalog::class)->expertCriteria(),
+                'assessment_contract_version' => 'website-standards-v1',
                 'services' => $services,
                 'markets' => $markets,
                 'verified_brand_page' => $brandPage,
@@ -363,70 +379,19 @@ final class SearchDemandCompetitiveIntelligenceService
     }
 
     /** @return array<string,mixed> */
-    private function brandPageEvidence(DigitalAsset $website, SearchDemandPageOwnership $ownership): array
+    public function brandPageEvidence(DigitalAsset $website, SearchDemandPageOwnership $ownership): array
     {
-        $url = (string) ($ownership->target_url ?: $ownership->pageProfile?->preferred_url);
-        $states = is_array($ownership->pageProfile?->source_states) ? $ownership->pageProfile->source_states : [];
-        $profileRawObjectId = data_get($states, 'website.html.raw_ingestion_object_id');
-        $snapshotQuery = DB::table('website_html_snapshot')
-            ->where('digital_asset_id', $website->id)
-            ->whereNotNull('raw_ingestion_object_id');
-        if (is_numeric($profileRawObjectId)) {
-            $snapshotQuery->where('raw_ingestion_object_id', (int) $profileRawObjectId);
-        } else {
-            $snapshotQuery->where(function ($query) use ($url): void {
-                $query->where('url', $url)->orWhere('requested_url', $url)->orWhere('final_url', $url);
-            });
+        $ownership->loadMissing('pageProfile');
+        if ((int) $ownership->digital_asset_id !== (int) $website->id || $ownership->pageProfile === null) {
+            throw ValidationException::withMessages(['selectedClusterId' => 'Bu web sitesine ait doğrulanmış sayfa gerekir.']);
         }
-        $snapshot = $snapshotQuery->latest('observed_at')->latest('id')->first();
-        if ($snapshot === null) {
-            throw ValidationException::withMessages([
-                'selectedClusterId' => 'Doğrulanmış marka URL’sinin saklı HTML sürümü yok; önce Website verisini toplayın.',
-            ]);
-        }
-        $object = RawIngestionObject::query()
-            ->whereKey((int) $snapshot->raw_ingestion_object_id)
-            ->where('dataset_id', 'website_html_snapshot')
-            ->first();
-        if ($object === null) {
-            throw ValidationException::withMessages(['selectedClusterId' => 'Marka sayfası HTML kanıt nesnesi bulunamadı.']);
-        }
-        $disk = Storage::disk((string) $object->storage_disk);
-        if (! $disk->exists((string) $object->object_key)) {
-            throw ValidationException::withMessages(['selectedClusterId' => 'Marka sayfası HTML kanıt dosyası bulunamadı.']);
-        }
-        $stored = $disk->get((string) $object->object_key);
-        if (! hash_equals((string) $object->sha256, hash('sha256', $stored))) {
-            throw new RuntimeException('Stored Brand-page HTML checksum verification failed.');
-        }
-        $html = match ($object->compression) {
-            null, '' => $stored,
-            'gzip' => gzdecode($stored),
-            default => false,
-        };
-        if (! is_string($html)) {
-            throw new RuntimeException('Stored Brand-page HTML could not be decoded.');
-        }
-        $content = $this->extractor->extract($url, $html, [], []);
-        if (blank($content['normalized_text'] ?? null)) {
-            throw ValidationException::withMessages(['selectedClusterId' => 'Marka sayfası HTML sürümünde karşılaştırılabilir metin yok.']);
+        $page = app(StoredPageReader::class)->read($website, $ownership->pageProfile);
+        if ($page === null || blank($page['normalized_text_excerpt'])
+            || CarbonImmutable::parse($page['observed_at'])->lessThan(now()->subDays(30))) {
+            throw ValidationException::withMessages(['selectedClusterId' => 'Doğrulanmış hedefin son 30 güne ait okunabilir HTML kanıtı gerekir; Entegrasyonlardan veriyi güncelleyin.']);
         }
 
-        return [
-            'ownership_id' => $ownership->id,
-            'page_profile_id' => $ownership->website_page_profile_id,
-            'url' => $url,
-            'observed_at' => $snapshot->observed_at,
-            'content_fingerprint' => $content['content_fingerprint'],
-            'title' => $content['title'],
-            'meta_description' => $content['meta_description'],
-            'h1' => $content['h1'],
-            'headings' => array_slice($content['headings'], 0, 80),
-            'schema_types' => array_slice((array) data_get($content, 'schema_summary.types', []), 0, 40),
-            'internal_link_count' => count($content['internal_links']),
-            'external_link_count' => count($content['external_links']),
-            'normalized_text_excerpt' => mb_substr((string) $content['normalized_text'], 0, self::BRAND_TEXT_LIMIT),
-        ];
+        return $page + ['ownership_id' => $ownership->id, 'ownership_version' => $ownership->version];
     }
 
     /** @param array<string,mixed> $response */
@@ -445,10 +410,21 @@ final class SearchDemandCompetitiveIntelligenceService
             foreach ($expected as $observationId => $input) {
                 $page = $returned->get((int) $observationId);
                 $valid = is_array($page) && (int) ($page['competitor_id'] ?? 0) === (int) ($input['competitor_id'] ?? 0);
+                $comparability = $valid ? $this->enum($page['comparability'] ?? null, ['comparable', 'different_intent', 'different_page_type', 'unknown'], 'unknown') : 'unknown';
+                $assessments = app(StandardEvidenceGuard::class)->competitiveAssessments(
+                    (array) ($page['standard_assessments'] ?? []),
+                    (array) ($run->input_payload['standards'] ?? []),
+                    (array) ($run->input_payload['verified_brand_page'] ?? []),
+                    $input,
+                );
+                $valid = $valid && $comparability === 'comparable' && $assessments !== []
+                    && ! (bool) ($response['abstained'] ?? false);
                 SearchDemandCompetitivePageAnalysis::query()->updateOrCreate(
                     ['competitive_intelligence_run_id' => $locked->id, 'competitor_page_observation_id' => (int) $observationId],
                     [
                         'search_demand_competitor_id' => (int) $input['competitor_id'],
+                        'comparability' => $comparability,
+                        'standard_assessments' => $assessments,
                         'proposed_entity_kind' => $valid ? $this->enum($page['competitor_type'] ?? null, ['unknown', 'business', 'directory', 'platform', 'authority'], 'unknown') : 'unknown',
                         'proposed_competitive_roles' => $valid ? $this->enumList($page['competitive_roles'] ?? [], ['commercial', 'content']) : [],
                         'page_intent' => $valid ? $this->enum($page['page_intent'] ?? null, ['service', 'commercial_landing', 'guide', 'article', 'directory', 'listing', 'tool', 'homepage', 'other', 'unclear'], 'unclear') : 'unclear',
@@ -464,7 +440,7 @@ final class SearchDemandCompetitiveIntelligenceService
                         'evidence_explanation' => $valid ? $this->stringList($page['evidence_explanation'] ?? []) : [],
                         'confidence' => $valid ? $this->confidence($page['confidence'] ?? null) : 0,
                         'abstained' => ! $valid || (bool) ($page['abstained'] ?? false),
-                        'abstention_reason' => $valid ? $this->nullableString($page['abstention_reason'] ?? null) : 'AI response omitted or mismatched the supplied evidence IDs.',
+                        'abstention_reason' => $valid ? $this->nullableString($page['abstention_reason'] ?? null) : 'Sayfalar karşılaştırılabilir değil veya standart / sayfa kanıtı doğrulanamadı.',
                         'review_status' => 'pending', 'review_note' => null, 'reviewed_by' => null, 'reviewed_at' => null,
                     ],
                 );

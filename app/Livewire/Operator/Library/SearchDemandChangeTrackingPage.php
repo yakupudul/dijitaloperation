@@ -140,6 +140,7 @@ final class SearchDemandChangeTrackingPage extends Component
     private function eligibleTasks()
     {
         $recommendationIds = SearchDemandImprovementProposal::query()->where('review_status', 'approved')
+            ->whereHas('run', fn ($query) => $query->whereNotNull('search_demand_cluster_id'))
             ->whereNotNull('recommendation_id')->pluck('recommendation_id');
 
         return Task::query()->where('brand_id', (int) $this->selectedBrandId)

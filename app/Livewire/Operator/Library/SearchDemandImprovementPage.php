@@ -85,7 +85,7 @@ final class SearchDemandImprovementPage extends Component
         $this->message = $result['cached']
             ? 'Aynı onaylı kanıt ve tanım imzaları için tamamlanmış çalışma yeniden kullanıldı.'
             : ($result['queued']
-                ? sprintf('%d kabul edilmiş analizle Faz 12 planlaması kuyruğa alındı; ilerleme Activity ekranında.', $result['approved_analysis_count'])
+                ? sprintf('Standartlara göre içerik analizi kuyruğa alındı; %d onaylı rakip analizi ek bağlam olarak kullanılabilir.', $result['approved_analysis_count'])
                 : 'Aynı kanıt paketi için planlama zaten çalışıyor.');
     }
 
@@ -181,6 +181,9 @@ final class SearchDemandImprovementPage extends Component
         if ($this->selectedBrandId === '') {
             return;
         }
+        if ($this->selectedWebsiteId !== '' && DigitalAsset::query()->where('brand_id', (int) $this->selectedBrandId)->where('type', 'website')->whereKey($this->selectedWebsiteId)->exists()) {
+            return;
+        }
         $id = DigitalAsset::query()->where('brand_id', (int) $this->selectedBrandId)
             ->where('type', 'website')->orderBy('name')->value('id');
         $this->selectedWebsiteId = $id !== null ? (string) $id : '';
@@ -189,6 +192,9 @@ final class SearchDemandImprovementPage extends Component
     private function primeCluster(): void
     {
         if ($this->selectedBrandId === '') {
+            return;
+        }
+        if ($this->selectedClusterId !== '' && SearchDemandCluster::query()->where('brand_id', (int) $this->selectedBrandId)->where('status', 'active')->whereKey($this->selectedClusterId)->exists()) {
             return;
         }
         $id = SearchDemandCluster::query()->where('brand_id', (int) $this->selectedBrandId)

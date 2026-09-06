@@ -153,7 +153,8 @@ class AgentProfilesSkillLibraryV1Test extends TestCase
             $this->assertStringNotContainsString('http', $root['absolute_root']);
             $this->assertTrue(
                 str_starts_with($root['absolute_root'], base_path('app-modules'))
-                || str_starts_with($root['absolute_root'], base_path('resources/skills')),
+                || str_starts_with($root['absolute_root'], base_path('resources/skills'))
+                || $root['absolute_root'] === base_path('resources/search-demand-skills'),
                 $root['absolute_root'],
             );
         }

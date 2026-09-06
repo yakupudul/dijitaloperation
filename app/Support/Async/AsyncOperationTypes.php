@@ -58,6 +58,7 @@ final class AsyncOperationTypes
         return [
             self::BOUND_COLLECT => 'Collect live data',
             self::WEBSITE_DIAGNOSIS => 'Website diagnosis',
+            'website_standards' => 'Website standards assessment',
             self::PUBLIC_DISCOVERY => 'Public discovery',
             self::SEARCH_DEMAND_COMPETITOR_PAGE_COLLECTION => 'Competitor page collection',
             self::SEARCH_DEMAND_COMPETITIVE_INTELLIGENCE => 'Competitive intelligence',

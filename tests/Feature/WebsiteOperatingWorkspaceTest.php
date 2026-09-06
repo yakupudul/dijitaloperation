@@ -48,7 +48,7 @@ class WebsiteOperatingWorkspaceTest extends TestCase
     {
         $asset = $this->createPortfolioAsset('website', 'Northwind Website');
 
-        foreach (['overview', 'health', 'visibility', 'content', 'performance', 'infrastructure', 'operations', 'setup'] as $tab) {
+        foreach (['overview', 'health', 'standards', 'visibility', 'content', 'performance', 'infrastructure', 'operations', 'setup'] as $tab) {
             $this->get(route('operator.website', ['assetId' => $asset->id, 'tab' => $tab]))
                 ->assertOk()
                 ->assertSee('Northwind Website')
@@ -72,11 +72,11 @@ class WebsiteOperatingWorkspaceTest extends TestCase
             ->assertDontSee('27 service pages have no self-referencing canonical')
             ->assertDontSee('Atlas Dental Website')
             ->call('setTab', 'health')
-            ->assertSee('Website health')
-            ->assertSee('0 checks evaluated')
+            ->assertSee('Technical health observations')
+            ->assertSee('No technical Website data collected yet')
             ->assertDontSee('88% Healthy')
             ->call('setTab', 'infrastructure')
-            ->assertSee('not standalone assets')
+            ->assertSee('WordPress inside state')
             ->call('refreshData')
             ->call('runDiagnosis')
             ->assertSet('tab', 'health');

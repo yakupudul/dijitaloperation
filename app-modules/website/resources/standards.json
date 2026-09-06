@@ -1,0 +1,506 @@
+{
+  "version": 1,
+  "standards": [
+    {
+      "id": "reachability-http",
+      "version": 1,
+      "enabled": true,
+      "title": "Sayfa erişilebilirliği",
+      "group": "access",
+      "method": "http",
+      "classification": "verified",
+      "applicability": "public_page",
+      "required_evidence": [
+        "HTTP yanıtı"
+      ],
+      "criterion": "Sayfa erişilebilirliği",
+      "action": "Erişim hatasının kaynağını giderin; yeniden toplanan HTTP yanıtını doğrulayın.",
+      "verification": "Entegrasyonlardan yeni gözlem topladıktan sonra aynı kontrolü yeniden çalıştırın.",
+      "source_url": "https://developers.google.com/search/docs/crawling-indexing/http-network-errors",
+      "source_reviewed_at": "2026-09-05",
+      "severity": "high"
+    },
+    {
+      "id": "https-tls-validity",
+      "version": 1,
+      "enabled": true,
+      "title": "HTTPS sertifikası",
+      "group": "access",
+      "method": "tls",
+      "classification": "verified",
+      "applicability": "site",
+      "required_evidence": [
+        "Saklı TLS gözlemi"
+      ],
+      "criterion": "HTTPS sertifikası",
+      "action": "Sertifika geçerliliğini ve HTTPS sunumunu kontrol edin.",
+      "verification": "Entegrasyonlardan yeni gözlem topladıktan sonra aynı kontrolü yeniden çalıştırın.",
+      "source_url": "https://developers.google.com/search/docs/appearance/page-experience",
+      "source_reviewed_at": "2026-09-06",
+      "severity": "high"
+    },
+    {
+      "id": "redirect-http-to-https",
+      "version": 1,
+      "enabled": true,
+      "title": "HTTP → HTTPS yönlendirmesi",
+      "group": "access",
+      "method": "https_redirect",
+      "classification": "verified",
+      "applicability": "site",
+      "required_evidence": [
+        "Saklı HTTP yönlendirme zinciri"
+      ],
+      "criterion": "HTTP → HTTPS yönlendirmesi",
+      "action": "HTTP ziyaretlerinin doğru HTTPS adresine ulaştığını doğrulayın.",
+      "verification": "Entegrasyonlardan yeni gözlem topladıktan sonra aynı kontrolü yeniden çalıştırın.",
+      "source_url": "https://developers.google.com/search/docs/crawling-indexing/301-redirects",
+      "source_reviewed_at": "2026-09-05",
+      "severity": "medium"
+    },
+    {
+      "id": "robots-txt-availability",
+      "version": 1,
+      "enabled": true,
+      "title": "robots.txt erişimi",
+      "group": "access",
+      "method": "robots_file",
+      "classification": "advisory",
+      "applicability": "site",
+      "required_evidence": [
+        "Saklı robots.txt yanıtı"
+      ],
+      "criterion": "robots.txt erişimi",
+      "action": "Tarama politikasını inceleyin. Dosyanın bulunmaması tek başına tarama engeli değildir.",
+      "verification": "Entegrasyonlardan yeni gözlem topladıktan sonra aynı kontrolü yeniden çalıştırın.",
+      "source_url": "https://developers.google.com/search/docs/crawling-indexing/robots/intro",
+      "source_reviewed_at": "2026-09-05",
+      "severity": "low"
+    },
+    {
+      "id": "sitemap-xml-availability",
+      "version": 1,
+      "enabled": true,
+      "title": "Site haritası gözlemi",
+      "group": "structure",
+      "method": "sitemap",
+      "classification": "advisory",
+      "applicability": "site",
+      "required_evidence": [
+        "Saklı sitemap yanıtı"
+      ],
+      "criterion": "Site haritası gözlemi",
+      "action": "Gerekliyse keşfi destekleyen bir site haritası sunun; eksik dosya tek başına indeksleme hatası değildir.",
+      "verification": "Entegrasyonlardan yeni gözlem topladıktan sonra aynı kontrolü yeniden çalıştırın.",
+      "source_url": "https://developers.google.com/search/docs/crawling-indexing/sitemaps/overview",
+      "source_reviewed_at": "2026-09-05",
+      "severity": "low"
+    },
+    {
+      "id": "canonical-link-consistency",
+      "version": 1,
+      "enabled": true,
+      "title": "Canonical hedefi",
+      "group": "access",
+      "method": "canonical",
+      "classification": "verified",
+      "applicability": "content_page",
+      "required_evidence": [
+        "Canonical bağlantıları ve amaçlanan URL"
+      ],
+      "criterion": "Canonical hedefi",
+      "action": "Amaçlanan ana sayfa ile canonical hedefini karşılaştırın; canonical yokluğu tek başına hata değildir.",
+      "verification": "Entegrasyonlardan yeni gözlem topladıktan sonra aynı kontrolü yeniden çalıştırın.",
+      "source_url": "https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls",
+      "source_reviewed_at": "2026-09-05",
+      "severity": "high"
+    },
+    {
+      "id": "website:head:title-missing",
+      "version": 1,
+      "enabled": true,
+      "title": "Title etiketi eksik",
+      "group": "metadata",
+      "method": "title_missing",
+      "classification": "verified",
+      "applicability": "content_page",
+      "required_evidence": [
+        "Saklı sayfa başlığı"
+      ],
+      "criterion": "Title etiketi eksik",
+      "action": "Sayfanın amacını anlatan açıklayıcı bir title ekleyin.",
+      "verification": "Entegrasyonlardan yeni gözlem topladıktan sonra aynı kontrolü yeniden çalıştırın.",
+      "source_url": "https://developers.google.com/search/docs/appearance/title-link",
+      "source_reviewed_at": "2026-09-05",
+      "severity": "medium"
+    },
+    {
+      "id": "website:head:title-empty",
+      "version": 1,
+      "enabled": true,
+      "title": "Title etiketi boş",
+      "group": "metadata",
+      "method": "title_empty",
+      "classification": "verified",
+      "applicability": "content_page",
+      "required_evidence": [
+        "Saklı sayfa başlığı"
+      ],
+      "criterion": "Title etiketi boş",
+      "action": "Boş title değerini açıklayıcı bir başlıkla tamamlayın.",
+      "verification": "Entegrasyonlardan yeni gözlem topladıktan sonra aynı kontrolü yeniden çalıştırın.",
+      "source_url": "https://developers.google.com/search/docs/appearance/title-link",
+      "source_reviewed_at": "2026-09-05",
+      "severity": "medium"
+    },
+    {
+      "id": "website:head:title-length-heuristic",
+      "version": 1,
+      "enabled": true,
+      "title": "Title uzunluğu incelemesi",
+      "group": "metadata",
+      "method": "title_length",
+      "classification": "heuristic",
+      "applicability": "content_page",
+      "required_evidence": [
+        "Saklı sayfa başlığı"
+      ],
+      "criterion": "Title uzunluğu incelemesi",
+      "action": "Başlığın açıklığını inceleyin. 60 karakter bir sıralama şartı veya kesin sınır değildir.",
+      "verification": "Entegrasyonlardan yeni gözlem topladıktan sonra aynı kontrolü yeniden çalıştırın.",
+      "source_url": "https://developers.google.com/search/docs/appearance/title-link",
+      "source_reviewed_at": "2026-09-05",
+      "severity": "low"
+    },
+    {
+      "id": "website:head:meta-description-missing",
+      "version": 1,
+      "enabled": true,
+      "title": "Meta açıklaması eksik",
+      "group": "metadata",
+      "method": "description_missing",
+      "classification": "advisory",
+      "applicability": "content_page",
+      "required_evidence": [
+        "Saklı meta açıklaması"
+      ],
+      "criterion": "Meta açıklaması eksik",
+      "action": "Sayfaya özgü bir açıklama hazırlayın; Google farklı bir snippet seçebilir.",
+      "verification": "Entegrasyonlardan yeni gözlem topladıktan sonra aynı kontrolü yeniden çalıştırın.",
+      "source_url": "https://developers.google.com/search/docs/appearance/snippet",
+      "source_reviewed_at": "2026-09-05",
+      "severity": "low"
+    },
+    {
+      "id": "website:head:meta-description-empty",
+      "version": 1,
+      "enabled": true,
+      "title": "Meta açıklaması boş",
+      "group": "metadata",
+      "method": "description_empty",
+      "classification": "advisory",
+      "applicability": "content_page",
+      "required_evidence": [
+        "Saklı meta açıklaması"
+      ],
+      "criterion": "Meta açıklaması boş",
+      "action": "Boş açıklamayı sayfanın içeriğini anlatacak şekilde tamamlayın.",
+      "verification": "Entegrasyonlardan yeni gözlem topladıktan sonra aynı kontrolü yeniden çalıştırın.",
+      "source_url": "https://developers.google.com/search/docs/appearance/snippet",
+      "source_reviewed_at": "2026-09-05",
+      "severity": "low"
+    },
+    {
+      "id": "website:head:meta-description-length-heuristic",
+      "version": 1,
+      "enabled": true,
+      "title": "Meta açıklaması uzunluğu incelemesi",
+      "group": "metadata",
+      "method": "description_length",
+      "classification": "heuristic",
+      "applicability": "content_page",
+      "required_evidence": [
+        "Saklı meta açıklaması"
+      ],
+      "criterion": "Meta açıklaması uzunluğu incelemesi",
+      "action": "50–160 karakter yalnız inceleme aralığıdır; zorunlu sıralama kuralı değildir.",
+      "verification": "Entegrasyonlardan yeni gözlem topladıktan sonra aynı kontrolü yeniden çalıştırın.",
+      "source_url": "https://developers.google.com/search/docs/appearance/snippet",
+      "source_reviewed_at": "2026-09-05",
+      "severity": "low"
+    },
+    {
+      "id": "website:head:charset-missing",
+      "version": 1,
+      "enabled": true,
+      "title": "Karakter kodlaması bildirimi",
+      "group": "metadata",
+      "method": "charset",
+      "classification": "advisory",
+      "applicability": "content_page",
+      "required_evidence": [
+        "Saklı HTML ve HTTP başlıkları"
+      ],
+      "criterion": "Karakter kodlaması bildirimi",
+      "action": "Karakter kodlamasının HTML veya HTTP yanıtında doğru bildirildiğini kontrol edin.",
+      "verification": "Entegrasyonlardan yeni gözlem topladıktan sonra aynı kontrolü yeniden çalıştırın.",
+      "source_url": "https://developers.google.com/search/docs/crawling-indexing/special-tags",
+      "source_reviewed_at": "2026-09-05",
+      "severity": "low"
+    },
+    {
+      "id": "website:head:viewport-missing",
+      "version": 1,
+      "enabled": true,
+      "title": "Mobil viewport bildirimi",
+      "group": "metadata",
+      "method": "viewport",
+      "classification": "advisory",
+      "applicability": "content_page",
+      "required_evidence": [
+        "Saklı HTML"
+      ],
+      "criterion": "Mobil viewport bildirimi",
+      "action": "Mobil görünümü ve viewport bildirimini kontrol edin.",
+      "verification": "Entegrasyonlardan yeni gözlem topladıktan sonra aynı kontrolü yeniden çalıştırın.",
+      "source_url": "https://web.dev/articles/responsive-web-design-basics",
+      "source_reviewed_at": "2026-09-06",
+      "severity": "low"
+    },
+    {
+      "id": "website:head:meta-robots-noindex",
+      "version": 1,
+      "enabled": true,
+      "title": "Arama hedefinde noindex",
+      "group": "access",
+      "method": "noindex",
+      "classification": "verified",
+      "applicability": "search_target",
+      "required_evidence": [
+        "Robots yönergeleri ve insan URL kararı"
+      ],
+      "criterion": "Arama hedefinde noindex",
+      "action": "Aramada görünmesi amaçlanan hedefteki noindex yönergesini düzeltin. Amaç bilinmiyorsa önce doğrulayın.",
+      "verification": "Entegrasyonlardan yeni gözlem topladıktan sonra aynı kontrolü yeniden çalıştırın.",
+      "source_url": "https://developers.google.com/search/docs/crawling-indexing/robots-meta-tag",
+      "source_reviewed_at": "2026-09-05",
+      "severity": "high"
+    },
+    {
+      "id": "website:head:jsonld-malformed",
+      "version": 1,
+      "enabled": true,
+      "title": "JSON-LD sözdizimi",
+      "group": "metadata",
+      "method": "jsonld",
+      "classification": "verified",
+      "applicability": "content_page",
+      "required_evidence": [
+        "Saklı JSON-LD çözümlemesi"
+      ],
+      "criterion": "JSON-LD sözdizimi",
+      "action": "Bozuk JSON-LD sözdizimini düzeltin. Geçerli JSON, rich result uygunluğu garantisi değildir.",
+      "verification": "Entegrasyonlardan yeni gözlem topladıktan sonra aynı kontrolü yeniden çalıştırın.",
+      "source_url": "https://developers.google.com/search/docs/appearance/structured-data/sd-policies",
+      "source_reviewed_at": "2026-09-05",
+      "severity": "medium"
+    },
+    {
+      "id": "website:head:open-graph-incomplete",
+      "version": 1,
+      "enabled": true,
+      "title": "Sosyal paylaşım bilgileri",
+      "group": "metadata",
+      "method": "open_graph",
+      "classification": "advisory",
+      "applicability": "content_page",
+      "required_evidence": [
+        "Saklı Open Graph alanları"
+      ],
+      "criterion": "Sosyal paylaşım bilgileri",
+      "action": "Paylaşım önizlemesi gerekiyorsa ilgili Open Graph alanlarını tamamlayın.",
+      "verification": "Entegrasyonlardan yeni gözlem topladıktan sonra aynı kontrolü yeniden çalıştırın.",
+      "source_url": "https://ogp.me/",
+      "source_reviewed_at": "2026-09-06",
+      "severity": "low"
+    },
+    {
+      "id": "website:content:h1",
+      "version": 1,
+      "enabled": true,
+      "title": "Ana başlığın bulunması",
+      "group": "structure",
+      "method": "h1",
+      "classification": "advisory",
+      "applicability": "content_page",
+      "required_evidence": [
+        "Saklı başlık gözlemi"
+      ],
+      "criterion": "Ana başlığın bulunması",
+      "action": "Sayfanın ana amacını açıkça anlatan görünür bir ana başlık kullanın.",
+      "verification": "Entegrasyonlardan yeni gözlem topladıktan sonra aynı kontrolü yeniden çalıştırın.",
+      "source_url": "https://developers.google.com/search/docs/appearance/title-link",
+      "source_reviewed_at": "2026-09-05",
+      "severity": "medium"
+    },
+    {
+      "id": "website:structure:internal-links",
+      "version": 1,
+      "enabled": true,
+      "title": "İlgili sayfalara iç bağlantılar",
+      "group": "structure",
+      "method": "internal_links",
+      "classification": "advisory",
+      "applicability": "content_page",
+      "required_evidence": [
+        "Saklı bağlantı gözlemi"
+      ],
+      "criterion": "İlgili sayfalara iç bağlantılar",
+      "action": "Kullanıcıya yardımcı ilgili sayfalara açıklayıcı bağlantılar ekleyin.",
+      "verification": "Entegrasyonlardan yeni gözlem topladıktan sonra aynı kontrolü yeniden çalıştırın.",
+      "source_url": "https://developers.google.com/search/docs/crawling-indexing/links-crawlable",
+      "source_reviewed_at": "2026-09-05",
+      "severity": "medium"
+    },
+    {
+      "id": "website:review:intent",
+      "version": 1,
+      "enabled": true,
+      "title": "Arama niyeti ve sayfa amacı",
+      "group": "coverage",
+      "method": "expert_review",
+      "classification": "expert_judgment",
+      "applicability": "content_page",
+      "required_evidence": [
+        "stored_html",
+        "cluster_context"
+      ],
+      "criterion": "Sayfa kümedeki kullanıcı ihtiyacına uygun türde mi; hizmet almak isteyen kullanıcıya yalnız genel bir makale mi sunuluyor?",
+      "action": "Sayfa amacını kümenin gerçek kullanıcı ihtiyacına göre düzenleyin.",
+      "verification": "Güncellenen saklı HTML sürümünü aynı kullanıcı ihtiyacı ve kriterle yeniden inceleyin.",
+      "source_url": "https://developers.google.com/search/docs/fundamentals/creating-helpful-content",
+      "source_reviewed_at": "2026-09-05",
+      "severity": "medium"
+    },
+    {
+      "id": "website:review:questions",
+      "version": 1,
+      "enabled": true,
+      "title": "Karar için gerekli sorular",
+      "group": "content",
+      "method": "expert_review",
+      "classification": "expert_judgment",
+      "applicability": "content_page",
+      "required_evidence": [
+        "stored_html",
+        "cluster_context"
+      ],
+      "criterion": "Hedef kullanıcının bu hizmete karar vermek için ihtiyaç duyduğu sorular sayfada yanıtlanıyor mu? Rakipteki her bölüm zorunlu değildir.",
+      "action": "Kanıtla belirlenen yanıtsız soruları ilgili sayfada cevaplayın.",
+      "verification": "Güncellenen saklı HTML sürümünü aynı kullanıcı ihtiyacı ve kriterle yeniden inceleyin.",
+      "source_url": "https://developers.google.com/search/docs/fundamentals/creating-helpful-content",
+      "source_reviewed_at": "2026-09-05",
+      "severity": "medium"
+    },
+    {
+      "id": "website:review:service-scope",
+      "version": 1,
+      "enabled": true,
+      "title": "Hizmetin kapsamı ve süreç",
+      "group": "content",
+      "method": "expert_review",
+      "classification": "expert_judgment",
+      "applicability": "content_page",
+      "required_evidence": [
+        "stored_html",
+        "cluster_context"
+      ],
+      "criterion": "Sunulan hizmetin kapsamı, kimler için uygun olduğu ve nasıl ilerlediği anlaşılır mı? Marka beyanı dışında hizmet uydurmayın.",
+      "action": "Gerçek hizmet kapsamını ve süreci açıklayın.",
+      "verification": "Güncellenen saklı HTML sürümünü aynı kullanıcı ihtiyacı ve kriterle yeniden inceleyin.",
+      "source_url": "https://developers.google.com/search/docs/fundamentals/creating-helpful-content",
+      "source_reviewed_at": "2026-09-05",
+      "severity": "medium"
+    },
+    {
+      "id": "website:review:local-fit",
+      "version": 1,
+      "enabled": true,
+      "title": "Hizmet bölgesi ile uyum",
+      "group": "local",
+      "method": "expert_review",
+      "classification": "expert_judgment",
+      "applicability": "local_content",
+      "required_evidence": [
+        "stored_html",
+        "cluster_context"
+      ],
+      "criterion": "Yerel niyet ve marka hizmet alanı varsa sayfa gerçek hizmet bölgesini açık ve tutarlı anlatıyor mu? Şube veya adres uydurmayın.",
+      "action": "Doğrulanmış hizmet bölgesini ve erişim bilgisini açıklayın.",
+      "verification": "Güncellenen saklı HTML sürümünü aynı kullanıcı ihtiyacı ve kriterle yeniden inceleyin.",
+      "source_url": "https://developers.google.com/search/docs/fundamentals/creating-helpful-content",
+      "source_reviewed_at": "2026-09-05",
+      "severity": "medium"
+    },
+    {
+      "id": "website:review:proof",
+      "version": 1,
+      "enabled": true,
+      "title": "Güvenilir ve özgün dayanaklar",
+      "group": "trust",
+      "method": "expert_review",
+      "classification": "expert_judgment",
+      "applicability": "content_page",
+      "required_evidence": [
+        "stored_html",
+        "cluster_context"
+      ],
+      "criterion": "Uzmanlık, uygulama deneyimi ve önemli iddiaların dayanağı uygun yerlerde görülebiliyor mu? Sadece puan veya kelime sayısıyla değerlendirmeyin.",
+      "action": "İddialara uygun, doğrulanabilir özgün dayanaklar ekleyin.",
+      "verification": "Güncellenen saklı HTML sürümünü aynı kullanıcı ihtiyacı ve kriterle yeniden inceleyin.",
+      "source_url": "https://developers.google.com/search/docs/fundamentals/creating-helpful-content",
+      "source_reviewed_at": "2026-09-05",
+      "severity": "medium"
+    },
+    {
+      "id": "website:review:next-step",
+      "version": 1,
+      "enabled": true,
+      "title": "Kullanıcının sonraki adımı",
+      "group": "conversion",
+      "method": "expert_review",
+      "classification": "expert_judgment",
+      "applicability": "content_page",
+      "required_evidence": [
+        "stored_html",
+        "cluster_context"
+      ],
+      "criterion": "Kullanıcı amacına uygun sonraki adımı bulabiliyor mu? Bir formun metinde görünmesi çalıştığını veya dönüşüm sağladığını kanıtlamaz.",
+      "action": "İletişim, başvuru veya ilgili bilgiye geçişi açık hale getirin.",
+      "verification": "Güncellenen saklı HTML sürümünü aynı kullanıcı ihtiyacı ve kriterle yeniden inceleyin.",
+      "source_url": "https://developers.google.com/search/docs/fundamentals/creating-helpful-content",
+      "source_reviewed_at": "2026-09-05",
+      "severity": "medium"
+    },
+    {
+      "id": "website:review:answer-clarity",
+      "version": 1,
+      "enabled": true,
+      "title": "Yanıtların anlaşılır ve kaynaklanabilir olması",
+      "group": "ai",
+      "method": "expert_review",
+      "classification": "expert_judgment",
+      "applicability": "content_page",
+      "required_evidence": [
+        "stored_html",
+        "cluster_context"
+      ],
+      "criterion": "Önemli yanıtlar bağlamıyla birlikte açık mı; iddialar izlenebilir mi? llms.txt, özel AI şeması veya alıntılanma puanı zorunluluğu üretmeyin.",
+      "action": "Kullanıcı sorularına açık, özgün ve dayanağı anlaşılır yanıtlar verin.",
+      "verification": "Güncellenen saklı HTML sürümünü aynı kullanıcı ihtiyacı ve kriterle yeniden inceleyin.",
+      "source_url": "https://developers.google.com/search/docs/fundamentals/ai-optimization-guide",
+      "source_reviewed_at": "2026-09-05",
+      "severity": "medium"
+    }
+  ]
+}

@@ -30,6 +30,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use MoxDop\Website\Discovery\PublicUrlNormalizer;
 use Throwable;
 
 final class SearchDemandPageOwnershipService
@@ -674,6 +675,19 @@ final class SearchDemandPageOwnershipService
             }
         }
 
+        $blockedRelevant = collect((array) data_get($run->input_payload, 'candidates', []))
+            ->contains(fn (array $candidate): bool => $candidate['technical_eligibility'] !== 'eligible'
+                && ($candidate['matched_terms'] !== []
+                    || in_array('current_ownership', $candidate['candidate_sources'], true)
+                    || in_array('gsc_current', $candidate['candidate_sources'], true)));
+        if ($blockedRelevant && ($decisionState === 'no_suitable_url'
+            || in_array($structured['content_type_suggestion'] ?? null, ['new_service_page', 'blog', 'faq'], true))) {
+            $decisionState = 'review_required';
+            $recommendedPageId = null;
+            $structured['content_type_suggestion'] = 'improve_existing';
+            $structured['rationale'] = 'İlgili fakat teknik olarak hazır olmayan sayfalar var. Yeni içerikten önce mevcut adayları ve engelleri inceleyin.';
+        }
+
         DB::transaction(function () use (
             $run,
             $structured,
@@ -743,8 +757,7 @@ final class SearchDemandPageOwnershipService
         ?SearchDemandPageOwnership $ownership,
         array $nonBrandedCurrentGsc,
         array $nonBrandedComparisonGsc,
-    ): array
-    {
+    ): array {
         $eligible = collect($candidates)->where('technical_eligibility', 'eligible');
         $current = collect($candidates)->filter(fn (array $row): bool => (int) ($row['gsc']['impressions'] ?? 0) > 0)
             ->sortByDesc('gsc.impressions')->values();
@@ -768,7 +781,7 @@ final class SearchDemandPageOwnershipService
             && $currentLeader !== null
             && (int) $ownership->website_page_profile_id !== (int) $currentLeader['page_profile_id'];
         $state = match (true) {
-            $eligible->isEmpty() => 'no_suitable_url',
+            $eligible->isEmpty() => 'review_required',
             $wrongUrlCandidate => 'wrong_url_candidate',
             $cannibalizationCandidate => 'multiple_urls',
             default => 'review_required',
@@ -779,7 +792,9 @@ final class SearchDemandPageOwnershipService
             'multiple_urls' => $nonBrandedLeaderChanged
                 ? 'GSC dönemleri arasında lider URL değişti; URL çakışması ve cannibalization adayı olarak incelenmelidir.'
                 : 'Birden fazla URL gözlendi ve hiçbiri yapılandırılmış baskınlık eşiğini geçmedi; bu yalnız inceleme adayıdır.',
-            default => 'Teknik olarak uygun adaylar var; hedef sahipliği için semantik inceleme ve insan onayı gerekir.',
+            default => $eligible->isEmpty()
+                ? 'Teknik olarak hazır aday bulunamadı. İlgili sayfaları ve eksik kanıtı inceleyin; bu durum yeni sayfa gerektirdiğini kanıtlamaz.'
+                : 'Teknik olarak uygun adaylar var; hedef sahipliği için semantik inceleme ve insan onayı gerekir.',
         };
 
         return [
@@ -794,8 +809,34 @@ final class SearchDemandPageOwnershipService
         ];
     }
 
+    /**
+     * Reuses the Phase 8 lexical prefilter without provider reads or AI.
+     * These are candidates, not semantic ownership decisions.
+     *
+     * @param  Collection<int, WebsitePageProfile>  $profiles
+     * @param  Collection<int, BrandQueryPortfolioItem>  $members
+     * @return list<array<string, mixed>>
+     */
+    public function coverageCandidates(DigitalAsset $website, SearchDemandCluster $cluster, Collection $profiles, Collection $members): array
+    {
+        $this->assertScope($website, $cluster);
+        $terms = $this->clusterTerms($cluster, $members);
+
+        return $profiles->map(function (WebsitePageProfile $profile) use ($website, $cluster, $terms): array {
+            $gate = $this->technicalGate($website, $cluster, $profile);
+
+            return [
+                'page_profile_id' => $profile->id, 'url' => $profile->preferred_url,
+                'matched_terms' => $this->matchedTerms($profile, $terms),
+                'technical_state' => $gate['state'], 'technical_checks' => $gate['checks'],
+            ];
+        })->filter(fn (array $row): bool => $row['matched_terms'] !== []
+            && data_get($row, 'technical_checks.page_kind.state') === 'pass')
+            ->sortByDesc(fn (array $row): int => count($row['matched_terms']))->take(20)->values()->all();
+    }
+
     /** @return array{state:string,checks:array<string,array<string,mixed>>} */
-    private function technicalGate(
+    public function technicalGate(
         DigitalAsset $website,
         SearchDemandCluster $cluster,
         WebsitePageProfile $profile,
@@ -817,11 +858,11 @@ final class SearchDemandPageOwnershipService
         $family = $this->families->classify($profile->preferred_url, $wordpressType);
         $allowsArchive = in_array(mb_strtolower((string) $cluster->suggested_content_type), ['archive', 'category', 'listing'], true);
         $isSystemUrl = preg_match('#/(?:wp-admin|wp-json|wp-login\.php|feed|xmlrpc\.php)(?:/|$)#i', (string) parse_url($profile->preferred_url, PHP_URL_PATH)) === 1;
-        $canonicalState = 'pass';
+        $canonicalState = is_array(data_get($states, 'website.document_head')) ? 'pass' : 'unknown';
         if ($canonicalHrefs !== []) {
-            $canonicalState = collect($canonicalHrefs)->contains(
-                fn (string $url): bool => $this->urlKey($url) === $this->urlKey($profile->preferred_url),
-            ) ? 'pass' : 'fail';
+            $urls = new PublicUrlNormalizer;
+            $resolved = collect($canonicalHrefs)->map(fn (string $url) => $urls->resolve($profile->preferred_url, $url))->unique()->values();
+            $canonicalState = $resolved->count() === 1 && $resolved->first() === $urls->normalizeAbsolute($profile->preferred_url) ? 'pass' : 'fail';
         }
         $checks = [
             'same_website' => ['state' => 'pass', 'observed' => $website->id],
@@ -836,7 +877,7 @@ final class SearchDemandPageOwnershipService
             'indexable' => [
                 'state' => ! is_array(data_get($states, 'website.document_head'))
                     ? 'unknown'
-                    : (str_contains($robots, 'noindex') ? 'fail' : 'pass'),
+                    : (preg_match('/(?:^|[\s,;:])(?:noindex|none)(?:$|[\s,;])/i', $robots) === 1 ? 'fail' : 'pass'),
                 'observed' => $robots !== '' ? $robots : null,
             ],
             'canonical_self_or_absent' => ['state' => $canonicalState, 'observed' => $canonicalHrefs],

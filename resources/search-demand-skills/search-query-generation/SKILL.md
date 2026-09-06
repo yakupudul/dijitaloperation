@@ -1,26 +1,26 @@
 ---
 name: Search Query Generation
 slug: search-query-generation
-version: 1.0.0
+version: 1.0.1
 module: search_demand
 purpose: Generate reusable search-query candidates for a canonical service and bounded market context without inventing demand metrics.
 definition_status: active
 required_evidence:
   - key: canonical_service
-    kind: catalog_record
+    kind: workflow_context
     role: PRIMARY_FACT
     purpose: Human-maintained canonical service and approved aliases
     missing_behavior: ABSTAIN
     integrity_required: true
 optional_evidence:
   - key: market_context
-    kind: operator_context
+    kind: workflow_context
     role: OPTIONAL_CONTEXT
     purpose: Language, market, sector, and location supplied by the operator
     missing_behavior: CONTINUE
     integrity_required: false
   - key: existing_queries
-    kind: catalog_records
+    kind: workflow_context
     role: DEDUPLICATION_CONTEXT
     purpose: Existing library examples used to reduce duplicate suggestions
     missing_behavior: CONTINUE

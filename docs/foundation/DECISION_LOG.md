@@ -616,6 +616,26 @@
 
 ---
 
+## ADR-060 — Website standards, independent assessment and shared content criteria
+
+- **Durum:** Accepted
+- **Tarih:** 2026-09-06
+- **Yetki / kapsam:** Operator requested implementation of Website standards, Library, query-cluster/URL matching and competitor improvements on `chatgpt/search-demand-foundation`. Main, PRs and server deployment are outside this task.
+- **Karar:**
+  1. Website standards live in the Website module as versioned definitions. Existing 17 diagnosis IDs are retained; the initial catalogue has 26 entries. Group, applicability, evidence requirement, deterministic/expert method, interpretation, source, action and verification travel with each definition. Admins enable/disable criteria and add bounded expert criteria; executable rule definitions are not accepted through the UI.
+  2. The Website asset can evaluate stored observations without a query cluster, verified owner, competitor or AI route. This is a queued Run, using the existing improvement proposal and human promotion pipeline; nullable cluster/ownership/competitive scope supports this independent mode. No Result or second Finding/Recommendation entity is created.
+  3. Unknown, not applicable, advisory and verified defect are distinct states. Old observations become unknown after 30 days. A missing optional canonical is not a defect; title/description lengths and Open Graph are advisory. A noindex/redirect becomes a blocking finding candidate only for a human-verified search target. Source HTML remains checksum-checked and scoped to the same Website.
+  4. Technical issue groups are ordered by verified-target blockers, other observed defects, then advisory review, with affected page count breaking ties. Coverage decisions are a separate list ordered by repair need and explicit service priority. No business impact or invented score determines ordering.
+  5. Coverage joins existing Brand offerings, Website-active portfolio items, clusters, owner decisions and candidate pages. Failed technical eligibility does not establish absent content. Relevant blocked pages remain repair/review candidates; human URL locks remain unchanged. This clarifies ADR-054 without relaxing the eligibility requirement for approving an owner.
+  6. Selected-page semantic improvement uses current stored owner content and shared standards; approved comparable competitor analysis is optional. This supersedes ADR-058's mandatory Phase 11 prerequisite. Technical title/head/link checks are centralized in the independent assessment; existing ownership/cannibalization signals remain separate. An own-page excerpt alone cannot justify a new page or merge: new contract actions are improve_existing, internal_linking, no_action and insufficient_evidence; FAQ sections may improve the existing page.
+  7. Competitive Intelligence evaluates both pages against the same criteria and records comparability, states and exact short excerpts. Incomparable/unsupported/abstained output cannot be accepted or create coverage obligations. Human review and current definition checks remain required. Semantic proposals require a supplied standard, traceable own-page excerpt and meaningful action/verification, with no ranking or AI-citation guarantee.
+  8. Approval rechecks definitions and evidence scope. Changed page/owner/cluster/approved competitor context requires another assessment. Exact unchanged input reuses the earlier analysis; repeated identical HTML collection does not by itself require another model call. No analysis collects data, starts paid SERP, publishes externally or creates Tasks automatically.
+  9. Scope limits are explicit: 500 Website profiles, 3,000 Website-active queries, 100 clusters, 20 candidate pages per cluster; 5 MB stored HTML and 16,000 own-page text characters. Site-wide technical work is verified by another standards assessment. Existing Phase 13 measurement remains limited to cluster-scoped completed Tasks and explicitly excludes site-wide proposals.
+  10. Search Demand Skill requirements use a finite `workflow_context` catalogue for service/cluster/observation/standard inputs. These are bounded service-assembled contexts, not newly canonical Evidence types; registration does not fetch data or bypass approval. All 30 shipped Skill definitions remain validated.
+- **İlgili:** ADR-013, ADR-014, ADR-018, ADR-023, ADR-025, ADR-032, ADR-034, ADR-036, ADR-045–059; `docs/product/website/WEBSITE_STANDARDS_ASSESSMENT.md`.
+
+---
+
 ## Karar indeksi
 
 | ID | Başlık | Durum |
@@ -679,6 +699,7 @@
 | ADR-057 | Evidence-bounded Competitive Intelligence + review-only analysis | Accepted |
 | ADR-058 | Human-gated Search Demand Finding + Recommendation promotion | Accepted |
 | ADR-059 | Search Demand change verification + Task Outcome truth | Accepted |
+| ADR-060 | Independent Website standards + shared content and competitor criteria | Accepted |
 
 ## Süpercede edilen kararlar
 

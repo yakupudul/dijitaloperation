@@ -181,6 +181,9 @@ final class SearchDemandCompetitiveIntelligencePage extends Component
         if ($this->selectedBrandId === '') {
             return;
         }
+        if ($this->selectedWebsiteId !== '' && DigitalAsset::query()->where('brand_id', (int) $this->selectedBrandId)->where('type', 'website')->whereKey($this->selectedWebsiteId)->exists()) {
+            return;
+        }
         $id = DigitalAsset::query()->where('brand_id', (int) $this->selectedBrandId)->where('type', 'website')->orderBy('name')->value('id');
         $this->selectedWebsiteId = $id !== null ? (string) $id : '';
     }
@@ -188,6 +191,9 @@ final class SearchDemandCompetitiveIntelligencePage extends Component
     private function primeCluster(): void
     {
         if ($this->selectedBrandId === '') {
+            return;
+        }
+        if ($this->selectedClusterId !== '' && SearchDemandCluster::query()->where('brand_id', (int) $this->selectedBrandId)->where('status', 'active')->whereKey($this->selectedClusterId)->exists()) {
             return;
         }
         $id = SearchDemandCluster::query()->where('brand_id', (int) $this->selectedBrandId)->where('status', 'active')

@@ -39,6 +39,16 @@ final class SkillEvidenceCatalog
 
     public function isKnown(string $key, string $kind): bool
     {
+        if ($kind === SkillEvidenceRequirement::KIND_WORKFLOW_CONTEXT) {
+            return in_array($key, [
+                'standards', 'verified_brand_page', 'competitor_page_observations', 'search_demand_cluster',
+                'services_and_markets', 'approved_competitive_analyses', 'page_relevance_signals',
+                'website_page_candidates', 'gsc_query_page_observations', 'serp_brand_url_observations',
+                'approved_improvement_proposal', 'applied_change_record', 'before_after_page_observations',
+                'deterministic_technical_result', 'observational_metrics', 'source_queries', 'canonical_service',
+                'brand_query_portfolio', 'existing_clusters', 'serp_validation', 'market_context', 'existing_queries',
+            ], true);
+        }
         if ($kind === SkillEvidenceRequirement::KIND_EVIDENCE_DEFINITION) {
             try {
                 $this->evidenceDefinitions->get($key);

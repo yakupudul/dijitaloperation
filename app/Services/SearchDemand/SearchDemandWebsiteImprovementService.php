@@ -14,6 +14,7 @@ use App\Enums\FindingLifecycleAction;
 use App\Enums\FindingOrigin;
 use App\Enums\RecommendationOrigin;
 use App\Jobs\Async\SearchDemandWebsiteImprovementJob;
+use App\Models\BrandQueryPortfolioItem;
 use App\Models\DigitalAsset;
 use App\Models\Evidence;
 use App\Models\Finding;
@@ -31,6 +32,7 @@ use App\Services\Ai\AiRouteResolver;
 use App\Services\Async\AsyncOperationService;
 use App\Services\DomainEvents\DomainEventEmitter;
 use App\Services\Recommendations\CreateRecommendationFromFinding;
+use App\Services\Website\WebsiteAssessmentService;
 use App\Support\Agents\AgentProfileRegistry;
 use App\Support\Ai\AiRouteKeys;
 use App\Support\Async\AsyncOperationTypes;
@@ -40,6 +42,8 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use MoxDop\Website\Standards\StandardEvidenceGuard;
+use MoxDop\Website\Standards\WebsiteStandardCatalog;
 use RuntimeException;
 use Throwable;
 
@@ -74,7 +78,7 @@ final class SearchDemandWebsiteImprovementService
         }
 
         $fingerprint = hash('sha256', json_encode([
-            'input' => $context['payload'],
+            'input' => $this->contextIdentity($context['payload']),
             'agent' => $profile->signature(),
             'skill' => $skill->signature(),
             'skill_fingerprint' => $skill->definitionFingerprint(),
@@ -133,7 +137,7 @@ final class SearchDemandWebsiteImprovementService
                     'digital_asset_id' => $website->id,
                     'search_demand_cluster_id' => $cluster->id,
                     'search_demand_page_ownership_id' => $context['ownership']->id,
-                    'competitive_intelligence_run_id' => $context['competitive_run']->id,
+                    'competitive_intelligence_run_id' => $context['competitive_run']?->id,
                     'status' => 'queued',
                     'input_payload' => $context['payload'],
                     'input_fingerprint' => $fingerprint,
@@ -175,6 +179,12 @@ final class SearchDemandWebsiteImprovementService
         });
         if ($run === null) {
             return;
+        }
+
+        $this->assertScope($run->website, $run->cluster);
+        $current = $this->buildContext($run->website, $run->cluster)['payload'];
+        if ($this->contextIdentity($current) != $this->contextIdentity($run->input_payload)) {
+            throw ValidationException::withMessages(['proposal' => 'Kuyrukta beklerken değerlendirme kanıtı değişmiş. Yeni inceleme başlatın.']);
         }
 
         $activity = Run::query()->findOrFail($activityRunId);
@@ -233,7 +243,7 @@ final class SearchDemandWebsiteImprovementService
             if ($locked->review_status !== 'pending') {
                 throw ValidationException::withMessages(['proposal' => 'Bu öneri daha önce incelenmiş.']);
             }
-            if ($decision === 'approved' && ($locked->abstained || $locked->action_type === 'insufficient_evidence')) {
+            if ($decision === 'approved' && ($locked->abstained || in_array($locked->action_type, ['insufficient_evidence', 'no_action'], true))) {
                 throw ValidationException::withMessages([
                     'proposal' => 'Çekimser veya kanıtı yetersiz öneri kabul edilemez; reddedin ya da yeni kanıtla yeniden çalıştırın.',
                 ]);
@@ -251,6 +261,28 @@ final class SearchDemandWebsiteImprovementService
                 return $locked->refresh();
             }
 
+            if (! in_array($locked->run->status, ['completed', 'partial'], true)) {
+                throw ValidationException::withMessages(['proposal' => 'Çalışma tamamlanmadan öneri kabul edilemez.']);
+            }
+            $standardId = data_get($locked->evidence_refs, 'standard_id');
+            if ($standardId !== null) {
+                $active = app(WebsiteStandardCatalog::class)->all(true);
+                $snapshot = data_get($locked->evidence_refs, 'standard_snapshot');
+                if (! isset($active[$standardId]) || $active[$standardId] != $snapshot) {
+                    throw ValidationException::withMessages(['proposal' => 'Standart değişmiş veya kapatılmış. Yeni değerlendirme başlatın.']);
+                }
+                app(WebsiteAssessmentService::class)->assertEnabled($locked->run->website);
+            }
+            if (data_get($locked->run->input_payload, 'mode') === WebsiteAssessmentService::MODE) {
+                app(WebsiteAssessmentService::class)->assertCurrentProposal($locked);
+            } elseif (data_get($locked->run->input_payload, 'assessment_contract_version') === 'website-standards-v1') {
+                $cluster = $locked->run->cluster;
+                $this->assertScope($locked->run->website, $cluster);
+                $current = $this->buildContext($locked->run->website, $cluster)['payload'];
+                if ($this->contextIdentity($current) != $this->contextIdentity($locked->run->input_payload)) {
+                    throw ValidationException::withMessages(['proposal' => 'Sayfa, küme veya onaylı rakip kanıtı değişmiş. Yeni inceleme başlatın.']);
+                }
+            }
             [$evidence, $finding] = $this->promoteFinding($locked, $actor);
             $recommendation = $this->recommendations->create(
                 $finding,
@@ -259,7 +291,7 @@ final class SearchDemandWebsiteImprovementService
                     'action' => $this->recommendationAction($locked),
                     'rationale' => $locked->rationale,
                     'priority' => $this->priority($locked->severity),
-                    'source_module' => 'search_demand',
+                    'source_module' => $locked->run->search_demand_cluster_id === null ? 'website' : 'search_demand',
                     'digital_asset_id' => $locked->run->digital_asset_id,
                 ],
                 $locked->origin === 'ai_semantic'
@@ -298,87 +330,73 @@ final class SearchDemandWebsiteImprovementService
         }
     }
 
-    /** @return array{ownership:SearchDemandPageOwnership,competitive_run:SearchDemandCompetitiveIntelligenceRun,payload:array<string,mixed>} */
+    /** @return array<string, mixed> */
     private function buildContext(DigitalAsset $website, SearchDemandCluster $cluster): array
     {
-        $ownership = SearchDemandPageOwnership::query()
-            ->where('digital_asset_id', $website->id)
-            ->where('search_demand_cluster_id', $cluster->id)
-            ->where('status', 'verified_owner')->first();
+        app(WebsiteAssessmentService::class)->assertEnabled($website);
+        $ownership = SearchDemandPageOwnership::query()->with('pageProfile')
+            ->where('digital_asset_id', $website->id)->where('brand_id', $website->brand_id)
+            ->where('search_demand_cluster_id', $cluster->id)->where('status', 'verified_owner')->first();
         if ($ownership === null) {
             throw ValidationException::withMessages(['selectedClusterId' => 'Önce bu kümenin marka URL sahibini insan onayıyla doğrulayın.']);
         }
-
-        $competitiveRun = SearchDemandCompetitiveIntelligenceRun::query()
-            ->with(['analyses' => fn ($query) => $query->where('review_status', 'approved')->orderBy('id')])
-            ->where('digital_asset_id', $website->id)
-            ->where('search_demand_cluster_id', $cluster->id)
-            ->where('search_demand_page_ownership_id', $ownership->id)
-            ->whereHas('analyses', fn ($query) => $query->where('review_status', 'approved'))
-            ->where('status', 'completed')->latest('id')->first();
-        if ($competitiveRun === null || $competitiveRun->analyses->isEmpty()) {
-            throw ValidationException::withMessages([
-                'selectedClusterId' => 'Önce Faz 11 analizlerinden en az birini insan incelemesiyle kabul edin.',
-            ]);
+        $brandPage = app(SearchDemandCompetitiveIntelligenceService::class)->brandPageEvidence($website, $ownership);
+        $members = BrandQueryPortfolioItem::query()->with(['libraryItem', 'services.names', 'serviceAreas', 'brand.serviceAreas'])
+            ->where('brand_id', $website->brand_id)->where('status', 'active')
+            ->whereHas('assetStates', fn ($query) => $query->where('digital_asset_id', $website->id)->where('status', 'active'))
+            ->whereHas('clusterMembership', fn ($query) => $query->where('search_demand_cluster_id', $cluster->id))
+            ->orderBy('id')->limit(100)->get();
+        if ($members->isEmpty()) {
+            throw ValidationException::withMessages(['selectedClusterId' => 'Bu web sitesinde kümenin etkin sorgusu yok.']);
         }
-
-        $pageRelevance = SearchDemandPageRelevanceRun::query()
-            ->where('digital_asset_id', $website->id)
-            ->where('search_demand_cluster_id', $cluster->id)
-            ->where('status', 'completed')->latest('id')->first();
-        $approved = $competitiveRun->analyses->take(24)->map(fn ($analysis): array => [
-            'analysis_id' => (int) $analysis->id,
-            'observation_id' => (int) $analysis->competitor_page_observation_id,
+        $competitiveRun = SearchDemandCompetitiveIntelligenceRun::query()
+            ->with(['analyses' => fn ($query) => $query->where('review_status', 'approved')->where('abstained', false)
+                ->where('comparability', 'comparable')->orderBy('id')])
+            ->where('digital_asset_id', $website->id)->where('search_demand_cluster_id', $cluster->id)
+            ->where('search_demand_page_ownership_id', $ownership->id)
+            ->where('status', 'completed')->where('abstained', false)->latest('id')->limit(10)->get()
+            ->first(fn ($candidate) => data_get($candidate->input_payload, 'verified_brand_page.content_fingerprint') === $brandPage['content_fingerprint']
+                && data_get($candidate->input_payload, 'verified_brand_page.url') === $brandPage['url']
+                && data_get($candidate->input_payload, 'verified_brand_page.ownership_version') === $ownership->version
+                && data_get($candidate->input_payload, 'cluster.version') === $cluster->version
+                && collect(data_get($candidate->input_payload, 'cluster.queries', []))->pluck('portfolio_item_id')->sort()->values()->all() === $members->modelKeys()
+                && data_get($candidate->input_payload, 'standards') == app(WebsiteStandardCatalog::class)->expertCriteria()
+                && $candidate->analyses->isNotEmpty());
+        $approved = ($competitiveRun?->analyses ?? collect())->take(24)->map(fn ($analysis): array => [
+            'analysis_id' => (int) $analysis->id, 'observation_id' => (int) $analysis->competitor_page_observation_id,
             'competitor_id' => (int) $analysis->search_demand_competitor_id,
-            'page_intent' => $analysis->page_intent,
-            'topics' => $this->stringList($analysis->topics),
-            'subtopics' => $this->stringList($analysis->subtopics),
-            'user_questions' => $this->stringList($analysis->user_questions),
+            'page_intent' => $analysis->page_intent, 'standard_assessments' => $analysis->standard_assessments,
             'missing_coverage' => $this->stringList($analysis->missing_coverage),
             'differentiation_ideas' => $this->stringList($analysis->differentiation_ideas),
             'do_not_copy' => $this->stringList($analysis->do_not_copy),
-            'evidence_explanation' => $this->stringList($analysis->evidence_explanation),
-            'confidence' => $analysis->confidence,
+            'evidence_explanation' => $this->stringList($analysis->evidence_explanation), 'confidence' => $analysis->confidence,
         ])->values()->all();
+        $pageRelevance = SearchDemandPageRelevanceRun::query()->where('digital_asset_id', $website->id)
+            ->where('search_demand_cluster_id', $cluster->id)->where('status', 'completed')->latest('id')->first();
+        $standards = app(WebsiteStandardCatalog::class)->expertCriteria();
+        if ($standards === []) {
+            throw ValidationException::withMessages(['selectedClusterId' => 'Etkin uzman değerlendirme kriteri bulunmuyor.']);
+        }
 
-        return [
-            'ownership' => $ownership,
-            'competitive_run' => $competitiveRun,
-            'payload' => [
-                'evidence_contract' => [
-                    'scope' => 'stored_and_human_approved_evidence_only',
-                    'external_browsing_allowed' => false,
-                    'creates_canonical_records' => false,
-                    'human_approval_required' => true,
-                    'allowed_action_types' => self::ACTION_TYPES,
-                ],
-                'website' => [
-                    'id' => $website->id, 'brand_id' => $website->brand_id,
-                    'name' => $website->name, 'domain' => $website->domain,
-                    'language_code' => $website->seo_market_language_code,
-                ],
-                'cluster' => [
-                    'id' => $cluster->id, 'name' => $cluster->name,
-                    'demand_family' => $cluster->demand_family,
-                    'serp_intent_group' => $cluster->serp_intent_group,
-                    'content_target_cluster' => $cluster->content_target_cluster,
-                    'suggested_content_type' => $cluster->suggested_content_type,
-                    'queries' => array_slice((array) data_get($competitiveRun->input_payload, 'cluster.queries', []), 0, 100),
-                ],
-                'verified_brand_page' => data_get($competitiveRun->input_payload, 'verified_brand_page', []),
-                'approved_competitive_analyses' => $approved,
-                'page_relevance_signals' => [
-                    'run_id' => $pageRelevance?->id,
-                    'wrong_url_candidate' => (bool) $pageRelevance?->wrong_url_candidate,
-                    'cannibalization_candidate' => (bool) $pageRelevance?->cannibalization_candidate,
-                    'rationale' => $pageRelevance?->rationale,
-                ],
-                'source_ids' => [
-                    'ownership_id' => $ownership->id,
-                    'competitive_intelligence_run_id' => $competitiveRun->id,
-                ],
-            ],
-        ];
+        return ['ownership' => $ownership, 'competitive_run' => $competitiveRun, 'payload' => [
+            'assessment_contract_version' => 'website-standards-v1',
+            'evidence_contract' => ['scope' => 'stored_and_human_approved_evidence_only', 'external_browsing_allowed' => false,
+                'human_approval_required' => true, 'page_content_is_untrusted_data' => true,
+                'allowed_action_types' => ['improve_existing', 'internal_linking', 'no_action', 'insufficient_evidence']],
+            'website' => ['id' => $website->id, 'brand_id' => $website->brand_id, 'name' => $website->name, 'domain' => $website->domain],
+            'cluster' => ['id' => $cluster->id, 'name' => $cluster->name, 'version' => $cluster->version,
+                'demand_family' => $cluster->demand_family, 'serp_intent_group' => $cluster->serp_intent_group,
+                'content_target_cluster' => $cluster->content_target_cluster, 'suggested_content_type' => $cluster->suggested_content_type,
+                'queries' => $members->map(fn ($item) => ['portfolio_item_id' => $item->id, 'query' => $item->effectiveQueryText(), 'location_scope' => $item->effectiveLocationScope(), 'location_value' => $item->effectiveLocationValue()])->values()->all()],
+            'services' => $members->flatMap(fn ($item) => $item->services)->flatMap(fn ($service) => $service->names->where('is_active', true)->pluck('raw_label'))->unique()->take(50)->values()->all(),
+            'markets' => $members->flatMap(fn ($item) => ($item->area_scope === 'selected_areas' ? $item->serviceAreas : $item->brand->serviceAreas)->where('status', 'active'))->flatMap(fn ($area) => array_filter([$area->country_name, $area->city_name, $area->district_name]))->unique()->take(50)->values()->all(),
+            'standards' => $standards, 'verified_brand_page' => $brandPage,
+            'approved_competitive_analyses' => $approved,
+            'page_relevance_signals' => ['run_id' => $pageRelevance?->id, 'wrong_url_candidate' => (bool) $pageRelevance?->wrong_url_candidate,
+                'cannibalization_candidate' => (bool) $pageRelevance?->cannibalization_candidate, 'rationale' => $pageRelevance?->rationale],
+            'source_ids' => ['ownership_id' => $ownership->id, 'ownership_version' => $ownership->version,
+                'competitive_intelligence_run_id' => $competitiveRun?->id],
+        ]];
     }
 
     private function persistDeterministicProposals(SearchDemandImprovementRun $run): void
@@ -390,12 +408,16 @@ final class SearchDemandWebsiteImprovementService
             ['missing-title', blank($page['title'] ?? null), 'Sayfa başlığı eksik', 'Doğrulanmış marka sayfasının saklı HTML gözleminde title bulunamadı.', 'improve_existing', 'Doğrulanmış sayfaya açıklayıcı title ekle', 'Arama niyetini ve marka kapsamını doğru yansıtan benzersiz bir title hazırlayın.', ['Saklı HTML gözleminde title alanının dolduğunu doğrulayın.']],
             ['missing-h1', blank($page['h1'] ?? null), 'Ana başlık (H1) eksik', 'Doğrulanmış marka sayfasının saklı HTML gözleminde H1 bulunamadı.', 'improve_existing', 'Doğrulanmış sayfaya tek ve açıklayıcı H1 ekle', 'Sayfanın ana amacını ve küme kapsamını anlatan bir H1 ekleyin.', ['Yeni Website toplamasında H1 alanının dolu ve sayfa amacına uygun olduğunu doğrulayın.']],
             ['missing-meta-description', blank($page['meta_description'] ?? null), 'Meta açıklaması eksik', 'Doğrulanmış marka sayfasının saklı HTML gözleminde meta description bulunamadı.', 'improve_existing', 'Doğrulanmış sayfanın meta açıklamasını tamamla', 'Sayfanın hizmet ve kullanıcı niyetini özetleyen benzersiz bir meta açıklaması hazırlayın.', ['Yeni Website toplamasında meta description alanının dolduğunu doğrulayın.']],
-            ['no-internal-links', (int) ($page['internal_link_count'] ?? 0) === 0, 'Sayfada gözlenen iç bağlantı yok', 'Saklı HTML gözleminde doğrulanmış marka sayfasından başka marka URL’lerine iç bağlantı çıkarılamadı.', 'internal_linking', 'Doğrulanmış sayfanın iç bağlantılarını düzenle', 'Kullanıcı yolculuğunu destekleyen ilgili hizmet, rehber ve iletişim sayfalarına açıklayıcı iç bağlantılar ekleyin.', ['Yeni Website toplamasında ilgili iç bağlantıların çıkarıldığını ve hedeflerin erişilebilir olduğunu doğrulayın.']],
+            ['no-internal-links', isset($page['internal_link_count']) && (int) $page['internal_link_count'] === 0, 'Sayfada gözlenen iç bağlantı yok', 'Saklı HTML gözleminde doğrulanmış marka sayfasından başka marka URL’lerine iç bağlantı çıkarılamadı.', 'internal_linking', 'Doğrulanmış sayfanın iç bağlantılarını düzenle', 'Kullanıcı yolculuğunu destekleyen ilgili hizmet, rehber ve iletişim sayfalarına açıklayıcı iç bağlantılar ekleyin.', ['Yeni Website toplamasında ilgili iç bağlantıların çıkarıldığını ve hedeflerin erişilebilir olduğunu doğrulayın.']],
             ['wrong-url-candidate', (bool) ($signals['wrong_url_candidate'] ?? false), 'Yanlış URL sahibi adayı', 'En son tamamlanan sayfa ilgisi çalışması bu küme için yanlış URL sahibi adayı işaretledi.', 'improve_existing', 'Küme URL sahipliğini yeniden doğrula ve sayfayı hizala', 'Mevcut doğrulanmış URL’nin küme niyetini karşılayıp karşılamadığını insan incelemesiyle yeniden değerlendirin; gerekirse ayrı sahiplik kararı verin.', ['Faz 8 aday kanıtını yeniden inceleyin.', 'URL sahipliği değişecekse ayrı insan kararıyla yeni sürüm oluşturun.']],
             ['cannibalization-candidate', (bool) ($signals['cannibalization_candidate'] ?? false), 'Olası URL çakışması', 'En son tamamlanan sayfa ilgisi çalışması aynı küme için birden fazla URL sinyali gözledi.', 'merge', 'Küme kapsamındaki olası URL çakışmasını çöz', 'Çakışan sayfaların amaçlarını insan incelemesiyle karşılaştırın; birleştirme, yeniden kapsamlandırma veya sahiplik kararını ayrı uygulama planında belirleyin.', ['Faz 8 aday URL’lerini ve sorgu desteğini karşılaştırın.', 'Uygulama sonrasında tek bir doğrulanmış URL sahibini teyit edin.']],
         ];
 
         foreach ($checks as [$key, $matched, $title, $summary, $actionType, $recommendationTitle, $recommendationAction, $verification]) {
+            if (in_array($key, ['missing-title', 'missing-h1', 'missing-meta-description', 'no-internal-links'], true)
+                && data_get($run->input_payload, 'assessment_contract_version') === 'website-standards-v1') {
+                continue;
+            }
             if (! $matched) {
                 continue;
             }
@@ -424,6 +446,16 @@ final class SearchDemandWebsiteImprovementService
         }
     }
 
+    /** Repeated collection of identical content does not require another model call. */
+    private function contextIdentity(array $payload): array
+    {
+        foreach (['observed_at', 'snapshot_id', 'raw_ingestion_object_id', 'html_hash'] as $key) {
+            unset($payload['verified_brand_page'][$key]);
+        }
+
+        return $payload;
+    }
+
     /** @param array<string,mixed> $response */
     private function persistSemanticProposals(SearchDemandImprovementRun $run, array $response): void
     {
@@ -442,8 +474,7 @@ final class SearchDemandWebsiteImprovementService
                 }
                 $analysisIds = collect($proposal['analysis_ids'] ?? [])->filter(fn ($id) => is_numeric($id))
                     ->map(fn ($id): int => (int) $id)->unique()->filter(fn (int $id): bool => $allowed->has($id))->values();
-                $referencesValid = $analysisIds->isNotEmpty()
-                    && $analysisIds->count() === collect($proposal['analysis_ids'] ?? [])->filter(fn ($id) => is_numeric($id))->unique()->count();
+                $referencesValid = $analysisIds->count() === collect($proposal['analysis_ids'] ?? [])->filter(fn ($id) => is_numeric($id))->unique()->count();
                 $sourceRows = $analysisIds->map(fn (int $id) => $allowed->get($id));
                 $expectedObservationIds = $sourceRows->pluck('observation_id')->map(fn ($id): int => (int) $id)->unique()->values();
                 $expectedCompetitorIds = $sourceRows->pluck('competitor_id')->map(fn ($id): int => (int) $id)->unique()->values();
@@ -456,8 +487,24 @@ final class SearchDemandWebsiteImprovementService
                     && $expectedCompetitorIds->diff($returnedCompetitorIds)->isEmpty()
                     && $this->stringList($proposal['evidence_explanation'] ?? []) !== []
                     && $this->stringList($proposal['verification_steps'] ?? []) !== [];
+                $standardId = is_string($proposal['standard_id'] ?? null) ? $proposal['standard_id'] : '';
+                $standard = collect((array) data_get($run->input_payload, 'standards', []))->firstWhere('id', $standardId);
+                $brandPage = (array) data_get($run->input_payload, 'verified_brand_page', []);
+                $referencesValid = $referencesValid && is_array($standard)
+                    && in_array($proposal['assessment_state'] ?? null, ['gap', 'partial'], true)
+                    && collect(['title', 'summary', 'recommendation_title', 'recommendation_action', 'rationale'])
+                        ->every(fn ($key) => is_string($proposal[$key] ?? null) && trim($proposal[$key]) !== '')
+                    && (($standard['applicability'] ?? null) !== 'local_content' || data_get($run->input_payload, 'markets', []) !== [])
+                    && app(StandardEvidenceGuard::class)->containsExcerpt($brandPage, $proposal['brand_evidence'] ?? null);
+                if ($analysisIds->isNotEmpty()) {
+                    $referencesValid = $referencesValid && $sourceRows->every(fn ($row) => collect($row['standard_assessments'] ?? [])
+                        ->contains(fn ($assessment) => ($assessment['standard_id'] ?? null) === $standardId
+                            && in_array($assessment['brand_state'] ?? null, ['gap', 'partial'], true)));
+                }
                 $actionType = $this->enum($proposal['action_type'] ?? null, self::ACTION_TYPES, 'insufficient_evidence');
-                $abstained = ! $referencesValid || (bool) ($proposal['abstained'] ?? false) || $actionType === 'insufficient_evidence';
+                $referencesValid = $referencesValid && in_array($actionType,
+                    data_get($run->input_payload, 'evidence_contract.allowed_action_types', self::ACTION_TYPES), true);
+                $abstained = ! $referencesValid || (bool) ($response['abstained'] ?? false) || (bool) ($proposal['abstained'] ?? false) || in_array($actionType, ['insufficient_evidence', 'no_action'], true);
                 $findingKey = Str::slug($this->nullableString($proposal['finding_key'] ?? null)
                     ?? $this->requiredString($proposal['title'] ?? null, 'semantic-gap-'.($index + 1), 255), '_');
                 if ($findingKey === '') {
@@ -465,6 +512,7 @@ final class SearchDemandWebsiteImprovementService
                 }
                 $identity = hash('sha256', json_encode([
                     'cluster_id' => $locked->search_demand_cluster_id,
+                    'standard_id' => $standardId,
                     'finding_key' => $findingKey,
                 ], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
 
@@ -472,7 +520,7 @@ final class SearchDemandWebsiteImprovementService
                     ['search_demand_improvement_run_id' => $locked->id, 'stable_key' => 'ai:'.$identity],
                     [
                         'origin' => 'ai_semantic',
-                        'severity' => $this->enum($proposal['severity'] ?? null, ['critical', 'high', 'medium', 'low'], 'medium'),
+                        'severity' => 'medium',
                         'title' => $this->requiredString($proposal['title'] ?? null, 'Semantik bulgu önerisi '.($index + 1), 255),
                         'summary' => $this->requiredString($proposal['summary'] ?? null, 'AI semantik açıklama üretmedi.', 10000),
                         'action_type' => $actionType,
@@ -490,6 +538,11 @@ final class SearchDemandWebsiteImprovementService
                             'do_not_copy' => $this->stringList($proposal['do_not_copy'] ?? []),
                         ],
                         'evidence_refs' => [
+                            'standard_id' => $standardId, 'standard_version' => $standard['version'] ?? null,
+                            'standard_snapshot' => $standard, 'assessment_state' => $proposal['assessment_state'] ?? 'unknown',
+                            'brand_evidence' => $proposal['brand_evidence'] ?? null,
+                            'page_url' => $brandPage['url'] ?? null,
+                            'brand_page_content_fingerprint' => $brandPage['content_fingerprint'] ?? null,
                             'ownership_id' => $locked->search_demand_page_ownership_id,
                             'cluster_id' => $locked->search_demand_cluster_id,
                             'competitive_intelligence_run_id' => $locked->competitive_intelligence_run_id,
@@ -526,6 +579,8 @@ final class SearchDemandWebsiteImprovementService
     {
         $run = $proposal->run;
         $website = $run->website;
+        $websiteStandards = data_get($run->input_payload, 'mode') === WebsiteAssessmentService::MODE;
+        $sourceModule = $websiteStandards ? 'website' : 'search_demand';
         $evidenceFingerprint = hash('sha256', json_encode([
             'definition' => 'search_demand.improvement_proposal_approved.v1',
             'asset_id' => $run->digital_asset_id,
@@ -537,7 +592,7 @@ final class SearchDemandWebsiteImprovementService
             ['digital_asset_id' => $run->digital_asset_id, 'evidence_fingerprint' => $evidenceFingerprint],
             [
                 'run_id' => $run->run_id,
-                'source_module' => 'search_demand',
+                'source_module' => $sourceModule,
                 'type' => 'search_demand.improvement_proposal_approved.v1',
                 'definition_id' => 'search_demand.improvement_proposal_approved.v1',
                 'is_canonical' => true,
@@ -572,7 +627,7 @@ final class SearchDemandWebsiteImprovementService
             'cluster_id' => $run->search_demand_cluster_id,
             'proposal_key' => $proposal->stable_key,
         ], JSON_THROW_ON_ERROR));
-        $fingerprint = 'search-demand.phase12:'.$semantic;
+        $fingerprint = ($websiteStandards ? 'website.standards:' : 'search-demand.phase12:').$semantic;
         $finding = Finding::query()
             ->where('digital_asset_id', $run->digital_asset_id)
             ->where('fingerprint', $fingerprint)->lockForUpdate()->first();
@@ -583,15 +638,15 @@ final class SearchDemandWebsiteImprovementService
                 'digital_asset_id' => $run->digital_asset_id,
                 'customer_id' => $website?->brand?->customer_id,
                 'brand_id' => $run->brand_id,
-                'source_module' => 'search_demand',
+                'source_module' => $sourceModule,
                 'origin' => $proposal->origin === 'ai_semantic' ? FindingOrigin::AiFuture->value : FindingOrigin::RuleEngine->value,
-                'rule_id' => 'search_demand.phase12.'.substr($semantic, 0, 32),
+                'rule_id' => $websiteStandards ? data_get($proposal->evidence_refs, 'standard_id') : 'search_demand.phase12.'.substr($semantic, 0, 32),
                 'rule_version' => 1,
                 'fingerprint' => $fingerprint,
                 'semantic_fingerprint' => $semantic,
-                'subject_kind' => 'search_demand_cluster',
-                'subject_id' => (string) $run->search_demand_cluster_id,
-                'category' => 'search_demand',
+                'subject_kind' => $websiteStandards ? 'digital_asset' : 'search_demand_cluster',
+                'subject_id' => (string) ($websiteStandards ? $website->id : $run->search_demand_cluster_id),
+                'category' => $websiteStandards ? data_get($proposal->evidence_refs, 'standard_snapshot.group', 'website') : 'search_demand',
                 'severity' => $proposal->severity,
                 'title' => $proposal->title,
                 'summary' => $proposal->summary,
@@ -638,7 +693,7 @@ final class SearchDemandWebsiteImprovementService
                     'threshold_snapshot' => ['human_approval_required' => true, 'approved' => true],
                     'freshness_state' => null,
                     'integrity_state' => 'approved_bounded_evidence',
-                    'completeness_state' => 'complete',
+                    'completeness_state' => $run->status === 'partial' ? 'partial' : 'complete',
                     'lifecycle_action' => $created ? FindingLifecycleAction::Created->value : FindingLifecycleAction::Reconfirmed->value,
                     'run_id' => $run->run_id,
                 ],

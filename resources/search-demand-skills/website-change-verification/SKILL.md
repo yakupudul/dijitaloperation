@@ -1,38 +1,38 @@
 ---
 name: Website Change Verification
 slug: website-change-verification
-version: 1.0.0
+version: 1.0.1
 module: search_demand
 purpose: Verify an implemented Website change from bounded stored before/after observations and propose a human-reviewed Task Outcome.
 definition_status: active
 required_evidence:
   - key: approved_improvement_proposal
-    kind: human_approved_derived_observation
+    kind: workflow_context
     role: PRIMARY_CONTEXT
     purpose: Original Phase 12 Finding and Recommendation proposal accepted by an operator
     missing_behavior: ABSTAIN
     integrity_required: true
   - key: applied_change_record
-    kind: operator_record
+    kind: workflow_context
     role: PRIMARY_CONTEXT
     purpose: Implemented change summary, affected URLs and application time
     missing_behavior: ABSTAIN
     integrity_required: true
   - key: before_after_page_observations
-    kind: stored_html_derived_observations
+    kind: workflow_context
     role: PRIMARY_FACT
     purpose: Checksum-verified pre-change and collection-linked post-change page facts
     missing_behavior: ABSTAIN
     integrity_required: true
 optional_evidence:
   - key: deterministic_technical_result
-    kind: trusted_application_evaluation
+    kind: workflow_context
     role: SUPPORTING_FACT
     purpose: Re-evaluation of the original deterministic HTML condition
     missing_behavior: CONTINUE
     integrity_required: true
   - key: observational_metrics
-    kind: stored_period_comparison
+    kind: workflow_context
     role: SUPPORTING_CONTEXT
     purpose: Explicit GSC, GA4 and stored SERP before/after observations without causal attribution
     missing_behavior: CONTINUE
@@ -103,6 +103,10 @@ methodology_steps:
 ## When to use
 
 Use after an operator records implementation of a completed Task from an approved Phase 12 proposal and the targeted post-change Website collection is terminal.
+
+## Do not use when
+
+Required workflow context is absent, stale, outside the selected Brand/Website scope, or unsupported by stored observations. Do not use this Skill to bypass a human approval or to collect/publish externally.
 
 ## Methodology
 

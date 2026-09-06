@@ -257,6 +257,9 @@ class SearchDemandPageOwnershipPage extends Component
         if (! $website instanceof DigitalAsset) {
             return;
         }
+        if ($this->clusterId !== '' && SearchDemandCluster::query()->where('brand_id', $website->brand_id)->where('status', 'active')->whereKey($this->clusterId)->exists()) {
+            return;
+        }
         $id = SearchDemandCluster::query()
             ->where('brand_id', $website->brand_id)
             ->where('status', 'active')

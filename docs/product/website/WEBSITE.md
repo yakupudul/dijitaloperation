@@ -24,6 +24,14 @@ Website asset; WordPress/GA4/GSC/DataForSEO/PageSpeed connection'lardır.
 * Integration coverage distinguishes discovered URLs from URLs whose final HTML was actually captured
 * Website Intelligence Projection rebuilds Page/Search Term/Entity/Outcome read profiles from Website, WordPress, bound GSC and bound GA4 facts; provider tables remain canonical
 
+## Standards and improvements (staging branch)
+
+`/assets/website/{assetId}?tab=standards` evaluates stored Website data in a queued, zero-AI/provider operation. It displays applicable criterion results, grouped affected URLs, priority explanations and existing service/query/cluster/owner coverage. `/library/website-standards` holds versioned criteria and admin controls.
+
+The existing Library and Integration workflows remain. Technical readiness is separate from semantic relevance; a blocked relevant page is a repair candidate. Selected-page content AI uses shared standards and optional approved comparable competitor analysis. Human approval creates canonical Findings/Recommendations; Task creation remains manual. Missing or observations older than 30 days are not declared failures.
+
+Scope, phases, validation and limits: `WEBSITE_STANDARDS_ASSESSMENT.md`, ADR-060 and `PRODUCT_CAPABILITY_LEDGER.md`. Operator/model UAT remains unverified.
+
 ## Important data / attributes
 
 domain, primary_url, cms, languages, target_countries, site_type, hosting_context (optional).

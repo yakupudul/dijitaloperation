@@ -1,26 +1,26 @@
 ---
 name: Search Demand Clustering
 slug: search-demand-clustering
-version: 1.0.0
+version: 1.0.1
 module: search_demand
 purpose: Propose layered Brand query clusters and bounded maintenance actions while preserving human locks, provenance, and uncertainty.
 definition_status: active
 required_evidence:
   - key: brand_query_portfolio
-    kind: operator_records
+    kind: workflow_context
     role: PRIMARY_FACT
     purpose: Active Brand Query Portfolio records with stable IDs and approved semantic context
     missing_behavior: ABSTAIN
     integrity_required: true
 optional_evidence:
   - key: existing_clusters
-    kind: operator_records
+    kind: workflow_context
     role: CONTINUITY_CONTEXT
     purpose: Current clusters, members, versions, locks, and validation states
     missing_behavior: CONTINUE
     integrity_required: true
   - key: serp_validation
-    kind: provider_observation
+    kind: workflow_context
     role: OPTIONAL_VALIDATION
     purpose: Later SERP evidence that may support or contradict an AI-predicted grouping
     missing_behavior: CONTINUE

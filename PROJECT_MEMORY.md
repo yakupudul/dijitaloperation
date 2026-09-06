@@ -492,7 +492,7 @@ Canonical decision: ADR-047. Implementation truth: `PRODUCT_CAPABILITY_LEDGER.md
 - The dedicated Competitive Intelligence Analyst receives bounded excerpts (Brand 16k chars, competitor 12k chars, max 8 newest unique competitor URLs), treats page/query content as untrusted data and persists exact Agent/Skill/route/input provenance.
 - Phase 11 describes gaps as unanswered user needs/questions rather than word-count comparisons. Proposed competitor kind/roles, page intent, topics, structure, local trust, unnecessary/do-not-copy content and Brand differentiation remain separate review-only analysis records.
 - Accepting or rejecting a Competitive Intelligence analysis changes only its review state. Competitor truth, URL ownership, Findings, Recommendations, Tasks, pages and external systems are unchanged; Phase 12 owns Finding/Recommendation creation.
-- Search Demand Phase 12 separates deterministic technical checks from Website Improvement AI semantic interpretation. Both are review-only proposals; AI receives only human-approved Phase 11 analyses and the verified Brand-page evidence pack.
+- Search Demand Phase 12 selected-page AI receives current verified Brand-page evidence and Website standards. Human-approved comparable Phase 11 analyses are optional supporting context (ADR-060); pending/rejected/abstained analyses are excluded. Site-wide technical title/head/link checks now belong to the independent Website standards assessment.
 - Every Phase 12 semantic proposal carries Agent/Skill/route provenance, exact analysis/observation/competitor references, evidence confidence, rationale, verification steps, one bounded action type and a non-publishable content brief. `insufficient_evidence` and abstention remain non-promotable states.
 - Human acceptance is the only Phase 12 promotion path. It publishes canonical derived Evidence, attaches it to a Finding evaluation, writes/reconfirms the existing canonical Finding and creates a Finding-sourced Recommendation through the existing writer. It never creates a second Finding/Recommendation model.
 - Recommendation → Task remains a separate explicit operator action. Phase 12 never creates a Task, changes URL ownership, publishes content, mutates a Website or writes externally. Change/result measurement remains Phase 13.
@@ -504,6 +504,22 @@ Canonical decision: ADR-047. Implementation truth: `PRODUCT_CAPABILITY_LEDGER.md
 Canonical decisions: ADR-048, ADR-049, ADR-050, ADR-051, ADR-052, ADR-053, ADR-054, ADR-055, ADR-056, ADR-057, ADR-058 and ADR-059. Canonical product contract: `docs/product/SEARCH_DEMAND_INTELLIGENCE.md`.
 
 ---
+
+## Website standards and improvement boundary (accepted 2026-09-06)
+
+- Scope is the staging work branch `chatgpt/search-demand-foundation`, not main. The operator authorized implementation and direct branch saving, with no PR and no server execution.
+- Integrations remain the collection/binding source. Services, areas, query/cluster and competitor Library records and human URL locks are retained.
+- The Website module owns a 26-entry versioned standard catalogue, preserving all 17 diagnosis IDs. Admin controls activate/deactivate criteria and add expert review criteria with evidence/applicability/source/action/verification metadata.
+- Website → Standards & Improvements evaluates stored Website profiles and HTML asynchronously with zero AI/provider calls. Missing/old evidence is unknown; optional/heuristic checks are distinguished from verified failures. There is no aggregate SEO/GEO score.
+- Reuse the existing Run/improvement-proposal/human approval path. Standalone runs have nullable cluster/owner/competitive IDs; accepted technical proposals use Website source/asset subjects in the canonical Finding/Recommendation pipeline. Task creation remains manual.
+- Technical groups prioritize verified-target accessibility/indexability blockers, other technical defects and advisory review, then affected URL count. Service/query/cluster coverage is separately ordered by repair need and explicit service priority.
+- A blocked relevant page is a repair/review candidate, not proof that another page is needed. Existing verified owners remain locked until a human changes them; coverage matching cannot write ownership.
+- Selected-page AI reviews stored content against criteria without requiring competitors. Comparable approved competitor analysis can enrich the same criterion. Exact own/rival excerpts and criterion IDs are checked; non-actionable, unsupported or abstained results cannot be promoted.
+- Old or changed criterion/page/cluster/owner/competitor context cannot be approved as current. HTML observation IDs/timestamps alone do not force a second semantic call when content and other inputs are identical.
+- Limits: 500 profiles, 3,000 active queries, 100 clusters, 20 candidates per cluster, 30 custom criteria, 5 MB per stored HTML and 16,000 own-page excerpt characters. Limits remain visible; unsupported whole-site conclusions are prohibited.
+- Site-wide technical recommendations are rechecked with the standards assessment; Phase 13 remains cluster-scoped and does not accept standalone technical proposals. There is no automatic closure of Findings or automatic new-page/merge instruction from one page excerpt.
+- All Search Demand Skill context keys are explicitly catalogued as workflow inputs; this does not create canonical Evidence or grant collection/writing capabilities.
+- Validation and deployment truth are recorded in the Capability Ledger; local automated success does not establish operator/model/PostgreSQL UAT.
 
 ## Source priority
 

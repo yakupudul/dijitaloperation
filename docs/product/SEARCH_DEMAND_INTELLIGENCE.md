@@ -2,7 +2,9 @@
 
 ## Status
 
-**PHASES 1–12 CODE COMPLETE / TEST AND OPERATOR UAT NOT RUN**
+**Staging branch: phases 1–13 present; Website standards phases 14–16 implemented with targeted automated validation. Real operator/provider UAT is not run.**
+
+Current scope and limits: `website/WEBSITE_STANDARDS_ASSESSMENT.md` and ADR-060. Capability states below apply to `chatgpt/search-demand-foundation`; this is not a claim about main.
 
 This document defines the shared commercial context and reusable Search Query Library that later Website search-demand, SERP, content-ownership and competitor analysis will consume.
 
@@ -251,14 +253,14 @@ The Phase 11 screen is `/library/search-demand-competitive-intelligence`.
 Phase 12 adds a dedicated `Website Improvement Analyst`, `website-improvement-planning` Skill and `search_demand.website_improvement` AI route:
 
 - each queued run is scoped to one Website, one active content-target cluster and its human-verified URL owner;
-- the semantic input contains only explicitly approved Phase 11 analyses. Pending, rejected and abstained analysis records are not eligible;
-- trusted application code separately proposes deterministic missing-title, missing-H1, missing-meta-description, zero-observed-internal-link, wrong-URL-candidate and cannibalization-candidate checks. The AI is forbidden from duplicating those checks;
+- semantic input requires stored verified own-page content and enabled Website criteria. Approved comparable Phase 11 analysis is optional; pending/rejected/abstained or obsolete criterion context is excluded;
+- the independent Website standards assessment handles technical title/head/link checks without AI. Selected-page planning retains separately labelled wrong-URL/cannibalization signals; the AI must not duplicate deterministic checks;
 - AI output is a review-only semantic proposal with severity, one bounded action type, Recommendation draft, content brief, stable analysis/observation/competitor references, evidence explanation, confidence, rationale, verification steps and abstention;
-- allowed actions are: improve the existing page, create a new service page, create a blog/guide, create FAQ coverage, merge, adjust internal links, take no action, or mark evidence insufficient;
+- legacy action records remain readable. The new own-page contract allows improve_existing, internal_linking, no_action and insufficient_evidence. FAQ coverage may be added to the existing page. Creating or merging pages requires an independent inventory-backed human scope decision; one excerpt cannot justify it;
 - exact input + Agent + Skill + AI-route fingerprints reuse a completed run. Execution uses the canonical queued Run/Activity flow;
 - no proposal is a canonical Finding. Explicit operator acceptance first publishes one canonical derived Evidence record, attaches it to a Finding evaluation, creates or reconfirms the canonical Finding, and then creates a Finding-sourced Recommendation through the existing writer;
 - deterministic and AI provenance stay explicit. The approved Evidence payload retains Agent/Skill/route signatures, evidence references, confidence, rationale, content brief, verification steps and approving operator;
-- rejected proposals change only their review state. Abstained or `insufficient_evidence` proposals cannot be promoted;
+- rejected proposals change only their review state. Abstained, no_action and insufficient_evidence proposals cannot be promoted. Approval checks current criteria and source context; changed evidence requires another review;
 - approval never creates a Task. The existing manual Recommendation → Task action remains the only handoff into execution.
 
 Phase 12 does not browse, collect new evidence, change URL ownership, publish content, mutate a website or perform any external write. Result/change measurement remains Phase 13.
@@ -269,7 +271,7 @@ The Phase 12 screen is `/library/search-demand-improvements`; accepted Recommend
 
 Phase 13 closes the Search Demand execution loop without introducing a separate Result entity:
 
-- an implementation record can be opened only for a completed Task that came from a human-approved Phase 12 proposal;
+- an implementation record can be opened only for a completed Task that came from a human-approved, cluster-scoped Phase 12 proposal; standalone Website standards proposals are rechecked through another standards assessment;
 - the record keeps the implementation summary, affected Website URLs, affected query-cluster IDs, application/review dates and the latest stored pre-change HTML fingerprint per URL;
 - a separate operator action starts a read-only Public Crawl for the exact affected URLs plus bounded matching Website page-family members, capped at 100 URLs. It does not invoke DataForSEO, publish content or follow this feature into a whole-site crawl;
 - after the targeted CollectionRun is complete or partial, a queued verification captures collection-linked post-change HTML fingerprints and rechecks missing title, H1, meta description and observed internal-link conditions deterministically;
@@ -282,6 +284,12 @@ Phase 13 closes the Search Demand execution loop without introducing a separate 
 - visibility movement is explicitly observational (`causal_attribution: false`) and is never proof that the recorded implementation caused the movement.
 
 The Phase 13 screen is `/library/search-demand-changes`.
+
+## Independent Website standards (phases 14–16)
+
+`/library/website-standards` is the versioned criterion library. Website assets expose `tab=standards` for queued stored-data evaluation, grouped issues and service/query/owner coverage. Technical review does not require a cluster, competitor or AI. Existing query and competitor Library screens remain and receive direct links with the selected Website and cluster preserved. See `website/WEBSITE_STANDARDS_ASSESSMENT.md` for scope and limits.
+
+Phase 11 also records comparable intent/page type and criterion-level own/rival excerpts. Unsupported comparisons cannot create coverage obligations or be promoted.
 
 ## Operator surfaces
 

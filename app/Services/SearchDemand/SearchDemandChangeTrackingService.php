@@ -75,7 +75,7 @@ final class SearchDemandChangeTrackingService
             ->where('review_status', 'approved')
             ->where('recommendation_id', $task->recommendation_id)
             ->first();
-        if ($task->status !== 'completed' || $proposal === null || $proposal->finding_id === null) {
+        if ($task->status !== 'completed' || $proposal === null || $proposal->finding_id === null || $proposal->run->search_demand_cluster_id === null) {
             throw ValidationException::withMessages([
                 'selectedTaskId' => 'Faz 13 yalnızca onaylı Faz 12 önerisinden üretilmiş ve tamamlanmış bir Task için başlatılabilir.',
             ]);
@@ -532,7 +532,9 @@ final class SearchDemandChangeTrackingService
         if (! hash_equals((string) $object->sha256, hash('sha256', $stored))) {
             throw new RuntimeException('Stored Website HTML checksum verification failed.');
         }
-        $html = match ($object->compression) { null, '' => $stored, 'gzip' => gzdecode($stored), default => false };
+        $html = match ($object->compression) {
+            null, '' => $stored, 'gzip' => gzdecode($stored), default => false
+        };
         if (! is_string($html)) {
             return [];
         }
