@@ -735,3 +735,12 @@
 | ADR-021 (Pest satırı) | ADR-038 |
 | ADR-030 (AI API key panelden yönetilmez / env-only) | ADR-041 |
 | ADR-026 (Filament path `/app`) | ADR-044 |
+
+
+## ADR-062 — Global Services editing and four-item Library navigation
+- Status: Accepted, 2026-09-07; explicit operator instruction on staging.
+- Library exposes only Hizmetler, Sorgular, Sorgu kümeleri and Rakipler.
+- Catalogue service IDs are global. Current brand names and context projections follow global edits; historical observations retain their original evidence.
+- Services and sector categories have CRUD in the Services workspace. Service deletion is reversible and hides current usages while preserving foreign keys. Sector deletion unassigns services.
+- Existing brand goals, priorities and query relationships retain their IDs. Name conflicts abort transactionally.
+- No main changes, PR, cloning, tests or deployment were authorized for this delivery; operator requested direct GitHub staging commit and deploy instructions.

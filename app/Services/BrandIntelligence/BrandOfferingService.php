@@ -40,7 +40,14 @@ final class BrandOfferingService
         ?User $actor = null,
         bool $recordActivity = true,
     ): array {
-        $label = trim($label);
+        $catalog = app(\App\Services\SearchDemand\ServiceCatalogService::class)
+            ->resolveOrCreate($label, $brand->sector, locale: $locale, actor: $actor)['service'];
+        $linked = BrandOffering::query()->where('brand_id', $brand->id)
+            ->where('service_catalog_item_id', $catalog->id)->first();
+        if ($linked !== null) {
+            return ['offering' => $linked, 'created' => false];
+        }
+        $label = trim((string) $catalog->primaryName?->raw_label);
         if ($label === '') {
             throw ValidationException::withMessages(['label' => 'Offering label is required.']);
         }
@@ -57,6 +64,11 @@ final class BrandOfferingService
 
         if ($existingName instanceof BrandOfferingName) {
             $offering = BrandOffering::query()->findOrFail($existingName->brand_offering_id);
+            if ($offering->service_catalog_item_id === null) {
+                $offering->update(['service_catalog_item_id' => $catalog->id]);
+            } elseif ((int) $offering->service_catalog_item_id !== (int) $catalog->id) {
+                throw ValidationException::withMessages(['label' => 'Bu ad başka bir global hizmete bağlı. Kütüphane > Hizmetler bölümünden düzenleyin.']);
+            }
 
             return ['offering' => $offering, 'created' => false];
         }
@@ -70,9 +82,11 @@ final class BrandOfferingService
                 $provenance,
                 $actor,
                 $recordActivity,
+                $catalog,
             ): BrandOffering {
                 $offering = BrandOffering::query()->create([
                     'brand_id' => $brand->id,
+                    'service_catalog_item_id' => $catalog->id,
                     'status' => OfferingStatus::Active,
                     'priority_rank' => null,
                 ]);
@@ -153,6 +167,16 @@ final class BrandOfferingService
     }
 
     public function rename(BrandOffering $offering, string $newLabel, ?User $actor = null): BrandOffering
+    {
+        if ($offering->service_catalog_item_id !== null) {
+            throw ValidationException::withMessages(['label' => 'Bu hizmetin adı tüm markalarda ortaktır. Kütüphane > Hizmetler bölümünden düzenleyin.']);
+        }
+
+        return $this->renameLocal($offering, $newLabel, $actor);
+    }
+
+    /** Synchronize the brand name inside the global catalogue transaction. */
+    public function renameLocal(BrandOffering $offering, string $newLabel, ?User $actor = null): BrandOffering
     {
         $offering = BrandOffering::query()->with(['primaryName', 'brand'])->findOrFail($offering->id);
         $newLabel = trim($newLabel);

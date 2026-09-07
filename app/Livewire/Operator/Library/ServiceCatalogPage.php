@@ -3,109 +3,237 @@
 namespace App\Livewire\Operator\Library;
 
 use App\Models\ServiceCatalogItem;
+use App\Models\ServiceCategory;
 use App\Services\SearchDemand\ServiceCatalogService;
-use App\Support\Options\IndustryOptions;
+use App\Support\BrandIntelligence\IdentityLabelNormalizer;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use Livewire\WithPagination;
 
 #[Layout('operator.layouts.app')]
-#[Title('Hizmet Kütüphanesi')]
+#[Title('Hizmetler')]
 class ServiceCatalogPage extends Component
 {
+    use WithPagination;
+
     #[Url(as: 'q', history: true)]
     public string $search = '';
 
     #[Url(history: true)]
-    public string $status = 'active';
+    public string $status = 'all';
 
     #[Url(history: true)]
     public string $sector = '';
 
+    #[Locked]
+    public ?int $editingId = null;
+
+    public bool $editorOpen = false;
+    public bool $categoriesOpen = false;
     public string $service_name = '';
-
     public string $service_sector = '';
-
     public string $service_description = '';
-
     public string $alias = '';
-
-    public ?int $alias_service_id = null;
-
     public string $message = '';
 
-    public function createService(ServiceCatalogService $catalog): void
+    #[Locked]
+    public ?int $categoryId = null;
+
+    public string $categoryName = '';
+
+    public function updatedSearch(): void { $this->resetPage(); }
+    public function updatedStatus(): void { $this->resetPage(); }
+    public function updatedSector(): void { $this->resetPage(); }
+
+    public function createService(): void
     {
-        $this->validate([
-            'service_name' => ['required', 'string', 'max:255'],
-            'service_sector' => ['nullable', 'string', 'max:120'],
-            'service_description' => ['nullable', 'string', 'max:2000'],
-        ]);
-
-        $result = $catalog->resolveOrCreate(
-            $this->service_name,
-            $this->service_sector,
-            $this->service_description,
-            app()->getLocale(),
-            auth()->user(),
-        );
-
-        $this->reset(['service_name', 'service_sector', 'service_description']);
-        $this->message = $result['created'] ? 'Hizmet kütüphaneye eklendi.' : 'Bu hizmet zaten kütüphanede bulunuyor.';
+        $this->reset(['editingId', 'service_name', 'service_sector', 'service_description', 'alias']);
+        $this->service_sector = $this->sector !== '__none' ? $this->sector : '';
+        $this->resetValidation();
+        $this->editorOpen = true;
+        $this->categoriesOpen = false;
     }
 
-    public function beginAlias(int $serviceId): void
+    public function editService(int $id): void
     {
-        $this->alias_service_id = $serviceId;
+        $service = ServiceCatalogItem::query()->with('primaryName')->findOrFail($id);
+        $this->editingId = $service->id;
+        $this->service_name = $service->primaryName?->raw_label ?? '';
+        $this->service_sector = $service->sector ?? '';
+        $this->service_description = $service->description ?? '';
         $this->alias = '';
-        $this->resetValidation('alias');
+        $this->resetValidation();
+        $this->editorOpen = true;
+        $this->categoriesOpen = false;
+    }
+
+    public function closeEditor(): void
+    {
+        $this->editorOpen = false;
+        $this->editingId = null;
+        $this->resetValidation();
+    }
+
+    public function saveService(ServiceCatalogService $catalog): void
+    {
+        $this->service_name = trim($this->service_name);
+        $this->validate([
+            'service_name' => ['required', 'string', 'max:255'],
+            'service_sector' => ['nullable', Rule::exists('service_categories', 'code')],
+            'service_description' => ['nullable', 'string', 'max:2000'],
+        ]);
+        if ($this->editingId !== null) {
+            try {
+                $catalog->update(ServiceCatalogItem::query()->findOrFail($this->editingId),
+                    $this->service_name, $this->service_sector, $this->service_description, auth()->user());
+            } catch (ValidationException $exception) {
+                throw ValidationException::withMessages(['service_name' => collect($exception->errors())->flatten()->first()]);
+            }
+            $this->message = 'Hizmet güncellendi. Yeni ad ve açıklama bağlı markalara yansıtıldı.';
+        } else {
+            $result = $catalog->resolveOrCreate($this->service_name, $this->service_sector, $this->service_description, app()->getLocale(), auth()->user());
+            if (! $result['created']) {
+                throw ValidationException::withMessages(['service_name' => 'Bu hizmet veya eş adı zaten var. Mevcut kaydı düzenleyin.']);
+            }
+            $this->message = 'Hizmet eklendi. Artık tüm markalarda seçilebilir.';
+        }
+        $this->closeEditor();
+        $this->resetPage();
     }
 
     public function addAlias(ServiceCatalogService $catalog): void
     {
-        $this->validate([
-            'alias_service_id' => ['required', 'integer', 'exists:service_catalog_items,id'],
-            'alias' => ['required', 'string', 'max:255'],
-        ]);
-
-        $service = ServiceCatalogItem::query()->findOrFail($this->alias_service_id);
-        $catalog->addAlias($service, $this->alias, app()->getLocale(), auth()->user());
-        $this->reset(['alias_service_id', 'alias']);
-        $this->message = 'Hizmet eş adı kaydedildi.';
+        $this->validate(['alias' => ['required', 'string', 'max:255']]);
+        $catalog->addAlias(ServiceCatalogItem::query()->findOrFail($this->editingId), $this->alias, app()->getLocale(), auth()->user());
+        $this->alias = '';
+        $this->message = 'Eş ad kaydedildi.';
     }
 
-    public function toggleStatus(int $serviceId, ServiceCatalogService $catalog): void
+    public function removeAlias(int $id, ServiceCatalogService $catalog): void
     {
-        $service = ServiceCatalogItem::query()->findOrFail($serviceId);
-        $nextStatus = $service->status === 'active' ? 'archived' : 'active';
-        $catalog->setStatus($service, $nextStatus, auth()->user());
-        $this->message = $nextStatus === 'archived' ? 'Hizmet arşivlendi.' : 'Hizmet yeniden etkinleştirildi.';
+        $catalog->removeAlias(ServiceCatalogItem::query()->findOrFail($this->editingId), $id);
+        $this->message = 'Eş ad kaldırıldı.';
+    }
+
+    public function deleteService(int $id, ServiceCatalogService $catalog): void
+    {
+        $catalog->delete(ServiceCatalogItem::query()->findOrFail($id), auth()->user());
+        $this->closeEditor();
+        $this->resetPage();
+        $this->message = 'Hizmet tüm güncel listelerden kaldırıldı. Silinenler filtresinden geri alabilirsiniz.';
+    }
+
+    public function restoreService(int $id, ServiceCatalogService $catalog): void
+    {
+        $catalog->restore($id, auth()->user());
+        $this->message = 'Hizmet ve marka bağlantıları geri alındı.';
+        $this->resetPage();
+    }
+
+    public function toggleStatus(int $id, ServiceCatalogService $catalog): void
+    {
+        $service = ServiceCatalogItem::query()->findOrFail($id);
+        $catalog->setStatus($service, $service->status === 'active' ? 'archived' : 'active', auth()->user());
+        $this->message = 'Hizmet durumu güncellendi.';
+    }
+
+    public function manageCategories(): void
+    {
+        $this->closeEditor();
+        $this->reset(['categoryId', 'categoryName']);
+        $this->categoriesOpen = true;
+    }
+
+    public function editCategory(int $id): void
+    {
+        $category = ServiceCategory::query()->findOrFail($id);
+        $this->categoryId = $id;
+        $this->categoryName = $category->name;
+        $this->resetValidation();
+    }
+
+    public function cancelCategoryEdit(): void
+    {
+        $this->reset(['categoryId', 'categoryName']);
+        $this->resetValidation();
+    }
+
+    public function saveCategory(): void
+    {
+        $this->categoryName = trim($this->categoryName);
+        $this->validate(['categoryName' => ['required', 'string', 'max:120']]);
+        DB::transaction(function (): void {
+            $normalizer = app(IdentityLabelNormalizer::class);
+            $key = $normalizer->normalize($this->categoryName);
+            $duplicate = ServiceCategory::query()->lockForUpdate()->get()->contains(
+                fn ($category) => $category->id !== $this->categoryId && $normalizer->normalize($category->name) === $key
+            );
+            if ($duplicate) {
+                throw ValidationException::withMessages(['categoryName' => 'Bu sektör zaten var.']);
+            }
+            $category = $this->categoryId !== null
+                ? ServiceCategory::query()->lockForUpdate()->findOrFail($this->categoryId)
+                : new ServiceCategory(['code' => 'sector_'.Str::uuid()]);
+            $category->fill(['name' => $this->categoryName, 'normalized_key' => $key])->save();
+        });
+        $this->cancelCategoryEdit();
+        $this->message = 'Sektör kaydedildi.';
+    }
+
+    public function deleteCategory(int $id): void
+    {
+        DB::transaction(function () use ($id): void {
+            $category = ServiceCategory::query()->lockForUpdate()->findOrFail($id);
+            ServiceCatalogItem::withTrashed()->where('sector', $category->code)->update(['sector' => null, 'updated_at' => now()]);
+            if ($this->sector === $category->code) {
+                $this->sector = '';
+            }
+            $category->delete();
+        });
+        $this->cancelCategoryEdit();
+        $this->resetPage();
+        $this->message = 'Sektör silindi. İçindeki hizmetler Kategorisiz altında korunuyor.';
     }
 
     public function render(): View
     {
         $query = ServiceCatalogItem::query()
-            ->with(['primaryName', 'names' => fn ($query) => $query->where('is_active', true)->orderByDesc('is_primary')->orderBy('raw_label')])
-            ->withCount(['brandOfferings', 'searchQueries']);
-
-        if ($this->status !== 'all') {
+            ->with(['primaryName'])
+            ->withCount(['brandOfferings' => fn ($q) => $q->withoutGlobalScope('visible_catalog'), 'searchQueries']);
+        if ($this->status === 'deleted') {
+            $query->onlyTrashed();
+        } elseif (in_array($this->status, ['active', 'archived'], true)) {
             $query->where('status', $this->status);
         }
-        if ($this->sector !== '') {
+        if ($this->sector === '__none') {
+            $query->whereNull('sector');
+        } elseif ($this->sector !== '') {
             $query->where('sector', $this->sector);
         }
         if (trim($this->search) !== '') {
-            $term = '%'.mb_strtolower(trim($this->search), 'UTF-8').'%';
-            $query->whereHas('names', fn ($names) => $names->whereRaw('LOWER(raw_label) LIKE ?', [$term]));
+            $term = '%'.app(IdentityLabelNormalizer::class)->normalize($this->search).'%';
+            $query->whereHas('names', fn ($names) => $names->withoutGlobalScope('visible_service')->where('is_active', true)->where('normalized_key', 'like', $term));
         }
+        $editing = $this->editorOpen && $this->editingId !== null
+            ? ServiceCatalogItem::query()->with(['names' => fn ($q) => $q->where('is_active', true)->orderBy('raw_label')])->withCount(['brandOfferings', 'searchQueries'])->find($this->editingId)
+            : null;
 
         return view('livewire.operator.library.service-catalog-page', [
-            'services' => $query->orderBy('status')->orderBy('id')->limit(250)->get(),
-            'sectorOptions' => IndustryOptions::options(),
-            'statusOptions' => ['active' => 'Aktif', 'archived' => 'Arşiv', 'all' => 'Tümü'],
+            'services' => $query->orderBy(
+                \App\Models\ServiceCatalogName::withoutGlobalScope('visible_service')->select('raw_label')->whereColumn('service_catalog_item_id', 'service_catalog_items.id')
+                    ->where('is_primary', true)->where('is_active', true)->limit(1)
+            )->orderBy('id')->paginate(25),
+            'sectorOptions' => ServiceCategory::options(),
+            'categories' => $this->categoriesOpen ? ServiceCategory::query()->orderBy('name')->get() : collect(),
+            'editing' => $editing,
         ]);
     }
 }

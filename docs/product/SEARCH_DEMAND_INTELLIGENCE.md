@@ -27,7 +27,7 @@ The system must then retain the agency's reusable search-query knowledge without
 
 - One service has one stable ID.
 - Primary names and aliases are separate name claims.
-- A service may be archived but is not normally deleted.
+- A service may be archived or reversibly deleted from the global Services screen (2026-09-07 operator decision).
 - An operator may create a missing service while editing a Brand.
 
 ### Brand Offering
@@ -39,7 +39,7 @@ This is intentionally a link, not a replacement:
 - Global Service = reusable agency vocabulary.
 - Brand Offering = that specific Brand's supplied service and priority order.
 
-Existing unlinked Brand Offerings remain valid for compatibility.
+Legacy unlinked Brand Offerings are attached by the global Services migration; collisions abort without silently merging brand relationships.
 
 ### Brand Service Area
 
@@ -319,3 +319,13 @@ Phase 11 also records comparable intent/page type and criterion-level own/rival 
 - Imported data is read-only inside MoxDOP.
 - No Google, CMS, Ads or provider write is introduced.
 - No provider request is triggered by creating a Brand or importing a file.
+
+## Global services management — 2026-09-07
+
+Operator-authorized scope: Library navigation contains only Services, Search Queries, Query Clusters and Competitors. Other routes remain available to existing deep links. Services is the agency-wide editing surface: paginated searchable table, sector filter, edit drawer, sector CRUD and reversible deletion.
+
+Global catalogue names are authoritative. A rename synchronizes linked Brand Offering primary names in one transaction, preserving offering IDs, priorities and goal/query relationships. A conflicting name aborts the entire edit. Brand-local rename of linked services directs the operator to Library. New Brand Offerings resolve the global catalogue, and the additive migration links legacy unlinked offerings without fuzzy matching or silently merging conflicts.
+
+Service deletion is soft deletion: current catalogue/name/brand-offering reads hide the deleted identity, while historical foreign keys and observations remain. Restore brings the same identity and its links back. Current Brand Intelligence products/services and priority projections refresh on rename, deletion and restoration. Category keys remain stable on rename; deleting a category clears the service category, never deletes its services.
+
+Validation: operator explicitly requested direct GitHub edits, no cloning and no tests. No test, build, browser or staging database verification is claimed. Deployment and operator acceptance remain required.

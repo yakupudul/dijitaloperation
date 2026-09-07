@@ -9,6 +9,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class BrandOfferingName extends Model
 {
+    protected static function booted(): void
+    {
+        static::addGlobalScope('visible_offering', fn ($query) => $query->whereHas('offering'));
+    }
+
     /**
      * @var list<string>
      */

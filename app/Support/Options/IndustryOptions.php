@@ -15,6 +15,15 @@ final class IndustryOptions
      */
     public static function options(): array
     {
+        if (\Illuminate\Support\Facades\Schema::hasTable('service_categories')) {
+            return \App\Models\ServiceCategory::options();
+        }
+
+        return self::defaults();
+    }
+
+    public static function defaults(): array
+    {
         return [
             'healthcare' => 'Healthcare',
             'dental' => 'Dental',

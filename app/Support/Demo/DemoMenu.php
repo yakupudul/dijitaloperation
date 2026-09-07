@@ -41,16 +41,10 @@ final class DemoMenu
             [
                 'label' => app()->getLocale() === 'tr' ? 'Kütüphane' : 'Library',
                 'items' => [
-                    ['label' => app()->getLocale() === 'tr' ? 'Web Sitesi Standartları' : 'Website Standards', 'route' => 'operator.library.website-standards', 'icon' => 'library'],
                     ['label' => app()->getLocale() === 'tr' ? 'Hizmetler' : 'Services', 'route' => 'operator.library.services', 'icon' => 'library'],
                     ['label' => app()->getLocale() === 'tr' ? 'Sorgular' : 'Search Queries', 'route' => 'operator.library.search-queries', 'icon' => 'search'],
-                    ['label' => app()->getLocale() === 'tr' ? 'Marka Sorguları' : 'Brand Queries', 'route' => 'operator.library.brand-query-portfolios', 'icon' => 'brands'],
-                    ['label' => app()->getLocale() === 'tr' ? 'Sorgu Kümeleri' : 'Query Clusters', 'route' => 'operator.library.search-demand-clusters', 'icon' => 'activity'],
-                    ['label' => app()->getLocale() === 'tr' ? 'Görünürlük Haritası' : 'Visibility Map', 'route' => 'operator.library.search-demand-visibility', 'icon' => 'website'],
-                    ['label' => app()->getLocale() === 'tr' ? 'Rakip Kütüphanesi' : 'Competitor Library', 'route' => 'operator.library.search-demand-competitors', 'icon' => 'search'],
-                    ['label' => app()->getLocale() === 'tr' ? 'Rakip Analizi' : 'Competitive Intelligence', 'route' => 'operator.library.search-demand-competitive-intelligence', 'icon' => 'activity'],
-                    ['label' => app()->getLocale() === 'tr' ? 'Bulgu ve Öneriler' : 'Findings & Recommendations', 'route' => 'operator.library.search-demand-improvements', 'icon' => 'findings'],
-                    ['label' => app()->getLocale() === 'tr' ? 'Değişiklik Takibi' : 'Change Tracking', 'route' => 'operator.library.search-demand-changes', 'icon' => 'tasks'],
+                    ['label' => app()->getLocale() === 'tr' ? 'Sorgu kümeleri' : 'Query Clusters', 'route' => 'operator.library.search-demand-clusters', 'icon' => 'activity'],
+                    ['label' => app()->getLocale() === 'tr' ? 'Rakipler' : 'Competitors', 'route' => 'operator.library.search-demand-competitors', 'icon' => 'search'],
                 ],
             ],
             [

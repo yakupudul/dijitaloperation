@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -19,14 +20,16 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 ])]
 class ServiceCatalogItem extends Model
 {
+    use SoftDeletes;
+
     public function names(): HasMany
     {
-        return $this->hasMany(ServiceCatalogName::class);
+        return $this->hasMany(ServiceCatalogName::class)->withoutGlobalScope('visible_service');
     }
 
     public function primaryName(): HasOne
     {
-        return $this->hasOne(ServiceCatalogName::class)
+        return $this->hasOne(ServiceCatalogName::class)->withoutGlobalScope('visible_service')
             ->where('is_primary', true)
             ->where('is_active', true);
     }

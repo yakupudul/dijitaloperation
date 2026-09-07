@@ -19,6 +19,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 ])]
 class ServiceCatalogName extends Model
 {
+    protected static function booted(): void
+    {
+        static::addGlobalScope('visible_service', fn ($query) => $query->whereHas('service'));
+    }
+
     protected function casts(): array
     {
         return [

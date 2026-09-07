@@ -11,6 +11,16 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class BrandOffering extends Model
 {
+    protected static function booted(): void
+    {
+        static::addGlobalScope('visible_catalog', function ($query): void {
+            $query->where(function ($scope): void {
+                $scope->whereNull('brand_offerings.service_catalog_item_id')
+                    ->orWhereHas('catalogItem');
+            });
+        });
+    }
+
     /**
      * @var list<string>
      */
