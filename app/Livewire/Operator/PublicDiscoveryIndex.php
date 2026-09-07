@@ -83,11 +83,13 @@ class PublicDiscoveryIndex extends Component
             $discoveryRun = $discoveryRuns->get($asset->id);
 
             $activeOperation = $operationRun !== null && in_array((string) $operationRun->status, ['queued', 'running'], true);
-            $status = $activeOperation
+            $newestOperation = $operationRun !== null && ($discoveryRun === null || $operationRun->id > $discoveryRun->id
+                || in_array($discoveryRun->id, data_get($operationRun->metadata, 'child_run_ids', []), true));
+            $status = ($activeOperation || $newestOperation)
                 ? (string) $operationRun->status
                 : (string) (data_get($discoveryRun?->metadata, 'discovery_status') ?: $discoveryRun?->status ?: $operationRun?->status ?: 'not_run');
             $ready = filled($asset->primary_url) || filled($asset->domain);
-            $displayRun = $activeOperation ? $operationRun : ($discoveryRun ?? $operationRun);
+            $displayRun = ($activeOperation || $newestOperation) ? $operationRun : ($discoveryRun ?? $operationRun);
 
             return [
                 'asset' => $asset,
@@ -128,9 +130,9 @@ class PublicDiscoveryIndex extends Component
         return Run::query()
             ->whereIn('digital_asset_id', $assetIds)
             ->where('module_id', $moduleId)
-            ->orderByDesc('id')
+            ->whereIn('id', Run::query()->selectRaw('MAX(id)')->whereIn('digital_asset_id', $assetIds)
+                ->where('module_id', $moduleId)->groupBy('digital_asset_id'))
             ->get()
-            ->unique('digital_asset_id')
             ->keyBy('digital_asset_id');
     }
 }

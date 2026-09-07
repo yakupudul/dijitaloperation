@@ -20,179 +20,77 @@ final class DiscoveryCandidateBuilder
      * }  $crawl
      * @return list<array<string, mixed>>
      */
-    public function fromCrawl(array $crawl): array
+    public function fromCrawl(array $crawl, array $knownServiceNames = []): array
     {
         $candidates = [];
-        $serviceNames = [];
-        $locations = [];
-        $languages = [];
-        $social = [];
-
         foreach ($crawl['pages'] as $page) {
-            $extracted = is_array($page['extracted'] ?? null) ? $page['extracted'] : [];
-            $sourceUrl = (string) ($extracted['source_url'] ?? $page['final_url'] ?? $page['requested_url'] ?? '');
-            $retrievedAt = now()->toIso8601String();
-
-            foreach (($extracted['same_site_links'] ?? []) as $link) {
-                if (! is_array($link)) {
-                    continue;
+            $extracted = $page['extracted'] ?? [];
+            $sourceUrl = (string) ($extracted['source_url'] ?? $page['final_url'] ?? '');
+            $observedAt = $page['observed_at'] ?? null;
+            $source = [
+                'url' => $sourceUrl, 'observed_at' => $observedAt,
+                'snapshot_id' => $page['snapshot_id'] ?? null,
+                'raw_ingestion_object_id' => $page['raw_ingestion_object_id'] ?? null,
+                'html_hash' => $page['html_hash'] ?? null,
+            ];
+            $add = function (string $type, string $field, string $value, string $from, array $extra = []) use (&$candidates, $source, $sourceUrl, $observedAt): void {
+                $value = trim($value);
+                if ($value === '' || mb_strlen($value) > 2000) {
+                    return;
                 }
-                $label = isset($link['label']) && is_string($link['label']) ? trim($link['label']) : '';
-                $url = isset($link['url']) && is_string($link['url']) ? $link['url'] : '';
-                if ($label === '' || mb_strlen($label) > 80) {
-                    continue;
-                }
-                if (! $this->looksLikeServiceLabel($label, $url)) {
-                    continue;
-                }
-                $serviceNames[$this->normalizeKey($label)] = [
-                    'value' => $label,
-                    'source_url' => $sourceUrl !== '' ? $sourceUrl : $url,
+                $candidates[] = [
+                    'candidate_kind' => DiscoveryCandidate::KIND_FACT,
+                    'candidate_type' => $type, 'target_field' => $field, 'proposed_value' => $value,
+                    'support_label' => 'moderate',
+                    'support_json' => array_merge([
+                        'source_url' => $sourceUrl, 'retrieved_at' => $observedAt,
+                        'normalization_version' => DiscoveryConfig::VERSION,
+                        'sources' => [array_merge($source, ['from' => $from, 'excerpt' => mb_substr($value, 0, 500)])],
+                        'claim_type' => 'website_statement',
+                    ], $extra),
                 ];
+            };
+            $known = array_map($this->normalizeKey(...), $knownServiceNames);
+            $heading = $extracted['h1'] ?? '';
+            if (is_string($heading) && $heading !== '' && filled($extracted['main_text_excerpt'] ?? null)
+                && in_array($this->normalizeKey($heading), $known, true)
+                && rtrim($sourceUrl, '/') !== rtrim($crawl['seed_url'], '/')) {
+                $add('service', 'products_services', $heading, 'known_service_heading');
             }
-
-            foreach (($extracted['nav_labels'] ?? []) as $label) {
-                if (! is_string($label)) {
-                    continue;
-                }
-                $label = trim($label);
-                if ($label === '' || mb_strlen($label) > 60) {
-                    continue;
-                }
-                if ($this->looksLikeServiceLabel($label, null)) {
-                    $serviceNames[$this->normalizeKey($label)] = [
-                        'value' => $label,
-                        'source_url' => $sourceUrl,
-                    ];
+            foreach ($extracted['service_claims'] ?? [] as $claim) {
+                $add('service', 'products_services', $claim['name'], $claim['from']);
+            }
+            foreach ($extracted['service_area_claims'] ?? [] as $area) {
+                $add('service_area', 'service_areas', $area, 'structured_area_served');
+            }
+            foreach ($extracted['address_candidates'] ?? [] as $address) {
+                $add('physical_address', 'physical_addresses', $address, 'address_text');
+            }
+            foreach (['phones' => 'phone', 'emails' => 'email'] as $field => $type) {
+                foreach ($extracted[$field] ?? [] as $value) {
+                    $add($type, $field, $value, 'contact_link');
                 }
             }
-
-            foreach (($extracted['address_candidates'] ?? []) as $address) {
-                if (! is_string($address) || trim($address) === '') {
-                    continue;
-                }
-                $locations[$this->normalizeKey($address)] = [
-                    'value' => trim($address),
-                    'source_url' => $sourceUrl,
-                ];
+            $languages = [$extracted['html_lang'] ?? ''];
+            foreach ($extracted['hreflang'] ?? [] as $row) {
+                $languages[] = $row['hreflang'] ?? '';
             }
-
-            $htmlLang = isset($extracted['html_lang']) && is_string($extracted['html_lang'])
-                ? trim($extracted['html_lang'])
-                : '';
-            if ($htmlLang !== '') {
-                $languages[$this->normalizeKey($htmlLang)] = [
-                    'value' => $htmlLang,
-                    'source_url' => $sourceUrl,
-                ];
-            }
-
-            foreach (($extracted['hreflang'] ?? []) as $row) {
-                if (! is_array($row)) {
-                    continue;
+            foreach (array_unique($languages) as $lang) {
+                if (is_string($lang) && preg_match('/^[a-z]{2,3}(?:-[a-zA-Z0-9]{2,8})*$/', $lang) && strtolower($lang) !== 'x-default') {
+                    $add('language', 'languages', $lang, 'document_language');
                 }
-                $lang = isset($row['hreflang']) && is_string($row['hreflang']) ? trim($row['hreflang']) : '';
-                if ($lang === '' || strtolower($lang) === 'x-default') {
-                    continue;
-                }
-                $languages[$this->normalizeKey($lang)] = [
-                    'value' => $lang,
-                    'source_url' => $sourceUrl,
-                ];
             }
-
-            foreach (($extracted['social_links'] ?? []) as $row) {
-                if (! is_array($row)) {
-                    continue;
-                }
-                $platform = isset($row['platform']) && is_string($row['platform']) ? $row['platform'] : '';
-                $url = isset($row['url']) && is_string($row['url']) ? $row['url'] : '';
-                if ($platform === '' || $url === '') {
-                    continue;
-                }
-                $social[$this->normalizeKey($platform.'|'.$url)] = [
-                    'value' => $platform.': '.$url,
-                    'platform' => $platform,
-                    'url' => $url,
-                    'source_url' => $sourceUrl,
-                ];
+            foreach ($extracted['social_links'] ?? [] as $row) {
+                $add('social_link', 'social_links', $row['platform'].': '.$row['url'], 'profile_link', [
+                    'platform' => $row['platform'], 'profile_url' => $row['url'],
+                ]);
             }
-
-            $title = isset($extracted['title']) && is_string($extracted['title']) ? trim($extracted['title']) : '';
-            $h1 = isset($extracted['h1']) && is_string($extracted['h1']) ? trim($extracted['h1']) : '';
-            $meta = isset($extracted['meta_description']) && is_string($extracted['meta_description'])
-                ? trim($extracted['meta_description'])
-                : '';
-
-            if ($meta !== '' && mb_strlen($meta) >= 40) {
-                $candidates[] = $this->fact(
-                    type: 'business_summary',
-                    targetField: 'business_summary',
-                    value: $meta,
-                    sourceUrl: $sourceUrl,
-                    retrievedAt: $retrievedAt,
-                    supportLabel: 'moderate',
-                    extra: ['from' => 'meta_description'],
-                );
-            } elseif ($h1 !== '' && $title !== '' && $h1 !== $title) {
-                $candidates[] = $this->fact(
-                    type: 'business_summary',
-                    targetField: 'business_summary',
-                    value: $h1,
-                    sourceUrl: $sourceUrl,
-                    retrievedAt: $retrievedAt,
-                    supportLabel: 'weak',
-                    extra: ['from' => 'h1'],
-                );
+            $meta = $extracted['meta_description'] ?? '';
+            if (is_string($meta) && mb_strlen($meta) >= 40
+                && (rtrim($sourceUrl, '/') === rtrim($crawl['seed_url'], '/')
+                    || rtrim((string) ($page['requested_url'] ?? ''), '/') === rtrim($crawl['seed_url'], '/'))) {
+                $add('business_summary', 'business_summary', $meta, 'homepage_meta_description');
             }
-        }
-
-        foreach ($serviceNames as $row) {
-            $candidates[] = $this->fact(
-                type: 'service',
-                targetField: 'products_services',
-                value: $row['value'],
-                sourceUrl: $row['source_url'],
-                retrievedAt: now()->toIso8601String(),
-                supportLabel: 'strong',
-            );
-        }
-
-        foreach ($locations as $row) {
-            $candidates[] = $this->fact(
-                type: 'location',
-                targetField: 'target_markets',
-                value: $row['value'],
-                sourceUrl: $row['source_url'],
-                retrievedAt: now()->toIso8601String(),
-                supportLabel: 'moderate',
-            );
-        }
-
-        foreach ($languages as $row) {
-            $candidates[] = $this->fact(
-                type: 'language',
-                targetField: 'languages',
-                value: $row['value'],
-                sourceUrl: $row['source_url'],
-                retrievedAt: now()->toIso8601String(),
-                supportLabel: 'strong',
-            );
-        }
-
-        foreach ($social as $row) {
-            $candidates[] = $this->fact(
-                type: 'social_link',
-                targetField: 'social_links',
-                value: $row['value'],
-                sourceUrl: $row['source_url'],
-                retrievedAt: now()->toIso8601String(),
-                supportLabel: 'strong',
-                extra: [
-                    'platform' => $row['platform'],
-                    'profile_url' => $row['url'],
-                ],
-            );
         }
 
         return $this->dedupeProposed($candidates);
@@ -267,72 +165,31 @@ final class DiscoveryCandidateBuilder
         return $out;
     }
 
-    /**
-     * @param  array<string, mixed>  $extra
-     * @return array<string, mixed>
-     */
-    private function fact(
-        string $type,
-        string $targetField,
-        string $value,
-        string $sourceUrl,
-        string $retrievedAt,
-        string $supportLabel,
-        array $extra = [],
-    ): array {
-        return [
-            'candidate_kind' => DiscoveryCandidate::KIND_FACT,
-            'candidate_type' => $type,
-            'target_field' => $targetField,
-            'proposed_value' => $value,
-            'support_label' => $supportLabel,
-            'support_json' => array_merge([
-                'source_url' => $sourceUrl,
-                'retrieved_at' => $retrievedAt,
-            ], $extra),
-        ];
-    }
-
-    private function looksLikeServiceLabel(string $label, ?string $url): bool
+    public function identity(string $kind, string $field, string $value): string
     {
-        $lower = mb_strtolower($label);
-        $blocked = ['home', 'contact', 'about', 'login', 'cart', 'privacy', 'terms', 'cookie', 'blog', 'news'];
-        if (in_array($lower, $blocked, true)) {
-            return false;
-        }
-
-        if ($url !== null) {
-            $path = strtolower((string) (parse_url($url, PHP_URL_PATH) ?? ''));
-            if (str_contains($path, 'service') || str_contains($path, 'product') || str_contains($path, 'offer')) {
-                return true;
-            }
-        }
-
-        return str_word_count($label) <= 6 && mb_strlen($label) >= 3;
+        // Channel IDs and URL paths can be case-sensitive; service names are case-insensitive claims.
+        return $kind.'|'.$field.'|'.($field === 'social_links' ? trim($value) : $this->normalizeKey($value));
     }
 
-    private function normalizeKey(string $value): string
+    public function normalizeKey(string $value): string
     {
         return mb_strtolower(trim(preg_replace('/\s+/u', ' ', $value) ?? $value));
     }
 
-    /**
-     * @param  list<array<string, mixed>>  $candidates
-     * @return list<array<string, mixed>>
-     */
+    /** Merge provenance for the same claim; URL identity is deliberately separate from claim identity. */
     private function dedupeProposed(array $candidates): array
     {
-        $seen = [];
         $out = [];
         foreach ($candidates as $candidate) {
-            $key = $this->normalizeKey(($candidate['candidate_type'] ?? '').'|'.($candidate['proposed_value'] ?? ''));
-            if (isset($seen[$key])) {
-                continue;
+            $key = $this->identity($candidate['candidate_kind'], $candidate['target_field'], $candidate['proposed_value']);
+            if (! isset($out[$key])) {
+                $out[$key] = $candidate;
+            } else {
+                $sources = array_merge($out[$key]['support_json']['sources'], $candidate['support_json']['sources']);
+                $out[$key]['support_json']['sources'] = collect($sources)->unique(fn ($source) => $source['url'].'|'.$source['from'])->values()->all();
             }
-            $seen[$key] = true;
-            $out[] = $candidate;
         }
 
-        return $out;
+        return array_values($out);
     }
 }

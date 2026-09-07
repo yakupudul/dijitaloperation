@@ -14,6 +14,7 @@ use App\Models\Recommendation;
 use App\Models\Run;
 use App\Support\Ai\AiProviderCatalog;
 use App\Support\Integrations\ProviderRegistry;
+use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 use MoxDop\Website\Ai\WebsiteAiRecommendationConfig;
@@ -152,6 +153,7 @@ final class WebsiteWorkspaceData
         $summary = Evidence::query()
             ->where('digital_asset_id', $asset->id)
             ->where('type', DiscoveryConfig::EVIDENCE_SITE_SUMMARY)
+            ->where('run_id', $lastRun?->id ?? 0)
             ->where('source_module', DiscoveryConfig::MODULE_ID)
             ->latest('observed_at')
             ->latest('id')
@@ -180,9 +182,9 @@ final class WebsiteWorkspaceData
         $status = data_get($lastRun?->metadata, 'discovery_status')
             ?? ($summaryPayload['status'] ?? null);
         $statusLabel = match ($status) {
-            'succeeded' => 'Succeeded',
-            'partial' => 'Partial',
-            'failed' => 'Failed',
+            'succeeded' => __('public_discovery.complete'),
+            'partial' => __('public_discovery.partial'),
+            'failed' => __('public_discovery.failed'),
             default => $lastRun ? ucfirst((string) $lastRun->status) : 'Not run',
         };
 
@@ -204,11 +206,12 @@ final class WebsiteWorkspaceData
             $competitorEmpty = (string) ($summaryPayload['competitor_message'] ?? 'Unavailable — external competitor intelligence provider is not configured.');
         }
 
-        $retrieved = $summary?->observed_at ?? $lastRun?->finished_at;
+        $retrieved = isset($summaryPayload['retrieved_at']) ? CarbonImmutable::parse($summaryPayload['retrieved_at']) : null;
 
         return [
             'last_run' => $lastRun,
             'summary' => $summaryPayload,
+            'coverage' => $summaryPayload['coverage'] ?? null,
             'status_label' => $statusLabel,
             'pages_inspected' => (int) (data_get($lastRun?->metadata, 'pages_inspected') ?? ($summaryPayload['pages_inspected'] ?? 0)),
             'fact_count' => $facts->where('status', DiscoveryCandidate::STATUS_PENDING)->count() + $facts->where('status', DiscoveryCandidate::STATUS_ACCEPTED)->count(),

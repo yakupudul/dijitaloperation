@@ -4,6 +4,8 @@ namespace App\Livewire\Operator\Website;
 
 use App\Contracts\WebsiteOperatorWorkspace;
 use App\Enums\Observability\OperationalHealthStatus;
+use App\Models\BrandOffering;
+use App\Models\BrandServiceArea;
 use App\Models\DigitalAsset;
 use App\Models\DiscoveryCandidate;
 use App\Models\Run;
@@ -12,22 +14,87 @@ use App\Services\Async\AsyncOperationService;
 use App\Services\Async\AsyncWorkerHealth;
 use App\Services\Observability\WorkerHeartbeatService;
 use App\Support\Async\AsyncOperationTypes;
+use App\Support\Permissions;
 use Illuminate\Contracts\View\View;
-use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Livewire\WithPagination;
 use Throwable;
 
 #[Layout('operator.layouts.app')]
 #[Title('Public Discovery')]
 class PublicDiscoveryPage extends Component
 {
+    use WithPagination;
+
+    #[Locked]
     public int $assetId;
+
+    #[Locked]
+    public ?int $selectedCandidateId = null;
+
+    #[Locked]
+    public string $currentValue = '';
 
     public string $statusMessage = '';
 
     public string $statusTone = 'info';
+
+    public string $filter = 'pending';
+
+    public string $editedValue = '';
+
+    public ?int $offeringId = null;
+
+    public ?int $serviceAreaId = null;
+
+    public string $countryCode = '';
+
+    public string $cityName = '';
+
+    public string $districtName = '';
+
+    public bool $confirmServiceArea = false;
+
+    public bool $replaceExisting = false;
+
+    public function updatedFilter(): void
+    {
+        $this->resetPage('candidatesPage');
+    }
+
+    public function reviewCandidate(int $candidateId): void
+    {
+        $this->resetValidation();
+        $candidate = $this->candidate($candidateId);
+        $this->selectedCandidateId = $candidate->id;
+        $this->editedValue = $candidate->accepted_value ?? $candidate->proposed_value;
+        $this->reset('offeringId', 'serviceAreaId', 'countryCode', 'cityName', 'districtName', 'confirmServiceArea', 'replaceExisting');
+        $this->currentValue = in_array($candidate->target_field, ['business_summary', 'positioning'], true)
+            ? (string) ($this->asset()->brand->intelligenceContext?->{$candidate->target_field} ?? '') : '';
+    }
+
+    public function closeReview(): void
+    {
+        $this->selectedCandidateId = null;
+        $this->resetValidation();
+    }
+
+    public function applyReview(WebsiteOperatorWorkspace $workspace): void
+    {
+        abort_if($this->selectedCandidateId === null, 404);
+        $candidate = $workspace->acceptCandidate($this->candidate($this->selectedCandidateId), auth()->user(), $this->editedValue, [
+            'offering_id' => $this->offeringId, 'service_area_id' => $this->serviceAreaId,
+            'country_code' => $this->countryCode, 'city_name' => $this->cityName, 'district_name' => $this->districtName,
+            'confirm_service_area' => $this->confirmServiceArea, 'replace_existing' => $this->replaceExisting,
+            'expected_current' => $this->currentValue, 'apply_reviewed' => true,
+        ]);
+        $this->statusMessage = __('public_discovery.receipt.'.data_get($candidate->support_json, 'application.state', 'reviewed'));
+        $this->statusTone = data_get($candidate->support_json, 'application.state') === 'conflict' ? 'info' : 'success';
+        $this->closeReview();
+    }
 
     public function mount(string $assetId): void
     {
@@ -83,28 +150,13 @@ class PublicDiscoveryPage extends Component
         } catch (Throwable $e) {
             report($e);
             $this->statusTone = 'error';
-            $this->statusMessage = __('operator_runtime.discovery.queue_problem', ['message' => $e->getMessage()]);
+            $this->statusMessage = __('operator_runtime.discovery.queue_problem', ['message' => __('public_discovery.operation_failed')]);
         }
     }
 
-    public function acceptCandidate(int $candidateId, WebsiteOperatorWorkspace $workspace): void
+    public function acceptCandidate(int $candidateId): void
     {
-        $actor = auth()->user();
-        abort_unless($actor instanceof User, 403);
-
-        try {
-            $workspace->acceptCandidate($this->candidate($candidateId), $actor);
-            $this->statusTone = 'success';
-            $this->statusMessage = __('operator_runtime.discovery.candidate_accepted');
-        } catch (ValidationException $e) {
-            $this->statusTone = 'error';
-            $this->statusMessage = collect($e->errors())->flatten()->first()
-                ?? __('operator_runtime.discovery.candidate_accept_failed');
-        } catch (Throwable $e) {
-            report($e);
-            $this->statusTone = 'error';
-            $this->statusMessage = __('operator_runtime.discovery.candidate_accept_failed_detail', ['message' => $e->getMessage()]);
-        }
+        $this->reviewCandidate($candidateId);
     }
 
     public function ignoreCandidate(int $candidateId, WebsiteOperatorWorkspace $workspace): void
@@ -119,7 +171,7 @@ class PublicDiscoveryPage extends Component
         } catch (Throwable $e) {
             report($e);
             $this->statusTone = 'error';
-            $this->statusMessage = __('operator_runtime.discovery.candidate_ignore_failed_detail', ['message' => $e->getMessage()]);
+            $this->statusMessage = __('operator_runtime.discovery.candidate_ignore_failed_detail', ['message' => __('public_discovery.operation_failed')]);
         }
     }
 
@@ -153,6 +205,15 @@ class PublicDiscoveryPage extends Component
             'asset' => $asset,
             'brand' => $asset->brand,
             'discovery' => $workspace->discovery($asset),
+            'candidates' => DiscoveryCandidate::query()->where('digital_asset_id', $asset->id)->where('brand_id', $asset->brand_id)
+                ->when(in_array($this->filter, ['pending', 'accepted', 'ignored'], true), fn ($query) => $query->where('status', $this->filter))
+                ->when($this->filter === 'unapplied', fn ($query) => $query->where('status', 'accepted')->whereNull('support_json->application'))
+                ->orderByDesc('id')->paginate(15, pageName: 'candidatesPage'),
+            'candidateCounts' => DiscoveryCandidate::query()->where('digital_asset_id', $asset->id)->where('brand_id', $asset->brand_id)
+                ->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status'),
+            'selectedCandidate' => $this->selectedCandidateId === null ? null : $this->candidate($this->selectedCandidateId),
+            'offerings' => BrandOffering::query()->where('brand_id', $asset->brand_id)->where('status', 'active')->with('primaryName')->get(),
+            'serviceAreas' => BrandServiceArea::query()->where('brand_id', $asset->brand_id)->where('status', 'active')->get(),
             'runtime' => [
                 'tone' => $runtimeTone,
                 'worker_status' => $workerStatusValue,
@@ -198,6 +259,8 @@ class PublicDiscoveryPage extends Component
 
     private function asset(?int $id = null): DigitalAsset
     {
+        abort_unless(auth()->user()?->is_active && auth()->user()?->can(Permissions::ACCESS_APP), 403);
+
         return DigitalAsset::query()
             ->with('brand')
             ->whereKey($id ?? $this->assetId)
@@ -209,7 +272,8 @@ class PublicDiscoveryPage extends Component
     {
         return DiscoveryCandidate::query()
             ->whereKey($candidateId)
-            ->where('digital_asset_id', $this->assetId)
+            ->where('digital_asset_id', $this->asset()->id)
+            ->where('brand_id', $this->asset()->brand_id)
             ->firstOrFail();
     }
 }

@@ -34,7 +34,7 @@ interface WebsiteOperatorWorkspace
     /** @return Collection<int, mixed> */
     public function availableResourcesForCapability(DigitalAsset $asset, string $capability, ?int $exceptBindingId = null): Collection;
 
-    public function acceptCandidate(DiscoveryCandidate $candidate, User $actor, ?string $editedValue = null): DiscoveryCandidate;
+    public function acceptCandidate(DiscoveryCandidate $candidate, User $actor, ?string $editedValue = null, array $options = []): DiscoveryCandidate;
 
     public function ignoreCandidate(DiscoveryCandidate $candidate, User $actor): DiscoveryCandidate;
 }

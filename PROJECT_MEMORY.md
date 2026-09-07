@@ -1,7 +1,7 @@
 # PROJECT_MEMORY
 
 > **Canonical persistent product / architecture memory for MoxDOP.**  
-> Inspected against `origin/main` @ `171e5e7` (2026-08-11).  
+> Historical baseline: `origin/main` @ `171e5e7` (2026-08-11). Latest scoped change: Public Discovery Stage 1 on `chatgpt/search-demand-foundation` (2026-09-07); main was not re-evaluated or modified.
 > Does **not** override `docs/MASTER_SPEC.md`. See **Source priority** below.  
 > Implementation truth (coded / tested / UAT / UX / async) lives in `PRODUCT_CAPABILITY_LEDGER.md`.  
 > Operator long-running execution standard: `OPERATOR_ASYNC_EXECUTION.md`.
@@ -256,29 +256,21 @@ No automatic Skill / Agent mutation from Outcomes without human approval.
 
 ## Outside-in Discovery status
 
-**Current implemented capability on main: LIMITED public Website Discovery.**
+**Latest Public Discovery slice applies to staging work branch `chatgpt/search-demand-foundation`, not main.**
 
-It can obtain:
+Stage 1 now turns already-stored public Website HTML into reviewable information with actual canonical destinations. It uses the existing Integration collection engine for absent/stale/problem HTML and resumes the same operation after collection. The deterministic pass makes no AI or paid-provider calls. Historical AI/competitor candidates are preserved; their presence does not imply fresh external research.
 
-- bounded public website / context signals
-- optional supported competitor **candidates** (when DataForSEO is configured)
-- Brand Context **candidates** for human Accept / Edit / Ignore
+Core choices (ADR-061):
 
-It is **NOT** yet:
+- Original source time and exact URL identity matter. Missing, stale, unreadable, error-template and bounded/uninspected states remain explicit. Seven-day freshness, 500 pages / 32 MiB per pass and 5 MiB per object bound the analysis; existing collection limits are unchanged.
+- Menus alone are not services; physical addresses are not automatically service areas. Same-value candidates combine provenance without resetting human decisions.
+- Human approval links services to the existing Service Catalog / Brand Offering, explicitly structured areas to Brand Service Areas, and historical competitors to the Competitor Library. Existing priority, manual classification, relationships and exclusions win. Scalar replacement requires an explicit choice and matching current value.
+- Approved social profiles appear in Integrations as candidates for the current authorization/resource/binding flow. Discovery never creates or binds an asset automatically.
+- Receipts distinguish applied, integration-ready, observation-only and kept conflict. Historical approvals without a receipt require explicit transfer; there is no silent migration.
+- There is no Agent-Reach runtime or new plugin framework. SERP/web research, social content, reviews, mentions and recurring discovery remain later stages.
 
-- full web intelligence
-- social intelligence
-- Facebook / Instagram public intelligence
-- YouTube intelligence
-- review monitoring
-- news / mention monitoring
-- continuous web monitoring
+The prior main implementation described bounded public crawling and optional provider competitor candidates. Do not claim that main has the new staging workflow. Do not describe either version as full digital-web intelligence. Canonical contract and verification limits: `docs/product/DISCOVERY_INTELLIGENCE.md`, `PRODUCT_CAPABILITY_LEDGER.md`.
 
-**Never** describe current Website Discovery as “all digital web discovery.”
-
-Canonical product doc: `docs/product/DISCOVERY_INTELLIGENCE.md`.
-
----
 
 ## Operator workspace model — planned foundation
 

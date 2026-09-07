@@ -636,6 +636,23 @@
 
 ---
 
+## ADR-061 — Stored public discovery with explicit canonical application receipts
+
+- **Durum:** Accepted
+- **Tarih:** 2026-09-06
+- **Yetki / kapsam:** User-approved Public Discovery Stage 1 plan, followed by “tamam yap” / “Devam et”. Implementation is restricted to `chatgpt/search-demand-foundation`; no main change, PR, merge or server deployment.
+- **Karar:**
+  1. Basic discovery reads scoped, checksum-verified public HTML already stored by Integration collection. Missing, stale or invalid data is refreshed through the existing Website Collection Engine, not a new crawler. A canonical async parent Run waits and resumes after the linked collection; idempotency, terminal-state guards and the existing stale-operation scheduler protect delivery/recovery.
+  2. New discovery does not call AI, DataForSEO or another paid research provider. Historical interpretation/competitor candidates are retained. Agent-Reach is a reference, not an installed execution dependency.
+  3. Original observation time, exact URL identity and truthful bounded coverage are required. Limits are seven-day freshness, 500 pages / 32 MiB per pass and 5 MiB per object. Existing collector limits remain unchanged; targeted refresh handles at most 100 URLs per operation. Reuse requires unchanged valid source input and known-service context.
+  4. Services require structured claims or supported page headings. Navigation alone is insufficient; addresses/contact observations are distinct from service-area coverage. Same-value candidates aggregate provenance and preserve prior decisions.
+  5. Human application uses current canonical Brand Offering, Service Catalog, Brand Service Area and Competitor Library identities. It may neither archive unrelated records nor restore archived/rejected identities. Existing labels, priorities, roles and relationships are preserved. Scalar replacement requires explicit selection and current-value comparison.
+  6. Accepted social profiles are visible in Integrations for manual authorization/resource selection/binding. No automatic asset or binding is created. Receipts distinguish applied, integration-ready, observation-only and conflict; legacy acceptance requires explicit transfer without backfill. Re-review of kept conflicts/observations preserves receipt history.
+  7. Review requires an active authorized operator, matching Brand/Website scope, owned destination IDs and current readable sources for new stored-source candidates. Historical candidates remain explicitly historical. No second Finding/Result, new table or framework is introduced.
+- **İlgili:** ADR-018, ADR-023, ADR-032, ADR-045, ADR-046, ADR-048, ADR-055; `docs/product/DISCOVERY_INTELLIGENCE.md`; `OPERATOR_ASYNC_EXECUTION.md`.
+
+---
+
 ## Karar indeksi
 
 | ID | Başlık | Durum |
@@ -700,6 +717,7 @@
 | ADR-058 | Human-gated Search Demand Finding + Recommendation promotion | Accepted |
 | ADR-059 | Search Demand change verification + Task Outcome truth | Accepted |
 | ADR-060 | Independent Website standards + shared content and competitor criteria | Accepted |
+| ADR-061 | Stored public discovery + canonical application receipts | Accepted |
 
 ## Süpercede edilen kararlar
 

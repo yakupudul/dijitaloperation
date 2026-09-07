@@ -23,10 +23,38 @@ final class BrandCommercialContextService
         private readonly BrandIntelligenceContextWriteService $contextWriter,
     ) {}
 
+    /** Add one reviewed area without archiving other areas or changing operator priorities. */
+    public function addServiceArea(Brand $brand, array $data): BrandServiceArea
+    {
+        $country = strtoupper(trim((string) ($data['country_code'] ?? '')));
+        if (! array_key_exists($country, CountryOptions::options())) {
+            throw ValidationException::withMessages(['countryCode' => 'Geçerli bir ülke seçin.']);
+        }
+        $data['country_code'] = $country;
+        foreach (['city_name', 'district_name'] as $field) {
+            if (! is_string($data[$field] ?? '') || mb_strlen($data[$field] ?? '') > 120) {
+                throw ValidationException::withMessages(['area' => 'İl ve ilçe bilgisi en fazla 120 karakter olabilir.']);
+            }
+        }
+        if (filled($data['district_name'] ?? null) && blank($data['city_name'] ?? null)) {
+            throw ValidationException::withMessages(['cityName' => 'İlçe için il bilgisini de girin.']);
+        }
+        $normalized = $this->normalizeAreas([$data])[0];
+        $area = BrandServiceArea::query()->firstOrNew(['brand_id' => $brand->id, 'normalized_key' => $normalized['normalized_key']]);
+        if ($area->exists && $area->status !== 'active') {
+            throw ValidationException::withMessages(['area' => 'Bu bölge arşivlenmiş. Önce marka bölge listesinden gözden geçirin.']);
+        }
+        if (! $area->exists) {
+            $area->fill($normalized + ['status' => 'active'])->save();
+        }
+
+        return $area;
+    }
+
     /**
-     * @param list<int|string> $serviceCatalogIds
-     * @param list<int|string> $priorityServiceCatalogIds
-     * @param list<array{country_code?: string, city_name?: string, district_name?: string}> $areas
+     * @param  list<int|string>  $serviceCatalogIds
+     * @param  list<int|string>  $priorityServiceCatalogIds
+     * @param  list<array{country_code?: string, city_name?: string, district_name?: string}>  $areas
      */
     public function sync(
         Brand $brand,
@@ -176,7 +204,7 @@ final class BrandCommercialContextService
     }
 
     /**
-     * @param list<array{country_code?: string, city_name?: string, district_name?: string}> $areas
+     * @param  list<array{country_code?: string, city_name?: string, district_name?: string}>  $areas
      * @return list<array{country_code: string, country_name: ?string, city_name: ?string, district_name: ?string, normalized_key: string}>
      */
     private function normalizeAreas(array $areas): array

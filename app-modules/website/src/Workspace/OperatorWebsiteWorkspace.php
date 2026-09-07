@@ -51,9 +51,9 @@ final class OperatorWebsiteWorkspace implements WebsiteOperatorWorkspaceContract
         return $this->workspace->availableResourcesForCapability($asset, $capability, $exceptBindingId);
     }
 
-    public function acceptCandidate(DiscoveryCandidate $candidate, User $actor, ?string $editedValue = null): DiscoveryCandidate
+    public function acceptCandidate(DiscoveryCandidate $candidate, User $actor, ?string $editedValue = null, array $options = []): DiscoveryCandidate
     {
-        return $this->reviews->accept($candidate, $actor, $editedValue);
+        return $this->reviews->accept($candidate, $actor, $editedValue, $options);
     }
 
     public function ignoreCandidate(DiscoveryCandidate $candidate, User $actor): DiscoveryCandidate

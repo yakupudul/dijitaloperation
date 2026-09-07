@@ -5,6 +5,7 @@ namespace App\Services\SearchDemand;
 use App\Models\Brand;
 use App\Models\BrandQueryPortfolioItem;
 use App\Models\DigitalAsset;
+use App\Models\DiscoveryCandidate;
 use App\Models\SearchDemandCluster;
 use App\Models\SearchDemandCompetitor;
 use App\Models\SearchDemandCompetitorSource;
@@ -117,6 +118,49 @@ final class SearchDemandCompetitorLibraryService
         return $stats;
     }
 
+    /** Human-approved discovery handoff; existing classification, relationships and exclusions win. */
+    public function acceptDiscoveryCandidate(DiscoveryCandidate $candidate, string $value, User $actor): SearchDemandCompetitor
+    {
+        $domain = $this->normalizeDomain($value);
+        if ($this->isBrandDomain($domain, $this->brandDomains((int) $candidate->brand_id))) {
+            throw ValidationException::withMessages(['editedValue' => 'Markanın kendi domaini rakip olarak eklenemez.']);
+        }
+        $competitor = SearchDemandCompetitor::query()->firstOrNew([
+            'brand_id' => $candidate->brand_id, 'normalized_domain_hash' => hash('sha256', $domain),
+        ]);
+        if ($competitor->exists && $competitor->status === 'rejected') {
+            throw ValidationException::withMessages(['editedValue' => 'Bu rakip kütüphanede reddedilmiş. Kararı kütüphaneden gözden geçirin.']);
+        }
+        $support = $candidate->support_json ?? [];
+        $observedAt = isset($support['retrieved_at']) ? CarbonImmutable::parse($support['retrieved_at']) : null;
+        if (! $competitor->exists) {
+            $competitor->fill([
+                'uuid' => (string) Str::uuid(), 'normalized_domain' => $domain, 'display_name' => $domain,
+                'entity_kind' => 'unknown', 'is_commercial_competitor' => false,
+                'is_serp_competitor' => ($support['provider'] ?? $support['source'] ?? '') === 'dataforseo',
+                'is_content_competitor' => false, 'first_observed_at' => $observedAt,
+                'last_observed_at' => $observedAt, 'created_by' => $actor->id,
+            ]);
+        }
+        if ($competitor->status !== 'approved') {
+            $competitor->fill(['status' => 'approved', 'reviewed_by' => $actor->id, 'reviewed_at' => now(), 'updated_by' => $actor->id]);
+        }
+        $competitor->save();
+        SearchDemandCompetitorSource::query()->firstOrCreate([
+            'search_demand_competitor_id' => $competitor->id,
+            'source_fingerprint' => hash('sha256', 'discovery:'.$candidate->id),
+        ], [
+            'digital_asset_id' => $candidate->digital_asset_id, 'source_type' => 'public_discovery',
+            'provider' => $support['provider'] ?? 'operator_review',
+            'source_record_type' => 'discovery_candidate', 'source_record_id' => $candidate->id,
+            'evidence_payload' => ['candidate_id' => $candidate->id, 'source' => $support,
+                'accepted_domain' => $domain, 'operator_edited' => $value !== $candidate->proposed_value],
+            'observed_at' => $observedAt, 'created_by' => $actor->id,
+        ]);
+
+        return $competitor;
+    }
+
     /** @param array<string, mixed> $data */
     public function addManual(Brand $brand, array $data, ?User $actor = null): SearchDemandCompetitor
     {
@@ -182,8 +226,7 @@ final class SearchDemandCompetitorLibraryService
     }
 
     /**
-     * @param list<int> $ids
-     * @return int
+     * @param  list<int>  $ids
      */
     public function reviewMany(Brand $brand, array $ids, string $decision, ?User $actor = null): int
     {

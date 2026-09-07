@@ -1,9 +1,9 @@
-<div class="space-y-6">
+<div class="space-y-6" wire:poll.10s>
     <div class="flex flex-col gap-4 border-b border-gray-200 pb-5 dark:border-gray-800 lg:flex-row lg:items-start lg:justify-between">
         <div>
             <p class="text-xs font-medium uppercase tracking-wide text-gray-400">Brand Intelligence</p>
             <h1 class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{{ app()->getLocale() === 'tr' ? 'Kamu Keşif' : 'Public Discovery' }}</h1>
-            <p class="mt-2 max-w-3xl text-sm text-gray-500 dark:text-gray-400">Tüm Website varlıklarında public crawl durumunu, bekleyen Brand Context adaylarını ve son çalışma sonucunu tek yerden yönetin.</p>
+            <p class="mt-2 max-w-3xl text-sm text-gray-500 dark:text-gray-400">{{ __('public_discovery.intro') }} {{ __('public_discovery.how') }}</p>
         </div>
         <a href="{{ route('operator.assets') }}" wire:navigate class="rounded-lg bg-white px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-300 dark:ring-gray-700">Dijital Varlıklar</a>
     </div>
@@ -21,7 +21,7 @@
             ['label' => 'Website', 'value' => $counts['websites']],
             ['label' => 'Hiç çalışmadı', 'value' => $counts['never_run']],
             ['label' => 'İnceleme bekleyen', 'value' => $counts['needs_review']],
-            ['label' => 'Kabul edilmiş', 'value' => $counts['accepted']],
+            ['label' => 'İncelenmiş', 'value' => $counts['accepted']],
         ] as $card)
             <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
                 <p class="text-sm font-medium text-gray-500">{{ $card['label'] }}</p>
@@ -53,7 +53,7 @@
                         <th class="px-5 py-3">Son keşif</th>
                         <th class="px-5 py-3">Sayfa</th>
                         <th class="px-5 py-3">Bekleyen</th>
-                        <th class="px-5 py-3">Kabul</th>
+                        <th class="px-5 py-3">İncelenen</th>
                         <th class="px-5 py-3 text-right">Aksiyon</th>
                     </tr>
                 </thead>
@@ -78,7 +78,7 @@
                             <td class="px-5 py-4">
                                 <div class="flex justify-end gap-2">
                                     <a href="{{ route('operator.website.discovery', ['assetId' => $row['asset']->id]) }}" wire:navigate class="rounded-lg px-3 py-2 text-xs font-semibold text-brand-700 ring-1 ring-inset ring-brand-200 hover:bg-brand-50 dark:text-brand-300 dark:ring-brand-500/30">İncele</a>
-                                    <button type="button" wire:click="runDiscovery({{ $row['asset']->id }})" wire:loading.attr="disabled" @disabled(! $row['ready']) class="rounded-lg bg-brand-500 px-3 py-2 text-xs font-semibold text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-40">Keşfi çalıştır</button>
+                                    <button type="button" wire:click="runDiscovery({{ $row['asset']->id }})" wire:loading.attr="disabled" @disabled(! $row['ready'] || in_array($row['status'], ['queued', 'running'], true)) class="rounded-lg bg-brand-500 px-3 py-2 text-xs font-semibold text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-40">Keşfi çalıştır</button>
                                 </div>
                             </td>
                         </tr>

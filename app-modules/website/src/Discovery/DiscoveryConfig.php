@@ -7,7 +7,7 @@ namespace MoxDop\Website\Discovery;
  */
 final class DiscoveryConfig
 {
-    public const string VERSION = 'website-public-discovery-v2';
+    public const string VERSION = 'website-public-discovery-v3-stored';
 
     public const string MODULE_ID = 'website-discovery';
 

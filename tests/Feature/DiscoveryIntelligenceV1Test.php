@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\Brand;
 use App\Models\BrandIntelligenceContext;
+use App\Models\Collection\CollectionResourceRun;
+use App\Models\DataPool\RawIngestionObject;
 use App\Models\DigitalAsset;
 use App\Models\DiscoveryCandidate;
 use App\Models\Evidence;
@@ -16,7 +18,10 @@ use App\Support\Ai\AiRouteRegistry;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use MoxDop\Website\Discovery\DiscoveryCandidateBuilder;
 use MoxDop\Website\Discovery\DiscoveryCandidateReviewService;
 use MoxDop\Website\Discovery\DiscoveryConfig;
@@ -221,6 +226,7 @@ HTML;
             'http://1.1.1.1*' => Http::response($html, 200, ['Content-Type' => 'text/html']),
         ]);
 
+        $this->storeHtml($html);
         $service = app(PublicDiscoveryService::class);
         $result = $service->discover($this->asset);
 
@@ -360,6 +366,7 @@ HTML;
             'http://1.1.1.1*' => Http::response('<html lang="en"><head><title>A</title></head><body><h1>A</h1></body></html>', 200, ['Content-Type' => 'text/html']),
         ]);
 
+        $this->storeHtml('<html lang="en"><head><title>A</title></head><body><h1>A</h1></body></html>');
         $result = app(PublicDiscoveryService::class)->discover($this->asset);
         $this->assertContains($result['status'], ['succeeded', 'partial']);
         $this->assertSame(0, $result['competitor_candidates']);
@@ -369,8 +376,9 @@ HTML;
             ->where('type', DiscoveryConfig::EVIDENCE_SITE_SUMMARY)
             ->first();
         $this->assertNotNull($summary);
-        $this->assertSame('unavailable', $summary->payload['competitor_status']);
-        $this->assertStringContainsString('not configured', (string) $summary->payload['competitor_message']);
+        $this->assertSame('not_requested', $summary->payload['competitor_status']);
+        $this->assertSame(0, $summary->payload['paid_requests']);
+        Http::assertNothingSent();
     }
 
     public function test_public_discovery_creates_run_and_evidence(): void
@@ -383,6 +391,7 @@ HTML;
             ),
         ]);
 
+        $this->storeHtml('<html lang="en"><head><title>Demo</title><meta name="description" content="Demo clinic for public discovery validation with enough text."></head><body><h1>Demo</h1></body></html>');
         $result = app(PublicDiscoveryService::class)->discover($this->asset);
         $run = $result['run'];
 
@@ -392,5 +401,23 @@ HTML;
             Evidence::query()->where('run_id', $run->id)->where('type', DiscoveryConfig::EVIDENCE_SITE_SUMMARY)->exists()
         );
         $this->assertGreaterThanOrEqual(1, $result['fact_candidates']);
+    }
+
+    private function storeHtml(string $html): void
+    {
+        Storage::fake('legacy-discovery-test');
+        $resource = CollectionResourceRun::factory()->create(['digital_asset_id' => $this->asset->id]);
+        $key = (string) Str::uuid().'.html';
+        Storage::disk('legacy-discovery-test')->put($key, $html);
+        $object = RawIngestionObject::query()->create(['uuid' => (string) Str::uuid(),
+            'resource_run_id' => $resource->id, 'collection_run_id' => $resource->collection_run_id,
+            'dataset_id' => 'website_html_snapshot', 'batch_key' => $key, 'provider_or_source' => 'WEBSITE_DIRECT',
+            'storage_disk' => 'legacy-discovery-test', 'object_key' => $key, 'byte_size' => strlen($html),
+            'sha256' => hash('sha256', $html), 'captured_at' => now()]);
+        DB::table('website_html_snapshot')->insert(['digital_asset_id' => $this->asset->id,
+            'url' => 'http://1.1.1.1/', 'status_code' => 200, 'content_type' => 'text/html',
+            'raw_ingestion_object_id' => $object->id, 'html_hash' => hash('sha256', $html),
+            'html_bytes' => strlen($html), 'change_state' => 'new', 'observed_at' => now(), 'contract_version' => 1,
+            'first_collected_at' => now(), 'last_collected_at' => now(), 'record_fingerprint' => hash('sha256', $key)]);
     }
 }

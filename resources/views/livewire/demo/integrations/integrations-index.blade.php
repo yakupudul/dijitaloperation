@@ -7,6 +7,36 @@
         'subtitle' => __('operator.integrations_ui.subtitle'),
     ])
 
+    <section id="discovered-profiles" class="space-y-4 rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+        <h2 class="text-lg font-semibold">{{ __('public_discovery.profiles') }}</h2>
+        <p class="text-sm text-gray-500">{{ __('public_discovery.profiles_help') }}</p>
+        <div class="flex flex-wrap items-center gap-3">
+            <input type="search" wire:model.live.debounce.300ms="profileSearch" aria-label="{{ __('public_discovery.profile_search') }}" placeholder="{{ __('public_discovery.profile_search') }}" class="rounded-lg border-gray-300 bg-transparent text-sm" />
+            @if($discoveryBrand)<a href="{{ route('operator.integrations') }}#discovered-profiles" wire:navigate class="text-sm text-brand-600">{{ __('public_discovery.show_all_brands') }}</a>@endif
+        </div>
+        <div class="divide-y divide-gray-200 dark:divide-gray-700">
+            @forelse($discoveredProfiles as $profile)
+                <article class="flex flex-wrap justify-between gap-3 py-3" wire:key="profile-{{ $profile->id }}">
+                    <div class="min-w-0">
+                        <p class="font-medium">{{ $profile->brand?->name }} · {{ data_get($profile->support_json, 'application.platform') }}</p>
+                        <p class="mt-1 break-all text-sm text-gray-500">{{ data_get($profile->support_json, 'application.url') }}</p>
+                        <p class="mt-1 text-xs text-gray-500">{{ __('public_discovery.binding_needed') }} · {{ $profile->reviewed_at?->format('Y-m-d H:i') }}</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-3 text-sm text-brand-600">
+                        <a href="{{ data_get($profile->support_json, 'application.url') }}" target="_blank" rel="noopener noreferrer">{{ __('public_discovery.open_profile') }}</a>
+                        <a href="{{ route('operator.website.discovery', ['assetId' => $profile->digital_asset_id]) }}" wire:navigate>{{ __('public_discovery.from_discovery') }}</a>
+                        @if(in_array(data_get($profile->support_json, 'application.platform'), ['instagram', 'facebook'], true))
+                            <a href="{{ route('operator.integrations.meta') }}" wire:navigate>Meta →</a>
+                        @endif
+                    </div>
+                </article>
+            @empty
+                <p class="py-3 text-sm text-gray-500">{{ __('public_discovery.profiles_empty') }}</p>
+            @endforelse
+        </div>
+        {{ $discoveredProfiles->links() }}
+    </section>
+
     <section id="site_connectors" class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
         <div class="flex flex-wrap items-start justify-between gap-3">
             <div>

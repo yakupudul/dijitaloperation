@@ -1,184 +1,167 @@
-<div class="space-y-6">
-    <div class="flex flex-col gap-4 border-b border-gray-200 pb-5 dark:border-gray-800 lg:flex-row lg:items-start lg:justify-between">
+<div class="space-y-6" @if(in_array($runtime['run']?->status, ['queued', 'running'], true)) wire:poll.5s @endif>
+    <div class="flex flex-wrap items-start justify-between gap-4 border-b border-gray-200 pb-5 dark:border-gray-800">
         <div>
-            <div class="flex flex-wrap items-center gap-2">
-                <a href="{{ route('operator.website', ['assetId' => $asset->id]) }}" wire:navigate class="text-sm font-medium text-brand-600 hover:underline">Website</a>
-                <span class="text-gray-300">/</span>
-                <span class="text-sm text-gray-500">{{ __('operator_runtime.discovery.title') }}</span>
-            </div>
-            <h1 class="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{{ __('operator_runtime.discovery.title') }}</h1>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ $brand?->name ?? '—' }} · {{ $asset->primary_url ?: $asset->domain ?: $asset->name }}</p>
-            <p class="mt-2 max-w-3xl text-sm text-gray-600 dark:text-gray-300">{{ __('operator_runtime.discovery.description') }}</p>
+            <a href="{{ route('operator.public-discovery') }}" wire:navigate class="text-sm text-brand-600">{{ __('operator_runtime.discovery.title') }}</a>
+            <h1 class="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{{ $brand?->name }} · {{ $asset->name }}</h1>
+            <p class="mt-1 text-sm text-gray-500">{{ $asset->primary_url ?: $asset->domain }}</p>
+            <p class="mt-3 max-w-3xl text-sm text-gray-700 dark:text-gray-300">{{ __('public_discovery.intro') }}</p>
+            <p class="mt-1 max-w-3xl text-sm text-gray-500">{{ __('public_discovery.how') }}</p>
         </div>
-
-        <button type="button" wire:click="runDiscovery" wire:loading.attr="disabled"
-            class="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60">
-            <span wire:loading.remove wire:target="runDiscovery">{{ __('operator_runtime.discovery.start') }}</span>
-            <span wire:loading wire:target="runDiscovery">{{ __('operator_runtime.discovery.queueing') }}</span>
+        <button type="button" wire:click="runDiscovery" wire:loading.attr="disabled" @disabled(in_array($runtime['run']?->status, ['queued', 'running'], true))
+            class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+            {{ __('operator_runtime.discovery.start') }}
         </button>
     </div>
 
-    @if ($statusMessage !== '')
-        <div @class([
-            'rounded-xl border px-4 py-3 text-sm',
-            'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/20 dark:text-rose-300' => $statusTone === 'error',
-            'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:text-emerald-300' => $statusTone === 'success',
-            'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/20 dark:text-blue-300' => ! in_array($statusTone, ['error', 'success'], true),
-        ])>{{ $statusMessage }}</div>
+    @if($statusMessage !== '')
+        <p role="status" class="rounded-xl border p-4 text-sm {{ $statusTone === 'error' ? 'border-rose-300 text-rose-700' : 'border-brand-200 text-brand-700 dark:text-brand-300' }}">{{ $statusMessage }}</p>
+    @endif
+    @if($errors->any() && $selectedCandidate === null)
+        <p role="alert" class="text-sm text-rose-600">{{ $errors->first() }}</p>
+    @endif
+    @if($runtime['run'])
+        <div class="flex flex-wrap justify-between gap-2 rounded-xl border border-gray-200 p-4 text-sm dark:border-gray-700">
+            <p>{{ __('operator_runtime.discovery.latest_run') }} #{{ $runtime['run']->id }} · {{ $runtime['phase'] }}</p>
+            <a href="{{ route('operator.activity') }}" wire:navigate class="text-brand-600">{{ __('operator_runtime.discovery.open_activity') }} →</a>
+            @if($runtime['failure'])<p class="w-full text-rose-600">{{ $runtime['failure'] }}</p>@endif
+            @if(data_get($runtime['run']->metadata, 'source_collection_run_id'))
+                <a href="{{ route('operator.integrations.website', ['assetId' => $asset->id]) }}" wire:navigate class="text-brand-600">
+                    {{ __('public_discovery.source_collection') }} #{{ data_get($runtime['run']->metadata, 'source_collection_run_id') }}
+                    @if($collectionStatus = data_get($runtime['run']->metadata, 'source_collection_status')) · {{ __('public_discovery.collection.'.$collectionStatus) }} @endif
+                </a>
+            @endif
+        </div>
     @endif
 
-    <section @class([
-        'rounded-xl border p-5',
-        'border-emerald-200 bg-emerald-50/60 dark:border-emerald-900/50 dark:bg-emerald-950/10' => $runtime['tone'] === 'success',
-        'border-rose-200 bg-rose-50/60 dark:border-rose-900/50 dark:bg-rose-950/10' => $runtime['tone'] === 'error',
-        'border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-white/[0.02]' => ! in_array($runtime['tone'], ['success', 'error'], true),
-    ])>
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-                <h2 class="font-semibold text-gray-900 dark:text-white">
-                    @if ($runtime['tone'] === 'success')
-                        {{ __('operator_runtime.discovery.runtime_healthy') }}
-                    @elseif ($runtime['tone'] === 'error')
-                        {{ __('operator_runtime.discovery.runtime_degraded') }}
-                    @else
-                        {{ __('operator_runtime.discovery.runtime_unknown') }}
-                    @endif
-                </h2>
-                <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ __('operator_runtime.discovery.worker_health.'.$runtime['worker_health_key'], $runtime['worker_health_replace']) }}</p>
-                @if ($runtime['queue_health_key'] !== $runtime['worker_health_key'])
-                    <p class="mt-1 text-xs text-gray-500">{{ __('operator_runtime.discovery.queue_health.'.$runtime['queue_health_key'], $runtime['queue_health_replace']) }}</p>
-                @endif
-            </div>
-            <a href="{{ route('operator.activity') }}" wire:navigate class="shrink-0 text-sm font-semibold text-brand-600 hover:underline">{{ __('operator_runtime.discovery.open_activity') }} →</a>
-        </div>
-
-        <div class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <div class="rounded-lg bg-white/70 p-3 dark:bg-white/[0.03]">
-                <p class="text-xs text-gray-400">{{ __('operator_runtime.discovery.worker') }}</p>
-                <p class="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{{ __('operator_runtime.discovery.health_status.'.$runtime['worker_status_key']) }}</p>
-            </div>
-            <div class="rounded-lg bg-white/70 p-3 dark:bg-white/[0.03]">
-                <p class="text-xs text-gray-400">{{ __('operator_runtime.discovery.pending_jobs') }}</p>
-                <p class="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{{ $runtime['pending_jobs'] }}</p>
-            </div>
-            <div class="rounded-lg bg-white/70 p-3 dark:bg-white/[0.03]">
-                <p class="text-xs text-gray-400">{{ __('operator_runtime.discovery.latest_run') }}</p>
-                <p class="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{{ $runtime['run'] ? '#'.$runtime['run']->id.' · '.$runtime['run']->status : '—' }}</p>
-            </div>
-            <div class="rounded-lg bg-white/70 p-3 dark:bg-white/[0.03]">
-                <p class="text-xs text-gray-400">{{ __('operator_runtime.discovery.current_phase') }}</p>
-                <p class="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{{ $runtime['phase'] ?: '—' }}</p>
-            </div>
-        </div>
-
-        @if (filled($runtime['failure']))
-            <div class="mt-4 rounded-lg border border-rose-200 bg-white p-3 text-sm text-rose-700 dark:border-rose-900/40 dark:bg-black/10 dark:text-rose-300">
-                <span class="font-semibold">{{ __('operator_runtime.discovery.last_failure') }}:</span> {{ $runtime['failure'] }}
-            </div>
-        @endif
-    </section>
-
-    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <section class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
-            <p class="text-xs font-medium uppercase tracking-wide text-gray-400">{{ __('operator_runtime.discovery.status') }}</p>
-            <p class="mt-2 text-lg font-semibold text-gray-900 dark:text-white">{{ $discovery['status_label'] }}</p>
-            <p class="mt-1 text-xs text-gray-500">{{ $discovery['retrieved_human'] ?? __('operator_runtime.discovery.not_run') }}</p>
-        </section>
-        <section class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
-            <p class="text-xs font-medium uppercase tracking-wide text-gray-400">{{ __('operator_runtime.discovery.pages') }}</p>
-            <p class="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{{ $discovery['pages_inspected'] }}</p>
-        </section>
-        <section class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
-            <p class="text-xs font-medium uppercase tracking-wide text-gray-400">{{ __('operator_runtime.discovery.facts') }}</p>
-            <p class="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{{ $discovery['fact_count'] }}</p>
-        </section>
-        <section class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
-            <p class="text-xs font-medium uppercase tracking-wide text-gray-400">{{ __('operator_runtime.discovery.inferences') }}</p>
-            <p class="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{{ $discovery['inference_count'] }}</p>
-            @if ($discovery['ai_label'])
-                <p class="mt-1 text-xs text-gray-500">{{ $discovery['ai_label'] }}</p>
-            @endif
-        </section>
-    </div>
-
-    @if (is_array($discovery['summary'] ?? null))
-        <section class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
-            <h2 class="text-base font-semibold text-gray-900 dark:text-white">{{ __('operator_runtime.discovery.summary') }}</h2>
-            <div class="mt-3 grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-3">
-                @foreach (($discovery['summary'] ?? []) as $key => $value)
-                    @continue(is_array($value) || is_object($value))
-                    <div class="rounded-lg bg-gray-50 px-3 py-2 dark:bg-white/[0.03]">
-                        <p class="text-xs text-gray-400">{{ str($key)->replace('_', ' ')->title() }}</p>
-                        <p class="mt-1 break-words font-medium text-gray-800 dark:text-gray-200">
-                            {{ is_bool($value) ? ($value ? __('operator_runtime.discovery.yes') : __('operator_runtime.discovery.no')) : ($value ?? '—') }}
-                        </p>
-                    </div>
+    <section class="space-y-4 rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
+        <h2 class="font-semibold">{{ __('public_discovery.coverage') }}</h2>
+        @if($coverage = $discovery['coverage'])
+            <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+                @foreach(['inventory_urls' => 'inventory', 'inspected_pages' => 'inspected', 'missing_html_urls' => 'missing', 'uninspected_pages' => 'uninspected'] as $key => $label)
+                    <div><p class="text-xs text-gray-500">{{ __('public_discovery.'.$label) }}</p><p class="mt-1 text-2xl font-semibold">{{ $coverage[$key] ?? 0 }}</p></div>
                 @endforeach
             </div>
+            <p class="text-sm text-gray-600 dark:text-gray-300">{{ $discovery['status_label'] }} · {{ __('public_discovery.stale') }}: {{ $coverage['stale_urls'] ?? 0 }} · {{ __('public_discovery.unreadable') }}: {{ $coverage['unreadable_pages'] ?? 0 }} · {{ __('public_discovery.ineligible') }}: {{ $coverage['ineligible_pages'] ?? 0 }}</p>
+            @if($coverage['oldest_observation'] ?? null)
+                <p class="text-xs text-gray-500">{{ __('public_discovery.observed') }}: {{ $coverage['oldest_observation'] }} — {{ $coverage['latest_observation'] }}</p>
+            @endif
+            <p class="text-xs text-gray-500">{{ __('public_discovery.coverage_note') }}</p>
+            @if($coverage['gap_samples'] ?? [])
+                <details class="text-xs text-gray-500"><summary class="cursor-pointer">{{ __('public_discovery.gaps') }}</summary>
+                    <ul class="mt-2 space-y-2">@foreach($coverage['gap_samples'] as $gap)<li><span class="break-all">{{ $gap['url'] }}</span> · {{ __('public_discovery.'.$gap['reason']) }}</li>@endforeach</ul>
+                </details>
+            @endif
+        @elseif($discovery['last_run'])
+            <p class="text-sm text-amber-700">{{ __('public_discovery.legacy') }} · {{ __('public_discovery.inspected') }}: {{ $discovery['pages_inspected'] }}</p>
+        @else
+            <p class="text-sm text-gray-500">{{ __('public_discovery.no_data') }}</p>
+        @endif
+        <p class="text-xs text-gray-500">{{ __('public_discovery.freshness') }}</p>
+    </section>
+
+    @if($selectedCandidate)
+        <section x-data x-init="$nextTick(() => $el.scrollIntoView({ behavior: 'smooth', block: 'start' }))" aria-label="{{ __('public_discovery.review') }}" class="space-y-4 rounded-xl border-2 border-brand-400 bg-white p-5 dark:bg-gray-900" wire:key="review-{{ $selectedCandidate->id }}">
+            <div class="flex justify-between gap-3"><h2 class="font-semibold">{{ __('public_discovery.review') }}</h2><button type="button" wire:click="closeReview" class="text-sm text-gray-500">{{ __('public_discovery.cancel') }}</button></div>
+            <p class="text-sm">{{ __('public_discovery.destination') }}: <strong>{{ __('public_discovery.field.'.$selectedCandidate->target_field) }}</strong></p>
+            <form wire:submit="applyReview" class="space-y-4">
+                <label class="block text-sm">{{ __('public_discovery.edit') }}<textarea wire:model="editedValue" rows="3" maxlength="2000" class="mt-1 block w-full rounded-lg border-gray-300 bg-transparent"></textarea></label>
+                @if($selectedCandidate->target_field === 'products_services')
+                    <label class="block text-sm">{{ __('public_discovery.map_service') }}
+                        <select wire:model="offeringId" class="mt-1 block w-full rounded-lg border-gray-300 bg-transparent"><option value="">{{ __('public_discovery.new_service') }}</option>
+                            @foreach($offerings as $offering)<option value="{{ $offering->id }}">{{ $offering->primaryName?->raw_label }} (#{{ $offering->id }})</option>@endforeach
+                        </select>
+                    </label>
+                    <p class="text-xs text-gray-500">{{ __('public_discovery.service_help') }}</p>
+                @endif
+                @if(in_array($selectedCandidate->target_field, ['physical_addresses', 'service_areas', 'target_markets'], true))
+                    <p class="text-sm text-gray-500">{{ __('public_discovery.area_help') }}</p>
+                    <label class="flex items-center gap-2 text-sm"><input type="checkbox" wire:model.live="confirmServiceArea" />{{ __('public_discovery.confirm_area') }}</label>
+                    @if($confirmServiceArea)
+                        <label class="block text-sm">{{ __('public_discovery.map_area') }}<select wire:model.live="serviceAreaId" class="mt-1 block w-full rounded-lg border-gray-300 bg-transparent"><option value="">{{ __('public_discovery.new_area') }}</option>
+                            @foreach($serviceAreas as $area)<option value="{{ $area->id }}">{{ $area->label() }}</option>@endforeach
+                        </select></label>
+                        @if(!$serviceAreaId)
+                            <div class="grid gap-3 sm:grid-cols-3">
+                                <label class="text-sm">{{ __('public_discovery.country') }}<select wire:model="countryCode" class="mt-1 block w-full rounded-lg border-gray-300 bg-transparent"><option value="">{{ __('public_discovery.choose') }}</option>@foreach(\App\Support\Options\CountryOptions::options() as $code => $country)<option value="{{ $code }}">{{ $country }}</option>@endforeach</select></label>
+                                <label class="text-sm">{{ __('public_discovery.city') }}<input wire:model="cityName" maxlength="120" class="mt-1 block w-full rounded-lg border-gray-300 bg-transparent" /></label>
+                                <label class="text-sm">{{ __('public_discovery.district') }}<input wire:model="districtName" maxlength="120" class="mt-1 block w-full rounded-lg border-gray-300 bg-transparent" /></label>
+                            </div>
+                        @endif
+                    @endif
+                @endif
+                @if($currentValue !== '')
+                    <div class="rounded-lg bg-gray-50 p-3 text-sm dark:bg-gray-800"><p class="font-semibold">{{ __('public_discovery.current') }}</p><p>{{ $currentValue }}</p></div>
+                    <label class="flex items-center gap-2 text-sm"><input type="checkbox" wire:model="replaceExisting" />{{ __('public_discovery.replace') }}</label>
+                    <p class="text-xs text-gray-500">{{ __('public_discovery.keep') }}</p>
+                @endif
+                @if($errors->any())<ul role="alert" class="text-sm text-rose-600">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>@endif
+                <button type="submit" wire:loading.attr="disabled" class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{{ __('public_discovery.save') }}</button>
+            </form>
         </section>
     @endif
 
-    <section class="rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
-        <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-700">
-            <h2 class="text-base font-semibold text-gray-900 dark:text-white">{{ __('operator_runtime.discovery.facts_review') }}</h2>
-            <p class="mt-1 text-xs text-gray-500">{{ __('operator_runtime.discovery.facts_help') }}</p>
+    <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+        <div class="space-y-3 border-b border-gray-200 p-5 dark:border-gray-700">
+            <h2 class="font-semibold">{{ __('public_discovery.candidates') }}</h2>
+            <div class="flex flex-wrap gap-2">
+                @foreach(['pending', 'accepted', 'ignored', 'unapplied', 'all'] as $state)
+                    <button type="button" wire:click="$set('filter', '{{ $state }}')" class="rounded-lg px-3 py-2 text-xs {{ $filter === $state ? 'bg-brand-500 text-white' : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' }}">
+                        {{ __('public_discovery.'.$state) }} @if(isset($candidateCounts[$state])) ({{ $candidateCounts[$state] }}) @endif
+                    </button>
+                @endforeach
+            </div>
         </div>
-        <div class="divide-y divide-gray-100 dark:divide-gray-700">
-            @forelse ($discovery['fact_candidates'] as $candidate)
-                <div class="flex flex-col gap-3 px-5 py-4 lg:flex-row lg:items-start lg:justify-between">
-                    <div class="min-w-0">
-                        <div class="flex flex-wrap items-center gap-2">
-                            <span class="rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 dark:bg-white/[0.05] dark:text-gray-300">{{ $candidate->candidate_type }}</span>
-                            <span class="rounded-md px-2 py-1 text-xs font-medium {{ $candidate->status === 'pending' ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300' : ($candidate->status === 'accepted' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300' : 'bg-gray-100 text-gray-500 dark:bg-white/[0.05]') }}">{{ $candidate->status }}</span>
+        <div class="divide-y divide-gray-200 dark:divide-gray-700">
+            @forelse($candidates as $candidate)
+                @php($receipt = data_get($candidate->support_json, 'application'))
+                <article class="space-y-3 p-5" wire:key="candidate-{{ $candidate->id }}">
+                    <div class="flex flex-wrap justify-between gap-3">
+                        <div class="min-w-0 flex-1">
+                            <p class="text-xs font-medium text-gray-500">{{ __('public_discovery.field.'.$candidate->target_field) }} · {{ __('public_discovery.'.$candidate->status) }}</p>
+                            <p class="mt-2 break-words font-medium">{{ $candidate->accepted_value ?? $candidate->proposed_value }}</p>
                         </div>
-                        <p class="mt-2 font-medium text-gray-900 dark:text-white">{{ $candidate->proposed_value }}</p>
-                        <p class="mt-1 text-xs text-gray-500">{{ __('operator_runtime.discovery.target_field') }}: {{ $candidate->target_field ?: '—' }}</p>
-                        @if (is_array($candidate->support_json) && filled(data_get($candidate->support_json, 'source_url')))
-                            <a href="{{ data_get($candidate->support_json, 'source_url') }}" target="_blank" rel="noopener" class="mt-1 inline-block break-all text-xs text-brand-600 hover:underline">{{ data_get($candidate->support_json, 'source_url') }}</a>
+                        @if(!$receipt || in_array($receipt['state'] ?? '', ['conflict', 'observation_only'], true))
+                            <div class="flex items-start gap-3">
+                                <button type="button" wire:click="reviewCandidate({{ $candidate->id }})" class="rounded-lg border border-brand-300 px-3 py-2 text-xs font-semibold text-brand-600">{{ __('public_discovery.review') }}</button>
+                                @if($candidate->status === 'pending')<button type="button" wire:click="ignoreCandidate({{ $candidate->id }})" wire:loading.attr="disabled" class="px-2 py-2 text-xs text-gray-500">{{ __('operator_runtime.discovery.ignore') }}</button>@endif
+                            </div>
                         @endif
                     </div>
-                    @if ($candidate->status === 'pending')
-                        <div class="flex shrink-0 gap-2">
-                            <button type="button" wire:click="acceptCandidate({{ $candidate->id }})" class="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700">{{ __('operator_runtime.discovery.accept') }}</button>
-                            <button type="button" wire:click="ignoreCandidate({{ $candidate->id }})" class="rounded-lg px-3 py-2 text-xs font-semibold text-gray-600 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-600">{{ __('operator_runtime.discovery.ignore') }}</button>
+                    @if($candidate->candidate_kind === 'inference')<p class="text-xs text-amber-700">{{ __('public_discovery.inference') }}</p>
+                    @elseif(data_get($candidate->support_json, 'normalization_version') !== 'website-public-discovery-v3-stored')<p class="text-xs text-amber-700">{{ __('public_discovery.legacy') }}</p>
+                    @else<p class="text-xs text-gray-500">{{ __('public_discovery.source_claim') }}</p>@endif
+                    @if($receipt)
+                        <div class="rounded-lg bg-gray-50 p-3 text-sm dark:bg-gray-800">
+                            <p>{{ __('public_discovery.receipt.'.$receipt['state']) }}</p>
+                            @if($receipt['record_id'] ?? null)<p class="mt-1 text-xs text-gray-500">#{{ $receipt['record_id'] }} · {{ $receipt['label'] ?? '' }}</p>@endif
+                            @if($url = $candidate->applicationUrl())<a href="{{ $url }}" wire:navigate class="mt-1 inline-block text-brand-600">{{ __('public_discovery.open_destination') }} →</a>@endif
                         </div>
-                    @endif
-                </div>
+                    @elseif($candidate->status === 'accepted')<p class="text-sm text-amber-700">{{ __('public_discovery.legacy_accepted') }}</p>@endif
+                    @php($sources = data_get($candidate->support_json, 'sources', [['url' => data_get($candidate->support_json, 'source_url'), 'observed_at' => data_get($candidate->support_json, 'retrieved_at')]]))
+                    <details class="text-xs text-gray-500">
+                        <summary class="cursor-pointer">{{ __('public_discovery.sources') }} ({{ count($sources) }})</summary>
+                        <ul class="mt-2 space-y-3">
+                            @foreach($sources as $source)
+                                <li>
+                                    @if(is_string($source['url'] ?? null) && preg_match('~^https?://~i', $source['url']))<a href="{{ $source['url'] }}" target="_blank" rel="noopener noreferrer" class="break-all text-brand-600">{{ $source['url'] }}</a>@endif
+                                    <p>{{ __('public_discovery.observed') }}: {{ $source['observed_at'] ?? '—' }}</p>
+                                    @if($source['excerpt'] ?? null)<p class="mt-1 break-words">{{ $source['excerpt'] }}</p>@endif
+                                    @if($source['raw_ingestion_object_id'] ?? null)<a href="{{ route('operator.website.html.show', ['assetId' => $asset->id, 'rawObjectId' => $source['raw_ingestion_object_id']]) }}" target="_blank" rel="noopener" class="text-brand-600">{{ __('public_discovery.html') }}</a>@endif
+                                </li>
+                            @endforeach
+                        </ul>
+                    </details>
+                </article>
             @empty
-                <div class="px-5 py-8 text-sm text-gray-500">{{ __('operator_runtime.discovery.no_facts') }}</div>
+                <p class="p-8 text-sm text-gray-500">{{ __('public_discovery.empty') }}</p>
             @endforelse
         </div>
+        <div class="p-5">{{ $candidates->links() }}</div>
     </section>
-
-    <div class="grid gap-4 xl:grid-cols-2">
-        <section class="rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
-            <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-700"><h2 class="text-base font-semibold text-gray-900 dark:text-white">{{ __('operator_runtime.discovery.ai_candidates') }}</h2></div>
-            <div class="divide-y divide-gray-100 dark:divide-gray-700">
-                @forelse ($discovery['inference_candidates'] as $candidate)
-                    <div class="px-5 py-4">
-                        <div class="flex items-center justify-between gap-2"><span class="text-xs font-medium text-gray-400">{{ $candidate->candidate_type }}</span><span class="text-xs text-gray-400">{{ $candidate->status }}</span></div>
-                        <p class="mt-2 text-sm font-medium text-gray-800 dark:text-gray-200">{{ $candidate->proposed_value }}</p>
-                    </div>
-                @empty
-                    <div class="px-5 py-8 text-sm text-gray-500">{{ __('operator_runtime.discovery.no_ai') }}</div>
-                @endforelse
-            </div>
-        </section>
-
-        <section class="rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
-            <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-700"><h2 class="text-base font-semibold text-gray-900 dark:text-white">{{ __('operator_runtime.discovery.competitors') }}</h2></div>
-            <div class="divide-y divide-gray-100 dark:divide-gray-700">
-                @forelse ($discovery['competitor_candidates'] as $candidate)
-                    <div class="flex items-start justify-between gap-3 px-5 py-4">
-                        <div><p class="text-sm font-medium text-gray-800 dark:text-gray-200">{{ $candidate->proposed_value }}</p><p class="mt-1 text-xs text-gray-500">{{ $candidate->status }}</p></div>
-                        @if ($candidate->status === 'pending')
-                            <button type="button" wire:click="acceptCandidate({{ $candidate->id }})" class="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white">{{ __('operator_runtime.discovery.accept') }}</button>
-                        @endif
-                    </div>
-                @empty
-                    <div class="px-5 py-8 text-sm text-gray-500">{{ $discovery['competitor_empty_message'] }}</div>
-                @endforelse
-            </div>
-        </section>
-    </div>
+    <details class="rounded-xl border border-gray-200 p-4 text-xs text-gray-500 dark:border-gray-700">
+        <summary class="cursor-pointer">{{ __('public_discovery.runtime') }}</summary>
+        <p class="mt-3">{{ __('operator_runtime.discovery.health_status.'.$runtime['worker_status_key']) }}</p>
+        <p>{{ __('operator_runtime.discovery.worker_health.'.$runtime['worker_health_key'], $runtime['worker_health_replace']) }}</p>
+        <p>{{ __('operator_runtime.discovery.queue_health.'.$runtime['queue_health_key'], $runtime['queue_health_replace']) }}</p>
+    </details>
 </div>

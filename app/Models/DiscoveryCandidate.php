@@ -81,6 +81,21 @@ class DiscoveryCandidate extends Model
         return $this->belongsTo(User::class, 'reviewed_by_id');
     }
 
+    public function applicationUrl(): ?string
+    {
+        $receipt = data_get($this->support_json, 'application');
+        if (! is_array($receipt) || ! in_array($receipt['state'] ?? '', ['applied', 'integration_ready'], true)) {
+            return null;
+        }
+
+        return match ($receipt['destination'] ?? '') {
+            'integrations' => route('operator.integrations', ['discoveryBrand' => $this->brand_id]).'#discovered-profiles',
+            'known_competitors' => route('operator.library.search-demand-competitors', ['brand' => $this->brand_id, 'status' => 'approved']),
+            'languages' => route('operator.website', ['assetId' => $this->digital_asset_id]),
+            default => route('operator.brand', ['brand' => $this->brand_id]),
+        };
+    }
+
     /**
      * @return array<string, string>
      */

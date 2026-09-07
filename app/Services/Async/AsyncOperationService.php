@@ -11,16 +11,19 @@ use App\Jobs\Async\SearchDemandCompetitorPageCollectionJob;
 use App\Jobs\Async\SeoIntelligenceRefreshJob;
 use App\Jobs\Async\WebsiteAiGuidanceJob;
 use App\Jobs\Async\WebsiteDiagnosisJob;
+use App\Models\Collection\CollectionRun;
 use App\Models\DigitalAsset;
+use App\Models\ModuleRegistry;
 use App\Models\Run;
-use App\Models\SearchDemandCluster;
 use App\Models\SearchDemandChangeTracking;
+use App\Models\SearchDemandCluster;
 use App\Models\User;
-use App\Services\SearchDemand\SearchDemandCompetitiveIntelligenceService;
 use App\Services\SearchDemand\SearchDemandChangeTrackingService;
+use App\Services\SearchDemand\SearchDemandCompetitiveIntelligenceService;
 use App\Services\SearchDemand\SearchDemandWebsiteImprovementService;
 use App\Support\Async\AsyncFailureClassifier;
 use App\Support\Async\AsyncOperationTypes;
+use App\Support\Permissions;
 use Carbon\Carbon;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Cache;
@@ -73,6 +76,11 @@ final class AsyncOperationService
      */
     public function queuePublicDiscovery(DigitalAsset $asset, ?User $user = null): array
     {
+        abort_unless($user?->is_active && $user->can(Permissions::ACCESS_APP) && ModuleRegistry::isEnabled('website'), 403);
+        if ($asset->type !== 'website') {
+            throw new InvalidArgumentException('Public discovery requires a website.');
+        }
+
         return $this->queue(
             asset: $asset,
             operationType: AsyncOperationTypes::PUBLIC_DISCOVERY,
@@ -537,6 +545,21 @@ final class AsyncOperationService
             ->orderBy('id')
             ->chunkById(50, function ($runs) use ($cutoff, &$count): void {
                 foreach ($runs as $run) {
+                    if (data_get($run->metadata, 'operation_type') === AsyncOperationTypes::PUBLIC_DISCOVERY
+                        && data_get($run->metadata, 'phase') === 'awaiting_collection') {
+                        $collection = CollectionRun::query()
+                            ->where('digital_asset_id', $run->digital_asset_id)
+                            ->where('idempotency_key', 'public-discovery:'.$run->id)->first();
+                        if ($collection?->status->isTerminal()) {
+                            PublicDiscoveryJob::dispatch($run->id);
+                            $this->setPhase($run, 'resuming_discovery', 'Toplanan HTML inceleme kuyruğunda');
+
+                            continue;
+                        }
+                        if ($collection !== null && $collection->updated_at?->greaterThan($cutoff)) {
+                            continue;
+                        }
+                    }
                     $progressAt = data_get($run->metadata, 'progress_at');
                     $reference = $progressAt ? Carbon::parse($progressAt) : ($run->updated_at ?? $run->started_at);
                     if ($reference === null || $reference->greaterThan($cutoff)) {

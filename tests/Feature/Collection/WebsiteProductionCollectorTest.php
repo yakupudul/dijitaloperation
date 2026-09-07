@@ -645,12 +645,12 @@ class WebsiteProductionCollectorTest extends TestCase
             'visited' => [$home],
             'pages' => 1,
             'rows_written_total' => (int) ($first->checkpoint['rows_written_total'] ?? 0),
-            'bytes_downloaded_total' => DiscoveryConfig::MAX_TOTAL_BYTES,
+            'bytes_downloaded_total' => DiscoveryConfig::MAX_COLLECTION_TOTAL_BYTES,
         ]));
         $this->assertSame(DatasetExecutionOutcome::Completed, $stopped->outcome, (string) $stopped->errorMessage);
         $this->assertSame(1, $stopped->checkpoint['pages'] ?? null);
         $this->assertSame($httpAfterFirst, DB::table('website_http_snapshot')->count(), 'resume at the aggregate byte limit must not fetch further pages');
-        $this->assertSame(DiscoveryConfig::MAX_TOTAL_BYTES, (int) ($stopped->checkpoint['bytes_downloaded_total'] ?? 0));
+        $this->assertSame(DiscoveryConfig::MAX_COLLECTION_TOTAL_BYTES, (int) ($stopped->checkpoint['bytes_downloaded_total'] ?? 0));
     }
 
     #[Test]
@@ -664,13 +664,13 @@ class WebsiteProductionCollectorTest extends TestCase
             'visited' => [],
             'pages' => 0,
             'rows_written_total' => 0,
-            'bytes_downloaded_total' => DiscoveryConfig::MAX_TOTAL_BYTES - 1,
+            'bytes_downloaded_total' => DiscoveryConfig::MAX_COLLECTION_TOTAL_BYTES - 1,
         ]));
 
         $this->assertSame(DatasetExecutionOutcome::Completed, $result->outcome, (string) $result->errorMessage);
         $this->assertSame(0, $result->checkpoint['pages'] ?? null);
         $this->assertSame(0, DB::table('website_http_snapshot')->count());
-        $this->assertGreaterThan(DiscoveryConfig::MAX_TOTAL_BYTES, (int) ($result->checkpoint['bytes_downloaded_total'] ?? 0));
+        $this->assertGreaterThan(DiscoveryConfig::MAX_COLLECTION_TOTAL_BYTES, (int) ($result->checkpoint['bytes_downloaded_total'] ?? 0));
         $this->assertContains('http://1.1.1.1/about', $result->checkpoint['visited'] ?? []);
     }
 
