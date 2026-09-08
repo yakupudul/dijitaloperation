@@ -1,23 +1,41 @@
 <div class="space-y-5 dark:text-gray-200">
     <header class="flex flex-wrap items-center justify-between gap-4">
         <div><p class="text-xs text-gray-500">Kütüphane</p><h1 class="mt-1 text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">Sorgular</h1><p class="mt-2 text-sm text-gray-500">Tüm kaynaklardaki sorguları bir araya getirin, sektör ve hizmetlere bağlayın.</p></div>
-        <button type="button" wire:click="$set('importOpen', true)" class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-50">+ Sorgu ekle / içe aktar</button>
+        <div class="flex flex-wrap items-center gap-2">
+        <a href="{{ $exportUrl }}" wire:loading.class="pointer-events-none opacity-50" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium dark:border-gray-700">{{ __('query-list.download') }} ({{ $queries->total() }})</a>
+        <button type="button" wire:click="$set('importOpen', true)" class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-50">+ Sorgu ekle / içe aktar</button></div>
     </header>
-    @if ($message)<div role="status" class="rounded-lg bg-blue-50 p-3 text-sm text-blue-800">{{ $message }}</div>@endif
+    @if ($message)<div role="status" class="rounded-lg bg-blue-50 p-3 text-sm text-blue-800">{{ $message }} @if($undoQueryId)<button type="button" wire:click="restoreQuery({{ $undoQueryId }})" wire:loading.attr="disabled" class="ml-3 font-semibold underline">{{ __('query-list.undo') }}</button>@endif</div>@endif
     @if ($errors->any())<div role="alert" class="rounded-lg bg-red-50 p-3 text-sm text-red-700">{{ $errors->first() }}</div>@endif
+    <p class="text-xs text-gray-500">{{ __('query-list.scope_note') }}</p>
     <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
         <div class="flex flex-wrap items-center gap-3 border-b border-gray-200 p-4 dark:border-gray-800">
             <input wire:model.live.debounce.350ms="search" type="search" aria-label="Sorgu ara" placeholder="Sorgu ara…" class="rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950 min-w-48 flex-1" />
             <select wire:model.live="sectorFilter" aria-label="Sektör filtresi" class="rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950"><option value="">Tüm sektörler</option>@foreach ($sectorOptions as $code=>$label)<option value="{{ $code }}">{{ $label }}</option>@endforeach</select>
+            <select wire:model.live="service" aria-label="{{ __('query-list.service_filter') }}" class="max-w-xs rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950"><option value="">{{ __('query-list.all_services') }}</option>@foreach ($serviceOptions as $id=>$label)<option value="{{ $id }}">{{ $label }}</option>@endforeach</select>
             <select wire:model.live="source" aria-label="Kaynak filtresi" class="rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950"><option value="">Tüm kaynaklar</option>@foreach ($sourceOptions as $code=>$label)<option value="{{ $code }}">{{ $label }}</option>@endforeach</select>
-            <select wire:model.live="status" aria-label="Durum" class="rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950"><option value="active">Aktif</option><option value="all">Tümü</option><option value="excluded">Hariç tutulan</option><option value="archived">Arşiv</option></select>
+            <select wire:model.live="status" aria-label="Durum" class="rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950"><option value="active">Aktif</option><option value="all">Tümü</option><option value="excluded">Hariç tutulan</option><option value="candidate">{{ __('query-list.status_candidate') }}</option><option value="archived">Arşiv</option><option value="deleted">{{ __('query-list.status_deleted') }}</option></select>
             <label class="flex items-center gap-2 text-sm"><input type="checkbox" wire:model.live="unassigned" class="rounded border-gray-300 text-brand-500" /> Atanmayanlar</label>
+            <button type="button" wire:click="clearFilters" class="text-xs font-medium text-brand-600">{{ __('query-list.clear_filters') }}</button>
         </div>
         <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-xs text-gray-500">
             <span>{{ $queries->total() }} sorgu · {{ count($selectedQueryIds) }} seçili</span>
-            <div class="flex gap-3"><button type="button" wire:click="selectPage" class="text-brand-600">Bu sayfayı seç</button><button type="button" wire:click="$set('selectedQueryIds', [])">Seçimi kaldır</button></div>
+            <div class="flex flex-wrap items-center gap-3">
+                <select wire:model.live="sort" aria-label="{{ __('query-list.sort') }}" class="rounded-lg border-gray-300 text-xs dark:border-gray-700 dark:bg-gray-950"><option value="newest">{{ __('query-list.newest') }}</option><option value="az">A → Z</option><option value="za">Z → A</option></select>
+                <select wire:model.live="perPage" aria-label="{{ __('query-list.per_page') }}" class="rounded-lg border-gray-300 text-xs dark:border-gray-700 dark:bg-gray-950"><option value="25">25</option><option value="50">50</option><option value="100">100</option></select>
+                <button type="button" wire:click="selectPage" class="text-brand-600">Bu sayfayı seç</button><button type="button" wire:click="$set('selectedQueryIds', [])">Seçimi kaldır</button></div>
         </div>
         @if (count($selectedQueryIds))
+            <div class="flex flex-wrap gap-3 border-t border-gray-100 px-4 py-3 text-xs dark:border-gray-800">
+                @if($status === 'deleted')
+                    <button type="button" wire:click="updateSelectedQueries('restore')" wire:loading.attr="disabled" class="font-medium text-brand-600">{{ __('query-list.restore_selected') }}</button>
+                @else
+                    <button type="button" wire:click="updateSelectedQueries('active')" wire:loading.attr="disabled" class="text-brand-600">{{ __('query-list.activate_selected') }}</button>
+                    <button type="button" wire:click="updateSelectedQueries('excluded')" wire:loading.attr="disabled">{{ __('query-list.exclude_selected') }}</button>
+                    <button type="button" wire:click="updateSelectedQueries('remove')" wire:loading.attr="disabled" class="font-medium text-red-600">{{ __('query-list.remove_selected') }}</button>
+                @endif
+            </div>
+            @if($status !== 'deleted')
             <div class="border-y border-brand-100 bg-brand-50/40 p-4 dark:border-gray-700">
                 <div class="grid gap-3 md:grid-cols-3">
                     <label class="text-xs font-medium">Sektör *
@@ -30,6 +48,7 @@
                 </div>
                 @include('livewire.operator.library.query-inline-create', ['target' => 'assignment'])
             </div>
+            @endif
         @endif
         <div class="overflow-x-auto">
             <table class="w-full text-left text-sm">
@@ -38,14 +57,31 @@
                     @forelse ($queries as $query)
                         <tr wire:key="query-{{ $query->id }}" class="align-top hover:bg-gray-50 dark:hover:bg-gray-800/40">
                             <td class="px-4 py-4"><input type="checkbox" wire:model.live="selectedQueryIds" value="{{ $query->id }}" aria-label="{{ $query->canonical_text }} seç" class="rounded border-gray-300 text-brand-500" /></td>
-                            <td class="max-w-md px-4 py-4 font-medium text-gray-900 dark:text-white">{{ $query->canonical_text }}</td>
+                            <td class="group max-w-md px-4 py-4 font-medium text-gray-900 dark:text-white">
+                                @if($editingId === $query->id)
+                                    <form wire:submit="saveQueryEdit" class="min-w-64 space-y-2">
+                                        <input wire:model="editingText" x-data x-init="$nextTick(() => { $el.focus(); $el.select(); })" wire:keydown.escape="cancelQueryEdit" aria-label="{{ __('query-list.edit') }}" type="text" maxlength="1000" class="w-full rounded-lg border-brand-300 text-sm dark:bg-gray-950" />
+                                        <div class="flex gap-3 text-xs"><button type="submit" wire:loading.attr="disabled" class="font-semibold text-brand-600">{{ __('query-list.save') }}</button><button type="button" wire:click="cancelQueryEdit">{{ __('query-list.cancel') }}</button></div>
+                                        @error('editingText')<p class="text-xs text-red-600">{{ $message }}</p>@enderror
+                                    </form>
+                                @else
+                                    <div class="flex items-start gap-2"><span class="break-words">{{ $query->canonical_text }}</span>
+                                        @unless($query->trashed())
+                                            <button type="button" wire:click="editQuery({{ $query->id }})" aria-label="{{ __('query-list.edit') }}" title="{{ __('query-list.edit') }}" class="shrink-0 rounded p-1 text-gray-400 hover:bg-brand-50 hover:text-brand-600 focus:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+                                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m16 3 5 5M3 21l5-1L21 7a2 2 0 0 0-5-5L3 15v6Z"/></svg>
+                                            </button>
+                                        @endunless
+                                    </div>
+                                @endif
+                                <span class="mt-2 inline-block rounded bg-gray-100 px-2 py-0.5 text-xs font-normal text-gray-500 dark:bg-gray-800">{{ __('query-list.status_'.($query->trashed() ? 'deleted' : $query->status)) }}</span>
+                            </td>
                             <td class="px-4 py-4 text-xs">{{ $query->sectors->pluck('name')->implode(', ') ?: ($sectorOptions[$query->sector] ?? '—') }}</td>
                             <td class="px-4 py-4"><div class="flex max-w-sm flex-wrap gap-1">@forelse($query->services as $item)<span class="rounded-md bg-gray-100 px-2 py-1 text-xs dark:bg-gray-800">{{ $item->primaryName?->raw_label }}</span>@empty<span class="text-xs text-amber-700">Atanmadı</span>@endforelse</div></td>
                             <td class="px-4 py-4 text-xs"><button type="button" wire:click="showSources({{ $query->id }})" class="text-brand-600">{{ $query->source_records_count }} kaynak kaydı</button></td>
-                            <td class="px-4 py-4 text-right text-xs">@if($query->status === 'active')<button type="button" wire:click="setQueryStatus({{ $query->id }}, 'excluded')" class="text-gray-500">Hariç tut</button>@else<button type="button" wire:click="setQueryStatus({{ $query->id }}, 'active')" class="text-brand-600">Etkinleştir</button>@endif</td>
+                            <td class="px-4 py-4 text-right text-xs">@if($query->trashed())<button type="button" wire:click="restoreQuery({{ $query->id }})" wire:loading.attr="disabled" class="text-brand-600">{{ __('query-list.restore') }}</button>@else @if($query->status === 'active')<button type="button" wire:click="setQueryStatus({{ $query->id }}, 'excluded')" class="text-gray-500">Hariç tut</button>@else<button type="button" wire:click="setQueryStatus({{ $query->id }}, 'active')" class="text-brand-600">Etkinleştir</button>@endif <button type="button" wire:click="removeQuery({{ $query->id }})" wire:loading.attr="disabled" class="ml-3 text-red-600">{{ __('query-list.remove') }}</button>@endif</td>
                         </tr>
                     @empty
-                        <tr><td colspan="6" class="px-4 py-14 text-center"><p class="font-medium">Bu görünümde sorgu yok.</p><p class="mt-2 text-xs text-gray-500">Filtreleri değiştirin veya sorgu ekleyin.</p></td></tr>
+                        <tr><td colspan="6" class="px-4 py-14 text-center"><p class="font-medium">Bu görünümde sorgu yok.</p><p class="mt-2 text-xs text-gray-500">Filtreleri değiştirin veya sorgu ekleyin.</p><button type="button" wire:click="clearFilters" class="mt-3 text-sm text-brand-600">{{ __('query-list.clear_filters') }}</button></td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -66,7 +102,7 @@
     @if($sourceItemId)
         <section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
             <div class="flex justify-between"><h2 class="text-sm font-semibold">Özgün sorgular · son 50 kaynak kaydı</h2><button type="button" wire:click="closeSources" class="text-xs">Kapat</button></div>
-            @foreach($sourceDetails as $record)<div class="mt-3 border-t border-gray-100 pt-3 text-sm dark:border-gray-800"><p>{{ $record->observed_text }}</p><p class="mt-1 text-xs text-gray-500">{{ $sourceOptions[$record->source_type] ?? $record->source_type }} · Çıkarılan lokasyonlar: {{ implode(', ', (array) data_get($record->raw_payload, 'removed_locations', [])) ?: 'Yok' }}</p></div>@endforeach
+            @foreach($sourceDetails as $record)<div class="mt-3 border-t border-gray-100 pt-3 text-sm dark:border-gray-800"><p>{{ $record->observed_text }}</p>@if(data_get($record->raw_payload, 'action') === 'rename')<p class="mt-1 text-xs text-gray-500">{{ __('query-list.previous_text') }}: {{ data_get($record->raw_payload, 'previous_text') }}</p>@endif<p class="mt-1 text-xs text-gray-500">{{ $sourceOptions[$record->source_type] ?? $record->source_type }} · Çıkarılan lokasyonlar: {{ implode(', ', (array) data_get($record->raw_payload, 'removed_locations', [])) ?: 'Yok' }}</p></div>@endforeach
         </section>
     @endif
     @if ($importOpen)

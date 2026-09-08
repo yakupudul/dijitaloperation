@@ -95,6 +95,9 @@ require __DIR__.'/demo.php';
 
 // Canonical production operator engine surfaces that are intentionally kept outside legacy demo.php.
 Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])->group(function (): void {
+    Route::get('/library/search-queries/export', \App\Http\Controllers\Operator\SearchQueryExportController::class)
+        ->name('operator.library.search-queries.export');
+
     Route::livewire('/public-discovery', PublicDiscoveryIndex::class)
         ->name('operator.public-discovery');
 

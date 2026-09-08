@@ -41,6 +41,37 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 ])]
 class SearchQueryLibraryItem extends Model
 {
+    use \Illuminate\Database\Eloquent\SoftDeletes;
+
+    /** @param array<string, mixed> $filters */
+    public function scopeLibraryFilters(\Illuminate\Database\Eloquent\Builder $query, array $filters): void
+    {
+        $status = $filters['status'] ?? 'all';
+        if ($status === 'deleted') {
+            $query->onlyTrashed();
+        } elseif ($status !== 'all') {
+            $query->where('status', $status);
+        }
+        $sector = (string) ($filters['sector'] ?? '');
+        if ($sector !== '') {
+            $query->where(fn ($q) => $q->where('sector', $sector)->orWhereHas('sectors', fn ($s) => $s->where('code', $sector)));
+        }
+        if (! empty($filters['unassigned'])) {
+            $query->whereDoesntHave('services', fn ($s) => $s->where('status', 'active')->when($sector !== '', fn ($s) => $s->where('sector', $sector)));
+        }
+        if (! empty($filters['source'])) {
+            $query->whereHas('sourceRecords', fn ($r) => $r->where('source_type', $filters['source']));
+        }
+        if (! empty($filters['service'])) {
+            $query->whereHas('services', fn ($s) => $s->whereKey((int) $filters['service']));
+        }
+        $text = trim((string) ($filters['search'] ?? ''));
+        if ($text !== '') {
+            $text = app(\App\Services\IntelligenceCore\Identity\SearchTermNormalizer::class)->normalize($text, 'tr')->foldedText;
+            $query->where('folded_text', 'like', '%'.addcslashes($text, '\\%_').'%');
+        }
+    }
+
     protected function casts(): array
     {
         return [

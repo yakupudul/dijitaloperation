@@ -48,9 +48,12 @@ final class SearchQueryLibraryService
             $now = now();
             $identityHash = hash('sha256', 'library-location-free-v2|'.$normalized->canonicalText);
 
-            $item = SearchQueryLibraryItem::query()->where('identity_hash', $identityHash)->lockForUpdate()->first()
-                ?? SearchQueryLibraryItem::query()->where('canonical_text', $normalized->canonicalText)->orderBy('id')->lockForUpdate()->first()
+            $item = SearchQueryLibraryItem::withTrashed()->where('identity_hash', $identityHash)->lockForUpdate()->first()
+                ?? SearchQueryLibraryItem::withTrashed()->where('canonical_text', $normalized->canonicalText)->orderBy('id')->lockForUpdate()->first()
                 ?? new SearchQueryLibraryItem(['identity_hash' => $identityHash]);
+            if ($item->exists && $item->trashed()) {
+                throw ValidationException::withMessages(['query_text' => __('query-list.deleted_duplicate')]);
+            }
             $created = ! $item->exists;
             if ($created) {
                 $item->fill([
@@ -150,6 +153,61 @@ final class SearchQueryLibraryService
 
             return ['item' => $item->refresh(), 'created' => $created, 'source_record' => $sourceRecord];
         }));
+    }
+
+    public function rename(int $id, string $text, string $expectedText, ?User $actor = null): SearchQueryLibraryItem
+    {
+        $item = SearchQueryLibraryItem::query()->findOrFail($id);
+        $cleaned = \App\Support\Options\LocationOptions::strip(trim($text));
+        $normalized = $this->normalizer->normalize($cleaned['text'], $item->language_code ?: 'tr', $item->locale);
+        if (\App\Support\Options\LocationOptions::fold($normalized->canonicalText) === '') {
+            throw ValidationException::withMessages(['editingText' => __('query-list.empty_text')]);
+        }
+
+        return \Illuminate\Support\Facades\Cache::lock('library-query:'.hash('sha256', $normalized->canonicalText), 30)
+            ->block(10, fn (): SearchQueryLibraryItem => DB::transaction(function () use ($id, $text, $expectedText, $normalized, $cleaned, $actor): SearchQueryLibraryItem {
+                $item = SearchQueryLibraryItem::query()->lockForUpdate()->findOrFail($id);
+                if ($item->canonical_text !== $expectedText) {
+                    throw ValidationException::withMessages(['editingText' => __('query-list.edit_conflict')]);
+                }
+                $hash = hash('sha256', 'library-location-free-v2|'.$normalized->canonicalText);
+                $duplicate = SearchQueryLibraryItem::withTrashed()->where('id', '!=', $id)
+                    ->where(fn ($q) => $q->where('identity_hash', $hash)->orWhere('canonical_text', $normalized->canonicalText))
+                    ->first();
+                if ($duplicate !== null) {
+                    throw ValidationException::withMessages(['editingText' => __('query-list.duplicate', ['id' => $duplicate->id])]);
+                }
+                if ($item->canonical_text === $normalized->canonicalText) {
+                    return $item;
+                }
+                $previous = $item->canonical_text;
+                $item->forceFill([
+                    'canonical_text' => $normalized->canonicalText,
+                    'folded_text' => $normalized->foldedText,
+                    'identity_hash' => $hash,
+                    'normalization_version' => 'library_location_free_v2',
+                    'updated_by' => $actor?->id,
+                ])->save();
+                $item->sourceRecords()->create([
+                    'source_type' => 'manual',
+                    'source_reference' => 'operator-edit:'.Str::uuid(),
+                    'source_fingerprint' => hash('sha256', (string) Str::uuid()),
+                    'observed_text' => $text,
+                    'raw_payload' => [
+                        'action' => 'rename', 'previous_text' => $previous,
+                        'original_query' => $text, 'removed_locations' => $cleaned['removed'],
+                        'actor_id' => $actor?->id,
+                    ],
+                    'observed_at' => now(),
+                ]);
+                $item->brandPortfolioItems()->where(fn ($q) => $q->whereNull('query_text_override')->orWhere('query_text_override', ''))->with('brand')->chunkById(100, function ($rows): void {
+                    foreach ($rows as $row) {
+                        app(BrandQueryPortfolioService::class)->refreshQueryIdentity($row);
+                    }
+                });
+
+                return $item;
+            }));
     }
 
     /** @return list<string> */

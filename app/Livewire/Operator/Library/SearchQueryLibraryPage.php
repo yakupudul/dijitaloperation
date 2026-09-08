@@ -24,6 +24,23 @@ class SearchQueryLibraryPage extends Component
     use WithFileUploads;
     use \Livewire\WithPagination;
 
+    #[\Livewire\Attributes\Locked]
+    public ?int $editingId = null;
+
+    #[\Livewire\Attributes\Locked]
+    public string $editingOriginal = '';
+
+    #[\Livewire\Attributes\Locked]
+    public ?int $undoQueryId = null;
+
+    public string $editingText = '';
+
+    #[Url]
+    public int $perPage = 50;
+
+    #[Url]
+    public string $sort = 'newest';
+
     public bool $importOpen = false;
     public string $importSource = 'paste';
     public string $importSector = '';
@@ -63,7 +80,7 @@ class SearchQueryLibraryPage extends Component
 
     public function showSources(int $id): void
     {
-        SearchQueryLibraryItem::query()->findOrFail($id);
+        SearchQueryLibraryItem::withTrashed()->findOrFail($id);
         $this->sourceItemId = $id;
     }
 
@@ -72,7 +89,7 @@ class SearchQueryLibraryPage extends Component
     public string $search = '';
 
     #[Url(history: true)]
-    public string $status = 'active';
+    public string $status = 'all';
 
     #[Url(history: true)]
     public string $source = '';
@@ -233,7 +250,7 @@ class SearchQueryLibraryPage extends Component
     public function selectPage(): void
     {
         $this->selectedQueryIds = array_values(array_unique(array_merge($this->selectedQueryIds,
-            $this->filteredQueries()->orderByDesc('last_seen_at')->orderByDesc('id')->forPage($this->getPage(), 50)->pluck('id')->all())));
+            $this->orderedQueries()->forPage($this->getPage(), $this->pageSize())->pluck('id')->all())));
         if (count($this->selectedQueryIds) > 500) {
             $this->selectedQueryIds = array_slice($this->selectedQueryIds, 0, 500);
             $this->message = 'Bir işlemde en fazla 500 sorgu seçebilirsiniz.';
@@ -259,29 +276,161 @@ class SearchQueryLibraryPage extends Component
         $this->resetPage();
     }
 
+    /** @return array<string, mixed> */
+    public function queryFilters(): array
+    {
+        return [
+            'search' => $this->search, 'sector' => $this->sectorFilter,
+            'source' => $this->source, 'service' => $this->service,
+            'status' => $this->status, 'unassigned' => (int) $this->unassigned,
+            'sort' => $this->sort,
+        ];
+    }
+
     private function filteredQueries(): \Illuminate\Database\Eloquent\Builder
     {
-        $query = SearchQueryLibraryItem::query();
-        if ($this->status !== 'all') {
-            $query->where('status', $this->status);
-        }
-        if ($this->sectorFilter !== '') {
-            $query->where(fn ($q) => $q->where('sector', $this->sectorFilter)->orWhereHas('sectors', fn ($s) => $s->where('code', $this->sectorFilter)));
-        }
-        if ($this->unassigned) {
-            $query->whereDoesntHave('services', fn ($s) => $s->where('status', 'active')->when($this->sectorFilter !== '', fn ($s) => $s->where('sector', $this->sectorFilter)));
-        }
-        if ($this->source !== '') {
-            $query->whereHas('sourceRecords', fn ($r) => $r->where('source_type', $this->source));
-        }
-        if ($this->service !== '') {
-            $query->whereHas('services', fn ($s) => $s->whereKey((int) $this->service));
-        }
-        if (trim($this->search) !== '') {
-            $query->where('folded_text', 'like', '%'.\App\Support\Options\LocationOptions::fold($this->search).'%');
+        return SearchQueryLibraryItem::query()->libraryFilters($this->queryFilters());
+    }
+
+    private function orderedQueries(): \Illuminate\Database\Eloquent\Builder
+    {
+        $query = $this->filteredQueries();
+        if (in_array($this->sort, ['az', 'za'], true)) {
+            return $query->orderBy('canonical_text', $this->sort === 'az' ? 'asc' : 'desc')->orderBy('id');
         }
 
-        return $query;
+        return $query->orderByDesc('last_seen_at')->orderByDesc('id');
+    }
+
+    public function clearFilters(): void
+    {
+        $this->reset('search', 'sectorFilter', 'source', 'service', 'status', 'unassigned');
+        $this->selectedQueryIds = [];
+        $this->cancelQueryEdit();
+        $this->resetPage();
+    }
+
+    public function updatedPerPage(): void
+    {
+        if (! in_array($this->perPage, [25, 50, 100], true)) {
+            $this->perPage = 50;
+        }
+        $this->selectedQueryIds = [];
+        $this->resetPage();
+    }
+
+    public function updatedSort(): void
+    {
+        $this->selectedQueryIds = [];
+        $this->resetPage();
+    }
+
+    public function editQuery(int $id): void
+    {
+        $item = SearchQueryLibraryItem::query()->findOrFail($id);
+        $this->editingId = $id;
+        $this->editingText = $item->canonical_text;
+        $this->editingOriginal = $item->canonical_text;
+        $this->resetValidation('editingText');
+    }
+
+    public function cancelQueryEdit(): void
+    {
+        $this->editingId = null;
+        $this->editingText = '';
+        $this->editingOriginal = '';
+        $this->resetValidation('editingText');
+    }
+
+    public function saveQueryEdit(SearchQueryLibraryService $library): void
+    {
+        $this->validate(['editingText' => ['required', 'string', 'max:1000']]);
+        abort_if($this->editingId === null, 422);
+        $item = $library->rename($this->editingId, $this->editingText, $this->editingOriginal, auth()->user());
+        $this->selectedQueryIds = array_values(array_diff($this->selectedQueryIds, [$item->id]));
+        $this->message = __('query-list.saved', ['text' => $item->canonical_text]);
+        $this->message_tone = 'success';
+        $this->cancelQueryEdit();
+        $this->repairPage();
+    }
+
+    public function removeQuery(int $id): void
+    {
+        \Illuminate\Support\Facades\DB::transaction(function () use ($id): void {
+            $item = SearchQueryLibraryItem::query()->lockForUpdate()->findOrFail($id);
+            $item->forceFill(['updated_by' => auth()->id()])->save();
+            $item->delete();
+        });
+        $this->undoQueryId = $id;
+        $this->selectedQueryIds = array_values(array_diff($this->selectedQueryIds, [$id]));
+        if ($this->editingId === $id) {
+            $this->cancelQueryEdit();
+        }
+        if ($this->sourceItemId === $id) {
+            $this->sourceItemId = null;
+        }
+        $this->message = __('query-list.removed');
+        $this->repairPage();
+    }
+
+    public function restoreQuery(int $id): void
+    {
+        \Illuminate\Support\Facades\DB::transaction(function () use ($id): void {
+            $item = SearchQueryLibraryItem::onlyTrashed()->lockForUpdate()->findOrFail($id);
+            $item->updated_by = auth()->id();
+            $item->restore();
+        });
+        $this->undoQueryId = null;
+        $this->selectedQueryIds = array_values(array_diff($this->selectedQueryIds, [$id]));
+        $this->message = __('query-list.restored');
+        $this->repairPage();
+    }
+
+    public function updateSelectedQueries(string $action): void
+    {
+        abort_unless(in_array($action, ['remove', 'restore', 'active', 'excluded'], true), 422);
+        $this->validate([
+            'selectedQueryIds' => ['required', 'array', 'min:1', 'max:500'],
+            'selectedQueryIds.*' => ['integer'],
+        ]);
+        $ids = array_values(array_unique(array_map('intval', $this->selectedQueryIds)));
+        $count = \Illuminate\Support\Facades\DB::transaction(function () use ($ids, $action): int {
+            $query = $action === 'restore' ? SearchQueryLibraryItem::onlyTrashed() : SearchQueryLibraryItem::query();
+            $items = $query->whereKey($ids)->lockForUpdate()->get();
+            foreach ($items as $item) {
+                $item->updated_by = auth()->id();
+                if ($action === 'restore') {
+                    $item->restore();
+                } elseif ($action === 'remove') {
+                    $item->save();
+                    $item->delete();
+                } else {
+                    $item->status = $action;
+                    $item->save();
+                }
+            }
+
+            return $items->count();
+        });
+        $this->selectedQueryIds = [];
+        $this->undoQueryId = null;
+        $this->sourceItemId = null;
+        $this->cancelQueryEdit();
+        $this->message = __('query-list.bulk_done', ['count' => $count]);
+        $this->repairPage();
+    }
+
+    private function repairPage(): void
+    {
+        $lastPage = max(1, (int) ceil($this->filteredQueries()->count() / $this->pageSize()));
+        if ($this->getPage() > $lastPage) {
+            $this->setPage($lastPage);
+        }
+    }
+
+    private function pageSize(): int
+    {
+        return in_array($this->perPage, [25, 50, 100], true) ? $this->perPage : 50;
     }
 
     public function setQueryStatus(int $itemId, string $status): void
@@ -293,6 +442,8 @@ class SearchQueryLibraryPage extends Component
         ])->save();
         $this->message = $status === 'active' ? 'Sorgu etkinleştirildi.' : 'Sorgu değerlendirme dışına alındı.';
         $this->message_tone = 'success';
+        $this->selectedQueryIds = array_values(array_diff($this->selectedQueryIds, [$itemId]));
+        $this->repairPage();
     }
 
     public function queueAiGeneration(SearchDemandLibrarianService $librarian): void
@@ -422,7 +573,7 @@ class SearchQueryLibraryPage extends Component
 
     public function render(): View
     {
-        $query = $this->filteredQueries()->with(['services.primaryName', 'sectors'])->withCount('sourceRecords');
+        $query = $this->orderedQueries()->with(['services.primaryName', 'sectors'])->withCount('sourceRecords');
         $serviceOptions = ServiceCatalogItem::query()
             ->with('primaryName')
             ->where('status', 'active')
@@ -442,12 +593,13 @@ class SearchQueryLibraryPage extends Component
         }
 
         return view('livewire.operator.library.search-query-library-page', [
-            'queries' => $query->orderByDesc('last_seen_at')->orderByDesc('id')->paginate(50),
+            'queries' => $query->paginate($this->pageSize()),
             'importServices' => ServiceCatalogItem::query()->with('primaryName')->where('status', 'active')->where('sector', $this->importSector)->get(),
             'assignmentServices' => ServiceCatalogItem::query()->with('primaryName')->where('status', 'active')->where('sector', $this->assignmentSector)->get(),
             'resources' => in_array($this->importSource, ['google_ads', 'search_console'], true) ? app(\App\Services\SearchDemand\LibraryImportWorkflow::class)->resources($this->importSource)->orderBy('display_name')->get(['id','display_name','external_id']) : collect(),
             'sourceDetails' => $this->sourceItemId ? \App\Models\SearchQueryLibrarySourceRecord::query()->where('search_query_library_item_id', $this->sourceItemId)->latest('id')->limit(50)->get() : collect(),
             'serviceOptions' => $serviceOptions,
+            'exportUrl' => route('operator.library.search-queries.export', $this->queryFilters()),
             'sourceOptions' => SearchQueryLibraryService::sourceOptions(),
             'sectorOptions' => IndustryOptions::options(),
             'imports' => SearchQueryLibraryImport::query()->where('source_type', '!=', 'services')->latest('id')->limit(10)->get(),

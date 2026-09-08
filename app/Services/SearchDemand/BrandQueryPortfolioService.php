@@ -336,6 +336,11 @@ final class BrandQueryPortfolioService
             ->all();
     }
 
+    public function refreshQueryIdentity(BrandQueryPortfolioItem $item): void
+    {
+        $this->resolveIdentity($item->load('libraryItem'), $item->brand);
+    }
+
     private function resolveIdentity(BrandQueryPortfolioItem $item, Brand $brand): void
     {
         $text = $item->effectiveQueryText();

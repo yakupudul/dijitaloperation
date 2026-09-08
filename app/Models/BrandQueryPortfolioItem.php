@@ -51,7 +51,7 @@ class BrandQueryPortfolioItem extends Model
 
     public function libraryItem(): BelongsTo
     {
-        return $this->belongsTo(SearchQueryLibraryItem::class, 'search_query_library_item_id');
+        return $this->belongsTo(SearchQueryLibraryItem::class, 'search_query_library_item_id')->withTrashed();
     }
 
     public function intelligenceIdentity(): BelongsTo
