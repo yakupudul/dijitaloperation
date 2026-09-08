@@ -1,6 +1,9 @@
 <?php
 
 return [
+    'select_visible' => 'Görünenlerin tümünü seç',
+    'deselect_visible' => 'Görünenlerin seçimini kaldır',
+    'visible_count' => ':count hizmet gösteriliyor',
     'back' => 'Geri',
     'subtitle' => 'Marka bilgilerini, sunduğunuz hizmetleri ve hizmet bölgelerini tek yerden düzenleyin.',
     'errors' => 'Kaydetmeden önce aşağıdaki alanları kontrol edin.',

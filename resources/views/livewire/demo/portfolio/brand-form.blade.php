@@ -42,6 +42,11 @@
                 <input aria-label="{{ __('brand-form.search_services') }}" wire:model.live.debounce.300ms="service_search" type="search" placeholder="{{ __('brand-form.search_services') }}" class="min-w-0 flex-1 rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950 dark:text-white" />
                 <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300"><input wire:model.live="only_selected_services" type="checkbox" class="rounded border-gray-300 text-brand-500" /> {{ __('brand-form.only_selected') }}</label>
             </div>
+            <div class="mt-3 flex flex-wrap items-center gap-2">
+                <button type="button" wire:click="selectVisibleServices" wire:loading.attr="disabled" @disabled(count(array_diff(array_keys($serviceOptions), $selected_service_catalog_ids)) === 0) class="rounded-lg px-3 py-2 text-xs font-medium text-brand-600 ring-1 ring-inset ring-brand-200 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-brand-500/10">{{ __('brand-form.select_visible') }}</button>
+                <button type="button" wire:click="deselectVisibleServices" wire:loading.attr="disabled" @disabled(count(array_intersect(array_keys($serviceOptions), $selected_service_catalog_ids)) === 0) class="rounded-lg px-3 py-2 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-200 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-white/5">{{ __('brand-form.deselect_visible') }}</button>
+                <span class="text-xs text-gray-500">{{ __('brand-form.visible_count', ['count' => count($serviceOptions)]) }}</span>
+            </div>
             <p class="mt-3 text-xs text-gray-500">{{ __('brand-form.priority_help') }}</p>
 
             @if ($outOfScopeServices !== [])

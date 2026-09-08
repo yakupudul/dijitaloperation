@@ -1,6 +1,9 @@
 <?php
 
 return [
+    'select_visible' => 'Select all shown',
+    'deselect_visible' => 'Deselect all shown',
+    'visible_count' => ':count services shown',
     'back' => 'Back',
     'subtitle' => 'Manage brand details, offered services and service areas in one place.',
     'errors' => 'Review these fields before saving.',

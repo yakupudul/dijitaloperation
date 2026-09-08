@@ -165,6 +165,24 @@ trait InteractsWithBrandForm
         ));
     }
 
+    public function selectVisibleServices(): void
+    {
+        $visibleIds = array_map('strval', array_keys($this->brandFormViewData()['serviceOptions']));
+        $this->selected_service_catalog_ids = array_values(array_unique([
+            ...$this->selected_service_catalog_ids,
+            ...$visibleIds,
+        ]));
+    }
+
+    public function deselectVisibleServices(): void
+    {
+        $visibleIds = array_map('strval', array_keys($this->brandFormViewData()['serviceOptions']));
+        $this->selected_service_catalog_ids = array_values(array_diff(
+            $this->selected_service_catalog_ids, $visibleIds,
+        ));
+        $this->updatedSelectedServiceCatalogIds();
+    }
+
     public function removeSelectedService(string $id): void
     {
         $this->selected_service_catalog_ids = array_values(array_filter(

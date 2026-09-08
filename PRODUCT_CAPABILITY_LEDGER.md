@@ -345,3 +345,10 @@ Source-reviewed only. No clone, dependency installation, tests, formatter, build
 The routed Operator BrandShow adapter still called map() on Brand's legacy offerings text attribute when a BrandIntelligenceContext existed. The prior edit-form fix did not cover this separate mount path. Read the explicitly eager-loaded offerings relation with getRelation('offerings') when constructing the business-context service list. Existing filtering, order, labels and stored data are unchanged.
 
 Source-reviewed direct staging patch; no clone, tests, build or server execution, per operator instruction. This fixes an identified fatal code path; the reported HTTP 500 remains unverified against server logs and post-deployment runtime.
+
+
+## Brand service bulk selection — 2026-09-08
+
+The shared Brand create/edit form adds Select all shown and Deselect all shown. Actions use the same server-derived serviceOptions as rendering, respecting selected sectors, active status, search text and selected-only filtering. Selection is deduplicated and preserves other selections and existing priorities. Deselection removes priorities only for deselected services. These actions change form state; persistence still requires Save. Empty/inapplicable buttons are disabled; TR/EN labels and visible count are provided.
+
+Direct staging change, source-reviewed only. No cloning, tests, build or runtime/UAT verification, per operator instruction.
