@@ -172,13 +172,15 @@ trait InteractsWithBrandForm
     protected function fillCommercialContext(Brand $brand): void
     {
         $brand->loadMissing(['offerings', 'serviceAreas']);
-        $this->selected_service_catalog_ids = $brand->offerings
+        // The legacy offerings text attribute shadows the relationship property.
+        $offerings = $brand->getRelation('offerings');
+        $this->selected_service_catalog_ids = $offerings
             ->filter(fn ($offering): bool => $offering->status->value === 'active' && $offering->service_catalog_item_id !== null)
             ->pluck('service_catalog_item_id')
             ->map(fn ($id): string => (string) $id)
             ->values()
             ->all();
-        $this->priority_service_catalog_ids = $brand->offerings
+        $this->priority_service_catalog_ids = $offerings
             ->filter(fn ($offering): bool => $offering->status->value === 'active' && $offering->priority_rank !== null && $offering->service_catalog_item_id !== null)
             ->sortBy('priority_rank')
             ->pluck('service_catalog_item_id')

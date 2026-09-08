@@ -320,3 +320,10 @@ Scope: operator-authorized direct edits on staging work branch `chatgpt/search-d
 - Migration adds matching expressions, query-sector relations and import payload storage; backfills sector relations while preserving IDs and historical records.
 
 Verification truth: source was reviewed without cloning, installing, running tests, Pint, build, browser acceptance or staging execution, as explicitly requested. Code is saved for deployment; migration, workers, runtime and operator acceptance are unverified. Not a DONE/UAT claim.
+
+
+## Brand edit hotfix — 2026-09-08
+
+Source review found that `Brand.offerings` is both a legacy text attribute and a HasMany relationship. `fillCommercialContext()` called collection methods on the shadowing text/null attribute during Brand edit mount. It now explicitly reads the loaded relationship through `getRelation('offerings')` for selected services and priorities. Legacy text and all database identities remain unchanged.
+
+Direct staging hotfix; no clone, tests, build or server execution, per operator instruction. This resolves the identified code defect; the reported production HTTP 500 has not been correlated with server logs or verified after deployment.
