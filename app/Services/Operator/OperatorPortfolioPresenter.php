@@ -73,7 +73,7 @@ final class OperatorPortfolioPresenter
      */
     public static function brand(Brand $brand): array
     {
-        $brand->loadMissing(['customer', 'responsibleUsers', 'digitalAssets', 'intelligenceContext']);
+        $brand->loadMissing(['customer', 'responsibleUsers', 'digitalAssets', 'intelligenceContext', 'sectors']);
 
         $assets = $brand->digitalAssets->reject(fn (DigitalAsset $asset): bool => in_array($asset->type, ['domain', 'hosting'], true));
         $responsibleIds = $brand->responsibleUsers->pluck('id')->map(static fn (mixed $id): string => (string) $id)->values()->all();
@@ -103,7 +103,8 @@ final class OperatorPortfolioPresenter
             'name' => $brand->name,
             'sector' => $brand->sector,
             'industry' => $brand->sector,
-            'sector_label' => IndustryOptions::label($brand->sector),
+            'sector_codes' => $brand->sectorCodes(),
+            'sector_label' => collect($brand->sectorCodes())->map(fn (string $code): string => IndustryOptions::label($code))->implode(', ') ?: '—',
             'primary_country' => $brand->primary_country,
             'primary_market_label' => CountryOptions::label($brand->primary_country),
             'target_markets' => is_array($brand->target_markets) ? array_values($brand->target_markets) : [],

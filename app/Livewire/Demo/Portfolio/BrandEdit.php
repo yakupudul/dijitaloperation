@@ -4,7 +4,6 @@ namespace App\Livewire\Demo\Portfolio;
 
 use App\Livewire\Demo\Portfolio\Concerns\InteractsWithBrandForm;
 use App\Models\Brand;
-use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Services\SearchDemand\BrandCommercialContextService;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
@@ -24,11 +23,14 @@ class BrandEdit extends Component
     public function mount(string $brandId): void
     {
         abort_unless(ctype_digit($brandId), 404);
-        $brand = Brand::query()->with('responsibleUsers')->find($brandId);
+        $brand = Brand::query()->with(['responsibleUsers', 'sectors'])->find($brandId);
         abort_if($brand === null, 404);
 
         $this->brandId = (string) $brand->id;
-        $this->fillBrandForm(OperatorPortfolioPresenter::brand($brand));
+        $this->fillBrandForm(array_merge($brand->attributesToArray(), [
+            'sector_codes' => $brand->sectorCodes(),
+            'responsible_user_ids' => $brand->responsibleUsers->modelKeys(),
+        ]));
         $this->fillCommercialContext($brand);
         $this->customerLocked = true;
     }
@@ -50,6 +52,7 @@ class BrandEdit extends Component
             DB::transaction(function () use ($brand, $commercialContext): void {
                 $brand->fill($this->brandEloquentPayload());
                 $brand->save();
+                $this->syncBrandSectors($brand);
                 $brand->responsibleUsers()->sync($this->sanitizedResponsibleUserIds());
                 $commercialContext->sync(
                     $brand,
@@ -59,6 +62,8 @@ class BrandEdit extends Component
                     $this->new_service_name,
                     $this->new_service_is_priority,
                     auth()->user(),
+                    customServiceSector: $this->new_service_sector,
+                    allowedSectorCodes: $this->selected_sector_codes,
                 );
             });
 

@@ -64,15 +64,17 @@ final class BrandCommercialContextService
         ?string $customServiceName = null,
         bool $customServicePriority = false,
         ?User $actor = null,
+        ?string $customServiceSector = null,
+        ?array $allowedSectorCodes = null,
     ): void {
-        DB::transaction(function () use ($brand, $serviceCatalogIds, $priorityServiceCatalogIds, $areas, $customServiceName, $customServicePriority, $actor): void {
+        DB::transaction(function () use ($brand, $serviceCatalogIds, $priorityServiceCatalogIds, $areas, $customServiceName, $customServicePriority, $actor, $customServiceSector, $allowedSectorCodes): void {
             $catalogIds = array_values(array_unique(array_filter(array_map('intval', $serviceCatalogIds))));
             $customCatalogId = null;
 
             if (trim((string) $customServiceName) !== '') {
                 $result = $this->catalog->resolveOrCreate(
                     label: (string) $customServiceName,
-                    sector: $brand->sector,
+                    sector: $customServiceSector ?: $brand->sector,
                     actor: $actor,
                 );
                 $customCatalogId = (int) $result['service']->id;
@@ -89,6 +91,16 @@ final class BrandCommercialContextService
 
             if ($services->count() !== count($catalogIds)) {
                 throw ValidationException::withMessages(['selected_service_catalog_ids' => 'Seçilen hizmetlerden biri bulunamadı veya arşivlendi.']);
+            }
+
+            if ($allowedSectorCodes !== null && $services->contains(
+                fn (ServiceCatalogItem $service): bool => ! in_array($service->sector, $allowedSectorCodes, true)
+            )) {
+                throw ValidationException::withMessages(['selected_service_catalog_ids' => __('brand-form.scope_error')]);
+            }
+            if ($customCatalogId !== null && $customServiceSector !== null
+                && $services->get($customCatalogId)?->sector !== $customServiceSector) {
+                throw ValidationException::withMessages(['new_service_name' => __('brand-form.existing_sector_error')]);
             }
 
             $brandOfferingIdsByCatalog = [];

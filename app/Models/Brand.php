@@ -82,6 +82,26 @@ class Brand extends Model
         return $this->hasMany(BrandOffering::class);
     }
 
+    /** @return BelongsToMany<ServiceCategory, $this> */
+    public function sectors(): BelongsToMany
+    {
+        return $this->belongsToMany(ServiceCategory::class, 'brand_service_category')->withTimestamps();
+    }
+
+    /** @return list<string> */
+    public function sectorCodes(): array
+    {
+        $codes = $this->sectors->pluck('code')->all();
+        if ($codes === [] && \App\Support\Options\IndustryOptions::isValid($this->sector)) {
+            $codes = [$this->sector];
+        }
+        if ($this->sector !== null && in_array($this->sector, $codes, true)) {
+            $codes = array_values(array_unique([$this->sector, ...$codes]));
+        }
+
+        return $codes;
+    }
+
     /** @return HasMany<BrandServiceArea, $this> */
     public function serviceAreas(): HasMany
     {

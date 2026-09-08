@@ -46,6 +46,7 @@ class BrandCreate extends Component
 
             $brand = DB::transaction(function () use ($commercialContext): Brand {
                 $brand = Brand::query()->create($this->brandEloquentPayload());
+                $this->syncBrandSectors($brand);
                 $brand->responsibleUsers()->sync($this->sanitizedResponsibleUserIds());
                 $commercialContext->sync(
                     $brand,
@@ -55,6 +56,8 @@ class BrandCreate extends Component
                     $this->new_service_name,
                     $this->new_service_is_priority,
                     auth()->user(),
+                    customServiceSector: $this->new_service_sector,
+                    allowedSectorCodes: $this->selected_sector_codes,
                 );
 
                 return $brand;
