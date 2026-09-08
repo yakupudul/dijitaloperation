@@ -7,6 +7,10 @@
     </header>
     @if ($message)<div role="status" class="rounded-lg bg-blue-50 p-3 text-sm text-blue-800">{{ $message }} @if($undoQueryId)<button type="button" wire:click="restoreQuery({{ $undoQueryId }})" wire:loading.attr="disabled" class="ml-3 font-semibold underline">{{ __('query-list.undo') }}</button>@endif</div>@endif
     @if ($errors->any())<div role="alert" class="rounded-lg bg-red-50 p-3 text-sm text-red-700">{{ $errors->first() }}</div>@endif
+    <livewire:operator.library.query-exclusions />
+    @if($status === 'deleted' || $undoQueryId)
+        <label class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300"><input type="checkbox" wire:model="protectRestoredQueries" class="rounded border-gray-300 text-brand-500" />{{ __('query-exclusions.protect_restored') }}</label>
+    @endif
     <p class="text-xs text-gray-500">{{ __('query-list.scope_note') }}</p>
     <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
         <div class="flex flex-wrap items-center gap-3 border-b border-gray-200 p-4 dark:border-gray-800">
@@ -93,7 +97,7 @@
         @forelse($imports as $import)
             <div class="mt-3 border-t border-gray-100 pt-3 text-xs dark:border-gray-800">
                 <div class="flex flex-wrap justify-between gap-2"><span>#{{ $import->id }} · {{ $import->source_type === 'assignment' ? 'Toplu atama' : ($sourceOptions[$import->source_type] ?? $import->source_type) }} · {{ $import->created_at?->format('d.m.Y H:i') }}</span><strong>{{ ['queued'=>'Sırada','running'=>'İşleniyor','processing'=>'İşleniyor','completed'=>'Tamamlandı','partial'=>'Kısmen tamamlandı','failed'=>'Başarısız'][$import->status] ?? $import->status }}</strong></div>
-                <p class="mt-2 text-gray-500">{{ $import->accepted_rows }} {{ $import->source_type === 'assignment' ? 'atanan' : 'yeni' }} sorgu · {{ $import->skipped_rows }} mevcut / tekrar / boş · {{ $import->failed_rows }} hata · {{ $import->total_rows }} satır</p>
+                <p class="mt-2 text-gray-500">{{ $import->accepted_rows }} {{ $import->source_type === 'assignment' ? 'atanan' : 'yeni' }} sorgu · {{ $import->skipped_rows }} mevcut / tekrar / boş · {{ $import->failed_rows }} hata · {{ $import->excluded_rows }} {{ __('query-exclusions.eliminated') }} · {{ $import->total_rows }} satır</p>
                 @if($import->error_summary)<p class="mt-2 whitespace-pre-line text-red-600">{{ $import->error_summary }}</p>@endif
             </div>
         @empty<p class="mt-3 text-xs text-gray-500">Henüz içe aktarma yok.</p>@endforelse
@@ -133,6 +137,7 @@
                         <div class="grid grid-cols-2 gap-3"><label class="text-sm">Başlangıç<input wire:model="dateFrom" type="date" class="rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950 mt-2 w-full" /></label><label class="text-sm">Bitiş<input wire:model="dateTo" type="date" class="rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950 mt-2 w-full" /></label></div>
                         <p class="text-xs text-gray-500">Sistemdeki kayıtlı terimler okunur. Bir işlemde en fazla 20 hesap / 10.000 farklı terim.</p>
                     @endif
+                    <p class="text-xs text-gray-500">{{ __('query-exclusions.import_help') }}</p>
                     <div class="rounded-lg bg-gray-50 p-3 text-xs leading-5 text-gray-600 dark:bg-gray-950 dark:text-gray-400">Ülke, il ve ilçe adları tam kelime eşleşmesiyle çıkarılır. “Of”, “Kale” gibi başka anlamı da olan yer adları buna dahildir. Özgün sorgu kaynak kaydında korunur. Tekrarlar yeni sorgu oluşturmaz. Yalnızca lokasyondan oluşan satırlar hata listesine alınır.</div>
                     @if($errors->any())<p role="alert" class="text-sm text-red-600">{{ $errors->first() }}</p>@endif
                 </div>

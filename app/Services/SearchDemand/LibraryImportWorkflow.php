@@ -156,6 +156,16 @@ final class LibraryImportWorkflow
                         $created ? $import->accepted_rows++ : $import->skipped_rows++;
                     }
                 }
+            } catch (\App\Exceptions\QueryExcluded $exception) {
+                DB::table('query_exclusion_import_rows')->updateOrInsert(
+                    ['import_id' => $import->id, 'row_number' => $offset + 1],
+                    [
+                        'query_text' => $text,
+                        'expressions' => json_encode($exception->expressions, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+                        'created_at' => now(), 'updated_at' => now(),
+                    ],
+                );
+                $import->excluded_rows++;
             } catch (Throwable $exception) {
                 $import->failed_rows++;
                 if (count($errors) < 20) {
@@ -173,7 +183,7 @@ final class LibraryImportWorkflow
             return;
         }
         $import->update([
-            'status' => $import->failed_rows ? ($import->accepted_rows + $import->skipped_rows > 0 ? 'partial' : 'failed') : 'completed',
+            'status' => $import->failed_rows ? ($import->accepted_rows + $import->skipped_rows + $import->excluded_rows > 0 ? 'partial' : 'failed') : 'completed',
             'completed_at' => now(),
         ]);
         $this->cleanup($import);

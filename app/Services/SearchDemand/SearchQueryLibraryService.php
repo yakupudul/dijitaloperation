@@ -26,6 +26,7 @@ final class SearchQueryLibraryService
         $language = $this->nullable($attributes['language_code'] ?? null);
         $locale = $this->nullable($attributes['locale'] ?? null);
         $market = $this->nullable($attributes['market_code'] ?? null);
+        app(QueryExclusionService::class)->checkImport($query, $language, $locale);
         $cleaned = \App\Support\Options\LocationOptions::strip($query);
         $normalized = $this->normalizer->normalize($cleaned['text'], $language ?: 'tr', $locale);
         $attributes['raw_payload'] = array_merge((array) ($attributes['raw_payload'] ?? []), [

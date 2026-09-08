@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'accepted_rows',
     'skipped_rows',
     'failed_rows',
+    'excluded_rows',
     'error_summary',
     'created_by',
     'completed_at',
@@ -32,6 +33,7 @@ class SearchQueryLibraryImport extends Model
             'accepted_rows' => 'integer',
             'skipped_rows' => 'integer',
             'failed_rows' => 'integer',
+            'excluded_rows' => 'integer',
         ];
     }
 

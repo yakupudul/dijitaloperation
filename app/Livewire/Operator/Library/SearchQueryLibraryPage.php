@@ -35,6 +35,8 @@ class SearchQueryLibraryPage extends Component
 
     public string $editingText = '';
 
+    public bool $protectRestoredQueries = true;
+
     #[Url]
     public int $perPage = 50;
 
@@ -379,6 +381,9 @@ class SearchQueryLibraryPage extends Component
             $item = SearchQueryLibraryItem::onlyTrashed()->lockForUpdate()->findOrFail($id);
             $item->updated_by = auth()->id();
             $item->restore();
+            if ($this->protectRestoredQueries) {
+                app(\App\Services\SearchDemand\QueryExclusionService::class)->protect($item, auth()->user());
+            }
         });
         $this->undoQueryId = null;
         $this->selectedQueryIds = array_values(array_diff($this->selectedQueryIds, [$id]));
@@ -401,6 +406,9 @@ class SearchQueryLibraryPage extends Component
                 $item->updated_by = auth()->id();
                 if ($action === 'restore') {
                     $item->restore();
+                    if ($this->protectRestoredQueries) {
+                        app(\App\Services\SearchDemand\QueryExclusionService::class)->protect($item, auth()->user());
+                    }
                 } elseif ($action === 'remove') {
                     $item->save();
                     $item->delete();
@@ -569,6 +577,14 @@ class SearchQueryLibraryPage extends Component
     {
         $this->selectedAiCandidateIds = [$candidateId];
         $this->reviewAiCandidates($decision, $librarian);
+    }
+
+    #[\Livewire\Attributes\On('query-exclusions-applied')]
+    public function refreshAfterExclusions(): void
+    {
+        $this->selectedQueryIds = [];
+        $this->cancelQueryEdit();
+        $this->repairPage();
     }
 
     public function render(): View
