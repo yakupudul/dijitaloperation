@@ -338,3 +338,10 @@ Selected sectors reference global ServiceCategory IDs through `brand_service_cat
 Sector removal does not silently remove services. Save requires all selected services to be active and in scope; the operator restores a sector or explicitly removes its service. A newly entered service that resolves to an existing identity in another sector is rejected without relabeling the global identity. Brand, sector links, services, priorities and areas save transactionally. Edit mount reads form data directly instead of running portfolio findings/task calculations.
 
 Source-reviewed only. No clone, dependency installation, tests, formatter, build, browser or server verification ran, per operator instruction. Deployment migration/runtime and human UI acceptance remain unverified; this is not a DONE claim. This is ordinary synchronous form CRUD with no provider work.
+
+
+## Brand detail mount hotfix — 2026-09-08
+
+The routed Operator BrandShow adapter still called map() on Brand's legacy offerings text attribute when a BrandIntelligenceContext existed. The prior edit-form fix did not cover this separate mount path. Read the explicitly eager-loaded offerings relation with getRelation('offerings') when constructing the business-context service list. Existing filtering, order, labels and stored data are unchanged.
+
+Source-reviewed direct staging patch; no clone, tests, build or server execution, per operator instruction. This fixes an identified fatal code path; the reported HTTP 500 remains unverified against server logs and post-deployment runtime.

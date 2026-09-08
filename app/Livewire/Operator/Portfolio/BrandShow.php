@@ -87,7 +87,7 @@ class BrandShow extends LegacyBrandShow
             'source' => $context->source,
             'business_summary' => $context->business_summary,
             'business_model' => $context->business_model,
-            'products_services' => $brand->offerings
+            'products_services' => $brand->getRelation('offerings')
                 ->map(fn ($offering): ?string => $offering->primaryName?->raw_label)
                 ->filter()
                 ->values()
