@@ -744,3 +744,13 @@
 - Services and sector categories have CRUD in the Services workspace. Service deletion is reversible and hides current usages while preserving foreign keys. Sector deletion unassigns services.
 - Existing brand goals, priorities and query relationships retain their IDs. Name conflicts abort transactionally.
 - No main changes, PR, cloning, tests or deployment were authorized for this delivery; operator requested direct GitHub staging commit and deploy instructions.
+
+
+## ADR-063 — Agency query imports, service expressions and central geography
+
+- **Status:** Accepted, operator request 2026-09-07/08; scope is staging branch chatgpt/search-demand-foundation.
+- Matching words are service-local expressions, not globally unique identity aliases. A phrase can map to multiple services. Service assignment is limited to explicit selected services and sector; missing matches remain human-reviewable.
+- New Library writes strip known place names and share one canonical text identity across sources/markets/sectors. Multiple sector relations preserve categorization without duplicate queries. Raw source text remains visible; provider facts and Intelligence identities do not change. Historical location-bearing Library identities are not destructively merged.
+- Country/city/district knowledge is one pinned, licensed, bundled catalog, with complete Turkey subdivisions. No Library Locations menu and no runtime remote lookup. Provider geotarget identifiers remain provider-specific.
+- Paste, file, stored-provider imports and bulk assignment run through persistent import jobs in bounded chunks. No provider calls, metric fabrication or causal claims.
+- Operator expressly forbade cloning and tests. Code review only; deployment, database/runtime and operator UAT are unverified. Full contract and limitations: docs/product/SEARCH_DEMAND_INTELLIGENCE.md.

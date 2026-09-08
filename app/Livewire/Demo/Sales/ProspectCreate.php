@@ -38,6 +38,8 @@ class ProspectCreate extends Component
 
     public string $city = '';
 
+    public function updatedCountry(): void { $this->city = ''; }
+
     public string $owner_user_id = '';
 
     public bool $saving = false;
@@ -52,6 +54,10 @@ class ProspectCreate extends Component
 
         try {
             $validated = $this->validate($this->rules(), [], $this->validationAttributes());
+
+            if ($this->country !== '') {
+                $validated['city'] = \App\Support\Options\LocationOptions::normalizeArea($this->country, $this->city, null, 'city')['city_name'];
+            }
 
             $prospect = app(CreateProspectService::class)->create([
                 ...$validated,
@@ -80,7 +86,7 @@ class ProspectCreate extends Component
             'contact_name' => ['nullable', 'string', 'max:255'],
             'contact_email' => ['nullable', 'email', 'max:255'],
             'contact_phone' => ['nullable', 'string', 'max:64'],
-            'country' => ['nullable', 'string', 'max:8'],
+            'country' => ['nullable', Rule::in(array_keys(CountryOptions::options()))],
             'city' => ['nullable', 'string', 'max:128'],
             'owner_user_id' => ['nullable', Rule::in(OperatorUserDirectory::eligibleIds())],
         ];

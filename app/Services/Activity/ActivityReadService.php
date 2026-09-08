@@ -51,7 +51,24 @@ final class ActivityReadService
         $asyncRuns = $this->asyncRunQuery($filters, $since)->limit($sqlLimit)->get();
         $collectionRuns = $this->collectionRunQuery($filters, $since)->limit($sqlLimit)->get();
 
+        $libraryImports = empty($filters['brand_id']) && empty($filters['customer_id']) && empty($filters['digital_asset_id'])
+            ? \App\Models\SearchQueryLibraryImport::query()->with('createdBy')->whereNotNull('input_payload')
+                ->when($since !== null, fn ($q) => $q->where('created_at', '>=', $since))->latest('id')->limit($sqlLimit)->get()
+            : collect();
+
         $rows = collect()
+            ->concat($libraryImports->map(fn ($import): array => [
+                'id' => 'library-import:'.$import->id, 'sort_id' => $import->id,
+                'title' => $import->source_type === 'services' ? 'Toplu hizmet ekleme' : ($import->source_type === 'assignment' ? 'Toplu sorgu atama' : 'Sorgu içe aktarma'),
+                'detail' => '#'.$import->id.' · '.$import->status.' · '.$import->accepted_rows.' yeni · '.$import->skipped_rows.' mevcut · '.$import->failed_rows.' hata',
+                'actor' => $import->createdBy?->name ?? 'System', 'actor_kind' => $import->created_by ? 'human' : 'system',
+                'status' => match ($import->status) { 'queued', 'running' => 'running', 'failed' => 'failed', 'partial' => 'partial', default => 'success' },
+                'brand' => null, 'brand_id' => null, 'customer' => null, 'customer_id' => null,
+                'created_at' => $import->created_at->toIso8601String(), 'occurred_at' => $import->created_at->toIso8601String(),
+                'relative' => $import->created_at->diffForHumans(),
+                'route' => $import->source_type === 'services' ? 'operator.library.services' : 'operator.library.search-queries',
+                'route_params' => [], 'event' => 'library.import', 'event_label' => 'Kütüphane içe aktarma', 'domain_event_id' => null,
+            ]))
             ->concat($activities->map(fn (BrandContextActivity $row): array => $this->fromActivity($row)))
             ->concat($orphanEvents->map(fn (DomainEvent $event): array => $this->fromDomainEvent($event)))
             ->concat($asyncRuns->map(fn (Run $run): array => $this->fromAsyncRun($run)))

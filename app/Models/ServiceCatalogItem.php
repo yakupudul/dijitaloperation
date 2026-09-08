@@ -22,6 +22,11 @@ class ServiceCatalogItem extends Model
 {
     use SoftDeletes;
 
+    public function matchingKeywords(): HasMany
+    {
+        return $this->hasMany(ServiceMatchingKeyword::class);
+    }
+
     public function names(): HasMany
     {
         return $this->hasMany(ServiceCatalogName::class)->withoutGlobalScope('visible_service');

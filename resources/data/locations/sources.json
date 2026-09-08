@@ -1,0 +1,14 @@
+{
+  "countries": {
+    "repository": "umpirsky/country-list",
+    "commit": "bd490a163ae4709bbe4b54c4f638f24e032828d2",
+    "license": "MIT"
+  },
+  "turkey": {
+    "repository": "ubeydeozdmr/turkiye-api",
+    "commit": "436c8656338c2736f0be975435cccfb7f6b25935",
+    "license": "MIT"
+  },
+  "retrieved": "2026-09-08",
+  "changes": "Original data files retained without changes."
+}

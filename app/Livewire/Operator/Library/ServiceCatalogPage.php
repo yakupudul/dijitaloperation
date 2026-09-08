@@ -42,6 +42,10 @@ class ServiceCatalogPage extends Component
     public string $service_sector = '';
     public string $service_description = '';
     public string $alias = '';
+    public string $matching_words = '';
+    public bool $bulkOpen = false;
+    public string $bulk_text = '';
+    public string $bulk_sector = '';
     public string $message = '';
 
     #[Locked]
@@ -55,7 +59,7 @@ class ServiceCatalogPage extends Component
 
     public function createService(): void
     {
-        $this->reset(['editingId', 'service_name', 'service_sector', 'service_description', 'alias']);
+        $this->reset(['editingId', 'service_name', 'service_sector', 'service_description', 'alias', 'matching_words']);
         $this->service_sector = $this->sector !== '__none' ? $this->sector : '';
         $this->resetValidation();
         $this->editorOpen = true;
@@ -70,6 +74,7 @@ class ServiceCatalogPage extends Component
         $this->service_sector = $service->sector ?? '';
         $this->service_description = $service->description ?? '';
         $this->alias = '';
+        $this->matching_words = $service->matchingKeywords()->pluck('label')->implode("\n");
         $this->resetValidation();
         $this->editorOpen = true;
         $this->categoriesOpen = false;
@@ -89,24 +94,40 @@ class ServiceCatalogPage extends Component
             'service_name' => ['required', 'string', 'max:255'],
             'service_sector' => ['nullable', Rule::exists('service_categories', 'code')],
             'service_description' => ['nullable', 'string', 'max:2000'],
+            'matching_words' => ['nullable', 'string', 'max:50000'],
         ]);
-        if ($this->editingId !== null) {
-            try {
-                $catalog->update(ServiceCatalogItem::query()->findOrFail($this->editingId),
-                    $this->service_name, $this->service_sector, $this->service_description, auth()->user());
-            } catch (ValidationException $exception) {
-                throw ValidationException::withMessages(['service_name' => collect($exception->errors())->flatten()->first()]);
+        DB::transaction(function () use ($catalog): void {
+            if ($this->editingId !== null) {
+                $service = ServiceCatalogItem::query()->findOrFail($this->editingId);
+                try {
+                    $catalog->update($service, $this->service_name, $this->service_sector, $this->service_description, auth()->user());
+                } catch (ValidationException $exception) {
+                    throw ValidationException::withMessages(['service_name' => collect($exception->errors())->flatten()->first()]);
+                }
+            } else {
+                $result = $catalog->resolveOrCreate($this->service_name, $this->service_sector, $this->service_description, app()->getLocale(), auth()->user());
+                if (! $result['created']) {
+                    throw ValidationException::withMessages(['service_name' => 'Bu hizmet veya eş adı zaten var. Mevcut kaydı düzenleyin.']);
+                }
+                $service = $result['service'];
             }
-            $this->message = 'Hizmet güncellendi. Yeni ad ve açıklama bağlı markalara yansıtıldı.';
-        } else {
-            $result = $catalog->resolveOrCreate($this->service_name, $this->service_sector, $this->service_description, app()->getLocale(), auth()->user());
-            if (! $result['created']) {
-                throw ValidationException::withMessages(['service_name' => 'Bu hizmet veya eş adı zaten var. Mevcut kaydı düzenleyin.']);
-            }
-            $this->message = 'Hizmet eklendi. Artık tüm markalarda seçilebilir.';
-        }
+            app(\App\Services\SearchDemand\ServiceKeywordService::class)->replace($service, $this->matching_words);
+        });
+        $this->message = 'Hizmet ve eşleştirme kelimeleri kaydedildi.';
         $this->closeEditor();
         $this->resetPage();
+    }
+
+    public function queueBulk(\App\Services\SearchDemand\LibraryImportWorkflow $workflow): void
+    {
+        $this->validate([
+            'bulk_sector' => ['required', Rule::exists('service_categories', 'code')],
+            'bulk_text' => ['required', 'string', 'max:500000'],
+        ]);
+        $workflow->queue('services', ['text' => $this->bulk_text, 'sector' => $this->bulk_sector], auth()->user());
+        $this->bulkOpen = false;
+        $this->bulk_text = '';
+        $this->message = 'Hizmetler sıraya alındı. Sonuçları bu ekrandan veya Aktivite ekranından takip edebilirsiniz.';
     }
 
     public function addAlias(ServiceCatalogService $catalog): void
@@ -196,6 +217,7 @@ class ServiceCatalogPage extends Component
             if ($this->sector === $category->code) {
                 $this->sector = '';
             }
+            \App\Models\SearchQueryLibraryItem::query()->where('sector', $category->code)->update(['sector' => null]);
             $category->delete();
         });
         $this->cancelCategoryEdit();
@@ -206,7 +228,7 @@ class ServiceCatalogPage extends Component
     public function render(): View
     {
         $query = ServiceCatalogItem::query()
-            ->with(['primaryName'])
+            ->with(['primaryName'])->withCount('matchingKeywords')
             ->withCount(['brandOfferings' => fn ($q) => $q->withoutGlobalScope('visible_catalog'), 'searchQueries']);
         if ($this->status === 'deleted') {
             $query->onlyTrashed();
@@ -234,6 +256,7 @@ class ServiceCatalogPage extends Component
             'sectorOptions' => ServiceCategory::options(),
             'categories' => $this->categoriesOpen ? ServiceCategory::query()->orderBy('name')->get() : collect(),
             'editing' => $editing,
+            'bulkImports' => \App\Models\SearchQueryLibraryImport::query()->where('source_type', 'services')->latest('id')->limit(5)->get(),
         ]);
     }
 }

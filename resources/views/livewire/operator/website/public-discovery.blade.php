@@ -82,9 +82,14 @@
                         </select></label>
                         @if(!$serviceAreaId)
                             <div class="grid gap-3 sm:grid-cols-3">
-                                <label class="text-sm">{{ __('public_discovery.country') }}<select wire:model="countryCode" class="mt-1 block w-full rounded-lg border-gray-300 bg-transparent"><option value="">{{ __('public_discovery.choose') }}</option>@foreach(\App\Support\Options\CountryOptions::options() as $code => $country)<option value="{{ $code }}">{{ $country }}</option>@endforeach</select></label>
+                                <label class="text-sm">{{ __('public_discovery.country') }}<select wire:model.live="countryCode" class="mt-1 block w-full rounded-lg border-gray-300 bg-transparent"><option value="">{{ __('public_discovery.choose') }}</option>@foreach(\App\Support\Options\CountryOptions::options() as $code => $country)<option value="{{ $code }}">{{ $country }}</option>@endforeach</select></label>
+                                @if ($countryCode === 'TR')
+                                    <label class="text-sm">Şehir<select wire:model.live="cityName" class="mt-1 block w-full rounded-lg border-gray-300 bg-transparent"><option value="">Tüm Türkiye</option>@foreach(\App\Support\Options\LocationOptions::cities() as $name)<option value="{{ $name }}">{{ $name }}</option>@endforeach</select></label>
+                                    <label class="text-sm">İlçe<select wire:model="districtName" @disabled($cityName === '') class="mt-1 block w-full rounded-lg border-gray-300 bg-transparent"><option value="">Tüm şehir</option>@foreach(\App\Support\Options\LocationOptions::districts($cityName) as $name)<option value="{{ $name }}">{{ $name }}</option>@endforeach</select></label>
+                                @else
                                 <label class="text-sm">{{ __('public_discovery.city') }}<input wire:model="cityName" maxlength="120" class="mt-1 block w-full rounded-lg border-gray-300 bg-transparent" /></label>
                                 <label class="text-sm">{{ __('public_discovery.district') }}<input wire:model="districtName" maxlength="120" class="mt-1 block w-full rounded-lg border-gray-300 bg-transparent" /></label>
+                                @endif
                             </div>
                         @endif
                     @endif

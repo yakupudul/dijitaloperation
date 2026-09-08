@@ -143,10 +143,15 @@ final class BrandCommercialContextService
             $desiredKeys = [];
             foreach ($normalizedAreas as $rank => $area) {
                 $desiredKeys[] = $area['normalized_key'];
-                BrandServiceArea::query()->updateOrCreate(
-                    ['brand_id' => $brand->id, 'normalized_key' => $area['normalized_key']],
-                    array_merge($area, ['status' => 'active', 'priority_rank' => $rank + 1]),
-                );
+                $existing = BrandServiceArea::query()->where('brand_id', $brand->id)->where('normalized_key', $area['normalized_key'])->first();
+                if (! $existing && $area['country_code'] === 'TR') {
+                    $existing = BrandServiceArea::query()->where('brand_id', $brand->id)->where('country_code', 'TR')->get()
+                        ->first(fn ($row): bool =>
+                            \App\Support\Options\LocationOptions::fold((string) $row->city_name) === \App\Support\Options\LocationOptions::fold((string) $area['city_name'])
+                            && \App\Support\Options\LocationOptions::fold((string) $row->district_name) === \App\Support\Options\LocationOptions::fold((string) $area['district_name']));
+                }
+                $existing ??= new BrandServiceArea(['brand_id' => $brand->id]);
+                $existing->fill(array_merge($area, ['status' => 'active', 'priority_rank' => $rank + 1]))->save();
             }
 
             BrandServiceArea::query()
@@ -216,8 +221,9 @@ final class BrandCommercialContextService
                 continue;
             }
 
-            $city = $this->nullable($area['city_name'] ?? null);
-            $district = $this->nullable($area['district_name'] ?? null);
+            $validated = \App\Support\Options\LocationOptions::normalizeArea($countryCode, $area['city_name'] ?? null, $area['district_name'] ?? null);
+            $city = $validated['city_name'];
+            $district = $validated['district_name'];
             $identity = mb_strtolower(implode('|', [$countryCode, $city ?? '', $district ?? '']), 'UTF-8');
             $key = hash('sha256', $identity);
 

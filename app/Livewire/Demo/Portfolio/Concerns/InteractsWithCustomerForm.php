@@ -115,6 +115,11 @@ trait InteractsWithCustomerForm
         $this->industry_other = (string) ($customer['industry_other'] ?? '');
         $this->hq_country = (string) ($customer['hq_country'] ?? '');
         $storedCity = (string) ($customer['hq_city'] ?? '');
+        if ($this->hq_country === 'TR' && $storedCity !== '') {
+            $storedCity = collect(\App\Support\Options\LocationOptions::cities())->first(
+                fn (string $name): bool => \App\Support\Options\LocationOptions::fold($name) === \App\Support\Options\LocationOptions::fold($storedCity)
+            ) ?? $storedCity;
+        }
         if (CityOptions::isCatalogCity($this->hq_country, $storedCity)) {
             $this->hq_city = $storedCity;
             $this->hq_city_other = '';
@@ -196,6 +201,10 @@ trait InteractsWithCustomerForm
 
     protected function resolvedHqCity(): ?string
     {
+        if ($this->hq_country === 'TR') {
+            return \App\Support\Options\LocationOptions::normalizeArea('TR',
+                $this->hq_city === CityOptions::OTHER ? $this->hq_city_other : $this->hq_city, null, 'hq_city')['city_name'];
+        }
         if ($this->hq_city === CityOptions::OTHER) {
             $other = trim($this->hq_city_other);
 

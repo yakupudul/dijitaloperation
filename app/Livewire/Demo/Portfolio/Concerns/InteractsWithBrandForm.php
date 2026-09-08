@@ -136,6 +136,20 @@ trait InteractsWithBrandForm
         ];
     }
 
+    public function updatedServiceAreas(mixed $value, string $key): void
+    {
+        [$index, $field] = array_pad(explode('.', $key, 2), 2, '');
+        if (! isset($this->service_areas[$index])) {
+            return;
+        }
+        if ($field === 'country_code') {
+            $this->service_areas[$index]['city_name'] = '';
+            $this->service_areas[$index]['district_name'] = '';
+        } elseif ($field === 'city_name') {
+            $this->service_areas[$index]['district_name'] = '';
+        }
+    }
+
     public function addServiceArea(): void
     {
         $this->service_areas[] = ['country_code' => $this->primary_country ?: 'TR', 'city_name' => '', 'district_name' => ''];
@@ -183,6 +197,17 @@ trait InteractsWithBrandForm
             ->values()
             ->all();
 
+        foreach ($areas as &$area) {
+            if ($area['country_code'] === 'TR') {
+                $area['city_name'] = collect(\App\Support\Options\LocationOptions::cities())->first(
+                    fn (string $name): bool => \App\Support\Options\LocationOptions::fold($name) === \App\Support\Options\LocationOptions::fold($area['city_name'])
+                ) ?? $area['city_name'];
+                $area['district_name'] = collect(\App\Support\Options\LocationOptions::districts($area['city_name']))->first(
+                    fn (string $name): bool => \App\Support\Options\LocationOptions::fold($name) === \App\Support\Options\LocationOptions::fold($area['district_name'])
+                ) ?? $area['district_name'];
+            }
+        }
+        unset($area);
         if ($areas !== []) {
             $this->service_areas = $areas;
         }

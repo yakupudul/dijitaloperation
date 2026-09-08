@@ -55,12 +55,16 @@
                 </x-ta.form.field>
 
                 <x-ta.form.field :label="__('operator.prospects.fields.country')" :error="$errors->first('country')">
-                    <x-ta.form.select wire:model="country" :options="$countryOptions" :placeholder="__('operator.forms.search_country')" />
+                    <x-ta.form.select wire:model.live="country" :options="$countryOptions" :placeholder="__('operator.forms.search_country')" />
                 </x-ta.form.field>
 
                 <x-ta.form.field :label="__('operator.prospects.fields.city')" :error="$errors->first('city')">
+                    @if ($country === 'TR')
+                        <select wire:model="city" class="w-full rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950"><option value="">Şehir seçin</option>@foreach(\App\Support\Options\LocationOptions::cities() as $name)<option value="{{ $name }}">{{ $name }}</option>@endforeach</select>
+                    @else
                     <input wire:model="city" type="text"
                         class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm shadow-theme-xs outline-none focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                    @endif
                 </x-ta.form.field>
             </div>
         </x-ta.form.section>

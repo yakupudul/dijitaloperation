@@ -56,6 +56,9 @@ class PublicDiscoveryPage extends Component
 
     public string $districtName = '';
 
+    public function updatedCountryCode(): void { $this->cityName = ''; $this->districtName = ''; }
+    public function updatedCityName(): void { $this->districtName = ''; }
+
     public bool $confirmServiceArea = false;
 
     public bool $replaceExisting = false;

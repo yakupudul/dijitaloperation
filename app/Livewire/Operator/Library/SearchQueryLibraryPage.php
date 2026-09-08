@@ -22,6 +22,51 @@ use Livewire\WithFileUploads;
 class SearchQueryLibraryPage extends Component
 {
     use WithFileUploads;
+    use \Livewire\WithPagination;
+
+    public bool $importOpen = false;
+    public string $importSource = 'paste';
+    public string $importSector = '';
+    public array $importServiceIds = [];
+    public array $resourceIds = [];
+    public string $dateFrom = '';
+    public string $dateTo = '';
+    #[Url]
+    public string $sectorFilter = '';
+    #[Url]
+    public bool $unassigned = false;
+    public string $assignmentSector = '';
+    public array $assignmentServiceIds = [];
+    public string $newSectorName = '';
+    public string $newServiceName = '';
+    public string $newServiceWords = '';
+    #[\Livewire\Attributes\Locked]
+    public ?int $sourceItemId = null;
+
+    public function mount(): void
+    {
+        $this->dateFrom = now()->subDays(90)->toDateString();
+        $this->dateTo = now()->toDateString();
+    }
+
+    public function updatedImportSector(): void { $this->importServiceIds = []; }
+    public function updatedAssignmentSector(): void { $this->assignmentServiceIds = []; }
+    public function updatedImportSource(): void { $this->resourceIds = []; }
+    public function updatedSearch(): void { $this->resetPage(); $this->selectedQueryIds = []; }
+    public function updatedSectorFilter(): void { $this->resetPage(); $this->selectedQueryIds = []; }
+    public function updatedUnassigned(): void { $this->resetPage(); $this->selectedQueryIds = []; }
+    public function updatedStatus(): void { $this->resetPage(); $this->selectedQueryIds = []; }
+    public function updatedService(): void { $this->resetPage(); $this->selectedQueryIds = []; }
+    public function updatedSource(): void { $this->resetPage(); $this->selectedQueryIds = []; }
+
+    public function closeSources(): void { $this->sourceItemId = null; }
+
+    public function showSources(int $id): void
+    {
+        SearchQueryLibraryItem::query()->findOrFail($id);
+        $this->sourceItemId = $id;
+    }
+
 
     #[Url(as: 'q', history: true)]
     public string $search = '';
@@ -92,70 +137,151 @@ class SearchQueryLibraryPage extends Component
 
     public string $message_tone = 'success';
 
-    public function addQuery(SearchQueryLibraryService $library): void
-    {
-        $this->validate($this->queryRules());
-        $result = $library->store($this->query_text, 'manual', $this->queryAttributes(), auth()->user());
-        $this->query_text = '';
-        $this->message = $result['created'] ? 'Sorgu kütüphaneye eklendi.' : 'Sorgu bulundu; manuel kaynak kaydı güncellendi.';
-        $this->message_tone = 'success';
-    }
-
-    public function addPastedQueries(SearchQueryLibraryService $library): void
-    {
-        $this->validate(array_merge($this->queryRules(false), ['paste_text' => ['required', 'string', 'max:100000']]));
-        $queries = collect(preg_split('/\R/u', $this->paste_text) ?: [])
-            ->map(fn (string $query): string => trim($query))
-            ->filter()
-            ->unique()
-            ->take(1000)
-            ->values();
-
-        $accepted = 0;
-        foreach ($queries as $line => $query) {
-            $library->store($query, 'paste', array_merge($this->queryAttributes(), [
-                'source_reference' => 'paste-line-'.($line + 1),
-                'row_number' => $line + 1,
-            ]), auth()->user());
-            $accepted++;
-        }
-
-        $this->paste_text = '';
-        $this->message = "{$accepted} sorgu kütüphaneye işlendi.";
-        $this->message_tone = 'success';
-    }
-
-    public function importQueries(SearchQueryImportService $imports): void
+    public function startImport(\App\Services\SearchDemand\LibraryImportWorkflow $workflow): void
     {
         $this->validate([
-            'import_file' => ['required', 'file', 'max:10240', 'extensions:csv,tsv,txt,xlsx'],
-            'import_source_type' => ['required', 'in:csv,xlsx,google_ads,search_console,dataforseo'],
-            'import_service_id' => ['nullable', 'integer', 'exists:service_catalog_items,id'],
-            'import_language' => ['nullable', 'string', 'max:32'],
-            'import_market' => ['nullable', 'string', 'max:32'],
+            'importSource' => ['required', 'in:paste,csv,xlsx,google_ads,search_console'],
+            'importSector' => ['required', 'exists:service_categories,code'],
+            'importServiceIds' => ['array', 'max:200'], 'importServiceIds.*' => ['integer'],
+            'resourceIds' => ['array', 'max:20'], 'resourceIds.*' => ['integer'],
         ]);
-
-        $import = $imports->import(
-            (string) $this->import_file->getRealPath(),
-            (string) $this->import_file->getClientOriginalName(),
-            $this->import_source_type,
-            [
-                'service_catalog_item_id' => $this->import_service_id !== '' ? (int) $this->import_service_id : null,
-                'language_code' => $this->import_language,
-                'market_code' => $this->import_market,
-            ],
-            auth()->user(),
-        );
-
+        $payload = ['sector' => $this->importSector, 'service_ids' => $this->importServiceIds];
+        $workflow->validateScope($payload);
+        if ($this->importSource === 'paste') {
+            $this->validate(['paste_text' => ['required', 'string', 'max:500000']]);
+            $payload['text'] = $this->paste_text;
+        } elseif (in_array($this->importSource, ['csv', 'xlsx'], true)) {
+            $this->validate(['import_file' => ['required', 'file', 'max:10240', 'extensions:csv,tsv,txt,xlsx']]);
+            $payload['filename'] = $this->import_file->getClientOriginalName();
+            $payload['path'] = $this->import_file->store('library-imports', 'local');
+            $this->importSource = strtolower(pathinfo($payload['filename'], PATHINFO_EXTENSION)) === 'xlsx' ? 'xlsx' : 'csv';
+        } else {
+            $this->validate([
+                'resourceIds' => ['required', 'array', 'min:1', 'max:20'],
+                'dateFrom' => ['required', 'date_format:Y-m-d'],
+                'dateTo' => ['required', 'date_format:Y-m-d', 'after_or_equal:dateFrom'],
+            ]);
+            $payload += ['resource_ids' => $this->resourceIds, 'date_from' => $this->dateFrom, 'date_to' => $this->dateTo];
+        }
+        try {
+            $import = $workflow->queue($this->importSource, $payload, auth()->user());
+        } catch (\Throwable $exception) {
+            if (isset($payload['path'])) {
+                \Illuminate\Support\Facades\Storage::disk('local')->delete($payload['path']);
+            }
+            throw $exception;
+        }
+        $this->importOpen = false;
+        $this->paste_text = '';
         $this->import_file = null;
-        $this->message_tone = $import->status === 'failed' ? 'error' : ($import->status === 'partial' ? 'warning' : 'success');
-        $this->message = sprintf(
-            'İçe aktarma %s: %d kabul, %d atlandı, %d hata.',
-            $import->status,
-            $import->accepted_rows,
-            $import->skipped_rows,
-            $import->failed_rows,
-        );
+        $this->message = '#'.$import->id.' içe aktarması sıraya alındı. Sayfadan ayrılabilirsiniz.';
+        $this->message_tone = 'success';
+    }
+
+    public function createInlineSector(string $target): void
+    {
+        abort_unless(in_array($target, ['import', 'assignment'], true), 422);
+        $this->validate(['newSectorName' => ['required', 'string', 'max:120']]);
+        $label = trim($this->newSectorName);
+        $key = app(\App\Support\BrandIntelligence\IdentityLabelNormalizer::class)->normalize($label);
+        if ($key === '') {
+            throw \Illuminate\Validation\ValidationException::withMessages(['newSectorName' => 'Sektör adı gereklidir.']);
+        }
+        $category = \App\Models\ServiceCategory::query()->firstOrCreate(['normalized_key' => $key], [
+            'code' => 'sector_'.\Illuminate\Support\Str::uuid(), 'name' => $label,
+        ]);
+        if ($target === 'assignment') {
+            $this->assignmentSector = $category->code;
+            $this->assignmentServiceIds = [];
+        } else {
+            $this->importSector = $category->code;
+            $this->importServiceIds = [];
+        }
+        $this->newSectorName = '';
+    }
+
+    public function createInlineService(string $target): void
+    {
+        abort_unless(in_array($target, ['import', 'assignment'], true), 422);
+        $this->validate([
+            'newServiceName' => ['required', 'string', 'max:255'],
+            'newServiceWords' => ['nullable', 'string', 'max:50000'],
+        ]);
+        $sector = $target === 'assignment' ? $this->assignmentSector : $this->importSector;
+        app(\App\Services\SearchDemand\LibraryImportWorkflow::class)->validateScope(['sector' => $sector]);
+        $service = \Illuminate\Support\Facades\DB::transaction(function () use ($sector) {
+            $result = app(\App\Services\SearchDemand\ServiceCatalogService::class)->resolveOrCreate($this->newServiceName, $sector, actor: auth()->user());
+            if ($result['service']->sector !== $sector || $result['service']->status !== 'active') {
+                throw \Illuminate\Validation\ValidationException::withMessages(['newServiceName' => 'Bu hizmet başka sektörde veya arşivde mevcut. Hizmetler ekranından düzenleyin.']);
+            }
+            if (trim($this->newServiceWords) !== '') {
+                $existing = $result['service']->matchingKeywords()->pluck('label')->implode("\n");
+                app(\App\Services\SearchDemand\ServiceKeywordService::class)->replace($result['service'], $existing."\n".$this->newServiceWords);
+            }
+
+            return $result['service'];
+        });
+        if ($target === 'assignment') {
+            $this->assignmentServiceIds = array_values(array_unique([...$this->assignmentServiceIds, (string) $service->id]));
+        } else {
+            $this->importServiceIds = array_values(array_unique([...$this->importServiceIds, (string) $service->id]));
+        }
+        $this->newServiceName = '';
+        $this->newServiceWords = '';
+    }
+
+    public function selectPage(): void
+    {
+        $this->selectedQueryIds = array_values(array_unique(array_merge($this->selectedQueryIds,
+            $this->filteredQueries()->orderByDesc('last_seen_at')->orderByDesc('id')->forPage($this->getPage(), 50)->pluck('id')->all())));
+        if (count($this->selectedQueryIds) > 500) {
+            $this->selectedQueryIds = array_slice($this->selectedQueryIds, 0, 500);
+            $this->message = 'Bir işlemde en fazla 500 sorgu seçebilirsiniz.';
+        }
+    }
+
+    public function assignSelected(): void
+    {
+        $this->validate([
+            'selectedQueryIds' => ['required', 'array', 'min:1', 'max:500'],
+            'selectedQueryIds.*' => ['integer', 'exists:search_query_library_items,id'],
+            'assignmentSector' => ['required', 'exists:service_categories,code'],
+            'assignmentServiceIds' => ['array', 'max:200'], 'assignmentServiceIds.*' => ['integer'],
+        ]);
+        $ids = app(\App\Services\SearchDemand\LibraryImportWorkflow::class)->validateScope([
+            'sector' => $this->assignmentSector, 'service_ids' => $this->assignmentServiceIds,
+        ]);
+        app(\App\Services\SearchDemand\LibraryImportWorkflow::class)->queue('assignment', [
+            'sector' => $this->assignmentSector, 'service_ids' => $ids, 'query_ids' => $this->selectedQueryIds,
+        ], auth()->user());
+        $this->selectedQueryIds = [];
+        $this->message = 'Toplu atama sıraya alındı. Sonucu içe aktarma geçmişinden takip edebilirsiniz.';
+        $this->resetPage();
+    }
+
+    private function filteredQueries(): \Illuminate\Database\Eloquent\Builder
+    {
+        $query = SearchQueryLibraryItem::query();
+        if ($this->status !== 'all') {
+            $query->where('status', $this->status);
+        }
+        if ($this->sectorFilter !== '') {
+            $query->where(fn ($q) => $q->where('sector', $this->sectorFilter)->orWhereHas('sectors', fn ($s) => $s->where('code', $this->sectorFilter)));
+        }
+        if ($this->unassigned) {
+            $query->whereDoesntHave('services', fn ($s) => $s->where('status', 'active')->when($this->sectorFilter !== '', fn ($s) => $s->where('sector', $this->sectorFilter)));
+        }
+        if ($this->source !== '') {
+            $query->whereHas('sourceRecords', fn ($r) => $r->where('source_type', $this->source));
+        }
+        if ($this->service !== '') {
+            $query->whereHas('services', fn ($s) => $s->whereKey((int) $this->service));
+        }
+        if (trim($this->search) !== '') {
+            $query->where('folded_text', 'like', '%'.\App\Support\Options\LocationOptions::fold($this->search).'%');
+        }
+
+        return $query;
     }
 
     public function setQueryStatus(int $itemId, string $status): void
@@ -175,7 +301,7 @@ class SearchQueryLibraryPage extends Component
             'ai_service_id' => ['required', 'integer', 'exists:service_catalog_items,id'],
             'ai_language' => ['nullable', 'string', 'max:32'],
             'ai_market' => ['nullable', 'string', 'max:32'],
-            'ai_sector' => ['nullable', 'string', 'max:120'],
+            'ai_sector' => ['required', 'exists:service_categories,code'],
             'ai_location_context' => ['nullable', 'string', 'max:500'],
             'ai_candidate_count' => ['required', 'integer', 'min:5', 'max:50'],
         ]);
@@ -296,32 +422,7 @@ class SearchQueryLibraryPage extends Component
 
     public function render(): View
     {
-        $query = SearchQueryLibraryItem::query()
-            ->with(['services.primaryName'])
-            ->withCount('sourceRecords')
-            ->withSum('sourceRecords', 'impressions')
-            ->withSum('sourceRecords', 'clicks')
-            ->withSum('sourceRecords', 'conversions')
-            ->withSum('sourceRecords', 'search_volume')
-            ->withMax('sourceRecords', 'observed_at');
-
-        if ($this->status !== 'all') {
-            $query->where('status', $this->status);
-        }
-        if ($this->source !== '') {
-            $query->whereHas('sourceRecords', fn ($records) => $records->where('source_type', $this->source));
-        }
-        if ($this->service !== '') {
-            $query->whereHas('services', fn ($services) => $services->whereKey((int) $this->service));
-        }
-        if (trim($this->search) !== '') {
-            $term = '%'.mb_strtolower(trim($this->search), 'UTF-8').'%';
-            $query->where(function ($query) use ($term): void {
-                $query->whereRaw('LOWER(canonical_text) LIKE ?', [$term])
-                    ->orWhereRaw("LOWER(COALESCE(demand_family, '')) LIKE ?", [$term]);
-            });
-        }
-
+        $query = $this->filteredQueries()->with(['services.primaryName', 'sectors'])->withCount('sourceRecords');
         $serviceOptions = ServiceCatalogItem::query()
             ->with('primaryName')
             ->where('status', 'active')
@@ -341,11 +442,15 @@ class SearchQueryLibraryPage extends Component
         }
 
         return view('livewire.operator.library.search-query-library-page', [
-            'queries' => $query->orderByDesc('last_seen_at')->limit(300)->get(),
+            'queries' => $query->orderByDesc('last_seen_at')->orderByDesc('id')->paginate(50),
+            'importServices' => ServiceCatalogItem::query()->with('primaryName')->where('status', 'active')->where('sector', $this->importSector)->get(),
+            'assignmentServices' => ServiceCatalogItem::query()->with('primaryName')->where('status', 'active')->where('sector', $this->assignmentSector)->get(),
+            'resources' => in_array($this->importSource, ['google_ads', 'search_console'], true) ? app(\App\Services\SearchDemand\LibraryImportWorkflow::class)->resources($this->importSource)->orderBy('display_name')->get(['id','display_name','external_id']) : collect(),
+            'sourceDetails' => $this->sourceItemId ? \App\Models\SearchQueryLibrarySourceRecord::query()->where('search_query_library_item_id', $this->sourceItemId)->latest('id')->limit(50)->get() : collect(),
             'serviceOptions' => $serviceOptions,
             'sourceOptions' => SearchQueryLibraryService::sourceOptions(),
             'sectorOptions' => IndustryOptions::options(),
-            'imports' => SearchQueryLibraryImport::query()->latest('id')->limit(10)->get(),
+            'imports' => SearchQueryLibraryImport::query()->where('source_type', '!=', 'services')->latest('id')->limit(10)->get(),
             'aiRun' => $aiRun,
             'aiRuns' => SearchDemandAiRun::query()
                 ->with('service.primaryName')

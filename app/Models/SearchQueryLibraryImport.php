@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
+    'input_payload',
     'uuid',
     'source_type',
     'original_filename',
@@ -25,6 +26,7 @@ class SearchQueryLibraryImport extends Model
     protected function casts(): array
     {
         return [
+            'input_payload' => 'array',
             'completed_at' => 'immutable_datetime',
             'total_rows' => 'integer',
             'accepted_rows' => 'integer',

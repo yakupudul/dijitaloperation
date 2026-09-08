@@ -53,15 +53,21 @@
         </x-ta.form.section>
 
         <x-ta.form.section title="Hizmet bölgeleri">
+            @error('service_areas')<p class="mb-3 text-sm text-red-600">{{ $message }}</p>@enderror
             <p class="mb-4 text-sm text-gray-500">Birden fazla ülke, şehir veya ilçe ekleyebilirsiniz. İlçe boşsa kapsam şehir; şehir de boşsa kapsam ülke kabul edilir.</p>
             <div class="space-y-3">
                 @foreach ($service_areas as $index => $area)
                     <div wire:key="service-area-{{ $index }}" class="grid gap-3 rounded-lg border border-gray-200 p-3 md:grid-cols-[1fr_1fr_1fr_auto] dark:border-gray-700">
-                        <select wire:model="service_areas.{{ $index }}.country_code" class="rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950">
+                        <select aria-label="Ülke" wire:model.live="service_areas.{{ $index }}.country_code" class="rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950">
                             @foreach ($countryOptions as $code => $label)<option value="{{ $code }}">{{ $label }}</option>@endforeach
                         </select>
-                        <input wire:model="service_areas.{{ $index }}.city_name" type="text" placeholder="Şehir (örn. İzmir)" class="rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950" />
-                        <input wire:model="service_areas.{{ $index }}.district_name" type="text" placeholder="İlçe (örn. Bornova)" class="rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950" />
+                        @if (($area['country_code'] ?? '') === 'TR')
+                            <select wire:model.live="service_areas.{{ $index }}.city_name" aria-label="Şehir" class="rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950"><option value="">Tüm Türkiye</option>@foreach (\App\Support\Options\LocationOptions::cities() as $name)<option value="{{ $name }}">{{ $name }}</option>@endforeach</select>
+                            <select wire:model="service_areas.{{ $index }}.district_name" aria-label="İlçe" @disabled(empty($area['city_name'])) class="rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950"><option value="">Tüm şehir</option>@foreach (\App\Support\Options\LocationOptions::districts($area['city_name'] ?? '') as $name)<option value="{{ $name }}">{{ $name }}</option>@endforeach</select>
+                        @else
+                            <input wire:model="service_areas.{{ $index }}.city_name" aria-label="Şehir" placeholder="Şehir (isteğe bağlı)" class="rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950" />
+                            <input wire:model="service_areas.{{ $index }}.district_name" aria-label="İlçe" placeholder="İlçe (isteğe bağlı)" class="rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950" />
+                        @endif
                         <button type="button" wire:click="removeServiceArea({{ $index }})" class="rounded-lg px-3 py-2 text-sm text-red-600 ring-1 ring-inset ring-red-200">Kaldır</button>
                         @error("service_areas.$index.country_code") <p class="text-xs text-red-600 md:col-span-4">{{ $message }}</p> @enderror
                     </div>

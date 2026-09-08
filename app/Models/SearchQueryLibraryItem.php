@@ -52,6 +52,11 @@ class SearchQueryLibraryItem extends Model
         ];
     }
 
+    public function sectors(): BelongsToMany
+    {
+        return $this->belongsToMany(ServiceCategory::class, 'search_query_library_sectors')->withTimestamps();
+    }
+
     public function services(): BelongsToMany
     {
         return $this->belongsToMany(

@@ -26,26 +26,31 @@ final class SearchQueryLibraryService
         $language = $this->nullable($attributes['language_code'] ?? null);
         $locale = $this->nullable($attributes['locale'] ?? null);
         $market = $this->nullable($attributes['market_code'] ?? null);
-        $normalized = $this->normalizer->normalize($query, $language, $locale);
+        $cleaned = \App\Support\Options\LocationOptions::strip($query);
+        $normalized = $this->normalizer->normalize($cleaned['text'], $language ?: 'tr', $locale);
+        $attributes['raw_payload'] = array_merge((array) ($attributes['raw_payload'] ?? []), [
+            'original_query' => $query, 'removed_locations' => $cleaned['removed'],
+        ]);
+        $sector = trim((string) ($attributes['sector'] ?? $this->service($attributes['service_catalog_item_id'] ?? null)?->sector ?? ''));
+        if (! \App\Models\ServiceCategory::query()->where('code', $sector)->exists()) {
+            throw ValidationException::withMessages(['sector' => 'Sorgu kaydı için geçerli bir sektör seçin.']);
+        }
+        $attributes['sector'] = $sector;
 
-        if ($normalized->canonicalText === '') {
-            throw ValidationException::withMessages(['query_text' => 'Sorgu metni gereklidir.']);
+        if (\App\Support\Options\LocationOptions::fold($normalized->canonicalText) === '') {
+            throw ValidationException::withMessages(['query_text' => 'Lokasyonlar çıkarıldıktan sonra sorgu metni kalmadı.']);
         }
         if (! in_array($sourceType, self::sourceTypes(), true)) {
             throw ValidationException::withMessages(['source_type' => 'Geçersiz sorgu kaynağı.']);
         }
 
-        return DB::transaction(function () use ($query, $sourceType, $attributes, $actor, $language, $locale, $market, $normalized): array {
+        return \Illuminate\Support\Facades\Cache::lock('library-query:'.hash('sha256', $normalized->canonicalText), 30)->block(10, fn (): array => DB::transaction(function () use ($query, $sourceType, $attributes, $actor, $language, $locale, $market, $normalized): array {
             $now = now();
-            $identityHash = hash('sha256', json_encode([
-                'canonical_text' => $normalized->canonicalText,
-                'language_code' => $language,
-                'locale' => $locale,
-                'market_code' => $market,
-                'normalization_version' => $normalized->normalizationVersion,
-            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+            $identityHash = hash('sha256', 'library-location-free-v2|'.$normalized->canonicalText);
 
-            $item = SearchQueryLibraryItem::query()->firstOrNew(['identity_hash' => $identityHash]);
+            $item = SearchQueryLibraryItem::query()->where('identity_hash', $identityHash)->lockForUpdate()->first()
+                ?? SearchQueryLibraryItem::query()->where('canonical_text', $normalized->canonicalText)->orderBy('id')->lockForUpdate()->first()
+                ?? new SearchQueryLibraryItem(['identity_hash' => $identityHash]);
             $created = ! $item->exists;
             if ($created) {
                 $item->fill([
@@ -55,13 +60,13 @@ final class SearchQueryLibraryService
                     'language_code' => $language,
                     'locale' => $locale,
                     'market_code' => $market,
-                    'normalization_version' => $normalized->normalizationVersion,
+                    'normalization_version' => 'library_location_free_v2',
                     'first_seen_at' => $now,
                     'created_by' => $actor?->id,
                 ]);
             }
             $item->fill([
-                'sector' => $this->nullable($attributes['sector'] ?? null) ?? $item->sector,
+                'sector' => $item->sector ?: $attributes['sector'],
                 'demand_family' => $this->nullable($attributes['demand_family'] ?? null) ?? $item->demand_family,
                 'search_intent' => $this->nullable($attributes['search_intent'] ?? null) ?? $item->search_intent,
                 'user_problem' => $this->nullable($attributes['user_problem'] ?? null) ?? $item->user_problem,
@@ -90,9 +95,11 @@ final class SearchQueryLibraryService
                 'updated_by' => $actor?->id,
             ]);
             $item->save();
+            $category = \App\Models\ServiceCategory::query()->where('code', $attributes['sector'])->firstOrFail();
+            $item->sectors()->syncWithoutDetaching([$category->id]);
 
             $service = $this->service($attributes['service_catalog_item_id'] ?? null);
-            if ($service instanceof ServiceCatalogItem) {
+            if ($service instanceof ServiceCatalogItem && ! $item->services()->whereKey($service->id)->exists()) {
                 $hasPrimary = $item->services()->wherePivot('is_primary', true)->exists();
                 $item->services()->syncWithoutDetaching([
                     $service->id => [
@@ -109,8 +116,7 @@ final class SearchQueryLibraryService
             $sourceFingerprint = hash('sha256', json_encode([
                 'source_type' => $sourceType,
                 'item_id' => $item->id,
-                'import_id' => $importId,
-                'row_number' => $rowNumber,
+
                 'source_reference' => $sourceReference,
                 'observed_text' => $query,
             ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
@@ -143,7 +149,7 @@ final class SearchQueryLibraryService
             );
 
             return ['item' => $item->refresh(), 'created' => $created, 'source_record' => $sourceRecord];
-        });
+        }));
     }
 
     /** @return list<string> */

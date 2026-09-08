@@ -21,7 +21,7 @@
                     </select>
                 </x-ta.form.field>
                 <x-ta.form.field :label="__('operator.sales_intent.fields.country')">
-                    <select wire:model="country" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900">
+                    <select wire:model.live="country" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900">
                         <option value="">—</option>
                         @foreach ($countryOptions as $code => $label)
                             <option value="{{ $code }}">{{ $label }}</option>
@@ -32,7 +32,16 @@
                     <input wire:model="language" type="text" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900" />
                 </x-ta.form.field>
                 <x-ta.form.field :label="__('operator.sales_intent.fields.location')">
-                    <input wire:model="location" type="text" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900" />
+                    @if ($country === 'TR')
+                        <datalist id="central-location-options">
+                            @foreach(\App\Support\Options\LocationOptions::cities() as $name)<option value="{{ $name }}"></option>@endforeach
+                            @foreach(\App\Support\Options\LocationOptions::data('districts') as $district)
+                                @php($province = collect(\App\Support\Options\LocationOptions::data('provinces'))->firstWhere('id', $district['provinceId']))
+                                <option value="{{ $district['name'] }}, {{ $province['name'] }}"></option>
+                            @endforeach
+                        </datalist>
+                    @endif
+                    <input wire:model="location" list="central-location-options" type="text" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900" />
                 </x-ta.form.field>
                 <x-ta.form.field :label="__('operator.sales_intent.fields.include')" :error="$errors->first('include_concepts')" class="md:col-span-2">
                     <textarea wire:model="include_concepts" rows="5" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"></textarea>

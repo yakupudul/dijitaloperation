@@ -29,6 +29,8 @@ class SearchProfileForm extends Component
 
     public string $location = '';
 
+    public function updatedCountry(): void { $this->location = ''; }
+
     public string $include_concepts = '';
 
     public string $exclude_concepts = '';

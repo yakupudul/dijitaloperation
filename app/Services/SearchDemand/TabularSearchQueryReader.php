@@ -48,6 +48,7 @@ final class TabularSearchQueryReader
             $rows = [];
             while (($row = fgetcsv($handle, 0, $delimiter)) !== false) {
                 $rows[] = array_map(fn (mixed $value): string => trim((string) $value), $row);
+                if (count($rows) > 10001) { throw new RuntimeException('Dosyada en fazla 10.000 sorgu olabilir.'); }
             }
         } finally {
             fclose($handle);
@@ -69,12 +70,20 @@ final class TabularSearchQueryReader
         }
 
         try {
+            $expandedSize = 0;
+            for ($i = 0; $i < $zip->numFiles; $i++) {
+                $stat = $zip->statIndex($i);
+                $expandedSize += (int) ($stat['size'] ?? 0);
+                if ($expandedSize > 32 * 1024 * 1024 || $zip->numFiles > 1000) {
+                    throw new RuntimeException('Excel dosyası açıldığında 32 MB sınırını aşıyor. Dosyayı bölerek yükleyin.');
+                }
+            }
             $shared = $this->sharedStrings($zip->getFromName('xl/sharedStrings.xml') ?: null);
             $sheetXml = $zip->getFromName('xl/worksheets/sheet1.xml');
             if (! is_string($sheetXml)) {
                 throw new RuntimeException('Excel dosyasının ilk çalışma sayfası bulunamadı.');
             }
-            $sheet = simplexml_load_string($sheetXml);
+            $sheet = $this->xml($sheetXml);
             if (! $sheet instanceof SimpleXMLElement) {
                 throw new RuntimeException('Excel çalışma sayfası okunamadı.');
             }
@@ -96,12 +105,16 @@ final class TabularSearchQueryReader
                     if ($type === 's') {
                         $value = $shared[(int) $value] ?? '';
                     }
+                    if ($column > 255) {
+                        throw new RuntimeException('Excel dosyası en fazla 256 sütun içerebilir.');
+                    }
                     $row[$column] = trim($value);
                 }
                 if ($row !== []) {
                     ksort($row);
                     $max = max(array_keys($row));
                     $rows[] = array_map(fn (int $index): string => (string) ($row[$index] ?? ''), range(0, $max));
+                    if (count($rows) > 10001) { throw new RuntimeException('Excel dosyasında en fazla 10.000 sorgu olabilir.'); }
                 }
             }
         } finally {
@@ -117,7 +130,7 @@ final class TabularSearchQueryReader
         if (! is_string($xml) || $xml === '') {
             return [];
         }
-        $document = simplexml_load_string($xml);
+        $document = $this->xml($xml);
         if (! $document instanceof SimpleXMLElement) {
             return [];
         }
@@ -171,6 +184,15 @@ final class TabularSearchQueryReader
         }
 
         return $result;
+    }
+
+    private function xml(string $xml): SimpleXMLElement|false
+    {
+        if (stripos($xml, '<!DOCTYPE') !== false || stripos($xml, '<!ENTITY') !== false) {
+            throw new RuntimeException('Excel XML dosyasında desteklenmeyen belge tanımı var.');
+        }
+
+        return simplexml_load_string($xml, SimpleXMLElement::class, LIBXML_NONET);
     }
 
     private function header(string $header): string
