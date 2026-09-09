@@ -56,7 +56,33 @@ final class ActivityReadService
                 ->when($since !== null, fn ($q) => $q->where('created_at', '>=', $since))->latest('id')->limit($sqlLimit)->get()
             : collect();
 
+        $clusterOperations = empty($filters['brand_id']) && empty($filters['customer_id']) && empty($filters['digital_asset_id'])
+            ? \Illuminate\Support\Facades\DB::table('library_cluster_operations as o')
+                ->leftJoin('users as u', 'u.id', '=', 'o.created_by')
+                ->when($since !== null, fn ($q) => $q->where('o.created_at', '>=', $since))
+                ->select('o.*', 'u.name as actor_name')->orderByDesc('o.id')->limit($sqlLimit)->get()
+            : collect();
+
         $rows = collect()
+            ->concat($clusterOperations->map(function ($op): array {
+                $meta = json_decode($op->metadata, true);
+                $at = Carbon::parse($op->created_at);
+                return [
+                    'id' => 'query-cluster:'.$op->id, 'sort_id' => $op->id,
+                    'title' => __('manual-clusters.kind_'.$op->kind),
+                    'detail' => ($meta['main'] ?? '').' · '.__('manual-clusters.progress', [
+                        'processed' => $op->processed, 'total' => $op->total,
+                        'changed' => $op->changed, 'skipped' => $op->skipped,
+                    ]),
+                    'actor' => $op->actor_name ?? 'System', 'actor_kind' => 'human',
+                    'status' => match ($op->status) { 'queued', 'running' => 'running', 'failed' => 'failed', 'partial' => 'partial', default => 'success' },
+                    'brand' => null, 'brand_id' => null, 'customer' => null, 'customer_id' => null,
+                    'created_at' => $at->toIso8601String(), 'occurred_at' => $at->toIso8601String(),
+                    'relative' => $at->diffForHumans(), 'route' => 'operator.library.search-demand-clusters',
+                    'route_params' => ['service' => $op->service_id], 'event' => 'library.query-cluster',
+                    'event_label' => __('manual-clusters.title'), 'domain_event_id' => null,
+                ];
+            }))
             ->concat($libraryImports->map(fn ($import): array => [
                 'id' => 'library-import:'.$import->id, 'sort_id' => $import->id,
                 'title' => $import->source_type === 'services' ? 'Toplu hizmet ekleme' : ($import->source_type === 'assignment' ? 'Toplu sorgu atama' : 'Sorgu içe aktarma'),

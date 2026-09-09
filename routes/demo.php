@@ -102,7 +102,8 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/library/services', ServiceCatalogPage::class)->name('operator.library.services');
         Route::livewire('/library/search-queries', SearchQueryLibraryPage::class)->name('operator.library.search-queries');
         Route::livewire('/library/brand-query-portfolios', BrandQueryPortfolioPage::class)->name('operator.library.brand-query-portfolios');
-        Route::livewire('/library/search-demand-clusters', SearchDemandClustersPage::class)->name('operator.library.search-demand-clusters');
+        Route::livewire('/library/search-demand-clusters', \App\Livewire\Operator\Library\ManualQueryClustersPage::class)->name('operator.library.search-demand-clusters');
+        Route::livewire('/library/search-demand-clusters/legacy', SearchDemandClustersPage::class)->name('operator.library.search-demand-clusters.legacy');
         Route::livewire('/library/search-demand-visibility', SearchDemandVisibilityMapPage::class)->name('operator.library.search-demand-visibility');
         Route::livewire('/library/search-demand-enrichment', SearchDemandEnrichmentPage::class)->name('operator.library.search-demand-enrichment');
         Route::livewire('/library/search-demand-ownership', SearchDemandPageOwnershipPage::class)->name('operator.library.search-demand-ownership');

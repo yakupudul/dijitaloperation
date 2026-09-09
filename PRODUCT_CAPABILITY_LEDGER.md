@@ -1,5 +1,7 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+> Manual query clusters, 2026-09-09: source-reviewed staging implementation only. No tests, migrations, queue, build or UAT executed.
+
 > **Canonical product capability truth table for MoxDOP.**  
 > Public Discovery Stage 1 update: 2026-09-07, `chatgpt/search-demand-foundation`. 70 targeted tests / 365 assertions passed; Pint, frontend build and Blade compilation passed. Real staging PostgreSQL, worker operation and operator UAT remain unclaimed. Contract: `docs/product/DISCOVERY_INTELLIGENCE.md` (ADR-061).
 > Previous Website standards update: 2026-09-06, staging work branch `chatgpt/search-demand-foundation`; main is not evaluated by this update. No PR/merge is part of this task.
@@ -36,6 +38,7 @@
 
 | Capability | Code | Automated Tests | Real UAT | Operator UX | Background-ready | State | Known blocker / debt | Canonical notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Manual service query clusters (four-step operator roadmap) | YES (staging branch) | NO — operator instruction | NO | Bilingual tree/table, filters, bulk selection/move, central rename, child CRUD/merge, receipts/undo, CSV, Website target plans | YES — 250-row queued operations + durable progress/Activity; confirmation snapshot is one synchronous SQL statement | **CODE COMPLETE / UAT REQUIRED** | No runtime, migration, queue, load or visual validation; 100k throughput unmeasured. Existing import caps unchanged. No automatic export/receipt retention. Legacy Brand AI clusters preserved separately; downstream bridging is later scope. | Global service is root; one child level on existing query-service associations; no AI or DataForSEO call. Snapshot/revision guards protect subsequent changes. Source and scope: docs/product/SEARCH_DEMAND_INTELLIGENCE.md, manual-clusters section. |
 | Customer / Brand management | YES | YES | NO | YES | N/A | TESTED | Formal real-operator UAT not recorded as PASS | Operator `/customers` `/brands`; Filament `/admin` technical CRUD |
 | Digital Assets | YES | YES | NO | YES | PARTIAL | TESTED | Long actions migrated to queue; short cross-asset checks still sync | Operator `/assets`; types include website, google_ads, gbp, meta_ads, instagram |
 | MoxDOP Intelligence Core | YES (branch) | NO | NO | N/A | N/A | **CODE COMPLETE** | Tests and live UAT intentionally not run. Formula-to-Evidence consumers and additional provider adapters remain later milestones. | ADR-046/047; versioned registry + capability/metric contracts + Page/Search Term/Entity/Business Action identities and provenance aliases. Provider fact tables stay canonical; existing Formula/Evidence/Finding pipeline is reused. |
