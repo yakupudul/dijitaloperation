@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MoxDOP Website Connector
  * Description: Read-only, signed Website inventory connector for MoxDOP.
- * Version: 1.0.0
+ * Version: 1.1.0
  * Requires at least: 6.2
  * Requires PHP: 7.4
  * Author: MoxDOP
@@ -11,7 +11,7 @@
 
 defined('ABSPATH') || exit;
 
-define('MOXDOP_CONNECTOR_VERSION', '1.0.0');
+define('MOXDOP_CONNECTOR_VERSION', '1.1.0');
 define('MOXDOP_CONNECTOR_FILE', __FILE__);
 define('MOXDOP_CONNECTOR_DIR', plugin_dir_path(__FILE__));
 
@@ -20,6 +20,11 @@ require_once MOXDOP_CONNECTOR_DIR.'includes/class-moxdop-connector-secrets.php';
 require_once MOXDOP_CONNECTOR_DIR.'includes/class-moxdop-connector-auth.php';
 require_once MOXDOP_CONNECTOR_DIR.'includes/class-moxdop-connector-rest-controller.php';
 require_once MOXDOP_CONNECTOR_DIR.'includes/class-moxdop-connector-admin.php';
+require_once MOXDOP_CONNECTOR_DIR.'includes/class-moxdop-connector-events.php';
+require_once MOXDOP_CONNECTOR_DIR.'includes/class-moxdop-connector-health.php';
+
+(new MoxDOP_Connector_Events())->register();
+register_deactivation_hook(__FILE__, ['MoxDOP_Connector_Events', 'deactivate']);
 
 register_activation_hook(__FILE__, static function () {
     if (! get_option('moxdop_connector_installation_id')) {

@@ -50,3 +50,13 @@ Keep code/test/UAT truth in `PRODUCT_CAPABILITY_LEDGER.md`. A successful local t
 - All 39 changed/new PHP files passed syntax checks; Laravel Pint completed. The production frontend build and Blade compilation passed, and the authenticated standards route was verified.
 - Existing Website workspace test copy was brought into line with the current screen text; assertions for retired labels were not product defects. No production data or application dependency locks were changed.
 - This is targeted local verification, not a full-suite run, staging deployment, PostgreSQL migration acceptance or live-model/operator UAT. The migration also widens existing improvement/competitor route signatures to accommodate configured multi-provider routes.
+
+## Operator revision — 2026-09-09
+
+The current standards catalogue is deterministic only. Expert criteria remain archived and
+disabled, even if an older settings overlay enabled them; no new AI request is introduced.
+Website includes inherited general and WordPress checks. Google Ads and Meta Ads currently show
+explicit empty category states, not implemented audit claims. Added 25 executable checks;
+planned sitemap graph, full hreflang reciprocity, GSC inspection and managed repairs are still
+outside this source delivery. Existing assessment bounds, human proposal promotion and
+unknown-vs-failure semantics remain. Source inspection only; tests and runtime not run per user.

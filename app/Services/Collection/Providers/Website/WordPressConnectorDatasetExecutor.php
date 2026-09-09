@@ -101,10 +101,25 @@ final class WordPressConnectorDatasetExecutor implements DatasetExecutor
         }
 
         $section = $sections[$sectionIndex];
-        $payload = $this->client->snapshot($connection, $section, $page);
+        $objectIds = array_values(array_unique(array_map('intval', (array) data_get($context->collectionRun->request_context, 'context.wordpress_object_ids', []))));
+        if (count($objectIds) > 50 || ($objectIds !== [] && min($objectIds) < 1)) {
+            throw new RuntimeException('Invalid incremental WordPress object scope.');
+        }
+        $scopeIds = in_array($section, ['content', 'media', 'seo'], true) ? $objectIds : [];
+        $payload = $this->client->snapshot($connection, $section, $page, objectIds: $scopeIds);
+        if ($scopeIds !== [] && ($payload['object_ids'] ?? null) !== $scopeIds) {
+            throw new RuntimeException('Connector did not confirm the requested incremental scope; update the plugin.');
+        }
+        if ($scopeIds !== []) {
+            foreach ((array) ($payload['records'] ?? []) as $record) {
+                if (! is_array($record) || ! in_array((int) ($record['object_id'] ?? 0), $scopeIds, true)) {
+                    throw new RuntimeException('Connector returned an object outside the requested scope.');
+                }
+            }
+        }
         $records = array_values(array_filter($payload['records'] ?? [], 'is_array'));
         $normalized = array_values(array_filter(array_map(
-            fn (array $record): ?array => $this->normalize($section, $record, $observedAt),
+            fn (array $record): ?array => $this->normalize($section, array_merge($record, ['connector_version' => $payload['plugin_version'] ?? null]), $observedAt),
             $records,
         )));
 
@@ -157,7 +172,7 @@ final class WordPressConnectorDatasetExecutor implements DatasetExecutor
         $metadata = [
             'source' => 'WORDPRESS_SITE_CONNECTOR',
             'access_mode' => 'authenticated_read_only',
-            'connector_version' => (string) config('moxdop-wordpress.connector_version', '1.0.0'),
+            'connector_version' => $record['connector_version'] ?? null,
         ];
 
         return match ($section) {
@@ -188,6 +203,7 @@ final class WordPressConnectorDatasetExecutor implements DatasetExecutor
                     'available_wordpress_version' => $record['available_wordpress_version'] ?? null,
                     'core_update_checked_at' => $record['core_update_checked_at'] ?? null,
                     'site_health_cached' => $record['site_health_cached'] ?? null,
+                    'health' => $record['health'] ?? null,
                 ]),
             ],
             'extensions' => ($record['extension_id'] ?? '') === '' ? null : [
@@ -224,6 +240,7 @@ final class WordPressConnectorDatasetExecutor implements DatasetExecutor
                 'metadata' => array_merge($metadata, [
                     'language' => $record['language'] ?? null,
                     'translations' => $record['translations'] ?? [],
+                    'business_fields' => $record['business_fields'] ?? [],
                     'content_hash' => $record['content_hash'] ?? null,
                     'content_length' => $record['content_length'] ?? null,
                     'builder_provider' => is_array($record['builder'] ?? null) ? ($record['builder']['provider'] ?? null) : null,
@@ -348,10 +365,12 @@ final class WordPressConnectorDatasetExecutor implements DatasetExecutor
     {
         DB::transaction(function () use ($context, $datasetId, $assetId, $observedAt): void {
             $table = (string) $this->storage->physicalDataset($datasetId)['table'];
-            DB::table($table)
-                ->where('digital_asset_id', $assetId)
-                ->where('observed_at', '!=', $observedAt)
-                ->delete();
+            $objectIds = (array) data_get($context->collectionRun->request_context, 'context.wordpress_object_ids', []);
+            $stale = DB::table($table)->where('digital_asset_id', $assetId)->where('observed_at', '!=', $observedAt);
+            if ($objectIds !== [] && in_array($datasetId, ['website_cms_object_snapshot', 'website_cms_seo_snapshot'], true)) {
+                $stale->whereIn('object_id', array_map('strval', $objectIds));
+            }
+            $stale->delete();
 
             $this->materializations->recordSuccessfulCoverageDates(
                 datasetId: $datasetId,

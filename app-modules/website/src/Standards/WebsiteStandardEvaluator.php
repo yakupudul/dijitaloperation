@@ -22,6 +22,13 @@ final class WebsiteStandardEvaluator
         if ($method === 'expert_review') {
             return $this->out('unknown', 'Bu kriter, seçilen sayfa ve sorgu kümesi üzerinde uzman incelemesi gerektirir.');
         }
+        if (str_starts_with($method, 'wp_') || in_array($method, [
+            'title_duplicate', 'description_duplicate', 'content_duplicate', 'title_multiple', 'description_multiple',
+            'h1_multiple', 'language_missing', 'internal_broken', 'internal_redirect', 'empty_anchors',
+            'canonical_target', 'image_alt', 'image_dimensions', 'mixed_resources', 'hreflang_target',
+        ], true)) {
+            return (new ExtendedWebsiteEvaluator)->evaluate($standard, $page);
+        }
         $facts = $page['facts'] ?? [];
         $html = $page['stored_html'] ?? null;
         $sourceKey = match ($method) {

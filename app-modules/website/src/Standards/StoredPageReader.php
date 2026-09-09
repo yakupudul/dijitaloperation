@@ -63,6 +63,7 @@ final class StoredPageReader
 
         return [
             'url' => $profile->preferred_url, 'page_profile_id' => $profile->id,
+            'seo_inspection' => (new StoredSeoInspector)->inspect($profile->preferred_url, $html),
             'snapshot_id' => (int) $snapshot->id, 'raw_ingestion_object_id' => $object->id,
             'observed_at' => $snapshot->observed_at, 'html_hash' => $snapshot->html_hash,
             'content_fingerprint' => $content['content_fingerprint'],

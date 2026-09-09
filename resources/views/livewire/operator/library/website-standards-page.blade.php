@@ -1,19 +1,28 @@
 <div class="space-y-5">
     <div>
-        <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Web Sitesi Standartları</h1>
-        <p class="mt-2 text-sm text-gray-500">Web sitesi ve rakip analizlerinde kullanılan değerlendirme ölçütleri. Her kriterin kapsamı, kanıtı ve inceleme yöntemi ayrı tanımlıdır.</p>
+        <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Standartlar</h1>
+        <p class="mt-2 text-sm text-gray-500">Dijital varlık türüne göre ölçülebilir kontroller. WordPress sitelerinde genel web sitesi ve WordPress standartları birlikte uygulanır.</p>
         <p class="mt-1 text-xs text-gray-500">Bu kütüphane tüm markalar için ortaktır. Değişiklikler sonraki değerlendirmelerde uygulanır.</p>
     </div>
     @if($message)<p role="status" class="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">{{ $message }}</p>@endif
     @if($errors->any())<div role="alert" class="rounded-lg bg-red-50 p-3 text-sm text-red-700">@foreach($errors->all() as $error)<p>{{ $error }}</p>@endforeach</div>@endif
     <div class="flex flex-wrap gap-3">
+        <label><span class="sr-only">Dijital varlık türü</span><select wire:model.live="assetType" class="rounded-lg border-gray-300 text-sm dark:bg-gray-900"><option value="website">Web sitesi</option><option value="google_ads">Google Ads</option><option value="meta_ads">Meta Ads</option></select></label>
+        @if($assetType === 'website')
+        <label><span class="sr-only">Altyapı</span><select wire:model.live="platform" class="rounded-lg border-gray-300 text-sm dark:bg-gray-900"><option value="">Genel + WordPress</option><option value="general">Genel web sitesi</option><option value="wordpress">WordPress</option></select></label>
+        @endif
         <label><span class="sr-only">Standart ara</span><input wire:model.live.debounce.300ms="search" placeholder="Standart ara" class="rounded-lg border-gray-300 text-sm dark:bg-gray-900 dark:text-white" /></label>
         <label><span class="sr-only">Kategori</span><select wire:model.live="group" class="rounded-lg border-gray-300 text-sm dark:bg-gray-900 dark:text-white"><option value="">Tüm kategoriler</option>@foreach($groups as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach</select></label>
     </div>
+    @if($assetType !== 'website')
+        <p class="rounded-xl border p-5 text-sm text-gray-500">Bu kategori ayrıldı; {{ $assetType === 'google_ads' ? 'Google Ads' : 'Meta Ads' }} standart kataloğu henüz tanımlanmadı.</p>
+    @elseif(count($standards) === 0)
+        <p class="rounded-xl border p-5 text-sm text-gray-500">Bu filtrelere uygun standart bulunamadı.</p>
+    @endif
     @foreach($standards as $standard)
         <article wire:key="standard-{{ $standard['id'] }}" class="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
             <div class="flex flex-wrap items-start justify-between gap-3">
-                <div><p class="text-xs text-gray-500">{{ $groups[$standard['group']] }} · v{{ $standard['version'] }} · {{ $standard['method'] === 'expert_review' ? 'Uzman incelemesi' : 'Kodla değerlendirme' }}</p><h2 class="mt-1 font-semibold text-gray-900 dark:text-white">{{ $standard['title'] }}</h2></div>
+                <div><p class="text-xs text-gray-500">{{ ($standard['platform'] ?? 'general') === 'wordpress' ? 'WordPress' : 'Genel web sitesi' }} · {{ $groups[$standard['group']] }} · v{{ $standard['version'] }} · {{ $standard['method'] === 'expert_review' ? 'Uzman incelemesi' : 'Kodla değerlendirme' }}</p><h2 class="mt-1 font-semibold text-gray-900 dark:text-white">{{ $standard['title'] }}</h2></div>
                 @if(auth()->user()->hasRole(\App\Support\Roles::ADMIN))
                     <button type="button" wire:click="setEnabled('{{ $standard['id'] }}', {{ $standard['enabled'] ? 'false' : 'true' }})" wire:loading.attr="disabled" class="rounded-lg border px-3 py-2 text-sm {{ $standard['enabled'] ? 'border-emerald-300 text-emerald-700' : 'border-gray-300 text-gray-500' }}">{{ $standard['enabled'] ? 'Etkin — devre dışı bırak' : 'Devre dışı — etkinleştir' }}</button>
                 @else <span class="text-sm text-gray-500">{{ $standard['enabled'] ? 'Etkin' : 'Devre dışı' }}</span> @endif
@@ -27,16 +36,4 @@
             </details>
         </article>
     @endforeach
-    @if(auth()->user()->hasRole(\App\Support\Roles::ADMIN))
-        <details class="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900"><summary class="cursor-pointer font-semibold text-brand-600">Uzman kriteri ekle</summary>
-            <form wire:submit="addCriterion" class="mt-4 grid gap-3">
-                <label class="text-sm text-gray-600">Başlık<input wire:model="draft.title" required maxlength="160" class="mt-1 block w-full rounded-lg border-gray-300 dark:bg-gray-900" /></label>
-                <label class="text-sm text-gray-600">Kategori<select wire:model="draft.group" class="mt-1 block w-full rounded-lg border-gray-300 dark:bg-gray-900">@foreach($groups as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach</select></label>
-                <label class="text-sm text-gray-600">Hangi soruyu değerlendirecek?<textarea wire:model="draft.criterion" required minlength="20" maxlength="1500" class="mt-1 block w-full rounded-lg border-gray-300 dark:bg-gray-900"></textarea></label>
-                <label class="text-sm text-gray-600">Eksik varsa önerilecek yaklaşım<textarea wire:model="draft.action" required minlength="10" maxlength="1000" class="mt-1 block w-full rounded-lg border-gray-300 dark:bg-gray-900"></textarea></label>
-                <label class="text-sm text-gray-600">Referans bağlantısı (isteğe bağlı)<input wire:model="draft.source_url" type="url" class="mt-1 block w-full rounded-lg border-gray-300 dark:bg-gray-900" /></label>
-                <button type="submit" wire:loading.attr="disabled" class="justify-self-start rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white">Kriteri kaydet</button>
-            </form>
-        </details>
-    @endif
 </div>

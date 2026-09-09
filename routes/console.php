@@ -296,3 +296,10 @@ Schedule::command('moxdop:data-pool-audit --provider=META_ADS')
     ->dailyAt('05:10')
     ->withoutOverlapping(180)
     ->name('moxdop-meta-ads-data-pool-audit');
+
+Artisan::command('moxdop:wordpress:reconcile', function (): void {
+    app(\App\Services\Integrations\WordPress\WordPressEventReconciliation::class)->tick();
+})->purpose('Reconcile WordPress activity through bounded queued collections.');
+
+Schedule::command('moxdop:wordpress:reconcile')
+    ->everyFiveMinutes()->withoutOverlapping(10)->name('wordpress-event-reconciliation');

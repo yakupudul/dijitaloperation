@@ -69,6 +69,11 @@ final class WebsiteCollectionOrchestrator
             }
         }
 
+        if (in_array(WebsiteRequestFamilyCatalog::FAMILY_WP_REST, $families, true)) {
+            $providers[] = 'WORDPRESS_SITE_CONNECTOR';
+            $providers = array_values(array_unique($providers));
+        }
+
         return $this->starter->start(new StartCollectionRequest(
             digitalAsset: $asset,
             triggerType: CollectionTriggerType::Manual,

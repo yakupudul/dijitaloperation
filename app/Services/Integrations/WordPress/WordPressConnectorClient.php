@@ -34,10 +34,11 @@ final class WordPressConnectorClient
     }
 
     /** @return array<string, mixed> */
-    public function snapshot(CoreConnection $connection, string $section, int $page = 1, ?int $perPage = null): array
+    public function snapshot(CoreConnection $connection, string $section, int $page = 1, ?int $perPage = null, array $objectIds = []): array
     {
         return $this->get($connection, 'snapshot_url', '/moxdop/v1/snapshot', [
             'section' => $section,
+            ...($objectIds === [] ? [] : ['object_ids' => implode(',', $objectIds)]),
             'page' => max(1, $page),
             'per_page' => min(100, max(1, $perPage ?? (int) config('moxdop-wordpress.per_page', 50))),
         ]);

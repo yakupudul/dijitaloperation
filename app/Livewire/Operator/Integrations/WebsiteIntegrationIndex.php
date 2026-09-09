@@ -62,7 +62,7 @@ final class WebsiteIntegrationIndex extends Component
 
     public function setTab(string $tab): void
     {
-        $allowed = ['overview', 'sources', 'runs', 'data', 'settings'];
+        $allowed = ['overview', 'sources', 'runs', 'data', 'settings', 'activity'];
         $this->activeTab = in_array($tab, $allowed, true) ? $tab : 'overview';
     }
 

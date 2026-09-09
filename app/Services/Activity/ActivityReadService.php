@@ -63,7 +63,35 @@ final class ActivityReadService
                 ->select('o.*', 'u.name as actor_name')->orderByDesc('o.id')->limit($sqlLimit)->get()
             : collect();
 
+        $websiteEvents = \Illuminate\Support\Facades\DB::table('website_connector_events as e')
+            ->join('digital_assets as a', 'a.id', '=', 'e.digital_asset_id')
+            ->join('brands as b', 'b.id', '=', 'a.brand_id')
+            ->leftJoin('customers as c', 'c.id', '=', 'b.customer_id')
+            ->when(! empty($filters['brand_id']), fn ($q) => $q->where('b.id', $filters['brand_id']))
+            ->when(! empty($filters['customer_id']), fn ($q) => $q->where('c.id', $filters['customer_id']))
+            ->when(! empty($filters['digital_asset_id']), fn ($q) => $q->where('a.id', $filters['digital_asset_id']))
+            ->when($since !== null, fn ($q) => $q->where('e.occurred_at', '>=', $since))
+            ->select('e.*', 'b.id as brand_id', 'b.name as brand_name', 'c.id as customer_id', 'c.name as customer_name')
+            ->orderByDesc('e.occurred_at')->orderByDesc('e.id')->limit($sqlLimit)->get();
+
         $rows = collect()
+            ->concat($websiteEvents->map(function ($event): array {
+                $at = Carbon::parse($event->occurred_at);
+                return [
+                    'id' => 'wordpress-event:'.$event->id, 'sort_id' => $event->id,
+                    'title' => __('wordpress-events.'.$event->type),
+                    'detail' => $event->title ?: $event->object_type.' #'.$event->object_id,
+                    'actor' => $event->actor_name ?: 'WordPress',
+                    'actor_kind' => $event->origin === 'wordpress_user' ? 'human' : 'system',
+                    'status' => str_ends_with($event->type, '_failed') ? 'failed' : 'success',
+                    'brand' => $event->brand_name, 'brand_id' => $event->brand_id,
+                    'customer' => $event->customer_name, 'customer_id' => $event->customer_id,
+                    'created_at' => $at->toIso8601String(), 'occurred_at' => $at->toIso8601String(),
+                    'relative' => $at->diffForHumans(), 'route' => 'operator.integrations.website',
+                    'route_params' => ['assetId' => $event->digital_asset_id, 'tab' => 'activity'],
+                    'event' => 'website.wordpress-activity', 'event_label' => 'WordPress', 'domain_event_id' => null,
+                ];
+            }))
             ->concat($clusterOperations->map(function ($op): array {
                 $meta = json_decode($op->metadata, true);
                 $at = Carbon::parse($op->created_at);

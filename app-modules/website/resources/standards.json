@@ -18,7 +18,9 @@
       "verification": "Entegrasyonlardan yeni gözlem topladıktan sonra aynı kontrolü yeniden çalıştırın.",
       "source_url": "https://developers.google.com/search/docs/crawling-indexing/http-network-errors",
       "source_reviewed_at": "2026-09-05",
-      "severity": "high"
+      "severity": "high",
+      "asset_type": "website",
+      "platform": "general"
     },
     {
       "id": "https-tls-validity",
@@ -37,7 +39,9 @@
       "verification": "Entegrasyonlardan yeni gözlem topladıktan sonra aynı kontrolü yeniden çalıştırın.",
       "source_url": "https://developers.google.com/search/docs/appearance/page-experience",
       "source_reviewed_at": "2026-09-06",
-      "severity": "high"
+      "severity": "high",
+      "asset_type": "website",
+      "platform": "general"
     },
     {
       "id": "redirect-http-to-https",
@@ -56,7 +60,9 @@
       "verification": "Entegrasyonlardan yeni gözlem topladıktan sonra aynı kontrolü yeniden çalıştırın.",
       "source_url": "https://developers.google.com/search/docs/crawling-indexing/301-redirects",
       "source_reviewed_at": "2026-09-05",
-      "severity": "medium"
+      "severity": "medium",
+      "asset_type": "website",
+      "platform": "general"
     },
     {
       "id": "robots-txt-availability",
@@ -75,7 +81,9 @@
       "verification": "Entegrasyonlardan yeni gözlem topladıktan sonra aynı kontrolü yeniden çalıştırın.",
       "source_url": "https://developers.google.com/search/docs/crawling-indexing/robots/intro",
       "source_reviewed_at": "2026-09-05",
-      "severity": "low"
+      "severity": "low",
+      "asset_type": "website",
+      "platform": "general"
     },
     {
       "id": "sitemap-xml-availability",
@@ -94,7 +102,9 @@
       "verification": "Entegrasyonlardan yeni gözlem topladıktan sonra aynı kontrolü yeniden çalıştırın.",
       "source_url": "https://developers.google.com/search/docs/crawling-indexing/sitemaps/overview",
       "source_reviewed_at": "2026-09-05",
-      "severity": "low"
+      "severity": "low",
+      "asset_type": "website",
+      "platform": "general"
     },
     {
       "id": "canonical-link-consistency",
@@ -113,7 +123,9 @@
       "verification": "Entegrasyonlardan yeni gözlem topladıktan sonra aynı kontrolü yeniden çalıştırın.",
       "source_url": "https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls",
       "source_reviewed_at": "2026-09-05",
-      "severity": "high"
+      "severity": "high",
+      "asset_type": "website",
+      "platform": "general"
     },
     {
       "id": "website:head:title-missing",
@@ -132,7 +144,9 @@
       "verification": "Entegrasyonlardan yeni gözlem topladıktan sonra aynı kontrolü yeniden çalıştırın.",
       "source_url": "https://developers.google.com/search/docs/appearance/title-link",
       "source_reviewed_at": "2026-09-05",
-      "severity": "medium"
+      "severity": "medium",
+      "asset_type": "website",
+      "platform": "general"
     },
     {
       "id": "website:head:title-empty",
@@ -151,12 +165,14 @@
       "verification": "Entegrasyonlardan yeni gözlem topladıktan sonra aynı kontrolü yeniden çalıştırın.",
       "source_url": "https://developers.google.com/search/docs/appearance/title-link",
       "source_reviewed_at": "2026-09-05",
-      "severity": "medium"
+      "severity": "medium",
+      "asset_type": "website",
+      "platform": "general"
     },
     {
       "id": "website:head:title-length-heuristic",
       "version": 1,
-      "enabled": true,
+      "enabled": false,
       "title": "Title uzunluğu incelemesi",
       "group": "metadata",
       "method": "title_length",
@@ -170,7 +186,9 @@
       "verification": "Entegrasyonlardan yeni gözlem topladıktan sonra aynı kontrolü yeniden çalıştırın.",
       "source_url": "https://developers.google.com/search/docs/appearance/title-link",
       "source_reviewed_at": "2026-09-05",
-      "severity": "low"
+      "severity": "low",
+      "asset_type": "website",
+      "platform": "general"
     },
     {
       "id": "website:head:meta-description-missing",
@@ -189,7 +207,9 @@
       "verification": "Entegrasyonlardan yeni gözlem topladıktan sonra aynı kontrolü yeniden çalıştırın.",
       "source_url": "https://developers.google.com/search/docs/appearance/snippet",
       "source_reviewed_at": "2026-09-05",
-      "severity": "low"
+      "severity": "low",
+      "asset_type": "website",
+      "platform": "general"
     },
     {
       "id": "website:head:meta-description-empty",
@@ -208,12 +228,14 @@
       "verification": "Entegrasyonlardan yeni gözlem topladıktan sonra aynı kontrolü yeniden çalıştırın.",
       "source_url": "https://developers.google.com/search/docs/appearance/snippet",
       "source_reviewed_at": "2026-09-05",
-      "severity": "low"
+      "severity": "low",
+      "asset_type": "website",
+      "platform": "general"
     },
     {
       "id": "website:head:meta-description-length-heuristic",
       "version": 1,
-      "enabled": true,
+      "enabled": false,
       "title": "Meta açıklaması uzunluğu incelemesi",
       "group": "metadata",
       "method": "description_length",
@@ -227,7 +249,9 @@
       "verification": "Entegrasyonlardan yeni gözlem topladıktan sonra aynı kontrolü yeniden çalıştırın.",
       "source_url": "https://developers.google.com/search/docs/appearance/snippet",
       "source_reviewed_at": "2026-09-05",
-      "severity": "low"
+      "severity": "low",
+      "asset_type": "website",
+      "platform": "general"
     },
     {
       "id": "website:head:charset-missing",
@@ -246,7 +270,9 @@
       "verification": "Entegrasyonlardan yeni gözlem topladıktan sonra aynı kontrolü yeniden çalıştırın.",
       "source_url": "https://developers.google.com/search/docs/crawling-indexing/special-tags",
       "source_reviewed_at": "2026-09-05",
-      "severity": "low"
+      "severity": "low",
+      "asset_type": "website",
+      "platform": "general"
     },
     {
       "id": "website:head:viewport-missing",
@@ -265,7 +291,9 @@
       "verification": "Entegrasyonlardan yeni gözlem topladıktan sonra aynı kontrolü yeniden çalıştırın.",
       "source_url": "https://web.dev/articles/responsive-web-design-basics",
       "source_reviewed_at": "2026-09-06",
-      "severity": "low"
+      "severity": "low",
+      "asset_type": "website",
+      "platform": "general"
     },
     {
       "id": "website:head:meta-robots-noindex",
@@ -284,7 +312,9 @@
       "verification": "Entegrasyonlardan yeni gözlem topladıktan sonra aynı kontrolü yeniden çalıştırın.",
       "source_url": "https://developers.google.com/search/docs/crawling-indexing/robots-meta-tag",
       "source_reviewed_at": "2026-09-05",
-      "severity": "high"
+      "severity": "high",
+      "asset_type": "website",
+      "platform": "general"
     },
     {
       "id": "website:head:jsonld-malformed",
@@ -303,7 +333,9 @@
       "verification": "Entegrasyonlardan yeni gözlem topladıktan sonra aynı kontrolü yeniden çalıştırın.",
       "source_url": "https://developers.google.com/search/docs/appearance/structured-data/sd-policies",
       "source_reviewed_at": "2026-09-05",
-      "severity": "medium"
+      "severity": "medium",
+      "asset_type": "website",
+      "platform": "general"
     },
     {
       "id": "website:head:open-graph-incomplete",
@@ -322,7 +354,9 @@
       "verification": "Entegrasyonlardan yeni gözlem topladıktan sonra aynı kontrolü yeniden çalıştırın.",
       "source_url": "https://ogp.me/",
       "source_reviewed_at": "2026-09-06",
-      "severity": "low"
+      "severity": "low",
+      "asset_type": "website",
+      "platform": "general"
     },
     {
       "id": "website:content:h1",
@@ -341,7 +375,9 @@
       "verification": "Entegrasyonlardan yeni gözlem topladıktan sonra aynı kontrolü yeniden çalıştırın.",
       "source_url": "https://developers.google.com/search/docs/appearance/title-link",
       "source_reviewed_at": "2026-09-05",
-      "severity": "medium"
+      "severity": "medium",
+      "asset_type": "website",
+      "platform": "general"
     },
     {
       "id": "website:structure:internal-links",
@@ -360,12 +396,14 @@
       "verification": "Entegrasyonlardan yeni gözlem topladıktan sonra aynı kontrolü yeniden çalıştırın.",
       "source_url": "https://developers.google.com/search/docs/crawling-indexing/links-crawlable",
       "source_reviewed_at": "2026-09-05",
-      "severity": "medium"
+      "severity": "medium",
+      "asset_type": "website",
+      "platform": "general"
     },
     {
       "id": "website:review:intent",
       "version": 1,
-      "enabled": true,
+      "enabled": false,
       "title": "Arama niyeti ve sayfa amacı",
       "group": "coverage",
       "method": "expert_review",
@@ -380,12 +418,14 @@
       "verification": "Güncellenen saklı HTML sürümünü aynı kullanıcı ihtiyacı ve kriterle yeniden inceleyin.",
       "source_url": "https://developers.google.com/search/docs/fundamentals/creating-helpful-content",
       "source_reviewed_at": "2026-09-05",
-      "severity": "medium"
+      "severity": "medium",
+      "asset_type": "website",
+      "platform": "general"
     },
     {
       "id": "website:review:questions",
       "version": 1,
-      "enabled": true,
+      "enabled": false,
       "title": "Karar için gerekli sorular",
       "group": "content",
       "method": "expert_review",
@@ -400,12 +440,14 @@
       "verification": "Güncellenen saklı HTML sürümünü aynı kullanıcı ihtiyacı ve kriterle yeniden inceleyin.",
       "source_url": "https://developers.google.com/search/docs/fundamentals/creating-helpful-content",
       "source_reviewed_at": "2026-09-05",
-      "severity": "medium"
+      "severity": "medium",
+      "asset_type": "website",
+      "platform": "general"
     },
     {
       "id": "website:review:service-scope",
       "version": 1,
-      "enabled": true,
+      "enabled": false,
       "title": "Hizmetin kapsamı ve süreç",
       "group": "content",
       "method": "expert_review",
@@ -420,12 +462,14 @@
       "verification": "Güncellenen saklı HTML sürümünü aynı kullanıcı ihtiyacı ve kriterle yeniden inceleyin.",
       "source_url": "https://developers.google.com/search/docs/fundamentals/creating-helpful-content",
       "source_reviewed_at": "2026-09-05",
-      "severity": "medium"
+      "severity": "medium",
+      "asset_type": "website",
+      "platform": "general"
     },
     {
       "id": "website:review:local-fit",
       "version": 1,
-      "enabled": true,
+      "enabled": false,
       "title": "Hizmet bölgesi ile uyum",
       "group": "local",
       "method": "expert_review",
@@ -440,12 +484,14 @@
       "verification": "Güncellenen saklı HTML sürümünü aynı kullanıcı ihtiyacı ve kriterle yeniden inceleyin.",
       "source_url": "https://developers.google.com/search/docs/fundamentals/creating-helpful-content",
       "source_reviewed_at": "2026-09-05",
-      "severity": "medium"
+      "severity": "medium",
+      "asset_type": "website",
+      "platform": "general"
     },
     {
       "id": "website:review:proof",
       "version": 1,
-      "enabled": true,
+      "enabled": false,
       "title": "Güvenilir ve özgün dayanaklar",
       "group": "trust",
       "method": "expert_review",
@@ -460,12 +506,14 @@
       "verification": "Güncellenen saklı HTML sürümünü aynı kullanıcı ihtiyacı ve kriterle yeniden inceleyin.",
       "source_url": "https://developers.google.com/search/docs/fundamentals/creating-helpful-content",
       "source_reviewed_at": "2026-09-05",
-      "severity": "medium"
+      "severity": "medium",
+      "asset_type": "website",
+      "platform": "general"
     },
     {
       "id": "website:review:next-step",
       "version": 1,
-      "enabled": true,
+      "enabled": false,
       "title": "Kullanıcının sonraki adımı",
       "group": "conversion",
       "method": "expert_review",
@@ -480,12 +528,14 @@
       "verification": "Güncellenen saklı HTML sürümünü aynı kullanıcı ihtiyacı ve kriterle yeniden inceleyin.",
       "source_url": "https://developers.google.com/search/docs/fundamentals/creating-helpful-content",
       "source_reviewed_at": "2026-09-05",
-      "severity": "medium"
+      "severity": "medium",
+      "asset_type": "website",
+      "platform": "general"
     },
     {
       "id": "website:review:answer-clarity",
       "version": 1,
-      "enabled": true,
+      "enabled": false,
       "title": "Yanıtların anlaşılır ve kaynaklanabilir olması",
       "group": "ai",
       "method": "expert_review",
@@ -500,6 +550,548 @@
       "verification": "Güncellenen saklı HTML sürümünü aynı kullanıcı ihtiyacı ve kriterle yeniden inceleyin.",
       "source_url": "https://developers.google.com/search/docs/fundamentals/ai-optimization-guide",
       "source_reviewed_at": "2026-09-05",
+      "severity": "medium",
+      "asset_type": "website",
+      "platform": "general"
+    },
+    {
+      "id": "website:title_duplicate",
+      "version": 1,
+      "enabled": true,
+      "title": "Tekrarlanan sayfa başlığı",
+      "group": "metadata",
+      "method": "title_duplicate",
+      "classification": "advisory",
+      "applicability": "public_page",
+      "asset_type": "website",
+      "platform": "general",
+      "required_evidence": [
+        "stored_html",
+        "stored_http_observations"
+      ],
+      "criterion": "Taranan kapsamda aynı başlığı kullanan farklı sayfalar incelenir.",
+      "action": "Sayfaların amaçlarına göre ayırt edilebilir başlıklar düzenleyin.",
+      "verification": "Entegrasyon verilerini yenileyip aynı standardı yeniden değerlendirin.",
+      "source_url": "https://developers.google.com/search/docs/crawling-indexing",
+      "source_reviewed_at": "2026-09-09",
+      "severity": "medium"
+    },
+    {
+      "id": "website:description_duplicate",
+      "version": 1,
+      "enabled": true,
+      "title": "Tekrarlanan meta açıklaması",
+      "group": "metadata",
+      "method": "description_duplicate",
+      "classification": "advisory",
+      "applicability": "public_page",
+      "asset_type": "website",
+      "platform": "general",
+      "required_evidence": [
+        "stored_html",
+        "stored_http_observations"
+      ],
+      "criterion": "Taranan kapsamda aynı açıklamayı kullanan farklı sayfalar listelenir.",
+      "action": "Sayfaya özel açıklamaları düzenleyin.",
+      "verification": "Entegrasyon verilerini yenileyip aynı standardı yeniden değerlendirin.",
+      "source_url": "https://developers.google.com/search/docs/crawling-indexing",
+      "source_reviewed_at": "2026-09-09",
+      "severity": "medium"
+    },
+    {
+      "id": "website:title_multiple",
+      "version": 1,
+      "enabled": true,
+      "title": "Birden fazla title etiketi",
+      "group": "metadata",
+      "method": "title_multiple",
+      "classification": "verified",
+      "applicability": "public_page",
+      "asset_type": "website",
+      "platform": "general",
+      "required_evidence": [
+        "stored_html",
+        "stored_http_observations"
+      ],
+      "criterion": "Yayımlanan HTML başlığında birden fazla title etiketi olmamalı.",
+      "action": "Tema ve SEO eklentisindeki mükerrer title üretimini giderin.",
+      "verification": "Entegrasyon verilerini yenileyip aynı standardı yeniden değerlendirin.",
+      "source_url": "https://developers.google.com/search/docs/crawling-indexing",
+      "source_reviewed_at": "2026-09-09",
+      "severity": "high"
+    },
+    {
+      "id": "website:description_multiple",
+      "version": 1,
+      "enabled": true,
+      "title": "Birden fazla meta açıklaması",
+      "group": "metadata",
+      "method": "description_multiple",
+      "classification": "verified",
+      "applicability": "public_page",
+      "asset_type": "website",
+      "platform": "general",
+      "required_evidence": [
+        "stored_html",
+        "stored_http_observations"
+      ],
+      "criterion": "HTML içinde birden fazla description tanımı olmamalı.",
+      "action": "Açıklama üretimini tek bir bileşende yönetin.",
+      "verification": "Entegrasyon verilerini yenileyip aynı standardı yeniden değerlendirin.",
+      "source_url": "https://developers.google.com/search/docs/crawling-indexing",
+      "source_reviewed_at": "2026-09-09",
+      "severity": "high"
+    },
+    {
+      "id": "website:h1_multiple",
+      "version": 1,
+      "enabled": true,
+      "title": "Birden fazla ana başlık",
+      "group": "structure",
+      "method": "h1_multiple",
+      "classification": "advisory",
+      "applicability": "public_page",
+      "asset_type": "website",
+      "platform": "general",
+      "required_evidence": [
+        "stored_html",
+        "stored_http_observations"
+      ],
+      "criterion": "Birden fazla H1 bulunduğunda sayfanın başlık yapısı incelenir; tek başına sıralama hatası değildir.",
+      "action": "Şablon ve içerik başlıklarının anlamlı hiyerarşisini inceleyin.",
+      "verification": "Entegrasyon verilerini yenileyip aynı standardı yeniden değerlendirin.",
+      "source_url": "https://developers.google.com/search/docs/crawling-indexing",
+      "source_reviewed_at": "2026-09-09",
+      "severity": "medium"
+    },
+    {
+      "id": "website:language_missing",
+      "version": 1,
+      "enabled": true,
+      "title": "HTML dil bildirimi",
+      "group": "metadata",
+      "method": "language_missing",
+      "classification": "advisory",
+      "applicability": "public_page",
+      "asset_type": "website",
+      "platform": "general",
+      "required_evidence": [
+        "stored_html",
+        "stored_http_observations"
+      ],
+      "criterion": "Yayımlanan HTML üzerinde dil bildirimi bulunması kontrol edilir.",
+      "action": "HTML lang değerini sayfanın diline göre düzenleyin.",
+      "verification": "Entegrasyon verilerini yenileyip aynı standardı yeniden değerlendirin.",
+      "source_url": "https://developers.google.com/search/docs/crawling-indexing",
+      "source_reviewed_at": "2026-09-09",
+      "severity": "medium"
+    },
+    {
+      "id": "website:internal_broken",
+      "version": 1,
+      "enabled": true,
+      "title": "Hatalı iç bağlantı hedefleri",
+      "group": "structure",
+      "method": "internal_broken",
+      "classification": "verified",
+      "applicability": "public_page",
+      "asset_type": "website",
+      "platform": "general",
+      "required_evidence": [
+        "stored_html",
+        "stored_http_observations"
+      ],
+      "criterion": "Saklı ve güncel HTTP gözlemi bulunan iç bağlantılardaki 4xx/5xx hedefler listelenir.",
+      "action": "İç bağlantıyı çalışan doğru hedefe yöneltin veya kaldırın.",
+      "verification": "Entegrasyon verilerini yenileyip aynı standardı yeniden değerlendirin.",
+      "source_url": "https://developers.google.com/search/docs/crawling-indexing",
+      "source_reviewed_at": "2026-09-09",
+      "severity": "high"
+    },
+    {
+      "id": "website:internal_redirect",
+      "version": 1,
+      "enabled": true,
+      "title": "Yönlendirmeye giden iç bağlantılar",
+      "group": "structure",
+      "method": "internal_redirect",
+      "classification": "advisory",
+      "applicability": "public_page",
+      "asset_type": "website",
+      "platform": "general",
+      "required_evidence": [
+        "stored_html",
+        "stored_http_observations"
+      ],
+      "criterion": "Saklı HTTP gözleminde yönlenen iç bağlantılar incelenir.",
+      "action": "İç bağlantıları mümkünse nihai hedef adresine güncelleyin.",
+      "verification": "Entegrasyon verilerini yenileyip aynı standardı yeniden değerlendirin.",
+      "source_url": "https://developers.google.com/search/docs/crawling-indexing",
+      "source_reviewed_at": "2026-09-09",
+      "severity": "medium"
+    },
+    {
+      "id": "website:empty_anchors",
+      "version": 1,
+      "enabled": true,
+      "title": "İsimsiz iç bağlantılar",
+      "group": "structure",
+      "method": "empty_anchors",
+      "classification": "advisory",
+      "applicability": "public_page",
+      "asset_type": "website",
+      "platform": "general",
+      "required_evidence": [
+        "stored_html",
+        "stored_http_observations"
+      ],
+      "criterion": "Metin, görsel veya erişilebilir isim taşımayan iç bağlantılar incelenir.",
+      "action": "Bağlantının amacını açıklayan metin veya erişilebilir isim ekleyin.",
+      "verification": "Entegrasyon verilerini yenileyip aynı standardı yeniden değerlendirin.",
+      "source_url": "https://developers.google.com/search/docs/crawling-indexing",
+      "source_reviewed_at": "2026-09-09",
+      "severity": "medium"
+    },
+    {
+      "id": "website:canonical_target",
+      "version": 1,
+      "enabled": true,
+      "title": "Canonical hedefinin erişimi",
+      "group": "access",
+      "method": "canonical_target",
+      "classification": "verified",
+      "applicability": "public_page",
+      "asset_type": "website",
+      "platform": "general",
+      "required_evidence": [
+        "stored_html",
+        "stored_http_observations"
+      ],
+      "criterion": "Bildirilen canonical hedefinde güncel 4xx/5xx veya yönlendirme gözlemi aranır.",
+      "action": "Canonical hedefini erişilebilir, amaçlanan nihai URL olarak düzenleyin.",
+      "verification": "Entegrasyon verilerini yenileyip aynı standardı yeniden değerlendirin.",
+      "source_url": "https://developers.google.com/search/docs/crawling-indexing",
+      "source_reviewed_at": "2026-09-09",
+      "severity": "high"
+    },
+    {
+      "id": "website:content_duplicate",
+      "version": 1,
+      "enabled": true,
+      "title": "Aynı içerik parmak izi",
+      "group": "content",
+      "method": "content_duplicate",
+      "classification": "advisory",
+      "applicability": "public_page",
+      "asset_type": "website",
+      "platform": "general",
+      "required_evidence": [
+        "stored_html",
+        "stored_http_observations"
+      ],
+      "criterion": "Saklı içerik çıkarıcısının aynı parmak izini verdiği sayfalar incelenir; otomatik birleştirme yapılmaz.",
+      "action": "Sayfaların amaçlarını ve canonical tercihlerini inceleyin.",
+      "verification": "Entegrasyon verilerini yenileyip aynı standardı yeniden değerlendirin.",
+      "source_url": "https://developers.google.com/search/docs/crawling-indexing",
+      "source_reviewed_at": "2026-09-09",
+      "severity": "medium"
+    },
+    {
+      "id": "website:image_alt",
+      "version": 1,
+      "enabled": true,
+      "title": "Eksik görsel alt alanları",
+      "group": "media",
+      "method": "image_alt",
+      "classification": "advisory",
+      "applicability": "public_page",
+      "asset_type": "website",
+      "platform": "general",
+      "required_evidence": [
+        "stored_html",
+        "stored_http_observations"
+      ],
+      "criterion": "Alt niteliği hiç bulunmayan görseller listelenir; dekoratif boş alt hata sayılmaz.",
+      "action": "İçerik görsellerine uygun alt metin ekleyin, dekoratif görselleri doğru işaretleyin.",
+      "verification": "Entegrasyon verilerini yenileyip aynı standardı yeniden değerlendirin.",
+      "source_url": "https://developers.google.com/search/docs/crawling-indexing",
+      "source_reviewed_at": "2026-09-09",
+      "severity": "medium"
+    },
+    {
+      "id": "website:image_dimensions",
+      "version": 1,
+      "enabled": true,
+      "title": "Görsel boyut işaretlemesi",
+      "group": "performance",
+      "method": "image_dimensions",
+      "classification": "advisory",
+      "applicability": "public_page",
+      "asset_type": "website",
+      "platform": "general",
+      "required_evidence": [
+        "stored_html",
+        "stored_http_observations"
+      ],
+      "criterion": "HTML genişlik/yükseklik bilgisi eksik görseller incelenir; CSS ile ayrılan alan ayrıca değerlendirilmelidir.",
+      "action": "Görsel alanının yükleme öncesinde ayrıldığını doğrulayın.",
+      "verification": "Entegrasyon verilerini yenileyip aynı standardı yeniden değerlendirin.",
+      "source_url": "https://developers.google.com/search/docs/crawling-indexing",
+      "source_reviewed_at": "2026-09-09",
+      "severity": "medium"
+    },
+    {
+      "id": "website:mixed_resources",
+      "version": 1,
+      "enabled": true,
+      "title": "HTTPS sayfada HTTP kaynakları",
+      "group": "security",
+      "method": "mixed_resources",
+      "classification": "verified",
+      "applicability": "public_page",
+      "asset_type": "website",
+      "platform": "general",
+      "required_evidence": [
+        "stored_html",
+        "stored_http_observations"
+      ],
+      "criterion": "HTML içindeki HTTP görsel, betik, iframe ve stil kaynağı referansları sayılır.",
+      "action": "Kaynakları HTTPS üzerinden sunun.",
+      "verification": "Entegrasyon verilerini yenileyip aynı standardı yeniden değerlendirin.",
+      "source_url": "https://developers.google.com/search/docs/crawling-indexing",
+      "source_reviewed_at": "2026-09-09",
+      "severity": "high"
+    },
+    {
+      "id": "website:hreflang_target",
+      "version": 1,
+      "enabled": true,
+      "title": "Dil bağlantılarının erişimi",
+      "group": "structure",
+      "method": "hreflang_target",
+      "classification": "verified",
+      "applicability": "public_page",
+      "asset_type": "website",
+      "platform": "general",
+      "required_evidence": [
+        "stored_html",
+        "stored_http_observations"
+      ],
+      "criterion": "Bildirilen hreflang hedefleri mevcut HTTP gözlemleriyle karşılaştırılır.",
+      "action": "Açılmayan veya yönlenen çeviri hedeflerini düzeltin.",
+      "verification": "Entegrasyon verilerini yenileyip aynı standardı yeniden değerlendirin.",
+      "source_url": "https://developers.google.com/search/docs/crawling-indexing",
+      "source_reviewed_at": "2026-09-09",
+      "severity": "high"
+    },
+    {
+      "id": "website:wp_debug_display",
+      "version": 1,
+      "enabled": true,
+      "title": "Canlı sitede hata gösterimi",
+      "group": "security",
+      "method": "wp_debug_display",
+      "classification": "verified",
+      "applicability": "site",
+      "asset_type": "website",
+      "platform": "wordpress",
+      "required_evidence": [
+        "authenticated_wordpress_snapshot"
+      ],
+      "criterion": "WordPress canlı ortamda ziyaretçiye hata göstermemeli.",
+      "action": "Canlı ortamda hata gösterimini kapatın; kayıtları özel alanda tutun.",
+      "verification": "Entegrasyon verilerini yenileyip aynı standardı yeniden değerlendirin.",
+      "source_url": "https://wordpress.org/documentation/article/site-health-screen/",
+      "source_reviewed_at": "2026-09-09",
+      "severity": "high"
+    },
+    {
+      "id": "website:wp_registration_role",
+      "version": 1,
+      "enabled": true,
+      "title": "Yeni üyelerin varsayılan rolü",
+      "group": "security",
+      "method": "wp_registration_role",
+      "classification": "verified",
+      "applicability": "site",
+      "asset_type": "website",
+      "platform": "wordpress",
+      "required_evidence": [
+        "authenticated_wordpress_snapshot"
+      ],
+      "criterion": "Herkese açık kayıt açıkken varsayılan yönetici rolü kullanılmamalı.",
+      "action": "Yeni üye varsayılan rolünü gereken en düşük yetkiye indirin.",
+      "verification": "Entegrasyon verilerini yenileyip aynı standardı yeniden değerlendirin.",
+      "source_url": "https://wordpress.org/documentation/article/site-health-screen/",
+      "source_reviewed_at": "2026-09-09",
+      "severity": "high"
+    },
+    {
+      "id": "website:wp_blog_public",
+      "version": 1,
+      "enabled": true,
+      "title": "Canlı sitede arama görünürlüğü",
+      "group": "access",
+      "method": "wp_blog_public",
+      "classification": "advisory",
+      "applicability": "site",
+      "asset_type": "website",
+      "platform": "wordpress",
+      "required_evidence": [
+        "authenticated_wordpress_snapshot"
+      ],
+      "criterion": "Canlı WordPress sitesinde arama motorlarını engelleme ayarı incelenir.",
+      "action": "Canlı sitenin amaçlanan indeksleme politikasını doğrulayın.",
+      "verification": "Entegrasyon verilerini yenileyip aynı standardı yeniden değerlendirin.",
+      "source_url": "https://wordpress.org/documentation/article/site-health-screen/",
+      "source_reviewed_at": "2026-09-09",
+      "severity": "medium"
+    },
+    {
+      "id": "website:wp_cron_overdue",
+      "version": 1,
+      "enabled": true,
+      "title": "Gecikmiş WordPress görevleri",
+      "group": "health",
+      "method": "wp_cron_overdue",
+      "classification": "advisory",
+      "applicability": "site",
+      "asset_type": "website",
+      "platform": "wordpress",
+      "required_evidence": [
+        "authenticated_wordpress_snapshot"
+      ],
+      "criterion": "Bir saatten fazla geciken görevler incelenir; harici cron kullanımı tek başına hata değildir.",
+      "action": "WordPress veya sunucu zamanlayıcısının çalışmasını kontrol edin.",
+      "verification": "Entegrasyon verilerini yenileyip aynı standardı yeniden değerlendirin.",
+      "source_url": "https://wordpress.org/documentation/article/site-health-screen/",
+      "source_reviewed_at": "2026-09-09",
+      "severity": "medium"
+    },
+    {
+      "id": "website:wp_core_update",
+      "version": 1,
+      "enabled": true,
+      "title": "WordPress çekirdek güncellemesi",
+      "group": "updates",
+      "method": "wp_core_update",
+      "classification": "advisory",
+      "applicability": "site",
+      "asset_type": "website",
+      "platform": "wordpress",
+      "required_evidence": [
+        "authenticated_wordpress_snapshot"
+      ],
+      "criterion": "Güncel kontrol kaydında bekleyen çekirdek güncellemesi aranır; güvenlik açığı olduğu iddia edilmez.",
+      "action": "Uyumluluk ve yedek durumunu değerlendirerek çekirdeği güncelleyin.",
+      "verification": "Entegrasyon verilerini yenileyip aynı standardı yeniden değerlendirin.",
+      "source_url": "https://wordpress.org/documentation/article/site-health-screen/",
+      "source_reviewed_at": "2026-09-09",
+      "severity": "medium"
+    },
+    {
+      "id": "website:wp_extension_updates",
+      "version": 1,
+      "enabled": true,
+      "title": "Tema ve eklenti güncellemeleri",
+      "group": "updates",
+      "method": "wp_extension_updates",
+      "classification": "advisory",
+      "applicability": "site",
+      "asset_type": "website",
+      "platform": "wordpress",
+      "required_evidence": [
+        "authenticated_wordpress_snapshot"
+      ],
+      "criterion": "Güncel sürüm kontrolünde bekleyen eklenti/tema güncellemeleri listelenir.",
+      "action": "Güncelleme kapsamını inceleyip uygun bakım planında uygulayın.",
+      "verification": "Entegrasyon verilerini yenileyip aynı standardı yeniden değerlendirin.",
+      "source_url": "https://wordpress.org/documentation/article/site-health-screen/",
+      "source_reviewed_at": "2026-09-09",
+      "severity": "medium"
+    },
+    {
+      "id": "website:wp_update_freshness",
+      "version": 1,
+      "enabled": true,
+      "title": "Güncelleme bilgisinin tazeliği",
+      "group": "updates",
+      "method": "wp_update_freshness",
+      "classification": "advisory",
+      "applicability": "site",
+      "asset_type": "website",
+      "platform": "wordpress",
+      "required_evidence": [
+        "authenticated_wordpress_snapshot"
+      ],
+      "criterion": "Çekirdek güncelleme kontrolü 48 saatten eskiyse durum güncel kabul edilmez.",
+      "action": "WordPress güncelleme sunucusu erişimini ve zamanlayıcıyı kontrol edin.",
+      "verification": "Entegrasyon verilerini yenileyip aynı standardı yeniden değerlendirin.",
+      "source_url": "https://wordpress.org/documentation/article/site-health-screen/",
+      "source_reviewed_at": "2026-09-09",
+      "severity": "medium"
+    },
+    {
+      "id": "website:wp_health_critical",
+      "version": 1,
+      "enabled": true,
+      "title": "WordPress sağlık kontrolü",
+      "group": "health",
+      "method": "wp_health_critical",
+      "classification": "advisory",
+      "applicability": "site",
+      "asset_type": "website",
+      "platform": "wordpress",
+      "required_evidence": [
+        "authenticated_wordpress_snapshot"
+      ],
+      "criterion": "Önbellekteki Site Health kaydında kritik sorun bildirimi varsa incelenir; güncel ayrıntılı test sonucu yerine geçmez.",
+      "action": "WordPress Site Health ekranında kritik maddeleri inceleyin.",
+      "verification": "Entegrasyon verilerini yenileyip aynı standardı yeniden değerlendirin.",
+      "source_url": "https://wordpress.org/documentation/article/site-health-screen/",
+      "source_reviewed_at": "2026-09-09",
+      "severity": "medium"
+    },
+    {
+      "id": "website:wp_file_editor",
+      "version": 1,
+      "enabled": true,
+      "title": "Panelden dosya düzenleme",
+      "group": "security",
+      "method": "wp_file_editor",
+      "classification": "advisory",
+      "applicability": "site",
+      "asset_type": "website",
+      "platform": "wordpress",
+      "required_evidence": [
+        "authenticated_wordpress_snapshot"
+      ],
+      "criterion": "Panelden PHP dosyası düzenleme politikası incelenir.",
+      "action": "Bakım yönteminiz uygunsa yönetim panelindeki dosya düzenlemeyi kapatın.",
+      "verification": "Entegrasyon verilerini yenileyip aynı standardı yeniden değerlendirin.",
+      "source_url": "https://wordpress.org/documentation/article/site-health-screen/",
+      "source_reviewed_at": "2026-09-09",
+      "severity": "medium"
+    },
+    {
+      "id": "website:wp_event_delivery",
+      "version": 1,
+      "enabled": true,
+      "title": "WordPress bildirim bağlantısı",
+      "group": "health",
+      "method": "wp_event_delivery",
+      "classification": "advisory",
+      "applicability": "site",
+      "asset_type": "website",
+      "platform": "wordpress",
+      "required_evidence": [
+        "authenticated_wordpress_snapshot"
+      ],
+      "criterion": "Son alınan WordPress bildirimi 30 dakikadan eskiyse bağlantı incelenir.",
+      "action": "WordPress bağlantısını ve cron çalışmasını kontrol edin.",
+      "verification": "Entegrasyon verilerini yenileyip aynı standardı yeniden değerlendirin.",
+      "source_url": "https://wordpress.org/documentation/article/site-health-screen/",
+      "source_reviewed_at": "2026-09-09",
       "severity": "medium"
     }
   ]

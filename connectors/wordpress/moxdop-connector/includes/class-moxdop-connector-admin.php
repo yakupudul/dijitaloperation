@@ -35,11 +35,12 @@ final class MoxDOP_Connector_Admin
             return;
         }
         $paired = is_array($this->secrets->read());
+        $delivery = (new MoxDOP_Connector_Events())->status();
         $notice = isset($_GET['moxdop_notice']) ? sanitize_key(wp_unslash($_GET['moxdop_notice'])) : '';
         ?>
         <div class="wrap">
             <h1>MoxDOP Website Connector</h1>
-            <p>This read-only connector shares CMS inventory with MoxDOP. It does not expose users, passwords, comments, media binaries, or write operations.</p>
+            <p>This read-only connector shares CMS inventory with MoxDOP. It sends content, SEO and maintenance activity with the acting user ID/name. It never sends passwords, comments, form submissions or media binaries. Remote site changes are disabled.</p>
             <?php if ($notice === 'paired') : ?>
                 <div class="notice notice-success"><p>Connector paired successfully.</p></div>
             <?php elseif ($notice === 'disconnected') : ?>
@@ -51,6 +52,11 @@ final class MoxDOP_Connector_Admin
             <table class="widefat striped" style="max-width: 760px; margin: 18px 0;">
                 <tbody>
                     <tr><th>Status</th><td><?php echo $paired ? 'Paired' : 'Not paired'; ?></td></tr>
+                    <tr><th>Activity queue / İşlem kuyruğu</th><td><?php echo esc_html((string) ($delivery['pending'] ?? 'Unavailable')); ?></td></tr>
+                    <tr><th>Last delivery / Son aktarım</th><td><?php echo esc_html((string) ($delivery['last_ack_at'] ?? 'Not yet delivered')); ?></td></tr>
+                    <tr><th>Delivery error / Aktarım hatası</th><td><?php echo esc_html((string) ($delivery['last_error'] ?? '—')); ?></td></tr>
+                    <tr><th>Coverage gap / Kayıt boşluğu</th><td><?php echo esc_html((string) ($delivery['gap_at'] ?? '—')); ?></td></tr>
+                    <tr><th>Scheduling</th><td>Events are sent in batches through WP-Cron. Low traffic can delay delivery; a host cron is recommended for regular delivery.</td></tr>
                     <tr><th>Plugin version</th><td><?php echo esc_html(MOXDOP_CONNECTOR_VERSION); ?></td></tr>
                     <tr><th>Installation ID</th><td><code><?php echo esc_html((string) get_option('moxdop_connector_installation_id')); ?></code></td></tr>
                     <tr><th>Status endpoint</th><td><code><?php echo esc_html(rest_url('moxdop/v1/status')); ?></code></td></tr>

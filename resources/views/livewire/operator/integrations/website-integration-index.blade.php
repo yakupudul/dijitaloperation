@@ -18,6 +18,7 @@
         'overview' => $tr ? 'Genel Bakış' : 'Overview',
         'sources' => $tr ? 'Veri Kaynakları' : 'Data Sources',
         'runs' => $tr ? 'Çekimler' : 'Runs',
+        'activity' => $tr ? 'İşlem geçmişi' : 'Activity',
         'data' => $tr ? 'Toplanan Veriler' : 'Collected Data',
         'settings' => $tr ? 'Ayarlar' : 'Settings',
     ];
@@ -181,6 +182,10 @@
                     <div class="border-t border-red-100 bg-red-50 px-5 py-3 text-sm text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300">{{ $liveConsole['failure_summary'] }}</div>
                 @endif
             </section>
+        @endif
+
+        @if ($activeTab === 'activity')
+            <livewire:operator.integrations.word-press-activity-panel :asset-id="$selectedRow['asset']->id" :key="'wp-activity-'.$selectedRow['asset']->id" />
         @endif
 
         @if ($activeTab === 'overview')

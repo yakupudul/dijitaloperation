@@ -135,6 +135,7 @@ final class WordPressProjectionAdapter implements WebsiteProjectionSourceAdapter
                         'featured_media_id' => $row->featured_media_id,
                         'language' => $rowMeta['language'] ?? null,
                         'translations' => $rowMeta['translations'] ?? [],
+                        'business_fields' => $rowMeta['business_fields'] ?? [],
                     ],
                     'content' => [
                         'content_hash' => $rowMeta['content_hash'] ?? null,
@@ -239,6 +240,7 @@ final class WordPressProjectionAdapter implements WebsiteProjectionSourceAdapter
             'core_update_checked_at' => $metadata['core_update_checked_at'] ?? null,
             'settings' => is_array($metadata['settings'] ?? null) ? $metadata['settings'] : [],
             'features' => is_array($metadata['features'] ?? null) ? $metadata['features'] : [],
+            'health' => $metadata['health'] ?? null,
             'site_health' => [
                 'good' => $row->site_health_good_count,
                 'recommended' => $row->site_health_recommended_count,

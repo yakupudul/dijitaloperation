@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'connector_version' => '1.0.0',
+    'connector_version' => '1.1.0',
     'pairing_ttl_minutes' => 15,
     'signature_clock_skew_seconds' => 300,
     'request_timeout_seconds' => 30,

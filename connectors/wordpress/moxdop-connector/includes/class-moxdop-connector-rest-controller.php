@@ -8,6 +8,8 @@ final class MoxDOP_Connector_REST_Controller
 
     private $auth;
 
+    private $object_ids = [];
+
     public function __construct(MoxDOP_Connector_Auth $auth)
     {
         $this->auth = $auth;
@@ -25,6 +27,7 @@ final class MoxDOP_Connector_REST_Controller
             'permission_callback' => [$this->auth, 'authorize'],
             'callback' => [$this, 'snapshot'],
             'args' => [
+                'object_ids' => ['type' => 'string', 'default' => '', 'validate_callback' => static function ($value) { return $value === '' || preg_match('/^[1-9][0-9]*(?:,[1-9][0-9]*){0,49}$/', $value); }],
                 'section' => [
                     'required' => true,
                     'type' => 'string',
@@ -49,12 +52,16 @@ final class MoxDOP_Connector_REST_Controller
             'read_only' => true,
             'sections' => ['site', 'extensions', 'content', 'media', 'taxonomies', 'seo'],
             'server_time' => time(),
+            'event_delivery' => (new MoxDOP_Connector_Events())->status(),
+            'management_enabled' => false,
         ], $request);
     }
 
     public function snapshot(WP_REST_Request $request)
     {
         $section = sanitize_key((string) $request->get_param('section'));
+        $ids = (string) $request->get_param('object_ids');
+        $this->object_ids = $ids === '' ? [] : array_values(array_unique(array_map('intval', explode(',', $ids))));
         $page = max(1, (int) $request->get_param('page'));
         $per_page = min(100, max(1, (int) $request->get_param('per_page')));
 
@@ -82,6 +89,8 @@ final class MoxDOP_Connector_REST_Controller
         }
 
         $result['schema_version'] = 1;
+        $result['plugin_version'] = MOXDOP_CONNECTOR_VERSION;
+        $result['object_ids'] = $this->object_ids;
         $result['section'] = $section;
         $result['generated_at'] = gmdate('c');
 
@@ -136,6 +145,7 @@ final class MoxDOP_Connector_REST_Controller
                 'litespeed_cache' => defined('LSCWP_V'),
             ],
             'site_health_cached' => $health,
+            'health' => (new MoxDOP_Connector_Health())->snapshot(),
         ];
 
         return $this->page([$record], 1, 100, 1);
@@ -216,6 +226,7 @@ final class MoxDOP_Connector_REST_Controller
                 'featured_media_id' => get_post_thumbnail_id($post) ? (string) get_post_thumbnail_id($post) : null,
                 'language' => $this->language($post->ID),
                 'translations' => $this->translations($post->ID),
+                'business_fields' => $this->business_fields($post->ID),
                 'content_raw' => $post->post_content,
                 'content_rendered' => $rendered,
                 'content_hash' => hash('sha256', (string) $rendered),
@@ -237,6 +248,7 @@ final class MoxDOP_Connector_REST_Controller
         $query = new WP_Query([
             'post_type' => 'attachment',
             'post_status' => 'inherit',
+            'post__in' => $this->object_ids,
             'posts_per_page' => $per_page,
             'paged' => $page,
             'orderby' => 'ID',
@@ -337,12 +349,13 @@ final class MoxDOP_Connector_REST_Controller
 
     private function content_query($page, $per_page)
     {
-        $types = get_post_types(['show_ui' => true], 'names');
+        $types = get_post_types(['public' => true], 'names');
         unset($types['attachment'], $types['wp_block'], $types['wp_template'], $types['wp_template_part'], $types['wp_navigation']);
 
         return new WP_Query([
             'post_type' => array_values($types),
-            'post_status' => ['publish', 'future', 'draft', 'pending', 'private'],
+            'post_status' => $this->object_ids ? ['publish', 'future', 'draft', 'pending', 'private', 'trash'] : ['publish', 'future', 'draft', 'pending', 'private'],
+            'post__in' => $this->object_ids,
             'posts_per_page' => $per_page,
             'paged' => $page,
             'orderby' => 'ID',
@@ -376,6 +389,18 @@ final class MoxDOP_Connector_REST_Controller
         }
 
         return ['seo_provider' => null, 'seo_title' => null, 'meta_description' => null, 'canonical_url' => null, 'robots' => null];
+    }
+
+    private function business_fields($post_id)
+    {
+        $values = [];
+        foreach (['sube_adi', 'sube_telefon', 'sube_adresi', 'adres_posta_kodu', 'latitude', 'longitude'] as $key) {
+            $value = get_post_meta($post_id, $key, true);
+            if (is_scalar($value) && (string) $value !== '') {
+                $values[$key] = mb_substr(sanitize_text_field((string) $value), 0, 500);
+            }
+        }
+        return $values;
     }
 
     private function language($post_id)

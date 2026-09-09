@@ -102,3 +102,62 @@ Code and automated contract coverage do not prove a live WordPress installation.
 must install the generated ZIP on a disposable WordPress site, pair it to the matching Website asset,
 run a collection, verify all five datasets and confirm Public Discovery remains present. No live UAT
 or production deploy is claimed by this document.
+
+
+## Connector activity and standards extension — 2026-09-09
+
+Operator-approved sequence: connector → integration ingestion/UX → deterministic standards.
+The existing pairing and read endpoints remain compatible; downloadable connector version is 1.1.0.
+No clone, dependency install, tests, formatter, build, browser or host execution was performed.
+Source implementation is not deployment, runtime acceptance, or DONE.
+
+Implemented:
+- WordPress local non-autoloaded outbox table, 50-event signed POST batches through WP-Cron every
+  five minutes, signed per-ID acknowledgements, replay protection, retry/backoff and 10,000-event cap.
+  Save hooks never perform HTTP. Events in one request coalesce by type/object; separate editor
+  requests remain separate audit records. Missing queue writes/overflow report a persistent gap.
+- Content publish/update/status/delete, allowlisted SEO/business metadata, selected settings,
+  theme/plugin maintenance and role-change events. Acting WP user ID/display name are included;
+  no passwords, form entries, arbitrary metadata values, visitor clicks or binary media.
+  Public content types are inventoried; internal submission/order stores are excluded.
+- Safe cached/runtime health, delayed cron count, module presence, debug/registration policies,
+  cache flags, adapter versions and allowlisted branch fields extend existing CMS metadata.
+- Additive receiving tables; connection/installation-bound HMAC, timestamp/nonce verification,
+  credential recheck under connection lock, deduplication and transactional acknowledgement.
+- Website Integration Activity tab: period/type/actor filters, 25-row pagination, delivery age,
+  pending count and coverage-gap warning. Global Activity merges the same stored events.
+- Scheduler admits at most two event reconciliation collections, at most 50 events/changed object
+  IDs per incremental scope, and defers while the asset has an active collection. Successful
+  completion advances the receipt watermark; failed/partial collections do not. The existing
+  CMS snapshot writer retains untouched objects on incremental refresh and removes only scoped
+  missing objects. The connector must echo the exact object scope before writes are accepted.
+- Daily CMS inventory reconciliation and global-settings changes use full CMS inventory; ordinary
+  content changes use scoped content/media/SEO reads. Site/extensions/taxonomies are still full
+  lightweight snapshots. Relevant known public URLs use existing bounded targeted crawl (max 100).
+  No daily all-page browser run, paid provider or AI call is introduced.
+- Standards categories: Website, Google Ads, Meta Ads. Ads categories are placeholders with explicit
+  empty-state copy; their criteria are not shipped. Website definitions distinguish general vs
+  WordPress inheritance. Existing expert criteria are retained but inactive; their add form is
+  removed. Length heuristics default inactive. Historical evidence is preserved.
+- 25 additional deterministic/advisory checks cover duplicate/multiple metadata, H1/language,
+  internal target status, canonical/hreflang target status, content fingerprint matches, image
+  attributes, mixed resources, WordPress debug/registration/visibility/cron/update/health policies
+  and delivery freshness. Existing 500-profile assessment bound remains visible. Missing target
+  HTTP, stale evidence, unsupported connector fields and truncated scans do not become passes.
+  Inventory, HTML and cached Site Health observations remain distinct.
+
+Not implemented in this delivery:
+- Remote SEOPress/LiteSpeed write controls, installations, automatic plugin/theme/core updates,
+  image optimization or rollback. management_enabled=false; no advertised executable action.
+- Complete malware scans, backup/SMTP provider adapters, visitors/session recording, historical
+  activity reconstruction, all-page browser checks or automatic whole-site standards after each event.
+- Full planned SEO catalogue (e.g. complete sitemap membership, reciprocal hreflang, orphan/depth
+  graph, GSC URL Inspection/cluster comparison) is not yet implemented by the new checks.
+- Continuous CMS delta cursor independent of events; daily inventory is the recovery mechanism.
+  Low traffic or disabled WP-Cron needs host scheduling. A coverage gap cannot reconstruct history.
+
+Deployment: normal staging script installs additive Laravel tables and restarts workers.
+Then download connector 1.1.0 from the existing connector screen and replace the installed plugin.
+Existing pairing remains; WordPress init creates the local outbox. First successful heartbeat
+enables reconciliation. Scheduler and collection workers must run. Verify live pairing, event
+redelivery, scoped deletion, filtered history, and standards before operational acceptance.

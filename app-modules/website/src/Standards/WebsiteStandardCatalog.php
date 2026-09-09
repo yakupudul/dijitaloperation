@@ -12,7 +12,7 @@ use Illuminate\Validation\Rule;
 
 final class WebsiteStandardCatalog
 {
-    public const string VERSION = 'website-standards-v1';
+    public const string VERSION = 'website-standards-v2';
 
     public const array GROUPS = [
         'access' => 'Erişim ve indeksleme',
@@ -23,7 +23,12 @@ final class WebsiteStandardCatalog
         'local' => 'Yerel hizmet bilgileri',
         'trust' => 'Güven ve özgün kanıt',
         'conversion' => 'Kullanıcı yolculuğu',
-        'ai' => 'AI için anlaşılabilirlik',
+        'ai' => 'Arşivlenmiş uzman kriterleri',
+        'health' => 'WordPress sağlık',
+        'updates' => 'Sürüm ve güncelleme',
+        'security' => 'Güvenlik',
+        'performance' => 'Hız ve kaynaklar',
+        'media' => 'Görsel SEO',
     ];
 
     /** @return array<string, array<string, mixed>> */
@@ -46,6 +51,12 @@ final class WebsiteStandardCatalog
                 $definitions[$setting->standard_id]['enabled'] = (bool) $setting->enabled;
             }
         }
+        foreach ($definitions as &$definition) {
+            if ($definition['method'] === 'expert_review') {
+                $definition['enabled'] = false;
+            }
+        }
+        unset($definition);
         ksort($definitions);
 
         return array_filter($definitions, fn (array $definition): bool => ! $enabledOnly || $definition['enabled']);

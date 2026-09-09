@@ -110,6 +110,7 @@ final class WebsiteAssessmentService
             ->whereHas('cluster', fn ($query) => $query->where('status', 'active'))->get();
         $coverage = $this->coverage->assess($website, $profiles);
         $siteEvidence = $this->siteEvidence($website);
+        $comparisonFingerprint = $this->comparisonFingerprint($website);
         $fingerprint = hash('sha256', json_encode([
             'version' => WebsiteStandardCatalog::VERSION,
             'freshness' => $profiles->map(fn ($profile) => collect(['http', 'document_head', 'headings', 'structured_data', 'html'])
@@ -132,6 +133,28 @@ final class WebsiteAssessmentService
 
             return;
         }
+        $storedPages = [];
+        $storedErrors = [];
+        $assessmentIndex = [];
+        $indexComplete = $total <= self::PAGE_LIMIT;
+        foreach ($profiles as $profile) {
+            try {
+                $storedPages[$profile->id] = $this->html->read($website, $profile);
+            } catch (Throwable $error) {
+                $storedPages[$profile->id] = null;
+                $storedErrors[$profile->id] = class_basename($error);
+            }
+            $stored = $storedPages[$profile->id];
+            $fresh = is_array($stored) && ! empty($stored['observed_at']) && ! $this->isStale($stored['observed_at']);
+            $httpAt = data_get($profile->source_states, 'website.http.observed_at');
+            $assessmentIndex[$profile->preferred_url] = [
+                'status_code' => $httpAt && ! $this->isStale($httpAt) ? data_get($profile->source_states, 'website.http.status_code') : null,
+                'title' => $fresh ? trim((string) ($stored['title'] ?? '')) : null,
+                'meta_description' => $fresh ? trim((string) ($stored['meta_description'] ?? '')) : null,
+                'content_fingerprint' => $fresh ? ($stored['content_fingerprint'] ?? null) : null,
+            ];
+            $indexComplete = $indexComplete && $fresh;
+        }
         $pages = [];
         $summary = [];
         $issues = [];
@@ -144,17 +167,15 @@ final class WebsiteAssessmentService
             $facts = (array) data_get($profile->source_states, 'website', []);
             $kind = $this->families->classify($profile->preferred_url, data_get($profile->source_states, 'wordpress.object.type'));
             $system = preg_match('#/(?:wp-admin|wp-json|wp-login\.php|feed|xmlrpc\.php)(?:/|$)#i', (string) parse_url($profile->preferred_url, PHP_URL_PATH)) === 1;
-            $stored = null;
-            $readError = null;
-            try {
-                $stored = $this->html->read($website, $profile);
-            } catch (Throwable $exception) {
-                $readError = class_basename($exception);
+            $stored = $storedPages[$profile->id];
+            $readError = $storedErrors[$profile->id] ?? null;
+            if ($readError !== null) {
                 $unreadable++;
             }
             $page = [
                 'page_profile_id' => $profile->id, 'url' => $profile->preferred_url,
-                'facts' => $facts, 'stored_html' => $stored, 'excluded_kind' => $system || in_array($kind['kind'], ['media', 'pagination'], true),
+                'facts' => $facts, 'stored_html' => $stored,
+                'assessment_index' => $assessmentIndex, 'assessment_index_complete' => $indexComplete, 'excluded_kind' => $system || in_array($kind['kind'], ['media', 'pagination'], true),
                 'search_target' => $owners->contains('website_page_profile_id', $profile->id),
                 'observed_at' => $profile->last_observed_at?->toIso8601String(),
                 'evaluated_at' => now()->toIso8601String(),
@@ -174,6 +195,7 @@ final class WebsiteAssessmentService
                         'search_target' => $page['search_target'], 'observed_at' => $check['observed_at'] ?? $page['observed_at'],
                         'source_records' => $facts['source_records'] ?? [],
                         'profile_fingerprint' => $this->profileFingerprint($profile),
+                        'comparison_fingerprint' => $comparisonFingerprint,
                         'latest_snapshot_id' => $snapshots->get($profile->preferred_url)?->id,
                         'html_snapshot_id' => $stored['snapshot_id'] ?? null, 'html_hash' => $stored['html_hash'] ?? null,
                     ];
@@ -250,7 +272,11 @@ final class WebsiteAssessmentService
     public function assertCurrentProposal(SearchDemandImprovementProposal $proposal): void
     {
         $website = $proposal->run->website;
+        $comparisonFingerprint = $this->comparisonFingerprint($website);
         foreach ((array) data_get($proposal->evidence_refs, 'affected_pages', []) as $page) {
+            if (isset($page['comparison_fingerprint']) && ! hash_equals($page['comparison_fingerprint'], $comparisonFingerprint)) {
+                throw ValidationException::withMessages(['proposal' => 'Karşılaştırmada kullanılan sayfa verileri değişti. Standartları yeniden değerlendirin.']);
+            }
             if (isset($page['page_profile_id'])) {
                 $profile = WebsitePageProfile::query()->where('website_asset_id', $website->id)->find($page['page_profile_id']);
                 $currentSnapshotId = DB::table('website_html_snapshot')->where('digital_asset_id', $website->id)
@@ -270,6 +296,16 @@ final class WebsiteAssessmentService
                 throw ValidationException::withMessages(['proposal' => 'Sayfa kanıtı veya URL sahipliği değişmiş. Güncel değerlendirmeyi başlatıp yeni öneriyi inceleyin.']);
             }
         }
+    }
+
+    private function comparisonFingerprint(DigitalAsset $website): string
+    {
+        $profiles = WebsitePageProfile::query()->where('website_asset_id', $website->id)
+            ->orderBy('id')->limit(self::PAGE_LIMIT)->get(['id', 'preferred_url', 'source_states']);
+        $snapshots = DB::table('website_html_snapshot')->where('digital_asset_id', $website->id)
+            ->whereIn('url', $profiles->pluck('preferred_url'))->select('url')
+            ->selectRaw('MAX(id) AS latest_id')->groupBy('url')->orderBy('url')->get();
+        return hash('sha256', json_encode([$profiles->toArray(), $snapshots->toArray()], JSON_THROW_ON_ERROR));
     }
 
     private function profileFingerprint(WebsitePageProfile $profile): string
@@ -292,9 +328,39 @@ final class WebsiteAssessmentService
             ->whereIn('type', ['tls_info', 'redirects', 'robots', 'sitemap'])
             ->where('observed_at', '>=', now()->subDays(30))->latest('observed_at')->latest('id')->limit(100)->get()->unique('type');
 
-        return $evidence->mapWithKeys(fn (Evidence $row) => [$row->type => [
+        $result = $evidence->mapWithKeys(fn (Evidence $row) => [$row->type => [
             'evidence_id' => $row->id, 'observed_at' => $row->observed_at?->toIso8601String(),
             'payload' => collect((array) $row->payload)->except(['body', 'hops'])->all(),
         ]])->all();
+        $connection = \App\Models\CoreConnection::query()->where('digital_asset_id', $website->id)
+            ->where('type', 'wordpress_connector')->first();
+        $result['wordpress_expected'] = $connection !== null || str_contains(strtolower((string) $website->cms), 'wordpress');
+        if ($connection?->enabled && data_get($connection->config, 'pairing_state') === 'paired') {
+            $site = DB::table('website_cms_site_snapshot as s')
+                ->join('collection_dataset_runs as d', 'd.id', '=', 's.last_dataset_run_id')
+                ->where('s.digital_asset_id', $website->id)->where('d.status', 'completed')
+                ->select('s.*')->orderByDesc('s.observed_at')->orderByDesc('s.id')->first();
+            if ($site !== null) {
+                $extensions = DB::table('website_cms_extension_snapshot as s')
+                    ->join('collection_dataset_runs as d', 'd.id', '=', 's.last_dataset_run_id')
+                    ->where('s.digital_asset_id', $website->id)->where('d.status', 'completed')
+                    ->select('s.*')->orderBy('s.extension_id')->limit(500)->get();
+                $result['wordpress'] = [
+                    'observed_at' => $site->observed_at, 'source_record_id' => $site->id,
+                    'dataset_run_id' => $site->last_dataset_run_id,
+                    'payload' => is_string($site->metadata) ? json_decode($site->metadata, true) : (array) $site->metadata,
+                    'last_event_received_at' => DB::table('website_connector_delivery')->where('connection_id', $connection->id)->value('last_received_at'),
+                    'extensions_truncated' => $extensions->count() >= 500,
+                    'extensions' => $extensions->map(function ($row): array {
+                        $meta = is_string($row->metadata) ? json_decode($row->metadata, true) : (array) $row->metadata;
+                        return ['id' => $row->extension_id, 'name' => $row->name,
+                            'update_available' => (bool) $row->update_available,
+                            'available_version' => $row->available_version,
+                            'checked_at' => $meta['update_checked_at'] ?? null];
+                    })->all(),
+                ];
+            }
+        }
+        return $result;
     }
 }
