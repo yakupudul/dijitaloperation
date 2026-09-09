@@ -47,6 +47,13 @@ final class SearchConsoleCentralCollectionService
     /** @param list<int|string> $externalResourceIds */
     public function startSmartUpdate(CoreIntegration $integration, array $externalResourceIds, ?User $requestedBy = null): CollectionRun
     {
+        return app(\App\Services\Integrations\ResourceAutomationService::class)->withResourceLocks(
+            $externalResourceIds, fn (): CollectionRun => $this->startSmartUpdateLocked($integration, $externalResourceIds, $requestedBy)
+        );
+    }
+
+    private function startSmartUpdateLocked(CoreIntegration $integration, array $externalResourceIds, ?User $requestedBy = null): CollectionRun
+    {
         $resources = $this->resolveResources($integration, $externalResourceIds);
         $plans = $resources->map(fn (CoreExternalResource $resource): array => $this->smartPlan($integration, $resource))->all();
 
@@ -98,6 +105,7 @@ final class SearchConsoleCentralCollectionService
             ->where('metadata->collection_scope', 'provider_resource_first')
             ->with('datasetRuns')
             ->orderByDesc('id')
+            ->limit(50)
             ->get();
 
         $active = $runs->first(fn (CollectionResourceRun $run): bool => in_array($run->status, [
@@ -129,6 +137,9 @@ final class SearchConsoleCentralCollectionService
                     'central_definition' => data_get($dataset->metadata, 'central_definition'),
                     'search_type' => data_get($dataset->metadata, 'search_type'),
                     'source_family_id' => data_get($dataset->metadata, 'source_family_id'),
+                    'checkpoint' => $dataset->checkpoint ?? [],
+                    'progress_current' => $dataset->progress_current,
+                    'progress_total' => $dataset->progress_total,
                 ])
                 ->values()
                 ->all();
@@ -172,7 +183,7 @@ final class SearchConsoleCentralCollectionService
         }
 
         $start = $anchor->subDays(self::RESTATEMENT_DAYS - 1);
-        $previousSearchTypes = collect($completed->datasetRuns)
+        $previousSearchTypes = $runs->flatMap(fn ($run) => $run->datasetRuns)
             ->pluck('metadata.search_type')
             ->filter(fn ($type): bool => is_string($type) && $type !== '')
             ->unique()
@@ -180,13 +191,26 @@ final class SearchConsoleCentralCollectionService
             ->all();
         $activeSearchTypes = array_values(array_unique([
             ...$previousSearchTypes,
-            ...$this->detectActiveSearchTypes($integration, $resource, $end),
+            ...$this->detectActiveSearchTypes($integration, $resource, $end, $start),
         ]));
 
+        $datasetPlans = $this->datasetPlans($activeSearchTypes, $start, $end);
+        foreach ($datasetPlans as &$datasetPlan) {
+            if (! is_array($datasetPlan['date_range'])) {
+                continue;
+            }
+            $covered = app(\App\Services\Integrations\ResourceAutomationService::class)->coverageEnd(
+                $resource->id, 'SEARCH_CONSOLE', $datasetPlan['request_family_id'], $datasetPlan['dataset_id'], $datasetPlan['search_type'] ?? ''
+            );
+            $datasetPlan['date_range']['start'] = $covered
+                ? min($datasetPlan['date_range']['start'], CarbonImmutable::parse($covered)->addDay()->toDateString())
+                : $end->subDays(self::INITIAL_DAYS - 1)->toDateString();
+        }
+        unset($datasetPlan);
         return [
             'resource' => $resource,
             'mode' => 'update',
-            'dataset_plans' => $this->datasetPlans($activeSearchTypes, $start, $end),
+            'dataset_plans' => $datasetPlans,
             'days' => $start->diffInDays($end) + 1,
             'active_search_types' => $activeSearchTypes,
         ];
@@ -202,12 +226,12 @@ final class SearchConsoleCentralCollectionService
     }
 
     /** @return list<string> */
-    private function detectActiveSearchTypes(CoreIntegration $integration, CoreExternalResource $resource, CarbonImmutable $end): array
+    private function detectActiveSearchTypes(CoreIntegration $integration, CoreExternalResource $resource, CarbonImmutable $end, ?CarbonImmutable $probeStart = null): array
     {
         $active = ['web'];
         // Probe the same 16-month window as the initial import so an optional surface
         // is not missed merely because it had no traffic during the last few weeks.
-        $start = $end->subDays(self::INITIAL_DAYS - 1)->toDateString();
+        $start = ($probeStart ?? $end->subDays(self::INITIAL_DAYS - 1))->toDateString();
         $endDate = $end->toDateString();
 
         foreach (['image', 'video', 'news', 'discover', 'googleNews'] as $type) {
@@ -456,6 +480,9 @@ final class SearchConsoleCentralCollectionService
                         'contract_registry_version' => $version,
                         'status' => CollectionRunStatus::Queued,
                         'max_attempts' => (int) config('moxdop-collection.default_max_attempts', 3),
+                        'checkpoint' => $datasetPlan['checkpoint'] ?? [],
+                        'progress_current' => $datasetPlan['progress_current'] ?? 0,
+                        'progress_total' => $datasetPlan['progress_total'] ?? null,
                         'progress_mode' => ProgressMode::Indeterminate,
                         'last_activity_at' => now(),
                         'metadata' => [

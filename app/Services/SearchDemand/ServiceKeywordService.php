@@ -36,11 +36,11 @@ final class ServiceKeywordService
         });
     }
 
-    public function matches(string $text, array $ids): array
+    public function matches(string $text, array $ids, ?\Illuminate\Support\Collection $words = null): array
     {
         $haystack = ' '.LocationOptions::fold($text).' ';
 
-        return ServiceMatchingKeyword::query()->whereIn('service_catalog_item_id', $ids)->get()
+        return ($words ?? ServiceMatchingKeyword::query()->whereIn('service_catalog_item_id', $ids)->get())
             ->filter(fn ($word): bool => str_contains($haystack, ' '.$word->normalized_key.' '))
             ->pluck('service_catalog_item_id')->unique()->values()->all();
     }

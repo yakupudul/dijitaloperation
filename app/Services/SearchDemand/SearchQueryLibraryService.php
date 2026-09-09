@@ -49,7 +49,9 @@ final class SearchQueryLibraryService
             $now = now();
             $identityHash = hash('sha256', 'library-location-free-v2|'.$normalized->canonicalText);
 
-            $item = SearchQueryLibraryItem::withTrashed()->where('identity_hash', $identityHash)->lockForUpdate()->first()
+            $aliasId = DB::table('library_query_aliases')->where('identity_hash', $identityHash)->value('query_id');
+            $item = ($aliasId ? SearchQueryLibraryItem::withTrashed()->lockForUpdate()->find($aliasId) : null)
+                ?? SearchQueryLibraryItem::withTrashed()->where('identity_hash', $identityHash)->lockForUpdate()->first()
                 ?? SearchQueryLibraryItem::withTrashed()->where('canonical_text', $normalized->canonicalText)->orderBy('id')->lockForUpdate()->first()
                 ?? new SearchQueryLibraryItem(['identity_hash' => $identityHash]);
             if ($item->exists && $item->trashed()) {
@@ -103,7 +105,7 @@ final class SearchQueryLibraryService
             $item->sectors()->syncWithoutDetaching([$category->id]);
 
             $service = $this->service($attributes['service_catalog_item_id'] ?? null);
-            if ($service instanceof ServiceCatalogItem && ! $item->services()->whereKey($service->id)->exists()) {
+            if ($service instanceof ServiceCatalogItem && ! DB::table('library_query_service_blocks')->where('query_id', $item->id)->where('service_id', $service->id)->exists() && ! $item->services()->whereKey($service->id)->exists()) {
                 $hasPrimary = $item->services()->wherePivot('is_primary', true)->exists();
                 $item->services()->syncWithoutDetaching([
                     $service->id => [
@@ -175,6 +177,10 @@ final class SearchQueryLibraryService
                 $duplicate = SearchQueryLibraryItem::withTrashed()->where('id', '!=', $id)
                     ->where(fn ($q) => $q->where('identity_hash', $hash)->orWhere('canonical_text', $normalized->canonicalText))
                     ->first();
+                $aliasOwner = DB::table('library_query_aliases')->where('identity_hash', $hash)->value('query_id');
+                if ($aliasOwner && (int) $aliasOwner !== $id) {
+                    throw ValidationException::withMessages(['editingText' => __('query-list.duplicate', ['id' => $aliasOwner])]);
+                }
                 if ($duplicate !== null) {
                     throw ValidationException::withMessages(['editingText' => __('query-list.duplicate', ['id' => $duplicate->id])]);
                 }
@@ -182,6 +188,10 @@ final class SearchQueryLibraryService
                     return $item;
                 }
                 $previous = $item->canonical_text;
+                DB::table('library_query_aliases')->insertOrIgnore([
+                    'identity_hash' => hash('sha256', 'library-location-free-v2|'.$previous),
+                    'query_id' => $item->id, 'created_at' => now(), 'updated_at' => now(),
+                ]);
                 $item->forceFill([
                     'canonical_text' => $normalized->canonicalText,
                     'folded_text' => $normalized->foldedText,

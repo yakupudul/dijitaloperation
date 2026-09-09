@@ -79,6 +79,13 @@ final class Ga4CentralCollectionService
      */
     public function startSmartUpdate(CoreIntegration $integration, array $externalResourceIds, ?User $requestedBy = null): CollectionRun
     {
+        return app(\App\Services\Integrations\ResourceAutomationService::class)->withResourceLocks(
+            $externalResourceIds, fn (): CollectionRun => $this->startSmartUpdateLocked($integration, $externalResourceIds, $requestedBy)
+        );
+    }
+
+    private function startSmartUpdateLocked(CoreIntegration $integration, array $externalResourceIds, ?User $requestedBy = null): CollectionRun
+    {
         $resources = $this->resolveResources($integration, $externalResourceIds);
         $plans = $resources->map(fn (CoreExternalResource $resource): array => $this->smartPlan(
             $integration,
@@ -153,6 +160,7 @@ final class Ga4CentralCollectionService
             ->where('metadata->collection_scope', 'provider_resource_first')
             ->with('datasetRuns')
             ->orderByDesc('id')
+            ->limit(50)
             ->get();
 
         $active = $runs->first(fn (CollectionResourceRun $run): bool => in_array($run->status, [
@@ -183,9 +191,11 @@ final class Ga4CentralCollectionService
 
             if ($retryable->isNotEmpty()) {
                 $familyRanges = [];
+                $familyCheckpoints = [];
                 foreach ($retryable as $dataset) {
                     $range = data_get($dataset->metadata, 'date_range');
                     $familyRanges[(string) $dataset->request_family_id] = is_array($range) ? $range : null;
+                    $familyCheckpoints[(string) $dataset->request_family_id] = $dataset->checkpoint ?? [];
                 }
 
                 $dateRanges = collect($familyRanges)->filter(fn ($range): bool => is_array($range));
@@ -201,6 +211,7 @@ final class Ga4CentralCollectionService
                     'timezone' => $timezone,
                     'families' => $retryable->pluck('request_family_id')->map(fn ($id): string => (string) $id)->unique()->values()->all(),
                     'family_ranges' => $familyRanges,
+                    'family_checkpoints' => $familyCheckpoints,
                     'default_range' => $start && $end ? ['start' => $start, 'end' => $end] : null,
                     'days' => (int) $days,
                 ];
@@ -228,12 +239,20 @@ final class Ga4CentralCollectionService
         $start = $anchor->subDays(self::RESTATEMENT_DAYS - 1);
         $days = $start->diffInDays($closedEnd) + 1;
 
+        $familyRanges = [];
+        foreach (Ga4RequestFamilyCatalog::centralFamilies() as $family) {
+            $covered = app(\App\Services\Integrations\ResourceAutomationService::class)->coverageEnd($resource->id, 'GA4', $family);
+            $familyRanges[$family] = [
+                'start' => $covered ? min($start->toDateString(), CarbonImmutable::parse($covered)->addDay()->toDateString()) : $closedEnd->subDays(self::INITIAL_DAYS - 1)->toDateString(),
+                'end' => $closedEnd->toDateString(),
+            ];
+        }
         return [
             'resource' => $resource,
             'mode' => 'update',
             'timezone' => $timezone,
             'families' => Ga4RequestFamilyCatalog::centralFamilies(),
-            'family_ranges' => [],
+            'family_ranges' => $familyRanges,
             'default_range' => ['start' => $start->toDateString(), 'end' => $closedEnd->toDateString()],
             'days' => (int) $days,
         ];
@@ -423,6 +442,7 @@ final class Ga4CentralCollectionService
                     CollectionDatasetRun::query()->create([
                         'collection_run_id' => $run->id,
                         'collection_resource_run_id' => $resourceRun->id,
+                        'checkpoint' => $plan['family_checkpoints'][$familyId] ?? [],
                         'provider_or_source' => 'GA4',
                         'dataset_contract_id' => $datasetId,
                         'request_family_id' => $familyId,

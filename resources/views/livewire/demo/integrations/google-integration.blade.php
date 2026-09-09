@@ -1,4 +1,5 @@
 <div class="space-y-6">
+    <livewire:operator.integrations.resource-automations provider="google" />
     @include('livewire.demo.partials.flash')
 
     <div class="flex flex-wrap items-start justify-between gap-4">

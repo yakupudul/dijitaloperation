@@ -64,6 +64,10 @@ final class CollectionLifecyclePlanner
         }
 
         $bindings = $this->loadBindings((int) $asset->id);
+        if (isset($context['binding_ids'])) {
+            $scopeIds = array_map('intval', $context['binding_ids']);
+            $bindings = array_values(array_filter($bindings, fn ($binding) => in_array((int) $binding->id, $scopeIds, true)));
+        }
         if ($bindings === []) {
             return $this->blocked(CollectionPlanningBlockReason::ResourceUnbound, 'RESOURCE_UNBOUND');
         }

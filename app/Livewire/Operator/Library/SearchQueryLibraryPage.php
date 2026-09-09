@@ -356,6 +356,28 @@ class SearchQueryLibraryPage extends Component
         $this->repairPage();
     }
 
+    public function removeServiceAssignment(int $queryId, int $serviceId): void
+    {
+        app(\App\Services\Integrations\ResourceAutomationService::class)->authorize(auth()->user());
+        \Illuminate\Support\Facades\DB::transaction(function () use ($queryId, $serviceId): void {
+            $item = SearchQueryLibraryItem::query()->lockForUpdate()->findOrFail($queryId);
+            $item->services()->whereKey($serviceId)->firstOrFail();
+            \Illuminate\Support\Facades\DB::table('library_query_service_blocks')->updateOrInsert(
+                ['query_id' => $queryId, 'service_id' => $serviceId], ['created_at' => now(), 'updated_at' => now()]
+            );
+            $item->services()->detach($serviceId);
+        });
+    }
+
+    public function allowAutomaticMatching(int $queryId): void
+    {
+        app(\App\Services\Integrations\ResourceAutomationService::class)->authorize(auth()->user());
+        SearchQueryLibraryItem::query()->findOrFail($queryId);
+        \Illuminate\Support\Facades\DB::table('library_query_service_blocks')->where('query_id', $queryId)->delete();
+        \Illuminate\Support\Facades\DB::table('resource_query_observations')->where('query_id', $queryId)->update(['matching_fingerprint' => null]);
+        $this->message = __('resource-auto.matching_allowed');
+    }
+
     public function removeQuery(int $id): void
     {
         \Illuminate\Support\Facades\DB::transaction(function () use ($id): void {
@@ -608,8 +630,10 @@ class SearchQueryLibraryPage extends Component
             $this->aiRunId = null;
         }
 
+        $page = $query->paginate($this->pageSize());
         return view('livewire.operator.library.search-query-library-page', [
-            'queries' => $query->paginate($this->pageSize()),
+            'queries' => $page,
+            'blockedQueryIds' => \Illuminate\Support\Facades\DB::table('library_query_service_blocks')->whereIn('query_id', $page->pluck('id'))->pluck('query_id')->all(),
             'importServices' => ServiceCatalogItem::query()->with('primaryName')->where('status', 'active')->where('sector', $this->importSector)->get(),
             'assignmentServices' => ServiceCatalogItem::query()->with('primaryName')->where('status', 'active')->where('sector', $this->assignmentSector)->get(),
             'resources' => in_array($this->importSource, ['google_ads', 'search_console'], true) ? app(\App\Services\SearchDemand\LibraryImportWorkflow::class)->resources($this->importSource)->orderBy('display_name')->get(['id','display_name','external_id']) : collect(),

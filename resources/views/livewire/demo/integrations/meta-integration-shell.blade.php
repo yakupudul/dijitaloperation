@@ -1,4 +1,5 @@
 <div>
+    <livewire:operator.integrations.resource-automations provider="meta" />
     @include('livewire.demo.integrations.meta-integration')
 
     @if ($tab === 'resources')

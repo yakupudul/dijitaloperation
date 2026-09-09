@@ -37,7 +37,7 @@ final class MetaSingleBindingCollectionOrchestrator
     /**
      * @return array{outcome: string, message: string, collection_run: CollectionRun|null, mode: string}
      */
-    public function start(CoreIntegration $integration, CoreAssetBinding $binding, User $actor): array
+    public function start(CoreIntegration $integration, CoreAssetBinding $binding, ?User $actor): array
     {
         $binding = $binding->fresh(['digitalAsset', 'externalResource']) ?? $binding;
         $resource = $binding->externalResource;

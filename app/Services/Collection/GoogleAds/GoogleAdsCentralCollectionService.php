@@ -50,6 +50,13 @@ final class GoogleAdsCentralCollectionService
     /** @param list<int|string> $externalResourceIds */
     public function startSmartUpdate(CoreIntegration $integration, array $externalResourceIds, ?User $requestedBy = null): CollectionRun
     {
+        return app(\App\Services\Integrations\ResourceAutomationService::class)->withResourceLocks(
+            $externalResourceIds, fn (): CollectionRun => $this->startSmartUpdateLocked($integration, $externalResourceIds, $requestedBy)
+        );
+    }
+
+    private function startSmartUpdateLocked(CoreIntegration $integration, array $externalResourceIds, ?User $requestedBy = null): CollectionRun
+    {
         $this->queueGate->assertReady();
         $resources = $this->resolveResources($integration, $externalResourceIds);
         if ($resources->isEmpty()) {
@@ -266,6 +273,13 @@ final class GoogleAdsCentralCollectionService
                 ? self::CHANGE_EVENT_SAFE_DAYS
                 : self::RESTATEMENT_DAYS;
             $start = $closedEnd->subDays($window - 1);
+            if (! GoogleAdsCentralRequestFamilyCatalog::isChangeEvent($family)) {
+                $covered = app(\App\Services\Integrations\ResourceAutomationService::class)->coverageEnd($resource->id, 'GOOGLE_ADS', $family);
+                if ($covered && $covered < $start->toDateString()) {
+                    $start = CarbonImmutable::parse($covered, $timezone)->addDay()->startOfDay();
+                }
+            }
+
 
             if (GoogleAdsCentralRequestFamilyCatalog::isChangeEvent($family)) {
                 $oldestSafeStart = $today->subDays(self::CHANGE_EVENT_SAFE_DAYS);

@@ -87,7 +87,7 @@ final class ActivityReadService
                 'id' => 'library-import:'.$import->id, 'sort_id' => $import->id,
                 'title' => $import->source_type === 'services' ? 'Toplu hizmet ekleme' : ($import->source_type === 'assignment' ? 'Toplu sorgu atama' : 'Sorgu içe aktarma'),
                 'detail' => '#'.$import->id.' · '.$import->status.' · '.$import->accepted_rows.' yeni · '.$import->skipped_rows.' mevcut · '.$import->failed_rows.' hata',
-                'actor' => $import->createdBy?->name ?? 'System', 'actor_kind' => $import->created_by ? 'human' : 'system',
+                'actor' => data_get($import->input_payload, 'automatic') ? 'System' : ($import->createdBy?->name ?? 'System'), 'actor_kind' => data_get($import->input_payload, 'automatic') ? 'system' : ($import->created_by ? 'human' : 'system'),
                 'status' => match ($import->status) { 'queued', 'running' => 'running', 'failed' => 'failed', 'partial' => 'partial', default => 'success' },
                 'brand' => null, 'brand_id' => null, 'customer' => null, 'customer_id' => null,
                 'created_at' => $import->created_at->toIso8601String(), 'occurred_at' => $import->created_at->toIso8601String(),

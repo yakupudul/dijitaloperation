@@ -279,10 +279,15 @@ Schedule::command('horizon:snapshot')
 
 // Properties explicitly selected for central GA4 collection are refreshed daily.
 // The command recalculates each property's last 14 closed reporting days in that property's timezone.
-Schedule::command('moxdop:ga4:central-restatement')
-    ->dailyAt('04:10')
-    ->withoutOverlapping(120)
-    ->name('moxdop-ga4-central-restatement');
+// Resource automation now owns GA4 cadence too; no second daily restatement schedule.
+Artisan::command('moxdop:resources:automate', function (): void {
+    app(\App\Services\Integrations\ResourceAutomationService::class)->tick();
+})->purpose('Schedule bounded account collection and completed-data query imports.');
+
+Schedule::command('moxdop:resources:automate')
+    ->everyMinute()
+    ->withoutOverlapping(2)
+    ->name('moxdop-resource-automation');
 
 // Meta Ads UI readiness is backed by the central integrity registry. Re-run a
 // local-only audit daily so newly collected Professional V2 datasets and any

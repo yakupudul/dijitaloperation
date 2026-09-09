@@ -382,3 +382,13 @@ Operator approved the proposed exclusion-list workflow, then requested continuat
 - Rule changes during processing are checked between rows; execution is not an all-or-nothing global transaction. Completed removal receipts persist and removed queries remain recoverable. Preview membership is a snapshot; new/changed data can be covered by a new scan.
 
 Verification truth: code inspected only; operator forbade cloning and tests. No tests, formatter, build, browser or staging DB/queue execution ran. New migration, worker runtime and human acceptance remain unverified. No DONE/UAT claim.
+
+## Automatic resource collection → Query Library — staging source, 2026-09-09
+
+| Capability | Code | Operator UX | Async | Tests / UAT | Remaining scope / limits |
+| --- | --- | --- | --- | --- | --- |
+| Discovered-account cadence and smart continuation | Added on staging work branch | Google/Meta integration account controls; daily/3-day/pause/update now, status and actionable errors | Scheduler + existing central/bound collectors; two account slots | NOT RUN by operator instruction; live runtime unverified | Google Ads/GSC/GA4 resource-first; Meta/GBP require real existing binding; no Website/paid-provider auto enablement |
+| Completed-data automatic Ads/GSC query imports | Added on staging work branch | Persistent sector/service mapping, progress, observations, resume/close, Activity | Four admitted account imports, 100-row steps, indexed dataset receipts | NOT RUN; no 100k benchmark | Initial successful stored history included; counters describe source rows; no provider-metric aggregation |
+| Preserve manual decisions and recheck unmatched queries | Added on staging work branch | Sticky query deletion/rename aliases, removable service chips and automatic-match blocks, confirmed recheck | Recheck queued; small manual edits synchronous | NOT RUN; migration/UAT required | Existing service/child placements preserved; changed account mapping does not retroactively reclassify existing queries |
+
+See PROJECT_MEMORY automatic account section for full contract, worker/scheduler prerequisites and explicit unimplemented resource-first Meta/GBP scope. No main or server deployment is claimed.

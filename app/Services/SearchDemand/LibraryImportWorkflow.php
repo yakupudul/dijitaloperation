@@ -28,11 +28,10 @@ final class LibraryImportWorkflow
 
     public function resources(string $source): \Illuminate\Database\Eloquent\Builder
     {
-        [$table] = $this->providerTable($source);
+        $this->providerTable($source);
 
         return CoreExternalResource::query()->where('provider', 'google')->where('resource_type', $source)
-            ->where('status', 'available')->whereHas('integration', fn ($q) => $q->where('status', 'active'))
-            ->whereExists(fn ($q) => $q->selectRaw('1')->from($table)->whereColumn($table.'.external_resource_id', 'core_external_resources.id'));
+            ->where('status', 'available')->whereHas('integration', fn ($q) => $q->where('status', 'active'));
     }
 
     public function validateScope(array $payload): array
@@ -218,15 +217,8 @@ final class LibraryImportWorkflow
             'period_start' => $import->input_payload['date_from'] ?? null,
             'period_end' => $import->input_payload['date_to'] ?? null,
         ], $actor);
-        $matched = app(ServiceKeywordService::class)->matches($result['item']->canonical_text, $ids);
-        DB::transaction(function () use ($result, $matched): void {
-            $item = $result['item']->newQuery()->whereKey($result['item']->id)->lockForUpdate()->firstOrFail();
-            foreach ($matched as $id) {
-                if (! $item->services()->whereKey($id)->exists()) {
-                    $item->services()->attach($id, ['is_primary' => ! $item->services()->wherePivot('is_primary', true)->exists(), 'provenance' => 'keyword_match']);
-                }
-            }
-        });
+        $ids = $ids !== [] ? $ids : ServiceCatalogItem::query()->where('sector', $import->input_payload['sector'])->where('status', 'active')->pluck('id')->all();
+        app(AutomaticQueryImportService::class)->matchServices($result['item'], $ids);
 
         return $result['created'];
     }
@@ -241,6 +233,7 @@ final class LibraryImportWorkflow
                 $item->update(['sector' => $sector, 'updated_by' => $actor->id]);
             }
             foreach ($services as $serviceId) {
+                DB::table('library_query_service_blocks')->where('query_id', $item->id)->where('service_id', $serviceId)->delete();
                 if (! $item->services()->whereKey($serviceId)->exists()) {
                     $item->services()->attach($serviceId, [
                         'is_primary' => ! $item->services()->wherePivot('is_primary', true)->exists(), 'provenance' => 'operator',
