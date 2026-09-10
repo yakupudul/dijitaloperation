@@ -704,3 +704,16 @@ Then download connector 1.1.0 from the existing connector screen and replace the
 Existing pairing remains; WordPress init creates the local outbox. First successful heartbeat
 enables reconciliation. Scheduler and collection workers must run. Verify live pairing, event
 redelivery, scoped deletion, filtered history, and standards before operational acceptance.
+
+## 2026-09-10 — Website collection integration controls
+
+Operator requested the integration collection update after Connector 1.1.0. The Website screen
+now selects collection scope explicitly; General excludes optional PageSpeed, which is separate.
+Automatic WordPress event refresh continues between configurable daily/three-day inventory runs,
+with pause/resume that preserves event intake and active work. Source status is independent of the
+last overall run; last automatic inventory is distinguished from manual collection. Reconciliation
+only acknowledges its actual 50-event batch even during a full inventory, preserving later URL
+verification. Shared admission locks reduce overlapping snapshot writers. Additive settings migration
+and existing scheduler/workers required. No clone/tests/build/formatter/deploy or live acceptance
+performed by operator instruction; runtime/UAT remains unverified. Details in the capability ledger
+and docs/product/website/WORDPRESS.md.

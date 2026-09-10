@@ -161,3 +161,38 @@ Then download connector 1.1.0 from the existing connector screen and replace the
 Existing pairing remains; WordPress init creates the local outbox. First successful heartbeat
 enables reconciliation. Scheduler and collection workers must run. Verify live pairing, event
 redelivery, scoped deletion, filtered history, and standards before operational acceptance.
+
+## Website integration collection controls — 2026-09-10
+
+Implemented in staging source; no clone, tests, formatter, build, browser UAT or deployment run,
+as explicitly requested by the operator. This is not a verified runtime/DONE claim.
+
+- Website integration offers General (public HTML/TLS + paired WordPress), Public, WordPress full
+  inventory, and PageSpeed scopes. PageSpeed is explicit in this screen; other existing callers'
+  family defaults are unchanged. Missing CMS/PageSpeed connections are checked on the server.
+- Connector 1.1.0+ delivery state exposes daily/three-day full inventory cadence and pause/resume.
+  Event-driven refresh remains in bounded batches between inventories. Pause affects future
+  admissions, not an active run or receipt/audit recording; manual collection remains available.
+- Display last receipt, automatic reconciliation/full inventory, central pending event count,
+  stale receipt warning and retry errors. Pending count is stored unprocessed events, not the
+  sender's last-reported outbox size. Automatic inventory timestamps exclude manual collections.
+- Source statuses use latest dataset attempts per source, independent of the most recent overall
+  run. Latest-run counters remain explicitly latest-run counters. Queries no longer hydrate the
+  entire collection history each poll; idle screen refreshes every 30 seconds.
+- Collection console/history show scope and automatic trigger. PageSpeed-only runs have a valid
+  progress denominator. Admission through the Website orchestrator rejects another active run
+  under a short per-asset cache lock; reconciliation ticks also use a shared lock.
+- Fix full-inventory reconciliation advancing past the first 50 events: only the processed event
+  batch advances the cursor after success, retaining later URL refresh work. No incoming history
+  is deleted. Failed/partial work retains its cursor, retrying later. At most two automatic
+  reconciliation runs remain active; busy/unsupported candidates are deferred.
+- A missing recent heartbeat no longer silently suppresses periodic recovery inventory after the
+  first supported delivery. Disconnected/unpaired sources are excluded; old plugin versions wait.
+- New additive preference columns/indexes require the normal staging migration. Shared cache,
+  scheduler and collection workers are required. Keep Connector 1.1.0+ installed and WP-Cron or
+  host cron running. General public crawl/PageSpeed are not automatically run daily. No remote
+  CMS mutation, paid enrichment or AI request is introduced.
+
+Remaining acceptance: migrate staging, exercise scope selection and pause/resume, confirm delayed
+event batches/cursor recovery and source timestamps against a real paired site. No such acceptance
+has been performed in this change.

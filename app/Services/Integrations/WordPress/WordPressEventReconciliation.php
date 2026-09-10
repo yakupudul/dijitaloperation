@@ -6,6 +6,7 @@ use App\Models\Collection\CollectionRun;
 use App\Models\CoreConnection;
 use App\Services\Collection\Providers\Website\WebsiteRequestFamilyCatalog;
 use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
@@ -14,12 +15,25 @@ final class WordPressEventReconciliation
 {
     public function tick(): void
     {
+        $lock = Cache::lock('wordpress-event-reconciliation', 120);
+        if (! $lock->get()) {
+            return;
+        }
+        try {
+            $this->reconcile();
+        } finally {
+            $lock->release();
+        }
+    }
+
+    private function reconcile(): void
+    {
         DB::table('website_connector_nonces')->where('created_at', '<', now()->subHour())->delete();
         $active = DB::table('website_connector_delivery')->whereNotNull('collection_run_id')->get();
         foreach ($active as $state) {
             $run = CollectionRun::query()->find($state->collection_run_id);
             $status = $run?->status?->value;
-            if (in_array($status, ['queued', 'running', 'retrying'], true)) {
+            if (in_array($status, ['queued', 'running', 'retrying', 'cancellation_requested'], true)) {
                 continue;
             }
             $update = ['collection_run_id' => null, 'next_reconcile_at' => now()->addMinutes(10)];
@@ -39,10 +53,17 @@ final class WordPressEventReconciliation
             return;
         }
         $states = DB::table('website_connector_delivery')
-            ->whereNull('collection_run_id')->where('last_received_at', '>=', now()->subDay())
+            ->where('automation_enabled', true)
+            ->whereNull('collection_run_id')
+            ->whereExists(fn ($q) => $q->selectRaw('1')->from('core_connections')
+                ->whereColumn('core_connections.id', 'website_connector_delivery.connection_id')
+                ->where('enabled', true)->where('config->pairing_state', 'paired'))
             ->where(fn ($q) => $q->whereNull('next_reconcile_at')->orWhere('next_reconcile_at', '<=', now()))
             ->where(fn ($q) => $q->whereColumn('latest_event_id', '>', 'reconciled_event_id')
-                ->orWhereNull('last_inventory_at')->orWhere('last_inventory_at', '<=', now()->subDay()))
+                ->orWhereNull('last_inventory_at')
+                ->orWhere(fn ($q) => $q->where('inventory_interval_days', 1)->where('last_inventory_at', '<=', now()->subDay()))
+                ->orWhere(fn ($q) => $q->where('inventory_interval_days', 3)->where('last_inventory_at', '<=', now()->subDays(3)))
+                ->orWhereColumn('gap_at', '>', 'last_inventory_at'))
             ->orderBy('next_reconcile_at')->limit(20)->get();
         foreach ($states as $state) {
             if ($slots < 1) {
@@ -52,25 +73,31 @@ final class WordPressEventReconciliation
             if (! $connection?->enabled || data_get($connection->config, 'pairing_state') !== 'paired'
                 || ! $connection->digitalAsset || ! $connection->credential
                 || version_compare((string) $state->plugin_version, '1.1.0', '<')) {
+                DB::table('website_connector_delivery')->where('connection_id', $state->connection_id)
+                    ->update(['next_reconcile_at' => now()->addHour()]);
                 continue;
             }
             if (CollectionRun::query()->where('digital_asset_id', $connection->digital_asset_id)
-                ->whereIn('status', ['queued', 'running', 'retrying'])->exists()) {
+                ->whereIn('status', ['queued', 'running', 'retrying', 'cancellation_requested'])->exists()) {
+                DB::table('website_connector_delivery')->where('connection_id', $state->connection_id)
+                    ->update(['next_reconcile_at' => now()->addMinutes(5)]);
                 continue;
             }
-            $full = $state->last_inventory_at === null || strtotime($state->last_inventory_at) <= now()->subDay()->getTimestamp()
+            $full = $state->last_inventory_at === null || strtotime($state->last_inventory_at) <= now()->subDays((int) $state->inventory_interval_days)->getTimestamp()
                 || ($state->gap_at && strtotime($state->gap_at) > strtotime($state->last_inventory_at ?? '1970-01-01'));
             $events = DB::table('website_connector_events')->where('connection_id', $connection->id)
                 ->where('id', '>', $state->reconciled_event_id)->orderBy('id')->limit(50)->get();
             $ids = $events->filter(fn ($e) => str_starts_with($e->type, 'content.') || str_starts_with($e->type, 'seo.'))
                 ->pluck('object_id')->filter(fn ($id) => ctype_digit($id) && (int) $id > 0)->map(fn ($id) => (int) $id)->unique()->values()->all();
             // Global template/settings updates require a fresh inventory.
-            $full = $full || $events->contains(fn ($e) => $e->type === 'settings.updated' || $e->type === 'maintenance.theme_changed');
-            $watermark = $full ? (int) $state->latest_event_id : (int) ($events->max('id') ?? $state->reconciled_event_id);
+            $full = $full || $ids === [] || $events->contains(fn ($e) => $e->type === 'settings.updated' || $e->type === 'maintenance.theme_changed');
+            // A full CMS snapshot does not verify URLs outside this event batch.
+            $watermark = (int) ($events->max('id') ?? $state->reconciled_event_id);
             $context = [
                 'force_refresh' => true,
                 'idempotency_key' => 'wp-events:'.$connection->id.':'.$watermark.':'.now()->format('YmdHi'),
                 'collection_intent' => 'wordpress_event_reconciliation',
+                'collection_scope' => $full ? 'wordpress' : 'changes',
                 'collection_intent_label' => $full ? 'WordPress inventory reconciliation' : 'WordPress changed-object refresh',
                 'wordpress_object_ids' => $full ? [] : $ids,
             ];

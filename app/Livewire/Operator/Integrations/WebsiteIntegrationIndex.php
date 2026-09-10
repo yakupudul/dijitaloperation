@@ -28,6 +28,10 @@ use Throwable;
 #[Title('Web Sitesi Veri Kaynakları')]
 final class WebsiteIntegrationIndex extends Component
 {
+    public string $collectionScope = 'full';
+
+    private array $sourceRuns = [];
+
     public string $message = '';
 
     public string $messageTone = 'info';
@@ -93,12 +97,41 @@ final class WebsiteIntegrationIndex extends Component
         abort_unless($actor instanceof User, 403);
         $this->selectedAssetId = $assetId;
 
+        abort_unless(in_array($this->collectionScope, ['full', 'public', 'wordpress', 'pagespeed'], true), 422);
+        $asset->loadMissing('connections.credential');
+        $wordpressReady = $asset->connections->contains(fn (CoreConnection $connection): bool =>
+            $connection->type === WordPressConnectorPairingService::CONNECTION_TYPE
+            && $connection->enabled && data_get($connection->config, 'pairing_state') === 'paired'
+            && $connection->credential !== null);
+        if (($this->collectionScope === 'wordpress' && ! $wordpressReady)
+            || ($this->collectionScope === 'pagespeed' && ! $this->pageSpeedReady($asset))) {
+            $this->messageTone = 'warning';
+            $this->message = $this->text('Seçilen kaynak için önce bağlantıyı tamamlayın.', 'Connect the selected source first.');
+            return;
+        }
+        if (CollectionRun::query()->where('digital_asset_id', $assetId)
+            ->whereIn('status', ['queued', 'running', 'retrying', 'cancellation_requested'])->exists()) {
+            $this->messageTone = 'info';
+            $this->message = $this->text('Bu web sitesi için bir çekim zaten sürüyor.', 'A collection is already active for this website.');
+            return;
+        }
+        $publicFamilies = [WebsiteRequestFamilyCatalog::FAMILY_PUBLIC_CRAWL,
+            WebsiteRequestFamilyCatalog::FAMILY_HTTP_HTML_DIAGNOSIS, WebsiteRequestFamilyCatalog::FAMILY_DNS_TLS];
+        $families = match ($this->collectionScope) {
+            'wordpress' => [WebsiteRequestFamilyCatalog::FAMILY_WP_REST],
+            'pagespeed' => [WebsiteRequestFamilyCatalog::FAMILY_PAGESPEED],
+            'public' => $publicFamilies,
+            default => $wordpressReady ? [...$publicFamilies, WebsiteRequestFamilyCatalog::FAMILY_WP_REST] : $publicFamilies,
+        };
+
         try {
             $run = $orchestrator->start(
                 asset: $asset,
                 requestedBy: $actor,
+                requestFamilyIds: $families,
                 context: [
                     'trigger' => 'operator.integrations.website.collect',
+                    'collection_scope' => $this->collectionScope,
                     'force_refresh' => true,
                 ],
             );
@@ -115,6 +148,75 @@ final class WebsiteIntegrationIndex extends Component
         }
     }
 
+    public function setAutomation(int $assetId, string $mode): void
+    {
+        abort_unless(auth()->user() instanceof User, 403);
+        abort_unless(in_array($mode, ['daily', 'three_days', 'paused'], true), 422);
+        $connection = CoreConnection::query()->where('digital_asset_id', $assetId)
+            ->where('type', WordPressConnectorPairingService::CONNECTION_TYPE)
+            ->where('enabled', true)->where('config->pairing_state', 'paired')->firstOrFail();
+        $state = DB::table('website_connector_delivery')->where('connection_id', $connection->id)->first();
+        if (! $state || version_compare((string) $state->plugin_version, '1.1.0', '<')) {
+            $this->messageTone = 'warning';
+            $this->message = $this->text('Connector 1.1.0 veya üzerinin ilk bildirimini bekliyoruz.', 'Waiting for the first delivery from Connector 1.1.0 or newer.');
+            return;
+        }
+        $update = ['automation_enabled' => $mode !== 'paused'];
+        if ($mode !== 'paused') {
+            $update['inventory_interval_days'] = $mode === 'three_days' ? 3 : 1;
+            $update['next_reconcile_at'] = null;
+        }
+        DB::table('website_connector_delivery')->where('connection_id', $connection->id)->update($update);
+        $this->messageTone = 'success';
+        $this->message = $mode === 'paused'
+            ? $this->text('Otomatik çekim duraklatıldı. Devam eden çekim tamamlanır; site bildirimleri kaydedilmeye devam eder.', 'Automatic collection paused. Active work finishes; site events continue to be recorded.')
+            : $this->text('Otomatik çekim ayarı kaydedildi.', 'Automatic collection preference saved.');
+    }
+
+    private function deliveryState(?CoreConnection $connection): ?array
+    {
+        if (! $connection || ! Schema::hasTable('website_connector_delivery')) {
+            return null;
+        }
+        $state = DB::table('website_connector_delivery')->where('connection_id', $connection->id)->first();
+        if (! $state) {
+            return ['ready' => false];
+        }
+        return [
+            'ready' => $connection->enabled && $connection->credential !== null
+                && data_get($connection->config, 'pairing_state') === 'paired'
+                && version_compare((string) $state->plugin_version, '1.1.0', '>='),
+            'enabled' => (bool) $state->automation_enabled,
+            'interval' => (int) $state->inventory_interval_days,
+            'version' => $state->plugin_version,
+            'last_received' => $state->last_received_at,
+            'last_reconciled' => $state->last_reconciled_at,
+            'last_inventory' => $state->last_inventory_at,
+            'next_retry' => $state->next_reconcile_at,
+            'stale' => ! $state->last_received_at || strtotime($state->last_received_at) < now()->subDay()->getTimestamp(),
+            'pending' => DB::table('website_connector_events')->where('connection_id', $connection->id)
+                ->where('id', '>', $state->reconciled_event_id)->count(),
+            'error' => $state->last_error,
+        ];
+    }
+
+    private function scopeLabel(CollectionRun $run): string
+    {
+        $scope = (string) data_get($run->request_context, 'context.collection_scope', '');
+        $label = match ($scope) {
+            'full' => $this->text('Genel çekim · HTML, TLS ve bağlı WordPress', 'General · HTML, TLS and connected WordPress'),
+            'public' => $this->text('Dışarıdan HTML ve TLS', 'Public HTML and TLS'),
+            'wordpress' => $this->text('WordPress tam envanter', 'WordPress full inventory'),
+            'changes' => $this->text('Değişen WordPress kayıtları', 'Changed WordPress records'),
+            'pagespeed' => 'PageSpeed',
+            default => $this->text('Önceki çekim', 'Previous collection'),
+        };
+        if (data_get($run->request_context, 'context.targeted_verification.urls', []) !== []) {
+            $label .= $this->text(' + etkilenen URL’ler', ' + affected URLs');
+        }
+        return $label;
+    }
+
     public function render(): View
     {
         /** @var DataPoolStorageRegistry $storageRegistry */
@@ -128,14 +230,23 @@ final class WebsiteIntegrationIndex extends Component
 
         $runs = $assets->isEmpty()
             ? collect()
-            : CollectionRun::query()
-                ->with('datasetRuns')
-                ->whereIn('digital_asset_id', $assets->pluck('id'))
-                ->latest('id')
-                ->get()
-                ->filter(fn (CollectionRun $run): bool => $this->isWebsiteRun($run))
-                ->unique('digital_asset_id')
-                ->keyBy('digital_asset_id');
+            : CollectionRun::query()->with('datasetRuns')
+                ->whereIn('id', CollectionRun::query()->selectRaw('MAX(id)')
+                    ->whereIn('digital_asset_id', $assets->pluck('id'))
+                    ->whereJsonContains('request_context->provider_sources', 'WEBSITE_DIRECT')
+                    ->groupBy('digital_asset_id'))
+                ->get()->keyBy('digital_asset_id');
+
+        $this->sourceRuns = $assets->isEmpty() ? [] : CollectionDatasetRun::query()
+            ->select('collection_dataset_runs.*', 'cr.digital_asset_id as source_asset_id')
+            ->join('collection_runs as cr', 'cr.id', '=', 'collection_dataset_runs.collection_run_id')
+            ->whereIn('collection_dataset_runs.id', DB::table('collection_dataset_runs as ds')
+                ->join('collection_runs as r', 'r.id', '=', 'ds.collection_run_id')
+                ->selectRaw('MAX(ds.id)')
+                ->whereIn('r.digital_asset_id', $assets->pluck('id'))
+                ->whereIn('ds.request_family_id', WebsiteRequestFamilyCatalog::supportedFamilies())
+                ->groupBy('r.digital_asset_id', 'ds.request_family_id', 'ds.dataset_contract_id'))
+            ->orderByDesc('collection_dataset_runs.id')->get()->groupBy('source_asset_id')->all();
 
         $allRows = $assets->map(function (DigitalAsset $asset) use ($runs): array {
             $pageSpeedReady = $this->pageSpeedReady($asset);
@@ -151,7 +262,7 @@ final class WebsiteIntegrationIndex extends Component
                 && $wordpressConnection->enabled
                 && data_get($wordpressConnection->config, 'pairing_state') === WordPressConnectorPairingService::PAIRED
                 && $wordpressConnection->credential !== null;
-            $collectors = $this->collectorSummaries($run, $collectable, $pageSpeedReady, $wordpressDetected, $wordpressReady);
+            $collectors = $this->collectorSummaries($run, $collectable, $pageSpeedReady, $wordpressDetected, $wordpressReady, $this->sourceRuns[$asset->id] ?? collect());
             $requiredCollectors = collect($collectors)->where('optional', false);
             $requiredCompleted = $requiredCollectors->where('state', 'completed')->count();
             $sourceLabels = collect([$this->text('Public', 'Public')]);
@@ -236,6 +347,7 @@ final class WebsiteIntegrationIndex extends Component
             'selectedRow' => $selectedRow,
             'history' => $history,
             'liveConsole' => $liveConsole,
+            'deliveryState' => $selectedRow !== null ? $this->deliveryState($selectedRow['wordpress_connection']) : null,
             'availableDatasets' => $availableDatasets,
             'selectedDataset' => $selectedDataset,
             'dataExplorer' => $dataExplorer,
@@ -264,6 +376,7 @@ final class WebsiteIntegrationIndex extends Component
         bool $pageSpeedReady,
         bool $wordpressDetected,
         bool $wordpressReady,
+        Collection $latestSourceRuns,
     ): array
     {
         $definitions = [
@@ -275,7 +388,7 @@ final class WebsiteIntegrationIndex extends Component
         if ($wordpressDetected) {
             $definitions[] = ['key' => 'wordpress', 'family' => WebsiteRequestFamilyCatalog::FAMILY_WP_REST, 'optional' => false];
         }
-        $datasetRuns = $run?->datasetRuns ?? collect();
+        $datasetRuns = $latestSourceRuns;
 
         return array_map(function (array $definition) use ($datasetRuns, $collectable, $pageSpeedReady, $wordpressReady): array {
             $familyRuns = $datasetRuns->filter(
@@ -460,7 +573,7 @@ final class WebsiteIntegrationIndex extends Component
         $row['headline_metrics'] = [
             'urls' => (int) data_get($publicDatasets->firstWhere('id', 'website_url'), 'current_rows', 0),
             'html_pages' => $htmlCoverage['pages'],
-            'html_changes' => $htmlCoverage['changed'],
+            'html_changes' => $run?->datasetRuns?->contains('dataset_contract_id', 'website_html_snapshot') ? $htmlCoverage['changed'] : '—',
             'wordpress_objects' => (int) data_get($connectorDatasets->firstWhere('id', 'website_cms_object_snapshot'), 'current_rows', 0),
             'last_run_at' => $run?->updated_at,
         ];
@@ -601,14 +714,14 @@ final class WebsiteIntegrationIndex extends Component
         DataPoolStorageRegistry $storageRegistry,
     ): array {
         $families = $this->familiesForDataset($datasetId);
-        $familyRuns = $run?->datasetRuns?->filter(
+        $familyRuns = ($this->sourceRuns[$asset->id] ?? collect())->filter(
             fn (CollectionDatasetRun $datasetRun): bool => in_array($datasetRun->request_family_id, $families, true),
-        ) ?? collect();
+        );
         $exactRuns = $familyRuns->filter(
             fn (CollectionDatasetRun $datasetRun): bool => (string) $datasetRun->dataset_contract_id === $datasetId,
         );
         if ($exactRuns->isNotEmpty()) {
-            $familyRuns = $exactRuns;
+            $familyRuns = $exactRuns->sortByDesc('id')->take(1);
         }
         $state = $this->datasetState(
             $datasetId,
@@ -1378,7 +1491,9 @@ final class WebsiteIntegrationIndex extends Component
                 'datasets_total' => (int) $run->datasets_total,
                 'datasets_failed' => (int) $run->datasets_failed,
                 'rows_written' => (int) $run->datasetRuns->sum('rows_written'),
-                'trigger_label' => $this->triggerLabel($run->trigger_type?->value),
+                'trigger_label' => data_get($run->request_context, 'context.collection_intent') === 'wordpress_event_reconciliation'
+                    ? $this->text('Otomatik', 'Automatic') : $this->triggerLabel($run->trigger_type?->value),
+                'scope_label' => $this->scopeLabel($run),
                 'requested_by' => $run->requestedBy?->name ?? $this->text('Sistem', 'System'),
                 'started_at' => $run->started_at ?? $run->created_at,
                 'finished_at' => $run->finished_at,
@@ -1433,6 +1548,9 @@ final class WebsiteIntegrationIndex extends Component
         $requiredDatasetRuns = $run->datasetRuns->reject(
             fn (CollectionDatasetRun $datasetRun): bool => $datasetRun->request_family_id === WebsiteRequestFamilyCatalog::FAMILY_PAGESPEED,
         );
+        if ($requiredDatasetRuns->isEmpty()) {
+            $requiredDatasetRuns = $run->datasetRuns;
+        }
         $datasetsTotal = $requiredDatasetRuns->count();
         $datasetsCompleted = $requiredDatasetRuns->filter(
             fn (CollectionDatasetRun $datasetRun): bool => $datasetRun->status?->value === 'completed',
@@ -1441,6 +1559,7 @@ final class WebsiteIntegrationIndex extends Component
         return [
             'id' => $run->id,
             'active' => $active,
+            'scope_label' => $this->scopeLabel($run),
             'state' => $this->overallState($run, true),
             'status_label' => $this->runStatusLabel($run),
             'datasets_completed' => $datasetsCompleted,

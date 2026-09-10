@@ -24,7 +24,7 @@
     ];
 @endphp
 
-<div class="space-y-6" @if (($liveConsole['active'] ?? false) === true) wire:poll.2s @endif>
+<div class="space-y-6" @if (($liveConsole['active'] ?? false) === true) wire:poll.2s @else wire:poll.30s @endif>
     @if ($selectedRow === null)
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -123,14 +123,65 @@
                 </div>
                 <a href="{{ $selectedRow['asset']->primary_url ?: ('https://'.$selectedRow['asset']->domain) }}" target="_blank" rel="noreferrer" class="mt-2 block truncate text-sm text-gray-500 hover:text-brand-600 dark:text-gray-400">{{ $selectedRow['asset']->primary_url ?: $selectedRow['asset']->domain }}</a>
             </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <label for="website-collection-scope" class="sr-only">{{ $tr ? 'Çekim kapsamı' : 'Collection scope' }}</label>
+                <select id="website-collection-scope" wire:model="collectionScope" wire:loading.attr="disabled" class="rounded-lg border-gray-300 bg-white text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                    <option value="full">{{ $tr ? 'Genel çekim' : 'General collection' }}</option>
+                    <option value="public">{{ $tr ? 'Dışarıdan HTML ve TLS' : 'Public HTML and TLS' }}</option>
+                    <option value="wordpress" @disabled(! $selectedRow['wordpress_ready'])>{{ $tr ? 'WordPress tam envanter' : 'WordPress full inventory' }}</option>
+                    <option value="pagespeed" @disabled(! $selectedRow['page_speed_ready'])>PageSpeed</option>
+                </select>
             <button type="button" wire:click="collectNow({{ $selectedRow['asset']->id }})" wire:loading.attr="disabled" @disabled(! $selectedRow['collectable'] || (($liveConsole['active'] ?? false) === true)) class="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white shadow-theme-xs transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50">
                 <span wire:loading.remove wire:target="collectNow">{{ ($liveConsole['active'] ?? false) ? ($tr ? 'Veri çekimi sürüyor' : 'Collection in progress') : ($tr ? 'Veri çekimini başlat' : 'Start collection') }}</span>
                 <span wire:loading wire:target="collectNow">{{ $tr ? 'Başlatılıyor…' : 'Starting…' }}</span>
             </button>
+                <p class="w-full text-xs text-gray-500 dark:text-gray-400">{{ $tr ? 'Genel çekim: HTML, TLS ve bağlı WordPress. Hız ölçümü için PageSpeed’i seçin.' : 'General collection: HTML, TLS and connected WordPress. Select PageSpeed for speed measurements.' }}</p>
+            </div>
         </div>
 
         @if ($message !== '')
             <div class="rounded-lg border px-4 py-3 text-sm {{ $toneClasses($messageTone) }}">{{ $message }}</div>
+        @endif
+
+        @if ($selectedRow['wordpress_detected'])
+            <section class="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+                <div class="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                        <h2 class="text-sm font-semibold text-gray-900 dark:text-white">{{ $tr ? 'Otomatik WordPress yenilemesi' : 'Automatic WordPress refresh' }}</h2>
+                        <p class="mt-1 max-w-2xl text-xs leading-5 text-gray-500 dark:text-gray-400">{{ $tr ? 'Değişiklikler küçük gruplar halinde alınır, etkilenen URL’ler kontrol edilir. Tam envanter aşağıdaki sıklıkta yenilenir. Dışarıdan genel tarama ve PageSpeed ayrıca başlatılır.' : 'Changes are collected in small batches and affected URLs are checked. Full inventory follows the selected cadence. General public crawl and PageSpeed are started separately.' }}</p>
+                    </div>
+                    @if ($deliveryState['ready'] ?? false)
+                        <div class="flex flex-wrap gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-800" aria-label="{{ $tr ? 'Otomatik çekim sıklığı' : 'Automatic collection cadence' }}">
+                            @foreach (['daily' => [$tr ? 'Günlük' : 'Daily', $deliveryState['enabled'] && $deliveryState['interval'] === 1], 'three_days' => [$tr ? '3 günde bir' : 'Every 3 days', $deliveryState['enabled'] && $deliveryState['interval'] === 3], 'paused' => [$tr ? 'Duraklat' : 'Pause', ! $deliveryState['enabled']]] as $mode => [$label, $chosen])
+                                <button type="button" wire:click="setAutomation({{ $selectedRow['asset']->id }}, '{{ $mode }}')" wire:loading.attr="disabled" aria-pressed="{{ $chosen ? 'true' : 'false' }}" @class(['rounded-md px-3 py-2 text-xs font-medium', 'bg-white text-brand-600 shadow-sm dark:bg-gray-700 dark:text-brand-400' => $chosen, 'text-gray-600 dark:text-gray-300' => ! $chosen])>{{ $label }}</button>
+                            @endforeach
+                        </div>
+                    @endif
+                </div>
+                @if ($deliveryState['ready'] ?? false)
+                    <dl class="mt-4 grid gap-4 border-t border-gray-100 pt-4 text-xs sm:grid-cols-2 xl:grid-cols-4 dark:border-gray-800">
+                        @foreach ([
+                            [$tr ? 'Son site bildirimi' : 'Last site delivery', $deliveryState['last_received'] ?: '—'],
+                            [$tr ? 'Son otomatik yenileme' : 'Last automatic refresh', $deliveryState['last_reconciled'] ?: '—'],
+                            [$tr ? 'Son otomatik tam envanter' : 'Last automatic full inventory', $deliveryState['last_inventory'] ?: '—'],
+                            [$tr ? 'İşlenmeyi bekleyen değişiklik' : 'Pending changes', number_format($deliveryState['pending'])],
+                        ] as [$label, $value])
+                            <div><dt class="text-gray-500 dark:text-gray-400">{{ $label }}</dt><dd class="mt-1 font-medium text-gray-900 dark:text-white">{{ $value }}</dd></div>
+                        @endforeach
+                    </dl>
+                    @if (! $deliveryState['enabled'])
+                        <p class="mt-3 text-xs text-amber-700 dark:text-amber-300">{{ $tr ? 'Otomatik çekim duraklatıldı. Site bildirimleri kaydedilir; aktif çekim tamamlanır. Manuel çekim başlatabilirsiniz.' : 'Automatic collection is paused. Events are recorded and active work finishes. Manual collection remains available.' }}</p>
+                    @elseif ($deliveryState['stale'])
+                        <p class="mt-3 text-xs text-amber-700 dark:text-amber-300">{{ $tr ? 'Son 24 saatte site bildirimi gelmedi. Connector bağlantısını ve WordPress zamanlanmış görevlerini kontrol edin.' : 'No site delivery in the last 24 hours. Check the Connector connection and WordPress scheduled tasks.' }}</p>
+                    @endif
+                    @if ($deliveryState['error'])
+                        <p class="mt-3 text-xs text-red-700 dark:text-red-300">{{ $deliveryState['error'] }} @if ($deliveryState['enabled'] && $deliveryState['next_retry']) {{ $tr ? 'Yeniden deneme en erken:' : 'Retry no earlier than:' }} {{ $deliveryState['next_retry'] }} @endif</p>
+                    @endif
+                @else
+                    <p class="mt-3 text-xs text-amber-700 dark:text-amber-300">{{ $tr ? 'Otomatik yenileme için eşleştirilmiş Connector 1.1.0 veya üzerinin ilk bildirimi gerekiyor.' : 'Automatic refresh requires the first delivery from a paired Connector 1.1.0 or newer.' }}</p>
+                    <a href="{{ route('operator.integrations.site-connector', ['connector' => 'wordpress', 'site' => $selectedRow['asset']->id]) }}" wire:navigate class="mt-2 inline-block text-xs font-medium text-brand-600 dark:text-brand-400">{{ $tr ? 'Connector bağlantısını aç' : 'Open Connector connection' }}</a>
+                @endif
+            </section>
         @endif
 
         <nav class="overflow-x-auto border-b border-gray-200 dark:border-gray-800" aria-label="Website sections">
@@ -156,11 +207,11 @@
                             <h2 class="text-base font-semibold text-gray-900 dark:text-white">{{ $tr ? 'Veri çekim konsolu' : 'Collection console' }}</h2>
                             <span class="inline-flex rounded-full border px-2.5 py-1 text-xs {{ $toneClasses($stateTone($liveConsole['state'])) }}">{{ $liveConsole['status_label'] }}</span>
                         </div>
-                        <p class="mt-1 text-xs text-gray-500">#{{ $liveConsole['id'] }} · {{ $liveConsole['duration_label'] ?: '—' }} · {{ $tr ? 'Son hareket' : 'Last activity' }} {{ $liveConsole['last_activity_at']?->diffForHumans() ?? '—' }}</p>
+                        <p class="mt-1 text-xs text-gray-500">#{{ $liveConsole['id'] }} · {{ $liveConsole['scope_label'] }} · {{ $liveConsole['duration_label'] ?: '—' }} · {{ $tr ? 'Son hareket' : 'Last activity' }} {{ $liveConsole['last_activity_at']?->diffForHumans() ?? '—' }}</p>
                     </div>
                     <div class="text-right">
                         <p class="text-xl font-semibold text-gray-900 dark:text-white">%{{ $liveConsole['progress_percent'] }}</p>
-                        <p class="text-xs text-gray-400">{{ $liveConsole['datasets_completed'] }}/{{ $liveConsole['datasets_total'] }} {{ $tr ? 'zorunlu dataset' : 'required datasets' }}</p>
+                        <p class="text-xs text-gray-400">{{ $liveConsole['datasets_completed'] }}/{{ $liveConsole['datasets_total'] }} {{ $tr ? 'veri grubu' : 'datasets' }}</p>
                     </div>
                 </div>
                 <div class="h-1 bg-gray-100 dark:bg-gray-800"><div class="h-full bg-brand-500 transition-all" style="width: {{ $liveConsole['progress_percent'] }}%"></div></div>
@@ -209,7 +260,7 @@
                     <div class="flex items-center justify-between gap-3">
                         <div>
                             <h2 class="text-base font-semibold text-gray-900 dark:text-white">{{ $tr ? 'Kaynak durumu' : 'Source status' }}</h2>
-                            <p class="mt-1 text-sm text-gray-500">{{ $tr ? 'Her kaynak kendi bağlantısı ve dataset kapsamıyla izlenir.' : 'Each source is monitored with its own connection and dataset coverage.' }}</p>
+                            <p class="mt-1 text-sm text-gray-500">{{ $tr ? 'Durumlar her kaynağın son çekimini gösterir; tüm kaynakların aynı anda yenilendiği anlamına gelmez.' : 'Status reflects each source’s latest collection; sources may have been refreshed at different times.' }}</p>
                         </div>
                         <button type="button" wire:click="setTab('sources')" class="text-sm font-medium text-brand-600 dark:text-brand-400">{{ $tr ? 'Tümünü aç' : 'View all' }} →</button>
                     </div>
@@ -219,6 +270,7 @@
                                 <div>
                                     <div class="flex items-center gap-2"><p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $source['label'] }}</p>@if ($source['optional'])<span class="rounded bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500 dark:bg-white/[0.05]">{{ $tr ? 'İsteğe bağlı' : 'Optional' }}</span>@endif</div>
                                     <p class="mt-1 text-xs text-gray-500">{{ $source['connection_label'] }} · {{ $source['completed'] }}/{{ $source['total'] }} dataset</p>
+                                    <p class="mt-1 text-xs text-gray-400">{{ $tr ? 'Son veri:' : 'Last data:' }} {{ $source['last_collected_at']?->diffForHumans() ?? '—' }}</p>
                                 </div>
                                 <span class="rounded-full border px-2.5 py-1 text-xs {{ $toneClasses($stateTone($source['state'])) }}">{{ $source['status_label'] }}</span>
                             </div>
@@ -275,8 +327,8 @@
                                     <details class="mt-3 text-xs text-gray-500">
                                         <summary class="cursor-pointer font-medium text-gray-600 dark:text-gray-300">{{ $tr ? 'Çekim ve teknik ayrıntılar' : 'Collection and technical details' }}</summary>
                                         <div class="mt-3 grid gap-3 rounded-lg bg-gray-50 p-3 sm:grid-cols-2 xl:grid-cols-5 dark:bg-white/[0.03]">
-                                            <div><span class="block text-gray-400">{{ $tr ? 'İşlenen' : 'Processed' }}</span><strong>{{ number_format((int) $dataset['processed_rows'], 0, ',', '.') }}</strong></div>
-                                            <div><span class="block text-gray-400">{{ $tr ? 'Yeni / güncel' : 'Inserted / updated' }}</span><strong>{{ $dataset['inserted_rows'] }} / {{ $dataset['updated_rows'] }}</strong></div>
+                                            <div><span class="block text-gray-400">{{ $tr ? 'Son çekimde işlenen' : 'Processed in latest run' }}</span><strong>{{ number_format((int) $dataset['processed_rows'], 0, ',', '.') }}</strong></div>
+                                            <div><span class="block text-gray-400">{{ $tr ? 'Son çekimde yeni / güncel' : 'Inserted / updated in latest run' }}</span><strong>{{ $dataset['inserted_rows'] }} / {{ $dataset['updated_rows'] }}</strong></div>
                                             <div><span class="block text-gray-400">{{ $tr ? 'Başarılı paket' : 'Committed batches' }}</span><strong>{{ $dataset['successful_batches'] }}</strong></div>
                                             <div><span class="block text-gray-400">{{ $tr ? 'Son veri' : 'Last data' }}</span><strong>{{ $dataset['last_collected_at']?->diffForHumans() ?? '—' }}</strong></div>
                                             <div><span class="block text-gray-400">Dataset ID</span><strong class="break-all font-mono">{{ $dataset['id'] }}</strong></div>
@@ -299,7 +351,7 @@
                                 <tr>
                                     <td class="px-5 py-4 font-mono text-xs">#{{ $run['id'] }}</td>
                                     <td class="px-5 py-4"><span class="rounded-full border px-2.5 py-1 text-xs {{ $toneClasses($stateTone((string) $run['status'])) }}">{{ $run['status_label'] }}</span>@if ($run['failure_summary'])<p class="mt-2 max-w-72 text-xs text-red-600 dark:text-red-400">{{ $run['failure_summary'] }}</p>@endif</td>
-                                    <td class="px-5 py-4"><p>{{ $run['trigger_label'] }}</p><p class="mt-1 text-xs text-gray-400">{{ $run['requested_by'] }}</p></td>
+                                    <td class="px-5 py-4"><p>{{ $run['trigger_label'] }}<span class="mt-1 block text-xs text-gray-500 dark:text-gray-400">{{ $run['scope_label'] }}</span></p><p class="mt-1 text-xs text-gray-400">{{ $run['requested_by'] }}</p></td>
                                     <td class="px-5 py-4">{{ $run['datasets_completed'] }}/{{ $run['datasets_total'] }}@if ($run['datasets_failed'] > 0)<p class="mt-1 text-xs text-red-500">{{ $run['datasets_failed'] }} {{ $tr ? 'başarısız' : 'failed' }}</p>@endif</td>
                                     <td class="px-5 py-4">{{ number_format((int) $run['rows_written'], 0, ',', '.') }}</td>
                                     <td class="px-5 py-4">{{ $run['duration_label'] ?: '—' }}</td>

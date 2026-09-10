@@ -12,7 +12,9 @@ use App\Services\Collection\Providers\Website\WebsiteRequestFamilyCatalog;
 use App\Services\Collection\StartCollectionService;
 use App\Services\Collection\Support\StartCollectionRequest;
 use App\Services\Integrations\WordPress\WordPressConnectorPairingService;
+use Illuminate\Support\Facades\Cache;
 use InvalidArgumentException;
+use RuntimeException;
 
 /**
  * Starts shared-engine Website production collection for one Website Digital Asset.
@@ -74,25 +76,40 @@ final class WebsiteCollectionOrchestrator
             $providers = array_values(array_unique($providers));
         }
 
-        return $this->starter->start(new StartCollectionRequest(
-            digitalAsset: $asset,
-            triggerType: CollectionTriggerType::Manual,
-            requestedBy: $requestedBy,
-            bindingIds: [],
-            requestFamilyIds: $families,
-            providerSources: $providers,
-            dateRange: null,
-            idempotencyKey: $context['idempotency_key'] ?? null,
-            forceRefresh: (bool) ($context['force_refresh'] ?? false),
-            context: array_merge($context, [
-                'collection_intent' => $context['collection_intent'] ?? 'website_production_collection',
-                'collection_intent_label' => $context['collection_intent_label'] ?? 'Website production collection',
-                'allow_multi_asset_bindings' => false,
-                'paid_enrichment_consented' => $paidEnrichmentConsented,
-                'public_discovery' => $publicDiscovery,
-                'website_intelligence_version' => 'v1',
-            ]),
-        ));
+        $lock = Cache::lock('website-collection-admission:'.$asset->id, 60);
+        if (! $lock->get()) {
+            throw new RuntimeException('Website collection admission is already in progress.');
+        }
+
+        try {
+            if (CollectionRun::query()->where('digital_asset_id', $asset->id)
+                ->whereIn('status', ['queued', 'running', 'retrying', 'cancellation_requested'])->exists()) {
+                throw new RuntimeException('A collection is already active for this website.');
+            }
+
+            return $this->starter->start(new StartCollectionRequest(
+                digitalAsset: $asset,
+                triggerType: ($context['collection_intent'] ?? null) === 'wordpress_event_reconciliation'
+                    ? CollectionTriggerType::Incremental : CollectionTriggerType::Manual,
+                requestedBy: $requestedBy,
+                bindingIds: [],
+                requestFamilyIds: $families,
+                providerSources: $providers,
+                dateRange: null,
+                idempotencyKey: $context['idempotency_key'] ?? null,
+                forceRefresh: (bool) ($context['force_refresh'] ?? false),
+                context: array_merge($context, [
+                    'collection_intent' => $context['collection_intent'] ?? 'website_production_collection',
+                    'collection_intent_label' => $context['collection_intent_label'] ?? 'Website production collection',
+                    'allow_multi_asset_bindings' => false,
+                    'paid_enrichment_consented' => $paidEnrichmentConsented,
+                    'public_discovery' => $publicDiscovery,
+                    'website_intelligence_version' => 'v1',
+                ]),
+            ));
+        } finally {
+            $lock->release();
+        }
     }
 
     private function hasPairedWordPressConnector(DigitalAsset $asset): bool
