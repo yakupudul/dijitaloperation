@@ -18,14 +18,48 @@
         <section class="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-200">
             <h2 class="mb-3 text-lg font-semibold">Meta Cloud API bağlantısı</h2>
             <p class="mb-4 text-sm text-gray-500">Mevcut WhatsApp Business API hesabının bilgilerini girin. Bu ekran yeni numara kaydı veya Coexistence başvurusu yapmaz.</p>
-            <form wire:submit="saveSettings" class="space-y-4" autocomplete="off">
+            <form class="space-y-4" autocomplete="off" x-data="{ saving: false, saveError: '' }"
+                @submit.prevent="
+                    if (saving) return;
+                    saving = true; saveError = '';
+                    try {
+                        const saved = await $wire.saveSettings({
+                            access_token: $refs.accessToken.value,
+                            app_secret: $refs.appSecret.value,
+                            verify_token: $refs.verifyToken.value
+                        });
+                        if (saved === true) {
+                            $refs.accessToken.value = '';
+                            $refs.appSecret.value = '';
+                            $refs.verifyToken.value = '';
+                        }
+                    } catch (error) {
+                        saveError = 'Kayıt tamamlanamadı. Girdiğiniz değerler bu formda duruyor; tekrar deneyin.';
+                    } finally { saving = false; }
+                ">
+                <p x-show="saveError" x-text="saveError" role="alert" class="text-sm text-red-600"></p>
                 <div class="grid gap-4 md:grid-cols-3">
                     <label class="text-sm">WhatsApp Business Account ID (WABA)<input wire:model="waba_id" required inputmode="numeric" class="mt-1 w-full rounded-lg border border-gray-300 bg-transparent p-2" /></label>
                     <label class="text-sm">Phone Number ID<input wire:model="phone_number_id" required inputmode="numeric" class="mt-1 w-full rounded-lg border border-gray-300 bg-transparent p-2" /></label>
                     <label class="text-sm">İşletme numarası (905… şeklinde)<input wire:model="business_phone" required inputmode="numeric" class="mt-1 w-full rounded-lg border border-gray-300 bg-transparent p-2" /></label>
-                    <label class="text-sm">Access Token<input type="password" wire:model="access_token" autocomplete="new-password" placeholder="Kaydedildiyse boş bırakın" class="mt-1 w-full rounded-lg border border-gray-300 bg-transparent p-2" /></label>
-                    <label class="text-sm">Meta App Secret<input type="password" wire:model="app_secret" autocomplete="new-password" placeholder="Kaydedildiyse boş bırakın" class="mt-1 w-full rounded-lg border border-gray-300 bg-transparent p-2" /></label>
-                    <label class="text-sm">Webhook Verify Token<input type="password" wire:model="verify_token" autocomplete="new-password" placeholder="Sizin belirlediğiniz en az 16 karakter" class="mt-1 w-full rounded-lg border border-gray-300 bg-transparent p-2" /></label>
+                    <div class="text-sm">
+                        <label for="wa-access_token">Access Token</label>
+                        <div wire:ignore><input id="wa-access_token" type="password" x-ref="accessToken" autocomplete="new-password" placeholder="Yeni değer girin; kayıtlıysa boş bırakın" class="mt-1 w-full rounded-lg border border-gray-300 bg-transparent p-2" /></div>
+                        <p class="mt-1 text-xs text-gray-500">{{ $credentialStatus['access_token'] ? 'Kayıtlı — boş bırakırsanız korunur.' : 'Henüz kayıtlı değil — doldurmanız gerekiyor.' }}</p>
+                        @error('access_token')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                    </div>
+                    <div class="text-sm">
+                        <label for="wa-app_secret">Meta App Secret</label>
+                        <div wire:ignore><input id="wa-app_secret" type="password" x-ref="appSecret" autocomplete="new-password" placeholder="Yeni değer girin; kayıtlıysa boş bırakın" class="mt-1 w-full rounded-lg border border-gray-300 bg-transparent p-2" /></div>
+                        <p class="mt-1 text-xs text-gray-500">{{ $credentialStatus['app_secret'] ? 'Kayıtlı — boş bırakırsanız korunur.' : 'Henüz kayıtlı değil — doldurmanız gerekiyor.' }}</p>
+                        @error('app_secret')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                    </div>
+                    <div class="text-sm">
+                        <label for="wa-verify_token">Webhook Verify Token</label>
+                        <div wire:ignore><input id="wa-verify_token" type="password" x-ref="verifyToken" autocomplete="new-password" placeholder="Yeni değer girin; kayıtlıysa boş bırakın" class="mt-1 w-full rounded-lg border border-gray-300 bg-transparent p-2" /></div>
+                        <p class="mt-1 text-xs text-gray-500">{{ $credentialStatus['verify_token'] ? 'Kayıtlı — boş bırakırsanız korunur.' : 'Henüz kayıtlı değil — doldurmanız gerekiyor.' }}</p>
+                        @error('verify_token')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                    </div>
                 </div>
                 <label class="block text-sm">AI için hizmetler, fiyatlar ve konuşma üslubu
                     <textarea wire:model="business_context" rows="5" maxlength="12000" required class="mt-1 w-full rounded-lg border border-gray-300 bg-transparent p-3"></textarea>
@@ -36,7 +70,7 @@
                 </div>
                 <p class="text-xs text-gray-500">Otomatik öneriler mevcut AI sağlayıcınızın API kullanımını oluşturur. Kapattığınızda görüşme içindeki düğmeyle öneri isteyebilirsiniz.</p>
                 <div class="flex flex-wrap gap-3">
-                    <button type="submit" wire:loading.attr="disabled" class="rounded-lg bg-brand-500 px-4 py-2 text-sm text-white">Ayarları kaydet</button>
+                    <button type="submit" :disabled="saving" wire:loading.attr="disabled" class="rounded-lg bg-brand-500 px-4 py-2 text-sm text-white">Ayarları kaydet</button>
                     <button type="button" wire:click="checkConnection" wire:loading.attr="disabled" class="rounded-lg border border-gray-300 px-4 py-2 text-sm">API erişimini kontrol et</button>
                     <button type="button" wire:click="$refresh" class="rounded-lg border border-gray-300 px-4 py-2 text-sm">Kontrol sonucunu yenile</button>
                     <a href="{{ url('/integrations/openai') }}" class="px-3 py-2 text-sm text-brand-500">Mevcut AI bağlantısı</a>

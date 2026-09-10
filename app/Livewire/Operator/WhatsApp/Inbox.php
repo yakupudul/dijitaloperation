@@ -8,6 +8,7 @@ use App\Models\WhatsAppWebhookReceipt;
 use App\Services\WhatsApp\WhatsAppConnection;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -30,9 +31,6 @@ class Inbox extends Component
     public string $waba_id = '';
     public string $phone_number_id = '';
     public string $business_phone = '';
-    public string $access_token = '';
-    public string $app_secret = '';
-    public string $verify_token = '';
     public bool $enabled = true;
     public bool $automatic_suggestions = true;
     public string $business_context = '';
@@ -57,11 +55,6 @@ class Inbox extends Component
         }
     }
 
-    public function dehydrate(): void
-    {
-        $this->reset('access_token', 'app_secret', 'verify_token');
-    }
-
     public function updatedQ(): void
     {
         $this->q = mb_substr($this->q, 0, 100);
@@ -75,16 +68,30 @@ class Inbox extends Component
         $this->resetPage('chatPage');
     }
 
-    public function saveSettings(WhatsAppConnection $connection): void
+    public function saveSettings(array $secrets, WhatsAppConnection $connection): bool
     {
+        $this->resetValidation();
+        $this->notice = '';
         try {
-            $connection->save(auth()->user(), $this->only([
-                'waba_id', 'phone_number_id', 'business_phone', 'access_token', 'app_secret', 'verify_token',
+            $input = $this->only([
+                'waba_id', 'phone_number_id', 'business_phone',
                 'business_context', 'enabled', 'automatic_suggestions',
-            ]));
-            $this->notice = 'Ayarlar kaydedildi. Meta webhook bağlantısını tamamladıktan sonra mesajlar alınır.';
-        } finally {
-            $this->reset('access_token', 'app_secret', 'verify_token');
+            ]);
+            foreach (['access_token', 'app_secret', 'verify_token'] as $key) {
+                $input[$key] = $secrets[$key] ?? '';
+            }
+            $connection->save(auth()->user(), $input);
+            $this->notice = 'Ayarlar kaydedildi. Gizli alanlar temizlendi; kayıtlı değerler korunuyor.';
+
+            return true;
+        } catch (ValidationException $exception) {
+            foreach ($exception->errors() as $field => $messages) {
+                foreach ($messages as $message) {
+                    $this->addError($field, $message);
+                }
+            }
+
+            return false;
         }
     }
 
@@ -145,6 +152,7 @@ class Inbox extends Component
         return view('livewire.operator.whatsapp.inbox', [
             'integration' => $integration, 'rows' => $rows, 'selected' => $selected, 'messages' => $messages,
             'config' => $integration?->config ?? [],
+            'credentialStatus' => $connection->credentialStatus($integration),
             'receipts' => WhatsAppWebhookReceipt::query()->where('integration_id', $integration?->id)
                 ->select(['id', 'status', 'accepted_count', 'ignored_count', 'error_code', 'created_at'])
                 ->orderByDesc('id')->limit(10)->get(),

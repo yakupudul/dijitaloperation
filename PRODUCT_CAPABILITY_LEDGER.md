@@ -546,3 +546,17 @@ edits/deletions, global Activity and full Agent/Skill execution ledger not imple
 Contract: docs/product/WHATSAPP_ASSISTANT.md. Source reviewed only; no tests/build/formatter, dependency
 installation, runtime/migration execution, live Meta/AI UAT or host deployment. Not DONE/live accepted.
 All changes are on chatgpt/search-demand-foundation; no main edits and no PR.
+
+
+## WhatsApp credential form correction — 2026-09-10
+
+Failed settings saves previously cleared all three password inputs via finally/dehydrate and showed
+an unnamed first-missing error. Password inputs now stay browser-local (wire:ignore, DOM refs), are
+submitted only as action arguments, and clear only on explicit successful save. Validation failures
+retain unsaved inputs in the current open form, not in server snapshots or persistent browser storage.
+Field-specific messages list every missing credential; server-derived presence flags distinguish
+stored credentials from blank edits. Reads use a fresh provider-credential relation query. Existing
+stored values remain write-only and blank submissions preserve them. Stale save errors reset before
+new save attempts. No credential/account data migration or provider mutation is performed.
+Source-reviewed fix only: no tests, build, formatter or live deployment run. Supersedes earlier
+notes about clearing fields after failed saves. Number mismatch remains a separate configuration issue.

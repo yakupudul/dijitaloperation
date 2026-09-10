@@ -27,7 +27,18 @@ final class WhatsAppConnection
 
     public function secrets(CoreIntegration $integration): array
     {
-        return $integration->providerCredential?->encrypted_payload ?? [];
+        return $integration->providerCredential()->first()?->encrypted_payload ?? [];
+    }
+
+    /** Only presence flags may be rendered; stored secret values never enter Livewire state. */
+    public function credentialStatus(?CoreIntegration $integration): array
+    {
+        $secrets = $integration ? $this->secrets($integration) : [];
+
+        return array_map(
+            fn (string $key): bool => is_string($secrets[$key] ?? null) && trim($secrets[$key]) !== '',
+            array_combine(['access_token', 'app_secret', 'verify_token'], ['access_token', 'app_secret', 'verify_token']),
+        );
     }
 
     public function save(User $user, array $input): void
@@ -43,6 +54,12 @@ final class WhatsAppConnection
             'business_context' => ['required', 'string', 'max:12000'],
             'enabled' => ['required', 'boolean'],
             'automatic_suggestions' => ['required', 'boolean'],
+        ], [
+            'verify_token.min' => 'Webhook Verify Token en az 16 karakter olmalı.',
+        ], [
+            'access_token' => 'Access Token',
+            'app_secret' => 'Meta App Secret',
+            'verify_token' => 'Webhook Verify Token',
         ])->validate();
 
         DB::transaction(function () use ($data): void {
@@ -51,13 +68,22 @@ final class WhatsAppConnection
             ]);
             $integration = CoreIntegration::query()->lockForUpdate()->findOrFail($integration->id);
             $secrets = $this->secrets($integration);
-            foreach (['access_token', 'app_secret', 'verify_token'] as $key) {
+            $labels = [
+                'access_token' => 'Access Token',
+                'app_secret' => 'Meta App Secret',
+                'verify_token' => 'Webhook Verify Token',
+            ];
+            $missing = [];
+            foreach ($labels as $key => $label) {
                 if (trim((string) ($data[$key] ?? '')) !== '') {
                     $secrets[$key] = trim($data[$key]);
                 }
                 if (empty($secrets[$key])) {
-                    throw ValidationException::withMessages([$key => 'İlk kurulumda bu alan zorunludur.']);
+                    $missing[$key] = $label.' henüz kayıtlı değil. Bu alanı doldurun.';
                 }
+            }
+            if ($missing !== []) {
+                throw ValidationException::withMessages($missing);
             }
             $config = $integration->config ?? [];
             if (($config['phone_number_id'] ?? $data['phone_number_id']) !== $data['phone_number_id']
