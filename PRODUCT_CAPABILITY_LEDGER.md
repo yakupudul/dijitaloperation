@@ -486,3 +486,46 @@ as explicitly requested by the operator. This is not a verified runtime/DONE cla
 Remaining acceptance: migrate staging, exercise scope selection and pause/resume, confirm delayed
 event batches/cursor recovery and source timestamps against a real paired site. No such acceptance
 has been performed in this change.
+
+## Standards workspace revision — 2026-09-10
+
+Operator requested standards after the Connector and Website integration updates.
+
+- Deterministic catalogue now has 52 visible definitions (37 general, 15 WordPress); 7 expert
+  criteria remain archived. Eight additions cover HTML canonical-target noindex, hreflang
+  self/return links, WP HTTPS home setting, plain permalinks, cache declaration, outbox setup
+  declaration and post-gap inventory recovery. Two existing length heuristics remain disabled
+  by default. Existing enabled/disabled overlays are retained; no catalogue seed is required.
+- Website / Google Ads / Meta Ads navigation, populated category counts, platform/status/search
+  filters and 20-row pagination replace the unbounded card list. Ads categories remain explicitly
+  empty. Active administrators can change enabled state and low/medium/high severity, and restore
+  a definition's shipped defaults. Existing settings JSON stores only validated severity overrides;
+  arbitrary executable checks cannot be submitted. Historical runs remain unchanged.
+- Current completed raw TLS and robots.txt collection rows feed site-level assessment, preferring
+  newer evidence. The TLS check is explicitly certificate expiry only, not trust-chain/host
+  verification. HTTP-to-HTTPS and sitemap still require their existing diagnosis evidence; missing
+  observations stay unknown. No fresh network request or paid data is started by assessment.
+- Hreflang inspection reports truncation and resolves against the HTML base URL. Return-link
+  checks require fresh full target HTML and observed successful HTTP; external/uncollected targets
+  are unknown. This is HTML-only coverage, not sitemap or HTTP-header hreflang validation.
+  Canonical noindex covers HTML robots/googlebot directives, not X-Robots-Tag or actual indexing.
+- WP inventory freshness is four days, supporting the three-day inventory option; update-cache
+  freshness remains two days and delivery review remains 30 minutes. Invalid/future timestamps
+  and absent extension inventory cannot become passes. WP freshness state participates in cached
+  result identity. Missing stored HTML contributes to incomplete coverage.
+- Cache declaration is a review signal, not measured speed or cache-hit proof. Outbox setup checks
+  the connector's declared installation marker, not a database write probe. Gap recovery cannot
+  reconstruct lost audit events. No automatic site mutations or plugin installs are implemented.
+- Assessment rows open 25-row result details with state filters, URLs, reasons and observed values,
+  including unknown/pass/not-applicable outcomes. Site checks are stored explicitly on new runs;
+  old reports without these details request reassessment. Proposed actions for site checks use
+  site-level wording. Saved severity applies to new proposals, with verified target blockers still
+  forced high. Existing human approval/Findings/Recommendations pipeline remains in place.
+- Existing 500-profile, 5 MB HTML and scoped evidence bounds remain. No all-page scale claim.
+  Broader sitemap graph/orphan analysis, full PHP support/vulnerability feeds, GSC URL Inspection,
+  browser rendering, remote speed repairs and Ads standards are outside this change.
+
+Verification: direct GitHub source inspection only. No clone, tests, formatter, build, browser
+acceptance or server execution performed, per operator instruction. No new migration required
+beyond the already committed integration migrations. Live rendering, stored-fact compatibility,
+queue execution and real operator acceptance remain unverified.

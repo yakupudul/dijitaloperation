@@ -19,9 +19,10 @@ final class ExtendedWebsiteEvaluator
             }
             if ($method === 'wp_event_delivery') {
                 $received = $wp['last_event_received_at'] ?? null;
-                return $received ? $this->result($standard, $at - strtotime($received) > 1800, $received) : $unknown;
+                return is_string($received) && strtotime($received) !== false && strtotime($received) <= $at + 300
+                    ? $this->result($standard, $at - strtotime($received) > 1800, $received) : $unknown;
             }
-            if (empty($wp['observed_at']) || $at - strtotime($wp['observed_at']) > 172800) {
+            if (! $this->fresh($wp['observed_at'] ?? null, $at, 345600)) {
                 return $unknown;
             }
             $payload = $wp['payload'];
@@ -29,6 +30,34 @@ final class ExtendedWebsiteEvaluator
             $value = null;
             $failed = null;
             switch ($method) {
+                case 'wp_https':
+                    $value = $health['https'] ?? null;
+                    $failed = is_bool($value) ? ! $value : null;
+                    break;
+                case 'wp_permalink':
+                    $value = $payload['settings']['permalink_structure'] ?? null;
+                    $failed = is_string($value) ? trim($value) === '' : null;
+                    break;
+                case 'wp_cache_config':
+                    $value = $health['page_cache_configured'] ?? null;
+                    $failed = is_bool($value) ? ! $value : null;
+                    break;
+                case 'wp_event_storage':
+                    $value = $health['event_delivery']['storage_ready'] ?? null;
+                    $failed = is_bool($value) ? ! $value : null;
+                    break;
+                case 'wp_event_gap':
+                    if (! array_key_exists('delivery_gap_at', $wp) || ! $this->fresh($wp['last_event_received_at'] ?? null, $at, 345600)) {
+                        return $unknown;
+                    }
+                    $value = $wp['delivery_gap_at'];
+                    if ($value === null) {
+                        $failed = false;
+                    } elseif (is_string($value) && strtotime($value) !== false) {
+                        $inventory = $wp['last_inventory_at'] ?? null;
+                        $failed = ! is_string($inventory) || strtotime($inventory) === false || strtotime($inventory) < strtotime($value);
+                    }
+                    break;
                 case 'wp_debug_display':
                     if (($health['environment'] ?? null) !== 'production') {
                         return empty($health['environment']) ? $unknown : $out('not_applicable', 'Canlı ortam değil.');
@@ -55,7 +84,7 @@ final class ExtendedWebsiteEvaluator
                     break;
                 case 'wp_core_update':
                     $checked = $payload['core_update_checked_at'] ?? null;
-                    if (! $checked || $at - strtotime($checked) > 172800) {
+                    if (! $this->fresh($checked, $at, 172800)) {
                         return $unknown;
                     }
                     $value = ['available' => $payload['core_update_available'] ?? null, 'version' => $payload['available_wordpress_version'] ?? null];
@@ -63,10 +92,10 @@ final class ExtendedWebsiteEvaluator
                     break;
                 case 'wp_extension_updates':
                     $extensions = $wp['extensions'] ?? null;
-                    if (! is_array($extensions)) {
+                    if (! is_array($extensions) || $extensions === []) {
                         return $unknown;
                     }
-                    $fresh = array_filter($extensions, fn ($extension) => ! empty($extension['checked_at']) && $at - strtotime($extension['checked_at']) <= 172800);
+                    $fresh = array_filter($extensions, fn ($extension) => $this->fresh($extension['checked_at'] ?? null, $at, 172800));
                     $value = array_values(array_filter($fresh, fn ($extension) => $extension['update_available']));
                     if ($value === [] && count($fresh) !== count($extensions)) {
                         return $unknown;
@@ -78,7 +107,8 @@ final class ExtendedWebsiteEvaluator
                     break;
                 case 'wp_update_freshness':
                     $value = $payload['core_update_checked_at'] ?? null;
-                    $failed = is_string($value) && strtotime($value) !== false ? $at - strtotime($value) > 172800 : null;
+                    $failed = is_string($value) && strtotime($value) !== false && strtotime($value) <= $at + 300
+                        ? $at - strtotime($value) > 172800 : null;
                     break;
                 case 'wp_health_critical':
                     $value = $payload['site_health_cached']['critical'] ?? null;
@@ -92,9 +122,18 @@ final class ExtendedWebsiteEvaluator
             }
             return $failed === null ? $unknown : $this->result($standard, $failed, $value);
         }
+        $httpAt = data_get($page, 'facts.http.observed_at');
+        $httpCode = data_get($page, 'facts.http.status_code');
+        if ($this->fresh($httpAt, $at, 2592000) && is_numeric($httpCode) && (int) $httpCode >= 300) {
+            return $out('not_applicable', 'Başarılı içerik yanıtı değil; erişim kontrolünü inceleyin.', $httpCode);
+        }
         $html = $page['stored_html'] ?? null;
-        if (! is_array($html) || empty($html['observed_at']) || $at - strtotime($html['observed_at']) > 2592000) {
+        if (! is_array($html) || ! $this->fresh($html['observed_at'] ?? null, $at, 2592000)) {
             return $unknown;
+        }
+        $headAt = data_get($page, 'facts.document_head.observed_at');
+        if (is_string($headAt) && strtotime($headAt) > strtotime($html['observed_at'])) {
+            return $out('unknown', 'Başlık gözlemi saklı HTML’den daha yeni; HTML verisini yenileyin.');
         }
         $inspection = $html['seo_inspection'] ?? null;
         if (! is_array($inspection)) {
@@ -104,6 +143,54 @@ final class ExtendedWebsiteEvaluator
         $value = null;
         $failed = null;
         switch ($method) {
+            case 'canonical_noindex':
+            case 'hreflang_self':
+            case 'hreflang_return':
+                if (! ($html['head_complete'] ?? false)) {
+                    return $unknown;
+                }
+                $urls = new PublicUrlNormalizer;
+                $self = $urls->normalizeAbsolute($page['url']);
+                $targets = $method === 'canonical_noindex'
+                    ? array_values(array_filter(array_map(fn ($href) => $urls->resolve($inspection['base_url'] ?? $page['url'], $href), $html['canonical_hrefs'] ?? [])))
+                    : array_column($inspection['hreflang'], 'url');
+                if ($targets === []) {
+                    return $out('not_applicable', 'Bu kontrol için bağlantı bildirilmemiş.');
+                }
+                $value = [];
+                $missing = 0;
+                if ($method === 'hreflang_self') {
+                    if (! in_array($self, $targets, true)) {
+                        if ($inspection['hreflang_truncated'] ?? false) {
+                            return $unknown;
+                        }
+                        $value[] = $self;
+                    }
+                } else {
+                    foreach (array_unique($targets, SORT_REGULAR) as $target) {
+                        $candidate = is_string($target) ? ($index[$target] ?? null) : null;
+                        if (! is_numeric($candidate['status_code'] ?? null) || (int) $candidate['status_code'] < 200 || (int) $candidate['status_code'] >= 300) {
+                            $missing++;
+                            continue;
+                        }
+                        if ($method === 'canonical_noindex') {
+                            if (! is_bool($candidate['noindex'] ?? null)) {
+                                $missing++;
+                            } elseif ($candidate['noindex']) {
+                                $value[] = $target;
+                            }
+                        } elseif (! ($candidate['hreflang_complete'] ?? false)) {
+                            $missing++;
+                        } elseif (! in_array($self, array_column($candidate['hreflang'] ?? [], 'url'), true)) {
+                            $value[] = $target;
+                        }
+                    }
+                }
+                if ($value === [] && ($missing > 0 || ($method !== 'canonical_noindex' && ($inspection['hreflang_truncated'] ?? false)))) {
+                    return $out('unknown', 'Hedeflerin güncel ve tam saklı HTML verisi gerekli.', ['unobserved' => $missing]);
+                }
+                $failed = $value !== [];
+                break;
             case 'title_multiple':
             case 'description_multiple':
                 if (! ($html['head_complete'] ?? false)) {
@@ -171,7 +258,7 @@ final class ExtendedWebsiteEvaluator
                     if (! ($html['head_complete'] ?? false)) {
                         return $unknown;
                     }
-                    $targets = array_values(array_filter(array_map(fn ($href) => $urls->resolve($page['url'], $href), $html['canonical_hrefs'] ?? [])));
+                    $targets = array_values(array_filter(array_map(fn ($href) => $urls->resolve($inspection['base_url'] ?? $page['url'], $href), $html['canonical_hrefs'] ?? [])));
                 } elseif ($method === 'hreflang_target') {
                     $targets = array_column($inspection['hreflang'], 'url');
                 }
@@ -192,13 +279,23 @@ final class ExtendedWebsiteEvaluator
                         $value[] = ['url' => $url, 'status_code' => $code];
                     }
                 }
-                if ($value === [] && ($missing > 0 || (str_starts_with($method, 'internal_') && $inspection['links_truncated']))) {
+                if ($value === [] && ($missing > 0 || (str_starts_with($method, 'internal_') && $inspection['links_truncated'])
+                    || ($method === 'hreflang_target' && ($inspection['hreflang_truncated'] ?? false)))) {
                     return $out('unknown', 'Bazı bağlantı hedeflerinin güncel HTTP gözlemi yok.', ['unobserved' => $missing]);
                 }
                 $failed = $value !== [];
                 break;
         }
         return $failed === null ? $unknown : $this->result($standard, $failed, $value);
+    }
+
+    private function fresh(mixed $value, int $at, int $seconds): bool
+    {
+        if (! is_string($value) || trim($value) === '') {
+            return false;
+        }
+        $timestamp = strtotime($value);
+        return $timestamp !== false && $timestamp <= $at + 300 && $timestamp >= $at - $seconds;
     }
 
     private function result(array $standard, bool $failed, mixed $observed): array

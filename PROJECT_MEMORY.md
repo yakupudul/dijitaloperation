@@ -717,3 +717,16 @@ verification. Shared admission locks reduce overlapping snapshot writers. Additi
 and existing scheduler/workers required. No clone/tests/build/formatter/deploy or live acceptance
 performed by operator instruction; runtime/UAT remains unverified. Details in the capability ledger
 and docs/product/website/WORDPRESS.md.
+
+## 2026-09-10 — Standards management and evidence integration
+
+After Website collection controls, operator requested standards implementation. Website standards
+now expose a paginated category workspace and administrator enabled/severity/default controls.
+Catalogue has 52 visible deterministic/advisory checks, including 8 additions; expert criteria stay
+archived and Ads categories remain empty. New assessments expose per-standard result details,
+including missing evidence, and use completed raw TLS/robots collection observations. WP inventory
+freshness allows the configured three-day cadence; freshness affects result reuse. Definitions
+and observations distinguish expiry, cache/setup declarations and HTML-only language/indexing
+checks from actual security/indexing/performance guarantees. Existing proposal approval remains
+human controlled. No clone/tests/build/formatter/deployment run; runtime/UAT unverified. Full
+contract and remaining scope: docs/product/website/WEBSITE_STANDARDS_ASSESSMENT.md and ledger.

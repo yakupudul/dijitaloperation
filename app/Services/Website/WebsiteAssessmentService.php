@@ -152,6 +152,14 @@ final class WebsiteAssessmentService
                 'title' => $fresh ? trim((string) ($stored['title'] ?? '')) : null,
                 'meta_description' => $fresh ? trim((string) ($stored['meta_description'] ?? '')) : null,
                 'content_fingerprint' => $fresh ? ($stored['content_fingerprint'] ?? null) : null,
+                'noindex' => $fresh && ($stored['head_complete'] ?? false)
+                    ? preg_match('/(?:^|[\\s,;:])(?:noindex|none)(?:$|[\\s,;])/i', implode(',', [
+                        ...($stored['head']['robots_directives'] ?? []), ...($stored['head']['googlebot_directives'] ?? []),
+                    ])) === 1 : null,
+                'hreflang' => $fresh ? ($stored['seo_inspection']['hreflang'] ?? []) : [],
+                'hreflang_complete' => $fresh && ($stored['head_complete'] ?? false)
+                    && is_array($stored['seo_inspection'] ?? null)
+                    && ! ($stored['seo_inspection']['hreflang_truncated'] ?? true),
             ];
             $indexComplete = $indexComplete && $fresh;
         }
@@ -169,7 +177,7 @@ final class WebsiteAssessmentService
             $system = preg_match('#/(?:wp-admin|wp-json|wp-login\.php|feed|xmlrpc\.php)(?:/|$)#i', (string) parse_url($profile->preferred_url, PHP_URL_PATH)) === 1;
             $stored = $storedPages[$profile->id];
             $readError = $storedErrors[$profile->id] ?? null;
-            if ($readError !== null) {
+            if ($stored === null) {
                 $unreadable++;
             }
             $page = [
@@ -206,13 +214,21 @@ final class WebsiteAssessmentService
                 'html_read_error' => $readError, 'checks' => $checks,
             ];
         }
+        $siteChecks = [];
         foreach ($standards as $id => $standard) {
             if ($standard['applicability'] !== 'site') {
                 continue;
             }
-            $check = $this->evaluator->evaluate($standard, ['url' => $website->primary_url,
+            $check = $this->evaluator->evaluate($standard, ['url' => $website->primary_url ?: ('https://'.$website->domain),
                 'site_evidence' => $siteEvidence, 'evaluated_at' => now()->toIso8601String()]);
+            $sourceKey = match ($standard['method']) {
+                'tls' => 'tls_info', 'https_redirect' => 'redirects', 'robots_file' => 'robots', 'sitemap' => 'sitemap',
+                default => 'wordpress',
+            };
+            $check['observed_at'] = $standard['method'] === 'wp_event_delivery'
+                ? data_get($siteEvidence, 'wordpress.last_event_received_at') : data_get($siteEvidence, $sourceKey.'.observed_at');
             $summary[$id][$check['state']]++;
+            $siteChecks[$id] = $check;
             if (in_array($check['state'], ['fail', 'review'], true)) {
                 $issues[$id][] = ['url' => $website->primary_url, 'state' => $check['state'],
                     'observed' => $check['observed'], 'site_evidence' => $siteEvidence, 'search_target' => true];
@@ -220,7 +236,7 @@ final class WebsiteAssessmentService
         }
         $partial = $total > self::PAGE_LIMIT || $unreadable > 0 || $profiles->isEmpty()
             || $coverage['query_limit_reached'] || $coverage['cluster_limit_reached'];
-        DB::transaction(function () use ($run, $fingerprint, $summary, $pages, $coverage, $issues, $standards, $total, $partial, $unreadable): void {
+        DB::transaction(function () use ($run, $fingerprint, $summary, $pages, $coverage, $issues, $standards, $total, $partial, $unreadable, $siteChecks): void {
             foreach ($issues as $id => $affected) {
                 $standard = $standards[$id];
                 $hasFailure = collect($affected)->contains('state', 'fail');
@@ -235,10 +251,11 @@ final class WebsiteAssessmentService
                 SearchDemandImprovementProposal::query()->create([
                     'search_demand_improvement_run_id' => $run->id,
                     'stable_key' => 'standard:'.$id, 'origin' => 'deterministic',
-                    'severity' => $tier === 1 ? 'high' : ($hasFailure ? $standard['severity'] : 'low'),
-                    'title' => $standard['title'], 'summary' => count($affected).' URL üzerinde '.$standard['title'],
+                    'severity' => $tier === 1 ? 'high' : $standard['severity'],
+                    'title' => $standard['title'], 'summary' => $standard['applicability'] === 'site'
+                        ? 'Site genelinde: '.$standard['title'] : count($affected).' URL üzerinde '.$standard['title'],
                     'action_type' => $standard['method'] === 'internal_links' ? 'internal_linking' : 'improve_existing',
-                    'recommendation_title' => $standard['title'].' — etkilenen sayfaları düzenle',
+                    'recommendation_title' => $standard['title'].($standard['applicability'] === 'site' ? ' — site ayarlarını incele' : ' — etkilenen sayfaları düzenle'),
                     'recommendation_action' => $standard['action'], 'rationale' => $reason,
                     'content_brief' => ['affected_urls' => array_column($affected, 'url'), 'objective' => $standard['action']],
                     'evidence_refs' => ['standard_id' => $id, 'standard_version' => $standard['version'],
@@ -250,7 +267,7 @@ final class WebsiteAssessmentService
             }
             $run->update([
                 'input_fingerprint' => $fingerprint, 'status' => $partial ? 'partial' : 'completed',
-                'response_payload' => ['standards' => array_values($summary), 'pages' => $pages, 'coverage' => $coverage,
+                'response_payload' => ['standards' => array_values($summary), 'pages' => $pages, 'site_checks' => $siteChecks, 'coverage' => $coverage,
                     'total_pages' => $total, 'evaluated_pages' => count($pages), 'page_limit' => self::PAGE_LIMIT,
                     'unreadable_html_count' => $unreadable, 'provider_calls' => 0, 'ai_calls' => 0],
                 'proposal_count' => $run->proposals()->count(), 'completed_at' => now(),
@@ -316,6 +333,13 @@ final class WebsiteAssessmentService
         ], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
     }
 
+    private function freshWithin(mixed $value, int $seconds): bool
+    {
+        $timestamp = is_string($value) ? strtotime($value) : false;
+        return $timestamp !== false && $timestamp <= now()->getTimestamp() + 300
+            && $timestamp >= now()->getTimestamp() - $seconds;
+    }
+
     private function isStale(?string $observedAt): bool
     {
         return $observedAt !== null && (strtotime($observedAt) === false || strtotime($observedAt) < now()->subDays(30)->getTimestamp());
@@ -332,6 +356,34 @@ final class WebsiteAssessmentService
             'evidence_id' => $row->id, 'observed_at' => $row->observed_at?->toIso8601String(),
             'payload' => collect((array) $row->payload)->except(['body', 'hops'])->all(),
         ]])->all();
+        // Read completed collection facts; no provider requests are made here.
+        $infra = DB::table('website_infra_snapshot as s')
+            ->join('collection_dataset_runs as d', 'd.id', '=', 's.last_dataset_run_id')
+            ->where('s.digital_asset_id', $website->id)->where('d.status', 'completed')
+            ->where('s.observed_at', '>=', now()->subDays(30))
+            ->select('s.*')->orderByDesc('s.observed_at')->orderByDesc('s.id')->first();
+        if ($infra !== null && (! isset($result['tls_info'])
+            || strtotime($infra->observed_at) >= strtotime($result['tls_info']['observed_at']))) {
+            $metadata = is_string($infra->metadata) ? json_decode($infra->metadata, true) : (array) $infra->metadata;
+            $result['tls_info'] = ['source_record_id' => $infra->id, 'dataset_run_id' => $infra->last_dataset_run_id,
+                'observed_at' => $infra->observed_at, 'payload' => $metadata['tls'] ?? []];
+        }
+        $siteUrl = $website->primary_url ?: ('https://'.$website->domain);
+        $parts = parse_url($siteUrl);
+        $origin = ($parts['scheme'] ?? 'https').'://'.($parts['host'] ?? '').(isset($parts['port']) ? ':'.$parts['port'] : '');
+        $documentUrls = [$origin.'/robots.txt'];
+        $documents = DB::table('website_http_snapshot as s')
+            ->join('collection_dataset_runs as d', 'd.id', '=', 's.last_dataset_run_id')
+            ->where('s.digital_asset_id', $website->id)->where('d.status', 'completed')
+            ->whereIn('s.url', $documentUrls)->where('s.observed_at', '>=', now()->subDays(30))
+            ->select('s.*')->orderByDesc('s.observed_at')->orderByDesc('s.id')->limit(20)->get()->unique('url');
+        foreach ($documents as $document) {
+            $metadata = is_string($document->metadata) ? json_decode($document->metadata, true) : (array) $document->metadata;
+            if (! isset($result['robots']) || strtotime($document->observed_at) >= strtotime($result['robots']['observed_at'])) {
+                $result['robots'] = ['source_record_id' => $document->id, 'dataset_run_id' => $document->last_dataset_run_id,
+                    'observed_at' => $document->observed_at, 'payload' => ['status_code' => $metadata['status_code'] ?? null]];
+            }
+        }
         $connection = \App\Models\CoreConnection::query()->where('digital_asset_id', $website->id)
             ->where('type', 'wordpress_connector')->first();
         $result['wordpress_expected'] = $connection !== null || str_contains(strtolower((string) $website->cms), 'wordpress');
@@ -341,6 +393,7 @@ final class WebsiteAssessmentService
                 ->where('s.digital_asset_id', $website->id)->where('d.status', 'completed')
                 ->select('s.*')->orderByDesc('s.observed_at')->orderByDesc('s.id')->first();
             if ($site !== null) {
+                $delivery = DB::table('website_connector_delivery')->where('connection_id', $connection->id)->first();
                 $extensions = DB::table('website_cms_extension_snapshot as s')
                     ->join('collection_dataset_runs as d', 'd.id', '=', 's.last_dataset_run_id')
                     ->where('s.digital_asset_id', $website->id)->where('d.status', 'completed')
@@ -349,8 +402,9 @@ final class WebsiteAssessmentService
                     'observed_at' => $site->observed_at, 'source_record_id' => $site->id,
                     'dataset_run_id' => $site->last_dataset_run_id,
                     'payload' => is_string($site->metadata) ? json_decode($site->metadata, true) : (array) $site->metadata,
-                    'last_event_received_at' => DB::table('website_connector_delivery')->where('connection_id', $connection->id)->value('last_received_at'),
+                    'last_event_received_at' => $delivery?->last_received_at,
                     'extensions_truncated' => $extensions->count() >= 500,
+                    'last_inventory_at' => $delivery?->last_inventory_at,
                     'extensions' => $extensions->map(function ($row): array {
                         $meta = is_string($row->metadata) ? json_decode($row->metadata, true) : (array) $row->metadata;
                         return ['id' => $row->extension_id, 'name' => $row->name,
@@ -358,6 +412,16 @@ final class WebsiteAssessmentService
                             'available_version' => $row->available_version,
                             'checked_at' => $meta['update_checked_at'] ?? null];
                     })->all(),
+                ];
+                if ($delivery !== null && $delivery->plugin_version !== null) {
+                    $result['wordpress']['delivery_gap_at'] = $delivery->gap_at;
+                }
+                $wp = $result['wordpress'];
+                $result['wordpress']['freshness'] = [
+                    'site' => $this->freshWithin($wp['observed_at'] ?? null, 345600),
+                    'core_updates' => $this->freshWithin(data_get($wp, 'payload.core_update_checked_at'), 172800),
+                    'delivery' => $this->freshWithin($wp['last_event_received_at'] ?? null, 1800),
+                    'extensions' => array_map(fn ($row) => $this->freshWithin($row['checked_at'], 172800), $wp['extensions']),
                 ];
             }
         }

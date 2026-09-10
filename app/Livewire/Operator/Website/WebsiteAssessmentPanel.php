@@ -26,6 +26,22 @@ final class WebsiteAssessmentPanel extends Component
 
     public string $message = '';
 
+    public ?string $selectedStandardId = null;
+
+    public string $resultState = '';
+
+    public function showStandard(string $id): void
+    {
+        $this->selectedStandardId = $id;
+        $this->resultState = '';
+        $this->resetPage('standardResults');
+    }
+
+    public function updatedResultState(): void
+    {
+        $this->resetPage('standardResults');
+    }
+
     public function mount(int $websiteId): void
     {
         $this->websiteId = $websiteId;
@@ -36,6 +52,7 @@ final class WebsiteAssessmentPanel extends Component
     {
         $run = $assessment->queue($this->website(), auth()->user());
         $this->selectedRunId = $run->id;
+        $this->selectedStandardId = null;
         $this->resetPage('assessmentProposals');
         $this->message = 'Değerlendirme kuyruğa alındı. Sayfayı kapatabilirsiniz; işlem Etkinlik ekranından izlenebilir.';
     }
@@ -44,6 +61,7 @@ final class WebsiteAssessmentPanel extends Component
     {
         $this->runs()->findOrFail($id);
         $this->selectedRunId = $id;
+        $this->selectedStandardId = null;
         $this->resetPage('assessmentProposals');
     }
 
@@ -78,7 +96,29 @@ final class WebsiteAssessmentPanel extends Component
             'path' => request()->url(), 'pageName' => 'assessmentProposals',
         ]);
 
-        return view('livewire.operator.website.assessment-panel', compact('website', 'history', 'run', 'report', 'proposals'));
+        $selectedStandard = collect($report['standards'] ?? [])->firstWhere('id', $this->selectedStandardId);
+        $resultRows = collect();
+        if ($selectedStandard !== null) {
+            foreach ($report['pages'] ?? [] as $row) {
+                $check = $row['checks'][$this->selectedStandardId] ?? null;
+                if (is_array($check)) {
+                    $resultRows->push(['url' => $row['url'], 'observed_at' => $check['observed_at'] ?? $row['observed_at'], ...$check]);
+                }
+            }
+            $siteCheck = $report['site_checks'][$this->selectedStandardId] ?? null;
+            if (is_array($siteCheck)) {
+                $resultRows->push(['url' => 'Site geneli', 'observed_at' => null, ...$siteCheck]);
+            }
+        }
+        if ($this->resultState !== '') {
+            $resultRows = $resultRows->where('state', $this->resultState)->values();
+        }
+        $resultPage = min(max(1, $this->getPage('standardResults')), max(1, (int) ceil($resultRows->count() / 25)));
+        $standardResults = new LengthAwarePaginator($resultRows->forPage($resultPage, 25), $resultRows->count(), 25, $resultPage, [
+            'path' => request()->url(), 'pageName' => 'standardResults',
+        ]);
+
+        return view('livewire.operator.website.assessment-panel', compact('website', 'history', 'run', 'report', 'proposals', 'selectedStandard', 'standardResults'));
     }
 
     private function website(): DigitalAsset

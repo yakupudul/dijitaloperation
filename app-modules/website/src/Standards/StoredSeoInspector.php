@@ -72,20 +72,23 @@ final class StoredSeoInspector
             }
         }
         $hreflang = [];
+        $hreflangTruncated = false;
         foreach ($xpath->query('//head/link[@hreflang][@href]') ?: [] as $node) {
             if (count($hreflang) >= 100) {
+                $hreflangTruncated = true;
                 break;
             }
             $hreflang[] = ['language' => $node->getAttribute('hreflang'), 'url' => $urls->resolve($base, $node->getAttribute('href'))];
         }
         return [
+            'base_url' => $base,
             'title_count' => $xpath->query('//head/title')->length,
             'h1_count' => $xpath->query('//h1')->length,
             'description_count' => $xpath->query('//head/meta[translate(@name,"ABCDEFGHIJKLMNOPQRSTUVWXYZ","abcdefghijklmnopqrstuvwxyz")="description"]')->length,
             'language' => trim((string) $document->documentElement?->getAttribute('lang')),
             'internal_urls' => array_values($links), 'links_truncated' => $truncated,
             'empty_anchors' => $emptyAnchors, 'images' => $images, 'mixed_resources' => $mixed,
-            'hreflang' => $hreflang,
+            'hreflang' => $hreflang, 'hreflang_truncated' => $hreflangTruncated,
         ];
     }
 }

@@ -8,9 +8,9 @@
     <section class="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div><h2 class="text-lg font-semibold text-gray-900 dark:text-white">Standartlar ve İyileştirmeler</h2><p class="mt-2 max-w-3xl text-sm text-gray-500">Saklı web sitesi verilerini değerlendirir; teknik eksikleri, hizmet kapsamını ve ilgili sayfaları bir araya getirir. Kaynak veriyi güncelledikten sonra yeniden çalıştırın.</p></div>
-            <button type="button" wire:click="start" wire:loading.attr="disabled" class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">Web sitesini değerlendir</button>
+            <button type="button" wire:click="start" wire:loading.attr="disabled" @disabled($run && in_array($run->status, ['queued', 'running'])) class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">Web sitesini değerlendir</button>
         </div>
-        <div class="mt-4 flex flex-wrap gap-4 text-sm"><a wire:navigate href="{{ route('operator.library.website-standards') }}" class="text-brand-600">Standartlar kütüphanesi</a><a wire:navigate href="{{ route('operator.library.search-demand-improvements', $scope) }}" class="text-brand-600">İçerik ve rakip önerileri</a><a wire:navigate href="{{ route('operator.integrations') }}" class="text-brand-600">Entegrasyon verileri</a><a wire:navigate href="{{ route('operator.activity') }}" class="text-brand-600">Etkinlik</a></div>
+        <div class="mt-4 flex flex-wrap gap-4 text-sm"><a wire:navigate href="{{ route('operator.library.website-standards') }}" class="text-brand-600">Standartlar kütüphanesi</a><a wire:navigate href="{{ route('operator.library.search-demand-improvements', $scope) }}" class="text-brand-600">İçerik ve rakip önerileri</a><a wire:navigate href="{{ route('operator.integrations.website', ['site' => $website->id]) }}" class="text-brand-600">Entegrasyon verileri</a><a wire:navigate href="{{ route('operator.activity') }}" class="text-brand-600">Etkinlik</a></div>
         <p class="mt-3 text-xs text-gray-500">Bu değerlendirme AI veya ücretli veri çağrısı yapmaz. İçerik incelemesini ilgili sorgu kümesinden ayrıca başlatabilirsiniz.</p>
     </section>
     @if($message)<p role="status" class="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">{{ $message }}</p>@endif
@@ -28,9 +28,29 @@
         <section class="overflow-x-auto rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
             <h3 class="p-5 font-semibold text-gray-900 dark:text-white">Standart değerlendirmesi</h3>
             <table class="w-full text-left text-sm"><thead class="bg-gray-50 text-gray-500 dark:bg-gray-800"><tr><th class="px-5 py-3">Standart</th><th class="px-3 py-3">Uygun</th><th class="px-3 py-3">Eksik</th><th class="px-3 py-3">İnceleme</th><th class="px-3 py-3">Veri yetersiz</th><th class="px-3 py-3">Uygulanmaz</th></tr></thead><tbody class="divide-y divide-gray-100 text-gray-700 dark:divide-gray-800 dark:text-gray-300">
-                @foreach($report['standards'] ?? [] as $standard)<tr><td class="px-5 py-3">{{ $standard['title'] }}</td>@foreach(['pass', 'fail', 'review', 'unknown', 'not_applicable'] as $state)<td class="px-3 py-3 {{ $state === 'fail' && $standard[$state] > 0 ? 'font-semibold text-red-600' : '' }}">{{ $standard[$state] }}</td>@endforeach</tr>@endforeach
+                @foreach($report['standards'] ?? [] as $standard)<tr><td class="px-5 py-3"><button type="button" wire:click="showStandard('{{ $standard['id'] }}')" class="text-left text-brand-600 hover:underline">{{ $standard['title'] }}</button></td>@foreach(['pass', 'fail', 'review', 'unknown', 'not_applicable'] as $state)<td class="px-3 py-3 {{ $state === 'fail' && $standard[$state] > 0 ? 'font-semibold text-red-600' : '' }}">{{ $standard[$state] }}</td>@endforeach</tr>@endforeach
             </tbody></table>
         </section>
+        @if($selectedStandard)
+            <section class="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <h3 class="font-semibold text-gray-900 dark:text-white">{{ $selectedStandard['title'] }}</h3>
+                    <select wire:model.live="resultState" aria-label="Kontrol sonucu" class="rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"><option value="">Tüm sonuçlar</option>@foreach($checkLabels as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach</select>
+                </div>
+                <p class="mt-2 text-xs text-gray-500">Sonuç, kullanılan saklı veriye aittir. Veri yetersiz olan kayıtlar uygun kabul edilmez.</p>
+                <div class="mt-4 divide-y divide-gray-100 dark:divide-gray-800">
+                    @forelse($standardResults as $result)
+                        <div class="py-3">
+                            <div class="flex flex-wrap justify-between gap-2"><p class="break-all text-sm text-gray-800 dark:text-gray-200">{{ $result['url'] }}</p><span class="text-xs font-medium {{ $result['state'] === 'fail' ? 'text-red-600' : 'text-gray-500' }}">{{ $checkLabels[$result['state']] ?? $result['state'] }}</span></div>
+                            <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">{{ $result['reason'] }}</p>
+                            @if($result['observed_at'])<p class="mt-1 text-xs text-gray-400">Gözlem: {{ $result['observed_at'] }}</p>@endif
+                            @if($result['observed'] !== null)<details class="mt-2 text-xs text-gray-500"><summary class="cursor-pointer">Gözlenen değer</summary><pre class="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded bg-gray-50 p-3 dark:bg-gray-800">{{ mb_substr(json_encode($result['observed'], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_INVALID_UTF8_SUBSTITUTE), 0, 4000) }}</pre></details>@endif
+                        </div>
+                    @empty<p class="py-4 text-sm text-gray-500">Gösterilecek ayrıntı yok. Eski değerlendirmelerde site kontrollerinin ayrıntıları saklanmamış olabilir; güncel değerlendirme başlatın.</p>@endforelse
+                </div>
+                {{ $standardResults->links() }}
+            </section>
+        @endif
         <section class="space-y-3">
             <h3 class="font-semibold text-gray-900 dark:text-white">Öncelikli iyileştirme grupları</h3>
             <p class="text-sm text-gray-500">Önce doğrulanmış hedeflerin erişim engelleri, ardından diğer teknik eksikler ve inceleme önerileri gelir. Aynı standarttan etkilenen sayfalar birlikte gösterilir.</p>

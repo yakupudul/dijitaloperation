@@ -25,9 +25,11 @@ final class WebsiteStandardEvaluator
         if (str_starts_with($method, 'wp_') || in_array($method, [
             'title_duplicate', 'description_duplicate', 'content_duplicate', 'title_multiple', 'description_multiple',
             'h1_multiple', 'language_missing', 'internal_broken', 'internal_redirect', 'empty_anchors',
-            'canonical_target', 'image_alt', 'image_dimensions', 'mixed_resources', 'hreflang_target',
+            'canonical_target', 'canonical_noindex', 'hreflang_self', 'hreflang_return',
+            'image_alt', 'image_dimensions', 'mixed_resources', 'hreflang_target',
         ], true)) {
-            return (new ExtendedWebsiteEvaluator)->evaluate($standard, $page);
+            return (new ExtendedWebsiteEvaluator)->evaluate($standard, $page)
+                + ['observed_at' => data_get($page, 'stored_html.observed_at')];
         }
         $facts = $page['facts'] ?? [];
         $html = $page['stored_html'] ?? null;
@@ -41,6 +43,9 @@ final class WebsiteStandardEvaluator
             $html = null;
         }
         $observedAt = $method !== 'http' ? ($html['observed_at'] ?? $factObservedAt) : $factObservedAt;
+        if (! $site && (! is_string($observedAt) || trim($observedAt) === '')) {
+            return $this->out('unknown', 'Gözlem tarihi yok. Entegrasyon verisini yenileyin.');
+        }
         if (! $site && is_string($observedAt) && isset($page['evaluated_at'])
             && (strtotime($observedAt) === false || strtotime($observedAt) < strtotime($page['evaluated_at'].' -30 days'))) {
             return $this->out('unknown', 'Gözlem 30 günden eski veya tarihi belirsiz. Entegrasyonlardan veriyi güncelleyin.', $observedAt);

@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": "website-standards-v3",
   "standards": [
     {
       "id": "reachability-http",
@@ -24,9 +24,9 @@
     },
     {
       "id": "https-tls-validity",
-      "version": 1,
+      "version": 2,
       "enabled": true,
-      "title": "HTTPS sertifikası",
+      "title": "HTTPS sertifikasının bitiş tarihi",
       "group": "access",
       "method": "tls",
       "classification": "verified",
@@ -34,7 +34,7 @@
       "required_evidence": [
         "Saklı TLS gözlemi"
       ],
-      "criterion": "HTTPS sertifikası",
+      "criterion": "Saklı sertifika gözlemindeki bitiş tarihi kontrol edilir. Güven zinciri ve alan adı eşleşmesinin doğrulandığı anlamına gelmez.",
       "action": "Sertifika geçerliliğini ve HTTPS sunumunu kontrol edin.",
       "verification": "Entegrasyonlardan yeni gözlem topladıktan sonra aynı kontrolü yeniden çalıştırın.",
       "source_url": "https://developers.google.com/search/docs/appearance/page-experience",
@@ -1092,6 +1092,178 @@
       "verification": "Entegrasyon verilerini yenileyip aynı standardı yeniden değerlendirin.",
       "source_url": "https://wordpress.org/documentation/article/site-health-screen/",
       "source_reviewed_at": "2026-09-09",
+      "severity": "medium"
+    },
+    {
+      "id": "website:canonical_noindex",
+      "version": 1,
+      "enabled": true,
+      "title": "Canonical hedefinde HTML noindex",
+      "group": "access",
+      "method": "canonical_noindex",
+      "classification": "verified",
+      "applicability": "public_page",
+      "asset_type": "website",
+      "platform": "general",
+      "required_evidence": [
+        "stored_html",
+        "assessment_url_index"
+      ],
+      "criterion": "Canonical hedefinin güncel saklı HTML’inde noindex/none bildirimi varsa çelişki gösterilir. HTTP başlıkları ve Google indeks durumu bu kontrolün kapsamında değildir.",
+      "action": "Canonical hedefini ve hedef sayfanın HTML indeksleme talimatını amaçlanan URL’ye göre düzeltin.",
+      "verification": "Entegrasyon verisini yenileyip web sitesi standart değerlendirmesini tekrar çalıştırın.",
+      "source_url": "https://developers.google.com/search/docs/crawling-indexing/robots-meta-tag",
+      "source_reviewed_at": "2026-09-10",
+      "severity": "high"
+    },
+    {
+      "id": "website:hreflang_self",
+      "version": 1,
+      "enabled": true,
+      "title": "Dil kümesinde sayfanın kendisine bağlantı",
+      "group": "metadata",
+      "method": "hreflang_self",
+      "classification": "advisory",
+      "applicability": "public_page",
+      "asset_type": "website",
+      "platform": "general",
+      "required_evidence": [
+        "stored_html",
+        "assessment_url_index"
+      ],
+      "criterion": "HTML hreflang bağlantıları bildirilmişse aynı listede sayfanın kendisi de aranır. Hreflang kullanılmayan sayfalar kapsam dışıdır.",
+      "action": "Hreflang kümesine mevcut sayfanın kendi dil URL’sini de ekleyin.",
+      "verification": "Entegrasyon verisini yenileyip web sitesi standart değerlendirmesini tekrar çalıştırın.",
+      "source_url": "https://developers.google.com/search/docs/specialty/international/localized-versions",
+      "source_reviewed_at": "2026-09-10",
+      "severity": "medium"
+    },
+    {
+      "id": "website:hreflang_return",
+      "version": 1,
+      "enabled": true,
+      "title": "Dil sayfaları arasında geri bağlantı",
+      "group": "metadata",
+      "method": "hreflang_return",
+      "classification": "advisory",
+      "applicability": "public_page",
+      "asset_type": "website",
+      "platform": "general",
+      "required_evidence": [
+        "stored_html",
+        "assessment_url_index"
+      ],
+      "criterion": "Bildirilen dil hedeflerinin güncel ve tam saklı HTML’inde bu sayfaya geri bağlantı aranır. Toplanmamış hedefler uygun kabul edilmez; sitemap veya HTTP hreflang alternatifleri ayrıca incelenmelidir.",
+      "action": "İlgili dil sayfalarında karşılıklı hreflang bağlantılarını kontrol edip aynı dil kümesini tanımlayın.",
+      "verification": "Entegrasyon verisini yenileyip web sitesi standart değerlendirmesini tekrar çalıştırın.",
+      "source_url": "https://developers.google.com/search/docs/specialty/international/localized-versions",
+      "source_reviewed_at": "2026-09-10",
+      "severity": "medium"
+    },
+    {
+      "id": "website:wp_https",
+      "version": 1,
+      "enabled": true,
+      "title": "WordPress ana adresinde HTTPS",
+      "group": "security",
+      "method": "wp_https",
+      "classification": "verified",
+      "applicability": "site",
+      "asset_type": "website",
+      "platform": "wordpress",
+      "required_evidence": [
+        "authenticated_wordpress_snapshot"
+      ],
+      "criterion": "WordPress’in bildirdiği ana adresin HTTPS kullanması kontrol edilir. Bu ayar, dışarıdan sertifika güven zinciri veya yönlendirme doğrulaması değildir.",
+      "action": "Sertifikayı ve sunucu yapılandırmasını doğruladıktan sonra WordPress ana adresini HTTPS olarak düzenleyin.",
+      "verification": "Entegrasyon verisini yenileyip web sitesi standart değerlendirmesini tekrar çalıştırın.",
+      "source_url": "https://developer.wordpress.org/advanced-administration/security/https/",
+      "source_reviewed_at": "2026-09-10",
+      "severity": "high"
+    },
+    {
+      "id": "website:wp_permalink",
+      "version": 1,
+      "enabled": true,
+      "title": "WordPress kalıcı bağlantı yapısı",
+      "group": "structure",
+      "method": "wp_permalink",
+      "classification": "advisory",
+      "applicability": "site",
+      "asset_type": "website",
+      "platform": "wordpress",
+      "required_evidence": [
+        "authenticated_wordpress_snapshot"
+      ],
+      "criterion": "Düz sorgu parametreli kalıcı bağlantı yapısı kullanılıyorsa URL yapısı için inceleme önerilir; tek başına indeksleme hatası sayılmaz.",
+      "action": "Okunabilir kalıcı bağlantı yapısını değerlendirin. Mevcut URL’leri değiştirecekseniz yönlendirme planını hazırlayın.",
+      "verification": "Entegrasyon verisini yenileyip web sitesi standart değerlendirmesini tekrar çalıştırın.",
+      "source_url": "https://wordpress.org/documentation/article/customize-permalinks/",
+      "source_reviewed_at": "2026-09-10",
+      "severity": "medium"
+    },
+    {
+      "id": "website:wp_cache_config",
+      "version": 1,
+      "enabled": true,
+      "title": "WordPress sayfa önbelleği bildirimi",
+      "group": "performance",
+      "method": "wp_cache_config",
+      "classification": "advisory",
+      "applicability": "site",
+      "asset_type": "website",
+      "platform": "wordpress",
+      "required_evidence": [
+        "authenticated_wordpress_snapshot"
+      ],
+      "criterion": "WP_CACHE kapalıysa önbellek düzeni incelenir. Açık olması hız kazanımı veya çalışan cache kanıtı değildir; sunucu/CDN önbelleği bu bayrak olmadan çalışabilir.",
+      "action": "LiteSpeed veya mevcut sunucu/CDN önbelleğini doğrulayın; değişiklik sonrası aynı URL’nin hız ölçümünü karşılaştırın.",
+      "verification": "Entegrasyon verisini yenileyip web sitesi standart değerlendirmesini tekrar çalıştırın.",
+      "source_url": "https://developer.wordpress.org/advanced-administration/performance/optimization/",
+      "source_reviewed_at": "2026-09-10",
+      "severity": "medium"
+    },
+    {
+      "id": "website:wp_event_storage",
+      "version": 1,
+      "enabled": true,
+      "title": "Connector bildirim kuyruğunun kurulumu",
+      "group": "health",
+      "method": "wp_event_storage",
+      "classification": "verified",
+      "applicability": "site",
+      "asset_type": "website",
+      "platform": "wordpress",
+      "required_evidence": [
+        "authenticated_wordpress_snapshot"
+      ],
+      "criterion": "Connector’ın bildirdiği yerel olay kuyruğu kurulum durumu kontrol edilir. Bu kontrol veritabanına yazma denemesi yapmaz; bildirim kaybı ve bağlantı ayrıca değerlendirilir.",
+      "action": "WordPress Connector kuyruğunun oluşturulabildiğini ve veritabanı yazma yetkilerini kontrol edin.",
+      "verification": "Entegrasyon verisini yenileyip web sitesi standart değerlendirmesini tekrar çalıştırın.",
+      "source_url": "https://wordpress.org/documentation/article/site-health-screen/",
+      "source_reviewed_at": "2026-09-10",
+      "severity": "high"
+    },
+    {
+      "id": "website:wp_event_gap",
+      "version": 1,
+      "enabled": true,
+      "title": "Bildirim kaybından sonra envanter yenilemesi",
+      "group": "health",
+      "method": "wp_event_gap",
+      "classification": "advisory",
+      "applicability": "site",
+      "asset_type": "website",
+      "platform": "wordpress",
+      "required_evidence": [
+        "authenticated_wordpress_snapshot",
+        "connector_delivery"
+      ],
+      "criterion": "Bildirilen veri kaybından sonra tamamlanmış otomatik tam envanter yoksa inceleme gerekir. Yeni envanter geçmişteki olayları geri getirmez.",
+      "action": "Entegrasyonda otomatik yenilemeyi etkinleştirin ve tam envanterin tamamlanmasını izleyin; eksik olay geçmişini ayrıca inceleyin.",
+      "verification": "Entegrasyon verisini yenileyip web sitesi standart değerlendirmesini tekrar çalıştırın.",
+      "source_url": "https://wordpress.org/documentation/article/site-health-screen/",
+      "source_reviewed_at": "2026-09-10",
       "severity": "medium"
     }
   ]

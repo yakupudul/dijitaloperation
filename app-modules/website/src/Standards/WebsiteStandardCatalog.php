@@ -12,7 +12,7 @@ use Illuminate\Validation\Rule;
 
 final class WebsiteStandardCatalog
 {
-    public const string VERSION = 'website-standards-v2';
+    public const string VERSION = 'website-standards-v3';
 
     public const array GROUPS = [
         'access' => 'Erişim ve indeksleme',
@@ -49,6 +49,12 @@ final class WebsiteStandardCatalog
             }
             if (isset($definitions[$setting->standard_id])) {
                 $definitions[$setting->standard_id]['enabled'] = (bool) $setting->enabled;
+                if (! str_starts_with($setting->standard_id, 'website:custom:') && $setting->custom_definition !== null) {
+                    $overrides = json_decode($setting->custom_definition, true);
+                    if (in_array($overrides['severity'] ?? null, ['low', 'medium', 'high'], true)) {
+                        $definitions[$setting->standard_id]['severity'] = $overrides['severity'];
+                    }
+                }
             }
         }
         foreach ($definitions as &$definition) {
@@ -77,9 +83,34 @@ final class WebsiteStandardCatalog
     public function setEnabled(string $id, bool $enabled, User $actor): void
     {
         abort_unless($actor->is_active && $actor->can(Permissions::ACCESS_APP) && $actor->hasRole(Roles::ADMIN), 403);
-        abort_unless(isset($this->all()[$id]), 404);
+        $definition = $this->definitions()[$id] ?? null;
+        abort_unless($definition && $definition['method'] !== 'expert_review', 404);
         DB::table('website_standard_settings')->updateOrInsert(['standard_id' => $id], [
             'enabled' => $enabled, 'updated_by' => $actor->id, 'updated_at' => now(),
+        ]);
+    }
+
+    public function setSeverity(string $id, string $severity, User $actor): void
+    {
+        abort_unless($actor->is_active && $actor->can(Permissions::ACCESS_APP) && $actor->hasRole(Roles::ADMIN), 403);
+        $definition = $this->all()[$id] ?? null;
+        abort_unless($definition && $definition['method'] !== 'expert_review', 404);
+        abort_unless(in_array($severity, ['low', 'medium', 'high'], true), 422);
+        DB::table('website_standard_settings')->updateOrInsert(['standard_id' => $id], [
+            'enabled' => $definition['enabled'],
+            'custom_definition' => json_encode(['severity' => $severity], JSON_THROW_ON_ERROR),
+            'updated_by' => $actor->id, 'updated_at' => now(),
+        ]);
+    }
+
+    public function resetStandard(string $id, User $actor): void
+    {
+        abort_unless($actor->is_active && $actor->can(Permissions::ACCESS_APP) && $actor->hasRole(Roles::ADMIN), 403);
+        $definition = $this->definitions()[$id] ?? null;
+        abort_unless($definition && $definition['method'] !== 'expert_review', 404);
+        DB::table('website_standard_settings')->updateOrInsert(['standard_id' => $id], [
+            'enabled' => $definition['enabled'], 'custom_definition' => null,
+            'updated_by' => $actor->id, 'updated_at' => now(),
         ]);
     }
 
@@ -94,7 +125,7 @@ final class WebsiteStandardCatalog
             'action' => ['required', 'string', 'min:10', 'max:1000'],
             'source_url' => ['nullable', 'url:http,https', 'max:500'],
         ])->validate();
-        abort_if(DB::table('website_standard_settings')->whereNotNull('custom_definition')->count() >= 30, 422, 'En fazla 30 ek uzman kriteri tanımlanabilir.');
+        abort_if(DB::table('website_standard_settings')->where('standard_id', 'like', 'website:custom:%')->whereNotNull('custom_definition')->count() >= 30, 422, 'En fazla 30 ek uzman kriteri tanımlanabilir.');
         $id = 'website:custom:'.Str::uuid();
         $definition = [
             'id' => $id, 'version' => 1, 'enabled' => true, 'title' => $values['title'],
