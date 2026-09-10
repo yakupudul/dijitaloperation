@@ -529,3 +529,20 @@ Verification: direct GitHub source inspection only. No clone, tests, formatter, 
 acceptance or server execution performed, per operator instruction. No new migration required
 beyond the already committed integration migrations. Live rendering, stored-fact compatibility,
 queue execution and real operator acceptance remain unverified.
+
+
+## 2026-09-10 — WhatsApp reply assistant (staging only)
+
+Owner-authorized simple Sales menu `/whatsapp`: conversations, received/sent message history,
+Turkish AI reply/wait/clarify and copy. Direct Meta adapter with signature-verified durable receipts,
+fixed WABA/phone binding, encrypted central credentials/message bodies, paginated inbox and own
+persistent async statuses. Existing Laravel AI provider credentials and a dedicated sales.whatsapp_reply
+route are reused. New message/settings changes invalidate old drafts; context is capped and labelled.
+Active Admin-only access. No WhatsApp send endpoint, task creation or external mutation.
+Additive migration + existing minute scheduler/default Redis Horizon required. Initial API setup,
+webhook subscription and Coexistence eligibility remain external. History/echo support only covers
+received provider events; no guarantee of complete phone history. Media not interpreted; delivery,
+edits/deletions, global Activity and full Agent/Skill execution ledger not implemented in this slice.
+Contract: docs/product/WHATSAPP_ASSISTANT.md. Source reviewed only; no tests/build/formatter, dependency
+installation, runtime/migration execution, live Meta/AI UAT or host deployment. Not DONE/live accepted.
+All changes are on chatgpt/search-demand-foundation; no main edits and no PR.

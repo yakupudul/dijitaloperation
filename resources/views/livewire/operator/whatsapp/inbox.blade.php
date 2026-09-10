@@ -1,0 +1,141 @@
+<div class="space-y-5" @if(!$showSettings) wire:poll.10s @endif>
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+            <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">WhatsApp Asistanı</h1>
+            <p class="mt-1 text-sm text-gray-500">Görüşmeyi oku, öneriyi kontrol et, cevabını kopyala.</p>
+        </div>
+        <button type="button" wire:click="$toggle('showSettings')" class="rounded-lg border border-gray-300 px-4 py-2 text-sm dark:border-gray-700 dark:text-gray-200">Bağlantı ve hizmet bilgileri</button>
+    </div>
+    @if($notice)
+        <p role="status" class="rounded-lg bg-blue-50 p-3 text-sm text-blue-800 dark:bg-blue-900/20 dark:text-blue-200">{{ $notice }}</p>
+    @endif
+    @if($errors->any())
+        <div role="alert" class="rounded-lg bg-red-50 p-3 text-sm text-red-800">
+            @foreach($errors->all() as $error)<p>{{ $error }}</p>@endforeach
+        </div>
+    @endif
+    @if($showSettings)
+        <section class="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-200">
+            <h2 class="mb-3 text-lg font-semibold">Meta Cloud API bağlantısı</h2>
+            <p class="mb-4 text-sm text-gray-500">Mevcut WhatsApp Business API hesabının bilgilerini girin. Bu ekran yeni numara kaydı veya Coexistence başvurusu yapmaz.</p>
+            <form wire:submit="saveSettings" class="space-y-4" autocomplete="off">
+                <div class="grid gap-4 md:grid-cols-3">
+                    <label class="text-sm">WhatsApp Business Account ID (WABA)<input wire:model="waba_id" required inputmode="numeric" class="mt-1 w-full rounded-lg border border-gray-300 bg-transparent p-2" /></label>
+                    <label class="text-sm">Phone Number ID<input wire:model="phone_number_id" required inputmode="numeric" class="mt-1 w-full rounded-lg border border-gray-300 bg-transparent p-2" /></label>
+                    <label class="text-sm">İşletme numarası (905… şeklinde)<input wire:model="business_phone" required inputmode="numeric" class="mt-1 w-full rounded-lg border border-gray-300 bg-transparent p-2" /></label>
+                    <label class="text-sm">Access Token<input type="password" wire:model="access_token" autocomplete="new-password" placeholder="Kaydedildiyse boş bırakın" class="mt-1 w-full rounded-lg border border-gray-300 bg-transparent p-2" /></label>
+                    <label class="text-sm">Meta App Secret<input type="password" wire:model="app_secret" autocomplete="new-password" placeholder="Kaydedildiyse boş bırakın" class="mt-1 w-full rounded-lg border border-gray-300 bg-transparent p-2" /></label>
+                    <label class="text-sm">Webhook Verify Token<input type="password" wire:model="verify_token" autocomplete="new-password" placeholder="Sizin belirlediğiniz en az 16 karakter" class="mt-1 w-full rounded-lg border border-gray-300 bg-transparent p-2" /></label>
+                </div>
+                <label class="block text-sm">AI için hizmetler, fiyatlar ve konuşma üslubu
+                    <textarea wire:model="business_context" rows="5" maxlength="12000" required class="mt-1 w-full rounded-lg border border-gray-300 bg-transparent p-3"></textarea>
+                </label>
+                <div class="flex flex-wrap gap-5 text-sm">
+                    <label class="flex items-center gap-2"><input type="checkbox" wire:model="enabled" /> Mesaj alımını etkinleştir</label>
+                    <label class="flex items-center gap-2"><input type="checkbox" wire:model="automatic_suggestions" /> Yeni mesajlarda otomatik AI önerisi hazırla</label>
+                </div>
+                <p class="text-xs text-gray-500">Otomatik öneriler mevcut AI sağlayıcınızın API kullanımını oluşturur. Kapattığınızda görüşme içindeki düğmeyle öneri isteyebilirsiniz.</p>
+                <div class="flex flex-wrap gap-3">
+                    <button type="submit" wire:loading.attr="disabled" class="rounded-lg bg-brand-500 px-4 py-2 text-sm text-white">Ayarları kaydet</button>
+                    <button type="button" wire:click="checkConnection" wire:loading.attr="disabled" class="rounded-lg border border-gray-300 px-4 py-2 text-sm">API erişimini kontrol et</button>
+                    <button type="button" wire:click="$refresh" class="rounded-lg border border-gray-300 px-4 py-2 text-sm">Kontrol sonucunu yenile</button>
+                    <a href="{{ url('/integrations/openai') }}" class="px-3 py-2 text-sm text-brand-500">Mevcut AI bağlantısı</a>
+                </div>
+            </form>
+            <div class="mt-5 space-y-2 border-t border-gray-200 pt-4 text-sm dark:border-gray-700">
+                <p>Meta Callback URL:</p>
+                <input aria-label="Meta Callback URL" readonly value="{{ route('api.whatsapp.webhook') }}" class="w-full rounded-lg border border-gray-300 bg-transparent p-2 font-mono text-xs" onclick="this.select()" />
+                <p class="text-gray-500">Meta'da bu adresi ve aynı Verify Token'ı kaydedin. <code>messages</code> alanına abone olun. Uygulamayla birlikte kullanım destekleniyorsa <code>smb_message_echoes</code> ve <code>history</code> alanlarını da bağlayın.</p>
+                <p>API kontrolü: {{ ['verified' => 'Numara erişimi doğrulandı', 'phone_mismatch' => 'İşletme numarası eşleşmiyor', 'failed' => 'Erişim doğrulanamadı; token, sürüm ve numara yetkisini kontrol edin'][($config['connection_check'] ?? '')] ?? 'Henüz kontrol edilmedi' }}</p>
+                <p class="text-xs text-gray-500">API erişim kontrolü geçmiş mesajların aktarılmış olduğunu veya webhook aboneliğinin tamamlandığını doğrulamaz.</p>
+            </div>
+        </section>
+    @endif
+    <div class="rounded-lg border border-gray-200 p-3 text-xs text-gray-600 dark:border-gray-700 dark:text-gray-400">
+        <span>{{ $integration?->isActive() ? 'Mesaj alımı açık.' : 'Mesaj alımı kapalı veya bağlantı henüz kurulmadı.' }}</span>
+        <span>Geçmiş: {{ ($config['history_state'] ?? '') === 'provider_error' ? 'Meta geçmiş paylaşım hatası bildirdi.' : (($config['history_state'] ?? '') === 'received_partial' ? 'Geçmiş parçaları alındı; eksiksiz geçmiş doğrulanmadı.' : 'Geçmiş aktarımı henüz görülmedi.') }}</span>
+        <span>{{ !empty($config['echo_seen_at']) ? 'Telefondan gönderilen mesaj olayı alındı.' : 'Telefondan gönderdiğiniz cevapların aktarımı henüz doğrulanmadı.' }}</span>
+        <span>Görseller ve ses kayıtlarının içeriği okunmaz. Saatler Türkiye saatidir.</span>
+    </div>
+    <div class="grid gap-4 xl:grid-cols-12">
+        <section class="min-w-0 rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 xl:col-span-3">
+            <div class="border-b border-gray-200 p-4 dark:border-gray-800">
+                <h2 class="mb-3 font-semibold dark:text-gray-200">Görüşmeler · {{ $rows->total() }}</h2>
+                <input aria-label="Görüşme ara" wire:model.live.debounce.400ms="q" maxlength="100" placeholder="İsim veya numara ara" class="w-full rounded-lg border border-gray-300 bg-transparent p-2 text-sm dark:text-gray-200" />
+            </div>
+            <div class="max-h-[600px] overflow-y-auto">
+                @forelse($rows as $row)
+                    <button type="button" wire:key="chat-{{ $row->id }}" wire:click="selectConversation({{ $row->id }})" class="block w-full border-b border-gray-100 p-4 text-left hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800 {{ $selected?->id === $row->id ? 'bg-blue-50 dark:bg-gray-800' : '' }}">
+                        <span class="block truncate font-medium text-gray-900 dark:text-white">{{ $row->contact_name ?: $row->contact_id }}</span>
+                        <span class="mt-1 block text-xs text-gray-500">{{ $row->last_message_at?->timezone('Europe/Istanbul')->format('d.m.Y H:i') }}</span>
+                        <span class="mt-2 block text-xs text-brand-500">{{ ['pending' => 'Yeni öneri bekliyor', 'requested' => 'Öneri sırada', 'running' => 'Öneri hazırlanıyor', 'ready' => 'Öneri hazır', 'failed' => 'Öneri hazırlanamadı'][$row->suggestion_status] ?? $row->suggestion_status }}</span>
+                    </button>
+                @empty
+                    <p class="p-5 text-sm text-gray-500">Henüz görüşme yok. Bağlantıyı tamamlayın; alınan mesajlar burada listelenecek.</p>
+                @endforelse
+            </div>
+            <div class="p-3">{{ $rows->links() }}</div>
+        </section>
+        <section class="min-w-0 rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 xl:col-span-5">
+            <div class="border-b border-gray-200 p-4 dark:border-gray-800">
+                <h2 class="font-semibold dark:text-white">{{ $selected?->contact_name ?: ($selected?->contact_id ?: 'Mesajlar') }}</h2>
+                @if($selected)<p class="mt-1 text-xs text-gray-500">{{ $selected->contact_id }} · {{ $messages->total() }} kayıtlı mesaj</p>@endif
+            </div>
+            <div class="max-h-[650px] min-h-[350px] space-y-3 overflow-y-auto p-4">
+                @if($messages)
+                    @foreach($messages->getCollection()->reverse() as $message)
+                        <div wire:key="message-{{ $message->id }}" class="max-w-[95%] rounded-xl p-3 {{ $message->direction === 'outgoing' ? 'ml-auto bg-blue-50 dark:bg-blue-900/20' : 'mr-auto bg-gray-100 dark:bg-gray-800' }}">
+                            <p class="mb-1 text-xs font-semibold text-gray-500">{{ $message->direction === 'outgoing' ? 'Siz' : 'Karşı taraf' }}</p>
+                            @if($message->reply_to_message_id)<p class="mb-1 text-xs text-gray-500">Önceki bir mesaja yanıt</p>@endif
+                            <p class="whitespace-pre-wrap break-words text-sm text-gray-800 dark:text-gray-200">{{ $message->body }}</p>
+                            <p class="mt-2 text-right text-xs text-gray-500">{{ $message->sent_at->timezone('Europe/Istanbul')->format('d.m.Y H:i') }}</p>
+                        </div>
+                    @endforeach
+                @else
+                    <p class="pt-12 text-center text-sm text-gray-500">Mesajları ve öneriyi görmek için bir görüşme seçin.</p>
+                @endif
+            </div>
+            @if($messages)<div class="border-t border-gray-200 p-3 dark:border-gray-800"><p class="mb-2 text-xs text-gray-500">1. sayfada en yeni mesajlar gösterilir. Sonraki sayfalarda eski mesajlar bulunur.</p>{{ $messages->links() }}</div>@endif
+        </section>
+        <section class="min-w-0 rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900 xl:col-span-4">
+            <h2 class="font-semibold dark:text-white">Önerilen cevap</h2>
+            @if($selected)
+                @if($selected->suggestion_status === 'ready' && $selected->suggested_revision === $selected->revision)
+                    <div wire:key="suggestion-{{ $selected->id }}-{{ $selected->suggested_at?->timestamp }}" class="mt-4 space-y-4" x-data="{ copyStatus: '' }">
+                        <p class="text-sm text-gray-600 dark:text-gray-300">{{ $selected->summary }}</p>
+                        @if($selected->suggestion_action === 'wait')
+                            <p class="rounded-lg bg-amber-50 p-3 text-sm font-medium text-amber-900">Şimdilik yeni mesaj yazma.</p>
+                        @endif
+                        @if(filled($selected->suggestion))
+                            <textarea x-ref="reply" aria-label="Önerilen cevap; kopyalamadan önce düzenleyebilirsiniz" rows="9" class="w-full rounded-lg border border-gray-300 bg-transparent p-3 text-sm dark:text-gray-200">{{ $selected->suggestion }}</textarea>
+                            <button type="button" class="w-full rounded-lg bg-brand-500 px-4 py-3 text-sm font-medium text-white" @click="navigator.clipboard.writeText($refs.reply.value).then(() => copyStatus = 'Kopyalandı').catch(() => { $refs.reply.select(); copyStatus = 'Metni seçtim. Ctrl+C ile kopyalayın.' })">Cevabı kopyala</button>
+                            <p x-text="copyStatus" role="status" class="text-xs text-gray-500"></p>
+                        @endif
+                        <p class="text-sm text-gray-600 dark:text-gray-300">{{ $selected->rationale }}</p>
+                        <p class="text-xs text-gray-500">{{ $selected->context_message_count }} mesaj üzerinden hazırlandı. {{ $selected->context_truncated ? 'Bağlam sınırı nedeniyle önceki mesajların bir bölümü AI tarafından okunmadı.' : '' }} {{ $selected->suggested_at?->timezone('Europe/Istanbul')->format('d.m.Y H:i') }}</p>
+                    </div>
+                @else
+                    <p class="my-4 text-sm text-gray-500">{{ $selected->suggestion_status === 'running' ? 'Öneri arka planda hazırlanıyor.' : ($selected->suggestion_status === 'failed' ? 'Öneri hazırlanamadı. AI bağlantısını kontrol edip tekrar deneyin.' : 'Bu görüşme için güncel öneri bekleniyor.') }}</p>
+                    @if($selected->error_code)<p class="mb-3 text-xs text-gray-500">{{ $selected->error_code }}</p>@endif
+                @endif
+                <button type="button" wire:click="generate({{ $selected->id }})" wire:loading.attr="disabled" @disabled($selected->suggestion_status === 'running') class="mt-5 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:text-gray-200">{{ $selected->suggestion_status === 'ready' ? 'Öneriyi yeniden hazırla' : 'Öneri hazırla / tekrar dene' }}</button>
+                <p class="mt-3 text-xs text-gray-500">Cevap otomatik gönderilmez. Kopyalayıp WhatsApp'tan gönderebilirsiniz. AI en yeni 200 mesajı, toplam 60.000 karakter sınırıyla okur.</p>
+            @else
+                <p class="mt-4 text-sm text-gray-500">Seçtiğiniz görüşmeye uygun cevap burada hazırlanacak.</p>
+            @endif
+        </section>
+    </div>
+    @if($showSettings)
+        <details class="rounded-lg border border-gray-200 p-4 text-sm dark:border-gray-800 dark:text-gray-200">
+            <summary class="cursor-pointer">Son 10 mesaj aktarımı</summary>
+            @forelse($receipts as $receipt)
+                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 py-2 dark:border-gray-800">
+                    <span>{{ $receipt->created_at->timezone('Europe/Istanbul')->format('d.m.Y H:i') }} · {{ $receipt->status }} · {{ $receipt->accepted_count }} yeni mesaj · {{ $receipt->ignored_count }} işlenemeyen/başka kapsamdaki öğe</span>
+                    @if($receipt->status === 'failed')<button type="button" wire:click="retryReceipt({{ $receipt->id }})" class="text-brand-500">Tekrar işle</button>@endif
+                </div>
+            @empty
+                <p class="mt-3 text-gray-500">Henüz doğrulanmış webhook alınmadı.</p>
+            @endforelse
+        </details>
+    @endif
+</div>

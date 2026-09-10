@@ -303,3 +303,11 @@ Artisan::command('moxdop:wordpress:reconcile', function (): void {
 
 Schedule::command('moxdop:wordpress:reconcile')
     ->everyFiveMinutes()->withoutOverlapping(10)->name('wordpress-event-reconciliation');
+
+
+Artisan::command('moxdop:whatsapp:dispatch', function (): void {
+    app(\App\Services\WhatsApp\WhatsAppDispatch::class)->tick();
+})->purpose('Process received WhatsApp events and prepare advisory reply drafts.');
+
+Schedule::command('moxdop:whatsapp:dispatch')
+    ->everyMinute()->withoutOverlapping(2)->name('whatsapp-assistant-dispatch');

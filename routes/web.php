@@ -91,6 +91,11 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])->group(function (
         ->name('operator.integrations.website');
 });
 
+Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])->group(function (): void {
+    Route::livewire('/whatsapp', \App\Livewire\Operator\WhatsApp\Inbox::class)
+        ->name('operator.whatsapp');
+});
+
 require __DIR__.'/demo.php';
 
 // Canonical production operator engine surfaces that are intentionally kept outside legacy demo.php.
@@ -127,3 +132,4 @@ Route::any('/app/{path?}', [LegacyRetiredPrefixController::class, 'app'])
 
 Route::any('/system/{path?}', [LegacyRetiredPrefixController::class, 'system'])
     ->where('path', '.*');
+

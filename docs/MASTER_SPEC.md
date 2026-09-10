@@ -378,3 +378,17 @@ DOP özel kodu ürün değerine ayrılır: digital asset management, connections
 MVP sadeleştirme sonrası Core’u bloke eden ürün/mimari açık soru **kalmamıştır**.
 
 Website Diagnosis fazı başlamadan önce `docs/website/DIAGNOSIS_CATALOG.md` zorunludur (Core blocker değildir).
+
+
+## 16. WhatsApp reply assistant — operator-authorized staging extension (2026-09-10)
+
+The owner requested a single additional MoxDOP menu for WhatsApp conversation review and AI reply
+suggestions, on `chatgpt/search-demand-foundation` only, without main changes or a PR.
+This is an agency inbox advisory workflow, not an advertising Asset diagnosis or automatic outreach.
+It may draft a response to an existing conversation from normalized inbound/outbound message records
+and operator-maintained service terms. It cannot send messages, create Tasks, or mutate providers.
+A distinct `whatsapp` central Integration holds encrypted credentials so existing Meta Ads credentials
+and authorizations remain untouched. The explicit WABA/phone binding is configured by the owner.
+Only active Admin operators can access the inbox; Team Member access is not enabled in this version.
+The dedicated workflow uses the existing Laravel AI SDK and central AI route/provider credentials.
+Full contract and limitations: `docs/product/WHATSAPP_ASSISTANT.md`.

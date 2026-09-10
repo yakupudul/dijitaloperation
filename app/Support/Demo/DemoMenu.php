@@ -36,6 +36,9 @@ final class DemoMenu
                 'items' => [
                     ['label' => __('operator.nav.prospects'), 'route' => 'operator.prospects', 'icon' => 'prospects'],
                     ['label' => __('operator.nav.intent_radar'), 'route' => 'operator.intent-radar', 'icon' => 'activity'],
+                    ...((auth()->user()?->is_active && auth()->user()?->hasRole(\App\Support\Roles::ADMIN)) ? [
+                        ['label' => app()->getLocale() === 'tr' ? 'WhatsApp Asistanı' : 'WhatsApp Assistant', 'route' => 'operator.whatsapp', 'icon' => 'prospects'],
+                    ] : []),
                 ],
             ],
             [
@@ -68,3 +71,4 @@ final class DemoMenu
         ];
     }
 }
+

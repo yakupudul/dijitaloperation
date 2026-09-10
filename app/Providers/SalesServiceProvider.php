@@ -16,6 +16,17 @@ class SalesServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->app->make(AiRouteRegistry::class)->register([
+            'key' => \App\Ai\Agents\WhatsAppReplyAgent::ROUTE,
+            'name' => 'WhatsApp Reply Assistant',
+            'module' => 'sales',
+            'description' => 'Conversation-scoped Turkish reply drafts; human copy only, no sending.',
+            'default_steps' => [[
+                'provider' => AiProviderCatalog::OPENAI,
+                'model' => AiProviderCatalog::defaultModel(AiProviderCatalog::OPENAI),
+            ]],
+        ]);
+
+        $this->app->make(AiRouteRegistry::class)->register([
             'key' => AiRouteKeys::SALES_PROSPECT_INTELLIGENCE,
             'name' => 'Sales Prospect Intelligence',
             'module' => 'sales',
@@ -55,3 +66,4 @@ class SalesServiceProvider extends ServiceProvider
         );
     }
 }
+
