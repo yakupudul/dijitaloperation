@@ -19,20 +19,24 @@ class CheckWhatsAppConnection implements ShouldBeUnique, ShouldQueue
     public int $timeout = 45;
     public int $tries = 1;
 
-    public function __construct(public int $integrationId)
+    public function __construct(public int $integrationId, public ?string $requestId = null)
     {
         $this->onConnection('redis')->onQueue('default');
     }
 
     public function uniqueId(): string
     {
-        return 'wa-check:'.$this->integrationId;
+        return 'wa-check:'.$this->integrationId.':'.$this->requestId;
     }
 
     public function handle(WhatsAppConnection $connection): void
     {
         $integration = CoreIntegration::query()->find($this->integrationId);
         if (! $integration?->isActive()) {
+            return;
+        }
+        $requestId = $this->requestId ?? data_get($integration->config, 'connection_check_request_id');
+        if ($requestId !== data_get($integration->config, 'connection_check_request_id')) {
             return;
         }
         $state = 'failed';
@@ -53,15 +57,19 @@ class CheckWhatsAppConnection implements ShouldBeUnique, ShouldQueue
         } catch (Throwable $exception) {
             $state = 'failed';
         }
-        DB::transaction(function () use ($state): void {
+        DB::transaction(function () use ($state, $requestId): void {
             $current = CoreIntegration::query()->lockForUpdate()->find($this->integrationId);
             if (! $current) {
                 return;
             }
             $config = $current->config ?? [];
+            if (($config['connection_check_request_id'] ?? null) !== $requestId) {
+                return;
+            }
             $config['connection_check'] = $state;
             $config['connection_checked_at'] = now()->toIso8601String();
             $current->update(['config' => $config]);
         });
     }
 }
+

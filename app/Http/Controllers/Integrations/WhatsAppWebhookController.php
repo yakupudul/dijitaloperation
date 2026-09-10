@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Integrations;
 
+use App\Models\CoreIntegration;
 use App\Models\WhatsAppWebhookReceipt;
 use App\Services\WhatsApp\WhatsAppConnection;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
 
 final class WhatsAppWebhookController
@@ -29,19 +31,24 @@ final class WhatsAppWebhookController
         abort_unless($integration?->isActive(), 503);
         $raw = $request->getContent();
         abort_if(strlen($raw) > 4 * 1024 * 1024, 413);
-        $secret = (string) ($connection->secrets($integration)['app_secret'] ?? '');
-        $signature = (string) $request->header('X-Hub-Signature-256', '');
-        abort_unless($secret !== '' && hash_equals('sha256='.hash_hmac('sha256', $raw, $secret), $signature), 403);
-        $payload = json_decode($raw, true);
-        abort_unless(is_array($payload) && ($payload['object'] ?? null) === 'whatsapp_business_account'
-            && is_array($payload['entry'] ?? null), 422);
+        DB::transaction(function () use ($request, $connection, $integration, $raw): void {
+            $integration = CoreIntegration::query()->lockForUpdate()->findOrFail($integration->id);
+            abort_unless($integration->isActive(), 503);
+            $secret = (string) ($connection->secrets($integration)['app_secret'] ?? '');
+            $signature = (string) $request->header('X-Hub-Signature-256', '');
+            abort_unless($secret !== '' && hash_equals('sha256='.hash_hmac('sha256', $raw, $secret), $signature), 403);
+            $payload = json_decode($raw, true);
+            abort_unless(is_array($payload) && ($payload['object'] ?? null) === 'whatsapp_business_account'
+                && is_array($payload['entry'] ?? null), 422);
 
-        WhatsAppWebhookReceipt::query()->firstOrCreate([
-            'integration_id' => $integration->id,
-            'payload_hash' => hash('sha256', $raw),
-        ], ['payload' => $payload, 'status' => 'pending']);
+            WhatsAppWebhookReceipt::query()->firstOrCreate([
+                'integration_id' => $integration->id,
+                'payload_hash' => hash('sha256', $raw),
+            ], ['payload' => $payload, 'status' => 'pending']);
+        });
 
         // Durable receipt first; the scheduler dispatches work even if Redis is temporarily down.
         return response('EVENT_RECEIVED', 200)->header('Content-Type', 'text/plain');
     }
 }
+

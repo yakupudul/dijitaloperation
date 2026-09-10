@@ -560,3 +560,24 @@ stored values remain write-only and blank submissions preserve them. Stale save 
 new save attempts. No credential/account data migration or provider mutation is performed.
 Source-reviewed fix only: no tests, build, formatter or live deployment run. Supersedes earlier
 notes about clearing fields after failed saves. Number mismatch remains a separate configuration issue.
+
+
+
+## WhatsApp setup and action feedback correction — 2026-09-10
+
+Initial WABA/phone binding corrections are now allowed only with no conversations and no
+non-completed receipts. Completed ignored receipts are retained. IDs compare as trimmed strings;
+existing history continues to block rebinding with field-specific explanations. Receipt signature
+validation/persistence and settings changes serialize on the integration row. No data is deleted.
+The form distinguishes stored IDs, stored secret presence and unsaved secret edits, offers visibility
+for newly typed secrets, and shows saving/success/failure feedback beside the actions. Failed saves
+preserve input; controls are disabled during save. API checks use persisted queued/error/result
+states, timestamps, duplicate-click suppression and automatic result refresh. Request IDs prevent
+an older result overwriting settings saved during the HTTP call. Two-minute queue delays show a
+retry/help message. Separate WhatsApp App Secret guidance leaves Meta Ads credentials untouched.
+Added PHPUnit coverage for initial correction, receipt/history guards, blank credential preservation
+and stale API results. Execution was attempted but unavailable: this workspace has no PHP executable
+or installed vendor/Pint. No PHP/Blade compilation, full browser UAT, Meta verification or server deploy
+was performed. The actual form submit handler passed isolated JavaScript checks for success,
+validation rejection and network failure; this is not browser UAT. Source reviewed; runtime
+acceptance remains pending, not DONE.

@@ -3,11 +3,13 @@
 namespace App\Livewire\Operator\WhatsApp;
 
 use App\Jobs\WhatsApp\CheckWhatsAppConnection;
+use App\Models\CoreIntegration;
 use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppWebhookReceipt;
 use App\Services\WhatsApp\WhatsAppConnection;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -81,7 +83,7 @@ class Inbox extends Component
                 $input[$key] = $secrets[$key] ?? '';
             }
             $connection->save(auth()->user(), $input);
-            $this->notice = 'Ayarlar kaydedildi. Gizli alanlar temizlendi; kayıtlı değerler korunuyor.';
+            $this->notice = 'Ayarlar kaydedildi. Gizli bilgiler güvenle saklanıyor; boş bırakılan alanların kayıtlı değerleri korundu.';
 
             return true;
         } catch (ValidationException $exception) {
@@ -95,18 +97,54 @@ class Inbox extends Component
         }
     }
 
+    public function refreshConnectionStatus(): void
+    {
+        $this->notice = 'Kontrol sonucu yenilendi. Güncel durum aşağıdaki API kontrolü bölümünde.';
+    }
+
     public function checkConnection(WhatsAppConnection $connection): void
     {
+        $this->resetValidation();
+        $this->notice = '';
         $integration = $connection->integration();
         if (! $integration?->isActive()) {
-            $this->notice = 'Önce bağlantı ayarlarını kaydedip mesaj alımını açın.';
+            $this->addError('connection', 'Önce bağlantı ayarlarını kaydedip mesaj alımını açın.');
             return;
         }
+        $requestId = (string) Str::uuid();
         try {
-            CheckWhatsAppConnection::dispatch($integration->id);
-            $this->notice = 'Bağlantı kontrolü sıraya alındı. Sonuç bağlantı ayarlarında görünecek.';
+            $queued = DB::transaction(function () use ($integration, $requestId): bool {
+                $current = CoreIntegration::query()->lockForUpdate()->findOrFail($integration->id);
+                $config = $current->config ?? [];
+                if (($config['connection_check'] ?? '') === 'queued'
+                    && ! empty($config['connection_check_requested_at'])
+                    && \Carbon\CarbonImmutable::parse($config['connection_check_requested_at'])->greaterThan(now()->subMinutes(2))) {
+                    return false;
+                }
+                $config['connection_check'] = 'queued';
+                $config['connection_check_request_id'] = $requestId;
+                $config['connection_check_requested_at'] = now()->toIso8601String();
+                $config['connection_checked_at'] = null;
+                $current->update(['config' => $config]);
+
+                return true;
+            });
+            if (! $queued) {
+                $this->notice = 'Kontrol zaten sırada. Sonuç otomatik yenilenecek.';
+                return;
+            }
+            CheckWhatsAppConnection::dispatch($integration->id, $requestId);
+            $this->notice = 'Kayıtlı bilgilerle API kontrolü sıraya alındı. Sonuç otomatik yenilenecek.';
         } catch (Throwable $exception) {
-            $this->notice = 'Kontrol sıraya alınamadı. Kuyruk hizmetini kontrol edin.';
+            DB::transaction(function () use ($integration, $requestId): void {
+                $current = CoreIntegration::query()->lockForUpdate()->find($integration->id);
+                $config = $current?->config ?? [];
+                if (($config['connection_check_request_id'] ?? null) === $requestId) {
+                    $config['connection_check'] = 'dispatch_failed';
+                    $current->update(['config' => $config]);
+                }
+            });
+            $this->addError('connection', 'Kontrol sıraya alınamadı. Tekrar deneyin; sürerse kuyruk hizmetini kontrol edin.');
         }
     }
 
@@ -159,3 +197,4 @@ class Inbox extends Component
         ]);
     }
 }
+

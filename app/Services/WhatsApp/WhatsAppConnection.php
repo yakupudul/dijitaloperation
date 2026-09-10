@@ -5,10 +5,13 @@ namespace App\Services\WhatsApp;
 use App\Models\CoreIntegration;
 use App\Models\CoreIntegrationCredential;
 use App\Models\User;
+use App\Models\WhatsAppConversation;
+use App\Models\WhatsAppWebhookReceipt;
 use App\Support\Permissions;
 use App\Support\Roles;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 final class WhatsAppConnection
@@ -44,6 +47,11 @@ final class WhatsAppConnection
     public function save(User $user, array $input): void
     {
         $this->authorize($user);
+        foreach (['waba_id', 'phone_number_id', 'business_phone'] as $key) {
+            if (is_string($input[$key] ?? null)) {
+                $input[$key] = trim($input[$key]);
+            }
+        }
         $data = Validator::make($input, [
             'waba_id' => ['required', 'regex:/^[0-9]{5,40}$/'],
             'phone_number_id' => ['required', 'regex:/^[0-9]{5,40}$/'],
@@ -86,13 +94,29 @@ final class WhatsAppConnection
                 throw ValidationException::withMessages($missing);
             }
             $config = $integration->config ?? [];
-            if (($config['phone_number_id'] ?? $data['phone_number_id']) !== $data['phone_number_id']
-                || ($config['waba_id'] ?? $data['waba_id']) !== $data['waba_id']) {
-                throw ValidationException::withMessages(['phone_number_id' => 'Bu bağlantı mevcut numaraya sabitlenmiştir. Numara taşımayı ayrıca yapılandırın.']);
+            $bindingChanged = false;
+            $bindingErrors = [];
+            foreach (['waba_id' => 'WABA ID', 'phone_number_id' => 'Phone Number ID'] as $key => $label) {
+                if (filled($config[$key] ?? null) && (string) $config[$key] !== (string) $data[$key]) {
+                    $bindingChanged = true;
+                    $bindingErrors[$key] = $label.' değiştirilemiyor: kayıtlı görüşme veya tamamlanmamış mesaj aktarımı var. Mevcut kayıtlı değeri kullanın; başka numaraya geçiş geçmiş veriler korunarak ayrıca yapılmalı.';
+                }
+            }
+            if ($bindingChanged) {
+                $hasHistory = WhatsAppConversation::query()->where('integration_id', $integration->id)->exists();
+                $hasUnprocessedReceipts = WhatsAppWebhookReceipt::query()->where('integration_id', $integration->id)
+                    ->where('status', '!=', 'completed')->exists();
+                if ($hasHistory || $hasUnprocessedReceipts) {
+                    throw ValidationException::withMessages($bindingErrors);
+                }
+                unset($config['history_state'], $config['echo_seen_at'], $config['last_receipt_at']);
             }
             $contextChanged = ($config['business_context'] ?? '') !== $data['business_context'];
+            $config['connection_check_request_id'] = (string) Str::uuid();
+            $config['connection_check_requested_at'] = null;
             $config['connection_check'] = 'not_checked';
             $config['connection_checked_at'] = null;
+            $config['settings_saved_at'] = now()->toIso8601String();
             foreach (['waba_id', 'phone_number_id', 'business_phone', 'business_context', 'automatic_suggestions'] as $key) {
                 $config[$key] = $data[$key];
             }
@@ -110,3 +134,4 @@ final class WhatsAppConnection
         });
     }
 }
+
