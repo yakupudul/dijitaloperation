@@ -7,6 +7,7 @@ use App\Support\Integrations\WordPress\WordPressConnectorCanonicalJson;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Throwable;
@@ -30,7 +31,22 @@ final class WordPressConnectorClient
     /** @return array<string, mixed> */
     public function status(CoreConnection $connection): array
     {
-        return $this->get($connection, 'status_url', '/moxdop/v1/status');
+        $data = $this->get($connection, 'status_url', '/moxdop/v1/status');
+        DB::transaction(function () use ($connection, $data): void {
+            $current = CoreConnection::query()->with('credential')->lockForUpdate()->findOrFail($connection->id);
+            if (! $current->enabled || data_get($current->config, 'pairing_state') !== 'paired'
+                || data_get($current->credential?->encrypted_payload, 'client_id') !== data_get($connection->credential?->encrypted_payload, 'client_id')) {
+                return;
+            }
+            app(WordPressEventReconciliation::class)->initialize($current);
+            $version = $data['plugin_version'] ?? null;
+            if (is_string($version) && preg_match('/^\d+\.\d+\.\d+(?:[-+][a-zA-Z0-9.-]+)?$/', $version) && strlen($version) <= 32) {
+                $current->update(['config' => array_merge($current->config ?? [], ['plugin_version' => $version])]);
+                DB::table('website_connector_delivery')->where('connection_id', $current->id)->update(['plugin_version' => $version]);
+            }
+        });
+
+        return $data;
     }
 
     /** @return array<string, mixed> */

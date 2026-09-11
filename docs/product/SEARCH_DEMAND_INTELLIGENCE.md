@@ -391,6 +391,14 @@ Verification: source review only. Operator explicitly forbids cloning, tests, de
 
 ## Automatic account collection and query imports — 2026-09-09
 
+**2026-09-11 correction:** initial collection is due immediately, with the existing account-slot
+limit controlling load. Unused initial ID-based delays are recovered; pauses/error backoff remain.
+Terminal parent runs cannot hold slots via stale child statuses. New planning clears its previous
+run reference. Missing runs enter bounded retry. Staging account planning uses Redis/Horizon
+(override `RESOURCE_AUTOMATION_QUEUE_CONNECTION` only with a durable, serviced queue). Binding-blocked
+Meta/GBP accounts are reconsidered when a real binding appears; unbound collection is not added.
+Regression tests added but not executed because PHP/dependencies were unavailable; live UAT pending.
+
 Operator explicitly approved the reviewed automatic collection/import design on `chatgpt/search-demand-foundation`. No main, PR, merge, cloning, dependency installation, tests, build, or direct server deployment is authorized in this task.
 
 - New resource-level settings govern discovered Google Ads client accounts, GSC properties and GA4 properties using their existing central smart collectors. Default collection is daily with deterministic account staggering across the day; operators can pause, choose every three days, or request the next scheduler tick. Manager/MCC containers are displayed but never collected as client accounts. Discovery here enumerates already stored external resources; it does not rerun provider discovery automatically.

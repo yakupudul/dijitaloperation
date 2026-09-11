@@ -33,7 +33,7 @@ final class ResourceAutomationService
             ->orderBy('id')->limit(200)->get()->each(function ($r): void {
                 DB::table('resource_automations')->insertOrIgnore([
                     'external_resource_id' => $r->id,
-                    'next_collection_at' => now()->addMinutes($r->id % 1440),
+                    'next_collection_at' => now(),
                     'created_at' => now(), 'updated_at' => now(),
                 ]);
             });
@@ -83,8 +83,12 @@ final class ResourceAutomationService
 
     public function tick(): void
     {
-        if (! config('moxdop-resource-automation.enabled', true) || config('queue.default') === 'sync') {
+        if (! config('moxdop-resource-automation.enabled', true)) {
             return;
+        }
+        $connection = (string) config('moxdop-resource-automation.queue_connection', config('queue.default'));
+        if (! in_array(config('queue.connections.'.$connection.'.driver'), ['redis', 'database', 'sqs', 'beanstalkd'], true)) {
+            throw new \RuntimeException('Resource automation requires a durable queue connection with a running worker.');
         }
         $lock = Cache::lock('resource-automation-tick', 55);
         if (! $lock->get()) {
@@ -92,27 +96,51 @@ final class ResourceAutomationService
         }
         try {
             $this->discover();
+            ResourceAutomation::query()->where('collection_enabled', true)
+                ->where('collection_status', 'attention')->where('collection_error', 'binding')
+                ->whereHas('resource.bindings', fn ($q) => $q->where('status', 'active')
+                    ->whereIn('capability', ['meta_ads', 'google_business_profile']))
+                ->orderBy('id')->limit(100)->get()->each(function ($automation): void {
+                    if ($this->readiness($automation->resource) === null) {
+                        $automation->update(['collection_status' => 'waiting', 'collection_error' => null, 'next_collection_at' => now()]);
+                    }
+                });
+            ResourceAutomation::query()->where('collection_enabled', true)->where('collection_status', 'waiting')
+                ->whereNull('collection_run_id')->whereNull('last_collection_success_at')->whereNull('collection_error')
+                ->where('next_collection_at', '>', now())->update(['next_collection_at' => now()]);
             ResourceAutomation::query()->whereNotNull('collection_run_id')->whereIn('collection_status', ['collecting', 'planning'])
                 ->limit(100)->get()->each(fn ($a) => $this->reconcile($a));
             ResourceAutomation::query()->where('collection_status', 'planning')
                 ->where('collection_queued_at', '<', now()->subMinutes(15))
                 ->update(['collection_status' => 'waiting', 'collection_queued_at' => null]);
 
-            $active = CollectionResourceRun::query()->whereIn('status', self::ACTIVE)->distinct()->count('external_resource_id');
+            $active = CollectionResourceRun::query()->whereIn('status', self::ACTIVE)
+                ->whereHas('collectionRun', fn ($q) => $q->whereIn('status', self::ACTIVE))
+                ->distinct()->count('external_resource_id');
             $planning = ResourceAutomation::query()->where('collection_status', 'planning')->count();
             $slots = max(0, (int) config('moxdop-resource-automation.max_active_collections', 2) - $active - $planning);
             $accounts = ResourceAutomation::query()->with('resource.integration')
                 ->where('collection_enabled', true)->whereNotIn('collection_status', ['planning', 'collecting'])
                 ->whereNotNull('next_collection_at')->where('next_collection_at', '<=', now())
-                ->orderBy('next_collection_at')->limit(min($slots, (int) config('moxdop-resource-automation.accounts_per_tick', 10)))->get();
+                ->orderBy('next_collection_at')->orderBy('id')
+                ->limit(max(0, (int) config('moxdop-resource-automation.accounts_per_tick', 10)))->get();
             foreach ($accounts as $a) {
+                if ($slots <= 0) {
+                    break;
+                }
                 $error = $this->readiness($a->resource);
                 if ($error !== null) {
                     $a->update(['collection_status' => 'attention', 'collection_error' => $error, 'next_collection_at' => now()->addDays($a->interval_days)]);
                     continue;
                 }
-                $a->update(['collection_status' => 'planning', 'collection_queued_at' => now()]);
-                ResourceCollectionJob::dispatch($a->id);
+                $a->update(['collection_status' => 'planning', 'collection_queued_at' => now(), 'collection_run_id' => null]);
+                try {
+                    ResourceCollectionJob::dispatch($a->id)->onConnection($connection);
+                    $slots--;
+                } catch (\Throwable $error) {
+                    $this->fail($a->id);
+                    report($error);
+                }
             }
             app(AutomaticQueryImportService::class)->dispatchDue();
         } finally {
@@ -152,7 +180,8 @@ final class ResourceAutomationService
             return;
         }
         $r = $a->resource;
-        $active = CollectionResourceRun::query()->where('external_resource_id', $r->id)->whereIn('status', self::ACTIVE)->latest('id')->first();
+        $active = CollectionResourceRun::query()->where('external_resource_id', $r->id)->whereIn('status', self::ACTIVE)
+            ->whereHas('collectionRun', fn ($q) => $q->whereIn('status', self::ACTIVE))->latest('id')->first();
         if ($active) {
             $a->update(['collection_run_id' => $active->collection_run_id, 'collection_status' => 'collecting', 'collection_queued_at' => null]);
             return;
@@ -196,7 +225,11 @@ final class ResourceAutomationService
     private function reconcile(ResourceAutomation $a): void
     {
         $run = CollectionRun::query()->find($a->collection_run_id);
-        if (! $run || ! $run->status->isTerminal()) {
+        if (! $run) {
+            $this->fail($a->id);
+            return;
+        }
+        if (! $run->status->isTerminal()) {
             return;
         }
         // A multi-account manual run can finish partially while this exact account succeeded.
@@ -286,7 +319,8 @@ final class ResourceAutomationService
                 }
                 $locks[] = $lock;
             }
-            if (CollectionResourceRun::query()->whereIn('external_resource_id', $ids)->whereIn('status', self::ACTIVE)->exists()) {
+            if (CollectionResourceRun::query()->whereIn('external_resource_id', $ids)->whereIn('status', self::ACTIVE)
+                ->whereHas('collectionRun', fn ($q) => $q->whereIn('status', self::ACTIVE))->exists()) {
                 throw ValidationException::withMessages(['collection' => __('resource-auto.busy')]);
             }
             return $action();

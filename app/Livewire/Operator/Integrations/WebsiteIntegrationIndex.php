@@ -155,12 +155,7 @@ final class WebsiteIntegrationIndex extends Component
         $connection = CoreConnection::query()->where('digital_asset_id', $assetId)
             ->where('type', WordPressConnectorPairingService::CONNECTION_TYPE)
             ->where('enabled', true)->where('config->pairing_state', 'paired')->firstOrFail();
-        $state = DB::table('website_connector_delivery')->where('connection_id', $connection->id)->first();
-        if (! $state || version_compare((string) $state->plugin_version, '1.1.0', '<')) {
-            $this->messageTone = 'warning';
-            $this->message = $this->text('Connector 1.1.0 veya üzerinin ilk bildirimini bekliyoruz.', 'Waiting for the first delivery from Connector 1.1.0 or newer.');
-            return;
-        }
+        app(\App\Services\Integrations\WordPress\WordPressEventReconciliation::class)->initialize($connection);
         $update = ['automation_enabled' => $mode !== 'paused'];
         if ($mode !== 'paused') {
             $update['inventory_interval_days'] = $mode === 'three_days' ? 3 : 1;
@@ -184,8 +179,7 @@ final class WebsiteIntegrationIndex extends Component
         }
         return [
             'ready' => $connection->enabled && $connection->credential !== null
-                && data_get($connection->config, 'pairing_state') === 'paired'
-                && version_compare((string) $state->plugin_version, '1.1.0', '>='),
+                && data_get($connection->config, 'pairing_state') === 'paired',
             'enabled' => (bool) $state->automation_enabled,
             'interval' => (int) $state->inventory_interval_days,
             'version' => $state->plugin_version,

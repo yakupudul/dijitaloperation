@@ -151,7 +151,7 @@ final class WordPressConnectorV1Test extends TestCase
 
         Http::fake(function (Request $request) use ($credentials, $canonicalJson) {
             $nonce = $request->header(WordPressConnectorClient::HEADER_NONCE)[0] ?? '';
-            $data = ['schema_version' => 1, 'wordpress_version' => '6.8', 'read_only' => true];
+            $data = ['schema_version' => 1, 'plugin_version' => '1.1.0', 'wordpress_version' => '6.8', 'read_only' => true];
             $serverTime = now()->timestamp;
             $signature = hash_hmac('sha256', implode("\n", [
                 (string) $serverTime,
@@ -171,6 +171,11 @@ final class WordPressConnectorV1Test extends TestCase
             new PublicUrlSafety(fn (string $host): array => ['93.184.216.34']),
         );
         $this->assertSame('6.8', $client->status($connection)['wordpress_version']);
+        $this->assertDatabaseHas('website_connector_delivery', [
+            'connection_id' => $connection->id, 'plugin_version' => '1.1.0',
+            'last_received_at' => null, 'last_inventory_at' => null,
+        ]);
+        $this->assertSame('1.1.0', $connection->fresh()->config['plugin_version']);
         Http::assertSent(function (Request $request): bool {
             return $request->hasHeader(WordPressConnectorClient::HEADER_SIGNATURE)
                 && $request->hasHeader(WordPressConnectorClient::HEADER_CLIENT)
@@ -187,12 +192,51 @@ final class WordPressConnectorV1Test extends TestCase
     }
 
     #[Test]
+    public function scheduler_bootstraps_inventory_without_any_site_delivery(): void
+    {
+        Queue::fake();
+        $pairing = app(WordPressConnectorPairingService::class);
+        $issued = $pairing->issue($this->asset, $this->admin);
+        $pairing->complete($this->pairingPayload($issued['code']));
+        DB::table('website_connector_delivery')->where('connection_id', $issued['connection']->id)->delete();
+
+        app(\App\Services\Integrations\WordPress\WordPressEventReconciliation::class)->tick();
+
+        $state = DB::table('website_connector_delivery')->where('connection_id', $issued['connection']->id)->first();
+        $this->assertNotNull($state);
+        $this->assertNull($state->last_received_at);
+        $this->assertNotNull($state->collection_run_id);
+        $run = CollectionRun::query()->findOrFail($state->collection_run_id);
+        $this->assertSame('wordpress', data_get($run->request_context, 'context.collection_scope'));
+        $this->assertSame([WebsiteRequestFamilyCatalog::FAMILY_WP_REST], $run->datasetRuns()->pluck('request_family_id')->unique()->values()->all());
+        $this->assertSame(0, DB::table('website_connector_events')->count());
+    }
+
+    #[Test]
+    public function initializing_existing_delivery_preserves_pause_and_event_cursor(): void
+    {
+        $pairing = app(WordPressConnectorPairingService::class);
+        $issued = $pairing->issue($this->asset, $this->admin);
+        $pairing->complete($this->pairingPayload($issued['code']));
+        DB::table('website_connector_delivery')->where('connection_id', $issued['connection']->id)->update([
+            'automation_enabled' => false, 'inventory_interval_days' => 3, 'reconciled_event_id' => 50,
+        ]);
+        $service = app(\App\Services\Integrations\WordPress\WordPressEventReconciliation::class);
+        $service->initialize($issued['connection']->fresh('credential'));
+        $service->tick();
+        $this->assertDatabaseHas('website_connector_delivery', [
+            'connection_id' => $issued['connection']->id, 'automation_enabled' => false,
+            'inventory_interval_days' => 3, 'reconciled_event_id' => 50, 'collection_run_id' => null,
+        ]);
+    }
+
+    #[Test]
     public function operator_page_exposes_real_package_and_pairing_flow(): void
     {
         $this->actingAs($this->admin);
         Livewire::test(SiteConnectorShow::class, ['connector' => 'wordpress'])
             ->set('selectedAssetId', $this->asset->id)
-            ->assertSee('moxdop-wordpress-connector-1.0.0.zip')
+            ->assertSee('moxdop-wordpress-connector-'.config('moxdop-wordpress.connector_version').'.zip')
             ->assertDontSee('DEMO CONNECTOR PACKAGE')
             ->call('issuePairingCode')
             ->assertSet('messageTone', 'success');

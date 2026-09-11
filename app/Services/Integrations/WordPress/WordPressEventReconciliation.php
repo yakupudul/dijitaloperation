@@ -28,6 +28,13 @@ final class WordPressEventReconciliation
 
     private function reconcile(): void
     {
+        // Inventory polling must not depend on WordPress managing to send a heartbeat.
+        CoreConnection::query()->where('type', WordPressConnectorPairingService::CONNECTION_TYPE)
+            ->where('enabled', true)->where('config->pairing_state', 'paired')
+            ->whereHas('credential')->whereHas('digitalAsset', fn ($q) => $q->where('type', 'website'))
+            ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('website_connector_delivery')
+                ->whereColumn('connection_id', 'core_connections.id'))
+            ->orderBy('id')->limit(200)->get()->each(fn ($connection) => $this->initialize($connection));
         DB::table('website_connector_nonces')->where('created_at', '<', now()->subHour())->delete();
         $active = DB::table('website_connector_delivery')->whereNotNull('collection_run_id')->get();
         foreach ($active as $state) {
@@ -71,8 +78,7 @@ final class WordPressEventReconciliation
             }
             $connection = CoreConnection::query()->with(['digitalAsset', 'credential'])->find($state->connection_id);
             if (! $connection?->enabled || data_get($connection->config, 'pairing_state') !== 'paired'
-                || ! $connection->digitalAsset || ! $connection->credential
-                || version_compare((string) $state->plugin_version, '1.1.0', '<')) {
+                || ! $connection->digitalAsset || ! $connection->credential) {
                 DB::table('website_connector_delivery')->where('connection_id', $state->connection_id)
                     ->update(['next_reconcile_at' => now()->addHour()]);
                 continue;
@@ -90,7 +96,8 @@ final class WordPressEventReconciliation
             $ids = $events->filter(fn ($e) => str_starts_with($e->type, 'content.') || str_starts_with($e->type, 'seo.'))
                 ->pluck('object_id')->filter(fn ($id) => ctype_digit($id) && (int) $id > 0)->map(fn ($id) => (int) $id)->unique()->values()->all();
             // Global template/settings updates require a fresh inventory.
-            $full = $full || $ids === [] || $events->contains(fn ($e) => $e->type === 'settings.updated' || $e->type === 'maintenance.theme_changed');
+            $full = $full || version_compare((string) $state->plugin_version, '1.1.0', '<')
+                || $ids === [] || $events->contains(fn ($e) => $e->type === 'settings.updated' || $e->type === 'maintenance.theme_changed');
             // A full CMS snapshot does not verify URLs outside this event batch.
             $watermark = (int) ($events->max('id') ?? $state->reconciled_event_id);
             $context = [
@@ -140,5 +147,17 @@ final class WordPressEventReconciliation
                 ]);
             }
         }
+    }
+
+    public function initialize(CoreConnection $connection): void
+    {
+        if (! $connection->enabled || $connection->type !== WordPressConnectorPairingService::CONNECTION_TYPE
+            || data_get($connection->config, 'pairing_state') !== 'paired' || ! $connection->credential) {
+            return;
+        }
+        DB::table('website_connector_delivery')->insertOrIgnore([
+            'connection_id' => $connection->id,
+            'plugin_version' => data_get($connection->config, 'plugin_version'),
+        ]);
     }
 }

@@ -162,6 +162,8 @@ final class WordPressConnectorPairingService
                 ]),
             ])->save();
 
+            app(WordPressEventReconciliation::class)->initialize($connection->fresh('credential'));
+
             return [
                 'connection_id' => (int) $connection->id,
                 'client_id' => $clientId,

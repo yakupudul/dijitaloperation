@@ -123,12 +123,13 @@ final class GoogleAdsCentralCollectionService
             ->where('external_resource_id', $resource->id)
             ->whereNull('digital_asset_id')
             ->where('metadata->collection_scope', 'provider_resource_first')
-            ->with('datasetRuns')
+            ->with(['datasetRuns', 'collectionRun'])
             ->orderByDesc('id')
             ->limit(50)
             ->get();
 
-        $active = $history->first(fn (CollectionResourceRun $run): bool => in_array($run->status->value, self::ACTIVE_STATUSES, true));
+        $active = $history->first(fn (CollectionResourceRun $run): bool => in_array($run->status->value, self::ACTIVE_STATUSES, true)
+            && $run->collectionRun !== null && ! $run->collectionRun->status->isTerminal());
         if ($active instanceof CollectionResourceRun) {
             throw new InvalidArgumentException(($resource->display_name ?: 'Google Ads hesabı').' için veri toplama zaten devam ediyor.');
         }
@@ -136,7 +137,8 @@ final class GoogleAdsCentralCollectionService
         $latest = $history->first();
         $completed = $history->first(fn (CollectionResourceRun $run): bool => $run->status === CollectionRunStatus::Completed);
         $latestNeedsRepair = $latest instanceof CollectionResourceRun
-            && in_array($latest->status, [CollectionRunStatus::Partial, CollectionRunStatus::Failed, CollectionRunStatus::Cancelled], true)
+            && (in_array($latest->status, [CollectionRunStatus::Partial, CollectionRunStatus::Failed, CollectionRunStatus::Cancelled], true)
+                || (in_array($latest->status->value, self::ACTIVE_STATUSES, true) && $latest->collectionRun?->status->isTerminal()))
             && (! $completed instanceof CollectionResourceRun || $latest->id > $completed->id);
 
         if ($latestNeedsRepair) {

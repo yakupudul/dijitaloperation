@@ -1,5 +1,27 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## Automatic collection recovery — 2026-09-11
+
+Source fixes on `chatgpt/search-demand-foundation`: paired WordPress connections initialize
+inventory scheduling without an incoming heartbeat (including existing installations on the next
+tick). Signed status refresh updates the installed version without inventing event receipts.
+Full inventories work with V1; changed-object scopes still require 1.1.0. Pause/cursors persist.
+
+New discovered accounts become due immediately under the existing two-slot bound. Old unused
+initial delays are recovered, while pauses and error backoff remain. Terminal parents no longer
+consume slots through stale resource rows; Google Ads repairs their unfinished datasets. A new
+planner clears its prior run reference so the scheduler cannot mistake a previous failure for
+the new attempt. Missing run references use bounded retry. Staging planning jobs target the
+existing Redis/Horizon worker; non-durable queue configuration fails explicitly. Meta/GBP resume
+after the required real binding appears; unbound collection is still unsupported and no binding
+is invented. This is not a claim that all discovered Meta accounts can collect without mapping.
+
+Verification: regression tests added for capacity, initial delays, paused accounts, binding recovery,
+missing/previous runs, sink rejection, WordPress bootstrap and preserved cursors. `git diff --check`
+passes. PHP, Composer dependencies and Pint are unavailable here; PHPUnit/Pint could not execute.
+Live scheduler/worker/provider UAT and deployment remain unverified. No migration or plugin ZIP
+update is required for these server-side fixes.
+
 > Manual query clusters, 2026-09-09: source-reviewed staging implementation only. No tests, migrations, queue, build or UAT executed.
 
 > **Canonical product capability truth table for MoxDOP.**  

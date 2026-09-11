@@ -1,5 +1,17 @@
 # PROJECT_MEMORY
 
+## 2026-09-11 — Automatic collection recovery
+
+Operator supplied deployment baseline `19f6163f2213595f07b05a04f7fa5c566956a832` and confirmed
+direct publication to `chatgpt/search-demand-foundation`, then an exact-SHA deploy command.
+Continue from the latest branch, preserving subsequent WhatsApp changes; no PR/main workflow.
+WordPress inventory now bootstraps from pairing or the scheduler without requiring push events.
+New account collection is immediately due subject to the existing concurrency bound. Recovery
+handles stale child states under terminal runs and prevents previous-attempt reconciliation from
+overwriting a newly queued planner. Meta still requires an explicit real asset binding, with
+automatic resumption when that binding becomes available. See the 2026-09-11 ledger entry for
+verification limits; live runtime is not verified and PHP/Pint were unavailable locally.
+
 > **Canonical persistent product / architecture memory for MoxDOP.**  
 > Historical baseline: `origin/main` @ `171e5e7` (2026-08-11). Latest scoped change: Public Discovery Stage 1 on `chatgpt/search-demand-foundation` (2026-09-07); main was not re-evaluated or modified.
 > Does **not** override `docs/MASTER_SPEC.md`. See **Source priority** below.  

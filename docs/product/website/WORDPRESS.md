@@ -1,5 +1,15 @@
 # WordPress Connector V1
 
+## Inventory bootstrap correction — 2026-09-11
+
+This supersedes the first-heartbeat prerequisite below. Pairing and the reconciliation scheduler
+initialize missing delivery state for enabled paired connections. Signed connection tests refresh
+the installed plugin version. No receipt time, event or successful inventory is fabricated by
+initialization. Daily/three-day inventory polling works before the first push and with V1 snapshots;
+1.1.0 is still required for changed-object scopes and activity delivery. Existing pause/cursors are
+preserved. Older paired installations recover on the next scheduler tick. The public crawl and
+PageSpeed remain separate. PHP tests and live UAT were not executable in this environment.
+
 ## Purpose
 
 WordPress Connector, bir Website Digital Asset için CMS’in içeriden bildiği verileri

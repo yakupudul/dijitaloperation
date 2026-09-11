@@ -178,7 +178,7 @@
                         <p class="mt-3 text-xs text-red-700 dark:text-red-300">{{ $deliveryState['error'] }} @if ($deliveryState['enabled'] && $deliveryState['next_retry']) {{ $tr ? 'Yeniden deneme en erken:' : 'Retry no earlier than:' }} {{ $deliveryState['next_retry'] }} @endif</p>
                     @endif
                 @else
-                    <p class="mt-3 text-xs text-amber-700 dark:text-amber-300">{{ $tr ? 'Otomatik yenileme için eşleştirilmiş Connector 1.1.0 veya üzerinin ilk bildirimi gerekiyor.' : 'Automatic refresh requires the first delivery from a paired Connector 1.1.0 or newer.' }}</p>
+                    <p class="mt-3 text-xs text-amber-700 dark:text-amber-300">{{ $tr ? 'Eşleştirilmiş Connector için otomatik envanter sıradaki zamanlayıcı çalışmasında hazırlanır. Bağlantıyı test ederek de başlatabilirsiniz; ilk site bildirimi gerekmez.' : 'Automatic inventory for a paired Connector is prepared on the next scheduler tick. A connection test also initializes it; no first site delivery is required.' }}</p>
                     <a href="{{ route('operator.integrations.site-connector', ['connector' => 'wordpress', 'site' => $selectedRow['asset']->id]) }}" wire:navigate class="mt-2 inline-block text-xs font-medium text-brand-600 dark:text-brand-400">{{ $tr ? 'Connector bağlantısını aç' : 'Open Connector connection' }}</a>
                 @endif
             </section>
