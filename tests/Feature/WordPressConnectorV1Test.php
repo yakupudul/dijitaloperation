@@ -213,6 +213,70 @@ final class WordPressConnectorV1Test extends TestCase
     }
 
     #[Test]
+    public function recent_manual_inventory_is_reused_without_restarting_or_consuming_pending_content_events(): void
+    {
+        Queue::fake();
+        $pairing = app(WordPressConnectorPairingService::class);
+        $issued = $pairing->issue($this->asset, $this->admin);
+        $pairing->complete($this->pairingPayload($issued['code']));
+        $connectionId = $issued['connection']->id;
+        $run = app(WebsiteCollectionOrchestrator::class)->start(
+            asset: $this->asset,
+            requestFamilyIds: [WebsiteRequestFamilyCatalog::FAMILY_WP_REST],
+            context: ['collection_scope' => 'wordpress'],
+        );
+        $run->datasetRuns()->update(['status' => 'completed', 'finished_at' => now()]);
+        $run->resourceRuns()->update(['status' => 'completed']);
+        $run->update(['status' => CollectionRunStatus::Completed, 'started_at' => now(), 'finished_at' => now()]);
+        $service = app(\App\Services\Integrations\WordPress\WordPressEventReconciliation::class);
+        $service->tick();
+        $state = DB::table('website_connector_delivery')->where('connection_id', $connectionId)->first();
+        $this->assertNotNull($state->last_inventory_at);
+        $this->assertNull($state->collection_run_id);
+        $this->assertSame(1, CollectionRun::query()->where('digital_asset_id', $this->asset->id)->count());
+
+        $eventId = DB::table('website_connector_events')->insertGetId([
+            'connection_id' => $connectionId, 'digital_asset_id' => $this->asset->id,
+            'event_id' => (string) \Illuminate\Support\Str::uuid(), 'type' => 'content.updated',
+            'object_type' => 'post', 'object_id' => '42', 'origin' => 'wordpress',
+            'payload' => '{}', 'occurred_at' => now(), 'received_at' => now(),
+        ]);
+        DB::table('website_connector_delivery')->where('connection_id', $connectionId)->update([
+            'latest_event_id' => $eventId, 'plugin_version' => '1.1.0', 'next_reconcile_at' => now(),
+        ]);
+        $service->tick();
+        $state = DB::table('website_connector_delivery')->where('connection_id', $connectionId)->first();
+        $next = CollectionRun::query()->findOrFail($state->collection_run_id);
+        $this->assertSame('changes', data_get($next->request_context, 'context.collection_scope'));
+        $this->assertSame([42], data_get($next->request_context, 'context.wordpress_object_ids'));
+        $this->assertSame(0, (int) $state->reconciled_event_id);
+    }
+
+    #[Test]
+    public function access_only_events_do_not_trigger_another_full_inventory(): void
+    {
+        Queue::fake();
+        $pairing = app(WordPressConnectorPairingService::class);
+        $issued = $pairing->issue($this->asset, $this->admin);
+        $pairing->complete($this->pairingPayload($issued['code']));
+        $connectionId = $issued['connection']->id;
+        $eventId = DB::table('website_connector_events')->insertGetId([
+            'connection_id' => $connectionId, 'digital_asset_id' => $this->asset->id,
+            'event_id' => (string) \Illuminate\Support\Str::uuid(), 'type' => 'access.role_changed',
+            'object_type' => 'user', 'object_id' => '42', 'origin' => 'wordpress',
+            'payload' => '{}', 'occurred_at' => now(), 'received_at' => now(),
+        ]);
+        DB::table('website_connector_delivery')->where('connection_id', $connectionId)->update([
+            'last_inventory_at' => now(), 'latest_event_id' => $eventId, 'next_reconcile_at' => now(),
+        ]);
+        app(\App\Services\Integrations\WordPress\WordPressEventReconciliation::class)->tick();
+        $this->assertDatabaseHas('website_connector_delivery', [
+            'connection_id' => $connectionId, 'collection_run_id' => null, 'reconciled_event_id' => $eventId,
+        ]);
+        $this->assertSame(0, CollectionRun::query()->where('digital_asset_id', $this->asset->id)->count());
+    }
+
+    #[Test]
     public function initializing_existing_delivery_preserves_pause_and_event_cursor(): void
     {
         $pairing = app(WordPressConnectorPairingService::class);

@@ -206,3 +206,24 @@ as explicitly requested by the operator. This is not a verified runtime/DONE cla
 Remaining acceptance: migrate staging, exercise scope selection and pause/resume, confirm delayed
 event batches/cursor recovery and source timestamps against a real paired site. No such acceptance
 has been performed in this change.
+
+## Collection freshness and progress clarification — 2026-09-12
+
+Supersedes the heartbeat prerequisite and manual-inventory exclusion described in older entries.
+Pairing/scheduler bootstrap does not require a delivered heartbeat. A recent successful full
+WordPress/general run containing all five completed WP datasets satisfies inventory freshness;
+its finish time is shown as “Last full WordPress inventory”. It does not consume pending content
+notifications. Access-role-only batches need no content inventory. Actual content changes retain
+the existing bounded changed-object and affected-URL path with connector 1.1.0+; periodic daily or
+three-day full WordPress inventory remains a safety net for missed notifications.
+
+The global header shows each job's queue/retry/stall state and completed dataset count, without a
+synthetic overall percentage. Manual general/public collection still starts a fresh public crawl;
+chunk execution within a run resumes its saved queue/checkpoint. The watchdog recovers expired
+running jobs with bounded attempts and never replays completed datasets. Provider continuation
+backoff is persisted so the database worker cannot poll before it expires.
+
+Design reference: Google's [crawl-budget guidance](https://developers.google.com/crawling/docs/crawl-budget)
+separates demand/freshness from capacity. Here, event scopes and durable checkpoints reduce work;
+conditional HTTP revalidation and adaptive per-URL recrawl policy remain future work, not claims
+of this patch. PHPUnit regressions are present but PHP/Pint and live UAT were unavailable.

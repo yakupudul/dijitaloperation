@@ -163,7 +163,7 @@
                         @foreach ([
                             [$tr ? 'Son site bildirimi' : 'Last site delivery', $deliveryState['last_received'] ?: '—'],
                             [$tr ? 'Son otomatik yenileme' : 'Last automatic refresh', $deliveryState['last_reconciled'] ?: '—'],
-                            [$tr ? 'Son otomatik tam envanter' : 'Last automatic full inventory', $deliveryState['last_inventory'] ?: '—'],
+                            [$tr ? 'Son tam WordPress envanteri' : 'Last full WordPress inventory', $deliveryState['last_inventory'] ?: '—'],
                             [$tr ? 'İşlenmeyi bekleyen değişiklik' : 'Pending changes', number_format($deliveryState['pending'])],
                         ] as [$label, $value])
                             <div><dt class="text-gray-500 dark:text-gray-400">{{ $label }}</dt><dd class="mt-1 font-medium text-gray-900 dark:text-white">{{ $value }}</dd></div>
@@ -211,7 +211,7 @@
                     </div>
                     <div class="text-right">
                         <p class="text-xl font-semibold text-gray-900 dark:text-white">%{{ $liveConsole['progress_percent'] }}</p>
-                        <p class="text-xs text-gray-400">{{ $liveConsole['datasets_completed'] }}/{{ $liveConsole['datasets_total'] }} {{ $tr ? 'veri grubu' : 'datasets' }}</p>
+                        <p class="text-xs text-gray-400">{{ $liveConsole['datasets_completed'] }}/{{ $liveConsole['datasets_total'] }} {{ $tr ? 'veri grubu başarılı · URL yüzdesi değil' : 'datasets successful · not URL progress' }}</p>
                     </div>
                 </div>
                 <div class="h-1 bg-gray-100 dark:bg-gray-800"><div class="h-full bg-brand-500 transition-all" style="width: {{ $liveConsole['progress_percent'] }}%"></div></div>

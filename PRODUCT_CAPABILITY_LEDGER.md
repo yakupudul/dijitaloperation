@@ -1,5 +1,34 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## Collection visibility and interrupted workers — 2026-09-12
+
+Staging branch `chatgpt/search-demand-foundation`: the header lists global active jobs with
+site/account, manual/automatic origin, queue/retry/stalled state, completed dataset count and
+last dataset activity. It no longer presents an equal-weight aggregate as a crawl percentage.
+The detail panel links to existing background operations. Successful website console counters
+are explicitly dataset completion, not URL coverage. Fresh running work takes precedence over
+old queued dependents when classifying stalled work.
+
+Scheduled collection recovery now reclaims running datasets only after both activity and the
+execution lease expire (at least 30 minutes). Checkpoints and completed datasets are retained;
+three resumes at an unchanged checkpoint are allowed, then the dataset fails visibly. Failed
+prerequisites settle their queued dependents; terminal children reconcile unfinished parents.
+An executor returning after its lease was replaced cannot advance that run's checkpoint/state.
+Delayed continuations persist `retry_at`, so database workers and early queue deliveries respect
+provider backoff. Redispatch alone no longer records fictitious dataset progress.
+
+WordPress reconciliation reuses a recent completed full/manual inventory with all five WP
+datasets complete, without advancing pending content-event cursors. Access-role-only events
+do not trigger another full inventory. Daily/three-day CMS inventory and bounded event refresh
+remain; general public crawl and PageSpeed still require explicit collection. Cross-run HTTP
+conditional revalidation and adaptive URL scheduling are not implemented by this change.
+
+Verification: focused PHPUnit regressions added for recovery bounds, live leases, dependencies,
+orphan parents, delayed continuation, header visibility/stall classification, inventory reuse
+and access-only events. `git diff --check` passes. PHPUnit could not execute (`php` unavailable);
+Pint could not execute (no vendor installation). Live provider, worker and operator UAT remain
+unverified. No schema or connector package change is required.
+
 ## Automatic collection recovery — 2026-09-11
 
 Source fixes on `chatgpt/search-demand-foundation`: paired WordPress connections initialize

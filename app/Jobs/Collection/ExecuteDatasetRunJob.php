@@ -100,6 +100,9 @@ class ExecuteDatasetRunJob implements ShouldQueue
         if ($datasetRun->status->isTerminal()) {
             return;
         }
+        if ($collectionRun->status->isTerminal()) {
+            return;
+        }
 
         if ($datasetRun->status === CollectionRunStatus::CancellationRequested
             || $cancellation->isResourceCancelRequested($datasetRun->resourceRun)) {
@@ -117,6 +120,11 @@ class ExecuteDatasetRunJob implements ShouldQueue
                 $aggregator->refreshFromDataset($datasetRun);
             }
 
+            return;
+        }
+
+        if ($datasetRun->status === CollectionRunStatus::Retrying && $datasetRun->retry_at?->isFuture()) {
+            $this->release(max(1, (int) now()->diffInSeconds($datasetRun->retry_at)));
             return;
         }
 
@@ -214,6 +222,9 @@ class ExecuteDatasetRunJob implements ShouldQueue
             $result = $executor->execute($context);
 
             $datasetRun->refresh();
+            if ($datasetRun->dispatch_lock_token !== $lockToken || $datasetRun->status->isTerminal()) {
+                return;
+            }
             $resourceRun = $datasetRun->resourceRun()->first();
             if ($datasetRun->status === CollectionRunStatus::CancellationRequested
                 || $cancellation->isResourceCancelRequested($resourceRun)) {
@@ -372,14 +383,15 @@ class ExecuteDatasetRunJob implements ShouldQueue
             $stateMachine->transition($datasetRun, CollectionRunStatus::Running);
         }
 
+        $delaySeconds = max(0, (int) $result->backoffSeconds);
         $datasetRun->forceFill([
-            'status' => CollectionRunStatus::Queued,
+            'status' => $delaySeconds > 0 ? CollectionRunStatus::Retrying : CollectionRunStatus::Queued,
+            'retry_at' => $delaySeconds > 0 ? now()->addSeconds($delaySeconds) : null,
             'finished_at' => null,
             'last_activity_at' => now(),
         ])->save();
 
         $fresh = $datasetRun->fresh() ?? $datasetRun;
-        $delaySeconds = max(0, (int) $result->backoffSeconds);
         if ($delaySeconds > 0) {
             ExecuteDatasetRunJob::dispatch($fresh->id)
                 ->delay(now()->addSeconds($delaySeconds))

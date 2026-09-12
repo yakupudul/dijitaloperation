@@ -89,10 +89,30 @@ final class WordPressEventReconciliation
                     ->update(['next_reconcile_at' => now()->addMinutes(5)]);
                 continue;
             }
+            $inventory = CollectionRun::query()->where('digital_asset_id', $connection->digital_asset_id)
+                ->where('status', 'completed')->whereNotNull('finished_at')
+                ->whereIn('request_context->context->collection_scope', ['full', 'wordpress'])
+                ->when($state->last_inventory_at, fn ($q) => $q->where('finished_at', '>', $state->last_inventory_at))
+                ->when(data_get($connection->config, 'paired_at'), fn ($q, $pairedAt) => $q->where('started_at', '>=', $pairedAt))
+                ->whereHas('datasetRuns', fn ($q) => $q->where('request_family_id', WebsiteRequestFamilyCatalog::FAMILY_WP_REST)
+                    ->where('status', 'completed'), '=', 5)
+                ->orderByDesc('finished_at')->first();
+            if ($inventory) {
+                $state->last_inventory_at = $inventory->finished_at->toDateTimeString();
+                DB::table('website_connector_delivery')->where('connection_id', $connection->id)
+                    ->update(['last_inventory_at' => $state->last_inventory_at]);
+            }
             $full = $state->last_inventory_at === null || strtotime($state->last_inventory_at) <= now()->subDays((int) $state->inventory_interval_days)->getTimestamp()
                 || ($state->gap_at && strtotime($state->gap_at) > strtotime($state->last_inventory_at ?? '1970-01-01'));
             $events = DB::table('website_connector_events')->where('connection_id', $connection->id)
                 ->where('id', '>', $state->reconciled_event_id)->orderBy('id')->limit(50)->get();
+            if (! $full && ($events->isEmpty() || $events->every(fn ($event) => $event->type === 'access.role_changed'))) {
+                DB::table('website_connector_delivery')->where('connection_id', $connection->id)->update([
+                    'reconciled_event_id' => (int) ($events->max('id') ?? $state->reconciled_event_id),
+                    'next_reconcile_at' => now()->addMinutes(10),
+                ]);
+                continue;
+            }
             $ids = $events->filter(fn ($e) => str_starts_with($e->type, 'content.') || str_starts_with($e->type, 'seo.'))
                 ->pluck('object_id')->filter(fn ($id) => ctype_digit($id) && (int) $id > 0)->map(fn ($id) => (int) $id)->unique()->values()->all();
             // Global template/settings updates require a fresh inventory.

@@ -196,6 +196,9 @@ Artisan::command('moxdop:collection:status {--provider=}', function () {
 })->purpose('Show active collection runs, attempts and dispatch-lock health.');
 
 Artisan::command('moxdop:collection:redispatch-stale {--run=} {--force}', function () {
+    if (! $this->option('run')) {
+        app(\App\Services\Collection\RecoverInterruptedCollections::class)->tick();
+    }
     $query = CollectionRun::query()
         ->whereIn('status', [
             CollectionRunStatus::Queued->value,
@@ -245,7 +248,7 @@ Artisan::command('moxdop:collection:redispatch-stale {--run=} {--force}', functi
         $queued,
         $forcedClaims,
     ));
-})->purpose('Republish queued collection datasets whose Redis dispatch lease has expired.');
+})->purpose('Recover interrupted collection work and republish expired queued dispatches.');
 
 Schedule::command('moxdop:collection:redispatch-stale')
     ->everyMinute()

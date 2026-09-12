@@ -204,7 +204,6 @@ final class StartCollectionService
 
                 $candidate->forceFill([
                     'metadata' => $metadata,
-                    'last_activity_at' => now(),
                 ])->save();
 
                 return $candidate->fresh();

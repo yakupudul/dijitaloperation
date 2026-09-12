@@ -1,5 +1,18 @@
 # PROJECT_MEMORY
 
+## 2026-09-12 — Honest collection status and checkpoint recovery
+
+The global header must identify jobs and their states rather than imply that heterogeneous
+provider datasets measure website URL coverage. Queued and backoff work are not “running”.
+Interrupted execution recovery uses the existing collection state machine and durable checkpoint;
+completed work is not replayed by the watchdog. Recovery is bounded at an unchanged checkpoint,
+and API continuation delays must be durable for both Redis and the database worker.
+Recent complete manual WordPress inventories satisfy automatic inventory freshness, while event
+watermarks remain independent so changed-page verification cannot be skipped. Periodic CMS full
+inventories remain the recovery mechanism; this does not introduce continuous full public crawls.
+Published workflow remains the staging work branch plus an exact commit deploy command. Runtime
+verification limits are recorded in the 2026-09-12 capability ledger entry.
+
 ## 2026-09-11 — Automatic collection recovery
 
 Operator supplied deployment baseline `19f6163f2213595f07b05a04f7fa5c566956a832` and confirmed

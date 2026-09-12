@@ -201,6 +201,9 @@ final class ResourceAutomationService
             'collection_queued_at' => null, 'collection_error' => null,
             'next_collection_at' => now()->addDays($a->interval_days),
         ]);
+        if ($run) {
+            $run->update(['metadata' => array_merge($run->metadata ?? [], ['automatic_collection' => true, 'resource_automation_id' => $a->id])]);
+        }
     }
 
     private function collectBound(CoreExternalResource $r, ?User $actor): ?CollectionRun
