@@ -57,7 +57,7 @@
                         @if ($isGsc)
                             Search Console mülklerinizi seçin; MoxDOP geçmiş aktarımı, güncellemeyi ve eksik veri onarımını merkezi veri havuzunda otomatik yönetsin.
                         @else
-                            GA4 mülklerinizi seçin; MoxDOP ilk aktarımı, güncellemeyi ve eksik veri onarımını otomatik belirlesin.
+                            Uygun GA4 mülkleri otomatik sıraya alınır. İlk aktarım, düzenli güncelleme ve eksik veri onarımı hesap bazında yürütülür.
                         @endif
                     </p>
                 </div>
@@ -66,6 +66,7 @@
                 Google hesabını yönet
             </a>
         </header>
+        <livewire:operator.integrations.resource-automations provider="google" :type="$isGa4 ? 'ga4' : 'search_console'" :expanded="true" />
     @else
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div class="flex items-start gap-3">

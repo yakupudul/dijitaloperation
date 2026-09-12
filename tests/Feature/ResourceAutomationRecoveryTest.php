@@ -152,6 +152,72 @@ final class ResourceAutomationRecoveryTest extends TestCase
         Queue::assertPushed(ResourceCollectionJob::class, 1);
     }
 
+    public function test_busy_shared_provider_lane_does_not_starve_google_ads_admission(): void
+    {
+        $service = app(ResourceAutomationService::class);
+        foreach (['ga4', 'search_console'] as $type) {
+            $resource = CoreExternalResource::factory()->create(['resource_type' => $type]);
+            $run = CollectionRun::factory()->create(['status' => CollectionRunStatus::Running]);
+            CollectionResourceRun::factory()->create([
+                'collection_run_id' => $run->id, 'external_resource_id' => $resource->id,
+                'status' => CollectionRunStatus::Running,
+            ]);
+        }
+        // These older due rows must not hide the Ads candidates behind the per-tick limit.
+        CoreExternalResource::factory()->count(12)->create(['resource_type' => 'ga4']);
+        $ads = CoreExternalResource::factory()->count(3)->create(['resource_type' => 'google_ads']);
+        $service->tick();
+        Queue::assertPushed(ResourceCollectionJob::class, 2);
+        $plannedIds = ResourceAutomation::query()->where('collection_status', 'planning')->pluck('external_resource_id')->all();
+        $this->assertEqualsCanonicalizing($ads->take(2)->pluck('id')->all(), $plannedIds);
+        $service->tick();
+        Queue::assertPushed(ResourceCollectionJob::class, 2);
+    }
+
+    public function test_busy_ads_lane_does_not_starve_other_providers(): void
+    {
+        foreach (range(1, 2) as $unused) {
+            $resource = CoreExternalResource::factory()->create(['resource_type' => 'google_ads']);
+            $run = CollectionRun::factory()->create(['status' => CollectionRunStatus::Running]);
+            CollectionResourceRun::factory()->create([
+                'collection_run_id' => $run->id, 'external_resource_id' => $resource->id,
+                'status' => CollectionRunStatus::Running,
+            ]);
+        }
+        $ga4 = CoreExternalResource::factory()->create(['resource_type' => 'ga4']);
+        app(ResourceAutomationService::class)->tick();
+        Queue::assertPushed(ResourceCollectionJob::class, 1);
+        $this->assertSame('planning', ResourceAutomation::query()->where('external_resource_id', $ga4->id)->first()->collection_status);
+    }
+
+    public function test_deployment_recovery_only_rearms_enabled_accounts_with_known_landing_key_failure(): void
+    {
+        foreach ([true, false] as $enabled) {
+            $resource = CoreExternalResource::factory()->create(['resource_type' => 'ga4']);
+            $run = CollectionRun::factory()->create(['status' => CollectionRunStatus::Partial]);
+            $resourceRun = CollectionResourceRun::factory()->create([
+                'collection_run_id' => $run->id, 'external_resource_id' => $resource->id,
+                'status' => CollectionRunStatus::Partial,
+            ]);
+            CollectionDatasetRun::factory()->create([
+                'collection_run_id' => $run->id, 'collection_resource_run_id' => $resourceRun->id,
+                'status' => CollectionRunStatus::Failed, 'dataset_contract_id' => 'ga4_landing_page_daily',
+                'error_code' => 'PERSISTENCE',
+                'error_message' => 'CONTRACT_MISMATCH: missing natural key [landingPage] at record 0 for [ga4_landing_page_daily]',
+            ]);
+            ResourceAutomation::query()->create([
+                'external_resource_id' => $resource->id, 'collection_enabled' => $enabled,
+                'collection_run_id' => $run->id, 'collection_status' => 'attention',
+                'collection_error' => 'collection_failed', 'collection_failures' => 3,
+            ]);
+        }
+        $service = app(ResourceAutomationService::class);
+        $this->assertSame(1, $service->recoverGa4LandingFailures());
+        $this->assertSame(0, $service->recoverGa4LandingFailures());
+        $this->assertSame('attention', ResourceAutomation::query()->where('collection_enabled', false)->first()->collection_status);
+        $this->assertSame('waiting', ResourceAutomation::query()->where('collection_enabled', true)->first()->collection_status);
+    }
+
     public function test_dispatch_sink_is_rejected_instead_of_silently_losing_planning_jobs(): void
     {
         config(['moxdop-resource-automation.queue_connection' => 'null']);

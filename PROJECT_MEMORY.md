@@ -1,5 +1,18 @@
 # PROJECT_MEMORY
 
+## 2026-09-12 — Automatic account admission must match worker isolation
+
+Post-deploy operator evidence still showed many never-collected Ads accounts while automatic
+GA4/GSC work was active. Dedicated Ads execution did not help when a shared two-account
+admission cap blocked planning first. Admission now has two bounded lanes matching the existing
+staging workers: Ads and non-Ads, two accounts each by default. This is a four-account admission
+limit, not an increase to actual worker concurrency. Connector pages expose existing automatic
+settings/status directly so absent facts are not confused with disabled or waiting automation.
+GA4 empty landingPage values must be preserved as values; do not fabricate a URL or merge with
+`(not set)`. The effective storage contract documents this narrow allowance. Deployment can
+rearm only the matching historical failure on enabled accounts. See the current ledger for
+unexecuted tests and pending live verification; no PR/main workflow.
+
 ## 2026-09-12 — Honest collection status and checkpoint recovery
 
 The global header must identify jobs and their states rather than imply that heterogeneous

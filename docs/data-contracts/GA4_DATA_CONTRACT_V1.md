@@ -824,3 +824,14 @@ Provider measured · Provider metadata · Derived · Mapped · Cross-asset · Op
 | Collector | `app-modules/website/src/Collection/Ga4BoundCollector.php` |
 | Discoverer | `app/Services/Integrations/Google/Discovery/Ga4Discoverer.php` |
 | Tests | `tests/Feature/Ga4OperatingWorkspaceTest.php` |
+
+## 2026-09-12 runtime storage amendment — empty landing-page dimension
+
+The effective GA4 storage overlay allows an empty string for `landingPage` in
+`ga4_landing_page_daily` and `ga4_event_landing_daily`. Preserve the value without substituting
+`/` or `(not set)`, so their metrics remain distinct. Null, absent dimension positions and
+invalid scope identities remain failures. This changes validation only: dataset grain,
+physical schema, API dimensions, fingerprint/upsert semantics and checkpoint ordering remain
+unchanged. Implemented through an explicit `allow_empty_string` text-dimension column flag;
+all other natural-key columns retain strict nonempty validation. PHPUnit regression tests are
+present but could not execute in the current PHP-less environment.

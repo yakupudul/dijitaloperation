@@ -41,7 +41,7 @@ return [
     'services' => 'Services (optional)',
     'services_help' => 'Leave empty to consider all active sector services. Queries are assigned using service matching phrases.',
     'mapping_help' => 'The first mapping also imports successfully collected existing queries. Later settings changes do not change the sector, service or child cluster of already processed queries.',
-    'runtime_note' => 'Accounts are spread throughout the day. Collection and query imports progress independently. Times are shown in UTC.',
+    'runtime_note' => 'Initial imports start automatically when a worker slot is available. Google Ads has a separate queue from other sources. Refreshes follow the daily/three-day setting. Times are UTC.',
     'history_help' => 'The latest 10 imports are shown below; all operations are available in Activity. Counts describe source rows; the same query may appear on different dates.',
     'save' => 'Save',
     'cancel' => 'Cancel',

@@ -114,37 +114,82 @@ final class ResourceAutomationService
                 ->where('collection_queued_at', '<', now()->subMinutes(15))
                 ->update(['collection_status' => 'waiting', 'collection_queued_at' => null]);
 
-            $active = CollectionResourceRun::query()->whereIn('status', self::ACTIVE)
-                ->whereHas('collectionRun', fn ($q) => $q->whereIn('status', self::ACTIVE))
-                ->distinct()->count('external_resource_id');
-            $planning = ResourceAutomation::query()->where('collection_status', 'planning')->count();
-            $slots = max(0, (int) config('moxdop-resource-automation.max_active_collections', 2) - $active - $planning);
-            $accounts = ResourceAutomation::query()->with('resource.integration')
-                ->where('collection_enabled', true)->whereNotIn('collection_status', ['planning', 'collecting'])
-                ->whereNotNull('next_collection_at')->where('next_collection_at', '<=', now())
-                ->orderBy('next_collection_at')->orderBy('id')
-                ->limit(max(0, (int) config('moxdop-resource-automation.accounts_per_tick', 10)))->get();
-            foreach ($accounts as $a) {
-                if ($slots <= 0) {
-                    break;
-                }
-                $error = $this->readiness($a->resource);
-                if ($error !== null) {
-                    $a->update(['collection_status' => 'attention', 'collection_error' => $error, 'next_collection_at' => now()->addDays($a->interval_days)]);
-                    continue;
-                }
-                $a->update(['collection_status' => 'planning', 'collection_queued_at' => now(), 'collection_run_id' => null]);
-                try {
-                    ResourceCollectionJob::dispatch($a->id)->onConnection($connection);
-                    $slots--;
-                } catch (\Throwable $error) {
-                    $this->fail($a->id);
-                    report($error);
-                }
-            }
+            // Match the dedicated Ads worker and the shared provider worker: one cannot starve the other.
+            $this->admitCollections(true, $connection);
+            $this->admitCollections(false, $connection);
             app(AutomaticQueryImportService::class)->dispatchDue();
         } finally {
             $lock->release();
+        }
+    }
+
+    /** Explicit deployment repair for accounts stopped by the now-fixed empty landing-page key rejection. */
+    public function recoverGa4LandingFailures(): int
+    {
+        $recovered = 0;
+        ResourceAutomation::query()->where('collection_enabled', true)
+            ->whereIn('collection_status', ['attention', 'waiting'])->where('collection_error', 'collection_failed')
+            ->whereHas('resource', fn ($q) => $q->where('resource_type', 'ga4'))
+            ->orderBy('id')->chunkById(100, function ($accounts) use (&$recovered): void {
+                foreach ($accounts as $automation) {
+                    $knownFailure = \App\Models\Collection\CollectionDatasetRun::query()
+                        ->where('collection_run_id', $automation->collection_run_id)->where('status', 'failed')
+                        ->where('error_code', 'PERSISTENCE')
+                        ->where('error_message', 'like', '%missing natural key [landingPage]%')
+                        ->whereIn('dataset_contract_id', ['ga4_landing_page_daily', 'ga4_event_landing_daily'])
+                        ->whereHas('resourceRun', fn ($q) => $q->where('external_resource_id', $automation->external_resource_id))
+                        ->whereHas('collectionRun', fn ($q) => $q->whereIn('status', ['failed', 'partial']))->exists();
+                    if (! $knownFailure) {
+                        continue;
+                    }
+                    $recovered += ResourceAutomation::query()->whereKey($automation->id)
+                        ->where('collection_enabled', true)->where('collection_run_id', $automation->collection_run_id)
+                        ->whereIn('collection_status', ['attention', 'waiting'])->where('collection_error', 'collection_failed')
+                        ->update(['collection_status' => 'waiting', 'collection_error' => null,
+                            'collection_failures' => 0, 'next_collection_at' => now()]);
+                }
+            });
+
+        return $recovered;
+    }
+
+    private function admitCollections(bool $googleAds, string $connection): void
+    {
+        $scope = fn ($q) => $q->where('resource_type', $googleAds ? '=' : '!=', 'google_ads');
+        $activeIds = CollectionResourceRun::query()->whereIn('status', self::ACTIVE)
+            ->whereHas('collectionRun', fn ($q) => $q->whereIn('status', self::ACTIVE))
+            ->whereHas('externalResource', $scope)->pluck('external_resource_id');
+        $planningIds = ResourceAutomation::query()->where('collection_status', 'planning')
+            ->whereHas('resource', $scope)->pluck('external_resource_id');
+        $occupied = $activeIds->merge($planningIds)->unique()->count();
+        $slots = max(0, (int) config('moxdop-resource-automation.max_active_collections', 2) - $occupied);
+        if ($slots === 0) {
+            return;
+        }
+        $accounts = ResourceAutomation::query()->with('resource.integration')
+            ->whereHas('resource', $scope)
+            ->where('collection_enabled', true)->whereNotIn('collection_status', ['planning', 'collecting'])
+            ->whereNotNull('next_collection_at')->where('next_collection_at', '<=', now())
+            ->orderBy('next_collection_at')->orderBy('id')
+            ->limit(max(0, (int) config('moxdop-resource-automation.accounts_per_tick', 10)))->get();
+        foreach ($accounts as $automation) {
+            if ($slots <= 0) {
+                break;
+            }
+            $error = $this->readiness($automation->resource);
+            if ($error !== null) {
+                $automation->update(['collection_status' => 'attention', 'collection_error' => $error,
+                    'next_collection_at' => now()->addDays($automation->interval_days)]);
+                continue;
+            }
+            $automation->update(['collection_status' => 'planning', 'collection_queued_at' => now(), 'collection_run_id' => null]);
+            try {
+                ResourceCollectionJob::dispatch($automation->id)->onConnection($connection);
+                $slots--;
+            } catch (\Throwable $error) {
+                $this->fail($automation->id);
+                report($error);
+            }
         }
     }
 

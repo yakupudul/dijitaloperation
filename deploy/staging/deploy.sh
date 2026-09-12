@@ -183,6 +183,9 @@ as_root systemctl restart cron 2>/dev/null || as_root service cron restart 2>/de
 echo "deploy/staging: recover stranded collection DB state"
 php artisan moxdop:collection:redispatch-stale --force --no-interaction || exit 1
 
+echo "deploy/staging: admit due automatic account collections"
+php artisan moxdop:resources:automate --recover-ga4-landing-pages --no-interaction || exit 1
+
 # Give DB-driven workers time to pick up stranded rows.
 sleep 3
 

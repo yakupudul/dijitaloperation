@@ -41,7 +41,7 @@ return [
     'services' => 'Hizmetler (isteğe bağlı)',
     'services_help' => 'Seçim yapmazsanız sektörün tüm aktif hizmetleri değerlendirilir. Atama, hizmetlerin eşleştirme kelimelerine göre yapılır.',
     'mapping_help' => 'İlk eşleştirmede başarıyla çekilmiş mevcut sorgular da aktarılır. Sonraki ayar değişiklikleri daha önce işlenen sorguların sektörünü, hizmetini veya alt kümesini değiştirmez.',
-    'runtime_note' => 'Hesaplar gün içine dağıtılır. Veri çekimi ve sorgu aktarımı ayrı ilerler. Saatler UTC olarak gösterilir.',
+    'runtime_note' => 'İlk aktarım uygun işçi sırası açıldığında otomatik başlar. Google Ads kuyruğu diğer kaynaklardan bağımsızdır. Güncellemeler seçilen günlük/üç günlük sıklıkta yapılır. Saatler UTC olarak gösterilir.',
     'history_help' => 'Son 10 aktarım aşağıdadır; tüm işlemler Aktivite üzerinden izlenebilir. Sayımlar kaynak satırlarına aittir; aynı sorgu farklı günlerde görülebilir.',
     'save' => 'Kaydet',
     'cancel' => 'Vazgeç',

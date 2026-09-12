@@ -391,6 +391,14 @@ Verification: source review only. Operator explicitly forbids cloning, tests, de
 
 ## Automatic account collection and query imports — 2026-09-09
 
+**2026-09-12 correction:** admission is isolated like the existing staging workers: up to two
+Ads accounts and two non-Ads accounts, including existing active runs and pending planners.
+This supersedes the shared two-account cap below. Due candidates are selected independently
+per lane. Ads/GA4/GSC connector pages now expose existing automation controls and queue/error
+states. Deploy runs an immediate admission tick and a narrowly scoped recovery of enabled GA4
+automations stopped by the known landingPage empty-key bug; scheduled ticks preserve normal
+failure limits and operator pauses. Tests added; runtime verification pending.
+
 **2026-09-11 correction:** initial collection is due immediately, with the existing account-slot
 limit controlling load. Unused initial ID-based delays are recovered; pauses/error backoff remain.
 Terminal parent runs cannot hold slots via stale child statuses. New planning clears its previous

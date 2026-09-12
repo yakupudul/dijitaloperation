@@ -70,6 +70,10 @@ final class Ga4Normalizer
                 continue;
             }
 
+            if (count($dimValues) !== count($dimensions)) {
+                throw new \RuntimeException('CONTRACT_MISMATCH: dimension values do not match request family');
+            }
+
             $record = [
                 'digital_asset_id' => $digitalAssetId,
                 'external_resource_id' => $externalResourceId,
@@ -95,7 +99,11 @@ final class Ga4Normalizer
             ];
 
             foreach ($dimensions as $index => $dimension) {
-                $value = (string) (data_get($dimValues, $index.'.value') ?? '');
+                if (! is_array($dimValues[$index])
+                    || (array_key_exists('value', $dimValues[$index]) && ! is_string($dimValues[$index]['value']))) {
+                    throw new \RuntimeException('CONTRACT_MISMATCH: invalid dimension value');
+                }
+                $value = (string) ($dimValues[$index]['value'] ?? '');
                 if ($dimension === 'date') {
                     $record['reporting_date'] = $this->normalizeDate($value);
                     continue;

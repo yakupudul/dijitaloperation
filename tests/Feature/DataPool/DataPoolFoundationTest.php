@@ -128,6 +128,26 @@ class DataPoolFoundationTest extends TestCase
     }
 
     #[Test]
+    public function empty_landing_allowance_does_not_allow_null_or_missing_scope_keys(): void
+    {
+        $writer = app(PostgresWarehouseWriter::class);
+        foreach ([['property_id', ''], ['property_id', null], ['landingPage', null], ['external_resource_id', '']] as [$key, $value]) {
+            $record = ['external_resource_id' => 1, 'property_id' => '123',
+                'reporting_date' => '2026-08-01', 'landingPage' => ''];
+            $record[$key] = $value;
+            try {
+                $writer->write(new NormalizedDatasetBatch(
+                    datasetId: 'ga4_landing_page_daily', datasetRunId: 1,
+                    contractVersion: 1, batchKey: 'invalid-key', records: [$record],
+                ));
+                $this->fail('Invalid identity was accepted.');
+            } catch (\InvalidArgumentException $error) {
+                $this->assertStringContainsString('missing natural key ['.$key.']', $error->getMessage());
+            }
+        }
+    }
+
+    #[Test]
     public function warehouse_upserts_are_idempotent_across_batches_and_runs(): void
     {
         $runA = CollectionDatasetRun::factory()->create([

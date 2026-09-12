@@ -167,7 +167,10 @@ final class PostgresWarehouseWriter implements WarehouseWriter
         mixed $now,
     ): array {
         foreach ($naturalKey as $key) {
-            if (! array_key_exists($key, $record) || $record[$key] === null || $record[$key] === '') {
+            $allowEmpty = ($columnMap[$key]['allow_empty_string'] ?? false) === true
+                && ($columnMap[$key]['type'] ?? null) === 'text'
+                && ($columnMap[$key]['role'] ?? null) === 'dimension';
+            if (! array_key_exists($key, $record) || $record[$key] === null || ($record[$key] === '' && ! $allowEmpty)) {
                 throw new InvalidArgumentException("CONTRACT_MISMATCH: missing natural key [{$key}] at record {$index} for [{$batch->datasetId}]");
             }
         }

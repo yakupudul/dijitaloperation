@@ -283,8 +283,20 @@ Schedule::command('horizon:snapshot')
 // Properties explicitly selected for central GA4 collection are refreshed daily.
 // The command recalculates each property's last 14 closed reporting days in that property's timezone.
 // Resource automation now owns GA4 cadence too; no second daily restatement schedule.
-Artisan::command('moxdop:resources:automate', function (): void {
-    app(\App\Services\Integrations\ResourceAutomationService::class)->tick();
+Artisan::command('moxdop:resources:automate {--recover-ga4-landing-pages}', function (): void {
+    $service = app(\App\Services\Integrations\ResourceAutomationService::class);
+    if ($this->option('recover-ga4-landing-pages')) {
+        $this->info('Recovered GA4 landing-page failures: '.$service->recoverGa4LandingFailures());
+    }
+    $service->tick();
+    if ($this->option('recover-ga4-landing-pages')) {
+        $rows = \Illuminate\Support\Facades\DB::table('resource_automations as a')->join('core_external_resources as r', 'r.id', '=', 'a.external_resource_id')
+            ->where('a.collection_enabled', true)->select('r.resource_type', 'a.collection_status')
+            ->selectRaw('COUNT(*) as accounts')->groupBy('r.resource_type', 'a.collection_status')
+            ->orderBy('r.resource_type')->orderBy('a.collection_status')->get()
+            ->map(fn ($row) => [$row->resource_type, $row->collection_status, $row->accounts])->all();
+        $this->table(['Source', 'Automatic collection state', 'Accounts'], $rows);
+    }
 })->purpose('Schedule bounded account collection and completed-data query imports.');
 
 Schedule::command('moxdop:resources:automate')

@@ -84,7 +84,11 @@ return [
             ...$commonSessionMetrics,
         ],
         'ga4_landing_page_daily' => [
+            array_merge($column('landingPage', 'text', false, 'dimension'), ['allow_empty_string' => true]),
             ...$commonSessionMetrics,
+        ],
+        'ga4_event_landing_daily' => [
+            array_merge($column('landingPage', 'text', false, 'dimension'), ['allow_empty_string' => true]),
         ],
         'ga4_event_daily' => [
             ...$metricColumns(['eventCount', 'activeUsers', 'totalUsers'], ['eventCountPerUser', 'eventValue', 'keyEvents']),

@@ -20,6 +20,7 @@
         </div>
         <a href="{{ route('operator.integrations.google') }}" wire:navigate class="inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-white/[0.03]">Google hesabını yönet</a>
     </header>
+    <livewire:operator.integrations.resource-automations provider="google" type="google_ads" :expanded="true" />
 
     @if ($actionMessage)
         <div class="rounded-lg bg-blue-50 px-4 py-3 text-sm text-blue-700 ring-1 ring-inset ring-blue-100 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-500/20">{{ $actionMessage }}</div>

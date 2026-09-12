@@ -317,6 +317,47 @@ class Ga4ProductionCollectorTest extends TestCase
     }
 
     #[Test]
+    public function empty_landing_page_is_preserved_separately_from_not_set_and_does_not_block_the_batch(): void
+    {
+        $this->fakeGa4Http([
+            'runReport' => [
+                'dimensionHeaders' => [['name' => 'date'], ['name' => 'landingPage']],
+                'metricHeaders' => [['name' => 'sessions'], ['name' => 'engagedSessions']],
+                'rows' => array_map(fn ($page) => [
+                    'dimensionValues' => [['value' => '20260801'], ['value' => $page]],
+                    'metricValues' => [['value' => '2'], ['value' => '1']],
+                ], ['', '(not set)', '/pricing']),
+                'rowCount' => 3,
+            ],
+        ]);
+        $result = $this->runFamily(Ga4RequestFamilyCatalog::FAMILY_LANDING_PAGE_DAILY, ['start' => '2026-08-01', 'end' => '2026-08-01']);
+        $this->assertSame(DatasetExecutionOutcome::Completed, $result->outcome);
+        $this->assertSame(3, DB::table('ga4_landing_page_daily')->count());
+        $this->assertSame(2, (int) DB::table('ga4_landing_page_daily')->where('landingPage', '')->value('sessions'));
+        $this->assertSame(6, (int) DB::table('ga4_landing_page_daily')->sum('sessions'));
+    }
+
+    #[Test]
+    public function missing_dimension_position_is_not_silently_accepted_as_empty_landing_page(): void
+    {
+        $this->fakeGa4Http([
+            'runReport' => [
+                'dimensionHeaders' => [['name' => 'date'], ['name' => 'landingPage']],
+                'metricHeaders' => [['name' => 'sessions'], ['name' => 'engagedSessions']],
+                'rows' => [[
+                    'dimensionValues' => [['value' => '20260801']],
+                    'metricValues' => [['value' => '2'], ['value' => '1']],
+                ]],
+                'rowCount' => 1,
+            ],
+        ]);
+        $result = $this->runFamily(Ga4RequestFamilyCatalog::FAMILY_LANDING_PAGE_DAILY, ['start' => '2026-08-01', 'end' => '2026-08-01']);
+        $this->assertSame(DatasetExecutionOutcome::Failed, $result->outcome);
+        $this->assertSame(CollectionErrorCategory::Normalization, $result->errorCategory);
+        $this->assertSame(0, DB::table('ga4_landing_page_daily')->count());
+    }
+
+    #[Test]
     public function postgres_partitioned_ga4_tables_keep_contract_column_identifiers_after_repair(): void
     {
         if (DB::connection()->getDriverName() !== 'pgsql') {

@@ -1,5 +1,33 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## Account admission starvation and GA4 empty landing values — 2026-09-12
+
+Operator supplied post-deploy GA4/Ads HTML: automatic job #86 is active, but Ads shows 56
+eligible accounts, two with historical facts and zero active Ads transfers. GA4 exposes a
+PERSISTENCE rejection for an empty `landingPage`. HTML alone does not reveal all scheduler,
+queue or account rows, so live root-cause closure is not claimed.
+
+Fixed source-level blockers: account admission now mirrors the existing dedicated Google Ads
+worker and shared non-Ads worker, with two active/planning accounts per lane (four total by
+default). Each lane selects its own due candidates, so a GA4/GSC backlog cannot exhaust Ads
+admission or hide Ads behind the per-tick limit. Active/planning IDs are deduplicated. Provider
+worker concurrency, quotas, pauses, authentication checks and MCC exclusion remain authoritative.
+
+GA4 landingPage empty strings remain exact provider values, distinct from `(not set)` and `/`.
+The effective storage overlay explicitly allows empty text only for the landingPage dimension
+in landing-page daily/event-landing daily datasets. Null/missing scope keys remain invalid.
+Malformed dimension positions/types fail normalization, with no checkpoint advance.
+
+The existing automation settings/status panel is now visible on Ads, GA4 and GSC connector
+pages. Staging deployment invokes due admissions and selectively rearms enabled automations
+stopped by this exact historical landing-key rejection. Scheduled ticks do not blanket-reset
+attention states; paused/revoked accounts are excluded from the repair.
+
+Verification: regression tests cover both directions of worker-lane isolation, exact failure
+recovery without unpausing accounts, empty landing preservation and strict missing keys.
+PHP/Pint remain unavailable; targeted PHPUnit/Pint commands could not execute. `git diff --check`
+and `bash -n deploy/staging/deploy.sh` pass. Live staging/provider/UAT acceptance remains pending.
+
 ## Collection visibility and interrupted workers — 2026-09-12
 
 Staging branch `chatgpt/search-demand-foundation`: the header lists global active jobs with
