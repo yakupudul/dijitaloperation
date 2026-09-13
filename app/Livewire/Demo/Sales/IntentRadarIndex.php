@@ -42,6 +42,12 @@ class IntentRadarIndex extends Component
     public string $sourceUrl = '';
     public string $sourceFormat = 'html';
     public string $message = '';
+    public bool $showSettings = false;
+
+    public function mount(): void
+    {
+        $this->showSettings = ! SalesSearchProfile::query()->whereNotNull('service_catalog_item_id')->exists();
+    }
 
     public function updated(string $property): void
     {
@@ -86,6 +92,7 @@ class IntentRadarIndex extends Component
         }
         app(FreeIntentRadar::class)->tick();
         $this->reset('serviceIds');
+        $this->showSettings = false;
         $this->message = __('free_radar.started');
     }
 
@@ -164,12 +171,19 @@ class IntentRadarIndex extends Component
             ->orderByDesc('published_at')->orderByDesc('id')->paginate(20);
         return view('livewire.demo.sales.intent-radar-index', [
             'signals' => $signals,
-            'profiles' => SalesSearchProfile::query()->with('catalogService.primaryName')->orderByDesc('id')->get(),
+            'profiles' => SalesSearchProfile::query()->with('catalogService.primaryName')->whereNotNull('service_catalog_item_id')->orderByDesc('id')->get(),
             'sources' => SalesRadarSource::query()->orderBy('id')->get(),
             'runs' => SalesIntentRadarRun::query()->with('searchProfile')->where('provider', 'public_sources')->latest('id')->limit(10)->get(),
-            'services' => ServiceCatalogItem::query()->where('status', 'active')->with('primaryName')
-                ->when($this->serviceSearch !== '', fn ($q) => $q->whereHas('names', fn ($q) => $q->where('raw_label', 'like', '%'.$this->serviceSearch.'%')))
-                ->orderBy('id')->limit(100)->get(),
+            'services' => $this->showSettings ? ServiceCatalogItem::query()->where('status', 'active')->with('primaryName')
+                ->where(function ($q): void {
+                    $q->whereIn('id', SalesSearchProfile::query()->select('service_catalog_item_id')->whereNotNull('service_catalog_item_id'))
+                        ->orWhereIn('id', array_map('intval', $this->serviceIds));
+                    if (mb_strlen(trim($this->serviceSearch)) >= 2) {
+                        $term = '%'.addcslashes(trim($this->serviceSearch), '\\%_').'%';
+                        $q->orWhereHas('names', fn ($names) => $names->where('raw_label', 'like', $term));
+                    }
+                })->orderBy('id')->limit(100)->get() : collect(),
         ]);
     }
 }
+

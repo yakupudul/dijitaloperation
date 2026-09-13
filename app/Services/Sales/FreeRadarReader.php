@@ -110,30 +110,52 @@ final class FreeRadarReader
         $author = '';
         foreach ($xp->query('//script[@type="application/ld+json"]') ?: [] as $script) {
             $data = json_decode($script->textContent, true);
-            $objects = is_array($data) ? (isset($data['@graph']) ? $data['@graph'] : (array_is_list($data) ? $data : [$data])) : [];
-            foreach ($objects as $object) {
-                if (! is_array($object) || ! in_array($object['@type'] ?? '', ['DiscussionForumPosting', 'Article', 'BlogPosting', 'SocialMediaPosting'], true)) {
+            $objects = is_array($data) ? (array_is_list($data) ? $data : [$data]) : [];
+            for ($i = 0; $i < count($objects) && $i < 100; $i++) {
+                $object = $objects[$i];
+                if (! is_array($object)) {
                     continue;
                 }
+                foreach (['@graph', 'mainEntity'] as $nested) {
+                    if (is_array($object[$nested] ?? null)) {
+                        $objects = array_merge($objects, array_is_list($object[$nested]) ? $object[$nested] : [$object[$nested]]);
+                    }
+                }
+                $types = (array) ($object['@type'] ?? []);
+                if (array_intersect($types, ['DiscussionForumPosting', 'Article', 'BlogPosting', 'SocialMediaPosting']) === []) {
+                    continue;
+                }
+                $date = is_string($object['datePublished'] ?? null) ? $object['datePublished'] : '';
+                $authorData = $object['author'] ?? null;
+                $author = is_string($authorData) ? $authorData : (string) (data_get($authorData, 'name') ?? data_get($authorData, '0.name') ?? '');
                 $raw = $object['articleBody'] ?? $object['text'] ?? null;
                 if (is_string($raw) && mb_strlen($raw) >= 20) {
                     $excerpt = $this->text($raw, 4000);
-                    $date = is_string($object['datePublished'] ?? null) ? $object['datePublished'] : '';
-                    $author = is_string(data_get($object, 'author.name')) ? data_get($object, 'author.name') : '';
-                    break 2;
                 }
+                break 2;
             }
         }
         if ($excerpt === null) {
-            $node = $xp->query('(//*[@itemprop="articleBody"] | //*[starts-with(@id,"post_message_")] | //*[contains(concat(" ", normalize-space(@class), " "), " message-body ")])[1]')?->item(0);
+            $node = $xp->query('(//*[@itemprop="articleBody"] | //*[starts-with(@id,"post_message_")] | //*[contains(concat(" ", normalize-space(@class), " "), " message-body ")] | //*[contains(concat(" ", normalize-space(@class), " "), " postcontent ")] | //*[@itemtype="https://schema.org/DiscussionForumPosting" or @itemtype="http://schema.org/DiscussionForumPosting"]//*[@itemprop="text"])[1]')?->item(0);
             if ($node) {
-                foreach (iterator_to_array($xp->query('.//blockquote | .//script | .//style | .//*[contains(@class,"signature")]', $node)) as $remove) {
+                $post = $xp->query('ancestor::*[starts-with(@id,"post") or contains(concat(" ", normalize-space(@class), " "), " message ")][1]', $node)?->item(0);
+                if ($post && $date === '') {
+                    $date = $xp->evaluate('string((.//*[@itemprop="datePublished"]/@content | .//time[@datetime]/@datetime)[1])', $post);
+                }
+                if ($post && $author === '') {
+                    $author = $xp->evaluate('string((.//*[@itemprop="author"]//*[@itemprop="name"] | .//*[contains(concat(" ", normalize-space(@class), " "), " username ")])[1])', $post);
+                }
+                foreach (iterator_to_array($xp->query('.//blockquote | .//script | .//style | .//*[contains(@class,"signature") or contains(concat(" ", normalize-space(@class), " "), " quote ")]', $node)) as $remove) {
                     $remove->parentNode?->removeChild($remove);
+                }
+                foreach ($xp->query('.//br | .//p | .//div | .//li', $node) ?: [] as $block) {
+                    $block->appendChild($block->ownerDocument->createTextNode(' '));
                 }
                 $excerpt = $this->text($node->textContent, 4000);
             }
-            $date = $xp->evaluate('string((//*[@itemprop="datePublished"]/@content | //*[@itemprop="datePublished"]/@datetime | //meta[@property="article:published_time"]/@content)[1])');
-            $author = $xp->evaluate('string((//*[@itemprop="author"]//*[@itemprop="name"])[1])');
+        }
+        if ($date === '') {
+            $date = $xp->evaluate('string((//meta[@property="article:published_time"]/@content | //*[@itemprop="datePublished"]/@content | //*[@itemprop="datePublished"]/@datetime)[1])');
         }
         return [
             'excerpt' => $excerpt !== null && mb_strlen($excerpt) >= 20 ? $excerpt : null,
@@ -231,3 +253,4 @@ final class FreeRadarReader
         return $allowed;
     }
 }
+

@@ -128,7 +128,7 @@ final class ResourceAutomationService
     {
         $recovered = 0;
         ResourceAutomation::query()->where('collection_enabled', true)
-            ->whereIn('collection_status', ['attention', 'waiting'])->where('collection_error', 'collection_failed')
+            ->whereIn('collection_status', ['attention', 'waiting'])->whereIn('collection_error', ['collection_failed', 'request_requires_fix'])
             ->whereHas('resource', fn ($q) => $q->where('resource_type', 'ga4'))
             ->orderBy('id')->chunkById(100, function ($accounts) use (&$recovered): void {
                 foreach ($accounts as $automation) {
@@ -144,7 +144,36 @@ final class ResourceAutomationService
                     }
                     $recovered += ResourceAutomation::query()->whereKey($automation->id)
                         ->where('collection_enabled', true)->where('collection_run_id', $automation->collection_run_id)
-                        ->whereIn('collection_status', ['attention', 'waiting'])->where('collection_error', 'collection_failed')
+                        ->whereIn('collection_status', ['attention', 'waiting'])->whereIn('collection_error', ['collection_failed', 'request_requires_fix'])
+                        ->update(['collection_status' => 'waiting', 'collection_error' => null,
+                            'collection_failures' => 0, 'next_collection_at' => now()]);
+                }
+            });
+
+        return $recovered;
+    }
+
+    /** Re-admit only the known Search Appearance aggregation error after its request fix. */
+    public function recoverGscAppearanceFailures(): int
+    {
+        $recovered = 0;
+        ResourceAutomation::query()->where('collection_enabled', true)
+            ->whereIn('collection_status', ['attention', 'waiting', 'collecting'])
+            ->whereHas('resource', fn ($q) => $q->where('resource_type', 'search_console'))
+            ->orderBy('id')->chunkById(100, function ($accounts) use (&$recovered): void {
+                foreach ($accounts as $automation) {
+                    $knownFailure = \App\Models\Collection\CollectionDatasetRun::query()
+                        ->where('collection_run_id', $automation->collection_run_id)->where('status', 'failed')
+                        ->where('error_code', 'INVALID_REQUEST')->where('error_message', 'like', '%BY_PROPERTY%')
+                        ->where('dataset_contract_id', 'gsc_search_appearance_daily')
+                        ->whereHas('resourceRun', fn ($q) => $q->where('external_resource_id', $automation->external_resource_id))
+                        ->whereHas('collectionRun', fn ($q) => $q->whereIn('status', ['failed', 'partial']))->exists();
+                    if (! $knownFailure) {
+                        continue;
+                    }
+                    $recovered += ResourceAutomation::query()->whereKey($automation->id)
+                        ->where('collection_enabled', true)->where('collection_run_id', $automation->collection_run_id)
+                        ->whereIn('collection_status', ['attention', 'waiting', 'collecting'])
                         ->update(['collection_status' => 'waiting', 'collection_error' => null,
                             'collection_failures' => 0, 'next_collection_at' => now()]);
                 }
@@ -170,6 +199,7 @@ final class ResourceAutomationService
             ->whereHas('resource', $scope)
             ->where('collection_enabled', true)->whereNotIn('collection_status', ['planning', 'collecting'])
             ->whereNotNull('next_collection_at')->where('next_collection_at', '<=', now())
+            ->orderByRaw('CASE WHEN last_collection_success_at IS NULL THEN 0 ELSE 1 END')
             ->orderBy('next_collection_at')->orderBy('id')
             ->limit(max(0, (int) config('moxdop-resource-automation.accounts_per_tick', 10)))->get();
         foreach ($accounts as $automation) {
@@ -285,7 +315,10 @@ final class ResourceAutomationService
         $success = $resources->isNotEmpty() && $resources->every(fn ($r) => $r->status->value === 'completed');
         if ($success) {
             $through = $run->datasetRuns()->whereIn('collection_resource_run_id', $resources->pluck('id'))->where('status', 'completed')
-                ->get(['metadata'])->map(fn ($d) => data_get($d->metadata, 'date_range.end'))->filter()->min();
+                ->get(['dataset_contract_id', 'metadata'])
+                ->filter(fn ($d) => filled(data_get($d->metadata, 'date_range.end')))
+                ->groupBy(fn ($d) => $d->dataset_contract_id.'|'.data_get($d->metadata, 'search_type', ''))
+                ->map(fn ($group) => $group->max(fn ($d) => data_get($d->metadata, 'date_range.end')))->min();
             $this->alert($a->id, 'collection', null);
             $a->update(['data_through' => $through ?: $a->data_through,'collection_status' => 'current', 'collection_error' => null, 'collection_failures' => 0,
                 'last_collection_success_at' => now(), 'next_collection_at' => now()->addDays($a->interval_days)]);
@@ -293,7 +326,10 @@ final class ResourceAutomationService
         }
         $authError = $run->datasetRuns()->whereIn('collection_resource_run_id', $resources->pluck('id'))
             ->get(['error_category'])->contains(fn ($d) => preg_match('/auth|permission|credential/i', $d->error_category?->value ?? '') === 1);
-        $this->fail($a->id, $authError ? 'reconnect' : ($run->status->value === 'cancelled' ? 'cancelled' : 'collection_failed'));
+        $contractError = $run->datasetRuns()->whereIn('collection_resource_run_id', $resources->pluck('id'))
+            ->whereIn('error_category', ['invalid_request', 'persistence'])->exists();
+        $this->fail($a->id, $authError ? 'reconnect' : ($run->status->value === 'cancelled' ? 'cancelled'
+            : ($contractError ? 'request_requires_fix' : 'collection_failed')));
     }
 
     public function fail(int $id, string $reason = 'collection_failed'): void
@@ -303,7 +339,7 @@ final class ResourceAutomationService
             return;
         }
         $failures = (int) $a->collection_failures + 1;
-        $stop = in_array($reason, ['reconnect', 'cancelled'], true) || $failures >= 3;
+        $stop = in_array($reason, ['reconnect', 'cancelled', 'request_requires_fix'], true) || $failures >= 3;
         if ($stop && $reason !== 'cancelled') {
             $this->alert($a->id, 'collection', $reason);
         }
@@ -379,3 +415,4 @@ final class ResourceAutomationService
         }
     }
 }
+

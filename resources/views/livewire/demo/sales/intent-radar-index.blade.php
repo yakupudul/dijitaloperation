@@ -5,12 +5,14 @@
             <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ __('free_radar.title') }}</h1>
             <p class="mt-1 text-sm text-gray-500">{{ __('free_radar.subtitle') }}</p>
         </div>
-        <span class="rounded-full bg-emerald-50 px-3 py-1 text-sm text-emerald-800">{{ __('free_radar.no_fees') }}</span>
+        <button type="button" wire:click="$toggle('showSettings')" aria-expanded="{{ $showSettings ? 'true' : 'false' }}" class="rounded-lg bg-brand-500 px-4 py-2 text-sm text-white">{{ __('free_radar.manage_services') }}</button>
     </div>
     @if ($message)<div role="status" class="rounded-lg bg-blue-50 p-3 text-sm text-blue-800">{{ $message }}</div>@endif
     @if ($errors->any())<div role="alert" class="rounded-lg bg-red-50 p-3 text-sm text-red-800">{{ $errors->first() }}</div>@endif
 
+    @if ($showSettings)
     <x-ta.card>
+        <p class="mb-3 text-sm text-gray-500">{{ __('free_radar.choose_sales_services') }}</p>
         <h2 class="font-semibold">{{ __('free_radar.services') }}</h2>
         <form wire:submit="start" class="mt-3 space-y-3">
             <input wire:model.live.debounce.400ms="serviceSearch" placeholder="{{ __('free_radar.search_services') }}" aria-label="{{ __('free_radar.search_services') }}" class="w-full rounded-lg border-gray-300 dark:bg-gray-900" />
@@ -47,6 +49,7 @@
             <button type="submit" wire:loading.attr="disabled" class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{{ __('free_radar.start') }}</button>
         </form>
     </x-ta.card>
+    @endif
 
     @if ($profiles->isNotEmpty())
         <div class="flex flex-wrap gap-3">
@@ -94,7 +97,7 @@
                         <a href="{{ route('operator.intent-signal', ['signalId' => $signal->id]) }}" class="font-semibold text-brand-600">{{ $signal->source_title }}</a>
                         <p class="mt-1 text-xs text-gray-500">{{ $signal->searchProfile?->name }} · {{ parse_url($signal->source_url, PHP_URL_HOST) }}</p>
                         @if ($signal->source_type !== 'public_source')<p class="text-xs text-gray-500">{{ __('free_radar.historical') }}</p>@endif
-                        <p class="mt-2 text-gray-600 dark:text-gray-300">{{ \Illuminate\Support\Str::limit($signal->fetched_source_excerpt ?: $signal->observed_snippet, 200) }}</p>
+                        <p class="mt-2 text-gray-600 dark:text-gray-300">{{ $signal->fetched_source_excerpt ? \Illuminate\Support\Str::limit($signal->fetched_source_excerpt, 200) : __('free_radar.content_pending') }}</p>
                         <a href="{{ $signal->source_url }}" target="_blank" rel="noopener noreferrer" class="mt-2 inline-block text-xs text-brand-600">{{ __('free_radar.open_source') }} ↗</a>
                     </td>
                     <td class="whitespace-nowrap p-4 text-xs">
@@ -130,7 +133,7 @@
     </div>
     {{ $signals->links() }}
 
-    <details class="rounded-xl border border-gray-200 p-4 dark:border-gray-700" open>
+    <details class="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
         <summary class="cursor-pointer font-semibold">{{ __('free_radar.sources') }}</summary>
         <p class="mt-2 text-xs text-gray-500">{{ __('free_radar.coverage') }}</p>
         <div class="mt-3 space-y-3">
@@ -155,13 +158,14 @@
             </form>
         </details>
     </details>
-    <x-ta.card>
-        <h2 class="font-semibold">{{ __('free_radar.recent_runs') }}</h2>
+    <details class="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+        <summary class="cursor-pointer font-semibold">{{ __('free_radar.recent_runs') }}</summary>
         @forelse ($runs as $run)
             <p class="mt-2 text-sm">{{ $run->searchProfile?->name }} · {{ __('free_radar.run_'.$run->status->value) }} · {{ $run->signal_count }} {{ __('free_radar.new_demands') }} · {{ $run->created_at?->diffForHumans() }}</p>
         @empty
             <p class="mt-2 text-sm text-gray-500">{{ __('free_radar.no_runs') }}</p>
         @endforelse
         <p class="mt-3 text-xs text-gray-500">{{ __('free_radar.worker_note') }}</p>
-    </x-ta.card>
+    </details>
 </div>
+

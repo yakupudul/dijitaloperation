@@ -194,7 +194,7 @@ class GscCollectionMonitor extends Component
     {
         $datasets = $run->datasetRuns;
         $datasetTotal = $datasets->count();
-        $finishedDatasets = $datasets->filter(fn (CollectionDatasetRun $dataset): bool => $dataset->status->isTerminal())->count();
+        $finishedDatasets = $datasets->where('status', CollectionRunStatus::Completed)->count();
         $completedDatasets = $datasets->where('status', CollectionRunStatus::Completed)->count();
         $failedDatasets = $datasets->where('status', CollectionRunStatus::Failed)->count();
         $cancelledDatasets = $datasets->where('status', CollectionRunStatus::Cancelled)->count();
@@ -216,8 +216,8 @@ class GscCollectionMonitor extends Component
         return [
             'id' => (int) $run->id,
             'label' => (string) (data_get($run->metadata, 'collection_intent_label') ?: 'Search Console Merkezi Veri Toplama'),
-            'status' => $run->status->value,
-            'status_label' => $this->statusLabel($run->status),
+            'status' => app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->state($run),
+            'status_label' => app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->label($run),
             'progress_percent' => $progress,
             'sites_total' => count($resources),
             'sites_finished' => collect($resources)->where('terminal', true)->count(),
@@ -242,7 +242,7 @@ class GscCollectionMonitor extends Component
     {
         $datasets = $resource->datasetRuns;
         $total = $datasets->count();
-        $finished = $datasets->filter(fn (CollectionDatasetRun $dataset): bool => $dataset->status->isTerminal())->count();
+        $finished = $datasets->where('status', CollectionRunStatus::Completed)->count();
         $progress = $total > 0
             ? round($datasets->sum(fn (CollectionDatasetRun $dataset): float => $this->datasetProgress($dataset)) / $total * 100, 1)
             : 0.0;
@@ -263,8 +263,8 @@ class GscCollectionMonitor extends Component
             'external_resource_id' => (int) $resource->external_resource_id,
             'name' => $this->siteLabel($siteUrl),
             'site_url' => $siteUrl,
-            'status' => $resource->status->value,
-            'status_label' => $this->statusLabel($resource->status),
+            'status' => app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->state($resource),
+            'status_label' => app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->label($resource),
             'terminal' => $resource->status->isTerminal(),
             'progress_percent' => $progress,
             'datasets_total' => $total,
@@ -309,7 +309,7 @@ class GscCollectionMonitor extends Component
                     'key' => $searchType,
                     'label' => $this->searchTypeLabel($searchType),
                     'progress_percent' => $progress,
-                    'finished' => $group->filter(fn (CollectionDatasetRun $dataset): bool => $dataset->status->isTerminal())->count(),
+                    'finished' => $group->where('status', CollectionRunStatus::Completed)->count(),
                     'total' => $total,
                     'failed' => $group->where('status', CollectionRunStatus::Failed)->count(),
                     'current' => $current instanceof CollectionDatasetRun ? $this->datasetLabel($current) : null,
@@ -335,7 +335,7 @@ class GscCollectionMonitor extends Component
             'external_resource_id' => (int) $resource->external_resource_id,
             'name' => $this->siteLabel($siteUrl),
             'site_url' => $siteUrl,
-            'status_label' => $this->statusLabel($resource->status),
+            'status_label' => app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->label($resource),
             'failed_count' => count($errors),
             'last_activity' => $resource->last_activity_at?->diffForHumans() ?? '—',
             'errors' => $errors,
@@ -363,16 +363,7 @@ class GscCollectionMonitor extends Component
 
     private function datasetProgress(CollectionDatasetRun $dataset): float
     {
-        if ($dataset->status->isTerminal()) {
-            return 1.0;
-        }
-
-        $percentage = $dataset->percentage();
-        if ($percentage === null) {
-            return 0.0;
-        }
-
-        return min(1.0, max(0.0, $percentage / 100));
+        return $dataset->status === CollectionRunStatus::Completed ? 1.0 : 0.0;
     }
 
     private function searchType(CollectionDatasetRun $dataset): ?string
@@ -461,3 +452,4 @@ class GscCollectionMonitor extends Component
         return is_string($host) && $host !== '' ? preg_replace('/^www\./i', '', $host) : $siteUrl;
     }
 }
+

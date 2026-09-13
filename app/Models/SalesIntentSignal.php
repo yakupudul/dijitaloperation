@@ -42,9 +42,21 @@ class SalesIntentSignal extends Model
         'provenance',
     ];
 
-    /**
-     * @return array<string, string>
-     */
+    public function getClassificationReasonAttribute(?string $value): ?string
+    {
+        if (($this->attributes['source_type'] ?? null) !== 'public_source' || $value === null) {
+            return $value;
+        }
+        foreach (['explicit_demand', 'review_date_or_content', 'review_location', 'no_longer_matches'] as $reason) {
+            $key = 'free_radar.'.$reason;
+            if ($value === $key || $value === trans($key, [], 'en') || $value === trans($key, [], 'tr')) {
+                return __($key);
+            }
+        }
+        return $value;
+    }
+
+    /** @return array<string, string> */
     protected function casts(): array
     {
         return [
@@ -88,3 +100,4 @@ class SalesIntentSignal extends Model
         return $this->belongsTo(Prospect::class);
     }
 }
+

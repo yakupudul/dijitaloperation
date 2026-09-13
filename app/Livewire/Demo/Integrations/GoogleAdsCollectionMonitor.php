@@ -181,7 +181,7 @@ class GoogleAdsCollectionMonitor extends Component
     {
         $datasets = $run->datasetRuns;
         $total = $datasets->count();
-        $finished = $datasets->filter(fn (CollectionDatasetRun $dataset): bool => $dataset->status->isTerminal())->count();
+        $finished = $datasets->where('status', CollectionRunStatus::Completed)->count();
         $progress = $total > 0
             ? round($datasets->sum(fn (CollectionDatasetRun $dataset): float => $this->datasetProgress($dataset)) / $total * 100, 1)
             : 0.0;
@@ -220,9 +220,9 @@ class GoogleAdsCollectionMonitor extends Component
         return [
             'id' => (int) $run->id,
             'label' => (string) (data_get($run->metadata, 'collection_intent_label') ?: 'Google Ads merkezi veri toplama'),
-            'status' => $effectiveStatus->value,
+            'status' => app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->state($run),
             'persisted_status' => $run->status->value,
-            'status_label' => $quotaWaiting ? 'Kota bekleniyor' : $this->statusLabel($effectiveStatus),
+            'status_label' => $quotaWaiting ? 'Kota bekleniyor' : app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->label($run),
             'quota_waiting' => $quotaWaiting,
             'quota_retry_at' => $retryAt?->toIso8601String(),
             'quota_retry_human' => $retryAt?->diffForHumans(),
@@ -248,7 +248,7 @@ class GoogleAdsCollectionMonitor extends Component
     {
         $datasets = $resource->datasetRuns;
         $total = $datasets->count();
-        $finished = $datasets->filter(fn (CollectionDatasetRun $dataset): bool => $dataset->status->isTerminal())->count();
+        $finished = $datasets->where('status', CollectionRunStatus::Completed)->count();
         $progress = $total > 0
             ? round($datasets->sum(fn (CollectionDatasetRun $dataset): float => $this->datasetProgress($dataset)) / $total * 100, 1)
             : 0.0;
@@ -280,8 +280,8 @@ class GoogleAdsCollectionMonitor extends Component
             'external_resource_id' => (int) $resource->external_resource_id,
             'name' => (string) ($resource->externalResource?->display_name ?: 'Google Ads hesabı'),
             'customer_id' => $formatted,
-            'status' => $quotaWaiting ? CollectionRunStatus::Retrying->value : $resource->status->value,
-            'status_label' => $quotaWaiting ? 'Kota bekleniyor' : $this->statusLabel($resource->status),
+            'status' => app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->state($resource),
+            'status_label' => $quotaWaiting ? 'Kota bekleniyor' : app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->label($resource),
             'terminal' => $resource->status->isTerminal(),
             'progress_percent' => $progress,
             'datasets_total' => $total,
@@ -326,12 +326,7 @@ class GoogleAdsCollectionMonitor extends Component
 
     private function datasetProgress(CollectionDatasetRun $dataset): float
     {
-        if ($dataset->status->isTerminal()) {
-            return 1.0;
-        }
-        $percentage = $dataset->percentage();
-
-        return $percentage === null ? 0.0 : min(1.0, max(0.0, $percentage / 100));
+        return $dataset->status === CollectionRunStatus::Completed ? 1.0 : 0.0;
     }
 
     private function familyLabel(string $family): string
@@ -359,3 +354,4 @@ class GoogleAdsCollectionMonitor extends Component
         };
     }
 }
+

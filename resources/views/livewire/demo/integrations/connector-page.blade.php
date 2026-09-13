@@ -4,7 +4,8 @@
     $isCentralGoogle = $isGa4 || $isGsc;
     $tabs = $isCentralGoogle
         ? [
-            'resources' => 'Mülkler',
+            'resources' => 'Hesaplar',
+            'manual' => 'Toplu işlemler',
             'data' => 'Veri',
             'activity' => 'Geçmiş',
         ]
@@ -66,7 +67,7 @@
                 Google hesabını yönet
             </a>
         </header>
-        <livewire:operator.integrations.resource-automations provider="google" :type="$isGa4 ? 'ga4' : 'search_console'" :expanded="true" />
+
     @else
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div class="flex items-start gap-3">
@@ -99,9 +100,7 @@
         @endforeach
     </nav>
 
-    @if ($isGa4)
-        <livewire:demo.integrations.ga4-collection-monitor />
-    @endif
+
 
     @if ($displayTab === 'overview')
         <div class="grid grid-cols-2 gap-3 xl:grid-cols-5">
@@ -115,7 +114,11 @@
         <div class="flex flex-wrap gap-2"><button type="button" wire:click="setTab('resources')" class="rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-white">Browse resources</button><button type="button" wire:click="setTab('data')" class="rounded-lg px-3 py-2 text-sm font-medium ring-1 ring-inset ring-gray-300 dark:ring-gray-700">Data preview</button></div>
     @endif
 
-    @if ($displayTab === 'resources')
+    @if ($displayTab === 'resources' && $isCentralGoogle)
+        <livewire:operator.integrations.resource-automations provider="google" :resource-type="$isGa4 ? 'ga4' : 'search_console'" :expanded="true" />
+    @endif
+
+    @if ($displayTab === 'manual' || ($displayTab === 'resources' && ! $isCentralGoogle))
         @if ($isCentralGoogle)
             <section class="overflow-hidden rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
                 <div class="flex flex-col gap-3 border-b border-gray-100 px-4 py-4 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
@@ -234,8 +237,10 @@
     @endif
 
     @if ($displayTab === 'activity')
+        @if ($isGa4)<livewire:demo.integrations.ga4-collection-monitor />@endif
+        @if ($isGsc)<livewire:demo.integrations.gsc-collection-monitor />@endif
         @if ($isCentralGoogle)
-            <section wire:poll.3s.visible class="overflow-hidden rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+            <section wire:poll.15s.visible class="overflow-hidden rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
                 <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-800"><h2 class="text-base font-semibold text-gray-900 dark:text-white">Aktarım geçmişi</h2><p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Son {{ $isGsc ? 'Search Console' : 'GA4' }} toplama hareketleri.</p></div>
                 <div class="divide-y divide-gray-100 dark:divide-gray-800">
                     @forelse ($data['activity'] as $event)
@@ -251,3 +256,4 @@
         @endif
     @endif
 </div>
+

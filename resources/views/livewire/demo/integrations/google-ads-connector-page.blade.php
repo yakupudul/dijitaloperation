@@ -20,7 +20,7 @@
         </div>
         <a href="{{ route('operator.integrations.google') }}" wire:navigate class="inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-white/[0.03]">Google hesabını yönet</a>
     </header>
-    <livewire:operator.integrations.resource-automations provider="google" type="google_ads" :expanded="true" />
+
 
     @if ($actionMessage)
         <div class="rounded-lg bg-blue-50 px-4 py-3 text-sm text-blue-700 ring-1 ring-inset ring-blue-100 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-500/20">{{ $actionMessage }}</div>
@@ -35,7 +35,7 @@
     </div>
 
     <nav class="flex flex-wrap gap-5 border-b border-gray-200 dark:border-gray-800" aria-label="Google Ads sections">
-        @foreach (['accounts' => 'Hesaplar', 'data' => 'Veri', 'activity' => 'Canlı Akış'] as $key => $label)
+        @foreach (['accounts' => 'Hesaplar', 'manual' => 'Toplu işlemler', 'data' => 'Veri', 'activity' => 'Canlı Akış'] as $key => $label)
             <button type="button" wire:click="setTab('{{ $key }}')" @class([
                 '-mb-px border-b-2 px-0.5 pb-3 pt-1 text-sm font-medium transition',
                 'border-brand-500 text-brand-700 dark:text-brand-400' => $tab === $key,
@@ -48,6 +48,9 @@
     </nav>
 
     @if ($tab === 'accounts')
+        <livewire:operator.integrations.resource-automations provider="google" resource-type="google_ads" :expanded="true" />
+    @endif
+    @if ($tab === 'manual')
         <section class="overflow-hidden rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
             <div class="flex flex-col gap-3 border-b border-gray-100 px-4 py-4 dark:border-gray-800 lg:flex-row lg:items-center lg:justify-between">
                 <div>
@@ -78,7 +81,7 @@
                         <option value="all">Tüm veri durumları</option>
                         <option value="not_collected">Henüz veri yok</option>
                         <option value="collected">Veri mevcut</option>
-                        <option value="collecting">Çekiliyor</option>
+                        <option value="collecting">Çekiliyor</option><option value="queued">Sırada</option><option value="retrying">Yeniden deneme bekleniyor</option><option value="delayed">İlerleme gecikti</option>
                         <option value="needs_repair">Eksik veri var</option>
                         <option value="resume">Durduruldu</option>
                     </select>
@@ -187,3 +190,4 @@
         <livewire:demo.integrations.google-ads-collection-monitor />
     @endif
 </div>
+

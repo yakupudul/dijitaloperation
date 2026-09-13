@@ -144,7 +144,7 @@ final class SearchConsoleRequestFamilyCatalog
             self::FAMILY_QUERY_DEVICE_DAILY => $analytics('gsc_query_device_daily', ['date', 'query', 'device'], 'auto', true),
             self::FAMILY_QUERY_COUNTRY_DAILY => $analytics('gsc_query_country_daily', ['date', 'query', 'country'], 'auto', true),
             self::FAMILY_SEARCH_APPEARANCE_DAILY => [
-                ...$analytics('gsc_search_appearance_daily', ['date'], 'byProperty'),
+                ...$analytics('gsc_search_appearance_daily', ['date'], 'auto'),
                 'search_appearance_two_step' => true,
             ],
             self::FAMILY_SEARCH_APPEARANCE_PAGE_DAILY => [
@@ -185,3 +185,4 @@ final class SearchConsoleRequestFamilyCatalog
         };
     }
 }
+

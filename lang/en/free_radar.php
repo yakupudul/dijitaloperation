@@ -1,6 +1,9 @@
 <?php
 
 return [
+    'manage_services' => 'Manage tracked services',
+    'choose_sales_services' => 'Choose only services you sell. Existing selections appear below; search the catalogue with at least two characters to add another service. Customer services are not tracked automatically.',
+    'content_pending' => 'The request details have not been verified yet. Check the original source.',
     'title' => 'Intent Radar',
     'subtitle' => 'Track public requests for your services.',
     'no_fees' => 'No API or AI fees',
@@ -85,3 +88,4 @@ return [
     'rule_score' => 'Rule-based matching score, not a purchase probability.',
     'historical' => 'Historical source record',
 ];
+

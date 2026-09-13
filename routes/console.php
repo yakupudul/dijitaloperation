@@ -72,7 +72,7 @@ Artisan::command('moxdop:collection:work-db {--provider=} {--exclude-provider=} 
         }
 
         $candidates = $query
-            ->orderBy('last_activity_at')
+            ->orderByRaw('COALESCE(last_activity_at, created_at) ASC')
             ->orderBy('id')
             ->limit(100)
             ->get();
@@ -283,10 +283,13 @@ Schedule::command('horizon:snapshot')
 // Properties explicitly selected for central GA4 collection are refreshed daily.
 // The command recalculates each property's last 14 closed reporting days in that property's timezone.
 // Resource automation now owns GA4 cadence too; no second daily restatement schedule.
-Artisan::command('moxdop:resources:automate {--recover-ga4-landing-pages}', function (): void {
+Artisan::command('moxdop:resources:automate {--recover-ga4-landing-pages} {--recover-gsc-appearance}', function (): void {
     $service = app(\App\Services\Integrations\ResourceAutomationService::class);
     if ($this->option('recover-ga4-landing-pages')) {
         $this->info('Recovered GA4 landing-page failures: '.$service->recoverGa4LandingFailures());
+    }
+    if ($this->option('recover-gsc-appearance')) {
+        $this->info('Recovered GSC appearance failures: '.$service->recoverGscAppearanceFailures());
     }
     $service->tick();
     if ($this->option('recover-ga4-landing-pages')) {
@@ -334,3 +337,4 @@ Artisan::command('moxdop:intent-radar:tick', function (): void {
 
 Schedule::command('moxdop:intent-radar:tick')
     ->everyFiveMinutes()->withoutOverlapping(5)->name('free-intent-radar');
+

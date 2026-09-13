@@ -51,7 +51,7 @@ class ConnectorPage extends Component
     public bool $confirmBind = false;
 
     /** @var list<string> */
-    private const TABS = ['overview', 'resources', 'bindings', 'data', 'sync', 'activity'];
+    private const TABS = ['overview', 'resources', 'manual', 'bindings', 'data', 'sync', 'activity'];
 
     /** @var array<string, array{id: string, name: string, type: string, integration: string, integration_label: string, integration_route: string}> */
     private const CONNECTORS = [
@@ -231,6 +231,12 @@ class ConnectorPage extends Component
             ? collect()
             : CollectionResourceRun::query()
                 ->whereIn('external_resource_id', $resourceIds)
+                ->where(function ($query) use ($resourceIds): void {
+                    $query->whereIn('id', CollectionResourceRun::query()->whereIn('external_resource_id', $resourceIds)
+                        ->selectRaw('MAX(id)')->groupBy('external_resource_id', 'provider_or_source', 'digital_asset_id'))
+                        ->orWhereIn('id', CollectionResourceRun::query()->whereIn('external_resource_id', $resourceIds)
+                            ->where('status', CollectionRunStatus::Completed)->selectRaw('MAX(id)')->groupBy('external_resource_id', 'provider_or_source', 'digital_asset_id'));
+                })
                 ->with(['externalResource:id,display_name', 'datasetRuns'])
                 ->orderByDesc('last_activity_at')
                 ->orderByDesc('id')
@@ -282,7 +288,13 @@ class ConnectorPage extends Component
             }
 
             [$dataState, $dataStateLabel, $collectionAction] = match (true) {
-                $active instanceof CollectionResourceRun => ['collecting', 'Çekiliyor', 'Çekiliyor'],
+                $active instanceof CollectionResourceRun => [
+                    match (app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->state($active)) {
+                        'running' => 'collecting', 'delayed' => 'delayed', 'retrying' => 'retrying', default => 'queued',
+                    },
+                    app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->label($active),
+                    app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->label($active),
+                ],
                 $latestNeedsAttention && $run?->status === CollectionRunStatus::Cancelled => ['resume', 'Aktarım durduruldu', 'Devam et'],
                 $latestNeedsAttention => ['needs_repair', 'Eksik veri var', 'Eksikleri tamamla'],
                 $completed instanceof CollectionResourceRun => ['collected', 'Veri mevcut', 'Şimdi güncelle'],
@@ -502,3 +514,4 @@ class ConnectorPage extends Component
         };
     }
 }
+

@@ -1,6 +1,27 @@
 <?php
 
 return [
+    'connection' => 'Connection',
+    'connected' => 'Connected',
+    'coverage' => 'Stored date range',
+    'coverage_note' => 'Bounds of successful batches; gaps may remain.',
+    'no_data' => 'No completed data yet',
+    'filter_state' => 'Operation state',
+    'overdue' => 'Schedule overdue',
+    'due_since' => 'Waiting since',
+    'active_work' => 'Active work',
+    'inspect_collection' => 'Collection details',
+    'collection_history_note' => 'Last five collections, newest first. An earlier error is not the outcome of a new attempt. Times use Europe/Istanbul.',
+    'written_rows' => ':count rows stored',
+    'retry_at' => 'Retry at',
+    'technical_details' => 'Technical error details',
+    'request_requires_fix' => 'Automatic retries stopped because the request or warehouse write requires a fix. Update now after the fix.',
+    'state_delayed' => 'Progress delayed',
+    'state_retrying' => 'Waiting for retry',
+    'state_cancellation_requested' => 'Stopping',
+    'state_cancelled' => 'Stopped',
+    'state_skipped' => 'Skipped',
+    'state_not_eligible' => 'Not eligible',
     'data_through' => 'Data date of last successful batch',
     'close_failed' => 'Close interrupted import',
     'close_failed_confirm' => 'Keep saved queries and skip the remaining rows in this import? Later data batches will use current account settings.',
@@ -78,7 +99,7 @@ return [
     'state_waiting' => 'Waiting',
     'state_planning' => 'Preparing',
     'state_collecting' => 'Collecting',
-    'state_current' => 'Current',
+    'state_current' => 'Last update completed',
     'state_attention' => 'Needs attention',
     'state_queued' => 'Queued',
     'state_running' => 'Running',
@@ -86,3 +107,4 @@ return [
     'state_partial' => 'Partial',
     'state_failed' => 'Failed',
 ];
+

@@ -178,7 +178,11 @@ final class StartCollectionService
     {
         $datasetIds = CollectionDatasetRun::query()
             ->where('collection_run_id', $run->id)
-            ->where('status', CollectionRunStatus::Queued->value)
+            ->where(function ($query): void {
+                $query->where('status', CollectionRunStatus::Queued->value)
+                    ->orWhere(fn ($retry) => $retry->where('status', CollectionRunStatus::Retrying->value)
+                        ->where(fn ($due) => $due->whereNull('retry_at')->orWhere('retry_at', '<=', now())));
+            })
             ->pluck('id');
 
         foreach ($datasetIds as $datasetId) {
@@ -188,7 +192,11 @@ final class StartCollectionService
                     ->find($datasetId);
 
                 if (! $candidate instanceof CollectionDatasetRun
-                    || $candidate->status !== CollectionRunStatus::Queued
+                    || ! in_array($candidate->status, [CollectionRunStatus::Queued, CollectionRunStatus::Retrying], true)
+                    || ($candidate->status === CollectionRunStatus::Retrying && $candidate->retry_at?->isFuture())
+                    || ! $candidate->collectionRun || $candidate->collectionRun->status->isTerminal()
+                    || $candidate->collectionRun->status === CollectionRunStatus::CancellationRequested
+                    || ($candidate->dispatch_lock_token && $candidate->dispatch_locked_at?->greaterThan(now()->subMinutes(15)))
                     || ! $this->dependenciesSatisfied($candidate)) {
                     return null;
                 }
@@ -262,3 +270,4 @@ final class StartCollectionService
         return ($timestamp + $leaseSeconds) > time();
     }
 }
+

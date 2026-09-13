@@ -169,7 +169,7 @@ final class FreeIntentRadar
                 }
                 if (! $decision['eligible']) {
                     $existing->update(['last_seen_at' => $page->last_seen_at, 'negative_signals' => $decision['negatives'],
-                        'purchase_stage' => 'unknown', 'classification_reason' => __('free_radar.no_longer_matches')]);
+                        'purchase_stage' => 'unknown', 'classification_reason' => 'free_radar.no_longer_matches']);
                     continue;
                 }
                 $signal = $existing ?? new SalesIntentSignal;
@@ -187,10 +187,10 @@ final class FreeIntentRadar
                     'service_definition_code' => $profile->service_definition_code,
                     'intent_category' => $profile->service_definition_code,
                     'intent_confidence' => $decision['score'], 'purchase_stage' => $decision['stage'],
-                    'classification_status' => 'available', 'classification_reason' => __('free_radar.'.$decision['reason']),
+                    'classification_status' => 'available', 'classification_reason' => 'free_radar.'.$decision['reason'],
                     'negative_signals' => $decision['negatives'], 'identity_status' => 'unknown',
                     'provenance' => ['provider' => 'public_sources', 'method' => 'rules_v1', 'source_id' => $page->sales_radar_source_id,
-                        'page_id' => $page->id, 'author' => $page->author, 'service_catalog_item_id' => $profile->service_catalog_item_id,
+                        'page_id' => $page->id, 'detail_state' => $page->state, 'detail_error' => $page->error, 'author' => $page->author, 'service_catalog_item_id' => $profile->service_catalog_item_id,
                         'service_name' => $profile->catalogService?->primaryName?->raw_label ?? $profile->name,
                         'market' => $profile->location, 'market_verified' => false,
                         'score_is_probability' => false, 'source_fetched_at' => $page->fetched_at?->toIso8601String()],
@@ -218,3 +218,4 @@ final class FreeIntentRadar
             ? substr($exception->getMessage(), 0, 150) : 'read_failed';
     }
 }
+

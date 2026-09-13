@@ -194,7 +194,7 @@ class Ga4CollectionMonitor extends Component
     {
         $datasets = $run->datasetRuns;
         $datasetTotal = $datasets->count();
-        $finishedDatasets = $datasets->filter(fn (CollectionDatasetRun $dataset): bool => $dataset->status->isTerminal())->count();
+        $finishedDatasets = $datasets->where('status', CollectionRunStatus::Completed)->count();
         $completedDatasets = $datasets->where('status', CollectionRunStatus::Completed)->count();
         $failedDatasets = $datasets->where('status', CollectionRunStatus::Failed)->count();
         $cancelledDatasets = $datasets->where('status', CollectionRunStatus::Cancelled)->count();
@@ -210,8 +210,8 @@ class Ga4CollectionMonitor extends Component
         return [
             'id' => (int) $run->id,
             'label' => (string) (data_get($run->metadata, 'collection_intent_label') ?: 'GA4 Merkezi Veri Toplama'),
-            'status' => $run->status->value,
-            'status_label' => $this->statusLabel($run->status),
+            'status' => app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->state($run),
+            'status_label' => app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->label($run),
             'progress_percent' => $progress,
             'properties_total' => count($resources),
             'properties_finished' => collect($resources)->where('terminal', true)->count(),
@@ -234,7 +234,7 @@ class Ga4CollectionMonitor extends Component
     {
         $datasets = $resource->datasetRuns;
         $total = $datasets->count();
-        $finished = $datasets->filter(fn (CollectionDatasetRun $dataset): bool => $dataset->status->isTerminal())->count();
+        $finished = $datasets->where('status', CollectionRunStatus::Completed)->count();
         $progress = $total > 0
             ? round($datasets->sum(fn (CollectionDatasetRun $dataset): float => $this->datasetProgress($dataset)) / $total * 100, 1)
             : 0.0;
@@ -258,8 +258,8 @@ class Ga4CollectionMonitor extends Component
             'name' => (string) ($resource->externalResource?->display_name ?: 'GA4 Property'),
             'account_name' => $resourceMeta['account_display_name'] ?? $resourceMeta['account'] ?? 'Google Analytics',
             'property_id' => $resourceMeta['property_id'] ?? preg_replace('/^properties\//', '', (string) $resource->externalResource?->external_id),
-            'status' => $resource->status->value,
-            'status_label' => $this->statusLabel($resource->status),
+            'status' => app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->state($resource),
+            'status_label' => app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->label($resource),
             'terminal' => $resource->status->isTerminal(),
             'progress_percent' => $progress,
             'datasets_total' => $total,
@@ -298,7 +298,7 @@ class Ga4CollectionMonitor extends Component
             'name' => (string) ($resource->externalResource?->display_name ?: 'GA4 Property'),
             'account_name' => $meta['account_display_name'] ?? $meta['account'] ?? 'Google Analytics',
             'property_id' => $meta['property_id'] ?? preg_replace('/^properties\//', '', (string) $resource->externalResource?->external_id),
-            'status_label' => $this->statusLabel($resource->status),
+            'status_label' => app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->label($resource),
             'error_summary' => $resource->error_summary,
             'failed_count' => count($errors),
             'last_activity' => $resource->last_activity_at?->diffForHumans() ?? '—',
@@ -326,16 +326,7 @@ class Ga4CollectionMonitor extends Component
 
     private function datasetProgress(CollectionDatasetRun $dataset): float
     {
-        if ($dataset->status->isTerminal()) {
-            return 1.0;
-        }
-
-        $percentage = $dataset->percentage();
-        if ($percentage === null) {
-            return 0.0;
-        }
-
-        return min(1.0, max(0.0, $percentage / 100));
+        return $dataset->status === CollectionRunStatus::Completed ? 1.0 : 0.0;
     }
 
     private function statusLabel(CollectionRunStatus $status): string
@@ -378,3 +369,4 @@ class Ga4CollectionMonitor extends Component
         };
     }
 }
+

@@ -39,7 +39,7 @@ class GoogleAdsConnectorPage extends Component
 
     public ?string $actionMessage = null;
 
-    private const array TABS = ['accounts', 'data', 'activity'];
+    private const array TABS = ['accounts', 'manual', 'data', 'activity'];
 
     public function mount(): void
     {
@@ -113,8 +113,8 @@ class GoogleAdsConnectorPage extends Component
                 'accounts' => count($rows),
                 'collectable' => collect($rows)->where('provider_selectable', true)->count(),
                 'collected' => collect($rows)->where('data_state', 'collected')->count(),
-                'attention' => collect($rows)->whereIn('data_state', ['needs_repair', 'resume'])->count(),
-                'collecting' => collect($rows)->where('data_state', 'collecting')->count(),
+                'attention' => collect($rows)->whereIn('data_state', ['needs_repair', 'resume', 'delayed'])->count(),
+                'collecting' => collect($rows)->whereIn('data_state', ['collecting', 'queued', 'retrying', 'delayed'])->count(),
             ],
             'materializations' => $materializations,
             'datasetCatalog' => collect(GoogleAdsCentralRequestFamilyCatalog::definitions())
@@ -154,6 +154,12 @@ class GoogleAdsConnectorPage extends Component
                 ->whereNull('digital_asset_id')
                 ->where('metadata->collection_scope', 'provider_resource_first')
                 ->whereIn('external_resource_id', $resourceIds)
+                ->where(function ($query) use ($resourceIds): void {
+                    $query->whereIn('id', CollectionResourceRun::query()->whereIn('external_resource_id', $resourceIds)
+                        ->selectRaw('MAX(id)')->groupBy('external_resource_id', 'provider_or_source', 'digital_asset_id'))
+                        ->orWhereIn('id', CollectionResourceRun::query()->whereIn('external_resource_id', $resourceIds)
+                            ->where('status', CollectionRunStatus::Completed)->selectRaw('MAX(id)')->groupBy('external_resource_id', 'provider_or_source', 'digital_asset_id'));
+                })
                 ->with(['datasetRuns', 'collectionRun'])
                 ->orderByDesc('id')
                 ->get()
@@ -186,7 +192,13 @@ class GoogleAdsConnectorPage extends Component
                 && (! $completed instanceof CollectionResourceRun || $latest->id > $completed->id);
 
             [$dataState, $stateLabel, $actionLabel] = match (true) {
-                $active instanceof CollectionResourceRun => ['collecting', 'Çekiliyor', 'Çekiliyor'],
+                $active instanceof CollectionResourceRun => [
+                    match (app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->state($active)) {
+                        'running' => 'collecting', 'delayed' => 'delayed', 'retrying' => 'retrying', default => 'queued',
+                    },
+                    app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->label($active),
+                    app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->label($active),
+                ],
                 $attention && $latest?->status === CollectionRunStatus::Cancelled => ['resume', 'Aktarım durduruldu', 'Devam et'],
                 $attention => ['needs_repair', 'Eksik veri var', 'Eksikleri tamamla'],
                 $completed instanceof CollectionResourceRun => ['collected', 'Veri mevcut', 'Şimdi güncelle'],
@@ -304,3 +316,4 @@ class GoogleAdsConnectorPage extends Component
         }
     }
 }
+

@@ -1,12 +1,15 @@
 <?php
 
 return [
+    'manage_services' => 'Takip ettiğim hizmetler',
+    'choose_sales_services' => 'Yalnızca satışını yaptığınız hizmetleri seçin. Mevcut takipleriniz aşağıdadır; yeni hizmet için kütüphanede en az iki harfle arayın. Müşterilerin sektör hizmetleri otomatik olarak takip edilmez.',
+    'content_pending' => 'İlanın ayrıntısı henüz doğrulanamadı. Kaynaktan kontrol edebilirsiniz.',
     'title' => 'Niyet Radarı',
     'subtitle' => 'Hizmetlerini arayanların açık taleplerini takip et.',
     'no_fees' => 'API ve AI ücreti yok',
-    'services' => 'Hizmetlerim',
+    'services' => 'Satışını yaptığım hizmetler',
     'search_services' => 'Kütüphanede hizmet ara',
-    'no_services' => 'Eşleşen hizmet yok. Kütüphane → Hizmetler alanından ekleyebilirsin.',
+    'no_services' => 'Eklemek istediğiniz hizmeti adıyla arayın. Kayıtlı değilse Kütüphane → Hizmetler alanından ekleyebilirsiniz.',
     'market' => 'Hedef lokasyon (isteğe bağlı)',
     'market_example' => 'Örn. İzmir',
     'frequency' => 'Kontrol sıklığı',
@@ -85,3 +88,4 @@ return [
     'rule_score' => 'Kurallı eşleşme puanı; satın alma olasılığı değildir.',
     'historical' => 'Önceki kaynaktan kayıt',
 ];
+

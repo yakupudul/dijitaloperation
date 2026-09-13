@@ -1,10 +1,11 @@
-<div wire:poll.2s.visible class="space-y-3">
+<div wire:poll.15s.visible class="space-y-3">
     @if ($actionMessage)
         <div class="rounded-lg bg-blue-50 px-4 py-3 text-sm text-blue-700 ring-1 ring-inset ring-blue-100 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-500/20">
             {{ $actionMessage }}
         </div>
     @endif
 
+    @if (! empty($runs))<p class="text-xs text-gray-500">Yüzde, başarıyla tamamlanan veri gruplarını gösterir; hata veya atlanan gruplar başarı sayılmaz.</p>@endif
     @foreach ($runs as $run)
         <section class="overflow-hidden rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" wire:key="gsc-live-run-{{ $run['id'] }}">
             <div class="px-5 py-5">
@@ -17,7 +18,7 @@
                                 'bg-amber-500' => $run['status'] === 'cancellation_requested',
                             ])></span>
                             <h2 class="text-base font-semibold text-gray-900 dark:text-white">
-                                {{ $run['status'] === 'cancellation_requested' ? 'Search Console aktarımı durduruluyor' : 'Search Console verileri çekiliyor' }}
+                                Search Console · {{ $run['status_label'] }}
                             </h2>
                             <span class="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700 dark:bg-blue-500/10 dark:text-blue-300">{{ $run['status_label'] }}</span>
                         </div>
@@ -174,6 +175,8 @@
     @endforeach
 
     @if (! empty($issues))
+        <details class="rounded-xl border border-amber-200 p-4 dark:border-amber-900">
+            <summary class="cursor-pointer text-sm font-medium text-amber-800 dark:text-amber-300">{{ count($issues) }} hesapta tamamlanamayan önceki çekim</summary>
         <section class="overflow-hidden rounded-xl bg-white ring-1 ring-inset ring-amber-200 dark:bg-gray-900 dark:ring-amber-800/60">
             <div class="border-b border-amber-100 px-5 py-4 dark:border-amber-900/40">
                 <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Tamamlanamayan Search Console verileri</h2>
@@ -201,5 +204,7 @@
                 @endforeach
             </div>
         </section>
+        </details>
     @endif
 </div>
+

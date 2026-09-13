@@ -331,7 +331,7 @@ final class SearchConsoleCentralDatasetExecutor implements DatasetExecutor
     ): DatasetExecutionResult {
         $isPageDataset = $datasetId === 'gsc_search_appearance_page_daily';
         $dimensions = $isPageDataset ? ['date', 'page'] : ['date'];
-        $aggregationType = $isPageDataset ? 'byPage' : 'byProperty';
+        $aggregationType = 'auto';
         $sliceDays = $isPageDataset ? 1 : 7;
         $slices = $this->slicer->slices($start, $end, $sliceDays);
         $checkpoint = is_array($context->checkpoint) ? $context->checkpoint : [];
@@ -738,3 +738,4 @@ final class SearchConsoleCentralDatasetExecutor implements DatasetExecutor
         );
     }
 }
+

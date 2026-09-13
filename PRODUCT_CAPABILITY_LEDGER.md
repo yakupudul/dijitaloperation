@@ -700,3 +700,44 @@ The current free path supersedes the paid-only UI described in the historical Ba
   Especially missing publication markup, body-only requests, large/paginated archives and
   rapid deletions between list reads limit recall. This slice does not fix broader brand
   Public Discovery or add paid/semantic search.
+
+
+
+## 2026-09-13 — Integration and Intent Radar operator review corrections
+
+Owner-authorized direct staging revision; no main changes, PR, clone, tests or local build.
+The owner additionally authorized SSH inspection/deployment for this revision. The SSH attempt
+failed at DNS resolution before authentication; no server access or deployment was performed.
+
+- Search Appearance filtered queries use automatic aggregation, removing the observed BY_PROPERTY
+  invalid request. Normalizer keeps provider response aggregation provenance. Deployment explicitly
+  re-admits automation accounts stopped by this known error; original runs/checkpoints remain.
+- Invalid-request/persistence failures stop account-level automatic retry storms. Known earlier GA4
+  landing-page recovery also recognizes this stopped state. Other errors are not silently repaired.
+- Expired queue dispatch claims can republish due retrying datasets as well as queued datasets,
+  respecting retry deadlines, execution leases, dependencies, terminal/cancelling parents.
+- DB worker ordering uses COALESCE(activity, created_at), preventing PostgreSQL NULL-last ordering
+  from indefinitely favouring previously started work over never-started datasets. Initial account
+  admission precedes repeat account refreshes. Existing concurrency limits and history scopes remain.
+- GSC/GA4/Ads share a read-only state presenter: queued, running, retry wait and progress delayed
+  are distinct. Thirty-minute delay is an observation, not proof of a failed worker. Future retry
+  deadlines do not become stalls. Success percentages count successful datasets only.
+- Main account surfaces use the existing paginated automation table with locked source type,
+  stored date bounds, status and collection detail drawer. Bulk operations have their own tab;
+  live collection/error history is in Activity. Query mapping stays in the Queries import workspace.
+  Coverage bounds do not prove uninterrupted coverage. Details distinguish earlier attempts.
+- Account summaries load latest attempt/latest success per resource/provider/asset instead of
+  hydrating all history. Monitor polling is reduced to 15 seconds. Operational table times use
+  Europe/Istanbul; provider reporting dates keep their original meaning.
+- Radar defaults to explicitly chosen catalog services, with search to add a sold service.
+  Existing profiles persist; customer services are not inferred as agency offerings. Setup is
+  collapsible. Missing body is labelled rather than repeating the title as an apparent excerpt.
+- Public-source classification reasons are language-independent keys; existing TR/EN reason text
+  is localized on read without deleting history. Primary-post parsing supports nested schema
+  objects, schema type arrays, postcontent and scoped publication/author markup; no reply-body
+  fallback, login bypass, paid API, AI call or invented publication date is introduced.
+
+Validation: source review only, no PHP/Blade compilation, test suite, browser UAT or live provider
+verification. Real forum accessibility/markup and server queue recovery remain deployment UAT.
+The broader recent-data-first / bounded historical backfill redesign is not part of this correction;
+initial 486-day GSC/GA4 scopes and existing Ads history policy still apply. This is not a DONE claim.
