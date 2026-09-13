@@ -15,6 +15,7 @@ class SalesSearchProfile extends Model
 
     protected $fillable = [
         'name',
+        'service_catalog_item_id', 'free_radar_enabled', 'radar_interval_minutes', 'radar_next_at',
         'service_definition_code',
         'language',
         'country',
@@ -36,7 +37,15 @@ class SalesSearchProfile extends Model
             'exclude_concepts' => 'array',
             'minimum_intent_confidence' => 'integer',
             'active' => 'boolean',
+            'free_radar_enabled' => 'boolean',
+            'radar_interval_minutes' => 'integer',
+            'radar_next_at' => 'datetime',
         ];
+    }
+
+    public function catalogService(): BelongsTo
+    {
+        return $this->belongsTo(ServiceCatalogItem::class, 'service_catalog_item_id');
     }
 
     /**

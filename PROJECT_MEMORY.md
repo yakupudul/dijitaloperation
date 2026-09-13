@@ -1,5 +1,46 @@
 # PROJECT_MEMORY
 
+## 2026-09-13 — Free public-source Intent Radar (staging)
+
+Owner authorization: implement the agreed fastest no-paid-API/no-AI source-monitoring slice;
+write directly to chatgpt/search-demand-foundation, no main/PR/clone/test/server deployment.
+The current free path supersedes the paid-only UI described in the historical Batch B below.
+
+- Existing SalesSearchProfile/Signal/RadarRun and sales activity history are reused. Profiles
+  may bind the global ServiceCatalogItem and its live names/matching keywords, with optional
+  additional/excluded terms and a location expression. Built-in aliases cover website, SEO,
+  Google Ads and social advertising. Rule scores are heuristic, never purchase probabilities.
+- FreeIntentRadar + RunFreeIntentRadar use the existing default worker; scheduler every five
+  minutes admits one agency-wide job. Default per-profile cadence is hourly or daily. No
+  DataForSEO, AI, Google scraping, browser service, new dependency or outbound message.
+- Migration seeds four public category URLs: WM Aracı (job requests, Ads, SEO) and
+  R10 software/web job requests, not sample leads. Operators can add same-origin RSS/Atom or public HTML lists, capped at 20 sources.
+  This is bounded source monitoring, not automatic whole-web/source discovery.
+- Shared source/page cache prevents per-service repeated fetches. A job reads at most two
+  due lists and two due detail pages; robots is cached separately for one hour. Lists yield
+  at most 100 candidates, matching examines the latest 500 candidates. Remaining due work
+  gets another scheduled pass. HTML discovery requires a demand-bearing link title.
+- PublicHttpFetcher/PublicUrlSafety are reused. Robots disallow fails closed; unavailable
+  robots, source errors and unrecognized content are shown rather than reported as no demand.
+  Same-host page identity preserves URL path/query. No login/cookie/CAPTCHA bypass.
+- Detail extraction uses primary structured article/discussion data or known first-post
+  markup; it does not classify forum replies/navigation as the original request. Missing
+  content/date remains review-only. Known publication older than 30 days is excluded.
+  Unknown market remains review-only. Cached details refresh daily, bounded by the queue.
+- Profile+URL fingerprint is stable across edited text. Rediscovery preserves review,
+  dismissal and prospect conversion. Historical paid/AI signals remain visible and labelled.
+  Prospect handoff is the existing explicit conversion/research workflow.
+- Source failures back off 1h to 24h. Interrupted queued/running sales runs are failed by
+  the watchdog after 20 minutes; the next due profile is eligible again. Active owner
+  and application access are rechecked before automatic work.
+- Tests, PHP lint, formatter/build and live operator UAT were NOT run at owner request.
+  Source URLs were inspected through public web research, not fetched successfully from
+  this execution environment. Real staging robots/HTML/queue/parser behavior remains UAT.
+  Especially missing publication markup, body-only requests, large/paginated archives and
+  rapid deletions between list reads limit recall. This slice does not fix broader brand
+  Public Discovery or add paid/semantic search.
+
+
 ## 2026-09-12 — Automatic account admission must match worker isolation
 
 Post-deploy operator evidence still showed many never-collected Ads accounts while automatic

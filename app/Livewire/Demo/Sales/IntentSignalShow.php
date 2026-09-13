@@ -78,7 +78,7 @@ class IntentSignalShow extends Component
 
         return view('livewire.demo.sales.intent-signal-show', [
             'signal' => $signal,
-            'serviceLabel' => AgencyServiceOptions::label($signal->service_definition_code),
+            'serviceLabel' => ($signal->searchProfile?->catalogService?->primaryName?->raw_label ?? AgencyServiceOptions::label($signal->service_definition_code)),
         ]);
     }
 }

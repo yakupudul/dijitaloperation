@@ -326,3 +326,11 @@ Artisan::command('moxdop:whatsapp:dispatch', function (): void {
 
 Schedule::command('moxdop:whatsapp:dispatch')
     ->everyMinute()->withoutOverlapping(2)->name('whatsapp-assistant-dispatch');
+
+
+Artisan::command('moxdop:intent-radar:tick', function (): void {
+    app(\App\Services\Sales\FreeIntentRadar::class)->tick();
+})->purpose('Queue one bounded free public-source radar run.');
+
+Schedule::command('moxdop:intent-radar:tick')
+    ->everyFiveMinutes()->withoutOverlapping(5)->name('free-intent-radar');

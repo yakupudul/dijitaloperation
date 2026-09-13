@@ -5,7 +5,7 @@ namespace App\Livewire\Demo\Sales;
 use App\Models\SalesIntentRadarRun;
 use App\Models\SalesSearchProfile;
 use App\Services\Sales\IntentQueryPlanner;
-use App\Services\Sales\IntentRadarService;
+use App\Services\Sales\FreeIntentRadar;
 use App\Support\Demo\DemoState;
 use App\Support\Options\AgencyServiceOptions;
 use App\Support\Sales\IntentSearchConfig;
@@ -40,8 +40,10 @@ class SearchProfileShow extends Component
         $this->running = true;
         try {
             $profile = SalesSearchProfile::query()->findOrFail($this->profileId);
-            app(IntentRadarService::class)->run($profile, auth()->user(), $this->paid_consent);
-            DemoState::flash(__('operator.sales_intent.run_started'));
+            abort_unless(auth()->user()?->is_active && auth()->user()?->can(\App\Support\Permissions::ACCESS_APP), 403);
+            $profile->update(['free_radar_enabled' => true]);
+            $run = app(FreeIntentRadar::class)->queue($profile, auth()->user());
+            DemoState::flash(__($run ? 'free_radar.queued' : 'free_radar.busy_or_paused'));
         } finally {
             $this->running = false;
         }
@@ -58,7 +60,7 @@ class SearchProfileShow extends Component
 
         return view('livewire.demo.sales.search-profile-show', [
             'profile' => $profile,
-            'serviceLabel' => AgencyServiceOptions::label($profile->service_definition_code),
+            'serviceLabel' => $profile->catalogService?->primaryName?->raw_label ?? AgencyServiceOptions::label($profile->service_definition_code),
             'queryPlan' => app(IntentQueryPlanner::class)->plan($profile),
             'runs' => $runs,
             'paidCallsEnabled' => IntentSearchConfig::paidCallsEnabled(),

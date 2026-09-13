@@ -672,3 +672,13 @@ Provider/plan/renewal, uptime, backups, environment stack — Manual/Unknown whe
 ---
 
 *End of Master Product Blueprint.*
+
+## Free Intent Radar — approved staging extension, 2026-09-13
+
+Sales → Intent Radar uses the global service catalog to enable hourly/daily public-source
+monitoring. Source names, check times, unavailable vs empty states, original publication dates,
+review-only uncertainty and stable human signal decisions remain visible. Background operation
+does not depend on an open tab. The initial four public category URLs are source seeds, not
+demo records; custom HTML/RSS sources are optional. No paid API, AI, general web-search promise
+or automatic outreach. Existing Search Profiles and explicit Prospect handoff remain available.
+Implementation and UAT limits: docs/architecture/SALES_ASSISTANT_V1_IMPLEMENTATION_B.md.

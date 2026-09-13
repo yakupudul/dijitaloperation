@@ -18,6 +18,9 @@
         </div>
     </div>
 
+    @if (data_get($signal->provenance, 'method') === 'rules_v1')
+        <p class="text-xs text-gray-500">{{ __('free_radar.rule_score') }} · {{ __('free_radar.date') }}: {{ $signal->published_at?->format('d.m.Y') ?? __('free_radar.date_unknown') }}</p>
+    @endif
     <div class="grid gap-5 lg:grid-cols-2">
         <x-ta.card>
             <h2 class="text-lg font-semibold">{{ __('operator.sales_intent.fields.snippet') }}</h2>

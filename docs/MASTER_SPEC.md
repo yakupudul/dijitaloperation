@@ -392,3 +392,14 @@ and authorizations remain untouched. The explicit WABA/phone binding is configur
 Only active Admin operators can access the inbox; Team Member access is not enabled in this version.
 The dedicated workflow uses the existing Laravel AI SDK and central AI route/provider credentials.
 Full contract and limitations: `docs/product/WHATSAPP_ASSISTANT.md`.
+
+## 17. Free Intent Radar — owner-authorized staging extension (2026-09-13)
+
+The operator approved bounded public demand monitoring for agency service sales without paid
+search or AI APIs. Existing Sales profiles/signals/prospects own this workflow; no managed
+Customer/Brand/Asset or new Finding/Task is required to observe a prospective request.
+Selected global catalog services, optional terms/location, monitored public HTML/RSS sources,
+persistent background schedules and explicit prospect conversion form the initial scope.
+External writes, auto-outreach and fabricated identity remain prohibited. No generalized
+web-search/MCP capability layer is introduced. Scope and runtime limits are recorded in
+docs/architecture/SALES_ASSISTANT_V1_IMPLEMENTATION_B.md and PRODUCT_CAPABILITY_LEDGER.md.
