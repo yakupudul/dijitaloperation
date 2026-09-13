@@ -14,7 +14,7 @@ return [
 
     'page_size' => (int) env('MOXDOP_GA4_PAGE_SIZE', 10000),
 
-    'max_pages_per_tick' => (int) env('MOXDOP_GA4_MAX_PAGES_PER_TICK', 20),
+    'max_pages_per_tick' => max(1, min(5, (int) env('MOXDOP_GA4_MAX_PAGES_PER_TICK', 5))),
 
     /**
      * Preferred inclusive date-slice width (days) per request family.
@@ -50,3 +50,4 @@ return [
 
     'raw_retention_class' => 'provider_raw_standard',
 ];
+

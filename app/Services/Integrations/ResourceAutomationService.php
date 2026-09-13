@@ -114,9 +114,11 @@ final class ResourceAutomationService
                 ->where('collection_queued_at', '<', now()->subMinutes(15))
                 ->update(['collection_status' => 'waiting', 'collection_queued_at' => null]);
 
-            // Match the dedicated Ads worker and the shared provider worker: one cannot starve the other.
-            $this->admitCollections(true, $connection);
-            $this->admitCollections(false, $connection);
+            // Admission is per provider type; a long GSC history must not block GA4 or Meta.
+            // Existing workers still bound actual HTTP concurrency.
+            foreach (self::TYPES as $resourceType) {
+                $this->admitCollections($resourceType, $connection);
+            }
             app(AutomaticQueryImportService::class)->dispatchDue();
         } finally {
             $lock->release();
@@ -182,9 +184,9 @@ final class ResourceAutomationService
         return $recovered;
     }
 
-    private function admitCollections(bool $googleAds, string $connection): void
+    private function admitCollections(string $resourceType, string $connection): void
     {
-        $scope = fn ($q) => $q->where('resource_type', $googleAds ? '=' : '!=', 'google_ads');
+        $scope = fn ($q) => $q->where('resource_type', $resourceType);
         $activeIds = CollectionResourceRun::query()->whereIn('status', self::ACTIVE)
             ->whereHas('collectionRun', fn ($q) => $q->whereIn('status', self::ACTIVE))
             ->whereHas('externalResource', $scope)->pluck('external_resource_id');

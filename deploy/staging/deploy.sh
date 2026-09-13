@@ -195,7 +195,7 @@ as_root supervisorctl status moxdop-staging-google-ads-collection || exit 1
 
 echo "deploy/staging: collection state"
 php artisan moxdop:collection:status --no-interaction || true
-php artisan moxdop:collection:status --provider=GOOGLE_ADS --no-interaction || true
+php artisan moxdop:collection:status --provider=GOOGLE_ADS --details --no-interaction || true
 
 echo "deploy/staging: collection dispatch sink depth"
 php -r '

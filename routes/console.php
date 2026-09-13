@@ -114,7 +114,7 @@ Artisan::command('moxdop:collection:work-db {--provider=} {--exclude-provider=} 
     return 0;
 })->purpose('Continuously execute canonical queued/retrying collection datasets directly from PostgreSQL state.');
 
-Artisan::command('moxdop:collection:status {--provider=}', function () {
+Artisan::command('moxdop:collection:status {--provider=} {--details}', function () {
     $provider = strtoupper(trim((string) $this->option('provider')));
     $activeStatuses = [
         CollectionRunStatus::Queued->value,
@@ -147,11 +147,13 @@ Artisan::command('moxdop:collection:status {--provider=}', function () {
         $failed = $datasets->where('status', CollectionRunStatus::Failed)->count();
         $attempts = (int) $datasets->sum('attempt_count');
         $locked = $datasets->filter(fn (CollectionDatasetRun $dataset): bool => filled($dataset->dispatch_lock_token))->count();
+        $effectiveState = app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->state($run);
+        $activity = $datasets->map(fn ($dataset) => $dataset->last_activity_at)->filter()->sortDesc()->first();
 
         $this->line(sprintf(
             'Run #%d | %s | providers=%s | q=%d run=%d retry=%d done=%d fail=%d | attempts=%d locks=%d | activity=%s',
             $run->id,
-            $run->status->value,
+            $effectiveState,
             $providers !== '' ? $providers : '-',
             $queued,
             $running,
@@ -160,8 +162,30 @@ Artisan::command('moxdop:collection:status {--provider=}', function () {
             $failed,
             $attempts,
             $locked,
-            $run->last_activity_at?->diffForHumans() ?? '-',
+            $activity?->diffForHumans() ?? '-',
         ));
+        $pending = $datasets->filter(fn ($dataset) => ! $dataset->status->isTerminal());
+        $retryDates = $pending->filter(fn ($dataset) => $dataset->status === CollectionRunStatus::Retrying)
+            ->map(fn ($dataset) => $dataset->retry_at)->filter()->sort();
+        $this->line(sprintf('  stored_rows=%d | API_pages=%d | next_retry_UTC=%s',
+            (int) $datasets->sum('rows_written'), (int) $datasets->sum('pages_completed'),
+            $retryDates->first()?->toIso8601String() ?? '-'));
+        if ($this->option('details')) {
+            $safeErrors = app(\App\Services\Collection\CollectionErrorRecorder::class);
+            foreach ($datasets->filter(fn ($dataset) => in_array($dataset->status, [
+                CollectionRunStatus::Retrying, CollectionRunStatus::Failed, CollectionRunStatus::Running,
+            ], true))->take(30) as $dataset) {
+                $message = $safeErrors->sanitizeMessage($dataset->error_message, '');
+                $this->line(sprintf('  dataset=%d family=%s state=%s code=%s retry_UTC=%s progress=%s/%s rows=%d pages=%d stage=%s',
+                    $dataset->id, $dataset->request_family_id, $dataset->status->value,
+                    $dataset->error_code ?: '-', $dataset->retry_at?->toIso8601String() ?? '-',
+                    $dataset->progress_current ?? '-', $dataset->progress_total ?? '-',
+                    (int) $dataset->rows_written, (int) $dataset->pages_completed, $dataset->stage ?: '-'));
+                if ($message) {
+                    $this->line('    '.mb_substr(preg_replace('/\s+/', ' ', $message) ?? '', 0, 500));
+                }
+            }
+        }
     }
 
     $datasetQuery = CollectionDatasetRun::query()

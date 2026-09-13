@@ -902,3 +902,28 @@ Validation: source review only, no PHP/Blade compilation, test suite, browser UA
 verification. Real forum accessibility/markup and server queue recovery remain deployment UAT.
 The broader recent-data-first / bounded historical backfill redesign is not part of this correction;
 initial 486-day GSC/GA4 scopes and existing Ads history policy still apply. This is not a DONE claim.
+
+
+## 2026-09-13 — Runtime evidence: provider admission starvation
+
+Owner supplied bf9c171 deployment output and a second status sample 16 minutes later.
+All three Supervisor processes were RUNNING. GSC attempts increased 104→160 and 91→154
+while completed datasets stayed at 16 each. This proves execution attempts continued,
+not by itself that pages/checkpoints advanced. Ads attempts stayed at 3185 and 832;
+retry deadlines/errors were absent, so quota or another root cause is not yet established.
+The null collection queue sink is intentional DB-worker architecture, not a missing queue.
+
+Confirmed code/runtime mismatch: two GSC active accounts consumed the entire non-Ads
+admission lane. Ninety GA4 and 27 Meta accounts waited. Admissions now allocate the existing
+two-account limit per resource type, preserving actual worker count and per-account locks.
+Existing Meta/GBP binding/readiness checks still apply; this does not bypass account access.
+GSC/GA4 turns are capped at five API pages and resume saved checkpoints to share the worker
+more frequently. Full history scope is preserved; this is not the separate recent-first redesign.
+ProgressReporter now reflects persisted chunk progress on parent activity timestamps without
+counting the dataset complete. CLI status derives effective state from datasets, reports rows,
+API pages and retry deadline; --details prints capped sanitized error/progress lines. Deployment
+includes Ads detail output so its remaining blocker can be diagnosed from actual retry reasons.
+
+No tests, build, PHP/Blade compilation, provider UAT or SSH execution performed in this revision.
+The previous deployment was successful per the owner log; this revision still requires deployment
+and proof of GA4/Meta admission and advancing stored rows/pages. No overall resolved/DONE claim.

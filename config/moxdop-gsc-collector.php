@@ -21,7 +21,7 @@ return [
     'page_size' => (int) env('MOXDOP_GSC_PAGE_SIZE', 25000),
 
     /** Max Search Analytics pages processed per DatasetExecutor invocation before Continue. */
-    'max_pages_per_tick' => (int) env('MOXDOP_GSC_MAX_PAGES_PER_TICK', 50),
+    'max_pages_per_tick' => max(1, min(5, (int) env('MOXDOP_GSC_MAX_PAGES_PER_TICK', 5))),
 
     /**
      * Preferred inclusive date-slice width (days) per request family.
@@ -55,3 +55,4 @@ return [
 
     'raw_retention_class' => 'provider_raw_standard',
 ];
+

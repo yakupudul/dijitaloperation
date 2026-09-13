@@ -55,6 +55,14 @@ final class ProgressReporter
             'last_activity_at' => now(),
         ])->save();
 
+        // A multi-chunk dataset can keep collecting for hours before it completes.
+        // Reflect persisted progress on its parents without claiming dataset completion.
+        $datasetRun->resourceRun()->whereIn('status', ['queued', 'running', 'retrying', 'cancellation_requested'])
+            ->update(['last_activity_at' => $datasetRun->last_activity_at]);
+        $datasetRun->collectionRun()->whereIn('status', ['queued', 'running', 'retrying', 'cancellation_requested'])
+            ->update(['last_activity_at' => $datasetRun->last_activity_at]);
+
         DatasetRunProgressed::dispatch($datasetRun->fresh() ?? $datasetRun);
     }
 }
+
