@@ -29,14 +29,16 @@ Existing generic integration cards are not extended; configuration is in the Wha
 
 Meta Callback URL: `{APP_URL}/api/whatsapp/webhook`. Configure the matching Verify Token in Meta.
 Subscribe to `messages`; if Coexistence is available, also `smb_message_echoes` and `history`.
-Meta app/WABA subscription and business number onboarding must already be completed externally.
-This application does not register a number, perform Embedded Signup, subscribe a WABA, request
-history via a write endpoint, or automate a Business-app-to-API migration.
+As of the owner-authorized 2026-09-14 extension, Embedded Signup and WABA app subscription are
+implemented. Meta application callback/Verify Token/field configuration still happens in Meta.
+No number registration endpoint, history request endpoint or automated Business-app migration is called.
+The default flow requests Coexistence; Meta eligibility and operator consent remain required.
 
 GET verifies subscribe/challenge; POST verifies X-Hub-Signature-256 with App Secret over original bytes.
 Only matching WABA ID and Phone Number ID are processed. Four MiB application payload cap and rate
 limits apply; reverse-proxy body limits may be smaller and require host configuration for large history.
-A queued read-only Graph GET verifies phone ID/token/display number, not webhook/history completeness.
+A queued read-only check verifies phone, WABA membership, token/app identity when App ID is configured,
+and WABA app subscription separately. This does not prove message delivery or history completeness.
 Graph version defaults to v23.0 and is configurable with WHATSAPP_GRAPH_VERSION. Check the supported
 version and real app authorization during staging acceptance. No HTTP redirects or configurable hosts.
 
@@ -129,3 +131,55 @@ or installed vendor/Pint. No PHP/Blade compilation, full browser UAT, Meta verif
 was performed. The actual form submit handler passed isolated JavaScript checks for success,
 validation rejection and network failure; this is not browser UAT. Source reviewed; runtime
 acceptance remains pending, not DONE.
+
+
+
+## Embedded Signup and actionable diagnostics — 2026-09-14
+
+Owner approved the five next actions in the WhatsApp status review. Work remains on
+`chatgpt/search-demand-foundation`, no main changes or PR. A scoped setup exception permits
+`POST /{WABA_ID}/subscribed_apps` after explicit connection/subscription action. No message send,
+number registration, automatic migration, campaign mutation or automatic history-sync request.
+
+- `/whatsapp` now includes App ID, Configuration ID (initial form value `1757572378897162`),
+  Coexistence/Cloud API choice and write-only application credentials. Stored blank secrets preserve.
+  App ID must be supplied from the same Meta application's Basic settings; no ID is inferred.
+- `/whatsapp/connect/{attempt}` loads the Facebook SDK only on the isolated connection page. A
+  synchronous user click opens the popup. Exact Facebook origin allowlist and expected completion
+  event filtering; Coexistence requires its own completion event. Code and session events may arrive
+  in either order. No codes/tokens in query strings, localStorage, logs or Livewire properties.
+- An additive `whatsapp_signup_attempts` table stores encrypted short-lived code/token payloads,
+  initiating Admin/session hash, settings revision, expiry, phases and safe outcome details.
+  CSRF, active-Admin authorization, ownership, session binding, expiry and single-consumption gates
+  apply to callback and number selection. Validation failures never flash OAuth codes to session.
+- Background job exchanges the code, validates the issued token's app/required scopes, reads the
+  explicit WABA phone list, validates the selected phone and preserves existing conversation guards.
+  If Meta omits Phone Number ID, the operator chooses an explicitly listed number, including when
+  only one is present. Read is bounded to 100 phones; no arbitrary first account/number fallback.
+- Commit validated credentials/binding before subscribing so webhook ingestion can route events.
+  WABA subscription uses the issued token and is then confirmed with GET subscribed_apps for App ID.
+  This does not configure application callback/field subscriptions. Partial subscription failure
+  retains valid binding and provides a dedicated subscription retry without reusing the OAuth code.
+- Existing Redis default queue/Horizon and minute WhatsApp dispatch recover undispatched durable
+  jobs. Prepared/selection/queued attempts expire after 15 minutes; interrupted workers are marked
+  after 3 minutes. Encrypted temporary payloads are cleared on terminal/expiry/interruption states.
+  Browser closure after handoff does not stop the work. No dependency or second scheduler added.
+- API check stores redacted provider message, HTTP status, Meta code/subcode and trace ID. Raw
+  HTTP exceptions and secret-bearing URLs never become operator errors. WABA subscription and
+  actual stored message observation are separate facts. Completed zero-message receipts are explicit.
+- Callback verification records its timestamp; existing incoming/history/echo ingestion remains.
+  Existing messages can appear immediately after setup, but historical availability/completeness
+  and outbound echoes are not claimed before actual receipts. AI remains advisory/copy-only.
+
+Verification: source review only. Per operator preference no tests or browser UAT were run; this
+workspace lacks PHP/vendor, so PHP/Blade compilation and Pint were unavailable. No live Meta login,
+API request, subscription mutation or deployment was executed from this workspace. Official Meta
+implementation/Coexistence docs were requested but returned HTTP 429; the configured app's actual
+flow must be accepted in staging. SDK launch uses config_id/code response and Coexistence featureType,
+without forcing legacy sessionInfoVersion overrides. Live acceptance remains pending, not DONE.
+
+Deployment: existing exact-commit staging deploy runs the additive migration and restarts workers.
+In WhatsApp settings save the real Meta App ID, keep the supplied Configuration ID, confirm same-app
+App Secret/Verify Token, then use WhatsApp hesabını bağla. In Meta set the displayed callback URL,
+matching Verify Token and messages field (history/smb_message_echoes for eligible Coexistence).
+Confirm one inbound message and an AI suggestion manually. No historical completeness claim.

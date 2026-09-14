@@ -27,6 +27,10 @@ class Inbox extends Component
     #[Url]
     public ?int $conversation = null;
 
+    public string $app_id = '';
+    public string $signup_config_id = '1757572378897162';
+    public string $signup_mode = 'coexistence';
+
     public string $q = '';
     public bool $showSettings = false;
     public string $notice = '';
@@ -49,12 +53,50 @@ class Inbox extends Component
         foreach (['waba_id', 'phone_number_id', 'business_phone', 'business_context'] as $key) {
             $this->{$key} = (string) ($config[$key] ?? '');
         }
+        $this->app_id = (string) ($config['app_id'] ?? '');
+        $this->signup_config_id = (string) ($config['signup_config_id'] ?? '1757572378897162');
+        $this->signup_mode = (string) ($config['signup_mode'] ?? 'coexistence');
         $this->enabled = $integration?->isActive() ?? true;
         $this->automatic_suggestions = (bool) ($config['automatic_suggestions'] ?? true);
         $this->showSettings = $integration === null;
         if ($integration === null) {
             $this->business_context = 'Moximu — Yakup Udül. Kurumsal web sitesi: tek seferlik 14.000 TL. Mobil uyumlu, yönetim panelli, işletmeye özel tasarım ve 1 yıl destek. KDV, domain, hosting, teslim tarihi ve ödeme planı ayrıca netleştirilmeli; dahil olduğu varsayılmamalı. Diğer hizmetlerin fiyatını uydurma. Kısa, samimi, profesyonel ve baskısız Türkçe yaz. Sırf cevap vermiş olmak için takip mesajı önerme.';
         }
+    }
+
+    public function saveSignupSetup(array $secrets, \App\Services\WhatsApp\WhatsAppSignup $signup): bool
+    {
+        $this->resetValidation();
+        $this->notice = '';
+        try {
+            $signup->saveSetup(auth()->user(), [
+                'app_id' => trim($this->app_id), 'signup_config_id' => trim($this->signup_config_id),
+                'signup_mode' => $this->signup_mode, 'app_secret' => $secrets['app_secret'] ?? '',
+                'verify_token' => $secrets['verify_token'] ?? '',
+            ]);
+            $this->notice = 'Meta uygulama ayarları kaydedildi. WhatsApp hesabını bağla ile devam edin.';
+
+            return true;
+        } catch (ValidationException $exception) {
+            foreach ($exception->errors() as $field => $messages) {
+                $this->addError($field, $messages[0]);
+            }
+
+            return false;
+        }
+    }
+
+    public function beginSignup(\App\Services\WhatsApp\WhatsAppSignup $signup): void
+    {
+        $attempt = $signup->begin(auth()->user(), session()->getId());
+        $this->redirectRoute('operator.whatsapp.connect', ['attempt' => $attempt->id]);
+    }
+
+    public function subscribeWebhook(\App\Services\WhatsApp\WhatsAppSignup $signup): void
+    {
+        $attempt = $signup->begin(auth()->user(), session()->getId(), true);
+        $signup->dispatch($attempt);
+        $this->notice = 'WABA webhook aboneliği arka planda kuruluyor. Sonuç bu ekranda görünecek.';
     }
 
     public function updatedQ(): void
@@ -116,11 +158,13 @@ class Inbox extends Component
             $queued = DB::transaction(function () use ($integration, $requestId): bool {
                 $current = CoreIntegration::query()->lockForUpdate()->findOrFail($integration->id);
                 $config = $current->config ?? [];
+                app(\App\Services\WhatsApp\WhatsAppSignup::class)->assertIdle($current);
                 if (($config['connection_check'] ?? '') === 'queued'
                     && ! empty($config['connection_check_requested_at'])
                     && \Carbon\CarbonImmutable::parse($config['connection_check_requested_at'])->greaterThan(now()->subMinutes(2))) {
                     return false;
                 }
+                $config['connection_error'] = null;
                 $config['connection_check'] = 'queued';
                 $config['connection_check_request_id'] = $requestId;
                 $config['connection_check_requested_at'] = now()->toIso8601String();
@@ -135,6 +179,8 @@ class Inbox extends Component
             }
             CheckWhatsAppConnection::dispatch($integration->id, $requestId);
             $this->notice = 'Kayıtlı bilgilerle API kontrolü sıraya alındı. Sonuç otomatik yenilenecek.';
+        } catch (ValidationException $exception) {
+            $this->addError('connection', collect($exception->errors())->flatten()->first());
         } catch (Throwable $exception) {
             DB::transaction(function () use ($integration, $requestId): void {
                 $current = CoreIntegration::query()->lockForUpdate()->find($integration->id);
@@ -191,10 +237,14 @@ class Inbox extends Component
             'integration' => $integration, 'rows' => $rows, 'selected' => $selected, 'messages' => $messages,
             'config' => $integration?->config ?? [],
             'credentialStatus' => $connection->credentialStatus($integration),
+            'signupAttempt' => \App\Models\WhatsAppSignupAttempt::query()->where('integration_id', $integration?->id)
+                ->select(['id', 'user_id', 'status', 'step', 'mode', 'details', 'updated_at', 'expires_at'])
+                ->orderByDesc('created_at')->first(),
             'receipts' => WhatsAppWebhookReceipt::query()->where('integration_id', $integration?->id)
                 ->select(['id', 'status', 'accepted_count', 'ignored_count', 'error_code', 'created_at'])
                 ->orderByDesc('id')->limit(10)->get(),
         ]);
     }
 }
+
 

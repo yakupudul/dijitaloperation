@@ -14,10 +14,12 @@
             @foreach($errors->all() as $error)<p>{{ $error }}</p>@endforeach
         </div>
     @endif
+    @include('livewire.operator.whatsapp.connection-status')
     @if($showSettings)
+        @include('livewire.operator.whatsapp.signup-settings')
         <section class="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-200">
-            <h2 class="mb-3 text-lg font-semibold">Meta Cloud API bağlantısı</h2>
-            <p class="mb-4 text-sm text-gray-500">Mevcut WhatsApp Business API hesabının bilgilerini girin. Bu ekran yeni numara kaydı veya Coexistence başvurusu yapmaz.</p>
+            <h2 class="mb-3 text-lg font-semibold">Kayıtlı hesap ve hizmet bilgileri</h2>
+            <p class="mb-4 text-sm text-gray-500">Meta ile bağlandığınızda hesap ve telefon bilgileri otomatik kaydedilir. Hazır API hesabınız varsa aşağıdaki alanlarla manuel bağlantı da kurabilirsiniz.</p>
             <form class="space-y-4" autocomplete="off" x-data="{ saving: false, saveError: '', saveSuccess: '', dirty: false, entered: {}, visible: {} }" @input="dirty = true; saveSuccess = ''" @change="dirty = true; saveSuccess = ''"
                 @submit.prevent="
                     if (saving) return;
@@ -137,12 +139,13 @@
                 @if(!empty($config['settings_saved_at']))
                     <p class="text-xs text-gray-500">Son kayıt: {{ \Carbon\CarbonImmutable::parse($config['settings_saved_at'])->timezone('Europe/Istanbul')->format('d.m.Y H:i:s') }}</p>
                 @endif
-                <p class="text-xs text-gray-500">API erişim kontrolü geçmiş mesajların aktarılmış olduğunu veya webhook aboneliğinin tamamlandığını doğrulamaz.</p>
+                <p class="text-xs text-gray-500">API kontrolü hesap, numara ve WABA aboneliğini ayrı ayrı kontrol eder. Geçmiş mesajların aktarılmış olduğunu doğrulamaz.</p>
             </div>
         </section>
     @endif
     <div class="rounded-lg border border-gray-200 p-3 text-xs text-gray-600 dark:border-gray-700 dark:text-gray-400">
         <span>{{ $integration?->isActive() ? 'Mesaj alımı açık.' : 'Mesaj alımı kapalı veya bağlantı henüz kurulmadı.' }}</span>
+        <span>{{ ($config['coexistence_state'] ?? '') === 'signup_reported' ? 'Meta, uygulamayla birlikte kullanım bağlantısını tamamladı.' : 'Uygulamayla birlikte kullanım henüz doğrulanmadı.' }}</span>
         <span>Geçmiş: {{ ($config['history_state'] ?? '') === 'provider_error' ? 'Meta geçmiş paylaşım hatası bildirdi.' : (($config['history_state'] ?? '') === 'received_partial' ? 'Geçmiş parçaları alındı; eksiksiz geçmiş doğrulanmadı.' : 'Geçmiş aktarımı henüz görülmedi.') }}</span>
         <span>{{ !empty($config['echo_seen_at']) ? 'Telefondan gönderilen mesaj olayı alındı.' : 'Telefondan gönderdiğiniz cevapların aktarımı henüz doğrulanmadı.' }}</span>
         <span>Görseller ve ses kayıtlarının içeriği okunmaz. Saatler Türkiye saatidir.</span>
@@ -220,7 +223,7 @@
             <summary class="cursor-pointer">Son 10 mesaj aktarımı</summary>
             @forelse($receipts as $receipt)
                 <div class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 py-2 dark:border-gray-800">
-                    <span>{{ $receipt->created_at->timezone('Europe/Istanbul')->format('d.m.Y H:i') }} · {{ $receipt->status }} · {{ $receipt->accepted_count }} yeni mesaj · {{ $receipt->ignored_count }} işlenemeyen/başka kapsamdaki öğe</span>
+                    <span>{{ $receipt->created_at->timezone('Europe/Istanbul')->format('d.m.Y H:i') }} · {{ $receipt->status === 'completed' && $receipt->accepted_count === 0 ? 'İşlendi; yeni mesaj kaydı yok' : $receipt->status }} · {{ $receipt->accepted_count }} yeni mesaj · {{ $receipt->ignored_count }} işlenemeyen/başka kapsamdaki öğe</span>
                     @if($receipt->status === 'failed')<button type="button" wire:click="retryReceipt({{ $receipt->id }})" class="text-brand-500">Tekrar işle</button>@endif
                 </div>
             @empty
@@ -229,4 +232,5 @@
         </details>
     @endif
 </div>
+
 

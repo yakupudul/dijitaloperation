@@ -386,7 +386,9 @@ The owner requested a single additional MoxDOP menu for WhatsApp conversation re
 suggestions, on `chatgpt/search-demand-foundation` only, without main changes or a PR.
 This is an agency inbox advisory workflow, not an advertising Asset diagnosis or automatic outreach.
 It may draft a response to an existing conversation from normalized inbound/outbound message records
-and operator-maintained service terms. It cannot send messages, create Tasks, or mutate providers.
+and operator-maintained service terms. It cannot send messages or create Tasks. The owner-approved
+2026-09-14 connection extension permits Embedded Signup token exchange and WABA application
+subscription solely for establishing this inbound integration. No other provider mutation is added.
 A distinct `whatsapp` central Integration holds encrypted credentials so existing Meta Ads credentials
 and authorizations remain untouched. The explicit WABA/phone binding is configured by the owner.
 Only active Admin operators can access the inbox; Team Member access is not enabled in this version.
@@ -403,3 +405,4 @@ persistent background schedules and explicit prospect conversion form the initia
 External writes, auto-outreach and fabricated identity remain prohibited. No generalized
 web-search/MCP capability layer is introduced. Scope and runtime limits are recorded in
 docs/architecture/SALES_ASSISTANT_V1_IMPLEMENTATION_B.md and PRODUCT_CAPABILITY_LEDGER.md.
+

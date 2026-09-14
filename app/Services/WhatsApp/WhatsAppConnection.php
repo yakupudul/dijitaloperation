@@ -75,6 +75,7 @@ final class WhatsAppConnection
                 'name' => 'WhatsApp Business', 'status' => CoreIntegration::STATUS_DISABLED, 'config' => [],
             ]);
             $integration = CoreIntegration::query()->lockForUpdate()->findOrFail($integration->id);
+            app(WhatsAppSignup::class)->assertIdle($integration);
             $secrets = $this->secrets($integration);
             $labels = [
                 'access_token' => 'Access Token',
@@ -94,23 +95,17 @@ final class WhatsAppConnection
                 throw ValidationException::withMessages($missing);
             }
             $config = $integration->config ?? [];
-            $bindingChanged = false;
-            $bindingErrors = [];
-            foreach (['waba_id' => 'WABA ID', 'phone_number_id' => 'Phone Number ID'] as $key => $label) {
-                if (filled($config[$key] ?? null) && (string) $config[$key] !== (string) $data[$key]) {
-                    $bindingChanged = true;
-                    $bindingErrors[$key] = $label.' değiştirilemiyor: kayıtlı görüşme veya tamamlanmamış mesaj aktarımı var. Mevcut kayıtlı değeri kullanın; başka numaraya geçiş geçmiş veriler korunarak ayrıca yapılmalı.';
-                }
-            }
+            $bindingChanged = $this->assertBindingAvailable($integration, $data);
             if ($bindingChanged) {
-                $hasHistory = WhatsAppConversation::query()->where('integration_id', $integration->id)->exists();
-                $hasUnprocessedReceipts = WhatsAppWebhookReceipt::query()->where('integration_id', $integration->id)
-                    ->where('status', '!=', 'completed')->exists();
-                if ($hasHistory || $hasUnprocessedReceipts) {
-                    throw ValidationException::withMessages($bindingErrors);
-                }
-                unset($config['history_state'], $config['echo_seen_at'], $config['last_receipt_at']);
+                unset($config['history_state'], $config['echo_seen_at'], $config['last_receipt_at'], $config['last_message_received_at']);
             }
+            $config['settings_revision'] = (string) Str::uuid();
+            $config['connection_error'] = null;
+            if (filled($data['verify_token'] ?? null)) {
+                unset($config['webhook_verified_at']);
+            }
+            $config['subscription_state'] = 'not_checked';
+            $config['subscription_error'] = null;
             $contextChanged = ($config['business_context'] ?? '') !== $data['business_context'];
             $config['connection_check_request_id'] = (string) Str::uuid();
             $config['connection_check_requested_at'] = null;
@@ -133,5 +128,23 @@ final class WhatsAppConnection
             }
         });
     }
-}
 
+    public function assertBindingAvailable(CoreIntegration $integration, array $data): bool
+    {
+        $errors = [];
+        foreach (['waba_id' => 'WABA ID', 'phone_number_id' => 'Phone Number ID'] as $key => $label) {
+            $current = (string) data_get($integration->config, $key, '');
+            if ($current !== '' && $current !== (string) ($data[$key] ?? '')) {
+                $errors[$key] = $label.' değiştirilemiyor: kayıtlı görüşme veya tamamlanmamış mesaj aktarımı var. Mevcut numarayı seçin.';
+            }
+        }
+        if ($errors !== [] && (
+            WhatsAppConversation::query()->where('integration_id', $integration->id)->exists()
+            || WhatsAppWebhookReceipt::query()->where('integration_id', $integration->id)->where('status', '!=', 'completed')->exists()
+        )) {
+            throw ValidationException::withMessages($errors);
+        }
+
+        return $errors !== [];
+    }
+}

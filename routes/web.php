@@ -92,6 +92,12 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])->group(function (
 });
 
 Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])->group(function (): void {
+    Route::get('/whatsapp/connect/{attempt}', [\App\Http\Controllers\Integrations\WhatsAppSignupController::class, 'show'])
+        ->whereUuid('attempt')->name('operator.whatsapp.connect');
+    Route::post('/whatsapp/connect/{attempt}', [\App\Http\Controllers\Integrations\WhatsAppSignupController::class, 'complete'])
+        ->whereUuid('attempt')->middleware('throttle:10,1')->name('operator.whatsapp.complete');
+    Route::post('/whatsapp/connect/{attempt}/phone', [\App\Http\Controllers\Integrations\WhatsAppSignupController::class, 'selectPhone'])
+        ->whereUuid('attempt')->middleware('throttle:10,1')->name('operator.whatsapp.select-phone');
     Route::livewire('/whatsapp', \App\Livewire\Operator\WhatsApp\Inbox::class)
         ->name('operator.whatsapp');
 });
@@ -132,4 +138,5 @@ Route::any('/app/{path?}', [LegacyRetiredPrefixController::class, 'app'])
 
 Route::any('/system/{path?}', [LegacyRetiredPrefixController::class, 'system'])
     ->where('path', '.*');
+
 

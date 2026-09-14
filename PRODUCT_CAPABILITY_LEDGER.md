@@ -766,3 +766,22 @@ includes Ads detail output so its remaining blocker can be diagnosed from actual
 No tests, build, PHP/Blade compilation, provider UAT or SSH execution performed in this revision.
 The previous deployment was successful per the owner log; this revision still requires deployment
 and proof of GA4/Meta admission and advancing stored rows/pages. No overall resolved/DONE claim.
+
+
+
+## 2026-09-14 — WhatsApp Embedded Signup and connection diagnostics
+
+Owner approved implementing the WhatsApp status review's next actions. On the existing
+chatgpt/search-demand-foundation branch: App ID/configuration setup (initial Configuration ID
+1757572378897162), dedicated Facebook signup page with Coexistence selection, encrypted expiring
+Admin/session-bound attempts, async token/app/scope/WABA/phone verification, explicit number choice
+when Meta omits it, preserved history/rebinding guards and WABA subscription with separate retry.
+User-authorized scoped setup mutation is POST WABA/subscribed_apps; no message send, automatic
+migration, number registration or automatic history request. Meta Ads integration stays separate.
+Provider diagnostic message/HTTP/code/subcode/trace are redacted and visible. Subscription,
+callback verification, actual message persistence and history/echo observations remain separate.
+Existing WhatsApp scheduler handles queue recovery/expiry; browser not needed after code handoff.
+Product contract: docs/product/WHATSAPP_ASSISTANT.md. Additive migration only. No tests, build,
+PHP/Blade compilation, live Meta UAT or server deployment executed. PHP/vendor are unavailable;
+Pint unavailable. Source-reviewed implementation; actual app login/permissions/webhook fields and
+real inbound/echo/history/AI behavior await operator acceptance. Not DONE or live-verified.

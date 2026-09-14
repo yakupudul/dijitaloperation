@@ -98,6 +98,9 @@ final class WhatsAppIngestion
                 $config['echo_seen_at'] = now()->toIso8601String();
             }
             $config['last_receipt_at'] = now()->toIso8601String();
+            if ($accepted > 0) {
+                $config['last_message_received_at'] = now()->toIso8601String();
+            }
             $integration->update(['config' => $config]);
             $receipt->update([
                 'status' => 'completed', 'accepted_count' => $accepted, 'ignored_count' => $ignored,
@@ -158,3 +161,4 @@ final class WhatsAppIngestion
         return 1;
     }
 }
+

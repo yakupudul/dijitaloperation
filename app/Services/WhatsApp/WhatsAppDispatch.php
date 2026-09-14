@@ -12,6 +12,14 @@ final class WhatsAppDispatch
     public function tick(): void
     {
         $integration = app(WhatsAppConnection::class)->integration();
+        // Recover interrupted signup work and remove short-lived encrypted OAuth material.
+        \App\Models\WhatsAppSignupAttempt::query()->whereIn('status', ['prepared', 'choose_phone', 'queued'])
+            ->where('expires_at', '<', now())->update(['status' => 'expired', 'payload' => null, 'updated_at' => now()]);
+        \App\Models\WhatsAppSignupAttempt::query()->where('status', 'running')->where('updated_at', '<', now()->subMinutes(3))
+            ->update(['status' => 'interrupted', 'payload' => null, 'updated_at' => now()]);
+        foreach (\App\Models\WhatsAppSignupAttempt::query()->where('status', 'queued')->limit(5)->get() as $attempt) {
+            app(WhatsAppSignup::class)->dispatch($attempt);
+        }
         if (! $integration?->isActive()) {
             return;
         }
@@ -34,3 +42,4 @@ final class WhatsAppDispatch
         }
     }
 }
+

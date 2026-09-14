@@ -22,6 +22,15 @@ final class WhatsAppWebhookController
         abort_unless($mode === 'subscribe' && is_string($supplied) && $token !== '' && hash_equals($token, $supplied), 403);
         abort_unless(is_string($challenge) && preg_match('/^[0-9]{1,100}$/', $challenge), 400);
 
+        DB::transaction(function () use ($integration, $connection, $supplied): void {
+            $current = CoreIntegration::query()->lockForUpdate()->findOrFail($integration->id);
+            $token = (string) ($connection->secrets($current)['verify_token'] ?? '');
+            abort_unless($current->isActive() && $token !== '' && hash_equals($token, $supplied), 403);
+            $config = $current->config ?? [];
+            $config['webhook_verified_at'] = now()->toIso8601String();
+            $current->update(['config' => $config]);
+        });
+
         return response($challenge, 200)->header('Content-Type', 'text/plain');
     }
 
@@ -51,4 +60,5 @@ final class WhatsAppWebhookController
         return response('EVENT_RECEIVED', 200)->header('Content-Type', 'text/plain');
     }
 }
+
 
