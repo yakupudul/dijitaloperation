@@ -785,3 +785,15 @@ Product contract: docs/product/WHATSAPP_ASSISTANT.md. Additive migration only. N
 PHP/Blade compilation, live Meta UAT or server deployment executed. PHP/vendor are unavailable;
 Pint unavailable. Source-reviewed implementation; actual app login/permissions/webhook fields and
 real inbound/echo/history/AI behavior await operator acceptance. Not DONE or live-verified.
+
+
+## 2026-09-14 — WhatsApp signup table mapping hotfix
+
+Operator reported HTTP 500 on /whatsapp after the Embedded Signup release. Source inspection
+found WhatsAppSignupAttempt lacked an explicit table name: Eloquent infers
+whats_app_signup_attempts, while the migration creates whatsapp_signup_attempts.
+Set the model table explicitly, consistent with the existing WhatsApp conversation/message/receipt
+models. This corrects the same query path in inbox rendering, setup guards and background signup
+processing. No schema changes or data deletion. Source reviewed; runtime environment and server
+logs are unavailable. No tests, formatter, live rendering or deployment performed. Operator
+deployment/confirmation of page recovery remains required; Meta connection readiness is unchanged.

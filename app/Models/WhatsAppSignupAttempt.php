@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Model;
 #[Fillable(['id', 'integration_id', 'user_id', 'session_hash', 'settings_revision', 'mode', 'status', 'step', 'payload', 'details', 'expires_at'])]
 class WhatsAppSignupAttempt extends Model
 {
+    protected $table = 'whatsapp_signup_attempts';
+
     public $incrementing = false;
 
     protected $keyType = 'string';

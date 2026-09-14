@@ -183,3 +183,15 @@ In WhatsApp settings save the real Meta App ID, keep the supplied Configuration 
 App Secret/Verify Token, then use WhatsApp hesabını bağla. In Meta set the displayed callback URL,
 matching Verify Token and messages field (history/smb_message_echoes for eligible Coexistence).
 Confirm one inbound message and an AI suggestion manually. No historical completeness claim.
+
+
+## 2026-09-14 — WhatsApp signup table mapping hotfix
+
+Operator reported HTTP 500 on /whatsapp after the Embedded Signup release. Source inspection
+found WhatsAppSignupAttempt lacked an explicit table name: Eloquent infers
+whats_app_signup_attempts, while the migration creates whatsapp_signup_attempts.
+Set the model table explicitly, consistent with the existing WhatsApp conversation/message/receipt
+models. This corrects the same query path in inbox rendering, setup guards and background signup
+processing. No schema changes or data deletion. Source reviewed; runtime environment and server
+logs are unavailable. No tests, formatter, live rendering or deployment performed. Operator
+deployment/confirmation of page recovery remains required; Meta connection readiness is unchanged.
