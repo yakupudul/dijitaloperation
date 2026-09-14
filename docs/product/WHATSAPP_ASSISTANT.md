@@ -195,3 +195,23 @@ models. This corrects the same query path in inbox rendering, setup guards and b
 processing. No schema changes or data deletion. Source reviewed; runtime environment and server
 logs are unavailable. No tests, formatter, live rendering or deployment performed. Operator
 deployment/confirmation of page recovery remains required; Meta connection readiness is unchanged.
+
+
+## 2026-09-14 — Isolate Embedded Signup from FedCM login
+
+Operator supplied a failing Facebook URL with scope=openid, response_type=token and
+dialog_source=fedcm, followed by a second signup popup. That URL is a separate SDK login
+step; the application requests config_id with response_type=code for Embedded Signup.
+The connection page now explicitly sets FB.init fedCM:false, status:false and xfbml:false
+to opt out of FedCM and automatic status/widget processing. Login remains a synchronous
+operator click with the configured business flow and Coexistence featureType.
+
+Meta's FedCM documentation search excerpts expose the fedCM boolean/object option:
+https://developers.facebook.com/documentation/facebook-login/web/fedcm
+Full documentation and SDK source could not be retrieved in this workspace. The effect of
+the opt-out on the current served SDK is not runtime-verified; the operator must confirm
+the unexpected OpenID popup disappears after deployment. This is a targeted mitigation,
+not a claim that WhatsApp onboarding or the existing-number connection is complete.
+Previously reported advanced-access error #2655111 is a separate Meta approval blocker.
+No extra permission, account deletion, number registration or backend mutation was added.
+No tests, formatter, browser UAT or deployment performed, per operator workflow.

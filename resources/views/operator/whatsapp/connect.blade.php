@@ -95,7 +95,16 @@
     });
     if (login) {
         window.fbAsyncInit = () => {
-            FB.init({ appId: settings.appId, cookie: true, xfbml: true, version: settings.version });
+            // Embedded Signup needs the configured business authorization code flow.
+            // Opt out of the SDK's separate FedCM/OpenID sign-in step on this page.
+            FB.init({
+                appId: settings.appId,
+                cookie: true,
+                xfbml: false,
+                status: false,
+                fedCM: false,
+                version: settings.version,
+            });
             login.disabled = false;
             login.textContent = 'Facebook ile devam et';
             say('Bağlantı penceresini açabilirsiniz.');
