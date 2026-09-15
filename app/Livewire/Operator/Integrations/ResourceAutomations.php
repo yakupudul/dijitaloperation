@@ -65,7 +65,7 @@ class ResourceAutomations extends Component
 
     private function account(int $id): ResourceAutomation
     {
-        return ResourceAutomation::query()->with('resource.integration')
+        return ResourceAutomation::query()->with(['resource.integration', 'gbpRun'])
             ->whereHas('resource', fn ($q) => $q->when($this->provider !== '', fn ($q) => $q->where('provider', $this->provider))
                 ->when($this->resourceType !== '', fn ($q) => $q->where('resource_type', $this->resourceType))
                 ->when($this->queriesOnly, fn ($q) => $q->whereIn('resource_type', ['google_ads', 'search_console'])))
@@ -142,7 +142,7 @@ class ResourceAutomations extends Component
     public function render(): View
     {
         $term = '%'.addcslashes(mb_strtolower(trim($this->search)), '\\%_').'%';
-        $accounts = $this->expanded ? ResourceAutomation::query()->with('resource.integration')
+        $accounts = $this->expanded ? ResourceAutomation::query()->with(['resource.integration', 'gbpRun'])
             ->whereHas('resource', fn ($q) => $q
                 ->when($this->provider !== '', fn ($q) => $q->where('provider', $this->provider))
                 ->when($this->resourceType !== '', fn ($q) => $q->where('resource_type', $this->resourceType))
@@ -188,6 +188,9 @@ class ResourceAutomations extends Component
             'sectors' => ServiceCategory::options(),
             'latestCollections' => $latestCollections, 'coverage' => $coverage,
             'collectionAccount' => $collectionAccount, 'collectionHistory' => $collectionHistory,
+            'gbpHistory' => $collectionAccount?->resource->resource_type === 'google_business_profile'
+                ? \App\Models\Run::query()->where('module_id', 'google-business-profile')
+                    ->where('metadata->external_resource_id', $collectionAccount->external_resource_id)->latest('id')->limit(5)->get() : collect(),
             'showQueryColumns' => $this->queriesOnly,
             'services' => $editor ? ServiceCatalogItem::query()->with('primaryName')->where('status', 'active')->where('sector', $this->sector)->orderBy('id')->get() : collect(),
         ]);

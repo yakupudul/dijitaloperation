@@ -35,7 +35,7 @@
                         <tr wire:key="auto-account-{{ $a->id }}" class="align-top">
                             <td class="p-3"><p class="font-medium">{{ $a->resource->display_name ?: $a->resource->external_id }}</p><p class="mt-1 text-xs text-gray-500">{{ __('resource-auto.'.$a->resource->resource_type) }} · {{ $a->resource->external_id }}</p></td>
                             <td class="p-3"><p class="{{ $problem ? 'text-amber-700' : 'text-emerald-700' }}">{{ __('resource-auto.'.($problem ? 'state_attention' : 'connected')) }}</p>@if($problem)<p class="mt-1 max-w-xs text-xs text-gray-500">{{ __('resource-auto.'.$problem) }}</p>@endif</td>
-                            <td class="p-3 text-xs"><p>{{ $range ? $range->first_date.' → '.$range->last_date : __('resource-auto.no_data') }}</p>@if($range)<p class="mt-1 max-w-xs text-gray-500">{{ __('resource-auto.coverage_note') }}</p>@endif</td>
+                            <td class="p-3 text-xs"><p>{{ $a->gbpRun ? __('gbp-connector.progress', ['count' => count(data_get($a->gbpRun->metadata, 'datasets', []))]) : ($range ? $range->first_date.' → '.$range->last_date : __('resource-auto.no_data')) }}</p>@if($range)<p class="mt-1 max-w-xs text-gray-500">{{ __('resource-auto.coverage_note') }}</p>@endif</td>
                             <td class="p-3">
                                 <p class="{{ $overdue || $state === 'delayed' || $a->collection_error ? 'text-amber-700 dark:text-amber-400' : '' }}">{{ $active ? __('resource-auto.state_'.$state) : (! $a->collection_enabled ? __('resource-auto.paused') : ($overdue ? __('resource-auto.overdue') : __('resource-auto.state_'.$state))) }}</p>
                                 <p class="mt-1 text-xs text-gray-500">{{ __('resource-auto.frequency') }}: {{ __('resource-auto.'.($a->interval_days === 3 ? 'three_days' : 'daily')) }}</p>
@@ -97,6 +97,21 @@
                 <div class="flex items-center justify-between border-b p-5 dark:border-gray-800"><h3 class="font-semibold">{{ $collectionAccount->resource->display_name }}</h3><button type="button" wire:click="closeCollection" aria-label="{{ __('resource-auto.close') }}">✕</button></div>
                 <div class="flex-1 space-y-4 overflow-y-auto p-5">
                     <p class="text-xs text-gray-500">{{ __('resource-auto.collection_history_note') }}</p>
+                    @foreach($gbpHistory as $gbpRun)
+                        <details class="rounded-xl border p-4 dark:border-gray-700" @if($loop->first) open @endif>
+                            <summary class="cursor-pointer text-sm font-medium">#{{ $gbpRun->id }} · {{ __('gbp-connector.'.$gbpRun->status) }} · {{ $gbpRun->started_at?->copy()->timezone('Europe/Istanbul')->format('d.m.Y H:i') }}</summary>
+                            @if(data_get($gbpRun->metadata, 'active_dataset'))<p class="mt-3 text-xs">{{ __('gbp-connector.running') }}: {{ __('gbp-connector.'.data_get($gbpRun->metadata, 'active_dataset')) }}</p>@endif
+                            @foreach(data_get($gbpRun->metadata, 'datasets', []) as $key => $result)
+                                <div class="mt-3 border-t pt-3 text-xs dark:border-gray-700">
+                                    <p class="font-medium">{{ __('gbp-connector.'.$key) }} · {{ __('gbp-connector.'.$result['status']) }}</p>
+                                    <p>{{ __('gbp-connector.rows', ['count' => $result['rows'] ?? 0]) }}</p>
+                                    @if(isset($result['from']))<p>{{ $result['from'] }} → {{ $result['to'] ?? '—' }}</p>@endif
+                                    @if(!empty($result['reason']))<p class="mt-2 text-amber-700">{{ $result['reason'] }}</p>@endif
+                                    @foreach(($result['metric_errors'] ?? $result['month_errors'] ?? []) as $error)<p class="mt-2 text-amber-700">{{ $error }}</p>@endforeach
+                                </div>
+                            @endforeach
+                        </details>
+                    @endforeach
                     @forelse($collectionHistory as $collection)
                         <details class="rounded-xl border p-4 dark:border-gray-700" @if($loop->first) open @endif>
                             <summary class="cursor-pointer text-sm font-medium">#{{ $collection->collection_run_id }} · {{ app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->label($collection) }} · {{ $collection->created_at?->copy()->timezone('Europe/Istanbul')->format('d.m.Y H:i') }}</summary>
@@ -111,7 +126,7 @@
                                 @endforeach
                             </div>
                         </details>
-                    @empty<p class="text-sm text-gray-500">{{ __('resource-auto.no_data') }}</p>@endforelse
+                    @empty @if($gbpHistory->isEmpty())<p class="text-sm text-gray-500">{{ __('resource-auto.no_data') }}</p>@endif @endforelse
                 </div>
             </div>
         </div>

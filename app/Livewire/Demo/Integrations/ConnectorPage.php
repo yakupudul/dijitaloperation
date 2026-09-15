@@ -185,6 +185,12 @@ class ConnectorPage extends Component
 
     public function render(GoogleIntegrationReadModel $googleReadModel): View
     {
+        if ($this->connector === 'gbp') {
+            $integration = $googleReadModel->findIntegration();
+            $count = $integration ? CoreExternalResource::query()->where('integration_id', $integration->id)
+                ->where('provider', 'google')->where('resource_type', 'google_business_profile')->count() : 0;
+            return view('livewire.demo.integrations.gbp-connector', compact('integration', 'count'));
+        }
         $googleConnector = GoogleConnectorRegistry::byUiSlug($this->connector);
         if ($googleConnector !== null) {
             return $this->renderGoogleConnector($googleReadModel, $googleConnector);

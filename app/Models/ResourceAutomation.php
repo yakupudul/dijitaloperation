@@ -20,6 +20,11 @@ class ResourceAutomation extends Model
         ];
     }
 
+    public function gbpRun(): BelongsTo
+    {
+        return $this->belongsTo(Run::class, 'gbp_run_id');
+    }
+
     public function resource(): BelongsTo
     {
         return $this->belongsTo(CoreExternalResource::class, 'external_resource_id');

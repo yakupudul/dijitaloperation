@@ -98,15 +98,17 @@ final class ResourceAutomationService
             $this->discover();
             ResourceAutomation::query()->where('collection_enabled', true)
                 ->where('collection_status', 'attention')->where('collection_error', 'binding')
-                ->whereHas('resource.bindings', fn ($q) => $q->where('status', 'active')
-                    ->whereIn('capability', ['meta_ads', 'google_business_profile']))
+                ->where(function ($q): void {
+                    $q->whereHas('resource', fn ($r) => $r->where('resource_type', 'google_business_profile'))
+                        ->orWhereHas('resource.bindings', fn ($b) => $b->where('status', 'active')->where('capability', 'meta_ads'));
+                })
                 ->orderBy('id')->limit(100)->get()->each(function ($automation): void {
                     if ($this->readiness($automation->resource) === null) {
                         $automation->update(['collection_status' => 'waiting', 'collection_error' => null, 'next_collection_at' => now()]);
                     }
                 });
             ResourceAutomation::query()->where('collection_enabled', true)->where('collection_status', 'waiting')
-                ->whereNull('collection_run_id')->whereNull('last_collection_success_at')->whereNull('collection_error')
+                ->whereNull('collection_run_id')->whereNull('gbp_run_id')->whereNull('last_collection_success_at')->whereNull('collection_error')
                 ->where('next_collection_at', '>', now())->update(['next_collection_at' => now()]);
             ResourceAutomation::query()->whereNotNull('collection_run_id')->whereIn('collection_status', ['collecting', 'planning'])
                 ->limit(100)->get()->each(fn ($a) => $this->reconcile($a));
@@ -234,7 +236,7 @@ final class ResourceAutomationService
             || ! (bool) data_get($resource->metadata, 'selectable', true))) {
             return 'manager';
         }
-        if (in_array($resource->resource_type, ['meta_ads', 'google_business_profile'], true)
+        if ($resource->resource_type === 'meta_ads'
             && ! $resource->bindings()->where('status', 'active')->where('capability', $resource->resource_type)->exists()) {
             return 'binding';
         }
@@ -257,6 +259,10 @@ final class ResourceAutomationService
             return;
         }
         $r = $a->resource;
+        if ($r->resource_type === 'google_business_profile') {
+            $this->collectGbp($a);
+            return;
+        }
         $active = CollectionResourceRun::query()->where('external_resource_id', $r->id)->whereIn('status', self::ACTIVE)
             ->whereHas('collectionRun', fn ($q) => $q->whereIn('status', self::ACTIVE))->latest('id')->first();
         if ($active) {
@@ -281,6 +287,48 @@ final class ResourceAutomationService
         if ($run) {
             $run->update(['metadata' => array_merge($run->metadata ?? [], ['automatic_collection' => true, 'resource_automation_id' => $a->id])]);
         }
+    }
+
+    private function collectGbp(ResourceAutomation $automation): void
+    {
+        $this->withResourceLocks([$automation->external_resource_id], function () use ($automation): void {
+            $run = $automation->gbp_run_id ? \App\Models\Run::query()->find($automation->gbp_run_id) : null;
+            if (! $run || $run->status !== 'running') {
+                $bindings = $automation->resource->bindings()->where('status', 'active')
+                    ->where('capability', 'google_business_profile')->get();
+                if ($bindings->count() > 1) {
+                    throw new \RuntimeException('Multiple active GBP bindings require review.');
+                }
+                $binding = $bindings->first();
+                $assetId = $binding ? app(BoundCollectionGuard::class)
+                    ->assertCollectable($binding, 'google_business_profile')['asset']->id : null;
+                $run = \App\Models\Run::query()->create([
+                    'module_id' => 'google-business-profile', 'status' => 'running', 'started_at' => now(),
+                    'digital_asset_id' => $assetId, 'core_asset_binding_id' => $binding?->id,
+                    'metadata' => ['provider' => 'google', 'capability' => 'google_business_profile',
+                        'external_resource_id' => $automation->external_resource_id,
+                        'integration_id' => $automation->resource->integration_id,
+                        'collection_scope' => 'provider_resource_first', 'datasets' => []],
+                ]);
+                $automation->update(['gbp_run_id' => $run->id]);
+            }
+            $run = app(\App\Services\Integrations\Google\GoogleBusinessProfileBoundCollector::class)
+                ->collectResourceStep($automation->resource, $run);
+            $finished = $run->status !== 'running';
+            $success = $run->status === 'completed';
+            $automation->update([
+                'collection_status' => $finished ? ($success ? 'current' : 'attention') : 'waiting',
+                'collection_queued_at' => null,
+                'collection_error' => $finished && ! $success ? 'collection_failed' : null,
+                'collection_failures' => 0,
+                'last_collection_success_at' => $success ? now() : $automation->last_collection_success_at,
+                'next_collection_at' => $finished ? now()->addDays($automation->interval_days)
+                    : now()->addMinutes((int) data_get($run->metadata, 'retry_minutes', 0)),
+            ]);
+            if ($finished) {
+                $this->alert($automation->id, 'collection', $success ? null : 'collection_failed');
+            }
+        });
     }
 
     private function collectBound(CoreExternalResource $r, ?User $actor): ?CollectionRun

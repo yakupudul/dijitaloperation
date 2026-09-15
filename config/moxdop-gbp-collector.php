@@ -3,7 +3,7 @@
 return [
     /*
      * Google Business Profile provider-owned historical reads.
-     * Collection is operator-triggered from the bound GBP Digital Asset.
+     * Collection runs on resource automation; manual bound GBP collection remains available.
      */
     'performance_days' => (int) env('MOXDOP_GBP_PERFORMANCE_DAYS', 180),
     'search_keyword_months' => (int) env('MOXDOP_GBP_SEARCH_KEYWORD_MONTHS', 12),

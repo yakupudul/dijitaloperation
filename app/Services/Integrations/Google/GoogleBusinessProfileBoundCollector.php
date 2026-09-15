@@ -20,6 +20,10 @@ use Throwable;
  */
 final class GoogleBusinessProfileBoundCollector implements CollectsBoundProviderData
 {
+    private ?float $stepDeadline = null;
+
+    private bool $transientFailure = false;
+
     private const string CAPABILITY = 'google_business_profile';
 
     private const string LOCATION_READ_MASK = 'name,languageCode,storeCode,title,phoneNumbers,categories,storefrontAddress,websiteUri,regularHours,specialHours,serviceArea,labels,adWordsLocationExtensions,latlng,openInfo,metadata,profile,relationshipData,moreHours,serviceItems';
@@ -56,6 +60,7 @@ final class GoogleBusinessProfileBoundCollector implements CollectsBoundProvider
 
     public function collect(CoreAssetBinding $binding): Run
     {
+        $this->stepDeadline = null;
         $scope = $this->guard->assertCollectable($binding, self::CAPABILITY);
         $asset = $scope['asset'];
         $resource = $scope['resource'];
@@ -180,6 +185,77 @@ final class GoogleBusinessProfileBoundCollector implements CollectsBoundProvider
 
             throw $e;
         }
+    }
+
+    /** One durable resource-first dataset per worker turn; no invented Asset or binding. */
+    public function collectResourceStep(CoreExternalResource $resource, Run $run): Run
+    {
+        $resource->loadMissing('integration');
+        $integration = $resource->integration;
+        if ($resource->provider !== 'google' || $resource->resource_type !== self::CAPABILITY
+            || $resource->status !== 'available' || ! $integration?->isActive()
+            || $integration->provider !== 'google'
+            || (int) data_get($run->metadata, 'external_resource_id') !== (int) $resource->id
+            || $run->module_id !== $this->moduleId()) {
+            throw new RuntimeException('GBP resource is unavailable or collection scope does not match.');
+        }
+        $this->stepDeadline = microtime(true) + 180;
+        $this->transientFailure = false;
+        $locationName = $this->locationName((string) $resource->external_id);
+        $datasets = data_get($run->metadata, 'datasets', []);
+        $steps = ['gbp_location', 'gbp_performance_daily', 'gbp_search_keywords_monthly',
+            'gbp_reviews', 'gbp_media', 'gbp_posts', 'gbp_attributes', 'gbp_services',
+            'gbp_place_actions', 'gbp_verification'];
+        $next = collect($steps)->first(fn ($key) => ! array_key_exists($key, $datasets) || ($datasets[$key]['status'] ?? '') === 'retrying');
+        if ($next === null) {
+            return $run;
+        }
+        $run->update(['metadata' => array_merge($run->metadata ?? [], ['active_dataset' => $next])]);
+        $datasets[$next] = $this->captureDataset($next, function () use ($next, $run, $resource, $integration, $locationName): array {
+            if ($next === 'gbp_location') {
+                $location = $this->request($integration,
+                    'https://mybusinessbusinessinformation.googleapis.com/v1/'.$locationName,
+                    ['readMask' => self::LOCATION_READ_MASK], $next);
+                $updated = $this->captureOptional(fn () => $this->request($integration,
+                    'https://mybusinessbusinessinformation.googleapis.com/v1/'.$locationName.':getGoogleUpdated',
+                    ['readMask' => self::LOCATION_READ_MASK], 'gbp_google_updated'));
+                $this->persistLocation($run, $resource, $locationName, $location, $updated['payload']);
+                return ['rows' => 1, 'partial' => $updated['error'] !== null, 'reason' => $updated['error']];
+            }
+            if ($next === 'gbp_services') {
+                $location = $this->request($integration,
+                    'https://mybusinessbusinessinformation.googleapis.com/v1/'.$locationName,
+                    ['readMask' => 'name,serviceItems'], $next);
+                return $this->collectServices($run, $resource, $locationName, $location);
+            }
+            $account = in_array($next, ['gbp_reviews', 'gbp_media', 'gbp_posts'], true)
+                ? $this->resolveAccountName($resource, $integration, $locationName) : null;
+            return match ($next) {
+                'gbp_performance_daily' => $this->collectPerformance($run, $resource, $integration, $locationName),
+                'gbp_search_keywords_monthly' => $this->collectSearchKeywords($run, $resource, $integration, $locationName),
+                'gbp_reviews' => $this->collectReviews($run, $resource, $integration, $locationName, $account),
+                'gbp_media' => $this->collectMedia($run, $resource, $integration, $locationName, $account),
+                'gbp_posts' => $this->collectPosts($run, $resource, $integration, $locationName, $account),
+                'gbp_attributes' => $this->collectAttributes($run, $resource, $integration, $locationName),
+                'gbp_place_actions' => $this->collectPlaceActions($run, $resource, $integration, $locationName),
+                'gbp_verification' => $this->collectVerification($run, $resource, $integration, $locationName),
+            };
+        });
+        $attempts = data_get($run->metadata, 'dataset_attempts', []);
+        $attempts[$next] = ($attempts[$next] ?? 0) + 1;
+        $retry = $this->transientFailure && $attempts[$next] < 3;
+        if ($retry) {
+            $datasets[$next]['status'] = 'retrying';
+        }
+        $finished = count($datasets) === count($steps) && ! $retry;
+        $available = collect($datasets)->where('status', 'available')->count();
+        $run->update([
+            'status' => $finished ? ($available === count($steps) ? 'completed' : ($available > 0 ? 'partial' : 'failed')) : 'running',
+            'finished_at' => $finished ? now() : null,
+            'metadata' => array_merge($run->metadata ?? [], ['datasets' => $datasets, 'active_dataset' => null,
+                'dataset_attempts' => $attempts, 'retry_minutes' => $retry ? (5 * $attempts[$next] + random_int(0, 3)) : 0]),
+        ]);
+        return $run->fresh();
     }
 
     /** @return array<string, mixed> */
@@ -341,6 +417,9 @@ final class GoogleBusinessProfileBoundCollector implements CollectsBoundProvider
                     $next = $payload['nextPageToken'] ?? null;
                     $pageToken = is_string($next) && $next !== '' ? $next : null;
                 } while ($pageToken !== null && $page < 100);
+                if ($pageToken !== null) {
+                    $errors[$month->format('Y-m')] = 'GBP pagination limit reached.';
+                }
             } catch (Throwable $e) {
                 $errors[$month->format('Y-m')] = $this->safeMessage($e);
             }
@@ -431,6 +510,8 @@ final class GoogleBusinessProfileBoundCollector implements CollectsBoundProvider
         } while ($pageToken !== null && $page < 200);
 
         return [
+            'partial' => $pageToken !== null,
+            'reason' => $pageToken !== null ? 'GBP pagination limit reached.' : null,
             'rows' => $rows,
             'average_rating' => $averageRating,
             'total_review_count' => $totalReviewCount,
@@ -502,7 +583,8 @@ final class GoogleBusinessProfileBoundCollector implements CollectsBoundProvider
             $pageToken = is_string($next) && $next !== '' ? $next : null;
         } while ($pageToken !== null && $page < 100);
 
-        return ['rows' => $rows];
+        return ['rows' => $rows, 'partial' => $pageToken !== null,
+            'reason' => $pageToken !== null ? 'GBP pagination limit reached; more provider records remain.' : null];
     }
 
     /** @return array<string, mixed> */
@@ -576,7 +658,8 @@ final class GoogleBusinessProfileBoundCollector implements CollectsBoundProvider
             $pageToken = is_string($next) && $next !== '' ? $next : null;
         } while ($pageToken !== null && $page < 100);
 
-        return ['rows' => $rows];
+        return ['rows' => $rows, 'partial' => $pageToken !== null,
+            'reason' => $pageToken !== null ? 'GBP pagination limit reached; more provider records remain.' : null];
     }
 
     /** @return array<string, mixed> */
@@ -640,7 +723,7 @@ final class GoogleBusinessProfileBoundCollector implements CollectsBoundProvider
         return [
             'rows' => count(is_array($current['attributes'] ?? null) ? $current['attributes'] : []),
             'available_attribute_count' => count($available),
-            'partial' => $googleUpdated['error'] !== null,
+            'partial' => $googleUpdated['error'] !== null || $pageToken !== null,
             'google_updated_limitation' => $googleUpdated['error'],
         ];
     }
@@ -734,7 +817,8 @@ final class GoogleBusinessProfileBoundCollector implements CollectsBoundProvider
             $pageToken = is_string($next) && $next !== '' ? $next : null;
         } while ($pageToken !== null && $page < 100);
 
-        return ['rows' => $rows];
+        return ['rows' => $rows, 'partial' => $pageToken !== null,
+            'reason' => $pageToken !== null ? 'GBP pagination limit reached; more provider records remain.' : null];
     }
 
     /** @return array<string, mixed> */
@@ -795,6 +879,8 @@ final class GoogleBusinessProfileBoundCollector implements CollectsBoundProvider
         );
 
         return [
+            'partial' => $pageToken !== null,
+            'reason' => $pageToken !== null ? 'GBP pagination limit reached.' : null,
             'rows' => count($verifications),
             'has_voice_of_merchant' => $voice['hasVoiceOfMerchant'] ?? null,
             'verification_options_state' => 'on_demand_only',
@@ -944,8 +1030,18 @@ final class GoogleBusinessProfileBoundCollector implements CollectsBoundProvider
         array $query,
         string $dataset,
     ): array {
+        if ($this->stepDeadline !== null && microtime(true) >= $this->stepDeadline) {
+            throw new RuntimeException('GBP dataset time budget reached; partial data retained. Retry this location.');
+        }
+        $quotaKey = 'gbp-read:'.$integration->id.':'.parse_url($url, PHP_URL_HOST);
+        if (\Illuminate\Support\Facades\RateLimiter::tooManyAttempts($quotaKey, 120)) {
+            $this->transientFailure = true;
+            throw new RuntimeException('GBP request pacing limit reached; retry on the next collection.');
+        }
+        \Illuminate\Support\Facades\RateLimiter::hit($quotaKey, 60);
         $response = $this->client->get($integration, $url, $query, GoogleScopeRegistry::CAPABILITY_GBP);
         if (! $response->successful()) {
+            $this->transientFailure = $this->transientFailure || $response->status() === 429 || $response->status() >= 500;
             throw new RuntimeException(sprintf('%s provider request failed with HTTP %d.', $dataset, $response->status()));
         }
         $payload = $response->json();
