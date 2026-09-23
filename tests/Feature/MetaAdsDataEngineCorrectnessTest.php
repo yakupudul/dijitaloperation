@@ -9,18 +9,13 @@ use App\Models\CoreIntegration;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\Evidence;
-use App\Models\Finding;
-use App\Models\Run;
 use App\Models\User;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Roles;
-use App\Support\Skills\SkillEligibilityEvaluator;
-use App\Support\Skills\SkillRegistry;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
-use MoxDop\MetaAds\Ai\MetaAdsAiGuidanceContextBuilder;
 use MoxDop\MetaAds\Collection\MetaAdsBoundCollector;
 use MoxDop\MetaAds\Normalization\MetaActionNormalizer;
 use MoxDop\MetaAds\Normalization\MetaResultResolver;
@@ -336,91 +331,6 @@ class MetaAdsDataEngineCorrectnessTest extends TestCase
             collect($mix['operator_items'])->pluck('human_label')->unique()->count(),
             collect($mix['operator_items'])->pluck('human_label')->count(),
         );
-    }
-
-    public function test_ai_coverage_gate_excludes_unusable_campaign_evidence_from_skills(): void
-    {
-        $run = Run::query()->create([
-            'digital_asset_id' => $this->asset->id,
-            'core_asset_binding_id' => $this->binding->id,
-            'module_id' => 'meta-ads',
-            'status' => 'partial',
-            'started_at' => now(),
-            'finished_at' => now(),
-            'metadata' => [],
-        ]);
-
-        Evidence::query()->create([
-            'run_id' => $run->id,
-            'digital_asset_id' => $this->asset->id,
-            'source_module' => 'meta-ads',
-            'type' => MetaAdsBoundCollector::EVIDENCE_ACCOUNT_SUMMARY,
-            'title' => 'account',
-            'payload' => [
-                'response_ok' => true,
-                'metrics_usable' => true,
-                'current' => ['spend' => 10],
-                'actions' => [],
-                'result_mix' => ['mode' => 'result_mix', 'items' => [], 'blind_action_sum' => false],
-            ],
-            'observed_at' => now(),
-        ]);
-        Evidence::query()->create([
-            'run_id' => $run->id,
-            'digital_asset_id' => $this->asset->id,
-            'source_module' => 'meta-ads',
-            'type' => MetaAdsBoundCollector::EVIDENCE_CAMPAIGN_PERFORMANCE,
-            'title' => 'campaigns failed',
-            'payload' => [
-                'response_ok' => false,
-                'metrics_usable' => false,
-                'rows' => [],
-            ],
-            'observed_at' => now(),
-        ]);
-        Evidence::query()->create([
-            'run_id' => $run->id,
-            'digital_asset_id' => $this->asset->id,
-            'source_module' => 'meta-ads',
-            'type' => MetaAdsBoundCollector::EVIDENCE_AD_PERFORMANCE,
-            'title' => 'ads failed',
-            'payload' => [
-                'response_ok' => false,
-                'metrics_usable' => false,
-                'rows' => [],
-            ],
-            'observed_at' => now(),
-        ]);
-
-        Finding::query()->create([
-            'digital_asset_id' => $this->asset->id,
-            'fingerprint' => 'meta-test-fp-1',
-            'category' => 'performance',
-            'severity' => 'medium',
-            'title' => 'Synthetic finding',
-            'summary' => 'For AI gate test',
-            'confidence' => 0.8500,
-            'status' => 'open',
-            'first_seen_at' => now(),
-            'last_seen_at' => now(),
-            'last_run_id' => $run->id,
-            'source_module' => 'meta-ads',
-        ]);
-
-        $built = app(MetaAdsAiGuidanceContextBuilder::class)->build($this->asset->fresh());
-        $this->assertContains(MetaAdsBoundCollector::EVIDENCE_ACCOUNT_SUMMARY, $built['trustworthy_evidence_types']);
-        $this->assertNotContains(MetaAdsBoundCollector::EVIDENCE_CAMPAIGN_PERFORMANCE, $built['trustworthy_evidence_types']);
-        $this->assertNotContains(MetaAdsBoundCollector::EVIDENCE_AD_PERFORMANCE, $built['trustworthy_evidence_types']);
-
-        $campaignSkill = app(SkillRegistry::class)->getForModule('meta-ads', 'campaign-performance-analysis');
-        $adSkill = app(SkillRegistry::class)->getForModule('meta-ads', 'ad-creative-performance-analysis');
-        $evaluator = app(SkillEligibilityEvaluator::class);
-
-        $campaignEval = $evaluator->evaluate($campaignSkill, $built['trustworthy_evidence_types']);
-        $adEval = $evaluator->evaluate($adSkill, $built['trustworthy_evidence_types']);
-        $this->assertFalse($campaignEval['eligible']);
-        $this->assertSame(SkillEligibilityEvaluator::MISSING_REQUIRED_EVIDENCE, $campaignEval['status']);
-        $this->assertFalse($adEval['eligible']);
     }
 
     public function test_previous_comparison_integrity_requires_complete_previous_evidence(): void

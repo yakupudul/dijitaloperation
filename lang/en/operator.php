@@ -408,7 +408,6 @@ return [
             'target_countries' => 'Target countries',
             'more' => 'More',
             'run_diagnosis' => 'Run diagnosis',
-            'generate_ai_guidance' => 'Generate AI guidance',
         ],
         'pages_content' => [
             'title' => 'Pages and content inventory',

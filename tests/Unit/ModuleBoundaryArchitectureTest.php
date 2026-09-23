@@ -24,24 +24,13 @@ class ModuleBoundaryArchitectureTest extends TestCase
      * @var list<string>
      */
     private const CORE_WEBSITE_IMPORT_ALLOWLIST = [
-        // Thin compatibility facades (domain already in module).
-        'app/Services/WebsiteAiInsightService.php',
-        'app/Ai/Agents/WebsiteFindingInsightAgent.php',
         // Legacy Website Diagnosis orchestration still in Core; DocumentHead* lives in module.
         'app/Services/WebsiteDiagnosisService.php',
-        // Core Filament composition surfaces that delegate to module presenters/services.
-        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/Pages/ViewDigitalAsset.php',
-        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/WebsiteHealthRelationManager.php',
-        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/WebsiteSettingsRelationManager.php',
-        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/WebsitePerformanceRelationManager.php',
-        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/WebsiteActivityRelationManager.php',
-        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/WebsiteConnectionsRelationManager.php',
-        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/WebsiteDiscoveryRelationManager.php',
+        // Core Filament technical surface that delegates to module presenters.
         'app/Filament/App/Resources/Runs/RunResource.php',
         // Async platform jobs: thin Core orchestration that dispatches module domain services.
         'app/Jobs/Async/PublicDiscoveryJob.php',
         'app/Jobs/Async/SeoIntelligenceRefreshJob.php',
-        'app/Jobs/Async/WebsiteAiGuidanceJob.php',
         // Sales Assistant prospect research reuses bounded public discovery crawl stack.
         'app/Services/Prospects/ProspectResearchService.php',
         'app/Services/Prospects/ProspectWebsiteValidator.php',
@@ -62,34 +51,21 @@ class ModuleBoundaryArchitectureTest extends TestCase
     ];
 
     /**
-     * Core Filament composition surfaces allowed to import Google Ads module presenters/services.
+     * Core files allowed to import Google Ads module implementation namespaces.
      *
      * @var list<string>
      */
     private const CORE_GOOGLE_ADS_IMPORT_ALLOWLIST = [
-        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/Pages/ViewDigitalAsset.php',
-        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/GoogleAdsPerformanceRelationManager.php',
-        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/GoogleAdsSearchTermsRelationManager.php',
-        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/GoogleAdsIntelligenceRelationManager.php',
-        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/GoogleAdsConnectionsRelationManager.php',
-        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/GoogleAdsActivityRelationManager.php',
-        'app/Jobs/Async/GoogleAdsAiGuidanceJob.php',
         // Phase C.1: Core collected-facts adapter reuses existing Google Ads bound-evidence evaluator.
         'app/Services/Analysis/Adapters/GoogleAdsCollectedCampaignAdapter.php',
     ];
 
     /**
-     * Core Filament composition surfaces allowed to import Meta Ads module presenters.
+     * Core files allowed to import Meta Ads module implementation namespaces.
      *
      * @var list<string>
      */
     private const CORE_META_ADS_IMPORT_ALLOWLIST = [
-        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/Pages/ViewDigitalAsset.php',
-        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/MetaAdsPerformanceRelationManager.php',
-        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/MetaAdsIntelligenceRelationManager.php',
-        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/MetaAdsConnectionsRelationManager.php',
-        'app/Filament/App/Resources/Customers/Resources/Brands/Resources/DigitalAssets/RelationManagers/MetaAdsActivityRelationManager.php',
-        'app/Jobs/Async/MetaAdsAiGuidanceJob.php',
         // Phase C.1: Core collected-facts adapter reuses existing Meta Ads bound-evidence evaluator.
         'app/Services/Analysis/Adapters/MetaAdsCollectedCampaignAdapter.php',
     ];
@@ -176,7 +152,7 @@ class ModuleBoundaryArchitectureTest extends TestCase
     #[Test]
     public function modules_may_depend_on_core_models_and_shared_infrastructure_namespaces(): void
     {
-        $websiteService = base_path('app-modules/website/src/Ai/WebsiteAiRecommendationService.php');
+        $websiteService = base_path('app-modules/website/src/Discovery/DiscoveryInferenceService.php');
         $this->assertFileExists($websiteService);
         $contents = (string) file_get_contents($websiteService);
 
@@ -201,17 +177,6 @@ class ModuleBoundaryArchitectureTest extends TestCase
             $this->assertNotContains($provider, ModuleCatalog::PRODUCT_MODULE_IDS);
             $this->assertNotContains($provider, ModuleCatalog::DEVELOPER_FIXTURE_MODULE_IDS);
         }
-    }
-
-    #[Test]
-    public function website_ai_core_facade_remains_thin_compatibility_delegate(): void
-    {
-        $path = base_path('app/Services/WebsiteAiInsightService.php');
-        $contents = (string) file_get_contents($path);
-
-        $this->assertStringContainsString('WebsiteAiRecommendationService', $contents);
-        $this->assertMatchesRegularExpression('/compatible|facade/i', $contents);
-        $this->assertDoesNotMatchRegularExpression('/function\s+buildPrompt|function\s+ground|function\s+scoreFinding/', $contents);
     }
 
     /**

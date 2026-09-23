@@ -409,7 +409,6 @@ return [
             'target_countries' => 'Hedef ülkeler',
             'more' => 'Daha fazla',
             'run_diagnosis' => 'Tanı çalıştır',
-            'generate_ai_guidance' => 'AI rehberliği üret',
         ],
         'pages_content' => [
             'title' => 'Sayfalar ve içerik envanteri',

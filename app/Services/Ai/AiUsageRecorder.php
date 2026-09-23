@@ -29,14 +29,10 @@ final class AiUsageRecorder
         'SearchDemandChangeVerificationAgent' => AiRouteKeys::SEARCH_DEMAND_CHANGE_VERIFICATION,
         'SalesIntentClassificationAgent' => AiRouteKeys::SALES_INTENT_CLASSIFICATION,
         'SalesProspectIntelligenceAgent' => AiRouteKeys::SALES_PROSPECT_INTELLIGENCE,
-        'WebsiteRecommendationAgent' => AiRouteKeys::WEBSITE_AI_GUIDANCE,
-        'WebsiteFindingInsightAgent' => AiRouteKeys::WEBSITE_AI_GUIDANCE,
         'WebsiteDiscoveryContextAgent' => AiRouteKeys::WEBSITE_DISCOVERY_CONTEXT,
-        'GoogleAdsRecommendationAgent' => AiRouteKeys::GOOGLE_ADS_AI_GUIDANCE,
         'GoogleAdsAdCopyAgent' => AiRouteKeys::GOOGLE_ADS_AD_COPY_DRAFT,
         'MetaAdsCreativeAgent' => AiRouteKeys::META_ADS_CREATIVE_DRAFT,
         'GbpProfileAgent' => AiRouteKeys::GBP_PROFILE_DRAFT,
-        'MetaAdsRecommendationAgent' => AiRouteKeys::META_ADS_AI_GUIDANCE,
     ];
 
     public function __construct(private readonly AiPricing $pricing) {}

@@ -2,8 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\Pages\ViewDigitalAsset;
-use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\MetaAdsConnectionsRelationManager;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
@@ -18,12 +16,10 @@ use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use MoxDop\MetaAds\Ai\MetaAdsAiGuidanceContextBuilder;
 use MoxDop\MetaAds\Collection\MetaAdsBoundCollector;
 use MoxDop\MetaAds\Normalization\MetaResultResolver;
 use MoxDop\MetaAds\Support\MetaPercentage;
 use MoxDop\MetaAds\Workspace\MetaAdsWorkspaceData;
-use ReflectionMethod;
 use Tests\TestCase;
 
 class MetaAdsOperatorCorrectionPassTest extends TestCase
@@ -106,39 +102,6 @@ class MetaAdsOperatorCorrectionPassTest extends TestCase
             CoreAssetBinding::query()->where('digital_asset_id', $metaA->id)->value('external_resource_id'),
             CoreAssetBinding::query()->where('digital_asset_id', $metaB->id)->value('external_resource_id'),
         );
-    }
-
-    public function test_edit_binding_options_include_current_account_label_with_business_context(): void
-    {
-        $asset = DigitalAsset::factory()->create([
-            'brand_id' => $this->brand->id,
-            'type' => 'meta_ads',
-            'module_id' => 'meta-ads',
-        ]);
-
-        $current = $this->metaResource('act_29', 'Avrupadent YD Yeni', 'Avrupadent BM');
-        $other = $this->metaResource('act_30', 'Avrupadent Germany', 'Avrupadent BM');
-        $binding = $this->bind($asset, $current, 'meta_ads');
-
-        $manager = new MetaAdsConnectionsRelationManager;
-        $manager->ownerRecord = $asset;
-        $manager->pageClass = ViewDigitalAsset::class;
-
-        $method = new ReflectionMethod($manager, 'resourceOptions');
-        $method->setAccessible(true);
-        /** @var array<int|string, string> $options */
-        $options = $method->invoke($manager);
-
-        // Prompt 23: current account remains selectable for explicit replace confirmation,
-        // and other unbound accounts remain candidates (no silent overwrite).
-        $this->assertArrayHasKey($current->id, $options);
-        $this->assertArrayHasKey($other->id, $options);
-        $this->assertStringContainsString('Avrupadent YD Yeni', $options[$current->id]);
-        $this->assertStringContainsString('Meta Business: Avrupadent BM', $options[$current->id]);
-        $this->assertStringNotContainsString((string) $current->id.' ·', $options[$current->id]);
-        foreach ($options as $label) {
-            $this->assertDoesNotMatchRegularExpression('/^\d+$/', $label);
-        }
     }
 
     public function test_meta_ctr_percentage_semantics_and_exact_samples(): void
@@ -296,18 +259,13 @@ class MetaAdsOperatorCorrectionPassTest extends TestCase
         $this->assertStringContainsString('Meta Result Signals', $perf);
         $this->assertStringNotContainsString('120.00%', $perf);
 
-        $builder = app(MetaAdsAiGuidanceContextBuilder::class);
-        $contextMethod = new ReflectionMethod($builder, 'build');
-        if ($contextMethod->getNumberOfParameters() >= 1) {
-            // Prefer public analyze-path helpers if present; otherwise assert Evidence payload remains percentage points.
-            $this->assertSame(1.48, (float) data_get(
-                Evidence::query()->where('digital_asset_id', $asset->id)
-                    ->where('type', MetaAdsBoundCollector::EVIDENCE_ACCOUNT_SUMMARY)
-                    ->first()
-                    ?->payload,
-                'current.ctr',
-            ));
-        }
+        $this->assertSame(1.48, (float) data_get(
+            Evidence::query()->where('digital_asset_id', $asset->id)
+                ->where('type', MetaAdsBoundCollector::EVIDENCE_ACCOUNT_SUMMARY)
+                ->first()
+                ?->payload,
+            'current.ctr',
+        ));
     }
 
     public function test_result_resolver_lead_case_and_no_blind_sum(): void

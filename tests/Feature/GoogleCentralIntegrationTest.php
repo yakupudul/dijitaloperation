@@ -2,21 +2,14 @@
 
 namespace Tests\Feature;
 
-use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\Pages\ViewDigitalAsset;
-use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\RelationManagers\AssetBindingsRelationManager;
-use App\Filament\App\Resources\Integrations\IntegrationResource;
-use App\Filament\App\Resources\Integrations\Pages\ViewIntegration;
-use App\Models\Brand;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\CoreIntegrationCredential;
-use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\User;
 use App\Services\Integrations\Google\GoogleOAuthService;
 use App\Services\Integrations\Google\GoogleResourceRefreshService;
-use App\Support\Integrations\AssetBindingCompatibility;
 use App\Support\Integrations\Google\GoogleAuthStatus;
 use App\Support\Integrations\Google\GoogleScopes;
 use App\Support\Integrations\ProviderRegistry;
@@ -28,7 +21,6 @@ use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
 use Tests\TestCase;
 
 class GoogleCentralIntegrationTest extends TestCase
@@ -337,71 +329,6 @@ class GoogleCentralIntegrationTest extends TestCase
         ]);
     }
 
-    public function test_binding_compatibility_and_no_asset_level_google_credential(): void
-    {
-        $customer = Customer::factory()->create();
-        $brand = Brand::factory()->create(['customer_id' => $customer->id]);
-        $website = DigitalAsset::factory()->create(['brand_id' => $brand->id, 'type' => 'website']);
-        $adsAsset = DigitalAsset::factory()->create(['brand_id' => $brand->id, 'type' => 'google_ads']);
-
-        $gsc = CoreExternalResource::factory()->create([
-            'integration_id' => $this->integration->id,
-            'provider' => ProviderRegistry::GOOGLE,
-            'resource_type' => 'search_console',
-            'external_id' => 'sc-domain:moximu.com',
-            'display_name' => 'moximu.com',
-            'status' => 'available',
-        ]);
-        $ads = CoreExternalResource::factory()->create([
-            'integration_id' => $this->integration->id,
-            'provider' => ProviderRegistry::GOOGLE,
-            'resource_type' => 'google_ads',
-            'external_id' => '1234567890',
-            'display_name' => 'Ads 1234567890',
-            'status' => 'available',
-        ]);
-
-        $this->assertTrue(AssetBindingCompatibility::isCompatible($website, $gsc));
-        $this->assertFalse(AssetBindingCompatibility::isCompatible($website, $ads));
-        $this->assertTrue(AssetBindingCompatibility::isCompatible($adsAsset, $ads));
-
-        Livewire::test(AssetBindingsRelationManager::class, [
-            'ownerRecord' => $website,
-            'pageClass' => ViewDigitalAsset::class,
-        ])
-            ->callTableAction('create', data: [
-                'external_resource_id' => $ads->id,
-                'status' => CoreAssetBinding::STATUS_ACTIVE,
-            ])
-            ->assertHasTableActionErrors();
-
-        Livewire::test(AssetBindingsRelationManager::class, [
-            'ownerRecord' => $website,
-            'pageClass' => ViewDigitalAsset::class,
-        ])
-            ->callTableAction('create', data: [
-                'external_resource_id' => $gsc->id,
-                'status' => CoreAssetBinding::STATUS_ACTIVE,
-            ])
-            ->assertHasNoTableActionErrors();
-
-        $binding = CoreAssetBinding::query()->firstOrFail();
-        $this->assertSame($website->id, $binding->digital_asset_id);
-        $this->assertNull(data_get($binding->configuration, 'access_token'));
-        $this->assertNull(data_get($binding->externalResource->metadata, 'refresh_token'));
-    }
-
-    public function test_team_member_cannot_authorize_google(): void
-    {
-        $team = User::factory()->create();
-        $team->assignRole(Roles::TEAM_MEMBER);
-        $this->actingAs($team);
-
-        $this->get(route('integrations.google.authorize', $this->integration))->assertForbidden();
-        $this->get(route('integrations.google.callback'))->assertForbidden();
-        $this->assertFalse(IntegrationResource::canAccess());
-    }
-
     public function test_disconnect_clears_credentials_and_preserves_resources_bindings(): void
     {
         CoreIntegrationCredential::factory()->provider()->create([
@@ -444,20 +371,5 @@ class GoogleCentralIntegrationTest extends TestCase
         $this->assertSame('active', CoreAssetBinding::query()->first()->status);
         $this->assertDatabaseHas('digital_assets', ['id' => $asset->id]);
         $this->assertSame(GoogleAuthStatus::REVOKED, GoogleAuthStatus::for($this->integration->fresh(['credential'])));
-    }
-
-    public function test_google_integration_view_shows_setup_and_actions_without_secrets(): void
-    {
-        Livewire::test(ViewIntegration::class, ['record' => $this->integration->getRouteKey()])
-            ->assertOk()
-            ->assertSee('Application configuration')
-            ->assertSee('Authorization')
-            ->assertSee('Authorize Google')
-            ->assertSee('Configure')
-            ->assertSee('Test connection')
-            ->assertSee('Refresh resources')
-            ->assertSee('Configured by environment')
-            ->assertDontSee('test-client-secret')
-            ->assertDontSee('refresh-secret');
     }
 }

@@ -31,7 +31,7 @@ class AppPanelProvider extends PanelProvider
         return $panel
             ->default()
             ->id('app')
-            // Technical Filament administration only. Operator product lives at the site root.
+            // Technical tooling only (Runs, Modules, system widgets). Operator product lives at the site root (ADR-044, ADR Faz 1).
             ->path('admin')
             ->homeUrl('/')
             ->viteTheme('resources/css/filament/app/theme.css')
@@ -59,16 +59,12 @@ class AppPanelProvider extends PanelProvider
             ->font('IBM Plex Sans')
             ->databaseNotifications()
             ->navigationGroups([
-                NavigationGroup::make(MoxDopNavigation::PORTFOLIO)
-                    ->collapsed(false),
                 NavigationGroup::make(MoxDopNavigation::OPERATIONS)
                     ->collapsed(false),
                 NavigationGroup::make(MoxDopNavigation::SYSTEM)
                     ->collapsed(false),
             ])
-            ->discoverClusters(in: app_path('Filament/App/Clusters'), for: 'App\\Filament\\App\\Clusters')
             ->discoverResources(in: app_path('Filament/App/Resources'), for: 'App\\Filament\\App\\Resources')
-            ->discoverPages(in: app_path('Filament/App/Pages'), for: 'App\\Filament\\App\\Pages')
             ->pages([
                 Dashboard::class,
             ])

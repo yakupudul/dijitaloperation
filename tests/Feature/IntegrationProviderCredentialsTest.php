@@ -2,8 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Filament\App\Resources\Integrations\IntegrationResource;
-use App\Filament\App\Resources\Integrations\Pages\ViewIntegration;
 use App\Models\CoreIntegration;
 use App\Models\CoreIntegrationCredential;
 use App\Models\User;
@@ -20,7 +18,6 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Livewire\Livewire;
 use Tests\TestCase;
 
 class IntegrationProviderCredentialsTest extends TestCase
@@ -244,60 +241,6 @@ class IntegrationProviderCredentialsTest extends TestCase
         $this->assertSame('csecret', $fresh->providerCredential->encrypted_payload['client_secret']);
         $this->assertSame('dev', $fresh->providerCredential->encrypted_payload['developer_token']);
         $this->assertDatabaseHas('core_integrations', ['id' => $this->integration->id]);
-    }
-
-    public function test_admin_can_configure_provider_credentials_via_filament(): void
-    {
-        Livewire::test(ViewIntegration::class, ['record' => $this->integration->getRouteKey()])
-            ->callAction('configureGoogleApplication', data: [
-                'client_id' => 'ui-client-id',
-                'client_secret' => 'ui-client-secret',
-                'developer_token' => 'ui-dev-token',
-                'clear_client_secret' => false,
-                'clear_developer_token' => false,
-            ])
-            ->assertHasNoActionErrors();
-
-        $resolver = app(GoogleCredentialResolver::class);
-        $fresh = $this->integration->fresh(['providerCredential']);
-        $this->assertSame('ui-client-id', $resolver->clientId($fresh));
-        $this->assertSame('ui-client-secret', $resolver->clientSecret($fresh));
-        $this->assertSame('ui-dev-token', $resolver->developerToken($fresh));
-        $this->assertSame(GoogleCredentialResolver::SOURCE_DATABASE, $resolver->clientSecretSource($fresh));
-    }
-
-    public function test_team_member_cannot_configure_provider_credentials(): void
-    {
-        $team = User::factory()->create();
-        $team->assignRole(Roles::TEAM_MEMBER);
-        $this->actingAs($team);
-
-        $this->assertFalse(IntegrationResource::canAccess());
-
-        $this->expectException(\RuntimeException::class);
-        app(GoogleProviderCredentialService::class)->save($this->integration, [
-            'client_id' => 'nope',
-            'client_secret' => 'nope',
-        ], $team);
-    }
-
-    public function test_secrets_are_write_only_in_filament_view(): void
-    {
-        app(GoogleProviderCredentialService::class)->save($this->integration, [
-            'client_id' => 'visible-client-id',
-            'client_secret' => 'never-show-secret',
-            'developer_token' => 'never-show-dev',
-        ], $this->admin);
-
-        Livewire::test(ViewIntegration::class, ['record' => $this->integration->fresh()->getRouteKey()])
-            ->assertOk()
-            ->assertSee('Application configuration')
-            ->assertSee('Configured')
-            ->assertSee('visible-client-id')
-            ->assertDontSee('never-show-secret')
-            ->assertDontSee('never-show-dev')
-            ->assertSee('OAuth Redirect URI')
-            ->assertSee('http://127.0.0.1:8000/integrations/google/callback');
     }
 
     public function test_blank_secret_edit_preserves_stored_value(): void

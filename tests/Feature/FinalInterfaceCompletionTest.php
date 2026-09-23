@@ -4,10 +4,10 @@ namespace Tests\Feature;
 
 use App\Livewire\Demo\Files\FilesIndex;
 use App\Livewire\Demo\Instagram\OverviewPage as InstagramOverviewPage;
-use App\Livewire\Operator\Integrations\SiteConnectorShow;
 use App\Livewire\Demo\ProfilePage;
 use App\Livewire\Demo\Settings\AiControlPlanePage;
 use App\Livewire\Demo\SettingsPage;
+use App\Livewire\Operator\Integrations\SiteConnectorShow;
 use App\Models\DigitalAsset;
 use App\Models\OperatorFile;
 use App\Models\User;
@@ -202,9 +202,10 @@ class FinalInterfaceCompletionTest extends TestCase
 
         Livewire::test(AiControlPlanePage::class)
             ->assertOk()
-            ->assertSee('website.ai_guidance')
-            ->assertSee('google_ads.ai_guidance')
-            ->assertSee('meta_ads.ai_guidance');
+            ->assertSee('website.discovery_context')
+            ->assertDontSee('website.ai_guidance')
+            ->assertDontSee('google_ads.ai_guidance')
+            ->assertDontSee('meta_ads.ai_guidance');
     }
 
     public function test_profile_and_site_connectors_routes_are_reachable(): void

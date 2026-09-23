@@ -23,10 +23,13 @@ final class AsyncOperationTypes
 
     public const string SEO_INTELLIGENCE_REFRESH = 'seo_intelligence_refresh';
 
+    /** @deprecated Faz 1: producer removed (module AI guidance); kept so historical Runs keep a label. */
     public const string WEBSITE_AI_GUIDANCE = 'website_ai_guidance';
 
+    /** @deprecated Faz 1: producer removed (module AI guidance); kept so historical Runs keep a label. */
     public const string GOOGLE_ADS_AI_GUIDANCE = 'google_ads_ai_guidance';
 
+    /** @deprecated Faz 1: producer removed (module AI guidance); kept so historical Runs keep a label. */
     public const string META_ADS_AI_GUIDANCE = 'meta_ads_ai_guidance';
 
     public const string FINDING_EVALUATION = 'finding_evaluation';

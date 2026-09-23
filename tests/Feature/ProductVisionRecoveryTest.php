@@ -2,22 +2,19 @@
 
 namespace Tests\Feature;
 
-use App\Filament\App\Clusters\Settings\Pages\AiControlPlaneSettings;
 use App\Filament\App\Resources\Modules\ModuleResource;
 use App\Livewire\Demo\Dashboard;
 use App\Livewire\Demo\Operations\ActivityIndex;
 use App\Livewire\Demo\Operations\FindingsIndex;
 use App\Livewire\Demo\Operations\RecommendationsIndex;
-use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Livewire\Demo\SettingsPage;
+use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Models\AgencySetting;
 use App\Models\Brand;
 use App\Models\DigitalAsset;
 use App\Models\Finding;
 use App\Models\Recommendation;
 use App\Models\User;
-use App\Support\Agents\AgentProfileKeys;
-use App\Support\Agents\AgentProfileRegistry;
 use App\Support\Ai\AiRouteKeys;
 use App\Support\Ai\AiRouteRegistry;
 use App\Support\Demo\DemoState;
@@ -68,41 +65,12 @@ class ProductVisionRecoveryTest extends TestCase
     public function test_ai_control_plane_enumerates_all_registered_routes(): void
     {
         $registry = app(AiRouteRegistry::class);
-        foreach ([
-            AiRouteKeys::WEBSITE_AI_GUIDANCE,
-            AiRouteKeys::WEBSITE_DISCOVERY_CONTEXT,
-            AiRouteKeys::GOOGLE_ADS_AI_GUIDANCE,
-            AiRouteKeys::META_ADS_AI_GUIDANCE,
-            AiRouteKeys::GBP_AI_GUIDANCE,
-            AiRouteKeys::GA4_AI_GUIDANCE,
-            AiRouteKeys::GSC_AI_GUIDANCE,
-        ] as $key) {
-            $this->assertTrue($registry->has($key), 'Missing AI route: '.$key);
+        $this->assertTrue($registry->has(AiRouteKeys::WEBSITE_DISCOVERY_CONTEXT), 'Missing AI route: '.AiRouteKeys::WEBSITE_DISCOVERY_CONTEXT);
+
+        // Faz 1 (ADR-065): module AI guidance routes are no longer registered.
+        foreach (['website.ai_guidance', 'google_ads.ai_guidance', 'meta_ads.ai_guidance', 'gbp.ai_guidance', 'ga4.ai_guidance', 'gsc.ai_guidance'] as $key) {
+            $this->assertFalse($registry->has($key), 'Removed AI route still registered: '.$key);
         }
-
-        Livewire::test(AiControlPlaneSettings::class)
-            ->assertOk()
-            ->assertSee('Registered AI routes')
-            ->assertSee('Website AI Guidance')
-            ->assertSee('Website Discovery Context')
-            ->assertSee('Google Ads')
-            ->assertSee('Meta Ads')
-            ->assertSee('GBP Local Presence Guidance')
-            ->assertSee('GA4 Measurement Guidance')
-            ->assertSee('Search Console Organic Search Guidance')
-            ->call('selectRoute', AiRouteKeys::META_ADS_AI_GUIDANCE)
-            ->assertSet('selectedRoute', AiRouteKeys::META_ADS_AI_GUIDANCE)
-            ->assertSee('meta_ads.ai_guidance');
-    }
-
-    public function test_specialist_agent_profiles_are_registered(): void
-    {
-        $agents = app(AgentProfileRegistry::class);
-        $this->assertTrue($agents->has(AgentProfileKeys::GBP_LOCAL_PRESENCE_ANALYST));
-        $this->assertTrue($agents->has(AgentProfileKeys::GA4_MEASUREMENT_ANALYST));
-        $this->assertTrue($agents->has(AgentProfileKeys::GSC_ORGANIC_SEARCH_ANALYST));
-        $this->assertSame('designed', $agents->get(AgentProfileKeys::GBP_LOCAL_PRESENCE_ANALYST)->status);
-        $this->assertSame(AiRouteKeys::GA4_AI_GUIDANCE, $agents->get(AgentProfileKeys::GA4_MEASUREMENT_ANALYST)->aiRouteKey);
     }
 
     public function test_findings_support_acknowledge_and_resolve_actions(): void
@@ -177,11 +145,7 @@ class ProductVisionRecoveryTest extends TestCase
             ->call('saveGeneral')
             ->assertSet('agency_name', 'Moximu Agency Demo')
             ->set('section', 'ai')
-            ->assertSee(__('operator.settings.ai.routes_title'))
-            ->assertSee('gbp.ai_guidance')
-            ->assertSee('ga4.ai_guidance')
-            ->assertSee('gsc.ai_guidance')
-            ->assertSee('GBP Local Presence Analyst');
+            ->assertSee(__('operator.settings.ai.routes_title'));
 
         $this->assertSame('Moximu Agency Demo', AgencySetting::query()->first()?->agency_name);
         $this->assertSame([], DemoState::settingsOverrides());

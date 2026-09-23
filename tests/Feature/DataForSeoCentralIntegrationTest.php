@@ -2,8 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Filament\App\Resources\Integrations\IntegrationResource;
-use App\Filament\App\Resources\Integrations\Pages\ViewIntegration;
 use App\Models\CoreIntegration;
 use App\Models\CoreIntegrationCredential;
 use App\Models\User;
@@ -21,7 +19,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Livewire\Livewire;
 use Tests\TestCase;
 
 class DataForSeoCentralIntegrationTest extends TestCase
@@ -135,36 +132,6 @@ class DataForSeoCentralIntegrationTest extends TestCase
         $this->assertSame('env-password', $resolver->password($this->integration));
         $this->assertSame(DataForSeoCredentialResolver::SOURCE_ENVIRONMENT, $resolver->passwordSource($this->integration));
         $this->assertTrue($resolver->isConfigured($this->integration));
-    }
-
-    public function test_view_workspace_hides_password_and_shows_stored_securely(): void
-    {
-        app(DataForSeoProviderCredentialService::class)->save($this->integration, [
-            'login' => 'agency@example.com',
-            'password' => 'dfs-secret-password',
-        ], $this->admin);
-
-        Livewire::test(ViewIntegration::class, ['record' => $this->integration->id])
-            ->assertSuccessful()
-            ->assertSee('agency@example.com')
-            ->assertSee('Stored securely ✓')
-            ->assertDontSee('dfs-secret-password')
-            ->assertDontSee('Credentials JSON')
-            ->assertSee('Test connection')
-            ->assertSee('Configure')
-            ->assertSee('Remove provider configuration');
-    }
-
-    public function test_generic_persist_credentials_skipped_for_dataforseo(): void
-    {
-        IntegrationResource::persistCredentials($this->integration, [
-            'credentials_json' => json_encode([
-                'login' => 'should-not-persist',
-                'password' => 'should-not-persist-secret',
-            ]),
-        ]);
-
-        $this->assertNull($this->integration->fresh()->providerCredential);
     }
 
     public function test_test_connection_success_updates_health_without_raw_dump(): void
@@ -352,30 +319,6 @@ class DataForSeoCentralIntegrationTest extends TestCase
 
         $this->assertNull($this->integration->fresh()->providerCredential);
         $this->assertFalse(app(DataForSeoCredentialResolver::class)->isConfigured($this->integration->fresh()));
-    }
-
-    public function test_livewire_configure_action_does_not_leak_password(): void
-    {
-        app(DataForSeoProviderCredentialService::class)->save($this->integration, [
-            'login' => 'agency@example.com',
-            'password' => 'dfs-secret-password',
-        ], $this->admin);
-
-        $component = Livewire::test(ViewIntegration::class, ['record' => $this->integration->id])
-            ->callAction('configureDataForSeo', data: [
-                'login' => 'agency@example.com',
-                'password' => '',
-                'clear_password' => false,
-            ])
-            ->assertHasNoActionErrors();
-
-        $snapshot = json_encode($component->instance());
-        $this->assertIsString($snapshot);
-        $this->assertStringNotContainsString('dfs-secret-password', $snapshot);
-        $this->assertSame(
-            'dfs-secret-password',
-            app(DataForSeoCredentialResolver::class)->password($this->integration->fresh(['providerCredential'])),
-        );
     }
 
     public function test_provider_registry_keeps_single_dataforseo_identity(): void

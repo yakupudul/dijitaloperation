@@ -11,10 +11,7 @@ use App\Support\Ai\AiRouteKeys;
 use App\Support\Ai\AiRouteRegistry;
 use App\Support\Skills\SkillRegistry;
 use Illuminate\Support\ServiceProvider;
-use MoxDop\Website\Agents\Ga4MeasurementAnalyst;
-use MoxDop\Website\Agents\GscOrganicSearchAnalyst;
 use MoxDop\Website\Agents\WebsiteBrandDiscoveryAnalyst;
-use MoxDop\Website\Agents\WebsiteSeoAnalyst;
 use MoxDop\Website\Ai\WebsiteAiRoutes;
 use MoxDop\Website\Collection\Ga4BoundCollector;
 use MoxDop\Website\Collection\SearchConsoleBoundCollector;
@@ -41,34 +38,10 @@ class WebsiteServiceProvider extends ServiceProvider
             ->register($this->app->make(WebsitePerformanceBoundEvidenceEvaluator::class));
 
         $this->app->make(AiRouteRegistry::class)->register([
-            'key' => AiRouteKeys::WEBSITE_AI_GUIDANCE,
-            'name' => WebsiteAiRoutes::AI_GUIDANCE_NAME,
-            'module' => 'website',
-            'description' => 'Grounded Website AI guidance over Findings, Evidence, and Brand Context.',
-            'default_steps' => AiDefaultSteps::analysis(),
-        ]);
-
-        $this->app->make(AiRouteRegistry::class)->register([
             'key' => AiRouteKeys::WEBSITE_DISCOVERY_CONTEXT,
             'name' => WebsiteAiRoutes::DISCOVERY_CONTEXT_NAME,
             'module' => 'website',
             'description' => 'Bounded Website public Discovery Brand inference proposals for human review.',
-            'default_steps' => AiDefaultSteps::analysis(),
-        ]);
-
-        $this->app->make(AiRouteRegistry::class)->register([
-            'key' => AiRouteKeys::GA4_AI_GUIDANCE,
-            'name' => WebsiteAiRoutes::GA4_AI_GUIDANCE_NAME,
-            'module' => 'website',
-            'description' => 'Grounded GA4 measurement guidance. Designed — live specialist execution not claimed; collectors may still be Website-scoped.',
-            'default_steps' => AiDefaultSteps::analysis(),
-        ]);
-
-        $this->app->make(AiRouteRegistry::class)->register([
-            'key' => AiRouteKeys::GSC_AI_GUIDANCE,
-            'name' => WebsiteAiRoutes::GSC_AI_GUIDANCE_NAME,
-            'module' => 'website',
-            'description' => 'Grounded Search Console organic-demand guidance. Designed — live specialist execution not claimed; collectors may still be Website-scoped.',
             'default_steps' => AiDefaultSteps::analysis(),
         ]);
 
@@ -77,9 +50,6 @@ class WebsiteServiceProvider extends ServiceProvider
             dirname(__DIR__, 2).'/resources/skills',
         );
 
-        $this->app->make(AgentProfileRegistry::class)->register(WebsiteSeoAnalyst::definition());
         $this->app->make(AgentProfileRegistry::class)->register(WebsiteBrandDiscoveryAnalyst::definition());
-        $this->app->make(AgentProfileRegistry::class)->register(Ga4MeasurementAnalyst::definition());
-        $this->app->make(AgentProfileRegistry::class)->register(GscOrganicSearchAnalyst::definition());
     }
 }
