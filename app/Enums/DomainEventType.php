@@ -11,13 +11,21 @@ enum DomainEventType: string
     case RecommendationAccepted = 'RECOMMENDATION_ACCEPTED';
     case TaskCompleted = 'TASK_COMPLETED';
     case TaskAssigned = 'TASK_ASSIGNED';
+    /** @deprecated Faz 1: producer removed */
     case QaPassed = 'QA_PASSED';
+    /** @deprecated Faz 1: producer removed */
     case QaFailed = 'QA_FAILED';
+    /** @deprecated Faz 1: producer removed */
     case QaNeedsChanges = 'QA_NEEDS_CHANGES';
+    /** @deprecated Faz 1: producer removed */
     case ApprovalApproved = 'APPROVAL_APPROVED';
+    /** @deprecated Faz 1: producer removed */
     case ApprovalRejected = 'APPROVAL_REJECTED';
+    /** @deprecated Faz 1: producer removed */
     case ApprovalChangesRequested = 'APPROVAL_CHANGES_REQUESTED';
+    /** @deprecated Faz 1: producer removed */
     case RecurringReviewCompleted = 'RECURRING_REVIEW_COMPLETED';
+    /** @deprecated Faz 1: producer removed */
     case ClientRequestCreated = 'CLIENT_REQUEST_CREATED';
     case OpportunityCreated = 'OPPORTUNITY_CREATED';
     case ScheduledInternalNotification = 'SCHEDULED_INTERNAL_NOTIFICATION';

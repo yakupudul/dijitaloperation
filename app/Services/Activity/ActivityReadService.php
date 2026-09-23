@@ -10,11 +10,13 @@ use App\Models\BrandContextActivity;
 use App\Models\Collection\CollectionRun;
 use App\Models\DomainEvent;
 use App\Models\Run;
+use App\Models\SearchQueryLibraryImport;
 use App\Models\User;
 use App\Support\Async\AsyncOperationTypes;
 use App\Support\Work\WorkUrl;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Read-only Activity feed for Operations Activity Index.
@@ -52,18 +54,18 @@ final class ActivityReadService
         $collectionRuns = $this->collectionRunQuery($filters, $since)->limit($sqlLimit)->get();
 
         $libraryImports = empty($filters['brand_id']) && empty($filters['customer_id']) && empty($filters['digital_asset_id'])
-            ? \App\Models\SearchQueryLibraryImport::query()->with('createdBy')->whereNotNull('input_payload')
+            ? SearchQueryLibraryImport::query()->with('createdBy')->whereNotNull('input_payload')
                 ->when($since !== null, fn ($q) => $q->where('created_at', '>=', $since))->latest('id')->limit($sqlLimit)->get()
             : collect();
 
         $clusterOperations = empty($filters['brand_id']) && empty($filters['customer_id']) && empty($filters['digital_asset_id'])
-            ? \Illuminate\Support\Facades\DB::table('library_cluster_operations as o')
+            ? DB::table('library_cluster_operations as o')
                 ->leftJoin('users as u', 'u.id', '=', 'o.created_by')
                 ->when($since !== null, fn ($q) => $q->where('o.created_at', '>=', $since))
                 ->select('o.*', 'u.name as actor_name')->orderByDesc('o.id')->limit($sqlLimit)->get()
             : collect();
 
-        $websiteEvents = \Illuminate\Support\Facades\DB::table('website_connector_events as e')
+        $websiteEvents = DB::table('website_connector_events as e')
             ->join('digital_assets as a', 'a.id', '=', 'e.digital_asset_id')
             ->join('brands as b', 'b.id', '=', 'a.brand_id')
             ->leftJoin('customers as c', 'c.id', '=', 'b.customer_id')
@@ -77,6 +79,7 @@ final class ActivityReadService
         $rows = collect()
             ->concat($websiteEvents->map(function ($event): array {
                 $at = Carbon::parse($event->occurred_at);
+
                 return [
                     'id' => 'wordpress-event:'.$event->id, 'sort_id' => $event->id,
                     'title' => __('wordpress-events.'.$event->type),
@@ -95,6 +98,7 @@ final class ActivityReadService
             ->concat($clusterOperations->map(function ($op): array {
                 $meta = json_decode($op->metadata, true);
                 $at = Carbon::parse($op->created_at);
+
                 return [
                     'id' => 'query-cluster:'.$op->id, 'sort_id' => $op->id,
                     'title' => __('manual-clusters.kind_'.$op->kind),
@@ -103,7 +107,9 @@ final class ActivityReadService
                         'changed' => $op->changed, 'skipped' => $op->skipped,
                     ]),
                     'actor' => $op->actor_name ?? 'System', 'actor_kind' => 'human',
-                    'status' => match ($op->status) { 'queued', 'running' => 'running', 'failed' => 'failed', 'partial' => 'partial', default => 'success' },
+                    'status' => match ($op->status) {
+                        'queued', 'running' => 'running', 'failed' => 'failed', 'partial' => 'partial', default => 'success'
+                    },
                     'brand' => null, 'brand_id' => null, 'customer' => null, 'customer_id' => null,
                     'created_at' => $at->toIso8601String(), 'occurred_at' => $at->toIso8601String(),
                     'relative' => $at->diffForHumans(), 'route' => 'operator.library.search-demand-clusters',
@@ -116,7 +122,9 @@ final class ActivityReadService
                 'title' => $import->source_type === 'services' ? 'Toplu hizmet ekleme' : ($import->source_type === 'assignment' ? 'Toplu sorgu atama' : 'Sorgu içe aktarma'),
                 'detail' => '#'.$import->id.' · '.$import->status.' · '.$import->accepted_rows.' yeni · '.$import->skipped_rows.' mevcut · '.$import->failed_rows.' hata',
                 'actor' => data_get($import->input_payload, 'automatic') ? 'System' : ($import->createdBy?->name ?? 'System'), 'actor_kind' => data_get($import->input_payload, 'automatic') ? 'system' : ($import->created_by ? 'human' : 'system'),
-                'status' => match ($import->status) { 'queued', 'running' => 'running', 'failed' => 'failed', 'partial' => 'partial', default => 'success' },
+                'status' => match ($import->status) {
+                    'queued', 'running' => 'running', 'failed' => 'failed', 'partial' => 'partial', default => 'success'
+                },
                 'brand' => null, 'brand_id' => null, 'customer' => null, 'customer_id' => null,
                 'created_at' => $import->created_at->toIso8601String(), 'occurred_at' => $import->created_at->toIso8601String(),
                 'relative' => $import->created_at->diffForHumans(),
@@ -532,9 +540,6 @@ final class ActivityReadService
         if ($subjectType !== null) {
             $typed = match (true) {
                 str_ends_with($subjectType, '\\Task') => WorkUrl::TYPE_TASK,
-                str_ends_with($subjectType, '\\ClientRequest') => WorkUrl::TYPE_CLIENT_REQUEST,
-                str_ends_with($subjectType, '\\Approval') => WorkUrl::TYPE_APPROVAL,
-                str_ends_with($subjectType, '\\RecurringReviewRun') => WorkUrl::TYPE_RECURRING_REVIEW,
                 default => null,
             };
 
@@ -564,9 +569,6 @@ final class ActivityReadService
     {
         $typed = match (true) {
             $kind === DomainEventSubjectKind::Task || $kind === DomainEventSubjectKind::Task->value => WorkUrl::TYPE_TASK,
-            $kind === DomainEventSubjectKind::ClientRequest || $kind === DomainEventSubjectKind::ClientRequest->value => WorkUrl::TYPE_CLIENT_REQUEST,
-            $kind === DomainEventSubjectKind::Approval || $kind === DomainEventSubjectKind::Approval->value => WorkUrl::TYPE_APPROVAL,
-            $kind === DomainEventSubjectKind::RecurringReviewRun || $kind === DomainEventSubjectKind::RecurringReviewRun->value => WorkUrl::TYPE_RECURRING_REVIEW,
             default => null,
         };
 
@@ -591,10 +593,10 @@ final class ActivityReadService
                 str_ends_with($subjectType, '\\Opportunity') => 'operator.opportunities',
                 str_ends_with($subjectType, '\\Recommendation') => 'operator.recommendations',
                 str_ends_with($subjectType, '\\Task') => 'operator.work.show',
-                str_ends_with($subjectType, '\\ClientRequest') => 'operator.work.show',
+                str_ends_with($subjectType, '\\ClientRequest') => 'operator.tasks',
                 str_ends_with($subjectType, '\\QaReview') => 'operator.tasks',
-                str_ends_with($subjectType, '\\Approval') => 'operator.work.show',
-                str_ends_with($subjectType, '\\RecurringReviewRun') => 'operator.work.show',
+                str_ends_with($subjectType, '\\Approval') => 'operator.tasks',
+                str_ends_with($subjectType, '\\RecurringReviewRun') => 'operator.tasks',
                 str_ends_with($subjectType, '\\Playbook') => 'operator.settings',
                 default => $this->routeForEventType($event),
             };
@@ -615,7 +617,7 @@ final class ActivityReadService
                 DomainEventType::TaskCompleted, DomainEventType::TaskAssigned => 'operator.tasks',
                 DomainEventType::QaPassed, DomainEventType::QaFailed, DomainEventType::QaNeedsChanges => 'operator.tasks',
                 DomainEventType::ApprovalApproved, DomainEventType::ApprovalRejected, DomainEventType::ApprovalChangesRequested => 'operator.tasks',
-                DomainEventType::ClientRequestCreated, DomainEventType::RecurringReviewCompleted => 'operator.work.show',
+                DomainEventType::ClientRequestCreated, DomainEventType::RecurringReviewCompleted => 'operator.tasks',
                 DomainEventType::ScheduledInternalNotification,
                 DomainEventType::BusinessOutcomeRecheckAttention,
                 DomainEventType::OperationalAlertOpened => 'operator.activity',

@@ -2,10 +2,7 @@
 
 namespace Tests\Feature\ActivityNotifications;
 
-use App\Enums\ApprovalDecision;
-use App\Enums\ApprovalKind;
 use App\Enums\DomainEventType;
-use App\Enums\QaReviewResult;
 use App\Enums\TaskScopeKind;
 use App\Models\Brand;
 use App\Models\BrandContextActivity;
@@ -17,10 +14,8 @@ use App\Models\Recommendation;
 use App\Models\Task;
 use App\Models\User;
 use App\Models\UserNotification;
-use App\Services\Approvals\ApprovalService;
 use App\Services\DomainEvents\DomainEventEmitter;
 use App\Services\Notifications\NotificationWriteService;
-use App\Services\Qa\QaService;
 use App\Services\Recommendations\CreateRecommendationFromFinding;
 use App\Services\Recommendations\UpdateRecommendation;
 use App\Services\Tasks\CreateDirectTask;
@@ -125,35 +120,6 @@ class ActivityNotificationDomainWiringTest extends TestCase
         $this->assertSame(Recommendation::STATUS_ACCEPTED, $recommendation->fresh()->status);
         // No Task auto-created from accept
         $this->assertSame(1, Task::query()->count());
-    }
-
-    public function test_qa_passed_emits_qa_passed_not_qa_approved_or_approval(): void
-    {
-        $review = app(QaService::class)->requestReview($this->task, [], $this->actor, 'wire:qa:1');
-        app(QaService::class)->completeReview($review, ['result' => QaReviewResult::Passed->value], $this->actor);
-
-        $this->assertSame(1, DomainEvent::query()->where('event_type', DomainEventType::QaPassed->value)->count());
-        $this->assertSame(0, DomainEvent::query()->where('event_type', 'like', '%QA_APPROVED%')->count());
-        $this->assertSame(0, DomainEvent::query()->where('event_type', DomainEventType::ApprovalApproved->value)->count());
-
-        $event = DomainEvent::query()->where('event_type', DomainEventType::QaPassed->value)->first();
-        $this->assertNotNull($event);
-        // Actor is reviewer; assignee is different → one notification
-        $this->assertSame(1, UserNotification::query()->where('domain_event_id', $event->id)->count());
-    }
-
-    public function test_approval_approved_is_separate_from_qa(): void
-    {
-        $approval = app(ApprovalService::class)->request($this->task, [
-            'kind' => ApprovalKind::Internal->value,
-        ], $this->actor, 'wire:appr:1');
-        app(ApprovalService::class)->decide($approval, [
-            'decision' => ApprovalDecision::Approved->value,
-            'decided_by_user_id' => $this->actor->id,
-        ], $this->actor);
-
-        $this->assertSame(1, DomainEvent::query()->where('event_type', DomainEventType::ApprovalApproved->value)->count());
-        $this->assertSame(0, DomainEvent::query()->where('event_type', DomainEventType::QaPassed->value)->count());
     }
 
     public function test_domain_rollback_creates_no_event_activity_or_notification(): void

@@ -43,7 +43,7 @@ class DeferredModulesRuntimeTest extends TestCase
             'name' => 'Deferred Instagram',
         ]);
 
-        $this->get('/assets/instagram/'.$asset->id)->assertOk()->assertSee(__('operator.commercial.outside_scope'));
+        $this->get('/assets/instagram/'.$asset->id)->assertRedirect(route('operator.assets'));
         $this->assertDirectoryDoesNotExist(base_path('app-modules/instagram'));
     }
 

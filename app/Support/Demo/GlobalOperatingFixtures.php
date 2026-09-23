@@ -324,10 +324,6 @@ final class GlobalOperatingFixtures
             'last_meaningful_activity' => $asset['last_update'] ?? '—',
         ]);
 
-        if ($type === 'instagram') {
-            $merged['route'] = $merged['route'] ?? 'operator.instagram';
-        }
-
         return $merged;
     }
 

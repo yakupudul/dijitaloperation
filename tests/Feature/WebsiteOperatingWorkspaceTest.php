@@ -8,7 +8,6 @@ use App\Models\Recommendation;
 use App\Models\User;
 use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
-use App\Support\Demo\WebsiteWorkspaceFixtures;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -135,15 +134,5 @@ class WebsiteOperatingWorkspaceTest extends TestCase
             ->assertSee(__('operator_website.priority.high').' · '.__('operator_website.recommendation_status.open'))
             ->assertDontSee('>critical<', false)
             ->assertDontSee('high · open');
-    }
-
-    public function test_website_workspace_fixtures_remain_deterministic_outside_http(): void
-    {
-        $a = WebsiteWorkspaceFixtures::workspace('last_28');
-        $b = WebsiteWorkspaceFixtures::workspace('last_28');
-
-        $this->assertSame($a['identity']['title'], $b['identity']['title']);
-        $this->assertSame('Atlas Dental Website', $a['identity']['title']);
-        $this->assertSame($a['health']['summary'], $b['health']['summary']);
     }
 }

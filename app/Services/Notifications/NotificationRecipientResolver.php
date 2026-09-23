@@ -3,11 +3,7 @@
 namespace App\Services\Notifications;
 
 use App\Enums\DomainEventType;
-use App\Models\Approval;
-use App\Models\ClientRequest;
 use App\Models\DomainEvent;
-use App\Models\QaReview;
-use App\Models\RecurringReviewRun;
 use App\Models\Task;
 
 /**
@@ -37,12 +33,12 @@ final class NotificationRecipientResolver
             DomainEventType::TaskAssigned => $this->taskAssigneeRecipients($subjectId),
             DomainEventType::QaPassed,
             DomainEventType::QaFailed,
-            DomainEventType::QaNeedsChanges => $this->qaTaskAssigneeRecipients($subjectId),
+            DomainEventType::QaNeedsChanges,
             DomainEventType::ApprovalApproved,
             DomainEventType::ApprovalRejected,
-            DomainEventType::ApprovalChangesRequested => $this->approvalTaskAssigneeRecipients($subjectId),
-            DomainEventType::RecurringReviewCompleted => $this->recurringReviewOwnerRecipients($subjectId),
-            DomainEventType::ClientRequestCreated => $this->clientRequestOwnerRecipients($subjectId),
+            DomainEventType::ApprovalChangesRequested,
+            DomainEventType::RecurringReviewCompleted,
+            DomainEventType::ClientRequestCreated => [],
             DomainEventType::ScheduledInternalNotification,
             DomainEventType::BusinessOutcomeRecheckAttention,
             DomainEventType::OperationalAlertOpened => $this->payloadRecipientIds($event),
@@ -82,54 +78,6 @@ final class NotificationRecipientResolver
         }
 
         return [(int) $task->assignee_id];
-    }
-
-    /**
-     * @return list<int|null>
-     */
-    private function qaTaskAssigneeRecipients(int $qaReviewId): array
-    {
-        $review = QaReview::query()->with('task:id,assignee_id')->find($qaReviewId);
-        $assigneeId = $review?->task?->assignee_id;
-
-        return $assigneeId !== null ? [(int) $assigneeId] : [];
-    }
-
-    /**
-     * @return list<int|null>
-     */
-    private function approvalTaskAssigneeRecipients(int $approvalId): array
-    {
-        $approval = Approval::query()->with('task:id,assignee_id')->find($approvalId);
-        $assigneeId = $approval?->task?->assignee_id;
-
-        return $assigneeId !== null ? [(int) $assigneeId] : [];
-    }
-
-    /**
-     * Schedule owner only (once), even when summary mentions findings/tasks.
-     *
-     * @return list<int|null>
-     */
-    private function recurringReviewOwnerRecipients(int $runId): array
-    {
-        $run = RecurringReviewRun::query()->with('schedule:id,owner_user_id')->find($runId);
-        $ownerId = $run?->schedule?->owner_user_id;
-
-        return $ownerId !== null ? [(int) $ownerId] : [];
-    }
-
-    /**
-     * @return list<int|null>
-     */
-    private function clientRequestOwnerRecipients(int $requestId): array
-    {
-        $request = ClientRequest::query()->find($requestId);
-        if ($request === null || $request->owner_user_id === null) {
-            return [];
-        }
-
-        return [(int) $request->owner_user_id];
     }
 
     /**

@@ -9,7 +9,6 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable([
@@ -51,22 +50,6 @@ class Task extends Model
     public function recommendation(): BelongsTo
     {
         return $this->belongsTo(Recommendation::class);
-    }
-
-    /**
-     * @return BelongsTo<ClientRequest, $this>
-     */
-    public function clientRequest(): BelongsTo
-    {
-        return $this->belongsTo(ClientRequest::class);
-    }
-
-    /**
-     * @return BelongsTo<RecurringReviewRunItem, $this>
-     */
-    public function recurringReviewRunItem(): BelongsTo
-    {
-        return $this->belongsTo(RecurringReviewRunItem::class, 'recurring_review_run_item_id');
     }
 
     /**
@@ -120,22 +103,6 @@ class Task extends Model
     public function searchDemandChangeTracking(): HasOne
     {
         return $this->hasOne(SearchDemandChangeTracking::class);
-    }
-
-    /**
-     * @return HasMany<QaReview, $this>
-     */
-    public function qaReviews(): HasMany
-    {
-        return $this->hasMany(QaReview::class);
-    }
-
-    /**
-     * @return HasMany<Approval, $this>
-     */
-    public function approvals(): HasMany
-    {
-        return $this->hasMany(Approval::class);
     }
 
     /**

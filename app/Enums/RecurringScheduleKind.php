@@ -5,6 +5,7 @@ namespace App\Enums;
 enum RecurringScheduleKind: string
 {
     case Collection = 'collection';
+    /** @deprecated Faz 1: producer removed */
     case RecurringReview = 'recurring_review';
     /** @deprecated Faz 1: producer removed */
     case BusinessOutcomeRecheck = 'business_outcome_recheck';

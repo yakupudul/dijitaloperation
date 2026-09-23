@@ -25,8 +25,7 @@ class InstagramProductSpecTest extends TestCase
 
         $asset = DigitalAsset::factory()->create(['type' => 'instagram', 'name' => 'Instagram Asset']);
         $this->get(route('operator.instagram', ['assetId' => $asset->id]))
-            ->assertOk()
-            ->assertSee(__('operator.commercial.outside_scope'));
+            ->assertRedirect(route('operator.assets'));
         $this->assertDirectoryDoesNotExist(base_path('app-modules/instagram'));
     }
 }

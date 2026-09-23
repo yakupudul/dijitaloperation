@@ -285,31 +285,11 @@
                 <div class="mb-4 inline-flex gap-1 rounded-lg bg-gray-100 p-1 dark:bg-white/[0.04]" role="tablist">
                     <button type="button" wire:click="setOpsSub('defaults')"
                         @class(['rounded-md px-3 py-1.5 text-sm font-medium', 'bg-white shadow-sm dark:bg-gray-800' => ($ops_sub ?? 'defaults') === 'defaults'])>{{ __('operator.playbooks.settings_defaults') }}</button>
-                    <button type="button" wire:click="setOpsSub('playbooks')"
-                        @class(['rounded-md px-3 py-1.5 text-sm font-medium', 'bg-white shadow-sm dark:bg-gray-800' => ($ops_sub ?? 'defaults') === 'playbooks'])>{{ __('operator.playbooks.catalog') }}</button>
                 </div>
-                @if (($ops_sub ?? 'defaults') === 'playbooks')
-                    <div class="space-y-3 rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-                        <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ __('operator.playbooks.catalog') }}</h3>
-                        <p class="text-sm text-gray-500">{{ __('operator.playbooks.catalog_subtitle') }}</p>
-                        <ul class="divide-y divide-gray-100 dark:divide-gray-800">
-                            @foreach ($playbooks as $playbook)
-                                <li class="flex flex-wrap items-center justify-between gap-3 py-3">
-                                    <div>
-                                        <p class="font-medium text-gray-800 dark:text-white/90">{{ $playbook['name'] }}</p>
-                                        <p class="text-xs text-gray-500">{{ $playbook['service_label'] ?? '' }} · {{ ucfirst($playbook['cadence'] ?? '') }}@if (! empty($playbook['default_owner_name'])) · {{ $playbook['default_owner_name'] }}@endif</p>
-                                    </div>
-                                    <x-ta.button :href="route('operator.settings.playbook', ['playbookId' => $playbook['id']])" size="sm" variant="outline">{{ __('operator.actions.open') }}</x-ta.button>
-                                </li>
-                            @endforeach
-                        </ul>
-                    </div>
-                @else
-                    <div class="space-y-3 rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-                        <p class="text-sm text-gray-600 dark:text-gray-300">{{ __('operator.settings.operations.dashboard_mode_note') }}</p>
-                        <x-ta.button :href="route('operator.dashboard')" size="sm" variant="outline">{{ __('operator.nav.dashboard') }}</x-ta.button>
-                    </div>
-                @endif
+                <div class="space-y-3 rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                    <p class="text-sm text-gray-600 dark:text-gray-300">{{ __('operator.settings.operations.dashboard_mode_note') }}</p>
+                    <x-ta.button :href="route('operator.dashboard')" size="sm" variant="outline">{{ __('operator.nav.dashboard') }}</x-ta.button>
+                </div>
             @elseif ($section === 'ai')
                 <div class="space-y-4">
                     <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">

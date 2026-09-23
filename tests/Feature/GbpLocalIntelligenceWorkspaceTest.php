@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Livewire\Demo\Gbp\OverviewPage;
 use App\Models\User;
 use App\Support\Demo\DemoState;
-use App\Support\Demo\GbpWorkspaceFixtures;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -55,29 +54,5 @@ class GbpLocalIntelligenceWorkspaceTest extends TestCase
             ->assertDontSee('acil dişçi çankaya')
             ->assertDontSee('Local SEO Score')
             ->assertDontSee('GBP Score');
-    }
-
-    public function test_gbp_workspace_fixtures_remain_deterministic_outside_http(): void
-    {
-        $a = GbpWorkspaceFixtures::workspace('last_28');
-        $b = GbpWorkspaceFixtures::workspace('last_28');
-
-        $this->assertSame($a['glance'], $b['glance']);
-        $this->assertSame(
-            $a['visibility']['scans']['ankara implant']['current']['points'],
-            $b['visibility']['scans']['ankara implant']['current']['points'],
-        );
-        $this->assertSame($a['reviews']['glance']['total'], $b['reviews']['glance']['total']);
-        $this->assertSame($a['competitors']['rows'][0]['name'], $b['competitors']['rows'][0]['name']);
-
-        $visibility = GbpWorkspaceFixtures::visibility();
-        $default = $visibility['default_keyword'];
-        $points = $visibility['scans'][$default]['current']['points'];
-        $this->assertNotEmpty($points);
-        $this->assertArrayHasKey('lat', $points[0]);
-        $this->assertSame(GbpWorkspaceFixtures::BUSINESS_LAT, $visibility['business']['lat']);
-
-        $attention = GbpWorkspaceFixtures::needsAttention();
-        $this->assertLessThanOrEqual(4, count($attention));
     }
 }

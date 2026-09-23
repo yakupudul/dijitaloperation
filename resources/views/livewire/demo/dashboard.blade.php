@@ -189,23 +189,6 @@
     </section>
 
     <div class="grid gap-4 lg:grid-cols-2">
-        <section class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" aria-labelledby="reviews-heading">
-            <h2 id="reviews-heading" class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('operator.dashboard_exec.recurring_reviews') }}</h2>
-            <ul class="mt-3 space-y-2">
-                @forelse ($dashboard['recurring_reviews_due'] as $review)
-                    <li class="flex items-center justify-between gap-2 rounded-lg bg-gray-50 px-3 py-2 dark:bg-white/[0.03]">
-                        <div>
-                            <p class="text-sm font-medium text-gray-800 dark:text-white/90">{{ $review['title'] }}</p>
-                            <p class="text-xs text-gray-500">{{ $review['brand'] }} · {{ $review['due'] }}</p>
-                        </div>
-                        <a href="{{ route('operator.work.show', ['workId' => $review['id'], 'type' => 'recurring_review']) }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline">{{ __('operator.actions.open') }}</a>
-                    </li>
-                @empty
-                    <li class="text-sm text-gray-500">{{ __('operator.reviews.none_due') }}</li>
-                @endforelse
-            </ul>
-        </section>
-
         <section class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" aria-labelledby="portfolio-focus-heading">
             <h2 id="portfolio-focus-heading" class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('operator.dashboard_exec.portfolio_focus') }}</h2>
             @foreach ($dashboard['portfolio_focus'] as $focus)

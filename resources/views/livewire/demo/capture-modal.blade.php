@@ -8,7 +8,7 @@
                 </div>
 
                 <div class="mt-4 flex flex-wrap gap-2" role="tablist">
-                    @foreach (['client_request', 'task'] as $type)
+                    @foreach (['task'] as $type)
                         <button type="button" wire:click="setCaptureType('{{ $type }}')"
                             @class([
                                 'rounded-lg px-3 py-1.5 text-xs font-medium',
@@ -30,7 +30,7 @@
                         <textarea wire:model="description" rows="3" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700"></textarea>
                     </label>
 
-                    @if (in_array($captureType, ['client_request', 'task'], true))
+                    @if ($captureType === 'task')
                         <x-ta.form.field :label="__('operator.forms.customer')" :required="true" :error="$errors->first('prefillCustomer')">
                             <x-ta.form.select
                                 id="capture-customer"
@@ -54,18 +54,7 @@
                         @endif
                     @endif
 
-                    @if ($captureType === 'client_request')
-                        <label class="block text-sm">
-                            <span class="text-gray-500">{{ __('operator.capture.fields.source') }}</span>
-                            <select wire:model="source" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700">
-                                <option value="meeting">{{ __('operator.capture.sources.meeting') }}</option>
-                                <option value="email">{{ __('operator.capture.sources.email') }}</option>
-                                <option value="phone">{{ __('operator.capture.sources.phone') }}</option>
-                            </select>
-                        </label>
-                    @endif
-
-                    @if (in_array($captureType, ['client_request', 'task'], true))
+                    @if ($captureType === 'task')
                         <label class="block text-sm">
                             <span class="text-gray-500">{{ __('operator.capture.fields.priority') }}</span>
                             <select wire:model="priority" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700">

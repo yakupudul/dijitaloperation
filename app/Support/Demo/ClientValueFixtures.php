@@ -2,8 +2,6 @@
 
 namespace App\Support\Demo;
 
-use App\Services\Playbooks\PlaybookReadService;
-
 /**
  * Deterministic Client Value Story, Reports, and Decision presentation (Milestone 4).
  *
@@ -14,7 +12,7 @@ use App\Services\Playbooks\PlaybookReadService;
  * - ReportConfiguration: brand_id, period, language, section toggles, operator note
  * - ValueStorySnapshot: optional cached narrative for a period (still derived from evidence)
  * - DecisionRecord: when decisions need first-class storage beyond Activity + Recommendation state
- * - KnowledgeArticle: deferred — Playbooks + Brand Context + Files remain the knowledge model
+ * - KnowledgeArticle: deferred — Brand Context + Files remain the knowledge model
  */
 final class ClientValueFixtures
 {
@@ -110,7 +108,7 @@ final class ClientValueFixtures
                 'text' => self::t($locale, 'Weekly Google Ads review flagged conversion mapping for follow-up.', 'Haftalık Google Ads kontrolü dönüşüm eşlemesini takip için işaretledi.'),
                 'source_type' => 'recurring_review',
                 'source_label' => 'Recurring Review',
-                'source_url' => route('operator.work.show', ['workId' => 'rr-gads-aug13', 'type' => 'recurring_review']),
+                'source_url' => route('operator.tasks'),
             ],
         ];
 
@@ -144,12 +142,12 @@ final class ClientValueFixtures
             [
                 'id' => 'cw-doctor-title',
                 'text' => self::t($locale, 'Completed client request: doctor title on homepage.', 'Müşteri talebi tamamlandı: ana sayfada doktor unvanı.'),
-                'source_url' => route('operator.work.show', ['workId' => 'req-doctor-title', 'type' => 'client_request']),
+                'source_url' => route('operator.tasks'),
             ],
             [
                 'id' => 'cw-creative-qa',
                 'text' => self::t($locale, 'QA-approved Meta creative replacement.', 'Meta kreatif değişimi kalite kontrolünden geçti.'),
-                'source_url' => route('operator.work.show', ['workId' => 'appr-qa-creative', 'type' => 'approval']),
+                'source_url' => route('operator.tasks'),
             ],
         ];
 
@@ -198,7 +196,7 @@ final class ClientValueFixtures
             [
                 'id' => 'next-seo-review',
                 'text' => self::t($locale, 'Run monthly SEO coverage review.', 'Aylık SEO kapsam kontrolünü çalıştır.'),
-                'source_url' => route('operator.work.show', ['workId' => 'rr-seo-aug14', 'type' => 'recurring_review']),
+                'source_url' => route('operator.tasks'),
             ],
             [
                 'id' => 'next-meta-angle',
@@ -513,37 +511,6 @@ final class ClientValueFixtures
                 ),
                 'url' => route('operator.brand', ['brand' => DemoCatalog::BRAND_ID, 'tab' => 'value']),
             ],
-        ];
-    }
-
-    /**
-     * Contextual knowledge for Work / Task detail.
-     *
-     * @return array<string, mixed>
-     */
-    public static function workKnowledgeContext(?string $playbookId = null): array
-    {
-        $playbook = null;
-        if (is_string($playbookId) && $playbookId !== '') {
-            $playbook = app(PlaybookReadService::class)->findPresentation($playbookId);
-        }
-
-        $key = is_array($playbook) ? ($playbook['stable_key'] ?? $playbook['id'] ?? null) : null;
-
-        return [
-            'service' => is_array($playbook) ? ($playbook['service_label'] ?? null) : null,
-            'goal' => null,
-            'playbook' => [
-                'id' => $key,
-                'name' => is_array($playbook) ? ($playbook['name'] ?? null) : null,
-                'url' => $key !== null
-                    ? route('operator.settings.playbook', ['playbookId' => $key])
-                    : null,
-            ],
-            'decision' => null,
-            'references' => is_array($playbook) ? ($playbook['references'] ?? []) : [],
-            'qa_guidance' => is_array($playbook) ? ($playbook['qa_guidance'] ?? []) : [],
-            'checklist' => is_array($playbook) ? ($playbook['checklist'] ?? []) : [],
         ];
     }
 

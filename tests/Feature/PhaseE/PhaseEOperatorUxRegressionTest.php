@@ -11,7 +11,6 @@ use App\Livewire\Demo\Website\OverviewPage as WebsiteOverviewPage;
 use App\Livewire\Operator\Assets\AnalyticsPage;
 use App\Livewire\Operator\GoogleAds\OverviewPage as GoogleAdsOverviewPage;
 use App\Models\Brand;
-use App\Models\ClientRequest;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\Evidence;
@@ -95,7 +94,6 @@ class PhaseEOperatorUxRegressionTest extends TestCase
         $this->assertSame([], DemoState::all()['capture_notes'] ?? []);
         $this->assertSame([], DemoState::captureDecisions());
         $this->assertSame(0, Task::query()->count());
-        $this->assertSame(0, ClientRequest::query()->count());
 
         Livewire::test(CaptureModal::class)
             ->call('openCapture', 'opportunity_hypothesis', (string) $brand->id, (string) $customer->id)
@@ -103,14 +101,6 @@ class PhaseEOperatorUxRegressionTest extends TestCase
             ->set('captureType', 'opportunity_hypothesis')
             ->call('save')
             ->assertSet('open', true);
-
-        Livewire::test(CaptureModal::class)
-            ->call('openCapture', 'client_request', (string) $brand->id, (string) $customer->id)
-            ->set('title', 'Real client request')
-            ->call('save')
-            ->assertHasNoErrors();
-
-        $this->assertTrue(ClientRequest::query()->where('title', 'Real client request')->exists());
     }
 
     #[Test]

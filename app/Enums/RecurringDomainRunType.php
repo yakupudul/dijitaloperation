@@ -5,6 +5,7 @@ namespace App\Enums;
 enum RecurringDomainRunType: string
 {
     case CollectionRun = 'collection_run';
+    /** @deprecated Faz 1: producer removed */
     case RecurringReviewRun = 'recurring_review_run';
     /** @deprecated Faz 1: producer removed */
     case BusinessOutcomeRecheckRun = 'business_outcome_recheck_run';

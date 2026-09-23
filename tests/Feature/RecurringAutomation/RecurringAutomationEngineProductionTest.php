@@ -41,7 +41,6 @@ class RecurringAutomationEngineProductionTest extends TestCase
         $kinds = array_map(static fn ($k) => $k->value, $registry->kinds());
         $this->assertSame([
             'collection',
-            'recurring_review',
             'internal_notification',
             'report_delivery',
             'intelligence_validity_recheck',

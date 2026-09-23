@@ -53,7 +53,6 @@ class CanonicalPortfolioRuntimeTest extends TestCase
             ->assertSee('Due Today')
             ->assertSee('Overdue')
             ->assertSee('Awaiting Decision')
-            ->assertSee('Waiting on Client')
             ->getContent();
 
         $this->assertStringNotContainsString('Demo Mode', $html);

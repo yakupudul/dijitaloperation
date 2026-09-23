@@ -2,12 +2,9 @@
 
 namespace App\Livewire\Demo\Portfolio;
 
-use App\Enums\ClientRequestStatus;
 use App\Enums\CustomerStatus;
 use App\Models\Customer;
 use App\Models\CustomerContact;
-use App\Services\ClientRequests\ClientRequestReadService;
-use App\Services\ClientRequests\ClientRequestUiActions;
 use App\Services\Findings\FindingReadService;
 use App\Services\Operator\BrandWorkspaceReadService;
 use App\Services\Operator\OperatorPortfolioPresenter;
@@ -74,56 +71,12 @@ class CustomerDetail extends Component
     private function normalizeTab(): void
     {
         // Brands, contacts and relationship live on the overview; old deep links keep working.
-        if (in_array($this->tab, ['contacts', 'relationship', 'brands', 'files', 'operations', 'activity'], true)) {
+        if (in_array($this->tab, ['contacts', 'relationship', 'brands', 'files', 'operations', 'activity', 'requests'], true)) {
             $this->tab = 'overview';
         }
-        if (! in_array($this->tab, ['overview', 'requests', 'reports'], true)) {
+        if (! in_array($this->tab, ['overview', 'reports'], true)) {
             $this->tab = 'overview';
         }
-    }
-
-    public function triageRequest(string $id): void
-    {
-        $this->mutateRequestStatus($id, ClientRequestStatus::Triaged);
-    }
-
-    public function planRequest(string $id): void
-    {
-        $this->mutateRequestStatus($id, ClientRequestStatus::Planned);
-    }
-
-    public function waitRequest(string $id): void
-    {
-        $this->mutateRequestStatus($id, ClientRequestStatus::WaitingOnClient);
-    }
-
-    public function doneRequest(string $id): void
-    {
-        $this->mutateRequestStatus($id, ClientRequestStatus::Done);
-    }
-
-    public function declineRequest(string $id): void
-    {
-        $this->mutateRequestStatus($id, ClientRequestStatus::Declined);
-    }
-
-    public function createTaskFromRequest(string $id): void
-    {
-        $result = app(ClientRequestUiActions::class)->createTask(
-            $id,
-            auth()->user(),
-            'cr-task:'.$id.':'.$this->taskCreateNonce,
-        );
-        DemoState::flash(($result['message'] ?? '').($result['ok'] ? '' : ''));
-        if ($result['ok']) {
-            $this->taskCreateNonce = (string) Str::uuid();
-        }
-    }
-
-    private function mutateRequestStatus(string $id, ClientRequestStatus $status): void
-    {
-        $result = app(ClientRequestUiActions::class)->changeStatus($id, $status, auth()->user());
-        DemoState::flash($result['message'] ?? '');
     }
 
     public function openContactForm(?string $contactId = null): void
@@ -273,8 +226,6 @@ class CustomerDetail extends Component
         $industryLabel = IndustryOptions::label($customer['industry'] ?? null);
         $digitalAssetsCount = (int) $brands->sum(fn (array $b): int => (int) ($b['assets_count'] ?? 0));
 
-        $requests = app(ClientRequestReadService::class)->forCustomerPresentation($model->id);
-
         return view('livewire.demo.portfolio.customer-detail', [
             'customer' => $customer,
             'industryLabel' => $industryLabel,
@@ -301,7 +252,6 @@ class CustomerDetail extends Component
             'roleOptions' => ContactRoleOptions::options(),
             'team' => $team,
             'serviceScope' => app(CustomerServiceScopeReadService::class)->forCustomer($model, includeEnded: false),
-            'clientRequests' => $requests,
             'customerReports' => app(ReportSnapshotReadService::class)->forCustomerReportsPresentation($model->id),
             'flash' => DemoState::pullFlash(),
         ]);

@@ -5,7 +5,6 @@ namespace App\Providers;
 use App\Services\RecurringAutomation\Adapters\CollectionScheduleAdapter;
 use App\Services\RecurringAutomation\Adapters\IntelligenceValidityRecheckScheduleAdapter;
 use App\Services\RecurringAutomation\Adapters\InternalNotificationScheduleAdapter;
-use App\Services\RecurringAutomation\Adapters\RecurringReviewScheduleAdapter;
 use App\Services\RecurringAutomation\Adapters\ReportDeliveryScheduleAdapter;
 use App\Services\RecurringAutomation\RecurringAutomationRegistry;
 use Illuminate\Support\ServiceProvider;
@@ -20,7 +19,6 @@ class RecurringAutomationServiceProvider extends ServiceProvider
         $this->app->singleton(RecurringAutomationRegistry::class, function ($app): RecurringAutomationRegistry {
             return new RecurringAutomationRegistry([
                 $app->make(CollectionScheduleAdapter::class),
-                $app->make(RecurringReviewScheduleAdapter::class),
                 $app->make(InternalNotificationScheduleAdapter::class),
                 $app->make(ReportDeliveryScheduleAdapter::class),
                 $app->make(IntelligenceValidityRecheckScheduleAdapter::class),

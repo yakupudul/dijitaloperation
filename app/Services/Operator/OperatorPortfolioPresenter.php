@@ -275,7 +275,6 @@ final class OperatorPortfolioPresenter
             'google_business_profile', 'gbp' => 'operator.gbp',
             'ga4', 'analytics', 'google_analytics' => 'operator.analytics',
             'gsc', 'search_console' => 'operator.search-console',
-            'instagram' => 'operator.instagram',
             default => 'operator.assets',
         };
     }
