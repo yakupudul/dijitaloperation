@@ -39,4 +39,6 @@ final class AiRouteKeys
     public const string SEARCH_DEMAND_CHANGE_VERIFICATION = 'search_demand.change_verification';
 
     public const string SEO_TASKS_CONTENT_PLANNER = 'seo_tasks.content_planner';
+
+    public const string SEO_TASKS_SITE_UNDERSTANDING = 'seo_tasks.site_understanding';
 }

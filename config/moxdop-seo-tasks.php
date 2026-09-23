@@ -74,6 +74,22 @@ return [
         'max_candidates_in_question' => 4,
     ],
 
+    // Saklı HTML okuma (yeni HTTP isteği yok): çift H1, alt metni, JSON-LD sameAs, metin özeti.
+    'html' => [
+        'max_pages' => 150,        // koşu başına okunacak azami sayfa (ana sayfa + en çok gösterim alanlar önce)
+        'excerpt_pages' => 8,      // site anlama için metin özeti alınan sayfa sayısı
+        'excerpt_chars' => 1500,
+    ],
+
+    // Markada hizmet tanımlı değilse: siteden hizmet/konu çıkarımı (AI, yoksa kural tabanlı).
+    'understanding' => [
+        'cache_days' => 28,        // aynı çıkarım bu süre boyunca yeniden kullanılır
+        'max_services' => 8,
+        'fallback_services' => 6,  // AI yoksa en çok gösterim alan sayfalardan
+        'priority_count' => 3,     // çıkarılan hizmetlerden kaç tanesi "yıldızlı" sayılır
+        'excluded_path_patterns' => ['blog', 'haber', 'makale', 'yazi', 'category', 'kategori', 'etiket', 'tag', 'author', 'iletisim', 'hakkimizda', 'kvkk', 'gizlilik', 'cerez', 'contact', 'about', 'privacy', 'cookie', 'sepet', 'cart', 'checkout', 'hesabim', 'account', 'login', 'wp-'],
+    ],
+
     'ai_visibility' => [
         'blocked_bots' => ['OAI-SearchBot', 'ChatGPT-User', 'Claude-SearchBot', 'ClaudeBot', 'Googlebot', 'Google-Extended', 'PerplexityBot'],
     ],
@@ -83,12 +99,13 @@ return [
         'create_per_site' => 6,
         'strengthen_per_site' => 6,
         'fix_per_site' => 6,
-        'ai_visibility_per_site' => 3,
+        'ai_visibility_per_site' => 4,
     ],
 
     'llm' => [
         'enabled' => env('SEO_TASKS_LLM_ENABLED', true),
         'max_candidates' => 12,
         'max_page_summaries' => 60,
+        'timeout' => 120,          // saniye; tek yapılandırılmış çağrı
     ],
 ];

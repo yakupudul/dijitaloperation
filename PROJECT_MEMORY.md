@@ -1,5 +1,13 @@
 # PROJECT_MEMORY
 
+## 2026-09-23 (b) — SEO Görevleri: no mandatory service definition
+
+Owner direction: a Brand without services must still get content suggestions; the system should
+understand the business from the website, GSC and GA4 data it already collects. Decision: infer
+services per plan (AI first, rule-based page topics as fallback), keep them plan-local and never
+write them to the Brand automatically; the operator adopts them explicitly. Stored HTML snapshots
+(already collected) are the source for H1/alt/JSON-LD checks — no new crawling or HTTP requests.
+
 ## 2026-09-23 — SEO Görevleri: rule-first weekly content plan
 
 Owner decision: "SEO Görevleri" is one list in the main menu for all brands, with the same list

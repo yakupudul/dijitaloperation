@@ -25,6 +25,7 @@ final class SeoPlanInputCollector
     public function __construct(
         private readonly GscSpecialistBindingResolver $gscBindings,
         private readonly Ga4SpecialistBindingResolver $ga4Bindings,
+        private readonly SeoStoredHtmlReader $html,
     ) {}
 
     /** @return array<string, mixed> */
@@ -39,6 +40,8 @@ final class SeoPlanInputCollector
         $pages = $this->pages($site);
         $gsc = $this->gsc($site, $end->subDays($gscDays), $end);
         $offerings = $this->offerings($site);
+        $homeKey = SeoText::urlKey($primaryUrl);
+        $htmlStats = $this->readStoredHtml($site, $pages, $gsc['rows'], $homeKey);
 
         return [
             'site' => [
@@ -49,7 +52,7 @@ final class SeoPlanInputCollector
                 'domain' => $site->domain,
                 'primary_url' => $primaryUrl,
                 'origin' => SeoText::origin($primaryUrl),
-                'home_key' => SeoText::urlKey($primaryUrl),
+                'home_key' => $homeKey,
                 'languages' => is_array($site->languages) ? $site->languages : [],
             ],
             'period' => [
@@ -65,7 +68,61 @@ final class SeoPlanInputCollector
             'ga4' => $this->ga4($site, $end->subDays($ga4Days), $end),
             'robots' => $this->robots($site),
             'assignments' => $this->assignments($site),
+            'html' => $htmlStats,
         ];
+    }
+
+    /**
+     * Enrich page rows from already stored HTML snapshots (no HTTP). Home first, then pages by
+     * Search Console impressions, then the rest, bounded by config.
+     *
+     * @param  array<string, array<string, mixed>>  $pages
+     * @param  list<array<string, mixed>>  $gscRows
+     * @return array{read: int, candidates: int, limit: int}
+     */
+    private function readStoredHtml(DigitalAsset $site, array &$pages, array $gscRows, string $homeKey): array
+    {
+        $limit = SeoTaskConfig::int('html.max_pages', 150);
+        $excerptPages = SeoTaskConfig::int('html.excerpt_pages', 8);
+        $excerptChars = SeoTaskConfig::int('html.excerpt_chars', 1500);
+
+        $impressions = [];
+        foreach ($gscRows as $row) {
+            $impressions[$row['url_key']] = ($impressions[$row['url_key']] ?? 0) + (int) $row['impressions'];
+        }
+        $keys = array_keys(array_filter($pages, static fn (array $p): bool => $p['observed']));
+        usort($keys, static function (string $a, string $b) use ($impressions, $homeKey): int {
+            if ($a === $homeKey || $b === $homeKey) {
+                return $a === $homeKey ? -1 : 1;
+            }
+
+            return ($impressions[$b] ?? 0) <=> ($impressions[$a] ?? 0);
+        });
+        $selected = array_slice($keys, 0, $limit);
+        $profiles = WebsitePageProfile::query()
+            ->whereIn('id', array_map(static fn (string $key): int => (int) $pages[$key]['profile_id'], $selected))
+            ->get()
+            ->keyBy('id');
+
+        $read = 0;
+        foreach ($selected as $index => $key) {
+            $profile = $profiles->get((int) $pages[$key]['profile_id']);
+            if ($profile === null) {
+                continue;
+            }
+            $facts = $this->html->inspect($site, $profile, $index < $excerptPages ? $excerptChars : 0);
+            if ($facts === null) {
+                continue;
+            }
+            $read++;
+            $pages[$key] = array_merge($pages[$key], $facts, ['html_read' => true]);
+            if ($pages[$key]['h1'] === null && $facts['h1_texts'] !== []) {
+                $pages[$key]['h1'] = $facts['h1_texts'][0];
+            }
+            $pages[$key]['structured_types'] = array_values(array_unique(array_merge($pages[$key]['structured_types'], $facts['jsonld_types'])));
+        }
+
+        return ['read' => $read, 'candidates' => count($keys), 'limit' => $limit];
     }
 
     /**
@@ -213,6 +270,14 @@ final class SeoPlanInputCollector
                         'cms_type' => data_get($wp, 'object.type'),
                         'cms_status' => is_string($wpStatus) ? $wpStatus : null,
                         'last_observed_at' => $profile->last_observed_at?->toIso8601String(),
+                        'html_read' => false,
+                        'h1_count' => null,
+                        'h1_texts' => [],
+                        'images_total' => null,
+                        'images_missing_alt' => null,
+                        'jsonld_types' => [],
+                        'same_as' => [],
+                        'text_excerpt' => '',
                     ];
                 }
             });

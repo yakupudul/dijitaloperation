@@ -47,7 +47,40 @@
                 <button type="button" wire:click="refreshPlan" wire:loading.attr="disabled" @disabled($pendingPlan !== null)
                     class="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">Planı yenile</button>
             </div>
+            @if ($latestPlan && data_get($latestPlan->input_summary, 'html.read') !== null)
+                <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">Saklı HTML: {{ data_get($latestPlan->input_summary, 'html.read') }} / {{ data_get($latestPlan->input_summary, 'html.candidates') }} sayfa okundu (çift H1, alt metni, şema kontrolleri).</p>
+            @endif
         </section>
+
+        @php $understanding = $latestPlan ? data_get($latestPlan->input_summary, 'site_understanding') : null; @endphp
+        @if (is_array($understanding) && ! empty($understanding['services']))
+            <section class="rounded-xl border border-blue-200 bg-blue-50 p-5 dark:border-blue-500/20 dark:bg-blue-500/10">
+                <h3 class="text-sm font-semibold text-blue-900 dark:text-blue-200">Markada hizmet tanımlı değil — siteden çıkarıldı</h3>
+                <p class="mt-1 text-xs text-blue-800 dark:text-blue-300">
+                    Kaynak: {{ match ($understanding['source_detail'] ?? $understanding['source'] ?? '') { 'ai' => 'AI (sayfalar + Search Console + GA4)', 'rules' => 'en çok gösterim alan sayfalar (AI kullanılamadı)', default => $understanding['source'] ?? '' } }}.
+                    Bu hizmetler görevleri üretmek için kullanıldı; markaya kaydedilmedi. Doğru olanları "Markaya ekle" ile kalıcı yap.
+                    @if (($brandServiceCount ?? 0) > 0) <strong>Markaya hizmet eklendi; bir sonraki planda onlar kullanılacak.</strong> @endif
+                </p>
+                @if (! empty($understanding['brand_summary']))
+                    <p class="mt-2 text-sm text-gray-800 dark:text-gray-200">{{ $understanding['brand_summary'] }}@if (! empty($understanding['audience'])) · <span class="text-gray-600 dark:text-gray-400">Hedef kitle: {{ $understanding['audience'] }}</span>@endif</p>
+                @endif
+                @if (! empty($understanding['locations']))
+                    <p class="mt-1 text-xs text-gray-600 dark:text-gray-400">Bölgeler: {{ implode(', ', $understanding['locations']) }}</p>
+                @endif
+                <ul class="mt-3 space-y-2">
+                    @foreach ($understanding['services'] as $serviceIndex => $service)
+                        <li wire:key="inferred-service-{{ $serviceIndex }}" class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white px-3 py-2 text-sm dark:bg-gray-900">
+                            <div class="min-w-0">
+                                <span class="font-medium text-gray-800 dark:text-white/90">@if (! empty($service['is_core']))★ @endif{{ $service['name'] }}</span>
+                                @if (! empty($service['page_url']))<span class="ml-2 text-xs text-gray-500">{{ \Illuminate\Support\Str::limit($service['page_url'], 60) }}</span>@endif
+                                <span class="ml-2 text-xs text-gray-400">{{ count($service['queries'] ?? []) }} sorgu</span>
+                            </div>
+                            <button type="button" wire:click="adoptService({{ $serviceIndex }})" class="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-brand-600 ring-1 ring-inset ring-brand-200 hover:bg-brand-50 dark:bg-gray-800 dark:ring-brand-500/30">Markaya ekle</button>
+                        </li>
+                    @endforeach
+                </ul>
+            </section>
+        @endif
     @else
         <div class="flex flex-wrap items-end gap-3">
             <label class="text-sm">
@@ -128,6 +161,8 @@
                             </span>
                             @if ($task->offering?->primaryName)
                                 <x-ta.badge color="light" size="sm">{{ $task->offering->primaryName->raw_label }}</x-ta.badge>
+                            @elseif (! empty($evidence['service']))
+                                <x-ta.badge color="info" size="sm" title="Markada tanımlı değil; siteden çıkarıldı">{{ $evidence['service'] }} · çıkarım</x-ta.badge>
                             @endif
                         </div>
                         <button type="button" wire:click="toggle({{ $task->id }})" class="mt-2 block text-left text-base font-semibold text-gray-800 hover:text-brand-600 dark:text-white/90">{{ $task->title }}</button>

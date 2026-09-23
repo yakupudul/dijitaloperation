@@ -4,11 +4,13 @@ namespace App\Livewire\Operator\Seo;
 
 use App\Enums\SeoTaskStatus;
 use App\Enums\SeoTaskType;
+use App\Models\BrandOffering;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\SeoPlan;
 use App\Models\SeoTask;
 use App\Models\ServicePageAssignment;
+use App\Services\BrandIntelligence\BrandOfferingService;
 use App\Services\SeoTasks\SeoPlanRunner;
 use App\Support\Permissions;
 use Illuminate\Contracts\View\View;
@@ -19,6 +21,7 @@ use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Throwable;
 
 /**
  * One list, two homes: the global /seo-tasks page (websiteId = null, all brands) and the
@@ -124,6 +127,49 @@ final class SeoTasksPanel extends Component
         $this->flash('Cevap kaydedildi; bir sonraki planda bu hizmet için tekrar sorulmaz.');
     }
 
+    /** Add an AI/rule-inferred service from the latest plan to the Brand as a real offering. */
+    public function adoptService(int $index, BrandOfferingService $offerings): void
+    {
+        if ($this->websiteId === null) {
+            return;
+        }
+        $site = DigitalAsset::query()->with('brand')->findOrFail($this->websiteId);
+        $plan = SeoPlan::query()->where('digital_asset_id', $site->id)->where('status', SeoPlan::STATUS_COMPLETED)->latest('id')->first();
+        $service = data_get($plan?->input_summary, 'site_understanding.services.'.$index);
+        if ($site->brand === null || ! is_array($service) || blank($service['name'] ?? null)) {
+            $this->flash('Hizmet bulunamadı; planı yenileyin.', 'error');
+
+            return;
+        }
+        try {
+            $offering = $offerings->findByLabel($site->brand, (string) $service['name'])
+                ?? $offerings->create($site->brand, (string) $service['name'], null, auth()->user());
+            foreach ($service['aliases'] ?? [] as $alias) {
+                try {
+                    $offerings->addAlias($offering, (string) $alias);
+                } catch (Throwable) {
+                    // alias collisions are not fatal
+                }
+            }
+            if (! empty($service['is_core'])) {
+                $offering->forceFill(['is_priority' => true])->save();
+            }
+            if (filled($service['page_url'] ?? null)) {
+                ServicePageAssignment::query()->updateOrCreate(
+                    ['digital_asset_id' => $site->id, 'brand_offering_id' => $offering->id],
+                    ['brand_id' => $site->brand_id, 'page_url' => $service['page_url'], 'status' => ServicePageAssignment::STATUS_ASSIGNED,
+                        'decision_source' => ServicePageAssignment::SOURCE_OPERATOR, 'score' => null, 'candidates' => [],
+                        'decided_by' => auth()->id(), 'decided_at' => now()],
+                );
+            }
+        } catch (ValidationException $exception) {
+            $this->flash(implode(' ', $exception->validator->errors()->all()), 'error');
+
+            return;
+        }
+        $this->flash(sprintf('"%s" markaya hizmet olarak eklendi. Bir sonraki planda gerçek hizmet olarak kullanılır.', $service['name']));
+    }
+
     public function refreshPlan(SeoPlanRunner $runner): void
     {
         if ($this->websiteId === null) {
@@ -162,7 +208,12 @@ final class SeoTasksPanel extends Component
             $counts[$row->type->value] = ($counts[$row->type->value] ?? 0) + 1;
         }
 
+        $brandServiceCount = $site?->brand_id !== null
+            ? BrandOffering::query()->where('brand_id', $site->brand_id)->where('status', 'active')->count()
+            : null;
+
         return view('livewire.operator.seo.seo-tasks-panel', [
+            'brandServiceCount' => $brandServiceCount,
             'tasks' => $tasks,
             'site' => $site,
             'latestPlan' => $latestPlan,

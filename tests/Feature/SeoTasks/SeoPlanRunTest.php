@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\SeoTasks;
 
+use App\Ai\Agents\SeoSiteUnderstandingAgent;
 use App\Ai\Agents\SeoTaskContentPlannerAgent;
 use App\Enums\SeoTaskStatus;
 use App\Jobs\RunSeoPlanJob;
@@ -11,7 +12,9 @@ use App\Livewire\Operator\Seo\SeoTasksIndex;
 use App\Livewire\Operator\Seo\SeoTasksPanel;
 use App\Models\Brand;
 use App\Models\BrandOffering;
+use App\Models\Collection\CollectionResourceRun;
 use App\Models\CoreIntegration;
+use App\Models\DataPool\RawIngestionObject;
 use App\Models\DigitalAsset;
 use App\Models\Finding;
 use App\Models\IntelligenceCore\IntelligencePageIdentity;
@@ -32,6 +35,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -57,6 +61,7 @@ final class SeoPlanRunTest extends TestCase
         $this->actingAs($this->admin);
         ModuleRegistry::query()->updateOrCreate(['module_id' => 'website'], ['enabled' => true]);
         Http::preventStrayRequests();
+        Storage::fake('seo-tasks-test');
     }
 
     public function test_queue_dispatches_job_and_run_writes_plan_tasks_and_assignments(): void
@@ -158,8 +163,7 @@ final class SeoPlanRunTest extends TestCase
     public function test_llm_enrichment_merges_valid_output_and_rejects_foreign_queries(): void
     {
         config(['moxdop-seo-tasks.llm.enabled' => true]);
-        CoreIntegration::factory()->anthropic()->create(['status' => CoreIntegration::STATUS_ACTIVE]);
-        config(['moxdop.anthropic.api_key' => 'sk-ant-test']);
+        $this->enableAnthropic();
         [$website] = $this->fixture();
         $runner = app(SeoPlanRunner::class);
 
@@ -202,26 +206,119 @@ final class SeoPlanRunTest extends TestCase
         $this->assertSame($create['priority_score'], (float) $task->priority_score, 'LLM never changes the score');
     }
 
-    /** @return array{0: DigitalAsset, 1: BrandOffering, 2: Brand} */
-    private function fixture(): array
+    public function test_stored_html_drives_duplicate_h1_missing_alt_and_same_as_rules(): void
+    {
+        [$website, , , $profiles] = $this->fixture();
+        $this->htmlSnapshot($website, $profiles['/'], '<html><head><title>Örnek Klinik</title><script type="application/ld+json">{"@context":"https://schema.org","@type":"Dentist","name":"Örnek"}</script></head><body><h1>Örnek Klinik</h1><p>Diş kliniği</p></body></html>');
+        $this->htmlSnapshot($website, $profiles['/implant/'], '<html><head><title>İmplant</title></head><body><h1>Logo</h1><h1>İmplant Tedavisi</h1><img src="/a.jpg"><img src="/b.jpg" alt="implant"></body></html>');
+
+        $runner = app(SeoPlanRunner::class);
+        $plan = $runner->run($runner->queue($website, $this->admin)->id);
+
+        $this->assertSame(2, data_get($plan->input_summary, 'html.read'));
+        $tasks = SeoTask::query()->where('digital_asset_id', $website->id)->get()->keyBy('rule_id');
+        $this->assertArrayHasKey('duplicate-h1', $tasks->all());
+        $this->assertStringContainsString('/implant/ (2 H1)', implode(' ', $tasks['duplicate-h1']->evidence['urls']));
+        $this->assertArrayHasKey('alt-missing', $tasks->all());
+        $this->assertStringContainsString('1/2 görsel', implode(' ', $tasks['alt-missing']->evidence['urls']));
+        $this->assertArrayHasKey('org-same-as', $tasks->all(), 'Dentist schema found in stored HTML but sameAs empty');
+        $this->assertArrayNotHasKey('org-schema', $tasks->all());
+    }
+
+    public function test_brand_without_services_uses_ai_site_understanding_and_operator_can_adopt(): void
+    {
+        $this->enableAnthropic();
+        [$website, , $brand, $profiles] = $this->fixture(withServices: false);
+        $this->htmlSnapshot($website, $profiles['/'], '<html><head><title>Örnek Klinik</title></head><body><h1>Örnek Klinik</h1><p>Kadıköy diş kliniği: implant ve ortodonti tedavileri.</p></body></html>');
+
+        SeoSiteUnderstandingAgent::fake([[
+            'brand_summary' => 'Kadıköy\'de implant ve ortodonti yapan diş kliniği.',
+            'audience' => 'Diş tedavisi arayan yetişkinler',
+            'locations' => ['Kadıköy'],
+            'services' => [
+                ['name' => 'İmplant', 'aliases' => ['Diş İmplantı'], 'page_url' => 'https://example.test/implant/', 'queries' => ['implant diş', 'diş implantı fiyatları', 'uydurma sorgu'], 'is_core' => true],
+                ['name' => 'Ortodonti', 'aliases' => [], 'page_url' => 'https://evil.test/ortodonti/', 'queries' => ['ortodonti tedavisi'], 'is_core' => false],
+            ],
+            'prompt_version' => SeoSiteUnderstandingAgent::PROMPT_VERSION,
+        ]])->preventStrayPrompts();
+        SeoTaskContentPlannerAgent::fake([['items' => [], 'prompt_version' => SeoTaskContentPlannerAgent::PROMPT_VERSION]]);
+
+        $runner = app(SeoPlanRunner::class);
+        $plan = $runner->run($runner->queue($website, $this->admin)->id);
+
+        $understanding = data_get($plan->input_summary, 'site_understanding');
+        $this->assertSame('ai', $understanding['source']);
+        $this->assertStringContainsString('implant', mb_strtolower($understanding['brand_summary']));
+        $this->assertSame(['implant diş', 'diş implantı fiyatları'], $understanding['services'][0]['queries'], 'queries outside Search Console data are dropped');
+        $this->assertNull($understanding['services'][1]['page_url'], 'URLs outside the page inventory are dropped');
+
+        $tasks = SeoTask::query()->where('digital_asset_id', $website->id)->get();
+        $create = $tasks->filter(fn (SeoTask $t): bool => $t->type->value === 'create');
+        $this->assertGreaterThanOrEqual(4, $create->count());
+        $this->assertTrue($tasks->contains(fn (SeoTask $t): bool => $t->type->value === 'strengthen' && ($t->evidence['service'] ?? null) === 'İmplant'));
+        $this->assertTrue($tasks->every(fn (SeoTask $t): bool => $t->brand_offering_id === null));
+        $this->assertSame(0, ServicePageAssignment::query()->count(), 'inferred topics are not persisted as assignments');
+
+        Livewire::test(SeoTasksPanel::class, ['websiteId' => $website->id])
+            ->assertSee('siteden çıkarıldı')
+            ->assertSee('İmplant · çıkarım');
+
+        // Second run inside the cache window reuses the inference without another AI call.
+        $second = $runner->run($runner->queue($website, $this->admin)->id);
+        $this->assertSame('cache', data_get($second->input_summary, 'site_understanding.source'));
+        $this->assertSame('ai', data_get($second->input_summary, 'site_understanding.source_detail'));
+
+        // Operator adopts the core service → real Brand offering, star and page assignment.
+        Livewire::test(SeoTasksPanel::class, ['websiteId' => $website->id])->call('adoptService', 0)->assertSee('markaya hizmet olarak eklendi');
+        $offering = BrandOffering::query()->where('brand_id', $brand->id)->with('primaryName')->firstOrFail();
+        $this->assertSame('İmplant', $offering->primaryName->raw_label);
+        $this->assertTrue((bool) $offering->is_priority);
+        $this->assertSame('https://example.test/implant/', ServicePageAssignment::query()->where('brand_offering_id', $offering->id)->value('page_url'));
+
+        $third = $runner->run($runner->queue($website, $this->admin)->id);
+        $this->assertNull(data_get($third->input_summary, 'site_understanding'), 'once the Brand has services, inference stops');
+    }
+
+    public function test_brand_without_services_falls_back_to_page_topics_when_ai_is_unavailable(): void
+    {
+        [$website] = $this->fixture(withServices: false);
+
+        $runner = app(SeoPlanRunner::class);
+        $plan = $runner->run($runner->queue($website, $this->admin)->id);
+
+        $understanding = data_get($plan->input_summary, 'site_understanding');
+        $this->assertSame('rules', $understanding['source']);
+        $names = array_column($understanding['services'], 'name');
+        $this->assertContains('İmplant Tedavisi', $names);
+        $this->assertContains('Ortodonti', $names);
+        $this->assertNotContains('İmplant fiyatları', $names, 'blog pages are not services');
+        $this->assertGreaterThanOrEqual(4, SeoTask::query()->where('type', 'create')->count());
+    }
+
+    /** @return array{0: DigitalAsset, 1: BrandOffering|null, 2: Brand, 3: array<string, WebsitePageProfile>} */
+    private function fixture(bool $withServices = true): array
     {
         $brand = Brand::factory()->create(['name' => 'Örnek Klinik']);
         $website = DigitalAsset::factory()->create([
             'brand_id' => $brand->id, 'type' => 'website', 'status' => 'active', 'domain' => 'example.test',
             'primary_url' => 'https://example.test/', 'seo_market_language_code' => 'tr',
         ]);
-        $offerings = app(BrandOfferingService::class);
-        $implant = $offerings->create($brand, 'İmplant Diş');
-        $offerings->addAlias($implant, 'Diş İmplantı');
-        $implant->forceFill(['is_priority' => true, 'priority_rank' => 1])->save();
-        $offerings->create($brand, 'Ortodonti');
-        $zirkonyum = $offerings->create($brand, 'Zirkonyum Kaplama');
-        $zirkonyum->forceFill(['is_priority' => true, 'priority_rank' => 2])->save();
+        $implant = null;
+        if ($withServices) {
+            $offerings = app(BrandOfferingService::class);
+            $implant = $offerings->create($brand, 'İmplant Diş');
+            $offerings->addAlias($implant, 'Diş İmplantı');
+            $implant->forceFill(['is_priority' => true, 'priority_rank' => 1])->save();
+            $offerings->create($brand, 'Ortodonti');
+            $zirkonyum = $offerings->create($brand, 'Zirkonyum Kaplama');
+            $zirkonyum->forceFill(['is_priority' => true, 'priority_rank' => 2])->save();
+        }
 
-        $this->page($website, '/', ['document_head' => ['title' => 'Örnek Klinik', 'title_present' => true, 'robots' => 'index'], 'headings' => ['h1' => 'Örnek Klinik', 'h1_present' => true], 'structured_data' => ['types' => ['WebSite']]]);
-        $this->page($website, '/implant/', ['document_head' => ['title' => 'İmplant Tedavisi', 'title_present' => true, 'meta_description' => 'İmplant', 'robots' => 'index'], 'headings' => ['h1' => 'İmplant Tedavisi', 'h1_present' => true], 'content' => ['word_count' => 500, 'language' => 'tr']]);
-        $this->page($website, '/blog/implant-fiyat/', ['document_head' => ['title' => 'İmplant fiyatları', 'title_present' => true, 'meta_description' => 'x', 'robots' => 'index'], 'headings' => ['h1' => 'İmplant fiyatları', 'h1_present' => true], 'content' => ['word_count' => 900, 'language' => 'tr']]);
-        $this->page($website, '/ortodonti/', ['document_head' => ['title' => 'Ortodonti', 'title_present' => true, 'robots' => 'index'], 'headings' => ['h1' => 'Ortodonti', 'h1_present' => true], 'content' => ['word_count' => 60, 'language' => 'tr']]);
+        $profiles = [];
+        $profiles['/'] = $this->page($website, '/', ['document_head' => ['title' => 'Örnek Klinik', 'title_present' => true, 'robots' => 'index'], 'headings' => ['h1' => 'Örnek Klinik', 'h1_present' => true], 'structured_data' => ['types' => ['WebSite']]]);
+        $profiles['/implant/'] = $this->page($website, '/implant/', ['document_head' => ['title' => 'İmplant Tedavisi', 'title_present' => true, 'meta_description' => 'İmplant', 'robots' => 'index'], 'headings' => ['h1' => 'İmplant Tedavisi', 'h1_present' => true], 'content' => ['word_count' => 500, 'language' => 'tr']]);
+        $profiles['/blog/implant-fiyat/'] = $this->page($website, '/blog/implant-fiyat/', ['document_head' => ['title' => 'İmplant fiyatları', 'title_present' => true, 'meta_description' => 'x', 'robots' => 'index'], 'headings' => ['h1' => 'İmplant fiyatları', 'h1_present' => true], 'content' => ['word_count' => 900, 'language' => 'tr']]);
+        $profiles['/ortodonti/'] = $this->page($website, '/ortodonti/', ['document_head' => ['title' => 'Ortodonti', 'title_present' => true, 'robots' => 'index'], 'headings' => ['h1' => 'Ortodonti', 'h1_present' => true], 'content' => ['word_count' => 60, 'language' => 'tr']]);
 
         $rows = [
             ['implant diş', '/implant/', 1200, 30, 7.2], ['implant diş', '/blog/implant-fiyat/', 500, 10, 12.0],
@@ -248,7 +345,28 @@ final class SeoPlanRunTest extends TestCase
             'title' => 'Başlık etiketi eksik: /iletisim', 'summary' => 'Sayfada title yok.', 'category' => 'seo',
         ]);
 
-        return [$website->fresh(), $implant, $brand];
+        return [$website->fresh(), $implant, $brand, $profiles];
+    }
+
+    private function htmlSnapshot(DigitalAsset $website, WebsitePageProfile $profile, string $html): void
+    {
+        $resource = CollectionResourceRun::factory()->create(['digital_asset_id' => $website->id, 'provider_or_source' => 'website']);
+        $key = (string) Str::uuid().'.html';
+        Storage::disk('seo-tasks-test')->put($key, $html);
+        $object = RawIngestionObject::query()->create(['uuid' => (string) Str::uuid(),
+            'resource_run_id' => $resource->id, 'collection_run_id' => $resource->collection_run_id, 'dataset_id' => 'website_html_snapshot',
+            'batch_key' => $key, 'provider_or_source' => 'website', 'storage_disk' => 'seo-tasks-test', 'object_key' => $key,
+            'byte_size' => strlen($html), 'sha256' => hash('sha256', $html), 'captured_at' => now()]);
+        DB::table('website_html_snapshot')->insert(['digital_asset_id' => $website->id,
+            'url' => $profile->preferred_url, 'raw_ingestion_object_id' => $object->id, 'html_hash' => hash('sha256', $html),
+            'html_bytes' => strlen($html), 'change_state' => 'new', 'observed_at' => now(), 'contract_version' => 1,
+            'first_collected_at' => now(), 'last_collected_at' => now(), 'record_fingerprint' => hash('sha256', $key)]);
+    }
+
+    private function enableAnthropic(): void
+    {
+        config(['moxdop-seo-tasks.llm.enabled' => true, 'moxdop.anthropic.api_key' => 'sk-ant-test']);
+        CoreIntegration::factory()->anthropic()->create(['status' => CoreIntegration::STATUS_ACTIVE]);
     }
 
     private function page(DigitalAsset $website, string $path, array $facts = []): WebsitePageProfile

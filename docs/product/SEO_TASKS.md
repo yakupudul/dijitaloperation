@@ -33,12 +33,21 @@ Tetik: site sayfasındaki "Planı yenile", `/seo-tasks` sayfasındaki "Tümünü
 **A — Paket topla** (`SeoPlanInputCollector`, sadece DB):
 `gsc_query_page_daily` (son 90 gün, sorgu×sayfa toplamı, gösterim ağırlıklı pozisyon `metadata.provider_average_position`), `website_page_profiles` (`source_states.website.*` + WordPress SEO alanları), açık `findings` (website / website-diagnosis), marka hizmetleri (isimler, takma adlar, hizmet eşleşme kelimeleri, portföy sorguları), hizmet bölgeleri, GA4 iniş sayfası (`sessions`, `engagedSessions`, `keyEvents`), robots.txt gövdesi (`evidence.type=robots`), mevcut eşlemeler.
 
+Saklı HTML (`SeoStoredHtmlReader`, modüldeki `StoredPageReader::html()` üzerinden, HTTP yok): ana sayfa ve en çok gösterim alan sayfalardan başlayarak en fazla 150 sayfa. Çıkan: H1 sayısı ve metinleri, görsel / alt'sız görsel sayısı, JSON-LD türleri ve `sameAs`, ilk 8 sayfa için metin özeti.
+
+**A2 — Site anlama** (`SeoSiteUnderstanding`, yalnızca markada aktif hizmet yoksa):
+1. Son 28 gün içindeki planın çıkarımı varsa yeniden kullanılır (`source=cache`).
+2. Yoksa tek AI çağrısı (rota `seo_tasks.site_understanding`, Anthropic birincil): ana sayfa başlık/meta/H1/metin özeti, 80 sayfa (başlık, H1, kelime, GSC gösterimi), en çok gösterim alan 200 GSC sorgusu, 20 GA4 iniş sayfası. Çıktı: marka özeti, hedef kitle, bölgeler, en fazla 8 hizmet (ad, takma adlar, ana sayfa URL'si, ilgili sorgular, çekirdek mi). Doğrulama: envanterde olmayan URL'ler ve GSC'de olmayan sorgular atılır.
+3. AI yoksa / hata verirse kural tabanlı: blog/iletişim/kurumsal yolları hariç, en çok gösterim alan 6 sayfa konusu (H1 ya da başlığın ilk parçası), ilk 3'ü yıldızlı.
+
+Çıkarılan hizmetler plan içinde kalır (`inferred:<slug>`), markaya yazılmaz; görevlerde `brand_offering_id` boş, `evidence.service` dolu. Sitenin SEO sekmesinde "Markada hizmet tanımlı değil — siteden çıkarıldı" kutusunda listelenir; "Markaya ekle" gerçek hizmet + yıldız + sayfa eşlemesi (operatör kararı) oluşturur. Marka hizmeti olduktan sonra çıkarım durur.
+
 **B — Kurallar** (`SeoTaskRuleEngine`, deterministik):
 - Hizmet sayfası tespiti: slug/başlık/H1 kimlik eşleşmesi + hizmet sorgularının GSC gösterim payı → ≥ 0.60 otomatik ata, ≥ 0.25 soru, altı "sayfası yok".
-- Düzelt: bulgular (critical/high/medium; low olmaz) + envanter kuralları (5xx, başlık yok, meta yok, H1 yok, yönlendirme zinciri ≥ 2, canonical çelişkisi, < 150 kelime, kritik tarama hatası, site geneli noindex). Envanter kuralları sayfa listesiyle tek görevde toplanır.
+- Düzelt: bulgular (critical/high/medium; low olmaz) + envanter kuralları (5xx, başlık yok, meta yok, H1 yok, **çift H1**, yönlendirme zinciri ≥ 2, canonical çelişkisi, < 150 kelime, kritik tarama hatası, site geneli noindex, **hizmet sayfalarında alt'sız görsel**). H1 ve alt kuralları saklı HTML okunan sayfalarda HTML'e göre çalışır. Envanter kuralları sayfa listesiyle tek görevde toplanır.
 - Güçlendir (yalnızca yıldızlı hizmetler): sorgu 5–20. sırada, hiçbir sayfa 5'in üstünde değil, ≥ 100 gösterim. Puan = gösterim × (CTR(3) − CTR(mevcut)). Checklist: ana sorgu title/H1/meta'da yoksa ekle, < 800 kelime ise genişlet, ikinci sayfa ≥ %25 pay alıyorsa "niyeti ayır" (otomatik 301 asla), GA4 oturum var/dönüşüm yoksa CTA. Hizmet başına en fazla 2.
 - Oluştur: (1) ≥ 30 gösterimli, ilk 20'de sayfası olmayan GSC sorguları hizmet × niyet (hizmet / rehber / SSS / konum) kovalarına; (2) hiçbir sayfanın başlık/H1/slug ile karşılamadığı kütüphane sorguları; (3) sayfası olmayan yıldızlı hizmet. Kovalar beklenen tıklamaya göre sıralanır; **asgari 4** için yıldızlı hizmetlerden başlayarak rehber/SSS/konum briefleriyle tamamlanır (kaynak `fallback` olarak işaretlenir). Her görevde deterministik brief: sayfa başlığı, tür, karar (yeni sayfa / mevcut sayfaya bölüm), hedef URL, H2 taslağı, kapsanacak sorgular, hedef uzunluk, iç linkler.
-- AI görünürlük: ana sayfada Organization/LocalBusiness şeması; robots.txt'de OAI-SearchBot / ChatGPT-User / Claude-SearchBot / ClaudeBot / Googlebot / Google-Extended / PerplexityBot için `Disallow: /` (Googlebot ise kritik); yıldızlı hizmet sayfalarında FAQPage.
+- AI görünürlük: ana sayfada Organization/LocalBusiness şeması (profil + saklı HTML JSON-LD); şema var ama `sameAs` boşsa ayrı görev; robots.txt'de OAI-SearchBot / ChatGPT-User / Claude-SearchBot / ClaudeBot / Googlebot / Google-Extended / PerplexityBot için `Disallow: /` (Googlebot ise kritik); yıldızlı hizmet sayfalarında FAQPage.
 - Kotalar: site başına 15 açık görev; oluştur en fazla 6 (asgari 4 korunur), güçlendir 6, düzelt 6, AI görünürlük 3.
 
 **C — LLM** (`SeoPlanAiEnricher`, tek çağrı, isteğe bağlı):
@@ -58,14 +67,16 @@ Rota `seo_tasks.content_planner` (varsayılan: Anthropic `claude-sonnet-5`, yede
 
 Env: `SEO_TASKS_ENABLED`, `SEO_TASKS_QUEUE_CONNECTION`, `SEO_TASKS_QUEUE`, `SEO_TASKS_SCHEDULE_ENABLED`, `SEO_TASKS_LLM_ENABLED`, `ANTHROPIC_API_KEY`.
 
+Anthropic anahtarı tercihen arayüzden girilir: Entegrasyonlar → AI sağlayıcıları → Anthropic (`/integrations/anthropic`). Veritabanındaki anahtar `.env`'deki `ANTHROPIC_API_KEY`'den önce gelir. Rota adımları AI Control Plane'den değiştirilebilir.
+
 ## Bilinen sınırlar
 
-- Çift H1 ve alt metin eksikliği sayfa profilinde yok (HTML okunmadan bilinemez); bu iki kural bu sürümde üretilmez.
-- Organization şemasında `sameAs` içeriği kontrol edilmez; sadece şema türü kontrol edilir.
+- Alt metni kuralı yalnızca hizmet sayfalarına (atanmış veya çıkarılmış) bakar; `alt=""` dekoratif sayılır.
+- Saklı HTML'i olmayan sayfalarda H1 kuralları sayfa profilindeki `h1_present` alanına düşer; çift H1 ve alt kontrolü yapılmaz.
+- `sameAs` bağlantılarının doğruluğu (gerçekten markaya ait mi) kontrol edilmez, yalnızca varlığı.
 - GSC bağlı değilse `güçlendir` üretilmez; `oluştur` kütüphane ve tahmini brieflerle asgariyi doldurur ve bunu `fallback` olarak işaretler.
-- Hizmet tanımlı değilse plan yalnızca düzelt / AI görünürlük üretir; içerik önerisi için önce marka hizmetleri girilmelidir.
-- Sayfa envanteri (WordPress / public crawl) yoksa hizmet sayfası eşleşmesi ve envanter kuralları boş kalır.
+- Hizmet tanımsız ve sayfa envanteri de GSC de olmayan sitede çıkarım boş kalır; plan yalnızca düzelt / AI görünürlük üretir.
 
 ## Testler
 
-`tests/Feature/SeoTasks/SeoTaskRuleEngineTest.php` (saf kural motoru, CTR eğrisi, metin yardımcıları, operatör kararı, GSC'siz asgari 4) ve `tests/Feature/SeoTasks/SeoPlanRunTest.php` (kuyruk + koşu + diff + arayüzler + LLM birleştirme, `SeoTaskContentPlannerAgent::fake`).
+`tests/Feature/SeoTasks/SeoTaskRuleEngineTest.php` (saf kural motoru, CTR eğrisi, metin yardımcıları, operatör kararı, GSC'siz asgari 4) ve `tests/Feature/SeoTasks/SeoPlanRunTest.php` (kuyruk + koşu + diff + arayüzler + LLM birleştirme, saklı HTML kuralları, AI site anlama + önbellek + "Markaya ekle", AI'sız sayfa konusu yedeği).

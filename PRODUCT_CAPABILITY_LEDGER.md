@@ -1,5 +1,13 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-09-23 (b) — SEO Görevleri: stored HTML rules and site understanding
+
+**State:** CODED + PHPUnit (`tests/Feature/SeoTasks/*`, 12 tests / 121 assertions). Live UAT with real stored HTML, real Anthropic calls and real no-service Brands not run.
+
+- Stored HTML is read through the Website module (`StoredPageReader::html()`, new; `read()` unchanged) via the allowlisted adapter `App\Services\SeoTasks\SeoStoredHtmlReader`. New rules: duplicate H1, missing image alt on service pages, Organization schema without `sameAs`. HTML-based H1 check replaces the profile heuristic when HTML exists.
+- Brands without services: `SeoSiteUnderstanding` infers services from stored pages + GSC + GA4 (AI route `seo_tasks.site_understanding`, 28-day reuse, rule-based page-topic fallback). Inferred services are plan-local; operator adopts them from the website SEO tab ("Markaya ekle").
+- Anthropic key: existing `/integrations/anthropic` page is the entry point; no new integration field was needed. LLM calls now use a 120 s timeout instead of the 20 s provider default.
+
 ## 2026-09-23 — SEO Görevleri (staging branch)
 
 **State:** CODED + PHPUnit (`tests/Feature/SeoTasks/*`, 9 tests / 90 assertions). Live operator UAT with real GSC/WordPress data, real Anthropic call and the weekly scheduler on staging are **not** run. Spec: `docs/product/SEO_TASKS.md`.

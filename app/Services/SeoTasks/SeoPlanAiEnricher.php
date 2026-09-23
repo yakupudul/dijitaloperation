@@ -59,6 +59,12 @@ final class SeoPlanAiEnricher
             'brand' => $input['site']['brand_name'] ?? null,
             'site' => ['domain' => $input['site']['domain'] ?? null, 'origin' => $input['site']['origin'] ?? null, 'languages' => $input['site']['languages'] ?? []],
             'period' => $input['period'] ?? null,
+            'brand_understanding' => isset($input['understanding']) && is_array($input['understanding']) ? [
+                'summary' => $input['understanding']['brand_summary'] ?? null,
+                'audience' => $input['understanding']['audience'] ?? null,
+                'locations' => $input['understanding']['locations'] ?? [],
+                'services_inferred_from_site' => true,
+            ] : null,
             'services' => array_map(static fn (array $o): array => ['name' => $o['name'], 'is_priority' => $o['is_priority']], $input['offerings'] ?? []),
             'pages' => $this->pageSummaries($input['pages'] ?? []),
             'candidates' => $candidates,
@@ -72,6 +78,7 @@ final class SeoPlanAiEnricher
             $response = (new SeoTaskContentPlannerAgent)->prompt(
                 "CONTEXT_JSON\n".json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
                 provider: $route->providerModels,
+                timeout: SeoTaskConfig::int('llm.timeout', 120),
             );
             $structured = $response->toArray();
         } catch (Throwable $exception) {

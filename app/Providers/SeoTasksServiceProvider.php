@@ -15,6 +15,23 @@ final class SeoTasksServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->app->make(AiRouteRegistry::class)->register([
+            'key' => AiRouteKeys::SEO_TASKS_SITE_UNDERSTANDING,
+            'name' => 'SEO Tasks Site Understanding',
+            'module' => 'seo_tasks',
+            'description' => 'When a Brand has no services defined, reads the stored website pages, Search Console queries and GA4 landing pages to infer what the business sells and to whom. Output is a review-only suggestion; nothing is written to the Brand automatically.',
+            'default_steps' => [
+                [
+                    'provider' => AiProviderCatalog::ANTHROPIC,
+                    'model' => AiProviderCatalog::defaultModel(AiProviderCatalog::ANTHROPIC),
+                ],
+                [
+                    'provider' => AiProviderCatalog::OPENAI,
+                    'model' => AiProviderCatalog::defaultModel(AiProviderCatalog::OPENAI),
+                ],
+            ],
+        ]);
+
+        $this->app->make(AiRouteRegistry::class)->register([
             'key' => AiRouteKeys::SEO_TASKS_CONTENT_PLANNER,
             'name' => 'SEO Tasks Content Planner',
             'module' => 'seo_tasks',

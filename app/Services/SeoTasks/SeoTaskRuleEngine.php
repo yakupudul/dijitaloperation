@@ -27,12 +27,29 @@ final class SeoTaskRuleEngine
 
         $tasks = [];
         array_push($tasks, ...$assignmentResult['question_tasks']);
-        array_push($tasks, ...$this->fixTasks($input, $pages));
+        array_push($tasks, ...$this->fixTasks($input, $pages, $assignmentsByOffering, $offerings));
         array_push($tasks, ...$this->strengthenTasks($input, $pages, $offerings, $offeringQueries, $queryIndex, $assignmentsByOffering));
         array_push($tasks, ...$this->createTasks($input, $pages, $offerings, $offeringQueries, $queryIndex, $assignmentsByOffering));
         array_push($tasks, ...$this->aiVisibilityTasks($input, $pages, $offerings, $assignmentsByOffering));
 
         $tasks = $this->applyQuotas($tasks);
+
+        // Attach the service name (brand offering or AI/rule-inferred topic) to every task's evidence.
+        $serviceNames = [];
+        $inferred = [];
+        foreach ($offerings as $offering) {
+            $serviceNames[(string) $offering['id']] = $offering['name'];
+            $inferred[(string) $offering['id']] = ! empty($offering['inferred']);
+        }
+        foreach ($tasks as &$task) {
+            $ref = $task['service_ref'] ?? null;
+            if ($ref !== null && isset($serviceNames[(string) $ref])) {
+                $task['evidence']['service'] = $serviceNames[(string) $ref];
+                $task['evidence']['service_inferred'] = $inferred[(string) $ref];
+            }
+            unset($task['service_ref']);
+        }
+        unset($task);
 
         $counts = [];
         foreach ($tasks as $task) {
@@ -149,6 +166,12 @@ final class SeoTaskRuleEngine
         $questions = [];
 
         foreach ($offerings as $offering) {
+            if (! empty($offering['inferred'])) {
+                $key = filled($offering['page_url'] ?? null) ? SeoText::urlKey((string) $offering['page_url']) : null;
+                $byOffering[$offering['id']] = $key !== null && isset($pages[$key]) ? $key : null;
+
+                continue; // inferred topics are not persisted as assignments and never ask questions
+            }
             $current = $existing[$offering['id']] ?? null;
             if ($current !== null && ($current['decision_source'] ?? null) === ServicePageAssignment::SOURCE_OPERATOR) {
                 $byOffering[$offering['id']] = $current['status'] === ServicePageAssignment::STATUS_ASSIGNED ? $current['url_key'] : null;
@@ -257,7 +280,7 @@ final class SeoTaskRuleEngine
     // -------------------------------------------------------------------- fix
 
     /** @return list<array<string, mixed>> */
-    private function fixTasks(array $input, array $pages): array
+    private function fixTasks(array $input, array $pages, array $assignments = [], array $offerings = []): array
     {
         $tasks = [];
         $accepted = SeoTaskConfig::list('fix.severities_that_become_tasks');
@@ -305,6 +328,8 @@ final class SeoTaskRuleEngine
             'canonical-conflict' => ['medium', 'Canonical çelişkisi olan sayfalar', 'Canonical etiketi sayfanın kendi URL\'sini göstermiyor.', ['Canonical\'ı sayfanın kendi (nihai) URL\'sine çevir veya yönlendirmeyi düzelt.']],
             'thin-content' => ['medium', $thinWords.' kelimenin altındaki indekslenebilir sayfalar', 'Çok kısa sayfalar dizinde yer tutar ama sıralanmaz.', ['Sayfayı genişlet (en az 300 kelime) veya noindex/yönlendirme uygula.']],
             'crawl-issue' => ['critical', 'Kırık iç link / tarama hatası olan sayfalar', 'Tarama sırasında kritik hata kaydedildi.', ['Hatalı linkleri düzelt veya kaldır.']],
+            'duplicate-h1' => ['medium', 'Birden fazla H1 olan sayfalar', 'Saklı HTML\'de sayfa başına birden fazla H1 var; ana konu sinyali bölünüyor.', ['Sayfada tek H1 bırak (ana sorguyu içeren), diğerlerini H2\'ye çevir.', 'Tema/sayfa oluşturucu logoyu veya menüyü H1 ile basıyorsa şablonu düzelt.']],
+            'alt-missing' => ['medium', 'Hizmet sayfalarında alt metni olmayan görseller', 'Hizmet sayfalarındaki görsellerde alt özniteliği yok; görsel arama ve erişilebilirlik kaybı.', ['Her görsele içeriği anlatan, hizmet adını doğal geçiren bir alt metni yaz.', 'Dekoratif görsellerde boş alt="" kullan.']],
         ];
         $hits = array_fill_keys(array_keys($buckets), []);
 
@@ -329,7 +354,13 @@ final class SeoTaskRuleEngine
             if ($page['meta_description'] === null || $page['meta_description'] === '') {
                 $hits['meta-missing'][] = $page['url'];
             }
-            if ($page['h1_present'] === false || (($page['h1'] === null || $page['h1'] === '') && $page['h1_present'] !== true && $page['title'] !== null)) {
+            if (($page['html_read'] ?? false) === true) {
+                if ((int) $page['h1_count'] === 0) {
+                    $hits['h1-missing'][] = $page['url'];
+                } elseif ((int) $page['h1_count'] > 1) {
+                    $hits['duplicate-h1'][] = $page['url'].' ('.$page['h1_count'].' H1)';
+                }
+            } elseif ($page['h1_present'] === false || (($page['h1'] === null || $page['h1'] === '') && $page['h1_present'] !== true && $page['title'] !== null)) {
                 $hits['h1-missing'][] = $page['url'];
             }
             if ($page['canonical_hrefs'] !== []) {
@@ -348,6 +379,15 @@ final class SeoTaskRuleEngine
             }
             if ($page['word_count'] !== null && $page['word_count'] < $thinWords) {
                 $hits['thin-content'][] = $page['url'].' ('.$page['word_count'].' kelime)';
+            }
+        }
+
+        // Missing alt on service pages (assigned or inferred), read from stored HTML.
+        $servicePageKeys = array_values(array_unique(array_filter($assignments)));
+        foreach ($servicePageKeys as $key) {
+            $page = $pages[$key] ?? null;
+            if ($page !== null && ($page['html_read'] ?? false) && (int) ($page['images_missing_alt'] ?? 0) > 0) {
+                $hits['alt-missing'][] = sprintf('%s (%d/%d görsel)', $page['url'], $page['images_missing_alt'], $page['images_total']);
             }
         }
 
@@ -853,6 +893,20 @@ final class SeoTaskRuleEngine
                     $hasOrg = true;
                 }
             }
+            if ($hasOrg && ($home['html_read'] ?? false) && ($home['same_as'] ?? []) === []) {
+                $tasks[] = $this->task(
+                    type: SeoTaskType::AiVisibility,
+                    ruleId: 'org-same-as',
+                    keyParts: [],
+                    severity: 'low',
+                    score: 240,
+                    title: 'Kuruluş şemasına sameAs bağlantılarını ekle',
+                    reason: 'Ana sayfada kuruluş şeması var ama sameAs listesi boş. AI arama motorları markayı sosyal profiller ve işletme profiliyle eşleştiremiyor.',
+                    evidence: ['found_types' => $home['structured_types'], 'url' => $home['url']],
+                    checklist: ['Organization/LocalBusiness JSON-LD içine sameAs dizisi ekle: Instagram, Facebook, LinkedIn, YouTube, Google İşletme Profili URL\'leri.', 'Aynı bağlantıları sitenin alt bilgisinde de göster.'],
+                    targetUrl: $home['url'],
+                );
+            }
             if (! $hasOrg) {
                 $tasks[] = $this->task(
                     type: SeoTaskType::AiVisibility,
@@ -1066,7 +1120,7 @@ final class SeoTaskRuleEngine
         array $evidence,
         array $checklist,
         ?string $targetUrl = null,
-        ?int $offeringId = null,
+        int|string|null $offeringId = null,
         ?float $extraClicks = null,
         bool $isNewPage = false,
         ?array $brief = null,
@@ -1087,7 +1141,8 @@ final class SeoTaskRuleEngine
             'target_url' => $targetUrl,
             'is_new_page' => $isNewPage,
             'content_brief' => $brief,
-            'brand_offering_id' => $offeringId,
+            'brand_offering_id' => is_int($offeringId) ? $offeringId : null,
+            'service_ref' => $offeringId,
         ];
     }
 }

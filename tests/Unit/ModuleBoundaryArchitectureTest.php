@@ -57,6 +57,8 @@ class ModuleBoundaryArchitectureTest extends TestCase
         'app/Services/Collection/Providers/DataForSeo/DataForSeoNormalizer.php',
         // Phase C.1: Core collected-facts adapters reuse existing Website Document Head evaluator.
         'app/Services/Analysis/Adapters/WebsiteCollectedDocumentHeadAdapter.php',
+        // SEO Tasks: read-only adapter over the module's verified stored-HTML reader.
+        'app/Services/SeoTasks/SeoStoredHtmlReader.php',
     ];
 
     /**

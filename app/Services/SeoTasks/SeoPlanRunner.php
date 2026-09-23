@@ -25,6 +25,7 @@ final class SeoPlanRunner
 
     public function __construct(
         private readonly SeoPlanInputCollector $collector,
+        private readonly SeoSiteUnderstanding $understanding,
         private readonly SeoTaskRuleEngine $rules,
         private readonly SeoPlanAiEnricher $enricher,
         private readonly SeoPlanWriter $writer,
@@ -154,6 +155,13 @@ final class SeoPlanRunner
                 'period_end' => $input['period']['end'],
             ])->save();
 
+            if ($input['offerings'] === [] && $activity !== null) {
+                $this->async->setPhase($activity, 'understanding', 'Marka hizmetleri siteden çıkarılıyor');
+            }
+            $resolved = $this->understanding->resolve($plan, $input);
+            $input['offerings'] = $resolved['offerings'];
+            $input['understanding'] = $resolved['understanding'];
+
             if ($activity !== null) {
                 $this->async->setPhase($activity, 'rules', 'Kurallar değerlendiriliyor');
             }
@@ -183,6 +191,8 @@ final class SeoPlanRunner
                     'matched_queries' => $result['stats']['matched_queries'],
                     'ga4_available' => $input['ga4']['available'],
                     'robots_available' => $input['robots']['available'],
+                    'html' => $input['html'] ?? null,
+                    'site_understanding' => $resolved['understanding'],
                 ]),
                 'llm_summary' => $enriched['summary'],
                 'result_summary' => $written,
@@ -193,7 +203,7 @@ final class SeoPlanRunner
                 $this->async->markFinished($activity, 'completed', 'Tamamlandı', [
                     'result_summary' => $summary,
                     'seo_plan_id' => $plan->id,
-                    'ai_calls' => (int) ($enriched['summary']['calls'] ?? 0),
+                    'ai_calls' => (int) ($enriched['summary']['calls'] ?? 0) + $resolved['calls'],
                 ]);
             }
         } catch (Throwable $exception) {

@@ -23,6 +23,41 @@ final class StoredPageReader
     /** @return array<string, mixed>|null */
     public function read(DigitalAsset $website, WebsitePageProfile $profile): ?array
     {
+        $loaded = $this->load($website, $profile);
+        if ($loaded === null) {
+            return null;
+        }
+        [$snapshot, $object, $html] = $loaded;
+        $head = $this->heads->parse($html);
+        $canonical = $this->canonicals->parse($html);
+        $content = $this->contents->extract($profile->preferred_url, $html, [], []);
+
+        return [
+            'url' => $profile->preferred_url, 'page_profile_id' => $profile->id,
+            'seo_inspection' => (new StoredSeoInspector)->inspect($profile->preferred_url, $html),
+            'snapshot_id' => (int) $snapshot->id, 'raw_ingestion_object_id' => $object->id,
+            'observed_at' => $snapshot->observed_at, 'html_hash' => $snapshot->html_hash,
+            'content_fingerprint' => $content['content_fingerprint'],
+            'title' => $content['title'], 'meta_description' => $content['meta_description'],
+            'h1' => $content['h1'], 'headings' => array_slice($content['headings'], 0, 80),
+            'internal_link_count' => count($content['internal_links']),
+            'external_link_count' => count($content['external_links']),
+            'head' => $head, 'canonical_hrefs' => $canonical['canonical_hrefs'],
+            'head_complete' => $canonical['head_complete'] && ! $canonical['head_truncated'],
+            'normalized_text_excerpt' => mb_substr($content['normalized_text'], 0, 16000),
+            'text_truncated' => mb_strlen($content['normalized_text']) > 16000,
+        ];
+    }
+
+    /** Verified stored HTML of the page's latest snapshot, or null when unavailable. */
+    public function html(DigitalAsset $website, WebsitePageProfile $profile): ?string
+    {
+        return $this->load($website, $profile)[2] ?? null;
+    }
+
+    /** @return array{0: object, 1: RawIngestionObject, 2: string}|null */
+    private function load(DigitalAsset $website, WebsitePageProfile $profile): ?array
+    {
         if ((int) $profile->website_asset_id !== (int) $website->id) {
             throw new RuntimeException('Page does not belong to this Website.');
         }
@@ -57,24 +92,7 @@ final class StoredPageReader
         if (! is_string($html) || trim($html) === '' || strlen($html) > 5 * 1024 * 1024) {
             return null;
         }
-        $head = $this->heads->parse($html);
-        $canonical = $this->canonicals->parse($html);
-        $content = $this->contents->extract($profile->preferred_url, $html, [], []);
 
-        return [
-            'url' => $profile->preferred_url, 'page_profile_id' => $profile->id,
-            'seo_inspection' => (new StoredSeoInspector)->inspect($profile->preferred_url, $html),
-            'snapshot_id' => (int) $snapshot->id, 'raw_ingestion_object_id' => $object->id,
-            'observed_at' => $snapshot->observed_at, 'html_hash' => $snapshot->html_hash,
-            'content_fingerprint' => $content['content_fingerprint'],
-            'title' => $content['title'], 'meta_description' => $content['meta_description'],
-            'h1' => $content['h1'], 'headings' => array_slice($content['headings'], 0, 80),
-            'internal_link_count' => count($content['internal_links']),
-            'external_link_count' => count($content['external_links']),
-            'head' => $head, 'canonical_hrefs' => $canonical['canonical_hrefs'],
-            'head_complete' => $canonical['head_complete'] && ! $canonical['head_truncated'],
-            'normalized_text_excerpt' => mb_substr($content['normalized_text'], 0, 16000),
-            'text_truncated' => mb_strlen($content['normalized_text']) > 16000,
-        ];
+        return [$snapshot, $object, $html];
     }
 }
