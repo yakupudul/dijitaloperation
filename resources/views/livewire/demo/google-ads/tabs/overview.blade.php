@@ -144,7 +144,7 @@
         </section>
 
         <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-            <div class="flex items-center justify-between gap-2"><h3 class="text-sm font-semibold text-gray-900 dark:text-white">Landing Pages</h3><button type="button" wire:click="setTab('landing_pages')" class="text-xs font-semibold text-brand-600 hover:underline dark:text-brand-400">{{ $isTr ? 'İncele' : 'Inspect' }} →</button></div>
+            <div class="flex items-center justify-between gap-2"><h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ $isTr ? 'Açılış Sayfaları' : 'Landing pages' }}</h3><button type="button" wire:click="setTab('landing_pages')" class="text-xs font-semibold text-brand-600 hover:underline dark:text-brand-400">{{ $isTr ? 'İncele' : 'Inspect' }} →</button></div>
             <p class="mt-3 text-2xl font-bold tabular-nums text-gray-900 dark:text-white">{{ is_numeric($landingActive) ? number_format((int)$landingActive, 0, ',', '.') : '—' }}</p>
             <p class="text-xs text-gray-500">{{ $isTr ? 'reklam trafiği alan hedef URL' : 'paid-traffic destination URLs' }}</p>
             <div class="mt-3 border-t border-gray-100 pt-3 text-xs text-gray-500 dark:border-gray-800">{{ $isTr ? 'Website asset bağlandığında teknik/mobil kalite ile reklam performansı çapraz analiz edilecek.' : 'When a Website asset is linked, technical/mobile quality can be cross-analyzed with paid performance.' }}</div>

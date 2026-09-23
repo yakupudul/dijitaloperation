@@ -3,7 +3,7 @@
     $rangeEnd = (string) ($data['period_end'] ?? ($periodEnd ?? ''));
     $resolvedAssetId = (string) ($assetId ?? '');
 
-    if ($resolvedAssetId !== '' && $rangeStart !== '' && $rangeEnd !== '') {
+    if (config('moxdop-google-ads-collector.search_live_fallback') && $resolvedAssetId !== '' && $rangeStart !== '' && $rangeEnd !== '') {
         $data = app(\App\Services\GoogleAds\GoogleAdsSearchLiveReadFallbackService::class)->reconcile(
             $resolvedAssetId,
             $rangeStart,
@@ -106,6 +106,14 @@
     <div class="mb-4 rounded-xl bg-rose-50 px-4 py-3 text-xs text-rose-800 ring-1 ring-inset ring-rose-200 dark:bg-rose-500/10 dark:text-rose-200 dark:ring-rose-500/20">
         <strong>{{ app()->getLocale() === 'tr' ? 'Google Ads canlı Arama okuması başarısız:' : 'Google Ads live Search read failed:' }}</strong>
         {{ data_get($data, 'search.live_read_error.message') }}
+    </div>
+@endif
+
+@if (($data['search']['terms'] ?? []) === [] && ($data['search']['keywords'] ?? []) === [])
+    <div class="mb-4 rounded-xl bg-blue-50 px-4 py-3 text-xs text-blue-800 ring-1 ring-inset ring-blue-200 dark:bg-blue-500/10 dark:text-blue-200 dark:ring-blue-500/20">
+        {{ app()->getLocale() === 'tr'
+            ? 'Bu dönem için arama terimi ve anahtar kelime verisi henüz toplanmadı. “Veri & Bağlantı” sekmesinden veriyi güncelleyin; toplama bitince burada görünür.'
+            : 'No search term or keyword data has been collected for this period yet. Refresh data from the “Data & Connection” tab; it appears here once collection finishes.' }}
     </div>
 @endif
 

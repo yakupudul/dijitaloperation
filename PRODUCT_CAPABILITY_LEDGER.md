@@ -1,5 +1,17 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-09-25 (b) — Dijital varlık sayfaları Faz A: kırık ve yanlış çalışan yerler
+
+**State:** CODED + PHPUnit (`tests/Feature/Assets/*`: GBP page from collected gbp_* rows incl. partial run, retired tabs; asset list real status + edit form + Data Sources render; Google Ads landing tab + no provider call on Search render; Meta no auto-pick + recorded recommendations + run analysis). Full Feature + Unit suites compared with the baseline. Live UAT not run.
+
+- Veri Kaynakları (`/assets/{id}/sources`) no longer 500s (mixed one-line / block `@php` in the Blade); breadcrumb links back to the asset; statuses in Turkish.
+- Operator asset edit page `/assets/{id}/edit` (name, status, website fields, SEO market as DataForSEO codes); brand/type fixed. "Varlığı düzenle" menus now open it (was the create form). Create continues to Data Sources.
+- Business Profile page reads `gbp_location_snapshots` + performance/keywords/reviews/media/posts/attributes/services by the bound resource; partial runs count. Tabs: Özet · Performans & Aramalar (28/90/180 days vs previous) · Yorumlar (distribution, reply rate, unanswered, latest) · Profil (completeness checklist) · Danışman. Visibility/Competitors/Operations placeholders removed (old links redirect); dead demo tab views deleted.
+- Asset list: connection, freshness (fresh ≤72h / stale / not collected / not connected / no data source), last update and open work (advisor + SEO tasks) from bindings and runs; "Veri sorunları" filter works.
+- Google Ads: "Açılış Sayfaları" tab reachable (panel existed but was mapped to Overview); Search tab no longer calls the Google Ads API while rendering (`MOXDOP_GADS_SEARCH_LIVE_FALLBACK`, default off); connector Accounts tab no longer also renders the activity monitor.
+- Meta: `/assets/meta` without an id goes to the Meta-filtered asset list (no auto-picked account); İçgörüler tab lists recorded findings, advisor recommendations, tasks and measured outcomes; header "Analizi çalıştır".
+- Not in this slice (Faz B–D): dead demo code cleanup, tab consolidation, English/jargon cleanup, shared asset frame, GA4/GSC model decision, new analytics (pacing, drill-down, alerts).
+
 ## 2026-09-25 — Faz 7: Admin onaylı harici yazma (ADR-064)
 
 **State:** CODED + PHPUnit (`tests/Feature/ExternalWrites/ExternalWritesTest`: paste parsing, Admin-only UI + 403 for team members, Google Ads mutate sequence limited to shared list services, undo removes exactly the added criteria, kill switch, WordPress signed draft create/trash, old plugin refused, plugin source never publishes). Full Feature + Unit suites: no new failures. Live UAT not run — needs a real Google Ads account with an approved developer token (≥ Basic access) and the connector plugin updated to 1.2.0 on each site.
@@ -313,7 +325,7 @@ update is required for these server-side fixes.
 | Cross-Asset Analyst | PARTIAL | YES | NO | YES | NO | PARTIAL | Deterministic packs TESTED; Analyst persona PLANNED; jobs invoked sync | Consistency packs in Core; Digital Operations Analyst future |
 | Agency Learning | NO | NO | NO | NO | N/A | PLANNED | No Learning Candidate pipeline | Human-reviewed Agency Knowledge only — future |
 | Platform Engineer | NO | NO | NO | NO | N/A | PLANNED | Research reference only (e.g. OpenHands) | Not a customer-analysis runtime |
-| Google Business Profile | PARTIAL | YES | NO | PARTIAL | NO | PARTIAL | Reputation Intelligence PLANNED; thin workspace vs Website/Ads | Location profile collector present |
+| Google Business Profile | PARTIAL | YES | NO | PARTIAL | NO | PARTIAL | No local rank grid / competitor data; reply drafting not in scope; live UAT not run | Location page reads collected gbp_* tables: profile + completeness, performance with comparison, search keywords, reviews, photos/posts; Advisor tab (2026-09-25 Faz A) |
 | Finding lifecycle / fingerprint | YES | YES | NO | YES | N/A | TESTED | Unique `(digital_asset_id, fingerprint)` | Persistent Findings; ADR-034 |
 | Evidence / Run model | YES | YES | NO | YES | N/A | TESTED | Foundational model; not a historical warehouse | Evidence bound to Run; no separate Result entity |
 | Shared collection engine (control plane) | YES | YES | NO | NO | YES | **TESTED** | Redis/Horizon required for production collection queue | Prompt 9: `CollectionRun`→`ResourceRun`→`DatasetRun` + planner + Horizon. Docs: `docs/implementation/COLLECTION_ENGINE_ARCHITECTURE.md`. Operator Collect Now for GA4/GSC/Google Ads/Meta Ads starts this engine (not specialist Evidence collectors). GA4/GSC/Ads/Meta/Website/DFS DatasetExecutors exist on the current release stack; that does **not** make those collectors REAL/DONE without their own UAT gates. |

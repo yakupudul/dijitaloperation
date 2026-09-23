@@ -17,13 +17,14 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 
 #[Layout('operator.layouts.app')]
-#[Title('Digital Assets')]
+#[Title('Dijital Varlıklar')]
 class AssetsIndex extends Component
 {
     public string $filterBrand = '';
 
     public string $filterCustomer = '';
 
+    #[Url(as: 'type', except: '')]
     public string $filterType = '';
 
     public string $filterOperational = '';

@@ -1,5 +1,11 @@
 # PROJECT_MEMORY
 
+## 2026-09-25 (b) — Digital asset pages: audit + Faz A fixes
+
+- Audit (all asset pages) found: Data Sources 500, GBP page never reading collected data, fake list status, hidden Google Ads landing tab, provider call during Search render, Meta auto-picking an account, "edit asset" opening the create form. Fixed in Faz A.
+- Decisions: asset pages never call providers while rendering (Google Ads live Search fallback is opt-in via env); a missing asset id never auto-selects an account; asset editing lives in the operator product (`/assets/{id}/edit`), brand and type fixed after creation; GBP tabs without a data source (local rank grid, competitors) are not shown.
+- Planned next (not done): Faz B cleanup (dead demo views/code, duplicate tabs, English/jargon), Faz C shared asset frame (breadcrumb, switcher, status strip, one period bar, "Kaynak & Ayarlar" tab, one binding flow, GA4/GSC as website sources), Faz D missing analytics (Ads pacing/comparison columns/impression share, Meta drill-down/budget/fatigue, website audit score, alerts, CSV).
+
 ## 2026-09-25 — Faz 7: two narrow external writes (ADR-064)
 
 Owner decision ("Faz 7 yap"; both writes, shared list, Admin only): ADR-018 gets exactly two exceptions.

@@ -1,6 +1,6 @@
 @php
     $isTr = app()->getLocale() === 'tr';
-    $effectiveTab = $tab === 'landing_pages' ? 'overview' : $tab;
+    $effectiveTab = $tab;
     $providerConnected = (bool) ($professional['connected'] ?? false);
     $rawTitle = (string) ($identity['title'] ?? 'Google Ads');
     if ($providerConnected) {
@@ -40,6 +40,7 @@
         ['key' => 'performance', 'label' => $isTr ? 'Performans' : 'Performance', 'wire' => true],
         ['key' => 'budget_bidding', 'label' => $isTr ? 'Bütçe & Teklif' : 'Budget & Bidding', 'wire' => true],
         ['key' => 'measurement', 'label' => $isTr ? 'Dönüşümler' : 'Conversions', 'wire' => true],
+        ['key' => 'landing_pages', 'label' => $isTr ? 'Açılış Sayfaları' : 'Landing pages', 'wire' => true],
         ['key' => 'optimization', 'label' => $isTr ? 'Optimizasyon' : 'Optimization', 'wire' => true],
         ['key' => 'changes', 'label' => $isTr ? 'Değişiklikler' : 'Changes', 'wire' => true],
         ['key' => 'data_connection', 'label' => $isTr ? 'Veri & Bağlantı' : 'Data & Connection', 'wire' => true],
@@ -142,6 +143,8 @@
         @include('livewire.demo.google-ads.tabs.budget-bidding')
     @elseif ($effectiveTab === 'measurement')
         @include('livewire.demo.google-ads.tabs.measurement')
+    @elseif ($effectiveTab === 'landing_pages')
+        @include('livewire.demo.google-ads.tabs.landing-pages')
     @elseif ($effectiveTab === 'optimization')
         @include('livewire.demo.google-ads.tabs.optimization')
     @elseif ($effectiveTab === 'changes')

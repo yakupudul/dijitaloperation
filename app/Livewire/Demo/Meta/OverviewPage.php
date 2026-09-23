@@ -308,6 +308,17 @@ class OverviewPage extends Component
         return $compareStart->format('M j').' – '.$compareEnd->format('M j');
     }
 
+    /**
+     * Findings / recommendations / tasks / outcomes recorded for this asset. The base page has none;
+     * the operator page reads them from the database.
+     *
+     * @return array<string, list<array<string, mixed>>>
+     */
+    protected function recordedOperations(): array
+    {
+        return [];
+    }
+
     public function render(): View
     {
         $this->normalizeMetaPeriodState();
@@ -336,6 +347,9 @@ class OverviewPage extends Component
         );
 
         $isDemo = ($data['migration_mode'] ?? 'demo_catalog') === 'demo_catalog';
+        if (! $isDemo) {
+            $data['operations'] = array_merge($data['operations'] ?? [], $this->recordedOperations());
+        }
 
         $campaigns = collect($data['campaigns'] ?? []);
         if ($this->status_filter !== 'all') {

@@ -10,6 +10,12 @@ return [
 
     'api_version' => (string) config('moxdop.google.ads_api_version', 'v25'),
 
+    /**
+     * Operator Search tab: read search terms/keywords live from Google Ads when the Data Pool has none for the
+     * period. Off by default — pages must not call providers while rendering; collection fills the pool.
+     */
+    'search_live_fallback' => (bool) env('MOXDOP_GADS_SEARCH_LIVE_FALLBACK', false),
+
     /** Official GoogleAdsService.Search page size */
     'search_page_size' => 10000,
 
