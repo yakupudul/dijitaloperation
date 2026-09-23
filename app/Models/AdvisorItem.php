@@ -86,6 +86,8 @@ class AdvisorItem extends Model
             'baseline' => 'array',
             'draft' => 'array',
             'resolved_at' => 'datetime',
+            'outcome' => 'array',
+            'measured_at' => 'datetime',
         ];
     }
 }

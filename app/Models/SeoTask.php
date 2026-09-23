@@ -159,6 +159,8 @@ class SeoTask extends Model
             'llm_payload' => 'array',
             'is_new_page' => 'boolean',
             'resolved_at' => 'datetime',
+            'outcome' => 'array',
+            'measured_at' => 'datetime',
         ];
     }
 }
