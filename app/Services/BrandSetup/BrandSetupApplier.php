@@ -79,7 +79,7 @@ final class BrandSetupApplier
         $keywordCount = 0;
         foreach ($serviceIndexes as $index) {
             $service = $services[$index] ?? null;
-            if (! is_array($service) || $service['status'] !== 'proposed') {
+            if (! is_array($service) || ! in_array($service['status'], ['proposed', 'already'], true)) {
                 continue;
             }
             $results[] = $this->service($service, $brand, $actor, $keywordCount);
@@ -172,7 +172,7 @@ final class BrandSetupApplier
     {
         $result = ['key' => 'service:'.$service['name'], 'label' => $service['name'], 'ok' => false, 'message' => ''];
         try {
-            if ($service['is_new'] && is_string($service['sector_code'] ?? null)) {
+            if ($service['status'] === 'proposed' && $service['is_new'] && is_string($service['sector_code'] ?? null)) {
                 // New catalog entry under the suggested sector (existing names are found, never duplicated).
                 $this->catalog->resolveOrCreate($service['name'], $service['sector_code'], actor: $actor);
             }
@@ -184,14 +184,18 @@ final class BrandSetupApplier
                     // alias collisions are not fatal
                 }
             }
-            if (! empty($service['is_core'])) {
+            if ($service['status'] === 'proposed' && ! empty($service['is_core'])) {
                 $offering->forceFill(['is_priority' => true])->save();
             }
             $offering = $offering->fresh();
             $matchingAdded = $this->storeMatchingPhrases($service, $offering);
             $keywordCount += $this->storeKeywords($service, $offering, $brand, $actor);
 
-            $message = $service['is_new'] ? 'Katalogda yeni hizmet açıldı ve markaya eklendi.' : 'Katalogdaki hizmet markaya eklendi.';
+            $message = match (true) {
+                $service['status'] === 'already' => 'Hizmet markada vardı.',
+                $service['is_new'] => 'Katalogda yeni hizmet açıldı ve markaya eklendi.',
+                default => 'Katalogdaki hizmet markaya eklendi.',
+            };
             if ($matchingAdded > 0) {
                 $message .= sprintf(' %d eşleştirme ifadesi eklendi.', $matchingAdded);
             }

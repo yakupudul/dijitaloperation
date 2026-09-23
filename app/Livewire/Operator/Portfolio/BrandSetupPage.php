@@ -79,7 +79,7 @@ final class BrandSetupPage extends Component
             }
         }
         foreach ($proposal?->services ?? [] as $index => $service) {
-            if ($service['status'] === 'proposed') {
+            if (in_array($service['status'], ['proposed', 'already'], true)) {
                 $this->selectedServices[$index] = $value;
             }
         }

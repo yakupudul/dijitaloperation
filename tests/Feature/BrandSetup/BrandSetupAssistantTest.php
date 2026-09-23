@@ -19,6 +19,7 @@ use App\Models\SearchQueryLibraryItem;
 use App\Models\ServiceCatalogItem;
 use App\Models\ServiceCategory;
 use App\Models\User;
+use App\Services\BrandIntelligence\BrandOfferingService;
 use App\Services\BrandSetup\BrandSetupAssistant;
 use App\Services\BrandSetup\BrandSetupMatcher;
 use App\Services\SearchDemand\ServiceCatalogService;
@@ -190,6 +191,35 @@ final class BrandSetupAssistantTest extends TestCase
         $this->assertSame(['uyluk germe', 'uyluk germe fiyatları'], $library);
         $this->assertSame(2, BrandQueryPortfolioItem::query()->where('brand_id', $this->brand->id)->count());
         $this->assertSame(['bacak germe', 'thigh lift', 'uyluk germe'], $item->matchingKeywords()->orderBy('label')->pluck('label')->all(), 'eşleştirme ifadeleri: location-free, generic words dropped');
+    }
+
+    public function test_services_the_brand_already_has_only_gain_missing_matching_expressions(): void
+    {
+        [$gscResource] = $this->resources();
+        ServiceCategory::query()->create(['code' => 'saglik', 'name' => 'Sağlık', 'normalized_key' => 'saglik']);
+        $item = app(ServiceCatalogService::class)->resolveOrCreate('İmplant Tedavisi', 'saglik', actor: $this->admin)['service'];
+        $offering = app(BrandOfferingService::class)->resolveOrCreate($this->brand, 'İmplant Tedavisi', actor: $this->admin)['offering'];
+        DB::table('gsc_query_page_daily')->insert([
+            'digital_asset_id' => null, 'external_resource_id' => $gscResource->id, 'site_url' => 'sc-domain:adadent.com.tr',
+            'reporting_date' => now()->subDays(5)->toDateString(), 'query' => 'vidalı diş', 'page' => 'https://www.adadent.com.tr/implant/',
+            'clicks' => 3, 'impressions' => 400, 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(),
+            'record_fingerprint' => hash('sha256', 'z'), 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        BrandSetupAgent::fake([[
+            'brand_summary' => 'Diş kliniği.', 'sector_code' => 'saglik',
+            'services' => [['name' => 'İmplant Tedavisi', 'catalog_name' => 'İmplant Tedavisi', 'sector_code' => 'saglik', 'aliases' => [], 'matching_phrases' => ['vidalı diş', 'implant'], 'is_core' => true, 'evidence' => 'Sorgu']],
+            'prompt_version' => BrandSetupAgent::PROMPT_VERSION,
+        ]]);
+
+        $proposal = app(BrandSetupAssistant::class)->queue($this->brand, 'adadent.com.tr', $this->admin)->fresh();
+        $this->assertSame('already', $proposal->services[0]['status']);
+        $this->assertTrue($proposal->services[0]['selected'], 'additive: pre-ticked, still needs approval');
+
+        Livewire::test(BrandSetupPage::class, ['brand' => (string) $this->brand->id])->call('approve');
+
+        $this->assertSame(['implant', 'implant tedavisi', 'vidalı diş'], $item->matchingKeywords()->orderBy('label')->pluck('label')->all());
+        $this->assertSame(1, BrandOffering::query()->where('brand_id', $this->brand->id)->count(), 'no duplicate offering');
+        $this->assertFalse((bool) $offering->fresh()->is_priority, 'operator priority is not overwritten');
     }
 
     public function test_ai_failure_is_shown_to_the_operator_and_accounts_are_still_proposed(): void

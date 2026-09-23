@@ -124,7 +124,7 @@
                 <ul class="divide-y divide-gray-100 dark:divide-gray-800">
                     @foreach ($services as $index => $service)
                         <li wire:key="service-{{ $index }}" class="flex items-start gap-3 px-5 py-3">
-                            <input type="checkbox" wire:model="selectedServices.{{ $index }}" @disabled($service['status'] !== 'proposed' || $proposal->status !== 'ready') class="mt-1 rounded border-gray-300" />
+                            <input type="checkbox" wire:model="selectedServices.{{ $index }}" @disabled($proposal->status !== 'ready') class="mt-1 rounded border-gray-300" />
                             <div class="min-w-0 flex-1">
                                 <p class="text-sm font-medium text-gray-800 dark:text-white/90">@if ($service['is_core'])★ @endif{{ $service['name'] }}@if (! empty($service['aliases']))<span class="font-normal text-gray-500"> · {{ implode(', ', $service['aliases']) }}</span>@endif</p>
                                 <p class="mt-0.5 text-xs text-gray-500">{{ $service['evidence'] }}</p>
@@ -138,6 +138,7 @@
                             <div class="flex shrink-0 flex-col items-end gap-1 text-xs">
                                 @if ($service['status'] === 'already')
                                     <x-ta.badge color="success" size="sm">Markada var</x-ta.badge>
+                                    <span class="text-gray-400">seçilirse yalnızca eksik ifadeler eklenir</span>
                                 @elseif ($service['is_new'])
                                     <x-ta.badge color="warning" size="sm">Yeni · {{ $service['sector_label'] ?? 'sektör yok' }}</x-ta.badge>
                                 @else

@@ -165,7 +165,8 @@ final class BrandSetupServiceSuggester
             'is_core' => $core,
             'evidence' => $evidence,
             'status' => $already ? 'already' : 'proposed',
-            'selected' => ! $already && $confidence >= 0.8 && ($match !== null || $sector !== null),
+            // A service the brand already has only gains missing matching expressions / keywords (additive).
+            'selected' => $already ? $confidence >= 0.8 : ($confidence >= 0.8 && ($match !== null || $sector !== null)),
         ];
     }
 
@@ -188,7 +189,7 @@ final class BrandSetupServiceSuggester
             if ($key === '' || mb_strlen($key) < 3 || mb_strlen($phrase) > 60 || ServiceKeywordService::isGeneric($phrase) || isset($out[$key])) {
                 continue;
             }
-            $out[$key] = mb_strtolower($phrase, 'UTF-8');
+            $out[$key] = mb_strtolower(strtr($phrase, ['I' => 'ı', 'İ' => 'i']), 'UTF-8');
         }
 
         return array_slice(array_values($out), 0, 12);
