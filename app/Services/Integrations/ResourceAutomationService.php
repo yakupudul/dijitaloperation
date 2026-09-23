@@ -2,22 +2,37 @@
 
 namespace App\Services\Integrations;
 
+use App\Enums\Observability\OperationalAlertRuleType;
+use App\Enums\Observability\OperationalAlertSeverity;
+use App\Enums\Observability\OperationalSignalFamily;
 use App\Jobs\Async\ResourceCollectionJob;
+use App\Models\Collection\CollectionDatasetRun;
 use App\Models\Collection\CollectionResourceRun;
 use App\Models\Collection\CollectionRun;
 use App\Models\CoreExternalResource;
 use App\Models\DigitalAsset;
 use App\Models\ResourceAutomation;
+use App\Models\Run;
 use App\Models\User;
+use App\Services\Collection\Ga4\Ga4CentralCollectionService;
+use App\Services\Collection\GoogleAds\GoogleAdsCentralCollectionService;
+use App\Services\Collection\Meta\MetaSingleBindingCollectionOrchestrator;
+use App\Services\Collection\SearchConsole\SearchConsoleCentralCollectionService;
+use App\Services\CollectionScheduler\ExecuteCollectionLifecycleService;
+use App\Services\Integrations\Google\GoogleBusinessProfileBoundCollector;
+use App\Services\Observability\OperationalAlertLifecycleService;
 use App\Services\SearchDemand\AutomaticQueryImportService;
+use App\Services\SearchDemand\LibraryImportWorkflow;
 use App\Support\Permissions;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 final class ResourceAutomationService
 {
     public const TYPES = ['google_ads', 'search_console', 'ga4', 'meta_ads', 'google_business_profile'];
+
     public const ACTIVE = ['queued', 'running', 'retrying', 'cancellation_requested'];
 
     public function authorize(?User $actor): void
@@ -59,7 +74,7 @@ final class ResourceAutomationService
             }
             $ids = [];
             if (filled($input['sector'] ?? null) || $input['query_enabled']) {
-                $ids = app(\App\Services\SearchDemand\LibraryImportWorkflow::class)->validateScope($input);
+                $ids = app(LibraryImportWorkflow::class)->validateScope($input);
             }
             $mappingChanged = $a->sector !== ($input['sector'] ?: null) || array_map('intval', $a->service_ids ?? []) !== $ids;
             $a->fill([
@@ -137,7 +152,7 @@ final class ResourceAutomationService
             ->whereHas('resource', fn ($q) => $q->where('resource_type', 'ga4'))
             ->orderBy('id')->chunkById(100, function ($accounts) use (&$recovered): void {
                 foreach ($accounts as $automation) {
-                    $knownFailure = \App\Models\Collection\CollectionDatasetRun::query()
+                    $knownFailure = CollectionDatasetRun::query()
                         ->where('collection_run_id', $automation->collection_run_id)->where('status', 'failed')
                         ->where('error_code', 'PERSISTENCE')
                         ->where('error_message', 'like', '%missing natural key [landingPage]%')
@@ -167,7 +182,7 @@ final class ResourceAutomationService
             ->whereHas('resource', fn ($q) => $q->where('resource_type', 'search_console'))
             ->orderBy('id')->chunkById(100, function ($accounts) use (&$recovered): void {
                 foreach ($accounts as $automation) {
-                    $knownFailure = \App\Models\Collection\CollectionDatasetRun::query()
+                    $knownFailure = CollectionDatasetRun::query()
                         ->where('collection_run_id', $automation->collection_run_id)->where('status', 'failed')
                         ->where('error_code', 'INVALID_REQUEST')->where('error_message', 'like', '%BY_PROPERTY%')
                         ->where('dataset_contract_id', 'gsc_search_appearance_daily')
@@ -215,6 +230,7 @@ final class ResourceAutomationService
             if ($error !== null) {
                 $automation->update(['collection_status' => 'attention', 'collection_error' => $error,
                     'next_collection_at' => now()->addDays($automation->interval_days)]);
+
                 continue;
             }
             $automation->update(['collection_status' => 'planning', 'collection_queued_at' => now(), 'collection_run_id' => null]);
@@ -259,6 +275,17 @@ final class ResourceAutomationService
         return DigitalAsset::query()->operational()->whereIn('digital_assets.id', $assetIds)->exists() ? null : 'customer_passive';
     }
 
+    /** A customer turned active again: its accounts paused by the portfolio gate are due immediately. */
+    public function resumeForCustomer(int $customerId): int
+    {
+        $assetIds = DigitalAsset::query()->whereHas('brand', fn ($q) => $q->where('customer_id', $customerId))->pluck('id');
+
+        return ResourceAutomation::query()
+            ->where('collection_error', 'customer_passive')
+            ->whereHas('resource.bindings', fn ($q) => $q->where('status', 'active')->whereIn('digital_asset_id', $assetIds))
+            ->update(['collection_status' => 'waiting', 'collection_error' => null, 'next_collection_at' => now()]);
+    }
+
     public function collect(int $id): void
     {
         $a = ResourceAutomation::query()->with('resource.integration')->findOrFail($id);
@@ -266,22 +293,26 @@ final class ResourceAutomationService
             if ($a->collection_status === 'planning') {
                 $a->update(['collection_status' => 'waiting', 'collection_queued_at' => null]);
             }
+
             return;
         }
         if ($error = $this->readiness($a->resource) ?? $this->portfolioGate($a)) {
             $a->update(['collection_status' => 'attention', 'collection_error' => $error, 'collection_queued_at' => null,
                 'next_collection_at' => now()->addDays($a->interval_days)]);
+
             return;
         }
         $r = $a->resource;
         if ($r->resource_type === 'google_business_profile') {
             $this->collectGbp($a);
+
             return;
         }
         $active = CollectionResourceRun::query()->where('external_resource_id', $r->id)->whereIn('status', self::ACTIVE)
             ->whereHas('collectionRun', fn ($q) => $q->whereIn('status', self::ACTIVE))->latest('id')->first();
         if ($active) {
             $a->update(['collection_run_id' => $active->collection_run_id, 'collection_status' => 'collecting', 'collection_queued_at' => null]);
+
             return;
         }
         $actor = $a->updated_by ? User::query()->find($a->updated_by) : null;
@@ -289,9 +320,9 @@ final class ResourceAutomationService
             $actor = null;
         }
         $run = match ($r->resource_type) {
-            'google_ads' => app(\App\Services\Collection\GoogleAds\GoogleAdsCentralCollectionService::class)->startSmartUpdate($r->integration, [$r->id], $actor),
-            'search_console' => app(\App\Services\Collection\SearchConsole\SearchConsoleCentralCollectionService::class)->startSmartUpdate($r->integration, [$r->id], $actor),
-            'ga4' => app(\App\Services\Collection\Ga4\Ga4CentralCollectionService::class)->startSmartUpdate($r->integration, [$r->id], $actor),
+            'google_ads' => app(GoogleAdsCentralCollectionService::class)->startSmartUpdate($r->integration, [$r->id], $actor),
+            'search_console' => app(SearchConsoleCentralCollectionService::class)->startSmartUpdate($r->integration, [$r->id], $actor),
+            'ga4' => app(Ga4CentralCollectionService::class)->startSmartUpdate($r->integration, [$r->id], $actor),
             default => $this->collectBound($r, $actor),
         };
         $a->update([
@@ -307,7 +338,7 @@ final class ResourceAutomationService
     private function collectGbp(ResourceAutomation $automation): void
     {
         $this->withResourceLocks([$automation->external_resource_id], function () use ($automation): void {
-            $run = $automation->gbp_run_id ? \App\Models\Run::query()->find($automation->gbp_run_id) : null;
+            $run = $automation->gbp_run_id ? Run::query()->find($automation->gbp_run_id) : null;
             if (! $run || $run->status !== 'running') {
                 $bindings = $automation->resource->bindings()->where('status', 'active')
                     ->where('capability', 'google_business_profile')->get();
@@ -317,7 +348,7 @@ final class ResourceAutomationService
                 $binding = $bindings->first();
                 $assetId = $binding ? app(BoundCollectionGuard::class)
                     ->assertCollectable($binding, 'google_business_profile')['asset']->id : null;
-                $run = \App\Models\Run::query()->create([
+                $run = Run::query()->create([
                     'module_id' => 'google-business-profile', 'status' => 'running', 'started_at' => now(),
                     'digital_asset_id' => $assetId, 'core_asset_binding_id' => $binding?->id,
                     'metadata' => ['provider' => 'google', 'capability' => 'google_business_profile',
@@ -327,7 +358,7 @@ final class ResourceAutomationService
                 ]);
                 $automation->update(['gbp_run_id' => $run->id]);
             }
-            $run = app(\App\Services\Integrations\Google\GoogleBusinessProfileBoundCollector::class)
+            $run = app(GoogleBusinessProfileBoundCollector::class)
                 ->collectResourceStep($automation->resource, $run);
             $finished = $run->status !== 'running';
             $success = $run->status === 'completed';
@@ -350,18 +381,20 @@ final class ResourceAutomationService
     {
         $binding = $r->bindings()->with('digitalAsset')->where('status', 'active')->where('capability', $r->resource_type)->orderBy('id')->firstOrFail();
         if ($r->resource_type === 'meta_ads') {
-            $result = app(\App\Services\Collection\Meta\MetaSingleBindingCollectionOrchestrator::class)->start($r->integration, $binding, $actor);
+            $result = app(MetaSingleBindingCollectionOrchestrator::class)->start($r->integration, $binding, $actor);
             if (! $result['collection_run'] && ! in_array($result['outcome'], ['data_current', 'no_work'], true)) {
                 throw new \RuntimeException('Account requires attention.');
             }
+
             return $result['collection_run'];
         }
-        $result = app(\App\Services\CollectionScheduler\ExecuteCollectionLifecycleService::class)->executeForDigitalAsset(
+        $result = app(ExecuteCollectionLifecycleService::class)->executeForDigitalAsset(
             $binding->digitalAsset, $actor, context: ['manual' => true, 'binding_ids' => [$binding->id]]
         );
         if ($result->outcome === 'blocked') {
             throw new \RuntimeException('Account requires attention.');
         }
+
         return $result->collectionRun;
     }
 
@@ -370,6 +403,7 @@ final class ResourceAutomationService
         $run = CollectionRun::query()->find($a->collection_run_id);
         if (! $run) {
             $this->fail($a->id);
+
             return;
         }
         if (! $run->status->isTerminal()) {
@@ -385,8 +419,9 @@ final class ResourceAutomationService
                 ->groupBy(fn ($d) => $d->dataset_contract_id.'|'.data_get($d->metadata, 'search_type', ''))
                 ->map(fn ($group) => $group->max(fn ($d) => data_get($d->metadata, 'date_range.end')))->min();
             $this->alert($a->id, 'collection', null);
-            $a->update(['data_through' => $through ?: $a->data_through,'collection_status' => 'current', 'collection_error' => null, 'collection_failures' => 0,
+            $a->update(['data_through' => $through ?: $a->data_through, 'collection_status' => 'current', 'collection_error' => null, 'collection_failures' => 0,
                 'last_collection_success_at' => now(), 'next_collection_at' => now()->addDays($a->interval_days)]);
+
             return;
         }
         $authError = $run->datasetRuns()->whereIn('collection_resource_run_id', $resources->pluck('id'))
@@ -422,35 +457,37 @@ final class ResourceAutomationService
             if (! $a) {
                 return;
             }
-            $alerts = app(\App\Services\Observability\OperationalAlertLifecycleService::class);
+            $alerts = app(OperationalAlertLifecycleService::class);
             $rule = 'resource-automation.'.$phase;
             if ($reason === null) {
                 $alerts->resolveIfActive($rule, 'external_resource', (string) $a->external_resource_id);
+
                 return;
             }
             $alerts->observeCondition(
                 $rule, 1,
-                $phase === 'collection' ? \App\Enums\Observability\OperationalAlertRuleType::CollectionRepeatedFailure : \App\Enums\Observability\OperationalAlertRuleType::DatasetBlocked,
-                \App\Enums\Observability\OperationalSignalFamily::Collection,
-                \App\Enums\Observability\OperationalAlertSeverity::Warning,
+                $phase === 'collection' ? OperationalAlertRuleType::CollectionRepeatedFailure : OperationalAlertRuleType::DatasetBlocked,
+                OperationalSignalFamily::Collection,
+                OperationalAlertSeverity::Warning,
                 'external_resource', (string) $a->external_resource_id,
                 __('resource-auto.title').' · '.($a->resource?->display_name ?? '#'.$a->external_resource_id),
                 __('resource-auto.'.$reason), ['automation_id' => $a->id, 'phase' => $phase, 'reason' => $reason]
             );
         } catch (\Throwable $e) {
             // A notification outage must not undo a durable collection/import result.
-            \Illuminate\Support\Facades\Log::warning('resource-automation.alert-unavailable', ['automation_id' => $automationId]);
+            Log::warning('resource-automation.alert-unavailable', ['automation_id' => $automationId]);
         }
     }
 
     public function coverageEnd(int $resourceId, string $provider, string $family, ?string $contract = null, ?string $variant = null): ?string
     {
-        $dataset = \App\Models\Collection\CollectionDatasetRun::query()
+        $dataset = CollectionDatasetRun::query()
             ->where('provider_or_source', $provider)->where('request_family_id', $family)->where('status', 'completed')
             ->whereHas('resourceRun', fn ($q) => $q->where('external_resource_id', $resourceId))
             ->when($contract !== null, fn ($q) => $q->where('dataset_contract_id', $contract))
             ->when($variant !== null, fn ($q) => $q->where('execution_variant', $variant))
             ->whereNotNull('metadata->date_range->end')->orderByDesc('metadata->date_range->end')->first();
+
         return $dataset ? data_get($dataset->metadata, 'date_range.end') : null;
     }
 
@@ -472,6 +509,7 @@ final class ResourceAutomationService
                 ->whereHas('collectionRun', fn ($q) => $q->whereIn('status', self::ACTIVE))->exists()) {
                 throw ValidationException::withMessages(['collection' => __('resource-auto.busy')]);
             }
+
             return $action();
         } finally {
             foreach (array_reverse($locks) as $lock) {
@@ -480,4 +518,3 @@ final class ResourceAutomationService
         }
     }
 }
-

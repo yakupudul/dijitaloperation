@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\CustomerStatus;
+use App\Livewire\Demo\Portfolio\CustomersIndex;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
@@ -10,12 +11,16 @@ use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\ResourceAutomation;
 use App\Models\SeoPlan;
+use App\Models\User;
 use App\Services\Integrations\Google\GoogleBusinessProfileRetentionService;
 use App\Services\Integrations\ResourceAutomationService;
 use App\Services\SeoTasks\SeoPlanRunner;
+use App\Support\Roles;
+use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 /**
@@ -89,6 +94,32 @@ final class PassiveCustomerGateTest extends TestCase
 
         $this->assertSame(0, DB::table('gbp_reviews')->count());
         $this->assertSame(1, DB::table('gbp_search_keywords_monthly')->count(), 'keyword data is never deleted');
+    }
+
+    public function test_customer_list_switch_pauses_and_resumes_flows(): void
+    {
+        $this->seed(RoleAndPermissionSeeder::class);
+        $admin = User::factory()->create(['is_active' => true]);
+        $admin->assignRole(Roles::ADMIN);
+        $this->actingAs($admin);
+
+        $site = $this->website(CustomerStatus::Active);
+        $customer = $site->brand->customer;
+        $resource = CoreExternalResource::factory()->create(['resource_type' => 'search_console', 'external_id' => 'sc-domain:switch.test']);
+        CoreAssetBinding::factory()->create(['digital_asset_id' => $site->id, 'external_resource_id' => $resource->id, 'capability' => 'search_console']);
+        $automation = ResourceAutomation::query()->create(['external_resource_id' => $resource->id]);
+
+        Livewire::test(CustomersIndex::class)
+            ->assertSee(__('customer_status.active'))
+            ->call('toggleActive', (string) $customer->id);
+        $this->assertSame(CustomerStatus::Inactive, $customer->fresh()->status);
+        $this->assertFalse($site->fresh()->isOperational());
+
+        $automation->update(['collection_status' => 'attention', 'collection_error' => 'customer_passive', 'next_collection_at' => now()->addDays(3)]);
+        Livewire::test(CustomersIndex::class)->call('toggleActive', (string) $customer->id);
+        $this->assertSame(CustomerStatus::Active, $customer->fresh()->status);
+        $this->assertNull($automation->fresh()->collection_error);
+        $this->assertTrue($automation->fresh()->next_collection_at->lte(now()), 'collection is due right after reactivation');
     }
 
     private function website(CustomerStatus $customerStatus, string $assetStatus = 'active'): DigitalAsset

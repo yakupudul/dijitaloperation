@@ -157,9 +157,21 @@
                                 <td class="hidden px-4 py-3 text-sm text-gray-500 xl:table-cell">{{ $customer['digital_assets_count'] ?? 0 }}</td>
                             @endif
                             <td class="px-4 py-3">
-                                <x-ta.badge :color="match($customer['status'] ?? '') { 'active' => 'success', 'inactive' => 'warning', 'archived' => 'light', default => 'light' }" size="sm">
-                                    {{ $customer['status_label'] }}
-                                </x-ta.badge>
+                                @if (($customer['status'] ?? '') === 'archived')
+                                    <x-ta.badge color="light" size="sm">{{ $customer['status_label'] }}</x-ta.badge>
+                                @else
+                                    @php($isActive = ($customer['status'] ?? '') === 'active')
+                                    <button type="button" role="switch" aria-checked="{{ $isActive ? 'true' : 'false' }}"
+                                        wire:click="toggleActive('{{ $customer['id'] }}')" wire:loading.attr="disabled"
+                                        @if ($isActive) wire:confirm="{{ __('customer_status.confirm_pause', ['name' => $customer['name']]) }}" @endif
+                                        title="{{ $isActive ? __('customer_status.hint_active') : __('customer_status.hint_passive') }}"
+                                        class="inline-flex items-center gap-2 text-sm">
+                                        <span @class(['relative inline-flex h-5 w-9 shrink-0 rounded-full transition', 'bg-emerald-500' => $isActive, 'bg-gray-300 dark:bg-gray-700' => ! $isActive])>
+                                            <span @class(['absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition', 'left-[18px]' => $isActive, 'left-0.5' => ! $isActive])></span>
+                                        </span>
+                                        <span @class(['text-emerald-700 dark:text-emerald-400' => $isActive, 'text-gray-500' => ! $isActive])>{{ $isActive ? __('customer_status.active') : __('customer_status.passive') }}</span>
+                                    </button>
+                                @endif
                             </td>
                             <td class="px-4 py-3 text-right">
                                 <a href="{{ route('operator.customer', ['customerId' => $customer['id']]) }}" wire:navigate

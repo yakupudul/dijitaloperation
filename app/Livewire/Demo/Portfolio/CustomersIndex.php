@@ -5,6 +5,7 @@ namespace App\Livewire\Demo\Portfolio;
 use App\Enums\CustomerStatus;
 use App\Enums\CustomerType;
 use App\Models\Customer;
+use App\Services\Integrations\ResourceAutomationService;
 use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Services\Operator\OperatorUserDirectory;
 use App\Support\Demo\DemoState;
@@ -75,6 +76,23 @@ class CustomersIndex extends Component
 
         $this->sort = $column;
         $this->dir = 'asc';
+    }
+
+    /**
+     * Active ↔ passive switch on the list. Passive stops every automatic flow for the customer's assets
+     * (collection, plans, alerts, WordPress); data is kept and flows resume when switched back.
+     */
+    public function toggleActive(string $customerId): void
+    {
+        abort_unless(ctype_digit($customerId), 404);
+        $customer = Customer::query()->findOrFail((int) $customerId);
+        $activate = $customer->status !== CustomerStatus::Active;
+        $customer->forceFill(['status' => $activate ? CustomerStatus::Active : CustomerStatus::Inactive])->save();
+        if ($activate) {
+            app(ResourceAutomationService::class)->resumeForCustomer((int) $customer->id);
+        }
+
+        DemoState::flash(__($activate ? 'customer_status.activated' : 'customer_status.paused', ['name' => $customer->name]));
     }
 
     public function hasActiveFilters(): bool
