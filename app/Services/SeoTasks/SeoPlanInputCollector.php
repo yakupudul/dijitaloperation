@@ -1,0 +1,436 @@
+<?php
+
+namespace App\Services\SeoTasks;
+
+use App\Models\BrandOffering;
+use App\Models\BrandQueryPortfolioItem;
+use App\Models\DigitalAsset;
+use App\Models\Evidence;
+use App\Models\Finding;
+use App\Models\IntelligenceProjection\WebsitePageProfile;
+use App\Models\ServicePageAssignment;
+use App\Services\Ga4\Ga4SpecialistBindingResolver;
+use App\Services\Gsc\GscSpecialistBindingResolver;
+use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+
+/**
+ * Step A — gather the plan package from stored data only. No provider or HTTP calls.
+ *
+ * Output shape is a plain array so the rule engine and tests stay independent of Eloquent.
+ */
+final class SeoPlanInputCollector
+{
+    public function __construct(
+        private readonly GscSpecialistBindingResolver $gscBindings,
+        private readonly Ga4SpecialistBindingResolver $ga4Bindings,
+    ) {}
+
+    /** @return array<string, mixed> */
+    public function collect(DigitalAsset $site, ?CarbonImmutable $end = null): array
+    {
+        $site->loadMissing('brand.customer');
+        $end = ($end ?? CarbonImmutable::now())->startOfDay();
+        $gscDays = SeoTaskConfig::int('window.gsc_days', 90);
+        $ga4Days = SeoTaskConfig::int('window.ga4_days', 90);
+        $primaryUrl = $site->primary_url ?: ('https://'.$site->domain);
+
+        $pages = $this->pages($site);
+        $gsc = $this->gsc($site, $end->subDays($gscDays), $end);
+        $offerings = $this->offerings($site);
+
+        return [
+            'site' => [
+                'id' => $site->id,
+                'brand_id' => $site->brand_id,
+                'customer_id' => $site->brand?->customer_id,
+                'brand_name' => $site->brand?->name,
+                'domain' => $site->domain,
+                'primary_url' => $primaryUrl,
+                'origin' => SeoText::origin($primaryUrl),
+                'home_key' => SeoText::urlKey($primaryUrl),
+                'languages' => is_array($site->languages) ? $site->languages : [],
+            ],
+            'period' => [
+                'start' => $end->subDays($gscDays)->toDateString(),
+                'end' => $end->toDateString(),
+                'days' => $gscDays,
+            ],
+            'gsc' => $gsc,
+            'pages' => $pages,
+            'findings' => $this->findings($site),
+            'offerings' => $offerings,
+            'service_areas' => $this->serviceAreas($site),
+            'ga4' => $this->ga4($site, $end->subDays($ga4Days), $end),
+            'robots' => $this->robots($site),
+            'assignments' => $this->assignments($site),
+        ];
+    }
+
+    /**
+     * @return array{available: bool, reason: ?string, rows: list<array<string, mixed>>, query_count: int, page_count: int, truncated: bool}
+     */
+    private function gsc(DigitalAsset $site, CarbonImmutable $start, CarbonImmutable $end): array
+    {
+        $empty = ['available' => false, 'reason' => null, 'rows' => [], 'query_count' => 0, 'page_count' => 0, 'truncated' => false];
+        if (! Schema::hasTable('gsc_query_page_daily')) {
+            return $empty + ['reason' => 'table_missing'];
+        }
+
+        $binding = $this->gscBindings->resolve((string) $site->id);
+        $query = DB::table('gsc_query_page_daily')
+            ->whereBetween('reporting_date', [$start->toDateString(), $end->toDateString()])
+            ->where('impressions', '>', 0);
+
+        if ($binding->isReal() && $binding->externalResourceId !== null && filled($binding->siteUrl)) {
+            $query->where(function ($scope) use ($binding, $site): void {
+                $scope->where(function ($bound) use ($binding): void {
+                    $bound->where('external_resource_id', $binding->externalResourceId)
+                        ->where('site_url', $binding->siteUrl);
+                })->orWhere('digital_asset_id', $site->id);
+            });
+        } else {
+            $query->where('digital_asset_id', $site->id);
+        }
+
+        if (Schema::hasColumn('gsc_query_page_daily', 'search_type')) {
+            $query->where(function ($scope): void {
+                $scope->whereNull('search_type')->orWhere('search_type', 'web');
+            });
+        }
+
+        $aggregates = [];
+        $query->orderBy('id')->select(['query', 'page', 'clicks', 'impressions', 'metadata'])
+            ->chunk(2000, function ($rows) use (&$aggregates): void {
+                foreach ($rows as $row) {
+                    $text = trim((string) $row->query);
+                    $page = trim((string) $row->page);
+                    if ($text === '' || $page === '') {
+                        continue;
+                    }
+                    $key = mb_strtolower($text).'|'.SeoText::urlKey($page);
+                    $impressions = (int) $row->impressions;
+                    $position = $this->metadataFloat($row->metadata, 'provider_average_position');
+                    $entry = $aggregates[$key] ?? [
+                        'query' => $text,
+                        'page' => $page,
+                        'url_key' => SeoText::urlKey($page),
+                        'clicks' => 0,
+                        'impressions' => 0,
+                        'position_numerator' => 0.0,
+                        'position_impressions' => 0,
+                    ];
+                    $entry['clicks'] += (int) $row->clicks;
+                    $entry['impressions'] += $impressions;
+                    if ($position !== null && $impressions > 0) {
+                        $entry['position_numerator'] += $position * $impressions;
+                        $entry['position_impressions'] += $impressions;
+                    }
+                    $aggregates[$key] = $entry;
+                }
+            });
+
+        $rows = [];
+        foreach ($aggregates as $entry) {
+            $entry['position'] = $entry['position_impressions'] > 0
+                ? round($entry['position_numerator'] / $entry['position_impressions'], 2)
+                : null;
+            unset($entry['position_numerator'], $entry['position_impressions']);
+            $rows[] = $entry;
+        }
+        usort($rows, static fn (array $a, array $b): int => $b['impressions'] <=> $a['impressions']);
+        $truncated = count($rows) > 5000;
+        $rows = array_slice($rows, 0, 5000);
+
+        $queries = [];
+        $pages = [];
+        foreach ($rows as $row) {
+            $queries[mb_strtolower($row['query'])] = true;
+            $pages[$row['url_key']] = true;
+        }
+
+        return [
+            'available' => $rows !== [],
+            'reason' => $rows === [] ? ($binding->isReal() ? 'no_rows_in_window' : ($binding->reason ?? 'gsc_not_bound')) : null,
+            'rows' => $rows,
+            'query_count' => count($queries),
+            'page_count' => count($pages),
+            'truncated' => $truncated,
+        ];
+    }
+
+    /** @return array<string, array<string, mixed>> keyed by url key */
+    private function pages(DigitalAsset $site): array
+    {
+        $pages = [];
+        WebsitePageProfile::query()
+            ->where('website_asset_id', $site->id)
+            ->orderBy('id')
+            ->chunk(500, function ($profiles) use (&$pages): void {
+                foreach ($profiles as $profile) {
+                    $states = is_array($profile->source_states) ? $profile->source_states : [];
+                    $web = is_array($states['website'] ?? null) ? $states['website'] : [];
+                    $wp = is_array($states['wordpress'] ?? null) ? $states['wordpress'] : [];
+                    $url = (string) ($web['url'] ?? $profile->preferred_url);
+                    if ($url === '') {
+                        continue;
+                    }
+                    $status = data_get($web, 'http.status_code');
+                    $robots = data_get($web, 'document_head.robots');
+                    $robots = is_string($robots) ? mb_strtolower($robots) : (is_array($robots) ? mb_strtolower(implode(',', $robots)) : null);
+                    $wpSeo = is_array($wp['seo'] ?? null) ? $wp['seo'] : [];
+                    $title = data_get($web, 'document_head.title') ?? ($wpSeo['title'] ?? null);
+                    $meta = data_get($web, 'document_head.meta_description') ?? ($wpSeo['meta_description'] ?? null);
+                    $canonicals = data_get($web, 'document_head.canonical_hrefs');
+                    $canonicals = is_array($canonicals) ? array_values(array_filter($canonicals, 'is_string')) : [];
+                    if ($canonicals === [] && filled($wpSeo['canonical_url'] ?? null)) {
+                        $canonicals = [(string) $wpSeo['canonical_url']];
+                    }
+                    $issues = data_get($web, 'crawl_issues');
+                    $types = data_get($web, 'structured_data.types');
+                    $wpStatus = data_get($wp, 'object.status');
+                    $pages[SeoText::urlKey($url)] = [
+                        'profile_id' => $profile->id,
+                        'url' => $url,
+                        'url_key' => SeoText::urlKey($url),
+                        'path' => SeoText::urlPath($url),
+                        'observed' => $web !== [],
+                        'title' => is_string($title) ? trim($title) : null,
+                        'meta_description' => is_string($meta) ? trim($meta) : null,
+                        'h1' => is_string(data_get($web, 'headings.h1')) ? trim((string) data_get($web, 'headings.h1')) : null,
+                        'h1_present' => data_get($web, 'headings.h1_present'),
+                        'word_count' => is_numeric(data_get($web, 'content.word_count')) ? (int) data_get($web, 'content.word_count') : null,
+                        'status_code' => is_numeric($status) ? (int) $status : null,
+                        'final_url' => data_get($web, 'http.final_url'),
+                        'redirect_count' => is_numeric(data_get($web, 'http.redirect_count')) ? (int) data_get($web, 'http.redirect_count') : null,
+                        'robots' => $robots,
+                        'noindex' => $robots !== null && str_contains($robots, 'noindex'),
+                        'canonical_hrefs' => $canonicals,
+                        'structured_types' => is_array($types) ? array_values(array_filter($types, 'is_string')) : [],
+                        'crawl_issues' => is_array($issues) ? array_values(array_filter($issues, 'is_array')) : [],
+                        'internal_links' => is_numeric(data_get($web, 'links.internal')) ? (int) data_get($web, 'links.internal') : null,
+                        'cms_type' => data_get($wp, 'object.type'),
+                        'cms_status' => is_string($wpStatus) ? $wpStatus : null,
+                        'last_observed_at' => $profile->last_observed_at?->toIso8601String(),
+                    ];
+                }
+            });
+
+        return $pages;
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function findings(DigitalAsset $site): array
+    {
+        return Finding::query()
+            ->where('digital_asset_id', $site->id)
+            ->whereIn('status', [Finding::STATUS_OPEN, Finding::STATUS_ACKNOWLEDGED])
+            ->where(function ($scope): void {
+                $scope->where('source_module', 'website-diagnosis')
+                    ->orWhere('source_module', 'website')
+                    ->orWhere('rule_id', 'like', 'website:%');
+            })
+            ->orderByDesc('last_seen_at')
+            ->limit(200)
+            ->get(['id', 'fingerprint', 'rule_id', 'category', 'severity', 'title', 'summary', 'subject_kind', 'subject_id', 'last_seen_at'])
+            ->map(static fn (Finding $finding): array => [
+                'id' => $finding->id,
+                'fingerprint' => $finding->fingerprint,
+                'rule_id' => $finding->rule_id,
+                'category' => $finding->category,
+                'severity' => mb_strtolower((string) $finding->severity),
+                'title' => $finding->title,
+                'summary' => $finding->summary,
+                'subject_id' => $finding->subject_id,
+                'last_seen_at' => $finding->last_seen_at?->toIso8601String(),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function offerings(DigitalAsset $site): array
+    {
+        if ($site->brand_id === null) {
+            return [];
+        }
+
+        $offerings = BrandOffering::query()
+            ->with(['names', 'primaryName', 'catalogItem.names', 'catalogItem.primaryName', 'catalogItem.matchingKeywords'])
+            ->where('brand_id', $site->brand_id)
+            ->where('status', 'active')
+            ->orderByRaw('CASE WHEN priority_rank IS NULL THEN 1 ELSE 0 END')
+            ->orderBy('priority_rank')
+            ->orderBy('id')
+            ->get();
+
+        $catalogIds = $offerings->pluck('service_catalog_item_id')->filter()->unique()->values()->all();
+        $queriesByService = [];
+        if ($catalogIds !== []) {
+            BrandQueryPortfolioItem::query()
+                ->with(['libraryItem', 'services'])
+                ->where('brand_id', $site->brand_id)
+                ->where('status', 'active')
+                ->whereHas('services', fn ($q) => $q->whereIn('service_catalog_items.id', $catalogIds))
+                ->limit(3000)
+                ->get()
+                ->each(function (BrandQueryPortfolioItem $item) use (&$queriesByService, $catalogIds): void {
+                    $text = trim($item->effectiveQueryText());
+                    if ($text === '') {
+                        return;
+                    }
+                    foreach ($item->services as $service) {
+                        if (in_array($service->id, $catalogIds, true)) {
+                            $queriesByService[$service->id][mb_strtolower($text)] = $text;
+                        }
+                    }
+                });
+        }
+
+        return $offerings->map(function (BrandOffering $offering) use ($queriesByService): array {
+            $names = [];
+            foreach ($offering->names as $name) {
+                if ($name->is_active && filled($name->raw_label)) {
+                    $names[] = (string) $name->raw_label;
+                }
+            }
+            $catalog = $offering->catalogItem;
+            if ($catalog !== null) {
+                foreach ($catalog->names as $name) {
+                    if ($name->is_active && filled($name->raw_label)) {
+                        $names[] = (string) $name->raw_label;
+                    }
+                }
+            }
+            $names = array_values(array_unique(array_filter($names)));
+            $primary = $offering->primaryName?->raw_label
+                ?? $catalog?->primaryName?->raw_label
+                ?? ($names[0] ?? ('Hizmet #'.$offering->id));
+            $keywords = $catalog?->matchingKeywords->pluck('label')->filter()->values()->all() ?? [];
+
+            return [
+                'id' => $offering->id,
+                'catalog_item_id' => $offering->service_catalog_item_id,
+                'name' => (string) $primary,
+                'names' => $names,
+                'keywords' => array_values(array_unique(array_map('strval', $keywords))),
+                'is_priority' => (bool) ($offering->is_priority || $offering->priority_rank !== null),
+                'priority_rank' => $offering->priority_rank,
+                'queries' => array_values($queriesByService[$offering->service_catalog_item_id] ?? []),
+            ];
+        })->values()->all();
+    }
+
+    /** @return list<string> */
+    private function serviceAreas(DigitalAsset $site): array
+    {
+        $brand = $site->brand;
+        if ($brand === null || ! method_exists($brand, 'serviceAreas')) {
+            return [];
+        }
+        $areas = [];
+        foreach ($brand->serviceAreas()->where('status', 'active')->get() as $area) {
+            foreach ([$area->district_name, $area->city_name] as $name) {
+                if (filled($name)) {
+                    $areas[] = (string) $name;
+                }
+            }
+        }
+
+        return array_values(array_unique($areas));
+    }
+
+    /** @return array{available: bool, landing: array<string, array<string, int>>} */
+    private function ga4(DigitalAsset $site, CarbonImmutable $start, CarbonImmutable $end): array
+    {
+        if (! Schema::hasTable('ga4_landing_page_daily')) {
+            return ['available' => false, 'landing' => []];
+        }
+        $binding = $this->ga4Bindings->resolve((string) $site->id);
+        $query = DB::table('ga4_landing_page_daily')
+            ->whereBetween('reporting_date', [$start->toDateString(), $end->toDateString()]);
+        if ($binding->isReal() && $binding->externalResourceId !== null) {
+            $query->where(function ($scope) use ($binding, $site): void {
+                $scope->where('external_resource_id', $binding->externalResourceId)->orWhere('digital_asset_id', $site->id);
+            });
+        } else {
+            $query->where('digital_asset_id', $site->id);
+        }
+        $hasKeyEvents = Schema::hasColumn('ga4_landing_page_daily', 'keyEvents');
+        $columns = ['landingPage', 'sessions', 'engagedSessions'];
+        if ($hasKeyEvents) {
+            $columns[] = 'keyEvents';
+        }
+        $origin = SeoText::origin($site->primary_url ?: ('https://'.$site->domain));
+        $landing = [];
+        $query->orderBy('id')->select($columns)->chunk(2000, function ($rows) use (&$landing, $origin, $hasKeyEvents): void {
+            foreach ($rows as $row) {
+                $path = trim((string) $row->landingPage);
+                if ($path === '' || $path === '(not set)') {
+                    continue;
+                }
+                $url = str_starts_with($path, 'http') ? $path : $origin.(str_starts_with($path, '/') ? '' : '/').$path;
+                $key = SeoText::urlKey($url);
+                $entry = $landing[$key] ?? ['sessions' => 0, 'engaged_sessions' => 0, 'key_events' => 0];
+                $entry['sessions'] += (int) $row->sessions;
+                $entry['engaged_sessions'] += (int) $row->engagedSessions;
+                $entry['key_events'] += $hasKeyEvents ? (int) ($row->keyEvents ?? 0) : 0;
+                $landing[$key] = $entry;
+            }
+        });
+
+        return ['available' => $landing !== [], 'landing' => $landing];
+    }
+
+    /** @return array{available: bool, body: ?string, observed_at: ?string} */
+    private function robots(DigitalAsset $site): array
+    {
+        $evidence = Evidence::query()
+            ->where('digital_asset_id', $site->id)
+            ->where('type', 'robots')
+            ->latest('observed_at')
+            ->latest('id')
+            ->first();
+        $body = $evidence?->payload['body'] ?? null;
+
+        return [
+            'available' => is_string($body) && $body !== '',
+            'body' => is_string($body) ? $body : null,
+            'observed_at' => $evidence?->observed_at?->toIso8601String(),
+        ];
+    }
+
+    /** @return array<int, array<string, mixed>> keyed by brand_offering_id */
+    private function assignments(DigitalAsset $site): array
+    {
+        return ServicePageAssignment::query()
+            ->where('digital_asset_id', $site->id)
+            ->get()
+            ->mapWithKeys(static fn (ServicePageAssignment $assignment): array => [
+                (int) $assignment->brand_offering_id => [
+                    'id' => $assignment->id,
+                    'page_url' => $assignment->page_url,
+                    'url_key' => $assignment->page_url !== null ? SeoText::urlKey($assignment->page_url) : null,
+                    'status' => $assignment->status,
+                    'decision_source' => $assignment->decision_source,
+                    'score' => $assignment->score,
+                ],
+            ])
+            ->all();
+    }
+
+    private function metadataFloat(mixed $metadata, string $key): ?float
+    {
+        if (is_string($metadata)) {
+            $decoded = json_decode($metadata, true);
+            $metadata = is_array($decoded) ? $decoded : null;
+        }
+        if (! is_array($metadata)) {
+            return null;
+        }
+        $value = $metadata[$key] ?? null;
+
+        return is_numeric($value) ? (float) $value : null;
+    }
+}

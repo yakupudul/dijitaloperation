@@ -1,5 +1,16 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-09-23 — SEO Görevleri (staging branch)
+
+**State:** CODED + PHPUnit (`tests/Feature/SeoTasks/*`, 9 tests / 90 assertions). Live operator UAT with real GSC/WordPress data, real Anthropic call and the weekly scheduler on staging are **not** run. Spec: `docs/product/SEO_TASKS.md`.
+
+- New tables `seo_plans`, `seo_tasks`, `service_page_assignments`; `brand_offerings.is_priority` (backfilled from `priority_rank`).
+- Engine `App\Services\SeoTasks\*` (collector → rules → optional single LLM call → diff writer), job `RunSeoPlanJob`, command `moxdop:seo:plan`, weekly schedule `seo-tasks-weekly-plan`, AI route `seo_tasks.content_planner` (Anthropic primary, OpenAI fallback).
+- Operator UI: `/seo-tasks` (menu item), website asset tab `SEO Görevleri`, brand offering ★ toggle.
+- Guarantee: at least 4 `create` tasks per site per run whenever the brand has offerings (GSC-backed first, library/fallback briefs otherwise, marked as such).
+- Not touched: Task / Finding / Recommendation tables, clustering, collection, WordPress plugin.
+- Known gaps: duplicate H1 and image alt rules need HTML reads (not produced); `sameAs` content not verified; queue/Horizon behaviour of the 600 s job only exercised with the sync driver.
+
 ## Account admission starvation and GA4 empty landing values — 2026-09-12
 
 Operator supplied post-deploy GA4/Ads HTML: automatic job #86 is active, but Ads shows 56

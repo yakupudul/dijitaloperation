@@ -71,6 +71,7 @@ Blueprint, MASTER_SPEC'i **override edemez**; yalnızca ayrıntılandırır.
 | Operational Outcome Loop V1 | `docs/product/OPERATIONAL_OUTCOME_LOOP.md` (**IMPLEMENTED V1**) |
 | Website module | `docs/product/website/WEBSITE.md` |
 | Website Diagnosis | `docs/product/website/DIAGNOSIS.md` |
+| SEO Görevleri (weekly content plan) | `docs/product/SEO_TASKS.md` (**CODED, UAT pending**) |
 | WordPress | `docs/product/website/WORDPRESS.md` |
 | Search Console | `docs/product/website/SEARCH_CONSOLE.md` |
 | GA4 | `docs/product/website/GA4.md` |

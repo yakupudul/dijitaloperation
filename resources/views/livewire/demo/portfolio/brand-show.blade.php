@@ -518,7 +518,20 @@
                 </section>
                 <section class="border-t border-gray-100 pt-4 dark:border-gray-800">
                     <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Offerings</h3>
-                    <p class="mt-2 text-sm text-gray-700 dark:text-gray-300">{{ collect($businessContext['products_services'] ?? [])->implode(' · ') ?: 'Unknown' }}</p>
+                    @php $seoOfferingRows = method_exists($this, 'offeringRows') ? $this->offeringRows() : []; @endphp
+                    @if ($seoOfferingRows !== [])
+                        <ul class="mt-2 flex flex-wrap gap-2">
+                            @foreach ($seoOfferingRows as $offeringRow)
+                                <li wire:key="offering-star-{{ $offeringRow['id'] }}" class="inline-flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-700 dark:bg-white/5 dark:text-gray-300">
+                                    <button type="button" wire:click="toggleOfferingPriority({{ $offeringRow['id'] }})" title="{{ $offeringRow['is_priority'] ? 'SEO önceliğini kaldır' : 'SEO önceliği yap' }}" @class(['text-base leading-none', 'text-warning-500' => $offeringRow['is_priority'], 'text-gray-300 hover:text-warning-400' => ! $offeringRow['is_priority']])>{{ $offeringRow['is_priority'] ? '★' : '☆' }}</button>
+                                    <span>{{ $offeringRow['label'] }}</span>
+                                </li>
+                            @endforeach
+                        </ul>
+                        <p class="mt-1 text-xs text-gray-400">★ SEO planı yıldızlı hizmetlere derinlemesine bakar.</p>
+                    @else
+                        <p class="mt-2 text-sm text-gray-700 dark:text-gray-300">{{ collect($businessContext['products_services'] ?? [])->implode(' · ') ?: 'Unknown' }}</p>
+                    @endif
                     <p class="mt-2 text-xs text-gray-400">Priority order</p>
                     <ol class="mt-1 list-decimal space-y-1 pl-5 text-sm text-gray-700 dark:text-gray-300">
                         @foreach ($businessContext['priority_offerings'] ?? [] as $offering)

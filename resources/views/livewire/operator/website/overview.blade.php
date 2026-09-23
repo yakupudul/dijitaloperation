@@ -4,6 +4,7 @@
         'content' => __('operator.website.tabs.content'),
         'health' => __('operator.website.tabs.health'),
         'standards' => 'Standartlar ve İyileştirmeler',
+        'seo' => 'SEO Görevleri',
         'search_console' => __('operator.website.tabs.search_console'),
         'visibility' => __('operator.website.tabs.visibility'),
         'performance' => __('operator.website.tabs.performance'),
@@ -81,6 +82,10 @@
 
     @if ($tab === 'standards')
         <livewire:operator.website.website-assessment-panel :website-id="$asset->id" :key="'website-standards-'.$asset->id" />
+    @endif
+
+    @if ($tab === 'seo')
+        <livewire:operator.seo.seo-tasks-panel :website-id="$asset->id" :key="'website-seo-'.$asset->id" />
     @endif
 
     @if ($tab === 'overview')

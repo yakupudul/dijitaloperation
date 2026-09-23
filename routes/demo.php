@@ -32,6 +32,7 @@ use App\Livewire\Demo\Operations\OpportunitiesIndex;
 use App\Livewire\Demo\Operations\RecommendationsIndex;
 use App\Livewire\Demo\Operations\TaskShow;
 use App\Livewire\Demo\Operations\TasksIndex;
+use App\Livewire\Operator\Seo\SeoTasksIndex;
 use App\Livewire\Demo\Operations\WorkShow;
 use App\Livewire\Demo\Portfolio\AssetCreate;
 use App\Livewire\Demo\Portfolio\AssetsIndex;
@@ -162,6 +163,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/findings', FindingsIndex::class)->name('operator.findings');
         Route::livewire('/recommendations', RecommendationsIndex::class)->name('operator.recommendations');
         Route::livewire('/tasks', TasksIndex::class)->name('operator.tasks');
+        Route::livewire('/seo-tasks', SeoTasksIndex::class)->name('operator.seo_tasks');
         Route::livewire('/tasks/{taskId}', TaskShow::class)->name('operator.task');
         Route::livewire('/work/{type}/{workId}', WorkShow::class)
             ->whereIn('type', WorkUrl::types())

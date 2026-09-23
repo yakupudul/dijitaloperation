@@ -29,6 +29,7 @@ class BrandOffering extends Model
         'service_catalog_item_id',
         'status',
         'priority_rank',
+        'is_priority',
     ];
 
     /**
@@ -77,6 +78,14 @@ class BrandOffering extends Model
     }
 
     /**
+     * @return HasMany<ServicePageAssignment, $this>
+     */
+    public function pageAssignments(): HasMany
+    {
+        return $this->hasMany(ServicePageAssignment::class, 'brand_offering_id');
+    }
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array
@@ -84,6 +93,7 @@ class BrandOffering extends Model
         return [
             'status' => OfferingStatus::class,
             'priority_rank' => 'integer',
+            'is_priority' => 'boolean',
         ];
     }
 }

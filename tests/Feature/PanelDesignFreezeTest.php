@@ -69,6 +69,7 @@ class PanelDesignFreezeTest extends TestCase
             'operator.findings',
             'operator.recommendations',
             'operator.tasks',
+            'operator.seo_tasks',
             'operator.activity',
             'operator.integrations',
             'operator.settings',

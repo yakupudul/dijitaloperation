@@ -5,6 +5,7 @@ namespace App\Livewire\Operator\Portfolio;
 use App\Livewire\Demo\Portfolio\BrandShow as LegacyBrandShow;
 use App\Models\Brand;
 use App\Models\BrandIntelligenceContext;
+use App\Models\BrandOffering;
 use App\Services\BrandIntelligence\BrandIntelligenceContextWriteService;
 use App\Support\Demo\DemoState;
 
@@ -56,6 +57,51 @@ class BrandShow extends LegacyBrandShow
         $this->editingContext = false;
         $this->syncCanonicalBusinessContextToUiState();
         DemoState::flash('Business Context canonical Brand verisine kaydedildi.');
+    }
+
+    /**
+     * Offerings with the SEO priority star. Used by the Offerings section of the brand page.
+     *
+     * @return list<array{id: int, label: string, is_priority: bool}>
+     */
+    public function offeringRows(): array
+    {
+        if (! ctype_digit($this->brand)) {
+            return [];
+        }
+
+        return BrandOffering::query()
+            ->with('primaryName')
+            ->where('brand_id', (int) $this->brand)
+            ->where('status', 'active')
+            ->orderByRaw('CASE WHEN is_priority THEN 0 ELSE 1 END')
+            ->orderByRaw('CASE WHEN priority_rank IS NULL THEN 1 ELSE 0 END')
+            ->orderBy('priority_rank')
+            ->orderBy('id')
+            ->get()
+            ->map(fn (BrandOffering $offering): array => [
+                'id' => $offering->id,
+                'label' => $offering->primaryName?->raw_label ?? ('Hizmet #'.$offering->id),
+                'is_priority' => (bool) $offering->is_priority,
+            ])
+            ->values()
+            ->all();
+    }
+
+    /** Star / unstar a service: the SEO plan looks deeply only at starred services. */
+    public function toggleOfferingPriority(int $offeringId): void
+    {
+        if (! ctype_digit($this->brand)) {
+            return;
+        }
+        $offering = BrandOffering::query()
+            ->where('brand_id', (int) $this->brand)
+            ->whereKey($offeringId)
+            ->firstOrFail();
+        $offering->forceFill(['is_priority' => ! $offering->is_priority])->save();
+        DemoState::flash($offering->is_priority
+            ? 'Hizmet SEO önceliği olarak işaretlendi; bir sonraki planda derinlemesine incelenir.'
+            : 'Hizmetin SEO önceliği kaldırıldı.');
     }
 
     private function syncCanonicalBusinessContextToUiState(): void

@@ -57,6 +57,7 @@ final class DemoMenu
                     ['label' => __('operator.nav.findings'), 'route' => 'operator.findings', 'icon' => 'findings'],
                     ['label' => __('operator.nav.recommendations'), 'route' => 'operator.recommendations', 'icon' => 'recommendations'],
                     ['label' => __('operator.nav.work'), 'route' => 'operator.tasks', 'icon' => 'tasks'],
+                    ['label' => __('operator.nav.seo_tasks'), 'route' => 'operator.seo_tasks', 'icon' => 'seo'],
                     ['label' => __('operator.nav.activity'), 'route' => 'operator.activity', 'icon' => 'activity'],
                 ],
             ],

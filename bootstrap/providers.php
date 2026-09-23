@@ -10,6 +10,7 @@ use App\Providers\SalesServiceProvider;
 use App\Providers\SearchConsoleCentralServiceProvider;
 use App\Providers\SearchConsoleGroupingServiceProvider;
 use App\Providers\SearchDemandServiceProvider;
+use App\Providers\SeoTasksServiceProvider;
 use App\Providers\WebsiteIntelligenceServiceProvider;
 
 return [
@@ -24,4 +25,5 @@ return [
     RecurringAutomationServiceProvider::class,
     SalesServiceProvider::class,
     SearchDemandServiceProvider::class,
+    SeoTasksServiceProvider::class,
 ];

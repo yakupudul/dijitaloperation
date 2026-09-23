@@ -18,6 +18,7 @@ return [
         'opportunities' => 'Opportunities',
         'recommendations' => 'Recommendations',
         'tasks' => 'Tasks',
+        'seo_tasks' => 'SEO Tasks',
         'work' => 'Work',
         'activity' => 'Activity',
         'prospects' => 'Prospects',

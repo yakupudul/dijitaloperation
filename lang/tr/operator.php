@@ -18,6 +18,7 @@ return [
         'opportunities' => 'Fırsatlar',
         'recommendations' => 'Öneriler',
         'tasks' => 'Görevler',
+        'seo_tasks' => 'SEO Görevleri',
         'work' => 'İşler',
         'activity' => 'Aktivite',
         'prospects' => 'Potansiyel Müşteriler',

@@ -1,5 +1,23 @@
 # PROJECT_MEMORY
 
+## 2026-09-23 — SEO Görevleri: rule-first weekly content plan
+
+Owner decision: "SEO Görevleri" is one list in the main menu for all brands, with the same list
+filtered per site on the website asset page; main focus is telling the operator which content to
+write for which brand, at least 4 content suggestions per site per week. Written directly to
+`chatgpt/search-demand-foundation`, no main/PR.
+
+- Separate tables (`seo_plans`, `seo_tasks`, `service_page_assignments`); existing Task/Finding/
+  Recommendation and clustering flows are untouched. The star (`brand_offerings.is_priority`) is
+  the single "priority service" signal; the brand-form priority order keeps it in sync.
+- Deterministic rules own selection, scoring, quotas and task keys. The LLM (one structured call,
+  Anthropic first) only rewrites titles/reasons/checklists and fills content briefs; invalid or
+  missing output never blocks a plan. Thresholds live in `config/moxdop-seo-tasks.php`.
+- Operator answers to service-page questions are final and re-used by every later run.
+- Weekly scheduler only targets Search-Console-bound websites; bulk refresh covers all active sites.
+- Verification: PHPUnit only (sync queue, faked agent). Real GSC/WordPress/Anthropic/Horizon
+  behaviour is pending staging UAT (see ledger 2026-09-23).
+
 ## 2026-09-13 — Free public-source Intent Radar (staging)
 
 Owner authorization: implement the agreed fastest no-paid-API/no-AI source-monitoring slice;

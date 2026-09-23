@@ -362,3 +362,9 @@ Artisan::command('moxdop:intent-radar:tick', function (): void {
 Schedule::command('moxdop:intent-radar:tick')
     ->everyFiveMinutes()->withoutOverlapping(5)->name('free-intent-radar');
 
+// SEO Tasks: weekly plan refresh for Search-Console-connected websites (Monday morning).
+// Thresholds, quotas and the CTR curve live in config/moxdop-seo-tasks.php.
+Schedule::command('moxdop:seo:plan --scheduled')
+    ->weeklyOn((int) config('moxdop-seo-tasks.schedule.weekly_day', 1), (string) config('moxdop-seo-tasks.schedule.weekly_time', '06:30'))
+    ->withoutOverlapping(120)
+    ->name('seo-tasks-weekly-plan');
