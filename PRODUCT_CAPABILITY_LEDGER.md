@@ -1,5 +1,15 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-09-23 (d) — Advisor Faz 1: AI cost control, free providers, brand "Otomatik kur"
+
+**State:** CODED + PHPUnit (`tests/Feature/AiControl/AiCostControlTest.php`, `tests/Feature/BrandSetup/BrandSetupAssistantTest.php`). Live UAT with real Groq/OpenRouter keys, real Google discovery (GA4 data streams) and a real brand approval not run. Roadmap: `docs/product/ADVISOR_ROADMAP.md`.
+
+- Groq and OpenRouter API-key providers under Integrations → AI providers (connection check; OpenRouter check endpoint unverified live).
+- Every `laravel/ai` call is recorded in `ai_usage_records` (tokens, estimated USD via `config/moxdop-ai-pricing.php`). Monthly budget (default 25 USD, editable on AI Control Plane): when exhausted only known-zero-price models run; plans continue with rule results.
+- AI routes carry a client-data flag; free/third-party tiers are rejected on client-data routes. Default steps: analysis Sonnet 5, classification Haiku 4.5, public data Groq, Gemini as fallback.
+- Brand "Otomatik kur" (`/brands/{brand}/setup`): queued proposal (website asset, GSC by domain, GA4 by data-stream URL, GBP by website/name, Ads/Meta by name, services via one AI call on route `brand_setup.assistant`), single admin approval applies selected items through existing binding/catalog/offering services. No external writes.
+- Known gaps: pre-existing failures in `OperatorAssetDataSourcesGuardsTest` (blade syntax in `asset-data-sources.blade.php`) and `ModuleBoundaryArchitectureTest` allowlist are unrelated and unchanged.
+
 ## 2026-09-23 (c) — SEO Görevleri: first real-data review fixes and page redesign
 
 **State:** CODED + PHPUnit (`tests/Feature/SeoTasks/*`, 15 tests / 143 assertions). Triggered by the first staging run: "missing title" listed 2,226 URLs on moximu.com (robots.txt, sitemaps, feeds) and 22 per-service question cards flooded the list.

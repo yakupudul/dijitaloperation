@@ -1,5 +1,14 @@
 # PROJECT_MEMORY
 
+## 2026-09-23 (c) — Advisor roadmap approved; Faz 1
+
+Owner approved `docs/product/ADVISOR_ROADMAP.md` in full: algorithm first, AI acts only through
+operator click approval, no busywork task factory, low tool spend. Decisions: phases 1→6 in order;
+Faz 7 (external writes: WP drafts, Ads negatives) out of scope for now; model defaults Sonnet 5
+(analysis), Haiku 4.5 (classification), free models (Groq/OpenRouter) only for public data, Gemini
+fallback; monthly AI budget 25 USD; brand setup uses a one-click approval screen. Client data never
+goes to free tiers. GBP review replies are not the operator's responsibility.
+
 ## 2026-09-23 (b) — SEO Görevleri: no mandatory service definition
 
 Owner direction: a Brand without services must still get content suggestions; the system should

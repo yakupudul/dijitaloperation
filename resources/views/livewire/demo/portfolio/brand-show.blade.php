@@ -306,7 +306,10 @@
                     <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Digital assets</h2>
                     <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Managed digital properties and accounts belonging to this brand.</p>
                 </div>
-                <a href="{{ route('operator.asset.create', ['brandId' => $brandRow['id']]) }}" wire:navigate class="inline-flex rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">Add digital asset</a>
+                <div class="flex flex-wrap gap-2">
+                    <a href="{{ route('operator.brand.setup', ['brand' => $brandRow['id']]) }}" wire:navigate class="inline-flex rounded-lg bg-success-500 px-4 py-2 text-sm font-medium text-white hover:bg-success-600">Otomatik kur</a>
+                    <a href="{{ route('operator.asset.create', ['brandId' => $brandRow['id']]) }}" wire:navigate class="inline-flex rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">Add digital asset</a>
+                </div>
             </div>
 
             <div class="flex flex-col gap-3 rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700 lg:flex-row lg:items-end">

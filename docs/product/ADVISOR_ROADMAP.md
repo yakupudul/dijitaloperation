@@ -1,6 +1,8 @@
 # Danışman Sistemi — Yol Haritası
 
-> **Durum:** Taslak, karar bekliyor (2026-09-23). Kod yazılmadı. Onaylanan fazlar sırayla uygulanır.
+> **Durum:** Onaylandı (2026-09-23, "Hepsi uygun"). Fazlar 1→6 sırayla uygulanır; Faz 7 (harici yazma) şimdilik kapsam dışı. Model varsayılanları: analiz Sonnet 5, sınıflandırma Haiku 4.5, herkese açık veri ücretsiz model, yedek Gemini. Aylık AI bütçesi 25 USD.
+>
+> **Faz 1 durumu:** 1 ve 2 kodlandı (PHPUnit). 3 (SEO Görevleri canlı doğrulama) operatör çalıştırmasını bekliyor.
 > Kapsam: web sitesi (teknik, SEO, GEO/AEO), Google İşletme Profili (yorum cevaplama hariç), Google Ads, Meta Ads.
 
 ## 1. Amaç
@@ -71,6 +73,7 @@ Her faz tek başına işe yarar ve canlıda doğrulanır; sonraki faz ona göre 
    - AI: hizmetleri çıkarma, katalogla eşleştirme, katalogda yoksa sektörüyle yeni hizmet önerisi.
    - Tek onay ekranı: her eşleşmenin gerekçesi ve güven puanı, "Hepsini onayla" veya tek tek düzelt.
    - Site henüz taranmadıysa hizmet adımı taramadan sonra kendiliğinden tamamlanır.
+   - **Uygulama (kodlandı):** `/brands/{brand}/setup` ("Otomatik kur"). Öneri kuyruktaki işte hazırlanır (`BuildBrandSetupProposalJob`), `brand_setup_proposals` tablosunda saklanır. Onayı yalnızca admin verir; mevcut bağlama servisleri (ADR-018, harici yazma yok) kullanılır. Başka varlığa bağlı kaynaklar değiştirilmez. Hizmet adımı veri yoksa "site taranınca" durumunda kalır; onayla birlikte Public Discovery ve GSC bağlandıysa ilk SEO planı kuyruğa alınır.
 3. SEO Görevleri'nin canlı veride doğrulanması ve eşiklerin ayarlanması.
 
 ### Faz 2 — Web: teknik, SEO, GEO/AEO derinleştirme (L)
