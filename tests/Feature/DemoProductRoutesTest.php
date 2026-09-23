@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use App\Livewire\Demo\Gbp\OverviewPage as GbpOverviewPage;
-use App\Livewire\Demo\GoogleAds\OverviewPage;
+use App\Livewire\Operator\GoogleAds\OverviewPage;
 use App\Livewire\Demo\Integrations\MetaIntegrationPage;
 use App\Livewire\Demo\Operations\FindingsIndex;
 use App\Livewire\Demo\Operations\RecommendationsIndex;
