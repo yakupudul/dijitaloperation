@@ -8,8 +8,6 @@ use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
 use App\Models\Run;
 use App\Models\User;
-use App\Services\Advisor\GoogleAds\GoogleAdsAdvisorInputCollector;
-use App\Services\Advisor\GoogleAds\GoogleAdsAdvisorRuleEngine;
 use App\Services\Async\AsyncOperationService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -19,25 +17,21 @@ use Throwable;
 
 /**
  * Orchestrates one advisor run for one asset: collect stored data → rules → write. No AI, no provider
- * calls; runs on the queue. Channel = asset type (Faz 3: google_ads).
+ * calls; runs on the queue. Channel = asset type (Google Ads, Meta Ads).
  */
 final class AdvisorPlanRunner
 {
     public const string OPERATION_TYPE = 'advisor_plan';
 
-    /** @var array<string, string> asset type => channel */
-    public const array CHANNELS = ['google_ads' => AdvisorPlan::CHANNEL_GOOGLE_ADS];
-
     public function __construct(
-        private readonly GoogleAdsAdvisorInputCollector $googleAdsCollector,
-        private readonly GoogleAdsAdvisorRuleEngine $googleAdsRules,
+        private readonly AdvisorChannels $channels,
         private readonly AdvisorPlanWriter $writer,
         private readonly AsyncOperationService $async,
     ) {}
 
     public function queue(DigitalAsset $asset, ?User $actor = null, string $trigger = 'manual'): AdvisorPlan
     {
-        $channel = self::CHANNELS[$asset->type] ?? null;
+        $channel = $this->channels->forAssetType((string) $asset->type)?->channel();
         if ($channel === null) {
             throw ValidationException::withMessages(['asset' => 'Danışman bu varlık türü için henüz yok.']);
         }
@@ -68,7 +62,7 @@ final class AdvisorPlanRunner
                     'metadata' => [
                         'async' => true,
                         'operation_type' => self::OPERATION_TYPE,
-                        'human_title' => 'Reklam danışmanı: '.$asset->name,
+                        'human_title' => $this->channels->get($channel)->label().' danışmanı: '.$asset->name,
                         'phase' => 'queued',
                         'phase_label' => 'Kuyrukta',
                         'progress_at' => now()->toIso8601String(),
@@ -99,15 +93,16 @@ final class AdvisorPlanRunner
     }
 
     /**
-     * Queue every active Google Ads asset; $onlyConnected limits to assets with an active binding.
+     * Queue every active advertising asset; $onlyConnected limits to assets with an active binding.
      *
      * @return Collection<int, AdvisorPlan>
      */
     public function queueAll(?User $actor = null, bool $onlyConnected = true, string $trigger = 'bulk'): Collection
     {
-        $query = DigitalAsset::query()->whereIn('type', array_keys(self::CHANNELS))->where('status', 'active')->orderBy('id');
+        $query = DigitalAsset::query()->whereIn('type', $this->channels->assetTypes())->where('status', 'active')->orderBy('id');
         if ($onlyConnected) {
-            $query->whereIn('id', CoreAssetBinding::query()->where('capability', 'google_ads')->where('status', CoreAssetBinding::STATUS_ACTIVE)->select('digital_asset_id'));
+            $capabilities = array_values(array_map(static fn (AdvisorChannel $c): string => $c->bindingCapability(), $this->channels->all()));
+            $query->whereIn('id', CoreAssetBinding::query()->whereIn('capability', $capabilities)->where('status', CoreAssetBinding::STATUS_ACTIVE)->select('digital_asset_id'));
         }
         $plans = collect();
         foreach ($query->get() as $asset) {
@@ -135,13 +130,14 @@ final class AdvisorPlanRunner
         }
 
         try {
-            $input = $this->googleAdsCollector->collect($plan->digitalAsset);
+            $channel = $this->channels->get($plan->channel);
+            $input = $channel->collect($plan->digitalAsset);
             if ($activity !== null) {
                 $this->async->setPhase($activity, 'rules', 'Kurallar değerlendiriliyor');
             }
-            $result = $this->googleAdsRules->evaluate($input);
+            $result = $channel->evaluate($input);
             $written = $this->writer->write($plan, $result['items']);
-            $summary = $this->summaryText($result, $input);
+            $summary = $this->summaryText($result, $input, $channel);
 
             $plan->forceFill([
                 'status' => AdvisorPlan::STATUS_COMPLETED,
@@ -153,22 +149,8 @@ final class AdvisorPlanRunner
                     'binding_reason' => $input['binding_reason'],
                     'currency' => $input['currency'] ?? null,
                     'period' => $input['period'] ?? null,
-                    'account' => isset($input['account']) ? array_intersect_key($input['account'], array_flip(['cost', 'clicks', 'impressions', 'conversions', 'cpa', 'auto_tagging_enabled', 'name'])) : null,
-                    'sources' => $input['bound'] ? [
-                        'campaigns' => count($input['campaigns']),
-                        'search_terms' => count($input['search_terms']),
-                        'negatives' => count($input['negatives']),
-                        'keywords' => count($input['keywords']),
-                        'quality_score' => count(array_filter($input['keywords'], static fn (array $k): bool => $k['quality_score'] !== null)),
-                        'ads' => count($input['ads']['items']),
-                        'landing_pages' => count($input['landing_pages']),
-                        'conversion_actions' => count($input['conversion_actions']['items']),
-                        'asset_library' => array_sum($input['asset_library']['counts']),
-                        'recommendations' => count($input['recommendations']['items']),
-                        'changes' => count($input['changes']['items']),
-                        'website_pages' => count($input['website']['pages']),
-                        'ga4' => $input['ga4']['available'],
-                    ] : null,
+                    'account' => isset($input['account']) ? array_intersect_key($input['account'], array_flip(['cost', 'clicks', 'impressions', 'conversions', 'cpa', 'auto_tagging_enabled', 'name', 'reach', 'frequency'])) : null,
+                    'sources' => $input['bound'] ? $channel->sources($input) : null,
                     'rules' => $result['summary'],
                     'silenced' => $result['silenced'],
                 ]),
@@ -202,11 +184,11 @@ final class AdvisorPlanRunner
     }
 
     /** @param array{items: list<array<string, mixed>>, summary: array<string, mixed>} $result */
-    private function summaryText(array $result, array $input): string
+    private function summaryText(array $result, array $input, AdvisorChannel $channel): string
     {
         $reason = $result['summary']['reason'] ?? null;
         if ($reason === 'not_bound') {
-            return 'Google Ads hesabı bağlı değil.';
+            return $channel->label().' hesabı bağlı değil.';
         }
         if ($reason === 'no_campaign_data') {
             return 'Son 30 günde kampanya verisi yok; önce veri toplanmalı.';

@@ -4,11 +4,11 @@ namespace App\Livewire\Operator\Advisor;
 
 use App\Enums\AdvisorCategory;
 use App\Enums\AdvisorItemStatus;
-use App\Jobs\DraftGoogleAdsAdCopyJob;
 use App\Models\AdvisorItem;
 use App\Models\AdvisorPlan;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
+use App\Services\Advisor\AdvisorChannels;
 use App\Services\Advisor\AdvisorPlanRunner;
 use App\Support\Permissions;
 use Illuminate\Contracts\View\View;
@@ -20,8 +20,8 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 
 /**
- * One list, two homes: /ads-advisor (all Google Ads accounts) and the Google Ads account "Danışman" tab
- * (assetId set). Rule items with evidence, paste-ready lists and an on-click AI ad copy draft.
+ * One list, several homes: /ads-advisor (every ad account, all channels) and each ad account's "Danışman" tab
+ * (assetId set). Rule items with evidence, paste-ready lists and an on-click AI copy draft.
  */
 final class AdvisorPanel extends Component
 {
@@ -30,6 +30,9 @@ final class AdvisorPanel extends Component
 
     #[Url(as: 'adv_customer')]
     public string $customerFilter = '';
+
+    #[Url(as: 'adv_channel')]
+    public string $channelFilter = '';
 
     #[Url(as: 'adv_asset')]
     public string $assetFilter = '';
@@ -73,22 +76,18 @@ final class AdvisorPanel extends Component
         $this->flash('Öneri yeniden açıldı.');
     }
 
-    /** Operator-approved AI call: queue an ad copy draft for a weak-ad-strength item. */
-    public function requestDraft(int $id): void
+    /** Operator-approved AI call: queue a copy draft for an item whose rule offers one. */
+    public function requestDraft(int $id, AdvisorChannels $channels): void
     {
         $item = $this->item($id);
-        if ($item->rule_id !== 'weak-ad-strength') {
-            return;
-        }
-        if ($item->draft_status === 'queued') {
+        $channel = $channels->get($item->channel);
+        if (! in_array($item->rule_id, $channel->draftRules(), true) || $item->draft_status === 'queued') {
             return;
         }
         $item->forceFill(['draft_status' => 'queued', 'draft' => null])->save();
-        dispatch(new DraftGoogleAdsAdCopyJob($item->id))
-            ->onConnection((string) config('moxdop-advisor.queue_connection', config('queue.default')))
-            ->onQueue((string) config('moxdop-advisor.queue', 'default'));
+        $channel->dispatchDraft($item->id);
         $this->expandedId = $id;
-        $this->flash('Reklam metni taslağı hazırlanıyor (1 AI çağrısı). Hazır olunca burada görünür.');
+        $this->flash('Metin taslağı hazırlanıyor (1 AI çağrısı). Hazır olunca burada görünür.');
     }
 
     public function refreshAsset(int $assetId, AdvisorPlanRunner $runner): void
@@ -113,17 +112,18 @@ final class AdvisorPanel extends Component
     public function clearFilters(): void
     {
         $this->customerFilter = '';
+        $this->channelFilter = '';
         $this->assetFilter = '';
         $this->categoryFilter = '';
         $this->statusFilter = 'open';
     }
 
-    public function render(): View
+    public function render(AdvisorChannels $channels): View
     {
         $items = $this->query()->limit(100)->get();
         $open = $this->query(ignoreCategory: true, ignoreStatus: true)->open()->get();
         $counts = $open->countBy(fn (AdvisorItem $item): string => $item->category->value)->all();
-        $board = $this->board($open);
+        $board = $this->board($open, $channels);
         $asset = $this->assetId !== null ? DigitalAsset::query()->with('brand')->find($this->assetId) : null;
         $pending = $board->whereIn('plan_status', [AdvisorPlan::STATUS_QUEUED, AdvisorPlan::STATUS_RUNNING])->count();
         $draftsPending = $items->where('draft_status', 'queued')->count();
@@ -144,6 +144,8 @@ final class AdvisorPanel extends Component
                 'accounts' => $board->where('bound', true)->count(),
             ],
             'categories' => AdvisorCategory::cases(),
+            'channels' => array_map(static fn ($c): string => $c->label(), $channels->all()),
+            'draftRules' => array_merge(...array_values(array_map(static fn ($c): array => $c->draftRules(), $channels->all()))),
             'customers' => $this->assetId === null ? Customer::query()->orderBy('name')->get(['id', 'name']) : collect(),
         ]);
     }
@@ -151,10 +153,13 @@ final class AdvisorPanel extends Component
     /** @return Builder<AdvisorItem> */
     private function query(bool $ignoreCategory = false, bool $ignoreStatus = false): Builder
     {
-        $query = AdvisorItem::query()->with(['brand', 'digitalAsset'])->where('channel', AdvisorPlan::CHANNEL_GOOGLE_ADS);
+        $query = AdvisorItem::query()->with(['brand', 'digitalAsset']);
         if ($this->assetId !== null) {
             $query->where('digital_asset_id', $this->assetId);
         } else {
+            if ($this->channelFilter !== '') {
+                $query->where('channel', $this->channelFilter);
+            }
             if (ctype_digit($this->customerFilter)) {
                 $query->where('customer_id', (int) $this->customerFilter);
             }
@@ -184,22 +189,24 @@ final class AdvisorPanel extends Component
      * @param  Collection<int, AdvisorItem>  $open
      * @return Collection<int, array<string, mixed>>
      */
-    private function board(Collection $open): Collection
+    private function board(Collection $open, AdvisorChannels $channels): Collection
     {
+        $types = $this->assetId === null && isset($channels->all()[$this->channelFilter]) ? [$channels->get($this->channelFilter)->assetType()] : $channels->assetTypes();
         $assets = DigitalAsset::query()
             ->with('brand')
-            ->where('type', 'google_ads')
+            ->whereIn('type', $types)
             ->where('status', 'active')
             ->when($this->assetId !== null, fn (Builder $query) => $query->whereKey($this->assetId))
             ->when($this->assetId === null && ctype_digit($this->customerFilter), fn (Builder $query) => $query->whereHas('brand', fn (Builder $brand) => $brand->where('customer_id', (int) $this->customerFilter)))
             ->orderBy('name')
             ->get();
-        $plans = AdvisorPlan::query()->whereIn('digital_asset_id', $assets->pluck('id'))->where('channel', AdvisorPlan::CHANNEL_GOOGLE_ADS)->orderByDesc('id')->get();
+        $plans = AdvisorPlan::query()->whereIn('digital_asset_id', $assets->pluck('id'))->orderByDesc('id')->get();
         $latest = $plans->unique('digital_asset_id')->keyBy('digital_asset_id');
         $completed = $plans->where('status', AdvisorPlan::STATUS_COMPLETED)->unique('digital_asset_id')->keyBy('digital_asset_id');
         $byAsset = $open->groupBy('digital_asset_id');
 
-        return $assets->map(function (DigitalAsset $asset) use ($latest, $completed, $byAsset): array {
+        return $assets->map(function (DigitalAsset $asset) use ($latest, $completed, $byAsset, $channels): array {
+            $channel = $channels->forAssetType((string) $asset->type);
             $plan = $latest->get($asset->id);
             $done = $completed->get($asset->id);
             $rows = $byAsset->get($asset->id, collect());
@@ -208,6 +215,8 @@ final class AdvisorPanel extends Component
                 'id' => $asset->id,
                 'name' => $asset->name,
                 'brand' => $asset->brand?->name,
+                'channel' => $channel?->label(),
+                'url' => $channel?->assetUrl($asset->id),
                 'plan_status' => $plan?->status,
                 'plan_error' => $plan?->status === AdvisorPlan::STATUS_FAILED ? $plan->error_summary : null,
                 'last_run_at' => $done?->completed_at,

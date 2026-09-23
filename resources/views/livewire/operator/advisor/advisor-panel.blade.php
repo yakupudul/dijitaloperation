@@ -41,10 +41,17 @@
         <div class="flex flex-wrap items-center justify-between gap-4">
             <div class="min-w-0 flex-1">
                 <h2 class="text-base font-semibold text-gray-900 dark:text-white">{{ $asset ? 'Danışman · '.$asset->name : 'Haftalık reklam danışmanı' }}</h2>
+                @if (! $asset)
+                    <div class="mt-2 inline-flex rounded-lg bg-gray-100 p-0.5 text-xs dark:bg-white/5" role="group" aria-label="Kanal">
+                        @foreach (['' => 'Tüm kanallar'] + $channels as $value => $label)
+                            <button type="button" wire:click="$set('channelFilter', '{{ $value }}')" @class(['rounded-md px-3 py-1.5 font-medium transition', 'bg-white text-gray-900 shadow-theme-xs dark:bg-gray-800 dark:text-white' => $channelFilter === $value, 'text-gray-500 hover:text-gray-700 dark:text-gray-400' => $channelFilter !== $value])>{{ $label }}</button>
+                        @endforeach
+                    </div>
+                @endif
                 @if ($plansPending > 0)
                     <p class="mt-1 inline-flex items-center gap-2 text-sm font-medium text-brand-600 dark:text-brand-400">{!! $spinner !!} {{ $plansPending }} hesap inceleniyor… Sayfa kendini günceller.</p>
                 @else
-                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Her Pazartesi {{ config('moxdop-advisor.schedule.weekly_time', '07:00') }}'de toplanmış veriden kendiliğinden çalışır. Google Ads'e hiçbir şey yazılmaz; listeleri kopyalayıp sen uygularsın.</p>
+                    <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Her Pazartesi {{ config('moxdop-advisor.schedule.weekly_time', '07:00') }}'de toplanmış veriden kendiliğinden çalışır. Reklam hesaplarına hiçbir şey yazılmaz; hazırlananı sen uygularsın.</p>
                 @endif
                 <button type="button" x-on:click="help = ! help" class="mt-1 text-xs font-medium text-brand-600 hover:underline dark:text-brand-400"><span x-text="help ? 'Gizle' : 'Danışman neye bakıyor?'">Danışman neye bakıyor?</span></button>
             </div>
@@ -54,11 +61,9 @@
                 <button type="button" wire:click="refreshAll" wire:loading.attr="disabled" @disabled($plansPending > 0) class="{{ $btnPrimary }}">{!! $refreshIcon !!} Tüm hesapları incele</button>
             @endif
         </div>
-        <div x-show="help" x-cloak class="mt-4 grid gap-3 border-t border-gray-100 pt-4 text-sm text-gray-600 sm:grid-cols-2 lg:grid-cols-4 dark:border-gray-800 dark:text-gray-300">
-            <p><strong class="text-gray-800 dark:text-white/90">İsraf:</strong> dönüşümsüz harcayan arama terimleri (mevcut negatiflerle karşılaştırılır) ve kampanyalar.</p>
-            <p><strong class="text-gray-800 dark:text-white/90">Büyüme:</strong> bütçesi yetmeyen kârlı kampanyalar, anahtar kelime yapılmamış dönüşüm getiren terimler.</p>
-            <p><strong class="text-gray-800 dark:text-white/90">Ölçüm:</strong> birincil dönüşüm, sayım ayarı, otomatik etiketleme, GA4 ile tutarlılık.</p>
-            <p><strong class="text-gray-800 dark:text-white/90">Diğer:</strong> açılış sayfası, reklam gücü, öğeler, kalite puanı, değişiklik sonrası CPA artışı, Google'ın süzülmüş önerileri.</p>
+        <div x-show="help" x-cloak class="mt-4 grid gap-3 border-t border-gray-100 pt-4 text-sm text-gray-600 sm:grid-cols-2 dark:border-gray-800 dark:text-gray-300">
+            <p><strong class="text-gray-800 dark:text-white/90">Google Ads:</strong> dönüşümsüz arama terimleri (negatif listesi), bütçesi yetmeyen kârlı kampanyalar, dönüşüm ve GA4 ölçümü, açılış sayfası, reklam gücü, kalite puanı, değişiklik sonrası CPA artışı.</p>
+            <p><strong class="text-gray-800 dark:text-white/90">Meta Ads:</strong> kreatif yorgunluğu (frekans ↑, tık oranı ↓), öğrenmede takılan reklam setleri, piksel ve dönüşüm kaynağı sağlığı, pahalı yerleşim ve saatler, dönüşümsüz harcama, değişiklik sonrası maliyet artışı.</p>
         </div>
     </section>
 
@@ -93,7 +98,7 @@
         <div class="{{ $card }} p-4">
             <p class="text-xs font-medium text-gray-500">İncelenen hesap</p>
             <p class="mt-2 text-2xl font-bold text-gray-800 dark:text-white/90">{{ $kpis['accounts'] }}<span class="text-sm font-medium text-gray-400"> / {{ $board->count() }}</span></p>
-            <p class="mt-2 text-xs text-gray-400">Bağlı ve verisi toplanmış Google Ads hesabı</p>
+            <p class="mt-2 text-xs text-gray-400">Bağlı ve verisi toplanmış reklam hesabı</p>
         </div>
     </div>
 
@@ -124,7 +129,7 @@
                                     @if (! $asset)
                                         <button type="button" wire:click="$set('assetFilter', '{{ $assetFilter === (string) $row['id'] ? '' : $row['id'] }}')" class="text-left">
                                             <span @class(['block font-medium hover:text-brand-600', 'text-brand-600' => $assetFilter === (string) $row['id'], 'text-gray-800 dark:text-white/90' => $assetFilter !== (string) $row['id']])>{{ $row['name'] }}</span>
-                                            <span class="block text-xs text-gray-400">{{ $row['brand'] }}</span>
+                                            <span class="block text-xs text-gray-400">{{ $row['channel'] }} · {{ $row['brand'] }}</span>
                                         </button>
                                     @else
                                         <span class="block font-medium text-gray-800 dark:text-white/90">{{ $row['name'] }}</span>
@@ -151,7 +156,7 @@
                                     <div class="flex justify-end gap-2">
                                         <button type="button" wire:click="refreshAsset({{ $row['id'] }})" wire:loading.attr="disabled" @disabled($busy) class="{{ $btnSecondary }}">{!! $refreshIcon !!} İncele</button>
                                         @if (! $asset)
-                                            <a wire:navigate href="{{ route('operator.google-ads.overview', ['assetId' => $row['id'], 'tab' => 'advisor']) }}" class="{{ $btnSecondary }}">Aç →</a>
+                                            @if ($row['url'])<a wire:navigate href="{{ $row['url'] }}" class="{{ $btnSecondary }}">Aç →</a>@endif
                                         @endif
                                     </div>
                                 </td>
@@ -162,7 +167,7 @@
             </div>
         </section>
     @else
-        <div class="{{ $card }} px-6 py-10 text-center text-sm text-gray-500">Aktif Google Ads hesabı yok. Markaya Google Ads varlığı ekleyip hesabı bağla.</div>
+        <div class="{{ $card }} px-6 py-10 text-center text-sm text-gray-500">Aktif reklam hesabı yok. Markaya Google Ads veya Meta Ads varlığı ekleyip hesabı bağla.</div>
     @endif
 
     {{-- 4. Item list --}}
@@ -216,7 +221,7 @@
                             <x-ta.badge :color="$item->severityColor()" size="sm">{{ $item->severityLabel() }}</x-ta.badge>
                             @if (! $open)<x-ta.badge color="dark" size="sm">{{ $item->status->label() }}</x-ta.badge>@endif
                             @if (! $asset && $item->digitalAsset)
-                                <span class="ml-1 text-xs text-gray-500">{{ $item->digitalAsset->name }}@if ($item->brand) · {{ $item->brand->name }}@endif</span>
+                                <span class="ml-1 text-xs text-gray-500">{{ $channels[$item->channel] ?? $item->channel }} · {{ $item->digitalAsset->name }}@if ($item->brand) · {{ $item->brand->name }}@endif</span>
                             @endif
                         </div>
                         <button type="button" wire:click="toggle({{ $item->id }})" aria-expanded="{{ $expanded ? 'true' : 'false' }}" class="group mt-2 block text-left">
@@ -258,35 +263,53 @@
                             </div>
                         @endif
 
-                        @if ($item->rule_id === 'weak-ad-strength')
+                        @if (in_array($item->rule_id, $draftRules, true))
+                            @php
+                                $draftSections = [
+                                    'primary_texts' => 'Ana metinler (≤125 karakter önerilir)',
+                                    'headlines' => $item->channel === 'google_ads' ? 'Başlıklar (≤30 karakter)' : 'Başlıklar (≤40 karakter)',
+                                    'descriptions' => $item->channel === 'google_ads' ? 'Açıklamalar (≤90 karakter)' : 'Açıklamalar (≤30 karakter)',
+                                    'concepts' => 'Kreatif fikirleri',
+                                ];
+                                $draftText = '';
+                                if ($draft && $item->draft_status === 'ready') {
+                                    foreach ($draftSections as $draftKey => $draftLabel) {
+                                        if (! empty($draft[$draftKey])) {
+                                            $draftText .= $draftLabel.":\n".implode("\n", $draft[$draftKey])."\n\n";
+                                        }
+                                    }
+                                    if (! empty($draft['path1'])) {
+                                        $draftText .= 'Yol: /'.$draft['path1'].'/'.($draft['path2'] ?? '');
+                                    }
+                                }
+                            @endphp
                             <div class="rounded-lg bg-blue-50 p-3 lg:col-span-2 dark:bg-blue-500/10" x-data="{ copied: false }">
                                 <div class="flex flex-wrap items-center justify-between gap-2">
-                                    <p class="text-xs font-medium uppercase tracking-wide text-blue-700 dark:text-blue-300">Reklam metni taslağı (AI)</p>
+                                    <p class="text-xs font-medium uppercase tracking-wide text-blue-700 dark:text-blue-300">{{ $item->channel === 'google_ads' ? 'Reklam metni taslağı (AI)' : 'Yeni kreatif briefi ve metinler (AI)' }}</p>
                                     @if ($item->draft_status === 'queued')
                                         <span class="inline-flex items-center gap-1.5 text-xs font-medium text-blue-700 dark:text-blue-300">{!! $spinner !!} Hazırlanıyor…</span>
                                     @else
-                                        <button type="button" wire:click="requestDraft({{ $item->id }})" wire:confirm="Bu reklam grubu için 1 AI çağrısı yapılacak (aylık AI bütçesinden). Devam edilsin mi?" class="rounded-md bg-white px-2.5 py-1 text-xs font-semibold text-blue-700 ring-1 ring-inset ring-blue-200 hover:bg-blue-100 dark:bg-gray-900 dark:text-blue-300">{{ $draft && $item->draft_status === 'ready' ? 'Yeniden hazırla' : 'Taslak hazırla' }}</button>
+                                        <button type="button" wire:click="requestDraft({{ $item->id }})" wire:confirm="1 AI çağrısı yapılacak (aylık AI bütçesinden). Devam edilsin mi?" class="rounded-md bg-white px-2.5 py-1 text-xs font-semibold text-blue-700 ring-1 ring-inset ring-blue-200 hover:bg-blue-100 dark:bg-gray-900 dark:text-blue-300">{{ $draft && $item->draft_status === 'ready' ? 'Yeniden hazırla' : 'Taslak hazırla' }}</button>
                                     @endif
                                 </div>
                                 @if ($item->draft_status === 'failed')
                                     <p class="mt-2 text-sm text-error-700 dark:text-error-300">{{ $draft['error'] ?? 'Taslak hazırlanamadı.' }}</p>
                                 @elseif ($item->draft_status === 'ready' && $draft)
-                                    @php $draftText = "Başlıklar:\n".implode("\n", $draft['headlines'] ?? [])."\n\nAçıklamalar:\n".implode("\n", $draft['descriptions'] ?? [])."\n\nYol: ".($draft['path1'] ?? '').'/'.($draft['path2'] ?? ''); @endphp
                                     <div class="mt-2 grid gap-3 text-sm text-gray-800 sm:grid-cols-2 dark:text-gray-200">
-                                        <div>
-                                            <p class="text-xs text-gray-500">Başlıklar (≤30 karakter)</p>
-                                            <ol class="mt-1 list-decimal space-y-0.5 pl-5">@foreach ($draft['headlines'] ?? [] as $headline)<li>{{ $headline }} <span class="text-xs text-gray-400">{{ mb_strlen($headline) }}</span></li>@endforeach</ol>
-                                        </div>
-                                        <div>
-                                            <p class="text-xs text-gray-500">Açıklamalar (≤90 karakter)</p>
-                                            <ol class="mt-1 list-decimal space-y-1 pl-5">@foreach ($draft['descriptions'] ?? [] as $description)<li>{{ $description }} <span class="text-xs text-gray-400">{{ mb_strlen($description) }}</span></li>@endforeach</ol>
-                                            <p class="mt-2 text-xs text-gray-500">Görünen yol: /{{ $draft['path1'] ?? '' }}/{{ $draft['path2'] ?? '' }}</p>
-                                        </div>
+                                        @foreach ($draftSections as $draftKey => $draftLabel)
+                                            @if (! empty($draft[$draftKey]))
+                                                <div>
+                                                    <p class="text-xs text-gray-500">{{ $draftLabel }}</p>
+                                                    <ol class="mt-1 list-decimal space-y-0.5 pl-5">@foreach ($draft[$draftKey] as $line)<li>{{ $line }} @if ($draftKey !== 'concepts')<span class="text-xs text-gray-400">{{ mb_strlen($line) }}</span>@endif</li>@endforeach</ol>
+                                                </div>
+                                            @endif
+                                        @endforeach
                                     </div>
+                                    @if (! empty($draft['path1']))<p class="mt-2 text-xs text-gray-500">Görünen yol: /{{ $draft['path1'] }}/{{ $draft['path2'] ?? '' }}</p>@endif
                                     @if (! empty($draft['notes']))<p class="mt-2 text-xs text-blue-800 dark:text-blue-300">{{ $draft['notes'] }}</p>@endif
-                                    <button type="button" x-on:click="navigator.clipboard.writeText(@js($draftText)); copied = true; setTimeout(() => copied = false, 2000)" class="mt-2 rounded-md bg-white px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-200 dark:bg-gray-900"><span x-show="! copied">Taslağı kopyala</span><span x-show="copied">Kopyalandı</span></button>
+                                    <button type="button" x-on:click="navigator.clipboard.writeText(@js(trim($draftText))); copied = true; setTimeout(() => copied = false, 2000)" class="mt-2 rounded-md bg-white px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-200 dark:bg-gray-900"><span x-show="! copied">Taslağı kopyala</span><span x-show="copied">Kopyalandı</span></button>
                                 @elseif ($item->draft_status === null)
-                                    <p class="mt-1 text-xs text-blue-800 dark:text-blue-300">Bu reklam grubunun anahtar kelimeleri, dönüşüm getiren arama terimleri ve açılış sayfasından 12–15 başlık ve 4 açıklama taslağı hazırlanır. Google Ads'e yazılmaz; kontrol edip kendin eklersin.</p>
+                                    <p class="mt-1 text-xs text-blue-800 dark:text-blue-300">{{ $item->channel === 'google_ads' ? 'Bu reklam grubunun anahtar kelimeleri, dönüşüm getiren arama terimleri ve açılış sayfasından 12–15 başlık ve 4 açıklama taslağı hazırlanır.' : 'Yorulan reklamın metni, hedefi ve markanın hizmetlerinden 3 yeni kreatif fikri ile ana metin, başlık ve açıklama varyantları hazırlanır.' }} Reklam hesabına yazılmaz; kontrol edip kendin eklersin.</p>
                                 @endif
                             </div>
                         @endif

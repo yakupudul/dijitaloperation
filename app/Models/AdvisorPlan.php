@@ -20,6 +20,8 @@ class AdvisorPlan extends Model
 
     public const string CHANNEL_GOOGLE_ADS = 'google_ads';
 
+    public const string CHANNEL_META_ADS = 'meta_ads';
+
     protected $guarded = [];
 
     /** @return BelongsTo<Brand, $this> */
