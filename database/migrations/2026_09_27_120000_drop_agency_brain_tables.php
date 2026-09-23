@@ -42,13 +42,27 @@ return new class extends Migration
 
     public function up(): void
     {
+        $droppable = array_values(array_filter(
+            $this->tables,
+            fn (string $table): bool => Schema::hasTable($table) && DB::table($table)->count() === 0,
+        ));
+
+        // PostgreSQL refuses to drop a table another table still references (sector_learning_artifacts ↔
+        // sector_learning_revisions reference each other), even with constraints deferred. CASCADE removes
+        // only those foreign-key constraints, never rows of other tables.
+        if (DB::getDriverName() === 'pgsql') {
+            foreach ($droppable as $table) {
+                DB::statement('DROP TABLE IF EXISTS '.DB::getQueryGrammar()->wrapTable($table).' CASCADE');
+            }
+
+            return;
+        }
+
         Schema::disableForeignKeyConstraints();
 
         try {
-            foreach ($this->tables as $table) {
-                if (Schema::hasTable($table) && DB::table($table)->count() === 0) {
-                    Schema::drop($table);
-                }
+            foreach ($droppable as $table) {
+                Schema::dropIfExists($table);
             }
         } finally {
             Schema::enableForeignKeyConstraints();

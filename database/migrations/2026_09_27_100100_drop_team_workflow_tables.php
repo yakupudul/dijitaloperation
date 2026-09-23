@@ -46,6 +46,18 @@ return new class extends Migration
 
     public function up(): void
     {
+        // PostgreSQL refuses to drop a table that another table still references (playbooks ↔ playbook_revisions
+        // reference each other). CASCADE removes only those foreign-key constraints, never rows of other tables.
+        if (DB::getDriverName() === 'pgsql') {
+            foreach (self::TABLES as $table) {
+                if (Schema::hasTable($table) && DB::table($table)->count() === 0) {
+                    DB::statement('DROP TABLE IF EXISTS '.DB::getQueryGrammar()->wrapTable($table).' CASCADE');
+                }
+            }
+
+            return;
+        }
+
         foreach (self::TABLES as $table) {
             if (! Schema::hasTable($table) || DB::table($table)->count() !== 0) {
                 continue;
