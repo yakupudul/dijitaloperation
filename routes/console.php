@@ -409,3 +409,10 @@ Schedule::command('moxdop:gbp:purge-expired')
     ->dailyAt('04:40')
     ->withoutOverlapping(60)
     ->name('gbp-content-retention');
+
+// Faz 1: veri saklama — ham kopyalar 90 gün (her sayfanın son HTML'i kalır), telemetri kendi süresi,
+// 25 aydan eski günlük performans aylık satıra çevrilir. Altın veri (sorgu/arama terimi/anahtar kelime) dokunulmaz.
+Schedule::command('moxdop:data:retention')
+    ->dailyAt('04:10')
+    ->withoutOverlapping(120)
+    ->name('data-retention');
