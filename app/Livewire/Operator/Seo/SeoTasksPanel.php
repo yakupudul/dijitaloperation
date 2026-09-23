@@ -4,7 +4,6 @@ namespace App\Livewire\Operator\Seo;
 
 use App\Enums\SeoTaskStatus;
 use App\Enums\SeoTaskType;
-use App\Models\BrandOffering;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\SeoPlan;
@@ -48,6 +47,9 @@ final class SeoTasksPanel extends Component
 
     public ?int $expandedId = null;
 
+    /** @var array<int|string, string> offering id => chosen URL or "none" (mapping card selects) */
+    public array $mapping = [];
+
     public string $message = '';
 
     public string $messageTone = 'success';
@@ -90,7 +92,51 @@ final class SeoTasksPanel extends Component
         $this->flash('Görev yeniden açıldı.');
     }
 
-    /** Answer a service-page question: $choice is a candidate URL or "none". */
+    /** Answer one service in the grouped mapping card; the card closes when every service is answered. */
+    public function answerMapping(int $taskId, int $offeringId, ?string $choice = null): void
+    {
+        $task = $this->task($taskId);
+        $choice ??= (string) ($this->mapping[$offeringId] ?? '');
+        $services = collect($task->evidence['services'] ?? []);
+        $item = $services->firstWhere('offering_id', $offeringId);
+        if ($task->type !== SeoTaskType::Question || ! is_array($item)) {
+            return;
+        }
+        $none = $choice === 'none';
+        $candidateUrls = collect($item['candidates'] ?? [])->pluck('url')->filter()->all();
+        if (! $none && ! in_array($choice, $candidateUrls, true)) {
+            $this->flash('Önce listeden bir sayfa seç veya "Sayfası yok" de.', 'error');
+
+            return;
+        }
+
+        ServicePageAssignment::query()->updateOrCreate(
+            ['digital_asset_id' => $task->digital_asset_id, 'brand_offering_id' => $offeringId],
+            [
+                'brand_id' => $task->brand_id,
+                'page_url' => $none ? null : $choice,
+                'status' => $none ? ServicePageAssignment::STATUS_NONE : ServicePageAssignment::STATUS_ASSIGNED,
+                'decision_source' => ServicePageAssignment::SOURCE_OPERATOR,
+                'score' => null,
+                'candidates' => $item['candidates'] ?? [],
+                'decided_by' => auth()->id(),
+                'decided_at' => now(),
+            ],
+        );
+
+        $remaining = $services->reject(fn (array $service): bool => (int) $service['offering_id'] === $offeringId)->values()->all();
+        $evidence = $task->evidence;
+        $evidence['services'] = $remaining;
+        $task->forceFill(['evidence' => $evidence, 'title' => sprintf('%d öncelikli hizmetin sayfasını eşleştir', count($remaining))]);
+        if ($remaining === []) {
+            $task->forceFill(['status' => SeoTaskStatus::Done->value, 'resolved_at' => now(), 'resolved_by' => auth()->id()]);
+        }
+        $task->save();
+        unset($this->mapping[$offeringId]);
+        $this->flash(sprintf('"%s" kaydedildi. Bir sonraki planda bu eşleşme kullanılır.', $item['name']));
+    }
+
+    /** Answer a legacy per-service question: $choice is a candidate URL or "none". */
     public function answerQuestion(int $id, string $choice): void
     {
         $task = $this->task($id);
@@ -203,22 +249,62 @@ final class SeoTasksPanel extends Component
             $pendingPlan = SeoPlan::query()->where('digital_asset_id', $site->id)->whereIn('status', [SeoPlan::STATUS_QUEUED, SeoPlan::STATUS_RUNNING])->latest('id')->first();
         }
 
+        $openInScope = $this->query(ignoreType: true, ignoreStatus: true)->open()->with('digitalAsset')->get();
         $counts = [];
-        foreach ($this->query(ignoreType: true, ignoreStatus: true)->open()->get(['type']) as $row) {
+        foreach ($openInScope as $row) {
             $counts[$row->type->value] = ($counts[$row->type->value] ?? 0) + 1;
         }
+        $setupTasks = $openInScope->filter(fn (SeoTask $task): bool => $task->type === SeoTaskType::Question)->values();
+        $pendingMappings = $setupTasks->sum(fn (SeoTask $task): int => max(1, count($task->evidence['services'] ?? [])));
 
-        $brandServiceCount = $site?->brand_id !== null
-            ? BrandOffering::query()->where('brand_id', $site->brand_id)->where('status', 'active')->count()
-            : null;
+        $siteIds = $openInScope->pluck('digital_asset_id')->unique()->values();
+        $lastPlans = SeoPlan::query()
+            ->whereIn('digital_asset_id', $siteIds)
+            ->where('status', SeoPlan::STATUS_COMPLETED)
+            ->orderByDesc('id')
+            ->get(['id', 'digital_asset_id', 'completed_at', 'summary_text', 'input_summary'])
+            ->unique('digital_asset_id')
+            ->keyBy('digital_asset_id');
+        $weeklyTarget = (int) config('moxdop-seo-tasks.create.min_per_site', 4);
+
+        $kpis = [
+            'content' => $counts[SeoTaskType::Create->value] ?? 0,
+            'content_target' => $weeklyTarget * max(1, $siteIds->count()),
+            'extra_clicks' => (int) round($openInScope->filter(fn (SeoTask $task): bool => in_array($task->type, [SeoTaskType::Create, SeoTaskType::Strengthen], true))->sum('estimated_extra_clicks')),
+            'critical_fixes' => $openInScope->filter(fn (SeoTask $task): bool => $task->type === SeoTaskType::Fix && in_array($task->severity, ['critical', 'high'], true))->count(),
+            'pending_mappings' => $pendingMappings,
+        ];
+
+        $siteOverview = $this->websiteId !== null ? collect() : $openInScope
+            ->groupBy('digital_asset_id')
+            ->map(function ($rows, $assetId) use ($lastPlans, $weeklyTarget): array {
+                $first = $rows->first();
+
+                return [
+                    'id' => (int) $assetId,
+                    'domain' => $first->digitalAsset?->domain ?: $first->digitalAsset?->name,
+                    'open' => $rows->where('type', '!=', SeoTaskType::Question)->count(),
+                    'content' => $rows->where('type', SeoTaskType::Create)->count(),
+                    'target' => $weeklyTarget,
+                    'critical' => $rows->filter(fn (SeoTask $task): bool => $task->type === SeoTaskType::Fix && in_array($task->severity, ['critical', 'high'], true))->count(),
+                    'mappings' => $rows->where('type', SeoTaskType::Question)->sum(fn (SeoTask $task): int => max(1, count($task->evidence['services'] ?? []))),
+                    'clicks' => (int) round($rows->sum('estimated_extra_clicks')),
+                    'last_plan_at' => $lastPlans->get($assetId)?->completed_at,
+                    'gsc' => data_get($lastPlans->get($assetId)?->input_summary, 'gsc.available'),
+                ];
+            })
+            ->sortByDesc('clicks')
+            ->values();
 
         return view('livewire.operator.seo.seo-tasks-panel', [
-            'brandServiceCount' => $brandServiceCount,
             'tasks' => $tasks,
             'site' => $site,
             'latestPlan' => $latestPlan,
             'pendingPlan' => $pendingPlan,
             'counts' => $counts,
+            'kpis' => $kpis,
+            'setupTasks' => $setupTasks,
+            'siteOverview' => $siteOverview,
             'customers' => $this->websiteId === null ? Customer::query()->orderBy('name')->get(['id', 'name']) : collect(),
             'sites' => $this->websiteId === null ? $this->siteOptions() : collect(),
             'types' => SeoTaskType::cases(),
@@ -243,6 +329,8 @@ final class SeoTasksPanel extends Component
         }
         if (! $ignoreType && $this->typeFilter !== '' && SeoTaskType::tryFrom($this->typeFilter) !== null) {
             $query->where('type', $this->typeFilter);
+        } elseif (! $ignoreType) {
+            $query->where('type', '!=', SeoTaskType::Question->value); // questions live in the setup card
         }
         if (! $ignoreStatus) {
             if ($this->statusFilter === 'all') {

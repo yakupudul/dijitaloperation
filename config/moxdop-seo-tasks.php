@@ -69,7 +69,9 @@ return [
     ],
 
     'service_page' => [
-        'auto_assign_score' => 0.60, // eşik üstü → otomatik ata; aksi hâlde "soru" görevi
+        'auto_assign_score' => 0.55, // eşik üstü → otomatik ata
+        'auto_assign_min_with_margin' => 0.40, // ya da en iyi aday bu puanın üstünde ve ikinciden net ayrışıyorsa
+        'auto_assign_margin' => 0.15,
         'ask_score' => 0.25,         // bu puanın altındaki adaylar hiç sorulmaz
         'max_candidates_in_question' => 4,
     ],
@@ -87,6 +89,10 @@ return [
         'max_services' => 8,
         'fallback_services' => 6,  // AI yoksa en çok gösterim alan sayfalardan
         'priority_count' => 3,     // çıkarılan hizmetlerden kaç tanesi "yıldızlı" sayılır
+        // Marka hizmetleri siteye uyuyor mu? GSC gösterimi bu sayının üstündeyse, hizmetlerin payı
+        // fit_min_share altında ve hiçbir sayfa başlığı/H1 hizmet adını içermiyorsa site kendi verisinden anlaşılır.
+        'fit_min_impressions' => 200,
+        'fit_min_share' => 0.03,
         'excluded_path_patterns' => ['blog', 'haber', 'makale', 'yazi', 'category', 'kategori', 'etiket', 'tag', 'author', 'iletisim', 'hakkimizda', 'kvkk', 'gizlilik', 'cerez', 'contact', 'about', 'privacy', 'cookie', 'sepet', 'cart', 'checkout', 'hesabim', 'account', 'login', 'wp-'],
     ],
 

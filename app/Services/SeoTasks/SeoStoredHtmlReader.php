@@ -19,7 +19,7 @@ final class SeoStoredHtmlReader
     public function __construct(private readonly StoredPageReader $reader) {}
 
     /**
-     * @return array{h1_count: int, h1_texts: list<string>, images_total: int, images_missing_alt: int, jsonld_types: list<string>, same_as: list<string>, text_excerpt: string}|null
+     * @return array{title_count: int, description_count: int, h1_count: int, h1_texts: list<string>, images_total: int, images_missing_alt: int, jsonld_types: list<string>, same_as: list<string>, text_excerpt: string}|null
      */
     public function inspect(DigitalAsset $site, WebsitePageProfile $profile, int $excerptChars = 0): ?array
     {
@@ -75,6 +75,8 @@ final class SeoStoredHtmlReader
         }
 
         return [
+            'title_count' => (int) ($inspection['title_count'] ?? 0),
+            'description_count' => (int) ($inspection['description_count'] ?? 0),
             'h1_count' => (int) $inspection['h1_count'],
             'h1_texts' => array_slice($h1Texts, 0, 5),
             'images_total' => (int) ($inspection['images']['total'] ?? 0),

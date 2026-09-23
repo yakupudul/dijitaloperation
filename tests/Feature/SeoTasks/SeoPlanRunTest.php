@@ -134,7 +134,12 @@ final class SeoPlanRunTest extends TestCase
 
         // Website tab renders the same list filtered to this site with the refresh button.
         Livewire::test(OverviewPage::class, ['assetId' => (string) $website->id])->set('tab', 'seo')->assertSee('SEO Görevleri');
-        Livewire::test(SeoTasksPanel::class, ['websiteId' => $website->id])->assertSee('Planı yenile')->assertSee('Son plan #1');
+        Livewire::test(SeoTasksPanel::class, ['websiteId' => $website->id])
+            ->assertSee('Planı yenile')
+            ->assertSee('Son plan')
+            ->assertSee('Search Console: ')
+            ->assertSee('Bu haftanın içerik önerileri')
+            ->assertSee('Tahmini ek tıklama');
 
         // Question answer writes an operator assignment that later runs never overwrite.
         $question = SeoTask::query()->create([
@@ -293,6 +298,77 @@ final class SeoPlanRunTest extends TestCase
         $this->assertContains('Ortodonti', $names);
         $this->assertNotContains('İmplant fiyatları', $names, 'blog pages are not services');
         $this->assertGreaterThanOrEqual(4, SeoTask::query()->where('type', 'create')->count());
+    }
+
+    public function test_non_html_urls_and_uncollected_heads_never_become_missing_title_tasks(): void
+    {
+        [$website] = $this->fixture();
+        // Feeds / sitemaps / robots collected as "pages" and a page whose head was never collected.
+        foreach (['/feed/', '/sitemap.xml', '/robots.txt', '/crm/yazi/feed/'] as $path) {
+            $this->page($website, $path, ['http' => ['status_code' => 200, 'content_type' => 'application/xml']]);
+        }
+        $this->page($website, '/hakkimizda/'); // no document_head at all → unknown, not missing
+        $this->page($website, '/iletisim/', ['document_head' => ['title_present' => false, 'title' => null, 'robots' => 'index']]);
+
+        $runner = app(SeoPlanRunner::class);
+        $plan = $runner->run($runner->queue($website, $this->admin)->id);
+
+        $this->assertSame(4, data_get($plan->input_summary, 'html.excluded_non_documents'));
+        $title = SeoTask::query()->where('rule_id', 'title-missing')->firstOrFail();
+        $this->assertSame(['https://example.test/iletisim/'], $title->evidence['urls'], 'only the page with an observed empty head counts');
+        $this->assertStringNotContainsString('feed', json_encode(SeoTask::query()->pluck('evidence')));
+    }
+
+    public function test_starred_services_without_a_clear_page_get_one_grouped_mapping_card(): void
+    {
+        [$website, $implant, $brand] = $this->fixture();
+        $offerings = app(BrandOfferingService::class);
+        $beyazlatma = $offerings->create($brand, 'Diş Beyazlatma');
+        $beyazlatma->forceFill(['is_priority' => true])->save();
+        $this->page($website, '/blog/dis-beyazlatma-zararli-mi/', ['document_head' => ['title' => 'Diş beyazlatma zararlı mı?', 'title_present' => true, 'robots' => 'index'], 'headings' => ['h1' => 'Diş beyazlatma zararlı mı?', 'h1_present' => true]]);
+        $this->page($website, '/estetik/beyaz-gulus/', ['document_head' => ['title' => 'Beyaz gülüş ve diş beyazlatma', 'title_present' => true, 'robots' => 'index'], 'headings' => ['h1' => 'Beyaz gülüş', 'h1_present' => true]]);
+
+        $runner = app(SeoPlanRunner::class);
+        $runner->run($runner->queue($website, $this->admin)->id);
+
+        $cards = SeoTask::query()->where('type', 'question')->get();
+        $this->assertCount(1, $cards, 'one card per site, not one per service');
+        $card = $cards->first();
+        $this->assertSame('service-page-mapping', $card->rule_id);
+        $ids = array_column($card->evidence['services'], 'offering_id');
+        $this->assertContains($beyazlatma->id, $ids);
+        $this->assertNotContains($implant->id, $ids, 'implant page is clear enough to auto-assign');
+
+        // Global list hides the card from the task list but shows it as setup work.
+        Livewire::test(SeoTasksPanel::class)->assertSee('öncelikli hizmetin sayfasını eşleştir')->assertSee('Eşleştir →');
+
+        $component = Livewire::test(SeoTasksPanel::class, ['websiteId' => $website->id])
+            ->set('mapping.'.$beyazlatma->id, 'https://example.test/estetik/beyaz-gulus/')
+            ->call('answerMapping', $card->id, $beyazlatma->id);
+        $component->assertSee('kaydedildi');
+        $this->assertSame('https://example.test/estetik/beyaz-gulus/', ServicePageAssignment::query()->where('brand_offering_id', $beyazlatma->id)->value('page_url'));
+        $card->refresh();
+        $this->assertNotContains($beyazlatma->id, array_column($card->evidence['services'] ?? [], 'offering_id'));
+        if (($card->evidence['services'] ?? []) === []) {
+            $this->assertSame(SeoTaskStatus::Done, $card->status);
+        }
+
+        // No "open a new service page" task for a service whose candidates await an answer.
+        $this->assertFalse(SeoTask::query()->where('type', 'create')->where('rule_id', 'create-service')->where('brand_offering_id', $beyazlatma->id)->where('evidence->source', 'inventory')->exists());
+    }
+
+    public function test_brand_services_that_do_not_fit_the_site_are_replaced_by_site_understanding(): void
+    {
+        [$website, , $brand] = $this->fixture(withServices: false);
+        // The Brand sells something unrelated to this site (e.g. an agency site under a clinic Brand).
+        app(BrandOfferingService::class)->create($brand, 'Dijital Pazarlama Danışmanlığı');
+
+        $runner = app(SeoPlanRunner::class);
+        $plan = $runner->run($runner->queue($website, $this->admin)->id);
+
+        $this->assertSame('brand_services_not_on_site', data_get($plan->input_summary, 'site_understanding.reason'));
+        $this->assertSame(0, SeoTask::query()->where('type', 'question')->count());
+        Livewire::test(SeoTasksPanel::class, ['websiteId' => $website->id])->assertSee('Markanın hizmetleri bu siteyle örtüşmüyor');
     }
 
     /** @return array{0: DigitalAsset, 1: BrandOffering|null, 2: Brand, 3: array<string, WebsitePageProfile>} */

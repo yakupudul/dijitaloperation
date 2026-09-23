@@ -95,6 +95,30 @@ final class SeoText
         return $overlap;
     }
 
+    /**
+     * True for URLs that are HTML documents a person lands on. Feeds, sitemaps, robots, API,
+     * media and WordPress system URLs are excluded so they never count as "pages".
+     */
+    public static function isDocumentUrl(string $url, ?string $contentType = null): bool
+    {
+        if ($contentType !== null && $contentType !== '' && ! str_contains(mb_strtolower($contentType), 'html')) {
+            return false;
+        }
+        $path = mb_strtolower(self::urlPath($url));
+        $query = mb_strtolower((string) parse_url($url, PHP_URL_QUERY));
+        if (preg_match('#(^|/)(feed|rss|atom)/?$#', $path) === 1
+            || preg_match('#\.(xml|xsl|txt|json|rss|atom|pdf|jpe?g|png|gif|webp|avif|svg|ico|css|js|map|zip|rar|mp4|mp3|webm|woff2?|ttf|eot|docx?|xlsx?)$#', $path) === 1
+            || preg_match('#^/(wp-json|wp-content|wp-admin|wp-includes|cdn-cgi)(/|$)#', $path) === 1
+            || str_contains($path, 'xmlrpc.php')
+            || str_contains($path, '/attachment/')
+            || str_contains($path, 'sitemap')
+            || preg_match('#(^|&)(replytocom|feed|s|p|preview|amp)=#', $query) === 1) {
+            return false;
+        }
+
+        return true;
+    }
+
     public static function looksLikeQuestion(string $query): bool
     {
         $folded = ' '.self::fold($query).' ';

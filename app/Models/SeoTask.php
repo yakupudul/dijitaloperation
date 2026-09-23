@@ -69,6 +69,82 @@ class SeoTask extends Model
         return $this->status === SeoTaskStatus::Open;
     }
 
+    public function severityLabel(): string
+    {
+        return match ($this->severity) {
+            'critical' => 'Kritik',
+            'high' => 'Yüksek',
+            'medium' => 'Orta',
+            default => 'Düşük',
+        };
+    }
+
+    public function severityColor(): string
+    {
+        return match ($this->severity) {
+            'critical', 'high' => 'error',
+            'medium' => 'warning',
+            default => 'light',
+        };
+    }
+
+    /** Plain-language business impact: search upside for content work, severity for fixes. */
+    public function impactLabel(): string
+    {
+        $clicks = (float) ($this->estimated_extra_clicks ?? 0);
+        if ($this->severity === 'critical' || $clicks >= 50) {
+            return 'Yüksek';
+        }
+        if ($this->severity === 'high' || $clicks >= 15) {
+            return 'Orta';
+        }
+
+        return 'Düşük';
+    }
+
+    /** Rough effort so the operator can plan a week: new pages cost more than metadata edits. */
+    public function effortLabel(): string
+    {
+        return match ($this->type) {
+            SeoTaskType::Create => $this->is_new_page ? 'Yüksek' : 'Orta',
+            SeoTaskType::Strengthen => 'Orta',
+            SeoTaskType::Fix => ($this->evidence['template_level'] ?? false) ? 'Orta' : 'Düşük',
+            default => 'Düşük',
+        };
+    }
+
+    /** Writer-ready brief as plain text (copied from the UI into a doc or the CMS). */
+    public function briefText(): ?string
+    {
+        $brief = is_array($this->content_brief) ? $this->content_brief : null;
+        if ($brief === null) {
+            return null;
+        }
+        $lines = [
+            'Görev: '.$this->title,
+            'Sayfa başlığı (title/H1): '.($brief['page_title'] ?? ''),
+            'Hedef URL: '.($brief['target_url'] ?? $this->target_url ?? ''),
+            'Tür: '.($brief['page_type'] ?? '').' · '.(($brief['decision'] ?? '') === 'existing_page_section' ? 'mevcut sayfaya bölüm' : 'yeni sayfa').' · ~'.($brief['target_words'] ?? '').' kelime',
+            '',
+            'H2 taslağı:',
+        ];
+        foreach ($brief['h2_outline'] ?? [] as $index => $heading) {
+            $lines[] = ($index + 1).'. '.$heading;
+        }
+        $lines[] = '';
+        $lines[] = 'Kapsanacak sorgular: '.implode(', ', $brief['queries'] ?? []);
+        if (! empty($brief['internal_links'])) {
+            $lines[] = 'İç linkler: '.implode(', ', $brief['internal_links']);
+        }
+        $lines[] = '';
+        $lines[] = 'Yapılacaklar:';
+        foreach ($this->checklist ?? [] as $step) {
+            $lines[] = '- '.$step;
+        }
+
+        return implode("\n", $lines);
+    }
+
     /** @return array<string, mixed> */
     protected function casts(): array
     {

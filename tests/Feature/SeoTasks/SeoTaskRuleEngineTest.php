@@ -59,11 +59,13 @@ final class SeoTaskRuleEngineTest extends TestCase
         $this->assertNotEmpty($gscBacked['content_brief']['h2_outline']);
         $this->assertStringStartsWith('https://example.test/', $gscBacked['target_url']);
 
-        // Question: "Zirkonyum" has a weak candidate page only.
+        // Question: one grouped mapping card; "Zirkonyum" (starred) has only a weak candidate page.
         $question = $byType->get('question', collect())->first();
         $this->assertNotNull($question);
-        $this->assertSame(3, $question['brand_offering_id']);
-        $this->assertNotEmpty($question['evidence']['candidates']);
+        $this->assertSame('service-page-mapping', $question['rule_id']);
+        $this->assertSame([3], array_column($question['evidence']['services'], 'offering_id'));
+        $this->assertNotEmpty($question['evidence']['services'][0]['candidates']);
+        $this->assertFalse($create->contains(fn (array $t): bool => $t['brand_offering_id'] === 3 && ($t['evidence']['source'] ?? '') === 'inventory'), 'no "create service page" while candidates wait for an answer');
 
         // Service page auto-assignment for the implant offering.
         $assignment = collect($result['assignments'])->firstWhere('brand_offering_id', 1);

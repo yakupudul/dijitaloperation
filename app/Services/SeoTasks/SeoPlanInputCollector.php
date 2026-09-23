@@ -28,6 +28,8 @@ final class SeoPlanInputCollector
         private readonly SeoStoredHtmlReader $html,
     ) {}
 
+    private int $excludedNonDocuments = 0;
+
     /** @return array<string, mixed> */
     public function collect(DigitalAsset $site, ?CarbonImmutable $end = null): array
     {
@@ -37,6 +39,7 @@ final class SeoPlanInputCollector
         $ga4Days = SeoTaskConfig::int('window.ga4_days', 90);
         $primaryUrl = $site->primary_url ?: ('https://'.$site->domain);
 
+        $this->excludedNonDocuments = 0;
         $pages = $this->pages($site);
         $gsc = $this->gsc($site, $end->subDays($gscDays), $end);
         $offerings = $this->offerings($site);
@@ -68,7 +71,7 @@ final class SeoPlanInputCollector
             'ga4' => $this->ga4($site, $end->subDays($ga4Days), $end),
             'robots' => $this->robots($site),
             'assignments' => $this->assignments($site),
-            'html' => $htmlStats,
+            'html' => $htmlStats + ['excluded_non_documents' => $this->excludedNonDocuments],
         ];
     }
 
@@ -230,7 +233,10 @@ final class SeoPlanInputCollector
                     $web = is_array($states['website'] ?? null) ? $states['website'] : [];
                     $wp = is_array($states['wordpress'] ?? null) ? $states['wordpress'] : [];
                     $url = (string) ($web['url'] ?? $profile->preferred_url);
-                    if ($url === '') {
+                    $contentType = data_get($web, 'http.content_type');
+                    if ($url === '' || ! SeoText::isDocumentUrl($url, is_string($contentType) ? $contentType : null)) {
+                        $this->excludedNonDocuments++;
+
                         continue;
                     }
                     $status = data_get($web, 'http.status_code');
@@ -253,6 +259,11 @@ final class SeoPlanInputCollector
                         'url_key' => SeoText::urlKey($url),
                         'path' => SeoText::urlPath($url),
                         'observed' => $web !== [],
+                        // Missing ≠ zero: head facts are only judged when the head was actually observed.
+                        'head_observed' => is_array(data_get($web, 'document_head')) || $wpSeo !== [],
+                        'title_present' => is_bool(data_get($web, 'document_head.title_present'))
+                            ? (bool) data_get($web, 'document_head.title_present')
+                            : (filled($wpSeo['title'] ?? null) ? true : null),
                         'title' => is_string($title) ? trim($title) : null,
                         'meta_description' => is_string($meta) ? trim($meta) : null,
                         'h1' => is_string(data_get($web, 'headings.h1')) ? trim((string) data_get($web, 'headings.h1')) : null,
@@ -271,6 +282,8 @@ final class SeoPlanInputCollector
                         'cms_status' => is_string($wpStatus) ? $wpStatus : null,
                         'last_observed_at' => $profile->last_observed_at?->toIso8601String(),
                         'html_read' => false,
+                        'title_count' => null,
+                        'description_count' => null,
                         'h1_count' => null,
                         'h1_texts' => [],
                         'images_total' => null,

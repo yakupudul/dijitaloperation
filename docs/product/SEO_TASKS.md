@@ -35,7 +35,12 @@ Tetik: site sayfasındaki "Planı yenile", `/seo-tasks` sayfasındaki "Tümünü
 
 Saklı HTML (`SeoStoredHtmlReader`, modüldeki `StoredPageReader::html()` üzerinden, HTTP yok): ana sayfa ve en çok gösterim alan sayfalardan başlayarak en fazla 150 sayfa. Çıkan: H1 sayısı ve metinleri, görsel / alt'sız görsel sayısı, JSON-LD türleri ve `sameAs`, ilk 8 sayfa için metin özeti.
 
-**A2 — Site anlama** (`SeoSiteUnderstanding`, yalnızca markada aktif hizmet yoksa):
+Veri doğruluğu kuralları:
+- HTML olmayan adresler (feed, sitemap, robots.txt, wp-json, medya, `?replytocom=` vb.) sayfa sayılmaz; plan özetinde kaç tanesinin dışarıda bırakıldığı gösterilir.
+- Toplanmamış ≠ eksik: başlık yalnızca başlık alanı gerçekten gözlenip boş bulunduğunda "yok" sayılır; meta açıklaması yalnızca `<head>` gözlendiğinde; H1 yalnızca saklı HTML okunduğunda veya profil açıkça "yok" dediğinde.
+- Toplu düzelt görevlerinde arama trafiği alan sayfalar listenin başına gelir; indekslenebilir sayfaların yarısından fazlasını etkileyen sorun "şablon düzeyi" olarak işaretlenir ve önce tema/SEO eklentisi ayarı önerilir.
+
+**A2 — Site anlama** (`SeoSiteUnderstanding`, markada aktif hizmet yoksa **veya markanın hizmetleri bu siteyle örtüşmüyorsa**: GSC gösterimi ≥ 200, hizmet sorgularının payı < %3 ve hiçbir sayfa başlığı/H1 hizmet adını içermiyor):
 1. Son 28 gün içindeki planın çıkarımı varsa yeniden kullanılır (`source=cache`).
 2. Yoksa tek AI çağrısı (rota `seo_tasks.site_understanding`, Anthropic birincil): ana sayfa başlık/meta/H1/metin özeti, 80 sayfa (başlık, H1, kelime, GSC gösterimi), en çok gösterim alan 200 GSC sorgusu, 20 GA4 iniş sayfası. Çıktı: marka özeti, hedef kitle, bölgeler, en fazla 8 hizmet (ad, takma adlar, ana sayfa URL'si, ilgili sorgular, çekirdek mi). Doğrulama: envanterde olmayan URL'ler ve GSC'de olmayan sorgular atılır.
 3. AI yoksa / hata verirse kural tabanlı: blog/iletişim/kurumsal yolları hariç, en çok gösterim alan 6 sayfa konusu (H1 ya da başlığın ilk parçası), ilk 3'ü yıldızlı.
@@ -43,7 +48,7 @@ Saklı HTML (`SeoStoredHtmlReader`, modüldeki `StoredPageReader::html()` üzeri
 Çıkarılan hizmetler plan içinde kalır (`inferred:<slug>`), markaya yazılmaz; görevlerde `brand_offering_id` boş, `evidence.service` dolu. Sitenin SEO sekmesinde "Markada hizmet tanımlı değil — siteden çıkarıldı" kutusunda listelenir; "Markaya ekle" gerçek hizmet + yıldız + sayfa eşlemesi (operatör kararı) oluşturur. Marka hizmeti olduktan sonra çıkarım durur.
 
 **B — Kurallar** (`SeoTaskRuleEngine`, deterministik):
-- Hizmet sayfası tespiti: slug/başlık/H1 kimlik eşleşmesi + hizmet sorgularının GSC gösterim payı → ≥ 0.60 otomatik ata, ≥ 0.25 soru, altı "sayfası yok".
+- Hizmet sayfası tespiti: puan = %40 başlık/H1'de hizmet adı + %25 URL kimliği + %35 hizmet sorgularının GSC gösterim payı; blog/soru biçimli sayfalar ×0.6, kısa URL +0.05. ≥ 0.55 ya da (≥ 0.40, adla eşleşme var ve ikinci adaydan ≥ 0.15 önde) → otomatik ata. Aksi hâlde yalnızca **yıldızlı** hizmetler sorulur ve site başına **tek** "hizmet sayfalarını eşleştir" kartında toplanır; yıldızsız hizmetler sessizce eşlemesiz kalır. Adayı olan hizmet için "yeni hizmet sayfası aç" önerilmez.
 - Düzelt: bulgular (critical/high/medium; low olmaz) + envanter kuralları (5xx, başlık yok, meta yok, H1 yok, **çift H1**, yönlendirme zinciri ≥ 2, canonical çelişkisi, < 150 kelime, kritik tarama hatası, site geneli noindex, **hizmet sayfalarında alt'sız görsel**). H1 ve alt kuralları saklı HTML okunan sayfalarda HTML'e göre çalışır. Envanter kuralları sayfa listesiyle tek görevde toplanır.
 - Güçlendir (yalnızca yıldızlı hizmetler): sorgu 5–20. sırada, hiçbir sayfa 5'in üstünde değil, ≥ 100 gösterim. Puan = gösterim × (CTR(3) − CTR(mevcut)). Checklist: ana sorgu title/H1/meta'da yoksa ekle, < 800 kelime ise genişlet, ikinci sayfa ≥ %25 pay alıyorsa "niyeti ayır" (otomatik 301 asla), GA4 oturum var/dönüşüm yoksa CTA. Hizmet başına en fazla 2.
 - Oluştur: (1) ≥ 30 gösterimli, ilk 20'de sayfası olmayan GSC sorguları hizmet × niyet (hizmet / rehber / SSS / konum) kovalarına; (2) hiçbir sayfanın başlık/H1/slug ile karşılamadığı kütüphane sorguları; (3) sayfası olmayan yıldızlı hizmet. Kovalar beklenen tıklamaya göre sıralanır; **asgari 4** için yıldızlı hizmetlerden başlayarak rehber/SSS/konum briefleriyle tamamlanır (kaynak `fallback` olarak işaretlenir). Her görevde deterministik brief: sayfa başlığı, tür, karar (yeni sayfa / mevcut sayfaya bölüm), hedef URL, H2 taslağı, kapsanacak sorgular, hedef uzunluk, iç linkler.
@@ -57,8 +62,12 @@ Rota `seo_tasks.content_planner` (varsayılan: Anthropic `claude-sonnet-5`, yede
 
 ## Arayüz
 
-- Ana menü → **SEO Görevleri** (`/seo-tasks`): tüm müşteriler, öncelik sıralı. Filtre: müşteri, site, tür, durum. Satır aç → yapılacaklar, kanıt (sorgu tablosu / URL listesi), içerik briefi, soru cevabı. `Yapıldı` / `Atla` / `Yeniden aç`. "Tümünü yenile".
-- Web sitesi varlık sayfası → **SEO Görevleri** sekmesi (`/assets/website/{id}?tab=seo`): aynı bileşen, siteye filtreli, "Planı yenile" + son koşu özeti (GSC var/yok, sorgu/sayfa sayısı, AI durumu).
+- Ana menü → **SEO Görevleri** (`/seo-tasks`):
+  1. Dört özet kartı: bu haftanın içerik önerileri / hedef (site × 4), tahmini ek tıklama (90 gün), kritik/yüksek teknik sorun, kurulum bekleyen hizmet eşleşmesi.
+  2. Eşleştirme kartları (site başına bir tane, siteye götürür).
+  3. Site tablosu: açık görev, içerik önerisi / hedef, kritik, eşleştirme, tahmini ek tık, son plan.
+  4. Filtreler (müşteri, site, tür, durum) ve etkiye göre sıralı görev listesi. Satırda Türkçe ciddiyet, etki, efor, hedef URL, ilk görülme tarihi; açınca yapılacaklar, kanıt, içerik briefi ve "Briefi kopyala".
+- Web sitesi varlık sayfası → **SEO Görevleri** sekmesi (`/assets/website/{id}?tab=seo`): aynı bileşen, siteye filtreli; başlıkta son plan zamanı ve veri kaynakları (Search Console, sayfa envanteri, saklı HTML, GA4, AI) durum rozetleriyle; eşleştirme kartında hizmet başına açılır liste + Kaydet; site anlama kutusu.
 - Marka sayfası → Business sekmesi → Offerings: hizmet yanında ★ (tek tık).
 
 ## Sabitler

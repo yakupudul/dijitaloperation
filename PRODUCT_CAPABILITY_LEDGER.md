@@ -1,5 +1,15 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-09-23 (c) — SEO Görevleri: first real-data review fixes and page redesign
+
+**State:** CODED + PHPUnit (`tests/Feature/SeoTasks/*`, 15 tests / 143 assertions). Triggered by the first staging run: "missing title" listed 2,226 URLs on moximu.com (robots.txt, sitemaps, feeds) and 22 per-service question cards flooded the list.
+
+- Non-HTML URLs are excluded from the inventory; head/H1 facts are judged only when observed (missing ≠ not collected). Fix lists are ordered by search traffic and template-level issues are flagged.
+- Service ↔ page matching rescored (title/H1, URL, GSC share, article penalty, margin rule); only starred services are asked, in one grouped card per site; no "create service page" while candidates wait.
+- Brand services that do not fit a website switch that website to site understanding (reason `brand_services_not_on_site`).
+- `/seo-tasks` redesigned: KPI strip, per-site overview, setup cards, Turkish labels, impact/effort, brief copy, Turkish pagination.
+- Existing staging rows from the first run become `stale` automatically on the next plan run (task keys changed).
+
 ## 2026-09-23 (b) — SEO Görevleri: stored HTML rules and site understanding
 
 **State:** CODED + PHPUnit (`tests/Feature/SeoTasks/*`, 12 tests / 121 assertions). Live UAT with real stored HTML, real Anthropic calls and real no-service Brands not run.

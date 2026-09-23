@@ -37,14 +37,20 @@ final class SeoSiteUnderstanding
      */
     public function resolve(SeoPlan $plan, array $input): array
     {
+        $reason = 'brand_has_no_services';
         if (($input['offerings'] ?? []) !== []) {
-            return ['offerings' => $input['offerings'], 'understanding' => null, 'calls' => 0];
+            if ($this->servicesFitSite($input)) {
+                return ['offerings' => $input['offerings'], 'understanding' => null, 'calls' => 0];
+            }
+            $reason = 'brand_services_not_on_site';
         }
+        $input['offerings'] = [];
 
         $cached = $this->cached($plan);
         if ($cached !== null) {
             $cached['source_detail'] = $cached['source'];
             $cached['source'] = self::SOURCE_CACHE;
+            $cached['reason'] = $reason;
 
             return ['offerings' => $this->toOfferings($cached['services'], $input), 'understanding' => $cached, 'calls' => 0];
         }
@@ -60,8 +66,65 @@ final class SeoSiteUnderstanding
             $understanding = $fallback;
         }
         $understanding['generated_at'] = now()->toIso8601String();
+        $understanding['reason'] = $reason;
 
         return ['offerings' => $this->toOfferings($understanding['services'], $input), 'understanding' => $understanding, 'calls' => $calls];
+    }
+
+    /**
+     * A Brand can own several websites. When this site's own search data and pages show none of the
+     * Brand's services (e.g. the agency's own site under a clinic Brand), the services do not
+     * describe the site and must not drive its plan.
+     */
+    public function servicesFitSite(array $input): bool
+    {
+        $rows = $input['gsc']['rows'] ?? [];
+        $totalImpressions = array_sum(array_column($rows, 'impressions'));
+        $minImpressions = SeoTaskConfig::int('understanding.fit_min_impressions', 200);
+        if ($totalImpressions < $minImpressions) {
+            return true; // not enough evidence to overrule the operator's services
+        }
+
+        $phrases = [];
+        $portfolio = [];
+        foreach ($input['offerings'] as $offering) {
+            foreach (array_merge([$offering['name']], $offering['names'] ?? [], $offering['keywords'] ?? []) as $phrase) {
+                if (is_string($phrase) && mb_strlen(trim($phrase)) >= 3) {
+                    $phrases[SeoText::fold($phrase)] = $phrase;
+                }
+            }
+            foreach ($offering['queries'] ?? [] as $query) {
+                $portfolio[mb_strtolower($query)] = true;
+            }
+        }
+
+        foreach ($input['pages'] ?? [] as $page) {
+            foreach ($phrases as $phrase) {
+                foreach ([$page['title'] ?? null, $page['h1'] ?? null] as $text) {
+                    if (is_string($text) && SeoText::containsPhrase($text, $phrase)) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        $matched = 0;
+        foreach ($rows as $row) {
+            if (isset($portfolio[mb_strtolower($row['query'])])) {
+                $matched += (int) $row['impressions'];
+
+                continue;
+            }
+            foreach ($phrases as $phrase) {
+                if (SeoText::containsPhrase($row['query'], $phrase)) {
+                    $matched += (int) $row['impressions'];
+
+                    break;
+                }
+            }
+        }
+
+        return $matched / max(1, $totalImpressions) >= SeoTaskConfig::float('understanding.fit_min_share', 0.03);
     }
 
     /** @return array<string, mixed>|null */

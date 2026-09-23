@@ -29,7 +29,7 @@ final class SeoTaskRuleEngine
         array_push($tasks, ...$assignmentResult['question_tasks']);
         array_push($tasks, ...$this->fixTasks($input, $pages, $assignmentsByOffering, $offerings));
         array_push($tasks, ...$this->strengthenTasks($input, $pages, $offerings, $offeringQueries, $queryIndex, $assignmentsByOffering));
-        array_push($tasks, ...$this->createTasks($input, $pages, $offerings, $offeringQueries, $queryIndex, $assignmentsByOffering));
+        array_push($tasks, ...$this->createTasks($input, $pages, $offerings, $offeringQueries, $queryIndex, $assignmentsByOffering, $assignmentResult['pending']));
         array_push($tasks, ...$this->aiVisibilityTasks($input, $pages, $offerings, $assignmentsByOffering));
 
         $tasks = $this->applyQuotas($tasks);
@@ -161,9 +161,14 @@ final class SeoTaskRuleEngine
         $maxCandidates = SeoTaskConfig::int('service_page.max_candidates_in_question', 4);
         $homeKey = $input['site']['home_key'] ?? '';
 
+        $marginMin = SeoTaskConfig::float('service_page.auto_assign_min_with_margin', 0.40);
+        $margin = SeoTaskConfig::float('service_page.auto_assign_margin', 0.15);
+
         $assignments = [];
         $byOffering = [];
         $questions = [];
+        $questionItems = [];
+        $pending = [];
 
         foreach ($offerings as $offering) {
             if (! empty($offering['inferred'])) {
@@ -179,50 +184,15 @@ final class SeoTaskRuleEngine
                 continue; // operator answer is final
             }
 
-            // Impression share of this offering's queries per page.
-            $shareByPage = [];
-            $total = 0;
-            foreach ($offeringQueries[$offering['id']] ?? [] as $queryKey) {
-                foreach ($queryIndex[$queryKey]['pages'] as $urlKey => $page) {
-                    $shareByPage[$urlKey] = ($shareByPage[$urlKey] ?? 0) + $page['impressions'];
-                    $total += $page['impressions'];
-                }
-            }
-
-            $scored = [];
-            foreach ($pages as $urlKey => $page) {
-                if ($urlKey === $homeKey || ($page['status_code'] !== null && $page['status_code'] >= 300) || $page['noindex']) {
-                    continue;
-                }
-                if ($page['cms_status'] !== null && $page['cms_status'] !== 'publish') {
-                    continue;
-                }
-                // Names, aliases and the service's matching keywords all count as identity phrases.
-                $phrases = array_values(array_unique(array_merge([$offering['name']], $offering['names'], $offering['keywords'])));
-                $slug = SeoText::slugText($page['url']);
-                $slugHit = 0.0;
-                $titleHit = 0.0;
-                foreach ($phrases as $phrase) {
-                    $slugHit = max($slugHit, SeoText::identityMatch($slug, $phrase));
-                    foreach ([$page['title'], $page['h1']] as $text) {
-                        if ($text === null || $text === '') {
-                            continue;
-                        }
-                        $titleHit = max($titleHit, SeoText::containsPhrase($text, $phrase) ? 1.0 : 0.7 * SeoText::identityMatch($text, $phrase));
-                    }
-                }
-                $score = 0.35 * $slugHit + 0.3 * $titleHit;
-                if ($total > 0 && isset($shareByPage[$urlKey])) {
-                    $score += 0.35 * ($shareByPage[$urlKey] / $total);
-                }
-                if ($score >= $askScore) {
-                    $scored[] = ['url' => $page['url'], 'url_key' => $urlKey, 'score' => round(min(1.0, $score), 4), 'title' => $page['title']];
-                }
-            }
-            usort($scored, static fn (array $a, array $b): int => $b['score'] <=> $a['score']);
+            $scored = $this->scoreServicePages($offering, $pages, $offeringQueries, $queryIndex, $homeKey, $askScore);
             $top = $scored[0] ?? null;
+            $second = $scored[1] ?? null;
+            $decisive = $top !== null && (
+                $top['score'] >= $autoScore
+                || ($top['score'] >= $marginMin && ($top['identity'] ?? 0) >= 0.5 && ($second === null || $margin <= $top['score'] - $second['score']))
+            );
 
-            if ($top !== null && $top['score'] >= $autoScore) {
+            if ($decisive) {
                 $assignments[] = [
                     'brand_offering_id' => $offering['id'],
                     'page_url' => $top['url'],
@@ -236,8 +206,10 @@ final class SeoTaskRuleEngine
                 continue;
             }
 
-            if ($top !== null) {
-                $candidates = array_slice($scored, 0, $maxCandidates);
+            $candidates = array_slice($scored, 0, $maxCandidates);
+            $byOffering[$offering['id']] = null;
+            // Only starred services interrupt the operator; others stay unmapped quietly.
+            if ($top !== null && $offering['is_priority']) {
                 $assignments[] = [
                     'brand_offering_id' => $offering['id'],
                     'page_url' => null,
@@ -246,19 +218,8 @@ final class SeoTaskRuleEngine
                     'score' => $top['score'],
                     'candidates' => $candidates,
                 ];
-                $byOffering[$offering['id']] = null;
-                $questions[] = $this->task(
-                    type: SeoTaskType::Question,
-                    ruleId: 'service-page-question',
-                    keyParts: ['offering:'.$offering['id']],
-                    severity: 'medium',
-                    score: 500,
-                    title: sprintf('"%s" hizmetinin sayfası hangisi?', $offering['name']),
-                    reason: sprintf('Sistem %d aday sayfa buldu ama hiçbiri eşik puanı (%.2f) geçmedi. Cevabın kaydedilir, bir daha sorulmaz.', count($candidates), $autoScore),
-                    evidence: ['candidates' => $candidates, 'offering' => $offering['name']],
-                    checklist: ['Aşağıdaki adaylardan birini seç veya "Sayfası yok" de.'],
-                    offeringId: $offering['id'],
-                );
+                $pending[$offering['id']] = true;
+                $questionItems[] = ['offering_id' => $offering['id'], 'name' => $offering['name'], 'candidates' => $candidates];
 
                 continue;
             }
@@ -268,13 +229,98 @@ final class SeoTaskRuleEngine
                 'page_url' => null,
                 'status' => ServicePageAssignment::STATUS_NONE,
                 'decision_source' => ServicePageAssignment::SOURCE_AUTO,
-                'score' => null,
-                'candidates' => [],
+                'score' => $top['score'] ?? null,
+                'candidates' => $candidates,
             ];
-            $byOffering[$offering['id']] = null;
+            if ($top !== null) {
+                $pending[$offering['id']] = true; // has candidates: never propose a brand-new service page for it
+            }
         }
 
-        return ['assignments' => $assignments, 'by_offering' => $byOffering, 'question_tasks' => $questions];
+        if ($questionItems !== []) {
+            $questions[] = $this->task(
+                type: SeoTaskType::Question,
+                ruleId: 'service-page-mapping',
+                keyParts: [],
+                severity: 'high',
+                score: 980,
+                title: sprintf('%d öncelikli hizmetin sayfasını eşleştir', count($questionItems)),
+                reason: 'Güçlendirme ve içerik önerileri doğru sayfaya bağlanabilsin diye her yıldızlı hizmetin ana sayfası bilinmeli. Sistem adayları buldu ama emin olamadı. Cevaplar kaydedilir, tekrar sorulmaz.',
+                evidence: ['services' => $questionItems],
+                checklist: ['Her hizmet için ana hizmet sayfasını seç; yoksa "Sayfası yok" de (sistem o hizmet için sayfa önerisi üretir).'],
+            );
+        }
+
+        return ['assignments' => $assignments, 'by_offering' => $byOffering, 'question_tasks' => $questions, 'pending' => $pending];
+    }
+
+    /**
+     * Rank candidate pages for one service. Title/H1 phrase match and the page's share of the
+     * service's search impressions dominate; blog/question-style pages are penalised because a
+     * service needs a commercial landing page, not an article.
+     *
+     * @return list<array{url: string, url_key: string, score: float, title: ?string}>
+     */
+    private function scoreServicePages(array $offering, array $pages, array $offeringQueries, array $queryIndex, string $homeKey, float $askScore): array
+    {
+        $shareByPage = [];
+        $total = 0;
+        foreach ($offeringQueries[$offering['id']] ?? [] as $queryKey) {
+            foreach ($queryIndex[$queryKey]['pages'] as $urlKey => $page) {
+                $shareByPage[$urlKey] = ($shareByPage[$urlKey] ?? 0) + $page['impressions'];
+                $total += $page['impressions'];
+            }
+        }
+        $phrases = array_values(array_unique(array_filter(array_merge([$offering['name']], $offering['names'], $offering['keywords']))));
+        $articlePatterns = SeoTaskConfig::list('understanding.excluded_path_patterns');
+
+        $scored = [];
+        foreach ($pages as $urlKey => $page) {
+            if ($urlKey === $homeKey || ($page['status_code'] !== null && $page['status_code'] >= 300) || $page['noindex']) {
+                continue;
+            }
+            if ($page['cms_status'] !== null && $page['cms_status'] !== 'publish') {
+                continue;
+            }
+            $slug = SeoText::slugText($page['url']);
+            $slugHit = 0.0;
+            $titleHit = 0.0;
+            foreach ($phrases as $phrase) {
+                $slugHit = max($slugHit, SeoText::identityMatch($slug, $phrase));
+                foreach ([$page['title'], $page['h1']] as $text) {
+                    if ($text === null || $text === '') {
+                        continue;
+                    }
+                    $titleHit = max($titleHit, SeoText::containsPhrase($text, $phrase) ? 1.0 : 0.6 * SeoText::identityMatch($text, $phrase));
+                }
+            }
+            $share = $total > 0 ? ($shareByPage[$urlKey] ?? 0) / $total : 0.0;
+            $score = 0.4 * $titleHit + 0.25 * $slugHit + 0.35 * $share;
+            if ($score <= 0) {
+                continue;
+            }
+
+            $path = mb_strtolower($page['path']);
+            $isArticle = SeoText::looksLikeQuestion((string) ($page['h1'] ?? $page['title'] ?? ''));
+            foreach ($articlePatterns as $pattern) {
+                if (str_contains($path, '/'.$pattern)) {
+                    $isArticle = true;
+                }
+            }
+            if ($isArticle) {
+                $score *= 0.6;
+            }
+            if (substr_count(trim($path, '/'), '/') === 0) {
+                $score += 0.05; // shallow commercial URL
+            }
+            $score = round(min(1.0, $score), 4);
+            if ($score >= $askScore) {
+                $scored[] = ['url' => $page['url'], 'url_key' => $urlKey, 'score' => $score, 'title' => $page['h1'] ?: $page['title'], 'identity' => round(max($titleHit, $slugHit), 2)];
+            }
+        }
+        usort($scored, static fn (array $a, array $b): int => $b['score'] <=> $a['score']);
+
+        return $scored;
     }
 
     // -------------------------------------------------------------------- fix
@@ -332,36 +378,49 @@ final class SeoTaskRuleEngine
             'alt-missing' => ['medium', 'Hizmet sayfalarında alt metni olmayan görseller', 'Hizmet sayfalarındaki görsellerde alt özniteliği yok; görsel arama ve erişilebilirlik kaybı.', ['Her görsele içeriği anlatan, hizmet adını doğal geçiren bir alt metni yaz.', 'Dekoratif görsellerde boş alt="" kullan.']],
         ];
         $hits = array_fill_keys(array_keys($buckets), []);
+        $hit = static function (array &$hits, string $rule, array $page, ?string $label = null): void {
+            $hits[$rule][$page['url_key']] = $label ?? $page['url'];
+        };
 
         foreach ($observed as $urlKey => $page) {
             if ($page['status_code'] !== null && $page['status_code'] >= 500) {
-                $hits['server-error'][] = $page['url'];
+                $hit($hits, 'server-error', $page, $page['url'].' ('.$page['status_code'].')');
             }
             if ($page['redirect_count'] !== null && $page['redirect_count'] >= $chainMin) {
-                $hits['redirect-chain'][] = $page['url'];
+                $hit($hits, 'redirect-chain', $page, $page['url'].' ('.$page['redirect_count'].' yönlendirme)');
             }
             foreach ($page['crawl_issues'] as $issue) {
                 $severity = mb_strtolower((string) ($issue['severity'] ?? ''));
                 if (in_array($severity, ['critical', 'error', 'high'], true)) {
-                    $hits['crawl-issue'][] = $page['url'].' — '.($issue['code'] ?? $issue['message'] ?? 'issue');
+                    $hit($hits, 'crawl-issue', $page, $page['url'].' — '.($issue['code'] ?? $issue['message'] ?? 'issue'));
                 }
             }
         }
         foreach ($indexable as $urlKey => $page) {
-            if ($page['title'] === null || $page['title'] === '') {
-                $hits['title-missing'][] = $page['url'];
+            $htmlRead = ($page['html_read'] ?? false) === true;
+            $headObserved = (bool) ($page['head_observed'] ?? ($page['title'] !== null));
+
+            // Missing ≠ not collected: only judge what was actually observed.
+            $titleMissing = $htmlRead
+                ? (int) ($page['title_count'] ?? 1) === 0 || ($page['title_present'] ?? null) === false
+                : ($page['title_present'] ?? null) === false;
+            if ($titleMissing) {
+                $hit($hits, 'title-missing', $page);
             }
-            if ($page['meta_description'] === null || $page['meta_description'] === '') {
-                $hits['meta-missing'][] = $page['url'];
+            $metaMissing = $headObserved
+                && ($page['meta_description'] === null || $page['meta_description'] === '')
+                && ! ($htmlRead && (int) ($page['description_count'] ?? 0) > 0);
+            if ($metaMissing) {
+                $hit($hits, 'meta-missing', $page);
             }
-            if (($page['html_read'] ?? false) === true) {
+            if ($htmlRead) {
                 if ((int) $page['h1_count'] === 0) {
-                    $hits['h1-missing'][] = $page['url'];
+                    $hit($hits, 'h1-missing', $page);
                 } elseif ((int) $page['h1_count'] > 1) {
-                    $hits['duplicate-h1'][] = $page['url'].' ('.$page['h1_count'].' H1)';
+                    $hit($hits, 'duplicate-h1', $page, $page['url'].' ('.$page['h1_count'].' H1)');
                 }
-            } elseif ($page['h1_present'] === false || (($page['h1'] === null || $page['h1'] === '') && $page['h1_present'] !== true && $page['title'] !== null)) {
-                $hits['h1-missing'][] = $page['url'];
+            } elseif ($page['h1_present'] === false) {
+                $hit($hits, 'h1-missing', $page);
             }
             if ($page['canonical_hrefs'] !== []) {
                 $self = SeoText::urlKey($page['url']);
@@ -374,11 +433,11 @@ final class SeoTaskRuleEngine
                     }
                 }
                 if (! $matches) {
-                    $hits['canonical-conflict'][] = $page['url'].' → '.$page['canonical_hrefs'][0];
+                    $hit($hits, 'canonical-conflict', $page, $page['url'].' → '.$page['canonical_hrefs'][0]);
                 }
             }
             if ($page['word_count'] !== null && $page['word_count'] < $thinWords) {
-                $hits['thin-content'][] = $page['url'].' ('.$page['word_count'].' kelime)';
+                $hit($hits, 'thin-content', $page, $page['url'].' ('.$page['word_count'].' kelime)');
             }
         }
 
@@ -387,7 +446,7 @@ final class SeoTaskRuleEngine
         foreach ($servicePageKeys as $key) {
             $page = $pages[$key] ?? null;
             if ($page !== null && ($page['html_read'] ?? false) && (int) ($page['images_missing_alt'] ?? 0) > 0) {
-                $hits['alt-missing'][] = sprintf('%s (%d/%d görsel)', $page['url'], $page['images_missing_alt'], $page['images_total']);
+                $hit($hits, 'alt-missing', $page, sprintf('%s (%d/%d görsel)', $page['url'], $page['images_missing_alt'], $page['images_total']));
             }
         }
 
@@ -407,20 +466,44 @@ final class SeoTaskRuleEngine
             );
         }
 
+        // Pages that earn search impressions come first in every list; they are what matters.
+        $traffic = [];
+        foreach ($input['gsc']['rows'] ?? [] as $row) {
+            $traffic[$row['url_key']] = ($traffic[$row['url_key']] ?? 0) + (int) $row['impressions'];
+        }
+        $observedCount = max(1, count($indexable));
+
         foreach ($buckets as $rule => [$severity, $title, $reason, $checklist]) {
-            $urls = array_values(array_unique($hits[$rule]));
-            if ($urls === []) {
+            $entries = $hits[$rule];
+            if ($entries === []) {
                 continue;
             }
+            uksort($entries, static fn (string $a, string $b): int => ($traffic[$b] ?? 0) <=> ($traffic[$a] ?? 0));
+            $withTraffic = count(array_filter(array_keys($entries), static fn (string $key): bool => ($traffic[$key] ?? 0) > 0));
+            $impressions = array_sum(array_map(static fn (string $key): int => $traffic[$key] ?? 0, array_keys($entries)));
+            $urls = array_values($entries);
+            $count = count($urls);
+            $share = $count / $observedCount;
+            $templateLevel = $count >= 20 && $share >= 0.5;
+
+            $reasonText = $reason;
+            if ($withTraffic > 0) {
+                $reasonText .= sprintf(' %d sayfa arama trafiği alıyor (%s gösterim / 90 gün); liste onlardan başlıyor.', $withTraffic, number_format($impressions));
+            }
+            if ($templateLevel) {
+                $reasonText .= sprintf(' Sorun indekslenebilir sayfaların %%%d\'inde: tek tek değil, şablon veya SEO eklentisi ayarında çözülmeli.', (int) round($share * 100));
+                $checklist = array_merge(['Önce tema/şablon ve SEO eklentisi (Yoast, Rank Math) varsayılanlarını düzelt; sonra listedeki trafik alan sayfaları tek tek kontrol et.'], $checklist);
+            }
+
             $tasks[] = $this->task(
                 type: SeoTaskType::Fix,
                 ruleId: $rule,
                 keyParts: [],
                 severity: $severity,
-                score: $this->fixScore($severity) + min(50, count($urls)),
-                title: sprintf('%s (%d)', $title, count($urls)),
-                reason: $reason,
-                evidence: ['count' => count($urls), 'urls' => array_slice($urls, 0, 25), 'truncated' => count($urls) > 25],
+                score: $this->fixScore($severity) + min(50, $count) + min(100, $withTraffic * 5),
+                title: sprintf('%s (%d)', $title, $count),
+                reason: $reasonText,
+                evidence: ['count' => $count, 'urls' => array_slice($urls, 0, 25), 'truncated' => $count > 25, 'with_traffic' => $withTraffic, 'impressions' => $impressions, 'share' => round($share, 3), 'template_level' => $templateLevel],
                 checklist: $checklist,
             );
         }
@@ -552,7 +635,7 @@ final class SeoTaskRuleEngine
     // ------------------------------------------------------------------ create
 
     /** @return list<array<string, mixed>> */
-    private function createTasks(array $input, array $pages, array $offerings, array $offeringQueries, array $queryIndex, array $assignments): array
+    private function createTasks(array $input, array $pages, array $offerings, array $offeringQueries, array $queryIndex, array $assignments, array $pendingOfferings = []): array
     {
         $minImpr = SeoTaskConfig::int('create.min_impressions', 30);
         $rankedMax = SeoTaskConfig::int('create.ranked_position_max', 20);
@@ -609,7 +692,7 @@ final class SeoTaskRuleEngine
 
         // 3) Priority offering without any service page → service page candidate.
         foreach ($offerings as $offering) {
-            if (! $offering['is_priority'] || ($assignments[$offering['id']] ?? null) !== null) {
+            if (! $offering['is_priority'] || ($assignments[$offering['id']] ?? null) !== null || isset($pendingOfferings[$offering['id']])) {
                 continue;
             }
             $bucketKey = $offering['id'].'|service|';
@@ -695,7 +778,7 @@ final class SeoTaskRuleEngine
                 keyParts: ['offering:'.$bucket['offering']['id'], 'loc:'.$bucket['intent']['location']],
                 severity: $bucket['offering']['is_priority'] ? 'high' : 'medium',
                 score: $bucket['score'],
-                title: $brief['page_title'],
+                title: $brief['task_title'],
                 reason: implode(' ', $reasonParts),
                 evidence: ['queries' => $bucket['queries'], 'impressions' => $bucket['impressions'], 'source' => $bucket['source']],
                 checklist: $brief['checklist'],
@@ -783,15 +866,13 @@ final class SeoTaskRuleEngine
             $targetUrl = rtrim($origin, '/').'/'.($type === 'guide' ? 'blog/' : '').$slug.'/';
         }
 
+        // Suggested <title>/H1: query first, then the promise; brand name is added by the SEO plugin.
         $pageTitle = match ($type) {
-            'guide' => ucfirst($topQuery).': adım adım rehber',
-            'faq' => $offering['name'].' hakkında sık sorulan sorular',
-            'location' => $location.' '.$offering['name'],
-            default => $offering['name'].' — hizmet sayfası',
+            'guide' => mb_convert_case(mb_substr($topQuery, 0, 1), MB_CASE_UPPER).mb_substr($topQuery, 1).': Adım Adım Rehber',
+            'faq' => $offering['name'].' Hakkında Sık Sorulan Sorular',
+            'location' => $location.' '.$offering['name'].': Süreç ve Fiyatlar',
+            default => $offering['name'].': Süreç, Fiyat ve Sık Sorulanlar',
         };
-        if (($bucket['missing_service_page'] ?? false) && $type === 'service') {
-            $pageTitle = $offering['name'].' hizmet sayfası oluştur';
-        }
 
         $outline = match ($type) {
             'guide' => [
@@ -821,6 +902,14 @@ final class SeoTaskRuleEngine
             ],
         };
 
+        $taskTitle = match (true) {
+            $decision === 'existing_page_section' => sprintf('%s sayfasına bölüm ekle (%d sorgu)', $offering['name'], count($queries)),
+            $type === 'guide' => 'Rehber yaz: '.$topQuery,
+            $type === 'faq' => 'SSS sayfası yaz: '.$offering['name'],
+            $type === 'location' => sprintf('Bölge sayfası aç: %s %s', $location, $offering['name']),
+            default => $offering['name'].' için hizmet sayfası aç',
+        };
+
         $checklist = [
             sprintf('%s: %s', $decision === 'new_page' ? 'Yeni sayfa aç' : 'Mevcut sayfaya bölüm ekle', $targetUrl),
             sprintf('Title/H1: "%s" ana sorgusunu içersin.', $topQuery),
@@ -835,6 +924,7 @@ final class SeoTaskRuleEngine
             'decision' => $decision,
             'page_type' => $type,
             'page_title' => $pageTitle,
+            'task_title' => $taskTitle,
             'target_url' => $targetUrl,
             'h2_outline' => $outline,
             'queries' => array_slice($queries, 0, SeoTaskConfig::int('create.bucket_max_queries', 12)),
