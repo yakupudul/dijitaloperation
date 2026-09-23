@@ -26,7 +26,6 @@ class ModuleBoundaryArchitectureTest extends TestCase
     private const CORE_WEBSITE_IMPORT_ALLOWLIST = [
         // Thin compatibility facades (domain already in module).
         'app/Services/WebsiteAiInsightService.php',
-        'app/Ai/Agents/WebsiteFindingInsightAgent.php',
         // Legacy Website Diagnosis orchestration still in Core; DocumentHead* lives in module.
         'app/Services/WebsiteDiagnosisService.php',
         // Core Filament composition surfaces that delegate to module presenters/services.
@@ -45,8 +44,7 @@ class ModuleBoundaryArchitectureTest extends TestCase
         // Sales Assistant prospect research reuses bounded public discovery crawl stack.
         'app/Services/Prospects/ProspectResearchService.php',
         'app/Services/Prospects/ProspectWebsiteValidator.php',
-        // Sales Intent Radar reuses PublicUrlSafety fetch + existing DataForSEO integration resolver.
-        'app/Services/Sales/IntentRadarService.php',
+        // Sales Intent Radar reuses the existing DataForSEO integration resolver.
         'app/Services/Sales/DataForSeoIntentSearchAdapter.php',
         // Shared Collection Engine adapters: reuse Website public-HTTP / SEO normalizers, no second store.
         'app/Services/Collection/Providers/Website/WebsiteDatasetExecutor.php',

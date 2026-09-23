@@ -3,11 +3,11 @@
 namespace Tests\Feature;
 
 use App\Livewire\Demo\NotificationBell;
-use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Livewire\Demo\Portfolio\CustomerDetail;
 use App\Livewire\Demo\Settings\AiAgentsPage;
 use App\Livewire\Demo\Settings\AiSkillsPage;
 use App\Livewire\Demo\SettingsPage;
+use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Models\DigitalAsset;
 use App\Models\User;
 use App\Support\Demo\DemoMenu;
@@ -93,7 +93,6 @@ class PanelDesignFreezeTest extends TestCase
     {
         Livewire::test(CustomerDetail::class, ['customerId' => (string) $this->portfolioCustomer->id])
             ->assertSee(__('operator.customer.tabs.overview'))
-            ->assertSee(__('operator.customer.tabs.requests'))
             ->assertSee(__('operator.customer.tabs.reports'))
             ->assertDontSee('Müşteri İlişkisi')
             ->assertSee(__('operator.customer.actions.add_brand'))

@@ -9,9 +9,7 @@ use App\Models\BrandIntelligenceContext;
 use App\Models\BrandOffering;
 use App\Models\Recommendation;
 use App\Services\Advisor\AdvisorWorkQueue;
-use App\Services\Approvals\ApprovalReadService;
 use App\Services\BrandIntelligence\BrandIntelligenceContextWriteService;
-use App\Services\ClientRequests\ClientRequestReadService;
 use App\Services\ClientValueStory\ClientValueStoryReadService;
 use App\Services\CreateTaskFromRecommendation;
 use App\Services\Findings\FindingReadService;
@@ -50,7 +48,7 @@ class BrandShow extends Component
         'value' => 'reports', 'history' => 'reports', 'research' => 'business', 'discovery' => 'business', 'context' => 'business', 'files' => 'overview',
     ];
 
-    public const array WORK_SECTIONS = ['findings', 'opportunities', 'recommendations', 'tasks', 'requests', 'approvals'];
+    public const array WORK_SECTIONS = ['findings', 'opportunities', 'recommendations', 'tasks'];
 
     public string $brand = '';
 
@@ -204,8 +202,6 @@ class BrandShow extends Component
         $findings = collect(app(FindingReadService::class)->forBrand($brand))->map(fn ($dto): array => $dto->toArray())->values();
         $recommendations = collect(app(RecommendationReadService::class)->forListPresentation(['brand_id' => $brand->id]));
         $tasks = collect(app(WorkReadService::class)->workItems())->filter(fn (array $t): bool => (int) ($t['brand_id'] ?? 0) === $brand->id)->values();
-        $requests = collect(app(ClientRequestReadService::class)->forBrandPresentation($brand->id));
-        $approvals = collect(app(ApprovalReadService::class)->forBrandPresentation($brand->id));
         $opportunities = collect(app(OpportunityReadService::class)->forListPresentation(['brand_id' => $brand->id]));
 
         $openFindings = $findings->where('status', 'open');
@@ -216,8 +212,6 @@ class BrandShow extends Component
             'opportunities' => ['label' => 'Fırsatlar', 'count' => $opportunities->whereIn('status', ['open', 'reviewing'])->count(), 'rows' => $opportunities],
             'recommendations' => ['label' => 'Öneriler', 'count' => $openRecommendations->count(), 'rows' => $recommendations],
             'tasks' => ['label' => 'Görevler', 'count' => $openTasks->count(), 'rows' => $tasks],
-            'requests' => ['label' => 'Müşteri talepleri', 'count' => $requests->whereNotIn('status', ['done', 'declined', 'closed'])->count(), 'rows' => $requests],
-            'approvals' => ['label' => 'Onaylar', 'count' => $approvals->whereIn('status', ['pending', 'requested'])->count(), 'rows' => $approvals],
         ];
 
         $seo = $workspace->seo($assets);
@@ -227,7 +221,6 @@ class BrandShow extends Component
             $seo['content'] > 0 ? ['tone' => 'info', 'text' => $seo['content'].' içerik önerisi', 'url' => route('operator.website', ['assetId' => $seo['website_id'], 'tab' => 'seo'])] : null,
             ($critical = $openFindings->whereIn('severity', ['critical', 'high'])->count()) > 0 ? ['tone' => 'error', 'text' => $critical.' kritik/yüksek bulgu', 'ops' => 'findings'] : null,
             ($blocked = $tasks->where('status', 'blocked')->count()) > 0 ? ['tone' => 'warning', 'text' => $blocked.' görev engelli', 'ops' => 'tasks'] : null,
-            $work['requests']['count'] > 0 ? ['tone' => 'info', 'text' => $work['requests']['count'].' açık müşteri talebi', 'ops' => 'requests'] : null,
             $work['recommendations']['count'] > 0 ? ['tone' => 'info', 'text' => $work['recommendations']['count'].' karar bekleyen öneri', 'ops' => 'recommendations'] : null,
         ]));
 

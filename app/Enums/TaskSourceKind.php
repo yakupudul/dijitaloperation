@@ -10,7 +10,9 @@ namespace App\Enums;
 enum TaskSourceKind: string
 {
     case Recommendation = 'recommendation';
+    /** @deprecated Faz 1: producer removed */
     case ClientRequest = 'client_request';
     case Direct = 'direct';
+    /** @deprecated Faz 1: producer removed */
     case RecurringReviewCheck = 'recurring_review_check';
 }

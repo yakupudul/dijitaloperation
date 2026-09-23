@@ -1297,78 +1297,14 @@ return [
     ],
 
     'requests' => [
-        'title' => 'Client requests',
-        'subtitle' => 'Inbound client asks — triage, plan, and convert to work.',
         'description' => 'Description',
-        'empty' => 'No client requests for this customer.',
-        'in_scope' => 'In scope',
-        'out_of_scope' => 'Out of scope',
-        'status_updated' => 'Client request updated',
-        'task_created' => 'Task created from client request',
-        'columns' => [
-            'title' => 'Request',
-            'status' => 'Status',
-            'scope' => 'Scope',
-            'owner' => 'Owner',
-            'due' => 'Due',
-        ],
-        'actions' => [
-            'triage' => 'Triage',
-            'plan' => 'Plan',
-            'wait' => 'Wait on client',
-            'done' => 'Done',
-            'decline' => 'Decline',
-            'create_task' => 'Create task',
-        ],
-    ],
-
-    'approvals' => [
-        'title' => 'Approvals',
-        'empty' => 'No pending approvals.',
-        'approve' => 'Approve',
-        'updated' => 'Approval updated',
-        'requested' => 'Approval requested',
     ],
 
     'playbooks' => [
-        'catalog' => 'Playbooks',
-        'catalog_subtitle' => 'Operational standards — production Playbook catalog.',
         'settings_defaults' => 'Defaults',
-        'standard_label' => 'Operational standard',
-        'overview' => 'Overview',
-        'applicability' => 'Applicability',
-        'checklist' => 'Checklist',
-        'instructions' => 'Instructions',
         'when_to_use' => 'When to use',
         'when_not_to_use' => 'When not to use',
         'methodology' => 'Method',
-        'qa_guidance' => 'QA guidance',
-        'related_ai_skill' => 'Related AI Skill',
-        'ai_skill_note' => 'AI Skill may assist this Playbook — it does not replace the operating standard.',
-        'references' => 'References',
-        'recent_reviews' => 'Recent reviews',
-        'default_owner' => 'Default owner',
-        'not_found' => 'Playbook not found.',
-        'back' => 'Back to playbooks',
-    ],
-
-    'reviews' => [
-        'title' => 'Recurring reviews',
-        'none_due' => 'No recurring reviews due.',
-        'status_updated' => 'Recurring review updated',
-        'completed' => 'Recurring review completed',
-        'skipped' => 'Recurring review skipped',
-        'complete_no_issue' => 'Complete — no issue',
-        'complete_opportunity' => 'Complete — log opportunity',
-        'complete_task' => 'Complete — create task',
-        'skip' => 'Skip',
-    ],
-
-    'qa' => [
-        'required' => 'QA required',
-        'approve' => 'Approve QA',
-        'updated' => 'QA status updated',
-        'requested' => 'QA review requested',
     ],
 
     'capacity' => [

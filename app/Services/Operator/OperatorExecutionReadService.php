@@ -50,7 +50,6 @@ final class OperatorExecutionReadService
                 ['label' => __('operator.dashboard_exec.due_today'), 'value' => $open->where('due_key', 'today')->count(), 'route' => 'operator.tasks', 'route_params' => ['view' => 'due_today'], 'tone' => 'warning'],
                 ['label' => __('operator.dashboard_exec.overdue'), 'value' => $open->where('due_key', 'overdue')->count(), 'route' => 'operator.tasks', 'route_params' => ['view' => 'overdue'], 'tone' => 'error'],
                 ['label' => __('operator.dashboard_exec.awaiting_decision'), 'value' => $awaitingDecision, 'route' => 'operator.recommendations', 'route_params' => [], 'tone' => 'info'],
-                ['label' => __('operator.dashboard_exec.waiting_on_client'), 'value' => $open->where('waiting_on_client', true)->count(), 'route' => 'operator.tasks', 'route_params' => ['view' => 'waiting_on_client'], 'tone' => 'info'],
             ],
             'needs_attention' => $this->attention($open, $mode),
             'my_work' => $mine
@@ -64,12 +63,6 @@ final class OperatorExecutionReadService
                 ->values()
                 ->all(),
             'team_capacity' => $this->teamCapacity($open->values()->all()),
-            'recurring_reviews_due' => $open
-                ->where('type', 'recurring_review')
-                ->whereIn('status', ['due', 'overdue', 'upcoming', 'scheduled', 'in_progress'])
-                ->take(5)
-                ->values()
-                ->all(),
             'portfolio_focus' => [],
             'system_exceptions' => [],
             'recent_outcomes' => [],
@@ -172,9 +165,7 @@ final class OperatorExecutionReadService
         $limit = $mode === 'agency' ? 3 : 5;
 
         return $items
-            ->filter(fn (array $row): bool => in_array($row['due_key'] ?? '', ['overdue', 'today'], true)
-                || (bool) ($row['waiting_on_client'] ?? false)
-                || (bool) ($row['qa_required'] ?? false))
+            ->filter(fn (array $row): bool => in_array($row['due_key'] ?? '', ['overdue', 'today'], true))
             ->take($limit)
             ->map(fn (array $row): array => [
                 'severity' => ($row['due_key'] ?? '') === 'overdue' ? 'high' : 'medium',

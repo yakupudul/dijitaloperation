@@ -3,9 +3,6 @@
 namespace App\Support\Reality;
 
 use App\Models\DigitalAsset;
-use App\Models\Evidence;
-use App\Services\InstagramAccountProfileCollectService;
-use Illuminate\Support\Carbon;
 
 /**
  * Truthful empty/unavailable specialist shells for production Digital Assets
@@ -469,58 +466,6 @@ final class UnavailableWorkspaceShells
                 'evidence' => [],
                 'disclaimer' => 'No Demo AI guidance is shown for production assets without collected observations.',
             ],
-        ];
-    }
-
-    /**
-     * Instagram has no analytics collection yet. The page shows who the account belongs to and, when a
-     * read-only profile collection exists, the last collected profile fields. Nothing else is invented.
-     *
-     * @return array{identity: array{asset_id: string, title: string, brand_id: int|null, brand_name: string|null}, profile: array{username: string|null, name: string|null, account_type: string|null, biography: string|null, website: string|null, observed_at: Carbon|null}|null}
-     */
-    public static function instagram(string $assetId): array
-    {
-        $asset = self::asset($assetId);
-
-        return [
-            'identity' => [
-                'asset_id' => $assetId,
-                'title' => $asset?->name ?? 'Instagram',
-                'brand_id' => $asset?->brand_id,
-                'brand_name' => $asset?->brand?->name,
-            ],
-            'profile' => $asset instanceof DigitalAsset ? self::latestInstagramProfile($asset) : null,
-        ];
-    }
-
-    /**
-     * @return array{username: string|null, name: string|null, account_type: string|null, biography: string|null, website: string|null, observed_at: Carbon|null}|null
-     */
-    private static function latestInstagramProfile(DigitalAsset $asset): ?array
-    {
-        $evidence = Evidence::query()
-            ->where('digital_asset_id', $asset->id)
-            ->where('type', InstagramAccountProfileCollectService::EVIDENCE_TYPE_ACCOUNT_PROFILE)
-            ->where('payload->ok', true)
-            ->orderByDesc('observed_at')
-            ->orderByDesc('id')
-            ->first();
-
-        if (! $evidence instanceof Evidence || ! is_array($evidence->payload)) {
-            return null;
-        }
-
-        $text = static function (mixed $value): ?string {
-            return is_string($value) && trim($value) !== '' ? trim($value) : null;
-        };
-
-        return [
-            'username' => $text($evidence->payload['username'] ?? null),
-            'name' => $text($evidence->payload['name'] ?? null),
-            'account_type' => $text($evidence->payload['account_type'] ?? null),
-            'biography' => $text($evidence->payload['biography'] ?? null),
-            'website' => $text($evidence->payload['website'] ?? null),
-            'observed_at' => $evidence->observed_at,
         ];
     }
 

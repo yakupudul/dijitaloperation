@@ -91,7 +91,7 @@ class CanonicalAppUrlIntegrityTest extends TestCase
 
     public function test_instagram_and_profile_and_files_routes_smoke(): void
     {
-        $this->get('/assets/instagram')->assertNotFound();
+        $this->get('/assets/instagram')->assertRedirect(route('operator.assets'));
         $this->get('/profile')->assertOk();
         $this->get('/files')->assertOk();
         $this->get('/integrations/site-connectors')->assertOk();

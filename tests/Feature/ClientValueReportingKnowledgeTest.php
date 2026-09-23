@@ -2,22 +2,11 @@
 
 namespace Tests\Feature;
 
-use App\Enums\RecurringReviewOccurrenceKind;
 use App\Livewire\Demo\CaptureModal;
 use App\Livewire\Demo\Dashboard;
-use App\Livewire\Demo\GlobalSearch;
-use App\Livewire\Demo\Operations\WorkShow;
-use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Livewire\Demo\Portfolio\CustomerDetail;
-use App\Livewire\Demo\Settings\PlaybookShow;
-use App\Models\Brand;
-use App\Models\Customer;
-use App\Models\DigitalAsset;
-use App\Models\Playbook;
+use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Models\User;
-use App\Services\Playbooks\SeedDefaultPlaybooks;
-use App\Services\RecurringReviews\MaterializeRecurringReviewOccurrence;
-use App\Services\RecurringReviews\RecurringReviewScheduleService;
 use App\Support\Demo\ClientValueFixtures;
 use App\Support\Demo\DemoState;
 use App\Support\Roles;
@@ -45,7 +34,6 @@ class ClientValueReportingKnowledgeTest extends TestCase
         $this->actingAs($user);
 
         DemoState::reset();
-        app(SeedDefaultPlaybooks::class)->seed($user);
         $this->seedCanonicalPortfolio();
     }
 
@@ -133,51 +121,6 @@ class ClientValueReportingKnowledgeTest extends TestCase
             ->assertDontSee('Prefer German expansion after September');
     }
 
-    public function test_playbook_knowledge_and_ai_skill_distinction(): void
-    {
-        Livewire::test(PlaybookShow::class, ['playbookId' => 'pb-weekly-gads'])
-            ->assertOk()
-            ->assertSee(__('operator.playbooks.when_to_use'))
-            ->assertSee(__('operator.playbooks.when_not_to_use'))
-            ->assertSee(__('operator.playbooks.methodology'))
-            ->assertSee(__('operator.playbooks.qa_guidance'))
-            ->assertSee('Search Query Analysis')
-            ->assertSee(__('operator.playbooks.ai_skill_note'));
-    }
-
-    public function test_work_contextual_knowledge(): void
-    {
-        $customer = Customer::factory()->create();
-        $brand = Brand::factory()->create(['customer_id' => $customer->id]);
-        $asset = DigitalAsset::factory()->create(['brand_id' => $brand->id, 'type' => 'google_ads']);
-        $playbook = Playbook::query()->where('stable_key', 'pb-weekly-gads')->firstOrFail();
-
-        $schedule = app(RecurringReviewScheduleService::class)->create([
-            'customer_id' => $customer->id,
-            'scope_kind' => 'digital_asset',
-            'brand_id' => $brand->id,
-            'digital_asset_id' => $asset->id,
-            'playbook_id' => $playbook->id,
-            'cadence' => 'weekly',
-            'timezone' => 'UTC',
-            'starts_at' => now()->toDateTimeString(),
-            'checks' => [['title' => 'Confirm conversion signal']],
-        ], auth()->user(), 'cv-rr-sched');
-
-        $run = app(MaterializeRecurringReviewOccurrence::class)->materialize(
-            $schedule,
-            'manual:cv-knowledge',
-            now(),
-            RecurringReviewOccurrenceKind::Manual,
-            auth()->user(),
-        );
-
-        Livewire::test(WorkShow::class, ['workId' => (string) $run->id, 'type' => 'recurring_review'])
-            ->assertOk()
-            ->assertSee(__('operator.value.work_context'))
-            ->assertSee(__('operator.value.work_context_playbook'));
-    }
-
     public function test_dashboard_recent_value_and_search_types(): void
     {
         // Prompt 67 cleared Demo recentValue on the executive dashboard — section hidden when empty.
@@ -185,10 +128,6 @@ class ClientValueReportingKnowledgeTest extends TestCase
             ->assertOk()
             ->assertDontSee('Atlas Dental')
             ->assertDontSee(__('operator.dashboard_exec.open_value'));
-
-        Livewire::test(GlobalSearch::class)
-            ->set('q', 'Weekly Google Ads')
-            ->assertSee('Playbook');
     }
 
     public function test_no_production_tables_for_value_entities(): void

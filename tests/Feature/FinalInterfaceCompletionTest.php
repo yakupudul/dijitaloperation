@@ -3,11 +3,10 @@
 namespace Tests\Feature;
 
 use App\Livewire\Demo\Files\FilesIndex;
-use App\Livewire\Demo\Instagram\OverviewPage as InstagramOverviewPage;
-use App\Livewire\Operator\Integrations\SiteConnectorShow;
 use App\Livewire\Demo\ProfilePage;
 use App\Livewire\Demo\Settings\AiControlPlanePage;
 use App\Livewire\Demo\SettingsPage;
+use App\Livewire\Operator\Integrations\SiteConnectorShow;
 use App\Models\DigitalAsset;
 use App\Models\OperatorFile;
 use App\Models\User;
@@ -139,9 +138,9 @@ class FinalInterfaceCompletionTest extends TestCase
         $this->assertStringContainsString('Plugin Name: MoxDOP Website Connector', $plugin);
     }
 
-    public function test_instagram_workspace_returns_ok_with_useful_tabs(): void
+    public function test_retired_instagram_workspace_redirects_to_asset_list(): void
     {
-        $this->get(route('operator.instagram'))->assertNotFound();
+        $this->get(route('operator.instagram'))->assertRedirect(route('operator.assets'));
 
         $asset = DigitalAsset::factory()->create([
             'type' => 'instagram',
@@ -149,19 +148,7 @@ class FinalInterfaceCompletionTest extends TestCase
         ]);
 
         $this->get(route('operator.instagram', ['assetId' => $asset->id]))
-            ->assertOk()
-            ->assertSee('Instagram')
-            ->assertSee('Northwind Instagram')
-            ->assertSee(__('operator.commercial.outside_scope'))
-            ->assertDontSee('@atlasdentalankara')
-            ->assertDontSee('Website URL mismatch');
-
-        Livewire::test(InstagramOverviewPage::class, ['assetId' => (string) $asset->id])
-            ->call('setTab', 'profile')
-            ->assertSee('Northwind Instagram')
-            ->assertDontSee('atlasdentalankara')
-            ->call('setTab', 'operations')
-            ->assertDontSee('Bio website path');
+            ->assertRedirect(route('operator.assets'));
     }
 
     public function test_demo_menu_includes_files_item(): void

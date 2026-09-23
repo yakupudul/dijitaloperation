@@ -7,7 +7,6 @@ use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Services\Findings\FindingReadService;
 use App\Services\Operator\OperatorPortfolioPresenter;
-use App\Services\Playbooks\PlaybookReadService;
 use App\Services\Work\WorkReadService;
 use Illuminate\Contracts\View\View;
 use Livewire\Component;
@@ -107,17 +106,6 @@ class GlobalSearch extends Component
                         'url' => isset($task['id'], $task['type'])
                             ? route('operator.work.show', ['workId' => $task['id'], 'type' => $task['type']])
                             : route('operator.tasks'),
-                    ];
-                }
-            }
-
-            foreach (app(PlaybookReadService::class)->forList(['status' => 'active', 'search' => $needle], 20) as $playbook) {
-                $name = (string) ($playbook['name'] ?? '');
-                if ($name !== '') {
-                    $results[] = [
-                        'label' => $name,
-                        'meta' => 'Playbook',
-                        'url' => route('operator.settings.playbook', ['playbookId' => $playbook['id']]),
                     ];
                 }
             }

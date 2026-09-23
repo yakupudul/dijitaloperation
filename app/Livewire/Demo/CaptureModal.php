@@ -2,15 +2,12 @@
 
 namespace App\Livewire\Demo;
 
-use App\Enums\ClientRequestChannel;
 use App\Enums\TaskScopeKind;
 use App\Models\Brand;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\Task;
-use App\Services\ClientRequests\CreateClientRequest;
 use App\Services\Tasks\CreateDirectTask;
-use App\Support\Demo\AgencyExecutionFixtures;
 use App\Support\Demo\DemoState;
 use App\Support\Work\WorkUrl;
 use Illuminate\Contracts\View\View;
@@ -24,7 +21,7 @@ class CaptureModal extends Component
 {
     public bool $open = false;
 
-    public string $captureType = 'client_request';
+    public string $captureType = 'task';
 
     #[Url(as: 'capture_brand')]
     public ?string $prefillBrand = null;
@@ -61,7 +58,7 @@ class CaptureModal extends Component
     public function openCapture(?string $type = null, ?string $brand = null, ?string $customer = null, ?string $path = null): void
     {
         $this->open = true;
-        if ($type !== null && in_array($type, ['client_request', 'task'], true)) {
+        if ($type !== null && $type === 'task') {
             $this->captureType = $type;
         }
 
@@ -95,7 +92,7 @@ class CaptureModal extends Component
 
     public function setCaptureType(string $type): void
     {
-        if (in_array($type, ['client_request', 'task'], true)) {
+        if ($type === 'task') {
             $this->captureType = $type;
         }
     }
@@ -119,7 +116,6 @@ class CaptureModal extends Component
         ]);
 
         $saved = match ($this->captureType) {
-            'client_request' => $this->saveClientRequest(),
             'task' => $this->saveDirectTask(),
             'opportunity_hypothesis' => $this->saveOpportunityHypothesis(),
             'note' => $this->saveNote(),
@@ -145,63 +141,11 @@ class CaptureModal extends Component
         $customerId = is_numeric($this->prefillCustomer) ? (int) $this->prefillCustomer : null;
 
         return view('livewire.demo.capture-modal', [
-            'defaults' => AgencyExecutionFixtures::captureDefaults(),
             'customerOptions' => Customer::query()->orderBy('name')->pluck('name', 'id')->all(),
             'brandOptions' => $customerId === null
                 ? []
                 : Brand::query()->where('customer_id', $customerId)->orderBy('name')->pluck('name', 'id')->all(),
         ]);
-    }
-
-    private function saveClientRequest(): bool
-    {
-        $customerId = $this->prefillCustomer;
-        $brandId = $this->prefillBrand;
-
-        if (! is_numeric($customerId) || ! is_numeric($brandId)) {
-            DemoState::flash(__('operator.flash.capture_requires_customer_brand'));
-
-            return false;
-        }
-
-        $customer = Customer::query()->find((int) $customerId);
-        $brand = Brand::query()->find((int) $brandId);
-
-        if ($customer === null || $brand === null) {
-            DemoState::flash(__('operator.flash.capture_requires_customer_brand'));
-
-            return false;
-        }
-
-        if ((int) $brand->customer_id !== (int) $customer->id) {
-            DemoState::flash(__('operator.flash.brand_must_belong'));
-
-            return false;
-        }
-
-        $channel = ClientRequestChannel::tryFrom($this->source)?->value
-            ?? ClientRequestChannel::Other->value;
-
-        try {
-            app(CreateClientRequest::class)->create([
-                'title' => $this->title,
-                'description' => $this->description,
-                'customer_id' => $customer->id,
-                'brand_id' => $brand->id,
-                'channel' => $channel,
-                'priority' => $this->priority,
-                'due_label' => $this->due !== '' ? $this->due : null,
-            ], auth()->user(), 'capture-client-request:'.$this->captureNonce);
-
-            $this->captureNonce = (string) Str::uuid();
-            DemoState::flash(__('operator.capture.saved_request'));
-
-            return true;
-        } catch (ValidationException $exception) {
-            DemoState::flash(collect($exception->errors())->flatten()->first() ?? 'Client Request capture failed.');
-
-            return false;
-        }
     }
 
     private function saveDirectTask(): Task|false

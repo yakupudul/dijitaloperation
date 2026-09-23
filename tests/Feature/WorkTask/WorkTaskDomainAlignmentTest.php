@@ -15,8 +15,6 @@ use App\Models\Opportunity;
 use App\Models\Recommendation;
 use App\Models\Task;
 use App\Models\User;
-use App\Services\ClientRequests\CreateClientRequest;
-use App\Services\ClientRequests\CreateTaskFromClientRequest;
 use App\Services\CreateTaskFromRecommendation;
 use App\Services\Tasks\CreateDirectTask;
 use App\Services\Tasks\CreateTask;
@@ -242,29 +240,6 @@ class WorkTaskDomainAlignmentTest extends TestCase
         $this->assertSame($recommendation->id, $task->recommendation_id);
     }
 
-    public function test_client_request_to_task_converged_source(): void
-    {
-        $request = app(CreateClientRequest::class)->create([
-            'title' => 'Update phone',
-            'customer_id' => $this->customer->id,
-            'brand_id' => $this->brand->id,
-            'digital_asset_id' => $this->asset->id,
-        ], $this->actor);
-
-        $task = app(CreateTaskFromClientRequest::class)->create(
-            $request,
-            [],
-            $this->actor,
-            'cr-task:'.$request->id.':1',
-        );
-
-        $this->assertSame(TaskSourceKind::ClientRequest, $task->source_kind);
-        $this->assertSame($request->id, $task->client_request_id);
-        $this->assertNull($task->recommendation_id);
-        $this->assertNull($task->assignee_id);
-        Http::assertNothingSent();
-    }
-
     public function test_source_xor_rejects_competing_primary_sources(): void
     {
         $finding = Finding::factory()->create([
@@ -276,13 +251,6 @@ class WorkTaskDomainAlignmentTest extends TestCase
             'finding_id' => $finding->id,
             'digital_asset_id' => $this->asset->id,
         ]);
-        $request = app(CreateClientRequest::class)->create([
-            'title' => 'Request',
-            'customer_id' => $this->customer->id,
-            'brand_id' => $this->brand->id,
-            'digital_asset_id' => $this->asset->id,
-        ], $this->actor);
-
         $this->expectException(TaskSourceValidationException::class);
         app(CreateTask::class)->create([
             'title' => 'Both sources',
@@ -290,9 +258,8 @@ class WorkTaskDomainAlignmentTest extends TestCase
             'brand_id' => $this->brand->id,
             'digital_asset_id' => $this->asset->id,
             'scope_kind' => TaskScopeKind::DigitalAsset->value,
-            'source_kind' => TaskSourceKind::Recommendation->value,
+            'source_kind' => TaskSourceKind::Direct->value,
             'recommendation_id' => $recommendation->id,
-            'client_request_id' => $request->id,
         ], $this->actor);
     }
 

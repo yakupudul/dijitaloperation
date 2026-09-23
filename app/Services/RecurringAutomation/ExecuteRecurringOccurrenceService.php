@@ -30,6 +30,17 @@ final class ExecuteRecurringOccurrenceService
             return $occurrence;
         }
 
+        // Faz 1: occurrences of removed schedule kinds (e.g. recurring_review) are skipped, never executed.
+        if (! $this->registry->has($occurrence->schedule_kind)) {
+            $occurrence->status = RecurringOccurrenceStatus::Skipped;
+            $occurrence->failure_code = 'SCHEDULE_KIND_REMOVED';
+            $occurrence->failure_message = 'Schedule kind is no longer supported';
+            $occurrence->finished_at = CarbonImmutable::now('UTC');
+            $occurrence->save();
+
+            return $occurrence;
+        }
+
         $claimed = $this->claim($occurrence);
         if ($claimed === null) {
             return $occurrence->fresh() ?? $occurrence;

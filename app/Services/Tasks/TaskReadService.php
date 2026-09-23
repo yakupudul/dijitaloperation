@@ -5,22 +5,15 @@ namespace App\Services\Tasks;
 use App\Enums\TaskScopeKind;
 use App\Enums\TaskSourceKind;
 use App\Models\Task;
-use App\Services\Approvals\ApprovalReadService;
-use App\Services\Qa\QaReadService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Canonical Task reads. No provider calls. No Demo fallback.
- * QA/Approval fields are read projections over canonical domains.
+ * QA/Approval fields are kept as empty projections (Faz 1: QA/Approval workflows removed).
  */
 final class TaskReadService
 {
-    public function __construct(
-        private readonly QaReadService $qa,
-        private readonly ApprovalReadService $approvals,
-    ) {}
-
     /**
      * @param  array{
      *     customer_id?: int|null,
@@ -110,7 +103,6 @@ final class TaskReadService
             'digitalAsset:id,name,type,brand_id',
             'assignee:id,name',
             'recommendation:id,title,status,source_kind,finding_id,opportunity_id',
-            'clientRequest:id,title,status,intake_scope_state,service_definition_id',
         ]);
     }
 
@@ -163,14 +155,11 @@ final class TaskReadService
      */
     private function batchProjections(array $tasks): array
     {
-        $ids = array_map(fn (Task $task): int => (int) $task->id, $tasks);
-        $qa = $this->qa->latestByTaskIds($ids);
-        $approvals = $this->approvals->latestByTaskIds($ids);
         $out = [];
-        foreach ($ids as $id) {
-            $out[$id] = [
-                'qa' => $qa[$id] ?? null,
-                'approval' => $approvals[$id] ?? null,
+        foreach ($tasks as $task) {
+            $out[(int) $task->id] = [
+                'qa' => null,
+                'approval' => null,
             ];
         }
 
@@ -190,46 +179,8 @@ final class TaskReadService
             ? $task->source_kind
             : TaskSourceKind::tryFrom((string) $task->source_kind);
 
-        if ($projection === null) {
-            $projection = [
-                'qa' => $this->qa->latestForTask($task),
-                'approval' => $this->approvals->latestForTask($task),
-            ];
-        }
-
-        $qa = $projection['qa'];
-        $approval = $projection['approval'];
-
-        $qaCurrent = (bool) ($qa['is_current_for_subject'] ?? true);
-        $qaStatus = null;
-        $qaRequired = false;
-        if ($qa !== null) {
-            $rawStatus = $qa['status'] ?? null;
-            $rawResult = $qa['result'] ?? null;
-            if (! $qaCurrent) {
-                $qaStatus = 'stale';
-                $qaRequired = true;
-            } elseif (in_array($rawStatus, ['pending', 'in_review'], true)) {
-                $qaStatus = 'ready';
-                $qaRequired = true;
-            } elseif ($rawResult === 'passed') {
-                $qaStatus = 'approved';
-                $qaRequired = false;
-            } elseif (in_array($rawResult, ['failed', 'needs_changes'], true)) {
-                $qaStatus = $rawResult;
-                $qaRequired = true;
-            } else {
-                $qaStatus = $rawStatus;
-                $qaRequired = (bool) ($qa['qa_required_projection'] ?? false);
-            }
-        }
-
-        $approvalCurrent = (bool) ($approval['is_current_for_subject'] ?? true);
-        $approvalRequired = $approval !== null
-            && ($approval['status'] ?? null) === 'pending'
-            && $approvalCurrent;
-        $waitingOnClient = $approvalRequired
-            && (bool) ($approval['waiting_on_client'] ?? false);
+        $qa = $projection['qa'] ?? null;
+        $approval = $projection['approval'] ?? null;
 
         return [
             'id' => (string) $task->id,
@@ -263,8 +214,8 @@ final class TaskReadService
             'recommendation_id' => $task->recommendation_id,
             'client_request_id' => $task->client_request_id,
             'recurring_review_run_item_id' => $task->recurring_review_run_item_id,
-            'source_title' => $task->recommendation?->title ?? $task->clientRequest?->title,
-            'source_status' => $task->recommendation?->status ?? $task->clientRequest?->status?->value,
+            'source_title' => $task->recommendation?->title,
+            'source_status' => $task->recommendation?->status,
             'owner' => $task->assignee?->name ?? 'Unassigned',
             'owner_id' => $task->assignee_id,
             'assignee_id' => $task->assignee_id,
@@ -273,12 +224,12 @@ final class TaskReadService
             'due_key' => $this->dueKey($task),
             'status' => $task->status,
             'priority' => $task->priority,
-            'waiting_on_client' => $waitingOnClient,
-            'qa_required' => $qaRequired,
-            'qa_status' => $qaStatus,
+            'waiting_on_client' => false,
+            'qa_required' => false,
+            'qa_status' => null,
             'current_qa' => $qa,
             'current_approval' => $approval,
-            'approval_required' => $approvalRequired,
+            'approval_required' => false,
             'effort' => null,
             'service_label' => null,
             'goal_title' => null,

@@ -12,12 +12,6 @@ final class WorkUrl
 {
     public const string TYPE_TASK = 'task';
 
-    public const string TYPE_CLIENT_REQUEST = 'client_request';
-
-    public const string TYPE_APPROVAL = 'approval';
-
-    public const string TYPE_RECURRING_REVIEW = 'recurring_review';
-
     /**
      * @return list<string>
      */
@@ -25,9 +19,6 @@ final class WorkUrl
     {
         return [
             self::TYPE_TASK,
-            self::TYPE_CLIENT_REQUEST,
-            self::TYPE_APPROVAL,
-            self::TYPE_RECURRING_REVIEW,
         ];
     }
 

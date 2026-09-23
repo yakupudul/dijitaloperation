@@ -1298,78 +1298,14 @@ return [
     ],
 
     'requests' => [
-        'title' => 'Müşteri talepleri',
-        'subtitle' => 'Gelen müşteri istekleri — triyaj, planlama ve işe dönüştürme.',
         'description' => 'Açıklama',
-        'empty' => 'Bu müşteri için müşteri talebi yok.',
-        'in_scope' => 'Kapsamda',
-        'out_of_scope' => 'Kapsam dışı',
-        'status_updated' => 'Müşteri talebi güncellendi',
-        'task_created' => 'Müşteri talebinden görev oluşturuldu',
-        'columns' => [
-            'title' => 'Talep',
-            'status' => 'Durum',
-            'scope' => 'Kapsam',
-            'owner' => 'Sorumlu',
-            'due' => 'Son tarih',
-        ],
-        'actions' => [
-            'triage' => 'Triyaj',
-            'plan' => 'Planla',
-            'wait' => 'Müşteriyi bekle',
-            'done' => 'Tamamlandı',
-            'decline' => 'Reddet',
-            'create_task' => 'Görev oluştur',
-        ],
-    ],
-
-    'approvals' => [
-        'title' => 'Onaylar',
-        'empty' => 'Bekleyen onay yok.',
-        'approve' => 'Onayla',
-        'updated' => 'Onay güncellendi',
-        'requested' => 'Onay talep edildi',
     ],
 
     'playbooks' => [
-        'catalog' => 'Playbook',
-        'catalog_subtitle' => 'Operasyon standartları — üretim Playbook kataloğu.',
         'settings_defaults' => 'Varsayılanlar',
-        'standard_label' => 'Operasyon standardı',
-        'overview' => 'Genel bakış',
-        'applicability' => 'Uygulanabilirlik',
-        'checklist' => 'Kontrol listesi',
-        'instructions' => 'Talimatlar',
         'when_to_use' => 'Ne zaman kullanılır',
         'when_not_to_use' => 'Ne zaman kullanılmaz',
         'methodology' => 'Yöntem',
-        'qa_guidance' => 'Kalite kontrol rehberi',
-        'related_ai_skill' => 'İlgili AI Skill',
-        'ai_skill_note' => 'AI Skill bu Playbook’a yardımcı olabilir — operasyon standardının yerini almaz.',
-        'references' => 'Referanslar',
-        'recent_reviews' => 'Son kontroller',
-        'default_owner' => 'Varsayılan sorumlu',
-        'not_found' => 'Playbook bulunamadı.',
-        'back' => 'Playbook listesine dön',
-    ],
-
-    'reviews' => [
-        'title' => 'Periyodik kontroller',
-        'none_due' => 'Vadesi gelen periyodik kontrol yok.',
-        'status_updated' => 'Periyodik kontrol güncellendi',
-        'completed' => 'Periyodik kontrol tamamlandı',
-        'skipped' => 'Periyodik kontrol atlandı',
-        'complete_no_issue' => 'Tamamla — sorun yok',
-        'complete_opportunity' => 'Tamamla — fırsat kaydet',
-        'complete_task' => 'Tamamla — görev oluştur',
-        'skip' => 'Atla',
-    ],
-
-    'qa' => [
-        'required' => 'Kalite kontrolü gerekli',
-        'approve' => 'Kalite kontrolünü onayla',
-        'updated' => 'Kalite kontrolü durumu güncellendi',
-        'requested' => 'Kalite kontrolü talep edildi',
     ],
 
     'capacity' => [

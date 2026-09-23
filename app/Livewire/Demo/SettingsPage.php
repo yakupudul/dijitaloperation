@@ -13,7 +13,6 @@ use App\Services\Operator\AgencySettingService;
 use App\Services\Operator\OperatorMailConfigService;
 use App\Services\Operator\OperatorTeamAccessService;
 use App\Services\Operator\OperatorUserDirectory;
-use App\Services\Playbooks\PlaybookReadService;
 use App\Support\Agents\AgentProfileRegistry;
 use App\Support\Ai\AiRouteRegistry;
 use App\Support\Demo\DemoPeriod;
@@ -141,7 +140,7 @@ class SettingsPage extends Component
 
     public function setOpsSub(?string $sub): void
     {
-        if ($sub === null || in_array($sub, ['defaults', 'playbooks'], true)) {
+        if ($sub === null || $sub === 'defaults') {
             $this->section = 'operations';
             $this->ops_sub = $sub ?? 'defaults';
         }
@@ -374,7 +373,6 @@ class SettingsPage extends Component
         return view('livewire.demo.settings', [
             'sections' => GlobalOperatingFixtures::settingsSections(),
             'settings' => $settings,
-            'playbooks' => app(PlaybookReadService::class)->forList(['status' => 'active']),
             'aiRoutes' => $routes,
             'aiAgents' => $agents,
             'aiSkills' => $skills,

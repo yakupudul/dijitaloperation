@@ -43,7 +43,7 @@ final class AssetContextTest extends TestCase
     public function test_every_asset_page_shows_the_same_frame(): void
     {
         $assets = [$this->website];
-        foreach (['google_ads', 'meta_ads', 'google_business_profile', 'ga4', 'gsc', 'instagram'] as $type) {
+        foreach (['google_ads', 'meta_ads', 'google_business_profile', 'ga4', 'gsc'] as $type) {
             $assets[] = DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => $type, 'name' => 'Örnek '.$type]);
         }
 

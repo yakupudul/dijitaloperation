@@ -2,12 +2,7 @@
 
 namespace App\Livewire\Demo\Operations;
 
-use App\Enums\ClientRequestStatus;
-use App\Services\Approvals\ApprovalUiActions;
-use App\Services\ClientRequests\ClientRequestUiActions;
 use App\Services\Operator\OperatorExecutionReadService;
-use App\Services\Qa\QaUiActions;
-use App\Services\RecurringReviews\RecurringReviewUiActions;
 use App\Services\Work\WorkReadService;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
@@ -34,7 +29,7 @@ class TasksIndex extends Component
 
     public function mount(): void
     {
-        $allowed = ['my', 'all', 'tasks', 'client_requests', 'recurring_reviews', 'approvals', 'waiting_on_client', 'qa_required', 'completed', 'unassigned', 'overdue', 'due_today'];
+        $allowed = ['my', 'all', 'tasks', 'completed', 'unassigned', 'overdue', 'due_today'];
         if (! in_array($this->view, $allowed, true)) {
             $this->view = 'my';
         }
@@ -49,7 +44,7 @@ class TasksIndex extends Component
 
     public function setView(string $view): void
     {
-        $allowed = ['my', 'all', 'tasks', 'client_requests', 'recurring_reviews', 'approvals', 'waiting_on_client', 'qa_required', 'completed', 'unassigned', 'overdue', 'due_today'];
+        $allowed = ['my', 'all', 'tasks', 'completed', 'unassigned', 'overdue', 'due_today'];
         if (in_array($view, $allowed, true)) {
             $this->view = $view;
         }
@@ -71,83 +66,6 @@ class TasksIndex extends Component
         $this->typeFilter = $type;
     }
 
-    public function triageRequest(string $id): void
-    {
-        $this->mutateRequestStatus($id, ClientRequestStatus::Triaged);
-    }
-
-    public function planRequest(string $id): void
-    {
-        $this->mutateRequestStatus($id, ClientRequestStatus::Planned);
-    }
-
-    public function waitRequest(string $id): void
-    {
-        $this->mutateRequestStatus($id, ClientRequestStatus::WaitingOnClient);
-    }
-
-    public function doneRequest(string $id): void
-    {
-        $this->mutateRequestStatus($id, ClientRequestStatus::Done);
-    }
-
-    public function declineRequest(string $id): void
-    {
-        $this->mutateRequestStatus($id, ClientRequestStatus::Declined);
-    }
-
-    public function createTaskFromRequest(string $id): void
-    {
-        $result = app(ClientRequestUiActions::class)->createTask(
-            $id,
-            auth()->user(),
-            'cr-task:'.$id.':'.$this->taskCreateNonce,
-        );
-        DemoState::flash($result['message'] ?? '');
-        if ($result['ok']) {
-            $this->taskCreateNonce = (string) Str::uuid();
-        }
-    }
-
-    public function completeReview(string $id, string $result): void
-    {
-        $outcome = app(RecurringReviewUiActions::class)->completeReview(
-            $id,
-            $result,
-            auth()->user(),
-            'rr-ui:'.$id.':'.$result.':'.$this->taskCreateNonce,
-        );
-        DemoState::flash($outcome['message'] ?? '');
-        if ($outcome['ok']) {
-            $this->taskCreateNonce = (string) Str::uuid();
-        }
-    }
-
-    public function skipReview(string $id): void
-    {
-        $outcome = app(RecurringReviewUiActions::class)->skipReview($id, auth()->user(), 'Skipped by operator');
-        DemoState::flash($outcome['message'] ?? '');
-    }
-
-    public function approveItem(string $id): void
-    {
-        $result = app(ApprovalUiActions::class)->approve($id, auth()->user());
-        DemoState::flash($result['message'] ?? '');
-    }
-
-    public function approveQa(string $workId): void
-    {
-        $result = app(QaUiActions::class)->approveQaForTask(
-            $workId,
-            auth()->user(),
-            'qa-approve:'.$workId.':'.$this->taskCreateNonce,
-        );
-        DemoState::flash($result['message'] ?? '');
-        if ($result['ok']) {
-            $this->taskCreateNonce = (string) Str::uuid();
-        }
-    }
-
     public function render(): View
     {
         $all = collect(app(WorkReadService::class)->workItems());
@@ -156,11 +74,6 @@ class TasksIndex extends Component
         $rows = match ($this->view) {
             'my' => $all->filter(fn (array $row): bool => $execution->isMine($row)),
             'tasks' => $all->where('type', 'task'),
-            'client_requests' => $all->where('type', 'client_request'),
-            'recurring_reviews' => $all->where('type', 'recurring_review'),
-            'approvals' => $all->where('type', 'approval'),
-            'waiting_on_client' => $all->filter(fn (array $row): bool => (bool) ($row['waiting_on_client'] ?? false)),
-            'qa_required' => $all->filter(fn (array $row): bool => (bool) ($row['qa_required'] ?? false) && ! in_array($row['qa_status'] ?? '', ['approved', 'passed'], true)),
             'completed' => $all->filter(fn (array $row): bool => in_array($row['status'] ?? '', ['completed', 'done'], true)),
             'unassigned' => $all->filter(fn (array $row): bool => in_array($row['owner_id'] ?? null, [null, ''], true) || ($row['owner'] ?? '') === 'Unassigned'),
             'overdue' => $all->where('due_key', 'overdue'),
@@ -181,8 +94,6 @@ class TasksIndex extends Component
         $glance = [
             'due_today' => $open->where('due_key', 'today')->count(),
             'overdue' => $open->where('due_key', 'overdue')->count(),
-            'waiting_on_client' => $open->where('waiting_on_client', true)->count(),
-            'qa_required' => $open->filter(fn (array $row): bool => (bool) ($row['qa_required'] ?? false) && ! in_array($row['qa_status'] ?? '', ['approved', 'passed'], true))->count(),
         ];
 
         return view('livewire.demo.operations.tasks-index', [
@@ -192,11 +103,5 @@ class TasksIndex extends Component
             'viewMode' => $this->viewMode,
             'flash' => DemoState::pullFlash(),
         ]);
-    }
-
-    private function mutateRequestStatus(string $id, ClientRequestStatus $status): void
-    {
-        $result = app(ClientRequestUiActions::class)->changeStatus($id, $status, auth()->user());
-        DemoState::flash($result['message'] ?? '');
     }
 }

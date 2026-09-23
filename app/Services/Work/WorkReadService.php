@@ -2,29 +2,22 @@
 
 namespace App\Services\Work;
 
-use App\Services\Approvals\ApprovalReadService;
-use App\Services\ClientRequests\ClientRequestReadService;
-use App\Services\RecurringReviews\RecurringReviewReadService;
 use App\Services\Tasks\TaskReadService;
 use App\Support\Work\WorkUrl;
 
 /**
- * Work aggregate read model over canonical Tasks (+ residual frozen non-Task types).
+ * Work aggregate read model over canonical Tasks.
  *
  * Work is NOT a persistence domain. Work Item ID for tasks = Task ID.
- * Approvals / QA are production-backed (Prompt 44). Recurring reviews are production-backed (Prompt 46).
  */
 final class WorkReadService
 {
     public function __construct(
         private readonly TaskReadService $tasks,
-        private readonly ClientRequestReadService $clientRequests,
-        private readonly ApprovalReadService $approvals,
-        private readonly RecurringReviewReadService $recurringReviews,
     ) {}
 
     /**
-     * Frozen Work list rows: production Tasks + Client Requests + Approvals + Recurring Reviews.
+     * Work list rows: production Tasks.
      *
      * @return list<array<string, mixed>>
      */
@@ -34,18 +27,6 @@ final class WorkReadService
 
         foreach ($this->tasks->forList([], 500) as $task) {
             $items[] = $this->taskToWorkItem($task);
-        }
-
-        foreach ($this->clientRequests->forWorkItemPresentation(200) as $request) {
-            $items[] = $request;
-        }
-
-        foreach ($this->approvals->forWorkItemPresentation(200) as $approval) {
-            $items[] = $approval;
-        }
-
-        foreach ($this->recurringReviews->forWorkItemPresentation(200) as $review) {
-            $items[] = $review;
         }
 
         return $items;

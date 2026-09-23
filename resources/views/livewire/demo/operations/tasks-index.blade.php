@@ -3,11 +3,6 @@
         'my' => __('operator.work.views.my'),
         'all' => __('operator.work.views.all'),
         'tasks' => __('operator.work.views.tasks'),
-        'client_requests' => __('operator.work.views.client_requests'),
-        'recurring_reviews' => __('operator.work.views.recurring_reviews'),
-        'approvals' => __('operator.work.views.approvals'),
-        'waiting_on_client' => __('operator.work.views.waiting_on_client'),
-        'qa_required' => __('operator.work.views.qa_required'),
         'overdue' => __('operator.work.views.overdue'),
         'due_today' => __('operator.work.views.due_today'),
         'completed' => __('operator.work.views.completed'),
@@ -24,7 +19,7 @@
         'subtitle' => __('operator.work.subtitle'),
     ])
 
-    <div class="grid grid-cols-2 gap-3 xl:grid-cols-4">
+    <div class="grid grid-cols-2 gap-3">
         <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
             <p class="text-xs uppercase tracking-wide text-gray-400">{{ __('operator.work.glance.due_today') }}</p>
             <p class="mt-1 text-2xl font-bold text-warning-600 dark:text-warning-400">{{ $glance['due_today'] }}</p>
@@ -32,14 +27,6 @@
         <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
             <p class="text-xs uppercase tracking-wide text-gray-400">{{ __('operator.work.glance.overdue') }}</p>
             <p class="mt-1 text-2xl font-bold text-error-600 dark:text-error-400">{{ $glance['overdue'] }}</p>
-        </div>
-        <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-            <p class="text-xs uppercase tracking-wide text-gray-400">{{ __('operator.work.glance.waiting_on_client') }}</p>
-            <p class="mt-1 text-2xl font-bold text-brand-600 dark:text-brand-400">{{ $glance['waiting_on_client'] }}</p>
-        </div>
-        <div class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
-            <p class="text-xs uppercase tracking-wide text-gray-400">{{ __('operator.work.glance.qa_required') }}</p>
-            <p class="mt-1 text-2xl font-bold text-gray-800 dark:text-white/90">{{ $glance['qa_required'] }}</p>
         </div>
     </div>
 
@@ -105,14 +92,8 @@
                     <tr class="border-b border-gray-50 dark:border-gray-800/60">
                         <td class="px-4 py-3">
                             <p class="font-medium text-gray-800 dark:text-white/90">{{ $item['title'] }}</p>
-                            @if ($item['waiting_on_client'] ?? false)
-                                <x-ta.badge color="warning" size="sm" class="mt-1">{{ __('operator.work.badges.waiting_on_client') }}</x-ta.badge>
-                            @endif
                             @if (($item['in_scope'] ?? true) === false)
                                 <x-ta.badge color="light" size="sm" class="mt-1">{{ __('operator.commercial.outside_scope') }}</x-ta.badge>
-                            @endif
-                            @if ($item['qa_required'] ?? false)
-                                <x-ta.badge color="info" size="sm" class="mt-1">{{ __('operator.qa.required') }}</x-ta.badge>
                             @endif
                         </td>
                         <td class="hidden px-4 py-3 text-gray-500 md:table-cell">{{ __('operator.work.types.'.$item['type']) }}</td>

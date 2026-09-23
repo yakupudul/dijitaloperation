@@ -3,21 +3,19 @@
 namespace App\Support\DomainEvents;
 
 use App\Enums\DomainEventSubjectKind;
-use App\Models\Approval;
 use App\Models\BusinessOutcomeRecheckRun;
-use App\Models\ClientRequest;
 use App\Models\Finding;
 use App\Models\InternalNotificationSchedule;
 use App\Models\Observability\OperationalAlert;
 use App\Models\Opportunity;
-use App\Models\Playbook;
-use App\Models\QaReview;
 use App\Models\Recommendation;
-use App\Models\RecurringReviewRun;
 use App\Models\Task;
 
 /**
  * Canonical subject_kind → Eloquent model FQCN map for Activity projection.
+ *
+ * Deprecated subject kinds (Faz 1: producer removed) keep their historical FQCN string
+ * so old activity rows stay readable; those model classes no longer exist.
  */
 final class SubjectKindModelMap
 {
@@ -30,12 +28,12 @@ final class SubjectKindModelMap
             DomainEventSubjectKind::Finding => Finding::class,
             DomainEventSubjectKind::Opportunity => Opportunity::class,
             DomainEventSubjectKind::Recommendation => Recommendation::class,
-            DomainEventSubjectKind::ClientRequest => ClientRequest::class,
+            DomainEventSubjectKind::ClientRequest => 'App\\Models\\ClientRequest',
             DomainEventSubjectKind::Task => Task::class,
-            DomainEventSubjectKind::QaReview => QaReview::class,
-            DomainEventSubjectKind::Approval => Approval::class,
-            DomainEventSubjectKind::Playbook => Playbook::class,
-            DomainEventSubjectKind::RecurringReviewRun => RecurringReviewRun::class,
+            DomainEventSubjectKind::QaReview => 'App\\Models\\QaReview',
+            DomainEventSubjectKind::Approval => 'App\\Models\\Approval',
+            DomainEventSubjectKind::Playbook => 'App\\Models\\Playbook',
+            DomainEventSubjectKind::RecurringReviewRun => 'App\\Models\\RecurringReviewRun',
             DomainEventSubjectKind::BusinessOutcomeRecheckRun => BusinessOutcomeRecheckRun::class,
             DomainEventSubjectKind::InternalNotificationSchedule => InternalNotificationSchedule::class,
             DomainEventSubjectKind::OperationalAlert => OperationalAlert::class,

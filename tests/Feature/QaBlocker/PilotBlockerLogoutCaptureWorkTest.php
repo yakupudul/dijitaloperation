@@ -7,7 +7,6 @@ use App\Livewire\Demo\CaptureModal;
 use App\Livewire\Demo\Operations\WorkShow;
 use App\Livewire\Demo\ProfilePage;
 use App\Models\Brand;
-use App\Models\ClientRequest;
 use App\Models\Customer;
 use App\Models\Task;
 use App\Models\User;
@@ -163,23 +162,13 @@ class PilotBlockerLogoutCaptureWorkTest extends TestCase
             'scope_kind' => TaskScopeKind::Brand->value,
         ], $this->admin, 'pilot-work:task:1');
 
-        $request = ClientRequest::factory()->create([
-            'customer_id' => $this->customer->id,
-            'brand_id' => $this->brand->id,
-            'title' => 'Typed Client Request Detail',
-            'owner_user_id' => $this->admin->id,
-        ]);
-
         $this->get(WorkUrl::show(WorkUrl::TYPE_TASK, $task->id))
             ->assertOk()
             ->assertSee('Typed Task Detail')
             ->assertDontSee(__('operator.work.not_found'))
             ->assertSee(__('operator.work.task_actions.start'));
 
-        $this->get(WorkUrl::show(WorkUrl::TYPE_CLIENT_REQUEST, $request->id))
-            ->assertOk()
-            ->assertSee('Typed Client Request Detail')
-            ->assertDontSee('Typed Task Detail');
+        $this->get('/work/client_request/'.$task->id)->assertNotFound();
 
         $this->get('/work/'.$task->id)->assertNotFound();
 

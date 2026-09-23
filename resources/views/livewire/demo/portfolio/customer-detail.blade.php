@@ -1,7 +1,6 @@
 @php
     $card = 'rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800';
-    $openRequests = collect($clientRequests)->whereNotIn('status', ['done', 'declined', 'closed'])->count();
-    $tabs = ['overview' => __('operator.customer.tabs.overview'), 'requests' => __('operator.customer.tabs.requests').($openRequests > 0 ? ' · '.$openRequests : ''), 'reports' => __('operator.customer.tabs.reports')];
+    $tabs = ['overview' => __('operator.customer.tabs.overview'), 'reports' => __('operator.customer.tabs.reports')];
 @endphp
 <div class="space-y-6" x-data="{ moreOpen: false }">
     @include('livewire.demo.partials.flash')
@@ -131,35 +130,6 @@
                 </ul>
             </section>
         </div>
-    @endif
-
-    {{-- ============================================================ REQUESTS --}}
-    @if ($tab === 'requests')
-        <section class="{{ $card }}">
-            <div class="border-b border-gray-100 px-5 py-3 dark:border-gray-800">
-                <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">{{ __('operator.requests.title') }}</h2>
-                <p class="text-xs text-gray-500">{{ __('operator.requests.subtitle') }}</p>
-            </div>
-            @forelse ($clientRequests as $request)
-                <div class="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 px-5 py-3 last:border-0 dark:border-gray-800">
-                    <div class="min-w-0">
-                        <p class="text-sm font-medium text-gray-800 dark:text-white/90">{{ $request['title'] }}@if (($request['in_scope'] ?? true) === false) <x-ta.badge color="light" size="sm">{{ __('operator.commercial.outside_scope') }}</x-ta.badge>@endif</p>
-                        <p class="text-xs text-gray-500">{{ collect([$request['status'] ?? null, $request['owner'] ?? null, $request['due'] ?? null])->filter()->implode(' · ') }}</p>
-                    </div>
-                    <div class="flex flex-wrap gap-1">
-                        <button type="button" wire:click="triageRequest('{{ $request['id'] }}')" class="rounded px-2 py-1 text-xs ring-1 ring-gray-300 dark:ring-gray-700">{{ __('operator.requests.actions.triage') }}</button>
-                        <button type="button" wire:click="planRequest('{{ $request['id'] }}')" class="rounded px-2 py-1 text-xs ring-1 ring-gray-300 dark:ring-gray-700">{{ __('operator.requests.actions.plan') }}</button>
-                        <button type="button" wire:click="waitRequest('{{ $request['id'] }}')" class="rounded px-2 py-1 text-xs ring-1 ring-gray-300 dark:ring-gray-700">Müşteri bekleniyor</button>
-                        <button type="button" wire:click="doneRequest('{{ $request['id'] }}')" class="rounded px-2 py-1 text-xs ring-1 ring-gray-300 dark:ring-gray-700">Tamamlandı</button>
-                        <button type="button" wire:click="declineRequest('{{ $request['id'] }}')" class="rounded px-2 py-1 text-xs ring-1 ring-gray-300 dark:ring-gray-700">Reddet</button>
-                        <button type="button" wire:click="createTaskFromRequest('{{ $request['id'] }}')" class="rounded bg-brand-500 px-2 py-1 text-xs text-white">{{ __('operator.requests.actions.create_task') }}</button>
-                        <a href="{{ route('operator.work.show', ['workId' => $request['id'], 'type' => 'client_request']) }}" wire:navigate class="rounded px-2 py-1 text-xs text-brand-600 hover:underline">{{ __('operator.actions.open') }}</a>
-                    </div>
-                </div>
-            @empty
-                <p class="px-5 py-6 text-center text-sm text-gray-500">{{ __('operator.requests.empty') }}</p>
-            @endforelse
-        </section>
     @endif
 
     {{-- ============================================================ REPORTS --}}

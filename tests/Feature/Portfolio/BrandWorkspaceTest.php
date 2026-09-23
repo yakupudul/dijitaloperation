@@ -160,7 +160,7 @@ final class BrandWorkspaceTest extends TestCase
         $page->call('openContactForm', $contactId)->assertSet('contact_role', 'other')->assertSet('contact_title_custom', 'Other title');
 
         $page->call('setTab', 'relationship')->assertSet('tab', 'overview');
-        $page->call('setTab', 'requests')->assertSet('tab', 'requests');
+        $page->call('setTab', 'requests')->assertSet('tab', 'overview');
     }
 
     public function test_new_brand_with_website_opens_otomatik_kur_and_starts_the_proposal(): void

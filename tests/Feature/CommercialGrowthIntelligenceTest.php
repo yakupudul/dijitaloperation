@@ -198,7 +198,7 @@ class CommercialGrowthIntelligenceTest extends TestCase
         $instagram = $this->createPortfolioAsset('instagram', 'Northwind Instagram');
 
         $this->get(route('operator.website'))->assertNotFound();
-        $this->get(route('operator.instagram'))->assertNotFound();
+        $this->get(route('operator.instagram'))->assertRedirect(route('operator.assets'));
 
         $this->get(route('operator.website', ['assetId' => $website->id]))
             ->assertOk()
@@ -206,9 +206,6 @@ class CommercialGrowthIntelligenceTest extends TestCase
             ->assertDontSee('Atlas Dental Website');
 
         $this->get(route('operator.instagram', ['assetId' => $instagram->id]))
-            ->assertOk()
-            ->assertSee('Instagram')
-            ->assertSee(__('operator.commercial.outside_scope'))
-            ->assertDontSee('@atlasdentalankara');
+            ->assertRedirect(route('operator.assets'));
     }
 }

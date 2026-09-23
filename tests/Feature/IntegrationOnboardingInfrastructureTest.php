@@ -9,7 +9,6 @@ use App\Livewire\Demo\Portfolio\AssetsIndex;
 use App\Livewire\Demo\Website\OverviewPage as WebsiteOverviewPage;
 use App\Models\DigitalAsset;
 use App\Models\User;
-use App\Support\Demo\ConnectorWorkspaceFixtures;
 use App\Support\Demo\DemoState;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -148,13 +147,5 @@ class IntegrationOnboardingInfrastructureTest extends TestCase
 
         $this->get(route('operator.hosting'))
             ->assertRedirect(route('operator.assets'));
-    }
-
-    public function test_connector_fixtures_are_deterministic(): void
-    {
-        $a = ConnectorWorkspaceFixtures::ga4();
-        $b = ConnectorWorkspaceFixtures::ga4();
-        $this->assertSame($a['resources'], $b['resources']);
-        $this->assertSame(count(ConnectorWorkspaceFixtures::ids()), 5);
     }
 }
