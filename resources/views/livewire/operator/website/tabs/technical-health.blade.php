@@ -258,6 +258,6 @@
             @endif
         @endif
 
-        <p class="text-xs text-gray-400">{{ __('operator.website.technical_health.fact_note') }}</p>
+        <p class="text-xs text-gray-400">{{ __('operator_website.fact_notes.technical_health') }}</p>
     @endif
 </div>

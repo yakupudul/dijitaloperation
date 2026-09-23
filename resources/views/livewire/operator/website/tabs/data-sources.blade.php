@@ -76,8 +76,9 @@
                             'website' => 'content',
                             'wordpress' => 'infrastructure',
                             'pagespeed' => 'health',
-                            'gsc' => 'visibility',
-                            'ga4' => 'performance',
+                            'gsc' => 'search_console',
+                            'ga4' => 'ga4_analysis',
+                            default => 'overview',
                         };
                     @endphp
                     <article class="overflow-hidden rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">

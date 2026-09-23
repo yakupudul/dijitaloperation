@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Livewire\Demo\Website\OverviewPage;
+use App\Models\Finding;
+use App\Models\Recommendation;
 use App\Models\User;
 use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
@@ -48,7 +50,7 @@ class WebsiteOperatingWorkspaceTest extends TestCase
     {
         $asset = $this->createPortfolioAsset('website', 'Northwind Website');
 
-        foreach (['overview', 'health', 'standards', 'visibility', 'content', 'performance', 'infrastructure', 'operations', 'setup'] as $tab) {
+        foreach (['overview', 'seo', 'search_console', 'ga4_analysis', 'content', 'health', 'standards', 'infrastructure', 'setup'] as $tab) {
             $this->get(route('operator.website', ['assetId' => $asset->id, 'tab' => $tab]))
                 ->assertOk()
                 ->assertSee('Northwind Website')
@@ -56,7 +58,7 @@ class WebsiteOperatingWorkspaceTest extends TestCase
                 ->assertDontSee('Page not found');
         }
 
-        foreach (['connections', 'settings', 'activity'] as $legacy) {
+        foreach (['connections', 'settings', 'activity', 'visibility', 'performance', 'operations'] as $legacy) {
             $this->get(route('operator.website', ['assetId' => $asset->id, 'tab' => $legacy]))
                 ->assertOk()
                 ->assertSee('Northwind Website');
@@ -85,11 +87,54 @@ class WebsiteOperatingWorkspaceTest extends TestCase
             ->assertSet('tab', 'health');
 
         Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id, 'tab' => 'search'])
-            ->assertSet('tab', 'visibility');
+            ->assertSet('tab', 'search_console');
 
         Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id, 'tab' => 'conversions'])
-            ->assertSet('tab', 'performance')
-            ->assertSet('perf_sub', 'conversions');
+            ->assertSet('tab', 'ga4_analysis');
+
+        foreach (['visibility' => 'search_console', 'performance' => 'ga4_analysis', 'operations' => 'overview'] as $retired => $target) {
+            Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id, 'tab' => $retired])
+                ->assertSet('tab', $target);
+        }
+
+        Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id])
+            ->assertSee(__('operator_website.tabs.health'))
+            ->assertSee(__('operator_website.tabs.standards'))
+            ->assertDontSee(__('operator.website.tabs.operations'))
+            ->assertDontSee(__('operator.website.tabs.visibility'))
+            ->assertDontSee(__('operator.website.tabs.performance'))
+            ->assertDontSee('Organic Search')
+            ->call('refreshSeoIntelligence')
+            ->assertSet('tab', 'search_console');
+    }
+
+    public function test_overview_lists_findings_and_recommendations_with_readable_labels(): void
+    {
+        $asset = $this->createPortfolioAsset('website', 'Northwind Website');
+
+        $findings = Finding::factory()->count(12)->create([
+            'digital_asset_id' => $asset->id,
+            'customer_id' => $asset->brand?->customer_id,
+            'brand_id' => $asset->brand_id,
+            'severity' => 'critical',
+            'status' => 'open',
+        ]);
+
+        Recommendation::factory()->create([
+            'digital_asset_id' => $asset->id,
+            'finding_id' => $findings->first()->id,
+            'title' => 'Northwind canonical fix',
+            'priority' => 'high',
+            'status' => Recommendation::STATUS_OPEN,
+        ]);
+
+        Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id])
+            ->assertSee(__('operator_website.severity.critical'))
+            ->assertSee(__('operator_website.finding_status.open'))
+            ->assertSee('Northwind canonical fix')
+            ->assertSee(__('operator_website.priority.high').' · '.__('operator_website.recommendation_status.open'))
+            ->assertDontSee('>critical<', false)
+            ->assertDontSee('high · open');
     }
 
     public function test_website_workspace_fixtures_remain_deterministic_outside_http(): void

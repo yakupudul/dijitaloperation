@@ -225,5 +225,5 @@
         </div>
     </section>
 
-    <p class="rounded-xl bg-blue-50 px-4 py-3 text-xs text-blue-700 ring-1 ring-inset ring-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-500/20">{{ __('operator.website.infrastructure_wordpress.fact_note') }}</p>
+    <p class="rounded-xl bg-blue-50 px-4 py-3 text-xs text-blue-700 ring-1 ring-inset ring-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-500/20">{{ __('operator_website.fact_notes.infrastructure') }}</p>
 </div>

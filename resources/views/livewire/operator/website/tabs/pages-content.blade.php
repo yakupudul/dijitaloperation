@@ -318,6 +318,6 @@
             </div>
         @endif
 
-        <p class="text-xs text-gray-400">{{ __('operator.website.pages_content.fact_note') }}</p>
+        <p class="text-xs text-gray-400">{{ __('operator_website.fact_notes.pages_content') }}</p>
     @endif
 </div>

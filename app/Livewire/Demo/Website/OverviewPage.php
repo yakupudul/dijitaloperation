@@ -28,7 +28,7 @@ use Throwable;
  * The component renders canonical production data, not Demo fixtures.
  */
 #[Layout('operator.layouts.app')]
-#[Title('Website')]
+#[Title('Web Sitesi')]
 class OverviewPage extends Component
 {
     use InteractsWithDemoPeriod;
@@ -37,9 +37,6 @@ class OverviewPage extends Component
 
     #[Url]
     public string $tab = 'overview';
-
-    #[Url]
-    public string $perf_sub = 'search';
 
     #[Url(as: 'content_search')]
     public string $contentSearch = '';
@@ -87,33 +84,37 @@ class OverviewPage extends Component
     /** @var list<string> */
     public array $allowedTabs = [
         'overview',
+        'seo',
+        'search_console',
+        'ga4_analysis',
         'content',
         'health',
         'standards',
-        'seo',
-        'search_console',
-        'visibility',
-        'performance',
-        'ga4_analysis',
         'infrastructure',
-        'operations',
         'setup',
     ];
 
-    /** @var array<string, string> */
+    /**
+     * Retired tab ids kept so old bookmarks and links still land on the tab that now owns the content.
+     *
+     * @var array<string, string>
+     */
     private const LEGACY_TAB_MAP = [
         'technical' => 'health',
-        'search' => 'visibility',
-        'pages' => 'performance',
-        'conversions' => 'performance',
+        'search' => 'search_console',
+        'visibility' => 'search_console',
+        'performance' => 'ga4_analysis',
+        'operations' => 'overview',
+        'pages' => 'ga4_analysis',
+        'conversions' => 'ga4_analysis',
         'lifecycle' => 'setup',
         'insights' => 'overview',
         'domain' => 'infrastructure',
         'hosting' => 'infrastructure',
         'connections' => 'setup',
         'settings' => 'setup',
-        'activity' => 'operations',
-        'analytics' => 'performance',
+        'activity' => 'overview',
+        'analytics' => 'ga4_analysis',
         'ga4' => 'ga4_analysis',
         'gsc' => 'search_console',
         'search-console' => 'search_console',
@@ -289,13 +290,7 @@ class OverviewPage extends Component
     public function refreshSeoIntelligence(AsyncOperationService $async): void
     {
         $this->showResult($async->queueSeoIntelligenceRefresh($this->asset(), auth()->user()));
-        $this->tab = 'visibility';
-    }
-
-    public function generateAiGuidance(AsyncOperationService $async): void
-    {
-        $this->showResult($async->queueWebsiteAiGuidance($this->asset(), auth()->user()));
-        $this->tab = 'overview';
+        $this->tab = 'search_console';
     }
 
     public function render(
@@ -400,21 +395,14 @@ class OverviewPage extends Component
             'technicalHealth' => $technicalHealth,
             'infrastructure' => $infrastructure,
             'dataSources' => $dataSources,
-            'showPeriodBar' => in_array($this->tab, ['overview', 'ga4_analysis', 'search_console', 'visibility', 'performance'], true),
+            'showPeriodBar' => in_array($this->tab, ['overview', 'ga4_analysis', 'search_console'], true),
         ]);
     }
 
     protected function normalizeTab(): void
     {
         if (isset(self::LEGACY_TAB_MAP[$this->tab])) {
-            $legacy = $this->tab;
-            $this->tab = self::LEGACY_TAB_MAP[$legacy];
-
-            if ($legacy === 'conversions') {
-                $this->perf_sub = 'conversions';
-            } elseif ($legacy === 'pages') {
-                $this->perf_sub = 'landing';
-            }
+            $this->tab = self::LEGACY_TAB_MAP[$this->tab];
         }
 
         if (! in_array($this->tab, $this->allowedTabs, true)) {
