@@ -1,5 +1,14 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-09-26 — Dijital varlık sayfaları Faz D: eksik analizler + uyarılar
+
+**State:** CODED + PHPUnit (`tests/Feature/Alerts/AssetAlertScannerTest`, `tests/Feature/GoogleAds/GoogleAdsCampaignAnalyticsTest`, `tests/Feature/MetaAds/MetaAdsCampaignExplorerTest`, `tests/Feature/Website/WebsiteHealthScoreTest`). Full Feature + Unit suites: no new failures vs baseline. No live UAT; everything reads collected tables (no provider calls on render).
+
+- Alerts (`asset_alerts`, `moxdop:alerts:scan` daily 06:30, `config/moxdop-alerts.php`, `MOXDOP_ALERTS_ENABLED`): Google Ads/Meta spend spike (≥2× 7-day avg) and delivery stop, Google Ads conversions stopped (3 days spend + 0 conv after ≥1/day), Search Console clicks −40% week over week, stale bound data (>72h), unanswered ≤2★ reviews (7 days). Upsert by key, auto-resolve. Shown in the asset frame, dashboard card and weekly digest. No push/SMS.
+- Google Ads: campaign Δ% vs previous period (cost/clicks/conv/CPA), lost IS budget/rank (impression-weighted), sortable; monthly pacing (MTD, projected month-end, ±10% band, shared budgets counted once); CSV for campaigns and search terms. Conversions by action per campaign skipped: collected grain is account-level.
+- Meta: campaign → ad set → ad drill-down with breadcrumb (URL state), impressions/CPM/results/cost per result by objective, sorting; creative fatigue (first vs last 7 active days: CTR −30% with rising or ≥1.8 daily frequency); CSV of the current list.
+- Website: Site Sağlığı score 0–100 (weighted by share of pages with crawl issues per severity; formula in `WebsiteHealthScoreService`), trend of last 6 crawls, issue groups with affected URLs and "new since last crawl", 4xx/5xx, redirect chains, broken internal links, orphan pages, duplicate titles/descriptions (not scored); CSV.
+
 ## 2026-09-25 (d) — Dijital varlık sayfaları Faz C: ortak çerçeve, tek bağlama yolu, GA4/GSC modeli
 
 **State:** CODED + PHPUnit (`tests/Feature/Assets/AssetContextTest`: frame on all seven asset page types + Data Sources + edit; GA4/GSC as website sources in the estate matrix and the legacy GA4 page hint; `CanonicalPortfolioRuntimeTest` creatable types). Full Feature + Unit suites compared with the baseline. No live UAT.

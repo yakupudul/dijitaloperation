@@ -1,5 +1,11 @@
 # PROJECT_MEMORY
 
+## 2026-09-26 — Digital asset pages Faz D (analytics + alerts)
+
+- Alerts are a separate lifecycle from advisor items: time-sensitive, detected daily from collected data, auto-resolved; thresholds in `config/moxdop-alerts.php`. Advisor items stay the weekly "what to improve" list.
+- Asset pages export CSV via Livewire streamDownload (UTF-8 BOM, `;`), no export routes.
+- Website health score counts crawl rules only; duplicates/orphans/broken links are listed but not scored so the trend stays comparable.
+
 ## 2026-09-25 (d) — Digital asset pages Faz C (frame + models)
 
 - Every asset page starts with the shared asset frame (breadcrumb, sibling switcher, status strip, Data Sources/Edit). New asset pages must include `<x-operator.asset-context :asset-id="$assetId" />` and must not add their own sources/edit buttons.
