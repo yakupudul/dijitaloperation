@@ -1,5 +1,17 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-09-27 (b) — Faz 1: temizlik + veri saklama
+
+**State:** CODED + PHPUnit (`tests/Feature/Retention/DataRetentionTest`, `RecurringAutomationEngineProductionTest` retired kind, `MoxDopUiFoundationTest` admin resources; removed features' tests deleted). Full Feature + Unit suites compared with the baseline. No live UAT. About 67k lines removed.
+
+- Removed (no operator consumer): agency-brain stack (IntelligenceEvaluation, SectorLearning, BrandExperiences, BusinessOutcomes, Assistant, IntelligenceMemory, IntelligenceRetrieval); team workflows (Client Requests, Approvals, QA, Playbooks, Recurring Reviews — Work/Tasks are task-only now); Instagram page (`/assets/instagram` redirects to the asset list; old rows still readable); dead AI (DiscoveryInference, IntentRadarService/IntentClassification, WebsiteFindingInsightAgent, GBP/GA4/GSC guidance keys); zero-reference demo fixtures; unrouted Domain/Hosting components.
+- Filament `/admin` is technical tooling only (ADR-065): Runs, Modules, dashboard widgets, login/profile/MFA. Module AI guidance (Website/Google Ads/Meta Ads `src/Ai`, guidance jobs, skills) removed; click-only AI stays in Advisor drafts, SEO Görevleri, brand setup, WhatsApp, prospects.
+- Monthly report no longer has a business-outcome section (the producer was removed); it still renders.
+- Guarded drop migrations (`2026_09_27_100100_drop_team_workflow_tables`, `2026_09_27_120000_drop_agency_brain_tables`) drop a table only if it is empty; tables with rows (e.g. seeded playbooks) stay for review.
+- Recurring occurrences of a retired schedule kind finish as Skipped (`KIND_RETIRED`) instead of failing.
+- Retention (`moxdop:data:retention`, daily 04:10, `config/moxdop-retention.php`): raw payloads / HTML copies after 90 days (each page's latest HTML kept), telemetry windows (30–180 days, unprocessed WhatsApp receipts kept), daily performance older than 25 months rolled into `performance_monthly_rollups` (sums; ratios impression/session-weighted) then deleted. Gold daily tables (GSC query tables, Ads search terms/keywords) are never rolled up. DataForSEO keyword snapshots and GA4 event tables keep collecting (gold / Faz 3 inputs).
+- Not done / follow-ups: cross-asset consistency jobs (7 `Analyze*ConsistencyJob`) have no trigger since Filament ViewDigitalAsset was removed; old WordPress application-password connection is Filament-only and orphaned; `sample-module` needs `composer update` to remove; Opportunities/Recommendations/Findings pages fold into the one work list in the menu phase.
+
 ## 2026-09-27 — Faz 0: AI tıkla, pasif müşteri kapısı, GBP saklama, yetki, 2FA
 
 **State:** CODED + PHPUnit (`tests/Feature/SeoTasks/SeoPlanRunTest`, `tests/Feature/PassiveCustomerGateTest`, `tests/Feature/OperatorTwoFactorLoginTest`, `tests/Feature/OperatorAssetDataSourcesGuardsTest`). Full Feature + Unit suites compared with the baseline. No live UAT.

@@ -34,8 +34,8 @@ yönü kaydeder. Faz sırası sahibi onayıyla değişebilir; değişiklikler bu
 
 | Faz | İçerik |
 |---|---|
-| 0 – Acil | Otomatik AI'yı kapat (SEO planı LLM varsayılanı, WhatsApp otomatik öneri, marka kurulumu sonrası plan), pasif müşteri + bağsız hesap kapısı, SEO haftalık sırası tüm siteler (ilk 25 değil), GBP 30 gün silme işi, yetki açıkları (AI yönlendirme kaydı, otomasyon paneli, bağlama), 2FA |
-| 1 – Temizlik + saklama | Kullanılmayan katmanlar (ajans beyni stack'i, ekip iş akışları, Filament kopyaları, demo fikstürleri, ölü AI kodu, Instagram sayfası), hiç okunmayan veri toplama; saklama politikası + aylık toplama. **Not:** Arama talebi hattı silinmeyecek; Faz 2b'de sadeleştirilip otomatikleştirilecek (sahibinin sorgu → sayfa → rakip hedefi) |
+| 0 – Acil ✅ | Otomatik AI'yı kapat (SEO planı LLM varsayılanı, WhatsApp otomatik öneri, marka kurulumu sonrası plan), pasif müşteri + bağsız hesap kapısı, SEO haftalık sırası tüm siteler (ilk 25 değil), GBP 30 gün silme işi, yetki açıkları (AI yönlendirme kaydı, otomasyon paneli, bağlama), 2FA |
+| 1 – Temizlik + saklama ✅ | Kullanılmayan katmanlar (ajans beyni stack'i, ekip iş akışları, Filament kopyaları, demo fikstürleri, ölü AI kodu, Instagram sayfası), hiç okunmayan veri toplama; saklama politikası + aylık toplama. **Not:** Arama talebi hattı silinmeyecek; Faz 2b'de sadeleştirilip otomatikleştirilecek (sahibinin sorgu → sayfa → rakip hedefi) |
 | 2 – Portföy | "Keşfet ve Grupla" toplu oluşturma, müşteri listesinde aktif/pasif düğmesi, birleşik Rakipler, onboarding kontrol listesi |
 | 2b – Talep hattı | Hizmet + hizmet bölgesi → sorgular (GSC/Ads/GBP/DataForSEO, otomatik atama) → sorgu kümeleri → hangi sayfa → bölgede SERP rakipleri → rakip sayfa HTML analizi → karşılaştırma → strateji/SEO görevi |
 | 3 – Ölçüm temeli | Marka dönüşüm sözlüğü, takip sağlığı, GTM (salt okunur), GA4 sayfa × kanal, Sayfa Karnesi, marka/marka dışı ayrımı |

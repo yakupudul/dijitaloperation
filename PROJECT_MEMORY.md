@@ -1,5 +1,11 @@
 # PROJECT_MEMORY
 
+## 2026-09-27 (b) — Faz 1 decisions
+
+- Removed layers must not be reintroduced without a consumer (screen, rule or click AI). Filament `/admin` = technical tooling only (ADR-065); new operator features go to the operator product.
+- Table removals use guarded forward migrations (drop only when empty); never edit old migrations. Persisted enum cases of removed features stay as `@deprecated` so old rows hydrate.
+- Retention is one job (`DataRetentionService`); gold data list lives in `config/moxdop-retention.php` and the GBP content purge. New raw/telemetry tables must be added to that config.
+
 ## 2026-09-27 — Faz 0 decisions
 
 - AI never runs from a schedule or bulk action: SEO plans pass `useAi` only from the explicit AI button; new AI features must follow the same opt-in pattern. AI output on a work item is not overwritten by rules-only runs.
