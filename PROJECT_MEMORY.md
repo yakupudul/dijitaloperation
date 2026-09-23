@@ -1,5 +1,14 @@
 # PROJECT_MEMORY
 
+## 2026-09-23 (e) — Simple customer/brand screens; setup through "Otomatik kur"
+
+Owner direction: customer and brand screens must be simple, complete and without redundancy. Decisions:
+the brand page answers four questions (who is it, what is connected, what needs doing, what did we
+report) in five tabs; connection state is derived only from confirmed account bindings; new brands go
+customer → brand (name + website) → "Otomatik kur" approval instead of the multi-step setup wizard.
+Matching expressions ("eşleştirme ifadeleri") are the single mechanism that assigns imported queries to
+services, so the setup assistant proposes them; GBP search keywords are an import source like Ads/GSC.
+
 ## 2026-09-23 (d) — Services and keywords never carry a location
 
 Owner decision: service names and their keywords must be location-free so they are reusable for brands

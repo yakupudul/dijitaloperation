@@ -2,174 +2,294 @@
 
 namespace App\Livewire\Operator\Portfolio;
 
-use App\Livewire\Demo\Portfolio\BrandShow as LegacyBrandShow;
+use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
+use App\Livewire\Operator\Portfolio\Concerns\InteractsWithBrandReports;
 use App\Models\Brand;
 use App\Models\BrandIntelligenceContext;
 use App\Models\BrandOffering;
+use App\Models\Recommendation;
+use App\Services\Approvals\ApprovalReadService;
 use App\Services\BrandIntelligence\BrandIntelligenceContextWriteService;
+use App\Services\ClientRequests\ClientRequestReadService;
+use App\Services\ClientValueStory\ClientValueStoryReadService;
+use App\Services\CreateTaskFromRecommendation;
+use App\Services\Findings\FindingReadService;
+use App\Services\Operator\BrandWorkspaceReadService;
+use App\Services\Opportunities\OpportunityReadService;
+use App\Services\Recommendations\RecommendationReadService;
+use App\Services\ServiceScope\CustomerServiceScopeReadService;
+use App\Services\Work\WorkReadService;
+use App\Support\Demo\DemoPeriod;
 use App\Support\Demo\DemoState;
+use App\Support\Options\IndustryOptions;
+use Illuminate\Contracts\View\View;
+use Illuminate\Support\Str;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
+use Livewire\Attributes\Url;
+use Livewire\Component;
 
 /**
- * Production behavior for the existing Brand workspace.
- *
- * The legacy visual component still expects a session-shaped Business Context payload,
- * so this adapter hydrates that shape from canonical DB truth on mount and writes edits
- * through BrandIntelligenceContextWriteService. Session data is only a view cache here.
+ * Brand page: who the brand is, what is connected, what needs doing, and its reports.
+ * Everything shown comes from the database; missing data is shown as missing.
  */
-class BrandShow extends LegacyBrandShow
+#[Layout('operator.layouts.app')]
+#[Title('Marka')]
+class BrandShow extends Component
 {
+    use InteractsWithBrandReports;
+    use InteractsWithDemoPeriod;
+
+    public const array TABS = ['overview', 'business', 'assets', 'work', 'reports'];
+
+    /** Old deep links keep working. */
+    private const array LEGACY_TABS = [
+        'estate' => 'assets', 'cross_channel' => 'assets', 'operations' => 'work', 'growth' => 'work', 'ai' => 'work',
+        'value' => 'reports', 'history' => 'reports', 'research' => 'business', 'discovery' => 'business', 'context' => 'business', 'files' => 'overview',
+    ];
+
+    public const array WORK_SECTIONS = ['findings', 'opportunities', 'recommendations', 'tasks', 'requests', 'approvals'];
+
+    public string $brand = '';
+
+    #[Url(as: 'tab', history: true)]
+    public string $tab = 'overview';
+
+    #[Url(as: 'ops', history: true)]
+    public string $ops = 'findings';
+
+    public bool $editingContext = false;
+
+    public string $context_business_summary = '';
+
+    public string $context_business_model = '';
+
+    public string $context_priority_offerings = '';
+
+    public string $context_target_audiences = '';
+
+    public string $context_positioning = '';
+
+    public string $context_differentiators = '';
+
+    public string $context_business_goals = '';
+
+    public string $context_conversion_goals = '';
+
+    public string $context_constraints = '';
+
+    public string $taskCreateNonce = '';
+
     public function mount(string $brand): void
     {
-        parent::mount($brand);
-        $this->syncCanonicalBusinessContextToUiState();
-    }
-
-    public function saveBusinessContext(): void
-    {
-        $brand = Brand::query()->with('intelligenceContext')->findOrFail((int) $this->brand);
-        $context = $brand->intelligenceContext;
-        $split = static fn (string $value): array => array_values(array_filter(array_map(
-            'trim',
-            preg_split('/[,\n]+/', $value) ?: [],
-        )));
-
-        $priority = $split($this->context_priority_offerings);
-        $audiences = $split($this->context_target_audiences);
-        $differentiators = $split($this->context_differentiators);
-        $businessGoals = $split($this->context_business_goals);
-        $conversionGoals = $split($this->context_conversion_goals);
-
-        app(BrandIntelligenceContextWriteService::class)->saveFromForm($brand, [
-            'business_summary' => $this->context_business_summary,
-            'business_model' => $this->context_business_model,
-            'products_services' => is_array($context?->products_services) ? $context->products_services : [],
-            'priority_offerings' => $priority,
-            'target_audiences' => array_map(fn (string $value): array => ['name' => $value, 'note' => null], $audiences),
-            'target_markets' => is_array($context?->target_markets) ? $context->target_markets : [],
-            'business_goals' => array_map(fn (string $value): array => ['goal' => $value, 'note' => null], $businessGoals),
-            'conversion_goals' => array_map(fn (string $value): array => ['type' => 'custom', 'label' => $value, 'note' => null], $conversionGoals),
-            'positioning' => $this->context_positioning,
-            'differentiators' => $differentiators,
-            'known_competitors' => is_array($context?->known_competitors) ? $context->known_competitors : [],
-            'important_constraints' => trim($this->context_constraints),
-        ], auth()->user());
-
-        $this->editingContext = false;
-        $this->syncCanonicalBusinessContextToUiState();
-        DemoState::flash('Business Context canonical Brand verisine kaydedildi.');
-    }
-
-    /**
-     * Offerings with the SEO priority star. Used by the Offerings section of the brand page.
-     *
-     * @return list<array{id: int, label: string, is_priority: bool}>
-     */
-    public function offeringRows(): array
-    {
-        if (! ctype_digit($this->brand)) {
-            return [];
+        abort_unless(ctype_digit($brand), 404);
+        abort_if(Brand::query()->find($brand) === null, 404);
+        $this->brand = $brand;
+        $this->tab = self::LEGACY_TABS[$this->tab] ?? $this->tab;
+        if (! in_array($this->tab, self::TABS, true)) {
+            $this->tab = 'overview';
         }
+        if (! in_array($this->ops, self::WORK_SECTIONS, true)) {
+            $this->ops = 'findings';
+        }
+        $this->taskCreateNonce = (string) Str::uuid();
+        $this->mountPeriod();
+        $this->mountBrandReports();
+    }
 
-        return BrandOffering::query()
-            ->with('primaryName')
-            ->where('brand_id', (int) $this->brand)
-            ->where('status', 'active')
-            ->orderByRaw('CASE WHEN is_priority THEN 0 ELSE 1 END')
-            ->orderByRaw('CASE WHEN priority_rank IS NULL THEN 1 ELSE 0 END')
-            ->orderBy('priority_rank')
-            ->orderBy('id')
-            ->get()
-            ->map(fn (BrandOffering $offering): array => [
-                'id' => $offering->id,
-                'label' => $offering->primaryName?->raw_label ?? ('Hizmet #'.$offering->id),
-                'is_priority' => (bool) $offering->is_priority,
-            ])
-            ->values()
-            ->all();
+    public function setTab(string $tab): void
+    {
+        $tab = self::LEGACY_TABS[$tab] ?? $tab;
+        $this->tab = in_array($tab, self::TABS, true) ? $tab : 'overview';
+    }
+
+    public function setOps(string $section): void
+    {
+        $section = $section === 'work' ? 'tasks' : $section;
+        $this->ops = in_array($section, self::WORK_SECTIONS, true) ? $section : 'findings';
+        $this->tab = 'work';
     }
 
     /** Star / unstar a service: the SEO plan looks deeply only at starred services. */
     public function toggleOfferingPriority(int $offeringId): void
     {
-        if (! ctype_digit($this->brand)) {
-            return;
-        }
-        $offering = BrandOffering::query()
-            ->where('brand_id', (int) $this->brand)
-            ->whereKey($offeringId)
-            ->firstOrFail();
+        $offering = BrandOffering::query()->where('brand_id', (int) $this->brand)->whereKey($offeringId)->firstOrFail();
         $offering->forceFill(['is_priority' => ! $offering->is_priority])->save();
         DemoState::flash($offering->is_priority
-            ? 'Hizmet SEO önceliği olarak işaretlendi; bir sonraki planda derinlemesine incelenir.'
-            : 'Hizmetin SEO önceliği kaldırıldı.');
+            ? 'Hizmet öncelikli olarak işaretlendi; SEO planı bu hizmete derinlemesine bakar.'
+            : 'Hizmetin önceliği kaldırıldı.');
     }
 
-    private function syncCanonicalBusinessContextToUiState(): void
+    public function startEditingContext(): void
     {
-        if (! ctype_digit($this->brand)) {
+        $context = $this->brandModel()->intelligenceContext;
+        $join = fn (mixed $rows, array $keys): string => implode("\n", $this->labels($rows, $keys));
+        $this->context_business_summary = (string) ($context?->business_summary ?? '');
+        $this->context_business_model = (string) ($context?->business_model ?? '');
+        $this->context_priority_offerings = $join($context?->priority_offerings, ['name', 'label', 'goal']);
+        $this->context_target_audiences = $join($context?->target_audiences, ['name', 'label']);
+        $this->context_positioning = (string) ($context?->positioning ?? '');
+        $this->context_differentiators = $join($context?->differentiators, ['name', 'label']);
+        $this->context_business_goals = $join($context?->business_goals, ['goal', 'label', 'name']);
+        $this->context_conversion_goals = $join($context?->conversion_goals, ['label', 'type', 'goal']);
+        $this->context_constraints = is_string($context?->important_constraints) ? $context->important_constraints : $join($context?->important_constraints, ['name', 'label']);
+        $this->editingContext = true;
+        $this->tab = 'business';
+    }
+
+    public function cancelEditingContext(): void
+    {
+        $this->editingContext = false;
+    }
+
+    public function saveBusinessContext(): void
+    {
+        $brand = $this->brandModel();
+        $context = $brand->intelligenceContext;
+        $split = static fn (string $value): array => array_values(array_filter(array_map('trim', preg_split('/[,\n]+/', $value) ?: [])));
+
+        app(BrandIntelligenceContextWriteService::class)->saveFromForm($brand, [
+            'business_summary' => $this->context_business_summary,
+            'business_model' => $this->context_business_model,
+            'products_services' => is_array($context?->products_services) ? $context->products_services : [],
+            'priority_offerings' => $split($this->context_priority_offerings),
+            'target_audiences' => array_map(fn (string $v): array => ['name' => $v, 'note' => null], $split($this->context_target_audiences)),
+            'target_markets' => is_array($context?->target_markets) ? $context->target_markets : [],
+            'business_goals' => array_map(fn (string $v): array => ['goal' => $v, 'note' => null], $split($this->context_business_goals)),
+            'conversion_goals' => array_map(fn (string $v): array => ['type' => 'custom', 'label' => $v, 'note' => null], $split($this->context_conversion_goals)),
+            'positioning' => $this->context_positioning,
+            'differentiators' => $split($this->context_differentiators),
+            'known_competitors' => is_array($context?->known_competitors) ? $context->known_competitors : [],
+            'important_constraints' => trim($this->context_constraints),
+        ], auth()->user());
+
+        $this->editingContext = false;
+        DemoState::flash('İş bağlamı kaydedildi.');
+    }
+
+    public function createTaskFromRecommendation(string $recommendationId): void
+    {
+        $recommendation = ctype_digit($recommendationId) ? Recommendation::query()->find((int) $recommendationId) : null;
+        if ($recommendation === null) {
+            DemoState::flash(__('operator.flash.recommendation_not_found'), 'info');
+
             return;
         }
+        $service = app(CreateTaskFromRecommendation::class);
+        if (! $service->userCanConvert(auth()->user())) {
+            DemoState::flash(__('operator.flash.not_allowed_create_task'), 'info');
 
-        $brand = Brand::query()->with([
-            'intelligenceContext.updatedByUser',
-            'serviceAreas' => fn ($query) => $query->where('status', 'active')->orderBy('priority_rank'),
-            'offerings' => fn ($query) => $query->with('primaryName')
-                ->where('status', 'active')
-                ->orderByRaw('CASE WHEN priority_rank IS NULL THEN 1 ELSE 0 END')
-                ->orderBy('priority_rank')
-                ->orderBy('id'),
-        ])->find((int) $this->brand);
-        $context = $brand?->intelligenceContext;
-        if (! $context instanceof BrandIntelligenceContext) {
             return;
         }
+        try {
+            $task = $service->create($recommendation, [], auth()->user(), 'rec-task:'.$recommendation->id.':brand:'.$this->taskCreateNonce);
+            $this->taskCreateNonce = (string) Str::uuid();
+            DemoState::flash(__('operator.flash.task_created_from_recommendation', ['id' => $task->id]));
+            $this->setOps('tasks');
+        } catch (\Throwable $exception) {
+            DemoState::flash($exception->getMessage(), 'info');
+        }
+    }
 
-        $payload = [
-            'brand_id' => (string) $brand->id,
-            'completed' => $this->completedSections($context),
-            'total' => 8,
-            'updated_at' => $context->updated_at?->timezone(config('app.timezone'))->format('M j, Y H:i'),
-            'updated_by' => $context->updatedByUser?->name,
-            'source' => $context->source,
-            'business_summary' => $context->business_summary,
-            'business_model' => $context->business_model,
-            'products_services' => $brand->getRelation('offerings')
-                ->map(fn ($offering): ?string => $offering->primaryName?->raw_label)
-                ->filter()
-                ->values()
-                ->all(),
-            'priority_offerings' => $this->labels($context->priority_offerings ?? [], ['name', 'label', 'goal']),
-            'target_audiences' => $this->labels($context->target_audiences ?? [], ['name', 'label']),
-            'target_markets' => $brand->serviceAreas->map(fn ($area): string => $area->label())->values()->all(),
-            'service_areas' => $brand->serviceAreas->map(fn ($area): array => [
-                'country_code' => $area->country_code,
-                'country_name' => $area->country_name,
-                'city_name' => $area->city_name,
-                'district_name' => $area->district_name,
-                'label' => $area->label(),
-            ])->values()->all(),
-            'business_goals' => $this->labels($context->business_goals ?? [], ['goal', 'label', 'name']),
-            'conversion_goals' => $this->labels($context->conversion_goals ?? [], ['label', 'type', 'goal']),
-            'positioning' => $context->positioning,
-            'differentiators' => $this->labels($context->differentiators ?? [], ['name', 'label']),
-            'known_competitors' => $context->known_competitors ?? [],
-            'important_constraints' => $this->constraintRows($context->important_constraints),
-            'unknown_areas' => [],
+    public function render(): View
+    {
+        $brand = $this->brandModel();
+        $workspace = app(BrandWorkspaceReadService::class);
+        $assets = $workspace->assets($brand);
+        $services = $workspace->services($brand);
+        $checklist = $workspace->checklist($brand, $assets, $services);
+
+        $findings = collect(app(FindingReadService::class)->forBrand($brand))->map(fn ($dto): array => $dto->toArray())->values();
+        $recommendations = collect(app(RecommendationReadService::class)->forListPresentation(['brand_id' => $brand->id]));
+        $tasks = collect(app(WorkReadService::class)->workItems())->filter(fn (array $t): bool => (int) ($t['brand_id'] ?? 0) === $brand->id)->values();
+        $requests = collect(app(ClientRequestReadService::class)->forBrandPresentation($brand->id));
+        $approvals = collect(app(ApprovalReadService::class)->forBrandPresentation($brand->id));
+        $opportunities = collect(app(OpportunityReadService::class)->forListPresentation(['brand_id' => $brand->id]));
+
+        $openFindings = $findings->where('status', 'open');
+        $openRecommendations = $recommendations->whereIn('status', ['pending', 'approved']);
+        $openTasks = $tasks->whereIn('status', ['open', 'in_progress', 'blocked']);
+        $work = [
+            'findings' => ['label' => 'Bulgular', 'count' => $openFindings->count(), 'rows' => $findings],
+            'opportunities' => ['label' => 'Fırsatlar', 'count' => $opportunities->whereIn('status', ['open', 'reviewing'])->count(), 'rows' => $opportunities],
+            'recommendations' => ['label' => 'Öneriler', 'count' => $openRecommendations->count(), 'rows' => $recommendations],
+            'tasks' => ['label' => 'Görevler', 'count' => $openTasks->count(), 'rows' => $tasks],
+            'requests' => ['label' => 'Müşteri talepleri', 'count' => $requests->whereNotIn('status', ['done', 'declined', 'closed'])->count(), 'rows' => $requests],
+            'approvals' => ['label' => 'Onaylar', 'count' => $approvals->whereIn('status', ['pending', 'requested'])->count(), 'rows' => $approvals],
         ];
 
-        $state = DemoState::all();
-        $store = is_array($state['brand_business_context'] ?? null) ? $state['brand_business_context'] : [];
-        $store[(string) $brand->id] = $payload;
-        DemoState::put(['brand_business_context' => $store]);
+        $seo = $workspace->seo($assets);
+        $attention = array_values(array_filter([
+            $seo['critical'] > 0 ? ['tone' => 'error', 'text' => $seo['critical'].' kritik SEO düzeltmesi', 'url' => route('operator.website', ['assetId' => $seo['website_id'], 'tab' => 'seo'])] : null,
+            $seo['questions'] > 0 ? ['tone' => 'warning', 'text' => $seo['questions'].' SEO kararı seni bekliyor', 'url' => route('operator.website', ['assetId' => $seo['website_id'], 'tab' => 'seo'])] : null,
+            $seo['content'] > 0 ? ['tone' => 'info', 'text' => $seo['content'].' içerik önerisi', 'url' => route('operator.website', ['assetId' => $seo['website_id'], 'tab' => 'seo'])] : null,
+            ($critical = $openFindings->whereIn('severity', ['critical', 'high'])->count()) > 0 ? ['tone' => 'error', 'text' => $critical.' kritik/yüksek bulgu', 'ops' => 'findings'] : null,
+            ($blocked = $tasks->where('status', 'blocked')->count()) > 0 ? ['tone' => 'warning', 'text' => $blocked.' görev engelli', 'ops' => 'tasks'] : null,
+            $work['requests']['count'] > 0 ? ['tone' => 'info', 'text' => $work['requests']['count'].' açık müşteri talebi', 'ops' => 'requests'] : null,
+            $work['recommendations']['count'] > 0 ? ['tone' => 'info', 'text' => $work['recommendations']['count'].' karar bekleyen öneri', 'ops' => 'recommendations'] : null,
+        ]));
+
+        $context = $brand->intelligenceContext;
+        $sectors = collect($brand->sectorCodes())->map(fn (string $code): string => IndustryOptions::label($code))->filter()->values()->all();
+
+        return view('livewire.operator.portfolio.brand-show', [
+            'brandModel' => $brand,
+            'customer' => $brand->customer,
+            'sectors' => $sectors,
+            'areas' => $brand->serviceAreas()->where('status', 'active')->orderBy('priority_rank')->get()->map->label()->values()->all(),
+            'responsible' => $brand->responsibleUsers->pluck('name')->all(),
+            'assets' => $assets,
+            'services' => $services,
+            'checklist' => $checklist,
+            'attention' => $attention,
+            'work' => $work,
+            'context' => $context instanceof BrandIntelligenceContext ? $this->contextRows($context) : [],
+            'serviceScope' => app(CustomerServiceScopeReadService::class)->forBrand($brand, includeEnded: false),
+            'reportPreview' => null,
+            'flash' => DemoState::pullFlash(),
+            'valueStory' => $this->tab === 'reports' ? $this->valueStory($brand) : null,
+            ...($this->tab === 'reports' ? $this->brandReportData($brand) : ['reportSnapshots' => ['items' => [], 'empty' => true, 'demo' => false], 'reportSnapshotDetail' => null]),
+        ]);
     }
 
-    /** @param mixed $rows @param list<string> $keys @return list<string> */
+    /** @return array<string, mixed>|null "What we observed / what we did" for the selected period. */
+    private function valueStory(Brand $brand): ?array
+    {
+        $bounds = DemoPeriod::bounds((string) ($this->period ?: 'last_28'), $this->periodStart, $this->periodEnd);
+        $start = ($this->periodStart && $this->periodEnd) ? $this->periodStart : $bounds['start']->toDateString();
+        $end = ($this->periodStart && $this->periodEnd) ? $this->periodEnd : $bounds['end']->toDateString();
+
+        return app(ClientValueStoryReadService::class)->forBrand($brand, $start, $end)?->toPresentationArray();
+    }
+
+    private function brandModel(): Brand
+    {
+        return Brand::query()->with(['customer', 'responsibleUsers', 'intelligenceContext'])->findOrFail((int) $this->brand);
+    }
+
+    /** @return list<array{label: string, value: string}> */
+    private function contextRows(BrandIntelligenceContext $context): array
+    {
+        $rows = [
+            'İşletme özeti' => $context->business_summary,
+            'İş modeli' => $context->business_model,
+            'Hedef kitle' => implode(', ', $this->labels($context->target_audiences, ['name', 'label'])),
+            'Konumlandırma' => $context->positioning,
+            'Farklılaştırıcılar' => implode(', ', $this->labels($context->differentiators, ['name', 'label'])),
+            'İş hedefleri' => implode(', ', $this->labels($context->business_goals, ['goal', 'label', 'name'])),
+            'Dönüşüm hedefleri' => implode(', ', $this->labels($context->conversion_goals, ['label', 'type', 'goal'])),
+            'Kısıtlar' => is_string($context->important_constraints) ? $context->important_constraints : implode(', ', $this->labels($context->important_constraints, ['name', 'label'])),
+        ];
+
+        return collect($rows)->map(fn ($value, string $label): array => ['label' => $label, 'value' => trim((string) $value)])->values()->all();
+    }
+
+    /** @return list<string> */
     private function labels(mixed $rows, array $keys): array
     {
         if (! is_array($rows)) {
             return [];
         }
-
         $labels = [];
         foreach ($rows as $row) {
             if (is_string($row) && trim($row) !== '') {
@@ -177,11 +297,8 @@ class BrandShow extends LegacyBrandShow
 
                 continue;
             }
-            if (! is_array($row)) {
-                continue;
-            }
             foreach ($keys as $key) {
-                if (isset($row[$key]) && is_string($row[$key]) && trim($row[$key]) !== '') {
+                if (is_array($row) && is_string($row[$key] ?? null) && trim($row[$key]) !== '') {
                     $labels[] = trim($row[$key]);
                     break;
                 }
@@ -189,37 +306,5 @@ class BrandShow extends LegacyBrandShow
         }
 
         return array_values(array_unique($labels));
-    }
-
-    /** @return list<string> */
-    private function constraintRows(mixed $value): array
-    {
-        if (is_string($value)) {
-            return array_values(array_filter(array_map('trim', preg_split('/[,\n]+/', $value) ?: [])));
-        }
-
-        return $this->labels($value, ['name', 'label']);
-    }
-
-    private function completedSections(BrandIntelligenceContext $context): int
-    {
-        $values = [
-            $context->business_summary,
-            $context->business_model,
-            $context->priority_offerings,
-            $context->target_audiences,
-            $context->business_goals,
-            $context->conversion_goals,
-            $context->positioning,
-            $context->important_constraints,
-        ];
-
-        return collect($values)->filter(function (mixed $value): bool {
-            if (is_array($value)) {
-                return $value !== [];
-            }
-
-            return is_string($value) ? trim($value) !== '' : $value !== null;
-        })->count();
     }
 }

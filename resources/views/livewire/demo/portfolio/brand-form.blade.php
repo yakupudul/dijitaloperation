@@ -25,6 +25,12 @@
                 <x-ta.form.field :label="__('brand-form.name')" :required="true" :error="$errors->first('name')">
                     <input aria-label="{{ __('brand-form.name') }}" wire:model="name" type="text" maxlength="120" autocomplete="organization" class="w-full rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950 dark:text-white" />
                 </x-ta.form.field>
+                @if ($mode === 'create')
+                    <x-ta.form.field label="Web sitesi" :error="$errors->first('website_url')">
+                        <input aria-label="Web sitesi" wire:model="website_url" type="text" maxlength="255" placeholder="ornek.com.tr" class="w-full rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950 dark:text-white" />
+                        <p class="mt-1 text-xs text-gray-500">Girersen kaydettikten sonra "Otomatik kur" Search Console, GA4, İşletme Profili, Ads ve Meta hesaplarını ve sitedeki hizmetleri bulur; sen onaylarsın. Hizmetleri aşağıda elle seçmen gerekmez.</p>
+                    </x-ta.form.field>
+                @endif
             </div>
         </x-ta.form.section>
 

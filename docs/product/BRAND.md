@@ -73,3 +73,12 @@ Selected sectors reference global ServiceCategory IDs through `brand_service_cat
 Sector removal does not silently remove services. Save requires all selected services to be active and in scope; the operator restores a sector or explicitly removes its service. A newly entered service that resolves to an existing identity in another sector is rejected without relabeling the global identity. Brand, sector links, services, priorities and areas save transactionally. Edit mount reads form data directly instead of running portfolio findings/task calculations.
 
 Source-reviewed only. No clone, dependency installation, tests, formatter, build, browser or server verification ran, per operator instruction. Deployment migration/runtime and human UI acceptance remain unverified; this is not a DONE claim. This is ordinary synchronous form CRUD with no provider work.
+
+## Operator screens (2026-09-23)
+
+- **Marka sayfası** (`/brands/{id}`) beş sekme: Genel bakış · İşletme · Dijital varlıklar · İşler · Raporlar.
+  - Genel bakış: kurulum listesi (eksik varsa; web sitesi, Search Console, GA4 zorunlu; İşletme Profili, Google Ads, Meta isteğe bağlı; hizmetler, eşleştirme ifadeleri, hizmet bölgeleri), dikkat gerektirenler (SEO, bulgu, görev, talep, öneri), varlıklar ve bağlı hesaplar, hizmetler.
+  - Bağlantı durumu yalnızca onaylanmış hesap bağlantılarından (CoreAssetBinding) gelir; son veri, son başarılı veri çekimidir. Hiç çekilmediyse "henüz yok" yazar.
+  - Eski sekme bağlantıları (estate, growth, operations, value, discovery…) yeni sekmelere yönlenir.
+- **Yeni marka**: web sitesi girilirse kayıttan sonra "Otomatik kur" açılır ve öneri hemen hazırlanır.
+

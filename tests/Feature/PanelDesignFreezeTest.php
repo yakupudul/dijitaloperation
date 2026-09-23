@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use App\Livewire\Demo\NotificationBell;
-use App\Livewire\Demo\Portfolio\BrandShow;
+use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Livewire\Demo\Portfolio\CustomerDetail;
 use App\Livewire\Demo\Settings\AiAgentsPage;
 use App\Livewire\Demo\Settings\AiSkillsPage;
@@ -93,33 +93,25 @@ class PanelDesignFreezeTest extends TestCase
     {
         Livewire::test(CustomerDetail::class, ['customerId' => (string) $this->portfolioCustomer->id])
             ->assertSee(__('operator.customer.tabs.overview'))
-            ->assertSee(__('operator.customer.tabs.brands'))
-            ->assertSee(__('operator.customer.tabs.relationship'))
             ->assertSee(__('operator.customer.tabs.requests'))
             ->assertSee(__('operator.customer.tabs.reports'))
+            ->assertDontSee(__('operator.customer.tabs.relationship'))
+            ->assertSee(__('operator.customer.actions.add_brand'))
             ->assertSee(__('operator.customer.actions.open_files'))
-            ->assertSee(__('operator.customer.actions.view_activity'))
-            ->assertSee(__('operator.customer.actions.open_work'));
+            ->assertSee(__('operator.customer.actions.view_activity'));
     }
 
-    public function test_brand_primary_ia_exactly_six(): void
+    public function test_brand_primary_ia_exactly_five(): void
     {
         $html = Livewire::test(BrandShow::class, ['brand' => (string) $this->portfolioBrand->id])->html();
 
-        foreach ([
-            __('operator.brand.tabs.overview'),
-            __('operator.brand.tabs.business'),
-            __('operator.brand.tabs.estate'),
-            __('operator.brand.tabs.growth'),
-            __('operator.brand.tabs.operations'),
-            __('operator.brand.tabs.value'),
-        ] as $tab) {
-            $this->assertStringContainsString('>'.$tab.'</button>', $html);
+        foreach (['Genel bakış', 'İşletme', 'Dijital varlıklar', 'İşler', 'Raporlar'] as $tab) {
+            $this->assertMatchesRegularExpression('/role="tab"[^>]*>'.preg_quote($tab, '/').'(<| )/u', $html);
         }
 
         preg_match_all('/role="tab"[^>]*wire:click="setTab\\(\'([^\']+)\'\\)"/', $html, $matches);
         $this->assertSame(
-            ['overview', 'business', 'estate', 'growth', 'operations', 'value'],
+            ['overview', 'business', 'assets', 'work', 'reports'],
             $matches[1] ?? []
         );
         $this->assertStringNotContainsString('Domain (legacy)', $html);

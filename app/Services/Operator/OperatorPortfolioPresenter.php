@@ -5,6 +5,7 @@ namespace App\Services\Operator;
 use App\Enums\CustomerStatus;
 use App\Enums\CustomerType;
 use App\Models\Brand;
+use App\Models\CoreAssetBinding;
 use App\Models\Customer;
 use App\Models\CustomerContact;
 use App\Models\DigitalAsset;
@@ -96,6 +97,12 @@ final class OperatorPortfolioPresenter
             $completed = min($total, $completed);
         }
 
+        $connectedAssets = $assets->isEmpty() ? 0 : CoreAssetBinding::query()
+            ->whereIn('digital_asset_id', $assets->pluck('id'))
+            ->where('status', 'active')
+            ->distinct()
+            ->count('digital_asset_id');
+
         return [
             'id' => (string) $brand->id,
             'customer_id' => (string) $brand->customer_id,
@@ -125,7 +132,7 @@ final class OperatorPortfolioPresenter
                 ->all(),
             'location' => CountryOptions::label($brand->primary_country),
             'assets_count' => $assets->count(),
-            'connected_assets' => 0,
+            'connected_assets' => $connectedAssets,
             'open_findings' => $openFindings,
             'open_tasks' => $work['open'],
             'overdue_tasks' => $work['overdue'],
@@ -154,7 +161,8 @@ final class OperatorPortfolioPresenter
     }
 
     /**
-     * Asset existence is DEFINED only — never Connected / Configured / Fresh from create.
+     * Connection state comes only from confirmed account bindings: an asset created without one is
+     * "defined", never Connected / Configured / Fresh.
      *
      * @return array<string, mixed>
      */
@@ -167,6 +175,9 @@ final class OperatorPortfolioPresenter
         $openFindings = $asset->relationLoaded('findings')
             ? $asset->findings->where('status', 'open')->count()
             : $asset->findings()->where('status', 'open')->count();
+        $connected = $asset->relationLoaded('assetBindings')
+            ? $asset->assetBindings->where('status', 'active')->isNotEmpty()
+            : $asset->assetBindings()->where('status', 'active')->exists();
 
         return [
             'id' => (string) $asset->id,
@@ -187,10 +198,10 @@ final class OperatorPortfolioPresenter
             'role_label' => in_array($type, ['domain', 'hosting'], true) ? 'Website infrastructure' : 'Primary managed asset',
             'health' => 'healthy',
             'health_label' => __('operator.states.defined'),
-            'connection' => 'not_configured',
-            'connection_label' => __('operator.states.defined'),
-            'connection_state' => 'not_connected',
-            'connection_state_label' => __('operator.states.defined'),
+            'connection' => $connected ? 'connected' : 'not_configured',
+            'connection_label' => $connected ? __('operator.states.connected') : __('operator.states.defined'),
+            'connection_state' => $connected ? 'connected' : 'not_connected',
+            'connection_state_label' => $connected ? __('operator.states.connected') : __('operator.states.defined'),
             'operational_status' => $status === 'archived' ? 'archived' : ($status === 'inactive' ? 'inactive' : 'setup'),
             'operational_status_label' => $status === 'active' ? __('operator.states.defined') : ucfirst($status),
             'data_state' => 'unavailable',

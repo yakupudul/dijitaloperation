@@ -5,7 +5,7 @@ namespace Tests\Feature\QaBlocker;
 use App\Livewire\Demo\Dashboard;
 use App\Livewire\Demo\Portfolio\AssetCreate;
 use App\Livewire\Demo\Portfolio\BrandCreate;
-use App\Livewire\Demo\Portfolio\BrandShow;
+use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Livewire\Demo\Portfolio\BrandsIndex;
 use App\Livewire\Demo\Portfolio\CustomerCreate;
 use App\Livewire\Demo\Portfolio\CustomerDetail;

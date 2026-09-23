@@ -9,6 +9,7 @@ use App\Models\CustomerContact;
 use App\Services\ClientRequests\ClientRequestReadService;
 use App\Services\ClientRequests\ClientRequestUiActions;
 use App\Services\Findings\FindingReadService;
+use App\Services\Operator\BrandWorkspaceReadService;
 use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Services\Operator\OperatorUserDirectory;
 use App\Services\Recommendations\RecommendationReadService;
@@ -30,7 +31,7 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 
 #[Layout('operator.layouts.app')]
-#[Title('Customer')]
+#[Title('Müşteri')]
 class CustomerDetail extends Component
 {
     public string $customerId = '';
@@ -52,9 +53,6 @@ class CustomerDetail extends Component
 
     public string $contact_phone = '';
 
-    #[Url(as: 'activity_filter', history: true)]
-    public string $activityFilter = 'all';
-
     public string $taskCreateNonce = '';
 
     public function mount(string $customerId): void
@@ -75,16 +73,11 @@ class CustomerDetail extends Component
 
     private function normalizeTab(): void
     {
-        $legacy = [
-            'contacts' => 'relationship',
-            'files' => 'overview',
-            'operations' => 'overview',
-            'activity' => 'overview',
-        ];
-        if (isset($legacy[$this->tab])) {
-            $this->tab = $legacy[$this->tab];
+        // Brands, contacts and relationship live on the overview; old deep links keep working.
+        if (in_array($this->tab, ['contacts', 'relationship', 'brands', 'files', 'operations', 'activity'], true)) {
+            $this->tab = 'overview';
         }
-        if (! in_array($this->tab, ['overview', 'brands', 'relationship', 'requests', 'reports'], true)) {
+        if (! in_array($this->tab, ['overview', 'requests', 'reports'], true)) {
             $this->tab = 'overview';
         }
     }
@@ -158,8 +151,10 @@ class CustomerDetail extends Component
         }
 
         $this->contact_name = (string) $contact->name;
-        $this->contact_role = '';
-        $this->contact_title_custom = (string) ($contact->title ?? '');
+        $title = (string) ($contact->title ?? '');
+        $role = $title !== '' ? array_search($title, ContactRoleOptions::options(), true) : false;
+        $this->contact_role = is_string($role) ? $role : ($title !== '' ? ContactRoleOptions::OTHER : '');
+        $this->contact_title_custom = is_string($role) ? '' : $title;
         $this->contact_email = (string) ($contact->email ?? '');
         $this->contact_phone = (string) ($contact->phone ?? '');
     }
@@ -209,7 +204,7 @@ class CustomerDetail extends Component
         }
 
         $this->closeContactForm();
-        $this->tab = 'relationship';
+        $this->tab = 'overview';
     }
 
     public function deleteContact(string $contactId): void
@@ -220,7 +215,7 @@ class CustomerDetail extends Component
             ->whereKey((int) $contactId)
             ->delete();
         DemoState::flash(__('operator.flash.contact_removed'));
-        $this->tab = 'relationship';
+        $this->tab = 'overview';
     }
 
     public function archiveCustomer(): void
@@ -246,8 +241,16 @@ class CustomerDetail extends Component
         $customer = OperatorPortfolioPresenter::customer($model);
         $team = collect(OperatorUserDirectory::presentationMembers())->keyBy('id');
 
+        $workspace = app(BrandWorkspaceReadService::class);
         $brands = $model->brands
-            ->map(fn ($brand): array => OperatorPortfolioPresenter::brand($brand))
+            ->map(function ($brand) use ($workspace): array {
+                $assets = $workspace->assets($brand);
+
+                return OperatorPortfolioPresenter::brand($brand) + [
+                    'setup' => $workspace->checklist($brand, $assets, $workspace->services($brand)),
+                    'accounts' => collect($assets)->flatMap(fn (array $a): array => array_column($a['accounts'], 'label'))->unique()->values()->all(),
+                ];
+            })
             ->values();
 
         $contacts = $model->contacts
@@ -276,7 +279,7 @@ class CustomerDetail extends Component
             'customer' => $customer,
             'industryLabel' => $industryLabel,
             'hqDisplay' => CountryOptions::formatHq($customer['hq_city'] ?? null, $customer['hq_country'] ?? null),
-            'typeLabel' => ($customer['type'] ?? '') === 'individual' ? 'Individual' : 'Company',
+            'typeLabel' => ($customer['type'] ?? '') === 'individual' ? 'Bireysel' : 'Şirket',
             'statusLabel' => $customer['status_label'] ?? '',
             'serviceLabels' => AgencyServiceOptions::labels($customer['services'] ?? []),
             'responsibleUsers' => collect($customer['responsible_user_ids'] ?? [])
@@ -292,7 +295,6 @@ class CustomerDetail extends Component
             'openTasks' => $openTasks->values()->all(),
             'overdueTasks' => $overdueTasks->values()->all(),
             'attentionFindings' => $attentionFindings->values()->all(),
-            'activity' => [],
             'digitalAssetsCount' => $digitalAssetsCount,
             'openFindingsCount' => $findings->count(),
             'openTasksCount' => $openTasks->count(),

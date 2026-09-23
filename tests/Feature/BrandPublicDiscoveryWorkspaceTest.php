@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\Demo\Portfolio\BrandShow;
+use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Models\Brand;
 use App\Models\Customer;
 use App\Models\User;
@@ -41,11 +41,10 @@ class BrandPublicDiscoveryWorkspaceTest extends TestCase
 
     public function test_brand_discovery_does_not_render_fake_candidates_without_a_website(): void
     {
+        // Discovery lives on the website asset; the old deep link lands on the brand's business tab.
         Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id, 'tab' => 'discovery'])
-            ->assertSee('Public Discovery')
-            ->assertSee('REAL ENGINE')
-            ->assertSee('Website varlığı ekle')
-            ->assertSee('Tüm Kamu Keşif merkezi')
+            ->assertSet('tab', 'business')
+            ->assertSee('Otomatik kur')
             ->assertDontSee('Dental Implant')
             ->assertDontSee('Smile Design')
             ->assertDontSee('Discovery Score')

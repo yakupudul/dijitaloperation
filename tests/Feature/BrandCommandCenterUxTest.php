@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\Demo\Portfolio\BrandShow;
+use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Livewire\Demo\Portfolio\BrandsIndex;
 use App\Models\Brand;
 use App\Models\DigitalAsset;
@@ -39,9 +39,10 @@ class BrandCommandCenterUxTest extends TestCase
             ->assertSee('Brands managed across customer accounts')
             ->assertSee('Atlas Dental Ankara')
             ->assertSee('Atlas Health Group')
-            ->assertSee('digital assets')
-            ->assertSee(__('operator.portfolio.add_brand_wizard'))
-            ->assertSee(route('operator.setup', ['entry' => 'brand'], absolute: false))
+            ->assertSee('dijital varlık')
+            ->assertSee(__('operator.forms.add_brand'))
+            ->assertSee(route('operator.brand.create', absolute: false))
+            ->assertDontSee(route('operator.setup', ['entry' => 'brand'], absolute: false))
             ->set('search', 'Atlas Dental')
             ->assertSee('Atlas Dental Ankara')
             ->set('search', 'NoSuchBrandXYZ')
@@ -58,8 +59,8 @@ class BrandCommandCenterUxTest extends TestCase
         app()->setLocale('tr');
 
         Livewire::test(BrandsIndex::class)
-            ->assertSee(__('operator.portfolio.add_brand_wizard'))
-            ->assertSee(route('operator.setup', ['entry' => 'brand'], absolute: false));
+            ->assertSee(__('operator.forms.add_brand'))
+            ->assertSee(route('operator.brand.create', absolute: false));
     }
 
     public function test_brands_directory_prevents_empty_onboarding_when_filtered(): void
@@ -75,11 +76,12 @@ class BrandCommandCenterUxTest extends TestCase
         Livewire::test(BrandShow::class, ['brand' => (string) $this->workBrand->id])
             ->assertSee('Atlas Dental Ankara')
             ->assertSee('Atlas Health Group')
-            ->assertSee('Digital estate')
-            ->assertSee('Business context')
-            ->assertSee('Add digital asset')
-            ->assertSee('Edit brand')
-            ->assertSee('Open customer')
+            ->assertSee('Dijital varlıklar')
+            ->assertSee('Hizmetler')
+            ->assertSee('Otomatik kur')
+            ->assertSee('Varlık ekle')
+            ->assertSee('Düzenle')
+            ->assertSee(route('operator.customer', ['customerId' => $this->workCustomer->id], absolute: false))
             ->assertDontSee('Brand Health')
             ->assertDontSee('Media spend')
             ->assertDontSee('Meta CPL deteriorated');
@@ -89,17 +91,16 @@ class BrandCommandCenterUxTest extends TestCase
     {
         Livewire::test(BrandShow::class, ['brand' => (string) $this->workBrand->id])
             ->call('setTab', 'assets')
-            ->assertSee('Digital assets')
+            ->assertSee('Dijital varlıklar ve bağlı hesaplar')
             ->assertSee('Atlas Dental Website')
             ->assertDontSee('Atlas Dental — Meta')
             ->call('setTab', 'cross_channel')
-            ->assertSee('Evidence-based consistency checks')
+            ->assertSet('tab', 'assets')
             ->call('setTab', 'context')
-            ->call('setBusinessSection', 'context')
-            ->assertSee('Operator maintained')
+            ->assertSee('İş bağlamı')
             ->assertDontSee('Dental implants')
             ->call('setTab', 'operations')
-            ->assertSee('Findings, decisions and active work')
+            ->assertSee('Bulgular')
             ->assertDontSee('Meta CPL deteriorated')
             ->assertDontSee('Replace underperforming Meta creative');
     }
@@ -109,8 +110,6 @@ class BrandCommandCenterUxTest extends TestCase
         Livewire::test(BrandShow::class, ['brand' => (string) $this->workBrand->id])
             ->call('setTab', 'discovery')
             ->assertSet('tab', 'business')
-            ->assertSet('businessSection', 'discovery')
-            ->assertSee('Public Discovery')
             ->assertDontSee('Dental Implant')
             ->assertDontSee('Smile Design')
             ->assertDontSee('Çankaya');
@@ -120,8 +119,7 @@ class BrandCommandCenterUxTest extends TestCase
     {
         Livewire::test(BrandShow::class, ['brand' => (string) $this->workBrand->id])
             ->call('setTab', 'ai')
-            ->assertSet('tab', 'growth')
-            ->assertSee(__('operator.brand.tabs.growth'))
+            ->assertSet('tab', 'work')
             ->assertDontSee('Demo Mode')
             ->assertDontSee('Replace underperforming Meta creative');
     }

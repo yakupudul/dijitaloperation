@@ -7,7 +7,7 @@ use App\Livewire\Demo\CaptureModal;
 use App\Livewire\Demo\Dashboard;
 use App\Livewire\Demo\GlobalSearch;
 use App\Livewire\Demo\Operations\WorkShow;
-use App\Livewire\Demo\Portfolio\BrandShow;
+use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Livewire\Demo\Portfolio\CustomerDetail;
 use App\Livewire\Demo\Settings\PlaybookShow;
 use App\Models\Brand;
@@ -53,18 +53,12 @@ class ClientValueReportingKnowledgeTest extends TestCase
     {
         $this->get(route('operator.brand', ['brand' => $this->portfolioBrand->id, 'tab' => 'value']))
             ->assertOk()
-            ->assertSee(__('operator.value.title'))
-            ->assertSee(__('operator.value.sections.overview'))
-            ->assertSee(__('operator.value.sections.story'))
-            ->assertSee(__('operator.value.sections.outcomes'))
-            ->assertSee(__('operator.value.sections.decisions'))
-            ->assertSee(__('operator.value.sections.reports'))
-            ->assertSee(__('operator.value.no_magic_score'))
+            ->assertSee('Raporlar')
+            ->assertSee(__('operator.reports.empty_schedules'))
             ->assertDontSee('Client Success Score');
 
         Livewire::test(BrandShow::class, ['brand' => (string) $this->portfolioBrand->id])
-            ->set('tab', 'value')
-            ->set('valueSection', 'story')
+            ->call('setTab', 'reports')
             ->assertSee(__('operator.value.what_observed'))
             ->assertSee(__('operator.value.what_did'))
             ->assertDontSee('Our work caused');
@@ -82,15 +76,15 @@ class ClientValueReportingKnowledgeTest extends TestCase
         $this->assertSame(21, (int) $story['business_outcomes']['consultations']);
 
         Livewire::test(BrandShow::class, ['brand' => (string) $this->portfolioBrand->id])
+            ->call('setTab', 'reports')
             ->call('setPeriod', 'this_month')
-            ->call('setValueSection', 'story')
             ->assertOk();
     }
 
     public function test_report_preview_language_and_sections_without_dead_delivery(): void
     {
         Livewire::test(BrandShow::class, ['brand' => (string) $this->portfolioBrand->id])
-            ->call('setValueSection', 'reports')
+            ->call('setTab', 'reports')
             ->call('setReportLanguage', 'tr')
             ->assertDontSee('Demo Rapor Önizleme')
             ->assertDontSee('Download PDF')
@@ -134,8 +128,9 @@ class ClientValueReportingKnowledgeTest extends TestCase
         $this->assertSame([], DemoState::captureDecisions());
 
         Livewire::test(BrandShow::class, ['brand' => (string) $this->portfolioBrand->id])
-            ->call('setValueSection', 'decisions')
-            ->assertSee(__('operator.value.decision_history'));
+            ->call('setTab', 'history')
+            ->assertSet('tab', 'reports')
+            ->assertDontSee('Prefer German expansion after September');
     }
 
     public function test_playbook_knowledge_and_ai_skill_distinction(): void

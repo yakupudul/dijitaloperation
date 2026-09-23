@@ -1,5 +1,16 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-09-23 (f) — Matching expressions, GBP keyword import, brand/customer screens
+
+**State:** CODED + PHPUnit (`tests/Feature/Portfolio/BrandWorkspaceTest.php`, `tests/Feature/SearchDemand/GbpLibraryImportTest.php`, `BrandSetupAssistantTest`). Full Feature suite: no new failures versus the previous head (147 pre-existing failures unchanged). Live UAT not run. Playwright specs `tests/e2e/02, 05, 09` still reference the removed brand discovery sub-nav (not in CI).
+
+- "Otomatik kur" proposes location-free, service-specific matching expressions and appends them to the catalog service (`ServiceKeywordService::append`, generic words rejected centrally), so later imports auto-assign.
+- Query import source `google_business_profile` reads already-collected `gbp_search_keywords_monthly` (month-based range).
+- Brand page rebuilt (`App\Livewire\Operator\Portfolio\BrandShow`, `BrandWorkspaceReadService`): 5 tabs, setup checklist, real connection state and last sync; legacy `Demo\Portfolio\BrandShow` (session-shaped, fixture sections) removed. Reports moved into `InteractsWithBrandReports`.
+- `OperatorPortfolioPresenter` derives connection state and `connected_assets` from active bindings (was hardcoded "not configured").
+- Customer page: 3 tabs, brands with setup state, contacts inline; contact role now survives edit.
+- Brand create takes an optional website and opens "Otomatik kur" with the proposal started. The `/setup` wizard is no longer linked from list pages (route and its tests remain; removal pending owner approval).
+
 ## 2026-09-23 (e) — Location-free services/keywords, out-of-area demand
 
 **State:** CODED + PHPUnit (`BrandSetupAssistantTest`, `SeoTaskRuleEngineTest`). Triggered by the first live "Otomatik kur" run (busranurozger.com, İstanbul brand): aliases such as "jinekomasti ankara" and Ankara queries.

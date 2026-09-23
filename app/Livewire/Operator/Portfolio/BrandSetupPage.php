@@ -48,6 +48,13 @@ final class BrandSetupPage extends Component
         $this->brandId = $model->id;
         $website = $model->digitalAssets()->where('type', 'website')->orderBy('id')->first();
         $this->websiteUrl = (string) ($website?->primary_url ?: $website?->domain ?: '');
+
+        // Coming from "new brand" with a website: start the proposal immediately.
+        $url = trim((string) request()->query('url', ''));
+        if ($url !== '' && $this->latest() === null) {
+            $this->websiteUrl = $url;
+            $this->start(app(BrandSetupAssistant::class));
+        }
     }
 
     public function start(BrandSetupAssistant $assistant): void

@@ -5,7 +5,6 @@ namespace Tests\Feature\SearchDemand;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\SearchQueryLibraryItem;
-use App\Models\ServiceCatalogItem;
 use App\Models\ServiceCategory;
 use App\Models\User;
 use App\Services\SearchDemand\LibraryImportWorkflow;
@@ -31,8 +30,7 @@ final class GbpLibraryImportTest extends TestCase
         $admin = User::factory()->create(['is_active' => true]);
         $admin->assignRole(Roles::ADMIN);
         ServiceCategory::query()->create(['code' => 'saglik', 'name' => 'Sağlık', 'normalized_key' => 'saglik']);
-        $implant = app(ServiceCatalogService::class)->resolveOrCreate('İmplant Tedavisi', 'saglik', actor: $admin);
-        $implant = $implant instanceof ServiceCatalogItem ? $implant : ServiceCatalogItem::query()->firstOrFail();
+        $implant = app(ServiceCatalogService::class)->resolveOrCreate('İmplant Tedavisi', 'saglik', actor: $admin)['service'];
         $this->assertSame(['vidalı diş'], app(ServiceKeywordService::class)->append($implant, ['vidalı diş', 'fiyat ankara', 'ab']));
         $this->assertSame([], app(ServiceKeywordService::class)->append($implant, ['Vidalı Diş']), 'append never duplicates');
 

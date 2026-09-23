@@ -53,8 +53,8 @@ class CustomerFoundationUxTest extends TestCase
             ->assertSee('Horizon Clinics')
             ->assertSee('Open findings')
             ->assertDontSee('Open issues')
-            ->assertSee(__('operator.portfolio.new_customer_setup'))
-            ->assertSee(route('operator.setup', ['entry' => 'customer'], absolute: false));
+            ->assertSee(__('operator.portfolio.add_customer'))
+            ->assertSee(route('operator.customer.create', absolute: false));
     }
 
     public function test_customers_index_search_and_filters_compose(): void
@@ -121,6 +121,7 @@ class CustomerFoundationUxTest extends TestCase
             ->assertSee('Nova Health Group')
             ->assertSee(__('operator.portfolio.account_owner_responsible'))
             ->call('setTab', 'relationship')
+            ->assertSet('tab', 'overview')
             ->assertSee(__('operator.service_scope.title'))
             ->call('openContactForm')
             ->set('contact_name', 'Yeni Kişi')
@@ -130,7 +131,7 @@ class CustomerFoundationUxTest extends TestCase
             ->assertSee('Yeni Kişi')
             ->assertSee(__('operator.customer.actions.open_files'))
             ->assertSee(__('operator.customer.actions.view_activity'))
-            ->assertSee(__('operator.customer.actions.open_work'));
+            ->assertSee(__('operator.customer.actions.add_brand'));
     }
 
     public function test_customer_directory_cta_is_localized(): void
@@ -139,8 +140,8 @@ class CustomerFoundationUxTest extends TestCase
         app()->setLocale('tr');
 
         Livewire::test(CustomersIndex::class)
-            ->assertSee(__('operator.portfolio.new_customer_setup'))
-            ->assertSee(route('operator.setup', ['entry' => 'customer'], absolute: false));
+            ->assertSee(__('operator.portfolio.add_customer'))
+            ->assertSee(route('operator.customer.create', absolute: false));
 
         Livewire::test(CustomerDetail::class, ['customerId' => (string) $customer->id])
             ->assertSee(__('operator.portfolio.account_owner_responsible'));

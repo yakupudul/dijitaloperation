@@ -8,7 +8,7 @@ use App\Livewire\Demo\Dashboard;
 use App\Livewire\Demo\Operations\ActivityIndex;
 use App\Livewire\Demo\Operations\FindingsIndex;
 use App\Livewire\Demo\Operations\RecommendationsIndex;
-use App\Livewire\Demo\Portfolio\BrandShow;
+use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Livewire\Demo\SettingsPage;
 use App\Models\AgencySetting;
 use App\Models\Brand;
@@ -165,8 +165,7 @@ class ProductVisionRecoveryTest extends TestCase
             ->call('saveBusinessContext')
             ->assertSee('Updated Northwind canonical summary');
 
-        $saved = DemoState::brandBusinessContext((string) $brand->id);
-        $this->assertSame('Updated Northwind canonical summary', $saved['business_summary'] ?? null);
+        $this->assertSame('Updated Northwind canonical summary', $brand->fresh()->intelligenceContext?->business_summary);
     }
 
     public function test_settings_persist_general_and_notification_overrides(): void

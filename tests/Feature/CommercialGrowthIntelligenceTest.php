@@ -5,7 +5,7 @@ namespace Tests\Feature;
 use App\Enums\RecommendationSourceKind;
 use App\Livewire\Demo\Operations\OpportunitiesIndex;
 use App\Livewire\Demo\Operations\RecommendationsIndex;
-use App\Livewire\Demo\Portfolio\BrandShow;
+use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Models\Finding;
 use App\Models\Opportunity;
 use App\Models\Recommendation;
@@ -113,27 +113,25 @@ class CommercialGrowthIntelligenceTest extends TestCase
     {
         Livewire::test(BrandShow::class, ['brand' => (string) $this->portfolioBrand->id])
             ->call('setTab', 'business')
-            ->call('setBusinessSection', 'context')
-            ->assertSee(__('operator.goals.title'))
-            ->assertSee(__('operator.commercial.agency_scope'));
+            ->assertSee('İş bağlamı')
+            ->assertSee('Ajansın verdiği hizmetler');
     }
 
     public function test_brand_growth_shows_opportunity_section_without_demo_titles(): void
     {
         Livewire::test(BrandShow::class, ['brand' => (string) $this->portfolioBrand->id])
             ->call('setTab', 'growth')
-            ->assertSee(__('operator.opportunities.growth_section'))
+            ->assertSet('tab', 'work')
+            ->call('setOps', 'opportunities')
+            ->assertSee('Fırsatlar')
             ->assertDontSee('High paid implant demand but weak organic coverage');
     }
 
-    public function test_brand_value_shows_business_outcomes_without_zero_revenue(): void
+    public function test_brand_reports_never_show_zero_revenue_without_evidence(): void
     {
         Livewire::test(BrandShow::class, ['brand' => (string) $this->portfolioBrand->id])
             ->call('setTab', 'value')
-            ->call('setValueSection', 'outcomes')
-            ->assertSee(__('operator.outcomes.title'))
-            ->assertSee(__('operator.outcomes.platform_results'))
-            ->assertSee(__('operator.outcomes.not_available'))
+            ->assertSet('tab', 'reports')
             ->assertDontSee('₺0');
     }
 

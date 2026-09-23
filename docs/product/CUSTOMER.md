@@ -65,3 +65,8 @@ Müşteri portalı, self-service login, multi-tenant billing, SaaS onboarding.
 ## Acceptance intent
 
 Ajans çalışanı bir Customer kaydı açıp contact ve sorumluları bağlayabilir; markalara geçiş yapabilir; sistem Customer'ı yalnızca name/email CRUD olarak modellemez.
+
+## Operator screen (2026-09-23)
+
+Müşteri sayfası üç sekme: Genel bakış (markalar ve kurulum durumu, dikkat gerektirenler, kişiler, sorumlular ve hizmet kapsamı) · Talepler · Raporlar. Eski `brands`/`relationship`/`contacts` bağlantıları genel bakışa yönlenir.
+

@@ -166,9 +166,10 @@ class BrandsIndex extends Component
             'brands' => $rows->all(),
             'allCount' => $all->count(),
             'summaryLine' => sprintf(
-                '%d brands · %d digital assets · %d brands need attention',
+                '%d marka · %d dijital varlık (%d bağlı) · %d marka dikkat istiyor',
                 $all->count(),
                 $all->sum(fn (array $b): int => (int) ($b['assets_count'] ?? 0)),
+                $all->sum(fn (array $b): int => (int) ($b['connected_assets'] ?? 0)),
                 $all->filter(fn (array $b): bool => (bool) ($b['needs_attention'] ?? false))->count()
             ),
             'hasFilters' => $this->hasActiveFilters(),

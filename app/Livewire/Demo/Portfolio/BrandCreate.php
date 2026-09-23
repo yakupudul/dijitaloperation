@@ -33,6 +33,9 @@ class BrandCreate extends Component
         }
     }
 
+    /** Optional: when given, the brand opens in "Otomatik kur" and the proposal starts right away. */
+    public string $website_url = '';
+
     public function save(BrandCommercialContextService $commercialContext): mixed
     {
         if ($this->saving) {
@@ -42,7 +45,7 @@ class BrandCreate extends Component
         $this->saving = true;
 
         try {
-            $this->validate($this->brandRules());
+            $this->validate($this->brandRules() + ['website_url' => ['nullable', 'string', 'max:255']]);
 
             $brand = DB::transaction(function () use ($commercialContext): Brand {
                 $brand = Brand::query()->create($this->brandEloquentPayload());
@@ -65,6 +68,10 @@ class BrandCreate extends Component
 
             DemoState::flash(__('operator.forms.brand_saved', ['name' => $brand->name]));
 
+            if (trim($this->website_url) !== '') {
+                return $this->redirect(route('operator.brand.setup', ['brand' => $brand->id, 'url' => trim($this->website_url)]), navigate: true);
+            }
+
             return $this->redirect(route('operator.brand', ['brand' => $brand->id]), navigate: true);
         } finally {
             $this->saving = false;
@@ -74,7 +81,7 @@ class BrandCreate extends Component
     public function render(): View
     {
         $backUrl = $this->customerLocked
-            ? route('operator.customer', ['customerId' => $this->customer_id, 'tab' => 'brands'])
+            ? route('operator.customer', ['customerId' => $this->customer_id])
             : route('operator.brands');
 
         return view('livewire.demo.portfolio.brand-form', array_merge($this->brandFormViewData(), [

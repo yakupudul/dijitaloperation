@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use App\Livewire\Demo\Portfolio\AssetsIndex;
-use App\Livewire\Demo\Portfolio\BrandShow;
+use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Models\Brand;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
@@ -40,9 +40,9 @@ class DemoPortfolioUxTest extends TestCase
 
         Livewire::test(BrandShow::class, ['brand' => (string) $brand->id])
             ->assertSee('Nova Dental')
-            ->assertSee('Digital estate')
+            ->assertSee('Dijital varlıklar')
             ->call('setTab', 'discovery')
-            ->assertSee('Public Discovery')
+            ->assertSet('tab', 'business')
             ->assertDontSee('Dental Implant')
             ->assertDontSee('atlasdental.example')
             ->assertDontSee('Replace underperforming Meta creative');
