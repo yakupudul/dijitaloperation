@@ -122,6 +122,17 @@
                     </ul>
                 </section>
 
+                @if (($frozenStory['measured_work'] ?? []) !== [])
+                    <section class="mt-5">
+                        <h4 class="text-sm font-semibold uppercase tracking-wide text-gray-500">{{ __('operator.value.measured_work') }}</h4>
+                        <ul class="mt-2 space-y-1 text-sm text-gray-700 dark:text-gray-300">
+                            @foreach ($frozenStory['measured_work'] as $item)
+                                <li>· {{ $item['text'] ?? '' }} <span class="text-gray-500">— {{ $item['result'] ?? '' }}</span></li>
+                            @endforeach
+                        </ul>
+                    </section>
+                @endif
+
                 <section class="mt-5">
                     <h4 class="text-sm font-semibold uppercase tracking-wide text-gray-500">{{ __('operator.value.business_outcome') }}</h4>
                     @if ($outcomes['available'] ?? false)

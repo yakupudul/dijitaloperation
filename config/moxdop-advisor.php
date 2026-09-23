@@ -195,4 +195,30 @@ return [
         'utm' => 'utm_source=google&utm_medium=organic&utm_campaign=gbp',
         'attribute_suggestions' => 8,
     ],
+
+    // Faz 6 — kanallar arası öneriler (web sitesi varlığında çalışır; Google Ads / İşletme Profili / GSC verisini birleştirir).
+    'cross' => [
+        'gsc_days' => 90,
+        'ads_term_min_conversions' => 2,
+        'ads_term_max_items' => 20,
+        'organic_good_position' => 10,
+        'page_match_overlap' => 0.8,
+        'brand_paid_min_cost' => 300,
+        'brand_organic_max_position' => 1.5,
+        'brand_organic_min_impressions' => 100,
+        'gbp_keyword_min_impressions' => 40,
+        'gbp_keyword_max_items' => 20,
+    ],
+
+    // Haftalık özet e-postası (varsayılan kapalı) ve "Yapıldı" sonrası ölçüm.
+    'digest' => [
+        'enabled' => env('ADVISOR_DIGEST_ENABLED', false),
+        'weekly_time' => '08:00',
+        'items' => 5,
+    ],
+    'measure' => [
+        'after_days' => 28,
+        'gsc_lag_days' => 3,
+        'weekly_time' => '07:30',
+    ],
 ];

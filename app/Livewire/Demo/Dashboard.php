@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Demo;
 
+use App\Services\Advisor\AdvisorWorkQueue;
 use App\Services\Operator\OperatorExecutionReadService;
 use App\Services\Opportunities\OpportunityReadService;
 use App\Support\Demo\DemoState;
@@ -10,6 +11,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use Throwable;
 
 #[Layout('operator.layouts.app')]
 #[Title('Dashboard')]
@@ -42,7 +44,22 @@ class Dashboard extends Component
                 ->values()
                 ->all(),
             'recentValue' => [],
+            'weeklyTop' => $this->weeklyTop(),
             'flash' => DemoState::pullFlash(),
         ]);
+    }
+
+    /**
+     * "Bu haftanın en önemli 5 işi" across SEO Görevleri and every advisor channel (max 2 per brand).
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function weeklyTop(): array
+    {
+        try {
+            return app(AdvisorWorkQueue::class)->top(5);
+        } catch (Throwable) {
+            return [];
+        }
     }
 }

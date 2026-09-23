@@ -75,3 +75,15 @@ Aynı sayfa (kanal: İşletme Profili) ve profil sayfasında **Danışman** sekm
 | `rating-trend` | Profil | Son 90 günde ≥5 yorumun ortalaması önceki yıla göre ≥0,3 düştü. |
 | `photo-freshness` | Profil | Profil 28 günde ≥20 etkileşim alırken son fotoğraf 120 günden eski. |
 | `website-utm` | Ölçüm | Web sitesi bağlantısında UTM yok (hazır adres verilir). |
+
+## Faz 6 — tek iş listesi, kanallar arası, ölçülen etki
+
+- **Pano:** "Bu haftanın en önemli 5 işi" — SEO Görevleri ve tüm danışman kanalları tek sırada (aynı öncelik ölçeği), marka başına en fazla 2.
+- **Marka sayfası → Genel bakış → Danışman:** kanal başına bir durum satırı (açık / acil / son inceleme) ve markanın en önemli 5 işi.
+- **Kanallar arası** (web sitesi varlığında, haftalık):
+  - `ads-term-no-organic-page`: Google Ads'te ≥2 dönüşüm getiren, sitede sayfası olmayan ve organikte ilk 10'da olmayan aramalar.
+  - `paid-brand-search`: organikte ort. ≤1,5 sırada olunan marka aramalarına ≥300 harcama → 2 haftalık durdurma testi önerisi (rakip teklif veriyorsa gerekli olabilir).
+  - `gbp-search-no-site-content`: İşletme Profili'nde ≥40 görüntülenen, sitede karşılığı olmayan aramalar.
+- **Ölçüm** (`moxdop:advisor:measure`, Pazartesi 07:30): "Yapıldı" dan 28 gün sonra — negatif listeler (listedeki terimlere harcama önce/sonra), hedef sayfalı SEO görevleri (Search Console tıklaması önce/sonra, 3 gün gecikme payı). Diğerleri "yapıldı, ölçülebilir metrik yok".
+- **Müşteri raporu:** "Yapılanlar ve gözlenen etkisi" bölümü (önizleme, dondurulmuş rapor, PDF, paylaşım linki). Gözlenen değişimdir; nedensellik iddiası yok.
+- **Haftalık iç e-posta** (`moxdop:advisor:digest`, Pazartesi 08:00): aktif yöneticilere ilk 5 iş; `ADVISOR_DIGEST_ENABLED=true` ile açılır, e-posta ayarı gerekir.

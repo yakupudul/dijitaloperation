@@ -78,6 +78,54 @@
             @endforelse
         </section>
 
+        @if ($advisor && ($advisor['channels'] !== [] || $advisor['top'] !== []))
+            <section class="{{ $card }}" aria-labelledby="brand-advisor-heading">
+                <div class="flex items-center justify-between gap-3 border-b border-gray-100 px-5 py-3 dark:border-gray-800">
+                    <h2 id="brand-advisor-heading" class="text-base font-semibold text-gray-800 dark:text-white/90">Danışman</h2>
+                    <span class="text-xs text-gray-400">Kanal başına durum ve bu markanın en önemli işleri</span>
+                </div>
+                <div class="divide-y divide-gray-100 dark:divide-gray-800">
+                    @foreach ($advisor['channels'] as $line)
+                        <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
+                            <div class="min-w-0">
+                                <p class="text-sm font-medium text-gray-800 dark:text-white/90">{{ $line['channel'] }} <span class="font-normal text-gray-400">· {{ $line['asset'] }}</span></p>
+                                <p class="text-xs text-gray-500">
+                                    @if ($line['running']) İnceleniyor…
+                                    @elseif ($line['last_run_at']) {{ $line['summary'] }} · {{ $line['last_run_at']->locale('tr')->diffForHumans() }}
+                                    @else Henüz incelenmedi
+                                    @endif
+                                </p>
+                            </div>
+                            <div class="flex items-center gap-2 text-xs">
+                                @if ($line['urgent'] > 0)<x-ta.badge color="error" size="sm">{{ $line['urgent'] }} acil</x-ta.badge>@endif
+                                <span class="text-gray-500">{{ $line['open'] }} açık</span>
+                                @if ($line['url'])<a href="{{ $line['url'] }}" wire:navigate class="font-medium text-brand-600 hover:underline">Aç →</a>@endif
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+                @if ($advisor['top'] !== [])
+                    <div class="border-t border-gray-100 px-5 py-3 dark:border-gray-800">
+                        <p class="text-xs font-medium uppercase tracking-wide text-gray-400">Önce bunlar</p>
+                        <ol class="mt-2 space-y-2">
+                            @foreach ($advisor['top'] as $row)
+                                <li class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-gray-50 px-3 py-2 dark:bg-white/[0.03]">
+                                    <div class="min-w-0 flex-1">
+                                        <p class="text-sm font-medium text-gray-800 dark:text-white/90">{{ $row['title'] }}</p>
+                                        <p class="text-xs text-gray-500">{{ $row['channel'] }}@if ($row['impact']) · {{ $row['impact'] }}@endif</p>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <x-ta.badge :color="$row['severity_color']" size="sm">{{ $row['severity_label'] }}</x-ta.badge>
+                                        @if ($row['url'])<a href="{{ $row['url'] }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline">Aç →</a>@endif
+                                    </div>
+                                </li>
+                            @endforeach
+                        </ol>
+                    </div>
+                @endif
+            </section>
+        @endif
+
         <div class="grid gap-6 lg:grid-cols-2">
             <section class="{{ $card }}">
                 <div class="flex items-center justify-between border-b border-gray-100 px-5 py-3 dark:border-gray-800">

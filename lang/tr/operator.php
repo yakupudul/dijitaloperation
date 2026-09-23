@@ -1433,6 +1433,8 @@ return [
     ],
 
     'dashboard_exec' => [
+        'weekly_top' => 'Bu haftanın en önemli 5 işi',
+        'weekly_top_empty' => 'Açık iş yok. Planlar ve danışman her Pazartesi kendiliğinden çalışır.',
         'subtitle' => 'Bugün dikkat gerektiren işlere odaklı görünüm.',
         'mode_label' => 'Pano modu',
         'my_work' => 'Benim işlerim',
@@ -1455,6 +1457,7 @@ return [
     ],
 
     'value' => [
+        'measured_work' => 'Yapılanlar ve gözlenen etkisi',
         'title' => 'Değer',
         'subtitle' => 'Bu Marka için hangi değeri yaratıyoruz?',
         'summary' => 'Değer özeti',

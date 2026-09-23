@@ -41,6 +41,11 @@ final class ReportPdfRenderer
             array_filter($story['completed_work'] ?? [], 'is_array'),
         ));
 
+        $measuredWork = array_values(array_map(
+            static fn (array $row): string => trim((string) ($row['text'] ?? '').' — '.(string) ($row['result'] ?? ''), ' —'),
+            array_filter($story['measured_work'] ?? [], 'is_array'),
+        ));
+
         $html = view('reports.client-value-story-pdf', [
             'title' => (string) $snapshot->title_snapshot,
             'brandName' => (string) $snapshot->brand_name_snapshot,
@@ -52,6 +57,7 @@ final class ReportPdfRenderer
             'observations' => $observations,
             'opportunities' => $opportunities,
             'completedWork' => $completedWork,
+            'measuredWork' => $measuredWork,
             'outcomesAvailable' => (bool) ($outcomes['available'] ?? false),
             'outcomesUnavailable' => $outcomes['unavailable_message'] ?? null,
             'qualifiedLeads' => $outcomes['qualified_leads'] ?? '—',

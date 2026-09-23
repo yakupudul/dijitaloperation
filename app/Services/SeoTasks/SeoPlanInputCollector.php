@@ -88,7 +88,7 @@ final class SeoPlanInputCollector
      * Scope a GSC data-pool query to this website: central rows (resource + property) or legacy
      * per-asset rows.
      */
-    private function scopeGsc(Builder $query, DigitalAsset $site, string $table): Builder
+    public function scopeGsc(Builder $query, DigitalAsset $site, string $table): Builder
     {
         $binding = $this->gscBindings->resolve((string) $site->id);
         if ($binding->isReal() && $binding->externalResourceId !== null && filled($binding->siteUrl)) {
@@ -382,7 +382,7 @@ final class SeoPlanInputCollector
     /**
      * @return array{available: bool, reason: ?string, rows: list<array<string, mixed>>, query_count: int, page_count: int, truncated: bool}
      */
-    private function gsc(DigitalAsset $site, CarbonImmutable $start, CarbonImmutable $end): array
+    public function gsc(DigitalAsset $site, CarbonImmutable $start, CarbonImmutable $end): array
     {
         $empty = ['available' => false, 'reason' => null, 'rows' => [], 'query_count' => 0, 'page_count' => 0, 'truncated' => false];
         if (! Schema::hasTable('gsc_query_page_daily')) {

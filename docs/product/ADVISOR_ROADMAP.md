@@ -8,6 +8,7 @@
 > **Faz 3 durumu:** Kodlandı (PHPUnit): `/ads-advisor` ve Google Ads hesabında "Danışman" sekmesi. Ayrıntı: `ADS_ADVISOR.md`. Anahtar kelime kalite puanı artık toplanıyor (bir sonraki toplamadan itibaren).
 > **Faz 4 durumu:** Kodlandı (PHPUnit): aynı `/ads-advisor` sayfası (kanal seçici) ve Meta hesabında "Danışman" sekmesi. Ayrıntı: `ADS_ADVISOR.md` → Meta Ads.
 > **Faz 5 durumu:** Kodlandı (PHPUnit): menüde "Danışman" (Google Ads, Meta Ads, İşletme Profili) ve profil sayfasında "Danışman" sekmesi. Ayrıntı: `ADS_ADVISOR.md` → İşletme Profili.
+> **Faz 6 durumu:** Kodlandı (PHPUnit): panoda "Bu haftanın en önemli 5 işi", marka sayfasında "Danışman" bloğu, kanallar arası öneriler, "Yapıldı" işlerin 28 gün sonra ölçülmesi ve müşteri raporunda "Yapılanlar ve gözlenen etkisi", haftalık iç e-posta (varsayılan kapalı). Etkisiz öneri türlerinin azaltılması için önce ölçüm geçmişi birikmeli.
 > Kapsam: web sitesi (teknik, SEO, GEO/AEO), Google İşletme Profili (yorum cevaplama hariç), Google Ads, Meta Ads.
 
 ## 1. Amaç

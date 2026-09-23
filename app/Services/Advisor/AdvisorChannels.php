@@ -2,6 +2,7 @@
 
 namespace App\Services\Advisor;
 
+use App\Services\Advisor\Cross\CrossChannelAdvisorChannel;
 use App\Services\Advisor\Gbp\GbpAdvisorChannel;
 use App\Services\Advisor\GoogleAds\GoogleAdsAdvisorChannel;
 use App\Services\Advisor\MetaAds\MetaAdsAdvisorChannel;
@@ -17,9 +18,9 @@ final class AdvisorChannels
     /** @var array<string, AdvisorChannel> */
     private array $channels = [];
 
-    public function __construct(GoogleAdsAdvisorChannel $googleAds, MetaAdsAdvisorChannel $metaAds, GbpAdvisorChannel $gbp)
+    public function __construct(GoogleAdsAdvisorChannel $googleAds, MetaAdsAdvisorChannel $metaAds, GbpAdvisorChannel $gbp, CrossChannelAdvisorChannel $cross)
     {
-        foreach ([$googleAds, $metaAds, $gbp] as $channel) {
+        foreach ([$googleAds, $metaAds, $gbp, $cross] as $channel) {
             $this->channels[$channel->channel()] = $channel;
         }
     }

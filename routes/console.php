@@ -380,3 +380,14 @@ Schedule::command('moxdop:advisor:plan --scheduled')
     ->weeklyOn((int) config('moxdop-advisor.schedule.weekly_day', 1), (string) config('moxdop-advisor.schedule.weekly_time', '07:00'))
     ->withoutOverlapping(120)
     ->name('advisor-weekly-plan');
+
+// Faz 6: "Yapıldı" işlerin 28 gün sonra ölçülmesi ve (açıksa) haftalık iç özet e-postası.
+Schedule::command('moxdop:advisor:measure')
+    ->weeklyOn((int) config('moxdop-advisor.schedule.weekly_day', 1), (string) config('moxdop-advisor.measure.weekly_time', '07:30'))
+    ->withoutOverlapping(60)
+    ->name('advisor-weekly-measure');
+
+Schedule::command('moxdop:advisor:digest')
+    ->weeklyOn((int) config('moxdop-advisor.schedule.weekly_day', 1), (string) config('moxdop-advisor.digest.weekly_time', '08:00'))
+    ->withoutOverlapping(30)
+    ->name('advisor-weekly-digest');

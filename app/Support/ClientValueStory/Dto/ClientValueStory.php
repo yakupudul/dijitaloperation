@@ -40,6 +40,8 @@ final class ClientValueStory
         public readonly string $generatedAt,
         public readonly string $causationDisclaimer,
         public readonly bool $attributionEstablished = false,
+        /** @var list<array{id: string, text: string, channel: string, result: ?string, measured: bool}> Advisor / SEO work marked done, with the observed 28-day change when measured. */
+        public readonly array $measuredWork = [],
     ) {}
 
     /**
@@ -146,6 +148,7 @@ final class ClientValueStory
             'observations' => $observations,
             'decisions' => [],
             'completed_work' => $completedWork,
+            'measured_work' => $this->measuredWork,
             'operational_changes' => [],
             'business_outcomes' => $this->businessOutcomesPresentation(),
             'opportunities' => $opportunities,
@@ -169,6 +172,7 @@ final class ClientValueStory
                 'findings' => $this->findings === [],
                 'opportunities' => $this->opportunities === [],
                 'completed_work' => $this->completedWork === [],
+                'measured_work' => $this->measuredWork === [],
                 'outcomes' => ! $this->hasAnyOutcomeData(),
             ],
         ];

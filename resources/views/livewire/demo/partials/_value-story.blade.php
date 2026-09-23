@@ -46,6 +46,21 @@
         @endif
     </section>
 
+    @if (($story['measured_work'] ?? []) !== [])
+        <section class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
+            <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500">{{ __('operator.value.measured_work') }}</h3>
+            <ul class="mt-3 space-y-2">
+                @foreach ($story['measured_work'] as $item)
+                    <li class="text-sm">
+                        <span class="text-gray-800 dark:text-white/90">{{ $item['text'] }}</span>
+                        <span class="text-xs text-gray-400">· {{ $item['channel'] }}</span>
+                        <p @class(['text-xs', 'text-gray-600 dark:text-gray-300' => $item['measured'], 'text-gray-400' => ! $item['measured']])>{{ $item['result'] }}</p>
+                    </li>
+                @endforeach
+            </ul>
+        </section>
+    @endif
+
     <section class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
         <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500">{{ __('operator.value.what_changed') }}</h3>
         <p class="mt-1 text-xs text-gray-400">{{ $story['causation_disclaimer'] ?? __('operator.value.observed_after') }}</p>

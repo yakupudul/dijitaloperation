@@ -1432,6 +1432,8 @@ return [
     ],
 
     'dashboard_exec' => [
+        'weekly_top' => 'Top 5 jobs this week',
+        'weekly_top_empty' => 'No open work. Plans and the advisor run every Monday.',
         'subtitle' => 'Execution-focused view of what needs attention today.',
         'mode_label' => 'Dashboard mode',
         'my_work' => 'My Work',
@@ -1454,6 +1456,7 @@ return [
     ],
 
     'value' => [
+        'measured_work' => 'Work done and observed change',
         'title' => 'Value',
         'subtitle' => 'What value are we creating for this Brand?',
         'summary' => 'Value summary',

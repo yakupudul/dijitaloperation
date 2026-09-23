@@ -28,6 +28,7 @@
         'period' => ['Dönem', 'text'], 'segment' => ['Bölüm', 'text'], 'objective' => ['Hedef', 'text'], 'frequency' => ['Sıklık (gün ort.)', 'num'],
         'ctr' => ['TO %', 'num'], 'avg_ctr' => ['Ort. TO %', 'num'], 'cpm' => ['CPM', 'money'], 'cpc_value' => ['TBM', 'money'], 'avg_cpc' => ['Ort. TBM', 'money'],
         'share' => ['Harcama payı %', 'num'], 'needed_daily' => ['Gereken günlük bütçe', 'money'],
+        'organic' => ['Organik', 'text'],
         'offering' => ['Hizmet', 'text'], 'note' => ['Durum', 'text'], 'metric' => ['Ölçüm', 'text'], 'before' => ['Önceki dönem', 'num'], 'after' => ['Son dönem', 'num'], 'change' => ['Değişim %', 'num'],
         'type' => ['Değişen', 'text'], 'operation' => ['İşlem', 'text'], 'fields' => ['Alanlar', 'text'], 'user' => ['Kim', 'text'], 'low_intent' => ['Düşük niyet', 'bool'], 'pmax' => ['PMax', 'bool'],
     ];
@@ -69,6 +70,7 @@
         </div>
         <div x-show="help" x-cloak class="mt-4 grid gap-3 border-t border-gray-100 pt-4 text-sm text-gray-600 sm:grid-cols-2 dark:border-gray-800 dark:text-gray-300">
             <p><strong class="text-gray-800 dark:text-white/90">Google Ads:</strong> dönüşümsüz arama terimleri (negatif listesi), bütçesi yetmeyen kârlı kampanyalar, dönüşüm ve GA4 ölçümü, açılış sayfası, reklam gücü, kalite puanı, değişiklik sonrası CPA artışı.</p>
+            <p class="sm:col-span-2"><strong class="text-gray-800 dark:text-white/90">Kanallar arası:</strong> reklamda dönüşen ama sitede sayfası olmayan aramalar, organikte 1. olunan marka aramasına ödenen reklam, İşletme Profili aramalarında olup sitede karşılığı olmayan konular.</p>
             <p class="sm:col-span-2"><strong class="text-gray-800 dark:text-white/90">İşletme Profili:</strong> kapalı görünme, eksik açıklama/kategori/saat/telefon/hizmet, insanların profili bulduğu aramalarla hizmet listesi arasındaki boşluk, etkileşim düşüşü, puan trendi, UTM. Yorum cevaplama kapsam dışı.</p>
             <p><strong class="text-gray-800 dark:text-white/90">Meta Ads:</strong> kreatif yorgunluğu (frekans ↑, tık oranı ↓), öğrenmede takılan reklam setleri, piksel ve dönüşüm kaynağı sağlığı, pahalı yerleşim ve saatler, dönüşümsüz harcama, değişiklik sonrası maliyet artışı.</p>
         </div>

@@ -64,6 +64,17 @@
         @endif
     </div>
 
+    @if (($measuredWork ?? []) !== [])
+        <div class="section">
+            <h2>{{ __('operator.value.measured_work') }}</h2>
+            <ul>
+                @foreach ($measuredWork as $item)
+                    <li>{{ $item }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
     <div class="section">
         <h2>{{ __('operator.value.business_outcome') }}</h2>
         @if (! ($outcomesAvailable ?? false))

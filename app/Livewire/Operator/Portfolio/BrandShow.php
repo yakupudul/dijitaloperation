@@ -8,6 +8,7 @@ use App\Models\Brand;
 use App\Models\BrandIntelligenceContext;
 use App\Models\BrandOffering;
 use App\Models\Recommendation;
+use App\Services\Advisor\AdvisorWorkQueue;
 use App\Services\Approvals\ApprovalReadService;
 use App\Services\BrandIntelligence\BrandIntelligenceContextWriteService;
 use App\Services\ClientRequests\ClientRequestReadService;
@@ -28,6 +29,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use Throwable;
 
 /**
  * Brand page: who the brand is, what is connected, what needs doing, and its reports.
@@ -186,7 +188,7 @@ class BrandShow extends Component
             $this->taskCreateNonce = (string) Str::uuid();
             DemoState::flash(__('operator.flash.task_created_from_recommendation', ['id' => $task->id]));
             $this->setOps('tasks');
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             DemoState::flash($exception->getMessage(), 'info');
         }
     }
@@ -242,6 +244,7 @@ class BrandShow extends Component
             'services' => $services,
             'checklist' => $checklist,
             'attention' => $attention,
+            'advisor' => $this->tab === 'overview' ? $this->advisorOverview($brand) : null,
             'work' => $work,
             'context' => $context instanceof BrandIntelligenceContext ? $this->contextRows($context) : [],
             'serviceScope' => app(CustomerServiceScopeReadService::class)->forBrand($brand, includeEnded: false),
@@ -250,6 +253,22 @@ class BrandShow extends Component
             'valueStory' => $this->tab === 'reports' ? $this->valueStory($brand) : null,
             ...($this->tab === 'reports' ? $this->brandReportData($brand) : ['reportSnapshots' => ['items' => [], 'empty' => true, 'demo' => false], 'reportSnapshotDetail' => null]),
         ]);
+    }
+
+    /**
+     * Danışman block: one status line per connected channel and the brand's top open items.
+     *
+     * @return array{channels: list<array<string, mixed>>, top: list<array<string, mixed>>}
+     */
+    private function advisorOverview(Brand $brand): array
+    {
+        try {
+            $queue = app(AdvisorWorkQueue::class);
+
+            return ['channels' => $queue->brandChannels($brand), 'top' => $queue->top(5, $brand->id)];
+        } catch (Throwable) {
+            return ['channels' => [], 'top' => []];
+        }
     }
 
     /** @return array<string, mixed>|null "What we observed / what we did" for the selected period. */

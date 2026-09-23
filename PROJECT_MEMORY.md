@@ -1,5 +1,17 @@
 # PROJECT_MEMORY
 
+## 2026-09-24 (d) — Faz 6: one work list, cross-channel advice, measured outcomes
+
+Decisions: SEO Görevleri and advisor items stay separate engines but share one ranked list
+(`AdvisorWorkQueue`, same 100–1300 priority scale, max 2 per brand in the agency-wide top 5) shown on the
+dashboard and the brand overview ("Danışman" block: one status line per channel + top items).
+Cross-channel advice is its own advisor channel (`cross_channel`) on the website asset. "Yapıldı" work is
+measured once after 28 days against the metric it came from (negative lists: spend on the listed terms;
+SEO tasks with a target page: Search Console clicks) and reported as observed change, never causation;
+the client report gets a "Yapılanlar ve gözlenen etkisi" section. The weekly internal digest email exists
+but is off unless `ADVISOR_DIGEST_ENABLED=true`. "Less-effective rule types shown less" is not built:
+it needs more measured history first.
+
 ## 2026-09-24 (c) — Faz 5: Business Profile advisor; one "Danışman" page
 
 Decision: Google Business Profile joins the advisor channels (channel id `google_business_profile`, legacy

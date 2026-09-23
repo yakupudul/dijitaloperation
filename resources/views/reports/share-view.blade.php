@@ -50,6 +50,15 @@
         @endforelse
     </ul>
 
+    @if (($story['measured_work'] ?? []) !== [])
+        <h2>{{ __('operator.value.measured_work') }}</h2>
+        <ul>
+            @foreach ($story['measured_work'] as $item)
+                <li>{{ $item['text'] ?? '' }} — {{ $item['result'] ?? '' }}</li>
+            @endforeach
+        </ul>
+    @endif
+
     <h2>What the business reported</h2>
     @php($outcomes = $story['business_outcomes'] ?? [])
     @if ($outcomes['available'] ?? false)

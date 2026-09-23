@@ -8,9 +8,11 @@ use App\Enums\BusinessOutcomeKind;
 use App\Enums\ClientValueStoryClaimType;
 use App\Enums\ClientValueStoryLimitation;
 use App\Enums\ClientValueStoryStatus;
+use App\Models\AdvisorItem;
 use App\Models\Brand;
 use App\Models\Finding;
 use App\Models\Opportunity;
+use App\Models\SeoTask;
 use App\Models\Task;
 use App\Services\BusinessOutcomes\BusinessOutcomeReadService;
 use App\Services\Tasks\TaskReadService;
@@ -24,6 +26,7 @@ use App\Support\ClientValueStory\Dto\ClientValueWorkItem;
 use App\Support\Tasks\TaskStatus;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -85,7 +88,59 @@ final class ClientValueStoryReadService
             generatedAt: now()->toIso8601String(),
             causationDisclaimer: 'Observed / performed during the selected period — causation and marketing attribution are not established.',
             attributionEstablished: false,
+            measuredWork: $this->projectMeasuredWork($brand, $start, $end),
         );
+    }
+
+    /**
+     * Advisor items and SEO tasks marked "Yapıldı" in the period, or measured in the period, with the
+     * observed 28-day before/after change of the metric they came from. Observation, not attribution.
+     *
+     * @return list<array{id: string, text: string, channel: string, result: ?string, measured: bool}>
+     */
+    private function projectMeasuredWork(Brand $brand, CarbonImmutable $start, CarbonImmutable $end): array
+    {
+        $inPeriod = static function ($query) use ($start, $end): void {
+            $query->whereBetween('resolved_at', [$start, $end])->orWhereBetween('measured_at', [$start, $end]);
+        };
+        $rows = [];
+        $channelLabels = ['google_ads' => 'Google Ads', 'meta_ads' => 'Meta Ads', 'google_business_profile' => 'İşletme Profili', 'cross_channel' => 'Kanallar arası'];
+        if (Schema::hasTable('advisor_items') && Schema::hasColumn('advisor_items', 'outcome')) {
+            foreach (AdvisorItem::query()->where('brand_id', $brand->id)->where('status', 'done')->where($inPeriod)->orderBy('resolved_at')->limit(50)->get() as $item) {
+                $rows[] = ['id' => 'advisor-'.$item->id, 'text' => (string) $item->title, 'channel' => $channelLabels[$item->channel] ?? $item->channel] + $this->outcomeText($item->outcome, $item->measured_at !== null);
+            }
+        }
+        if (Schema::hasTable('seo_tasks') && Schema::hasColumn('seo_tasks', 'outcome')) {
+            foreach (SeoTask::query()->where('brand_id', $brand->id)->where('status', 'done')->where($inPeriod)->orderBy('resolved_at')->limit(50)->get() as $task) {
+                $rows[] = ['id' => 'seo-'.$task->id, 'text' => (string) $task->title, 'channel' => 'Web / SEO'] + $this->outcomeText($task->outcome, $task->measured_at !== null);
+            }
+        }
+
+        return $rows;
+    }
+
+    /** @return array{result: ?string, measured: bool} */
+    private function outcomeText(mixed $outcome, bool $measuredAtSet): array
+    {
+        $outcome = is_array($outcome) ? $outcome : [];
+        if (($outcome['status'] ?? null) !== 'measured') {
+            return ['result' => $measuredAtSet ? 'Yapıldı; bu iş için ölçülebilir bir metrik yok.' : 'Yapıldı; etkisi 28 gün sonra ölçülecek.', 'measured' => false];
+        }
+        $format = static fn (mixed $v): string => ($outcome['unit'] ?? '') === 'money'
+            ? number_format((float) $v, 0, ',', '.').' '.($outcome['currency'] ?? '')
+            : number_format((float) $v, 0, ',', '.');
+
+        return [
+            'result' => sprintf(
+                '%s: %s → %s (%d gün önce / sonra%s). Gözlenen değişimdir; tek başına bu işe bağlanamaz.',
+                $outcome['metric'] ?? 'Metrik',
+                trim($format($outcome['before'] ?? 0)),
+                trim($format($outcome['after'] ?? 0)),
+                (int) ($outcome['days'] ?? 28),
+                isset($outcome['change_pct']) && $outcome['change_pct'] !== null ? sprintf(', %%%+d', (int) $outcome['change_pct']) : '',
+            ),
+            'measured' => true,
+        ];
     }
 
     /**

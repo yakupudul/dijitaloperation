@@ -72,8 +72,6 @@ final class AdvisorWorkQueue
                     'summary' => $done?->summary_text,
                     'running' => in_array($plan?->status, [SeoPlan::STATUS_QUEUED, SeoPlan::STATUS_RUNNING], true),
                 ];
-
-                continue;
             }
             $channel = $this->channels->forAssetType((string) $asset->type);
             if ($channel === null) {
@@ -82,6 +80,9 @@ final class AdvisorWorkQueue
             $open = AdvisorItem::query()->open()->where('digital_asset_id', $asset->id);
             $plan = AdvisorPlan::query()->where('digital_asset_id', $asset->id)->orderByDesc('id')->first();
             $done = AdvisorPlan::query()->where('digital_asset_id', $asset->id)->where('status', AdvisorPlan::STATUS_COMPLETED)->orderByDesc('id')->first();
+            if ($asset->type === 'website' && $plan === null) {
+                continue; // cross-channel line only once it has run
+            }
             $lines[] = [
                 'channel' => $channel->label(),
                 'asset' => $asset->name,

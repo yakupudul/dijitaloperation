@@ -1,5 +1,17 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-09-24 (d) — Advisor Faz 6: tek iş listesi, kanallar arası, ölçülen etki
+
+**State:** CODED + PHPUnit (`tests/Feature/Advisor/AdvisorFaz6Test`: merged ranking + per-brand cap, dashboard card, brand block, cross-channel rules, SEO outcome measurement window + GSC clicks, report section text, unbound negative list, digest off/forced). Full Feature + Unit suites: no new failures. Live UAT not run.
+
+- Dashboard: "Bu haftanın en önemli 5 işi" (SEO Görevleri + all advisor channels, max 2 per brand).
+- Brand overview: "Danışman" block — one line per channel (Web / SEO, Google Ads, Meta Ads, İşletme Profili, Kanallar arası) with open/urgent counts and last run, then the brand's top 5.
+- Cross-channel (`cross_channel`, on the website asset, weekly with the advisor): Google Ads search terms with ≥2 conversions and no site page / not in organic top 10; brand search paid while organic avg position ≤1.5 (a 2-week test suggestion); Business Profile searches (≥40 impressions) with no site page.
+- `moxdop:advisor:measure` (Mon 07:30): done items 28 days later — negative lists (spend on listed terms before/after) and SEO tasks with a target page (GSC clicks before/after, 3-day lag); others recorded as done without a metric.
+- Client report (value story, PDF, share view, composer): "Yapılanlar ve gözlenen etkisi"; wording is observation only, attribution/causation flags stay false.
+- `moxdop:advisor:digest` (Mon 08:00): internal email of the top jobs to active admins; off unless `ADVISOR_DIGEST_ENABLED=true`.
+- Not built: down-weighting rule types without measured effect (needs history).
+
 ## 2026-09-24 (c) — Advisor Faz 5: İşletme Profili danışmanı
 
 **State:** CODED + PHPUnit (`tests/Feature/Advisor/GbpAdvisorRunTest`: all rules end-to-end, brand-search exclusion, keyword↔service matching, silence without binding/media, draft validation, profile page with advisor tab for a bound profile). Full Feature + Unit suites: no new failures; 2 previously failing GBP workspace tests now pass. Live UAT not run.
