@@ -4,12 +4,16 @@ namespace Tests\Feature\Website;
 
 use App\Livewire\Demo\Website\OverviewPage;
 use App\Models\DigitalAsset;
+use App\Models\IntelligenceCore\IntelligencePageIdentity;
+use App\Models\IntelligenceProjection\WebsiteIntelligenceProjectionRun;
+use App\Models\IntelligenceProjection\WebsitePageProfile;
 use App\Models\User;
 use App\Services\Website\WebsiteHealthScoreService;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Livewire\Livewire;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Support\CreatesCanonicalPortfolio;
@@ -224,6 +228,48 @@ class WebsiteHealthScoreTest extends TestCase
         $this->assertStringContainsString('MISSING_META_DESCRIPTION;', $content);
         $this->assertStringContainsString(';https://example.com/b;', $content);
         $this->assertStringContainsString('HTTP_4XX;', $content);
+    }
+
+    #[Test]
+    public function falls_back_to_projected_page_profiles_when_no_raw_crawl_rows_exist(): void
+    {
+        $asset = $this->createPortfolioAsset('website', 'Projected Website');
+        $run = WebsiteIntelligenceProjectionRun::query()->create([
+            'uuid' => (string) Str::uuid(), 'website_asset_id' => $asset->id, 'trigger' => 'test', 'status' => 'completed',
+            'schema_version' => 1, 'intelligence_registry_version' => 1, 'period_start' => now()->subDays(90), 'period_end' => now()->subDay(),
+        ]);
+        foreach (['/' => [], '/a' => [['code' => 'HTTP_5XX', 'severity' => 'critical']], '/b' => []] as $path => $issues) {
+            $url = 'https://example.test'.$path;
+            $identity = IntelligencePageIdentity::query()->create([
+                'uuid' => (string) Str::uuid(), 'website_asset_id' => $asset->id,
+                'identity_hash' => hash('sha256', $asset->id.':'.$url), 'preferred_url' => $url,
+                'preferred_url_hash' => hash('sha256', $url), 'scheme' => 'https', 'host' => 'example.test', 'path' => $path,
+                'resolution_status' => 'resolved', 'normalization_version' => 'v1', 'first_seen_at' => now(), 'last_seen_at' => now(),
+            ]);
+            WebsitePageProfile::query()->create([
+                'website_asset_id' => $asset->id, 'page_identity_id' => $identity->id, 'projection_run_id' => $run->id,
+                'preferred_url' => $url, 'profile_version' => 1, 'projected_at' => now(), 'last_observed_at' => now(),
+                'source_states' => ['website' => [
+                    'url' => $url,
+                    'http' => ['status_code' => $issues === [] ? 200 : 503],
+                    'document_head' => ['title' => $path === '/' ? 'Ana sayfa' : 'Aynı başlık'],
+                    'crawl_issues' => $issues,
+                ]],
+            ]);
+        }
+
+        $report = app(WebsiteHealthScoreService::class)->build($asset);
+
+        $this->assertSame('projection', $report['source']);
+        $this->assertSame(3, $report['pages_checked']);
+        $this->assertSame(85, $report['score']);
+        $this->assertSame([], $report['trend']);
+        $this->assertSame(['HTTP_5XX', 'DUPLICATE_TITLE'], array_column($report['groups'], 'code'));
+        $this->assertNull($report['summary']['orphans']);
+
+        Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id, 'tab' => 'health'])
+            ->assertSee(__('operator_website.health_score.source_projection'))
+            ->assertSeeHtml('data-health-score-value="85"');
     }
 
     private function seedSite(): DigitalAsset
