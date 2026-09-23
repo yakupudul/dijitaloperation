@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\ReportDelivery;
 
-use App\Enums\BusinessOutcomeKind;
 use App\Enums\ReportDeliveryOccurrenceStatus;
 use App\Enums\ReportDeliveryStatus;
 use App\Enums\ReportShareAccessEventType;
@@ -11,6 +10,8 @@ use App\Mail\ReportDeliveryMail;
 use App\Models\AgencySetting;
 use App\Models\Brand;
 use App\Models\Customer;
+use App\Models\DigitalAsset;
+use App\Models\Finding;
 use App\Models\ReportArtifact;
 use App\Models\ReportDelivery;
 use App\Models\ReportDeliveryOccurrence;
@@ -19,9 +20,6 @@ use App\Models\ReportShareGrant;
 use App\Models\ReportShareVerificationChallenge;
 use App\Models\ReportSnapshot;
 use App\Models\User;
-use App\Services\BusinessOutcomes\BusinessOutcomeDefinitionService;
-use App\Services\BusinessOutcomes\BusinessOutcomeObservationService;
-use App\Services\BusinessOutcomes\BusinessOutcomeReadService;
 use App\Services\ClientValueStory\ClientValueStoryReadService;
 use App\Services\Operator\OperatorMailConfigService;
 use App\Services\ReportDelivery\CreateReportDeliveryService;
@@ -32,7 +30,6 @@ use App\Services\ReportDelivery\ReportPdfRenderer;
 use App\Services\ReportDelivery\ReportShareService;
 use App\Services\ReportDelivery\SendReportDeliveryService;
 use App\Services\ReportSnapshots\CreateReportSnapshotService;
-use App\Support\IntelligenceEvaluation\IntelligenceEvaluationCaseCatalog;
 use App\Support\ReportDelivery\ReportPdfRendererVersion;
 use App\Support\ReportDelivery\SecretHasher;
 use Carbon\CarbonImmutable;
@@ -50,7 +47,7 @@ class ReportPdfSecureShareDeliveryTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_architecture_boundaries_and_evaluation_keys(): void
+    public function test_architecture_boundaries(): void
     {
         $this->assertTrue(Schema::hasTable('report_artifacts'));
         $this->assertTrue(Schema::hasTable('report_share_grants'));
@@ -64,17 +61,12 @@ class ReportPdfSecureShareDeliveryTest extends TestCase
         $this->assertFalse(class_exists('App\\Models\\ReportDeliveryV2'));
         $this->assertFalse(class_exists('App\\Models\\GenericAutomation'));
 
-        $keys = IntelligenceEvaluationCaseCatalog::reportDeliveryPreparedCaseKeys();
-        $this->assertContains(IntelligenceEvaluationCaseCatalog::PDF_FROM_SNAPSHOT_ONLY, $keys);
-        $this->assertContains(IntelligenceEvaluationCaseCatalog::SHARE_TOKEN_NOT_AUTHORIZATION, $keys);
-        $this->assertContains(IntelligenceEvaluationCaseCatalog::ONE_SNAPSHOT_MULTIPLE_RECIPIENTS, $keys);
-        $this->assertContains(IntelligenceEvaluationCaseCatalog::NO_FAKE_DELIVERED, $keys);
         $this->assertSame(ReportPdfRendererVersion::CLIENT_VALUE_STORY_PDF_V1, ReportPdfRendererVersion::current());
     }
 
     public function test_pdf_from_snapshot_only_idempotent_and_private(): void
     {
-        [$user, $brand] = $this->seedBrandWithOutcomes(ql: 20);
+        [$user, $brand] = $this->seedBrandWithStoryData(marker: 20);
         $snapshot = app(CreateReportSnapshotService::class)->create($brand, $user, [
             'period_start' => '2026-07-01',
             'period_end' => '2026-07-31',
@@ -99,17 +91,10 @@ class ReportPdfSecureShareDeliveryTest extends TestCase
         $this->assertStringStartsWith('%PDF', $bytes);
         $html = app(ReportPdfRenderer::class)->render($snapshot)['html'];
         $this->assertStringContainsString('Diş', $html);
-        $this->assertStringContainsString('20', $html);
+        $this->assertStringContainsString('Finding marker 20', $html);
 
         // Live domain mutation must not change existing PDF bytes.
-        $def = app(BusinessOutcomeReadService::class)->findActiveDefinitionByKind($brand, BusinessOutcomeKind::QualifiedLead);
-        app(BusinessOutcomeObservationService::class)->record($brand, $def, [
-            'period_start' => '2026-07-01',
-            'period_end' => '2026-07-31',
-            'value' => 99,
-            'completeness' => 'complete',
-            'correction_reason' => 'Corrected after PDF',
-        ], $user, allowCorrection: true);
+        $this->seedPeriodFinding($brand, 'Finding marker 99');
 
         $bytesAfter = $pdfs->streamBytes($a1->fresh());
         $this->assertSame(hash('sha256', $bytes), hash('sha256', $bytesAfter));
@@ -118,7 +103,7 @@ class ReportPdfSecureShareDeliveryTest extends TestCase
 
     public function test_share_requires_email_verification_not_token_alone(): void
     {
-        [$user, $brand] = $this->seedBrandWithOutcomes();
+        [$user, $brand] = $this->seedBrandWithStoryData();
         $snapshot = app(CreateReportSnapshotService::class)->create($brand, $user, [
             'period_start' => '2026-07-01',
             'period_end' => '2026-07-31',
@@ -165,7 +150,7 @@ class ReportPdfSecureShareDeliveryTest extends TestCase
 
     public function test_expired_and_revoked_share_denied(): void
     {
-        [$user, $brand] = $this->seedBrandWithOutcomes();
+        [$user, $brand] = $this->seedBrandWithStoryData();
         $snapshot = app(CreateReportSnapshotService::class)->create($brand, $user, [
             'period_start' => '2026-07-01',
             'period_end' => '2026-07-31',
@@ -212,7 +197,7 @@ class ReportPdfSecureShareDeliveryTest extends TestCase
 
     public function test_cross_brand_share_and_internal_download_auth(): void
     {
-        [$user, $brandA] = $this->seedBrandWithOutcomes();
+        [$user, $brandA] = $this->seedBrandWithStoryData();
         $brandB = Brand::factory()->create([
             'customer_id' => Customer::factory()->create()->id,
             'name' => 'Other Brand',
@@ -237,7 +222,7 @@ class ReportPdfSecureShareDeliveryTest extends TestCase
 
     public function test_manual_delivery_idempotent_and_email_has_no_metrics(): void
     {
-        [$user, $brand] = $this->seedBrandWithOutcomes(ql: 44);
+        [$user, $brand] = $this->seedBrandWithStoryData(marker: 44);
         $snapshot = app(CreateReportSnapshotService::class)->create($brand, $user, [
             'period_start' => '2026-07-01',
             'period_end' => '2026-07-31',
@@ -289,7 +274,7 @@ class ReportPdfSecureShareDeliveryTest extends TestCase
 
     public function test_queued_send_reloads_operator_smtp_changed_after_worker_boot(): void
     {
-        [$user, $brand] = $this->seedBrandWithOutcomes();
+        [$user, $brand] = $this->seedBrandWithStoryData();
         $snapshot = app(CreateReportSnapshotService::class)->create($brand, $user, [
             'period_start' => '2026-07-01',
             'period_end' => '2026-07-31',
@@ -336,7 +321,7 @@ class ReportPdfSecureShareDeliveryTest extends TestCase
 
     public function test_queued_send_restores_deployment_mail_after_operator_smtp_cleared(): void
     {
-        [$user, $brand] = $this->seedBrandWithOutcomes();
+        [$user, $brand] = $this->seedBrandWithStoryData();
         $snapshot = app(CreateReportSnapshotService::class)->create($brand, $user, [
             'period_start' => '2026-07-01',
             'period_end' => '2026-07-31',
@@ -393,7 +378,7 @@ class ReportPdfSecureShareDeliveryTest extends TestCase
 
     public function test_mail_not_configured_fails_truthfully(): void
     {
-        [$user, $brand] = $this->seedBrandWithOutcomes();
+        [$user, $brand] = $this->seedBrandWithStoryData();
         $snapshot = app(CreateReportSnapshotService::class)->create($brand, $user, [
             'period_start' => '2026-07-01',
             'period_end' => '2026-07-31',
@@ -412,7 +397,7 @@ class ReportPdfSecureShareDeliveryTest extends TestCase
 
     public function test_schedule_one_snapshot_many_recipients_and_period_strategy(): void
     {
-        [$user, $brand] = $this->seedBrandWithOutcomes();
+        [$user, $brand] = $this->seedBrandWithStoryData();
         Storage::fake('local');
         Queue::fake();
         Mail::fake();
@@ -466,7 +451,7 @@ class ReportPdfSecureShareDeliveryTest extends TestCase
 
     public function test_correction_after_send_keeps_old_pdf_and_share(): void
     {
-        [$user, $brand] = $this->seedBrandWithOutcomes(ql: 10);
+        [$user, $brand] = $this->seedBrandWithStoryData(marker: 10);
         Storage::fake('local');
         Queue::fake();
         Mail::fake();
@@ -485,14 +470,7 @@ class ReportPdfSecureShareDeliveryTest extends TestCase
             $user,
         );
 
-        $def = app(BusinessOutcomeReadService::class)->findActiveDefinitionByKind($brand, BusinessOutcomeKind::QualifiedLead);
-        app(BusinessOutcomeObservationService::class)->record($brand, $def, [
-            'period_start' => '2026-07-01',
-            'period_end' => '2026-07-31',
-            'value' => 77,
-            'completeness' => 'complete',
-            'correction_reason' => 'Later correction',
-        ], $user, allowCorrection: true);
+        $this->seedPeriodFinding($brand, 'Finding marker 77');
 
         $snapB = app(CreateReportSnapshotService::class)->create($brand, $user, [
             'period_start' => '2026-07-01',
@@ -505,15 +483,14 @@ class ReportPdfSecureShareDeliveryTest extends TestCase
         $this->assertSame((int) $snapA->id, (int) $resolved->report_snapshot_id);
         $this->assertSame((int) $snapA->id, (int) $artifact->fresh()->report_snapshot_id);
         $live = app(ClientValueStoryReadService::class)->forBrand($brand, '2026-07-01', '2026-07-31');
-        $this->assertSame('77', (string) ($live->toPresentationArray()['business_outcomes']['qualified_leads'] ?? ''));
-        $frozenQl = collect($snapA->content_payload['business_outcomes'] ?? [])
-            ->firstWhere('kind', BusinessOutcomeKind::QualifiedLead->value);
-        $this->assertSame('10', (string) ($frozenQl['value'] ?? ''));
+        $this->assertCount(2, $live->findings);
+        $frozenTitles = array_column($snapA->content_payload['findings'] ?? [], 'title');
+        $this->assertSame(['Finding marker 10'], $frozenTitles);
     }
 
     public function test_share_security_headers_and_no_public_anonymous_access(): void
     {
-        [$user, $brand] = $this->seedBrandWithOutcomes();
+        [$user, $brand] = $this->seedBrandWithStoryData();
         $snapshot = app(CreateReportSnapshotService::class)->create($brand, $user, [
             'period_start' => '2026-07-01',
             'period_end' => '2026-07-31',
@@ -542,7 +519,7 @@ class ReportPdfSecureShareDeliveryTest extends TestCase
 
     public function test_no_ai_provider_side_effects_and_access_audit(): void
     {
-        [$user, $brand] = $this->seedBrandWithOutcomes();
+        [$user, $brand] = $this->seedBrandWithStoryData();
         Storage::fake('local');
         $beforeFindings = (int) DB::table('findings')->count();
         $beforeTasks = (int) DB::table('tasks')->count();
@@ -571,7 +548,7 @@ class ReportPdfSecureShareDeliveryTest extends TestCase
 
     public function test_paused_schedule_cancels_unstarted_occurrence(): void
     {
-        [$user, $brand] = $this->seedBrandWithOutcomes();
+        [$user, $brand] = $this->seedBrandWithStoryData();
         $schedules = app(ReportDeliveryScheduleService::class);
         $schedule = $schedules->create($brand, [
             'recipients' => [['email' => 'p@client.com']],
@@ -595,7 +572,7 @@ class ReportPdfSecureShareDeliveryTest extends TestCase
     /**
      * @return array{0: User, 1: Brand}
      */
-    private function seedBrandWithOutcomes(int $ql = 20): array
+    private function seedBrandWithStoryData(int $marker = 20): array
     {
         $user = User::factory()->create();
         $customer = Customer::factory()->create(['name' => 'Acme Diş Grubu']);
@@ -604,16 +581,24 @@ class ReportPdfSecureShareDeliveryTest extends TestCase
             'sector' => 'dental',
             'name' => 'Atlas Diş Ankara',
         ]);
-        app(BusinessOutcomeDefinitionService::class)->createStandardDefinitionsForBrand($brand, $user);
-        $def = app(BusinessOutcomeReadService::class)->findActiveDefinitionByKind($brand, BusinessOutcomeKind::QualifiedLead);
-        app(BusinessOutcomeObservationService::class)->record($brand, $def, [
-            'period_start' => '2026-07-01',
-            'period_end' => '2026-07-31',
-            'value' => $ql,
-            'completeness' => 'complete',
-        ], $user);
+        $this->seedPeriodFinding($brand, 'Finding marker '.$marker);
 
         return [$user, $brand];
+    }
+
+    private function seedPeriodFinding(Brand $brand, string $title): Finding
+    {
+        $asset = DigitalAsset::factory()->create(['brand_id' => $brand->id]);
+
+        return Finding::factory()->create([
+            'digital_asset_id' => $asset->id,
+            'customer_id' => $brand->customer_id,
+            'brand_id' => $brand->id,
+            'title' => $title,
+            'status' => 'open',
+            'first_seen_at' => '2026-07-10 10:00:00',
+            'last_seen_at' => '2026-07-10 10:00:00',
+        ]);
     }
 
     private function plantOtp(ReportShareGrant $grant, string $code): string

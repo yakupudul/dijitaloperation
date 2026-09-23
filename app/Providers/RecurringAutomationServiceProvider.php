@@ -2,7 +2,6 @@
 
 namespace App\Providers;
 
-use App\Services\RecurringAutomation\Adapters\BusinessOutcomeRecheckScheduleAdapter;
 use App\Services\RecurringAutomation\Adapters\CollectionScheduleAdapter;
 use App\Services\RecurringAutomation\Adapters\IntelligenceValidityRecheckScheduleAdapter;
 use App\Services\RecurringAutomation\Adapters\InternalNotificationScheduleAdapter;
@@ -22,7 +21,6 @@ class RecurringAutomationServiceProvider extends ServiceProvider
             return new RecurringAutomationRegistry([
                 $app->make(CollectionScheduleAdapter::class),
                 $app->make(RecurringReviewScheduleAdapter::class),
-                $app->make(BusinessOutcomeRecheckScheduleAdapter::class),
                 $app->make(InternalNotificationScheduleAdapter::class),
                 $app->make(ReportDeliveryScheduleAdapter::class),
                 $app->make(IntelligenceValidityRecheckScheduleAdapter::class),

@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\ProductionReadiness;
 
-use App\Enums\BusinessOutcomeKind;
 use App\Enums\DigitalAssetStatus;
 use App\Enums\RecommendationOrigin;
 use App\Models\Brand;
@@ -16,9 +15,6 @@ use App\Models\Opportunity;
 use App\Models\Recommendation;
 use App\Models\Task;
 use App\Models\User;
-use App\Services\BusinessOutcomes\BusinessOutcomeDefinitionService;
-use App\Services\BusinessOutcomes\BusinessOutcomeObservationService;
-use App\Services\BusinessOutcomes\BusinessOutcomeReadService;
 use App\Services\ClientValueStory\ClientValueStoryReadService;
 use App\Services\CreateTaskFromRecommendation;
 use App\Services\Recommendations\CreateRecommendationFromFinding;
@@ -139,16 +135,6 @@ class GoldenPathE2ETest extends TestCase
         ], $actor);
         $this->assertSame(TaskStatus::COMPLETED, $task->status);
 
-        app(BusinessOutcomeDefinitionService::class)->createStandardDefinitionsForBrand($brand, $actor);
-        $ql = app(BusinessOutcomeReadService::class)->findActiveDefinitionByKind($brand, BusinessOutcomeKind::QualifiedLead);
-        $this->assertNotNull($ql);
-        app(BusinessOutcomeObservationService::class)->record($brand, $ql, [
-            'period_start' => '2026-07-01',
-            'period_end' => '2026-07-31',
-            'value' => 12,
-            'completeness' => 'complete',
-        ], $actor);
-
         $task->forceFill(['completed_at' => '2026-07-18 12:00:00'])->save();
         $task->refresh();
 
@@ -160,7 +146,7 @@ class GoldenPathE2ETest extends TestCase
         $this->assertGreaterThanOrEqual(1, count($story->findings));
         $this->assertGreaterThanOrEqual(1, count($story->opportunities));
         $this->assertGreaterThanOrEqual(1, count($story->completedWork));
-        $this->assertTrue($story->hasAnyOutcomeData());
+        $this->assertFalse($story->hasAnyOutcomeData());
 
         $this->assertSame($customer->id, Brand::query()->findOrFail($brand->id)->customer_id);
         $this->assertSame($customer->id, Finding::query()->whereKey($finding->id)->value('customer_id'));
