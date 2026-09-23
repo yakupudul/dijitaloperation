@@ -6,6 +6,8 @@ use App\Livewire\Demo\Concerns\InteractsWithDemoPeriod;
 use App\Livewire\Demo\Concerns\ResolvesCanonicalOperatorAsset;
 use App\Models\DigitalAsset;
 use App\Services\DataPool\Freshness\StartIncrementalCollectionService;
+use App\Services\MetaAds\MetaAdsCampaignExplorer;
+use App\Services\MetaAds\MetaAdsCreativeFatigueReadService;
 use App\Services\MetaAds\MetaAdsProfessionalWorkspaceEnhancer;
 use App\Services\MetaAds\MetaAdsProfessionalWorkspaceReadService;
 use App\Services\MetaAds\MetaAdsSpecialistBindingResolver;
@@ -18,6 +20,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 #[Layout('operator.layouts.app')]
 #[Title('Meta Ads')]
@@ -33,6 +36,20 @@ class OverviewPage extends Component
 
     #[Url(as: 'level')]
     public string $campaign_level = 'campaigns';
+
+    /** Drill-down parent campaign id on the campaigns tab. */
+    #[Url(as: 'campaign')]
+    public string $campaign_filter = '';
+
+    /** Drill-down parent ad set id on the campaigns tab. */
+    #[Url(as: 'adset')]
+    public string $adset_filter = '';
+
+    #[Url(as: 'sort')]
+    public string $campaign_sort = 'spend';
+
+    #[Url(as: 'dir')]
+    public string $campaign_direction = 'desc';
 
     /** @var list<string> */
     public array $allowedTabs = [
@@ -91,6 +108,128 @@ class OverviewPage extends Component
 
         $this->campaign_level = $level;
         $this->tab = 'campaigns';
+
+        if ($level === 'campaigns') {
+            $this->campaign_filter = '';
+            $this->adset_filter = '';
+        } elseif ($level === 'adsets') {
+            $this->adset_filter = '';
+        }
+    }
+
+    /** Campaign row click: show that campaign's ad sets. */
+    public function drillCampaign(string $campaignId): void
+    {
+        $this->tab = 'campaigns';
+        $this->campaign_level = 'adsets';
+        $this->campaign_filter = $campaignId;
+        $this->adset_filter = '';
+    }
+
+    /** Ad set row click: show that ad set's ads. */
+    public function drillAdset(string $adsetId, ?string $campaignId = null): void
+    {
+        $this->tab = 'campaigns';
+        $this->campaign_level = 'ads';
+        $this->adset_filter = $adsetId;
+        if (filled($campaignId)) {
+            $this->campaign_filter = (string) $campaignId;
+        }
+    }
+
+    /** Breadcrumb navigation: '' = all campaigns, 'campaign' = the selected campaign's ad sets. */
+    public function drillUp(string $target = ''): void
+    {
+        $this->tab = 'campaigns';
+
+        if ($target === 'campaign' && $this->campaign_filter !== '') {
+            $this->campaign_level = 'adsets';
+            $this->adset_filter = '';
+
+            return;
+        }
+
+        $this->campaign_level = 'campaigns';
+        $this->campaign_filter = '';
+        $this->adset_filter = '';
+    }
+
+    public function sortCampaignsBy(string $column): void
+    {
+        if (! in_array($column, MetaAdsCampaignExplorer::SORTS, true)) {
+            return;
+        }
+
+        if ($this->campaign_sort === $column) {
+            $this->campaign_direction = $this->campaign_direction === 'desc' ? 'asc' : 'desc';
+
+            return;
+        }
+
+        $this->campaign_sort = $column;
+        // Cost per result: cheapest first is the useful default.
+        $this->campaign_direction = $column === 'cost_per_result' ? 'asc' : 'desc';
+    }
+
+    /** CSV of the list currently shown on the campaigns tab (UTF-8 BOM, ';' separated). */
+    public function exportCsv(): StreamedResponse
+    {
+        $this->normalizeMetaPeriodState();
+        $professional = $this->professionalWorkspace();
+        $explorer = app(MetaAdsCampaignExplorer::class);
+        $view = $this->campaignExplorerView($professional);
+        $lines = $explorer->csvLines($view['rows'], $view['level']);
+
+        $filename = sprintf(
+            'meta-ads-%s-%s-%s.csv',
+            $view['level'],
+            (string) ($professional['period_start'] ?? $this->periodStart ?? 'start'),
+            (string) ($professional['period_end'] ?? $this->periodEnd ?? 'end'),
+        );
+
+        return response()->streamDownload(static function () use ($lines): void {
+            $handle = fopen('php://output', 'wb');
+            fwrite($handle, "\xEF\xBB\xBF");
+            foreach ($lines as $line) {
+                fputcsv($handle, $line, ';', '"', '');
+            }
+            fclose($handle);
+        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    /**
+     * @param  array<string, mixed>  $professional
+     * @return array<string, mixed>
+     */
+    protected function campaignExplorerView(array $professional): array
+    {
+        return app(MetaAdsCampaignExplorer::class)->explore(
+            $professional,
+            $this->campaign_level,
+            $this->campaign_filter !== '' ? $this->campaign_filter : null,
+            $this->adset_filter !== '' ? $this->adset_filter : null,
+            $this->campaign_sort,
+            $this->campaign_direction,
+        );
+    }
+
+    /** @return array<string, mixed> */
+    protected function professionalWorkspace(): array
+    {
+        $professional = app(MetaAdsProfessionalWorkspaceReadService::class)->workspace(
+            $this->assetId,
+            $this->period,
+            $this->periodStart,
+            $this->periodEnd,
+        );
+
+        return app(MetaAdsProfessionalWorkspaceEnhancer::class)->enhance(
+            $professional,
+            $this->assetId,
+            $this->period,
+            $this->periodStart,
+            $this->periodEnd,
+        );
     }
 
     public function refreshData(): void
@@ -226,20 +365,7 @@ class OverviewPage extends Component
             $this->periodEnd,
         );
 
-        $professional = app(MetaAdsProfessionalWorkspaceReadService::class)->workspace(
-            $this->assetId,
-            $this->period,
-            $this->periodStart,
-            $this->periodEnd,
-        );
-
-        $professional = app(MetaAdsProfessionalWorkspaceEnhancer::class)->enhance(
-            $professional,
-            $this->assetId,
-            $this->period,
-            $this->periodStart,
-            $this->periodEnd,
-        );
+        $professional = $this->professionalWorkspace();
 
         $isDemo = ($data['migration_mode'] ?? 'demo_catalog') === 'demo_catalog';
         if (! $isDemo) {
@@ -256,6 +382,14 @@ class OverviewPage extends Component
             'professional' => $professional,
             'identity' => $data['identity'],
             'metaCompareLabel' => $this->localizedComparisonLabel(),
+            'explorer' => $this->tab === 'campaigns' ? $this->campaignExplorerView($professional) : null,
+            'fatigue' => $this->tab === 'creatives'
+                ? app(MetaAdsCreativeFatigueReadService::class)->analyse(
+                    $this->assetId,
+                    (string) ($professional['period_end'] ?? $this->periodEnd ?? ''),
+                    collect($professional['ads'] ?? [])->pluck('name', 'id')->map(static fn ($name): string => (string) $name)->all(),
+                )
+                : null,
             'showPeriodBar' => in_array($this->tab, ['overview', 'campaigns', 'creatives', 'audience', 'funnel', 'measurement'], true),
             'performanceChartOptions' => [
                 'chart' => ['type' => 'line', 'height' => 260, 'toolbar' => ['show' => false]],

@@ -28,6 +28,16 @@
         ->sortByDesc('ctr')
         ->first();
 
+    $fatigueView = $fatigue ?? ['state' => 'unavailable', 'rows' => [], 'evaluated' => 0, 'insufficient' => 0, 'flagged' => 0, 'window_start' => null, 'window_end' => null];
+    $fatigueRows = array_slice($fatigueView['rows'] ?? [], 0, 25);
+    $fatigueBadge = static fn (string $status): string => match ($status) {
+        'fatigue_high' => 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300',
+        'fatigue' => 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300',
+        'watch' => 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300',
+        default => 'bg-gray-100 text-gray-600 dark:bg-white/[0.05] dark:text-gray-300',
+    };
+    $fatigueNumber = static fn ($value, int $decimals = 2, string $suffix = ''): string => $value !== null ? number_format((float) $value, $decimals, ',', '.').$suffix : '—';
+
     $displayName = static function (array $creative) use ($isTr): string {
         $name = trim((string) ($creative['name'] ?? ''));
         $id = (string) ($creative['id'] ?? '');
@@ -153,7 +163,61 @@
                 </div>
             </div>
 
-            <div class="mt-5 rounded-xl bg-gray-50 p-4 text-xs leading-5 text-gray-500 dark:bg-white/[0.03] dark:text-gray-400">{{ $isTr ? '“Kazanan kreatif” veya “yoruluyor” gibi teşhisler, yeterli örneklem ve analiz kuralı oluşmadan otomatik yazılmaz.' : 'Winner/fatigue diagnoses are not generated without sufficient sample size and explicit analysis rules.' }}</div>
+            <div class="mt-5 rounded-xl bg-gray-50 p-4 text-xs leading-5 text-gray-500 dark:bg-white/[0.03] dark:text-gray-400">{{ __('operator_meta.fatigue.summary_note') }}</div>
         </article>
     </div>
+
+    <article class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900" data-testid="meta-creative-fatigue">
+        <div class="flex flex-col gap-1 border-b border-gray-100 px-5 py-4 dark:border-gray-800 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+                <h3 class="font-bold text-gray-900 dark:text-white">{{ __('operator_meta.fatigue.title') }}</h3>
+                <p class="mt-0.5 max-w-3xl text-xs text-gray-400">{{ __('operator_meta.fatigue.intro') }}</p>
+            </div>
+            @if (filled($fatigueView['window_start'] ?? null))
+                <span class="text-xs font-medium text-gray-400">{{ $fatigueView['window_start'] }} → {{ $fatigueView['window_end'] }}</span>
+            @endif
+        </div>
+
+        @if (($fatigueView['state'] ?? 'unavailable') !== 'available')
+            <p class="px-5 py-8 text-center text-sm text-gray-500 dark:text-gray-400">{{ ($fatigueView['state'] ?? '') === 'no_rows' ? __('operator_meta.fatigue.no_rows') : __('operator_meta.fatigue.unavailable') }}</p>
+        @elseif ($fatigueRows === [])
+            <p class="px-5 py-8 text-center text-sm text-gray-500 dark:text-gray-400">{{ __('operator_meta.fatigue.insufficient', ['count' => number_format((int) ($fatigueView['insufficient'] ?? 0))]) }}</p>
+        @else
+            <p class="px-5 pt-3 text-xs text-gray-500 dark:text-gray-400">{{ __('operator_meta.fatigue.counts', ['evaluated' => number_format((int) $fatigueView['evaluated']), 'flagged' => number_format((int) $fatigueView['flagged']), 'insufficient' => number_format((int) $fatigueView['insufficient'])]) }}</p>
+            <div class="overflow-x-auto">
+                <table class="mt-2 min-w-full divide-y divide-gray-100 text-left dark:divide-gray-800">
+                    <thead class="bg-gray-50/80 dark:bg-white/[0.02]">
+                        <tr class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                            <th class="px-5 py-3">{{ __('operator_meta.fatigue.ad') }}</th>
+                            <th class="px-4 py-3">{{ __('operator_meta.fatigue.status') }}</th>
+                            <th class="px-4 py-3 text-right">{{ __('operator_meta.fatigue.ctr_first') }}</th>
+                            <th class="px-4 py-3 text-right">{{ __('operator_meta.fatigue.ctr_last') }}</th>
+                            <th class="px-4 py-3 text-right">{{ __('operator_meta.fatigue.ctr_change') }}</th>
+                            <th class="px-4 py-3 text-right">{{ __('operator_meta.fatigue.frequency_first') }}</th>
+                            <th class="px-4 py-3 text-right">{{ __('operator_meta.fatigue.frequency_last') }}</th>
+                            <th class="px-4 py-3 text-right">{{ __('operator_meta.fatigue.spend_first') }}</th>
+                            <th class="px-5 py-3 text-right">{{ __('operator_meta.fatigue.spend_last') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                        @foreach ($fatigueRows as $fatigueRow)
+                            <tr wire:key="meta-fatigue-{{ $fatigueRow['ad_id'] }}">
+                                <td class="max-w-xs px-5 py-3"><p class="truncate text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $fatigueRow['name'] }}</p><p class="mt-0.5 text-[11px] text-gray-400">ID {{ $fatigueRow['ad_id'] }} · {{ $fatigueRow['first_start'] }} → {{ $fatigueRow['last_end'] }}</p></td>
+                                <td class="px-4 py-3"><span class="whitespace-nowrap rounded-full px-2 py-1 text-xs font-semibold {{ $fatigueBadge($fatigueRow['status']) }}">{{ __('operator_meta.fatigue.statuses.'.$fatigueRow['status']) }}</span></td>
+                                <td class="px-4 py-3 text-right text-sm tabular-nums">{{ $fatigueNumber($fatigueRow['first_ctr'], 2, '%') }}</td>
+                                <td class="px-4 py-3 text-right text-sm tabular-nums">{{ $fatigueNumber($fatigueRow['last_ctr'], 2, '%') }}</td>
+                                <td class="px-4 py-3 text-right text-sm font-semibold tabular-nums {{ ($fatigueRow['ctr_change'] ?? 0) <= -30 ? 'text-rose-600 dark:text-rose-400' : 'text-gray-700 dark:text-gray-300' }}">{{ $fatigueRow['ctr_change'] !== null ? (($fatigueRow['ctr_change'] > 0 ? '+' : '').$fatigueNumber($fatigueRow['ctr_change'], 1, '%')) : '—' }}</td>
+                                <td class="px-4 py-3 text-right text-sm tabular-nums">{{ $fatigueNumber($fatigueRow['first_frequency']) }}</td>
+                                <td class="px-4 py-3 text-right text-sm tabular-nums">{{ $fatigueNumber($fatigueRow['last_frequency']) }}</td>
+                                <td class="whitespace-nowrap px-4 py-3 text-right text-sm tabular-nums">{{ trim(($fatigueRow['currency'] ?? '').' '.$fatigueNumber($fatigueRow['first_spend'])) }}</td>
+                                <td class="whitespace-nowrap px-5 py-3 text-right text-sm tabular-nums">{{ trim(($fatigueRow['currency'] ?? '').' '.$fatigueNumber($fatigueRow['last_spend'])) }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @endif
+
+        <p class="border-t border-gray-100 px-5 py-3 text-[11px] leading-5 text-gray-400 dark:border-gray-800">{{ __('operator_meta.fatigue.method') }}</p>
+    </article>
 </section>

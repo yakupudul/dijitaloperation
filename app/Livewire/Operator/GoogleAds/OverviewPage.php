@@ -7,6 +7,7 @@ use App\Models\DigitalAsset;
 use App\Models\GoogleAdsBudgetPlan;
 use App\Services\Async\AsyncOperationService;
 use App\Services\GoogleAds\GoogleAdsBudgetBiddingControlService;
+use App\Services\GoogleAds\GoogleAdsCampaignAnalyticsReadService;
 use App\Services\GoogleAds\GoogleAdsEntityHierarchyReconciler;
 use App\Services\GoogleAds\GoogleAdsSearchExpertWorkspaceService;
 use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
@@ -15,6 +16,7 @@ use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /** Production operator behavior layered over the Google Ads specialist workspace. */
 class OverviewPage extends LegacyOverviewPage
@@ -44,6 +46,14 @@ class OverviewPage extends LegacyOverviewPage
     public ?string $budget_target_roas = null;
 
     public ?string $budget_plan_notes = null;
+
+    /** Campaign table sort column: '' keeps the default order; otherwise one of CAMPAIGN_SORTS. */
+    public string $campaign_sort = '';
+
+    public string $campaign_sort_dir = 'desc';
+
+    /** @var list<string> */
+    private const CAMPAIGN_SORTS = ['cost', 'clicks', 'conversions', 'cpa'];
 
     public function mount(?string $assetId = null): void
     {
@@ -274,6 +284,89 @@ class OverviewPage extends LegacyOverviewPage
         $this->campaign = null;
     }
 
+    public function sortCampaigns(string $column): void
+    {
+        if (! in_array($column, self::CAMPAIGN_SORTS, true)) {
+            return;
+        }
+
+        if ($this->campaign_sort === $column) {
+            $this->campaign_sort_dir = $this->campaign_sort_dir === 'desc' ? 'asc' : 'desc';
+        } else {
+            $this->campaign_sort = $column;
+            $this->campaign_sort_dir = $column === 'cpa' ? 'asc' : 'desc';
+        }
+    }
+
+    /** Campaign table (with previous-period comparison) as a Turkish-Excel friendly CSV. */
+    public function exportCampaignsCsv(): StreamedResponse
+    {
+        $this->tab = 'campaigns';
+        $rows = $this->filterCampaignRowsForExport(collect($this->render()->getData()['campaignRows'] ?? []));
+        $header = [
+            __('operator_gads.columns.campaign'), 'ID', __('operator_gads.columns.status'), __('operator_gads.export.type'),
+            __('operator_gads.export.daily_budget'), __('operator_gads.columns.spend'), __('operator_gads.export.delta_cost'),
+            __('operator_gads.columns.clicks'), __('operator_gads.export.delta_clicks'),
+            __('operator_gads.columns.conversions'), __('operator_gads.export.delta_conversions'),
+            'CPA', __('operator_gads.export.delta_cpa'),
+            __('operator_gads.comparison.lost_is_budget'), __('operator_gads.comparison.lost_is_rank'),
+        ];
+
+        $lines = $rows->map(function (array $row): array {
+            $cmp = is_array($row['comparison'] ?? null) ? $row['comparison'] : [];
+
+            return [
+                $this->csvText((string) ($row['name'] ?? '')),
+                (string) ($row['id'] ?? ''),
+                $this->csvText((string) ($row['status'] ?? '')),
+                $this->csvText((string) ($row['type'] ?? '')),
+                $this->csvNumber($row['budget'] ?? null, 2),
+                $this->csvNumber($cmp['cost'] ?? $row['spend'] ?? null, 2),
+                $this->csvNumber($cmp['delta_cost'] ?? null, 1),
+                $this->csvNumber($cmp['clicks'] ?? $row['clicks'] ?? null, 0),
+                $this->csvNumber($cmp['delta_clicks'] ?? null, 1),
+                $this->csvNumber($cmp['conversions'] ?? $row['leads'] ?? null, 2),
+                $this->csvNumber($cmp['delta_conversions'] ?? null, 1),
+                $this->csvNumber($cmp['cpa'] ?? null, 2),
+                $this->csvNumber($cmp['delta_cpa'] ?? null, 1),
+                $this->csvNumber($row['lost_is_budget'] ?? null, 1),
+                $this->csvNumber($row['lost_is_rank'] ?? null, 1),
+            ];
+        })->all();
+
+        return $this->csvDownload('google-ads-kampanyalar-'.$this->exportPeriodSlug().'.csv', $header, $lines);
+    }
+
+    /** Filtered Search terms (all pages, not only the visible page) as CSV. */
+    public function exportSearchTermsCsv(): StreamedResponse
+    {
+        $this->tab = 'search_demand';
+        $data = $this->render()->getData()['data'] ?? [];
+        $terms = $this->filterTerms(collect(is_array($data) ? ($data['search']['terms'] ?? []) : []));
+        $header = [
+            __('operator_gads.export.search_term'), __('operator_gads.export.source'), __('operator_gads.columns.campaign'),
+            __('operator_gads.export.ad_group'), __('operator_gads.columns.impressions'), __('operator_gads.columns.clicks'),
+            'CTR %', 'Ort. TBM', __('operator_gads.columns.spend'), __('operator_gads.columns.conversions'), 'CVR %', 'CPA',
+        ];
+
+        $lines = $terms->map(fn (array $row): array => [
+            $this->csvText((string) ($row['term'] ?? '')),
+            $this->csvText((string) ($row['source'] ?? '')),
+            $this->csvText((string) ($row['campaign'] ?? '')),
+            $this->csvText((string) ($row['ad_group'] ?? '')),
+            $this->csvNumber($row['impressions'] ?? null, 0),
+            $this->csvNumber($row['clicks'] ?? null, 0),
+            $this->csvNumber($row['ctr'] ?? null, 2),
+            $this->csvNumber($row['avg_cpc'] ?? null, 2),
+            $this->csvNumber($row['spend'] ?? null, 2),
+            $this->csvNumber($row['leads'] ?? null, 2),
+            $this->csvNumber($row['cvr'] ?? null, 2),
+            $this->csvNumber($row['cpa'] ?? null, 2),
+        ])->all();
+
+        return $this->csvDownload('google-ads-arama-terimleri-'.$this->exportPeriodSlug().'.csv', $header, $lines);
+    }
+
     public function render(): View
     {
         if (in_array($this->search_sub, ['inbox', 'drift'], true)) {
@@ -314,7 +407,18 @@ class OverviewPage extends LegacyOverviewPage
             );
         }
 
-        $campaigns = collect($data['campaigns'] ?? []);
+        $campaignAnalytics = null;
+        $monthlyPacing = null;
+        if (in_array($this->tab, ['campaigns', 'budget_bidding'], true)) {
+            $analyticsService = app(GoogleAdsCampaignAnalyticsReadService::class);
+            $campaignAnalytics = $analyticsService->campaignComparison($this->assetId, $start !== '' ? $start : null, $end !== '' ? $end : null);
+            $data['campaigns'] = $this->campaignRowsWithAnalytics(collect($data['campaigns'] ?? [])->values()->all(), $campaignAnalytics);
+            if ($this->tab === 'budget_bidding') {
+                $monthlyPacing = $analyticsService->monthlyPacing($this->assetId);
+            }
+        }
+
+        $campaigns = $this->sortCampaignRows(collect($data['campaigns'] ?? []));
 
         $allTerms = collect($data['search']['terms'] ?? []);
         $terms = $this->filterTerms($allTerms);
@@ -379,7 +483,137 @@ class OverviewPage extends LegacyOverviewPage
             'performanceChartOptions' => $chart,
             'budgetControl' => $budgetControl,
             'budgetPlanEditable' => true,
+            'campaignAnalytics' => $campaignAnalytics,
+            'monthlyPacing' => $monthlyPacing,
         ]);
+    }
+
+    /**
+     * Attaches previous-period comparison to each campaign row and fills lost impression
+     * share from the daily facts when the row does not carry it yet.
+     *
+     * @param  list<array<string,mixed>>  $campaigns
+     * @param  array{available: bool, rows: array<string, array<string, mixed>>}  $analytics
+     * @return list<array<string,mixed>>
+     */
+    private function campaignRowsWithAnalytics(array $campaigns, array $analytics): array
+    {
+        return array_map(static function (array $row) use ($analytics): array {
+            $cmp = $analytics['rows'][(string) ($row['id'] ?? '')] ?? null;
+            $row['comparison'] = $cmp;
+            if ($cmp !== null) {
+                $row['lost_is_budget'] = is_numeric($row['lost_is_budget'] ?? null) ? $row['lost_is_budget'] : $cmp['lost_is_budget'];
+                $row['lost_is_rank'] = is_numeric($row['lost_is_rank'] ?? null) ? $row['lost_is_rank'] : $cmp['lost_is_rank'];
+            }
+
+            return $row;
+        }, $campaigns);
+    }
+
+    /**
+     * @param  Collection<int,array<string,mixed>>  $campaigns
+     * @return Collection<int,array<string,mixed>>
+     */
+    private function sortCampaignRows(Collection $campaigns): Collection
+    {
+        if (! in_array($this->campaign_sort, self::CAMPAIGN_SORTS, true)) {
+            return $campaigns->values();
+        }
+
+        $column = $this->campaign_sort;
+        $descending = $this->campaign_sort_dir === 'desc';
+        $value = static function (array $row) use ($column): ?float {
+            $spend = is_numeric($row['spend'] ?? null) ? (float) $row['spend'] : null;
+            $leads = is_numeric($row['leads'] ?? null) ? (float) $row['leads'] : null;
+
+            return match ($column) {
+                'cost' => $spend,
+                'clicks' => is_numeric($row['clicks'] ?? null) ? (float) $row['clicks'] : (is_numeric(data_get($row, 'comparison.clicks')) ? (float) data_get($row, 'comparison.clicks') : null),
+                'conversions' => $leads,
+                'cpa' => $spend !== null && $leads !== null && $leads > 0 ? $spend / $leads : null,
+                default => null,
+            };
+        };
+
+        // Rows without a value (e.g. no conversions for CPA) always sort last.
+        return $campaigns
+            ->sort(static function (array $a, array $b) use ($value, $descending): int {
+                $left = $value($a);
+                $right = $value($b);
+                if ($left === null || $right === null) {
+                    return ($left === null) <=> ($right === null);
+                }
+
+                return $descending ? $right <=> $left : $left <=> $right;
+            })
+            ->values();
+    }
+
+    /**
+     * Applies the same entity filters the campaigns table uses in the view.
+     *
+     * @param  Collection<int,array<string,mixed>>  $rows
+     * @return Collection<int,array<string,mixed>>
+     */
+    private function filterCampaignRowsForExport(Collection $rows): Collection
+    {
+        $query = mb_strtolower(trim($this->entity_query));
+
+        return $rows->filter(function (array $row) use ($query): bool {
+            if ($this->entity_campaign !== 'all' && (string) ($row['id'] ?? '') !== $this->entity_campaign) {
+                return false;
+            }
+            if ($this->entity_status !== 'all' && strtoupper((string) ($row['status'] ?? '')) !== strtoupper($this->entity_status)) {
+                return false;
+            }
+            if ($this->entity_type !== 'all' && (string) ($row['type'] ?? '') !== $this->entity_type) {
+                return false;
+            }
+
+            return $query === '' || str_contains(mb_strtolower((string) ($row['name'] ?? '').' '.(string) ($row['id'] ?? '')), $query);
+        })->values();
+    }
+
+    /**
+     * UTF-8 BOM + `;` separator so Turkish Excel opens the file with correct characters and columns.
+     *
+     * @param  list<string>  $header
+     * @param  list<list<string>>  $rows
+     */
+    private function csvDownload(string $filename, array $header, array $rows): StreamedResponse
+    {
+        return response()->streamDownload(static function () use ($header, $rows): void {
+            $output = fopen('php://output', 'w');
+            fwrite($output, "\xEF\xBB\xBF");
+            fputcsv($output, $header, ';', '"', '');
+            foreach ($rows as $row) {
+                fputcsv($output, $row, ';', '"', '');
+            }
+            fclose($output);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
+    /** Neutralises spreadsheet formula injection in free-text cells. */
+    private function csvText(string $value): string
+    {
+        return preg_match('/^[\s\x{FEFF}]*[=+@-]/u', $value) === 1 ? "'".$value : $value;
+    }
+
+    private function csvNumber(mixed $value, int $decimals): string
+    {
+        return is_numeric($value) ? number_format((float) $value, $decimals, ',', '') : '';
+    }
+
+    private function exportPeriodSlug(): string
+    {
+        $start = (string) ($this->periodStart ?? '');
+        $end = (string) ($this->periodEnd ?? '');
+
+        return $start !== '' && $end !== '' ? $start.'_'.$end : now()->format('Ymd');
     }
 
     /** @param Collection<int,array<string,mixed>> $terms */
