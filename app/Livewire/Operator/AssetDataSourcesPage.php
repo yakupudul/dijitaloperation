@@ -350,6 +350,7 @@ final class AssetDataSourcesPage extends Component
             'bindings' => $bindings,
             'resources' => $resources,
             'providers' => $providers,
+            'canDiscover' => auth()->user() instanceof User && auth()->user()->hasRole(Roles::ADMIN),
             'hasActiveBinding' => $hasActiveBinding,
             'hasCollectableSource' => $isWebsite ? $websiteCollectable : $hasActiveBinding,
             'isWebsite' => $isWebsite,

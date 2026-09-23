@@ -29,7 +29,7 @@ final class DemoMenu
                     ['label' => __('operator.nav.customers'), 'route' => 'operator.customers', 'icon' => 'customers'],
                     ['label' => __('operator.nav.brands'), 'route' => 'operator.brands', 'icon' => 'brands'],
                     ['label' => __('operator.nav.digital_assets'), 'route' => 'operator.assets', 'icon' => 'assets'],
-                    ['label' => app()->getLocale() === 'tr' ? 'Kamu Keşif' : 'Public Discovery', 'route' => 'operator.public-discovery', 'icon' => 'discovery'],
+                    ['label' => app()->getLocale() === 'tr' ? 'Açık Web Keşfi' : 'Public Discovery', 'route' => 'operator.public-discovery', 'icon' => 'search'],
                     ['label' => __('operator.nav.files'), 'route' => 'operator.files', 'icon' => 'files'],
                 ],
             ],

@@ -10,7 +10,6 @@ import ApexCharts from 'apexcharts';
 import flatpickr from 'flatpickr';
 import 'flatpickr/dist/flatpickr.min.css';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import './maps/gbp-rank-map';
 import './maps/ga4-world-map';
 import { bindSortableTables } from './sortable-tables';
 

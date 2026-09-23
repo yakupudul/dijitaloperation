@@ -2,7 +2,7 @@
     <div class="flex flex-col gap-4 border-b border-gray-200 pb-5 dark:border-gray-800 lg:flex-row lg:items-start lg:justify-between">
         <div>
             <p class="text-xs font-medium uppercase tracking-wide text-gray-400">Brand Intelligence</p>
-            <h1 class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{{ app()->getLocale() === 'tr' ? 'Kamu Keşif' : 'Public Discovery' }}</h1>
+            <h1 class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{{ app()->getLocale() === 'tr' ? 'Açık Web Keşfi' : 'Public Discovery' }}</h1>
             <p class="mt-2 max-w-3xl text-sm text-gray-500 dark:text-gray-400">{{ __('public_discovery.intro') }} {{ __('public_discovery.how') }}</p>
         </div>
         <a href="{{ route('operator.assets') }}" wire:navigate class="rounded-lg bg-white px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-300 dark:ring-gray-700">Dijital Varlıklar</a>

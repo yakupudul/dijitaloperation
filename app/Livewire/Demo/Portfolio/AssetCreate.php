@@ -7,6 +7,7 @@ use App\Models\Brand;
 use App\Models\DigitalAsset;
 use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Support\Demo\DemoState;
+use App\Support\DigitalAssetTypes;
 use App\Support\Integrations\AssetBindingCompatibility;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
@@ -67,6 +68,17 @@ class AssetCreate extends Component
         DemoState::flash(__('operator.forms.asset_defined', ['name' => $asset->name]));
 
         return $this->redirect(OperatorPortfolioPresenter::specialistUrl($asset), navigate: true);
+    }
+
+    /**
+     * Types that can be created: Instagram has no data source yet, so it is not offered for new assets
+     * (existing Instagram assets stay editable).
+     *
+     * @return array<string, string>
+     */
+    protected function typeOptions(): array
+    {
+        return array_diff_key(DigitalAssetTypes::options(), ['instagram' => true]);
     }
 
     public function render(): View

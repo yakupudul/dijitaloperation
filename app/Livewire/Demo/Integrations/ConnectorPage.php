@@ -8,6 +8,7 @@ use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\DigitalAsset;
+use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Services\Collection\Ga4\Ga4CentralCollectionService;
 use App\Services\Collection\SearchConsole\SearchConsoleCentralCollectionService;
 use App\Services\Integrations\Google\GoogleIntegrationReadModel;
@@ -498,7 +499,7 @@ class ConnectorPage extends Component
         return [
             'route' => $route,
             'params' => $route === 'operator.assets' ? [] : ['assetId' => $asset->id],
-            'label' => 'Open '.$asset->name.' →',
+            'label' => (app()->getLocale() === 'tr' ? $asset->name.' sayfasını aç' : 'Open '.$asset->name).' →',
         ];
     }
 
@@ -511,13 +512,7 @@ class ConnectorPage extends Component
 
     private function assetRouteName(DigitalAsset $asset): string
     {
-        return match ((string) $asset->type) {
-            'ga4', 'google_analytics', 'analytics' => 'operator.analytics',
-            'gsc', 'search_console', 'google_search_console' => 'operator.search-console',
-            'google_ads' => 'operator.google-ads.overview',
-            'google_business_profile', 'gbp' => 'operator.gbp',
-            default => 'operator.assets',
-        };
+        return OperatorPortfolioPresenter::specialistRoute((string) $asset->type);
     }
 }
 

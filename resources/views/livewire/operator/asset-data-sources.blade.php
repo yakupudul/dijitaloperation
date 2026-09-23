@@ -14,7 +14,7 @@
         </div>
 
         <div class="flex flex-wrap gap-2">
-            @foreach ($providers as $provider)
+            @foreach ($canDiscover ? $providers : [] as $provider)
                 <button type="button" wire:click="discover('{{ $provider }}')" wire:loading.attr="disabled"
                     class="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:opacity-60 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-white/[0.03]">
                     {{ __('operator_runtime.sources.discover', ['provider' => strtoupper($provider)]) }}
@@ -22,7 +22,7 @@
             @endforeach
             <button type="button" wire:click="collectNow" @disabled(! $hasCollectableSource) wire:loading.attr="disabled"
                 class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50">
-                {{ $isWebsite && app()->getLocale() === 'tr' ? 'Website Verisini Topla' : __('operator_runtime.sources.collect_now') }}
+                {{ __('operator_runtime.sources.collect_now') }}
             </button>
         </div>
     </div>
@@ -42,15 +42,12 @@
                 <div>
                     <div class="flex flex-wrap items-center gap-2">
                         <h2 class="font-semibold text-gray-900 dark:text-white">
-                            {{ app()->getLocale() === 'tr' ? 'Production Website Veri Kaynakları' : 'Production Website Data Sources' }}
+                            {{ app()->getLocale() === 'tr' ? 'Web sitesinin kendi kaynakları' : 'Website’s own sources' }}
                         </h2>
-                        <span class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300">
-                            {{ app()->getLocale() === 'tr' ? 'Collection Engine' : 'Collection Engine' }}
-                        </span>
                     </div>
                     <p class="mt-1 max-w-3xl text-xs leading-5 text-gray-500 dark:text-gray-400">
                         {{ app()->getLocale() === 'tr'
-                            ? 'Bu kaynaklar Google/Meta resource binding’inden bağımsızdır. Website primary URL/domain tanımlıysa public crawl, HTML analizi ve SSL/TLS doğrudan çalıştırılabilir.'
+                            ? 'Bu kaynaklar için Google/Meta hesabı gerekmez. Web sitesinin adresi tanımlıysa sayfa taraması, HTML analizi ve SSL kontrolü doğrudan çalışır.'
                             : 'These sources are independent from Google/Meta resource bindings. With a Website primary URL/domain, public crawl, HTML analysis and SSL/TLS can run directly.' }}
                     </p>
                 </div>
@@ -69,8 +66,8 @@
                             'url_required' => app()->getLocale() === 'tr' ? 'URL gerekli' : 'URL required',
                             'domain_required' => app()->getLocale() === 'tr' ? 'Domain gerekli' : 'Domain required',
                             'connection_required' => app()->getLocale() === 'tr' ? 'Bağlantı gerekli' : 'Connection required',
-                            'cms_detected_family_deferred' => app()->getLocale() === 'tr' ? 'CMS algılandı · deferred' : 'CMS detected · deferred',
-                            'family_deferred' => 'Deferred',
+                            'cms_detected_family_deferred' => app()->getLocale() === 'tr' ? 'CMS algılandı · sonraki aşamada' : 'CMS detected · later',
+                            'family_deferred' => app()->getLocale() === 'tr' ? 'Sonraki aşamada' : 'Later',
                             default => $sourceStatus,
                         };
                     @endphp
@@ -105,7 +102,7 @@
                     <span class="mx-2">·</span>
                     <span class="font-semibold">{{ $collectionStatusLabel }}</span>
                     <span class="mx-2">·</span>
-                    <span>{{ $websiteCollection->datasets_completed }}/{{ $websiteCollection->datasets_total }} {{ app()->getLocale() === 'tr' ? 'dataset tamamlandı' : 'datasets completed' }}</span>
+                    <span>{{ $websiteCollection->datasets_completed }}/{{ $websiteCollection->datasets_total }} {{ app()->getLocale() === 'tr' ? 'veri seti tamamlandı' : 'datasets completed' }}</span>
                     @if ((int) $websiteCollection->datasets_failed > 0)
                         <span class="mx-2">·</span>
                         <span class="text-rose-600 dark:text-rose-400">{{ $websiteCollection->datasets_failed }} {{ app()->getLocale() === 'tr' ? 'başarısız' : 'failed' }}</span>
@@ -114,7 +111,7 @@
                     <span>{{ $websiteCollection->updated_at?->diffForHumans() }}</span>
                 @else
                     {{ app()->getLocale() === 'tr'
-                        ? 'Bu Website için henüz production Website collection çalıştırılmadı.'
+                        ? 'Bu web sitesi için henüz veri çekimi yapılmadı.'
                         : 'No production Website collection has been run for this Website yet.' }}
                 @endif
             </div>
