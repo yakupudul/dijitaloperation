@@ -1,6 +1,7 @@
 @php
     $tabs = [
         'overview' => __('operator.gbp.tabs.overview'),
+        'advisor' => 'Danışman',
         'profile' => __('operator.gbp.tabs.profile'),
         'visibility' => __('operator.gbp.tabs.visibility'),
         'performance' => __('operator.gbp.tabs.performance'),
@@ -54,7 +55,13 @@
         @endforeach
     </nav>
 
-    @if ($tab === 'overview')
+    @if ($tab === 'advisor')
+        @if (ctype_digit((string) $this->assetId))
+            <livewire:operator.advisor.advisor-panel :asset-id="(int) $this->assetId" :key="'gbp-advisor-'.$this->assetId" />
+        @else
+            <p class="rounded-xl border border-gray-200 p-5 text-sm text-gray-500 dark:border-gray-800">Danışman yalnızca bağlı gerçek profillerde çalışır.</p>
+        @endif
+    @elseif ($tab === 'overview')
         @if (! $bound)
             <section class="rounded-xl border border-amber-200 bg-amber-50 p-5 dark:border-amber-900/50 dark:bg-amber-950/20">
                 <h2 class="font-semibold text-amber-900 dark:text-amber-200">{{ __('operator_gbp.connect_title') }}</h2>

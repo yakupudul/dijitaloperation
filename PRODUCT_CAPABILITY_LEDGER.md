@@ -1,5 +1,15 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-09-24 (c) — Advisor Faz 5: İşletme Profili danışmanı
+
+**State:** CODED + PHPUnit (`tests/Feature/Advisor/GbpAdvisorRunTest`: all rules end-to-end, brand-search exclusion, keyword↔service matching, silence without binding/media, draft validation, profile page with advisor tab for a bound profile). Full Feature + Unit suites: no new failures; 2 previously failing GBP workspace tests now pass. Live UAT not run.
+
+- Menu page renamed "Danışman" (Google Ads, Meta Ads, İşletme Profili); profile page gets a "Danışman" tab.
+- Fixed: bound Business Profile page crashed (`GbpLocationBoundCollector::EVIDENCE_TYPE` was undefined).
+- Rules (config `moxdop-advisor.gbp`): profile shown closed (critical); profile gaps (description missing/<250 chars, no extra categories, no hours, no phone, website missing/broken, empty service list, missing cover/logo, Google-updated info, unset attributes); search keywords whose service is not on the profile or not a brand service (3 months, ≥30 impressions, brand searches excluded); priority brand services missing from the profile; 28-day interaction drop ≥30%; rating trend (last 90 days vs prior year, −0.3); photo freshness only when the profile is used; UTM on the website link (paste-ready URL).
+- AI: "Taslak hazırla" on profile gaps → 2 descriptions ≤750 chars + service descriptions; no links/phones.
+- Known gaps: structured services carry only ids; review replies out of scope; ratings on automated runs come from `gbp_reviews` only.
+
 ## 2026-09-24 (b) — Advisor Faz 4: Meta Ads danışmanı
 
 **State:** CODED + PHPUnit (`tests/Feature/Advisor/MetaAdsAdvisorRunTest`: collector result resolution, all rules end-to-end, self-closing, panel channel filter, draft queue/limits; Meta frozen tab list updated). Full Feature + Unit suites: no new failures. Live UAT not run.

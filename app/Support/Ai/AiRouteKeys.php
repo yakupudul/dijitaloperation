@@ -47,4 +47,6 @@ final class AiRouteKeys
     public const string GOOGLE_ADS_AD_COPY_DRAFT = 'google_ads.ad_copy_draft';
 
     public const string META_ADS_CREATIVE_DRAFT = 'meta_ads.creative_draft';
+
+    public const string GBP_PROFILE_DRAFT = 'gbp.profile_draft';
 }

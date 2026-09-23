@@ -12,6 +12,7 @@ enum AdvisorCategory: string
     case Quality = 'quality';
     case Change = 'change';
     case Audience = 'audience';
+    case Profile = 'profile';
 
     public function label(): string
     {
@@ -24,6 +25,7 @@ enum AdvisorCategory: string
             self::Quality => 'Kalite puanı',
             self::Change => 'Değişiklik etkisi',
             self::Audience => 'Kitle & teslimat',
+            self::Profile => 'Profil',
         };
     }
 
@@ -37,6 +39,7 @@ enum AdvisorCategory: string
             self::Ads, self::Quality => 'primary',
             self::Change => 'light',
             self::Audience => 'info',
+            self::Profile => 'warning',
         };
     }
 }

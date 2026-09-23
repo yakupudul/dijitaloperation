@@ -8,10 +8,10 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 /**
- * /ads-advisor — Google Ads advisor items across every connected ad account.
+ * /ads-advisor — advisor items across every connected Google Ads, Meta Ads and Business Profile account.
  */
 #[Layout('operator.layouts.app')]
-#[Title('Reklam Danışmanı')]
+#[Title('Danışman')]
 final class AdvisorIndex extends Component
 {
     public function render(): View

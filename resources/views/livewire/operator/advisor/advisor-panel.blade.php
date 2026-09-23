@@ -28,11 +28,13 @@
         'period' => ['Dönem', 'text'], 'segment' => ['Bölüm', 'text'], 'objective' => ['Hedef', 'text'], 'frequency' => ['Sıklık (gün ort.)', 'num'],
         'ctr' => ['TO %', 'num'], 'avg_ctr' => ['Ort. TO %', 'num'], 'cpm' => ['CPM', 'money'], 'cpc_value' => ['TBM', 'money'], 'avg_cpc' => ['Ort. TBM', 'money'],
         'share' => ['Harcama payı %', 'num'], 'needed_daily' => ['Gereken günlük bütçe', 'money'],
+        'offering' => ['Hizmet', 'text'], 'note' => ['Durum', 'text'], 'metric' => ['Ölçüm', 'text'], 'before' => ['Önceki dönem', 'num'], 'after' => ['Son dönem', 'num'], 'change' => ['Değişim %', 'num'],
         'type' => ['Değişen', 'text'], 'operation' => ['İşlem', 'text'], 'fields' => ['Alanlar', 'text'], 'user' => ['Kim', 'text'], 'low_intent' => ['Düşük niyet', 'bool'], 'pmax' => ['PMax', 'bool'],
     ];
     $sectionLabels = [
         'terms' => 'Arama terimleri', 'words' => 'Tek kelime negatifler (sıralı eşleme)', 'service_terms' => 'Hizmet adı geçen dönüşümsüz terimler (negatif ekleme, sayfayı kontrol et)',
         'campaigns' => 'Kampanyalar', 'waste_campaigns' => 'Bütçe kaydırılabilecek dönüşümsüz kampanyalar', 'actions' => 'Dönüşüm işlemleri', 'issues' => 'Sorunlar',
+        'metrics' => 'Profil etkileşimi (önceki / son dönem)', 'missing_services' => 'Profilde olmayan hizmetler', 'attributes' => 'Eklenebilecek özellikler', 'profile_services' => 'Profildeki hizmet ve kategoriler',
         'weeks' => 'Haftalık karşılaştırma', 'adsets' => 'Reklam setleri', 'segments' => 'Pahalı bölümler',
         'pages' => 'Açılış sayfaları', 'keywords' => 'Anahtar kelimeler', 'recommendations' => 'Google önerileri', 'events' => 'O günkü değişiklikler',
     ];
@@ -44,7 +46,7 @@
     <section class="{{ $card }} p-5" x-data="{ help: false }">
         <div class="flex flex-wrap items-center justify-between gap-4">
             <div class="min-w-0 flex-1">
-                <h2 class="text-base font-semibold text-gray-900 dark:text-white">{{ $asset ? 'Danışman · '.$asset->name : 'Haftalık reklam danışmanı' }}</h2>
+                <h2 class="text-base font-semibold text-gray-900 dark:text-white">{{ $asset ? 'Danışman · '.$asset->name : 'Haftalık danışman' }}</h2>
                 @if (! $asset)
                     <div class="mt-2 inline-flex rounded-lg bg-gray-100 p-0.5 text-xs dark:bg-white/5" role="group" aria-label="Kanal">
                         @foreach (['' => 'Tüm kanallar'] + $channels as $value => $label)
@@ -67,6 +69,7 @@
         </div>
         <div x-show="help" x-cloak class="mt-4 grid gap-3 border-t border-gray-100 pt-4 text-sm text-gray-600 sm:grid-cols-2 dark:border-gray-800 dark:text-gray-300">
             <p><strong class="text-gray-800 dark:text-white/90">Google Ads:</strong> dönüşümsüz arama terimleri (negatif listesi), bütçesi yetmeyen kârlı kampanyalar, dönüşüm ve GA4 ölçümü, açılış sayfası, reklam gücü, kalite puanı, değişiklik sonrası CPA artışı.</p>
+            <p class="sm:col-span-2"><strong class="text-gray-800 dark:text-white/90">İşletme Profili:</strong> kapalı görünme, eksik açıklama/kategori/saat/telefon/hizmet, insanların profili bulduğu aramalarla hizmet listesi arasındaki boşluk, etkileşim düşüşü, puan trendi, UTM. Yorum cevaplama kapsam dışı.</p>
             <p><strong class="text-gray-800 dark:text-white/90">Meta Ads:</strong> kreatif yorgunluğu (frekans ↑, tık oranı ↓), öğrenmede takılan reklam setleri, piksel ve dönüşüm kaynağı sağlığı, pahalı yerleşim ve saatler, dönüşümsüz harcama, değişiklik sonrası maliyet artışı.</p>
         </div>
     </section>
@@ -102,7 +105,7 @@
         <div class="{{ $card }} p-4">
             <p class="text-xs font-medium text-gray-500">İncelenen hesap</p>
             <p class="mt-2 text-2xl font-bold text-gray-800 dark:text-white/90">{{ $kpis['accounts'] }}<span class="text-sm font-medium text-gray-400"> / {{ $board->count() }}</span></p>
-            <p class="mt-2 text-xs text-gray-400">Bağlı ve verisi toplanmış reklam hesabı</p>
+            <p class="mt-2 text-xs text-gray-400">Bağlı ve verisi toplanmış hesap</p>
         </div>
     </div>
 
@@ -171,7 +174,7 @@
             </div>
         </section>
     @else
-        <div class="{{ $card }} px-6 py-10 text-center text-sm text-gray-500">Aktif reklam hesabı yok. Markaya Google Ads veya Meta Ads varlığı ekleyip hesabı bağla.</div>
+        <div class="{{ $card }} px-6 py-10 text-center text-sm text-gray-500">Aktif hesap yok. Markaya Google Ads, Meta Ads veya İşletme Profili varlığı ekleyip bağla.</div>
     @endif
 
     {{-- 4. Item list --}}
@@ -274,7 +277,15 @@
                                     'headlines' => $item->channel === 'google_ads' ? 'Başlıklar (≤30 karakter)' : 'Başlıklar (≤40 karakter)',
                                     'descriptions' => $item->channel === 'google_ads' ? 'Açıklamalar (≤90 karakter)' : 'Açıklamalar (≤30 karakter)',
                                     'concepts' => 'Kreatif fikirleri',
+                                    'profile_descriptions' => 'Profil açıklaması (≤750 karakter)',
+                                    'service_descriptions' => 'Hizmet açıklamaları',
                                 ];
+                                $draftTitle = ['google_ads' => 'Reklam metni taslağı (AI)', 'meta_ads' => 'Yeni kreatif briefi ve metinler (AI)', 'google_business_profile' => 'Profil açıklaması taslağı (AI)'][$item->channel] ?? 'AI taslağı';
+                                $draftIntro = [
+                                    'google_ads' => 'Bu reklam grubunun anahtar kelimeleri, dönüşüm getiren arama terimleri ve açılış sayfasından 12–15 başlık ve 4 açıklama taslağı hazırlanır.',
+                                    'meta_ads' => 'Yorulan reklamın metni, hedefi ve markanın hizmetlerinden 3 yeni kreatif fikri ile ana metin, başlık ve açıklama varyantları hazırlanır.',
+                                    'google_business_profile' => 'Profil kategorileri, markanın hizmetleri, hizmet bölgeleri ve insanların profili bulduğu aramalardan 2 açıklama ve hizmet açıklamaları hazırlanır.',
+                                ][$item->channel] ?? '';
                                 $draftText = '';
                                 if ($draft && $item->draft_status === 'ready') {
                                     foreach ($draftSections as $draftKey => $draftLabel) {
@@ -289,7 +300,7 @@
                             @endphp
                             <div class="rounded-lg bg-blue-50 p-3 lg:col-span-2 dark:bg-blue-500/10" x-data="{ copied: false }">
                                 <div class="flex flex-wrap items-center justify-between gap-2">
-                                    <p class="text-xs font-medium uppercase tracking-wide text-blue-700 dark:text-blue-300">{{ $item->channel === 'google_ads' ? 'Reklam metni taslağı (AI)' : 'Yeni kreatif briefi ve metinler (AI)' }}</p>
+                                    <p class="text-xs font-medium uppercase tracking-wide text-blue-700 dark:text-blue-300">{{ $draftTitle }}</p>
                                     @if ($item->draft_status === 'queued')
                                         <span class="inline-flex items-center gap-1.5 text-xs font-medium text-blue-700 dark:text-blue-300">{!! $spinner !!} Hazırlanıyor…</span>
                                     @else
@@ -304,7 +315,7 @@
                                             @if (! empty($draft[$draftKey]))
                                                 <div>
                                                     <p class="text-xs text-gray-500">{{ $draftLabel }}</p>
-                                                    <ol class="mt-1 list-decimal space-y-0.5 pl-5">@foreach ($draft[$draftKey] as $line)<li>{{ $line }} @if ($draftKey !== 'concepts')<span class="text-xs text-gray-400">{{ mb_strlen($line) }}</span>@endif</li>@endforeach</ol>
+                                                    <ol class="mt-1 list-decimal space-y-0.5 pl-5">@foreach ($draft[$draftKey] as $line)<li>{{ $line }} @if (! in_array($draftKey, ['concepts', 'service_descriptions'], true))<span class="text-xs text-gray-400">{{ mb_strlen($line) }}</span>@endif</li>@endforeach</ol>
                                                 </div>
                                             @endif
                                         @endforeach
@@ -313,7 +324,7 @@
                                     @if (! empty($draft['notes']))<p class="mt-2 text-xs text-blue-800 dark:text-blue-300">{{ $draft['notes'] }}</p>@endif
                                     <button type="button" x-on:click="navigator.clipboard.writeText(@js(trim($draftText))); copied = true; setTimeout(() => copied = false, 2000)" class="mt-2 rounded-md bg-white px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-200 dark:bg-gray-900"><span x-show="! copied">Taslağı kopyala</span><span x-show="copied">Kopyalandı</span></button>
                                 @elseif ($item->draft_status === null)
-                                    <p class="mt-1 text-xs text-blue-800 dark:text-blue-300">{{ $item->channel === 'google_ads' ? 'Bu reklam grubunun anahtar kelimeleri, dönüşüm getiren arama terimleri ve açılış sayfasından 12–15 başlık ve 4 açıklama taslağı hazırlanır.' : 'Yorulan reklamın metni, hedefi ve markanın hizmetlerinden 3 yeni kreatif fikri ile ana metin, başlık ve açıklama varyantları hazırlanır.' }} Reklam hesabına yazılmaz; kontrol edip kendin eklersin.</p>
+                                    <p class="mt-1 text-xs text-blue-800 dark:text-blue-300">{{ $draftIntro }} Hesaba yazılmaz; kontrol edip kendin eklersin.</p>
                                 @endif
                             </div>
                         @endif
@@ -358,6 +369,9 @@
                             @endif
                             @if (isset($evidence['threshold']))
                                 <p class="mt-2 text-xs text-gray-400">Eşik: dönüşümsüz ve en az {{ $money($evidence['threshold'], $item->currency) }} harcama. Kaynak: son {{ config('moxdop-advisor.google_ads.window_days', 30) }} günün arama terimi raporu.</p>
+                            @endif
+                            @if (! empty($evidence['current_description']))
+                                <div class="mt-3 rounded-md bg-white p-2 text-xs text-gray-700 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:text-gray-300 dark:ring-gray-700"><p class="text-gray-400">Mevcut açıklama ({{ mb_strlen($evidence['current_description']) }} karakter)</p><p class="mt-0.5 whitespace-pre-line">{{ $evidence['current_description'] }}</p></div>
                             @endif
                             @if (! empty($evidence['creative_title']) || ! empty($evidence['creative_body']))
                                 <div class="mt-3 rounded-md bg-white p-2 text-xs text-gray-700 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:text-gray-300 dark:ring-gray-700">

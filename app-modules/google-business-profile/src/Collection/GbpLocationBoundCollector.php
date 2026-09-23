@@ -5,6 +5,7 @@ namespace MoxDop\GoogleBusinessProfile\Collection;
 use App\Contracts\Integrations\CollectsBoundProviderData;
 use App\Models\CoreAssetBinding;
 use App\Models\Run;
+use App\Services\GoogleBusinessProfileConnectionProbeService;
 use App\Services\Integrations\Google\GoogleBusinessProfileBoundCollector;
 
 /**
@@ -20,6 +21,9 @@ final class GbpLocationBoundCollector implements CollectsBoundProviderData
     public const string MODULE_ID = 'google-business-profile';
 
     public const string CAPABILITY = 'google_business_profile';
+
+    /** Location access Evidence written by the connection probe (read by the operator workspace). */
+    public const string EVIDENCE_TYPE = GoogleBusinessProfileConnectionProbeService::EVIDENCE_TYPE_GBP_LOCATION_ACCESS;
 
     public function __construct(
         private readonly GoogleBusinessProfileBoundCollector $collector,

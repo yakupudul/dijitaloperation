@@ -191,7 +191,7 @@ final class AdvisorPlanRunner
             return $channel->label().' hesabı bağlı değil.';
         }
         if ($reason === 'no_campaign_data') {
-            return 'Son 30 günde kampanya verisi yok; önce veri toplanmalı.';
+            return 'Henüz toplanmış veri yok; önce veri toplanmalı.';
         }
         if ($reason === 'low_spend') {
             return 'Son 30 günde harcama çok düşük; anlamlı öneri yok.';

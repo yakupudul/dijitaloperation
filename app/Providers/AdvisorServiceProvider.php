@@ -29,5 +29,13 @@ final class AdvisorServiceProvider extends ServiceProvider
             'description' => 'On operator click, proposes new creative ideas, primary texts, headlines and descriptions for one fatigued Meta ad from its current copy, numbers and landing page. Copy-paste only; nothing is written to Meta.',
             'default_steps' => AiDefaultSteps::analysis(),
         ]);
+
+        $this->app->make(AiRouteRegistry::class)->register([
+            'key' => AiRouteKeys::GBP_PROFILE_DRAFT,
+            'name' => 'Business Profile Description Draft',
+            'module' => 'advisor',
+            'description' => 'On operator click, drafts a Google Business Profile description and short service descriptions from the profile, brand services, service areas and search keywords. Copy-paste only; nothing is written to the profile.',
+            'default_steps' => AiDefaultSteps::analysis(),
+        ]);
     }
 }

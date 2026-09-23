@@ -173,4 +173,26 @@ return [
             'min_cost_before' => 200,
         ],
     ],
+
+    'gbp' => [
+        'max_open' => 6,
+        'description_min_chars' => 250,
+        // Aylık arama kelimeleri: son N ayın toplamı; "<15" eşik değerleri sayılmaz.
+        'keyword_months' => 3,
+        'keyword_min_impressions' => 30,
+        'keyword_max_items' => 20,
+        // Performans: son 28 gün vs önceki 28 gün.
+        'performance_days' => 28,
+        'action_drop' => 0.30,
+        'min_actions_before' => 30,
+        'action_metrics' => ['CALL_CLICKS', 'WEBSITE_CLICKS', 'BUSINESS_DIRECTION_REQUESTS', 'BUSINESS_CONVERSATIONS', 'BUSINESS_BOOKINGS'],
+        // Fotoğraf tazeliği yalnızca profil gerçekten etkileşim alıyorsa önerilir.
+        'photo_stale_days' => 120,
+        'photo_min_actions_28d' => 20,
+        // Puan trendi: son 90 gün vs önceki 365 gün.
+        'rating_drop' => 0.3,
+        'rating_min_reviews' => 5,
+        'utm' => 'utm_source=google&utm_medium=organic&utm_campaign=gbp',
+        'attribute_suggestions' => 8,
+    ],
 ];

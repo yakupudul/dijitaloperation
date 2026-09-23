@@ -19,7 +19,7 @@ return [
         'recommendations' => 'Öneriler',
         'tasks' => 'Görevler',
         'seo_tasks' => 'SEO Görevleri',
-        'ads_advisor' => 'Reklam Danışmanı',
+        'ads_advisor' => 'Danışman',
         'work' => 'İşler',
         'activity' => 'Aktivite',
         'prospects' => 'Potansiyel Müşteriler',

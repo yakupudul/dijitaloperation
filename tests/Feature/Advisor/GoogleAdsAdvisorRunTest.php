@@ -99,7 +99,7 @@ final class GoogleAdsAdvisorRunTest extends TestCase
         $this->assertStringNotContainsString('maaşları', $negatives->copy_text, 'existing negative');
 
         // Panel: global and account tab, done, draft request, per-account run.
-        $this->get(route('operator.ads_advisor'))->assertOk()->assertSee('Reklam Danışmanı');
+        $this->get(route('operator.ads_advisor'))->assertOk()->assertSee('Danışman');
         $quality = AdvisorItem::query()->where('rule_id', 'low-quality-score')->firstOrFail();
         Livewire::test(AdvisorPanel::class)
             ->assertSee('Negatif anahtar kelime listesi')

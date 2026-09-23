@@ -1,5 +1,14 @@
 # PROJECT_MEMORY
 
+## 2026-09-24 (c) — Faz 5: Business Profile advisor; one "Danışman" page
+
+Decision: Google Business Profile joins the advisor channels (channel id `google_business_profile`, legacy
+asset type `gbp` aliased). The menu page is renamed "Danışman" (route unchanged, `/ads-advisor`). Review
+replies stay out of scope; photo freshness is only suggested when the profile earns ≥20 interactions in
+28 days; posting is never suggested for its own sake. Monthly search keywords are matched to brand
+services to find services missing from the profile (and searches the brand does not offer). AI only drafts
+the profile description and service texts on click (route `gbp.profile_draft`); links/phones rejected.
+
 ## 2026-09-24 (b) — Faz 4: Meta Ads advisor on the same advisor lifecycle
 
 Decision: channels plug into `AdvisorChannels` (interface `AdvisorChannel`: collect stored data, pure rules,

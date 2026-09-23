@@ -77,6 +77,7 @@ class OverviewPage extends Component
     /** @var list<string> */
     public array $allowedTabs = [
         'overview',
+        'advisor',
         'profile',
         'visibility',
         'performance',

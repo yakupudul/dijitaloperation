@@ -19,7 +19,7 @@ return [
         'recommendations' => 'Recommendations',
         'tasks' => 'Tasks',
         'seo_tasks' => 'SEO Tasks',
-        'ads_advisor' => 'Ads Advisor',
+        'ads_advisor' => 'Advisor',
         'work' => 'Work',
         'activity' => 'Activity',
         'prospects' => 'Prospects',

@@ -35,6 +35,7 @@ final class AiUsageRecorder
         'GoogleAdsRecommendationAgent' => AiRouteKeys::GOOGLE_ADS_AI_GUIDANCE,
         'GoogleAdsAdCopyAgent' => AiRouteKeys::GOOGLE_ADS_AD_COPY_DRAFT,
         'MetaAdsCreativeAgent' => AiRouteKeys::META_ADS_CREATIVE_DRAFT,
+        'GbpProfileAgent' => AiRouteKeys::GBP_PROFILE_DRAFT,
         'MetaAdsRecommendationAgent' => AiRouteKeys::META_ADS_AI_GUIDANCE,
     ];
 

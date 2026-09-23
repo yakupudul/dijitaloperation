@@ -1,4 +1,4 @@
-# Reklam Danışmanı (Faz 3 — Google Ads, Faz 4 — Meta Ads)
+# Danışman (Faz 3 — Google Ads, Faz 4 — Meta Ads, Faz 5 — İşletme Profili)
 
 Google Ads hesaplarında her hafta gerçekten yapılması gerekenleri gösterir. Toplanmış veriden çalışır; Google Ads'e hiçbir şey yazmaz (ADR-018). Liste kısa tutulur: hesap başına en fazla 6 açık öneri (kritikler hariç).
 
@@ -60,3 +60,18 @@ Aynı sayfa ve yaşam döngüsü; kanal seçiciyle yalnızca Meta gösterilebili
 | `change-impact` | Değişiklik etkisi | hesap geçmişi + kampanya günlük | Değişiklikten sonra sonuç başı maliyet ≥%30 arttı. |
 
 Bilinen boşluklar: öğrenme durumu, haftalık tekil erişim/sıklık, kitle büyüklüğü, kampanya düzeyinde kırılım ve yerleşim bazında sonuç toplanmıyor.
+
+## İşletme Profili (Faz 5)
+
+Aynı sayfa (kanal: İşletme Profili) ve profil sayfasında **Danışman** sekmesi. Veri: `gbp_*` tabloları (profil, hizmetler, özellikler, günlük performans, aylık arama kelimeleri, yorumlar, medya). Eşikler `config/moxdop-advisor.php` → `gbp`. Yorum cevaplama kapsam dışı.
+
+| Kural | Kategori | Ne zaman |
+|---|---|---|
+| `profile-closed` | Profil | Profil geçici/kalıcı kapalı görünüyor (kritik). |
+| `profile-gaps` | Profil | Açıklama yok/<250 karakter, ek kategori yok, saat yok, telefon yok, web sitesi yok/bozuk, hizmet listesi boş, kapak/logo yok, Google değişiklik yapmış, eklenebilecek özellikler. AI açıklama taslağı. |
+| `keyword-service-gaps` | Büyüme | Son 3 ayda ≥30 görüntülenen arama (marka aramaları hariç) bir marka hizmetine denk geliyor ama profilde yok; ya da hiçbir marka hizmetine denk gelmiyor (≥60 görüntülenme: yeni hizmet fırsatı). |
+| `site-profile-services` | Profil | Markanın (öncelikli) hizmetleri profil hizmetlerinde/kategorilerinde yok. |
+| `profile-actions-drop` | Büyüme | Arama+web+yol tarifi+mesaj+rezervasyon son 28 günde önceki 28 güne göre ≥%30 düştü (önce ≥30). |
+| `rating-trend` | Profil | Son 90 günde ≥5 yorumun ortalaması önceki yıla göre ≥0,3 düştü. |
+| `photo-freshness` | Profil | Profil 28 günde ≥20 etkileşim alırken son fotoğraf 120 günden eski. |
+| `website-utm` | Ölçüm | Web sitesi bağlantısında UTM yok (hazır adres verilir). |

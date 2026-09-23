@@ -2,6 +2,7 @@
 
 namespace App\Services\Advisor;
 
+use App\Services\Advisor\Gbp\GbpAdvisorChannel;
 use App\Services\Advisor\GoogleAds\GoogleAdsAdvisorChannel;
 use App\Services\Advisor\MetaAds\MetaAdsAdvisorChannel;
 
@@ -10,12 +11,15 @@ use App\Services\Advisor\MetaAds\MetaAdsAdvisorChannel;
  */
 final class AdvisorChannels
 {
+    /** Legacy asset type values that mean the same channel. */
+    private const array TYPE_ALIASES = ['gbp' => 'google_business_profile'];
+
     /** @var array<string, AdvisorChannel> */
     private array $channels = [];
 
-    public function __construct(GoogleAdsAdvisorChannel $googleAds, MetaAdsAdvisorChannel $metaAds)
+    public function __construct(GoogleAdsAdvisorChannel $googleAds, MetaAdsAdvisorChannel $metaAds, GbpAdvisorChannel $gbp)
     {
-        foreach ([$googleAds, $metaAds] as $channel) {
+        foreach ([$googleAds, $metaAds, $gbp] as $channel) {
             $this->channels[$channel->channel()] = $channel;
         }
     }
@@ -33,6 +37,7 @@ final class AdvisorChannels
 
     public function forAssetType(string $type): ?AdvisorChannel
     {
+        $type = self::TYPE_ALIASES[$type] ?? $type;
         foreach ($this->channels as $channel) {
             if ($channel->assetType() === $type) {
                 return $channel;
@@ -45,6 +50,8 @@ final class AdvisorChannels
     /** @return list<string> */
     public function assetTypes(): array
     {
-        return array_values(array_map(static fn (AdvisorChannel $c): string => $c->assetType(), $this->channels));
+        $types = array_values(array_map(static fn (AdvisorChannel $c): string => $c->assetType(), $this->channels));
+
+        return array_values(array_merge($types, array_keys(array_filter(self::TYPE_ALIASES, static fn (string $canonical): bool => in_array($canonical, $types, true)))));
     }
 }
