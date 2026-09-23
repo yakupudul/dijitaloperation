@@ -19,7 +19,7 @@ final class SeoStoredHtmlReader
     public function __construct(private readonly StoredPageReader $reader) {}
 
     /**
-     * @return array{title_count: int, description_count: int, h1_count: int, h1_texts: list<string>, images_total: int, images_missing_alt: int, jsonld_types: list<string>, same_as: list<string>, text_excerpt: string}|null
+     * @return array{title_count: int, description_count: int, h1_count: int, h1_texts: list<string>, images_total: int, images_missing_alt: int, jsonld_types: list<string>, same_as: list<string>, text_excerpt: string, lead_words: ?int, tel_numbers: list<string>}|null
      */
     public function inspect(DigitalAsset $site, WebsitePageProfile $profile, int $excerptChars = 0): ?array
     {
@@ -64,6 +64,21 @@ final class SeoStoredHtmlReader
             }
         }
 
+        // Answer block (GEO/AEO): the first real paragraph after the H1. Null when the page has no H1.
+        $leadWords = null;
+        if ($xpath->query('//h1')?->length) {
+            $lead = $xpath->query('(//h1)[1]/following::p[string-length(normalize-space()) > 40][1]')?->item(0);
+            $leadWords = $lead !== null ? count(preg_split('/\s+/u', trim((string) $lead->textContent)) ?: []) : 0;
+        }
+
+        $tel = [];
+        foreach ($xpath->query('//a[starts-with(translate(@href, "TEL", "tel"), "tel:")]') ?: [] as $node) {
+            $digits = preg_replace('/\D+/', '', (string) $node->getAttribute('href')) ?? '';
+            if (strlen($digits) >= 7) {
+                $tel[] = substr($digits, -10);
+            }
+        }
+
         $excerpt = '';
         if ($excerptChars > 0) {
             foreach ($xpath->query('//script|//style|//noscript|//svg') ?: [] as $node) {
@@ -84,6 +99,8 @@ final class SeoStoredHtmlReader
             'jsonld_types' => array_values(array_unique($types)),
             'same_as' => array_values(array_unique($sameAs)),
             'text_excerpt' => $excerpt,
+            'lead_words' => $leadWords,
+            'tel_numbers' => array_values(array_unique($tel)),
         ];
     }
 

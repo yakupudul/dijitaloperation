@@ -341,8 +341,37 @@
                                 </ul>
                             @endif
                             @if (! empty($evidence['pages']))
+                                <ul class="mt-1 space-y-1 text-xs text-gray-700 dark:text-gray-300">
+                                    @foreach ($evidence['pages'] as $row)
+                                        <li>
+                                            <span class="font-medium">@if (! empty($row['offering'])){{ $row['offering'] }} → @endif{{ \Illuminate\Support\Str::limit(parse_url($row['url'] ?? '', PHP_URL_PATH) ?: ($row['url'] ?? ''), 70) }}</span>
+                                            @if (! empty($row['decision']))<span class="ml-1 rounded bg-warning-50 px-1.5 text-warning-800 dark:bg-warning-500/10 dark:text-warning-300">{{ $row['decision'] }}</span> <span class="text-gray-500">{{ $row['why'] ?? '' }}</span>@endif
+                                            @if (! empty($row['coverage_state']))<span class="text-gray-500"> · {{ $row['why'] ?? '' }} · Google: {{ $row['coverage_state'] }}</span>@endif
+                                            @if (! empty($row['google_canonical']))<span class="text-gray-500"> · senin canonical: {{ $row['your_canonical'] }} · Google'ın seçtiği: {{ $row['google_canonical'] }}</span>@endif
+                                            @if (isset($row['lcp_ms']))<span class="text-gray-500"> · LCP {{ number_format($row['lcp_ms'] / 1000, 1, ',', '') }} sn ({{ $row['strategy'] ?? 'mobil' }})</span>@endif
+                                            @if (array_key_exists('first_paragraph_words', $row))<span class="text-gray-500"> · ilk paragraf: {{ $row['first_paragraph_words'] ?: 'yok' }}{{ $row['first_paragraph_words'] ? ' kelime' : '' }}</span>@endif
+                                        </li>
+                                    @endforeach
+                                    @if (($evidence['total'] ?? 0) > count($evidence['pages']))<li class="text-gray-400">… ve {{ $evidence['total'] - count($evidence['pages']) }} sayfa daha</li>@endif
+                                </ul>
+                            @endif
+                            @if (isset($evidence['clicks_previous']))
+                                <p class="mt-1 text-xs text-gray-700 dark:text-gray-300">Tıklama (28 gün): {{ $evidence['clicks_previous'] }} → {{ $evidence['clicks_current'] }} · Gösterim: {{ $evidence['impressions_previous'] }} → {{ $evidence['impressions_current'] }}</p>
+                            @endif
+                            @if (! empty($evidence['related_not_linking']) || isset($evidence['inlinks']))
+                                <p class="mt-1 text-xs text-gray-700 dark:text-gray-300">Bu sayfaya link veren: {{ $evidence['inlinks'] ?? 0 }} sayfa.@if (! empty($evidence['related_not_linking'])) Link vermesi gerekenler:@endif</p>
+                                <ul class="mt-0.5 space-y-0.5 text-xs text-gray-600 dark:text-gray-400">
+                                    @foreach ($evidence['related_not_linking'] ?? [] as $row)<li class="truncate">{{ $row['title'] }} — {{ parse_url($row['url'], PHP_URL_PATH) }}</li>@endforeach
+                                </ul>
+                            @endif
+                            @if (! empty($evidence['sitemaps']))
                                 <ul class="mt-1 space-y-0.5 text-xs text-gray-700 dark:text-gray-300">
-                                    @foreach ($evidence['pages'] as $row)<li class="truncate">{{ $row['offering'] ?? '' }} → {{ $row['url'] ?? '' }}</li>@endforeach
+                                    @foreach ($evidence['sitemaps'] as $row)<li class="truncate">{{ $row['path'] }} · {{ $row['errors'] }} hata, {{ $row['warnings'] }} uyarı</li>@endforeach
+                                </ul>
+                            @endif
+                            @if (! empty($evidence['issues']))
+                                <ul class="mt-1 space-y-0.5 text-xs text-gray-700 dark:text-gray-300">
+                                    @foreach ($evidence['issues'] as $row)<li><span class="font-medium">{{ $row['field'] }}:</span> profilde "{{ $row['profile'] }}", sitede "{{ $row['site'] }}"</li>@endforeach
                                 </ul>
                             @endif
                             @if (! empty($evidence['competing']))

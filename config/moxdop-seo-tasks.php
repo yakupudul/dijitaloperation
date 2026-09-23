@@ -97,7 +97,38 @@ return [
     ],
 
     'ai_visibility' => [
-        'blocked_bots' => ['OAI-SearchBot', 'ChatGPT-User', 'Claude-SearchBot', 'ClaudeBot', 'Googlebot', 'Google-Extended', 'PerplexityBot'],
+        'blocked_bots' => ['OAI-SearchBot', 'ChatGPT-User', 'GPTBot', 'Claude-SearchBot', 'ClaudeBot', 'Googlebot', 'Google-Extended', 'PerplexityBot'],
+    ],
+
+    // Faz 2 — derinlik kuralları. Veri yoksa kural sessiz kalır (eksik ≠ sıfır).
+    'indexing' => [
+        'top_traffic_pages' => 10,      // hizmet sayfaları + ana sayfa + en çok tıklanan N sayfa "önemli"
+        'inspection_max_targets' => 20, // haftalık URL denetimi hedefi (GSC kotası: çalışma başına 25)
+        'refresh_days' => 14,           // bu süreden eski denetim yeniden istenir
+        'queue_inspection' => true,
+    ],
+    'prune' => [
+        'thin_words' => 300,
+        'min_pages' => 3,               // bundan az aday varsa kart açılmaz
+    ],
+    'decay' => [
+        'window_days' => 28,
+        'min_previous_clicks' => 20,
+        'min_drop' => 0.4,
+        'max_tasks' => 3,
+    ],
+    'internal_links' => [
+        'min_inlinks' => 2,
+        'max_tasks' => 3,
+    ],
+    'speed' => [
+        'lcp_needs_improvement_ms' => 2500,
+        'lcp_poor_ms' => 4000,
+    ],
+    'geo' => [
+        'service_schema_types' => ['Service', 'MedicalProcedure', 'MedicalTherapy', 'Product', 'Offer', 'OfferCatalog'],
+        'author_min_posts' => 5,
+        'generic_name_words' => ['klinik', 'klinigi', 'clinic', 'dis', 'hastane', 'hastanesi', 'merkez', 'merkezi', 'poliklinik', 'poliklinigi', 'ltd', 'sti', 'as', 'a', 's', 'tic', 'san', 've', 'dr', 'dt', 'uzm', 'op', 'estetik', 'guzellik', 'saglik', 'grup', 'group'],
     ],
 
     // Markanın hizmet verdiği yerler dışındaki konumlu aramalar içerik önerisine girmez; toplam gösterimi

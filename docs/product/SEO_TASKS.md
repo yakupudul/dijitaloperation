@@ -60,6 +60,28 @@ Rota `seo_tasks.content_planner` (varsayılan: Anthropic `claude-sonnet-5`, yede
 
 **D — Yaz** (`SeoPlanWriter`): eşlemeler + görev diff'i (yukarıda). Plan satırına özet.
 
+## Faz 2 — derinlik kuralları
+
+Hepsi zaten toplanan veriden; veri yoksa kural sessiz kalır. "Önemli sayfa" = hizmet sayfaları + ana sayfa + son 28 günde en çok tıklanan 10 sayfa.
+
+| Kural | Tür | Kaynak | Ne zaman |
+|---|---|---|---|
+| `index-important-pages` | Düzelt (yüksek) | URL denetimi | Önemli sayfanın sonucu PASS değil |
+| `canonical-rejected` | Düzelt | URL denetimi | Google'ın seçtiği canonical sayfanınkinden farklı |
+| `sitemap-errors` | Düzelt | GSC sitemap | Sitemap'te hata var |
+| `prune-pages` | Düzelt (tek kart) | Sayfa trafiği + link grafiği | ≥90 gün veri varken 90 gündür gösterimi olmayan ≥3 sayfa; her sayfaya karar: birleştir / noindex veya kaldır / güncelle ve iç link ver / güncelle |
+| `content-decay` | Güçlendir | Sayfa trafiği | Önceki 28 günde ≥20 tıklama, son 28 günde ≥%40 düşüş (en fazla 3) |
+| `service-internal-links` | Güçlendir | Link grafiği | Hizmet sayfasına <2 iç link veya hizmeti anlatıp link vermeyen ≥3 sayfa |
+| `lcp-slow` | Düzelt | PageSpeed (lab) | Önemli sayfada LCP > 2,5 sn (> 4 sn yüksek) |
+| `service-schema` | AI görünürlük | Saklı HTML | Öncelikli hizmet sayfasında Service/MedicalProcedure şeması yok |
+| `answer-block` | AI görünürlük | Saklı HTML | H1 altındaki ilk paragraf yok, <25 ya da >120 kelime |
+| `author-eeat` | AI görünürlük | Saklı HTML + WordPress | ≥5 yazı var, okunan sayfalarda Person yok |
+| `entity-consistency` | AI görünürlük | İşletme Profili | Profildeki site, telefon veya ad siteyle uyuşmuyor |
+
+- **URL denetimi yönlendirme:** her plan çalışmasında denetimi olmayan veya 14 günden eski önemli sayfalar (hizmet sayfaları önce) haftada bir çalışmayla Search Console URL denetimine gönderilir (en fazla 20; GSC kotası 25). Sonuçlar bir sonraki planda kural olur.
+- **Bilinen sınır:** PageSpeed bugün site başına tek URL ölçer (ana sayfa veya bağlantıda tanımlı adres); hizmet sayfaları ölçülmediği için hız kuralı çoğu zaman yalnızca o sayfayı değerlendirir.
+- Bilerek yapılmayanlar: llms.txt, ücretli AI görünürlük takibi.
+
 ## Konum kuralı
 
 - Hizmet adları, takma adları ve sorgu kütüphanesindeki anahtar kelimeler konum içermez ("Uyluk Germe", "Uyluk Germe Ankara" değil). Böylece başka şehirdeki markalarda da kullanılır.

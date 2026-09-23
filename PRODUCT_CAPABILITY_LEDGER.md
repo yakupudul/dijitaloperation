@@ -1,5 +1,15 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-09-23 (g) — Advisor Faz 2: web depth rules
+
+**State:** CODED + PHPUnit (`SeoTaskRuleEngineTest` depth tests, `SeoDepthInputCollectorTest`, `SeoUrlInspectionQueueTest`, panel render test). Full Feature suite: no new failures. Live UAT not run.
+
+- Collector reads already collected, previously unused data: `gsc_page_daily` (28/28-day and 90-day windows, history length), latest `gsc_url_inspection_snapshot`, latest `gsc_sitemap_snapshot`, latest-crawl `website_link_edge` graph, `website_performance_measurement`, the brand's single connected `gbp_location_snapshots`; stored HTML adds the first paragraph after H1 and `tel:` numbers.
+- 11 rules (see `docs/product/SEO_TASKS.md` → Faz 2), all silent without their data; pruning is one decision card per site.
+- `SeoUrlInspectionQueue`: each plan run sends important pages without a fresh (<14 days) inspection to GSC URL inspection (≤20, one run per site per ISO week, system trigger). First time URL inspection is used in production flow.
+- GPTBot added to AI crawler checks; AI visibility quota 3 → 4.
+- Known gaps: PageSpeed still measures one URL per site (service pages unmeasured); pruning cannot see publish dates, so a brand-new page can appear (the card says to keep it); Person/author detection only covers pages whose HTML was read (≤150).
+
 ## 2026-09-23 (f) — Matching expressions, GBP keyword import, brand/customer screens
 
 **State:** CODED + PHPUnit (`tests/Feature/Portfolio/BrandWorkspaceTest.php`, `tests/Feature/SearchDemand/GbpLibraryImportTest.php`, `BrandSetupAssistantTest`). Full Feature suite: no new failures versus the previous head (147 pre-existing failures unchanged). Live UAT not run.

@@ -177,6 +177,11 @@ final class SeoPlanRunner
             }
             $written = $this->writer->write($plan, $enriched['tasks'], $result['assignments']);
 
+            // Keep index status of the pages that matter fresh; findings appear in the next plan.
+            $inspectionQueue = SeoTaskConfig::get('indexing.queue_inspection', true)
+                ? app(SeoUrlInspectionQueue::class)->queue($site, $result['inspection_targets'] ?? [])
+                : ['status' => 'disabled', 'targets' => 0];
+
             $summary = $this->summaryText($written['counts']);
             $plan->forceFill([
                 'status' => SeoPlan::STATUS_COMPLETED,
@@ -192,6 +197,16 @@ final class SeoPlanRunner
                     'ga4_available' => $input['ga4']['available'],
                     'robots_available' => $input['robots']['available'],
                     'html' => $input['html'] ?? null,
+                    'depth' => [
+                        'page_traffic_pages' => count($input['traffic']['pages'] ?? []),
+                        'history_days' => $input['traffic']['history_days'] ?? 0,
+                        'inspected_pages' => count($input['inspections'] ?? []),
+                        'sitemaps' => count($input['sitemaps'] ?? []),
+                        'link_graph' => (bool) ($input['links']['available'] ?? false),
+                        'speed_measured_pages' => count($input['performance'] ?? []),
+                        'business_profile' => ($input['gbp'] ?? null) !== null,
+                        'inspection_queue' => $inspectionQueue,
+                    ],
                     'site_understanding' => $resolved['understanding'],
                 ]),
                 'llm_summary' => $enriched['summary'],

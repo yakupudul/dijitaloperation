@@ -4,6 +4,7 @@ namespace App\Services\SeoTasks;
 
 use App\Enums\SeoTaskType;
 use App\Models\ServicePageAssignment;
+use App\Services\SeoTasks\Concerns\DepthRules;
 use App\Support\Options\LocationOptions;
 
 /**
@@ -14,6 +15,8 @@ use App\Support\Options\LocationOptions;
  */
 final class SeoTaskRuleEngine
 {
+    use DepthRules;
+
     /** @return array{tasks: list<array<string, mixed>>, assignments: list<array<string, mixed>>, stats: array<string, mixed>} */
     public function evaluate(array $input): array
     {
@@ -33,6 +36,12 @@ final class SeoTaskRuleEngine
         array_push($tasks, ...$this->createTasks($input, $pages, $offerings, $offeringQueries, $queryIndex, $assignmentsByOffering, $assignmentResult['pending']));
         array_push($tasks, ...$this->aiVisibilityTasks($input, $pages, $offerings, $assignmentsByOffering));
         array_push($tasks, ...$this->outOfAreaTasks($input, $queryIndex));
+        array_push($tasks, ...$this->indexingTasks($input, $pages, $assignmentsByOffering));
+        array_push($tasks, ...$this->pruneTasks($input, $pages, $assignmentsByOffering));
+        array_push($tasks, ...$this->decayTasks($input, $pages));
+        array_push($tasks, ...$this->internalLinkTasks($input, $pages, $offerings, $assignmentsByOffering));
+        array_push($tasks, ...$this->speedTasks($input, $pages, $assignmentsByOffering));
+        array_push($tasks, ...$this->geoTasks($input, $pages, $offerings, $assignmentsByOffering));
 
         $tasks = $this->applyQuotas($tasks);
 
@@ -61,6 +70,7 @@ final class SeoTaskRuleEngine
         return [
             'tasks' => $tasks,
             'assignments' => $assignmentResult['assignments'],
+            'inspection_targets' => $this->inspectionTargets($input, $pages, $assignmentsByOffering),
             'stats' => [
                 'gsc_rows' => count($gscRows),
                 'gsc_queries' => $input['gsc']['query_count'] ?? 0,

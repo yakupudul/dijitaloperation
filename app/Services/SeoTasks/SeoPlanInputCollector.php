@@ -12,6 +12,7 @@ use App\Models\ServicePageAssignment;
 use App\Services\Ga4\Ga4SpecialistBindingResolver;
 use App\Services\Gsc\GscSpecialistBindingResolver;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -73,6 +74,255 @@ final class SeoPlanInputCollector
             'robots' => $this->robots($site),
             'assignments' => $this->assignments($site),
             'html' => $htmlStats + ['excluded_non_documents' => $this->excludedNonDocuments],
+            // Faz 2: already collected, previously unused sources. Missing data stays "available: false".
+            'traffic' => $this->pageTraffic($site, $end),
+            'inspections' => $this->inspections($site),
+            'sitemaps' => $this->sitemaps($site),
+            'links' => $this->internalLinks($site),
+            'performance' => $this->performance($site),
+            'gbp' => $this->businessProfile($site),
+        ];
+    }
+
+    /**
+     * Scope a GSC data-pool query to this website: central rows (resource + property) or legacy
+     * per-asset rows.
+     */
+    private function scopeGsc(Builder $query, DigitalAsset $site, string $table): Builder
+    {
+        $binding = $this->gscBindings->resolve((string) $site->id);
+        if ($binding->isReal() && $binding->externalResourceId !== null && filled($binding->siteUrl)) {
+            $query->where(function ($scope) use ($binding, $site): void {
+                $scope->where(function ($bound) use ($binding): void {
+                    $bound->where('external_resource_id', $binding->externalResourceId)->where('site_url', $binding->siteUrl);
+                })->orWhere('digital_asset_id', $site->id);
+            });
+        } else {
+            $query->where('digital_asset_id', $site->id);
+        }
+        if (Schema::hasColumn($table, 'search_type')) {
+            $query->where(fn ($scope) => $scope->whereNull('search_type')->orWhere('search_type', 'web'));
+        }
+
+        return $query;
+    }
+
+    /**
+     * Per-page clicks/impressions: last 28 days vs the 28 before (content decay) and 90-day
+     * impressions (pruning). `history_days` tells whether 90 days of data exist at all.
+     *
+     * @return array{available: bool, history_days: int, pages: array<string, array<string, mixed>>}
+     */
+    private function pageTraffic(DigitalAsset $site, CarbonImmutable $end): array
+    {
+        if (! Schema::hasTable('gsc_page_daily')) {
+            return ['available' => false, 'history_days' => 0, 'pages' => []];
+        }
+        $decay = SeoTaskConfig::int('decay.window_days', 28);
+        $curStart = $end->subDays($decay)->toDateString();
+        $prevStart = $end->subDays($decay * 2)->toDateString();
+        $start90 = $end->subDays(90)->toDateString();
+        $from = min($prevStart, $start90);
+
+        $base = fn () => $this->scopeGsc(DB::table('gsc_page_daily'), $site, 'gsc_page_daily');
+        $first = $base()->min('reporting_date');
+        $rows = $base()
+            ->whereBetween('reporting_date', [$from, $end->toDateString()])
+            ->selectRaw('page,
+                sum(case when reporting_date >= ? then clicks else 0 end) as clicks_cur,
+                sum(case when reporting_date >= ? and reporting_date < ? then clicks else 0 end) as clicks_prev,
+                sum(case when reporting_date >= ? then impressions else 0 end) as impr_cur,
+                sum(case when reporting_date >= ? and reporting_date < ? then impressions else 0 end) as impr_prev,
+                sum(case when reporting_date >= ? then impressions else 0 end) as impr_90', [$curStart, $prevStart, $curStart, $curStart, $prevStart, $curStart, $start90])
+            ->groupBy('page')
+            ->get();
+
+        $pages = [];
+        foreach ($rows as $row) {
+            $key = SeoText::urlKey((string) $row->page);
+            $entry = $pages[$key] ?? ['url' => (string) $row->page, 'clicks_cur' => 0, 'clicks_prev' => 0, 'impr_cur' => 0, 'impr_prev' => 0, 'impr_90' => 0];
+            foreach (['clicks_cur', 'clicks_prev', 'impr_cur', 'impr_prev', 'impr_90'] as $field) {
+                $entry[$field] += (int) $row->{$field};
+            }
+            $pages[$key] = $entry;
+        }
+        $historyDays = $first !== null ? (int) CarbonImmutable::parse((string) $first)->diffInDays($end) : 0;
+
+        return ['available' => $pages !== [], 'history_days' => $historyDays, 'pages' => $pages];
+    }
+
+    /**
+     * Latest Search Console URL inspection per page.
+     *
+     * @return array<string, array{url: string, verdict: ?string, coverage_state: ?string, google_canonical: ?string, user_canonical: ?string, inspected_at: ?string}>
+     */
+    private function inspections(DigitalAsset $site): array
+    {
+        if (! Schema::hasTable('gsc_url_inspection_snapshot')) {
+            return [];
+        }
+        $out = [];
+        $this->scopeGsc(DB::table('gsc_url_inspection_snapshot'), $site, 'gsc_url_inspection_snapshot')
+            ->orderByDesc('inspected_at')
+            ->limit(2000)
+            ->get(['page', 'inspected_at', 'metadata'])
+            ->each(function (object $row) use (&$out): void {
+                $key = SeoText::urlKey((string) $row->page);
+                if (isset($out[$key])) {
+                    return; // newest first
+                }
+                $meta = is_string($row->metadata) ? (json_decode($row->metadata, true) ?: []) : (array) $row->metadata;
+                $out[$key] = [
+                    'url' => (string) $row->page,
+                    'verdict' => is_string($meta['verdict'] ?? null) ? $meta['verdict'] : null,
+                    'coverage_state' => is_string($meta['coverage_state'] ?? null) ? $meta['coverage_state'] : null,
+                    'google_canonical' => is_string($meta['google_canonical'] ?? null) ? $meta['google_canonical'] : null,
+                    'user_canonical' => is_string($meta['user_canonical'] ?? null) ? $meta['user_canonical'] : null,
+                    'inspected_at' => (string) $row->inspected_at,
+                ];
+            });
+
+        return $out;
+    }
+
+    /** @return list<array{path: string, errors: int, warnings: int, is_pending: bool, last_downloaded: ?string}> */
+    private function sitemaps(DigitalAsset $site): array
+    {
+        if (! Schema::hasTable('gsc_sitemap_snapshot')) {
+            return [];
+        }
+        $out = [];
+        $this->scopeGsc(DB::table('gsc_sitemap_snapshot'), $site, 'gsc_sitemap_snapshot')
+            ->orderByDesc('retrieved_at')
+            ->limit(500)
+            ->get(['sitemap_path', 'metadata'])
+            ->each(function (object $row) use (&$out): void {
+                $path = (string) $row->sitemap_path;
+                if (isset($out[$path])) {
+                    return;
+                }
+                $meta = is_string($row->metadata) ? (json_decode($row->metadata, true) ?: []) : (array) $row->metadata;
+                $out[$path] = [
+                    'path' => $path,
+                    'errors' => (int) ($meta['errors'] ?? 0),
+                    'warnings' => (int) ($meta['warnings'] ?? 0),
+                    'is_pending' => (bool) ($meta['is_pending'] ?? false),
+                    'last_downloaded' => is_string($meta['last_downloaded'] ?? null) ? $meta['last_downloaded'] : null,
+                ];
+            });
+
+        return array_values($out);
+    }
+
+    /**
+     * Internal link graph from the latest crawl of each source page: who links to whom.
+     *
+     * @return array{available: bool, inlinks: array<string, list<string>>, outlinks: array<string, list<string>>}
+     */
+    private function internalLinks(DigitalAsset $site): array
+    {
+        if (! Schema::hasTable('website_link_edge')) {
+            return ['available' => false, 'inlinks' => [], 'outlinks' => []];
+        }
+        $latest = DB::table('website_link_edge')
+            ->where('digital_asset_id', $site->id)
+            ->groupBy('source_url')
+            ->selectRaw('source_url, max(observed_at) as observed_at');
+        $inlinks = [];
+        $outlinks = [];
+        DB::table('website_link_edge as e')
+            ->joinSub($latest, 'l', fn ($join) => $join->on('l.source_url', '=', 'e.source_url')->on('l.observed_at', '=', 'e.observed_at'))
+            ->where('e.digital_asset_id', $site->id)
+            ->where('e.is_internal', true)
+            ->select(['e.id', 'e.source_url', 'e.normalized_target_url', 'e.target_url'])
+            ->orderBy('e.id')
+            ->chunk(5000, function ($rows) use (&$inlinks, &$outlinks): void {
+                foreach ($rows as $row) {
+                    $from = SeoText::urlKey((string) $row->source_url);
+                    $to = SeoText::urlKey((string) ($row->normalized_target_url ?: $row->target_url));
+                    if ($from === $to) {
+                        continue;
+                    }
+                    $inlinks[$to][$from] = true;
+                    $outlinks[$from][$to] = true;
+                }
+            });
+
+        return [
+            'available' => $outlinks !== [],
+            'inlinks' => array_map('array_keys', $inlinks),
+            'outlinks' => array_map('array_keys', $outlinks),
+        ];
+    }
+
+    /** @return array<string, array{url: string, lcp_ms: ?int, strategy: ?string, observed_at: string}> latest lab measurement per page */
+    private function performance(DigitalAsset $site): array
+    {
+        if (! Schema::hasTable('website_performance_measurement')) {
+            return [];
+        }
+        $out = [];
+        DB::table('website_performance_measurement')
+            ->where('digital_asset_id', $site->id)
+            ->orderByDesc('observed_at')
+            ->limit(500)
+            ->get(['url', 'strategy', 'observed_at', 'metadata'])
+            ->each(function (object $row) use (&$out): void {
+                $key = SeoText::urlKey((string) $row->url);
+                if (isset($out[$key])) {
+                    return;
+                }
+                $meta = is_string($row->metadata) ? (json_decode($row->metadata, true) ?: []) : (array) $row->metadata;
+                $out[$key] = [
+                    'url' => (string) $row->url,
+                    'lcp_ms' => is_numeric($meta['lcp_ms'] ?? null) ? (int) round((float) $meta['lcp_ms']) : null,
+                    'strategy' => $row->strategy !== null ? (string) $row->strategy : null,
+                    'observed_at' => (string) $row->observed_at,
+                ];
+            });
+
+        return $out;
+    }
+
+    /**
+     * Latest Business Profile snapshot of the brand's connected location (for site ↔ profile
+     * consistency). Null when the brand has no connected profile or nothing was collected.
+     *
+     * @return array{title: ?string, website_uri: ?string, phones: list<string>, captured_at: ?string}|null
+     */
+    private function businessProfile(DigitalAsset $site): ?array
+    {
+        if (! Schema::hasTable('gbp_location_snapshots') || $site->brand_id === null) {
+            return null;
+        }
+        $resourceIds = DB::table('core_asset_bindings as b')
+            ->join('digital_assets as a', 'a.id', '=', 'b.digital_asset_id')
+            ->where('a.brand_id', $site->brand_id)
+            ->where('b.capability', 'google_business_profile')
+            ->where('b.status', 'active')
+            ->pluck('b.external_resource_id')
+            ->all();
+        if (count($resourceIds) !== 1) {
+            return null; // none, or several locations: no single profile to compare against
+        }
+        $row = DB::table('gbp_location_snapshots')->where('external_resource_id', $resourceIds[0])->orderByDesc('captured_at')->first();
+        if ($row === null) {
+            return null;
+        }
+        $phones = [];
+        $decoded = is_string($row->phone_numbers) ? (json_decode($row->phone_numbers, true) ?: []) : (array) $row->phone_numbers;
+        array_walk_recursive($decoded, function ($value) use (&$phones): void {
+            $digits = preg_replace('/\D+/', '', (string) $value) ?? '';
+            if (strlen($digits) >= 7) {
+                $phones[] = substr($digits, -10);
+            }
+        });
+
+        return [
+            'title' => $row->title !== null ? (string) $row->title : null,
+            'website_uri' => $row->website_uri !== null ? (string) $row->website_uri : null,
+            'phones' => array_values(array_unique($phones)),
+            'captured_at' => $row->captured_at !== null ? (string) $row->captured_at : null,
         ];
     }
 
@@ -292,6 +542,8 @@ final class SeoPlanInputCollector
                         'jsonld_types' => [],
                         'same_as' => [],
                         'text_excerpt' => '',
+                        'lead_words' => null,
+                        'tel_numbers' => [],
                     ];
                 }
             });

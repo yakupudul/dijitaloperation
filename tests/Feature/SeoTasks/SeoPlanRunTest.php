@@ -28,6 +28,7 @@ use App\Models\User;
 use App\Services\BrandIntelligence\BrandOfferingService;
 use App\Services\SeoTasks\SeoPlanInputCollector;
 use App\Services\SeoTasks\SeoPlanRunner;
+use App\Services\SeoTasks\SeoPlanWriter;
 use App\Services\SeoTasks\SeoTaskRuleEngine;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -111,6 +112,35 @@ final class SeoPlanRunTest extends TestCase
         $open = SeoTask::query()->where('digital_asset_id', $website->id)->where('status', 'open')->get();
         $this->assertTrue($open->every(fn (SeoTask $t): bool => $t->last_seen_plan_id === $second->id));
         $this->assertGreaterThan(0, data_get($second->result_summary, 'updated'));
+    }
+
+    public function test_depth_task_evidence_renders_in_the_panel(): void
+    {
+        [$website] = $this->fixture();
+        $runner = app(SeoPlanRunner::class);
+        $plan = $runner->run($runner->queue($website, $this->admin)->id);
+        $make = fn (string $type, string $rule, string $title, array $evidence): array => [
+            'task_key' => hash('sha256', $rule), 'type' => $type, 'rule_id' => $rule, 'severity' => 'high', 'priority_score' => 999.0,
+            'estimated_extra_clicks' => null, 'title' => $title, 'reason' => 'Kanıt', 'evidence' => $evidence, 'checklist' => ['Yap'],
+            'target_url' => null, 'is_new_page' => false, 'content_brief' => null, 'brand_offering_id' => null,
+        ];
+        app(SeoPlanWriter::class)->write($plan, [
+            $make('fix', 'prune-pages', 'Budama kararı', ['pages' => [['url' => 'https://x.test/eski/', 'title' => 'Eski', 'decision' => 'birleştir', 'why' => 'Çakışıyor']], 'total' => 5]),
+            $make('fix', 'index-important-pages', 'Dizinde değil', ['pages' => [['url' => 'https://x.test/implant/', 'why' => 'hizmet sayfası', 'coverage_state' => 'Crawled - currently not indexed', 'inspected_at' => '2026-09-20']]]),
+            $make('fix', 'lcp-slow', 'Yavaş', ['pages' => [['url' => 'https://x.test/implant/', 'why' => 'hizmet sayfası', 'lcp_ms' => 5200, 'strategy' => 'mobile', 'observed_at' => '2026-09-20']]]),
+            $make('strengthen', 'content-decay', 'Yenile', ['url' => 'https://x.test/a/', 'clicks_current' => 30, 'clicks_previous' => 100, 'impressions_current' => 1, 'impressions_previous' => 2]),
+            $make('strengthen', 'service-internal-links', 'İç link', ['url' => 'https://x.test/implant/', 'inlinks' => 1, 'linking_pages' => [], 'related_not_linking' => [['url' => 'https://x.test/rehber/', 'title' => 'İmplant rehberi']]]),
+            $make('ai_visibility', 'entity-consistency', 'Tutarlılık', ['issues' => [['field' => 'telefon', 'profile' => '2125559999', 'site' => '2165550000', 'fix' => 'x']]]),
+        ], []);
+
+        $panel = Livewire::test(SeoTasksPanel::class);
+        foreach (['Budama kararı' => 'birleştir', 'Dizinde değil' => 'Crawled - currently not indexed', 'Yavaş' => 'LCP 5,2 sn', 'Yenile' => '100 → 30', 'İç link' => 'İmplant rehberi', 'Tutarlılık' => '2125559999'] as $title => $detail) {
+            $task = SeoTask::query()->where('title', $title)->firstOrFail();
+            $panel->call('toggle', $task->id)->assertSee($detail);
+            if ($title === 'Budama kararı') {
+                $panel->assertSee('… ve 4 sayfa daha');
+            }
+        }
     }
 
     public function test_operator_surfaces_list_act_and_answer_questions(): void

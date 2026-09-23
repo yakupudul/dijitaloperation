@@ -137,6 +137,83 @@ final class SeoTaskRuleEngineTest extends TestCase
         $this->assertNull(collect((new SeoTaskRuleEngine)->evaluate($input)['tasks'])->firstWhere('rule_id', 'out-of-area-demand'), 'no areas → no judgement');
     }
 
+    public function test_depth_rules_use_inspection_traffic_links_speed_and_business_profile(): void
+    {
+        config(['moxdop-seo-tasks.quotas.open_tasks_per_site' => 40, 'moxdop-seo-tasks.quotas.fix_per_site' => 20, 'moxdop-seo-tasks.quotas.strengthen_per_site' => 20, 'moxdop-seo-tasks.quotas.ai_visibility_per_site' => 20]);
+        $input = $this->input();
+        $url = fn (string $path): string => 'https://example.test'.$path;
+        $key = fn (string $path): string => SeoText::urlKey('https://example.test'.$path);
+        $page = fn (string $path, array $over): array => array_replace($input['pages'][$key('/hakkimizda/')], ['profile_id' => crc32($path), 'url' => $url($path), 'url_key' => $key($path), 'path' => $path], $over);
+        foreach ([
+            $page('/eski-kampanya/', ['title' => 'Eski kampanya', 'h1' => 'Eski kampanya', 'word_count' => 120]),
+            $page('/duyuru-2019/', ['title' => 'Duyuru 2019', 'h1' => 'Duyuru 2019', 'word_count' => 90]),
+            $page('/implant-fiyatlari-2020/', ['title' => 'İmplant fiyatları', 'h1' => 'İmplant fiyatları', 'word_count' => 700]),
+            $page('/implant-rehberi/', ['title' => 'İmplant tedavisi rehberi', 'h1' => 'İmplant rehberi', 'word_count' => 900]),
+        ] as $extra) {
+            $input['pages'][$extra['url_key']] = $extra;
+        }
+        $implant = $key('/implant/');
+        $htmlFacts = ['html_read' => true, 'title_count' => 1, 'description_count' => 1, 'h1_count' => 1, 'h1_texts' => [], 'images_total' => 0, 'images_missing_alt' => 0, 'jsonld_types' => [], 'same_as' => ['https://instagram.com/x'], 'text_excerpt' => '', 'lead_words' => null, 'tel_numbers' => []];
+        $input['pages'][$implant] = array_replace($input['pages'][$implant], $htmlFacts, ['lead_words' => 0]);
+        $input['pages'][$input['site']['home_key']] = array_replace($input['pages'][$input['site']['home_key']], $htmlFacts, ['tel_numbers' => ['2165550000']]);
+
+        $input['inspections'] = [
+            $implant => ['url' => $url('/implant/'), 'verdict' => 'NEUTRAL', 'coverage_state' => 'Crawled - currently not indexed', 'google_canonical' => null, 'user_canonical' => null, 'inspected_at' => now()->subDays(2)->toDateTimeString()],
+            $input['site']['home_key'] => ['url' => $url('/'), 'verdict' => 'PASS', 'coverage_state' => 'Submitted and indexed', 'google_canonical' => $url('/anasayfa/'), 'user_canonical' => $url('/'), 'inspected_at' => now()->subDays(30)->toDateTimeString()],
+        ];
+        $input['sitemaps'] = [['path' => $url('/sitemap.xml'), 'errors' => 2, 'warnings' => 0, 'is_pending' => false, 'last_downloaded' => null]];
+        $input['traffic'] = ['available' => true, 'history_days' => 120, 'pages' => [
+            $implant => ['url' => $url('/implant/'), 'clicks_cur' => 30, 'clicks_prev' => 100, 'impr_cur' => 2000, 'impr_prev' => 2600, 'impr_90' => 6000],
+            $key('/blog/implant-fiyat/') => ['url' => $url('/blog/implant-fiyat/'), 'clicks_cur' => 12, 'clicks_prev' => 14, 'impr_cur' => 500, 'impr_prev' => 520, 'impr_90' => 1500],
+            $key('/ortodonti/') => ['url' => $url('/ortodonti/'), 'clicks_cur' => 12, 'clicks_prev' => 12, 'impr_cur' => 250, 'impr_prev' => 240, 'impr_90' => 800],
+        ]];
+        $input['links'] = ['available' => true, 'inlinks' => [$implant => [$input['site']['home_key']]], 'outlinks' => [
+            $input['site']['home_key'] => [$implant],
+            $key('/blog/implant-fiyat/') => [$input['site']['home_key']],
+            $key('/implant-rehberi/') => [],
+            $key('/implant-fiyatlari-2020/') => [],
+        ]];
+        $input['performance'] = [$implant => ['url' => $url('/implant/'), 'lcp_ms' => 5200, 'strategy' => 'mobile', 'observed_at' => now()->toDateTimeString()]];
+        $input['gbp'] = ['title' => 'Başka Klinik', 'website_uri' => 'https://baska-site.test/', 'phones' => ['2125559999'], 'captured_at' => now()->toDateTimeString()];
+
+        $result = (new SeoTaskRuleEngine)->evaluate($input);
+        $tasks = collect($result['tasks'])->keyBy('rule_id');
+
+        $this->assertSame([$url('/implant/')], array_column($tasks['index-important-pages']['evidence']['pages'], 'url'));
+        $this->assertSame('high', $tasks['index-important-pages']['severity']);
+        $this->assertSame($url('/anasayfa/'), $tasks['canonical-rejected']['evidence']['pages'][0]['google_canonical']);
+        $this->assertArrayHasKey('sitemap-errors', $tasks->all());
+
+        $decisions = collect($tasks['prune-pages']['evidence']['pages'])->keyBy('url');
+        $this->assertSame('noindex veya kaldır', $decisions[$url('/eski-kampanya/')]['decision']);
+        $this->assertSame('birleştir', $decisions[$url('/implant-fiyatlari-2020/')]['decision'], 'overlaps a page with traffic');
+        $this->assertArrayNotHasKey($url('/implant/'), $decisions->all(), 'service pages are never pruning candidates');
+
+        $this->assertSame($url('/implant/'), $tasks['content-decay']['target_url']);
+        $this->assertEquals(70.0, $tasks['content-decay']['estimated_extra_clicks']);
+
+        $links = collect($result['tasks'])->where('rule_id', 'service-internal-links')->firstWhere('target_url', $url('/implant/'));
+        $this->assertSame(1, $links['evidence']['inlinks']);
+        $this->assertContains($url('/implant-rehberi/'), array_column($links['evidence']['related_not_linking'], 'url'));
+
+        $this->assertSame('high', $tasks['lcp-slow']['severity']);
+        $this->assertArrayHasKey('service-schema', $tasks->all());
+        $this->assertArrayHasKey('answer-block', $tasks->all());
+        $this->assertEqualsCanonicalizing(['web sitesi', 'telefon', 'işletme adı'], array_column($tasks['entity-consistency']['evidence']['issues'], 'field'));
+
+        $this->assertContains($url('/'), $result['inspection_targets'], 'home inspection is older than the refresh window');
+        $this->assertNotContains($url('/implant/'), $result['inspection_targets'], 'fresh inspection is not repeated');
+    }
+
+    public function test_depth_rules_stay_silent_without_data(): void
+    {
+        $tasks = collect((new SeoTaskRuleEngine)->evaluate($this->input())['tasks'])->pluck('rule_id')->all();
+
+        foreach (['index-important-pages', 'canonical-rejected', 'sitemap-errors', 'prune-pages', 'content-decay', 'service-internal-links', 'lcp-slow', 'entity-consistency', 'answer-block'] as $rule) {
+            $this->assertNotContains($rule, $tasks, $rule.' must not fire without its data');
+        }
+    }
+
     /** @return array<string, mixed> */
     private function input(): array
     {

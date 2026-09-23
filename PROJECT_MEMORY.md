@@ -1,5 +1,12 @@
 # PROJECT_MEMORY
 
+## 2026-09-23 (f) — Faz 2: depth rules live inside SEO Görevleri
+
+Decision: Faz 2 web/SEO/GEO work extends the existing SEO Görevleri engine (one list, same quotas) instead
+of a new surface. Every rule must name its data source and stay silent without it. Search Console URL
+inspection is now driven by the plan (important pages, weekly, within quota) — the first production use of
+that collected-but-idle capability. Pruning is a single per-site decision card, not one task per page.
+
 ## 2026-09-23 (e) — Simple customer/brand screens; setup through "Otomatik kur"
 
 Owner direction: customer and brand screens must be simple, complete and without redundancy. Decisions:
