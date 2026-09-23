@@ -1,14 +1,8 @@
 <div class="space-y-6">
+    <x-operator.asset-context :asset-id="$assetId" current="sources" />
     <div class="flex flex-col gap-4 border-b border-gray-200 pb-5 dark:border-gray-800 lg:flex-row lg:items-start lg:justify-between">
         <div>
-            <div class="flex flex-wrap items-center gap-2 text-sm">
-                <a href="{{ route('operator.assets') }}" wire:navigate class="font-medium text-brand-600 hover:underline">{{ __('operator_runtime.sources.assets') }}</a>
-                <span class="text-gray-300">/</span>
-                <a href="{{ \App\Services\Operator\OperatorPortfolioPresenter::specialistUrl($asset) }}" wire:navigate class="font-medium text-brand-600 hover:underline">{{ $asset->name }}</a>
-                <span class="text-gray-300">/</span>
-                <span class="text-gray-500">{{ __('operator_runtime.sources.title') }}</span>
-            </div>
-            <h1 class="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{{ $asset->name }}</h1>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ $asset->name }}</h1>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ $customer?->name }} · {{ $brand?->name }} · {{ \App\Support\DigitalAssetTypes::options()[$asset->type] ?? $asset->type }}</p>
             <p class="mt-2 max-w-3xl text-sm text-gray-600 dark:text-gray-300">{{ __('operator_runtime.sources.description') }}</p>
         </div>

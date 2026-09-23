@@ -361,12 +361,27 @@ final class OperatorPortfolioPresenter
             'gsc' => 'GSC',
         ];
 
-        $brands->loadMissing(['digitalAssets', 'customer']);
+        $brands->loadMissing(['digitalAssets.assetBindings', 'customer']);
 
         $rows = $brands->map(function (Brand $brand) use ($columns): array {
-            $byType = $brand->digitalAssets->keyBy('type');
+            $byType = $brand->digitalAssets->groupBy('type')->map->first();
+            $website = $byType->get('website');
             $cells = [];
             foreach ($columns as $type => $label) {
+                // GA4 and Search Console are sources of the website: a binding there counts for the brand.
+                $capability = ['ga4' => 'ga4', 'gsc' => 'search_console'][$type] ?? null;
+                if ($capability !== null && $website !== null && $website->assetBindings->contains(fn ($binding): bool => $binding->capability === $capability && $binding->status === 'active')) {
+                    $cells[$type] = [
+                        'state' => 'present',
+                        'label' => __('operator.states.connected'),
+                        'asset_id' => (string) $website->id,
+                        'route' => 'operator.website',
+                        'route_params' => ['assetId' => $website->id, 'tab' => $type === 'ga4' ? 'ga4_analysis' : 'search_console'],
+                        'url' => route('operator.website', ['assetId' => $website->id, 'tab' => $type === 'ga4' ? 'ga4_analysis' : 'search_console']),
+                    ];
+
+                    continue;
+                }
                 $asset = $byType->get($type);
                 if ($asset === null && $type === 'google_business_profile') {
                     $asset = $byType->get('gbp');

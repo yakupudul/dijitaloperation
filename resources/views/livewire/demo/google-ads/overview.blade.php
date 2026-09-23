@@ -57,6 +57,7 @@
 
 <div class="space-y-4">
     @include('livewire.demo.partials.flash')
+    <x-operator.asset-context :asset-id="$assetId" />
 
     <div class="flex flex-col gap-3 border-b border-gray-200 pb-4 dark:border-gray-800 lg:flex-row lg:items-start lg:justify-between">
         <div class="flex min-w-0 items-start gap-3">

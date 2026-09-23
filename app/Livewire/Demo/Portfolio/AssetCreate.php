@@ -71,14 +71,14 @@ class AssetCreate extends Component
     }
 
     /**
-     * Types that can be created: Instagram has no data source yet, so it is not offered for new assets
-     * (existing Instagram assets stay editable).
+     * Types that can be created. Instagram has no data source yet; GA4 and Search Console are sources of the
+     * Website asset (bound on its Data Sources page), not separate assets. Existing ones stay editable.
      *
      * @return array<string, string>
      */
     protected function typeOptions(): array
     {
-        return array_diff_key(DigitalAssetTypes::options(), ['instagram' => true]);
+        return array_diff_key(DigitalAssetTypes::options(), ['instagram' => true, 'ga4' => true, 'gsc' => true]);
     }
 
     public function render(): View

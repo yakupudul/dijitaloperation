@@ -1,5 +1,8 @@
 @php($f = 'operator.forms.asset_form.')
 <div class="space-y-6">
+    @if ($mode === 'edit')
+        <x-operator.asset-context :asset-id="$assetId" current="edit" />
+    @endif
     <div>
         <a href="{{ $backUrl }}" wire:navigate class="text-sm font-medium text-gray-500 hover:text-brand-600 dark:text-gray-400">{{ __($f.'back') }}</a>
         <div class="mt-3 flex flex-wrap items-start justify-between gap-3">

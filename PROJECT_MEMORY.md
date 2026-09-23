@@ -1,5 +1,11 @@
 # PROJECT_MEMORY
 
+## 2026-09-25 (d) — Digital asset pages Faz C (frame + models)
+
+- Every asset page starts with the shared asset frame (breadcrumb, sibling switcher, status strip, Data Sources/Edit). New asset pages must include `<x-operator.asset-context :asset-id="$assetId" />` and must not add their own sources/edit buttons.
+- GA4 and Search Console belong to the Website asset (Data Sources binding); standalone ga4/gsc assets are legacy — not creatable, still viewable.
+- All bindings go through `Confirm*ResourceBindingService` (operator Data Sources, Integrations, Brand setup, Filament).
+
 ## 2026-09-25 (c) — Digital asset pages Faz B (cleanup)
 
 - Website page is 9 tabs; Google Ads "Optimization" lives under Danışman; Meta legacy sub-pages are redirects only; Instagram is a single honest page and cannot be created until it has a data source.

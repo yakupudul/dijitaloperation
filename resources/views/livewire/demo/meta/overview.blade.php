@@ -52,6 +52,7 @@
 
 <div class="space-y-5">
     @include('livewire.demo.partials.flash')
+    <x-operator.asset-context :asset-id="$assetId" />
 
     <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
         <div class="border-b border-gray-100 px-5 py-5 dark:border-gray-800 sm:px-6">

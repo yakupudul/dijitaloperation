@@ -145,18 +145,26 @@ class CanonicalPortfolioRuntimeTest extends TestCase
         $customer = Customer::factory()->create();
         $brand = Brand::factory()->create(['customer_id' => $customer->id, 'name' => 'Asset Brand']);
 
-        foreach (['website', 'google_business_profile', 'google_ads', 'meta_ads', 'ga4', 'gsc'] as $type) {
+        foreach (['website', 'google_business_profile', 'google_ads', 'meta_ads'] as $type) {
             Livewire::test(AssetCreate::class, ['brandId' => (string) $brand->id])
                 ->set('name', 'Asset Brand '.$type)
                 ->set('type', $type)
                 ->call('save')
                 ->assertHasNoErrors();
         }
+        // GA4 / Search Console are Website sources (bound on Data Sources), Instagram has no source yet.
+        foreach (['ga4', 'gsc', 'instagram'] as $type) {
+            Livewire::test(AssetCreate::class, ['brandId' => (string) $brand->id])
+                ->set('name', 'Asset Brand '.$type)
+                ->set('type', $type)
+                ->call('save')
+                ->assertHasErrors(['type']);
+        }
 
         $assets = DigitalAsset::query()->where('brand_id', $brand->id)->get();
-        $this->assertCount(6, $assets);
+        $this->assertCount(4, $assets);
         $this->assertEqualsCanonicalizing(
-            ['website', 'google_business_profile', 'google_ads', 'meta_ads', 'ga4', 'gsc'],
+            ['website', 'google_business_profile', 'google_ads', 'meta_ads'],
             $assets->pluck('type')->all(),
         );
         $this->assertSame(0, DigitalAsset::query()->whereIn('type', ['domain', 'hosting'])->count());

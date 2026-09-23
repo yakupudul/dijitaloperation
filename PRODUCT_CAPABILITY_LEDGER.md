@@ -1,5 +1,14 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-09-25 (d) — Dijital varlık sayfaları Faz C: ortak çerçeve, tek bağlama yolu, GA4/GSC modeli
+
+**State:** CODED + PHPUnit (`tests/Feature/Assets/AssetContextTest`: frame on all seven asset page types + Data Sources + edit; GA4/GSC as website sources in the estate matrix and the legacy GA4 page hint; `CanonicalPortfolioRuntimeTest` creatable types). Full Feature + Unit suites compared with the baseline. No live UAT.
+
+- Shared frame (`<x-operator.asset-context>`) above every asset page, Data Sources and the edit form: Müşteri › Marka › Varlık breadcrumb, switcher to the brand's other assets (with freshness dots) + "Varlık ekle", bound accounts, freshness/last data, "Veri Kaynakları" and "Düzenle". Duplicate sources/edit/brand buttons removed from channel headers.
+- One binding path: Data Sources, Integrations pages and Brand setup already used `Confirm*ResourceBindingService`; the Filament website GA4/GSC action (direct row create) now uses it too.
+- GA4 / Search Console are Website sources: not offered when creating assets; the estate matrix counts a website binding and links to the website tab; existing standalone GA4/GSC pages show a "web sitesinde aç" hint when the website has the same source bound.
+- Intentionally kept: account-centric binding on Integrations pages (same service); Filament `/admin` performance/intelligence relation managers (technical panel, not operator product; removal would be a separate cleanup); per-channel period controls (GBP uses 28/90/180 days).
+
 ## 2026-09-25 (c) — Dijital varlık sayfaları Faz B: temizlik
 
 **State:** CODED + PHPUnit (website/Google Ads/Meta/Instagram page tests, redirects for retired Meta pages, weighted impression share, KPI deltas, Turkish labels). Full Feature + Unit suites compared with the baseline. No live UAT.

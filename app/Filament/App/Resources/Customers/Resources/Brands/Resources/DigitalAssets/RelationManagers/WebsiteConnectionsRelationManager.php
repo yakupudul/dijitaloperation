@@ -7,6 +7,8 @@ use App\Models\CoreAssetBinding;
 use App\Models\CoreConnection;
 use App\Models\CoreExternalResource;
 use App\Models\DigitalAsset;
+use App\Models\User;
+use App\Services\Integrations\ConfirmGoogleResourceBindingService;
 use App\Services\WordPressConnectionProbeService;
 use App\Support\Integrations\AssetBindingCompatibility;
 use Filament\Actions\Action;
@@ -269,20 +271,17 @@ class WebsiteConnectionsRelationManager extends RelationManager
             ]);
         }
 
-        $existing = $this->existingBinding($capability);
+        $actor = auth()->user();
+        if (! $actor instanceof User) {
+            abort(403);
+        }
 
-        if ($existing === null) {
-            $asset->assetBindings()->create([
-                'external_resource_id' => $resource->id,
-                'capability' => $capability,
-                'status' => CoreAssetBinding::STATUS_ACTIVE,
-                'configuration' => [],
-            ]);
-        } else {
-            $existing->update([
-                'external_resource_id' => $resource->id,
-                'capability' => $capability,
-                'status' => CoreAssetBinding::STATUS_ACTIVE,
+        try {
+            // Same binding path as the operator Data Sources page (compatibility, bound-elsewhere, audit).
+            app(ConfirmGoogleResourceBindingService::class)->bindExisting($asset, $resource, $actor, allowReplace: true);
+        } catch (\Throwable $exception) {
+            throw ValidationException::withMessages([
+                'mountedActionsData.0.external_resource_id' => $exception->getMessage(),
             ]);
         }
 
