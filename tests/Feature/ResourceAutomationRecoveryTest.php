@@ -41,6 +41,7 @@ final class ResourceAutomationRecoveryTest extends TestCase
     public function test_terminal_parent_does_not_keep_account_slots_or_locks_occupied(): void
     {
         $resource = CoreExternalResource::factory()->create(['resource_type' => 'google_ads']);
+        $this->bindToActiveAsset($resource);
         $run = CollectionRun::factory()->create(['status' => CollectionRunStatus::Failed]);
         CollectionResourceRun::factory()->create([
             'collection_run_id' => $run->id, 'external_resource_id' => $resource->id,
@@ -138,6 +139,7 @@ final class ResourceAutomationRecoveryTest extends TestCase
     public function test_new_planner_does_not_reconcile_the_previous_failed_attempt(): void
     {
         $resource = CoreExternalResource::factory()->create(['resource_type' => 'google_ads']);
+        $this->bindToActiveAsset($resource);
         $old = CollectionRun::factory()->create(['status' => CollectionRunStatus::Failed]);
         $automation = ResourceAutomation::query()->create([
             'external_resource_id' => $resource->id, 'collection_status' => 'waiting',
@@ -223,5 +225,11 @@ final class ResourceAutomationRecoveryTest extends TestCase
         config(['moxdop-resource-automation.queue_connection' => 'null']);
         $this->expectException(\RuntimeException::class);
         app(ResourceAutomationService::class)->tick();
+    }
+
+    /** Collection runs only for accounts bound to an active customer's asset (Faz 0 portfolio gate). */
+    private function bindToActiveAsset(CoreExternalResource $resource): void
+    {
+        CoreAssetBinding::factory()->create(['external_resource_id' => $resource->id, 'capability' => $resource->resource_type]);
     }
 }
