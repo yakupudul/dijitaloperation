@@ -83,7 +83,19 @@
             @if ($proposal->services_status === 'waiting_for_site')
                 <p class="px-5 py-4 text-sm text-gray-600 dark:text-gray-300">Site henüz taranmadı ve Search Console verisi yok. Onaylayınca site taraması başlar; tarama bitince "Yeniden tara" ile hizmetler önerilir.</p>
             @elseif ($services === [])
-                <p class="px-5 py-4 text-sm text-gray-600 dark:text-gray-300">Hizmet önerilemedi{{ $proposal->services_status === 'ai_unavailable' ? ' (AI kullanılamadı; AI Kontrol Paneli\'nden "Brand Setup Assistant" işine bir sağlayıcı ata)' : '' }}.</p>
+                @php $aiSummary = $proposal->summary ?? []; @endphp
+                <div class="px-5 py-4 text-sm text-gray-600 dark:text-gray-300">
+                    @if (($aiSummary['ai_skipped_reason'] ?? null) === 'llm_error')
+                        <p>Hizmet önerilemedi: AI çağrısı hata verdi. "Yeniden tara" ile tekrar dene; sürerse aşağıdaki hatayı ilet.</p>
+                        @if (! empty($aiSummary['ai_error']))
+                            <p class="mt-2 break-words rounded-lg bg-gray-50 p-2 font-mono text-xs text-error-700 dark:bg-gray-800">{{ $aiSummary['ai_error'] }}</p>
+                        @endif
+                    @elseif (($aiSummary['ai_skipped_reason'] ?? null) === 'no_eligible_provider')
+                        <p>Hizmet önerilemedi: "Brand Setup Assistant" işi için çalışabilir sağlayıcı yok (AI Kontrol Paneli).</p>
+                    @else
+                        <p>Hizmet önerilemedi.</p>
+                    @endif
+                </div>
             @else
                 <ul class="divide-y divide-gray-100 dark:divide-gray-800">
                     @foreach ($services as $index => $service)

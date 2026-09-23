@@ -72,7 +72,7 @@ final class BrandSetupServiceSuggester
                         'SECTORS' => collect($sectors)->map(fn ($name, $code): array => ['code' => $code, 'name' => $name])->values()->all(),
                     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
                     provider: $route->providerModels,
-                    timeout: 120,
+                    timeout: 200,
                 );
                 $structured = $response->toArray();
                 $summary = ['provider' => $route->primaryProvider(), 'model' => $route->primaryModel()];
@@ -81,7 +81,7 @@ final class BrandSetupServiceSuggester
             }
         } catch (Throwable $exception) {
             Log::warning('Brand setup AI call failed.', ['brand_id' => $brand->id, 'error' => $exception->getMessage()]);
-            $summary = ['ai_skipped_reason' => 'llm_error'];
+            $summary = ['ai_skipped_reason' => 'llm_error', 'ai_error' => mb_substr($exception::class.': '.$exception->getMessage(), 0, 400)];
         }
 
         if (! is_array($structured)) {

@@ -144,6 +144,28 @@ final class BrandSetupAssistantTest extends TestCase
         $this->assertTrue(collect($proposal->apply_result)->every(fn (array $r): bool => $r['ok']), json_encode($proposal->apply_result));
     }
 
+    public function test_ai_failure_is_shown_to_the_operator_and_accounts_are_still_proposed(): void
+    {
+        $this->resources();
+        DB::table('gsc_query_page_daily')->insert([
+            'digital_asset_id' => null, 'external_resource_id' => CoreExternalResource::query()->where('resource_type', 'search_console')->value('id'), 'site_url' => 'sc-domain:adadent.com.tr',
+            'reporting_date' => now()->subDays(5)->toDateString(), 'query' => 'ankara implant', 'page' => 'https://www.adadent.com.tr/implant/',
+            'clicks' => 3, 'impressions' => 400, 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(),
+            'record_fingerprint' => hash('sha256', 'y'), 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        BrandSetupAgent::fake(fn () => throw new \RuntimeException('cURL error 28: Operation timed out'));
+
+        $proposal = app(BrandSetupAssistant::class)->queue($this->brand, 'adadent.com.tr', $this->admin)->fresh();
+
+        $this->assertSame(BrandSetupProposal::STATUS_READY, $proposal->status);
+        $this->assertSame('ai_unavailable', $proposal->services_status);
+        $this->assertSame('llm_error', $proposal->summary['ai_skipped_reason']);
+        $this->assertNotEmpty($proposal->items);
+        Livewire::test(BrandSetupPage::class, ['brand' => (string) $this->brand->id])
+            ->assertSee('AI çağrısı hata verdi')
+            ->assertSee('Operation timed out');
+    }
+
     public function test_without_site_data_services_wait_and_nothing_is_applied_without_approval(): void
     {
         $proposal = app(BrandSetupAssistant::class)->queue($this->brand, 'yeni-marka.com', $this->admin)->fresh();
