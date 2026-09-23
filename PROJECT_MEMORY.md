@@ -1,5 +1,12 @@
 # PROJECT_MEMORY
 
+## 2026-09-23 (d) — Services and keywords never carry a location
+
+Owner decision: service names and their keywords must be location-free so they are reusable for brands
+in other places; brand-specific strategy uses the brand's "hizmet verdiği yerler". Search demand for places
+outside those areas is not a content target; it becomes one operator decision per site (add the area or not).
+Brand setup keywords feed the existing sector → service → query library instead of a parallel list.
+
 ## 2026-09-23 (c) — Advisor roadmap approved; Faz 1
 
 Owner approved `docs/product/ADVISOR_ROADMAP.md` in full: algorithm first, AI acts only through

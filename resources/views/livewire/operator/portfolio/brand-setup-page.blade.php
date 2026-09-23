@@ -75,6 +75,30 @@
             </ul>
         </section>
 
+        @php $locations = data_get($proposal->summary, 'locations'); @endphp
+        @if (is_array($locations) && (! empty($locations['out_of_area']) || ! empty($locations['mentioned'])))
+            <section class="rounded-xl border border-warning-200 bg-warning-50 p-5 dark:border-warning-500/20 dark:bg-warning-500/10">
+                @if ($locations['has_areas'])
+                    <h2 class="text-sm font-semibold text-warning-900 dark:text-warning-200">Hizmet bölgesi dışındaki aramalar</h2>
+                    <p class="mt-1 text-xs text-warning-800 dark:text-warning-300">Markanın hizmet verdiği yerler: <strong>{{ implode(' · ', $locations['areas']) }}</strong>. Site aşağıdaki konumlarla yapılan aramalarda da görünüyor. Hizmet ve anahtar kelimelere konum yazılmaz; SEO planı bu konumlar için içerik önermez.</p>
+                    <ul class="mt-2 space-y-1 text-xs text-warning-900 dark:text-warning-200">
+                        @foreach ($locations['out_of_area'] as $row)
+                            <li><strong>{{ $row['name'] }}</strong> · {{ number_format($row['impressions']) }} gösterim · ör. {{ implode(', ', $row['queries']) }}</li>
+                        @endforeach
+                    </ul>
+                    <p class="mt-2 text-xs text-warning-800 dark:text-warning-300">Bu bölgelere de hizmet veriyorsan <a wire:navigate href="{{ route('operator.brand.edit', ['brandId' => $brandId]) }}" class="font-semibold underline">markanın hizmet verdiği yerlere</a> ekle; bölge sayfası önerileri ona göre üretilir.</p>
+                @else
+                    <h2 class="text-sm font-semibold text-warning-900 dark:text-warning-200">Markanın hizmet verdiği yerler tanımlı değil</h2>
+                    <p class="mt-1 text-xs text-warning-800 dark:text-warning-300">Aramalarda en çok geçen konumlar aşağıda. Doğru olanları <a wire:navigate href="{{ route('operator.brand.edit', ['brandId' => $brandId]) }}" class="font-semibold underline">markanın hizmet verdiği yerlere</a> ekle; bölge dışı aramalar ancak o zaman ayrılabilir.</p>
+                    <ul class="mt-2 space-y-1 text-xs text-warning-900 dark:text-warning-200">
+                        @foreach ($locations['mentioned'] as $row)
+                            <li><strong>{{ $row['name'] }}</strong> · {{ number_format($row['impressions']) }} gösterim</li>
+                        @endforeach
+                    </ul>
+                @endif
+            </section>
+        @endif
+
         <section class="rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
             <div class="border-b border-gray-100 px-5 py-3 dark:border-gray-800">
                 <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Hizmetler</h2>
@@ -104,6 +128,9 @@
                             <div class="min-w-0 flex-1">
                                 <p class="text-sm font-medium text-gray-800 dark:text-white/90">@if ($service['is_core'])★ @endif{{ $service['name'] }}@if (! empty($service['aliases']))<span class="font-normal text-gray-500"> · {{ implode(', ', $service['aliases']) }}</span>@endif</p>
                                 <p class="mt-0.5 text-xs text-gray-500">{{ $service['evidence'] }}</p>
+                                @if (! empty($service['keywords']))
+                                    <p class="mt-1 text-xs text-gray-600 dark:text-gray-400"><span class="font-medium">{{ count($service['keywords']) }} anahtar kelime</span> (konumsuz, sorgu kütüphanesine eklenir): {{ implode(', ', array_slice(array_column($service['keywords'], 'query'), 0, 6)) }}@if (count($service['keywords']) > 6)…@endif</p>
+                                @endif
                             </div>
                             <div class="flex shrink-0 flex-col items-end gap-1 text-xs">
                                 @if ($service['status'] === 'already')

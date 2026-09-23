@@ -100,6 +100,12 @@ return [
         'blocked_bots' => ['OAI-SearchBot', 'ChatGPT-User', 'Claude-SearchBot', 'ClaudeBot', 'Googlebot', 'Google-Extended', 'PerplexityBot'],
     ],
 
+    // Markanın hizmet verdiği yerler dışındaki konumlu aramalar içerik önerisine girmez; toplam gösterimi
+    // bu eşiği geçen konumlar için site başına tek karar kartı açılır.
+    'locations' => [
+        'out_of_area_min_impressions' => 50,
+    ],
+
     'quotas' => [
         'open_tasks_per_site' => 15,
         'create_per_site' => 6,

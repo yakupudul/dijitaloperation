@@ -255,7 +255,7 @@ final class SeoTasksPanel extends Component
             $counts[$row->type->value] = ($counts[$row->type->value] ?? 0) + 1;
         }
         $setupTasks = $openInScope->filter(fn (SeoTask $task): bool => $task->type === SeoTaskType::Question)->values();
-        $pendingMappings = $setupTasks->sum(fn (SeoTask $task): int => max(1, count($task->evidence['services'] ?? [])));
+        $pendingMappings = $setupTasks->where('rule_id', 'service-page-mapping')->sum(fn (SeoTask $task): int => max(1, count($task->evidence['services'] ?? [])));
 
         $siteIds = $openInScope->pluck('digital_asset_id')->unique()->values();
         $lastPlans = SeoPlan::query()
@@ -287,7 +287,7 @@ final class SeoTasksPanel extends Component
                     'content' => $rows->where('type', SeoTaskType::Create)->count(),
                     'target' => $weeklyTarget,
                     'critical' => $rows->filter(fn (SeoTask $task): bool => $task->type === SeoTaskType::Fix && in_array($task->severity, ['critical', 'high'], true))->count(),
-                    'mappings' => $rows->where('type', SeoTaskType::Question)->sum(fn (SeoTask $task): int => max(1, count($task->evidence['services'] ?? []))),
+                    'mappings' => $rows->where('type', SeoTaskType::Question)->where('rule_id', 'service-page-mapping')->sum(fn (SeoTask $task): int => max(1, count($task->evidence['services'] ?? []))),
                     'clicks' => (int) round($rows->sum('estimated_extra_clicks')),
                     'last_plan_at' => $lastPlans->get($assetId)?->completed_at,
                     'gsc' => data_get($lastPlans->get($assetId)?->input_summary, 'gsc.available'),

@@ -60,6 +60,14 @@ Rota `seo_tasks.content_planner` (varsayılan: Anthropic `claude-sonnet-5`, yede
 
 **D — Yaz** (`SeoPlanWriter`): eşlemeler + görev diff'i (yukarıda). Plan satırına özet.
 
+## Konum kuralı
+
+- Hizmet adları, takma adları ve sorgu kütüphanesindeki anahtar kelimeler konum içermez ("Uyluk Germe", "Uyluk Germe Ankara" değil). Böylece başka şehirdeki markalarda da kullanılır.
+- Marka özelinde konum, markanın **hizmet verdiği yerler** alanından gelir (bölge sayfası önerileri, portföyde konumlu varyantlar).
+- Search Console'da hizmet bölgesi dışındaki bir konumla gelen sorgu ("… ankara", marka İstanbul'da) içerik önerisine girmez. Ülke düzeyi ("turkey") bölge dışı sayılmaz.
+- Bölge dışı konumların toplam gösterimi eşiği (`locations.out_of_area_min_impressions`, 50) geçerse site başına tek karar kartı açılır: "Hizmet verdiği yerlere ekle" ya da "Hizmet vermiyorum" (aynı konumlar tekrar sorulmaz; yeni konum yeni kart açar).
+- Hizmet bölgesi tanımlı değilse bölge dışı yargısı yapılmaz.
+
 ## Arayüz
 
 - Ana menü → **SEO Görevleri** (`/seo-tasks`):

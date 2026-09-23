@@ -1,5 +1,14 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-09-23 (e) — Location-free services/keywords, out-of-area demand
+
+**State:** CODED + PHPUnit (`BrandSetupAssistantTest`, `SeoTaskRuleEngineTest`). Triggered by the first live "Otomatik kur" run (busranurozger.com, İstanbul brand): aliases such as "jinekomasti ankara" and Ankara queries.
+
+- `LocationOptions::describe/withinAreas/classify`: location readings (country/city/district) judged against the brand's service areas.
+- "Otomatik kur": service names and aliases are stripped of locations; each service gets location-free, non-branded Search Console keywords; on approval they are stored in the query library (sector → service → query, source `search_console`) and inherited into the brand's query portfolio. The page reports out-of-area locations (or asks for service areas when none exist).
+- SEO Görevleri: out-of-area queries are excluded from content buckets; one `out-of-area-demand` question card per site ("Hizmet verdiği yerlere ekle" / "Hizmet vermiyorum").
+- Known gap: district names are matched from the national list; a district that is also an ordinary word can be misread.
+
 ## 2026-09-23 (d) — Advisor Faz 1: AI cost control, free providers, brand "Otomatik kur"
 
 **State:** CODED + PHPUnit (`tests/Feature/AiControl/AiCostControlTest.php`, `tests/Feature/BrandSetup/BrandSetupAssistantTest.php`). Live UAT with real Groq/OpenRouter keys, real Google discovery (GA4 data streams) and a real brand approval not run. Roadmap: `docs/product/ADVISOR_ROADMAP.md`.

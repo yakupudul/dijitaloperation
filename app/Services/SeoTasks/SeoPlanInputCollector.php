@@ -68,6 +68,7 @@ final class SeoPlanInputCollector
             'findings' => $this->findings($site),
             'offerings' => $offerings,
             'service_areas' => $this->serviceAreas($site),
+            'service_area_rows' => $site->brand?->serviceAreas()->where('status', 'active')->get(['country_code', 'city_name', 'district_name'])->map(fn ($area): array => $area->only(['country_code', 'city_name', 'district_name']))->all() ?? [],
             'ga4' => $this->ga4($site, $end->subDays($ga4Days), $end),
             'robots' => $this->robots($site),
             'assignments' => $this->assignments($site),

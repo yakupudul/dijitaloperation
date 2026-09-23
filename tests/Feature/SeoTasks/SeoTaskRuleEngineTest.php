@@ -113,6 +113,30 @@ final class SeoTaskRuleEngineTest extends TestCase
         $this->assertTrue($create->contains(fn (array $t): bool => ($t['evidence']['source'] ?? '') === 'fallback'));
     }
 
+    public function test_queries_for_places_outside_the_service_areas_are_not_content_targets_and_ask_once(): void
+    {
+        $input = $this->input();
+        $input['service_area_rows'] = [['country_code' => 'TR', 'city_name' => 'İstanbul', 'district_name' => 'Kadıköy']];
+        foreach (['ankara implant' => 700, 'implant çankaya' => 200, 'implant turkey' => 100] as $query => $impressions) {
+            $input['gsc']['rows'][] = ['query' => $query, 'page' => 'https://example.test/implant/', 'url_key' => SeoText::urlKey('https://example.test/implant/'), 'clicks' => 0, 'impressions' => $impressions, 'position' => 40.0];
+        }
+
+        $tasks = collect((new SeoTaskRuleEngine)->evaluate($input)['tasks']);
+
+        $contentQueries = $tasks->where('type', 'create')->flatMap(fn (array $t): array => array_column($t['evidence']['queries'] ?? [], 'query'))->all();
+        $this->assertNotContains('ankara implant', $contentQueries);
+        $this->assertNotContains('implant çankaya', $contentQueries);
+        $this->assertContains('implant turkey', $contentQueries, 'country of the service area is not out of area');
+
+        $card = $tasks->firstWhere('rule_id', 'out-of-area-demand');
+        $this->assertNotNull($card);
+        $this->assertSame('question', $card['type']);
+        $this->assertSame(['Ankara', 'Çankaya'], array_column($card['evidence']['locations'], 'name'));
+
+        $input['service_area_rows'] = [];
+        $this->assertNull(collect((new SeoTaskRuleEngine)->evaluate($input)['tasks'])->firstWhere('rule_id', 'out-of-area-demand'), 'no areas → no judgement');
+    }
+
     /** @return array<string, mixed> */
     private function input(): array
     {

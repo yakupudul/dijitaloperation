@@ -5,12 +5,15 @@ namespace App\Services\BrandSetup;
 use App\Models\BrandSetupProposal;
 use App\Models\CoreExternalResource;
 use App\Models\DigitalAsset;
+use App\Models\ServiceCatalogItem;
 use App\Models\ServiceCategory;
 use App\Models\User;
 use App\Services\Async\AsyncOperationService;
 use App\Services\BrandIntelligence\BrandOfferingService;
 use App\Services\Integrations\ConfirmGoogleResourceBindingService;
 use App\Services\Integrations\ConfirmMetaResourceBindingService;
+use App\Services\SearchDemand\BrandQueryPortfolioService;
+use App\Services\SearchDemand\SearchQueryLibraryService;
 use App\Services\SearchDemand\ServiceCatalogService;
 use App\Services\SeoTasks\SeoPlanRunner;
 use App\Support\Integrations\ResourceBindingPlan;
@@ -34,6 +37,8 @@ final class BrandSetupApplier
         private readonly ConfirmMetaResourceBindingService $meta,
         private readonly BrandOfferingService $offerings,
         private readonly ServiceCatalogService $catalog,
+        private readonly SearchQueryLibraryService $library,
+        private readonly BrandQueryPortfolioService $portfolio,
     ) {}
 
     /**
@@ -70,12 +75,21 @@ final class BrandSetupApplier
 
         // 3) Services and sector.
         $services = $proposal->services ?? [];
+        $keywordCount = 0;
         foreach ($serviceIndexes as $index) {
             $service = $services[$index] ?? null;
             if (! is_array($service) || $service['status'] !== 'proposed') {
                 continue;
             }
-            $results[] = $this->service($service, $brand, $actor);
+            $results[] = $this->service($service, $brand, $actor, $keywordCount);
+        }
+        if ($keywordCount > 0) {
+            try {
+                $inherited = $this->portfolio->inheritForBrand($brand, $actor);
+                $results[] = ['key' => 'keywords', 'label' => 'Anahtar kelimeler', 'ok' => true, 'message' => sprintf('%d anahtar kelime sorgu kütüphanesine hizmetleriyle eklendi; markanın sorgu portföyüne %d yeni sorgu geçti.', $keywordCount, $inherited['created'])];
+            } catch (Throwable $exception) {
+                $results[] = ['key' => 'keywords', 'label' => 'Anahtar kelimeler', 'ok' => false, 'message' => 'Sorgular kütüphaneye eklendi ama marka portföyüne aktarılamadı: '.$exception->getMessage()];
+            }
         }
         $sectorCode = data_get($proposal->summary, 'sector_code');
         if (is_string($sectorCode) && $brand->sectors()->count() === 0) {
@@ -153,7 +167,7 @@ final class BrandSetupApplier
     }
 
     /** @return array{key: string, label: string, ok: bool, message: string} */
-    private function service(array $service, $brand, User $actor): array
+    private function service(array $service, $brand, User $actor, int &$keywordCount): array
     {
         $result = ['key' => 'service:'.$service['name'], 'label' => $service['name'], 'ok' => false, 'message' => ''];
         try {
@@ -172,10 +186,42 @@ final class BrandSetupApplier
             if (! empty($service['is_core'])) {
                 $offering->forceFill(['is_priority' => true])->save();
             }
+            $keywordCount += $this->storeKeywords($service, $offering->fresh(), $brand, $actor);
 
             return array_merge($result, ['ok' => true, 'message' => $service['is_new'] ? 'Katalogda yeni hizmet açıldı ve markaya eklendi.' : 'Katalogdaki hizmet markaya eklendi.']);
         } catch (Throwable $exception) {
             return array_merge($result, ['message' => $exception->getMessage()]);
         }
+    }
+
+    /**
+     * Location-free Search Console queries become the service's keywords in the shared query library
+     * (sector → service → query), so brands elsewhere reuse them; locations come from each brand's
+     * service areas at render time.
+     */
+    private function storeKeywords(array $service, $offering, $brand, User $actor): int
+    {
+        $catalogItem = $offering?->service_catalog_item_id !== null ? ServiceCatalogItem::query()->find($offering->service_catalog_item_id) : null;
+        $sector = $catalogItem?->sector ?? ($service['sector_code'] ?? null) ?? $brand->sectorCodes()[0] ?? null;
+        if ($catalogItem === null || ! is_string($sector)) {
+            return 0;
+        }
+        $stored = 0;
+        foreach ($service['keywords'] ?? [] as $keyword) {
+            try {
+                $this->library->store((string) $keyword['query'], 'search_console', [
+                    'service_catalog_item_id' => $catalogItem->id,
+                    'sector' => $sector,
+                    'impressions' => $keyword['impressions'] ?? null,
+                    'source_reference' => 'brand_setup:'.$brand->id,
+                    'classification_source' => 'brand_setup',
+                ], $actor);
+                $stored++;
+            } catch (Throwable) {
+                // excluded or invalid queries are skipped
+            }
+        }
+
+        return $stored;
     }
 }

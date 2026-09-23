@@ -110,4 +110,99 @@ final class LocationOptions
 
         return ['text' => trim(preg_replace('/[\s,;|]+/u', ' ', $text) ?? ''), 'removed' => array_values(array_unique($removed))];
     }
+
+    /**
+     * What a location name (as returned by strip()) refers to. District names can exist in several
+     * provinces, so every reading is returned.
+     *
+     * @return list<array{kind: string, country_code: string, city: ?string, district: ?string}>
+     */
+    public static function describe(string $name): array
+    {
+        if (! isset(self::$cache['locations'])) {
+            $index = [];
+            $add = static function (string $label, array $reading) use (&$index): void {
+                $index[self::fold($label)][] = $reading;
+            };
+            foreach ([self::countries(), self::data('countries-en')] as $countries) {
+                foreach ($countries as $code => $label) {
+                    $add((string) $label, ['kind' => 'country', 'country_code' => (string) $code, 'city' => null, 'district' => null]);
+                }
+            }
+            foreach (['Türkiye', 'Turkey', 'Turkiye'] as $label) {
+                $add($label, ['kind' => 'country', 'country_code' => 'TR', 'city' => null, 'district' => null]);
+            }
+            $provinces = [];
+            foreach (self::data('provinces') as $province) {
+                $provinces[$province['id']] = $province['name'];
+                $add($province['name'], ['kind' => 'city', 'country_code' => 'TR', 'city' => $province['name'], 'district' => null]);
+            }
+            foreach (self::data('districts') as $district) {
+                $add($district['name'], ['kind' => 'district', 'country_code' => 'TR', 'city' => $provinces[$district['provinceId']] ?? null, 'district' => $district['name']]);
+            }
+            self::$cache['locations'] = $index;
+        }
+
+        return array_values(array_unique(self::$cache['locations'][self::fold($name)] ?? [], SORT_REGULAR));
+    }
+
+    /**
+     * Whether a location name falls inside the brand's service areas. Null when the brand has no
+     * areas or the name is unknown: then nothing can be said.
+     *
+     * @param  iterable<array{country_code?: ?string, city_name?: ?string, district_name?: ?string}>  $areas
+     */
+    public static function withinAreas(string $name, iterable $areas): ?bool
+    {
+        $readings = self::describe($name);
+        $areas = collect($areas)->map(fn ($area): array => (array) $area)->all();
+        if ($readings === [] || $areas === []) {
+            return null;
+        }
+        foreach ($readings as $reading) {
+            foreach ($areas as $area) {
+                $country = strtoupper((string) ($area['country_code'] ?? ''));
+                $city = self::fold((string) ($area['city_name'] ?? ''));
+                $district = self::fold((string) ($area['district_name'] ?? ''));
+                if ($country !== $reading['country_code']) {
+                    continue;
+                }
+                // Country-level mention, or the area covers the whole country.
+                if ($reading['kind'] === 'country' || $city === '') {
+                    return true;
+                }
+                if (self::fold((string) $reading['city']) !== $city) {
+                    continue;
+                }
+                if ($reading['kind'] === 'city' || $district === '' || self::fold((string) $reading['district']) === $district) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Location-free text plus the locations it mentioned, split by the brand's service areas.
+     *
+     * @param  iterable<array<string, mixed>>  $areas
+     * @return array{text: string, removed: list<string>, in_area: list<string>, out_of_area: list<string>}
+     */
+    public static function classify(string $text, iterable $areas): array
+    {
+        $stripped = self::strip($text);
+        $in = [];
+        $out = [];
+        foreach ($stripped['removed'] as $name) {
+            $within = self::withinAreas($name, $areas);
+            if ($within === true) {
+                $in[] = $name;
+            } elseif ($within === false) {
+                $out[] = $name;
+            }
+        }
+
+        return ['text' => $stripped['text'], 'removed' => $stripped['removed'], 'in_area' => $in, 'out_of_area' => $out];
+    }
 }

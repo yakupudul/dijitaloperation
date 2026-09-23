@@ -6,6 +6,8 @@ use App\Ai\Agents\BrandSetupAgent;
 use App\Livewire\Operator\Portfolio\BrandSetupPage;
 use App\Models\Brand;
 use App\Models\BrandOffering;
+use App\Models\BrandQueryPortfolioItem;
+use App\Models\BrandServiceArea;
 use App\Models\BrandSetupProposal;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
@@ -13,6 +15,7 @@ use App\Models\CoreIntegration;
 use App\Models\CoreIntegrationCredential;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
+use App\Models\SearchQueryLibraryItem;
 use App\Models\ServiceCatalogItem;
 use App\Models\ServiceCategory;
 use App\Models\User;
@@ -142,6 +145,49 @@ final class BrandSetupAssistantTest extends TestCase
         $this->assertSame(1, ServiceCatalogItem::query()->whereHas('names', fn ($q) => $q->where('raw_label', 'İmplant Tedavisi'))->count(), 'catalog not duplicated');
         $this->assertSame([$category->id], $this->brand->sectors()->pluck('service_categories.id')->all());
         $this->assertTrue(collect($proposal->apply_result)->every(fn (array $r): bool => $r['ok']), json_encode($proposal->apply_result));
+    }
+
+    public function test_services_and_keywords_are_location_free_and_out_of_area_demand_is_reported(): void
+    {
+        [$gscResource] = $this->resources();
+        ServiceCategory::query()->create(['code' => 'saglik', 'name' => 'Sağlık', 'normalized_key' => 'saglik']);
+        BrandServiceArea::query()->create(['brand_id' => $this->brand->id, 'country_code' => 'TR', 'country_name' => 'Türkiye', 'city_name' => 'İstanbul', 'normalized_key' => 'tr|istanbul', 'status' => 'active', 'priority_rank' => 1]);
+        foreach (['uyluk germe ankara' => 300, 'uyluk germe istanbul' => 120, 'uyluk germe fiyatları' => 80, 'adadent uyluk germe' => 40] as $query => $impressions) {
+            DB::table('gsc_query_page_daily')->insert([
+                'digital_asset_id' => null, 'external_resource_id' => $gscResource->id, 'site_url' => 'sc-domain:adadent.com.tr',
+                'reporting_date' => now()->subDays(5)->toDateString(), 'query' => $query, 'page' => 'https://www.adadent.com.tr/uyluk-germe/',
+                'clicks' => 1, 'impressions' => $impressions, 'contract_version' => 1, 'first_collected_at' => now(), 'last_collected_at' => now(),
+                'record_fingerprint' => hash('sha256', $query), 'created_at' => now(), 'updated_at' => now(),
+            ]);
+        }
+        BrandSetupAgent::fake([[
+            'brand_summary' => 'Estetik cerrahi kliniği.',
+            'sector_code' => 'saglik',
+            'services' => [
+                ['name' => 'Uyluk Germe Ankara', 'catalog_name' => null, 'sector_code' => 'saglik', 'aliases' => ['uyluk germe ankara', 'thigh lift turkey'], 'is_core' => true, 'evidence' => 'Sorgu: uyluk germe ankara'],
+            ],
+            'prompt_version' => BrandSetupAgent::PROMPT_VERSION,
+        ]]);
+
+        $proposal = app(BrandSetupAssistant::class)->queue($this->brand, 'adadent.com.tr', $this->admin)->fresh();
+
+        $service = $proposal->services[0];
+        $this->assertSame('Uyluk Germe', $service['name']);
+        $this->assertSame(['thigh lift'], $service['aliases']);
+        $this->assertSame(['uyluk germe', 'uyluk germe fiyatları'], array_column($service['keywords'], 'query'), 'location-free, merged, branded query dropped');
+        $this->assertSame(420, $service['keywords'][0]['impressions']);
+        $this->assertSame('Ankara', $proposal->summary['locations']['out_of_area'][0]['name']);
+        $this->assertSame('İstanbul', $proposal->summary['locations']['in_area'][0]['name']);
+
+        Livewire::test(BrandSetupPage::class, ['brand' => (string) $this->brand->id])
+            ->assertSee('Hizmet bölgesi dışındaki aramalar')
+            ->assertSee('2 anahtar kelime')
+            ->call('approve');
+
+        $item = ServiceCatalogItem::query()->whereHas('names', fn ($q) => $q->where('raw_label', 'Uyluk Germe'))->firstOrFail();
+        $library = SearchQueryLibraryItem::query()->whereHas('services', fn ($q) => $q->whereKey($item->id))->pluck('canonical_text')->sort()->values()->all();
+        $this->assertSame(['uyluk germe', 'uyluk germe fiyatları'], $library);
+        $this->assertSame(2, BrandQueryPortfolioItem::query()->where('brand_id', $this->brand->id)->count());
     }
 
     public function test_ai_failure_is_shown_to_the_operator_and_accounts_are_still_proposed(): void

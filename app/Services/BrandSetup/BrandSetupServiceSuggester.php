@@ -18,6 +18,7 @@ use App\Services\SeoTasks\SeoStoredHtmlReader;
 use App\Services\SeoTasks\SeoText;
 use App\Support\Ai\AiRouteKeys;
 use App\Support\BrandIntelligence\IdentityLabelNormalizer;
+use App\Support\Options\LocationOptions;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -26,6 +27,8 @@ use Throwable;
 /**
  * Service part of "Otomatik kur": one AI call over the site's stored pages, Search Console queries and
  * crawl candidates, then a deterministic check against the service catalog so nothing is duplicated.
+ * Service names, aliases and keywords are kept location-free (reusable for brands elsewhere); the
+ * locations Search Console queries mention are reported against the brand's service areas instead.
  */
 final class BrandSetupServiceSuggester
 {
@@ -46,6 +49,7 @@ final class BrandSetupServiceSuggester
             ->first(fn (DigitalAsset $asset): bool => BrandSetupMatcher::host((string) ($asset->primary_url ?: $asset->domain)) === $host);
         $pages = $website !== null ? $this->pages($website) : [];
         $queries = $this->queries($items);
+        $areas = $brand->serviceAreas()->where('status', 'active')->get(['country_code', 'city_name', 'district_name'])->map(fn ($area): array => $area->only(['country_code', 'city_name', 'district_name']))->all();
         $candidates = $website !== null ? $this->crawlCandidates($website) : [];
 
         if ($pages === [] && $queries === [] && $candidates === []) {
@@ -65,6 +69,7 @@ final class BrandSetupServiceSuggester
                 $response = (new BrandSetupAgent)->prompt(
                     "CONTEXT_JSON\n".json_encode([
                         'brand' => ['name' => $brand->name, 'domain' => $host],
+                        'brand_service_areas' => array_map(static fn (array $a): string => implode(', ', array_filter([$a['district_name'], $a['city_name'], $a['country_code']])), $areas),
                         'pages' => array_slice($pages, 0, 60),
                         'search_console_queries' => array_slice($queries, 0, 150),
                         'crawl_service_candidates' => $candidates,
@@ -87,8 +92,9 @@ final class BrandSetupServiceSuggester
         if (! is_array($structured)) {
             // Without AI only the crawl's own service candidates are proposed, all unticked.
             $services = array_map(fn (string $name): array => $this->serviceRow($name, [], null, false, 'Site taramasında bulunan hizmet başlığı', $catalog, $sectors, $existing, 0.5), $candidates);
+            $services = $this->withKeywords($this->dedupe($services), $queries, $brand, $host);
 
-            return ['status' => $services === [] ? 'ai_unavailable' : 'ready', 'services' => $this->dedupe($services), 'summary' => $summary];
+            return ['status' => $services === [] ? 'ai_unavailable' : 'ready', 'services' => $services, 'summary' => $summary + ['locations' => $this->locationReport($queries, $areas)]];
         }
 
         $catalogNames = array_column($catalog, 'name');
@@ -106,8 +112,9 @@ final class BrandSetupServiceSuggester
 
         return [
             'status' => 'ready',
-            'services' => $this->dedupe($services),
+            'services' => $this->withKeywords($this->dedupe($services), $queries, $brand, $host),
             'summary' => $summary + [
+                'locations' => $this->locationReport($queries, $areas),
                 'brand_summary' => mb_substr(trim((string) ($structured['brand_summary'] ?? '')), 0, 400),
                 'sector_code' => $brandSector,
                 'sector_label' => $brandSector !== null ? $sectors[$brandSector] : null,
@@ -118,6 +125,20 @@ final class BrandSetupServiceSuggester
     /** @return array<string, mixed> */
     private function serviceRow(string $name, array $aliases, ?string $sector, bool $core, string $evidence, array $catalog, array $sectors, array $existing, float $confidence): array
     {
+        // Location-free name and aliases ("uyluk germe ankara" → "uyluk germe").
+        $name = $this->withoutLocation($name) ?? $name;
+        $seenAliases = [SeoText::fold($name) => true];
+        $cleanAliases = [];
+        foreach ($aliases as $alias) {
+            $alias = $this->withoutLocation((string) $alias);
+            if ($alias === null || isset($seenAliases[SeoText::fold($alias)])) {
+                continue;
+            }
+            $seenAliases[SeoText::fold($alias)] = true;
+            $cleanAliases[] = $alias;
+        }
+        $aliases = $cleanAliases;
+
         // Deterministic catalog check over the name and every alias (catches AI misses).
         $match = null;
         foreach (array_merge([$name], $aliases) as $label) {
@@ -143,6 +164,102 @@ final class BrandSetupServiceSuggester
             'evidence' => $evidence,
             'status' => $already ? 'already' : 'proposed',
             'selected' => ! $already && $confidence >= 0.8 && ($match !== null || $sector !== null),
+        ];
+    }
+
+    private function withoutLocation(string $text): ?string
+    {
+        $clean = trim(LocationOptions::strip($text)['text']);
+
+        return mb_strlen($clean) >= 2 ? $clean : null;
+    }
+
+    /**
+     * Location-free, non-branded Search Console queries per service (longest matching name/alias
+     * wins). These become the service's keywords in the query library after approval.
+     *
+     * @param  list<array<string, mixed>>  $services
+     * @param  list<array{query: string, impressions: int}>  $queries
+     * @return list<array<string, mixed>>
+     */
+    private function withKeywords(array $services, array $queries, Brand $brand, string $host): array
+    {
+        $brandTokens = array_values(array_filter(SeoText::tokens((string) $brand->name), static fn (string $t): bool => mb_strlen($t) >= 3));
+        $domainRoot = str_replace(' ', '', SeoText::fold(BrandSetupMatcher::domainRoot($host)));
+        $phrases = [];
+        foreach ($services as $index => $service) {
+            foreach (array_merge([$service['name']], $service['aliases'] ?? []) as $phrase) {
+                $phrases[] = [$index, (string) $phrase, mb_strlen((string) $phrase)];
+            }
+        }
+        usort($phrases, static fn (array $a, array $b): int => $b[2] <=> $a[2]);
+
+        $keywords = [];
+        foreach ($queries as $row) {
+            $text = $this->withoutLocation($row['query']);
+            if ($text === null) {
+                continue;
+            }
+            $tokens = SeoText::tokens($text);
+            $compact = str_replace(' ', '', SeoText::fold($text));
+            if (($domainRoot !== '' && str_contains($compact, $domainRoot))
+                || ($brandTokens !== [] && count(array_intersect($tokens, $brandTokens)) >= min(2, count($brandTokens)))) {
+                continue; // branded
+            }
+            foreach ($phrases as [$index, $phrase]) {
+                if (SeoText::containsPhrase($text, $phrase)) {
+                    $key = SeoText::fold($text);
+                    $keywords[$index][$key] ??= ['query' => $text, 'impressions' => 0];
+                    $keywords[$index][$key]['impressions'] += (int) $row['impressions'];
+                    break;
+                }
+            }
+        }
+        foreach ($services as $index => &$service) {
+            $list = array_values($keywords[$index] ?? []);
+            usort($list, static fn (array $a, array $b): int => $b['impressions'] <=> $a['impressions']);
+            $service['keywords'] = array_slice($list, 0, 30);
+        }
+        unset($service);
+
+        return $services;
+    }
+
+    /**
+     * Locations the site's search queries mention, split by the brand's service areas.
+     *
+     * @param  list<array{query: string, impressions: int}>  $queries
+     * @param  list<array<string, mixed>>  $areas
+     * @return array<string, mixed>
+     */
+    private function locationReport(array $queries, array $areas): array
+    {
+        $buckets = ['in_area' => [], 'out_of_area' => [], 'mentioned' => []];
+        foreach ($queries as $row) {
+            $result = LocationOptions::classify($row['query'], $areas);
+            $groups = $areas === [] ? ['mentioned' => $result['removed']] : ['in_area' => $result['in_area'], 'out_of_area' => $result['out_of_area']];
+            foreach ($groups as $group => $names) {
+                foreach ($names as $name) {
+                    $buckets[$group][$name] ??= ['name' => $name, 'impressions' => 0, 'queries' => []];
+                    $buckets[$group][$name]['impressions'] += (int) $row['impressions'];
+                    if (count($buckets[$group][$name]['queries']) < 3) {
+                        $buckets[$group][$name]['queries'][] = $row['query'];
+                    }
+                }
+            }
+        }
+        $top = static function (array $rows, int $limit): array {
+            usort($rows, static fn (array $a, array $b): int => $b['impressions'] <=> $a['impressions']);
+
+            return array_slice(array_values($rows), 0, $limit);
+        };
+
+        return [
+            'has_areas' => $areas !== [],
+            'areas' => array_map(static fn (array $a): string => implode(', ', array_filter([$a['district_name'] ?? null, $a['city_name'] ?? null, $a['country_code'] ?? null])), $areas),
+            'in_area' => $top($buckets['in_area'], 5),
+            'out_of_area' => $top($buckets['out_of_area'], 8),
+            'mentioned' => $top($buckets['mentioned'], 5),
         ];
     }
 
@@ -240,7 +357,7 @@ final class BrandSetupServiceSuggester
             ->selectRaw('query, sum(impressions) as impressions')
             ->groupBy('query')
             ->orderByDesc('impressions')
-            ->limit(150)
+            ->limit(500)
             ->get()
             ->map(static fn (object $row): array => ['query' => (string) $row->query, 'impressions' => (int) $row->impressions])
             ->all();

@@ -4,6 +4,7 @@ namespace App\Services\SeoTasks;
 
 use App\Enums\SeoTaskType;
 use App\Models\ServicePageAssignment;
+use App\Support\Options\LocationOptions;
 
 /**
  * Step B — deterministic rules. No LLM, no I/O. Input comes from SeoPlanInputCollector.
@@ -31,6 +32,7 @@ final class SeoTaskRuleEngine
         array_push($tasks, ...$this->strengthenTasks($input, $pages, $offerings, $offeringQueries, $queryIndex, $assignmentsByOffering));
         array_push($tasks, ...$this->createTasks($input, $pages, $offerings, $offeringQueries, $queryIndex, $assignmentsByOffering, $assignmentResult['pending']));
         array_push($tasks, ...$this->aiVisibilityTasks($input, $pages, $offerings, $assignmentsByOffering));
+        array_push($tasks, ...$this->outOfAreaTasks($input, $queryIndex));
 
         $tasks = $this->applyQuotas($tasks);
 
@@ -649,11 +651,17 @@ final class SeoTaskRuleEngine
 
         $buckets = []; // key => bucket
         $usedQueries = [];
+        $areaRows = $input['service_area_rows'] ?? [];
 
         // 1) GSC queries with demand but no page in the top N → grouped by offering × intent.
         foreach ($offerings as $offering) {
             foreach ($offeringQueries[$offering['id']] ?? [] as $queryKey) {
                 $entry = $queryIndex[$queryKey];
+                // A place outside the brand's service areas ("… ankara" for an Istanbul brand) is not a content target.
+                $places = $areaRows !== [] ? LocationOptions::classify($entry['query'], $areaRows) : null;
+                if ($places !== null && $places['out_of_area'] !== [] && $places['in_area'] === []) {
+                    continue;
+                }
                 if ($entry['impressions'] < $minImpr) {
                     continue;
                 }
@@ -677,6 +685,9 @@ final class SeoTaskRuleEngine
                     continue;
                 }
                 if ($this->anyPageCovers($pageTexts, $text)) {
+                    continue;
+                }
+                if ($areaRows !== [] && ($places = LocationOptions::classify($text, $areaRows))['out_of_area'] !== [] && $places['in_area'] === []) {
                     continue;
                 }
                 $intent = $this->intent($text, $areas);
@@ -791,6 +802,65 @@ final class SeoTaskRuleEngine
         }
 
         return $tasks;
+    }
+
+    /**
+     * One decision card per site when search demand arrives for places outside the brand's service
+     * areas: either the brand serves there too (add the area → location pages follow) or it does not
+     * (skip → these queries stay out of content suggestions). New places produce a new card.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function outOfAreaTasks(array $input, array $queryIndex): array
+    {
+        $areaRows = $input['service_area_rows'] ?? [];
+        if ($areaRows === []) {
+            return [];
+        }
+        $places = [];
+        foreach ($queryIndex as $entry) {
+            $result = LocationOptions::classify($entry['query'], $areaRows);
+            if ($result['out_of_area'] === [] || $result['in_area'] !== []) {
+                continue;
+            }
+            foreach ($result['out_of_area'] as $name) {
+                $places[$name] ??= ['name' => $name, 'impressions' => 0, 'clicks' => 0, 'queries' => []];
+                $places[$name]['impressions'] += (int) $entry['impressions'];
+                $places[$name]['clicks'] += (int) $entry['clicks'];
+                $places[$name]['queries'][] = ['query' => $entry['query'], 'impressions' => (int) $entry['impressions']];
+            }
+        }
+        $minImpr = SeoTaskConfig::int('locations.out_of_area_min_impressions', 50);
+        $places = array_values(array_filter($places, static fn (array $p): bool => $p['impressions'] >= $minImpr));
+        if ($places === []) {
+            return [];
+        }
+        usort($places, static fn (array $a, array $b): int => $b['impressions'] <=> $a['impressions']);
+        $places = array_slice($places, 0, 8);
+        foreach ($places as &$place) {
+            usort($place['queries'], static fn (array $a, array $b): int => $b['impressions'] <=> $a['impressions']);
+            $place['queries'] = array_slice($place['queries'], 0, 5);
+        }
+        unset($place);
+        $names = array_column($places, 'name');
+        $keyNames = $names;
+        sort($keyNames);
+        $areaLabels = array_map(static fn (array $a): string => implode(', ', array_filter([$a['district_name'] ?? null, $a['city_name'] ?? null])) ?: (string) ($a['country_code'] ?? ''), $areaRows);
+
+        return [$this->task(
+            type: SeoTaskType::Question,
+            ruleId: 'out-of-area-demand',
+            keyParts: array_map(static fn (string $n): string => SeoText::fold($n), $keyNames),
+            severity: 'medium',
+            score: 900,
+            title: sprintf('Hizmet bölgesi dışındaki aramalar: %s', implode(', ', array_slice($names, 0, 3))),
+            reason: sprintf('Marka %s için tanımlı, ama site bu konumlarla yapılan aramalarda da görünüyor (%s gösterim/90 gün). Bu aramalar içerik önerilerine alınmadı.', implode(' · ', array_unique($areaLabels)), number_format(array_sum(array_column($places, 'impressions')))),
+            evidence: ['locations' => $places, 'areas' => array_values(array_unique($areaLabels)), 'brand_id' => $input['site']['brand_id'] ?? null],
+            checklist: [
+                'Bu konumlara da hizmet veriyorsan markanın "Hizmet verdiği yerler" alanına ekle; sonraki planda bölge sayfası önerileri bu aramalarla gelir.',
+                'Hizmet vermiyorsan "Hizmet vermiyorum" de; bu konumlar tekrar sorulmaz.',
+            ],
+        )];
     }
 
     /** @return array{type: string, location: string, location_label?: string} */
