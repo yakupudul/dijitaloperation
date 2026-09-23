@@ -6,6 +6,7 @@ use App\Enums\SeoTaskStatus;
 use App\Enums\SeoTaskType;
 use App\Models\Brand;
 use App\Models\BrandOffering;
+use App\Models\SearchDemandCompetitor;
 use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
 use App\Models\SeoTask;
@@ -100,6 +101,9 @@ final class BrandWorkspaceReadService
             'detail' => $services === [] ? 'Önce hizmet ekle.' : ($withoutMatching === 0 ? 'Her hizmette var.' : $withoutMatching.' hizmette yok; sorgular bu hizmetlere otomatik atanmaz.')];
         $items[] = ['key' => 'areas', 'label' => 'Hizmet verdiği yerler', 'done' => $areas > 0, 'required' => true,
             'detail' => $areas > 0 ? $areas.' bölge' : 'Tanımlı değil; bölge dışı aramalar ayrılamaz.'];
+        $competitors = SearchDemandCompetitor::query()->where('brand_id', $brand->id)->where('status', 'approved')->count();
+        $items[] = ['key' => 'competitors', 'label' => 'Rakipler', 'done' => $competitors >= 3, 'required' => false,
+            'detail' => $competitors > 0 ? $competitors.' onaylı rakip (İşletme sekmesi)' : 'Rakip yok; İşletme sekmesinden öneriler eklenebilir.'];
 
         $required = array_filter($items, static fn (array $i): bool => $i['required']);
 
