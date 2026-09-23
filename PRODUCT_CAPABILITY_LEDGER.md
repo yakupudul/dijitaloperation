@@ -1,5 +1,13 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-09-23 (i) — SEO Görevleri: page redesign and visible plan rebuild
+
+**State:** CODED + PHPUnit (`SeoPlanRunTest` global panel assertions). Full Feature suite: no new failures. Live UAT not run.
+
+- /seo-tasks opens with a "Haftalık plan" bar: schedule, last build, live "N site için plan kuruluyor" (5 s polling while plans run), primary "Tüm planları yenile" and a 3-step "Planı yenile ne yapar?" explainer.
+- Site table lists every active website (customer filter applied) with plan state (Kuyrukta / Kuruluyor / Başarısız + error / last build), content progress, critical fixes, a per-row "Yenile" (`refreshSite`) and row click = site filter.
+- Task list: type tabs with counts and a one-line meaning, filters in one toolbar (+ "Filtreleri temizle"), ranked cards with a type colour accent, clamped reason, explicit "Brief ve adımlar" toggle. Setup cards grouped under "Önce bunları yanıtla".
+
 ## 2026-09-23 (h) — SEO Görevleri: false positives from the first Faz 2 review
 
 **State:** CODED + PHPUnit (`SeoTaskRuleEngineTest` regression test). Full Feature suite: no new failures. Live UAT not run.

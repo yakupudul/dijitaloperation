@@ -153,6 +153,19 @@ final class SeoPlanRunTest extends TestCase
         $this->get(route('operator.seo_tasks'))->assertOk()->assertSee('SEO Görevleri');
         Livewire::test(SeoTasksIndex::class)->assertOk();
 
+        // Global page: visible rebuild controls, site table with plan state, per-site rebuild.
+        Livewire::test(SeoTasksPanel::class)
+            ->assertSee('Tüm planları yenile')
+            ->assertSee('Planı yenile ne yapar?')
+            ->assertSee('Siteler')
+            ->assertSee($website->domain)
+            ->set('typeFilter', 'fix')
+            ->call('clearFilters')
+            ->assertSet('typeFilter', '')
+            ->call('refreshSite', $website->id)
+            ->assertSee('için plan #');
+        $this->assertSame(2, SeoPlan::query()->where('digital_asset_id', $website->id)->count(), 'one plan from setup, one from the row button');
+
         Livewire::test(SeoTasksPanel::class)
             ->assertSee($create->title)
             ->call('toggle', $create->id)

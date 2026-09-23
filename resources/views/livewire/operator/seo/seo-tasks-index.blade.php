@@ -2,7 +2,7 @@
     @include('livewire.demo.partials.workspace-header', [
         'eyebrow' => __('operator.nav.groups.operations'),
         'title' => 'SEO Görevleri',
-        'subtitle' => 'Her hafta hangi sitede ne yazılacağı, neyin düzeltileceği ve hangi sayfanın güçlendirileceği. Etkiye göre sıralı; her görevde kanıt, yapılacaklar ve yazara verilecek brief var.',
+        'subtitle' => 'Bu hafta hangi sitede ne yazılacak, ne düzeltilecek, hangi sayfa güçlendirilecek. Her görevde kanıt, adımlar ve yazara verilecek brief hazır.',
     ])
 
     <livewire:operator.seo.seo-tasks-panel :key="'seo-tasks-global'" />

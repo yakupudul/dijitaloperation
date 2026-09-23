@@ -15,6 +15,7 @@ use App\Support\Permissions;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
@@ -68,6 +69,15 @@ final class SeoTasksPanel extends Component
         if (in_array($property, ['customerFilter', 'siteFilter', 'typeFilter', 'statusFilter'], true)) {
             $this->resetPage();
         }
+    }
+
+    public function clearFilters(): void
+    {
+        $this->customerFilter = '';
+        $this->siteFilter = $this->websiteId !== null ? (string) $this->websiteId : '';
+        $this->typeFilter = '';
+        $this->statusFilter = 'open';
+        $this->resetPage();
     }
 
     public function toggle(int $id): void
@@ -235,7 +245,21 @@ final class SeoTasksPanel extends Component
     public function refreshAll(SeoPlanRunner $runner): void
     {
         $plans = $runner->queueAll(auth()->user(), onlyConnected: false, trigger: 'bulk');
-        $this->flash(sprintf('%d site için plan kuyruğa alındı.', $plans->count()));
+        $this->flash(sprintf('%d site için plan kuruluyor. Her site 1–3 dakika sürer; durum aşağıdaki tabloda canlı güncellenir.', $plans->count()));
+    }
+
+    /** Global list: rebuild one site's plan from its row in the site table. */
+    public function refreshSite(int $assetId, SeoPlanRunner $runner): void
+    {
+        $site = DigitalAsset::query()->where('type', 'website')->findOrFail($assetId);
+        try {
+            $plan = $runner->queue($site, auth()->user(), 'manual');
+        } catch (ValidationException $exception) {
+            $this->flash(implode(' ', $exception->validator->errors()->all()), 'error');
+
+            return;
+        }
+        $this->flash(sprintf('%s için plan #%d kuruluyor.', $site->domain ?: $site->name, $plan->version));
     }
 
     public function render(): View
@@ -257,44 +281,17 @@ final class SeoTasksPanel extends Component
         $setupTasks = $openInScope->filter(fn (SeoTask $task): bool => $task->type === SeoTaskType::Question)->values();
         $pendingMappings = $setupTasks->where('rule_id', 'service-page-mapping')->sum(fn (SeoTask $task): int => max(1, count($task->evidence['services'] ?? [])));
 
-        $siteIds = $openInScope->pluck('digital_asset_id')->unique()->values();
-        $lastPlans = SeoPlan::query()
-            ->whereIn('digital_asset_id', $siteIds)
-            ->where('status', SeoPlan::STATUS_COMPLETED)
-            ->orderByDesc('id')
-            ->get(['id', 'digital_asset_id', 'completed_at', 'summary_text', 'input_summary'])
-            ->unique('digital_asset_id')
-            ->keyBy('digital_asset_id');
         $weeklyTarget = (int) config('moxdop-seo-tasks.create.min_per_site', 4);
+        $board = $this->websiteId === null ? $this->siteBoard($openInScope, $weeklyTarget) : collect();
+        $siteCount = $this->websiteId !== null ? 1 : max(1, $board->count());
 
         $kpis = [
             'content' => $counts[SeoTaskType::Create->value] ?? 0,
-            'content_target' => $weeklyTarget * max(1, $siteIds->count()),
+            'content_target' => $weeklyTarget * $siteCount,
             'extra_clicks' => (int) round($openInScope->filter(fn (SeoTask $task): bool => in_array($task->type, [SeoTaskType::Create, SeoTaskType::Strengthen], true))->sum('estimated_extra_clicks')),
             'critical_fixes' => $openInScope->filter(fn (SeoTask $task): bool => $task->type === SeoTaskType::Fix && in_array($task->severity, ['critical', 'high'], true))->count(),
             'pending_mappings' => $pendingMappings,
         ];
-
-        $siteOverview = $this->websiteId !== null ? collect() : $openInScope
-            ->groupBy('digital_asset_id')
-            ->map(function ($rows, $assetId) use ($lastPlans, $weeklyTarget): array {
-                $first = $rows->first();
-
-                return [
-                    'id' => (int) $assetId,
-                    'domain' => $first->digitalAsset?->domain ?: $first->digitalAsset?->name,
-                    'open' => $rows->where('type', '!=', SeoTaskType::Question)->count(),
-                    'content' => $rows->where('type', SeoTaskType::Create)->count(),
-                    'target' => $weeklyTarget,
-                    'critical' => $rows->filter(fn (SeoTask $task): bool => $task->type === SeoTaskType::Fix && in_array($task->severity, ['critical', 'high'], true))->count(),
-                    'mappings' => $rows->where('type', SeoTaskType::Question)->where('rule_id', 'service-page-mapping')->sum(fn (SeoTask $task): int => max(1, count($task->evidence['services'] ?? []))),
-                    'clicks' => (int) round($rows->sum('estimated_extra_clicks')),
-                    'last_plan_at' => $lastPlans->get($assetId)?->completed_at,
-                    'gsc' => data_get($lastPlans->get($assetId)?->input_summary, 'gsc.available'),
-                ];
-            })
-            ->sortByDesc('clicks')
-            ->values();
 
         return view('livewire.operator.seo.seo-tasks-panel', [
             'tasks' => $tasks,
@@ -304,7 +301,9 @@ final class SeoTasksPanel extends Component
             'counts' => $counts,
             'kpis' => $kpis,
             'setupTasks' => $setupTasks,
-            'siteOverview' => $siteOverview,
+            'siteOverview' => $board,
+            'plansPending' => $board->whereIn('plan_status', [SeoPlan::STATUS_QUEUED, SeoPlan::STATUS_RUNNING])->count(),
+            'lastPlanAt' => $board->pluck('last_plan_at')->filter()->max(),
             'customers' => $this->websiteId === null ? Customer::query()->orderBy('name')->get(['id', 'name']) : collect(),
             'sites' => $this->websiteId === null ? $this->siteOptions() : collect(),
             'types' => SeoTaskType::cases(),
@@ -343,6 +342,55 @@ final class SeoTasksPanel extends Component
         }
 
         return $query->orderByDesc('priority_score')->orderBy('id');
+    }
+
+    /**
+     * Global site table: every active website (customer filter applied) with its latest plan state
+     * and open work, so the operator sees what is being rebuilt and what each site needs.
+     *
+     * @param  Collection<int, SeoTask>  $openInScope
+     * @return SupportCollection<int, array<string, mixed>>
+     */
+    private function siteBoard(Collection $openInScope, int $weeklyTarget): SupportCollection
+    {
+        $sites = DigitalAsset::query()
+            ->with('brand')
+            ->where('type', 'website')
+            ->where('status', 'active')
+            ->whereNotNull('brand_id')
+            ->when(ctype_digit($this->customerFilter), fn (Builder $query) => $query->whereHas('brand', fn (Builder $brand) => $brand->where('customer_id', (int) $this->customerFilter)))
+            ->get(['id', 'brand_id', 'domain', 'name']);
+        $plans = SeoPlan::query()
+            ->whereIn('digital_asset_id', $sites->pluck('id'))
+            ->orderByDesc('id')
+            ->get(['id', 'digital_asset_id', 'status', 'version', 'completed_at', 'created_at', 'error_summary', 'input_summary']);
+        $latest = $plans->unique('digital_asset_id')->keyBy('digital_asset_id');
+        $completed = $plans->where('status', SeoPlan::STATUS_COMPLETED)->unique('digital_asset_id')->keyBy('digital_asset_id');
+        $tasksBySite = $openInScope->groupBy('digital_asset_id');
+
+        return $sites->map(function (DigitalAsset $site) use ($latest, $completed, $tasksBySite, $weeklyTarget): array {
+            $rows = $tasksBySite->get($site->id, collect());
+            $plan = $latest->get($site->id);
+            $done = $completed->get($site->id);
+
+            return [
+                'id' => $site->id,
+                'domain' => $site->domain ?: $site->name,
+                'brand' => $site->brand?->name,
+                'open' => $rows->where('type', '!=', SeoTaskType::Question)->count(),
+                'content' => $rows->where('type', SeoTaskType::Create)->count(),
+                'target' => $weeklyTarget,
+                'critical' => $rows->filter(fn (SeoTask $task): bool => $task->type === SeoTaskType::Fix && in_array($task->severity, ['critical', 'high'], true))->count(),
+                'mappings' => $rows->where('type', SeoTaskType::Question)->where('rule_id', 'service-page-mapping')->sum(fn (SeoTask $task): int => max(1, count($task->evidence['services'] ?? []))),
+                'clicks' => (int) round($rows->sum('estimated_extra_clicks')),
+                'plan_status' => $plan?->status,
+                'plan_error' => $plan?->status === SeoPlan::STATUS_FAILED ? $plan->error_summary : null,
+                'last_plan_at' => $done?->completed_at,
+                'gsc' => data_get($done?->input_summary, 'gsc.available'),
+            ];
+        })
+            ->sortBy([['clicks', 'desc'], ['open', 'desc']])
+            ->values();
     }
 
     /** @return Collection<int, DigitalAsset> */
