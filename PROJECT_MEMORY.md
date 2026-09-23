@@ -1,5 +1,9 @@
 # PROJECT_MEMORY
 
+## 2026-09-26 (b) — Strategy & roadmap agreed with the owner
+
+- Canonical roadmap: `docs/product/MOXDOP_STRATEGY_ROADMAP.md` (principles: algorithms run / AI on click, gold data kept forever, passive customer stops all flow, AI outputs archived, agency-internal cross-brand brain, health-sector compliance). Phases 0–9; read it before planning new work.
+
 ## 2026-09-26 — Digital asset pages Faz D (analytics + alerts)
 
 - Alerts are a separate lifecycle from advisor items: time-sensitive, detected daily from collected data, auto-resolved; thresholds in `config/moxdop-alerts.php`. Advisor items stay the weekly "what to improve" list.
