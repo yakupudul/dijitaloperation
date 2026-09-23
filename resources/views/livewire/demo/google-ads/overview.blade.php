@@ -26,8 +26,8 @@
     $strategyLine = (string) ($identity['strategy_line'] ?? '');
     if ($providerConnected && str_contains(strtolower($strategyLine), 'not connected')) {
         $strategyLine = $isTr
-            ? 'Google Ads hesabı bağlı. Ana veri katmanının bir bölümü okunamadığında mevcut sağlayıcı verisi korunur.'
-            : 'Google Ads account is connected. Existing provider data remains available if part of the main read layer fails.';
+            ? 'Google Ads hesabı bağlı. Verinin bir bölümü okunamadığında daha önce alınmış Google verisi korunur.'
+            : 'Google Ads account is connected. Existing Google data remains available if part of the main read layer fails.';
     }
     if ($isTr && preg_match('/^Runs ads for\s*·\s*(.+)$/iu', $strategyLine, $matches) === 1) {
         $strategyLine = 'Reklam hesabı · '.trim((string) ($matches[1] ?? ''));
@@ -41,7 +41,6 @@
         ['key' => 'budget_bidding', 'label' => $isTr ? 'Bütçe & Teklif' : 'Budget & Bidding', 'wire' => true],
         ['key' => 'measurement', 'label' => $isTr ? 'Dönüşümler' : 'Conversions', 'wire' => true],
         ['key' => 'landing_pages', 'label' => $isTr ? 'Açılış Sayfaları' : 'Landing pages', 'wire' => true],
-        ['key' => 'optimization', 'label' => $isTr ? 'Optimizasyon' : 'Optimization', 'wire' => true],
         ['key' => 'changes', 'label' => $isTr ? 'Değişiklikler' : 'Changes', 'wire' => true],
         ['key' => 'data_connection', 'label' => $isTr ? 'Veri & Bağlantı' : 'Data & Connection', 'wire' => true],
     ];
@@ -114,29 +113,26 @@
 
     @if (! empty($professional['error']))
         <div class="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-inset ring-amber-200 dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-500/20">
-            <strong>{{ $isTr ? 'Sağlayıcı veri katmanında geçici okuma sorunu.' : 'Temporary provider data read issue.' }}</strong>
-            {{ $isTr ? 'Hesap bağlantısı korunuyor; Veri & Bağlantı sekmesinden veri seti durumunu kontrol edebilirsiniz.' : 'The account remains connected; inspect dataset state under Data & Connection.' }}
+            <strong>{{ $isTr ? 'Google verisi okunurken geçici bir sorun oluştu.' : 'Temporary Google data read issue.' }}</strong>
+            {{ $isTr ? 'Hesap bağlantısı korunuyor; Veri & Bağlantı sekmesinden veri setlerinin durumunu kontrol edebilirsiniz.' : 'The account remains connected; inspect dataset state under Data & Connection.' }}
         </div>
     @endif
 
     @if ($effectiveTab === 'overview')
-        @include('livewire.demo.google-ads.tabs.professional-summary')
         @include('livewire.demo.google-ads.tabs.overview')
     @elseif ($effectiveTab === 'advisor')
         @if (ctype_digit((string) $this->assetId))
             <livewire:operator.advisor.advisor-panel :asset-id="(int) $this->assetId" :key="'google-ads-advisor-'.$this->assetId" />
         @else
-            <p class="rounded-xl border border-gray-200 p-5 text-sm text-gray-500 dark:border-gray-800">Danışman yalnızca bağlı gerçek hesaplarda çalışır.</p>
+            <p class="rounded-xl border border-gray-200 p-5 text-sm text-gray-500 dark:border-gray-800">{{ $isTr ? 'Danışman yalnızca bağlı gerçek hesaplarda çalışır.' : 'The Advisor only runs on connected real accounts.' }}</p>
         @endif
+        <div class="mt-6">
+            @include('livewire.demo.google-ads.tabs.google-recommendations')
+        </div>
     @elseif ($effectiveTab === 'campaigns')
         @include('livewire.demo.google-ads.tabs.campaigns')
     @elseif ($effectiveTab === 'search_demand')
-        @if ($searchExpertWorkspace ?? false)
-            @include('livewire.demo.google-ads.tabs.search-expert-live')
-        @else
-            @include('livewire.demo.google-ads.tabs.search-demand')
-            @include('livewire.demo.google-ads.tabs.search-negatives')
-        @endif
+        @include('livewire.demo.google-ads.tabs.search-expert-live')
     @elseif ($effectiveTab === 'performance')
         @include('livewire.demo.google-ads.tabs.performance')
     @elseif ($effectiveTab === 'budget_bidding')
@@ -145,8 +141,6 @@
         @include('livewire.demo.google-ads.tabs.measurement')
     @elseif ($effectiveTab === 'landing_pages')
         @include('livewire.demo.google-ads.tabs.landing-pages')
-    @elseif ($effectiveTab === 'optimization')
-        @include('livewire.demo.google-ads.tabs.optimization')
     @elseif ($effectiveTab === 'changes')
         @include('livewire.demo.google-ads.tabs.changes')
     @elseif ($effectiveTab === 'data_connection')

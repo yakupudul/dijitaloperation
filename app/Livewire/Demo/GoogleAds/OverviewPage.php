@@ -51,40 +51,16 @@ class OverviewPage extends Component
     public string $search_sub = 'terms';
 
     #[Url]
-    public string $ops = 'findings';
-
-    #[Url]
-    public string $campaign_filter = 'all';
-
-    #[Url]
     public string $intent_filter = 'all';
 
     #[Url]
-    public string $fit_filter = 'all';
-
-    #[Url]
     public string $decision_filter = 'all';
-
-    #[Url]
-    public string $classificationFilter = 'all';
 
     #[Url]
     public ?string $campaign = null;
 
     #[Url]
     public ?string $cluster = null;
-
-    #[Url]
-    public ?string $ad = null;
-
-    #[Url]
-    public ?string $landing = null;
-
-    #[Url]
-    public ?string $finding = null;
-
-    #[Url]
-    public ?string $attention = null;
 
     /** @var list<string> */
     public array $allowedTabs = [
@@ -96,7 +72,6 @@ class OverviewPage extends Component
         'budget_bidding',
         'measurement',
         'landing_pages',
-        'optimization',
         'changes',
         'data_connection',
         'pmax',
@@ -112,7 +87,8 @@ class OverviewPage extends Component
         'ads' => 'campaigns',
         'conversions' => 'measurement',
         'insights' => 'overview',
-        'operations' => 'optimization',
+        'operations' => 'advisor',
+        'optimization' => 'advisor',
     ];
 
     public function mount(?string $assetId = null): void
@@ -120,12 +96,6 @@ class OverviewPage extends Component
         $this->bindCanonicalAsset($assetId, ['google_ads']);
         $this->mountPeriod();
         $this->normalizeTab();
-
-        $stored = DemoState::getFilter('gads_classification');
-        if (is_string($stored) && $stored !== '') {
-            $this->classificationFilter = $stored;
-            $this->decision_filter = $this->mapLegacyClassification($stored);
-        }
     }
 
     public function setTab(string $tab): void
@@ -148,7 +118,6 @@ class OverviewPage extends Component
         $this->campaign_sub = $sub;
         $this->tab = 'campaigns';
         $this->campaign = null;
-        $this->ad = null;
     }
 
     public function resetEntityFilters(): void
@@ -168,33 +137,12 @@ class OverviewPage extends Component
         }
     }
 
-    public function setOps(string $ops): void
-    {
-        if (in_array($ops, ['findings', 'recommendations', 'tasks', 'outcomes'], true)) {
-            $this->ops = $ops;
-            $this->tab = 'optimization';
-        }
-    }
-
-    public function setClassificationFilter(string $classification): void
-    {
-        $this->classificationFilter = $classification;
-        DemoState::setFilter('gads_classification', $classification === 'all' ? null : $classification);
-        $this->decision_filter = $this->mapLegacyClassification($classification);
-        $this->tab = 'search_demand';
-        $this->search_sub = 'terms';
-    }
-
     public function openCampaign(string $id): void
     {
         $this->campaign = $id;
         $this->tab = 'campaigns';
         $this->campaign_sub = 'campaigns';
         $this->cluster = null;
-        $this->ad = null;
-        $this->landing = null;
-        $this->finding = null;
-        $this->attention = null;
     }
 
     public function openCluster(string $id): void
@@ -204,39 +152,10 @@ class OverviewPage extends Component
         $this->search_sub = 'inbox';
     }
 
-    public function openAd(string $id): void
-    {
-        $this->ad = $id;
-        $this->tab = 'campaigns';
-        $this->campaign_sub = 'ads';
-    }
-
-    public function openLanding(string $id): void
-    {
-        $this->landing = $id;
-        $this->tab = 'landing_pages';
-    }
-
-    public function openFinding(string $id): void
-    {
-        $this->finding = $id;
-        $this->ops = 'findings';
-        $this->tab = 'optimization';
-    }
-
-    public function openAttention(string $id): void
-    {
-        $this->attention = $id;
-    }
-
     public function closeDrawers(): void
     {
         $this->campaign = null;
         $this->cluster = null;
-        $this->ad = null;
-        $this->landing = null;
-        $this->finding = null;
-        $this->attention = null;
     }
 
     public function refreshData(): void
@@ -295,8 +214,7 @@ class OverviewPage extends Component
                 : 'Internal Recommendation drafted for Decision Inbox  No Google Ads write was made.',
             'info',
         );
-        $this->ops = 'recommendations';
-        $this->tab = 'optimization';
+        $this->tab = 'advisor';
     }
 
     protected function normalizeTab(): void
@@ -328,17 +246,6 @@ class OverviewPage extends Component
         }
     }
 
-    protected function mapLegacyClassification(string $classification): string
-    {
-        return match (strtolower($classification)) {
-            'negative candidate', 'irrelevant' => 'Negative candidate',
-            'keep', 'brand' => 'None',
-            'review' => 'Strategy review',
-            'competitor' => 'Negative candidate',
-            default => $classification === 'all' ? 'all' : $classification,
-        };
-    }
-
     public function render(): View
     {
         $this->normalizeTab();
@@ -359,29 +266,13 @@ class OverviewPage extends Component
         );
 
         $campaigns = collect($data['campaigns'] ?? []);
-        if ($this->campaign_filter === 'attention') {
-            $campaigns = $campaigns->filter(fn (array $c): bool => filled($c['attention_primary'] ?? null));
-        } elseif ($this->campaign_filter === 'budget') {
-            $campaigns = $campaigns->filter(fn (array $c): bool => in_array($c['pacing'] ?? null, ['Ahead', 'Behind', 'Constrained'], true));
-        }
 
         $terms = collect($data['search']['terms'] ?? []);
         if ($this->intent_filter !== 'all') {
             $terms = $terms->where('intent', $this->intent_filter);
         }
-        if ($this->fit_filter !== 'all') {
-            $terms = $terms->where('fit', $this->fit_filter);
-        }
         if ($this->decision_filter !== 'all') {
             $terms = $terms->where('decision', $this->decision_filter);
-        }
-        if ($this->classificationFilter !== 'all') {
-            $legacyDecision = $this->mapLegacyClassification($this->classificationFilter);
-            if ($legacyDecision === 'None') {
-                $terms = $terms->whereIn('decision', ['None', 'Monitor']);
-            } elseif ($legacyDecision !== 'all') {
-                $terms = $terms->where('decision', $legacyDecision);
-            }
         }
 
         $selectedCampaign = $this->campaign
@@ -389,23 +280,6 @@ class OverviewPage extends Component
             : null;
         $selectedCluster = $this->cluster
             ? collect($data['search']['clusters'] ?? [])->firstWhere('id', $this->cluster)
-            : null;
-        $selectedAd = $this->ad
-            ? collect($data['ads']['rows'] ?? [])->firstWhere('id', $this->ad)
-            : null;
-        $selectedLanding = $this->landing
-            ? collect($data['landing_pages']['rows'] ?? [])->firstWhere('id', $this->landing)
-            : null;
-        $selectedFinding = null;
-        if ($this->finding) {
-            $selectedFinding = collect($data['operations']['findings'] ?? [])->firstWhere('id', $this->finding);
-            $detail = $data['operations']['finding_detail'][$this->finding] ?? null;
-            if ($selectedFinding && $detail) {
-                $selectedFinding = array_merge($selectedFinding, $detail);
-            }
-        }
-        $selectedAttention = $this->attention
-            ? collect($data['needs_attention'] ?? [])->firstWhere('id', $this->attention)
             : null;
 
         $trend = $data['performance_trend'] ?? ['labels' => [], 'spend' => [], 'leads' => []];
@@ -425,13 +299,9 @@ class OverviewPage extends Component
             'termRows' => $terms->values()->all(),
             'selectedCampaign' => $selectedCampaign,
             'selectedCluster' => $selectedCluster,
-            'selectedAd' => $selectedAd,
-            'selectedLanding' => $selectedLanding,
-            'selectedFinding' => $selectedFinding,
-            'selectedAttention' => $selectedAttention,
             'showPeriodBar' => in_array($this->tab, [
                 'overview', 'campaigns', 'search_demand', 'performance',
-                'budget_bidding', 'measurement', 'landing_pages', 'optimization', 'pmax', 'shopping', 'video',
+                'budget_bidding', 'measurement', 'landing_pages', 'advisor', 'pmax', 'shopping', 'video',
             ], true),
             'performanceChartOptions' => [
                 'chart' => ['type' => 'line', 'height' => 220, 'toolbar' => ['show' => false]],

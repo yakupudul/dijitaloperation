@@ -56,4 +56,44 @@ final class MetaAssetPageTest extends TestCase
         $this->assertSame(['Frekansı yüksek reklam setini yenile'], array_column($recommendations, 'title'));
         $page->assertSeeHtml('wire:click="runAnalysis"');
     }
+
+    public function test_old_meta_entity_pages_redirect_to_the_matching_tab(): void
+    {
+        $id = $this->asset->id;
+        $cases = [
+            ['operator.meta.campaigns', [], ['tab' => 'campaigns']],
+            ['operator.meta.campaign', ['campaignId' => '123'], ['tab' => 'campaigns']],
+            ['operator.meta.adsets', [], ['tab' => 'campaigns', 'level' => 'adsets']],
+            ['operator.meta.adset', ['adSetId' => '456'], ['tab' => 'campaigns', 'level' => 'adsets']],
+            ['operator.meta.ads', [], ['tab' => 'campaigns', 'level' => 'ads']],
+            ['operator.meta.ad', ['adId' => '789'], ['tab' => 'campaigns', 'level' => 'ads']],
+            ['operator.meta.creatives', [], ['tab' => 'creatives']],
+            ['operator.meta.breakdowns', [], ['tab' => 'audience']],
+            ['operator.meta.insights', [], ['tab' => 'overview']],
+        ];
+
+        foreach ($cases as [$name, $extra, $target]) {
+            $this->get(route($name, ['assetId' => $id] + $extra))
+                ->assertRedirect(route('operator.meta.overview', ['assetId' => (string) $id] + $target));
+        }
+    }
+
+    public function test_old_meta_entity_pages_reject_non_meta_assets(): void
+    {
+        $website = DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'website']);
+
+        $this->get(route('operator.meta.campaigns', ['assetId' => $website->id]))->assertNotFound();
+        $this->get(route('operator.meta.insights', ['assetId' => 'not-a-number']))->assertNotFound();
+    }
+
+    public function test_campaigns_tab_has_budget_column_and_meta_offers_no_year_over_year(): void
+    {
+        $page = Livewire::test(OverviewPage::class, ['assetId' => (string) $this->asset->id, 'tab' => 'campaigns']);
+
+        $page->assertSee('Budget')
+            ->assertDontSeeHtml("setCompareMode('yoy')");
+        $this->assertFalse($page->instance()->supportsYearOverYearComparison());
+
+        $page->call('setCompareMode', 'yoy')->assertSet('compareMode', 'previous');
+    }
 }

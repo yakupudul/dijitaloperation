@@ -3,17 +3,14 @@
 namespace App\Livewire\Operator\GoogleAds;
 
 use App\Livewire\Demo\GoogleAds\OverviewPage as LegacyOverviewPage;
-use App\Models\CoreExternalResource;
 use App\Models\DigitalAsset;
 use App\Models\GoogleAdsBudgetPlan;
 use App\Services\Async\AsyncOperationService;
-use App\Services\Collection\GoogleAds\GoogleAdsSearchRecoveryCollectionService;
 use App\Services\GoogleAds\GoogleAdsBudgetBiddingControlService;
 use App\Services\GoogleAds\GoogleAdsEntityHierarchyReconciler;
 use App\Services\GoogleAds\GoogleAdsSearchExpertWorkspaceService;
 use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
 use App\Services\GoogleAds\GoogleAdsWorkspaceTruthReconciler;
-use App\Services\GoogleAds\Support\GoogleAdsBindingMode;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
@@ -23,68 +20,35 @@ use Illuminate\Support\Facades\Schema;
 class OverviewPage extends LegacyOverviewPage
 {
     public string $search_query = '';
+
     public string $search_campaign = 'all';
+
     public string $search_ad_group = 'all';
+
     public string $search_source = 'all';
+
     public string $search_match = 'all';
+
     public string $keyword_status = 'all';
+
     public int $search_page = 1;
+
     public int $keyword_page = 1;
+
     public int $search_per_page = 100;
 
     public ?string $budget_plan_amount = null;
+
     public ?string $budget_target_cpa = null;
+
     public ?string $budget_target_roas = null;
+
     public ?string $budget_plan_notes = null;
 
     public function mount(?string $assetId = null): void
     {
         parent::mount($assetId);
         $this->loadBudgetPlanFields();
-    }
-
-    public function refreshData(): void
-    {
-        if ($this->tab !== 'search_demand') {
-            parent::refreshData();
-
-            return;
-        }
-
-        $binding = app(GoogleAdsSpecialistBindingResolver::class)->resolve($this->assetId);
-        if ($binding->mode !== GoogleAdsBindingMode::RealBound || $binding->externalResourceId === null) {
-            DemoState::flash(__('operator.flash.google_ads_refresh_unconfigured'), 'info');
-
-            return;
-        }
-
-        $resource = CoreExternalResource::query()
-            ->with('integration')
-            ->find($binding->externalResourceId);
-        if (! $resource instanceof CoreExternalResource || $resource->integration === null) {
-            DemoState::flash(__('operator.flash.google_ads_refresh_missing_asset'), 'warning');
-
-            return;
-        }
-
-        $start = $this->periodStart ?: now()->subDays(29)->toDateString();
-        $end = $this->periodEnd ?: now()->toDateString();
-
-        try {
-            $run = app(GoogleAdsSearchRecoveryCollectionService::class)->start(
-                $resource,
-                $start,
-                $end,
-                auth()->user(),
-            );
-
-            DemoState::flash(
-                'Google Ads Arama verisi onarımı başlatıldı · '.$start.' – '.$end.' · Run #'.$run->id.'.',
-                'success',
-            );
-        } catch (\Throwable $e) {
-            DemoState::flash('Google Ads Arama verisi onarımı başlatılamadı: '.$e->getMessage(), 'warning');
-        }
     }
 
     public function saveBudgetPlan(): void
@@ -268,8 +232,7 @@ class OverviewPage extends LegacyOverviewPage
     public function createRecommendation(?string $term = null): void
     {
         DemoState::flash(__('operator.flash.recommendation_requires_finding'), 'info');
-        $this->ops = 'recommendations';
-        $this->tab = 'optimization';
+        $this->tab = 'advisor';
     }
 
     public function markClusterReviewed(string $id): void
@@ -289,7 +252,6 @@ class OverviewPage extends LegacyOverviewPage
         $this->campaign_sub = $sub;
         $this->tab = 'campaigns';
         $this->campaign = null;
-        $this->ad = null;
         $this->entity_type = 'all';
 
         if ($sub !== 'ads') {
@@ -310,7 +272,6 @@ class OverviewPage extends LegacyOverviewPage
         $this->campaign_sub = 'ad_groups';
         $this->tab = 'campaigns';
         $this->campaign = null;
-        $this->ad = null;
     }
 
     public function render(): View
@@ -354,11 +315,6 @@ class OverviewPage extends LegacyOverviewPage
         }
 
         $campaigns = collect($data['campaigns'] ?? []);
-        if ($this->campaign_filter === 'attention') {
-            $campaigns = $campaigns->filter(fn (array $c): bool => filled($c['attention_primary'] ?? null));
-        } elseif ($this->campaign_filter === 'budget') {
-            $campaigns = $campaigns->filter(fn (array $c): bool => in_array($c['pacing'] ?? null, ['Ahead', 'Behind', 'Constrained'], true));
-        }
 
         $allTerms = collect($data['search']['terms'] ?? []);
         $terms = $this->filterTerms($allTerms);
@@ -384,9 +340,6 @@ class OverviewPage extends LegacyOverviewPage
         $selectedCluster = $this->cluster
             ? collect($data['search']['clusters'] ?? [])->firstWhere('id', $this->cluster)
             : null;
-        $selectedLanding = $this->landing
-            ? collect($data['landing_pages']['rows'] ?? [])->firstWhere('id', $this->landing)
-            : null;
 
         $trend = $data['performance_trend'] ?? ['labels' => [], 'spend' => [], 'leads' => []];
         $chart = is_array($payload['performanceChartOptions'] ?? null)
@@ -395,7 +348,7 @@ class OverviewPage extends LegacyOverviewPage
         $chart['series'] = [
             ['name' => 'Spend', 'data' => $trend['spend'] ?? []],
             [
-                'name' => ($data['migration_mode'] ?? '') === 'real' ? 'Provider conversions' : 'Primary conversions',
+                'name' => 'Google Ads conversions',
                 'data' => $trend['leads'] ?? [],
             ],
         ];
@@ -421,10 +374,8 @@ class OverviewPage extends LegacyOverviewPage
             'keywordRows' => $keywordRows->all(),
             'keywordRowsTotal' => $keywordTotal,
             'keywordRowsLastPage' => $keywordLastPage,
-            'searchExpertWorkspace' => true,
             'selectedCampaign' => $selectedCampaign,
             'selectedCluster' => $selectedCluster,
-            'selectedLanding' => $selectedLanding,
             'performanceChartOptions' => $chart,
             'budgetControl' => $budgetControl,
             'budgetPlanEditable' => true,
@@ -444,6 +395,7 @@ class OverviewPage extends LegacyOverviewPage
                     $row['matched_keyword'] ?? null,
                     $row['match_source'] ?? null,
                 ])));
+
                 return str_contains($haystack, $query);
             });
         }
@@ -486,6 +438,7 @@ class OverviewPage extends LegacyOverviewPage
                     $row['match'] ?? null,
                     $row['status'] ?? null,
                 ])));
+
                 return str_contains($haystack, $query);
             });
         }

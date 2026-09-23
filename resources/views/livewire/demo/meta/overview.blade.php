@@ -24,6 +24,16 @@
         default => $isTr ? 'Veri kontrolü gerekli' : 'Data check required',
     };
 
+    $healthText = static function (string $group, ?string $code, ?string $fallback = null): string {
+        if (! filled($code)) {
+            return $fallback ?? '—';
+        }
+        $key = 'operator_meta.health.'.$group.'.'.$code;
+        $text = __($key);
+
+        return $text !== $key ? $text : ($fallback ?? str_replace('_', ' ', (string) $code));
+    };
+
     $periodStartRaw = $professional['period_start'] ?? $data['period_start'] ?? null;
     $periodEndRaw = $professional['period_end'] ?? $data['period_end'] ?? null;
     $periodDisplay = '—';
@@ -67,7 +77,7 @@
                 <div class="mt-3 border-t border-gray-100 pt-3 dark:border-gray-800">
                     <p class="text-xs leading-5 text-gray-500 dark:text-gray-400">{{ $isTr ? (($health['usable'] ?? 0).' / '.($health['total'] ?? 0).' veri grubundan seçili dönem için kullanılabilir bilgi geliyor.') : (($health['usable'] ?? 0).' of '.($health['total'] ?? 0).' data groups are usable for the selected period.') }}</p>
                     @if (! empty($health['issues']))
-                        <details class="mt-3"><summary class="cursor-pointer text-[11px] font-semibold text-gray-400">{{ $isTr ? 'Uzman için teknik ayrıntılar' : 'Technical details for experts' }}</summary><div class="mt-2 space-y-2">@foreach (array_slice($health['issues'], 0, 8) as $issue)<div class="text-[11px] text-gray-500 dark:text-gray-400"><p class="font-semibold text-gray-700 dark:text-gray-300">{{ $issue['label'] }}</p><p class="font-mono text-[10px]">{{ $issue['freshness_state'] }} · {{ $issue['coverage_state'] }} · {{ $issue['integrity_status'] ?? '—' }}</p></div>@endforeach</div></details>
+                        <details class="mt-3"><summary class="cursor-pointer text-[11px] font-semibold text-gray-400">{{ $isTr ? 'Uzman için teknik ayrıntılar' : 'Technical details for experts' }}</summary><div class="mt-2 space-y-2">@foreach (array_slice($health['issues'], 0, 8) as $issue)<div class="text-[11px] text-gray-500 dark:text-gray-400"><p class="font-semibold text-gray-700 dark:text-gray-300">{{ $healthText('datasets', $issue['dataset_id'] ?? null, $issue['label'] ?? '—') }}</p><p class="text-[10px]">{{ __('operator_meta.health.freshness_label') }}: {{ $healthText('freshness', $issue['freshness_state'] ?? null) }} · {{ __('operator_meta.health.coverage_label') }}: {{ $healthText('coverage', $issue['coverage_state'] ?? null) }} · {{ __('operator_meta.health.integrity_label') }}: {{ $healthText('integrity', $issue['integrity_status'] ?? null) }}</p></div>@endforeach</div></details>
                     @endif
                 </div>
             </details>

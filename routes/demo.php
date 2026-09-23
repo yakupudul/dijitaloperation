@@ -3,6 +3,7 @@
 use App\Http\Controllers\Demo\OperatorFileDownloadController;
 use App\Http\Controllers\Integrations\WordPressConnectorDownloadController;
 use App\Http\Controllers\Operator\LegacyWorkRedirectController;
+use App\Http\Controllers\Operator\MetaLegacyPageRedirectController;
 use App\Http\Controllers\Operator\RetiredAssetTypeRedirectController;
 use App\Http\Controllers\Prospects\ProspectReportArtifactDownloadController;
 use App\Http\Middleware\EnsureDemoAppAccess;
@@ -17,15 +18,6 @@ use App\Livewire\Demo\Integrations\GoogleAdsConnectorPage;
 use App\Livewire\Demo\Integrations\GoogleIntegrationPage;
 use App\Livewire\Demo\Integrations\IntegrationsIndex;
 use App\Livewire\Demo\Integrations\MetaIntegrationPage;
-use App\Livewire\Demo\Meta\AdDetailPage;
-use App\Livewire\Demo\Meta\AdSetDetailPage;
-use App\Livewire\Demo\Meta\AdSetsPage;
-use App\Livewire\Demo\Meta\AdsPage;
-use App\Livewire\Demo\Meta\BreakdownsPage;
-use App\Livewire\Demo\Meta\CampaignDetailPage;
-use App\Livewire\Demo\Meta\CampaignsPage;
-use App\Livewire\Demo\Meta\CreativesPage;
-use App\Livewire\Demo\Meta\InsightsPage;
 use App\Livewire\Demo\Operations\ActivityIndex;
 use App\Livewire\Demo\Operations\FindingsIndex;
 use App\Livewire\Demo\Operations\OpportunitiesIndex;
@@ -138,15 +130,16 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/profile', ProfilePage::class)->name('operator.profile');
 
         Route::livewire('/assets/meta/{assetId?}', MetaOverviewPage::class)->name('operator.meta.overview');
-        Route::livewire('/assets/meta/{assetId}/campaigns', CampaignsPage::class)->name('operator.meta.campaigns');
-        Route::livewire('/assets/meta/{assetId}/campaigns/{campaignId}', CampaignDetailPage::class)->name('operator.meta.campaign');
-        Route::livewire('/assets/meta/{assetId}/adsets', AdSetsPage::class)->name('operator.meta.adsets');
-        Route::livewire('/assets/meta/{assetId}/adsets/{adSetId}', AdSetDetailPage::class)->name('operator.meta.adset');
-        Route::livewire('/assets/meta/{assetId}/ads', AdsPage::class)->name('operator.meta.ads');
-        Route::livewire('/assets/meta/{assetId}/ads/{adId}', AdDetailPage::class)->name('operator.meta.ad');
-        Route::livewire('/assets/meta/{assetId}/creatives', CreativesPage::class)->name('operator.meta.creatives');
-        Route::livewire('/assets/meta/{assetId}/breakdowns', BreakdownsPage::class)->name('operator.meta.breakdowns');
-        Route::livewire('/assets/meta/{assetId}/insights', InsightsPage::class)->name('operator.meta.insights');
+        // Old per-entity Meta pages: kept as named redirects into the matching asset-page tab.
+        Route::get('/assets/meta/{assetId}/campaigns', MetaLegacyPageRedirectController::class)->defaults('tab', 'campaigns')->name('operator.meta.campaigns');
+        Route::get('/assets/meta/{assetId}/campaigns/{campaignId}', MetaLegacyPageRedirectController::class)->defaults('tab', 'campaigns')->name('operator.meta.campaign');
+        Route::get('/assets/meta/{assetId}/adsets', MetaLegacyPageRedirectController::class)->defaults('tab', 'campaigns')->defaults('level', 'adsets')->name('operator.meta.adsets');
+        Route::get('/assets/meta/{assetId}/adsets/{adSetId}', MetaLegacyPageRedirectController::class)->defaults('tab', 'campaigns')->defaults('level', 'adsets')->name('operator.meta.adset');
+        Route::get('/assets/meta/{assetId}/ads', MetaLegacyPageRedirectController::class)->defaults('tab', 'campaigns')->defaults('level', 'ads')->name('operator.meta.ads');
+        Route::get('/assets/meta/{assetId}/ads/{adId}', MetaLegacyPageRedirectController::class)->defaults('tab', 'campaigns')->defaults('level', 'ads')->name('operator.meta.ad');
+        Route::get('/assets/meta/{assetId}/creatives', MetaLegacyPageRedirectController::class)->defaults('tab', 'creatives')->name('operator.meta.creatives');
+        Route::get('/assets/meta/{assetId}/breakdowns', MetaLegacyPageRedirectController::class)->defaults('tab', 'audience')->name('operator.meta.breakdowns');
+        Route::get('/assets/meta/{assetId}/insights', MetaLegacyPageRedirectController::class)->defaults('tab', 'overview')->name('operator.meta.insights');
 
         Route::livewire('/assets/google-ads/{assetId?}', GoogleAdsOverviewPage::class)->name('operator.google-ads.overview');
         Route::livewire('/assets/website/{assetId?}', WebsiteOverviewPage::class)->name('operator.website');

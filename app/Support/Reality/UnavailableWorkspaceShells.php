@@ -3,6 +3,9 @@
 namespace App\Support\Reality;
 
 use App\Models\DigitalAsset;
+use App\Models\Evidence;
+use App\Services\InstagramAccountProfileCollectService;
+use Illuminate\Support\Carbon;
 
 /**
  * Truthful empty/unavailable specialist shells for production Digital Assets
@@ -470,71 +473,54 @@ final class UnavailableWorkspaceShells
     }
 
     /**
-     * @return array<string, mixed>
+     * Instagram has no analytics collection yet. The page shows who the account belongs to and, when a
+     * read-only profile collection exists, the last collected profile fields. Nothing else is invented.
+     *
+     * @return array{identity: array{asset_id: string, title: string, brand_id: int|null, brand_name: string|null}, profile: array{username: string|null, name: string|null, account_type: string|null, biography: string|null, website: string|null, observed_at: Carbon|null}|null}
      */
     public static function instagram(string $assetId): array
     {
         $asset = self::asset($assetId);
-        $brandId = $asset?->brand_id ?? 0;
-        $brandName = $asset?->brand?->name ?? '—';
 
         return [
-            'migration_mode' => 'unavailable',
-            'demo_boundary' => 'Instagram analytics are not available for this asset.',
             'identity' => [
                 'asset_id' => $assetId,
-                'eyebrow' => 'Instagram',
-                'title' => ($asset?->name ?? 'Instagram').' — analytics unavailable',
-                'handle' => '—',
-                'brand' => $brandName,
-                'brand_id' => $brandId,
-                'brand_name' => $brandName,
-                'connection' => 'Not connected',
-                'freshness' => '—',
-                'status' => 'Unavailable',
-                'status_note' => 'Instagram analytics are unavailable for this asset.',
+                'title' => $asset?->name ?? 'Instagram',
+                'brand_id' => $asset?->brand_id,
+                'brand_name' => $asset?->brand?->name,
             ],
-            'overview' => [
-                'glance' => [],
-                'needs_attention' => [],
-                'content_mix' => [],
-                'recent_posts' => [],
-            ],
-            'profile' => [
-                'display_name' => $asset?->name ?? '—',
-                'username' => '—',
-                'category' => '—',
-                'bio' => 'Profile analytics are unavailable until a supported Instagram provider path exists.',
-                'website' => '—',
-                'contact' => [
-                    'email' => '—',
-                    'phone' => '—',
-                ],
-                'coverage' => [],
-                'consistency' => [
-                    'brand_name_match' => false,
-                    'website_match' => false,
-                    'website_note' => 'No Instagram analytics observations collected for this production asset.',
-                    'phone_match' => false,
-                ],
-            ],
-            'relationships' => [
-                'linked_assets' => [],
-                'cross_checks' => [],
-            ],
-            'findings' => [],
-            'activity' => [],
-            'settings' => [
-                'connection_mode' => 'Unavailable',
-                'write_actions' => 'Disabled (no external write)',
-                'sync_cadence' => '—',
-                'responsible' => '—',
-                'notes' => [
-                    'Connect and bind an Instagram resource when provider analytics support is available.',
-                    'No sample metrics are shown for production asset ids.',
-                ],
-            ],
-            'tabs' => ['overview', 'profile', 'operations', 'setup'],
+            'profile' => $asset instanceof DigitalAsset ? self::latestInstagramProfile($asset) : null,
+        ];
+    }
+
+    /**
+     * @return array{username: string|null, name: string|null, account_type: string|null, biography: string|null, website: string|null, observed_at: Carbon|null}|null
+     */
+    private static function latestInstagramProfile(DigitalAsset $asset): ?array
+    {
+        $evidence = Evidence::query()
+            ->where('digital_asset_id', $asset->id)
+            ->where('type', InstagramAccountProfileCollectService::EVIDENCE_TYPE_ACCOUNT_PROFILE)
+            ->where('payload->ok', true)
+            ->orderByDesc('observed_at')
+            ->orderByDesc('id')
+            ->first();
+
+        if (! $evidence instanceof Evidence || ! is_array($evidence->payload)) {
+            return null;
+        }
+
+        $text = static function (mixed $value): ?string {
+            return is_string($value) && trim($value) !== '' ? trim($value) : null;
+        };
+
+        return [
+            'username' => $text($evidence->payload['username'] ?? null),
+            'name' => $text($evidence->payload['name'] ?? null),
+            'account_type' => $text($evidence->payload['account_type'] ?? null),
+            'biography' => $text($evidence->payload['biography'] ?? null),
+            'website' => $text($evidence->payload['website'] ?? null),
+            'observed_at' => $evidence->observed_at,
         ];
     }
 

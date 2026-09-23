@@ -104,7 +104,7 @@
                                 @foreach (array_slice($summaryActions, 0, 3) as $action)
                                     <div class="flex items-center justify-between gap-3 py-1 text-xs">
                                         <span class="truncate text-gray-600 dark:text-gray-300">{{ $isTr ? $action['label_tr'] : $action['label_en'] }}</span>
-                                        <strong class="tabular-nums text-gray-900 dark:text-white">{{ number_format((float) $action['value'], 2) }}</strong>
+                                        <strong class="tabular-nums text-gray-900 dark:text-white">{{ number_format(round((float) $action['value'])) }}</strong>
                                     </div>
                                 @endforeach
                             </div>

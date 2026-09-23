@@ -240,7 +240,7 @@ class MetaAdsRealDataMigrationTest extends TestCase
         $this->assertNull($campaign['reach']);
         $this->assertNotSame(800 * 28, $campaign['reach']);
         $this->assertArrayNotHasKey('reach', $workspace['glance']);
-        $this->assertStringContainsString('never be summed', $campaign['reach_note']);
+        $this->assertStringContainsString('asla toplanmaz', $campaign['reach_note']);
     }
 
     #[Test]
@@ -256,7 +256,7 @@ class MetaAdsRealDataMigrationTest extends TestCase
 
         $campaign = $workspace['campaigns'][0];
         $this->assertNull($campaign['frequency']);
-        $this->assertStringContainsString('never be averaged', $campaign['frequency_note']);
+        $this->assertStringContainsString('ortalanarak hesaplanmaz', $campaign['frequency_note']);
     }
 
     #[Test]
@@ -273,7 +273,7 @@ class MetaAdsRealDataMigrationTest extends TestCase
         $campaign = $workspace['campaigns'][0];
         $this->assertSame(40 * 28, $campaign['link_clicks']);
         $this->assertNotSame($campaign['link_clicks'], 90 * 28);
-        $this->assertStringContainsString('distinct', $campaign['clicks_note']);
+        $this->assertStringContainsString('farklı metriklerdir', $campaign['clicks_note']);
     }
 
     #[Test]
@@ -310,7 +310,7 @@ class MetaAdsRealDataMigrationTest extends TestCase
         $this->assertCount(2, $workspace['measurement']['matrix']);
 
         $this->assertSame(DataSourceState::Unavailable->value, $workspace['data_provenance']['glance.result_mix']);
-        $this->assertStringContainsString('canonical typed-action', $workspace['result_mix']['note']);
+        $this->assertStringContainsString('iş sonuçlarıyla eşlenmesi', $workspace['result_mix']['note']);
     }
 
     #[Test]
@@ -325,7 +325,7 @@ class MetaAdsRealDataMigrationTest extends TestCase
         $workspace = app(MetaAdsSpecialistReadService::class)->workspace((string) $this->asset->id, 'last_28');
 
         $row = $workspace['measurement']['matrix'][0];
-        $this->assertStringContainsString('not automatically a qualified lead', $row['note']);
+        $this->assertStringContainsString('kendiliğinden nitelikli lead', $row['note']);
     }
 
     #[Test]

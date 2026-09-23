@@ -9,10 +9,10 @@ use App\Services\Formulas\Support\FormulaResult;
 use App\Services\GoogleAds\Support\GoogleAdsBindingContext;
 use App\Services\GoogleAds\Support\GoogleAdsBindingMode;
 use App\Services\GoogleAds\Support\GoogleAdsDatasetReadiness;
+use App\Services\GoogleAds\Support\GoogleAdsDisplayFormat;
 use App\Support\Demo\DemoPeriod;
 use App\Support\Demo\GoogleAdsWorkspaceFixtures;
 use App\Support\Operator\OperatorReportingPeriod;
-use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Throwable;
@@ -647,18 +647,11 @@ final class GoogleAdsSpecialistReadService
 
     private function deltaSecondary(?FormulaResult $delta, GoogleAdsDatasetReadiness $gate): string
     {
-        if (! $gate->isUsable()) {
-            return 'Unavailable vs previous period';
+        if (! $gate->isUsable() || $delta === null || ! $delta->isValue()) {
+            return GoogleAdsDisplayFormat::periodDelta(null);
         }
 
-        if ($delta === null || ! $delta->isValue()) {
-            return 'vs previous period unavailable';
-        }
-
-        $pct = $delta->toPercentDisplay();
-        $prefix = $pct >= 0 ? '+' : '';
-
-        return $prefix.number_format($pct, 1).'% vs previous period';
+        return GoogleAdsDisplayFormat::periodDelta($delta->toPercentDisplay());
     }
 
     /**
@@ -686,7 +679,7 @@ final class GoogleAdsSpecialistReadService
         $spend = [];
         $leads = [];
         foreach ($series as $point) {
-            $labels[] = CarbonImmutable::parse($point['date'])->format('M j');
+            $labels[] = GoogleAdsDisplayFormat::chartDate((string) $point['date']);
             $spend[] = round($point['cost_amount'], 2);
             $leads[] = $point['conversions'];
         }

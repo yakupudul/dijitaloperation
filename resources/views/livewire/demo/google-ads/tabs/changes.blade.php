@@ -126,9 +126,9 @@
         <div>
             <p class="text-xs font-semibold uppercase tracking-[0.16em] text-violet-600 dark:text-violet-300">{{ $isTr ? 'DEĞİŞİKLİK ZEKÂSI' : 'CHANGE INTELLIGENCE' }}</p>
             <h2 class="mt-1 text-xl font-semibold text-gray-900 dark:text-white">{{ $isTr ? 'Hesapta ne değişti ve ne kadar dikkat gerektiriyor?' : 'What changed in the account, and what deserves attention?' }}</h2>
-            <p class="mt-1 max-w-4xl text-sm text-gray-500 dark:text-gray-400">{{ $isTr ? 'Google Ads Change Event kayıtlarını yalnız listelemek yerine aktör, konu ve operasyonel risk açısından sınıflandırır. MOXDOP performans etkisini kanıt olmadan değişikliğe bağlamaz.' : 'Google Ads Change Events are classified by actor, topic and operational risk instead of being shown as a raw audit log. MOXDOP does not attribute performance impact to a change without evidence.' }}</p>
+            <p class="mt-1 max-w-4xl text-sm text-gray-500 dark:text-gray-400">{{ $isTr ? 'Google Ads değişiklik kayıtlarını yalnız listelemek yerine kimin, neyi değiştirdiğine ve operasyonel riskine göre sınıflandırır. MOXDOP performans etkisini kanıt olmadan değişikliğe bağlamaz.' : 'Google Ads Change Events are classified by actor, topic and operational risk instead of being shown as a raw audit log. MOXDOP does not attribute performance impact to a change without evidence.' }}</p>
         </div>
-        <span class="inline-flex w-fit items-center rounded-full bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-600 dark:bg-white/5 dark:text-gray-300">{{ $isTr ? 'Salt okunur sağlayıcı denetimi' : 'Read-only provider audit' }}</span>
+        <span class="inline-flex w-fit items-center rounded-full bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-600 dark:bg-white/5 dark:text-gray-300">{{ $isTr ? 'Salt okunur Google kaydı' : 'Read-only provider audit' }}</span>
     </div>
 
     <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
@@ -163,7 +163,7 @@
     </div>
 
     <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-        <div class="border-b border-gray-100 px-4 py-3 dark:border-gray-800"><h3 class="font-semibold text-gray-900 dark:text-white">{{ $isTr ? 'Değişiklik zaman çizelgesi' : 'Change timeline' }}</h3><p class="mt-1 text-xs text-gray-500">{{ $isTr ? 'Sağlayıcıdan toplanmış gerçek Change Event kayıtları; en yeni olay önce.' : 'Real provider Change Event records, newest first.' }}</p></div>
+        <div class="border-b border-gray-100 px-4 py-3 dark:border-gray-800"><h3 class="font-semibold text-gray-900 dark:text-white">{{ $isTr ? 'Değişiklik zaman çizelgesi' : 'Change timeline' }}</h3><p class="mt-1 text-xs text-gray-500">{{ $isTr ? 'Google Ads’ten çekilen gerçek değişiklik kayıtları; en yeni önce.' : 'Real provider Change Event records, newest first.' }}</p></div>
         <div class="overflow-x-auto">
             <table class="min-w-[1150px] w-full text-sm">
                 <thead class="bg-gray-50 text-[11px] uppercase tracking-wide text-gray-400 dark:bg-white/[0.02]"><tr>
@@ -196,7 +196,7 @@
                             <td class="max-w-xl px-4 py-3 text-xs leading-5 text-gray-500 dark:text-gray-400">{{ $fields !== '' ? $fields : ($detail !== '' ? $detail : '—') }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="7" class="px-4 py-12 text-center text-sm text-gray-400">{{ $isTr ? 'Toplanmış Change Event kaydı yok. Veri yokken MOXDOP değişiklik veya etki uydurmaz.' : 'No collected Change Event records. MOXDOP does not invent changes or impact when provider evidence is absent.' }}</td></tr>
+                        <tr><td colspan="7" class="px-4 py-12 text-center text-sm text-gray-400">{{ $isTr ? 'Henüz değişiklik kaydı çekilmedi. Veri yokken MOXDOP değişiklik veya etki uydurmaz.' : 'No collected Change Event records. MOXDOP does not invent changes or impact when provider evidence is absent.' }}</td></tr>
                     @endforelse
                 </tbody>
             </table>

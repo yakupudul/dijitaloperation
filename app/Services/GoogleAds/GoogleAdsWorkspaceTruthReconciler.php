@@ -3,6 +3,7 @@
 namespace App\Services\GoogleAds;
 
 use App\Services\GoogleAds\Support\GoogleAdsBindingMode;
+use App\Services\GoogleAds\Support\GoogleAdsDisplayFormat;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
@@ -55,10 +56,14 @@ final class GoogleAdsWorkspaceTruthReconciler
         }
 
         if ((int) ($account['rows'] ?? 0) > 0) {
+            $previous = $this->previousPeriodAccountSums($digitalAssetId, $externalResourceId, $customerId, $start, $end, $accountSource);
             $data['glance']['spend'] = [
                 'value' => $this->formatMoney((float) ($account['cost_amount'] ?? 0), $currency),
                 'raw' => round((float) ($account['cost_amount'] ?? 0), 2),
-                'secondary' => 'Data Pool · selected period',
+                'secondary' => GoogleAdsDisplayFormat::periodDelta(GoogleAdsDisplayFormat::percentChange(
+                    (float) ($account['cost_amount'] ?? 0),
+                    $previous !== null ? (float) $previous['cost_amount'] : null,
+                )),
                 'tone' => 'neutral',
                 'note' => $accountSource === 'google_ads_network_daily'
                     ? 'Account daily was empty; total is reconciled from the provider-backed network partition for the same period.'
@@ -67,13 +72,16 @@ final class GoogleAdsWorkspaceTruthReconciler
             $data['glance']['conversions'] = [
                 'value' => number_format((float) ($account['conversions'] ?? 0), 1),
                 'raw' => (float) ($account['conversions'] ?? 0),
-                'secondary' => 'Data Pool · selected period',
+                'secondary' => GoogleAdsDisplayFormat::periodDelta(GoogleAdsDisplayFormat::percentChange(
+                    (float) ($account['conversions'] ?? 0),
+                    $previous !== null ? (float) $previous['conversions'] : null,
+                )),
                 'tone' => 'neutral',
                 'note' => GoogleAdsSpecialistReadService::CONVERSION_NOTE,
             ];
 
             $data['performance_trend'] = [
-                'labels' => array_map(static fn (array $row): string => CarbonImmutable::parse((string) $row['date'])->format('M j'), $accountSeries),
+                'labels' => array_map(static fn (array $row): string => GoogleAdsDisplayFormat::chartDate((string) $row['date']), $accountSeries),
                 'spend' => array_map(static fn (array $row): float => round((float) $row['cost_amount'], 2), $accountSeries),
                 'leads' => array_map(static fn (array $row): float => (float) $row['conversions'], $accountSeries),
                 'compare_label' => 'vs prior period',
@@ -210,6 +218,45 @@ final class GoogleAdsWorkspaceTruthReconciler
     }
 
     /** @return array{sums:array<string,mixed>,series:list<array<string,mixed>>}|null */
+    /**
+     * Account totals for the equally long window immediately before the selected period,
+     * read from the same source as the current totals. Null when that window has no rows.
+     *
+     * @return array{cost_amount: float, conversions: float}|null
+     */
+    private function previousPeriodAccountSums(int $digitalAssetId, int $externalResourceId, string $customerId, string $start, string $end, string $source): ?array
+    {
+        try {
+            $startDate = CarbonImmutable::parse($start)->startOfDay();
+            $endDate = CarbonImmutable::parse($end)->startOfDay();
+        } catch (\Throwable) {
+            return null;
+        }
+        if ($endDate->lessThan($startDate)) {
+            return null;
+        }
+
+        $days = (int) $startDate->diffInDays($endDate) + 1;
+        $previousEnd = $startDate->subDay()->toDateString();
+        $previousStart = $startDate->subDays($days)->toDateString();
+
+        if ($source === 'google_ads_network_daily') {
+            $fallback = $this->networkAccountFallback($digitalAssetId, $externalResourceId, $customerId, $previousStart, $previousEnd);
+            $sums = $fallback['sums'] ?? null;
+        } else {
+            $sums = $this->pool->accountDailySums($digitalAssetId, $externalResourceId, $customerId, $previousStart, $previousEnd);
+        }
+
+        if (! is_array($sums) || (int) ($sums['rows'] ?? 0) === 0) {
+            return null;
+        }
+
+        return [
+            'cost_amount' => (float) ($sums['cost_amount'] ?? 0),
+            'conversions' => (float) ($sums['conversions'] ?? 0),
+        ];
+    }
+
     private function networkAccountFallback(int $digitalAssetId, int $externalResourceId, string $customerId, string $start, string $end): ?array
     {
         $query = $this->typedDailyScope('google_ads_network_daily', $digitalAssetId, $externalResourceId, $customerId, $start, $end);

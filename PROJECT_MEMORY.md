@@ -1,5 +1,10 @@
 # PROJECT_MEMORY
 
+## 2026-09-25 (c) — Digital asset pages Faz B (cleanup)
+
+- Website page is 9 tabs; Google Ads "Optimization" lives under Danışman; Meta legacy sub-pages are redirects only; Instagram is a single honest page and cannot be created until it has a data source.
+- Rule kept: one place per number (no repeated counters on overview), operator text Turkish with no provider/binding/dataset jargon (technical details only in collapsed blocks).
+
 ## 2026-09-25 (b) — Digital asset pages: audit + Faz A fixes
 
 - Audit (all asset pages) found: Data Sources 500, GBP page never reading collected data, fake list status, hidden Google Ads landing tab, provider call during Search render, Meta auto-picking an account, "edit asset" opening the create form. Fixed in Faz A.

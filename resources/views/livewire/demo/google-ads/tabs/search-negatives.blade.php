@@ -65,7 +65,7 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="3" class="px-4 py-8 text-center text-gray-400">{{ $isTr ? 'Negatif keyword snapshotı yok.' : 'No negative keyword snapshot.' }}</td></tr>
+                            <tr><td colspan="3" class="px-4 py-8 text-center text-gray-400">{{ $isTr ? 'Kayıtlı negatif anahtar kelime yok.' : 'No negative keyword snapshot.' }}</td></tr>
                         @endforelse
                     </tbody>
                 </table>

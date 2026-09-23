@@ -84,6 +84,19 @@
         default => $campaigns,
     };
 
+    $budgetLabel = static function (array $row) use ($isTr): string {
+        $currencyCode = (string) ($row['currency'] ?? '');
+        $format = static fn ($amount): string => trim($currencyCode.' '.number_format((float) $amount, 2));
+        if (is_numeric($row['daily_budget'] ?? null) && (float) $row['daily_budget'] > 0) {
+            return $format($row['daily_budget']).($isTr ? ' / gün' : ' / day');
+        }
+        if (is_numeric($row['lifetime_budget'] ?? null) && (float) $row['lifetime_budget'] > 0) {
+            return $format($row['lifetime_budget']).($isTr ? ' toplam' : ' lifetime');
+        }
+
+        return '—';
+    };
+
     $currentTitle = match ($level) {
         'adsets' => $isTr ? 'Reklam Setleri' : 'Ad Sets',
         'ads' => $isTr ? 'Reklamlar' : 'Ads',
@@ -118,7 +131,7 @@
         <div class="flex flex-col gap-2 border-b border-gray-100 px-5 py-4 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
             <div>
                 <h3 class="font-bold text-gray-900 dark:text-white">{{ $currentTitle }}</h3>
-                <p class="mt-0.5 text-xs text-gray-400">{{ $isTr ? 'Öne çıkan gerçek sonuç türleri ilgili satırda gösterilir. Ayrıntılı teknik action kayıtları Dönüşümler sekmesinde korunur.' : 'Headline real outcomes are shown per row; detailed technical actions remain in Conversions.' }}</p>
+                <p class="mt-0.5 text-xs text-gray-400">{{ $isTr ? 'Öne çıkan sonuçlar ilgili satırda gösterilir. Tüm sonuçların ayrıntısı Dönüşümler sekmesindedir.' : 'Headline real outcomes are shown per row; detailed technical actions remain in Conversions.' }}</p>
             </div>
             <span class="text-xs font-medium text-gray-400">{{ $professional['period_start'] ?? '—' }} → {{ $professional['period_end'] ?? '—' }}</span>
         </div>
@@ -130,6 +143,7 @@
                         <th class="px-5 py-3">{{ $isTr ? 'Ad' : 'Name' }}</th>
                         <th class="px-4 py-3">{{ $isTr ? 'Bağlam' : 'Context' }}</th>
                         <th class="px-4 py-3">{{ $isTr ? 'Durum' : 'Status' }}</th>
+                        @if ($level === 'campaigns')<th class="px-4 py-3 text-right">{{ $isTr ? 'Bütçe' : 'Budget' }}</th>@endif
                         <th class="px-4 py-3 text-right">{{ $isTr ? 'Harcama' : 'Spend' }}</th>
                         <th class="px-4 py-3 text-right">{{ $isTr ? 'Tıklama Oranı' : 'Click Rate' }}<span class="ml-1 normal-case text-gray-300">(CTR)</span></th>
                         <th class="px-4 py-3 text-right">{{ $isTr ? 'Tıklama Maliyeti' : 'Click Cost' }}<span class="ml-1 normal-case text-gray-300">(CPC)</span></th>
@@ -171,24 +185,25 @@
                                 @if (filled($contextSecondary))<p class="mt-0.5 truncate text-[11px] text-gray-400">{{ $contextSecondary }}</p>@endif
                             </td>
                             <td class="px-4 py-3.5"><span class="rounded-full bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-600 dark:bg-white/[0.05] dark:text-gray-300">{{ $statusLabel($row['effective_status'] ?? $row['status'] ?? null) }}</span></td>
+                            @if ($level === 'campaigns')<td class="whitespace-nowrap px-4 py-3.5 text-right text-xs tabular-nums text-gray-600 dark:text-gray-300">{{ $budgetLabel($row) }}</td>@endif
                             <td class="px-4 py-3.5 text-right text-sm font-semibold tabular-nums">{{ $row['spend_display'] }}</td>
                             <td class="px-4 py-3.5 text-right text-sm tabular-nums">{{ $row['ctr'] !== null ? number_format($row['ctr'], 2).'%' : '—' }}</td>
                             <td class="px-4 py-3.5 text-right text-sm tabular-nums">{{ $row['cpc'] !== null ? ($row['currency'].' '.number_format($row['cpc'], 2)) : '—' }}</td>
                             <td class="px-5 py-3.5">
                                 @forelse (array_slice($summaryActions, 0, 2) as $action)
-                                    <div class="flex justify-between gap-3 text-xs"><span class="truncate text-gray-600 dark:text-gray-300">{{ $isTr ? $action['label_tr'] : $action['label_en'] }}</span><strong class="tabular-nums text-gray-900 dark:text-white">{{ number_format((float) $action['value'], 2) }}</strong></div>
+                                    <div class="flex justify-between gap-3 text-xs"><span class="truncate text-gray-600 dark:text-gray-300">{{ $isTr ? $action['label_tr'] : $action['label_en'] }}</span><strong class="tabular-nums text-gray-900 dark:text-white">{{ number_format(round((float) $action['value'])) }}</strong></div>
                                 @empty
                                     <span class="text-xs text-gray-300">—</span>
                                 @endforelse
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="7" class="px-5 py-12 text-center text-sm text-gray-400">{{ $isTr ? 'Bu seviyede kullanılabilir veri yok.' : 'No usable data at this level.' }}</td></tr>
+                        <tr><td colspan="{{ $level === 'campaigns' ? 8 : 7 }}" class="px-5 py-12 text-center text-sm text-gray-400">{{ $isTr ? 'Bu seviyede kullanılabilir veri yok.' : 'No usable data at this level.' }}</td></tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
     </article>
 
-    <div class="rounded-xl border border-blue-200 bg-blue-50/60 px-4 py-3 text-xs leading-5 text-blue-800 dark:border-blue-500/20 dark:bg-blue-500/[0.06] dark:text-blue-300">{{ $isTr ? 'Tıklama Oranı (CTR) ve Tıklama Başına Maliyet (CPC) gibi kısaltmalar uzmanlar için korunur. Kampanya, reklam seti ve reklam tabloları ayrı ayrı sunucudan oluşturulduğu için görünmeyen seviyeler gereksiz yere sayfaya yüklenmez.' : 'Technical abbreviations remain available, while only the selected campaign hierarchy level is rendered.' }}</div>
+    <div class="rounded-xl border border-blue-200 bg-blue-50/60 px-4 py-3 text-xs leading-5 text-blue-800 dark:border-blue-500/20 dark:bg-blue-500/[0.06] dark:text-blue-300">{{ $isTr ? 'Tıklama Oranı (CTR) ve Tıklama Başına Maliyet (CPC) kısaltmaları uzmanlar için parantez içinde korunur. Bütçe, kampanya düzeyinde tanımlıysa gösterilir; reklam seti düzeyinde bütçe kullanan kampanyalarda “—” görünür.' : 'CTR and CPC abbreviations are kept in brackets for specialists. Budget is shown when it is set at campaign level; campaigns budgeted at ad set level show “—”.' }}</div>
 </section>

@@ -60,15 +60,15 @@ final class MetaAdsSpecialistReadService
 
     private const string DATASET_AD_ACCOUNT_SNAPSHOT = 'meta_ad_account_snapshot';
 
-    public const string ACTION_NOTE = 'Meta typed action — not automatically a qualified lead, generic "Results", or verified business outcome. No Business Action mapping is configured yet.';
+    public const string ACTION_NOTE = 'Meta’nın raporladığı sonuç türü — kendiliğinden nitelikli lead, genel “Sonuç” ya da doğrulanmış iş sonucu sayılmaz. Henüz iş sonucu eşlemesi tanımlı değil.';
 
-    public const string REACH_NOTE = 'Reach is de-duplicated by Meta and must never be summed across days or campaigns — period Reach is Unavailable.';
+    public const string REACH_NOTE = 'Erişim Meta tarafından tekilleştirilir; günler veya kampanyalar arasında asla toplanmaz — dönem erişimi bu yüzden gösterilmez.';
 
-    public const string FREQUENCY_NOTE = 'Frequency (impressions ÷ reach) must never be averaged into a period value — Frequency is Unavailable.';
+    public const string FREQUENCY_NOTE = 'Sıklık (gösterim ÷ erişim) dönem değerine ortalanarak hesaplanmaz — dönem sıklığı gösterilmez.';
 
-    public const string RESULTS_UNAVAILABLE_NOTE = 'Results / cost-per-result require a canonical typed-action → business-outcome mapping — unavailable.';
+    public const string RESULTS_UNAVAILABLE_NOTE = 'Sonuç ve sonuç başına maliyet için Meta sonuçlarının iş sonuçlarıyla eşlenmesi gerekir — henüz kullanılamıyor.';
 
-    public const string CLICKS_NOTE = 'Clicks (all click types) and Link Clicks (metadata inline_link_clicks) are distinct — never conflate them.';
+    public const string CLICKS_NOTE = 'Tüm tıklamalar ile bağlantı tıklamaları farklı metriklerdir; birbirinin yerine kullanılmaz.';
 
     /**
      * Canonical field-path list every workspace mode must classify in `data_provenance`.
@@ -351,7 +351,7 @@ final class MetaAdsSpecialistReadService
         $provenance['operations.collection_state'] = DataSourceState::Real->value;
         $provenance['operations.findings'] = DataSourceState::Unavailable->value;
 
-        $data['demo_boundary'] = 'Meta Ads workspace uses collected data. Unbacked cards stay empty. Live API calls are not made on page render.';
+        $data['demo_boundary'] = __('operator_meta.boundary.real');
         $data['migration_mode'] = 'real';
         $data['currency'] = $currency;
         $data['data_provenance'] = $provenance;
@@ -380,8 +380,10 @@ final class MetaAdsSpecialistReadService
             ? 'query_error'
             : ($binding->reason ?? 'no_active_meta_ads_binding');
         $statusLabel = $errorMessage !== null
-            ? 'Error'
-            : ($binding->mode === MetaAdsBindingMode::ActionRequired ? 'Action required' : 'Not connected');
+            ? __('operator_meta.identity.status.error')
+            : ($binding->mode === MetaAdsBindingMode::ActionRequired
+                ? __('operator_meta.identity.status.action_required')
+                : __('operator_meta.identity.status.not_connected'));
         $collectionNote = $errorMessage !== null
             ? 'A read error occurred building this workspace — no data is shown.'
             : "Meta Ads binding {$reason} — no collection state available.";
@@ -395,12 +397,12 @@ final class MetaAdsSpecialistReadService
             'period_start' => $rangeStart,
             'period_end' => $rangeEnd,
             'compare_label' => 'vs '.$prev['label'],
-            'demo_boundary' => 'Meta Ads workspace has no usable Ad Account binding. Live API calls are not made on page render.',
+            'demo_boundary' => __('operator_meta.boundary.unbound'),
             'identity' => [
                 'eyebrow' => 'Meta Ads',
                 'title' => $errorMessage !== null
-                    ? (($asset?->name ?? 'Meta Ads').' — read error')
-                    : (($asset?->name ?? 'Meta Ads').' — not connected'),
+                    ? __('operator_meta.identity.title_read_error', ['name' => $asset?->name ?? 'Meta Ads'])
+                    : __('operator_meta.identity.title_not_connected', ['name' => $asset?->name ?? 'Meta Ads']),
                 'brand' => $asset?->brand?->name,
                 'brand_id' => $asset?->brand_id,
                 'brand_name' => $asset?->brand?->name ?? '—',
@@ -546,7 +548,7 @@ final class MetaAdsSpecialistReadService
             'website_asset_id' => null,
             'meta_asset_id' => $binding->assetId,
             'strategy_line' => $assetName !== null ? "Runs paid social for · {$assetName}" : null,
-            'status' => 'Connected',
+            'status' => __('operator_meta.identity.status.connected'),
             'freshness' => null,
             'reporting_timezone' => $binding->timezone,
             'currency' => $currency,

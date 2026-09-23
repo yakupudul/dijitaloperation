@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\Demo\GoogleAds\OverviewPage;
+use App\Livewire\Operator\GoogleAds\OverviewPage;
 use App\Models\User;
 use App\Support\Demo\DemoCatalog;
 use App\Support\Demo\DemoState;
@@ -60,8 +60,8 @@ class GoogleAdsOperatingWorkspaceTest extends TestCase
         Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id])
             ->assertSee('Northwind Google Ads')
             ->assertSee('Needs attention')
-            ->assertSee('Budget pacing')
-            ->assertSee('Campaign portfolio')
+            ->assertSee('Performance trend')
+            ->assertSee('Top campaigns')
             ->assertDontSee('₺48,320')
             ->assertDontSee('Ahead of plan')
             ->assertDontSee('PPC Score')
@@ -72,15 +72,22 @@ class GoogleAdsOperatingWorkspaceTest extends TestCase
 
         Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id, 'tab' => 'search_terms'])
             ->assertSet('tab', 'search_demand')
-            ->assertSee('Search & demand');
+            ->assertSet('search_sub', 'terms')
+            ->assertOk();
 
         Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id, 'tab' => 'conversions'])
             ->assertSet('tab', 'measurement')
-            ->assertSee('Measurement');
+            ->assertOk();
 
         Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id, 'tab' => 'insights'])
             ->assertSet('tab', 'overview')
             ->assertSee('Needs attention');
+
+        foreach (['optimization', 'operations'] as $legacyTab) {
+            Livewire::test(OverviewPage::class, ['assetId' => (string) $asset->id, 'tab' => $legacyTab])
+                ->assertSet('tab', 'advisor')
+                ->assertSee('Google recommendations');
+        }
     }
 
     public function test_demo_totals_are_coherent_and_deterministic(): void

@@ -506,13 +506,14 @@ final class MetaIntegrationReadModel
                     'currency' => $meta['currency'] ?? null,
                     'timezone' => $meta['timezone_name'] ?? null,
                     'access_label' => $this->accessContextLabel($meta),
-                    'binding' => 'Meta Ads Binding',
+                    'binding' => __('operator_meta.integration.binding'),
                     'asset' => $binding->digitalAsset?->name ?? 'Digital Asset',
                     'brand' => $binding->digitalAsset?->brand?->name,
                     'status' => $binding->status,
                     'resource_access' => $resourceAccessible ? 'accessible' : 'access_lost',
-                    'data_label' => 'Not collected yet / see Data state',
+                    'data_label' => __('operator_meta.integration.data_label'),
                     'route' => 'operator.meta.overview',
+                    'asset_id' => $binding->digital_asset_id,
                 ];
             })
             ->all();

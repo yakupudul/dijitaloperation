@@ -430,12 +430,18 @@ class GoogleAdsRealDataMigrationTest extends TestCase
         $component = new OverviewPage;
         $this->assertSame([
             'overview',
+            'advisor',
             'campaigns',
             'search_demand',
-            'ads_assets',
-            'landing_pages',
+            'performance',
+            'budget_bidding',
             'measurement',
-            'operations',
+            'landing_pages',
+            'changes',
+            'data_connection',
+            'pmax',
+            'shopping',
+            'video',
         ], $component->allowedTabs);
     }
 

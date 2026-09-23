@@ -45,6 +45,28 @@ final class GoogleAdsAssetPageTest extends TestCase
             ->assertSee(app()->getLocale() === 'tr' ? 'Açılış Sayfaları' : 'Landing pages');
     }
 
+    public function test_every_tab_renders_in_turkish_without_retired_tabs(): void
+    {
+        app()->setLocale('tr');
+
+        foreach (['overview', 'advisor', 'campaigns', 'search_demand', 'performance', 'budget_bidding', 'measurement', 'landing_pages', 'changes', 'data_connection', 'pmax', 'shopping', 'video'] as $tab) {
+            Livewire::test(OverviewPage::class, ['assetId' => (string) $this->asset->id, 'tab' => $tab])
+                ->assertOk()
+                ->assertDontSee('Optimizasyon')
+                ->assertDontSee('Senaryo Planlayıcı')
+                ->assertDontSee('Budget Opportunity Map');
+        }
+
+        Livewire::test(OverviewPage::class, ['assetId' => (string) $this->asset->id])
+            ->assertSee('Dikkat gerektirenler')
+            ->assertSee('En çok harcayan kampanyalar')
+            ->assertDontSee('Veri sağlığı');
+
+        Livewire::test(OverviewPage::class, ['assetId' => (string) $this->asset->id, 'tab' => 'optimization'])
+            ->assertSet('tab', 'advisor')
+            ->assertSee('Google önerileri');
+    }
+
     public function test_search_tab_does_not_call_google_ads_while_rendering(): void
     {
         config(['moxdop-google-ads-collector.search_live_fallback' => false]);

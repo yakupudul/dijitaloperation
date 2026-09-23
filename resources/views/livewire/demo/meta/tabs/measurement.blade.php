@@ -98,7 +98,7 @@
 
     <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         @foreach ([
-            [$isTr ? 'Meta Aksiyon Türü' : 'Meta Action Types', count($actions)],
+            [$isTr ? 'Ölçülen Sonuç Türü' : 'Measured Result Types', count($actions)],
             [$isTr ? 'Ölçüm Kaynağı' : 'Measurement Sources', count($sources)],
             ['Pixel', $pixelCount],
             [$isTr ? 'Özel Dönüşüm' : 'Custom Conversions', $customConversionCount],
@@ -121,7 +121,7 @@
                 <div class="rounded-xl border border-gray-200 p-4 dark:border-gray-800">
                     <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ $isTr ? 'Lead' : 'Leads' }}</p>
                     <p class="mt-2 text-2xl font-bold tabular-nums text-gray-900 dark:text-white">{{ $leadCount > 0 ? number_format($leadCount, 0) : '—' }}</p>
-                    <p class="mt-1 text-[11px] text-gray-400">{{ $isTr ? 'Meta’nın canonical lead action değeri' : 'Canonical Meta lead action' }}</p>
+                    <p class="mt-1 text-[11px] text-gray-400">{{ __('operator_meta.measurement.lead_hint') }}</p>
                 </div>
                 <div class="rounded-xl border border-gray-200 p-4 dark:border-gray-800">
                     <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ $isTr ? 'Lead Başına Maliyet (CPL)' : 'Cost per Lead (CPL)' }}</p>
@@ -141,7 +141,7 @@
             </div>
 
             <div class="mt-4 rounded-xl bg-gray-50 px-4 py-3 text-xs leading-5 text-gray-500 dark:bg-white/[0.03] dark:text-gray-400">
-                {{ $isTr ? 'WhatsApp maliyeti yalnızca destination_type = WHATSAPP ve Meta’nın “messaging_conversation_started_7d” metriği birlikte mevcutsa hesaplanır. Diğer messaging action’ları WhatsApp sonucuymuş gibi kullanılmaz.' : 'WhatsApp cost is calculated only when destination_type = WHATSAPP and Meta’s messaging_conversation_started_7d metric are both available. Other messaging actions are not treated as WhatsApp results.' }}
+                {{ __('operator_meta.measurement.whatsapp_rule') }}
             </div>
         </article>
     @endif
@@ -149,15 +149,15 @@
     <div class="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,.85fr)]">
         <article class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
             <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-800 sm:px-6">
-                <h3 class="font-bold text-gray-900 dark:text-white">{{ $isTr ? 'Meta’nın Ölçtüğü Aksiyonlar' : 'Meta-observed Actions' }}</h3>
-                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ $isTr ? 'Farklı aksiyonlar birbirine eklenmez. Aynı teknik kelimeyi içeren action_type değerleri de otomatik olarak aynı sonuç kabul edilmez.' : 'Different actions are never added together and similar raw names are not automatically treated as the same outcome.' }}</p>
+                <h3 class="font-bold text-gray-900 dark:text-white">{{ $isTr ? 'Meta’nın Ölçtüğü Sonuçlar' : 'Results Measured by Meta' }}</h3>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ __('operator_meta.measurement.actions_intro') }}</p>
             </div>
 
             <div class="overflow-x-auto">
                 <table class="min-w-full text-left">
                     <thead class="bg-gray-50/80 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:bg-white/[0.02]">
                         <tr>
-                            <th class="px-5 py-3">{{ $isTr ? 'Aksiyon' : 'Action' }}</th>
+                            <th class="px-5 py-3">{{ $isTr ? 'Sonuç' : 'Result' }}</th>
                             <th class="px-4 py-3">{{ $isTr ? 'Tür' : 'Type' }}</th>
                             <th class="px-4 py-3 text-right">{{ $isTr ? 'Ölçülen Adet' : 'Observed Count' }}</th>
                             <th class="px-5 py-3">{{ $isTr ? 'Ne Anlama Geliyor?' : 'Meaning' }}</th>
@@ -169,14 +169,14 @@
                             <tr>
                                 <td class="px-5 py-3.5">
                                     <p class="text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $isTr ? ($row['label_tr'] ?? $row['label']) : ($row['label_en'] ?? $row['label']) }}</p>
-                                    <details class="mt-1"><summary class="cursor-pointer text-[10px] text-gray-300">{{ $isTr ? 'Teknik action adını göster' : 'Show raw action type' }}</summary><code class="text-[10px] text-gray-400">{{ $row['action_type'] }}</code></details>
+                                    <details class="mt-1"><summary class="cursor-pointer text-[10px] text-gray-300">{{ __('operator_meta.measurement.raw_action') }}</summary><code class="text-[10px] text-gray-400">{{ $row['action_type'] }}</code></details>
                                 </td>
                                 <td class="px-4 py-3.5"><span class="inline-flex rounded-full px-2 py-1 text-[10px] font-semibold {{ $kindClass($kind) }}">{{ $kindLabel($kind) }}</span></td>
-                                <td class="px-4 py-3.5 text-right text-sm font-bold tabular-nums text-gray-900 dark:text-white">{{ number_format((float) $row['value'], 2) }}</td>
-                                <td class="max-w-md px-5 py-3.5 text-xs leading-5 text-gray-500 dark:text-gray-400">{{ $isTr ? ($row['description_tr'] ?? 'Meta tarafından raporlanan ayrı bir aksiyon türü.') : ($row['description_en'] ?? 'A distinct action type reported by Meta.') }}</td>
+                                <td class="px-4 py-3.5 text-right text-sm font-bold tabular-nums text-gray-900 dark:text-white">{{ number_format(round((float) $row['value'])) }}</td>
+                                <td class="max-w-md px-5 py-3.5 text-xs leading-5 text-gray-500 dark:text-gray-400">{{ $isTr ? ($row['description_tr'] ?? 'Meta tarafından raporlanan ayrı bir sonuç türü.') : ($row['description_en'] ?? 'A distinct action type reported by Meta.') }}</td>
                             </tr>
                         @empty
-                            <tr><td colspan="4" class="px-5 py-12 text-center text-sm text-gray-400">{{ $isTr ? 'Seçili dönemde ölçülmüş action verisi yok.' : 'No observed action data in this period.' }}</td></tr>
+                            <tr><td colspan="4" class="px-5 py-12 text-center text-sm text-gray-400">{{ __('operator_meta.measurement.actions_empty') }}</td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -215,5 +215,5 @@
         </article>
     </div>
 
-    <div class="rounded-xl border border-blue-200 bg-blue-50/60 px-4 py-3 text-xs leading-5 text-blue-800 dark:border-blue-500/20 dark:bg-blue-500/[0.06] dark:text-blue-300">{{ $isTr ? 'Öne çıkan gerçek sonuçlar Genel Bakış, Performans, Kampanyalar, Reklam Setleri, Reklamlar ve ilişkilendirilebildiği durumda Kreatifler alanında da kendi bağlamında gösterilir. Bu ayrıntılı tablo ise Meta’nın gönderdiği ayrı action_type kayıtlarını korur.' : 'Headline outcomes also appear throughout the workspace, while this detailed table preserves the distinct action_type records returned by Meta.' }}</div>
+    <div class="rounded-xl border border-blue-200 bg-blue-50/60 px-4 py-3 text-xs leading-5 text-blue-800 dark:border-blue-500/20 dark:bg-blue-500/[0.06] dark:text-blue-300">{{ __('operator_meta.measurement.footer') }}</div>
 </section>

@@ -319,8 +319,8 @@
                                 </p>
                                 <p class="mt-1 text-xs text-gray-500">{{ $binding['asset'] }} @if (! empty($binding['brand'])) · {{ $binding['brand'] }} @endif</p>
                             </div>
-                            @if (! empty($binding['route']))
-                                <a href="{{ route($binding['route']) }}" wire:navigate class="inline-flex shrink-0 items-center justify-center rounded-lg bg-gray-50 px-3.5 py-2 text-sm font-semibold text-gray-700 ring-1 ring-inset ring-gray-200 hover:bg-gray-100 dark:bg-white/[0.03] dark:text-gray-300 dark:ring-gray-700">{{ $isTr ? 'Çalışma Alanını Aç' : 'Open Workspace' }}</a>
+                            @if (! empty($binding['route']) && ! empty($binding['asset_id']))
+                                <a href="{{ route($binding['route'], ['assetId' => $binding['asset_id']]) }}" wire:navigate class="inline-flex shrink-0 items-center justify-center rounded-lg bg-gray-50 px-3.5 py-2 text-sm font-semibold text-gray-700 ring-1 ring-inset ring-gray-200 hover:bg-gray-100 dark:bg-white/[0.03] dark:text-gray-300 dark:ring-gray-700">{{ $isTr ? 'Çalışma Alanını Aç' : 'Open Workspace' }}</a>
                             @endif
                         </div>
                     @endforeach
@@ -596,8 +596,8 @@
                                     </div>
                                 </div>
                                 <div class="flex shrink-0 flex-wrap gap-2">
-                                    @if (! empty($binding['route']))
-                                        <a href="{{ route($binding['route']) }}" wire:navigate class="rounded-lg bg-white px-3.5 py-2 text-sm font-semibold text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-300 dark:ring-gray-700">{{ $isTr ? 'Çalışma Alanını Aç' : 'Open Workspace' }}</a>
+                                    @if (! empty($binding['route']) && ! empty($binding['asset_id']))
+                                        <a href="{{ route($binding['route'], ['assetId' => $binding['asset_id']]) }}" wire:navigate class="rounded-lg bg-white px-3.5 py-2 text-sm font-semibold text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-300 dark:ring-gray-700">{{ $isTr ? 'Çalışma Alanını Aç' : 'Open Workspace' }}</a>
                                     @endif
                                     @if ($integration['actions']['unbind'] ?? false)
                                         <button type="button" wire:click="unbindBinding('{{ $binding['id'] }}')" wire:confirm="{{ $isTr ? 'Bu reklam hesabının Meta Ads varlığıyla bağlantısı kaldırılsın mı?' : 'Disconnect this Ad Account from its Meta Ads asset?' }}" class="rounded-lg px-3.5 py-2 text-sm font-medium text-error-600 hover:bg-error-50 dark:text-error-400 dark:hover:bg-error-500/10">{{ $isTr ? 'Bağlantıyı Kaldır' : 'Unbind' }}</button>

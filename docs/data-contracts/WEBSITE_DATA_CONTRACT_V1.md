@@ -91,7 +91,7 @@ The future Website collector/connector **must not invent** data requirements.
 
 ### Verified primary IA
 
-Source: `App\Livewire\Demo\Website\OverviewPage::$allowedTabs`, views under `resources/views/livewire/demo/website/`, `WebsiteWorkspaceFixtures`, `ConnectorWorkspaceFixtures::websiteInfrastructure`, product docs under `docs/product/website/`.
+Source: `App\Livewire\Demo\Website\OverviewPage::$allowedTabs`, view `resources/views/livewire/operator/website/overview.blade.php` (9 tabs since 2026-09-25 Faz B; the old `demo/website` views were removed), `WebsiteWorkspaceFixtures`, `ConnectorWorkspaceFixtures::websiteInfrastructure`, product docs under `docs/product/website/`.
 
 | Tab key | Operator label | Present |
 | --- | --- | --- |

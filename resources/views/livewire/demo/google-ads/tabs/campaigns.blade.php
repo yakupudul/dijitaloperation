@@ -4,14 +4,7 @@
     $money = fn ($v) => is_numeric($v) ? trim(number_format((float) $v, 2, ',', '.').' '.$currency) : '—';
     $number = fn ($v, int $d = 0) => is_numeric($v) ? number_format((float) $v, $d, ',', '.') : '—';
     $percent = fn ($v) => is_numeric($v) ? number_format((float) $v, 1, ',', '.').'%' : '—';
-    $statusLabel = function ($status) use ($isTr) {
-        return match (strtoupper((string) $status)) {
-            'ENABLED' => $isTr ? 'Etkin' : 'Enabled',
-            'PAUSED' => $isTr ? 'Duraklatıldı' : 'Paused',
-            'REMOVED' => $isTr ? 'Kaldırıldı' : 'Removed',
-            default => filled($status) ? (string) $status : '—',
-        };
-    };
+    $statusLabel = fn ($status): string => filled($status) ? \App\Services\GoogleAds\Support\GoogleAdsDisplayFormat::status((string) $status) : '—';
     $statusTone = fn ($status) => strtoupper((string) $status) === 'ENABLED'
         ? 'success'
         : (strtoupper((string) $status) === 'PAUSED' ? 'light' : 'warning');
@@ -96,8 +89,8 @@
 
             <select wire:model.live="entity_status" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-950 dark:text-white">
                 <option value="all">{{ $isTr ? 'Tüm durumlar' : 'All statuses' }}</option>
-                <option value="ENABLED">{{ $isTr ? 'Etkin' : 'Enabled' }}</option>
-                <option value="PAUSED">{{ $isTr ? 'Duraklatıldı' : 'Paused' }}</option>
+                <option value="ENABLED">{{ __('operator_gads.status.enabled') }}</option>
+                <option value="PAUSED">{{ __('operator_gads.status.paused') }}</option>
                 <option value="REMOVED">{{ $isTr ? 'Kaldırıldı' : 'Removed' }}</option>
             </select>
 
@@ -160,7 +153,7 @@
     @endif
 
     <div class="rounded-xl bg-blue-50 px-4 py-3 text-xs text-blue-800 ring-1 ring-inset ring-blue-100 dark:bg-blue-500/10 dark:text-blue-200 dark:ring-blue-500/20">
-        {{ $isTr ? 'Entity envanteri snapshot verisinden, tarih aralığına bağlı metrikler günlük performans verisinden gelir. Bu nedenle yalnız harcama yapan kayıtlarla sınırlı bir liste gösterilmez.' : 'Entity inventory comes from snapshots while date-range metrics come from daily performance, so the list is not restricted to entities with spend.' }}
+        {{ $isTr ? 'Kampanya, reklam grubu ve reklam listesi hesabın güncel yapısından; tarih aralığına bağlı metrikler günlük performans verisinden gelir. Bu yüzden harcaması olmayan kayıtlar da listede görünür.' : 'Entity inventory comes from snapshots while date-range metrics come from daily performance, so the list is not restricted to entities with spend.' }}
     </div>
 </div>
 

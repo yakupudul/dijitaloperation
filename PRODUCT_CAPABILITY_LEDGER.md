@@ -1,5 +1,16 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-09-25 (c) — Dijital varlık sayfaları Faz B: temizlik
+
+**State:** CODED + PHPUnit (website/Google Ads/Meta/Instagram page tests, redirects for retired Meta pages, weighted impression share, KPI deltas, Turkish labels). Full Feature + Unit suites compared with the baseline. No live UAT.
+
+- Website page 12 → 9 tabs (Genel Bakış, SEO Görevleri, Search Console, Google Analytics, Sayfalar & İçerik, Site Sağlığı, Standartlar, Altyapı & WordPress, Veri Kaynakları); old tab URLs mapped; overview lists up to 10 findings/recommendations; no raw JSON / English fallbacks; labels in `lang/*/operator_website.php`.
+- Google Ads: Optimization tab folded into Danışman (Google recommendations below the advisor panel); overview shows each count once ("Dikkat gerektirenler"); KPI deltas vs previous period with Turkish text and dates; statuses Aktif/Duraklatıldı/Kaldırıldı; PMax/Shopping/Video headers Turkish; Scenario Planner placeholder removed; impression share impressions-weighted; dead tab views and component state removed.
+- Meta: 9 legacy pages (campaigns/adsets/ads/creatives/breakdowns/insights + details) are redirects to the workspace tabs (route names kept); their Livewire classes/views deleted; dead filter/drawer state removed; YoY comparison not offered (reads compare with previous period); Bütçe column; whole-number results; jargon (destination_type, canonical lead action, raw freshness codes) replaced.
+- Instagram: single honest page — "analitik bağlı değil" + collected profile fields when present; not offered when creating new assets.
+- Shared: Data Sources/runtime wording without provider/binding/collection; discover buttons Admin-only; "Kamu Keşif" → "Açık Web Keşfi"; connector page links use the shared asset route map; asset list filter labels localized; unused GBP map script removed.
+- Still open (Faz C/D): shared asset frame, one binding flow, GA4/GSC model, Filament duplicate performance views, measurement TR/EN twin views, `GoogleAdsSearchRecoveryCollectionService` (no callers).
+
 ## 2026-09-25 (b) — Dijital varlık sayfaları Faz A: kırık ve yanlış çalışan yerler
 
 **State:** CODED + PHPUnit (`tests/Feature/Assets/*`: GBP page from collected gbp_* rows incl. partial run, retired tabs; asset list real status + edit form + Data Sources render; Google Ads landing tab + no provider call on Search render; Meta no auto-pick + recorded recommendations + run analysis). Full Feature + Unit suites compared with the baseline. Live UAT not run.

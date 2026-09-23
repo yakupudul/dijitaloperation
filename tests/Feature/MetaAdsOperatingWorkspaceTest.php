@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\Demo\Meta\CampaignDetailPage;
 use App\Livewire\Demo\Meta\OverviewPage;
 use App\Models\User;
 use App\Support\Demo\DemoCatalog;
@@ -34,10 +33,10 @@ class MetaAdsOperatingWorkspaceTest extends TestCase
     {
         $this->get(route('operator.meta.overview', ['assetId' => DemoCatalog::META_ASSET_ID]))->assertNotFound();
         Livewire::test(OverviewPage::class, ['assetId' => DemoCatalog::META_ASSET_ID])->assertStatus(404);
-        Livewire::test(CampaignDetailPage::class, [
+        $this->get(route('operator.meta.campaign', [
             'assetId' => DemoCatalog::META_ASSET_ID,
             'campaignId' => 'camp-pb-eu',
-        ])->assertStatus(404);
+        ]))->assertNotFound();
     }
 
     public function test_real_meta_asset_renders_without_atlas_fixtures(): void

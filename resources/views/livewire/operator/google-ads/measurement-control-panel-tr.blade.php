@@ -123,7 +123,7 @@
 
         return match ($decision['code'] ?? '') {
             'primary_not_enabled' => $name.' teklif optimizasyonunda Birincil olarak kullanılıyor ancak Google Ads durumu “'.$statusLabel($action['status'] ?? null).'”. Bu yapı kontrol edilmeli.',
-            'primary_no_signal' => $name.' teklif optimizasyonunda kullanılıyor ancak seçili dönemde bu aksiyon için sağlayıcı dönüşüm sinyali görülmedi. Etiketleme, kampanya kullanımı ve tarih aralığı kontrol edilmeli.',
+            'primary_no_signal' => $name.' teklif optimizasyonunda kullanılıyor ancak seçili dönemde bu işlem için Google Ads dönüşümü görülmedi. Etiketleme, kampanya kullanımı ve tarih aralığı kontrol edilmeli.',
             'low_intent_primary' => $name.' Birincil teklif sinyali olarak kullanılıyor ancak kategorisi “'.$categoryLabel($action['category'] ?? null).'”. Google’ın gerçekten işletme açısından değerli bir sonuca mı optimize olması gerektiği kontrol edilmeli.',
             'business_mapping_missing' => $name.' teklif optimizasyonunda kullanılıyor fakat MOXDOP bunun potansiyel müşteri, nitelikli potansiyel müşteri, satış, gelir veya başka hangi iş aşamasını temsil ettiğini henüz bilmiyor.',
             'lead_many_per_click' => $name.' aynı reklam etkileşiminden birden fazla dönüşüm sayabilecek şekilde yapılandırılmış. Hizmet/lead hesabında bunun bilinçli bir tercih olup olmadığı kontrol edilmeli.',

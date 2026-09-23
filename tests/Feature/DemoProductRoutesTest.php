@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Livewire\Demo\Gbp\OverviewPage as GbpOverviewPage;
 use App\Livewire\Demo\GoogleAds\OverviewPage;
 use App\Livewire\Demo\Integrations\MetaIntegrationPage;
-use App\Livewire\Demo\Meta\CampaignsPage;
 use App\Livewire\Demo\Operations\FindingsIndex;
 use App\Livewire\Demo\Operations\RecommendationsIndex;
 use App\Livewire\Demo\Operations\TaskShow;
@@ -227,10 +226,8 @@ class DemoProductRoutesTest extends TestCase
             'module_id' => 'google-ads',
         ]);
 
-        Livewire::test(CampaignsPage::class, ['assetId' => (string) $meta->id])
-            ->assertOk()
-            ->assertDontSee('Retargeting — Form')
-            ->assertDontSee('Post Bariatric — Diaspora Lead');
+        $this->get(route('operator.meta.campaigns', ['assetId' => $meta->id]))
+            ->assertRedirect(route('operator.meta.overview', ['assetId' => (string) $meta->id, 'tab' => 'campaigns']));
 
         Livewire::test(OverviewPage::class, ['assetId' => (string) $gads->id])
             ->set('tab', 'search_terms')
