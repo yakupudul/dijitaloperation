@@ -54,25 +54,13 @@ class ModuleRegistryTest extends TestCase
         ]);
     }
 
-    public function test_seeder_registers_sample_module_from_app_modules_directory(): void
+    public function test_seeder_registers_product_modules_from_app_modules_directory(): void
     {
         $this->seed(ModuleRegistrySeeder::class);
 
-        $this->assertDatabaseHas('module_registries', [
-            'module_id' => 'sample-module',
-            'enabled' => true,
-        ]);
-
-        $module = ModuleRegistry::query()->where('module_id', 'sample-module')->firstOrFail();
-
-        $this->assertSame('1.0', $module->installed_version);
-        $this->assertTrue(
-            ModuleRegistry::query()->enabled()->where('module_id', 'sample-module')->exists()
-        );
-        $this->assertTrue(ModuleCatalog::isDeveloperFixture('sample-module'));
-        $this->assertFalse(
-            ModuleRegistry::query()->operatorVisible()->where('module_id', 'sample-module')->exists()
-        );
+        $this->assertDatabaseHas('module_registries', ['module_id' => 'website', 'enabled' => true]);
+        $this->assertDatabaseMissing('module_registries', ['module_id' => 'sample-module']);
+        $this->assertTrue(ModuleCatalog::isDeveloperFixture('sample-module'), 'old sample-module rows stay hidden');
     }
 
     public function test_admin_module_registry_lists_product_modules_and_hides_sample_module(): void
@@ -90,7 +78,8 @@ class ModuleRegistryTest extends TestCase
         $googleAds = ModuleRegistry::query()->where('module_id', 'google-ads')->firstOrFail();
         $gbp = ModuleRegistry::query()->where('module_id', 'google-business-profile')->firstOrFail();
         $metaAds = ModuleRegistry::query()->where('module_id', 'meta-ads')->firstOrFail();
-        $sample = ModuleRegistry::query()->where('module_id', 'sample-module')->firstOrFail();
+        // A legacy sample-module row (module removed in Faz 1) stays hidden.
+        $sample = ModuleRegistry::query()->create(['module_id' => 'sample-module', 'enabled' => true, 'installed_version' => '1.0']);
 
         Livewire::test(ListModules::class)
             ->assertOk()

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "8716a11913e0cb9f916286a9ab5dfd03",
+    "content-hash": "bba9c0d82223276d6a50cc7524e3b637",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -5056,38 +5056,6 @@
                 "proprietary"
             ],
             "description": "MoxDOP Meta Ads module — Digital Asset presentation and binding domain (V1 connection layer).",
-            "transport-options": {
-                "symlink": true,
-                "relative": true
-            }
-        },
-        {
-            "name": "moxdop/sample-module",
-            "version": "1.0",
-            "dist": {
-                "type": "path",
-                "url": "app-modules/sample-module",
-                "reference": "b3037a5c5162218cadd2b10e64fe1d64cb0afae6"
-            },
-            "type": "library",
-            "extra": {
-                "laravel": {
-                    "providers": [
-                        "MoxDop\\SampleModule\\Providers\\SampleModuleServiceProvider"
-                    ]
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "MoxDop\\SampleModule\\": "src/",
-                    "MoxDop\\SampleModule\\Tests\\": "tests/",
-                    "MoxDop\\SampleModule\\Database\\Factories\\": "database/factories/",
-                    "MoxDop\\SampleModule\\Database\\Seeders\\": "database/seeders/"
-                }
-            },
-            "license": [
-                "proprietary"
-            ],
             "transport-options": {
                 "symlink": true,
                 "relative": true

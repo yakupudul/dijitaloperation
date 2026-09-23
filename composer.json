@@ -21,7 +21,6 @@
         "moxdop/google-ads": "*",
         "moxdop/google-business-profile": "*",
         "moxdop/meta-ads": "*",
-        "moxdop/sample-module": "*",
         "moxdop/website": "*",
         "predis/predis": "^3.5",
         "spatie/laravel-permission": "^8.3",

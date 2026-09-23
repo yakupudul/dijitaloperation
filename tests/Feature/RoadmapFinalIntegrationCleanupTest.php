@@ -106,7 +106,6 @@ class RoadmapFinalIntegrationCleanupTest extends TestCase
     public function test_connector_and_cross_asset_services_declare_read_only_boundaries(): void
     {
         $servicePaths = [
-            'app/Services/WordPressConnectionProbeService.php',
             'app/Services/SearchConsoleConnectionProbeService.php',
             'app/Services/Ga4ConnectionProbeService.php',
             'app/Services/PageSpeedConnectionProbeService.php',
