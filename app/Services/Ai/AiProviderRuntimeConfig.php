@@ -4,6 +4,7 @@ namespace App\Services\Ai;
 
 use App\Models\CoreIntegration;
 use App\Services\Integrations\Anthropic\AnthropicCredentialResolver;
+use App\Services\Integrations\ApiKeyAi\ApiKeyAiCredentialResolver;
 use App\Services\Integrations\Gemini\GeminiCredentialResolver;
 use App\Services\Integrations\OpenAi\OpenAiCredentialResolver;
 use App\Support\Ai\AiProviderCatalog;
@@ -38,6 +39,7 @@ class AiProviderRuntimeConfig
                 AiProviderCatalog::OPENAI, ProviderRegistry::OPENAI => $this->prepareOpenAi(),
                 AiProviderCatalog::ANTHROPIC => $this->prepareAnthropic(),
                 AiProviderCatalog::GEMINI => $this->prepareGemini(),
+                AiProviderCatalog::GROQ, AiProviderCatalog::OPENROUTER => $this->prepareApiKeyProvider($provider),
                 default => false,
             };
 
@@ -104,6 +106,18 @@ class AiProviderRuntimeConfig
         config([
             'ai.providers.gemini.key' => $apiKey,
         ]);
+
+        return is_string($apiKey) && $apiKey !== '';
+    }
+
+    /** Groq / OpenRouter: DB key (Integrations page) → env fallback, injected into laravel/ai config. */
+    public function prepareApiKeyProvider(string $provider): bool
+    {
+        $integration = $this->activeIntegration($provider);
+        $resolver = app(ApiKeyAiCredentialResolver::class);
+        $apiKey = $integration instanceof CoreIntegration ? $resolver->apiKey($integration) : $resolver->envApiKey($provider);
+
+        config(['ai.providers.'.$provider.'.key' => $apiKey]);
 
         return is_string($apiKey) && $apiKey !== '';
     }

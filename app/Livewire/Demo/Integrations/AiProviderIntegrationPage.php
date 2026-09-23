@@ -7,6 +7,9 @@ use App\Models\CoreIntegration;
 use App\Services\Integrations\Anthropic\AnthropicConnectionService;
 use App\Services\Integrations\Anthropic\AnthropicCredentialResolver;
 use App\Services\Integrations\Anthropic\AnthropicProviderCredentialService;
+use App\Services\Integrations\ApiKeyAi\ApiKeyAiConnectionService;
+use App\Services\Integrations\ApiKeyAi\ApiKeyAiCredentialResolver;
+use App\Services\Integrations\ApiKeyAi\ApiKeyAiProviderCredentialService;
 use App\Services\Integrations\Gemini\GeminiConnectionService;
 use App\Services\Integrations\Gemini\GeminiCredentialResolver;
 use App\Services\Integrations\Gemini\GeminiProviderCredentialService;
@@ -148,31 +151,35 @@ class AiProviderIntegrationPage extends Component
     {
         return match ($this->provider) {
             ProviderRegistry::GEMINI => 'Gemini uses a provider API key. This is separate from Google OAuth application credentials.',
+            ProviderRegistry::GROQ, ProviderRegistry::OPENROUTER => 'Ücretsiz / düşük maliyetli açık modeller. Ücretsiz katmanlarda sağlayıcı gönderilen veriyi kullanabildiği için "müşteri verisi içerir" işaretli AI işlerinde kullanılmaz; yalnızca herkese açık verilerle çalışan işlere atanabilir (Ayarlar → AI Kontrol Paneli).',
             default => 'API keys are stored with authenticated application encryption. A stored key is not a live connection.',
         };
     }
 
-    private function resolver(): OpenAiCredentialResolver|AnthropicCredentialResolver|GeminiCredentialResolver
+    private function resolver(): OpenAiCredentialResolver|AnthropicCredentialResolver|GeminiCredentialResolver|ApiKeyAiCredentialResolver
     {
         return match ($this->provider) {
+            ProviderRegistry::GROQ, ProviderRegistry::OPENROUTER => app(ApiKeyAiCredentialResolver::class),
             ProviderRegistry::ANTHROPIC => app(AnthropicCredentialResolver::class),
             ProviderRegistry::GEMINI => app(GeminiCredentialResolver::class),
             default => app(OpenAiCredentialResolver::class),
         };
     }
 
-    private function credentialService(): OpenAiProviderCredentialService|AnthropicProviderCredentialService|GeminiProviderCredentialService
+    private function credentialService(): OpenAiProviderCredentialService|AnthropicProviderCredentialService|GeminiProviderCredentialService|ApiKeyAiProviderCredentialService
     {
         return match ($this->provider) {
+            ProviderRegistry::GROQ, ProviderRegistry::OPENROUTER => app(ApiKeyAiProviderCredentialService::class),
             ProviderRegistry::ANTHROPIC => app(AnthropicProviderCredentialService::class),
             ProviderRegistry::GEMINI => app(GeminiProviderCredentialService::class),
             default => app(OpenAiProviderCredentialService::class),
         };
     }
 
-    private function connectionService(): OpenAiConnectionService|AnthropicConnectionService|GeminiConnectionService
+    private function connectionService(): OpenAiConnectionService|AnthropicConnectionService|GeminiConnectionService|ApiKeyAiConnectionService
     {
         return match ($this->provider) {
+            ProviderRegistry::GROQ, ProviderRegistry::OPENROUTER => app(ApiKeyAiConnectionService::class),
             ProviderRegistry::ANTHROPIC => app(AnthropicConnectionService::class),
             ProviderRegistry::GEMINI => app(GeminiConnectionService::class),
             default => app(OpenAiConnectionService::class),

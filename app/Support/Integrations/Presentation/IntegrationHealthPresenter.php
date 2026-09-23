@@ -4,6 +4,7 @@ namespace App\Support\Integrations\Presentation;
 
 use App\Models\CoreIntegration;
 use App\Services\Integrations\Anthropic\AnthropicCredentialResolver;
+use App\Services\Integrations\ApiKeyAi\ApiKeyAiCredentialResolver;
 use App\Services\Integrations\DataForSeo\DataForSeoCredentialResolver;
 use App\Services\Integrations\Gemini\GeminiCredentialResolver;
 use App\Services\Integrations\Google\GoogleCredentialResolver;
@@ -48,6 +49,10 @@ final class IntegrationHealthPresenter
                 $integration,
                 app(GeminiCredentialResolver::class)->isConfigured($integration),
             ),
+            ProviderRegistry::GROQ, ProviderRegistry::OPENROUTER => $this->apiKeyProviderStatus(
+                $integration,
+                app(ApiKeyAiCredentialResolver::class)->isConfigured($integration),
+            ),
             ProviderRegistry::META => $this->metaStatus($integration),
             default => IntegrationOperatorStatus::NOT_CONFIGURED,
         };
@@ -64,7 +69,9 @@ final class IntegrationHealthPresenter
             ProviderRegistry::META => $this->metaSummary($integration),
             ProviderRegistry::OPENAI,
             ProviderRegistry::ANTHROPIC,
-            ProviderRegistry::GEMINI => $this->aiProviderSummary($integration),
+            ProviderRegistry::GEMINI,
+            ProviderRegistry::GROQ,
+            ProviderRegistry::OPENROUTER => $this->aiProviderSummary($integration),
             default => [],
         };
     }

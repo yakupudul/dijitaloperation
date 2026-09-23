@@ -6,6 +6,7 @@ use App\Models\Collection\CollectionRun;
 use App\Models\CoreIntegration;
 use App\Models\DigitalAsset;
 use App\Services\Integrations\Anthropic\AnthropicCredentialResolver;
+use App\Services\Integrations\ApiKeyAi\ApiKeyAiCredentialResolver;
 use App\Services\Integrations\DataForSeo\DataForSeoCredentialResolver;
 use App\Services\Integrations\Gemini\GeminiCredentialResolver;
 use App\Services\Integrations\Google\GoogleIntegrationReadModel;
@@ -77,6 +78,12 @@ final class OperatorIntegrationsHubQuery
                         $this->geminiConfigured(),
                         'operator.integrations.ai',
                         ['provider' => ProviderRegistry::GEMINI],
+                    ),
+                    ProviderRegistry::GROQ, ProviderRegistry::OPENROUTER => $this->truthfulProviderCard(
+                        $provider,
+                        $this->apiKeyAiConfigured($provider),
+                        'operator.integrations.ai',
+                        ['provider' => $provider],
                     ),
                     default => $this->truthfulProviderCard($provider, false, 'operator.integrations'),
                 };
@@ -206,6 +213,14 @@ final class OperatorIntegrationsHubQuery
         $integration = CoreIntegration::query()->where('provider', ProviderRegistry::ANTHROPIC)->first();
 
         return $integration !== null && $this->anthropic->isConfigured($integration);
+    }
+
+    private function apiKeyAiConfigured(string $provider): bool
+    {
+        $integration = CoreIntegration::query()->where('provider', $provider)->first();
+        $resolver = app(ApiKeyAiCredentialResolver::class);
+
+        return $integration !== null ? $resolver->isConfigured($integration) : $resolver->envApiKey($provider) !== null;
     }
 
     private function geminiConfigured(): bool

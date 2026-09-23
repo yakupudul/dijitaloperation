@@ -72,6 +72,8 @@ return [
             'openai_model' => env('OPENAI_RECOMMENDATION_MODEL', 'gpt-5-mini'),
             'anthropic_model' => env('ANTHROPIC_DEFAULT_MODEL', 'claude-sonnet-5'),
             'gemini_model' => env('GEMINI_DEFAULT_MODEL', 'gemini-3.6-flash'),
+            'groq_model' => env('GROQ_DEFAULT_MODEL', 'llama-3.3-70b-versatile'),
+            'openrouter_model' => env('OPENROUTER_DEFAULT_MODEL', 'meta-llama/llama-3.3-70b-instruct:free'),
         ],
     ],
 

@@ -22,6 +22,7 @@ use App\Listeners\QueueFindingEvaluationAfterEvidenceCanonicalized;
 use App\Models\Collection\CollectionRun;
 use App\Policies\CollectionRunPolicy;
 use App\Services\Ai\AgentContextGateway;
+use App\Services\Ai\AiUsageRecorder;
 use App\Services\Assistant\Adapters\GoogleAdsAssistantReadAdapter;
 use App\Services\Assistant\AssistantAnswerGroundingValidator;
 use App\Services\Assistant\AssistantBoundaryGuard;
@@ -148,6 +149,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Ai\Events\AgentPrompted;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -303,6 +305,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Event::listen(AgentPrompted::class, [AiUsageRecorder::class, 'handle']);
+
         Gate::before(function ($user, string $ability): ?bool {
             return method_exists($user, 'hasRole') && $user->hasRole(Roles::ADMIN)
                 ? true

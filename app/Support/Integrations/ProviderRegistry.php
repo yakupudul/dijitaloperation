@@ -20,6 +20,10 @@ final class ProviderRegistry
 
     public const string GEMINI = 'gemini';
 
+    public const string GROQ = 'groq';
+
+    public const string OPENROUTER = 'openrouter';
+
     /**
      * @return array<string, array{label: string, capabilities: list<string>}>
      */
@@ -62,6 +66,18 @@ final class ProviderRegistry
             ],
             self::GEMINI => [
                 'label' => 'Gemini',
+                'capabilities' => [
+                    'ai',
+                ],
+            ],
+            self::GROQ => [
+                'label' => 'Groq',
+                'capabilities' => [
+                    'ai',
+                ],
+            ],
+            self::OPENROUTER => [
+                'label' => 'OpenRouter',
                 'capabilities' => [
                     'ai',
                 ],

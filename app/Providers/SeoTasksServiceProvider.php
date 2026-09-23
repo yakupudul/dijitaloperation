@@ -2,7 +2,7 @@
 
 namespace App\Providers;
 
-use App\Support\Ai\AiProviderCatalog;
+use App\Support\Ai\AiDefaultSteps;
 use App\Support\Ai\AiRouteKeys;
 use App\Support\Ai\AiRouteRegistry;
 use Illuminate\Support\ServiceProvider;
@@ -19,16 +19,7 @@ final class SeoTasksServiceProvider extends ServiceProvider
             'name' => 'SEO Tasks Site Understanding',
             'module' => 'seo_tasks',
             'description' => 'When a Brand has no services defined, reads the stored website pages, Search Console queries and GA4 landing pages to infer what the business sells and to whom. Output is a review-only suggestion; nothing is written to the Brand automatically.',
-            'default_steps' => [
-                [
-                    'provider' => AiProviderCatalog::ANTHROPIC,
-                    'model' => AiProviderCatalog::defaultModel(AiProviderCatalog::ANTHROPIC),
-                ],
-                [
-                    'provider' => AiProviderCatalog::OPENAI,
-                    'model' => AiProviderCatalog::defaultModel(AiProviderCatalog::OPENAI),
-                ],
-            ],
+            'default_steps' => AiDefaultSteps::analysis(),
         ]);
 
         $this->app->make(AiRouteRegistry::class)->register([
@@ -36,16 +27,7 @@ final class SeoTasksServiceProvider extends ServiceProvider
             'name' => 'SEO Tasks Content Planner',
             'module' => 'seo_tasks',
             'description' => 'Rule-selected SEO task candidates get operator-ready Turkish titles, checklists and content briefs. One call per plan run; never adds or scores tasks.',
-            'default_steps' => [
-                [
-                    'provider' => AiProviderCatalog::ANTHROPIC,
-                    'model' => AiProviderCatalog::defaultModel(AiProviderCatalog::ANTHROPIC),
-                ],
-                [
-                    'provider' => AiProviderCatalog::OPENAI,
-                    'model' => AiProviderCatalog::defaultModel(AiProviderCatalog::OPENAI),
-                ],
-            ],
+            'default_steps' => AiDefaultSteps::analysis(),
         ]);
     }
 }

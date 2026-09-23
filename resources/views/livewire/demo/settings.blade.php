@@ -320,12 +320,16 @@
                             <div><dt class="text-gray-400">OpenAI</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['ai']['openai'] }}</dd></div>
                             <div><dt class="text-gray-400">Anthropic</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['ai']['anthropic'] }}</dd></div>
                             <div><dt class="text-gray-400">Gemini</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['ai']['gemini'] }}</dd></div>
+                            <div><dt class="text-gray-400">Groq</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['ai']['groq'] ?? '—' }}</dd></div>
+                            <div><dt class="text-gray-400">OpenRouter</dt><dd class="mt-1 font-medium text-gray-800 dark:text-white/90">{{ $settings['ai']['openrouter'] ?? '—' }}</dd></div>
                         </dl>
                         <p class="mt-4 text-sm text-gray-500">{{ $settings['ai']['note'] }}</p>
                         <div class="mt-4 flex flex-wrap gap-2">
                             <x-ta.button href="{{ route('operator.integrations.ai', ['provider' => 'openai']) }}" size="sm">OpenAI</x-ta.button>
                             <x-ta.button href="{{ route('operator.integrations.ai', ['provider' => 'anthropic']) }}" size="sm" variant="outline">Anthropic</x-ta.button>
                             <x-ta.button href="{{ route('operator.integrations.ai', ['provider' => 'gemini']) }}" size="sm" variant="outline">Gemini</x-ta.button>
+                            <x-ta.button href="{{ route('operator.integrations.ai', ['provider' => 'groq']) }}" size="sm" variant="outline">Groq</x-ta.button>
+                            <x-ta.button href="{{ route('operator.integrations.ai', ['provider' => 'openrouter']) }}" size="sm" variant="outline">OpenRouter</x-ta.button>
                             <x-ta.button href="{{ route('operator.settings.ai.control-plane') }}" size="sm" variant="outline">{{ __('operator.settings.ai.control_plane') }}</x-ta.button>
                             <x-ta.button href="{{ route('operator.settings.ai.agents') }}" size="sm" variant="outline">{{ __('operator.settings.ai.agents') }}</x-ta.button>
                             <x-ta.button href="{{ route('operator.settings.ai.skills') }}" size="sm" variant="outline">{{ __('operator.settings.ai.skills') }}</x-ta.button>

@@ -4,12 +4,12 @@ namespace App\Providers;
 
 use App\Agents\CompetitiveIntelligenceAnalyst;
 use App\Agents\SearchIntelligenceAnalyst;
-use App\Agents\WebsiteImprovementAnalyst;
 use App\Agents\WebsiteChangeVerificationAnalyst;
+use App\Agents\WebsiteImprovementAnalyst;
 use App\Contracts\SearchDemand\SearchDemandSerpEnrichmentAdapter;
 use App\Services\SearchDemand\DataForSeoSearchDemandEnrichmentAdapter;
 use App\Support\Agents\AgentProfileRegistry;
-use App\Support\Ai\AiProviderCatalog;
+use App\Support\Ai\AiDefaultSteps;
 use App\Support\Ai\AiRouteKeys;
 use App\Support\Ai\AiRouteRegistry;
 use App\Support\Skills\SkillRegistry;
@@ -29,15 +29,12 @@ class SearchDemandServiceProvider extends ServiceProvider
     {
         $this->app->make(AiRouteRegistry::class)->register([
             'key' => AiRouteKeys::SEARCH_DEMAND_LIBRARIAN,
+            // Works on agency-wide / public text only: free-tier providers may be selected.
+            'contains_client_data' => false,
             'name' => 'Search Demand Librarian',
             'module' => 'search_demand',
             'description' => 'Bounded generation and semantic classification of search-query candidates behind explicit human approval.',
-            'default_steps' => [
-                [
-                    'provider' => AiProviderCatalog::OPENAI,
-                    'model' => AiProviderCatalog::defaultModel(AiProviderCatalog::OPENAI),
-                ],
-            ],
+            'default_steps' => AiDefaultSteps::publicData(),
         ]);
 
         $this->app->make(AiRouteRegistry::class)->register([
@@ -45,12 +42,7 @@ class SearchDemandServiceProvider extends ServiceProvider
             'name' => 'Search Demand Clustering',
             'module' => 'search_demand',
             'description' => 'Human-reviewed semantic clustering and cluster-maintenance proposals for Brand Query Portfolios.',
-            'default_steps' => [
-                [
-                    'provider' => AiProviderCatalog::OPENAI,
-                    'model' => AiProviderCatalog::defaultModel(AiProviderCatalog::OPENAI),
-                ],
-            ],
+            'default_steps' => AiDefaultSteps::classification(),
         ]);
 
         $this->app->make(AiRouteRegistry::class)->register([
@@ -58,12 +50,7 @@ class SearchDemandServiceProvider extends ServiceProvider
             'name' => 'Search Demand Page Relevance',
             'module' => 'search_demand',
             'description' => 'Human-reviewed page-owner and content-type proposals over technically eligible Website page candidates.',
-            'default_steps' => [
-                [
-                    'provider' => AiProviderCatalog::OPENAI,
-                    'model' => AiProviderCatalog::defaultModel(AiProviderCatalog::OPENAI),
-                ],
-            ],
+            'default_steps' => AiDefaultSteps::classification(),
         ]);
 
         $this->app->make(AiRouteRegistry::class)->register([
@@ -71,12 +58,7 @@ class SearchDemandServiceProvider extends ServiceProvider
             'name' => 'Search Demand Competitive Intelligence',
             'module' => 'search_demand',
             'description' => 'Evidence-bounded competitor-page and verified Brand-page comparison with review-only differentiation proposals.',
-            'default_steps' => [
-                [
-                    'provider' => AiProviderCatalog::OPENAI,
-                    'model' => AiProviderCatalog::defaultModel(AiProviderCatalog::OPENAI),
-                ],
-            ],
+            'default_steps' => AiDefaultSteps::analysis(),
         ]);
 
         $this->app->make(AiRouteRegistry::class)->register([
@@ -84,12 +66,7 @@ class SearchDemandServiceProvider extends ServiceProvider
             'name' => 'Search Demand Website Improvement',
             'module' => 'search_demand',
             'description' => 'Human-gated semantic Finding and Recommendation proposals over approved competitive analysis and verified Brand-page evidence.',
-            'default_steps' => [
-                [
-                    'provider' => AiProviderCatalog::OPENAI,
-                    'model' => AiProviderCatalog::defaultModel(AiProviderCatalog::OPENAI),
-                ],
-            ],
+            'default_steps' => AiDefaultSteps::analysis(),
         ]);
 
         $this->app->make(AiRouteRegistry::class)->register([
@@ -97,12 +74,7 @@ class SearchDemandServiceProvider extends ServiceProvider
             'name' => 'Search Demand Change Verification',
             'module' => 'search_demand',
             'description' => 'Human-reviewed semantic verification of stored before-and-after Website change evidence.',
-            'default_steps' => [
-                [
-                    'provider' => AiProviderCatalog::OPENAI,
-                    'model' => AiProviderCatalog::defaultModel(AiProviderCatalog::OPENAI),
-                ],
-            ],
+            'default_steps' => AiDefaultSteps::analysis(),
         ]);
 
         $this->app->make(SkillRegistry::class)->registerRoot(

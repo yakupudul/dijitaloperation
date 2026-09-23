@@ -5,12 +5,14 @@ namespace App\Services\Ai;
 use App\Models\AiRouteStep;
 use App\Models\CoreIntegration;
 use App\Services\Integrations\Anthropic\AnthropicCredentialResolver;
+use App\Services\Integrations\ApiKeyAi\ApiKeyAiCredentialResolver;
 use App\Services\Integrations\Gemini\GeminiCredentialResolver;
 use App\Services\Integrations\OpenAi\OpenAiCredentialResolver;
 use App\Support\Ai\AiProviderCatalog;
 use App\Support\Ai\AiRouteRegistry;
 use App\Support\Ai\ResolvedAiRoute;
 use App\Support\Integrations\ProviderRegistry;
+use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -45,12 +47,23 @@ final class AiRouteResolver
 
         $steps = [];
         $providerModels = [];
+        $clientData = self::containsClientData($descriptor);
+        $budget = app(AiBudget::class);
+        // Lets the usage recorder attribute calls from agents without a static route mapping.
+        Context::addHidden('ai_route_key', $routeKey);
 
         foreach (array_values($rawSteps) as $index => $raw) {
             $provider = (string) ($raw['provider'] ?? '');
             $model = (string) ($raw['model'] ?? '');
             $role = $index === 0 ? 'PRIMARY' : 'FALLBACK';
             $eligibility = $this->eligibility($provider);
+            $effectiveModel = $model !== '' ? $model : AiProviderCatalog::defaultModel($provider);
+            if ($eligibility['eligible'] && $clientData && AiProviderCatalog::isFreeTierDataRisk($provider)) {
+                $eligibility = ['eligible' => false, 'reason' => 'client_data_not_allowed'];
+            }
+            if ($eligibility['eligible'] && ! $budget->allows($provider, $effectiveModel)) {
+                $eligibility = ['eligible' => false, 'reason' => 'budget_exhausted'];
+            }
 
             $steps[] = [
                 'provider' => $provider,
@@ -73,6 +86,16 @@ final class AiRouteResolver
             signature: $this->signature($routeKey, $providerModels),
             usingPersistedSteps: $usingPersisted,
         );
+    }
+
+    /**
+     * Routes carry client data unless their descriptor explicitly says otherwise.
+     *
+     * @param  array<string, mixed>  $descriptor
+     */
+    public static function containsClientData(array $descriptor): bool
+    {
+        return (bool) ($descriptor['contains_client_data'] ?? true);
     }
 
     /**
@@ -114,6 +137,12 @@ final class AiRouteResolver
             if (! AiProviderCatalog::isSupported($provider)) {
                 throw ValidationException::withMessages([
                     'steps' => 'Unsupported AI provider: '.$provider,
+                ]);
+            }
+
+            if (AiProviderCatalog::isFreeTierDataRisk($provider) && self::containsClientData($this->registry->get($routeKey))) {
+                throw ValidationException::withMessages([
+                    'steps' => AiProviderCatalog::label($provider).' ücretsiz/üçüncü taraf katman: bu AI işi müşteri verisi içerdiği için seçilemez.',
                 ]);
             }
 
@@ -169,6 +198,9 @@ final class AiRouteResolver
             ProviderRegistry::OPENAI, AiProviderCatalog::OPENAI => $this->isOpenAiConfigured($integration),
             AiProviderCatalog::ANTHROPIC => $this->isAnthropicConfigured($integration),
             AiProviderCatalog::GEMINI => $this->isGeminiConfigured($integration),
+            AiProviderCatalog::GROQ, AiProviderCatalog::OPENROUTER => $integration instanceof CoreIntegration
+                ? app(ApiKeyAiCredentialResolver::class)->isConfigured($integration)
+                : app(ApiKeyAiCredentialResolver::class)->envApiKey($provider) !== null,
             default => false,
         };
 

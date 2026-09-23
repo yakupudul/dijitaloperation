@@ -5,7 +5,7 @@ namespace MoxDop\GoogleBusinessProfile\Providers;
 use App\Contracts\GbpOperatorWorkspace as GbpOperatorWorkspaceContract;
 use App\Services\Integrations\BoundCollectorRegistry;
 use App\Support\Agents\AgentProfileRegistry;
-use App\Support\Ai\AiProviderCatalog;
+use App\Support\Ai\AiDefaultSteps;
 use App\Support\Ai\AiRouteKeys;
 use App\Support\Ai\AiRouteRegistry;
 use App\Support\Skills\SkillRegistry;
@@ -33,12 +33,7 @@ class GoogleBusinessProfileServiceProvider extends ServiceProvider
             'name' => GbpAiRoutes::AI_GUIDANCE_NAME,
             'module' => 'google-business-profile',
             'description' => 'Grounded GBP local-presence guidance over Findings, Evidence, and Brand Context. Designed — execution pipeline not claimed.',
-            'default_steps' => [
-                [
-                    'provider' => AiProviderCatalog::OPENAI,
-                    'model' => AiProviderCatalog::defaultModel(AiProviderCatalog::OPENAI),
-                ],
-            ],
+            'default_steps' => AiDefaultSteps::analysis(),
         ]);
 
         $this->app->make(SkillRegistry::class)->registerRoot(

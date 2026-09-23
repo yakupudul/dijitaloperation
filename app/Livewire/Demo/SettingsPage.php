@@ -5,6 +5,7 @@ namespace App\Livewire\Demo;
 use App\Models\CoreIntegration;
 use App\Models\User;
 use App\Services\Integrations\Anthropic\AnthropicCredentialResolver;
+use App\Services\Integrations\ApiKeyAi\ApiKeyAiCredentialResolver;
 use App\Services\Integrations\Gemini\GeminiCredentialResolver;
 use App\Services\Integrations\OpenAi\OpenAiCredentialResolver;
 use App\Services\Notifications\NotificationPreferenceService;
@@ -419,6 +420,8 @@ class SettingsPage extends Component
                 'openai' => $this->aiCredentialLabel(ProviderRegistry::OPENAI, OpenAiCredentialResolver::class),
                 'anthropic' => $this->aiCredentialLabel(ProviderRegistry::ANTHROPIC, AnthropicCredentialResolver::class),
                 'gemini' => $this->aiCredentialLabel(ProviderRegistry::GEMINI, GeminiCredentialResolver::class),
+                'groq' => $this->aiCredentialLabel(ProviderRegistry::GROQ, ApiKeyAiCredentialResolver::class),
+                'openrouter' => $this->aiCredentialLabel(ProviderRegistry::OPENROUTER, ApiKeyAiCredentialResolver::class),
                 'note' => __('operator.settings.ai.credentials_note'),
             ],
             'files' => [

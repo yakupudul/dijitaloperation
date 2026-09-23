@@ -6,7 +6,7 @@ use App\Contracts\WebsiteOperatorWorkspace;
 use App\Services\Findings\BoundEvidenceRuleRegistry;
 use App\Services\Integrations\BoundCollectorRegistry;
 use App\Support\Agents\AgentProfileRegistry;
-use App\Support\Ai\AiProviderCatalog;
+use App\Support\Ai\AiDefaultSteps;
 use App\Support\Ai\AiRouteKeys;
 use App\Support\Ai\AiRouteRegistry;
 use App\Support\Skills\SkillRegistry;
@@ -45,12 +45,7 @@ class WebsiteServiceProvider extends ServiceProvider
             'name' => WebsiteAiRoutes::AI_GUIDANCE_NAME,
             'module' => 'website',
             'description' => 'Grounded Website AI guidance over Findings, Evidence, and Brand Context.',
-            'default_steps' => [
-                [
-                    'provider' => AiProviderCatalog::OPENAI,
-                    'model' => AiProviderCatalog::defaultModel(AiProviderCatalog::OPENAI),
-                ],
-            ],
+            'default_steps' => AiDefaultSteps::analysis(),
         ]);
 
         $this->app->make(AiRouteRegistry::class)->register([
@@ -58,12 +53,7 @@ class WebsiteServiceProvider extends ServiceProvider
             'name' => WebsiteAiRoutes::DISCOVERY_CONTEXT_NAME,
             'module' => 'website',
             'description' => 'Bounded Website public Discovery Brand inference proposals for human review.',
-            'default_steps' => [
-                [
-                    'provider' => AiProviderCatalog::OPENAI,
-                    'model' => AiProviderCatalog::defaultModel(AiProviderCatalog::OPENAI),
-                ],
-            ],
+            'default_steps' => AiDefaultSteps::analysis(),
         ]);
 
         $this->app->make(AiRouteRegistry::class)->register([
@@ -71,12 +61,7 @@ class WebsiteServiceProvider extends ServiceProvider
             'name' => WebsiteAiRoutes::GA4_AI_GUIDANCE_NAME,
             'module' => 'website',
             'description' => 'Grounded GA4 measurement guidance. Designed — live specialist execution not claimed; collectors may still be Website-scoped.',
-            'default_steps' => [
-                [
-                    'provider' => AiProviderCatalog::OPENAI,
-                    'model' => AiProviderCatalog::defaultModel(AiProviderCatalog::OPENAI),
-                ],
-            ],
+            'default_steps' => AiDefaultSteps::analysis(),
         ]);
 
         $this->app->make(AiRouteRegistry::class)->register([
@@ -84,12 +69,7 @@ class WebsiteServiceProvider extends ServiceProvider
             'name' => WebsiteAiRoutes::GSC_AI_GUIDANCE_NAME,
             'module' => 'website',
             'description' => 'Grounded Search Console organic-demand guidance. Designed — live specialist execution not claimed; collectors may still be Website-scoped.',
-            'default_steps' => [
-                [
-                    'provider' => AiProviderCatalog::OPENAI,
-                    'model' => AiProviderCatalog::defaultModel(AiProviderCatalog::OPENAI),
-                ],
-            ],
+            'default_steps' => AiDefaultSteps::analysis(),
         ]);
 
         $this->app->make(SkillRegistry::class)->registerRoot(

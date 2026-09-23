@@ -8,7 +8,7 @@ use App\Services\Collection\Providers\GoogleAds\GoogleAdsProfessionalDatasetExec
 use App\Services\Findings\BoundEvidenceRuleRegistry;
 use App\Services\Integrations\BoundCollectorRegistry;
 use App\Support\Agents\AgentProfileRegistry;
-use App\Support\Ai\AiProviderCatalog;
+use App\Support\Ai\AiDefaultSteps;
 use App\Support\Ai\AiRouteKeys;
 use App\Support\Ai\AiRouteRegistry;
 use App\Support\Skills\SkillRegistry;
@@ -51,12 +51,7 @@ class GoogleAdsServiceProvider extends ServiceProvider
             'name' => GoogleAdsAiRoutes::AI_GUIDANCE_NAME,
             'module' => 'google-ads',
             'description' => 'Grounded Google Ads AI guidance over Findings, Evidence, and Brand Context.',
-            'default_steps' => [
-                [
-                    'provider' => AiProviderCatalog::OPENAI,
-                    'model' => AiProviderCatalog::defaultModel(AiProviderCatalog::OPENAI),
-                ],
-            ],
+            'default_steps' => AiDefaultSteps::analysis(),
         ]);
 
         $this->app->make(SkillRegistry::class)->registerRoot(

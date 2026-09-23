@@ -41,4 +41,6 @@ final class AiRouteKeys
     public const string SEO_TASKS_CONTENT_PLANNER = 'seo_tasks.content_planner';
 
     public const string SEO_TASKS_SITE_UNDERSTANDING = 'seo_tasks.site_understanding';
+
+    public const string BRAND_SETUP = 'brand_setup.assistant';
 }
