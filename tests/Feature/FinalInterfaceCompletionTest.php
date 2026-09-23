@@ -189,9 +189,10 @@ class FinalInterfaceCompletionTest extends TestCase
 
         Livewire::test(AiControlPlanePage::class)
             ->assertOk()
-            ->assertSee('website.ai_guidance')
-            ->assertSee('google_ads.ai_guidance')
-            ->assertSee('meta_ads.ai_guidance');
+            ->assertSee('website.discovery_context')
+            ->assertDontSee('website.ai_guidance')
+            ->assertDontSee('google_ads.ai_guidance')
+            ->assertDontSee('meta_ads.ai_guidance');
     }
 
     public function test_profile_and_site_connectors_routes_are_reachable(): void

@@ -3,8 +3,6 @@
 namespace Tests\Feature;
 
 use App\Events\FindingEvaluationCompleted;
-use App\Filament\App\Resources\Tasks\Pages\ListTasks;
-use App\Filament\App\Resources\Tasks\Pages\ViewTask;
 use App\Models\Brand;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
@@ -27,7 +25,6 @@ use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Validation\ValidationException;
-use Livewire\Livewire;
 use Tests\TestCase;
 
 class OperationalTaskOutcomeLoopV1Test extends TestCase
@@ -384,10 +381,6 @@ class OperationalTaskOutcomeLoopV1Test extends TestCase
             ],
         ]);
 
-        Livewire::test(ViewTask::class, ['record' => $task->getRouteKey()])
-            ->assertOk()
-            ->assertSee('Legacy task');
-
         $task = app(TaskLifecycleService::class)->complete($task, [], $this->admin);
         $this->assertSame(TaskOutcomeStatus::AWAITING_FOLLOW_UP, $task->outcome_status);
 
@@ -623,26 +616,6 @@ class OperationalTaskOutcomeLoopV1Test extends TestCase
         $this->assertStringNotContainsString('Bearer', $encoded);
         $this->assertArrayNotHasKey('prompt', $task->fresh()->outcome_json);
         $this->assertFalse(data_get($task->fresh()->outcome_json, 'causal_attribution'));
-    }
-
-    public function test_tasks_workspace_shows_status_and_outcome_separation(): void
-    {
-        [$finding, $recommendation, $task] = $this->seedCompletedWebsiteLoop();
-
-        Livewire::test(ListTasks::class)
-            ->assertOk()
-            ->assertCanSeeTableRecords([$task])
-            ->assertSee('Completed')
-            ->assertSee('Awaiting follow-up');
-
-        Livewire::test(ViewTask::class, ['record' => $task->getRouteKey()])
-            ->assertOk()
-            ->assertSee('Before')
-            ->assertSee('Action')
-            ->assertSee('After')
-            ->assertSee('Outcome')
-            ->assertSee('not causal attribution')
-            ->assertActionVisible('reevaluateOutcome');
     }
 
     public function test_cancel_clears_outcome_monitoring(): void

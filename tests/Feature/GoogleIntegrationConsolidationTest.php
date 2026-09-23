@@ -2,8 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Filament\App\Resources\Integrations\Pages\EditIntegration;
-use App\Filament\App\Resources\Integrations\Pages\ViewIntegration;
 use App\Models\CoreIntegration;
 use App\Models\CoreIntegrationCredential;
 use App\Models\User;
@@ -20,7 +18,6 @@ use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
 use Tests\TestCase;
 
 class GoogleIntegrationConsolidationTest extends TestCase
@@ -77,59 +74,6 @@ class GoogleIntegrationConsolidationTest extends TestCase
         $this->assertSame('https://dop.moximu.com/integrations/google/callback', $uri);
     }
 
-    public function test_displayed_uri_matches_authorize_and_token_exchange_redirect_uri(): void
-    {
-        config(['app.url' => 'https://dop.moximu.com', 'moxdop.google.redirect_uri' => null]);
-
-        app(GoogleProviderCredentialService::class)->save($this->integration, [
-            'client_id' => 'cid.apps.googleusercontent.com',
-            'client_secret' => 'GOCSPX-test-secret',
-        ], $this->admin);
-
-        $expected = app(GoogleOAuthRedirectUriResolver::class)->uri();
-
-        Livewire::test(ViewIntegration::class, ['record' => $this->integration->getRouteKey()])
-            ->assertSee($expected)
-            ->assertSee('Authorized redirect URIs');
-
-        $begin = app(GoogleOAuthService::class)->beginAuthorization(
-            $this->integration->fresh(['providerCredential']),
-            $this->admin,
-        );
-        $this->assertArrayHasKey('url', $begin);
-        parse_str((string) parse_url($begin['url'], PHP_URL_QUERY), $query);
-        $this->assertSame($expected, $query['redirect_uri'] ?? null);
-
-        Http::fake([
-            'https://oauth2.googleapis.com/token' => Http::response([
-                'access_token' => 'atok',
-                'refresh_token' => 'rtok',
-                'expires_in' => 3600,
-                'token_type' => 'Bearer',
-            ], 200),
-        ]);
-
-        // Drive token exchange path via handleCallback internals by posting through service.
-        cache()->put('google_oauth_state:cons-state', [
-            'integration_id' => $this->integration->id,
-            'user_id' => $this->admin->id,
-        ], now()->addMinutes(5));
-
-        $result = app(GoogleOAuthService::class)->handleCallback('code', 'cons-state', null, $this->admin);
-        $this->assertArrayHasKey('integration', $result);
-
-        Http::assertSent(function ($request) use ($expected): bool {
-            if (! str_contains($request->url(), 'oauth2.googleapis.com/token')) {
-                return false;
-            }
-
-            $data = $request->data();
-
-            return ($data['redirect_uri'] ?? null) === $expected
-                && ($data['grant_type'] ?? null) === 'authorization_code';
-        });
-    }
-
     public function test_no_hard_coded_localhost_dependency_when_app_url_is_production(): void
     {
         config(['app.url' => 'https://internal.example.com', 'moxdop.google.redirect_uri' => null]);
@@ -138,62 +82,6 @@ class GoogleIntegrationConsolidationTest extends TestCase
         $this->assertSame('https://internal.example.com/integrations/google/callback', $uri);
         $this->assertStringNotContainsString('127.0.0.1', $uri);
         $this->assertStringNotContainsString('localhost', $uri);
-    }
-
-    public function test_google_edit_cannot_store_provider_secrets_in_config(): void
-    {
-        Livewire::test(EditIntegration::class, ['record' => $this->integration->getRouteKey()])
-            ->fillForm([
-                'name' => 'Google',
-                'status' => CoreIntegration::STATUS_ACTIVE,
-                // Even if somehow posted, prepareIntegrationAttributes ignores Google config mutations.
-                'config' => [
-                    'client_secret' => 'should-not-persist',
-                    'developer_token' => 'should-not-persist-either',
-                ],
-                'credentials_json' => json_encode([
-                    'client_secret' => 'json-should-not-persist',
-                ], JSON_THROW_ON_ERROR),
-            ])
-            ->call('save')
-            ->assertHasNoFormErrors();
-
-        $fresh = $this->integration->fresh();
-        $this->assertSame([], $fresh->config ?? []);
-        $this->assertFalse($fresh->providerCredential()->exists());
-        $this->assertFalse(GoogleIntegrationConfigGuard::containsUnsafe($fresh->config ?? []));
-    }
-
-    public function test_configure_writes_encrypted_provider_credentials_and_hides_secrets_in_html(): void
-    {
-        Livewire::test(ViewIntegration::class, ['record' => $this->integration->getRouteKey()])
-            ->callAction('configureGoogleApplication', data: [
-                'client_id' => 'visible-client.apps.googleusercontent.com',
-                'client_secret' => 'GOCSPX-never-show-in-html',
-                'developer_token' => 'dev-token-never-show-in-html',
-                'clear_client_secret' => false,
-                'clear_developer_token' => false,
-            ])
-            ->assertHasNoActionErrors();
-
-        $credential = CoreIntegrationCredential::query()
-            ->where('integration_id', $this->integration->id)
-            ->where('credential_type', CoreIntegrationCredential::TYPE_PROVIDER)
-            ->firstOrFail();
-
-        $this->assertSame('GOCSPX-never-show-in-html', $credential->encrypted_payload['client_secret']);
-        $this->assertArrayNotHasKey('encrypted_payload', $credential->toArray());
-
-        Livewire::test(ViewIntegration::class, ['record' => $this->integration->fresh()->getRouteKey()])
-            ->assertOk()
-            ->assertSee('visible-client.apps.googleusercontent.com')
-            ->assertSee('Configured')
-            ->assertDontSee('GOCSPX-never-show-in-html')
-            ->assertDontSee('dev-token-never-show-in-html');
-
-        $html = Livewire::test(ViewIntegration::class, ['record' => $this->integration->fresh()->getRouteKey()])->html();
-        $this->assertStringNotContainsString('GOCSPX-never-show-in-html', $html);
-        $this->assertStringNotContainsString('dev-token-never-show-in-html', $html);
     }
 
     public function test_authorize_test_and_refresh_use_same_configure_credentials(): void

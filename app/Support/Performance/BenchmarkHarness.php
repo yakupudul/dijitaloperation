@@ -2,8 +2,6 @@
 
 namespace App\Support\Performance;
 
-use App\Filament\App\Resources\Findings\FindingResource;
-use App\Filament\App\Resources\Tasks\TaskResource;
 use App\Models\Customer;
 use App\Models\Finding;
 use App\Models\Task;
@@ -47,12 +45,12 @@ final class BenchmarkHarness
         unset($measurements['customer_list_query']['result']);
 
         $measurements['finding_eloquent_query'] = $this->probe->measure(function () {
-            return FindingResource::getEloquentQuery()->limit(50)->get();
+            return Finding::query()->with(['digitalAsset:id,name,brand_id'])->limit(50)->get();
         });
         unset($measurements['finding_eloquent_query']['result']);
 
         $measurements['task_eloquent_query'] = $this->probe->measure(function () {
-            return TaskResource::getEloquentQuery()->limit(50)->get();
+            return Task::query()->with(['brand:id,name', 'digitalAsset:id,name', 'assignee:id,name'])->limit(50)->get();
         });
         unset($measurements['task_eloquent_query']['result']);
 

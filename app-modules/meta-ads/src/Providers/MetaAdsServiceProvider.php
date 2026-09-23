@@ -4,19 +4,12 @@ namespace MoxDop\MetaAds\Providers;
 
 use App\Services\Findings\BoundEvidenceRuleRegistry;
 use App\Services\Integrations\BoundCollectorRegistry;
-use App\Support\Agents\AgentProfileRegistry;
-use App\Support\Ai\AiDefaultSteps;
-use App\Support\Ai\AiRouteKeys;
-use App\Support\Ai\AiRouteRegistry;
-use App\Support\Skills\SkillRegistry;
 use Illuminate\Support\ServiceProvider;
-use MoxDop\MetaAds\Agents\MetaAdsAnalyst;
-use MoxDop\MetaAds\Ai\MetaAdsAiRoutes;
 use MoxDop\MetaAds\Collection\MetaAdsBoundCollector;
 use MoxDop\MetaAds\Findings\MetaAdsPerformanceBoundEvidenceEvaluator;
 
 /**
- * Meta Ads module — Digital Asset domain, AI guidance, and Skills (V1).
+ * Meta Ads module — Digital Asset domain, collectors, and evidence rules.
  */
 class MetaAdsServiceProvider extends ServiceProvider
 {
@@ -36,20 +29,5 @@ class MetaAdsServiceProvider extends ServiceProvider
 
         $this->app->make(BoundEvidenceRuleRegistry::class)
             ->register($this->app->make(MetaAdsPerformanceBoundEvidenceEvaluator::class));
-
-        $this->app->make(AiRouteRegistry::class)->register([
-            'key' => AiRouteKeys::META_ADS_AI_GUIDANCE,
-            'name' => MetaAdsAiRoutes::AI_GUIDANCE_NAME,
-            'module' => 'meta-ads',
-            'description' => 'Grounded Meta Ads AI guidance over Findings, Evidence, and Brand Context.',
-            'default_steps' => AiDefaultSteps::analysis(),
-        ]);
-
-        $this->app->make(SkillRegistry::class)->registerRoot(
-            'meta-ads',
-            dirname(__DIR__, 2).'/resources/skills',
-        );
-
-        $this->app->make(AgentProfileRegistry::class)->register(MetaAdsAnalyst::definition());
     }
 }

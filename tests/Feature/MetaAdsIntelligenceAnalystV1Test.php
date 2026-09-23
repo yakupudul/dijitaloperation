@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\Pages\ViewDigitalAsset;
 use App\Models\Brand;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
@@ -19,19 +18,13 @@ use App\Services\Findings\BoundEvidenceRuleRegistry;
 use App\Services\Findings\FindingLifecycleService;
 use App\Services\Integrations\BoundCollectorRegistry;
 use App\Services\Integrations\Meta\MetaApiClient;
-use App\Support\Agents\AgentProfileKeys;
-use App\Support\Agents\AgentProfileRegistry;
-use App\Support\Ai\AiRouteKeys;
-use App\Support\Ai\AiRouteRegistry;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Roles;
-use App\Support\Skills\SkillRegistry;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
 use MoxDop\MetaAds\Collection\MetaAdsBoundCollector;
 use MoxDop\MetaAds\Findings\MetaAdsFindingsCatalog;
 use MoxDop\MetaAds\Normalization\MetaActionNormalizer;
@@ -91,37 +84,13 @@ class MetaAdsIntelligenceAnalystV1Test extends TestCase
         ]);
     }
 
-    public function test_collector_and_route_and_skills_are_registered(): void
+    public function test_collector_and_evidence_rules_are_registered(): void
     {
         $this->assertNotNull(app(BoundCollectorRegistry::class)->forCapability('meta_ads'));
-        $this->assertTrue(app(AiRouteRegistry::class)->has(AiRouteKeys::META_ADS_AI_GUIDANCE));
-        $this->assertNotNull(app(AgentProfileRegistry::class)->get(AgentProfileKeys::META_ADS_ANALYST));
-
-        $skills = app(SkillRegistry::class);
-        foreach ([
-            'account-performance-audit',
-            'campaign-performance-analysis',
-            'adset-delivery-analysis',
-            'ad-creative-performance-analysis',
-            'measurement-result-review',
-        ] as $slug) {
-            $this->assertNotNull($skills->getForModule('meta-ads', $slug));
-        }
 
         $evaluators = collect(app(BoundEvidenceRuleRegistry::class)->all())
             ->filter(fn ($e) => $e->sourceModule() === 'meta-ads');
         $this->assertNotEmpty($evaluators);
-    }
-
-    public function test_collect_live_data_visible_for_meta_when_collector_registered(): void
-    {
-        Livewire::test(ViewDigitalAsset::class, [
-            'record' => $this->asset->getRouteKey(),
-            'parentRecord' => $this->brand,
-        ])
-            ->assertOk()
-            ->assertActionVisible('collectLiveData')
-            ->assertActionVisible('generateMetaAdsAiGuidance');
     }
 
     public function test_action_normalization_preserves_unknown_and_does_not_sum(): void

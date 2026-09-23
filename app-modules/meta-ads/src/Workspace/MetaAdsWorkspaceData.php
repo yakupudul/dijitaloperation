@@ -8,12 +8,9 @@ use App\Models\Evidence;
 use App\Models\Finding;
 use App\Models\Recommendation;
 use App\Models\Run;
-use App\Support\Ai\AiProviderCatalog;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
-use MoxDop\MetaAds\Ai\MetaAdsAiGuidanceConfig;
-use MoxDop\MetaAds\Ai\MetaAdsAiGuidanceService;
 use MoxDop\MetaAds\Collection\MetaAdsBoundCollector;
 use MoxDop\MetaAds\Normalization\MetaActionNormalizer;
 use MoxDop\MetaAds\Normalization\MetaResultResolver;
@@ -121,7 +118,6 @@ final class MetaAdsWorkspaceData
             ],
             'finding_groups' => $this->findingGroups($findings),
             'recommendations' => $recommendations,
-            'ai_guidance' => $this->aiGuidance($asset),
             'connections' => $connections,
             'connection_summary' => $connectionSummary,
             'connection_health' => $this->connectionHealthLine($connections, $connectionSummary),
@@ -699,93 +695,6 @@ final class MetaAdsWorkspaceData
     }
 
     /**
-     * @return array<string, mixed>
-     */
-    private function aiGuidance(DigitalAsset $asset): array
-    {
-        $service = app(MetaAdsAiGuidanceService::class);
-        $insight = $service->latestSuccessfulInsight($asset);
-        $failed = $service->latestFailedInsight($asset);
-
-        if ($insight === null && $failed === null) {
-            return [
-                'available' => false,
-                'insight' => null,
-                'failed' => null,
-            ];
-        }
-
-        $payload = is_array($insight?->payload) ? $insight->payload : [];
-        $failedPayload = is_array($failed?->payload) ? $failed->payload : [];
-        $showFailure = $failed !== null && ($insight === null || $failed->id > $insight->id);
-
-        $interpretations = [];
-        foreach ($payload['finding_interpretations'] ?? [] as $row) {
-            if (! is_array($row)) {
-                continue;
-            }
-            $findingId = (int) ($row['finding_id'] ?? 0);
-            $finding = $findingId > 0
-                ? Finding::query()->where('digital_asset_id', $asset->id)->find($findingId)
-                : null;
-
-            $existingAiRec = Recommendation::query()
-                ->where('digital_asset_id', $asset->id)
-                ->where('finding_id', $findingId)
-                ->where('source_module', MetaAdsAiGuidanceConfig::MODULE_ID)
-                ->orderByDesc('id')
-                ->first();
-
-            $interpretations[] = [
-                'finding_id' => $findingId,
-                'finding_title' => $finding?->title ?? ('Finding #'.$findingId),
-                'severity' => $finding?->severity ?? ($row['suggested_priority'] ?? 'medium'),
-                'explanation' => (string) ($row['explanation'] ?? ''),
-                'business_relevance' => (string) ($row['business_relevance'] ?? ''),
-                'uncertainty' => (string) ($row['uncertainty'] ?? 'medium'),
-                'suggested_priority' => (string) ($row['suggested_priority'] ?? 'medium'),
-                'evidence_ids' => array_values(array_map('intval', $row['evidence_ids'] ?? [])),
-                'watch_metrics' => is_array($row['watch_metrics'] ?? null) ? $row['watch_metrics'] : [],
-                'recommendation_draft' => is_array($row['recommendation_draft'] ?? null)
-                    ? $row['recommendation_draft']
-                    : null,
-                'existing_recommendation' => $existingAiRec,
-                'can_accept' => $existingAiRec === null
-                    || ! in_array($existingAiRec->status, ['dismissed', 'converted'], true),
-            ];
-        }
-
-        $run = $insight?->run_id ? Run::query()->find($insight->run_id) : null;
-        $meta = is_array($run?->metadata) ? $run->metadata : [];
-
-        return [
-            'available' => $insight !== null,
-            'generated_at' => $insight?->observed_at,
-            'generated_human' => $insight?->observed_at?->diffForHumans(),
-            'executive_summary' => (string) ($payload['executive_summary'] ?? ''),
-            'overall_priority' => (string) ($payload['overall_priority'] ?? ''),
-            'finding_count' => count($payload['finding_ids'] ?? []),
-            'evidence_count' => count($payload['evidence_ids'] ?? []),
-            'agent_name' => data_get($meta, 'agent_profile_name') ?: data_get($payload, 'agent_profile_slug') ?: 'Meta Ads Analyst',
-            'agent_version' => data_get($meta, 'agent_profile_version') ?: data_get($payload, 'agent_profile_version'),
-            'skill_versions' => data_get($meta, 'skill_versions') ?: data_get($payload, 'skill_versions') ?: [],
-            'ai_route_key' => data_get($meta, 'ai_route_key') ?: data_get($payload, 'ai_route_key'),
-            'ai_route_name' => data_get($meta, 'ai_route_name') ?: 'Meta Ads AI Guidance',
-            'provider' => data_get($meta, 'provider') ?: data_get($payload, 'provider'),
-            'model' => data_get($meta, 'model') ?: data_get($payload, 'model'),
-            'fallback_occurred' => (bool) (data_get($meta, 'fallback_occurred') ?: data_get($payload, 'fallback_occurred')),
-            'period' => data_get($meta, 'period') ?: null,
-            'interpretations' => $interpretations,
-            'failed' => $showFailure ? [
-                'at' => $failed?->observed_at,
-                'error_class' => (string) ($failedPayload['error_class'] ?? 'unknown'),
-                'message' => 'Latest AI request failed. Previous successful guidance is shown when available.',
-            ] : null,
-            'insight_id' => $insight?->id,
-        ];
-    }
-
-    /**
      * @return list<array<string, mixed>>
      */
     private function connectionCards(DigitalAsset $asset): array
@@ -855,7 +764,6 @@ final class MetaAdsWorkspaceData
 
                 $title = data_get($run->metadata, 'human_title')
                     ?: match ($run->module_id) {
-                        MetaAdsAiGuidanceConfig::MODULE_ID => MetaAdsAiGuidanceConfig::RUN_TITLE,
                         MetaAdsBoundCollector::MODULE_ID => 'Meta Ads data collection',
                         default => 'Run #'.$run->id,
                     };
@@ -863,30 +771,6 @@ final class MetaAdsWorkspaceData
                 $source = data_get($run->metadata, 'resource_display_name')
                     ?: data_get($run->metadata, 'capability')
                     ?: 'Meta Ads';
-
-                if ($run->module_id === MetaAdsAiGuidanceConfig::MODULE_ID) {
-                    $provider = data_get($run->metadata, 'provider');
-                    $providerLabel = is_string($provider) && $provider !== ''
-                        ? AiProviderCatalog::label($provider)
-                        : null;
-                    $model = data_get($run->metadata, 'model');
-                    $modelLabel = is_string($model) && $model !== ''
-                        ? AiProviderCatalog::humanModelLabel($model)
-                        : null;
-                    $routeName = data_get($run->metadata, 'ai_route_name') ?: 'Meta Ads AI Guidance';
-                    $agentName = data_get($run->metadata, 'agent_profile_name') ?: 'Meta Ads Analyst';
-                    $activeSkills = data_get($run->metadata, 'active_skill_signatures', []);
-                    $skillCount = is_array($activeSkills) ? count($activeSkills) : 0;
-                    $fallback = data_get($run->metadata, 'fallback_occurred') ? 'Fallback' : null;
-                    $source = implode(' · ', array_filter([
-                        $agentName,
-                        $routeName,
-                        $providerLabel,
-                        $modelLabel,
-                        $skillCount > 0 ? $skillCount.' Skills' : null,
-                        $fallback,
-                    ]));
-                }
 
                 return [
                     'id' => $run->id,

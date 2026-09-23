@@ -2,9 +2,6 @@
 
 namespace App\Filament\App\Widgets;
 
-use App\Filament\App\Resources\Findings\FindingResource;
-use App\Filament\App\Resources\Recommendations\RecommendationResource;
-use App\Filament\App\Resources\Tasks\TaskResource;
 use App\Models\CoreConnection;
 use App\Models\Finding;
 use App\Models\Recommendation;
@@ -106,7 +103,7 @@ class OpsActionOverviewWidget extends StatsOverviewWidget
                             : 'No issues currently require attention'
                     )
                     ->color('success')
-                    ->url(FindingResource::getUrl('index')),
+                    ->url(route('operator.findings')),
             ];
         }
 
@@ -116,28 +113,28 @@ class OpsActionOverviewWidget extends StatsOverviewWidget
             $stats[] = Stat::make('Critical open Findings', (string) $criticalFindings)
                 ->description('Open findings with critical or high severity')
                 ->color('danger')
-                ->url(FindingResource::getUrl('index'));
+                ->url(route('operator.findings'));
         }
 
         if ($openWebsiteTechnicalFindings > 0) {
             $stats[] = Stat::make('Website technical Findings', (string) $openWebsiteTechnicalFindings)
                 ->description('Open critical/high findings from website checks')
                 ->color('danger')
-                ->url(FindingResource::getUrl('index'));
+                ->url(route('operator.findings'));
         }
 
         if ($openCrossChannelFindings > 0) {
             $stats[] = Stat::make('Open cross-channel Findings', (string) $openCrossChannelFindings)
                 ->description('Cross-channel findings still open')
                 ->color('warning')
-                ->url(FindingResource::getUrl('index'));
+                ->url(route('operator.findings'));
         }
 
         if ($openRecommendations > 0) {
             $stats[] = Stat::make('Open Recommendations', (string) $openRecommendations)
                 ->description('Recommendations waiting for action')
                 ->color('warning')
-                ->url(RecommendationResource::getUrl('index'));
+                ->url(route('operator.recommendations'));
         }
 
         if ($failedConnections > 0) {
@@ -152,35 +149,35 @@ class OpsActionOverviewWidget extends StatsOverviewWidget
                     ? $overdueTasks.' overdue'
                     : 'Open, in progress, or blocked')
                 ->color($overdueTasks > 0 ? 'danger' : 'warning')
-                ->url(TaskResource::getUrl('index'));
+                ->url(route('operator.tasks'));
         }
 
         if ($regressionObserved > 0) {
             $stats[] = Stat::make('Regression observed', (string) $regressionObserved)
                 ->description('Linked Finding reappeared after earlier improvement')
                 ->color('danger')
-                ->url(TaskResource::getUrl('index'));
+                ->url(route('operator.tasks'));
         }
 
         if ($awaitingFollowUp > 0) {
             $stats[] = Stat::make('Awaiting follow-up', (string) $awaitingFollowUp)
                 ->description('Completed Tasks waiting for comparable Finding evaluation')
                 ->color('warning')
-                ->url(TaskResource::getUrl('index'));
+                ->url(route('operator.tasks'));
         }
 
         if ($improvementObserved > 0) {
             $stats[] = Stat::make('Improvement observed', (string) $improvementObserved)
                 ->description('Linked Finding resolved in a later successful evaluation')
                 ->color('success')
-                ->url(TaskResource::getUrl('index'));
+                ->url(route('operator.tasks'));
         }
 
         if ($recentlyResolvedImportantFindings > 0) {
             $stats[] = Stat::make('Recently resolved important', (string) $recentlyResolvedImportantFindings)
                 ->description('Critical/high findings resolved in the last 7 days')
                 ->color('success')
-                ->url(FindingResource::getUrl('index'));
+                ->url(route('operator.findings'));
         }
 
         return $stats;

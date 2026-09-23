@@ -4,12 +4,9 @@ namespace App\Services\Async;
 
 use App\Jobs\Async\CollectLiveBoundDataJob;
 use App\Jobs\Async\EvaluateFindingsForAssetJob;
-use App\Jobs\Async\GoogleAdsAiGuidanceJob;
-use App\Jobs\Async\MetaAdsAiGuidanceJob;
 use App\Jobs\Async\PublicDiscoveryJob;
 use App\Jobs\Async\SearchDemandCompetitorPageCollectionJob;
 use App\Jobs\Async\SeoIntelligenceRefreshJob;
-use App\Jobs\Async\WebsiteAiGuidanceJob;
 use App\Jobs\Async\WebsiteDiagnosisJob;
 use App\Models\Collection\CollectionRun;
 use App\Models\DigitalAsset;
@@ -137,57 +134,6 @@ final class AsyncOperationService
             humanTitle: 'SEO intelligence refresh',
             user: $user,
             jobFactory: fn (Run $run): object => new SeoIntelligenceRefreshJob($run->id),
-        );
-    }
-
-    /**
-     * @param  list<int>|null  $findingIds
-     * @return array{ok: bool, queued: bool, message: string, run: ?Run, existing_run: ?Run}
-     */
-    public function queueWebsiteAiGuidance(DigitalAsset $asset, ?User $user = null, ?array $findingIds = null): array
-    {
-        return $this->queue(
-            asset: $asset,
-            operationType: AsyncOperationTypes::WEBSITE_AI_GUIDANCE,
-            moduleId: 'website-ai-guidance',
-            humanTitle: 'Website AI guidance',
-            user: $user,
-            jobFactory: fn (Run $run): object => new WebsiteAiGuidanceJob($run->id, $findingIds),
-            extraMetadata: ['finding_ids' => $findingIds],
-        );
-    }
-
-    /**
-     * @param  list<int>|null  $findingIds
-     * @return array{ok: bool, queued: bool, message: string, run: ?Run, existing_run: ?Run}
-     */
-    public function queueGoogleAdsAiGuidance(DigitalAsset $asset, ?User $user = null, ?array $findingIds = null): array
-    {
-        return $this->queue(
-            asset: $asset,
-            operationType: AsyncOperationTypes::GOOGLE_ADS_AI_GUIDANCE,
-            moduleId: 'google-ads-ai-guidance',
-            humanTitle: 'Google Ads AI guidance',
-            user: $user,
-            jobFactory: fn (Run $run): object => new GoogleAdsAiGuidanceJob($run->id, $findingIds),
-            extraMetadata: ['finding_ids' => $findingIds],
-        );
-    }
-
-    /**
-     * @param  list<int>|null  $findingIds
-     * @return array{ok: bool, queued: bool, message: string, run: ?Run, existing_run: ?Run}
-     */
-    public function queueMetaAdsAiGuidance(DigitalAsset $asset, ?User $user = null, ?array $findingIds = null): array
-    {
-        return $this->queue(
-            asset: $asset,
-            operationType: AsyncOperationTypes::META_ADS_AI_GUIDANCE,
-            moduleId: 'meta-ads-ai-guidance',
-            humanTitle: 'Meta Ads AI guidance',
-            user: $user,
-            jobFactory: fn (Run $run): object => new MetaAdsAiGuidanceJob($run->id, $findingIds),
-            extraMetadata: ['finding_ids' => $findingIds],
         );
     }
 
@@ -402,8 +348,6 @@ final class AsyncOperationService
 
         $asset = $original->digitalAsset ?? DigitalAsset::query()->findOrFail($original->digital_asset_id);
         $type = (string) data_get($original->metadata, 'operation_type');
-        $findingIds = data_get($original->metadata, 'finding_ids');
-        $findingIds = is_array($findingIds) ? array_values(array_map('intval', $findingIds)) : null;
         $clusterId = data_get($original->metadata, 'cluster_id');
         $cluster = is_numeric($clusterId) ? SearchDemandCluster::query()->find((int) $clusterId) : null;
         $maxUrls = (int) data_get($original->metadata, 'max_urls', 10);
@@ -453,9 +397,6 @@ final class AsyncOperationService
                     'existing_run' => null,
                 ],
             AsyncOperationTypes::SEO_INTELLIGENCE_REFRESH => $this->queueSeoIntelligenceRefresh($asset, $user),
-            AsyncOperationTypes::WEBSITE_AI_GUIDANCE => $this->queueWebsiteAiGuidance($asset, $user, $findingIds),
-            AsyncOperationTypes::GOOGLE_ADS_AI_GUIDANCE => $this->queueGoogleAdsAiGuidance($asset, $user, $findingIds),
-            AsyncOperationTypes::META_ADS_AI_GUIDANCE => $this->queueMetaAdsAiGuidance($asset, $user, $findingIds),
             AsyncOperationTypes::FINDING_EVALUATION => $this->queueFindingEvaluation($asset, $user),
             default => [
                 'ok' => false,

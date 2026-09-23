@@ -2,7 +2,6 @@
 
 namespace App\Support\Integrations\Presentation;
 
-use App\Filament\App\Resources\Integrations\IntegrationResource;
 use App\Models\CoreIntegration;
 use App\Support\Integrations\ProviderRegistry;
 use Illuminate\Support\Collection;
@@ -131,15 +130,15 @@ final class IntegrationWorkspaceCatalog
     }
 
     /**
-     * Frozen `/app/integrations` is the canonical Google operator surface.
-     * Filament `/admin/settings/integrations/{id}` remains internal configure/admin.
+     * Operator integration pages are the only configure/manage surface (Filament copies removed in Faz 1).
      */
     private function manageUrlFor(string $provider, CoreIntegration $integration): string
     {
-        if ($provider === ProviderRegistry::GOOGLE) {
-            return route('operator.integrations.google', absolute: false);
-        }
-
-        return IntegrationResource::getUrl('view', ['record' => $integration]);
+        return match ($provider) {
+            ProviderRegistry::GOOGLE => route('operator.integrations.google', absolute: false),
+            ProviderRegistry::META => route('operator.integrations.meta', absolute: false),
+            ProviderRegistry::DATAFORSEO => route('operator.integrations.dataforseo', absolute: false),
+            default => route('operator.integrations.ai', ['provider' => $provider], absolute: false),
+        };
     }
 }

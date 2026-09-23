@@ -3,14 +3,10 @@
 namespace Tests\Feature;
 
 use App\Contracts\Ai\AgentContextGateway;
-use App\Models\AgentExecutionRun;
 use App\Models\Brand;
 use App\Models\CoreIntegration;
 use App\Models\DigitalAsset;
-use App\Models\Evidence;
-use App\Models\Finding;
 use App\Models\Run;
-use App\Models\SkillExecutionRun;
 use App\Models\User;
 use App\Services\Ai\AgentExecutionPlanner;
 use App\Services\Ai\AgentExecutionRecorder;
@@ -23,11 +19,7 @@ use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use InvalidArgumentException;
-use Laravel\Ai\Prompts\AgentPrompt;
-use MoxDop\Website\Agents\WebsiteSeoAnalyst;
-use MoxDop\Website\Ai\Agents\WebsiteRecommendationAgent;
-use MoxDop\Website\Ai\WebsiteAiRecommendationConfig;
-use MoxDop\Website\Ai\WebsiteAiRecommendationService;
+use MoxDop\Website\Agents\WebsiteBrandDiscoveryAnalyst;
 use Tests\TestCase;
 
 class AiAgentProductionExecutionTest extends TestCase
@@ -48,7 +40,6 @@ class AiAgentProductionExecutionTest extends TestCase
             'moxdop.openai.api_key' => null,
             'ai.providers.openai.key' => null,
             'ai.providers.openai.store' => false,
-            'moxdop.openai.recommendation_model' => 'gpt-5-mini',
         ]);
 
         $integration = CoreIntegration::factory()->openai()->create([
@@ -59,33 +50,17 @@ class AiAgentProductionExecutionTest extends TestCase
         ], $this->admin);
     }
 
-    public function test_planner_marks_recommendation_framing_eligible_with_empty_required_evidence(): void
-    {
-        $profile = WebsiteSeoAnalyst::definition();
-        $plan = app(AgentExecutionPlanner::class)->plan($profile, []);
-
-        $this->assertSame(AgentExecutionPlan::READY, $plan->preInferenceStatus);
-        $this->assertTrue($plan->shouldCallInference());
-        $this->assertNotEmpty($plan->eligibleSkills);
-
-        $framing = collect($plan->skillEvaluations)
-            ->first(fn (array $row): bool => ($row['slug'] ?? '') === 'recommendation-framing');
-
-        $this->assertIsArray($framing);
-        $this->assertTrue($framing['eligible']);
-    }
-
     public function test_planner_abstains_when_all_skills_require_missing_evidence(): void
     {
         $profile = new AgentProfileDefinition(
             slug: 'test-abstain-agent',
             version: '1.0.0',
             name: 'Test Abstain Agent',
-            module: 'website',
+            module: 'search_demand',
             purpose: 'test',
             status: 'active',
-            aiRouteKey: 'website.ai_guidance',
-            skillSlugs: ['technical-seo-analysis', 'search-console-analysis'],
+            aiRouteKey: 'search_demand.clustering',
+            skillSlugs: ['search-demand-clustering', 'search-query-classification'],
             allowedDataScope: [],
             allowedOperations: [],
             forbiddenOperations: [],
@@ -200,8 +175,8 @@ class AiAgentProductionExecutionTest extends TestCase
             'brand_id' => $brand->id,
             'type' => 'website',
         ]);
-        $profile = WebsiteSeoAnalyst::definition();
-        $plan = app(AgentExecutionPlanner::class)->plan($profile, ['page_html']);
+        $profile = WebsiteBrandDiscoveryAnalyst::definition();
+        $plan = app(AgentExecutionPlanner::class)->plan($profile, ['website_public_site_summary']);
 
         $pack = app(AgentContextGateway::class)->buildEvidencePackFromContext(
             $asset,
@@ -215,7 +190,7 @@ class AiAgentProductionExecutionTest extends TestCase
             ],
             [7],
             [1],
-            'website.ai_guidance',
+            'website.discovery_context',
             'route-sig',
             str_repeat('1', 64),
         );
@@ -227,60 +202,6 @@ class AiAgentProductionExecutionTest extends TestCase
         $this->assertFalse($pack->containsEvidenceId(8));
     }
 
-    public function test_website_analyze_persists_agent_execution_run_with_fake_llm(): void
-    {
-        [$asset, $finding, $evidence] = $this->seedWebsiteContext();
-
-        WebsiteRecommendationAgent::fake([
-            [
-                'executive_summary' => 'Grounded summary',
-                'overall_priority' => 'medium',
-                'context_observations' => [],
-                'finding_interpretations' => [
-                    [
-                        'finding_id' => $finding->id,
-                        'evidence_ids' => [$evidence->id],
-                        'explanation' => 'Based on Evidence',
-                        'business_relevance' => 'Relevant',
-                        'likely_contributors' => ['Missing signal'],
-                        'uncertainty' => 'low',
-                        'suggested_priority' => 'medium',
-                        'recommendation_draft' => [
-                            'title' => 'Draft',
-                            'action' => 'Do the thing',
-                            'rationale' => 'Evidence-backed',
-                            'effort' => 'low',
-                        ],
-                        'dependencies' => [],
-                        'success_signal' => 'ok',
-                        'failure_signal' => 'not ok',
-                        'watch_metrics' => [],
-                    ],
-                ],
-                'prompt_version' => WebsiteAiRecommendationConfig::PROMPT_VERSION,
-            ],
-        ])->preventStrayPrompts();
-
-        $result = app(WebsiteAiRecommendationService::class)->analyze($asset);
-
-        $this->assertFalse($result['reused']);
-        $this->assertSame('completed', $result['run']->status);
-
-        $agentRun = AgentExecutionRun::query()->where('run_id', $result['run']->id)->first();
-        $this->assertInstanceOf(AgentExecutionRun::class, $agentRun);
-        $this->assertSame(WebsiteSeoAnalyst::SLUG, $agentRun->agent_slug);
-        $this->assertSame(AgentExecutionPlan::READY, $agentRun->pre_inference_status);
-        $this->assertSame(AgentExecutionRun::STATUS_COMPLETED, $agentRun->status);
-        $this->assertGreaterThan(0, $agentRun->skillExecutionRuns()->count());
-        $this->assertTrue(
-            $agentRun->skillExecutionRuns()
-                ->where('status', SkillExecutionRun::STATUS_VALIDATED)
-                ->exists()
-        );
-
-        WebsiteRecommendationAgent::assertPrompted(fn (AgentPrompt $prompt): bool => $prompt->contains('AGENT CONTRACT'));
-    }
-
     public function test_recorder_start_from_plan_creates_skill_rows(): void
     {
         $brand = Brand::factory()->create();
@@ -290,70 +211,24 @@ class AiAgentProductionExecutionTest extends TestCase
         ]);
         $run = Run::factory()->create([
             'digital_asset_id' => $asset->id,
-            'module_id' => 'website-ai-insights',
+            'module_id' => 'public-discovery',
             'status' => 'running',
         ]);
 
-        $profile = WebsiteSeoAnalyst::definition();
-        $plan = app(AgentExecutionPlanner::class)->plan($profile, ['page_html']);
+        $profile = WebsiteBrandDiscoveryAnalyst::definition();
+        $plan = app(AgentExecutionPlanner::class)->plan($profile, ['website_public_site_summary']);
 
         $agentRun = app(AgentExecutionRecorder::class)->startFromPlan(
             $run,
             $asset,
             $profile,
             $plan,
-            'website.ai_guidance',
+            'website.discovery_context',
             'sig',
             str_repeat('9', 64),
         );
 
         $this->assertSame($run->id, $agentRun->run_id);
         $this->assertCount(count($profile->skillSlugs), $agentRun->skillExecutionRuns);
-    }
-
-    /**
-     * @return array{0: DigitalAsset, 1: Finding, 2: Evidence}
-     */
-    private function seedWebsiteContext(): array
-    {
-        $brand = Brand::factory()->create();
-        $asset = DigitalAsset::factory()->create([
-            'brand_id' => $brand->id,
-            'type' => 'website',
-            'primary_url' => 'https://example.com',
-            'domain' => 'example.com',
-        ]);
-
-        $diagnosisRun = Run::factory()->create([
-            'digital_asset_id' => $asset->id,
-            'module_id' => 'website-diagnosis',
-            'status' => 'completed',
-        ]);
-
-        $evidence = Evidence::factory()->sitemap()->create([
-            'run_id' => $diagnosisRun->id,
-            'digital_asset_id' => $asset->id,
-            'source_module' => 'website-diagnosis',
-            'payload' => [
-                'host' => 'example.com',
-                'present' => false,
-                'status_code' => 404,
-            ],
-        ]);
-
-        $finding = Finding::factory()->create([
-            'digital_asset_id' => $asset->id,
-            'source_module' => 'website-diagnosis',
-            'fingerprint' => 'sitemap-xml-availability|host=example.com',
-            'category' => 'indexability',
-            'severity' => 'high',
-            'title' => 'Sitemap missing or unreadable',
-            'summary' => 'No readable sitemap.xml was found.',
-            'confidence' => 0.7,
-            'status' => 'open',
-            'last_run_id' => $diagnosisRun->id,
-        ]);
-
-        return [$asset, $finding, $evidence];
     }
 }

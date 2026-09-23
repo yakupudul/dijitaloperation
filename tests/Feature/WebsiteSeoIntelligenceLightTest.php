@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\Pages\ViewDigitalAsset;
 use App\Models\Brand;
 use App\Models\CoreIntegration;
 use App\Models\Customer;
@@ -21,7 +20,6 @@ use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
 use MoxDop\Website\SeoIntelligence\CrossSourceKeywordOpportunities;
 use MoxDop\Website\SeoIntelligence\KeywordsForSiteCollector;
 use MoxDop\Website\SeoIntelligence\KeywordsForSiteNormalizer;
@@ -400,20 +398,6 @@ class WebsiteSeoIntelligenceLightTest extends TestCase
             $byKeyword['seo agencies']['category'],
         );
         $this->assertLessThanOrEqual(SeoIntelligenceConfig::opportunitiesMaxRows(), $opps['count']);
-    }
-
-    public function test_refresh_data_action_does_not_call_dataforseo(): void
-    {
-        Http::fake();
-
-        Livewire::test(ViewDigitalAsset::class, [
-            'record' => $this->website->getRouteKey(),
-            'parentRecord' => $this->brand,
-        ])
-            ->assertActionExists('refreshData')
-            ->assertActionExists('refreshSeoIntelligence');
-
-        Http::assertNothingSent();
     }
 
     public function test_workspace_presents_organic_visibility_and_activity_titles(): void

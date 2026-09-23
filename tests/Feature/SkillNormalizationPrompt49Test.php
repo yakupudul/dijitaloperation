@@ -44,7 +44,7 @@ class SkillNormalizationPrompt49Test extends TestCase
         $validator = app(SkillDefinitionValidator::class);
 
         $skills = $registry->all();
-        $this->assertCount(30, $skills);
+        $this->assertCount(10, $skills);
 
         foreach ($skills as $skill) {
             $this->assertSame([], $validator->validate($skill), $skill->stableKey());
@@ -67,33 +67,6 @@ class SkillNormalizationPrompt49Test extends TestCase
             $this->assertNotEmpty($skill->referenceSources);
             $this->assertDoesNotMatchRegularExpression('/<\?php|eval\s*\(/i', $skill->bodyMarkdown);
             $this->assertDoesNotMatchRegularExpression('/\b(seo score|geo score|health score|ai visibility score)\b/i', $skill->methodology);
-        }
-    }
-
-    public function test_prompt48_ready_candidates_are_normalized_with_provenance(): void
-    {
-        $registry = app(SkillRegistry::class);
-
-        $expected = [
-            'technical-seo-analysis' => 'C1',
-            'indexability-analysis' => 'C2',
-            'metadata-consistency' => 'C3',
-            'gsc-search-demand-review' => 'C7',
-            'keyword-opportunity-analysis' => 'C8',
-            'ga4-measurement-quality' => 'C11',
-        ];
-
-        foreach ($expected as $slug => $candidate) {
-            $skill = $registry->getForModule('website', $slug);
-            $this->assertSame(SkillDefinition::STATUS_ACTIVE, $skill->definitionStatus);
-            $this->assertNotEmpty($skill->researchProvenance);
-            $this->assertTrue(
-                collect($skill->researchProvenance)->contains(
-                    fn (string $line): bool => str_contains($line, $candidate) || str_contains($line, 'Prompt 48')
-                ),
-                $slug.' missing Prompt 48 provenance'
-            );
-            $this->assertNotEmpty($skill->abstentionRules);
         }
     }
 
@@ -130,7 +103,7 @@ class SkillNormalizationPrompt49Test extends TestCase
 
     public function test_missing_required_evidence_abstains_and_never_implies_zero(): void
     {
-        $skill = app(SkillRegistry::class)->getForModule('website', 'technical-seo-analysis');
+        $skill = app(SkillRegistry::class)->getForModule('search_demand', 'search-demand-clustering');
         $evaluator = app(SkillEligibilityEvaluator::class);
 
         $result = $evaluator->evaluate($skill, []);
@@ -142,10 +115,10 @@ class SkillNormalizationPrompt49Test extends TestCase
 
     public function test_optional_evidence_absence_keeps_skill_eligible(): void
     {
-        $skill = app(SkillRegistry::class)->getForModule('website', 'gsc-search-demand-review');
+        $skill = app(SkillRegistry::class)->getForModule('search_demand', 'search-demand-clustering');
         $evaluator = app(SkillEligibilityEvaluator::class);
 
-        $result = $evaluator->evaluate($skill, ['search_console_performance']);
+        $result = $evaluator->evaluate($skill, ['brand_query_portfolio']);
         $this->assertTrue($result['eligible']);
         $this->assertFalse($result['abstain']);
         $this->assertSame([], $result['missing_evidence']);
@@ -153,34 +126,16 @@ class SkillNormalizationPrompt49Test extends TestCase
 
     public function test_stale_or_integrity_blocked_evidence_abstains(): void
     {
-        $skill = app(SkillRegistry::class)->getForModule('website', 'technical-seo-analysis');
+        $skill = app(SkillRegistry::class)->getForModule('search_demand', 'search-demand-clustering');
         $evaluator = app(SkillEligibilityEvaluator::class);
 
-        $stale = $evaluator->evaluate($skill, ['page_html'], [], ['page_html' => 'stale']);
+        $stale = $evaluator->evaluate($skill, ['brand_query_portfolio'], [], ['brand_query_portfolio' => 'stale']);
         $this->assertFalse($stale['eligible']);
         $this->assertSame(SkillEligibilityEvaluator::REQUIRED_EVIDENCE_STALE, $stale['reason_code']);
 
-        $blocked = $evaluator->evaluate($skill, ['page_html'], [], ['page_html' => 'integrity_blocked']);
+        $blocked = $evaluator->evaluate($skill, ['brand_query_portfolio'], [], ['brand_query_portfolio' => 'integrity_blocked']);
         $this->assertFalse($blocked['eligible']);
         $this->assertSame(SkillEligibilityEvaluator::INTEGRITY_BLOCKED, $blocked['reason_code']);
-    }
-
-    public function test_provider_semantic_forbidden_claims_present_on_normalized_skills(): void
-    {
-        $registry = app(SkillRegistry::class);
-
-        $gsc = implode("\n", $registry->getForModule('website', 'gsc-search-demand-review')->effectiveForbiddenClaims());
-        $this->assertMatchesRegularExpression('/average position|exact (SERP )?rank/i', $gsc);
-        $this->assertMatchesRegularExpression('/impression|search volume|market volume/i', $gsc);
-
-        $ga4 = implode("\n", $registry->getForModule('website', 'ga4-measurement-quality')->effectiveForbiddenClaims());
-        $this->assertMatchesRegularExpression('/business outcome|key event/i', $ga4);
-
-        $ads = implode("\n", $registry->getForModule('google-ads', 'measurement-quality-review')->effectiveForbiddenClaims());
-        $this->assertMatchesRegularExpression('/qualified lead|conversion/i', $ads);
-
-        $meta = implode("\n", $registry->getForModule('meta-ads', 'measurement-result-review')->effectiveForbiddenClaims());
-        $this->assertMatchesRegularExpression('/result|action_type|action type/i', $meta);
     }
 
     public function test_definition_fingerprint_is_deterministic_and_ignores_presentation_noise(): void
@@ -189,7 +144,7 @@ class SkillNormalizationPrompt49Test extends TestCase
         $b = ['slug' => 'a', 'version' => '1.0.0', 'purpose' => 'x'];
         $this->assertSame(SkillDefinitionFingerprint::hash($a), SkillDefinitionFingerprint::hash($b));
 
-        $skill = app(SkillRegistry::class)->getForModule('website', 'indexability-analysis');
+        $skill = app(SkillRegistry::class)->getForModule('search_demand', 'search-demand-clustering');
         $this->assertSame(64, strlen($skill->definitionFingerprint()));
         $this->assertSame($skill->definitionFingerprint(), $skill->definitionFingerprint());
     }
@@ -392,7 +347,7 @@ MD);
 
     public function test_structured_evidence_requirement_parses_from_yaml(): void
     {
-        $skill = app(SkillRegistry::class)->getForModule('website', 'metadata-consistency');
+        $skill = app(SkillRegistry::class)->getForModule('search_demand', 'search-demand-clustering');
         $this->assertNotEmpty($skill->requiredEvidenceRequirements);
         $this->assertInstanceOf(SkillEvidenceRequirement::class, $skill->requiredEvidenceRequirements[0]);
         $this->assertSame(SkillEvidenceRequirement::MISSING_ABSTAIN, $skill->requiredEvidenceRequirements[0]->missingBehavior);

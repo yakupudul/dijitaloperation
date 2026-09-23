@@ -2,9 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Filament\App\Resources\Integrations\Pages\ListIntegrations;
-use App\Filament\App\Resources\Integrations\Pages\ViewIntegration;
-use App\Filament\App\Resources\Integrations\RelationManagers\ExternalResourcesRelationManager;
 use App\Models\CoreIntegration;
 use App\Models\CoreIntegrationCredential;
 use App\Models\User;
@@ -20,7 +17,6 @@ use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
 use Tests\TestCase;
 
 class AnthropicCentralIntegrationTest extends TestCase
@@ -105,42 +101,5 @@ class AnthropicCentralIntegrationTest extends TestCase
                 && $request->hasHeader('anthropic-version')
                 && $request->method() === 'GET';
         });
-    }
-
-    public function test_auth_failure_maps_to_needs_attention_and_secret_absent_from_ui_logs(): void
-    {
-        app(AnthropicProviderCredentialService::class)->save($this->integration, [
-            'api_key' => 'sk-ant-bad',
-        ], $this->admin);
-
-        Http::fake([
-            'api.anthropic.com/v1/models' => Http::response(['error' => 'unauthorized'], 401),
-        ]);
-
-        $result = app(AnthropicConnectionService::class)->testConnection($this->integration->fresh(['providerCredential']));
-        $this->assertFalse($result['ok']);
-
-        $fresh = $this->integration->fresh();
-        $this->assertSame('issue', data_get($fresh->config, 'connection_status'));
-
-        Livewire::test(ViewIntegration::class, ['record' => $fresh->getRouteKey()])
-            ->assertOk()
-            ->assertSee('API Key')
-            ->assertSee('Stored securely ✓')
-            ->assertDontSee('sk-ant-bad')
-            ->assertDontSee('External Resources')
-            ->assertDontSee('Authorize Google');
-
-        $this->assertFalse(
-            ExternalResourcesRelationManager::canViewForRecord($fresh, ViewIntegration::class),
-        );
-    }
-
-    public function test_hub_lists_anthropic_card_via_livewire(): void
-    {
-        Livewire::test(ListIntegrations::class)
-            ->assertOk()
-            ->assertSee('Anthropic')
-            ->assertSee('Claude reasoning and analysis');
     }
 }

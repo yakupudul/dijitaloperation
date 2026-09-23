@@ -36,11 +36,6 @@ return [
         'api_key' => env('OPENAI_API_KEY'),
         'base_url' => env('OPENAI_URL', 'https://api.openai.com/v1'),
         'timeout' => (int) env('OPENAI_TIMEOUT', 20),
-        /*
-         * Legacy default model for OpenAI-only bootstrap / env override.
-         * Website AI Guidance model selection is owned by the AI route.
-         */
-        'recommendation_model' => env('OPENAI_RECOMMENDATION_MODEL', 'gpt-5-mini'),
     ],
 
     /*

@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Filament\App\Clusters\Settings\Pages\AiControlPlaneSettings;
 use App\Filament\App\Resources\Modules\ModuleResource;
 use App\Livewire\Demo\Dashboard;
 use App\Livewire\Demo\Operations\ActivityIndex;
@@ -66,25 +65,12 @@ class ProductVisionRecoveryTest extends TestCase
     public function test_ai_control_plane_enumerates_all_registered_routes(): void
     {
         $registry = app(AiRouteRegistry::class);
-        foreach ([
-            AiRouteKeys::WEBSITE_AI_GUIDANCE,
-            AiRouteKeys::WEBSITE_DISCOVERY_CONTEXT,
-            AiRouteKeys::GOOGLE_ADS_AI_GUIDANCE,
-            AiRouteKeys::META_ADS_AI_GUIDANCE,
-        ] as $key) {
-            $this->assertTrue($registry->has($key), 'Missing AI route: '.$key);
-        }
+        $this->assertTrue($registry->has(AiRouteKeys::WEBSITE_DISCOVERY_CONTEXT), 'Missing AI route: '.AiRouteKeys::WEBSITE_DISCOVERY_CONTEXT);
 
-        Livewire::test(AiControlPlaneSettings::class)
-            ->assertOk()
-            ->assertSee('Registered AI routes')
-            ->assertSee('Website AI Guidance')
-            ->assertSee('Website Discovery Context')
-            ->assertSee('Google Ads')
-            ->assertSee('Meta Ads')
-            ->call('selectRoute', AiRouteKeys::META_ADS_AI_GUIDANCE)
-            ->assertSet('selectedRoute', AiRouteKeys::META_ADS_AI_GUIDANCE)
-            ->assertSee('meta_ads.ai_guidance');
+        // Faz 1 (ADR-065): module AI guidance routes are no longer registered.
+        foreach (['website.ai_guidance', 'google_ads.ai_guidance', 'meta_ads.ai_guidance', 'gbp.ai_guidance', 'ga4.ai_guidance', 'gsc.ai_guidance'] as $key) {
+            $this->assertFalse($registry->has($key), 'Removed AI route still registered: '.$key);
+        }
     }
 
     public function test_findings_support_acknowledge_and_resolve_actions(): void
@@ -159,10 +145,7 @@ class ProductVisionRecoveryTest extends TestCase
             ->call('saveGeneral')
             ->assertSet('agency_name', 'Moximu Agency Demo')
             ->set('section', 'ai')
-            ->assertSee(__('operator.settings.ai.routes_title'))
-            ->assertDontSee('gbp.ai_guidance')
-            ->assertDontSee('ga4.ai_guidance')
-            ->assertDontSee('gsc.ai_guidance');
+            ->assertSee(__('operator.settings.ai.routes_title'));
 
         $this->assertSame('Moximu Agency Demo', AgencySetting::query()->first()?->agency_name);
         $this->assertSame([], DemoState::settingsOverrides());

@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Enums\DigitalAssetStatus;
-use App\Filament\App\Resources\Customers\Resources\Brands\Resources\DigitalAssets\Pages\ViewDigitalAsset;
 use App\Filament\App\Resources\Runs\Pages\ListRuns;
 use App\Filament\App\Resources\Runs\Pages\ViewRun;
 use App\Jobs\Async\CollectLiveBoundDataJob;
@@ -54,26 +53,6 @@ class AsyncOperationsFoundationTest extends TestCase
             'status' => DigitalAssetStatus::Active,
             'name' => 'Meta Ads UAT',
         ]);
-    }
-
-    public function test_bound_collect_dispatches_job_without_calling_handle_from_ui(): void
-    {
-        Bus::fake();
-
-        Livewire::test(ViewDigitalAsset::class, [
-            'record' => $this->metaAsset->getRouteKey(),
-            'parentRecord' => $this->brand,
-        ])
-            ->callAction('collectLiveData')
-            ->assertNotified();
-
-        Bus::assertDispatched(CollectLiveBoundDataJob::class);
-
-        $run = Run::query()->where('digital_asset_id', $this->metaAsset->id)->latest('id')->first();
-        $this->assertNotNull($run);
-        $this->assertSame('queued', $run->status);
-        $this->assertTrue((bool) data_get($run->metadata, 'async'));
-        $this->assertSame(AsyncOperationTypes::BOUND_COLLECT, data_get($run->metadata, 'operation_type'));
     }
 
     public function test_queued_running_completed_lifecycle(): void
