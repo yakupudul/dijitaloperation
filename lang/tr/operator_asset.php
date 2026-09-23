@@ -10,4 +10,5 @@ return [
     'open_page' => 'Varlık sayfasına dön',
     'website_home' => 'Bu marka için bu veri web sitesinin kaynağı olarak bağlı; güncel ve tam görünüm web sitesi sayfasında.',
     'website_home_link' => 'Web sitesinde aç',
+    'alerts_title' => 'Uyarılar',
 ];

@@ -2,6 +2,7 @@
 
 namespace App\View\Components\Operator;
 
+use App\Models\AssetAlert;
 use App\Models\CoreAssetBinding;
 use App\Models\DigitalAsset;
 use App\Services\Operator\AssetRuntimeStatusReader;
@@ -10,6 +11,7 @@ use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Support\DigitalAssetTypes;
 use App\Support\Integrations\AssetBindingCompatibility;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Collection;
 use Illuminate\View\Component;
 
 /**
@@ -37,8 +39,12 @@ class AssetContext extends Component
     /** Website tab that now holds this GA4 / Search Console data, when the brand's website has it bound. */
     public ?string $websiteHome = null;
 
+    /** @var Collection<int, AssetAlert> */
+    public Collection $alerts;
+
     public function __construct(int|string|null $assetId, public string $current = 'page')
     {
+        $this->alerts = collect();
         $this->asset = ctype_digit((string) $assetId)
             ? DigitalAsset::query()->with('brand.customer')->find((int) $assetId)
             : null;
@@ -71,6 +77,10 @@ class AssetContext extends Component
         if ($website !== null && CoreAssetBinding::query()->where('digital_asset_id', $website->id)->where('capability', $capability)->where('status', CoreAssetBinding::STATUS_ACTIVE)->exists()) {
             $this->websiteHome = route('operator.website', ['assetId' => $website->id, 'tab' => $asset->type === 'ga4' ? 'ga4_analysis' : 'search_console']);
         }
+
+        $this->alerts = AssetAlert::query()->open()->where('digital_asset_id', $asset->id)
+            ->orderByRaw("case severity when 'critical' then 0 when 'high' then 1 when 'medium' then 2 else 3 end")
+            ->get();
 
         $this->accounts = CoreAssetBinding::query()
             ->with('externalResource')

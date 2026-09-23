@@ -391,3 +391,9 @@ Schedule::command('moxdop:advisor:digest')
     ->weeklyOn((int) config('moxdop-advisor.schedule.weekly_day', 1), (string) config('moxdop-advisor.digest.weekly_time', '08:00'))
     ->withoutOverlapping(30)
     ->name('advisor-weekly-digest');
+
+// Faz D: günlük varlık uyarıları (harcama sıçraması/durması, dönüşüm kesilmesi, arama trafiği düşüşü, eski veri, yanıtsız kötü yorum).
+Schedule::command('moxdop:alerts:scan')
+    ->dailyAt((string) env('MOXDOP_ALERTS_TIME', '06:30'))
+    ->withoutOverlapping(60)
+    ->name('asset-alerts-daily');

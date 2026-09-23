@@ -15,8 +15,11 @@ class AdvisorWeeklyDigestMail extends Mailable
 {
     use Queueable;
 
-    /** @param list<array<string, mixed>> $items */
-    public function __construct(public readonly array $items) {}
+    /**
+     * @param  list<array<string, mixed>>  $items
+     * @param  list<array{title: string, asset: string, brand: string, message: string, severity: string}>  $alerts  open asset alerts
+     */
+    public function __construct(public readonly array $items, public readonly array $alerts = []) {}
 
     public function envelope(): Envelope
     {
@@ -25,6 +28,6 @@ class AdvisorWeeklyDigestMail extends Mailable
 
     public function content(): Content
     {
-        return new Content(markdown: 'emails.advisor.weekly-digest', with: ['items' => $this->items, 'url' => url('/')]);
+        return new Content(markdown: 'emails.advisor.weekly-digest', with: ['items' => $this->items, 'alerts' => $this->alerts, 'url' => url('/')]);
     }
 }

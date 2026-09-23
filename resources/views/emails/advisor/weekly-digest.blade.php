@@ -1,4 +1,13 @@
 <x-mail::message>
+@if ($alerts !== [])
+# Açık uyarılar
+
+@foreach ($alerts as $alert)
+**{{ $alert['title'] }}** ({{ $alert['severity'] }})
+{{ $alert['brand'] }} · {{ $alert['asset'] }} — {{ $alert['message'] }}
+
+@endforeach
+@endif
 # Bu haftanın en önemli işleri
 
 @foreach ($items as $item)

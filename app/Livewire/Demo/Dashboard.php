@@ -2,11 +2,13 @@
 
 namespace App\Livewire\Demo;
 
+use App\Models\AssetAlert;
 use App\Services\Advisor\AdvisorWorkQueue;
 use App\Services\Operator\OperatorExecutionReadService;
 use App\Services\Opportunities\OpportunityReadService;
 use App\Support\Demo\DemoState;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Collection;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -45,6 +47,7 @@ class Dashboard extends Component
                 ->all(),
             'recentValue' => [],
             'weeklyTop' => $this->weeklyTop(),
+            'alerts' => $this->openAlerts(),
             'flash' => DemoState::pullFlash(),
         ]);
     }
@@ -60,6 +63,25 @@ class Dashboard extends Component
             return app(AdvisorWorkQueue::class)->top(5);
         } catch (Throwable) {
             return [];
+        }
+    }
+
+    /**
+     * Open asset alerts, most severe first (critical → low), newest first within a severity.
+     *
+     * @return Collection<int, AssetAlert>
+     */
+    private function openAlerts(): Collection
+    {
+        try {
+            return AssetAlert::query()->open()
+                ->with(['digitalAsset', 'brand'])
+                ->orderByRaw("case severity when 'critical' then 0 when 'high' then 1 when 'medium' then 2 else 3 end")
+                ->latest('first_detected_at')
+                ->limit(8)
+                ->get();
+        } catch (Throwable) {
+            return new Collection;
         }
     }
 }

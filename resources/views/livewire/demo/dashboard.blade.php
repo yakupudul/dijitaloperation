@@ -43,6 +43,26 @@
         </div>
     </section>
 
+    @if ($alerts->isNotEmpty())
+        <section class="rounded-xl bg-white p-4 ring-1 ring-inset ring-rose-200 dark:bg-gray-900 dark:ring-rose-500/30" aria-labelledby="alerts-heading">
+            <h2 id="alerts-heading" class="text-sm font-semibold uppercase tracking-wide text-rose-600 dark:text-rose-400">{{ __('operator_asset.alerts_title') }} ({{ $alerts->count() }})</h2>
+            <ul class="mt-3 space-y-2">
+                @foreach ($alerts as $alert)
+                    <li class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-gray-50 px-3 py-2 dark:bg-white/[0.03]">
+                        <div class="min-w-0 flex-1">
+                            <p class="text-sm font-medium text-gray-800 dark:text-white/90">{{ $alert->title }}</p>
+                            <p class="text-xs text-gray-500">{{ $alert->brand?->name ?? '—' }} · {{ $alert->digitalAsset?->name ?? '—' }} · {{ $alert->message }}</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <x-ta.badge :color="$alert->severityColor()" size="sm">{{ $alert->severityLabel() }}</x-ta.badge>
+                            @if ($alert->digitalAsset)<a href="{{ \App\Services\Operator\OperatorPortfolioPresenter::specialistUrl($alert->digitalAsset) }}" wire:navigate class="text-xs font-medium text-brand-600 hover:underline">{{ __('operator.actions.open') }}</a>@endif
+                        </div>
+                    </li>
+                @endforeach
+            </ul>
+        </section>
+    @endif
+
     <section class="rounded-xl bg-white p-4 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800" aria-labelledby="weekly-top-heading">
         <div class="flex flex-wrap items-center justify-between gap-2">
             <h2 id="weekly-top-heading" class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('operator.dashboard_exec.weekly_top') }}</h2>

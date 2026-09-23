@@ -82,3 +82,18 @@
         {{ __('operator_asset.website_home') }} <a href="{{ $websiteHome }}" wire:navigate class="font-semibold underline">{{ __('operator_asset.website_home_link') }} →</a>
     </p>
 @endif
+@if ($alerts->isNotEmpty())
+    <div class="space-y-1.5" data-asset-alerts>
+        @foreach ($alerts as $alert)
+            <div @class([
+                'flex flex-wrap items-start gap-2 rounded-lg px-3 py-2 text-sm ring-1 ring-inset',
+                'bg-rose-50 text-rose-800 ring-rose-200 dark:bg-rose-500/10 dark:text-rose-200 dark:ring-rose-500/20' => in_array($alert->severity, ['critical', 'high'], true),
+                'bg-amber-50 text-amber-800 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-500/20' => ! in_array($alert->severity, ['critical', 'high'], true),
+            ])>
+                <span class="font-semibold">⚠ {{ $alert->title }}</span>
+                <span class="min-w-0 flex-1">{{ $alert->message }}</span>
+                <span class="text-xs opacity-70">{{ $alert->first_detected_at?->diffForHumans() }}</span>
+            </div>
+        @endforeach
+    </div>
+@endif

@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Mail\AdvisorWeeklyDigestMail;
+use App\Models\AssetAlert;
 use App\Models\User;
 use App\Services\Advisor\AdvisorWorkQueue;
 use App\Services\Operator\OperatorMailConfigService;
@@ -35,7 +36,10 @@ final class AdvisorDigestCommand extends Command
             return self::SUCCESS;
         }
         $items = $queue->top((int) config('moxdop-advisor.digest.items', 5));
-        if ($items === []) {
+        $alerts = AssetAlert::query()->open()->with(['digitalAsset', 'brand'])->latest('first_detected_at')->limit(10)->get()
+            ->map(fn (AssetAlert $alert): array => ['title' => (string) $alert->title, 'asset' => (string) ($alert->digitalAsset?->name ?? '—'), 'brand' => (string) ($alert->brand?->name ?? '—'), 'message' => (string) $alert->message, 'severity' => $alert->severityLabel()])
+            ->all();
+        if ($items === [] && $alerts === []) {
             $this->line('Açık iş yok; özet gönderilmedi.');
 
             return self::SUCCESS;
@@ -43,7 +47,7 @@ final class AdvisorDigestCommand extends Command
         $sent = 0;
         foreach (User::query()->where('is_active', true)->role(Roles::ADMIN)->get() as $user) {
             if (filled($user->email)) {
-                Mail::to((string) $user->email)->send(new AdvisorWeeklyDigestMail($items));
+                Mail::to((string) $user->email)->send(new AdvisorWeeklyDigestMail($items, $alerts));
                 $sent++;
             }
         }
