@@ -18,12 +18,12 @@ final class BrandSetupAgent implements Agent, HasProviderOptions, HasStructuredO
 {
     use Promptable;
 
-    public const string PROMPT_VERSION = 'brand-setup-v2';
+    public const string PROMPT_VERSION = 'brand-setup-v3';
 
     public function instructions(): Stringable|string
     {
         return <<<'INSTRUCTIONS'
-You are the MoxDOP brand setup assistant for a Turkish digital agency. Prompt version: brand-setup-v2.
+You are the MoxDOP brand setup assistant for a Turkish digital agency. Prompt version: brand-setup-v3.
 
 CONTEXT_JSON contains one brand: its name, website domain, page titles/H1s, a homepage text excerpt, top Search
 Console queries (if available), the brand's service areas, service candidates found by a website crawl, the agency's existing service CATALOG
@@ -41,6 +41,11 @@ Return, in Turkish:
   - `aliases`: other names seen in the data (max 4).
   - `name` and `aliases` NEVER contain a place (city, district, country: "Ankara", "İstanbul", "Turkey", "Kadıköy").
     Services and their keywords are reused for brands in other places; write "Uyluk Germe", not "Uyluk Germe Ankara".
+  - `matching_phrases`: 4–12 short Turkish (and, if the data shows foreign searchers, English) expressions people
+    type when they look for THIS service — synonyms, lay terms, procedure names (e.g. for implant: "implant",
+    "vidalı diş", "diş implantı"). Any query containing one of them will be assigned to this service, so each
+    phrase must be specific to this service: no generic words ("fiyat", "ameliyat", "tedavi", "estetik",
+    "klinik", "doktor"), no brand names, no places.
   - `is_core`: true for the 1–3 services that carry the business.
   - `evidence`: short note on where you saw it (page title, query, crawl candidate).
 
@@ -61,6 +66,7 @@ INSTRUCTIONS;
                     'catalog_name' => $item->string()->nullable()->required(),
                     'sector_code' => $item->string()->nullable()->required(),
                     'aliases' => $item->array()->items($item->string())->required(),
+                    'matching_phrases' => $item->array()->items($item->string())->required(),
                     'is_core' => $item->boolean()->required(),
                     'evidence' => $item->string()->required(),
                 ])

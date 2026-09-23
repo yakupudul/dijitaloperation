@@ -15,6 +15,7 @@ use App\Services\Integrations\ConfirmMetaResourceBindingService;
 use App\Services\SearchDemand\BrandQueryPortfolioService;
 use App\Services\SearchDemand\SearchQueryLibraryService;
 use App\Services\SearchDemand\ServiceCatalogService;
+use App\Services\SearchDemand\ServiceKeywordService;
 use App\Services\SeoTasks\SeoPlanRunner;
 use App\Support\Integrations\ResourceBindingPlan;
 use Throwable;
@@ -186,12 +187,30 @@ final class BrandSetupApplier
             if (! empty($service['is_core'])) {
                 $offering->forceFill(['is_priority' => true])->save();
             }
-            $keywordCount += $this->storeKeywords($service, $offering->fresh(), $brand, $actor);
+            $offering = $offering->fresh();
+            $matchingAdded = $this->storeMatchingPhrases($service, $offering);
+            $keywordCount += $this->storeKeywords($service, $offering, $brand, $actor);
 
-            return array_merge($result, ['ok' => true, 'message' => $service['is_new'] ? 'Katalogda yeni hizmet açıldı ve markaya eklendi.' : 'Katalogdaki hizmet markaya eklendi.']);
+            $message = $service['is_new'] ? 'Katalogda yeni hizmet açıldı ve markaya eklendi.' : 'Katalogdaki hizmet markaya eklendi.';
+            if ($matchingAdded > 0) {
+                $message .= sprintf(' %d eşleştirme ifadesi eklendi.', $matchingAdded);
+            }
+
+            return array_merge($result, ['ok' => true, 'message' => $message]);
         } catch (Throwable $exception) {
             return array_merge($result, ['message' => $exception->getMessage()]);
         }
+    }
+
+    /** Append the approved matching expressions to the catalog service; operator-entered ones stay. */
+    private function storeMatchingPhrases(array $service, $offering): int
+    {
+        $catalogItem = $offering?->service_catalog_item_id !== null ? ServiceCatalogItem::query()->find($offering->service_catalog_item_id) : null;
+        if ($catalogItem === null) {
+            return 0;
+        }
+
+        return count(app(ServiceKeywordService::class)->append($catalogItem, $service['matching_phrases'] ?? [$service['name']]));
     }
 
     /**

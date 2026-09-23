@@ -117,7 +117,7 @@
                 <header class="flex items-center justify-between border-b border-gray-200 p-5 dark:border-gray-800"><h2 id="query-import-title" class="text-lg font-semibold">Sorgu ekle / içe aktar</h2><button type="button" wire:click="$set('importOpen', false)" aria-label="Kapat" class="px-3 py-2">×</button></header>
                 <div class="flex-1 space-y-5 overflow-y-auto p-5">
                     <label class="block text-sm font-medium">Kaynak
-                        <select wire:model.live="importSource" class="rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950 mt-2 w-full"><option value="paste">Manuel / toplu metin</option><option value="xlsx">Excel / CSV dosyası</option><option value="google_ads">Google Ads · kayıtlı arama terimleri</option><option value="search_console">GSC · kayıtlı sorgular</option></select>
+                        <select wire:model.live="importSource" class="rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950 mt-2 w-full"><option value="paste">Manuel / toplu metin</option><option value="xlsx">Excel / CSV dosyası</option><option value="google_ads">Google Ads · kayıtlı arama terimleri</option><option value="search_console">GSC · kayıtlı sorgular</option><option value="google_business_profile">İşletme Profili · kayıtlı arama kelimeleri (aylık)</option></select>
                     </label>
                     <label class="block text-sm font-medium">Sektör *
                         <select wire:model.live="importSector" required class="rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950 mt-2 w-full"><option value="">Sektör seçin</option>@foreach($sectorOptions as $code=>$label)<option value="{{ $code }}">{{ $label }}</option>@endforeach</select>

@@ -128,6 +128,9 @@
                             <div class="min-w-0 flex-1">
                                 <p class="text-sm font-medium text-gray-800 dark:text-white/90">@if ($service['is_core'])★ @endif{{ $service['name'] }}@if (! empty($service['aliases']))<span class="font-normal text-gray-500"> · {{ implode(', ', $service['aliases']) }}</span>@endif</p>
                                 <p class="mt-0.5 text-xs text-gray-500">{{ $service['evidence'] }}</p>
+                                @if (! empty($service['matching_phrases']))
+                                    <p class="mt-1 text-xs text-gray-600 dark:text-gray-400"><span class="font-medium">Eşleştirme ifadeleri:</span> {{ implode(', ', $service['matching_phrases']) }}</p>
+                                @endif
                                 @if (! empty($service['keywords']))
                                     <p class="mt-1 text-xs text-gray-600 dark:text-gray-400"><span class="font-medium">{{ count($service['keywords']) }} anahtar kelime</span> (konumsuz, sorgu kütüphanesine eklenir): {{ implode(', ', array_slice(array_column($service['keywords'], 'query'), 0, 6)) }}@if (count($service['keywords']) > 6)…@endif</p>
                                 @endif

@@ -6,8 +6,11 @@ use App\Models\SearchQueryLibraryImport;
 use App\Models\SearchQueryLibraryItem;
 use App\Models\SearchQueryLibrarySourceRecord;
 use App\Models\ServiceCatalogItem;
+use App\Models\ServiceCategory;
 use App\Models\User;
 use App\Services\IntelligenceCore\Identity\SearchTermNormalizer;
+use App\Support\Options\LocationOptions;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -17,7 +20,7 @@ final class SearchQueryLibraryService
     public function __construct(private readonly SearchTermNormalizer $normalizer) {}
 
     /**
-     * @param array<string, mixed> $attributes
+     * @param  array<string, mixed>  $attributes
      * @return array{item: SearchQueryLibraryItem, created: bool, source_record: SearchQueryLibrarySourceRecord}
      */
     public function store(string $query, string $sourceType, array $attributes = [], ?User $actor = null): array
@@ -27,25 +30,25 @@ final class SearchQueryLibraryService
         $locale = $this->nullable($attributes['locale'] ?? null);
         $market = $this->nullable($attributes['market_code'] ?? null);
         app(QueryExclusionService::class)->checkImport($query, $language, $locale);
-        $cleaned = \App\Support\Options\LocationOptions::strip($query);
+        $cleaned = LocationOptions::strip($query);
         $normalized = $this->normalizer->normalize($cleaned['text'], $language ?: 'tr', $locale);
         $attributes['raw_payload'] = array_merge((array) ($attributes['raw_payload'] ?? []), [
             'original_query' => $query, 'removed_locations' => $cleaned['removed'],
         ]);
         $sector = trim((string) ($attributes['sector'] ?? $this->service($attributes['service_catalog_item_id'] ?? null)?->sector ?? ''));
-        if (! \App\Models\ServiceCategory::query()->where('code', $sector)->exists()) {
+        if (! ServiceCategory::query()->where('code', $sector)->exists()) {
             throw ValidationException::withMessages(['sector' => 'Sorgu kaydı için geçerli bir sektör seçin.']);
         }
         $attributes['sector'] = $sector;
 
-        if (\App\Support\Options\LocationOptions::fold($normalized->canonicalText) === '') {
+        if (LocationOptions::fold($normalized->canonicalText) === '') {
             throw ValidationException::withMessages(['query_text' => 'Lokasyonlar çıkarıldıktan sonra sorgu metni kalmadı.']);
         }
         if (! in_array($sourceType, self::sourceTypes(), true)) {
             throw ValidationException::withMessages(['source_type' => 'Geçersiz sorgu kaynağı.']);
         }
 
-        return \Illuminate\Support\Facades\Cache::lock('library-query:'.hash('sha256', $normalized->canonicalText), 30)->block(10, fn (): array => DB::transaction(function () use ($query, $sourceType, $attributes, $actor, $language, $locale, $market, $normalized): array {
+        return Cache::lock('library-query:'.hash('sha256', $normalized->canonicalText), 30)->block(10, fn (): array => DB::transaction(function () use ($query, $sourceType, $attributes, $actor, $language, $locale, $market, $normalized): array {
             $now = now();
             $identityHash = hash('sha256', 'library-location-free-v2|'.$normalized->canonicalText);
 
@@ -101,7 +104,7 @@ final class SearchQueryLibraryService
                 'updated_by' => $actor?->id,
             ]);
             $item->save();
-            $category = \App\Models\ServiceCategory::query()->where('code', $attributes['sector'])->firstOrFail();
+            $category = ServiceCategory::query()->where('code', $attributes['sector'])->firstOrFail();
             $item->sectors()->syncWithoutDetaching([$category->id]);
 
             $service = $this->service($attributes['service_catalog_item_id'] ?? null);
@@ -161,13 +164,13 @@ final class SearchQueryLibraryService
     public function rename(int $id, string $text, string $expectedText, ?User $actor = null): SearchQueryLibraryItem
     {
         $item = SearchQueryLibraryItem::query()->findOrFail($id);
-        $cleaned = \App\Support\Options\LocationOptions::strip(trim($text));
+        $cleaned = LocationOptions::strip(trim($text));
         $normalized = $this->normalizer->normalize($cleaned['text'], $item->language_code ?: 'tr', $item->locale);
-        if (\App\Support\Options\LocationOptions::fold($normalized->canonicalText) === '') {
+        if (LocationOptions::fold($normalized->canonicalText) === '') {
             throw ValidationException::withMessages(['editingText' => __('query-list.empty_text')]);
         }
 
-        return \Illuminate\Support\Facades\Cache::lock('library-query:'.hash('sha256', $normalized->canonicalText), 30)
+        return Cache::lock('library-query:'.hash('sha256', $normalized->canonicalText), 30)
             ->block(10, fn (): SearchQueryLibraryItem => DB::transaction(function () use ($id, $text, $expectedText, $normalized, $cleaned, $actor): SearchQueryLibraryItem {
                 $item = SearchQueryLibraryItem::query()->lockForUpdate()->findOrFail($id);
                 if ($item->canonical_text !== $expectedText) {
@@ -224,7 +227,7 @@ final class SearchQueryLibraryService
     /** @return list<string> */
     public static function sourceTypes(): array
     {
-        return ['manual', 'paste', 'csv', 'xlsx', 'google_ads', 'search_console', 'dataforseo', 'ai_candidate'];
+        return ['manual', 'paste', 'csv', 'xlsx', 'google_ads', 'search_console', 'google_business_profile', 'dataforseo', 'ai_candidate'];
     }
 
     /** @return array<string, string> */
@@ -237,6 +240,7 @@ final class SearchQueryLibraryService
             'xlsx' => 'Excel',
             'google_ads' => 'Google Ads arama terimleri',
             'search_console' => 'Search Console sorguları',
+            'google_business_profile' => 'İşletme Profili arama kelimeleri',
             'dataforseo' => 'DataForSEO',
             'ai_candidate' => 'AI adayı',
         ];

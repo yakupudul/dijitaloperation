@@ -5,11 +5,22 @@ namespace App\Services\SearchDemand;
 use App\Models\ServiceCatalogItem;
 use App\Models\ServiceMatchingKeyword;
 use App\Support\Options\LocationOptions;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 final class ServiceKeywordService
 {
+    /** Folded words too generic to assign a query to one service on their own. */
+    private const array GENERIC = ['fiyat', 'fiyati', 'fiyatlari', 'ucret', 'ucretleri', 'ameliyat', 'ameliyati', 'operasyon', 'tedavi', 'tedavisi', 'tedavileri',
+        'estetik', 'estetigi', 'cerrahi', 'klinik', 'klinigi', 'doktor', 'doktoru', 'uzman', 'uzmani', 'hastane', 'merkez', 'merkezi', 'hizmet', 'hizmeti',
+        'nedir', 'nasil', 'yorum', 'yorumlar', 'oncesi sonrasi', 'en iyi', 'surgery', 'clinic', 'cost', 'price', 'doctor', 'treatment', 'hospital'];
+
+    public static function isGeneric(string $label): bool
+    {
+        return in_array(LocationOptions::fold($label), self::GENERIC, true);
+    }
+
     public function replace(ServiceCatalogItem $service, string $text): void
     {
         $keywords = [];
@@ -36,7 +47,35 @@ final class ServiceKeywordService
         });
     }
 
-    public function matches(string $text, array $ids, ?\Illuminate\Support\Collection $words = null): array
+    /**
+     * Add matching expressions without touching the existing ones (operator edits stay). Locations
+     * are stripped so the service stays reusable for brands in other places.
+     *
+     * @param  list<string>  $labels
+     * @return list<string> labels actually added
+     */
+    public function append(ServiceCatalogItem $service, array $labels): array
+    {
+        $existing = $service->matchingKeywords()->pluck('label', 'normalized_key')->all();
+        $added = [];
+        foreach ($labels as $label) {
+            $label = trim(LocationOptions::strip((string) $label)['text']);
+            $key = LocationOptions::fold($label);
+            if (mb_strlen($key) < 3 || mb_strlen($label) > 255 || isset($existing[$key]) || in_array($key, self::GENERIC, true)) {
+                continue;
+            }
+            $existing[$key] = $label;
+            $added[] = $label;
+        }
+        if ($added === [] || count($existing) > 200) {
+            return [];
+        }
+        $this->replace($service, implode("\n", $existing));
+
+        return $added;
+    }
+
+    public function matches(string $text, array $ids, ?Collection $words = null): array
     {
         $haystack = ' '.LocationOptions::fold($text).' ';
 

@@ -164,7 +164,7 @@ final class BrandSetupAssistantTest extends TestCase
             'brand_summary' => 'Estetik cerrahi kliniği.',
             'sector_code' => 'saglik',
             'services' => [
-                ['name' => 'Uyluk Germe Ankara', 'catalog_name' => null, 'sector_code' => 'saglik', 'aliases' => ['uyluk germe ankara', 'thigh lift turkey'], 'is_core' => true, 'evidence' => 'Sorgu: uyluk germe ankara'],
+                ['name' => 'Uyluk Germe Ankara', 'catalog_name' => null, 'sector_code' => 'saglik', 'aliases' => ['uyluk germe ankara', 'thigh lift turkey'], 'matching_phrases' => ['uyluk germe', 'bacak germe', 'fiyat', 'thigh lift istanbul'], 'is_core' => true, 'evidence' => 'Sorgu: uyluk germe ankara'],
             ],
             'prompt_version' => BrandSetupAgent::PROMPT_VERSION,
         ]]);
@@ -174,6 +174,7 @@ final class BrandSetupAssistantTest extends TestCase
         $service = $proposal->services[0];
         $this->assertSame('Uyluk Germe', $service['name']);
         $this->assertSame(['thigh lift'], $service['aliases']);
+        $this->assertSame(['uyluk germe', 'thigh lift', 'bacak germe'], $service['matching_phrases']);
         $this->assertSame(['uyluk germe', 'uyluk germe fiyatları'], array_column($service['keywords'], 'query'), 'location-free, merged, branded query dropped');
         $this->assertSame(420, $service['keywords'][0]['impressions']);
         $this->assertSame('Ankara', $proposal->summary['locations']['out_of_area'][0]['name']);
@@ -188,6 +189,7 @@ final class BrandSetupAssistantTest extends TestCase
         $library = SearchQueryLibraryItem::query()->whereHas('services', fn ($q) => $q->whereKey($item->id))->pluck('canonical_text')->sort()->values()->all();
         $this->assertSame(['uyluk germe', 'uyluk germe fiyatları'], $library);
         $this->assertSame(2, BrandQueryPortfolioItem::query()->where('brand_id', $this->brand->id)->count());
+        $this->assertSame(['bacak germe', 'thigh lift', 'uyluk germe'], $item->matchingKeywords()->orderBy('label')->pluck('label')->all(), 'eşleştirme ifadeleri: location-free, generic words dropped');
     }
 
     public function test_ai_failure_is_shown_to_the_operator_and_accounts_are_still_proposed(): void

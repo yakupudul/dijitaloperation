@@ -14,6 +14,7 @@ use App\Models\ServiceCatalogName;
 use App\Models\ServiceCategory;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
+use App\Services\SearchDemand\ServiceKeywordService;
 use App\Services\SeoTasks\SeoStoredHtmlReader;
 use App\Services\SeoTasks\SeoText;
 use App\Support\Ai\AiRouteKeys;
@@ -106,7 +107,7 @@ final class BrandSetupServiceSuggester
             $catalogName = is_string($row['catalog_name'] ?? null) && in_array($row['catalog_name'], $catalogNames, true) ? $row['catalog_name'] : null;
             $sector = is_string($row['sector_code'] ?? null) && isset($sectors[$row['sector_code']]) ? $row['sector_code'] : null;
             $aliases = array_values(array_filter((array) ($row['aliases'] ?? []), static fn ($a): bool => is_string($a) && mb_strlen(trim($a)) >= 2 && mb_strlen($a) <= 80));
-            $services[] = $this->serviceRow($catalogName ?? trim($row['name']), array_slice($aliases, 0, 4), $sector, (bool) ($row['is_core'] ?? false), mb_substr((string) ($row['evidence'] ?? ''), 0, 200), $catalog, $sectors, $existing, 0.85);
+            $services[] = $this->serviceRow($catalogName ?? trim($row['name']), array_slice($aliases, 0, 4), $sector, (bool) ($row['is_core'] ?? false), mb_substr((string) ($row['evidence'] ?? ''), 0, 200), $catalog, $sectors, $existing, 0.85, (array) ($row['matching_phrases'] ?? []));
         }
         $brandSector = is_string($structured['sector_code'] ?? null) && isset($sectors[$structured['sector_code']]) ? $structured['sector_code'] : null;
 
@@ -123,7 +124,7 @@ final class BrandSetupServiceSuggester
     }
 
     /** @return array<string, mixed> */
-    private function serviceRow(string $name, array $aliases, ?string $sector, bool $core, string $evidence, array $catalog, array $sectors, array $existing, float $confidence): array
+    private function serviceRow(string $name, array $aliases, ?string $sector, bool $core, string $evidence, array $catalog, array $sectors, array $existing, float $confidence, array $matching = []): array
     {
         // Location-free name and aliases ("uyluk germe ankara" → "uyluk germe").
         $name = $this->withoutLocation($name) ?? $name;
@@ -156,6 +157,7 @@ final class BrandSetupServiceSuggester
         return [
             'name' => $label,
             'aliases' => array_values(array_diff($aliases, [$label])),
+            'matching_phrases' => $this->matchingPhrases(array_merge([$label], $aliases, $matching)),
             'catalog_item_id' => $match?->id,
             'is_new' => $match === null,
             'sector_code' => $sector,
@@ -165,6 +167,31 @@ final class BrandSetupServiceSuggester
             'status' => $already ? 'already' : 'proposed',
             'selected' => ! $already && $confidence >= 0.8 && ($match !== null || $sector !== null),
         ];
+    }
+
+    /**
+     * "Eşleştirme ifadeleri": location-free, service-specific phrases. Queries containing one are
+     * assigned to the service on every import, so generic words would pull unrelated queries in.
+     *
+     * @param  list<mixed>  $phrases
+     * @return list<string>
+     */
+    private function matchingPhrases(array $phrases): array
+    {
+        $out = [];
+        foreach ($phrases as $phrase) {
+            if (! is_string($phrase)) {
+                continue;
+            }
+            $phrase = $this->withoutLocation($phrase);
+            $key = $phrase !== null ? LocationOptions::fold($phrase) : '';
+            if ($key === '' || mb_strlen($key) < 3 || mb_strlen($phrase) > 60 || ServiceKeywordService::isGeneric($phrase) || isset($out[$key])) {
+                continue;
+            }
+            $out[$key] = mb_strtolower($phrase, 'UTF-8');
+        }
+
+        return array_slice(array_values($out), 0, 12);
     }
 
     private function withoutLocation(string $text): ?string
@@ -188,7 +215,7 @@ final class BrandSetupServiceSuggester
         $domainRoot = str_replace(' ', '', SeoText::fold(BrandSetupMatcher::domainRoot($host)));
         $phrases = [];
         foreach ($services as $index => $service) {
-            foreach (array_merge([$service['name']], $service['aliases'] ?? []) as $phrase) {
+            foreach (array_merge([$service['name']], $service['aliases'] ?? [], $service['matching_phrases'] ?? []) as $phrase) {
                 $phrases[] = [$index, (string) $phrase, mb_strlen((string) $phrase)];
             }
         }

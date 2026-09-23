@@ -2,13 +2,16 @@
 
 namespace App\Services\SearchDemand;
 
+use App\Exceptions\QueryExcluded;
 use App\Jobs\Async\LibraryImportJob;
 use App\Models\CoreExternalResource;
 use App\Models\SearchQueryLibraryImport;
+use App\Models\SearchQueryLibraryItem;
 use App\Models\ServiceCatalogItem;
 use App\Models\ServiceCategory;
 use App\Models\User;
 use App\Support\Permissions;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -17,16 +20,20 @@ use Throwable;
 
 final class LibraryImportWorkflow
 {
+    /** Sources read from already-collected account data (nothing is fetched live at import time). */
+    public const array ACCOUNT_SOURCES = ['google_ads', 'search_console', 'google_business_profile'];
+
     public function providerTable(string $source): array
     {
         return match ($source) {
             'google_ads' => ['google_ads_search_term_daily', 'search_term'],
             'search_console' => ['gsc_query_daily', 'query'],
+            'google_business_profile' => ['gbp_search_keywords_monthly', 'search_keyword'],
             default => throw ValidationException::withMessages(['importSource' => 'Geçersiz hesap türü.']),
         };
     }
 
-    public function resources(string $source): \Illuminate\Database\Eloquent\Builder
+    public function resources(string $source): Builder
     {
         $this->providerTable($source);
 
@@ -51,12 +58,12 @@ final class LibraryImportWorkflow
     public function queue(string $source, array $payload, ?User $actor): SearchQueryLibraryImport
     {
         abort_unless($actor?->is_active && $actor->can(Permissions::ACCESS_APP), 403);
-        abort_unless(in_array($source, ['services', 'assignment', 'paste', 'csv', 'xlsx', 'google_ads', 'search_console'], true), 422);
+        abort_unless(in_array($source, ['services', 'assignment', 'paste', 'csv', 'xlsx', 'google_ads', 'search_console', 'google_business_profile'], true), 422);
         $payload['service_ids'] = $this->validateScope($payload);
-        if (in_array($source, ['google_ads', 'search_console'], true)) {
+        if (in_array($source, self::ACCOUNT_SOURCES, true)) {
             validator($payload, [
-                'resource_ids' => ['required','array','min:1','max:20'], 'resource_ids.*' => ['integer'],
-                'date_from' => ['required','date_format:Y-m-d'], 'date_to' => ['required','date_format:Y-m-d','after_or_equal:date_from'],
+                'resource_ids' => ['required', 'array', 'min:1', 'max:20'], 'resource_ids.*' => ['integer'],
+                'date_from' => ['required', 'date_format:Y-m-d'], 'date_to' => ['required', 'date_format:Y-m-d', 'after_or_equal:date_from'],
             ])->validate();
             $payload['resource_ids'] = array_values(array_unique(array_map('intval', $payload['resource_ids'])));
             if ($this->resources($source)->whereIn('id', $payload['resource_ids'])->count() !== count($payload['resource_ids'])) {
@@ -92,14 +99,17 @@ final class LibraryImportWorkflow
             $rows = array_map(fn ($id): array => ['item_id' => (int) $id], array_values(array_unique($input['query_ids'])));
         } elseif (isset($input['path'])) {
             $rows = app(TabularSearchQueryReader::class)->read(Storage::disk('local')->path($input['path']), $input['filename']);
-        } elseif (in_array($import->source_type, ['google_ads', 'search_console'], true)) {
+        } elseif (in_array($import->source_type, self::ACCOUNT_SOURCES, true)) {
             [$table, $column] = $this->providerTable($import->source_type);
             $ids = $this->resources($import->source_type)->whereIn('id', $input['resource_ids'])->pluck('id')->all();
             if (count($ids) !== count($input['resource_ids'])) {
                 throw ValidationException::withMessages(['resourceIds' => 'Seçilen hesaplardan biri artık kullanılabilir değil.']);
             }
+            // GBP search keywords are monthly: every month that starts inside the range counts.
+            $dateColumn = $import->source_type === 'google_business_profile' ? 'month_start' : 'reporting_date';
+            $from = $import->source_type === 'google_business_profile' ? substr($input['date_from'], 0, 7).'-01' : $input['date_from'];
             $rows = DB::table($table)->whereIn('external_resource_id', $ids)
-                ->whereBetween('reporting_date', [$input['date_from'], $input['date_to']])
+                ->whereBetween($dateColumn, [$from, $input['date_to']])
                 ->select('external_resource_id', $column)->distinct()->orderBy('external_resource_id')->orderBy($column)->limit(10001)->get()
                 ->map(fn ($r): array => [
                     'query' => $r->{$column},
@@ -155,7 +165,7 @@ final class LibraryImportWorkflow
                         $created ? $import->accepted_rows++ : $import->skipped_rows++;
                     }
                 }
-            } catch (\App\Exceptions\QueryExcluded $exception) {
+            } catch (QueryExcluded $exception) {
                 DB::table('query_exclusion_import_rows')->updateOrInsert(
                     ['import_id' => $import->id, 'row_number' => $offset + 1],
                     [
@@ -226,7 +236,7 @@ final class LibraryImportWorkflow
     private function assignRow(int $id, string $sector, array $services, User $actor): void
     {
         DB::transaction(function () use ($id, $sector, $services, $actor): void {
-            $item = \App\Models\SearchQueryLibraryItem::query()->lockForUpdate()->findOrFail($id);
+            $item = SearchQueryLibraryItem::query()->lockForUpdate()->findOrFail($id);
             $category = ServiceCategory::query()->where('code', $sector)->firstOrFail();
             $item->sectors()->syncWithoutDetaching([$category->id]);
             if (blank($item->sector)) {

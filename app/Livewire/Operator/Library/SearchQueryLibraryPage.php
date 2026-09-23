@@ -2,35 +2,50 @@
 
 namespace App\Livewire\Operator\Library;
 
+use App\Models\SearchDemandAiRun;
 use App\Models\SearchQueryLibraryImport;
 use App\Models\SearchQueryLibraryItem;
-use App\Models\SearchDemandAiRun;
+use App\Models\SearchQueryLibrarySourceRecord;
 use App\Models\ServiceCatalogItem;
+use App\Models\ServiceCategory;
+use App\Services\Integrations\ResourceAutomationService;
+use App\Services\SearchDemand\LibraryImportWorkflow;
+use App\Services\SearchDemand\QueryExclusionService;
 use App\Services\SearchDemand\SearchDemandLibrarianService;
-use App\Services\SearchDemand\SearchQueryImportService;
 use App\Services\SearchDemand\SearchQueryLibraryService;
+use App\Services\SearchDemand\ServiceCatalogService;
+use App\Services\SearchDemand\ServiceKeywordService;
+use App\Support\BrandIntelligence\IdentityLabelNormalizer;
 use App\Support\Options\IndustryOptions;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
+use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithFileUploads;
+use Livewire\WithPagination;
 
 #[Layout('operator.layouts.app')]
 #[Title('Sorgu Kütüphanesi')]
 class SearchQueryLibraryPage extends Component
 {
     use WithFileUploads;
-    use \Livewire\WithPagination;
+    use WithPagination;
 
-    #[\Livewire\Attributes\Locked]
+    #[Locked]
     public ?int $editingId = null;
 
-    #[\Livewire\Attributes\Locked]
+    #[Locked]
     public string $editingOriginal = '';
 
-    #[\Livewire\Attributes\Locked]
+    #[Locked]
     public ?int $undoQueryId = null;
 
     public string $editingText = '';
@@ -44,22 +59,36 @@ class SearchQueryLibraryPage extends Component
     public string $sort = 'newest';
 
     public bool $importOpen = false;
+
     public string $importSource = 'paste';
+
     public string $importSector = '';
+
     public array $importServiceIds = [];
+
     public array $resourceIds = [];
+
     public string $dateFrom = '';
+
     public string $dateTo = '';
+
     #[Url]
     public string $sectorFilter = '';
+
     #[Url]
     public bool $unassigned = false;
+
     public string $assignmentSector = '';
+
     public array $assignmentServiceIds = [];
+
     public string $newSectorName = '';
+
     public string $newServiceName = '';
+
     public string $newServiceWords = '';
-    #[\Livewire\Attributes\Locked]
+
+    #[Locked]
     public ?int $sourceItemId = null;
 
     public function mount(): void
@@ -68,24 +97,67 @@ class SearchQueryLibraryPage extends Component
         $this->dateTo = now()->toDateString();
     }
 
-    public function updatedImportSector(): void { $this->importServiceIds = []; }
-    public function updatedAssignmentSector(): void { $this->assignmentServiceIds = []; }
-    public function updatedImportSource(): void { $this->resourceIds = []; }
-    public function updatedSearch(): void { $this->resetPage(); $this->selectedQueryIds = []; }
-    public function updatedSectorFilter(): void { $this->resetPage(); $this->selectedQueryIds = []; }
-    public function updatedUnassigned(): void { $this->resetPage(); $this->selectedQueryIds = []; }
-    public function updatedStatus(): void { $this->resetPage(); $this->selectedQueryIds = []; }
-    public function updatedService(): void { $this->resetPage(); $this->selectedQueryIds = []; }
-    public function updatedSource(): void { $this->resetPage(); $this->selectedQueryIds = []; }
+    public function updatedImportSector(): void
+    {
+        $this->importServiceIds = [];
+    }
 
-    public function closeSources(): void { $this->sourceItemId = null; }
+    public function updatedAssignmentSector(): void
+    {
+        $this->assignmentServiceIds = [];
+    }
+
+    public function updatedImportSource(): void
+    {
+        $this->resourceIds = [];
+    }
+
+    public function updatedSearch(): void
+    {
+        $this->resetPage();
+        $this->selectedQueryIds = [];
+    }
+
+    public function updatedSectorFilter(): void
+    {
+        $this->resetPage();
+        $this->selectedQueryIds = [];
+    }
+
+    public function updatedUnassigned(): void
+    {
+        $this->resetPage();
+        $this->selectedQueryIds = [];
+    }
+
+    public function updatedStatus(): void
+    {
+        $this->resetPage();
+        $this->selectedQueryIds = [];
+    }
+
+    public function updatedService(): void
+    {
+        $this->resetPage();
+        $this->selectedQueryIds = [];
+    }
+
+    public function updatedSource(): void
+    {
+        $this->resetPage();
+        $this->selectedQueryIds = [];
+    }
+
+    public function closeSources(): void
+    {
+        $this->sourceItemId = null;
+    }
 
     public function showSources(int $id): void
     {
         SearchQueryLibraryItem::withTrashed()->findOrFail($id);
         $this->sourceItemId = $id;
     }
-
 
     #[Url(as: 'q', history: true)]
     public string $search = '';
@@ -156,10 +228,10 @@ class SearchQueryLibraryPage extends Component
 
     public string $message_tone = 'success';
 
-    public function startImport(\App\Services\SearchDemand\LibraryImportWorkflow $workflow): void
+    public function startImport(LibraryImportWorkflow $workflow): void
     {
         $this->validate([
-            'importSource' => ['required', 'in:paste,csv,xlsx,google_ads,search_console'],
+            'importSource' => ['required', 'in:paste,csv,xlsx,google_ads,search_console,google_business_profile'],
             'importSector' => ['required', 'exists:service_categories,code'],
             'importServiceIds' => ['array', 'max:200'], 'importServiceIds.*' => ['integer'],
             'resourceIds' => ['array', 'max:20'], 'resourceIds.*' => ['integer'],
@@ -186,7 +258,7 @@ class SearchQueryLibraryPage extends Component
             $import = $workflow->queue($this->importSource, $payload, auth()->user());
         } catch (\Throwable $exception) {
             if (isset($payload['path'])) {
-                \Illuminate\Support\Facades\Storage::disk('local')->delete($payload['path']);
+                Storage::disk('local')->delete($payload['path']);
             }
             throw $exception;
         }
@@ -202,12 +274,12 @@ class SearchQueryLibraryPage extends Component
         abort_unless(in_array($target, ['import', 'assignment'], true), 422);
         $this->validate(['newSectorName' => ['required', 'string', 'max:120']]);
         $label = trim($this->newSectorName);
-        $key = app(\App\Support\BrandIntelligence\IdentityLabelNormalizer::class)->normalize($label);
+        $key = app(IdentityLabelNormalizer::class)->normalize($label);
         if ($key === '') {
-            throw \Illuminate\Validation\ValidationException::withMessages(['newSectorName' => 'Sektör adı gereklidir.']);
+            throw ValidationException::withMessages(['newSectorName' => 'Sektör adı gereklidir.']);
         }
-        $category = \App\Models\ServiceCategory::query()->firstOrCreate(['normalized_key' => $key], [
-            'code' => 'sector_'.\Illuminate\Support\Str::uuid(), 'name' => $label,
+        $category = ServiceCategory::query()->firstOrCreate(['normalized_key' => $key], [
+            'code' => 'sector_'.Str::uuid(), 'name' => $label,
         ]);
         if ($target === 'assignment') {
             $this->assignmentSector = $category->code;
@@ -227,15 +299,15 @@ class SearchQueryLibraryPage extends Component
             'newServiceWords' => ['nullable', 'string', 'max:50000'],
         ]);
         $sector = $target === 'assignment' ? $this->assignmentSector : $this->importSector;
-        app(\App\Services\SearchDemand\LibraryImportWorkflow::class)->validateScope(['sector' => $sector]);
-        $service = \Illuminate\Support\Facades\DB::transaction(function () use ($sector) {
-            $result = app(\App\Services\SearchDemand\ServiceCatalogService::class)->resolveOrCreate($this->newServiceName, $sector, actor: auth()->user());
+        app(LibraryImportWorkflow::class)->validateScope(['sector' => $sector]);
+        $service = DB::transaction(function () use ($sector) {
+            $result = app(ServiceCatalogService::class)->resolveOrCreate($this->newServiceName, $sector, actor: auth()->user());
             if ($result['service']->sector !== $sector || $result['service']->status !== 'active') {
-                throw \Illuminate\Validation\ValidationException::withMessages(['newServiceName' => 'Bu hizmet başka sektörde veya arşivde mevcut. Hizmetler ekranından düzenleyin.']);
+                throw ValidationException::withMessages(['newServiceName' => 'Bu hizmet başka sektörde veya arşivde mevcut. Hizmetler ekranından düzenleyin.']);
             }
             if (trim($this->newServiceWords) !== '') {
                 $existing = $result['service']->matchingKeywords()->pluck('label')->implode("\n");
-                app(\App\Services\SearchDemand\ServiceKeywordService::class)->replace($result['service'], $existing."\n".$this->newServiceWords);
+                app(ServiceKeywordService::class)->replace($result['service'], $existing."\n".$this->newServiceWords);
             }
 
             return $result['service'];
@@ -267,10 +339,10 @@ class SearchQueryLibraryPage extends Component
             'assignmentSector' => ['required', 'exists:service_categories,code'],
             'assignmentServiceIds' => ['array', 'max:200'], 'assignmentServiceIds.*' => ['integer'],
         ]);
-        $ids = app(\App\Services\SearchDemand\LibraryImportWorkflow::class)->validateScope([
+        $ids = app(LibraryImportWorkflow::class)->validateScope([
             'sector' => $this->assignmentSector, 'service_ids' => $this->assignmentServiceIds,
         ]);
-        app(\App\Services\SearchDemand\LibraryImportWorkflow::class)->queue('assignment', [
+        app(LibraryImportWorkflow::class)->queue('assignment', [
             'sector' => $this->assignmentSector, 'service_ids' => $ids, 'query_ids' => $this->selectedQueryIds,
         ], auth()->user());
         $this->selectedQueryIds = [];
@@ -289,12 +361,12 @@ class SearchQueryLibraryPage extends Component
         ];
     }
 
-    private function filteredQueries(): \Illuminate\Database\Eloquent\Builder
+    private function filteredQueries(): Builder
     {
         return SearchQueryLibraryItem::query()->libraryFilters($this->queryFilters());
     }
 
-    private function orderedQueries(): \Illuminate\Database\Eloquent\Builder
+    private function orderedQueries(): Builder
     {
         $query = $this->filteredQueries();
         if (in_array($this->sort, ['az', 'za'], true)) {
@@ -358,11 +430,11 @@ class SearchQueryLibraryPage extends Component
 
     public function removeServiceAssignment(int $queryId, int $serviceId): void
     {
-        app(\App\Services\Integrations\ResourceAutomationService::class)->authorize(auth()->user());
-        \Illuminate\Support\Facades\DB::transaction(function () use ($queryId, $serviceId): void {
+        app(ResourceAutomationService::class)->authorize(auth()->user());
+        DB::transaction(function () use ($queryId, $serviceId): void {
             $item = SearchQueryLibraryItem::query()->lockForUpdate()->findOrFail($queryId);
             $item->services()->whereKey($serviceId)->firstOrFail();
-            \Illuminate\Support\Facades\DB::table('library_query_service_blocks')->updateOrInsert(
+            DB::table('library_query_service_blocks')->updateOrInsert(
                 ['query_id' => $queryId, 'service_id' => $serviceId], ['created_at' => now(), 'updated_at' => now()]
             );
             $item->services()->detach($serviceId);
@@ -371,16 +443,16 @@ class SearchQueryLibraryPage extends Component
 
     public function allowAutomaticMatching(int $queryId): void
     {
-        app(\App\Services\Integrations\ResourceAutomationService::class)->authorize(auth()->user());
+        app(ResourceAutomationService::class)->authorize(auth()->user());
         SearchQueryLibraryItem::query()->findOrFail($queryId);
-        \Illuminate\Support\Facades\DB::table('library_query_service_blocks')->where('query_id', $queryId)->delete();
-        \Illuminate\Support\Facades\DB::table('resource_query_observations')->where('query_id', $queryId)->update(['matching_fingerprint' => null]);
+        DB::table('library_query_service_blocks')->where('query_id', $queryId)->delete();
+        DB::table('resource_query_observations')->where('query_id', $queryId)->update(['matching_fingerprint' => null]);
         $this->message = __('resource-auto.matching_allowed');
     }
 
     public function removeQuery(int $id): void
     {
-        \Illuminate\Support\Facades\DB::transaction(function () use ($id): void {
+        DB::transaction(function () use ($id): void {
             $item = SearchQueryLibraryItem::query()->lockForUpdate()->findOrFail($id);
             $item->forceFill(['updated_by' => auth()->id()])->save();
             $item->delete();
@@ -399,12 +471,12 @@ class SearchQueryLibraryPage extends Component
 
     public function restoreQuery(int $id): void
     {
-        \Illuminate\Support\Facades\DB::transaction(function () use ($id): void {
+        DB::transaction(function () use ($id): void {
             $item = SearchQueryLibraryItem::onlyTrashed()->lockForUpdate()->findOrFail($id);
             $item->updated_by = auth()->id();
             $item->restore();
             if ($this->protectRestoredQueries) {
-                app(\App\Services\SearchDemand\QueryExclusionService::class)->protect($item, auth()->user());
+                app(QueryExclusionService::class)->protect($item, auth()->user());
             }
         });
         $this->undoQueryId = null;
@@ -421,7 +493,7 @@ class SearchQueryLibraryPage extends Component
             'selectedQueryIds.*' => ['integer'],
         ]);
         $ids = array_values(array_unique(array_map('intval', $this->selectedQueryIds)));
-        $count = \Illuminate\Support\Facades\DB::transaction(function () use ($ids, $action): int {
+        $count = DB::transaction(function () use ($ids, $action): int {
             $query = $action === 'restore' ? SearchQueryLibraryItem::onlyTrashed() : SearchQueryLibraryItem::query();
             $items = $query->whereKey($ids)->lockForUpdate()->get();
             foreach ($items as $item) {
@@ -429,7 +501,7 @@ class SearchQueryLibraryPage extends Component
                 if ($action === 'restore') {
                     $item->restore();
                     if ($this->protectRestoredQueries) {
-                        app(\App\Services\SearchDemand\QueryExclusionService::class)->protect($item, auth()->user());
+                        app(QueryExclusionService::class)->protect($item, auth()->user());
                     }
                 } elseif ($action === 'remove') {
                     $item->save();
@@ -601,7 +673,7 @@ class SearchQueryLibraryPage extends Component
         $this->reviewAiCandidates($decision, $librarian);
     }
 
-    #[\Livewire\Attributes\On('query-exclusions-applied')]
+    #[On('query-exclusions-applied')]
     public function refreshAfterExclusions(): void
     {
         $this->selectedQueryIds = [];
@@ -631,13 +703,14 @@ class SearchQueryLibraryPage extends Component
         }
 
         $page = $query->paginate($this->pageSize());
+
         return view('livewire.operator.library.search-query-library-page', [
             'queries' => $page,
-            'blockedQueryIds' => \Illuminate\Support\Facades\DB::table('library_query_service_blocks')->whereIn('query_id', $page->pluck('id'))->pluck('query_id')->all(),
+            'blockedQueryIds' => DB::table('library_query_service_blocks')->whereIn('query_id', $page->pluck('id'))->pluck('query_id')->all(),
             'importServices' => ServiceCatalogItem::query()->with('primaryName')->where('status', 'active')->where('sector', $this->importSector)->get(),
             'assignmentServices' => ServiceCatalogItem::query()->with('primaryName')->where('status', 'active')->where('sector', $this->assignmentSector)->get(),
-            'resources' => in_array($this->importSource, ['google_ads', 'search_console'], true) ? app(\App\Services\SearchDemand\LibraryImportWorkflow::class)->resources($this->importSource)->orderBy('display_name')->get(['id','display_name','external_id']) : collect(),
-            'sourceDetails' => $this->sourceItemId ? \App\Models\SearchQueryLibrarySourceRecord::query()->where('search_query_library_item_id', $this->sourceItemId)->latest('id')->limit(50)->get() : collect(),
+            'resources' => in_array($this->importSource, LibraryImportWorkflow::ACCOUNT_SOURCES, true) ? app(LibraryImportWorkflow::class)->resources($this->importSource)->orderBy('display_name')->get(['id', 'display_name', 'external_id']) : collect(),
+            'sourceDetails' => $this->sourceItemId ? SearchQueryLibrarySourceRecord::query()->where('search_query_library_item_id', $this->sourceItemId)->latest('id')->limit(50)->get() : collect(),
             'serviceOptions' => $serviceOptions,
             'exportUrl' => route('operator.library.search-queries.export', $this->queryFilters()),
             'sourceOptions' => SearchQueryLibraryService::sourceOptions(),
