@@ -1,5 +1,14 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-09-24 — Advisor Faz 3: Google Ads danışmanı
+
+**State:** CODED + PHPUnit (`tests/Feature/Advisor/*`: rule engine, end-to-end run/resolve/panel, quality-score collection guard, ad-copy limits). Full Feature suite: no new failures. Live UAT not run; quality score appears only after the next Google Ads collection.
+
+- `/ads-advisor` (menu "Reklam Danışmanı") + Google Ads account tab "Danışman"; weekly `moxdop:advisor:plan --scheduled` (Mon 07:00), manual "Tüm hesapları incele" / per-account "İncele".
+- Rules (config `moxdop-advisor.google_ads`): negative keyword list (existing negatives, brand and service terms excluded; single-word phrase negatives; paste-ready), converting terms not yet keywords, budget-limited profitable / zero-conversion campaigns, measurement (no primary, primary no signal, low-intent primary, lead MANY_PER_CLICK, auto-tagging off, Ads vs GA4 google/cpc), landing pages (website crawl status/redirect/noindex + Ads speed/mobile scores), weak RSA ad strength, account asset library gaps, filtered Google recommendations (budget/broad/bidding nudges excluded), low quality score, CPA jump after a change event.
+- AI: "Taslak hazırla" on weak-ad-strength items → one budget-guarded call, headlines ≤30 / descriptions ≤90 enforced; copy-paste only.
+- Known gaps: asset coverage is account-level (no per-campaign link); search-term match type and RSA text are not collected; outcome measurement 28 days after "Yapıldı" stores the baseline only (reporting in Faz 6).
+
 ## 2026-09-23 (i) — SEO Görevleri: page redesign and visible plan rebuild
 
 **State:** CODED + PHPUnit (`SeoPlanRunTest` global panel assertions). Full Feature suite: no new failures. Live UAT not run.

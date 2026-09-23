@@ -32,8 +32,6 @@ use App\Livewire\Demo\Operations\OpportunitiesIndex;
 use App\Livewire\Demo\Operations\RecommendationsIndex;
 use App\Livewire\Demo\Operations\TaskShow;
 use App\Livewire\Demo\Operations\TasksIndex;
-use App\Livewire\Operator\Portfolio\BrandSetupPage;
-use App\Livewire\Operator\Seo\SeoTasksIndex;
 use App\Livewire\Demo\Operations\WorkShow;
 use App\Livewire\Demo\Portfolio\AssetCreate;
 use App\Livewire\Demo\Portfolio\AssetsIndex;
@@ -61,12 +59,14 @@ use App\Livewire\Demo\Settings\BackgroundOperationsPage;
 use App\Livewire\Demo\Settings\PlaybookShow;
 use App\Livewire\Demo\SettingsPage;
 use App\Livewire\Demo\Website\OverviewPage as WebsiteOverviewPage;
+use App\Livewire\Operator\Advisor\AdvisorIndex;
 use App\Livewire\Operator\Assets\AnalyticsPage;
 use App\Livewire\Operator\Assets\SearchConsolePage;
 use App\Livewire\Operator\GoogleAds\OverviewPage as GoogleAdsOverviewPage;
 use App\Livewire\Operator\Integrations\SiteConnectorShow;
 use App\Livewire\Operator\Integrations\SiteConnectorsIndex;
 use App\Livewire\Operator\Library\BrandQueryPortfolioPage;
+use App\Livewire\Operator\Library\ManualQueryClustersPage;
 use App\Livewire\Operator\Library\SearchDemandChangeTrackingPage;
 use App\Livewire\Operator\Library\SearchDemandClustersPage;
 use App\Livewire\Operator\Library\SearchDemandCompetitiveIntelligencePage;
@@ -80,7 +80,9 @@ use App\Livewire\Operator\Library\SearchQueryLibraryPage;
 use App\Livewire\Operator\Library\ServiceCatalogPage;
 use App\Livewire\Operator\Library\WebsiteStandardsPage;
 use App\Livewire\Operator\Meta\OverviewPage as MetaOverviewPage;
+use App\Livewire\Operator\Portfolio\BrandSetupPage;
 use App\Livewire\Operator\Portfolio\BrandShow;
+use App\Livewire\Operator\Seo\SeoTasksIndex;
 use App\Support\Work\WorkUrl;
 use Illuminate\Support\Facades\Route;
 
@@ -103,7 +105,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/library/services', ServiceCatalogPage::class)->name('operator.library.services');
         Route::livewire('/library/search-queries', SearchQueryLibraryPage::class)->name('operator.library.search-queries');
         Route::livewire('/library/brand-query-portfolios', BrandQueryPortfolioPage::class)->name('operator.library.brand-query-portfolios');
-        Route::livewire('/library/search-demand-clusters', \App\Livewire\Operator\Library\ManualQueryClustersPage::class)->name('operator.library.search-demand-clusters');
+        Route::livewire('/library/search-demand-clusters', ManualQueryClustersPage::class)->name('operator.library.search-demand-clusters');
         Route::livewire('/library/search-demand-clusters/legacy', SearchDemandClustersPage::class)->name('operator.library.search-demand-clusters.legacy');
         Route::livewire('/library/search-demand-visibility', SearchDemandVisibilityMapPage::class)->name('operator.library.search-demand-visibility');
         Route::livewire('/library/search-demand-enrichment', SearchDemandEnrichmentPage::class)->name('operator.library.search-demand-enrichment');
@@ -116,7 +118,6 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
 
         Route::livewire('/assets', AssetsIndex::class)->name('operator.assets');
         Route::livewire('/assets/create', AssetCreate::class)->name('operator.asset.create');
-
 
         Route::livewire('/integrations', IntegrationsIndex::class)->name('operator.integrations');
         Route::livewire('/integrations/google', GoogleIntegrationPage::class)->name('operator.integrations.google');
@@ -163,6 +164,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/recommendations', RecommendationsIndex::class)->name('operator.recommendations');
         Route::livewire('/tasks', TasksIndex::class)->name('operator.tasks');
         Route::livewire('/seo-tasks', SeoTasksIndex::class)->name('operator.seo_tasks');
+        Route::livewire('/ads-advisor', AdvisorIndex::class)->name('operator.ads_advisor');
         Route::livewire('/brands/{brand}/setup', BrandSetupPage::class)->name('operator.brand.setup');
         Route::livewire('/tasks/{taskId}', TaskShow::class)->name('operator.task');
         Route::livewire('/work/{type}/{workId}', WorkShow::class)

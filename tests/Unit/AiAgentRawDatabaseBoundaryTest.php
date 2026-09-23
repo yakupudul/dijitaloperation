@@ -26,6 +26,9 @@ class AiAgentRawDatabaseBoundaryTest extends TestCase
         'AgentExecutionRecorder.php',
         'AiRouteResolver.php',
         'AiProviderRuntimeConfig.php',
+        // AI cost accounting (ai_usage_records): usage writes and monthly budget sums, no business data.
+        'AiUsageRecorder.php',
+        'AiBudget.php',
     ];
 
     /**

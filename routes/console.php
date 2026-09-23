@@ -4,10 +4,18 @@ use App\Enums\Collection\CollectionRunStatus;
 use App\Jobs\Collection\ExecuteDatasetRunJob;
 use App\Models\Collection\CollectionDatasetRun;
 use App\Models\Collection\CollectionRun;
+use App\Services\Collection\CollectionErrorRecorder;
+use App\Services\Collection\Monitoring\CollectionAccountPresenter;
+use App\Services\Collection\RecoverInterruptedCollections;
 use App\Services\Collection\StartCollectionService;
+use App\Services\Integrations\ResourceAutomationService;
+use App\Services\Integrations\WordPress\WordPressEventReconciliation;
+use App\Services\Sales\FreeIntentRadar;
+use App\Services\WhatsApp\WhatsAppDispatch;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
@@ -83,6 +91,7 @@ Artisan::command('moxdop:collection:work-db {--provider=} {--exclude-provider=} 
 
         if (! $dataset instanceof CollectionDatasetRun) {
             sleep($sleep);
+
             continue;
         }
 
@@ -147,7 +156,7 @@ Artisan::command('moxdop:collection:status {--provider=} {--details}', function 
         $failed = $datasets->where('status', CollectionRunStatus::Failed)->count();
         $attempts = (int) $datasets->sum('attempt_count');
         $locked = $datasets->filter(fn (CollectionDatasetRun $dataset): bool => filled($dataset->dispatch_lock_token))->count();
-        $effectiveState = app(\App\Services\Collection\Monitoring\CollectionAccountPresenter::class)->state($run);
+        $effectiveState = app(CollectionAccountPresenter::class)->state($run);
         $activity = $datasets->map(fn ($dataset) => $dataset->last_activity_at)->filter()->sortDesc()->first();
 
         $this->line(sprintf(
@@ -171,7 +180,7 @@ Artisan::command('moxdop:collection:status {--provider=} {--details}', function 
             (int) $datasets->sum('rows_written'), (int) $datasets->sum('pages_completed'),
             $retryDates->first()?->toIso8601String() ?? '-'));
         if ($this->option('details')) {
-            $safeErrors = app(\App\Services\Collection\CollectionErrorRecorder::class);
+            $safeErrors = app(CollectionErrorRecorder::class);
             foreach ($datasets->filter(fn ($dataset) => in_array($dataset->status, [
                 CollectionRunStatus::Retrying, CollectionRunStatus::Failed, CollectionRunStatus::Running,
             ], true))->take(30) as $dataset) {
@@ -199,13 +208,11 @@ Artisan::command('moxdop:collection:status {--provider=} {--details}', function 
     }
 
     $queuedDatasets = $datasetQuery->get();
-    $freshLocks = $queuedDatasets->filter(fn (CollectionDatasetRun $dataset): bool =>
-        filled($dataset->dispatch_lock_token)
+    $freshLocks = $queuedDatasets->filter(fn (CollectionDatasetRun $dataset): bool => filled($dataset->dispatch_lock_token)
         && $dataset->dispatch_locked_at !== null
         && $dataset->dispatch_locked_at->greaterThan(now()->subMinutes(15))
     )->count();
-    $staleLocks = $queuedDatasets->filter(fn (CollectionDatasetRun $dataset): bool =>
-        filled($dataset->dispatch_lock_token)
+    $staleLocks = $queuedDatasets->filter(fn (CollectionDatasetRun $dataset): bool => filled($dataset->dispatch_lock_token)
         && ($dataset->dispatch_locked_at === null || $dataset->dispatch_locked_at->lessThanOrEqualTo(now()->subMinutes(15)))
     )->count();
 
@@ -221,7 +228,7 @@ Artisan::command('moxdop:collection:status {--provider=} {--details}', function 
 
 Artisan::command('moxdop:collection:redispatch-stale {--run=} {--force}', function () {
     if (! $this->option('run')) {
-        app(\App\Services\Collection\RecoverInterruptedCollections::class)->tick();
+        app(RecoverInterruptedCollections::class)->tick();
     }
     $query = CollectionRun::query()
         ->whereIn('status', [
@@ -308,7 +315,7 @@ Schedule::command('horizon:snapshot')
 // The command recalculates each property's last 14 closed reporting days in that property's timezone.
 // Resource automation now owns GA4 cadence too; no second daily restatement schedule.
 Artisan::command('moxdop:resources:automate {--recover-ga4-landing-pages} {--recover-gsc-appearance}', function (): void {
-    $service = app(\App\Services\Integrations\ResourceAutomationService::class);
+    $service = app(ResourceAutomationService::class);
     if ($this->option('recover-ga4-landing-pages')) {
         $this->info('Recovered GA4 landing-page failures: '.$service->recoverGa4LandingFailures());
     }
@@ -317,7 +324,7 @@ Artisan::command('moxdop:resources:automate {--recover-ga4-landing-pages} {--rec
     }
     $service->tick();
     if ($this->option('recover-ga4-landing-pages')) {
-        $rows = \Illuminate\Support\Facades\DB::table('resource_automations as a')->join('core_external_resources as r', 'r.id', '=', 'a.external_resource_id')
+        $rows = DB::table('resource_automations as a')->join('core_external_resources as r', 'r.id', '=', 'a.external_resource_id')
             ->where('a.collection_enabled', true)->select('r.resource_type', 'a.collection_status')
             ->selectRaw('COUNT(*) as accounts')->groupBy('r.resource_type', 'a.collection_status')
             ->orderBy('r.resource_type')->orderBy('a.collection_status')->get()
@@ -340,23 +347,21 @@ Schedule::command('moxdop:data-pool-audit --provider=META_ADS')
     ->name('moxdop-meta-ads-data-pool-audit');
 
 Artisan::command('moxdop:wordpress:reconcile', function (): void {
-    app(\App\Services\Integrations\WordPress\WordPressEventReconciliation::class)->tick();
+    app(WordPressEventReconciliation::class)->tick();
 })->purpose('Reconcile WordPress activity through bounded queued collections.');
 
 Schedule::command('moxdop:wordpress:reconcile')
     ->everyFiveMinutes()->withoutOverlapping(10)->name('wordpress-event-reconciliation');
 
-
 Artisan::command('moxdop:whatsapp:dispatch', function (): void {
-    app(\App\Services\WhatsApp\WhatsAppDispatch::class)->tick();
+    app(WhatsAppDispatch::class)->tick();
 })->purpose('Process received WhatsApp events and prepare advisory reply drafts.');
 
 Schedule::command('moxdop:whatsapp:dispatch')
     ->everyMinute()->withoutOverlapping(2)->name('whatsapp-assistant-dispatch');
 
-
 Artisan::command('moxdop:intent-radar:tick', function (): void {
-    app(\App\Services\Sales\FreeIntentRadar::class)->tick();
+    app(FreeIntentRadar::class)->tick();
 })->purpose('Queue one bounded free public-source radar run.');
 
 Schedule::command('moxdop:intent-radar:tick')
@@ -368,3 +373,10 @@ Schedule::command('moxdop:seo:plan --scheduled')
     ->weeklyOn((int) config('moxdop-seo-tasks.schedule.weekly_day', 1), (string) config('moxdop-seo-tasks.schedule.weekly_time', '06:30'))
     ->withoutOverlapping(120)
     ->name('seo-tasks-weekly-plan');
+
+// Reklam danışmanı (Faz 3): haftalık Google Ads danışman çalıştırması, SEO planından sonra.
+// Eşikler config/moxdop-advisor.php içinde.
+Schedule::command('moxdop:advisor:plan --scheduled')
+    ->weeklyOn((int) config('moxdop-advisor.schedule.weekly_day', 1), (string) config('moxdop-advisor.schedule.weekly_time', '07:00'))
+    ->withoutOverlapping(120)
+    ->name('advisor-weekly-plan');

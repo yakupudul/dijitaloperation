@@ -272,6 +272,8 @@ final class GoogleAdsNormalizer
                 continue;
             }
             $keyword = is_array($criterion['keyword'] ?? null) ? $criterion['keyword'] : [];
+            $quality = is_array($criterion['qualityInfo'] ?? $criterion['quality_info'] ?? null) ? ($criterion['qualityInfo'] ?? $criterion['quality_info']) : [];
+            $qualityScore = $quality['qualityScore'] ?? $quality['quality_score'] ?? null;
             $identity = $adGroupId."\0".$criterionId;
             $out[$identity] = [
                 'digital_asset_id' => $digitalAssetId,
@@ -286,6 +288,11 @@ final class GoogleAdsNormalizer
                     'status' => $criterion['status'] ?? null,
                     'ad_group_id' => $adGroupId,
                     'campaign_id' => data_get($row, 'campaign.id'),
+                    // Quality score is null for keywords without enough traffic (missing ≠ low).
+                    'quality_score' => is_numeric($qualityScore) ? (int) $qualityScore : null,
+                    'ad_relevance' => $quality['creativeQualityScore'] ?? $quality['creative_quality_score'] ?? null,
+                    'landing_page_experience' => $quality['postClickQualityScore'] ?? $quality['post_click_quality_score'] ?? null,
+                    'expected_ctr' => $quality['searchPredictedCtr'] ?? $quality['search_predicted_ctr'] ?? null,
                     'keyword_neq_search_term' => true,
                     'collector_version' => config('moxdop-google-ads-collector.collector_version'),
                 ],

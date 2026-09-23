@@ -33,6 +33,7 @@ final class AiUsageRecorder
         'WebsiteFindingInsightAgent' => AiRouteKeys::WEBSITE_AI_GUIDANCE,
         'WebsiteDiscoveryContextAgent' => AiRouteKeys::WEBSITE_DISCOVERY_CONTEXT,
         'GoogleAdsRecommendationAgent' => AiRouteKeys::GOOGLE_ADS_AI_GUIDANCE,
+        'GoogleAdsAdCopyAgent' => AiRouteKeys::GOOGLE_ADS_AD_COPY_DRAFT,
         'MetaAdsRecommendationAgent' => AiRouteKeys::META_ADS_AI_GUIDANCE,
     ];
 

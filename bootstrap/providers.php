@@ -1,5 +1,6 @@
 <?php
 
+use App\Providers\AdvisorServiceProvider;
 use App\Providers\AppServiceProvider;
 use App\Providers\Filament\AppPanelProvider;
 use App\Providers\HorizonServiceProvider;
@@ -26,4 +27,5 @@ return [
     SalesServiceProvider::class,
     SearchDemandServiceProvider::class,
     SeoTasksServiceProvider::class,
+    AdvisorServiceProvider::class,
 ];

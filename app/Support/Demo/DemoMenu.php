@@ -2,6 +2,8 @@
 
 namespace App\Support\Demo;
 
+use App\Support\Roles;
+
 /**
  * Canonical operator navigation for the TailAdmin operator shell.
  *
@@ -36,7 +38,7 @@ final class DemoMenu
                 'items' => [
                     ['label' => __('operator.nav.prospects'), 'route' => 'operator.prospects', 'icon' => 'prospects'],
                     ['label' => __('operator.nav.intent_radar'), 'route' => 'operator.intent-radar', 'icon' => 'activity'],
-                    ...((auth()->user()?->is_active && auth()->user()?->hasRole(\App\Support\Roles::ADMIN)) ? [
+                    ...((auth()->user()?->is_active && auth()->user()?->hasRole(Roles::ADMIN)) ? [
                         ['label' => app()->getLocale() === 'tr' ? 'WhatsApp Asistanı' : 'WhatsApp Assistant', 'route' => 'operator.whatsapp', 'icon' => 'prospects'],
                     ] : []),
                 ],
@@ -58,6 +60,7 @@ final class DemoMenu
                     ['label' => __('operator.nav.recommendations'), 'route' => 'operator.recommendations', 'icon' => 'recommendations'],
                     ['label' => __('operator.nav.work'), 'route' => 'operator.tasks', 'icon' => 'tasks'],
                     ['label' => __('operator.nav.seo_tasks'), 'route' => 'operator.seo_tasks', 'icon' => 'seo'],
+                    ['label' => __('operator.nav.ads_advisor'), 'route' => 'operator.ads_advisor', 'icon' => 'ads-advisor'],
                     ['label' => __('operator.nav.activity'), 'route' => 'operator.activity', 'icon' => 'activity'],
                 ],
             ],
@@ -72,4 +75,3 @@ final class DemoMenu
         ];
     }
 }
-

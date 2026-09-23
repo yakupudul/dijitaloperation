@@ -5,6 +5,7 @@
 > **Faz 1 durumu:** 1 ve 2 kodlandı (PHPUnit). 3 (SEO Görevleri canlı doğrulama) operatör çalıştırmasını bekliyor.
 >
 > **Faz 2 durumu:** Kodlandı (PHPUnit): indeksleme (URL denetimi yönlendirme + kurallar), budama kararı, içerik çürümesi, iç linkleme, hız (lab LCP), GEO/AEO (hizmet şeması, cevap paragrafı, yazar/uzman, İşletme Profili tutarlılığı, GPTBot). Ayrıntı: `SEO_TASKS.md`. Açık: hizmet sayfalarının PageSpeed ile ölçülmesi.
+> **Faz 3 durumu:** Kodlandı (PHPUnit): `/ads-advisor` ve Google Ads hesabında "Danışman" sekmesi. Ayrıntı: `ADS_ADVISOR.md`. Anahtar kelime kalite puanı artık toplanıyor (bir sonraki toplamadan itibaren).
 > Kapsam: web sitesi (teknik, SEO, GEO/AEO), Google İşletme Profili (yorum cevaplama hariç), Google Ads, Meta Ads.
 
 ## 1. Amaç

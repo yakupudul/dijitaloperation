@@ -328,6 +328,7 @@ final class GoogleAdsDatasetExecutor implements DatasetExecutor
             } elseif ($mode === 'keyword') {
                 $normalized = $this->normalizer->normalizeKeywordDaily($customerId, $timezone, $currency, $rows, $assetId, $resourceId);
                 $this->writeChunked($context, 'google_ads_keyword_daily', $mode.':'.$slice['start'], $normalized['daily'], $rows, $query, $scope, $requestId, $slice, $retrieval);
+                $normalized['snapshots'] = app(GoogleAdsKeywordSnapshotGuard::class)->onlyMissing($normalized['snapshots']);
                 if ($normalized['snapshots'] !== []) {
                     $this->writeRecords($context, 'google_ads_keyword_snapshot', $mode.':snap:'.$slice['start'], $normalized['snapshots'], [], $query, $scope, $requestId);
                 }

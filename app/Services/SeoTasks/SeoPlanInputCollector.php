@@ -581,7 +581,7 @@ final class SeoPlanInputCollector
     }
 
     /** @return list<array<string, mixed>> */
-    private function offerings(DigitalAsset $site): array
+    public function offerings(DigitalAsset $site): array
     {
         if ($site->brand_id === null) {
             return [];

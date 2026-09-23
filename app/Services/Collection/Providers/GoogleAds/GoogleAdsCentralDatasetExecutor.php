@@ -199,6 +199,7 @@ final class GoogleAdsCentralDatasetExecutor implements DatasetExecutor
         } elseif ($mode === 'keyword') {
             $normalized = $this->coreNormalizer->normalizeKeywordDaily($customer, $timezone, $currency, $rows, null, $resourceId);
             $written += $this->write($context, $scope, 'google_ads_keyword_daily', $mode, $query, $rows, $normalized['daily'], $requestId, $slice);
+            $normalized['snapshots'] = app(GoogleAdsKeywordSnapshotGuard::class)->onlyMissing($normalized['snapshots']);
             if ($normalized['snapshots'] !== []) {
                 $written += $this->write($context, $scope, 'google_ads_keyword_snapshot', 'keyword_snapshot', $query, [], $normalized['snapshots'], $requestId);
             }
@@ -503,10 +504,10 @@ final class GoogleAdsCentralDatasetExecutor implements DatasetExecutor
     }
 
     /**
-     * @param array<string,mixed> $scope
-     * @param list<array<string,mixed>> $rawRows
-     * @param list<array<string,mixed>> $records
-     * @param array{start:string,end:string}|null $slice
+     * @param  array<string,mixed>  $scope
+     * @param  list<array<string,mixed>>  $rawRows
+     * @param  list<array<string,mixed>>  $records
+     * @param  array{start:string,end:string}|null  $slice
      */
     private function write(
         DatasetExecutionContext $context,

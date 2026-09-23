@@ -43,4 +43,6 @@ final class AiRouteKeys
     public const string SEO_TASKS_SITE_UNDERSTANDING = 'seo_tasks.site_understanding';
 
     public const string BRAND_SETUP = 'brand_setup.assistant';
+
+    public const string GOOGLE_ADS_AD_COPY_DRAFT = 'google_ads.ad_copy_draft';
 }

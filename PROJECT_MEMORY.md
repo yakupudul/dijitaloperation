@@ -1,5 +1,16 @@
 # PROJECT_MEMORY
 
+## 2026-09-24 — Faz 3: channel advisor (Google Ads) on generic advisor tables
+
+Decision: channel advisors (Google Ads now; Meta Ads and Business Profile in Faz 4–5) share one lifecycle in
+`advisor_plans` / `advisor_items` (channel column) instead of per-channel tables, so Faz 6 can show one
+screen. Items are rule-produced from already collected normalized Google Ads tables (no provider calls),
+grouped (one negative list, not one item per term) and capped per account (`max_open`, criticals exempt).
+An item no longer produced closes itself ("Kendiliğinden kapandı"); done/skipped are kept with a baseline
+for later outcome measurement. AI only drafts RSA copy on an explicit operator click (route
+`google_ads.ad_copy_draft`, budget-guarded); nothing is written to Google Ads (ADR-018). Keyword quality
+score is now collected (keyword_view `quality_info`); keyword-daily-derived snapshots only fill gaps.
+
 ## 2026-09-23 (f) — Faz 2: depth rules live inside SEO Görevleri
 
 Decision: Faz 2 web/SEO/GEO work extends the existing SEO Görevleri engine (one list, same quotas) instead
