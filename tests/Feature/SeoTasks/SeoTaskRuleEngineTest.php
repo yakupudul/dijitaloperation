@@ -214,6 +214,33 @@ final class SeoTaskRuleEngineTest extends TestCase
         }
     }
 
+    public function test_canonicalized_parameter_urls_zero_word_pages_and_article_titles_are_not_false_positives(): void
+    {
+        $input = $this->input();
+        $extra = fn (string $url, array $over): array => array_replace(reset($input['pages']), [
+            'profile_id' => crc32($url), 'url' => $url, 'url_key' => SeoText::urlKey($url), 'path' => (string) parse_url($url, PHP_URL_PATH),
+        ], $over);
+        foreach ([
+            $extra('https://example.test/?pg_client=5', ['canonical_hrefs' => ['https://example.test/'], 'meta_description' => null, 'h1_present' => false]),
+            $extra('https://example.test/en/implant/', ['canonical_hrefs' => ['https://example.test/implant/']]),
+            $extra('https://example.test/js-page/', ['word_count' => 0]),
+        ] as $p) {
+            $input['pages'][$p['url_key'].'#'.$p['profile_id']] = $p;
+        }
+
+        $tasks = collect((new SeoTaskRuleEngine)->evaluate($input)['tasks']);
+        $conflict = $tasks->firstWhere('rule_id', 'canonical-conflict');
+        $this->assertNotNull($conflict, 'a real page pointing its canonical elsewhere is still flagged');
+        $this->assertSame(1, $conflict['evidence']['count'], 'parameter URLs canonicalized to their clean page are fine');
+        $this->assertStringNotContainsString('pg_client', implode(' ', $tasks->firstWhere('rule_id', 'meta-missing')['evidence']['urls'] ?? []));
+        $this->assertStringNotContainsString('js-page', implode(' ', $tasks->firstWhere('rule_id', 'thin-content')['evidence']['urls'] ?? []), '0 words = not extracted');
+
+        $this->assertTrue(SeoText::looksLikeArticleTitle('Ticimax E-Ticaret Sitesi Nedir?'));
+        $this->assertTrue(SeoText::looksLikeArticleTitle('Shopify Mağaza Nasıl Kurulur'));
+        $this->assertFalse(SeoText::looksLikeArticleTitle('İmplant Tedavisi'));
+        $this->assertFalse(SeoText::looksLikeArticleTitle('Zirkonyum Kaplama Fiyatları'));
+    }
+
     /** @return array<string, mixed> */
     private function input(): array
     {

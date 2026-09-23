@@ -119,6 +119,25 @@ final class SeoText
         return true;
     }
 
+    /**
+     * An article/blog title ("Shopify mağaza nasıl kurulur?", "X nedir"), as opposed to a service or
+     * product name. Narrower than looksLikeQuestion: price words do not make a title an article.
+     */
+    public static function looksLikeArticleTitle(string $title): bool
+    {
+        if (str_contains($title, '?')) {
+            return true;
+        }
+        $folded = ' '.self::fold($title).' ';
+        foreach (['nedir', 'nasil', 'neden', 'ne zaman', 'hangi', 'nelerdir', 'how', 'what', 'why', 'rehberi', 'guide'] as $marker) {
+            if (str_contains($folded, ' '.$marker.' ')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public static function looksLikeQuestion(string $query): bool
     {
         $folded = ' '.self::fold($query).' ';

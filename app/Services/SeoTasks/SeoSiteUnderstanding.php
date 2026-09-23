@@ -206,7 +206,8 @@ final class SeoSiteUnderstanding
             }
             $name = trim((string) ($item['name'] ?? ''));
             $key = SeoText::fold($name);
-            if (mb_strlen($name) < 2 || mb_strlen($name) > 80 || isset($seen[$key])) {
+            // An article title ("… nedir?", "… nasıl kurulur?") is a blog topic, not a service.
+            if (mb_strlen($name) < 2 || mb_strlen($name) > 80 || isset($seen[$key]) || SeoText::looksLikeArticleTitle($name)) {
                 continue;
             }
             $seen[$key] = true;
@@ -287,8 +288,8 @@ final class SeoSiteUnderstanding
                 }
             }
             $name = $this->topicName($page);
-            if ($name === null) {
-                continue;
+            if ($name === null || SeoText::looksLikeArticleTitle($name)) {
+                continue; // article, not a service page
             }
             $candidates[] = [
                 'key' => $key,

@@ -371,10 +371,14 @@ final class SeoTaskRuleEngine
         }
 
         // 2) Page-inventory rules, aggregated per rule (one task, URL list as evidence).
-        $indexable = array_filter($pages, static fn (array $p): bool => $p['observed']
+        $live = array_filter($pages, static fn (array $p): bool => $p['observed']
             && ! $p['noindex']
             && ($p['status_code'] === null || $p['status_code'] === 200)
             && ($p['cms_status'] === null || $p['cms_status'] === 'publish'));
+        // A page whose canonical points elsewhere is a duplicate Google folds into the target; it is
+        // not judged on title/H1/meta/length. Only real conflicts are reported, not parameter variants
+        // (?utm, ?elementor_snippet=…, ?pg_client=…) that correctly canonicalize to the clean URL.
+        $indexable = array_filter($live, fn (array $p): bool => ! $this->canonicalizedAway($p));
         $observed = array_filter($pages, static fn (array $p): bool => $p['observed']);
 
         $buckets = [
@@ -434,22 +438,15 @@ final class SeoTaskRuleEngine
             } elseif ($page['h1_present'] === false) {
                 $hit($hits, 'h1-missing', $page);
             }
-            if ($page['canonical_hrefs'] !== []) {
-                $self = SeoText::urlKey($page['url']);
-                $final = $page['final_url'] ? SeoText::urlKey($page['final_url']) : $self;
-                $matches = false;
-                foreach ($page['canonical_hrefs'] as $href) {
-                    $canonical = SeoText::urlKey($href);
-                    if ($canonical === $self || $canonical === $final) {
-                        $matches = true;
-                    }
-                }
-                if (! $matches) {
-                    $hit($hits, 'canonical-conflict', $page, $page['url'].' → '.$page['canonical_hrefs'][0]);
-                }
-            }
-            if ($page['word_count'] !== null && $page['word_count'] < $thinWords) {
+            // 0 words means the text was not extracted (JS-rendered, blocked), not an empty page.
+            if ($page['word_count'] !== null && $page['word_count'] > 0 && $page['word_count'] < $thinWords) {
                 $hit($hits, 'thin-content', $page, $page['url'].' ('.$page['word_count'].' kelime)');
+            }
+        }
+
+        foreach ($live as $page) {
+            if ($this->canonicalizedAway($page) && (string) parse_url($page['url'], PHP_URL_QUERY) === '') {
+                $hit($hits, 'canonical-conflict', $page, $page['url'].' → '.$page['canonical_hrefs'][0]);
             }
         }
 
@@ -501,6 +498,12 @@ final class SeoTaskRuleEngine
             $reasonText = $reason;
             if ($withTraffic > 0) {
                 $reasonText .= sprintf(' %d sayfa arama trafiği alıyor (%s gösterim / 90 gün); liste onlardan başlıyor.', $withTraffic, number_format($impressions));
+            }
+            if ($rule === 'thin-content' && $count >= 20 && $share >= 0.95) {
+                // Almost every page "thin" is more often an extraction problem than a real site-wide one.
+                $severity = 'low';
+                $reasonText = sprintf('Sayfaların %%%d\'i %d kelimenin altında ölçüldü. Bu oran olağan dışı: içerik JavaScript ile yükleniyor ya da tarayıcıya kapalı olabilir. Önce 2–3 sayfayı tarayıcıda açıp içeriğin göründüğünü doğrula; gerçekten kısaysa şablonu genişlet.', (int) round($share * 100), $thinWords);
+                $templateLevel = false;
             }
             if ($templateLevel) {
                 $reasonText .= sprintf(' Sorun indekslenebilir sayfaların %%%d\'inde: tek tek değil, şablon veya SEO eklentisi ayarında çözülmeli.', (int) round($share * 100));
@@ -1257,6 +1260,24 @@ final class SeoTaskRuleEngine
             'high' => 700,
             default => 400,
         };
+    }
+
+    /** The page declares a canonical and none of its canonicals is the page itself (or its final URL). */
+    private function canonicalizedAway(array $page): bool
+    {
+        if ($page['canonical_hrefs'] === []) {
+            return false;
+        }
+        $self = SeoText::urlKey($page['url']);
+        $final = $page['final_url'] ? SeoText::urlKey((string) $page['final_url']) : $self;
+        foreach ($page['canonical_hrefs'] as $href) {
+            $canonical = SeoText::urlKey((string) $href);
+            if ($canonical === $self || $canonical === $final) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /** @return list<string> */

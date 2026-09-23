@@ -1,5 +1,13 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-09-23 (h) — SEO Görevleri: false positives from the first Faz 2 review
+
+**State:** CODED + PHPUnit (`SeoTaskRuleEngineTest` regression test). Full Feature suite: no new failures. Live UAT not run.
+
+- Pages whose canonical points to another URL are no longer "indexable": parameter URLs (`?pg_client=`, `?elementor_snippet=`…) canonicalized to their clean page no longer inflate canonical/H1/meta/thin counts. `canonical-conflict` only fires for clean (no query string) URLs.
+- `thin-content` ignores 0-word pages (text not extracted); when ≥95% of ≥20 pages are thin, the task becomes a low-severity "verify measurement first" card, not a template task.
+- Site understanding no longer adopts article titles ("… Nedir?", "… Nasıl …", guide) as inferred services.
+
 ## 2026-09-23 (g) — Advisor Faz 2: web depth rules
 
 **State:** CODED + PHPUnit (`SeoTaskRuleEngineTest` depth tests, `SeoDepthInputCollectorTest`, `SeoUrlInspectionQueueTest`, panel render test). Full Feature suite: no new failures. Live UAT not run.
