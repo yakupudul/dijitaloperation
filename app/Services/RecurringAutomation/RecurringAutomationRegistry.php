@@ -29,6 +29,11 @@ final class RecurringAutomationRegistry
         $this->adapters[$adapter->kind()->value] = $adapter;
     }
 
+    public function has(RecurringScheduleKind $kind): bool
+    {
+        return isset($this->adapters[$kind->value]);
+    }
+
     public function adapter(RecurringScheduleKind $kind): RecurringScheduleAdapter
     {
         $adapter = $this->adapters[$kind->value] ?? null;

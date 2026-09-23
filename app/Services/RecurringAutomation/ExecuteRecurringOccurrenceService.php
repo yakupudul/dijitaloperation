@@ -35,6 +35,17 @@ final class ExecuteRecurringOccurrenceService
             return $occurrence->fresh() ?? $occurrence;
         }
 
+        // Occurrences of a retired kind (its feature was removed) finish as skipped instead of failing forever.
+        if (! $this->registry->has($claimed->schedule_kind)) {
+            $claimed->status = RecurringOccurrenceStatus::Skipped;
+            $claimed->failure_code = 'KIND_RETIRED';
+            $claimed->failure_message = 'Schedule kind is no longer supported';
+            $claimed->finished_at = CarbonImmutable::now('UTC');
+            $claimed->save();
+
+            return $claimed;
+        }
+
         $adapter = $this->registry->adapter($claimed->schedule_kind);
 
         if (! $adapter->isScheduleActive((int) $claimed->domain_schedule_id) && ! $claimed->is_manual) {

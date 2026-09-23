@@ -129,6 +129,27 @@ class RecurringAutomationEngineProductionTest extends TestCase
         $this->assertSame(0, UserNotification::query()->where('recipient_user_id', $other->id)->count());
     }
 
+    public function test_occurrence_of_a_retired_kind_is_skipped_not_failed(): void
+    {
+        $occurrence = RecurringOccurrence::query()->create([
+            'schedule_kind' => RecurringScheduleKind::BusinessOutcomeRecheck,
+            'domain_schedule_id' => 1,
+            'scheduled_for' => CarbonImmutable::parse('2026-08-16 09:00:00', 'UTC'),
+            'timezone_snapshot' => 'UTC',
+            'recurrence_spec_fingerprint' => 'fp',
+            'status' => RecurringOccurrenceStatus::Queued,
+            'attempt_count' => 0,
+            'is_manual' => false,
+            'created_at' => now(),
+            'occurrence_key' => 'business_outcome_recheck:1:2026-08-16T09:00:00Z',
+        ]);
+
+        $result = app(ExecuteRecurringOccurrenceService::class)->execute((int) $occurrence->id);
+
+        $this->assertSame(RecurringOccurrenceStatus::Skipped, $result->status);
+        $this->assertSame('KIND_RETIRED', $result->failure_code);
+    }
+
     public function test_collection_schedule_create_and_pause(): void
     {
         [$user, $brand] = $this->seedBrand();
