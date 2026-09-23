@@ -1,0 +1,106 @@
+<div class="space-y-6">
+    <div>
+        <a href="{{ route('operator.customers') }}" wire:navigate class="text-sm font-medium text-gray-500 hover:text-brand-600 dark:text-gray-400">← Müşteriler</a>
+        <h1 class="mt-3 text-2xl font-bold text-gray-800 dark:text-white/90">Keşfet ve Grupla</h1>
+        <p class="mt-1 max-w-3xl text-sm text-gray-500 dark:text-gray-400">
+            Google ve Meta bağlantılarında bulunan ama henüz hiçbir markaya bağlı olmayan hesaplar, alan adına ve isme göre marka önerisi olarak gruplandı.
+            Hesapları seç, müşteri ve marka adını yaz, tek tıkla oluştur. Hesap listesi eskiyse önce
+            <a href="{{ route('operator.integrations') }}" wire:navigate class="font-medium text-brand-600 underline">Entegrasyonlar</a>'dan hesapları yenile.
+        </p>
+    </div>
+
+    @foreach ($created as $formKey => $brand)
+        <div wire:key="created-{{ $formKey }}" class="rounded-xl bg-emerald-50 p-4 text-sm ring-1 ring-inset ring-emerald-200 dark:bg-emerald-500/10 dark:ring-emerald-500/20">
+            <p class="font-medium text-emerald-800 dark:text-emerald-300">
+                {{ $brand['name'] }} oluşturuldu —
+                <a href="{{ $brand['url'] }}" wire:navigate class="underline">markayı aç</a>
+                (hizmetler için orada "Otomatik kur"u kullanabilirsin).
+            </p>
+            <ul class="mt-2 space-y-1">
+                @foreach ($results[$formKey] ?? [] as $row)
+                    <li @class(['text-gray-700 dark:text-gray-300' => $row['ok'], 'text-rose-700 dark:text-rose-400' => ! $row['ok']])>
+                        {{ $row['ok'] ? '✓' : '✕' }} {{ $row['label'] }} — {{ $row['message'] }}
+                    </li>
+                @endforeach
+            </ul>
+        </div>
+    @endforeach
+
+    @if ($groups === [])
+        <div class="rounded-xl bg-white p-6 text-sm text-gray-500 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:text-gray-400 dark:ring-gray-800">
+            Bağlanmamış hesap yok. Yeni müşteri hesabı eklendiyse Entegrasyonlar'dan hesapları yenile.
+        </div>
+    @endif
+
+    <div class="grid gap-4 xl:grid-cols-2">
+        @foreach ($groups as $group)
+            @php
+                $key = $group['form_key'];
+                $existing = $group['existing_brand_id'] !== null;
+            @endphp
+            <section wire:key="group-{{ $key }}" class="space-y-4 rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
+                <div class="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                        <h2 class="font-semibold text-gray-800 dark:text-white/90">{{ $group['suggested_brand'] }}</h2>
+                        <p class="text-xs text-gray-500">{{ $group['host'] ?? 'Web adresi bulunamadı' }} · {{ count($group['resources']) }} hesap</p>
+                    </div>
+                    @if ($existing)
+                        <span class="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 dark:bg-blue-500/10 dark:text-blue-300">Mevcut marka: {{ $group['existing_brand'] }}</span>
+                    @endif
+                </div>
+
+                <ul class="space-y-2 text-sm">
+                    @foreach ($group['resources'] as $resource)
+                        <li wire:key="res-{{ $key }}-{{ $resource['id'] }}">
+                            <label class="flex items-start gap-2">
+                                <input type="checkbox" wire:model="forms.{{ $key }}.resources.{{ $resource['id'] }}" class="mt-0.5 rounded border-gray-300 text-brand-600" />
+                                <span>
+                                    <span class="font-medium text-gray-800 dark:text-gray-200">{{ $resource['type_label'] }}:</span>
+                                    <span class="text-gray-700 dark:text-gray-300">{{ $resource['label'] }}</span>
+                                    <span class="text-xs text-gray-400">{{ $resource['external_id'] }}</span>
+                                    <span class="block text-xs text-gray-500">{{ $resource['reason'] }}</span>
+                                </span>
+                            </label>
+                        </li>
+                    @endforeach
+                </ul>
+
+                @if (! $existing)
+                    <div class="grid gap-3 text-sm sm:grid-cols-2">
+                        <label class="block">
+                            <span class="text-gray-500 dark:text-gray-400">Müşteri</span>
+                            <select wire:model.live="forms.{{ $key }}.customer_id" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700 dark:text-white">
+                                <option value="">+ Yeni müşteri</option>
+                                @foreach ($customers as $customerId => $customerName)
+                                    <option value="{{ $customerId }}">{{ $customerName }}</option>
+                                @endforeach
+                            </select>
+                        </label>
+                        @if (($forms[$key]['customer_id'] ?? '') === '')
+                            <label class="block">
+                                <span class="text-gray-500 dark:text-gray-400">Yeni müşteri adı</span>
+                                <input type="text" wire:model="forms.{{ $key }}.customer_name" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700 dark:text-white" />
+                                @error('forms.'.$key.'.customer_name') <span class="mt-1 block text-xs text-rose-600">{{ $message }}</span> @enderror
+                            </label>
+                        @endif
+                        <label class="block">
+                            <span class="text-gray-500 dark:text-gray-400">Marka adı</span>
+                            <input type="text" wire:model="forms.{{ $key }}.brand_name" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700 dark:text-white" />
+                            @error('forms.'.$key.'.brand_name') <span class="mt-1 block text-xs text-rose-600">{{ $message }}</span> @enderror
+                        </label>
+                        <label class="block">
+                            <span class="text-gray-500 dark:text-gray-400">Web sitesi (varsa)</span>
+                            <input type="url" wire:model="forms.{{ $key }}.website_url" placeholder="https://" class="mt-1 w-full rounded-lg border border-gray-200 bg-transparent px-3 py-2 dark:border-gray-700 dark:text-white" />
+                        </label>
+                    </div>
+                @endif
+                @error('forms.'.$key.'.resources') <p class="text-xs text-rose-600">{{ $message }}</p> @enderror
+
+                <button type="button" wire:click="create('{{ $key }}')" wire:loading.attr="disabled"
+                    class="inline-flex rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60">
+                    {{ $existing ? 'Seçili hesapları markaya bağla' : 'Müşteri ve markayı oluştur' }}
+                </button>
+            </section>
+        @endforeach
+    </div>
+</div>

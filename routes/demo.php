@@ -72,6 +72,7 @@ use App\Livewire\Operator\Library\ServiceCatalogPage;
 use App\Livewire\Operator\Library\WebsiteStandardsPage;
 use App\Livewire\Operator\Meta\OverviewPage as MetaOverviewPage;
 use App\Livewire\Operator\Portfolio\BrandSetupPage;
+use App\Livewire\Operator\Portfolio\DiscoverAndGroupPage;
 use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Livewire\Operator\Seo\SeoTasksIndex;
 use App\Support\Work\WorkUrl;
@@ -83,6 +84,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
 
         Route::livewire('/customers', CustomersIndex::class)->name('operator.customers');
         Route::livewire('/customers/create', CustomerCreate::class)->name('operator.customer.create');
+        Route::livewire('/customers/discover', DiscoverAndGroupPage::class)->name('operator.portfolio.discover');
         Route::livewire('/customers/{customerId}/edit', CustomerEdit::class)->name('operator.customer.edit');
         Route::livewire('/customers/{customerId}', CustomerDetail::class)->name('operator.customer');
 

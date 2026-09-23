@@ -8,6 +8,12 @@
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ __('operator.forms.customers_subtitle') }}</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
+            @if (auth()->user()?->hasRole(\App\Support\Roles::ADMIN))
+                <a href="{{ route('operator.portfolio.discover') }}" wire:navigate
+                    class="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-white/[0.03]">
+                    Keşfet ve Grupla
+                </a>
+            @endif
             <a href="{{ route('operator.customer.create') }}" wire:navigate
                 class="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600">
                 {{ __('operator.portfolio.add_customer') }}
