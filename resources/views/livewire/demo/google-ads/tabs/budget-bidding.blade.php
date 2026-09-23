@@ -112,6 +112,10 @@
         @endforeach
     </section>
 
+    @if (is_array($monthlyPacing ?? null))
+        @include('livewire.demo.google-ads.tabs.monthly-pacing')
+    @endif
+
     <section class="grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(340px,.8fr)]">
         <div class="rounded-xl bg-white p-5 ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
             <div class="flex flex-wrap items-start justify-between gap-3">

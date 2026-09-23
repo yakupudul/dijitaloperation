@@ -14,6 +14,7 @@ use App\Services\IntelligenceProjection\Website\WebsiteDataSourcesReadService;
 use App\Services\IntelligenceProjection\Website\WebsiteInfrastructureReadService;
 use App\Services\IntelligenceProjection\Website\WebsitePagesContentReadService;
 use App\Services\IntelligenceProjection\Website\WebsiteTechnicalHealthReadService;
+use App\Services\Website\WebsiteHealthScoreService;
 use App\Support\Reality\OperatorCanonicalAsset;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
@@ -21,6 +22,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
 
 /**
@@ -241,6 +243,22 @@ class OverviewPage extends Component
         }
     }
 
+    /**
+     * Site health issues with every affected URL as a `;`-separated UTF-8 (BOM) CSV.
+     */
+    public function exportHealthCsv(WebsiteHealthScoreService $healthScoreService): StreamedResponse
+    {
+        $asset = $this->asset();
+        $content = $healthScoreService->csvContent(
+            $healthScoreService->csvRows($healthScoreService->build($asset)),
+        );
+        $filename = __('operator_website.health_score.csv.filename').'-'.$asset->id.'-'.now()->format('Y-m-d').'.csv';
+
+        return response()->streamDownload(static function () use ($content): void {
+            echo $content;
+        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
     public function updatedInfrastructureSearch(): void
     {
         $this->infrastructurePage = 1;
@@ -301,6 +319,7 @@ class OverviewPage extends Component
         WebsiteTechnicalHealthReadService $technicalHealthReadService,
         WebsiteInfrastructureReadService $infrastructureReadService,
         WebsiteDataSourcesReadService $dataSourcesReadService,
+        WebsiteHealthScoreService $healthScoreService,
     ): View {
         $this->normalizeTab();
 
@@ -369,6 +388,10 @@ class OverviewPage extends Component
             )
             : null;
 
+        $healthScore = $this->tab === 'health'
+            ? $healthScoreService->build($asset)
+            : null;
+
         $infrastructure = $this->tab === 'infrastructure'
             ? $infrastructureReadService->workspace(
                 asset: $asset,
@@ -393,6 +416,7 @@ class OverviewPage extends Component
             'gscCharts' => $gscCharts,
             'pagesContent' => $pagesContent,
             'technicalHealth' => $technicalHealth,
+            'healthScore' => $healthScore,
             'infrastructure' => $infrastructure,
             'dataSources' => $dataSources,
             'showPeriodBar' => in_array($this->tab, ['overview', 'ga4_analysis', 'search_console'], true),

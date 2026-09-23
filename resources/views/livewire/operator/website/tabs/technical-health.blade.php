@@ -39,13 +39,17 @@
         </div>
     </section>
 
-    @if (! $technicalHealth['available'])
+    @if (($healthScore['available'] ?? false) === true)
+        @include('livewire.operator.website.tabs.health-score')
+    @endif
+
+    @if (! $technicalHealth['available'] && ($healthScore['available'] ?? false) !== true)
         <section class="rounded-xl bg-white px-5 py-12 text-center ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
             <h3 class="text-base font-semibold text-gray-900 dark:text-white">{{ __('operator.website.technical_health.empty.title') }}</h3>
             <p class="mx-auto mt-2 max-w-2xl text-sm text-gray-500 dark:text-gray-400">{{ __('operator.website.technical_health.empty.body') }}</p>
             <button type="button" wire:click="refreshData" class="mt-5 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-600">{{ __('operator.website.actions.refresh_data') }}</button>
         </section>
-    @else
+    @elseif ($technicalHealth['available'])
         <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             @foreach ([
                 ['key' => 'observed_pages', 'label' => __('operator.website.technical_health.cards.observed'), 'hint' => __('operator.website.technical_health.cards.observed_hint')],

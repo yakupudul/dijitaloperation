@@ -269,7 +269,6 @@ final class MetaAdsCampaignExplorer
     }
 
     /**
-     * @param  mixed  $rows
      * @return list<array<string, mixed>>
      */
     private function listOf(mixed $rows): array

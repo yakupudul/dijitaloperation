@@ -45,6 +45,25 @@
         $haystack = mb_strtolower((string) ($row['ad_name'] ?? '').' '.(string) ($row['ad_id'] ?? '').' '.(string) ($row['ad_group_name'] ?? '').' '.(string) ($row['campaign_name'] ?? ''));
         return $query === '' || str_contains($haystack, $query);
     })->values();
+
+    $analyticsEnabled = isset($campaignAnalytics) && is_array($campaignAnalytics);
+    $comparisonAvailable = $analyticsEnabled && ($campaignAnalytics['previous_start'] ?? null) !== null && collect($campaignAnalytics['rows'] ?? [])->contains(fn ($row) => $row['previous_cost'] !== null);
+    // $direction: 'up_good' (green when rising), 'up_bad' (red when rising) or 'neutral' (always grey).
+    $deltaBadge = function ($value, string $direction): string {
+        if (! is_numeric($value)) {
+            return '<span class="text-[10px] text-gray-300 dark:text-gray-600">—</span>';
+        }
+        $value = (float) $value;
+        $tone = 'text-gray-500 dark:text-gray-400';
+        if ($direction !== 'neutral' && abs($value) >= 0.05) {
+            $good = $direction === 'up_good' ? $value > 0 : $value < 0;
+            $tone = $good ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400';
+        }
+        $text = ($value > 0 ? '+' : '').number_format($value, 1, ',', '.').'%';
+
+        return '<span class="text-[10px] font-medium '.$tone.'">'.e($text).'</span>';
+    };
+    $sortIcon = fn (string $column): string => ($campaign_sort ?? '') === $column ? ((($campaign_sort_dir ?? 'desc') === 'desc') ? ' ↓' : ' ↑') : '';
 @endphp
 
 <div class="space-y-4">
@@ -114,16 +133,59 @@
         <section class="overflow-hidden rounded-xl bg-white ring-1 ring-inset ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
             <header class="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-gray-800">
                 <div><h3 class="font-semibold text-gray-900 dark:text-white">{{ $isTr ? 'Kampanya envanteri' : 'Campaign inventory' }}</h3><p class="mt-1 text-xs text-gray-500">{{ $isTr ? 'Seçili dönemde harcaması olmayan kampanyalar da envanterde kalır.' : 'Campaigns remain in inventory even with no spend in the selected period.' }}</p></div>
-                <span class="text-xs text-gray-500">{{ $filteredCampaigns->count() }} / {{ $campaigns->count() }}</span>
+                <div class="flex items-center gap-3">
+                    <span class="text-xs text-gray-500">{{ $filteredCampaigns->count() }} / {{ $campaigns->count() }}</span>
+                    @if ($analyticsEnabled)
+                        <button type="button" wire:click="exportCampaignsCsv" class="rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:text-gray-200 dark:ring-gray-700 dark:hover:bg-white/5">{{ __('operator_gads.export.csv') }}</button>
+                    @endif
+                </div>
             </header>
+            @if ($analyticsEnabled)
+                <p class="border-b border-gray-100 px-4 py-2 text-[11px] text-gray-500 dark:border-gray-800">
+                    @if ($comparisonAvailable)
+                        {{ __('operator_gads.comparison.hint', ['start' => $campaignAnalytics['previous_start'], 'end' => $campaignAnalytics['previous_end']]) }}
+                    @else
+                        {{ __('operator_gads.comparison.unavailable') }}
+                    @endif
+                </p>
+            @endif
             <div class="overflow-x-auto"><table class="min-w-full text-sm">
-                <thead class="bg-gray-50 text-xs uppercase text-gray-400 dark:bg-white/[0.02]"><tr><th class="px-4 py-2.5 text-left">{{ $isTr ? 'Kampanya' : 'Campaign' }}</th><th class="px-3 py-2.5 text-left">{{ $isTr ? 'Durum' : 'Status' }}</th><th class="px-3 py-2.5 text-left">{{ $isTr ? 'Tür' : 'Type' }}</th><th class="px-3 py-2.5 text-right">{{ $isTr ? 'Bütçe' : 'Budget' }}</th><th class="px-3 py-2.5 text-right">{{ $isTr ? 'Harcama' : 'Spend' }}</th><th class="px-3 py-2.5 text-right">{{ $isTr ? 'Dönüşüm' : 'Conversions' }}</th><th class="px-3 py-2.5 text-right">CPA</th><th class="px-3 py-2.5 text-right">Search IS</th><th class="px-4 py-2.5"></th></tr></thead>
+                <thead class="bg-gray-50 text-xs uppercase text-gray-400 dark:bg-white/[0.02]"><tr><th class="px-4 py-2.5 text-left">{{ $isTr ? 'Kampanya' : 'Campaign' }}</th><th class="px-3 py-2.5 text-left">{{ $isTr ? 'Durum' : 'Status' }}</th><th class="px-3 py-2.5 text-left">{{ $isTr ? 'Tür' : 'Type' }}</th><th class="px-3 py-2.5 text-right">{{ $isTr ? 'Bütçe' : 'Budget' }}</th>
+                    @if ($analyticsEnabled)
+                        <th class="px-3 py-2.5 text-right"><button type="button" wire:click="sortCampaigns('cost')" class="uppercase hover:text-gray-700 dark:hover:text-gray-200" title="{{ __('operator_gads.comparison.sort') }}">{{ $isTr ? 'Harcama' : 'Spend' }}{{ $sortIcon('cost') }}</button></th>
+                        <th class="px-3 py-2.5 text-right"><button type="button" wire:click="sortCampaigns('clicks')" class="uppercase hover:text-gray-700 dark:hover:text-gray-200" title="{{ __('operator_gads.comparison.sort') }}">{{ __('operator_gads.columns.clicks') }}{{ $sortIcon('clicks') }}</button></th>
+                        <th class="px-3 py-2.5 text-right"><button type="button" wire:click="sortCampaigns('conversions')" class="uppercase hover:text-gray-700 dark:hover:text-gray-200" title="{{ __('operator_gads.comparison.sort') }}">{{ $isTr ? 'Dönüşüm' : 'Conversions' }}{{ $sortIcon('conversions') }}</button></th>
+                        <th class="px-3 py-2.5 text-right"><button type="button" wire:click="sortCampaigns('cpa')" class="uppercase hover:text-gray-700 dark:hover:text-gray-200" title="{{ __('operator_gads.comparison.sort') }}">CPA{{ $sortIcon('cpa') }}</button></th>
+                    @else
+                        <th class="px-3 py-2.5 text-right">{{ $isTr ? 'Harcama' : 'Spend' }}</th><th class="px-3 py-2.5 text-right">{{ $isTr ? 'Dönüşüm' : 'Conversions' }}</th><th class="px-3 py-2.5 text-right">CPA</th>
+                    @endif
+                    <th class="px-3 py-2.5 text-right">Search IS</th>
+                    @if ($analyticsEnabled)
+                        <th class="px-3 py-2.5 text-right normal-case" title="{{ __('operator_gads.comparison.lost_is_budget') }}">{{ __('operator_gads.comparison.lost_is_budget_short') }}</th>
+                        <th class="px-3 py-2.5 text-right normal-case" title="{{ __('operator_gads.comparison.lost_is_rank') }}">{{ __('operator_gads.comparison.lost_is_rank_short') }}</th>
+                    @endif
+                    <th class="px-4 py-2.5"></th></tr></thead>
                 <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                     @forelse ($filteredCampaigns as $row)
                         @php $cpa = is_numeric($row['spend'] ?? null) && is_numeric($row['leads'] ?? null) && (float) $row['leads'] > 0 ? (float) $row['spend'] / (float) $row['leads'] : null; @endphp
-                        <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.02]"><td class="px-4 py-2.5"><p class="font-medium text-gray-900 dark:text-white">{{ $row['name'] }}</p><p class="mt-0.5 text-[11px] text-gray-400">ID {{ $row['id'] }}@if(empty($row['period_activity'])) · {{ $isTr ? 'bu dönemde aktivite yok' : 'no period activity' }}@endif</p></td><td class="px-3 py-2.5"><x-ta.badge :color="$statusTone($row['status'] ?? null)" size="sm">{{ $statusLabel($row['status'] ?? null) }}</x-ta.badge></td><td class="px-3 py-2.5">{{ $row['type'] ?? '—' }}</td><td class="px-3 py-2.5 text-right tabular-nums">{{ $money($row['budget'] ?? null) }}</td><td class="px-3 py-2.5 text-right tabular-nums">{{ $money($row['spend'] ?? null) }}</td><td class="px-3 py-2.5 text-right tabular-nums">{{ $number($row['leads'] ?? null, 2) }}</td><td class="px-3 py-2.5 text-right tabular-nums">{{ $cpa !== null ? $money($cpa) : '—' }}</td><td class="px-3 py-2.5 text-right tabular-nums">{{ $percent($row['impr_share'] ?? null) }}</td><td class="px-4 py-2.5 text-right"><button type="button" wire:click="openCampaign('{{ $row['id'] }}')" class="text-xs font-semibold text-brand-600 hover:underline">{{ $isTr ? 'Detay' : 'Details' }}</button></td></tr>
+                        <tr class="hover:bg-gray-50 dark:hover:bg-white/[0.02]"><td class="px-4 py-2.5"><p class="font-medium text-gray-900 dark:text-white">{{ $row['name'] }}</p><p class="mt-0.5 text-[11px] text-gray-400">ID {{ $row['id'] }}@if(empty($row['period_activity'])) · {{ $isTr ? 'bu dönemde aktivite yok' : 'no period activity' }}@endif</p></td><td class="px-3 py-2.5"><x-ta.badge :color="$statusTone($row['status'] ?? null)" size="sm">{{ $statusLabel($row['status'] ?? null) }}</x-ta.badge></td><td class="px-3 py-2.5">{{ $row['type'] ?? '—' }}</td><td class="px-3 py-2.5 text-right tabular-nums">{{ $money($row['budget'] ?? null) }}</td>
+                            @if ($analyticsEnabled)
+                                @php $cmp = is_array($row['comparison'] ?? null) ? $row['comparison'] : []; @endphp
+                                <td class="px-3 py-2.5 text-right tabular-nums"><div>{{ $money($row['spend'] ?? null) }}</div>{!! $deltaBadge($cmp['delta_cost'] ?? null, 'neutral') !!}</td>
+                                <td class="px-3 py-2.5 text-right tabular-nums"><div>{{ $number($cmp['clicks'] ?? null) }}</div>{!! $deltaBadge($cmp['delta_clicks'] ?? null, 'up_good') !!}</td>
+                                <td class="px-3 py-2.5 text-right tabular-nums"><div>{{ $number($row['leads'] ?? null, 2) }}</div>{!! $deltaBadge($cmp['delta_conversions'] ?? null, 'up_good') !!}</td>
+                                <td class="px-3 py-2.5 text-right tabular-nums"><div>{{ $cpa !== null ? $money($cpa) : '—' }}</div>{!! $deltaBadge($cmp['delta_cpa'] ?? null, 'up_bad') !!}</td>
+                            @else
+                                <td class="px-3 py-2.5 text-right tabular-nums">{{ $money($row['spend'] ?? null) }}</td><td class="px-3 py-2.5 text-right tabular-nums">{{ $number($row['leads'] ?? null, 2) }}</td><td class="px-3 py-2.5 text-right tabular-nums">{{ $cpa !== null ? $money($cpa) : '—' }}</td>
+                            @endif
+                            <td class="px-3 py-2.5 text-right tabular-nums">{{ $percent($row['impr_share'] ?? null) }}</td>
+                            @if ($analyticsEnabled)
+                                <td class="px-3 py-2.5 text-right tabular-nums">{{ $percent($row['lost_is_budget'] ?? null) }}</td>
+                                <td class="px-3 py-2.5 text-right tabular-nums">{{ $percent($row['lost_is_rank'] ?? null) }}</td>
+                            @endif
+                            <td class="px-4 py-2.5 text-right"><button type="button" wire:click="openCampaign('{{ $row['id'] }}')" class="text-xs font-semibold text-brand-600 hover:underline">{{ $isTr ? 'Detay' : 'Details' }}</button></td></tr>
                     @empty
-                        <tr><td colspan="9" class="px-4 py-10 text-center text-gray-400">{{ $isTr ? 'Bu filtrelerle eşleşen kampanya yok.' : 'No campaigns match these filters.' }}</td></tr>
+                        <tr><td colspan="{{ $analyticsEnabled ? 12 : 9 }}" class="px-4 py-10 text-center text-gray-400">{{ $isTr ? 'Bu filtrelerle eşleşen kampanya yok.' : 'No campaigns match these filters.' }}</td></tr>
                     @endforelse
                 </tbody>
             </table></div>
