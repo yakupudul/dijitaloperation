@@ -144,10 +144,6 @@ class CommercialGrowthIntelligenceTest extends TestCase
             $this->assertFalse(Schema::hasTable($table), 'Unexpected CRM/deferred table: '.$table);
         }
 
-        $this->assertTrue(Schema::hasTable('business_outcome_definitions'));
-        $this->assertTrue(Schema::hasTable('business_outcome_observations'));
-        $this->assertTrue(Schema::hasTable('business_outcome_observation_revisions'));
-
         $this->assertTrue(Schema::hasTable('brand_goals'));
         $this->assertTrue(Schema::hasTable('brand_offerings'));
         $this->assertTrue(Schema::hasTable('brand_offering_names'));

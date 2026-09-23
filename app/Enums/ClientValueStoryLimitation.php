@@ -7,6 +7,7 @@ namespace App\Enums;
  */
 enum ClientValueStoryLimitation: string
 {
+    /** @deprecated Faz 1: producer removed */
     case NoBusinessOutcomeData = 'no_business_outcome_data';
     case PartialOutcomeCoverage = 'partial_outcome_coverage';
     case UnknownOutcomeCompleteness = 'unknown_outcome_completeness';

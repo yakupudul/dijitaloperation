@@ -2,9 +2,6 @@
 
 namespace App\Services\ClientValueStory;
 
-use App\Enums\BusinessOutcomeAggregateStatus;
-use App\Enums\BusinessOutcomeCompleteness;
-use App\Enums\BusinessOutcomeKind;
 use App\Enums\ClientValueStoryClaimType;
 use App\Enums\ClientValueStoryLimitation;
 use App\Enums\ClientValueStoryStatus;
@@ -14,11 +11,9 @@ use App\Models\Finding;
 use App\Models\Opportunity;
 use App\Models\SeoTask;
 use App\Models\Task;
-use App\Services\BusinessOutcomes\BusinessOutcomeReadService;
 use App\Services\Tasks\TaskReadService;
 use App\Support\ClientValueStory\Dto\ClientValueFindingItem;
 use App\Support\ClientValueStory\Dto\ClientValueOpportunityItem;
-use App\Support\ClientValueStory\Dto\ClientValueOutcomeItem;
 use App\Support\ClientValueStory\Dto\ClientValueStory;
 use App\Support\ClientValueStory\Dto\ClientValueStoryClaim;
 use App\Support\ClientValueStory\Dto\ClientValueStorySourceManifest;
@@ -38,7 +33,6 @@ use Illuminate\Validation\ValidationException;
 final class ClientValueStoryReadService
 {
     public function __construct(
-        private readonly BusinessOutcomeReadService $businessOutcomes,
         private readonly TaskReadService $tasks,
     ) {}
 
@@ -63,12 +57,10 @@ final class ClientValueStoryReadService
         $findings = $this->projectFindings($brand, $start, $end);
         $opportunities = $this->projectOpportunities($brand, $start, $end);
         [$completedWork, $activeWork] = $this->projectWork($brand, $start, $end);
-        $outcomes = $this->projectOutcomes($brand, $start->toDateString(), $end->toDateString());
-
-        $limitations = $this->resolveLimitations($findings, $opportunities, $completedWork, $outcomes);
-        $claims = $this->buildClaims($findings, $opportunities, $completedWork, $activeWork, $outcomes, $limitations);
-        $manifest = $this->buildManifest($brand, $start->toDateString(), $end->toDateString(), $findings, $opportunities, $completedWork, $activeWork, $outcomes, $limitations);
-        $status = $this->resolveStatus($findings, $opportunities, $completedWork, $outcomes, $limitations);
+        $limitations = $this->resolveLimitations($findings, $opportunities, $completedWork);
+        $claims = $this->buildClaims($findings, $opportunities, $completedWork, $activeWork, $limitations);
+        $manifest = $this->buildManifest($brand, $start->toDateString(), $end->toDateString(), $findings, $opportunities, $completedWork, $activeWork, $limitations);
+        $status = $this->resolveStatus($findings, $opportunities, $completedWork, $limitations);
 
         return new ClientValueStory(
             customerId: (int) $brand->customer_id,
@@ -81,7 +73,7 @@ final class ClientValueStoryReadService
             opportunities: $opportunities,
             completedWork: $completedWork,
             activeWork: $activeWork,
-            outcomes: $outcomes,
+            outcomes: [],
             limitations: $limitations,
             sourceManifest: $manifest,
             claims: $claims,
@@ -328,41 +320,12 @@ final class ClientValueStoryReadService
     }
 
     /**
-     * @return list<ClientValueOutcomeItem>
-     */
-    private function projectOutcomes(Brand $brand, string $start, string $end): array
-    {
-        $items = [];
-        foreach (BusinessOutcomeKind::cases() as $kind) {
-            $result = $this->businessOutcomes->aggregate($brand, $kind, $start, $end);
-            $definition = $this->businessOutcomes->findActiveDefinitionByKind($brand, $kind);
-            $items[] = new ClientValueOutcomeItem(
-                kind: $kind,
-                definitionId: $definition?->id,
-                displayLabel: $definition?->display_label ?? $kind->defaultLabel(),
-                unit: $result->unit,
-                value: $result->value,
-                currencyCode: $result->currencyCode,
-                status: $result->status,
-                completeness: $result->worstCompleteness,
-                coveredPeriods: $result->coveredPeriods,
-                gaps: $result->gaps,
-                observationRevisionIds: $result->observationRevisionIds,
-                limitations: $result->limitations,
-            );
-        }
-
-        return $items;
-    }
-
-    /**
      * @param  list<ClientValueFindingItem>  $findings
      * @param  list<ClientValueOpportunityItem>  $opportunities
      * @param  list<ClientValueWorkItem>  $completedWork
-     * @param  list<ClientValueOutcomeItem>  $outcomes
      * @return list<ClientValueStoryLimitation>
      */
-    private function resolveLimitations(array $findings, array $opportunities, array $completedWork, array $outcomes): array
+    private function resolveLimitations(array $findings, array $opportunities, array $completedWork): array
     {
         $limitations = [ClientValueStoryLimitation::NoCanonicalAttribution];
 
@@ -384,31 +347,6 @@ final class ClientValueStoryReadService
             $limitations[] = ClientValueStoryLimitation::NoCompletedWorkInPeriod;
         }
 
-        $anyOutcome = false;
-        foreach ($outcomes as $outcome) {
-            if ($outcome->value !== null) {
-                $anyOutcome = true;
-            }
-            if ($outcome->status === BusinessOutcomeAggregateStatus::NoData) {
-                continue;
-            }
-            if ($outcome->status === BusinessOutcomeAggregateStatus::Partial
-                || in_array('partial_coverage', $outcome->limitations, true)
-                || $outcome->gaps !== []) {
-                $limitations[] = ClientValueStoryLimitation::PartialOutcomeCoverage;
-            }
-            if ($outcome->completeness === BusinessOutcomeCompleteness::Unknown
-                || $outcome->status === BusinessOutcomeAggregateStatus::UnknownCompleteness) {
-                $limitations[] = ClientValueStoryLimitation::UnknownOutcomeCompleteness;
-            }
-            if ($outcome->status === BusinessOutcomeAggregateStatus::IncompatibleCurrency) {
-                $limitations[] = ClientValueStoryLimitation::MixedCurrencyNotComparable;
-            }
-        }
-        if (! $anyOutcome) {
-            $limitations[] = ClientValueStoryLimitation::NoBusinessOutcomeData;
-        }
-
         return array_values(array_unique($limitations, SORT_REGULAR));
     }
 
@@ -417,7 +355,6 @@ final class ClientValueStoryReadService
      * @param  list<ClientValueOpportunityItem>  $opportunities
      * @param  list<ClientValueWorkItem>  $completedWork
      * @param  list<ClientValueWorkItem>  $activeWork
-     * @param  list<ClientValueOutcomeItem>  $outcomes
      * @param  list<ClientValueStoryLimitation>  $limitations
      * @return list<ClientValueStoryClaim>
      */
@@ -426,7 +363,6 @@ final class ClientValueStoryReadService
         array $opportunities,
         array $completedWork,
         array $activeWork,
-        array $outcomes,
         array $limitations,
     ): array {
         $claims = [];
@@ -479,25 +415,6 @@ final class ClientValueStoryReadService
             );
         }
 
-        foreach ($outcomes as $outcome) {
-            if ($outcome->value === null) {
-                continue;
-            }
-            $label = $outcome->displayLabel;
-            $display = $outcome->currencyCode !== null
-                ? trim($outcome->currencyCode.' '.$outcome->value)
-                : $outcome->value;
-            $claims[] = new ClientValueStoryClaim(
-                ClientValueStoryClaimType::OutcomeReported,
-                "The client reported {$label} of {$display} for the selected period.",
-                [
-                    'kind' => $outcome->kind->value,
-                    'value' => $outcome->value,
-                    'currency' => $outcome->currencyCode,
-                ],
-            );
-        }
-
         $claims[] = new ClientValueStoryClaim(
             ClientValueStoryClaimType::DataLimitation,
             'No canonical marketing attribution is available. Temporal coexistence does not establish causality.',
@@ -512,7 +429,6 @@ final class ClientValueStoryReadService
      * @param  list<ClientValueOpportunityItem>  $opportunities
      * @param  list<ClientValueWorkItem>  $completedWork
      * @param  list<ClientValueWorkItem>  $activeWork
-     * @param  list<ClientValueOutcomeItem>  $outcomes
      * @param  list<ClientValueStoryLimitation>  $limitations
      */
     private function buildManifest(
@@ -523,20 +439,8 @@ final class ClientValueStoryReadService
         array $opportunities,
         array $completedWork,
         array $activeWork,
-        array $outcomes,
         array $limitations,
     ): ClientValueStorySourceManifest {
-        $revisionIds = [];
-        $definitionIds = [];
-        foreach ($outcomes as $outcome) {
-            if ($outcome->definitionId !== null) {
-                $definitionIds[] = $outcome->definitionId;
-            }
-            foreach ($outcome->observationRevisionIds as $revisionId) {
-                $revisionIds[] = $revisionId;
-            }
-        }
-
         $taskIds = array_values(array_unique(array_merge(
             array_map(static fn (ClientValueWorkItem $w): int => $w->taskId, $completedWork),
             array_map(static fn (ClientValueWorkItem $w): int => $w->taskId, $activeWork),
@@ -550,8 +454,8 @@ final class ClientValueStoryReadService
             findingIds: array_map(static fn (ClientValueFindingItem $f): int => $f->findingId, $findings),
             opportunityIds: array_map(static fn (ClientValueOpportunityItem $o): int => $o->opportunityId, $opportunities),
             taskIds: $taskIds,
-            outcomeDefinitionIds: array_values(array_unique($definitionIds)),
-            outcomeObservationRevisionIds: array_values(array_unique($revisionIds)),
+            outcomeDefinitionIds: [],
+            outcomeObservationRevisionIds: [],
             limitationCodes: array_map(static fn (ClientValueStoryLimitation $l): string => $l->value, $limitations),
         );
     }
@@ -560,23 +464,15 @@ final class ClientValueStoryReadService
      * @param  list<ClientValueFindingItem>  $findings
      * @param  list<ClientValueOpportunityItem>  $opportunities
      * @param  list<ClientValueWorkItem>  $completedWork
-     * @param  list<ClientValueOutcomeItem>  $outcomes
      * @param  list<ClientValueStoryLimitation>  $limitations
      */
     private function resolveStatus(
         array $findings,
         array $opportunities,
         array $completedWork,
-        array $outcomes,
         array $limitations,
     ): ClientValueStoryStatus {
         $hasAny = $findings !== [] || $opportunities !== [] || $completedWork !== [];
-        foreach ($outcomes as $outcome) {
-            if ($outcome->value !== null) {
-                $hasAny = true;
-                break;
-            }
-        }
 
         if (! $hasAny) {
             return ClientValueStoryStatus::Unavailable;
@@ -628,7 +524,7 @@ final class ClientValueStoryReadService
     /**
      * Guard used by tests / integrity checks: story assembly never writes domains.
      *
-     * @return array{findings: int, opportunities: int, tasks: int, business_outcomes: int}
+     * @return array{findings: int, opportunities: int, tasks: int}
      */
     public function domainWriteProbe(): array
     {
@@ -636,7 +532,6 @@ final class ClientValueStoryReadService
             'findings' => (int) DB::table('findings')->count(),
             'opportunities' => (int) DB::table('opportunities')->count(),
             'tasks' => (int) DB::table('tasks')->count(),
-            'business_outcomes' => (int) DB::table('business_outcome_observations')->count(),
         ];
     }
 }

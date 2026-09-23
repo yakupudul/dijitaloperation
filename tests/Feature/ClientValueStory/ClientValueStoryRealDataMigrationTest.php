@@ -2,10 +2,6 @@
 
 namespace Tests\Feature\ClientValueStory;
 
-use App\Enums\AssistantIntentType;
-use App\Enums\AssistantSourceClass;
-use App\Enums\BusinessOutcomeAggregateStatus;
-use App\Enums\BusinessOutcomeKind;
 use App\Enums\ClientValueStoryLimitation;
 use App\Enums\ClientValueStoryStatus;
 use App\Models\Brand;
@@ -15,15 +11,8 @@ use App\Models\Finding;
 use App\Models\Opportunity;
 use App\Models\Task;
 use App\Models\User;
-use App\Services\Assistant\MoxdopAssistantService;
-use App\Services\BusinessOutcomes\BusinessOutcomeDefinitionService;
-use App\Services\BusinessOutcomes\BusinessOutcomeObservationService;
-use App\Services\BusinessOutcomes\BusinessOutcomeReadService;
 use App\Services\ClientValueStory\ClientValueStoryReadService;
-use App\Support\Assistant\AssistantSourceAuthority;
-use App\Support\Assistant\Dto\AssistantIntentCandidate;
 use App\Support\Tasks\TaskStatus;
-use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
@@ -40,7 +29,7 @@ class ClientValueStoryRealDataMigrationTest extends TestCase
         $this->assertTrue(class_exists(ClientValueStoryReadService::class));
     }
 
-    public function test_story_composes_findings_opportunities_work_and_outcomes(): void
+    public function test_story_composes_findings_opportunities_and_work(): void
     {
         [$user, $brand, $asset] = $this->seedBrand();
         $before = app(ClientValueStoryReadService::class)->domainWriteProbe();
@@ -75,28 +64,20 @@ class ClientValueStoryRealDataMigrationTest extends TestCase
             'completed_at' => '2026-07-18 12:00:00',
             'completed_by_id' => $user->id,
         ]);
-        app(BusinessOutcomeDefinitionService::class)->createStandardDefinitionsForBrand($brand, $user);
-        $ql = app(BusinessOutcomeReadService::class)->findActiveDefinitionByKind($brand, BusinessOutcomeKind::QualifiedLead);
-        app(BusinessOutcomeObservationService::class)->record($brand, $ql, [
-            'period_start' => '2026-07-01',
-            'period_end' => '2026-07-31',
-            'value' => 21,
-            'completeness' => 'complete',
-        ], $user);
 
         $story = app(ClientValueStoryReadService::class)->forBrand($brand, '2026-07-01', '2026-07-31');
         $this->assertSame(ClientValueStoryStatus::Complete, $story->status);
         $this->assertCount(1, $story->findings);
         $this->assertCount(1, $story->opportunities);
         $this->assertCount(1, $story->completedWork);
-        $this->assertTrue($story->hasAnyOutcomeData());
+        $this->assertFalse($story->hasAnyOutcomeData());
         $this->assertContains(ClientValueStoryLimitation::NoCanonicalAttribution, $story->limitations);
         $this->assertFalse($story->attributionEstablished);
 
         $presentation = $story->toPresentationArray();
         $this->assertSame('finding', $presentation['observations'][0]['source_type']);
         $this->assertFalse($presentation['ai_assisted']);
-        $this->assertSame(21, (int) $presentation['business_outcomes']['qualified_leads']);
+        $this->assertFalse($presentation['business_outcomes']['available']);
         $this->assertStringContainsString('causation', strtolower($presentation['causation_disclaimer']));
 
         $after = app(ClientValueStoryReadService::class)->domainWriteProbe();
@@ -112,33 +93,11 @@ class ClientValueStoryRealDataMigrationTest extends TestCase
     {
         [, $brand] = $this->seedBrand();
         $story = app(ClientValueStoryReadService::class)->forBrand($brand, '2026-07-01', '2026-07-31');
-        $this->assertContains(ClientValueStoryLimitation::NoBusinessOutcomeData, $story->limitations);
         $this->assertFalse($story->hasAnyOutcomeData());
-        foreach ($story->outcomes as $outcome) {
-            $this->assertNull($outcome->value);
-            $this->assertSame(BusinessOutcomeAggregateStatus::NoData, $outcome->status);
-        }
+        $this->assertSame([], $story->outcomes);
         $business = $story->businessOutcomesPresentation();
         $this->assertFalse($business['available']);
         $this->assertNull($business['qualified_leads']);
-    }
-
-    public function test_explicit_zero_outcome_differs_from_missing(): void
-    {
-        [$user, $brand] = $this->seedBrand();
-        app(BusinessOutcomeDefinitionService::class)->createStandardDefinitionsForBrand($brand, $user);
-        $ql = app(BusinessOutcomeReadService::class)->findActiveDefinitionByKind($brand, BusinessOutcomeKind::QualifiedLead);
-        app(BusinessOutcomeObservationService::class)->record($brand, $ql, [
-            'period_start' => '2026-07-01',
-            'period_end' => '2026-07-31',
-            'value' => 0,
-            'completeness' => 'complete',
-        ], $user);
-
-        $story = app(ClientValueStoryReadService::class)->forBrand($brand, '2026-07-01', '2026-07-31');
-        $this->assertTrue($story->hasAnyOutcomeData());
-        $this->assertSame('0', $story->businessOutcomesPresentation()['qualified_leads']);
-        $this->assertNotContains(ClientValueStoryLimitation::NoBusinessOutcomeData, $story->limitations);
     }
 
     public function test_task_created_not_completed_is_not_delivered_work(): void
@@ -227,9 +186,9 @@ class ClientValueStoryRealDataMigrationTest extends TestCase
         $this->assertFalse($story->opportunities[0]->realizedValue);
     }
 
-    public function test_source_manifest_and_assistant_summary(): void
+    public function test_source_manifest(): void
     {
-        [$user, $brand, $asset] = $this->seedBrand();
+        [, $brand, $asset] = $this->seedBrand();
         Finding::factory()->create([
             'customer_id' => $brand->customer_id,
             'brand_id' => $brand->id,
@@ -245,43 +204,6 @@ class ClientValueStoryRealDataMigrationTest extends TestCase
         $this->assertFalse($manifest['full_payload_copies']);
         $this->assertTrue($manifest['prompt59_pinnable']);
         $this->assertNotEmpty($manifest['finding_ids']);
-
-        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-08-16'));
-        $answer = app(MoxdopAssistantService::class)->ask(
-            userId: (int) $user->id,
-            candidate: new AssistantIntentCandidate(
-                intentType: AssistantIntentType::IntelligenceSummary,
-                periodToken: 'last_month',
-            ),
-            authorizedCustomerIds: [(int) $brand->customer_id],
-            authorizedBrandIds: [(int) $brand->id],
-            authorizedDigitalAssetIds: [],
-            customerId: (int) $brand->customer_id,
-            brandId: (int) $brand->id,
-            timezone: 'UTC',
-        );
-        $this->assertFalse($answer->runtimeProvenance['ai_used'] ?? true);
-        $this->assertFalse($answer->runtimeProvenance['provider_conversion_fallback'] ?? true);
-        $this->assertFalse($answer->runtimeProvenance['attribution_established'] ?? true);
-        $this->assertArrayHasKey('client_value_story', app(AssistantSourceAuthority::class)->matrix());
-        CarbonImmutable::setTestNow();
-
-        $revenueAnswer = app(MoxdopAssistantService::class)->ask(
-            userId: (int) $user->id,
-            candidate: new AssistantIntentCandidate(
-                intentType: AssistantIntentType::FactLookup,
-                metricId: 'business_outcome.revenue',
-                periodToken: 'last_month',
-            ),
-            authorizedCustomerIds: [(int) $brand->customer_id],
-            authorizedBrandIds: [(int) $brand->id],
-            authorizedDigitalAssetIds: [],
-            customerId: (int) $brand->customer_id,
-            brandId: (int) $brand->id,
-            timezone: 'UTC',
-        );
-        // Precise revenue question prefers Business Outcome capability, not story attribution.
-        $this->assertNotSame(AssistantSourceClass::ClientValueStory, $revenueAnswer->claims[0]->requiredSourceClass ?? null);
     }
 
     public function test_summary_and_presentation_have_no_demo_fallback_flags(): void

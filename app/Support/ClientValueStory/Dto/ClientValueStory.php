@@ -2,7 +2,6 @@
 
 namespace App\Support\ClientValueStory\Dto;
 
-use App\Enums\BusinessOutcomeKind;
 use App\Enums\ClientValueStoryLimitation;
 use App\Enums\ClientValueStoryStatus;
 use App\Support\Work\WorkUrl;
@@ -18,7 +17,7 @@ final class ClientValueStory
      * @param  list<ClientValueOpportunityItem>  $opportunities
      * @param  list<ClientValueWorkItem>  $completedWork
      * @param  list<ClientValueWorkItem>  $activeWork
-     * @param  list<ClientValueOutcomeItem>  $outcomes
+     * @param  list<never>  $outcomes  Always empty since Faz 1 (Business Outcomes producer removed); kept for snapshot shape.
      * @param  list<ClientValueStoryLimitation>  $limitations
      * @param  list<ClientValueStoryClaim>  $claims
      */
@@ -183,49 +182,24 @@ final class ClientValueStory
      */
     public function businessOutcomesPresentation(): array
     {
-        $byKind = [];
-        foreach ($this->outcomes as $outcome) {
-            $byKind[$outcome->kind->value] = $outcome;
-        }
-
-        $ql = $byKind[BusinessOutcomeKind::QualifiedLead->value] ?? null;
-        $consult = $byKind[BusinessOutcomeKind::Consultation->value] ?? null;
-        $patient = $byKind[BusinessOutcomeKind::SaleOrPatient->value] ?? null;
-        $revenue = $byKind[BusinessOutcomeKind::Revenue->value] ?? null;
-
-        $available = $this->hasAnyOutcomeData();
-
         return [
-            'available' => $available,
+            'available' => false,
             'platform_leads' => null,
-            'qualified_leads' => $ql?->displayValue(),
-            'consultations' => $consult?->displayValue(),
-            'patients' => $patient?->displayValue(),
-            'revenue' => $revenue?->value,
-            'revenue_display' => $revenue !== null && $revenue->value !== null
-                ? trim(($revenue->currencyCode ?? '').' '.$revenue->value)
-                : __('operator.outcomes.not_available'),
+            'qualified_leads' => null,
+            'consultations' => null,
+            'patients' => null,
+            'revenue' => null,
+            'revenue_display' => __('operator.outcomes.not_available'),
             'qualified_rate' => null,
             'provenance' => 'business_outcome',
             'note' => __('operator.outcomes.brand_aggregate_note'),
-            'unavailable_message' => $available
-                ? null
-                : 'No reported Business Outcome data is available for this period.',
-            'cards' => array_map(
-                static fn (ClientValueOutcomeItem $o): array => $o->toArray(),
-                $this->outcomes,
-            ),
+            'unavailable_message' => 'No reported Business Outcome data is available for this period.',
+            'cards' => [],
         ];
     }
 
     public function hasAnyOutcomeData(): bool
     {
-        foreach ($this->outcomes as $outcome) {
-            if ($outcome->value !== null) {
-                return true;
-            }
-        }
-
         return false;
     }
 }

@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\ProductionReadiness;
 
-use App\Enums\BusinessOutcomeKind;
 use App\Enums\ReportDeliveryStatus;
 use App\Jobs\Reports\SendReportDeliveryJob;
 use App\Mail\ReportDeliveryMail;
@@ -13,9 +12,6 @@ use App\Models\ReportDelivery;
 use App\Models\ReportShareGrant;
 use App\Models\ReportSnapshot;
 use App\Models\User;
-use App\Services\BusinessOutcomes\BusinessOutcomeDefinitionService;
-use App\Services\BusinessOutcomes\BusinessOutcomeObservationService;
-use App\Services\BusinessOutcomes\BusinessOutcomeReadService;
 use App\Services\ReportDelivery\CreateReportDeliveryService;
 use App\Services\ReportDelivery\GenerateReportPdfService;
 use App\Services\ReportDelivery\ReportShareService;
@@ -49,16 +45,6 @@ class ReportPathE2ETest extends TestCase
             'name' => 'RC Report Brand',
         ]);
         $brand->refresh();
-
-        app(BusinessOutcomeDefinitionService::class)->createStandardDefinitionsForBrand($brand, $user);
-        $ql = app(BusinessOutcomeReadService::class)->findActiveDefinitionByKind($brand, BusinessOutcomeKind::QualifiedLead);
-        $this->assertNotNull($ql);
-        app(BusinessOutcomeObservationService::class)->record($brand, $ql, [
-            'period_start' => '2026-07-01',
-            'period_end' => '2026-07-31',
-            'value' => 9,
-            'completeness' => 'complete',
-        ], $user);
 
         $snapshot = app(CreateReportSnapshotService::class)->create($brand, $user, [
             'period_start' => '2026-07-01',

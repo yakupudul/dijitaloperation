@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\RecurringAutomation;
 
-use App\Enums\BusinessOutcomeRecheckResultStatus;
 use App\Enums\CollectionScheduleStatus;
 use App\Enums\InternalNotificationScheduleStatus;
 use App\Enums\RecurringFrequency;
@@ -12,15 +11,12 @@ use App\Enums\RecurringScheduleKind;
 use App\Enums\ReportDeliveryScheduleStatus;
 use App\Jobs\RecurringAutomation\ExecuteRecurringOccurrenceJob;
 use App\Models\Brand;
-use App\Models\BusinessOutcomeRecheckRun;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Models\RecurringOccurrence;
 use App\Models\ReportDeliverySchedule;
 use App\Models\User;
 use App\Models\UserNotification;
-use App\Services\BusinessOutcomes\BusinessOutcomeDefinitionService;
-use App\Services\BusinessOutcomes\BusinessOutcomeRecheckScheduleService;
 use App\Services\Collection\CollectionScheduleService;
 use App\Services\Notifications\InternalNotificationScheduleService;
 use App\Services\RecurringAutomation\ExecuteRecurringOccurrenceService;
@@ -31,7 +27,6 @@ use App\Support\RecurringAutomation\RecurringOccurrenceCalculator;
 use App\Support\RecurringAutomation\RecurringScheduleSpec;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
@@ -47,7 +42,6 @@ class RecurringAutomationEngineProductionTest extends TestCase
         $this->assertSame([
             'collection',
             'recurring_review',
-            'business_outcome_recheck',
             'internal_notification',
             'report_delivery',
             'intelligence_validity_recheck',
@@ -55,7 +49,6 @@ class RecurringAutomationEngineProductionTest extends TestCase
 
         $this->assertTrue(Schema::hasTable('recurring_occurrences'));
         $this->assertTrue(Schema::hasTable('collection_schedules'));
-        $this->assertTrue(Schema::hasTable('business_outcome_recheck_schedules'));
         $this->assertTrue(Schema::hasTable('internal_notification_schedules'));
         $this->assertFalse(Schema::hasTable('automation_steps'));
         $this->assertFalse(Schema::hasTable('workflow_nodes'));
@@ -134,56 +127,6 @@ class RecurringAutomationEngineProductionTest extends TestCase
         $this->assertSame(RecurringOccurrenceStatus::Completed, $second->status);
         $this->assertSame(1, UserNotification::query()->where('recipient_user_id', $user->id)->count());
         $this->assertSame(0, UserNotification::query()->where('recipient_user_id', $other->id)->count());
-    }
-
-    public function test_outcome_recheck_no_data_without_provider_or_writes(): void
-    {
-        [$user, $brand] = $this->seedBrand();
-        app(BusinessOutcomeDefinitionService::class)->createStandardDefinitionsForBrand($brand, $user);
-
-        $schedule = app(BusinessOutcomeRecheckScheduleService::class)->create($brand, [
-            'timezone' => 'UTC',
-            'frequency' => 'monthly',
-            'day_of_month' => 5,
-            'delivery_time' => '09:00',
-            'period_strategy' => 'previous_calendar_month',
-            'attention_on_no_data' => true,
-            'recipient_user_ids' => [(int) $user->id],
-        ], $user);
-
-        $occurrence = RecurringOccurrence::query()->create([
-            'schedule_kind' => RecurringScheduleKind::BusinessOutcomeRecheck,
-            'domain_schedule_id' => (int) $schedule->id,
-            'scheduled_for' => CarbonImmutable::parse('2026-08-05 09:00:00', 'UTC'),
-            'timezone_snapshot' => 'UTC',
-            'recurrence_spec_fingerprint' => 'fp',
-            'status' => RecurringOccurrenceStatus::Queued,
-            'attempt_count' => 0,
-            'is_manual' => false,
-            'created_at' => now(),
-            'occurrence_key' => 'business_outcome_recheck:'.$schedule->id.':2026-08-05T09:00:00Z',
-        ]);
-
-        $beforeObs = (int) DB::table('business_outcome_observations')->count();
-        $result = app(ExecuteRecurringOccurrenceService::class)->execute((int) $occurrence->id);
-        $this->assertSame(RecurringOccurrenceStatus::Completed, $result->status);
-
-        $run = BusinessOutcomeRecheckRun::query()->where('recurring_occurrence_id', $occurrence->id)->first();
-        $this->assertNotNull($run);
-        $this->assertSame('2026-07-01', $run->period_start?->toDateString());
-        $this->assertSame('2026-07-31', $run->period_end?->toDateString());
-        $statuses = collect($run->results_payload)->pluck('status')->all();
-        $this->assertContains(BusinessOutcomeRecheckResultStatus::NoData->value, $statuses);
-        foreach ($run->results_payload as $row) {
-            if (($row['status'] ?? '') === BusinessOutcomeRecheckResultStatus::NoData->value) {
-                $this->assertNull($row['value']);
-            }
-        }
-        $this->assertSame($beforeObs, (int) DB::table('business_outcome_observations')->count());
-        $this->assertSame(0, DB::table('tasks')->count());
-        $this->assertSame(0, DB::table('findings')->count());
-        $this->assertTrue((bool) $run->notified);
-        $this->assertGreaterThanOrEqual(1, UserNotification::query()->where('recipient_user_id', $user->id)->count());
     }
 
     public function test_collection_schedule_create_and_pause(): void

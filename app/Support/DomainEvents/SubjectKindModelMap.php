@@ -4,7 +4,6 @@ namespace App\Support\DomainEvents;
 
 use App\Enums\DomainEventSubjectKind;
 use App\Models\Approval;
-use App\Models\BusinessOutcomeRecheckRun;
 use App\Models\ClientRequest;
 use App\Models\Finding;
 use App\Models\InternalNotificationSchedule;
@@ -22,9 +21,11 @@ use App\Models\Task;
 final class SubjectKindModelMap
 {
     /**
-     * @return class-string
+     * Returns null for deprecated subject kinds whose model was removed (Faz 1).
+     *
+     * @return class-string|null
      */
-    public static function modelClass(DomainEventSubjectKind $kind): string
+    public static function modelClass(DomainEventSubjectKind $kind): ?string
     {
         return match ($kind) {
             DomainEventSubjectKind::Finding => Finding::class,
@@ -36,7 +37,7 @@ final class SubjectKindModelMap
             DomainEventSubjectKind::Approval => Approval::class,
             DomainEventSubjectKind::Playbook => Playbook::class,
             DomainEventSubjectKind::RecurringReviewRun => RecurringReviewRun::class,
-            DomainEventSubjectKind::BusinessOutcomeRecheckRun => BusinessOutcomeRecheckRun::class,
+            DomainEventSubjectKind::BusinessOutcomeRecheckRun => null,
             DomainEventSubjectKind::InternalNotificationSchedule => InternalNotificationSchedule::class,
             DomainEventSubjectKind::OperationalAlert => OperationalAlert::class,
         };

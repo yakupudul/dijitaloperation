@@ -80,7 +80,7 @@ final class ClientValueStorySnapshotSerializer
             'opportunities' => array_map(static fn ($o) => $o->toArray(), $story->opportunities),
             'completed_work' => array_map(static fn ($w) => $w->toArray(), $story->completedWork),
             'active_work' => array_map(static fn ($w) => $w->toArray(), $story->activeWork),
-            'business_outcomes' => array_map(static fn ($o) => $o->toArray(), $story->outcomes),
+            'business_outcomes' => [],
             'limitations' => array_map(static fn ($l) => $l->value, $story->limitations),
             'claims' => array_map(static fn ($c) => $c->toArray(), $story->claims),
             'status' => $story->status->value,

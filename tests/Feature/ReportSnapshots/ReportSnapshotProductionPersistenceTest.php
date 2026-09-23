@@ -2,10 +2,6 @@
 
 namespace Tests\Feature\ReportSnapshots;
 
-use App\Enums\AssistantCapabilityId;
-use App\Enums\AssistantIntentType;
-use App\Enums\AssistantSourceClass;
-use App\Enums\BusinessOutcomeKind;
 use App\Enums\ReportSnapshotSchemaVersion;
 use App\Enums\ReportType;
 use App\Models\Brand;
@@ -16,21 +12,13 @@ use App\Models\Opportunity;
 use App\Models\ReportSnapshot;
 use App\Models\Task;
 use App\Models\User;
-use App\Services\Assistant\MoxdopAssistantService;
-use App\Services\BusinessOutcomes\BusinessOutcomeDefinitionService;
-use App\Services\BusinessOutcomes\BusinessOutcomeObservationService;
-use App\Services\BusinessOutcomes\BusinessOutcomeReadService;
 use App\Services\ClientValueStory\ClientValueStoryReadService;
 use App\Services\ReportSnapshots\CreateReportSnapshotService;
 use App\Services\ReportSnapshots\ReportSnapshotReadService;
-use App\Support\Assistant\AssistantSourceAuthority;
-use App\Support\Assistant\Dto\AssistantIntentCandidate;
-use App\Support\IntelligenceEvaluation\IntelligenceEvaluationCaseCatalog;
 use App\Support\ReportSnapshots\CanonicalJson;
 use App\Support\ReportSnapshots\ReportSnapshotChecksum;
 use App\Support\ReportSnapshots\ReportTypeRegistry;
 use App\Support\Tasks\TaskStatus;
-use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -59,17 +47,12 @@ class ReportSnapshotProductionPersistenceTest extends TestCase
         $this->assertSame('brand', $entry['allowed_scope']);
         $this->assertSame(ClientValueStoryReadService::class, $entry['source_read_service']);
         $this->assertSame(ReportSnapshotSchemaVersion::ClientValueStoryV1->value, $entry['snapshot_schema']);
-
-        $keys = IntelligenceEvaluationCaseCatalog::reportSnapshotPreparedCaseKeys();
-        $this->assertContains(IntelligenceEvaluationCaseCatalog::REPORT_SNAPSHOT_REMAINS_IMMUTABLE, $keys);
-        $this->assertContains(IntelligenceEvaluationCaseCatalog::OUTCOME_CORRECTION_AFTER_SNAPSHOT, $keys);
-        $this->assertArrayHasKey(AssistantSourceClass::ReportSnapshot->value, app(AssistantSourceAuthority::class)->matrix());
     }
 
     public function test_create_brand_snapshot_server_builds_payload(): void
     {
         [$user, $brand, $asset] = $this->seedBrand();
-        $this->seedStorySources($user, $brand, $asset, ql: 20);
+        $this->seedStorySources($user, $brand, $asset);
 
         $snapshot = app(CreateReportSnapshotService::class)->create($brand, $user, [
             'period_start' => '2026-07-01',
@@ -88,8 +71,7 @@ class ReportSnapshotProductionPersistenceTest extends TestCase
         $this->assertSame(ReportSnapshotSchemaVersion::ClientValueStoryV1, $snapshot->snapshot_schema_version);
         $this->assertFalse($snapshot->content_payload['attribution_established']);
         $this->assertFalse($snapshot->content_payload['causality_established']);
-        $this->assertSame('20', (string) collect($snapshot->content_payload['business_outcomes'])
-            ->firstWhere('kind', BusinessOutcomeKind::QualifiedLead->value)['value']);
+        $this->assertSame([], $snapshot->content_payload['business_outcomes']);
 
         $this->expectException(ValidationException::class);
         app(CreateReportSnapshotService::class)->create($brand, $user, [
@@ -136,56 +118,6 @@ class ReportSnapshotProductionPersistenceTest extends TestCase
 
         $this->expectException(ValidationException::class);
         $snapshot->update(['period_start' => '2026-06-01']);
-    }
-
-    public function test_outcome_correction_does_not_mutate_old_snapshot(): void
-    {
-        [$user, $brand, $asset] = $this->seedBrand();
-        $this->seedStorySources($user, $brand, $asset, ql: 20);
-
-        $snapA = app(CreateReportSnapshotService::class)->create($brand, $user, [
-            'period_start' => '2026-07-01',
-            'period_end' => '2026-07-31',
-            'idempotency_key' => 'outcome-a',
-        ]);
-        $revA = $snapA->source_manifest_payload['outcome_observation_revision_ids'] ?? [];
-        $this->assertNotEmpty($revA);
-
-        $ql = app(BusinessOutcomeReadService::class)->findActiveDefinitionByKind($brand, BusinessOutcomeKind::QualifiedLead);
-        app(BusinessOutcomeObservationService::class)->record($brand, $ql, [
-            'period_start' => '2026-07-01',
-            'period_end' => '2026-07-31',
-            'value' => 24,
-            'completeness' => 'complete',
-            'correction_reason' => 'Client corrected July count',
-        ], $user, allowCorrection: true);
-
-        $live = app(ClientValueStoryReadService::class)->forBrand($brand, '2026-07-01', '2026-07-31');
-        $this->assertSame('24', (string) collect($live->outcomes)->firstWhere(
-            static fn ($o) => $o->kind === BusinessOutcomeKind::QualifiedLead
-        )->value);
-
-        $detailA = app(ReportSnapshotReadService::class)->detail((int) $snapA->id);
-        $frozenQl = collect($detailA['content']['business_outcomes'])->firstWhere('kind', BusinessOutcomeKind::QualifiedLead->value);
-        $this->assertSame('20', (string) $frozenQl['value']);
-        $this->assertSame($revA, $detailA['source_manifest']['outcome_observation_revision_ids']);
-        $this->assertFalse($detailA['rebuilt_from_live_story']);
-
-        $snapB = app(CreateReportSnapshotService::class)->create($brand, $user, [
-            'period_start' => '2026-07-01',
-            'period_end' => '2026-07-31',
-            'idempotency_key' => 'outcome-b',
-            'supersedes_snapshot_id' => (int) $snapA->id,
-        ]);
-        $frozenB = collect($snapB->content_payload['business_outcomes'])->firstWhere('kind', BusinessOutcomeKind::QualifiedLead->value);
-        $this->assertSame('24', (string) $frozenB['value']);
-        $this->assertNotSame($snapA->source_manifest_fingerprint, $snapB->source_manifest_fingerprint);
-        $this->assertSame((int) $snapA->id, (int) $snapB->supersedes_snapshot_id);
-
-        // Old row untouched
-        $snapA->refresh();
-        $this->assertSame('20', (string) collect($snapA->content_payload['business_outcomes'])
-            ->firstWhere('kind', BusinessOutcomeKind::QualifiedLead->value)['value']);
     }
 
     public function test_finding_and_opportunity_freeze_after_snapshot(): void
@@ -312,7 +244,7 @@ class ReportSnapshotProductionPersistenceTest extends TestCase
         );
 
         $tampered = $payload;
-        $tampered['business_outcomes'][0]['value'] = '999';
+        $tampered['status'] = 'tampered';
         $this->assertFalse(ReportSnapshotChecksum::verify($tampered, (string) $snap->content_checksum));
 
         DB::table('report_snapshots')->where('id', $snap->id)->update([
@@ -373,75 +305,11 @@ class ReportSnapshotProductionPersistenceTest extends TestCase
         $this->assertSame('prompt_60', $detail['delivery']['owner']);
     }
 
-    public function test_assistant_distinguishes_historical_snapshot_from_current_outcome(): void
-    {
-        [$user, $brand, $asset] = $this->seedBrand();
-        $this->seedStorySources($user, $brand, $asset, ql: 27);
-
-        $snap = app(CreateReportSnapshotService::class)->create($brand, $user, [
-            'period_start' => '2026-07-01',
-            'period_end' => '2026-07-31',
-            'idempotency_key' => 'assistant-hist',
-        ]);
-
-        $ql = app(BusinessOutcomeReadService::class)->findActiveDefinitionByKind($brand, BusinessOutcomeKind::QualifiedLead);
-        app(BusinessOutcomeObservationService::class)->record($brand, $ql, [
-            'period_start' => '2026-07-01',
-            'period_end' => '2026-07-31',
-            'value' => 29,
-            'completeness' => 'complete',
-            'correction_reason' => 'Corrected after report',
-        ], $user, allowCorrection: true);
-
-        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-08-16'));
-
-        $historical = app(MoxdopAssistantService::class)->ask(
-            userId: (int) $user->id,
-            candidate: new AssistantIntentCandidate(
-                intentType: AssistantIntentType::HistoricalContext,
-                capabilityId: AssistantCapabilityId::ReportSnapshotLookup,
-                periodToken: 'last_month',
-                domainFilter: 'report_snapshot',
-                parameters: ['historical_report' => true],
-            ),
-            authorizedCustomerIds: [(int) $brand->customer_id],
-            authorizedBrandIds: [(int) $brand->id],
-            authorizedDigitalAssetIds: [],
-            customerId: (int) $brand->customer_id,
-            brandId: (int) $brand->id,
-            timezone: 'UTC',
-        );
-        $this->assertFalse($historical->runtimeProvenance['ai_used'] ?? true);
-        $this->assertFalse($historical->runtimeProvenance['overrides_current_canonical_domains'] ?? true);
-        $this->assertSame(AssistantSourceClass::ReportSnapshot, $historical->claims[0]->requiredSourceClass);
-        $block = $historical->blocks[0]['report_snapshots'][0] ?? null;
-        $this->assertNotNull($block);
-        $this->assertSame((int) $snap->id, (int) $block['id']);
-
-        $current = app(MoxdopAssistantService::class)->ask(
-            userId: (int) $user->id,
-            candidate: new AssistantIntentCandidate(
-                intentType: AssistantIntentType::FactLookup,
-                metricId: 'business_outcome.qualified_lead',
-                periodToken: 'last_month',
-            ),
-            authorizedCustomerIds: [(int) $brand->customer_id],
-            authorizedBrandIds: [(int) $brand->id],
-            authorizedDigitalAssetIds: [],
-            customerId: (int) $brand->customer_id,
-            brandId: (int) $brand->id,
-            timezone: 'UTC',
-        );
-        $this->assertSame(AssistantSourceClass::BusinessOutcome, $current->claims[0]->requiredSourceClass);
-        CarbonImmutable::setTestNow();
-    }
-
     public function test_no_ai_provider_writes_during_create(): void
     {
         [$user, $brand] = $this->seedBrand();
         $beforeFindings = (int) DB::table('findings')->count();
         $beforeTasks = (int) DB::table('tasks')->count();
-        $beforeOutcomes = (int) DB::table('business_outcome_observations')->count();
 
         app(CreateReportSnapshotService::class)->create($brand, $user, [
             'period_start' => '2026-07-01',
@@ -451,7 +319,6 @@ class ReportSnapshotProductionPersistenceTest extends TestCase
 
         $this->assertSame($beforeFindings, (int) DB::table('findings')->count());
         $this->assertSame($beforeTasks, (int) DB::table('tasks')->count());
-        $this->assertSame($beforeOutcomes, (int) DB::table('business_outcome_observations')->count());
         $this->assertSame(1, ReportSnapshot::query()->count());
     }
 
@@ -472,7 +339,7 @@ class ReportSnapshotProductionPersistenceTest extends TestCase
         return [$user, $brand, $asset];
     }
 
-    private function seedStorySources(User $user, Brand $brand, DigitalAsset $asset, int $ql = 20): void
+    private function seedStorySources(User $user, Brand $brand, DigitalAsset $asset): void
     {
         Finding::factory()->create([
             'customer_id' => $brand->customer_id,
@@ -503,13 +370,5 @@ class ReportSnapshotProductionPersistenceTest extends TestCase
             'completed_at' => '2026-07-18 12:00:00',
             'completed_by_id' => $user->id,
         ]);
-        app(BusinessOutcomeDefinitionService::class)->createStandardDefinitionsForBrand($brand, $user);
-        $def = app(BusinessOutcomeReadService::class)->findActiveDefinitionByKind($brand, BusinessOutcomeKind::QualifiedLead);
-        app(BusinessOutcomeObservationService::class)->record($brand, $def, [
-            'period_start' => '2026-07-01',
-            'period_end' => '2026-07-31',
-            'value' => $ql,
-            'completeness' => 'complete',
-        ], $user);
     }
 }

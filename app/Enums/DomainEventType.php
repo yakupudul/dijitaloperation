@@ -21,6 +21,7 @@ enum DomainEventType: string
     case ClientRequestCreated = 'CLIENT_REQUEST_CREATED';
     case OpportunityCreated = 'OPPORTUNITY_CREATED';
     case ScheduledInternalNotification = 'SCHEDULED_INTERNAL_NOTIFICATION';
+    /** @deprecated Faz 1: producer removed */
     case BusinessOutcomeRecheckAttention = 'BUSINESS_OUTCOME_RECHECK_ATTENTION';
     case OperationalAlertOpened = 'OPERATIONAL_ALERT_OPENED';
 

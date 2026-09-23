@@ -18,6 +18,7 @@ enum NotificationKind: string
     case ClientRequestCreated = 'client_request_created';
     case OpportunityCreated = 'opportunity_created';
     case ScheduledInternalNotification = 'scheduled_internal_notification';
+    /** @deprecated Faz 1: producer removed */
     case BusinessOutcomeRecheckAttention = 'business_outcome_recheck_attention';
     case OperationalAlertOpened = 'operational_alert_opened';
 }

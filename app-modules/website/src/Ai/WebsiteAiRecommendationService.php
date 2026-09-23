@@ -12,7 +12,6 @@ use App\Services\Ai\AgentExecutionRecorder;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
 use App\Services\Ai\StructuredAgentOutputValidator;
-use App\Services\IntelligenceRetrieval\IntelligenceRetrievalService;
 use App\Support\Agents\AgentProfileDefinition;
 use App\Support\Agents\AgentProfileRegistry;
 use App\Support\Ai\AgentExecutionPlan;
@@ -28,7 +27,6 @@ use Throwable;
  * Website-owned grounded AI recommendation orchestration (manual trigger only).
  * Uses Website SEO Analyst + eligible Skills + AI Control Plane route.
  * Prompt 50: AgentExecutionPlanner / Recorder / EvidencePack / structured validation.
- * Prompt 54: Intelligence Retrieval → typed Memory Context before inference.
  */
 final class WebsiteAiRecommendationService
 {
@@ -43,7 +41,6 @@ final class WebsiteAiRecommendationService
         private readonly AgentExecutionRecorder $executionRecorder,
         private readonly AgentContextGateway $contextGateway,
         private readonly StructuredAgentOutputValidator $structuredValidator,
-        private readonly IntelligenceRetrievalService $intelligenceRetrieval,
     ) {}
 
     /**
@@ -201,79 +198,6 @@ final class WebsiteAiRecommendationService
             $fingerprint,
         );
 
-        $primarySkillSignature = $assembled['skill_signatures'][0]
-            ?? ($profile->signature().'::skill');
-
-        $asset->loadMissing('brand.customer');
-
-        $intelligencePack = $this->intelligenceRetrieval->retrieve(
-            agentDefinitionSignature: $profile->signature(),
-            skillDefinitionSignature: is_string($primarySkillSignature) ? $primarySkillSignature : (string) $primarySkillSignature,
-            customerId: (int) $asset->brand->customer_id,
-            brandId: (int) $asset->brand_id,
-            evidencePack: $pack,
-            digitalAsset: $asset,
-            options: [
-                'current_brand_context' => [
-                    'digital_asset' => $built['context']['digital_asset'] ?? null,
-                    'brand_intelligence' => $built['context']['brand_intelligence'] ?? null,
-                    'authority' => 'CURRENT_CANONICAL_CONTEXT',
-                ],
-            ],
-        );
-
-        if ($intelligencePack->blocksInference()) {
-            $this->executionRecorder->markCompleted($agentRun, AgentExecutionRun::STATUS_ABSTAINED, [
-                'reason' => 'retrieval_required_context_missing',
-                'intelligence_retrieval_manifest' => $intelligencePack->toManifestArray(),
-                'retrieval_fingerprint' => $intelligencePack->retrievalFingerprint,
-                'provider_calls' => 0,
-            ]);
-
-            $run->update([
-                'status' => 'completed',
-                'finished_at' => now(),
-                'metadata' => array_merge($run->metadata ?? [], [
-                    'abstained' => true,
-                    'abstention_reason_code' => 'retrieval_required_context_missing',
-                    'retrieval_fingerprint' => $intelligencePack->retrievalFingerprint,
-                    'agent_execution_run_id' => $agentRun->id,
-                    'reused' => false,
-                ]),
-            ]);
-
-            $insight = Evidence::query()->create([
-                'run_id' => $run->id,
-                'digital_asset_id' => $asset->id,
-                'source_module' => WebsiteAiRecommendationConfig::MODULE_ID,
-                'type' => WebsiteAiRecommendationConfig::EVIDENCE_TYPE_AI_INSIGHT,
-                'title' => WebsiteAiRecommendationConfig::RUN_TITLE,
-                'payload' => [
-                    'ok' => true,
-                    'derived' => true,
-                    'generated_by_ai' => false,
-                    'status' => 'abstained',
-                    'status_or_error' => 'abstained_pre_inference',
-                    'abstention_reason_code' => 'retrieval_required_context_missing',
-                    'finding_ids' => $built['finding_ids'],
-                    'evidence_ids' => $built['evidence_ids'],
-                    'input_fingerprint' => $fingerprint,
-                    'intelligence_retrieval_manifest' => $intelligencePack->toManifestArray(),
-                    'prompt_version' => WebsiteAiRecommendationConfig::PROMPT_VERSION,
-                    'schema_version' => WebsiteAiRecommendationConfig::SCHEMA_VERSION,
-                ],
-                'observed_at' => now(),
-            ]);
-
-            return [
-                'run' => $run->fresh(['evidence']) ?? $run,
-                'reused' => false,
-                'message' => 'Abstained: required retrieval context missing (no AI provider call).',
-                'insight' => $insight,
-                'brand_snapshot' => $built['brand_snapshot'],
-            ];
-        }
-
         $observedAt = now();
 
         try {
@@ -282,7 +206,6 @@ final class WebsiteAiRecommendationService
                     $profile,
                     $built['context'],
                     $assembled['prompt_skills_block'],
-                    $intelligencePack->toPromptSections(),
                 ),
                 provider: $route->providerModels,
             );
@@ -332,9 +255,6 @@ final class WebsiteAiRecommendationService
             $payload['skill_versions'] = $skillVersions;
             $payload['active_skill_signatures'] = $assembled['skill_signatures'];
             $payload['evidence_pack_manifest'] = $pack->toManifestArray();
-            $payload['intelligence_retrieval_manifest'] = $intelligencePack->toManifestArray();
-            $payload['retrieval_fingerprint'] = $intelligencePack->retrievalFingerprint;
-            $payload['memory_context_fingerprint'] = $intelligencePack->memoryContextPack->contextFingerprint;
             if ($successfulProvider === AiProviderCatalog::OPENAI) {
                 $payload['openai_store'] = false;
             }
@@ -369,9 +289,6 @@ final class WebsiteAiRecommendationService
 
             $this->executionRecorder->markCompleted($agentRun, AgentExecutionRun::STATUS_COMPLETED, [
                 'evidence_pack_fingerprint' => $pack->contextFingerprint,
-                'intelligence_retrieval_manifest' => $intelligencePack->toManifestArray(),
-                'retrieval_fingerprint' => $intelligencePack->retrievalFingerprint,
-                'memory_context_fingerprint' => $intelligencePack->memoryContextPack->contextFingerprint,
             ]);
 
             $insight = Evidence::query()->create([

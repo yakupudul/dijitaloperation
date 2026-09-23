@@ -50,6 +50,11 @@ final class ActivityProjector
             ? $event->subject_kind
             : DomainEventSubjectKind::from((string) $event->subject_kind);
 
+        $subjectType = SubjectKindModelMap::modelClass($subjectKind);
+        if ($subjectType === null) {
+            return null;
+        }
+
         $actorKind = $event->actor_kind instanceof DomainEventActorKind
             ? $event->actor_kind->value
             : (string) $event->actor_kind;
@@ -67,7 +72,7 @@ final class ActivityProjector
                 'actor_user_id' => $event->actor_user_id,
                 'actor_kind' => $actorKind,
                 'event' => $type->value,
-                'subject_type' => SubjectKindModelMap::modelClass($subjectKind),
+                'subject_type' => $subjectType,
                 'subject_id' => $event->subject_id,
                 'payload' => $this->safePresentationPayload($event, $type),
                 'occurred_at' => $occurredAt,
