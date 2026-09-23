@@ -248,7 +248,7 @@
                                     <span class="text-gray-400">—</span>
                                 @endif
                             </td>
-                            <td class="hidden px-4 py-3 text-xs text-gray-500 xl:table-cell">{{ $asset['last_meaningful_activity'] ?? '—' }}</td>
+                            <td class="hidden px-4 py-3 text-xs text-gray-500 xl:table-cell">{{ ($asset['last_update'] ?? '') !== '' ? $asset['last_update'] : '—' }}</td>
                             <td class="px-4 py-3 text-right">
                                 <x-ta.button :href="$asset['url']" size="sm" variant="outline">{{ __('operator.actions.open') }}</x-ta.button>
                             </td>

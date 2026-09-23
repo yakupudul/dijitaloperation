@@ -5,6 +5,7 @@ namespace App\Livewire\Demo\Portfolio;
 use App\Models\Brand;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
+use App\Services\Operator\AssetRuntimeStatusReader;
 use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Services\Operator\OperatorUserDirectory;
 use App\Support\Demo\DemoState;
@@ -77,12 +78,14 @@ class AssetsIndex extends Component
         $showingLegacyInfrastructure = in_array($this->filterType, $legacyInfrastructureTypes, true)
             || $this->filterRole === 'infrastructure';
 
-        $query = DigitalAsset::query()->with(['brand.customer', 'findings']);
+        $query = DigitalAsset::query()->with(['brand.customer', 'findings', 'assetBindings' => fn ($q) => $q->where('status', 'active')]);
         if (! $showingLegacyInfrastructure) {
             $query->whereNotIn('type', $legacyInfrastructureTypes);
         }
 
-        $allAssets = $query->get()->map(fn (DigitalAsset $asset): array => OperatorPortfolioPresenter::asset($asset));
+        $models = $query->get();
+        $runtime = app(AssetRuntimeStatusReader::class)->forAssets($models);
+        $allAssets = $models->map(fn (DigitalAsset $asset): array => OperatorPortfolioPresenter::asset($asset, $runtime[(int) $asset->id] ?? []));
 
         $assets = $allAssets;
         if ($this->filterBrand !== '') {
@@ -123,7 +126,7 @@ class AssetsIndex extends Component
 
         $assets = match ($this->quickView) {
             'needs_attention' => $assets->filter(fn (array $a): bool => ((int) ($a['open_findings'] ?? 0)) > 0),
-            'data_issues' => $assets->filter(fn (array $a): bool => ($a['data_state'] ?? '') === 'unavailable'),
+            'data_issues' => $assets->filter(fn (array $a): bool => in_array($a['data_state'] ?? '', ['stale', 'unavailable'], true)),
             'active_work' => $assets->filter(fn (array $a): bool => ((int) ($a['open_tasks'] ?? 0)) > 0),
             'recent' => $assets->sortByDesc(fn (array $a): string => (string) ($a['last_meaningful_activity'] ?? ''))->take(8),
             default => $assets,

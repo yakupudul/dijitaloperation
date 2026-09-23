@@ -34,6 +34,7 @@ use App\Livewire\Demo\Operations\TaskShow;
 use App\Livewire\Demo\Operations\TasksIndex;
 use App\Livewire\Demo\Operations\WorkShow;
 use App\Livewire\Demo\Portfolio\AssetCreate;
+use App\Livewire\Demo\Portfolio\AssetEdit;
 use App\Livewire\Demo\Portfolio\AssetsIndex;
 use App\Livewire\Demo\Portfolio\BrandCreate;
 use App\Livewire\Demo\Portfolio\BrandEdit;
@@ -118,6 +119,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
 
         Route::livewire('/assets', AssetsIndex::class)->name('operator.assets');
         Route::livewire('/assets/create', AssetCreate::class)->name('operator.asset.create');
+        Route::livewire('/assets/{assetId}/edit', AssetEdit::class)->whereNumber('assetId')->name('operator.asset.edit');
 
         Route::livewire('/integrations', IntegrationsIndex::class)->name('operator.integrations');
         Route::livewire('/integrations/google', GoogleIntegrationPage::class)->name('operator.integrations.google');

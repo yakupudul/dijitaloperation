@@ -134,13 +134,11 @@ class PanelDesignFreezeTest extends TestCase
                 __('operator.website.tabs.setup'),
             ]],
             [route('operator.gbp', ['assetId' => $byType['google_business_profile']->id]), [
-                __('operator.gbp.tabs.overview'),
-                __('operator.gbp.tabs.profile'),
-                __('operator.gbp.tabs.visibility'),
-                __('operator.gbp.tabs.performance'),
-                __('operator.gbp.tabs.reviews'),
-                __('operator.gbp.tabs.competitors'),
-                __('operator.gbp.tabs.operations'),
+                __('operator_gbp.page_tabs.overview'),
+                __('operator_gbp.page_tabs.performance'),
+                __('operator_gbp.page_tabs.reviews'),
+                __('operator_gbp.page_tabs.profile'),
+                __('operator_gbp.page_tabs.advisor'),
             ]],
             [route('operator.google-ads.overview', ['assetId' => $byType['google_ads']->id]), [
                 __('operator.google_ads.tabs.overview'),
@@ -277,7 +275,7 @@ class PanelDesignFreezeTest extends TestCase
 
         $this->get(route('operator.gbp', ['assetId' => DigitalAsset::query()->where('type', 'google_business_profile')->value('id')]))
             ->assertOk()
-            ->assertSee(__('operator.gbp.tabs.competitors', [], 'tr'));
+            ->assertSee(__('operator_gbp.page_tabs.reviews', [], 'tr'));
 
         $this->get(route('operator.settings.ai.agents'))
             ->assertOk()

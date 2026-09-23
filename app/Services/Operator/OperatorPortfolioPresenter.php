@@ -164,9 +164,10 @@ final class OperatorPortfolioPresenter
      * Connection state comes only from confirmed account bindings: an asset created without one is
      * "defined", never Connected / Configured / Fresh.
      *
+     * @param  array{connected?: bool, data_state?: string, data_state_label?: string, last_update?: string, open_tasks?: int, last_sync?: mixed}  $runtime  real status from AssetRuntimeStatusReader (lists)
      * @return array<string, mixed>
      */
-    public static function asset(DigitalAsset $asset): array
+    public static function asset(DigitalAsset $asset, array $runtime = []): array
     {
         $asset->loadMissing(['brand.customer']);
         $type = (string) $asset->type;
@@ -179,7 +180,7 @@ final class OperatorPortfolioPresenter
             ? $asset->assetBindings->where('status', 'active')->isNotEmpty()
             : $asset->assetBindings()->where('status', 'active')->exists();
 
-        return [
+        $presented = [
             'id' => (string) $asset->id,
             'brand_id' => (string) $asset->brand_id,
             'customer_id' => (string) ($asset->brand?->customer_id ?? ''),
@@ -209,7 +210,7 @@ final class OperatorPortfolioPresenter
             'provenance' => __('operator.states.operator_defined'),
             'open_findings' => $openFindings,
             'open_tasks' => 0,
-            'last_update' => 'Never',
+            'last_update' => __('operator.states.never_updated'),
             'last_meaningful_activity' => '',
             'primary_metric_label' => __('operator.forms.status'),
             'primary_metric' => __('operator.states.defined'),
@@ -228,6 +229,25 @@ final class OperatorPortfolioPresenter
             'responsible_users' => [],
             'attention_priority' => $openFindings > 0 ? 'medium' : 'none',
         ];
+
+        if ($runtime !== []) {
+            $connected = (bool) ($runtime['connected'] ?? $connected);
+            $presented = array_merge($presented, [
+                'connection' => $connected ? 'connected' : 'not_configured',
+                'connection_label' => $connected ? __('operator.states.connected') : __('operator.states.not_connected'),
+                'connection_state' => $connected ? 'connected' : 'not_connected',
+                'connection_state_label' => $connected ? __('operator.states.connected') : __('operator.states.not_connected'),
+                'data_state' => (string) ($runtime['data_state'] ?? 'unavailable'),
+                'data_state_label' => (string) ($runtime['data_state_label'] ?? __('operator.states.not_collected')),
+                'last_update' => (string) ($runtime['last_update'] ?? ''),
+                'last_meaningful_activity' => ($runtime['last_sync'] ?? null)?->toIso8601String() ?? '',
+                'open_tasks' => (int) ($runtime['open_tasks'] ?? 0),
+                'health' => in_array($runtime['data_state'] ?? '', ['stale', 'unavailable'], true) && $connected ? 'needs_attention' : 'healthy',
+                'health_label' => in_array($runtime['data_state'] ?? '', ['stale', 'unavailable'], true) && $connected ? __('operator.states.needs_attention') : __('operator.states.defined'),
+            ]);
+        }
+
+        return $presented;
     }
 
     /**
@@ -321,7 +341,7 @@ final class OperatorPortfolioPresenter
         return [
             'managed' => count($assets),
             'needs_attention' => collect($assets)->filter(fn (array $a): bool => ((int) ($a['open_findings'] ?? 0)) > 0)->count(),
-            'data_issues' => 0,
+            'data_issues' => collect($assets)->filter(fn (array $a): bool => in_array($a['data_state'] ?? '', ['stale', 'unavailable'], true))->count(),
             'active_work' => collect($assets)->filter(fn (array $a): bool => ((int) ($a['open_tasks'] ?? 0)) > 0)->count(),
         ];
     }

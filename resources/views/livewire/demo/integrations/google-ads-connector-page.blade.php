@@ -186,7 +186,7 @@
                 </div>
             </section>
         </div>
-    @else
+    @elseif ($tab === 'activity')
         <livewire:demo.integrations.google-ads-collection-monitor />
     @endif
 </div>

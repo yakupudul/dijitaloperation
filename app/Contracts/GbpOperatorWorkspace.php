@@ -6,6 +6,9 @@ use App\Models\DigitalAsset;
 
 interface GbpOperatorWorkspace
 {
-    /** @return array<string, mixed> */
-    public function for(DigitalAsset $asset): array;
+    /**
+     * @param  int  $days  performance window (compared with the previous window of the same length)
+     * @return array<string, mixed>
+     */
+    public function for(DigitalAsset $asset, int $days = 28): array;
 }

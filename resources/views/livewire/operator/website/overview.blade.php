@@ -51,6 +51,7 @@
                 <div class="absolute right-0 z-30 mt-2 w-56 overflow-hidden rounded-xl bg-white py-1 shadow-xl ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10">
                     <button type="button" wire:click="runDiagnosis" class="block w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.03]">{{ __('operator.website.actions.technical_check') }}</button>
                     <a href="{{ route('operator.asset.sources', ['assetId' => $asset->id]) }}" wire:navigate class="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.03]">{{ __('operator.website.actions.data_sources') }}</a>
+                    <a href="{{ route('operator.asset.edit', ['assetId' => $asset->id]) }}" wire:navigate class="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.03]">{{ __('operator_runtime.sources.edit_asset') }}</a>
                     <a href="{{ route('operator.website.discovery', ['assetId' => $asset->id]) }}" wire:navigate class="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.03]">{{ __('operator.website.actions.public_discovery') }}</a>
                 </div>
             </details>

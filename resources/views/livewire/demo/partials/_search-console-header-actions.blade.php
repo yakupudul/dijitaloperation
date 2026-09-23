@@ -21,7 +21,8 @@
             @if (filled($identity['website_asset_id'] ?? null))
                 <a href="{{ route('operator.website', ['assetId' => $identity['website_asset_id']]) }}" wire:navigate class="block rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.04]">{{ __('operator.chrome.open_website') }}</a>
             @endif
-            <button type="button" wire:click="setTab('overview')" class="block w-full rounded-lg px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.04]">{{ __('operator.workspace.manage_connection') }}</button>
+            <a href="{{ route('operator.asset.edit', ['assetId' => $assetId]) }}" wire:navigate class="block rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.04]">{{ __('operator_runtime.sources.edit_asset') }}</a>
+            <a href="{{ route('operator.asset.sources', ['assetId' => $assetId]) }}" wire:navigate class="block rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.04]">{{ __('operator.workspace.manage_connection') }}</a>
         </div>
     </details>
 </div>

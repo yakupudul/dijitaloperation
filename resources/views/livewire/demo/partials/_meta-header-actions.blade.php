@@ -28,7 +28,7 @@
                 <a href="{{ route('operator.website', ['assetId' => $identity['website_asset_id']]) }}" wire:navigate class="block rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.04]">{{ __('operator.chrome.open_website') }}</a>
             @endif
             @if (filled($identity['brand_id'] ?? null))
-                <a href="{{ route('operator.asset.create', ['brandId' => $identity['brand_id']]) }}" wire:navigate class="block rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.04]">{{ __('operator_runtime.sources.edit_asset') }}</a>
+                <a href="{{ route('operator.asset.edit', ['assetId' => $assetId]) }}" wire:navigate class="block rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.04]">{{ __('operator_runtime.sources.edit_asset') }}</a>
             @endif
             <button type="button" wire:click="setTab('operations')" class="block w-full rounded-lg px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.04]">
                 {{ app()->getLocale() === 'tr' ? 'Veri sağlığı ve değişiklikler' : 'Data health & changes' }}

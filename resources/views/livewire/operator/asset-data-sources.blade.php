@@ -4,10 +4,12 @@
             <div class="flex flex-wrap items-center gap-2 text-sm">
                 <a href="{{ route('operator.assets') }}" wire:navigate class="font-medium text-brand-600 hover:underline">{{ __('operator_runtime.sources.assets') }}</a>
                 <span class="text-gray-300">/</span>
+                <a href="{{ \App\Services\Operator\OperatorPortfolioPresenter::specialistUrl($asset) }}" wire:navigate class="font-medium text-brand-600 hover:underline">{{ $asset->name }}</a>
+                <span class="text-gray-300">/</span>
                 <span class="text-gray-500">{{ __('operator_runtime.sources.title') }}</span>
             </div>
             <h1 class="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{{ $asset->name }}</h1>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ $customer?->name }} · {{ $brand?->name }} · {{ $asset->type }}</p>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ $customer?->name }} · {{ $brand?->name }} · {{ \App\Support\DigitalAssetTypes::options()[$asset->type] ?? $asset->type }}</p>
             <p class="mt-2 max-w-3xl text-sm text-gray-600 dark:text-gray-300">{{ __('operator_runtime.sources.description') }}</p>
         </div>
 
@@ -88,10 +90,20 @@
 
             <div class="border-t border-gray-100 px-5 py-4 text-xs text-gray-500 dark:border-gray-700 dark:text-gray-400">
                 @if ($websiteCollection)
-                    @php($collectionStatus = $websiteCollection->status?->value ?? '')
-                    <span>Collection #{{ $websiteCollection->id }}</span>
+                    @php
+                        $collectionStatus = (string) ($websiteCollection->status?->value ?? '');
+                        $collectionStatusLabel = match ($collectionStatus) {
+                            'completed', 'succeeded' => __('operator.data_sources.collection_status.completed'),
+                            'partial' => __('operator.data_sources.collection_status.partial'),
+                            'failed' => __('operator.data_sources.collection_status.failed'),
+                            'queued', 'pending' => __('operator.data_sources.collection_status.queued'),
+                            'running' => __('operator.data_sources.collection_status.running'),
+                            default => $collectionStatus,
+                        };
+                    @endphp
+                    <span>{{ __('operator.data_sources.last_collection') }}</span>
                     <span class="mx-2">·</span>
-                    <span class="font-semibold">{{ strtoupper($collectionStatus) }}</span>
+                    <span class="font-semibold">{{ $collectionStatusLabel }}</span>
                     <span class="mx-2">·</span>
                     <span>{{ $websiteCollection->datasets_completed }}/{{ $websiteCollection->datasets_total }} {{ app()->getLocale() === 'tr' ? 'dataset tamamlandı' : 'datasets completed' }}</span>
                     @if ((int) $websiteCollection->datasets_failed > 0)
